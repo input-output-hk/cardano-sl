@@ -20,8 +20,9 @@ describe('ClientApi', () => {
   describe('getWallets()', () => {
 
     it('returns a list of wallets', (done) => {
-      const data = [
-        { cwAddress: "XXX",
+      const response = {
+        Right: [{
+          cwAddress: "XXX",
           cwAmount: {
             getCoin: 33333
           },
@@ -40,23 +41,25 @@ describe('ClientApi', () => {
             cwCurrency: "ADA",
             "cwName":""
           }
-        }];
+        }]
+      };
 
       Daedalus.ClientApi.getWallets()
         .then( (result) => {
-          assert.deepEqual(result, data, 'list of wallet data objects');
+          assert.deepEqual(result, response.Right, 'list of wallet data objects');
           done();
-        }, (error) => done(error))
+        }, (error) => {
+          done(error)})
         .catch(done);
 
       requests[0].respond(200,
         { "Content-Type": "application/json" },
-        JSON.stringify(data)
+        JSON.stringify(response)
       );
     });
 
     it('rejects with a JSONDecodingError if server sends invalid json data', (done) => {
-      const data = [{ anyOther: "XXX"}];
+      const response = [{ anyOther: "XXX"}];
 
       Daedalus.ClientApi.getWallets()
         .then( (result) => done(),
@@ -68,7 +71,7 @@ describe('ClientApi', () => {
 
       requests[0].respond(200,
         {"Content-Type": "application/json"},
-        JSON.stringify(data)
+        JSON.stringify(response)
       );
     })
   })
@@ -77,21 +80,23 @@ describe('ClientApi', () => {
 
     it('returns a wallet', (done) => {
       const walletId = 'XXX';
-      const data = {
-        cwAddress: walletId,
-          cwAmount: {
-            getCoin: 33333
-          },
-          cwMeta: {
-            cwType: "CWTPersonal",
-            cwCurrency: "ADA",
-            "cwName":""
+      const response = {
+        Right: {
+          cwAddress: walletId,
+            cwAmount: {
+              getCoin: 33333
+            },
+            cwMeta: {
+              cwType: "CWTPersonal",
+              cwCurrency: "ADA",
+              "cwName":""
+            }
           }
         };
 
       Daedalus.ClientApi.getWallet(walletId)()
         .then( (result) => {
-          assert.deepEqual(result, data, 'wallet data object');
+          assert.deepEqual(result, response.Right, 'wallet data object');
           done();
         }, (error) => done(error))
         .catch(done);
@@ -99,12 +104,12 @@ describe('ClientApi', () => {
       requests[0]
         .respond(200,
           { "Content-Type": "application/json" },
-          JSON.stringify(data)
+          JSON.stringify(response)
       );
     })
 
     it('rejects with a JSONDecodingError if server sends invalid json data', (done) => {
-      const data = {};
+      const response = {};
 
       Daedalus.ClientApi.getWallet('123')()
         .then( (result) => done(),
@@ -116,7 +121,7 @@ describe('ClientApi', () => {
 
       requests[0].respond(200,
         {"Content-Type": "application/json"},
-        JSON.stringify(data)
+        JSON.stringify(response)
       );
     })
   })
@@ -124,21 +129,23 @@ describe('ClientApi', () => {
   describe('newWallet()', () => {
 
     it('returns a new wallet', (done) => {
-      const data = {
-        cwAddress: '123',
-          cwAmount: {
-            getCoin: 33333
-          },
-          cwMeta: {
-            cwType: "CWTPersonal",
-            cwCurrency: "ADA",
-            "cwName":""
+      const response = {
+        Right: {
+          cwAddress: '123',
+            cwAmount: {
+              getCoin: 33333
+            },
+            cwMeta: {
+              cwType: "CWTPersonal",
+              cwCurrency: "ADA",
+              "cwName":""
+            }
           }
         };
 
       Daedalus.ClientApi.newWallet('CWTPersonal', 'ADA', '')()
         .then( (result) => {
-          assert.deepEqual(result, data, 'wallet data object');
+          assert.deepEqual(result, response.Right, 'wallet data object');
           done();
         }, (error) => done(error))
         .catch(done);
@@ -146,12 +153,12 @@ describe('ClientApi', () => {
       requests[0]
         .respond(200,
           { "Content-Type": "application/json" },
-          JSON.stringify(data)
+          JSON.stringify(response)
       );
     })
 
     it('rejects with a JSONDecodingError if server sends invalid json data', (done) => {
-      const data = {};
+      const response = {};
 
       Daedalus.ClientApi.newWallet('', '', '')()
         .then( (result) => done(),
@@ -163,7 +170,7 @@ describe('ClientApi', () => {
 
       requests[0].respond(200,
         {"Content-Type": "application/json"},
-        JSON.stringify(data)
+        JSON.stringify(response)
       );
     })
 
@@ -172,7 +179,9 @@ describe('ClientApi', () => {
   describe('deleteWallet()', () => {
 
     it('returns empty object', (done) => {
-      const response = [];
+      const response = {
+        Right:[]
+      };
 
       Daedalus.ClientApi.deleteWallet('123')()
         .then( (result) => {
@@ -189,7 +198,6 @@ describe('ClientApi', () => {
     })
 
     it('returns a HTTPStatusError if server returns "400"', (done) => {
-      const response = [];
 
       Daedalus.ClientApi.deleteWallet('not-exist')()
         .then( (result) => done(),
@@ -202,8 +210,7 @@ describe('ClientApi', () => {
 
       requests[0]
         .respond(400,
-          { "Content-Type": "application/json" },
-          JSON.stringify(response)
+          { "Content-Type": "application/json" }
       );
     })
   })
@@ -211,25 +218,27 @@ describe('ClientApi', () => {
   describe('send()', () => {
 
     it('returns a transaction', (done) => {
-      const transaction = {
-        ctId: "123",
-        ctAmount:{
-          getCoin:1000
-        },
-        ctType:{
-          tag:"CTOut",
-          contents: {
-            ctmCurrency:"ADA",
-            ctmTitle:"",
-            ctmDescription:"",
-            ctmDate:1.483461872037636e9
+      const response = {
+        Right: {
+          ctId: "123",
+          ctAmount:{
+            getCoin:1000
+          },
+          ctType:{
+            tag:"CTOut",
+            contents: {
+              ctmCurrency:"ADA",
+              ctmTitle:"",
+              ctmDescription:"",
+              ctmDate:1.483461872037636e9
+            }
           }
         }
       };
 
       Daedalus.ClientApi.send('12', '34', 300)()
         .then( (result) => {
-          assert.deepEqual(result, transaction, 'transaction object');
+          assert.deepEqual(result, response.Right, 'transaction object');
           done();
         }, (error) => done(error))
         .catch(done);
@@ -237,7 +246,7 @@ describe('ClientApi', () => {
       requests[0]
         .respond(200,
           { "Content-Type": "application/json" },
-          JSON.stringify(transaction)
+          JSON.stringify(response)
       );
     })
 
@@ -263,25 +272,27 @@ describe('ClientApi', () => {
   describe('getHistory()', () => {
 
     it('returns a list of transaction objects', (done) => {
-      const history = [{
-        ctId: "123",
-        ctAmount:{
-          getCoin:1000
-        },
-        ctType:{
-          tag:"CTOut",
-          contents: {
-            ctmCurrency:"ADA",
-            ctmTitle:"",
-            ctmDescription:"",
-            ctmDate:1.483461872037636e9
+      const response = {
+        Right: [{
+          ctId: "123",
+          ctAmount:{
+            getCoin:1000
+          },
+          ctType:{
+            tag:"CTOut",
+            contents: {
+              ctmCurrency:"ADA",
+              ctmTitle:"",
+              ctmDescription:"",
+              ctmDate:1.483461872037636e9
+            }
           }
-        }
-      }];
+        }]
+    };
 
       Daedalus.ClientApi.getHistory('XXX')()
         .then( (result) => {
-          assert.deepEqual(result, history, 'list of transaction objects');
+          assert.deepEqual(result, response.Right, 'list of transaction objects');
           done();
         }, (error) => done(error))
         .catch(done);
@@ -289,12 +300,12 @@ describe('ClientApi', () => {
       requests[0]
         .respond(200,
           { "Content-Type": "application/json" },
-          JSON.stringify(history)
+          JSON.stringify(response)
       );
     })
 
     it('rejects with a JSONDecodingError if server sends invalid json data', (done) => {
-      const data = {};
+      const response = {};
 
       Daedalus.ClientApi.getHistory('123')()
         .then( (result) => done(),
@@ -306,7 +317,7 @@ describe('ClientApi', () => {
 
       requests[0].respond(200,
         {"Content-Type": "application/json"},
-        JSON.stringify(data)
+        JSON.stringify(response)
       );
     })
   })

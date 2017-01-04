@@ -3,7 +3,7 @@ module Daedalus.BackendApi where
 import Prelude
 import Control.Monad.Aff (Aff)
 import Control.Monad.Eff.Exception (error, Error)
-import Control.Monad.Error.Class (throwError, catchError)
+import Control.Monad.Error.Class (throwError)
 import Daedalus.Constants (backendPrefix)
 import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency, WalletError)
 import Data.Argonaut (Json)

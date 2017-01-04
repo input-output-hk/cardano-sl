@@ -78,4 +78,4 @@ getTipBlockHeader = getBlockHeader <$> getTipBlock
 loadBlocksFromTipWhile
     :: (Ssc ssc, MonadDB ssc m)
     => (Block ssc -> Int -> Bool) -> m [(Block ssc, Undo)]
-loadBlocksFromTipWhile condition = getTip >>= flip loadBlocksWithUndoWhile condition
+loadBlocksFromTipWhile condition = getTip >>= loadBlocksWithUndoWhile condition

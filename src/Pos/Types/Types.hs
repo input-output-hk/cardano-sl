@@ -135,7 +135,7 @@ module Pos.Types.Types
        ) where
 
 import           Control.Lens           (Getter, Lens', choosing, makeLenses,
-                                         makeLensesFor, to, view, (^.))
+                                         makeLensesFor, to, view, (^.), _1)
 import qualified Data.ByteString        as BS (pack, zipWith)
 import qualified Data.ByteString.Char8  as BSC (pack)
 import           Data.DeriveTH          (derive, makeNFData)
@@ -908,6 +908,9 @@ instance HasDifficulty (Block ssc) where
 -- | Class for something that has previous block (lens to 'Hash' for this block).
 class HasPrevBlock s a | s -> a where
     prevBlockL :: Lens' s (Hash a)
+
+instance HasPrevBlock f a => HasPrevBlock (f, s) a where
+    prevBlockL = _1 . prevBlockL
 
 instance (a ~ BBlockHeader b) =>
          HasPrevBlock (GenericBlockHeader b) a where

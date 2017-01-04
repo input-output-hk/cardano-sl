@@ -88,6 +88,24 @@ describe('ClientApi', () => {
         {"Content-Type": "application/json"}
       );
     })
+
+    it('rejects with a ServerError if server response with Left', (done) => {
+      const response = {
+        Left: "Any error"
+      }
+      Daedalus.ClientApi.getWallets()
+        .then( (result) => done(),
+          (error) => {
+            assert.include(error.message, 'ServerError', 'ServerError error message');
+            done();
+        })
+        .catch(done);
+
+      requests[0].respond(200,
+        {"Content-Type": "application/json"},
+        JSON.stringify(response)
+      );
+    })
   })
 
   describe('getWallet()', () => {
@@ -150,6 +168,24 @@ describe('ClientApi', () => {
 
       requests[0].respond(400,
         {"Content-Type": "application/json"}
+      );
+    })
+
+    it('rejects with a ServerError if server response with Left', (done) => {
+      const response = {
+        Left: "Any error"
+      }
+      Daedalus.ClientApi.getWallet('')()
+        .then( (result) => done(),
+          (error) => {
+            assert.include(error.message, 'ServerError', 'ServerError error message');
+            done();
+        })
+        .catch(done);
+
+      requests[0].respond(200,
+        {"Content-Type": "application/json"},
+        JSON.stringify(response)
       );
     })
   })
@@ -215,6 +251,24 @@ describe('ClientApi', () => {
         {"Content-Type": "application/json"}
       );
     })
+
+    it('rejects with a ServerError if server response with Left', (done) => {
+      const response = {
+        Left: "Any error"
+      }
+      Daedalus.ClientApi.newWallet('')()
+        .then( (result) => done(),
+          (error) => {
+            assert.include(error.message, 'ServerError', 'ServerError error message');
+            done();
+        })
+        .catch(done);
+
+      requests[0].respond(200,
+        {"Content-Type": "application/json"},
+        JSON.stringify(response)
+      );
+    })
   })
 
   describe('deleteWallet()', () => {
@@ -252,6 +306,22 @@ describe('ClientApi', () => {
       requests[0]
         .respond(400,
           { "Content-Type": "application/json" }
+      );
+    })
+
+    it('rejects with a ServerError if server response with Left', (done) => {
+      const response = { Left: "Any error" }
+      Daedalus.ClientApi.deleteWallet('')()
+        .then( (result) => done(),
+          (error) => {
+            assert.include(error.message, 'ServerError', 'ServerError error message');
+            done();
+        })
+        .catch(done);
+
+      requests[0].respond(200,
+        {"Content-Type": "application/json"},
+        JSON.stringify(response)
       );
     })
 
@@ -323,6 +393,22 @@ describe('ClientApi', () => {
         {"Content-Type": "application/json"}
       );
     })
+
+    it('rejects with a ServerError if server response with Left', (done) => {
+      const response = { Left: "Any error" }
+      Daedalus.ClientApi.send('A', 'B', 1000)()
+        .then( (result) => done(),
+          (error) => {
+            assert.include(error.message, 'ServerError', 'ServerError error message');
+            done();
+        })
+        .catch(done);
+
+      requests[0].respond(200,
+        {"Content-Type": "application/json"},
+        JSON.stringify(response)
+      );
+    })
   })
 
   describe('getHistory()', () => {
@@ -388,6 +474,24 @@ describe('ClientApi', () => {
 
       requests[0].respond(400,
         {"Content-Type": "application/json"}
+      );
+    })
+
+    it('rejects with a ServerError if server response with Left', (done) => {
+      const response = {
+        Left: "Any error"
+      }
+      Daedalus.ClientApi.getHistory('not-exist')()
+        .then( (result) => done(),
+          (error) => {
+            assert.include(error.message, 'ServerError', 'ServerError error message');
+            done();
+        })
+        .catch(done);
+
+      requests[0].respond(200,
+        {"Content-Type": "application/json"},
+        JSON.stringify(response)
       );
     })
   })

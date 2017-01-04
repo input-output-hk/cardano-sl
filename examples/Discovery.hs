@@ -23,6 +23,7 @@ import           Network.Transport.Concrete           (concrete)
 import qualified Network.Transport.InMemory           as InMemory
 import qualified Network.Transport.TCP                as TCP
 import           Node
+import           Message.Message                      (BinaryP (..))
 import           System.Environment                   (getArgs)
 import           System.Random
 
@@ -37,11 +38,12 @@ instance Binary Pong where
         else fail "no parse pong"
 
 type Header = ()
+type Packing = BinaryP
 
-workers :: NodeId -> StdGen -> NetworkDiscovery K.KademliaDiscoveryErrorCode Production -> [Worker Header Production]
+workers :: NodeId -> StdGen -> NetworkDiscovery K.KademliaDiscoveryErrorCode Production -> [Worker Header Packing Production]
 workers id gen discovery = [pingWorker gen]
     where
-    pingWorker :: StdGen -> SendActions Header Production -> Production ()
+    pingWorker :: StdGen -> SendActions Header Packing Production -> Production ()
     pingWorker gen sendActions = loop gen
         where
         loop gen = do
@@ -59,10 +61,10 @@ workers id gen discovery = [pingWorker gen]
                         Nothing -> error "Unexpected end of input"
             loop gen'
 
-listeners :: NodeId -> [Listener Header Production]
+listeners :: NodeId -> [Listener Header Packing Production]
 listeners id = [Listener (fromString "ping") pongListener]
     where
-    pongListener :: ListenerAction Header Production
+    pongListener :: ListenerAction Header Packing Production
     pongListener = ListenerActionConversation $ \peerId (cactions :: ConversationActions Header Pong Void Production) -> do
         liftIO . putStrLn $ show id ++  " heard PING from " ++ show peerId
         send cactions () Pong
@@ -82,7 +84,7 @@ makeNode transport i = do
     let prng2 = mkStdGen ((2 * i) + 1)
     liftIO . putStrLn $ "Starting node " ++ show i
     Right endPoint <- newEndPoint transport
-    rec { node <- startNode @() endPoint prng1 (workers (nodeId node) prng2 discovery)
+    rec { node <- startNode @() endPoint prng1 BinaryP (workers (nodeId node) prng2 discovery)
             Nothing (listeners (nodeId node))
         ; let localAddress = nodeEndPointAddress node
         ; liftIO . putStrLn $ "Making discovery for node " ++ show i

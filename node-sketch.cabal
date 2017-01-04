@@ -25,18 +25,24 @@ Library
                         Mockable.Exception
                         Mockable.Production
                         Mockable.SharedAtomic
+
+                        Message.Message
+                        Message.Util
+
                         Node.Internal
 
   build-depends:        base
                       , containers
                       , binary >= 0.8
                       , bytestring
+                      , conduit >= 1.2.8
                       , random
                       , deepseq
                       , hashable
                       , kademlia
                       , network-transport
                       , network-transport-inmemory
+                      , mtl >= 2.2.1
                       , stm
                       , transformers
   hs-source-dirs:       src
@@ -220,6 +226,7 @@ test-suite node-sketch-test
   type:                exitcode-stdio-1.0
   build-depends:       base >= 4.8 && < 5
                      , binary
+                     , bytestring >= 0.10.8
                      , containers >= 0.5.7
                      , hspec >= 2.1.10
                      , lens >= 4.14

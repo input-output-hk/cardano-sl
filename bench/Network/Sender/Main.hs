@@ -34,6 +34,7 @@ import           Node.Internal              (NodeId (..))
 import           Bench.Network.Commons      (MeasureEvent (..), Payload (..), Ping (..),
                                              Pong (..), curTimeMcs, loadLogConfig,
                                              logMeasure)
+import           Message.Message            (BinaryP (..))
 import           SenderOptions              (Args (..), argsParser)
 
 instance Mockable Catch (LoggerNameBox IO) where
@@ -89,6 +90,7 @@ main = do
                           @Header
                           endPoint
                           prngNode
+                          BinaryP
                           pingWorkers
                           Nothing
                           [Listener "pong" pongListener]

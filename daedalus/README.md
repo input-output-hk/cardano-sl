@@ -122,6 +122,19 @@ Daedalus.ClientApi.getHistory('XXX')()
 ```
 
 
+_isValidAddress_
+
+```javascript
+// XXX - wallet id
+Daedalus.ClientApi.isValidAddress('XXX', 'ADA')()
+  .then(function(value) {
+    console.log('SUCCESS', value);
+  }, function(reason) {
+    console.log(reason);
+  })
+```
+
+
 ## Run tests
 
 First, make sure that you have all dependencies installed. Run (only once):

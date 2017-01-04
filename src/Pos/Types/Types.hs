@@ -10,8 +10,11 @@
 
 module Pos.Types.Types
        (
-         Coin (..)
+         Coin
        , coinF
+       , mkCoin
+       , sumCoins
+       , coinToInteger
 
        , EpochIndex (..)
        , FlatSlotId
@@ -164,14 +167,14 @@ import           Pos.Constants          (sharedSeedLength)
 import           Pos.Crypto             (Hash, ProxySecretKey, ProxySignature, PublicKey,
                                          Signature, hash, hashHexF, shortHashF)
 import           Pos.Data.Attributes    (Attributes)
-import           Pos.Merkle             (MerkleRoot, MerkleTree, mtRoot, mtSize)
+import           Pos.Merkle             (MerkleRoot, MerkleTree, mtRoot)
 import           Pos.Script.Type        (Script)
 import           Pos.Ssc.Class.Types    (Ssc (..))
 import           Pos.Types.Address      (Address (..), StakeholderId, addressF,
                                          checkPubKeyAddress, checkScriptAddress,
                                          decodeTextAddress, makePubKeyAddress,
                                          makeScriptAddress)
-import           Pos.Types.Coin         (Coin (..), coinF)
+import           Pos.Types.Coin         (Coin, coinF, coinToInteger, mkCoin, sumCoins)
 import           Pos.Types.Update       (UpdateProposal, UpdateVote)
 import           Pos.Types.Version      (ProtocolVersion, SoftwareVersion)
 import           Pos.Util               (Color (Magenta), colorize)
@@ -202,7 +205,6 @@ data SlotId = SlotId
     { siEpoch :: !EpochIndex
     , siSlot  :: !LocalSlotIndex
     } deriving (Show, Eq, Ord, Generic, Typeable)
-
 
 instance Buildable SlotId where
     build SlotId {..} =
@@ -630,7 +632,7 @@ instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
 
     mkBodyProof MainBody {..} =
         MainProof
-        { mpNumber = mtSize _mbTxs
+        { mpNumber = fromIntegral (length _mbTxs)
         , mpRoot = mtRoot _mbTxs
         , mpWitnessesHash = hash _mbWitnesses
         , mpMpcProof = untag @ssc mkSscProof _mbMpc

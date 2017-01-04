@@ -22,7 +22,6 @@ module Pos.Wallet.Web.State.Storage
 import           Control.Lens               (at, ix, makeClassy, preview, view, (%=),
                                              (.=), _1, _2, _Just)
 import           Data.Default               (Default, def)
-import qualified Data.HashMap.Strict        as HM (elems, fromList, union)
 import           Data.SafeCopy              (base, deriveSafeCopySimple)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CTxId, CTxMeta,
                                              CWalletMeta, CWalletType)
@@ -48,7 +47,7 @@ type Query a = forall m. (MonadReader WalletStorage m) => m a
 type Update a = forall m. ({-MonadThrow m, -}MonadState WalletStorage m) => m a
 
 getWalletMetas :: Query [CWalletMeta]
-getWalletMetas = HM.elems . map fst <$> view wsWalletMetas
+getWalletMetas = toList . map fst <$> view wsWalletMetas
 
 getWalletMeta :: CAddress -> Query (Maybe CWalletMeta)
 getWalletMeta cAddr = preview (wsWalletMetas . ix cAddr . _1)
@@ -57,7 +56,7 @@ getTxMeta :: CAddress -> CTxId -> Query (Maybe CTxMeta)
 getTxMeta cAddr ctxId = preview $ wsWalletMetas . at cAddr . _Just . _2 . at ctxId . _Just
 
 getWalletHistory :: CAddress -> Query (Maybe [CTxMeta])
-getWalletHistory cAddr = fmap HM.elems <$> preview (wsWalletMetas . ix cAddr . _2)
+getWalletHistory cAddr = fmap toList <$> preview (wsWalletMetas . ix cAddr . _2)
 
 createWallet :: CAddress -> CWalletMeta -> Update ()
 createWallet cAddr wMeta = wsWalletMetas . at cAddr .= Just (wMeta, mempty)

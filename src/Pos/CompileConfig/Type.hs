@@ -37,6 +37,8 @@ data CompileConfig = CompileConfig
       -- ^ Threshold of slots for malicious activity detection
     , ccMdNoCommitmentsEpochThreshold :: !Int
       -- ^ Threshold of epochs for malicious activity detection
+    , ccVssMaxTTL                     :: !Word64
+      -- ^ VSS certificates max timeout to live (number of epochs)
     , ccProtocolMagic                 :: !Int
       -- ^ Magic constant for separating real/testnet
     , ccEnchancedMessageBroadcast     :: !Word

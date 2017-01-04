@@ -27,7 +27,7 @@ import           Pos.Binary.Types     ()
 import           Pos.Crypto           (Hash, WithHash (..), checkSig, hash)
 import           Pos.Script           (Script (..), isKnownScriptVersion, txScriptCheck)
 import           Pos.Types.Address    (addressDetailedF)
-import           Pos.Types.Types      (Address (..), Tx (..), TxAux, TxDistribution (..),
+import           Pos.Types.Types      (coinToInteger, sumCoins, mkCoin, Address (..), Tx (..), TxAux, TxDistribution (..),
                                        TxIn (..), TxInWitness (..), TxOut (..), TxOutAux,
                                        checkPubKeyAddress, checkScriptAddress, coinF)
 
@@ -51,7 +51,7 @@ verifyTxAlone Tx {..} =
     verifyOutputs = verifyGeneric $ concat $
                     zipWith outputPredicates [0..] txOutputs
     outputPredicates (i :: Word) TxOut{..} = [
-      ( txOutValue > 0
+      ( txOutValue > mkCoin 0
       , sformat ("output #"%int%" has non-positive value: "%coinF)
                 i txOutValue) ]
 
@@ -115,11 +115,10 @@ verifyTxDo verifyAlone gContext extendedInputs (tx@Tx{..}, witnesses, distrs) =
     verifyAloneRes | verifyAlone = verifyTxAlone tx
                    | otherwise = mempty
     outSum :: Integer
-    outSum = sum $ fmap (toInteger . txOutValue) txOutputs
+    outSum = sumCoins $ map txOutValue txOutputs
     resolvedInputs = catMaybes extendedInputs
     inpSum :: Integer
-    inpSum =
-        sum $ fmap (toInteger . txOutValue . fst . vtlTxOut . snd) resolvedInputs
+    inpSum = sumCoins $ map (txOutValue . fst . vtlTxOut . snd) resolvedInputs
     txOutHash = hash txOutputs
     distrsHash = hash distrs
     verifyCounts =
@@ -144,8 +143,8 @@ verifyTxDo verifyAlone gContext extendedInputs (tx@Tx{..}, witnesses, distrs) =
                                     "has non-empty distribution") i)
                        ]
                    ScriptAddress _ ->
-                       let sumDist = sum (map (toInteger . snd) d)
-                       in [ (sumDist <= toInteger txOutValue,
+                       let sumDist = sumCoins (map snd d)
+                       in [ (sumDist <= coinToInteger txOutValue,
                              sformat ("output #"%int%" has distribution "%
                                       "sum("%int%") > txOutValue("%coinF%")")
                                      i sumDist txOutValue)

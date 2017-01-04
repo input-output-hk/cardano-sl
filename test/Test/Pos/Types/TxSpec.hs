@@ -41,8 +41,8 @@ import           Pos.Types              (BadSigsTx (..), GoodTx (..), OverflowTx
                                          TxOut (..), TxOutAux, TxSigData, TxWitness, Utxo,
                                          VTxGlobalContext (..), VTxLocalContext (..),
                                          checkPubKeyAddress, makePubKeyAddress,
-                                         makeScriptAddress, topsortTxs, verifyTxAlone,
-                                         verifyTxPure, verifyTxUtxoPure)
+                                         makeScriptAddress, mkCoin, sumCoins, topsortTxs,
+                                         verifyTxAlone, verifyTxPure, verifyTxUtxoPure)
 import           Pos.Util               (nonrepeating, sublistN)
 
 
@@ -155,7 +155,7 @@ scriptTxSpec = describe "script transactions" $ do
 
     describe "multisig" $ do
         let [KeyPair pk1 sk1, KeyPair pk2 sk2,
-             KeyPair pk3 sk3, KeyPair pk4 sk4] = runGen $ nonrepeating 4
+             KeyPair pk3 sk3, KeyPair _pk4 sk4] = runGen $ nonrepeating 4
         let shouldBeFailure res = res `errorsShouldMatch` [
                 "input #0 isn't validated by its witness.*\
                     \reason: result of evaluation is 'failure'.*"]
@@ -220,7 +220,7 @@ scriptTxSpec = describe "script transactions" $ do
     -- Some random stuff we're going to use when building transactions
     randomPkOutput = runGen $ do
         key <- arbitrary
-        return (TxOut (makePubKeyAddress key) 1)
+        return (TxOut (makePubKeyAddress key) (mkCoin 1))
     randomPkWitness = runGen $
         PkWitness <$> arbitrary <*> arbitrary
     -- Make utxo with a single output; return utxo, the output, and an
@@ -240,7 +240,7 @@ scriptTxSpec = describe "script transactions" $ do
     checkScriptTx :: Script -> (TxSigData -> TxInWitness) -> VerificationRes
     checkScriptTx val mkWit =
         let (inp, _, utxo) = mkUtxo $
-                TxOut (makeScriptAddress val) 1
+                TxOut (makeScriptAddress val) (mkCoin 1)
             tx = Tx [inp] [randomPkOutput] (mkAttributes ())
             txDistr = TxDistribution [[]]
             txSigData = (hash tx, 0, hash [randomPkOutput], hash txDistr)
@@ -287,7 +287,7 @@ validateGoodTxAlone tx = isVerSuccess $ verifyTxAlone tx
 invalidateBadTxAlone :: Tx -> Bool
 invalidateBadTxAlone Tx {..} = all (isVerFailure . verifyTxAlone) badTxs
   where
-    zeroOutputs = fmap (\(TxOut a _) -> TxOut a (negate 0)) txOutputs
+    zeroOutputs = fmap (\(TxOut a _) -> TxOut a (mkCoin 0)) txOutputs
     badTxs =
         map (\(is, os) -> Tx is os (mkAttributes ())) $
         [([], txOutputs), (txInputs, []), (txInputs, zeroOutputs)]
@@ -325,8 +325,9 @@ getTxFromGoodTx ls =
 -- the output sum.
 txChecksum :: [Maybe (TxIn, TxOutAux)] -> [TxOut] -> Bool
 txChecksum extendedInputs txOuts =
-    let inpSum = sum $ map (toInteger . txOutValue . fst . snd) $ catMaybes extendedInputs
-        outSum = sum $ map (toInteger . txOutValue) txOuts
+    let inpSum = sumCoins . map (txOutValue . fst . snd) $
+                 catMaybes extendedInputs
+        outSum = sumCoins $ map txOutValue txOuts
     in inpSum >= outSum
 
 -- | This function, used in 'verifyGoodTx', takes a 'GoodTx' and checks that
@@ -401,7 +402,7 @@ txGen size = do
     (Positive outputsN) <- resize size arbitrary
     inputs <- replicateM inputsN $ (\h -> TxIn h 0) <$> arbitrary
     outputs <- replicateM outputsN $
-        (\addr (Positive c) -> TxOut addr c) <$> arbitrary <*> arbitrary
+        TxOut <$> arbitrary <*> arbitrary
     pure $ Tx inputs outputs (mkAttributes ())
 
 testTopsort :: Bool -> Property
@@ -452,8 +453,7 @@ txAcyclicGen isBamboo size = do
         let inputs = map (\(h,i) -> TxIn (hash h) (fromIntegral i)) chosenUtxo
         (Positive outputsN) <- resize some' arbitrary
         -- gen some outputs
-        outputs <- replicateM outputsN $
-            (\addr (Positive c) -> TxOut addr c) <$> arbitrary <*> arbitrary
+        outputs <- replicateM outputsN (TxOut <$> arbitrary <*> arbitrary)
         -- calculate new utxo & add vertex
         let tx = Tx inputs outputs (mkAttributes ())
             producedUtxo = map (tx,) $ [0..(length outputs) - 1]
@@ -461,4 +461,4 @@ txAcyclicGen isBamboo size = do
             newUtxo = (unusedUtxo \\ chosenUtxo) ++ producedUtxo
             newReachableV = tx : concat (mapMaybe (\(x,_) -> HM.lookup x reachable) chosenUtxo)
             newReachable = HM.insert tx newReachableV reachable
-        continueGraph newVertices newUtxo newReachable (k-1)
+        continueGraph newVertices newUtxo newReachable (k - 1)

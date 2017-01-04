@@ -9,7 +9,7 @@ module Pos.Ssc.GodTossing.Workers
        ) where
 
 import           Control.Concurrent.STM           (readTVar)
-import           Control.Lens                     (view, (%=), _2, _3)
+import           Control.Lens                     (use, view, (%=), _2, _3)
 import           Control.Monad.Trans.Maybe        (runMaybeT)
 import           Control.TimeWarp.Timed           (Microsecond, Millisecond, currentTime,
                                                    for, wait)
@@ -26,13 +26,13 @@ import           Pos.Binary.Class                 (Bi)
 import           Pos.Binary.Relay                 ()
 import           Pos.Binary.Ssc                   ()
 import           Pos.Communication.Methods        (sendToNeighborsSafe)
-import           Pos.Constants                    (k, mpcSendInterval)
+import           Pos.Constants                    (k, mpcSendInterval, vssMaxTTL)
 import           Pos.Context                      (getNodeContext, ncPublicKey,
                                                    ncSecretKey, ncSscContext, readRichmen)
 import           Pos.Crypto                       (SecretKey, VssKeyPair, randomNumber,
                                                    runSecureRandom, toPublic)
 import           Pos.Crypto.SecretSharing         (toVssPublicKey)
-import           Pos.Crypto.Signing               (PublicKey, sign)
+import           Pos.Crypto.Signing               (PublicKey)
 import           Pos.Slotting                     (getSlotStart, onNewSlot)
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
 import           Pos.Ssc.Extra.MonadLD            (sscRunLocalQuery, sscRunLocalUpdate)
@@ -40,8 +40,8 @@ import           Pos.Ssc.GodTossing.Functions     (genCommitmentAndOpening, getT
                                                    hasCommitment, hasOpening, hasShares,
                                                    isCommitmentIdx, isOpeningIdx,
                                                    isSharesIdx, mkSignedCommitment)
-import           Pos.Ssc.GodTossing.LocalData     (ldCertificates, localOnNewSlot,
-                                                   sscProcessMessage)
+import           Pos.Ssc.GodTossing.LocalData     (ldCertificates, ldLastProcessedSlot,
+                                                   localOnNewSlot, sscProcessMessage)
 import           Pos.Ssc.GodTossing.SecretStorage (getSecret, prepareSecretToNewSlot,
                                                    setSecret)
 import           Pos.Ssc.GodTossing.Shares        (getOurShares)
@@ -49,11 +49,13 @@ import           Pos.Ssc.GodTossing.Storage       (getGlobalCertificates,
                                                    gtGetGlobalState)
 import           Pos.Ssc.GodTossing.Types         (Commitment, Opening, SignedCommitment,
                                                    SscGodTossing, VssCertificate (..),
-                                                   gtcParticipateSsc, gtcVssKeyPair)
+                                                   gtcParticipateSsc, gtcVssKeyPair,
+                                                   mkVssCertificate)
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtMsgTag (..))
 import           Pos.Types                        (EpochIndex, LocalSlotIndex,
                                                    SlotId (..), StakeholderId,
-                                                   Timestamp (..), addressHash)
+                                                   StakeholderId, Timestamp (..),
+                                                   addressHash)
 import           Pos.Util                         (asBinary)
 import           Pos.Util.Relay                   (DataMsg (..), InvMsg (..))
 import           Pos.WorkMode                     (WorkMode)
@@ -75,7 +77,8 @@ checkNSendOurCert = do
     if isCertInBlockhain then
        logDebug "Our VssCertificate has been already announced."
     else do
-        logDebug "Our VssCertificate hasn't been announced yet, we will announce it now."
+        logDebug "Our VssCertificate hasn't been announced yet or TTL has expired\
+                 \, we will announce it now."
         ourVssCertificate <- getOurVssCertificate
         let msg = DataMsg (MCVssCertificate ourVssCertificate) ourId
         -- [CSL-245]: do not catch all, catch something more concrete.
@@ -85,7 +88,7 @@ checkNSendOurCert = do
   where
     getOurVssCertificate :: m VssCertificate
     getOurVssCertificate = do
-        (ourPk, ourId) <- getOurPkAndId
+        (_, ourId) <- getOurPkAndId
         localCerts     <- sscRunLocalQuery $ view ldCertificates
         case lookup ourId localCerts of
           Just c  -> return c
@@ -93,12 +96,13 @@ checkNSendOurCert = do
             ourSk         <- ncSecretKey <$> getNodeContext
             ourVssKeyPair <- getOurVssKeyPair
             let vssKey  = asBinary $ toVssPublicKey ourVssKeyPair
-                ourCert = VssCertificate { vcVssKey     = vssKey
-                                         , vcSignature  = sign ourSk vssKey
-                                         , vcSigningKey = ourPk
-                                         }
-            sscRunLocalUpdate $ ldCertificates %= insert ourId ourCert
-            return ourCert
+                createOurCert = mkVssCertificate ourSk vssKey .
+                                (+) (vssMaxTTL - 1) . siEpoch
+            sscRunLocalUpdate $ do
+                lps <- use ldLastProcessedSlot
+                let ourCert = createOurCert lps
+                ldCertificates %= insert ourId ourCert
+                return ourCert
 
 getOurPkAndId
     :: WorkMode SscGodTossing m

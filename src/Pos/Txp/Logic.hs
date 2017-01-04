@@ -35,14 +35,17 @@ import           Pos.Txp.Holder         (TxpLDHolder, runLocalTxpLDHolder)
 import           Pos.Txp.Types          (MemPool (..), UtxoView (..))
 import           Pos.Txp.Types.Types    (ProcessTxRes (..), mkPTRinvalid)
 import qualified Pos.Txp.Types.UtxoView as UV
-import           Pos.Types              (Block, Blund, Coin (..), MonadUtxo,
+import           Pos.Types              (Block, Blund, Coin, MonadUtxo,
                                          MonadUtxoRead (utxoGet), NEBlocks, SlotId,
                                          StakeholderId, Tx (..), TxAux,
                                          TxDistribution (..), TxId, TxIn (..), TxOutAux,
                                          TxWitness, Undo, VTxGlobalContext (..),
                                          VTxLocalContext (..), applyTxToUtxo', blockSlot,
-                                         blockTxas, headerHash, prevBlockL, slotIdF,
+                                         blockTxas, coinToInteger, headerHash, mkCoin,
+                                         prevBlockL, slotIdF, sumCoins, sumCoins,
                                          topsortTxs, txOutStake, verifyTxPure)
+import           Pos.Types.Coin         (unsafeAddCoin, unsafeIntegerToCoin,
+                                         unsafeSubCoin)
 import           Pos.Types.Utxo         (verifyAndApplyTxs, verifyTxUtxo)
 import           Pos.Util               (inAssertMode, _neHead)
 
@@ -226,7 +229,7 @@ txRollbackBlock (block, undo) = do
         unless (length undoTx == length txInputs) $ Left "Number of txInputs must be equal length of undo"
         let txId = hash tx
             keys = zipWith TxIn (repeat txId) [0..]
-            putIn = map (uncurry AddTxOut) $ zip txInputs undoTx
+            putIn = zipWith AddTxOut txInputs undoTx
             delOut = map DelTxIn $ take (length txOutputs) keys
         return $ foldr' (:) (foldr' (:) batch putIn) delOut --how we could simplify it?
 
@@ -236,13 +239,14 @@ recomputeStakes :: (WithLogger m, MonadDB ssc m)
                 -> m [BatchOp ssc]
 recomputeStakes plusDistr minusDistr = do
     resolvedStakes <- mapM (\ad ->
-                              maybe (0 <$ logInfo (createInfo ad))
+                              maybe (mkCoin 0 <$ logInfo (createInfo ad))
                                     pure =<< getFtsStake ad)
                            needResolve
     totalStake <- getTotalFtsStake
-    let positiveDelta = sum (map snd plusDistr)
-    let negativeDelta = sum (map snd minusDistr)
-    let newTotalStake = totalStake + positiveDelta - negativeDelta
+    let positiveDelta = sumCoins (map snd plusDistr)
+    let negativeDelta = sumCoins (map snd minusDistr)
+    let newTotalStake = unsafeIntegerToCoin $
+                        coinToInteger totalStake + positiveDelta - negativeDelta
 
     let newStakes
           = HM.toList $
@@ -256,8 +260,15 @@ recomputeStakes plusDistr minusDistr = do
                       HS.fromList (map fst minusDistr)
     calcPosStakes distr = foldl' plusAt HM.empty distr
     calcNegStakes distr hm = foldl' minusAt hm distr
-    plusAt hm (key, val) = HM.insert key (val + HM.lookupDefault 0 key hm) hm
-    minusAt hm (key, val) = HM.insert key (HM.lookupDefault 0 key hm - val) hm
+    -- @pva701 says it's not possible to get negative coin here. We *can* in
+    -- theory get overflow because we're adding and only then subtracting,
+    -- but in practice it won't happen unless someone has 2^63 coins or
+    -- something.
+    plusAt hm (key, val) = HM.insertWith unsafeAddCoin key val hm
+    minusAt hm (key, val) =
+        HM.alter (maybe err (\v -> Just (unsafeSubCoin v val))) key hm
+      where
+        err = panic ("recomputeStakes: no stake for " <> show key)
 
 concatStakes :: ([TxAux], Undo) -> ([(StakeholderId, Coin)]
                                    ,[(StakeholderId, Coin)])
@@ -269,7 +280,7 @@ concatStakes (txas, undo) = (txasTxOutDistr, undoTxInDistr)
         = concatMap txOutStake (zip txOutputs (getTxDistribution distr))
 
 -- | Remove from mem pool transactions from block
-filterMemPool :: MonadTxpLD ssc m => [(TxId, (Tx, TxDistribution))]  -> m ()
+filterMemPool :: MonadTxpLD ssc m => [(TxId, (Tx, TxDistribution))] -> m ()
 filterMemPool txs = modifyTxpLD_ (\(uv, mp, undos, tip) ->
     let blkTxs = HM.fromList txs
         newMPTxs = (localTxs mp) `HM.difference` blkTxs

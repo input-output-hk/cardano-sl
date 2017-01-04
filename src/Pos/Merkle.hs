@@ -10,7 +10,6 @@ module Pos.Merkle
        ( MerkleRoot(..)
        , MerkleTree (..)
        , mtRoot
-       , mtSize
        , mkMerkleTree
 
        , MerkleNode (..)
@@ -113,12 +112,6 @@ mtRoot (MerkleTree _ x) = mRoot x
 
 emptyHash :: MerkleRoot a
 emptyHash = MerkleRoot (hashRaw mempty)
-
--- | Returns size of given merkle tree. You can also use 'length',
--- it's O(1) too.
-mtSize :: MerkleTree a -> Word32
-mtSize MerkleEmpty      = 0
-mtSize (MerkleTree s _) = s
 
 -- | Return the largest power of two such that it's smaller than X.
 --

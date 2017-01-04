@@ -40,8 +40,8 @@ import           Data.Time.Clock.POSIX (POSIXTime)
 import           Formatting            (build, sformat)
 import           Pos.Aeson.Types       ()
 import           Pos.Types             (Address (..), Coin, Tx, TxId, decodeTextAddress,
-                                        txOutValue, txOutputs)
-
+                                        sumCoins, txOutAddress, txOutValue, txOutputs)
+import           Pos.Types.Coin        (unsafeIntegerToCoin)
 
 -- | currencies handled by client
 -- Note: Cardano does not deal with other currency than ADA yet
@@ -52,13 +52,13 @@ data CCurrency
     deriving (Show, Read, Generic)
 
 -- | Client hash
-newtype CHash = CHash Text deriving (Show, Eq, Generic)
+newtype CHash = CHash Text deriving (Show, Eq, Generic, Buildable)
 
 instance Hashable CHash where
     hashWithSalt s (CHash h) = hashWithSalt s h
 
 -- | Client address
-newtype CAddress = CAddress CHash deriving (Show, Eq, Generic, Hashable)
+newtype CAddress = CAddress CHash deriving (Show, Eq, Generic, Hashable, Buildable)
 
 -- | transform Address into CAddress
 -- TODO: this is not complitely safe. If someone changes implementation of Buildable Address. It should be probably more safe to introduce `class PSSimplified` that would have the same implementation has it is with Buildable Address but then person will know it will probably change something for purescript.
@@ -78,10 +78,11 @@ mkCTxId = CTxId . CHash
 txIdToCTxId :: TxId -> CTxId
 txIdToCTxId = mkCTxId . sformat build
 
-mkCTx :: (TxId, Tx, Bool) -> CTxMeta -> CTx
-mkCTx (txId, tx, isOutgoing) = CTx (txIdToCTxId txId) outputCoins . meta
+mkCTx :: Address -> (TxId, Tx, Bool) -> CTxMeta -> CTx
+mkCTx addr (txId, tx, isOutgoing) = CTx (txIdToCTxId txId) outputCoins . meta
   where
-    outputCoins = sum . map txOutValue $ txOutputs tx
+    outputCoins = unsafeIntegerToCoin . sumCoins . map txOutValue $
+        filter ((/= addr) . txOutAddress) $ txOutputs tx
     meta = if isOutgoing then CTOut else CTIn
 
 ----------------------------------------------------------------------------

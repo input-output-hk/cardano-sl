@@ -202,6 +202,7 @@ library
                         Pos.Ssc.GodTossing.Types.Type
                         Pos.Ssc.GodTossing.Types.Types
                         Pos.Ssc.GodTossing.Utils
+                        Pos.Ssc.GodTossing.VssCertData
                         Pos.Ssc.GodTossing.Workers
                         Pos.Statistics.Helpers
                         Pos.Statistics.MonadStats
@@ -738,6 +739,7 @@ executable cardano-checks
 test-suite cardano-test
   main-is:             Test.hs
   other-modules:       Spec
+                       Test.Pos.BinarySpec
                        Test.Pos.Block.Identity.BinarySpec
                        Test.Pos.Block.Identity.SafeCopySpec
                        Test.Pos.Communication.Identity.BinarySpec

@@ -19,11 +19,11 @@ import           Pos.Ssc.GodTossing.Types.Base    (Commitment, Opening,
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtMsgTag (..))
 import           Pos.Ssc.GodTossing.Types.Types   (GtGlobalState (..), GtPayload (..),
                                                    GtProof (..))
+import           Pos.Ssc.GodTossing.VssCertData   (VssCertData (..))
 import           Pos.Types.Arbitrary.Unsafe       ()
 import           Pos.Util                         (asBinary)
 import           Pos.Util.Arbitrary               (Nonrepeating (..), makeSmall, sublistN,
                                                    unsafeMakePool)
-
 -- | Pair of 'Commitment' and 'Opening'.
 data CommitmentOpening = CommitmentOpening
     { coCommitment :: !Commitment
@@ -54,7 +54,7 @@ instance Arbitrary Opening where
     arbitrary = coOpening <$> arbitrary
 
 instance Arbitrary VssCertificate where
-    arbitrary = mkVssCertificate <$> arbitrary <*> arbitrary
+    arbitrary = mkVssCertificate <$> arbitrary <*> arbitrary <*> arbitrary
 
 ------------------------------------------------------------------------------------------
 -- Gt (God Tossing) types
@@ -74,6 +74,12 @@ instance Bi Commitment => Arbitrary GtPayload where
                                   , SharesPayload <$> arbitrary <*> arbitrary
                                   , CertificatesPayload <$> arbitrary
                                   ]
+
+instance Arbitrary VssCertData where
+    arbitrary = makeSmall $ VssCertData
+        <$> arbitrary
+        <*> arbitrary
+        <*> arbitrary
 
 instance Bi Commitment => Arbitrary GtGlobalState where
     arbitrary = makeSmall $ GtGlobalState

@@ -32,7 +32,9 @@ import           Pos.Crypto           (PublicKey, SecretKey, deterministicKeyGen
                                        unsafeHash)
 import           Pos.FollowTheSatoshi (followTheSatoshi)
 import           Pos.Types            (Address (..), Coin, SharedSeed (SharedSeed),
-                                       SlotLeaders, TxOut (..), Utxo, makePubKeyAddress)
+                                       SlotLeaders, TxOut (..), Utxo, coinToInteger,
+                                       makePubKeyAddress, mkCoin)
+import           Pos.Types.Coin       (divCoin, unsafeAddCoin, unsafeMulCoin)
 
 
 ----------------------------------------------------------------------------
@@ -72,24 +74,28 @@ data StakeDistribution
                     !Coin  -- total number of coins
 
 instance Default StakeDistribution where
-    def = FlatStakes genesisN (genesisN * 10000)
+    def = FlatStakes genesisN
+              (mkCoin 10000 `unsafeMulCoin` (genesisN :: Int))
 
 bitcoinDistribution20 :: [Coin]
-bitcoinDistribution20 = [200, 163, 120, 105, 78, 76, 57, 50, 46, 31, 26, 13, 11, 11, 7, 4, 2, 0, 0, 0]
+bitcoinDistribution20 = map mkCoin
+    [200,163,120,105,78,76,57,50,46,31,26,13,11,11,7,4,2,0,0,0]
 
 stakeDistribution :: StakeDistribution -> [Coin]
 stakeDistribution (FlatStakes stakeholders coins) =
     genericReplicate stakeholders val
   where
-    val = coins `div` fromIntegral stakeholders
+    val = coins `divCoin` stakeholders
 stakeDistribution (BitcoinStakes stakeholders coins) =
     map normalize $ bitcoinDistribution1000Coins stakeholders
   where
-    normalize x = x * coins `div` 1000
+    normalize x = x `unsafeMulCoin`
+                  coinToInteger (coins `divCoin` (1000 :: Int))
 
 bitcoinDistribution1000Coins :: Word -> [Coin]
 bitcoinDistribution1000Coins stakeholders
-    | stakeholders < 20 = stakeDistribution (FlatStakes stakeholders 1000)
+    | stakeholders < 20 = stakeDistribution
+          (FlatStakes stakeholders (mkCoin 1000))
     | stakeholders == 20 = bitcoinDistribution20
     | otherwise =
         foldl' (bitcoinDistributionImpl ratio) [] $
@@ -109,8 +115,9 @@ bitcoinDistributionImpl ratio coins (coinIdx, coin) =
            realToFrac (coinIdx + 1) * ratio
             then toAddNumMin
             else toAddNumMax
-    toAddValMin = coin `div` fromIntegral toAddNum
-    toAddValMax = coin - toAddValMin * (fromIntegral toAddNum - 1)
+    toAddValMin = coin `divCoin` toAddNum
+    toAddValMax = coin `unsafeAddCoin`
+                  (toAddValMin `unsafeMulCoin` (toAddNum - 1))
 
 -- | Genesis 'Utxo'.
 genesisUtxo :: StakeDistribution -> Utxo

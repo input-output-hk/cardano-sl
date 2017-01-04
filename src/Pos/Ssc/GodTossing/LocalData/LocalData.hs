@@ -48,6 +48,7 @@ import           Pos.Ssc.GodTossing.Types.Base        (Commitment, Opening,
                                                        SignedCommitment, VssCertificate,
                                                        VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Types.Message     (GtMsgContents (..), GtMsgTag (..))
+import qualified Pos.Ssc.GodTossing.VssCertData       as VCD
 import           Pos.Types                            (SlotId (..), StakeholderId)
 import           Pos.Util                             (AsBinary, diffDoubleMap, getKeys,
                                                        readerToState)
@@ -71,7 +72,7 @@ applyGlobal globalData = do
     ldCommitments  %= (`HM.difference` globalCommitments)
     ldOpenings  %= (`HM.difference` globalOpenings)
     ldShares  %= (`diffDoubleMap` globalShares)
-    ldCertificates  %= (`HM.difference` globalCert)
+    ldCertificates  %= (`HM.difference` (VCD.certs globalCert))
 
 ----------------------------------------------------------------------------
 -- Get Local Payload
@@ -128,8 +129,14 @@ sscIsDataUsefulQ OpeningMsg =
     sscIsDataUsefulSetImpl gtLocalOpenings gtGlobalOpenings
 sscIsDataUsefulQ SharesMsg =
     sscIsDataUsefulSetImpl gtLocalShares gtGlobalShares
-sscIsDataUsefulQ VssCertificateMsg =
-    sscIsDataUsefulImpl gtLocalCertificates gtGlobalCertificates
+sscIsDataUsefulQ VssCertificateMsg = sscIsCertUsefulImpl
+  where
+    sscIsCertUsefulImpl addr = do
+        loc <- view gtLocalCertificates
+        glob <- view gtGlobalCertificates
+        lpe <- siEpoch <$> view gtLastProcessedSlot
+        if addr `HM.member` loc then pure False
+        else pure $ maybe True (== lpe) (VCD.lookupExpiryEpoch addr glob)
 
 type MapGetter a = Getter GtState (HashMap StakeholderId a)
 type SetGetter set = Getter GtState set
@@ -159,31 +166,29 @@ sscIsDataUsefulSetImpl localG globalG addr =
 sscProcessMessage ::
        (MonadSscLD SscGodTossing m, SscBi)
     => GtMsgContents -> StakeholderId -> m Bool
-sscProcessMessage dat addr = gtRunModify $ do
-    certs <- use gtGlobalCertificates
-    sscProcessMessageU certs dat addr
+sscProcessMessage dat addr = gtRunModify $ sscProcessMessageU dat addr
 
-sscProcessMessageU :: SscBi => VssCertificatesMap -> GtMsgContents -> StakeholderId -> LDUpdate Bool
-sscProcessMessageU certs (MCCommitment comm)     addr = processCommitment certs addr comm
-sscProcessMessageU _     (MCOpening open)        addr = processOpening addr open
-sscProcessMessageU certs (MCShares shares)       addr = processShares certs addr shares
-sscProcessMessageU _     (MCVssCertificate cert) addr = processVssCertificate addr cert
+sscProcessMessageU :: SscBi => GtMsgContents -> StakeholderId -> LDUpdate Bool
+sscProcessMessageU (MCCommitment comm)     addr = processCommitment addr comm
+sscProcessMessageU (MCOpening open)        addr = processOpening addr open
+sscProcessMessageU (MCShares shares)       addr = processShares addr shares
+sscProcessMessageU (MCVssCertificate cert) addr = processVssCertificate addr cert
 
 processCommitment
     :: Bi Commitment
-    => VssCertificatesMap
-    -> StakeholderId
+    => StakeholderId
     -> SignedCommitment
     -> LDUpdate Bool
-processCommitment certs addr c = do
+processCommitment addr c = do
+    certs <- VCD.certs <$> use gtGlobalCertificates
     epochIdx <- siEpoch <$> use gtLastProcessedSlot
-    ok <- readerToState $ andM $ checks epochIdx
+    ok <- readerToState $ andM $ checks epochIdx certs
     ok <$ when ok (gtLocalCommitments %= HM.insert addr c)
   where
-    checks epochIndex =
+    checks epochIndex certs =
         [ not . HM.member addr <$> view gtGlobalCommitments
         , not . HM.member addr <$> view gtLocalCommitments
-        , pure (addr `HM.member` certs)
+        , pure $ addr `HM.member` certs
         , pure . isVerSuccess $ verifySignedCommitment addr epochIndex c
         ]
 
@@ -200,10 +205,13 @@ matchOpening :: StakeholderId -> Opening -> LDQuery Bool
 matchOpening addr opening =
     flip checkOpeningMatchesCommitment (addr, opening) <$> view gtGlobalCommitments
 
-processShares :: VssCertificatesMap -> StakeholderId -> HashMap StakeholderId (AsBinary Share) -> LDUpdate Bool
-processShares certs addr s
+processShares :: StakeholderId
+              -> HashMap StakeholderId (AsBinary Share)
+              -> LDUpdate Bool
+processShares addr s
     | null s = pure False
     | otherwise = do
+        certs <- VCD.certs <$> use gtGlobalCertificates
         -- TODO: we accept shares that we already have (but don't add them to
         -- local shares) because someone who sent us those shares might not be
         -- aware of the fact that they are already in the blockchain. On the
@@ -235,5 +243,5 @@ checkSharesLastVer certs addr shares =
 
 processVssCertificate :: StakeholderId -> VssCertificate -> LDUpdate Bool
 processVssCertificate addr c = do
-    ok <- not . HM.member addr <$> use gtGlobalCertificates
+    ok <- readerToState (sscIsDataUsefulQ VssCertificateMsg addr)
     ok <$ when ok (gtLocalCertificates %= HM.insert addr c)

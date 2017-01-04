@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# OPTIONS_GHC -Wno-warnings-deprecations #-} -- makeArbitrary uses error, we use panic
 
 -- | Delegation-related network and local types.
 
@@ -26,6 +27,8 @@ data SendProxySK
     = SendProxySKEpoch !ProxySKEpoch
     | SendProxySKSimple !ProxySKSimple
     deriving (Show, Eq, Generic)
+
+instance Hashable SendProxySK
 
 instance Message SendProxySK where
     messageName _ = "SendProxySK"

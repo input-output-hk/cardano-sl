@@ -41,7 +41,7 @@ import           Pos.DHT.Model.Class         (DHTResponseT)
 import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..))
-import           Pos.Txp.Class               (MonadTxpLD (..), TxpLDWrap (..))
+import           Pos.Txp.Class               (MonadTxpLD (..))
 import           Pos.Types                   (ProxySKEpoch)
 import           Pos.Types.Utxo.Class        (MonadUtxo, MonadUtxoRead)
 import           Pos.Util.JsonLog            (MonadJL (..))
@@ -127,5 +127,5 @@ runDelegationT wrap action =
     liftIO (newTVarIO wrap) >>= runReaderT (getDelegationT action)
 
 -- | Executes delegation wrap using existing delegation wrap tvar.
-runDelegationTFromTVar :: Monad m => (TVar DelegationWrap) -> DelegationT m a -> m a
+runDelegationTFromTVar :: TVar DelegationWrap -> DelegationT m a -> m a
 runDelegationTFromTVar var action = runReaderT (getDelegationT action) var

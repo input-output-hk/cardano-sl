@@ -10,29 +10,25 @@ module Pos.Delegation.Listeners
        , handleCheckProxySKConfirmed
        ) where
 
-import           Control.Lens              (to, (%~), (^.))
-import qualified Data.HashMap.Strict       as HM
 import           Data.Time.Clock           (getCurrentTime)
 import           Formatting                (build, sformat, shown, (%))
-import           System.Wlog               (logDebug, logInfo)
+import           System.Wlog               (logDebug, logInfo, logWarning)
 import           Universum
 
 import           Pos.Binary.Communication  ()
 import           Pos.Communication.Methods (sendProxyConfirmSK, sendProxySecretKey)
 import           Pos.Communication.Types   (MutSocketState, ResponseMode)
 import           Pos.Context               (getNodeContext, ncPropagation, ncSecretKey)
-import           Pos.Crypto                (ProxySecretKey, checkProxySecretKey,
-                                            pdDelegatePk, pdDelegatePk, proxySign,
-                                            proxyVerify)
-import           Pos.DB.Misc               (addProxySecretKey, getProxySecretKeys)
+import           Pos.Crypto                (proxySign)
 import           Pos.Delegation.Logic      (ConfirmPSKVerdict (..), PSKVerdict (..),
-                                            invalidateProxyCaches, processConfirmProxySk,
-                                            processProxySecretKey, runDelegationStateM)
+                                            invalidateProxyCaches, isProxySKConfirmed,
+                                            processConfirmProxySk, processProxySecretKey,
+                                            runDelegationStateAction)
 import           Pos.Delegation.Types      (CheckProxySKConfirmed (..),
                                             CheckProxySKConfirmedRes (..),
                                             ConfirmProxySK (..), SendProxySK (..))
 import           Pos.DHT.Model             (ListenerDHT (..), MonadDHTDialog, replyToNode)
-import           Pos.Types                 (EpochIndex, ProxySKEpoch, ProxySigEpoch)
+import           Pos.Types                 (ProxySKEpoch)
 import           Pos.WorkMode              (WorkMode)
 
 
@@ -59,7 +55,7 @@ handleSendProxySK (SendProxySKEpoch pSk) = do
     logDebug $ sformat ("Got request to handle proxy secret key: "%build) pSk
     -- do it in worker once in ~sometimes instead of on every request
     curTime <- liftIO getCurrentTime
-    runDelegationStateM $ invalidateProxyCaches curTime
+    runDelegationStateAction $ invalidateProxyCaches curTime
     verdict <- processProxySecretKey pSk
     logResult verdict
     propagateSendProxySK verdict pSk
@@ -69,11 +65,13 @@ handleSendProxySK (SendProxySKEpoch pSk) = do
     logResult verdict =
         logDebug $
         sformat ("Got proxy signature that wasn't accepted. Reason: "%shown) verdict
+handleSendProxySK _ =
+    logWarning "Heavyweight certificates are not supported yet"
 
 -- | Propagates proxy secret key depending on the decision
 propagateSendProxySK
     :: (WorkMode ssc m)
-    => PSKVerdict -> ProxySecretKey (EpochIndex, EpochIndex) -> m ()
+    => PSKVerdict -> ProxySKEpoch -> m ()
 propagateSendProxySK PSKUnrelated pSk = do
     whenM (ncPropagation <$> getNodeContext) $ do
         logDebug $ sformat ("Propagating proxy secret key "%build) pSk
@@ -114,6 +112,5 @@ handleCheckProxySKConfirmed
     => CheckProxySKConfirmed -> m ()
 handleCheckProxySKConfirmed (CheckProxySKConfirmed pSk) = do
     logDebug $ sformat ("Got request to check if psk: "%build%" was delivered.") pSk
-    res <- undefined
-    --res <- withProxyCaches $ \p -> pure (p ^. ncProxyConfCache . to (HM.member pSk), p)
+    res <- runDelegationStateAction $ isProxySKConfirmed pSk
     replyToNode $ CheckProxySKConfirmedRes res

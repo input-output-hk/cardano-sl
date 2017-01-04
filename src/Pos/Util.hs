@@ -22,6 +22,9 @@ module Pos.Util
        , getKeys
        , maybeThrow
 
+       -- * Lists
+       , allDistinct
+
        -- * SafeCopy
        , getCopyBinary
        , putCopyBinary
@@ -184,6 +187,15 @@ diffDoubleMap a b = HM.foldlWithKey' go mempty a
 
 maybeThrow :: (MonadThrow m, Exception e) => e -> Maybe a -> m a
 maybeThrow e = maybe (throwM e) pure
+
+----------------------------------------------------------------------------
+-- List utils
+----------------------------------------------------------------------------
+
+allDistinct :: Ord a => [a] -> Bool
+allDistinct xs = and $ zipWith (/=) sorted (drop 1 sorted)
+  where
+    sorted = sort xs
 
 ----------------------------------------------------------------------------
 -- Lens utils

@@ -11,7 +11,8 @@
 module Pos.Ssc.GodTossing.Storage
        ( -- * Instances
          -- ** instance SscStorageClass SscGodTossing
-         getGlobalCertificates
+         getGlobalCerts
+       , getVerifiedCerts
        , gtGetGlobalState
        ) where
 
@@ -51,7 +52,8 @@ import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types                      (Block, EpochIndex, HeaderHash, NEBlocks,
                                                  SharedSeed, SlotId (..), blockMpc,
                                                  blockSlot, epochIndexL, epochOrSlot,
-                                                 epochOrSlotG, gbHeader, prevBlockL)
+                                                 epochOrSlotG, gbHeader, prevBlockL,
+                                                 subSlotSafe)
 import           Pos.Util                       (readerToState)
 
 type GSQuery a  = forall m . (MonadReader GtGlobalState m) => m a
@@ -70,10 +72,17 @@ gtGetGlobalState
     => m GtGlobalState
 gtGetGlobalState = sscRunGlobalQuery ask
 
-getGlobalCertificates
+getGlobalCerts
     :: (MonadSscGS SscGodTossing m)
     => m VssCertificatesMap
-getGlobalCertificates = sscRunGlobalQuery $ VCD.certs <$> view gsVssCertificates
+getGlobalCerts = sscRunGlobalQuery $ VCD.certs <$> view gsVssCertificates
+
+-- | Verified certs for slotId
+getVerifiedCerts :: (MonadSscGS SscGodTossing m) => SlotId -> m VssCertificatesMap
+getVerifiedCerts (flip subSlotSafe k -> slotId) = sscRunGlobalQuery doIt
+  where
+    doIt = do
+        VCD.certs . VCD.setLastKnownSlot slotId <$> view gsVssCertificates
 
 -- | Verify that if one adds given block to the current chain, it will
 -- remain consistent with respect to SSC-related data.
@@ -220,7 +229,7 @@ mpcRollback blocks = do
     let slot = prevSlot $ blkSlot $ NE.last blocks
     -- Rollback certs
     gsVssCertificates %= (VCD.setLastKnownSlot slot)
-
+    -- Rollback other payload
     wasGenesis <- foldM (\wasGen b -> if wasGen then pure wasGen else differenceBlock b)
                          False blocks
     when wasGenesis resetGS

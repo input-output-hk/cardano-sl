@@ -44,7 +44,7 @@ import           Pos.Ssc.GodTossing.LocalData     (ldCertificates, ldLastProcess
 import           Pos.Ssc.GodTossing.SecretStorage (getSecret, prepareSecretToNewSlot,
                                                    setSecret)
 import           Pos.Ssc.GodTossing.Shares        (getOurShares)
-import           Pos.Ssc.GodTossing.Storage       (getGlobalCertificates,
+import           Pos.Ssc.GodTossing.Storage       (getGlobalCerts, getVerifiedCerts,
                                                    gtGetGlobalState)
 import           Pos.Ssc.GodTossing.Types         (Commitment, Opening, SignedCommitment,
                                                    SscGodTossing, VssCertificate (..),
@@ -71,7 +71,7 @@ onStart = checkNSendOurCert
 checkNSendOurCert :: forall m . (WorkMode SscGodTossing m, Bi DataMsg) => m ()
 checkNSendOurCert = do
     (_, ourId) <- getOurPkAndId
-    isCertInBlockhain <- member ourId <$> getGlobalCertificates
+    isCertInBlockhain <- member ourId <$> getGlobalCerts
     if isCertInBlockhain then
        logDebug "Our VssCertificate has been already announced."
     else do
@@ -132,7 +132,7 @@ onNewSlotSsc = onNewSlot True $ \slotId-> do
 onNewSlotCommitment
     :: (WorkMode SscGodTossing m)
     => SlotId -> m ()
-onNewSlotCommitment SlotId {..} = do
+onNewSlotCommitment slotId@SlotId{..} = do
     ourId <- addressHash . ncPublicKey <$> getNodeContext
     ourSk <- ncSecretKey <$> getNodeContext
     shouldCreateCommitment <- do
@@ -140,7 +140,7 @@ onNewSlotCommitment SlotId {..} = do
         return $ and [isCommitmentIdx siSlot, isNothing secret]
     when shouldCreateCommitment $ do
         logDebug $ sformat ("Generating secret for "%ords%" epoch") siEpoch
-        generated <- generateAndSetNewSecret ourSk siEpoch
+        generated <- generateAndSetNewSecret ourSk slotId
         case generated of
             Nothing -> logWarning "I failed to generate secret for Mpc"
             Just _ -> logDebug $
@@ -219,18 +219,18 @@ sendOurData msgTag epoch kMultiplier ourId = do
 generateAndSetNewSecret
     :: (WorkMode SscGodTossing m, Bi Commitment)
     => SecretKey
-    -> EpochIndex                         -- ^ Current epoch
+    -> SlotId                         -- ^ Current slot
     -> m (Maybe (SignedCommitment, Opening))
-generateAndSetNewSecret sk epoch = do
+generateAndSetNewSecret sk slotId@SlotId{..} = do
     richmen <- readRichmen
-    certs <- getGlobalCertificates
+    certs <- getVerifiedCerts slotId
     let noPsErr = panic "generateAndSetNewSecret: no participants"
     let ps = fromMaybe (panic noPsErr) . nonEmpty .
                 map vcVssKey . mapMaybe (`lookup` certs) . toList $ richmen
     let threshold = getThreshold $ length ps
     mPair <- runMaybeT (genCommitmentAndOpening threshold ps)
     case mPair of
-      Just (mkSignedCommitment sk epoch -> comm, op) ->
+      Just (mkSignedCommitment sk siEpoch -> comm, op) ->
           Just (comm, op) <$ setSecret (toPublic sk, comm, op)
       _ -> do
         logError "Wrong participants list: can't deserialize"

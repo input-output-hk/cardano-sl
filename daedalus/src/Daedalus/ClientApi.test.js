@@ -74,6 +74,20 @@ describe('ClientApi', () => {
         JSON.stringify(response)
       );
     })
+
+    it('rejects with a HTTPStatusError if server response with 400', (done) => {
+      Daedalus.ClientApi.getWallets()
+        .then( (result) => done(),
+          (error) => {
+            assert.include(error.message, 'HTTPStatusError', 'HTTPStatusError error message');
+            done();
+        })
+        .catch(done);
+
+      requests[0].respond(400,
+        {"Content-Type": "application/json"}
+      );
+    })
   })
 
   describe('getWallet()', () => {
@@ -122,6 +136,20 @@ describe('ClientApi', () => {
       requests[0].respond(200,
         {"Content-Type": "application/json"},
         JSON.stringify(response)
+      );
+    })
+
+    it('rejects with a HTTPStatusError if server response with 400', (done) => {
+      Daedalus.ClientApi.getWallet('not-exist')()
+        .then( (result) => done(),
+          (error) => {
+            assert.include(error.message, 'HTTPStatusError', 'HTTPStatusError error message');
+            done();
+        })
+        .catch(done);
+
+      requests[0].respond(400,
+        {"Content-Type": "application/json"}
       );
     })
   })
@@ -174,6 +202,19 @@ describe('ClientApi', () => {
       );
     })
 
+    it('rejects with a HTTPStatusError if server response with 400', (done) => {
+      Daedalus.ClientApi.newWallet('')()
+        .then( (result) => done(),
+          (error) => {
+            assert.include(error.message, 'HTTPStatusError', 'HTTPStatusError error message');
+            done();
+        })
+        .catch(done);
+
+      requests[0].respond(400,
+        {"Content-Type": "application/json"}
+      );
+    })
   })
 
   describe('deleteWallet()', () => {
@@ -213,6 +254,7 @@ describe('ClientApi', () => {
           { "Content-Type": "application/json" }
       );
     })
+
   })
 
   describe('send()', () => {
@@ -267,6 +309,20 @@ describe('ClientApi', () => {
         JSON.stringify(data)
       );
     })
+
+    it('rejects with a HTTPStatusError if server response with 400', (done) => {
+      Daedalus.ClientApi.send('', '', 0)()
+        .then( (result) => done(),
+          (error) => {
+            assert.include(error.message, 'HTTPStatusError', 'HTTPStatusError error message');
+            done();
+        })
+        .catch(done);
+
+      requests[0].respond(400,
+        {"Content-Type": "application/json"}
+      );
+    })
   })
 
   describe('getHistory()', () => {
@@ -318,6 +374,20 @@ describe('ClientApi', () => {
       requests[0].respond(200,
         {"Content-Type": "application/json"},
         JSON.stringify(response)
+      );
+    })
+
+    it('rejects with a HTTPStatusError if server response with 400', (done) => {
+      Daedalus.ClientApi.getHistory('not-exist')()
+        .then( (result) => done(),
+          (error) => {
+            assert.include(error.message, 'HTTPStatusError', 'HTTPStatusError error message');
+            done();
+        })
+        .catch(done);
+
+      requests[0].respond(400,
+        {"Content-Type": "application/json"}
       );
     })
   })

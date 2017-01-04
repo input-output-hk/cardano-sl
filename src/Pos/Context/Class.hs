@@ -18,11 +18,6 @@ module Pos.Context.Class
        ) where
 
 import           Control.Concurrent.MVar (putMVar)
-import           Control.Exception       (SomeException)
-import           Control.Lens            ((%~))
-import           Control.Monad.Catch     (catch)
-import qualified Data.HashMap.Strict     as HM
-import           Data.Time.Clock         (addUTCTime, getCurrentTime)
 import           Universum
 
 import           Pos.Context.Context     (NodeContext (..))

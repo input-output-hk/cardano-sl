@@ -2,16 +2,13 @@
 
 module Pos.Binary.Relay () where
 
-import           Control.Monad.Fail               (fail)
-import           Data.Binary.Get                  (getWord8)
-import           Data.Binary.Put                  (putWord8)
 import           Universum
 
 import           Pos.Binary.Class                 (Bi (..))
 import           Pos.Binary.Crypto                ()
 import           Pos.Crypto                       (hash)
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..))
-import           Pos.Txp.Types.Communication      (TxMsgContents (..), TxMsgTag (..))
+import           Pos.Txp.Types.Communication      (TxMsgContents (..))
 import           Pos.Types                        (TxId)
 import           Pos.Types.Address                (StakeholderId)
 import           Pos.Util.Relay                   (DataMsg (..), InvMsg (..), ReqMsg (..))

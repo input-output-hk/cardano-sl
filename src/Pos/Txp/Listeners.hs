@@ -10,25 +10,20 @@ module Pos.Txp.Listeners
        ) where
 
 import qualified Data.HashMap.Strict         as HM
-import qualified Data.List.NonEmpty          as NE
 import           Formatting                  (build, sformat, stext, (%))
 import           Serokell.Util.Verify        (VerificationRes (..))
 import           System.Wlog                 (logDebug, logInfo, logWarning)
 import           Universum
 
 import           Pos.Binary.Relay            ()
-import           Pos.Communication.Methods   (sendToNeighborsSafe)
 import           Pos.Communication.Types     (MutSocketState, ResponseMode)
-import           Pos.Context                 (WithNodeContext (getNodeContext),
-                                              ncPropagation)
 import           Pos.Crypto                  (hash)
-import           Pos.DHT.Model               (ListenerDHT (..), MonadDHTDialog,
-                                              replyToNode)
+import           Pos.DHT.Model               (ListenerDHT (..), MonadDHTDialog)
 import           Pos.Statistics              (StatProcessTx (..), statlogCountEvent)
-import           Pos.Txp.Class               (MonadTxpLD, getMemPool)
+import           Pos.Txp.Class               (getMemPool)
 import           Pos.Txp.Logic               (processTx)
 import           Pos.Txp.Types.Communication (TxMsgContents (..), TxMsgTag (..))
-import           Pos.Txp.Types.Types         (MemPool (..), ProcessTxRes (..), TxMap)
+import           Pos.Txp.Types.Types         (MemPool (..), ProcessTxRes (..))
 import           Pos.Types                   (TxAux, TxId)
 import           Pos.Util.Relay              (DataMsg, InvMsg, Relay (..), ReqMsg,
                                               handleDataL, handleInvL, handleReqL)

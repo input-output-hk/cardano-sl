@@ -11,16 +11,14 @@ module Pos.Wallet.Web.Server.Methods
        , walletServeImpl
        ) where
 
-import           Control.Lens               (view, _2)
 import           Data.Default               (def)
 import           Data.List                  (elemIndex, (!!))
-import qualified Data.Text                  as T (unpack)
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Formatting                 (build, ords, sformat, stext, (%))
 import           Network.Wai                (Application)
 import           Pos.Crypto                 (hash)
 import           Servant.API                ((:<|>) ((:<|>)),
-                                             FromHttpApiData (parseUrlPiece), addHeader)
+                                             FromHttpApiData (parseUrlPiece))
 import           Servant.Server             (Handler, ServantErr (errBody), Server,
                                              ServerT, err400, err404, serve)
 import           Servant.Utils.Enter        ((:~>) (..), enter)
@@ -29,7 +27,6 @@ import           Universum
 
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Crypto                 (toPublic)
-import           Pos.Crypto                 (hash)
 import           Pos.DHT.Model              (dhtAddr, getKnownPeers)
 import           Pos.Types                  (Address, Coin, Tx, TxId, TxOut (..),
                                              addressF, coinF, decodeTextAddress,
@@ -38,16 +35,15 @@ import           Pos.Wallet.KeyStorage      (KeyError (..), MonadKeys (..), newS
 import           Pos.Wallet.Tx              (submitTx)
 import           Pos.Wallet.WalletMode      (WalletMode, getBalance, getTxHistory)
 import           Pos.Wallet.Web.Api         (WalletApi, walletApi)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency (ADA), CHash (..), CTx,
-                                             CTx, CTxId, CTxMeta (..), CWallet (..),
-                                             CWalletMeta (..), addressToCAddress,
-                                             cAddressToAddress, ctId, ctType, ctTypeMeta,
+import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency (ADA), CTx, CTxId,
+                                             CTxMeta (..), CWallet (..), CWalletMeta (..),
+                                             addressToCAddress, cAddressToAddress, ctType,
                                              mkCTx, mkCTxId, txIdToCTxId)
 import           Pos.Wallet.Web.State       (MonadWalletWebDB (..), WalletWebDB,
                                              addOnlyNewTxMeta, closeState, createWallet,
-                                             getTxMeta, getWalletHistory, getWalletMeta,
-                                             openState, removeWallet, runWalletWebDB,
-                                             setWalletMeta, setWalletTransactionMeta)
+                                             getTxMeta, getWalletMeta, openState,
+                                             removeWallet, runWalletWebDB, setWalletMeta,
+                                             setWalletTransactionMeta)
 import           Pos.Web.Server             (serveImpl)
 
 ----------------------------------------------------------------------------
@@ -77,7 +73,7 @@ walletServer
     => WalletWebDB m (WalletWebDB m :~> Handler)
     -> WalletWebDB m (Server WalletApi)
 walletServer nat = do
-    join $ mapM insertAddressMeta <$> myCAddresses
+    join $ mapM_ insertAddressMeta <$> myCAddresses
     flip enter servantHandlers <$> nat
   where
     insertAddressMeta cAddr =
@@ -112,12 +108,12 @@ servantHandlers =
     :<|>
      isValidAddress
 
-getAddresses :: WalletWebMode ssc m => m [CAddress]
-getAddresses = map addressToCAddress <$> myAddresses
+-- getAddresses :: WalletWebMode ssc m => m [CAddress]
+-- getAddresses = map addressToCAddress <$> myAddresses
 
-getBalances :: WalletWebMode ssc m => m [(CAddress, Coin)]
-getBalances = join $ mapM gb <$> myAddresses
-  where gb addr = (,) (addressToCAddress addr) <$> getBalance addr
+-- getBalances :: WalletWebMode ssc m => m [(CAddress, Coin)]
+-- getBalances = join $ mapM gb <$> myAddresses
+--   where gb addr = (,) (addressToCAddress addr) <$> getBalance addr
 
 getWallet :: WalletWebMode ssc m => CAddress -> m CWallet
 getWallet cAddr = do

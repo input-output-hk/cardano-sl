@@ -51,9 +51,9 @@ import           Pos.Ssc.GodTossing.Types.Base  (VssCertificate (..))
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types                      (Block, EpochIndex, HeaderHash, NEBlocks,
                                                  SharedSeed, SlotId (..), blockMpc,
-                                                 blockSlot, epochIndexL, epochOrSlot,
-                                                 epochOrSlotG, gbHeader, prevBlockL,
-                                                 subSlotSafe)
+                                                 blockSlot, crucialSlot, epochIndexL,
+                                                 epochOrSlot, epochOrSlotG, gbHeader,
+                                                 prevBlockL)
 import           Pos.Util                       (readerToState)
 
 type GSQuery a  = forall m . (MonadReader GtGlobalState m) => m a
@@ -79,10 +79,9 @@ getGlobalCerts = sscRunGlobalQuery $ VCD.certs <$> view gsVssCertificates
 
 -- | Verified certs for slotId
 getVerifiedCerts :: (MonadSscGS SscGodTossing m) => SlotId -> m VssCertificatesMap
-getVerifiedCerts (flip subSlotSafe k -> slotId) = sscRunGlobalQuery doIt
-  where
-    doIt = do
-        VCD.certs . VCD.setLastKnownSlot slotId <$> view gsVssCertificates
+getVerifiedCerts (crucialSlot -> crucSlotId) =
+    sscRunGlobalQuery $
+        VCD.certs . VCD.setLastKnownSlot crucSlotId <$> view gsVssCertificates
 
 -- | Verify that if one adds given block to the current chain, it will
 -- remain consistent with respect to SSC-related data.

@@ -171,7 +171,7 @@ classifyHeaders headers@(h:|hs) = do
                 flattenEpochOrSlot tipHeader -
                 flattenEpochOrSlot lca
         let lcaChild =
-                fromMaybe (panic "procsessClassify@classifyHeaders") $
+                fromMaybe (panic "processClassify@classifyHeaders") $
                 find (\bh -> bh ^. prevBlockL == hash lca) (h:hs)
         pure $ if
             | hash lca == hash tipHeader -> CHsValid lcaChild

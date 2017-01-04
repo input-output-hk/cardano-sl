@@ -37,6 +37,7 @@ import           Control.TimeWarp.Rpc         (Dialog, Transfer, commLoggerName,
                                                runDialog, runTransfer, setForkStrategy)
 import           Control.TimeWarp.Timed       (MonadTimed, currentTime, fork, killThread,
                                                repeatForever, runTimedIO, runTimedIO, sec)
+import           Data.Default                 (def)
 
 import           Data.List                    (nub)
 import qualified Data.Time                    as Time
@@ -61,6 +62,7 @@ import           Pos.Context                  (ContextHolder (..), NodeContext (
 import           Pos.Crypto                   (createProxySecretKey, toPublic)
 import qualified Pos.DB                       as Modern
 import           Pos.DB.Misc                  (addProxySecretKey)
+import           Pos.Delegation.Class         (runDelegationT)
 import           Pos.DHT.Model                (BiP (..), ListenerDHT, MonadDHT (..),
                                                mapListenerDHT, sendToNeighbors)
 import           Pos.DHT.Model.Class          (DHTPacking, MonadDHTDialog)

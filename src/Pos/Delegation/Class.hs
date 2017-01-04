@@ -19,6 +19,10 @@ import           Control.Lens                (makeLenses)
 import           Control.Lens                (iso)
 import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Trans.Class   (MonadTrans)
+import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
+                                              MonadTransControl (..), StM,
+                                              defaultLiftBaseWith, defaultLiftWith,
+                                              defaultRestoreM, defaultRestoreT)
 import           Control.TimeWarp.Rpc        (MonadDialog, MonadTransfer (..))
 import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
 import           Data.Default                (Default (def))
@@ -38,6 +42,7 @@ import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..))
 import           Pos.Txp.Class               (MonadTxpLD (..), TxpLDWrap (..))
 import           Pos.Types                   (ProxySKEpoch)
+import           Pos.Types.Utxo.Class        (MonadUtxo, MonadUtxoRead)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 ---------------------------------------------------------------------------
@@ -71,12 +76,15 @@ class (Monad m) => MonadDelegation m where
     askDelegationState :: m (TVar DelegationWrap)
     -- ^ Retrieves 'TVar' on 'DelegationWrap'
 
-instance MonadDelegation m => MonadDelegation (ReaderT r m) where
+    default askDelegationState
+        :: (MonadTrans t, MonadDelegation m', t m' ~ m) => m (TVar DelegationWrap)
     askDelegationState = lift askDelegationState
-instance MonadDelegation m => MonadDelegation (DHTResponseT s m) where
-    askDelegationState = lift askDelegationState
-instance MonadDelegation m => MonadDelegation (KademliaDHT m) where
-    askDelegationState = lift askDelegationState
+    -- ^ Default implementation for 'MonadTrans'
+
+instance MonadDelegation m => MonadDelegation (ReaderT s m)
+instance MonadDelegation m => MonadDelegation (StateT s m)
+instance MonadDelegation m => MonadDelegation (DHTResponseT s m)
+instance MonadDelegation m => MonadDelegation (KademliaDHT m)
 
 ----------------------------------------------------------------------------
 -- Class implementation
@@ -88,30 +96,30 @@ newtype DelegationT m a = DelegationT
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed,
                 MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
                 HasLoggerName, MonadDialog s p, WithNodeContext ssc, MonadJL,
-                MonadDB ssc, CanLog, MonadMask, MonadSscLD ssc, MonadSscGS ssc)
+                MonadDB ssc, CanLog, MonadMask, MonadSscLD ssc, MonadSscGS ssc,
+                MonadUtxoRead, MonadUtxo, MonadTxpLD ssc, MonadBase io)
+
+instance (Monad m) => MonadDelegation (DelegationT m) where
+    askDelegationState = DelegationT ask
 
 instance MonadTransfer s m => MonadTransfer s (DelegationT m)
-type instance ThreadId (DelegationT m) = ThreadId m
 
-instance MonadBase IO m => MonadBase IO (DelegationT m) where
-    liftBase = lift . liftBase
+type instance ThreadId (DelegationT m) = ThreadId m
 
 instance Monad m => WrappedM (DelegationT m) where
     type UnwrappedM (DelegationT m) = ReaderT (TVar DelegationWrap) m
     _WrappedM = iso getDelegationT DelegationT
 
+instance MonadTransControl DelegationT where
+    type StT (DelegationT) a = StT (ReaderT (TVar DelegationWrap)) a
+    liftWith = defaultLiftWith DelegationT getDelegationT
+    restoreT = defaultRestoreT DelegationT
+
+instance MonadBaseControl IO m => MonadBaseControl IO (DelegationT m) where
+    type StM (DelegationT m) a = ComposeSt DelegationT m a
+    liftBaseWith     = defaultLiftBaseWith
+    restoreM         = defaultRestoreM
+
 runDelegationT :: MonadIO m => DelegationWrap -> DelegationT m a -> m a
 runDelegationT wrap action =
     liftIO (newTVarIO wrap) >>= runReaderT (getDelegationT action)
-
---deriving instance DelegationT ssc m => DelegationT ssc (DBHolder ssc m)
-
---instance MonadTransControl (DelegationT ssc) where
---    type StT (DelegationT ssc) a = StT (ReaderT (TxpLDWrap ssc)) a
---    liftWith = defaultLiftWith DelegationT getDelegationT
---    restoreT = defaultRestoreT DelegationT
---
---instance MonadBaseControl IO m => MonadBaseControl IO (DelegationT ssc m) where
---    type StM (DelegationT ssc m) a = ComposeSt (DelegationT ssc) m a
---    liftBaseWith     = defaultLiftBaseWith
---    restoreM         = defaultRestoreM

@@ -48,10 +48,7 @@ instance showApiError :: Show ApiError where
 -- REQUESTS HELPERS
 
 decodeResult :: forall a eff. Generic a => {response :: Json | eff} -> Either Error a
-decodeResult = either (Left <<< mkJSONError) (bimap mkServerError id) <<< decodeJson <<< _.response
-  where
-    mkJSONError = error <<< show <<< JSONDecodingError
-    mkServerError = error <<< show <<< ServerError
+decodeResult res = bimap (error <<< show <<< JSONDecodingError) id $ decodeJson res.response
 
 makeRequest :: forall eff a r. (Generic a, Requestable r) => AffjaxRequest r -> URLPath -> Aff (ajax :: AJAX | eff) a
 makeRequest request urlPath = do

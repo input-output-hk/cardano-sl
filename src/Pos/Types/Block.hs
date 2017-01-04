@@ -276,13 +276,13 @@ verifyHeader VerifyHeaderParams {..} h =
     checkSlot oldSlot newSlot =
         ( oldSlot < newSlot
         , sformat
-              ("slots are not monotonic ("%build%" > "%build%")")
+              ("slots are not monotonic ("%build%" >= "%build%")")
               oldSlot newSlot
         )
     sameEpoch oldEpoch newEpoch =
         ( oldEpoch == newEpoch
         , sformat
-              ("two adjacent blocks are from different epochs ("%build%" > "%build%")")
+              ("two adjacent blocks are from different epochs ("%build%" != "%build%")")
               oldEpoch newEpoch
         )
 

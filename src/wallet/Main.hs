@@ -9,7 +9,7 @@ import           Control.Monad.Reader   (MonadReader (..), ReaderT, asks, runRea
 import           Control.TimeWarp.Rpc   (NetworkAddress)
 import           Control.TimeWarp.Timed (for, wait)
 import           Data.List              ((!!))
-import           Formatting             (build, int, sformat, (%), stext)
+import           Formatting             (build, int, sformat, stext, (%))
 import           Options.Applicative    (execParser)
 import           System.IO              (hFlush, stdout)
 import           Universum
@@ -23,7 +23,7 @@ import           Pos.Genesis            (genesisPublicKeys, genesisSecretKeys)
 import           Pos.Launcher           (BaseParams (..), LoggingParams (..),
                                          bracketDHTInstance, runTimeSlaveReal)
 import           Pos.Ssc.SscAlgo        (SscAlgo (..))
-import           Pos.Types              (EpochIndex (..), makePubKeyAddress, txaF)
+import           Pos.Types              (EpochIndex (..), coinF, makePubKeyAddress, txaF)
 import           Pos.Wallet             (WalletMode, WalletParams (..), WalletRealMode,
                                          getBalance, runWalletReal, submitTx)
 #ifdef WITH_WEB
@@ -37,7 +37,7 @@ type CmdRunner = ReaderT ([SecretKey], [NetworkAddress])
 
 evalCmd :: WalletMode ssc m => Command -> CmdRunner m ()
 evalCmd (Balance addr) = lift (getBalance addr) >>=
-                         putText . sformat ("Current balance: "%int) >>
+                         putText . sformat ("Current balance: "%coinF) >>
                          evalCommands
 evalCmd (Send idx outputs) = do
     (skeys, na) <- ask

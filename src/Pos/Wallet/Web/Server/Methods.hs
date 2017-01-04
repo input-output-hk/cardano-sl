@@ -30,9 +30,9 @@ import           Pos.Aeson.ClientTypes      ()
 import           Pos.Crypto                 (toPublic)
 import           Pos.Crypto                 (hash)
 import           Pos.DHT.Model              (dhtAddr, getKnownPeers)
-import           Pos.Types                  (Address, Coin (Coin), Tx, TxId, TxOut (..),
+import           Pos.Types                  (Address, Coin, Tx, TxId, TxOut (..),
                                              addressF, coinF, decodeTextAddress,
-                                             makePubKeyAddress)
+                                             makePubKeyAddress, mkCoin)
 import           Pos.Web.Server             (serveImpl)
 
 import           Control.Monad.Catch        (try)
@@ -51,6 +51,7 @@ import           Pos.Wallet.Web.State       (MonadWalletWebDB (..), WalletWebDB,
                                              getTxMeta, getWalletHistory, getWalletMeta,
                                              openState, removeWallet, runWalletWebDB,
                                              setWalletMeta, setWalletTransactionMeta)
+import           Pos.Web.Server             (serveImpl)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -229,7 +230,8 @@ getAddrIdx addr = elemIndex addr <$> myAddresses >>= maybe notFound pure
 -- Orphan instances
 ----------------------------------------------------------------------------
 
-deriving instance FromHttpApiData Coin
+instance FromHttpApiData Coin where
+    parseUrlPiece = fmap mkCoin . parseUrlPiece
 
 instance FromHttpApiData Address where
     parseUrlPiece = decodeTextAddress

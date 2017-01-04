@@ -13,7 +13,7 @@ import           Text.Parsec.Text (Parser)
 import           Universum        hiding (show)
 
 import           Pos.Crypto       (PublicKey, parseFullPublicKey)
-import           Pos.Types        (Address (..), TxOut (..))
+import           Pos.Types        (Address (..), TxOut (..), mkCoin)
 
 data Command
     = Balance Address
@@ -42,7 +42,7 @@ num :: Num a => Parser a
 num = lexeme $ fromInteger . read <$> many1 digit
 
 txout :: Parser TxOut
-txout = TxOut <$> address <*> num
+txout = TxOut <$> address <*> (mkCoin <$> num)
 
 balance :: Parser Command
 balance = Balance <$> address

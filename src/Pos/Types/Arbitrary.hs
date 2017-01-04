@@ -21,8 +21,8 @@ import           Data.Text                  (pack)
 import           Data.Time.Units            (Microsecond, fromMicroseconds)
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (..),
-                                             NonZero (..), choose, elements, oneof,
-                                             vector)
+                                             NonZero (..), choose, choose, elements,
+                                             oneof, vector)
 import           Test.QuickCheck.Instances  ()
 import           Universum
 
@@ -39,14 +39,15 @@ import           Pos.Script                 (Script)
 import           Pos.Script.Examples        (badIntRedeemer, goodIntRedeemer,
                                              intValidator)
 import           Pos.Types.Arbitrary.Unsafe ()
+import           Pos.Types.Coin             (unsafeAddCoin, unsafeSubCoin)
 import           Pos.Types.Timestamp        (Timestamp (..))
-import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
-                                             Coin (..), EpochIndex (..),
-                                             LocalSlotIndex (..), SharedSeed (..),
-                                             SlotId (..), Tx (..), TxDistribution (..),
-                                             TxIn (..), TxInWitness (..), TxOut (..),
-                                             TxOutAux, makePubKeyAddress,
-                                             makeScriptAddress)
+import           Pos.Types.Types            (Address (..), ChainDifficulty (..), Coin,
+                                             EpochIndex (..), LocalSlotIndex (..),
+                                             SharedSeed (..), SlotId (..), Tx (..),
+                                             TxDistribution (..), TxIn (..),
+                                             TxInWitness (..), TxOut (..), TxOutAux,
+                                             coinToInteger, makePubKeyAddress,
+                                             makeScriptAddress, mkCoin)
 import           Pos.Types.Update           (SystemTag, UpdateData (..),
                                              UpdateProposal (..), UpdateVote (..),
                                              mkSystemTag)
@@ -74,7 +75,7 @@ derive makeArbitrary ''SlotId
 derive makeArbitrary ''TxOut
 
 instance Arbitrary Coin where
-    arbitrary = Coin . getNonZero <$> (arbitrary :: Gen (NonZero Word64))
+    arbitrary = mkCoin . getNonZero <$> (arbitrary :: Gen (NonZero Word64))
 
 maxReasonableEpoch :: Integral a => a
 maxReasonableEpoch = 5 * 1000 * 1000 * 1000 * 1000  -- 5 * 10^12, because why not
@@ -183,8 +184,10 @@ instance Arbitrary OverflowTx where
     arbitrary = OverflowTx <$> do
         txsList <- getNonEmpty <$>
             (arbitrary :: Gen (NonEmptyList (Tx, SecretKey, SecretKey, Coin)))
-        let halfBound = maxBound `div` 2
-        buildProperTx txsList ((halfBound +), (halfBound -))
+        let halfBound = mkCoin . fromInteger $
+                        coinToInteger (maxBound @Coin) `div` 2
+        buildProperTx txsList (unsafeAddCoin halfBound,
+                               unsafeSubCoin halfBound)
 
 instance Arbitrary SmallOverflowTx where
     arbitrary = SmallOverflowTx <$> makeSmall arbitrary
@@ -209,7 +212,7 @@ instance Arbitrary SmallBadSigsTx where
 
 instance Arbitrary SharedSeed where
     arbitrary = do
-        bs <- vector sharedSeedLength
+        bs <- replicateM sharedSeedLength (choose (0, 255))
         return $ SharedSeed $ BS.pack bs
 
 ----------------------------------------------------------------------------

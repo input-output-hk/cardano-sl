@@ -11,11 +11,12 @@ import qualified Data.Text                     as T
 import           Formatting                    (int, sformat, (%))
 import           Universum
 
-import           Pos.Constants                 (genesisN)
+import           Pos.Constants                 (genesisN, vssMaxTTL)
 import           Pos.Crypto                    (VssKeyPair, VssPublicKey,
                                                 deterministicVssKeyGen, toVssPublicKey)
 import           Pos.Genesis                   (genesisKeyPairs)
 import           Pos.Ssc.GodTossing.Types.Base (VssCertificatesMap, mkVssCertificate)
+import           Pos.Types                     (EpochIndex (..))
 import           Pos.Types.Address             (addressHash)
 import           Pos.Util                      (asBinary)
 
@@ -39,6 +40,6 @@ genesisCertificates :: VssCertificatesMap
 genesisCertificates =
     HM.fromList $
     zipWith
-        (\(pk, sk) vssPk -> (addressHash pk, mkVssCertificate sk $ asBinary vssPk))
+        (\(pk, sk) vssPk -> (addressHash pk, mkVssCertificate sk (asBinary vssPk) $ EpochIndex (vssMaxTTL - 1)))
         genesisKeyPairs
         genesisVssPublicKeys

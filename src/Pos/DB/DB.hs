@@ -27,7 +27,8 @@ import           Pos.Eligibility              (findRichmenPure)
 import           Pos.Genesis                  (genesisLeaders)
 import           Pos.Ssc.Class.Types          (Ssc)
 import           Pos.Types                    (Block, BlockHeader, Undo, Utxo,
-                                               getBlockHeader, headerHash, mkGenesisBlock)
+                                               getBlockHeader, headerHash, mkCoin,
+                                               mkGenesisBlock)
 
 -- | Open all DBs stored on disk.
 openNodeDBs
@@ -50,7 +51,7 @@ openNodeDBs recreate fp customUtxo = do
   where
     leaders0 = genesisLeaders customUtxo
     -- [CSL-93] Use eligibility threshold here
-    richmen0 = findRichmenPure customUtxo 0
+    richmen0 = findRichmenPure customUtxo (mkCoin 0)
     ensureDirectoryExists
         :: MonadIO m
         => FilePath -> m ()

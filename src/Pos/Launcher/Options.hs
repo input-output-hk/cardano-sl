@@ -8,6 +8,7 @@ import           Data.Default (def)
 import           Universum
 
 import           Pos.Genesis  (StakeDistribution (..))
+import           Pos.Types    (mkCoin)
 
 type DistrOption = Maybe (Int, Int)
 
@@ -16,6 +17,6 @@ stakesDistr Nothing Nothing = def
 stakesDistr (Just _) (Just _) =
     panic "flat-distr and bitcoin distr are conflicting options"
 stakesDistr (Just (nodes, coins)) Nothing =
-    FlatStakes (fromIntegral nodes) (fromIntegral coins)
+    FlatStakes (fromIntegral nodes) (mkCoin (fromIntegral coins))
 stakesDistr Nothing (Just (nodes, coins)) =
-    BitcoinStakes (fromIntegral nodes) (fromIntegral coins)
+    BitcoinStakes (fromIntegral nodes) (mkCoin (fromIntegral coins))

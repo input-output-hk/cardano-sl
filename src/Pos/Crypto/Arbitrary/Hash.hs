@@ -9,7 +9,7 @@
 
 module Pos.Crypto.Arbitrary.Hash () where
 
-import           Test.QuickCheck           (Arbitrary (..))
+import           Test.QuickCheck           (Arbitrary (..), choose)
 import           Test.QuickCheck.Instances ()
 import           Universum
 
@@ -20,7 +20,7 @@ import           Pos.Util.Arbitrary        (ArbitraryUnsafe)
 
 instance (HashAlgorithm algo, Bi a) =>
          Arbitrary (AbstractHash algo a) where
-    arbitrary = unsafeAbstractHash <$> (arbitrary @Int64)
+    arbitrary = unsafeAbstractHash <$> choose (minBound, maxBound :: Word64)
 
 instance (HashAlgorithm algo, Bi a) =>
          ArbitraryUnsafe (AbstractHash algo a)

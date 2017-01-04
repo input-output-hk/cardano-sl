@@ -10,8 +10,11 @@
 
 module Pos.Types.Types
        (
-         Coin (..)
+         Coin
        , coinF
+       , mkCoin
+       , sumCoins
+       , coinToInteger
 
        , EpochIndex (..)
        , FlatSlotId
@@ -171,7 +174,7 @@ import           Pos.Types.Address      (Address (..), StakeholderId, addressF,
                                          checkPubKeyAddress, checkScriptAddress,
                                          decodeTextAddress, makePubKeyAddress,
                                          makeScriptAddress)
-import           Pos.Types.Coin         (Coin (..), coinF)
+import           Pos.Types.Coin         (Coin, coinF, coinToInteger, mkCoin, sumCoins)
 import           Pos.Types.Update       (UpdateProposal, UpdateVote)
 import           Pos.Types.Version      (ProtocolVersion, SoftwareVersion)
 import           Pos.Util               (Color (Magenta), colorize)

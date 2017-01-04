@@ -28,25 +28,27 @@ module Pos.Ssc.GodTossing.Types.Types
        , SscBi
        ) where
 
-import           Control.Concurrent.STM        (newTVarIO)
-import qualified Control.Concurrent.STM        as STM
-import           Control.Lens                  (makeLenses)
-import           Data.Default                  (Default, def)
-import qualified Data.HashMap.Strict           as HM
-import           Data.SafeCopy                 (base, deriveSafeCopySimple)
-import qualified Data.Text                     as T
-import           Data.Text.Buildable           (Buildable (..))
-import           Data.Text.Lazy.Builder        (Builder, fromText)
-import           Formatting                    (bprint, sformat, (%))
-import           Serokell.Util                 (listJson)
+import           Control.Concurrent.STM         (newTVarIO)
+import qualified Control.Concurrent.STM         as STM
+import           Control.Lens                   (makeLenses)
+import           Data.Default                   (Default, def)
+import qualified Data.HashMap.Strict            as HM
+import           Data.SafeCopy                  (base, deriveSafeCopySimple)
+import qualified Data.Text                      as T
+import           Data.Text.Buildable            (Buildable (..))
+import           Data.Text.Lazy.Builder         (Builder, fromText)
+import           Formatting                     (bprint, sformat, (%))
+import           Serokell.Util                  (listJson)
 import           Universum
 
-import           Pos.Binary.Class              (Bi)
-import           Pos.Crypto                    (Hash, VssKeyPair, hash)
-import           Pos.Ssc.GodTossing.Genesis    (genesisCertificates)
-import           Pos.Ssc.GodTossing.Types.Base (Commitment, CommitmentsMap, Opening,
-                                                OpeningsMap, SharesMap, VssCertificate,
-                                                VssCertificatesMap)
+import           Pos.Binary.Class               (Bi)
+import           Pos.Crypto                     (Hash, VssKeyPair, hash)
+import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
+import           Pos.Ssc.GodTossing.Types.Base  (Commitment, CommitmentsMap, Opening,
+                                                 OpeningsMap, SharesMap, VssCertificate,
+                                                 VssCertificatesMap)
+import           Pos.Ssc.GodTossing.VssCertData (VssCertData)
+import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 
 ----------------------------------------------------------------------------
 -- SscGlobalState
@@ -62,11 +64,21 @@ data GtGlobalState = GtGlobalState
     , _gsShares          :: !SharesMap
       -- | Vss certificates are added at any time if they are valid and
       -- received from stakeholders.
-    , _gsVssCertificates :: !VssCertificatesMap
+    , _gsVssCertificates :: !VssCertData
     } deriving (Eq, Show, Generic)
 
 deriveSafeCopySimple 0 'base ''GtGlobalState
 makeLenses ''GtGlobalState
+
+instance Default GtGlobalState where
+    def =
+        GtGlobalState
+        {
+          _gsCommitments = mempty
+        , _gsOpenings = mempty
+        , _gsShares = mempty
+        , _gsVssCertificates = VCD.empty
+        }
 
 instance Buildable GtGlobalState where
     build GtGlobalState {..} =
@@ -99,17 +111,7 @@ instance Buildable GtGlobalState where
         formatCertificates =
             formatIfNotNull
                 ("  certificates from: "%listJson%"\n")
-                (HM.keys _gsVssCertificates)
-
-instance Default GtGlobalState where
-    def =
-        GtGlobalState
-        {
-          _gsCommitments = mempty
-        , _gsOpenings = mempty
-        , _gsShares = mempty
-        , _gsVssCertificates = mempty
-        }
+                (VCD.keys _gsVssCertificates)
 
 ----------------------------------------------------------------------------
 -- SscPayload

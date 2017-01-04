@@ -40,8 +40,8 @@ import           Data.Time.Clock.POSIX (POSIXTime)
 import           Formatting            (build, sformat)
 import           Pos.Aeson.Types       ()
 import           Pos.Types             (Address (..), Coin, Tx, TxId, decodeTextAddress,
-                                        txOutAddress, txOutValue, txOutputs)
-
+                                        sumCoins, txOutAddress, txOutValue, txOutputs)
+import           Pos.Types.Coin        (unsafeIntegerToCoin)
 
 -- | currencies handled by client
 -- Note: Cardano does not deal with other currency than ADA yet
@@ -81,7 +81,7 @@ txIdToCTxId = mkCTxId . sformat build
 mkCTx :: Address -> (TxId, Tx, Bool) -> CTxMeta -> CTx
 mkCTx addr (txId, tx, isOutgoing) = CTx (txIdToCTxId txId) outputCoins . meta
   where
-    outputCoins = sum . map txOutValue $
+    outputCoins = unsafeIntegerToCoin . sumCoins . map txOutValue $
         filter ((/= addr) . txOutAddress) $ txOutputs tx
     meta = if isOutgoing then CTOut else CTIn
 

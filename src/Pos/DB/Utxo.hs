@@ -33,7 +33,8 @@ import           Pos.DB.Functions  (rocksDelete, rocksGetBi, rocksPutBi, rocksWr
                                     traverseAllEntries)
 import           Pos.DB.Types      (DB)
 import           Pos.Types         (Address, Coin, HeaderHash, StakeholderId, TxIn (..),
-                                    TxOutAux, Utxo, belongsTo, txOutStake)
+                                    TxOutAux, Utxo, belongsTo, sumCoins, txOutStake)
+import           Pos.Types.Coin    (unsafeIntegerToCoin)
 import           Pos.Util          (maybeThrow)
 
 data BatchOp ssc
@@ -91,14 +92,16 @@ prepareUtxoDB customUtxo initialTip = do
     putIfEmpty getFtsSumMaybe putFtsStakes
     putIfEmpty getFtsSumMaybe putGenesisSum
   where
-    totalCoins = sum $ map snd $ concatMap txOutStake $ toList customUtxo
+    totalCoins = sumCoins $ map snd $ concatMap txOutStake $ toList customUtxo
     putIfEmpty
         :: forall a.
            (m (Maybe a)) -> m () -> m ()
     putIfEmpty getter putter = maybe putter (const pass) =<< getter
     putGenesisTip = putTip initialTip
     putGenesisBot = putBot initialTip
-    putGenesisSum = putTotalFtsStake totalCoins
+    -- Will 'panic' if the result doesn't fit into Word64 (which should never
+    -- happen)
+    putGenesisSum = putTotalFtsStake (unsafeIntegerToCoin totalCoins)
     putGenesisUtxo = putGenUtxo customUtxo
     putUtxo = mapM_ putTxOut' $ M.toList customUtxo
     putTxOut' ((txid, id), txout) = putTxOut (TxIn txid id) txout

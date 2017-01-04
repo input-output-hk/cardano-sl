@@ -29,9 +29,10 @@ instance Bi Commitment where
 instance Bi VssCertificate where
     put VssCertificate{..} = do
         put vcVssKey
+        put vcExpiryEpoch
         put vcSignature
         put vcSigningKey
-    get = liftM3 VssCertificate get get get
+    get = liftM4 VssCertificate get get get get
 
 instance Bi Opening where
     put (Opening secret) = put secret

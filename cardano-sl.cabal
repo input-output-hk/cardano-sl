@@ -224,6 +224,7 @@ library
                         Pos.Worker.Lrc
                         Pos.Worker.Stats
                         Pos.Update
+                        Pos.Update.Download
                         Pos.Util.Arbitrary
                         Pos.Util.Iterator
                         Pos.Util.NotImplemented

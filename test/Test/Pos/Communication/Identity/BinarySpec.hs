@@ -8,6 +8,7 @@ import           Test.Hspec        (Spec, describe)
 import           Universum
 
 import qualified Pos.Communication as C
+import qualified Pos.Delegation    as D
 
 import           Test.Pos.Util     (binaryTest)
 
@@ -16,7 +17,7 @@ spec = describe "Communication" $ do
     describe "Bi instances" $ do
         binaryTest @C.SysStartRequest
         binaryTest @C.SysStartResponse
-        binaryTest @C.SendProxySK
-        binaryTest @C.ConfirmProxySK
-        binaryTest @C.CheckProxySKConfirmed
-        binaryTest @C.CheckProxySKConfirmedRes
+        binaryTest @D.SendProxySK
+        binaryTest @D.ConfirmProxySK
+        binaryTest @D.CheckProxySKConfirmed
+        binaryTest @D.CheckProxySKConfirmedRes

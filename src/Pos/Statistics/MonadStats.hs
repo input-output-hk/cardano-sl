@@ -38,6 +38,7 @@ import           Universum
 
 import           Pos.Context.Class           (WithNodeContext)
 import qualified Pos.DB                      as Modern
+import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.DHT.Model               (DHTResponseT, MonadDHT,
                                               MonadMessageDHT (..), WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
@@ -74,6 +75,7 @@ instance MonadStats m => MonadStats (DHTResponseT s m)
 type instance ThreadId (NoStatsT m) = ThreadId m
 type instance ThreadId (StatsT m) = ThreadId m
 
+
 -- | Stats wrapper for collecting statistics without collecting it.
 newtype NoStatsT m a = NoStatsT
     { getNoStatsT :: m a  -- ^ action inside wrapper without collecting statistics
@@ -83,7 +85,7 @@ newtype NoStatsT m a = NoStatsT
                 WithDefaultMsgHeader, MonadJL, CanLog,
                 MonadUtxoRead, MonadUtxo, Modern.MonadDB ssc,
                 MonadTxpLD ssc, MonadSscGS ssc, MonadSscLD ssc,
-                WithNodeContext ssc)
+                WithNodeContext ssc, MonadDelegation)
 
 instance Monad m => WrappedM (NoStatsT m) where
     type UnwrappedM (NoStatsT m) = m
@@ -103,7 +105,6 @@ instance MonadBaseControl IO m => MonadBaseControl IO (NoStatsT m) where
     restoreM         = defaultRestoreM
 
 instance MonadTransfer s m => MonadTransfer s (NoStatsT m)
-
 instance MonadResponse s m => MonadResponse s (NoStatsT m) where
     replyRaw dat = NoStatsT $ replyRaw (hoist getNoStatsT dat)
     closeR = lift closeR
@@ -119,6 +120,7 @@ instance Monad m => MonadStats (NoStatsT m) where
 
 type StatsMap = SM.Map Text LByteString
 
+
 -- | Statistics wrapper around some monadic action to collect statistics
 -- during execution of this action. Used in benchmarks.
 newtype StatsT m a = StatsT
@@ -128,7 +130,7 @@ newtype StatsT m a = StatsT
                 MonadDialog s p, MonadDHT, MonadMessageDHT s, MonadSlots,
                 WithDefaultMsgHeader, MonadTrans, MonadJL, CanLog,
                 MonadUtxoRead, MonadUtxo, Modern.MonadDB ssc, MonadTxpLD ssc,
-                MonadSscGS ssc, MonadSscLD ssc, WithNodeContext ssc)
+                MonadSscGS ssc, MonadSscLD ssc, WithNodeContext ssc, MonadDelegation)
 
 instance Monad m => WrappedM (StatsT m) where
     type UnwrappedM (StatsT m) = ReaderT StatsMap m

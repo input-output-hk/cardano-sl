@@ -12,7 +12,7 @@ module Pos.Communication.Methods
        , sendProxyConfirmSK
        ) where
 
-import           Control.TimeWarp.Rpc     (Message, NetworkAddress)
+import           Control.TimeWarp.Rpc     (Message)
 import           Control.TimeWarp.Timed   (fork_)
 import           Formatting               (build, sformat, (%))
 import           System.Wlog              (logDebug)
@@ -21,13 +21,12 @@ import           Universum
 import           Pos.Binary.Class         (Bi)
 import           Pos.Binary.Communication ()
 import           Pos.Binary.Types         ()
-import           Pos.Communication.Types  (ConfirmProxySK (..), SendProxySK (..))
 import           Pos.Context              (getNodeContext, ncAttackTypes)
-import           Pos.Crypto               (ProxySecretKey, hash)
-import           Pos.DHT.Model            (MonadMessageDHT, defaultSendToNeighbors,
-                                           sendToNeighbors, sendToNode)
+import           Pos.Delegation.Types     (ConfirmProxySK (..), SendProxySK (..))
+import           Pos.DHT.Model            (defaultSendToNeighbors, sendToNeighbors,
+                                           sendToNode)
 import           Pos.Security             (AttackType (..), shouldIgnoreAddress)
-import           Pos.Types                (EpochIndex)
+import           Pos.Types                (ProxySKEpoch)
 import           Pos.Util                 (logWarningWaitLinear, messageName')
 import           Pos.WorkMode             (MinWorkMode, WorkMode)
 
@@ -65,12 +64,10 @@ sendToNeighborsSafeWithMaliciousEmulation msg = do
             sendToNode addr message
 
 -- | Sends proxy secret key to neighbours
-sendProxySecretKey
-    :: (MinWorkMode ss m)
-    => ProxySecretKey (EpochIndex, EpochIndex) -> m ()
+sendProxySecretKey :: (MinWorkMode ss m) => ProxySKEpoch -> m ()
 sendProxySecretKey psk = do
     logDebug $ sformat ("Sending proxySecretKey to neigbours:\n"%build) psk
-    sendToNeighborsSafe $ SendProxySK psk
+    sendToNeighborsSafe $ SendProxySKEpoch psk
 
 sendProxyConfirmSK :: (MinWorkMode ss m) => ConfirmProxySK -> m ()
 sendProxyConfirmSK confirmPSK@(ConfirmProxySK psk _) = do

@@ -46,6 +46,7 @@ library
                         Pos.Crypto
                         Pos.DB
                         Pos.Data.Attributes
+                        Pos.Delegation
                         Pos.DHT
                         Pos.DHT.Model
                         Pos.DHT.Model.Types
@@ -111,7 +112,6 @@ library
                         Pos.Wallet.Web.ClientTypes
   other-modules:        Pos.Aeson.CompileConfig
                         Pos.Binary.Address
-                        Pos.Binary.Block.Network
                         Pos.Binary.Class
                         Pos.Binary.Coin
                         Pos.Binary.Crypto
@@ -139,12 +139,10 @@ library
                         Pos.Communication.Methods
                         Pos.Communication.RelayMethods
                         Pos.Communication.Types
-                        Pos.Communication.Types.Delegation
                         Pos.Communication.Types.Protocol
                         Pos.Communication.Types.State
                         Pos.Communication.Types.SysStart
                         Pos.Communication.Server
-                        Pos.Communication.Server.Delegation
                         Pos.Communication.Server.Protocol
                         Pos.Communication.Server.SysStart
                         Pos.Communication.Util
@@ -161,6 +159,10 @@ library
                         Pos.Crypto.Random
                         Pos.Crypto.SecretSharing
                         Pos.Crypto.Signing
+                        Pos.Delegation.Class
+                        Pos.Delegation.Types
+                        Pos.Delegation.Listeners
+                        Pos.Delegation.Logic
                         Pos.Launcher.Launcher
                         Pos.Launcher.Options
                         Pos.Launcher.Param

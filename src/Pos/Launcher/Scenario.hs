@@ -71,9 +71,3 @@ initLrc = do
     when (siSlot < k && siEpoch == epochIndex) $ do
         putLeaders leaders
         putRichmen richmen
-
--- initSsc :: WorkMode ssc m => m ()
--- initSsc = do
---     tip <- getTip
---     gs <- sscLoadGlobalState tip
---     setGlobalState gs

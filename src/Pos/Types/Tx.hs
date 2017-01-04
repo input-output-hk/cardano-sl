@@ -27,9 +27,10 @@ import           Pos.Binary.Types     ()
 import           Pos.Crypto           (Hash, WithHash (..), checkSig, hash)
 import           Pos.Script           (Script (..), isKnownScriptVersion, txScriptCheck)
 import           Pos.Types.Address    (addressDetailedF)
-import           Pos.Types.Types      (coinToInteger, sumCoins, mkCoin, Address (..), Tx (..), TxAux, TxDistribution (..),
+import           Pos.Types.Types      (StakeholderId, coinToInteger, sumCoins, mkCoin, Address (..), Tx (..), TxAux, TxDistribution (..),
                                        TxIn (..), TxInWitness (..), TxOut (..), TxOutAux,
                                        checkPubKeyAddress, checkScriptAddress, coinF)
+import           Pos.Util             (allDistinct)
 
 ----------------------------------------------------------------------------
 -- Verification
@@ -148,6 +149,14 @@ verifyTxDo verifyAlone gContext extendedInputs (tx@Tx{..}, witnesses, distrs) =
                              sformat ("output #"%int%" has distribution "%
                                       "sum("%int%") > txOutValue("%coinF%")")
                                      i sumDist txOutValue)
+                          , (allDistinct (map fst d :: [StakeholderId]),
+                             sformat ("output #"%int%"'s distribution "%
+                                      "has duplicated addresses")
+                                     i)
+                          , (all (> mkCoin 0) (map snd d),
+                             sformat ("output #"%int%"'s distribution "%
+                                      "assigns 0 coins to some addresses")
+                                     i)
                           ]
     verifySum =
         let resInps = length resolvedInputs

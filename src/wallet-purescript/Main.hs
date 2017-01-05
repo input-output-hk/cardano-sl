@@ -32,6 +32,7 @@ main =
       , mkSumType (Proxy @CT.CHash)
       , mkSumType (Proxy @CT.CTxId)
       , mkSumType (Proxy @CT.CTx)
+      , mkSumType (Proxy @CT.NotifyEvent)
       , mkSumType (Proxy @PT.Coin)
       ]
   where

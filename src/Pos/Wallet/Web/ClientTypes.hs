@@ -43,6 +43,10 @@ import           Pos.Types             (Address (..), Coin, Tx, TxId, decodeText
                                         sumCoins, txOutAddress, txOutValue, txOutputs)
 import           Pos.Types.Coin        (unsafeIntegerToCoin)
 
+-- Notifications
+data NotifyEvent = Test
+    deriving (Show, Generic)
+
 -- | currencies handled by client
 -- Note: Cardano does not deal with other currency than ADA yet
 data CCurrency

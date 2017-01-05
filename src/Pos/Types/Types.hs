@@ -140,6 +140,12 @@ module Pos.Types.Types
        , mcdLeaderKey
        , mcdDifficulty
        , mcdSignature
+       , mehProtocolVersion
+       , mehSoftwareVersion
+       , mehAttributes
+       , mebAttributes
+       , mebUpdate
+       , mebUpdateVotes
        ) where
 
 import           Control.Exception      (assert)
@@ -847,6 +853,9 @@ type NEBlocks ssc = NonEmpty (Block ssc)
 
 makeLenses ''GenericBlockHeader
 makeLenses ''GenericBlock
+
+makeLenses ''MainExtraHeaderData
+makeLenses ''MainExtraBodyData
 
 -- !!! Create issue about this on lens github or give link on existing issue !!!
 -- 'makeLensesData' doesn't work with types with parameters. I don't

@@ -12,14 +12,14 @@ import           Universum
 import           Pos.Types            (NEBlocks)
 import           Pos.WorkMode         (WorkMode)
 
--- | Apply chain of /definitely/ valid blocks to US part of ChainState
+-- | Apply chain of /definitely/ valid blocks to US part of GState
 -- DB and to US local data. Head must be the __oldest__ block.
 --
 -- FIXME: return Batch.
 usApplyBlocks :: WorkMode ssc m => NEBlocks ssc -> m ()
 usApplyBlocks _ = pass
 
--- | Revert application of given blocks to US part of ChainState DB
+-- | Revert application of given blocks to US part of GState DB
 -- and US local data. Head must be the __youngest__ block. Caller must
 -- ensure that tip stored in DB is 'headerHash' of head.
 --
@@ -28,7 +28,7 @@ usRollbackBlocks :: WorkMode ssc m => NEBlocks ssc -> m ()
 usRollbackBlocks _ = pass
 
 -- | Verify whether sequence of blocks can be applied to US part of
--- current ChainState DB.  This function doesn't make pure checks,
+-- current GState DB.  This function doesn't make pure checks,
 -- they are assumed to be done earlier.
 usVerifyBlocks :: WorkMode ssc m => NEBlocks ssc -> m VerificationRes
 usVerifyBlocks _ = pure mempty

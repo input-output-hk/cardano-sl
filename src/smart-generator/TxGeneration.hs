@@ -22,8 +22,8 @@ import           Pos.Constants                 (k, slotDuration)
 import           Pos.Crypto                    (SecretKey, hash, toPublic, unsafeHash)
 import           Pos.DB                        (getTxOut)
 import           Pos.Genesis                   (genesisAddresses, genesisSecretKeys)
-import           Pos.Types                     (Tx (..), TxAux, TxId, TxIn (..),
-                                                TxOut (..), makePubKeyAddress, mkCoin)
+import           Pos.Types                     (Tx (..), TxAux, TxId, TxOut (..),
+                                                makePubKeyAddress, mkCoin)
 import           Pos.Wallet                    (makePubKeyTx)
 import           Pos.WorkMode                  (WorkMode)
 
@@ -93,11 +93,7 @@ peekTx :: BambooPool -> IO TxAux
 peekTx bp = curBambooTx bp 0
 
 isTxVerified :: (WorkMode ssc m) => Tx -> m Bool
-isTxVerified tx = do
-    let txHash = hash tx
-        txOutputsAsInputs =
-            map (\i -> TxIn txHash (fromIntegral i)) $ [0..length (txOutputs tx) - 1]
-    and <$> mapM (fmap isJust . getTxOut) txOutputsAsInputs
+isTxVerified tx = allM (fmap isJust . getTxOut) (txInputs tx)
 
 nextValidTx
     :: WorkMode ssc m

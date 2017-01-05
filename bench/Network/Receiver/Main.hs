@@ -26,7 +26,7 @@ import Message.Message            (BinaryP (..))
 import Network.Transport.Abstract (newEndPoint)
 import Network.Transport.Concrete (concrete)
 import Node                       (Listener (..), ListenerAction (..), sendTo,
-                                   node)
+                                   node, NodeAction(..))
 import ReceiverOptions            (Args (..), argsParser)
 
 instance Mockable Catch (LoggerNameBox IO) where
@@ -52,8 +52,9 @@ main = do
     let prng = mkStdGen 0
 
     usingLoggerName "receiver" $ do
-        node transport prng BinaryP (\_ -> [Listener "ping" $ pingListener noPong]) $ \nodeId sactions -> do
-            threadDelay (fromIntegral duration :: Second)
+        node transport prng BinaryP $ \node ->
+            pure $ NodeAction [Listener "ping" $ pingListener noPong] $ \sactions -> do
+                threadDelay (fromIntegral duration :: Second)
   where
     pingListener noPong =
         -- TODO: `ListenerActionConversation` is not supported in such context

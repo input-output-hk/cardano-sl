@@ -18,6 +18,7 @@ module Node (
 
       Node(..)
     , nodeEndPointAddress
+    , NodeAction(..)
     , node
 
     , MessageName
@@ -182,6 +183,8 @@ nodeConversationActions node nodeId packing inchan outchan msgName =
             NoParse -> error "Unexpected end of conversation input"
             Input t -> pure (Just t)
 
+data NodeAction packing m t = NodeAction [Listener packing m] (SendActions packing m -> m t)
+
 -- | Spin up a node. You must give a function to create listeners given the
 --   'NodeId', and an action to do given the 'NodeId' and sending actions.
 --   The node will stop and clean up once that action has completed. If at
@@ -198,15 +201,14 @@ node
     => NT.Transport m
     -> StdGen
     -> packing
-    -> (Node m -> [Listener packing m])
-    -> (Node m -> SendActions packing m -> m t)
+    -> (Node m -> m (NodeAction packing m t))
     -> m t
-node transport prng packing mkListeners k = do
+node transport prng packing k = do
     rec { llnode <- LL.startNode transport prng (handlerIn listenerIndex sendActions) (handlerInOut llnode listenerIndex)
         ; let nId = LL.nodeId llnode
         ; let endPoint = LL.nodeEndPoint llnode
         ; let node = Node nId endPoint
-        ; let listeners = mkListeners node
+        ; NodeAction listeners act <- k node
           -- Index the listeners by message name, for faster lookup.
           -- TODO: report conflicting names, or statically eliminate them using
           -- DataKinds and TypeFamilies.
@@ -214,7 +216,7 @@ node transport prng packing mkListeners k = do
               (listenerIndex, conflictingNames) = makeListenerIndex listeners
         ; let sendActions = nodeSendActions llnode packing
         }
-    k node sendActions `finally` LL.stopNode llnode
+    act sendActions `finally` LL.stopNode llnode
   where
     -- Handle incoming data from unidirectional connections: try to read the
     -- message name, use it to determine a listener, parse the body, then

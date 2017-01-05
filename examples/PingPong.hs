@@ -79,13 +79,15 @@ main = runProduction $ do
     let prng4 = mkStdGen 3
 
     liftIO . putStrLn $ "Starting nodes"
-    node transport prng1 BinaryP (listeners . nodeId) $ \node1 sactions1 ->
-        node transport prng2 BinaryP (listeners . nodeId) $ \node2 sactions2 -> do
-            tid1 <- fork $ worker (nodeId node1) prng3 [nodeId node2] sactions1
-            tid2 <- fork $ worker (nodeId node2) prng4 [nodeId node1] sactions2
-            liftIO . putStrLn $ "Hit return to stop"
-            _ <- liftIO getChar
-            killThread tid1
-            killThread tid2
-            liftIO . putStrLn $ "Stopping nodes"
+    node transport prng1 BinaryP $ \node1 ->
+        pure $ NodeAction (listeners . nodeId $ node1) $ \sactions1 ->
+        node transport prng2 BinaryP $ \node2 ->
+        pure $ NodeAction (listeners . nodeId $ node2) $ \sactions2 -> do
+        tid1 <- fork $ worker (nodeId node1) prng3 [nodeId node2] sactions1
+        tid2 <- fork $ worker (nodeId node2) prng4 [nodeId node1] sactions2
+        liftIO . putStrLn $ "Hit return to stop"
+        _ <- liftIO getChar
+        killThread tid1
+        killThread tid2
+        liftIO . putStrLn $ "Stopping nodes"
     liftIO . putStrLn $ "All done."

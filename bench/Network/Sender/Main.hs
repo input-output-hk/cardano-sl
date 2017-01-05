@@ -29,7 +29,7 @@ import           Mockable.Exception         (Catch (..))
 import qualified Network.Transport.Abstract as NT
 import           Network.Transport.Concrete (concrete)
 import           Node                       (Listener (..), ListenerAction (..), sendTo,
-                                             node, nodeEndPoint)
+                                             node, nodeEndPoint, NodeAction(..))
 import           Node.Internal              (NodeId (..))
 
 import           Bench.Network.Commons      (MeasureEvent (..), Payload (..), Ping (..),
@@ -83,12 +83,13 @@ main = do
         let pingWorkers = liftA2 (pingSender prngWork payloadBound startTime msgRate)
                                  tasksIds
                                  (zip [0, msgNum..] nodeIds)
-        node transport prngNode BinaryP (\_ -> [Listener "pong" pongListener]) $ \node sactions -> do
-            let endPoint = nodeEndPoint node
-            drones <- forM nodeIds (startDrone endPoint)
-            _ <- forM pingWorkers (fork . flip ($) sactions)
-            threadDelay (fromIntegral duration :: Second)
-            forM_ drones stopDrone
+        node transport prngNode BinaryP $ \node ->
+            pure $ NodeAction [Listener "pong" pongListener] $ \sactions -> do
+                let endPoint = nodeEndPoint node
+                drones <- forM nodeIds (startDrone endPoint)
+                _ <- forM pingWorkers (fork . flip ($) sactions)
+                threadDelay (fromIntegral duration :: Second)
+                forM_ drones stopDrone
   where
     pongListener = ListenerActionOneMsg $ \_ _ (Pong mid payload) ->
         logMeasure PongReceived mid payload

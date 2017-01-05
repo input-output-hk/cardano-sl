@@ -9,12 +9,12 @@ module Pos.Update.State.Global
        , HasGlobalState (globalState)
        ) where
 
-import           Control.Lens (makeClassy)
+import           Control.Lens (makeClassy, makeLenses)
 import           Data.Default (Default (def))
 import           Universum
 
 import           Pos.Crypto   (PublicKey)
-import           Pos.Types    (SoftwareVersion)
+import           Pos.Types    (SlotId, SoftwareVersion, UpdateProposal)
 
 -- | This type represents summary of votes issued by stakeholder.
 data VoteState
@@ -23,9 +23,21 @@ data VoteState
     | PositiveRevote  -- ^ Stakeholder voted negatively, then positively.
     | NegativeRevote  -- ^ Stakeholder voted positively, then negatively.
 
+-- | State of UpdateProposal.
+data ProposalState = ProposalState
+    { _psVotes    :: !(HashMap PublicKey VoteState)
+      -- ^ Votes given for this proposal.
+    , _psProposal :: !UpdateProposal
+      -- ^ Proposal itself.
+    , _psSlot     :: !SlotId
+      -- ^ SlotId from block in which update was proposed.
+    }
+
+makeLenses ''ProposalState
+
 -- | In-memory global state of Update System.
 data GlobalState = GlobalState
-    { _gsProposals :: !(HashMap SoftwareVersion (HashMap PublicKey VoteState))
+    { _gsProposals :: !(HashMap SoftwareVersion ProposalState)
     }
 
 -- | Classy lenses generated for GlobalState.

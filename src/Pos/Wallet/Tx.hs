@@ -2,9 +2,11 @@
 
 module Pos.Wallet.Tx
        ( makePubKeyTx
+       , makeMOfNTx
        , submitTx
        , submitTxRaw
        , createTx
+       , createMOfNTx
        ) where
 
 import           Control.Lens          ((^.), _1)
@@ -20,7 +22,8 @@ import           Pos.Crypto            (SecretKey, hash, toPublic)
 import           Pos.Types             (TxAux, TxOutAux, makePubKeyAddress, txaF)
 import           Pos.WorkMode          (MinWorkMode)
 
-import           Pos.Wallet.Tx.Pure    (TxError, createTx, makePubKeyTx)
+import           Pos.Wallet.Tx.Pure    (TxError, createMOfNTx, createTx, makeMOfNTx,
+                                        makePubKeyTx)
 import           Pos.Wallet.WalletMode (TxMode, getOwnUtxo, saveTx)
 
 -- | Construct Tx using secret key and given list of desired outputs

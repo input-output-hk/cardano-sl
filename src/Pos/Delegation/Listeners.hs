@@ -19,7 +19,7 @@ import           Pos.Binary.Communication  ()
 import           Pos.Communication.Methods (sendProxyConfirmSK, sendProxySecretKey)
 import           Pos.Communication.Types   (MutSocketState, ResponseMode)
 import           Pos.Context               (getNodeContext, ncPropagation, ncSecretKey)
-import           Pos.Crypto                (proxySign)
+import           Pos.Crypto                (PublicKey, proxySign)
 import           Pos.Delegation.Logic      (ConfirmPSKVerdict (..), PSKVerdict (..),
                                             invalidateProxyCaches, isProxySKConfirmed,
                                             processConfirmProxySk, processProxySecretKey,
@@ -28,7 +28,7 @@ import           Pos.Delegation.Types      (CheckProxySKConfirmed (..),
                                             CheckProxySKConfirmedRes (..),
                                             ConfirmProxySK (..), SendProxySK (..))
 import           Pos.DHT.Model             (ListenerDHT (..), MonadDHTDialog, replyToNode)
-import           Pos.Types                 (ProxySKEpoch)
+import           Pos.Types                 (ProxySKEpoch, ProxySKSimple)
 import           Pos.WorkMode              (WorkMode)
 
 

@@ -35,6 +35,7 @@ import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Context                 (WithNodeContext)
+import           Pos.Crypto                  (PublicKey)
 import           Pos.DB.Class                (MonadDB)
 import           Pos.Delegation.Types        (SendProxySK)
 import           Pos.DHT.Model.Class         (DHTResponseT)
@@ -42,7 +43,7 @@ import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..))
 import           Pos.Txp.Class               (MonadTxpLD (..))
-import           Pos.Types                   (ProxySKEpoch)
+import           Pos.Types                   (ProxySKEpoch, ProxySKSimple)
 import           Pos.Types.Utxo.Class        (MonadUtxo, MonadUtxoRead)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
@@ -58,12 +59,15 @@ data DelegationWrap = DelegationWrap
       -- ^ Message cache to prevent infinite propagation of useless certs
     , _dwProxyConfCache :: HashMap ProxySKEpoch UTCTime
       -- ^ Confirmation cache for lightweight PSKs
+    , _dwProxySKPool    :: HashMap PublicKey ProxySKSimple
+      -- ^ Memory pool of hardweight proxy secret keys. Keys of this
+      -- map are issuer public keys.
     }
 
 makeLenses ''DelegationWrap
 
 instance Default DelegationWrap where
-    def = DelegationWrap HM.empty HM.empty
+    def = DelegationWrap HM.empty HM.empty HM.empty
 
 ----------------------------------------------------------------------------
 -- Class definition

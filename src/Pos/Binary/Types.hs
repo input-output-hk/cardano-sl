@@ -75,6 +75,10 @@ instance Bi T.TxDistribution where
         either (\(UnsignedVarInt n) -> replicate n []) identity
             <$> get
 
+instance Bi T.Undo where
+    put (T.Undo txs) = put txs
+    get = label "Undo" $ T.Undo <$> get
+
 -- serialized as vector of TxInWitness
 --instance Bi T.TxWitness where
 

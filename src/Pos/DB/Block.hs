@@ -33,8 +33,8 @@ import           Pos.DB.Error        (DBError (..))
 import           Pos.DB.Functions    (rocksDelete, rocksGetBi, rocksPutBi)
 import           Pos.DB.Types        (StoredBlock (..))
 import           Pos.Ssc.Class.Types (Ssc)
-import           Pos.Types           (Block, BlockHeader, GenesisBlock, HeaderHash, Undo,
-                                      genesisHash, headerHash, prevBlockL)
+import           Pos.Types           (Block, BlockHeader, GenesisBlock, HeaderHash,
+                                      Undo (..), genesisHash, headerHash, prevBlockL)
 import qualified Pos.Types           as T
 
 
@@ -157,7 +157,7 @@ prepareBlockDB
     :: forall ssc m.
        (Ssc ssc, MonadDB ssc m)
     => GenesisBlock ssc -> m ()
-prepareBlockDB = putBlock [] True . Left
+prepareBlockDB = putBlock (Undo []) True . Left
 
 ----------------------------------------------------------------------------
 -- Helpers

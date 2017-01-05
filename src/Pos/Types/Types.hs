@@ -58,7 +58,8 @@ module Pos.Types.Types
        , formatUtxo
        , utxoF
 
-       , Undo
+       , TxUndo
+       , Undo (..)
        , Blund
 
        , SharedSeed (..)
@@ -392,8 +393,11 @@ utxoF = later formatUtxo
 -- UNDO
 ----------------------------------------------------------------------------
 
+-- | Particular undo needed for transactions
+type TxUndo = [[TxOutAux]]
+
 -- | Structure for undo block during rollback
-type Undo = [[TxOutAux]]
+data Undo = Undo { undoTx :: [[TxOutAux]] }
 
 -- | Block and its Undo.
 type Blund ssc = (Block ssc, Undo)

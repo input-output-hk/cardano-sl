@@ -62,7 +62,7 @@ import           Pos.Types                 (Block, BlockHeader, Blund, EpochInde
                                             EpochOrSlot (..), GenesisBlock, HeaderHash,
                                             MainBlock, MainExtraBodyData (..),
                                             MainExtraHeaderData (..), SlotId (..), TxAux,
-                                            TxId, Undo, VerifyHeaderParams (..),
+                                            TxId, Undo (..), VerifyHeaderParams (..),
                                             blockHeader, difficultyL, epochOrSlot,
                                             flattenEpochOrSlot, genesisHash,
                                             getEpochOrSlot, headerHash, headerSlot,
@@ -286,7 +286,7 @@ verifyBlocks blocks =
        verResToMonadError formatAllErrors $
            Types.verifyBlocks (Just curSlot) (tipBlk <| blocks)
        verResToMonadError formatAllErrors =<< sscVerifyBlocks False blocks
-       ExceptT $ txVerifyBlocks blocks
+       fmap Undo <$> ExceptT (txVerifyBlocks blocks)
 
 -- | Run action acquiring lock on block application. Argument of
 -- action is an old tip, result is put as a new tip.
@@ -382,7 +382,7 @@ createGenesisBlockDo epoch = do
         | shouldCreateGenesisBlock epoch (getEpochOrSlot tipHeader) = do
               let blk = mkGenesisBlock (Just tipHeader) epoch leaders
               let newTip = headerHash blk
-              applyBlocks (pure (Left blk, [])) $> (Just blk, newTip)
+              applyBlocks (pure (Left blk, Undo [])) $> (Just blk, newTip)
         | otherwise = pure (Nothing, tip)
 
 ----------------------------------------------------------------------------
@@ -442,7 +442,7 @@ createMainBlockFinish slotId pSk prevHeader = do
     let prependToUndo undos tx =
             fromMaybe (panic "Undo for tx not found")
                       (HM.lookup (fst tx) localUndo) : undos
-    let blockUndo = reverse $ foldl' prependToUndo [] localTxs
+    let blockUndo = Undo $ reverse $ foldl' prependToUndo [] localTxs
     blk <$ applyBlocks (pure (Right blk, blockUndo))
 
 createMainBlockPure

@@ -15,6 +15,7 @@ module Pos.DB.Block
        , deleteBlock
        , putBlock
        , loadBlocksWithUndoWhile
+       , loadBlocksWhile
        , loadHeadersWhile
 
        , prepareBlockDB
@@ -27,14 +28,15 @@ import           Universum
 
 import           Pos.Binary.Class    (Bi)
 import           Pos.Binary.DB       ()
-import           Pos.Crypto          (shortHashF)
+import           Pos.Crypto          (shortHashF, Hash)
 import           Pos.DB.Class        (MonadDB, getBlockDB)
 import           Pos.DB.Error        (DBError (..))
 import           Pos.DB.Functions    (rocksDelete, rocksGetBi, rocksPutBi)
 import           Pos.DB.Types        (StoredBlock (..))
 import           Pos.Ssc.Class.Types (Ssc)
-import           Pos.Types           (Block, BlockHeader, GenesisBlock, HeaderHash, Undo,
-                                      genesisHash, headerHash, prevBlockL)
+import           Pos.Types           (Block, BlockHeader, GenesisBlock, HasPrevBlock,
+                                      HeaderHash, Undo, genesisHash, headerHash,
+                                      prevBlockL)
 import qualified Pos.Types           as T
 
 
@@ -112,18 +114,33 @@ getBlockWithUndo hash =
     errFmt =
         ("getBlockWithUndo: no block or undo with such HeaderHash: " %shortHashF)
 
+loadDataWhile :: (Monad m, HasPrevBlock a b)
+              => (Hash b -> m a)
+              -> (a -> Int -> Bool)
+              -> Hash b
+              -> m [a]
+loadDataWhile getter predicate start = doIt 0 start
+  where
+    doIt depth h = do
+        d <- getter h
+        let prev = d ^. prevBlockL
+        if predicate d depth && (prev /= genesisHash)
+            then (d:) <$> doIt (succ depth) prev
+            else pure []
+
 -- | Load blocks starting from block with header hash equals @hash@ and while @predicate@ is true.
 -- The head of returned list is the youngest block.
 loadBlocksWithUndoWhile :: (Ssc ssc, MonadDB ssc m)
-                        => HeaderHash ssc -> (Block ssc -> Int -> Bool) -> m [(Block ssc, Undo)]
-loadBlocksWithUndoWhile hash predicate = doIt 0 hash
-  where
-    doIt depth h = do
-        bu@(b, _) <- getBlockWithUndo h
-        let prev = b ^. prevBlockL
-        if predicate b depth && (prev /= genesisHash)
-            then (bu:) <$> doIt (succ depth) prev
-            else pure []
+                        => (Block ssc -> Int -> Bool)
+                        -> HeaderHash ssc
+                        -> m [(Block ssc, Undo)]
+loadBlocksWithUndoWhile predicate = loadDataWhile getBlockWithUndo (predicate . fst)
+
+loadBlocksWhile :: (Ssc ssc, MonadDB ssc m)
+                => (Block ssc -> Int -> Bool)
+                -> HeaderHash ssc
+                -> m [Block ssc]
+loadBlocksWhile = loadDataWhile (getBlock >=> maybe (panic "No block with such header hash") pure)
 
 -- | Takes a starting header hash and queries blockchain while some
 -- condition is true or parent wasn't found. Returns headers newest

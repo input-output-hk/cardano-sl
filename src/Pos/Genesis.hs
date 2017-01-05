@@ -36,9 +36,8 @@ import           Pos.Crypto           (PublicKey, SecretKey, deterministicKeyGen
 import           Pos.FollowTheSatoshi (followTheSatoshi)
 import           Pos.Types            (Address (..), Coin, ProtocolVersion (..),
                                        SharedSeed (SharedSeed), SlotLeaders, TxOut (..),
-                                       Utxo, coinToInteger, makePubKeyAddress, mkCoin)
-import           Pos.Types.Coin       (divCoin, unsafeAddCoin, unsafeMulCoin)
-
+                                       Utxo, coinToInteger, divCoin, makePubKeyAddress,
+                                       mkCoin, unsafeAddCoin, unsafeMulCoin)
 
 ----------------------------------------------------------------------------
 -- Static state

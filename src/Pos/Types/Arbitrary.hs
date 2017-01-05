@@ -39,15 +39,14 @@ import           Pos.Script                 (Script)
 import           Pos.Script.Examples        (badIntRedeemer, goodIntRedeemer,
                                              intValidator)
 import           Pos.Types.Arbitrary.Unsafe ()
-import           Pos.Types.Coin             (unsafeAddCoin, unsafeSubCoin)
+import           Pos.Types.Coin             (coinToInteger, unsafeAddCoin, unsafeSubCoin)
 import           Pos.Types.Timestamp        (Timestamp (..))
 import           Pos.Types.Types            (Address (..), ChainDifficulty (..), Coin,
                                              EpochIndex (..), LocalSlotIndex (..),
                                              SharedSeed (..), SlotId (..), Tx (..),
                                              TxDistribution (..), TxIn (..),
                                              TxInWitness (..), TxOut (..), TxOutAux,
-                                             coinToInteger, makePubKeyAddress,
-                                             makeScriptAddress, mkCoin)
+                                             makePubKeyAddress, makeScriptAddress, mkCoin)
 import           Pos.Types.Update           (SystemTag, UpdateData (..),
                                              UpdateProposal (..), UpdateVote (..),
                                              mkSystemTag)

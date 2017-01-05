@@ -14,7 +14,7 @@ module Pos.Txp.Logic
        , txRollbackBlocks
        ) where
 
-import           Control.Lens           (each, over, view, (^.), _1, _3)
+import           Control.Lens           (each, over, view, (<&>), (^.), _1, _3)
 import qualified Data.HashMap.Strict    as HM
 import qualified Data.HashSet           as HS
 import           Data.List.NonEmpty     (NonEmpty)
@@ -126,22 +126,28 @@ txVerifyBlocks newChain = do
         (foldM verifyDo (Right []) newChainTxs)
         (UV.createFromDB utxoDB)
   where
-    newChainTxs :: [(SlotId, [(WithHash Tx, TxWitness, TxDistribution)])]
-    newChainTxs =
-        map (\b -> (b ^. blockSlot, over (each . _1) withHash (b ^. blockTxas))) $
-        rights (NE.toList newChain)
+    -- Left for genesis blocks, Right for main blocks
+    newChainTxs
+        :: [Either () (SlotId, [(WithHash Tx, TxWitness, TxDistribution)])]
+    newChainTxs = map f (NE.toList newChain)
+      where
+        f (Left _)  = Left ()
+        f (Right b) = Right (b ^. blockSlot,
+                             over (each . _1) withHash (b ^. blockTxas))
     verifyDo
         :: Either Text [Undo]
-        -> (SlotId, [(WithHash Tx, TxWitness, TxDistribution)])
+        -> Either () (SlotId, [(WithHash Tx, TxWitness, TxDistribution)])
         -> TxpLDHolder ssc m (Either Text [Undo])
-    verifyDo failure@(Left _) _ = pure failure
-    verifyDo undos (slotId, txws) =
-        attachSlotId slotId <$>
-        (liftA2 (flip (:)) undos) <$>
-        verifyAndApplyTxs False txws
-    attachSlotId _ suc@(Right _) = suc
-    attachSlotId sId (Left errors) =
-        Left $ (sformat ("[Block's slot = "%slotIdF % "]"%stext) sId) errors
+    verifyDo (Left err) _ = pure (Left err)
+    -- a genesis block doesn't need to be undone
+    verifyDo (Right undos) (Left ()) = pure (Right ([]:undos))
+    -- handling a main block
+    verifyDo (Right undos) (Right (slotId, txas)) =
+        verifyAndApplyTxs False txas <&> \case
+            Right undo  -> Right (undo:undos)
+            Left errors -> Left (attachSlotId slotId errors)
+    attachSlotId sId errors =
+        sformat ("[Block's slot = "%slotIdF % "]"%stext) sId errors
 
 -- CHECK: @processTx
 -- #processTxDo

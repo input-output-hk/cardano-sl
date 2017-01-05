@@ -28,6 +28,7 @@ module Pos.Ssc.GodTossing.Functions
        , checkShare
        , checkShares
        , checkOpeningMatchesCommitment
+       , checkCommShares
        -- * GtPayload
        , verifyGtPayload
 
@@ -35,7 +36,7 @@ module Pos.Ssc.GodTossing.Functions
        , getThreshold
        ) where
 
-import           Control.Lens                   ((^.))
+import           Control.Lens                   ((^.), _2)
 import           Data.Containers                (ContainerKey, SetContainer (notMember))
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.HashSet                   as HS (fromList, size)
@@ -361,6 +362,9 @@ verifyGtPayload header payload =
         [ (inRange (0, 6 * k - 1) (siSlot slotId),
             "slot id is outside of [0, 6k)")]
 
+checkCommShares :: HashSet (AsBinary VssPublicKey) -> SignedCommitment -> Bool
+checkCommShares vssPublicKeys c =
+    vssPublicKeys == (HS.fromList . HM.keys . commShares $ c ^. _2)
 ----------------------------------------------------------------------------
 -- Modern
 ----------------------------------------------------------------------------

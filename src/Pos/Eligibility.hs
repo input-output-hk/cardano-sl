@@ -30,7 +30,7 @@ findRichmen moneyT =
   where
     onNoRichmen = panic "There are no richmen!"
     step :: StateT (HashMap StakeholderId Coin) m ()
-    step = whenJustM nextItem $ \txo -> for_ (txOutStake txo) innerStep
+    step = whenJustM nextItem $ \txo -> (for_ (txOutStake txo) innerStep >> step)
     innerStep
         :: (StakeholderId, Coin)
         -> StateT (HashMap StakeholderId Coin) m ()

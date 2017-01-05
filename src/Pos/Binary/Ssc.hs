@@ -110,5 +110,5 @@ instance Bi DataMsg where
 -- SecretStorage Type
 ----------------------------------------------------------------------------
 instance Bi GtSecretStorage where
-    put (GtSecretStorage s last) = put s >> put last
-    get = GtSecretStorage <$> get <*> get
+    put (GtSecretStorage s last stip) = put s >> put last >> put stip
+    get = GtSecretStorage <$> get <*> get <*> get

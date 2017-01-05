@@ -22,7 +22,7 @@ import           Pos.Binary.Crypto                      ()
 import           Pos.Communication.Methods              (sendToNeighborsSafe)
 import           Pos.Communication.Types                (ResponseMode)
 import           Pos.Context                            (WithNodeContext (getNodeContext),
-                                                         ncPropagation)
+                                                         ncPropagation, readRichmen)
 import           Pos.Crypto                             (shortHashF)
 import           Pos.DHT.Model                          (ListenerDHT (..), replyToNode)
 import           Pos.Security                           (shouldIgnorePkAddress)
@@ -107,7 +107,8 @@ handleData msg = do
     -- when TW will support getting peer address properly
     whenM (andM [ isGoodSlotIdForTag tag <$> getCurrentSlot
                 , not <$> flip shouldIgnorePkAddress nid <$> getNodeContext ]) $ do
-        added <- sscProcessMessage msg
+        richmen <- readRichmen
+        added <- sscProcessMessage richmen msg
         loggerAction tag added nid
         needPropagate <- ncPropagation <$> getNodeContext
         when (added && needPropagate) $

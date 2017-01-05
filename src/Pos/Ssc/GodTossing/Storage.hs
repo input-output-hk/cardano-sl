@@ -22,7 +22,7 @@ import           Control.Monad.IfElse           (whileM)
 import           Control.Monad.Reader           (ask)
 import           Data.Default                   (def)
 import qualified Data.HashMap.Strict            as HM
-import           Data.List.NonEmpty             (nonEmpty)
+import qualified Data.HashSet                   as HS
 import qualified Data.List.NonEmpty             as NE
 import           Serokell.Util.Verify           (VerificationRes (..), isVerSuccess,
                                                  verifyGeneric)
@@ -30,16 +30,16 @@ import           Universum
 
 import           Pos.Binary.Ssc                 ()
 import           Pos.Constants                  (k)
-import           Pos.Context.Class              (readRichmen)
 import           Pos.DB                         (MonadDB, getBlock)
-import           Pos.Ssc.Class.Storage          (SscImpureQuery, SscStorageClass (..))
+import           Pos.Ssc.Class.Storage          (SscStorageClass (..))
 import           Pos.Ssc.Class.Types            (Ssc (..))
 import           Pos.Ssc.Extra.MonadGS          (MonadSscGS (..), sscRunGlobalQuery)
 import           Pos.Ssc.GodTossing.Error       (SeedError)
-import           Pos.Ssc.GodTossing.Functions   (checkOpeningMatchesCommitment,
-                                                 checkShares, getThreshold,
-                                                 isCommitmentIdx, isOpeningIdx,
-                                                 isSharesIdx, verifyGtPayload)
+import           Pos.Ssc.GodTossing.Functions   (checkCommShares,
+                                                 checkOpeningMatchesCommitment,
+                                                 checkShares, isCommitmentIdx,
+                                                 isOpeningIdx, isSharesIdx,
+                                                 verifyGtPayload)
 import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
 import           Pos.Ssc.GodTossing.Seed        (calculateSeed)
 import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), GtPayload (..),
@@ -50,15 +50,14 @@ import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), GtPayload (
 import           Pos.Ssc.GodTossing.Types.Base  (VssCertificate (..))
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types                      (Block, EpochIndex, HeaderHash, NEBlocks,
-                                                 SharedSeed, SlotId (..), blockMpc,
-                                                 blockSlot, crucialSlot, epochIndexL,
-                                                 epochOrSlot, epochOrSlotG, gbHeader,
-                                                 prevBlockL)
+                                                 Richmen, SharedSeed, SlotId (..),
+                                                 blockMpc, blockSlot, crucialSlot,
+                                                 epochIndexL, epochOrSlot, epochOrSlotG,
+                                                 gbHeader, prevBlockL)
 import           Pos.Util                       (readerToState)
 
 type GSQuery a  = forall m . (MonadReader GtGlobalState m) => m a
 type GSUpdate a = forall m . (MonadState GtGlobalState m) => m a
-type GSImpureQuery a = SscImpureQuery SscGodTossing a
 
 instance SscStorageClass SscGodTossing where
     sscLoadGlobalState = mpcLoadGlobalState
@@ -85,23 +84,23 @@ getVerifiedCerts (crucialSlot -> crucSlotId) =
 
 -- | Verify that if one adds given block to the current chain, it will
 -- remain consistent with respect to SSC-related data.
-mpcVerifyBlock :: Bool -> Block SscGodTossing -> GSQuery VerificationRes
+mpcVerifyBlock :: Bool -> Richmen -> Block SscGodTossing -> GSQuery VerificationRes
 -- Genesis blocks don't have any SSC data.
-mpcVerifyBlock _ (Left _) = return VerSuccess
+mpcVerifyBlock _ _ (Left _) = return VerSuccess
 -- Main blocks have commitments, openings, shares and VSS
 -- certificates.  We optionally (depending on verifyPure argument) use
 -- verifyGtPayload to make the most general checks and also use global
 -- data to make more checks using this data.
-mpcVerifyBlock verifyPure (Right b) = do
+mpcVerifyBlock verifyPure richmen (Right b) = do
     let SlotId{siSlot = slotId} = b ^. blockSlot
         payload      = b ^. blockMpc
         curEpoch = siEpoch $ b ^. blockSlot
         blockCerts = _gpCertificates payload
 
-    globalCommitments  <- view gsCommitments
-    globalOpenings     <- view gsOpenings
-    globalShares       <- view gsShares
-    globalCertificates <- views gsVssCertificates VCD.certs
+    globalCommitments <- view gsCommitments
+    globalOpenings    <- view gsOpenings
+    globalShares      <- view gsShares
+    globalCerts       <- views gsVssCertificates VCD.certs
 
     let isComm       = (isCommitmentIdx slotId, "slotId doesn't belong commitment phase")
         isOpen       = (isOpeningIdx slotId, "slotId doesn't belong openings phase")
@@ -112,14 +111,20 @@ mpcVerifyBlock verifyPure (Right b) = do
     --   * check that a VSS certificate is present for the committing node
     let commChecks comms certs =
             [ isComm
-            , (all (`HM.member` (certs <> globalCertificates))
+            , (all (`HM.member` participants)
                    (HM.keys comms),
                    "some committing nodes haven't sent a VSS certificate")
             , (all (not . (`HM.member` globalCommitments))
                    (HM.keys comms),
                    "some nodes have already sent their commitments")
+            , (all (checkCommShares vssPublicKeys) (toList comms),
+                   "some commShares has been generated on wrong participants")
             -- [CSL-206]: check that share IDs are different.
             ]
+          where
+            allCerts = certs <> globalCerts
+            participants = allCerts `HM.intersection` (HM.fromList $ zip (toList richmen) (repeat ()))
+            vssPublicKeys = HS.fromList $ map vcVssKey $ toList participants
 
     -- For openings, we check that
     --   * the opening isn't present in previous blocks
@@ -159,7 +164,7 @@ mpcVerifyBlock verifyPure (Right b) = do
             , (null (shares `HM.intersection` globalShares),
                    "some shares have already been sent")
             , (all (uncurry (checkShares globalCommitments globalOpenings
-                             globalCertificates)) $
+                             globalCerts)) $
                      HM.toList shares,
                    "some decrypted shares don't match encrypted shares \
                    \in the corresponding commitment")
@@ -168,7 +173,7 @@ mpcVerifyBlock verifyPure (Right b) = do
             [
               (all (maybe True
                           ((==) curEpoch . vcExpiryEpoch)
-                          . flip HM.lookup globalCertificates
+                          . flip HM.lookup globalCerts
                    ) (HM.keys certs),
                "some VSS certificates have been resubmitted earlier than expiry epoch")
             ]
@@ -187,12 +192,12 @@ mpcVerifyBlock verifyPure (Right b) = do
 -- TODO:
 --   ★ verification messages should include block hash/slotId
 --   ★ we should stop at first failing block
-mpcVerifyBlocks :: Bool -> NEBlocks SscGodTossing -> GSQuery VerificationRes
-mpcVerifyBlocks verifyPure blocks = do
+mpcVerifyBlocks :: Bool -> Richmen -> NEBlocks SscGodTossing -> GSQuery VerificationRes
+mpcVerifyBlocks verifyPure richmen blocks = do
     curState <- ask
     return $ flip evalState curState $ do
         vs <- forM blocks $ \b -> do
-            v <- readerToState $ mpcVerifyBlock verifyPure b
+            v <- readerToState $ mpcVerifyBlock verifyPure richmen b
             when (isVerSuccess v) $
                 mpcProcessBlock b
             return v
@@ -261,14 +266,9 @@ mpcLoadGlobalState tip = do
                 global
 
 -- | Calculate leaders for the next epoch.
-calculateSeedQ :: EpochIndex -> GSImpureQuery (Either SeedError SharedSeed)
-calculateSeedQ _ = do
-    richmen <- readRichmen
-    keymap <- view gsVssCertificates
-    let participants =
-            nonEmpty $ map vcVssKey $ mapMaybe (`VCD.lookup` keymap) $ toList richmen
-    let threshold = maybe (panic "No participants") (getThreshold . length) participants
-    calculateSeed threshold <$> view gsCommitments <*> view gsOpenings <*>
+calculateSeedQ :: EpochIndex -> GSQuery (Either SeedError SharedSeed)
+calculateSeedQ _ =
+    calculateSeed <$> view gsCommitments <*> view gsOpenings <*>
         view gsShares
 
 ----------------------------------------------------------------------------

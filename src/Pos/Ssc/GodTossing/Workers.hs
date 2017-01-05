@@ -32,6 +32,7 @@ import           Pos.Crypto                       (SecretKey, VssKeyPair, random
                                                    runSecureRandom, toPublic)
 import           Pos.Crypto.SecretSharing         (toVssPublicKey)
 import           Pos.Crypto.Signing               (PublicKey)
+import           Pos.DB                           (getTip)
 import           Pos.Slotting                     (getSlotStart, onNewSlot)
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
 import           Pos.Ssc.Extra.MonadLD            (sscRunLocalQuery, sscRunLocalUpdate)
@@ -41,11 +42,10 @@ import           Pos.Ssc.GodTossing.Functions     (genCommitmentAndOpening, getT
                                                    isSharesIdx, mkSignedCommitment)
 import           Pos.Ssc.GodTossing.LocalData     (ldCertificates, ldLastProcessedSlot,
                                                    localOnNewSlot, sscProcessMessage)
-import           Pos.Ssc.GodTossing.SecretStorage (getSecret, prepareSecretToNewSlot,
-                                                   setSecret)
+import           Pos.Ssc.GodTossing.SecretStorage (getSecret, getSecretForTip,
+                                                   prepareSecretToNewSlot, setSecret)
 import           Pos.Ssc.GodTossing.Shares        (getOurShares)
-import           Pos.Ssc.GodTossing.Storage       (getGlobalCerts, getVerifiedCerts,
-                                                   gtGetGlobalState)
+import           Pos.Ssc.GodTossing.Storage       (getGlobalCerts, gtGetGlobalState)
 import           Pos.Ssc.GodTossing.Types         (Commitment, Opening, SignedCommitment,
                                                    SscGodTossing, VssCertificate (..),
                                                    gtcParticipateSsc, gtcVssKeyPair,
@@ -135,32 +135,32 @@ onNewSlotCommitment
 onNewSlotCommitment slotId@SlotId{..} = do
     ourId <- addressHash . ncPublicKey <$> getNodeContext
     ourSk <- ncSecretKey <$> getNodeContext
-    shouldCreateCommitment <- do
-        secret <- getSecret
-        return $ and [isCommitmentIdx siSlot, isNothing secret]
-    when shouldCreateCommitment $ do
-        logDebug $ sformat ("Generating secret for "%ords%" epoch") siEpoch
-        generated <- generateAndSetNewSecret ourSk slotId
-        case generated of
-            Nothing -> logWarning "I failed to generate secret for Mpc"
-            Just _ -> logDebug $
-                sformat ("Generated secret for "%ords%" epoch") siEpoch
+    tip <- getTip
     shouldSendCommitment <- do
         commitmentInBlockchain <- hasCommitment ourId <$> gtGetGlobalState
         return $ isCommitmentIdx siSlot && not commitmentInBlockchain
     when shouldSendCommitment $ do
+        shouldCreateCommitment <- do
+            secret <- getSecret
+            secretForTip <- getSecretForTip
+            return $ and [isCommitmentIdx siSlot, (isNothing secret || tip /= secretForTip)]
+        when shouldCreateCommitment $ do
+            logDebug $ sformat ("Generating secret for "%ords%" epoch") siEpoch
+            generated <- generateAndSetNewSecret ourSk slotId
+            case generated of
+                Nothing -> logWarning "I failed to generate secret for Mpc"
+                Just _ -> logDebug $
+                    sformat ("Generated secret for "%ords%" epoch") siEpoch
+
         mbComm <- fmap (view _2) <$> getSecret
         whenJust mbComm $ \comm -> do
-            _ <- sscProcessMessage $ DMCommitment ourId comm
+            _ <- sscProcessMessageRichmen $ DMCommitment ourId comm
             sendOurData CommitmentMsg siEpoch 0 ourId
 
 -- Openings-related part of new slot processing
 onNewSlotOpening
     :: (WorkMode SscGodTossing m
-       ,Bi VssCertificate
-       ,Bi Opening
-       ,Bi InvMsg
-       ,Bi Commitment)
+       ,Bi InvMsg)
     => SlotId -> m ()
 onNewSlotOpening SlotId {..} = do
     ourId <- addressHash . ncPublicKey <$> getNodeContext
@@ -174,7 +174,7 @@ onNewSlotOpening SlotId {..} = do
     when shouldSendOpening $ do
         mbOpen <- fmap (view _3) <$> getSecret
         whenJust mbOpen $ \open -> do
-            _ <- sscProcessMessage $ DMOpening ourId open
+            _ <- sscProcessMessageRichmen $ DMOpening ourId open
             sendOurData OpeningMsg siEpoch 2 ourId
 
 -- Shares-related part of new slot processing
@@ -194,8 +194,13 @@ onNewSlotShares SlotId {..} = do
         shares <- getOurShares ourVss
         let lShares = fmap asBinary shares
         unless (null shares) $ do
-            _ <- sscProcessMessage $ DMShares ourId lShares
+            _ <- sscProcessMessageRichmen $ DMShares ourId lShares
             sendOurData SharesMsg siEpoch 4 ourId
+
+sscProcessMessageRichmen :: WorkMode SscGodTossing m => DataMsg -> m Bool
+sscProcessMessageRichmen msg = do
+    richmen <- readRichmen
+    sscProcessMessage richmen msg
 
 sendOurData
     :: (WorkMode SscGodTossing m, Bi InvMsg)
@@ -221,17 +226,18 @@ generateAndSetNewSecret
     => SecretKey
     -> SlotId                         -- ^ Current slot
     -> m (Maybe (SignedCommitment, Opening))
-generateAndSetNewSecret sk slotId@SlotId{..} = do
+generateAndSetNewSecret sk SlotId{..} = do
     richmen <- readRichmen
-    certs <- getVerifiedCerts slotId
+    certs <- getGlobalCerts
     let noPsErr = panic "generateAndSetNewSecret: no participants"
     let ps = fromMaybe (panic noPsErr) . nonEmpty .
                 map vcVssKey . mapMaybe (`lookup` certs) . toList $ richmen
     let threshold = getThreshold $ length ps
     mPair <- runMaybeT (genCommitmentAndOpening threshold ps)
+    tip <- getTip
     case mPair of
       Just (mkSignedCommitment sk siEpoch -> comm, op) ->
-          Just (comm, op) <$ setSecret (toPublic sk, comm, op)
+          Just (comm, op) <$ setSecret (toPublic sk, comm, op) tip
       _ -> do
         logError "Wrong participants list: can't deserialize"
         return Nothing

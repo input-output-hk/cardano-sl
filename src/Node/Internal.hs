@@ -278,7 +278,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                 -- data and fork a thread to consume it.
                 | w == controlHeaderCodeUnidirectional -> do
                   chan <- Channel.newChannel
-                  mapM_ (Channel.writeChannel chan . Just) (LBS.toChunks ws)
+                  Channel.writeChannel chan (Just (BS.concat (LBS.toChunks ws)))
                   tid  <- fork $ finishHandler nodeState (Left connid) (handlerIn peer (ChannelIn chan))
                   pure . Just $ ConnectionReceiving tid chan
 
@@ -295,7 +295,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                 | w == controlHeaderCodeBidirectionalSyn
                 , Right (ws',_,nonce) <- decodeOrFail ws -> do
                   chan <- Channel.newChannel
-                  mapM_ (Channel.writeChannel chan . Just) (LBS.toChunks ws')
+                  Channel.writeChannel chan (Just (BS.concat (LBS.toChunks ws')))
                   let action = do
                           mconn <- NT.connect
                                      endpoint
@@ -338,7 +338,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                               let !expected' = Map.insert nonce (NonceHandlerConnected connid) expected
                               return ((NodeState prng expected' finished), (tid, inchan))
                           Just _ -> throw (InternalError $ "duplicate or delayed ACK for " ++ show nonce)
-                  mapM_ (Channel.writeChannel chan . Just) (LBS.toChunks ws')
+                  Channel.writeChannel chan (Just (BS.concat (LBS.toChunks ws')))
                   pure . Just $ ConnectionReceiving tid chan
 
                 | otherwise ->
@@ -371,7 +371,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                   -- Connection is receiving data and there's some handler
                   -- at 'tid' to run it. Dump the new data to its ChannelIn.
                   Just (ConnectionReceiving tid chan) -> do
-                    mapM_ (Channel.writeChannel chan . Just) chunks
+                    Channel.writeChannel chan (Just (BS.concat chunks))
                     loop state
 
                   Just (ConnectionClosed tid) ->

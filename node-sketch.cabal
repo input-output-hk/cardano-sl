@@ -124,6 +124,8 @@ executable bench-sender
                      , base == 4.*
                      , binary >= 0.8.3
                      , bytestring >= 0.10.6.0
+                     , conduit >= 1.2.8
+                     , conduit-extra >= 1.1.15
                      , data-default >= 0.7
                      , directory >= 1.2.6
                      , exceptions >= 0.8.2.1
@@ -168,6 +170,8 @@ executable bench-receiver
                      , base == 4.*
                      , binary >= 0.8.3
                      , bytestring >= 0.10.6.0
+                     , conduit >= 1.2.8
+                     , conduit-extra >= 1.1.15
                      , data-default >= 0.7
                      , directory >= 1.2.6
                      , exceptions >= 0.8.2.1
@@ -208,6 +212,8 @@ executable bench-log-reader
                      , binary >= 0.8.3
                      , bytestring >= 0.10.6.0
                      , containers >= 0.5.7
+                     , conduit >= 1.2.8
+                     , conduit-extra >= 1.1.15
                      , data-default >= 0.7
                      , directory >= 1.2.6
                      , exceptions >= 0.8.2.1

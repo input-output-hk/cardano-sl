@@ -230,7 +230,9 @@ library
                         Pos.Worker.Lrc
                         Pos.Worker.Stats
                         Pos.Update
+                        Pos.Update.Class
                         Pos.Update.Download
+                        Pos.Update.Holder
                         Pos.Update.Logic
                         Pos.Update.State
                         Pos.Update.State.Full

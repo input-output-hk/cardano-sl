@@ -24,11 +24,12 @@ import           System.Random              (mkStdGen)
 import           System.Wlog                (LoggerNameBox, usingLoggerName)
 
 import           Mockable.Class             (Mockable (..))
+import           Mockable.Concurrent        (fork)
 import           Mockable.Exception         (Catch (..))
 import qualified Network.Transport.Abstract as NT
 import           Network.Transport.Concrete (concrete)
 import           Node                       (Listener (..), ListenerAction (..), sendTo,
-                                             startNode, stopNode)
+                                             node, nodeEndPoint)
 import           Node.Internal              (NodeId (..))
 
 import           Bench.Network.Commons      (MeasureEvent (..), Payload (..), Ping (..),
@@ -76,24 +77,18 @@ main = do
     let tasksIds = [[tid, tid + threadNum .. msgNum] | tid <- [1..threadNum]]
 
     usingLoggerName "sender" $ do
-        Right endPoint <- NT.newEndPoint transport
-        drones         <- forM nodeIds (startDrone endPoint)
         startTime      <- curTimeUnitsMcs
 
         -- TODO: is it good idea to start (recipients number * thread number) threads?
         let pingWorkers = liftA2 (pingSender prngWork payloadBound startTime msgRate)
                                  tasksIds
                                  (zip [0, msgNum..] nodeIds)
-        senderNode <- startNode
-                          endPoint
-                          prngNode
-                          BinaryP
-                          pingWorkers
-                          [Listener "pong" pongListener]
-
-        threadDelay (fromIntegral duration :: Second)
-        forM_ drones stopDrone
-        stopNode senderNode
+        node transport prngNode BinaryP (\_ -> [Listener "pong" pongListener]) $ \node sactions -> do
+            let endPoint = nodeEndPoint node
+            drones <- forM nodeIds (startDrone endPoint)
+            _ <- forM pingWorkers (fork . flip ($) sactions)
+            threadDelay (fromIntegral duration :: Second)
+            forM_ drones stopDrone
   where
     pongListener = ListenerActionOneMsg $ \_ _ (Pong mid payload) ->
         logMeasure PongReceived mid payload

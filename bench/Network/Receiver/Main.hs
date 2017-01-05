@@ -25,8 +25,8 @@ import Bench.Network.Commons      (MeasureEvent (..), Ping (..), Pong (..), load
 import Message.Message            (BinaryP (..))
 import Network.Transport.Abstract (newEndPoint)
 import Network.Transport.Concrete (concrete)
-import Node                       (Listener (..), ListenerAction (..), sendTo, startNode,
-                                   stopNode)
+import Node                       (Listener (..), ListenerAction (..), sendTo,
+                                   node)
 import ReceiverOptions            (Args (..), argsParser)
 
 instance Mockable Catch (LoggerNameBox IO) where
@@ -52,12 +52,8 @@ main = do
     let prng = mkStdGen 0
 
     usingLoggerName "receiver" $ do
-        Right endPoint <- newEndPoint transport
-        receiverNode <- startNode endPoint prng BinaryP []
-            [Listener "ping" $ pingListener noPong]
-
-        threadDelay (fromIntegral duration :: Second)
-        stopNode receiverNode
+        node transport prng BinaryP (\_ -> [Listener "ping" $ pingListener noPong]) $ \nodeId sactions -> do
+            threadDelay (fromIntegral duration :: Second)
   where
     pingListener noPong =
         -- TODO: `ListenerActionConversation` is not supported in such context

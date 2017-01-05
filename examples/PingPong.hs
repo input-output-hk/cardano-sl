@@ -9,28 +9,19 @@
 
 import           Control.Monad              (forM_)
 import           Control.Monad.IO.Class     (liftIO)
-import           Control.TimeWarp.Timed     (for)
 import           Data.Binary
 import           Data.String                (fromString)
 import           Data.Time.Units            (Microsecond, fromMicroseconds)
 import           Data.Void                  (Void)
 import           GHC.Generics               (Generic)
 import           Message.Message            (BinaryP (..))
-import           Mockable.Concurrent        (wait)
+import           Mockable.Concurrent        (delay, killThread, fork, for)
 import           Mockable.Production
 import           Network.Transport.Abstract (newEndPoint)
 import           Network.Transport.Concrete (concrete)
 import qualified Network.Transport.TCP      as TCP
 import           Node
 import           System.Random
-
--- Sending a message which encodes to "" is problematic!
--- The receiver can't distinuish this from the case in which the sender sent
--- nothing at all.
--- So we give custom Ping and Pong types with non-generic Binary instances.
---
--- TBD should we fix this in network-transport? Maybe every chunk is prefixed
--- by a byte giving its length? Wasteful I guess but maybe not a problem.
 
 -- | Type for messages from the workers to the listeners.
 data Ping = Ping
@@ -46,8 +37,8 @@ instance Binary Pong
 
 type Packing = BinaryP
 
-workers :: NodeId -> StdGen -> [NodeId] -> [Worker Packing Production]
-workers anId generator peerIds = [pingWorker generator]
+worker :: NodeId -> StdGen -> [NodeId] -> Worker Packing Production
+worker anId generator peerIds = pingWorker generator
     where
     pingWorker :: StdGen -> SendActions Packing Production -> Production ()
     pingWorker gen sendActions = loop gen
@@ -56,7 +47,7 @@ workers anId generator peerIds = [pingWorker generator]
         loop g = do
             let (i, gen') = randomR (0,1000000) g
                 us = fromMicroseconds i :: Microsecond
-            wait $ for us
+            delay (for us)
             let pong :: NodeId -> ConversationActions Void Pong Production -> Production ()
                 pong peerId cactions = do
                     liftIO . putStrLn $ show anId ++ " sent PING to " ++ show peerId
@@ -81,8 +72,6 @@ main = runProduction $ do
 
     Right transport_ <- liftIO $ TCP.createTransport ("127.0.0.1") ("10128") TCP.defaultTCPParameters
     let transport = concrete transport_
-    Right endpoint1 <- newEndPoint transport
-    Right endpoint2 <- newEndPoint transport
 
     let prng1 = mkStdGen 0
     let prng2 = mkStdGen 1
@@ -90,17 +79,13 @@ main = runProduction $ do
     let prng4 = mkStdGen 3
 
     liftIO . putStrLn $ "Starting nodes"
-    rec { node1 <- startNode endpoint1 prng1 BinaryP (workers nodeId1 prng2 [nodeId2])
-            (listeners nodeId1)
-        ; node2 <- startNode endpoint2 prng3 BinaryP (workers nodeId2 prng4 [nodeId1])
-            (listeners nodeId2)
-        ; let nodeId1 = nodeId node1
-        ; let nodeId2 = nodeId node2
-        }
-
-    liftIO . putStrLn $ "Hit return to stop"
-    _ <- liftIO getChar
-
-    liftIO . putStrLn $ "Stopping node"
-    stopNode node1
-    stopNode node2
+    node transport prng1 BinaryP (listeners . nodeId) $ \node1 sactions1 ->
+        node transport prng2 BinaryP (listeners . nodeId) $ \node2 sactions2 -> do
+            tid1 <- fork $ worker (nodeId node1) prng3 [nodeId node2] sactions1
+            tid2 <- fork $ worker (nodeId node2) prng4 [nodeId node1] sactions2
+            liftIO . putStrLn $ "Hit return to stop"
+            _ <- liftIO getChar
+            killThread tid1
+            killThread tid2
+            liftIO . putStrLn $ "Stopping nodes"
+    liftIO . putStrLn $ "All done."

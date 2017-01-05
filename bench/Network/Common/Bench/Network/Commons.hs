@@ -24,6 +24,7 @@ module Bench.Network.Commons
 
 import           Control.Applicative    ((<|>))
 import qualified Control.Concurrent     as Conc
+import qualified Control.Concurrent.Async as Conc
 import qualified Control.Concurrent.STM as Conc
 import qualified Control.Exception      as Exception
 import           Control.Monad          (join)
@@ -206,6 +207,14 @@ instance Mockable Fork (LoggerNameBox IO) where
 instance Mockable RunInUnboundThread (LoggerNameBox IO) where
     liftMockable (RunInUnboundThread m) = getLoggerName >>=
         \lname -> lift $ Conc.runInUnboundThread $ usingLoggerName lname m
+
+type instance Promise (LoggerNameBox IO) = Conc.Async
+
+instance Mockable Async (LoggerNameBox IO) where
+    liftMockable (Async m) = getLoggerName >>=
+        \lname -> lift $ Conc.async $ usingLoggerName lname m
+    liftMockable (Wait promise) = lift $ Conc.wait promise
+    liftMockable (Cancel promise) = lift $ Conc.cancel promise
 
 type instance SharedAtomicT (LoggerNameBox IO) = Conc.MVar
 

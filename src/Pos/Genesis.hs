@@ -16,6 +16,9 @@ module Pos.Genesis
 
        -- * Ssc
        , genesisLeaders
+
+       -- * Update System
+       , genesisProtocolVersion
        ) where
 
 
@@ -31,9 +34,9 @@ import           Pos.Constants        (genesisN)
 import           Pos.Crypto           (PublicKey, SecretKey, deterministicKeyGen,
                                        unsafeHash)
 import           Pos.FollowTheSatoshi (followTheSatoshi)
-import           Pos.Types            (Address (..), Coin, SharedSeed (SharedSeed),
-                                       SlotLeaders, TxOut (..), Utxo, coinToInteger,
-                                       makePubKeyAddress, mkCoin)
+import           Pos.Types            (Address (..), Coin, ProtocolVersion (..),
+                                       SharedSeed (SharedSeed), SlotLeaders, TxOut (..),
+                                       Utxo, coinToInteger, makePubKeyAddress, mkCoin)
 import           Pos.Types.Coin       (divCoin, unsafeAddCoin, unsafeMulCoin)
 
 
@@ -136,3 +139,16 @@ genesisSeed = SharedSeed "vasa opasa skovoroda Ggurda boroda provoda"
 -- | Leaders of genesis. See 'followTheSatoshi'.
 genesisLeaders :: Utxo -> SlotLeaders
 genesisLeaders = followTheSatoshi genesisSeed
+
+----------------------------------------------------------------------------
+-- Update system
+----------------------------------------------------------------------------
+
+-- | ProtocolVersion used at the very beginning.
+genesisProtocolVersion :: ProtocolVersion
+genesisProtocolVersion =
+    ProtocolVersion
+    { pvMajor = 0
+    , pvMinor = 0
+    , pvAlt = 0
+    }

@@ -82,9 +82,8 @@ mkCTx :: Address -> (TxId, Tx, Bool) -> CTxMeta -> CTx
 mkCTx addr (txId, tx, isOutgoing) = CTx (txIdToCTxId txId) outputCoins . meta
   where
     outputCoins = unsafeIntegerToCoin . sumCoins . map txOutValue $
-        filter (reverse . (== addr) . txOutAddress) $ txOutputs tx
+        filter (xor isOutgoing . (== addr) . txOutAddress) $ txOutputs tx
     meta = if isOutgoing then CTOut else CTIn
-    reverse = if isOutgoing then not else identity
 
 ----------------------------------------------------------------------------
 -- wallet
@@ -130,8 +129,9 @@ data CProfile = CProfile
     , cpEmail       :: Text
     , cpPhoneNumber :: Text
     , cpPwHash      :: CPwHash
-    , cpPwCreated   :: Text -- TODO jk: should be NominalDiffTime
+    , cpPwCreated   :: POSIXTime
     , cpLocale      :: Text
+    , cpPicture     :: Text -- TODO: base64
     } deriving (Show, Generic)
 
 ----------------------------------------------------------------------------

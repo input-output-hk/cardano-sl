@@ -1,10 +1,8 @@
-{-# LANGUAGE AllowAmbiguousTypes  #-}
 {-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE Rank2Types           #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | Instance of SscStorageClass.
 
@@ -15,8 +13,8 @@ module Pos.Ssc.GodTossing.Storage
        , gtGetGlobalState
        ) where
 
-import           Control.Lens                   (over, use, view, views, (%=), (.=), (^.),
-                                                 _1, _2)
+import           Control.Lens                   (over, to, use, view, views, (%=), (.=),
+                                                 (^.), _1, _2)
 import           Control.Monad.IfElse           (whileM)
 import           Control.Monad.Reader           (ask)
 import           Data.Default                   (def)
@@ -28,9 +26,10 @@ import           Serokell.Util.Verify           (VerificationRes (..), isVerSucc
 import           Universum
 
 import           Pos.Binary.Ssc                 ()
-import           Pos.Constants                  (k)
+import           Pos.Constants                  (k, vssMaxTTL)
 import           Pos.Context.Class              (readRichmen)
-import           Pos.DB                         (MonadDB, getBlock)
+import           Pos.DB                         (MonadDB, getBlock, getBlockHeader,
+                                                 loadBlocksWhile)
 import           Pos.Ssc.Class.Storage          (SscImpureQuery, SscStorageClass (..))
 import           Pos.Ssc.Class.Types            (Ssc (..))
 import           Pos.Ssc.Extra.MonadGS          (MonadSscGS (..), sscRunGlobalQuery)
@@ -244,14 +243,6 @@ mpcRollback blocks = do
             CertificatesPayload      _ -> return ()
         pure False
 
--- [CSL-364] This function has bug, see issue.
-mpcLoadGlobalState :: MonadDB SscGodTossing m => HeaderHash SscGodTossing -> m GtGlobalState
-mpcLoadGlobalState tip = do
-    global <- fst <$> execStateT unionBlocks (def, tip)
-    pure $ over gsVssCertificates
-                (flip (foldl' (flip $ uncurry VCD.insert)) (HM.toList genesisCertificates))
-                global
-
 -- | Calculate leaders for the next epoch.
 calculateSeedQ :: EpochIndex -> GSImpureQuery (Either SeedError SharedSeed)
 calculateSeedQ _ = do
@@ -262,6 +253,34 @@ calculateSeedQ _ = do
     let threshold = maybe (panic "No participants") (getThreshold . length) participants
     calculateSeed threshold <$> view gsCommitments <*> view gsOpenings <*>
         view gsShares
+
+mpcLoadGlobalState :: MonadDB SscGodTossing m => HeaderHash SscGodTossing -> m GtGlobalState
+mpcLoadGlobalState tip = do
+    (global', curHash) <- execStateT unionBlocks (def, tip)
+    bh <- getBlockHeader curHash
+    let endEpoch =
+          epochOrSlot identity siEpoch $
+              maybe (panic "No block header with such header hash")
+              (^. epochOrSlotG)
+              bh
+        startEpoch = endEpoch + 1 - vssMaxTTL -- load blocks while >= endEpoch
+        whileEpoch b _ = epochOrSlot identity siEpoch (b ^. epochOrSlotG) >= startEpoch
+        blkCert =
+          either (const mempty)
+                 (^. blockMpc
+                  . to (HM.filter ((<=) endEpoch . vcExpiryEpoch) -- filter expired certs
+                                  . _gpCertificates))
+    blocksCerts <- map blkCert <$> loadBlocksWhile whileEpoch curHash -- filtered certs
+    let global = over gsVssCertificates (flip (foldl' unionCerts) blocksCerts) global'
+    pure $
+      if startEpoch == 0 then
+          -- insert genesis certs if startEpoch == 0
+          over gsVssCertificates (flip unionCerts genesisCertificates) global
+      else
+          global
+  where
+    unionCerts gs =
+      (foldl' (flip $ uncurry VCD.insert)) gs . HM.toList
 
 ----------------------------------------------------------------------------
 -- Utilities
@@ -288,12 +307,13 @@ unionPayload payload =
 
 -- | Union payloads of blocks until meet genesis block
 -- Invalid restore of VSS certificates
-unionBlocks :: MonadDB SscGodTossing m => StateT (GtGlobalState, HeaderHash SscGodTossing) m ()
+unionBlocks :: MonadDB SscGodTossing m
+            => StateT (GtGlobalState, HeaderHash SscGodTossing) m ()
 unionBlocks = whileM
     (do
-        curTip <- use _2
-        block <- lift $ getBlock curTip
-        let b = fromMaybe (panic "No block with such tip") block
+        curHH <- use _2
+        block <- lift $ getBlock curHH
+        let b = fromMaybe (panic "No block with such header hash") block
         case b of
             Left _   -> pure False
             Right mb -> do

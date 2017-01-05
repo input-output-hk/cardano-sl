@@ -22,6 +22,7 @@ module Pos.Wallet.Web.ClientTypes
       , CWallet (..)
       , CWalletType (..)
       , CWalletMeta (..)
+      , NotifyEvent (..)
       , addressToCAddress
       , cAddressToAddress
       , mkCTx

@@ -232,6 +232,10 @@ library
                         Pos.Update
                         Pos.Update.Download
                         Pos.Update.Logic
+                        Pos.Update.State
+                        Pos.Update.State.Full
+                        Pos.Update.State.Local
+                        Pos.Update.State.Global
                         Pos.Util.Arbitrary
                         Pos.Util.Iterator
                         Pos.Util.NotImplemented

@@ -1,3 +1,6 @@
+{-# LANGUAGE Rank2Types          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 -- | Major logic of Update System (US).
 
 module Pos.Update.Logic
@@ -7,16 +10,16 @@ module Pos.Update.Logic
        ) where
 
 import           Control.Lens         ((^.))
+import           Control.Monad.Except (ExceptT, runExceptT, throwError)
 import           Formatting           (sformat, (%))
-import           Serokell.Util.Verify (VerificationRes (..))
 import           Universum
 
-import           Pos.Constants        (updateProposalThreshold)
+import           Pos.Constants        (updateProposalThreshold, updateVoteThreshold)
 import qualified Pos.DB               as DB
-import           Pos.Types            (Block, NEBlocks, UpdateProposal (..),
+import           Pos.Types            (Block, Coin, NEBlocks, UpdateProposal (..),
                                        UpdateVote (..), addressHash, applyCoinPortion,
                                        coinF, gbExtra, mebUpdate, mebUpdateVotes, mkCoin,
-                                       unsafeSubCoin)
+                                       unsafeAddCoin)
 import           Pos.WorkMode         (WorkMode)
 
 -- | Apply chain of /definitely/ valid blocks to US part of GState
@@ -39,38 +42,47 @@ usRollbackBlocks _ = pass
 -- they are assumed to be done earlier.
 --
 -- TODO: add more checks! Most likely it should be stateful!
-usVerifyBlocks :: WorkMode ssc m => NEBlocks ssc -> m VerificationRes
-usVerifyBlocks blks = fold <$> mapM verifyBlock blks
+usVerifyBlocks :: WorkMode ssc m => NEBlocks ssc -> m (Either Text ())
+usVerifyBlocks = runExceptT . mapM_ verifyBlock
 
-verifyBlock :: WorkMode ssc m => Block ssc -> m VerificationRes
-verifyBlock (Left _)    = pure mempty
+verifyBlock :: WorkMode ssc m => Block ssc -> ExceptT Text m ()
+verifyBlock (Left _)    = pass
 verifyBlock (Right blk) = do
     let meb = blk ^. gbExtra
-    enoughStakeVerRes <-
-        maybe
-            (pure mempty)
-            (verifyUpdProposal (meb ^. mebUpdateVotes))
-            (meb ^. mebUpdate)
-    return enoughStakeVerRes
+    verifyEnoughStake (meb ^. mebUpdateVotes) (meb ^. mebUpdate)
 
-verifyUpdProposal
-    :: WorkMode ssc m
-    => [UpdateVote] -> UpdateProposal -> m VerificationRes
-verifyUpdProposal votes UpdateProposal {..} = do
-    totalStake <- DB.getTotalFtsStake
-    let threshold = applyCoinPortion totalStake updateProposalThreshold
-    verifyUpdProposalDo votes threshold
+verifyEnoughStake
+    :: forall ssc m.
+       WorkMode ssc m
+    => [UpdateVote] -> Maybe UpdateProposal -> ExceptT Text m ()
+verifyEnoughStake votes mProposal = do
+    totalStake <- maybe (pure zero) (const DB.getTotalFtsStake) mProposal
+    let proposalThreshold = applyCoinPortion totalStake updateProposalThreshold
+    let voteThreshold = applyCoinPortion totalStake updateVoteThreshold
+    totalVotedStake <- verifyUpdProposalDo voteThreshold votes
+    when (totalVotedStake < proposalThreshold) $
+        throwError (msgProposal totalVotedStake proposalThreshold)
   where
-    msg =
+    zero = mkCoin 0
+    msgProposal =
         sformat
-            ("update proposal doesn't have votes from enough stake, need " %coinF %
-             " above available")
-    verifyUpdProposalDo [] remainder = pure $ VerFailure [msg remainder]
-    verifyUpdProposalDo (UpdateVote {..}:vs) remainder
-        | uvDecision && uvSoftware == upSoftwareVersion = do
-            let id = addressHash uvKey
-            stake <- fromMaybe (mkCoin 0) <$> DB.getFtsStake id
-            if stake < remainder
-                then verifyUpdProposalDo vs (remainder `unsafeSubCoin` stake)
-                else return VerSuccess
-        | otherwise = verifyUpdProposalDo vs remainder
+            ("update proposal doesn't have votes from enough stake ("
+             %coinF%" < "%coinF%
+             ")")
+    msgVote =
+        sformat
+            ("update vote issuer doesn't have enough stake ("
+             %coinF%" < "%coinF%
+             ")")
+    isVoteForProposal UpdateVote {..} =
+        case mProposal of
+            Nothing                    -> True
+            Just (UpdateProposal {..}) -> uvDecision && uvSoftware == upSoftwareVersion
+    verifyUpdProposalDo :: Coin -> [UpdateVote] -> ExceptT Text m Coin
+    verifyUpdProposalDo _ [] = pure zero
+    verifyUpdProposalDo voteThreshold (v@UpdateVote {..}:vs) = do
+        let id = addressHash uvKey
+        stake <- fromMaybe zero <$> DB.getFtsStake id
+        when (stake < voteThreshold) $ throwError $ msgVote stake voteThreshold
+        let addedStake = if isVoteForProposal v then stake else zero
+        unsafeAddCoin addedStake <$> verifyUpdProposalDo voteThreshold vs

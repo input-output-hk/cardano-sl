@@ -2,6 +2,7 @@ import {assert} from 'chai';
 import sinon from 'sinon';
 
 const Daedalus = require ('../../../dist/Daedalus');
+import {mockSuccessResponse, mockErrorResponse} from '../../mock-factory';
 
 export default function () {
 
@@ -19,9 +20,7 @@ export default function () {
     afterEach(() => xhr.restore())
 
     it('returns empty object', (done) => {
-      const response = {
-        Right:[]
-      };
+      const response = mockSuccessResponse([]);
 
       Daedalus.ClientApi.deleteWallet('123')()
         .then( (result) => {
@@ -55,7 +54,8 @@ export default function () {
     })
 
     it('rejects with a ServerError if server response with Left', (done) => {
-      const response = { Left: "Any error" }
+      const response = mockErrorResponse();
+
       Daedalus.ClientApi.deleteWallet('')()
         .then( (result) => done(),
           (error) => {

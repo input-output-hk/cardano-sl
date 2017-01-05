@@ -2,6 +2,7 @@ import {assert} from 'chai';
 import sinon from 'sinon';
 
 const Daedalus = require ('../../../dist/Daedalus');
+import {mockWallet, mockSuccessResponse, mockErrorResponse} from '../../mock-factory';
 
 export default function () {
 
@@ -19,19 +20,7 @@ export default function () {
     afterEach(() => xhr.restore())
 
     it('returns a new wallet', (done) => {
-      const response = {
-        Right: {
-          cwAddress: '123',
-            cwAmount: {
-              getCoin: 33333
-            },
-            cwMeta: {
-              cwType: "CWTPersonal",
-              cwCurrency: "ADA",
-              "cwName":""
-            }
-          }
-        };
+      const response = mockSuccessResponse(mockWallet());
 
       Daedalus.ClientApi.newWallet('CWTPersonal', 'ADA', '')()
         .then( (result) => {
@@ -48,7 +37,7 @@ export default function () {
     })
 
     it('rejects with a JSONDecodingError if server sends invalid json data', (done) => {
-      const response = {};
+      const response = mockSuccessResponse();
 
       Daedalus.ClientApi.newWallet('', '', '')()
         .then( (result) => done(),
@@ -79,9 +68,8 @@ export default function () {
     })
 
     it('rejects with a ServerError if server response with Left', (done) => {
-      const response = {
-        Left: "Any error"
-      }
+      const response = mockErrorResponse();
+
       Daedalus.ClientApi.newWallet('')()
         .then( (result) => done(),
           (error) => {

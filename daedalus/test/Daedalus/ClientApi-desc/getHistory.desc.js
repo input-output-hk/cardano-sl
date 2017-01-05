@@ -2,6 +2,7 @@ import {assert} from 'chai';
 import sinon from 'sinon';
 
 const Daedalus = require ('../../../dist/Daedalus');
+import {mockTransaction, mockSuccessResponse, mockErrorResponse} from '../../mock-factory';
 
 export default function () {
 
@@ -19,23 +20,9 @@ export default function () {
     afterEach(() => xhr.restore())
 
     it('returns a list of transaction objects', (done) => {
-      const response = {
-        Right: [{
-          ctId: "123",
-          ctAmount:{
-            getCoin:1000
-          },
-          ctType:{
-            tag:"CTOut",
-            contents: {
-              ctmCurrency:"ADA",
-              ctmTitle:"",
-              ctmDescription:"",
-              ctmDate:1.483461872037636e9
-            }
-          }
-        }]
-    };
+      const response = mockSuccessResponse([
+        mockTransaction()
+      ]);
 
       Daedalus.ClientApi.getHistory('XXX')()
         .then( (result) => {
@@ -52,7 +39,7 @@ export default function () {
     })
 
     it('rejects with a JSONDecodingError if server sends invalid json data', (done) => {
-      const response = {};
+      const response = mockSuccessResponse();
 
       Daedalus.ClientApi.getHistory('123')()
         .then( (result) => done(),
@@ -83,9 +70,8 @@ export default function () {
     })
 
     it('rejects with a ServerError if server response with Left', (done) => {
-      const response = {
-        Left: "Any error"
-      }
+      const response = mockErrorResponse();
+
       Daedalus.ClientApi.getHistory('not-exist')()
         .then( (result) => done(),
           (error) => {

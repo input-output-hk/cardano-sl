@@ -2,6 +2,7 @@ import {assert} from 'chai';
 import sinon from 'sinon';
 
 const Daedalus = require ('../../../dist/Daedalus');
+import {mockSuccessResponse, mockErrorResponse} from '../../mock-factory';
 
 export default function () {
 
@@ -19,7 +20,7 @@ export default function () {
     afterEach(() => xhr.restore())
 
     it('returns a result', (done) => {
-      const response = {Right: true};
+      const response = mockSuccessResponse(true);
 
       Daedalus.ClientApi.isValidAddress('123', 'ADA')()
         .then( (result) => {
@@ -36,7 +37,7 @@ export default function () {
     });
 
     it('rejects with a JSONDecodingError if server sends invalid json data', (done) => {
-      const response = {Right: "should be a boolean"};
+      const response = mockSuccessResponse('should be a boolean');
 
       Daedalus.ClientApi.isValidAddress('', '')()
         .then( (result) => done(),
@@ -67,7 +68,7 @@ export default function () {
     })
 
     it('rejects with a ServerError if server response with Left', (done) => {
-      const response = {Left: "Any error"}
+      const response = mockErrorResponse();
 
       Daedalus.ClientApi.isValidAddress('123', 'ADA')()
         .then( (result) => done(),

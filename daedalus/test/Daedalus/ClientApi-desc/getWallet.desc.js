@@ -2,6 +2,7 @@ import {assert} from 'chai';
 import sinon from 'sinon';
 
 const Daedalus = require ('../../../dist/Daedalus');
+import {mockWallet, mockSuccessResponse, mockErrorResponse} from '../../mock-factory';
 
 export default function () {
 
@@ -17,24 +18,11 @@ export default function () {
     })
 
     afterEach(() => xhr.restore())
-    
-    it('returns a wallet', (done) => {
-      const walletId = 'XXX';
-      const response = {
-        Right: {
-          cwAddress: walletId,
-            cwAmount: {
-              getCoin: 33333
-            },
-            cwMeta: {
-              cwType: "CWTPersonal",
-              cwCurrency: "ADA",
-              "cwName":""
-            }
-          }
-        };
 
-      Daedalus.ClientApi.getWallet(walletId)()
+    it('returns a wallet', (done) => {
+      const response = mockSuccessResponse(mockWallet());
+
+      Daedalus.ClientApi.getWallet('xxx')()
         .then( (result) => {
           assert.deepEqual(result, response.Right, 'wallet data object');
           done();
@@ -49,9 +37,9 @@ export default function () {
     })
 
     it('rejects with a JSONDecodingError if server sends invalid json data', (done) => {
-      const response = {};
+      const response = mockSuccessResponse();
 
-      Daedalus.ClientApi.getWallet('123')()
+      Daedalus.ClientApi.getWallet('xxx')()
         .then( (result) => done(),
           (error) => {
             assert.include(error.message, 'JSONDecodingError', 'includes JSONDecodingError error message');
@@ -80,9 +68,8 @@ export default function () {
     })
 
     it('rejects with a ServerError if server response with Left', (done) => {
-      const response = {
-        Left: "Any error"
-      }
+      const response = mockErrorResponse();
+
       Daedalus.ClientApi.getWallet('')()
         .then( (result) => done(),
           (error) => {

@@ -1,5 +1,6 @@
 import {assert} from 'chai';
 import sinon from 'sinon';
+import {mockWallet, mockSuccessResponse, mockErrorResponse} from '../../mock-factory';
 
 const Daedalus = require ('../../../dist/Daedalus');
 
@@ -18,29 +19,10 @@ export default function () {
     afterEach(() => xhr.restore())
 
     it('returns a list of wallets', (done) => {
-      const response = {
-        Right: [{
-          cwAddress: "XXX",
-          cwAmount: {
-            getCoin: 33333
-          },
-          cwMeta: {
-            cwType: "CWTPersonal",
-            cwCurrency: "ADA",
-            "cwName":""
-          }
-        },
-        { cwAddress: "XXX",
-          cwAmount: {
-            getCoin: 33333
-          },
-          cwMeta: {
-            cwType: "CWTPersonal",
-            cwCurrency: "ADA",
-            "cwName":""
-          }
-        }]
-      };
+      const response = mockSuccessResponse([
+        mockWallet(),
+        mockWallet()
+      ]);
 
       Daedalus.ClientApi.getWallets()
         .then( (result) => {
@@ -57,7 +39,7 @@ export default function () {
     });
 
     it('rejects with a JSONDecodingError if server sends invalid json data', (done) => {
-      const response = [{ anyOther: "XXX"}];
+      const response = mockSuccessResponse({ any: "XXX"});
 
       Daedalus.ClientApi.getWallets()
         .then( (result) => done(),
@@ -88,9 +70,8 @@ export default function () {
     })
 
     it('rejects with a ServerError if server response with Left', (done) => {
-      const response = {
-        Left: "Any error"
-      }
+      const response = mockErrorResponse();
+
       Daedalus.ClientApi.getWallets()
         .then( (result) => done(),
           (error) => {

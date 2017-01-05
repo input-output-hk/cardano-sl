@@ -2,6 +2,7 @@ import {assert} from 'chai';
 import sinon from 'sinon';
 
 const Daedalus = require ('../../../dist/Daedalus');
+import {mockTransaction, mockSuccessResponse, mockErrorResponse} from '../../mock-factory';
 
 export default function () {
 
@@ -19,23 +20,7 @@ export default function () {
     afterEach(() => xhr.restore())
 
     it('returns a transaction', (done) => {
-      const response = {
-        Right: {
-          ctId: "123",
-          ctAmount:{
-            getCoin:1000
-          },
-          ctType:{
-            tag:"CTOut",
-            contents: {
-              ctmCurrency:"ADA",
-              ctmTitle:"",
-              ctmDescription:"",
-              ctmDate:1.483461872037636e9
-            }
-          }
-        }
-      };
+      const response = mockSuccessResponse(mockTransaction());
 
       Daedalus.ClientApi.send('12', '34', 300)()
         .then( (result) => {
@@ -53,7 +38,7 @@ export default function () {
 
 
     it('rejects with a JSONDecodingError if server sends invalid json data', (done) => {
-      const data = {};
+      const response = mockSuccessResponse();
 
       Daedalus.ClientApi.send('', '', '')()
         .then( (result) => done(),
@@ -65,7 +50,7 @@ export default function () {
 
       requests[0].respond(200,
         {"Content-Type": "application/json"},
-        JSON.stringify(data)
+        JSON.stringify(response)
       );
     })
 
@@ -84,7 +69,7 @@ export default function () {
     })
 
     it('rejects with a ServerError if server response with Left', (done) => {
-      const response = { Left: "Any error" }
+      const response = mockErrorResponse();
       Daedalus.ClientApi.send('A', 'B', 1000)()
         .then( (result) => done(),
           (error) => {

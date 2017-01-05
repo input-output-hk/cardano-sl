@@ -37,8 +37,8 @@ import           Pos.Wallet.WalletMode      (WalletMode, getBalance, getTxHistor
 import           Pos.Wallet.Web.Api         (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency (ADA), CTx, CTxId,
                                              CTxMeta (..), CWallet (..), CWalletMeta (..),
-                                             addressToCAddress, cAddressToAddress, ctType,
-                                             mkCTx, mkCTxId, txIdToCTxId)
+                                             addressToCAddress, cAddressToAddress, mkCTx,
+                                             mkCTxId, txIdToCTxId)
 import           Pos.Wallet.Web.State       (MonadWalletWebDB (..), WalletWebDB,
                                              addOnlyNewTxMeta, closeState, createWallet,
                                              getTxMeta, getWalletMeta, openState,

@@ -14,12 +14,13 @@ module Pos.Types
        , module Pos.Types.Version
        ) where
 
-import           Pos.Binary.Address  ()
-import           Pos.Binary.Types    ()
+import           Pos.Binary.Address   ()
+import           Pos.Binary.Types     ()
 import           Pos.Types.Address
 import           Pos.Types.Arbitrary
 import           Pos.Types.Block
 import           Pos.Types.Coin
+import           Pos.Types.SharedSeed ()
 import           Pos.Types.Slotting
 import           Pos.Types.Timestamp
 import           Pos.Types.Tx

@@ -42,6 +42,7 @@ module Pos.Constants
        , curSoftwareVersion
        , appSystemTag
        , updateServers
+       , updateProposalThreshold
        ) where
 
 import           Control.TimeWarp.Timed     (Microsecond, sec)
@@ -55,6 +56,7 @@ import           Pos.CLI                    (dhtNodeParser)
 import           Pos.CompileConfig          (CompileConfig (..), compileConfig)
 import           Pos.DHT.Model.Types        (DHTNode)
 import           Pos.Types.Timestamp        (Timestamp)
+import           Pos.Types.Types            (CoinPortion, unsafeCoinPortion)
 import           Pos.Types.Update           (SystemTag, mkSystemTag)
 import           Pos.Types.Version          (ApplicationName, ProtocolVersion (..),
                                              SoftwareVersion (..), mkApplicationName)
@@ -227,3 +229,18 @@ curSoftwareVersion = SoftwareVersion cardanoSlAppName 1 0
 -- | Update servers
 updateServers :: [String]
 updateServers = ccUpdateServers compileConfig
+
+-- | Portion of total stake such that block containing
+-- UpdateProposal must contain positive votes for this proposal
+-- from stakeholders owning at least this amount of stake.
+updateProposalThreshold :: CoinPortion
+updateProposalThreshold = unsafeCoinPortion $ ccUpdateProposalThreshold compileConfig
+
+-- GHC stage restriction
+-- staticAssert
+--     (getCoinPortion updateProposalThreshold >= 0)
+--     "updateProposalThreshold is negative"
+
+-- staticAssert
+--     (getCoinPortion updateProposalThreshold <= 1)
+--     "updateProposalThreshold is more than 1"

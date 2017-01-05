@@ -223,6 +223,7 @@ library
                         Pos.Txp.Types.Communication
                         Pos.Txp.Types.Types
                         Pos.Txp.Types.UtxoView
+                        Pos.Types.SharedSeed
                         Pos.Types.Utxo.Class
                         Pos.Types.Utxo.Functions
                         Pos.Types.Utxo.Pure

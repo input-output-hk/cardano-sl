@@ -145,8 +145,6 @@ module Pos.Types.Types
 import           Control.Exception      (assert)
 import           Control.Lens           (Getter, Lens', choosing, makeLenses,
                                          makeLensesFor, to, view, (^.))
-import qualified Data.ByteString        as BS (pack, zipWith)
-import qualified Data.ByteString.Char8  as BSC (pack)
 import           Data.Data              (Data)
 import           Data.DeriveTH          (derive, makeNFData)
 import           Data.Hashable          (Hashable)
@@ -155,7 +153,6 @@ import           Data.List.NonEmpty     (NonEmpty)
 import qualified Data.Map               as M (toList)
 import           Data.SafeCopy          (SafeCopy (..), base, contain,
                                          deriveSafeCopySimple, safeGet, safePut)
-import qualified Data.Semigroup         (Semigroup (..))
 import qualified Data.Serialize         as Cereal (getWord8, putWord8)
 import           Data.Tagged            (untag)
 import           Data.Text.Buildable    (Buildable)
@@ -173,7 +170,6 @@ import           Universum
 import           Pos.Binary.Address     ()
 import           Pos.Binary.Class       (Bi)
 import           Pos.Binary.Script      ()
-import           Pos.Constants          (sharedSeedLength)
 import           Pos.Crypto             (Hash, ProxySecretKey, ProxySignature, PublicKey,
                                          Signature, hash, hashHexF, shortHashF)
 import           Pos.Data.Attributes    (Attributes)
@@ -454,15 +450,6 @@ newtype SharedSeed = SharedSeed
 
 instance Buildable SharedSeed where
     build = B16.formatBase16 . getSharedSeed
-
-instance Semigroup SharedSeed where
-    (<>) (SharedSeed a) (SharedSeed b) =
-        SharedSeed $ BS.pack (BS.zipWith xor a b) -- fast due to rewrite rules
-
-instance Monoid SharedSeed where
-    mempty = SharedSeed $ BSC.pack $ replicate sharedSeedLength '\NUL'
-    mappend = (Data.Semigroup.<>)
-    mconcat = foldl' mappend mempty
 
 -- | 'NonEmpty' list of slot leaders.
 type SlotLeaders = NonEmpty StakeholderId

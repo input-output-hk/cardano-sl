@@ -173,10 +173,16 @@ library
                         Pos.DB.DB
                         Pos.DB.Error
                         Pos.DB.Functions
+                        Pos.DB.GState
+                        Pos.DB.GState.Balances
+                        Pos.DB.GState.Common
+                        Pos.DB.GState.Delegation
+                        Pos.DB.GState.GState
+                        Pos.DB.GState.Update
+                        Pos.DB.GState.Utxo
                         Pos.DB.Holder
                         Pos.DB.Misc
                         Pos.DB.Types
-                        Pos.DB.Utxo
                         Pos.DB.DBIterator
                         Pos.DHT.Arbitrary
                         Pos.Ssc.Extra.Holder

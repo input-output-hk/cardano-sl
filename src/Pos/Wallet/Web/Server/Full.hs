@@ -37,6 +37,8 @@ import           Pos.WorkMode                  (RawRealMode)
 import           Pos.Wallet.KeyStorage         (addSecretKey)
 import           Pos.Wallet.Web.Server.Methods (walletApplication, walletServeImpl,
                                                 walletServer)
+import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar, WalletWebSockets (..),
+                                                initWSConnection, runWalletWS)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletState,
                                                 WalletWebDB, runWalletWebDB)
 
@@ -52,7 +54,7 @@ walletServeWebFull debug = walletServeImpl $ do
     when debug $ mapM_ addSecretKey genesisSecretKeys
     walletApplication $ walletServer nat
 
-type WebHandler ssc = WalletWebDB (RawRealMode ssc)
+type WebHandler ssc = WalletWebSockets (WalletWebDB (RawRealMode ssc))
 type SubKademlia ssc = (Modern.TxpLDHolder ssc
                         (SscHolder ssc
                            (ContextHolder ssc
@@ -70,16 +72,18 @@ convertHandler
     -> Modern.TxpLDWrap ssc
     -> SscState ssc
     -> WalletState
+    -> ConnectionsVar
     -> WebHandler ssc a
     -> Handler a
-convertHandler kctx cp nc modernDBs tlw ssc ws handler = do
+convertHandler kctx cp nc modernDBs tlw ssc ws wsConn handler = do
     liftIO (runOurDialogRaw cp newMutSocketState "wallet-api" .
             Modern.runDBHolder modernDBs .
             runContextHolder nc .
             runSscHolderRaw ssc .
             Modern.runTxpLDHolderReader tlw .
             runKademliaDHTRaw kctx .
-            runWalletWebDB ws $
+            runWalletWebDB ws .
+            runWalletWS wsConn $
             handler)
     `Catch.catches`
     excHandlers
@@ -89,6 +93,7 @@ convertHandler kctx cp nc modernDBs tlw ssc ws handler = do
 
 nat :: SscConstraint ssc => WebHandler ssc (WebHandler ssc :~> Handler)
 nat = do
+    wsConn <- getWalletWebSockets
     ws <- getWalletWebState
     kctx <- lift getKademliaDHTCtx
     tlw <- getTxpLDWrap
@@ -96,4 +101,4 @@ nat = do
     nc <- getNodeContext
     modernDB <- Modern.getNodeDBs
     cp <- lift . lift . lift . lift . lift . lift . lift $ getConnPool
-    return $ Nat (convertHandler kctx cp nc modernDB tlw ssc ws)
+    return $ Nat (convertHandler kctx cp nc modernDB tlw ssc ws wsConn)

@@ -258,6 +258,7 @@ library
                         Pos.Wallet.Web.Server.Methods
                         Pos.Wallet.Web.Server.Full
                         Pos.Wallet.Web.Server.Lite
+                        Pos.Wallet.Web.Server.Sockets
                         Pos.Wallet.Web.State
                         Pos.Wallet.Web.State.Acidic
                         Pos.Wallet.Web.State.Holder
@@ -347,6 +348,7 @@ library
                       , wai
                       , wai-extra
                       , warp
+                      , websockets
   hs-source-dirs:       src
   default-language:     Haskell2010
   ghc-options:         -Wall

@@ -25,9 +25,10 @@ import           Pos.Crypto                (SecretKey, WithHash (..), hash, sign
 import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.Types                 (Address, Block, Coin, MonadUtxoRead (..),
                                             Tx (..), TxAux, TxDistribution (..), TxId,
-                                            TxIn (..), TxInWitness (..), TxOut (..),
-                                            TxOutAux, TxWitness, Utxo, UtxoStateT (..),
-                                            applyTxToUtxo, blockTxas, filterUtxoByAddr,
+                                            TxIn (..), TxInWitness (..), TxInWitness,
+                                            TxOut (..), TxOutAux, TxSigData, TxWitness,
+                                            Utxo, UtxoStateT (..), applyTxToUtxo,
+                                            blockTxas, filterUtxoByAddr,
                                             makePubKeyAddress, mkCoin, sumCoins,
                                             topsortTxs, _txOutputs)
 import           Pos.Types.Coin            (unsafeIntegerToCoin, unsafeSubCoin)
@@ -41,22 +42,28 @@ type TxError = Text
 -- Tx creation
 -----------------------------------------------------------------------------
 
--- | Makes a transaction which use P2PKH addresses as a source
-makePubKeyTx :: SecretKey -> TxInputs -> TxOutputs -> TxAux
-makePubKeyTx sk inputs outputs = (Tx {..}, txWitness, txDist)
-  where pk = toPublic sk
-        txInputs = map makeTxIn inputs
+-- | Generic function to create a transaction, given desired inputs, outputs and a
+-- way to construct witness from signature data
+makeAbstractTx :: (TxSigData -> TxInWitness) -> TxInputs -> TxOutputs -> TxAux
+makeAbstractTx mkWit inputs outputs = (Tx {..}, txWitness, txDist)
+  where txInputs = map makeTxIn inputs
         txOutputs = map fst outputs
         txAttributes = mkAttributes ()
         txOutHash = hash txOutputs
         txDist = TxDistribution (map snd outputs)
         txDistHash = hash txDist
+        txWitness = V.fromList $ map (mkWit . makeTxSigData) inputs
         makeTxIn (txInHash, txInIndex) = TxIn {..}
-        makeTxInWitness (txInHash, txInIndex) =
-            PkWitness {
-                twKey = pk,
-                twSig = sign sk (txInHash, txInIndex, txOutHash, txDistHash) }
-        txWitness = V.fromList (map makeTxInWitness inputs)
+        makeTxSigData (txInHash, txInIndex) = (txInHash, txInIndex, txOutHash, txDistHash)
+
+-- | Makes a transaction which use P2PKH addresses as a source
+makePubKeyTx :: SecretKey -> TxInputs -> TxOutputs -> TxAux
+makePubKeyTx sk = makeAbstractTx mkWit
+  where pk = toPublic sk
+        mkWit sigData = PkWitness
+            { twKey = pk
+            , twSig = sign sk sigData
+            }
 
 type FlatUtxo = [(TxOutIdx, TxOutAux)]
 type InputPicker = StateT (Coin, FlatUtxo) (Either TxError)

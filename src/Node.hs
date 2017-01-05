@@ -111,7 +111,11 @@ data SendActions packing connState m = SendActions {
         -- | Accesses state associated with connection to given node, creates if not exist
         connStateTo
             :: LL.NodeId
-            -> m connState
+            -> m connState,
+
+        -- | Returns shareable storage with states
+        connStateStorage
+            :: SharedAtomicT m (M.Map LL.NodeId connState)
      }
 
 data ConversationActions connState body rcv m = ConversationActions {
@@ -123,7 +127,10 @@ data ConversationActions connState body rcv m = ConversationActions {
        recv :: m (Maybe rcv),
 
        -- | Access state associated with this connection
-       connState :: m connState
+       connState :: m connState,
+
+       -- | Returns shareable storage with states
+       convConnStateStorage :: SharedAtomicT m (M.Map LL.NodeId connState)
      }
 
 type ListenerIndex packing connState m =
@@ -157,7 +164,7 @@ nodeSendActions
     -> ConnectionsStates m connState
     -> SendActions packing connState m
 nodeSendActions node packing connStates =
-    SendActions nodeSendTo nodeWithConnectionTo nodeConnStateTo
+    SendActions nodeSendTo nodeWithConnectionTo nodeConnStateTo nodeConnStates
   where
 
     nodeSendTo
@@ -192,6 +199,8 @@ nodeSendActions node packing connStates =
 
     nodeConnStateTo = getConnState connStates
 
+    nodeConnStates = connectionStates connStates
+
 -- | Conversation actions for a given peer and in/out channels.
 nodeConversationActions
     :: forall packing connState snd rcv m .
@@ -208,8 +217,8 @@ nodeConversationActions
     -> MessageName
     -> ConnectionsStates m connState
     -> ConversationActions connState snd rcv m
-nodeConversationActions node nodeId packing inchan outchan msgName connInfo =
-    ConversationActions nodeSend nodeRecv nodeConnState
+nodeConversationActions node nodeId packing inchan outchan msgName connStates =
+    ConversationActions nodeSend nodeRecv nodeConnState convConnStateStorage
     where
 
     nodeSend = \body ->
@@ -222,7 +231,9 @@ nodeConversationActions node nodeId packing inchan outchan msgName connInfo =
             NoParse -> error "Unexpected end of conversation input"
             Input t -> pure (Just t)
 
-    nodeConnState = getConnState connInfo nodeId
+    nodeConnState = getConnState connStates nodeId
+
+    convConnStateStorage = connectionStates connStates
 
 startNode
     :: forall packing m .
@@ -237,7 +248,9 @@ startNode
     -> [Worker packing () m]
     -> [Listener packing () m]
     -> m (Node m)
-startNode endPoint prng packing = startNodeExt endPoint prng packing (return ())
+startNode endPoint prng packing workers listeners = do
+    statesStorage <- newSharedAtomic M.empty
+    startNodeExt endPoint prng packing (return ()) statesStorage workers listeners
 
 -- | Spin up a node given a set of workers and listeners, using a given network
 --   transport to drive it.
@@ -252,11 +265,12 @@ startNodeExt
     -> StdGen
     -> packing
     -> m connState
+    -> SharedAtomicT m (M.Map LL.NodeId connState)
     -> [Worker packing connState m]
     -> [Listener packing connState m]
     -> m (Node m)
-startNodeExt endPoint prng packing initConnState workers listeners = do
-    connStates <- mkConnStates initConnState
+startNodeExt endPoint prng packing initConnState statesStorage workers listeners = do
+    let connStates = ConnectionsStates statesStorage initConnState
     rec { node <- LL.startNode endPoint prng (handlerIn node sendActions) (handlerInOut node connStates)
         ; let sendActions = nodeSendActions node packing connStates
         }
@@ -354,10 +368,3 @@ getConnState ConnectionsStates{..} nodeId =
                     v' <- initConnectionState
                     return (M.insert nodeId v' s, v')
                 Just x  -> return (s, x)
-
-mkConnStates :: ( Mockable SharedAtomic m )
-             => m s
-             -> m (ConnectionsStates m s)
-mkConnStates initConnectionState = do
-    connectionStates <- newSharedAtomic M.empty
-    return ConnectionsStates{..}

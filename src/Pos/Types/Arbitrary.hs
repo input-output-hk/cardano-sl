@@ -22,7 +22,7 @@ import           Data.Time.Units            (Microsecond, fromMicroseconds)
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (..),
                                              NonZero (..), choose, choose, elements,
-                                             oneof, vector)
+                                             oneof)
 import           Test.QuickCheck.Instances  ()
 import           Universum
 

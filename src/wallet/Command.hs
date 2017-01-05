@@ -12,7 +12,6 @@ import           Text.Parsec.Char (alphaNum, digit, spaces, string)
 import           Text.Parsec.Text (Parser)
 import           Universum        hiding (show)
 
-import           Pos.Crypto       (PublicKey, parseFullPublicKey)
 import           Pos.Types        (Address (..), TxOut (..), mkCoin)
 
 data Command
@@ -33,10 +32,10 @@ text = lexeme . fmap toText . string
 address :: Parser Address
 address = lexeme $ read <$> many1 alphaNum
 
-pubKey :: Parser PublicKey
-pubKey =
-    fromMaybe (panic "couldn't read pk") . parseFullPublicKey . toText <$>
-    lexeme (many1 alphaNum)
+-- pubKey :: Parser PublicKey
+-- pubKey =
+--     fromMaybe (panic "couldn't read pk") . parseFullPublicKey . toText <$>
+--     lexeme (many1 alphaNum)
 
 num :: Num a => Parser a
 num = lexeme $ fromInteger . read <$> many1 digit

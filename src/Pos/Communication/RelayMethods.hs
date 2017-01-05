@@ -10,7 +10,6 @@ module Pos.Communication.RelayMethods
 import           Control.TimeWarp.Rpc        (NetworkAddress)
 import           Universum
 
-import           Pos.Binary.Class            (Bi)
 import           Pos.Binary.Communication    ()
 import           Pos.Binary.Relay            ()
 import           Pos.Binary.Types            ()

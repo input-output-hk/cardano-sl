@@ -8,14 +8,12 @@ module Pos.Txp.Types.Communication
        , TxMsgContents (..)
        ) where
 
-import           Control.TimeWarp.Rpc (Message (..), messageName')
-import           Data.List.NonEmpty   (NonEmpty)
-import qualified Data.Text.Buildable  as Buildable
-import           Formatting           (bprint, build, (%))
+import qualified Data.Text.Buildable as Buildable
+import           Formatting          (bprint, build, (%))
 import           Universum
 
-import           Pos.Types            (Tx, TxDistribution, TxId, TxWitness)
-import           Pos.Util             (NamedMessagePart (..))
+import           Pos.Types           (Tx, TxDistribution, TxWitness)
+import           Pos.Util            (NamedMessagePart (..))
 
 data TxMsgTag = TxMsgTag
 

@@ -39,7 +39,6 @@ import           Control.TimeWarp.Rpc         (ConnectionPool, Dialog, Transfer,
                                                runTransferRaw, setForkStrategy)
 import           Control.TimeWarp.Timed       (MonadTimed, currentTime, fork, killThread,
                                                repeatForever, runTimedIO, runTimedIO, sec)
-import           Data.Default                 (def)
 
 import           Data.Default                 (def)
 import           Data.List                    (nub)

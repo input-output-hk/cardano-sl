@@ -10,8 +10,6 @@ module Pos.Ssc.GodTossing.Types.Message
        , msgContentsTag
        ) where
 
-import           Control.TimeWarp.Rpc          (Message (..), messageName')
-import           Data.List.NonEmpty            (NonEmpty)
 import qualified Data.Text.Buildable           as Buildable
 import           Universum
 
@@ -20,7 +18,7 @@ import           Pos.Ssc.GodTossing.Functions  (isCommitmentId, isCommitmentIdx,
                                                 isSharesIdx)
 import           Pos.Ssc.GodTossing.Types.Base (InnerSharesMap, Opening, SignedCommitment,
                                                 VssCertificate)
-import           Pos.Types                     (LocalSlotIndex, SlotId, StakeholderId)
+import           Pos.Types                     (LocalSlotIndex, SlotId)
 import           Pos.Util                      (NamedMessagePart (..))
 
 -- | Tag associated with message.

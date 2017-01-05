@@ -1,7 +1,7 @@
-with import (fetchTarball https://github.com/NixOS/nixpkgs/archive/e18dac705ad36482880e23d0a89c60c3514cb446.tar.gz) { };
+with import (fetchTarball https://github.com/NixOS/nixpkgs/archive/663048f37849667f84bb1d941132369eff6e630f.tar.gz) { };
 
 let
-  hsPkgs = haskell.packages.ghc801;
+  hsPkgs = haskell.packages.ghc802;
 in
   haskell.lib.buildStackProject {
      name = "cardano-sl";
@@ -10,6 +10,7 @@ in
        zlib openssh autoreconfHook openssl
        gmp rocksdb git
      # cabal-install and stack pull in lots of dependencies on OSX so skip them
+     # See https://github.com/NixOS/nixpkgs/issues/21200
      ] ++ (lib.optionals stdenv.isLinux [ cabal-install stack ]);
      LANG = "en_US.UTF-8";
   }

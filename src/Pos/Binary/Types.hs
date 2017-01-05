@@ -4,8 +4,8 @@
 
 module Pos.Binary.Types () where
 
-import           Data.Binary.Get     (getInt32be, getWord8, label)
-import           Data.Binary.Put     (putInt32be, putWord8)
+import           Data.Binary.Get     (getInt32be, getWord64be, getWord8, label)
+import           Data.Binary.Put     (putInt32be, putWord64be, putWord8)
 import           Formatting          (int, sformat, (%))
 import           Universum
 
@@ -26,6 +26,10 @@ instance Bi (A.Attributes ()) where
     get = label "Attributes" $
         A.getAttributes (\_ () -> Nothing) (128 * 1024 * 1024) ()
     put = A.putAttributes (\() -> [])
+
+instance Bi T.Coin where
+    put = putWord64be . T.unsafeGetCoin
+    get = T.mkCoin <$> getWord64be
 
 instance Bi T.Timestamp where
     get = fromInteger <$> get

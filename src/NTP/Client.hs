@@ -40,7 +40,7 @@ import           Network.Socket              (AddrInfo (..), AddrInfoFlag (AI_AD
                                               SocketType (Datagram), addrFamily, close,
                                               defaultHints, defaultProtocol, getAddrInfo,
                                               setSocketOption, socket)
-import           Network.Socket.ByteString   (recvFrom, sendManyTo)
+import           Network.Socket.ByteString   (recvFrom, sendTo)
 import           Prelude                     hiding (log)
 import           Serokell.Util.Concurrent    (modifyTVarS, threadDelay)
 import           System.Wlog                 (LoggerName, Severity (..), WithLogger,
@@ -150,7 +150,7 @@ doSend :: NtpMonad m => SockAddr -> NtpClient -> m ()
 doSend addr cli = do
     sock   <- liftIO $ readTVarIO (ncSocket cli)
     packet <- encode <$> mkCliNtpPacket
-    liftIO (sendManyTo sock (LBS.toChunks packet) addr) `catchAll` handleE
+    handleAll handleE . void . liftIO $ sendTo sock (LBS.toStrict packet) addr
   where
     -- just log; socket closure is handled by receiver
     handleE e =

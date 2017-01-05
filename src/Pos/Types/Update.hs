@@ -67,6 +67,8 @@ data UpdateData = UpdateData
 data UpdateVote = UpdateVote
     { -- | Public key of stakeholder, who votes
       uvKey       :: !PublicKey
+    , -- | Software version to which this vote applies
+      uvSoftware  :: !SoftwareVersion
     , -- | Approval/rejection bit
       uvDecision  :: !Bool
     , -- | Signature of (Update proposal, Approval/rejection bit)

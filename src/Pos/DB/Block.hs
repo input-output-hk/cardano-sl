@@ -157,7 +157,7 @@ prepareBlockDB
     :: forall ssc m.
        (Ssc ssc, MonadDB ssc m)
     => GenesisBlock ssc -> m ()
-prepareBlockDB = putBlock (Undo []) True . Left
+prepareBlockDB = putBlock (Undo [] []) True . Left
 
 ----------------------------------------------------------------------------
 -- Helpers

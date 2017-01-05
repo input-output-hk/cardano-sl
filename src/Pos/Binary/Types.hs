@@ -80,8 +80,8 @@ instance Bi T.TxDistribution where
             <$> get
 
 instance Bi T.Undo where
-    put (T.Undo txs) = put txs
-    get = label "Undo" $ T.Undo <$> get
+    put (T.Undo txs psks) = put txs >> put psks
+    get = label "Undo" $ T.Undo <$> get <*> get
 
 -- serialized as vector of TxInWitness
 --instance Bi T.TxWitness where

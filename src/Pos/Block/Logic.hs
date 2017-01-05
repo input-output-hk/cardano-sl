@@ -27,7 +27,7 @@ module Pos.Block.Logic
 
 import           Control.Lens              (view, (^.))
 import           Control.Monad.Catch       (onException)
-import           Control.Monad.Except      (ExceptT (ExceptT), runExceptT)
+import           Control.Monad.Except      (ExceptT (ExceptT), runExceptT, throwError)
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
 import           Data.Default              (Default (def))
 import qualified Data.HashMap.Strict       as HM
@@ -50,6 +50,7 @@ import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.DB                    (MonadDB, getTipBlockHeader, loadHeadersWhile)
 import qualified Pos.DB                    as DB
 import           Pos.DB.Error              (DBError (..))
+import           Pos.Delegation.Logic      (delegationVerifyBlocks)
 import           Pos.Slotting              (getCurrentSlot)
 import           Pos.Ssc.Class             (Ssc (..))
 import           Pos.Ssc.Extra             (sscApplyBlocks, sscApplyGlobalState,
@@ -286,7 +287,10 @@ verifyBlocks blocks =
        verResToMonadError formatAllErrors $
            Types.verifyBlocks (Just curSlot) (tipBlk <| blocks)
        verResToMonadError formatAllErrors =<< sscVerifyBlocks False blocks
-       fmap Undo <$> ExceptT (txVerifyBlocks blocks)
+       txUndo <- ExceptT $ txVerifyBlocks blocks
+       pskUndo <- ExceptT $ delegationVerifyBlocks blocks
+       when (length txUndo /= length pskUndo) $ throwError "Aoeu! Placeholder!"
+       pure $ NE.map (uncurry Undo) $ NE.zip txUndo pskUndo
 
 -- | Run action acquiring lock on block application. Argument of
 -- action is an old tip, result is put as a new tip.
@@ -382,7 +386,7 @@ createGenesisBlockDo epoch = do
         | shouldCreateGenesisBlock epoch (getEpochOrSlot tipHeader) = do
               let blk = mkGenesisBlock (Just tipHeader) epoch leaders
               let newTip = headerHash blk
-              applyBlocks (pure (Left blk, Undo [])) $> (Just blk, newTip)
+              applyBlocks (pure (Left blk, Undo [] [])) $> (Just blk, newTip)
         | otherwise = pure (Nothing, tip)
 
 ----------------------------------------------------------------------------
@@ -442,7 +446,7 @@ createMainBlockFinish slotId pSk prevHeader = do
     let prependToUndo undos tx =
             fromMaybe (panic "Undo for tx not found")
                       (HM.lookup (fst tx) localUndo) : undos
-    let blockUndo = Undo $ reverse $ foldl' prependToUndo [] localTxs
+    let blockUndo = Undo (reverse $ foldl' prependToUndo [] localTxs) notImplemented
     blk <$ applyBlocks (pure (Right blk, blockUndo))
 
 createMainBlockPure

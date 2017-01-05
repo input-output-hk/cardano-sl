@@ -9,6 +9,7 @@ module Pos.Delegation.Class
        ( DelegationWrap
        , dwProxyMsgCache
        , dwProxyConfCache
+       , dwProxySKPool
        , MonadDelegation (..)
        , DelegationT (..)
        , runDelegationT

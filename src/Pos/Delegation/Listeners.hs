@@ -20,10 +20,10 @@ import           Pos.Communication.Methods (sendProxyConfirmSK, sendProxySecretK
 import           Pos.Communication.Types   (MutSocketState, ResponseMode)
 import           Pos.Context               (getNodeContext, ncPropagation, ncSecretKey)
 import           Pos.Crypto                (PublicKey, proxySign)
-import           Pos.Delegation.Logic      (ConfirmPSKVerdict (..), PSKVerdict (..),
-                                            invalidateProxyCaches, isProxySKConfirmed,
-                                            processConfirmProxySk, processProxySecretKey,
-                                            runDelegationStateAction)
+import           Pos.Delegation.Logic      (ConfirmPskEpochVerdict (..),
+                                            PskEpochVerdict (..), invalidateProxyCaches,
+                                            isProxySKConfirmed, processConfirmProxySk,
+                                            processProxySKEpoch, runDelegationStateAction)
 import           Pos.Delegation.Types      (CheckProxySKConfirmed (..),
                                             CheckProxySKConfirmedRes (..),
                                             ConfirmProxySK (..), SendProxySK (..))
@@ -52,36 +52,37 @@ handleSendProxySK
        (ResponseMode ssc m)
     => SendProxySK -> m ()
 handleSendProxySK (SendProxySKEpoch pSk) = do
-    logDebug $ sformat ("Got request to handle proxy secret key: "%build) pSk
+    logDebug $ sformat ("Got request to handle lightweight psk: "%build) pSk
     -- do it in worker once in ~sometimes instead of on every request
     curTime <- liftIO getCurrentTime
     runDelegationStateAction $ invalidateProxyCaches curTime
-    verdict <- processProxySecretKey pSk
+    verdict <- processProxySKEpoch pSk
     logResult verdict
-    propagateSendProxySK verdict pSk
+    propagateProxySKEpoch verdict pSk
   where
-    logResult PSKAdded =
+    logResult PEAdded =
         logInfo $ sformat ("Got valid related proxy secret key: "%build) pSk
     logResult verdict =
         logDebug $
         sformat ("Got proxy signature that wasn't accepted. Reason: "%shown) verdict
-handleSendProxySK _ =
-    logWarning "Heavyweight certificates are not supported yet"
+handleSendProxySK (SendProxySKSimple pSk) = do
+    logDebug $ sformat ("Got request to handle heavyweight psk: "%build) pSk
+    notImplemented
 
--- | Propagates proxy secret key depending on the decision
-propagateSendProxySK
+-- | Propagates lightweight PSK depending on the decision.
+propagateProxySKEpoch
     :: (WorkMode ssc m)
-    => PSKVerdict -> ProxySKEpoch -> m ()
-propagateSendProxySK PSKUnrelated pSk = do
+    => PskEpochVerdict -> ProxySKEpoch -> m ()
+propagateProxySKEpoch PEUnrelated pSk = do
     whenM (ncPropagation <$> getNodeContext) $ do
         logDebug $ sformat ("Propagating proxy secret key "%build) pSk
         sendProxySecretKey pSk
-propagateSendProxySK PSKAdded pSk = do
+propagateProxySKEpoch PEAdded pSk = do
     logDebug $ sformat ("Generating delivery proof and propagating it: "%build) pSk
     sk <- ncSecretKey <$> getNodeContext
     let proof = proxySign sk pSk pSk -- but still proving is nothing but fear
     sendProxyConfirmSK $ ConfirmProxySK pSk proof
-propagateSendProxySK _ _ = pure ()
+propagateProxySKEpoch _ _ = pure ()
 
 
 ----------------------------------------------------------------------------
@@ -99,8 +100,8 @@ handleConfirmProxySK o@(ConfirmProxySK pSk proof) = do
 
 propagateConfirmProxySK
     :: (WorkMode ssc m)
-    => ConfirmPSKVerdict -> ConfirmProxySK -> m ()
-propagateConfirmProxySK ConfirmPSKValid confPSK@(ConfirmProxySK pSk _) = do
+    => ConfirmPskEpochVerdict -> ConfirmProxySK -> m ()
+propagateConfirmProxySK CPValid confPSK@(ConfirmProxySK pSk _) = do
     whenM (ncPropagation <$> getNodeContext) $ do
         logDebug $ sformat ("Propagating psk confirmation for psk: "%build) pSk
         sendProxyConfirmSK confPSK

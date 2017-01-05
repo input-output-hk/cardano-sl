@@ -440,7 +440,10 @@ utxoF = later formatUtxo
 type TxUndo = [[TxOutAux]]
 
 -- | Structure for undo block during rollback
-data Undo = Undo { undoTx :: [[TxOutAux]] }
+data Undo = Undo
+    { undoTx  :: [[TxOutAux]]
+    , undoPsk :: [ProxySKSimple] -- ^ PSKs we've overwritten/deleted
+    }
 
 -- | Block and its Undo.
 type Blund ssc = (Block ssc, Undo)

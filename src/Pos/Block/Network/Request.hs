@@ -14,7 +14,7 @@ import           Formatting                     (build, sformat, (%))
 import           System.Wlog                    (logDebug)
 import           Universum
 
-import           Pos.Binary.Block.Network       ()
+import           Pos.Binary.Communication       ()
 import           Pos.Block.Logic                (getHeadersOlderExp)
 import           Pos.Block.Network.Server.State (recordBlocksRequest,
                                                  recordHeadersRequest)
@@ -23,6 +23,7 @@ import           Pos.Communication.Types        (ResponseMode)
 import           Pos.DHT.Model                  (getUserState, replyToNode)
 import           Pos.Types                      (HeaderHash)
 import           Pos.WorkMode                   (WorkMode)
+
 
 -- | Make 'GetHeaders' message using our main chain. This function
 -- chooses appropriate 'from' hashes and puts them into 'GetHeaders'

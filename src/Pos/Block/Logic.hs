@@ -171,7 +171,7 @@ classifyHeaders headers@(h:|hs) = do
                 flattenEpochOrSlot tipHeader -
                 flattenEpochOrSlot lca
         let lcaChild =
-                fromMaybe (panic "procsessClassify@classifyHeaders") $
+                fromMaybe (panic "processClassify@classifyHeaders") $
                 find (\bh -> bh ^. prevBlockL == hash lca) (h:hs)
         pure $ if
             | hash lca == hash tipHeader -> CHsValid lcaChild
@@ -461,4 +461,4 @@ createMainBlockPure prevHeader txs pSk sId sscData sk =
     -- TODO [CSL-351] inlclude proposal, votes into block
     extraB = MainExtraBodyData (mkAttributes ()) Nothing []
     extraH = MainExtraHeaderData curProtocolVersion curSoftwareVersion (mkAttributes ())
-    body = mkMainBody (fmap snd txs) sscData
+    body = mkMainBody (fmap snd txs) sscData []

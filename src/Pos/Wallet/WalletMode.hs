@@ -26,6 +26,7 @@ import qualified Pos.Context                   as PC
 import           Pos.Crypto                    (WithHash (..))
 import           Pos.DB                        (MonadDB)
 import qualified Pos.DB                        as DB
+import           Pos.Delegation                (DelegationT (..))
 import           Pos.DHT.Model                 (DHTPacking)
 import           Pos.DHT.Real                  (KademliaDHT)
 import           Pos.Ssc.Class.Types           (Ssc)
@@ -68,6 +69,7 @@ instance MonadBalances m => MonadBalances (KeyStorage m)
 
 deriving instance MonadBalances m => MonadBalances (PC.ContextHolder ssc m)
 deriving instance MonadBalances m => MonadBalances (SscHolder ssc m)
+deriving instance MonadBalances m => MonadBalances (DelegationT m)
 
 -- | Instances of 'MonadBalances' for wallet's and node's DBs
 instance MonadIO m => MonadBalances (WalletDB m) where
@@ -102,6 +104,7 @@ instance MonadTxHistory m => MonadTxHistory (KeyStorage m)
 
 deriving instance MonadTxHistory m => MonadTxHistory (PC.ContextHolder ssc m)
 deriving instance MonadTxHistory m => MonadTxHistory (SscHolder ssc m)
+deriving instance MonadTxHistory m => MonadTxHistory (DelegationT m)
 
 -- | Instances of 'MonadTxHistory' for wallet's and node's DBs
 

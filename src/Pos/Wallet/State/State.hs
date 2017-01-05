@@ -18,8 +18,7 @@ module Pos.Wallet.State.State
        , getTxHistory
        ) where
 
-import           Data.Acid                (EventResult, EventState, QueryEvent,
-                                           UpdateEvent)
+import           Data.Acid                (EventResult, EventState, QueryEvent)
 import           Pos.DHT.Real             (KademliaDHT)
 import           Universum
 

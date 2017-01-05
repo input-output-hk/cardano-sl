@@ -32,6 +32,7 @@ import           Pos.Context                 (ContextHolder (..), NodeContext (.
                                               WithNodeContext (..))
 import           Pos.Crypto                  (SecretKey, keyGen)
 import qualified Pos.DB                      as Modern
+import           Pos.Delegation.Class        (DelegationT (..), MonadDelegation)
 import           Pos.DHT.Model               (MonadDHT, MonadMessageDHT,
                                               WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
@@ -107,7 +108,7 @@ newtype KeyStorage m a = KeyStorage
                 HasLoggerName, MonadDialog s p, CanLog, MonadMask, MonadDHT,
                 MonadMessageDHT s, MonadReader KeyData, WithDefaultMsgHeader,
                 MonadWalletDB, WithWalletContext, WithNodeContext ssc,
-                Modern.MonadDB ssc)
+                Modern.MonadDB ssc, MonadDelegation, MonadTrans, MonadBase io)
 
 type instance ThreadId (KeyStorage m) = ThreadId m
 
@@ -117,15 +118,9 @@ instance Monad m => WrappedM (KeyStorage m) where
 
 instance MonadTransfer s m => MonadTransfer s (KeyStorage m)
 
-instance MonadTrans KeyStorage where
-    lift = KeyStorage . lift
-
 instance (MonadIO m, MonadFail m) => MonadState UserSecret (KeyStorage m) where
     get = KeyStorage getSecret
     put = KeyStorage . putSecret
-
-instance MonadBase IO m => MonadBase IO (KeyStorage m) where
-    liftBase = lift . liftBase
 
 instance MonadTransControl KeyStorage where
     type StT KeyStorage a = StT (ReaderT KeyData) a
@@ -182,3 +177,4 @@ instance (MonadIO m, MonadFail m, MonadThrow m) =>
 -- | Derived instances for ancestors in monad stack
 deriving instance MonadKeys m => MonadKeys (SscHolder ssc m)
 deriving instance MonadKeys m => MonadKeys (TxpLDHolder ssc m)
+deriving instance MonadKeys m => MonadKeys (DelegationT m)

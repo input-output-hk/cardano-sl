@@ -8,31 +8,27 @@ module Pos.Communication.Methods
        -- * Sending data into network
          sendToNeighborsSafe
        , sendToNeighborsSafeWithMaliciousEmulation
-       , sendTx
        , sendProxySecretKey
        , sendProxyConfirmSK
        ) where
 
-import           Control.TimeWarp.Rpc        (Message, NetworkAddress)
-import           Control.TimeWarp.Timed      (fork_)
-import           Formatting                  (build, sformat, (%))
-import           System.Wlog                 (logDebug)
+import           Control.TimeWarp.Rpc     (Message)
+import           Control.TimeWarp.Timed   (fork_)
+import           Formatting               (build, sformat, (%))
+import           System.Wlog              (logDebug)
 import           Universum
 
-import           Pos.Binary.Class            (Bi)
-import           Pos.Binary.Communication    ()
-import           Pos.Binary.Txp              ()
-import           Pos.Binary.Types            ()
-import           Pos.Communication.Types     (ConfirmProxySK (..), SendProxySK (..))
-import           Pos.Context                 (getNodeContext, ncAttackTypes)
-import           Pos.Crypto                  (ProxySecretKey)
-import           Pos.DHT.Model               (MonadMessageDHT, defaultSendToNeighbors,
-                                              sendToNeighbors, sendToNode)
-import           Pos.Security                (AttackType (..), shouldIgnoreAddress)
-import           Pos.Txp.Types.Communication (TxDataMsg (..))
-import           Pos.Types                   (EpochIndex, TxAux)
-import           Pos.Util                    (logWarningWaitLinear, messageName')
-import           Pos.WorkMode                (MinWorkMode, WorkMode)
+import           Pos.Binary.Class         (Bi)
+import           Pos.Binary.Communication ()
+import           Pos.Binary.Types         ()
+import           Pos.Context              (getNodeContext, ncAttackTypes)
+import           Pos.Delegation.Types     (ConfirmProxySK (..), SendProxySK (..))
+import           Pos.DHT.Model            (defaultSendToNeighbors, sendToNeighbors,
+                                           sendToNode)
+import           Pos.Security             (AttackType (..), shouldIgnoreAddress)
+import           Pos.Types                (ProxySKEpoch)
+import           Pos.Util                 (logWarningWaitLinear, messageName')
+import           Pos.WorkMode             (MinWorkMode, WorkMode)
 
 -- thread and controls how much time action takes.
 sendToNeighborsSafeImpl :: (Message r, MinWorkMode ssc m) => (r -> m ()) -> r -> m ()
@@ -67,19 +63,11 @@ sendToNeighborsSafeWithMaliciousEmulation msg = do
         unless (shouldIgnoreAddress cont addr) $
             sendToNode addr message
 
--- | Send Tx to given address.
-sendTx :: (MonadMessageDHT s m) => NetworkAddress -> TxAux -> m ()
-sendTx addr (tx,w,d) = do
-    --sendToNode addr VersionReq
-    sendToNode addr $ TxDataMsg tx w d
-
 -- | Sends proxy secret key to neighbours
-sendProxySecretKey
-    :: (MinWorkMode ss m)
-    => ProxySecretKey (EpochIndex, EpochIndex) -> m ()
+sendProxySecretKey :: (MinWorkMode ss m) => ProxySKEpoch -> m ()
 sendProxySecretKey psk = do
     logDebug $ sformat ("Sending proxySecretKey to neigbours:\n"%build) psk
-    sendToNeighborsSafe $ SendProxySK psk
+    sendToNeighborsSafe $ SendProxySKEpoch psk
 
 sendProxyConfirmSK :: (MinWorkMode ss m) => ConfirmProxySK -> m ()
 sendProxyConfirmSK confirmPSK@(ConfirmProxySK psk _) = do

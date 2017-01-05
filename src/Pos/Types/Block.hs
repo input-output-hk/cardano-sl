@@ -29,6 +29,7 @@ module Pos.Types.Block
 
 import           Control.Lens          (ix, view, (^.), (^?), _1, _2, _3)
 import           Data.Default          (Default (def))
+import           Data.List             (groupBy)
 import           Data.Tagged           (untag)
 import           Formatting            (build, int, sformat, (%))
 import           Serokell.Util.Verify  (VerificationRes (..), verifyGeneric)
@@ -36,7 +37,7 @@ import           Universum
 
 import           Pos.Binary.Class      (Bi (..))
 import           Pos.Binary.Types      ()
-import           Pos.Constants         (epochSlots)
+import           Pos.Constants         (epochSlots, maxBlockProxySKs)
 import           Pos.Crypto            (Hash, SecretKey, checkSig, hash, proxySign,
                                         proxyVerify, pskIssuerPk, sign, toPublic,
                                         unsafeHash)
@@ -178,12 +179,16 @@ mkGenesisBlock prevHeader epoch leaders =
 mkMainBody
     :: [(Tx, TxWitness, TxDistribution)]
     -> SscPayload ssc
+    -> [ProxySKSimple]
     -> Body (MainBlockchain ssc)
-mkMainBody txws mpc = MainBody {
-    _mbTxs = mkMerkleTree (map (^. _1) txws),
-    _mbWitnesses = map (^. _2) txws,
-    _mbTxAddrDistributions = map (^. _3) txws,
-    _mbMpc = mpc }
+mkMainBody txws mpc proxySKs =
+    MainBody
+    { _mbTxs = mkMerkleTree (map (^. _1) txws)
+    , _mbWitnesses = map (^. _2) txws
+    , _mbTxAddrDistributions = map (^. _3) txws
+    , _mbMpc = mpc
+    , _mbProxySKs = proxySKs
+    }
 
 -- CHECK: @verifyConsensusLocal
 -- Verifies block signature (also proxy) and that slot id is in the correct range.
@@ -276,13 +281,13 @@ verifyHeader VerifyHeaderParams {..} h =
     checkSlot oldSlot newSlot =
         ( oldSlot < newSlot
         , sformat
-              ("slots are not monotonic ("%build%" > "%build%")")
+              ("slots are not monotonic ("%build%" >= "%build%")")
               oldSlot newSlot
         )
     sameEpoch oldEpoch newEpoch =
         ( oldEpoch == newEpoch
         , sformat
-              ("two adjacent blocks are from different epochs ("%build%" > "%build%")")
+              ("two adjacent blocks are from different epochs ("%build%" != "%build%")")
               oldEpoch newEpoch
         )
 
@@ -357,14 +362,20 @@ verifyGenericBlock blk =
           , "body proof doesn't prove body")
         ]
 
--- | Parameters of Block verification.
+-- | Parameters of Block static verification.
 -- Note: to check that block references previous block and/or is referenced
 -- by next block, use header verification (via vbpVerifyHeader).
 data VerifyBlockParams ssc = VerifyBlockParams
-    { vbpVerifyHeader  :: !(Maybe (VerifyHeaderParams ssc))
-    , vbpVerifyGeneric :: !Bool
-    , vbpVerifyTxs     :: !Bool
-    , vbpVerifySsc     :: !Bool
+    { vbpVerifyHeader   :: !(Maybe (VerifyHeaderParams ssc))
+      -- ^ Verifies header accordingly to params ('verifyHeader')
+    , vbpVerifyGeneric  :: !Bool
+      -- ^ Checks 'verifyGenesisBlock' property.
+    , vbpVerifyTxs      :: !Bool
+      -- ^ Checks that each transaction passes 'verifyTxAlone' check.
+    , vbpVerifySsc      :: !Bool
+      -- ^ Verifies ssc payload with 'sscVerifyPayload'.
+    , vbpVerifyProxySKs :: !Bool
+      -- ^ Check that's number of sks is limited (1000 for now).
     }
 
 -- | By default nothing is checked.
@@ -375,6 +386,7 @@ instance Default (VerifyBlockParams ssc) where
         , vbpVerifyGeneric = False
         , vbpVerifyTxs = False
         , vbpVerifySsc = False
+        , vbpVerifyProxySKs = False
         }
 
 -- CHECK: @verifyBlock
@@ -390,6 +402,7 @@ verifyBlock VerifyBlockParams {..} blk =
         , maybeEmpty (flip verifyHeader (getBlockHeader blk)) vbpVerifyHeader
         , verifyTxs
         , verifySsc
+        , verifyProxySKs
         ]
   where
     verifyG
@@ -410,6 +423,22 @@ verifyBlock VerifyBlockParams {..} blk =
                         sscVerifyPayload
                         (mainBlk ^. gbHeader)
                         (mainBlk ^. blockMpc)
+        | otherwise = mempty
+    proxySKsDups psks =
+        filter (\x -> length x > 1) $
+        groupBy ((==) `on` pskIssuerPk) $
+        sortOn pskIssuerPk psks
+    verifyProxySKs
+        | vbpVerifyProxySKs =
+          (flip (either $ const mempty) blk) $ \mainBlk ->
+            let proxySKs = mainBlk ^. blockProxySKs
+                duplicates = proxySKsDups proxySKs in
+            verifyGeneric
+            [ ( length proxySKs <= maxBlockProxySKs
+              , "Number of certificates in blocks is more than 10000")
+            , ( null duplicates
+              , "Some of block's PSKs have the same issuer, which is prohibited")
+            ]
         | otherwise = mempty
 
 -- CHECK: @verifyBlocks
@@ -455,5 +484,6 @@ verifyBlocks curSlotId = (view _3) . foldl' step start
                 , vbpVerifyGeneric = True
                 , vbpVerifyTxs = True
                 , vbpVerifySsc = True
+                , vbpVerifyProxySKs = True
                 }
         in (newLeaders, Just $ getBlockHeader blk, res <> verifyBlock vbp blk)

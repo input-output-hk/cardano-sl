@@ -22,6 +22,9 @@ module Pos.Util
        , getKeys
        , maybeThrow
 
+       -- * Lists
+       , allDistinct
+
        -- * SafeCopy
        , getCopyBinary
        , putCopyBinary
@@ -60,6 +63,7 @@ module Pos.Util
 
        , eitherToVerRes
 
+       , NamedMessagePart (..)
        -- * Instances
        -- ** SafeCopy (NonEmpty a)
        -- ** MonadFail (Either s), assuming IsString s
@@ -112,6 +116,10 @@ import qualified Pos.Binary.Class              as Bi
 import           Pos.Crypto.Random             (randomNumber)
 import           Pos.Util.Arbitrary
 import           Pos.Util.NotImplemented       ()
+
+-- | Helper class used for Pos.Util.Relay
+class NamedMessagePart a where
+    nMessageName :: Proxy a -> Text
 
 -- | A wrapper over 'ByteString' for adding type safety to
 -- 'Pos.Crypto.Pki.encryptRaw' and friends.
@@ -179,6 +187,15 @@ diffDoubleMap a b = HM.foldlWithKey' go mempty a
 
 maybeThrow :: (MonadThrow m, Exception e) => e -> Maybe a -> m a
 maybeThrow e = maybe (throwM e) pure
+
+----------------------------------------------------------------------------
+-- List utils
+----------------------------------------------------------------------------
+
+allDistinct :: Ord a => [a] -> Bool
+allDistinct xs = and $ zipWith (/=) sorted (drop 1 sorted)
+  where
+    sorted = sort xs
 
 ----------------------------------------------------------------------------
 -- Lens utils

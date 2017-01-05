@@ -46,6 +46,7 @@ library
                         Pos.Crypto
                         Pos.DB
                         Pos.Data.Attributes
+                        Pos.Delegation
                         Pos.DHT
                         Pos.DHT.Model
                         Pos.DHT.Model.Types
@@ -98,6 +99,7 @@ library
                         Pos.Types.Version
                         Pos.Util
                         Pos.Util.JsonLog
+                        Pos.Util.Relay
                         Pos.Util.UserSecret
                         Pos.Worker
                         Pos.WorkMode
@@ -110,7 +112,6 @@ library
                         Pos.Wallet.Web.ClientTypes
   other-modules:        Pos.Aeson.CompileConfig
                         Pos.Binary.Address
-                        Pos.Binary.Block.Network
                         Pos.Binary.Class
                         Pos.Binary.Coin
                         Pos.Binary.Crypto
@@ -118,9 +119,9 @@ library
                         Pos.Binary.DHTModel
                         Pos.Binary.Merkle
                         Pos.Binary.DB
+                        Pos.Binary.Relay
                         Pos.Binary.Script
                         Pos.Binary.Ssc
-                        Pos.Binary.Txp
                         Pos.Binary.Types
                         Pos.Binary.Update
                         Pos.Binary.Util
@@ -136,13 +137,12 @@ library
                         Pos.Block.Worker
                         Pos.Communication.Arbitrary
                         Pos.Communication.Methods
+                        Pos.Communication.RelayMethods
                         Pos.Communication.Types
-                        Pos.Communication.Types.Delegation
                         Pos.Communication.Types.Protocol
                         Pos.Communication.Types.State
                         Pos.Communication.Types.SysStart
                         Pos.Communication.Server
-                        Pos.Communication.Server.Delegation
                         Pos.Communication.Server.Protocol
                         Pos.Communication.Server.SysStart
                         Pos.Communication.Util
@@ -159,6 +159,10 @@ library
                         Pos.Crypto.Random
                         Pos.Crypto.SecretSharing
                         Pos.Crypto.Signing
+                        Pos.Delegation.Class
+                        Pos.Delegation.Types
+                        Pos.Delegation.Listeners
+                        Pos.Delegation.Logic
                         Pos.Launcher.Launcher
                         Pos.Launcher.Options
                         Pos.Launcher.Param
@@ -169,10 +173,16 @@ library
                         Pos.DB.DB
                         Pos.DB.Error
                         Pos.DB.Functions
+                        Pos.DB.GState
+                        Pos.DB.GState.Balances
+                        Pos.DB.GState.Common
+                        Pos.DB.GState.Delegation
+                        Pos.DB.GState.GState
+                        Pos.DB.GState.Update
+                        Pos.DB.GState.Utxo
                         Pos.DB.Holder
                         Pos.DB.Misc
                         Pos.DB.Types
-                        Pos.DB.Utxo
                         Pos.DB.DBIterator
                         Pos.DHT.Arbitrary
                         Pos.Ssc.Extra.Holder
@@ -189,7 +199,7 @@ library
                         Pos.Ssc.GodTossing.LocalData.Types
                         Pos.Ssc.GodTossing.Secret.SecretStorage
                         Pos.Ssc.GodTossing.Secret.Types
-                        Pos.Ssc.GodTossing.SecretStorage 
+                        Pos.Ssc.GodTossing.SecretStorage
                         Pos.Ssc.GodTossing.Seed
                         Pos.Ssc.GodTossing.Shares
                         Pos.Ssc.GodTossing.Storage
@@ -220,6 +230,7 @@ library
                         Pos.Worker.Lrc
                         Pos.Worker.Stats
                         Pos.Update
+                        Pos.Update.Download
                         Pos.Util.Arbitrary
                         Pos.Util.Iterator
                         Pos.Util.NotImplemented

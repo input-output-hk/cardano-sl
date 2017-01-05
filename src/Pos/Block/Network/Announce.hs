@@ -8,7 +8,7 @@ import           Formatting                (build, sformat, (%))
 import           System.Wlog               (logDebug)
 import           Universum
 
-import           Pos.Binary.Block.Network  ()
+import           Pos.Binary.Communication  ()
 import           Pos.Block.Network.Types   (MsgHeaders (..))
 import           Pos.Communication.Methods (sendToNeighborsSafeWithMaliciousEmulation)
 import           Pos.Types                 (MainBlockHeader)

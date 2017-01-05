@@ -28,9 +28,8 @@ import           Pos.DHT.Real                    (KademliaDHT (..), KademliaDHTI
 import           Pos.Genesis                     (genesisSecretKeys, genesisUtxo)
 import           Pos.Launcher                    (BaseParams (..), LoggingParams (..),
                                                   NodeParams (..), bracketDHTInstance,
-                                                  initLrc, initSemaphore, runNode,
-                                                  runProductionMode, runTimeSlaveReal,
-                                                  stakesDistr)
+                                                  initLrc, runNode, runProductionMode,
+                                                  runTimeSlaveReal, stakesDistr)
 import           Pos.Ssc.Class                   (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing              (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon              (SscNistBeacon)
@@ -84,7 +83,6 @@ runSmartGen :: forall ssc . SscConstraint ssc
             => KademliaDHTInstance -> NodeParams -> SscParams ssc -> GenOptions -> IO ()
 runSmartGen inst np@NodeParams{..} sscnp opts@GenOptions{..} =
     runProductionMode inst np sscnp $ do
-    initSemaphore
     initLrc
     let getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
         initTx = initTransaction opts

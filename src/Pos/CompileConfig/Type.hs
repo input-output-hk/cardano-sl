@@ -45,4 +45,6 @@ data CompileConfig = CompileConfig
       -- ^ True if we should enable enchanced bessage broadcast
     , ccUpdateServers                 :: ![String]
       -- ^ Servers for downloading application updates
+    , ccMaxBlockProxySKs              :: !Int
+      -- ^ Maximum number of PSKs allowed in block
     } deriving (Show, Lift)

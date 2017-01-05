@@ -59,10 +59,7 @@ Library
                       , random
                       , serokell-util
                       , stm
-<<<<<<< a44701cf6ab26ce4d5fab2776c5d079a00076529
                       , text
-=======
->>>>>>> [CSL-447] wait instead of delay
                       , time
                       , time-units
                       , time-warp

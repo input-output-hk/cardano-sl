@@ -40,7 +40,6 @@ Library
                       , containers
                       , binary >= 0.8
                       , bytestring
-                      , conduit >= 1.2.8
                       , deepseq
                       , data-default
                       , exceptions
@@ -64,6 +63,7 @@ Library
                       , transformers
   hs-source-dirs:       src
   default-language:     Haskell2010
+  ghc-options:          -Wall
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -201,8 +201,6 @@ executable bench-log-reader
                      , base == 4.*
                      , binary >= 0.8.3
                      , bytestring >= 0.10.6.0
-                     , conduit >= 1.2.7
-                     , conduit-extra >= 1.1.13
                      , containers >= 0.5.7
                      , data-default >= 0.7
                      , directory >= 1.2.6

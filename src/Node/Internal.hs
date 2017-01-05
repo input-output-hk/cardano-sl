@@ -546,7 +546,7 @@ connectInOutChannel node@Node{nodeEndPoint, nodeState}
 
 -- | Connect to a peer given by a 'NodeId' unidirectionally.
 connectOutChannel
-    :: ( Monad m, Mockable Throw m )
+    :: ( Mockable Throw m )
     => Node m
     -> NodeId
     -> m (ChannelOut m)

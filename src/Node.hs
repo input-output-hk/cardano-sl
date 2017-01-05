@@ -34,19 +34,10 @@ module Node (
 
     ) where
 
-import Control.Applicative (optional)
-import Control.Monad (when, unless, void)
 import Control.Monad.Fix (MonadFix)
 import qualified Node.Internal as LL
 import Node.Internal (ChannelIn(..), ChannelOut(..))
-import Data.String (IsString)
-import Data.Binary     as Bin
-import Data.Binary.Put as Bin
-import Data.Binary.Get as Bin
 import qualified Data.ByteString.Lazy as LBS
-import qualified Data.ByteString      as BS
-import qualified Data.ByteString.Builder.Extra as BS
-import Data.Maybe (fromMaybe)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import qualified Network.Transport.Abstract as NT
@@ -57,9 +48,7 @@ import Mockable.Concurrent
 import Mockable.Channel
 import Mockable.SharedAtomic
 import Mockable.Exception
-import GHC.Generics (Generic)
 import Message.Message
-
 
 data Node (m :: * -> *) = Node {
        nodeLL      :: LL.Node m,

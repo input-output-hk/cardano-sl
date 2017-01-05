@@ -27,7 +27,6 @@ Library
                         Mockable.SharedAtomic
 
                         Message.Message
-                        Message.Util
 
                         Node.Internal
 

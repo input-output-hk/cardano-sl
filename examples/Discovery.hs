@@ -14,6 +14,7 @@ import qualified Data.ByteString.Char8                as B8
 import qualified Data.Set                             as S
 import           Data.String                          (fromString)
 import           Data.Void                            (Void)
+import           Message.Message                      (BinaryP (..))
 import           Mockable.Concurrent                  (delay)
 import           Mockable.Production
 import           Network.Discovery.Abstract
@@ -23,7 +24,6 @@ import           Network.Transport.Concrete           (concrete)
 import qualified Network.Transport.InMemory           as InMemory
 import qualified Network.Transport.TCP                as TCP
 import           Node
-import           Message.Message                      (BinaryP (..))
 import           System.Environment                   (getArgs)
 import           System.Random
 
@@ -37,13 +37,12 @@ instance Binary Pong where
         then pure Pong
         else fail "no parse pong"
 
-type Header = ()
 type Packing = BinaryP
 
-workers :: NodeId -> StdGen -> NetworkDiscovery K.KademliaDiscoveryErrorCode Production -> [Worker Header Packing Production]
+workers :: NodeId -> StdGen -> NetworkDiscovery K.KademliaDiscoveryErrorCode Production -> [Worker Packing Production]
 workers id gen discovery = [pingWorker gen]
     where
-    pingWorker :: StdGen -> SendActions Header Packing Production -> Production ()
+    pingWorker :: StdGen -> SendActions Packing Production -> Production ()
     pingWorker gen sendActions = loop gen
         where
         loop gen = do
@@ -54,20 +53,20 @@ workers id gen discovery = [pingWorker gen]
             peerSet <- knownPeers discovery
             liftIO . putStrLn $ show id ++ " has peer set: " ++ show peerSet
             forM_ (S.toList peerSet) $ \addr -> withConnectionTo sendActions (NodeId addr) (fromString "ping") $
-                \(cactions :: ConversationActions Header Void Pong Production) -> do
+                \(cactions :: ConversationActions Void Pong Production) -> do
                     received <- recv cactions
                     case received of
                         Just Pong -> liftIO . putStrLn $ show id ++ " heard PONG from " ++ show addr
                         Nothing -> error "Unexpected end of input"
             loop gen'
 
-listeners :: NodeId -> [Listener Header Packing Production]
+listeners :: NodeId -> [Listener Packing Production]
 listeners id = [Listener (fromString "ping") pongListener]
     where
-    pongListener :: ListenerAction Header Packing Production
-    pongListener = ListenerActionConversation $ \peerId (cactions :: ConversationActions Header Pong Void Production) -> do
+    pongListener :: ListenerAction Packing Production
+    pongListener = ListenerActionConversation $ \peerId (cactions :: ConversationActions  Pong Void Production) -> do
         liftIO . putStrLn $ show id ++  " heard PING from " ++ show peerId
-        send cactions () Pong
+        send cactions Pong
 
 makeNode transport i = do
     let port = 3000 + i
@@ -84,8 +83,8 @@ makeNode transport i = do
     let prng2 = mkStdGen ((2 * i) + 1)
     liftIO . putStrLn $ "Starting node " ++ show i
     Right endPoint <- newEndPoint transport
-    rec { node <- startNode @() endPoint prng1 BinaryP (workers (nodeId node) prng2 discovery)
-            Nothing (listeners (nodeId node))
+    rec { node <- startNode endPoint prng1 BinaryP (workers (nodeId node) prng2 discovery)
+            (listeners (nodeId node))
         ; let localAddress = nodeEndPointAddress node
         ; liftIO . putStrLn $ "Making discovery for node " ++ show i
         ; discovery <- K.kademliaDiscovery kademliaConfig initialPeer localAddress

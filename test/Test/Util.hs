@@ -61,7 +61,7 @@ import           Test.QuickCheck.Property    (Testable (..), failed, reason, suc
 
 import          Node                        (ConversationActions (..), Listener (..),
                                             ListenerAction (..), MessageName, NodeId,
-                                            PreListener, SendActions (..), Worker,
+                                            SendActions (..), Worker,
                                             nodeId, startNode, stopNode)
 import          Message.Message (BinaryP (..))
 
@@ -176,29 +176,29 @@ instance Show TalkStyle where
     show ConversationStyle  = "conversation style"
 
 sendAll
-    :: ( Binary header, Binary body, Monad m )
+    :: ( Binary body, Monad m )
     => TalkStyle
-    -> SendActions header BinaryP m
+    -> SendActions BinaryP m
     -> NodeId
     -> MessageName
-    -> [(header, body)]
+    -> [body]
     -> m ()
 sendAll SingleMessageStyle sendActions peerId msgName msgs =
-    forM_ msgs $ uncurry $ sendTo sendActions peerId msgName
+    forM_ msgs $ sendTo sendActions peerId msgName
 
 sendAll ConversationStyle  sendActions peerId msgName msgs =
     withConnectionTo sendActions @_ @Void peerId msgName $
-        \cactions -> forM_ msgs $ uncurry $ send cactions
+        \cactions -> forM_ msgs $ send cactions
 
 receiveAll
-    :: ( Binary header, Binary body, Monad m )
+    :: ( Binary body, Monad m )
     => TalkStyle
     -> (body -> m ())
-    -> ListenerAction header BinaryP m
+    -> ListenerAction BinaryP m
 receiveAll SingleMessageStyle handler =
     ListenerActionOneMsg $ \_ _ -> handler
 receiveAll ConversationStyle  handler =
-    ListenerActionConversation @_ @_ @_ @Void $ \_ cactions ->
+    ListenerActionConversation @_ @_ @Void $ \_ cactions ->
         let loop = do mmsg <- recv cactions
                       for_ mmsg $ \msg -> handler msg >> loop
         in  loop
@@ -206,13 +206,11 @@ receiveAll ConversationStyle  handler =
 
 -- * Test template
 
-deliveryTest :: Binary header
-             => TVar TestState
-             -> [NodeId -> Worker header BinaryP Production]
-             -> [Listener header BinaryP Production]
-             -> Maybe (PreListener header BinaryP Production)
+deliveryTest :: TVar TestState
+             -> [NodeId -> Worker BinaryP Production]
+             -> [Listener BinaryP Production]
              -> IO Property
-deliveryTest testState workers listeners prelistener = runProduction $ do
+deliveryTest testState workers listeners = runProduction $ do
     transport_ <- throwLeft $ liftIO $ TCP.createTransport "127.0.0.1" "10342" TCP.defaultTCPParameters
     let transport = concrete transport_
     endpoint1 <- throwLeft $ newEndPoint transport
@@ -223,9 +221,9 @@ deliveryTest testState workers listeners prelistener = runProduction $ do
 
         -- launch nodes
     rec { cliNode  <- startNode endpoint1 prng1 BinaryP
-            (sequence workers servNodeId) Nothing []
+            (sequence workers servNodeId) []
         ; servNode <- startNode endpoint2 prng2 BinaryP
-            [] prelistener listeners
+            [] listeners
         ; let servNodeId = nodeId servNode
         }
 

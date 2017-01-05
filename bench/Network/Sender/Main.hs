@@ -40,8 +40,6 @@ import           SenderOptions              (Args (..), argsParser)
 instance Mockable Catch (LoggerNameBox IO) where
     liftMockable (Catch action handler) = action `Exception.catch` handler
 
-type Header = ()
-
 data PingState = PingState
     { _lastResetMcs    :: !Microsecond
     , _currentMessages :: !Word
@@ -87,12 +85,10 @@ main = do
                                  tasksIds
                                  (zip [0, msgNum..] nodeIds)
         senderNode <- startNode
-                          @Header
                           endPoint
                           prngNode
                           BinaryP
                           pingWorkers
-                          Nothing
                           [Listener "pong" pongListener]
 
         threadDelay (fromIntegral duration :: Second)
@@ -109,7 +105,7 @@ main = do
             lift . lift $ logMeasure PingSent sMsgId payload
             -- TODO: better to use `connect` + `send`,
             -- but `connect` is not implemented yet
-            lift . lift $ sendTo sendActions peerId "ping" () $ Ping sMsgId payload
+            lift . lift $ sendTo sendActions peerId "ping" $ Ping sMsgId payload
 
             PingState{..}    <- get
             curTime          <- curTimeUnitsMcs

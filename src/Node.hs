@@ -27,7 +27,7 @@ module Node (
     , Worker
     , Listener(..)
     , ListenerAction(..)
-    
+
     , LL.NodeId(..)
     , nodeId
     , nodeEndPointAddress
@@ -148,7 +148,7 @@ nodeSendActions node packing = SendActions nodeSendTo nodeWithConnectionTo
         -> m ()
     nodeSendTo = \nodeId msgName body ->
         LL.withOutChannel node nodeId $ \channelOut ->
-            mapM_ (LL.writeChannel channelOut . LBS.toChunks)
+            LL.writeChannel channelOut $ concatMap LBS.toChunks
                 [ packMsg packing msgName
                 , packMsg packing body
                 ]

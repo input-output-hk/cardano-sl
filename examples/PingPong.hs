@@ -7,17 +7,19 @@
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
 
-import           GHC.Generics               (Generic)
 import           Control.Monad              (forM_)
 import           Control.Monad.IO.Class     (liftIO)
+import           Control.TimeWarp.Timed     (for)
 import           Data.Binary
 import           Data.String                (fromString)
+import           Data.Time.Units            (Microsecond, fromMicroseconds)
+import           Data.Void                  (Void)
+import           GHC.Generics               (Generic)
 import           Message.Message            (BinaryP (..))
-import           Mockable.Concurrent        (delay)
+import           Mockable.Concurrent        (wait)
 import           Mockable.Production
 import           Network.Transport.Abstract (newEndPoint)
 import           Network.Transport.Concrete (concrete)
-import qualified Network.Transport.InMemory as InMemory
 import qualified Network.Transport.TCP      as TCP
 import           Node
 import           System.Random
@@ -45,37 +47,38 @@ instance Binary Pong
 type Packing = BinaryP
 
 workers :: NodeId -> StdGen -> [NodeId] -> [Worker Packing Production]
-workers id gen peerIds = [pingWorker gen]
+workers anId generator peerIds = [pingWorker generator]
     where
     pingWorker :: StdGen -> SendActions Packing Production -> Production ()
     pingWorker gen sendActions = loop gen
         where
         loop :: StdGen -> Production ()
-        loop gen = do
-            let (i, gen') = randomR (0,1000000) gen
-            delay i
-            let pong :: NodeId -> ConversationActions Ping Pong Production -> Production ()
+        loop g = do
+            let (i, gen') = randomR (0,1000000) g
+                us = fromMicroseconds i :: Microsecond
+            wait $ for us
+            let pong :: NodeId -> ConversationActions Void Pong Production -> Production ()
                 pong peerId cactions = do
-                    liftIO . putStrLn $ show id ++ " sent PING to " ++ show peerId
+                    liftIO . putStrLn $ show anId ++ " sent PING to " ++ show peerId
                     received <- recv cactions
                     case received of
-                        Just Pong -> liftIO . putStrLn $ show id ++ " heard PONG from " ++ show peerId
+                        Just Pong -> liftIO . putStrLn $ show anId ++ " heard PONG from " ++ show peerId
                         Nothing -> error "Unexpected end of input"
             forM_ peerIds $ \peerId -> withConnectionTo sendActions peerId (fromString "ping") (pong peerId)
             loop gen'
 
 listeners :: NodeId -> [Listener Packing Production]
-listeners id = [Listener (fromString "ping") pongWorker]
+listeners anId = [Listener (fromString "ping") pongWorker]
     where
     pongWorker :: ListenerAction Packing Production
-    pongWorker = ListenerActionConversation $ \peerId (cactions :: ConversationActions Pong Ping Production) -> do
-        liftIO . putStrLn $ show id ++  " heard PING from " ++ show peerId
+    pongWorker = ListenerActionConversation $ \peerId (cactions :: ConversationActions Pong Void Production) -> do
+        liftIO . putStrLn $ show anId ++  " heard PING from " ++ show peerId
         send cactions Pong
-        liftIO . putStrLn $ show id ++ " sent PONG to " ++ show peerId
+        liftIO . putStrLn $ show anId ++ " sent PONG to " ++ show peerId
 
+main :: IO ()
 main = runProduction $ do
 
-    --transport_ <- InMemory.createTransport
     Right transport_ <- liftIO $ TCP.createTransport ("127.0.0.1") ("10128") TCP.defaultTCPParameters
     let transport = concrete transport_
     Right endpoint1 <- newEndPoint transport

@@ -31,6 +31,7 @@ module Test.Util
        , deliveryTest
        ) where
 
+import           Control.TimeWarp.Timed      (for, mcs)
 import           Control.Concurrent.STM      (STM, atomically, check)
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVar, writeTVar)
 import           Control.Exception           (Exception, SomeException (..))
@@ -45,7 +46,7 @@ import qualified Data.List                   as L
 import qualified Data.Set                    as S
 import           Data.Void                   (Void)
 import           GHC.Generics                (Generic)
-import           Mockable.Concurrent         (delay, fork)
+import           Mockable.Concurrent         (wait, fork)
 import           Mockable.Exception          (catch, throw)
 import           Mockable.Production         (Production (..))
 import           Network.Transport.Abstract  (closeTransport, newEndPoint)
@@ -154,7 +155,7 @@ awaitSTM :: Int -> STM Bool -> Production ()
 awaitSTM time predicate = do
     tvar <- liftIO $ newTVarIO False
     void . fork $ do
-        delay time
+        wait $ for time mcs
         liftIO . atomically $ writeTVar tvar True
     liftIO . atomically $
         check =<< (||) <$> predicate <*> readTVar tvar
@@ -241,7 +242,7 @@ deliveryTest testState workers listeners = runProduction $ do
     closeTransport transport
 
     -- wait till port gets free
-    delay 10000
+    wait $ for 10000 mcs
 
     -- form test results
     liftIO . atomically $

@@ -12,7 +12,10 @@ module Mockable.Concurrent (
   , killThread
 
   , Delay(..)
-  , delay
+  , wait
+  , sleepForever
+  , RepeatForever(..)
+  , repeatForever
 
   , RunInUnboundThread(..)
   , runInUnboundThread
@@ -20,6 +23,10 @@ module Mockable.Concurrent (
   ) where
 
 import Mockable.Class
+import Control.TimeWarp.Timed   (RelativeToNow)
+
+import Data.Time.Units          (Microsecond)
+import Control.Exception.Base   (SomeException)
 
 type family ThreadId (m :: * -> *) :: *
 
@@ -38,11 +45,28 @@ killThread :: ( Mockable Fork m ) => ThreadId m -> m ()
 killThread tid = liftMockable $ KillThread tid
 
 data Delay (m :: * -> *) (t :: *) where
-    -- | Delay in microseconds
-    Delay :: Int -> Delay m ()
+    Delay :: RelativeToNow -> Delay m ()    -- Finite delay.
+    SleepForever :: Delay m ()              -- Infinite delay.
 
-delay :: ( Mockable Delay m ) => Int -> m ()
-delay us = liftMockable $ Delay us
+wait :: ( Mockable Delay m ) => RelativeToNow -> m ()
+wait relativeToNow = liftMockable $ Delay relativeToNow
+
+sleepForever :: ( Mockable Delay m ) => m ()
+sleepForever = liftMockable SleepForever
+
+data RepeatForever (m :: * -> *) (t :: *) where
+    RepeatForever :: Microsecond
+                  -> (SomeException -> m Microsecond)
+                  -> m ()
+                  -> RepeatForever m ()
+
+repeatForever :: ( Mockable RepeatForever m )
+    => Microsecond
+    -> (SomeException -> m Microsecond)
+    -> m ()
+    -> m ()
+repeatForever period handler action =
+    liftMockable $ RepeatForever period handler action
 
 data RunInUnboundThread m t where
     RunInUnboundThread :: m t -> RunInUnboundThread m t

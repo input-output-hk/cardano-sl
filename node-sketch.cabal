@@ -23,6 +23,7 @@ Library
                         Mockable.Class
                         Mockable.Concurrent
                         Mockable.Exception
+                        Mockable.Monad
                         Mockable.Production
                         Mockable.SharedAtomic
 
@@ -60,6 +61,7 @@ Library
                       , text
                       , time
                       , time-units
+                      , time-warp
                       , transformers
   hs-source-dirs:       src
   default-language:     Haskell2010
@@ -80,6 +82,8 @@ executable discovery
                       , network-transport-tcp
                       , node-sketch
                       , random
+                      , time-units
+                      , time-warp
 
   hs-source-dirs:       examples
   default-language:     Haskell2010
@@ -99,6 +103,8 @@ executable ping-pong
                      , node-sketch
                      , random
                      , stm
+                     , time-units
+                     , time-warp
 
   hs-source-dirs:      examples
   default-language:    Haskell2010
@@ -254,6 +260,7 @@ test-suite node-sketch-test
                      , random
                      , serokell-util >= 0.1.2.3
                      , stm
+                     , time-warp
   hs-source-dirs:      test
   default-language:    Haskell2010
   ghc-options:         -threaded

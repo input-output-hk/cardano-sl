@@ -18,18 +18,23 @@ module Message.Message
     , BinaryP (..)
     ) where
 
-import           Control.Monad                 (unless)
+import           Control.Monad                 (forM_, unless)
+import           Control.Monad.Trans           (lift)
 import qualified Data.Binary                   as Bin
 import qualified Data.Binary.Get               as Bin
 import qualified Data.Binary.Put               as Bin
 import qualified Data.ByteString               as BS
 import qualified Data.ByteString.Builder.Extra as BS
 import qualified Data.ByteString.Lazy          as LBS
+import           Data.Functor.Identity         (runIdentity)
+import           Data.Maybe                    (fromMaybe)
+import           Data.Monoid                   ((<>))
 import           Data.String                   (IsString)
 import           GHC.Generics                  (Generic)
-import           Mockable.Channel              (Channel, ChannelT, readChannel,
-                                                unGetChannel)
+import           Mockable.Channel              (Channel, ChannelT, newChannel,
+                                                readChannel, unGetChannel, writeChannel)
 import           Mockable.Class                (Mockable)
+
 
 -- * Message name
 

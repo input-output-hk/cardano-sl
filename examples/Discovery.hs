@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -6,24 +7,24 @@
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE DeriveGeneric         #-}
 
-import           GHC.Generics                         (Generic)
 import           Control.Monad                        (forM, forM_, when)
 import           Control.Monad.IO.Class               (liftIO)
+import           Control.TimeWarp.Timed               (for)
 import           Data.Binary
 import qualified Data.ByteString.Char8                as B8
 import qualified Data.Set                             as S
 import           Data.String                          (fromString)
+import           Data.Time.Units                      (Microsecond, fromMicroseconds)
 import           Data.Void                            (Void)
+import           GHC.Generics                         (Generic)
 import           Message.Message                      (BinaryP (..))
-import           Mockable.Concurrent                  (delay)
+import           Mockable.Concurrent                  (wait)
 import           Mockable.Production
 import           Network.Discovery.Abstract
 import qualified Network.Discovery.Transport.Kademlia as K
-import           Network.Transport.Abstract           (newEndPoint)
+import           Network.Transport.Abstract           (Transport (..), newEndPoint)
 import           Network.Transport.Concrete           (concrete)
-import qualified Network.Transport.InMemory           as InMemory
 import qualified Network.Transport.TCP                as TCP
 import           Node
 import           System.Environment                   (getArgs)
@@ -32,50 +33,51 @@ import           System.Random
 data Pong = Pong
 deriving instance Generic Pong
 deriving instance Show Pong
-instance Binary Pong
+instance Binary Pong where
 
 type Packing = BinaryP
 
 workers :: NodeId -> StdGen -> NetworkDiscovery K.KademliaDiscoveryErrorCode Production -> [Worker Packing Production]
-workers id gen discovery = [pingWorker gen]
+workers anId generator discovery = [pingWorker generator]
     where
     pingWorker :: StdGen -> SendActions Packing Production -> Production ()
     pingWorker gen sendActions = loop gen
         where
-        loop gen = do
-            let (i, gen') = randomR (1000,2000000) gen
-            delay i
-            peerSet_ <- knownPeers discovery
-            discoverPeers discovery
+        loop g = do
+            let (i, gen') = randomR (1000,2000000) g
+                us = fromMicroseconds i :: Microsecond
+            wait $ for us
+            _ <- knownPeers discovery
+            _ <- discoverPeers discovery
             peerSet <- knownPeers discovery
-            liftIO . putStrLn $ show id ++ " has peer set: " ++ show peerSet
+            liftIO . putStrLn $ show anId ++ " has peer set: " ++ show peerSet
             forM_ (S.toList peerSet) $ \addr -> withConnectionTo sendActions (NodeId addr) (fromString "ping") $
                 \(cactions :: ConversationActions Void Pong Production) -> do
                     received <- recv cactions
                     case received of
-                        Just Pong -> liftIO . putStrLn $ show id ++ " heard PONG from " ++ show addr
+                        Just Pong -> liftIO . putStrLn $ show anId ++ " heard PONG from " ++ show addr
                         Nothing -> error "Unexpected end of input"
             loop gen'
 
 listeners :: NodeId -> [Listener Packing Production]
-listeners id = [Listener (fromString "ping") pongListener]
+listeners anId = [Listener (fromString "ping") pongListener]
     where
     pongListener :: ListenerAction Packing Production
-    pongListener = ListenerActionConversation $ \peerId (cactions :: ConversationActions  Pong Void Production) -> do
-        liftIO . putStrLn $ show id ++  " heard PING from " ++ show peerId
+    pongListener = ListenerActionConversation $ \peerId (cactions :: ConversationActions Pong Void Production) -> do
+        liftIO . putStrLn $ show anId ++  " heard PING from " ++ show peerId
         send cactions Pong
 
 makeNode transport i = do
     let port = 3000 + i
     let host = "127.0.0.1"
-    let id = makeId i
+    let anId = makeId i
     let initialPeer =
             if i == 0
             -- First node uses itself as initial peer, else it'll panic because
             -- its initial peer appears to be down.
-            then K.Node (K.Peer host (fromIntegral port)) id
+            then K.Node (K.Peer host (fromIntegral port)) anId
             else K.Node (K.Peer host (fromIntegral (port - 1))) (makeId (i - 1))
-    let kademliaConfig = K.KademliaConfiguration (fromIntegral port) id
+    let kademliaConfig = K.KademliaConfiguration (fromIntegral port) anId
     let prng1 = mkStdGen (2 * i)
     let prng2 = mkStdGen ((2 * i) + 1)
     liftIO . putStrLn $ "Starting node " ++ show i
@@ -88,10 +90,11 @@ makeNode transport i = do
         }
     pure (node, discovery)
     where
-    makeId i
-        | i < 10 = B8.pack ("node_identifier_0" ++ show i)
-        | otherwise = B8.pack ("node_identifier_" ++ show i)
+    makeId anId
+        | anId < 10 = B8.pack ("node_identifier_0" ++ show anId)
+        | otherwise = B8.pack ("node_identifier_" ++ show anId)
 
+main :: IO ()
 main = runProduction $ do
 
     [arg0] <- liftIO getArgs
@@ -99,7 +102,6 @@ main = runProduction $ do
 
     when (number > 99 || number < 1) $ error "Give a number in [1,99]"
 
-    --transport_ <- liftIO $ InMemory.createTransport
     Right transport_ <- liftIO $ TCP.createTransport ("127.0.0.1") ("10128") TCP.defaultTCPParameters
     let transport = concrete transport_
 

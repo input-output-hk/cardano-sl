@@ -4,7 +4,7 @@ packages:
   - '.'
   - location:
       git: https://github.com/serokell/kademlia.git
-      commit: 7a0bdfe8bba2503ab96bddd9021ba36e50e5ccc2
+      commit: 062053ed11b92c8e25d4d61ea943506fd0482fa6
     extra-dep: true
   - location:
       git: https://github.com/serokell/log-warper.git
@@ -21,6 +21,8 @@ nix:
 extra-deps:
   - serokell-util-0.1.2.3
   - time-units-1.0.0
+  - pqueue-1.3.2
+  - time-warp-1.1.1.0
   - aeson-extra-0.4.0.0
   - data-msgpack-0.0.8
   - recursion-schemes-5.0.1

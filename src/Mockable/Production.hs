@@ -5,22 +5,27 @@
 
 module Mockable.Production where
 
-import Mockable.Class
-import Mockable.Concurrent
-import Mockable.SharedAtomic
-import Mockable.Channel
-import Mockable.Exception
-import Control.Monad.Fix (MonadFix)
-import Control.Monad.IO.Class (MonadIO)
-import qualified Control.Exception as Exception
-import qualified Control.Concurrent as Conc
-import qualified Control.Concurrent.MVar as Conc
-import qualified Control.Concurrent.STM as Conc
-import qualified Control.Concurrent.STM.TChan as Conc
+import           Mockable.Class
+import           Mockable.Concurrent
+import           Mockable.SharedAtomic
+import           Mockable.Channel
+import           Mockable.Exception
+import           Control.TimeWarp.Timed         (Microsecond, for, ms, hour)
+import           Control.Monad                  (forever, void)
+import           Control.Monad.Fix              (MonadFix)
+import           Control.Monad.IO.Class         (MonadIO, liftIO)
+import qualified Control.Exception              as Exception
+import           Control.Exception.Base         (SomeException)
+import qualified Control.Concurrent             as Conc
+import qualified Control.Concurrent.MVar        as Conc
+import qualified Control.Concurrent.STM         as Conc
+import qualified Control.Concurrent.STM.TChan   as Conc
+import           Control.Concurrent.STM.TVar    (newTVarIO, readTVarIO, writeTVar)
+import           Data.Time.Clock.POSIX          (getPOSIXTime)
 
 newtype Production t = Production {
     runProduction :: IO t
-  }
+}
 
 deriving instance Functor Production
 deriving instance Applicative Production
@@ -36,7 +41,33 @@ instance Mockable Fork Production where
     liftMockable (KillThread tid) = Production $ Conc.killThread tid
 
 instance Mockable Delay Production where
-    liftMockable (Delay us) = Production $ Conc.threadDelay us
+    liftMockable (Delay relativeToNow) = Production $ do
+        cur <- runProduction $ curTime
+        Conc.threadDelay $ fromIntegral $ relativeToNow cur - cur
+    liftMockable SleepForever = forever . wait $ for 24 hour
+
+instance Mockable RepeatForever Production where
+    liftMockable (RepeatForever period handler action) = do
+        timer <- startTimer
+        nextDelay <- liftIO $ newTVarIO Nothing
+        void $ fork $
+            let setNextDelay = liftIO . Conc.atomically . writeTVar nextDelay . Just
+                action'      = action >> timer >>= \passed -> setNextDelay (period - passed)
+                handler' e   = handler e >>= setNextDelay
+            in action' `catch` handler'
+        waitForRes nextDelay
+      where
+        startTimer = do
+            start <- curTime
+            return $ subtract start <$> curTime
+
+        continue = repeatForever period handler action
+        waitForRes nextDelay = do
+            wait $ for 10 ms
+            res <- liftIO $ readTVarIO nextDelay
+            case res of
+                Nothing -> waitForRes nextDelay
+                Just t  -> wait (for t) >> continue
 
 instance Mockable RunInUnboundThread Production where
     liftMockable (RunInUnboundThread m) = Production $
@@ -67,3 +98,6 @@ instance Mockable Throw Production where
 instance Mockable Catch Production where
     liftMockable (Catch action handler) = Production $
         runProduction action `Exception.catch` (runProduction . handler)
+
+curTime :: Production Microsecond
+curTime = liftIO $ round . ( * 1000000) <$> getPOSIXTime

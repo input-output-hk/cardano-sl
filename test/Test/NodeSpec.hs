@@ -10,42 +10,41 @@ module Test.NodeSpec
        ( spec
        ) where
 
-import           Control.Concurrent.STM.TVar (newTVarIO)
-import           Control.Lens                (sans, (%=), (.=), (<&>))
-import           Control.Monad               (unless)
+import           Control.Concurrent.STM.TVar (TVar, newTVarIO)
+import           Control.Lens                (sans, (%=), (&~), (.=))
 import           Data.Foldable               (for_)
 import qualified Data.Set                    as S
 import           Node                        (Listener (..))
 import           Test.Hspec                  (Spec, describe)
 import           Test.Hspec.QuickCheck       (prop)
 import           Test.QuickCheck             (Property, ioProperty)
-import           Test.Util                   (Parcel (..), TalkStyle (..), activeWorkers,
-                                              addFail, deliveryTest, expected,
-                                              mkTestState, modifyTestState, newWork,
-                                              receiveAll, sendAll)
+import           Test.Util                   (HeavyParcel (..), Parcel (..),
+                                              TalkStyle (..), TestState, deliveryTest,
+                                              expected, mkTestState, modifyTestState,
+                                              newWork, receiveAll, sendAll)
 
 spec :: Spec
 spec = describe "Node" $
-    describe "delivery (client -> server)" $
-        for_ [SingleMessageStyle, ConversationStyle] $
-        \talkStyle -> describe (show talkStyle) $ do
-            prop "plain" $
-                plainDeliveryTest talkStyle
-            prop "header-filtering" $
-                headersFilteringDeliveryTest talkStyle
+    -- one sender, one receiver
+    describe "delivery" $ do
+        for_ [SingleMessageStyle, ConversationStyle] $ \talkStyle ->
+            describe (show talkStyle) $ do
+                prop "plain" $
+                    plainDeliveryTest talkStyle
+                prop "heavy messages sent nicely" $
+                    withHeavyParcels $ plainDeliveryTest talkStyle
+
+prepareDeliveryTestState :: [Parcel] -> IO (TVar TestState)
+prepareDeliveryTestState expectedParcels =
+    newTVarIO $ mkTestState &~
+        expected .= S.fromList expectedParcels
 
 plainDeliveryTest
     :: TalkStyle
     -> [Parcel]
     -> Property
 plainDeliveryTest talkStyle parcels = ioProperty $ do
-    testState <- newTVarIO mkTestState
-
-    -- wait for sender or receiver to complete
-    -- TODO: make receiver stop automatically when sender finishes
-    modifyTestState testState $ do
-        activeWorkers .= 1
-        expected .= S.fromList parcels
+    testState <- prepareDeliveryTestState parcels
 
     let worker peerId sendActions = newWork testState "client" $
             sendAll talkStyle sendActions peerId "ping" $ ((), ) <$> parcels
@@ -53,29 +52,7 @@ plainDeliveryTest talkStyle parcels = ioProperty $ do
         listener = Listener "ping" $ receiveAll talkStyle $
             \parcel -> modifyTestState testState $ expected %= sans parcel
 
-    deliveryTest testState [worker] [listener] Nothing
+    deliveryTest testState [worker] [listener]
 
-headersFilteringDeliveryTest
-    :: TalkStyle
-    -> [Parcel]
-    -> Property
-headersFilteringDeliveryTest talkStyle parcels = ioProperty $ do
-    testState <- newTVarIO mkTestState
-
-    modifyTestState testState $ do
-        activeWorkers .= 1
-        expected .= S.fromList (filter toProcess parcels)
-
-    let worker peerId sendActions = newWork testState "client" $
-            sendAll talkStyle sendActions peerId "ping" $
-                parcels <&> \p -> (toProcess p, p)
-
-        listener = Listener "ping" $ receiveAll talkStyle $
-            \parcel -> do
-                unless (toProcess parcel) $ addFail testState
-                    "received message which should be discarded by prelistener"
-                modifyTestState testState $ expected %= sans parcel
-
-        prelistener header _ = return header
-
-    deliveryTest testState [worker] [listener] (Just prelistener)
+withHeavyParcels :: ([Parcel] -> Property) -> [HeavyParcel] -> Property
+withHeavyParcels testCase megaParcels = testCase (getHeavyParcel <$> megaParcels)

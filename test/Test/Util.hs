@@ -12,6 +12,8 @@
 
 module Test.Util
        ( Parcel (..)
+       , Payload (..)
+       , HeavyParcel (..)
 
        , TestState (..)
        , mkTestState
@@ -32,11 +34,12 @@ module Test.Util
 import           Control.Concurrent.STM      (STM, atomically, check)
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVar, writeTVar)
 import           Control.Exception           (Exception, SomeException (..))
-import           Control.Lens                (makeLenses, (%=), (-=))
+import           Control.Lens                (makeLenses, (%=), (-=), (.=))
 import           Control.Monad               (forM_, void)
 import           Control.Monad.IO.Class      (MonadIO (..))
 import           Control.Monad.State         (StateT)
-import           Data.Binary                 (Binary)
+import           Data.Binary                 (Binary (..))
+import qualified Data.ByteString             as LBS
 import           Data.Foldable               (for_)
 import qualified Data.List                   as L
 import qualified Data.Set                    as S
@@ -48,29 +51,49 @@ import           Mockable.Production         (Production (..))
 import           Network.Transport.Abstract  (closeTransport, newEndPoint)
 import           Network.Transport.Concrete  (concrete)
 import qualified Network.Transport.TCP       as TCP
-import           Node                        (ConversationActions (..), Listener (..),
-                                              ListenerAction (..), MessageName, NodeId,
-                                              PreListener, SendActions (..), Worker,
-                                              nodeId, startNode, stopNode)
 import           Serokell.Util.Concurrent    (modifyTVarS)
 import           System.Random               (mkStdGen)
 import           Test.QuickCheck             (Property)
 import           Test.QuickCheck.Arbitrary   (Arbitrary (..))
+import           Test.QuickCheck.Gen         (choose)
 import           Test.QuickCheck.Modifiers   (getLarge)
 import           Test.QuickCheck.Property    (Testable (..), failed, reason, succeeded)
 
+import          Node                        (ConversationActions (..), Listener (..),
+                                            ListenerAction (..), MessageName, NodeId,
+                                            SendActions (..), Worker,
+                                            nodeId, startNode, stopNode)
+import          Message.Message (BinaryP (..))
 
 -- * Parcel
 
+data Payload = Payload Int
+    deriving (Eq, Ord, Show)
+
+instance Binary Payload where
+    put (Payload size) = put $ LBS.replicate size 7
+    get = Payload . LBS.length <$> get
+
 data Parcel = Parcel
     { parcelNo  :: Int
-    , toProcess :: Bool
+    , payload   :: Payload
     } deriving (Eq, Ord, Show, Generic)
 
 instance Binary Parcel
 
 instance Arbitrary Parcel where
-    arbitrary = Parcel <$> (getLarge <$> arbitrary) <*> arbitrary
+    arbitrary = Parcel
+            <$> (getLarge <$> arbitrary)
+            <*> pure (Payload 0)
+
+newtype HeavyParcel = HeavyParcel
+    { getHeavyParcel :: Parcel
+    } deriving (Eq, Ord, Show, Binary)
+
+instance Arbitrary HeavyParcel where
+    arbitrary = mkHeavy <$> arbitrary <*> choose (0, 100000)
+      where
+        mkHeavy parcel size = HeavyParcel parcel { payload = Payload size }
 
 
 -- * TestState
@@ -142,32 +165,34 @@ awaitSTM time predicate = do
 -- | Way to send pack of messages
 data TalkStyle
     = SingleMessageStyle
+    -- ^ corresponds to `sendTo` and `ListenerActionOneMsg` usage
     | ConversationStyle
+    -- ^ corresponds to `withConnectionTo` and `ListenerActionConversation` usage
 
 instance Show TalkStyle where
     show SingleMessageStyle = "single-message style"
     show ConversationStyle  = "conversation style"
 
 sendAll
-    :: ( Binary header, Binary body, Monad m )
+    :: ( Binary body, Monad m )
     => TalkStyle
-    -> SendActions header m
+    -> SendActions BinaryP m
     -> NodeId
     -> MessageName
-    -> [(header, body)]
+    -> [body]
     -> m ()
 sendAll SingleMessageStyle sendActions peerId msgName msgs =
-    forM_ msgs $ uncurry $ sendTo sendActions peerId msgName
+    forM_ msgs $ sendTo sendActions peerId msgName
 
 sendAll ConversationStyle  sendActions peerId msgName msgs =
     withConnectionTo sendActions @_ @Void peerId msgName $
-        \cactions -> forM_ msgs $ uncurry $ send cactions
+        \cactions -> forM_ msgs $ send cactions
 
 receiveAll
-    :: ( Binary header, Binary body, Monad m )
+    :: ( Binary body, Monad m )
     => TalkStyle
     -> (body -> m ())
-    -> ListenerAction header m
+    -> ListenerAction BinaryP m
 receiveAll SingleMessageStyle handler =
     ListenerActionOneMsg $ \_ _ -> handler
 receiveAll ConversationStyle  handler =
@@ -179,13 +204,11 @@ receiveAll ConversationStyle  handler =
 
 -- * Test template
 
-deliveryTest :: Binary header
-             => TVar TestState
-             -> [NodeId -> Worker header Production]
-             -> [Listener header Production]
-             -> Maybe (PreListener header Production)
+deliveryTest :: TVar TestState
+             -> [NodeId -> Worker BinaryP Production]
+             -> [Listener BinaryP Production]
              -> IO Property
-deliveryTest testState workers listeners prelistener = runProduction $ do
+deliveryTest testState workers listeners = runProduction $ do
     transport_ <- throwLeft $ liftIO $ TCP.createTransport "127.0.0.1" "10342" TCP.defaultTCPParameters
     let transport = concrete transport_
     endpoint1 <- throwLeft $ newEndPoint transport
@@ -194,9 +217,15 @@ deliveryTest testState workers listeners prelistener = runProduction $ do
     let prng1 = mkStdGen 0
     let prng2 = mkStdGen 1
 
-        -- launch nodes
-    rec { cliNode  <- startNode endpoint1 prng1 (sequence workers servNodeId) Nothing []
-        ; servNode <- startNode endpoint2 prng2 [] prelistener listeners
+    -- wait for sender or receiver to complete
+    -- TODO: make receiver stop automatically when sender finishes
+    modifyTestState testState $ activeWorkers .= 1
+
+    -- launch nodes
+    rec { cliNode  <- startNode endpoint1 prng1 BinaryP
+            (sequence workers servNodeId) []
+        ; servNode <- startNode endpoint2 prng2 BinaryP
+            [] listeners
         ; let servNodeId = nodeId servNode
         }
 

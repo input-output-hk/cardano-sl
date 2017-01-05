@@ -34,7 +34,7 @@ module Test.Util
 import           Control.Concurrent.STM      (STM, atomically, check)
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVar, writeTVar)
 import           Control.Exception           (Exception, SomeException (..))
-import           Control.Lens                (makeLenses, (%=), (-=))
+import           Control.Lens                (makeLenses, (%=), (-=), (.=))
 import           Control.Monad               (forM_, void)
 import           Control.Monad.IO.Class      (MonadIO (..))
 import           Control.Monad.State         (StateT)
@@ -219,7 +219,11 @@ deliveryTest testState workers listeners = runProduction $ do
     let prng1 = mkStdGen 0
     let prng2 = mkStdGen 1
 
-        -- launch nodes
+    -- wait for sender or receiver to complete
+    -- TODO: make receiver stop automatically when sender finishes
+    modifyTestState testState $ activeWorkers .= 1
+
+    -- launch nodes
     rec { cliNode  <- startNode endpoint1 prng1 BinaryP
             (sequence workers servNodeId) []
         ; servNode <- startNode endpoint2 prng2 BinaryP

@@ -11,7 +11,7 @@ module Test.NodeSpec
        ) where
 
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO)
-import           Control.Lens                (sans, (%=), (.=))
+import           Control.Lens                (sans, (%=), (&~), (.=))
 import           Data.Foldable               (for_)
 import qualified Data.Set                    as S
 import           Node                        (Listener (..))
@@ -19,10 +19,9 @@ import           Test.Hspec                  (Spec, describe)
 import           Test.Hspec.QuickCheck       (prop)
 import           Test.QuickCheck             (Property, ioProperty)
 import           Test.Util                   (HeavyParcel (..), Parcel (..),
-                                              TalkStyle (..), TestState, activeWorkers,
-                                              deliveryTest, expected, mkTestState,
-                                              modifyTestState, newWork, receiveAll,
-                                              sendAll)
+                                              TalkStyle (..), TestState, deliveryTest,
+                                              expected, mkTestState, modifyTestState,
+                                              newWork, receiveAll, sendAll)
 
 spec :: Spec
 spec = describe "Node" $
@@ -36,15 +35,9 @@ spec = describe "Node" $
                     withHeavyParcels $ plainDeliveryTest talkStyle
 
 prepareDeliveryTestState :: [Parcel] -> IO (TVar TestState)
-prepareDeliveryTestState expectedParcels = do
-    testState <- newTVarIO mkTestState
-
-    -- wait for sender or receiver to complete
-    -- TODO: make receiver stop automatically when sender finishes
-    modifyTestState testState $ do
-        activeWorkers .= 1
+prepareDeliveryTestState expectedParcels =
+    newTVarIO $ mkTestState &~
         expected .= S.fromList (filter toProcess expectedParcels)
-    return testState
 
 plainDeliveryTest
     :: TalkStyle

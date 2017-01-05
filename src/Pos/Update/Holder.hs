@@ -32,7 +32,7 @@ import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..))
 import           Pos.Txp.Class               (MonadTxpLD (..))
 import           Pos.Types.Utxo.Class        (MonadUtxo, MonadUtxoRead)
 import           Pos.Update.Class            (MonadUS (..))
-import           Pos.Update.State            (MemState)
+import           Pos.Update.MemState         (MemState)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 -- | Trivial monad transformer based on @ReaderT (TVar MemState)@.

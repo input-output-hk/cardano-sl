@@ -13,7 +13,7 @@ import           Universum
 
 import           Pos.DHT.Model.Class    (DHTResponseT)
 import           Pos.DHT.Real           (KademliaDHT)
-import           Pos.Update.State       (MemState)
+import           Pos.Update.MemState    (MemState)
 
 -- | Equivalent of @MonadReader (TVar MemState) m@.
 class Monad m => MonadUS m where

@@ -16,13 +16,19 @@ module Pos.DB.Types
 
         -- * LRC related types.
        , LrcStorage (..)
+
+        -- * Update System related types.
+       , VoteState (..)
+       , ProposalState (..)
        ) where
 
 import           Control.Lens     (makeLenses)
 import qualified Database.RocksDB as Rocks
 import           Universum
 
-import           Pos.Types        (Block, EpochIndex, Richmen, SlotLeaders)
+import           Pos.Crypto       (PublicKey)
+import           Pos.Types        (Block, EpochIndex, Richmen, SlotId, SlotLeaders,
+                                   UpdateProposal)
 
 ----------------------------------------------------------------------------
 -- General
@@ -62,4 +68,26 @@ data LrcStorage ssc = LrcStorage
     { lrcEpoch   :: !EpochIndex
     , lrcLeaders :: !SlotLeaders
     , lrcRichmen :: !Richmen
+    } deriving (Generic)
+
+----------------------------------------------------------------------------
+-- Update System
+----------------------------------------------------------------------------
+
+-- | This type represents summary of votes issued by stakeholder.
+data VoteState
+    = PositiveVote    -- ^ Stakeholder voted once positively.
+    | NegativeVote    -- ^ Stakeholder voted once positively.
+    | PositiveRevote  -- ^ Stakeholder voted negatively, then positively.
+    | NegativeRevote  -- ^ Stakeholder voted positively, then negatively.
+    deriving (Generic)
+
+-- | State of UpdateProposal.
+data ProposalState = ProposalState
+    { psVotes    :: !(HashMap PublicKey VoteState)
+      -- ^ Votes given for this proposal.
+    , psProposal :: !UpdateProposal
+      -- ^ Proposal itself.
+    , psSlot     :: !SlotId
+      -- ^ SlotId from block in which update was proposed.
     } deriving (Generic)

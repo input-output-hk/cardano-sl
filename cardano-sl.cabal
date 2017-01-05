@@ -234,10 +234,7 @@ library
                         Pos.Update.Download
                         Pos.Update.Holder
                         Pos.Update.Logic
-                        Pos.Update.State
-                        Pos.Update.State.Full
-                        Pos.Update.State.Local
-                        Pos.Update.State.Global
+                        Pos.Update.MemState
                         Pos.Util.Arbitrary
                         Pos.Util.Iterator
                         Pos.Util.NotImplemented

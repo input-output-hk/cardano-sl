@@ -44,6 +44,7 @@ module Pos.Constants
        , updateServers
        , updateProposalThreshold
        , updateVoteThreshold
+       , updateImplicitApproval
        ) where
 
 import           Control.TimeWarp.Timed     (Microsecond, sec)
@@ -258,3 +259,8 @@ updateVoteThreshold = unsafeCoinPortion $ ccUpdateVoteThreshold compileConfig
 -- staticAssert
 --     (getCoinPortion updateVoteThreshold <= 1)
 --     "updateVoteThreshold is more than 1"
+
+-- | Number of slots after which update is implicitly approved
+-- unless it has more negative votes than positive.
+updateImplicitApproval :: Integral i => i
+updateImplicitApproval = fromIntegral $ ccUpdateImplicitApproval compileConfig

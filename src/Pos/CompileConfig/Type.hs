@@ -53,4 +53,7 @@ data CompileConfig = CompileConfig
       -- from stakeholders owning at least this amount of stake.
     , ccUpdateVoteThreshold           :: !Double
       -- ^ Portion of total stake necessary to vote for or against update.
+    , ccUpdateImplicitApproval        :: !Word
+      -- ^ Number of slots after which update is implicitly approved
+      -- unless it has more negative votes than positive.
     } deriving (Show, Lift)

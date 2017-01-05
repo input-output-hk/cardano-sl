@@ -82,8 +82,9 @@ mkCTx :: Address -> (TxId, Tx, Bool) -> CTxMeta -> CTx
 mkCTx addr (txId, tx, isOutgoing) = CTx (txIdToCTxId txId) outputCoins . meta
   where
     outputCoins = unsafeIntegerToCoin . sumCoins . map txOutValue $
-        filter ((/= addr) . txOutAddress) $ txOutputs tx
+        filter (reverse . (== addr) . txOutAddress) $ txOutputs tx
     meta = if isOutgoing then CTOut else CTIn
+    reverse = if isOutgoing then not else identity
 
 ----------------------------------------------------------------------------
 -- wallet

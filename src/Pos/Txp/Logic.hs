@@ -14,20 +14,22 @@ module Pos.Txp.Logic
        , txRollbackBlocks
        ) where
 
-import           Control.Lens           (each, over, view, (^.), _1, _3)
+import           Control.Lens           (each, over, view, (<&>), (^.), _1, _3)
 import qualified Data.HashMap.Strict    as HM
 import qualified Data.HashSet           as HS
 import           Data.List.NonEmpty     (NonEmpty)
 import qualified Data.List.NonEmpty     as NE
 import           Formatting             (build, sformat, stext, (%))
-import           System.Wlog            (WithLogger, logInfo)
+import           System.Wlog            (WithLogger, logDebug, logInfo)
 import           Universum
 
 import           Pos.Constants          (maxLocalTxs)
 import           Pos.Crypto             (WithHash (..), hash, withHash)
-import           Pos.DB                 (DB, MonadDB, getUtxoDB)
-import           Pos.DB.Utxo            (BatchOp (..), getFtsStake, getTip,
-                                         getTotalFtsStake, writeBatchToUtxo)
+import           Pos.DB                 (DB, MonadDB, SomeBatchOp (SomeBatchOp),
+                                         getUtxoDB)
+import           Pos.DB.GState          (BalancesOp (..), CommonOp (..), UtxoOp (..),
+                                         getFtsStake, getTip, getTotalFtsStake,
+                                         writeBatchGState)
 import           Pos.Ssc.Class.Types    (Ssc)
 import           Pos.Txp.Class          (MonadTxpLD (..), TxpLD, getUtxoView)
 import           Pos.Txp.Error          (TxpError (..))
@@ -59,7 +61,8 @@ type TxpWorkMode ssc m = ( Ssc ssc
 type MinTxpWorkMode ssc m = ( MonadDB ssc m
                             , MonadTxpLD ssc m
                             , MonadUtxo m
-                            , MonadThrow m)
+                            , MonadThrow m
+                            , WithLogger m)
 
 -- | Apply chain of /definitely/ valid blocks to state on transactions
 -- processing.
@@ -96,16 +99,16 @@ txApplyBlock (blk, undo) = do
     filterMemPool txsAndIds
     let (txOutPlus, txInMinus) = concatStakes (txas, undo)
     stakesBatch <- recomputeStakes txOutPlus txInMinus
-    writeBatchToUtxo $ stakesBatch ++ (PutTip (headerHash blk) : batch)
+    writeBatchGState $ stakesBatch ++ (SomeBatchOp (PutTip (headerHash blk)) : batch)
   where
     txas = either (const []) (toList . view blockTxas) blk
     txsAndIds = map (\tx -> (hash (tx ^. _1), (tx ^. _1, tx ^. _3))) txas
     prependToBatch :: (TxId, (Tx, TxDistribution))
-                   -> [BatchOp ssc] -> [BatchOp ssc]
+                   -> [SomeBatchOp] -> [SomeBatchOp]
     prependToBatch (txId, (Tx{..}, distr)) batch =
         let keys = zipWith TxIn (repeat txId) [0 ..]
-            delIn = map DelTxIn txInputs
-            putOut = zipWith AddTxOut
+            delIn = map (SomeBatchOp . DelTxIn) txInputs
+            putOut = zipWith (\i o -> SomeBatchOp $ AddTxOut i o)
                          keys
                          (zip txOutputs (getTxDistribution distr))
         in foldr' (:) (foldr' (:) batch putOut) delIn --how we could simplify it?
@@ -124,33 +127,39 @@ txVerifyBlocks newChain = do
         (foldM verifyDo (Right []) newChainTxs)
         (UV.createFromDB utxoDB)
   where
-    newChainTxs :: [(SlotId, [(WithHash Tx, TxWitness, TxDistribution)])]
-    newChainTxs =
-        map (\b -> (b ^. blockSlot, over (each . _1) withHash (b ^. blockTxas))) $
-        rights (NE.toList newChain)
+    -- Left for genesis blocks, Right for main blocks
+    newChainTxs
+        :: [Either () (SlotId, [(WithHash Tx, TxWitness, TxDistribution)])]
+    newChainTxs = map f (NE.toList newChain)
+      where
+        f (Left _)  = Left ()
+        f (Right b) = Right (b ^. blockSlot,
+                             over (each . _1) withHash (b ^. blockTxas))
     verifyDo
         :: Either Text [Undo]
-        -> (SlotId, [(WithHash Tx, TxWitness, TxDistribution)])
+        -> Either () (SlotId, [(WithHash Tx, TxWitness, TxDistribution)])
         -> TxpLDHolder ssc m (Either Text [Undo])
-    verifyDo failure@(Left _) _ = pure failure
-    verifyDo undos (slotId, txws) =
-        attachSlotId slotId <$>
-        (liftA2 (flip (:)) undos) <$>
-        verifyAndApplyTxs False txws
-    attachSlotId _ suc@(Right _) = suc
-    attachSlotId sId (Left errors) =
-        Left $ (sformat ("[Block's slot = "%slotIdF % "]"%stext) sId) errors
+    verifyDo (Left err) _ = pure (Left err)
+    -- a genesis block doesn't need to be undone
+    verifyDo (Right undos) (Left ()) = pure (Right ([]:undos))
+    -- handling a main block
+    verifyDo (Right undos) (Right (slotId, txas)) =
+        verifyAndApplyTxs False txas <&> \case
+            Right undo  -> Right (undo:undos)
+            Left errors -> Left (attachSlotId slotId errors)
+    attachSlotId sId errors =
+        sformat ("[Block's slot = "%slotIdF % "]"%stext) sId errors
 
 -- CHECK: @processTx
 -- #processTxDo
 processTx :: MinTxpWorkMode ssc m => (TxId, TxAux) -> m ProcessTxRes
-processTx itw@(_, (tx, _, _)) = do
+processTx itw@(txId, (tx, _, _)) = do
     tipBefore <- getTip
     resolved <-
       foldM (\s inp -> maybe s (\x -> HM.insert inp x s) <$> utxoGet inp)
             mempty (txInputs tx)
     db <- getUtxoDB
-    modifyTxpLD (\txld@(_, mp, _, tip) ->
+    pRes <- modifyTxpLD (\txld@(_, mp, _, tip) ->
         let localSize = localTxsSize mp in
         if tipBefore == tip then
             if localSize < maxLocalTxs
@@ -159,6 +168,7 @@ processTx itw@(_, (tx, _, _)) = do
         else
             (mkPTRinvalid ["Tips aren't same"], txld)
         )
+    pRes <$ logDebug (sformat ("Transaction processed: "%build) txId)
 
 -- CHECK: @processTxDo
 -- #verifyTxPure
@@ -188,8 +198,13 @@ processTxDo ld@(uv, mp, undos, tip) resolvedIns utxoDB (id, (tx, txw, txd))
     newState nAddUtxo nDelUtxo oldTxs oldSize oldUndos =
         let keys = zipWith TxIn (repeat id) [0 ..]
             zipKeys = zip keys (txOutputs tx `zip` getTxDistribution txd)
-            newAddUtxo' = foldl' (flip $ uncurry HM.insert) nAddUtxo zipKeys
-            newDelUtxo' = foldl' (flip HS.insert) nDelUtxo (txInputs tx)
+            addUtxoMembers = zip (txInputs tx) $ map (`HM.member` nAddUtxo) (txInputs tx)
+            squashedDels = map fst $ filter snd addUtxoMembers
+            notSquashedDels = map fst $ filter (not . snd) addUtxoMembers
+            newAddUtxo' = foldl' (flip $ uncurry HM.insert)
+                                 (foldl' (flip HM.delete) nAddUtxo squashedDels)
+                                 zipKeys
+            newDelUtxo' = foldl' (flip HS.insert) nDelUtxo notSquashedDels
             newUndos = HM.insert id (reverse $ foldl' prependToUndo [] (txInputs tx)) oldUndos
         in ( PTRadded
            , ( UtxoView newAddUtxo' newDelUtxo' utxoDB
@@ -214,29 +229,29 @@ txRollbackBlock (block, undo) = do
     -- Stakes/balances part
     let (txOutMinus, txInPlus) = concatStakes (txas, undo)
     stakesBatch <- recomputeStakes txInPlus txOutMinus
-    either panic (writeBatchToUtxo .
+    either panic (writeBatchGState .
                   (stakesBatch ++) .
-                  (PutTip (block ^. prevBlockL) :))
+                  (SomeBatchOp (PutTip (block ^. prevBlockL)) :) . map SomeBatchOp)
            batchOrError
   where
     txas = either (const []) (toList . view blockTxas) block
     txs = either (const []) (toList . map (^. _1) . view blockTxas) block
 
-    prependToBatch :: Either Text [BatchOp ssc] -> (Tx, [TxOutAux]) -> Either Text [BatchOp ssc]
+    prependToBatch :: Either Text [SomeBatchOp] -> (Tx, [TxOutAux]) -> Either Text [SomeBatchOp]
     prependToBatch batchOrError (tx@Tx{..}, undoTx) = do
         batch <- batchOrError
         --TODO more detailed message must be here
         unless (length undoTx == length txInputs) $ Left "Number of txInputs must be equal length of undo"
         let txId = hash tx
             keys = zipWith TxIn (repeat txId) [0..]
-            putIn = zipWith AddTxOut txInputs undoTx
-            delOut = map DelTxIn $ take (length txOutputs) keys
+            putIn = zipWith (\i o -> SomeBatchOp $ AddTxOut i o) txInputs undoTx
+            delOut = map (SomeBatchOp . DelTxIn) $ take (length txOutputs) keys
         return $ foldr' (:) (foldr' (:) batch putIn) delOut --how we could simplify it?
 
 recomputeStakes :: (WithLogger m, MonadDB ssc m)
                 => [(StakeholderId, Coin)]
                 -> [(StakeholderId, Coin)]
-                -> m [BatchOp ssc]
+                -> m [SomeBatchOp]
 recomputeStakes plusDistr minusDistr = do
     resolvedStakes <- mapM (\ad ->
                               maybe (mkCoin 0 <$ logInfo (createInfo ad))
@@ -252,7 +267,8 @@ recomputeStakes plusDistr minusDistr = do
           = HM.toList $
               calcNegStakes minusDistr
                   (calcPosStakes $ zip needResolve resolvedStakes ++ plusDistr)
-    pure $ PutFtsSum newTotalStake : map (uncurry PutFtsStake) newStakes
+    pure $ SomeBatchOp (PutFtsSum newTotalStake) :
+           map (SomeBatchOp . uncurry PutFtsStake) newStakes
   where
     createInfo = sformat ("Stake for "%build%" will be created in UtxoDB")
     needResolve = HS.toList $

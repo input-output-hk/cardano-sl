@@ -6,8 +6,8 @@ module GenOptions
 
 import           Data.Version        (showVersion)
 import           Options.Applicative (Parser, ParserInfo, auto, fullDesc, help, helper,
-                                      info, long, many, metavar, option, progDesc, short,
-                                      value)
+                                      info, long, many, metavar, option, optional,
+                                      progDesc, short, value)
 import           Universum
 
 import           Paths_cardano_sl    (version)
@@ -25,6 +25,7 @@ data GenOptions = GenOptions
     , goTpsIncreaseStep :: !Double     -- ^ When system is stable, increase TPS in next round by this value
     , goPropThreshold   :: !Int
     , goRecipientShare  :: !Double     -- ^ Which portion of neighbours to send on each round
+    , goMOfNParams      :: !(Maybe (Int, Int)) -- ^ If this is provided, send M-of-N script transactions instead of P2PKH
     , goJLFile          :: !(Maybe FilePath)
     , goCommonArgs      :: !CLI.CommonArgs -- ^ Common CLI arguments, including initial DHT nodes
     }
@@ -77,6 +78,11 @@ optionsParser = GenOptions
             (long "recipients-share"
           <> value 1
           <> help "Which portion of neighbours to send on each round")
+    <*> optional
+            (option auto $
+             long "m-of-n"
+          <> metavar "(M, N)"
+          <> help "If enabled, send M-of-N txs instead of regular ones")
     <*> CLI.optionalJSONPath
     <*> CLI.commonArgsParser "Initial DHT peer (may be many)"
 

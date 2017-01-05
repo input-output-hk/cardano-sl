@@ -10,11 +10,14 @@
 
 module Pos.Types.Types
        (
+         -- * Coin
          Coin
+       , CoinPortion
        , coinF
+       , getCoinPortion
        , mkCoin
-       , sumCoins
-       , coinToInteger
+       , unsafeCoinPortion
+       , unsafeGetCoin
 
        , EpochIndex (..)
        , FlatSlotId
@@ -65,6 +68,11 @@ module Pos.Types.Types
        , SlotLeaders
        , Richmen
 
+       , ProxySigEpoch
+       , ProxySKEpoch
+       , ProxySigSimple
+       , ProxySKSimple
+
        , Blockchain (..)
        , BodyProof (..)
        , ConsensusData (..)
@@ -79,8 +87,6 @@ module Pos.Types.Types
        , BlockHeaderAttributes
        , BlockBodyAttributes
        , BiSsc
-       , ProxySigEpoch
-       , ProxySKEpoch
        , BlockSignature (..)
        , ChainDifficulty (..)
        , MainToSign
@@ -111,6 +117,7 @@ module Pos.Types.Types
        , blockSlot
        , blockTxs
        , blockTxas
+       , blockProxySKs
        , gbBody
        , gbBodyProof
        , gbExtra
@@ -128,16 +135,19 @@ module Pos.Types.Types
        , mbMpc
        , mbTxs
        , mbWitnesses
+       , mbProxySKs
        , mcdSlot
        , mcdLeaderKey
        , mcdDifficulty
        , mcdSignature
        ) where
 
+import           Control.Exception      (assert)
 import           Control.Lens           (Getter, Lens', choosing, makeLenses,
                                          makeLensesFor, to, view, (^.), _1)
 import qualified Data.ByteString        as BS (pack, zipWith)
 import qualified Data.ByteString.Char8  as BSC (pack)
+import           Data.Data              (Data)
 import           Data.DeriveTH          (derive, makeNFData)
 import           Data.Hashable          (Hashable)
 import           Data.Ix                (Ix)
@@ -174,10 +184,48 @@ import           Pos.Types.Address      (Address (..), StakeholderId, addressF,
                                          checkPubKeyAddress, checkScriptAddress,
                                          decodeTextAddress, makePubKeyAddress,
                                          makeScriptAddress)
-import           Pos.Types.Coin         (Coin, coinF, coinToInteger, mkCoin, sumCoins)
 import           Pos.Types.Update       (UpdateProposal, UpdateVote)
 import           Pos.Types.Version      (ProtocolVersion, SoftwareVersion)
 import           Pos.Util               (Color (Magenta), colorize)
+
+----------------------------------------------------------------------------
+-- Coin
+----------------------------------------------------------------------------
+
+-- | Coin is the least possible unit of currency.
+newtype Coin = Coin
+    { getCoin :: Word64
+    } deriving (Show, Ord, Eq, Bounded, Generic, Hashable, Data, NFData)
+
+instance Buildable Coin where
+    build (Coin n) = bprint (int%" coin(s)") n
+
+-- | Make Coin from Word64.
+mkCoin :: Word64 -> Coin
+mkCoin = Coin
+{-# INLINE mkCoin #-}
+
+-- | Coin formatter which restricts type.
+coinF :: Format r (Coin -> r)
+coinF = build
+
+-- | Unwraps 'Coin'. It's called “unsafe” so that people wouldn't use it
+-- willy-nilly if they want to sum coins or something. It's actually safe.
+unsafeGetCoin :: Coin -> Word64
+unsafeGetCoin = getCoin
+{-# INLINE unsafeGetCoin #-}
+
+-- | CoinPortion is some portion of Coin, it must be in [0 .. 1]. Main
+-- usage of it is multiplication with Coin. Usually it's needed to
+-- determine some threshold expressed as portion of total stake.
+newtype CoinPortion = CoinPortion
+    { getCoinPortion :: Double
+    }
+
+-- | Make CoinPortion from Double. Caller must ensure that value is in [0 .. 1].
+unsafeCoinPortion :: Double -> CoinPortion
+unsafeCoinPortion x = assert (0 <= x && x <= 1) $ CoinPortion x
+{-# INLINE unsafeCoinPortion #-}
 
 ----------------------------------------------------------------------------
 -- Slotting
@@ -423,6 +471,23 @@ type SlotLeaders = NonEmpty StakeholderId
 type Richmen = NonEmpty StakeholderId
 
 ----------------------------------------------------------------------------
+-- Proxy signatures and delegation
+----------------------------------------------------------------------------
+
+-- | Proxy signature used in csl -- holds a pair of epoch
+-- indices. Block is valid if it's epoch index is inside this range.
+type ProxySigEpoch a = ProxySignature (EpochIndex, EpochIndex) a
+
+-- | Same alias for the proxy secret key (see 'ProxySigEpoch').
+type ProxySKEpoch = ProxySecretKey (EpochIndex, EpochIndex)
+
+-- | Simple proxy signature without ttl/epoch index constraints.
+type ProxySigSimple a = ProxySignature () a
+
+-- | Correspondent SK for no-ttl proxy signature scheme.
+type ProxySKSimple = ProxySecretKey ()
+
+----------------------------------------------------------------------------
 -- GenericBlock
 ----------------------------------------------------------------------------
 
@@ -512,16 +577,8 @@ newtype ChainDifficulty = ChainDifficulty
 -- | Constraint for data to be signed in main block.
 type MainToSign ssc = (HeaderHash ssc, BodyProof (MainBlockchain ssc), SlotId, ChainDifficulty)
 
--- | Proxy signature used in csl -- holds a pair of epoch
--- indices. Block is valid if it's epoch index is inside this range.
-type ProxySigEpoch a = ProxySignature (EpochIndex, EpochIndex) a
-
--- | Same alias for the proxy secret key (see 'ProxySigEpoch').
-type ProxySKEpoch = ProxySecretKey (EpochIndex, EpochIndex)
-
 -- | Signature of the block. Can be either regular signature from the
 -- issuer or delegated signature having a constraint on epoch indices
-
 -- (it means the signature is valid only if block's slot id has epoch
 -- inside the constrained interval).
 data BlockSignature ssc
@@ -625,6 +682,8 @@ instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
           _mbWitnesses :: ![TxWitness]
         , -- | Data necessary for MPC.
           _mbMpc :: !(SscPayload ssc)
+        , -- | No-ttl heavyweight delegation certificates
+          _mbProxySKs :: ![ProxySKSimple]
         } deriving (Generic, Typeable)
 
     type ExtraBodyData (MainBlockchain ssc) = MainExtraBodyData
@@ -855,6 +914,10 @@ MAKE_LENS(mbTxAddrDistributions, _mbTxAddrDistributions)
 mbMpc :: Lens' (Body (MainBlockchain ssc)) (SscPayload ssc)
 MAKE_LENS(mbMpc, _mbMpc)
 
+-- | Lens for ProxySKs in main block body.
+mbProxySKs :: Lens' (Body (MainBlockchain ssc)) [ProxySKSimple]
+MAKE_LENS(mbProxySKs, _mbProxySKs)
+
 -- makeLensesData ''Body ''(GenesisBlockchain ssc)
 
 -- | Lens for 'SlotLeaders' in 'Body' of 'GenesisBlockchain'.
@@ -1002,6 +1065,10 @@ blockTxas =
     to (\b -> zip3 (toList (b ^. mbTxs))
                    (b ^. mbWitnesses)
                    (b ^. mbTxAddrDistributions))
+
+-- | Lens from 'MainBlock' to 'ProxySKSimple' list.
+blockProxySKs :: Lens' (MainBlock ssc) [ProxySKSimple]
+blockProxySKs = gbBody . mbProxySKs
 
 -- | Lens from 'GenesisBlock' to 'SlotLeaders'.
 blockLeaders :: Lens' (GenesisBlock ssc) SlotLeaders
@@ -1178,6 +1245,7 @@ instance (Ssc ssc, SafeCopy (SscPayload ssc)) =>
            _mbWitnesses <- safeGet
            _mbTxAddrDistributions <- safeGet
            _mbMpc <- safeGet
+           _mbProxySKs <- safeGet
            return $!
                MainBody
                { ..
@@ -1188,6 +1256,7 @@ instance (Ssc ssc, SafeCopy (SscPayload ssc)) =>
            safePut _mbWitnesses
            safePut _mbTxAddrDistributions
            safePut _mbMpc
+           safePut _mbProxySKs
 
 instance SafeCopy (Body (GenesisBlockchain ssc)) where
     getCopy =

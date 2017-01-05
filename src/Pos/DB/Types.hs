@@ -40,6 +40,7 @@ data NodeDBs ssc = NodeDBs
     { _blockDB :: DB ssc -- ^ Blocks, block index, undo data.
     , _utxoDB  :: DB ssc -- ^ Txs-related data.
     , _miscDB  :: DB ssc -- ^ Everything small and insignificant
+{-    , _updateDB :: DB ssc -- ^ Update-related data -}
     }
 
 makeLenses ''NodeDBs

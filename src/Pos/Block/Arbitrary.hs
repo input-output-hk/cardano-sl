@@ -125,7 +125,8 @@ instance Arbitrary (SscPayload ssc) => Arbitrary (T.Body (T.MainBlockchain ssc))
     arbitrary = makeSmall $ do
         (txList, txDists, txInW) <- unzip3 <$> txOutDistGen
         mpcData <- arbitrary
-        return $ T.MainBody (mkMerkleTree txList) txDists txInW mpcData
+        mpcProxySKs <- arbitrary
+        return $ T.MainBody (mkMerkleTree txList) txDists txInW mpcData mpcProxySKs
 
 instance (Arbitrary (SscProof ssc), Arbitrary (SscPayload ssc), Ssc ssc) =>
     Arbitrary (T.GenericBlock (T.MainBlockchain ssc)) where

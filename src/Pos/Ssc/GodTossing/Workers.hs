@@ -23,6 +23,7 @@ import           System.Wlog                      (logDebug, logError, logWarnin
 import           Universum
 
 import           Pos.Binary.Class                 (Bi)
+import           Pos.Binary.Relay                 ()
 import           Pos.Binary.Ssc                   ()
 import           Pos.Communication.Methods        (sendToNeighborsSafe)
 import           Pos.Constants                    (k, mpcSendInterval, vssMaxTTL)
@@ -50,12 +51,13 @@ import           Pos.Ssc.GodTossing.Types         (Commitment, Opening, SignedCo
                                                    SscGodTossing, VssCertificate (..),
                                                    gtcParticipateSsc, gtcVssKeyPair,
                                                    mkVssCertificate)
-import           Pos.Ssc.GodTossing.Types.Message (DataMsg (..), InvMsg (..), MsgTag (..))
+import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtMsgTag (..))
 import           Pos.Types                        (EpochIndex, LocalSlotIndex,
                                                    SlotId (..), StakeholderId,
                                                    StakeholderId, Timestamp (..),
                                                    addressHash)
 import           Pos.Util                         (asBinary)
+import           Pos.Util.Relay                   (DataMsg (..), InvMsg (..))
 import           Pos.WorkMode                     (WorkMode)
 
 instance SscWorkersClass SscGodTossing where
@@ -63,12 +65,12 @@ instance SscWorkersClass SscGodTossing where
 
 -- CHECK: @onStart
 -- #checkNSendOurCert
-onStart :: forall m. (WorkMode SscGodTossing m, Bi DataMsg) => m ()
+onStart :: forall m. (WorkMode SscGodTossing m) => m ()
 onStart = checkNSendOurCert
 
 -- CHECK: @checkNSendOurCert
 -- Checks whether 'our' VSS certificate has been announced
-checkNSendOurCert :: forall m . (WorkMode SscGodTossing m, Bi DataMsg) => m ()
+checkNSendOurCert :: forall m . (WorkMode SscGodTossing m) => m ()
 checkNSendOurCert = do
     (_, ourId) <- getOurPkAndId
     isCertInBlockhain <- member ourId <$> getGlobalCertificates
@@ -78,7 +80,7 @@ checkNSendOurCert = do
         logDebug "Our VssCertificate hasn't been announced yet or TTL has expired\
                  \, we will announce it now."
         ourVssCertificate <- getOurVssCertificate
-        let msg = DMVssCertificate ourId ourVssCertificate
+        let msg = DataMsg (MCVssCertificate ourVssCertificate) ourId
         -- [CSL-245]: do not catch all, catch something more concrete.
         (sendToNeighborsSafe msg >> logDebug "Announced our VssCertificate.")
             `catchAll` \e ->
@@ -151,16 +153,16 @@ onNewSlotCommitment SlotId {..} = do
     when shouldSendCommitment $ do
         mbComm <- fmap (view _2) <$> getSecret
         whenJust mbComm $ \comm -> do
-            _ <- sscProcessMessage $ DMCommitment ourId comm
+            _ <- sscProcessMessage (MCCommitment comm) ourId
             sendOurData CommitmentMsg siEpoch 0 ourId
 
 -- Openings-related part of new slot processing
 onNewSlotOpening
-    :: (WorkMode SscGodTossing m
-       ,Bi VssCertificate
-       ,Bi Opening
-       ,Bi InvMsg
-       ,Bi Commitment)
+    :: ( WorkMode SscGodTossing m
+       , Bi VssCertificate
+       , Bi Opening
+       , Bi Commitment
+       )
     => SlotId -> m ()
 onNewSlotOpening SlotId {..} = do
     ourId <- addressHash . ncPublicKey <$> getNodeContext
@@ -174,7 +176,7 @@ onNewSlotOpening SlotId {..} = do
     when shouldSendOpening $ do
         mbOpen <- fmap (view _3) <$> getSecret
         whenJust mbOpen $ \open -> do
-            _ <- sscProcessMessage $ DMOpening ourId open
+            _ <- sscProcessMessage (MCOpening open) ourId
             sendOurData OpeningMsg siEpoch 2 ourId
 
 -- Shares-related part of new slot processing
@@ -194,19 +196,19 @@ onNewSlotShares SlotId {..} = do
         shares <- getOurShares ourVss
         let lShares = fmap asBinary shares
         unless (null shares) $ do
-            _ <- sscProcessMessage $ DMShares ourId lShares
+            _ <- sscProcessMessage (MCShares lShares) ourId
             sendOurData SharesMsg siEpoch 4 ourId
 
 sendOurData
-    :: (WorkMode SscGodTossing m, Bi InvMsg)
-    => MsgTag -> EpochIndex -> LocalSlotIndex -> StakeholderId -> m ()
+    :: (WorkMode SscGodTossing m)
+    => GtMsgTag -> EpochIndex -> LocalSlotIndex -> StakeholderId -> m ()
 sendOurData msgTag epoch kMultiplier ourId = do
     -- Note: it's not necessary to create a new thread here, because
     -- in one invocation of onNewSlot we can't process more than one
     -- type of message.
     waitUntilSend msgTag epoch kMultiplier
     logDebug $ sformat ("Announcing our "%build) msgTag
-    let msg = InvMsg {imType = msgTag, imNodes = pure ourId}
+    let msg = InvMsg {imTag = msgTag, imKeys = pure ourId}
     sendToNeighborsSafe msg
     logDebug $ sformat ("Sent our " %build%" to neighbors") msgTag
 
@@ -248,7 +250,7 @@ randomTimeInInterval interval =
 
 waitUntilSend
     :: WorkMode SscGodTossing m
-    => MsgTag -> EpochIndex -> LocalSlotIndex -> m ()
+    => GtMsgTag -> EpochIndex -> LocalSlotIndex -> m ()
 waitUntilSend msgTag epoch kMultiplier = do
     Timestamp beginning <-
         getSlotStart $ SlotId {siEpoch = epoch, siSlot = kMultiplier * k}

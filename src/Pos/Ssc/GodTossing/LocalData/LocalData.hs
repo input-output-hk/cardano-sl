@@ -47,7 +47,7 @@ import           Pos.Ssc.GodTossing.Types             (GtGlobalState (..), GtPay
 import           Pos.Ssc.GodTossing.Types.Base        (Commitment, Opening,
                                                        SignedCommitment, VssCertificate,
                                                        VssCertificatesMap)
-import           Pos.Ssc.GodTossing.Types.Message     (DataMsg (..), MsgTag (..))
+import           Pos.Ssc.GodTossing.Types.Message     (GtMsgContents (..), GtMsgTag (..))
 import qualified Pos.Ssc.GodTossing.VssCertData       as VCD
 import           Pos.Types                            (SlotId (..), StakeholderId)
 import           Pos.Util                             (AsBinary, diffDoubleMap, getKeys,
@@ -116,13 +116,13 @@ localOnNewSlotU si@SlotId {siSlot = slotIdx} = do
 -- to local data.
 sscIsDataUseful
     :: MonadSscLD SscGodTossing m
-    => MsgTag -> StakeholderId -> m Bool
+    => GtMsgTag -> StakeholderId -> m Bool
 sscIsDataUseful tag = gtRunRead . sscIsDataUsefulQ tag
 
 -- CHECK: @sscIsDataUsefulQ
 -- | Check whether SSC data with given tag and public key can be added
 -- to local data.
-sscIsDataUsefulQ :: MsgTag -> StakeholderId -> LDQuery Bool
+sscIsDataUsefulQ :: GtMsgTag -> StakeholderId -> LDQuery Bool
 sscIsDataUsefulQ CommitmentMsg =
     sscIsDataUsefulImpl gtLocalCommitments gtGlobalCommitments
 sscIsDataUsefulQ OpeningMsg =
@@ -165,14 +165,14 @@ sscIsDataUsefulSetImpl localG globalG addr =
 -- has been actually added.
 sscProcessMessage ::
        (MonadSscLD SscGodTossing m, SscBi)
-    => DataMsg -> m Bool
-sscProcessMessage msg = gtRunModify $ sscProcessMessageU  msg
+    => GtMsgContents -> StakeholderId -> m Bool
+sscProcessMessage dat addr = gtRunModify $ sscProcessMessageU dat addr
 
-sscProcessMessageU :: SscBi => DataMsg -> LDUpdate Bool
-sscProcessMessageU (DMCommitment addr comm)     = processCommitment addr comm
-sscProcessMessageU (DMOpening addr open)        = processOpening addr open
-sscProcessMessageU (DMShares addr shares)       = processShares addr shares
-sscProcessMessageU (DMVssCertificate addr cert) = processVssCertificate addr cert
+sscProcessMessageU :: SscBi => GtMsgContents -> StakeholderId -> LDUpdate Bool
+sscProcessMessageU (MCCommitment comm)     addr = processCommitment addr comm
+sscProcessMessageU (MCOpening open)        addr = processOpening addr open
+sscProcessMessageU (MCShares shares)       addr = processShares addr shares
+sscProcessMessageU (MCVssCertificate cert) addr = processVssCertificate addr cert
 
 processCommitment
     :: Bi Commitment

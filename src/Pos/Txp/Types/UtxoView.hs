@@ -10,8 +10,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet        as HS
 import           Universum
 
-import           Pos.DB.Types        (DB)
-import           Pos.DB.Utxo         (getTxOutFromDB)
+import           Pos.DB              (DB, getTxOutFromDB)
 import           Pos.Txp.Types.Types (UtxoView (..))
 import           Pos.Types           (TxIn (..), TxOutAux)
 

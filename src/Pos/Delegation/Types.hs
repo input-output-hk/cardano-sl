@@ -1,6 +1,9 @@
--- | Delegation-related message types
+{-# LANGUAGE TemplateHaskell #-}
+{-# OPTIONS_GHC -Wno-warnings-deprecations #-} -- makeArbitrary uses error, we use panic
 
-module Pos.Communication.Types.Delegation
+-- | Delegation-related network and local types.
+
+module Pos.Delegation.Types
        ( SendProxySK (..)
        , ConfirmProxySK (..)
        , CheckProxySKConfirmed (..)
@@ -8,18 +11,32 @@ module Pos.Communication.Types.Delegation
        ) where
 
 import           Control.TimeWarp.Rpc (Message (..), messageName')
+import           Data.DeriveTH        (derive, makeArbitrary)
+import           Test.QuickCheck      (Arbitrary (..), choose)
 import           Universum
 
-import           Pos.Types            (ProxySKEpoch, ProxySigEpoch)
+import           Pos.Types            (ProxySKEpoch, ProxySKSimple, ProxySigEpoch)
 
--- | Message with delegated proxy secret key.
-data SendProxySK =
-    SendProxySK !ProxySKEpoch
+----------------------------------------------------------------------------
+-- Generic PSKs propagation
+----------------------------------------------------------------------------
+
+-- | Message with delegated proxy secret key. Is used to propagate
+-- both epoch-oriented psks (lightweight) and simple (heavyweight).
+data SendProxySK
+    = SendProxySKEpoch !ProxySKEpoch
+    | SendProxySKSimple !ProxySKSimple
     deriving (Show, Eq, Generic)
+
+instance Hashable SendProxySK
 
 instance Message SendProxySK where
     messageName _ = "SendProxySK"
     formatMessage = messageName'
+
+----------------------------------------------------------------------------
+-- Lightweight PSKs confirmation mechanism
+----------------------------------------------------------------------------
 
 -- | Confirmation of proxy signature delivery. Delegate should take
 -- the proxy signing key he has and sign this key with itself. If the
@@ -52,3 +69,12 @@ data CheckProxySKConfirmedRes =
 instance Message CheckProxySKConfirmedRes where
     messageName _ = "CheckProxySKConfirmedRes"
     formatMessage = messageName'
+
+----------------------------------------------------------------------------
+-- Arbitrary instances
+----------------------------------------------------------------------------
+
+derive makeArbitrary ''SendProxySK
+derive makeArbitrary ''ConfirmProxySK
+derive makeArbitrary ''CheckProxySKConfirmed
+derive makeArbitrary ''CheckProxySKConfirmedRes

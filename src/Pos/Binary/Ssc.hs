@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 -- | GodTossing serialization instances
 
 module Pos.Binary.Ssc () where
@@ -11,8 +13,7 @@ import           Pos.Binary.Crypto                ()
 import           Pos.Ssc.GodTossing.Secret.Types  (GtSecretStorage (..))
 import           Pos.Ssc.GodTossing.Types.Base    (Commitment (..), Opening (..),
                                                    VssCertificate (..))
-import           Pos.Ssc.GodTossing.Types.Message (DataMsg (..), InvMsg (..), MsgTag (..),
-                                                   ReqMsg (..))
+import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtMsgTag (..))
 import           Pos.Ssc.GodTossing.Types.Types   (GtPayload (..), GtProof (..))
 
 ----------------------------------------------------------------------------
@@ -72,7 +73,7 @@ instance Bi GtProof where
 -- Types.Message
 ----------------------------------------------------------------------------
 
-instance Bi MsgTag where
+instance Bi GtMsgTag where
     put msgtag = case msgtag of
         CommitmentMsg     -> putWord8 0
         OpeningMsg        -> putWord8 1
@@ -85,25 +86,17 @@ instance Bi MsgTag where
         3 -> pure VssCertificateMsg
         tag -> fail ("get@MsgTag: invalid tag: " ++ show tag)
 
-instance Bi InvMsg where
-    put (InvMsg imType imNodes) = put imType >> put imNodes
-    get = liftM2 InvMsg get get
-
-instance Bi ReqMsg where
-    put (ReqMsg rmType rmNode) = put rmType >> put rmNode
-    get = liftM2 ReqMsg get get
-
-instance Bi DataMsg where
+instance Bi GtMsgContents where
     put datamsg = case datamsg of
-        DMCommitment addr signedComm  -> putWord8 0 >> put addr >> put signedComm
-        DMOpening addr opening        -> putWord8 1 >> put addr >> put opening
-        DMShares addr innerMap        -> putWord8 2 >> put addr >> put innerMap
-        DMVssCertificate addr vssCert -> putWord8 3 >> put addr >> put vssCert
+        MCCommitment signedComm  -> putWord8 0 >>  put signedComm
+        MCOpening opening        -> putWord8 1 >>  put opening
+        MCShares innerMap        -> putWord8 2 >>  put innerMap
+        MCVssCertificate vssCert -> putWord8 3 >>  put vssCert
     get = getWord8 >>= \case
-        0 -> liftM2 DMCommitment get get
-        1 -> liftM2 DMOpening get get
-        2 -> liftM2 DMShares get get
-        3 -> liftM2 DMVssCertificate get get
+        0 -> liftM MCCommitment get
+        1 -> liftM MCOpening get
+        2 -> liftM MCShares get
+        3 -> liftM MCVssCertificate get
         tag -> fail ("get@DataMsg: invalid tag: " ++ show tag)
 
 ----------------------------------------------------------------------------

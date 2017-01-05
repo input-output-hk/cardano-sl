@@ -17,6 +17,7 @@ import           System.Wlog                (CanLog, HasLoggerName)
 
 import           Pos.Context                (WithNodeContext)
 import qualified Pos.DB                     as Modern
+import           Pos.Delegation.Class       (MonadDelegation)
 import           Pos.DHT.Model              (MonadDHT, MonadMessageDHT,
                                              WithDefaultMsgHeader)
 import           Pos.Slotting               (MonadSlots)
@@ -38,7 +39,7 @@ newtype WalletWebDB m a = WalletWebDB
                 MonadDHT, MonadMessageDHT s, MonadSlots,
                 WithDefaultMsgHeader, CanLog, MonadKeys, MonadBalances,
                 MonadTxHistory, WithNodeContext ssc,
-                Modern.MonadDB ssc, MonadTxpLD ssc)
+                Modern.MonadDB ssc, MonadTxpLD ssc, MonadDelegation)
 
 instance Monad m => WrappedM (WalletWebDB m) where
     type UnwrappedM (WalletWebDB m) = ReaderT WalletState m

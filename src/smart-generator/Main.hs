@@ -20,7 +20,8 @@ import           Test.QuickCheck                 (arbitrary, generate)
 import           Universum                       hiding (forConcurrently)
 
 import qualified Pos.CLI                         as CLI
-import           Pos.Constants                   (k, neighborsSendThreshold, slotDuration)
+import           Pos.Constants                   (genesisN, k, neighborsSendThreshold,
+                                                  slotDuration)
 import           Pos.Crypto                      (KeyPair (..), hash)
 import           Pos.DHT.Model                   (DHTNodeType (..), MonadDHT, dhtAddr,
                                                   discoverPeers, getKnownPeers)
@@ -28,9 +29,8 @@ import           Pos.DHT.Real                    (KademliaDHT (..), KademliaDHTI
 import           Pos.Genesis                     (genesisSecretKeys, genesisUtxo)
 import           Pos.Launcher                    (BaseParams (..), LoggingParams (..),
                                                   NodeParams (..), bracketDHTInstance,
-                                                  initLrc, initSemaphore, runNode,
-                                                  runProductionMode, runTimeSlaveReal,
-                                                  stakesDistr)
+                                                  initLrc, runNode, runProductionMode,
+                                                  runTimeSlaveReal, stakesDistr)
 import           Pos.Ssc.Class                   (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing              (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon              (SscNistBeacon)
@@ -84,15 +84,12 @@ runSmartGen :: forall ssc . SscConstraint ssc
             => KademliaDHTInstance -> NodeParams -> SscParams ssc -> GenOptions -> IO ()
 runSmartGen inst np@NodeParams{..} sscnp opts@GenOptions{..} =
     runProductionMode inst np sscnp $ do
-    initSemaphore
     initLrc
     let getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
         initTx = initTransaction opts
 
     bambooPools <- forM goGenesisIdxs $ \(fromIntegral -> i) ->
-                    liftIO $ createBambooPool
-                      (genesisSecretKeys !! i)
-                      (initTx i)
+        liftIO $ createBambooPool goMOfNParams i $ initTx i
 
     txTimestamps <- liftIO createTxTimestamps
 
@@ -213,6 +210,13 @@ runSmartGen inst np@NodeParams{..} sscnp opts@GenOptions{..} =
 main :: IO ()
 main = do
     opts@GenOptions {..} <- execParser optsInfo
+
+    -- Check correctness of --m-of-n param
+    case goMOfNParams of
+        Nothing -> return ()
+        Just (m, n) -> if m > n || n > genesisN
+                       then panic "Invalid `--m-of-n` value"
+                       else return ()
 
     KeyPair _ sk <- generate arbitrary
     vssKeyPair <- generate arbitrary

@@ -19,6 +19,7 @@ import           Control.Monad.Trans.Maybe     (MaybeT (..))
 import           Control.TimeWarp.Rpc          (Dialog, Transfer)
 import qualified Data.HashMap.Strict           as HM
 import qualified Data.Map                      as M
+import           System.Wlog                   (WithLogger)
 import           Universum
 
 import           Pos.Communication.Types.State (MutSocketState)
@@ -26,6 +27,7 @@ import qualified Pos.Context                   as PC
 import           Pos.Crypto                    (WithHash (..))
 import           Pos.DB                        (MonadDB)
 import qualified Pos.DB                        as DB
+import           Pos.Delegation                (DelegationT (..))
 import           Pos.DHT.Model                 (DHTPacking)
 import           Pos.DHT.Real                  (KademliaDHT)
 import           Pos.Ssc.Class.Types           (Ssc)
@@ -68,6 +70,7 @@ instance MonadBalances m => MonadBalances (KeyStorage m)
 
 deriving instance MonadBalances m => MonadBalances (PC.ContextHolder ssc m)
 deriving instance MonadBalances m => MonadBalances (SscHolder ssc m)
+deriving instance MonadBalances m => MonadBalances (DelegationT m)
 
 -- | Instances of 'MonadBalances' for wallet's and node's DBs
 instance MonadIO m => MonadBalances (WalletDB m) where
@@ -102,6 +105,7 @@ instance MonadTxHistory m => MonadTxHistory (KeyStorage m)
 
 deriving instance MonadTxHistory m => MonadTxHistory (PC.ContextHolder ssc m)
 deriving instance MonadTxHistory m => MonadTxHistory (SscHolder ssc m)
+deriving instance MonadTxHistory m => MonadTxHistory (DelegationT m)
 
 -- | Instances of 'MonadTxHistory' for wallet's and node's DBs
 
@@ -116,7 +120,8 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
     saveTx _ = pure ()
 
 -- TODO: make a working instance
-instance (Ssc ssc, MonadDB ssc m, MonadThrow m) => MonadTxHistory (Modern.TxpLDHolder ssc m) where
+instance (Ssc ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
+         => MonadTxHistory (Modern.TxpLDHolder ssc m) where
     getTxHistory addr = do
         bot <- DB.getBot
         genUtxo <- filterUtxoByAddr addr <$> DB.getGenUtxo

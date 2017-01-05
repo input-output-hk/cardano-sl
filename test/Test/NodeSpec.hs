@@ -37,7 +37,7 @@ spec = describe "Node" $
 prepareDeliveryTestState :: [Parcel] -> IO (TVar TestState)
 prepareDeliveryTestState expectedParcels =
     newTVarIO $ mkTestState &~
-        expected .= S.fromList (filter toProcess expectedParcels)
+        expected .= S.fromList expectedParcels
 
 plainDeliveryTest
     :: TalkStyle

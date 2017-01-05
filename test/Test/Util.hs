@@ -76,7 +76,6 @@ instance Binary Payload where
 
 data Parcel = Parcel
     { parcelNo  :: Int
-    , toProcess :: Bool
     , payload   :: Payload
     } deriving (Eq, Ord, Show, Generic)
 
@@ -85,7 +84,6 @@ instance Binary Parcel
 instance Arbitrary Parcel where
     arbitrary = Parcel
             <$> (getLarge <$> arbitrary)
-            <*> arbitrary
             <*> pure (Payload 0)
 
 newtype HeavyParcel = HeavyParcel

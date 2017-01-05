@@ -26,6 +26,7 @@ import           Universum
 
 import           Pos.Context                 (WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
+import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..))
 import           Pos.Txp.Class               (MonadTxpLD (..))
@@ -41,7 +42,8 @@ newtype USHolder m a = USHolder
                 MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
                 HasLoggerName, MonadDialog s p, WithNodeContext ssc, MonadJL,
                 MonadDB ssc, CanLog, MonadMask, MonadSscLD kek, MonadSscGS ssc,
-                MonadUtxoRead, MonadUtxo, MonadTxpLD ssc, MonadBase io)
+                MonadUtxoRead, MonadUtxo, MonadTxpLD ssc, MonadBase io,
+                MonadDelegation)
 
 instance Monad m => MonadUS (USHolder m) where
     askUSMemState = USHolder ask

@@ -26,7 +26,7 @@ import           Pos.Crypto                      (KeyPair (..), hash)
 import           Pos.DHT.Model                   (DHTNodeType (..), MonadDHT, dhtAddr,
                                                   discoverPeers, getKnownPeers)
 import           Pos.DHT.Real                    (KademliaDHT (..), KademliaDHTInstance)
-import           Pos.Genesis                     (genesisSecretKeys, genesisUtxo)
+import           Pos.Genesis                     (genesisUtxo)
 import           Pos.Launcher                    (BaseParams (..), LoggingParams (..),
                                                   NodeParams (..), bracketDHTInstance,
                                                   initLrc, runNode, runProductionMode,

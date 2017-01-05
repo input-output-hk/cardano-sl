@@ -9,6 +9,7 @@ import           Control.Monad.Reader   (MonadReader (..), ReaderT, asks, runRea
 import           Control.TimeWarp.Rpc   (NetworkAddress)
 import           Control.TimeWarp.Timed (for, wait)
 import           Data.List              ((!!))
+import qualified Data.Text              as T
 import           Formatting             (build, int, sformat, stext, (%))
 import           Options.Applicative    (execParser)
 import           System.IO              (hFlush, stdout)
@@ -35,18 +36,16 @@ import           WalletOptions          (WalletAction (..), WalletOptions (..), 
 
 type CmdRunner = ReaderT ([SecretKey], [NetworkAddress])
 
-evalCmd :: WalletMode ssc m => Command -> CmdRunner m ()
-evalCmd (Balance addr) = lift (getBalance addr) >>=
-                         putText . sformat ("Current balance: "%coinF) >>
-                         evalCommands
-evalCmd (Send idx outputs) = do
+runCmd :: WalletMode ssc m => Command -> CmdRunner m ()
+runCmd (Balance addr) = lift (getBalance addr) >>=
+                         putText . sformat ("Current balance: "%coinF)
+runCmd (Send idx outputs) = do
     (skeys, na) <- ask
     etx <- lift $ submitTx (skeys !! idx) na (map (,[]) outputs)
     case etx of
         Left err -> putText $ sformat ("Error: "%stext) err
         Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
-    evalCommands
-evalCmd Help = do
+runCmd Help = do
     putText $
         unlines
             [ "Avaliable commands:"
@@ -58,14 +57,12 @@ evalCmd Help = do
             , "   help                           -- show this message"
             , "   quit                           -- shutdown node wallet"
             ]
-    evalCommands
-evalCmd ListAddresses = do
+runCmd ListAddresses = do
     addrs <- map (makePubKeyAddress . toPublic) <$> asks fst
     putText "Available addrsses:"
     forM_ (zip [0 :: Int ..] addrs) $
         putText . uncurry (sformat $ "    #"%int%":   "%build)
-    evalCommands
-evalCmd (Delegate i j) = do
+runCmd (Delegate i j) = do
     let issuerSk = genesisSecretKeys !! i
         delegatePk = genesisPublicKeys !! j
         proxySig =
@@ -75,8 +72,11 @@ evalCmd (Delegate i j) = do
     putText "sending cert"
     sendProxySecretKey proxySig
     putText "sent cert"
-    evalCommands
+runCmd Quit = pure ()
+
+evalCmd :: WalletMode ssc m => Command -> CmdRunner m ()
 evalCmd Quit = pure ()
+evalCmd cmd  = runCmd cmd >> evalCommands
 
 evalCommands :: WalletMode ssc m => CmdRunner m ()
 evalCommands = do
@@ -88,15 +88,29 @@ evalCommands = do
         Left err  -> putStrLn err >> evalCommands
         Right cmd -> evalCmd cmd
 
-runWalletRepl :: WalletMode ssc m => WalletOptions -> m ()
-runWalletRepl WalletOptions{..} = do
+initialize :: WalletMode ssc m => WalletOptions -> m [NetworkAddress]
+initialize WalletOptions{..} = do
     -- Wait some time to ensure blockchain is fetched
     putText $ sformat ("Started node. Waiting for "%int%" slots...") woInitialPause
     wait $ for $ fromIntegral woInitialPause * slotDuration
+    fmap dhtAddr <$> discoverPeers DHTFull
 
-    na <- fmap dhtAddr <$> discoverPeers DHTFull
+runWalletRepl :: WalletMode ssc m => WalletOptions -> m ()
+runWalletRepl wo = do
+    na <- initialize wo
     putText "Welcome to Wallet CLI Node"
     runReaderT (evalCmd Help) (genesisSecretKeys, na)
+
+runWalletCmd :: WalletMode ssc m => WalletOptions -> Text -> m ()
+runWalletCmd wo str = do
+    na <- initialize wo
+    let strs = T.splitOn "," str
+    flip runReaderT (genesisSecretKeys, na) $ forM_ strs $ \scmd -> do
+        let mcmd = parseCommand scmd
+        case mcmd of
+            Left err   -> putStrLn err
+            Right cmd' -> runCmd cmd'
+    liftIO exitSuccess
 
 main :: IO ()
 main = do
@@ -137,6 +151,7 @@ main = do
             plugins :: [WalletRealMode ()]
             plugins = case woAction of
                 Repl          -> [runWalletRepl opts]
+                Cmd cmd       -> [runWalletCmd opts cmd]
 #ifdef WITH_WEB
                 Serve webPort webDaedalusDbPath -> [walletServeWebLite webDaedalusDbPath False webPort]
 #endif

@@ -56,6 +56,7 @@ verifyEnoughStake
        WorkMode ssc m
     => [UpdateVote] -> Maybe UpdateProposal -> ExceptT Text m ()
 verifyEnoughStake votes mProposal = do
+    -- [CSL-314] Snapshot must be used here.
     totalStake <- maybe (pure zero) (const DB.getTotalFtsStake) mProposal
     let proposalThreshold = applyCoinPortion totalStake updateProposalThreshold
     let voteThreshold = applyCoinPortion totalStake updateVoteThreshold
@@ -82,6 +83,9 @@ verifyEnoughStake votes mProposal = do
     verifyUpdProposalDo _ [] = pure zero
     verifyUpdProposalDo voteThreshold (v@UpdateVote {..}:vs) = do
         let id = addressHash uvKey
+        -- FIXME: use stake corresponding to state right before block
+        -- corresponding to UpdateProposal for which vote is given is
+        -- applied.
         stake <- fromMaybe zero <$> DB.getFtsStake id
         when (stake < voteThreshold) $ throwError $ msgVote stake voteThreshold
         let addedStake = if isVoteForProposal v then stake else zero

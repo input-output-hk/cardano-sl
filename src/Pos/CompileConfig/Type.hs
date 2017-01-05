@@ -51,4 +51,6 @@ data CompileConfig = CompileConfig
       -- ^ Portion of total stake such that block containing
       -- UpdateProposal must contain positive votes for this proposal
       -- from stakeholders owning at least this amount of stake.
+    , ccUpdateVoteThreshold           :: !Double
+      -- ^ Portion of total stake necessary to vote for or against update.
     } deriving (Show, Lift)

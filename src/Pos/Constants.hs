@@ -43,6 +43,7 @@ module Pos.Constants
        , appSystemTag
        , updateServers
        , updateProposalThreshold
+       , updateVoteThreshold
        ) where
 
 import           Control.TimeWarp.Timed     (Microsecond, sec)
@@ -244,3 +245,16 @@ updateProposalThreshold = unsafeCoinPortion $ ccUpdateProposalThreshold compileC
 -- staticAssert
 --     (getCoinPortion updateProposalThreshold <= 1)
 --     "updateProposalThreshold is more than 1"
+
+-- | Portion of total stake necessary to vote for or against update.
+updateVoteThreshold :: CoinPortion
+updateVoteThreshold = unsafeCoinPortion $ ccUpdateVoteThreshold compileConfig
+
+-- GHC stage restriction
+-- staticAssert
+--     (getCoinPortion updateVoteThreshold >= 0)
+--     "updateVoteThreshold is negative"
+
+-- staticAssert
+--     (getCoinPortion updateVoteThreshold <= 1)
+--     "updateVoteThreshold is more than 1"

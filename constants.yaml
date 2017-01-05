@@ -15,3 +15,4 @@ enchancedMessageBroadcast: 2
 updateServers: []
 maxBlockProxySKs: 10000
 updateProposalThreshold: 0.1 # 10% of total stake
+updateVoteThreshold: 0.001 # 0.1% of total stake

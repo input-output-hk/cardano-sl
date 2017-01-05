@@ -10,6 +10,7 @@
 import           Control.Monad              (forM_)
 import           Control.Monad.IO.Class     (liftIO)
 import           Data.Binary
+import           Data.Data                  (Data)
 import           Data.String                (fromString)
 import           Message.Message            (BinaryP (..))
 import           Mockable.Concurrent        (delay)
@@ -39,6 +40,9 @@ instance Binary Ping where
         if w == fromIntegral 1
         then pure Ping
         else fail "no parse ping"
+instance Data Ping
+instance Message Ping where
+    formatMessage _ = "Ping"
 
 -- | Type for messages from the listeners to the workers.
 data Pong = Pong
@@ -70,11 +74,11 @@ workers id gen peerIds = [pingWorker gen]
                     case received of
                         Just Pong -> liftIO . putStrLn $ show id ++ " heard PONG from " ++ show peerId
                         Nothing -> error "Unexpected end of input"
-            forM_ peerIds $ \peerId -> withConnectionTo sendActions peerId (fromString "ping") (pong peerId)
+            forM_ peerIds $ \peerId -> withConnectionTo sendActions peerId (pong peerId)
             loop gen'
 
 listeners :: NodeId -> [Listener Packing Production]
-listeners id = [Listener (fromString "ping") pongWorker]
+listeners id = [pongWorker]
     where
     pongWorker :: ListenerAction Packing Production
     pongWorker = ListenerActionConversation $ \peerId (cactions :: ConversationActions Pong Ping Production) -> do

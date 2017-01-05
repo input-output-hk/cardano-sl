@@ -21,13 +21,15 @@ module Node (
     , stopNode
 
     , MessageName
+    , Message (..)
+    , messageName'
 
     , SendActions(sendTo, withConnectionTo)
     , ConversationActions(send, recv)
     , Worker
-    , Listener(..)
+    , Listener
     , ListenerAction(..)
-    
+
     , LL.NodeId(..)
     , nodeId
     , nodeEndPointAddress
@@ -43,6 +45,7 @@ import Data.String (IsString)
 import Data.Binary     as Bin
 import Data.Binary.Put as Bin
 import Data.Binary.Get as Bin
+import Data.Proxy (Proxy (..))
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString      as BS
 import qualified Data.ByteString.Builder.Extra as BS
@@ -74,37 +77,50 @@ nodeEndPointAddress x = let LL.NodeId y = nodeId x in y
 
 type Worker packing m = SendActions packing m -> m ()
 
-data Listener packing m = Listener MessageName (ListenerAction packing m)
+-- TODO: rename all `ListenerAction` -> `Listener`?
+type Listener = ListenerAction
 
-data ListenerAction  packing m where
+data ListenerAction packing m where
   -- | A listener that handles a single isolated incoming message
   ListenerActionOneMsg
-    :: ( Serializable packing msg )
+    :: ( Serializable packing msg, Message msg )
     => (LL.NodeId -> SendActions packing m -> msg -> m ())
     -> ListenerAction packing m
 
   -- | A listener that handles an incoming bi-directional conversation.
   ListenerActionConversation
-    :: ( Packable packing body, Unpackable packing rcv )
-    => (LL.NodeId -> ConversationActions body rcv m -> m ())
+    :: ( Packable packing snd, Unpackable packing rcv, Message rcv )
+    => (LL.NodeId -> ConversationActions snd rcv m -> m ())
     -> ListenerAction packing m
+
+-- | Gets message type basing on type of incoming messages
+listenerMessageName :: Listener packing m -> MessageName
+listenerMessageName (ListenerActionOneMsg f) =
+    let msgName :: Message msg => (msg -> m ()) -> Proxy msg -> MessageName
+        msgName _ = messageName
+    in  msgName (f undefined undefined) Proxy
+listenerMessageName (ListenerActionConversation f) =
+    let msgName :: Message rcv
+                => (ConversationActions snd rcv m -> m ())
+                -> Proxy rcv
+                -> MessageName
+        msgName _ = messageName
+    in  msgName (f undefined) Proxy
 
 data SendActions packing m = SendActions {
        -- | Send a isolated (sessionless) message to a node
-       sendTo :: forall body .
-              ( Packable packing body )
+       sendTo :: forall msg .
+              ( Packable packing msg, Message msg )
               => LL.NodeId
-              -> MessageName
-              -> body
+              -> msg
               -> m (),
 
        -- | Establish a bi-direction conversation session with a node.
        withConnectionTo
-           :: forall body rcv.
-            ( Packable packing body, Unpackable packing rcv )
+           :: forall snd rcv.
+            ( Packable packing snd, Message snd, Unpackable packing rcv )
            => LL.NodeId
-           -> MessageName
-           -> (ConversationActions body rcv m -> m ())
+           -> (ConversationActions snd rcv m -> m ())
            -> m ()
      }
 
@@ -122,8 +138,9 @@ type ListenerIndex packing m = Map MessageName (ListenerAction packing m)
 makeListenerIndex :: [Listener packing m] -> (ListenerIndex packing m, [MessageName])
 makeListenerIndex = foldr combine (M.empty, [])
     where
-    combine (Listener name action) (map, existing) =
-        let (replaced, map') = M.insertLookupWithKey (\_ _ _ -> action) name action map
+    combine action (map, existing) =
+        let name = listenerMessageName action
+            (replaced, map') = M.insertLookupWithKey (\_ _ _ -> action) name action map
             overlapping = maybe [] (const [name]) replaced
         in  (map', overlapping ++ existing)
 
@@ -140,29 +157,28 @@ nodeSendActions node packing = SendActions nodeSendTo nodeWithConnectionTo
     where
 
     nodeSendTo
-        :: forall body .
-           ( Packable packing body )
+        :: forall msg .
+           ( Packable packing msg, Message msg )
         => LL.NodeId
-        -> MessageName
-        -> body
+        -> msg
         -> m ()
-    nodeSendTo = \nodeId msgName body ->
+    nodeSendTo = \nodeId msg ->
         LL.withOutChannel node nodeId $ \channelOut ->
             mapM_ (LL.writeChannel channelOut . LBS.toChunks)
-                [ packMsg packing msgName
-                , packMsg packing body
+                [ packMsg packing $ messageName' msg
+                , packMsg packing msg
                 ]
 
     nodeWithConnectionTo
-        :: forall body rcv .
-           ( Packable packing body, Unpackable packing rcv )
+        :: forall snd rcv .
+           ( Packable packing snd, Message snd, Unpackable packing rcv )
         => LL.NodeId
-        -> MessageName
-        -> (ConversationActions body rcv m -> m ())
+        -> (ConversationActions snd rcv m -> m ())
         -> m ()
-    nodeWithConnectionTo = \nodeId msgName f ->
+    nodeWithConnectionTo = \nodeId f ->
         LL.withInOutChannel node nodeId $ \inchan outchan -> do
-            let cactions :: ConversationActions body rcv m
+            let msgName  = messageName (Proxy :: Proxy snd)
+                cactions :: ConversationActions snd rcv m
                 cactions = nodeConversationActions node nodeId packing inchan outchan
                             msgName
             LL.writeChannel outchan . LBS.toChunks $

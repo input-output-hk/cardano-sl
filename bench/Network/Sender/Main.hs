@@ -27,7 +27,7 @@ import           Mockable.Class             (Mockable (..))
 import           Mockable.Exception         (Catch (..))
 import qualified Network.Transport.Abstract as NT
 import           Network.Transport.Concrete (concrete)
-import           Node                       (Listener (..), ListenerAction (..), sendTo,
+import           Node                       (ListenerAction (..), sendTo,
                                              startNode, stopNode)
 import           Node.Internal              (NodeId (..))
 
@@ -89,7 +89,7 @@ main = do
                           prngNode
                           BinaryP
                           pingWorkers
-                          [Listener "pong" pongListener]
+                          [pongListener]
 
         threadDelay (fromIntegral duration :: Second)
         forM_ drones stopDrone
@@ -105,7 +105,7 @@ main = do
             lift . lift $ logMeasure PingSent sMsgId payload
             -- TODO: better to use `connect` + `send`,
             -- but `connect` is not implemented yet
-            lift . lift $ sendTo sendActions peerId "ping" $ Ping sMsgId payload
+            lift . lift $ sendTo sendActions peerId $ Ping sMsgId payload
 
             PingState{..}    <- get
             curTime          <- curTimeUnitsMcs

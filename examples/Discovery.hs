@@ -52,7 +52,7 @@ workers id gen discovery = [pingWorker gen]
             discoverPeers discovery
             peerSet <- knownPeers discovery
             liftIO . putStrLn $ show id ++ " has peer set: " ++ show peerSet
-            forM_ (S.toList peerSet) $ \addr -> withConnectionTo sendActions (NodeId addr) (fromString "ping") $
+            forM_ (S.toList peerSet) $ \addr -> withConnectionTo sendActions (NodeId addr) $
                 \(cactions :: ConversationActions Void Pong Production) -> do
                     received <- recv cactions
                     case received of
@@ -61,7 +61,7 @@ workers id gen discovery = [pingWorker gen]
             loop gen'
 
 listeners :: NodeId -> [Listener Packing Production]
-listeners id = [Listener (fromString "ping") pongListener]
+listeners id = [pongListener]
     where
     pongListener :: ListenerAction Packing Production
     pongListener = ListenerActionConversation $ \peerId (cactions :: ConversationActions  Pong Void Production) -> do

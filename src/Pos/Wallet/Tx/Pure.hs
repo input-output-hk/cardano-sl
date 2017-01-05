@@ -2,7 +2,9 @@
 
 module Pos.Wallet.Tx.Pure
        ( makePubKeyTx
+       , makeMOfNTx
        , createTx
+       , createMOfNTx
        , getRelatedTxs
        , deriveAddrHistory
        , deriveAddrHistoryPartial
@@ -20,15 +22,18 @@ import qualified Data.Vector               as V
 import           Universum
 
 import           Pos.Binary                ()
-import           Pos.Crypto                (SecretKey, WithHash (..), hash, sign,
-                                            toPublic, withHash)
+import           Pos.Crypto                (PublicKey, SecretKey, WithHash (..), hash,
+                                            sign, toPublic, withHash)
 import           Pos.Data.Attributes       (mkAttributes)
+import           Pos.Script                (Script)
+import           Pos.Script.Examples       (multisigRedeemer, multisigValidator)
 import           Pos.Types                 (Address, Block, Coin, MonadUtxoRead (..),
                                             Tx (..), TxAux, TxDistribution (..), TxId,
                                             TxIn (..), TxInWitness (..), TxOut (..),
-                                            TxOutAux, TxWitness, Utxo, UtxoStateT (..),
-                                            applyTxToUtxo, blockTxas, filterUtxoByAddr,
-                                            makePubKeyAddress, mkCoin, sumCoins,
+                                            TxOutAux, TxSigData, TxWitness, Utxo,
+                                            UtxoStateT (..), applyTxToUtxo, blockTxas,
+                                            filterUtxoByAddr, makePubKeyAddress,
+                                            makeScriptAddress, mkCoin, sumCoins,
                                             topsortTxs, _txOutputs)
 import           Pos.Types.Coin            (unsafeIntegerToCoin, unsafeSubCoin)
 
@@ -41,48 +46,59 @@ type TxError = Text
 -- Tx creation
 -----------------------------------------------------------------------------
 
--- | Makes a transaction which use P2PKH addresses as a source
-makePubKeyTx :: SecretKey -> TxInputs -> TxOutputs -> TxAux
-makePubKeyTx sk inputs outputs = (Tx {..}, txWitness, txDist)
-  where pk = toPublic sk
-        txInputs = map makeTxIn inputs
+-- | Generic function to create a transaction, given desired inputs, outputs and a
+-- way to construct witness from signature data
+makeAbstractTx :: (TxSigData -> TxInWitness) -> TxInputs -> TxOutputs -> TxAux
+makeAbstractTx mkWit inputs outputs = (Tx {..}, txWitness, txDist)
+  where txInputs = map makeTxIn inputs
         txOutputs = map fst outputs
         txAttributes = mkAttributes ()
         txOutHash = hash txOutputs
         txDist = TxDistribution (map snd outputs)
         txDistHash = hash txDist
+        txWitness = V.fromList $ map (mkWit . makeTxSigData) inputs
         makeTxIn (txInHash, txInIndex) = TxIn {..}
-        makeTxInWitness (txInHash, txInIndex) =
-            PkWitness {
-                twKey = pk,
-                twSig = sign sk (txInHash, txInIndex, txOutHash, txDistHash) }
-        txWitness = V.fromList (map makeTxInWitness inputs)
+        makeTxSigData (txInHash, txInIndex) = (txInHash, txInIndex, txOutHash, txDistHash)
+
+-- | Makes a transaction which use P2PKH addresses as a source
+makePubKeyTx :: SecretKey -> TxInputs -> TxOutputs -> TxAux
+makePubKeyTx sk = makeAbstractTx mkWit
+  where pk = toPublic sk
+        mkWit sigData = PkWitness
+            { twKey = pk
+            , twSig = sign sk sigData
+            }
+
+makeMOfNTx :: Script -> [Maybe SecretKey] -> TxInputs -> TxOutputs -> TxAux
+makeMOfNTx validator sks = makeAbstractTx mkWit
+  where mkWit sigData = ScriptWitness
+            { twValidator = validator
+            , twRedeemer = multisigRedeemer sigData sks
+            }
 
 type FlatUtxo = [(TxOutIdx, TxOutAux)]
 type InputPicker = StateT (Coin, FlatUtxo) (Either TxError)
 
--- | Make a multi-transaction using given secret key and info for outputs
-createTx :: Utxo -> SecretKey -> TxOutputs -> Either TxError TxAux
-createTx utxo sk outputs = uncurry (makePubKeyTx sk) <$> inpOuts
+-- | Given Utxo, desired source address and desired outputs, prepare lists
+-- of correct inputs and outputs to form a transaction
+prepareInpOuts :: Utxo -> Address -> TxOutputs -> Either TxError (TxInputs, TxOutputs)
+prepareInpOuts utxo addr outputs = do
+    futxo <- evalStateT (pickInputs []) (totalMoney, sortedUnspent)
+    let inputs = map fst futxo
+        inputSum = unsafeIntegerToCoin $
+                   sumCoins $ map (txOutValue . fst . snd) futxo
+        newOuts
+            | inputSum > totalMoney =
+                  (TxOut addr (inputSum `unsafeSubCoin` totalMoney), [])
+                  : outputs
+            | otherwise = outputs
+    pure (inputs, newOuts)
   where
-    -- The total amount of money in the system is less than 2^64 so summing
-    -- coins should be safe here
     totalMoney = unsafeIntegerToCoin $
                  sumCoins $ map (txOutValue . fst) outputs
-    ourAddr = makePubKeyAddress $ toPublic sk
-    allUnspent = M.toList $ filterUtxoByAddr ourAddr utxo
+    allUnspent = M.toList $ filterUtxoByAddr addr utxo
     sortedUnspent = sortBy (comparing $ Down . txOutValue . fst . snd) allUnspent
-    inpOuts = do
-        futxo <- evalStateT (pickInputs []) (totalMoney, sortedUnspent)
-        let inputs = map fst futxo
-            inputSum = unsafeIntegerToCoin $
-                       sumCoins $ map (txOutValue . fst . snd) futxo
-            newOuts
-                | inputSum > totalMoney =
-                    (TxOut ourAddr (inputSum `unsafeSubCoin` totalMoney), [])
-                    : outputs
-                | otherwise = outputs
-        pure (inputs, newOuts)
+
     pickInputs :: FlatUtxo -> InputPicker FlatUtxo
     pickInputs inps = do
         moneyLeft <- use _1
@@ -96,6 +112,23 @@ createTx utxo sk outputs = uncurry (makePubKeyTx sk) <$> inpOuts
                         _1 %= unsafeSubCoin (min txOutValue moneyLeft)
                         _2 %= tail
                         pickInputs (inp : inps)
+
+
+-- | Make a multi-transaction using given secret key and info for outputs
+createTx :: Utxo -> SecretKey -> TxOutputs -> Either TxError TxAux
+createTx utxo sk outputs =
+    uncurry (makePubKeyTx sk) <$>
+    prepareInpOuts utxo (makePubKeyAddress $ toPublic sk) outputs
+
+-- | Make a transaction, using M-of-N script as a source
+createMOfNTx :: Utxo -> [(PublicKey, Maybe SecretKey)] -> TxOutputs -> Either TxError TxAux
+createMOfNTx utxo keys outputs = uncurry (makeMOfNTx validator sks) <$> inpOuts
+  where pks = map fst keys
+        sks = map snd keys
+        m = length $ filter isJust sks
+        validator = multisigValidator m pks
+        addr = makeScriptAddress validator
+        inpOuts = prepareInpOuts utxo addr outputs
 
 ----------------------------------------------------------------------
 -- Deduction of history

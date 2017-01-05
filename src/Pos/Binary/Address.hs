@@ -7,7 +7,6 @@ import           Data.Digest.CRC32 (CRC32 (..), crc32)
 import           Universum
 
 import           Pos.Binary.Class  (Bi (..))
-import           Pos.Binary.Coin   ()
 import           Pos.Types.Address (Address (..))
 
 -- | Encode everything in an address except for CRC32

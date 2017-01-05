@@ -27,9 +27,11 @@ import           Pos.Binary.Types     ()
 import           Pos.Crypto           (Hash, WithHash (..), checkSig, hash)
 import           Pos.Script           (Script (..), isKnownScriptVersion, txScriptCheck)
 import           Pos.Types.Address    (addressDetailedF)
-import           Pos.Types.Types      (StakeholderId, coinToInteger, sumCoins, mkCoin, Address (..), Tx (..), TxAux, TxDistribution (..),
-                                       TxIn (..), TxInWitness (..), TxOut (..), TxOutAux,
-                                       checkPubKeyAddress, checkScriptAddress, coinF)
+import           Pos.Types.Coin       (coinToInteger, sumCoins)
+import           Pos.Types.Types      (Address (..), StakeholderId, Tx (..), TxAux,
+                                       TxDistribution (..), TxIn (..), TxInWitness (..),
+                                       TxOut (..), TxOutAux, checkPubKeyAddress,
+                                       checkScriptAddress, coinF, mkCoin)
 import           Pos.Util             (allDistinct)
 
 ----------------------------------------------------------------------------

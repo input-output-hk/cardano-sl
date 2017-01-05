@@ -33,8 +33,8 @@ import           Pos.Crypto           (PublicKey, SecretKey, deterministicKeyGen
 import           Pos.FollowTheSatoshi (followTheSatoshi)
 import           Pos.Types            (Address (..), Coin, SharedSeed (SharedSeed),
                                        SlotLeaders, TxOut (..), Utxo, coinToInteger,
-                                       makePubKeyAddress, mkCoin)
-import           Pos.Types.Coin       (divCoin, unsafeAddCoin, unsafeMulCoin)
+                                       divCoin, makePubKeyAddress, mkCoin, unsafeAddCoin,
+                                       unsafeMulCoin)
 
 
 ----------------------------------------------------------------------------

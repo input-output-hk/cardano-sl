@@ -28,8 +28,8 @@ import           Pos.DB.Class         (MonadDB, getUtxoDB)
 import           Pos.DB.Error         (DBError (..))
 import           Pos.DB.Functions     (RocksBatchOp (..), traverseAllEntries)
 import           Pos.DB.GState.Common (getBi, putBi)
-import           Pos.Types            (Coin, StakeholderId, Utxo, sumCoins, txOutStake)
-import           Pos.Types.Coin       (unsafeIntegerToCoin)
+import           Pos.Types            (Coin, StakeholderId, Utxo, sumCoins, txOutStake,
+                                       unsafeIntegerToCoin)
 import           Pos.Util             (maybeThrow)
 
 ----------------------------------------------------------------------------

@@ -111,7 +111,7 @@ verifyTxDo :: Bool
            -> [Maybe (TxIn, VTxLocalContext)]
            -> TxAux
            -> VerificationRes
-verifyTxDo verifyAlone gContext extendedInputs (tx@Tx{..}, witnesses, distrs) =
+verifyTxDo verifyAlone _gContext extendedInputs (tx@Tx{..}, witnesses, distrs) =
     mconcat [verifyAloneRes, verifyCounts, verifySum, verifyInputs,
              verifyDistributions]
   where
@@ -210,19 +210,18 @@ verifyTxDo verifyAlone gContext extendedInputs (tx@Tx{..}, witnesses, distrs) =
     checkAddrHash addr PkWitness{..}     = checkPubKeyAddress twKey addr
     checkAddrHash addr ScriptWitness{..} = checkScriptAddress twValidator addr
 
-    validateTxIn _ TxIn{..} _ PkWitness{..} =
+    validateTxIn _i TxIn{..} _ PkWitness{..} =
         if checkSig twKey (txInHash, txInIndex, txOutHash, distrsHash) twSig
             then Right ()
             else Left "signature check failed"
     -- second argument here is local context, can be used for scripts
-    validateTxIn i TxIn{..} lContext ScriptWitness{..}
+    validateTxIn _i TxIn{..} _lContext ScriptWitness{..}
         | scrVersion twValidator /= scrVersion twRedeemer =
             Left "validator and redeemer have different versions"
         | not (isKnownScriptVersion (scrVersion twValidator)) =
             Right ()
-        | False = let hole = hole in hole gContext lContext
         | otherwise =
-              let txSigData = (hash tx, i, hash txOutputs, hash distrs)
+              let txSigData = (txInHash, txInIndex, txOutHash, distrsHash)
               in txScriptCheck txSigData twValidator twRedeemer
 
 verifyTxPure :: Bool

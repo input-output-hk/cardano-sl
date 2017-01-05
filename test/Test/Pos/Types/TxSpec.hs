@@ -243,7 +243,7 @@ scriptTxSpec = describe "script transactions" $ do
                 TxOut (makeScriptAddress val) (mkCoin 1)
             tx = Tx [inp] [randomPkOutput] (mkAttributes ())
             txDistr = TxDistribution [[]]
-            txSigData = (hash tx, 0, hash [randomPkOutput], hash txDistr)
+            txSigData = (txInHash inp, 0, hash [randomPkOutput], hash txDistr)
         in tryApplyTx utxo (tx, V.singleton (mkWit txSigData), txDistr)
 
 -- | Test that errors in a 'VerFailure' match given regexes.

@@ -20,7 +20,8 @@ import           Test.QuickCheck                 (arbitrary, generate)
 import           Universum                       hiding (forConcurrently)
 
 import qualified Pos.CLI                         as CLI
-import           Pos.Constants                   (k, neighborsSendThreshold, slotDuration)
+import           Pos.Constants                   (genesisN, k, neighborsSendThreshold,
+                                                  slotDuration)
 import           Pos.Crypto                      (KeyPair (..), hash)
 import           Pos.DHT.Model                   (DHTNodeType (..), MonadDHT, dhtAddr,
                                                   discoverPeers, getKnownPeers)
@@ -88,9 +89,7 @@ runSmartGen inst np@NodeParams{..} sscnp opts@GenOptions{..} =
         initTx = initTransaction opts
 
     bambooPools <- forM goGenesisIdxs $ \(fromIntegral -> i) ->
-                    liftIO $ createBambooPool
-                      (genesisSecretKeys !! i)
-                      (initTx i)
+        liftIO $ createBambooPool goMOfNParams i $ initTx i
 
     txTimestamps <- liftIO createTxTimestamps
 
@@ -211,6 +210,13 @@ runSmartGen inst np@NodeParams{..} sscnp opts@GenOptions{..} =
 main :: IO ()
 main = do
     opts@GenOptions {..} <- execParser optsInfo
+
+    -- Check correctness of --m-of-n param
+    case goMOfNParams of
+        Nothing -> return ()
+        Just (m, n) -> if m > n || n > genesisN
+                       then panic "Invalid `--m-of-n` value"
+                       else return ()
 
     KeyPair _ sk <- generate arbitrary
     vssKeyPair <- generate arbitrary

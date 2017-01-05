@@ -21,10 +21,14 @@ import           Universum                     hiding (head)
 import           Pos.Constants                 (k, slotDuration)
 import           Pos.Crypto                    (SecretKey, hash, toPublic, unsafeHash)
 import           Pos.DB                        (getTxOut)
-import           Pos.Genesis                   (genesisAddresses, genesisSecretKeys)
+import           Pos.Genesis                   (genesisAddresses, genesisPublicKeys,
+                                                genesisSecretKeys)
+import           Pos.Script                    (Script)
+import           Pos.Script.Examples           (multisigValidator)
 import           Pos.Types                     (Tx (..), TxAux, TxId, TxIn (..),
-                                                TxOut (..), makePubKeyAddress, mkCoin)
-import           Pos.Wallet                    (makePubKeyTx)
+                                                TxOut (..), makePubKeyAddress,
+                                                makeScriptAddress, mkCoin)
+import           Pos.Wallet                    (makeMOfNTx, makePubKeyTx)
 import           Pos.WorkMode                  (WorkMode)
 
 import           GenOptions                    (GenOptions (..))
@@ -44,27 +48,50 @@ genChain sk txInHash txInIndex =
                                      [(TxOut addr (mkCoin 1), [])]
     in (tx, w, d) : genChain sk (hash tx) 0
 
+genMOfNChain :: Script -> [Maybe SecretKey] -> TxId -> Word32 -> [TxAux]
+genMOfNChain val sks txInHash txInIndex =
+    let addr = makeScriptAddress val
+        (tx, w, d) = makeMOfNTx val sks [(txInHash, txInIndex)]
+                     [(TxOut addr (mkCoin 1), [])]
+    in (tx, w, d) : genMOfNChain val sks (hash tx) 0
+
 initTransaction :: GenOptions -> Int -> TxAux
 initTransaction GenOptions {..} i =
     let maxTps = goInitTps + goTpsIncreaseStep * fromIntegral goRoundNumber
         n' = tpsTxBound (maxTps / fromIntegral (length goGenesisIdxs)) goPropThreshold
         n = min n' goInitBalance
-        addr = genesisAddresses !! i
+        inAddr = genesisAddresses !! i
         sk = genesisSecretKeys !! i
-        input = (unsafeHash addr, 0)
-        outputs = replicate n (TxOut addr (mkCoin 1), [])
+        input = (unsafeHash inAddr, 0)
+        outAddr = case goMOfNParams of
+            Nothing     -> inAddr
+            Just (m, n) -> let pks = take n genesisPublicKeys
+                               val = multisigValidator m pks
+                           in makeScriptAddress val
+        outputs = replicate n (TxOut outAddr (mkCoin 1), [])
     in makePubKeyTx sk [input] outputs
+
+selectSks :: Int -> Int -> [SecretKey] -> [Maybe SecretKey]
+selectSks m i sks = permutations msks !! i
+  where msks = map Just (take m sks) ++ replicate (length sks - m) Nothing
 
 data BambooPool = BambooPool
     { bpChains :: TArray Int [TxAux]
     , bpCurIdx :: TVar Int
     }
 
-createBambooPool :: SecretKey -> TxAux -> IO BambooPool
-createBambooPool sk (tx, w, d) = atomically $ BambooPool <$> newListArray (0, outputsN - 1) bamboos <*> newTVar 0
+createBambooPool :: Maybe (Int, Int) -> Int -> TxAux -> IO BambooPool
+createBambooPool mOfN i (tx, w, d) = atomically $ BambooPool <$> newListArray (0, outputsN - 1) bamboos <*> newTVar 0
     where outputsN = length $ txOutputs tx
-          bamboos = map ((tx, w, d) :) $
-                    map (genChain sk (hash tx) . fromIntegral) [0 .. outputsN - 1]
+          sk = genesisSecretKeys !! i
+          bamboos = map (((tx, w, d) :) . mkChain . fromIntegral) [0 .. outputsN - 1]
+          txId = hash tx
+          mkChain = case mOfN of
+              Nothing     -> genChain sk txId
+              Just (m, n) -> let pks = take n genesisPublicKeys
+                                 val = multisigValidator m pks
+                                 msks = selectSks m i $ take n genesisSecretKeys
+                             in genMOfNChain val msks txId
 
 shiftTx :: BambooPool -> IO ()
 shiftTx BambooPool {..} = atomically $ do

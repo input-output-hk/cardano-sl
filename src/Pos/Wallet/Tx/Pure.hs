@@ -2,7 +2,9 @@
 
 module Pos.Wallet.Tx.Pure
        ( makePubKeyTx
+       , makeMOfNTx
        , createTx
+       , createMOfNTx
        , getRelatedTxs
        , deriveAddrHistory
        , deriveAddrHistoryPartial
@@ -67,8 +69,8 @@ makePubKeyTx sk = makeAbstractTx mkWit
             , twSig = sign sk sigData
             }
 
-makeMToNTx :: Script -> [Maybe SecretKey] -> TxInputs -> TxOutputs -> TxAux
-makeMToNTx validator sks = makeAbstractTx mkWit
+makeMOfNTx :: Script -> [Maybe SecretKey] -> TxInputs -> TxOutputs -> TxAux
+makeMOfNTx validator sks = makeAbstractTx mkWit
   where mkWit sigData = ScriptWitness
             { twValidator = validator
             , twRedeemer = multisigRedeemer sigData sks
@@ -120,7 +122,7 @@ createTx utxo sk outputs =
 
 -- | Make a transaction, using M-of-N script as a source
 createMOfNTx :: Utxo -> [(PublicKey, Maybe SecretKey)] -> TxOutputs -> Either TxError TxAux
-createMOfNTx utxo keys outputs = uncurry (makeMToNTx validator sks) <$> inpOuts
+createMOfNTx utxo keys outputs = uncurry (makeMOfNTx validator sks) <$> inpOuts
   where pks = map fst keys
         sks = map snd keys
         m = length $ filter isJust sks

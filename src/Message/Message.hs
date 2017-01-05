@@ -18,21 +18,17 @@ module Message.Message
     , BinaryP (..)
     ) where
 
-import           Control.Monad                 (forM_, unless)
-import           Control.Monad.Trans           (lift)
+import           Control.Monad                 (unless)
 import qualified Data.Binary                   as Bin
 import qualified Data.Binary.Get               as Bin
 import qualified Data.Binary.Put               as Bin
 import qualified Data.ByteString               as BS
 import qualified Data.ByteString.Builder.Extra as BS
 import qualified Data.ByteString.Lazy          as LBS
-import           Data.Functor.Identity         (runIdentity)
-import           Data.Maybe                    (fromMaybe)
-import           Data.Monoid                   ((<>))
 import           Data.String                   (IsString)
 import           GHC.Generics                  (Generic)
-import           Mockable.Channel              (Channel, ChannelT, newChannel,
-                                                readChannel, unGetChannel, writeChannel)
+import           Mockable.Channel              (Channel, ChannelT, readChannel,
+                                                unGetChannel)
 import           Mockable.Class                (Mockable)
 
 
@@ -78,7 +74,7 @@ type Serializable packing thing =
 data BinaryP = BinaryP
 
 instance Bin.Binary t => Packable BinaryP t where
-    packMsg p t =
+    packMsg _ t =
         BS.toLazyByteStringWith
             (BS.untrimmedStrategy 256 4096)
             LBS.empty
@@ -86,7 +82,7 @@ instance Bin.Binary t => Packable BinaryP t where
         $ Bin.put t
 
 instance Bin.Binary t => Unpackable BinaryP t where
-    unpackMsg p = recvNext
+    unpackMsg _ = recvNext
 
 -- | Receive input from a channel.
 --   If the channel's first element is 'Nothing' then it's the end of

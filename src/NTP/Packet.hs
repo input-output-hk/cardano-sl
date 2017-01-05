@@ -8,7 +8,7 @@ module NTP.Packet
 
 
 import Control.Lens        (both, (^..))
-import Control.Monad       (liftM4, replicateM_)
+import Control.Monad       (replicateM_)
 import Control.Monad.Trans (MonadIO (..))
 import Data.Binary         (Binary (..))
 import Data.Binary.Get     (getInt8, getWord32be, getWord8)
@@ -17,8 +17,6 @@ import Data.Time.Units     (Microsecond, fromMicroseconds, toMicroseconds)
 import Data.Word           (Word32, Word8)
 
 import NTP.Util (getCurrentTime)
-
-import Debug.Trace
 
 data NtpPacket = NtpPacket
     { ntpParams       :: Word8        -- some magic parameters

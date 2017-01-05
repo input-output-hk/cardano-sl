@@ -14,7 +14,6 @@ module NTP.Example
     ) where
 
 import Data.Default        (def)
-import Data.Default        (def)
 import Mockable.Production (runProduction)
 import NTP.Client          (NtpClientSettings (..), NtpStopButton (..), startNtpClient)
 import System.Wlog         (CanLog (..), HasLoggerName (..), Severity (..), initLogging)

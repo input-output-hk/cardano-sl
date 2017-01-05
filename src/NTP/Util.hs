@@ -7,24 +7,14 @@ module NTP.Util
     , getCurrentTime
     ) where
 
-import           Control.Applicative       (optional)
-import           Control.Concurrent        (forkIO, threadDelay)
-import           Control.Lens              (to, (^?), _head)
-import           Control.Monad             (forever)
-import           Control.Monad.Catch       (catchAll)
-import           Control.Monad.Trans       (MonadIO (..))
-import           Data.Binary               (decodeOrFail, encode)
-import qualified Data.ByteString.Lazy      as LBS
-import           Data.Time.Clock.POSIX     (getPOSIXTime)
-import           Data.Time.Units           (Microsecond, fromMicroseconds)
-import           Data.Word                 (Word16)
-import           Network.Socket            (AddrInfo (..), AddrInfoFlag (AI_ADDRCONFIG),
-                                            Family (AF_INET), PortNumber, SockAddr (..),
-                                            Socket, SocketOption (ReuseAddr),
-                                            SocketType (Datagram), addrFamily, close,
-                                            defaultHints, defaultProtocol, getAddrInfo,
-                                            setSocketOption, socket)
-import           Network.Socket.ByteString (recvFrom, sendManyTo)
+import Control.Lens          (to, (^?), _head)
+import Control.Monad.Catch   (catchAll)
+import Control.Monad.Trans   (MonadIO (..))
+import Data.Time.Clock.POSIX (getPOSIXTime)
+import Data.Time.Units       (Microsecond, fromMicroseconds)
+import Network.Socket        (AddrInfoFlag (AI_ADDRCONFIG), PortNumber (..),
+                              SockAddr (..), SocketType (Datagram), addrAddress,
+                              addrFlags, addrSocketType, defaultHints, getAddrInfo)
 
 
 datagramPacketSize :: Int

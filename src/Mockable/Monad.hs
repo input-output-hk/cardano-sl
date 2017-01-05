@@ -1,17 +1,17 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE ConstraintKinds       #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE KindSignatures        #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module Mockable.Monad (
-    MonadMockable(..)
+module Mockable.Monad
+    ( MonadMockable
     ) where
 
+import Mockable.Channel      (Channel)
 import Mockable.Class
-import Mockable.Channel         (Channel)
-import Mockable.Concurrent      (Delay, RepeatForever, Fork)
-import Mockable.Exception       (Bracket, Throw, Catch)
-import Mockable.SharedAtomic    (SharedAtomic)
+import Mockable.Concurrent   (Delay, Fork, RepeatForever)
+import Mockable.Exception    (Bracket, Catch, Throw)
+import Mockable.SharedAtomic (SharedAtomic)
 
 -- | Bunch of Mockable-constraints.
 type MonadMockable m

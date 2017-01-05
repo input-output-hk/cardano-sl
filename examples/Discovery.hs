@@ -67,6 +67,10 @@ listeners anId = [Listener (fromString "ping") pongListener]
         liftIO . putStrLn $ show anId ++  " heard PING from " ++ show peerId
         send cactions Pong
 
+makeNode :: Transport Production
+         -> Int
+         -> Production (Node Production,
+                        NetworkDiscovery K.KademliaDiscoveryErrorCode Production)
 makeNode transport i = do
     let port = 3000 + i
     let host = "127.0.0.1"

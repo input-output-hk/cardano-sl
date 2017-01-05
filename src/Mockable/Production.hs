@@ -1,27 +1,24 @@
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE TypeFamilies               #-}
 
 module Mockable.Production where
 
+import qualified Control.Concurrent          as Conc
+import qualified Control.Concurrent.STM      as Conc
+import           Control.Concurrent.STM.TVar (newTVarIO, readTVarIO, writeTVar)
+import qualified Control.Exception           as Exception
+import           Control.Monad               (forever, void)
+import           Control.Monad.Fix           (MonadFix)
+import           Control.Monad.IO.Class      (MonadIO, liftIO)
+import           Control.TimeWarp.Timed      (Microsecond, for, hour, ms)
+import           Data.Time.Clock.POSIX       (getPOSIXTime)
+import           Mockable.Channel
 import           Mockable.Class
 import           Mockable.Concurrent
-import           Mockable.SharedAtomic
-import           Mockable.Channel
 import           Mockable.Exception
-import           Control.TimeWarp.Timed         (Microsecond, for, ms, hour)
-import           Control.Monad                  (forever, void)
-import           Control.Monad.Fix              (MonadFix)
-import           Control.Monad.IO.Class         (MonadIO, liftIO)
-import qualified Control.Exception              as Exception
-import           Control.Exception.Base         (SomeException)
-import qualified Control.Concurrent             as Conc
-import qualified Control.Concurrent.MVar        as Conc
-import qualified Control.Concurrent.STM         as Conc
-import qualified Control.Concurrent.STM.TChan   as Conc
-import           Control.Concurrent.STM.TVar    (newTVarIO, readTVarIO, writeTVar)
-import           Data.Time.Clock.POSIX          (getPOSIXTime)
+import           Mockable.SharedAtomic
 
 newtype Production t = Production {
     runProduction :: IO t
@@ -36,8 +33,8 @@ deriving instance MonadFix Production
 type instance ThreadId Production = Conc.ThreadId
 
 instance Mockable Fork Production where
-    liftMockable (Fork m) = Production $ Conc.forkIO (runProduction m)
-    liftMockable (MyThreadId) = Production $ Conc.myThreadId
+    liftMockable (Fork m)         = Production $ Conc.forkIO (runProduction m)
+    liftMockable (MyThreadId)     = Production $ Conc.myThreadId
     liftMockable (KillThread tid) = Production $ Conc.killThread tid
 
 instance Mockable Delay Production where

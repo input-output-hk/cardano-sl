@@ -12,49 +12,39 @@ module NTP.Client
     , NtpStopButton (..)
     ) where
 
-import           Control.Applicative         (optional)
 import           Control.Concurrent.STM      (atomically)
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVar, readTVarIO,
                                               writeTVar)
-import           Control.Lens                (to, (%=), (.=), (^?), _Just, _head)
+import           Control.Lens                ((%=), (.=), _Just)
 import           Control.Monad               (forM_, forever, unless, void, when)
-import           Control.Monad.Catch         (Exception, SomeException (..))
+import           Control.Monad.Catch         (Exception)
 import           Control.Monad.State         (gets)
 import           Control.Monad.Trans         (MonadIO (..))
 import           Data.Binary                 (decodeOrFail, encode)
 import qualified Data.ByteString.Lazy        as LBS
 import           Data.Default                (Default (..))
 import           Data.List                   (sort)
-import qualified Data.Map                    as M
 import           Data.Maybe                  (isNothing)
 import           Data.Monoid                 ((<>))
 import           Data.Text                   (Text)
 import           Data.Time.Units             (Microsecond, Second)
-import           Data.Time.Units             (fromMicroseconds)
 import           Data.Typeable               (Typeable)
-import           Data.Word                   (Word16)
 import           Formatting                  (sformat, shown, (%))
-import           Network.Socket              (AddrInfo (..), AddrInfoFlag (AI_ADDRCONFIG),
-                                              Family (AF_INET), PortNumber, SockAddr (..),
-                                              Socket, SocketOption (ReuseAddr),
-                                              SocketType (Datagram), addrFamily, close,
-                                              defaultHints, defaultProtocol, getAddrInfo,
-                                              setSocketOption, socket)
+import           Network.Socket              (Family (AF_INET), SockAddr (..), Socket,
+                                              SocketOption (ReuseAddr),
+                                              SocketType (Datagram), close,
+                                              defaultProtocol, setSocketOption, socket)
 import           Network.Socket.ByteString   (recvFrom, sendTo)
 import           Prelude                     hiding (log)
 import           Serokell.Util.Concurrent    (modifyTVarS, threadDelay)
 import           System.Wlog                 (LoggerName, Severity (..), WithLogger,
-                                              logMessage, modifyLoggerName,
-                                              usingLoggerName)
+                                              logMessage, modifyLoggerName)
 
 import Mockable.Class      (Mockable)
 import Mockable.Concurrent (Fork, fork)
-import Mockable.Exception  (Catch, Throw, catch, catchAll, handleAll, throw)
-import Mockable.Production (runProduction)
+import Mockable.Exception  (Catch, Throw, catchAll, handleAll, throw)
 import NTP.Packet          (NtpPacket (..), evalClockOffset, mkCliNtpPacket)
-import NTP.Util            (datagramPacketSize, getCurrentTime, resolveNtpHost)
-
-type StopWorker m = m ()
+import NTP.Util            (datagramPacketSize, resolveNtpHost)
 
 data NtpClientSettings = NtpClientSettings
     { ntpServers         :: [String]
@@ -153,8 +143,8 @@ doSend addr cli = do
     handleAll handleE . void . liftIO $ sendTo sock (LBS.toStrict packet) addr
   where
     -- just log; socket closure is handled by receiver
-    handleE e =
-        log cli Warning $ sformat ("Failed to send to "%shown) addr
+    handleE =
+        log cli Warning . sformat ("Failed to send to "%shown%": "%shown) addr
 
 startSend :: NtpMonad m => [SockAddr] -> NtpClient -> m ()
 startSend addrs cli = forever $ do
@@ -174,13 +164,13 @@ startSend addrs cli = forever $ do
         liftIO $ threadDelay (poll - timeout)
 
 mkSocket :: NtpMonad m => NtpClientSettings -> m Socket
-mkSocket settings = doMkSocket `catchAll` handlerE settings
+mkSocket settings = doMkSocket `catchAll` handlerE
   where
     doMkSocket = liftIO $ do
         sock <- socket AF_INET Datagram defaultProtocol
         setSocketOption sock ReuseAddr 1
         return sock
-    handlerE cli e = do
+    handlerE e = do
         log' settings Warning $
             sformat ("Failed to create socket, retrying in 5 sec... (reason: "%shown%")")
             e
@@ -228,7 +218,7 @@ startReceive cli = do
                 readTVar  (ncClosed cli)
             -- extra check in case socket was closed by stopping client
             -- while we recreated socket
-            unless closed $
+            unless closed' $
                 startReceive cli
 
 stopNtpClient :: NtpMonad m => NtpClient -> m ()
@@ -246,7 +236,7 @@ startNtpClient settings = do
     sock <- mkSocket settings
     cli <- mkNtpClient settings sock
 
-    fork $ startReceive cli
+    void . fork $ startReceive cli
 
     addrs <- mapM resolveHost $ ntpServers settings
     void . fork $ startSend addrs cli

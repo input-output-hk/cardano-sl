@@ -70,6 +70,13 @@ instance Mockable RunInUnboundThread Production where
     liftMockable (RunInUnboundThread m) = Production $
         Conc.runInUnboundThread (runProduction m)
 
+type instance Promise Production = Conc.Async
+
+instance Mockable Async Production where
+    liftMockable (Async m) = Production $ Conc.async (runProduction m)
+    liftMockable (Wait promise) = Production $ Conc.wait promise
+    liftMockable (Cancel promise) = Production $ Conc.cancel promise
+
 type instance SharedAtomicT Production = Conc.MVar
 
 instance Mockable SharedAtomic Production where

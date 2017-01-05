@@ -63,6 +63,7 @@ Library
                       , time-units
                       , time-warp
                       , transformers
+                      , async
   hs-source-dirs:       src
   default-language:     Haskell2010
   ghc-options:          -Wall
@@ -149,6 +150,7 @@ executable bench-sender
                      , time-units >= 1.0.0
                      , transformers >= 0.5.2
                      , unordered-containers >= 0.2.7
+                     , async
   hs-source-dirs:      bench/Network/Sender
                      , bench/Network/Common
   if flag(benchmarks)
@@ -190,6 +192,7 @@ executable bench-receiver
                      , time >= 1.6
                      , time-units >= 1.0.0
                      , unordered-containers >= 0.2.7
+                     , async
   hs-source-dirs:      bench/Network/Receiver
                      , bench/Network/Common
   if flag(benchmarks)
@@ -232,6 +235,9 @@ executable bench-log-reader
                      , time >= 1.6
                      , time-units >= 1.0.0
                      , unordered-containers >= 0.2.7
+                     , conduit
+                     , conduit-extra
+                     , async
   hs-source-dirs:      bench/Network/LogReader
                      , bench/Network/Common
   if flag(benchmarks)

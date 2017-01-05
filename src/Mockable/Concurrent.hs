@@ -20,6 +20,12 @@ module Mockable.Concurrent (
   , RunInUnboundThread(..)
   , runInUnboundThread
 
+  , Promise
+  , Async(..)
+  , async
+  , wait
+  , cancel
+
   ) where
 
 import Mockable.Class
@@ -73,3 +79,19 @@ data RunInUnboundThread m t where
 
 runInUnboundThread :: ( Mockable RunInUnboundThread m ) => m t -> m t
 runInUnboundThread m = liftMockable $ RunInUnboundThread m
+
+type family Promise (m :: * -> *) :: * -> *
+
+data Async m t where
+    Async :: m t -> Async m (Promise m t)
+    Wait :: Promise m t -> Async m t
+    Cancel :: Promise m t -> Async m ()
+
+async :: ( Mockable Async m ) => m t -> m (Promise m t)
+async m = liftMockable $ Async m
+
+wait :: ( Mockable Async m ) => Promise m t -> m t
+wait promise = liftMockable $ Wait promise
+
+cancel :: ( Mockable Async m ) => Promise m t -> m ()
+cancel promise = liftMockable $ Cancel promise

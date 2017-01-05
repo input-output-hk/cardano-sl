@@ -14,11 +14,14 @@ module Mockable.Exception (
 
     , Catch(..)
     , catch
+    , catchAll
+    , handle
+    , handleAll
 
     ) where
 
 import Mockable.Class
-import Control.Exception (Exception)
+import Control.Exception (Exception, SomeException)
 
 data Bracket (m :: * -> *) (t :: *) where
     Bracket :: m r -> (r -> m b) -> (r -> m c) -> Bracket m c
@@ -40,3 +43,12 @@ data Catch (m :: * -> *) (t :: *) where
 
 catch :: ( Mockable Catch m, Exception e ) => m t -> (e -> m t) -> m t
 catch action handler = liftMockable $ Catch action handler
+
+catchAll :: ( Mockable Catch m ) => m t -> (SomeException -> m t) -> m t
+catchAll = catch
+
+handle :: ( Mockable Catch m, Exception e ) => (e -> m t) -> m t -> m t
+handle = flip catch
+
+handleAll :: ( Mockable Catch m ) => (SomeException -> m t) -> m t -> m t
+handleAll = handle

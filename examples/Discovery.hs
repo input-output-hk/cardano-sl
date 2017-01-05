@@ -38,11 +38,12 @@ instance Binary Pong where
         else fail "no parse pong"
 
 type Packing = BinaryP
+type ConnState = ()
 
-workers :: NodeId -> StdGen -> NetworkDiscovery K.KademliaDiscoveryErrorCode Production -> [Worker Packing Production]
+workers :: NodeId -> StdGen -> NetworkDiscovery K.KademliaDiscoveryErrorCode Production -> [Worker Packing ConnState Production]
 workers id gen discovery = [pingWorker gen]
     where
-    pingWorker :: StdGen -> SendActions Packing Production -> Production ()
+    pingWorker :: StdGen -> SendActions Packing ConnState Production -> Production ()
     pingWorker gen sendActions = loop gen
         where
         loop gen = do
@@ -53,18 +54,18 @@ workers id gen discovery = [pingWorker gen]
             peerSet <- knownPeers discovery
             liftIO . putStrLn $ show id ++ " has peer set: " ++ show peerSet
             forM_ (S.toList peerSet) $ \addr -> withConnectionTo sendActions (NodeId addr) (fromString "ping") $
-                \(cactions :: ConversationActions Void Pong Production) -> do
+                \(cactions :: ConversationActions ConnState Void Pong Production) -> do
                     received <- recv cactions
                     case received of
                         Just Pong -> liftIO . putStrLn $ show id ++ " heard PONG from " ++ show addr
                         Nothing -> error "Unexpected end of input"
             loop gen'
 
-listeners :: NodeId -> [Listener Packing Production]
+listeners :: NodeId -> [Listener Packing ConnState Production]
 listeners id = [Listener (fromString "ping") pongListener]
     where
-    pongListener :: ListenerAction Packing Production
-    pongListener = ListenerActionConversation $ \peerId (cactions :: ConversationActions  Pong Void Production) -> do
+    pongListener :: ListenerAction Packing ConnState Production
+    pongListener = ListenerActionConversation $ \peerId (cactions :: ConversationActions ConnState Pong Void Production) -> do
         liftIO . putStrLn $ show id ++  " heard PING from " ++ show peerId
         send cactions Pong
 

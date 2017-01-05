@@ -27,7 +27,7 @@ module Node (
     , Worker
     , Listener(..)
     , ListenerAction(..)
-    
+
     , LL.NodeId(..)
     , nodeId
     , nodeEndPointAddress
@@ -72,24 +72,25 @@ nodeId = LL.NodeId . NT.address . LL.nodeEndPoint . nodeLL
 nodeEndPointAddress :: Node m -> NT.EndPointAddress
 nodeEndPointAddress x = let LL.NodeId y = nodeId x in y
 
-type Worker packing m = SendActions packing m -> m ()
+type Worker packing connState m = SendActions packing connState m -> m ()
 
-data Listener packing m = Listener MessageName (ListenerAction packing m)
+data Listener packing connState m =
+    Listener MessageName (ListenerAction packing connState m)
 
-data ListenerAction  packing m where
+data ListenerAction packing connState m where
   -- | A listener that handles a single isolated incoming message
   ListenerActionOneMsg
     :: ( Serializable packing msg )
-    => (LL.NodeId -> SendActions packing m -> msg -> m ())
-    -> ListenerAction packing m
+    => (LL.NodeId -> SendActions packing connState m -> msg -> m ())
+    -> ListenerAction packing connState m
 
   -- | A listener that handles an incoming bi-directional conversation.
   ListenerActionConversation
     :: ( Packable packing body, Unpackable packing rcv )
-    => (LL.NodeId -> ConversationActions body rcv m -> m ())
-    -> ListenerAction packing m
+    => (LL.NodeId -> ConversationActions connState body rcv m -> m ())
+    -> ListenerAction packing connState m
 
-data SendActions packing m = SendActions {
+data SendActions packing connState m = SendActions {
        -- | Send a isolated (sessionless) message to a node
        sendTo :: forall body .
               ( Packable packing body )
@@ -104,22 +105,40 @@ data SendActions packing m = SendActions {
             ( Packable packing body, Unpackable packing rcv )
            => LL.NodeId
            -> MessageName
-           -> (ConversationActions body rcv m -> m ())
-           -> m ()
+           -> (ConversationActions connState body rcv m -> m ())
+           -> m (),
+
+        -- | Accesses state associated with connection to given node, creates if not exist
+        connStateTo
+            :: LL.NodeId
+            -> m connState
      }
 
-data ConversationActions body rcv m = ConversationActions {
+data ConversationActions connState body rcv m = ConversationActions {
        -- | Send a message within the context of this conversation
-       send  :: body -> m (),
+       send :: body -> m (),
 
        -- | Receive a message within the context of this conversation.
        --   'Nothing' means end of input (peer ended conversation).
-       recv  :: m (Maybe rcv)
+       recv :: m (Maybe rcv),
+
+       -- | Access state associated with this connection
+       connState :: m connState
      }
 
-type ListenerIndex packing m = Map MessageName (ListenerAction packing m)
+type ListenerIndex packing connState m =
+    Map MessageName (ListenerAction packing connState m)
 
-makeListenerIndex :: [Listener packing m] -> (ListenerIndex packing m, [MessageName])
+-- | Stores information about current connection states.
+data ConnectionsStates m s = ConnectionsStates
+    { -- | Map with states. When connection is opened, state is created on first access
+      connectionStates    :: SharedAtomicT m (M.Map LL.NodeId s)
+      -- | Way to create state for new connection
+    , initConnectionState :: m s
+    }
+
+makeListenerIndex :: [Listener packing connState m]
+                  -> (ListenerIndex packing connState m, [MessageName])
 makeListenerIndex = foldr combine (M.empty, [])
     where
     combine (Listener name action) (map, existing) =
@@ -129,15 +148,17 @@ makeListenerIndex = foldr combine (M.empty, [])
 
 -- | Send actions for a given 'LL.Node'.
 nodeSendActions
-    :: forall m packing .
+    :: forall m packing connState .
        ( Mockable Channel m, Mockable Throw m, Mockable Catch m
        , Mockable Bracket m, Mockable Fork m, Mockable SharedAtomic m
        , Packable packing MessageName )
     => LL.Node m
     -> packing
-    -> SendActions packing m
-nodeSendActions node packing = SendActions nodeSendTo nodeWithConnectionTo
-    where
+    -> ConnectionsStates m connState
+    -> SendActions packing connState m
+nodeSendActions node packing connStates =
+    SendActions nodeSendTo nodeWithConnectionTo nodeConnStateTo
+  where
 
     nodeSendTo
         :: forall body .
@@ -158,21 +179,23 @@ nodeSendActions node packing = SendActions nodeSendTo nodeWithConnectionTo
            ( Packable packing body, Unpackable packing rcv )
         => LL.NodeId
         -> MessageName
-        -> (ConversationActions body rcv m -> m ())
+        -> (ConversationActions connState body rcv m -> m ())
         -> m ()
     nodeWithConnectionTo = \nodeId msgName f ->
         LL.withInOutChannel node nodeId $ \inchan outchan -> do
-            let cactions :: ConversationActions body rcv m
+            let cactions :: ConversationActions connState body rcv m
                 cactions = nodeConversationActions node nodeId packing inchan outchan
-                            msgName
+                            msgName connStates
             LL.writeChannel outchan . LBS.toChunks $
                 packMsg packing msgName
             f cactions
 
+    nodeConnStateTo = getConnState connStates
+
 -- | Conversation actions for a given peer and in/out channels.
 nodeConversationActions
-    :: forall packing snd rcv m .
-       ( Mockable Throw m, Mockable Bracket m, Mockable Channel m
+    :: forall packing connState snd rcv m .
+       ( Mockable Throw m, Mockable Bracket m, Mockable Channel m, Mockable SharedAtomic m
        , Packable packing snd
        , Packable packing MessageName
        , Unpackable packing rcv
@@ -183,9 +206,10 @@ nodeConversationActions
     -> ChannelIn m
     -> ChannelOut m
     -> MessageName
-    -> ConversationActions snd rcv m
-nodeConversationActions node nodeId packing inchan outchan msgName =
-    ConversationActions nodeSend nodeRecv
+    -> ConnectionsStates m connState
+    -> ConversationActions connState snd rcv m
+nodeConversationActions node nodeId packing inchan outchan msgName connInfo =
+    ConversationActions nodeSend nodeRecv nodeConnState
     where
 
     nodeSend = \body ->
@@ -198,8 +222,8 @@ nodeConversationActions node nodeId packing inchan outchan msgName =
             NoParse -> error "Unexpected end of conversation input"
             Input t -> pure (Just t)
 
--- | Spin up a node given a set of workers and listeners, using a given network
---   transport to drive it.
+    nodeConnState = getConnState connInfo nodeId
+
 startNode
     :: forall packing m .
        ( Mockable Fork m, Mockable Throw m, Mockable Channel m
@@ -210,12 +234,31 @@ startNode
     => NT.EndPoint m
     -> StdGen
     -> packing
-    -> [Worker packing m]
-    -> [Listener packing m]
+    -> [Worker packing () m]
+    -> [Listener packing () m]
     -> m (Node m)
-startNode endPoint prng packing workers listeners = do
-    rec { node <- LL.startNode endPoint prng (handlerIn node sendActions) (handlerInOut node)
-        ; let sendActions = nodeSendActions node packing
+startNode endPoint prng packing = startNodeExt endPoint prng packing (return ())
+
+-- | Spin up a node given a set of workers and listeners, using a given network
+--   transport to drive it.
+startNodeExt
+    :: forall packing connState m .
+       ( Mockable Fork m, Mockable Throw m, Mockable Channel m
+       , Mockable SharedAtomic m, Mockable Bracket m, Mockable Catch m
+       , MonadFix m
+       , Serializable packing MessageName
+       )
+    => NT.EndPoint m
+    -> StdGen
+    -> packing
+    -> m connState
+    -> [Worker packing connState m]
+    -> [Listener packing connState m]
+    -> m (Node m)
+startNodeExt endPoint prng packing initConnState workers listeners = do
+    connStates <- mkConnStates initConnState
+    rec { node <- LL.startNode endPoint prng (handlerIn node sendActions) (handlerInOut node connStates)
+        ; let sendActions = nodeSendActions node packing connStates
         }
     tids <- sequence
               [ fork $ worker sendActions
@@ -228,13 +271,17 @@ startNode endPoint prng packing workers listeners = do
     -- Index the listeners by message name, for faster lookup.
     -- TODO: report conflicting names, or statically eliminate them using
     -- DataKinds and TypeFamilies.
-    listenerIndex :: ListenerIndex packing m
+    listenerIndex :: ListenerIndex packing connState m
     (listenerIndex, conflictingNames) = makeListenerIndex listeners
 
     -- Handle incoming data from unidirectional connections: try to read the
     -- message name, use it to determine a listener, parse the body, then
     -- run the listener.
-    handlerIn :: LL.Node m -> SendActions packing m -> LL.NodeId -> ChannelIn m -> m ()
+    handlerIn :: LL.Node m
+              -> SendActions packing connState m
+              -> LL.NodeId
+              -> ChannelIn m
+              -> m ()
     handlerIn node sendActions peerId inchan = do
         input <- recvNext inchan packing
         case input of
@@ -257,8 +304,13 @@ startNode endPoint prng packing workers listeners = do
 
     -- Handle incoming data from a bidirectional connection: try to read the
     -- message name, then choose a listener and fork a thread to run it.
-    handlerInOut :: LL.Node m -> LL.NodeId -> ChannelIn m -> ChannelOut m -> m ()
-    handlerInOut node peerId inchan outchan = do
+    handlerInOut :: LL.Node m
+                 -> ConnectionsStates m connState
+                 -> LL.NodeId
+                 -> ChannelIn m
+                 -> ChannelOut m
+                 -> m ()
+    handlerInOut node connStates peerId inchan outchan = do
         input <- recvNext inchan packing
         case input of
             End -> error "handlerInOut : unexpected end of input"
@@ -268,7 +320,7 @@ startNode endPoint prng packing workers listeners = do
                 case listener of
                     Just (ListenerActionConversation action) ->
                         let cactions = nodeConversationActions node peerId packing
-                                inchan outchan msgName
+                                inchan outchan msgName connStates
                         in  action peerId cactions
                     Just (ListenerActionOneMsg _) -> error ("handlerInOut : wrong listener type. Expected bidirectional for " ++ show msgName)
                     Nothing -> error ("handlerInOut : no listener for " ++ show msgName)
@@ -287,3 +339,25 @@ recvNext
     -> packing
     -> m (Input thing)
 recvNext (ChannelIn chan) packing = unpackMsg packing chan
+
+-- | Gets connection state. Creates it if absent
+getConnState :: ( Mockable SharedAtomic m )
+             => ConnectionsStates m s
+             -> LL.NodeId
+             -> m s
+getConnState ConnectionsStates{..} nodeId =
+    modifySharedAtomic connectionStates $
+        \s -> do
+            let v = M.lookup nodeId s
+            case v of
+                Nothing -> do
+                    v' <- initConnectionState
+                    return (M.insert nodeId v' s, v')
+                Just x  -> return (s, x)
+
+mkConnStates :: ( Mockable SharedAtomic m )
+             => m s
+             -> m (ConnectionsStates m s)
+mkConnStates initConnectionState = do
+    connectionStates <- newSharedAtomic M.empty
+    return ConnectionsStates{..}

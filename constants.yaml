@@ -14,3 +14,4 @@ protocolMagic: 0
 enchancedMessageBroadcast: 2
 updateServers: []
 maxBlockProxySKs: 10000
+updateProposalThreshold: 0.1 # 10% of total stake

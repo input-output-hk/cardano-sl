@@ -12,6 +12,9 @@ module Pos.DB.Utxo
        , getTxOutFromDB
        , getTxOut
        , getFtsStake
+       , getPSK
+       , putPSK
+       , delPSK
        , writeBatchToUtxo
        , prepareUtxoDB
        , iterateByUtxo
@@ -26,14 +29,16 @@ import qualified Database.RocksDB  as Rocks
 import           Universum
 
 import           Pos.Binary.Class  (Bi, encodeStrict)
+import           Pos.Crypto        (PublicKey, pskIssuerPk)
 import           Pos.DB.Class      (MonadDB, getUtxoDB)
 import           Pos.DB.DBIterator (DBIterator, DBMapIterator, mapIterator, runIterator)
 import           Pos.DB.Error      (DBError (..))
 import           Pos.DB.Functions  (rocksDelete, rocksGetBi, rocksPutBi, rocksWriteBatch,
                                     traverseAllEntries)
 import           Pos.DB.Types      (DB)
-import           Pos.Types         (Address, Coin, HeaderHash, StakeholderId, TxIn (..),
-                                    TxOutAux, Utxo, belongsTo, sumCoins, txOutStake)
+import           Pos.Types         (Address, Coin, HeaderHash, ProxySKSimple,
+                                    StakeholderId, TxIn (..), TxOutAux, Utxo, belongsTo,
+                                    sumCoins, txOutStake)
 import           Pos.Types.Coin    (unsafeIntegerToCoin)
 import           Pos.Util          (maybeThrow)
 
@@ -44,6 +49,8 @@ data BatchOp ssc
     | PutTip (HeaderHash ssc)
     | PutFtsSum Coin
     | PutFtsStake StakeholderId Coin
+    | AddPSK ProxySKSimple -- ^ Adds PSK. Overwrites if present.
+    | DelPSK PublicKey -- ^ Removes PSK by issuer PK.
 
 -- | Get current TIP from Utxo DB.
 getTip :: (MonadThrow m, MonadDB ssc m) => m (HeaderHash ssc)
@@ -76,6 +83,15 @@ getTxOutFromDB txIn = rocksGetBi (txInKey txIn)
 
 getFtsStake :: MonadDB ssc m => StakeholderId -> m (Maybe Coin)
 getFtsStake pkHash = rocksGetBi (ftsStakeKey pkHash) =<< getUtxoDB
+
+getPSK :: MonadDB ssc m => PublicKey -> m (Maybe ProxySKSimple)
+getPSK pk = rocksGetBi (pskKey pk) =<< getUtxoDB
+
+putPSK :: MonadDB ssc m => ProxySKSimple -> m ()
+putPSK psk = putBi (pskKey $ pskIssuerPk psk) psk
+
+delPSK :: MonadDB ssc m => PublicKey -> m ()
+delPSK = delete . pskKey
 
 writeBatchToUtxo :: MonadDB ssc m => [BatchOp ssc] -> m ()
 writeBatchToUtxo batch = rocksWriteBatch (map toRocksOp batch) =<< getUtxoDB
@@ -186,6 +202,8 @@ toRocksOp (DelTxIn txIn)        = Rocks.Del $ txInKey txIn
 toRocksOp (PutTip h)            = Rocks.Put tipKey (encodeStrict h)
 toRocksOp (PutFtsSum c)         = Rocks.Put ftsSumKey (encodeStrict c)
 toRocksOp (PutFtsStake ad c)    = Rocks.Put (ftsStakeKey ad) (encodeStrict c)
+toRocksOp (AddPSK psk)          = Rocks.Put (pskKey $ pskIssuerPk psk) (encodeStrict psk)
+toRocksOp (DelPSK pk)           = Rocks.Del $ pskKey pk
 
 tipKey :: ByteString
 tipKey = "btip"
@@ -208,6 +226,9 @@ ftsStakeKey = encodeStrict
 
 ftsSumKey :: ByteString
 ftsSumKey = "ftssum"
+
+pskKey :: PublicKey -> ByteString
+pskKey pk = "psk" <> encodeStrict pk
 
 getTipMaybe :: (MonadDB ssc m) => m (Maybe (HeaderHash ssc))
 getTipMaybe = getUtxoDB >>= rocksGetBi tipKey

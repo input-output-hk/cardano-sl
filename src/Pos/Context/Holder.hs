@@ -23,8 +23,7 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               defaultRestoreM, defaultRestoreT)
 import           Control.TimeWarp.Rpc        (MonadDialog, MonadResponse (..),
                                               MonadTransfer (..))
-import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
-import           Data.Time.Units             (Microsecond)
+import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId, Microsecond)
 
 import           Formatting                  (sformat, shown, (%))
 import           Serokell.Util.Lens          (WrappedM (..))

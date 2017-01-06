@@ -9,7 +9,7 @@ module Pos.Context.Context
        ) where
 
 import qualified Control.Concurrent.STM as STM
-import           Data.Time.Units        (Microsecond)
+import           Control.TimeWarp.Timed (Microsecond)
 import           Universum
 
 import           Pos.Crypto             (PublicKey, SecretKey, toPublic)

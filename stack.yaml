@@ -34,6 +34,10 @@ packages:
     git: https://github.com/domenkozar/hs-ed25519.git
     commit: 96e5db162d88482bc0e120dc61cadd45c168c275
   extra-dep: true
+- location:
+    git: https://github.com/serokell/tw-rework-sketch
+    commit: 6b70df2c0f6f345e1382c57babeaba86974d0431
+  extra-dep: true
 
 nix:
   shell-file: shell.nix

@@ -47,6 +47,17 @@ library
                         Pos.DB
                         Pos.Data.Attributes
                         Pos.Delegation
+                        -- Pos.NewDHT
+                        Pos.NewDHT.Model
+                        Pos.NewDHT.Model.Neighbors
+                        Pos.NewDHT.Model.Types
+                        Pos.NewDHT.Model.Util
+                        Pos.NewDHT.Model.Class
+                        Pos.NewDHT.Model.Class.BiP
+                        Pos.NewDHT.Model.Class.MonadDHT
+                        -- Pos.NewDHT.Real
+                        -- Pos.NewDHT.Real.Real
+                        -- Pos.NewDHT.Real.Types
                         Pos.DHT
                         Pos.DHT.Model
                         Pos.DHT.Model.Types
@@ -320,6 +331,7 @@ library
                       , mono-traversable
                       , mtl
                       , neat-interpolation
+                      , node-sketch
                       , optparse-applicative
                       , optparse-simple
                       , parsec

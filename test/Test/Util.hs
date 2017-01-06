@@ -60,11 +60,11 @@ import           Test.QuickCheck.Gen         (choose)
 import           Test.QuickCheck.Modifiers   (getLarge)
 import           Test.QuickCheck.Property    (Testable (..), failed, reason, succeeded)
 
-import          Node                        (ConversationActions (..), Listener (..),
-                                            ListenerAction (..), MessageName, NodeId,
-                                            SendActions (..), Worker,
-                                            nodeId, startNode, stopNode)
-import          Message.Message (BinaryP (..))
+import           Node                        (ConversationActions (..), Listener,
+                                             ListenerAction (..), Message (..),
+                                             NodeId, SendActions (..),
+                                             Worker, nodeId, startNode, stopNode)
+import           Message.Message             (BinaryP (..))
 
 -- * Parcel
 
@@ -81,6 +81,9 @@ data Parcel = Parcel
     } deriving (Eq, Ord, Show, Generic)
 
 instance Binary Parcel
+instance Message Parcel where
+    messageName _ = "Parcel"
+    formatMessage _ = "Parcel"
 
 instance Arbitrary Parcel where
     arbitrary = Parcel
@@ -175,24 +178,23 @@ instance Show TalkStyle where
     show ConversationStyle  = "conversation style"
 
 sendAll
-    :: ( Binary body, Monad m )
+    :: ( Binary msg, Message msg, Monad m )
     => TalkStyle
     -> SendActions BinaryP m
     -> NodeId
-    -> MessageName
-    -> [body]
+    -> [msg]
     -> m ()
-sendAll SingleMessageStyle sendActions peerId msgName msgs =
-    forM_ msgs $ sendTo sendActions peerId msgName
+sendAll SingleMessageStyle sendActions peerId msgs =
+    forM_ msgs $ sendTo sendActions peerId
 
-sendAll ConversationStyle  sendActions peerId msgName msgs =
-    withConnectionTo sendActions @_ @Void peerId msgName $
+sendAll ConversationStyle  sendActions peerId msgs =
+    withConnectionTo sendActions @_ @Void peerId $
         \cactions -> forM_ msgs $ send cactions
 
 receiveAll
-    :: ( Binary body, Monad m )
+    :: ( Binary msg, Message msg, Monad m )
     => TalkStyle
-    -> (body -> m ())
+    -> (msg -> m ())
     -> ListenerAction BinaryP m
 receiveAll SingleMessageStyle handler =
     ListenerActionOneMsg $ \_ _ -> handler

@@ -14,7 +14,6 @@ import           Control.TimeWarp.Timed               (for)
 import           Data.Binary
 import qualified Data.ByteString.Char8                as B8
 import qualified Data.Set                             as S
-import           Data.String                          (fromString)
 import           Data.Time.Units                      (Microsecond, fromMicroseconds)
 import           Data.Void                            (Void)
 import           GHC.Generics                         (Generic)
@@ -51,7 +50,7 @@ workers anId generator discovery = [pingWorker generator]
             _ <- discoverPeers discovery
             peerSet <- knownPeers discovery
             liftIO . putStrLn $ show anId ++ " has peer set: " ++ show peerSet
-            forM_ (S.toList peerSet) $ \addr -> withConnectionTo sendActions (NodeId addr) (fromString "ping") $
+            forM_ (S.toList peerSet) $ \addr -> withConnectionTo sendActions (NodeId addr) $
                 \(cactions :: ConversationActions Void Pong Production) -> do
                     received <- recv cactions
                     case received of
@@ -60,7 +59,7 @@ workers anId generator discovery = [pingWorker generator]
             loop gen'
 
 listeners :: NodeId -> [Listener Packing Production]
-listeners anId = [Listener (fromString "ping") pongListener]
+listeners anId = [pongListener]
     where
     pongListener :: ListenerAction Packing Production
     pongListener = ListenerActionConversation $ \peerId (cactions :: ConversationActions Pong Void Production) -> do

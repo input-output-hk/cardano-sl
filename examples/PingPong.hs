@@ -11,7 +11,7 @@ import           Control.Monad              (forM_)
 import           Control.Monad.IO.Class     (liftIO)
 import           Control.TimeWarp.Timed     (for)
 import           Data.Binary
-import           Data.String                (fromString)
+import           Data.Data                  (Data)
 import           Data.Time.Units            (Microsecond, fromMicroseconds)
 import           Data.Void                  (Void)
 import           GHC.Generics               (Generic)
@@ -35,8 +35,11 @@ import           System.Random
 -- | Type for messages from the workers to the listeners.
 data Ping = Ping
 deriving instance Generic Ping
+deriving instance Data Ping
 deriving instance Show Ping
 instance Binary Ping
+instance Message Ping where
+    formatMessage _ = "Ping"
 
 -- | Type for messages from the listeners to the workers.
 data Pong = Pong
@@ -64,11 +67,11 @@ workers anId generator peerIds = [pingWorker generator]
                     case received of
                         Just Pong -> liftIO . putStrLn $ show anId ++ " heard PONG from " ++ show peerId
                         Nothing -> error "Unexpected end of input"
-            forM_ peerIds $ \peerId -> withConnectionTo sendActions peerId (fromString "ping") (pong peerId)
+            forM_ peerIds $ \peerId -> withConnectionTo sendActions peerId (pong peerId)
             loop gen'
 
 listeners :: NodeId -> [Listener Packing Production]
-listeners anId = [Listener (fromString "ping") pongWorker]
+listeners anId = [pongWorker]
     where
     pongWorker :: ListenerAction Packing Production
     pongWorker = ListenerActionConversation $ \peerId (cactions :: ConversationActions Pong Void Production) -> do

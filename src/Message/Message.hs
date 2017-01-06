@@ -1,4 +1,5 @@
 {-# LANGUAGE ConstraintKinds       #-}
+{-# LANGUAGE DefaultSignatures     #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE GADTs                 #-}
@@ -14,6 +15,9 @@ module Message.Message
     , Unpackable (..)
     , Serializable
 
+    , Message (..)
+    , messageName'
+
     , MessageName
     , BinaryP (..)
     ) where
@@ -25,7 +29,13 @@ import qualified Data.Binary.Put               as Bin
 import qualified Data.ByteString               as BS
 import qualified Data.ByteString.Builder.Extra as BS
 import qualified Data.ByteString.Lazy          as LBS
+import           Data.Data                     (Data, dataTypeName, dataTypeOf)
+import           Data.Proxy                    (Proxy (..), asProxyTypeOf)
 import           Data.String                   (IsString)
+import           Data.String                   (fromString)
+import qualified Data.Text                     as T
+import           Data.Void                     (Void, absurd)
+import qualified Formatting                    as F
 import           GHC.Generics                  (Generic)
 import           Mockable.Channel              (Channel, ChannelT, readChannel,
                                                 unGetChannel)
@@ -41,6 +51,34 @@ deriving instance Show MessageName
 deriving instance Generic MessageName
 deriving instance IsString MessageName
 instance Bin.Binary MessageName
+
+-- | Defines type with it's own `MessageName`.
+class Message m where
+    -- | Uniquely identifies this type
+    messageName :: Proxy m -> MessageName
+    default messageName :: Data m => Proxy m -> MessageName
+    messageName proxy =
+         MessageName . fromString . dataTypeName . dataTypeOf $
+            undefined `asProxyTypeOf` proxy
+
+    -- | Description of message, for debug purposes
+    formatMessage :: m -> T.Text
+    default formatMessage :: F.Buildable m => m -> T.Text
+    formatMessage = F.sformat F.build
+
+
+-- | Common instances
+
+instance Message Void where
+    formatMessage = absurd
+
+
+-- | As `messageName`, but accepts message itself, may be more convinient is most cases.
+messageName' :: Message m => m -> MessageName
+messageName' = messageName . proxyOf
+  where
+    proxyOf :: a -> Proxy a
+    proxyOf _ = Proxy
 
 
 -- * Serialization strategy

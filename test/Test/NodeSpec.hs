@@ -14,7 +14,6 @@ import           Control.Concurrent.STM.TVar (TVar, newTVarIO)
 import           Control.Lens                (sans, (%=), (&~), (.=))
 import           Data.Foldable               (for_)
 import qualified Data.Set                    as S
-import           Node                        (Listener (..))
 import           Test.Hspec                  (Spec, describe)
 import           Test.Hspec.QuickCheck       (prop)
 import           Test.QuickCheck             (Property, ioProperty)
@@ -47,9 +46,9 @@ plainDeliveryTest talkStyle parcels = ioProperty $ do
     testState <- prepareDeliveryTestState parcels
 
     let worker peerId sendActions = newWork testState "client" $
-            sendAll talkStyle sendActions peerId "ping" $ ((), ) <$> parcels
+            sendAll talkStyle sendActions peerId parcels
 
-        listener = Listener "ping" $ receiveAll talkStyle $
+        listener = receiveAll talkStyle $
             \parcel -> modifyTestState testState $ expected %= sans parcel
 
     deliveryTest testState [worker] [listener]

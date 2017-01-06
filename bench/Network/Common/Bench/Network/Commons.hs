@@ -42,17 +42,18 @@ import           Data.Text.Buildable    (Buildable, build)
 import           Data.Time.Clock.POSIX  (getPOSIXTime)
 import qualified Formatting             as F
 import           GHC.Generics           (Generic)
+import           Node                   (Message (..))
 import           Prelude                hiding (takeWhile)
 import           System.Wlog            (LoggerConfig (..), LoggerNameBox, Severity (..),
                                          WithLogger, getLoggerName, logInfo,
                                          parseLoggerConfig, traverseLoggerConfig,
                                          usingLoggerName)
 
-import           Mockable.Channel
-import           Mockable.Class
-import           Mockable.Concurrent
-import           Mockable.Exception
-import           Mockable.SharedAtomic
+import Mockable.Channel
+import Mockable.Class
+import Mockable.Concurrent
+import Mockable.Exception
+import Mockable.SharedAtomic
 
 
 -- * Transfered data types
@@ -67,8 +68,14 @@ data Payload = Payload
 data Ping = Ping MsgId Payload
     deriving (Generic, Data, Binary)
 
+instance Message Ping where
+    formatMessage _ = "Ping"
+
 data Pong = Pong MsgId Payload
     deriving (Generic, Data, Binary)
+
+instance Message Pong where
+    formatMessage _ = "Pong"
 
 instance Binary Payload where
     get = Payload . BL.length <$> get

@@ -25,8 +25,7 @@ import Bench.Network.Commons      (MeasureEvent (..), Ping (..), Pong (..), load
 import Message.Message            (BinaryP (..))
 import Network.Transport.Abstract (newEndPoint)
 import Network.Transport.Concrete (concrete)
-import Node                       (Listener (..), ListenerAction (..), sendTo, startNode,
-                                   stopNode)
+import Node                       (ListenerAction (..), sendTo, startNode, stopNode)
 import ReceiverOptions            (Args (..), argsParser)
 
 instance Mockable Catch (LoggerNameBox IO) where
@@ -54,7 +53,7 @@ main = do
     usingLoggerName "receiver" $ do
         Right endPoint <- newEndPoint transport
         receiverNode <- startNode endPoint prng BinaryP []
-            [Listener "ping" $ pingListener noPong]
+            [pingListener noPong]
 
         threadDelay (fromIntegral duration :: Second)
         stopNode receiverNode
@@ -66,4 +65,4 @@ main = do
             logMeasure PingReceived mid payload
             unless noPong $ do
                 logMeasure PongSent mid payload
-                sendTo sendActions peerId "pong" $ Pong mid payload
+                sendTo sendActions peerId $ Pong mid payload

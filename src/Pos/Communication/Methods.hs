@@ -12,8 +12,6 @@ module Pos.Communication.Methods
 
 import           Control.TimeWarp.Rpc     (Message)
 import           Control.TimeWarp.Timed   (fork_)
-import           Formatting               (build, sformat, (%))
-import           System.Wlog              (logDebug)
 import           Universum
 
 import           Pos.Binary.Class         (Bi)

@@ -63,8 +63,8 @@ data UtxoOp
 
 instance RocksBatchOp UtxoOp where
     toBatchOp (AddTxOut txIn txOut) =
-        Rocks.Put (txInKey txIn) (encodeStrict txOut)
-    toBatchOp (DelTxIn txIn) = Rocks.Del $ txInKey txIn
+        [Rocks.Put (txInKey txIn) (encodeStrict txOut)]
+    toBatchOp (DelTxIn txIn) = [Rocks.Del $ txInKey txIn]
 
 ----------------------------------------------------------------------------
 -- Initialization

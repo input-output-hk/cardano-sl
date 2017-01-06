@@ -45,7 +45,7 @@ delete :: (MonadDB ssc m) => ByteString -> m ()
 delete k = rocksDelete k =<< getUtxoDB
 
 writeBatchGState :: (RocksBatchOp a, MonadDB ssc m) => [a] -> m ()
-writeBatchGState batch = rocksWriteBatch (map toBatchOp batch) =<< getUtxoDB
+writeBatchGState batch = rocksWriteBatch batch =<< getUtxoDB
 
 ----------------------------------------------------------------------------
 -- Common getters
@@ -66,7 +66,7 @@ getBot = maybeThrow (DBMalformed "no bot in Utxo DB") =<< getBotMaybe
 data CommonOp ssc = PutTip (HeaderHash ssc)
 
 instance RocksBatchOp (CommonOp ssc) where
-    toBatchOp (PutTip h) = Rocks.Put tipKey (encodeStrict h)
+    toBatchOp (PutTip h) = [Rocks.Put tipKey (encodeStrict h)]
 
 ----------------------------------------------------------------------------
 -- Common initialization

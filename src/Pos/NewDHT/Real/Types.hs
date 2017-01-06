@@ -1,5 +1,7 @@
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
@@ -12,7 +14,11 @@ module Pos.NewDHT.Real.Types
        , DHTHandle
        ) where
 
+import           Universum                 hiding (async, fromStrict, mapConcurrently,
+                                            toStrict)
+
 import           Control.Concurrent.STM    (TVar)
+import           Control.Lens              (iso)
 import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow)
 import           Control.Monad.Morph       (hoist)
 import           Control.Monad.Trans.Class (MonadTrans)
@@ -23,21 +29,21 @@ import           Control.TimeWarp.Timed    (ThreadId)
 import qualified Data.ByteString           as BS
 import           Data.ByteString.Lazy      (fromStrict, toStrict)
 
+import           Message.Message           (BinaryP)
+import           Mockable.Channel          (Channel (..))
+import           Mockable.Class            (Mockable (liftMockable))
+import           Mockable.Concurrent       (Fork (..), ThreadId, fork, killThread,
+                                            myThreadId)
+import           Mockable.Monad            (MonadMockable)
 import qualified Network.Kademlia          as K
-import           Pos.Binary.Class          (Bi (..), decodeOrFail, encode)
+import           Node                      (Listener (..))
+import           Serokell.Util.Lens        (WrappedM (..))
 import           System.Wlog               (CanLog, HasLoggerName)
-import           Universum                 hiding (async, fromStrict, mapConcurrently,
-                                            toStrict)
 
 --import           Pos.NewDHT.Model.Class       (WithDefaultMsgHeader (..))
-import           Pos.NewDHT.Model.Types       (DHTData, DHTKey, DHTNode (..),
+import           Pos.Binary.Class          (Bi (..), decodeOrFail, encode)
+import           Pos.NewDHT.Model.Types    (DHTData, DHTKey, DHTNode (..),
                                             DHTNodeType (..))
-import           Message.Message           (BinaryP)
-import           Node                      (Listener(..))
-import           Mockable.Monad            (MonadMockable)
-import           Mockable.Class            (Mockable)
-import           Mockable.Channel          (Channel(..))
-import           Mockable.Concurrent       (Fork(..))
 
 toBSBinary :: Bi b => b -> BS.ByteString
 toBSBinary = toStrict . encode
@@ -79,7 +85,7 @@ data KademliaDHTContext m = KademliaDHTContext
 -- | Configuration for particular 'KademliaDHTInstance'.
 data KademliaDHTConfig s m = KademliaDHTConfig
     { kdcPort                :: !Word16
-    , kdcListeners           :: ![Listener BinaryP m]
+    , kdcListeners           :: ![Listener BinaryP s m]
     , kdcMessageCacheSize    :: !Int
     , kdcEnableBroadcast     :: !Bool
     , kdcNoCacheMessageNames :: ![Text]
@@ -100,27 +106,16 @@ newtype KademliaDHT m a = KademliaDHT
     } deriving (Functor, Applicative, Monad, MonadFail, MonadThrow, MonadCatch, MonadIO,
                 MonadMask, MonadDialog s p, CanLog, HasLoggerName)
 
--- deriving instance KademliaDHT (Mockable Fork m) m a 
+type instance Mockable.Concurrent.ThreadId (KademliaDHT m) = Mockable.Concurrent.ThreadId m
 
+instance Monad m => WrappedM (KademliaDHT m) where
+    type UnwrappedM (KademliaDHT m) = ReaderT (KademliaDHTContext m) m
+    _WrappedM = iso unKademliaDHT KademliaDHT
 
-
- --   • No instance for (Mockable
- --                        Fork (ReaderT (KademliaDHTContext m) m))
- --       arising from the 'deriving' clause of a data type declaration
- --      Possible fix:
- --      use a standalone 'deriving instance' declaration,
- --         so you can specify the instance context yourself
- --   • When deriving the instance for (Mockable Fork (KademliaDHT m))
-
-
-
-
-
-
-
-
-
-
+instance Mockable Fork m => Mockable Fork (KademliaDHT m) where
+    liftMockable (Fork m)         = KademliaDHT $ fork $ unKademliaDHT m
+    liftMockable MyThreadId       = KademliaDHT $ Mockable.Concurrent.myThreadId
+    liftMockable (KillThread tid) = KademliaDHT $ killThread tid
 
 instance MonadResponse s m => MonadResponse s (KademliaDHT m) where
     replyRaw dat = KademliaDHT $ replyRaw (hoist unKademliaDHT dat)
@@ -163,5 +158,3 @@ instance MonadTransfer s m => MonadTransfer s (KademliaDHT m) where
 
 instance MonadTrans KademliaDHT where
   lift = KademliaDHT . lift
-
-type instance ThreadId (KademliaDHT m) = ThreadId m

@@ -20,15 +20,22 @@ module Pos.DB.Types
         -- * Update System related types.
        , VoteState (..)
        , ProposalState (..)
+       , canCombineVotes
+       , combineVotes
+       , mkProposalState
+       , voteToProposalState
        ) where
 
-import           Control.Lens     (makeLenses)
-import qualified Database.RocksDB as Rocks
+import           Control.Exception   (assert)
+import           Control.Lens        (makeLenses)
+import qualified Data.HashMap.Strict as HM
+import qualified Database.RocksDB    as Rocks
+import           Formatting          (sformat, shown, (%))
 import           Universum
 
-import           Pos.Crypto       (PublicKey)
-import           Pos.Types        (Block, Coin, EpochIndex, Richmen, SlotId, SlotLeaders,
-                                   UpdateProposal)
+import           Pos.Crypto          (PublicKey)
+import           Pos.Types           (Block, Coin, EpochIndex, Richmen, SlotId,
+                                      SlotLeaders, UpdateProposal, mkCoin, unsafeAddCoin)
 
 ----------------------------------------------------------------------------
 -- General
@@ -80,7 +87,34 @@ data VoteState
     | NegativeVote    -- ^ Stakeholder voted once positively.
     | PositiveRevote  -- ^ Stakeholder voted negatively, then positively.
     | NegativeRevote  -- ^ Stakeholder voted positively, then negatively.
-    deriving (Generic)
+    deriving (Show, Generic)
+
+-- | Check whether given decision is a valid vote if applied to
+-- existing vote (which may not exist).
+canCombineVotes :: Bool -> Maybe VoteState -> Bool
+canCombineVotes _ Nothing                 = True
+canCombineVotes True (Just NegativeVote)  = True
+canCombineVotes False (Just PositiveVote) = True
+canCombineVotes _ _                       = False
+
+-- | Apply decision to given vote (or Nothing). This function will
+-- 'panic' if decision can't be applied. Use 'canCombineVotes' in
+-- advance.
+combineVotes :: Bool -> Maybe VoteState -> VoteState
+combineVotes decision oldVote = assert (canCombineVotes decision oldVote) combineVotesDo
+  where
+    combineVotesDo =
+        case (decision, oldVote) of
+            (True, Nothing)            -> PositiveVote
+            (False, Nothing)           -> NegativeVote
+            (True, Just NegativeVote)  -> PositiveRevote
+            (False, Just PositiveVote) -> NegativeRevote
+            (_, Just vote)             -> onFailure vote
+    onFailure =
+        panic .
+        sformat
+        ("combineVotes: these votes can't be combined ("%shown%" and "%shown%")")
+        decision
 
 -- | State of UpdateProposal.
 data ProposalState = ProposalState
@@ -95,3 +129,31 @@ data ProposalState = ProposalState
     , psNegativeStake :: !Coin
       -- ^ Total stake of all negative votes.
     } deriving (Generic)
+
+-- | Make ProposalState from immutable data, i. e. SlotId and UpdateProposal.
+mkProposalState :: SlotId -> UpdateProposal -> ProposalState
+mkProposalState psSlot psProposal =
+    ProposalState
+    { psVotes = mempty
+    , psPositiveStake = mkCoin 0
+    , psNegativeStake = mkCoin 0
+    , ..
+    }
+
+-- | Apply vote to ProposalState, thus modifing mutable data,
+-- i. e. votes and stakes.
+voteToProposalState :: PublicKey -> Coin -> Bool -> ProposalState -> ProposalState
+voteToProposalState voter stake decision ProposalState {..} =
+    ProposalState
+    { psVotes = HM.alter (Just . combineVotes decision) voter psVotes
+    , psPositiveStake = newPositiveStake
+    , psNegativeStake = newNegativeStake
+    , ..
+    }
+  where
+    newPositiveStake
+        | decision = psPositiveStake `unsafeAddCoin` stake
+        | otherwise = psPositiveStake
+    newNegativeStake
+        | decision = psNegativeStake
+        | otherwise = psNegativeStake `unsafeAddCoin` stake

@@ -23,7 +23,7 @@ import           Pos.Crypto.SecretSharing    (EncShare, Secret, SecretProof,
 import           Pos.Crypto.Signing          (ProxyCert, ProxySecretKey, ProxySignature,
                                               PublicKey, SecretKey, Signature, Signed,
                                               createProxyCert, createProxySecretKey,
-                                              keyGen, mkSigned, proxySign, sign)
+                                              keyGen, mkSigned, proxySign, sign, toPublic)
 import           Pos.Util                    (AsBinary (..), AsBinaryClass (..))
 import           Pos.Util.Arbitrary          (Nonrepeating (..), sublistN, unsafeMakePool)
 
@@ -109,7 +109,12 @@ instance (Bi w, Arbitrary w) => Arbitrary (ProxySecretKey w) where
 
 instance (Bi w, Arbitrary w, Bi a, Arbitrary a) =>
          Arbitrary (ProxySignature w a) where
-    arbitrary = proxySign <$> arbitrary <*> arbitrary <*> arbitrary
+    arbitrary = do
+        delegateSk <- arbitrary
+        issuerSk <- arbitrary
+        w <- arbitrary
+        let psk = createProxySecretKey issuerSk (toPublic delegateSk) w
+        proxySign delegateSk psk <$> arbitrary
 
 ----------------------------------------------------------------------------
 -- Arbitrary secrets

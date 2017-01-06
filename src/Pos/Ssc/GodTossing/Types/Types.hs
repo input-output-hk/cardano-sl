@@ -66,7 +66,6 @@ data GtGlobalState = GtGlobalState
       -- | Vss certificates are added at any time if they are valid and
       -- received from stakeholders.
     , _gsVssCertificates :: !VssCertData
-    , _gsRichmen         :: !(MVar Richmen)
     } deriving (Eq, Show, Generic)
 
 deriveSafeCopySimple 0 'base ''GtGlobalState
@@ -230,6 +229,7 @@ data GtContext = GtContext
       gtcVssKeyPair             :: !VssKeyPair
     , gtcParticipateSsc         :: !(STM.TVar Bool)
     , gtcVssCertificateVerified :: !(STM.TVar Bool)
+    , _gsRichmen                :: !(MVar Richmen)
     }
 
 createGtContext :: MonadIO m => GtParams -> m GtContext

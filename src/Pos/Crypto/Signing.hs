@@ -31,12 +31,13 @@ module Pos.Crypto.Signing
        -- * Proxy signature scheme
        , ProxyCert (..)
        , createProxyCert
+       , verifyProxyCert
        , ProxySecretKey (..)
        , createProxySecretKey
+       , verifyProxySecretKey
        , ProxySignature (..)
        , proxySign
        , proxyVerify
-       , checkProxySecretKey
        ) where
 
 import qualified Crypto.Sign.Ed25519    as Ed25519
@@ -226,28 +227,42 @@ createProxyCert (SecretKey issuerSk) (PublicKey delegatePk) o =
     mconcat
         ["00", Ed25519.openPublicKey delegatePk, BSL.toStrict $ Bi.encode o]
 
+-- | Checks if certificate is valid, given issuer pk, delegate pk and ω.
+verifyProxyCert :: (Bi w) => PublicKey -> PublicKey -> w -> ProxyCert w -> Bool
+verifyProxyCert (PublicKey issuerPk) (PublicKey delegatePk) o (ProxyCert sig) =
+    Ed25519.dverify
+        issuerPk
+        (mconcat ["00", Ed25519.openPublicKey delegatePk, BSL.toStrict $ Bi.encode o])
+        sig
+
 -- | Convenient wrapper for secret key, that's basically ω plus
 -- certificate.
 data ProxySecretKey w = ProxySecretKey
-    { pskOmega    :: w
-    , pskIssuerPk :: PublicKey
-    , pskCert     :: ProxyCert w
+    { pskOmega      :: w
+    , pskIssuerPk   :: PublicKey
+    , pskDelegatePk :: PublicKey
+    , pskCert       :: ProxyCert w
     } deriving (Eq, Ord, Show, Generic)
 
 instance NFData w => NFData (ProxySecretKey w)
 instance Hashable w => Hashable (ProxySecretKey w)
 
 instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySecretKey w) where
-    build (ProxySecretKey w iPk _) =
-        bprint ("ProxySk { w = "%build%", iPk = "%build%" }") w iPk
+    build (ProxySecretKey w iPk dPk _) =
+        bprint ("ProxySk { w = "%build%", iPk = "%build%", dPk = "%build%" }") w iPk dPk
 
 deriveSafeCopySimple 0 'base ''ProxySecretKey
 
 -- | Creates proxy secret key
 createProxySecretKey :: (Bi w) => SecretKey -> PublicKey -> w -> ProxySecretKey w
 createProxySecretKey issuerSk delegatePk w =
-    ProxySecretKey w (toPublic issuerSk) $ createProxyCert issuerSk delegatePk w
+    ProxySecretKey w (toPublic issuerSk) delegatePk $ createProxyCert issuerSk delegatePk w
 
+-- | Checks if proxy secret key is valid (the signature/cert inside is
+-- correct).
+verifyProxySecretKey :: (Bi w) => ProxySecretKey w -> Bool
+verifyProxySecretKey ProxySecretKey{..} =
+    verifyProxyCert pskIssuerPk pskDelegatePk pskOmega pskCert
 
 -- | Delegate signature made with certificate-based permission. @a@
 -- stays for message type used in proxy (ω in the implementation
@@ -276,21 +291,29 @@ instance (SafeCopy w) => SafeCopy (ProxySignature w a) where
     getCopy = contain $
         ProxySignature <$> safeGet <*> safeGet <*> safeGet <*> safeGet
 
--- | Make a proxy delegate signature with help of certificate.
+-- | Make a proxy delegate signature with help of certificate. If the
+-- delegate secret key passed doesn't pair with delegate public key in
+-- certificate inside, we panic. Please check this condition outside
+-- of this function.
 proxySign
     :: (Bi a)
     => SecretKey -> ProxySecretKey w -> a -> ProxySignature w a
-proxySign sk@(SecretKey delegateSk) (ProxySecretKey o (PublicKey issuerPk) cert) m =
-    ProxySignature
-    { pdOmega = o
-    , pdDelegatePk = toPublic sk
-    , pdCert = cert
-    , pdSig = sigma
-    }
+proxySign sk@(SecretKey delegateSk) ProxySecretKey{..} m
+    | toPublic sk /= pskDelegatePk =
+        panic "proxySign called with irrelevant certificate"
+    | otherwise =
+        ProxySignature
+        { pdOmega = pskOmega
+        , pdDelegatePk = pskDelegatePk
+        , pdCert = pskCert
+        , pdSig = sigma
+        }
   where
+    PublicKey issuerPk = pskIssuerPk
     sigma =
         Ed25519.dsign delegateSk $
-        mconcat ["01", Ed25519.openPublicKey issuerPk, BSL.toStrict $ Bi.encode m]
+        mconcat
+            ["01", Ed25519.openPublicKey issuerPk, BSL.toStrict $ Bi.encode m]
 
 -- CHECK: @proxyVerify
 -- | Verify delegated signature given issuer's pk, signature, message
@@ -298,20 +321,12 @@ proxySign sk@(SecretKey delegateSk) (ProxySecretKey o (PublicKey issuerPk) cert)
 proxyVerify
     :: (Bi w, Bi a)
     => PublicKey -> ProxySignature w a -> (w -> Bool) -> a -> Bool
-proxyVerify (PublicKey issuerPk) ProxySignature {..} omegaPred m =
+proxyVerify iPk@(PublicKey issuerPk) ProxySignature{..} omegaPred m =
     and [predCorrect, certValid, sigValid]
   where
     PublicKey pdDelegatePkRaw = pdDelegatePk
     predCorrect = omegaPred pdOmega
-    certValid =
-        Ed25519.dverify
-            issuerPk
-            (mconcat
-                 [ "00"
-                 , Ed25519.openPublicKey pdDelegatePkRaw
-                 , BSL.toStrict $ Bi.encode pdOmega
-                 ])
-            (unProxyCert pdCert)
+    certValid = verifyProxyCert iPk pdDelegatePk pdOmega pdCert
     sigValid =
         Ed25519.dverify
             pdDelegatePkRaw
@@ -321,14 +336,3 @@ proxyVerify (PublicKey issuerPk) ProxySignature {..} omegaPred m =
                  , BSL.toStrict $ Bi.encode m
                  ])
             pdSig
-
--- CHECK: @checkProxySecretKey
--- | Checks if proxy secret key is consistent and is related to
--- secretKey passed.
-checkProxySecretKey :: (Bi w) => SecretKey -> ProxySecretKey w -> Bool
-checkProxySecretKey delegateSk pSk@ProxySecretKey{..} =
-    proxyVerify pskIssuerPk sig (const True) dummyData
-  where
-    dummyData :: ByteString
-    dummyData = "nakshtalt"
-    sig = proxySign delegateSk pSk dummyData

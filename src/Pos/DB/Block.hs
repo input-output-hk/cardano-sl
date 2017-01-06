@@ -28,14 +28,14 @@ import           Universum
 
 import           Pos.Binary.Class    (Bi)
 import           Pos.Binary.DB       ()
-import           Pos.Crypto          (shortHashF, Hash)
+import           Pos.Crypto          (Hash, shortHashF)
 import           Pos.DB.Class        (MonadDB, getBlockDB)
 import           Pos.DB.Error        (DBError (..))
 import           Pos.DB.Functions    (rocksDelete, rocksGetBi, rocksPutBi)
 import           Pos.DB.Types        (StoredBlock (..))
 import           Pos.Ssc.Class.Types (Ssc)
 import           Pos.Types           (Block, BlockHeader, GenesisBlock, HasPrevBlock,
-                                      HeaderHash, Undo, genesisHash, headerHash,
+                                      HeaderHash, Undo (..), genesisHash, headerHash,
                                       prevBlockL)
 import qualified Pos.Types           as T
 
@@ -128,8 +128,9 @@ loadDataWhile getter predicate start = doIt 0 start
             then (d:) <$> doIt (succ depth) prev
             else pure []
 
--- | Load blocks starting from block with header hash equals @hash@ and while @predicate@ is true.
--- The head of returned list is the youngest block.
+-- | Load blocks starting from block with header hash equals @hash@
+-- and while @predicate@ is true.  The head of returned list is the
+-- youngest block.
 loadBlocksWithUndoWhile :: (Ssc ssc, MonadDB ssc m)
                         => (Block ssc -> Int -> Bool)
                         -> HeaderHash ssc
@@ -174,7 +175,7 @@ prepareBlockDB
     :: forall ssc m.
        (Ssc ssc, MonadDB ssc m)
     => GenesisBlock ssc -> m ()
-prepareBlockDB = putBlock [] True . Left
+prepareBlockDB = putBlock (Undo [] []) True . Left
 
 ----------------------------------------------------------------------------
 -- Helpers

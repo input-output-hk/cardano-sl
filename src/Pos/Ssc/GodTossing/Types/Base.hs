@@ -83,10 +83,10 @@ type SharesMap = HashMap StakeholderId InnerSharesMap
 -- Other nodes accept this certificate if it is valid and if node really
 -- has some stake.
 data VssCertificate = VssCertificate
-    { vcVssKey     :: !(AsBinary VssPublicKey)
+    { vcVssKey       :: !(AsBinary VssPublicKey)
     , vcExpiryEpoch  :: !EpochIndex
-    , vcSignature  :: !(Signature (AsBinary VssPublicKey, EpochIndex))
-    , vcSigningKey :: !PublicKey
+    , vcSignature    :: !(Signature (AsBinary VssPublicKey, EpochIndex))
+    , vcSigningKey   :: !PublicKey
     } deriving (Show, Eq, Generic)
 
 mkVssCertificate :: SecretKey -> AsBinary VssPublicKey -> EpochIndex -> VssCertificate

@@ -18,10 +18,9 @@ instance Bi V.ApplicationName where
     put (T.unpack . V.getApplicationName -> tag) = putAsciiString1b tag
 
 instance Bi V.SoftwareVersion where
-    get = label "SoftwareVersion" $ V.SoftwareVersion <$> get <*> get <*> get
+    get = label "SoftwareVersion" $ V.SoftwareVersion <$> get <*> get
     put V.SoftwareVersion {..} =  put svAppName
-                               *> put svMajor
-                               *> put svMinor
+                               *> put svNumber
 
 instance Bi V.ProtocolVersion where
     get = label "ProtocolVersion" $ V.ProtocolVersion <$> get <*> get <*> get

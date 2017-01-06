@@ -24,7 +24,9 @@ import           Pos.DB                   (getTotalFtsStake, loadBlocksFromTipWh
 import           Pos.Eligibility          (findRichmenStake)
 import           Pos.FollowTheSatoshi     (followTheSatoshiM)
 import           Pos.Ssc.Extra            (sscCalculateSeed)
-import           Pos.Types                (Coin, EpochOrSlot (..), HeaderHash,
+import           Pos.Types                (EpochOrSlot (..), HeaderHash, SlotId (..),
+                                           TxIn, TxOutAux, crucialSlot, getEpochOrSlot,
+                                           mkCoin, Coin, EpochOrSlot (..), HeaderHash,
                                            SlotId (..), StakeholderId, TxIn, TxOutAux,
                                            getEpochOrSlot, mkCoin)
 import           Pos.WorkMode             (WorkMode)
@@ -78,11 +80,8 @@ lrcDo SlotId {siEpoch = epochId} tip = tip <$ do
     putSlotLeaders epochId leaders
     applyBlocks blockUndos
   where
-    whileMoreOrEq5k b _ = getEpochOrSlot b >= crucialSlot
-    crucialSlot =
-        EpochOrSlot $ Right $
-            if epochId == 0 then SlotId {siEpoch = 0, siSlot = 0}
-            else SlotId {siEpoch = epochId - 1, siSlot = 5 * k - 1}
+    whileMoreOrEq5k b _ = getEpochOrSlot b >= crucial
+    crucial = EpochOrSlot $ Right $ crucialSlot slotId
 
 lrcClear
     :: WorkMode ssc m

@@ -232,6 +232,7 @@ library
                         Pos.Update
                         Pos.Update.Class
                         Pos.Update.Download
+                        Pos.Update.Error
                         Pos.Update.Holder
                         Pos.Update.Logic
                         Pos.Update.MemState

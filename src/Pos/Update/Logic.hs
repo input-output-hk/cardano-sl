@@ -19,15 +19,33 @@ import qualified Pos.DB               as DB
 import           Pos.Types            (Block, Coin, NEBlocks, UpdateProposal (..),
                                        UpdateVote (..), addressHash, applyCoinPortion,
                                        coinF, gbExtra, mebUpdate, mebUpdateVotes, mkCoin,
-                                       unsafeAddCoin)
+                                       prevBlockL, unsafeAddCoin)
+import           Pos.Update.Error     (USError (..))
+import           Pos.Util             (inAssertMode, _neHead)
 import           Pos.WorkMode         (WorkMode)
 
 -- | Apply chain of /definitely/ valid blocks to US part of GState
 -- DB and to US local data. Head must be the __oldest__ block.
---
--- FIXME: return Batch.
-usApplyBlocks :: WorkMode ssc m => NEBlocks ssc -> m ()
-usApplyBlocks _ = pass
+usApplyBlocks :: WorkMode ssc m => NEBlocks ssc -> m [DB.SomeBatchOp]
+usApplyBlocks blocks = do
+    tip <- DB.getTip
+    when (tip /= blocks ^. _neHead . prevBlockL) $ throwM $
+        USCantApplyBlocks "oldest block in NEBlocks is not based on tip"
+    inAssertMode $
+        do verdict <- usVerifyBlocks blocks
+           case verdict of
+               Right _ -> pass
+               Left errors ->
+                   panic $ "usVerifyBlocks failed: " <> errors
+    concat <$> mapM usApplyBlock (toList blocks)
+
+usApplyBlock :: WorkMode ssc m => Block ssc -> m [DB.SomeBatchOp]
+usApplyBlock (Left _) = pure []
+usApplyBlock (Right blk) = do
+    let meb = blk ^. gbExtra
+    let votes = meb ^. mebUpdateVotes
+    let proposal = meb ^. mebUpdate
+    undefined
 
 -- | Revert application of given blocks to US part of GState DB
 -- and US local data. Head must be the __youngest__ block. Caller must

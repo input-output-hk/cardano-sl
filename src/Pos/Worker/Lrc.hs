@@ -24,8 +24,9 @@ import           Pos.DB                   (getTotalFtsStake, loadBlocksFromTipWh
 import           Pos.Eligibility          (findRichmen)
 import           Pos.FollowTheSatoshi     (followTheSatoshiM)
 import           Pos.Ssc.Extra            (sscCalculateSeed)
-import           Pos.Types                (EpochOrSlot (..), HeaderHash, SlotId (..),
-                                           TxIn, TxOutAux, getEpochOrSlot, mkCoin)
+import           Pos.Types                (Coin, EpochOrSlot (..), HeaderHash,
+                                           SlotId (..), StakeholderId, TxIn, TxOutAux,
+                                           getEpochOrSlot, mkCoin)
 import           Pos.WorkMode             (WorkMode)
 
 lrcOnNewSlot :: WorkMode ssc m => SlotId -> m ()
@@ -57,8 +58,8 @@ lrcOnNewSlotDo SlotId {siEpoch = epochId} tip = tip <$ do
         leadersMVar = ncSscLeaders nc
     whenM (liftIO $ isEmptyMVar richmenMVar) $ do
         -- [CSL-93] Use eligibility threshold here
-        richmen <- mapUtxoIterator @(TxIn, TxOutAux) @TxOutAux
-                       (findRichmen (mkCoin 0)) snd
+        richmen <- mapUtxoIterator @(StakeholderId, Coin)
+                       (findRichmen (mkCoin 0)) identity
         liftIO $ putMVar richmenMVar richmen
     whenM (liftIO $ isEmptyMVar leadersMVar) $ do
         mbSeed <- sscCalculateSeed epochId

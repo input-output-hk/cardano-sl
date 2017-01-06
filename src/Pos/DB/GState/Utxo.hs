@@ -113,7 +113,7 @@ filterUtxo p = do
         then return $ M.insert (txInHash k, txInIndex k) v m
         else return m
 
-runUtxoIterator :: (MonadDB ssc m, MonadMask m)
+runUtxoIterator :: forall a ssc m . (MonadDB ssc m, MonadMask m)
                  => DBIterator m a -> m a
 runUtxoIterator iter = runIterator iter =<< getUtxoDB
 

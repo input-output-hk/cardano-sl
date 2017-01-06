@@ -24,6 +24,8 @@ module Test.Util
        , addFail
        , newWork
 
+       , throwLeft
+
        , TalkStyle (..)
        , sendAll
        , receiveAll
@@ -180,7 +182,7 @@ instance Show TalkStyle where
 sendAll
     :: ( Binary msg, Message msg, Monad m )
     => TalkStyle
-    -> SendActions BinaryP m
+    -> SendActions BinaryP connState m
     -> NodeId
     -> [msg]
     -> m ()
@@ -195,11 +197,11 @@ receiveAll
     :: ( Binary msg, Message msg, Monad m )
     => TalkStyle
     -> (msg -> m ())
-    -> ListenerAction BinaryP m
+    -> ListenerAction BinaryP connState m
 receiveAll SingleMessageStyle handler =
     ListenerActionOneMsg $ \_ _ -> handler
 receiveAll ConversationStyle  handler =
-    ListenerActionConversation @_ @_ @Void $ \_ cactions ->
+    ListenerActionConversation @_ @_ @_ @Void $ \_ cactions ->
         let loop = do mmsg <- recv cactions
                       for_ mmsg $ \msg -> handler msg >> loop
         in  loop
@@ -208,8 +210,8 @@ receiveAll ConversationStyle  handler =
 -- * Test template
 
 deliveryTest :: TVar TestState
-             -> [NodeId -> Worker BinaryP Production]
-             -> [Listener BinaryP Production]
+             -> [NodeId -> Worker BinaryP () Production]
+             -> [Listener BinaryP () Production]
              -> IO Property
 deliveryTest testState workers listeners = runProduction $ do
     transport_ <- throwLeft $ liftIO $ TCP.createTransport "127.0.0.1" "10342" TCP.defaultTCPParameters

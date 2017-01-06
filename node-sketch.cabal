@@ -249,6 +249,7 @@ test-suite node-sketch-test
   main-is:             Test.hs
   other-modules:       Spec
                        Test.NodeSpec
+                       Test.ConnStateSpec
                        Test.Util
   type:                exitcode-stdio-1.0
   build-depends:       base >= 4.8 && < 5

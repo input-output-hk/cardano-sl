@@ -48,11 +48,12 @@ deriving instance Show Pong
 instance Binary Pong
 
 type Packing = BinaryP
+type ConnState = ()
 
-workers :: NodeId -> StdGen -> [NodeId] -> [Worker Packing Production]
+workers :: NodeId -> StdGen -> [NodeId] -> [Worker Packing ConnState Production]
 workers anId generator peerIds = [pingWorker generator]
     where
-    pingWorker :: StdGen -> SendActions Packing Production -> Production ()
+    pingWorker :: StdGen -> SendActions Packing ConnState Production -> Production ()
     pingWorker gen sendActions = loop gen
         where
         loop :: StdGen -> Production ()
@@ -60,7 +61,7 @@ workers anId generator peerIds = [pingWorker generator]
             let (i, gen') = randomR (0,1000000) g
                 us = fromMicroseconds i :: Microsecond
             wait $ for us
-            let pong :: NodeId -> ConversationActions Void Pong Production -> Production ()
+            let pong :: NodeId -> ConversationActions ConnState Ping Pong Production -> Production ()
                 pong peerId cactions = do
                     liftIO . putStrLn $ show anId ++ " sent PING to " ++ show peerId
                     received <- recv cactions
@@ -70,11 +71,11 @@ workers anId generator peerIds = [pingWorker generator]
             forM_ peerIds $ \peerId -> withConnectionTo sendActions peerId (pong peerId)
             loop gen'
 
-listeners :: NodeId -> [Listener Packing Production]
+listeners :: NodeId -> [Listener Packing ConnState Production]
 listeners anId = [pongWorker]
     where
-    pongWorker :: ListenerAction Packing Production
-    pongWorker = ListenerActionConversation $ \peerId (cactions :: ConversationActions Pong Void Production) -> do
+    pongWorker :: ListenerAction Packing ConnState Production
+    pongWorker = ListenerActionConversation $ \peerId (cactions :: ConversationActions ConnState Pong Void Production) -> do
         liftIO . putStrLn $ show anId ++  " heard PING from " ++ show peerId
         send cactions Pong
         liftIO . putStrLn $ show anId ++ " sent PONG to " ++ show peerId

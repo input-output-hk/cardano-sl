@@ -13,6 +13,12 @@ module Mockable.Concurrent (
 
   , Delay(..)
   , wait
+  , for
+  , hour
+  , minute
+  , sec
+  , ms
+  , mcs
   , sleepForever
   , RepeatForever(..)
   , repeatForever
@@ -23,7 +29,7 @@ module Mockable.Concurrent (
   ) where
 
 import Mockable.Class
-import Control.TimeWarp.Timed   (RelativeToNow)
+import Control.TimeWarp.Timed   (RelativeToNow, for, hour, minute, sec, ms, mcs)
 
 import Data.Time.Units          (Microsecond)
 import Control.Exception.Base   (SomeException)

@@ -35,11 +35,12 @@ deriving instance Show Pong
 instance Binary Pong where
 
 type Packing = BinaryP
+type ConnState = ()
 
-workers :: NodeId -> StdGen -> NetworkDiscovery K.KademliaDiscoveryErrorCode Production -> [Worker Packing Production]
+workers :: NodeId -> StdGen -> NetworkDiscovery K.KademliaDiscoveryErrorCode Production -> [Worker Packing ConnState Production]
 workers anId generator discovery = [pingWorker generator]
     where
-    pingWorker :: StdGen -> SendActions Packing Production -> Production ()
+    pingWorker :: StdGen -> SendActions Packing ConnState Production -> Production ()
     pingWorker gen sendActions = loop gen
         where
         loop g = do
@@ -51,18 +52,18 @@ workers anId generator discovery = [pingWorker generator]
             peerSet <- knownPeers discovery
             liftIO . putStrLn $ show anId ++ " has peer set: " ++ show peerSet
             forM_ (S.toList peerSet) $ \addr -> withConnectionTo sendActions (NodeId addr) $
-                \(cactions :: ConversationActions Void Pong Production) -> do
+                \(cactions :: ConversationActions ConnState Void Pong Production) -> do
                     received <- recv cactions
                     case received of
                         Just Pong -> liftIO . putStrLn $ show anId ++ " heard PONG from " ++ show addr
                         Nothing -> error "Unexpected end of input"
             loop gen'
 
-listeners :: NodeId -> [Listener Packing Production]
+listeners :: NodeId -> [Listener Packing ConnState Production]
 listeners anId = [pongListener]
     where
-    pongListener :: ListenerAction Packing Production
-    pongListener = ListenerActionConversation $ \peerId (cactions :: ConversationActions Pong Void Production) -> do
+    pongListener :: ListenerAction Packing ConnState Production
+    pongListener = ListenerActionConversation $ \peerId (cactions :: ConversationActions ConnState Pong Void Production) -> do
         liftIO . putStrLn $ show anId ++  " heard PING from " ++ show peerId
         send cactions Pong
 

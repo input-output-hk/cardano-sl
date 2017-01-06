@@ -28,5 +28,10 @@ instance Binary VoteState
 instance Bi VoteState
 
 instance Bi ProposalState where
-    put ProposalState {..} = put psVotes >> put psProposal >> put psSlot
-    get = ProposalState <$> get <*> get <*> get
+    put ProposalState {..} = do
+        put psVotes
+        put psProposal
+        put psSlot
+        put psPositiveStake
+        put psNegativeStake
+    get = ProposalState <$> get <*> get <*> get <*> get <*> get

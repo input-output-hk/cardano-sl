@@ -27,7 +27,7 @@ import qualified Database.RocksDB as Rocks
 import           Universum
 
 import           Pos.Crypto       (PublicKey)
-import           Pos.Types        (Block, EpochIndex, Richmen, SlotId, SlotLeaders,
+import           Pos.Types        (Block, Coin, EpochIndex, Richmen, SlotId, SlotLeaders,
                                    UpdateProposal)
 
 ----------------------------------------------------------------------------
@@ -84,10 +84,14 @@ data VoteState
 
 -- | State of UpdateProposal.
 data ProposalState = ProposalState
-    { psVotes    :: !(HashMap PublicKey VoteState)
+    { psVotes         :: !(HashMap PublicKey VoteState)
       -- ^ Votes given for this proposal.
-    , psProposal :: !UpdateProposal
+    , psProposal      :: !UpdateProposal
       -- ^ Proposal itself.
-    , psSlot     :: !SlotId
+    , psSlot          :: !SlotId
       -- ^ SlotId from block in which update was proposed.
+    , psPositiveStake :: !Coin
+      -- ^ Total stake of all positive votes.
+    , psNegativeStake :: !Coin
+      -- ^ Total stake of all negative votes.
     } deriving (Generic)

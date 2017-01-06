@@ -11,17 +11,20 @@ module Pos.Update.Logic
 
 import           Control.Lens         ((^.))
 import           Control.Monad.Except (ExceptT, runExceptT, throwError)
+import           Data.List            (partition)
 import           Formatting           (sformat, (%))
 import           Universum
 
 import           Pos.Constants        (updateProposalThreshold, updateVoteThreshold)
 import qualified Pos.DB               as DB
-import           Pos.Types            (Block, Coin, NEBlocks, UpdateProposal (..),
-                                       UpdateVote (..), addressHash, applyCoinPortion,
-                                       coinF, gbExtra, mebUpdate, mebUpdateVotes, mkCoin,
-                                       prevBlockL, unsafeAddCoin)
+import           Pos.DB.Types         (mkProposalState, voteToProposalState)
+import           Pos.Types            (Block, Coin, NEBlocks, SlotId (..),
+                                       UpdateProposal (..), UpdateVote (..), addressHash,
+                                       applyCoinPortion, blockSlot, coinF, gbExtra,
+                                       mebUpdate, mebUpdateVotes, mkCoin, prevBlockL,
+                                       unsafeAddCoin)
 import           Pos.Update.Error     (USError (..))
-import           Pos.Util             (inAssertMode, _neHead)
+import           Pos.Util             (inAssertMode, maybeThrow, _neHead)
 import           Pos.WorkMode         (WorkMode)
 
 -- | Apply chain of /definitely/ valid blocks to US part of GState
@@ -41,11 +44,31 @@ usApplyBlocks blocks = do
 
 usApplyBlock :: WorkMode ssc m => Block ssc -> m [DB.SomeBatchOp]
 usApplyBlock (Left _) = pure []
+-- Note: snapshot is not needed here, because we must have already
+-- taken semaphore.
 usApplyBlock (Right blk) = do
     let meb = blk ^. gbExtra
     let votes = meb ^. mebUpdateVotes
     let proposal = meb ^. mebUpdate
-    undefined
+    let votePredicate vote =
+            maybe False ((uvSoftware vote ==) . upSoftwareVersion) proposal
+    let (curPropVotes, otherVotes) = partition votePredicate votes
+    let slot = blk ^. blockSlot
+    applyProposalBatch <- maybe (pure []) (usApplyProposal slot curPropVotes) proposal
+    return applyProposalBatch
+
+usApplyProposal
+    :: WorkMode ssc m
+    => SlotId -> [UpdateVote] -> UpdateProposal -> m [DB.SomeBatchOp]
+usApplyProposal slot votes proposal =
+    pure . DB.SomeBatchOp . DB.PutProposal <$> execStateT (mapM_ applyVote votes) ps
+  where
+    ps = mkProposalState slot proposal
+    epoch = siEpoch slot
+    applyVote UpdateVote {..} = do
+        let id = addressHash uvKey
+        stake <- maybeThrow (USNotRichmen id) =<< DB.getStakeUS epoch id
+        modify $ voteToProposalState uvKey stake uvDecision
 
 -- | Revert application of given blocks to US part of GState DB
 -- and US local data. Head must be the __youngest__ block. Caller must

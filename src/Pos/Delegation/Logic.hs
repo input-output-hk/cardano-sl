@@ -39,8 +39,8 @@ import           Universum
 import           Pos.Binary.Communication    ()
 import           Pos.Context                 (WithNodeContext (getNodeContext),
                                               ncSecretKey)
-import           Pos.Crypto                  (checkProxySecretKey, pdDelegatePk,
-                                              pdDelegatePk, proxyVerify)
+import           Pos.Crypto                  (pdDelegatePk, proxyVerify, pskDelegatePk,
+                                              toPublic, verifyProxySecretKey)
 import           Pos.DB.Class                (MonadDB)
 import           Pos.DB.Misc                 (addProxySecretKey, getProxySecretKeys)
 import           Pos.Delegation.Class        (DelegationWrap, MonadDelegation (..),
@@ -123,6 +123,7 @@ delegationRollbackBlocks = notImplemented
 -- way to differ), exist in storage already or be cached.
 data PskEpochVerdict
     = PEUnrelated
+    | PEInvalid
     | PEExists
     | PECached
     | PEAdded
@@ -142,12 +143,14 @@ processProxySKEpoch pSk = do
     -- (1) We're reading from DB
     pSks <- getProxySecretKeys
     res <- runDelegationStateAction $ do
-        let related = checkProxySecretKey sk pSk
+        let related = toPublic sk == pskDelegatePk pSk
             exists = pSk `elem` pSks
-            msg = (SendProxySKEpoch pSk)
+            msg = SendProxySKEpoch pSk
+            valid = verifyProxySecretKey pSk
         cached <- uses dwProxyMsgCache $ HM.member msg
         dwProxyMsgCache %= HM.insert msg curTime
-        pure $ if | cached -> PECached
+        pure $ if | not valid -> PEInvalid
+                  | cached -> PECached
                   | exists -> PEExists
                   | not related -> PEUnrelated
                   | otherwise -> PEAdded

@@ -197,7 +197,7 @@ nodeSendActions node packing connStates =
             let msgName  = messageName (Proxy :: Proxy snd)
                 cactions :: ConversationActions connState snd rcv m
                 cactions = nodeConversationActions node nodeId packing inchan outchan
-                            msgName connStates
+                            connStates
             LL.writeChannel outchan . LBS.toChunks $
                 packMsg packing msgName
             f cactions
@@ -219,10 +219,9 @@ nodeConversationActions
     -> packing
     -> ChannelIn m
     -> ChannelOut m
-    -> MessageName
     -> ConnectionsStates m connState
     -> ConversationActions connState snd rcv m
-nodeConversationActions node nodeId packing inchan outchan msgName connStates =
+nodeConversationActions node nodeId packing inchan outchan connStates =
     ConversationActions nodeSend nodeRecv nodeConnState convConnStateStorage
     where
 
@@ -339,7 +338,7 @@ startNodeExt endPoint prng packing initConnState mStatesStorage workers listener
                 case listener of
                     Just (ListenerActionConversation action) ->
                         let cactions = nodeConversationActions node peerId packing
-                                inchan outchan msgName connStates
+                                inchan outchan connStates
                         in  action peerId cactions
                     Just (ListenerActionOneMsg _) -> error ("handlerInOut : wrong listener type. Expected bidirectional for " ++ show msgName)
                     Nothing -> error ("handlerInOut : no listener for " ++ show msgName)

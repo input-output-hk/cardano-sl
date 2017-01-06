@@ -9,6 +9,9 @@ module Pos.DB.GState.Update
          getLastPV
        , getProposalState
 
+         -- * Operations
+       , UpdateOp (..)
+
          -- * Initialization
        , prepareGStateUS
 
@@ -16,17 +19,19 @@ module Pos.DB.GState.Update
        , getOldProposals
        ) where
 
+import qualified Database.RocksDB     as Rocks
 import           Universum
 
 import           Pos.Binary.Class     (encodeStrict)
 import           Pos.Binary.DB        ()
 import           Pos.DB.Class         (MonadDB, getUtxoDB)
 import           Pos.DB.Error         (DBError (DBMalformed))
-import           Pos.DB.Functions     (traverseAllEntries)
+import           Pos.DB.Functions     (RocksBatchOp (..), traverseAllEntries)
 import           Pos.DB.GState.Common (getBi, putBi)
-import           Pos.DB.Types         (ProposalState)
+import           Pos.DB.Types         (ProposalState (..))
 import           Pos.Genesis          (genesisProtocolVersion)
-import           Pos.Types            (ProtocolVersion, SlotId, SoftwareVersion)
+import           Pos.Types            (ProtocolVersion, SlotId, SoftwareVersion,
+                                       UpdateProposal (..))
 import           Pos.Util             (maybeThrow)
 
 ----------------------------------------------------------------------------
@@ -43,6 +48,23 @@ getLastPV = maybeThrow (DBMalformed msg) =<< getLastPVMaybe
 -- | Get state of UpdateProposal for given SoftwareVersion.
 getProposalState :: MonadDB ssc m => SoftwareVersion -> m (Maybe ProposalState)
 getProposalState = getBi . proposalKey
+
+----------------------------------------------------------------------------
+-- Operations
+----------------------------------------------------------------------------
+
+data UpdateOp
+    = PutProposal !ProposalState
+    | DeleteProposal !SlotId !SoftwareVersion
+
+instance RocksBatchOp UpdateOp where
+    toBatchOp (PutProposal ProposalState {psProposal = up@UpdateProposal {..}
+                                         ,..}) =
+        [ Rocks.Put (proposalSlotKey psSlot) (encodeStrict upSoftwareVersion)
+        , Rocks.Put (proposalKey upSoftwareVersion) (encodeStrict up)
+        ]
+    toBatchOp (DeleteProposal slotId sv) =
+        [Rocks.Del (proposalSlotKey slotId), Rocks.Del (proposalKey sv)]
 
 ----------------------------------------------------------------------------
 -- Initialization

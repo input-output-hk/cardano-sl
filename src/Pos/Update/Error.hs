@@ -5,17 +5,19 @@ module Pos.Update.Error
        ) where
 
 import qualified Data.Text.Buildable
-import           Formatting          (bprint, stext, (%))
+import           Formatting          (bprint, build, stext, (%))
 import           Universum
 
 import           Pos.Crypto          (shortHashF)
-import           Pos.Types           (StakeholderId)
+import           Pos.Types           (SoftwareVersion, StakeholderId)
 
 data USError
     = USCantApplyBlocks !Text
      -- ^ Can't apply blocks to GState.
-    | USNotRichmen StakeholderId
+    | USNotRichmen !StakeholderId
      -- ^ Voter from applied block is not richman.
+    | USUnknownSoftware !SoftwareVersion
+     -- ^ Unknown SoftwareVersion encountered.
     deriving (Show)
 
 instance Exception USError
@@ -25,3 +27,5 @@ instance Buildable USError where
     build (USNotRichmen id) =
         bprint ("attempt to apply block with vote from not richman: "%shortHashF)
         id
+    build (USUnknownSoftware sv) =
+        bprint ("US encountered unknown SoftwareVersion: "%build) sv

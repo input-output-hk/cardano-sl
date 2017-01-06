@@ -353,15 +353,24 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                 --
                 | w == controlHeaderCodeBidirectionalAck
                 , Right (ws',_,nonce) <- decodeOrFail ws -> do
-                  (tid, ChannelIn chan) <- modifySharedAtomic nodeState $ \(NodeState prng expected finished) ->
+                  outcome <- modifySharedAtomic nodeState $ \(NodeState prng expected finished) ->
                       case Map.lookup nonce expected of
-                          Nothing -> throw (ProtocolError $ "unexpected ack nonce " ++ show nonce)
+                          -- Got an ACK for a nonce that we don't know about
+                          -- It could be that we never sent a SYN on that
+                          -- nonce (peer made a protocol error), but it could
+                          -- also be that we did send the SYN, but our handler
+                          -- for that conversation has already finished!
+                          -- That's just normal.
+                          Nothing -> return ((NodeState prng expected finished), Nothing)
                           Just (NonceHandlerNotConnected tid inchan) -> do
                               let !expected' = Map.insert nonce (NonceHandlerConnected connid) expected
-                              return ((NodeState prng expected' finished), (tid, inchan))
+                              return ((NodeState prng expected' finished), Just (tid, inchan))
                           Just _ -> throw (InternalError $ "duplicate or delayed ACK for " ++ show nonce)
-                  Channel.writeChannel chan (Just (BS.concat (LBS.toChunks ws')))
-                  pure . Just $ ConnectionReceiving tid chan
+                  case outcome of
+                      Nothing -> pure Nothing
+                      Just (tid, ChannelIn chan) -> do
+                          Channel.writeChannel chan (Just (BS.concat (LBS.toChunks ws')))
+                          pure . Just $ ConnectionReceiving tid chan
 
                 | otherwise ->
                     throw (ProtocolError $ "unexpected control header " ++ show w)
@@ -437,7 +446,12 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                               -- Write Nothing to indicate end of input.
                               Channel.writeChannel chan Nothing
                               loop (Map.insert connid (ConnectionClosed tid) state)
-                          _ -> throw (InternalError "malformed small message")
+                          -- There's no handler for the chunks, possibly because
+                          -- the small message was from a peer contacted in
+                          -- conversation mode, but the local handler has
+                          -- already finished. It's strange behavior but not
+                          -- an error.
+                          _ -> loop state
 
                   -- End of incoming data. Signal that by writing 'Nothing'
                   -- to the ChannelIn.

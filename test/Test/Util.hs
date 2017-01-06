@@ -24,6 +24,8 @@ module Test.Util
        , addFail
        , newWork
 
+       , throwLeft
+
        , TalkStyle (..)
        , sendAll
        , receiveAll

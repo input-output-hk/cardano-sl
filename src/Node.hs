@@ -18,12 +18,13 @@ module Node (
 
       Node
     , startNode
+    , startNodeExt
     , stopNode
 
     , MessageName
 
-    , SendActions(sendTo, withConnectionTo)
-    , ConversationActions(send, recv)
+    , SendActions(sendTo, withConnectionTo, connStateTo, connStateStorage)
+    , ConversationActions(send, recv, connState, convConnStateStorage)
     , Worker
     , Listener(..)
     , ListenerAction(..)
@@ -248,9 +249,8 @@ startNode
     -> [Worker packing () m]
     -> [Listener packing () m]
     -> m (Node m)
-startNode endPoint prng packing workers listeners = do
-    statesStorage <- newSharedAtomic M.empty
-    startNodeExt endPoint prng packing (return ()) statesStorage workers listeners
+startNode endPoint prng packing workers listeners =
+    startNodeExt endPoint prng packing (return ()) Nothing workers listeners
 
 -- | Spin up a node given a set of workers and listeners, using a given network
 --   transport to drive it.
@@ -265,11 +265,12 @@ startNodeExt
     -> StdGen
     -> packing
     -> m connState
-    -> SharedAtomicT m (M.Map LL.NodeId connState)
+    -> Maybe (SharedAtomicT m (M.Map LL.NodeId connState))
     -> [Worker packing connState m]
     -> [Listener packing connState m]
     -> m (Node m)
-startNodeExt endPoint prng packing initConnState statesStorage workers listeners = do
+startNodeExt endPoint prng packing initConnState mStatesStorage workers listeners = do
+    statesStorage <- maybe (newSharedAtomic M.empty) return mStatesStorage
     let connStates = ConnectionsStates statesStorage initConnState
     rec { node <- LL.startNode endPoint prng (handlerIn node sendActions) (handlerInOut node connStates)
         ; let sendActions = nodeSendActions node packing connStates

@@ -54,6 +54,10 @@ instance Mockable Async Production where
     liftMockable (Wait promise) = Production $ Conc.wait promise
     liftMockable (Cancel promise) = Production $ Conc.cancel promise
 
+instance Mockable Concurrently Production where
+    liftMockable (Concurrently a b) = Production $
+        Conc.concurrently (runProduction a) (runProduction b)
+
 type instance SharedAtomicT Production = Conc.MVar
 
 instance Mockable SharedAtomic Production where

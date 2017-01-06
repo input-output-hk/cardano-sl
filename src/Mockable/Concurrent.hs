@@ -2,6 +2,7 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Mockable.Concurrent (
 
@@ -24,6 +25,11 @@ module Mockable.Concurrent (
   , async
   , wait
   , cancel
+
+  , Concurrently(..)
+  , concurrently
+  , mapConcurrently
+  , forConcurrently
 
   ) where
 
@@ -79,3 +85,36 @@ wait promise = liftMockable $ Wait promise
 
 cancel :: ( Mockable Async m ) => Promise m t -> m ()
 cancel promise = liftMockable $ Cancel promise
+
+data Concurrently m t where
+    Concurrently :: m a -> m b -> Concurrently m (a, b)
+
+concurrently :: ( Mockable Concurrently m ) => m a -> m b -> m (a, b)
+concurrently a b = liftMockable $ Concurrently a b
+
+newtype ConcurrentlyA m t = ConcurrentlyA {
+      runConcurrentlyA :: m t
+    }
+
+instance ( Functor m ) => Functor (ConcurrentlyA m) where
+    fmap f = ConcurrentlyA . fmap f . runConcurrentlyA
+
+instance ( Mockable Concurrently m ) => Applicative (ConcurrentlyA m) where
+    pure = ConcurrentlyA . pure
+    cf <*> cx = ConcurrentlyA $ do
+        (f, x) <- concurrently (runConcurrentlyA cf) (runConcurrentlyA cx)
+        pure $ f x
+
+mapConcurrently
+    :: ( Traversable f, Mockable Concurrently m )
+    => (s -> m t)
+    -> f s
+    -> m (f t)
+mapConcurrently g = runConcurrentlyA . traverse (ConcurrentlyA . g)
+
+forConcurrently
+    :: ( Traversable f, Mockable Concurrently m )
+    => f s
+    -> (s -> m t)
+    -> m (f t)
+forConcurrently = flip mapConcurrently

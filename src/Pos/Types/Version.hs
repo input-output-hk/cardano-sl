@@ -14,7 +14,7 @@ import           Data.Hashable       (Hashable)
 import           Data.SafeCopy       (base, deriveSafeCopySimple)
 import qualified Data.Text           as T
 import qualified Data.Text.Buildable as Buildable
-import           Formatting          (bprint, build, shown, stext, (%))
+import           Formatting          (bprint, int, shown, stext, (%))
 import           Prelude             (show)
 import           Universum           hiding (show)
 
@@ -52,24 +52,17 @@ mkApplicationName appName
 -- | Software version.
 data SoftwareVersion = SoftwareVersion
     { svAppName :: ApplicationName
-    , svMajor   :: Word8
-    , svMinor   :: Word16
+    , svNumber  :: Word32
     }
   deriving (Eq, Generic, Ord, Typeable)
 
 instance Buildable SoftwareVersion where
     build SoftwareVersion {..} =
-      bprint (stext % ":" % build % "." % build)
-         (getApplicationName svAppName) svMajor svMinor
+      bprint (stext % ":" % int)
+         (getApplicationName svAppName) svNumber
 
 instance Show SoftwareVersion where
-    show SoftwareVersion {..} = mconcat
-        [ toString svAppName
-        , ":"
-        , show svMajor
-        , "."
-        , show svMinor
-        ]
+    show = toString . pretty
 
 instance Hashable SoftwareVersion
 

@@ -9,6 +9,7 @@ module Pos.DB.GState.Update
          getLastPV
        , getProposalState
        , getStakeUS
+       , getConfirmedSV
 
          -- * Operations
        , UpdateOp (..)
@@ -32,8 +33,8 @@ import           Pos.DB.Functions     (RocksBatchOp (..), traverseAllEntries)
 import           Pos.DB.GState.Common (getBi, putBi)
 import           Pos.DB.Types         (ProposalState (..))
 import           Pos.Genesis          (genesisProtocolVersion)
-import           Pos.Types            (Coin, EpochIndex, ProtocolVersion, SlotId,
-                                       SoftwareVersion, StakeholderId,
+import           Pos.Types            (ApplicationName, Coin, EpochIndex, ProtocolVersion,
+                                       SlotId, SoftwareVersion (..), StakeholderId,
                                        UpdateProposal (..))
 import           Pos.Util             (maybeThrow)
 
@@ -58,6 +59,14 @@ getProposalState = getBi . proposalKey
 getStakeUS :: MonadDB ssc m => EpochIndex -> StakeholderId -> m (Maybe Coin)
 getStakeUS e = getBi . stakeKey e
 
+type NumSoftwareVersion = Word32
+
+-- | Get last confirmed SoftwareVersion of given application.
+getConfirmedSV
+    :: MonadDB ssc m
+    => ApplicationName -> m (Maybe NumSoftwareVersion)
+getConfirmedSV = getBi . confirmedVersionKey
+
 ----------------------------------------------------------------------------
 -- Operations
 ----------------------------------------------------------------------------
@@ -65,6 +74,7 @@ getStakeUS e = getBi . stakeKey e
 data UpdateOp
     = PutProposal !ProposalState
     | DeleteProposal !SlotId !SoftwareVersion
+    | ConfirmUpdate !SoftwareVersion
 
 instance RocksBatchOp UpdateOp where
     toBatchOp (PutProposal ProposalState {psProposal = up@UpdateProposal {..}
@@ -74,6 +84,8 @@ instance RocksBatchOp UpdateOp where
         ]
     toBatchOp (DeleteProposal slotId sv) =
         [Rocks.Del (proposalSlotKey slotId), Rocks.Del (proposalKey sv)]
+    toBatchOp (ConfirmUpdate SoftwareVersion {..}) =
+        [Rocks.Put (confirmedVersionKey svAppName) (encodeStrict svNumber)]
 
 -- I suppose batching is not necessary here.
 -- | Put richmen and their stakes for given epoch.
@@ -144,6 +156,9 @@ proposalSlotKey = encodeStrict
 -- Can be optimized I suppose.
 stakeKey :: EpochIndex -> StakeholderId -> ByteString
 stakeKey e s = "us/s" <> encodeStrict e <> encodeStrict s
+
+confirmedVersionKey :: ApplicationName -> ByteString
+confirmedVersionKey = mappend "us/c" . encodeStrict
 
 ----------------------------------------------------------------------------
 -- Details

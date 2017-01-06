@@ -49,6 +49,7 @@ Library
                       , kademlia
                       , lens
                       , log-warper
+                      , mmorph
                       , monad-control
                       , mtl
                       , network

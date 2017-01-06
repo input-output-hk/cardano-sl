@@ -30,6 +30,7 @@ module Mockable.Concurrent (
   ) where
 
 import           Control.Exception.Base (SomeException)
+import           Control.Monad.Morph    (MFunctor (hoist))
 import           Control.Monad.Reader   (ReaderT (..))
 import           Control.TimeWarp.Timed (RelativeToNow, for, hour, mcs, minute, ms, sec)
 import           Data.Time.Units        (Microsecond)
@@ -72,6 +73,9 @@ data Delay (m :: * -> *) (t :: *) where
     Delay :: RelativeToNow -> Delay m ()    -- Finite delay.
     SleepForever :: Delay m ()              -- Infinite delay.
 
+instance MFunctor Delay where
+  hoist nat (Delay i) = Delay i
+
 wait :: ( Mockable Delay m ) => RelativeToNow -> m ()
 wait relativeToNow = liftMockable $ Delay relativeToNow
 
@@ -84,6 +88,10 @@ data RepeatForever (m :: * -> *) (t :: *) where
                   -> m ()
                   -> RepeatForever m ()
 
+instance MFunctor RepeatForever where
+  hoist nat (RepeatForever ms eh action) =
+    RepeatForever ms (\ex -> nat $ eh ex) (nat action)
+
 repeatForever :: ( Mockable RepeatForever m )
     => Microsecond
     -> (SomeException -> m Microsecond)
@@ -94,6 +102,9 @@ repeatForever period handler action =
 
 data RunInUnboundThread m t where
     RunInUnboundThread :: m t -> RunInUnboundThread m t
+
+instance MFunctor RunInUnboundThread where
+  hoist nat (RunInUnboundThread action) = RunInUnboundThread $ nat action
 
 runInUnboundThread :: ( Mockable RunInUnboundThread m ) => m t -> m t
 runInUnboundThread m = liftMockable $ RunInUnboundThread m

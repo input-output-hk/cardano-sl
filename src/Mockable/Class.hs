@@ -1,7 +1,13 @@
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE KindSignatures             #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE StandaloneDeriving         #-}
 
 module Mockable.Class ( Mockable(..) ) where
+
+import           Control.Monad.Morph        (MFunctor (hoist))
+import           Control.Monad.Trans.Reader (ReaderT (..))
 
 -- | Instances of this class identify how a given thing can be mocked within a
 --   given monad.
@@ -15,3 +21,6 @@ module Mockable.Class ( Mockable(..) ) where
 --   its text.
 class ( Monad m ) => Mockable (d :: (* -> *) -> * -> *) (m :: * -> *) where
     liftMockable :: d m t -> m t
+
+instance (Mockable d m, MFunctor d) => Mockable d (ReaderT r m) where
+    liftMockable dmt = ReaderT $ \r -> liftMockable $ hoist (flip runReaderT r) dmt

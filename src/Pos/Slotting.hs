@@ -1,10 +1,10 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Slotting functionality.
 
 module Pos.Slotting
        ( MonadSlots (..)
-       , getCurrentSlot
        , getCurrentSlotFlat
        , getSlotStart
        , onNewSlot
@@ -12,6 +12,7 @@ module Pos.Slotting
 
 import           Control.Monad.Catch      (MonadCatch, catch)
 import           Control.Monad.Except     (ExceptT)
+import           Control.Monad.Trans      (MonadTrans)
 import           Control.TimeWarp.Timed   (Microsecond, MonadTimed, for, fork_, wait)
 import           Formatting               (build, sformat, shown, (%))
 import           Serokell.Util.Exceptions ()
@@ -23,41 +24,29 @@ import           Pos.Constants            (slotDuration)
 import           Pos.DHT.Model            (DHTResponseT)
 import           Pos.DHT.Real             (KademliaDHT)
 import           Pos.Types                (FlatSlotId, SlotId (..), Timestamp (..),
-                                           flattenSlotId, unflattenSlotId)
+                                           flattenSlotId)
 
 -- | Type class providing information about time when system started
 -- functioning.
 class Monad m => MonadSlots m where
     getSystemStartTime :: m Timestamp
     getCurrentTime :: m Timestamp
+    getCurrentSlot :: m SlotId
+
+    default getSystemStartTime :: (MonadTrans t, MonadSlots m', t m' ~ m) => m Timestamp
+    getSystemStartTime = lift getSystemStartTime
+
+    default getCurrentTime :: (MonadTrans t, MonadSlots m', t m' ~ m) => m Timestamp
+    getCurrentTime = lift getCurrentTime
+
+    default getCurrentSlot :: (MonadTrans t, MonadSlots m', t m' ~ m) => m SlotId
+    getCurrentSlot = lift getCurrentSlot
 
 instance MonadSlots m => MonadSlots (ReaderT s m) where
-    getSystemStartTime = lift getSystemStartTime
-    getCurrentTime = lift getCurrentTime
-
 instance MonadSlots m => MonadSlots (ExceptT s m) where
-    getSystemStartTime = lift getSystemStartTime
-    getCurrentTime = lift getCurrentTime
-
 instance MonadSlots m => MonadSlots (StateT s m) where
-    getSystemStartTime = lift getSystemStartTime
-    getCurrentTime = lift getCurrentTime
-
 instance MonadSlots m => MonadSlots (DHTResponseT s m) where
-    getSystemStartTime = lift getSystemStartTime
-    getCurrentTime = lift getCurrentTime
-
 instance MonadSlots m => MonadSlots (KademliaDHT m) where
-    getSystemStartTime = lift getSystemStartTime
-    getCurrentTime = lift getCurrentTime
-
--- | Get id of current slot based on MonadSlots.
-getCurrentSlot :: MonadSlots m => m SlotId
-getCurrentSlot =
-    f . getTimestamp <$> ((-) <$> getCurrentTime <*> getSystemStartTime)
-  where
-    f :: Microsecond -> SlotId
-    f t = unflattenSlotId (fromIntegral $ t `div` slotDuration)
 
 -- | Get flat id of current slot based on MonadSlots.
 getCurrentSlotFlat :: MonadSlots m => m FlatSlotId

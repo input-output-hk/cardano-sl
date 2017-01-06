@@ -81,7 +81,8 @@ import           Pos.Ssc.Extra                (runSscHolder)
 import           Pos.Statistics               (getNoStatsT, runStatsT)
 import           Pos.Txp.Holder               (runTxpLDHolder)
 import qualified Pos.Txp.Types.UtxoView       as UV
-import           Pos.Types                    (Timestamp (Timestamp), timestampF)
+import           Pos.Types                    (Timestamp (Timestamp), timestampF,
+                                               unflattenSlotId)
 import           Pos.Util                     (runWithRandomIntervals)
 import           Pos.Util.UserSecret          (peekUserSecret, usKeys, writeUserSecret)
 import           Pos.Worker                   (statsWorkers)
@@ -263,6 +264,8 @@ runCH NodeParams {..} sscNodeContext act = do
     forM_ ownPSKs addProxySecretKey
 
     userSecretVar <- liftIO . atomically . newTVar $ userSecret'
+    ntpData <- (liftIO . runTimedIO $ currentTime) >>= atomically . newTVar . (0, )
+    lastSlot <- atomically . newTVar $ unflattenSlotId 0
     let ctx =
             NodeContext
             { ncSystemStart = npSystemStart
@@ -278,6 +281,8 @@ runCH NodeParams {..} sscNodeContext act = do
             , ncSscRichmen = sscRichmen
             , ncSscLeaders = sscLeaders
             , ncUserSecret = userSecretVar
+            , ncNtpData = ntpData
+            , ncNtpLastSlot = lastSlot
             }
     runContextHolder ctx act
 

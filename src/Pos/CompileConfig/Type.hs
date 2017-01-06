@@ -47,4 +47,6 @@ data CompileConfig = CompileConfig
       -- ^ Servers for downloading application updates
     , ccMaxBlockProxySKs              :: !Int
       -- ^ Maximum number of PSKs allowed in block
+    , ccNtpResponseTimeout            :: !Int
+    , ccNtpPollDelay                  :: !Int
     } deriving (Show, Lift)

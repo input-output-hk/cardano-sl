@@ -16,7 +16,6 @@ import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow, catchAll)
 import           Control.Monad.Morph         (hoist)
 import           Control.Monad.Reader        (ReaderT (ReaderT), ask)
-
 import           Control.Monad.Trans.Class   (MonadTrans)
 import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,
@@ -25,6 +24,7 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
 import           Control.TimeWarp.Rpc        (MonadDialog, MonadResponse (..),
                                               MonadTransfer (..))
 import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
+import           Data.Time.Units             (Microsecond)
 
 import           Formatting                  (sformat, shown, (%))
 import           Serokell.Util.Lens          (WrappedM (..))
@@ -32,12 +32,14 @@ import           System.Wlog                 (CanLog, HasLoggerName, WithLogger,
                                               logWarning)
 import           Universum
 
-import           Pos.Context.Class           (WithNodeContext (..))
+import           Pos.Constants               (ntpMaxError, ntpPollDelay, slotDuration)
+import           Pos.Context.Class           (WithNodeContext (..), readNtpLastSlot,
+                                              readNtpMargin, readNtpTimestamp)
 import           Pos.Context.Context         (NodeContext (..))
 import           Pos.DB                      (MonadDB)
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Txp.Class               (MonadTxpLD)
-import           Pos.Types                   (Timestamp (..))
+import           Pos.Types                   (SlotId, Timestamp (..), unflattenSlotId)
 import           Pos.Util.JsonLog            (MonadJL (..), appendJL)
 
 -- | Wrapper for monadic action which brings 'NodeContext'.
@@ -81,10 +83,28 @@ instance MonadResponse s m => MonadResponse s (ContextHolder ssc m) where
 instance Monad m => WithNodeContext ssc (ContextHolder ssc m) where
     getNodeContext = ContextHolder ask
 
-instance (MonadTimed m, Monad m) =>
+instance (MonadTimed m, Monad m, MonadIO m) =>
          MonadSlots (ContextHolder ssc m) where
     getSystemStartTime = ContextHolder $ asks ncSystemStart
-    getCurrentTime = Timestamp <$> currentTime
+
+    getCurrentTime = do
+        lastMargin <- readNtpMargin
+        Timestamp . (+ lastMargin) <$> currentTime
+
+    getCurrentSlot = do
+        lastSlot <- readNtpLastSlot
+        t <- getTimestamp <$> getCurrentTime
+        canTrust <- canWeTrustTime t
+        if canTrust then
+            max lastSlot . f  <$>
+                ((t -) . getTimestamp <$> getSystemStartTime)
+        else pure lastSlot
+      where
+        f :: Microsecond -> SlotId
+        f t = unflattenSlotId (fromIntegral $ t `div` slotDuration)
+        canWeTrustTime t = do
+            measTime <- readNtpTimestamp
+            return $ t <= measTime + ntpPollDelay + ntpMaxError
 
 instance (MonadIO m, MonadCatch m, WithLogger m) => MonadJL (ContextHolder ssc m) where
     jlLog ev = ContextHolder (asks ncJLFile) >>= maybe (pure ()) doLog

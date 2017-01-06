@@ -42,9 +42,14 @@ module Pos.Constants
        , curSoftwareVersion
        , appSystemTag
        , updateServers
+
+       -- * NTP
+       , ntpMaxError
+       , ntpResponseTimeout
+       , ntpPollDelay
        ) where
 
-import           Control.TimeWarp.Timed     (Microsecond, sec)
+import           Control.TimeWarp.Timed     (Microsecond, mcs, sec)
 import           Data.String                (String)
 import           Language.Haskell.TH.Syntax (lift, runIO)
 import           System.Environment         (lookupEnv)
@@ -227,3 +232,15 @@ curSoftwareVersion = SoftwareVersion cardanoSlAppName 1 0
 -- | Update servers
 updateServers :: [String]
 updateServers = ccUpdateServers compileConfig
+
+----------------------------------------------------------------------------
+-- NTP
+----------------------------------------------------------------------------
+ntpMaxError :: Microsecond
+ntpMaxError = 1000000 -- 1 sec
+
+ntpResponseTimeout :: Microsecond
+ntpResponseTimeout = mcs . ccNtpResponseTimeout $ compileConfig
+
+ntpPollDelay :: Microsecond
+ntpPollDelay = mcs . ccNtpPollDelay $ compileConfig

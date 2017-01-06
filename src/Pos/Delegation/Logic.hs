@@ -30,6 +30,7 @@ module Pos.Delegation.Logic
 import           Control.Concurrent.STM.TVar (readTVar, writeTVar)
 import           Control.Lens                (uses, (%=))
 import qualified Data.HashMap.Strict         as HM
+import qualified Data.HashSet                as HS
 import           Data.List.NonEmpty          (NonEmpty)
 import           Data.Time.Clock             (UTCTime, addUTCTime, getCurrentTime)
 import           Database.RocksDB            (BatchOp)
@@ -39,8 +40,9 @@ import           Universum
 import           Pos.Binary.Communication    ()
 import           Pos.Context                 (WithNodeContext (getNodeContext),
                                               ncSecretKey)
-import           Pos.Crypto                  (pdDelegatePk, proxyVerify, pskDelegatePk,
-                                              pskIssuerPk, toPublic, verifyProxySecretKey)
+import           Pos.Crypto                  (PublicKey, pdDelegatePk, proxyVerify,
+                                              pskDelegatePk, pskIssuerPk, toPublic,
+                                              verifyProxySecretKey)
 import           Pos.DB.Class                (MonadDB)
 import qualified Pos.DB.Misc                 as Misc (addProxySecretKey,
                                                       getProxySecretKeys)
@@ -100,11 +102,10 @@ data PskSimpleVerdict
 -- (TODO) depending on issuer's stake, overrides if exists, checks
 -- validity and cachemsg state.
 processProxySKSimple
-    :: (DelegationWorkMode ssc m)
+    :: (MonadDelegation m, MonadIO m)
     => ProxySKSimple -> m PskSimpleVerdict
 processProxySKSimple psk = do
     curTime <- liftIO getCurrentTime
-    -- (1) We're reading from DB
     runDelegationStateAction $ do
         let msg = SendProxySKSimple psk
             valid = verifyProxySecretKey psk
@@ -118,17 +119,33 @@ processProxySKSimple psk = do
                   | exists -> PSExists
                   | otherwise -> PSAdded
 
+-- state needed for 'delegationVerifyBlocks'
+data DelVerState = DelVerState
+    { _dvCurEpoch  :: HashSet PublicKey
+      -- ^ Set of issuers that have already posted certificates this epoch
+    , _dvPSKMap    :: HashMap PublicKey ProxySKSimple
+      -- ^ Current set of proxy sks.
+    , _dvRollbacks :: [[ProxySKSimple]]
+      -- ^ Rollbacks -- certificates that are to be deleted.
+    }
+
+-- | Verifies if blocks are correct relatively to the delegation logic
+-- an returns non-empty list of proxySKs needed for undoing
+-- them. Predicate for correctness here is:
+-- * Issuer can post only one cert per epoch
+-- * For every new certificate issuer had enough state at the
+--   end of prev. epoch
+--
+-- Blocks are assumed to be oldest-first.
+delegationVerifyBlocks
+    :: (MonadDB ssc m)
+    => NEBlocks ssc -> m (Either Text (NonEmpty [ProxySKSimple]))
+delegationVerifyBlocks = notImplemented $ DelVerState HS.empty HM.empty []
+
 delegationApplyBlocks
     :: (DelegationWorkMode ssc m)
     => NonEmpty (Blund ssc) -> m (NonEmpty [BatchOp])
 delegationApplyBlocks = notImplemented
-
--- | Verifies if blocks are correct relatively to the delegation logic
--- an returns non-empty list of proxySKs needed for undoing them.
-delegationVerifyBlocks
-    :: (MonadDB ssc m)
-    => NEBlocks ssc -> m (Either Text (NonEmpty [ProxySKSimple]))
-delegationVerifyBlocks = notImplemented
 
 delegationRollbackBlocks
     :: (WithLogger m, MonadDB ssc m)

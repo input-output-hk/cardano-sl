@@ -20,7 +20,7 @@ import qualified Data.HashSet           as HS
 import           Data.List.NonEmpty     (NonEmpty)
 import qualified Data.List.NonEmpty     as NE
 import           Formatting             (build, sformat, stext, (%))
-import           System.Wlog            (WithLogger, logInfo)
+import           System.Wlog            (WithLogger, logDebug, logInfo)
 import           Universum
 
 import           Pos.Constants          (maxLocalTxs)
@@ -61,7 +61,8 @@ type TxpWorkMode ssc m = ( Ssc ssc
 type MinTxpWorkMode ssc m = ( MonadDB ssc m
                             , MonadTxpLD ssc m
                             , MonadUtxo m
-                            , MonadThrow m)
+                            , MonadThrow m
+                            , WithLogger m)
 
 -- | Apply chain of /definitely/ valid blocks to state on transactions
 -- processing.
@@ -152,13 +153,13 @@ txVerifyBlocks newChain = do
 -- CHECK: @processTx
 -- #processTxDo
 processTx :: MinTxpWorkMode ssc m => (TxId, TxAux) -> m ProcessTxRes
-processTx itw@(_, (tx, _, _)) = do
+processTx itw@(txId, (tx, _, _)) = do
     tipBefore <- getTip
     resolved <-
       foldM (\s inp -> maybe s (\x -> HM.insert inp x s) <$> utxoGet inp)
             mempty (txInputs tx)
     db <- getUtxoDB
-    modifyTxpLD (\txld@(_, mp, _, tip) ->
+    pRes <- modifyTxpLD (\txld@(_, mp, _, tip) ->
         let localSize = localTxsSize mp in
         if tipBefore == tip then
             if localSize < maxLocalTxs
@@ -167,6 +168,7 @@ processTx itw@(_, (tx, _, _)) = do
         else
             (mkPTRinvalid ["Tips aren't same"], txld)
         )
+    pRes <$ logDebug (sformat ("Transaction processed: "%build) txId)
 
 -- CHECK: @processTxDo
 -- #verifyTxPure
@@ -196,8 +198,13 @@ processTxDo ld@(uv, mp, undos, tip) resolvedIns utxoDB (id, (tx, txw, txd))
     newState nAddUtxo nDelUtxo oldTxs oldSize oldUndos =
         let keys = zipWith TxIn (repeat id) [0 ..]
             zipKeys = zip keys (txOutputs tx `zip` getTxDistribution txd)
-            newAddUtxo' = foldl' (flip $ uncurry HM.insert) nAddUtxo zipKeys
-            newDelUtxo' = foldl' (flip HS.insert) nDelUtxo (txInputs tx)
+            addUtxoMembers = zip (txInputs tx) $ map (`HM.member` nAddUtxo) (txInputs tx)
+            squashedDels = map fst $ filter snd addUtxoMembers
+            notSquashedDels = map fst $ filter (not . snd) addUtxoMembers
+            newAddUtxo' = foldl' (flip $ uncurry HM.insert)
+                                 (foldl' (flip HM.delete) nAddUtxo squashedDels)
+                                 zipKeys
+            newDelUtxo' = foldl' (flip HS.insert) nDelUtxo notSquashedDels
             newUndos = HM.insert id (reverse $ foldl' prependToUndo [] (txInputs tx)) oldUndos
         in ( PTRadded
            , ( UtxoView newAddUtxo' newDelUtxo' utxoDB

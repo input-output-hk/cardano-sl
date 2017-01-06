@@ -10,6 +10,7 @@ module Pos.Types.Version
        ) where
 
 import           Data.Char           (isAscii)
+import           Data.Hashable       (Hashable)
 import           Data.SafeCopy       (base, deriveSafeCopySimple)
 import qualified Data.Text           as T
 import qualified Data.Text.Buildable as Buildable
@@ -31,9 +32,11 @@ instance Show ProtocolVersion where
 instance Buildable ProtocolVersion where
     build = bprint shown
 
+instance Hashable ProtocolVersion
+
 newtype ApplicationName = ApplicationName
     { getApplicationName :: Text
-    } deriving (Eq, Ord, Show, Generic, Typeable, ToString)
+    } deriving (Eq, Ord, Show, Generic, Typeable, ToString, Hashable)
 
 applicationNameMaxLength :: Integral i => i
 applicationNameMaxLength = 10
@@ -67,6 +70,8 @@ instance Show SoftwareVersion where
         , "."
         , show svMinor
         ]
+
+instance Hashable SoftwareVersion
 
 deriveSafeCopySimple 0 'base ''ApplicationName
 deriveSafeCopySimple 0 'base ''ProtocolVersion

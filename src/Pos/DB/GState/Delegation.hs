@@ -36,13 +36,13 @@ delPSK = delete . pskKey
 ----------------------------------------------------------------------------
 
 data DelegationOp
-    = AddPSK ProxySKSimple -- ^ Adds PSK. Overwrites if present.
-    | DelPSK PublicKey -- ^ Removes PSK by issuer PK.
+    = AddPSK !ProxySKSimple -- ^ Adds PSK. Overwrites if present.
+    | DelPSK !PublicKey -- ^ Removes PSK by issuer PK.
 
 instance RocksBatchOp DelegationOp where
     toBatchOp (AddPSK psk) =
-        Rocks.Put (pskKey $ pskIssuerPk psk) (encodeStrict psk)
-    toBatchOp (DelPSK pk) = Rocks.Del $ pskKey pk
+        [Rocks.Put (pskKey $ pskIssuerPk psk) (encodeStrict psk)]
+    toBatchOp (DelPSK pk) = [Rocks.Del $ pskKey pk]
 
 ----------------------------------------------------------------------------
 -- Keys

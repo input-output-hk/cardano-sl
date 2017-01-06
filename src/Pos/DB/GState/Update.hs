@@ -8,9 +8,11 @@ module Pos.DB.GState.Update
          -- * Getters
          getLastPV
        , getProposalState
+       , getStakeUS
 
          -- * Operations
        , UpdateOp (..)
+       , putRichmenUS
 
          -- * Initialization
        , prepareGStateUS
@@ -30,7 +32,8 @@ import           Pos.DB.Functions     (RocksBatchOp (..), traverseAllEntries)
 import           Pos.DB.GState.Common (getBi, putBi)
 import           Pos.DB.Types         (ProposalState (..))
 import           Pos.Genesis          (genesisProtocolVersion)
-import           Pos.Types            (ProtocolVersion, SlotId, SoftwareVersion,
+import           Pos.Types            (Coin, EpochIndex, ProtocolVersion, SlotId,
+                                       SoftwareVersion, StakeholderId,
                                        UpdateProposal (..))
 import           Pos.Util             (maybeThrow)
 
@@ -49,6 +52,12 @@ getLastPV = maybeThrow (DBMalformed msg) =<< getLastPVMaybe
 getProposalState :: MonadDB ssc m => SoftwareVersion -> m (Maybe ProposalState)
 getProposalState = getBi . proposalKey
 
+-- | Get stake of richmen according to stake distribution for given
+-- epoch. If stakeholder was not richmen or if richmen for epoch are
+-- unknown, 'Nothing' is returned.
+getStakeUS :: MonadDB ssc m => EpochIndex -> StakeholderId -> m (Maybe Coin)
+getStakeUS e = getBi . stakeKey e
+
 ----------------------------------------------------------------------------
 -- Operations
 ----------------------------------------------------------------------------
@@ -65,6 +74,13 @@ instance RocksBatchOp UpdateOp where
         ]
     toBatchOp (DeleteProposal slotId sv) =
         [Rocks.Del (proposalSlotKey slotId), Rocks.Del (proposalKey sv)]
+
+-- I suppose batching is not necessary here.
+-- | Put richmen and their stakes for given epoch.
+putRichmenUS :: MonadDB ssc m => EpochIndex -> [(StakeholderId, Coin)] -> m ()
+putRichmenUS e = mapM_ putRichmenDo
+  where
+    putRichmenDo (id, stake) = putBi (stakeKey e id) stake
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -124,6 +140,10 @@ proposalSlotKey :: SlotId -> ByteString
 -- [CSL-379] Restore prefix after we have proper iterator
 -- proposalSlotKey = mappend "us/s" . encodeStrict
 proposalSlotKey = encodeStrict
+
+-- Can be optimized I suppose.
+stakeKey :: EpochIndex -> StakeholderId -> ByteString
+stakeKey e s = encodeStrict e <> encodeStrict s
 
 ----------------------------------------------------------------------------
 -- Details

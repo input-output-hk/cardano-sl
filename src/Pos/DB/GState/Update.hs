@@ -143,7 +143,7 @@ proposalSlotKey = encodeStrict
 
 -- Can be optimized I suppose.
 stakeKey :: EpochIndex -> StakeholderId -> ByteString
-stakeKey e s = encodeStrict e <> encodeStrict s
+stakeKey e s = "us/s" <> encodeStrict e <> encodeStrict s
 
 ----------------------------------------------------------------------------
 -- Details

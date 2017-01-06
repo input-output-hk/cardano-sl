@@ -159,6 +159,7 @@ library
                         Pos.Crypto.SecretSharing
                         Pos.Crypto.Signing
                         Pos.Delegation.Class
+                        Pos.Delegation.Methods
                         Pos.Delegation.Types
                         Pos.Delegation.Listeners
                         Pos.Delegation.Logic

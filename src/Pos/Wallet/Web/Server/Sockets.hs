@@ -70,7 +70,7 @@ newtype WalletWebSockets m a = WalletWebSockets
 
 instance Monad m => WrappedM (WalletWebSockets m) where
     type UnwrappedM (WalletWebSockets m) = ReaderT ConnectionsVar m
-    _WrappedM = iso getWalletWebSockets WalletWebSockets
+    _WrappedM = iso getWalletWS WalletWebSockets
 
 instance MonadTrans WalletWebSockets where
     lift = WalletWebSockets . lift

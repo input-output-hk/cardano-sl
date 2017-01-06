@@ -40,11 +40,13 @@ import           Pos.Binary.Communication    ()
 import           Pos.Context                 (WithNodeContext (getNodeContext),
                                               ncSecretKey)
 import           Pos.Crypto                  (pdDelegatePk, proxyVerify, pskDelegatePk,
-                                              toPublic, verifyProxySecretKey)
+                                              pskIssuerPk, toPublic, verifyProxySecretKey)
 import           Pos.DB.Class                (MonadDB)
-import           Pos.DB.Misc                 (addProxySecretKey, getProxySecretKeys)
+import qualified Pos.DB.Misc                 as Misc (addProxySecretKey,
+                                                      getProxySecretKeys)
 import           Pos.Delegation.Class        (DelegationWrap, MonadDelegation (..),
-                                              dwProxyConfCache, dwProxyMsgCache)
+                                              dwProxyConfCache, dwProxyMsgCache,
+                                              dwProxySKPool)
 import           Pos.Delegation.Types        (SendProxySK (..))
 import           Pos.Types                   (Block, Blund, NEBlocks, ProxySKEpoch,
                                               ProxySKSimple, ProxySigEpoch, Undo)
@@ -89,14 +91,32 @@ type DelegationWorkMode ssc m = (MonadDelegation m, MonadDB ssc m, WithLogger m)
 -- | Datatypes representing a verdict of simple PSK processing.
 data PskSimpleVerdict
     = PSExists
+    | PSInvalid
     | PSCached
     | PSAdded
     deriving (Show,Eq)
 
+-- | Processes simple (hardweight) psk. Puts it into the mempool not
+-- (TODO) depending on issuer's stake, overrides if exists, checks
+-- validity and cachemsg state.
 processProxySKSimple
     :: (DelegationWorkMode ssc m)
     => ProxySKSimple -> m PskSimpleVerdict
-processProxySKSimple = notImplemented
+processProxySKSimple psk = do
+    curTime <- liftIO getCurrentTime
+    -- (1) We're reading from DB
+    runDelegationStateAction $ do
+        let msg = SendProxySKSimple psk
+            valid = verifyProxySecretKey psk
+            issuer = pskIssuerPk psk
+        exists <- uses dwProxySKPool $ \m -> HM.lookup issuer m == Just psk
+        cached <- uses dwProxyMsgCache $ HM.member msg
+        dwProxyMsgCache %= HM.insert msg curTime
+        unless exists $ dwProxySKPool %= HM.insert issuer psk
+        pure $ if | not valid -> PSInvalid
+                  | cached -> PSCached
+                  | exists -> PSExists
+                  | otherwise -> PSAdded
 
 delegationApplyBlocks
     :: (DelegationWorkMode ssc m)
@@ -137,16 +157,16 @@ data PskEpochVerdict
 processProxySKEpoch
     :: (MonadDelegation m, WithNodeContext ssc m, MonadDB ssc m)
     => ProxySKEpoch -> m PskEpochVerdict
-processProxySKEpoch pSk = do
+processProxySKEpoch psk = do
     sk <- ncSecretKey <$> getNodeContext
     curTime <- liftIO getCurrentTime
     -- (1) We're reading from DB
-    pSks <- getProxySecretKeys
+    psks <- Misc.getProxySecretKeys
     res <- runDelegationStateAction $ do
-        let related = toPublic sk == pskDelegatePk pSk
-            exists = pSk `elem` pSks
-            msg = SendProxySKEpoch pSk
-            valid = verifyProxySecretKey pSk
+        let related = toPublic sk == pskDelegatePk psk
+            exists = psk `elem` psks
+            msg = SendProxySKEpoch psk
+            valid = verifyProxySecretKey psk
         cached <- uses dwProxyMsgCache $ HM.member msg
         dwProxyMsgCache %= HM.insert msg curTime
         pure $ if | not valid -> PEInvalid
@@ -155,7 +175,7 @@ processProxySKEpoch pSk = do
                   | not related -> PEUnrelated
                   | otherwise -> PEAdded
     -- (2) We're writing to DB
-    when (res == PEAdded) $ addProxySecretKey pSk
+    when (res == PEAdded) $ Misc.addProxySecretKey psk
     pure res
 
 ----------------------------------------------------------------------------
@@ -174,16 +194,16 @@ data ConfirmPskEpochVerdict
 processConfirmProxySk
     :: (MonadDelegation m, MonadIO m)
     => ProxySKEpoch -> ProxySigEpoch ProxySKEpoch -> m ConfirmPskEpochVerdict
-processConfirmProxySk pSk proof = do
+processConfirmProxySk psk proof = do
     curTime <- liftIO getCurrentTime
     runDelegationStateAction $ do
-        let valid = proxyVerify (pdDelegatePk proof) proof (const True) pSk
-        cached <- uses dwProxyConfCache $ HM.member pSk
-        when valid $ dwProxyConfCache %= HM.insert pSk curTime
+        let valid = proxyVerify (pdDelegatePk proof) proof (const True) psk
+        cached <- uses dwProxyConfCache $ HM.member psk
+        when valid $ dwProxyConfCache %= HM.insert psk curTime
         pure $ if | cached -> CPCached
                   | not valid -> CPInvalid
                   | otherwise -> CPValid
 
 -- | Checks if we hold a confirmation for given PSK.
 isProxySKConfirmed :: ProxySKEpoch -> DelegationStateAction Bool
-isProxySKConfirmed pSk = uses dwProxyConfCache $ HM.member pSk
+isProxySKConfirmed psk = uses dwProxyConfCache $ HM.member psk

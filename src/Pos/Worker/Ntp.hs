@@ -36,7 +36,7 @@ settings nc = NtpClientSettings
         , ntpMeanSelection   = \l -> let len = length l in sort l !! ((len - 1) `div` 2)
         -- ^ way to sumarize results received from different servers.
         }
-
+-- | Worker for synchronization of local time and global time
 ntpWorker :: WorkMode ssc m => m ()
 ntpWorker = getNodeContext >>=
     liftIO . void . runProduction . startNtpClient . settings

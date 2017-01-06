@@ -102,6 +102,8 @@ instance (MonadTimed m, Monad m, MonadIO m) =>
       where
         f :: Microsecond -> SlotId
         f t = unflattenSlotId (fromIntegral $ t `div` slotDuration)
+        -- We can trust getCurrentTime if it isn't bigger than:
+        -- time for which we got margin (in last time) + NTP delay (+ some eps, for safety)
         canWeTrustTime t = do
             measTime <- readNtpTimestamp
             return $ t <= measTime + ntpPollDelay + ntpMaxError

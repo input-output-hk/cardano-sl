@@ -50,7 +50,12 @@ data NodeContext ssc = NodeContext
     -- ^ Secret keys (and path to file) which are used to send transactions
 
     , ncNtpData       :: !(STM.TVar (Microsecond, Microsecond))
+    -- ^ Data for NTP Worker.
+    -- First element is margin (difference between global time and local time)
+    -- which we got from NTP server in last tme.
+    -- Second element is time (local time) for which we got margin in last time.
     , ncNtpLastSlot   :: !(STM.TVar SlotId)
+    -- ^ Slot which was been returned from getCurrentSlot in last time
     }
 
 -- | Generate 'PublicKey' from 'SecretKey' of 'NodeContext'.

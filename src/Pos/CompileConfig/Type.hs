@@ -48,5 +48,7 @@ data CompileConfig = CompileConfig
     , ccMaxBlockProxySKs              :: !Int
       -- ^ Maximum number of PSKs allowed in block
     , ccNtpResponseTimeout            :: !Int
+      -- ^ How often request to NTP server and response collection
     , ccNtpPollDelay                  :: !Int
+      -- ^ How often send request to NTP server
     } deriving (Show, Lift)

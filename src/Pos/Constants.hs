@@ -236,11 +236,14 @@ updateServers = ccUpdateServers compileConfig
 ----------------------------------------------------------------------------
 -- NTP
 ----------------------------------------------------------------------------
+-- | Inaccuracy in call threadDelay (actually it is error much less than 1 sec)
 ntpMaxError :: Microsecond
 ntpMaxError = 1000000 -- 1 sec
 
+-- | How often request to NTP server and response collection
 ntpResponseTimeout :: Microsecond
 ntpResponseTimeout = mcs . ccNtpResponseTimeout $ compileConfig
 
+-- | How often send request to NTP server
 ntpPollDelay :: Microsecond
 ntpPollDelay = mcs . ccNtpPollDelay $ compileConfig

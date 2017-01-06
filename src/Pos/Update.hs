@@ -6,6 +6,7 @@ module Pos.Update
        , module Pos.Update.Holder
        , module Pos.Update.Logic
        , module Pos.Update.MemState
+       , module Pos.Update.Worker
        ) where
 
 import           Pos.Update.Class
@@ -13,3 +14,4 @@ import           Pos.Update.Download
 import           Pos.Update.Holder
 import           Pos.Update.Logic
 import           Pos.Update.MemState
+import           Pos.Update.Worker

@@ -235,6 +235,7 @@ library
                         Pos.Update.Holder
                         Pos.Update.Logic
                         Pos.Update.MemState
+                        Pos.Update.Worker
                         Pos.Util.Arbitrary
                         Pos.Util.Iterator
                         Pos.Util.NotImplemented

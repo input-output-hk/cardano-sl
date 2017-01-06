@@ -226,7 +226,7 @@ curProtocolVersion = ProtocolVersion 0 0 0
 
 -- | Version of application (code running)
 curSoftwareVersion :: SoftwareVersion
-curSoftwareVersion = SoftwareVersion cardanoSlAppName 1 0
+curSoftwareVersion = SoftwareVersion cardanoSlAppName 0
 
 -- | Update servers
 updateServers :: [String]

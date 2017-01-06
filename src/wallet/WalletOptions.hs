@@ -32,6 +32,7 @@ data WalletOptions = WalletOptions
     }
 
 data WalletAction = Repl
+                  | Cmd { cmd :: !Text }
 #ifdef WITH_WEB
                   | Serve { webPort           :: !Word16
                           , webDaedalusDbPath :: !FilePath
@@ -39,7 +40,7 @@ data WalletAction = Repl
 #endif
 
 actionParser :: Parser WalletAction
-actionParser = subparser $ replParser
+actionParser = subparser $ replParser <> cmdParser
 #ifdef WITH_WEB
                         <> serveParser
 #endif
@@ -47,6 +48,13 @@ actionParser = subparser $ replParser
 replParser :: Mod CommandFields WalletAction
 replParser = command "repl" $ info (pure Repl) $
              progDesc "Run REPL in console to evaluate the commands"
+
+cmdParser :: Mod CommandFields WalletAction
+cmdParser = command "cmd" $ info opts desc
+  where opts = Cmd <$> strOption (long "commands"
+                               <> metavar "CMD"
+                               <> help "Commands to execute, comma-separated")
+        desc = progDesc "Execute a list of predefined commands"
 
 #ifdef WITH_WEB
 serveParser :: Mod CommandFields WalletAction

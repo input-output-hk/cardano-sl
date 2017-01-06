@@ -111,18 +111,19 @@ traverseAllEntries DB{..} init folder =
 ----------------------------------------------------------------------------
 
 class RocksBatchOp a where
-    toBatchOp :: a -> Rocks.BatchOp
+    toBatchOp :: a -> [Rocks.BatchOp]
 
 data SomeBatchOp =
     forall a. RocksBatchOp a =>
               SomeBatchOp a
 
 instance RocksBatchOp Rocks.BatchOp where
-    toBatchOp = identity
+    toBatchOp = pure
 
 instance RocksBatchOp SomeBatchOp where
     toBatchOp (SomeBatchOp a) = toBatchOp a
 
 -- | Write Batch encapsulation
 rocksWriteBatch :: (RocksBatchOp a, MonadIO m) => [a] -> DB ssc -> m ()
-rocksWriteBatch batch DB{..} = Rocks.write rocksDB rocksWriteOpts (map toBatchOp batch)
+rocksWriteBatch batch DB {..} =
+    Rocks.write rocksDB rocksWriteOpts (concatMap toBatchOp batch)

@@ -10,11 +10,14 @@
 
 module Pos.Types.Types
        (
+         -- * Coin
          Coin
+       , CoinPortion
        , coinF
+       , getCoinPortion
        , mkCoin
-       , sumCoins
-       , coinToInteger
+       , unsafeCoinPortion
+       , unsafeGetCoin
 
        , EpochIndex (..)
        , FlatSlotId
@@ -58,7 +61,8 @@ module Pos.Types.Types
        , formatUtxo
        , utxoF
 
-       , Undo
+       , TxUndo
+       , Undo (..)
        , Blund
 
        , SharedSeed (..)
@@ -139,10 +143,12 @@ module Pos.Types.Types
        , mcdSignature
        ) where
 
+import           Control.Exception      (assert)
 import           Control.Lens           (Getter, Lens', choosing, makeLenses,
-                                         makeLensesFor, to, view, (^.))
+                                         makeLensesFor, to, view, (^.), _1)
 import qualified Data.ByteString        as BS (pack, zipWith)
 import qualified Data.ByteString.Char8  as BSC (pack)
+import           Data.Data              (Data)
 import           Data.DeriveTH          (derive, makeNFData)
 import           Data.Hashable          (Hashable)
 import           Data.Ix                (Ix)
@@ -179,10 +185,48 @@ import           Pos.Types.Address      (Address (..), StakeholderId, addressF,
                                          checkPubKeyAddress, checkScriptAddress,
                                          decodeTextAddress, makePubKeyAddress,
                                          makeScriptAddress)
-import           Pos.Types.Coin         (Coin, coinF, coinToInteger, mkCoin, sumCoins)
 import           Pos.Types.Update       (UpdateProposal, UpdateVote)
 import           Pos.Types.Version      (ProtocolVersion, SoftwareVersion)
 import           Pos.Util               (Color (Magenta), colorize)
+
+----------------------------------------------------------------------------
+-- Coin
+----------------------------------------------------------------------------
+
+-- | Coin is the least possible unit of currency.
+newtype Coin = Coin
+    { getCoin :: Word64
+    } deriving (Show, Ord, Eq, Bounded, Generic, Hashable, Data, NFData)
+
+instance Buildable Coin where
+    build (Coin n) = bprint (int%" coin(s)") n
+
+-- | Make Coin from Word64.
+mkCoin :: Word64 -> Coin
+mkCoin = Coin
+{-# INLINE mkCoin #-}
+
+-- | Coin formatter which restricts type.
+coinF :: Format r (Coin -> r)
+coinF = build
+
+-- | Unwraps 'Coin'. It's called “unsafe” so that people wouldn't use it
+-- willy-nilly if they want to sum coins or something. It's actually safe.
+unsafeGetCoin :: Coin -> Word64
+unsafeGetCoin = getCoin
+{-# INLINE unsafeGetCoin #-}
+
+-- | CoinPortion is some portion of Coin, it must be in [0 .. 1]. Main
+-- usage of it is multiplication with Coin. Usually it's needed to
+-- determine some threshold expressed as portion of total stake.
+newtype CoinPortion = CoinPortion
+    { getCoinPortion :: Double
+    }
+
+-- | Make CoinPortion from Double. Caller must ensure that value is in [0 .. 1].
+unsafeCoinPortion :: Double -> CoinPortion
+unsafeCoinPortion x = assert (0 <= x && x <= 1) $ CoinPortion x
+{-# INLINE unsafeCoinPortion #-}
 
 ----------------------------------------------------------------------------
 -- Slotting
@@ -392,8 +436,14 @@ utxoF = later formatUtxo
 -- UNDO
 ----------------------------------------------------------------------------
 
+-- | Particular undo needed for transactions
+type TxUndo = [[TxOutAux]]
+
 -- | Structure for undo block during rollback
-type Undo = [[TxOutAux]]
+data Undo = Undo
+    { undoTx  :: [[TxOutAux]]
+    , undoPsk :: [ProxySKSimple] -- ^ PSKs we've overwritten/deleted
+    }
 
 -- | Block and its Undo.
 type Blund ssc = (Block ssc, Undo)
@@ -928,6 +978,9 @@ instance HasDifficulty (Block ssc) where
 -- | Class for something that has previous block (lens to 'Hash' for this block).
 class HasPrevBlock s a | s -> a where
     prevBlockL :: Lens' s (Hash a)
+
+instance HasPrevBlock f a => HasPrevBlock (f, s) a where
+    prevBlockL = _1 . prevBlockL
 
 instance (a ~ BBlockHeader b) =>
          HasPrevBlock (GenericBlockHeader b) a where

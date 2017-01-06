@@ -19,6 +19,7 @@ import           Control.Monad.Trans.Maybe     (MaybeT (..))
 import           Control.TimeWarp.Rpc          (Dialog, Transfer)
 import qualified Data.HashMap.Strict           as HM
 import qualified Data.Map                      as M
+import           System.Wlog                   (WithLogger)
 import           Universum
 
 import           Pos.Communication.Types.State (MutSocketState)
@@ -119,7 +120,8 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
     saveTx _ = pure ()
 
 -- TODO: make a working instance
-instance (Ssc ssc, MonadDB ssc m, MonadThrow m) => MonadTxHistory (Modern.TxpLDHolder ssc m) where
+instance (Ssc ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
+         => MonadTxHistory (Modern.TxpLDHolder ssc m) where
     getTxHistory addr = do
         bot <- DB.getBot
         genUtxo <- filterUtxoByAddr addr <$> DB.getGenUtxo

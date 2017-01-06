@@ -20,7 +20,7 @@ import qualified Data.HashSet           as HS
 import           Data.List.NonEmpty     (NonEmpty)
 import qualified Data.List.NonEmpty     as NE
 import           Formatting             (build, sformat, stext, (%))
-import           System.Wlog            (WithLogger, logInfo)
+import           System.Wlog            (WithLogger, logDebug, logInfo)
 import           Universum
 
 import           Pos.Constants          (maxLocalTxs)
@@ -41,11 +41,11 @@ import           Pos.Types              (Block, Blund, Coin, MonadUtxo,
                                          MonadUtxoRead (utxoGet), NEBlocks, SlotId,
                                          StakeholderId, Tx (..), TxAux,
                                          TxDistribution (..), TxId, TxIn (..), TxOutAux,
-                                         TxWitness, Undo, VTxGlobalContext (..),
+                                         TxUndo, TxWitness, Undo, VTxGlobalContext (..),
                                          VTxLocalContext (..), applyTxToUtxo', blockSlot,
                                          blockTxas, coinToInteger, headerHash, mkCoin,
                                          prevBlockL, slotIdF, sumCoins, sumCoins,
-                                         topsortTxs, txOutStake, verifyTxPure)
+                                         topsortTxs, txOutStake, undoTx, verifyTxPure)
 import           Pos.Types.Coin         (unsafeAddCoin, unsafeIntegerToCoin,
                                          unsafeSubCoin)
 import           Pos.Types.Utxo         (verifyAndApplyTxs, verifyTxUtxo)
@@ -61,7 +61,8 @@ type TxpWorkMode ssc m = ( Ssc ssc
 type MinTxpWorkMode ssc m = ( MonadDB ssc m
                             , MonadTxpLD ssc m
                             , MonadUtxo m
-                            , MonadThrow m)
+                            , MonadThrow m
+                            , WithLogger m)
 
 -- | Apply chain of /definitely/ valid blocks to state on transactions
 -- processing.
@@ -96,7 +97,7 @@ txApplyBlock (blk, undo) = do
             "disaster, tip mismatch in txApplyBlock, probably semaphore doesn't work"
     let batch = foldr' prependToBatch [] txsAndIds
     filterMemPool txsAndIds
-    let (txOutPlus, txInMinus) = concatStakes (txas, undo)
+    let (txOutPlus, txInMinus) = concatStakes (txas, undoTx undo)
     stakesBatch <- recomputeStakes txOutPlus txInMinus
     writeBatchGState $ stakesBatch ++ (SomeBatchOp (PutTip (headerHash blk)) : batch)
   where
@@ -113,12 +114,12 @@ txApplyBlock (blk, undo) = do
         in foldr' (:) (foldr' (:) batch putOut) delIn --how we could simplify it?
 
 -- | Verify whether sequence of blocks can be applied to current Tx
--- state.  This function doesn't make pure checks for transactions,
+-- state. This function doesn't make pure checks for transactions,
 -- they are assumed to be done earlier.
 txVerifyBlocks
     :: forall ssc m.
        MonadDB ssc m
-    => NEBlocks ssc -> m (Either Text (NonEmpty Undo))
+    => NEBlocks ssc -> m (Either Text (NonEmpty TxUndo))
 txVerifyBlocks newChain = do
     utxoDB <- getUtxoDB
     fmap (NE.fromList . reverse) <$>
@@ -135,9 +136,9 @@ txVerifyBlocks newChain = do
         f (Right b) = Right (b ^. blockSlot,
                              over (each . _1) withHash (b ^. blockTxas))
     verifyDo
-        :: Either Text [Undo]
+        :: Either Text [TxUndo]
         -> Either () (SlotId, [(WithHash Tx, TxWitness, TxDistribution)])
-        -> TxpLDHolder ssc m (Either Text [Undo])
+        -> TxpLDHolder ssc m (Either Text [TxUndo])
     verifyDo (Left err) _ = pure (Left err)
     -- a genesis block doesn't need to be undone
     verifyDo (Right undos) (Left ()) = pure (Right ([]:undos))
@@ -152,13 +153,13 @@ txVerifyBlocks newChain = do
 -- CHECK: @processTx
 -- #processTxDo
 processTx :: MinTxpWorkMode ssc m => (TxId, TxAux) -> m ProcessTxRes
-processTx itw@(_, (tx, _, _)) = do
+processTx itw@(txId, (tx, _, _)) = do
     tipBefore <- getTip
     resolved <-
       foldM (\s inp -> maybe s (\x -> HM.insert inp x s) <$> utxoGet inp)
             mempty (txInputs tx)
     db <- getUtxoDB
-    modifyTxpLD (\txld@(_, mp, _, tip) ->
+    pRes <- modifyTxpLD (\txld@(_, mp, _, tip) ->
         let localSize = localTxsSize mp in
         if tipBefore == tip then
             if localSize < maxLocalTxs
@@ -167,6 +168,7 @@ processTx itw@(_, (tx, _, _)) = do
         else
             (mkPTRinvalid ["Tips aren't same"], txld)
         )
+    pRes <$ logDebug (sformat ("Transaction processed: "%build) txId)
 
 -- CHECK: @processTxDo
 -- #verifyTxPure
@@ -196,8 +198,13 @@ processTxDo ld@(uv, mp, undos, tip) resolvedIns utxoDB (id, (tx, txw, txd))
     newState nAddUtxo nDelUtxo oldTxs oldSize oldUndos =
         let keys = zipWith TxIn (repeat id) [0 ..]
             zipKeys = zip keys (txOutputs tx `zip` getTxDistribution txd)
-            newAddUtxo' = foldl' (flip $ uncurry HM.insert) nAddUtxo zipKeys
-            newDelUtxo' = foldl' (flip HS.insert) nDelUtxo (txInputs tx)
+            addUtxoMembers = zip (txInputs tx) $ map (`HM.member` nAddUtxo) (txInputs tx)
+            squashedDels = map fst $ filter snd addUtxoMembers
+            notSquashedDels = map fst $ filter (not . snd) addUtxoMembers
+            newAddUtxo' = foldl' (flip $ uncurry HM.insert)
+                                 (foldl' (flip HM.delete) nAddUtxo squashedDels)
+                                 zipKeys
+            newDelUtxo' = foldl' (flip HS.insert) nDelUtxo notSquashedDels
             newUndos = HM.insert id (reverse $ foldl' prependToUndo [] (txInputs tx)) oldUndos
         in ( PTRadded
            , ( UtxoView newAddUtxo' newDelUtxo' utxoDB
@@ -215,12 +222,12 @@ txRollbackBlock :: (WithLogger m, MonadDB ssc m)
                 => (Block ssc, Undo) -> m ()
 txRollbackBlock (block, undo) = do
     --TODO more detailed message must be here
-    unless (length undo == length txs)
+    unless (length (undoTx undo) == length txs)
         $ panic "Number of txs must be equal length of undo"
-    let batchOrError = foldl' prependToBatch (Right []) $ zip txs undo
+    let batchOrError = foldl' prependToBatch (Right []) $ zip txs $ undoTx undo
     -- If we store block cache in UtxoView we must invalidate it
     -- Stakes/balances part
-    let (txOutMinus, txInPlus) = concatStakes (txas, undo)
+    let (txOutMinus, txInPlus) = concatStakes (txas, undoTx undo)
     stakesBatch <- recomputeStakes txInPlus txOutMinus
     either panic (writeBatchGState .
                   (stakesBatch ++) .
@@ -279,8 +286,8 @@ recomputeStakes plusDistr minusDistr = do
       where
         err = panic ("recomputeStakes: no stake for " <> show key)
 
-concatStakes :: ([TxAux], Undo) -> ([(StakeholderId, Coin)]
-                                   ,[(StakeholderId, Coin)])
+concatStakes :: ([TxAux], TxUndo) -> ([(StakeholderId, Coin)]
+                                     ,[(StakeholderId, Coin)])
 concatStakes (txas, undo) = (txasTxOutDistr, undoTxInDistr)
   where
     txasTxOutDistr = concatMap concatDistr txas

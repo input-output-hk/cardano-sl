@@ -186,7 +186,7 @@ handleNtpPacket cli packet = do
     log cli Info $ sformat ("Received time delta "%shown) clockOffset
 
     late <- liftIO . atomically . modifyTVarS (ncState cli) $ do
-        _Just %= ((clockOffset, ntpTransmitTime packet) :)
+        _Just %= ((clockOffset, ntpOriginTime packet) :)
         gets isNothing
     when late $
         log cli Warning "Response was too late"

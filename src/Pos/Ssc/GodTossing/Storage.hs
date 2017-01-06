@@ -27,7 +27,6 @@ import           Universum
 
 import           Pos.Binary.Ssc                 ()
 import           Pos.Constants                  (k, vssMaxTTL)
-import           Pos.Context.Class              (readRichmen)
 import           Pos.DB                         (MonadDB, getBlock, getBlockHeader,
                                                  loadBlocksWhile)
 import           Pos.Ssc.Class.Storage          (SscImpureQuery, SscStorageClass (..))

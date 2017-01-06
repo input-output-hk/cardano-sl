@@ -15,14 +15,14 @@ module Pos.DB.Types
        , StoredBlock (..)
 
         -- * LRC related types.
-       , LrcStorage (..)
+       , LeadersStorage (..)
        ) where
 
 import           Control.Lens     (makeLenses)
 import qualified Database.RocksDB as Rocks
 import           Universum
 
-import           Pos.Types        (Block, EpochIndex, Richmen, SlotLeaders)
+import           Pos.Types        (Block, EpochIndex, SlotLeaders)
 
 ----------------------------------------------------------------------------
 -- General
@@ -58,8 +58,7 @@ data StoredBlock ssc = StoredBlock
 -- LRC
 ----------------------------------------------------------------------------
 
-data LrcStorage ssc = LrcStorage
+data LeadersStorage ssc = LeadersStorage
     { lrcEpoch   :: !EpochIndex
     , lrcLeaders :: !SlotLeaders
-    , lrcRichmen :: !Richmen
     } deriving (Generic)

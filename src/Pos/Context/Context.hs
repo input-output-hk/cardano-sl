@@ -14,8 +14,8 @@ import           Universum
 import           Pos.Crypto             (PublicKey, SecretKey, toPublic)
 import           Pos.Security.Types     (AttackTarget, AttackType)
 import           Pos.Ssc.Class.Types    (Ssc (SscNodeContext))
-import           Pos.Types              (Address, HeaderHash, Richmen, SlotLeaders,
-                                         Timestamp (..), makePubKeyAddress)
+import           Pos.Types              (Address, HeaderHash, SlotLeaders, Timestamp (..),
+                                         makePubKeyAddress)
 import           Pos.Util.UserSecret    (UserSecret)
 
 ----------------------------------------------------------------------------
@@ -44,7 +44,6 @@ data NodeContext ssc = NodeContext
     -- ^ Semaphore which manages access to block application.
     -- Stored hash is a hash of last applied block.
     , ncSscLeaders    :: !(MVar SlotLeaders)
-    , ncSscRichmen    :: !(MVar Richmen)
     , ncUserSecret    :: !(STM.TVar UserSecret)
     -- ^ Secret keys (and path to file) which are used to send transactions
     }

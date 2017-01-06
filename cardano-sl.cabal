@@ -184,6 +184,7 @@ library
                         Pos.DB.Types
                         Pos.DB.DBIterator
                         Pos.DHT.Arbitrary
+                        Pos.Richmen
                         Pos.Ssc.Extra.Holder
                         Pos.Ssc.Extra.MonadGS
                         Pos.Ssc.Extra.MonadLD

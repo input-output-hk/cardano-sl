@@ -4,7 +4,7 @@
 -- | Logic related to eligibility threshold.
 
 module Pos.Eligibility
-       ( findRichmen
+       ( findRichmenStake
        , findRichmenPure
        ) where
 
@@ -15,39 +15,44 @@ import           Universum
 import           Pos.Types           (Coin, Richmen, StakeholderId, Utxo, txOutStake)
 import           Pos.Util.Iterator   (MonadIterator (nextItem), runListHolder)
 
+type RichmenStake = HashMap StakeholderId Coin
+
 -- | Find nodes which have at least 'eligibility threshold' coins.
-findRichmenMap
+findRichmenStake
     :: forall m.
        MonadIterator m (StakeholderId, Coin)
-    => [Coin]                       -- ^ Eligibility threshold
-    -> m ([HashMap StakeholderId Coin])
-findRichmenMap thresholds = do
-    hm <- execStateT step mempty
-    pure $ map (flip HM.filter hm . (>=)) thresholds
+    => Maybe Coin                       -- ^ Eligibility threshold (optional)
+    -> Maybe Coin                       -- ^ Delegation threshold (optional)
+    -> m (RichmenStake, RichmenStake)
+findRichmenStake threshold dThreshold = step mempty mempty
   where
-    threshold = minimum thresholds
-    step :: StateT (HashMap StakeholderId Coin) m ()
-    step = whenJustM nextItem $ tryAdd >=> \_ -> step
+    step :: RichmenStake
+         -> RichmenStake
+         -> m (RichmenStake, RichmenStake)
+    step hm dHm = nextItem >>=
+        maybe (pure (hm, dHm))
+              (\stake -> step (tryAdd threshold stake hm) (tryAdd dThreshold stake dHm))
     tryAdd
-        :: (StakeholderId, Coin)
-        -> StateT (HashMap StakeholderId Coin) m ()
+        :: Maybe Coin
+        -> (StakeholderId, Coin)
+        -> HashMap StakeholderId Coin
+        -> HashMap StakeholderId Coin
     -- Adding coins here should be safe because in utxo we're not supposed to
     -- ever have more coins than the total possible number of coins, and the
     -- total possible number of coins is less than Word64
-    tryAdd (a, c) = when (c >= threshold) $ modify (HM.insert a c)
-
-findRichmen
-    :: forall m.
-       MonadIterator m (StakeholderId, Coin)
-    => Coin
-    -> m Richmen
-findRichmen threshold =
-    fromMaybe onNoRichmen . NE.nonEmpty . HM.keys .
-    fromMaybe (panic "Empty list") . head <$> findRichmenMap [threshold]
-  where
-    onNoRichmen = panic "There are no richmen!"
+    tryAdd t (a, c) hm =
+        if maybe False (c >= ) t then HM.insert a c hm
+        else hm
 
 -- | Pure version of findRichmen which uses in-memory Utxo.
 findRichmenPure :: Utxo -> Coin -> Richmen
 findRichmenPure utxo t =
-    runListHolder (findRichmen t) . concatMap txOutStake $ toList utxo
+    runListHolder findRichmen . concatMap txOutStake $ toList utxo
+  where
+    findRichmen =
+      fromMaybe onNoRichmen .
+      NE.nonEmpty .
+      HM.keys .
+      fst
+      <$> findRichmenStake (Just t) Nothing
+    onNoRichmen = panic "There are no richmen!"

@@ -49,6 +49,7 @@ import           Pos.Ssc.GodTossing.Types.Base  (Commitment, CommitmentsMap, Ope
                                                  VssCertificatesMap)
 import           Pos.Ssc.GodTossing.VssCertData (VssCertData)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
+import           Pos.Types                      (Richmen)
 
 ----------------------------------------------------------------------------
 -- SscGlobalState
@@ -65,6 +66,7 @@ data GtGlobalState = GtGlobalState
       -- | Vss certificates are added at any time if they are valid and
       -- received from stakeholders.
     , _gsVssCertificates :: !VssCertData
+    , _gsRichmen         :: !(MVar Richmen)
     } deriving (Eq, Show, Generic)
 
 deriveSafeCopySimple 0 'base ''GtGlobalState

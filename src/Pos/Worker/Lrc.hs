@@ -17,50 +17,54 @@ import           Universum
 import           Pos.Binary.Communication ()
 import           Pos.Block.Logic          (applyBlocks, rollbackBlocks, withBlkSemaphore_)
 import           Pos.Constants            (k)
-import           Pos.Context              (getNodeContext, ncSscLeaders, ncSscRichmen,
-                                           readLeaders, readRichmen)
+import           Pos.Context              (getNodeContext, isLrcCompleted, ncSscLeaders,
+                                           readLeaders)
 import           Pos.DB                   (getTotalFtsStake, loadBlocksFromTipWhile,
-                                           mapUtxoIterator, putLrc)
-import           Pos.Eligibility          (findRichmen)
+                                           mapUtxoIterator, putSlotLeaders)
+import           Pos.Eligibility          (findRichmenStake)
 import           Pos.FollowTheSatoshi     (followTheSatoshiM)
 import           Pos.Ssc.Extra            (sscCalculateSeed)
 import           Pos.Types                (Coin, EpochOrSlot (..), HeaderHash,
                                            SlotId (..), StakeholderId, TxIn, TxOutAux,
                                            getEpochOrSlot, mkCoin)
 import           Pos.WorkMode             (WorkMode)
+import Pos.Richmen (LrcConsumer (..), allLrcComsumers)
 
 lrcOnNewSlot :: WorkMode ssc m => SlotId -> m ()
 lrcOnNewSlot slotId
     | siSlot slotId < k = do
         nc <- getNodeContext
-        richmenEmpty <- liftIO . isEmptyMVar . ncSscRichmen $ nc
-        leadersEmpty <- liftIO . isEmptyMVar . ncSscLeaders $ nc
-        when (richmenEmpty || leadersEmpty) $
-            withBlkSemaphore_ $ lrcOnNewSlotDo slotId
+        lrcCompl <- isLrcCompleted
+        unless lrcCompl $
+            withBlkSemaphore_ $ lrcDo slotId
     | otherwise = do
         nc <- getNodeContext
         let clearMVar = liftIO . void . tryTakeMVar
-        clearMVar $ ncSscRichmen nc
+        lrcClear
         clearMVar $ ncSscLeaders nc
 
-lrcOnNewSlotDo
+lrcDo
     :: WorkMode ssc m
     => SlotId -> HeaderHash ssc -> m (HeaderHash ssc)
-lrcOnNewSlotDo SlotId {siEpoch = epochId} tip = tip <$ do
+lrcDo SlotId {siEpoch = epochId} tip = tip <$ do
     logDebug $ "It's time to compute leaders and parts"
     blockUndoList <- loadBlocksFromTipWhile whileMoreOrEq5k
     when (null blockUndoList) $
         panic "No one block hasn't been generated during last k slots"
     let blockUndos = NE.fromList blockUndoList
     rollbackBlocks blockUndos
+    totalStake <- notImplemented
+    -- [CSL-93] Use eligibility threshold here
+    (richmen, richmenD) <-
+        mapUtxoIterator @(StakeholderId, Coin)
+            (findRichmenStake (Just . mkCoin $ 0) (Just . mkCoin $ 0))
+            identity
+    callCallback cons = fork_ $
+        if lcConsiderDelegated cons then lcComputedCallback totalStake richmenD
+        else lcComputedCallback totalStake richmen
+    mapM_ callCallback allLrcComsumers
     nc <- getNodeContext
-    let richmenMVar = ncSscRichmen nc
-        leadersMVar = ncSscLeaders nc
-    whenM (liftIO $ isEmptyMVar richmenMVar) $ do
-        -- [CSL-93] Use eligibility threshold here
-        richmen <- mapUtxoIterator @(StakeholderId, Coin)
-                       (findRichmen (mkCoin 0)) identity
-        liftIO $ putMVar richmenMVar richmen
+    let leadersMVar = ncSscLeaders nc
     whenM (liftIO $ isEmptyMVar leadersMVar) $ do
         mbSeed <- sscCalculateSeed epochId
         totalStake <- getTotalFtsStake
@@ -71,11 +75,16 @@ lrcOnNewSlotDo SlotId {siEpoch = epochId} tip = tip <$ do
                               (followTheSatoshiM seed totalStake) snd
         liftIO $ putMVar leadersMVar leaders
     leaders <- readLeaders
-    richmen <- readRichmen
-    putLrc epochId leaders richmen
+    putSlotLeaders epochId leaders
     applyBlocks blockUndos
   where
     whileMoreOrEq5k b _ = getEpochOrSlot b >= crucialSlot
-    crucialSlot = EpochOrSlot $ Right $
-                  if epochId == 0 then SlotId {siEpoch = 0, siSlot = 0}
-                  else SlotId {siEpoch = epochId - 1, siSlot = 5 * k - 1}
+    crucialSlot =
+        EpochOrSlot $ Right $
+            if epochId == 0 then SlotId {siEpoch = 0, siSlot = 0}
+            else SlotId {siEpoch = epochId - 1, siSlot = 5 * k - 1}
+
+lrcClear
+    :: WorkMode ssc m
+    => lrcLeaders -> m ()
+lrcClear = mapM_ lcClearCallback allLrcComsumers

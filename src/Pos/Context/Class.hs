@@ -11,10 +11,9 @@ module Pos.Context.Class
        , takeBlkSemaphore
 
        , readLeaders
-       , readRichmen
        , tryReadLeaders
        , putLeaders
-       , putRichmen
+       , isLrcCompleted
        ) where
 
 import           Control.Concurrent.MVar (putMVar)
@@ -23,7 +22,7 @@ import           Universum
 import           Pos.Context.Context     (NodeContext (..))
 import           Pos.DHT.Model           (DHTResponseT)
 import           Pos.DHT.Real            (KademliaDHT)
-import           Pos.Types               (HeaderHash, Richmen, SlotLeaders)
+import           Pos.Types               (HeaderHash, SlotLeaders)
 
 -- | Class for something that has 'NodeContext' inside.
 class WithNodeContext ssc m | m -> ssc where
@@ -71,10 +70,10 @@ readBlkSemaphore = liftIO . readMVar . ncBlkSemaphore =<< getNodeContext
 
 -- | Read richmen from node context. This function blocks if
 -- participants are not available.
-readRichmen
-    :: (MonadIO m, WithNodeContext ssc m)
-    => m Richmen
-readRichmen = getNodeContext >>= liftIO . readMVar . ncSscRichmen
+-- readRichmen
+--     :: (MonadIO m, WithNodeContext ssc m)
+--     => m Richmen
+-- readRichmen = getNodeContext >>= liftIO . readMVar . ncSscRichmen
 
 -- | Read slot leaders from node context. This function blocks if
 -- leaders are not available.
@@ -91,13 +90,18 @@ tryReadLeaders
 tryReadLeaders = getNodeContext >>= liftIO . tryReadMVar . ncSscLeaders
 
 -- | Put richmen into MVar, assuming it's empty.
-putRichmen
-    :: (MonadIO m, WithNodeContext ssc m)
-    => Richmen -> m ()
-putRichmen richmen = getNodeContext >>= liftIO . flip putMVar richmen . ncSscRichmen
+-- putRichmen
+--     :: (MonadIO m, WithNodeContext ssc m)
+--     => Richmen -> m ()
+-- putRichmen richmen = getNodeContext >>= liftIO . flip putMVar richmen . ncSscRichmen
 
 -- | Put leaders into MVar, assuming it's empty.
 putLeaders
     :: (MonadIO m, WithNodeContext ssc m)
     => SlotLeaders -> m ()
 putLeaders leaders = getNodeContext >>= liftIO . flip putMVar leaders . ncSscLeaders
+
+isLrcCompleted
+    :: (MonadIO m, WithNodeContext ssc m)
+    => m Bool
+isLrcCompleted = getNodeContext >>= liftIO . isEmptyMVar . ncSscLeaders

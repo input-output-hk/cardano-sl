@@ -46,7 +46,7 @@ openNodeDBs recreate fp customUtxo = do
     let prepare = do
           prepareBlockDB genesisBlock0
           prepareGStateDB customUtxo initialTip
-          prepareMiscDB leaders0 richmen0
+          prepareMiscDB leaders0 --richmen0
     res <$ runDBHolder res prepare
   where
     leaders0 = genesisLeaders customUtxo

@@ -16,9 +16,9 @@ import           System.IO              (hFlush, stdout)
 import           Universum
 
 import qualified Pos.CLI                as CLI
-import           Pos.Communication      (sendProxySecretKey)
 import           Pos.Constants          (slotDuration)
 import           Pos.Crypto             (SecretKey, createProxySecretKey, toPublic)
+import           Pos.Delegation         (sendProxySKEpoch)
 import           Pos.DHT.Model          (DHTNodeType (..), dhtAddr, discoverPeers)
 import           Pos.Genesis            (genesisPublicKeys, genesisSecretKeys)
 import           Pos.Launcher           (BaseParams (..), LoggingParams (..),
@@ -70,7 +70,7 @@ runCmd (Delegate i j) = do
     putText $ pretty issuerSk
     putText $ pretty delegatePk
     putText "sending cert"
-    sendProxySecretKey proxySig
+    sendProxySKEpoch proxySig
     putText "sent cert"
 runCmd Quit = pure ()
 

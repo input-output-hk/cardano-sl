@@ -8,8 +8,6 @@ module Pos.Communication.Methods
        -- * Sending data into network
          sendToNeighborsSafe
        , sendToNeighborsSafeWithMaliciousEmulation
-       , sendProxySecretKey
-       , sendProxyConfirmSK
        ) where
 
 import           Control.TimeWarp.Rpc     (Message)
@@ -22,11 +20,9 @@ import           Pos.Binary.Class         (Bi)
 import           Pos.Binary.Communication ()
 import           Pos.Binary.Types         ()
 import           Pos.Context              (getNodeContext, ncAttackTypes)
-import           Pos.Delegation.Types     (ConfirmProxySK (..), SendProxySK (..))
 import           Pos.DHT.Model            (defaultSendToNeighbors, sendToNeighbors,
                                            sendToNode)
 import           Pos.Security             (AttackType (..), shouldIgnoreAddress)
-import           Pos.Types                (ProxySKEpoch)
 import           Pos.Util                 (logWarningWaitLinear, messageName')
 import           Pos.WorkMode             (MinWorkMode, WorkMode)
 
@@ -62,15 +58,3 @@ sendToNeighborsSafeWithMaliciousEmulation msg = do
     sendToNode' cont addr message =
         unless (shouldIgnoreAddress cont addr) $
             sendToNode addr message
-
--- | Sends proxy secret key to neighbours
-sendProxySecretKey :: (MinWorkMode ss m) => ProxySKEpoch -> m ()
-sendProxySecretKey psk = do
-    logDebug $ sformat ("Sending proxySecretKey to neigbours:\n"%build) psk
-    sendToNeighborsSafe $ SendProxySKEpoch psk
-
-sendProxyConfirmSK :: (MinWorkMode ss m) => ConfirmProxySK -> m ()
-sendProxyConfirmSK confirmPSK@(ConfirmProxySK psk _) = do
-    logDebug $
-        sformat ("Sending proxy receival confirmation for psk "%build%" to neigbours") psk
-    sendToNeighborsSafe confirmPSK

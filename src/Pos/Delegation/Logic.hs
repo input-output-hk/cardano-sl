@@ -11,7 +11,7 @@ module Pos.Delegation.Logic
        , invalidateProxyCaches
 
        -- * Heavyweight psks handling
-       , PskSimpleVerdict
+       , PskSimpleVerdict (..)
        , processProxySKSimple
        , delegationApplyBlocks
        , delegationVerifyBlocks
@@ -88,15 +88,14 @@ type DelegationWorkMode ssc m = (MonadDelegation m, MonadDB ssc m, WithLogger m)
 
 -- | Datatypes representing a verdict of simple PSK processing.
 data PskSimpleVerdict
-    = PSUnrelated
-    | PSExists
+    = PSExists
     | PSCached
     | PSAdded
     deriving (Show,Eq)
 
 processProxySKSimple
     :: (DelegationWorkMode ssc m)
-    => ProxySKEpoch -> m PskSimpleVerdict
+    => ProxySKSimple -> m PskSimpleVerdict
 processProxySKSimple = notImplemented
 
 delegationApplyBlocks

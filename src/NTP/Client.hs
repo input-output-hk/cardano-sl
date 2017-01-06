@@ -23,7 +23,7 @@ import           Control.Monad.Trans         (MonadIO (..))
 import           Data.Binary                 (decodeOrFail, encode)
 import qualified Data.ByteString.Lazy        as LBS
 import           Data.Default                (Default (..))
-import           Data.List                   (sort)
+import           Data.List                   (sortOn)
 import           Data.Maybe                  (isNothing)
 import           Data.Monoid                 ((<>))
 import           Data.Text                   (Text)
@@ -50,8 +50,8 @@ data NtpClientSettings = NtpClientSettings
     { ntpServers         :: [String]
       -- ^ list of servers addresses
     , ntpHandler         :: forall m . ( MonadIO m, WithLogger m )
-                         => Microsecond -> m ()
-      -- ^ got time callback
+                         => (Microsecond, Microsecond) -> m ()
+      -- ^ got time callback (margin, time when client sent request)
     , ntpLogName         :: LoggerName
       -- ^ logger name modifier
     , ntpResponseTimeout :: Microsecond
@@ -59,7 +59,7 @@ data NtpClientSettings = NtpClientSettings
       -- it also means that handler will be invoked with this lag
     , ntpPollDelay       :: Microsecond
       -- ^ how often to send responses to server
-    , ntpMeanSelection   :: [Microsecond] -> Microsecond
+    , ntpMeanSelection   :: [(Microsecond, Microsecond)] -> (Microsecond, Microsecond)
       -- ^ way to sumarize results received from different servers.
       -- this may accept list of lesser size than @length ntpServers@ in case some servers
       -- failed to respond in time, but never an empty list
@@ -67,7 +67,7 @@ data NtpClientSettings = NtpClientSettings
 
 data NtpClient = NtpClient
     { ncSocket   :: TVar Socket
-    , ncState    :: TVar (Maybe [Microsecond])
+    , ncState    :: TVar (Maybe [(Microsecond, Microsecond)])
     , ncClosed   :: TVar Bool
     , ncSettings :: NtpClientSettings
     }
@@ -89,7 +89,7 @@ instance Default NtpClientSettings where
         , ntpLogName         = "ntp-cli"
         , ntpResponseTimeout = 1000000
         , ntpPollDelay       = 3000000
-        , ntpMeanSelection   = \l -> let len = length l in sort l !! ((len - 1) `div` 2)
+        , ntpMeanSelection   = \l -> let len = length l in (sortOn fst l) !! ((len - 1) `div` 2)
         }
 
 newtype NtpStopButton = NtpStopButton
@@ -186,7 +186,7 @@ handleNtpPacket cli packet = do
     log cli Info $ sformat ("Received time delta "%shown) clockOffset
 
     late <- liftIO . atomically . modifyTVarS (ncState cli) $ do
-        _Just %= (clockOffset :)
+        _Just %= ((clockOffset, ntpTransmitTime packet) :)
         gets isNothing
     when late $
         log cli Warning "Response was too late"

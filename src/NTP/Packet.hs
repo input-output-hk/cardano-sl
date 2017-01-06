@@ -21,9 +21,9 @@ import NTP.Util (getCurrentTime)
 data NtpPacket = NtpPacket
     { ntpParams       :: Word8        -- some magic parameters
     , ntpPoll         :: Int          -- poll delay between requests
-    , ntpOriginTime   :: Microsecond  -- when client sent request
+    , ntpOriginTime   :: Microsecond  -- when server sent reply
     , ntpReceivedTime :: Microsecond  -- when server got request
-    , ntpTransmitTime :: Microsecond  -- when server sent reply
+    , ntpTransmitTime :: Microsecond  -- when client sent request
     } deriving (Show)
 
 -- | NTP timestamp is not the same as time past from start of UNIX epoch - differ in

@@ -19,7 +19,8 @@ data Command
     | Send Int [TxOut]
     | Help
     | ListAddresses
-    | Delegate !Int !Int
+    | DelegateLight !Int !Int
+    | DelegateHeavy !Int !Int
     | Quit
     deriving Show
 
@@ -46,8 +47,9 @@ txout = TxOut <$> address <*> (mkCoin <$> num)
 balance :: Parser Command
 balance = Balance <$> address
 
-delegate :: Parser Command
-delegate = Delegate <$> num <*> num
+delegateL, delegateH :: Parser Command
+delegateL = DelegateLight <$> num <*> num
+delegateH = DelegateHeavy <$> num <*> num
 
 send :: Parser Command
 send = Send <$> num <*> many1 txout
@@ -55,7 +57,8 @@ send = Send <$> num <*> many1 txout
 command :: Parser Command
 command = try (text "balance") *> balance <|>
           try (text "send") *> send <|>
-          try (text "delegate") *> delegate <|>
+          try (text "delegate-light") *> delegateL <|>
+          try (text "delegate-heavy") *> delegateH <|>
           try (text "quit") *> pure Quit <|>
           try (text "help") *> pure Help <|>
           try (text "listaddr") *> pure ListAddresses <?>

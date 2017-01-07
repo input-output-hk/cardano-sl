@@ -759,13 +759,16 @@ instance BiSsc ssc => Buildable (MainBlock ssc) where
             (stext%":\n"%
              "  "%build%
              "  transactions ("%int%" items): "%listJson%"\n"%
-             build%
+             "  certificates ("%int%" items): "%listJson%"\n"%
+             build%"\n"%
              build
             )
             (colorize Magenta "MainBlock")
             _gbHeader
             (length _mbTxs)
             _mbTxs
+            (length _mbProxySKs)
+            _mbProxySKs
             _mbMpc
             _gbExtra
       where

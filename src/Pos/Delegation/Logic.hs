@@ -12,6 +12,7 @@ module Pos.Delegation.Logic
        , invalidateProxyCaches
 
        -- * Heavyweight psks handling
+       , getProxyMempool
        , PskSimpleVerdict (..)
        , processProxySKSimple
        , delegationApplyBlocks
@@ -117,6 +118,16 @@ instance B.Buildable DelegationError where
 ----------------------------------------------------------------------------
 -- Heavyweight PSK
 ----------------------------------------------------------------------------
+
+-- | Retrieves current mempool of heavyweight psks plus undo part.
+getProxyMempool
+    :: (MonadDB ssc m, MonadDelegation m)
+    => m ([ProxySKSimple], [ProxySKSimple])
+getProxyMempool = do
+    sks <- runDelegationStateAction $ uses dwProxySKPool HM.elems
+    let issuers = map pskIssuerPk sks
+    toRollback <- catMaybes <$> mapM DB.getPSKByIssuer issuers
+    pure (sks, toRollback)
 
 -- | Datatypes representing a verdict of simple PSK processing.
 data PskSimpleVerdict

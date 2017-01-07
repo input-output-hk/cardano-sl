@@ -50,7 +50,7 @@ import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.DB                    (MonadDB, getTipBlockHeader, loadHeadersWhile)
 import qualified Pos.DB                    as DB
 import           Pos.DB.Error              (DBError (..))
-import           Pos.Delegation.Logic      (delegationVerifyBlocks)
+import           Pos.Delegation.Logic      (delegationVerifyBlocks, getProxyMempool)
 import           Pos.Slotting              (getCurrentSlot)
 import           Pos.Ssc.Class             (Ssc (..))
 import           Pos.Ssc.Extra             (sscApplyBlocks, sscApplyGlobalState,
@@ -63,14 +63,14 @@ import           Pos.Types                 (Block, BlockHeader, Blund, EpochInde
                                             EpochOrSlot (..), GenesisBlock, HeaderHash,
                                             MainBlock, MainExtraBodyData (..),
                                             MainExtraHeaderData (..), ProxySKEither,
-                                            SlotId (..), TxAux, TxId, Undo (..),
-                                            VerifyHeaderParams (..), blockHeader,
-                                            difficultyL, epochOrSlot, flattenEpochOrSlot,
-                                            genesisHash, getEpochOrSlot, headerHash,
-                                            headerSlot, mkGenesisBlock, mkMainBlock,
-                                            mkMainBody, prevBlockL, topsortTxs,
-                                            verifyHeader, verifyHeaders,
-                                            vhpVerifyConsensus)
+                                            ProxySKSimple, SlotId (..), TxAux, TxId,
+                                            Undo (..), VerifyHeaderParams (..),
+                                            blockHeader, difficultyL, epochOrSlot,
+                                            flattenEpochOrSlot, genesisHash,
+                                            getEpochOrSlot, headerHash, headerSlot,
+                                            mkGenesisBlock, mkMainBlock, mkMainBody,
+                                            prevBlockL, topsortTxs, verifyHeader,
+                                            verifyHeaders, vhpVerifyConsensus)
 import qualified Pos.Types                 as Types
 import           Pos.Util                  (inAssertMode)
 import           Pos.WorkMode              (WorkMode)
@@ -438,17 +438,18 @@ createMainBlockFinish
     -> BlockHeader ssc
     -> m (MainBlock ssc)
 createMainBlockFinish slotId pSk prevHeader = do
-    (localTxs, localUndo) <- getLocalTxsNUndo
+    (localTxs, txUndo) <- getLocalTxsNUndo
     sscData <- sscGetLocalPayload slotId
+    (localPSKs, pskUndo) <- getProxyMempool
     let panicTopsort = panic "Topology of local transactions is broken!"
     let convertTx (txId, (tx, _, _)) = WithHash tx txId
     let sortedTxs = fromMaybe panicTopsort $ topsortTxs convertTx localTxs
     sk <- ncSecretKey <$> getNodeContext
-    let blk = createMainBlockPure prevHeader sortedTxs pSk slotId sscData sk
+    let blk = createMainBlockPure prevHeader sortedTxs pSk slotId localPSKs sscData sk
     let prependToUndo undos tx =
             fromMaybe (panic "Undo for tx not found")
-                      (HM.lookup (fst tx) localUndo) : undos
-    let blockUndo = Undo (reverse $ foldl' prependToUndo [] localTxs) []
+                      (HM.lookup (fst tx) txUndo) : undos
+    let blockUndo = Undo (reverse $ foldl' prependToUndo [] localTxs) pskUndo
     blk <$ applyBlocks (pure (Right blk, blockUndo))
 
 createMainBlockPure
@@ -457,13 +458,14 @@ createMainBlockPure
     -> [(TxId, TxAux)]
     -> Maybe ProxySKEither
     -> SlotId
+    -> [ProxySKSimple]
     -> SscPayload ssc
     -> SecretKey
     -> MainBlock ssc
-createMainBlockPure prevHeader txs pSk sId sscData sk =
+createMainBlockPure prevHeader txs pSk sId psks sscData sk =
     mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
   where
     -- TODO [CSL-351] inlclude proposal, votes into block
     extraB = MainExtraBodyData (mkAttributes ()) Nothing []
     extraH = MainExtraHeaderData curProtocolVersion curSoftwareVersion (mkAttributes ())
-    body = mkMainBody (fmap snd txs) sscData []
+    body = mkMainBody (fmap snd txs) sscData psks

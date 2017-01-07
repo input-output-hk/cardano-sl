@@ -271,7 +271,7 @@ mpcLoadGlobalState tip = do
               maybe (panic "No block header with such header hash")
               (^. epochOrSlotG)
               bh
-        startEpoch = endEpoch + 1 - vssMaxTTL -- load blocks while >= endEpoch
+        startEpoch = safeSub endEpoch -- load blocks while >= endEpoch
         whileEpoch b _ = epochOrSlot identity siEpoch (b ^. epochOrSlotG) >= startEpoch
         blkCert =
           either (const mempty)
@@ -287,6 +287,7 @@ mpcLoadGlobalState tip = do
       else
           global
   where
+    safeSub epoch = epoch + 1 - min (epoch + 1) vssMaxTTL
     unionCerts gs =
       (foldl' (flip $ uncurry VCD.insert)) gs . HM.toList
 

@@ -3,7 +3,7 @@
 module Pos.Launcher.Scenario
        ( runNode
        , initSemaphore
-       , initLrc
+       , initLeaders
        ) where
 
 import           Control.Concurrent.MVar (putMVar)
@@ -38,7 +38,7 @@ runNode plugins = do
     logInfo $ sformat ("Known peers: " % build) peers
 
     initSemaphore
-    initLrc
+    initLeaders
     waitSystemStart
     runWorkers
     mapM_ fork plugins
@@ -61,8 +61,8 @@ initSemaphore = do
     tip <- DB.getTip
     liftIO $ putMVar semaphore tip
 
-initLrc :: WorkMode ssc m => m ()
-initLrc = do
+initLeaders :: WorkMode ssc m => m ()
+initLeaders = do
     (epochIndex, leaders) <- DB.getLeaders
     SlotId {..} <- getCurrentSlot
     when (siSlot < k && siEpoch == epochIndex) $ writeLeaders leaders

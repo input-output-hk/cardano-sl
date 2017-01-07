@@ -5,7 +5,7 @@
 -- | Workers responsible for Leaders and Richmen computation.
 
 module Pos.Worker.Lrc
-       ( lrcOnNewSlot
+       ( lrcOnNewSlotWorker
        ) where
 
 import           Control.TimeWarp.Timed   (fork_)
@@ -25,6 +25,7 @@ import           Pos.DB                   (getTotalFtsStake, loadBlocksFromTipWh
                                            mapUtxoIterator, putLeaders)
 import           Pos.FollowTheSatoshi     (followTheSatoshiM)
 import           Pos.Richmen              (allLrcConsumers, findRichmenStake)
+import           Pos.Slotting             (onNewSlot)
 import           Pos.Ssc.Class            (SscWorkersClass)
 import           Pos.Ssc.Extra            (sscCalculateSeed)
 import           Pos.Types                (Coin, EpochOrSlot (..), EpochOrSlot (..),
@@ -35,26 +36,30 @@ import           Pos.Types                (Coin, EpochOrSlot (..), EpochOrSlot (
 import           Pos.Util                 (clearMVar)
 import           Pos.WorkMode             (WorkMode)
 
-lrcOnNewSlot :: (SscWorkersClass ssc, WorkMode ssc m) => SlotId -> m ()
-lrcOnNewSlot slotId
+lrcOnNewSlotWorker :: (SscWorkersClass ssc, WorkMode ssc m) => m ()
+lrcOnNewSlotWorker = onNewSlot True $ lrcOnNewSlotImpl allLrcConsumers
+
+lrcOnNewSlotImpl :: WorkMode ssc m => [LrcConsumer m] -> SlotId -> m ()
+lrcOnNewSlotImpl consumers slotId
     | siSlot slotId < k = do
-        needComputeRichmen <- filterM (flip lcIfNeedCompute slotId) allLrcConsumers
-        when (null needComputeRichmen) $ logInfo "Don't need to compute richmen"
+        expectedRichmenComp <- filterM (flip lcIfNeedCompute slotId) consumers
         needComputeLeaders <- not <$> isLeadersComputed
-        when needComputeLeaders $ logInfo "Don't need to compute leaders"
-        when ((not . null) needComputeRichmen || needComputeLeaders) $ do
+        let needComputeRichmen = not . null $ expectedRichmenComp
+        when needComputeRichmen $ logInfo "Need to compute richmen"
+        when needComputeLeaders $ logInfo "Need to compute leaders"
+
+        when (needComputeLeaders || needComputeLeaders) $ do
             logInfo $ "LRC computation is starting"
-            withBlkSemaphore_ $ lrcDo slotId needComputeRichmen
+            withBlkSemaphore_ $ lrcDo slotId expectedRichmenComp
             logInfo $ "LRC computation has finished"
     | otherwise = do
         nc <- getNodeContext
-        lrcConsumersClear allLrcConsumers
+        lrcConsumersClear consumers
         clearMVar $ ncSscLeaders nc
 
 lrcDo :: WorkMode ssc m
       => SlotId -> [LrcConsumer m] -> HeaderHash ssc -> m (HeaderHash ssc)
 lrcDo slotId consumers tip = tip <$ do
-    logDebug $ "It's time to compute leaders and richmen"
     blockUndoList <- loadBlocksFromTipWhile whileMoreOrEq5k
     when (null blockUndoList) $
         panic "No one block hasn't been generated during last k slots"
@@ -78,6 +83,8 @@ richmenComputationDo slotId consumers = unless (null consumers) $ do
         mapUtxoIterator @(StakeholderId, Coin)
             (findRichmenStake minThreshold minThresholdD)
             identity
+    logDebug $ "CONSUMERS " <> show (length consumers)
+    logDebug $ "RICHMEN = " <> show richmen
     let callCallback cons = fork_ $
             if lcConsiderDelegated cons then
                 lcComputedCallback cons

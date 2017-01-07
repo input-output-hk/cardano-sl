@@ -91,4 +91,4 @@ writeLeaders leaders = getNodeContext >>= liftIO . flip putMVar leaders . ncSscL
 isLeadersComputed
     :: (MonadIO m, WithNodeContext ssc m)
     => m Bool
-isLeadersComputed = getNodeContext >>= liftIO . isEmptyMVar . ncSscLeaders
+isLeadersComputed = not <$> (getNodeContext >>= liftIO . isEmptyMVar . ncSscLeaders)

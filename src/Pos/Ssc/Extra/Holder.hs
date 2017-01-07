@@ -113,7 +113,7 @@ runSscHolder :: forall ssc m a. (SscLocalDataClass ssc, MonadIO m)
 runSscHolder holder glob = SscState
                        <$> liftIO (STM.newTVarIO glob)
                        <*> liftIO (STM.newTVarIO def)
-                       <*> liftIO (newMVar mempty)
+                       <*> liftIO newEmptyMVar
                        >>= runReaderT (getSscHolder holder)
 
 runSscHolderRaw :: SscState ssc -> SscHolder ssc m a -> m a

@@ -236,6 +236,9 @@ generateAndSetNewSecret
 generateAndSetNewSecret sk SlotId{..} = do
     richmen <- toRichmen <$> readSscRichmen
     certs <- getGlobalCerts
+    logDebug $ "GEN_AND_SET"
+    logDebug $ "RICHMEN = " <> show richmen
+    logDebug $ "CERTS = " <> show certs
     let noPsErr = panic "generateAndSetNewSecret: no participants"
     let ps = fromMaybe (panic noPsErr) . nonEmpty .
                 map vcVssKey . mapMaybe (`lookup` certs) . toList $ richmen

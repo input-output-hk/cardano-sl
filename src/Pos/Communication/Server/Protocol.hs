@@ -25,9 +25,9 @@ import           Pos.WorkMode                (WorkMode)
 protocolListeners
     :: (MonadDHTDialog (MutSocketState ssc) m, WorkMode ssc m)
     => [ListenerDHT (MutSocketState ssc) m]
-protocolListeners =
-    [ ListenerDHT handleVersionReq
-    , ListenerDHT handleVersionResp ]
+protocolListeners = notImplemented
+    --[ ListenerDHT handleVersionReq
+    --, ListenerDHT handleVersionResp ]
 
 -- | Handles a response to get current version
 handleVersionReq

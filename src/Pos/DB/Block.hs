@@ -24,11 +24,12 @@ module Pos.DB.Block
 import           Control.Lens        ((^.))
 import           Data.ByteArray      (convert)
 import           Formatting          (sformat, (%))
+import           Mockable            (throw)
 import           Universum
 
 import           Pos.Binary.Class    (Bi)
 import           Pos.Binary.DB       ()
-import           Pos.Crypto          (shortHashF, Hash)
+import           Pos.Crypto          (Hash, shortHashF)
 import           Pos.DB.Class        (MonadDB, getBlockDB)
 import           Pos.DB.Error        (DBError (..))
 import           Pos.DB.Functions    (rocksDelete, rocksGetBi, rocksPutBi)
@@ -108,7 +109,7 @@ deleteBlock = delete . blockKey
 getBlockWithUndo :: (Ssc ssc, MonadDB ssc m)
                  => HeaderHash ssc -> m (Block ssc, Undo)
 getBlockWithUndo hash =
-    maybe (throwM $ DBMalformed $ sformat errFmt hash) pure =<<
+    maybe (throw $ DBMalformed $ sformat errFmt hash) pure =<<
     (liftA2 (,) <$> getBlock hash <*> getUndo hash)
   where
     errFmt =
@@ -160,7 +161,7 @@ loadHeadersWhile startHHash cond = loadHeadersWhileDo startHHash 0
     loadHeadersWhileDo curH depth = do
         curHeaderM <- getBlockHeader curH
         case curHeaderM of
-            Nothing -> throwM $ DBMalformed $ sformat errFmt curH
+            Nothing -> throw $ DBMalformed $ sformat errFmt curH
             Just curHeader
                 | cond curHeader depth ->
                   (curHeader :) <$> loadHeadersWhileDo (curHeader ^. prevBlockL) (succ depth)

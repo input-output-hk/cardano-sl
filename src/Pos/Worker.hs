@@ -14,10 +14,10 @@ import           System.Wlog            (logInfo, logNotice)
 import           Universum
 
 import           Pos.Block.Worker       (blkWorkers)
-import           Pos.Communication      (SysStartResponse (..))
+import           Pos.Communication      (BiP, SysStartResponse (..))
 import           Pos.Constants          (slotDuration, sysTimeBroadcastSlots)
 import           Pos.Context            (NodeContext (..), getNodeContext)
-import           Pos.NewDHT.Model       (BiP, sendToNeighbors)
+import           Pos.NewDHT.Model       (sendToNeighbors)
 import           Pos.Security.Workers   (SecurityWorkersClass, securityWorkers)
 import           Pos.Slotting           (onNewSlot')
 import           Pos.Ssc.Class.Workers  (SscWorkersClass, sscWorkers)

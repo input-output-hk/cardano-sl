@@ -21,6 +21,7 @@ module Pos.Util
        , diffDoubleMap
        , getKeys
        , maybeThrow
+       , maybeThrow'
 
        -- * Lists
        , allDistinct
@@ -101,9 +102,9 @@ import           Data.Time.Units               (convertUnit)
 import           Data.Time.Units               (Microsecond)
 import           Formatting                    (sformat, shown, stext, (%))
 import           Language.Haskell.TH
-import           Mockable.Class                (Mockable)
+import           Mockable                      (Mockable)
 -- TODO remove import of MonadTimed and make import unqualified
-import qualified Mockable.Concurrent           as MC
+import qualified Mockable                      as MC
 import           Serokell.Util                 (VerificationRes (..))
 import           System.Console.ANSI           (Color (..), ColorIntensity (Vivid),
                                                 ConsoleLayer (Foreground),
@@ -193,6 +194,9 @@ diffDoubleMap a b = HM.foldlWithKey' go mempty a
 
 maybeThrow :: (MonadThrow m, Exception e) => e -> Maybe a -> m a
 maybeThrow e = maybe (throwM e) pure
+
+maybeThrow' :: (Mockable MC.Throw m, Exception e) => e -> Maybe a -> m a
+maybeThrow' e = maybe (MC.throw e) pure
 
 ----------------------------------------------------------------------------
 -- List utils

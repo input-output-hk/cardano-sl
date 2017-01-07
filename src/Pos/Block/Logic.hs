@@ -280,13 +280,13 @@ verifyBlocks
     :: WorkMode ssc m
     => NonEmpty (Block ssc) -> m (Either Text (NonEmpty Undo))
 verifyBlocks blocks =
-    runExceptT $
-    do curSlot <- getCurrentSlot
-       tipBlk <- DB.getTipBlock
-       verResToMonadError formatAllErrors $
-           Types.verifyBlocks (Just curSlot) (tipBlk <| blocks)
-       verResToMonadError formatAllErrors =<< sscVerifyBlocks False blocks
-       ExceptT $ txVerifyBlocks blocks
+    runExceptT $ notImplemented
+    --do curSlot <- getCurrentSlot
+    --   tipBlk <- DB.getTipBlock
+    --   verResToMonadError formatAllErrors $
+    --       Types.verifyBlocks (Just curSlot) (tipBlk <| blocks)
+    --   verResToMonadError formatAllErrors =<< sscVerifyBlocks False blocks
+    --   ExceptT $ txVerifyBlocks blocks
 
 -- | Run action acquiring lock on block application. Argument of
 -- action is an old tip, result is put as a new tip.

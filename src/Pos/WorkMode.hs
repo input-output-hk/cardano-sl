@@ -33,8 +33,8 @@ import           Universum
 
 import           Pos.Communication.Types.State (MutSocketState)
 import           Pos.Context                   (ContextHolder, WithNodeContext)
-import qualified Pos.DB.Class                  as Modern
-import qualified Pos.DB.Holder                 as Modern
+import           Pos.DB.Class                  (MonadDB)
+import           Pos.DB.Holder                 (DBHolder)
 import           Pos.Delegation.Class          (DelegationT (..), MonadDelegation)
 import           Pos.DHT.Model                 (DHTPacking, MonadMessageDHT (..),
                                                 WithDefaultMsgHeader)
@@ -61,7 +61,7 @@ type WorkMode ssc m
       , MonadTimed m
       , MonadMask m
       , MonadSlots m
-      , Modern.MonadDB ssc m
+      , MonadDB ssc m
       , MonadTxpLD ssc m
       , MonadDelegation m
       , MonadUtxo m
@@ -75,6 +75,7 @@ type WorkMode ssc m
       , WithDefaultMsgHeader m
       , MonadStats m
       , MonadJL m
+      , MonadMockable m
       )
 
 -- | Bunch of constraints to perform work for real world distributed system.
@@ -86,7 +87,7 @@ type NewWorkMode ssc m
       , MonadDHT m
       , MonadMask m
       , MonadSlots m
-      , Modern.MonadDB ssc m
+      , MonadDB ssc m
       , MonadTxpLD ssc m
       , MonadDelegation m
       , MonadUtxo m
@@ -139,10 +140,9 @@ type RawRealMode ssc =
     TxpLDHolder ssc (
     SscHolder ssc (
     ContextHolder ssc (
-    Modern.DBHolder ssc (
-    Dialog DHTPacking (
-    Transfer (
-    MSockSt ssc))))))))
+    DBHolder ssc (
+    Production
+    ))))))
 
 -- | ProductionMode is an instance of WorkMode which is used
 -- (unsurprisingly) in production.

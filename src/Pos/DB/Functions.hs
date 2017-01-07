@@ -25,14 +25,16 @@ import qualified Data.ByteString.Lazy         as BSL
 import           Data.Default                 (def)
 import qualified Database.RocksDB             as Rocks
 import           Formatting                   (sformat, shown, string, (%))
-import           Universum
+import           Mockable                     (Bracket, Catch, Mockable, Throw, bracket,
+                                               catch, throw)
+import           Universum                    hiding (bracket, catch)
 
 import           Pos.Binary.Class             (Bi, decodeFull, encodeStrict)
 import           Pos.DB.Error                 (DBError (DBMalformed))
 import           Pos.DB.Types                 (DB (..))
 
 -- | Open DB stored on disk.
-openDB :: MonadResource m => FilePath -> m (DB ssc)
+openDB :: MonadIO m => FilePath -> m (DB ssc)
 openDB fp = DB def def def
                    <$> Rocks.open fp def { Rocks.createIfMissing = True }
 
@@ -43,7 +45,7 @@ rocksGetBytes key DB {..} = Rocks.get rocksDB rocksReadOpts key
 -- | Read serialized value from RocksDB using given key.
 rocksGetBi
     :: forall v m ssc.
-       (Bi v, MonadIO m, MonadThrow m)
+       (Bi v, MonadIO m, Mockable Throw m)
     => ByteString -> DB ssc -> m (Maybe v)
 rocksGetBi key db = do
     bytes <- rocksGetBytes key db
@@ -54,21 +56,21 @@ data ToDecode
     | ToDecodeValue !ByteString
                     !ByteString
 
-rocksDecode :: (Bi v, MonadThrow m) => ToDecode -> m v
+rocksDecode :: (Bi v, Mockable Throw m) => ToDecode -> m v
 rocksDecode (ToDecodeKey key) =
     either (onParseError key) pure . decodeFull . BSL.fromStrict $ key
 rocksDecode (ToDecodeValue key val) =
     either (onParseError key) pure . decodeFull . BSL.fromStrict $ val
 
-onParseError :: (MonadThrow m) => ByteString -> [Char] -> m a
-onParseError rawKey errMsg = throwM $ DBMalformed $ sformat fmt rawKey errMsg
+onParseError :: (Mockable Throw m) => ByteString -> [Char] -> m a
+onParseError rawKey errMsg = throw $ DBMalformed $ sformat fmt rawKey errMsg
   where
     fmt = "rocksGetBi: stored value is malformed, key = "%shown%", err: "%string
 
 rocksDecodeMaybe :: (Bi v) => ByteString -> Maybe v
 rocksDecodeMaybe = rightToMaybe . decodeFull . BSL.fromStrict
 
-rocksDecodeKeyVal :: (Bi k, Bi v, MonadThrow m)
+rocksDecodeKeyVal :: (Bi k, Bi v, Mockable Throw m)
                   => (ByteString, ByteString) -> m (k, v)
 rocksDecodeKeyVal (k, v) =
     (,) <$> rocksDecode (ToDecodeKey k) <*> rocksDecode (ToDecodeValue k v)
@@ -90,7 +92,7 @@ rocksDelete :: (MonadIO m) => ByteString -> DB ssc -> m ()
 rocksDelete k DB {..} = Rocks.delete rocksDB rocksWriteOpts k
 
 traverseAllEntries
-    :: (Bi k, Bi v, MonadMask m, MonadIO m)
+    :: (Bi k, Bi v, Mockable Catch m, Mockable Bracket m, Mockable Throw m, MonadIO m)
     => DB ssc
     -> m b
     -> (b -> k -> v -> m b)

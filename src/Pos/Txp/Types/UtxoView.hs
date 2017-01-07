@@ -8,6 +8,7 @@ module Pos.Txp.Types.UtxoView
 
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet        as HS
+import           Mockable            (Mockable, Throw)
 import           Universum
 
 import           Pos.DB              (DB, getTxOutFromDB)
@@ -27,7 +28,7 @@ delTxIn txIn mp@UtxoView{..} =
     mp {delUtxo = HS.insert txIn delUtxo}
 
 getTxOut
-    :: (MonadIO m, MonadThrow m)
+    :: (MonadIO m, Mockable Throw m)
     => TxIn -> UtxoView ssc -> m (Maybe TxOutAux)
 getTxOut key UtxoView{..}
     | HS.member key delUtxo = return Nothing

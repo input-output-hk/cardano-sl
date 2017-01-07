@@ -10,43 +10,38 @@ module Pos.Context.Holder
        , runContextHolder
        ) where
 
-import           Control.Concurrent.MVar     (withMVar)
-import           Control.Lens                (iso)
-import           Control.Monad.Base          (MonadBase (..))
-import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow, catchAll)
-import           Control.Monad.Morph         (hoist)
-import           Control.Monad.Reader        (ReaderT (ReaderT), ask)
+import           Control.Concurrent.MVar   (withMVar)
+import           Control.Lens              (iso)
+import           Control.Monad.Base        (MonadBase (..))
+import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow)
+import           Control.Monad.Reader      (ReaderT (ReaderT), ask)
 
-import           Control.Monad.Trans.Class   (MonadTrans)
-import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
-                                              MonadTransControl (..), StM,
-                                              defaultLiftBaseWith, defaultLiftWith,
-                                              defaultRestoreM, defaultRestoreT)
-import           Control.TimeWarp.Rpc        (MonadDialog, MonadResponse (..),
-                                              MonadTransfer (..))
-import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
+import           Control.Monad.Trans.Class (MonadTrans)
+import           Formatting                (sformat, shown, (%))
+import           Mockable                  (Catch, CurrentTime, Mockable, catchAll,
+                                            currentTime)
+import           Serokell.Util.Lens        (WrappedM (..))
+import           System.Wlog               (CanLog, HasLoggerName, WithLogger, logWarning)
+import           Universum                 hiding (catchAll)
 
-import           Formatting                  (sformat, shown, (%))
-import           Serokell.Util.Lens          (WrappedM (..))
-import           System.Wlog                 (CanLog, HasLoggerName, WithLogger,
-                                              logWarning)
-import           Universum
-
-import           Pos.Context.Class           (WithNodeContext (..))
-import           Pos.Context.Context         (NodeContext (..))
-import           Pos.DB                      (MonadDB)
-import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Txp.Class               (MonadTxpLD)
-import           Pos.Types                   (Timestamp (..))
-import           Pos.Util.JsonLog            (MonadJL (..), appendJL)
+import           Mockable                  (ChannelT, MFunctor' (hoist'),
+                                            Mockable (liftMockable), Promise,
+                                            SharedAtomicT, ThreadId)
+import           Pos.Context.Class         (WithNodeContext (..))
+import           Pos.Context.Context       (NodeContext (..))
+import           Pos.DB                    (MonadDB)
+import           Pos.Slotting              (MonadSlots (..))
+import           Pos.Txp.Class             (MonadTxpLD)
+import           Pos.Types                 (Timestamp (..))
+import           Pos.Util.JsonLog          (MonadJL (..), appendJL)
 
 -- | Wrapper for monadic action which brings 'NodeContext'.
 newtype ContextHolder ssc m a = ContextHolder
     { getContextHolder :: ReaderT (NodeContext ssc) m a
-    } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed,
+    } deriving (Functor, Applicative, Monad, MonadTrans,
                 MonadThrow, MonadCatch, MonadMask, MonadIO, MonadFail,
-                HasLoggerName, CanLog, MonadDB ssc,
-                MonadTxpLD ssc, MonadDialog s p)
+                HasLoggerName, CanLog,
+                MonadTxpLD ssc)
 
 -- | Run 'ContextHolder' action.
 runContextHolder :: NodeContext ssc -> ContextHolder ssc m a -> m a
@@ -59,34 +54,28 @@ instance Monad m => WrappedM (ContextHolder ssc m) where
 instance MonadBase IO m => MonadBase IO (ContextHolder ssc m) where
     liftBase = lift . liftBase
 
-instance MonadTransControl (ContextHolder ssc) where
-    type StT (ContextHolder ssc) a = StT (ReaderT (NodeContext ssc)) a
-    liftWith = defaultLiftWith ContextHolder getContextHolder
-    restoreT = defaultRestoreT ContextHolder
-
-instance MonadBaseControl IO m => MonadBaseControl IO (ContextHolder ssc m) where
-    type StM (ContextHolder ssc m) a = ComposeSt (ContextHolder ssc) m a
-    liftBaseWith     = defaultLiftBaseWith
-    restoreM         = defaultRestoreM
-
 type instance ThreadId (ContextHolder ssc m) = ThreadId m
+type instance Promise (ContextHolder ssc m) = Promise m
+type instance SharedAtomicT (ContextHolder ssc m) = SharedAtomicT m
+type instance ChannelT (ContextHolder ssc m) = ChannelT m
 
-instance MonadTransfer s m => MonadTransfer s (ContextHolder ssc m)
+deriving instance MonadDB ssc m => MonadDB ssc (ContextHolder ssc m)
 
-instance MonadResponse s m => MonadResponse s (ContextHolder ssc m) where
-    replyRaw dat = ContextHolder $ replyRaw (hoist getContextHolder dat)
-    closeR = lift closeR
-    peerAddr = lift peerAddr
+instance ( Mockable d m
+         , MFunctor' d (ReaderT (NodeContext ssc) m) m
+         , MFunctor' d (ContextHolder ssc m) (ReaderT (NodeContext ssc) m)
+         ) => Mockable d (ContextHolder ssc m) where
+    liftMockable dmt = ContextHolder $ liftMockable $ hoist' getContextHolder dmt
 
 instance Monad m => WithNodeContext ssc (ContextHolder ssc m) where
     getNodeContext = ContextHolder ask
 
-instance (MonadTimed m, Monad m) =>
+instance (Mockable CurrentTime m) =>
          MonadSlots (ContextHolder ssc m) where
     getSystemStartTime = ContextHolder $ asks ncSystemStart
     getCurrentTime = Timestamp <$> currentTime
 
-instance (MonadIO m, MonadCatch m, WithLogger m) => MonadJL (ContextHolder ssc m) where
+instance (MonadIO m, Mockable Catch m, WithLogger m) => MonadJL (ContextHolder ssc m) where
     jlLog ev = ContextHolder (asks ncJLFile) >>= maybe (pure ()) doLog
       where
         doLog logFileMV =

@@ -23,6 +23,7 @@ module Pos.DB.Misc
        ) where
 
 import           Data.Default                    (def)
+import           Mockable                        (throw)
 import           Universum
 
 import           Pos.Binary.Class                (Bi)
@@ -131,7 +132,7 @@ getLrc
        (MonadDB ssc m)
     => m (EpochIndex, SlotLeaders, Richmen)
 getLrc =
-    maybe (throwM (DBMalformed "No LRC in MiscDB")) (pure . convert) =<< getBi lrcKey
+    maybe (throw (DBMalformed "No LRC in MiscDB")) (pure . convert) =<< getBi lrcKey
   where
     convert LrcStorage {..} = (lrcEpoch, lrcLeaders, lrcRichmen)
 

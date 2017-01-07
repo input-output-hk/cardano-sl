@@ -33,12 +33,12 @@ import           Pos.WorkMode                (WorkMode)
 txListeners
     :: (MonadDHTDialog (MutSocketState ssc) m, WorkMode ssc m)
     => [ListenerDHT (MutSocketState ssc) m]
-txListeners =
-    [
-      ListenerDHT handleInvTx
-    , ListenerDHT handleReqTx
-    , ListenerDHT handleDataTx
-    ]
+txListeners = notImplemented
+    --[
+    --  ListenerDHT handleInvTx
+    --, ListenerDHT handleReqTx
+    --, ListenerDHT handleDataTx
+    --]
 
 handleInvTx :: ResponseMode ssc m => InvMsg TxId TxMsgTag -> m ()
 handleInvTx = handleInvL

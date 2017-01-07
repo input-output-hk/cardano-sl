@@ -47,12 +47,12 @@ import           Pos.WorkMode                   (WorkMode)
 blockListeners
     :: (MonadDHTDialog (MutSocketState ssc) m, WorkMode ssc m)
     => [ListenerDHT (MutSocketState ssc) m]
-blockListeners =
-    [ ListenerDHT handleGetHeaders
-    , ListenerDHT handleGetBlocks
-    , ListenerDHT handleBlockHeaders
-    , ListenerDHT handleBlock
-    ]
+blockListeners = notImplemented
+    --[ ListenerDHT handleGetHeaders
+    --, ListenerDHT handleGetBlocks
+    --, ListenerDHT handleBlockHeaders
+    --, ListenerDHT handleBlock
+    --]
 
 -- | Handles GetHeaders request which means client wants to get
 -- headers from some checkpoints that are older than optional @to@

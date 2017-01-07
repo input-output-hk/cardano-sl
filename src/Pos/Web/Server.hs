@@ -22,7 +22,7 @@ import           Control.Concurrent.STM.TVar          (writeTVar)
 import           Control.Lens                         (view, _3)
 import qualified Control.Monad.Catch                  as Catch
 import           Control.Monad.Except                 (MonadError (throwError))
-import           Control.TimeWarp.Timed               (TimedIO, runTimedIO)
+import           Mockable                             (Production (runProduction), throw)
 import           Network.Wai                          (Application)
 import           Network.Wai.Handler.Warp             (run)
 import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
@@ -54,14 +54,14 @@ import           Pos.Util                             (fromBinaryM)
 import           Pos.Web.Api                          (BaseNodeApi, GodTossingApi,
                                                        GtNodeApi, baseNodeApi, gtNodeApi)
 import           Pos.Web.Types                        (GodTossingStage (..))
-import           Pos.WorkMode                         (WorkMode)
+import           Pos.WorkMode                         (NewWorkMode)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
 ----------------------------------------------------------------------------
 
 -- [CSL-152]: I want SscConstraint to be part of WorkMode.
-type MyWorkMode ssc m = (WorkMode ssc m, SscConstraint ssc)
+type MyWorkMode ssc m = (NewWorkMode ssc m, SscConstraint ssc)
 
 serveWebBase :: MyWorkMode ssc m => Word16 -> m ()
 serveWebBase = serveImpl applicationBase
@@ -88,8 +88,7 @@ serveImpl application port =
 -- Servant infrastructure
 ----------------------------------------------------------------------------
 
-type WebHandler ssc = ContextHolder ssc (TxpLDHolder ssc (DB.DBHolder ssc TimedIO))
--- type WebHandler ssc = TxLDImpl (ContextHolder ssc (St.DBHolder ssc TimedIO))
+type WebHandler ssc = ContextHolder ssc (TxpLDHolder ssc (DB.DBHolder ssc Production))
 
 convertHandler
     :: forall ssc a.
@@ -100,7 +99,7 @@ convertHandler
     -> WebHandler ssc a
     -> Handler a
 convertHandler nc nodeDBs wrap handler =
-    liftIO (runTimedIO .
+    liftIO (runProduction .
             DB.runDBHolder nodeDBs .
             runTxpLDHolderReader wrap .
             runContextHolder nc $
@@ -139,7 +138,7 @@ baseServantHandlers =
     DB.getTip :<|> getLocalTxsNum
 
 getLeaders :: WebHandler ssc SlotLeaders
-getLeaders = maybe (throwM err) pure =<< tryReadLeaders
+getLeaders = maybe (throw err) pure =<< tryReadLeaders
   where
     err = err404 { errBody = encodeUtf8 ("Leaders are not know for current epoch"::Text) }
 
@@ -165,7 +164,7 @@ gtHasSecret :: GtWebHandler Bool
 gtHasSecret = isJust <$> getSecret
 
 getOurSecret :: GtWebHandler SharedSeed
-getOurSecret = maybe (throwM err) (pure . convertGtSecret) =<< getSecret
+getOurSecret = maybe (throw err) (pure . convertGtSecret) =<< getSecret
   where
     err = err404 { errBody = "I don't have secret" }
     doPanic = panic "our secret is malformed"

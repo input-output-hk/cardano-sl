@@ -36,11 +36,11 @@ import           Pos.WorkMode              (WorkMode)
 delegationListeners
     :: (MonadDHTDialog (MutSocketState ssc) m, WorkMode ssc m)
     => [ListenerDHT (MutSocketState ssc) m]
-delegationListeners =
-    [ ListenerDHT handleSendProxySK
-    , ListenerDHT handleConfirmProxySK
-    , ListenerDHT handleCheckProxySKConfirmed
-    ]
+delegationListeners = notImplemented
+    --[ ListenerDHT handleSendProxySK
+    --, ListenerDHT handleConfirmProxySK
+    --, ListenerDHT handleCheckProxySKConfirmed
+    --]
 
 ----------------------------------------------------------------------------
 -- PSKs propagation

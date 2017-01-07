@@ -1,6 +1,8 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE AllowAmbiguousTypes  #-}
+{-# LANGUAGE RankNTypes           #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Encapsulation of RocksDB iterator
 module Pos.DB.DBIterator
@@ -14,7 +16,10 @@ module Pos.DB.DBIterator
 import           Control.Monad.Reader (ReaderT (..))
 import           Control.Monad.Trans  (MonadTrans)
 import qualified Database.RocksDB     as Rocks
-import           Universum
+import           Mockable             (Bracket, Catch, ChannelT, MFunctor' (hoist'),
+                                       Mockable (liftMockable), Promise, SharedAtomicT,
+                                       ThreadId, Throw, bracket, catch)
+import           Universum            hiding (bracket, catch)
 
 import           Pos.Binary.Class     (Bi)
 import           Pos.DB.Functions     (rocksDecodeKeyValMaybe)
@@ -24,6 +29,17 @@ import           Pos.Util.Iterator    (MonadIterator (..))
 newtype DBIterator m a = DBIterator
     { getDBIterator :: ReaderT Rocks.Iterator m a
     } deriving (Functor, Applicative, Monad, MonadIO, MonadTrans, MonadThrow)
+
+type instance ThreadId (DBIterator m) = ThreadId m
+type instance Promise (DBIterator m) = Promise m
+type instance SharedAtomicT (DBIterator m) = SharedAtomicT m
+type instance ChannelT (DBIterator m) = ChannelT m
+
+instance ( Mockable d m
+         , MFunctor' d (ReaderT Rocks.Iterator m) m
+         , MFunctor' d (DBIterator m) (ReaderT Rocks.Iterator m)
+         ) => Mockable d (DBIterator m) where
+    liftMockable dmt = DBIterator $ liftMockable $ hoist' getDBIterator dmt
 
 -- | RocksDB key value iteration errors.
 data ParseResult a = FetchError  -- RocksDB internal error
@@ -35,7 +51,7 @@ data ParseResult a = FetchError  -- RocksDB internal error
                    | Success a   -- Element is fetched and decoded successfully.
 
 -- | Iterator by keys of type @k@ and values of type @v@.
-instance (Bi k, Bi v, MonadIO m, MonadThrow m)
+instance (Bi k, Bi v, MonadIO m, Mockable Throw m)
          => MonadIterator (DBIterator m) (k, v) where
     nextItem = do
         it <- DBIterator ask
@@ -67,6 +83,19 @@ newtype DBMapIterator f m a = DBMapIterator
 instance MonadTrans (DBMapIterator f)  where
     lift x = DBMapIterator $ ReaderT $ const $ lift x
 
+type instance ThreadId (DBMapIterator f m) = ThreadId m
+type instance Promise (DBMapIterator f m) = Promise m
+type instance SharedAtomicT (DBMapIterator f m) = SharedAtomicT m
+type instance ChannelT (DBMapIterator f m) = ChannelT m
+
+instance ( Mockable d m
+         , MFunctor' d (DBMapIterator f m) (ReaderT f (DBIterator m))
+         , MFunctor' d (ReaderT f (DBIterator m)) (DBIterator m)
+         , MFunctor' d (ReaderT Rocks.Iterator m) m
+         , MFunctor' d (DBIterator m) (ReaderT Rocks.Iterator m)
+         ) => Mockable d (DBMapIterator f m) where
+    liftMockable dmt = DBMapIterator $ liftMockable $ hoist' getDBMapIterator dmt
+
 -- | Instance for DBMapIterator using DBIterator.
 -- Fetch every element from DBIterator and apply `f` for it.
 instance (Monad m, MonadIterator (DBIterator m) u)
@@ -75,13 +104,13 @@ instance (Monad m, MonadIterator (DBIterator m) u)
     curItem = DBMapIterator $ ReaderT $ \f -> fmap f <$> curItem
 
 -- | Run DBIterator by `DB ssc`.
-runIterator :: forall b m ssc . (MonadIO m, MonadMask m)
+runIterator :: forall b m ssc . (MonadIO m, Mockable Throw m, Mockable Catch m, Mockable Bracket m)
              => DBIterator m b -> DB ssc -> m b
 runIterator dbIter DB{..} =
     bracket (Rocks.createIter rocksDB rocksReadOpts) (Rocks.releaseIter)
             (runReaderT (getDBIterator dbIter))
 
 -- | Run DBMapIterator by `DB ssc`.
-mapIterator :: forall u v m ssc a . (MonadIO m, MonadMask m)
+mapIterator :: forall u v m ssc a . (MonadIO m, Mockable Throw m, Mockable Catch m, Mockable Bracket m)
             => DBMapIterator (u->v) m a -> (u->v) -> DB ssc -> m a
 mapIterator dbIter f = runIterator (runReaderT (getDBMapIterator dbIter) f)

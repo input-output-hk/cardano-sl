@@ -8,6 +8,7 @@ module Pos.DB.DB
        ) where
 
 import           Control.Monad.Trans.Resource (MonadResource)
+import           Mockable                     (Mockable, Throw, throw)
 import           System.Directory             (createDirectoryIfMissing,
                                                doesDirectoryExist,
                                                removeDirectoryRecursive)
@@ -32,7 +33,7 @@ import           Pos.Types                    (Block, BlockHeader, Undo, Utxo,
 
 -- | Open all DBs stored on disk.
 openNodeDBs
-    :: (Ssc ssc, MonadResource m)
+    :: (Ssc ssc, MonadIO m, Mockable Throw m)
     => Bool -> FilePath -> Utxo -> m (NodeDBs ssc)
 openNodeDBs recreate fp customUtxo = do
     liftIO $
@@ -65,7 +66,7 @@ getTipBlock
     => m (Block ssc)
 getTipBlock = maybe onFailure pure =<< getBlock =<< getTip
   where
-    onFailure = throwM $ DBMalformed "there is no block corresponding to tip"
+    onFailure = throw $ DBMalformed "there is no block corresponding to tip"
 
 -- | Get BlockHeader corresponding to tip.
 getTipBlockHeader

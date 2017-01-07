@@ -55,11 +55,11 @@ instance ( Bi VssCertificate
          ) =>
          SscListenersClass SscGodTossing where
     sscListeners =
-        Tagged
-            [ ListenerDHT handleInvGt
-            , ListenerDHT handleReqGt
-            , ListenerDHT handleDataGt
-            ]
+        Tagged notImplemented
+            --[ ListenerDHT handleInvGt
+            --, ListenerDHT handleReqGt
+            --, ListenerDHT handleDataGt
+            --]
 
 handleInvGt
     :: (Bi (ReqMsg StakeholderId GtMsgTag), ResponseMode SscGodTossing m)

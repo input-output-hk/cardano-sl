@@ -30,28 +30,27 @@ import           Control.Concurrent.MVar      (newEmptyMVar, newMVar, takeMVar,
                                                tryReadMVar)
 import           Control.Concurrent.STM.TVar  (TVar, newTVar)
 import           Control.Lens                 (each, to, (%~), (^..), (^?), _head, _tail)
-import           Control.Monad.Catch          (bracket)
 import           Control.Monad.Trans.Control  (MonadBaseControl)
 import           Control.Monad.Trans.Resource (runResourceT)
 import           Control.TimeWarp.Rpc         (ConnectionPool, Dialog, Transfer,
                                                commLoggerName, runDialog, runTransfer,
                                                runTransferRaw, setForkStrategy)
-import           Control.TimeWarp.Timed       (MonadTimed, currentTime, fork, killThread,
-                                               repeatForever, runTimedIO, runTimedIO, sec)
-
+import           Control.TimeWarp.Timed       (MonadTimed, runTimedIO, runTimedIO, sec)
 import           Data.Default                 (def)
 import           Data.List                    (nub)
 import qualified Data.Time                    as Time
 import           Formatting                   (build, sformat, shown, (%))
+import           Mockable                     (Production (runProduction), bracket,
+                                               currentTime, fork, killThread)
 import           Node                         (Listener)
 import           System.Wlog                  (LoggerName (..), WithLogger, logDebug,
                                                logInfo, logWarning, releaseAllHandlers,
                                                traverseLoggerConfig, usingLoggerName)
-import           Universum
+import           Universum                    hiding (bracket)
 
 import           Pos.Binary                   ()
 import           Pos.CLI                      (readLoggerConfig)
-import           Pos.Communication            (MutSocketState, SysStartRequest (..),
+import           Pos.Communication            (BiP, MutSocketState, SysStartRequest (..),
                                                allListeners, forkStrategy,
                                                newMutSocketState, noCacheMessageNames,
                                                sysStartReqListener,
@@ -67,7 +66,7 @@ import           Pos.DB.Misc                  (addProxySecretKey)
 import           Pos.Delegation.Class         (runDelegationT)
 import           Pos.Launcher.Param           (BaseParams (..), LoggingParams (..),
                                                NodeParams (..))
-import           Pos.NewDHT.Model             (BiP, MonadDHT (..))
+import           Pos.NewDHT.Model             (MonadDHT (..))
 import           Pos.NewDHT.Real              (KademliaDHT, KademliaDHTInstance,
                                                KademliaDHTInstanceConfig (..),
                                                runKademliaDHT, startDHTInstance,
@@ -288,8 +287,8 @@ nodeStartMsg BaseParams {..} = logInfo msg
 
 -- | Get current time as Timestamp. It is intended to be used when you
 -- launch the first node. It doesn't make sense in emulation mode.
-getCurTimestamp :: IO Timestamp
-getCurTimestamp = Timestamp <$> runTimedIO currentTime
+getCurTimestamp :: Production Timestamp
+getCurTimestamp = Timestamp <$> currentTime
 
 setupLoggers :: MonadIO m => LoggingParams -> m ()
 setupLoggers LoggingParams{..} = do
@@ -316,7 +315,7 @@ addDevListeners sysStart ls =
     else ls
 
 bracketDHTInstance
-    :: BaseParams -> (KademliaDHTInstance -> IO a) -> IO a
+    :: BaseParams -> (KademliaDHTInstance -> Production a) -> Production a
 bracketDHTInstance BaseParams {..} = bracket acquire release
   where
     loggerName = lpRunnerTag bpLoggingParams

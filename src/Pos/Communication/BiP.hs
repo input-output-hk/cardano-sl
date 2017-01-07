@@ -3,9 +3,8 @@
 -- | BiP datatype and related instance for time-warp abstracted
 -- serialization.
 
-module Pos.NewDHT.Model.Class.BiP
-       (
-         BiP(..)
+module Pos.Communication.BiP
+       ( BiP(..)
        ) where
 
 import           Control.Monad.Catch               (MonadThrow (..))

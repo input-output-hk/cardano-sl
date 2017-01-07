@@ -9,24 +9,23 @@ module Pos.NewDHT.Model.Neighbors
   ( sendToNeighbors
   ) where
 
-import           Control.Monad                   (sequence)
-import           Control.Monad.Catch             (SomeException, catch)
-import           Data.ByteString.Char8           (pack)
+import           Control.Monad          (sequence)
+import           Control.Monad.Catch    (SomeException, catch)
+import           Data.ByteString.Char8  (pack)
 
-import           Data.Foldable                   (notElem)
-import           Formatting                      (int, sformat, shown, (%))
-import qualified Formatting                      as F
-import           Message.Message                 (Message, Serializable)
-import           Mockable.Monad                  (MonadMockable)
-import           Node                            (NodeId (..), SendActions (..))
-import           System.Wlog                     (WithLogger, logInfo, logWarning)
+import           Data.Foldable          (notElem)
+import           Formatting             (int, sformat, shown, (%))
+import qualified Formatting             as F
+import           Message.Message        (Message, Serializable)
+import           Mockable.Monad         (MonadMockable)
+import           Node                   (NodeId (..), SendActions (..))
+import           System.Wlog            (WithLogger, logInfo, logWarning)
 import           Universum
 
-import           Pos.Constants                   (neighborsSendThreshold)
-import           Pos.NewDHT.Model.Class.BiP
-import           Pos.NewDHT.Model.Class.MonadDHT (MonadDHT (..))
-import           Pos.NewDHT.Model.Types          (DHTNode (..), DHTNodeType (..),
-                                                  addressToNodeId, filterByNodeType)
+import           Pos.Constants          (neighborsSendThreshold)
+import           Pos.NewDHT.Model.Class (MonadDHT (..))
+import           Pos.NewDHT.Model.Types (DHTNode (..), DHTNodeType (..), addressToNodeId,
+                                         filterByNodeType)
 
 -- | Send default message to neighbours in parallel.
 -- It's a broadcasting to the neighbours without sessions

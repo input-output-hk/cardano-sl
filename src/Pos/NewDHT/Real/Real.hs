@@ -8,49 +8,42 @@ module Pos.NewDHT.Real.Real
        , stopDHTInstance
        ) where
 
-import           Control.Concurrent.Async.Lifted (async, mapConcurrently)
-import           Control.Concurrent.STM          (STM, TVar, modifyTVar, newTVar,
-                                                  readTVar, swapTVar, writeTVar)
-import           Control.Monad.Catch             (Handler (..), MonadCatch, MonadMask,
-                                                  MonadThrow, catchAll, catches, throwM)
-import           Control.TimeWarp.Rpc            (Binding (..), NetworkAddress,
-                                                  RawData (..), TransferException (..),
-                                                  listenR, sendH, sendR)
-import           Control.TimeWarp.Timed          (ms, sec)
-import           Mockable                        (MonadMockable, fork, killThread,
-                                                  newSharedAtomic)
+import           Control.Concurrent.STM (STM, TVar, modifyTVar, newTVar, readTVar,
+                                         swapTVar, writeTVar)
+import           Control.TimeWarp.Rpc   (Binding (..), NetworkAddress, RawData (..),
+                                         TransferException (..), listenR, sendH, sendR)
+import           Control.TimeWarp.Timed (ms, sec)
+import           Mockable               (Async, Catch, Mockable, MonadMockable, Promise,
+                                         Throw, bracket, catchAll, fork, killThread,
+                                         newSharedAtomic, throw, waitAnyUnexceptional)
 
-import qualified Data.Cache.LRU                  as LRU
-import           Data.Hashable                   (hash)
-import qualified Data.HashMap.Strict             as HM
-import           Data.List                       (intersect, (\\))
+import qualified Data.Cache.LRU         as LRU
+import           Data.Hashable          (hash)
+import qualified Data.HashMap.Strict    as HM
+import           Data.List              (intersect, (\\))
 
-import           Formatting                      (build, int, sformat, shown, (%))
-import qualified Network.Kademlia                as K
-import           Prelude                         (id)
-import           System.Wlog                     (WithLogger, getLoggerName, logDebug,
-                                                  logError, logInfo, logWarning,
-                                                  usingLoggerName)
-import           Universum                       hiding (async, fromStrict,
-                                                  mapConcurrently, toStrict)
+import           Formatting             (build, int, sformat, shown, (%))
+import qualified Network.Kademlia       as K
+import           Prelude                (id)
+import           System.Wlog            (WithLogger, getLoggerName, logDebug, logError,
+                                         logInfo, logWarning, usingLoggerName)
+import           Universum              hiding (Async, async, bracket, catchAll,
+                                         fromStrict, mapConcurrently, toStrict)
 
-import           Pos.Binary.Class                (Bi (..))
-import           Pos.Binary.NewDHTModel          ()
-import           Pos.Constants                   (enhancedMessageBroadcast)
-import           Pos.Constants                   (neighborsSendThreshold)
-import           Pos.NewDHT.Model.Class          (DHTException (..), MonadDHT (..),
-                                                  withDhtLogger)
-import           Pos.NewDHT.Model.Types          (DHTData, DHTKey, DHTNode (..),
-                                                  addressToNodeId, filterByNodeType,
-                                                  randomDHTKey)
-import           Pos.NewDHT.Model.Util           (joinNetworkNoThrow)
-import           Pos.NewDHT.Real.Types           (DHTHandle, KademliaDHT (..),
-                                                  KademliaDHTInstance (..),
-                                                  KademliaDHTInstanceConfig (..))
-import           Pos.Util                        (runWithRandomIntervals',
-                                                  waitAnyUnexceptional)
+import           Pos.Binary.Class       (Bi (..))
+import           Pos.Binary.NewDHTModel ()
+import           Pos.Constants          (enhancedMessageBroadcast)
+import           Pos.Constants          (neighborsSendThreshold)
+import           Pos.NewDHT.Model.Class (DHTException (..), MonadDHT (..), withDhtLogger)
+import           Pos.NewDHT.Model.Types (DHTData, DHTKey, DHTNode (..), addressToNodeId,
+                                         filterByNodeType, randomDHTKey)
+import           Pos.NewDHT.Model.Util  (joinNetworkNoThrow)
+import           Pos.NewDHT.Real.Types  (DHTHandle, KademliaDHT (..),
+                                         KademliaDHTInstance (..),
+                                         KademliaDHTInstanceConfig (..))
+import           Pos.Util               (runWithRandomIntervals')
 
-import           Node                            (node)
+import           Node                   (node)
 
 kademliaConfig :: K.KademliaConfig
 kademliaConfig = K.defaultConfig { K.k = 16 }
@@ -58,7 +51,7 @@ kademliaConfig = K.defaultConfig { K.k = 16 }
 -- | Run KademliaDHT
 runKademliaDHT
     :: ( MonadMockable m
-       , MonadMask m
+       , Eq (Promise m (Maybe ()))
        , MonadIO m
        , WithLogger m
        )
@@ -77,9 +70,9 @@ stopDHTInstance KademliaDHTInstance {..} = liftIO $ K.close kdiHandle
 -- | Start 'KademliaDHTInstance' with 'KademliaDHTInstanceConfig'.
 startDHTInstance
     :: ( MonadIO m
-       , MonadMockable m
+       , Mockable Catch m
+       , Mockable Throw m
        , WithLogger m
-       , MonadCatch m
        , Bi DHTData
        , Bi DHTKey
        )
@@ -98,7 +91,7 @@ startDHTInstance KademliaDHTInstanceConfig {..} = do
         (\e ->
            do logError $ sformat
                   ("Error launching kademlia at port " % int % ": " % shown) kdcPort e
-              throwM e)
+              throw e)
     let kdiInitialPeers = kdcInitialPeers
     let kdiExplicitInitial = kdcExplicitInitial
     kdiKnownPeersCache <- atomically $ newTVar []
@@ -107,7 +100,15 @@ startDHTInstance KademliaDHTInstanceConfig {..} = do
     log' logF =  usingLoggerName ("kademlia" <> "messager") . logF . toText
 
 rejoinNetwork
-    :: (MonadIO m, WithLogger m, MonadCatch m, Bi DHTData, Bi DHTKey)
+    :: ( MonadIO m
+       , Mockable Async m
+       , Mockable Catch m
+       , Mockable Throw m
+       , Eq (Promise m (Maybe ()))
+       , WithLogger m
+       , Bi DHTData
+       , Bi DHTKey
+       )
     => KademliaDHT m ()
 rejoinNetwork = withDhtLogger $ do
     init <- KademliaDHT $ asks kdiInitialPeers
@@ -118,20 +119,23 @@ rejoinNetwork = withDhtLogger $ do
                            (length peers) neighborsSendThreshold
       joinNetworkNoThrow init
 
-instance (MonadIO m, MonadCatch m, WithLogger m, Bi DHTData, Bi DHTKey) =>
+instance ( MonadIO m
+         , Mockable Async m
+         , Mockable Catch m
+         , Mockable Throw m
+         , Eq (Promise m (Maybe ()))
+         , WithLogger m
+         , Bi DHTData
+         , Bi DHTKey
+         ) =>
          MonadDHT (KademliaDHT m) where
-    joinNetwork [] = throwM AllPeersUnavailable
+    joinNetwork [] = throw AllPeersUnavailable
     joinNetwork nodes = do
         inst <- KademliaDHT $ asks kdiHandle
-        loggerName <- getLoggerName
-        asyncs <-
-            mapM
-                (liftIO . usingLoggerName loggerName . async . joinNetwork' inst)
-                nodes
-        waitAnyUnexceptional asyncs >>= handleRes
+        KademliaDHT $ waitAnyUnexceptional (map (joinNetwork' inst) nodes) >>= handleRes
       where
         handleRes (Just _) = pure ()
-        handleRes _        = throwM AllPeersUnavailable
+        handleRes _        = throw AllPeersUnavailable
     discoverPeers type_ = do
         inst <- KademliaDHT $ asks kdiHandle
         _ <- liftIO $ K.lookup inst =<< randomDHTKey type_
@@ -199,14 +203,14 @@ toKPeer :: NetworkAddress -> K.Peer
 toKPeer (peerHost, peerPort) = K.Peer (decodeUtf8 peerHost) (fromIntegral peerPort)
 
 joinNetwork'
-    :: (MonadIO m, MonadThrow m, WithLogger m, Bi DHTKey, Bi DHTData)
+    :: (MonadIO m, Mockable Throw m, WithLogger m, Bi DHTKey, Bi DHTData)
     => DHTHandle -> DHTNode -> m ()
 joinNetwork' inst node = do
     let node' = K.Node (toKPeer $ dhtAddr node) (dhtNodeId node)
     res <- liftIO $ K.joinNetwork inst node'
     case res of
         K.JoinSuccess -> pure ()
-        K.NodeDown -> throwM NodeDown
+        K.NodeDown -> throw NodeDown
         K.NodeBanned ->
             logInfo $
             sformat ("joinNetwork: node " % build % " is banned") node

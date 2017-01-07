@@ -23,14 +23,10 @@ import           Control.Monad.Trans.Class (MonadTrans)
 import qualified Data.ByteString           as BS
 import           Data.ByteString.Lazy      (fromStrict, toStrict)
 
-import qualified Data.Map.Strict           as M
-import           Message.Message           (BinaryP)
-import           Mockable                  (Channel (..), Fork (..), MFunctor' (hoist'),
-                                            Mockable (liftMockable), SharedAtomicT,
-                                            ThreadId, fork, killThread, myThreadId)
-import           Mockable                  (MonadMockable, ThreadId)
+import           Mockable                  (ChannelT, MFunctor' (hoist'),
+                                            Mockable (liftMockable), Promise,
+                                            SharedAtomicT, ThreadId)
 import qualified Network.Kademlia          as K
-import           Node                      (Listener (..), Node, NodeId)
 import           Serokell.Util.Lens        (WrappedM (..))
 import           System.Wlog               (CanLog, HasLoggerName)
 
@@ -78,9 +74,12 @@ data KademliaDHTInstanceConfig = KademliaDHTInstanceConfig
 newtype KademliaDHT m a = KademliaDHT
     { unKademliaDHT :: ReaderT KademliaDHTInstance m a
     } deriving (Functor, Applicative, Monad, MonadFail, MonadThrow, MonadCatch, MonadIO,
-                MonadMask, CanLog, HasLoggerName)
+                MonadMask, CanLog, HasLoggerName, MonadTrans)
 
-type instance Mockable.ThreadId (KademliaDHT m) = Mockable.ThreadId m
+type instance ThreadId (KademliaDHT m) = ThreadId m
+type instance Promise (KademliaDHT m) = Promise m
+type instance SharedAtomicT (KademliaDHT m) = SharedAtomicT m
+type instance ChannelT (KademliaDHT m) = ChannelT m
 
 instance ( Mockable d m
          , MFunctor' d (ReaderT KademliaDHTInstance m) m
@@ -91,6 +90,3 @@ instance ( Mockable d m
 instance Monad m => WrappedM (KademliaDHT m) where
     type UnwrappedM (KademliaDHT m) = ReaderT KademliaDHTInstance m
     _WrappedM = iso unKademliaDHT KademliaDHT
-
-instance MonadTrans KademliaDHT where
-  lift = KademliaDHT . lift

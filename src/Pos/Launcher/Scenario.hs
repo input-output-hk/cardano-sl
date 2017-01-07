@@ -13,12 +13,13 @@ import           Node                    (SendActions)
 import           System.Wlog             (logError, logInfo)
 import           Universum
 
+import           Pos.Communication       (BiP)
 import           Pos.Constants           (k)
 import           Pos.Context             (NodeContext (..), getNodeContext,
                                           ncPubKeyAddress, ncPublicKey, putLeaders,
                                           putRichmen)
 import qualified Pos.DB                  as DB
-import           Pos.NewDHT.Model        (BiP, DHTNodeType (DHTFull), discoverPeers)
+import           Pos.NewDHT.Model        (DHTNodeType (DHTFull), discoverPeers)
 import           Pos.Slotting            (getCurrentSlot)
 import           Pos.Ssc.Class           (SscConstraint)
 import           Pos.Types               (SlotId (..), Timestamp (Timestamp), addressHash)

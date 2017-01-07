@@ -17,6 +17,7 @@ module Pos.DB.GState.Common
        ) where
 
 import qualified Database.RocksDB as Rocks
+import           Mockable         (Mockable, Throw)
 import           Universum
 
 import           Pos.Binary.Class (Bi, encodeStrict)
@@ -25,7 +26,7 @@ import           Pos.DB.Error     (DBError (DBMalformed))
 import           Pos.DB.Functions (RocksBatchOp (..), rocksDelete, rocksGetBi, rocksPutBi,
                                    rocksWriteBatch)
 import           Pos.Types        (HeaderHash)
-import           Pos.Util         (maybeThrow)
+import           Pos.Util         (maybeThrow')
 
 ----------------------------------------------------------------------------
 -- Common Helpers
@@ -52,12 +53,12 @@ writeBatchGState batch = rocksWriteBatch batch =<< getUtxoDB
 ----------------------------------------------------------------------------
 
 -- | Get current TIP from Utxo DB.
-getTip :: (MonadThrow m, MonadDB ssc m) => m (HeaderHash ssc)
-getTip = maybeThrow (DBMalformed "no tip in Utxo DB") =<< getTipMaybe
+getTip :: (Mockable Throw m, MonadDB ssc m) => m (HeaderHash ssc)
+getTip = maybeThrow' (DBMalformed "no tip in Utxo DB") =<< getTipMaybe
 
 -- | Get the hash of the first genesis block from Utxo DB
-getBot :: (MonadThrow m, MonadDB ssc m) => m (HeaderHash ssc)
-getBot = maybeThrow (DBMalformed "no bot in Utxo DB") =<< getBotMaybe
+getBot :: (Mockable Throw m, MonadDB ssc m) => m (HeaderHash ssc)
+getBot = maybeThrow' (DBMalformed "no bot in Utxo DB") =<< getBotMaybe
 
 ----------------------------------------------------------------------------
 -- Common operations

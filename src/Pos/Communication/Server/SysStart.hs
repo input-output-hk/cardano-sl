@@ -18,8 +18,9 @@ import           Universum
 
 import           Pos.Binary.Communication ()
 import           Pos.Binary.NewDHTModel   ()
+import           Pos.Communication.BiP    (BiP)
 import           Pos.Communication.Types  (SysStartRequest (..), SysStartResponse (..))
-import           Pos.NewDHT.Model         (BiP, sendToNeighbors)
+import           Pos.NewDHT.Model         (sendToNeighbors)
 import           Pos.Types                (Timestamp)
 import           Pos.WorkMode             (NewMinWorkMode)
 

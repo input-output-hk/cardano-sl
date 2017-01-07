@@ -22,15 +22,16 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,
                                               defaultLiftBaseWith, defaultLiftWith,
                                               defaultRestoreM, defaultRestoreT)
-import           Control.TimeWarp.Rpc        (MonadDialog, MonadTransfer (..))
-import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
 import           Data.Default                (Default (def))
+import           Mockable                    (ChannelT, MFunctor' (hoist'),
+                                              Mockable (liftMockable), Promise,
+                                              SharedAtomicT, ThreadId)
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Context                 (WithNodeContext)
-import qualified Pos.DB                      as Modern (MonadDB (..))
+import           Pos.DB                      (MonadDB (..))
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
 import           Pos.Ssc.Class.Types         (Ssc (..))
@@ -48,26 +49,28 @@ data SscState ssc =
 newtype SscHolder ssc m a =
     SscHolder
     { getSscHolder :: ReaderT (SscState ssc) m a
-    } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed,
+    } deriving (Functor, Applicative, Monad, MonadTrans,
                 MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
-                HasLoggerName, MonadDialog s p, WithNodeContext ssc,
-                MonadJL, CanLog, MonadMask, Modern.MonadDB ssc)
+                HasLoggerName, WithNodeContext ssc,
+                MonadJL, CanLog, MonadMask)
 
-instance MonadTransfer s m => MonadTransfer s (SscHolder ssc m)
 type instance ThreadId (SscHolder ssc m) = ThreadId m
 
 instance MonadBase IO m => MonadBase IO (SscHolder ssc m) where
     liftBase = lift . liftBase
 
-instance MonadTransControl (SscHolder ssc) where
-    type StT (SscHolder ssc) a = StT (ReaderT (SscState ssc)) a
-    liftWith = defaultLiftWith SscHolder getSscHolder
-    restoreT = defaultRestoreT SscHolder
+type instance ThreadId (SscHolder ssc m) = ThreadId m
+type instance Promise (SscHolder ssc m) = Promise m
+type instance SharedAtomicT (SscHolder ssc m) = SharedAtomicT m
+type instance ChannelT (SscHolder ssc m) = ChannelT m
 
-instance MonadBaseControl IO m => MonadBaseControl IO (SscHolder ssc m) where
-    type StM (SscHolder ssc m) a = ComposeSt (SscHolder ssc) m a
-    liftBaseWith     = defaultLiftBaseWith
-    restoreM         = defaultRestoreM
+instance ( Mockable d m
+         , MFunctor' d (ReaderT (SscState ssc) m) m
+         , MFunctor' d (SscHolder ssc m) (ReaderT (SscState ssc) m)
+         ) => Mockable d (SscHolder ssc m) where
+    liftMockable dmt = SscHolder $ liftMockable $ hoist' getSscHolder dmt
+
+deriving instance MonadDB ssc m => MonadDB ssc (SscHolder ssc m)
 
 instance Monad m => WrappedM (SscHolder ssc m) where
     type UnwrappedM (SscHolder ssc m) = ReaderT (SscState ssc) m

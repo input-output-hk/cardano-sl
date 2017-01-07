@@ -18,18 +18,14 @@ module Pos.Delegation.Class
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO)
 import           Control.Lens                (makeLenses)
 import           Control.Lens                (iso)
-import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Trans.Class   (MonadTrans)
-import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
-                                              MonadTransControl (..), StM,
-                                              defaultLiftBaseWith, defaultLiftWith,
-                                              defaultRestoreM, defaultRestoreT)
-import           Control.TimeWarp.Rpc        (MonadDialog, MonadTransfer (..))
-import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
 import           Data.Default                (Default (def))
 import           Data.HashMap.Strict         (HashMap)
 import qualified Data.HashMap.Strict         as HM
 import           Data.Time.Clock             (UTCTime)
+import           Mockable                    (ChannelT, MFunctor' (hoist'),
+                                              Mockable (liftMockable), Promise,
+                                              SharedAtomicT, ThreadId)
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
@@ -91,35 +87,36 @@ instance MonadDelegation m => MonadDelegation (KademliaDHT m)
 -- Class implementation
 ----------------------------------------------------------------------------
 
+type ReaderTCtx = TVar DelegationWrap
+
 -- | Wrapper of @ReaderT (TVar DelegationWrap)@, nothing smart.
 newtype DelegationT m a = DelegationT
-    { getDelegationT :: ReaderT (TVar DelegationWrap) m a
-    } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed,
+    { getDelegationT :: ReaderT ReaderTCtx m a
+    } deriving (Functor, Applicative, Monad, MonadTrans,
                 MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
-                HasLoggerName, MonadDialog s p, WithNodeContext ssc, MonadJL,
-                MonadDB ssc, CanLog, MonadMask, MonadSscLD ssc, MonadSscGS ssc,
-                MonadUtxoRead, MonadUtxo, MonadTxpLD ssc, MonadBase io)
+                HasLoggerName, WithNodeContext ssc, MonadJL,
+                CanLog, MonadMask, MonadSscLD ssc, MonadSscGS ssc,
+                MonadUtxoRead, MonadUtxo, MonadTxpLD ssc)
+
+deriving instance MonadDB ssc m => MonadDB ssc (DelegationT m)
 
 instance (Monad m) => MonadDelegation (DelegationT m) where
     askDelegationState = DelegationT ask
 
-instance MonadTransfer s m => MonadTransfer s (DelegationT m)
-
-type instance ThreadId (DelegationT m) = ThreadId m
-
 instance Monad m => WrappedM (DelegationT m) where
-    type UnwrappedM (DelegationT m) = ReaderT (TVar DelegationWrap) m
+    type UnwrappedM (DelegationT m) = ReaderT ReaderTCtx m
     _WrappedM = iso getDelegationT DelegationT
 
-instance MonadTransControl DelegationT where
-    type StT (DelegationT) a = StT (ReaderT (TVar DelegationWrap)) a
-    liftWith = defaultLiftWith DelegationT getDelegationT
-    restoreT = defaultRestoreT DelegationT
+type instance ThreadId (DelegationT m) = ThreadId m
+type instance Promise (DelegationT m) = Promise m
+type instance SharedAtomicT (DelegationT m) = SharedAtomicT m
+type instance ChannelT (DelegationT m) = ChannelT m
 
-instance MonadBaseControl IO m => MonadBaseControl IO (DelegationT m) where
-    type StM (DelegationT m) a = ComposeSt DelegationT m a
-    liftBaseWith     = defaultLiftBaseWith
-    restoreM         = defaultRestoreM
+instance ( Mockable d m
+         , MFunctor' d (ReaderT ReaderTCtx m) m
+         , MFunctor' d (DelegationT m) (ReaderT ReaderTCtx m)
+         ) => Mockable d (DelegationT m) where
+    liftMockable dmt = DelegationT $ liftMockable $ hoist' getDelegationT dmt
 
 -- | Executes delegationT transformer creating tvar from given wrap.
 runDelegationT :: MonadIO m => DelegationWrap -> DelegationT m a -> m a

@@ -25,6 +25,7 @@ module Pos.DB.GState.Utxo
 
 import qualified Data.Map             as M
 import qualified Database.RocksDB     as Rocks
+import           Mockable             (Bracket, Catch, Mockable, Throw)
 import           Universum
 
 import           Pos.Binary.Class     (encodeStrict)
@@ -36,20 +37,20 @@ import           Pos.DB.Functions     (RocksBatchOp (..), rocksGetBi, traverseAl
 import           Pos.DB.GState.Common (getBi, putBi)
 import           Pos.DB.Types         (DB)
 import           Pos.Types            (Address, TxIn (..), TxOutAux, Utxo, belongsTo)
-import           Pos.Util             (maybeThrow)
+import           Pos.Util             (maybeThrow')
 
 ----------------------------------------------------------------------------
 -- Getters
 ----------------------------------------------------------------------------
 
 -- | Get genesis utxo
-getGenUtxo :: (MonadThrow m, MonadDB ssc m) => m Utxo
-getGenUtxo = maybeThrow (DBMalformed "no genesis utxo in Utxo DB") =<< getGenUtxoMaybe
+getGenUtxo :: (Mockable Throw m, MonadDB ssc m) => m Utxo
+getGenUtxo = maybeThrow' (DBMalformed "no genesis utxo in Utxo DB") =<< getGenUtxoMaybe
 
 getTxOut :: MonadDB ssc m => TxIn -> m (Maybe TxOutAux)
 getTxOut = getBi . txInKey
 
-getTxOutFromDB :: (MonadIO m, MonadThrow m) => TxIn -> DB ssc -> m (Maybe TxOutAux)
+getTxOutFromDB :: (MonadIO m, Mockable Throw m) => TxIn -> DB ssc -> m (Maybe TxOutAux)
 getTxOutFromDB txIn = rocksGetBi (txInKey txIn)
 
 ----------------------------------------------------------------------------
@@ -95,7 +96,7 @@ putTxOut = putBi . txInKey
 ----------------------------------------------------------------------------
 
 iterateByUtxo
-    :: forall ssc m . (MonadDB ssc m, MonadMask m)
+    :: forall ssc m . (MonadDB ssc m, Mockable Throw m, Mockable Catch m, Mockable Bracket m)
     => ((TxIn, TxOutAux) -> m ())
     -> m ()
 iterateByUtxo callback = do
@@ -103,7 +104,7 @@ iterateByUtxo callback = do
     traverseAllEntries db (pure ()) $ const $ curry callback
 
 filterUtxo
-    :: forall ssc m . (MonadDB ssc m, MonadMask m)
+    :: forall ssc m . (MonadDB ssc m, Mockable Throw m, Mockable Catch m, Mockable Bracket m)
     => ((TxIn, TxOutAux) -> Bool)
     -> m Utxo
 filterUtxo p = do
@@ -113,16 +114,16 @@ filterUtxo p = do
         then return $ M.insert (txInHash k, txInIndex k) v m
         else return m
 
-runUtxoIterator :: (MonadDB ssc m, MonadMask m)
+runUtxoIterator :: (MonadDB ssc m, Mockable Throw m, Mockable Catch m, Mockable Bracket m)
                  => DBIterator m a -> m a
 runUtxoIterator iter = runIterator iter =<< getUtxoDB
 
-mapUtxoIterator :: forall u v m ssc a . (MonadDB ssc m, MonadMask m)
+mapUtxoIterator :: forall u v m ssc a . (MonadDB ssc m, Mockable Throw m, Mockable Catch m, Mockable Bracket m)
                 => DBMapIterator (u -> v) m a -> (u -> v) -> m a
 mapUtxoIterator iter f = mapIterator @u @v iter f =<< getUtxoDB
 
 -- | Get small sub-utxo containing only outputs of given address
-getFilteredUtxo :: (MonadDB ssc m, MonadMask m) => Address -> m Utxo
+getFilteredUtxo :: (MonadDB ssc m, Mockable Throw m, Mockable Catch m, Mockable Bracket m) => Address -> m Utxo
 getFilteredUtxo addr = filterUtxo $ \(_, out) -> out `belongsTo` addr
 
 ----------------------------------------------------------------------------

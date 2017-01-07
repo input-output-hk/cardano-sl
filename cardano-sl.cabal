@@ -53,8 +53,6 @@ library
                         Pos.NewDHT.Model.Types
                         Pos.NewDHT.Model.Util
                         Pos.NewDHT.Model.Class
-                        Pos.NewDHT.Model.Class.BiP
-                        Pos.NewDHT.Model.Class.MonadDHT
                         Pos.NewDHT.Real
                         Pos.NewDHT.Real.Real
                         Pos.NewDHT.Real.Types
@@ -147,6 +145,7 @@ library
                         Pos.Block.Network.Server.Strategy
                         Pos.Block.Worker
                         Pos.Communication.Arbitrary
+                        Pos.Communication.BiP
                         Pos.Communication.Methods
                         Pos.Communication.RelayMethods
                         Pos.Communication.Types

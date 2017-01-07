@@ -1,6 +1,8 @@
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies          #-}
 
 module Mockable.Channel (
 
@@ -14,7 +16,7 @@ module Mockable.Channel (
 
     ) where
 
-import Mockable.Class
+import           Mockable.Class (MFunctor' (hoist'), Mockable (liftMockable))
 
 type family ChannelT (m :: * -> *) :: * -> *
 
@@ -24,6 +26,13 @@ data Channel (m :: * -> *) (t :: *) where
     TryReadChannel :: ChannelT m t -> Channel m (Maybe t)
     UnGetChannel :: ChannelT m t -> t -> Channel m ()
     WriteChannel :: ChannelT m t -> t -> Channel m ()
+
+instance (ChannelT n ~ ChannelT m) => MFunctor' Channel m n where
+    hoist' _ NewChannel         = NewChannel
+    hoist' _ (ReadChannel a)    = ReadChannel a
+    hoist' _ (TryReadChannel a) = TryReadChannel a
+    hoist' _ (UnGetChannel a b) = UnGetChannel a b
+    hoist' _ (WriteChannel a b) = WriteChannel a b
 
 newChannel :: ( Mockable Channel m ) => m (ChannelT m t)
 newChannel = liftMockable NewChannel

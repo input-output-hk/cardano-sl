@@ -3,7 +3,9 @@
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE TypeFamilies               #-}
 
-module Mockable.Production where
+module Mockable.Production
+  ( Production (..)
+  ) where
 
 import qualified Control.Concurrent          as Conc
 import qualified Control.Concurrent.STM      as Conc

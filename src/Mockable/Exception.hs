@@ -1,7 +1,9 @@
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE KindSignatures        #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies          #-}
 
 module Mockable.Exception (
 
@@ -20,11 +22,15 @@ module Mockable.Exception (
 
     ) where
 
-import Mockable.Class
-import Control.Exception (Exception, SomeException)
+import           Control.Exception (Exception, SomeException)
+import           Mockable.Class    (MFunctor' (hoist'), Mockable (liftMockable))
 
 data Bracket (m :: * -> *) (t :: *) where
     Bracket :: m r -> (r -> m b) -> (r -> m c) -> Bracket m c
+
+instance MFunctor' Bracket m n where
+    hoist' nat (Bracket acq rel act) =
+      Bracket (nat acq) (\r -> nat $ rel r) (\r -> nat $ act r)
 
 bracket :: ( Mockable Bracket m ) => m r -> (r -> m b) -> (r -> m c) -> m c
 bracket acquire release act = liftMockable $ Bracket acquire release act
@@ -35,11 +41,17 @@ finally act end = bracket (return ()) (const end) (const act)
 data Throw (m :: * -> *) (t :: *) where
     Throw :: Exception e => e -> Throw m t
 
+instance MFunctor' Throw m n where
+    hoist' _ (Throw e) = Throw e
+
 throw :: ( Mockable Throw m ) => Exception e => e -> m t
 throw e = liftMockable $ Throw e
 
 data Catch (m :: * -> *) (t :: *) where
     Catch :: Exception e => m t -> (e -> m t) -> Catch m t
+
+instance MFunctor' Catch m n where
+    hoist' nat (Catch act handleE) = Catch (nat act) (\e -> nat $ handleE e)
 
 catch :: ( Mockable Catch m, Exception e ) => m t -> (e -> m t) -> m t
 catch action handler = liftMockable $ Catch action handler

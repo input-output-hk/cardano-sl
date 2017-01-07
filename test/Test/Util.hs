@@ -19,7 +19,6 @@ module Test.Util
        , mkTestState
        , expected
        , fails
-       , activeWorkers
        , modifyTestState
        , addFail
        , newWork
@@ -33,11 +32,10 @@ module Test.Util
        , deliveryTest
        ) where
 
-import           Control.TimeWarp.Timed      (for, mcs)
 import           Control.Concurrent.STM      (STM, atomically, check)
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVar, writeTVar)
 import           Control.Exception           (Exception, SomeException (..))
-import           Control.Lens                (makeLenses, (%=), (-=), (.=))
+import           Control.Lens                (makeLenses, (%=))
 import           Control.Monad               (forM_, void)
 import           Control.Monad.IO.Class      (MonadIO (..))
 import           Control.Monad.State         (StateT)
@@ -48,10 +46,10 @@ import qualified Data.List                   as L
 import qualified Data.Set                    as S
 import           Data.Void                   (Void)
 import           GHC.Generics                (Generic)
-import           Mockable.Concurrent         (wait, fork)
+import           Mockable.Concurrent         (delay, fork, for, forConcurrently)
 import           Mockable.Exception          (catch, throw)
 import           Mockable.Production         (Production (..))
-import           Network.Transport.Abstract  (closeTransport, newEndPoint)
+import           Network.Transport.Abstract  (closeTransport)
 import           Network.Transport.Concrete  (concrete)
 import qualified Network.Transport.TCP       as TCP
 import           Serokell.Util.Concurrent    (modifyTVarS)
@@ -65,8 +63,10 @@ import           Test.QuickCheck.Property    (Testable (..), failed, reason, suc
 import           Node                        (ConversationActions (..), Listener,
                                              ListenerAction (..), Message (..),
                                              NodeId, SendActions (..),
-                                             Worker, nodeId, startNode, stopNode)
+                                             Worker, nodeId, node, NodeAction(..))
 import           Message.Message             (BinaryP (..))
+import          Data.Time.Units              (fromMicroseconds)
+
 
 -- * Parcel
 
@@ -107,14 +107,12 @@ instance Arbitrary HeavyParcel where
 data TestState = TestState
     { _fails         :: [String]
     , _expected      :: S.Set Parcel
-    , _activeWorkers :: Int
     }
 
 mkTestState :: TestState
 mkTestState = TestState
     { _fails         = []
     , _expected      = S.empty
-    , _activeWorkers = 0
     }
 
 makeLenses ''TestState
@@ -143,7 +141,6 @@ reportingFail testState actionName act = do
 newWork :: TVar TestState -> String -> Production () -> Production ()
 newWork testState workerName act = do
     reportingFail testState workerName act
-    modifyTestState testState $ activeWorkers -= 1
 
 
 -- * Misc
@@ -160,7 +157,7 @@ awaitSTM :: Int -> STM Bool -> Production ()
 awaitSTM time predicate = do
     tvar <- liftIO $ newTVarIO False
     void . fork $ do
-        wait $ for time mcs
+        delay $ for (fromMicroseconds . fromIntegral $ time)
         liftIO . atomically $ writeTVar tvar True
     liftIO . atomically $
         check =<< (||) <$> predicate <*> readTVar tvar
@@ -214,39 +211,34 @@ deliveryTest :: TVar TestState
              -> [Listener BinaryP () Production]
              -> IO Property
 deliveryTest testState workers listeners = runProduction $ do
-    transport_ <- throwLeft $ liftIO $ TCP.createTransport "127.0.0.1" "10342" TCP.defaultTCPParameters
+    let tcpParams = TCP.defaultTCPParameters {
+              TCP.tcpReuseServerAddr = True
+            , TCP.tcpReuseClientAddr = True
+            }
+    transport_ <- throwLeft $ liftIO $ TCP.createTransport "127.0.0.1" "10342" tcpParams
     let transport = concrete transport_
-    endpoint1 <- throwLeft $ newEndPoint transport
-    endpoint2 <- throwLeft $ newEndPoint transport
 
     let prng1 = mkStdGen 0
     let prng2 = mkStdGen 1
 
     -- wait for sender or receiver to complete
     -- TODO: make receiver stop automatically when sender finishes
-    modifyTestState testState $ activeWorkers .= 1
 
     -- launch nodes
-    rec { cliNode  <- startNode endpoint1 prng1 BinaryP
-            (sequence workers servNodeId) []
-        ; servNode <- startNode endpoint2 prng2 BinaryP
-            [] listeners
-        ; let servNodeId = nodeId servNode
-        }
+    node transport prng1 BinaryP $ \_ ->
+        pure $ NodeAction [] $ \clientSendActions ->
+        node transport prng2 BinaryP $ \serverNode ->
+            pure $ NodeAction listeners $ \_ -> do
+                void . forConcurrently workers $ \worker ->
+                    worker (nodeId serverNode) clientSendActions
 
-    -- wait for all processes to stop
-    liftIO . atomically $
-        check . (== 0) . _activeWorkers =<< readTVar testState
+                -- wait for receiver to get everything, but not for too long
+                awaitSTM 5000000 $ S.null . _expected <$> readTVar testState
 
-    -- wait for receiver to get everything, but not for too long
-    awaitSTM 1000000 $ S.null . _expected <$> readTVar testState
-
-    -- stop nodes
-    mapM_ stopNode [cliNode, servNode]
     closeTransport transport
 
     -- wait till port gets free
-    wait $ for 10000 mcs
+    delay $ for 10000
 
     -- form test results
     liftIO . atomically $

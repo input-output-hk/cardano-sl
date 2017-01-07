@@ -4,6 +4,7 @@
 {-# LANGUAGE KindSignatures        #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 module Mockable.Concurrent (
 
@@ -14,28 +15,30 @@ module Mockable.Concurrent (
   , killThread
 
   , Delay(..)
-  , wait
+  , RelativeToNow
+  , delay
   , for
-  , hour
-  , minute
-  , sec
-  , ms
-  , mcs
-  , sleepForever
-  , RepeatForever(..)
-  , repeatForever
 
   , RunInUnboundThread(..)
   , runInUnboundThread
 
+  , Promise
+  , Async(..)
+  , async
+  , wait
+  , cancel
+
+  , Concurrently(..)
+  , concurrently
+  , mapConcurrently
+  , forConcurrently
+
   ) where
 
-import           Control.Exception.Base (SomeException)
-import           Control.Monad.Reader   (ReaderT (..))
-import           Control.TimeWarp.Timed (RelativeToNow, for, hour, mcs, minute, ms, sec)
-import           Data.Time.Units        (Microsecond)
-
-import           Mockable.Class         (MFunctor' (hoist'), Mockable (liftMockable))
+import Control.Exception.Base (SomeException)
+import Control.Monad.Reader   (ReaderT)
+import Data.Time.Units        (Microsecond)
+import Mockable.Class
 
 type family ThreadId (m :: * -> *) :: *
 type instance ThreadId (ReaderT r m) = ThreadId m
@@ -64,38 +67,19 @@ myThreadId = liftMockable MyThreadId
 killThread :: ( Mockable Fork m ) => ThreadId m -> m ()
 killThread tid = liftMockable $ KillThread tid
 
--- | Delay mock to add ability to delay execution.
+type RelativeToNow = Microsecond -> Microsecond
+
 data Delay (m :: * -> *) (t :: *) where
     Delay :: RelativeToNow -> Delay m ()    -- Finite delay.
-    SleepForever :: Delay m ()              -- Infinite delay.
 
 instance MFunctor' Delay m n where
     hoist' _ (Delay i)    = Delay i
-    hoist' _ SleepForever = SleepForever
 
-wait :: ( Mockable Delay m ) => RelativeToNow -> m ()
-wait relativeToNow = liftMockable $ Delay relativeToNow
+delay :: ( Mockable Delay m ) => RelativeToNow -> m ()
+delay relativeToNow = liftMockable $ Delay relativeToNow
 
-sleepForever :: ( Mockable Delay m ) => m ()
-sleepForever = liftMockable SleepForever
-
-data RepeatForever (m :: * -> *) (t :: *) where
-    RepeatForever :: Microsecond
-                  -> (SomeException -> m Microsecond)
-                  -> m ()
-                  -> RepeatForever m ()
-
-instance MFunctor' RepeatForever m n where
-    hoist' nat (RepeatForever time eh action) =
-        RepeatForever time (\ex -> nat $ eh ex) (nat action)
-
-repeatForever :: ( Mockable RepeatForever m )
-    => Microsecond
-    -> (SomeException -> m Microsecond)
-    -> m ()
-    -> m ()
-repeatForever period handler action =
-    liftMockable $ RepeatForever period handler action
+for :: Microsecond -> RelativeToNow
+for = (+)
 
 data RunInUnboundThread m t where
     RunInUnboundThread :: m t -> RunInUnboundThread m t
@@ -105,3 +89,52 @@ instance MFunctor' RunInUnboundThread m n where
 
 runInUnboundThread :: ( Mockable RunInUnboundThread m ) => m t -> m t
 runInUnboundThread m = liftMockable $ RunInUnboundThread m
+
+type family Promise (m :: * -> *) :: * -> *
+
+data Async m t where
+    Async :: m t -> Async m (Promise m t)
+    Wait :: Promise m t -> Async m t
+    Cancel :: Promise m t -> Async m ()
+
+async :: ( Mockable Async m ) => m t -> m (Promise m t)
+async m = liftMockable $ Async m
+
+wait :: ( Mockable Async m ) => Promise m t -> m t
+wait promise = liftMockable $ Wait promise
+
+cancel :: ( Mockable Async m ) => Promise m t -> m ()
+cancel promise = liftMockable $ Cancel promise
+
+data Concurrently m t where
+    Concurrently :: m a -> m b -> Concurrently m (a, b)
+
+concurrently :: ( Mockable Concurrently m ) => m a -> m b -> m (a, b)
+concurrently a b = liftMockable $ Concurrently a b
+
+newtype ConcurrentlyA m t = ConcurrentlyA {
+      runConcurrentlyA :: m t
+    }
+
+instance ( Functor m ) => Functor (ConcurrentlyA m) where
+    fmap f = ConcurrentlyA . fmap f . runConcurrentlyA
+
+instance ( Mockable Concurrently m ) => Applicative (ConcurrentlyA m) where
+    pure = ConcurrentlyA . pure
+    cf <*> cx = ConcurrentlyA $ do
+        (f, x) <- concurrently (runConcurrentlyA cf) (runConcurrentlyA cx)
+        pure $ f x
+
+mapConcurrently
+    :: ( Traversable f, Mockable Concurrently m )
+    => (s -> m t)
+    -> f s
+    -> m (f t)
+mapConcurrently g = runConcurrentlyA . traverse (ConcurrentlyA . g)
+
+forConcurrently
+    :: ( Traversable f, Mockable Concurrently m )
+    => f s
+    -> (s -> m t)
+    -> m (f t)
+forConcurrently = flip mapConcurrently

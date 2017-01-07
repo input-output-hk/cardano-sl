@@ -8,13 +8,14 @@ module Mockable.Production
   ) where
 
 import qualified Control.Concurrent          as Conc
+import qualified Control.Concurrent.Async    as Conc
 import qualified Control.Concurrent.STM      as Conc
 import           Control.Concurrent.STM.TVar (newTVarIO, readTVarIO, writeTVar)
 import qualified Control.Exception           as Exception
 import           Control.Monad               (forever, void)
 import           Control.Monad.Fix           (MonadFix)
 import           Control.Monad.IO.Class      (MonadIO, liftIO)
-import           Control.TimeWarp.Timed      (Microsecond, for, hour, ms)
+import           Data.Time.Units             (Microsecond)
 import           Data.Time.Clock.POSIX       (getPOSIXTime)
 import           Mockable.Channel
 import           Mockable.Class
@@ -43,34 +44,21 @@ instance Mockable Delay Production where
     liftMockable (Delay relativeToNow) = Production $ do
         cur <- runProduction $ curTime
         Conc.threadDelay $ fromIntegral $ relativeToNow cur - cur
-    liftMockable SleepForever = forever . wait $ for 24 hour
-
-instance Mockable RepeatForever Production where
-    liftMockable (RepeatForever period handler action) = do
-        timer <- startTimer
-        nextDelay <- liftIO $ newTVarIO Nothing
-        void $ fork $
-            let setNextDelay = liftIO . Conc.atomically . writeTVar nextDelay . Just
-                action'      = action >> timer >>= \passed -> setNextDelay (period - passed)
-                handler' e   = handler e >>= setNextDelay
-            in action' `catch` handler'
-        waitForRes nextDelay
-      where
-        startTimer = do
-            start <- curTime
-            return $ subtract start <$> curTime
-
-        continue = repeatForever period handler action
-        waitForRes nextDelay = do
-            wait $ for 10 ms
-            res <- liftIO $ readTVarIO nextDelay
-            case res of
-                Nothing -> waitForRes nextDelay
-                Just t  -> wait (for t) >> continue
 
 instance Mockable RunInUnboundThread Production where
     liftMockable (RunInUnboundThread m) = Production $
         Conc.runInUnboundThread (runProduction m)
+
+type instance Promise Production = Conc.Async
+
+instance Mockable Async Production where
+    liftMockable (Async m) = Production $ Conc.async (runProduction m)
+    liftMockable (Wait promise) = Production $ Conc.wait promise
+    liftMockable (Cancel promise) = Production $ Conc.cancel promise
+
+instance Mockable Concurrently Production where
+    liftMockable (Concurrently a b) = Production $
+        Conc.concurrently (runProduction a) (runProduction b)
 
 type instance SharedAtomicT Production = Conc.MVar
 

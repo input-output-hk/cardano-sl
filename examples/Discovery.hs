@@ -10,7 +10,6 @@
 
 import           Control.Monad                        (forM, forM_, when)
 import           Control.Monad.IO.Class               (liftIO)
-import           Control.TimeWarp.Timed               (for)
 import           Data.Binary
 import qualified Data.ByteString.Char8                as B8
 import qualified Data.Set                             as S
@@ -18,7 +17,9 @@ import           Data.Time.Units                      (Microsecond, fromMicrosec
 import           Data.Void                            (Void)
 import           GHC.Generics                         (Generic)
 import           Message.Message                      (BinaryP (..))
-import           Mockable.Concurrent                  (wait)
+import           Mockable.Concurrent                  (ThreadId, delay, for, fork,
+                                                       killThread)
+import           Mockable.Exception                   (finally)
 import           Mockable.Production
 import           Network.Discovery.Abstract
 import qualified Network.Discovery.Transport.Kademlia as K
@@ -37,8 +38,8 @@ instance Binary Pong where
 type Packing = BinaryP
 type ConnState = ()
 
-workers :: NodeId -> StdGen -> NetworkDiscovery K.KademliaDiscoveryErrorCode Production -> [Worker Packing ConnState Production]
-workers anId generator discovery = [pingWorker generator]
+worker :: NodeId -> StdGen -> NetworkDiscovery K.KademliaDiscoveryErrorCode Production -> Worker Packing ConnState Production
+worker anId generator discovery = pingWorker generator
     where
     pingWorker :: StdGen -> SendActions Packing ConnState Production -> Production ()
     pingWorker gen sendActions = loop gen
@@ -46,7 +47,7 @@ workers anId generator discovery = [pingWorker generator]
         loop g = do
             let (i, gen') = randomR (1000,2000000) g
                 us = fromMicroseconds i :: Microsecond
-            wait $ for us
+            delay (for us)
             _ <- knownPeers discovery
             _ <- discoverPeers discovery
             peerSet <- knownPeers discovery
@@ -69,8 +70,7 @@ listeners anId = [pongListener]
 
 makeNode :: Transport Production
          -> Int
-         -> Production (Node Production,
-                        NetworkDiscovery K.KademliaDiscoveryErrorCode Production)
+         -> Production (ThreadId Production)
 makeNode transport i = do
     let port = 3000 + i
     let host = "127.0.0.1"
@@ -85,14 +85,11 @@ makeNode transport i = do
     let prng1 = mkStdGen (2 * i)
     let prng2 = mkStdGen ((2 * i) + 1)
     liftIO . putStrLn $ "Starting node " ++ show i
-    Right endPoint <- newEndPoint transport
-    rec { node <- startNode endPoint prng1 BinaryP (workers (nodeId node) prng2 discovery)
-            (listeners (nodeId node))
-        ; let localAddress = nodeEndPointAddress node
-        ; liftIO . putStrLn $ "Making discovery for node " ++ show i
-        ; discovery <- K.kademliaDiscovery kademliaConfig initialPeer localAddress
-        }
-    pure (node, discovery)
+    fork $ node transport prng1 BinaryP $ \node -> do
+        pure $ NodeAction (listeners . nodeId $ node) $ \sactions -> do
+            liftIO . putStrLn $ "Making discovery for node " ++ show i
+            discovery <- K.kademliaDiscovery kademliaConfig initialPeer (nodeEndPointAddress node)
+            worker (nodeId node) prng2 discovery sactions `finally` closeDiscovery discovery
     where
     makeId anId
         | anId < 10 = B8.pack ("node_identifier_0" ++ show anId)
@@ -110,10 +107,10 @@ main = runProduction $ do
     let transport = concrete transport_
 
     liftIO . putStrLn $ "Spawning " ++ show number ++ " nodes"
-    nodesAndDiscoveries <- forM [0..number] (makeNode transport)
+    nodeThreads <- forM [0..number] (makeNode transport)
 
     liftIO $ putStrLn "Hit return to stop"
     _ <- liftIO $ getChar
 
     liftIO $ putStrLn "Stopping nodes"
-    forM_ nodesAndDiscoveries (\(n, d) -> stopNode n >> closeDiscovery d)
+    forM_ nodeThreads killThread

@@ -16,10 +16,10 @@
 
 module Node (
 
-      Node
-    , startNode
-    , startNodeExt
-    , stopNode
+      Node(..)
+    , nodeEndPointAddress
+    , NodeAction(..)
+    , node
 
     , MessageName
     , Message (..)
@@ -32,8 +32,6 @@ module Node (
     , ListenerAction(..)
 
     , LL.NodeId(..)
-    , nodeId
-    , nodeEndPointAddress
 
     ) where
 
@@ -54,16 +52,13 @@ import Mockable.SharedAtomic
 import Mockable.Exception
 import Message.Message
 
-data Node (m :: * -> *) = Node {
-       nodeLL      :: LL.Node m,
-       nodeWorkers :: [ThreadId m]
-     }
-
-nodeId :: Node m -> LL.NodeId
-nodeId = LL.NodeId . NT.address . LL.nodeEndPoint . nodeLL
+data Node m = Node {
+      nodeId :: LL.NodeId
+    , nodeEndPoint :: NT.EndPoint m
+    }
 
 nodeEndPointAddress :: Node m -> NT.EndPointAddress
-nodeEndPointAddress x = let LL.NodeId y = nodeId x in y
+nodeEndPointAddress = NT.address . nodeEndPoint
 
 type Worker packing connState m = SendActions packing connState m -> m ()
 
@@ -239,68 +234,47 @@ nodeConversationActions node nodeId packing inchan outchan connStates =
 
     convConnStateStorage = connectionStates connStates
 
-startNode
-    :: forall packing m .
-       ( Mockable Fork m, Mockable Throw m, Mockable Channel m
-       , Mockable SharedAtomic m, Mockable Bracket m, Mockable Catch m
-       , MonadFix m
-       , Serializable packing MessageName
-       )
-    => NT.EndPoint m
-    -> StdGen
-    -> packing
-    -> [Worker packing () m]
-    -> [Listener packing () m]
-    -> m (Node m)
-startNode endPoint prng packing workers listeners =
-    startNodeExt endPoint prng packing (return ()) Nothing workers listeners
+data NodeAction packing connState m t = NodeAction [Listener packing connState m] (SendActions packing connState m -> m t)
 
--- | Spin up a node given a set of workers and listeners, using a given network
---   transport to drive it.
-startNodeExt
-    :: forall packing connState m .
+-- | Spin up a node. You must give a function to create listeners given the
+--   'NodeId', and an action to do given the 'NodeId' and sending actions.
+--   The node will stop and clean up once that action has completed. If at
+--   this time there are any listeners running, they will be allowed to
+--   finished.
+node
+    :: forall packing connState m t .
        ( Mockable Fork m, Mockable Throw m, Mockable Channel m
        , Mockable SharedAtomic m, Mockable Bracket m, Mockable Catch m
+       , Mockable Async m
        , MonadFix m
        , Serializable packing MessageName
        )
-    => NT.EndPoint m
+    => NT.Transport m
     -> StdGen
     -> packing
-    -> m connState
-    -> Maybe (SharedAtomicT m (M.Map LL.NodeId connState))
-    -> [Worker packing connState m]
-    -> [Listener packing connState m]
-    -> m (Node m)
-startNodeExt endPoint prng packing initConnState mStatesStorage workers listeners = do
-    statesStorage <- maybe (newSharedAtomic M.empty) return mStatesStorage
-    let connStates = ConnectionsStates statesStorage initConnState
-    rec { node <- LL.startNode endPoint prng (handlerIn node sendActions) (handlerInOut node connStates)
-        ; let sendActions = nodeSendActions node packing connStates
+    -> (Node m -> m (NodeAction packing connState m t))
+    -> m t
+node transport prng packing k = do
+    rec { llnode <- LL.startNode transport prng (handlerIn listenerIndex sendActions) (handlerInOut llnode listenerIndex connStates)
+        ; let connStates = undefined  -- this feature supported would be removed soon
+        ; let nId = LL.nodeId llnode
+        ; let endPoint = LL.nodeEndPoint llnode
+        ; let node = Node nId endPoint
+        ; NodeAction listeners act <- k node
+          -- Index the listeners by message name, for faster lookup.
+          -- TODO: report conflicting names, or statically eliminate them using
+          -- DataKinds and TypeFamilies.
+        ; let listenerIndex :: ListenerIndex packing connState m
+              (listenerIndex, conflictingNames) = makeListenerIndex listeners
+        ; let sendActions = nodeSendActions llnode packing connStates
         }
-    tids <- sequence
-              [ fork $ worker sendActions
-              | worker <- workers ]
-    return Node {
-      nodeLL      = node,
-      nodeWorkers = tids
-    }
+    act sendActions `finally` LL.stopNode llnode
   where
-    -- Index the listeners by message name, for faster lookup.
-    -- TODO: report conflicting names, or statically eliminate them using
-    -- DataKinds and TypeFamilies.
-    listenerIndex :: ListenerIndex packing connState m
-    (listenerIndex, conflictingNames) = makeListenerIndex listeners
-
     -- Handle incoming data from unidirectional connections: try to read the
     -- message name, use it to determine a listener, parse the body, then
     -- run the listener.
-    handlerIn :: LL.Node m
-              -> SendActions packing connState m
-              -> LL.NodeId
-              -> ChannelIn m
-              -> m ()
-    handlerIn node sendActions peerId inchan = do
+    handlerIn :: ListenerIndex packing connState m -> SendActions packing connState m -> LL.NodeId -> ChannelIn m -> m ()
+    handlerIn listenerIndex sendActions peerId inchan = do
         input <- recvNext inchan packing
         case input of
             End -> error "handerIn : unexpected end of input"
@@ -323,12 +297,13 @@ startNodeExt endPoint prng packing initConnState mStatesStorage workers listener
     -- Handle incoming data from a bidirectional connection: try to read the
     -- message name, then choose a listener and fork a thread to run it.
     handlerInOut :: LL.Node m
+                 -> ListenerIndex packing connState m
                  -> ConnectionsStates m connState
                  -> LL.NodeId
                  -> ChannelIn m
                  -> ChannelOut m
                  -> m ()
-    handlerInOut node connStates peerId inchan outchan = do
+    handlerInOut node listenerIndex connStates peerId inchan outchan = do
         input <- recvNext inchan packing
         case input of
             End -> error "handlerInOut : unexpected end of input"
@@ -342,14 +317,6 @@ startNodeExt endPoint prng packing initConnState mStatesStorage workers listener
                         in  action peerId cactions
                     Just (ListenerActionOneMsg _) -> error ("handlerInOut : wrong listener type. Expected bidirectional for " ++ show msgName)
                     Nothing -> error ("handlerInOut : no listener for " ++ show msgName)
-
-stopNode :: ( Mockable Fork m ) => Node m -> m ()
-stopNode Node {..} = do
-    LL.stopNode nodeLL
-    -- Stop the workers
-    mapM_ killThread nodeWorkers
-    -- alternatively we could try stopping new incoming messages
-    -- and wait for all handlers to finish
 
 recvNext
     :: ( Mockable Channel m, Unpackable packing thing )

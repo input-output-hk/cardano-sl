@@ -13,6 +13,8 @@
 module Node.Internal (
     NodeId(..),
     Node(..),
+    nodeId,
+    nodeEndPointAddress,
     ChannelIn(..),
     ChannelOut(..),
     startNode,
@@ -65,9 +67,15 @@ data NodeState m = NodeState {
 --   state and a thread to dispatch network-transport events.
 data Node (m :: * -> *) = Node {
        nodeEndPoint         :: NT.EndPoint m,
-       nodeDispatcherThread :: ThreadId m,
+       nodeDispatcherThread :: Promise m (),
        nodeState :: SharedAtomicT m (NodeState m)
      }
+
+nodeId :: Node m -> NodeId
+nodeId = NodeId . NT.address . nodeEndPoint
+
+nodeEndPointAddress :: NodeId -> NT.EndPointAddress
+nodeEndPointAddress (NodeId addr) = addr
 
 -- | Used to identify bidirectional connections.
 newtype Nonce = Nonce {
@@ -95,33 +103,39 @@ newtype ChannelOut m = ChannelOut (NT.Connection m)
 
 -- | Bring up a 'Node' using a network transport.
 startNode :: ( Mockable SharedAtomic m, Mockable Fork m, Mockable Bracket m
-             , Mockable Channel.Channel m, Mockable Throw m, Mockable Catch m )
-          => NT.EndPoint m
+             , Mockable Channel.Channel m, Mockable Throw m, Mockable Catch m
+             , Mockable Async m )
+          => NT.Transport m
           -> StdGen
           -> (NodeId -> ChannelIn m -> m ())
           -- ^ Handle incoming unidirectional connections.
           -> (NodeId -> ChannelIn m -> ChannelOut m -> m ())
           -- ^ Handle incoming bidirectional connections.
           -> m (Node m)
-startNode endPoint prng handlerIn handlerOut = do
+startNode transport prng handlerIn handlerOut = do
+    Right endPoint <- NT.newEndPoint transport
     sharedState <- newSharedAtomic (NodeState prng Map.empty [])
-    tid <- fork $
+    dispatcherThread <- async $
         nodeDispatcher endPoint sharedState handlerIn handlerOut
-    --TODO: exceptions in the forkIO
-    --they should be raised in this thread.
     return Node {
       nodeEndPoint         = endPoint,
-      nodeDispatcherThread = tid,
+      nodeDispatcherThread = dispatcherThread,
       nodeState            = sharedState
     }
 
 -- | Stop a 'Node', closing its network transport endpoint.
-stopNode :: Node m -> m ()
-stopNode Node {..} =
-    NT.closeEndPoint nodeEndPoint
+stopNode :: ( Mockable Async m ) => Node m -> m ()
+stopNode Node {..} = do
     -- This eventually will shut down the dispatcher thread, which in turn
     -- ought to stop the connection handling threads.
     -- It'll also close all TCP connections.
+    NT.closeEndPoint nodeEndPoint
+    -- Must wait on any handler threads. The dispatcher thread will eventually
+    -- see an event indicating that the end point has closed, after which it
+    -- will wait on all running handlers. Since the end point has been closed,
+    -- no new handler threads will be created, so this will block indefinitely
+    -- only if some handler is blocked indefinitely or looping.
+    wait nodeDispatcherThread
 
 -- | State which is local to the dispatcher, and need not be accessible to
 --   any other thread.
@@ -258,6 +272,14 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
             ConnectionClosed _ -> Nothing
             _ -> Just (ConnectionHandlerFinished e)
 
+    -- TODO implement this.
+    -- Probably want to put promises instead of ThreadIds into the connection
+    -- states so that we can wait on them here.
+    -- Also may want to use weak references, so that handlers can get
+    -- blocked-indefinitely exceptions
+    waitForRunningHandlers :: DispatcherState m -> m ()
+    waitForRunningHandlers state = pure ()
+
     -- Handle the first chunks received, interpreting the control byte(s).
     -- TODO: review this. It currently does not use the 'DispatcherState' but
     -- that's dubious. Implementing good error handling will probably demand
@@ -331,15 +353,24 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                 --
                 | w == controlHeaderCodeBidirectionalAck
                 , Right (ws',_,nonce) <- decodeOrFail ws -> do
-                  (tid, ChannelIn chan) <- modifySharedAtomic nodeState $ \(NodeState prng expected finished) ->
+                  outcome <- modifySharedAtomic nodeState $ \(NodeState prng expected finished) ->
                       case Map.lookup nonce expected of
-                          Nothing -> throw (ProtocolError $ "unexpected ack nonce " ++ show nonce)
+                          -- Got an ACK for a nonce that we don't know about
+                          -- It could be that we never sent a SYN on that
+                          -- nonce (peer made a protocol error), but it could
+                          -- also be that we did send the SYN, but our handler
+                          -- for that conversation has already finished!
+                          -- That's just normal.
+                          Nothing -> return ((NodeState prng expected finished), Nothing)
                           Just (NonceHandlerNotConnected tid inchan) -> do
                               let !expected' = Map.insert nonce (NonceHandlerConnected connid) expected
-                              return ((NodeState prng expected' finished), (tid, inchan))
+                              return ((NodeState prng expected' finished), Just (tid, inchan))
                           Just _ -> throw (InternalError $ "duplicate or delayed ACK for " ++ show nonce)
-                  Channel.writeChannel chan (Just (BS.concat (LBS.toChunks ws')))
-                  pure . Just $ ConnectionReceiving tid chan
+                  case outcome of
+                      Nothing -> pure Nothing
+                      Just (tid, ChannelIn chan) -> do
+                          Channel.writeChannel chan (Just (BS.concat (LBS.toChunks ws')))
+                          pure . Just $ ConnectionReceiving tid chan
 
                 | otherwise ->
                     throw (ProtocolError $ "unexpected control header " ++ show w)
@@ -415,7 +446,12 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                               -- Write Nothing to indicate end of input.
                               Channel.writeChannel chan Nothing
                               loop (Map.insert connid (ConnectionClosed tid) state)
-                          _ -> throw (InternalError "malformed small message")
+                          -- There's no handler for the chunks, possibly because
+                          -- the small message was from a peer contacted in
+                          -- conversation mode, but the local handler has
+                          -- already finished. It's strange behavior but not
+                          -- an error.
+                          _ -> loop state
 
                   -- End of incoming data. Signal that by writing 'Nothing'
                   -- to the ChannelIn.
@@ -429,7 +465,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
           NT.EndPointClosed ->
               -- TODO: decide what to do with all active handlers
               -- Throw them a special exception?
-              return ()
+              waitForRunningHandlers state
 
           NT.ErrorEvent (NT.TransportError (NT.EventErrorCode (NT.EventConnectionLost peer)) _msg) ->
               throw (InternalError "Connection lost")

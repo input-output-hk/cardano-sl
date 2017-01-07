@@ -62,8 +62,8 @@ Library
                       , text
                       , time
                       , time-units
-                      , time-warp
                       , transformers
+                      , async
   hs-source-dirs:       src
   default-language:     Haskell2010
   ghc-options:          -Wall
@@ -84,7 +84,6 @@ executable discovery
                       , node-sketch
                       , random
                       , time-units
-                      , time-warp
 
   hs-source-dirs:       examples
   default-language:     Haskell2010
@@ -105,7 +104,6 @@ executable ping-pong
                      , random
                      , stm
                      , time-units
-                     , time-warp
 
   hs-source-dirs:      examples
   default-language:    Haskell2010
@@ -150,6 +148,7 @@ executable bench-sender
                      , time-units >= 1.0.0
                      , transformers >= 0.5.2
                      , unordered-containers >= 0.2.7
+                     , async
   hs-source-dirs:      bench/Network/Sender
                      , bench/Network/Common
   if flag(benchmarks)
@@ -191,6 +190,7 @@ executable bench-receiver
                      , time >= 1.6
                      , time-units >= 1.0.0
                      , unordered-containers >= 0.2.7
+                     , async
   hs-source-dirs:      bench/Network/Receiver
                      , bench/Network/Common
   if flag(benchmarks)
@@ -233,6 +233,9 @@ executable bench-log-reader
                      , time >= 1.6
                      , time-units >= 1.0.0
                      , unordered-containers >= 0.2.7
+                     , conduit
+                     , conduit-extra
+                     , async
   hs-source-dirs:      bench/Network/LogReader
                      , bench/Network/Common
   if flag(benchmarks)
@@ -250,7 +253,6 @@ test-suite node-sketch-test
   main-is:             Test.hs
   other-modules:       Spec
                        Test.NodeSpec
-                       Test.ConnStateSpec
                        Test.Util
   type:                exitcode-stdio-1.0
   build-depends:       base >= 4.8 && < 5
@@ -268,7 +270,7 @@ test-suite node-sketch-test
                      , random
                      , serokell-util >= 0.1.2.3
                      , stm
-                     , time-warp
+                     , time-units
   hs-source-dirs:      test
   default-language:    Haskell2010
   ghc-options:         -threaded

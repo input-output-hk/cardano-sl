@@ -6,11 +6,9 @@
 {-# LANGUAGE UndecidableInstances  #-}
 
 module Pos.NewDHT.Real.Types
-       ( KademliaDHTInstance (..)
-       , KademliaDHTContext (..)
-       , KademliaDHTConfig (..)
+       ( KademliaDHT (..)
+       , KademliaDHTInstance (..)
        , KademliaDHTInstanceConfig (..)
-       , KademliaDHT (..)
        , DHTHandle
        ) where
 
@@ -30,7 +28,7 @@ import           Message.Message           (BinaryP)
 import           Mockable                  (Channel (..), Fork (..), MFunctor' (hoist'),
                                             Mockable (liftMockable), SharedAtomicT,
                                             ThreadId, fork, killThread, myThreadId)
-import           Mockable.Monad            (MonadMockable)
+import           Mockable                  (MonadMockable, ThreadId)
 import qualified Network.Kademlia          as K
 import           Node                      (Listener (..), Node, NodeId)
 import           Serokell.Util.Lens        (WrappedM (..))
@@ -68,22 +66,6 @@ data KademliaDHTInstance = KademliaDHTInstance
     , kdiKnownPeersCache :: !(TVar [K.Node DHTKey])
     }
 
--- | Node context for 'KademliaDHTInstance'.
-data KademliaDHTContext m = KademliaDHTContext
-    { kdcDHTInstance_ :: !KademliaDHTInstance
-    , kdcStopped      :: !(TVar Bool)
-    , kdcNode         :: !(Node m)
-    , kdcAuxClosers   :: !(TVar [KademliaDHT m ()])
-    }
-
--- | Configuration for particular 'KademliaDHTInstance'.
-data KademliaDHTConfig m = KademliaDHTConfig
-    { kdcPort             :: !Word16
-    , kdcListeners        :: ![Listener BinaryP m]
-    , kdcMessageCacheSize :: !Int
-    , kdcDHTInstance      :: !KademliaDHTInstance
-    }
-
 -- | Instance of part of config.
 data KademliaDHTInstanceConfig = KademliaDHTInstanceConfig
     { kdcPort            :: !Word16
@@ -94,20 +76,20 @@ data KademliaDHTInstanceConfig = KademliaDHTInstanceConfig
 
 -- | Node of /Kademlia DHT/ algorithm with access to 'KademliaDHTContext'.
 newtype KademliaDHT m a = KademliaDHT
-    { unKademliaDHT :: ReaderT (KademliaDHTContext m) m a
+    { unKademliaDHT :: ReaderT KademliaDHTInstance m a
     } deriving (Functor, Applicative, Monad, MonadFail, MonadThrow, MonadCatch, MonadIO,
                 MonadMask, CanLog, HasLoggerName)
 
 type instance Mockable.ThreadId (KademliaDHT m) = Mockable.ThreadId m
 
 instance ( Mockable d m
-         , MFunctor' d (ReaderT (KademliaDHTContext m) m) m
-         , MFunctor' d (KademliaDHT m) (ReaderT (KademliaDHTContext m) m)
+         , MFunctor' d (ReaderT KademliaDHTInstance m) m
+         , MFunctor' d (KademliaDHT m) (ReaderT KademliaDHTInstance m)
          ) => Mockable d (KademliaDHT m) where
     liftMockable dmt = KademliaDHT $ liftMockable $ hoist' unKademliaDHT dmt
 
 instance Monad m => WrappedM (KademliaDHT m) where
-    type UnwrappedM (KademliaDHT m) = ReaderT (KademliaDHTContext m) m
+    type UnwrappedM (KademliaDHT m) = ReaderT KademliaDHTInstance m
     _WrappedM = iso unKademliaDHT KademliaDHT
 
 instance MonadTrans KademliaDHT where

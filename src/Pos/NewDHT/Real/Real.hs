@@ -6,10 +6,6 @@ module Pos.NewDHT.Real.Real
        ( runKademliaDHT
        , startDHTInstance
        , stopDHTInstance
-
-       -- * For Servant integration
-       , getKademliaDHTCtx
-       , runKademliaDHTRaw
        ) where
 
 import           Control.Concurrent.Async.Lifted (async, mapConcurrently)
@@ -40,7 +36,7 @@ import           Universum                       hiding (async, fromStrict,
 
 import           Pos.Binary.Class                (Bi (..))
 import           Pos.Binary.NewDHTModel          ()
-import           Pos.Constants                   (enchancedMessageBroadcast)
+import           Pos.Constants                   (enhancedMessageBroadcast)
 import           Pos.Constants                   (neighborsSendThreshold)
 import           Pos.NewDHT.Model.Class          (DHTException (..), MonadDHT (..),
                                                   withDhtLogger)
@@ -49,8 +45,6 @@ import           Pos.NewDHT.Model.Types          (DHTData, DHTKey, DHTNode (..),
                                                   randomDHTKey)
 import           Pos.NewDHT.Model.Util           (joinNetworkNoThrow)
 import           Pos.NewDHT.Real.Types           (DHTHandle, KademliaDHT (..),
-                                                  KademliaDHTConfig (..),
-                                                  KademliaDHTContext (..),
                                                   KademliaDHTInstance (..),
                                                   KademliaDHTInstanceConfig (..))
 import           Pos.Util                        (runWithRandomIntervals',
@@ -61,49 +55,18 @@ import           Node                            (node)
 kademliaConfig :: K.KademliaConfig
 kademliaConfig = K.defaultConfig { K.k = 16 }
 
--- | Run 'KademliaDHT' with provided 'KademliaDHTContext'
-runKademliaDHTRaw :: KademliaDHTContext m -> KademliaDHT m a -> m a
-runKademliaDHTRaw ctx action = runReaderT (unKademliaDHT action) ctx
-
--- | Get context from 'KademliaDHT'
-getKademliaDHTCtx :: Monad m => KademliaDHT m (KademliaDHTContext m)
-getKademliaDHTCtx = KademliaDHT ask
-
--- | Run 'KademliaDHT' with provided 'KademliaDTHConfig'.
+-- | Run KademliaDHT
 runKademliaDHT
-    :: ( WithLogger m
-       , MonadIO m
-       , MonadMockable m
+    :: ( MonadMockable m
        , MonadMask m
+       , MonadIO m
+       , WithLogger m
        )
-    => KademliaDHTConfig m -> KademliaDHT m a -> m a
-runKademliaDHT kdc@(KademliaDHTConfig {..}) action =
-    startDHT kdc >>= runReaderT (unKademliaDHT action')
+    => KademliaDHTInstance -> KademliaDHT m a -> m a
+runKademliaDHT inst action = runReaderT (unKademliaDHT action') inst
   where
-    action' =
-        action''
-        `finally`
-        (logDebug "stopping kademlia messager"
-          >> stopDHT >> logDebug "kademlia messager stopped")
-    action'' = do
-      logDebug "running kademlia dht messager"
-      joinNetworkNoThrow (kdiInitialPeers $ kdcDHTInstance)
-      startRejoinThread
-      action
-    startRejoinThread = do
-      tvar <- KademliaDHT $ asks kdcAuxClosers
-      tid <- fork $ runWithRandomIntervals' (ms 500) (sec 5) rejoinNetwork
-      liftIO $ atomically $ modifyTVar tvar (killThread tid:)
-
--- | Stop DHT algo.
-stopDHT :: (MonadIO m, MonadMockable m) => KademliaDHT m ()
-stopDHT = do
-    (closersTV, stoppedTV) <- KademliaDHT $ (,)
-            <$> asks kdcAuxClosers
-            <*> asks kdcStopped
-    atomically $ writeTVar stoppedTV True
-    closers <- atomically $ swapTVar closersTV []
-    sequence_ closers
+    action' = bracket spawnR killThread (const action)
+    spawnR = fork $ runWithRandomIntervals' (ms 500) (sec 5) rejoinNetwork
 
 -- | Stop chosen 'KademliaDHTInstance'.
 stopDHTInstance
@@ -143,37 +106,23 @@ startDHTInstance KademliaDHTInstanceConfig {..} = do
   where
     log' logF =  usingLoggerName ("kademlia" <> "messager") . logF . toText
 
-startDHT
-    :: ( MonadIO m
-       , MonadMockable m
-       , WithLogger m
-       , MonadMask m
-       )
-    => KademliaDHTConfig m -> m (KademliaDHTContext m)
-startDHT KademliaDHTConfig {..} = do
-    kdcStopped <- liftIO $ atomically $ newTVar False
-    kdcNode <- notImplemented
-    let kdcDHTInstance_ = kdcDHTInstance
-    kdcAuxClosers <- liftIO $ atomically $ newTVar mempty
-    pure $ KademliaDHTContext {..}
-
 rejoinNetwork
     :: (MonadIO m, WithLogger m, MonadCatch m, Bi DHTData, Bi DHTKey)
     => KademliaDHT m ()
 rejoinNetwork = withDhtLogger $ do
+    init <- KademliaDHT $ asks kdiInitialPeers
     peers <- getKnownPeers
     logDebug $ sformat ("rejoinNetwork: peers " % build) peers
     when (length peers < neighborsSendThreshold) $ do
       logWarning $ sformat ("Not enough peers: "%int%", threshold is "%int)
                            (length peers) neighborsSendThreshold
-      init <- KademliaDHT $ asks (kdiInitialPeers . kdcDHTInstance_)
       joinNetworkNoThrow init
 
 instance (MonadIO m, MonadCatch m, WithLogger m, Bi DHTData, Bi DHTKey) =>
          MonadDHT (KademliaDHT m) where
     joinNetwork [] = throwM AllPeersUnavailable
     joinNetwork nodes = do
-        inst <- KademliaDHT $ asks (kdiHandle . kdcDHTInstance_)
+        inst <- KademliaDHT $ asks kdiHandle
         loggerName <- getLoggerName
         asyncs <-
             mapM
@@ -184,16 +133,16 @@ instance (MonadIO m, MonadCatch m, WithLogger m, Bi DHTData, Bi DHTKey) =>
         handleRes (Just _) = pure ()
         handleRes _        = throwM AllPeersUnavailable
     discoverPeers type_ = do
-        inst <- KademliaDHT $ asks (kdiHandle . kdcDHTInstance_)
+        inst <- KademliaDHT $ asks kdiHandle
         _ <- liftIO $ K.lookup inst =<< randomDHTKey type_
         filterByNodeType type_ <$> getKnownPeers
     getKnownPeers = do
         myId <- currentNodeKey
         (inst, initialPeers, explicitInitial) <-
             KademliaDHT $
-            (,,) <$> asks kdcDHTInstance_ <*>
-            asks (kdiInitialPeers . kdcDHTInstance_) <*>
-            asks (kdiExplicitInitial . kdcDHTInstance_)
+            (,,) <$> ask <*>
+            asks kdiInitialPeers <*>
+            asks kdiExplicitInitial
         extendPeers
           inst
           myId
@@ -212,8 +161,8 @@ instance (MonadIO m, MonadCatch m, WithLogger m, Bi DHTData, Bi DHTKey) =>
             selectSufficientNodes inst myId peers)
 
         selectSufficientNodes inst myId l =
-            if enchancedMessageBroadcast /= (0 :: Int)
-            then concat <$> mapM (getPeersFromBucket enchancedMessageBroadcast inst)
+            if enhancedMessageBroadcast /= (0 :: Int)
+            then concat <$> mapM (getPeersFromBucket enhancedMessageBroadcast inst)
                                  (splitToBuckets (kdiHandle inst) myId l)
             else return l
 
@@ -237,7 +186,7 @@ instance (MonadIO m, MonadCatch m, WithLogger m, Bi DHTData, Bi DHTKey) =>
             atomically $ writeTVar (kdiKnownPeersCache inst) peers
             return peers
 
-    currentNodeKey = KademliaDHT $ asks (kdiKey . kdcDHTInstance_)
+    currentNodeKey = KademliaDHT $ asks kdiKey
     dhtLoggerName _ = "kademlia"
 
 toDHTNode :: K.Node DHTKey -> DHTNode

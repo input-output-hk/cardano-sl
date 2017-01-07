@@ -20,6 +20,7 @@ module Message.Message
 
     , MessageName
     , BinaryP (..)
+    , recvNext
     ) where
 
 import           Control.Monad                 (unless)
@@ -120,7 +121,7 @@ instance Bin.Binary t => Packable BinaryP t where
         $ Bin.put t
 
 instance Bin.Binary t => Unpackable BinaryP t where
-    unpackMsg _ = recvNext
+    unpackMsg _ = recvNext Bin.get
 
 -- | Receive input from a channel.
 --   If the channel's first element is 'Nothing' then it's the end of
@@ -128,15 +129,16 @@ instance Bin.Binary t => Unpackable BinaryP t where
 --   Unconsumed input is pushed back into the channel so that subsequent
 --   'recvNext's will use it.
 recvNext
-    :: ( Mockable Channel m, Bin.Binary thing )
-    => ChannelT m (Maybe BS.ByteString)
+    :: ( Mockable Channel m )
+    => Bin.Get thing
+    -> ChannelT m (Maybe BS.ByteString)
     -> m (Input thing)
-recvNext chan = do
+recvNext get' chan = do
     mx <- readChannel chan
     case mx of
         Nothing -> pure End
         Just bs -> do
-            (part, trailing) <- recvPart chan bs
+            (part, trailing) <- recvPart get' chan bs
             unless (BS.null trailing) $
                 unGetChannel chan (Just trailing)
             case part of
@@ -144,12 +146,13 @@ recvNext chan = do
                 Just t  -> pure (Input t)
 
 recvPart
-    :: ( Mockable Channel m, Bin.Binary thing )
-    => ChannelT m (Maybe BS.ByteString)    -- source
+    :: ( Mockable Channel m )
+    => Bin.Get thing
+    -> ChannelT m (Maybe BS.ByteString)    -- source
     -> BS.ByteString                       -- prefix
     -> m (Maybe thing, BS.ByteString)      -- trailing
-recvPart chan prefix =
-    go (Bin.pushChunk (Bin.runGetIncremental Bin.get) prefix)
+recvPart get' chan prefix =
+    go (Bin.pushChunk (Bin.runGetIncremental get') prefix)
   where
     go (Bin.Done trailing _ a) = return (Just a, trailing)
     go (Bin.Fail trailing _ _) = return (Nothing, trailing)

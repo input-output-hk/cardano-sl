@@ -1,18 +1,17 @@
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE GADTSyntax #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveDataTypeable         #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE ExistentialQuantification  #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE GADTSyntax                 #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE RecursiveDo #-}
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE KindSignatures             #-}
+{-# LANGUAGE NamedFieldPuns             #-}
+{-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE RecursiveDo                #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE TypeApplications           #-}
 
 module Node (
 
@@ -35,25 +34,25 @@ module Node (
 
     ) where
 
-import Control.Monad.Fix (MonadFix)
-import qualified Node.Internal as LL
-import Node.Internal (ChannelIn(..), ChannelOut(..))
-import qualified Data.ByteString.Lazy as LBS
-import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as M
-import Data.Proxy (Proxy (..))
+import           Control.Monad.Fix          (MonadFix)
+import qualified Data.ByteString.Lazy       as LBS
+import           Data.Map.Strict            (Map)
+import qualified Data.Map.Strict            as M
+import           Data.Proxy                 (Proxy (..))
+import           Message.Message            (MessageName)
+import           Message.Message
+import           Mockable.Channel
+import           Mockable.Class
+import           Mockable.Concurrent
+import           Mockable.Exception
+import           Mockable.SharedAtomic
 import qualified Network.Transport.Abstract as NT
-import System.Random (StdGen)
-import Message.Message (MessageName)
-import Mockable.Class
-import Mockable.Concurrent
-import Mockable.Channel
-import Mockable.SharedAtomic
-import Mockable.Exception
-import Message.Message
+import           Node.Internal              (ChannelIn (..), ChannelOut (..))
+import qualified Node.Internal              as LL
+import           System.Random              (StdGen)
 
 data Node m = Node {
-      nodeId :: LL.NodeId
+      nodeId       :: LL.NodeId
     , nodeEndPoint :: NT.EndPoint m
     }
 
@@ -111,11 +110,11 @@ data SendActions packing m = SendActions {
 
 data ConversationActions body rcv m = ConversationActions {
        -- | Send a message within the context of this conversation
-       send :: body -> m (),
+       send         :: body -> m (),
 
        -- | Receive a message within the context of this conversation.
        --   'Nothing' means end of input (peer ended conversation).
-       recv :: m (Maybe rcv),
+       recv         :: m (Maybe rcv),
 
        -- | Id of peer node.
        getCompanion :: LL.NodeId
@@ -197,9 +196,9 @@ nodeConversationActions node nodeId packing inchan outchan =
         LL.writeChannel outchan . LBS.toChunks $ packMsg packing body
 
     nodeRecv = do
-        next <- recvNext inchan packing
+        next <- recvNext' inchan packing
         case next of
-            End -> pure Nothing
+            End     -> pure Nothing
             NoParse -> error "Unexpected end of conversation input"
             Input t -> pure (Just t)
 
@@ -243,7 +242,7 @@ node transport prng packing k = do
     -- run the listener.
     handlerIn :: ListenerIndex packing m -> SendActions packing m -> LL.NodeId -> ChannelIn m -> m ()
     handlerIn listenerIndex sendActions peerId inchan = do
-        input <- recvNext inchan packing
+        input <- recvNext' inchan packing
         case input of
             End -> error "handerIn : unexpected end of input"
             -- TBD recurse and continue handling even after a no parse?
@@ -252,7 +251,7 @@ node transport prng packing k = do
                 let listener = M.lookup msgName listenerIndex
                 case listener of
                     Just (ListenerActionOneMsg action) -> do
-                        input' <- recvNext inchan packing
+                        input' <- recvNext' inchan packing
                         case input' of
                             End -> error "handerIn : unexpected end of input"
                             NoParse -> error "handlerIn : failed to parse message body"
@@ -271,7 +270,7 @@ node transport prng packing k = do
                  -> ChannelOut m
                  -> m ()
     handlerInOut node listenerIndex peerId inchan outchan = do
-        input <- recvNext inchan packing
+        input <- recvNext' inchan packing
         case input of
             End -> error "handlerInOut : unexpected end of input"
             NoParse -> error "handlerInOut : failed to parse message name"
@@ -285,9 +284,9 @@ node transport prng packing k = do
                     Just (ListenerActionOneMsg _) -> error ("handlerInOut : wrong listener type. Expected bidirectional for " ++ show msgName)
                     Nothing -> error ("handlerInOut : no listener for " ++ show msgName)
 
-recvNext
+recvNext'
     :: ( Mockable Channel m, Unpackable packing thing )
     => ChannelIn m
     -> packing
     -> m (Input thing)
-recvNext (ChannelIn chan) packing = unpackMsg packing chan
+recvNext' (ChannelIn chan) packing = unpackMsg packing chan

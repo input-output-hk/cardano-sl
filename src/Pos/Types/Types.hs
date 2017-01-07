@@ -73,6 +73,7 @@ module Pos.Types.Types
        , ProxySKEpoch
        , ProxySigSimple
        , ProxySKSimple
+       , ProxySKEither
 
        , Blockchain (..)
        , BodyProof (..)
@@ -494,6 +495,9 @@ type ProxySigSimple a = ProxySignature () a
 -- | Correspondent SK for no-ttl proxy signature scheme.
 type ProxySKSimple = ProxySecretKey ()
 
+-- | Some proxy secret key.
+type ProxySKEither = Either ProxySKEpoch ProxySKSimple
+
 ----------------------------------------------------------------------------
 -- GenericBlock
 ----------------------------------------------------------------------------
@@ -590,12 +594,14 @@ type MainToSign ssc = (HeaderHash ssc, BodyProof (MainBlockchain ssc), SlotId, C
 -- inside the constrained interval).
 data BlockSignature ssc
     = BlockSignature (Signature (MainToSign ssc))
-    | BlockPSignature (ProxySigEpoch (MainToSign ssc))
+    | BlockPSignatureEpoch (ProxySigEpoch (MainToSign ssc))
+    | BlockPSignatureSimple (ProxySigSimple (MainToSign ssc))
     deriving (Show, Eq)
 
 instance Buildable (BlockSignature ssc) where
-    build (BlockSignature s)  = bprint ("BlockSignature: "%build) s
-    build (BlockPSignature s) = bprint ("BlockPSignature: "%build) s
+    build (BlockSignature s)        = bprint ("BlockSignature: "%build) s
+    build (BlockPSignatureEpoch s)  = bprint ("BlockPSignatureEpoch: "%build) s
+    build (BlockPSignatureSimple s) = bprint ("BlockPSignatureSimple: "%build) s
 
 -- | Represents main block body attributes: map from 1-byte integer to
 -- arbitrary-type value. To be used for extending block with new
@@ -1213,10 +1219,12 @@ instance SafeCopy (BodyProof (GenesisBlockchain ssc)) where
 instance SafeCopy (BlockSignature ssc) where
     getCopy = contain $ Cereal.getWord8 >>= \case
         0 -> BlockSignature <$> safeGet
-        1 -> BlockPSignature <$> safeGet
+        1 -> BlockPSignatureEpoch <$> safeGet
+        2 -> BlockPSignatureSimple <$> safeGet
         t -> fail $ "getCopy@BlockSignature: couldn't read tag: " <> show t
     putCopy (BlockSignature sig)       = contain $ Cereal.putWord8 0 >> safePut sig
-    putCopy (BlockPSignature proxySig) = contain $ Cereal.putWord8 1 >> safePut proxySig
+    putCopy (BlockPSignatureEpoch proxySig) = contain $ Cereal.putWord8 1 >> safePut proxySig
+    putCopy (BlockPSignatureSimple proxySig) = contain $ Cereal.putWord8 2 >> safePut proxySig
 
 instance SafeCopy (ConsensusData (MainBlockchain ssc)) where
     getCopy =

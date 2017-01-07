@@ -26,14 +26,15 @@ import           Pos.Block.Network.Announce (announceBlock)
 import           Pos.Constants              (networkDiameter)
 import           Pos.Context                (getNodeContext, ncPublicKey)
 import           Pos.Context.Class          (tryReadLeaders)
-import           Pos.Crypto                 (ProxySecretKey, pskIssuerPk, pskOmega,
+import           Pos.Crypto                 (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega),
                                              shortHashF)
+import           Pos.DB.GState              (getPSKByIssuerAddressHash)
 import           Pos.DB.Misc                (getProxySecretKeys)
 import           Pos.Slotting               (MonadSlots (getCurrentTime), getSlotStart,
                                              onNewSlot)
 import           Pos.Ssc.Class              (SscHelpersClass)
-import           Pos.Types                  (EpochIndex, MainBlock, SlotId (..),
-                                             Timestamp (Timestamp),
+import           Pos.Types                  (EpochIndex, MainBlock, ProxySKEither,
+                                             SlotId (..), Timestamp (Timestamp),
                                              VerifyBlockParams (..), gbHeader, slotIdF,
                                              verifyBlock)
 import           Pos.Types.Address          (addressHash)
@@ -69,43 +70,49 @@ blkOnNewSlot slotId@SlotId {..} = do
         -- If we know leaders, we check whether we are leader and
         -- create a new block if we are. We also create block if we
         -- have suitable PSK.
-        Just leaders -> do
-            ourPk <- ncPublicKey <$> getNodeContext
-            let ourPkHash = addressHash ourPk
-            let logLeadersF = if siSlot == 0 then logInfo else logDebug
-            let leader = leaders ^? ix (fromIntegral siSlot)
-            proxyCerts <- getProxySecretKeys
-            let validCerts =
-                    filter (\pSk -> let (w0,w1) = pskOmega pSk
-                                    in siEpoch >= w0 && siEpoch <= w1) proxyCerts
-                validCert =
-                    find (\pSk -> Just (addressHash $ pskIssuerPk pSk) == leader)
-                         validCerts
-            logLeadersF (sformat ("Our pk: "%build%", our pkHash: "%build)
-                         ourPk ourPkHash)
-            logLeadersF (sformat ("Slot leaders: "%listJson) $
-                         map (sformat shortHashF) leaders)
-            logDebug $ sformat ("Available proxy certificates: "%listJson) validCerts
-            if | leader == Just ourPkHash -> onNewSlotWhenLeader slotId Nothing
-               | isJust validCert -> onNewSlotWhenLeader slotId validCert
-               | otherwise -> pure ()
+        Just leaders ->
+            maybe onNoLeader
+                  (onKnownLeader leaders)
+                  (leaders ^? ix (fromIntegral siSlot))
+  where
+    onNoLeader =
+        logWarning "Couldn't find a leader for current slot among known ones"
+    logLeadersF = if siSlot == 0 then logInfo else logDebug
+    onKnownLeader leaders leader = do
+        ourPk <- ncPublicKey <$> getNodeContext
+        let ourPkHash = addressHash ourPk
+        proxyCerts <- getProxySecretKeys
+        let validCerts =
+                filter (\pSk -> let (w0,w1) = pskOmega pSk
+                                in siEpoch >= w0 && siEpoch <= w1) proxyCerts
+            validCert = find (\pSk -> addressHash (pskIssuerPk pSk) == leader)
+                             validCerts
+        logLeadersF $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash
+        logLeadersF $ sformat ("Slot leaders: "%listJson) $ map (sformat shortHashF) leaders
+        logLeadersF $ sformat ("Current slot leader: "%build) leader
+        heavyPskM <- getPSKByIssuerAddressHash leader
+        let relatedHeavyPsk = maybe False ((== ourPk) . pskDelegatePk) heavyPskM
+        logDebug $ sformat ("Available proxy certificates: "%listJson) validCerts
+        if | leader == ourPkHash -> onNewSlotWhenLeader slotId Nothing
+           | relatedHeavyPsk -> onNewSlotWhenLeader slotId $ Right <$> heavyPskM
+           | isJust validCert -> onNewSlotWhenLeader slotId $ Left <$> validCert
+           | otherwise -> pure ()
 
 onNewSlotWhenLeader
     :: WorkMode ssc m
     => SlotId
-    -> Maybe (ProxySecretKey (EpochIndex, EpochIndex))
+    -> Maybe ProxySKEither
     -> m ()
 onNewSlotWhenLeader slotId pSk = do
-    logInfo $
-        maybe
-        (sformat
-            ("I'm the leader for the slot " %slotIdF % ", will create block soon.")
-            slotId)
-        (sformat
-            ("I have a right to create a delegated block for the slot "%slotIdF%
-             "using proxy signature key"%build%", will do it soon") slotId)
-        pSk
-    whenJust pSk $ logInfo . sformat ("Will use proxy signature key "%build)
+    let logReason =
+            sformat ("I have a right to create a delegated block for the slot "%slotIdF%" ")
+                    slotId
+        logLeader = "because i'm a leader"
+        logCert (Left psk) =
+            sformat ("using ligtweight proxy signature key"%build%", will do it soon") psk
+        logCert (Right psk) =
+            sformat ("using heavyweight proxy signature key"%build%", will do it soon") psk
+    logInfo $ logReason <> maybe logLeader logCert pSk
     nextSlotStart <- getSlotStart (succ slotId)
     currentTime <- getCurrentTime
     let timeToCreate =

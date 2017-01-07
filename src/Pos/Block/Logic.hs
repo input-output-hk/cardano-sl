@@ -44,8 +44,8 @@ import           Pos.Constants             (curProtocolVersion, curSoftwareVersi
 import           Pos.Context               (NodeContext (ncSecretKey), getNodeContext,
                                             putBlkSemaphore, readBlkSemaphore,
                                             readLeaders, readRichmen, takeBlkSemaphore)
-import           Pos.Crypto                (ProxySecretKey, SecretKey,
-                                            WithHash (WithHash), hash, shortHashF)
+import           Pos.Crypto                (SecretKey, WithHash (WithHash), hash,
+                                            shortHashF)
 import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.DB                    (MonadDB, getTipBlockHeader, loadHeadersWhile)
 import qualified Pos.DB                    as DB
@@ -62,14 +62,15 @@ import           Pos.Txp.Logic             (txApplyBlocks, txRollbackBlocks,
 import           Pos.Types                 (Block, BlockHeader, Blund, EpochIndex,
                                             EpochOrSlot (..), GenesisBlock, HeaderHash,
                                             MainBlock, MainExtraBodyData (..),
-                                            MainExtraHeaderData (..), SlotId (..), TxAux,
-                                            TxId, Undo (..), VerifyHeaderParams (..),
-                                            blockHeader, difficultyL, epochOrSlot,
-                                            flattenEpochOrSlot, genesisHash,
-                                            getEpochOrSlot, headerHash, headerSlot,
-                                            mkGenesisBlock, mkMainBlock, mkMainBody,
-                                            prevBlockL, topsortTxs, verifyHeader,
-                                            verifyHeaders, vhpVerifyConsensus)
+                                            MainExtraHeaderData (..), ProxySKEither,
+                                            SlotId (..), TxAux, TxId, Undo (..),
+                                            VerifyHeaderParams (..), blockHeader,
+                                            difficultyL, epochOrSlot, flattenEpochOrSlot,
+                                            genesisHash, getEpochOrSlot, headerHash,
+                                            headerSlot, mkGenesisBlock, mkMainBlock,
+                                            mkMainBody, prevBlockL, topsortTxs,
+                                            verifyHeader, verifyHeaders,
+                                            vhpVerifyConsensus)
 import qualified Pos.Types                 as Types
 import           Pos.Util                  (inAssertMode)
 import           Pos.WorkMode              (WorkMode)
@@ -403,7 +404,7 @@ createMainBlock
     :: forall ssc m.
        WorkMode ssc m
     => SlotId
-    -> Maybe (ProxySecretKey (EpochIndex, EpochIndex))
+    -> Maybe ProxySKEither
     -> m (Either Text (MainBlock ssc))
 createMainBlock sId pSk = withBlkSemaphore createMainBlockDo
   where
@@ -433,7 +434,7 @@ createMainBlockFinish
     :: forall ssc m.
        WorkMode ssc m
     => SlotId
-    -> Maybe (ProxySecretKey (EpochIndex, EpochIndex))
+    -> Maybe ProxySKEither
     -> BlockHeader ssc
     -> m (MainBlock ssc)
 createMainBlockFinish slotId pSk prevHeader = do
@@ -454,7 +455,7 @@ createMainBlockPure
     :: Ssc ssc
     => BlockHeader ssc
     -> [(TxId, TxAux)]
-    -> Maybe (ProxySecretKey (EpochIndex, EpochIndex))
+    -> Maybe ProxySKEither
     -> SlotId
     -> SscPayload ssc
     -> SecretKey

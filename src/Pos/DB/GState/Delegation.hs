@@ -4,7 +4,8 @@
 -- | Part of GState DB which stores data necessary for heavyweight delegation.
 
 module Pos.DB.GState.Delegation
-       ( getPSKByIssuer
+       ( getPSKByIssuerAddressHash
+       , getPSKByIssuer
        , DelegationOp (..)
        , IssuerPublicKey (..)
        , iteratePSKs
@@ -19,17 +20,21 @@ import           Pos.Crypto        (PublicKey, pskIssuerPk)
 import           Pos.DB.Class      (MonadDB, getUtxoDB)
 import           Pos.DB.DBIterator (DBMapIterator, mapIterator)
 import           Pos.DB.Functions  (RocksBatchOp (..), rocksGetBi)
-import           Pos.Types         (ProxySKSimple)
+import           Pos.Types         (AddressHash, ProxySKSimple, addressHash)
 
 
 ----------------------------------------------------------------------------
 -- Getters/direct accessors
 ----------------------------------------------------------------------------
 
+-- | Retrieves certificate by issuer address (hash of public key) if present.
+getPSKByIssuerAddressHash :: MonadDB ssc m => AddressHash PublicKey -> m (Maybe ProxySKSimple)
+getPSKByIssuerAddressHash addrHash =
+    rocksGetBi (pskKey $ IssuerPublicKey addrHash) =<< getUtxoDB
+
 -- | Retrieves certificate by issuer public key if present.
 getPSKByIssuer :: MonadDB ssc m => PublicKey -> m (Maybe ProxySKSimple)
-getPSKByIssuer issuerPk =
-    rocksGetBi (pskKey $ IssuerPublicKey issuerPk) =<< getUtxoDB
+getPSKByIssuer = getPSKByIssuerAddressHash . addressHash
 
 ----------------------------------------------------------------------------
 -- Batch operations
@@ -43,9 +48,10 @@ data DelegationOp
 
 instance RocksBatchOp DelegationOp where
     toBatchOp (AddPSK psk) =
-        [Rocks.Put (pskKey $ IssuerPublicKey $ pskIssuerPk psk) (encodeStrict psk)]
+        [Rocks.Put (pskKey $ IssuerPublicKey $ addressHash $ pskIssuerPk psk)
+                   (encodeStrict psk)]
     toBatchOp (DelPSK issuerPk) =
-        [Rocks.Del $ pskKey $ IssuerPublicKey issuerPk]
+        [Rocks.Del $ pskKey $ IssuerPublicKey $ addressHash issuerPk]
 
 ----------------------------------------------------------------------------
 -- Iteration
@@ -62,12 +68,12 @@ iteratePSKs iter f = mapIterator @IterType @v iter f =<< getUtxoDB
 ----------------------------------------------------------------------------
 
 -- [CSL-379] Restore prefix after we have proper iterator
-newtype IssuerPublicKey = IssuerPublicKey PublicKey
+newtype IssuerPublicKey = IssuerPublicKey (AddressHash PublicKey)
 
 instance Bi IssuerPublicKey where
     put (IssuerPublicKey p) = put ("d/" :: ByteString) >> put p -- chto by eto ne znaczilo
     get = (get :: Get ByteString) >> IssuerPublicKey <$> get
 
--- Storing IssuerPk -> ProxySKSimple
+-- Storing Hash IssuerPk -> ProxySKSimple
 pskKey :: IssuerPublicKey -> ByteString
 pskKey = encodeStrict

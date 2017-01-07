@@ -49,6 +49,8 @@ module Pos.Util
        , logWarningWaitOnce
        , logWarningWaitLinear
        , logWarningWaitInf
+       , runWithRandomIntervals'
+       , waitRandomInterval'
        , runWithRandomIntervals
        , waitRandomInterval
        , waitAnyUnexceptional
@@ -82,8 +84,8 @@ import qualified Control.Monad                 as Monad (fail)
 import           Control.TimeWarp.Rpc          (Dialog (..), Message (messageName),
                                                 MessageName, ResponseT (..),
                                                 Transfer (..))
-import           Control.TimeWarp.Timed        (Microsecond, MonadTimed (fork, wait),
-                                                Second, TimedIO, for, killThread)
+import           Control.TimeWarp.Timed        (MonadTimed (fork, wait), Second, TimedIO,
+                                                for, killThread)
 import qualified Data.Cache.LRU                as LRU
 import           Data.Hashable                 (Hashable)
 import qualified Data.HashMap.Strict           as HM
@@ -96,8 +98,12 @@ import qualified Data.Serialize                as Cereal (Get, Put)
 import           Data.String                   (IsString (fromString), String)
 import qualified Data.Text                     as T
 import           Data.Time.Units               (convertUnit)
+import           Data.Time.Units               (Microsecond)
 import           Formatting                    (sformat, shown, stext, (%))
 import           Language.Haskell.TH
+import           Mockable.Class                (Mockable)
+-- TODO remove import of MonadTimed and make import unqualified
+import qualified Mockable.Concurrent           as MC
 import           Serokell.Util                 (VerificationRes (..))
 import           System.Console.ANSI           (Color (..), ColorIntensity (Vivid),
                                                 ConsoleLayer (Foreground),
@@ -370,6 +376,26 @@ runWithRandomIntervals minT maxT action = do
   waitRandomInterval minT maxT
   action
   runWithRandomIntervals minT maxT action
+
+-- TODO remove MonadIO in preference to some `Mockable Random`
+-- | Wait random number of 'Microsecond'`s between min and max.
+waitRandomInterval'
+    :: (MonadIO m, Mockable MC.Delay m)
+    => Microsecond -> Microsecond -> m ()
+waitRandomInterval' minT maxT = do
+    interval <-
+        (+ minT) . fromIntegral <$>
+        liftIO (randomNumber $ fromIntegral $ maxT - minT)
+    MC.wait $ for interval
+
+-- | Wait random interval and then perform given action.
+runWithRandomIntervals'
+    :: (MonadIO m, Mockable MC.Delay m)
+    => Microsecond -> Microsecond -> m () -> m ()
+runWithRandomIntervals' minT maxT action = do
+  waitRandomInterval' minT maxT
+  action
+  runWithRandomIntervals' minT maxT action
 
 -- [TW-84]: move to serokell-core or time-warp?
 waitAnyUnexceptional

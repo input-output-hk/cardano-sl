@@ -55,8 +55,8 @@ library
                         Pos.NewDHT.Model.Class
                         Pos.NewDHT.Model.Class.BiP
                         Pos.NewDHT.Model.Class.MonadDHT
-                        -- Pos.NewDHT.Real
-                        -- Pos.NewDHT.Real.Real
+                        Pos.NewDHT.Real
+                        Pos.NewDHT.Real.Real
                         Pos.NewDHT.Real.Types
                         Pos.DHT
                         Pos.DHT.Model

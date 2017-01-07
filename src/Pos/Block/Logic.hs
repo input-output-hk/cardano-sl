@@ -447,7 +447,7 @@ createMainBlockFinish slotId pSk prevHeader = do
     let prependToUndo undos tx =
             fromMaybe (panic "Undo for tx not found")
                       (HM.lookup (fst tx) localUndo) : undos
-    let blockUndo = Undo (reverse $ foldl' prependToUndo [] localTxs) notImplemented
+    let blockUndo = Undo (reverse $ foldl' prependToUndo [] localTxs) []
     blk <$ applyBlocks (pure (Right blk, blockUndo))
 
 createMainBlockPure

@@ -20,7 +20,8 @@ import           Universum
 import           Pos.Binary.Class                       (Bi)
 import           Pos.Binary.Crypto                      ()
 import           Pos.Communication.Types                (ResponseMode)
-import           Pos.Context                            (WithNodeContext (getNodeContext))
+import           Pos.Context                            (WithNodeContext (getNodeContext),
+                                                         readRichmen)
 import           Pos.DHT.Model                          (ListenerDHT (..))
 import           Pos.Security                           (shouldIgnorePkAddress)
 import           Pos.Slotting                           (getCurrentSlot)
@@ -100,7 +101,8 @@ instance ( WorkMode SscGodTossing m
         -- TODO: Add here malicious emulation for network addresses
         -- when TW will support getting peer address properly
         ifM (not <$> flip shouldIgnorePkAddress addr <$> getNodeContext)
-            (sscProcessMessage dat addr) $ True <$
+            (do richmen <- readRichmen
+                sscProcessMessage richmen dat addr) $ True <$
             (logDebug $ sformat
                 ("Malicious emulation: data "%build%" for address "%build%" ignored")
                 dat addr)

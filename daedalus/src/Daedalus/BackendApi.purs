@@ -5,7 +5,7 @@ import Control.Monad.Aff (Aff)
 import Control.Monad.Eff.Exception (error, Error)
 import Control.Monad.Error.Class (throwError)
 import Daedalus.Constants (backendPrefix)
-import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency)
+import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency, WalletError)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (decodeJson, encodeJson)
 import Data.Array.Partial (last)
@@ -35,24 +35,32 @@ backendApi path = mkUrl $ [backendPrefix, "api"] <> path
 data ApiError
     = HTTPStatusError (AffjaxResponse Json)
     | JSONDecodingError String
+    | ServerError WalletError
 
 instance showApiError :: Show ApiError where
     show (HTTPStatusError res) =
-        "HTTPStatusError: " <> show res.status
+        "HTTPStatusError: " <> show res.status <> " msg: " <> show res.response
     show (JSONDecodingError e) =
         "JSONDecodingError: " <> show e
+    show (ServerError e) =
+        "ServerError: " <> gShow e
 
 -- REQUESTS HELPERS
 
 decodeResult :: forall a eff. Generic a => {response :: Json | eff} -> Either Error a
-decodeResult res = bimap (error <<< show <<< JSONDecodingError) id $ decodeJson res.response
+decodeResult = either (Left <<< mkJSONError) (bimap mkServerError id) <<< decodeJson <<< _.response
+  where
+    mkJSONError = error <<< show <<< JSONDecodingError
+    mkServerError = error <<< show <<< ServerError
 
 makeRequest :: forall eff a r. (Generic a, Requestable r) => AffjaxRequest r -> URLPath -> Aff (ajax :: AJAX | eff) a
 makeRequest request urlPath = do
     res <- affjax $ request { url = backendApi urlPath }
-    when (res.status /= StatusCode 200) $
-      throwError <<< error <<< show $ HTTPStatusError res
+    when (isHttpError res.status) $
+        throwError <<< error <<< show $ HTTPStatusError res
     either throwError pure $ decodeResult res
+  where
+    isHttpError (StatusCode c) = c >= 400
 
 getR :: forall eff a. Generic a => URLPath -> Aff (ajax :: AJAX | eff) a
 getR = makeRequest defaultRequest

@@ -8,12 +8,14 @@ import           Data.Aeson.TH              (defaultOptions, deriveJSON, deriveT
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile,
                                              CTExMeta, CTType, CTx, CTxId, CTxMeta,
                                              CWallet, CWalletMeta, CWalletType)
+import           Pos.Wallet.Web.Error       (WalletError)
 
 deriveJSON defaultOptions ''CCurrency
 deriveJSON defaultOptions ''CWalletType
 deriveJSON defaultOptions ''CWalletMeta
 deriveJSON defaultOptions ''CTxMeta
 
+deriveToJSON defaultOptions ''WalletError
 deriveToJSON defaultOptions ''CHash
 deriveToJSON defaultOptions ''CAddress
 deriveToJSON defaultOptions ''CTxId

@@ -31,7 +31,8 @@ import           Pos.DB.Class         (MonadDB, getUtxoDB)
 import           Pos.DB.Error         (DBError (DBMalformed))
 import           Pos.DB.Functions     (RocksBatchOp (..), traverseAllEntries)
 import           Pos.DB.GState.Common (getBi, putBi)
-import           Pos.DB.Types         (ProposalState (..))
+import           Pos.DB.Types         (ProposalState (..), UndecidedProposalState (..),
+                                       psProposal)
 import           Pos.Genesis          (genesisProtocolVersion)
 import           Pos.Types            (ApplicationName, Coin, EpochIndex, ProtocolVersion,
                                        SlotId, SoftwareVersion (..), StakeholderId,
@@ -77,15 +78,20 @@ data UpdateOp
     | ConfirmUpdate !SoftwareVersion
 
 instance RocksBatchOp UpdateOp where
-    toBatchOp (PutProposal ProposalState {psProposal = up@UpdateProposal {..}
-                                         ,..}) =
-        [ Rocks.Put (proposalSlotKey psSlot) (encodeStrict upSoftwareVersion)
-        , Rocks.Put (proposalKey upSoftwareVersion) (encodeStrict up)
-        ]
+    toBatchOp (PutProposal ps) =
+        Rocks.Put (proposalKey (upSoftwareVersion up)) (encodeStrict up) :
+        putUndecidedProposalSlot ps
+      where
+        up = psProposal ps
     toBatchOp (DeleteProposal slotId sv) =
         [Rocks.Del (proposalSlotKey slotId), Rocks.Del (proposalKey sv)]
     toBatchOp (ConfirmUpdate SoftwareVersion {..}) =
         [Rocks.Put (confirmedVersionKey svAppName) (encodeStrict svNumber)]
+
+putUndecidedProposalSlot :: ProposalState -> [Rocks.BatchOp]
+putUndecidedProposalSlot (PSUndecided ups) =
+    [Rocks.Put (proposalSlotKey (upsSlot ups)) (encodeStrict (upsProposal ups))]
+putUndecidedProposalSlot _ = []
 
 -- I suppose batching is not necessary here.
 -- | Put richmen and their stakes for given epoch.

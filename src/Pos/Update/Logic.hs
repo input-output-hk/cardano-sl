@@ -18,8 +18,8 @@ import           Universum
 
 import           Pos.Constants        (updateProposalThreshold, updateVoteThreshold)
 import qualified Pos.DB               as DB
-import           Pos.DB.Types         (ProposalState (..), mkProposalState,
-                                       voteToProposalState)
+import           Pos.DB.Types         (ProposalState (..), UndecidedProposalState (..),
+                                       mkUProposalState, voteToUProposalState)
 import           Pos.Types            (Block, Coin, EpochIndex, NEBlocks, SlotId (..),
                                        UpdateProposal (..), UpdateVote (..), addressHash,
                                        applyCoinPortion, blockSlot, coinF, gbExtra,
@@ -65,10 +65,10 @@ applyProposal
     :: WorkMode ssc m
     => SlotId -> [UpdateVote] -> UpdateProposal -> m [DB.SomeBatchOp]
 applyProposal slot votes proposal =
-    pure . DB.SomeBatchOp . DB.PutProposal <$>
+    pure . DB.SomeBatchOp . DB.PutProposal . PSUndecided <$>
     execStateT (mapM_ (applyVote epoch) votes) ps
   where
-    ps = mkProposalState slot proposal
+    ps = mkUProposalState slot proposal
     epoch = siEpoch slot
 
 -- Votes must be for the same update here.
@@ -78,17 +78,20 @@ applyVotesGroup
 applyVotesGroup votes = do
     let sv = uvSoftware $ votes ^. _neHead
     ps <- maybeThrow (USUnknownSoftware sv) =<< DB.getProposalState sv
-    let epoch = siEpoch $ psSlot ps
-    pure . DB.SomeBatchOp . DB.PutProposal <$>
-        execStateT (mapM_ (applyVote epoch) votes) ps
+    case ps of
+        PSDecided _ -> pure []
+        PSUndecided ups -> do
+            let epoch = siEpoch $ upsSlot ups
+            pure . DB.SomeBatchOp . DB.PutProposal . PSUndecided <$>
+                execStateT (mapM_ (applyVote epoch) votes) ups
 
 applyVote
     :: WorkMode ssc m
-    => EpochIndex -> UpdateVote -> StateT ProposalState m ()
+    => EpochIndex -> UpdateVote -> StateT UndecidedProposalState m ()
 applyVote epoch UpdateVote {..} = do
     let id = addressHash uvKey
     stake <- maybeThrow (USNotRichmen id) =<< DB.getStakeUS epoch id
-    modify $ voteToProposalState uvKey stake uvDecision
+    modify $ voteToUProposalState uvKey stake uvDecision
 
 -- | Revert application of given blocks to US part of GState DB
 -- and US local data. Head must be the __youngest__ block. Caller must

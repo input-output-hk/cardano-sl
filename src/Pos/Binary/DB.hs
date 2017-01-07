@@ -8,8 +8,8 @@ import           Data.Binary         (Binary)
 import           Universum
 
 import           Pos.Binary.Class    (Bi (..))
-import           Pos.DB.Types        (LrcStorage (..), ProposalState (..),
-                                      StoredBlock (..), VoteState (..))
+import           Pos.DB.Types        (LrcStorage (..), ProposalState, StoredBlock (..),
+                                      UndecidedProposalState (..), VoteState (..))
 import           Pos.Ssc.Class.Types (Ssc)
 
 instance Ssc ssc =>
@@ -27,11 +27,15 @@ instance Bi (LrcStorage ssc) where
 instance Binary VoteState
 instance Bi VoteState
 
+instance Bi UndecidedProposalState where
+    put UndecidedProposalState {..} = do
+        put upsVotes
+        put upsProposal
+        put upsSlot
+        put upsPositiveStake
+        put upsNegativeStake
+    get = UndecidedProposalState <$> get <*> get <*> get <*> get <*> get
+
 instance Bi ProposalState where
-    put ProposalState {..} = do
-        put psVotes
-        put psProposal
-        put psSlot
-        put psPositiveStake
-        put psNegativeStake
-    get = ProposalState <$> get <*> get <*> get <*> get <*> get
+    put = notImplemented
+    get = notImplemented

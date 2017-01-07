@@ -19,11 +19,14 @@ module Pos.DB.Types
 
         -- * Update System related types.
        , VoteState (..)
+       , UndecidedProposalState (..)
+       , DecidedProposalState (..)
        , ProposalState (..)
+       , psProposal
        , canCombineVotes
        , combineVotes
-       , mkProposalState
-       , voteToProposalState
+       , mkUProposalState
+       , voteToUProposalState
        ) where
 
 import           Control.Exception   (assert)
@@ -34,8 +37,9 @@ import           Formatting          (sformat, shown, (%))
 import           Universum
 
 import           Pos.Crypto          (PublicKey)
-import           Pos.Types           (Block, Coin, EpochIndex, Richmen, SlotId,
-                                      SlotLeaders, UpdateProposal, mkCoin, unsafeAddCoin)
+import           Pos.Types           (Block, ChainDifficulty, Coin, EpochIndex, Richmen,
+                                      SlotId, SlotLeaders, UpdateProposal, mkCoin,
+                                      unsafeAddCoin)
 
 ----------------------------------------------------------------------------
 -- General
@@ -116,44 +120,67 @@ combineVotes decision oldVote = assert (canCombineVotes decision oldVote) combin
         ("combineVotes: these votes can't be combined ("%shown%" and "%shown%")")
         decision
 
--- | State of UpdateProposal.
-data ProposalState = ProposalState
-    { psVotes         :: !(HashMap PublicKey VoteState)
+-- | State of UpdateProposal which can't be classified as approved or
+-- rejected.
+data UndecidedProposalState = UndecidedProposalState
+    { upsVotes         :: !(HashMap PublicKey VoteState)
       -- ^ Votes given for this proposal.
-    , psProposal      :: !UpdateProposal
+    , upsProposal      :: !UpdateProposal
       -- ^ Proposal itself.
-    , psSlot          :: !SlotId
+    , upsSlot          :: !SlotId
       -- ^ SlotId from block in which update was proposed.
-    , psPositiveStake :: !Coin
+    , upsPositiveStake :: !Coin
       -- ^ Total stake of all positive votes.
-    , psNegativeStake :: !Coin
+    , upsNegativeStake :: !Coin
       -- ^ Total stake of all negative votes.
     } deriving (Generic)
 
--- | Make ProposalState from immutable data, i. e. SlotId and UpdateProposal.
-mkProposalState :: SlotId -> UpdateProposal -> ProposalState
-mkProposalState psSlot psProposal =
-    ProposalState
-    { psVotes = mempty
-    , psPositiveStake = mkCoin 0
-    , psNegativeStake = mkCoin 0
+-- | State of UpdateProposal which can be classified as approved or
+-- rejected.
+data DecidedProposalState = DecidedProposalState
+    { dpsDecision   :: !Bool
+      -- ^ Whether proposal is approved.
+    , dpsProposal   :: !UpdateProposal
+      -- ^ Proposal itself.
+    , dpsDifficulty :: !ChainDifficulty
+      -- ^ Difficulty at which this proposal became approved/rejected.
+    } deriving (Generic)
+
+-- | State of UpdateProposal.
+data ProposalState
+    = PSUndecided !UndecidedProposalState
+    | PSDecided !DecidedProposalState
+
+psProposal :: ProposalState -> UpdateProposal
+psProposal (PSUndecided ups) = upsProposal ups
+psProposal (PSDecided dps)   = dpsProposal dps
+
+-- | Make UndecidedProposalState from immutable data, i. e. SlotId and
+-- UpdateProposal.
+mkUProposalState :: SlotId -> UpdateProposal -> UndecidedProposalState
+mkUProposalState upsSlot upsProposal =
+    UndecidedProposalState
+    { upsVotes = mempty
+    , upsPositiveStake = mkCoin 0
+    , upsNegativeStake = mkCoin 0
     , ..
     }
 
--- | Apply vote to ProposalState, thus modifing mutable data,
+-- | Apply vote to UndecidedProposalState, thus modifing mutable data,
 -- i. e. votes and stakes.
-voteToProposalState :: PublicKey -> Coin -> Bool -> ProposalState -> ProposalState
-voteToProposalState voter stake decision ProposalState {..} =
-    ProposalState
-    { psVotes = HM.alter (Just . combineVotes decision) voter psVotes
-    , psPositiveStake = newPositiveStake
-    , psNegativeStake = newNegativeStake
+voteToUProposalState ::
+    PublicKey -> Coin -> Bool -> UndecidedProposalState -> UndecidedProposalState
+voteToUProposalState voter stake decision UndecidedProposalState {..} =
+    UndecidedProposalState
+    { upsVotes = HM.alter (Just . combineVotes decision) voter upsVotes
+    , upsPositiveStake = newPositiveStake
+    , upsNegativeStake = newNegativeStake
     , ..
     }
   where
     newPositiveStake
-        | decision = psPositiveStake `unsafeAddCoin` stake
-        | otherwise = psPositiveStake
+        | decision = upsPositiveStake `unsafeAddCoin` stake
+        | otherwise = upsPositiveStake
     newNegativeStake
-        | decision = psNegativeStake
-        | otherwise = psNegativeStake `unsafeAddCoin` stake
+        | decision = upsNegativeStake
+        | otherwise = upsNegativeStake `unsafeAddCoin` stake

@@ -10,9 +10,13 @@
 module Mockable.Class
   ( Mockable (..)
   , MFunctor' (..)
+  , liftMockableWrappedM
   ) where
 
+import           Control.Lens               (view)
 import           Control.Monad.Trans.Reader (ReaderT (..))
+import           Serokell.Util.Lens         (WrappedM (..), _UnwrappedM)
+import           System.Wlog                (LoggerName, LoggerNameBox)
 
 class MFunctor' f m n where
     hoist' :: (forall t . m t -> n t) -> f m t -> f n t
@@ -32,3 +36,16 @@ class ( Monad m ) => Mockable (d :: (* -> *) -> * -> *) (m :: * -> *) where
 
 instance (Mockable d m, MFunctor' d (ReaderT r m) m) => Mockable d (ReaderT r m) where
     liftMockable dmt = ReaderT $ \r -> liftMockable $ hoist' (flip runReaderT r) dmt
+
+liftMockableWrappedM
+    :: ( Mockable d (UnwrappedM m)
+       , MFunctor' d m (UnwrappedM m)
+       , WrappedM m
+       ) => d m t -> m t
+liftMockableWrappedM dmt = view _UnwrappedM $ liftMockable $ hoist' (view _WrappedM) dmt
+
+instance ( Mockable d m
+         , MFunctor' d (LoggerNameBox m) (ReaderT LoggerName m)
+         , MFunctor' d (ReaderT LoggerName m) m
+         ) => Mockable d (LoggerNameBox m) where
+    liftMockable = liftMockableWrappedM

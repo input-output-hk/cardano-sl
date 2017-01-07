@@ -31,6 +31,9 @@ module Mockable.Concurrent (
   , async
   , wait
   , cancel
+  , waitAny
+  , waitAnyNonFail
+  , waitAnyUnexceptional
 
   , Concurrently(..)
   , concurrently
@@ -39,12 +42,11 @@ module Mockable.Concurrent (
 
   ) where
 
-import           Control.Monad.Reader (ReaderT)
-import           Data.Time.Units      (Microsecond)
+import           Data.Time.Units    (Microsecond)
 import           Mockable.Class
+import           Mockable.Exception (Catch, catchAll)
 
 type family ThreadId (m :: * -> *) :: *
-type instance ThreadId (ReaderT r m) = ThreadId m
 
 -- | Fork mock to add ability for threads manipulation.
 data Fork m t where
@@ -112,6 +114,7 @@ type family Promise (m :: * -> *) :: * -> *
 data Async m t where
     Async :: m t -> Async m (Promise m t)
     Wait :: Promise m t -> Async m t
+    WaitAny :: [Promise m t] -> Async m (Promise m t, t)
     Cancel :: Promise m t -> Async m ()
 
 async :: ( Mockable Async m ) => m t -> m (Promise m t)
@@ -120,12 +123,16 @@ async m = liftMockable $ Async m
 wait :: ( Mockable Async m ) => Promise m t -> m t
 wait promise = liftMockable $ Wait promise
 
+waitAny :: ( Mockable Async m ) => [Promise m t] -> m (Promise m t, t)
+waitAny promises = liftMockable $ WaitAny promises
+
 cancel :: ( Mockable Async m ) => Promise m t -> m ()
 cancel promise = liftMockable $ Cancel promise
 
 instance (Promise n ~ Promise m) => MFunctor' Async m n where
     hoist' nat (Async act) = Async $ nat act
     hoist' _ (Wait p)      = Wait p
+    hoist' _ (WaitAny p)   = WaitAny p
     hoist' _ (Cancel p)    = Cancel p
 
 data Concurrently m t where
@@ -163,3 +170,22 @@ forConcurrently
     -> (s -> m t)
     -> m (f t)
 forConcurrently = flip mapConcurrently
+
+waitAnyNonFail
+    :: ( Mockable Async m, Eq (Promise m (Maybe a)) )
+    => [ Promise m (Maybe a) ] -> m (Maybe (Promise m (Maybe a), a))
+waitAnyNonFail promises = waitAny promises >>= handleRes
+  where
+    handleRes (p, Just res) = pure $ Just (p, res)
+    handleRes (p, _)        = waitAnyNonFail (filter (/= p) promises)
+
+waitAnyUnexceptional
+    :: ( Mockable Async m, Mockable Catch m, Eq (Promise m (Maybe a)) )
+    => [m a] -> m (Maybe a)
+waitAnyUnexceptional acts = impl
+  where
+    impl = (fmap . fmap) snd $ waitAnyNonFail =<< mapM toAsync acts
+    toAsync :: ( Mockable Async m, Mockable Catch m ) => m a -> m (Promise m (Maybe a))
+    toAsync = async . forPromise
+    forPromise :: ( Mockable Async m, Mockable Catch m ) => m a -> m (Maybe a)
+    forPromise a = (Just <$> a) `catchAll` (const $ pure Nothing)

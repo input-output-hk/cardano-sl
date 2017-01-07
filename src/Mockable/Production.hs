@@ -61,9 +61,10 @@ instance Mockable CurrentTime Production where
 type instance Promise Production = Conc.Async
 
 instance Mockable Async Production where
-    liftMockable (Async m)        = Production $ Conc.async (runProduction m)
-    liftMockable (Wait promise)   = Production $ Conc.wait promise
-    liftMockable (Cancel promise) = Production $ Conc.cancel promise
+    liftMockable (Async m)          = Production $ Conc.async (runProduction m)
+    liftMockable (Wait promise)     = Production $ Conc.wait promise
+    liftMockable (WaitAny promises) = Production $ Conc.waitAny promises
+    liftMockable (Cancel promise)   = Production $ Conc.cancel promise
 
 instance Mockable Concurrently Production where
     liftMockable (Concurrently a b) = Production $

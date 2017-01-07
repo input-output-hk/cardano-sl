@@ -106,7 +106,7 @@ mkMainHeader
     => Maybe (BlockHeader ssc)
     -> SlotId
     -> SecretKey
-    -> Maybe ProxySKEpoch
+    -> Maybe ProxySKEither
     -> Body (MainBlockchain ssc)
     -> MainExtraHeaderData
     -> MainBlockHeader ssc
@@ -114,15 +114,15 @@ mkMainHeader prevHeader slotId sk pSk body extra =
     mkGenericHeader prevHeader body consensus extra
   where
     difficulty = maybe 0 (succ . view difficultyL) prevHeader
+    makeSignature toSign (Left psk)  = BlockPSignatureEpoch $ proxySign sk psk toSign
+    makeSignature toSign (Right psk) = BlockPSignatureSimple $ proxySign sk psk toSign
     signature prevHash proof =
         let toSign = (prevHash, proof, slotId, difficulty)
-        in maybe (BlockSignature $ sign sk toSign)
-                 (\(proxySk) -> BlockPSignature $ proxySign sk proxySk toSign)
-                 pSk
+        in maybe (BlockSignature $ sign sk toSign) (makeSignature toSign) pSk
     consensus prevHash proof =
         MainConsensusData
         { _mcdSlot = slotId
-        , _mcdLeaderKey = maybe (toPublic sk) pskIssuerPk pSk
+        , _mcdLeaderKey = maybe (toPublic sk) (either pskIssuerPk pskIssuerPk) pSk
         , _mcdDifficulty = difficulty
         , _mcdSignature = signature prevHash proof
         }
@@ -133,7 +133,7 @@ mkMainBlock
     => Maybe (BlockHeader ssc)
     -> SlotId
     -> SecretKey
-    -> Maybe ProxySKEpoch
+    -> Maybe ProxySKEither
     -> Body (MainBlockchain ssc)
     -> MainExtraHeaderData
     -> MainExtraBodyData
@@ -205,12 +205,18 @@ verifyConsensusLocal (Right header) =
   where
     verifyBlockSignature (BlockSignature sig) =
         checkSig pk (_gbhPrevBlock, _gbhBodyProof, slotId, d) sig
-    verifyBlockSignature (BlockPSignature proxySig) =
+    verifyBlockSignature (BlockPSignatureEpoch proxySig) =
         proxyVerify
             pk
             proxySig
             (\(epochLow, epochHigh) ->
                epochId <= epochHigh && epochId >= epochLow)
+            (_gbhPrevBlock, _gbhBodyProof, slotId, d)
+    verifyBlockSignature (BlockPSignatureSimple proxySig) =
+        proxyVerify
+            pk
+            proxySig
+            (const True)
             (_gbhPrevBlock, _gbhBodyProof, slotId, d)
     GenericBlockHeader {_gbhConsensus = consensus
                        ,..} = header

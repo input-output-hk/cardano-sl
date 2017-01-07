@@ -50,7 +50,9 @@ import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.DB                    (MonadDB, getTipBlockHeader, loadHeadersWhile)
 import qualified Pos.DB                    as DB
 import           Pos.DB.Error              (DBError (..))
-import           Pos.Delegation.Logic      (delegationVerifyBlocks)
+import           Pos.Delegation.Logic      (delegationApplyBlocks,
+                                            delegationRollbackBlocks,
+                                            delegationVerifyBlocks, getProxyMempool)
 import           Pos.Slotting              (getCurrentSlot)
 import           Pos.Ssc.Class             (Ssc (..))
 import           Pos.Ssc.Extra             (sscApplyBlocks, sscApplyGlobalState,
@@ -62,8 +64,9 @@ import           Pos.Txp.Logic             (txApplyBlocks, txRollbackBlocks,
 import           Pos.Types                 (Block, BlockHeader, Blund, EpochIndex,
                                             EpochOrSlot (..), GenesisBlock, HeaderHash,
                                             MainBlock, MainExtraBodyData (..),
-                                            MainExtraHeaderData (..), SlotId (..), TxAux,
-                                            TxId, Undo (..), VerifyHeaderParams (..),
+                                            MainExtraHeaderData (..), ProxySKEither,
+                                            ProxySKSimple, SlotId (..), TxAux, TxId,
+                                            Undo (..), VerifyHeaderParams (..),
                                             blockHeader, difficultyL, epochOrSlot,
                                             flattenEpochOrSlot, genesisHash,
                                             getEpochOrSlot, headerHash, headerSlot,
@@ -319,6 +322,7 @@ applyBlocks blunds = do
     let blks = fmap fst blunds
     -- Note: it's important to put blocks first
     mapM_ putToDB blunds
+    mapM_ DB.writeBatchGState =<< delegationApplyBlocks (map fst blunds)
     txApplyBlocks blunds
     sscApplyBlocks blks
     sscApplyGlobalState
@@ -331,6 +335,7 @@ applyBlocks blunds = do
 rollbackBlocks :: (WorkMode ssc m) => NonEmpty (Block ssc, Undo) -> m ()
 rollbackBlocks toRollback = do
     -- [CSL-378] Update sbInMain properly (in transaction)
+    mapM_ DB.writeBatchGState =<< delegationRollbackBlocks toRollback
     txRollbackBlocks toRollback
     forM_ (NE.toList toRollback) $
         \(blk,_) -> DB.setBlockInMainChain (hash $ blk ^. blockHeader) False
@@ -402,7 +407,7 @@ createMainBlock
     :: forall ssc m.
        WorkMode ssc m
     => SlotId
-    -> Maybe (ProxySecretKey (EpochIndex, EpochIndex))
+    -> Maybe ProxySKEither
     -> m (Either Text (MainBlock ssc))
 createMainBlock sId pSk = withBlkSemaphore createMainBlockDo
   where
@@ -432,36 +437,38 @@ createMainBlockFinish
     :: forall ssc m.
        WorkMode ssc m
     => SlotId
-    -> Maybe (ProxySecretKey (EpochIndex, EpochIndex))
+    -> Maybe ProxySKEither
     -> BlockHeader ssc
     -> m (MainBlock ssc)
 createMainBlockFinish slotId pSk prevHeader = do
-    (localTxs, localUndo) <- getLocalTxsNUndo
+    (localTxs, txUndo) <- getLocalTxsNUndo
     sscData <- sscGetLocalPayload slotId
+    (localPSKs, pskUndo) <- getProxyMempool
     let panicTopsort = panic "Topology of local transactions is broken!"
     let convertTx (txId, (tx, _, _)) = WithHash tx txId
     let sortedTxs = fromMaybe panicTopsort $ topsortTxs convertTx localTxs
     sk <- ncSecretKey <$> getNodeContext
-    let blk = createMainBlockPure prevHeader sortedTxs pSk slotId sscData sk
+    let blk = createMainBlockPure prevHeader sortedTxs pSk slotId localPSKs sscData sk
     let prependToUndo undos tx =
             fromMaybe (panic "Undo for tx not found")
-                      (HM.lookup (fst tx) localUndo) : undos
-    let blockUndo = Undo (reverse $ foldl' prependToUndo [] localTxs) []
+                      (HM.lookup (fst tx) txUndo) : undos
+    let blockUndo = Undo (reverse $ foldl' prependToUndo [] localTxs) pskUndo
     blk <$ applyBlocks (pure (Right blk, blockUndo))
 
 createMainBlockPure
     :: Ssc ssc
     => BlockHeader ssc
     -> [(TxId, TxAux)]
-    -> Maybe (ProxySecretKey (EpochIndex, EpochIndex))
+    -> Maybe ProxySKEither
     -> SlotId
+    -> [ProxySKSimple]
     -> SscPayload ssc
     -> SecretKey
     -> MainBlock ssc
-createMainBlockPure prevHeader txs pSk sId sscData sk =
+createMainBlockPure prevHeader txs pSk sId psks sscData sk =
     mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
   where
     -- TODO [CSL-351] inlclude proposal, votes into block
     extraB = MainExtraBodyData (mkAttributes ()) Nothing []
     extraH = MainExtraHeaderData curProtocolVersion curSoftwareVersion (mkAttributes ())
-    body = mkMainBody (fmap snd txs) sscData []
+    body = mkMainBody (fmap snd txs) sscData psks

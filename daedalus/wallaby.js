@@ -1,6 +1,7 @@
-module.exports = function (wallaby) {
+module.exports = (wallaby) => {
   return {
     files: [
+      './mocha-entry.js',
       'dist/**/*.js'
     ],
     tests: [
@@ -12,6 +13,10 @@ module.exports = function (wallaby) {
     env: {
 			type: 'node'
 		},
-    testFramework: 'mocha'
+    testFramework: 'mocha',
+    setup: (wallaby) => {
+      // mocha entry point is needed
+      require('./mocha-entry');
+     }
   };
 };

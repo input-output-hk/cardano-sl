@@ -228,19 +228,20 @@ mpcProcessBlock blk = do
 -- | Head - youngest
 mpcRollback :: NEBlocks SscGodTossing -> GSUpdate ()
 mpcRollback blocks = do
-     -- is there guarantee that genesis block won't be passed to mpcRollback?
+     -- is there guarantee that most genesis block won't be passed to mpcRollback?
     let slot = prevSlot $ blkSlot $ NE.last blocks
     -- Rollback certs
-    gsVssCertificates %= (VCD.setLastKnownSlot slot)
+    gsVssCertificates %= VCD.setLastKnownSlot slot
     -- Rollback other payload
-    wasGenesis <- foldM (\wasGen b -> if wasGen then pure wasGen else differenceBlock b)
+    wasGenesis <- foldM (\wasGen b -> if wasGen then pure wasGen
+                                      else differenceBlock b)
                          False blocks
     when wasGenesis resetGS
   where
     prevSlot SlotId{..} =
         if (siSlot == 0) then
-            if siEpoch == 0 then panic "Genesis block passed to mpc rollback"
-            else SlotId (siEpoch - 1) (2 * k - 1)
+            if siEpoch == 0 then panic "Most genesis block passed to mpc rollback"
+            else SlotId (siEpoch - 1) (6 * k - 1)
         else SlotId siEpoch (siSlot - 1)
     differenceBlock :: Block SscGodTossing -> GSUpdate Bool
     differenceBlock (Left _)  = pure True

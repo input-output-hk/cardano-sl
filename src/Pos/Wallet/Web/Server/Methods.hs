@@ -19,8 +19,7 @@ import           Network.Wai                (Application)
 import           Pos.Crypto                 (hash)
 import           Servant.API                ((:<|>) ((:<|>)),
                                              FromHttpApiData (parseUrlPiece))
-import           Servant.Server             (Handler, ServantErr (errBody), Server,
-                                             ServerT, err400, err404, serve)
+import           Servant.Server             (Handler, Server, ServerT, serve)
 import           Servant.Utils.Enter        ((:~>) (..), enter)
 import           System.Wlog                (logInfo)
 import           Universum
@@ -31,6 +30,9 @@ import           Pos.DHT.Model              (dhtAddr, getKnownPeers)
 import           Pos.Types                  (Address, Coin, Tx, TxId, TxOut (..),
                                              addressF, coinF, decodeTextAddress,
                                              makePubKeyAddress, mkCoin)
+import           Pos.Web.Server             (serveImpl)
+
+import           Control.Monad.Catch        (try)
 import           Pos.Wallet.KeyStorage      (KeyError (..), MonadKeys (..), newSecretKey)
 import           Pos.Wallet.Tx              (submitTx)
 import           Pos.Wallet.WalletMode      (WalletMode, getBalance, getTxHistory)
@@ -39,12 +41,12 @@ import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency (ADA), CTx, CTx
                                              CTxMeta (..), CWallet (..), CWalletMeta (..),
                                              addressToCAddress, cAddressToAddress, mkCTx,
                                              mkCTxId, txIdToCTxId)
+import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.State       (MonadWalletWebDB (..), WalletWebDB,
                                              addOnlyNewTxMeta, closeState, createWallet,
                                              getTxMeta, getWalletMeta, openState,
                                              removeWallet, runWalletWebDB, setWalletMeta,
                                              setWalletTransactionMeta)
-import           Pos.Web.Server             (serveImpl)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -90,23 +92,27 @@ type WalletWebMode ssc m
 
 servantHandlers :: WalletWebMode ssc m => ServerT WalletApi m
 servantHandlers =
-     getWallet
+     catchWalletError . getWallet
     :<|>
-     getWallets
+     catchWalletError getWallets
     :<|>
-     send
+     (\a b -> catchWalletError . send a b)
     :<|>
-     getHistory
+     catchWalletError . getHistory
     :<|>
-     updateTransaction
+     (\a b -> catchWalletError . updateTransaction a b)
     :<|>
-     newWallet
+     catchWalletError . newWallet
     :<|>
-     updateWallet
+     (\a -> catchWalletError . updateWallet a)
     :<|>
-     deleteWallet
+     catchWalletError . deleteWallet
     :<|>
-     isValidAddress
+     (\a -> catchWalletError . isValidAddress a)
+  where
+    -- TODO: can we with Traversable map catchWalletError over :<|>
+    -- TODO: add logging on error
+    catchWalletError = try
 
 -- getAddresses :: WalletWebMode ssc m => m [CAddress]
 -- getAddresses = map addressToCAddress <$> myAddresses
@@ -121,13 +127,13 @@ getWallet cAddr = do
     meta <- getWalletMeta cAddr >>= maybe noWallet pure
     pure $ CWallet cAddr balance meta
   where
-    noWallet = throwErr err404 $
+    noWallet = throwM . Internal $
         sformat ("No wallet with address "%build%" is found") cAddr
 
 -- TODO: probably poor naming
 decodeCAddressOrFail :: WalletWebMode ssc m => CAddress -> m Address
 decodeCAddressOrFail = either wrongAddress pure . cAddressToAddress
-  where wrongAddress err = throwErr err400 $
+  where wrongAddress err = throwM . Internal $
             sformat ("Error while decoding CAddress: "%stext) err
 
 getWallets :: WalletWebMode ssc m => m [CWallet]
@@ -143,7 +149,7 @@ send srcCAddr dstCAddr c = do
     na <- fmap dhtAddr <$> getKnownPeers
     etx <- submitTx sk na [(TxOut dstAddr c, [])]
     case etx of
-        Left err -> throwErr err400 $ sformat ("Cannot send transaction: "%stext) err
+        Left err -> throwM . Internal $ sformat ("Cannot send transaction: "%stext) err
         Right (tx, _, _) -> do
             logInfo $
                 sformat ("Successfully sent "%coinF%" from "%ords%" address to "%addressF)
@@ -192,7 +198,7 @@ deleteWallet cAddr = do
     deleteAddress addr = do
         idx <- getAddrIdx addr
         deleteSecretKey (fromIntegral idx) `catch` deleteErrHandler
-    deleteErrHandler (PrimaryKey err) = throwErr err404 $
+    deleteErrHandler (PrimaryKey err) = throwM . Internal $
         sformat ("Error while deleting wallet: "%stext) err
 
 -- NOTE: later we will have `isValidAddress :: CCurrency -> CAddress -> m Bool` which should work for arbitrary crypto
@@ -212,13 +218,8 @@ myCAddresses = map addressToCAddress <$> myAddresses
 
 getAddrIdx :: WalletWebMode ssc m => Address -> m Int
 getAddrIdx addr = elemIndex addr <$> myAddresses >>= maybe notFound pure
-  where notFound = throwErr err404 $
+  where notFound = throwM . Internal $
             sformat ("Address "%addressF%" is not found in wallet") $ addr
-
-throwErr :: MonadThrow m => ServantErr -> Text -> m a
-throwErr err text = throwM err
-    { errBody = encodeUtf8 text
-    }
 
 ----------------------------------------------------------------------------
 -- Orphan instances

@@ -23,7 +23,7 @@ import qualified Pos.CLI                         as CLI
 import           Pos.Constants                   (genesisN, k, neighborsSendThreshold,
                                                   slotDuration)
 import           Pos.Crypto                      (KeyPair (..), hash)
-import           Pos.DHT.Model                   (DHTNodeType (..), MonadDHT, dhtAddr,
+import           Pos.DHT.Model                   (MonadDHT, dhtAddr,
                                                   discoverPeers, getKnownPeers)
 import           Pos.DHT.Real                    (KademliaDHT (..), KademliaDHTInstance)
 import           Pos.Genesis                     (genesisUtxo)
@@ -76,7 +76,7 @@ getPeers share = do
     peers <- fmap dhtAddr <$> do
         ps <- getKnownPeers
         if length ps < neighborsSendThreshold
-           then discoverPeers DHTFull
+           then discoverPeers
            else return ps
     liftIO $ chooseSubset share <$> shuffleM peers
 
@@ -231,7 +231,7 @@ main = do
             { bpLoggingParams      = logParams
             , bpPort               = 24962 + (fromIntegral $ minimum goGenesisIdxs)
             , bpDHTPeers           = CLI.dhtPeers goCommonArgs
-            , bpDHTKeyOrType       = Right DHTFull
+            , bpDHTKey             = Nothing
             , bpDHTExplicitInitial = CLI.dhtExplicitInitial goCommonArgs
             }
 

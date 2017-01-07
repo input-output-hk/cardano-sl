@@ -14,7 +14,6 @@ import           Pos.Binary           (Bi, decode, encode)
 import qualified Pos.CLI              as CLI
 import           Pos.Constants        (RunningMode (..), runningMode)
 import           Pos.Crypto           (VssKeyPair, vssKeyGen)
-import           Pos.DHT.Model        (DHTKey, DHTNodeType (..), dhtNodeType)
 import           Pos.DHT.Real         (KademliaDHTInstance)
 import           Pos.Genesis          (genesisSecretKeys, genesisUtxo)
 import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
@@ -81,31 +80,12 @@ baseParams loggingTag args@Args {..} =
     { bpLoggingParams = loggingParams loggingTag args
     , bpPort = port
     , bpDHTPeers = CLI.dhtPeers commonArgs
-    , bpDHTKeyOrType = dhtKeyOrType
+    , bpDHTKey = dhtKey
     , bpDHTExplicitInitial = CLI.dhtExplicitInitial commonArgs
     }
-  where
-    dhtKeyOrType
-        | supporterNode = maybe (Right DHTSupporter) Left dhtKey
-        | otherwise = maybe (Right DHTFull) Left dhtKey
-
-checkDhtKey :: Bool -> Maybe DHTKey -> IO ()
-checkDhtKey _ Nothing = pass
-checkDhtKey isSupporter (Just (dhtNodeType -> keyType))
-    | keyType == Just expectedType = pass
-    | otherwise =
-        fail $
-        case keyType of
-            Just type_' -> "Id of type " ++ (show type_') ++ " supplied"
-            _           -> "Id of unknown type supplied"
-  where
-    expectedType
-        | isSupporter = DHTSupporter
-        | otherwise = DHTFull
 
 action :: Args -> KademliaDHTInstance -> IO ()
 action args@Args {..} inst = do
-    checkDhtKey supporterNode dhtKey
     if supporterNode
         then runSupporterReal inst (baseParams "supporter" args)
         else do

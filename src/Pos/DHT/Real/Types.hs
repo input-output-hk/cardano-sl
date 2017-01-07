@@ -31,8 +31,7 @@ import           Universum                 hiding (async, fromStrict, mapConcurr
 
 import           Pos.DHT.Model.Class       (DHTMsgHeader (..), ListenerDHT (..),
                                             WithDefaultMsgHeader (..))
-import           Pos.DHT.Model.Types       (DHTData, DHTKey, DHTNode (..),
-                                            DHTNodeType (..))
+import           Pos.DHT.Model.Types       (DHTData, DHTKey, DHTNode (..))
 
 toBSBinary :: Bi b => b -> BS.ByteString
 toBSBinary = toStrict . encode
@@ -84,7 +83,7 @@ data KademliaDHTConfig s m = KademliaDHTConfig
 -- | Instance of part of config.
 data KademliaDHTInstanceConfig = KademliaDHTInstanceConfig
     { kdcPort            :: !Word16
-    , kdcKeyOrType       :: !(Either DHTKey DHTNodeType)
+    , kdcKey             :: !(Maybe DHTKey)
     , kdcInitialPeers    :: ![DHTNode]
     , kdcExplicitInitial :: !Bool
     }

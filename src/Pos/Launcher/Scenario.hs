@@ -17,7 +17,7 @@ import           Pos.Context             (NodeContext (..), getNodeContext,
                                           ncPubKeyAddress, ncPublicKey, putLeaders,
                                           putRichmen)
 import qualified Pos.DB                  as DB
-import           Pos.DHT.Model           (DHTNodeType (DHTFull), discoverPeers)
+import           Pos.DHT.Model           (discoverPeers)
 import           Pos.Slotting            (getCurrentSlot)
 import           Pos.Ssc.Class           (SscConstraint)
 import           Pos.Types               (SlotId (..), Timestamp (Timestamp), addressHash)
@@ -35,7 +35,7 @@ runNode plugins = do
     logInfo $ sformat ("My public key is: "%build%
                        ", address: "%build%
                        ", pk hash: "%build) pk addr pkHash
-    peers <- discoverPeers DHTFull
+    peers <- discoverPeers
     logInfo $ sformat ("Known peers: " % build) peers
 
     initSemaphore

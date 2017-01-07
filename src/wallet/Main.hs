@@ -19,7 +19,7 @@ import qualified Pos.CLI                as CLI
 import           Pos.Communication      (sendProxySecretKey)
 import           Pos.Constants          (slotDuration)
 import           Pos.Crypto             (SecretKey, createProxySecretKey, toPublic)
-import           Pos.DHT.Model          (DHTNodeType (..), dhtAddr, discoverPeers)
+import           Pos.DHT.Model          (dhtAddr, discoverPeers)
 import           Pos.Genesis            (genesisPublicKeys, genesisSecretKeys)
 import           Pos.Launcher           (BaseParams (..), LoggingParams (..),
                                          bracketDHTInstance, runTimeSlaveReal)
@@ -93,7 +93,7 @@ initialize WalletOptions{..} = do
     -- Wait some time to ensure blockchain is fetched
     putText $ sformat ("Started node. Waiting for "%int%" slots...") woInitialPause
     wait $ for $ fromIntegral woInitialPause * slotDuration
-    fmap dhtAddr <$> discoverPeers DHTFull
+    fmap dhtAddr <$> discoverPeers
 
 runWalletRepl :: WalletMode ssc m => WalletOptions -> m ()
 runWalletRepl wo = do
@@ -126,7 +126,7 @@ main = do
             { bpLoggingParams      = logParams
             , bpPort               = woPort
             , bpDHTPeers           = CLI.dhtPeers woCommonArgs
-            , bpDHTKeyOrType       = Right DHTFull
+            , bpDHTKey             = Nothing
             , bpDHTExplicitInitial = CLI.dhtExplicitInitial woCommonArgs
             }
 

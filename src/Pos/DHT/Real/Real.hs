@@ -49,7 +49,7 @@ import           Pos.DHT.Model.Class             (DHTException (..), DHTMsgHeade
                                                   defaultSendToNeighbors,
                                                   defaultSendToNode, withDhtLogger)
 import           Pos.DHT.Model.Types             (DHTData, DHTKey, DHTNode (..),
-                                                  filterByNodeType, randomDHTKey)
+                                                  randomDHTKey)
 import           Pos.DHT.Model.Util              (joinNetworkNoThrow)
 import           Pos.DHT.Real.Types              (DHTHandle, KademliaDHT (..),
                                                   KademliaDHTConfig (..),
@@ -132,7 +132,7 @@ startDHTInstance
        )
     => KademliaDHTInstanceConfig -> m KademliaDHTInstance
 startDHTInstance KademliaDHTInstanceConfig {..} = do
-    kdiKey <- either pure randomDHTKey kdcKeyOrType
+    kdiKey <- maybe randomDHTKey pure kdcKey
     kdiHandle <-
         (liftIO $
         K.createL
@@ -308,10 +308,10 @@ instance (MonadIO m, MonadCatch m, WithLogger m, Bi DHTData, Bi DHTKey) =>
       where
         handleRes (Just _) = pure ()
         handleRes _        = throwM AllPeersUnavailable
-    discoverPeers type_ = do
+    discoverPeers = do
         inst <- KademliaDHT $ asks (kdiHandle . kdcDHTInstance_)
-        _ <- liftIO $ K.lookup inst =<< randomDHTKey type_
-        filterByNodeType type_ <$> getKnownPeers
+        _ <- liftIO $ K.lookup inst =<< randomDHTKey
+        getKnownPeers
     getKnownPeers = do
         myId <- currentNodeKey
         (inst, initialPeers, explicitInitial) <-

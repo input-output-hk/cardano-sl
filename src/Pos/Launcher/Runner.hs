@@ -351,7 +351,7 @@ bracketDHTInstance BaseParams {..} = bracket acquire release
     release = runTimed loggerName . stopDHTInstance
     instConfig =
         KademliaDHTInstanceConfig
-        { kdcKeyOrType = bpDHTKeyOrType
+        { kdcKey = bpDHTKey
         , kdcPort = bpPort
         , kdcInitialPeers = nub $ bpDHTPeers ++ defaultPeers
         , kdcExplicitInitial = bpDHTExplicitInitial

@@ -42,8 +42,7 @@ import           Pos.Binary.Class             (Bi (..))
 import           Pos.Constants                (neighborsSendThreshold)
 import           Pos.DHT.Model.Class.BiP      (BiP)
 import           Pos.DHT.Model.Class.MonadDHT
-import           Pos.DHT.Model.Types          (DHTNode (..), DHTNodeType (..), dhtAddr,
-                                               filterByNodeType)
+import           Pos.DHT.Model.Types          (DHTNode (..), dhtAddr)
 import           Pos.Util                     (messageName')
 
 -- | Monad that can send messages over distributed network.
@@ -194,12 +193,12 @@ defaultSendToNeighbors
 defaultSendToNeighbors parallelize sender msg = do
 --    withDhtLogger $
 --      logDebug $ sformat ("Sending message " % F.build % " neighbors") (messageName' msg)
-    nodes <- filterByNodeType DHTFull <$> getKnownPeers
+    nodes <- getKnownPeers
     succeed <- sendToNodes nodes
     succeed' <-
         if succeed < neighborsSendThreshold
             then (+) succeed <$>
-                 do nodes' <- discoverPeers DHTFull
+                 do nodes' <- discoverPeers
                     let newNodes = filter (\n -> not (n `elem` nodes)) nodes'
                     sendToNodes newNodes
             else return succeed

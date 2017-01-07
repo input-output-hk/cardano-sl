@@ -1,5 +1,6 @@
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 -- | All logic of certificates processing
 
@@ -11,6 +12,7 @@ module Pos.Delegation.Logic
        , invalidateProxyCaches
 
        -- * Heavyweight psks handling
+       , getProxyMempool
        , PskSimpleVerdict (..)
        , processProxySKSimple
        , delegationApplyBlocks
@@ -28,30 +30,42 @@ module Pos.Delegation.Logic
        ) where
 
 import           Control.Concurrent.STM.TVar (readTVar, writeTVar)
-import           Control.Lens                (uses, (%=))
+import           Control.Lens                (makeLenses, use, uses, view, (%=), (.=),
+                                              (^.))
+import           Control.Monad.Trans.Except  (runExceptT, throwE)
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
+import           Data.List                   (partition)
 import           Data.List.NonEmpty          (NonEmpty)
+import qualified Data.List.NonEmpty          as NE
+import qualified Data.Text.Buildable         as B
 import           Data.Time.Clock             (UTCTime, addUTCTime, getCurrentTime)
 import           Database.RocksDB            (BatchOp)
+import           Formatting                  (bprint, build, sformat, stext, (%))
 import           System.Wlog                 (WithLogger)
 import           Universum
 
 import           Pos.Binary.Communication    ()
 import           Pos.Context                 (WithNodeContext (getNodeContext),
                                               ncSecretKey)
-import           Pos.Crypto                  (PublicKey, pdDelegatePk, proxyVerify,
-                                              pskDelegatePk, pskIssuerPk, toPublic,
+import           Pos.Crypto                  (ProxySecretKey (..), PublicKey,
+                                              pdDelegatePk, proxyVerify, toPublic,
                                               verifyProxySecretKey)
+import           Pos.DB                      as DB
 import           Pos.DB.Class                (MonadDB)
+import           Pos.DB.Error                (DBError (DBMalformed))
 import qualified Pos.DB.Misc                 as Misc (addProxySecretKey,
                                                       getProxySecretKeys)
 import           Pos.Delegation.Class        (DelegationWrap, MonadDelegation (..),
                                               dwProxyConfCache, dwProxyMsgCache,
                                               dwProxySKPool)
 import           Pos.Delegation.Types        (SendProxySK (..))
+import           Pos.Ssc.Class               (Ssc)
 import           Pos.Types                   (Block, Blund, NEBlocks, ProxySKEpoch,
-                                              ProxySKSimple, ProxySigEpoch, Undo)
+                                              ProxySKSimple, ProxySigEpoch,
+                                              Undo (undoPsk), blockProxySKs, headerHash,
+                                              prevBlockL)
+import           Pos.Util                    (_neHead)
 
 
 ----------------------------------------------------------------------------
@@ -87,8 +101,33 @@ invalidateProxyCaches curTime = do
 type DelegationWorkMode ssc m = (MonadDelegation m, MonadDB ssc m, WithLogger m)
 
 ----------------------------------------------------------------------------
+-- Exceptions
+----------------------------------------------------------------------------
+
+data DelegationError =
+    -- | Can't apply blocks to state of transactions processing.
+    DelegationCantApplyBlocks Text
+    deriving (Show)
+
+instance Exception DelegationError
+
+instance B.Buildable DelegationError where
+    build (DelegationCantApplyBlocks msg) =
+        bprint ("can't apply in delegation module: "%stext) msg
+
+----------------------------------------------------------------------------
 -- Heavyweight PSK
 ----------------------------------------------------------------------------
+
+-- | Retrieves current mempool of heavyweight psks plus undo part.
+getProxyMempool
+    :: (MonadDB ssc m, MonadDelegation m)
+    => m ([ProxySKSimple], [ProxySKSimple])
+getProxyMempool = do
+    sks <- runDelegationStateAction $ uses dwProxySKPool HM.elems
+    let issuers = map pskIssuerPk sks
+    toRollback <- catMaybes <$> mapM DB.getPSKByIssuer issuers
+    pure (sks, toRollback)
 
 -- | Datatypes representing a verdict of simple PSK processing.
 data PskSimpleVerdict
@@ -121,13 +160,15 @@ processProxySKSimple psk = do
 
 -- state needed for 'delegationVerifyBlocks'
 data DelVerState = DelVerState
-    { _dvCurEpoch  :: HashSet PublicKey
+    { _dvCurEpoch      :: HashSet PublicKey
       -- ^ Set of issuers that have already posted certificates this epoch
-    , _dvPSKMap    :: HashMap PublicKey ProxySKSimple
-      -- ^ Current set of proxy sks.
-    , _dvRollbacks :: [[ProxySKSimple]]
-      -- ^ Rollbacks -- certificates that are to be deleted.
+    , _dvPSKMapAdded   :: HashMap PublicKey ProxySKSimple
+      -- ^ Psks added to database.
+    , _dvPSKSetRemoved :: HashSet PublicKey
+      -- ^ Psks removed from database.
     }
+
+makeLenses ''DelVerState
 
 -- | Verifies if blocks are correct relatively to the delegation logic
 -- an returns non-empty list of proxySKs needed for undoing
@@ -136,21 +177,106 @@ data DelVerState = DelVerState
 -- * For every new certificate issuer had enough state at the
 --   end of prev. epoch
 --
--- Blocks are assumed to be oldest-first.
+-- Blocks are assumed to be oldest-first. It's assumed blocks are
+-- correct from 'Pos.Types.Block#verifyBlocks' point of view.
 delegationVerifyBlocks
-    :: (MonadDB ssc m)
+    :: forall ssc m. (Ssc ssc, MonadDB ssc m, MonadThrow m)
     => NEBlocks ssc -> m (Either Text (NonEmpty [ProxySKSimple]))
-delegationVerifyBlocks = notImplemented $ DelVerState HS.empty HM.empty []
+delegationVerifyBlocks blocks = do
+    tip <- DB.getTip
+    -- TODO TAKE DATABASE SNAPSHOT AOEU AOEU AOEU !!! ПЫЩ
+    fromGenesisPsks <-
+        concatMap (either (const []) (map pskIssuerPk . view blockProxySKs)) <$>
+        DB.loadBlocksWhile (\x _ -> isRight x) tip
+    let _dvCurEpoch = HS.fromList fromGenesisPsks
+        initState = DelVerState _dvCurEpoch HM.empty HS.empty
+    when (HS.size _dvCurEpoch /= length fromGenesisPsks) $
+        throwM $ DBMalformed "Multiple stakeholders have issued & published psks this epoch"
+    res <- evalStateT (runExceptT $ mapM verifyBlock blocks) initState
+    pure $ NE.reverse <$> res
+  where
+    withMapResolve issuer = do
+        isAddedM <- uses dvPSKMapAdded $ HM.lookup issuer
+        isRemoved <- uses dvPSKSetRemoved $ HS.member issuer
+        if isRemoved
+        then pure Nothing
+        else maybe (DB.getPSKByIssuer issuer) (pure . Just) isAddedM
+    withMapAdd psk = do
+        let issuer = pskIssuerPk psk
+        dvPSKMapAdded %= HM.insert issuer psk
+        dvPSKSetRemoved %= HS.delete issuer
+    withMapRemove issuer = do
+        inAdded <- uses dvPSKMapAdded $ HM.member issuer
+        if inAdded
+        then dvPSKMapAdded %= HM.delete issuer
+        else dvPSKSetRemoved %= HS.insert issuer
+    verifyBlock (Left _) = do
+        dvCurEpoch .= HS.empty
+        pure []
+    verifyBlock (Right blk) = do
+        let proxySKs = view blockProxySKs blk
+            issuers = map pskIssuerPk proxySKs
+        curEpoch <- use dvCurEpoch
+        when (any (`HS.member` curEpoch) issuers) $
+            throwE $ sformat ("Block "%build%" contains issuers that "%
+                              "have already published psk this epoch")
+                             (headerHash blk)
+        -- we believe issuers list doesn't contain duplicates,
+        -- checked in Types.Block#verifyBlocks
+        dvCurEpoch %= HS.union (HS.fromList issuers)
+        let toUpdate =
+                filter (\ProxySecretKey{..} -> pskIssuerPk /= pskDelegatePk) proxySKs
+        toRollback <- catMaybes <$> mapM withMapResolve issuers
+        mapM_ withMapRemove issuers
+        mapM_ withMapAdd toUpdate
+        pure toRollback
 
+-- | Applies a sequence of definitely valid blocks to memory state and
+-- returns batchops.
 delegationApplyBlocks
-    :: (DelegationWorkMode ssc m)
-    => NonEmpty (Blund ssc) -> m (NonEmpty [BatchOp])
-delegationApplyBlocks = notImplemented
+    :: forall ssc m. (DelegationWorkMode ssc m)
+    => NonEmpty (Block ssc) -> m (NonEmpty [BatchOp])
+delegationApplyBlocks blocks = do
+    tip <- DB.getTip
+    when (tip /= blocks ^. _neHead . prevBlockL) $ throwM $
+        DelegationCantApplyBlocks "oldest block in NEBlocks is not based on tip"
+    let allIssuers =
+            concatMap (either (const []) (map pskIssuerPk . view blockProxySKs))
+                      blocks
+    runDelegationStateAction $
+        forM_ allIssuers $ \i -> dwProxySKPool %= HM.delete i
+    pure $ map applyBlock blocks
+  where
+    applyBlock :: Block ssc -> [BatchOp]
+    applyBlock (Left _)      = []
+    applyBlock (Right block) = do
+        let proxySKs = view blockProxySKs block
+            (toDelete,toReplace) =
+                partition (\ProxySecretKey{..} -> pskIssuerPk == pskDelegatePk)
+                proxySKs
+        concatMap toBatchOp $
+            map (DelPSK . pskIssuerPk) toDelete ++ map AddPSK toReplace
 
+-- | Rollbacks block list. Erases mempool of certificates. Better to
+-- restore them after the rollback (see Txp#normalizeTxpLD).
 delegationRollbackBlocks
-    :: (WithLogger m, MonadDB ssc m)
-    => NonEmpty (Block ssc, Undo) -> m ()
-delegationRollbackBlocks = notImplemented
+    :: (MonadDelegation m, MonadIO m)
+    => NonEmpty (Blund ssc) -> m (NonEmpty [BatchOp])
+delegationRollbackBlocks blunds = do
+    runDelegationStateAction $ dwProxySKPool .= HM.empty
+    pure $ map rollbackBlund blunds
+  where
+    rollbackBlund (Left _, _) = []
+    rollbackBlund (Right block, undo) =
+        let proxySKs = view blockProxySKs block
+            toReplace =
+                map pskIssuerPk $
+                filter (\ProxySecretKey{..} -> pskIssuerPk /= pskDelegatePk)
+                proxySKs
+            toDeleteBatch = map DelPSK toReplace
+            toAddBatch = map AddPSK $ undoPsk undo
+        in concatMap toBatchOp $ toDeleteBatch ++ toAddBatch
+
 
 ----------------------------------------------------------------------------
 -- Lightweight PSK propagation

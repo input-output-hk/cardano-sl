@@ -131,17 +131,17 @@ loadDataWhile getter predicate start = doIt 0 start
 -- | Load blocks starting from block with header hash equals @hash@
 -- and while @predicate@ is true.  The head of returned list is the
 -- youngest block.
-loadBlocksWithUndoWhile :: (Ssc ssc, MonadDB ssc m)
-                        => (Block ssc -> Int -> Bool)
-                        -> HeaderHash ssc
-                        -> m [(Block ssc, Undo)]
-loadBlocksWithUndoWhile predicate = loadDataWhile getBlockWithUndo (predicate . fst)
+loadBlocksWithUndoWhile
+    :: (Ssc ssc, MonadDB ssc m)
+    => (Block ssc -> Int -> Bool) -> HeaderHash ssc -> m [(Block ssc, Undo)]
+loadBlocksWithUndoWhile predicate =
+    loadDataWhile getBlockWithUndo (predicate . fst)
 
-loadBlocksWhile :: (Ssc ssc, MonadDB ssc m)
-                => (Block ssc -> Int -> Bool)
-                -> HeaderHash ssc
-                -> m [Block ssc]
-loadBlocksWhile = loadDataWhile (getBlock >=> maybe (panic "No block with such header hash") pure)
+loadBlocksWhile
+    :: (Ssc ssc, MonadDB ssc m)
+    => (Block ssc -> Int -> Bool) -> HeaderHash ssc -> m [Block ssc]
+loadBlocksWhile =
+    loadDataWhile (getBlock >=> maybe (panic "No block with such header hash") pure)
 
 -- | Takes a starting header hash and queries blockchain while some
 -- condition is true or parent wasn't found. Returns headers newest

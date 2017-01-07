@@ -147,11 +147,13 @@ instance Ssc ssc => Bi (T.BodyProof (T.MainBlockchain ssc)) where
             <*> get
 
 instance Bi (T.BlockSignature ssc) where
-    put (T.BlockSignature sig)       = putWord8 0 >> put sig
-    put (T.BlockPSignature proxySig) = putWord8 1 >> put proxySig
+    put (T.BlockSignature sig)             = putWord8 0 >> put sig
+    put (T.BlockPSignatureEpoch proxySig)  = putWord8 1 >> put proxySig
+    put (T.BlockPSignatureSimple proxySig) = putWord8 2 >> put proxySig
     get = label "BlockSignature" $ getWord8 >>= \case
         0 -> T.BlockSignature <$> get
-        1 -> T.BlockPSignature <$> get
+        1 -> T.BlockPSignatureEpoch <$> get
+        2 -> T.BlockPSignatureSimple <$> get
         t -> fail $ "get@BlockSignature: unknown tag: " <> show t
 
 instance Bi (T.ConsensusData (T.MainBlockchain ssc)) where

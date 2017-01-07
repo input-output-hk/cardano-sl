@@ -52,6 +52,7 @@ import           Data.Text.Lazy.Builder (Builder)
 import           Formatting             (Format, bprint, build, later, (%))
 import qualified Serokell.Util.Base16   as B16
 import qualified Serokell.Util.Base64   as Base64 (decode, encode)
+import           Serokell.Util.Text     (pairF)
 import           Universum
 
 import           Pos.Binary.Class       (Bi)
@@ -247,9 +248,13 @@ data ProxySecretKey w = ProxySecretKey
 instance NFData w => NFData (ProxySecretKey w)
 instance Hashable w => Hashable (ProxySecretKey w)
 
-instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySecretKey w) where
+instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySecretKey (w,w)) where
     build (ProxySecretKey w iPk dPk _) =
-        bprint ("ProxySk { w = "%build%", iPk = "%build%", dPk = "%build%" }") w iPk dPk
+        bprint ("ProxySk { w = "%pairF%", iPk = "%build%", dPk = "%build%" }") w iPk dPk
+
+instance (Bi PublicKey) => B.Buildable (ProxySecretKey ()) where
+    build (ProxySecretKey () iPk dPk _) =
+        bprint ("ProxySk { w = (), iPk = "%build%", dPk = "%build%" }") iPk dPk
 
 deriveSafeCopySimple 0 'base ''ProxySecretKey
 
@@ -277,10 +282,14 @@ data ProxySignature w a = ProxySignature
 instance NFData w => NFData (ProxySignature w a)
 instance Hashable w => Hashable (ProxySignature w a)
 
-instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySignature w a) where
+instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySignature (w,w) a) where
     build ProxySignature{..} =
-        bprint ("Proxy signature { w = "%build%", delegatePk = "%build%" }")
+        bprint ("Proxy signature { w = "%pairF%", delegatePk = "%build%" }")
                pdOmega pdDelegatePk
+
+instance (Bi PublicKey) => B.Buildable (ProxySignature () a) where
+    build ProxySignature{..} =
+        bprint ("Proxy signature { w = (), delegatePk = "%build%" }") pdDelegatePk
 
 instance (SafeCopy w) => SafeCopy (ProxySignature w a) where
     putCopy ProxySignature{..} = contain $ do

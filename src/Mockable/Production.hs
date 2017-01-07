@@ -15,8 +15,8 @@ import qualified Control.Exception           as Exception
 import           Control.Monad               (forever, void)
 import           Control.Monad.Fix           (MonadFix)
 import           Control.Monad.IO.Class      (MonadIO, liftIO)
-import           Data.Time.Units             (Microsecond)
 import           Data.Time.Clock.POSIX       (getPOSIXTime)
+import           Data.Time.Units             (Microsecond)
 import           Mockable.Channel
 import           Mockable.Class
 import           Mockable.Concurrent
@@ -49,11 +49,14 @@ instance Mockable RunInUnboundThread Production where
     liftMockable (RunInUnboundThread m) = Production $
         Conc.runInUnboundThread (runProduction m)
 
+instance Mockable CurrentTime Production where
+    liftMockable CurrentTime = curTime
+
 type instance Promise Production = Conc.Async
 
 instance Mockable Async Production where
-    liftMockable (Async m) = Production $ Conc.async (runProduction m)
-    liftMockable (Wait promise) = Production $ Conc.wait promise
+    liftMockable (Async m)        = Production $ Conc.async (runProduction m)
+    liftMockable (Wait promise)   = Production $ Conc.wait promise
     liftMockable (Cancel promise) = Production $ Conc.cancel promise
 
 instance Mockable Concurrently Production where

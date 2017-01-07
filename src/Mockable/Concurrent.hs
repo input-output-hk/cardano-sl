@@ -18,6 +18,10 @@ module Mockable.Concurrent (
   , RelativeToNow
   , delay
   , for
+  , sleepForever
+
+  , CurrentTime(..)
+  , currentTime
 
   , RunInUnboundThread(..)
   , runInUnboundThread
@@ -35,10 +39,10 @@ module Mockable.Concurrent (
 
   ) where
 
-import Control.Exception.Base (SomeException)
-import Control.Monad.Reader   (ReaderT)
-import Data.Time.Units        (Microsecond)
-import Mockable.Class
+import           Control.Exception.Base (SomeException)
+import           Control.Monad.Reader   (ReaderT)
+import           Data.Time.Units        (Microsecond)
+import           Mockable.Class
 
 type family ThreadId (m :: * -> *) :: *
 type instance ThreadId (ReaderT r m) = ThreadId m
@@ -71,15 +75,29 @@ type RelativeToNow = Microsecond -> Microsecond
 
 data Delay (m :: * -> *) (t :: *) where
     Delay :: RelativeToNow -> Delay m ()    -- Finite delay.
+    SleepForever :: Delay m ()              -- Infinite delay.
 
 instance MFunctor' Delay m n where
     hoist' _ (Delay i)    = Delay i
+    hoist' _ SleepForever = SleepForever
 
 delay :: ( Mockable Delay m ) => RelativeToNow -> m ()
 delay relativeToNow = liftMockable $ Delay relativeToNow
 
 for :: Microsecond -> RelativeToNow
 for = (+)
+
+sleepForever :: ( Mockable Delay m ) => m ()
+sleepForever = liftMockable SleepForever
+
+data CurrentTime (m :: * -> *) (t :: *) where
+    CurrentTime :: CurrentTime m Microsecond
+
+instance MFunctor' CurrentTime m n where
+    hoist' _ CurrentTime = CurrentTime
+
+currentTime :: ( Mockable CurrentTime m ) => m Microsecond
+currentTime = liftMockable CurrentTime
 
 data RunInUnboundThread m t where
     RunInUnboundThread :: m t -> RunInUnboundThread m t

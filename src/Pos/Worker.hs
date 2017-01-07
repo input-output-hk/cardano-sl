@@ -16,6 +16,7 @@ import           Pos.Communication      (SysStartResponse (..))
 import           Pos.Constants          (slotDuration, sysTimeBroadcastSlots)
 import           Pos.Context            (NodeContext (..), getNodeContext)
 import           Pos.DHT.Model          (sendToNetwork)
+import           Pos.DHT.Workers        (dhtWorkers)
 import           Pos.Security.Workers   (SecurityWorkersClass, securityWorkers)
 import           Pos.Slotting           (onNewSlot)
 import           Pos.Ssc.Class.Workers  (SscWorkersClass, sscWorkers)
@@ -34,6 +35,7 @@ import           Pos.WorkMode           (WorkMode)
 runWorkers :: (SscWorkersClass ssc, SecurityWorkersClass ssc, WorkMode ssc m) => m ()
 runWorkers = mapM_ fork_ $ concat
     [ [onNewSlotWorker]
+    , dhtWorkers
     , blkWorkers
     , untag sscWorkers
     , untag securityWorkers

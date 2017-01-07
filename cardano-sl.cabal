@@ -58,6 +58,7 @@ library
                         Pos.DHT.Real
                         Pos.DHT.Real.Real
                         Pos.DHT.Real.Types
+                        Pos.DHT.Workers
                         Pos.Eligibility
                         Pos.Genesis
                         Pos.FollowTheSatoshi

@@ -1,13 +1,21 @@
+{-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE UndecidableInstances       #-}
 
-module Mockable.Class ( Mockable(..) ) where
+module Mockable.Class
+  ( Mockable (..)
+  , MFunctor' (..)
+  ) where
 
-import           Control.Monad.Morph        (MFunctor (hoist))
 import           Control.Monad.Trans.Reader (ReaderT (..))
+
+class MFunctor' f m n where
+    hoist' :: (forall t . m t -> n t) -> f m t -> f n t
 
 -- | Instances of this class identify how a given thing can be mocked within a
 --   given monad.
@@ -22,5 +30,5 @@ import           Control.Monad.Trans.Reader (ReaderT (..))
 class ( Monad m ) => Mockable (d :: (* -> *) -> * -> *) (m :: * -> *) where
     liftMockable :: d m t -> m t
 
-instance (Mockable d m, MFunctor d) => Mockable d (ReaderT r m) where
-    liftMockable dmt = ReaderT $ \r -> liftMockable $ hoist (flip runReaderT r) dmt
+instance (Mockable d m, MFunctor' d (ReaderT r m) m) => Mockable d (ReaderT r m) where
+    liftMockable dmt = ReaderT $ \r -> liftMockable $ hoist' (flip runReaderT r) dmt

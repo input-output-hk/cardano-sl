@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE KindSignatures        #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -30,12 +31,11 @@ module Mockable.Concurrent (
   ) where
 
 import           Control.Exception.Base (SomeException)
-import           Control.Monad.Morph    (MFunctor (hoist))
 import           Control.Monad.Reader   (ReaderT (..))
 import           Control.TimeWarp.Timed (RelativeToNow, for, hour, mcs, minute, ms, sec)
 import           Data.Time.Units        (Microsecond)
 
-import           Mockable.Class         (Mockable (liftMockable))
+import           Mockable.Class         (MFunctor' (hoist'), Mockable (liftMockable))
 
 type family ThreadId (m :: * -> *) :: *
 type instance ThreadId (ReaderT r m) = ThreadId m
@@ -45,6 +45,11 @@ data Fork m t where
     Fork       :: m () -> Fork m (ThreadId m)
     MyThreadId :: Fork m (ThreadId m)
     KillThread :: ThreadId m -> Fork m ()
+
+instance (ThreadId n ~ ThreadId m) => MFunctor' Fork m n where
+    hoist' nat (Fork action)  = Fork $ nat action
+    hoist' _ MyThreadId       = MyThreadId
+    hoist' _ (KillThread tid) = KillThread tid
 
 ----------------------------------------------------------------------------
 -- Fork mock helper functions
@@ -59,23 +64,14 @@ myThreadId = liftMockable MyThreadId
 killThread :: ( Mockable Fork m ) => ThreadId m -> m ()
 killThread tid = liftMockable $ KillThread tid
 
-----------------------------------------------------------------------------
--- Standard Fork instances
-----------------------------------------------------------------------------
-
-instance Mockable Fork m => Mockable Fork (ReaderT r m) where
-    liftMockable (Fork m)         = ReaderT $ fork . runReaderT m
-    liftMockable MyThreadId       = ReaderT $ const myThreadId
-    liftMockable (KillThread tid) = ReaderT $ const $ killThread tid
-
 -- | Delay mock to add ability to delay execution.
 data Delay (m :: * -> *) (t :: *) where
     Delay :: RelativeToNow -> Delay m ()    -- Finite delay.
     SleepForever :: Delay m ()              -- Infinite delay.
 
-instance MFunctor Delay where
-    hoist _ (Delay i)    = Delay i
-    hoist _ SleepForever = SleepForever
+instance MFunctor' Delay m n where
+    hoist' _ (Delay i)    = Delay i
+    hoist' _ SleepForever = SleepForever
 
 wait :: ( Mockable Delay m ) => RelativeToNow -> m ()
 wait relativeToNow = liftMockable $ Delay relativeToNow
@@ -89,8 +85,8 @@ data RepeatForever (m :: * -> *) (t :: *) where
                   -> m ()
                   -> RepeatForever m ()
 
-instance MFunctor RepeatForever where
-    hoist nat (RepeatForever time eh action) =
+instance MFunctor' RepeatForever m n where
+    hoist' nat (RepeatForever time eh action) =
         RepeatForever time (\ex -> nat $ eh ex) (nat action)
 
 repeatForever :: ( Mockable RepeatForever m )
@@ -104,8 +100,8 @@ repeatForever period handler action =
 data RunInUnboundThread m t where
     RunInUnboundThread :: m t -> RunInUnboundThread m t
 
-instance MFunctor RunInUnboundThread where
-  hoist nat (RunInUnboundThread action) = RunInUnboundThread $ nat action
+instance MFunctor' RunInUnboundThread m n where
+    hoist' nat (RunInUnboundThread action) = RunInUnboundThread $ nat action
 
 runInUnboundThread :: ( Mockable RunInUnboundThread m ) => m t -> m t
 runInUnboundThread m = liftMockable $ RunInUnboundThread m

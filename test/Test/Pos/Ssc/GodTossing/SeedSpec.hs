@@ -165,7 +165,7 @@ recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
              return (addr, receivedShares)
 
     let shouldSucceed = n_openings + n_shares - n_overlap >= n
-    let result = calculateSeed threshold commitmentsMap openingsMap sharesMap
+    let result = calculateSeed commitmentsMap openingsMap sharesMap
     let debugInfo = sformat ("n = "%int%", n_openings = "%int%", "%
                              "n_shares = "%int%", n_overlap = "%int%
                              "\n"%

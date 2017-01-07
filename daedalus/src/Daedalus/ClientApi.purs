@@ -3,12 +3,15 @@ module Daedalus.ClientApi where
 import Prelude
 import Daedalus.BackendApi as B
 import Control.Monad.Eff (Eff)
+import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Promise (Promise, fromAff)
 import Daedalus.Types (mkCAddress, mkCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (encodeJson)
 import Data.Function.Uncurried (Fn2, mkFn2, Fn4, mkFn4, Fn3, mkFn3, Fn6, mkFn6)
 import Network.HTTP.Affjax (AJAX)
+import Pos.Wallet.Web.ClientTypes (NotifyEvent)
+import WebSocket (WEBSOCKET)
 
 getWallets :: forall eff. Eff(ajax :: AJAX | eff) (Promise Json)
 getWallets = fromAff $ map encodeJson B.getWallets
@@ -50,3 +53,11 @@ deleteWallet = fromAff <<< B.deleteWallet <<< mkCAddress
 
 isValidAddress :: forall eff. Fn2 String String (Eff(ajax :: AJAX | eff) (Promise Boolean))
 isValidAddress = mkFn2 \currency -> fromAff <<< B.isValidAddress (mkCCurrency currency)
+
+
+-- work in progress
+notify :: forall eff. Fn2
+  (NotifyEvent -> Eff () Unit)
+  (String -> Eff () Unit)
+  (Eff (ws :: WEBSOCKET, err :: EXCEPTION | eff) Unit)
+notify = mkFn2 \successCb errorCb -> pure unit

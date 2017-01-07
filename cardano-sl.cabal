@@ -110,7 +110,6 @@ library
     exposed-modules:    Pos.Wallet
   if flag(with-wallet) && flag(with-web)
     exposed-modules:    Pos.Wallet.Web
-                        Pos.Wallet.Web.ClientTypes
   other-modules:        Pos.Aeson.CompileConfig
                         Pos.Binary.Address
                         Pos.Binary.Class
@@ -160,6 +159,7 @@ library
                         Pos.Crypto.SecretSharing
                         Pos.Crypto.Signing
                         Pos.Delegation.Class
+                        Pos.Delegation.Methods
                         Pos.Delegation.Types
                         Pos.Delegation.Listeners
                         Pos.Delegation.Logic
@@ -262,8 +262,10 @@ library
                         Pos.Wallet.Context.Holder
   if (flag(with-wallet) && flag(with-web))
     other-modules:      Pos.Aeson.ClientTypes
+                        Pos.Wallet.Web.ClientTypes
                         Pos.Wallet.Web.Api
                         Pos.Wallet.Web.Doc
+                        Pos.Wallet.Web.Error
                         Pos.Wallet.Web.Server
                         Pos.Wallet.Web.Server.Methods
                         Pos.Wallet.Web.Server.Full

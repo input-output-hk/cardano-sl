@@ -56,8 +56,8 @@ data BalancesOp
                   !Coin
 
 instance RocksBatchOp BalancesOp where
-    toBatchOp (PutFtsSum c)      = Rocks.Put ftsSumKey (encodeStrict c)
-    toBatchOp (PutFtsStake ad c) = Rocks.Put (ftsStakeKey ad) (encodeStrict c)
+    toBatchOp (PutFtsSum c)      = [Rocks.Put ftsSumKey (encodeStrict c)]
+    toBatchOp (PutFtsStake ad c) = [Rocks.Put (ftsStakeKey ad) (encodeStrict c)]
 
 ----------------------------------------------------------------------------
 -- Initialization

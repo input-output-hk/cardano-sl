@@ -16,10 +16,10 @@ import           System.IO              (hFlush, stdout)
 import           Universum
 
 import qualified Pos.CLI                as CLI
-import           Pos.Communication      (sendProxySecretKey)
 import           Pos.Constants          (slotDuration)
 import           Pos.Crypto             (SecretKey, createProxySecretKey, toPublic)
 import           Pos.DHT.Model          (dhtAddr, discoverPeers)
+import           Pos.Delegation         (sendProxySKEpoch, sendProxySKSimple)
 import           Pos.Genesis            (genesisPublicKeys, genesisSecretKeys)
 import           Pos.Launcher           (BaseParams (..), LoggingParams (..),
                                          bracketDHTInstance, runTimeSlaveReal)
@@ -53,7 +53,8 @@ runCmd Help = do
             , "   send <N> [<address> <coins>]+  -- create and send transaction with given outputs"
             , "                                     from own address #N"
             , "   listaddr                       -- list own addresses"
-            , "   delegate <N> <M>               -- delegate secret key #N to #M (genesis)"
+            , "   delegate-light <N> <M>         -- delegate secret key #N to #M (genesis) light version"
+            , "   delegate-hard <N> <M>          -- delegate secret key #N to #M (genesis) hardweight "
             , "   help                           -- show this message"
             , "   quit                           -- shutdown node wallet"
             ]
@@ -62,16 +63,17 @@ runCmd ListAddresses = do
     putText "Available addrsses:"
     forM_ (zip [0 :: Int ..] addrs) $
         putText . uncurry (sformat $ "    #"%int%":   "%build)
-runCmd (Delegate i j) = do
+runCmd (DelegateLight i j) = do
     let issuerSk = genesisSecretKeys !! i
         delegatePk = genesisPublicKeys !! j
-        proxySig =
-            createProxySecretKey issuerSk delegatePk (EpochIndex 0, EpochIndex 50)
-    putText $ pretty issuerSk
-    putText $ pretty delegatePk
-    putText "sending cert"
-    sendProxySecretKey proxySig
-    putText "sent cert"
+    sendProxySKEpoch $
+        createProxySecretKey issuerSk delegatePk (EpochIndex 0, EpochIndex 50)
+    putText "Sent lightweight cert"
+runCmd (DelegateHeavy i j) = do
+    let issuerSk = genesisSecretKeys !! i
+        delegatePk = genesisPublicKeys !! j
+    sendProxySKSimple $ createProxySecretKey issuerSk delegatePk ()
+    putText "Sent heavyweight cert"
 runCmd Quit = pure ()
 
 evalCmd :: WalletMode ssc m => Command -> CmdRunner m ()
@@ -110,7 +112,8 @@ runWalletCmd wo str = do
         case mcmd of
             Left err   -> putStrLn err
             Right cmd' -> runCmd cmd'
-    liftIO exitSuccess
+    putText "Command execution finished"
+    putText " " -- for exit by SIGPIPE
 
 main :: IO ()
 main = do

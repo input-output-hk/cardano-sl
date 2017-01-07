@@ -238,7 +238,7 @@ deliveryTest testState workers listeners = runProduction $ do
     closeTransport transport
 
     -- wait till port gets free
-    delay $ for 10000
+    delay $ for 20000
 
     -- form test results
     liftIO . atomically $

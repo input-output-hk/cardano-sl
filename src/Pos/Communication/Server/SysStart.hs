@@ -10,32 +10,36 @@ module Pos.Communication.Server.SysStart
        ) where
 
 import           Control.Concurrent.MVar  (MVar, tryPutMVar)
+import           Message.Message          (Serializable)
+import           Node                     (Listener, ListenerAction (..),
+                                           SendActions (sendTo))
+
 import           Universum
 
 import           Pos.Binary.Communication ()
+import           Pos.Binary.NewDHTModel   ()
 import           Pos.Communication.Types  (SysStartRequest (..), SysStartResponse (..))
-import           Pos.DHT.Model            (ListenerDHT (..), MonadDHTDialog,
-                                           closeResponse, replyToNode)
+import           Pos.NewDHT.Model         (BiP, sendToNeighbors)
 import           Pos.Types                (Timestamp)
-import           Pos.WorkMode             (MinWorkMode)
+import           Pos.WorkMode             (NewMinWorkMode)
 
-sysStartReqListenerSlave :: (MonadDHTDialog s m) => ListenerDHT s m
-sysStartReqListenerSlave = ListenerDHT $ \(_ :: SysStartRequest) -> return ()
+sysStartReqListenerSlave
+    :: ( Monad m
+       ) => Listener BiP m
+sysStartReqListenerSlave = ListenerActionOneMsg $ \_ _ (_ :: SysStartRequest) -> return ()
 
 -- | Listener for 'SysStartRequest' message.
 sysStartReqListener
-    :: (MonadDHTDialog ss m, MinWorkMode ss m)
-    => Timestamp -> ListenerDHT ss m
-sysStartReqListener sysStart = ListenerDHT $
-    \(_ :: SysStartRequest) -> do
-        replyToNode $ SysStartResponse sysStart Nothing
-        closeResponse
+    :: Timestamp -> Listener BiP m
+sysStartReqListener sysStart = ListenerActionOneMsg $
+    \sender sendActions (_ :: SysStartRequest) ->
+         sendTo sendActions sender $ SysStartResponse sysStart
 
 -- | Listener for 'SysStartResponce' message.
 sysStartRespListener
-    :: (MonadDHTDialog ss m, MinWorkMode ss m)
-    => MVar Timestamp -> ListenerDHT ss m
-sysStartRespListener mvar = ListenerDHT $
-    \(SysStartResponse ts _ :: SysStartResponse) -> do
-        liftIO . void . tryPutMVar mvar $ ts
-        closeResponse
+    :: ( NewMinWorkMode m
+       ) => MVar Timestamp -> Listener BiP m
+sysStartRespListener mvar = ListenerActionOneMsg $
+    \_ sendActions (SysStartResponse sysStart :: SysStartResponse) ->
+        whenM (liftIO . tryPutMVar mvar $ sysStart) $
+            sendToNeighbors sendActions $ SysStartResponse sysStart

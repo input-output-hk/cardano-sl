@@ -27,8 +27,8 @@ instance Bi SysStartRequest where
     get = pure SysStartRequest
 
 instance Bi SysStartResponse where
-    put (SysStartResponse t msid) = put t >> put msid
-    get = SysStartResponse <$> get <*> get
+    put (SysStartResponse t) = put t
+    get = SysStartResponse <$> get
 
 ----------------------------------------------------------------------------
 -- Blocks

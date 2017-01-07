@@ -8,12 +8,15 @@ module Pos.Slotting
        , getCurrentSlotFlat
        , getSlotStart
        , onNewSlot
+       , onNewSlot'
        ) where
 
 import           Control.Monad.Catch      (MonadCatch, catch)
 import           Control.Monad.Except     (ExceptT)
 import           Control.TimeWarp.Timed   (Microsecond, MonadTimed, for, fork_, wait)
 import           Formatting               (build, sformat, shown, (%))
+import           Mockable                 (MonadMockable)
+import qualified Mockable                 as MC
 import           Serokell.Util.Exceptions ()
 import           System.Wlog              (WithLogger, logError, logInfo,
                                            modifyLoggerName)
@@ -108,3 +111,44 @@ onNewSlotDo expectedSlotId startImmediately action = do
         unlessM predicate (shortWait >> waitUntilPredicate predicate)
     shortWaitTime = (10 :: Microsecond) `max` (slotDuration `div` 10000)
     shortWait = wait $ for shortWaitTime
+
+-- | Run given action as soon as new slot starts, passing SlotId to
+-- it.  This function uses MonadTimed and assumes consistency between
+-- MonadSlots and MonadTimed implementations.
+onNewSlot'
+    :: (MonadIO m, MonadMockable m, MonadSlots m, MonadCatch m, WithLogger m)
+    => Bool -> (SlotId -> m ()) -> m a
+onNewSlot' startImmediately action =
+    onNewSlotDo' Nothing startImmediately actionWithCatch
+  where
+    -- [CSL-198]: think about exceptions more carefully.
+    actionWithCatch s = action s `catch` handler
+    handler :: WithLogger m => SomeException -> m ()
+    handler = logError . sformat ("Error occurred: "%build)
+
+onNewSlotDo'
+    :: (MonadIO m, MonadMockable m, MonadSlots m, MonadCatch m, WithLogger m)
+    => Maybe SlotId -> Bool -> (SlotId -> m ()) -> m a
+onNewSlotDo' expectedSlotId startImmediately action = do
+    -- here we wait for short intervals to be sure that expected slot
+    -- has really started, taking into account possible inaccuracies
+    waitUntilPredicate
+        (maybe (const True) (<=) expectedSlotId <$> getCurrentSlot)
+    curSlot <- getCurrentSlot
+    -- fork is necessary because action can take more time than slotDuration
+    when startImmediately $ void $ MC.fork $ action curSlot
+    Timestamp curTime <- getCurrentTime
+    let nextSlot = succ curSlot
+    Timestamp nextSlotStart <- getSlotStart nextSlot
+    let timeToWait = nextSlotStart - curTime
+    when (timeToWait > 0) $
+        do modifyLoggerName (<> "slotting") $
+               logInfo $
+               sformat ("Waiting for "%shown%" before new slot") timeToWait
+           MC.delay $ MC.for timeToWait
+    onNewSlotDo' (Just nextSlot) True action
+  where
+    waitUntilPredicate predicate =
+        unlessM predicate (shortWait >> waitUntilPredicate predicate)
+    shortWaitTime = (10 :: Microsecond) `max` (slotDuration `div` 10000)
+    shortWait = MC.delay $ MC.for shortWaitTime

@@ -12,6 +12,8 @@
 module Pos.WorkMode
        ( WorkMode
        , MinWorkMode
+       , NewWorkMode
+       , NewMinWorkMode
 
        -- * Actual modes
        , ProductionMode
@@ -25,6 +27,7 @@ module Pos.WorkMode
 import           Control.Monad.Catch           (MonadMask)
 import           Control.TimeWarp.Rpc          (Dialog, Transfer)
 import           Control.TimeWarp.Timed        (MonadTimed (..), TimedIO)
+import           Mockable                      (MonadMockable)
 import           System.Wlog                   (LoggerNameBox, WithLogger)
 import           Universum
 
@@ -36,6 +39,7 @@ import           Pos.Delegation.Class          (DelegationT (..), MonadDelegatio
 import           Pos.DHT.Model                 (DHTPacking, MonadMessageDHT (..),
                                                 WithDefaultMsgHeader)
 import           Pos.DHT.Real                  (KademliaDHT (..))
+import           Pos.NewDHT.Model              (MonadDHT)
 import           Pos.Slotting                  (MonadSlots (..))
 import           Pos.Ssc.Class.Helpers         (SscHelpersClass (..))
 import           Pos.Ssc.Class.LocalData       (SscLocalDataClass)
@@ -73,6 +77,29 @@ type WorkMode ssc m
       , MonadJL m
       )
 
+-- | Bunch of constraints to perform work for real world distributed system.
+type NewWorkMode ssc m
+    = ( WithLogger m
+      , MonadIO m
+      , MonadFail m
+      , MonadMockable m
+      , MonadDHT m
+      , MonadMask m
+      , MonadSlots m
+      , Modern.MonadDB ssc m
+      , MonadTxpLD ssc m
+      , MonadDelegation m
+      , MonadUtxo m
+      , MonadSscGS ssc m
+      , SscStorageClass ssc
+      , SscLocalDataClass ssc
+      , SscHelpersClass ssc
+      , MonadSscLD ssc m
+      , WithNodeContext ssc m
+      , MonadStats m
+      , MonadJL m
+      )
+
 -- | More relaxed version of 'WorkMode'.
 type MinWorkMode ss m
     = ( WithLogger m
@@ -82,6 +109,16 @@ type MinWorkMode ss m
       , MonadFail m
       , MonadMessageDHT ss m
       , WithDefaultMsgHeader m
+      )
+
+-- | More relaxed version of 'WorkMode'.
+type NewMinWorkMode m
+    = ( WithLogger m
+      , MonadMockable m
+      , MonadFail m
+      , MonadCatch m
+      , MonadDHT m
+      , MonadIO m
       )
 
 ----------------------------------------------------------------------------

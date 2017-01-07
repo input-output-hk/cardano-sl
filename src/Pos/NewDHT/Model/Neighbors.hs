@@ -5,7 +5,9 @@
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE UndecidableInstances      #-}
 
-module Pos.NewDHT.Model.Neighbors where
+module Pos.NewDHT.Model.Neighbors
+  ( sendToNeighbors
+  ) where
 
 import           Control.Monad                   (sequence)
 import           Control.Monad.Catch             (SomeException, catch)

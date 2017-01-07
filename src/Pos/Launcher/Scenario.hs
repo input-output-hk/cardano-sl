@@ -7,8 +7,9 @@ module Pos.Launcher.Scenario
        ) where
 
 import           Control.Concurrent.MVar (putMVar)
-import           Control.TimeWarp.Timed  (currentTime, for, fork, sleepForever, wait)
 import           Formatting              (build, sformat, (%))
+import           Mockable                (currentTime, delay, for, fork, sleepForever)
+import           Node                    (SendActions)
 import           System.Wlog             (logError, logInfo)
 import           Universum
 
@@ -17,17 +18,17 @@ import           Pos.Context             (NodeContext (..), getNodeContext,
                                           ncPubKeyAddress, ncPublicKey, putLeaders,
                                           putRichmen)
 import qualified Pos.DB                  as DB
-import           Pos.DHT.Model           (DHTNodeType (DHTFull), discoverPeers)
+import           Pos.NewDHT.Model        (BiP, DHTNodeType (DHTFull), discoverPeers)
 import           Pos.Slotting            (getCurrentSlot)
 import           Pos.Ssc.Class           (SscConstraint)
 import           Pos.Types               (SlotId (..), Timestamp (Timestamp), addressHash)
 import           Pos.Util                (inAssertMode)
 import           Pos.Worker              (runWorkers)
-import           Pos.WorkMode            (WorkMode)
+import           Pos.WorkMode            (NewWorkMode)
 
 -- | Run full node in any WorkMode.
-runNode :: (SscConstraint ssc, WorkMode ssc m) => [m ()] -> m ()
-runNode plugins = do
+runNode :: (SscConstraint ssc, NewWorkMode ssc m) => SendActions BiP m -> [m ()] -> m ()
+runNode sendActions plugins = do
     inAssertMode $ logInfo "Assert mode on"
     pk <- ncPublicKey <$> getNodeContext
     addr <- ncPubKeyAddress <$> getNodeContext
@@ -42,19 +43,19 @@ runNode plugins = do
     initLrc
 --    initSsc
     waitSystemStart
-    runWorkers
+    runWorkers sendActions
     mapM_ fork plugins
     sleepForever
 
 -- Sanity check in case start time is in future (may happen if clocks
 -- are not accurately synchronized, for example).
-waitSystemStart :: WorkMode ssc m => m ()
+waitSystemStart :: NewWorkMode ssc m => m ()
 waitSystemStart = do
     Timestamp start <- ncSystemStart <$> getNodeContext
     cur <- currentTime
-    when (cur < start) $ wait (for (start - cur))
+    when (cur < start) $ delay (for (start - cur))
 
-initSemaphore :: (WorkMode ssc m) => m ()
+initSemaphore :: (NewWorkMode ssc m) => m ()
 initSemaphore = do
     semaphore <- ncBlkSemaphore <$> getNodeContext
     unlessM
@@ -63,7 +64,7 @@ initSemaphore = do
     tip <- DB.getTip
     liftIO $ putMVar semaphore tip
 
-initLrc :: WorkMode ssc m => m ()
+initLrc :: NewWorkMode ssc m => m ()
 initLrc = do
     (epochIndex, leaders, richmen) <- DB.getLrc
     SlotId {..} <- getCurrentSlot

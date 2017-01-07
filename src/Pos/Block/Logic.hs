@@ -43,7 +43,7 @@ import           Universum
 import           Pos.Constants             (curProtocolVersion, curSoftwareVersion, k)
 import           Pos.Context               (NodeContext (ncSecretKey), getNodeContext,
                                             putBlkSemaphore, readBlkSemaphore,
-                                            readLeaders, readRichmen, takeBlkSemaphore)
+                                            readLeaders, takeBlkSemaphore)
 import           Pos.Crypto                (ProxySecretKey, SecretKey,
                                             WithHash (WithHash), hash, shortHashF)
 import           Pos.Data.Attributes       (mkAttributes)
@@ -281,13 +281,12 @@ verifyBlocks
     :: WorkMode ssc m
     => NonEmpty (Block ssc) -> m (Either Text (NonEmpty Undo))
 verifyBlocks blocks = do
-    richmen <- readRichmen
     runExceptT $ do
        curSlot <- getCurrentSlot
        tipBlk <- DB.getTipBlock
        verResToMonadError formatAllErrors $
            Types.verifyBlocks (Just curSlot) (tipBlk <| blocks)
-       verResToMonadError formatAllErrors =<< sscVerifyBlocks False richmen blocks
+       verResToMonadError formatAllErrors =<< sscVerifyBlocks False blocks
        txUndo <- ExceptT $ txVerifyBlocks blocks
        pskUndo <- ExceptT $ delegationVerifyBlocks blocks
        when (length txUndo /= length pskUndo) $ throwError "Aoeu! Placeholder!"

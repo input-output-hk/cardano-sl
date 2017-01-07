@@ -62,6 +62,7 @@ module Pos.Util
        , fromBinaryM
 
        , eitherToVerRes
+       , clearMVar
 
        , NamedMessagePart (..)
        -- * Instances
@@ -449,3 +450,6 @@ deriving instance MonadFail m => MonadFail (LoggerNameBox m)
 
 instance MonadFail TimedIO where
     fail = Monad.fail
+
+clearMVar :: MonadIO m => MVar a -> m ()
+clearMVar = liftIO . void . tryTakeMVar

@@ -7,7 +7,8 @@ module Pos.Binary.DB
 import           Universum
 
 import           Pos.Binary.Class    (Bi (..))
-import           Pos.DB.Types        (LeadersStorage (..), StoredBlock (..))
+import           Pos.DB.Types        (GtRichmenStorage (..), LeadersStorage (..),
+                                      StoredBlock (..))
 import           Pos.Ssc.Class.Types (Ssc)
 
 instance Ssc ssc =>
@@ -18,3 +19,7 @@ instance Ssc ssc =>
 instance Bi (LeadersStorage ssc) where
     put LeadersStorage {..} = put lrcEpoch >> put lrcLeaders
     get = LeadersStorage <$> get <*> get
+
+instance Bi (GtRichmenStorage ssc) where
+    put GtRichmenStorage {..} = put gtRichmenEpoch >> put gtRichmen
+    get = GtRichmenStorage <$> get <*> get

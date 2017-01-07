@@ -68,6 +68,8 @@ module Pos.Types.Types
        , SharedSeed (..)
        , SlotLeaders
        , Richmen
+       , RichmenStake
+       , toRichmen
 
        , ProxySigEpoch
        , ProxySKEpoch
@@ -110,6 +112,8 @@ module Pos.Types.Types
        , HasPrevBlock (..)
        , HasEpochOrSlot (..)
 
+       , LrcConsumer (..)
+
        , blockHeader
        , blockLeaderKey
        , blockLeaders
@@ -151,8 +155,10 @@ import qualified Data.ByteString.Char8  as BSC (pack)
 import           Data.Data              (Data)
 import           Data.DeriveTH          (derive, makeNFData)
 import           Data.Hashable          (Hashable)
+import qualified Data.HashMap.Strict    as HM
 import           Data.Ix                (Ix)
 import           Data.List.NonEmpty     (NonEmpty)
+import qualified Data.List.NonEmpty     as NE
 import qualified Data.Map               as M (toList)
 import           Data.SafeCopy          (SafeCopy (..), base, contain,
                                          deriveSafeCopySimple, safeGet, safePut)
@@ -476,6 +482,15 @@ type SlotLeaders = NonEmpty StakeholderId
 
 -- | Addresses which have enough stake for participation in SSC.
 type Richmen = NonEmpty StakeholderId
+
+-- | Richmen with Stake
+type RichmenStake = HashMap StakeholderId Coin
+
+toRichmen :: RichmenStake -> Richmen
+toRichmen =
+    fromMaybe onNoRichmen . NE.nonEmpty . HM.keys
+  where
+    onNoRichmen = panic "There are no richmen!"
 
 ----------------------------------------------------------------------------
 -- Proxy signatures and delegation
@@ -1283,3 +1298,15 @@ derive makeNFData ''TxInWitness
 derive makeNFData ''TxOut
 derive makeNFData ''TxDistribution
 derive makeNFData ''Tx
+
+----------------------------------------------------------------------------
+-- Richmen and LRC stuff
+----------------------------------------------------------------------------
+data LrcConsumer m = LrcConsumer
+    {
+      lcThreshold         :: Coin -> Coin
+    , lcIfNeedCompute     :: SlotId -> m Bool
+    , lcComputedCallback  :: SlotId -> Coin -> RichmenStake -> m ()
+    , lcClearCallback     :: m ()
+    , lcConsiderDelegated :: Bool
+    }

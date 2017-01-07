@@ -14,7 +14,7 @@ import           Universum
 
 import           Pos.Constants           (k)
 import           Pos.Context             (NodeContext (..), getNodeContext,
-                                          ncPubKeyAddress, ncPublicKey, putLeaders)
+                                          ncPubKeyAddress, ncPublicKey, writeLeaders)
 import qualified Pos.DB                  as DB
 import           Pos.DHT.Model           (DHTNodeType (DHTFull), discoverPeers)
 import           Pos.Slotting            (getCurrentSlot)
@@ -65,5 +65,4 @@ initLrc :: WorkMode ssc m => m ()
 initLrc = do
     (epochIndex, leaders) <- DB.getLeaders
     SlotId {..} <- getCurrentSlot
-    when (siSlot < k && siEpoch == epochIndex) $ do
-        putLeaders leaders
+    when (siSlot < k && siEpoch == epochIndex) $ writeLeaders leaders

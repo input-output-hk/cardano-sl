@@ -43,6 +43,7 @@ import           Pos.DHT.Model               (DHTResponseT, MonadDHT,
                                               MonadMessageDHT (..), WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Slotting                (MonadSlots (..))
+import           Pos.Ssc.Extra               (MonadSscRichmen)
 import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..))
 import           Pos.Statistics.StatEntry    (StatLabel (..))
 import           Pos.Txp.Class               (MonadTxpLD (..))
@@ -84,7 +85,7 @@ newtype NoStatsT m a = NoStatsT
                 MonadDialog s p, MonadDHT, MonadMessageDHT s, MonadSlots,
                 WithDefaultMsgHeader, MonadJL, CanLog,
                 MonadUtxoRead, MonadUtxo, Modern.MonadDB ssc,
-                MonadTxpLD ssc, MonadSscGS ssc, MonadSscLD ssc,
+                MonadTxpLD ssc, MonadSscGS ssc, MonadSscLD ssc, MonadSscRichmen,
                 WithNodeContext ssc, MonadDelegation)
 
 instance Monad m => WrappedM (NoStatsT m) where
@@ -130,7 +131,7 @@ newtype StatsT m a = StatsT
                 MonadDialog s p, MonadDHT, MonadMessageDHT s, MonadSlots,
                 WithDefaultMsgHeader, MonadTrans, MonadJL, CanLog,
                 MonadUtxoRead, MonadUtxo, Modern.MonadDB ssc, MonadTxpLD ssc,
-                MonadSscGS ssc, MonadSscLD ssc, WithNodeContext ssc, MonadDelegation)
+                MonadSscGS ssc, MonadSscLD ssc, MonadSscRichmen, WithNodeContext ssc, MonadDelegation)
 
 instance Monad m => WrappedM (StatsT m) where
     type UnwrappedM (StatsT m) = ReaderT StatsMap m

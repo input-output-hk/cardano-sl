@@ -8,66 +8,99 @@ module Pos.Worker.Lrc
        ( lrcOnNewSlot
        ) where
 
+import           Control.TimeWarp.Timed   (fork_)
+import qualified Data.HashMap.Strict      as HM
 import qualified Data.List.NonEmpty       as NE
 import           Formatting               (build, sformat, (%))
 import           Serokell.Util.Exceptions ()
-import           System.Wlog              (logDebug)
+import           System.Wlog              (logDebug, logInfo)
 import           Universum
 
 import           Pos.Binary.Communication ()
 import           Pos.Block.Logic          (applyBlocks, rollbackBlocks, withBlkSemaphore_)
 import           Pos.Constants            (k)
-import           Pos.Context              (getNodeContext, isLrcCompleted, ncSscLeaders,
-                                           readLeaders)
+import           Pos.Context              (getNodeContext, isLeadersComputed,
+                                           ncSscLeaders, readLeaders, writeLeaders)
 import           Pos.DB                   (getTotalFtsStake, loadBlocksFromTipWhile,
-                                           mapUtxoIterator, putSlotLeaders)
+                                           mapUtxoIterator, putLeaders)
 import           Pos.Eligibility          (findRichmenStake)
 import           Pos.FollowTheSatoshi     (followTheSatoshiM)
+import           Pos.Richmen              (allLrcConsumers)
+import           Pos.Ssc.Class            (SscWorkersClass)
 import           Pos.Ssc.Extra            (sscCalculateSeed)
-import           Pos.Types                (EpochOrSlot (..), HeaderHash, SlotId (..),
-                                           TxIn, TxOutAux, crucialSlot, getEpochOrSlot,
-                                           mkCoin, Coin, EpochOrSlot (..), HeaderHash,
-                                           SlotId (..), StakeholderId, TxIn, TxOutAux,
-                                           getEpochOrSlot, mkCoin)
+import           Pos.Types                (Coin, EpochOrSlot (..), EpochOrSlot (..),
+                                           HeaderHash, HeaderHash, LrcConsumer (..),
+                                           SlotId (..), SlotId (..), StakeholderId, TxIn,
+                                           TxIn, TxOutAux, TxOutAux, crucialSlot,
+                                           getEpochOrSlot, getEpochOrSlot)
+import           Pos.Util                 (clearMVar)
 import           Pos.WorkMode             (WorkMode)
-import Pos.Richmen (LrcConsumer (..), allLrcComsumers)
 
-lrcOnNewSlot :: WorkMode ssc m => SlotId -> m ()
+lrcOnNewSlot :: (SscWorkersClass ssc, WorkMode ssc m) => SlotId -> m ()
 lrcOnNewSlot slotId
     | siSlot slotId < k = do
-        nc <- getNodeContext
-        lrcCompl <- isLrcCompleted
-        unless lrcCompl $
-            withBlkSemaphore_ $ lrcDo slotId
+        needComputeRichmen <- filterM (flip lcIfNeedCompute slotId) allLrcConsumers
+        when (null needComputeRichmen) $ logInfo "Don't need to compute richmen"
+        needComputeLeaders <- not <$> isLeadersComputed
+        when needComputeLeaders $ logInfo "Don't need to compute leaders"
+        when ((not . null) needComputeRichmen || needComputeLeaders) $ do
+            logInfo $ "LRC computation is starting"
+            withBlkSemaphore_ $ lrcDo slotId needComputeRichmen
+            logInfo $ "LRC computation has finished"
     | otherwise = do
         nc <- getNodeContext
-        let clearMVar = liftIO . void . tryTakeMVar
-        lrcClear
+        lrcConsumersClear allLrcConsumers
         clearMVar $ ncSscLeaders nc
 
-lrcDo
-    :: WorkMode ssc m
-    => SlotId -> HeaderHash ssc -> m (HeaderHash ssc)
-lrcDo SlotId {siEpoch = epochId} tip = tip <$ do
-    logDebug $ "It's time to compute leaders and parts"
+lrcDo :: WorkMode ssc m
+      => SlotId -> [LrcConsumer m] -> HeaderHash ssc -> m (HeaderHash ssc)
+lrcDo slotId consumers tip = tip <$ do
+    logDebug $ "It's time to compute leaders and richmen"
     blockUndoList <- loadBlocksFromTipWhile whileMoreOrEq5k
     when (null blockUndoList) $
         panic "No one block hasn't been generated during last k slots"
     let blockUndos = NE.fromList blockUndoList
     rollbackBlocks blockUndos
-    totalStake <- notImplemented
+    richmenComputationDo slotId consumers
+    leadersComputationDo slotId
+    applyBlocks blockUndos
+  where
+    whileMoreOrEq5k b _ = getEpochOrSlot b >= crucial
+    crucial = EpochOrSlot $ Right $ crucialSlot slotId
+
+richmenComputationDo :: WorkMode ssc m
+    => SlotId -> [LrcConsumer m] -> m ()
+richmenComputationDo slotId consumers = unless (null consumers) $ do
     -- [CSL-93] Use eligibility threshold here
+    total <- getTotalFtsStake
+    let minThreshold = safeThreshold total (not . lcConsiderDelegated)
+    let minThresholdD = safeThreshold total lcConsiderDelegated
     (richmen, richmenD) <-
         mapUtxoIterator @(StakeholderId, Coin)
-            (findRichmenStake (Just . mkCoin $ 0) (Just . mkCoin $ 0))
+            (findRichmenStake minThreshold minThresholdD)
             identity
-    callCallback cons = fork_ $
-        if lcConsiderDelegated cons then lcComputedCallback totalStake richmenD
-        else lcComputedCallback totalStake richmen
-    mapM_ callCallback allLrcComsumers
-    nc <- getNodeContext
-    let leadersMVar = ncSscLeaders nc
-    whenM (liftIO $ isEmptyMVar leadersMVar) $ do
+    let callCallback cons = fork_ $
+            if lcConsiderDelegated cons then
+                lcComputedCallback cons
+                                   slotId
+                                   total
+                                   (HM.filter (>= lcThreshold cons total) richmenD)
+            else
+                lcComputedCallback cons
+                                   slotId
+                                   total
+                                   (HM.filter (>= lcThreshold cons total) richmen)
+    mapM_ callCallback consumers
+  where
+    safeThreshold total f =
+        safeMinimum
+        $ map (flip lcThreshold total)
+        $ filter f consumers
+    safeMinimum a = if null a then Nothing else Just $ minimum a
+
+leadersComputationDo :: WorkMode ssc m => SlotId -> m ()
+leadersComputationDo SlotId {siEpoch = epochId} = do
+    unlessM isLeadersComputed $ do
         mbSeed <- sscCalculateSeed epochId
         totalStake <- getTotalFtsStake
         leaders <-
@@ -75,15 +108,10 @@ lrcDo SlotId {siEpoch = epochId} tip = tip <$ do
                 Left e     -> panic $ sformat ("SSC couldn't compute seed: "%build) e
                 Right seed -> mapUtxoIterator @(TxIn, TxOutAux) @TxOutAux
                               (followTheSatoshiM seed totalStake) snd
-        liftIO $ putMVar leadersMVar leaders
+        writeLeaders leaders
     leaders <- readLeaders
-    putSlotLeaders epochId leaders
-    applyBlocks blockUndos
-  where
-    whileMoreOrEq5k b _ = getEpochOrSlot b >= crucial
-    crucial = EpochOrSlot $ Right $ crucialSlot slotId
+    putLeaders epochId leaders
 
-lrcClear
-    :: WorkMode ssc m
-    => lrcLeaders -> m ()
-lrcClear = mapM_ lcClearCallback allLrcComsumers
+lrcConsumersClear :: WorkMode ssc m => [LrcConsumer m] -> m ()
+lrcConsumersClear = mapM_ lcClearCallback
+-- dangerous ^, one thread

@@ -9,13 +9,10 @@ module Pos.Eligibility
        ) where
 
 import qualified Data.HashMap.Strict as HM
-import qualified Data.List.NonEmpty  as NE
 import           Universum
 
-import           Pos.Types           (Coin, Richmen, StakeholderId, Utxo, txOutStake)
+import           Pos.Types           (Coin, RichmenStake, StakeholderId, Utxo, txOutStake)
 import           Pos.Util.Iterator   (MonadIterator (nextItem), runListHolder)
-
-type RichmenStake = HashMap StakeholderId Coin
 
 -- | Find nodes which have at least 'eligibility threshold' coins.
 findRichmenStake
@@ -45,14 +42,14 @@ findRichmenStake threshold dThreshold = step mempty mempty
         else hm
 
 -- | Pure version of findRichmen which uses in-memory Utxo.
-findRichmenPure :: Utxo -> Coin -> Richmen
+findRichmenPure :: Utxo -> Coin -> RichmenStake
 findRichmenPure utxo t =
-    runListHolder findRichmen . concatMap txOutStake $ toList utxo
-  where
-    findRichmen =
-      fromMaybe onNoRichmen .
-      NE.nonEmpty .
-      HM.keys .
-      fst
-      <$> findRichmenStake (Just t) Nothing
-    onNoRichmen = panic "There are no richmen!"
+    runListHolder (fst <$> findRichmenStake (Just t) Nothing) . concatMap txOutStake $ toList utxo
+  -- where
+  --   findRichmen =
+  --     fromMaybe onNoRichmen .
+  --     NE.nonEmpty .
+  --     HM.keys .
+  --     fst
+  --     <$> findRichmenStake (Just t) Nothing
+  --   onNoRichmen = panic "There are no richmen!"

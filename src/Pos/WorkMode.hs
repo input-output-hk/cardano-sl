@@ -40,11 +40,12 @@ import           Pos.Slotting                  (MonadSlots (..))
 import           Pos.Ssc.Class.Helpers         (SscHelpersClass (..))
 import           Pos.Ssc.Class.LocalData       (SscLocalDataClass)
 import           Pos.Ssc.Class.Storage         (SscStorageClass)
-import           Pos.Ssc.Extra                 (MonadSscGS, MonadSscLD, SscHolder)
+import           Pos.Ssc.Extra                 (MonadSscGS, MonadSscLD, MonadSscRichmen,
+                                                SscHolder)
 import           Pos.Statistics.MonadStats     (MonadStats, NoStatsT, StatsT)
 import           Pos.Txp.Class                 (MonadTxpLD (..))
 import           Pos.Txp.Holder                (TxpLDHolder)
-import           Pos.Types                     (MonadUtxo)
+import           Pos.Types.Utxo                (MonadUtxo)
 import           Pos.Util.JsonLog              (MonadJL (..))
 
 type MSockSt ssc = MutSocketState ssc
@@ -62,10 +63,11 @@ type WorkMode ssc m
       , MonadDelegation m
       , MonadUtxo m
       , MonadSscGS ssc m
+      , MonadSscLD ssc m
+      , MonadSscRichmen m
       , SscStorageClass ssc
       , SscLocalDataClass ssc
       , SscHelpersClass ssc
-      , MonadSscLD ssc m
       , WithNodeContext ssc m
       , MonadMessageDHT (MSockSt ssc) m
       , WithDefaultMsgHeader m

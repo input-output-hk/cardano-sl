@@ -189,6 +189,8 @@ library
                         Pos.Ssc.Extra.Holder
                         Pos.Ssc.Extra.MonadGS
                         Pos.Ssc.Extra.MonadLD
+                        Pos.Ssc.Extra.Richmen
+                        Pos.Ssc.GodTossing.Richmen
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions

@@ -20,6 +20,9 @@ module Pos.DB.Misc
 
        , getLeaders
        , putLeaders
+
+       , getGtRichmen
+       , putGtRichmen
        ) where
 
 import           Data.Default                    (def)
@@ -32,10 +35,12 @@ import           Pos.Crypto                      (Hash, SecretKey, pskOmega)
 import           Pos.DB.Class                    (MonadDB, getMiscDB)
 import           Pos.DB.Error                    (DBError (DBMalformed))
 import           Pos.DB.Functions                (rocksGetBi, rocksPutBi)
-import           Pos.DB.Types                    (LeadersStorage (..))
+import           Pos.DB.Types                    (GtRichmenStorage (..),
+                                                  LeadersStorage (..))
 import           Pos.Ssc.GodTossing.Secret.Types (GtSecretStorage)
 import           Pos.Ssc.GodTossing.Types.Type   (SscGodTossing)
-import           Pos.Types                       (EpochIndex, ProxySKEpoch, SlotLeaders)
+import           Pos.Types                       (EpochIndex, ProxySKEpoch, RichmenStake,
+                                                  SlotLeaders)
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -44,12 +49,12 @@ import           Pos.Types                       (EpochIndex, ProxySKEpoch, Slot
 prepareMiscDB
     :: forall ssc m.
        (MonadDB ssc m)
-    => SlotLeaders -> m ()
-prepareMiscDB leaders  = do
-    existing <- getBi @(LeadersStorage ssc) lrcKey
-    case existing of
-        Nothing -> putLeaders 0 leaders
-        Just _  -> pass
+    => SlotLeaders -> RichmenStake -> m ()
+prepareMiscDB leaders gtRichmen = do
+    getBi @(LeadersStorage ssc) lrcKey >>=
+        maybe (putLeaders 0 leaders) (pure . const ())
+    getBi @(GtRichmenStorage ssc) gtRichmenKey >>=
+        maybe (putGtRichmen 0 gtRichmen) (pure . const ())
 
 ----------------------------------------------------------------------------
 -- Delegation and proxy signing
@@ -130,7 +135,7 @@ getLeaders
        (MonadDB ssc m)
     => m (EpochIndex, SlotLeaders)
 getLeaders =
-    maybe (throwM (DBMalformed "No LRC in MiscDB")) (pure . convert) =<< getBi lrcKey
+    maybe (throwM (DBMalformed "No leaders in MiscDB")) (pure . convert) =<< getBi lrcKey
   where
     convert LeadersStorage {..} = (lrcEpoch, lrcLeaders)
 
@@ -145,6 +150,22 @@ putLeaders epoch leaders =
         { lrcEpoch = epoch
         , lrcLeaders = leaders
         }
+
+getGtRichmen
+    :: forall ssc m.
+       (MonadDB ssc m)
+    => m (EpochIndex, RichmenStake)
+getGtRichmen =
+    maybe (throwM (DBMalformed "No GodTossing richmen in MiscDB"))
+          (pure . convert) =<< getBi gtRichmenKey
+  where
+    convert GtRichmenStorage {..} = (gtRichmenEpoch, gtRichmen)
+
+putGtRichmen :: MonadDB ssc m => EpochIndex -> RichmenStake -> m ()
+putGtRichmen gtRichmenEpoch gtRichmen =
+      putBi
+          gtRichmenKey
+          GtRichmenStorage {..}
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -168,3 +189,6 @@ skHashKey = "skhash_"
 
 lrcKey :: ByteString
 lrcKey = "lrc_"
+
+gtRichmenKey :: ByteString
+gtRichmenKey = "gtRichmen_"

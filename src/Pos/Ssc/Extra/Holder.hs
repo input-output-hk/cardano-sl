@@ -25,6 +25,7 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
 import           Control.TimeWarp.Rpc        (MonadDialog, MonadTransfer (..))
 import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
 import           Data.Default                (Default (def))
+import           Data.Maybe                  (isJust)
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
@@ -36,13 +37,16 @@ import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
 import           Pos.Ssc.Class.Types         (Ssc (..))
 import           Pos.Ssc.Extra.MonadGS       (MonadSscGS (..))
 import           Pos.Ssc.Extra.MonadLD       (MonadSscLD (..))
+import           Pos.Ssc.Extra.Richmen       (MonadSscRichmen (..))
+import           Pos.Types                   (RichmenStake)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 data SscState ssc =
     SscState
     {
-      sscGlobal :: !(STM.TVar (SscGlobalState ssc))
-    , sscLocal  :: !(STM.TVar (SscLocalData ssc))
+      sscGlobal  :: !(STM.TVar (SscGlobalState ssc))
+    , sscLocal   :: !(STM.TVar (SscLocalData ssc))
+    , sscRichmen :: !(MVar RichmenStake)
     }
 
 newtype SscHolder ssc m a =
@@ -92,11 +96,24 @@ instance MonadIO m => MonadSscLD ssc (SscHolder ssc m) where
                 return res
     setLocalData newSt = SscHolder (asks sscLocal) >>= atomically . flip STM.writeTVar newSt
 
+instance MonadIO m => MonadSscRichmen (SscHolder ssc m) where
+    -- | Put richmen into MVar, assuming it's empty.
+    writeSscRichmen richmen = SscHolder (asks sscRichmen) >>= liftIO . flip putMVar richmen
+
+    isEmptySscRichmen = SscHolder (asks sscRichmen) >>= liftIO . isEmptyMVar
+
+    -- | Read richmen from SSC node context. This function blocks if
+    -- participants are not available.
+    readSscRichmen = SscHolder (asks sscRichmen) >>= liftIO . readMVar
+
+    clearSscRichmen = isJust <$> (SscHolder (asks sscRichmen) >>= liftIO . tryTakeMVar)
+
 runSscHolder :: forall ssc m a. (SscLocalDataClass ssc, MonadIO m)
              => SscHolder ssc m a -> SscGlobalState ssc -> m a
 runSscHolder holder glob = SscState
                        <$> liftIO (STM.newTVarIO glob)
                        <*> liftIO (STM.newTVarIO def)
+                       <*> liftIO (newMVar mempty)
                        >>= runReaderT (getSscHolder holder)
 
 runSscHolderRaw :: SscState ssc -> SscHolder ssc m a -> m a

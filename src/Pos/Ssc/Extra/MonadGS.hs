@@ -28,7 +28,8 @@ import           Pos.DHT.Model.Class   (DHTResponseT)
 import           Pos.DHT.Real          (KademliaDHT)
 import           Pos.Ssc.Class.Storage (SscStorageClass (..))
 import           Pos.Ssc.Class.Types   (Ssc (..))
-import           Pos.Types.Types       (EpochIndex, NEBlocks, Richmen, SharedSeed)
+import           Pos.Ssc.Extra.Richmen (MonadSscRichmen (..))
+import           Pos.Types.Types       (EpochIndex, NEBlocks, SharedSeed, toRichmen)
 
 class Monad m => MonadSscGS ssc m | m -> ssc where
     getGlobalState    :: m (SscGlobalState ssc)
@@ -89,6 +90,8 @@ sscRollback = sscRunGlobalModify . sscRollbackM @ssc
 
 sscVerifyBlocks
     :: forall ssc m.
-       (MonadSscGS ssc m, SscStorageClass ssc)
-    => Bool -> Richmen -> NEBlocks ssc -> m VerificationRes
-sscVerifyBlocks verPure richmen = sscRunGlobalQuery . sscVerifyBlocksM @ssc verPure richmen
+       (MonadSscGS ssc m, MonadSscRichmen m, SscStorageClass ssc)
+    => Bool -> NEBlocks ssc -> m VerificationRes
+sscVerifyBlocks verPure blocks = do
+    richmen <- toRichmen <$> readSscRichmen
+    sscRunGlobalQuery $ sscVerifyBlocksM @ssc verPure richmen blocks

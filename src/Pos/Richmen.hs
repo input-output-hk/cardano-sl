@@ -1,19 +1,14 @@
 module Pos.Richmen
        (
+         allLrcConsumers
        ) where
 
+import           Data.Tagged           (untag)
 import           Universum
 
-import           Pos.Types    (Coin, CoinPortion, StakeholderId)
-import           Pos.WorkMode (WorkMode)
+import           Pos.Ssc.Class.Workers (SscWorkersClass (sscLrcConsumers))
+import           Pos.Types             (LrcConsumer)
+import           Pos.WorkMode          (WorkMode)
 
-data LrcConsumer m = LrcConsumer
-    {
-      lcThreshold         :: CoinPortion
-    , lcComputedCallback  :: Coin -> HashMap StakeholderId Coin -> m ()
-    , lcClearCallback     :: m ()
-    , lcConsiderDelegated :: Bool
-    }
-
-allLrcComsumers :: WorkMode ssc m => [LrcConsumer m]
-allLrcComsumers = []
+allLrcConsumers :: (SscWorkersClass ssc, WorkMode ssc m) => [LrcConsumer m]
+allLrcConsumers = concat $ [untag sscLrcConsumers]

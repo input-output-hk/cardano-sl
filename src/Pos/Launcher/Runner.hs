@@ -5,27 +5,26 @@
 
 -- | Runners in various modes.
 
-module Pos.Launcher.Runner
-       (
-         -- * High level runners
-         runRawRealMode
-       , runProductionMode
-       , runStatsMode
-       , runServiceMode
+module Pos.Launcher.Runner where
+       --(
+       --  -- * High level runners
+       --  runRawRealMode
+       --, runProductionMode
+       --, runStatsMode
+       --, runServiceMode
 
-         -- * Service runners
-       , runSupporterReal
-       , runTimeSlaveReal
-       , runTimeLordReal
+       --  -- * Service runners
+       --, runSupporterReal
+       --, runTimeSlaveReal
+       --, runTimeLordReal
 
-       -- * Exported for custom usage in CLI utils
-       , addDevListeners
-       , setupLoggers
-       , bracketDHTInstance
-       , runKDHT
-       , runOurDialog
-       , runOurDialogRaw
-       ) where
+       ---- * Exported for custom usage in CLI utils
+       --, addDevListeners
+       --, setupLoggers
+       --, bracketDHTInstance
+       --, runOurDialog
+       --, runOurDialogRaw
+       --) where
 
 import           Control.Concurrent.MVar      (newEmptyMVar, newMVar, takeMVar,
                                                tryReadMVar)
@@ -44,6 +43,7 @@ import           Data.Default                 (def)
 import           Data.List                    (nub)
 import qualified Data.Time                    as Time
 import           Formatting                   (build, sformat, shown, (%))
+import           Node                         (Listener)
 import           System.Wlog                  (LoggerName (..), WithLogger, logDebug,
                                                logInfo, logWarning, releaseAllHandlers,
                                                traverseLoggerConfig, usingLoggerName)
@@ -57,24 +57,21 @@ import           Pos.Communication            (MutSocketState, SysStartRequest (
                                                sysStartReqListener,
                                                sysStartReqListenerSlave,
                                                sysStartRespListener)
-import           Pos.Constants                (RunningMode (..), defaultPeers,
-                                               isDevelopment, runningMode)
+import           Pos.Constants                (defaultPeers, isDevelopment, runningMode)
+import qualified Pos.Constants                as Const
 import           Pos.Context                  (ContextHolder (..), NodeContext (..),
                                                runContextHolder)
 import           Pos.Crypto                   (createProxySecretKey, toPublic)
 import qualified Pos.DB                       as Modern
 import           Pos.DB.Misc                  (addProxySecretKey)
 import           Pos.Delegation.Class         (runDelegationT)
-import           Pos.DHT.Model                (BiP (..), ListenerDHT, MonadDHT (..),
-                                               mapListenerDHT, sendToNeighbors)
-import           Pos.DHT.Model.Class          (DHTPacking, MonadDHTDialog)
-import           Pos.DHT.Real                 (KademliaDHT, KademliaDHTConfig (..),
-                                               KademliaDHTInstance,
+import           Pos.Launcher.Param           (BaseParams (..), LoggingParams (..),
+                                               NodeParams (..))
+import           Pos.NewDHT.Model             (BiP, MonadDHT (..))
+import           Pos.NewDHT.Real              (KademliaDHT, KademliaDHTInstance,
                                                KademliaDHTInstanceConfig (..),
                                                runKademliaDHT, startDHTInstance,
                                                stopDHTInstance)
-import           Pos.Launcher.Param           (BaseParams (..), LoggingParams (..),
-                                               NodeParams (..))
 import           Pos.Ssc.Class                (SscConstraint, SscNodeContext, SscParams,
                                                sscCreateNodeContext, sscLoadGlobalState)
 import           Pos.Ssc.Extra                (runSscHolder)
@@ -85,223 +82,200 @@ import           Pos.Types                    (Timestamp (Timestamp), timestampF
 import           Pos.Util                     (runWithRandomIntervals)
 import           Pos.Util.UserSecret          (peekUserSecret, usKeys, writeUserSecret)
 import           Pos.Worker                   (statsWorkers)
-import           Pos.WorkMode                 (MinWorkMode, ProductionMode, RawRealMode,
-                                               ServiceMode, StatsMode, TimedMode)
+import           Pos.WorkMode                 (MinWorkMode, NewMinWorkMode,
+                                               ProductionMode, RawRealMode, ServiceMode,
+                                               StatsMode)
 
 ----------------------------------------------------------------------------
 -- Service node runners
 ----------------------------------------------------------------------------
 
 -- | Runs node as time-slave inside IO monad.
-runTimeSlaveReal :: KademliaDHTInstance -> BaseParams -> IO Timestamp
-runTimeSlaveReal inst bp = do
-    mvar <- liftIO newEmptyMVar
-    runServiceMode inst bp (listeners mvar) $
-      case runningMode of
-         Development -> do
-           tId <- fork $
-             runWithRandomIntervals (sec 10) (sec 60) $ liftIO (tryReadMVar mvar) >>= \case
-                 Nothing -> do
-                    logInfo "Asking neighbors for system start"
-                    (void $ sendToNeighbors SysStartRequest) `catchAll`
-                       \e -> logDebug $ sformat
-                       ("Error sending SysStartRequest to neighbors: " % shown) e
-                 Just _ -> fail "Close thread"
-           t <- liftIO $ takeMVar mvar
-           killThread tId
-           t <$ logInfo (sformat ("[Time slave] adopted system start " % timestampF) t)
-         Production ts -> logWarning "Time slave launched in Production" $> ts
-  where
-    listeners mvar =
-      if isDevelopment
-         then [sysStartReqListenerSlave, sysStartRespListener mvar]
-         else []
+--runTimeSlaveReal :: KademliaDHTInstance -> BaseParams -> IO Timestamp
+--runTimeSlaveReal inst bp = do
+--    mvar <- liftIO newEmptyMVar
+--    runServiceMode inst bp (listeners mvar) $
+--      case runningMode of
+--         Const.Development -> do
+--           tId <- fork $
+--             runWithRandomIntervals (sec 10) (sec 60) $ liftIO (tryReadMVar mvar) >>= \case
+--                 Nothing -> do
+--                    logInfo "Asking neighbors for system start"
+--                    (void $ sendToNeighbors SysStartRequest) `catchAll`
+--                       \e -> logDebug $ sformat
+--                       ("Error sending SysStartRequest to neighbors: " % shown) e
+--                 Just _ -> fail "Close thread"
+--           t <- liftIO $ takeMVar mvar
+--           killThread tId
+--           t <$ logInfo (sformat ("[Time slave] adopted system start " % timestampF) t)
+--         Const.Production ts -> logWarning "Time slave launched in Production" $> ts
+--  where
+--    listeners mvar =
+--      if isDevelopment
+--         then [sysStartReqListenerSlave, sysStartRespListener mvar]
+--         else []
 
--- | Runs time-lord to acquire system start.
-runTimeLordReal :: LoggingParams -> IO Timestamp
-runTimeLordReal lp@LoggingParams{..} = loggerBracket lp $ do
-    t <- getCurTimestamp
-    usingLoggerName lpRunnerTag (doLog t) $> t
-  where
-    doLog t = do
-        realTime <- liftIO Time.getZonedTime
-        logInfo (sformat ("[Time lord] System start: " %timestampF%", i. e.: "%shown) t realTime)
+---- | Runs time-lord to acquire system start.
+--runTimeLordReal :: LoggingParams -> IO Timestamp
+--runTimeLordReal lp@LoggingParams{..} = loggerBracket lp $ do
+--    t <- getCurTimestamp
+--    usingLoggerName lpRunnerTag (doLog t) $> t
+--  where
+--    doLog t = do
+--        realTime <- liftIO Time.getZonedTime
+--        logInfo (sformat ("[Time lord] System start: " %timestampF%", i. e.: "%shown) t realTime)
+--
+--runSupporterReal :: KademliaDHTInstance -> BaseParams -> IO ()
+--runSupporterReal inst bp = runServiceMode inst bp [] $ do
+--    supporterKey <- currentNodeKey
+--    logInfo $ sformat ("Supporter key: " % build) supporterKey
+--    repeatForever (sec 5) (const . return $ sec 5) $
+--        getKnownPeers >>= logInfo . sformat ("Known peers: " % build)
+--
+------------------------------------------------------------------------------
+---- High level runners
+------------------------------------------------------------------------------
+--
+---- | RawRealMode runner.
+--runRawRealMode
+--    :: forall ssc c.
+--       SscConstraint ssc
+--    => KademliaDHTInstance
+--    -> NodeParams
+--    -> SscParams ssc
+--    -> [ListenerDHT (MutSocketState ssc) (RawRealMode ssc)]
+--    -> RawRealMode ssc c
+--    -> IO c
+--runRawRealMode inst np@NodeParams {..} sscnp listeners action =
+--    runResourceT $
+--    do putText $ "Running listeners number: " <> show (length listeners)
+--       lift $ setupLoggers lp
+--       modernDBs <- Modern.openNodeDBs npRebuildDb npDbPathM npCustomUtxo
+--       initTip <- Modern.runDBHolder modernDBs Modern.getTip
+--       initGS <- Modern.runDBHolder modernDBs (sscLoadGlobalState @ssc initTip)
+--       initNC <- sscCreateNodeContext @ssc sscnp
+--       let actionWithMsg = nodeStartMsg npBaseParams >> action
+--       let kademliazedAction = runKademliaDHT inst actionWithMsg
+--       let finalAction = setForkStrategy (forkStrategy @ssc) kademliazedAction
+--       let run =
+--               runOurDialog newMutSocketState lpRunnerTag .
+--               Modern.runDBHolder modernDBs .
+--               runCH np initNC .
+--               flip runSscHolder initGS .
+--               runTxpLDHolder (UV.createFromDB . Modern._utxoDB $ modernDBs) initTip .
+--               runDelegationT def $
+--               finalAction
+--       lift run
+--  where
+--    lp@LoggingParams {..} = bpLoggingParams npBaseParams
+--
+---- | ProductionMode runner.
+--runProductionMode
+--    :: forall ssc a.
+--       SscConstraint ssc
+--    => KademliaDHTInstance -> NodeParams -> SscParams ssc ->
+--       ProductionMode ssc a -> IO a
+--runProductionMode inst np@NodeParams {..} sscnp =
+--    runRawRealMode inst np sscnp listeners . getNoStatsT
+--  where
+--    listeners = addDevListeners npSystemStart []
+--    --noStatsListeners = map (mapListenerDHT getNoStatsT) (allListeners @ssc)
+--
+---- | StatsMode runner.
+---- [CSL-169]: spawn here additional listener, which would accept stat queries
+---- can be done as part of refactoring (or someone who will refactor will create new issue).
+--runStatsMode
+--    :: forall ssc a.
+--       SscConstraint ssc
+--    => KademliaDHTInstance -> NodeParams -> SscParams ssc -> StatsMode ssc a
+--    -> IO a
+--runStatsMode inst np@NodeParams {..} sscnp action =
+--    runRawRealMode inst np sscnp listeners $ runStatsT $ do
+--    mapM_ fork statsWorkers
+--    action
+--  where
+--    listeners = addDevListeners npSystemStart []
+--    --sListeners = map (mapListenerDHT runStatsT) $ allListeners @ssc
+--
+---- | ServiceMode runner.
+--runServiceMode
+--    :: KademliaDHTInstance
+--    -> BaseParams
+--    -> [ListenerDHT () ServiceMode]
+--    -> ServiceMode a
+--    -> IO a
+--runServiceMode inst bp@BaseParams{..} listeners action = loggerBracket bpLoggingParams $ do
+--    runOurDialog pass (lpRunnerTag bpLoggingParams) . runKademliaDHT inst $
+--        nodeStartMsg bp >> action
+--
+------------------------------------------------------------------------------
+---- Lower level runners
+------------------------------------------------------------------------------
+--
+--runCH :: (Modern.MonadDB ssc m, MonadFail m)
+--      => NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
+--runCH NodeParams {..} sscNodeContext act = do
+--    jlFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
+--    semaphore <- liftIO newEmptyMVar
+--    sscRichmen <- liftIO newEmptyMVar
+--    sscLeaders <- liftIO newEmptyMVar
+--    userSecret <- peekUserSecret npKeyfilePath
+--
+--    -- Get primary secret key
+--    (primarySecretKey, userSecret') <- case npSecretKey of
+--        Nothing -> case userSecret ^? usKeys . _head of
+--            Nothing -> fail $ "No secret keys are found in " ++ npKeyfilePath
+--            Just sk -> return (sk, userSecret)
+--        Just sk -> do
+--            let us = userSecret & usKeys %~ (sk :) . filter (/= sk)
+--            writeUserSecret us
+--            return (sk, us)
+--
+--    let eternity = (minBound, maxBound)
+--        makeOwnPSK = flip (createProxySecretKey primarySecretKey) eternity . toPublic
+--        ownPSKs = userSecret' ^.. usKeys._tail.each.to makeOwnPSK
+--    forM_ ownPSKs addProxySecretKey
+--
+--    userSecretVar <- liftIO . atomically . newTVar $ userSecret'
+--    let ctx =
+--            NodeContext
+--            { ncSystemStart = npSystemStart
+--            , ncSecretKey = primarySecretKey
+--            , ncTimeLord = npTimeLord
+--            , ncJLFile = jlFile
+--            , ncDbPath = npDbPathM
+--            , ncSscContext = sscNodeContext
+--            , ncAttackTypes = npAttackTypes
+--            , ncAttackTargets = npAttackTargets
+--            , ncPropagation = npPropagation
+--            , ncBlkSemaphore = semaphore
+--            , ncSscRichmen = sscRichmen
+--            , ncSscLeaders = sscLeaders
+--            , ncUserSecret = userSecretVar
+--            }
+--    runContextHolder ctx act
 
-runSupporterReal :: KademliaDHTInstance -> BaseParams -> IO ()
-runSupporterReal inst bp = runServiceMode inst bp [] $ do
-    supporterKey <- currentNodeKey
-    logInfo $ sformat ("Supporter key: " % build) supporterKey
-    repeatForever (sec 5) (const . return $ sec 5) $
-        getKnownPeers >>= logInfo . sformat ("Known peers: " % build)
-
-----------------------------------------------------------------------------
--- High level runners
-----------------------------------------------------------------------------
-
--- | RawRealMode runner.
-runRawRealMode
-    :: forall ssc c.
-       SscConstraint ssc
-    => KademliaDHTInstance
-    -> NodeParams
-    -> SscParams ssc
-    -> [ListenerDHT (MutSocketState ssc) (RawRealMode ssc)]
-    -> RawRealMode ssc c
-    -> IO c
-runRawRealMode inst np@NodeParams {..} sscnp listeners action =
-    runResourceT $
-    do putText $ "Running listeners number: " <> show (length listeners)
-       lift $ setupLoggers lp
-       modernDBs <- Modern.openNodeDBs npRebuildDb npDbPathM npCustomUtxo
-       initTip <- Modern.runDBHolder modernDBs Modern.getTip
-       initGS <- Modern.runDBHolder modernDBs (sscLoadGlobalState @ssc initTip)
-       initNC <- sscCreateNodeContext @ssc sscnp
-       let actionWithMsg = nodeStartMsg npBaseParams >> action
-       let kademliazedAction = runKDHT inst npBaseParams listeners actionWithMsg
-       let finalAction = setForkStrategy (forkStrategy @ssc) kademliazedAction
-       let run =
-               runOurDialog newMutSocketState lpRunnerTag .
-               Modern.runDBHolder modernDBs .
-               runCH np initNC .
-               flip runSscHolder initGS .
-               runTxpLDHolder (UV.createFromDB . Modern._utxoDB $ modernDBs) initTip .
-               runDelegationT def $
-               finalAction
-       lift run
-  where
-    lp@LoggingParams {..} = bpLoggingParams npBaseParams
-
--- | ProductionMode runner.
-runProductionMode
-    :: forall ssc a.
-       SscConstraint ssc
-    => KademliaDHTInstance -> NodeParams -> SscParams ssc ->
-       ProductionMode ssc a -> IO a
-runProductionMode inst np@NodeParams {..} sscnp =
-    runRawRealMode inst np sscnp listeners . getNoStatsT
-  where
-    listeners = addDevListeners npSystemStart noStatsListeners
-    noStatsListeners = map (mapListenerDHT getNoStatsT) (allListeners @ssc)
-
--- | StatsMode runner.
--- [CSL-169]: spawn here additional listener, which would accept stat queries
--- can be done as part of refactoring (or someone who will refactor will create new issue).
-runStatsMode
-    :: forall ssc a.
-       SscConstraint ssc
-    => KademliaDHTInstance -> NodeParams -> SscParams ssc -> StatsMode ssc a
-    -> IO a
-runStatsMode inst np@NodeParams {..} sscnp action =
-    runRawRealMode inst np sscnp listeners $ runStatsT $ do
-    mapM_ fork statsWorkers
-    action
-  where
-    listeners = addDevListeners npSystemStart sListeners
-    sListeners = map (mapListenerDHT runStatsT) $ allListeners @ssc
-
--- | ServiceMode runner.
-runServiceMode
-    :: KademliaDHTInstance
-    -> BaseParams
-    -> [ListenerDHT () ServiceMode]
-    -> ServiceMode a
-    -> IO a
-runServiceMode inst bp@BaseParams{..} listeners action = loggerBracket bpLoggingParams $ do
-    runOurDialog pass (lpRunnerTag bpLoggingParams) . runKDHT inst bp listeners $
-        nodeStartMsg bp >> action
-
-----------------------------------------------------------------------------
--- Lower level runners
-----------------------------------------------------------------------------
-
-runKDHT
-    :: ( MonadBaseControl IO m
-       , WithLogger m
-       , MonadIO m
-       , MonadTimed m
-       , MonadMask m
-       , MonadDHTDialog socketState m)
-    => KademliaDHTInstance
-    -> BaseParams
-    -> [ListenerDHT socketState (KademliaDHT m)]
-    -> KademliaDHT m a
-    -> m a
-runKDHT dhtInstance BaseParams {..} listeners = runKademliaDHT kadConfig
-  where
-    kadConfig =
-      KademliaDHTConfig
-      { kdcPort = bpPort
-      , kdcListeners = listeners
-      , kdcMessageCacheSize = 1000000
-      , kdcEnableBroadcast = True
-      , kdcNoCacheMessageNames = noCacheMessageNames
-      , kdcDHTInstance = dhtInstance
-      }
-
-runCH :: (Modern.MonadDB ssc m, MonadFail m)
-      => NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
-runCH NodeParams {..} sscNodeContext act = do
-    jlFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
-    semaphore <- liftIO newEmptyMVar
-    sscRichmen <- liftIO newEmptyMVar
-    sscLeaders <- liftIO newEmptyMVar
-    userSecret <- peekUserSecret npKeyfilePath
-
-    -- Get primary secret key
-    (primarySecretKey, userSecret') <- case npSecretKey of
-        Nothing -> case userSecret ^? usKeys . _head of
-            Nothing -> fail $ "No secret keys are found in " ++ npKeyfilePath
-            Just sk -> return (sk, userSecret)
-        Just sk -> do
-            let us = userSecret & usKeys %~ (sk :) . filter (/= sk)
-            writeUserSecret us
-            return (sk, us)
-
-    let eternity = (minBound, maxBound)
-        makeOwnPSK = flip (createProxySecretKey primarySecretKey) eternity . toPublic
-        ownPSKs = userSecret' ^.. usKeys._tail.each.to makeOwnPSK
-    forM_ ownPSKs addProxySecretKey
-
-    userSecretVar <- liftIO . atomically . newTVar $ userSecret'
-    let ctx =
-            NodeContext
-            { ncSystemStart = npSystemStart
-            , ncSecretKey = primarySecretKey
-            , ncTimeLord = npTimeLord
-            , ncJLFile = jlFile
-            , ncDbPath = npDbPathM
-            , ncSscContext = sscNodeContext
-            , ncAttackTypes = npAttackTypes
-            , ncAttackTargets = npAttackTargets
-            , ncPropagation = npPropagation
-            , ncBlkSemaphore = semaphore
-            , ncSscRichmen = sscRichmen
-            , ncSscLeaders = sscLeaders
-            , ncUserSecret = userSecretVar
-            }
-    runContextHolder ctx act
-
-runOurDialogRaw
-    :: TVar (ConnectionPool socketState)
-    -> IO socketState
-    -> LoggerName
-    -> Dialog DHTPacking (Transfer socketState) a
-    -> IO a
-runOurDialogRaw cPool ssInitializer loggerName =
-    runTimedIO .
-    usingLoggerName loggerName . runTransferRaw def cPool ssInitializer . runDialog BiP
-
-runOurDialog
-    :: IO socketState
-    -> LoggerName
-    -> Dialog DHTPacking (Transfer socketState) a
-    -> IO a
-runOurDialog ssInitializer loggerName =
-    runTimedIO .
-    usingLoggerName loggerName . runTransfer ssInitializer . runDialog BiP
-
-runTimed :: LoggerName -> TimedMode a -> IO a
-runTimed loggerName = runTimedIO . usingLoggerName loggerName
+-- runOurDialogRaw
+--     :: TVar (ConnectionPool socketState)
+--     -> IO socketState
+--     -> LoggerName
+--     -> Dialog DHTPacking (Transfer socketState) a
+--     -> IO a
+-- runOurDialogRaw cPool ssInitializer loggerName =
+--     runTimedIO .
+--     usingLoggerName loggerName . runTransferRaw def cPool ssInitializer . runDialog BiP
+--
+-- runOurDialog
+--     :: IO socketState
+--     -> LoggerName
+--     -> Dialog DHTPacking (Transfer socketState) a
+--     -> IO a
+-- runOurDialog ssInitializer loggerName =
+--     runTimedIO .
+--     usingLoggerName loggerName . runTransfer ssInitializer . runDialog BiP
+--
+-- runTimed :: LoggerName -> TimedMode a -> IO a
+-- runTimed loggerName = runTimedIO . usingLoggerName loggerName
 
 ----------------------------------------------------------------------------
 -- Utilities
@@ -327,16 +301,15 @@ setupLoggers LoggingParams{..} = do
     dhtMapper  name | name == "dht"  = dhtLoggerName (Proxy :: Proxy (RawRealMode ssc))
                     | otherwise      = name
 
+-- | RAII for node starter.
 loggerBracket :: LoggingParams -> IO a -> IO a
 loggerBracket lp = bracket_ (setupLoggers lp) releaseAllHandlers
 
--- | RAII for node starter.
 addDevListeners
-    :: (MonadDHTDialog (MutSocketState ssc) m,
-        MinWorkMode (MutSocketState ssc) m)
+    :: (NewMinWorkMode m)
     => Timestamp
-    -> [ListenerDHT (MutSocketState ssc) m]
-    -> [ListenerDHT (MutSocketState ssc) m]
+    -> [Listener BiP m]
+    -> [Listener BiP m]
 addDevListeners sysStart ls =
     if isDevelopment
     then sysStartReqListener sysStart : ls
@@ -347,8 +320,8 @@ bracketDHTInstance
 bracketDHTInstance BaseParams {..} = bracket acquire release
   where
     loggerName = lpRunnerTag bpLoggingParams
-    acquire = runTimed loggerName $ startDHTInstance instConfig
-    release = runTimed loggerName . stopDHTInstance
+    acquire = usingLoggerName loggerName $ startDHTInstance instConfig
+    release = usingLoggerName loggerName . stopDHTInstance
     instConfig =
         KademliaDHTInstanceConfig
         { kdcKeyOrType = bpDHTKeyOrType

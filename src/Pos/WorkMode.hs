@@ -20,7 +20,6 @@ module Pos.WorkMode
        , RawRealMode
        , ServiceMode
        , StatsMode
-       , TimedMode
        ) where
 
 
@@ -28,6 +27,7 @@ import           Control.Monad.Catch           (MonadMask)
 import           Control.TimeWarp.Rpc          (Dialog, Transfer)
 import           Control.TimeWarp.Timed        (MonadTimed (..), TimedIO)
 import           Mockable                      (MonadMockable)
+import           Mockable.Production           (Production)
 import           System.Wlog                   (LoggerNameBox, WithLogger)
 import           Universum
 
@@ -38,8 +38,8 @@ import qualified Pos.DB.Holder                 as Modern
 import           Pos.Delegation.Class          (DelegationT (..), MonadDelegation)
 import           Pos.DHT.Model                 (DHTPacking, MonadMessageDHT (..),
                                                 WithDefaultMsgHeader)
-import           Pos.DHT.Real                  (KademliaDHT (..))
 import           Pos.NewDHT.Model              (MonadDHT)
+import           Pos.NewDHT.Real               (KademliaDHT (..))
 import           Pos.Slotting                  (MonadSlots (..))
 import           Pos.Ssc.Class.Helpers         (SscHelpersClass (..))
 import           Pos.Ssc.Class.LocalData       (SscLocalDataClass)
@@ -152,8 +152,4 @@ type ProductionMode ssc = NoStatsT (RawRealMode ssc)
 type StatsMode ssc = StatsT (RawRealMode ssc)
 
 -- | ServiceMode is the mode in which support nodes work.
-type ServiceMode = KademliaDHT (Dialog DHTPacking (Transfer ()))
-
--- | Mode in which time is abstracted and nothing else. Also logging
--- capabilities are provided.
-type TimedMode = LoggerNameBox TimedIO
+type ServiceMode = KademliaDHT Production

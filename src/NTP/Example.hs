@@ -26,7 +26,8 @@ runNtpClientIO settings = do
     runProduction $ startNtpClient settings
 
 
--- * Temporal instances, till we get proper instances of `Mockable` for existing monads
+-- * Temporal instances, till we get proper instances of `Mockable` for
+-- `LoggerNameBox Production`
 
 instance HasLoggerName Production where
     getLoggerName = return "ntp-example"

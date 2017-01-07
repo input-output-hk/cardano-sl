@@ -159,15 +159,13 @@ processTx itw@(txId, (tx, _, _)) = do
       foldM (\s inp -> maybe s (\x -> HM.insert inp x s) <$> utxoGet inp)
             mempty (txInputs tx)
     db <- getUtxoDB
-    pRes <- modifyTxpLD (\txld@(_, mp, _, tip) ->
+    pRes <- modifyTxpLD $ \txld@(_, mp, _, tip) ->
         let localSize = localTxsSize mp in
-        if tipBefore == tip then
-            if localSize < maxLocalTxs
-                then processTxDo txld resolved db itw
-                else (PTRoverwhelmed, txld)
-        else
-            (mkPTRinvalid ["Tips aren't same"], txld)
-        )
+        if tipBefore == tip
+        then if localSize < maxLocalTxs
+             then processTxDo txld resolved db itw
+             else (PTRoverwhelmed, txld)
+        else (mkPTRinvalid ["Tips aren't same"], txld)
     pRes <$ logDebug (sformat ("Transaction processed: "%build) txId)
 
 -- CHECK: @processTxDo

@@ -29,15 +29,18 @@ module Pos.Delegation.Logic
        ) where
 
 import           Control.Concurrent.STM.TVar (readTVar, writeTVar)
-import           Control.Lens                (makeLenses, use, uses, view, (%=), (.=))
+import           Control.Lens                (makeLenses, use, uses, view, (%=), (.=),
+                                              (^.))
 import           Control.Monad.Trans.Except  (runExceptT, throwE)
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
+import           Data.List                   (partition)
 import           Data.List.NonEmpty          (NonEmpty)
 import qualified Data.List.NonEmpty          as NE
+import qualified Data.Text.Buildable         as B
 import           Data.Time.Clock             (UTCTime, addUTCTime, getCurrentTime)
 import           Database.RocksDB            (BatchOp)
-import           Formatting                  (build, sformat, (%))
+import           Formatting                  (bprint, build, sformat, stext, (%))
 import           System.Wlog                 (WithLogger)
 import           Universum
 
@@ -58,8 +61,9 @@ import           Pos.Delegation.Class        (DelegationWrap, MonadDelegation (.
 import           Pos.Delegation.Types        (SendProxySK (..))
 import           Pos.Ssc.Class               (Ssc)
 import           Pos.Types                   (Block, Blund, NEBlocks, ProxySKEpoch,
-                                              ProxySKSimple, ProxySigEpoch, Undo,
-                                              blockProxySKs, headerHash)
+                                              ProxySKSimple, ProxySigEpoch, Undo (..),
+                                              blockProxySKs, headerHash, prevBlockL)
+import           Pos.Util                    (_neHead)
 
 
 ----------------------------------------------------------------------------
@@ -93,6 +97,21 @@ invalidateProxyCaches curTime = do
     dwProxyConfCache %= HM.filter (\t -> addUTCTime 500 t > curTime)
 
 type DelegationWorkMode ssc m = (MonadDelegation m, MonadDB ssc m, WithLogger m)
+
+----------------------------------------------------------------------------
+-- Exceptions
+----------------------------------------------------------------------------
+
+data DelegationError =
+    -- | Can't apply blocks to state of transactions processing.
+    DelegationCantApplyBlocks Text
+    deriving (Show)
+
+instance Exception DelegationError
+
+instance B.Buildable DelegationError where
+    build (DelegationCantApplyBlocks msg) =
+        bprint ("can't apply in delegation module: "%stext) msg
 
 ----------------------------------------------------------------------------
 -- Heavyweight PSK
@@ -200,10 +219,31 @@ delegationVerifyBlocks blocks = do
         mapM_ withMapAdd toUpdate
         pure toRollback
 
+-- | Applies a sequence of definitely valid blocks to memory state and
+-- returns batchops.
 delegationApplyBlocks
-    :: (DelegationWorkMode ssc m)
-    => NonEmpty (Blund ssc) -> m (NonEmpty [BatchOp])
-delegationApplyBlocks = notImplemented
+    :: forall ssc m. (DelegationWorkMode ssc m)
+    => NonEmpty (Block ssc) -> m (NonEmpty [BatchOp])
+delegationApplyBlocks blocks = do
+    tip <- DB.getTip
+    when (tip /= blocks ^. _neHead . prevBlockL) $ throwM $
+        DelegationCantApplyBlocks "oldest block in NEBlocks is not based on tip"
+    let allIssuers =
+            concatMap (either (const []) (map pskIssuerPk . view blockProxySKs))
+                      blocks
+    runDelegationStateAction $
+        forM_ allIssuers $ \i -> dwProxySKPool %= HM.delete i
+    pure $ map applyBlock blocks
+  where
+    applyBlock :: Block ssc -> [BatchOp]
+    applyBlock (Left _)      = []
+    applyBlock (Right block) = do
+        let proxySKs = view blockProxySKs block
+            (toDelete,toReplace) =
+                partition (\ProxySecretKey{..} -> pskIssuerPk == pskDelegatePk)
+                proxySKs
+        concatMap toBatchOp $
+            map (DelPSK . pskIssuerPk) toDelete ++ map AddPSK toReplace
 
 delegationRollbackBlocks
     :: (WithLogger m, MonadDB ssc m)

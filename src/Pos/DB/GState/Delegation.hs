@@ -5,7 +5,6 @@
 
 module Pos.DB.GState.Delegation
        ( getPSKByIssuer
-       , getPSKsByDelegate
        , DelegationOp (..)
        , IssuerPublicKey (..)
        , iteratePSKs
@@ -32,13 +31,6 @@ getPSKByIssuer :: MonadDB ssc m => PublicKey -> m (Maybe ProxySKSimple)
 getPSKByIssuer issuerPk =
     rocksGetBi (pskKey $ IssuerPublicKey issuerPk) =<< getUtxoDB
 
--- | Retrieves list of certificates that are delegated to given
--- address.
-getPSKsByDelegate :: MonadDB ssc m => PublicKey -> m [ProxySKSimple]
-getPSKsByDelegate delegatePk =
-    fromMaybe [] <$>
-    (getUtxoDB >>= rocksGetBi (backResolvingKey delegatePk))
-
 ----------------------------------------------------------------------------
 -- Batch operations
 ----------------------------------------------------------------------------
@@ -48,18 +40,12 @@ data DelegationOp
     -- ^ Adds PSK. Overwrites if present.
     | DelPSK !PublicKey
     -- ^ Removes PSK by issuer PK.
-    | AddPSKBack !PublicKey ![PublicKey]
-    -- ^ Set back resolving map (DelegatePk -> [IssuerPk])
 
 instance RocksBatchOp DelegationOp where
     toBatchOp (AddPSK psk) =
         [Rocks.Put (pskKey $ IssuerPublicKey $ pskIssuerPk psk) (encodeStrict psk)]
     toBatchOp (DelPSK issuerPk) =
         [Rocks.Del $ pskKey $ IssuerPublicKey issuerPk]
-    toBatchOp (AddPSKBack delegatePk []) =
-        [Rocks.Del $ backResolvingKey delegatePk]
-    toBatchOp (AddPSKBack delegatePk issuers) =
-        [Rocks.Put (backResolvingKey delegatePk) (encodeStrict issuers)]
 
 ----------------------------------------------------------------------------
 -- Iteration
@@ -85,7 +71,3 @@ instance Bi IssuerPublicKey where
 -- Storing IssuerPk -> ProxySKSimple
 pskKey :: IssuerPublicKey -> ByteString
 pskKey = encodeStrict
-
--- Storing DelegatePk -> [IssuerPk], where each issuer pk is in base.
-backResolvingKey :: PublicKey -> ByteString
-backResolvingKey delegatePk = "br/" <> encodeStrict delegatePk

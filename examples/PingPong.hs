@@ -15,7 +15,7 @@ import           Data.Time.Units            (Microsecond, fromMicroseconds)
 import           Data.Void                  (Void)
 import           GHC.Generics               (Generic)
 import           Message.Message            (BinaryP (..))
-import           Mockable.Concurrent        (delay, for, fork, killThread)
+import           Mockable.Concurrent        (delay, fork, killThread)
 import           Mockable.Production
 import           Network.Transport.Concrete (concrete)
 import qualified Network.Transport.TCP      as TCP
@@ -49,7 +49,7 @@ worker anId generator peerIds = pingWorker generator
         loop g = do
             let (i, gen') = randomR (0,1000000) g
                 us = fromMicroseconds i :: Microsecond
-            delay (for us)
+            delay us
             let pong :: NodeId -> ConversationActions Ping Pong Production -> Production ()
                 pong peerId cactions = do
                     liftIO . putStrLn $ show anId ++ " sent PING to " ++ show peerId

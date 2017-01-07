@@ -11,22 +11,19 @@ import qualified Control.Concurrent       as Conc
 import qualified Control.Concurrent.Async as Conc
 import qualified Control.Concurrent.STM   as Conc
 import qualified Control.Exception        as Exception
-import           Control.Monad            (forever)
 import           Control.Monad.Fix        (MonadFix)
 import           Control.Monad.IO.Class   (MonadIO, liftIO)
-import           Control.TimeWarp.Timed   (for, hour)
 import           Data.Time.Clock.POSIX    (getPOSIXTime)
 import           Data.Time.Units          (Microsecond)
+import qualified Serokell.Util.Concurrent as Serokell
 import           System.Wlog              (CanLog (..), HasLoggerName (..))
 
-import           Mockable.Channel         (Channel (..), ChannelT)
-import           Mockable.Class           (Mockable (..))
-import           Mockable.Concurrent      (Async (..), Concurrently (..),
-                                           CurrentTime (..), Delay (..), Fork (..),
-                                           Promise, RunInUnboundThread (..), ThreadId,
-                                           delay)
-import           Mockable.Exception       (Bracket (..), Catch (..), Throw (..))
-import           Mockable.SharedAtomic    (SharedAtomic (..), SharedAtomicT)
+import Mockable.Channel      (Channel (..), ChannelT)
+import Mockable.Class        (Mockable (..))
+import Mockable.Concurrent   (Async (..), Concurrently (..), CurrentTime (..), Delay (..),
+                              Fork (..), Promise, RunInUnboundThread (..), ThreadId)
+import Mockable.Exception    (Bracket (..), Catch (..), Throw (..))
+import Mockable.SharedAtomic (SharedAtomic (..), SharedAtomicT)
 
 newtype Production t = Production
     { runProduction :: IO t
@@ -46,10 +43,8 @@ instance Mockable Fork Production where
     liftMockable (KillThread tid) = Production $ Conc.killThread tid
 
 instance Mockable Delay Production where
-    liftMockable (Delay relativeToNow) = Production $ do
-        cur <- runProduction $ curTime
-        Conc.threadDelay $ fromIntegral $ relativeToNow cur - cur
-    liftMockable SleepForever = forever $ delay $ for 24 hour
+    liftMockable (Delay time) = Production $ Serokell.threadDelay time
+    liftMockable SleepForever = Production $ Conc.atomically Conc.retry
 
 instance Mockable RunInUnboundThread Production where
     liftMockable (RunInUnboundThread m) = Production $

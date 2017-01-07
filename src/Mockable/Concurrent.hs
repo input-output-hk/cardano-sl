@@ -15,9 +15,7 @@ module Mockable.Concurrent (
   , killThread
 
   , Delay(..)
-  , RelativeToNow
   , delay
-  , for
   , sleepForever
 
   , CurrentTime(..)
@@ -42,7 +40,7 @@ module Mockable.Concurrent (
 
   ) where
 
-import           Data.Time.Units    (Microsecond)
+import           Data.Time.Units    (Microsecond, TimeUnit)
 import           Mockable.Class
 import           Mockable.Exception (Catch, catchAll)
 
@@ -72,21 +70,16 @@ myThreadId = liftMockable MyThreadId
 killThread :: ( Mockable Fork m ) => ThreadId m -> m ()
 killThread tid = liftMockable $ KillThread tid
 
-type RelativeToNow = Microsecond -> Microsecond
-
 data Delay (m :: * -> *) (t :: *) where
-    Delay :: RelativeToNow -> Delay m ()    -- Finite delay.
-    SleepForever :: Delay m ()              -- Infinite delay.
+    Delay :: TimeUnit t => t -> Delay m ()    -- Finite delay.
+    SleepForever :: Delay m ()                -- Infinite delay.
 
 instance MFunctor' Delay m n where
     hoist' _ (Delay i)    = Delay i
     hoist' _ SleepForever = SleepForever
 
-delay :: ( Mockable Delay m ) => RelativeToNow -> m ()
-delay relativeToNow = liftMockable $ Delay relativeToNow
-
-for :: Microsecond -> RelativeToNow
-for = (+)
+delay :: ( Mockable Delay m ) => TimeUnit t => t -> m ()
+delay time = liftMockable $ Delay time
 
 sleepForever :: ( Mockable Delay m ) => m ()
 sleepForever = liftMockable SleepForever

@@ -17,7 +17,6 @@ import           GHC.Generics               (Generic)
 import           Message.Message            (BinaryP (..))
 import           Mockable.Concurrent        (delay, for, fork, killThread)
 import           Mockable.Production
-import           Network.Transport.Abstract (newEndPoint)
 import           Network.Transport.Concrete (concrete)
 import qualified Network.Transport.TCP      as TCP
 import           Node

@@ -1,14 +1,13 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Network.Transport.Concrete (
+module Network.Transport.Concrete
+       ( concrete
+       ) where
 
-      concrete
+import           Control.Monad.IO.Class     (MonadIO, liftIO)
+import qualified Network.Transport          as NT
 
-    ) where
-
-import Control.Monad.IO.Class (liftIO, MonadIO)
-import Network.Transport.Abstract
-import qualified Network.Transport as NT
+import           Network.Transport.Abstract
 
 -- | Use a concrete network-transport within the abstract framework,
 --   specializing it to some MonadIO.
@@ -34,9 +33,9 @@ concreteEndPoint ep = EndPoint {
 
 concreteEvent :: NT.Event -> Event
 concreteEvent ev = case ev of
-    NT.Received id chunks -> Received id chunks
-    NT.ConnectionClosed id -> ConnectionClosed id
-    NT.ConnectionOpened id reliability address -> ConnectionOpened id reliability address
+    NT.Received eid chunks -> Received eid chunks
+    NT.ConnectionClosed eid -> ConnectionClosed eid
+    NT.ConnectionOpened eid reliability address -> ConnectionOpened eid reliability address
     NT.EndPointClosed -> EndPointClosed
     NT.ErrorEvent (TransportError err str) -> ErrorEvent (TransportError (EventErrorCode err) str)
     _ -> ErrorEvent (TransportError UnsupportedEvent "Unsupported event")

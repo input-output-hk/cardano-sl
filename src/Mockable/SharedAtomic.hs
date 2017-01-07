@@ -24,8 +24,8 @@ data SharedAtomic (m :: * -> *) (t :: *) where
     ModifySharedAtomic :: SharedAtomicT m s -> (s -> m (s, t)) -> SharedAtomic m t
 
 instance (SharedAtomicT n ~ SharedAtomicT m) => MFunctor' SharedAtomic m n where
-    hoist' _ (NewSharedAtomic t)            = NewSharedAtomic t
-    hoist' nat (ModifySharedAtomic var mod) = ModifySharedAtomic var (\s -> nat $ mod s)
+    hoist' _ (NewSharedAtomic t)               = NewSharedAtomic t
+    hoist' nat (ModifySharedAtomic var update) = ModifySharedAtomic var (\s -> nat $ update s)
 
 newSharedAtomic :: ( Mockable SharedAtomic m ) => t -> m (SharedAtomicT m t)
 newSharedAtomic t = liftMockable $ NewSharedAtomic t

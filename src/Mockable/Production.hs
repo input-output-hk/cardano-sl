@@ -4,29 +4,33 @@
 {-# LANGUAGE TypeFamilies               #-}
 
 module Mockable.Production
-  ( Production (..)
-  ) where
+       ( Production (..)
+       ) where
 
-import qualified Control.Concurrent          as Conc
-import qualified Control.Concurrent.Async    as Conc
-import qualified Control.Concurrent.STM      as Conc
-import           Control.Concurrent.STM.TVar (newTVarIO, readTVarIO, writeTVar)
-import qualified Control.Exception           as Exception
-import           Control.Monad               (forever, void)
-import           Control.Monad.Fix           (MonadFix)
-import           Control.Monad.IO.Class      (MonadIO, liftIO)
-import           Data.Time.Clock.POSIX       (getPOSIXTime)
-import           Data.Time.Units             (Microsecond)
-import           Mockable.Channel
-import           Mockable.Class
-import           Mockable.Concurrent
-import           Mockable.Exception
-import           Mockable.SharedAtomic
-import           System.Wlog                 (CanLog (..))
+import qualified Control.Concurrent       as Conc
+import qualified Control.Concurrent.Async as Conc
+import qualified Control.Concurrent.STM   as Conc
+import qualified Control.Exception        as Exception
+import           Control.Monad            (forever)
+import           Control.Monad.Fix        (MonadFix)
+import           Control.Monad.IO.Class   (MonadIO, liftIO)
+import           Control.TimeWarp.Timed   (for, hour)
+import           Data.Time.Clock.POSIX    (getPOSIXTime)
+import           Data.Time.Units          (Microsecond)
+import           System.Wlog              (CanLog (..), HasLoggerName (..))
 
-newtype Production t = Production {
-    runProduction :: IO t
-}
+import           Mockable.Channel         (Channel (..), ChannelT)
+import           Mockable.Class           (Mockable (..))
+import           Mockable.Concurrent      (Async (..), Concurrently (..),
+                                           CurrentTime (..), Delay (..), Fork (..),
+                                           Promise, RunInUnboundThread (..), ThreadId,
+                                           delay)
+import           Mockable.Exception       (Bracket (..), Catch (..), Throw (..))
+import           Mockable.SharedAtomic    (SharedAtomic (..), SharedAtomicT)
+
+newtype Production t = Production
+    { runProduction :: IO t
+    }
 
 deriving instance Functor Production
 deriving instance Applicative Production
@@ -45,6 +49,7 @@ instance Mockable Delay Production where
     liftMockable (Delay relativeToNow) = Production $ do
         cur <- runProduction $ curTime
         Conc.threadDelay $ fromIntegral $ relativeToNow cur - cur
+    liftMockable SleepForever = forever $ delay $ for 24 hour
 
 instance Mockable RunInUnboundThread Production where
     liftMockable (RunInUnboundThread m) = Production $
@@ -67,8 +72,10 @@ instance Mockable Concurrently Production where
 type instance SharedAtomicT Production = Conc.MVar
 
 instance Mockable SharedAtomic Production where
-    liftMockable (NewSharedAtomic t) = Production $ Conc.newMVar t
-    liftMockable (ModifySharedAtomic atomic f) = Production $ Conc.modifyMVar atomic (runProduction . f)
+    liftMockable (NewSharedAtomic t)
+        = Production $ Conc.newMVar t
+    liftMockable (ModifySharedAtomic atomic f)
+        = Production $ Conc.modifyMVar atomic (runProduction . f)
 
 type instance ChannelT Production = Conc.TChan
 
@@ -90,8 +97,15 @@ instance Mockable Catch Production where
     liftMockable (Catch action handler) = Production $
         runProduction action `Exception.catch` (runProduction . handler)
 
-curTime :: Production Microsecond
-curTime = liftIO $ round . ( * 1000000) <$> getPOSIXTime
+-- * Temporal instances, till we get proper instances of `Mockable` for
+-- `LoggerNameBox Production`
+
+instance HasLoggerName Production where
+    getLoggerName = return "ntp-example"
+    modifyLoggerName = const id
 
 instance CanLog Production where
     dispatchMessage n sv text = Production $ dispatchMessage n sv text
+
+curTime :: Production Microsecond
+curTime = liftIO $ round . ( * 1000000) <$> getPOSIXTime

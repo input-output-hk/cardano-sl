@@ -64,11 +64,12 @@ Library
                       , text
                       , time
                       , time-units
+                      , time-warp
                       , transformers
                       , async
   hs-source-dirs:       src
   default-language:     Haskell2010
-  ghc-options:          -Wall
+  ghc-options:          -Wall -fno-warn-orphans
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving

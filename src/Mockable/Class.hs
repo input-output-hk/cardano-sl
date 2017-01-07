@@ -8,7 +8,7 @@ module Mockable.Class
   ) where
 
 class MFunctor' f m n where
-    hoist' :: (forall t . m t -> n t) -> f m t -> f n t
+    hoist' :: (forall a . m a -> n a) -> f m t -> f n t
 
 -- | Instances of this class identify how a given thing can be mocked within a
 --   given monad.

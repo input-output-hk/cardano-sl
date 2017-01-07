@@ -13,10 +13,13 @@ module NTP.Example
     -- there is no stop button, since `runNtpClientIO` does `initLogging`
     ) where
 
-import           Data.Default (def)
-import           Mockable     (runProduction)
-import           NTP.Client   (NtpClientSettings (..), NtpStopButton (..), startNtpClient)
-import           System.Wlog  (Severity (..), initLogging, usingLoggerName)
+import           Data.Default        (def)
+import           System.Wlog         (Severity (..), initLogging, usingLoggerName)
+
+import           Mockable.Instances  ()
+import           Mockable.Production (runProduction)
+import           NTP.Client          (NtpClientSettings (..), NtpStopButton (..),
+                                      startNtpClient)
 
 runNtpClientIO :: NtpClientSettings -> IO NtpStopButton
 runNtpClientIO settings = do

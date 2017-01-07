@@ -39,9 +39,8 @@ module Mockable.Concurrent (
 
   ) where
 
-import           Control.Exception.Base (SomeException)
-import           Control.Monad.Reader   (ReaderT)
-import           Data.Time.Units        (Microsecond)
+import           Control.Monad.Reader (ReaderT)
+import           Data.Time.Units      (Microsecond)
 import           Mockable.Class
 
 type family ThreadId (m :: * -> *) :: *

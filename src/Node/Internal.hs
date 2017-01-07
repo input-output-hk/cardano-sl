@@ -1,14 +1,14 @@
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE GADTSyntax #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE BangPatterns               #-}
+{-# LANGUAGE DeriveDataTypeable         #-}
+{-# LANGUAGE ExistentialQuantification  #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE GADTSyntax                 #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE KindSignatures             #-}
+{-# LANGUAGE NamedFieldPuns             #-}
+{-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE StandaloneDeriving         #-}
 
 module Node.Internal (
     NodeId(..),
@@ -25,25 +25,25 @@ module Node.Internal (
     readChannel
   ) where
 
-import Data.Binary     as Bin
-import qualified Data.ByteString.Lazy as LBS
-import qualified Data.ByteString      as BS
-import qualified Data.ByteString.Builder as BS
+import           Control.Exception             hiding (bracket, catch, finally, throw)
+import           Data.Binary                   as Bin
+import qualified Data.ByteString               as BS
+import qualified Data.ByteString.Builder       as BS
 import qualified Data.ByteString.Builder.Extra as BS
-import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map
-import Data.Monoid
-import Data.Typeable
-import Data.List (foldl')
-import Control.Exception hiding (bracket, throw, catch, finally)
-import qualified Network.Transport.Abstract as NT
-import qualified Network.Transport as NT (EventErrorCode(EventConnectionLost, EventEndPointFailed, EventTransportFailed))
-import System.Random (StdGen, random, Random)
-import Mockable.Class
-import Mockable.Concurrent
-import Mockable.Exception
-import qualified Mockable.Channel as Channel
-import Mockable.SharedAtomic
+import qualified Data.ByteString.Lazy          as LBS
+import           Data.List                     (foldl')
+import           Data.Map.Strict               (Map)
+import qualified Data.Map.Strict               as Map
+import           Data.Monoid
+import           Data.Typeable
+import qualified Mockable.Channel              as Channel
+import           Mockable.Class
+import           Mockable.Concurrent
+import           Mockable.Exception
+import           Mockable.SharedAtomic
+import qualified Network.Transport             as NT (EventErrorCode (EventConnectionLost, EventEndPointFailed, EventTransportFailed))
+import qualified Network.Transport.Abstract    as NT
+import           System.Random                 (Random, StdGen, random)
 
 -- | A 'NodeId' wraps a network-transport endpoint address
 newtype NodeId = NodeId NT.EndPointAddress
@@ -52,12 +52,12 @@ newtype NodeId = NodeId NT.EndPointAddress
 -- | The state of a Node, to be held in a shared atomic cell because other
 --   threads will mutate it in order to set up bidirectional connections.
 data NodeState m = NodeState {
-      nodeStateGen :: !StdGen
+      _nodeStateGen      :: !StdGen
       -- ^ To generate nonces.
-    , nodeStateNonces :: !(Map Nonce (NonceState m))
+    , _nodeStateNonces   :: !(Map Nonce (NonceState m))
       -- ^ Nonces identify bidirectional connections, and this gives the state
       --   of each one.
-    , nodeStateFinished :: ![(Either NT.ConnectionId Nonce, Maybe SomeException)]
+    , _nodeStateFinished :: ![(Either NT.ConnectionId Nonce, Maybe SomeException)]
       -- ^ Connection identifiers or nonces for handlers which have finished.
       --   'Nonce's for bidirectional connections, 'ConnectionId's for handlers
       --   spawned to respond to incoming connections.
@@ -68,7 +68,7 @@ data NodeState m = NodeState {
 data Node (m :: * -> *) = Node {
        nodeEndPoint         :: NT.EndPoint m,
        nodeDispatcherThread :: Promise m (),
-       nodeState :: SharedAtomicT m (NodeState m)
+       nodeState            :: SharedAtomicT m (NodeState m)
      }
 
 nodeId :: Node m -> NodeId
@@ -79,7 +79,7 @@ nodeEndPointAddress (NodeId addr) = addr
 
 -- | Used to identify bidirectional connections.
 newtype Nonce = Nonce {
-      getNonce :: Word64
+      _getNonce :: Word64
     }
 
 deriving instance Show Nonce
@@ -169,11 +169,11 @@ data ConnectionState m =
 
 instance Show (ConnectionState m) where
     show term = case term of
-        ConnectionNew nodeid -> "ConnectionNew " ++ show nodeid
+        ConnectionNew nodeid         -> "ConnectionNew " ++ show nodeid
         ConnectionNewChunks nodeid _ -> "ConnectionNewChunks " ++ show nodeid
-        ConnectionReceiving _ _ -> "ConnectionReceiving"
-        ConnectionClosed _ -> "ConnectionClosed"
-        ConnectionHandlerFinished e -> "ConnectionHandlerFinished " ++ show e
+        ConnectionReceiving _ _      -> "ConnectionReceiving"
+        ConnectionClosed _           -> "ConnectionClosed"
+        ConnectionHandlerFinished e  -> "ConnectionHandlerFinished " ++ show e
 
 -- | Bidirectional connections (conversations) are identified not by
 --   'ConnectionId' but by 'Nonce', because their handlers run before any
@@ -221,8 +221,8 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
     loop Map.empty
   where
 
-    finally :: m t -> m () -> m t
-    finally action after = bracket (pure ()) (const after) (const action)
+    finally' :: m t -> m () -> m t
+    finally' action after = bracket (pure ()) (const after) (const action)
 
     -- Take the dead threads from the shared atomic and release them all from
     -- the map if their connection is also closed.
@@ -270,7 +270,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
         connUpdater :: Maybe SomeException -> ConnectionState m -> Maybe (ConnectionState m)
         connUpdater e connState = case connState of
             ConnectionClosed _ -> Nothing
-            _ -> Just (ConnectionHandlerFinished e)
+            _                  -> Just (ConnectionHandlerFinished e)
 
     -- TODO implement this.
     -- Probably want to put promises instead of ThreadIds into the connection
@@ -278,7 +278,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
     -- Also may want to use weak references, so that handlers can get
     -- blocked-indefinitely exceptions
     waitForRunningHandlers :: DispatcherState m -> m ()
-    waitForRunningHandlers state = pure ()
+    waitForRunningHandlers _ = pure ()
 
     -- Handle the first chunks received, interpreting the control byte(s).
     -- TODO: review this. It currently does not use the 'DispatcherState' but
@@ -328,9 +328,9 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                             Left  err  -> throw err
                             Right conn -> do
                               -- TODO: error handling
-                              NT.send conn [controlHeaderBidirectionalAck nonce]
+                              () <$ NT.send conn [controlHeaderBidirectionalAck nonce]
                               handlerInOut peer (ChannelIn chan) (ChannelOut conn)
-                                  `finally`
+                                  `finally'`
                                   closeChannel (ChannelOut conn)
                   tid <- fork $ finishHandler nodeState (Left connid) action
                   pure . Just $ ConnectionReceiving tid chan
@@ -349,7 +349,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                 -- corresponding to the *nonce* is completed. It may have
                 -- already completed at this point, which is weird but not
                 -- out of the question (the handler didn't ask to receive
-                -- anything). 
+                -- anything).
                 --
                 | w == controlHeaderCodeBidirectionalAck
                 , Right (ws',_,nonce) <- decodeOrFail ws -> do
@@ -376,8 +376,8 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                     throw (ProtocolError $ "unexpected control header " ++ show w)
 
     loop :: DispatcherState m -> m ()
-    loop !state = do
-      !state <- updateStateForFinishedHandlers state
+    loop !initialState = do
+      !state <- updateStateForFinishedHandlers initialState
       event <- NT.receive endpoint
       case event of
 
@@ -401,11 +401,11 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
 
                   -- Connection is receiving data and there's some handler
                   -- at 'tid' to run it. Dump the new data to its ChannelIn.
-                  Just (ConnectionReceiving tid chan) -> do
+                  Just (ConnectionReceiving _ chan) -> do
                     Channel.writeChannel chan (Just (BS.concat chunks))
                     loop state
 
-                  Just (ConnectionClosed tid) ->
+                  Just (ConnectionClosed _) ->
                     throw (InternalError "received data on closed connection")
 
                   -- The peer keeps pushing data but our handler is finished.
@@ -416,7 +416,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                   -- EndPointId of the peer, and then maybe patch
                   -- network-transport to allow for selective closing of peer
                   -- connection based on EndPointAddress.
-                  Just (ConnectionHandlerFinished maybeException) ->
+                  Just (ConnectionHandlerFinished _) ->
                     throw (InternalError "received too much data")
 
           NT.ConnectionClosed connid ->
@@ -459,7 +459,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                       Channel.writeChannel chan Nothing
                       loop (Map.insert connid (ConnectionClosed tid) state)
 
-                  Just (ConnectionClosed tid) ->
+                  Just (ConnectionClosed _) ->
                       throw (InternalError "closed a closed connection")
 
           NT.EndPointClosed ->
@@ -467,16 +467,16 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
               -- Throw them a special exception?
               waitForRunningHandlers state
 
-          NT.ErrorEvent (NT.TransportError (NT.EventErrorCode (NT.EventConnectionLost peer)) _msg) ->
+          NT.ErrorEvent (NT.TransportError (NT.EventErrorCode (NT.EventConnectionLost _)) _msg) ->
               throw (InternalError "Connection lost")
 
-          NT.ErrorEvent (NT.TransportError (NT.EventErrorCode NT.EventEndPointFailed)  msg) ->
+          NT.ErrorEvent (NT.TransportError (NT.EventErrorCode NT.EventEndPointFailed) _) ->
               throw (InternalError "EndPoint failed")
 
-          NT.ErrorEvent (NT.TransportError (NT.EventErrorCode NT.EventTransportFailed) msg) ->
+          NT.ErrorEvent (NT.TransportError (NT.EventErrorCode NT.EventTransportFailed) _) ->
               throw (InternalError "Transport failed")
 
-          NT.ErrorEvent (NT.TransportError NT.UnsupportedEvent msg) ->
+          NT.ErrorEvent (NT.TransportError NT.UnsupportedEvent _) ->
               throw (InternalError "Unsupported event")
 
           NT.ConnectionOpened _ _ _ ->
@@ -550,8 +550,7 @@ connectInOutChannel
     => Node m
     -> NodeId
     -> m (Nonce, ChannelIn m, ChannelOut m)
-connectInOutChannel node@Node{nodeEndPoint, nodeState}
-                    (NodeId endpointaddr) = do
+connectInOutChannel Node{nodeEndPoint, nodeState} (NodeId endpointaddr) = do
     mconn <- NT.connect
                nodeEndPoint
                endpointaddr
@@ -566,7 +565,7 @@ connectInOutChannel node@Node{nodeEndPoint, nodeState}
       Right outconn -> do
         (nonce, inchan) <- allocateInChannel
         -- TODO: error handling
-        NT.send outconn [controlHeaderBidirectionalSyn nonce]
+        () <$ NT.send outconn [controlHeaderBidirectionalSyn nonce]
         return (nonce, ChannelIn inchan, ChannelOut outconn)
   where
     allocateInChannel = do
@@ -600,7 +599,7 @@ connectOutChannel Node{nodeEndPoint} (NodeId endpointaddr) = do
       Left  err  -> throw err
       Right conn -> do
         -- TODO error handling
-        NT.send conn [controlHeaderUnidirectional]
+        () <$ NT.send conn [controlHeaderUnidirectional]
         return (ChannelOut conn)
 
 closeChannel :: ChannelOut m -> m ()

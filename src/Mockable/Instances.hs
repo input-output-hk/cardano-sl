@@ -6,8 +6,8 @@
 {-# LANGUAGE UndecidableInstances  #-}
 
 module Mockable.Instances
-  ( liftMockableWrappedM
-  ) where
+       ( liftMockableWrappedM
+       ) where
 
 import           Control.Lens               (view)
 import           Control.Monad.Trans.Reader (ReaderT (..))

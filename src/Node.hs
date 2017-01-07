@@ -127,11 +127,11 @@ makeListenerIndex :: [Listener packing m]
                   -> (ListenerIndex packing m, [MessageName])
 makeListenerIndex = foldr combine (M.empty, [])
     where
-    combine action (map, existing) =
+    combine action (dict, existing) =
         let name = listenerMessageName action
-            (replaced, map') = M.insertLookupWithKey (\_ _ _ -> action) name action map
+            (replaced, dict') = M.insertLookupWithKey (\_ _ _ -> action) name action dict
             overlapping = maybe [] (const [name]) replaced
-        in  (map', overlapping ++ existing)
+        in  (dict', overlapping ++ existing)
 
 -- | Send actions for a given 'LL.Node'.
 nodeSendActions
@@ -142,7 +142,7 @@ nodeSendActions
     => LL.Node m
     -> packing
     -> SendActions packing m
-nodeSendActions node packing =
+nodeSendActions nodeUnit packing =
     SendActions nodeSendTo nodeWithConnectionTo
   where
 
@@ -153,7 +153,7 @@ nodeSendActions node packing =
         -> msg
         -> m ()
     nodeSendTo = \nodeId msg ->
-        LL.withOutChannel node nodeId $ \channelOut ->
+        LL.withOutChannel nodeUnit nodeId $ \channelOut ->
             LL.writeChannel channelOut $ concatMap LBS.toChunks
                 [ packMsg packing $ messageName' msg
                 , packMsg packing msg
@@ -166,10 +166,10 @@ nodeSendActions node packing =
         -> (ConversationActions snd rcv m -> m ())
         -> m ()
     nodeWithConnectionTo = \nodeId f ->
-        LL.withInOutChannel node nodeId $ \inchan outchan -> do
+        LL.withInOutChannel nodeUnit nodeId $ \inchan outchan -> do
             let msgName  = messageName (Proxy :: Proxy snd)
                 cactions :: ConversationActions snd rcv m
-                cactions = nodeConversationActions node nodeId packing inchan outchan
+                cactions = nodeConversationActions nodeUnit nodeId packing inchan outchan
             LL.writeChannel outchan . LBS.toChunks $
                 packMsg packing msgName
             f cactions
@@ -188,7 +188,7 @@ nodeConversationActions
     -> ChannelIn m
     -> ChannelOut m
     -> ConversationActions snd rcv m
-nodeConversationActions node nodeId packing inchan outchan =
+nodeConversationActions _ nodeId packing inchan outchan =
     ConversationActions nodeSend nodeRecv nodeId
     where
 
@@ -226,13 +226,13 @@ node transport prng packing k = do
     rec { llnode <- LL.startNode transport prng (handlerIn listenerIndex sendActions) (handlerInOut llnode listenerIndex)
         ; let nId = LL.nodeId llnode
         ; let endPoint = LL.nodeEndPoint llnode
-        ; let node = Node nId endPoint
-        ; NodeAction listeners act <- k node
+        ; let nodeUnit = Node nId endPoint
+        ; NodeAction listeners act <- k nodeUnit
           -- Index the listeners by message name, for faster lookup.
           -- TODO: report conflicting names, or statically eliminate them using
           -- DataKinds and TypeFamilies.
         ; let listenerIndex :: ListenerIndex packing m
-              (listenerIndex, conflictingNames) = makeListenerIndex listeners
+              (listenerIndex, _conflictingNames) = makeListenerIndex listeners
         ; let sendActions = nodeSendActions llnode packing
         }
     act sendActions `finally` LL.stopNode llnode
@@ -269,7 +269,7 @@ node transport prng packing k = do
                  -> ChannelIn m
                  -> ChannelOut m
                  -> m ()
-    handlerInOut node listenerIndex peerId inchan outchan = do
+    handlerInOut nodeUnit listenerIndex peerId inchan outchan = do
         input <- recvNext' inchan packing
         case input of
             End -> error "handlerInOut : unexpected end of input"
@@ -278,7 +278,7 @@ node transport prng packing k = do
                 let listener = M.lookup msgName listenerIndex
                 case listener of
                     Just (ListenerActionConversation action) ->
-                        let cactions = nodeConversationActions node peerId packing
+                        let cactions = nodeConversationActions nodeUnit peerId packing
                                 inchan outchan
                         in  action peerId cactions
                     Just (ListenerActionOneMsg _) -> error ("handlerInOut : wrong listener type. Expected bidirectional for " ++ show msgName)

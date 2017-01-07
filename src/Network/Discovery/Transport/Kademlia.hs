@@ -1,5 +1,5 @@
+{-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE DeriveGeneric #-}
 
 module Network.Discovery.Transport.Kademlia
        ( K.Node (..)
@@ -16,7 +16,6 @@ import           Control.Monad.IO.Class      (MonadIO, liftIO)
 import           Data.Binary                 (Binary, decodeOrFail, encode)
 import qualified Data.ByteString.Lazy        as BL
 import qualified Data.Map.Strict             as M
-import           Data.Set                    (Set)
 import qualified Data.Set                    as S
 import           Data.Typeable               (Typeable)
 import           Data.Word                   (Word16)
@@ -81,8 +80,8 @@ kademliaDiscovery configuration initialPeer myAddress = do
     let discoverPeers = liftIO $ kademliaDiscoverPeers kademliaInst peersTVar
     let close = liftIO $ K.close kademliaInst
     -- Join the network and store the local 'EndPointAddress'.
-    liftIO $ kademliaJoinAndUpdate kademliaInst peersTVar initialPeer
-    () <- liftIO $ K.store kademliaInst kid (KSerialize myAddress)
+    _ <- liftIO $ kademliaJoinAndUpdate kademliaInst peersTVar initialPeer
+    liftIO $ K.store kademliaInst kid (KSerialize myAddress)
     pure $ NetworkDiscovery knownPeers discoverPeers close
 
 -- | Join a Kademlia network (using a given known node address) and update the
@@ -97,6 +96,7 @@ kademliaJoinAndUpdate
 kademliaJoinAndUpdate kademliaInst peersTVar initialPeer = do
     result <- K.joinNetwork kademliaInst initialPeer'
     case result of
+        K.NodeBanned -> pure $ Left (DiscoveryError KademliaNodeBanned "Node is banned by network")
         K.IDClash -> pure $ Left (DiscoveryError KademliaIdClash "ID clash in network")
         K.NodeDown -> pure $ Left (DiscoveryError KademliaInitialPeerDown "Initial peer is down")
         -- [sic]
@@ -107,10 +107,10 @@ kademliaJoinAndUpdate kademliaInst peersTVar initialPeer = do
             endPointAddresses <- fmap (M.mapMaybe id) (kademliaLookupEndPointAddresses kademliaInst M.empty peerList)
             STM.atomically $ TVar.writeTVar peersTVar endPointAddresses
             pure $ Right (S.fromList (M.elems endPointAddresses))
-    where
+  where
     initialPeer' :: K.Node (KSerialize i)
     initialPeer' = case initialPeer of
-        K.Node peer id -> K.Node peer (KSerialize id)
+        K.Node peer nid -> K.Node peer (KSerialize nid)
 
 -- | Update the known peers cache.
 --
@@ -148,9 +148,6 @@ kademliaLookupEndPointAddresses kademliaInst recordedPeers currentPeers = do
     let assoc :: [(K.Node (KSerialize i), Maybe EndPointAddress)]
         assoc = zip currentPeers endPointAddresses
     pure $ M.fromList assoc
-  where
-  isJust (Just _) = True
-  isJust _        = False
 
 -- | Look up the 'EndPointAddress' for a given node. The host and port of
 --   the node are known, along with its Kademlia identifier, but the
@@ -167,10 +164,10 @@ kademliaLookupEndPointAddress
     --   for any of these, we just use the one in the map.
     -> K.Node (KSerialize i)
     -> IO (Maybe EndPointAddress)
-kademliaLookupEndPointAddress kademliaInst recordedPeers peer@(K.Node _ id) =
+kademliaLookupEndPointAddress kademliaInst recordedPeers peer@(K.Node _ nid) =
     case M.lookup peer recordedPeers of
         Nothing -> do
-            outcome <- K.lookup kademliaInst id
+            outcome <- K.lookup kademliaInst nid
             pure $ case outcome of
                 Nothing                              -> Nothing
                 Just (KSerialize endPointAddress, _) -> Just endPointAddress
@@ -179,4 +176,5 @@ kademliaLookupEndPointAddress kademliaInst recordedPeers peer@(K.Node _ id) =
 data KademliaDiscoveryErrorCode
     = KademliaIdClash
     | KademliaInitialPeerDown
+    | KademliaNodeBanned
     deriving (Show, Typeable, Generic)

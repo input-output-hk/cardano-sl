@@ -112,7 +112,8 @@ runWalletCmd wo str = do
         case mcmd of
             Left err   -> putStrLn err
             Right cmd' -> runCmd cmd'
-    liftIO exitSuccess
+    putText "Command execution finished"
+    putText " " -- for exit by SIGPIPE
 
 main :: IO ()
 main = do

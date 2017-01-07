@@ -10,20 +10,24 @@ module Pos.NewDHT.Model.Types
        , randomDHTKey
        , typeByte
        , filterByNodeType
+       , addressToNodeId
        ) where
 
-import           Control.TimeWarp.Rpc (NetworkAddress)
-import qualified Data.ByteString      as BS
-import           Data.Hashable        (Hashable)
-import           Data.Text.Buildable  (Buildable (..))
-import           Formatting           (bprint, (%))
-import qualified Formatting           as F
-import           Prelude              (show)
-import qualified Serokell.Util.Base64 as B64
-import           Serokell.Util.Text   (listBuilderJSON)
-import           Universum            hiding (show)
+import           Control.TimeWarp.Rpc       (NetworkAddress)
+import qualified Data.ByteString            as BS
+import qualified Data.ByteString.Char8      as BS8
+import           Data.Hashable              (Hashable)
+import           Data.Text.Buildable        (Buildable (..))
+import           Formatting                 (bprint, (%))
+import qualified Formatting                 as F
+import qualified Network.Transport.Abstract as NT
+import           Node                       (NodeId (..))
+import           Prelude                    (show)
+import qualified Serokell.Util.Base64       as B64
+import           Serokell.Util.Text         (listBuilderJSON)
+import           Universum                  hiding (show)
 
-import           Pos.Crypto.Random    (secureRandomBS)
+import           Pos.Crypto.Random          (secureRandomBS)
 
 -- | Dummy data for DHT.
 newtype DHTData = DHTData ()
@@ -102,3 +106,7 @@ typeByte DHTClient    = 0xF0
 -- | Leave only those nodes that has given @Just type@.
 filterByNodeType :: DHTNodeType -> [DHTNode] -> [DHTNode]
 filterByNodeType type_ = filter (\n -> dhtNodeType (dhtNodeId n) == Just type_)
+
+-- TODO: What about node index, i.e. last number in '127.0.0.1:3000:0' ?
+addressToNodeId :: NetworkAddress -> NodeId
+addressToNodeId (host, port) = NodeId . NT.EndPointAddress $ host <> ":" <> (BS8.pack . show $ port)

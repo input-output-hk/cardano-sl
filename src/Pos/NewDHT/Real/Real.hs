@@ -46,7 +46,8 @@ import           Pos.Constants                   (neighborsSendThreshold)
 import           Pos.NewDHT.Model.Class          (DHTException (..), MonadDHT (..),
                                                   withDhtLogger)
 import           Pos.NewDHT.Model.Types          (DHTData, DHTKey, DHTNode (..),
-                                                  filterByNodeType, randomDHTKey)
+                                                  addressToNodeId, filterByNodeType,
+                                                  randomDHTKey)
 import           Pos.NewDHT.Model.Util           (joinNetworkNoThrow)
 import           Pos.NewDHT.Real.Types           (DHTHandle, KademliaDHT (..),
                                                   KademliaDHTConfig (..),
@@ -162,24 +163,7 @@ startDHT
     => KademliaDHTConfig s m -> m (KademliaDHTContext m)
 startDHT KademliaDHTConfig {..} = do
     kdcStopped <- atomically $ newTVar False
-    kdcAuxClosers <- atomically $ newTVar []
-    msgCache <- atomically $
-        newTVar (LRU.newLRU (Just $ toInteger kdcMessageCacheSize) :: LRU.LRU Int ())
-    let kdcListenByBinding binding = notImplemented
-            --closer <- listenR binding
-            --                  (convert <$> kdcListeners)
-            --                  (convert' $ rawListener kdcEnableBroadcast msgCache kdcStopped)
-            -- startNode
-            --       NT.EndPoint m
-            --    -> StdGen
-            --    -> [] -- Empty list of workers, here we start listeners only.
-            --    -> Maybe (PreListener header m)
-            --    -> [Listener header m]
-            --    -> m (Node m)
-            -- logInfo $ sformat ("Listening on binding " % shown) binding
-            -- return $ KademliaDHT closer
-    logInfo $ sformat ("Launching Kademlia, noCacheMessageNames=" % shown) kdcNoCacheMessageNames
-    let kdcNoCacheMessageNames_ = kdcNoCacheMessageNames
+    kdcNode <- notImplemented
     let kdcDHTInstance_ = kdcDHTInstance
     pure $ KademliaDHTContext {..}
   --where

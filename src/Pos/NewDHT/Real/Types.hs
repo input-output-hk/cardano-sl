@@ -22,25 +22,23 @@ import           Control.Lens              (iso)
 import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow)
 import           Control.Monad.Morph       (MFunctor (hoist))
 import           Control.Monad.Trans.Class (MonadTrans)
-import           Control.TimeWarp.Rpc      (Binding (..), MonadDialog, MonadResponse (..),
-                                            MonadTransfer (..), hoistRespCond)
-import           Control.TimeWarp.Timed    (ThreadId)
 import qualified Data.ByteString           as BS
 import           Data.ByteString.Lazy      (fromStrict, toStrict)
 
+import qualified Data.Map.Strict           as M
 import           Message.Message           (BinaryP)
-import           Mockable.Channel          (Channel (..))
-import           Mockable.Class            (MFunctor' (hoist'), Mockable (liftMockable))
-import           Mockable.Concurrent       (Fork (..), ThreadId, fork, killThread,
-                                            myThreadId)
+import           Mockable                  (Channel (..), Fork (..), MFunctor' (hoist'),
+                                            Mockable (liftMockable), SharedAtomicT,
+                                            ThreadId, fork, killThread, myThreadId)
 import           Mockable.Monad            (MonadMockable)
 import qualified Network.Kademlia          as K
-import           Node                      (Listener (..))
+import           Node                      (Listener (..), Node, NodeId)
+import           Serokell.Util.Lens        (WrappedM (..))
+import           System.Wlog               (CanLog, HasLoggerName)
+
 import           Pos.Binary.Class          (Bi (..), decodeOrFail, encode)
 import           Pos.NewDHT.Model.Types    (DHTData, DHTKey, DHTNode (..),
                                             DHTNodeType (..))
-import           Serokell.Util.Lens        (WrappedM (..))
-import           System.Wlog               (CanLog, HasLoggerName)
 
 toBSBinary :: Bi b => b -> BS.ByteString
 toBSBinary = toStrict . encode
@@ -71,22 +69,20 @@ data KademliaDHTInstance = KademliaDHTInstance
     }
 
 -- | Node context for 'KademliaDHTInstance'.
-data KademliaDHTContext m = KademliaDHTContext
-    { kdcDHTInstance_         :: !KademliaDHTInstance
-    , kdcAuxClosers           :: !(TVar [KademliaDHT m ()])
-    , kdcListenByBinding      :: !(Binding -> KademliaDHT m (KademliaDHT m ()))
-    , kdcStopped              :: !(TVar Bool)
-    , kdcNoCacheMessageNames_ :: ![Text]
+data KademliaDHTContext s m = KademliaDHTContext
+    { kdcDHTInstance_ :: !KademliaDHTInstance
+    , kdcStopped      :: !(TVar Bool)
+    , kdcNode         :: !(Node m)
+    , kdcState        :: !(SharedAtomicT m (M.Map NodeId s))
     }
 
 -- | Configuration for particular 'KademliaDHTInstance'.
 data KademliaDHTConfig s m = KademliaDHTConfig
-    { kdcPort                :: !Word16
-    , kdcListeners           :: ![Listener BinaryP s m]
-    , kdcMessageCacheSize    :: !Int
-    , kdcEnableBroadcast     :: !Bool
-    , kdcNoCacheMessageNames :: ![Text]
-    , kdcDHTInstance         :: !KademliaDHTInstance
+    { kdcPort             :: !Word16
+    , kdcListeners        :: ![Listener BinaryP s m]
+    , kdcMessageCacheSize :: !Int
+    , kdcDHTInstance      :: !KademliaDHTInstance
+    , kdcInitState        :: !(m s)
     }
 
 -- | Instance of part of config.
@@ -101,7 +97,7 @@ data KademliaDHTInstanceConfig = KademliaDHTInstanceConfig
 newtype KademliaDHT m a = KademliaDHT
     { unKademliaDHT :: ReaderT (KademliaDHTContext m) m a
     } deriving (Functor, Applicative, Monad, MonadFail, MonadThrow, MonadCatch, MonadIO,
-                MonadMask, MonadDialog s p, CanLog, HasLoggerName)
+                MonadMask, CanLog, HasLoggerName)
 
 type instance Mockable.Concurrent.ThreadId (KademliaDHT m) = Mockable.Concurrent.ThreadId m
 
@@ -114,18 +110,6 @@ instance ( Mockable d m
 instance Monad m => WrappedM (KademliaDHT m) where
     type UnwrappedM (KademliaDHT m) = ReaderT (KademliaDHTContext m) m
     _WrappedM = iso unKademliaDHT KademliaDHT
-
-instance MonadResponse s m => MonadResponse s (KademliaDHT m) where
-    replyRaw dat = KademliaDHT $ replyRaw (hoist unKademliaDHT dat)
-    closeR = lift closeR
-    peerAddr = lift peerAddr
-
-instance MonadTransfer s m => MonadTransfer s (KademliaDHT m) where
-    sendRaw addr req = KademliaDHT $ sendRaw addr (hoist unKademliaDHT req)
-    listenRaw binding sink =
-        KademliaDHT $ fmap KademliaDHT $ listenRaw binding $ hoistRespCond unKademliaDHT sink
-    close = lift . close
-    userState = lift . userState
 
 instance MonadTrans KademliaDHT where
   lift = KademliaDHT . lift

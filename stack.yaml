@@ -36,7 +36,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/tw-rework-sketch
-    commit: 57acd5604706ae2a4fcded7029a0cf69d871a22b
+    commit: 1da11e5a17a959d7395301e87a74f999a27aa98f
   extra-dep: true
 
 nix:

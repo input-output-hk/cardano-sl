@@ -2,13 +2,13 @@ module Pos.NewDHT.Model.Util
        ( joinNetworkNoThrow
        ) where
 
-import           Control.Monad.Catch (MonadCatch, catch, throwM)
-import           Formatting          (build, sformat, (%))
-import           System.Wlog         (WithLogger, logInfo)
+import           Control.Monad.Catch    (MonadCatch, catch, throwM)
+import           Formatting             (build, sformat, (%))
+import           System.Wlog            (WithLogger, logInfo)
 import           Universum
 
 import           Pos.NewDHT.Model.Class (DHTException (AllPeersUnavailable), MonadDHT,
-                                      joinNetwork)
+                                         joinNetwork)
 import           Pos.NewDHT.Model.Types (DHTNode)
 
 -- | Join distributed network without throwing 'AllPeersUnavailable' exception.

@@ -31,7 +31,7 @@ module Pos.Constants
        , mpcSendInterval
        , vssMaxTTL
        , protocolMagic
-       , enchancedMessageBroadcast
+       , enhancedMessageBroadcast
 
          -- * Malicious activity detection constants
        , mdNoBlocksSlotThreshold
@@ -175,9 +175,9 @@ vssMaxTTL = fromIntegral . ccVssMaxTTL $ compileConfig
 protocolMagic :: Int32
 protocolMagic = fromIntegral . ccProtocolMagic $ compileConfig
 
--- | Setting this to true enables enchanced message broadcast
-enchancedMessageBroadcast :: Integral a => a
-enchancedMessageBroadcast = fromIntegral $ ccEnchancedMessageBroadcast compileConfig
+-- | Setting this to true enables enhanced message broadcast
+enhancedMessageBroadcast :: Integral a => a
+enhancedMessageBroadcast = fromIntegral $ ccEnhancedMessageBroadcast compileConfig
 
 ----------------------------------------------------------------------------
 -- Malicious activity

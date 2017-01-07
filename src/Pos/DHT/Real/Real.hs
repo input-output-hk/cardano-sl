@@ -40,7 +40,7 @@ import           Universum                       hiding (async, fromStrict,
 
 import           Pos.Binary.Class                (Bi (..))
 import           Pos.Binary.DHTModel             ()
-import           Pos.Constants                   (enchancedMessageBroadcast)
+import           Pos.Constants                   (enhancedMessageBroadcast)
 import           Pos.DHT.Model.Class             (DHTException (..), DHTMsgHeader (..),
                                                   DHTPacking, DHTResponseT (..),
                                                   ListenerDHT (..), MonadDHT (..),
@@ -337,8 +337,8 @@ instance (MonadIO m, MonadCatch m, WithLogger m, Bi DHTData, Bi DHTKey) =>
             selectSufficientNodes inst myId peers)
 
         selectSufficientNodes inst myId l =
-            if enchancedMessageBroadcast /= (0 :: Int)
-            then concat <$> mapM (getPeersFromBucket enchancedMessageBroadcast inst)
+            if enhancedMessageBroadcast /= (0 :: Int)
+            then concat <$> mapM (getPeersFromBucket enhancedMessageBroadcast inst)
                                  (splitToBuckets (kdiHandle inst) myId l)
             else return l
 

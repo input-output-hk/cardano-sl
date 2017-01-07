@@ -41,8 +41,8 @@ data CompileConfig = CompileConfig
       -- ^ VSS certificates max timeout to live (number of epochs)
     , ccProtocolMagic                 :: !Int
       -- ^ Magic constant for separating real/testnet
-    , ccEnchancedMessageBroadcast     :: !Word
-      -- ^ True if we should enable enchanced bessage broadcast
+    , ccEnhancedMessageBroadcast      :: !Word
+      -- ^ True if we should enable enhanced bessage broadcast
     , ccUpdateServers                 :: ![String]
       -- ^ Servers for downloading application updates
     , ccMaxBlockProxySKs              :: !Int

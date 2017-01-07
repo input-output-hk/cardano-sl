@@ -23,9 +23,8 @@ import           Pos.Context              (getNodeContext, isLeadersComputed,
                                            ncSscLeaders, readLeaders, writeLeaders)
 import           Pos.DB                   (getTotalFtsStake, loadBlocksFromTipWhile,
                                            mapUtxoIterator, putLeaders)
-import           Pos.Eligibility          (findRichmenStake)
 import           Pos.FollowTheSatoshi     (followTheSatoshiM)
-import           Pos.Richmen              (allLrcConsumers)
+import           Pos.Richmen              (allLrcConsumers, findRichmenStake)
 import           Pos.Ssc.Class            (SscWorkersClass)
 import           Pos.Ssc.Extra            (sscCalculateSeed)
 import           Pos.Types                (Coin, EpochOrSlot (..), EpochOrSlot (..),

@@ -1,14 +1,7 @@
 module Pos.Richmen
-       (
-         allLrcConsumers
+       ( module Pos.Richmen.Consumers
+       , module Pos.Richmen.Eligibility
        ) where
 
-import           Data.Tagged           (untag)
-import           Universum
-
-import           Pos.Ssc.Class.Workers (SscWorkersClass (sscLrcConsumers))
-import           Pos.Types             (LrcConsumer)
-import           Pos.WorkMode          (WorkMode)
-
-allLrcConsumers :: (SscWorkersClass ssc, WorkMode ssc m) => [LrcConsumer m]
-allLrcConsumers = concat $ [untag sscLrcConsumers]
+import           Pos.Richmen.Consumers
+import           Pos.Richmen.Eligibility

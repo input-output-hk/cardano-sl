@@ -3,7 +3,7 @@
 
 -- | Logic related to eligibility threshold.
 
-module Pos.Eligibility
+module Pos.Richmen.Eligibility
        ( findRichmenStake
        , findRichmenPure
        ) where
@@ -44,7 +44,8 @@ findRichmenStake threshold dThreshold = step mempty mempty
 -- | Pure version of findRichmen which uses in-memory Utxo.
 findRichmenPure :: Utxo -> Coin -> RichmenStake
 findRichmenPure utxo t =
-    runListHolder (fst <$> findRichmenStake (Just t) Nothing) . concatMap txOutStake $ toList utxo
+    runListHolder (fst <$> findRichmenStake (Just t) Nothing) .
+                  concatMap txOutStake $ toList utxo
   -- where
   --   findRichmen =
   --     fromMaybe onNoRichmen .

@@ -97,7 +97,7 @@ newtype HeavyParcel = HeavyParcel
     } deriving (Eq, Ord, Show, Binary)
 
 instance Arbitrary HeavyParcel where
-    arbitrary = mkHeavy <$> arbitrary <*> choose (0, 100000)
+    arbitrary = mkHeavy <$> arbitrary <*> choose (0, 99000)
       where
         mkHeavy parcel size = HeavyParcel parcel { payload = Payload size }
 

@@ -33,8 +33,8 @@ import           Pos.DB.Misc                (getProxySecretKeys)
 import           Pos.Slotting               (MonadSlots (getCurrentTime), getSlotStart,
                                              onNewSlot)
 import           Pos.Ssc.Class              (SscHelpersClass)
-import           Pos.Types                  (EpochIndex, MainBlock, ProxySKEither,
-                                             SlotId (..), Timestamp (Timestamp),
+import           Pos.Types                  (MainBlock, ProxySKEither, SlotId (..),
+                                             Timestamp (Timestamp),
                                              VerifyBlockParams (..), gbHeader, slotIdF,
                                              verifyBlock)
 import           Pos.Types.Address          (addressHash)
@@ -91,8 +91,9 @@ blkOnNewSlot slotId@SlotId {..} = do
         logLeadersF $ sformat ("Slot leaders: "%listJson) $ map (sformat shortHashF) leaders
         logLeadersF $ sformat ("Current slot leader: "%build) leader
         heavyPskM <- getPSKByIssuerAddressHash leader
+        logDebug $ "Does someone have cert for this slot: " <> show (isJust heavyPskM)
         let relatedHeavyPsk = maybe False ((== ourPk) . pskDelegatePk) heavyPskM
-        logDebug $ sformat ("Available proxy certificates: "%listJson) validCerts
+        logDebug $ sformat ("Available lightweight PSKs: "%listJson) validCerts
         if | leader == ourPkHash -> onNewSlotWhenLeader slotId Nothing
            | relatedHeavyPsk -> onNewSlotWhenLeader slotId $ Right <$> heavyPskM
            | isJust validCert -> onNewSlotWhenLeader slotId $ Left <$> validCert
@@ -105,13 +106,13 @@ onNewSlotWhenLeader
     -> m ()
 onNewSlotWhenLeader slotId pSk = do
     let logReason =
-            sformat ("I have a right to create a delegated block for the slot "%slotIdF%" ")
+            sformat ("I have a right to create a block for the slot "%slotIdF%" ")
                     slotId
         logLeader = "because i'm a leader"
         logCert (Left psk) =
-            sformat ("using ligtweight proxy signature key"%build%", will do it soon") psk
+            sformat ("using ligtweight proxy signature key "%build%", will do it soon") psk
         logCert (Right psk) =
-            sformat ("using heavyweight proxy signature key"%build%", will do it soon") psk
+            sformat ("using heavyweight proxy signature key "%build%", will do it soon") psk
     logInfo $ logReason <> maybe logLeader logCert pSk
     nextSlotStart <- getSlotStart (succ slotId)
     currentTime <- getCurrentTime

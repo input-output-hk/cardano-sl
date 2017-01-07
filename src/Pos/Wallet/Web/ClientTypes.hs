@@ -41,8 +41,8 @@ import           Data.Time.Clock.POSIX (POSIXTime)
 import           Formatting            (build, sformat)
 import           Pos.Aeson.Types       ()
 import           Pos.Types             (Address (..), Coin, Tx, TxId, decodeTextAddress,
-                                        sumCoins, txOutAddress, txOutValue, txOutputs)
-import           Pos.Types.Coin        (unsafeIntegerToCoin)
+                                        sumCoins, txOutAddress, txOutValue, txOutputs,
+                                        unsafeIntegerToCoin)
 
 -- Notifications
 data NotifyEvent = Test

@@ -1,4 +1,5 @@
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE ScopedTypeVariables       #-}
 
 -- | Basically wrappers over RocksDB library.
 
@@ -9,10 +10,14 @@ module Pos.DB.Functions
        , rocksGetBytes
        , rocksPutBi
        , rocksPutBytes
-       , rocksWriteBatch
        , traverseAllEntries
        , rocksDecodeMaybe
        , rocksDecodeKeyValMaybe
+
+       -- * Batch
+       , RocksBatchOp (..)
+       , SomeBatchOp (..)
+       , rocksWriteBatch
        ) where
 
 import           Control.Monad.Trans.Resource (MonadResource)
@@ -84,10 +89,6 @@ rocksPutBi k v = rocksPutBytes k (encodeStrict v)
 rocksDelete :: (MonadIO m) => ByteString -> DB ssc -> m ()
 rocksDelete k DB {..} = Rocks.delete rocksDB rocksWriteOpts k
 
--- | Write Batch incapsulation
-rocksWriteBatch :: MonadIO m => [Rocks.BatchOp] -> DB ssc -> m ()
-rocksWriteBatch batch DB{..} = Rocks.write rocksDB rocksWriteOpts batch
-
 traverseAllEntries
     :: (Bi k, Bi v, MonadMask m, MonadIO m)
     => DB ssc
@@ -104,3 +105,25 @@ traverseAllEntries DB{..} init folder =
                 traverse rocksDecodeKeyVal kv `catch` \(_ :: DBError) -> step
             run b = step >>= maybe (pure b) (uncurry (folder b) >=> run)
         init >>= run
+
+----------------------------------------------------------------------------
+-- Batch
+----------------------------------------------------------------------------
+
+class RocksBatchOp a where
+    toBatchOp :: a -> [Rocks.BatchOp]
+
+data SomeBatchOp =
+    forall a. RocksBatchOp a =>
+              SomeBatchOp a
+
+instance RocksBatchOp Rocks.BatchOp where
+    toBatchOp = pure
+
+instance RocksBatchOp SomeBatchOp where
+    toBatchOp (SomeBatchOp a) = toBatchOp a
+
+-- | Write Batch encapsulation
+rocksWriteBatch :: (RocksBatchOp a, MonadIO m) => [a] -> DB ssc -> m ()
+rocksWriteBatch batch DB {..} =
+    Rocks.write rocksDB rocksWriteOpts (concatMap toBatchOp batch)

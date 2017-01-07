@@ -10,9 +10,6 @@ module Pos.Context.Class
        , readBlkSemaphore
        , takeBlkSemaphore
 
-       , withProxyCaches
-       , invalidateProxyCaches
-
        , readLeaders
        , readRichmen
        , tryReadLeaders
@@ -21,15 +18,9 @@ module Pos.Context.Class
        ) where
 
 import           Control.Concurrent.MVar (putMVar)
-import           Control.Exception       (SomeException)
-import           Control.Lens            ((%~))
-import           Control.Monad.Catch     (catch)
-import qualified Data.HashMap.Strict     as HM
-import           Data.Time.Clock         (addUTCTime, getCurrentTime)
 import           Universum
 
-import           Pos.Context.Context     (NodeContext (..), ProxyCaches, ncProxyCaches,
-                                          ncProxyConfCache, ncProxyMsgCache)
+import           Pos.Context.Context     (NodeContext (..))
 import           Pos.DHT.Model           (DHTResponseT)
 import           Pos.DHT.Real            (KademliaDHT)
 import           Pos.Types               (HeaderHash, Richmen, SlotLeaders)
@@ -55,9 +46,6 @@ instance (Monad m, WithNodeContext ssc m) =>
     getNodeContext = lift getNodeContext
 
 
--- TODO Refactor it out of this module when dealing with in-memory
--- things
-
 ----------------------------------------------------------------------------
 -- Semaphore-related logic
 ----------------------------------------------------------------------------
@@ -76,32 +64,6 @@ readBlkSemaphore
     :: (MonadIO m, WithNodeContext ssc m)
     => m (HeaderHash ssc)
 readBlkSemaphore = liftIO . readMVar . ncBlkSemaphore =<< getNodeContext
-
-----------------------------------------------------------------------------
--- ProxyCache logic
-----------------------------------------------------------------------------
-
--- | Effectively takes a lock on ProxyCaches mvar in NodeContext and
--- allows you to run some computation producing updated ProxyCaches
--- and return value. Will put MVar back on exception.
-withProxyCaches
-    :: (MonadIO m, WithNodeContext ssc m, MonadCatch m)
-    => (ProxyCaches -> m (a, ProxyCaches)) -> m a
-withProxyCaches action = do
-    v <- ncProxyCaches <$> getNodeContext
-    x <- liftIO $ takeMVar v
-    (res,modified) <-
-        action x `catch` (\(e :: SomeException) -> liftIO (putMVar v x) >> throwM e)
-    liftIO $ putMVar v modified
-    pure res
-
--- | Invalidates proxy caches using built-in constants.
-invalidateProxyCaches :: (MonadIO m, WithNodeContext ssc m, MonadCatch m) => m ()
-invalidateProxyCaches = withProxyCaches $ \p -> do
-    curTime <- liftIO $ getCurrentTime
-    pure $ ((),) $
-        p & ncProxyMsgCache %~ HM.filter (\t -> addUTCTime 60 t > curTime)
-          & ncProxyConfCache %~ HM.filter (\t -> addUTCTime 500 t > curTime)
 
 ----------------------------------------------------------------------------
 -- LRC data

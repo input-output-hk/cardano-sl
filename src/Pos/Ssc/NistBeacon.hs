@@ -77,7 +77,7 @@ instance SscStorageClass SscNistBeacon where
     sscLoadGlobalState _ = pure ()
     sscApplyBlocksM _ = pure ()
     sscRollbackM _ = pure ()
-    sscVerifyBlocksM _ _ = pure mempty
+    sscVerifyBlocksM _ _ _ = pure mempty
     sscCalculateSeedM =
         pure . Right . coerce . ByteArray.convert @_ @ByteString .
             Hash.hashlazy @SHA256 . encode

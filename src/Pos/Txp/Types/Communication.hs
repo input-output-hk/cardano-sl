@@ -4,48 +4,34 @@
 -- | Types used for communication about Blocks.
 
 module Pos.Txp.Types.Communication
-       ( TxInvMsg (..)
-       , TxReqMsg (..)
-       , TxDataMsg (..)
+       ( TxMsgTag (..)
+       , TxMsgContents (..)
        ) where
 
-import           Control.TimeWarp.Rpc (Message (..), messageName')
-import           Data.List.NonEmpty   (NonEmpty)
+import qualified Data.Text.Buildable as Buildable
+import           Formatting          (bprint, build, (%))
 import           Universum
 
-import           Pos.Types            (Tx, TxDistribution, TxId, TxWitness)
+import           Pos.Types           (Tx, TxDistribution, TxWitness)
+import           Pos.Util            (NamedMessagePart (..))
 
-----------------------------------------------------------------------------
--- Inventory, Request and Data messages
-----------------------------------------------------------------------------
+data TxMsgTag = TxMsgTag
 
--- | Inventory message. Can be used to announce the fact that you have
--- some new local transactions.
-data TxInvMsg = TxInvMsg
-    { imTxs :: !(NonEmpty TxId)
-    } deriving (Generic)
+instance NamedMessagePart TxMsgTag where
+    nMessageName _     = "Tx tag"
 
-instance Message TxInvMsg where
-    messageName _ = "Tx Inventory"
-    formatMessage = messageName'
-
--- | Request message. Can be used to request transactions (ideally
--- transactions which were previously announced by inventory message).
-data TxReqMsg = TxReqMsg
-    { rmTxs :: !(NonEmpty TxId)
-    } deriving (Generic)
-
-instance Message TxReqMsg where
-    messageName _ = "Tx Request"
-    formatMessage = messageName'
+instance Buildable TxMsgTag where
+    build _ = "TxMsgTag"
 
 -- | Data message. Can be used to send one transaction per message.
-data TxDataMsg = TxDataMsg
+data TxMsgContents = TxMsgContents
     { dmTx           :: !Tx
     , dmWitness      :: !TxWitness
     , dmDistribution :: !TxDistribution
     } deriving (Generic)
 
-instance Message TxDataMsg where
-    messageName _ = "Tx Data"
-    formatMessage = messageName'
+instance NamedMessagePart TxMsgContents where
+    nMessageName _     = "Tx contents"
+
+instance Buildable TxMsgContents where
+    build TxMsgContents {..} = bprint ("TxMsgContents { tx="%build%", .. }") dmTx

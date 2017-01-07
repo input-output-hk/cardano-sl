@@ -22,16 +22,18 @@ import           Pos.Communication             (MutSocketState, newMutSocketStat
 import           Pos.Context                   (ContextHolder, NodeContext,
                                                 getNodeContext, runContextHolder)
 import qualified Pos.DB                        as Modern
+import           Pos.Delegation.Class          (DelegationT, DelegationWrap,
+                                                askDelegationState,
+                                                runDelegationTFromTVar)
 import           Pos.DHT.Model                 (DHTPacking)
 import           Pos.DHT.Real                  (KademliaDHTContext, getKademliaDHTCtx,
                                                 runKademliaDHTRaw)
 import           Pos.Genesis                   (genesisSecretKeys)
 import           Pos.Launcher                  (runOurDialogRaw)
-import           Pos.Ssc.Class                 (SscConstraint, sscLoadGlobalState)
+import           Pos.Ssc.Class                 (SscConstraint)
 import           Pos.Ssc.Extra                 (SscHolder (..), SscState, runSscHolderRaw)
 import           Pos.Txp.Class                 (getTxpLDWrap)
 import qualified Pos.Txp.Holder                as Modern
-import qualified Pos.Txp.Types.UtxoView        as UV
 import           Pos.WorkMode                  (RawRealMode)
 
 import           Pos.Wallet.KeyStorage         (addSecretKey)
@@ -48,36 +50,44 @@ walletServeWebFull
     -> Word16
     -> RawRealMode ssc ()
 walletServeWebFull debug = walletServeImpl $ do
-    logInfo "DAEDALUS is STARTED!"
+    logInfo "DAEDALUS has STARTED!"
     when debug $ mapM_ addSecretKey genesisSecretKeys
     walletApplication $ walletServer nat
 
 type WebHandler ssc = WalletWebDB (RawRealMode ssc)
-type SubKademlia ssc = (Modern.TxpLDHolder ssc
-                        (SscHolder ssc
-                           (ContextHolder ssc
-                            (Modern.DBHolder ssc
-                              (Dialog DHTPacking (Transfer (MutSocketState ssc)))))))
+
+-- RawRealMode without last layer
+type SubKademlia ssc =
+    DelegationT (
+    Modern.TxpLDHolder ssc (
+    SscHolder ssc (
+    ContextHolder ssc (
+    Modern.DBHolder ssc (
+    Dialog DHTPacking (
+    Transfer (
+    MutSocketState ssc)))))))
 
 type CPool ssc = TVar (ConnectionPool (MutSocketState ssc))
 
 convertHandler
-    :: forall ssc a . SscConstraint ssc
-    => KademliaDHTContext (SubKademlia ssc)
+    :: forall ssc a .
+       KademliaDHTContext (SubKademlia ssc)
     -> CPool ssc
     -> NodeContext ssc
     -> Modern.NodeDBs ssc
     -> Modern.TxpLDWrap ssc
     -> SscState ssc
     -> WalletState
+    -> (TVar DelegationWrap)
     -> WebHandler ssc a
     -> Handler a
-convertHandler kctx cp nc modernDBs tlw ssc ws handler = do
+convertHandler kctx cp nc modernDBs tlw ssc ws delWrap handler = do
     liftIO (runOurDialogRaw cp newMutSocketState "wallet-api" .
             Modern.runDBHolder modernDBs .
             runContextHolder nc .
             runSscHolderRaw ssc .
             Modern.runTxpLDHolderReader tlw .
+            runDelegationTFromTVar delWrap .
             runKademliaDHTRaw kctx .
             runWalletWebDB ws $
             handler)
@@ -87,13 +97,14 @@ convertHandler kctx cp nc modernDBs tlw ssc ws handler = do
     excHandlers = [Catch.Handler catchServant]
     catchServant = throwError
 
-nat :: SscConstraint ssc => WebHandler ssc (WebHandler ssc :~> Handler)
+nat :: WebHandler ssc (WebHandler ssc :~> Handler)
 nat = do
     ws <- getWalletWebState
     kctx <- lift getKademliaDHTCtx
     tlw <- getTxpLDWrap
-    ssc <- lift . lift . lift $ SscHolder ask
+    ssc <- lift . lift . lift . lift $ SscHolder ask
+    delWrap <- askDelegationState
     nc <- getNodeContext
     modernDB <- Modern.getNodeDBs
-    cp <- lift . lift . lift . lift . lift . lift . lift $ getConnPool
-    return $ Nat (convertHandler kctx cp nc modernDB tlw ssc ws)
+    cp <- lift . lift . lift . lift . lift . lift . lift . lift $ getConnPool
+    pure $ Nat (convertHandler kctx cp nc modernDB tlw ssc ws delWrap)

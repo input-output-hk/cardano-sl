@@ -21,6 +21,7 @@ module Pos.Constants
          -- * Other constants
        , genesisN
        , maxLocalTxs
+       , maxBlockProxySKs
        , neighborsSendThreshold
        , RunningMode (..)
        , runningMode
@@ -122,6 +123,10 @@ genesisN = fromIntegral . ccGenesisN $ compileConfig
 maxLocalTxs :: Integral i => i
 maxLocalTxs = fromIntegral . ccMaxLocalTxs $ compileConfig
 
+-- | Maximum number of PSKs allowed in block
+maxBlockProxySKs :: Integral i => i
+maxBlockProxySKs = fromIntegral . ccMaxBlockProxySKs $ compileConfig
+
 -- | /Time-lord/ node announces system start time by broadcast. She does it
 -- during first 'Pos.CompileConfig.ccSysTimeBroadcastSlots' slots.
 sysTimeBroadcastSlots :: Integral i => i
@@ -217,7 +222,7 @@ curProtocolVersion = ProtocolVersion 0 0 0
 
 -- | Version of application (code running)
 curSoftwareVersion :: SoftwareVersion
-curSoftwareVersion = SoftwareVersion cardanoSlAppName 1 0
+curSoftwareVersion = SoftwareVersion cardanoSlAppName 0
 
 -- | Update servers
 updateServers :: [String]

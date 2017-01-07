@@ -19,10 +19,10 @@ import           Pos.DB.Block                 (getBlock, loadBlocksWithUndoWhile
 import           Pos.DB.Class                 (MonadDB)
 import           Pos.DB.Error                 (DBError (DBMalformed))
 import           Pos.DB.Functions             (openDB)
+import           Pos.DB.GState                (getTip, prepareGStateDB)
 import           Pos.DB.Holder                (runDBHolder)
 import           Pos.DB.Misc                  (prepareMiscDB)
 import           Pos.DB.Types                 (NodeDBs (..))
-import           Pos.DB.Utxo                  (getTip, prepareUtxoDB)
 import           Pos.Eligibility              (findRichmenPure)
 import           Pos.Genesis                  (genesisLeaders)
 import           Pos.Ssc.Class.Types          (Ssc)
@@ -45,7 +45,7 @@ openNodeDBs recreate fp customUtxo = do
     res <- NodeDBs <$> openDB blockPath <*> openDB utxoPath <*> openDB miscPath
     let prepare = do
           prepareBlockDB genesisBlock0
-          prepareUtxoDB customUtxo initialTip
+          prepareGStateDB customUtxo initialTip
           prepareMiscDB leaders0 richmen0
     res <$ runDBHolder res prepare
   where
@@ -78,4 +78,4 @@ getTipBlockHeader = getBlockHeader <$> getTipBlock
 loadBlocksFromTipWhile
     :: (Ssc ssc, MonadDB ssc m)
     => (Block ssc -> Int -> Bool) -> m [(Block ssc, Undo)]
-loadBlocksFromTipWhile condition = getTip >>= flip loadBlocksWithUndoWhile condition
+loadBlocksFromTipWhile condition = getTip >>= loadBlocksWithUndoWhile condition

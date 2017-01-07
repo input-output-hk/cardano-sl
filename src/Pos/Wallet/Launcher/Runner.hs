@@ -16,12 +16,11 @@ import           Universum
 
 import           Pos.Communication            (newMutSocketState)
 import           Pos.DHT.Model                (DHTNodeType (..), ListenerDHT,
-                                               MonadDHTDialog, discoverPeers)
+                                               discoverPeers)
 import           Pos.DHT.Real                 (KademliaDHTInstance)
 import           Pos.Launcher                 (BaseParams (..), LoggingParams (..),
                                                addDevListeners, runKDHT, runOurDialog,
                                                setupLoggers)
-import           Pos.Ssc.GodTossing           (SscGodTossing)
 
 import           Pos.Wallet.Context           (ctxFromParams, runContextHolder)
 import           Pos.Wallet.KeyStorage        (runKeyStorage)

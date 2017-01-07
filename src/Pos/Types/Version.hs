@@ -10,10 +10,11 @@ module Pos.Types.Version
        ) where
 
 import           Data.Char           (isAscii)
+import           Data.Hashable       (Hashable)
 import           Data.SafeCopy       (base, deriveSafeCopySimple)
 import qualified Data.Text           as T
 import qualified Data.Text.Buildable as Buildable
-import           Formatting          (bprint, build, shown, stext, (%))
+import           Formatting          (bprint, int, shown, stext, (%))
 import           Prelude             (show)
 import           Universum           hiding (show)
 
@@ -31,9 +32,11 @@ instance Show ProtocolVersion where
 instance Buildable ProtocolVersion where
     build = bprint shown
 
+instance Hashable ProtocolVersion
+
 newtype ApplicationName = ApplicationName
     { getApplicationName :: Text
-    } deriving (Eq, Ord, Show, Generic, Typeable, ToString)
+    } deriving (Eq, Ord, Show, Generic, Typeable, ToString, Hashable)
 
 applicationNameMaxLength :: Integral i => i
 applicationNameMaxLength = 10
@@ -49,24 +52,19 @@ mkApplicationName appName
 -- | Software version.
 data SoftwareVersion = SoftwareVersion
     { svAppName :: ApplicationName
-    , svMajor   :: Word8
-    , svMinor   :: Word16
+    , svNumber  :: Word32
     }
   deriving (Eq, Generic, Ord, Typeable)
 
 instance Buildable SoftwareVersion where
     build SoftwareVersion {..} =
-      bprint (stext % ":" % build % "." % build)
-         (getApplicationName svAppName) svMajor svMinor
+      bprint (stext % ":" % int)
+         (getApplicationName svAppName) svNumber
 
 instance Show SoftwareVersion where
-    show SoftwareVersion {..} = mconcat
-        [ toString svAppName
-        , ":"
-        , show svMajor
-        , "."
-        , show svMinor
-        ]
+    show = toString . pretty
+
+instance Hashable SoftwareVersion
 
 deriveSafeCopySimple 0 'base ''ApplicationName
 deriveSafeCopySimple 0 'base ''ProtocolVersion

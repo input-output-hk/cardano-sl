@@ -1,19 +1,16 @@
+{-# LANGUAGE ViewPatterns #-}
+
 -- | Messages used for communication in GodTossing SSC.
 
 module Pos.Ssc.GodTossing.Types.Message
-       ( MsgTag (..)
+       ( GtMsgTag (..)
        , isGoodSlotForTag
        , isGoodSlotIdForTag
-       , InvMsg (..)
-       , ReqMsg (..)
-       , DataMsg (..)
-       , dataMsgNodeId
-       , dataMsgTag
+       , GtMsgContents (..)
+       , msgContentsTag
        ) where
 
-import           Control.TimeWarp.Rpc          (Message (..), messageName')
-import           Data.List.NonEmpty            (NonEmpty)
-import qualified Data.Text.Buildable
+import qualified Data.Text.Buildable           as Buildable
 import           Universum
 
 import           Pos.Ssc.GodTossing.Functions  (isCommitmentId, isCommitmentIdx,
@@ -21,29 +18,36 @@ import           Pos.Ssc.GodTossing.Functions  (isCommitmentId, isCommitmentIdx,
                                                 isSharesIdx)
 import           Pos.Ssc.GodTossing.Types.Base (InnerSharesMap, Opening, SignedCommitment,
                                                 VssCertificate)
-import           Pos.Types                     (LocalSlotIndex, SlotId, StakeholderId)
+import           Pos.Types                     (LocalSlotIndex, SlotId)
+import           Pos.Util                      (NamedMessagePart (..))
 
 -- | Tag associated with message.
-data MsgTag
+data GtMsgTag
     = CommitmentMsg
     | OpeningMsg
     | SharesMsg
     | VssCertificateMsg
     deriving (Show, Eq, Generic)
 
-instance Buildable MsgTag where
-    build CommitmentMsg     = "commitment message"
-    build OpeningMsg        = "opening message"
-    build SharesMsg         = "shares message"
-    build VssCertificateMsg = "VSS certificate message"
+instance NamedMessagePart GtMsgTag where
+    nMessageName _     = "Gt tag"
 
-isGoodSlotForTag :: MsgTag -> LocalSlotIndex -> Bool
+instance NamedMessagePart GtMsgContents where
+    nMessageName _     = "Gt contents"
+
+instance Buildable GtMsgTag where
+    build CommitmentMsg     = "commitment"
+    build OpeningMsg        = "opening"
+    build SharesMsg         = "shares"
+    build VssCertificateMsg = "VSS certificate"
+
+isGoodSlotForTag :: GtMsgTag -> LocalSlotIndex -> Bool
 isGoodSlotForTag CommitmentMsg     = isCommitmentIdx
 isGoodSlotForTag OpeningMsg        = isOpeningIdx
 isGoodSlotForTag SharesMsg         = isSharesIdx
 isGoodSlotForTag VssCertificateMsg = const True
 
-isGoodSlotIdForTag :: MsgTag -> SlotId -> Bool
+isGoodSlotIdForTag :: GtMsgTag -> SlotId -> Bool
 isGoodSlotIdForTag CommitmentMsg     = isCommitmentId
 isGoodSlotIdForTag OpeningMsg        = isOpeningId
 isGoodSlotIdForTag SharesMsg         = isSharesId
@@ -53,54 +57,20 @@ isGoodSlotIdForTag VssCertificateMsg = const True
 -- always sent as a single message, it allows to identify such
 -- messages using only Address.
 
--- | Inventory message. Can be used to announce the fact that you have
--- some data.
-data InvMsg = InvMsg
-    { imType  :: !MsgTag
-    , imNodes :: !(NonEmpty StakeholderId)
-    } deriving (Show, Eq, Generic)
-
-instance Message InvMsg where
-    messageName _ = "GT Inventory"
-    formatMessage = messageName'
-
--- | Request message. Can be used to request data (ideally data which
--- was previously announced by inventory message).
-data ReqMsg = ReqMsg
-    { rmType :: !MsgTag
-    , rmNode :: !StakeholderId
-    } deriving (Show, Eq, Generic)
-
-instance Message ReqMsg where
-    messageName _ = "GT Request"
-    formatMessage = messageName'
-
 -- | Data message. Can be used to send actual data.
-data DataMsg
-    = DMCommitment !StakeholderId
-                   !SignedCommitment
-    | DMOpening !StakeholderId
-                !Opening
-    | DMShares !StakeholderId
-               InnerSharesMap
-    | DMVssCertificate !StakeholderId
-                       !VssCertificate
+data GtMsgContents
+    = MCCommitment !SignedCommitment
+    | MCOpening !Opening
+    | MCShares !InnerSharesMap
+    | MCVssCertificate !VssCertificate
     deriving (Show, Eq, Generic)
 
-instance Message DataMsg where
-    messageName _ = "GT Data"
-    formatMessage = messageName'
+instance Buildable GtMsgContents where
+    build (msgContentsTag -> tag) = Buildable.build tag <> " contents"
 
--- | MsgTag appropriate for given DataMsg.
-dataMsgTag :: DataMsg -> MsgTag
-dataMsgTag (DMCommitment _ _)     = CommitmentMsg
-dataMsgTag (DMOpening _ _)        = OpeningMsg
-dataMsgTag (DMShares _ _)         = SharesMsg
-dataMsgTag (DMVssCertificate _ _) = VssCertificateMsg
-
--- | Node ID stored in DataMsg.
-dataMsgNodeId :: DataMsg -> StakeholderId
-dataMsgNodeId (DMCommitment nid _)     = nid
-dataMsgNodeId (DMOpening nid _)        = nid
-dataMsgNodeId (DMShares nid _)         = nid
-dataMsgNodeId (DMVssCertificate nid _) = nid
+-- | GtMsgTag appropriate for given DataMsg.
+msgContentsTag :: GtMsgContents -> GtMsgTag
+msgContentsTag (MCCommitment _)     = CommitmentMsg
+msgContentsTag (MCOpening _)        = OpeningMsg
+msgContentsTag (MCShares _)         = SharesMsg
+msgContentsTag (MCVssCertificate _) = VssCertificateMsg

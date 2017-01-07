@@ -31,7 +31,7 @@ import           Pos.NewDHT.Model.Types          (DHTNode (..), DHTNodeType (..)
 -- (i.e. we don't have to wait for reply from the listeners).
 sendToNeighbors
     :: ( MonadDHT m, MonadMockable m, Serializable packing body, WithLogger m, Message body, MonadCatch m )
-    => SendActions packing state m
+    => SendActions packing m
     -> body
     -> m ()
 sendToNeighbors sender msg = do

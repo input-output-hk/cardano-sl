@@ -17,13 +17,12 @@ import           Control.Concurrent.STM          (STM, TVar, modifyTVar, newTVar
                                                   readTVar, swapTVar, writeTVar)
 import           Control.Monad.Catch             (Handler (..), MonadCatch, MonadMask,
                                                   MonadThrow, catchAll, catches, throwM)
-import           Control.Monad.Trans.Control     (MonadBaseControl)
 import           Control.TimeWarp.Rpc            (Binding (..), NetworkAddress,
                                                   RawData (..), TransferException (..),
                                                   listenR, sendH, sendR)
 import           Control.TimeWarp.Timed          (ms, sec)
-import           Mockable.Concurrent             (fork, killThread)
-import           Mockable.Monad                  (MonadMockable)
+import           Mockable                        (MonadMockable, fork, killThread,
+                                                  newSharedAtomic)
 
 import qualified Data.Cache.LRU                  as LRU
 import           Data.Hashable                   (hash)
@@ -57,7 +56,7 @@ import           Pos.NewDHT.Real.Types           (DHTHandle, KademliaDHT (..),
 import           Pos.Util                        (runWithRandomIntervals',
                                                   waitAnyUnexceptional)
 
-import           Node                            (startNode)
+import           Node                            (node)
 
 kademliaConfig :: K.KademliaConfig
 kademliaConfig = K.defaultConfig { K.k = 16 }
@@ -75,11 +74,9 @@ runKademliaDHT
     :: ( WithLogger m
        , MonadIO m
        , MonadMockable m
-       --, MonadDHTDialog s m
        , MonadMask m
-       , MonadBaseControl IO m
        )
-    => KademliaDHTConfig s m -> KademliaDHT m a -> m a
+    => KademliaDHTConfig m -> KademliaDHT m a -> m a
 runKademliaDHT kdc@(KademliaDHTConfig {..}) action =
     startDHT kdc >>= runReaderT (unKademliaDHT action')
   where
@@ -89,7 +86,6 @@ runKademliaDHT kdc@(KademliaDHTConfig {..}) action =
         (logDebug "stopping kademlia messager"
           >> stopDHT >> logDebug "kademlia messager stopped")
     action'' = do
-      startMsgThread
       logDebug "running kademlia dht messager"
       joinNetworkNoThrow (kdiInitialPeers $ kdcDHTInstance)
       startRejoinThread
@@ -97,12 +93,7 @@ runKademliaDHT kdc@(KademliaDHTConfig {..}) action =
     startRejoinThread = do
       tvar <- KademliaDHT $ asks kdcAuxClosers
       tid <- fork $ runWithRandomIntervals' (ms 500) (sec 5) rejoinNetwork
-      atomically $ modifyTVar tvar (killThread tid:)
-    startMsgThread = do
-      (tvar, listenByBinding) <-
-          KademliaDHT $ (,) <$> asks kdcAuxClosers <*> asks kdcListenByBinding
-      closer <- listenByBinding $ AtPort kdcPort
-      atomically $ modifyTVar tvar (closer:)
+      liftIO $ atomically $ modifyTVar tvar (killThread tid:)
 
 -- | Stop DHT algo.
 stopDHT :: (MonadIO m, MonadMockable m) => KademliaDHT m ()
@@ -155,21 +146,16 @@ startDHTInstance KademliaDHTInstanceConfig {..} = do
 startDHT
     :: ( MonadIO m
        , MonadMockable m
-       --, MonadDHTDialog s m
        , WithLogger m
        , MonadMask m
-       , MonadBaseControl IO m
        )
-    => KademliaDHTConfig s m -> m (KademliaDHTContext m)
+    => KademliaDHTConfig m -> m (KademliaDHTContext m)
 startDHT KademliaDHTConfig {..} = do
-    kdcStopped <- atomically $ newTVar False
+    kdcStopped <- liftIO $ atomically $ newTVar False
     kdcNode <- notImplemented
     let kdcDHTInstance_ = kdcDHTInstance
+    kdcAuxClosers <- liftIO $ atomically $ newTVar mempty
     pure $ KademliaDHTContext {..}
-  --where
-    --convert :: ListenerDHT s m -> ListenerH s DHTPacking DHTMsgHeader m
-    --convert (ListenerDHT f) = ListenerH $ \(_, m) -> getDHTResponseT $ f m
-    --convert' handler = getDHTResponseT . handler
 
 rejoinNetwork
     :: (MonadIO m, WithLogger m, MonadCatch m, Bi DHTData, Bi DHTKey)

@@ -127,6 +127,7 @@ library
                         Pos.Binary.Crypto
                         Pos.Binary.Communication
                         Pos.Binary.DHTModel
+                        Pos.Binary.NewDHTModel
                         Pos.Binary.Merkle
                         Pos.Binary.DB
                         Pos.Binary.Relay

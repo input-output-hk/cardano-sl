@@ -386,7 +386,7 @@ waitRandomInterval' minT maxT = do
     interval <-
         (+ minT) . fromIntegral <$>
         liftIO (randomNumber $ fromIntegral $ maxT - minT)
-    MC.wait $ for interval
+    MC.delay $ MC.for interval
 
 -- | Wait random interval and then perform given action.
 runWithRandomIntervals'

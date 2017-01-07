@@ -69,20 +69,19 @@ data KademliaDHTInstance = KademliaDHTInstance
     }
 
 -- | Node context for 'KademliaDHTInstance'.
-data KademliaDHTContext s m = KademliaDHTContext
+data KademliaDHTContext m = KademliaDHTContext
     { kdcDHTInstance_ :: !KademliaDHTInstance
     , kdcStopped      :: !(TVar Bool)
     , kdcNode         :: !(Node m)
-    , kdcState        :: !(SharedAtomicT m (M.Map NodeId s))
+    , kdcAuxClosers   :: !(TVar [KademliaDHT m ()])
     }
 
 -- | Configuration for particular 'KademliaDHTInstance'.
-data KademliaDHTConfig s m = KademliaDHTConfig
+data KademliaDHTConfig m = KademliaDHTConfig
     { kdcPort             :: !Word16
-    , kdcListeners        :: ![Listener BinaryP s m]
+    , kdcListeners        :: ![Listener BinaryP m]
     , kdcMessageCacheSize :: !Int
     , kdcDHTInstance      :: !KademliaDHTInstance
-    , kdcInitState        :: !(m s)
     }
 
 -- | Instance of part of config.
@@ -99,7 +98,7 @@ newtype KademliaDHT m a = KademliaDHT
     } deriving (Functor, Applicative, Monad, MonadFail, MonadThrow, MonadCatch, MonadIO,
                 MonadMask, CanLog, HasLoggerName)
 
-type instance Mockable.Concurrent.ThreadId (KademliaDHT m) = Mockable.Concurrent.ThreadId m
+type instance Mockable.ThreadId (KademliaDHT m) = Mockable.ThreadId m
 
 instance ( Mockable d m
          , MFunctor' d (ReaderT (KademliaDHTContext m) m) m

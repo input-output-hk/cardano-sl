@@ -16,10 +16,10 @@ module Daedalus.Types
 import Prelude
 
 import Pos.Wallet.Web.ClientTypes (CAddress (..), CHash (..))
-import Pos.Types.Coin (Coin (..))
+import Pos.Types.Types (Coin (..))
 
 import Pos.Wallet.Web.ClientTypes as CT
-import Pos.Types.Coin as C
+import Pos.Types.Types as C
 import Pos.Wallet.Web.Error as E
 
 import Data.Either (either)

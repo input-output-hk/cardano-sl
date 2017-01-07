@@ -10,6 +10,7 @@ module Pos.DHT.Real.Types
        , KademliaDHTInstanceConfig (..)
        , KademliaDHT (..)
        , DHTHandle
+       , WithKademliaDHTInstance (..)
        ) where
 
 import           Control.Concurrent.STM    (TVar)
@@ -30,7 +31,7 @@ import           Universum                 hiding (async, fromStrict, mapConcurr
                                             toStrict)
 
 import           Pos.DHT.Model.Class       (DHTMsgHeader (..), ListenerDHT (..),
-                                            WithDefaultMsgHeader (..))
+                                            WithDefaultMsgHeader (..), DHTResponseT (..))
 import           Pos.DHT.Model.Types       (DHTData, DHTKey, DHTNode (..))
 
 toBSBinary :: Bi b => b -> BS.ByteString
@@ -94,6 +95,25 @@ newtype KademliaDHT m a = KademliaDHT
     } deriving (Functor, Applicative, Monad, MonadFail, MonadThrow,
                 MonadCatch, MonadIO, MonadMask, MonadTimed,
                 MonadDialog s p, CanLog, HasLoggerName)
+
+-- | Class for getting KademliaDHTInstance from 'KademliaDHT'
+class WithKademliaDHTInstance m where
+    getKademliaDHTInstance :: m KademliaDHTInstance
+
+instance Monad m => WithKademliaDHTInstance (KademliaDHT m) where
+    getKademliaDHTInstance = KademliaDHT $ kdcDHTInstance_ <$> ask
+
+instance (Monad m, WithKademliaDHTInstance m) =>
+         WithKademliaDHTInstance (DHTResponseT s m) where
+    getKademliaDHTInstance = lift getKademliaDHTInstance
+
+instance (Monad m, WithKademliaDHTInstance m) =>
+         WithKademliaDHTInstance (ReaderT a m) where
+    getKademliaDHTInstance = lift getKademliaDHTInstance
+
+instance (Monad m, WithKademliaDHTInstance m) =>
+         WithKademliaDHTInstance (StateT a m) where
+    getKademliaDHTInstance = lift getKademliaDHTInstance
 
 instance MonadResponse s m => MonadResponse s (KademliaDHT m) where
     replyRaw dat = KademliaDHT $ replyRaw (hoist unKademliaDHT dat)

@@ -41,7 +41,7 @@ import qualified Pos.DB                      as Modern
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.DHT.Model               (DHTResponseT, MonadDHT,
                                               MonadMessageDHT (..), WithDefaultMsgHeader)
-import           Pos.DHT.Real                (KademliaDHT)
+import           Pos.DHT.Real                (KademliaDHT, WithKademliaDHTInstance (..))
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..))
 import           Pos.Statistics.StatEntry    (StatLabel (..))
@@ -82,7 +82,7 @@ newtype NoStatsT m a = NoStatsT
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
                 MonadDialog s p, MonadDHT, MonadMessageDHT s, MonadSlots,
-                WithDefaultMsgHeader, MonadJL, CanLog,
+                WithDefaultMsgHeader, WithKademliaDHTInstance, MonadJL, CanLog,
                 MonadUtxoRead, MonadUtxo, Modern.MonadDB ssc,
                 MonadTxpLD ssc, MonadSscGS ssc, MonadSscLD ssc,
                 WithNodeContext ssc, MonadDelegation)
@@ -128,7 +128,7 @@ newtype StatsT m a = StatsT
     } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
                 MonadDialog s p, MonadDHT, MonadMessageDHT s, MonadSlots,
-                WithDefaultMsgHeader, MonadTrans, MonadJL, CanLog,
+                WithDefaultMsgHeader, WithKademliaDHTInstance, MonadTrans, MonadJL, CanLog,
                 MonadUtxoRead, MonadUtxo, Modern.MonadDB ssc, MonadTxpLD ssc,
                 MonadSscGS ssc, MonadSscLD ssc, WithNodeContext ssc, MonadDelegation)
 

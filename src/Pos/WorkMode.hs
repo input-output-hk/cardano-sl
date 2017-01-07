@@ -35,7 +35,7 @@ import qualified Pos.DB.Holder                 as Modern
 import           Pos.Delegation.Class          (DelegationT (..), MonadDelegation)
 import           Pos.DHT.Model                 (DHTPacking, MonadMessageDHT (..),
                                                 WithDefaultMsgHeader)
-import           Pos.DHT.Real                  (KademliaDHT (..))
+import           Pos.DHT.Real                  (KademliaDHT (..), WithKademliaDHTInstance (..))
 import           Pos.Slotting                  (MonadSlots (..))
 import           Pos.Ssc.Class.Helpers         (SscHelpersClass (..))
 import           Pos.Ssc.Class.LocalData       (SscLocalDataClass)
@@ -71,6 +71,7 @@ type WorkMode ssc m
       , WithDefaultMsgHeader m
       , MonadStats m
       , MonadJL m
+      , WithKademliaDHTInstance m
       )
 
 -- | More relaxed version of 'WorkMode'.

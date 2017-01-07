@@ -61,8 +61,9 @@ import           Pos.Delegation.Class        (DelegationWrap, MonadDelegation (.
 import           Pos.Delegation.Types        (SendProxySK (..))
 import           Pos.Ssc.Class               (Ssc)
 import           Pos.Types                   (Block, Blund, NEBlocks, ProxySKEpoch,
-                                              ProxySKSimple, ProxySigEpoch, Undo (..),
-                                              blockProxySKs, headerHash, prevBlockL)
+                                              ProxySKSimple, ProxySigEpoch,
+                                              Undo (undoPsk), blockProxySKs, headerHash,
+                                              prevBlockL)
 import           Pos.Util                    (_neHead)
 
 
@@ -245,10 +246,26 @@ delegationApplyBlocks blocks = do
         concatMap toBatchOp $
             map (DelPSK . pskIssuerPk) toDelete ++ map AddPSK toReplace
 
+-- | Rollbacks block list. Erases mempool of certificates. Better to
+-- restore them after the rollback (see Txp#normalizeTxpLD).
 delegationRollbackBlocks
-    :: (WithLogger m, MonadDB ssc m)
-    => NonEmpty (Block ssc, Undo) -> m ()
-delegationRollbackBlocks = notImplemented
+    :: (MonadDelegation m, MonadIO m)
+    => NonEmpty (Blund ssc) -> m (NonEmpty [BatchOp])
+delegationRollbackBlocks blunds = do
+    runDelegationStateAction $ dwProxySKPool .= HM.empty
+    pure $ map rollbackBlund blunds
+  where
+    rollbackBlund (Left _, _) = []
+    rollbackBlund (Right block, undo) =
+        let proxySKs = view blockProxySKs block
+            toReplace =
+                map pskIssuerPk $
+                filter (\ProxySecretKey{..} -> pskIssuerPk /= pskDelegatePk)
+                proxySKs
+            toDeleteBatch = map DelPSK toReplace
+            toAddBatch = map AddPSK $ undoPsk undo
+        in concatMap toBatchOp $ toDeleteBatch ++ toAddBatch
+
 
 ----------------------------------------------------------------------------
 -- Lightweight PSK propagation

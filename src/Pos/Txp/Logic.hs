@@ -239,7 +239,8 @@ txRollbackBlock (block, undo) = do
     prependToBatch batchOrError (tx@Tx{..}, undoTx) = do
         batch <- batchOrError
         --TODO more detailed message must be here
-        unless (length undoTx == length txInputs) $ Left "Number of txInputs must be equal length of undo"
+        unless (length undoTx == length txInputs) $
+            Left "Number of txInputs must be equal length of undo"
         let txId = hash tx
             keys = zipWith TxIn (repeat txId) [0..]
             putIn = zipWith (\i o -> SomeBatchOp $ AddTxOut i o) txInputs undoTx
@@ -302,7 +303,7 @@ filterMemPool txs = modifyTxpLD_ (\(uv, mp, undos, tip) ->
     (uv, MemPool newMPTxs (HM.size newMPTxs), newUndos, tip))
 
 -- | 1. Recompute UtxoView by current MemPool
--- | 2. Removed from MemPool invalid transactions
+-- | 2. Remove invalid transactions from MemPool
 normalizeTxpLD :: (MonadDB ssc m, MonadTxpLD ssc m)
                => m ()
 normalizeTxpLD = do

@@ -7,7 +7,7 @@ module Pos.Wallet.Context.Class
        ( WithWalletContext (..)
        , readNtpLastSlot
        , readNtpMargin
-       , readNtpTimestamp
+       , readNtpData
        ) where
 
 import qualified Control.Concurrent.STM     as STM
@@ -50,5 +50,5 @@ readNtpLastSlot = getWalletContext >>= atomically . STM.readTVar . wcNtpLastSlot
 readNtpMargin :: (MonadIO m, WithWalletContext m) => m Microsecond
 readNtpMargin = getWalletContext >>= fmap fst . atomically . STM.readTVar . wcNtpData
 
-readNtpTimestamp :: (MonadIO m, WithWalletContext m) => m Microsecond
-readNtpTimestamp = getWalletContext >>= fmap snd . atomically . STM.readTVar . wcNtpData
+readNtpData :: (MonadIO m, WithWalletContext m) => m (Microsecond, Microsecond)
+readNtpData = getWalletContext >>= atomically . STM.readTVar . wcNtpData

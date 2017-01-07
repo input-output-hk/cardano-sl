@@ -19,7 +19,7 @@ module Pos.Context.Class
        , setNtpLastSlot
        , readNtpLastSlot
        , readNtpMargin
-       , readNtpTimestamp
+       , readNtpData
        ) where
 
 import           Control.Concurrent.MVar (putMVar)
@@ -120,5 +120,5 @@ readNtpLastSlot = getNodeContext >>= atomically . STM.readTVar . ncNtpLastSlot
 readNtpMargin :: (MonadIO m, WithNodeContext ssc m) => m Microsecond
 readNtpMargin = getNodeContext >>= fmap fst . atomically . STM.readTVar . ncNtpData
 
-readNtpTimestamp :: (MonadIO m, WithNodeContext ssc m) => m Microsecond
-readNtpTimestamp = getNodeContext >>= fmap snd . atomically . STM.readTVar . ncNtpData
+readNtpData :: (MonadIO m, WithNodeContext ssc m) => m (Microsecond, Microsecond)
+readNtpData = getNodeContext >>= atomically . STM.readTVar . ncNtpData

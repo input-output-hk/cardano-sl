@@ -7,24 +7,26 @@ module Pos.Slotting
        ( MonadSlots (..)
        , getCurrentSlotFlat
        , getSlotStart
+       , getCurrentSlotUsingNtp
+
        , onNewSlot
        ) where
 
 import           Control.Monad.Catch      (MonadCatch, catch)
 import           Control.Monad.Except     (ExceptT)
 import           Control.Monad.Trans      (MonadTrans)
-import           Control.TimeWarp.Timed   (Microsecond, MonadTimed, for, fork_, wait)
+import           Control.TimeWarp.Timed   (Microsecond, MonadTimed (..), for, fork_, wait)
 import           Formatting               (build, sformat, shown, (%))
 import           Serokell.Util.Exceptions ()
 import           System.Wlog              (WithLogger, logError, logInfo,
                                            modifyLoggerName)
 import           Universum
 
-import           Pos.Constants            (slotDuration)
+import           Pos.Constants            (ntpMaxError, ntpPollDelay, slotDuration)
 import           Pos.DHT.Model            (DHTResponseT)
 import           Pos.DHT.Real             (KademliaDHT)
 import           Pos.Types                (FlatSlotId, SlotId (..), Timestamp (..),
-                                           flattenSlotId)
+                                           flattenSlotId, unflattenSlotId)
 
 -- | Type class providing information about time when system started
 -- functioning.
@@ -56,6 +58,23 @@ getCurrentSlotFlat = flattenSlotId <$> getCurrentSlot
 getSlotStart :: MonadSlots m => SlotId -> m Timestamp
 getSlotStart (flattenSlotId -> slotId) =
     (Timestamp (fromIntegral slotId * slotDuration) +) <$> getSystemStartTime
+
+getCurrentSlotUsingNtp :: (MonadSlots m, MonadTimed m)
+                       => SlotId -> (Microsecond, Microsecond) -> m SlotId
+getCurrentSlotUsingNtp lastSlot (margin, measTime) = do
+    t <- (+ margin) <$> currentTime
+    canTrust <- canWeTrustLocalTime t
+    if canTrust then
+        max lastSlot . f  <$>
+            ((t -) . getTimestamp <$> getSystemStartTime)
+    else pure lastSlot
+  where
+    f :: Microsecond -> SlotId
+    f t = unflattenSlotId (fromIntegral $ t `div` slotDuration)
+    -- We can trust getCurrentTime if it isn't bigger than:
+    -- time for which we got margin (in last time) + NTP delay (+ some eps, for safety)
+    canWeTrustLocalTime t =
+        pure $ t <= measTime + ntpPollDelay + ntpMaxError
 
 -- | Run given action as soon as new slot starts, passing SlotId to
 -- it.  This function uses MonadTimed and assumes consistency between

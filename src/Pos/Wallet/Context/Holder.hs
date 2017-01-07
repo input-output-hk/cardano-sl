@@ -14,7 +14,6 @@ import           Control.Lens                (iso)
 import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
 import           Control.Monad.Reader        (ReaderT (ReaderT), ask)
-import           Data.Time.Units             (Microsecond)
 
 import           Control.Monad.Trans.Class   (MonadTrans)
 import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
@@ -28,11 +27,10 @@ import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
-import           Pos.Constants               (ntpMaxError, ntpPollDelay, slotDuration)
-import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Types                   (Timestamp (..), SlotId, unflattenSlotId)
-import           Pos.Wallet.Context.Class    (WithWalletContext (..), readNtpLastSlot,
-                                              readNtpMargin, readNtpTimestamp)
+import           Pos.Slotting                (MonadSlots (..), getCurrentSlotUsingNtp)
+import           Pos.Types                   (Timestamp (..))
+import           Pos.Wallet.Context.Class    (WithWalletContext (..), readNtpData,
+                                              readNtpLastSlot, readNtpMargin)
 import           Pos.Wallet.Context.Context  (WalletContext (..))
 
 -- | Wrapper for monadic action which brings 'WalletContext'.
@@ -80,15 +78,5 @@ instance (MonadTimed m, Monad m, MonadIO m) =>
 
     getCurrentSlot = do
         lastSlot <- readNtpLastSlot
-        t <- getTimestamp <$> getCurrentTime
-        canTrust <- canWeTrustTime t
-        if canTrust then
-            max lastSlot . f  <$>
-                ((t -) . getTimestamp <$> getSystemStartTime)
-        else pure lastSlot
-      where
-        f :: Microsecond -> SlotId
-        f t = unflattenSlotId (fromIntegral $ t `div` slotDuration)
-        canWeTrustTime t = do
-            measTime <- readNtpTimestamp
-            return $ t <= measTime + ntpPollDelay + ntpMaxError
+        ntpData <- readNtpData
+        getCurrentSlotUsingNtp lastSlot ntpData

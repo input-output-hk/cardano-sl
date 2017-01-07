@@ -74,7 +74,8 @@ data Delay (m :: * -> *) (t :: *) where
     SleepForever :: Delay m ()              -- Infinite delay.
 
 instance MFunctor Delay where
-  hoist nat (Delay i) = Delay i
+    hoist _ (Delay i)    = Delay i
+    hoist _ SleepForever = SleepForever
 
 wait :: ( Mockable Delay m ) => RelativeToNow -> m ()
 wait relativeToNow = liftMockable $ Delay relativeToNow
@@ -89,8 +90,8 @@ data RepeatForever (m :: * -> *) (t :: *) where
                   -> RepeatForever m ()
 
 instance MFunctor RepeatForever where
-  hoist nat (RepeatForever ms eh action) =
-    RepeatForever ms (\ex -> nat $ eh ex) (nat action)
+    hoist nat (RepeatForever time eh action) =
+        RepeatForever time (\ex -> nat $ eh ex) (nat action)
 
 repeatForever :: ( Mockable RepeatForever m )
     => Microsecond

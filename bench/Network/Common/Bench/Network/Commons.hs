@@ -22,40 +22,27 @@ module Bench.Network.Commons
     , logMessageParser
     ) where
 
-import           Control.Applicative      ((<|>))
-import qualified Control.Concurrent       as Conc
-import qualified Control.Concurrent.Async as Conc
-import qualified Control.Concurrent.STM   as Conc
-import qualified Control.Exception        as Exception
-import           Control.Monad            (join)
-import           Control.Monad.Trans      (MonadIO (..), lift)
-import           Data.Attoparsec.Text     (Parser, char, decimal, string, takeWhile)
-import           Data.Binary              (Binary)
-import           Data.Binary              (Binary (..))
-import qualified Data.ByteString.Lazy     as BL
-import           Data.Data                (Data)
-import           Data.Default             (def)
-import           Data.Functor             (($>))
-import qualified Data.HashMap.Strict      as M
-import           Data.Int                 (Int64)
-import           Data.Monoid              ((<>))
-import           Data.Text.Buildable      (Buildable, build)
-import           Data.Time.Clock.POSIX    (getPOSIXTime)
-import qualified Formatting               as F
-import           GHC.Generics             (Generic)
-import           Node                     (Message (..))
-import           Prelude                  hiding (takeWhile)
-import           System.Wlog              (LoggerConfig (..), LoggerNameBox,
-                                           Severity (..), WithLogger, getLoggerName,
-                                           logInfo, parseLoggerConfig,
-                                           traverseLoggerConfig, usingLoggerName)
-
-import           Mockable.Channel
-import           Mockable.Class
-import           Mockable.Concurrent
-import           Mockable.Exception
-import           Mockable.SharedAtomic
-
+import           Control.Applicative   ((<|>))
+import           Control.Monad         (join)
+import           Control.Monad.Trans   (MonadIO (..))
+import           Data.Attoparsec.Text  (Parser, char, decimal, string, takeWhile)
+import           Data.Binary           (Binary)
+import           Data.Binary           (Binary (..))
+import qualified Data.ByteString.Lazy  as BL
+import           Data.Data             (Data)
+import           Data.Default          (def)
+import           Data.Functor          (($>))
+import qualified Data.HashMap.Strict   as M
+import           Data.Int              (Int64)
+import           Data.Monoid           ((<>))
+import           Data.Text.Buildable   (Buildable, build)
+import           Data.Time.Clock.POSIX (getPOSIXTime)
+import qualified Formatting            as F
+import           GHC.Generics          (Generic)
+import           Node                  (Message (..))
+import           Prelude               hiding (takeWhile)
+import           System.Wlog           (LoggerConfig (..), Severity (..), WithLogger,
+                                        logInfo, parseLoggerConfig, traverseLoggerConfig)
 
 -- * Transfered data types
 

@@ -6,7 +6,6 @@
 module Main where
 
 import           Control.Applicative        (empty)
-import qualified Control.Exception.Lifted   as Exception
 import           Control.Monad              (unless)
 
 import           Data.Time.Units            (Second)
@@ -15,15 +14,13 @@ import qualified Network.Transport.TCP      as TCP
 import           Options.Applicative.Simple (simpleOptions)
 import           Serokell.Util.Concurrent   (threadDelay)
 import           System.Random              (mkStdGen)
-import           System.Wlog                (LoggerNameBox, usingLoggerName)
+import           System.Wlog                (usingLoggerName)
 
-import           Mockable                   (Catch (..), Mockable (..),
-                                             Production (runProduction))
+import           Mockable                   (Production (runProduction))
 
 import           Bench.Network.Commons      (MeasureEvent (..), Ping (..), Pong (..),
                                              loadLogConfig, logMeasure)
 import           Message.Message            (BinaryP (..))
-import           Network.Transport.Abstract (newEndPoint)
 import           Network.Transport.Concrete (concrete)
 import           Node                       (ListenerAction (..), NodeAction (..), node,
                                              sendTo)
@@ -49,8 +46,8 @@ main = do
     let prng = mkStdGen 0
 
     runProduction $ usingLoggerName "receiver" $ do
-        node transport prng BinaryP $ \node ->
-            pure $ NodeAction [pingListener noPong] $ \sactions -> do
+        node transport prng BinaryP $ \_ ->
+            pure $ NodeAction [pingListener noPong] $ \_ -> do
                 threadDelay (fromIntegral duration :: Second)
   where
     pingListener noPong =

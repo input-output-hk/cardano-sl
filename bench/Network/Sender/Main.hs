@@ -7,7 +7,6 @@
 module Main where
 
 import           Control.Applicative        (empty, liftA2)
-import qualified Control.Exception.Lifted   as Exception
 import           Control.Lens               (makeLenses, (+=))
 import           Control.Monad              (forM, forM_)
 import           Control.Monad.Random       (evalRandT, getRandomR)
@@ -21,10 +20,9 @@ import qualified Network.Transport.TCP      as TCP
 import           Options.Applicative.Simple (simpleOptions)
 import           Serokell.Util.Concurrent   (threadDelay)
 import           System.Random              (mkStdGen)
-import           System.Wlog                (LoggerNameBox, usingLoggerName)
+import           System.Wlog                (usingLoggerName)
 
-import           Mockable                   (Catch (..), Mockable (..), fork,
-                                             runProduction)
+import           Mockable                   (fork, runProduction)
 import qualified Network.Transport.Abstract as NT
 import           Network.Transport.Concrete (concrete)
 import           Node                       (ListenerAction (..), NodeAction (..), node,
@@ -79,9 +77,9 @@ main = do
         let pingWorkers = liftA2 (pingSender prngWork payloadBound startTime msgRate)
                                  tasksIds
                                  (zip [0, msgNum..] nodeIds)
-        node transport prngNode BinaryP $ \node ->
+        node transport prngNode BinaryP $ \node' ->
             pure $ NodeAction [pongListener] $ \sactions -> do
-                let endPoint = nodeEndPoint node
+                let endPoint = nodeEndPoint node'
                 drones <- forM nodeIds (startDrone endPoint)
                 _ <- forM pingWorkers (fork . flip ($) sactions)
                 threadDelay (fromIntegral duration :: Second)

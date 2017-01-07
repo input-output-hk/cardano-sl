@@ -179,7 +179,7 @@ instance Show TalkStyle where
 sendAll
     :: ( Binary msg, Message msg, Monad m )
     => TalkStyle
-    -> SendActions BinaryP connState m
+    -> SendActions BinaryP m
     -> NodeId
     -> [msg]
     -> m ()
@@ -194,11 +194,11 @@ receiveAll
     :: ( Binary msg, Message msg, Monad m )
     => TalkStyle
     -> (msg -> m ())
-    -> ListenerAction BinaryP connState m
+    -> ListenerAction BinaryP m
 receiveAll SingleMessageStyle handler =
     ListenerActionOneMsg $ \_ _ -> handler
 receiveAll ConversationStyle  handler =
-    ListenerActionConversation @_ @_ @_ @Void $ \_ cactions ->
+    ListenerActionConversation @_ @_ @Void $ \_ cactions ->
         let loop = do mmsg <- recv cactions
                       for_ mmsg $ \msg -> handler msg >> loop
         in  loop
@@ -207,8 +207,8 @@ receiveAll ConversationStyle  handler =
 -- * Test template
 
 deliveryTest :: TVar TestState
-             -> [NodeId -> Worker BinaryP () Production]
-             -> [Listener BinaryP () Production]
+             -> [NodeId -> Worker BinaryP Production]
+             -> [Listener BinaryP Production]
              -> IO Property
 deliveryTest testState workers listeners = runProduction $ do
     let tcpParams = TCP.defaultTCPParameters {

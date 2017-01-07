@@ -23,7 +23,7 @@ import           Mockable.Exception                   (finally)
 import           Mockable.Production
 import           Network.Discovery.Abstract
 import qualified Network.Discovery.Transport.Kademlia as K
-import           Network.Transport.Abstract           (Transport (..), newEndPoint)
+import           Network.Transport.Abstract           (Transport (..))
 import           Network.Transport.Concrete           (concrete)
 import qualified Network.Transport.TCP                as TCP
 import           Node
@@ -36,12 +36,11 @@ deriving instance Show Pong
 instance Binary Pong where
 
 type Packing = BinaryP
-type ConnState = ()
 
-worker :: NodeId -> StdGen -> NetworkDiscovery K.KademliaDiscoveryErrorCode Production -> Worker Packing ConnState Production
+worker :: NodeId -> StdGen -> NetworkDiscovery K.KademliaDiscoveryErrorCode Production -> Worker Packing Production
 worker anId generator discovery = pingWorker generator
     where
-    pingWorker :: StdGen -> SendActions Packing ConnState Production -> Production ()
+    pingWorker :: StdGen -> SendActions Packing Production -> Production ()
     pingWorker gen sendActions = loop gen
         where
         loop g = do
@@ -53,18 +52,18 @@ worker anId generator discovery = pingWorker generator
             peerSet <- knownPeers discovery
             liftIO . putStrLn $ show anId ++ " has peer set: " ++ show peerSet
             forM_ (S.toList peerSet) $ \addr -> withConnectionTo sendActions (NodeId addr) $
-                \(cactions :: ConversationActions ConnState Void Pong Production) -> do
+                \(cactions :: ConversationActions Void Pong Production) -> do
                     received <- recv cactions
                     case received of
                         Just Pong -> liftIO . putStrLn $ show anId ++ " heard PONG from " ++ show addr
                         Nothing -> error "Unexpected end of input"
             loop gen'
 
-listeners :: NodeId -> [Listener Packing ConnState Production]
+listeners :: NodeId -> [Listener Packing Production]
 listeners anId = [pongListener]
     where
-    pongListener :: ListenerAction Packing ConnState Production
-    pongListener = ListenerActionConversation $ \peerId (cactions :: ConversationActions ConnState Pong Void Production) -> do
+    pongListener :: ListenerAction Packing Production
+    pongListener = ListenerActionConversation $ \peerId (cactions :: ConversationActions Pong Void Production) -> do
         liftIO . putStrLn $ show anId ++  " heard PING from " ++ show peerId
         send cactions Pong
 

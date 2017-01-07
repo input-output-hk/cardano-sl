@@ -5,9 +5,9 @@
 
 module Main where
 
-import           Control.Applicative      (empty)
-import qualified Control.Exception.Lifted as Exception
-import           Control.Monad            (unless)
+import           Control.Applicative        (empty)
+import qualified Control.Exception.Lifted   as Exception
+import           Control.Monad              (unless)
 
 import           Data.Time.Units            (Second)
 import           GHC.IO.Encoding            (setLocaleEncoding, utf8)
@@ -17,19 +17,17 @@ import           Serokell.Util.Concurrent   (threadDelay)
 import           System.Random              (mkStdGen)
 import           System.Wlog                (LoggerNameBox, usingLoggerName)
 
-import Mockable.Class     (Mockable (..))
-import Mockable.Exception (Catch (..))
+import           Mockable                   (Catch (..), Mockable (..),
+                                             Production (runProduction))
 
-import Bench.Network.Commons      (MeasureEvent (..), Ping (..), Pong (..), loadLogConfig,
-                                   logMeasure)
-import Message.Message            (BinaryP (..))
-import Network.Transport.Abstract (newEndPoint)
-import Network.Transport.Concrete (concrete)
-import Node                       (ListenerAction (..), NodeAction (..), node, sendTo)
-import ReceiverOptions            (Args (..), argsParser)
-
-instance Mockable Catch (LoggerNameBox IO) where
-    liftMockable (Catch action handler) = action `Exception.catch` handler
+import           Bench.Network.Commons      (MeasureEvent (..), Ping (..), Pong (..),
+                                             loadLogConfig, logMeasure)
+import           Message.Message            (BinaryP (..))
+import           Network.Transport.Abstract (newEndPoint)
+import           Network.Transport.Concrete (concrete)
+import           Node                       (ListenerAction (..), NodeAction (..), node,
+                                             sendTo)
+import           ReceiverOptions            (Args (..), argsParser)
 
 main :: IO ()
 main = do
@@ -50,7 +48,7 @@ main = do
 
     let prng = mkStdGen 0
 
-    usingLoggerName "receiver" $ do
+    runProduction $ usingLoggerName "receiver" $ do
         node transport prng BinaryP $ \node ->
             pure $ NodeAction [pingListener noPong] $ \sactions -> do
                 threadDelay (fromIntegral duration :: Second)

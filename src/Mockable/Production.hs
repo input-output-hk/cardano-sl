@@ -22,6 +22,7 @@ import           Mockable.Class
 import           Mockable.Concurrent
 import           Mockable.Exception
 import           Mockable.SharedAtomic
+import           System.Wlog                 (CanLog (..))
 
 newtype Production t = Production {
     runProduction :: IO t
@@ -91,3 +92,6 @@ instance Mockable Catch Production where
 
 curTime :: Production Microsecond
 curTime = liftIO $ round . ( * 1000000) <$> getPOSIXTime
+
+instance CanLog Production where
+    dispatchMessage n sv text = Production $ dispatchMessage n sv text

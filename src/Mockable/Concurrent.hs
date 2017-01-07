@@ -124,8 +124,16 @@ wait promise = liftMockable $ Wait promise
 cancel :: ( Mockable Async m ) => Promise m t -> m ()
 cancel promise = liftMockable $ Cancel promise
 
+instance (Promise n ~ Promise m) => MFunctor' Async m n where
+    hoist' nat (Async act) = Async $ nat act
+    hoist' _ (Wait p)      = Wait p
+    hoist' _ (Cancel p)    = Cancel p
+
 data Concurrently m t where
     Concurrently :: m a -> m b -> Concurrently m (a, b)
+
+instance MFunctor' Concurrently m n where
+    hoist' nat (Concurrently a b) = Concurrently (nat a) (nat b)
 
 concurrently :: ( Mockable Concurrently m ) => m a -> m b -> m (a, b)
 concurrently a b = liftMockable $ Concurrently a b

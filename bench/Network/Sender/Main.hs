@@ -23,13 +23,12 @@ import           Serokell.Util.Concurrent   (threadDelay)
 import           System.Random              (mkStdGen)
 import           System.Wlog                (LoggerNameBox, usingLoggerName)
 
-import           Mockable.Class             (Mockable (..))
-import           Mockable.Concurrent        (fork)
-import           Mockable.Exception         (Catch (..))
+import           Mockable                   (Catch (..), Mockable (..), fork,
+                                             runProduction)
 import qualified Network.Transport.Abstract as NT
 import           Network.Transport.Concrete (concrete)
-import           Node                       (ListenerAction (..), sendTo,
-                                             node, nodeEndPoint, NodeAction(..))
+import           Node                       (ListenerAction (..), NodeAction (..), node,
+                                             nodeEndPoint, sendTo)
 import           Node.Internal              (NodeId (..))
 
 import           Bench.Network.Commons      (MeasureEvent (..), Payload (..), Ping (..),
@@ -37,9 +36,6 @@ import           Bench.Network.Commons      (MeasureEvent (..), Payload (..), Pi
                                              logMeasure)
 import           Message.Message            (BinaryP (..))
 import           SenderOptions              (Args (..), argsParser)
-
-instance Mockable Catch (LoggerNameBox IO) where
-    liftMockable (Catch action handler) = action `Exception.catch` handler
 
 data PingState = PingState
     { _lastResetMcs    :: !Microsecond
@@ -76,7 +72,7 @@ main = do
                    | (host, port) <- recipients ]
     let tasksIds = [[tid, tid + threadNum .. msgNum] | tid <- [1..threadNum]]
 
-    usingLoggerName "sender" $ do
+    runProduction $ usingLoggerName "sender" $ do
         startTime      <- curTimeUnitsMcs
 
         -- TODO: is it good idea to start (recipients number * thread number) threads?

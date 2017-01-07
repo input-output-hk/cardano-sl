@@ -22,39 +22,39 @@ module Bench.Network.Commons
     , logMessageParser
     ) where
 
-import           Control.Applicative    ((<|>))
-import qualified Control.Concurrent     as Conc
+import           Control.Applicative      ((<|>))
+import qualified Control.Concurrent       as Conc
 import qualified Control.Concurrent.Async as Conc
-import qualified Control.Concurrent.STM as Conc
-import qualified Control.Exception      as Exception
-import           Control.Monad          (join)
-import           Control.Monad.Trans    (MonadIO (..), lift)
-import           Data.Attoparsec.Text   (Parser, char, decimal, string, takeWhile)
-import           Data.Binary            (Binary)
-import           Data.Binary            (Binary (..))
-import qualified Data.ByteString.Lazy   as BL
-import           Data.Data              (Data)
-import           Data.Default           (def)
-import           Data.Functor           (($>))
-import qualified Data.HashMap.Strict    as M
-import           Data.Int               (Int64)
-import           Data.Monoid            ((<>))
-import           Data.Text.Buildable    (Buildable, build)
-import           Data.Time.Clock.POSIX  (getPOSIXTime)
-import qualified Formatting             as F
-import           GHC.Generics           (Generic)
-import           Node                   (Message (..))
-import           Prelude                hiding (takeWhile)
-import           System.Wlog            (LoggerConfig (..), LoggerNameBox, Severity (..),
-                                         WithLogger, getLoggerName, logInfo,
-                                         parseLoggerConfig, traverseLoggerConfig,
-                                         usingLoggerName)
+import qualified Control.Concurrent.STM   as Conc
+import qualified Control.Exception        as Exception
+import           Control.Monad            (join)
+import           Control.Monad.Trans      (MonadIO (..), lift)
+import           Data.Attoparsec.Text     (Parser, char, decimal, string, takeWhile)
+import           Data.Binary              (Binary)
+import           Data.Binary              (Binary (..))
+import qualified Data.ByteString.Lazy     as BL
+import           Data.Data                (Data)
+import           Data.Default             (def)
+import           Data.Functor             (($>))
+import qualified Data.HashMap.Strict      as M
+import           Data.Int                 (Int64)
+import           Data.Monoid              ((<>))
+import           Data.Text.Buildable      (Buildable, build)
+import           Data.Time.Clock.POSIX    (getPOSIXTime)
+import qualified Formatting               as F
+import           GHC.Generics             (Generic)
+import           Node                     (Message (..))
+import           Prelude                  hiding (takeWhile)
+import           System.Wlog              (LoggerConfig (..), LoggerNameBox,
+                                           Severity (..), WithLogger, getLoggerName,
+                                           logInfo, parseLoggerConfig,
+                                           traverseLoggerConfig, usingLoggerName)
 
-import Mockable.Channel
-import Mockable.Class
-import Mockable.Concurrent
-import Mockable.Exception
-import Mockable.SharedAtomic
+import           Mockable.Channel
+import           Mockable.Class
+import           Mockable.Concurrent
+import           Mockable.Exception
+import           Mockable.SharedAtomic
 
 
 -- * Transfered data types
@@ -197,53 +197,3 @@ logMessageParser :: Parser a -> Parser (Maybe (LogMessage a))
 logMessageParser p = (takeWhile (/= '#') >>) . join $ do
         (char '#' *> pure (Just . LogMessage <$> p))
     <|> pure (pure Nothing)
-
-
--- * Mockable instances
-
--- TODO: hardly copy-pasted from PingPong
-
-type instance ThreadId (LoggerNameBox IO) = Conc.ThreadId
-
-instance Mockable Fork (LoggerNameBox IO) where
-    liftMockable (Fork m) = getLoggerName >>=
-        \lname -> lift $ Conc.forkIO $ usingLoggerName lname m
-    liftMockable (MyThreadId) = lift $ Conc.myThreadId
-    liftMockable (KillThread tid) = lift $ Conc.killThread tid
-
-instance Mockable RunInUnboundThread (LoggerNameBox IO) where
-    liftMockable (RunInUnboundThread m) = getLoggerName >>=
-        \lname -> lift $ Conc.runInUnboundThread $ usingLoggerName lname m
-
-type instance Promise (LoggerNameBox IO) = Conc.Async
-
-instance Mockable Async (LoggerNameBox IO) where
-    liftMockable (Async m) = getLoggerName >>=
-        \lname -> lift $ Conc.async $ usingLoggerName lname m
-    liftMockable (Wait promise) = lift $ Conc.wait promise
-    liftMockable (Cancel promise) = lift $ Conc.cancel promise
-
-type instance SharedAtomicT (LoggerNameBox IO) = Conc.MVar
-
-instance Mockable SharedAtomic (LoggerNameBox IO) where
-    liftMockable (NewSharedAtomic t) = lift $ Conc.newMVar t
-    liftMockable (ModifySharedAtomic atomic f) = getLoggerName >>=
-        \lname -> lift $ Conc.modifyMVar atomic $ usingLoggerName lname . f
-
-type instance ChannelT (LoggerNameBox IO) = Conc.TChan
-
-instance Mockable Channel (LoggerNameBox IO) where
-    liftMockable (NewChannel)             = lift $ Conc.atomically $ Conc.newTChan
-    liftMockable (ReadChannel channel)    = lift $ Conc.atomically $ Conc.readTChan channel
-    liftMockable (WriteChannel channel t) = lift $ Conc.atomically $ Conc.writeTChan channel t
-    liftMockable (TryReadChannel channel) = lift $ Conc.atomically $ Conc.tryReadTChan channel
-    liftMockable (UnGetChannel channel t) = lift $ Conc.atomically $ Conc.unGetTChan channel t
-
-instance Mockable Bracket (LoggerNameBox IO) where
-    liftMockable (Bracket acquire release act) = getLoggerName >>=
-        \lname -> lift $ Exception.bracket (usingLoggerName lname acquire)
-                                           (usingLoggerName lname . release)
-                                           (usingLoggerName lname . act)
-
-instance Mockable Throw (LoggerNameBox IO) where
-    liftMockable (Throw e) = lift $ Exception.throwIO e

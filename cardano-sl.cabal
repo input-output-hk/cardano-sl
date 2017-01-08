@@ -237,6 +237,8 @@ library
                         Pos.Update.Listeners
                         Pos.Update.Logic
                         Pos.Update.MemState
+                        Pos.Update.Poll
+                        Pos.Update.Poll.Class
                         Pos.Update.Types.Communication
                         Pos.Update.Types.Types
                         Pos.Update.Worker

@@ -1,7 +1,7 @@
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
--- | MonadTransformer which implements MonadUS based on ReaderT.
+-- | Monad transformer which implements MonadUS based on ReaderT.
 
 module Pos.Update.Holder
        ( USHolder (..)
@@ -26,9 +26,7 @@ import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Context                 (WithNodeContext)
-import qualified Pos.DB                      as DB
 import           Pos.DB.Class                (MonadDB)
-import           Pos.DB.Types                (UndecidedProposalState)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..))
@@ -54,11 +52,6 @@ instance MonadIO m => MonadState MemState (USHolder m) where
 
 instance MonadDB ssc m => MonadUS (USHolder m) where
     askUSMemState = USHolder ask
-    getScriptVersion = notImplemented
-    getLastAdoptedPV = DB.getLastPV
-    getLastConfirmedSV = DB.getConfirmedSV
-    hasActiveProposal = notImplemented
-    getProposal = notImplemented
 
 instance MonadTransfer s m => MonadTransfer s (USHolder m)
 

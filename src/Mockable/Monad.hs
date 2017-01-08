@@ -11,7 +11,6 @@ import           Mockable.Channel      (Channel)
 import           Mockable.Class
 import           Mockable.Concurrent   (Async, CurrentTime, Delay, Fork)
 import           Mockable.Exception    (Bracket, Catch, Throw)
-import           Mockable.Fail         (Fail)
 import           Mockable.SharedAtomic (SharedAtomic)
 
 -- | Bunch of Mockable-constraints.
@@ -25,5 +24,4 @@ type MonadMockable m
       , Mockable Channel m
       , Mockable Throw m
       , Mockable Catch m
-      , Mockable Fail m
       )

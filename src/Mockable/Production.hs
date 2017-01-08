@@ -26,7 +26,6 @@ import           Mockable.Concurrent      (Async (..), Concurrently (..),
                                            Promise, RunInUnboundThread (..), ThreadId,
                                            delay)
 import           Mockable.Exception       (Bracket (..), Catch (..), Throw (..))
-import           Mockable.Fail            (Fail (..))
 import           Mockable.SharedAtomic    (SharedAtomic (..), SharedAtomicT)
 
 newtype Production t = Production
@@ -98,14 +97,6 @@ instance Mockable Throw Production where
 instance Mockable Catch Production where
     liftMockable (Catch action handler) = Production $
         runProduction action `Exception.catch` (runProduction . handler)
-
-newtype FailException = FailException String
-
-deriving instance Show FailException
-instance Exception.Exception FailException
-
-instance Mockable Fail Production where
-    liftMockable (Fail reason) = Production . Exception.throwIO $ FailException reason
 
 -- * Temporal instances, till we get proper instances of `Mockable` for
 -- `LoggerNameBox Production`

@@ -24,7 +24,6 @@ Library
                         Mockable.Class
                         Mockable.Concurrent
                         Mockable.Exception
-                        Mockable.Fail
                         Mockable.Instances
                         Mockable.Monad
                         Mockable.Production

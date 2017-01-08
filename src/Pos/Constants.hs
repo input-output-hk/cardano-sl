@@ -59,9 +59,9 @@ import           Pos.CompileConfig          (CompileConfig (..), compileConfig)
 import           Pos.DHT.Model.Types        (DHTNode)
 import           Pos.Types.Timestamp        (Timestamp)
 import           Pos.Types.Types            (CoinPortion, unsafeCoinPortion)
-import           Pos.Types.Update           (SystemTag, mkSystemTag)
 import           Pos.Types.Version          (ApplicationName, ProtocolVersion (..),
                                              SoftwareVersion (..), mkApplicationName)
+import           Pos.Update.Types           (SystemTag, mkSystemTag)
 import           Pos.Util                   ()
 
 ----------------------------------------------------------------------------

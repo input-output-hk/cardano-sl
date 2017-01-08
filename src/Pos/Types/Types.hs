@@ -188,8 +188,8 @@ import           Pos.Types.Address      (Address (..), StakeholderId, addressF,
                                          checkPubKeyAddress, checkScriptAddress,
                                          decodeTextAddress, makePubKeyAddress,
                                          makeScriptAddress)
-import           Pos.Types.Update       (UpdateProposal, UpdateVote)
 import           Pos.Types.Version      (ProtocolVersion, SoftwareVersion)
+import           Pos.Update.Types.Types (UpdateProposal, UpdateVote)
 import           Pos.Util               (Color (Magenta), colorize)
 
 ----------------------------------------------------------------------------

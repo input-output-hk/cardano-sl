@@ -47,12 +47,12 @@ import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
                                              TxDistribution (..), TxIn (..),
                                              TxInWitness (..), TxOut (..), TxOutAux,
                                              makePubKeyAddress, makeScriptAddress, mkCoin)
-import           Pos.Types.Update           (SystemTag, UpdateData (..),
-                                             UpdateProposal (..), UpdateVote (..),
-                                             mkSystemTag)
 import           Pos.Types.Version          (ApplicationName (..), ProtocolVersion (..),
                                              SoftwareVersion (..),
                                              applicationNameMaxLength)
+import           Pos.Update.Types           (SystemTag, UpdateData (..),
+                                             UpdateProposal (..), UpdateVote (..),
+                                             mkSystemTag)
 import           Pos.Util                   (AsBinary, makeSmall)
 
 ----------------------------------------------------------------------------

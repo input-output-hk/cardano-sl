@@ -18,7 +18,6 @@ module Pos.DB.Types
        , LrcStorage (..)
 
         -- * Update System related types.
-       , VoteState (..)
        , UndecidedProposalState (..)
        , DecidedProposalState (..)
        , ProposalState (..)
@@ -34,9 +33,8 @@ import           Universum
 
 import           Pos.Crypto          (PublicKey)
 import           Pos.Types           (Block, ChainDifficulty, Coin, EpochIndex, Richmen,
-                                      SlotId, SlotLeaders, StakeholderVotes,
-                                      UpdateProposal, VoteState, combineVotes, mkCoin,
-                                      unsafeAddCoin)
+                                      SlotId, SlotLeaders, mkCoin, unsafeAddCoin)
+import           Pos.Update.Types    (StakeholderVotes, UpdateProposal, combineVotes)
 
 ----------------------------------------------------------------------------
 -- General

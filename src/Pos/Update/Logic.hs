@@ -22,11 +22,11 @@ import qualified Pos.DB               as DB
 import           Pos.DB.Types         (ProposalState (..), UndecidedProposalState (..),
                                        mkUProposalState, voteToUProposalState)
 import           Pos.Types            (Block, Coin, EpochIndex, NEBlocks, SlotId (..),
-                                       UpdateProposal (..), UpdateVote (..), addressHash,
-                                       applyCoinPortion, blockSlot, coinF, gbExtra,
-                                       mebUpdate, mebUpdateVotes, mkCoin, prevBlockL,
-                                       unsafeAddCoin)
+                                       addressHash, applyCoinPortion, blockSlot, coinF,
+                                       gbExtra, mebUpdate, mebUpdateVotes, mkCoin,
+                                       prevBlockL, unsafeAddCoin)
 import           Pos.Update.Error     (USError (..))
+import           Pos.Update.Types     (UpdateProposal (..), UpdateVote (..))
 import           Pos.Util             (inAssertMode, maybeThrow, _neHead)
 import           Pos.WorkMode         (WorkMode)
 

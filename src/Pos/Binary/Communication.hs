@@ -16,7 +16,7 @@ import           Pos.Delegation.Types    (CheckProxySKConfirmed (..),
                                           ConfirmProxySK (..), SendProxySK (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.Txp.Types           (TxMsgTag (..))
-import           Pos.Types               (ProposalMsgTag (..), VoteMsgTag (..))
+import           Pos.Update.Types        (ProposalMsgTag (..), VoteMsgTag (..))
 
 ----------------------------------------------------------------------------
 -- System start

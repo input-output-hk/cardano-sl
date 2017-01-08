@@ -1,18 +1,17 @@
 {-# LANGUAGE DeriveLift      #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Pos.Types.Update
+module Pos.Update.Types.Types
        ( UpdateProposal (..)
        , UpId
-       , ProposalMsgTag (..)
 
        , UpdateVote (..)
-       , VoteMsgTag (..)
        , StakeholderVotes
        , VoteState (..)
 
        , UpdateData (..)
        , SystemTag (getSystemTag)
+
        , mkSystemTag
        , systemTagMaxLength
        , canCombineVotes
@@ -35,7 +34,7 @@ import           Pos.Crypto                 (Hash, PublicKey, Signature)
 import           Pos.Script.Type            (ScriptVersion)
 import           Pos.Types.Version          (ProtocolVersion, SoftwareVersion)
 -- Import instance Safecopy HM.HashMap
-import           Pos.Util                   (NamedMessagePart (..))
+import           Pos.Util                   ()
 
 -- | Tag of system for which update data is purposed, e.g. win64, mac32
 newtype SystemTag = SystemTag { getSystemTag :: Text }
@@ -68,9 +67,6 @@ instance Buildable UpdateProposal where
     build UpdateProposal {..} =
       bprint (build%" { protocol v"%build%", scripts v"%build%", tags: "%listJson%" }")
         upSoftwareVersion upProtocolVersion upScriptVersion (HM.keys upData)
-
-instance NamedMessagePart UpdateProposal where
-    nMessageName _ = "Update proposal"
 
 data UpdateData = UpdateData
     { udAppDiffHash :: !(Hash LByteString)
@@ -130,24 +126,6 @@ combineVotes decision oldVote = assert (canCombineVotes decision oldVote) combin
 
 -- | Type alias for set of votes from stakeholders
 type StakeholderVotes = HashMap PublicKey VoteState
-
--- | Tag for proposal messages
-data ProposalMsgTag = ProposalMsgTag
-
-instance NamedMessagePart ProposalMsgTag where
-    nMessageName _ = "Update proposal tag"
-
-instance Buildable ProposalMsgTag where
-    build _ = "ProposalMsgTag"
-
--- | Tag for vote messages
-data VoteMsgTag = VoteMsgTag
-
-instance NamedMessagePart VoteMsgTag where
-    nMessageName _ = "Update vote tag"
-
-instance Buildable VoteMsgTag where
-    build _ = "VoteMsgTag"
 
 deriveSafeCopySimple 0 'base ''SystemTag
 deriveSafeCopySimple 0 'base ''UpdateData

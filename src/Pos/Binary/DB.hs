@@ -4,12 +4,11 @@ module Pos.Binary.DB
        (
        ) where
 
-import           Data.Binary         (Binary)
 import           Universum
 
 import           Pos.Binary.Class    (Bi (..))
 import           Pos.DB.Types        (LrcStorage (..), ProposalState, StoredBlock (..),
-                                      UndecidedProposalState (..), VoteState (..))
+                                      UndecidedProposalState (..))
 import           Pos.Ssc.Class.Types (Ssc)
 
 instance Ssc ssc =>
@@ -20,12 +19,6 @@ instance Ssc ssc =>
 instance Bi (LrcStorage ssc) where
     put LrcStorage {..} = put lrcEpoch >> put lrcLeaders >> put lrcRichmen
     get = LrcStorage <$> get <*> get <*> get
-
--- These types are used only for DB. But it still makes sense to
--- define serialization manually I suppose.
--- [CSL-124]
-instance Binary VoteState
-instance Bi VoteState
 
 instance Bi UndecidedProposalState where
     put UndecidedProposalState {..} = do

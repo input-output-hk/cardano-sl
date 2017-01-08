@@ -35,8 +35,8 @@ import           Pos.DB.Types         (ProposalState (..), UndecidedProposalStat
                                        psProposal)
 import           Pos.Genesis          (genesisProtocolVersion)
 import           Pos.Types            (ApplicationName, Coin, EpochIndex, ProtocolVersion,
-                                       SlotId, SoftwareVersion (..), StakeholderId,
-                                       UpdateProposal (..))
+                                       SlotId, SoftwareVersion (..), StakeholderId)
+import           Pos.Update.Types     (UpdateProposal (..))
 import           Pos.Util             (maybeThrow)
 
 ----------------------------------------------------------------------------

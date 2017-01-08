@@ -9,7 +9,8 @@ import           Formatting          (bprint, build, stext, (%))
 import           Universum
 
 import           Pos.Crypto          (shortHashF)
-import           Pos.Types           (SoftwareVersion, StakeholderId, UpId)
+import           Pos.Types           (SoftwareVersion, StakeholderId)
+import           Pos.Update.Types    (UpId)
 
 data USError
     = USCantApplyBlocks !Text
@@ -31,3 +32,5 @@ instance Buildable USError where
         id
     build (USUnknownSoftware sv) =
         bprint ("US encountered unknown SoftwareVersion: "%build) sv
+    build (USUnknownProposal upId) =
+        bprint ("US encountered unknown Update Proposal ID: "%build) upId

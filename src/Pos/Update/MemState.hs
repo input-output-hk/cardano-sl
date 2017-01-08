@@ -12,8 +12,8 @@ import qualified Data.HashMap.Strict as HM
 import           Universum
 
 import           Pos.DB.Types        (UndecidedProposalState (..))
-import           Pos.Types           (Coin, EpochIndex, SlotId, StakeholderVotes, UpId,
-                                      UpdateProposal)
+import           Pos.Types           (Coin, EpochIndex, SlotId)
+import           Pos.Update.Types    (StakeholderVotes, UpId, UpdateProposal)
 
 -- | Local state of proposal
 data LocalProposalState = LocalProposalState

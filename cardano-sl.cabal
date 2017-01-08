@@ -94,7 +94,6 @@ library
                         Pos.Types.Timestamp
                         Pos.Types.Tx
                         Pos.Types.Types
-                        Pos.Types.Update
                         Pos.Types.Utxo
                         Pos.Types.Version
                         Pos.Util
@@ -237,6 +236,9 @@ library
                         Pos.Update.Listeners
                         Pos.Update.Logic
                         Pos.Update.MemState
+                        Pos.Update.Types
+                        Pos.Update.Types.Communication
+                        Pos.Update.Types.Types
                         Pos.Update.Worker
                         Pos.Util.Arbitrary
                         Pos.Util.Iterator

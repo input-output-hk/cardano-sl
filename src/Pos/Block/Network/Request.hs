@@ -23,6 +23,13 @@ import           Pos.Communication.Types        (ResponseMode)
 import           Pos.DHT.Model                  (getUserState, replyToNode)
 import           Pos.Types                      (HeaderHash)
 import           Pos.WorkMode                   (WorkMode)
+import           Node                           (Listener(..), ListenerAction(..), sendTo,
+                                                 NodeId(..), SendActions(..))
+import           Message.Message                (BinaryP, messageName)
+import           Mockable.Monad                 (MonadMockable(..))
+import           Pos.Communication.BiP          (BiP(..))
+import           Pos.Ssc.Class.Types            (Ssc(..))
+
 
 
 -- | Make 'GetHeaders' message using our main chain. This function
@@ -36,13 +43,17 @@ mkHeadersRequest upto = do
     pure $ MsgGetHeaders headers upto
 
 replyWithHeadersRequest
-    :: forall ssc m . ResponseMode ssc m
-    => Maybe (HeaderHash ssc) -> m ()
-replyWithHeadersRequest upto = do
+    :: forall ssc m.
+       (Ssc ssc, ResponseMode ssc m, MonadMockable m, WorkMode ssc m)
+    => Maybe (HeaderHash ssc)
+    -> NodeId
+    -> SendActions BiP m
+    -> m ()
+replyWithHeadersRequest upto peerId sendActions = do
     logDebug "replyWithHeadersRequest: preparing request to be sent"
     msg <- mkHeadersRequest upto
     recordHeadersRequest msg =<< getUserState
-    replyToNode msg
+    sendTo sendActions peerId msg
     logDebug "replyWithHeadersRequest: data sent"
 
 -- | Make message which requests chain of blocks which is based on our
@@ -58,15 +69,20 @@ mkBlocksRequest lcaChild wantedBlock =
 -- | Reply with message which requests chain of blocks which is based
 -- on our tip. This request is recorded in SocketState.
 replyWithBlocksRequest
-    :: forall ssc m . ResponseMode ssc m
-    => HeaderHash ssc -> HeaderHash ssc -> m ()
-replyWithBlocksRequest lcaChild wantedBlock = do
+    :: forall ssc m.
+       (Ssc ssc, ResponseMode ssc m, MonadMockable m, WorkMode ssc m)
+    => HeaderHash ssc
+    -> HeaderHash ssc
+    -> NodeId
+    -> SendActions BiP m
+    -> m ()
+replyWithBlocksRequest lcaChild wantedBlock peerId sendActions = do
     logDebug $
         sformat ("replyWithBlocksRequest: asking from (lca child) "%build%" to (new tip) "%build)
                 lcaChild wantedBlock
     recordBlocksRequest lcaChild wantedBlock =<< getUserState
     logDebug "replyWithBlocksRequest: replying to node"
-    replyToNode msg
+    sendTo sendActions peerId msg
     logDebug "replyWithBlocksRequest: replied"
   where
     msg = mkBlocksRequest lcaChild wantedBlock

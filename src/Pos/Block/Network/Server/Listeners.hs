@@ -13,7 +13,7 @@ import           Data.List.NonEmpty             (NonEmpty ((:|)), nonEmpty)
 import qualified Data.List.NonEmpty             as NE
 import           Formatting                     (build, sformat, stext, (%))
 import           Serokell.Util.Text             (listJson)
-import           System.Wlog                    (logDebug, logInfo, logWarning)
+import           System.Wlog                    (HasLoggerName, logDebug, logInfo, logWarning)
 import           Universum
 
 import           Pos.Binary.Communication       ()
@@ -42,6 +42,12 @@ import           Pos.Types                      (Block, BlockHeader, Blund,
                                                  blockHeader, gbHeader, prevBlockL)
 import           Pos.Util                       (inAssertMode, _neHead, _neLast)
 import           Pos.WorkMode                   (WorkMode)
+import           Node                           (Listener(..), ListenerAction(..), sendTo,
+                                                 NodeId(..), SendActions(..))
+import           Message.Message                (BinaryP, messageName)
+import           Mockable.Monad                 (MonadMockable(..))
+import           Pos.Communication.BiP          (BiP(..))
+import           Pos.Ssc.Class.Types            (Ssc(..))
 
 -- | Listeners for requests related to blocks processing.
 blockListeners
@@ -54,65 +60,83 @@ blockListeners = notImplemented
     --, ListenerDHT handleBlock
     --]
 
+blockListeners'
+    :: ( Ssc ssc
+       , MonadDHTDialog (MutSocketState ssc) m
+       , ResponseMode ssc m
+       , MonadMockable m
+       , WorkMode ssc m
+       )
+    => [ListenerAction BiP m]
+blockListeners' =
+    [ handleGetHeaders
+    , handleGetBlocks
+    , handleBlockHeaders
+    , handleBlock
+    ]
+
 -- | Handles GetHeaders request which means client wants to get
 -- headers from some checkpoints that are older than optional @to@
 -- field.
 handleGetHeaders
     :: forall ssc m.
-       (ResponseMode ssc m)
-    => MsgGetHeaders ssc -> m ()
-handleGetHeaders MsgGetHeaders {..} = do
-    logDebug "Got request on handleGetHeaders"
-    rhResult <- getHeadersFromManyTo mghFrom mghTo
-    case nonEmpty rhResult of
-        Nothing ->
-            logWarning $
-            "handleGetHeaders@retrieveHeadersFromTo returned empty " <>
-            "list, not responding to node"
-        Just ne -> replyToNode $ MsgHeaders ne
+       (Ssc ssc, MonadMockable m, WorkMode ssc m)
+    => ListenerAction BiP m
+handleGetHeaders = ListenerActionOneMsg $
+    \peerId sendActions (MsgGetHeaders {..} :: MsgGetHeaders ssc) -> do
+        logDebug "Got request on handleGetHeaders"
+        headers <- getHeadersFromManyTo mghFrom mghTo
+        case nonEmpty headers of
+            Nothing ->
+                logWarning $ "handleGetHeaders@retrieveHeadersFromTo returned empty " <>
+                             "list, not responding to node"
+            Just atLeastOneHeader ->
+                sendTo sendActions peerId $ MsgHeaders atLeastOneHeader
 
 handleGetBlocks
     :: forall ssc m.
-       (ResponseMode ssc m)
-    => MsgGetBlocks ssc -> m ()
-handleGetBlocks MsgGetBlocks {..} = do
-    logDebug "Got request on handleGetBlocks"
-    hashes <- getHeadersFromToIncl mgbFrom mgbTo
-    maybe warn sendBlocks hashes
-  where
-    warn = logWarning $ "getBLocksByHeaders@retrieveHeaders returned Nothing"
-    failMalformed =
-        throwM $ DBMalformed $
-        "hadleGetBlocks: getHeadersFromToIncl returned header that doesn't " <>
-        "have corresponding block in storage."
-    sendBlocks hashes = do
-        logDebug $ sformat
-            ("handleGetBlocks: started sending blocks one-by-one: "%listJson) hashes
-        forM_ hashes $ \hHash -> do
-            block <- maybe failMalformed pure =<< DB.getBlock hHash
-            replyToNode $ MsgBlock block
-        logDebug "handleGetBlocks: blocks sending done"
+       (Ssc ssc, MonadMockable m, WorkMode ssc m)
+    => ListenerAction BiP m
+handleGetBlocks = ListenerActionOneMsg $
+    \peerId sendActions (MsgGetBlocks {..} :: MsgGetBlocks ssc) -> do
+        logDebug "Got request on handleGetBlocks"
+        hashes <- getHeadersFromToIncl mgbFrom mgbTo
+        maybe warn (sendBlocks peerId sendActions) hashes
+      where
+        warn = logWarning $ "getBLocksByHeaders@retrieveHeaders returned Nothing"
+        failMalformed =
+            throwM $ DBMalformed $
+            "hadleGetBlocks: getHeadersFromToIncl returned header that doesn't " <>
+            "have corresponding block in storage."
+        sendBlocks peerId sendActions hashes = do
+            logDebug $ sformat
+                ("handleGetBlocks: started sending blocks one-by-one: "%listJson) hashes
+            forM_ hashes $ \hHash -> do
+                block <- maybe failMalformed pure =<< DB.getBlock hHash
+                sendTo sendActions peerId $ MsgBlock block
+            logDebug "handleGetBlocks: blocks sending done"
 
 -- | Handles MsgHeaders request. There are two usecases:
---
--- * If we've requested MsgGetHeaders, that's a response
--- * If we didn't, probably somebody wanted to share the block (e.g. new one)
 handleBlockHeaders
     :: forall ssc m.
-       (ResponseMode ssc m)
-    => MsgHeaders ssc -> m ()
-handleBlockHeaders (MsgHeaders headers) = do
-    logDebug "handleBlockHeaders: got some block headers"
-    ifM (matchRequestedHeaders headers =<< getUserState)
-        (handleRequestedHeaders headers)
-        (handleUnsolicitedHeaders headers)
+        (Ssc ssc, MonadMockable m, WorkMode ssc m, ResponseMode ssc m)
+    => ListenerAction BiP m
+handleBlockHeaders = ListenerActionOneMsg $
+    \peerId sendActions (MsgHeaders headers :: MsgHeaders ssc) -> do
+        logDebug "handleBlockHeaders: got some block headers"
+        ifM (matchRequestedHeaders headers =<< getUserState)
+            (handleRequestedHeaders headers peerId sendActions)
+            (handleUnsolicitedHeaders headers peerId sendActions)
 
 -- First case of 'handleBlockheaders'
 handleRequestedHeaders
     :: forall ssc m.
-       (ResponseMode ssc m)
-    => NonEmpty (BlockHeader ssc) -> m ()
-handleRequestedHeaders headers = do
+       (Ssc ssc, ResponseMode ssc m, MonadMockable m, WorkMode ssc m)
+    => NonEmpty (BlockHeader ssc)
+    -> NodeId
+    -> SendActions BiP m
+    -> m ()
+handleRequestedHeaders headers peerId sendActions = do
     logDebug "handleRequestedHeaders: headers were requested, will process"
     classificationRes <- classifyHeaders headers
     let newestHeader = headers ^. _neHead
@@ -122,7 +146,7 @@ handleRequestedHeaders headers = do
         CHsValid lcaChild -> do
             let lcaChildHash = hash lcaChild
             logDebug $ sformat validFormat lcaChildHash newestHash
-            replyWithBlocksRequest lcaChildHash newestHash
+            replyWithBlocksRequest lcaChildHash newestHash peerId sendActions
         CHsUseless reason ->
             logDebug $ sformat uselessFormat oldestHash newestHash reason
         CHsInvalid _ -> pass -- TODO: ban node for sending invalid block.
@@ -136,29 +160,36 @@ handleRequestedHeaders headers = do
 -- Second case of 'handleBlockheaders'
 handleUnsolicitedHeaders
     :: forall ssc m.
-       (ResponseMode ssc m)
-    => NonEmpty (BlockHeader ssc) -> m ()
-handleUnsolicitedHeaders (header :| []) = handleUnsolicitedHeader header
+       (Ssc ssc, ResponseMode ssc m, MonadMockable m, WorkMode ssc m)
+    => NonEmpty (BlockHeader ssc)
+    -> NodeId
+    -> SendActions BiP m
+    -> m ()
+handleUnsolicitedHeaders (header :| []) peerId sendActions =
+    handleUnsolicitedHeader header peerId sendActions
 -- TODO: ban node for sending more than one unsolicited header.
-handleUnsolicitedHeaders (h:|hs)        = do
+handleUnsolicitedHeaders (h:|hs) _ _ = do
     logWarning "Someone sent us nonzero amount of headers we didn't expect"
     logWarning $ sformat ("Here they are: "%listJson) (h:hs)
 
 handleUnsolicitedHeader
     :: forall ssc m.
-       (ResponseMode ssc m)
-    => BlockHeader ssc -> m ()
-handleUnsolicitedHeader header = do
+       (Ssc ssc, ResponseMode ssc m, MonadMockable m, WorkMode ssc m)
+    => BlockHeader ssc
+    -> NodeId
+    -> SendActions BiP m
+    -> m ()
+handleUnsolicitedHeader header peerId sendActions = do
     logDebug "handleUnsolicitedHeader: single header was propagated, processing"
     classificationRes <- classifyNewHeader header
     -- TODO: should we set 'To' hash to hash of header or leave it unlimited?
     case classificationRes of
         CHContinues -> do
             logDebug $ sformat continuesFormat hHash
-            replyWithBlocksRequest hHash hHash -- exactly one block in the range
+            replyWithBlocksRequest hHash hHash peerId sendActions -- exactly one block in the range
         CHAlternative -> do
             logInfo $ sformat alternativeFormat hHash
-            replyWithHeadersRequest (Just hHash)
+            replyWithHeadersRequest (Just hHash) peerId sendActions
         CHUseless reason -> logDebug $ sformat uselessFormat hHash reason
         CHInvalid _ -> pass -- TODO: ban node for sending invalid block.
   where
@@ -176,45 +207,48 @@ handleUnsolicitedHeader header = do
 -- Handle Block
 ----------------------------------------------------------------------------
 
--- | Handle MsgBlock request. That's a response for @mkBlocksRequest@.
 handleBlock
     :: forall ssc m.
-       (ResponseMode ssc m)
-    => MsgBlock ssc -> m ()
-handleBlock msg@(MsgBlock blk) = do
-    logDebug $ sformat ("handleBlock: got block "%build) (headerHash blk)
-    pbmr <- processBlockMsg msg =<< getUserState
-    case pbmr of
-        -- [CSL-335] Process intermediate blocks ASAP.
-        PBMintermediate -> do
-            logDebug $ sformat intermediateFormat (headerHash blk)
-        PBMfinal blocks -> do
-            logDebug "handleBlock: it was final block, launching handleBlocks"
-            handleBlocks blocks
-        PBMunsolicited ->
-            -- TODO: ban node for sending unsolicited block.
-            logDebug "handleBlock: got unsolicited"
-  where
-    intermediateFormat = "Received intermediate block " %shortHashF
+       (Ssc ssc, MonadMockable m, WorkMode ssc m, ResponseMode ssc m)
+    => ListenerAction BiP m
+handleBlock = ListenerActionOneMsg $
+    \peerId sendActions ((msg@(MsgBlock blk)) :: MsgBlock ssc) -> do
+        logDebug $ sformat ("handleBlock: got block "%build) (headerHash blk)
+        pbmr <- processBlockMsg msg =<< getUserState
+        case pbmr of
+            -- [CSL-335] Process intermediate blocks ASAP.
+            PBMintermediate -> do
+                logDebug $ sformat intermediateFormat (headerHash blk)
+            PBMfinal blocks -> do
+                logDebug "handleBlock: it was final block, launching handleBlocks"
+                handleBlocks blocks peerId sendActions
+            PBMunsolicited ->
+                -- TODO: ban node for sending unsolicited block.
+                logDebug "handleBlock: got unsolicited"
+      where
+        intermediateFormat = "Received intermediate block " %shortHashF
 
 handleBlocks
     :: forall ssc m.
-       (ResponseMode ssc m)
-    => NonEmpty (Block ssc) -> m ()
+       (Ssc ssc, ResponseMode ssc m, MonadMockable m, WorkMode ssc m, HasLoggerName m)
+    => NonEmpty (Block ssc)
+    -> NodeId
+    -> SendActions BiP m
+    -> m ()
 -- Head block is the oldest one here.
-handleBlocks blocks = do
+handleBlocks blocks peerId sendActions = do
     logDebug "handleBlocks: processing"
     inAssertMode $
         logDebug $
         sformat ("Processing sequence of blocks: " %listJson % "…") $
         fmap headerHash blocks
-    maybe onNoLca (handleBlocksWithLca blocks) =<<
-        lcaWithMainChain (map (view blockHeader) $ NE.reverse blocks)
-    inAssertMode $ logDebug $ "Finished processing sequence of blocks"
-  where
-    onNoLca = logWarning $
-        "Sequence of blocks can't be processed, because there is no LCA. " <>
-        "Probably rollback happened in parallel"
+    --maybe onNoLca (handleBlocksWithLca blocks) =<<
+    --    lcaWithMainChain (map (view blockHeader) $ NE.reverse blocks)
+    --inAssertMode $ logDebug $ "Finished processing sequence of blocks"
+  --where
+  --  onNoLca = logWarning $
+  --      "Sequence of blocks can't be processed, because there is no LCA. " <>
+  --      "Probably rollback happened in parallel"
 
 handleBlocksWithLca :: forall ssc m.
        (ResponseMode ssc m)

@@ -16,7 +16,7 @@ import           Pos.Delegation.Types    (CheckProxySKConfirmed (..),
                                           ConfirmProxySK (..), SendProxySK (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.Txp.Types           (TxMsgTag (..))
-import           Pos.Types               ()
+import           Pos.Update.Types        (ProposalMsgTag (..), VoteMsgTag (..))
 
 ----------------------------------------------------------------------------
 -- System start
@@ -94,3 +94,15 @@ instance Bi VersionResp where
     put VersionResp{..} =  putInt32be vRespMagic
                         *> put vRespProtocolVersion
     get = label "GenericBlockHeader" $ VersionResp <$> getInt32be <*> get
+
+----------------------------------------------------------------------------
+-- Update system
+----------------------------------------------------------------------------
+
+instance Bi ProposalMsgTag where
+    put ProposalMsgTag = pure ()
+    get = pure ProposalMsgTag
+
+instance Bi VoteMsgTag where
+    put VoteMsgTag = pure ()
+    get = pure VoteMsgTag

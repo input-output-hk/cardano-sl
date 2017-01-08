@@ -11,6 +11,7 @@ import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..))
 import           Pos.Txp.Types.Communication      (TxMsgContents (..))
 import           Pos.Types                        (TxId)
 import           Pos.Types.Address                (StakeholderId)
+import           Pos.Update.Types                 (UpId, UpdateProposal)
 import           Pos.Util.Relay                   (DataMsg (..), InvMsg (..), ReqMsg (..))
 
 instance (Bi tag, Bi key) => Bi (InvMsg key tag) where
@@ -37,3 +38,7 @@ instance Bi (DataMsg TxId TxMsgContents) where
       tx <- get
       conts <- TxMsgContents tx <$> get <*> get
       pure $ DataMsg conts (hash tx)
+
+instance Bi (DataMsg UpId UpdateProposal) where
+    put DataMsg {..} = put dmContents >> put dmKey
+    get = liftM2 DataMsg get get

@@ -39,6 +39,7 @@ import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Slotting                (MonadSlots)
 import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp.Holder              (TxpLDHolder (..))
+import           Pos.Update.Holder           (USHolder (..))
 import           Pos.Util                    ()
 import           Pos.Util.UserSecret         (UserSecret, peekUserSecret, usKeys,
                                               writeUserSecret)
@@ -178,3 +179,4 @@ instance (MonadIO m, MonadFail m, MonadThrow m) =>
 deriving instance MonadKeys m => MonadKeys (SscHolder ssc m)
 deriving instance MonadKeys m => MonadKeys (TxpLDHolder ssc m)
 deriving instance MonadKeys m => MonadKeys (DelegationT m)
+deriving instance MonadKeys m => MonadKeys (USHolder m)

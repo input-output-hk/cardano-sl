@@ -94,9 +94,10 @@ library
                         Pos.Types.Timestamp
                         Pos.Types.Tx
                         Pos.Types.Types
-                        Pos.Types.Update
                         Pos.Types.Utxo
                         Pos.Types.Version
+                        Pos.Update
+                        Pos.Update.Types
                         Pos.Util
                         Pos.Util.JsonLog
                         Pos.Util.Relay
@@ -223,13 +224,22 @@ library
                         Pos.Txp.Types.Communication
                         Pos.Txp.Types.Types
                         Pos.Txp.Types.UtxoView
+                        Pos.Types.SharedSeed
                         Pos.Types.Utxo.Class
                         Pos.Types.Utxo.Functions
                         Pos.Types.Utxo.Pure
                         Pos.Worker.Lrc
                         Pos.Worker.Stats
-                        Pos.Update
+                        Pos.Update.Class
                         Pos.Update.Download
+                        Pos.Update.Error
+                        Pos.Update.Holder
+                        Pos.Update.Listeners
+                        Pos.Update.Logic
+                        Pos.Update.MemState
+                        Pos.Update.Types.Communication
+                        Pos.Update.Types.Types
+                        Pos.Update.Worker
                         Pos.Util.Arbitrary
                         Pos.Util.Iterator
                         Pos.Util.NotImplemented
@@ -771,6 +781,8 @@ test-suite cardano-test
                        Test.Pos.Types.SlottingSpec
                        Test.Pos.Types.TxSpec
                        Test.Pos.Types.UtxoSpec
+                       Test.Pos.Update.Identity.BinarySpec
+                       Test.Pos.Update.Identity.SafeCopySpec
                        Test.Pos.Util
                        Test.Pos.UtilSpec
   type:                exitcode-stdio-1.0

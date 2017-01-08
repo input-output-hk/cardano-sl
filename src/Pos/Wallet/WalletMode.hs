@@ -41,6 +41,7 @@ import           Pos.Types                     (Address, Coin, Tx, TxAux, TxId, 
                                                 evalUtxoStateT, runUtxoStateT, sumCoins,
                                                 toPair, txOutValue)
 import           Pos.Types.Utxo.Functions      (belongsTo, filterUtxoByAddr)
+import           Pos.Update                    (USHolder (..))
 import           Pos.WorkMode                  (MinWorkMode)
 
 import           Pos.Types.Coin                (unsafeIntegerToCoin)
@@ -71,6 +72,7 @@ instance MonadBalances m => MonadBalances (KeyStorage m)
 deriving instance MonadBalances m => MonadBalances (PC.ContextHolder ssc m)
 deriving instance MonadBalances m => MonadBalances (SscHolder ssc m)
 deriving instance MonadBalances m => MonadBalances (DelegationT m)
+deriving instance MonadBalances m => MonadBalances (USHolder m)
 
 -- | Instances of 'MonadBalances' for wallet's and node's DBs
 instance MonadIO m => MonadBalances (WalletDB m) where
@@ -106,6 +108,7 @@ instance MonadTxHistory m => MonadTxHistory (KeyStorage m)
 deriving instance MonadTxHistory m => MonadTxHistory (PC.ContextHolder ssc m)
 deriving instance MonadTxHistory m => MonadTxHistory (SscHolder ssc m)
 deriving instance MonadTxHistory m => MonadTxHistory (DelegationT m)
+deriving instance MonadTxHistory m => MonadTxHistory (USHolder m)
 
 -- | Instances of 'MonadTxHistory' for wallet's and node's DBs
 

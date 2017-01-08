@@ -20,6 +20,7 @@ import           Pos.Security.Workers   (SecurityWorkersClass, securityWorkers)
 import           Pos.Slotting           (onNewSlot)
 import           Pos.Ssc.Class.Workers  (SscWorkersClass, sscWorkers)
 import           Pos.Types              (SlotId, flattenSlotId, slotIdF)
+import           Pos.Update             (usWorkers)
 import           Pos.Util               (waitRandomInterval)
 import           Pos.Worker.Stats       (statsWorkers)
 import           Pos.WorkMode           (WorkMode)
@@ -37,6 +38,7 @@ runWorkers = mapM_ fork_ $ concat
     , blkWorkers
     , untag sscWorkers
     , untag securityWorkers
+    , usWorkers
     ]
 
 onNewSlotWorker :: WorkMode ssc m => m ()

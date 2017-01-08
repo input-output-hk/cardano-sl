@@ -5,22 +5,22 @@
 {-# LANGUAGE TypeFamilies          #-}
 
 module Bench.Network.Commons
-    ( MsgId
-    , Ping (..)
-    , Pong (..)
-    , Payload (..)
-    , curTimeMcs
-    , logMeasure
+       ( MsgId
+       , Ping (..)
+       , Pong (..)
+       , Payload (..)
+       , curTimeMcs
+       , logMeasure
 
-    , loadLogConfig
+       , loadLogConfig
 
-    , Timestamp
-    , MeasureEvent (..)
-    , MeasureInfo (..)
-    , LogMessage (..)
-    , measureInfoParser
-    , logMessageParser
-    ) where
+       , Timestamp
+       , MeasureEvent (..)
+       , MeasureInfo (..)
+       , LogMessage (..)
+       , measureInfoParser
+       , logMessageParser
+       ) where
 
 import           Control.Applicative   ((<|>))
 import           Control.Monad         (join)
@@ -35,7 +35,7 @@ import           Data.Functor          (($>))
 import qualified Data.HashMap.Strict   as M
 import           Data.Int              (Int64)
 import           Data.Monoid           ((<>))
-import           Data.Text.Buildable   (Buildable, build)
+import           Data.Text.Buildable   (Buildable (build))
 import           Data.Time.Clock.POSIX (getPOSIXTime)
 import qualified Formatting            as F
 import           GHC.Generics          (Generic)

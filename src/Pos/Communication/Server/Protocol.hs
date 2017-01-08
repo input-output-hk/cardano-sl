@@ -33,6 +33,7 @@ protocolListeners
     => [ListenerDHT (MutSocketState ssc) m]
 protocolListeners = notImplemented
 
+{-
 protocolListeners'
     :: ( Typeable ssc
        , Ssc ssc
@@ -93,3 +94,4 @@ handleVersionResp = ListenerActionOneMsg $
         else do
             atomically $ modifyTVar stateVar $ peerVersion ?~ vRespProtocolVersion
             logDebug "Successfully handled version response"
+-}

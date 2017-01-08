@@ -30,10 +30,13 @@ module Node (
     , Listener
     , ListenerAction(..)
 
+    , hoistSendActions
+    , hoistConversationActions
     , LL.NodeId(..)
 
     ) where
 
+import           Control.Lens               (view)
 import           Control.Monad.Fix          (MonadFix)
 import qualified Data.ByteString.Lazy       as LBS
 import           Data.Map.Strict            (Map)
@@ -49,6 +52,7 @@ import           Mockable.SharedAtomic
 import qualified Network.Transport.Abstract as NT
 import           Node.Internal              (ChannelIn (..), ChannelOut (..))
 import qualified Node.Internal              as LL
+import           Serokell.Util.Lens         (WrappedM (..), _UnwrappedM)
 import           System.Random              (StdGen)
 
 data Node m = Node {
@@ -119,6 +123,20 @@ data ConversationActions body rcv m = ConversationActions {
        -- | Id of peer node.
        getCompanion :: LL.NodeId
      }
+
+hoistConversationActions :: WrappedM m => ConversationActions body rcv m -> ConversationActions body rcv (UnwrappedM m)
+hoistConversationActions ConversationActions {..} =
+  ConversationActions send' recv' getCompanion
+      where
+        send' = view _WrappedM . send
+        recv' = view _WrappedM recv
+
+hoistSendActions :: WrappedM m => SendActions p m -> SendActions p (UnwrappedM m)
+hoistSendActions SendActions {..} = SendActions sendTo' withConnectionTo'
+  where
+    sendTo' nodeId msg = view _WrappedM $ sendTo nodeId msg
+    withConnectionTo' nodeId convActionsH =
+        view _WrappedM $ withConnectionTo nodeId  $ \convActions -> view _UnwrappedM $ convActionsH $ hoistConversationActions convActions
 
 type ListenerIndex packing m =
     Map MessageName (ListenerAction packing m)

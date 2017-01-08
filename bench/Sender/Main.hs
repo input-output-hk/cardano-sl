@@ -13,8 +13,7 @@ import           Control.Monad.Random       (evalRandT, getRandomR)
 import           Control.Monad.State        (evalStateT, get, put)
 import           Control.Monad.Trans        (MonadIO (liftIO), lift)
 
-import           Data.Time.Units            (Microsecond, Second, convertUnit,
-                                             fromMicroseconds)
+import           Data.Time.Units            (Microsecond, Second, convertUnit)
 import           GHC.IO.Encoding            (setLocaleEncoding, utf8)
 import qualified Network.Transport.TCP      as TCP
 import           Options.Applicative.Simple (simpleOptions)
@@ -22,7 +21,7 @@ import           Serokell.Util.Concurrent   (threadDelay)
 import           System.Random              (mkStdGen)
 import           System.Wlog                (usingLoggerName)
 
-import           Mockable                   (fork, runProduction)
+import           Mockable                   (fork, realTime, runProduction)
 import qualified Network.Transport.Abstract as NT
 import           Network.Transport.Concrete (concrete)
 import           Node                       (ListenerAction (..), NodeAction (..), node,
@@ -30,8 +29,7 @@ import           Node                       (ListenerAction (..), NodeAction (..
 import           Node.Internal              (NodeId (..))
 
 import           Bench.Network.Commons      (MeasureEvent (..), Payload (..), Ping (..),
-                                             Pong (..), curTimeMcs, loadLogConfig,
-                                             logMeasure)
+                                             Pong (..), loadLogConfig, logMeasure)
 import           Message.Message            (BinaryP (..))
 import           SenderOptions              (Args (..), argsParser)
 
@@ -44,9 +42,6 @@ makeLenses ''PingState
 
 oneSecondMcs :: Microsecond
 oneSecondMcs = convertUnit @Second 1
-
-curTimeUnitsMcs :: MonadIO m => m Microsecond
-curTimeUnitsMcs = fromMicroseconds <$> curTimeMcs
 
 main :: IO ()
 main = do
@@ -71,7 +66,7 @@ main = do
     let tasksIds = [[tid, tid + threadNum .. msgNum] | tid <- [1..threadNum]]
 
     runProduction $ usingLoggerName "sender" $ do
-        startTime      <- curTimeUnitsMcs
+        startTime <- realTime
 
         -- TODO: is it good idea to start (recipients number * thread number) threads?
         let pingWorkers = liftA2 (pingSender prngWork payloadBound startTime msgRate)
@@ -98,7 +93,7 @@ main = do
             lift . lift $ sendTo sendActions peerId $ Ping sMsgId payload
 
             PingState{..}    <- get
-            curTime          <- curTimeUnitsMcs
+            curTime          <- realTime
             let fromLastReset = curTime - _lastResetMcs
 
             if fromLastReset >= oneSecondMcs then
@@ -106,7 +101,7 @@ main = do
             else if _currentMessages >= msgRate then do
                 let waitToNextSecond = oneSecondMcs - fromLastReset
                 threadDelay waitToNextSecond
-                freshTime <- curTimeUnitsMcs
+                freshTime <- realTime
                 put $ PingState freshTime 0
             else
                 currentMessages += 1

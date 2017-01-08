@@ -23,6 +23,7 @@ Library
                         Mockable.Channel
                         Mockable.Class
                         Mockable.Concurrent
+                        Mockable.CurrentTime
                         Mockable.Exception
                         Mockable.Instances
                         Mockable.Monad

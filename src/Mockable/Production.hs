@@ -15,18 +15,16 @@ import           Control.Monad            (forever)
 import           Control.Monad.Catch      (MonadCatch (..), MonadMask (..),
                                            MonadThrow (..))
 import           Control.Monad.Fix        (MonadFix)
-import           Control.Monad.IO.Class   (MonadIO, liftIO)
+import           Control.Monad.IO.Class   (MonadIO)
 import           Control.TimeWarp.Timed   (for, hour)
-import           Data.Time.Clock.POSIX    (getPOSIXTime)
-import           Data.Time.Units          (Microsecond)
 import           System.Wlog              (CanLog (..), HasLoggerName (..))
 
 import           Mockable.Channel         (Channel (..), ChannelT)
 import           Mockable.Class           (Mockable (..))
-import           Mockable.Concurrent      (Async (..), Concurrently (..),
-                                           CurrentTime (..), Delay (..), Fork (..),
-                                           Promise, RunInUnboundThread (..), ThreadId,
-                                           delay)
+import           Mockable.Concurrent      (Async (..), Concurrently (..), Delay (..),
+                                           Fork (..), Promise, RunInUnboundThread (..),
+                                           ThreadId, delay)
+import           Mockable.CurrentTime     (CurrentTime (..), realTime)
 import           Mockable.Exception       (Bracket (..), Catch (..), Throw (..))
 import           Mockable.SharedAtomic    (SharedAtomic (..), SharedAtomicT)
 import           Universum                (MonadFail (..))
@@ -50,8 +48,8 @@ instance Mockable Fork Production where
 
 instance Mockable Delay Production where
     liftMockable (Delay relativeToNow) = Production $ do
-        cur <- runProduction $ curTime
-        Conc.threadDelay $ fromIntegral $ relativeToNow cur - cur
+        now <- realTime
+        Conc.threadDelay $ fromIntegral $ relativeToNow now - now
     liftMockable SleepForever = forever $ delay $ for 24 hour
 
 instance Mockable RunInUnboundThread Production where
@@ -59,7 +57,7 @@ instance Mockable RunInUnboundThread Production where
         Conc.runInUnboundThread (runProduction m)
 
 instance Mockable CurrentTime Production where
-    liftMockable CurrentTime = curTime
+    liftMockable CurrentTime = realTime
 
 type instance Promise Production = Conc.Async
 
@@ -130,6 +128,3 @@ instance MonadMask Production where
         \unmask -> runProduction $ act $ Production . unmask . runProduction
     uninterruptibleMask act = Production $ uninterruptibleMask $
         \unmask -> runProduction $ act $ Production . unmask . runProduction
-
-curTime :: Production Microsecond
-curTime = liftIO $ round . ( * 1000000) <$> getPOSIXTime

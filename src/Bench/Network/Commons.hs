@@ -9,7 +9,6 @@ module Bench.Network.Commons
        , Ping (..)
        , Pong (..)
        , Payload (..)
-       , curTimeMcs
        , logMeasure
 
        , loadLogConfig
@@ -22,27 +21,31 @@ module Bench.Network.Commons
        , logMessageParser
        ) where
 
-import           Control.Applicative   ((<|>))
-import           Control.Monad         (join)
-import           Control.Monad.Trans   (MonadIO (..))
-import           Data.Attoparsec.Text  (Parser, char, decimal, string, takeWhile)
-import           Data.Binary           (Binary)
-import           Data.Binary           (Binary (..))
-import qualified Data.ByteString.Lazy  as BL
-import           Data.Data             (Data)
-import           Data.Default          (def)
-import           Data.Functor          (($>))
-import qualified Data.HashMap.Strict   as M
-import           Data.Int              (Int64)
-import           Data.Monoid           ((<>))
-import           Data.Text.Buildable   (Buildable (build))
-import           Data.Time.Clock.POSIX (getPOSIXTime)
-import qualified Formatting            as F
-import           GHC.Generics          (Generic)
-import           Node                  (Message (..))
-import           Prelude               hiding (takeWhile)
-import           System.Wlog           (LoggerConfig (..), Severity (..), WithLogger,
-                                        logInfo, parseLoggerConfig, traverseLoggerConfig)
+import           Control.Applicative  ((<|>))
+import           Control.Monad        (join)
+import           Control.Monad.Trans  (MonadIO (..))
+
+import           Data.Attoparsec.Text (Parser, char, decimal, string, takeWhile)
+import           Data.Binary          (Binary)
+import           Data.Binary          (Binary (..))
+import qualified Data.ByteString.Lazy as BL
+import           Data.Data            (Data)
+import           Data.Default         (def)
+import           Data.Functor         (($>))
+import qualified Data.HashMap.Strict  as M
+import           Data.Int             (Int64)
+import           Data.Monoid          ((<>))
+import           Data.Text.Buildable  (Buildable (build))
+import           Data.Time.Units      (toMicroseconds)
+
+import qualified Formatting           as F
+import           GHC.Generics         (Generic)
+import           Prelude              hiding (takeWhile)
+import           System.Wlog          (LoggerConfig (..), Severity (..), WithLogger,
+                                       logInfo, parseLoggerConfig, traverseLoggerConfig)
+
+import           Mockable.CurrentTime (realTime)
+import           Node                 (Message (..))
 
 -- * Transfered data types
 
@@ -72,14 +75,9 @@ instance Binary Payload where
 
 -- * Util
 
-type Timestamp = Integer
-
-curTimeMcs :: MonadIO m => m Timestamp
-curTimeMcs = liftIO $ round . ( * 1000000) <$> getPOSIXTime
-
 logMeasure :: (MonadIO m, WithLogger m) => MeasureEvent -> MsgId -> Payload -> m ()
 logMeasure miEvent miId miPayload = do
-    miTime <- curTimeMcs
+    miTime <- toMicroseconds <$> realTime
     logInfo $ F.sformat F.build $ LogMessage MeasureInfo{..}
 
 defaultLogConfig :: LoggerConfig
@@ -139,6 +137,8 @@ measureEventParser = string "• → " $> PingSent
 
 
 -- ** Measure info
+
+type Timestamp = Integer
 
 -- | Single event in measurement.
 data MeasureInfo = MeasureInfo

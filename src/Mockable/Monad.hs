@@ -8,8 +8,9 @@ module Mockable.Monad
     ) where
 
 import           Mockable.Channel      (Channel)
-import           Mockable.Class
-import           Mockable.Concurrent   (Async, CurrentTime, Delay, Fork)
+import           Mockable.Class        (Mockable)
+import           Mockable.Concurrent   (Async, Delay, Fork)
+import           Mockable.CurrentTime  (CurrentTime)
 import           Mockable.Exception    (Bracket, Catch, Throw)
 import           Mockable.SharedAtomic (SharedAtomic)
 

@@ -20,9 +20,6 @@ module Mockable.Concurrent (
   , for
   , sleepForever
 
-  , CurrentTime(..)
-  , currentTime
-
   , RunInUnboundThread(..)
   , runInUnboundThread
 
@@ -90,15 +87,6 @@ for = (+)
 
 sleepForever :: ( Mockable Delay m ) => m ()
 sleepForever = liftMockable SleepForever
-
-data CurrentTime (m :: * -> *) (t :: *) where
-    CurrentTime :: CurrentTime m Microsecond
-
-instance MFunctor' CurrentTime m n where
-    hoist' _ CurrentTime = CurrentTime
-
-currentTime :: ( Mockable CurrentTime m ) => m Microsecond
-currentTime = liftMockable CurrentTime
 
 data RunInUnboundThread m t where
     RunInUnboundThread :: m t -> RunInUnboundThread m t

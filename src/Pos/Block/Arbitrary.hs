@@ -21,7 +21,8 @@ import           Pos.Util            (Raw, makeSmall)
 instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) =>
     Arbitrary (T.BlockSignature ssc) where
     arbitrary = oneof [ T.BlockSignature <$> arbitrary
-                      , T.BlockPSignature <$> arbitrary
+                      , T.BlockPSignatureEpoch <$> arbitrary
+                      , T.BlockPSignatureSimple <$> arbitrary
                       ]
 
 ------------------------------------------------------------------------------------------

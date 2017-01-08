@@ -23,7 +23,7 @@ import           Pos.Crypto           (WithHash (..))
 import           Pos.Types.Tx         (VTxGlobalContext (..), VTxLocalContext (..),
                                        verifyTx)
 import           Pos.Types.Types      (Address, Tx (..), TxAux, TxDistribution (..), TxId,
-                                       TxIn (..), TxOut (..), TxOutAux, TxWitness, Undo,
+                                       TxIn (..), TxOut (..), TxOutAux, TxUndo, TxWitness,
                                        Utxo)
 import           Pos.Types.Utxo.Class (MonadUtxo (..), MonadUtxoRead (utxoGet))
 
@@ -68,12 +68,12 @@ verifyAndApplyTxs
        MonadUtxo m
     => Bool
     -> [(WithHash Tx, TxWitness, TxDistribution)]
-    -> m (Either Text Undo)
+    -> m (Either Text TxUndo)
 verifyAndApplyTxs verifyAlone txs = fmap reverse <$> foldM applyDo (Right []) txs
   where
-    applyDo :: Either Text Undo
+    applyDo :: Either Text TxUndo
             -> (WithHash Tx, TxWitness, TxDistribution)
-            -> m (Either Text Undo)
+            -> m (Either Text TxUndo)
     applyDo failure@(Left _) _ = pure failure
     applyDo txouts txa = do
         verRes <- verifyTxUtxo verifyAlone (over _1 whData txa)

@@ -25,7 +25,8 @@ import           Pos.Eligibility          (findRichmen)
 import           Pos.FollowTheSatoshi     (followTheSatoshiM)
 import           Pos.Ssc.Extra            (sscCalculateSeed)
 import           Pos.Types                (EpochOrSlot (..), HeaderHash, SlotId (..),
-                                           TxIn, TxOutAux, getEpochOrSlot, mkCoin)
+                                           TxIn, TxOutAux, crucialSlot, getEpochOrSlot,
+                                           mkCoin)
 import           Pos.WorkMode             (WorkMode)
 
 lrcOnNewSlot :: WorkMode ssc m => SlotId -> m ()
@@ -45,7 +46,7 @@ lrcOnNewSlot slotId
 lrcOnNewSlotDo
     :: WorkMode ssc m
     => SlotId -> HeaderHash ssc -> m (HeaderHash ssc)
-lrcOnNewSlotDo SlotId {siEpoch = epochId} tip = tip <$ do
+lrcOnNewSlotDo slotId@SlotId{siEpoch = epochId} tip = tip <$ do
     logDebug $ "It's time to compute leaders and parts"
     blockUndoList <- loadBlocksFromTipWhile whileMoreOrEq5k
     when (null blockUndoList) $
@@ -74,7 +75,5 @@ lrcOnNewSlotDo SlotId {siEpoch = epochId} tip = tip <$ do
     putLrc epochId leaders richmen
     applyBlocks blockUndos
   where
-    whileMoreOrEq5k b _ = getEpochOrSlot b >= crucialSlot
-    crucialSlot = EpochOrSlot $ Right $
-                  if epochId == 0 then SlotId {siEpoch = 0, siSlot = 0}
-                  else SlotId {siEpoch = epochId - 1, siSlot = 5 * k - 1}
+    whileMoreOrEq5k b _ = getEpochOrSlot b >= crucial
+    crucial = EpochOrSlot $ Right $ crucialSlot slotId

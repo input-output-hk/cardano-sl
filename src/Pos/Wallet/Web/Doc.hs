@@ -29,6 +29,7 @@ import           Pos.Wallet.Web.Api         (walletApi)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CTx, CTxId,
                                              CTxMeta, CWallet, CWalletMeta,
                                              addressToCAddress)
+import           Pos.Wallet.Web.Error       (WalletError)
 
 walletDocs :: API
 walletDocs = docsWith defaultDocOptions intros extras (SD.pretty walletApi)
@@ -126,6 +127,9 @@ instance ToCapture (Capture "currency" CCurrency) where
         { _capSymbol = "currency"
         , _capDesc = "Currency"
         }
+
+instance ToSample WalletError where
+    toSamples Proxy = fail "ToSample WalletError: Not Implemented!"
 
 instance ToSample Coin where
     toSamples Proxy = singleSample (mkCoin 100500)

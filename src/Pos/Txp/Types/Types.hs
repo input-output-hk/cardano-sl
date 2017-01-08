@@ -18,8 +18,7 @@ import           Pos.Types           (TxAux, TxId, TxIn, TxOutAux)
 
 
 data UtxoView ssc = UtxoView
-    {
-      addUtxo :: !(HashMap TxIn TxOutAux)
+    { addUtxo :: !(HashMap TxIn TxOutAux)
     , delUtxo :: !(HashSet TxIn)
     , utxoDB  :: !(DB ssc)
     }
@@ -27,16 +26,15 @@ data UtxoView ssc = UtxoView
 type TxMap = HashMap TxId TxAux
 
 data MemPool = MemPool
-    {
-      localTxs     :: !TxMap
-    , -- | @length@ is @O(n)@ for 'HM.HashMap' so we store it explicitly.
-      localTxsSize :: !Int
+    { localTxs     :: !TxMap
+      -- | @length@ is @O(n)@ for 'HM.HashMap' so we store it explicitly.
+    , localTxsSize :: !Int
     }
 
 instance Default MemPool where
-    def = MemPool
-        {
-          localTxs = HM.empty
+    def =
+        MemPool
+        { localTxs = HM.empty
         , localTxsSize = 0
         }
 

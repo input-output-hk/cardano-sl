@@ -16,6 +16,7 @@ module Pos.DB.GState.Update
        , UpdateOp (..)
        , putRichmenUS
        , setScriptVersion
+       , setConfirmedSV
 
          -- * Initialization
        , prepareGStateUS
@@ -29,6 +30,7 @@ import           Universum
 
 import           Pos.Binary.Class     (encodeStrict)
 import           Pos.Binary.DB        ()
+import           Pos.Constants        (curSoftwareVersion)
 import           Pos.DB.Class         (MonadDB, getUtxoDB)
 import           Pos.DB.Error         (DBError (DBMalformed))
 import           Pos.DB.Functions     (RocksBatchOp (..), traverseAllEntries)
@@ -106,9 +108,17 @@ putRichmenUS e = mapM_ putRichmenDo
   where
     putRichmenDo (id, stake) = putBi (stakeKey e id) stake
 
+-- | Set last protocol version
+setLastPV :: MonadDB ssc m => ProtocolVersion -> m ()
+setLastPV = putBi lastPVKey
+
 -- | Set correspondence between protocol version and script version
 setScriptVersion :: MonadDB ssc m => ProtocolVersion -> ScriptVersion -> m ()
 setScriptVersion = putBi . scriptVersionKey
+
+-- | Set confirmed version number for given app
+setConfirmedSV :: MonadDB ssc m => ApplicationName -> NumSoftwareVersion -> m ()
+setConfirmedSV = putBi . confirmedVersionKey
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -121,6 +131,9 @@ prepareGStateUS
 prepareGStateUS = unlessM isInitialized $ do
     putBi lastPVKey genesisProtocolVersion
     setScriptVersion genesisProtocolVersion genesisScriptVersion
+    let curAppName = svAppName curSoftwareVersion
+        curAppVer = svNumber curSoftwareVersion
+    setConfirmedSV curAppName curAppVer
 
 isInitialized :: MonadDB ssc m => m Bool
 isInitialized = isJust <$> getLastPVMaybe

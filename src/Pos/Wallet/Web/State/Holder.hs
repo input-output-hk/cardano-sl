@@ -22,7 +22,7 @@ import           Pos.DHT.Model              (MonadDHT, MonadMessageDHT,
                                              WithDefaultMsgHeader)
 import           Pos.Slotting               (MonadSlots)
 import           Pos.Txp.Class              (MonadTxpLD)
-import           Pos.Update                 (MonadUS)
+import           Pos.Update                 (MonadPoll, MonadUSMem)
 
 import           Pos.Wallet.Context         (WithWalletContext)
 import           Pos.Wallet.KeyStorage      (MonadKeys)
@@ -39,7 +39,7 @@ newtype WalletWebDB m a = WalletWebDB
                 MonadWalletDB, WithWalletContext, MonadDialog s p,
                 MonadDHT, MonadMessageDHT s, MonadSlots,
                 WithDefaultMsgHeader, CanLog, MonadKeys, MonadBalances,
-                MonadTxHistory, WithNodeContext ssc, MonadUS,
+                MonadTxHistory, WithNodeContext ssc, MonadUSMem, MonadPoll,
                 Modern.MonadDB ssc, MonadTxpLD ssc, MonadDelegation)
 
 instance Monad m => WrappedM (WalletWebDB m) where

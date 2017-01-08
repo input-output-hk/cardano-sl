@@ -44,8 +44,8 @@ import           Pos.Constants             (curProtocolVersion, curSoftwareVersi
 import           Pos.Context               (NodeContext (ncSecretKey), getNodeContext,
                                             putBlkSemaphore, readBlkSemaphore,
                                             readLeaders, takeBlkSemaphore)
-import           Pos.Crypto                (ProxySecretKey, SecretKey,
-                                            WithHash (WithHash), hash, shortHashF)
+import           Pos.Crypto                (SecretKey, WithHash (WithHash), hash,
+                                            shortHashF)
 import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.DB                    (MonadDB, getTipBlockHeader, loadHeadersWhile)
 import qualified Pos.DB                    as DB

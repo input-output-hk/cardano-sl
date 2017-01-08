@@ -13,7 +13,7 @@ import qualified Data.HashMap.Strict      as HM
 import qualified Data.List.NonEmpty       as NE
 import           Formatting               (build, sformat, (%))
 import           Serokell.Util.Exceptions ()
-import           System.Wlog              (logDebug, logInfo)
+import           System.Wlog              (logInfo)
 import           Universum
 
 import           Pos.Binary.Communication ()
@@ -24,7 +24,7 @@ import           Pos.Context              (getNodeContext, isLeadersComputed,
 import           Pos.DB                   (getTotalFtsStake, loadBlocksFromTipWhile,
                                            mapUtxoIterator, putLeaders)
 import           Pos.FollowTheSatoshi     (followTheSatoshiM)
-import           Pos.Richmen              (allLrcConsumers, findRichmenStake)
+import           Pos.Richmen              (allLrcConsumers, findAllRichmenMaybe)
 import           Pos.Slotting             (onNewSlot)
 import           Pos.Ssc.Class            (SscWorkersClass)
 import           Pos.Ssc.Extra            (sscCalculateSeed)
@@ -72,7 +72,7 @@ lrcDo slotId consumers tip = tip <$ do
     whileMoreOrEq5k b _ = getEpochOrSlot b >= crucial
     crucial = EpochOrSlot $ Right $ crucialSlot slotId
 
-richmenComputationDo :: WorkMode ssc m
+richmenComputationDo :: forall ssc m . WorkMode ssc m
     => SlotId -> [LrcConsumer m] -> m ()
 richmenComputationDo slotId consumers = unless (null consumers) $ do
     -- [CSL-93] Use eligibility threshold here
@@ -81,21 +81,14 @@ richmenComputationDo slotId consumers = unless (null consumers) $ do
     let minThresholdD = safeThreshold total lcConsiderDelegated
     (richmen, richmenD) <-
         mapUtxoIterator @(StakeholderId, Coin)
-            (findRichmenStake minThreshold minThresholdD)
+            (findAllRichmenMaybe @ssc minThreshold minThresholdD)
             identity
-    logDebug $ "CONSUMERS " <> show (length consumers)
-    logDebug $ "RICHMEN = " <> show richmen
     let callCallback cons = fork_ $
-            if lcConsiderDelegated cons then
-                lcComputedCallback cons
-                                   slotId
-                                   total
-                                   (HM.filter (>= lcThreshold cons total) richmenD)
-            else
-                lcComputedCallback cons
-                                   slotId
-                                   total
-                                   (HM.filter (>= lcThreshold cons total) richmen)
+            if lcConsiderDelegated cons
+            then lcComputedCallback cons slotId total
+                   (HM.filter (>= lcThreshold cons total) richmenD)
+            else lcComputedCallback cons slotId total
+                   (HM.filter (>= lcThreshold cons total) richmen)
     mapM_ callCallback consumers
   where
     safeThreshold total f =

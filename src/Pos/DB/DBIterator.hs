@@ -1,6 +1,7 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE AllowAmbiguousTypes  #-}
+{-# LANGUAGE RankNTypes           #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Encapsulation of RocksDB iterator
 module Pos.DB.DBIterator
@@ -17,6 +18,7 @@ import qualified Database.RocksDB     as Rocks
 import           Universum
 
 import           Pos.Binary.Class     (Bi)
+import           Pos.DB.Class         (MonadDB (..))
 import           Pos.DB.Functions     (rocksDecodeKeyValMaybe)
 import           Pos.DB.Types         (DB (..))
 import           Pos.Util.Iterator    (MonadIterator (..))
@@ -73,6 +75,9 @@ instance (Monad m, MonadIterator (DBIterator m) u)
          => MonadIterator (DBMapIterator (u->v) m) v where
     nextItem = DBMapIterator $ ReaderT $ \f -> fmap f <$> nextItem
     curItem = DBMapIterator $ ReaderT $ \f -> fmap f <$> curItem
+
+deriving instance MonadDB ssc m => MonadDB ssc (DBIterator m)
+deriving instance MonadDB ssc m => MonadDB ssc (DBMapIterator f m)
 
 -- | Run DBIterator by `DB ssc`.
 runIterator :: forall b m ssc . (MonadIO m, MonadMask m)

@@ -14,13 +14,13 @@ import           Pos.Binary           (Bi, decode, encode)
 import qualified Pos.CLI              as CLI
 import           Pos.Constants        (RunningMode (..), runningMode)
 import           Pos.Crypto           (VssKeyPair, vssKeyGen)
-import           Pos.DHT.Model        (DHTKey, DHTNodeType (..), dhtNodeType)
-import           Pos.DHT.Real         (KademliaDHTInstance)
 import           Pos.Genesis          (genesisSecretKeys, genesisUtxo)
 import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
                                        NodeParams (..), bracketDHTInstance,
-                                       runNodeProduction, runNodeStats, runSupporterReal,
-                                       runTimeLordReal, runTimeSlaveReal, stakesDistr)
+                                       runNodeProduction, runNodeStats, runTimeLordReal,
+                                       runTimeSlaveReal, stakesDistr)
+import           Pos.NewDHT.Model     (DHTKey, DHTNodeType (..), dhtNodeType)
+import           Pos.NewDHT.Real      (KademliaDHTInstance)
 import           Pos.Ssc.GodTossing   (genesisVssKeyPairs)
 import           Pos.Ssc.GodTossing   (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon   (SscNistBeacon)
@@ -29,7 +29,7 @@ import           Pos.Types            (Timestamp)
 #ifdef WITH_WEB
 import           Pos.Ssc.Class        (SscConstraint)
 import           Pos.Web              (serveWebBase, serveWebGT)
-import           Pos.WorkMode         (WorkMode)
+import           Pos.WorkMode         (NewWorkMode)
 #ifdef WITH_WALLET
 import           Pos.WorkMode         (ProductionMode, RawRealMode, StatsMode)
 
@@ -107,7 +107,7 @@ action :: Args -> KademliaDHTInstance -> IO ()
 action args@Args {..} inst = do
     checkDhtKey supporterNode dhtKey
     if supporterNode
-        then runSupporterReal inst (baseParams "supporter" args)
+        then fail "Supporter not supported" -- runSupporterReal inst (baseParams "supporter" args)
         else do
             vssSK <-
                 getKey
@@ -119,9 +119,9 @@ action args@Args {..} inst = do
             let currentParams = nodeParams args systemStart
                 gtParams = gtSscParams args vssSK
 #ifdef WITH_WEB
-                currentPlugins :: (SscConstraint ssc, WorkMode ssc m) => [m ()]
+                currentPlugins :: (SscConstraint ssc, NewWorkMode ssc m) => [m ()]
                 currentPlugins = plugins args
-                currentPluginsGT :: (WorkMode SscGodTossing m) => [m ()]
+                currentPluginsGT :: (NewWorkMode SscGodTossing m) => [m ()]
                 currentPluginsGT = pluginsGT args
 #else
                 currentPlugins :: [a]
@@ -170,14 +170,14 @@ gtSscParams Args {..} vssSK =
     }
 
 #ifdef WITH_WEB
-plugins :: (SscConstraint ssc, WorkMode ssc m) => Args -> [m ()]
+plugins :: (SscConstraint ssc, NewWorkMode ssc m) => Args -> [m ()]
 plugins Args {..}
     | enableWeb = [serveWebBase webPort]
     | otherwise = []
 #endif
 
 #ifdef WITH_WEB
-pluginsGT :: (WorkMode SscGodTossing m) => Args -> [m ()]
+pluginsGT :: (NewWorkMode SscGodTossing m) => Args -> [m ()]
 pluginsGT Args {..}
     | enableWeb = [serveWebGT webPort]
     | otherwise = []

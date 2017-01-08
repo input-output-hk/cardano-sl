@@ -15,6 +15,7 @@ import qualified Control.Concurrent.STM      as STM
 import           Control.Lens                (Lens', iso, lens, use, (%=), (%~), (<>=))
 import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
+import           Control.Monad.Fix           (MonadFix)
 import           Control.Monad.Reader        (ReaderT (..), ask)
 import           Control.Monad.State         (MonadState (..))
 import           Control.Monad.Trans         (MonadTrans (..))
@@ -110,7 +111,7 @@ newtype KeyStorage m a = KeyStorage
                 HasLoggerName, CanLog, MonadMask, MonadDHT,
                 MonadReader KeyData,
                 MonadWalletDB, WithWalletContext, WithNodeContext ssc,
-                MonadDelegation, MonadTrans, MonadBase io)
+                MonadDelegation, MonadTrans, MonadBase io, MonadFix)
 
 deriving instance MonadDB ssc m => MonadDB ssc (KeyStorage m)
 

@@ -9,13 +9,16 @@ module Pos.Wallet.State.Holder
 
 import           Control.Lens                (iso)
 import           Control.Monad.Base          (MonadBase (..))
+import           Control.Monad.Fix           (MonadFix)
 import           Control.Monad.Trans         (MonadTrans (..))
 import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,
                                               defaultLiftBaseWith, defaultLiftWith,
                                               defaultRestoreM, defaultRestoreT)
-import           Control.TimeWarp.Rpc        (MonadDialog, MonadTransfer)
-import           Control.TimeWarp.Timed      (MonadTimed, ThreadId)
+import           Mockable                    (ChannelT, MFunctor',
+                                              Mockable (liftMockable), Promise,
+                                              SharedAtomicT, ThreadId,
+                                              liftMockableWrappedM)
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
@@ -36,24 +39,28 @@ import           Pos.WorkMode                ()
 -- | Holder for web wallet data
 newtype WalletDB m a = WalletDB
     { getWalletDB :: ReaderT WalletState m a
-    } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow,
+    } deriving (Functor, Applicative, Monad, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
-                WithNodeContext ssc, MonadDialog s p, MonadDHT,
-                MonadMessageDHT s, MonadSlots, MonadSscLD ssc,
-                WithDefaultMsgHeader, MonadJL, CanLog, MonadStats,
-                MonadKeys, WithWalletContext)
+                WithNodeContext ssc, MonadDHT,
+                MonadSlots, MonadSscLD ssc, MonadFix,
+                MonadJL, CanLog, MonadStats,
+                MonadKeys, WithWalletContext, MonadTrans)
 
 instance Monad m => WrappedM (WalletDB m) where
     type UnwrappedM (WalletDB m) = ReaderT WalletState m
     _WrappedM = iso getWalletDB WalletDB
 
-instance MonadTrans WalletDB where
-    lift = WalletDB . lift
-
-instance MonadTransfer s m => MonadTransfer s (WalletDB m)
-
 type instance ThreadId (WalletDB m) = ThreadId m
+type instance Promise (WalletDB m) = Promise m
+type instance SharedAtomicT (WalletDB m) = SharedAtomicT m
+type instance ChannelT (WalletDB m) = ChannelT m
 
+instance ( Mockable d m
+         , MFunctor' d (WalletDB m) (ReaderT WalletState m)
+         , MFunctor' d (ReaderT WalletState m) m
+         ) => Mockable d (WalletDB m) where
+    liftMockable = liftMockableWrappedM
+    --
 -- | Instance for generic web wallet class
 instance Monad m => MonadWalletDB (WalletDB m) where
     getWalletState = WalletDB ask

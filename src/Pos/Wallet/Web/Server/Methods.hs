@@ -27,7 +27,7 @@ import           Universum
 
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Crypto                 (toPublic)
-import           Pos.DHT.Model              (dhtAddr, getKnownPeers)
+import           Pos.NewDHT.Model           (dhtAddr, getKnownPeers)
 import           Pos.Types                  (Address, Coin, Tx, TxId, TxOut (..),
                                              addressF, coinF, decodeTextAddress,
                                              makePubKeyAddress, mkCoin)

@@ -5,34 +5,34 @@
 
 module Main where
 
-import           Control.Monad.Reader   (MonadReader (..), ReaderT, asks, runReaderT)
-import           Control.TimeWarp.Rpc   (NetworkAddress)
-import           Control.TimeWarp.Timed (for, wait)
-import           Data.List              ((!!))
-import qualified Data.Text              as T
-import           Formatting             (build, int, sformat, stext, (%))
-import           Options.Applicative    (execParser)
-import           System.IO              (hFlush, stdout)
+import           Control.Monad.Reader (MonadReader (..), ReaderT, asks, runReaderT)
+import           Control.TimeWarp.Rpc (NetworkAddress)
+import           Data.List            ((!!))
+import qualified Data.Text            as T
+import           Formatting           (build, int, sformat, stext, (%))
+import           Mockable             (delay, for)
+import           Options.Applicative  (execParser)
+import           System.IO            (hFlush, stdout)
 import           Universum
 
-import qualified Pos.CLI                as CLI
-import           Pos.Communication      (sendProxySecretKey)
-import           Pos.Constants          (slotDuration)
-import           Pos.Crypto             (SecretKey, createProxySecretKey, toPublic)
-import           Pos.DHT.Model          (DHTNodeType (..), dhtAddr, discoverPeers)
-import           Pos.Genesis            (genesisPublicKeys, genesisSecretKeys)
-import           Pos.Launcher           (BaseParams (..), LoggingParams (..),
-                                         bracketDHTInstance, runTimeSlaveReal)
-import           Pos.Ssc.SscAlgo        (SscAlgo (..))
-import           Pos.Types              (EpochIndex (..), coinF, makePubKeyAddress, txaF)
-import           Pos.Wallet             (WalletMode, WalletParams (..), WalletRealMode,
-                                         getBalance, runWalletReal, submitTx)
+import qualified Pos.CLI              as CLI
+import           Pos.Communication    (sendProxySecretKey)
+import           Pos.Constants        (slotDuration)
+import           Pos.Crypto           (SecretKey, createProxySecretKey, toPublic)
+import           Pos.Genesis          (genesisPublicKeys, genesisSecretKeys)
+import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
+                                       bracketDHTInstance, runTimeSlaveReal)
+import           Pos.NewDHT.Model     (DHTNodeType (..), dhtAddr, discoverPeers)
+import           Pos.Ssc.SscAlgo      (SscAlgo (..))
+import           Pos.Types            (EpochIndex (..), coinF, makePubKeyAddress, txaF)
+import           Pos.Wallet           (WalletMode, WalletParams (..), WalletRealMode,
+                                       getBalance, runWalletReal, submitTx)
 #ifdef WITH_WEB
-import           Pos.Wallet.Web         (walletServeWebLite)
+import           Pos.Wallet.Web       (walletServeWebLite)
 #endif
 
-import           Command                (Command (..), parseCommand)
-import           WalletOptions          (WalletAction (..), WalletOptions (..), optsInfo)
+import           Command              (Command (..), parseCommand)
+import           WalletOptions        (WalletAction (..), WalletOptions (..), optsInfo)
 
 type CmdRunner = ReaderT ([SecretKey], [NetworkAddress])
 
@@ -70,7 +70,8 @@ runCmd (Delegate i j) = do
     putText $ pretty issuerSk
     putText $ pretty delegatePk
     putText "sending cert"
-    sendProxySecretKey proxySig
+    -- TODO [CSL-447] Uncomment
+    --sendProxySecretKey proxySig
     putText "sent cert"
 runCmd Quit = pure ()
 
@@ -92,7 +93,7 @@ initialize :: WalletMode ssc m => WalletOptions -> m [NetworkAddress]
 initialize WalletOptions{..} = do
     -- Wait some time to ensure blockchain is fetched
     putText $ sformat ("Started node. Waiting for "%int%" slots...") woInitialPause
-    wait $ for $ fromIntegral woInitialPause * slotDuration
+    delay $ for $ fromIntegral woInitialPause * slotDuration
     fmap dhtAddr <$> discoverPeers DHTFull
 
 runWalletRepl :: WalletMode ssc m => WalletOptions -> m ()

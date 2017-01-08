@@ -515,6 +515,7 @@ executable cardano-wallet
                      , lifted-async
                      , log-warper >= 0.1.0
                      , mtl
+                     , node-sketch
                      , optparse-applicative
                      , parsec
                      , serokell-util
@@ -621,6 +622,7 @@ executable cardano-smart-generator
                      , lens
                      , lifted-async
                      , log-warper >= 0.1.0
+                     , node-sketch
                      , optparse-applicative
                      , parsec
                      , random

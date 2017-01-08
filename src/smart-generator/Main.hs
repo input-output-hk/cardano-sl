@@ -3,50 +3,49 @@
 
 module Main where
 
-import           Control.Concurrent.Async.Lifted (forConcurrently)
-import           Control.Concurrent.STM.TVar     (modifyTVar', newTVarIO, readTVarIO)
-import           Control.Lens                    (view, _1)
-import           Control.TimeWarp.Rpc            (NetworkAddress)
-import           Control.TimeWarp.Timed          (Microsecond, for, fork_, ms, sec, wait)
-import           Data.List                       ((!!))
-import           Data.Maybe                      (fromMaybe)
-import           Data.Time.Clock.POSIX           (getPOSIXTime)
-import           Formatting                      (float, int, sformat, (%))
-import           Options.Applicative             (execParser)
-import           System.FilePath.Posix           ((</>))
-import           System.Random.Shuffle           (shuffleM)
-import           System.Wlog                     (logInfo)
-import           Test.QuickCheck                 (arbitrary, generate)
-import           Universum                       hiding (forConcurrently)
+import           Control.Concurrent.STM.TVar (modifyTVar', newTVarIO, readTVarIO)
+import           Control.Lens                (view, _1)
+import           Control.TimeWarp.Rpc        (NetworkAddress)
+import           Control.TimeWarp.Timed      (Microsecond, ms, sec)
+import           Data.List                   ((!!))
+import           Data.Maybe                  (fromMaybe)
+import           Data.Time.Clock.POSIX       (getPOSIXTime)
+import           Formatting                  (float, int, sformat, (%))
+import           Mockable                    (delay, for, forConcurrently, fork)
+import           Options.Applicative         (execParser)
+import           System.FilePath.Posix       ((</>))
+import           System.Random.Shuffle       (shuffleM)
+import           System.Wlog                 (logInfo)
+import           Test.QuickCheck             (arbitrary, generate)
+import           Universum                   hiding (forConcurrently)
 
-import qualified Pos.CLI                         as CLI
-import           Pos.Constants                   (genesisN, k, neighborsSendThreshold,
-                                                  slotDuration)
-import           Pos.Crypto                      (KeyPair (..), hash)
-import           Pos.DHT.Model                   (DHTNodeType (..), MonadDHT, dhtAddr,
-                                                  discoverPeers, getKnownPeers)
-import           Pos.DHT.Real                    (KademliaDHT (..), KademliaDHTInstance)
-import           Pos.Genesis                     (genesisUtxo)
-import           Pos.Launcher                    (BaseParams (..), LoggingParams (..),
-                                                  NodeParams (..), bracketDHTInstance,
-                                                  initLrc, runNode, runProductionMode,
-                                                  runTimeSlaveReal, stakesDistr)
-import           Pos.Ssc.Class                   (SscConstraint, SscParams)
-import           Pos.Ssc.GodTossing              (GtParams (..), SscGodTossing)
-import           Pos.Ssc.NistBeacon              (SscNistBeacon)
-import           Pos.Ssc.SscAlgo                 (SscAlgo (..))
-import           Pos.Statistics                  (NoStatsT (..))
-import           Pos.Types                       (TxAux)
-import           Pos.Util.JsonLog                ()
-import           Pos.Wallet                      (submitTxRaw)
-import           Pos.WorkMode                    (ProductionMode)
+import qualified Pos.CLI                     as CLI
+import           Pos.Constants               (genesisN, k, neighborsSendThreshold,
+                                              slotDuration)
+import           Pos.Crypto                  (KeyPair (..), hash)
+import           Pos.Genesis                 (genesisUtxo)
+import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
+                                              NodeParams (..), bracketDHTInstance,
+                                              initLrc, runNode, runProductionMode,
+                                              runTimeSlaveReal, stakesDistr)
+import           Pos.NewDHT.Model            (DHTNodeType (..), MonadDHT, dhtAddr,
+                                              discoverPeers, getKnownPeers)
+import           Pos.NewDHT.Real             (KademliaDHTInstance)
+import           Pos.Ssc.Class               (SscConstraint, SscParams)
+import           Pos.Ssc.GodTossing          (GtParams (..), SscGodTossing)
+import           Pos.Ssc.NistBeacon          (SscNistBeacon)
+import           Pos.Ssc.SscAlgo             (SscAlgo (..))
+import           Pos.Types                   (TxAux)
+import           Pos.Util.JsonLog            ()
+import           Pos.Wallet                  (submitTxRaw)
+import           Pos.WorkMode                (ProductionMode)
 
-import           GenOptions                      (GenOptions (..), optsInfo)
-import           TxAnalysis                      (checkWorker, createTxTimestamps,
-                                                  registerSentTx)
-import           TxGeneration                    (BambooPool, createBambooPool,
-                                                  curBambooTx, initTransaction,
-                                                  isTxVerified, nextValidTx, resetBamboo)
+import           GenOptions                  (GenOptions (..), optsInfo)
+import           TxAnalysis                  (checkWorker, createTxTimestamps,
+                                              registerSentTx)
+import           TxGeneration                (BambooPool, createBambooPool, curBambooTx,
+                                              initTransaction, isTxVerified, nextValidTx,
+                                              resetBamboo)
 import           Util
 
 
@@ -58,7 +57,7 @@ seedInitTx recipShare bp initTx = do
     logInfo "Issuing seed transaction"
     submitTxRaw na initTx
     logInfo "Waiting for 1 slot before resending..."
-    wait $ for slotDuration
+    delay $ for slotDuration
     -- If next tx is present in utxo, then everything is all right
     tx <- liftIO $ curBambooTx bp 1
     isVer <- isTxVerified $ view _1 tx
@@ -83,7 +82,7 @@ getPeers share = do
 runSmartGen :: forall ssc . SscConstraint ssc
             => KademliaDHTInstance -> NodeParams -> SscParams ssc -> GenOptions -> IO ()
 runSmartGen inst np@NodeParams{..} sscnp opts@GenOptions{..} =
-    runProductionMode inst np sscnp $ do
+  runProductionMode inst np sscnp $ \sendActions -> do
     initLrc
     let getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
         initTx = initTransaction opts
@@ -95,12 +94,12 @@ runSmartGen inst np@NodeParams{..} sscnp opts@GenOptions{..} =
 
     -- | Run all the usual node workers in order to get
     -- access to blockchain
-    fork_ $ runNode @ssc []
+    void $ fork $ runNode @ssc [] sendActions
 
     let logsFilePrefix = fromMaybe "." (CLI.logPrefix goCommonArgs)
     -- | Run the special worker to check new blocks and
     -- fill tx verification times
-    fork_ $ checkWorker txTimestamps logsFilePrefix
+    void $ fork $ checkWorker txTimestamps logsFilePrefix
 
     logInfo "STARTING TXGEN"
 
@@ -108,8 +107,7 @@ runSmartGen inst np@NodeParams{..} sscnp opts@GenOptions{..} =
 
     -- [CSL-220] Write MonadBaseControl instance for KademliaDHT
     -- Seeding init tx
-    _ <- NoStatsT $ KademliaDHT $ forConcurrently goGenesisIdxs $
-        \(fromIntegral -> i) -> unKademliaDHT $ getNoStatsT $
+    _ <- forConcurrently goGenesisIdxs $ \(fromIntegral -> i) ->
             seedInitTx goRecipientShare (bambooPools !! i) (initTx i)
 
     -- Start writing tps file
@@ -135,7 +133,7 @@ runSmartGen inst np@NodeParams{..} sscnp opts@GenOptions{..} =
         realTxNum <- liftIO $ newTVarIO (0 :: Int)
 
         -- Make a pause between rounds
-        wait $ for (round $ goRoundPause * fromIntegral (sec 1) :: Microsecond)
+        delay $ for (round $ goRoundPause * fromIntegral (sec 1) :: Microsecond)
 
         beginT <- getPosixMs
         let startMeasurementsT =
@@ -170,12 +168,11 @@ runSmartGen inst np@NodeParams{..} sscnp opts@GenOptions{..} =
 
                       endT <- getPosixMs
                       let runDelta = endT - startT
-                      wait $ for $ ms (max 0 $ tpsDelta - runDelta)
+                      delay $ for $ ms (max 0 $ tpsDelta - runDelta)
               liftIO $ resetBamboo bambooPool
 
         -- [CSL-220] Write MonadBaseControl instance for KademliaDHT
-        _ <- NoStatsT $ KademliaDHT $
-            forConcurrently bambooPools (unKademliaDHT . getNoStatsT . sendThread)
+        _ <- forConcurrently bambooPools sendThread
         finishT <- getPosixMs
 
         realTxNumVal <- liftIO $ readTVarIO realTxNum
@@ -199,7 +196,7 @@ runSmartGen inst np@NodeParams{..} sscnp opts@GenOptions{..} =
 
         -- Wait for 1 phase (to get all the last sent transactions)
         logInfo "Pausing transaction spawning for 1 phase"
-        wait $ for phaseDurationMs
+        delay $ for phaseDurationMs
 
         return (newTPS, newStep)
 

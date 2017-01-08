@@ -12,6 +12,8 @@ import qualified Control.Concurrent.Async as Conc
 import qualified Control.Concurrent.STM   as Conc
 import qualified Control.Exception        as Exception
 import           Control.Monad            (forever)
+import           Control.Monad.Catch      (MonadCatch (..), MonadMask (..),
+                                           MonadThrow (..))
 import           Control.Monad.Fix        (MonadFix)
 import           Control.Monad.IO.Class   (MonadIO, liftIO)
 import           Control.TimeWarp.Timed   (for, hour)
@@ -27,6 +29,7 @@ import           Mockable.Concurrent      (Async (..), Concurrently (..),
                                            delay)
 import           Mockable.Exception       (Bracket (..), Catch (..), Throw (..))
 import           Mockable.SharedAtomic    (SharedAtomic (..), SharedAtomicT)
+import           Universum                (MonadFail (..))
 
 newtype Production t = Production
     { runProduction :: IO t
@@ -107,6 +110,26 @@ instance HasLoggerName Production where
 
 instance CanLog Production where
     dispatchMessage n sv text = Production $ dispatchMessage n sv text
+
+newtype FailException = FailException String
+
+deriving instance Show FailException
+instance Exception.Exception FailException
+
+instance MonadFail Production where
+    fail = Production . Exception.throwIO . FailException
+
+instance MonadThrow Production where
+    throwM = Production . throwM
+
+instance MonadCatch Production where
+    catch act handler = Production $ runProduction act `catch` (runProduction . handler)
+
+instance MonadMask Production where
+    mask act = Production $ mask $
+        \unmask -> runProduction $ act $ Production . unmask . runProduction
+    uninterruptibleMask act = Production $ uninterruptibleMask $
+        \unmask -> runProduction $ act $ Production . unmask . runProduction
 
 curTime :: Production Microsecond
 curTime = liftIO $ round . ( * 1000000) <$> getPOSIXTime

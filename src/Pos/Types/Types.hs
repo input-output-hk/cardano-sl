@@ -373,6 +373,11 @@ instance Buildable TxOut where
 
 type TxOutAux = (TxOut, [(StakeholderId, Coin)])
 
+instance Buildable TxOutAux where
+    build (out, distr) =
+        bprint ("{txout = "%build%", distr = "%listJson%"}")
+               out (map pairBuilder distr)
+
 -- | Use this function if you need to know how a 'TxOut' distributes stake
 -- (e.g. for the purpose of running follow-the-satoshi).
 txOutStake :: TxOutAux -> [(StakeholderId, Coin)]
@@ -450,6 +455,13 @@ data Undo = Undo
 
 -- | Block and its Undo.
 type Blund ssc = (Block ssc, Undo)
+
+instance Buildable Undo where
+    build Undo{..} =
+        bprint ("Undo:\n"%
+                "  undoTx: "%listJson%"\n"%
+                "  undoPsk: "%listJson)
+               (map (bprint listJson) undoTx) undoPsk
 
 ----------------------------------------------------------------------------
 -- SSC. It means shared seed computation, btw

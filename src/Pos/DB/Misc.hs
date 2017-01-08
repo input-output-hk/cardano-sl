@@ -54,7 +54,7 @@ prepareMiscDB leaders gtRichmen = do
     getBi @(LeadersStorage ssc) lrcKey >>=
         maybe (putLeaders 0 leaders) (pure . const ())
     getBi @(GtRichmenStorage ssc) gtRichmenKey >>=
-        maybe (putGtRichmen 0 gtRichmen) (pure . const ())
+        maybe (putGtRichmen (0, gtRichmen)) (pure . const ())
 
 ----------------------------------------------------------------------------
 -- Delegation and proxy signing
@@ -161,8 +161,8 @@ getGtRichmen =
   where
     convert GtRichmenStorage {..} = (gtRichmenEpoch, gtRichmen)
 
-putGtRichmen :: MonadDB ssc m => EpochIndex -> RichmenStake -> m ()
-putGtRichmen gtRichmenEpoch gtRichmen =
+putGtRichmen :: MonadDB ssc m => (EpochIndex, RichmenStake) -> m ()
+putGtRichmen (gtRichmenEpoch, gtRichmen) =
       putBi
           gtRichmenKey
           GtRichmenStorage {..}

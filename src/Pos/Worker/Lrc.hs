@@ -19,8 +19,8 @@ import           Universum
 import           Pos.Binary.Communication ()
 import           Pos.Block.Logic          (applyBlocks, rollbackBlocks, withBlkSemaphore_)
 import           Pos.Constants            (k)
-import           Pos.Context              (getNodeContext, isLeadersComputed,
-                                           ncSscLeaders, readLeaders, writeLeaders)
+import           Pos.Context              (isLeadersComputed, readLeadersEager,
+                                           writeLeaders)
 import           Pos.DB                   (getTotalFtsStake, loadBlocksFromTipWhile,
                                            mapUtxoIterator, putLeaders)
 import           Pos.FollowTheSatoshi     (followTheSatoshiM)
@@ -33,17 +33,16 @@ import           Pos.Types                (Coin, EpochOrSlot (..), EpochOrSlot (
                                            SlotId (..), SlotId (..), StakeholderId, TxIn,
                                            TxIn, TxOutAux, TxOutAux, crucialSlot,
                                            getEpochOrSlot, getEpochOrSlot)
-import           Pos.Util                 (clearMVar)
 import           Pos.WorkMode             (WorkMode)
 
 lrcOnNewSlotWorker :: (SscWorkersClass ssc, WorkMode ssc m) => m ()
 lrcOnNewSlotWorker = onNewSlot True $ lrcOnNewSlotImpl allLrcConsumers
 
 lrcOnNewSlotImpl :: WorkMode ssc m => [LrcConsumer m] -> SlotId -> m ()
-lrcOnNewSlotImpl consumers slotId
-    | siSlot slotId < k = do
+lrcOnNewSlotImpl consumers slotId@SlotId{..}
+    | siSlot < k = do
         expectedRichmenComp <- filterM (flip lcIfNeedCompute slotId) consumers
-        needComputeLeaders <- not <$> isLeadersComputed
+        needComputeLeaders <- not <$> isLeadersComputed siEpoch
         let needComputeRichmen = not . null $ expectedRichmenComp
         when needComputeRichmen $ logInfo "Need to compute richmen"
         when needComputeLeaders $ logInfo "Need to compute leaders"
@@ -52,10 +51,7 @@ lrcOnNewSlotImpl consumers slotId
             logInfo $ "LRC computation is starting"
             withBlkSemaphore_ $ lrcDo slotId expectedRichmenComp
             logInfo $ "LRC computation has finished"
-    | otherwise = do
-        nc <- getNodeContext
-        lrcConsumersClear consumers
-        clearMVar $ ncSscLeaders nc
+    | otherwise = lrcConsumersClear consumers
 
 lrcDo :: WorkMode ssc m
       => SlotId -> [LrcConsumer m] -> HeaderHash ssc -> m (HeaderHash ssc)
@@ -99,7 +95,7 @@ richmenComputationDo slotId consumers = unless (null consumers) $ do
 
 leadersComputationDo :: WorkMode ssc m => SlotId -> m ()
 leadersComputationDo SlotId {siEpoch = epochId} = do
-    unlessM isLeadersComputed $ do
+    unlessM (isLeadersComputed epochId) $ do
         mbSeed <- sscCalculateSeed epochId
         totalStake <- getTotalFtsStake
         leaders <-
@@ -107,9 +103,9 @@ leadersComputationDo SlotId {siEpoch = epochId} = do
                 Left e     -> panic $ sformat ("SSC couldn't compute seed: "%build) e
                 Right seed -> mapUtxoIterator @(TxIn, TxOutAux) @TxOutAux
                               (followTheSatoshiM seed totalStake) snd
-        writeLeaders leaders
-    leaders <- readLeaders
-    putLeaders epochId leaders
+        writeLeaders epochId leaders
+    (epoch, leaders) <- readLeadersEager
+    putLeaders epoch leaders
 
 lrcConsumersClear :: WorkMode ssc m => [LrcConsumer m] -> m ()
 lrcConsumersClear = mapM_ lcClearCallback

@@ -26,10 +26,12 @@ import           Universum
 
 import           Pos.DHT.Model.Class   (DHTResponseT)
 import           Pos.DHT.Real          (KademliaDHT)
+import           Pos.Slotting          (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class.Storage (SscStorageClass (..))
 import           Pos.Ssc.Class.Types   (Ssc (..))
 import           Pos.Ssc.Extra.Richmen (MonadSscRichmen (..))
-import           Pos.Types.Types       (EpochIndex, NEBlocks, SharedSeed, toRichmen)
+import           Pos.Types.Types       (EpochIndex, NEBlocks, SharedSeed, SlotId (..),
+                                        toRichmen)
 
 class Monad m => MonadSscGS ssc m | m -> ssc where
     getGlobalState    :: m (SscGlobalState ssc)
@@ -90,8 +92,9 @@ sscRollback = sscRunGlobalModify . sscRollbackM @ssc
 
 sscVerifyBlocks
     :: forall ssc m.
-       (MonadSscGS ssc m, MonadSscRichmen m, SscStorageClass ssc)
+       (MonadSscGS ssc m, MonadSscRichmen m, SscStorageClass ssc, MonadSlots m)
     => Bool -> NEBlocks ssc -> m VerificationRes
 sscVerifyBlocks verPure blocks = do
-    richmen <- toRichmen <$> readSscRichmen
+    SlotId{..} <- getCurrentSlot
+    richmen <- toRichmen <$> readSscRichmen siEpoch
     sscRunGlobalQuery $ sscVerifyBlocksM @ssc verPure richmen blocks

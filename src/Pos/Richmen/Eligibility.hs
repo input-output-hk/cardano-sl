@@ -120,7 +120,8 @@ findAllRichmenMaybe maybeT maybeTD
         let precomputedD = HM.filter (>= tD) richmenMin
         richmenD <- findDelRichUsingPrecomp precomputedD tD
         pure (richmen, richmenD)
-    | Just t <- maybeT = (,mempty) <$> findRichmenStake t
+    | Just t <- maybeT =
+        (,mempty) <$> findRichmenStake t
     | Just tD <- maybeTD =
         (mempty,) <$> findDelegatedRichmen tD
     | otherwise = pure (mempty, mempty)

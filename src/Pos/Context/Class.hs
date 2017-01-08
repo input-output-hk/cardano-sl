@@ -10,8 +10,10 @@ module Pos.Context.Class
        , readBlkSemaphore
        , takeBlkSemaphore
 
+       , readLeadersEager
        , readLeaders
        , tryReadLeaders
+       , tryReadLeadersEpoch
        , writeLeaders
        , isLeadersComputed
        ) where
@@ -22,7 +24,8 @@ import           Universum
 import           Pos.Context.Context     (NodeContext (..))
 import           Pos.DHT.Model           (DHTResponseT)
 import           Pos.DHT.Real            (KademliaDHT)
-import           Pos.Types               (HeaderHash, SlotLeaders)
+import           Pos.Types               (EpochIndex, HeaderHash, SlotLeaders,
+                                          readUntilEpochMVar)
 
 -- | Class for something that has 'NodeContext' inside.
 class WithNodeContext ssc m | m -> ssc where
@@ -70,25 +73,42 @@ readBlkSemaphore = liftIO . readMVar . ncBlkSemaphore =<< getNodeContext
 
 -- | Read slot leaders from node context. This function blocks if
 -- leaders are not available.
-readLeaders
+readLeadersEager
     :: (MonadIO m, WithNodeContext ssc m)
-    => m SlotLeaders
-readLeaders = getNodeContext >>= liftIO . readMVar . ncSscLeaders
+    => m (EpochIndex, SlotLeaders)
+readLeadersEager = getNodeContext >>= liftIO . readMVar . ncSscLeaders
 
 -- | Read slot leaders from node context. Nothing is returned if
 -- leaders are not available.
 tryReadLeaders
     :: (MonadIO m, WithNodeContext ssc m)
-    => m (Maybe SlotLeaders)
+    => m (Maybe (EpochIndex, SlotLeaders))
 tryReadLeaders = getNodeContext >>= liftIO . tryReadMVar . ncSscLeaders
 
 -- | Put leaders into MVar, assuming it's empty.
 writeLeaders
     :: (MonadIO m, WithNodeContext ssc m)
-    => SlotLeaders -> m ()
-writeLeaders leaders = getNodeContext >>= liftIO . flip putMVar leaders . ncSscLeaders
+    => EpochIndex -> SlotLeaders -> m ()
+writeLeaders epoch leaders = getNodeContext >>=
+    liftIO . flip putMVar (epoch, leaders) . ncSscLeaders
+
+-- Epochs functions
+
+readLeaders
+    :: (MonadIO m, WithNodeContext ssc m)
+    => EpochIndex -> m SlotLeaders
+readLeaders expEpoch = do
+    nc <- getNodeContext
+    snd <$> readUntilEpochMVar (ncSscLeaders nc) expEpoch
+
+tryReadLeadersEpoch
+    :: (MonadIO m, WithNodeContext ssc m)
+    => EpochIndex -> m (Maybe SlotLeaders)
+tryReadLeadersEpoch epoch = do
+    dt <- tryReadLeaders
+    pure $ maybe Nothing (\(e, l) -> if e == epoch then Just l else Nothing) dt
 
 isLeadersComputed
     :: (MonadIO m, WithNodeContext ssc m)
-    => m Bool
-isLeadersComputed = not <$> (getNodeContext >>= liftIO . isEmptyMVar . ncSscLeaders)
+    => EpochIndex -> m Bool
+isLeadersComputed epoch = isJust <$> tryReadLeadersEpoch epoch

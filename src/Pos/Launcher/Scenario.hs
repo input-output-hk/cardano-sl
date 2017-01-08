@@ -3,7 +3,7 @@
 module Pos.Launcher.Scenario
        ( runNode
        , initSemaphore
-       , initLeaders
+       , initLrc
        ) where
 
 import           Control.Concurrent.MVar (putMVar)
@@ -12,13 +12,13 @@ import           Formatting              (build, sformat, (%))
 import           System.Wlog             (logError, logInfo)
 import           Universum
 
-import           Pos.Constants           (k)
 import           Pos.Context             (NodeContext (..), getNodeContext,
                                           ncPubKeyAddress, ncPublicKey, writeLeaders)
 import qualified Pos.DB                  as DB
 import           Pos.DHT.Model           (DHTNodeType (DHTFull), discoverPeers)
 import           Pos.Slotting            (getCurrentSlot)
 import           Pos.Ssc.Class           (SscConstraint)
+import           Pos.Ssc.Extra           (writeSscRichmen)
 import           Pos.Types               (SlotId (..), Timestamp (Timestamp), addressHash)
 import           Pos.Util                (inAssertMode)
 import           Pos.Worker              (runWorkers)
@@ -38,7 +38,7 @@ runNode plugins = do
     logInfo $ sformat ("Known peers: " % build) peers
 
     initSemaphore
-    initLeaders
+    initLrc
     waitSystemStart
     runWorkers
     mapM_ fork plugins
@@ -61,8 +61,10 @@ initSemaphore = do
     tip <- DB.getTip
     liftIO $ putMVar semaphore tip
 
-initLeaders :: WorkMode ssc m => m ()
-initLeaders = do
+initLrc :: WorkMode ssc m => m ()
+initLrc = do
     (epochIndex, leaders) <- DB.getLeaders
+    (rEpochIndex, richmen) <- DB.getGtRichmen
     SlotId {..} <- getCurrentSlot
-    when (siSlot < k && siEpoch == epochIndex) $ writeLeaders leaders
+    writeLeaders epochIndex leaders
+    writeSscRichmen (rEpochIndex, richmen)

@@ -34,7 +34,8 @@ import           Pos.Crypto                       (SecretKey, VssKeyPair, random
 import           Pos.Crypto.SecretSharing         (toVssPublicKey)
 import           Pos.Crypto.Signing               (PublicKey)
 import           Pos.DB                           (getTip)
-import           Pos.Slotting                     (getSlotStart, onNewSlot)
+import           Pos.Slotting                     (getCurrentSlot, getSlotStart,
+                                                   onNewSlot)
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
 import           Pos.Ssc.Extra.MonadLD            (sscRunLocalQuery, sscRunLocalUpdate)
 import           Pos.Ssc.Extra.Richmen            (MonadSscRichmen (..))
@@ -206,7 +207,8 @@ sscProcessMessageRichmen :: WorkMode SscGodTossing m
                          -> StakeholderId
                          -> m Bool
 sscProcessMessageRichmen msg addr = do
-    richmen <- toRichmen <$> readSscRichmen
+    SlotId{..} <- getCurrentSlot
+    richmen <- toRichmen <$> readSscRichmen siEpoch
     sscProcessMessage richmen msg addr
 
 sendOurData
@@ -234,7 +236,7 @@ generateAndSetNewSecret
     -> SlotId                         -- ^ Current slot
     -> m (Maybe (SignedCommitment, Opening))
 generateAndSetNewSecret sk SlotId{..} = do
-    richmen <- toRichmen <$> readSscRichmen
+    richmen <- toRichmen <$> readSscRichmen siEpoch
     certs <- getGlobalCerts
     let noPsErr = panic "generateAndSetNewSecret: no participants"
     let ps = fromMaybe (panic noPsErr) . nonEmpty .

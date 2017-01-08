@@ -25,7 +25,6 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
 import           Control.TimeWarp.Rpc        (MonadDialog, MonadTransfer (..))
 import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
 import           Data.Default                (Default (def))
-import           Data.Maybe                  (isJust)
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
@@ -38,7 +37,8 @@ import           Pos.Ssc.Class.Types         (Ssc (..))
 import           Pos.Ssc.Extra.MonadGS       (MonadSscGS (..))
 import           Pos.Ssc.Extra.MonadLD       (MonadSscLD (..))
 import           Pos.Ssc.Extra.Richmen       (MonadSscRichmen (..))
-import           Pos.Types                   (RichmenStake)
+import           Pos.Types                   (EpochIndex, RichmenStake,
+                                              readUntilEpochMVar)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 data SscState ssc =
@@ -46,7 +46,7 @@ data SscState ssc =
     {
       sscGlobal  :: !(STM.TVar (SscGlobalState ssc))
     , sscLocal   :: !(STM.TVar (SscLocalData ssc))
-    , sscRichmen :: !(MVar RichmenStake)
+    , sscRichmen :: !(MVar (EpochIndex, RichmenStake))
     }
 
 newtype SscHolder ssc m a =
@@ -97,16 +97,20 @@ instance MonadIO m => MonadSscLD ssc (SscHolder ssc m) where
     setLocalData newSt = SscHolder (asks sscLocal) >>= atomically . flip STM.writeTVar newSt
 
 instance MonadIO m => MonadSscRichmen (SscHolder ssc m) where
-    -- | Put richmen into MVar, assuming it's empty.
-    writeSscRichmen richmen = SscHolder (asks sscRichmen) >>= liftIO . flip putMVar richmen
+    -- | Put richmen into MVar.
+    writeSscRichmen er = do
+        mvar <- SscHolder (asks sscRichmen)
+        _ <- liftIO $ tryTakeMVar mvar
+        liftIO $ putMVar mvar er
 
-    isEmptySscRichmen = SscHolder (asks sscRichmen) >>= liftIO . isEmptyMVar
+    -- | Read richmen from SSC node context corresponding to epoch.
+    -- This function blocks if richmen are not available
+    -- or they was computed for previous epoch
+    readSscRichmen epoch = do
+        mvar <- SscHolder (asks sscRichmen)
+        snd <$> readUntilEpochMVar mvar epoch
 
-    -- | Read richmen from SSC node context. This function blocks if
-    -- participants are not available.
-    readSscRichmen = SscHolder (asks sscRichmen) >>= liftIO . readMVar
-
-    clearSscRichmen = isJust <$> (SscHolder (asks sscRichmen) >>= liftIO . tryTakeMVar)
+    tryReadSscRichmen = SscHolder (asks sscRichmen) >>= liftIO . tryReadMVar
 
 runSscHolder :: forall ssc m a. (SscLocalDataClass ssc, MonadIO m)
              => SscHolder ssc m a -> SscGlobalState ssc -> m a

@@ -375,7 +375,7 @@ createGenesisBlockDo
        WorkMode ssc m
     => EpochIndex -> m (Maybe (GenesisBlock ssc))
 createGenesisBlockDo epoch = do
-    leaders <- readLeaders
+    leaders <- readLeaders epoch
     res <- withBlkSemaphore (createGenesisBlockCheckAgain leaders)
     res <$ inAssertMode (logDebug . sformat newTipFmt =<< readBlkSemaphore)
   where

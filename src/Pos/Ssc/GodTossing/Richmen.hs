@@ -1,15 +1,13 @@
-{-# LANGUAGE BangPatterns #-}
 module Pos.Ssc.GodTossing.Richmen
        (
          gtLrcConsumer
        ) where
 
-import           System.Wlog              (logWarning)
 import           Universum
 
 import           Pos.Constants            (k)
 import qualified Pos.DB                   as DB
-import           Pos.Ssc.Extra.Richmen    (MonadSscRichmen (..))
+import           Pos.Ssc.Extra.Richmen    (MonadSscRichmen (..), isEmptySscRichmen)
 import           Pos.Ssc.GodTossing.Types (SscGodTossing)
 import           Pos.Types                (Coin, LrcConsumer (..), RichmenStake,
                                            RichmenStake, SlotId (..), mkCoin)
@@ -31,15 +29,13 @@ ifNeed SlotId{..} = do
     (epochIndex, richmen) <- DB.getGtRichmen
     isEmpty <- isEmptySscRichmen
     let needWrite = siSlot < k && siEpoch == epochIndex && isEmpty
-    when needWrite $ writeSscRichmen richmen
+    when needWrite $ writeSscRichmen (epochIndex, richmen)
     pure (siSlot < k && epochIndex < siEpoch)
 
 onComputed :: WorkMode SscGodTossing m => SlotId -> Coin -> RichmenStake -> m ()
 onComputed SlotId{..} _ richmen = do
-    wasFull <- clearSscRichmen
-    when wasFull $ logWarning $ "SSC richmen isn't cleared when onComputed called"
-    DB.putGtRichmen siEpoch richmen
-    writeSscRichmen richmen
+    DB.putGtRichmen (siEpoch, richmen)
+    writeSscRichmen (siEpoch, richmen)
 
 onClear :: WorkMode SscGodTossing m => m ()
-onClear = void clearSscRichmen
+onClear = pass

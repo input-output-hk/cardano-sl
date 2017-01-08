@@ -114,6 +114,7 @@ module Pos.Types.Types
        , HasEpochOrSlot (..)
 
        , LrcConsumer (..)
+       , readUntilEpochMVar
 
        , blockHeader
        , blockLeaderKey
@@ -1068,6 +1069,9 @@ instance (HasEpochIndex a, HasEpochIndex b) =>
          HasEpochIndex (Either a b) where
     epochIndexL = choosing epochIndexL epochIndexL
 
+instance HasEpochIndex (EpochIndex, b) where
+    epochIndexL = _1
+
 -- | Lens from 'MainBlock' to 'SlotId'.
 blockSlot :: Lens' (MainBlock ssc) SlotId
 blockSlot = gbHeader . headerSlot
@@ -1321,3 +1325,21 @@ data LrcConsumer m = LrcConsumer
     , lcClearCallback     :: m ()
     , lcConsiderDelegated :: Bool
     }
+
+-- | Read until value's epoch equal expEpoch.
+-- Seems it works when value's epoch doesn't decrease after every putMVar
+readUntilEpochMVar
+    :: (MonadIO m, HasEpochIndex a)
+    => MVar a -> EpochIndex -> m a
+readUntilEpochMVar mvar expEpoch = do
+    rData <- liftIO . readMVar $ mvar -- first we try to read for optimization only
+    let epochR = rData ^. epochIndexL
+    if epochR == expEpoch then pure rData
+    else do
+        tData <- liftIO . takeMVar $ mvar -- now take data
+        let epochT = tData ^. epochIndexL
+        if epochT == expEpoch then do -- check again
+            _ <- liftIO $ tryPutMVar mvar tData -- try to put taken value
+            pure tData
+        else
+            readUntilEpochMVar mvar expEpoch

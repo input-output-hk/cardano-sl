@@ -26,7 +26,7 @@ import           Pos.Security                           (shouldIgnorePkAddress)
 import           Pos.Slotting                           (getCurrentSlot)
 import           Pos.Ssc.Class.Listeners                (SscListenersClass (..))
 import           Pos.Ssc.Extra.MonadLD                  (sscGetLocalPayload)
-import           Pos.Ssc.Extra.Richmen                  (MonadSscRichmen (..))
+import           Pos.Ssc.Extra.Richmen                  (tryReadSscRichmenEpoch)
 import           Pos.Ssc.GodTossing.LocalData.LocalData (sscIsDataUseful,
                                                          sscProcessMessage)
 import           Pos.Ssc.GodTossing.Types.Base          (Commitment, Opening,
@@ -39,7 +39,7 @@ import           Pos.Ssc.GodTossing.Types.Message       (GtMsgContents (..),
 import           Pos.Ssc.GodTossing.Types.Type          (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types         (GtPayload (..), GtProof,
                                                          _gpCertificates)
-import           Pos.Types                              (toRichmen)
+import           Pos.Types                              (SlotId (..), toRichmen)
 import           Pos.Types.Address                      (StakeholderId)
 import           Pos.Util.Relay                         (DataMsg, InvMsg, Relay (..),
                                                          ReqMsg, handleDataL, handleInvL,
@@ -109,10 +109,10 @@ instance ( WorkMode SscGodTossing m
 
 sscProcessMessageRichmen :: WorkMode SscGodTossing m
                           => GtMsgContents -> StakeholderId -> m Bool
-sscProcessMessageRichmen dat addr = ifM isEmptySscRichmen
-  (do richmen <- toRichmen <$> readSscRichmen
-      sscProcessMessage richmen dat addr)
-  (pure False)
+sscProcessMessageRichmen dat addr = do
+    SlotId{..} <- getCurrentSlot
+    richmenMaybe <- tryReadSscRichmenEpoch siEpoch
+    maybe (pure False) (\(toRichmen -> r) -> sscProcessMessage r dat addr) richmenMaybe
 
 toContents :: GtMsgTag -> StakeholderId -> GtPayload -> Maybe GtMsgContents
 toContents CommitmentMsg addr (CommitmentsPayload comm _) =

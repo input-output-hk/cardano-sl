@@ -106,8 +106,7 @@ instance HasLoggerName Production where
     getLoggerName = return "production"
     modifyLoggerName = const id
 
-instance CanLog Production where
-    dispatchMessage n sv text = Production $ dispatchMessage n sv text
+deriving instance CanLog Production
 
 newtype FailException = FailException String
 
@@ -117,11 +116,8 @@ instance Exception.Exception FailException
 instance MonadFail Production where
     fail = Production . Exception.throwIO . FailException
 
-instance MonadThrow Production where
-    throwM = Production . throwM
-
-instance MonadCatch Production where
-    catch act handler = Production $ runProduction act `catch` (runProduction . handler)
+deriving instance MonadThrow Production
+deriving instance MonadCatch Production
 
 instance MonadMask Production where
     mask act = Production $ mask $

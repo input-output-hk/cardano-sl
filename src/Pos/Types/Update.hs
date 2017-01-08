@@ -82,14 +82,14 @@ data UpdateData = UpdateData
 -- | Vote for update proposal
 data UpdateVote = UpdateVote
     { -- | Public key of stakeholder, who votes
-      uvKey       :: !PublicKey
-    , -- | Software version to which this vote applies
-      uvSoftware  :: !SoftwareVersion
+      uvKey        :: !PublicKey
+    , -- | Proposal to which this vote applies
+      uvProposalId :: !UpId
     , -- | Approval/rejection bit
-      uvDecision  :: !Bool
+      uvDecision   :: !Bool
     , -- | Signature of (Update proposal, Approval/rejection bit)
       --   by stakeholder
-      uvSignature :: !(Signature (UpdateProposal, Bool))
+      uvSignature  :: !(Signature (UpId, Bool))
     }
   deriving (Eq, Show, Generic, Typeable)
 

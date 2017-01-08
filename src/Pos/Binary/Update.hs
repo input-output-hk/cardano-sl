@@ -22,7 +22,7 @@ instance Bi U.SystemTag where
 instance Bi U.UpdateVote where
     get = label "UpdateVote" $ U.UpdateVote <$> get <*> get <*> get <*> get
     put U.UpdateVote {..} =  put uvKey
-                          *> put uvSoftware
+                          *> put uvProposalId
                           *> put uvDecision
                           *> put uvSignature
 

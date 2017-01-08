@@ -17,6 +17,7 @@ import           Formatting           (sformat, (%))
 import           Universum
 
 import           Pos.Constants        (updateProposalThreshold, updateVoteThreshold)
+import           Pos.Crypto           (hash)
 import qualified Pos.DB               as DB
 import           Pos.DB.Types         (ProposalState (..), UndecidedProposalState (..),
                                        mkUProposalState, voteToUProposalState)
@@ -52,10 +53,10 @@ usApplyBlock (Right blk) = do
     let meb = blk ^. gbExtra
     let votes = meb ^. mebUpdateVotes
     let proposal = meb ^. mebUpdate
-    let votePredicate vote =
-            maybe False ((uvSoftware vote ==) . upSoftwareVersion) proposal
+    let upId = hash <$> proposal
+    let votePredicate vote = maybe False (uvProposalId vote ==) upId
     let (curPropVotes, otherVotes) = partition votePredicate votes
-    let otherGroups = groupWith uvSoftware otherVotes
+    let otherGroups = groupWith uvProposalId otherVotes
     let slot = blk ^. blockSlot
     applyProposalBatch <- maybe (pure []) (applyProposal slot curPropVotes) proposal
     applyOtherVotesBatch <- concat <$> mapM applyVotesGroup otherGroups
@@ -76,8 +77,11 @@ applyVotesGroup
     :: WorkMode ssc m
     => NonEmpty UpdateVote -> m [DB.SomeBatchOp]
 applyVotesGroup votes = do
-    let sv = uvSoftware $ votes ^. _neHead
-    ps <- maybeThrow (USUnknownSoftware sv) =<< DB.getProposalState sv
+    let upId = uvProposalId $ votes ^. _neHead
+        -- TODO: here should be a procedure for getting a proposal state
+        -- from DB by UpId. Or what else should be here?
+        getProp = notImplemented
+    ps <- maybeThrow (USUnknownProposal upId) =<< getProp
     case ps of
         PSDecided _ -> pure []
         PSUndecided ups -> do
@@ -141,8 +145,8 @@ verifyEnoughStake votes mProposal = do
              ")")
     isVoteForProposal UpdateVote {..} =
         case mProposal of
-            Nothing                    -> True
-            Just (UpdateProposal {..}) -> uvDecision && uvSoftware == upSoftwareVersion
+            Nothing       -> True
+            Just proposal -> uvDecision && uvProposalId == hash proposal
     verifyUpdProposalDo :: Coin -> [UpdateVote] -> ExceptT Text m Coin
     verifyUpdProposalDo _ [] = pure zero
     verifyUpdProposalDo voteThreshold (v@UpdateVote {..}:vs) = do

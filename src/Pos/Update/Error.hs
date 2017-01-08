@@ -9,7 +9,7 @@ import           Formatting          (bprint, build, stext, (%))
 import           Universum
 
 import           Pos.Crypto          (shortHashF)
-import           Pos.Types           (SoftwareVersion, StakeholderId)
+import           Pos.Types           (SoftwareVersion, StakeholderId, UpId)
 
 data USError
     = USCantApplyBlocks !Text
@@ -18,6 +18,8 @@ data USError
      -- ^ Voter from applied block is not richman.
     | USUnknownSoftware !SoftwareVersion
      -- ^ Unknown SoftwareVersion encountered.
+    | USUnknownProposal !UpId
+     -- ^ Unknown proposal ID encountered.
     deriving (Show)
 
 instance Exception USError

@@ -32,6 +32,7 @@ import           Pos.Communication.Types   (ResponseMode)
 import           Pos.Context               (WithNodeContext (getNodeContext),
                                             ncPropagation)
 import           Pos.DHT.Model             (replyToNode)
+import           Pos.NewDHT.Model.Neighbors (sendToNeighbors)
 import           Pos.Util                  (NamedMessagePart (..))
 import           Pos.WorkMode              (WorkMode)
 import           System.Wlog               (WithLogger)
@@ -45,6 +46,7 @@ import qualified Message.Message           as M
 import qualified Data.ByteString.Char8     as BC
 import           Pos.Types                   (TxId(..))
 import           Pos.Txp.Types.Communication (TxMsgTag (..))
+import           Pos.NewDHT.Model.Class      (MonadDHT (..))
 
 -- | Typeclass for general Inv/Req/Dat framework. It describes monads,
 -- that store data described by tag, where "key" stands for node
@@ -289,7 +291,8 @@ handleDataL DataMsg {..} =
 
 handleDataL'
     :: forall ssc m key tag contents.
-       ( Bi (InvMsg key tag)
+       ( MonadDHT m
+       , Bi (InvMsg key tag)
        , Buildable tag
        , Relay m tag key contents
        , Ssc ssc
@@ -320,5 +323,4 @@ handleDataL' DataMsg {..} peerId sendActions =
             ("Adopted data "%build%" for address "%build%", propagating...")
             dmContents dmKey
         tag <- contentsToTag dmContents
-        return ()
-        --sendToNeighborsSafe $ InvMsg tag (dmKey :| [])
+        sendToNeighbors sendActions $ InvMsg tag (dmKey :| [])

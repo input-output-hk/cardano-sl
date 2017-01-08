@@ -36,6 +36,7 @@ import           Message.Message             (BinaryP, messageName)
 import           Mockable.Monad              (MonadMockable(..))
 import           Pos.Communication.BiP       (BiP(..))
 import           Pos.Ssc.Class.Types         (Ssc(..))
+import           Pos.NewDHT.Model.Class      (MonadDHT (..))
 
 -- | Listeners for requests related to blocks processing.
 txListeners
@@ -45,6 +46,7 @@ txListeners = notImplemented
 
 txListeners'
     :: ( Ssc ssc
+       , MonadDHT m
        , MonadDHTDialog (MutSocketState ssc) m
        , ResponseMode ssc m
        , MonadMockable m
@@ -70,7 +72,7 @@ handleReqTx = ListenerActionOneMsg $ \peerId sendActions (r :: ReqMsg TxId TxMsg
     handleReqL' r peerId sendActions
 
 handleDataTx
-    :: (Ssc ssc, MonadMockable m, WorkMode ssc m, ResponseMode ssc m)
+    :: (MonadDHT m, Ssc ssc, MonadMockable m, WorkMode ssc m, ResponseMode ssc m)
     => ListenerAction BiP m
 handleDataTx = ListenerActionOneMsg $ \peerId sendActions (d :: DataMsg TxId TxMsgContents) -> 
     handleDataL' d peerId sendActions

@@ -9,9 +9,10 @@ module Pos.Update.Holder
        , runUSHolderFromTVar
        ) where
 
-import           Control.Concurrent.STM      (TVar, newTVarIO)
+import           Control.Concurrent.STM      (TVar, newTVarIO, readTVar, writeTVar)
 import           Control.Lens                (iso)
 import           Control.Monad.Base          (MonadBase (..))
+import           Control.Monad.State         (MonadState (..))
 import           Control.Monad.Trans.Class   (MonadTrans)
 import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,
@@ -25,7 +26,9 @@ import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Context                 (WithNodeContext)
+import qualified Pos.DB                      as DB
 import           Pos.DB.Class                (MonadDB)
+import           Pos.DB.Types                (UndecidedProposalState)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..))
@@ -45,8 +48,17 @@ newtype USHolder m a = USHolder
                 MonadUtxoRead, MonadUtxo, MonadTxpLD ssc, MonadBase io,
                 MonadDelegation)
 
-instance Monad m => MonadUS (USHolder m) where
+instance MonadIO m => MonadState MemState (USHolder m) where
+    get = USHolder ask >>= atomically . readTVar
+    put s = USHolder ask >>= atomically . flip writeTVar s
+
+instance MonadDB ssc m => MonadUS (USHolder m) where
     askUSMemState = USHolder ask
+    getScriptVersion = notImplemented
+    getLastAdoptedPV = DB.getLastPV
+    getLastConfirmedSV = DB.getConfirmedSV
+    hasActiveProposal = notImplemented
+    getProposal = notImplemented
 
 instance MonadTransfer s m => MonadTransfer s (USHolder m)
 

@@ -234,6 +234,7 @@ library
                         Pos.Update.Download
                         Pos.Update.Error
                         Pos.Update.Holder
+                        Pos.Update.Listeners
                         Pos.Update.Logic
                         Pos.Update.MemState
                         Pos.Update.Worker

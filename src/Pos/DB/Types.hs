@@ -23,22 +23,19 @@ module Pos.DB.Types
        , DecidedProposalState (..)
        , ProposalState (..)
        , psProposal
-       , canCombineVotes
-       , combineVotes
        , mkUProposalState
        , voteToUProposalState
        ) where
 
-import           Control.Exception   (assert)
 import           Control.Lens        (makeLenses)
 import qualified Data.HashMap.Strict as HM
 import qualified Database.RocksDB    as Rocks
-import           Formatting          (sformat, shown, (%))
 import           Universum
 
 import           Pos.Crypto          (PublicKey)
 import           Pos.Types           (Block, ChainDifficulty, Coin, EpochIndex, Richmen,
-                                      SlotId, SlotLeaders, UpdateProposal, mkCoin,
+                                      SlotId, SlotLeaders, StakeholderVotes,
+                                      UpdateProposal, VoteState, combineVotes, mkCoin,
                                       unsafeAddCoin)
 
 ----------------------------------------------------------------------------
@@ -85,45 +82,10 @@ data LrcStorage ssc = LrcStorage
 -- Update System
 ----------------------------------------------------------------------------
 
--- | This type represents summary of votes issued by stakeholder.
-data VoteState
-    = PositiveVote    -- ^ Stakeholder voted once positively.
-    | NegativeVote    -- ^ Stakeholder voted once positively.
-    | PositiveRevote  -- ^ Stakeholder voted negatively, then positively.
-    | NegativeRevote  -- ^ Stakeholder voted positively, then negatively.
-    deriving (Show, Generic)
-
--- | Check whether given decision is a valid vote if applied to
--- existing vote (which may not exist).
-canCombineVotes :: Bool -> Maybe VoteState -> Bool
-canCombineVotes _ Nothing                 = True
-canCombineVotes True (Just NegativeVote)  = True
-canCombineVotes False (Just PositiveVote) = True
-canCombineVotes _ _                       = False
-
--- | Apply decision to given vote (or Nothing). This function will
--- 'panic' if decision can't be applied. Use 'canCombineVotes' in
--- advance.
-combineVotes :: Bool -> Maybe VoteState -> VoteState
-combineVotes decision oldVote = assert (canCombineVotes decision oldVote) combineVotesDo
-  where
-    combineVotesDo =
-        case (decision, oldVote) of
-            (True, Nothing)            -> PositiveVote
-            (False, Nothing)           -> NegativeVote
-            (True, Just NegativeVote)  -> PositiveRevote
-            (False, Just PositiveVote) -> NegativeRevote
-            (_, Just vote)             -> onFailure vote
-    onFailure =
-        panic .
-        sformat
-        ("combineVotes: these votes can't be combined ("%shown%" and "%shown%")")
-        decision
-
 -- | State of UpdateProposal which can't be classified as approved or
 -- rejected.
 data UndecidedProposalState = UndecidedProposalState
-    { upsVotes         :: !(HashMap PublicKey VoteState)
+    { upsVotes         :: !StakeholderVotes
       -- ^ Votes given for this proposal.
     , upsProposal      :: !UpdateProposal
       -- ^ Proposal itself.
@@ -160,8 +122,7 @@ psProposal (PSDecided dps)   = dpsProposal dps
 mkUProposalState :: SlotId -> UpdateProposal -> UndecidedProposalState
 mkUProposalState upsSlot upsProposal =
     UndecidedProposalState
-    { upsVotes = mempty
-    , upsPositiveStake = mkCoin 0
+    { upsVotes = mempty , upsPositiveStake = mkCoin 0
     , upsNegativeStake = mkCoin 0
     , ..
     }

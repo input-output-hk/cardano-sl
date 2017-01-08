@@ -230,13 +230,15 @@ library
                         Pos.Types.Utxo.Pure
                         Pos.Worker.Lrc
                         Pos.Worker.Stats
-                        Pos.Update.Class
                         Pos.Update.Download
                         Pos.Update.Error
-                        Pos.Update.Holder
                         Pos.Update.Listeners
                         Pos.Update.Logic
                         Pos.Update.MemState
+                        Pos.Update.MemState.Class
+                        Pos.Update.MemState.Holder
+                        Pos.Update.MemState.MemState
+                        Pos.Update.MemState.Types
                         Pos.Update.Poll
                         Pos.Update.Poll.Class
                         Pos.Update.Types.Communication

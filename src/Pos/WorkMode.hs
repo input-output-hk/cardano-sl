@@ -45,8 +45,7 @@ import           Pos.Statistics.MonadStats     (MonadStats, NoStatsT, StatsT)
 import           Pos.Txp.Class                 (MonadTxpLD (..))
 import           Pos.Txp.Holder                (TxpLDHolder)
 import           Pos.Types                     (MonadUtxo)
-import           Pos.Update.Class              (MonadUS)
-import           Pos.Update.Holder             (USHolder)
+import           Pos.Update.MemState           (MonadUSMem, USHolder)
 import           Pos.Util.JsonLog              (MonadJL (..))
 
 type MSockSt ssc = MutSocketState ssc
@@ -62,7 +61,7 @@ type WorkMode ssc m
       , Modern.MonadDB ssc m
       , MonadTxpLD ssc m
       , MonadDelegation m
-      , MonadUS m
+      , MonadUSMem m
       , MonadUtxo m
       , MonadSscGS ssc m
       , SscStorageClass ssc

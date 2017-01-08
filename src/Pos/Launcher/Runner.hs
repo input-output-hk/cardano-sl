@@ -82,7 +82,7 @@ import           Pos.Statistics               (getNoStatsT, runStatsT)
 import           Pos.Txp.Holder               (runTxpLDHolder)
 import qualified Pos.Txp.Types.UtxoView       as UV
 import           Pos.Types                    (Timestamp (Timestamp), timestampF)
-import           Pos.Update.Holder            (runUSHolder)
+import           Pos.Update.MemState          (runUSHolder)
 import           Pos.Util                     (runWithRandomIntervals)
 import           Pos.Util.UserSecret          (peekUserSecret, usKeys, writeUserSecret)
 import           Pos.Worker                   (statsWorkers)

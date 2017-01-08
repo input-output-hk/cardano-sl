@@ -7,16 +7,16 @@ module Pos.Update.Poll.Class
        ( MonadPoll (..)
        ) where
 
-import           Control.Monad.Except (ExceptT)
-import           Control.Monad.Trans  (MonadTrans)
+import           Control.Monad.Except      (ExceptT)
+import           Control.Monad.Trans       (MonadTrans)
 import           Universum
 
-import           Pos.DHT.Model.Class  (DHTResponseT)
-import           Pos.DHT.Real         (KademliaDHT)
-import           Pos.Script.Type      (ScriptVersion)
-import           Pos.Types            (ApplicationName, ProtocolVersion)
-import           Pos.Update.MemState  (LocalProposalState)
-import           Pos.Update.Types     (UpId)
+import           Pos.DHT.Model.Class       (DHTResponseT)
+import           Pos.DHT.Real              (KademliaDHT)
+import           Pos.Script.Type           (ScriptVersion)
+import           Pos.Types                 (ApplicationName, ProtocolVersion)
+import           Pos.Update.MemState.Types (LocalProposalState)
+import           Pos.Update.Types          (UpId)
 
 -- | Type class which provides function necessary for verification of US data.
 class Monad m => MonadPoll m where

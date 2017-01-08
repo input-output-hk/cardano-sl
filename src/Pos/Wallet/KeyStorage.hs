@@ -39,7 +39,7 @@ import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Slotting                (MonadSlots)
 import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp.Holder              (TxpLDHolder (..))
-import           Pos.Update.Holder           (USHolder (..))
+import           Pos.Update.MemState         (USHolder (..))
 import           Pos.Util                    ()
 import           Pos.Util.UserSecret         (UserSecret, peekUserSecret, usKeys,
                                               writeUserSecret)

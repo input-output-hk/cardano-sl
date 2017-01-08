@@ -1,40 +1,41 @@
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
--- | Monad transformer which implements MonadUS based on ReaderT.
+-- | Monad transformer which implements MonadUSMem based on ReaderT.
+-- It's also instance of MonadPoll.
 
-module Pos.Update.Holder
+module Pos.Update.MemState.Holder
        ( USHolder (..)
        , runUSHolder
        , runUSHolderFromTVar
        ) where
 
-import           Control.Concurrent.STM      (TVar, newTVarIO, readTVar, writeTVar)
-import           Control.Lens                (iso)
-import           Control.Monad.Base          (MonadBase (..))
-import           Control.Monad.State         (MonadState (..))
-import           Control.Monad.Trans.Class   (MonadTrans)
-import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
-                                              MonadTransControl (..), StM,
-                                              defaultLiftBaseWith, defaultLiftWith,
-                                              defaultRestoreM, defaultRestoreT)
-import           Control.TimeWarp.Rpc        (MonadDialog, MonadTransfer (..))
-import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
-import           Data.Default                (Default (def))
-import           Serokell.Util.Lens          (WrappedM (..))
-import           System.Wlog                 (CanLog, HasLoggerName)
+import           Control.Concurrent.STM       (TVar, newTVarIO, readTVar, writeTVar)
+import           Control.Lens                 (iso)
+import           Control.Monad.Base           (MonadBase (..))
+import           Control.Monad.State          (MonadState (..))
+import           Control.Monad.Trans.Class    (MonadTrans)
+import           Control.Monad.Trans.Control  (ComposeSt, MonadBaseControl (..),
+                                               MonadTransControl (..), StM,
+                                               defaultLiftBaseWith, defaultLiftWith,
+                                               defaultRestoreM, defaultRestoreT)
+import           Control.TimeWarp.Rpc         (MonadDialog, MonadTransfer (..))
+import           Control.TimeWarp.Timed       (MonadTimed (..), ThreadId)
+import           Data.Default                 (Default (def))
+import           Serokell.Util.Lens           (WrappedM (..))
+import           System.Wlog                  (CanLog, HasLoggerName)
 import           Universum
 
-import           Pos.Context                 (WithNodeContext)
-import           Pos.DB.Class                (MonadDB)
-import           Pos.Delegation.Class        (MonadDelegation)
-import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..))
-import           Pos.Txp.Class               (MonadTxpLD (..))
-import           Pos.Types.Utxo.Class        (MonadUtxo, MonadUtxoRead)
-import           Pos.Update.Class            (MonadUS (..))
-import           Pos.Update.MemState         (MemState)
-import           Pos.Util.JsonLog            (MonadJL (..))
+import           Pos.Context                  (WithNodeContext)
+import           Pos.DB.Class                 (MonadDB)
+import           Pos.Delegation.Class         (MonadDelegation)
+import           Pos.Slotting                 (MonadSlots (..))
+import           Pos.Ssc.Extra                (MonadSscGS (..), MonadSscLD (..))
+import           Pos.Txp.Class                (MonadTxpLD (..))
+import           Pos.Types.Utxo.Class         (MonadUtxo, MonadUtxoRead)
+import           Pos.Update.MemState.Class    (MonadUSMem (..))
+import           Pos.Update.MemState.MemState (MemState)
+import           Pos.Util.JsonLog             (MonadJL (..))
 
 -- | Trivial monad transformer based on @ReaderT (TVar MemState)@.
 newtype USHolder m a = USHolder
@@ -50,7 +51,7 @@ instance MonadIO m => MonadState MemState (USHolder m) where
     get = USHolder ask >>= atomically . readTVar
     put s = USHolder ask >>= atomically . flip writeTVar s
 
-instance MonadDB ssc m => MonadUS (USHolder m) where
+instance MonadDB ssc m => MonadUSMem (USHolder m) where
     askUSMemState = USHolder ask
 
 instance MonadTransfer s m => MonadTransfer s (USHolder m)

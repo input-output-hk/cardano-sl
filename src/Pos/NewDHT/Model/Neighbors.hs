@@ -10,17 +10,16 @@ module Pos.NewDHT.Model.Neighbors
   ) where
 
 import           Control.Monad          (sequence)
-import           Control.Monad.Catch    (SomeException, catch)
 import           Data.ByteString.Char8  (pack)
 
 import           Data.Foldable          (notElem)
 import           Formatting             (int, sformat, shown, (%))
 import qualified Formatting             as F
 import           Message.Message        (Message, Serializable)
-import           Mockable.Monad         (MonadMockable)
+import           Mockable               (MonadMockable, catchAll)
 import           Node                   (NodeId (..), SendActions (..))
 import           System.Wlog            (WithLogger, logInfo, logWarning)
-import           Universum
+import           Universum              hiding (catchAll)
 
 import           Pos.Constants          (neighborsSendThreshold)
 import           Pos.NewDHT.Model.Class (MonadDHT (..))
@@ -31,7 +30,7 @@ import           Pos.NewDHT.Model.Types (DHTNode (..), DHTNodeType (..), address
 -- It's a broadcasting to the neighbours without sessions
 -- (i.e. we don't have to wait for reply from the listeners).
 sendToNeighbors
-    :: ( MonadDHT m, MonadMockable m, Serializable packing body, WithLogger m, Message body, MonadCatch m )
+    :: ( MonadDHT m, MonadMockable m, Serializable packing body, WithLogger m, Message body )
     => SendActions packing m
     -> body
     -> m ()
@@ -46,7 +45,7 @@ sendToNeighbors sender msg = do
     -- We don't need to parallelize sends here, because they are asynchronous by design
     mapM_ send' nodes
   where
-    send' node = sendTo sender (addressToNodeId . dhtAddr $ node) msg `catch` handleE
+    send' node = sendTo sender (addressToNodeId . dhtAddr $ node) msg `catchAll` handleE
       where
-        handleE (e :: SomeException) = do
+        handleE e = do
             logInfo $ sformat ("Error sending message to " % F.build % ": " % shown) node e

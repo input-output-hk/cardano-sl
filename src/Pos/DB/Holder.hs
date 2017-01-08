@@ -11,6 +11,7 @@ module Pos.DB.Holder
 
 import           Control.Lens                 (iso, over)
 import           Control.Monad.Base           (MonadBase (..))
+import           Control.Monad.Fix            (MonadFix)
 import           Control.Monad.Trans          (MonadTrans)
 import           Control.Monad.Trans.Resource (MonadResource)
 import           Mockable                     (ChannelT, MFunctor' (hoist'),
@@ -27,7 +28,7 @@ newtype DBHolder ssc m a = DBHolder
     { getDBHolder :: ReaderT (NodeDBs ssc) m a
     } deriving (Functor, Applicative, Monad, MonadTrans,
                 MonadThrow, MonadCatch, MonadMask, MonadIO, MonadFail,
-                HasLoggerName, CanLog)
+                HasLoggerName, CanLog, MonadFix)
 
 instance Monad m => WrappedM (DBHolder ssc m) where
     type UnwrappedM (DBHolder ssc m) = ReaderT (NodeDBs ssc) m

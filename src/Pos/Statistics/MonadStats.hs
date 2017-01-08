@@ -74,7 +74,6 @@ instance MonadStats m => MonadStats (ExceptT      e m)
 type instance ThreadId (NoStatsT m) = ThreadId m
 type instance ThreadId (StatsT m) = ThreadId m
 
-
 -- | Stats wrapper for collecting statistics without collecting it.
 newtype NoStatsT m a = NoStatsT
     { getNoStatsT :: m a  -- ^ action inside wrapper without collecting statistics

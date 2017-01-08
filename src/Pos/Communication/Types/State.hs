@@ -7,11 +7,17 @@ module Pos.Communication.Types.State
        , MutSocketState
        , newMutSocketState
        , peerVersion
+       , StateHolder(..)
+       , newStateHolder
        ) where
 
 import           Control.Concurrent.STM         (TVar, newTVarIO)
 import           Control.Lens                   (makeClassy)
 import           Data.Default                   (Default (def))
+import           Mockable                       (Mockable, SharedAtomic, SharedAtomicT,
+                                                 newSharedAtomic)
+import           Node                           (NodeId)
+import qualified STMContainers.Map              as STM
 import           Universum
 
 import           Pos.Block.Network.Server.State (BlockSocketState,
@@ -40,9 +46,33 @@ instance Default (SocketState ssc) where
 instance HasBlockSocketState (SocketState ssc) ssc where
     blockSocketState = _blockSocketState
 
+-- [CSL-447] TODO remove these types after refactoring `Transfer` out
+
 -- | Mutable SocketState.
 type MutSocketState ssc = TVar (SocketState ssc)
 
 -- | Create a new mutable socket state
 newMutSocketState :: IO (MutSocketState ssc)
 newMutSocketState = newTVarIO def
+
+data StateHolder ssc m = StateHolder
+    { getState   :: NodeId -> m (SharedAtomicT m (SocketState ssc))
+    , clearState :: NodeId -> m ()
+    }
+
+newStateHolder :: (MonadIO m, Mockable SharedAtomic m) => m (StateHolder ssc m)
+newStateHolder = do
+    m <- liftIO STM.newIO
+    let getState nodeId = do
+          mV <- liftIO . atomically $ nodeId `STM.lookup` m
+          case mV of
+            Just v -> return v
+            _ -> do
+              st <- newSharedAtomic def
+              liftIO . atomically $ do
+                  mV' <- nodeId `STM.lookup` m
+                  case mV' of
+                    Just v -> return v
+                    _      -> STM.insert st nodeId m $> st
+        clearState nodeId = liftIO . atomically $ nodeId `STM.delete` m
+    pure $ StateHolder getState clearState

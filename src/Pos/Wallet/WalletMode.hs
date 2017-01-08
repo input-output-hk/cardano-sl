@@ -19,6 +19,7 @@ import           Control.Monad.Trans.Maybe     (MaybeT (..))
 import           Control.TimeWarp.Rpc          (Dialog, Transfer)
 import qualified Data.HashMap.Strict           as HM
 import qualified Data.Map                      as M
+import           Mockable                      (Bracket, Catch, Mockable, Throw)
 import           System.Wlog                   (WithLogger)
 import           Universum
 
@@ -76,7 +77,7 @@ deriving instance MonadBalances m => MonadBalances (DelegationT m)
 instance MonadIO m => MonadBalances (WalletDB m) where
     getOwnUtxo addr = WS.getUtxo >>= return . filterUtxoByAddr addr
 
-instance (MonadDB ssc m, MonadMask m) => MonadBalances (Modern.TxpLDHolder ssc m) where
+instance (MonadDB ssc m, Mockable Throw m, Mockable Catch m, Mockable Bracket m) => MonadBalances (Modern.TxpLDHolder ssc m) where
     getOwnUtxo addr = do
         utxo <- DB.getFilteredUtxo addr
         updates <- getUtxoView
@@ -120,7 +121,7 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
     saveTx _ = pure ()
 
 -- TODO: make a working instance
-instance (Ssc ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
+instance (Ssc ssc, MonadDB ssc m, Mockable Throw m, MonadThrow m, WithLogger m)
          => MonadTxHistory (Modern.TxpLDHolder ssc m) where
     getTxHistory addr = do
         bot <- DB.getBot

@@ -4,6 +4,7 @@ module Pos.Binary.Communication () where
 
 import           Data.Binary.Get         (getInt32be, getWord8, label)
 import           Data.Binary.Put         (putInt32be, putWord8)
+import           Message.Message         (MessageName (..))
 import           Universum
 
 import           Pos.Binary.Class        (Bi (..))
@@ -17,6 +18,8 @@ import           Pos.Delegation.Types    (CheckProxySKConfirmed (..),
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.Txp.Types           (TxMsgTag (..))
 import           Pos.Types               ()
+
+deriving instance Bi MessageName
 
 ----------------------------------------------------------------------------
 -- System start

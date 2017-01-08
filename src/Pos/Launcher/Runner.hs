@@ -40,20 +40,25 @@ import           Data.Default                 (def)
 import           Data.List                    (nub)
 import qualified Data.Time                    as Time
 import           Formatting                   (build, sformat, shown, (%))
-import           Mockable                     (Production (runProduction), bracket,
-                                               currentTime, fork, killThread)
-import           Node                         (Listener)
+import           Mockable                     (Production (..), bracket, currentTime,
+                                               fork, killThread, throw)
+import           Network.Transport.Concrete   (concrete)
+import qualified Network.Transport.TCP        as TCP
+import           Node                         (Listener, NodeAction (..), SendActions,
+                                               hoistSendActions, node)
+import qualified STMContainers.Map            as SM
+import           System.Random                (newStdGen)
 import           System.Wlog                  (LoggerName (..), WithLogger, logDebug,
-                                               logInfo, logWarning, releaseAllHandlers,
-                                               traverseLoggerConfig, usingLoggerName)
+                                               logError, logInfo, logWarning,
+                                               releaseAllHandlers, traverseLoggerConfig,
+                                               usingLoggerName)
 import           Universum                    hiding (bracket)
 
 import           Pos.Binary                   ()
 import           Pos.CLI                      (readLoggerConfig)
-import           Pos.Communication            (BiP, MutSocketState, SysStartRequest (..),
-                                               allListeners, forkStrategy,
-                                               newMutSocketState, noCacheMessageNames,
-                                               sysStartReqListener,
+import           Pos.Communication            (BiP (..), SysStartRequest (..),
+                                               allListeners, forkStrategy, newStateHolder,
+                                               noCacheMessageNames, sysStartReqListener,
                                                sysStartReqListenerSlave,
                                                sysStartRespListener)
 import           Pos.Constants                (defaultPeers, isDevelopment, runningMode)
@@ -74,7 +79,7 @@ import           Pos.NewDHT.Real              (KademliaDHT, KademliaDHTInstance,
 import           Pos.Ssc.Class                (SscConstraint, SscNodeContext, SscParams,
                                                sscCreateNodeContext, sscLoadGlobalState)
 import           Pos.Ssc.Extra                (runSscHolder)
-import           Pos.Statistics               (getNoStatsT, runStatsT)
+import           Pos.Statistics               (getNoStatsT, runStatsT')
 import           Pos.Txp.Holder               (runTxpLDHolder)
 import qualified Pos.Txp.Types.UtxoView       as UV
 import           Pos.Types                    (Timestamp (Timestamp), timestampF)
@@ -134,147 +139,143 @@ import           Pos.WorkMode                 (MinWorkMode, NewMinWorkMode,
 ------------------------------------------------------------------------------
 ---- High level runners
 ------------------------------------------------------------------------------
---
----- | RawRealMode runner.
---runRawRealMode
---    :: forall ssc c.
---       SscConstraint ssc
---    => KademliaDHTInstance
---    -> NodeParams
---    -> SscParams ssc
---    -> [ListenerDHT (MutSocketState ssc) (RawRealMode ssc)]
---    -> RawRealMode ssc c
---    -> IO c
---runRawRealMode inst np@NodeParams {..} sscnp listeners action =
---    runResourceT $
---    do putText $ "Running listeners number: " <> show (length listeners)
---       lift $ setupLoggers lp
---       modernDBs <- Modern.openNodeDBs npRebuildDb npDbPathM npCustomUtxo
---       initTip <- Modern.runDBHolder modernDBs Modern.getTip
---       initGS <- Modern.runDBHolder modernDBs (sscLoadGlobalState @ssc initTip)
---       initNC <- sscCreateNodeContext @ssc sscnp
---       let actionWithMsg = nodeStartMsg npBaseParams >> action
---       let kademliazedAction = runKademliaDHT inst actionWithMsg
---       let finalAction = setForkStrategy (forkStrategy @ssc) kademliazedAction
---       let run =
---               runOurDialog newMutSocketState lpRunnerTag .
---               Modern.runDBHolder modernDBs .
---               runCH np initNC .
---               flip runSscHolder initGS .
---               runTxpLDHolder (UV.createFromDB . Modern._utxoDB $ modernDBs) initTip .
---               runDelegationT def $
---               finalAction
---       lift run
---  where
---    lp@LoggingParams {..} = bpLoggingParams npBaseParams
---
----- | ProductionMode runner.
---runProductionMode
---    :: forall ssc a.
---       SscConstraint ssc
---    => KademliaDHTInstance -> NodeParams -> SscParams ssc ->
---       ProductionMode ssc a -> IO a
---runProductionMode inst np@NodeParams {..} sscnp =
---    runRawRealMode inst np sscnp listeners . getNoStatsT
---  where
---    listeners = addDevListeners npSystemStart []
---    --noStatsListeners = map (mapListenerDHT getNoStatsT) (allListeners @ssc)
---
----- | StatsMode runner.
----- [CSL-169]: spawn here additional listener, which would accept stat queries
----- can be done as part of refactoring (or someone who will refactor will create new issue).
---runStatsMode
---    :: forall ssc a.
---       SscConstraint ssc
---    => KademliaDHTInstance -> NodeParams -> SscParams ssc -> StatsMode ssc a
---    -> IO a
---runStatsMode inst np@NodeParams {..} sscnp action =
---    runRawRealMode inst np sscnp listeners $ runStatsT $ do
---    mapM_ fork statsWorkers
---    action
---  where
---    listeners = addDevListeners npSystemStart []
---    --sListeners = map (mapListenerDHT runStatsT) $ allListeners @ssc
---
----- | ServiceMode runner.
---runServiceMode
---    :: KademliaDHTInstance
---    -> BaseParams
---    -> [ListenerDHT () ServiceMode]
---    -> ServiceMode a
---    -> IO a
---runServiceMode inst bp@BaseParams{..} listeners action = loggerBracket bpLoggingParams $ do
---    runOurDialog pass (lpRunnerTag bpLoggingParams) . runKademliaDHT inst $
---        nodeStartMsg bp >> action
---
-------------------------------------------------------------------------------
----- Lower level runners
-------------------------------------------------------------------------------
---
---runCH :: (Modern.MonadDB ssc m, MonadFail m)
---      => NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
---runCH NodeParams {..} sscNodeContext act = do
---    jlFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
---    semaphore <- liftIO newEmptyMVar
---    sscRichmen <- liftIO newEmptyMVar
---    sscLeaders <- liftIO newEmptyMVar
---    userSecret <- peekUserSecret npKeyfilePath
---
---    -- Get primary secret key
---    (primarySecretKey, userSecret') <- case npSecretKey of
---        Nothing -> case userSecret ^? usKeys . _head of
---            Nothing -> fail $ "No secret keys are found in " ++ npKeyfilePath
---            Just sk -> return (sk, userSecret)
---        Just sk -> do
---            let us = userSecret & usKeys %~ (sk :) . filter (/= sk)
---            writeUserSecret us
---            return (sk, us)
---
---    let eternity = (minBound, maxBound)
---        makeOwnPSK = flip (createProxySecretKey primarySecretKey) eternity . toPublic
---        ownPSKs = userSecret' ^.. usKeys._tail.each.to makeOwnPSK
---    forM_ ownPSKs addProxySecretKey
---
---    userSecretVar <- liftIO . atomically . newTVar $ userSecret'
---    let ctx =
---            NodeContext
---            { ncSystemStart = npSystemStart
---            , ncSecretKey = primarySecretKey
---            , ncTimeLord = npTimeLord
---            , ncJLFile = jlFile
---            , ncDbPath = npDbPathM
---            , ncSscContext = sscNodeContext
---            , ncAttackTypes = npAttackTypes
---            , ncAttackTargets = npAttackTargets
---            , ncPropagation = npPropagation
---            , ncBlkSemaphore = semaphore
---            , ncSscRichmen = sscRichmen
---            , ncSscLeaders = sscLeaders
---            , ncUserSecret = userSecretVar
---            }
---    runContextHolder ctx act
 
--- runOurDialogRaw
---     :: TVar (ConnectionPool socketState)
---     -> IO socketState
---     -> LoggerName
---     -> Dialog DHTPacking (Transfer socketState) a
---     -> IO a
--- runOurDialogRaw cPool ssInitializer loggerName =
---     runTimedIO .
---     usingLoggerName loggerName . runTransferRaw def cPool ssInitializer . runDialog BiP
---
--- runOurDialog
---     :: IO socketState
---     -> LoggerName
---     -> Dialog DHTPacking (Transfer socketState) a
---     -> IO a
--- runOurDialog ssInitializer loggerName =
---     runTimedIO .
---     usingLoggerName loggerName . runTransfer ssInitializer . runDialog BiP
---
--- runTimed :: LoggerName -> TimedMode a -> IO a
--- runTimed loggerName = runTimedIO . usingLoggerName loggerName
+-- | RawRealMode runner.
+runRawRealMode
+    :: forall ssc c.
+       SscConstraint ssc
+    => KademliaDHTInstance
+    -> NodeParams
+    -> SscParams ssc
+    -> [Listener BiP (RawRealMode ssc)]
+    -> (SendActions BiP (RawRealMode ssc) -> RawRealMode ssc c)
+    -> IO c
+runRawRealMode inst np@NodeParams {..} sscnp listeners action =
+    loggerBracket lp .
+    runProduction .
+    usingLoggerName lpRunnerTag $ do
+       modernDBs <- Modern.openNodeDBs npRebuildDb npDbPathM npCustomUtxo
+       initTip <- Modern.runDBHolder modernDBs Modern.getTip
+       initGS <- Modern.runDBHolder modernDBs (sscLoadGlobalState @ssc initTip)
+       initNC <- sscCreateNodeContext @ssc sscnp
+       Modern.runDBHolder modernDBs .
+          runCH np initNC .
+          flip runSscHolder initGS .
+          runTxpLDHolder (UV.createFromDB . Modern._utxoDB $ modernDBs) initTip .
+          runDelegationT def .
+          runKademliaDHT inst .
+          runServer $ \sa -> nodeStartMsg npBaseParams >> action sa
+  where
+    lp@LoggingParams {..} = bpLoggingParams npBaseParams
+    runServer action = do
+      transportE <- liftIO $ TCP.createTransport
+                               "0.0.0.0"
+                               (show . bpPort $ npBaseParams)
+                               TCP.defaultTCPParameters
+      case transportE of
+        Left e -> do
+            logError $ sformat ("Error creating TCP transport: " % shown) e
+            throw e
+        Right transport -> do
+            stdGen <- liftIO newStdGen
+            node (concrete transport) stdGen BiP $ \__node ->
+                pure $ NodeAction listeners action
+
+-- | ProductionMode runner.
+runProductionMode
+    :: forall ssc a.
+       SscConstraint ssc
+    => KademliaDHTInstance
+    -> NodeParams
+    -> SscParams ssc
+    -> (SendActions BiP (ProductionMode ssc) -> ProductionMode ssc a)
+    -> IO a
+runProductionMode inst np@NodeParams {..} sscnp action =
+    runRawRealMode inst np sscnp listeners $
+        \sendActions -> getNoStatsT . action $ hoistSendActions lift getNoStatsT sendActions
+  where
+    listeners = addDevListeners npSystemStart []
+    --noStatsListeners = map (mapListenerDHT getNoStatsT) (allListeners @ssc)
+
+-- | StatsMode runner.
+-- [CSL-169]: spawn here additional listener, which would accept stat queries
+-- can be done as part of refactoring (or someone who will refactor will create new issue).
+runStatsMode
+    :: forall ssc a.
+       SscConstraint ssc
+    => KademliaDHTInstance
+    -> NodeParams
+    -> SscParams ssc
+    -> (SendActions BiP (StatsMode ssc) -> StatsMode ssc a)
+    -> IO a
+runStatsMode inst np@NodeParams {..} sscnp action = do
+    -- [CSL-447] TODO uncomment
+    --mapM_ fork statsWorkers
+    runRawRealMode inst np sscnp listeners $
+        \sendActions -> do
+            statMap <- liftIO SM.newIO
+            runStatsT' statMap . action $ hoistSendActions lift (runStatsT' statMap) sendActions
+  where
+    listeners = addDevListeners npSystemStart []
+    --sListeners = map (mapListenerDHT runStatsT) $ allListeners @ssc
+
+-- | ServiceMode runner.
+runServiceMode
+    :: KademliaDHTInstance
+    -> BaseParams
+    -> [Listener BiP ServiceMode]
+    -> ServiceMode a
+    -> IO a
+runServiceMode inst bp@BaseParams{..} listeners action = loggerBracket bpLoggingParams $ do
+    runProduction . usingLoggerName (lpRunnerTag bpLoggingParams) . runKademliaDHT inst $
+        nodeStartMsg bp >> action
+
+----------------------------------------------------------------------------
+-- Lower level runners
+----------------------------------------------------------------------------
+
+runCH :: (Modern.MonadDB ssc m, MonadFail m)
+      => NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
+runCH NodeParams {..} sscNodeContext act = do
+    jlFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
+    semaphore <- liftIO newEmptyMVar
+    sscRichmen <- liftIO newEmptyMVar
+    sscLeaders <- liftIO newEmptyMVar
+    userSecret <- peekUserSecret npKeyfilePath
+
+    -- Get primary secret key
+    (primarySecretKey, userSecret') <- case npSecretKey of
+        Nothing -> case userSecret ^? usKeys . _head of
+            Nothing -> fail $ "No secret keys are found in " ++ npKeyfilePath
+            Just sk -> return (sk, userSecret)
+        Just sk -> do
+            let us = userSecret & usKeys %~ (sk :) . filter (/= sk)
+            writeUserSecret us
+            return (sk, us)
+
+    let eternity = (minBound, maxBound)
+        makeOwnPSK = flip (createProxySecretKey primarySecretKey) eternity . toPublic
+        ownPSKs = userSecret' ^.. usKeys._tail.each.to makeOwnPSK
+    forM_ ownPSKs addProxySecretKey
+
+    userSecretVar <- liftIO . atomically . newTVar $ userSecret'
+    let ctx =
+            NodeContext
+            { ncSystemStart = npSystemStart
+            , ncSecretKey = primarySecretKey
+            , ncTimeLord = npTimeLord
+            , ncJLFile = jlFile
+            , ncDbPath = npDbPathM
+            , ncSscContext = sscNodeContext
+            , ncAttackTypes = npAttackTypes
+            , ncAttackTargets = npAttackTargets
+            , ncPropagation = npPropagation
+            , ncBlkSemaphore = semaphore
+            , ncSscRichmen = sscRichmen
+            , ncSscLeaders = sscLeaders
+            , ncUserSecret = userSecretVar
+            }
+    runContextHolder ctx act
 
 ----------------------------------------------------------------------------
 -- Utilities

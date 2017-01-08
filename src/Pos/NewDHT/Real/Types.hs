@@ -18,6 +18,7 @@ import           Universum                 hiding (async, fromStrict, mapConcurr
 import           Control.Concurrent.STM    (TVar)
 import           Control.Lens              (iso)
 import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow)
+import           Control.Monad.Fix         (MonadFix)
 import           Control.Monad.Morph       (MFunctor (hoist))
 import           Control.Monad.Trans.Class (MonadTrans)
 import qualified Data.ByteString           as BS
@@ -74,7 +75,7 @@ data KademliaDHTInstanceConfig = KademliaDHTInstanceConfig
 newtype KademliaDHT m a = KademliaDHT
     { unKademliaDHT :: ReaderT KademliaDHTInstance m a
     } deriving (Functor, Applicative, Monad, MonadFail, MonadThrow, MonadCatch, MonadIO,
-                MonadMask, CanLog, HasLoggerName, MonadTrans)
+                MonadMask, CanLog, HasLoggerName, MonadTrans, MonadFix)
 
 type instance ThreadId (KademliaDHT m) = ThreadId m
 type instance Promise (KademliaDHT m) = Promise m

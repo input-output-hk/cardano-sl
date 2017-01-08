@@ -24,11 +24,12 @@ module Pos.WorkMode
 
 
 import           Control.Monad.Catch           (MonadMask)
+import           Control.Monad.Fix             (MonadFix)
 import           Control.TimeWarp.Rpc          (Dialog, Transfer)
 import           Control.TimeWarp.Timed        (MonadTimed (..), TimedIO)
 import           Mockable                      (MonadMockable)
 import           Mockable.Production           (Production)
-import           System.Wlog                   (LoggerNameBox, WithLogger)
+import           System.Wlog                   (LoggerNameBox (..), WithLogger)
 import           Universum
 
 import           Pos.Communication.Types.State (MutSocketState)
@@ -48,7 +49,7 @@ import           Pos.Ssc.Extra                 (MonadSscGS, MonadSscLD, SscHolde
 import           Pos.Statistics.MonadStats     (MonadStats, NoStatsT, StatsT)
 import           Pos.Txp.Class                 (MonadTxpLD (..))
 import           Pos.Txp.Holder                (TxpLDHolder)
-import           Pos.Types                     (MonadUtxo)
+import           Pos.Types                     (MonadUtxo, MonadUtxoRead)
 import           Pos.Util.JsonLog              (MonadJL (..))
 
 type MSockSt ssc = MutSocketState ssc
@@ -82,7 +83,6 @@ type WorkMode ssc m
 type NewWorkMode ssc m
     = ( WithLogger m
       , MonadIO m
-      , MonadFail m
       , MonadMockable m
       , MonadDHT m
       , MonadMask m
@@ -116,8 +116,6 @@ type MinWorkMode ss m
 type NewMinWorkMode m
     = ( WithLogger m
       , MonadMockable m
-      , MonadFail m
-      , MonadCatch m
       , MonadDHT m
       , MonadIO m
       )
@@ -133,6 +131,20 @@ instance MonadJL m => MonadJL (KademliaDHT m) where
 -- Concrete types
 ----------------------------------------------------------------------------
 
+-- [CSL-447] TODO Move to log-warper
+deriving instance MonadFix m => MonadFix (LoggerNameBox m)
+
+-- [CSL-447] TODO Move to some "Pos.*.Instances"
+deriving instance MonadSscLD ssc m => MonadSscLD ssc (KademliaDHT m)
+deriving instance MonadUtxoRead m => MonadUtxoRead (KademliaDHT m)
+deriving instance MonadUtxo m => MonadUtxo (KademliaDHT m)
+deriving instance (Monad m, WithNodeContext ssc m) => WithNodeContext ssc (KademliaDHT m)
+deriving instance MonadDB ssc m => MonadDB ssc (KademliaDHT m)
+deriving instance MonadSlots m => MonadSlots (KademliaDHT m)
+deriving instance MonadSscGS ssc m => MonadSscGS ssc (KademliaDHT m)
+deriving instance MonadDelegation m => MonadDelegation (KademliaDHT m)
+deriving instance MonadTxpLD ssc m => MonadTxpLD ssc (KademliaDHT m)
+
 -- | RawRealMode is a basis for `WorkMode`s used to really run system.
 type RawRealMode ssc =
     KademliaDHT (
@@ -141,7 +153,7 @@ type RawRealMode ssc =
     SscHolder ssc (
     ContextHolder ssc (
     DBHolder ssc (
-    Production
+    LoggerNameBox Production
     ))))))
 
 -- | ProductionMode is an instance of WorkMode which is used
@@ -152,4 +164,4 @@ type ProductionMode ssc = NoStatsT (RawRealMode ssc)
 type StatsMode ssc = StatsT (RawRealMode ssc)
 
 -- | ServiceMode is the mode in which support nodes work.
-type ServiceMode = KademliaDHT Production
+type ServiceMode = KademliaDHT (LoggerNameBox Production)

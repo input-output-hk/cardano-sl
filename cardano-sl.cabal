@@ -331,6 +331,7 @@ library
                       , mono-traversable
                       , mtl
                       , neat-interpolation
+                      , network-transport-tcp
                       , node-sketch
                       , optparse-applicative
                       , optparse-simple

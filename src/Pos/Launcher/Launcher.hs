@@ -1,6 +1,7 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE AllowAmbiguousTypes  #-}
+{-# LANGUAGE RankNTypes           #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Applications of runners to scenarios.
 
@@ -17,10 +18,10 @@ module Pos.Launcher.Launcher
 
 import           Universum
 
-import           Pos.DHT.Real          (KademliaDHTInstance)
 import           Pos.Launcher.Param    (NodeParams (..))
 import           Pos.Launcher.Runner   (runProductionMode, runStatsMode)
 import           Pos.Launcher.Scenario (runNode)
+import           Pos.NewDHT.Real       (KademliaDHT (..), KademliaDHTInstance)
 import           Pos.Ssc.Class         (SscConstraint)
 import           Pos.Ssc.Class.Types   (SscParams)
 import           Pos.WorkMode          (ProductionMode, StatsMode)

@@ -18,6 +18,7 @@ module Pos.Delegation.Class
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO)
 import           Control.Lens                (makeLenses)
 import           Control.Lens                (iso)
+import           Control.Monad.Fix           (MonadFix)
 import           Control.Monad.Trans.Class   (MonadTrans)
 import           Data.Default                (Default (def))
 import           Data.HashMap.Strict         (HashMap)
@@ -96,7 +97,7 @@ newtype DelegationT m a = DelegationT
                 MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
                 HasLoggerName, WithNodeContext ssc, MonadJL,
                 CanLog, MonadMask, MonadSscLD ssc, MonadSscGS ssc,
-                MonadUtxoRead, MonadUtxo, MonadTxpLD ssc)
+                MonadUtxoRead, MonadUtxo, MonadTxpLD ssc, MonadFix)
 
 deriving instance MonadDB ssc m => MonadDB ssc (DelegationT m)
 

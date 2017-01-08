@@ -14,8 +14,8 @@ import           Control.Concurrent.MVar   (withMVar)
 import           Control.Lens              (iso)
 import           Control.Monad.Base        (MonadBase (..))
 import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow)
+import           Control.Monad.Fix         (MonadFix)
 import           Control.Monad.Reader      (ReaderT (ReaderT), ask)
-
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Formatting                (sformat, shown, (%))
 import           Mockable                  (Catch, CurrentTime, Mockable, catchAll,
@@ -41,7 +41,7 @@ newtype ContextHolder ssc m a = ContextHolder
     } deriving (Functor, Applicative, Monad, MonadTrans,
                 MonadThrow, MonadCatch, MonadMask, MonadIO, MonadFail,
                 HasLoggerName, CanLog,
-                MonadTxpLD ssc)
+                MonadTxpLD ssc, MonadFix)
 
 -- | Run 'ContextHolder' action.
 runContextHolder :: NodeContext ssc -> ContextHolder ssc m a -> m a

@@ -16,6 +16,7 @@ import qualified Control.Concurrent.STM      as STM
 import           Control.Lens                (iso)
 import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
+import           Control.Monad.Fix           (MonadFix)
 import           Control.Monad.Reader        (ReaderT (ReaderT))
 import           Control.Monad.Trans.Class   (MonadTrans)
 import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
@@ -52,7 +53,7 @@ newtype SscHolder ssc m a =
     } deriving (Functor, Applicative, Monad, MonadTrans,
                 MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
                 HasLoggerName, WithNodeContext ssc,
-                MonadJL, CanLog, MonadMask)
+                MonadJL, CanLog, MonadMask, MonadFix)
 
 type instance ThreadId (SscHolder ssc m) = ThreadId m
 

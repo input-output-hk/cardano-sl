@@ -15,6 +15,7 @@ module Pos.Txp.Holder
 import qualified Control.Concurrent.STM    as STM
 import           Control.Lens              (iso)
 import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow)
+import           Control.Monad.Fix         (MonadFix)
 import           Control.Monad.Reader      (ReaderT (ReaderT))
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Data.Default              (def)
@@ -46,7 +47,7 @@ newtype TxpLDHolder ssc m a = TxpLDHolder
     } deriving (Functor, Applicative, Monad, MonadTrans,
                 MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
                 HasLoggerName, WithNodeContext ssc, MonadJL,
-                CanLog, MonadMask, MonadSscLD ssc, MonadSscGS ssc)
+                CanLog, MonadMask, MonadSscLD ssc, MonadSscGS ssc, MonadFix)
 
 
 type instance ThreadId (TxpLDHolder ssc m) = ThreadId m

@@ -28,8 +28,8 @@ import           Pos.Worker              (runWorkers)
 import           Pos.WorkMode            (NewWorkMode)
 
 -- | Run full node in any WorkMode.
-runNode :: (SscConstraint ssc, NewWorkMode ssc m) => SendActions BiP m -> [m ()] -> m ()
-runNode sendActions plugins = do
+runNode :: (SscConstraint ssc, NewWorkMode ssc m) => [m ()] -> SendActions BiP m -> m ()
+runNode plugins sendActions = do
     inAssertMode $ logInfo "Assert mode on"
     pk <- ncPublicKey <$> getNodeContext
     addr <- ncPubKeyAddress <$> getNodeContext

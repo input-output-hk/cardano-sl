@@ -22,8 +22,10 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,
                                               defaultLiftBaseWith, defaultLiftWith,
                                               defaultRestoreM, defaultRestoreT)
-import           Control.TimeWarp.Rpc        (MonadDialog, MonadTransfer (..))
-import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
+import           Mockable                    (ChannelT, MFunctor',
+                                              Mockable (liftMockable), Promise,
+                                              SharedAtomicT, ThreadId,
+                                              liftMockableWrappedM)
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
@@ -31,11 +33,11 @@ import           Universum
 import           Pos.Context                 (ContextHolder (..), NodeContext (..),
                                               WithNodeContext (..))
 import           Pos.Crypto                  (SecretKey, keyGen)
-import qualified Pos.DB                      as Modern
+import           Pos.DB                      (MonadDB)
 import           Pos.Delegation.Class        (DelegationT (..), MonadDelegation)
 import           Pos.DHT.Model               (MonadDHT, MonadMessageDHT,
                                               WithDefaultMsgHeader)
-import           Pos.DHT.Real                (KademliaDHT)
+import           Pos.NewDHT.Real             (KademliaDHT)
 import           Pos.Slotting                (MonadSlots)
 import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp.Holder              (TxpLDHolder (..))
@@ -103,20 +105,18 @@ deleteAt j ls = let (l, r) = splitAt j ls in l ++ drop 1 r
 
 newtype KeyStorage m a = KeyStorage
     { getKeyStorage :: ReaderT KeyData m a
-    } deriving (Functor, Applicative, Monad, MonadTimed,
+    } deriving (Functor, Applicative, Monad,
                 MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
-                HasLoggerName, MonadDialog s p, CanLog, MonadMask, MonadDHT,
-                MonadMessageDHT s, MonadReader KeyData, WithDefaultMsgHeader,
+                HasLoggerName, CanLog, MonadMask, MonadDHT,
+                MonadReader KeyData,
                 MonadWalletDB, WithWalletContext, WithNodeContext ssc,
-                Modern.MonadDB ssc, MonadDelegation, MonadTrans, MonadBase io)
+                MonadDelegation, MonadTrans, MonadBase io)
 
-type instance ThreadId (KeyStorage m) = ThreadId m
+deriving instance MonadDB ssc m => MonadDB ssc (KeyStorage m)
 
 instance Monad m => WrappedM (KeyStorage m) where
     type UnwrappedM (KeyStorage m) = ReaderT KeyData m
     _WrappedM = iso getKeyStorage KeyStorage
-
-instance MonadTransfer s m => MonadTransfer s (KeyStorage m)
 
 instance (MonadIO m, MonadFail m) => MonadState UserSecret (KeyStorage m) where
     get = KeyStorage getSecret
@@ -131,6 +131,17 @@ instance MonadBaseControl IO m => MonadBaseControl IO (KeyStorage m) where
     type StM (KeyStorage m) a = ComposeSt KeyStorage m a
     liftBaseWith     = defaultLiftBaseWith
     restoreM         = defaultRestoreM
+
+type instance ThreadId (KeyStorage m) = ThreadId m
+type instance Promise (KeyStorage m) = Promise m
+type instance SharedAtomicT (KeyStorage m) = SharedAtomicT m
+type instance ChannelT (KeyStorage m) = ChannelT m
+
+instance ( Mockable d m
+         , MFunctor' d (KeyStorage m) (ReaderT KeyData m)
+         , MFunctor' d (ReaderT KeyData m) m
+         ) => Mockable d (KeyStorage m) where
+    liftMockable = liftMockableWrappedM
 
 runKeyStorage :: MonadIO m => FilePath -> KeyStorage m a -> m a
 runKeyStorage fp ks =

@@ -105,7 +105,7 @@ instance Mockable Catch Production where
 -- `LoggerNameBox Production`
 
 instance HasLoggerName Production where
-    getLoggerName = return "ntp-example"
+    getLoggerName = return "production"
     modifyLoggerName = const id
 
 instance CanLog Production where

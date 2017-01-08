@@ -12,7 +12,6 @@ import           Control.Monad.IO.Class     (liftIO)
 import           Data.Binary
 import           Data.Data                  (Data)
 import           Data.Time.Units            (Microsecond, fromMicroseconds)
-import           Data.Void                  (Void)
 import           GHC.Generics               (Generic)
 import           Message.Message            (BinaryP (..))
 import           Mockable.Concurrent        (delay, for, fork, killThread)
@@ -64,7 +63,7 @@ listeners :: NodeId -> [Listener Packing Production]
 listeners anId = [pongWorker]
     where
     pongWorker :: ListenerAction Packing Production
-    pongWorker = ListenerActionConversation $ \peerId (cactions :: ConversationActions Pong Void Production) -> do
+    pongWorker = ListenerActionConversation $ \peerId (cactions :: ConversationActions Pong Ping Production) -> do
         liftIO . putStrLn $ show anId ++  " heard PING from " ++ show peerId
         send cactions Pong
         liftIO . putStrLn $ show anId ++ " sent PONG to " ++ show peerId

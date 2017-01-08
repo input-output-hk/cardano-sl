@@ -9,15 +9,16 @@ module Pos.Wallet.Launcher.Runner
        ) where
 
 import           Formatting                (build, sformat, (%))
-import           Mockable                  (bracket, fork, runProduction, sleepForever)
+import           Mockable                  (Production (runProduction), bracket, fork,
+                                            sleepForever)
 import           Node                      (Listener, SendActions)
 import           System.Wlog               (logInfo, usingLoggerName)
 import           Universum                 hiding (bracket)
 
 import           Pos.Communication         (BiP (..))
 import           Pos.Launcher              (BaseParams (..), LoggingParams (..),
-                                            addDevListeners, loggerBracket, runServer,
-                                            setupLoggers)
+                                            RealModeResources (..), addDevListeners,
+                                            loggerBracket, runServer, setupLoggers)
 import           Pos.NewDHT.Model          (DHTNodeType (..), discoverPeers)
 import           Pos.NewDHT.Real           (KademliaDHTInstance, runKademliaDHT)
 
@@ -42,22 +43,22 @@ allListeners = []
 allWorkers :: [a]
 allWorkers = []
 
--- | WalletMode runner.
+-- | WalletMode runner
 runWalletRealMode
-    :: KademliaDHTInstance
+    :: RealModeResources
     -> WalletParams
     -> (SendActions BiP WalletRealMode -> WalletRealMode a)
-    -> IO a
-runWalletRealMode inst wp@WalletParams {..} = runRawRealWallet inst wp listeners
+    -> Production a
+runWalletRealMode res wp@WalletParams {..} = runRawRealWallet res wp listeners
   where
     listeners = addDevListeners wpSystemStart allListeners
 
 runWalletReal
-    :: KademliaDHTInstance
+    :: RealModeResources
     -> WalletParams
     -> [WalletRealMode ()]
-    -> IO ()
-runWalletReal inst wp = runWalletRealMode inst wp . runWallet
+    -> Production ()
+runWalletReal res wp = runWalletRealMode res wp . runWallet
 
 runWallet :: WalletMode ssc m => [m ()] -> SendActions BiP m -> m ()
 runWallet plugins __sendActions = do
@@ -69,21 +70,19 @@ runWallet plugins __sendActions = do
     sleepForever
 
 runRawRealWallet
-    :: KademliaDHTInstance
+    :: RealModeResources
     -> WalletParams
     -> [Listener BiP WalletRealMode]
     -> (SendActions BiP WalletRealMode -> WalletRealMode a)
-    -> IO a
-runRawRealWallet inst wp@WalletParams {..} listeners action =
-    loggerBracket lp .
-    runProduction .
+    -> Production a
+runRawRealWallet res wp@WalletParams {..} listeners action =
     usingLoggerName lpRunnerTag .
     bracket openDB closeDB $ \db -> do
         runContextHolder (ctxFromParams wp) .
             runWalletDB db .
             runKeyStorage wpKeyFilePath .
-            runKademliaDHT inst .
-            runServer (bpPort wpBaseParams) listeners $
+            runKademliaDHT (rmDHT res) .
+            runServer (rmTransport res) listeners $
                 \sa -> logInfo "Started wallet, joining network" >> action sa
   where
     lp@LoggingParams {..} = bpLoggingParams wpBaseParams

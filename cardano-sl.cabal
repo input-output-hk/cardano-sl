@@ -331,6 +331,7 @@ library
                       , mono-traversable
                       , mtl
                       , neat-interpolation
+                      , network-transport
                       , network-transport-tcp
                       , node-sketch
                       , optparse-applicative
@@ -417,6 +418,8 @@ executable cardano-node
                      , filepath
                      , formatting
                      , log-warper >= 0.1.0
+                     , network-transport
+                     , node-sketch
                      , optparse-simple
                      , parsec
                      , serokell-util
@@ -515,6 +518,7 @@ executable cardano-wallet
                      , lifted-async
                      , log-warper >= 0.1.0
                      , mtl
+                     , network-transport
                      , node-sketch
                      , optparse-applicative
                      , parsec

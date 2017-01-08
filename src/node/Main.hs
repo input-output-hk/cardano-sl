@@ -5,6 +5,8 @@ module Main where
 
 import qualified Data.ByteString.Lazy as LBS
 import           Data.List            ((!!))
+import           Mockable             (Production)
+import           Network.Transport    (Transport)
 import           System.Directory     (createDirectoryIfMissing)
 import           System.FilePath      ((</>))
 import           System.Wlog          (LoggerName)
@@ -16,9 +18,9 @@ import           Pos.Constants        (RunningMode (..), runningMode)
 import           Pos.Crypto           (VssKeyPair, vssKeyGen)
 import           Pos.Genesis          (genesisSecretKeys, genesisUtxo)
 import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
-                                       NodeParams (..), bracketDHTInstance,
-                                       runNodeProduction, runNodeStats, runTimeLordReal,
-                                       runTimeSlaveReal, stakesDistr)
+                                       NodeParams (..), RealModeResources,
+                                       bracketResources, runNodeProduction, runNodeStats,
+                                       runTimeLordReal, runTimeSlaveReal, stakesDistr)
 import           Pos.NewDHT.Model     (DHTKey, DHTNodeType (..), dhtNodeType)
 import           Pos.NewDHT.Real      (KademliaDHTInstance)
 import           Pos.Ssc.GodTossing   (genesisVssKeyPairs)
@@ -58,8 +60,8 @@ decode' fpath = either fail' return . decode =<< LBS.readFile fpath
   where
     fail' e = fail $ "Error reading key from " ++ fpath ++ ": " ++ e
 
-getSystemStart :: KademliaDHTInstance -> Args -> IO Timestamp
-getSystemStart inst args =
+getSystemStart :: RealModeResources -> Args -> Production Timestamp
+getSystemStart inst args  =
     case runningMode of
         Development ->
             if timeLord args
@@ -89,7 +91,7 @@ baseParams loggingTag args@Args {..} =
         | supporterNode = maybe (Right DHTSupporter) Left dhtKey
         | otherwise = maybe (Right DHTFull) Left dhtKey
 
-checkDhtKey :: Bool -> Maybe DHTKey -> IO ()
+checkDhtKey :: Bool -> Maybe DHTKey -> Production ()
 checkDhtKey _ Nothing = pass
 checkDhtKey isSupporter (Just (dhtNodeType -> keyType))
     | keyType == Just expectedType = pass
@@ -103,19 +105,19 @@ checkDhtKey isSupporter (Just (dhtNodeType -> keyType))
         | isSupporter = DHTSupporter
         | otherwise = DHTFull
 
-action :: Args -> KademliaDHTInstance -> IO ()
-action args@Args {..} inst = do
+action :: Args -> RealModeResources -> Production ()
+action args@Args {..} res = do
     checkDhtKey supporterNode dhtKey
     if supporterNode
-        then fail "Supporter not supported" -- runSupporterReal inst (baseParams "supporter" args)
+        then fail "Supporter not supported" -- runSupporterReal res (baseParams "supporter" args)
         else do
             vssSK <-
-                getKey
+                liftIO $ getKey
                     ((genesisVssKeyPairs !!) <$> vssGenesisI)
                     vssSecretPath
                     "vss.keypair"
                     vssKeyGen
-            systemStart <- getSystemStart inst args
+            systemStart <- getSystemStart res args
             let currentParams = nodeParams args systemStart
                 gtParams = gtSscParams args vssSK
 #ifdef WITH_WEB
@@ -133,13 +135,13 @@ action args@Args {..} inst = do
             putText $ "If stats is on: " <> show enableStats
             case (enableStats, CLI.sscAlgo commonArgs) of
                 (True, GodTossingAlgo) ->
-                    runNodeStats @SscGodTossing inst (currentPluginsGT ++ walletStats args) currentParams gtParams
+                    runNodeStats @SscGodTossing res (currentPluginsGT ++ walletStats args) currentParams gtParams
                 (True, NistBeaconAlgo) ->
-                    runNodeStats @SscNistBeacon inst (currentPlugins ++ walletStats args) currentParams ()
+                    runNodeStats @SscNistBeacon res (currentPlugins ++ walletStats args) currentParams ()
                 (False, GodTossingAlgo) ->
-                    runNodeProduction @SscGodTossing inst (currentPluginsGT ++ walletProd args) currentParams gtParams
+                    runNodeProduction @SscGodTossing res (currentPluginsGT ++ walletProd args) currentParams gtParams
                 (False, NistBeaconAlgo) ->
-                    runNodeProduction @SscNistBeacon inst (currentPlugins ++ walletProd args) currentParams ()
+                    runNodeProduction @SscNistBeacon res (currentPlugins ++ walletProd args) currentParams ()
 
 nodeParams :: Args -> Timestamp -> NodeParams
 nodeParams args@Args {..} systemStart =
@@ -203,5 +205,5 @@ walletStats _ = []
 
 main :: IO ()
 main = do
-    args <- getNodeOptions
-    bracketDHTInstance (baseParams "node" args) (action args)
+    args@Args{..} <- getNodeOptions
+    bracketResources (baseParams "node" args) (action args)

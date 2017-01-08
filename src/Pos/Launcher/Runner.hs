@@ -22,6 +22,10 @@ module Pos.Launcher.Runner
        , bracketDHTInstance
        , runServer
        , loggerBracket
+       , createTransport
+       , bracketTransport
+       , bracketResources
+       , RealModeResources(..)
        ) where
 
 import           Control.Concurrent.MVar      (newEmptyMVar, newMVar, takeMVar,
@@ -40,8 +44,10 @@ import           Data.Default                 (def)
 import           Data.List                    (nub)
 import qualified Data.Time                    as Time
 import           Formatting                   (build, sformat, shown, (%))
-import           Mockable                     (MonadMockable, Production (..), bracket,
+import           Mockable                     (Bracket, Mockable, MonadMockable,
+                                               Production (..), Throw, bracket,
                                                currentTime, fork, killThread, throw)
+import           Network.Transport            (Transport, closeTransport)
 import           Network.Transport.Concrete   (concrete)
 import qualified Network.Transport.TCP        as TCP
 import           Node                         (Listener, NodeAction (..), SendActions,
@@ -91,15 +97,20 @@ import           Pos.WorkMode                 (MinWorkMode, NewMinWorkMode,
                                                ProductionMode, RawRealMode, ServiceMode,
                                                StatsMode)
 
+data RealModeResources = RealModeResources
+    { rmTransport :: Transport
+    , rmDHT       :: KademliaDHTInstance
+    }
+
 ----------------------------------------------------------------------------
 -- Service node runners
 ----------------------------------------------------------------------------
 
 -- | Runs node as time-slave inside IO monad.
-runTimeSlaveReal :: KademliaDHTInstance -> BaseParams -> IO Timestamp
-runTimeSlaveReal inst bp = do
+runTimeSlaveReal :: RealModeResources -> BaseParams -> Production Timestamp
+runTimeSlaveReal res bp = do
     mvar <- liftIO newEmptyMVar
-    runServiceMode inst bp (listeners mvar) $ \sendActions ->
+    runServiceMode res bp (listeners mvar) $ \sendActions ->
       case runningMode of
          Const.Development -> do
            tId <- fork $
@@ -121,9 +132,9 @@ runTimeSlaveReal inst bp = do
          else []
 
 -- | Runs time-lord to acquire system start.
-runTimeLordReal :: LoggingParams -> IO Timestamp
-runTimeLordReal lp@LoggingParams{..} = loggerBracket lp $ do
-    t <- runProduction $ Timestamp <$> currentTime
+runTimeLordReal :: LoggingParams -> Production Timestamp
+runTimeLordReal lp@LoggingParams{..} = do
+    t <- Timestamp <$> currentTime
     usingLoggerName lpRunnerTag (doLog t) $> t
   where
     doLog t = do
@@ -136,17 +147,15 @@ runTimeLordReal lp@LoggingParams{..} = loggerBracket lp $ do
 
 -- | RawRealMode runner.
 runRawRealMode
-    :: forall ssc c.
+    :: forall ssc a.
        SscConstraint ssc
-    => KademliaDHTInstance
+    => RealModeResources
     -> NodeParams
     -> SscParams ssc
     -> [Listener BiP (RawRealMode ssc)]
-    -> (SendActions BiP (RawRealMode ssc) -> RawRealMode ssc c)
-    -> IO c
-runRawRealMode inst np@NodeParams {..} sscnp listeners action =
-    loggerBracket lp .
-    runProduction .
+    -> (SendActions BiP (RawRealMode ssc) -> RawRealMode ssc a)
+    -> Production a
+runRawRealMode res np@NodeParams {..} sscnp listeners action =
     usingLoggerName lpRunnerTag $ do
        modernDBs <- Modern.openNodeDBs npRebuildDb npDbPathM npCustomUtxo
        initTip <- Modern.runDBHolder modernDBs Modern.getTip
@@ -157,30 +166,34 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action =
           flip runSscHolder initGS .
           runTxpLDHolder (UV.createFromDB . Modern._utxoDB $ modernDBs) initTip .
           runDelegationT def .
-          runKademliaDHT inst .
-          runServer (bpPort npBaseParams) listeners $
+          runKademliaDHT (rmDHT res) .
+          runServer (rmTransport res) listeners $
               \sa -> nodeStartMsg npBaseParams >> action sa
   where
     lp@LoggingParams {..} = bpLoggingParams npBaseParams
 
 -- | ServiceMode runner.
 runServiceMode
-    :: KademliaDHTInstance
+    :: RealModeResources
     -> BaseParams
     -> [Listener BiP ServiceMode]
     -> (SendActions BiP ServiceMode -> ServiceMode a)
-    -> IO a
-runServiceMode inst bp@BaseParams{..} listeners action =
-    loggerBracket bpLoggingParams .
-    runProduction .
+    -> Production a
+runServiceMode res bp@BaseParams{..} listeners action =
     usingLoggerName (lpRunnerTag bpLoggingParams) .
-    runKademliaDHT inst .
-    runServer bpPort listeners $
+    runKademliaDHT (rmDHT res) .
+    runServer (rmTransport res) listeners $
         \sa -> nodeStartMsg bp >> action sa
 
 runServer :: (MonadIO m, MonadMockable m, WithLogger m, MonadFix m)
-  => Word16 -> [Listener BiP m] -> (SendActions BiP m -> m b) -> m b
-runServer port listeners action = do
+  => Transport -> [Listener BiP m] -> (SendActions BiP m -> m b) -> m b
+runServer transport listeners action = do
+    stdGen <- liftIO newStdGen
+    node (concrete transport) stdGen BiP $ \__node ->
+        pure $ NodeAction listeners action
+
+createTransport :: (MonadIO m, WithLogger m, Mockable Throw m) => Word16 -> m Transport
+createTransport port = do
     transportE <- liftIO $ TCP.createTransport
                              "0.0.0.0"
                              (show port)
@@ -189,22 +202,22 @@ runServer port listeners action = do
       Left e -> do
           logError $ sformat ("Error creating TCP transport: " % shown) e
           throw e
-      Right transport -> do
-          stdGen <- liftIO newStdGen
-          node (concrete transport) stdGen BiP $ \__node ->
-              pure $ NodeAction listeners action
+      Right transport -> return transport
+
+bracketTransport :: (MonadIO m, WithLogger m, Mockable Bracket m, Mockable Throw m) => Word16 -> (Transport -> m a) -> m a
+bracketTransport port = bracket (createTransport port) (liftIO . closeTransport)
 
 -- | ProductionMode runner.
 runProductionMode
     :: forall ssc a.
        SscConstraint ssc
-    => KademliaDHTInstance
+    => RealModeResources
     -> NodeParams
     -> SscParams ssc
     -> (SendActions BiP (ProductionMode ssc) -> ProductionMode ssc a)
-    -> IO a
-runProductionMode inst np@NodeParams {..} sscnp action =
-    runRawRealMode inst np sscnp listeners $
+    -> Production a
+runProductionMode res np@NodeParams {..} sscnp action =
+    runRawRealMode res np sscnp listeners $
         \sendActions -> getNoStatsT . action $ hoistSendActions lift getNoStatsT sendActions
   where
     listeners = addDevListeners npSystemStart []
@@ -217,15 +230,15 @@ runProductionMode inst np@NodeParams {..} sscnp action =
 runStatsMode
     :: forall ssc a.
        SscConstraint ssc
-    => KademliaDHTInstance
+    => RealModeResources
     -> NodeParams
     -> SscParams ssc
     -> (SendActions BiP (StatsMode ssc) -> StatsMode ssc a)
-    -> IO a
-runStatsMode inst np@NodeParams {..} sscnp action = do
+    -> Production a
+runStatsMode res np@NodeParams {..} sscnp action = do
     -- [CSL-447] TODO uncomment
     --mapM_ fork statsWorkers
-    runRawRealMode inst np sscnp listeners $
+    runRawRealMode res np sscnp listeners $
         \sendActions -> do
             statMap <- liftIO SM.newIO
             runStatsT' statMap . action $ hoistSendActions lift (runStatsT' statMap) sendActions
@@ -314,10 +327,9 @@ addDevListeners sysStart ls =
     then sysStartReqListener sysStart : ls
     else ls
 
--- [CSL-447] Make all launchers use Production instead of IO and replace types here
 bracketDHTInstance
-    :: BaseParams -> (KademliaDHTInstance -> IO a) -> IO a
-bracketDHTInstance BaseParams {..} action = runProduction $ bracket acquire release (Production . action)
+    :: BaseParams -> (KademliaDHTInstance -> Production a) -> Production a
+bracketDHTInstance BaseParams {..} action = bracket acquire release action
   where
     loggerName = lpRunnerTag bpLoggingParams
     acquire = usingLoggerName loggerName $ startDHTInstance instConfig
@@ -329,3 +341,11 @@ bracketDHTInstance BaseParams {..} action = runProduction $ bracket acquire rele
         , kdcInitialPeers = nub $ bpDHTPeers ++ defaultPeers
         , kdcExplicitInitial = bpDHTExplicitInitial
         }
+
+bracketResources :: BaseParams -> (RealModeResources -> Production a) -> IO a
+bracketResources bp action =
+    loggerBracket (bpLoggingParams bp) .
+    runProduction .
+    bracketTransport (bpPort bp) $ \rmTransport ->
+        bracketDHTInstance bp $ \rmDHT -> action $ RealModeResources {..}
+

@@ -16,10 +16,12 @@ module Pos.Launcher.Launcher
          -- * Utility launchers.
        ) where
 
+import           Mockable              (Production)
 import           Universum
 
 import           Pos.Launcher.Param    (NodeParams (..))
-import           Pos.Launcher.Runner   (runProductionMode, runStatsMode)
+import           Pos.Launcher.Runner   (RealModeResources, runProductionMode,
+                                        runStatsMode)
 import           Pos.Launcher.Scenario (runNode)
 import           Pos.NewDHT.Real       (KademliaDHT (..), KademliaDHTInstance)
 import           Pos.Ssc.Class         (SscConstraint)
@@ -31,16 +33,16 @@ import           Pos.WorkMode          (ProductionMode, StatsMode)
 -----------------------------------------------------------------------------
 
 -- Too hard :(
-type NodeRunner m = KademliaDHTInstance -> [m ()] -> NodeParams -> IO ()
+type NodeRunner m = RealModeResources -> [m ()] -> NodeParams -> Production ()
 
 class NodeRunnerClass ssc m where
-    runNodeIO :: KademliaDHTInstance -> [m ()] -> NodeParams -> SscParams ssc -> IO ()
+    runNodeIO :: RealModeResources -> [m ()] -> NodeParams -> SscParams ssc -> Production ()
 
 -- | Run full node in real mode.
 runNodeProduction
     :: forall ssc.
        SscConstraint ssc
-    => KademliaDHTInstance -> [ProductionMode ssc ()] -> NodeParams -> SscParams ssc -> IO ()
+    => RealModeResources -> [ProductionMode ssc ()] -> NodeParams -> SscParams ssc -> Production ()
 runNodeProduction inst plugins np sscnp = runProductionMode inst np sscnp (runNode @ssc plugins)
 
 instance SscConstraint ssc => NodeRunnerClass ssc (ProductionMode ssc) where
@@ -50,12 +52,8 @@ instance SscConstraint ssc => NodeRunnerClass ssc (ProductionMode ssc) where
 runNodeStats
     :: forall ssc.
        SscConstraint ssc
-    => KademliaDHTInstance -> [StatsMode ssc ()] -> NodeParams -> SscParams ssc -> IO ()
+    => RealModeResources -> [StatsMode ssc ()] -> NodeParams -> SscParams ssc -> Production ()
 runNodeStats inst plugins np sscnp = runStatsMode inst np sscnp (runNode @ssc plugins)
 
 instance SscConstraint ssc => NodeRunnerClass ssc (StatsMode ssc) where
     runNodeIO = runNodeStats
-
-----------------------------------------------------------------------------
--- Utilities
-----------------------------------------------------------------------------

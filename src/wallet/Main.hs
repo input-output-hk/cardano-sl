@@ -10,7 +10,7 @@ import           Control.TimeWarp.Rpc (NetworkAddress)
 import           Data.List            ((!!))
 import qualified Data.Text            as T
 import           Formatting           (build, int, sformat, stext, (%))
-import           Mockable             (delay, for)
+import           Mockable             (Production, delay, for)
 import           Options.Applicative  (execParser)
 import           System.IO            (hFlush, stdout)
 import           Universum
@@ -21,7 +21,7 @@ import           Pos.Constants        (slotDuration)
 import           Pos.Crypto           (SecretKey, createProxySecretKey, toPublic)
 import           Pos.Genesis          (genesisPublicKeys, genesisSecretKeys)
 import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
-                                       bracketDHTInstance, runTimeSlaveReal)
+                                       bracketResources, runTimeSlaveReal)
 import           Pos.NewDHT.Model     (DHTNodeType (..), dhtAddr, discoverPeers)
 import           Pos.Ssc.SscAlgo      (SscAlgo (..))
 import           Pos.Types            (EpochIndex (..), coinF, makePubKeyAddress, txaF)
@@ -130,14 +130,13 @@ main = do
             , bpDHTKeyOrType       = Right DHTFull
             , bpDHTExplicitInitial = CLI.dhtExplicitInitial woCommonArgs
             }
-
-    bracketDHTInstance baseParams $ \inst -> do
+    bracketResources baseParams $ \res -> do
         let timeSlaveParams =
                 baseParams
                 { bpLoggingParams = logParams { lpRunnerTag = "time-slave" }
                 }
 
-        systemStart <- runTimeSlaveReal inst timeSlaveParams
+        systemStart <- runTimeSlaveReal res timeSlaveParams
 
         let params =
                 WalletParams
@@ -159,5 +158,5 @@ main = do
 
         case CLI.sscAlgo woCommonArgs of
             GodTossingAlgo -> putText "Using MPC coin tossing" *>
-                              runWalletReal inst params plugins
+                              runWalletReal res params plugins
             NistBeaconAlgo -> putText "Wallet does not support NIST beacon!"

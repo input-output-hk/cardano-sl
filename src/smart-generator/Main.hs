@@ -11,7 +11,8 @@ import           Data.List                   ((!!))
 import           Data.Maybe                  (fromMaybe)
 import           Data.Time.Clock.POSIX       (getPOSIXTime)
 import           Formatting                  (float, int, sformat, (%))
-import           Mockable                    (delay, for, forConcurrently, fork)
+import           Mockable                    (Production, delay, for, forConcurrently,
+                                              fork)
 import           Options.Applicative         (execParser)
 import           System.FilePath.Posix       ((</>))
 import           System.Random.Shuffle       (shuffleM)
@@ -25,12 +26,12 @@ import           Pos.Constants               (genesisN, k, neighborsSendThreshol
 import           Pos.Crypto                  (KeyPair (..), hash)
 import           Pos.Genesis                 (genesisUtxo)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
-                                              NodeParams (..), bracketDHTInstance,
-                                              initLrc, runNode, runProductionMode,
-                                              runTimeSlaveReal, stakesDistr)
+                                              NodeParams (..), RealModeResources,
+                                              bracketResources, initLrc, runNode,
+                                              runProductionMode, runTimeSlaveReal,
+                                              stakesDistr)
 import           Pos.NewDHT.Model            (DHTNodeType (..), MonadDHT, dhtAddr,
                                               discoverPeers, getKnownPeers)
-import           Pos.NewDHT.Real             (KademliaDHTInstance)
 import           Pos.Ssc.Class               (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing          (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon          (SscNistBeacon)
@@ -80,9 +81,9 @@ getPeers share = do
     liftIO $ chooseSubset share <$> shuffleM peers
 
 runSmartGen :: forall ssc . SscConstraint ssc
-            => KademliaDHTInstance -> NodeParams -> SscParams ssc -> GenOptions -> IO ()
-runSmartGen inst np@NodeParams{..} sscnp opts@GenOptions{..} =
-  runProductionMode inst np sscnp $ \sendActions -> do
+            => RealModeResources -> NodeParams -> SscParams ssc -> GenOptions -> Production ()
+runSmartGen res np@NodeParams{..} sscnp opts@GenOptions{..} =
+  runProductionMode res np sscnp $ \sendActions -> do
     initLrc
     let getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
         initTx = initTransaction opts
@@ -232,13 +233,13 @@ main = do
             , bpDHTExplicitInitial = CLI.dhtExplicitInitial goCommonArgs
             }
 
-    bracketDHTInstance baseParams $ \inst -> do
+    bracketResources baseParams $ \res -> do
         let timeSlaveParams =
                 baseParams
                 { bpLoggingParams = logParams { lpRunnerTag = "time-slave" }
                 }
 
-        systemStart <- runTimeSlaveReal inst timeSlaveParams
+        systemStart <- runTimeSlaveReal res timeSlaveParams
 
         let params =
                 NodeParams
@@ -267,6 +268,6 @@ main = do
 
         case CLI.sscAlgo goCommonArgs of
             GodTossingAlgo -> putText "Using MPC coin tossing" *>
-                              runSmartGen @SscGodTossing inst params gtParams opts
+                              runSmartGen @SscGodTossing res params gtParams opts
             NistBeaconAlgo -> putText "Using NIST beacon" *>
-                              runSmartGen @SscNistBeacon inst params () opts
+                              runSmartGen @SscNistBeacon res params () opts

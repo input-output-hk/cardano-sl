@@ -18,4 +18,4 @@ usOnNewSlot :: WorkMode ssc m => m ()
 usOnNewSlot = onNewSlot True onNewSlotAction
 
 onNewSlotAction :: WorkMode ssc m => SlotId -> m ()
-onNewSlotAction = undefined
+onNewSlotAction _ = pass

@@ -8,9 +8,7 @@ module Pos.Update.Listeners
        ) where
 
 import qualified Data.HashMap.Strict     as HM
-import           Formatting              (build, sformat, stext, (%))
 import           Serokell.Util.Verify    (VerificationRes (..))
-import           System.Wlog             (logDebug, logInfo, logWarning)
 import           Universum
 
 import           Pos.Binary.Relay        ()

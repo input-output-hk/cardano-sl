@@ -26,7 +26,3 @@ spec = describe "Types" $ do
         binaryTest @T.Tx
         binaryTest @T.SharedSeed
         binaryTest @T.ChainDifficulty
-        binaryTest @T.UpdateProposal
-        binaryTest @T.UpdateVote
-        binaryTest @T.UpdateData
-        binaryTest @T.SystemTag

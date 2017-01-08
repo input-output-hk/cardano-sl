@@ -19,14 +19,15 @@ import           Data.Time.Clock.POSIX    (getPOSIXTime)
 import           Data.Time.Units          (Microsecond)
 import           System.Wlog              (CanLog (..), HasLoggerName (..))
 
-import Mockable.Channel      (Channel (..), ChannelT)
-import Mockable.Class        (Mockable (..))
-import Mockable.Concurrent   (Async (..), Concurrently (..), CurrentTime (..), Delay (..),
-                              Fork (..), Promise, RunInUnboundThread (..), ThreadId,
-                              delay)
-import Mockable.Exception    (Bracket (..), Catch (..), Throw (..))
-import Mockable.Fail         (Fail (..))
-import Mockable.SharedAtomic (SharedAtomic (..), SharedAtomicT)
+import           Mockable.Channel         (Channel (..), ChannelT)
+import           Mockable.Class           (Mockable (..))
+import           Mockable.Concurrent      (Async (..), Concurrently (..),
+                                           CurrentTime (..), Delay (..), Fork (..),
+                                           Promise, RunInUnboundThread (..), ThreadId,
+                                           delay)
+import           Mockable.Exception       (Bracket (..), Catch (..), Throw (..))
+import           Mockable.Fail            (Fail (..))
+import           Mockable.SharedAtomic    (SharedAtomic (..), SharedAtomicT)
 
 newtype Production t = Production
     { runProduction :: IO t

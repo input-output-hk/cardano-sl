@@ -47,6 +47,8 @@ data NodeContext ssc = NodeContext
     , ncSscRichmen    :: !(MVar Richmen)
     , ncUserSecret    :: !(STM.TVar UserSecret)
     -- ^ Secret keys (and path to file) which are used to send transactions
+    , ncKademliaDump  :: !FilePath
+    -- ^ Path to kademlia dump file
     }
 
 -- | Generate 'PublicKey' from 'SecretKey' of 'NodeContext'.

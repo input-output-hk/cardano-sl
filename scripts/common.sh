@@ -29,6 +29,7 @@ function logs {
 
   local log_file=$1
   local conf_dir="$logs_dir/conf"
+  dump_dir="$logs_dir/dump"
   local template_name="log-template.yaml"
   if [[ "$LOG_TEMPLATE" != "" ]]; then
     template_name="$LOG_TEMPLATE"
@@ -36,6 +37,7 @@ function logs {
   local template="$base_common/$template_name"
 
   mkdir -p "$conf_dir"
+  mkdir -p "$dump_dir"
 
   local conf_file="$conf_dir/$log_file.yaml"
   cat "$template" \
@@ -99,6 +101,7 @@ function node_cmd {
   local is_stat=$4
   local stake_distr=$5
   local wallet_args=$6
+  local kademlia_dump_path=$7
   local st=''
   local reb=''
   local ssc_algo=''
@@ -136,6 +139,7 @@ function node_cmd {
   echo -n " $stake_distr $ssc_algo "
   echo -n " $web "
   echo -n " $wallet_args "
+  echo -n " --kademlia-dump-path  $dump_dir/$kademlia_dump_path "
   echo ''
 }
 

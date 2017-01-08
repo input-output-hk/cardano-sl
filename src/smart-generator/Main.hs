@@ -260,6 +260,7 @@ main = do
                 , npAttackTypes   = []
                 , npAttackTargets = []
                 , npPropagation   = not (CLI.disablePropagation goCommonArgs)
+                , npKademliaDump  = "kademlia.dump"
                 }
             gtParams =
                 GtParams

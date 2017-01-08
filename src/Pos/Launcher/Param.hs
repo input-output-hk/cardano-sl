@@ -45,4 +45,5 @@ data NodeParams = NodeParams
     , npAttackTypes   :: ![AttackType]      -- ^ List of attack types used by malicious emulation
     , npAttackTargets :: ![AttackTarget]    -- ^ List of targets to attack by malicious emulation
     , npPropagation   :: !Bool              -- ^ Whether to propagate txs, ssc data, blocks to neighbors
+    , npKademliaDump  :: !FilePath          -- ^ Path to kademlia dump file
     } deriving (Show)

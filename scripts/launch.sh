@@ -68,8 +68,9 @@ while [[ $i -lt $n ]]; do
   fi
 
   stake_distr=" --flat-distr \"($n, 100000)\" "
+  kademlia_dump_path="kademlia$1.dump"
 
-  tmux send-keys "$(node_cmd $i "$time_lord" "$dht_conf" "$stats" "$stake_distr" "$wallet_args")" C-m
+  tmux send-keys "$(node_cmd $i "$time_lord" "$dht_conf" "$stats" "$stake_distr" "$wallet_args" "$kademlia_dump_path")" C-m
   i=$((i+1))
 done
 

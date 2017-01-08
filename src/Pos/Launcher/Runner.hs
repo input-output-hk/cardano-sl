@@ -278,6 +278,7 @@ runCH NodeParams {..} sscNodeContext act = do
             , ncSscRichmen = sscRichmen
             , ncSscLeaders = sscLeaders
             , ncUserSecret = userSecretVar
+            , ncKademliaDump = npKademliaDump
             }
     runContextHolder ctx act
 

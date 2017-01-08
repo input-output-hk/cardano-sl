@@ -138,6 +138,7 @@ nodeParams args@Args {..} systemStart =
     , npAttackTypes = maliciousEmulationAttacks
     , npAttackTargets = maliciousEmulationTargets
     , npPropagation = not (CLI.disablePropagation commonArgs)
+    , npKademliaDump = fromMaybe "kademlia.dump" kademliaDumpPath
     }
 
 gtSscParams :: Args -> VssKeyPair -> GtParams

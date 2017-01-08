@@ -35,6 +35,7 @@ data Args = Args
     , jlPath                    :: !(Maybe FilePath)
     , maliciousEmulationAttacks :: ![AttackType]
     , maliciousEmulationTargets :: ![AttackTarget]
+    , kademliaDumpPath          :: !(Maybe FilePath)
 #ifdef WITH_WEB
     , enableWeb                 :: !Bool
     , webPort                   :: !Word16
@@ -94,7 +95,11 @@ argsParser =
          <> help "Attack type to emulate") <*>
     many
         (option (fromParsec CLI.attackTargetParser) $
-         long "attack-target" <> metavar "HOST:PORT|PUBKEYHASH")
+         long "attack-target" <> metavar "HOST:PORT|PUBKEYHASH") <*>
+    optional
+        (strOption
+             (long "kademlia-dump-path" <> metavar "FILEPATH" <>
+              help "Path to kademlia dump file"))
 #ifdef WITH_WEB
     <*>
     switch

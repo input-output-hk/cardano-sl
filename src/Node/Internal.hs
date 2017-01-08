@@ -31,6 +31,7 @@ import qualified Data.ByteString               as BS
 import qualified Data.ByteString.Builder       as BS
 import qualified Data.ByteString.Builder.Extra as BS
 import qualified Data.ByteString.Lazy          as LBS
+import           Data.Hashable                 (Hashable)
 import           Data.List                     (foldl')
 import           Data.Map.Strict               (Map)
 import qualified Data.Map.Strict               as Map
@@ -47,7 +48,7 @@ import           System.Random                 (Random, StdGen, random)
 
 -- | A 'NodeId' wraps a network-transport endpoint address
 newtype NodeId = NodeId NT.EndPointAddress
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Hashable)
 
 -- | The state of a Node, to be held in a shared atomic cell because other
 --   threads will mutate it in order to set up bidirectional connections.

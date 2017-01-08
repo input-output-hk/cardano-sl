@@ -59,6 +59,7 @@ Library
                       , network-transport-inmemory
                       , mtl >= 2.2.1
                       , random
+                      , universum
                       , serokell-util
                       , stm
                       , text

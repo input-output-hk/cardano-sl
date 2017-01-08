@@ -10,6 +10,10 @@ packages:
       git: https://github.com/serokell/log-warper.git
       commit: 14d0d2f391e2ebb6a9679f1dd117c325aff53637
     extra-dep: true
+  - location:
+      git: https://github.com/serokell/universum
+      commit: db3cd301545e5da000e53ca2cdf274e0386192bf
+    extra-dep: true
 
 extra-deps:
   - network-transport-inmemory-0.5.2

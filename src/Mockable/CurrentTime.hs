@@ -11,8 +11,8 @@
 module Mockable.CurrentTime
        ( CurrentTime (..)
        , currentTime
+       , currentTimeUnits
        , realTime
-       , realTimeUnits
        ) where
 
 import           Universum
@@ -31,8 +31,8 @@ instance MFunctor' CurrentTime m n where
 currentTime :: (Mockable CurrentTime m) => m Microsecond
 currentTime = liftMockable CurrentTime
 
+currentTimeUnits :: (TimeUnit t, Mockable CurrentTime m) => m t
+currentTimeUnits = convertUnit <$> currentTime
+
 realTime :: MonadIO m => m Microsecond
 realTime = liftIO $ round . (* 1000000) <$> getPOSIXTime
-
-realTimeUnits :: (TimeUnit t, MonadIO m) => m t
-realTimeUnits = convertUnit <$> realTime

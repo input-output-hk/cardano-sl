@@ -17,7 +17,7 @@ import           Control.Monad.Catch      (MonadCatch (..), MonadMask (..),
 import           Control.Monad.Fix        (MonadFix)
 import           Control.Monad.IO.Class   (MonadIO)
 import           Control.TimeWarp.Timed   (for, hour)
-import           System.Wlog              (CanLog (..), HasLoggerName (..))
+import           System.Wlog              (CanLog (..))
 
 import           Mockable.Channel         (Channel (..), ChannelT)
 import           Mockable.Class           (Mockable (..))
@@ -31,13 +31,13 @@ import           Universum                (MonadFail (..))
 
 newtype Production t = Production
     { runProduction :: IO t
-    }
+    } deriving (Functor, Applicative, Monad)
 
-deriving instance Functor Production
-deriving instance Applicative Production
-deriving instance Monad Production
 deriving instance MonadIO Production
 deriving instance MonadFix Production
+deriving instance MonadThrow Production
+deriving instance MonadCatch Production
+deriving instance CanLog Production
 
 type instance ThreadId Production = Conc.ThreadId
 
@@ -99,15 +99,6 @@ instance Mockable Catch Production where
     liftMockable (Catch action handler) = Production $
         runProduction action `Exception.catch` (runProduction . handler)
 
--- * Temporal instances, till we get proper instances of `Mockable` for
--- `LoggerNameBox Production`
-
-instance HasLoggerName Production where
-    getLoggerName = return "production"
-    modifyLoggerName = const id
-
-deriving instance CanLog Production
-
 newtype FailException = FailException String
 
 deriving instance Show FailException
@@ -115,9 +106,6 @@ instance Exception.Exception FailException
 
 instance MonadFail Production where
     fail = Production . Exception.throwIO . FailException
-
-deriving instance MonadThrow Production
-deriving instance MonadCatch Production
 
 instance MonadMask Production where
     mask act = Production $ mask $

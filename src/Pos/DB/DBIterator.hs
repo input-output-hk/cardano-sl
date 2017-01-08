@@ -25,7 +25,8 @@ import           Pos.Util.Iterator    (MonadIterator (..))
 
 newtype DBIterator m a = DBIterator
     { getDBIterator :: ReaderT Rocks.Iterator m a
-    } deriving (Functor, Applicative, Monad, MonadIO, MonadTrans, MonadThrow)
+    } deriving (Functor, Applicative, Monad, MonadIO, MonadTrans
+               , MonadThrow, MonadCatch)
 
 -- | RocksDB key value iteration errors.
 data ParseResult a = FetchError  -- RocksDB internal error
@@ -64,7 +65,7 @@ parseIterator it =
 -- If f :: a -> b then we iterate by collection elements of type b.
 newtype DBMapIterator f m a = DBMapIterator
     { getDBMapIterator :: ReaderT f (DBIterator m) a
-    } deriving (Functor, Applicative, Monad, MonadIO, MonadThrow)
+    } deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch)
 
 instance MonadTrans (DBMapIterator f)  where
     lift x = DBMapIterator $ ReaderT $ const $ lift x
@@ -75,6 +76,9 @@ instance (Monad m, MonadIterator (DBIterator m) u)
          => MonadIterator (DBMapIterator (u->v) m) v where
     nextItem = DBMapIterator $ ReaderT $ \f -> fmap f <$> nextItem
     curItem = DBMapIterator $ ReaderT $ \f -> fmap f <$> curItem
+
+deriving instance MonadMask m => MonadMask (DBIterator m)
+deriving instance MonadMask m => MonadMask (DBMapIterator f m)
 
 deriving instance MonadDB ssc m => MonadDB ssc (DBIterator m)
 deriving instance MonadDB ssc m => MonadDB ssc (DBMapIterator f m)

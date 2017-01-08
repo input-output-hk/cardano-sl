@@ -1,6 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes  #-}
 {-# LANGUAGE CPP                  #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
 
 -- | Server which handles transactions.
 
@@ -26,28 +27,53 @@ import           Pos.Txp.Types.Communication (TxMsgContents (..), TxMsgTag (..))
 import           Pos.Txp.Types.Types         (MemPool (..), ProcessTxRes (..))
 import           Pos.Types                   (TxAux, TxId)
 import           Pos.Util.Relay              (DataMsg, InvMsg, Relay (..), ReqMsg,
-                                              handleDataL, handleInvL, handleReqL)
+                                              handleDataL, handleDataL', handleInvL,
+                                              handleInvL', handleReqL, handleReqL')
 import           Pos.WorkMode                (WorkMode)
+import           Node                        (Listener(..), ListenerAction(..), sendTo,
+                                              NodeId(..), SendActions(..))
+import           Message.Message             (BinaryP, messageName)
+import           Mockable.Monad              (MonadMockable(..))
+import           Pos.Communication.BiP       (BiP(..))
+import           Pos.Ssc.Class.Types         (Ssc(..))
 
 -- | Listeners for requests related to blocks processing.
 txListeners
     :: (MonadDHTDialog (MutSocketState ssc) m, WorkMode ssc m)
     => [ListenerDHT (MutSocketState ssc) m]
 txListeners = notImplemented
-    --[
-    --  ListenerDHT handleInvTx
-    --, ListenerDHT handleReqTx
-    --, ListenerDHT handleDataTx
-    --]
 
-handleInvTx :: ResponseMode ssc m => InvMsg TxId TxMsgTag -> m ()
-handleInvTx = handleInvL
+txListeners'
+    :: ( Ssc ssc
+       , MonadDHTDialog (MutSocketState ssc) m
+       , ResponseMode ssc m
+       , MonadMockable m
+       , WorkMode ssc m
+       )
+    => [ListenerAction BiP m]
+txListeners' =
+    [ handleInvTx
+    , handleReqTx
+    , handleDataTx
+    ]
 
-handleReqTx :: ResponseMode ssc m => ReqMsg TxId TxMsgTag -> m ()
-handleReqTx = handleReqL
+handleInvTx
+    :: (Ssc ssc, MonadMockable m, WorkMode ssc m, ResponseMode ssc m)
+    => ListenerAction BiP m
+handleInvTx = ListenerActionOneMsg $ \peerId sendActions (i :: InvMsg TxId TxMsgTag) -> 
+    handleInvL' i peerId sendActions
 
-handleDataTx :: ResponseMode ssc m => DataMsg TxId TxMsgContents -> m ()
-handleDataTx = handleDataL
+handleReqTx
+    :: (Ssc ssc, MonadMockable m, WorkMode ssc m, ResponseMode ssc m)
+    => ListenerAction BiP m
+handleReqTx = ListenerActionOneMsg $ \peerId sendActions (r :: ReqMsg TxId TxMsgTag) -> 
+    handleReqL' r peerId sendActions
+
+handleDataTx
+    :: (Ssc ssc, MonadMockable m, WorkMode ssc m, ResponseMode ssc m)
+    => ListenerAction BiP m
+handleDataTx = ListenerActionOneMsg $ \peerId sendActions (d :: DataMsg TxId TxMsgContents) -> 
+    handleDataL' d peerId sendActions
 
 instance ( WorkMode ssc m
          ) => Relay m TxMsgTag TxId TxMsgContents where

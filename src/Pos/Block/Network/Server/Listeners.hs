@@ -36,7 +36,7 @@ import           Pos.Crypto                     (hash, shortHashF)
 import qualified Pos.DB                         as DB
 import           Pos.DB.Error                   (DBError (DBMalformed))
 import           Pos.DHT.Model                  (ListenerDHT (..), MonadDHTDialog,
-                                                 getUserState, replyToNode)
+                                                 getUserState)
 import           Pos.Types                      (Block, BlockHeader, Blund,
                                                  HasHeaderHash (..), HeaderHash,
                                                  blockHeader, gbHeader, prevBlockL)
@@ -54,11 +54,6 @@ blockListeners
     :: (MonadDHTDialog (MutSocketState ssc) m, WorkMode ssc m)
     => [ListenerDHT (MutSocketState ssc) m]
 blockListeners = notImplemented
-    --[ ListenerDHT handleGetHeaders
-    --, ListenerDHT handleGetBlocks
-    --, ListenerDHT handleBlockHeaders
-    --, ListenerDHT handleBlock
-    --]
 
 blockListeners'
     :: ( Ssc ssc

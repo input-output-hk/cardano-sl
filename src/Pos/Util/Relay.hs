@@ -1,13 +1,19 @@
 -- | Framework for Inv/Req/Dat message handling
 
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+
 module Pos.Util.Relay
        ( Relay (..)
        , InvMsg (..)
        , ReqMsg (..)
        , DataMsg (..)
        , handleInvL
+       , handleInvL'
        , handleReqL
+       , handleReqL'
        , handleDataL
+       , handleDataL'
        ) where
 
 import           Control.TimeWarp.Rpc      (Message (..), messageName')
@@ -29,6 +35,16 @@ import           Pos.DHT.Model             (replyToNode)
 import           Pos.Util                  (NamedMessagePart (..))
 import           Pos.WorkMode              (WorkMode)
 import           System.Wlog               (WithLogger)
+import           Node                        (Listener(..), ListenerAction(..), sendTo,
+                                              NodeId(..), SendActions(..))
+import           Message.Message             (BinaryP, messageName)
+import           Mockable.Monad              (MonadMockable(..))
+import           Pos.Communication.BiP       (BiP(..))
+import           Pos.Ssc.Class.Types         (Ssc(..))
+import qualified Message.Message           as M
+import qualified Data.ByteString.Char8     as BC
+import           Pos.Types                   (TxId(..))
+import           Pos.Txp.Types.Communication (TxMsgTag (..))
 
 -- | Typeclass for general Inv/Req/Dat framework. It describes monads,
 -- that store data described by tag, where "key" stands for node
@@ -80,6 +96,14 @@ instance (Typeable key, Typeable tag, NamedMessagePart tag) =>
         tagM _ = Proxy
     formatMessage = messageName'
 
+instance (Typeable key, Typeable tag, NamedMessagePart tag) =>
+         M.Message (InvMsg key tag) where
+    messageName p = M.MessageName $ BC.pack "Inventory " <> encodeUtf8 (nMessageName $ tagM p)
+      where
+        tagM :: Proxy (InvMsg key tag) -> Proxy tag
+        tagM _ = Proxy
+    formatMessage _ = "Inventory"
+
 -- | Request message. Can be used to request data (ideally data which
 -- was previously announced by inventory message).
 data ReqMsg key tag = ReqMsg
@@ -100,6 +124,14 @@ instance (Typeable key, Typeable tag, NamedMessagePart tag) =>
         tagM _ = Proxy
     formatMessage = messageName'
 
+instance (Typeable key, Typeable tag, NamedMessagePart tag) =>
+         M.Message (ReqMsg key tag) where
+    messageName p = M.MessageName $ BC.pack "Request " <> encodeUtf8 (nMessageName $ tagM p)
+      where
+        tagM :: Proxy (ReqMsg key tag) -> Proxy tag
+        tagM _ = Proxy
+    formatMessage _ = "Request"
+
 -- | Data message. Can be used to send actual data.
 data DataMsg key contents = DataMsg
     { dmContents :: !contents
@@ -118,6 +150,14 @@ instance (Typeable key, Typeable contents, NamedMessagePart contents) =>
         contentsM :: Proxy (DataMsg key contents) -> Proxy contents
         contentsM _ = Proxy
     formatMessage = messageName'
+
+instance (Typeable key, Typeable contents, NamedMessagePart contents) =>
+         M.Message (DataMsg key contents) where
+    messageName p = M.MessageName $ BC.pack "Data " <> encodeUtf8 (nMessageName $ contentsM p)
+      where
+        contentsM :: Proxy (DataMsg key contents) -> Proxy contents
+        contentsM _ = Proxy
+    formatMessage _ = "Data"
 
 -- wtf is that? not used/not exported?
 --newtype ListenersHolder ssc m tag =
@@ -156,6 +196,32 @@ handleInvL InvMsg {..} = processMessage "Inventory" imTag verifyInvTag $ do
       []     -> pure ()
       (a:as) -> replyToNode $ ReqMsg imTag (a :| as)
 
+handleInvL'
+    :: forall ssc m key tag contents.
+       ( Bi (ReqMsg key tag)
+       , Buildable tag
+       , Relay m tag key contents
+       , Ssc ssc
+       , ResponseMode ssc m
+       , MonadMockable m
+       , WorkMode ssc m
+       )
+    => InvMsg key tag
+    -> NodeId
+    -> SendActions BiP m
+    -> m ()
+handleInvL' InvMsg {..} peerId sendActions = processMessage "Inventory" imTag verifyInvTag $ do
+    res <- zip (toList imKeys) <$> mapM (handleInv imTag) (toList imKeys)
+    let useful = filterSecond identity res
+        useless = filterSecond not res
+    when (not $ null useless) $
+        logDebug $ sformat
+          ("Ignoring inv "%build%" for addresses "%listJson%", because they're useless")
+          imTag useless
+    case useful of
+      []     -> pure ()
+      (a:as) -> sendTo sendActions peerId $ ReqMsg imTag (a :| as)
+
 -- | Handler for request messages. Verifies tag ('verifyReqTag'),
 -- requests needed data.
 handleReqL
@@ -170,6 +236,30 @@ handleReqL ReqMsg {..} = processMessage "Request" rmTag verifyReqTag $ do
             ("No data "%build%" for addresses "%listJson)
             rmTag noDataAddrs
     mapM_ (replyToNode . uncurry DataMsg) datas
+
+handleReqL'
+    :: forall ssc m key tag contents.
+       ( Bi (DataMsg key contents)
+       , Buildable tag
+       , Relay m tag key contents
+       , Ssc ssc
+       , ResponseMode ssc m
+       , MonadMockable m
+       , WorkMode ssc m
+       )
+    => ReqMsg key tag
+    -> NodeId
+    -> SendActions BiP m
+    -> m ()
+handleReqL' ReqMsg {..} peerId sendActions = processMessage "Request" rmTag verifyReqTag $ do
+    res <- zip (toList rmKeys) <$> mapM (handleReq rmTag) (toList rmKeys)
+    let noDataAddrs = filterSecond isNothing res
+        datas = catMaybes $ map (\(addr, m) -> (,addr) <$> m) res
+    when (not $ null noDataAddrs) $
+        logDebug $ sformat
+            ("No data "%build%" for addresses "%listJson)
+            rmTag noDataAddrs
+    mapM_ ((sendTo sendActions peerId) . uncurry DataMsg) datas
 
 -- | Handler for data messages. `handleData` is applied, and
 -- propagated if return value is 'True'.
@@ -196,3 +286,39 @@ handleDataL DataMsg {..} =
             dmContents dmKey
         tag <- contentsToTag dmContents
         sendToNeighborsSafe $ InvMsg tag (dmKey :| [])
+
+handleDataL'
+    :: forall ssc m key tag contents.
+       ( Bi (InvMsg key tag)
+       , Buildable tag
+       , Relay m tag key contents
+       , Ssc ssc
+       , ResponseMode ssc m
+       , MonadMockable m
+       , WorkMode ssc m
+       )
+    => DataMsg key contents
+    -> NodeId
+    -> SendActions BiP m
+    -> m () 
+handleDataL' DataMsg {..} peerId sendActions =
+    processMessage "Data" dmContents verifyDataContents $
+    ifM (handleData dmContents dmKey)
+        handleDataLDo $
+        logDebug $ sformat
+            ("Ignoring data "%build%" for address "%build)
+            dmContents dmKey
+  where
+    handleDataLDo =
+        ifM (ncPropagation <$> getNodeContext)
+            propagate $
+            logInfo $ sformat
+                ("Adopted data "%build%" for address "%build%", no propagation")
+                dmContents dmKey
+    propagate = do
+        logInfo $ sformat
+            ("Adopted data "%build%" for address "%build%", propagating...")
+            dmContents dmKey
+        tag <- contentsToTag dmContents
+        return ()
+        --sendToNeighborsSafe $ InvMsg tag (dmKey :| [])

@@ -21,11 +21,13 @@ import           Data.Text.Buildable        (Buildable (..))
 import           Formatting                 (bprint, (%))
 import qualified Formatting                 as F
 import qualified Network.Transport.Abstract as NT
+import qualified Network.Transport.TCP      as TCP
 import           Node                       (NodeId (..))
 import           Prelude                    (show)
 import qualified Serokell.Util.Base64       as B64
 import           Serokell.Util.Text         (listBuilderJSON)
 import           Universum                  hiding (show)
+
 
 import           Pos.Crypto.Random          (secureRandomBS)
 
@@ -109,4 +111,4 @@ filterByNodeType type_ = filter (\n -> dhtNodeType (dhtNodeId n) == Just type_)
 
 -- TODO: What about node index, i.e. last number in '127.0.0.1:3000:0' ?
 addressToNodeId :: NetworkAddress -> NodeId
-addressToNodeId (host, port) = NodeId . NT.EndPointAddress $ host <> ":" <> (BS8.pack . show $ port)
+addressToNodeId (host, port) = NodeId $ TCP.encodeEndPointAddress (BS8.unpack host) (show port) 0

@@ -54,7 +54,7 @@ instance MonadIO m => MonadState MemState (USHolder m) where
 
 instance MonadDB ssc m => MonadUS (USHolder m) where
     askUSMemState = USHolder ask
-    getScriptVersion = notImplemented
+    getScriptVersion = DB.getScriptVersion
     getLastAdoptedPV = DB.getLastPV
     getLastConfirmedSV = DB.getConfirmedSV
     hasActiveProposal = notImplemented

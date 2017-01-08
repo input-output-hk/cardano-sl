@@ -7,6 +7,7 @@ module Pos.DB.GState.Update
        (
          -- * Getters
          getLastPV
+       , getScriptVersion
        , getProposalState
        , getStakeUS
        , getConfirmedSV
@@ -14,6 +15,7 @@ module Pos.DB.GState.Update
          -- * Operations
        , UpdateOp (..)
        , putRichmenUS
+       , setScriptVersion
 
          -- * Initialization
        , prepareGStateUS
@@ -33,7 +35,8 @@ import           Pos.DB.Functions     (RocksBatchOp (..), traverseAllEntries)
 import           Pos.DB.GState.Common (getBi, putBi)
 import           Pos.DB.Types         (ProposalState (..), UndecidedProposalState (..),
                                        psProposal)
-import           Pos.Genesis          (genesisProtocolVersion)
+import           Pos.Genesis          (genesisProtocolVersion, genesisScriptVersion)
+import           Pos.Script.Type      (ScriptVersion)
 import           Pos.Types            (ApplicationName, Coin, EpochIndex, ProtocolVersion,
                                        SlotId, SoftwareVersion (..), StakeholderId)
 import           Pos.Update.Types     (UpdateProposal (..))
@@ -49,6 +52,9 @@ getLastPV = maybeThrow (DBMalformed msg) =<< getLastPVMaybe
   where
     msg =
         "Update System part of GState DB is not initialized (last PV is missing)"
+
+getScriptVersion :: MonadDB ssc m => ProtocolVersion -> m (Maybe ScriptVersion)
+getScriptVersion = getBi . scriptVersionKey
 
 -- | Get state of UpdateProposal for given SoftwareVersion.
 getProposalState :: MonadDB ssc m => SoftwareVersion -> m (Maybe ProposalState)
@@ -100,6 +106,10 @@ putRichmenUS e = mapM_ putRichmenDo
   where
     putRichmenDo (id, stake) = putBi (stakeKey e id) stake
 
+-- | Set correspondence between protocol version and script version
+setScriptVersion :: MonadDB ssc m => ProtocolVersion -> ScriptVersion -> m ()
+setScriptVersion = putBi . scriptVersionKey
+
 ----------------------------------------------------------------------------
 -- Initialization
 ----------------------------------------------------------------------------
@@ -110,6 +120,7 @@ prepareGStateUS
     => m ()
 prepareGStateUS = unlessM isInitialized $ do
     putBi lastPVKey genesisProtocolVersion
+    setScriptVersion genesisProtocolVersion genesisScriptVersion
 
 isInitialized :: MonadDB ssc m => m Bool
 isInitialized = isJust <$> getLastPVMaybe
@@ -150,6 +161,9 @@ getOldProposals slotId = do
 
 lastPVKey :: ByteString
 lastPVKey = "us/last-protocol"
+
+scriptVersionKey :: ProtocolVersion -> ByteString
+scriptVersionKey = mappend "us/vs" . encodeStrict
 
 proposalKey :: SoftwareVersion -> ByteString
 proposalKey = mappend "us/p" . encodeStrict

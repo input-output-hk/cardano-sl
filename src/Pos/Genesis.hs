@@ -19,6 +19,7 @@ module Pos.Genesis
 
        -- * Update System
        , genesisProtocolVersion
+       , genesisScriptVersion
        ) where
 
 
@@ -34,6 +35,7 @@ import           Pos.Constants        (genesisN)
 import           Pos.Crypto           (PublicKey, SecretKey, deterministicKeyGen,
                                        unsafeHash)
 import           Pos.FollowTheSatoshi (followTheSatoshi)
+import           Pos.Script.Type      (ScriptVersion)
 import           Pos.Types            (Address (..), Coin, ProtocolVersion (..),
                                        SharedSeed (SharedSeed), SlotLeaders, TxOut (..),
                                        Utxo, coinToInteger, divCoin, makePubKeyAddress,
@@ -151,3 +153,7 @@ genesisProtocolVersion =
     , pvMinor = 0
     , pvAlt = 0
     }
+
+-- | ScriptVersion used at very beginning
+genesisScriptVersion :: ScriptVersion
+genesisScriptVersion = 0

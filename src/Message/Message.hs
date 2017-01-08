@@ -18,7 +18,7 @@ module Message.Message
     , Message (..)
     , messageName'
 
-    , MessageName
+    , MessageName (..)
     , BinaryP (..)
     , recvNext
     ) where

@@ -12,6 +12,7 @@ import           Universum
 import           Pos.Binary.Class   (Bi (..))
 import           Pos.Binary.Util    (getAsciiString1b, putAsciiString1b)
 import           Pos.Binary.Version ()
+import           Pos.Crypto         (checkSig)
 import qualified Pos.Update.Types   as U
 
 instance Bi U.SystemTag where
@@ -21,7 +22,14 @@ instance Bi U.SystemTag where
     put (T.unpack . U.getSystemTag -> tag) = putAsciiString1b tag
 
 instance Bi U.UpdateVote where
-    get = label "UpdateVote" $ U.UpdateVote <$> get <*> get <*> get <*> get
+    get = label "UpdateVote" $ do
+        uvKey <- get
+        uvProposalId <- get
+        uvDecision <- get
+        uvSignature <- get
+        unless (checkSig uvKey (uvProposalId, uvDecision) uvSignature) $
+            fail "Pos.Binary.Update: UpdateVote: invalid signature"
+        return U.UpdateVote {..}
     put U.UpdateVote {..} =  put uvKey
                           *> put uvProposalId
                           *> put uvDecision

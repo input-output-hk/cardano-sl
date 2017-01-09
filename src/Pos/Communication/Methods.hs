@@ -34,13 +34,21 @@ import           Pos.WorkMode             (NewMinWorkMode)
 --             sendToNeighbors sendActions msg
 
 -- | Sends proxy secret key to neighbours
-sendProxySecretKey :: (NewMinWorkMode m) => SendActions BiP m -> ProxySKEpoch -> m ()
+sendProxySecretKey
+    :: (NewMinWorkMode m)
+    => SendActions BiP m
+    -> ProxySKEpoch
+    -> m ()
 sendProxySecretKey sendActions psk = do
     logDebug $ sformat ("Sending proxySecretKey to neigbours:\n"%build) psk
     -- [CSL-514] TODO Log long acting sends
     sendToNeighbors sendActions $ SendProxySKEpoch psk
 
-sendProxyConfirmSK :: (NewMinWorkMode m) => SendActions BiP m -> ConfirmProxySK -> m ()
+sendProxyConfirmSK
+    :: (NewMinWorkMode m)
+    => SendActions BiP m
+    -> ConfirmProxySK
+    -> m ()
 sendProxyConfirmSK sendActions confirmPSK@(ConfirmProxySK psk _) = do
     logDebug $
         sformat ("Sending proxy receival confirmation for psk "%build%" to neigbours") psk

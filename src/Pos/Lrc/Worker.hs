@@ -36,19 +36,27 @@ import           Pos.Types                (EpochIndex, EpochOrSlot (..), EpochOr
                                            crucialSlot, getEpochOrSlot, getEpochOrSlot)
 import           Pos.WorkMode             (WorkMode)
 
-lrcOnNewSlotWorker :: (SscWorkersClass ssc, WorkMode ssc m) => m ()
-lrcOnNewSlotWorker = onNewSlot True $ lrcOnNewSlotImpl allLrcConsumers
+lrcOnNewSlotWorker
+    :: (SscWorkersClass ssc, WorkMode ssc m)
+    => m ()
+lrcOnNewSlotWorker = onNewSlot True $ lrcOnNewSlotImpl
 
-lrcOnNewSlotImpl :: WorkMode ssc m => [LrcConsumer m] -> SlotId -> m ()
-lrcOnNewSlotImpl consumers SlotId {..} =
-    when (siSlot < k) $ lrcSingleShot siEpoch consumers
+lrcOnNewSlotImpl
+    :: (SscWorkersClass ssc, WorkMode ssc m)
+    => SlotId -> m ()
+lrcOnNewSlotImpl SlotId {..} = when (siSlot < k) $ lrcSingleShot siEpoch
 
 -- | Run leaders and richmen computation for given epoch. Behavior
 -- when there are not enough blocks in db is currently unspecified.
 lrcSingleShot
+    :: (SscWorkersClass ssc, WorkMode ssc m)
+    => EpochIndex -> m ()
+lrcSingleShot epoch = lrcSingleShotImpl epoch allLrcConsumers
+
+lrcSingleShotImpl
     :: WorkMode ssc m
     => EpochIndex -> [LrcConsumer m] -> m ()
-lrcSingleShot epoch consumers = do
+lrcSingleShotImpl epoch consumers = do
     expectedRichmenComp <- filterM (flip lcIfNeedCompute epoch) consumers
     needComputeLeaders <- not <$> isLeadersComputed epoch
     let needComputeRichmen = not . null $ expectedRichmenComp

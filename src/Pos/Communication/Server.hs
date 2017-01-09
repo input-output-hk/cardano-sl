@@ -38,11 +38,11 @@ allListeners = notImplemented
 -- TODO [CSL-447] Uncomment
     --map (modifyListenerLogger serverLoggerName) $
     --concat
-    --    [ map (modifyListenerLogger "block") blockListeners           -- DONE
-    --    , map (modifyListenerLogger "ssc") $ untag sscListeners       -- UNDONE
-    --    , map (modifyListenerLogger "tx") txListeners                 -- DONE
-    --    , map (modifyListenerLogger "delegation") delegationListeners -- UNDONE
-    --    , map (modifyListenerLogger "protocol") protocolListeners     -- DONE
+    --    [ map (modifyListenerLogger "block") blockListeners
+    --    , map (modifyListenerLogger "ssc") $ untag sscListeners
+    --    , map (modifyListenerLogger "tx") txListeners
+    --    , map (modifyListenerLogger "delegation") delegationListeners
+    --    , map (modifyListenerLogger "protocol") protocolListeners
     --    ]
 
 -- | ForkStrategy of whole server.

@@ -2,6 +2,7 @@
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
 
 -- | Instance of SscListenersClass
 
@@ -43,6 +44,13 @@ import           Pos.Util.Relay                         (DataMsg, InvMsg, Relay 
                                                          ReqMsg, handleDataL, handleInvL,
                                                          handleReqL)
 import           Pos.WorkMode                           (WorkMode)
+import           Pos.WorkMode                           (NewWorkMode)
+import           Pos.NewDHT.Model.Class                 (MonadDHT (..))
+import           Pos.Ssc.Class.Types                    (Ssc (..))
+import           Mockable.Monad                         (MonadMockable (..))
+import           Node                                   (ListenerAction (..))
+import           Pos.Communication.BiP                  (BiP (..))
+import           Pos.Ssc.Extra.MonadLD                  (MonadSscLD(..))
 
 instance ( Bi VssCertificate
          , Bi Opening
@@ -61,23 +69,55 @@ instance ( Bi VssCertificate
             --, ListenerDHT handleDataGt
             --]
 
--- [CSL-447] Refactor Listeners
+sscListeners'
+    :: ( MonadDHT m
+       , MonadMockable m
+       , NewWorkMode SscGodTossing m
+       , Bi (InvMsg StakeholderId GtMsgTag)
+       , Bi (ReqMsg StakeholderId GtMsgTag)
+       , Bi (DataMsg StakeholderId GtMsgContents)
+       )
+    => [ListenerAction BiP m]
+sscListeners' =
+    [ handleInvGt
+    , handleReqGt
+    , handleDataGt
+    ]
+
 handleInvGt
-    :: (Bi (ReqMsg StakeholderId GtMsgTag), ResponseMode SscGodTossing m)
-    => InvMsg StakeholderId GtMsgTag -> m ()
-handleInvGt = notImplemented --handleInvL
+    :: ( NewWorkMode SscGodTossing m
+       , Bi (InvMsg StakeholderId GtMsgTag)
+       , Bi (ReqMsg StakeholderId GtMsgTag)
+       , Bi (DataMsg StakeholderId GtMsgContents)
+       , MonadSscLD SscGodTossing m
+       )
+    => ListenerAction BiP m
+handleInvGt = ListenerActionOneMsg $ \peerId sendActions (i :: InvMsg StakeholderId GtMsgTag) ->
+    handleInvL i peerId sendActions
 
 handleReqGt
-    :: (Bi (DataMsg StakeholderId GtMsgContents), ResponseMode SscGodTossing m)
-    => ReqMsg StakeholderId GtMsgTag -> m ()
-handleReqGt = notImplemented --handleReqL
+    :: ( NewWorkMode SscGodTossing m
+       , Bi (InvMsg StakeholderId GtMsgTag)
+       , Bi (ReqMsg StakeholderId GtMsgTag)
+       , Bi (DataMsg StakeholderId GtMsgContents)
+       , MonadSscLD SscGodTossing m
+       )
+    => ListenerAction BiP m
+handleReqGt = ListenerActionOneMsg $ \peerId sendActions (r :: ReqMsg StakeholderId GtMsgTag) ->
+    handleReqL r peerId sendActions
 
 handleDataGt
-    :: (Bi (InvMsg StakeholderId GtMsgTag), ResponseMode SscGodTossing m)
-    => DataMsg StakeholderId GtMsgContents -> m ()
-handleDataGt = notImplemented --handleDataL
+    :: ( NewWorkMode SscGodTossing m
+       , Bi (InvMsg StakeholderId GtMsgTag)
+       , Bi (ReqMsg StakeholderId GtMsgTag)
+       , Bi (DataMsg StakeholderId GtMsgContents)
+       , MonadSscLD SscGodTossing m
+       )
+    => ListenerAction BiP m
+handleDataGt = ListenerActionOneMsg $ \peerId sendActions (d :: DataMsg StakeholderId GtMsgContents) ->
+    handleDataL d peerId sendActions
 
-instance ( WorkMode SscGodTossing m
+instance ( NewWorkMode SscGodTossing m
          ) => Relay m GtMsgTag StakeholderId GtMsgContents where
     contentsToTag = pure . msgContentsTag
 

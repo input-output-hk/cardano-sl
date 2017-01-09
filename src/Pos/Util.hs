@@ -40,6 +40,7 @@ module Pos.Util
        -- * Prettification
        , Color (..)
        , colorize
+       , withColoredMessages
 
        -- * TimeWarp helpers
        , CanLogInParallel
@@ -297,6 +298,14 @@ colorize color msg =
         , msg
         , toText (setSGRCode [Reset])
         ]
+
+-- | Write colored message, do some action, write colored message.
+-- Intended for debug only.
+withColoredMessages :: MonadIO m => Color -> Text -> m a -> m a
+withColoredMessages color activity action = do
+    putText (colorize color $ sformat ("Entered "%stext%"\n") activity)
+    res <- action
+    res <$ putText (colorize color $ sformat ("Finished "%stext%"\n") activity)
 
 ----------------------------------------------------------------------------
 -- TimeWarp helpers

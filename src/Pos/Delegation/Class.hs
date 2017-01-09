@@ -27,7 +27,8 @@ import qualified Data.HashMap.Strict         as HM
 import           Data.Time.Clock             (UTCTime)
 import           Mockable                    (ChannelT, MFunctor' (hoist'),
                                               Mockable (liftMockable), Promise,
-                                              SharedAtomicT, ThreadId)
+                                              SharedAtomicT, ThreadId,
+                                              liftMockableWrappedM)
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
@@ -123,7 +124,7 @@ instance ( Mockable d m
          , MFunctor' d (ReaderT ReaderTCtx m) m
          , MFunctor' d (DelegationT m) (ReaderT ReaderTCtx m)
          ) => Mockable d (DelegationT m) where
-    liftMockable dmt = DelegationT $ liftMockable $ hoist' getDelegationT dmt
+    liftMockable = liftMockableWrappedM
 
 -- | Executes delegationT transformer creating tvar from given wrap.
 runDelegationT :: MonadIO m => DelegationWrap -> DelegationT m a -> m a

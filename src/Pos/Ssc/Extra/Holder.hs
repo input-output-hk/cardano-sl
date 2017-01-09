@@ -26,7 +26,8 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
 import           Data.Default                (Default (def))
 import           Mockable                    (ChannelT, MFunctor' (hoist'),
                                               Mockable (liftMockable), Promise,
-                                              SharedAtomicT, ThreadId)
+                                              SharedAtomicT, ThreadId,
+                                              liftMockableWrappedM)
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
@@ -74,7 +75,7 @@ instance ( Mockable d m
          , MFunctor' d (ReaderT (SscState ssc) m) m
          , MFunctor' d (SscHolder ssc m) (ReaderT (SscState ssc) m)
          ) => Mockable d (SscHolder ssc m) where
-    liftMockable dmt = SscHolder $ liftMockable $ hoist' getSscHolder dmt
+    liftMockable = liftMockableWrappedM
 
 deriving instance MonadDB ssc m => MonadDB ssc (SscHolder ssc m)
 

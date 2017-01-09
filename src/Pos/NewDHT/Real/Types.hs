@@ -26,7 +26,7 @@ import           Data.ByteString.Lazy      (fromStrict, toStrict)
 
 import           Mockable                  (ChannelT, MFunctor' (hoist'),
                                             Mockable (liftMockable), Promise,
-                                            SharedAtomicT, ThreadId)
+                                            SharedAtomicT, ThreadId, liftMockableWrappedM)
 import qualified Network.Kademlia          as K
 import           Serokell.Util.Lens        (WrappedM (..))
 import           System.Wlog               (CanLog, HasLoggerName)
@@ -86,7 +86,7 @@ instance ( Mockable d m
          , MFunctor' d (ReaderT KademliaDHTInstance m) m
          , MFunctor' d (KademliaDHT m) (ReaderT KademliaDHTInstance m)
          ) => Mockable d (KademliaDHT m) where
-    liftMockable dmt = KademliaDHT $ liftMockable $ hoist' unKademliaDHT dmt
+    liftMockable = liftMockableWrappedM
 
 instance Monad m => WrappedM (KademliaDHT m) where
     type UnwrappedM (KademliaDHT m) = ReaderT KademliaDHTInstance m

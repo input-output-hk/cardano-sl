@@ -21,7 +21,7 @@ import           Formatting                (sformat, shown, (%))
 import           Mockable                  (Catch, ChannelT, CurrentTime,
                                             MFunctor' (hoist'), Mockable (liftMockable),
                                             Promise, SharedAtomicT, ThreadId, catchAll,
-                                            currentTime)
+                                            currentTime, liftMockableWrappedM)
 import           Serokell.Util.Lens        (WrappedM (..))
 import           System.Wlog               (CanLog, HasLoggerName, WithLogger, logWarning)
 import           Universum                 hiding (catchAll)
@@ -64,7 +64,7 @@ instance ( Mockable d m
          , MFunctor' d (ReaderT (NodeContext ssc) m) m
          , MFunctor' d (ContextHolder ssc m) (ReaderT (NodeContext ssc) m)
          ) => Mockable d (ContextHolder ssc m) where
-    liftMockable dmt = ContextHolder $ liftMockable $ hoist' getContextHolder dmt
+    liftMockable = liftMockableWrappedM
 
 instance Monad m => WithNodeContext ssc (ContextHolder ssc m) where
     getNodeContext = ContextHolder ask

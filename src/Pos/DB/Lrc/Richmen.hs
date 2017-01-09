@@ -94,8 +94,8 @@ prepareLrcRichmen
     => [(SomeRichmenComponent, FullRichmenData)] -> m ()
 prepareLrcRichmen = mapM_ prepareLrcRichmenDo
   where
-    prepareLrcRichmenDo (SomeRichmenComponent proxy, frd) = do
-        putIfEmpty (getRichmenP proxy 0) (putRichmenP proxy 0 undefined)
+    prepareLrcRichmenDo (SomeRichmenComponent proxy, frd) =
+        putIfEmpty (getRichmenP proxy 0) (putRichmenP proxy 0 frd)
 
 putIfEmpty
     :: forall a m.

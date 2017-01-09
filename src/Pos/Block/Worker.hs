@@ -97,7 +97,7 @@ blkOnNewSlot slotId@SlotId {..} = do
         let heavyWeAreIssuer = maybe False ((== ourPk) . pskIssuerPk) heavyPskM
         if | heavyWeAreIssuer -> pass
            | leader == ourPkHash -> onNewSlotWhenLeader slotId Nothing
-           | heavyWeAreIssuer -> onNewSlotWhenLeader slotId $ Right <$> heavyPskM
+           | heavyWeAreDelegate -> onNewSlotWhenLeader slotId $ Right <$> heavyPskM
            | isJust validCert -> onNewSlotWhenLeader slotId $ Left <$> validCert
            | otherwise -> pass
 

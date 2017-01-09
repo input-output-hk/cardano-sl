@@ -40,9 +40,9 @@ lrcOnNewSlotWorker :: (SscWorkersClass ssc, WorkMode ssc m) => m ()
 lrcOnNewSlotWorker = onNewSlot True $ lrcOnNewSlotImpl allLrcConsumers
 
 lrcOnNewSlotImpl :: WorkMode ssc m => [LrcConsumer m] -> SlotId -> m ()
-lrcOnNewSlotImpl consumers slotId@SlotId{..}
+lrcOnNewSlotImpl consumers SlotId{..}
     | siSlot < k = do
-        expectedRichmenComp <- filterM (flip lcIfNeedCompute slotId) consumers
+        expectedRichmenComp <- filterM (flip lcIfNeedCompute siEpoch) consumers
         needComputeLeaders <- not <$> isLeadersComputed siEpoch
         let needComputeRichmen = not . null $ expectedRichmenComp
         when needComputeRichmen $ logInfo "Need to compute richmen"

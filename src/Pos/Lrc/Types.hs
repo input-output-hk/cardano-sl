@@ -13,7 +13,7 @@ import           Data.List.NonEmpty  (NonEmpty)
 import qualified Data.List.NonEmpty  as NE
 import           Universum
 
-import           Pos.Types           (Coin, EpochIndex, SlotId, StakeholderId)
+import           Pos.Types           (Coin, EpochIndex, StakeholderId)
 
 -- | Addresses which have enough stake for participation in SSC.
 type Richmen = NonEmpty StakeholderId
@@ -37,7 +37,7 @@ data LrcConsumer m = LrcConsumer
     {
       lcThreshold         :: Coin -> Coin
     -- ^ Function which defines threshold depends on total stake
-    , lcIfNeedCompute     :: SlotId -> m Bool
+    , lcIfNeedCompute     :: EpochIndex -> m Bool
     -- ^ Function which defines necessity of richmen computation
     , lcComputedCallback  :: EpochIndex -> Coin -> RichmenStake -> m ()
     -- ^ Callback which will be called when richmen computed

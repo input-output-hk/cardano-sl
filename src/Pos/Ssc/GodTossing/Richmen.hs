@@ -4,12 +4,11 @@ module Pos.Ssc.GodTossing.Richmen
 
 import           Universum
 
-import           Pos.Constants            (k)
 import qualified Pos.DB                   as DB
 import           Pos.Lrc.Types            (LrcConsumer (..), RichmenStake, RichmenStake)
 import           Pos.Ssc.Extra.Richmen    (MonadSscRichmen (..), isEmptySscRichmen)
 import           Pos.Ssc.GodTossing.Types (SscGodTossing)
-import           Pos.Types                (Coin, EpochIndex, SlotId (..), mkCoin)
+import           Pos.Types                (Coin, EpochIndex, mkCoin)
 import           Pos.WorkMode             (WorkMode)
 
 -- | Consumer will be called on every Richmen computation.
@@ -24,13 +23,15 @@ gtLrcConsumer = LrcConsumer
     }
 
 -- Returns True if cached value doesnt't correspond to current epoch
-ifNeed :: WorkMode SscGodTossing m => SlotId -> m Bool
-ifNeed SlotId {..} = do
+ifNeed
+    :: WorkMode SscGodTossing m
+    => EpochIndex -> m Bool
+ifNeed toCompute = do
     (epochIndex, richmen) <- DB.getGtRichmen
     isEmpty <- isEmptySscRichmen
-    let needWrite = siSlot < k && siEpoch == epochIndex && isEmpty
+    let needWrite = toCompute == epochIndex && isEmpty
     when needWrite $ writeSscRichmen (epochIndex, richmen)
-    pure (siSlot < k && epochIndex < siEpoch)
+    pure (epochIndex < toCompute)
 
 -- Store computed value into DB and cache.
 onComputed :: WorkMode SscGodTossing m => EpochIndex -> Coin -> RichmenStake -> m ()

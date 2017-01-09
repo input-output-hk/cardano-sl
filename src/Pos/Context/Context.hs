@@ -15,7 +15,7 @@ import           Pos.Crypto             (PublicKey, SecretKey, toPublic)
 import           Pos.Security.Types     (AttackTarget, AttackType)
 import           Pos.Ssc.Class.Types    (Ssc (SscNodeContext))
 import           Pos.Types              (Address, EpochIndex, HeaderHash, SlotLeaders,
-                                         Timestamp (..), makePubKeyAddress)
+                                         Timestamp (..), Utxo, makePubKeyAddress)
 import           Pos.Util.UserSecret    (UserSecret)
 
 ----------------------------------------------------------------------------
@@ -28,6 +28,8 @@ data NodeContext ssc = NodeContext
     -- ^ Time when system started working.
     , ncSecretKey     :: !SecretKey
     -- ^ Secret key used for blocks creation.
+    , ncGenesisUtxo   :: !Utxo
+    -- ^ Genesis utxo
     , ncTimeLord      :: !Bool
     -- ^ Is time lord
     , ncJLFile        :: !(Maybe (MVar FilePath))

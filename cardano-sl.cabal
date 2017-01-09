@@ -156,6 +156,7 @@ library
                         -- NodeContext
                         Pos.Context.Class
                         Pos.Context.Context
+                        Pos.Context.Functions
                         Pos.Context.Holder
 
                         -- Crypto

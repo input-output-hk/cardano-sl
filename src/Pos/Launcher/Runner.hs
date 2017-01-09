@@ -270,6 +270,7 @@ runCH NodeParams {..} sscNodeContext act = do
             NodeContext
             { ncSystemStart = npSystemStart
             , ncSecretKey = primarySecretKey
+            , ncGenesisUtxo = npCustomUtxo
             , ncTimeLord = npTimeLord
             , ncJLFile = jlFile
             , ncDbPath = npDbPathM

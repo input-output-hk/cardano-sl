@@ -75,6 +75,7 @@ import           Pos.DHT.Real                 (KademliaDHT, KademliaDHTConfig (.
                                                KademliaDHTInstanceConfig (..),
                                                runKademliaDHT, startDHTInstance,
                                                stopDHTInstance)
+import           Pos.Genesis                  (genesisLeaders)
 import           Pos.Launcher.Param           (BaseParams (..), LoggingParams (..),
                                                NodeParams (..))
 import           Pos.Ssc.Class                (SscConstraint, SscNodeContext, SscParams,
@@ -271,6 +272,7 @@ runCH NodeParams {..} sscNodeContext act = do
             { ncSystemStart = npSystemStart
             , ncSecretKey = primarySecretKey
             , ncGenesisUtxo = npCustomUtxo
+            , ncGenesisLeaders = genesisLeaders npCustomUtxo
             , ncTimeLord = npTimeLord
             , ncJLFile = jlFile
             , ncDbPath = npDbPathM

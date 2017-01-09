@@ -4,8 +4,12 @@
 
 module Pos.Context.Functions
        (
+         -- * Genesis
+         genesisUtxoM
+       , genesisLeadersM
+
          -- * Block semaphore.
-         putBlkSemaphore
+       , putBlkSemaphore
        , readBlkSemaphore
        , takeBlkSemaphore
 
@@ -22,9 +26,19 @@ import           Universum
 
 import           Pos.Context.Class       (WithNodeContext (..))
 import           Pos.Context.Context     (NodeContext (..))
-import           Pos.Types               (EpochIndex, HeaderHash, SlotLeaders,
+import           Pos.Types               (EpochIndex, HeaderHash, SlotLeaders, Utxo,
                                           readUntilEpochMVar)
 import           Pos.Util                (forcePutMVar)
+
+----------------------------------------------------------------------------
+-- Genesis
+----------------------------------------------------------------------------
+
+genesisUtxoM :: (Functor m, WithNodeContext ssc m) => m Utxo
+genesisUtxoM = ncGenesisUtxo <$> getNodeContext
+
+genesisLeadersM :: (Functor m, WithNodeContext ssc m) => m SlotLeaders
+genesisLeadersM = ncGenesisLeaders <$> getNodeContext
 
 ----------------------------------------------------------------------------
 -- Semaphore-related logic

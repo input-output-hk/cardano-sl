@@ -160,8 +160,8 @@ makeListenerIndex = foldr combine (M.empty, [])
 nodeSendActions
     :: forall m packing .
        ( Mockable Channel m, Mockable Throw m, Mockable Catch m
-       , Mockable Bracket m, Mockable Fork m, Mockable SharedAtomic m
-       , Packable packing MessageName )
+       , Mockable Bracket m, Mockable Async m, Mockable SharedAtomic m
+       , Packable packing MessageName, MonadFix m )
     => LL.Node m
     -> packing
     -> SendActions packing m

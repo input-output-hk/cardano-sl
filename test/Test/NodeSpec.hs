@@ -17,6 +17,7 @@ import qualified Data.Set                    as S
 import           Test.Hspec                  (Spec, describe)
 import           Test.Hspec.QuickCheck       (prop)
 import           Test.QuickCheck             (Property, ioProperty)
+import           Test.QuickCheck.Modifiers   (NonEmptyList(..), getNonEmpty)
 import           Test.Util                   (HeavyParcel (..), Parcel (..),
                                               TalkStyle (..), TestState, deliveryTest,
                                               expected, mkTestState, modifyTestState,
@@ -40,9 +41,10 @@ prepareDeliveryTestState expectedParcels =
 
 plainDeliveryTest
     :: TalkStyle
-    -> [Parcel]
+    -> NonEmptyList Parcel
     -> Property
-plainDeliveryTest talkStyle parcels = ioProperty $ do
+plainDeliveryTest talkStyle neparcels = ioProperty $ do
+    let parcels = getNonEmpty neparcels
     testState <- prepareDeliveryTestState parcels
 
     let worker peerId sendActions = newWork testState "client" $
@@ -53,5 +55,5 @@ plainDeliveryTest talkStyle parcels = ioProperty $ do
 
     deliveryTest testState [worker] [listener]
 
-withHeavyParcels :: ([Parcel] -> Property) -> [HeavyParcel] -> Property
-withHeavyParcels testCase megaParcels = testCase (getHeavyParcel <$> megaParcels)
+withHeavyParcels :: (NonEmptyList Parcel -> Property) -> NonEmptyList HeavyParcel -> Property
+withHeavyParcels testCase (NonEmpty megaParcels) = testCase (NonEmpty (getHeavyParcel <$> megaParcels))

@@ -6,11 +6,8 @@
 
 module Pos.Communication.Types
        ( ResponseMode
-
          -- * Messages and socket state
        , module Export
-
-       , noCacheMessageNames
        ) where
 
 import           Control.TimeWarp.Rpc             (MessageName, messageName)
@@ -26,13 +23,7 @@ import           Pos.Communication.Types.State    as Export
 import           Pos.Communication.Types.SysStart as Export
 import           Pos.Txp.Types.Communication      as Export
 
+-- [CSL-447] Remove ResponseMode
 -- | Constraint alias for 'WorkMode' with 'MonadResponseDHT'.
 type ResponseMode ssc m =
     (WorkMode ssc m, MonadResponseDHT (MutSocketState ssc) m)
-
--- | 'MessageName'`s that shouldn't be cached.
-noCacheMessageNames :: [MessageName]
-noCacheMessageNames =
-    [ -- messageName (Proxy :: Proxy Block.RequestBlock)
-      "RequestBlock"
-    ]

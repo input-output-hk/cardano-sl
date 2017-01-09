@@ -5,7 +5,7 @@ module Pos.Worker
        , statsWorkers
        ) where
 
-import           Control.TimeWarp.Timed (fork_, ms)
+import           Control.TimeWarp.Timed (ms)
 import           Data.Tagged            (untag)
 import           Formatting             (sformat, (%))
 import           Mockable               (fork)
@@ -37,7 +37,7 @@ import           Pos.WorkMode           (NewWorkMode)
 runWorkers :: (NewWorkMode ssc m) => SendActions BiP m -> m ()
 runWorkers sendActions = mapM_ fork $ concat
     [ [ onNewSlot' True $ onNewSlotWorkerImpl sendActions ]
-    -- , blkWorkers
+    , blkWorkers sendActions
     -- , untag sscWorkers
     -- , untag securityWorkers
     ]

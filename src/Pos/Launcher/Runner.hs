@@ -64,7 +64,7 @@ import           Pos.Binary                   ()
 import           Pos.CLI                      (readLoggerConfig)
 import           Pos.Communication            (BiP (..), SysStartRequest (..),
                                                allListeners, forkStrategy, newStateHolder,
-                                               noCacheMessageNames, sysStartReqListener,
+                                               sysStartReqListener,
                                                sysStartReqListenerSlave,
                                                sysStartRespListener)
 import           Pos.Constants                (defaultPeers, isDevelopment, runningMode)

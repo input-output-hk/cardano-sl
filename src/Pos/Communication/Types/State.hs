@@ -24,6 +24,8 @@ import           Pos.Block.Network.Server.State (BlockSocketState,
                                                  HasBlockSocketState (blockSocketState))
 import           Pos.Types                      (ProtocolVersion)
 
+--
+
 -- | SocketState type aggregates socket states needed for different
 -- parts of system.
 data SocketState ssc = SocketState
@@ -55,7 +57,7 @@ type MutSocketState ssc = TVar (SocketState ssc)
 newMutSocketState :: IO (MutSocketState ssc)
 newMutSocketState = newTVarIO def
 
-data StateHolder ssc m = StateHolder
+data PeerStateHolder ssc m = PeerStateHolder
     { getState   :: NodeId -> m (SharedAtomicT m (SocketState ssc))
     , clearState :: NodeId -> m ()
     }

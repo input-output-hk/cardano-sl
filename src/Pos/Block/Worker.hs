@@ -11,9 +11,10 @@ module Pos.Block.Worker
        ) where
 
 import           Control.Lens               (ix, (^.), (^?))
-import           Control.TimeWarp.Timed     (for, wait)
 import           Data.Default               (def)
 import           Formatting                 (build, sformat, shown, (%))
+import           Mockable                   (delay, for)
+import           Node                       (SendActions)
 import           Serokell.Util              (VerificationRes (..), listJson)
 import           Serokell.Util.Exceptions   ()
 import           System.Wlog                (WithLogger, logDebug, logError, logInfo,
@@ -23,6 +24,7 @@ import           Universum
 import           Pos.Binary.Communication   ()
 import           Pos.Block.Logic            (createGenesisBlock, createMainBlock)
 import           Pos.Block.Network.Announce (announceBlock)
+import           Pos.Communication.BiP      (BiP)
 import           Pos.Constants              (networkDiameter)
 import           Pos.Context                (getNodeContext, ncPublicKey)
 import           Pos.Context.Class          (tryReadLeaders)
@@ -30,7 +32,7 @@ import           Pos.Crypto                 (ProxySecretKey, pskIssuerPk, pskOme
                                              shortHashF)
 import           Pos.DB.Misc                (getProxySecretKeys)
 import           Pos.Slotting               (MonadSlots (getCurrentTime), getSlotStart,
-                                             onNewSlot)
+                                             onNewSlot')
 import           Pos.Ssc.Class              (SscHelpersClass)
 import           Pos.Types                  (EpochIndex, MainBlock, SlotId (..),
                                              Timestamp (Timestamp),
@@ -39,18 +41,15 @@ import           Pos.Types                  (EpochIndex, MainBlock, SlotId (..),
 import           Pos.Types.Address          (addressHash)
 import           Pos.Util                   (inAssertMode, logWarningWaitLinear)
 import           Pos.Util.JsonLog           (jlCreatedBlock, jlLog)
-import           Pos.WorkMode               (WorkMode)
+import           Pos.WorkMode               (NewWorkMode)
 
 -- | All workers specific to block processing.
-blkWorkers :: WorkMode ssc m => [m ()]
-blkWorkers = [blkOnNewSlotWorker]
-
-blkOnNewSlotWorker :: WorkMode ssc m => m ()
-blkOnNewSlotWorker = onNewSlot True blkOnNewSlot
+blkWorkers :: NewWorkMode ssc m => SendActions BiP m -> [m ()]
+blkWorkers sendActions = [onNewSlot' True (blkOnNewSlot sendActions)]
 
 -- Action which should be done when new slot starts.
-blkOnNewSlot :: WorkMode ssc m => SlotId -> m ()
-blkOnNewSlot slotId@SlotId {..} = do
+blkOnNewSlot :: NewWorkMode ssc m => SendActions BiP m -> SlotId -> m ()
+blkOnNewSlot sendActions slotId@SlotId {..} = do
     -- First of all we create genesis block if necessary.
     mGenBlock <- createGenesisBlock slotId
     whenJust mGenBlock $ \createdBlk -> do
@@ -86,16 +85,17 @@ blkOnNewSlot slotId@SlotId {..} = do
             logLeadersF (sformat ("Slot leaders: "%listJson) $
                          map (sformat shortHashF) leaders)
             logDebug $ sformat ("Available proxy certificates: "%listJson) validCerts
-            if | leader == Just ourPkHash -> onNewSlotWhenLeader slotId Nothing
-               | isJust validCert -> onNewSlotWhenLeader slotId validCert
+            if | leader == Just ourPkHash -> onNewSlotWhenLeader sendActions slotId Nothing
+               | isJust validCert -> onNewSlotWhenLeader sendActions slotId validCert
                | otherwise -> pure ()
 
 onNewSlotWhenLeader
-    :: WorkMode ssc m
-    => SlotId
+    :: NewWorkMode ssc m
+    => SendActions BiP m
+    -> SlotId
     -> Maybe (ProxySecretKey (EpochIndex, EpochIndex))
     -> m ()
-onNewSlotWhenLeader slotId pSk = do
+onNewSlotWhenLeader sendActions slotId pSk = do
     logInfo $
         maybe
         (sformat
@@ -113,7 +113,7 @@ onNewSlotWhenLeader slotId pSk = do
         Timestamp timeToWait = timeToCreate - currentTime
     logInfo $
         sformat ("Waiting for "%shown%" before creating block") timeToWait
-    wait (for timeToWait)
+    delay $ for timeToWait
     let onNewSlotWhenLeaderDo = do
             logInfo "It's time to create a block for current slot"
             let whenCreated createdBlk = do
@@ -121,7 +121,7 @@ onNewSlotWhenLeader slotId pSk = do
                         sformat ("Created a new block:\n" %build) createdBlk
                     jlLog $ jlCreatedBlock (Right createdBlk)
                     verifyCreatedBlock createdBlk
-                    announceBlock $ createdBlk ^. gbHeader
+                    announceBlock sendActions $ createdBlk ^. gbHeader
             let whenNotCreated = logWarning . (mappend "I couldn't create a new block: ")
             createdBlock <- createMainBlock slotId pSk
             either whenNotCreated whenCreated createdBlock

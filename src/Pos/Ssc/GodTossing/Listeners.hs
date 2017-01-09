@@ -61,20 +61,21 @@ instance ( Bi VssCertificate
             --, ListenerDHT handleDataGt
             --]
 
+-- [CSL-447] Refactor Listeners
 handleInvGt
     :: (Bi (ReqMsg StakeholderId GtMsgTag), ResponseMode SscGodTossing m)
     => InvMsg StakeholderId GtMsgTag -> m ()
-handleInvGt = handleInvL
+handleInvGt = notImplemented --handleInvL
 
 handleReqGt
     :: (Bi (DataMsg StakeholderId GtMsgContents), ResponseMode SscGodTossing m)
     => ReqMsg StakeholderId GtMsgTag -> m ()
-handleReqGt = handleReqL
+handleReqGt = notImplemented --handleReqL
 
 handleDataGt
     :: (Bi (InvMsg StakeholderId GtMsgTag), ResponseMode SscGodTossing m)
     => DataMsg StakeholderId GtMsgContents -> m ()
-handleDataGt = handleDataL
+handleDataGt = notImplemented --handleDataL
 
 instance ( WorkMode SscGodTossing m
          ) => Relay m GtMsgTag StakeholderId GtMsgContents where

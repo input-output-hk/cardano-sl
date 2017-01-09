@@ -10,12 +10,12 @@ module Pos.Delegation.Types
        , CheckProxySKConfirmedRes (..)
        ) where
 
-import           Control.TimeWarp.Rpc (Message (..), messageName')
-import           Data.DeriveTH        (derive, makeArbitrary)
-import           Test.QuickCheck      (Arbitrary (..), choose)
+import           Data.DeriveTH   (derive, makeArbitrary)
+import           Message.Message (Message (..), messageName')
+import           Test.QuickCheck (Arbitrary (..), choose)
 import           Universum
 
-import           Pos.Types            (ProxySKEpoch, ProxySKSimple, ProxySigEpoch)
+import           Pos.Types       (ProxySKEpoch, ProxySKSimple, ProxySigEpoch)
 
 ----------------------------------------------------------------------------
 -- Generic PSKs propagation
@@ -32,7 +32,7 @@ instance Hashable SendProxySK
 
 instance Message SendProxySK where
     messageName _ = "SendProxySK"
-    formatMessage = messageName'
+    formatMessage _ = "SendProxySK"
 
 ----------------------------------------------------------------------------
 -- Lightweight PSKs confirmation mechanism
@@ -50,7 +50,7 @@ data ConfirmProxySK =
 
 instance Message ConfirmProxySK where
     messageName _ = "ConfirmProxySK"
-    formatMessage = messageName'
+    formatMessage _ = "ConfirmProxySK"
 
 -- | Request to check if a node has any info about PSK delivery.
 data CheckProxySKConfirmed =
@@ -59,7 +59,7 @@ data CheckProxySKConfirmed =
 
 instance Message CheckProxySKConfirmed where
     messageName _ = "CheckProxySKConfirmed"
-    formatMessage = messageName'
+    formatMessage _ = "CheckProxySKConfirmed"
 
 -- | Response to the @CheckProxySKConfirmed@ call.
 data CheckProxySKConfirmedRes =
@@ -68,7 +68,7 @@ data CheckProxySKConfirmedRes =
 
 instance Message CheckProxySKConfirmedRes where
     messageName _ = "CheckProxySKConfirmedRes"
-    formatMessage = messageName'
+    formatMessage _ = "CheckProxySKConfirmedRes"
 
 ----------------------------------------------------------------------------
 -- Arbitrary instances

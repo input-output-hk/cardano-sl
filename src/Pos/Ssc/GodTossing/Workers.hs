@@ -25,7 +25,6 @@ import           Universum
 import           Pos.Binary.Class                 (Bi)
 import           Pos.Binary.Relay                 ()
 import           Pos.Binary.Ssc                   ()
-import           Pos.Communication.Methods        (sendToNeighborsSafe)
 import           Pos.Constants                    (k, mpcSendInterval, vssMaxTTL)
 import           Pos.Context                      (getNodeContext, ncPublicKey,
                                                    ncSecretKey, ncSscContext, readRichmen)
@@ -82,9 +81,12 @@ checkNSendOurCert = do
         ourVssCertificate <- getOurVssCertificate
         let msg = DataMsg (MCVssCertificate ourVssCertificate) ourId
         -- [CSL-245]: do not catch all, catch something more concrete.
-        (sendToNeighborsSafe msg >> logDebug "Announced our VssCertificate.")
-            `catchAll` \e ->
-            logError $ sformat ("Error announcing our VssCertificate: " % shown) e
+        -- [CSL-514] TODO Log long acting sends
+        -- [CSL-447] Uncomment:
+        -- (sendToNeighbors sendActions msg >> logDebug "Announcing our VssCertificate.")
+        --     `catchAll` \e ->
+        --     logError $ sformat ("Error announcing our VssCertificate: " % shown) e
+        pure ()
   where
     getOurVssCertificate :: m VssCertificate
     getOurVssCertificate = do
@@ -209,7 +211,9 @@ sendOurData msgTag epoch kMultiplier ourId = do
     waitUntilSend msgTag epoch kMultiplier
     logDebug $ sformat ("Announcing our "%build) msgTag
     let msg = InvMsg {imTag = msgTag, imKeys = pure ourId}
-    sendToNeighborsSafe msg
+    -- [CSL-514] TODO Log long acting sends
+    -- [CSL-447] Uncomment:
+    -- sendToNeighbors sendActions msg
     logDebug $ sformat ("Sent our " %build%" to neighbors") msgTag
 
 -- | Generate new commitment and opening and use them for the current

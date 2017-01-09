@@ -26,9 +26,9 @@ import           Pos.FollowTheSatoshi     (followTheSatoshiM)
 import           Pos.Ssc.Extra            (sscCalculateSeed)
 import           Pos.Types                (EpochOrSlot (..), HeaderHash, SlotId (..),
                                            TxIn, TxOutAux, getEpochOrSlot, mkCoin)
-import           Pos.WorkMode             (WorkMode)
+import           Pos.WorkMode             (NewWorkMode)
 
-lrcOnNewSlot :: WorkMode ssc m => SlotId -> m ()
+lrcOnNewSlot :: NewWorkMode ssc m => SlotId -> m ()
 lrcOnNewSlot slotId
     | siSlot slotId < k = do
         nc <- getNodeContext
@@ -43,7 +43,7 @@ lrcOnNewSlot slotId
         clearMVar $ ncSscLeaders nc
 
 lrcOnNewSlotDo
-    :: WorkMode ssc m
+    :: NewWorkMode ssc m
     => SlotId -> HeaderHash ssc -> m (HeaderHash ssc)
 lrcOnNewSlotDo SlotId {siEpoch = epochId} tip = tip <$ do
     logDebug $ "It's time to compute leaders and parts"

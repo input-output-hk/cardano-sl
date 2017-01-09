@@ -99,6 +99,7 @@ type NewWorkMode ssc m
       , WithNodeContext ssc m
       , MonadStats m
       , MonadJL m
+      , MonadFail m
       )
 
 -- | More relaxed version of 'WorkMode'.
@@ -118,6 +119,7 @@ type NewMinWorkMode m
       , MonadMockable m
       , MonadDHT m
       , MonadIO m
+      , MonadFail m
       )
 
 ----------------------------------------------------------------------------

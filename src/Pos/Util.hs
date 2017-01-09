@@ -102,7 +102,7 @@ import           Data.Time.Units               (convertUnit)
 import           Data.Time.Units               (Microsecond)
 import           Formatting                    (sformat, shown, stext, (%))
 import           Language.Haskell.TH
-import           Mockable                      (Mockable)
+import           Mockable                      (Delay, Fork, Mockable)
 -- TODO remove import of MonadTimed and make import unqualified
 import qualified Mockable                      as MC
 import           Serokell.Util                 (VerificationRes (..))
@@ -320,27 +320,27 @@ data WaitingDelta
     deriving (Show)
 
 -- | Constraint for something that can be logged in parallel with other action.
-type CanLogInParallel m = (MonadIO m, MonadTimed m, WithLogger m)
+type CanLogInParallel m = (MonadIO m, Mockable Delay m, Mockable Fork m, WithLogger m)
 
 -- | Run action and print warning if it takes more time than expected.
 logWarningLongAction :: CanLogInParallel m => WaitingDelta -> Text -> m a -> m a
 logWarningLongAction delta actionTag action = do
-    logThreadId <- fork $ waitAndWarn delta
-    action      <* killThread logThreadId
+    logThreadId <- MC.fork $ waitAndWarn delta
+    action      <* MC.killThread logThreadId
   where
     printWarning t = logWarning $ sformat ("Action `"%stext%"` took more than "%shown)
                                   actionTag
                                   t
 
     -- [LW-4]: avoid code duplication somehow (during refactoring)
-    waitAndWarn (WaitOnce      s  ) = wait (for s) >> printWarning s
+    waitAndWarn (WaitOnce      s  ) = MC.delay (for s) >> printWarning s
     waitAndWarn (WaitLinear    s  ) = let waitLoop acc = do
-                                              wait $ for s
+                                              MC.delay $ for s
                                               printWarning acc
                                               waitLoop (acc + s)
                                       in waitLoop s
     waitAndWarn (WaitGeometric s q) = let waitLoop acc t = do
-                                              wait $ for t
+                                              MC.delay $ for t
                                               let newAcc = acc + t
                                               let newT   = round $ fromIntegral t * q
                                               printWarning (convertUnit newAcc :: Second)

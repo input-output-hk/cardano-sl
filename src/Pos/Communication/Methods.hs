@@ -6,71 +6,43 @@
 module Pos.Communication.Methods
        (
        -- * Sending data into network
-         sendToNeighborsSafe
-       , sendToNeighborsSafeWithMaliciousEmulation
-       , sendProxySecretKey
+         sendProxySecretKey
        , sendProxyConfirmSK
        ) where
 
-import           Control.TimeWarp.Rpc     (Message)
-import           Control.TimeWarp.Timed   (fork_)
 import           Formatting               (build, sformat, (%))
+import           Mockable                 (fork)
+import           Node                     (SendActions (..))
 import           System.Wlog              (logDebug)
 import           Universum
 
 import           Pos.Binary.Class         (Bi)
 import           Pos.Binary.Communication ()
 import           Pos.Binary.Types         ()
-import           Pos.Context              (getNodeContext, ncAttackTypes)
+import           Pos.Communication.BiP    (BiP)
 import           Pos.Delegation.Types     (ConfirmProxySK (..), SendProxySK (..))
-import           Pos.DHT.Model            (defaultSendToNeighbors, sendToNeighbors,
-                                           sendToNode)
-import           Pos.Security             (AttackType (..), shouldIgnoreAddress)
+import           Pos.NewDHT.Model         (sendToNeighbors)
 import           Pos.Types                (ProxySKEpoch)
-import           Pos.Util                 (logWarningWaitLinear, messageName')
-import           Pos.WorkMode             (MinWorkMode, WorkMode)
+import           Pos.WorkMode             (NewMinWorkMode)
 
--- thread and controls how much time action takes.
-sendToNeighborsSafeImpl :: (Message r, MinWorkMode ssc m) => (r -> m ()) -> r -> m ()
-sendToNeighborsSafeImpl sender msg = do
-    let msgName = messageName' msg
-    let action = () <$ sender msg
-    fork_ $
-        logWarningWaitLinear 10 ("Sending " <> msgName <> " to neighbors") action
-
-sendToNeighborsSafe :: forall r m ssc . (Bi r, Message r, MinWorkMode ssc m) => r -> m ()
-sendToNeighborsSafe msg = do
-    let action :: forall r0 . (Bi r0, Message r0) => r0 -> m ()
-        action = void . sendToNeighbors
-    --sendToNeighborsSafeImpl action VersionReq
-    sendToNeighborsSafeImpl action msg
-
-sendToNeighborsSafeWithMaliciousEmulation
-    :: forall r m ssc.
-       (Bi r, Message r, WorkMode ssc m)
-    => r -> m ()
-sendToNeighborsSafeWithMaliciousEmulation msg = do
-    cont <- getNodeContext
-    -- [CSL-336] Make this parallel
-    let sender :: forall r0 . (Bi r0, Message r0) => r0 -> m Int
-        sender = if AttackNoBlocks `elem` ncAttackTypes cont
-                 then defaultSendToNeighbors sequence (sendToNode' cont)
-                 else sendToNeighbors
-    --sendToNeighborsSafeImpl (void . sender) VersionReq
-    sendToNeighborsSafeImpl (void . sender) msg
-  where
-    sendToNode' cont addr message =
-        unless (shouldIgnoreAddress cont addr) $
-            sendToNode addr message
+-- [CSL-514] TODO Log long acting sends
+-- sendToNeighborsSafe :: (NewMinWorkMode ssc m, Message r) => SendActions BiP m -> r -> m ()
+-- sendToNeighborsSafe sendActions msg = do
+--     void $ fork $
+--         logWarningWaitLinear 10
+--             ("Sending " <> messageName' msg <> " to neighbors") $
+--             sendToNeighbors sendActions msg
 
 -- | Sends proxy secret key to neighbours
-sendProxySecretKey :: (MinWorkMode ss m) => ProxySKEpoch -> m ()
-sendProxySecretKey psk = do
+sendProxySecretKey :: (NewMinWorkMode m) => SendActions BiP m -> ProxySKEpoch -> m ()
+sendProxySecretKey sendActions psk = do
     logDebug $ sformat ("Sending proxySecretKey to neigbours:\n"%build) psk
-    sendToNeighborsSafe $ SendProxySKEpoch psk
+    -- [CSL-514] TODO Log long acting sends
+    sendToNeighbors sendActions $ SendProxySKEpoch psk
 
-sendProxyConfirmSK :: (MinWorkMode ss m) => ConfirmProxySK -> m ()
-sendProxyConfirmSK confirmPSK@(ConfirmProxySK psk _) = do
+sendProxyConfirmSK :: (NewMinWorkMode m) => SendActions BiP m -> ConfirmProxySK -> m ()
+sendProxyConfirmSK sendActions confirmPSK@(ConfirmProxySK psk _) = do
     logDebug $
         sformat ("Sending proxy receival confirmation for psk "%build%" to neigbours") psk
-    sendToNeighborsSafe confirmPSK
+    -- [CSL-514] TODO Log long acting sends
+    sendToNeighbors sendActions confirmPSK

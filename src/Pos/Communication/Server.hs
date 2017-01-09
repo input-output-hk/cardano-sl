@@ -19,7 +19,7 @@ import           System.Wlog                       (LoggerName)
 import           Universum
 
 import           Pos.Binary.Communication          ()
-import           Pos.Block.Network.Server          (blkForkStrategy, blockListeners)
+import           Pos.Block.Network.Server          (blkForkStrategy)
 import           Pos.Communication.Server.Protocol (protocolListeners)
 import           Pos.Communication.Server.SysStart
 import           Pos.Communication.Types           (MutSocketState)
@@ -34,15 +34,16 @@ import           Pos.WorkMode                      (WorkMode)
 allListeners
     :: (SscListenersClass ssc, MonadDHTDialog (MutSocketState ssc) m, WorkMode ssc m)
     => [ListenerDHT (MutSocketState ssc) m]
-allListeners =
-    map (modifyListenerLogger serverLoggerName) $
-    concat
-        [ map (modifyListenerLogger "block") blockListeners
-        , map (modifyListenerLogger "ssc") $ untag sscListeners
-        , map (modifyListenerLogger "tx") txListeners
-        , map (modifyListenerLogger "delegation") delegationListeners
-        , map (modifyListenerLogger "protocol") protocolListeners
-        ]
+allListeners = notImplemented
+-- TODO [CSL-447] Uncomment
+    --map (modifyListenerLogger serverLoggerName) $
+    --concat
+    --    [ map (modifyListenerLogger "block") blockListeners
+    --    , map (modifyListenerLogger "ssc") $ untag sscListeners
+    --    , map (modifyListenerLogger "tx") txListeners
+    --    , map (modifyListenerLogger "delegation") delegationListeners
+    --    , map (modifyListenerLogger "protocol") protocolListeners
+    --    ]
 
 -- | ForkStrategy of whole server.
 forkStrategy

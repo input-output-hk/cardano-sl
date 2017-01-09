@@ -71,7 +71,7 @@ import           Pos.Types                 (Block, BlockHeader, Blund, EpochInde
                                             verifyHeaders, vhpVerifyConsensus)
 import qualified Pos.Types                 as Types
 import           Pos.Util                  (inAssertMode)
-import           Pos.WorkMode              (WorkMode)
+import           Pos.WorkMode              (NewWorkMode)
 
 
 -- | Result of single (new) header classification.
@@ -92,7 +92,7 @@ mkCHRinvalid = CHInvalid . T.intercalate "; "
 -- | Classify new header announced by some node. Result is represented
 -- as ClassifyHeaderRes type.
 classifyNewHeader
-    :: (WorkMode ssc m)
+    :: (NewWorkMode ssc m)
     => BlockHeader ssc -> m ClassifyHeaderRes
 -- Genesis headers seem useless, we can create them by ourselves.
 classifyNewHeader (Left _) = pure $ CHUseless "genesis header is useless"
@@ -128,7 +128,7 @@ classifyNewHeader (Right header) = do
 -- | Find lca headers and main chain, including oldest header's parent
 -- hash. Headers passed are __newest first__.
 lcaWithMainChain
-    :: (WorkMode ssc m)
+    :: (NewWorkMode ssc m)
     => NonEmpty (BlockHeader ssc) -> m (Maybe (HeaderHash ssc))
 lcaWithMainChain headers@(h:|hs) =
     fmap fst . find snd <$>
@@ -151,7 +151,7 @@ data ClassifyHeadersRes ssc
 -- * If chain of headers forks from our main chain too much, CHsUseless
 -- is returned, because paper suggests doing so.
 classifyHeaders
-    :: WorkMode ssc m
+    :: NewWorkMode ssc m
     => NonEmpty (BlockHeader ssc) -> m (ClassifyHeadersRes ssc)
 classifyHeaders headers@(h:|hs) = do
     haveLast <- isJust <$> DB.getBlockHeader (hash $ NE.last headers)
@@ -277,7 +277,7 @@ getHeadersFromToIncl older newer = runMaybeT $ do
 -- #txVerifyBlocks
 -- #sscVerifyBlocks
 verifyBlocks
-    :: WorkMode ssc m
+    :: NewWorkMode ssc m
     => NonEmpty (Block ssc) -> m (Either Text (NonEmpty Undo))
 verifyBlocks blocks =
     runExceptT $ notImplemented
@@ -291,7 +291,7 @@ verifyBlocks blocks =
 -- | Run action acquiring lock on block application. Argument of
 -- action is an old tip, result is put as a new tip.
 withBlkSemaphore
-    :: WorkMode ssc m
+    :: NewWorkMode ssc m
     => (HeaderHash ssc -> m (a, HeaderHash ssc)) -> m a
 withBlkSemaphore action = do
     tip <- takeBlkSemaphore
@@ -302,7 +302,7 @@ withBlkSemaphore action = do
 
 -- | Version of withBlkSemaphore which doesn't have any result.
 withBlkSemaphore_
-    :: WorkMode ssc m
+    :: NewWorkMode ssc m
     => (HeaderHash ssc -> m (HeaderHash ssc)) -> m ()
 withBlkSemaphore_ = withBlkSemaphore . (fmap ((), ) .)
 
@@ -310,7 +310,7 @@ withBlkSemaphore_ = withBlkSemaphore . (fmap ((), ) .)
 -- have verified all predicates regarding block (including txs and ssc
 -- data checks).  We almost must have taken lock on block application
 -- and ensured that chain is based on our tip.
-applyBlocks :: WorkMode ssc m => NonEmpty (Blund ssc) -> m ()
+applyBlocks :: NewWorkMode ssc m => NonEmpty (Blund ssc) -> m ()
 applyBlocks blunds = do
     let blks = fmap fst blunds
     -- Note: it's important to put blocks first
@@ -324,7 +324,7 @@ applyBlocks blunds = do
 -- | Rollback sequence of blocks, head block corresponds to tip,
 -- further blocks are parents. It's assumed that lock on block
 -- application is taken.
-rollbackBlocks :: (WorkMode ssc m) => NonEmpty (Block ssc, Undo) -> m ()
+rollbackBlocks :: (NewWorkMode ssc m) => NonEmpty (Block ssc, Undo) -> m ()
 rollbackBlocks toRollback = do
     -- [CSL-378] Update sbInMain properly (in transaction)
     txRollbackBlocks toRollback
@@ -346,7 +346,7 @@ rollbackBlocks toRollback = do
 -- practically impossible for them to be valid.
 createGenesisBlock
     :: forall ssc m.
-       WorkMode ssc m
+       NewWorkMode ssc m
     => SlotId -> m (Maybe (GenesisBlock ssc))
 createGenesisBlock (siEpoch -> epochIndex) =
     ifM (shouldCreateGenesisBlock epochIndex . getEpochOrSlot <$> getTipBlockHeader)
@@ -363,7 +363,7 @@ shouldCreateGenesisBlock epoch headEpochOrSlot =
 
 createGenesisBlockDo
     :: forall ssc m.
-       WorkMode ssc m
+       NewWorkMode ssc m
     => EpochIndex -> m (Maybe (GenesisBlock ssc))
 createGenesisBlockDo epoch = do
     leaders <- readLeaders
@@ -396,7 +396,7 @@ createGenesisBlockDo epoch = do
 -- given SlotId
 createMainBlock
     :: forall ssc m.
-       WorkMode ssc m
+       NewWorkMode ssc m
     => SlotId
     -> Maybe (ProxySecretKey (EpochIndex, EpochIndex))
     -> m (Either Text (MainBlock ssc))
@@ -426,7 +426,7 @@ canCreateBlock sId tipHeader
 -- Here we assume that blkSemaphore has been taken.
 createMainBlockFinish
     :: forall ssc m.
-       WorkMode ssc m
+       NewWorkMode ssc m
     => SlotId
     -> Maybe (ProxySecretKey (EpochIndex, EpochIndex))
     -> BlockHeader ssc

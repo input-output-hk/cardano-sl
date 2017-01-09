@@ -62,6 +62,8 @@ module Pos.Util
        , fromBinaryM
 
        , eitherToVerRes
+       , clearMVar
+       , forcePutMVar
 
        , NamedMessagePart (..)
        -- * Instances
@@ -79,6 +81,7 @@ import           Control.Lens                  (Lens', LensLike', Magnified, Zoo
                                                 lensRules, magnify, zoom)
 import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
 import qualified Control.Monad                 as Monad (fail)
+import           Control.Monad.Trans.Resource  (ResourceT)
 import           Control.TimeWarp.Rpc          (Dialog (..), Message (messageName),
                                                 MessageName, ResponseT (..),
                                                 Transfer (..))
@@ -449,3 +452,16 @@ deriving instance MonadFail m => MonadFail (LoggerNameBox m)
 
 instance MonadFail TimedIO where
     fail = Monad.fail
+
+instance MonadFail m => MonadFail (ResourceT m) where
+    fail = lift . fail
+
+clearMVar :: MonadIO m => MVar a -> m ()
+clearMVar = liftIO . void . tryTakeMVar
+
+forcePutMVar :: MonadIO m => MVar a -> a -> m ()
+forcePutMVar mvar val = do
+    res <- liftIO $ tryPutMVar mvar val
+    unless res $ do
+        _ <- liftIO $ tryTakeMVar mvar
+        forcePutMVar mvar val

@@ -43,11 +43,12 @@ import           Pos.DHT.Model               (DHTResponseT, MonadDHT,
                                               MonadMessageDHT (..), WithDefaultMsgHeader)
 import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Slotting                (MonadSlots (..))
+import           Pos.Ssc.Extra               (MonadSscRichmen)
 import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..))
 import           Pos.Statistics.StatEntry    (StatLabel (..))
 import           Pos.Txp.Class               (MonadTxpLD (..))
 import           Pos.Types                   (MonadUtxo, MonadUtxoRead)
-import           Pos.Update.Class            (MonadUS)
+import           Pos.Update.MemState         (MonadUSMem)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 
@@ -85,8 +86,8 @@ newtype NoStatsT m a = NoStatsT
                 MonadDialog s p, MonadDHT, MonadMessageDHT s, MonadSlots,
                 WithDefaultMsgHeader, MonadJL, CanLog,
                 MonadUtxoRead, MonadUtxo, Modern.MonadDB ssc,
-                MonadTxpLD ssc, MonadSscGS ssc, MonadSscLD ssc,
-                WithNodeContext ssc, MonadDelegation, MonadUS)
+                MonadTxpLD ssc, MonadSscGS ssc, MonadSscLD ssc, MonadSscRichmen,
+                WithNodeContext ssc, MonadDelegation, MonadUSMem)
 
 instance Monad m => WrappedM (NoStatsT m) where
     type UnwrappedM (NoStatsT m) = m
@@ -131,8 +132,8 @@ newtype StatsT m a = StatsT
                 MonadDialog s p, MonadDHT, MonadMessageDHT s, MonadSlots,
                 WithDefaultMsgHeader, MonadTrans, MonadJL, CanLog,
                 MonadUtxoRead, MonadUtxo, Modern.MonadDB ssc, MonadTxpLD ssc,
-                MonadSscGS ssc, MonadSscLD ssc, WithNodeContext ssc,
-                MonadDelegation, MonadUS)
+                MonadSscGS ssc, MonadSscLD ssc, WithNodeContext ssc, MonadSscRichmen,
+                MonadDelegation, MonadUSMem)
 
 instance Monad m => WrappedM (StatsT m) where
     type UnwrappedM (StatsT m) = ReaderT StatsMap m

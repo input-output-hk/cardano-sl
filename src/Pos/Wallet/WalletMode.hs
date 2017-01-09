@@ -27,6 +27,7 @@ import qualified Pos.Context                   as PC
 import           Pos.Crypto                    (WithHash (..))
 import           Pos.DB                        (MonadDB)
 import qualified Pos.DB                        as DB
+import qualified Pos.DB.GState                 as GS
 import           Pos.Delegation                (DelegationT (..))
 import           Pos.DHT.Model                 (DHTPacking)
 import           Pos.DHT.Real                  (KademliaDHT)
@@ -80,7 +81,7 @@ instance MonadIO m => MonadBalances (WalletDB m) where
 
 instance (MonadDB ssc m, MonadMask m) => MonadBalances (Modern.TxpLDHolder ssc m) where
     getOwnUtxo addr = do
-        utxo <- DB.getFilteredUtxo addr
+        utxo <- GS.getFilteredUtxo addr
         updates <- getUtxoView
         let toDel = delUtxo updates
             toAdd = HM.filter (`belongsTo` addr) $ addUtxo updates
@@ -126,8 +127,8 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
 instance (Ssc ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
          => MonadTxHistory (Modern.TxpLDHolder ssc m) where
     getTxHistory addr = do
-        bot <- DB.getBot
-        genUtxo <- filterUtxoByAddr addr <$> DB.getGenUtxo
+        bot <- GS.getBot
+        genUtxo <- filterUtxoByAddr addr <$> GS.getGenUtxo
 
         -- It's genesis hash at the very bottom already, so we don't look for txs there
         let getNextBlock h = runMaybeT $ do

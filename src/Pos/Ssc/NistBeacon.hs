@@ -57,7 +57,6 @@ instance Ssc SscNistBeacon where
     type SscParams      SscNistBeacon = ()
 
     mkSscProof = Tagged $ const ()
-    -- sscFilterPayload _ _ = ()
     sscCreateNodeContext _ = return ()
 
 instance SscHelpersClass SscNistBeacon where
@@ -65,6 +64,7 @@ instance SscHelpersClass SscNistBeacon where
 
 instance SscWorkersClass SscNistBeacon where
     sscWorkers = Tagged []
+    sscLrcConsumers = Tagged []
 
 instance SscListenersClass SscNistBeacon where
     sscListeners = Tagged []

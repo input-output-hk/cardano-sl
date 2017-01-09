@@ -24,8 +24,8 @@ import           Pos.Binary.Communication   ()
 import           Pos.Block.Logic            (createGenesisBlock, createMainBlock)
 import           Pos.Block.Network.Announce (announceBlock)
 import           Pos.Constants              (networkDiameter)
-import           Pos.Context                (getNodeContext, ncPublicKey)
-import           Pos.Context.Class          (tryReadLeaders)
+import           Pos.Context                (getNodeContext, ncPublicKey,
+                                             tryReadLeadersEpoch)
 import           Pos.Crypto                 (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega),
                                              shortHashF)
 import           Pos.DB.GState              (getPSKByIssuerAddressHash)
@@ -63,7 +63,7 @@ blkOnNewSlot slotId@SlotId {..} = do
     -- genesis block for current epoch, then we either have calculated
     -- it before and it implies presense of leaders in MVar or we have
     -- read leaders from DB during initialization.
-    leadersMaybe <- tryReadLeaders
+    leadersMaybe <- tryReadLeadersEpoch siEpoch
     case leadersMaybe of
         -- If we don't know leaders, we can't do anything.
         Nothing -> logWarning "Leaders are not known for new slot"

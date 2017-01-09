@@ -8,14 +8,16 @@ module Pos.DB.Types
          DB (..)
        , NodeDBs (..)
        , blockDB
-       , utxoDB
+       , gStateDB
+       , lrcDB
        , miscDB
 
         -- * Block DB related types.
        , StoredBlock (..)
 
         -- * LRC related types.
-       , LrcStorage (..)
+       , LeadersStorage (..)
+       , GtRichmenStorage (..)
 
         -- * Update System related types.
        , UndecidedProposalState (..)
@@ -32,8 +34,9 @@ import qualified Database.RocksDB    as Rocks
 import           Universum
 
 import           Pos.Crypto          (PublicKey)
-import           Pos.Types           (Block, ChainDifficulty, Coin, EpochIndex, Richmen,
-                                      SlotId, SlotLeaders, mkCoin, unsafeAddCoin)
+import           Pos.Types           (Block, ChainDifficulty, Coin, EpochIndex,
+                                      RichmenStake, SlotId, SlotLeaders, mkCoin,
+                                      unsafeAddCoin)
 import           Pos.Update.Types    (StakeholderVotes, UpdateProposal, combineVotes)
 
 ----------------------------------------------------------------------------
@@ -49,10 +52,10 @@ data DB ssc = DB
     }
 
 data NodeDBs ssc = NodeDBs
-    { _blockDB :: DB ssc -- ^ Blocks, block index, undo data.
-    , _utxoDB  :: DB ssc -- ^ Txs-related data.
-    , _miscDB  :: DB ssc -- ^ Everything small and insignificant
-{-    , _updateDB :: DB ssc -- ^ Update-related data -}
+    { _blockDB  :: !(DB ssc) -- ^ Blocks, block index, undo data.
+    , _gStateDB :: !(DB ssc) -- ^ Global state corresponding to some tip.
+    , _lrcDB    :: !(DB ssc) -- ^ Data computed by LRC.
+    , _miscDB   :: !(DB ssc) -- ^ Everything small and insignificant
     }
 
 makeLenses ''NodeDBs
@@ -70,10 +73,14 @@ data StoredBlock ssc = StoredBlock
 -- LRC
 ----------------------------------------------------------------------------
 
-data LrcStorage ssc = LrcStorage
+data LeadersStorage ssc = LeadersStorage
     { lrcEpoch   :: !EpochIndex
     , lrcLeaders :: !SlotLeaders
-    , lrcRichmen :: !Richmen
+    } deriving (Generic)
+
+data GtRichmenStorage ssc = GtRichmenStorage
+    { gtRichmenEpoch :: !EpochIndex
+    , gtRichmen      :: !RichmenStake
     } deriving (Generic)
 
 ----------------------------------------------------------------------------

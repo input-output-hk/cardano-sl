@@ -13,10 +13,8 @@ import           Universum
 
 import           Pos.Binary.Relay        ()
 import           Pos.Communication.Types (MutSocketState, ResponseMode)
-import           Pos.Crypto              (hash)
 import           Pos.DHT.Model           (ListenerDHT (..), MonadDHTDialog)
-import           Pos.Update.Types        (ProposalMsgTag (..), UpId, UpdateProposal (..),
-                                          VoteMsgTag (..))
+import           Pos.Update.Types        (ProposalMsgTag (..), UpId, UpdateProposal (..))
 import           Pos.Util.Relay          (DataMsg, InvMsg, Relay (..), ReqMsg,
                                           handleDataL, handleInvL, handleReqL)
 import           Pos.WorkMode            (WorkMode)

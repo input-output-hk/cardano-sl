@@ -7,7 +7,8 @@ module Pos.Binary.DB
 import           Universum
 
 import           Pos.Binary.Class    (Bi (..))
-import           Pos.DB.Types        (LrcStorage (..), ProposalState, StoredBlock (..),
+import           Pos.DB.Types        (GtRichmenStorage (..), LeadersStorage (..),
+                                      ProposalState, StoredBlock (..),
                                       UndecidedProposalState (..))
 import           Pos.Ssc.Class.Types (Ssc)
 
@@ -16,9 +17,13 @@ instance Ssc ssc =>
     put StoredBlock {..} = put sbBlock >> put sbInMain
     get = StoredBlock <$> get <*> get
 
-instance Bi (LrcStorage ssc) where
-    put LrcStorage {..} = put lrcEpoch >> put lrcLeaders >> put lrcRichmen
-    get = LrcStorage <$> get <*> get <*> get
+instance Bi (LeadersStorage ssc) where
+    put LeadersStorage {..} = put lrcEpoch >> put lrcLeaders
+    get = LeadersStorage <$> get <*> get
+
+instance Bi (GtRichmenStorage ssc) where
+    put GtRichmenStorage {..} = put gtRichmenEpoch >> put gtRichmen
+    get = GtRichmenStorage <$> get <*> get
 
 instance Bi UndecidedProposalState where
     put UndecidedProposalState {..} = do

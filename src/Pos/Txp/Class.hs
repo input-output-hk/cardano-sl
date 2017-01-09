@@ -19,7 +19,7 @@ import           Universum
 
 import           Pos.DHT.Model.Class    (DHTResponseT)
 import           Pos.DHT.Real           (KademliaDHT)
-import           Pos.Txp.Types          (MemPool (localTxs), UtxoView)
+import           Pos.Txp.Types.Types    (MemPool (localTxs), UtxoView)
 import           Pos.Types              (HeaderHash, TxAux, TxId, TxOutAux)
 
 -- | LocalData of transactions processing.

@@ -28,27 +28,27 @@ module Pos.Ssc.GodTossing.Types.Types
        , SscBi
        ) where
 
-import           Control.Concurrent.STM         (newTVarIO)
-import qualified Control.Concurrent.STM         as STM
-import           Control.Lens                   (makeLenses)
-import           Data.Default                   (Default, def)
-import qualified Data.HashMap.Strict            as HM
-import           Data.SafeCopy                  (base, deriveSafeCopySimple)
-import qualified Data.Text                      as T
-import           Data.Text.Buildable            (Buildable (..))
-import           Data.Text.Lazy.Builder         (Builder, fromText)
-import           Formatting                     (bprint, sformat, (%))
-import           Serokell.Util                  (listJson)
+import           Control.Concurrent.STM            (newTVarIO)
+import qualified Control.Concurrent.STM            as STM
+import           Control.Lens                      (makeLenses)
+import           Data.Default                      (Default, def)
+import qualified Data.HashMap.Strict               as HM
+import           Data.SafeCopy                     (base, deriveSafeCopySimple)
+import qualified Data.Text                         as T
+import           Data.Text.Buildable               (Buildable (..))
+import           Data.Text.Lazy.Builder            (Builder, fromText)
+import           Formatting                        (bprint, sformat, (%))
+import           Serokell.Util                     (listJson)
 import           Universum
 
-import           Pos.Binary.Class               (Bi)
-import           Pos.Crypto                     (Hash, VssKeyPair, hash)
-import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
-import           Pos.Ssc.GodTossing.Types.Base  (Commitment, CommitmentsMap, Opening,
-                                                 OpeningsMap, SharesMap, VssCertificate,
-                                                 VssCertificatesMap)
-import           Pos.Ssc.GodTossing.VssCertData (VssCertData)
-import qualified Pos.Ssc.GodTossing.VssCertData as VCD
+import           Pos.Binary.Class                  (Bi)
+import           Pos.Crypto                        (Hash, VssKeyPair, hash)
+import           Pos.Ssc.GodTossing.Genesis        (genesisCertificates)
+import           Pos.Ssc.GodTossing.Types.Base     (Commitment, CommitmentsMap, Opening,
+                                                    OpeningsMap, SharesMap,
+                                                    VssCertificate, VssCertificatesMap)
+import           Pos.Ssc.GodTossing.VssCertData    (VssCertData)
+import qualified Pos.Ssc.GodTossing.VssCertData    as VCD
 
 ----------------------------------------------------------------------------
 -- SscGlobalState
@@ -235,6 +235,7 @@ createGtContext GtParams {..} =
     GtContext gtpVssKeyPair
            <$> liftIO (newTVarIO gtpSscEnabled)
            <*> liftIO (newTVarIO False)
+
 
 ----------------------------------------------------------------------------
 -- Convinient binary type alias

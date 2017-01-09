@@ -42,7 +42,8 @@ import           Pos.Delegation.Types        (SendProxySK)
 import           Pos.DHT.Model.Class         (DHTResponseT)
 import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..))
+import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..),
+                                              MonadSscRichmen)
 import           Pos.Txp.Class               (MonadTxpLD (..))
 import           Pos.Types                   (ProxySKEpoch, ProxySKSimple)
 import           Pos.Types.Utxo.Class        (MonadUtxo, MonadUtxoRead)
@@ -103,7 +104,7 @@ newtype DelegationT m a = DelegationT
                 MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
                 HasLoggerName, MonadDialog s p, WithNodeContext ssc, MonadJL,
                 MonadDB ssc, CanLog, MonadMask, MonadSscLD ssc, MonadSscGS ssc,
-                MonadUtxoRead, MonadUtxo, MonadTxpLD ssc, MonadBase io)
+                MonadSscRichmen, MonadUtxoRead, MonadUtxo, MonadTxpLD ssc, MonadBase io)
 
 instance (Monad m) => MonadDelegation (DelegationT m) where
     askDelegationState = DelegationT ask

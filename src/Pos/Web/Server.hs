@@ -36,7 +36,7 @@ import           Pos.Aeson.Types                      ()
 import           Pos.Context                          (ContextHolder, NodeContext,
                                                        getNodeContext, ncPublicKey,
                                                        ncSscContext, runContextHolder,
-                                                       tryReadLeaders)
+                                                       tryReadLeadersEpoch)
 import qualified Pos.DB                               as DB
 import           Pos.Slotting                         (getCurrentSlot)
 import           Pos.Ssc.Class                        (SscConstraint)
@@ -49,7 +49,7 @@ import           Pos.Txp.Class                        (getLocalTxs, getTxpLDWrap
 import           Pos.Txp.Holder                       (TxpLDHolder, TxpLDWrap,
                                                        runTxpLDHolderReader)
 import           Pos.Types                            (EpochIndex (..), SharedSeed,
-                                                       SlotLeaders, siSlot)
+                                                       SlotId (..), SlotLeaders, siSlot)
 import           Pos.Util                             (fromBinaryM)
 import           Pos.Web.Api                          (BaseNodeApi, GodTossingApi,
                                                        GtNodeApi, baseNodeApi, gtNodeApi)
@@ -139,7 +139,9 @@ baseServantHandlers =
     DB.getTip :<|> getLocalTxsNum
 
 getLeaders :: WebHandler ssc SlotLeaders
-getLeaders = maybe (throwM err) pure =<< tryReadLeaders
+getLeaders = do
+    SlotId{..} <- getCurrentSlot
+    maybe (throwM err) pure =<< tryReadLeadersEpoch siEpoch
   where
     err = err404 { errBody = encodeUtf8 ("Leaders are not know for current epoch"::Text) }
 

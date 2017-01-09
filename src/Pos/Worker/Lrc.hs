@@ -5,75 +5,104 @@
 -- | Workers responsible for Leaders and Richmen computation.
 
 module Pos.Worker.Lrc
-       ( lrcOnNewSlot
+       ( lrcOnNewSlotWorker
        ) where
 
+import           Control.TimeWarp.Timed   (fork_)
+import qualified Data.HashMap.Strict      as HM
 import qualified Data.List.NonEmpty       as NE
 import           Formatting               (build, sformat, (%))
 import           Serokell.Util.Exceptions ()
-import           System.Wlog              (logDebug)
+import           System.Wlog              (logInfo)
 import           Universum
 
 import           Pos.Binary.Communication ()
 import           Pos.Block.Logic          (applyBlocks, rollbackBlocks, withBlkSemaphore_)
 import           Pos.Constants            (k)
-import           Pos.Context              (getNodeContext, ncSscLeaders, ncSscRichmen,
-                                           readLeaders, readRichmen)
-import           Pos.DB                   (getTotalFtsStake, loadBlocksFromTipWhile,
-                                           mapUtxoIterator, putLrc)
-import           Pos.Eligibility          (findRichmen)
+import           Pos.Context              (isLeadersComputed, readLeadersEager,
+                                           writeLeaders)
+import qualified Pos.DB                   as DB
 import           Pos.FollowTheSatoshi     (followTheSatoshiM)
+import           Pos.Richmen              (allLrcConsumers, findAllRichmenMaybe)
+import           Pos.Slotting             (onNewSlot)
+import           Pos.Ssc.Class            (SscWorkersClass)
 import           Pos.Ssc.Extra            (sscCalculateSeed)
-import           Pos.Types                (EpochOrSlot (..), HeaderHash, SlotId (..),
-                                           TxIn, TxOutAux, crucialSlot, getEpochOrSlot,
-                                           mkCoin)
+import           Pos.Types                (EpochOrSlot (..), EpochOrSlot (..), HeaderHash,
+                                           HeaderHash, LrcConsumer (..), SlotId (..),
+                                           SlotId (..), crucialSlot, getEpochOrSlot,
+                                           getEpochOrSlot)
 import           Pos.WorkMode             (WorkMode)
 
-lrcOnNewSlot :: WorkMode ssc m => SlotId -> m ()
-lrcOnNewSlot slotId
-    | siSlot slotId < k = do
-        nc <- getNodeContext
-        richmenEmpty <- liftIO . isEmptyMVar . ncSscRichmen $ nc
-        leadersEmpty <- liftIO . isEmptyMVar . ncSscLeaders $ nc
-        when (richmenEmpty || leadersEmpty) $
-            withBlkSemaphore_ $ lrcOnNewSlotDo slotId
-    | otherwise = do
-        nc <- getNodeContext
-        let clearMVar = liftIO . void . tryTakeMVar
-        clearMVar $ ncSscRichmen nc
-        clearMVar $ ncSscLeaders nc
+lrcOnNewSlotWorker :: (SscWorkersClass ssc, WorkMode ssc m) => m ()
+lrcOnNewSlotWorker = onNewSlot True $ lrcOnNewSlotImpl allLrcConsumers
 
-lrcOnNewSlotDo
-    :: WorkMode ssc m
-    => SlotId -> HeaderHash ssc -> m (HeaderHash ssc)
-lrcOnNewSlotDo slotId@SlotId{siEpoch = epochId} tip = tip <$ do
-    logDebug $ "It's time to compute leaders and parts"
-    blockUndoList <- loadBlocksFromTipWhile whileMoreOrEq5k
+lrcOnNewSlotImpl :: WorkMode ssc m => [LrcConsumer m] -> SlotId -> m ()
+lrcOnNewSlotImpl consumers slotId@SlotId{..}
+    | siSlot < k = do
+        expectedRichmenComp <- filterM (flip lcIfNeedCompute slotId) consumers
+        needComputeLeaders <- not <$> isLeadersComputed siEpoch
+        let needComputeRichmen = not . null $ expectedRichmenComp
+        when needComputeRichmen $ logInfo "Need to compute richmen"
+        when needComputeLeaders $ logInfo "Need to compute leaders"
+
+        when (needComputeLeaders || needComputeLeaders) $ do
+            logInfo $ "LRC computation is starting"
+            withBlkSemaphore_ $ lrcDo slotId expectedRichmenComp
+            logInfo $ "LRC computation has finished"
+    | otherwise = lrcConsumersClear consumers
+
+lrcDo :: WorkMode ssc m
+      => SlotId -> [LrcConsumer m] -> HeaderHash ssc -> m (HeaderHash ssc)
+lrcDo slotId consumers tip = tip <$ do
+    blockUndoList <- DB.loadBlocksFromTipWhile whileMoreOrEq5k
     when (null blockUndoList) $
         panic "No one block hasn't been generated during last k slots"
     let blockUndos = NE.fromList blockUndoList
     rollbackBlocks blockUndos
-    nc <- getNodeContext
-    let richmenMVar = ncSscRichmen nc
-        leadersMVar = ncSscLeaders nc
-    whenM (liftIO $ isEmptyMVar richmenMVar) $ do
-        -- [CSL-93] Use eligibility threshold here
-        richmen <- mapUtxoIterator @(TxIn, TxOutAux) @TxOutAux
-                       (findRichmen (mkCoin 0)) snd
-        liftIO $ putMVar richmenMVar richmen
-    whenM (liftIO $ isEmptyMVar leadersMVar) $ do
+    richmenComputationDo slotId consumers
+    leadersComputationDo slotId
+    applyBlocks (NE.reverse blockUndos)
+  where
+    whileMoreOrEq5k b _ = getEpochOrSlot b > crucial
+    crucial = EpochOrSlot $ Right $ crucialSlot slotId
+
+leadersComputationDo :: WorkMode ssc m => SlotId -> m ()
+leadersComputationDo SlotId {siEpoch = epochId} = do
+    unlessM (isLeadersComputed epochId) $ do
         mbSeed <- sscCalculateSeed epochId
-        totalStake <- getTotalFtsStake
+        totalStake <- DB.getTotalFtsStake
         leaders <-
             case mbSeed of
                 Left e     -> panic $ sformat ("SSC couldn't compute seed: "%build) e
-                Right seed -> mapUtxoIterator @(TxIn, TxOutAux) @TxOutAux
-                              (followTheSatoshiM seed totalStake) snd
-        liftIO $ putMVar leadersMVar leaders
-    leaders <- readLeaders
-    richmen <- readRichmen
-    putLrc epochId leaders richmen
-    applyBlocks blockUndos
+                Right seed -> DB.iterateByTx (followTheSatoshiM seed totalStake) snd
+        writeLeaders (epochId, leaders)
+    (epoch, leaders) <- readLeadersEager
+    DB.putLeaders (epoch, leaders)
+
+richmenComputationDo :: forall ssc m . WorkMode ssc m
+    => SlotId -> [LrcConsumer m] -> m ()
+richmenComputationDo slotId consumers = unless (null consumers) $ do
+    -- [CSL-93] Use eligibility threshold here
+    total <- DB.getTotalFtsStake
+    let minThreshold = safeThreshold total (not . lcConsiderDelegated)
+    let minThresholdD = safeThreshold total lcConsiderDelegated
+    (richmen, richmenD) <- DB.iterateByStake
+                               (findAllRichmenMaybe @ssc minThreshold minThresholdD)
+                               identity
+    let callCallback cons = fork_ $
+            if lcConsiderDelegated cons
+            then lcComputedCallback cons slotId total
+                   (HM.filter (>= lcThreshold cons total) richmenD)
+            else lcComputedCallback cons slotId total
+                   (HM.filter (>= lcThreshold cons total) richmen)
+    mapM_ callCallback consumers
   where
-    whileMoreOrEq5k b _ = getEpochOrSlot b >= crucial
-    crucial = EpochOrSlot $ Right $ crucialSlot slotId
+    safeThreshold total f =
+        safeMinimum
+        $ map (flip lcThreshold total)
+        $ filter f consumers
+    safeMinimum a = if null a then Nothing else Just $ minimum a
+
+lrcConsumersClear :: WorkMode ssc m => [LrcConsumer m] -> m ()
+lrcConsumersClear = mapM_ lcClearCallback
+-- dangerous ^, one thread

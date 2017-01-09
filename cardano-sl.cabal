@@ -58,7 +58,6 @@ library
                         Pos.DHT.Real
                         Pos.DHT.Real.Real
                         Pos.DHT.Real.Types
-                        Pos.Eligibility
                         Pos.Genesis
                         Pos.FollowTheSatoshi
                         Pos.Script
@@ -185,9 +184,14 @@ library
                         Pos.DB.Types
                         Pos.DB.DBIterator
                         Pos.DHT.Arbitrary
+                        Pos.Richmen
+                        Pos.Richmen.Consumers
+                        Pos.Richmen.Eligibility
                         Pos.Ssc.Extra.Holder
                         Pos.Ssc.Extra.MonadGS
                         Pos.Ssc.Extra.MonadLD
+                        Pos.Ssc.Extra.Richmen
+                        Pos.Ssc.GodTossing.Richmen
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions

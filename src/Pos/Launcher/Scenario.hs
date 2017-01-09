@@ -12,14 +12,13 @@ import           Formatting              (build, sformat, (%))
 import           System.Wlog             (logError, logInfo)
 import           Universum
 
-import           Pos.Constants           (k)
 import           Pos.Context             (NodeContext (..), getNodeContext,
-                                          ncPubKeyAddress, ncPublicKey, putLeaders,
-                                          putRichmen)
+                                          ncPubKeyAddress, ncPublicKey, writeLeaders)
 import qualified Pos.DB                  as DB
 import           Pos.DHT.Model           (DHTNodeType (DHTFull), discoverPeers)
 import           Pos.Slotting            (getCurrentSlot)
 import           Pos.Ssc.Class           (SscConstraint)
+import           Pos.Ssc.Extra           (writeSscRichmen)
 import           Pos.Types               (SlotId (..), Timestamp (Timestamp), addressHash)
 import           Pos.Util                (inAssertMode)
 import           Pos.Worker              (runWorkers)
@@ -40,7 +39,6 @@ runNode plugins = do
 
     initSemaphore
     initLrc
---    initSsc
     waitSystemStart
     runWorkers
     mapM_ fork plugins
@@ -65,8 +63,8 @@ initSemaphore = do
 
 initLrc :: WorkMode ssc m => m ()
 initLrc = do
-    (epochIndex, leaders, richmen) <- DB.getLrc
+    (epochIndex, leaders) <- DB.getLeaders
+    (rEpochIndex, richmen) <- DB.getGtRichmen
     SlotId {..} <- getCurrentSlot
-    when (siSlot < k && siEpoch == epochIndex) $ do
-        putLeaders leaders
-        putRichmen richmen
+    writeLeaders (epochIndex, leaders)
+    writeSscRichmen (rEpochIndex, richmen)

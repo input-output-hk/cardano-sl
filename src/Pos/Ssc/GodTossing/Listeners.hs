@@ -20,13 +20,13 @@ import           Universum
 import           Pos.Binary.Class                       (Bi)
 import           Pos.Binary.Crypto                      ()
 import           Pos.Communication.Types                (ResponseMode)
-import           Pos.Context                            (WithNodeContext (getNodeContext),
-                                                         readRichmen)
+import           Pos.Context                            (WithNodeContext (getNodeContext))
 import           Pos.DHT.Model                          (ListenerDHT (..))
 import           Pos.Security                           (shouldIgnorePkAddress)
 import           Pos.Slotting                           (getCurrentSlot)
 import           Pos.Ssc.Class.Listeners                (SscListenersClass (..))
 import           Pos.Ssc.Extra.MonadLD                  (sscGetLocalPayload)
+import           Pos.Ssc.Extra.Richmen                  (tryReadSscRichmenEpoch)
 import           Pos.Ssc.GodTossing.LocalData.LocalData (sscIsDataUseful,
                                                          sscProcessMessage)
 import           Pos.Ssc.GodTossing.Types.Base          (Commitment, Opening,
@@ -39,6 +39,7 @@ import           Pos.Ssc.GodTossing.Types.Message       (GtMsgContents (..),
 import           Pos.Ssc.GodTossing.Types.Type          (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types         (GtPayload (..), GtProof,
                                                          _gpCertificates)
+import           Pos.Types                              (SlotId (..), toRichmen)
 import           Pos.Types.Address                      (StakeholderId)
 import           Pos.Util.Relay                         (DataMsg, InvMsg, Relay (..),
                                                          ReqMsg, handleDataL, handleInvL,
@@ -101,11 +102,17 @@ instance ( WorkMode SscGodTossing m
         -- TODO: Add here malicious emulation for network addresses
         -- when TW will support getting peer address properly
         ifM (not <$> flip shouldIgnorePkAddress addr <$> getNodeContext)
-            (do richmen <- readRichmen
-                sscProcessMessage richmen dat addr) $ True <$
+            (sscProcessMessageRichmen dat addr) $ True <$
             (logDebug $ sformat
                 ("Malicious emulation: data "%build%" for address "%build%" ignored")
                 dat addr)
+
+sscProcessMessageRichmen :: WorkMode SscGodTossing m
+                          => GtMsgContents -> StakeholderId -> m Bool
+sscProcessMessageRichmen dat addr = do
+    SlotId{..} <- getCurrentSlot
+    richmenMaybe <- tryReadSscRichmenEpoch siEpoch
+    maybe (pure False) (\(toRichmen -> r) -> sscProcessMessage r dat addr) richmenMaybe
 
 toContents :: GtMsgTag -> StakeholderId -> GtPayload -> Maybe GtMsgContents
 toContents CommitmentMsg addr (CommitmentsPayload comm _) =

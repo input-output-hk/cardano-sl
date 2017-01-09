@@ -30,7 +30,8 @@ import           Pos.Context                  (WithNodeContext)
 import           Pos.DB.Class                 (MonadDB)
 import           Pos.Delegation.Class         (MonadDelegation)
 import           Pos.Slotting                 (MonadSlots (..))
-import           Pos.Ssc.Extra                (MonadSscGS (..), MonadSscLD (..))
+import           Pos.Ssc.Extra                (MonadSscGS (..), MonadSscLD (..),
+                                               MonadSscRichmen)
 import           Pos.Txp.Class                (MonadTxpLD (..))
 import           Pos.Types.Utxo.Class         (MonadUtxo, MonadUtxoRead)
 import           Pos.Update.MemState.Class    (MonadUSMem (..))
@@ -45,7 +46,7 @@ newtype USHolder m a = USHolder
                 HasLoggerName, MonadDialog s p, WithNodeContext ssc, MonadJL,
                 MonadDB ssc, CanLog, MonadMask, MonadSscLD kek, MonadSscGS ssc,
                 MonadUtxoRead, MonadUtxo, MonadTxpLD ssc, MonadBase io,
-                MonadDelegation)
+                MonadDelegation, MonadSscRichmen)
 
 instance MonadIO m => MonadState MemState (USHolder m) where
     get = USHolder ask >>= atomically . readTVar

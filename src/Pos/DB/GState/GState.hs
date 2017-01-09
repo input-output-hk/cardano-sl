@@ -7,8 +7,6 @@ module Pos.DB.GState.GState
        ( prepareGStateDB
        ) where
 
--- import           Universum
-
 import           Pos.DB.Class           (MonadDB)
 import           Pos.DB.GState.Balances (prepareGStateBalances)
 import           Pos.DB.GState.Common   (prepareGStateCommon)

@@ -28,21 +28,24 @@ import           Pos.Binary.Ssc                   ()
 import           Pos.Communication.Methods        (sendToNeighborsSafe)
 import           Pos.Constants                    (k, mpcSendInterval, vssMaxTTL)
 import           Pos.Context                      (getNodeContext, ncPublicKey,
-                                                   ncSecretKey, ncSscContext, readRichmen)
+                                                   ncSecretKey, ncSscContext)
 import           Pos.Crypto                       (SecretKey, VssKeyPair, randomNumber,
                                                    runSecureRandom, toPublic)
 import           Pos.Crypto.SecretSharing         (toVssPublicKey)
 import           Pos.Crypto.Signing               (PublicKey)
 import           Pos.DB                           (getTip)
-import           Pos.Slotting                     (getSlotStart, onNewSlot)
+import           Pos.Slotting                     (getCurrentSlot, getSlotStart,
+                                                   onNewSlot)
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
 import           Pos.Ssc.Extra.MonadLD            (sscRunLocalQuery, sscRunLocalUpdate)
+import           Pos.Ssc.Extra.Richmen            (MonadSscRichmen (..))
 import           Pos.Ssc.GodTossing.Functions     (genCommitmentAndOpening, getThreshold,
                                                    hasCommitment, hasOpening, hasShares,
                                                    isCommitmentIdx, isOpeningIdx,
                                                    isSharesIdx, mkSignedCommitment)
 import           Pos.Ssc.GodTossing.LocalData     (ldCertificates, ldLastProcessedSlot,
                                                    localOnNewSlot, sscProcessMessage)
+import           Pos.Ssc.GodTossing.Richmen       (gtLrcConsumer)
 import           Pos.Ssc.GodTossing.SecretStorage (getSecret, getSecretForTip,
                                                    prepareSecretToNewSlot, setSecret)
 import           Pos.Ssc.GodTossing.Shares        (getOurShares)
@@ -55,13 +58,14 @@ import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtMsgTag 
 import           Pos.Types                        (EpochIndex, LocalSlotIndex,
                                                    SlotId (..), StakeholderId,
                                                    StakeholderId, Timestamp (..),
-                                                   addressHash)
+                                                   addressHash, toRichmen)
 import           Pos.Util                         (asBinary)
 import           Pos.Util.Relay                   (DataMsg (..), InvMsg (..))
 import           Pos.WorkMode                     (WorkMode)
 
 instance SscWorkersClass SscGodTossing where
     sscWorkers = Tagged [onStart, onNewSlotSsc]
+    sscLrcConsumers = Tagged [gtLrcConsumer]
 
 -- CHECK: @onStart
 -- #checkNSendOurCert
@@ -203,7 +207,8 @@ sscProcessMessageRichmen :: WorkMode SscGodTossing m
                          -> StakeholderId
                          -> m Bool
 sscProcessMessageRichmen msg addr = do
-    richmen <- readRichmen
+    SlotId{..} <- getCurrentSlot
+    richmen <- toRichmen <$> readSscRichmen siEpoch
     sscProcessMessage richmen msg addr
 
 sendOurData
@@ -231,7 +236,7 @@ generateAndSetNewSecret
     -> SlotId                         -- ^ Current slot
     -> m (Maybe (SignedCommitment, Opening))
 generateAndSetNewSecret sk SlotId{..} = do
-    richmen <- readRichmen
+    richmen <- toRichmen <$> readSscRichmen siEpoch
     certs <- getGlobalCerts
     let noPsErr = panic "generateAndSetNewSecret: no participants"
     let ps = fromMaybe (panic noPsErr) . nonEmpty .

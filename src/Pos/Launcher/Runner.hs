@@ -62,7 +62,8 @@ import           Pos.Constants                (RunningMode (..), defaultPeers,
 import           Pos.Context                  (ContextHolder (..), NodeContext (..),
                                                runContextHolder)
 import           Pos.Crypto                   (createProxySecretKey, toPublic)
-import qualified Pos.DB                       as Modern
+import           Pos.DB                       (MonadDB (..), getTip, openNodeDBs,
+                                               runDBHolder, _utxoDB)
 import           Pos.DB.Misc                  (addProxySecretKey)
 import           Pos.Delegation.Class         (runDelegationT)
 import           Pos.DHT.Model                (BiP (..), ListenerDHT, MonadDHT (..),
@@ -153,19 +154,19 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action =
     runResourceT $
     do putText $ "Running listeners number: " <> show (length listeners)
        lift $ setupLoggers lp
-       modernDBs <- Modern.openNodeDBs npRebuildDb npDbPathM npCustomUtxo
-       initTip <- Modern.runDBHolder modernDBs Modern.getTip
-       initGS <- Modern.runDBHolder modernDBs (sscLoadGlobalState @ssc initTip)
+       modernDBs <- openNodeDBs npRebuildDb npDbPathM npCustomUtxo
+       initTip <- runDBHolder modernDBs getTip
+       initGS <- runDBHolder modernDBs (sscLoadGlobalState @ssc initTip)
        initNC <- sscCreateNodeContext @ssc sscnp
        let actionWithMsg = nodeStartMsg npBaseParams >> action
        let kademliazedAction = runKDHT inst npBaseParams listeners actionWithMsg
        let finalAction = setForkStrategy (forkStrategy @ssc) kademliazedAction
        let run =
                runOurDialog newMutSocketState lpRunnerTag .
-               Modern.runDBHolder modernDBs .
+               runDBHolder modernDBs .
                runCH np initNC .
                flip runSscHolder initGS .
-               runTxpLDHolder (UV.createFromDB . Modern._utxoDB $ modernDBs) initTip .
+               runTxpLDHolder (UV.createFromDB . _utxoDB $ modernDBs) initTip .
                runDelegationT def .
                runUSHolder $
                finalAction
@@ -240,12 +241,11 @@ runKDHT dhtInstance BaseParams {..} listeners = runKademliaDHT kadConfig
       , kdcDHTInstance = dhtInstance
       }
 
-runCH :: (Modern.MonadDB ssc m, MonadFail m)
+runCH :: (MonadDB ssc m, MonadFail m)
       => NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
 runCH NodeParams {..} sscNodeContext act = do
     jlFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
     semaphore <- liftIO newEmptyMVar
-    sscRichmen <- liftIO newEmptyMVar
     sscLeaders <- liftIO newEmptyMVar
     userSecret <- peekUserSecret npKeyfilePath
 
@@ -277,7 +277,6 @@ runCH NodeParams {..} sscNodeContext act = do
             , ncAttackTargets = npAttackTargets
             , ncPropagation = npPropagation
             , ncBlkSemaphore = semaphore
-            , ncSscRichmen = sscRichmen
             , ncSscLeaders = sscLeaders
             , ncUserSecret = userSecretVar
             }

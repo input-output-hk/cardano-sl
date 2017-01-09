@@ -23,8 +23,8 @@ import           Pos.DB.GState                (getTip, prepareGStateDB)
 import           Pos.DB.Holder                (runDBHolder)
 import           Pos.DB.Misc                  (prepareMiscDB)
 import           Pos.DB.Types                 (NodeDBs (..))
-import           Pos.Eligibility              (findRichmenPure)
 import           Pos.Genesis                  (genesisLeaders)
+import           Pos.Richmen.Eligibility      (findRichmenPure)
 import           Pos.Ssc.Class.Types          (Ssc)
 import           Pos.Types                    (Block, BlockHeader, Undo, Utxo,
                                                getBlockHeader, headerHash, mkCoin,

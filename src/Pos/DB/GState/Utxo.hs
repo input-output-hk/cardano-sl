@@ -17,7 +17,7 @@ module Pos.DB.GState.Utxo
        , prepareGStateUtxo
 
        -- * Iteration
-       , iterateByUtxo
+       , iterateByTx
        , runUtxoIterator
        , mapUtxoIterator
        , getFilteredUtxo
@@ -37,6 +37,8 @@ import           Pos.DB.GState.Common (getBi, putBi)
 import           Pos.DB.Types         (DB)
 import           Pos.Types            (Address, TxIn (..), TxOutAux, Utxo, belongsTo)
 import           Pos.Util             (maybeThrow)
+
+import           Pos.Binary.Types     ()
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -74,7 +76,7 @@ prepareGStateUtxo
     :: forall ssc m.
        MonadDB ssc m
     => Utxo -> m ()
-prepareGStateUtxo genesisUtxo = do
+prepareGStateUtxo genesisUtxo =
     putIfEmpty getGenUtxoMaybe putGenesisUtxo
   where
     putIfEmpty
@@ -94,13 +96,11 @@ putTxOut = putBi . txInKey
 -- Iteration
 ----------------------------------------------------------------------------
 
-iterateByUtxo
-    :: forall ssc m . (MonadDB ssc m, MonadMask m)
-    => ((TxIn, TxOutAux) -> m ())
-    -> m ()
-iterateByUtxo callback = do
-    db <- getUtxoDB
-    traverseAllEntries db (pure ()) $ const $ curry callback
+type IterType = (TxIn, TxOutAux)
+
+iterateByTx :: forall v m ssc a . (MonadDB ssc m, MonadMask m)
+                => DBMapIterator (IterType -> v) m a -> (IterType -> v) -> m a
+iterateByTx iter f = mapIterator @IterType @v iter f =<< getUtxoDB
 
 filterUtxo
     :: forall ssc m . (MonadDB ssc m, MonadMask m)
@@ -113,7 +113,7 @@ filterUtxo p = do
         then return $ M.insert (txInHash k, txInIndex k) v m
         else return m
 
-runUtxoIterator :: (MonadDB ssc m, MonadMask m)
+runUtxoIterator :: forall a ssc m . (MonadDB ssc m, MonadMask m)
                  => DBIterator m a -> m a
 runUtxoIterator iter = runIterator iter =<< getUtxoDB
 

@@ -19,6 +19,7 @@ import           Universum
 import           Pos.DB.Types         (DB, NodeDBs, blockDB, miscDB, utxoDB)
 import           Pos.DHT.Model        (DHTResponseT (..))
 import           Pos.DHT.Real         (KademliaDHT (..))
+import           Pos.Util.Iterator    (ListHolderT (..))
 
 -- TODO write a documentation. LensLike' is just a lens. Written using
 -- LensLike' to avoid rankntypes.
@@ -58,3 +59,4 @@ instance (MonadDB ssc m) => MonadDB ssc (StateT a m) where
 deriving instance (MonadDB ssc m) => MonadDB ssc (ResponseT s m)
 deriving instance (MonadDB ssc m) => MonadDB ssc (KademliaDHT m)
 deriving instance (MonadDB ssc m) => MonadDB ssc (DHTResponseT s m)
+deriving instance (MonadDB ssc m) => MonadDB ssc (ListHolderT s m)

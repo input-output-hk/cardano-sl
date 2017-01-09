@@ -43,7 +43,7 @@ import           Universum
 import           Pos.Constants             (curProtocolVersion, curSoftwareVersion, k)
 import           Pos.Context               (NodeContext (ncSecretKey), getNodeContext,
                                             putBlkSemaphore, readBlkSemaphore,
-                                            readLeaders, readRichmen, takeBlkSemaphore)
+                                            readLeaders, takeBlkSemaphore)
 import           Pos.Crypto                (SecretKey, WithHash (WithHash), hash,
                                             shortHashF)
 import           Pos.Data.Attributes       (mkAttributes)
@@ -76,7 +76,6 @@ import           Pos.Types                 (Block, BlockHeader, Blund, EpochInde
 import qualified Pos.Types                 as Types
 import           Pos.Util                  (inAssertMode)
 import           Pos.WorkMode              (WorkMode)
-
 
 -- | Result of single (new) header classification.
 data ClassifyHeaderRes
@@ -284,13 +283,12 @@ verifyBlocks
     :: WorkMode ssc m
     => NonEmpty (Block ssc) -> m (Either Text (NonEmpty Undo))
 verifyBlocks blocks = do
-    richmen <- readRichmen
     runExceptT $ do
        curSlot <- getCurrentSlot
        tipBlk <- DB.getTipBlock
        verResToMonadError formatAllErrors $
            Types.verifyBlocks (Just curSlot) (tipBlk <| blocks)
-       verResToMonadError formatAllErrors =<< sscVerifyBlocks False richmen blocks
+       verResToMonadError formatAllErrors =<< sscVerifyBlocks False blocks
        txUndo <- ExceptT $ txVerifyBlocks blocks
        pskUndo <- ExceptT $ delegationVerifyBlocks blocks
        when (length txUndo /= length pskUndo) $ throwError "Aoeu! Placeholder!"
@@ -318,7 +316,7 @@ withBlkSemaphore_ = withBlkSemaphore . (fmap ((), ) .)
 -- have verified all predicates regarding block (including txs and ssc
 -- data checks).  We almost must have taken lock on block application
 -- and ensured that chain is based on our tip.
-applyBlocks :: WorkMode ssc m => NonEmpty (Blund ssc) -> m ()
+applyBlocks :: forall ssc m . WorkMode ssc m => NonEmpty (Blund ssc) -> m ()
 applyBlocks blunds = do
     let blks = fmap fst blunds
     -- Note: it's important to put blocks first
@@ -376,7 +374,7 @@ createGenesisBlockDo
        WorkMode ssc m
     => EpochIndex -> m (Maybe (GenesisBlock ssc))
 createGenesisBlockDo epoch = do
-    leaders <- readLeaders
+    leaders <- readLeaders epoch
     res <- withBlkSemaphore (createGenesisBlockCheckAgain leaders)
     res <$ inAssertMode (logDebug . sformat newTipFmt =<< readBlkSemaphore)
   where

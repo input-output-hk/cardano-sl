@@ -15,7 +15,8 @@ module Pos.DB.Types
        , StoredBlock (..)
 
         -- * LRC related types.
-       , LrcStorage (..)
+       , LeadersStorage (..)
+       , GtRichmenStorage (..)
 
         -- * Update System related types.
        , UndecidedProposalState (..)
@@ -32,8 +33,9 @@ import qualified Database.RocksDB    as Rocks
 import           Universum
 
 import           Pos.Crypto          (PublicKey)
-import           Pos.Types           (Block, ChainDifficulty, Coin, EpochIndex, Richmen,
-                                      SlotId, SlotLeaders, mkCoin, unsafeAddCoin)
+import           Pos.Types           (Block, ChainDifficulty, Coin, EpochIndex,
+                                      RichmenStake, SlotId, SlotLeaders, mkCoin,
+                                      unsafeAddCoin)
 import           Pos.Update.Types    (StakeholderVotes, UpdateProposal, combineVotes)
 
 ----------------------------------------------------------------------------
@@ -70,10 +72,14 @@ data StoredBlock ssc = StoredBlock
 -- LRC
 ----------------------------------------------------------------------------
 
-data LrcStorage ssc = LrcStorage
+data LeadersStorage ssc = LeadersStorage
     { lrcEpoch   :: !EpochIndex
     , lrcLeaders :: !SlotLeaders
-    , lrcRichmen :: !Richmen
+    } deriving (Generic)
+
+data GtRichmenStorage ssc = GtRichmenStorage
+    { gtRichmenEpoch :: !EpochIndex
+    , gtRichmen      :: !RichmenStake
     } deriving (Generic)
 
 ----------------------------------------------------------------------------

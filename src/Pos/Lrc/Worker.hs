@@ -40,26 +40,24 @@ lrcOnNewSlotWorker :: (SscWorkersClass ssc, WorkMode ssc m) => m ()
 lrcOnNewSlotWorker = onNewSlot True $ lrcOnNewSlotImpl allLrcConsumers
 
 lrcOnNewSlotImpl :: WorkMode ssc m => [LrcConsumer m] -> SlotId -> m ()
-lrcOnNewSlotImpl consumers SlotId{..}
-    | siSlot < k = do
-        expectedRichmenComp <- filterM (flip lcIfNeedCompute siEpoch) consumers
-        needComputeLeaders <- not <$> isLeadersComputed siEpoch
-        let needComputeRichmen = not . null $ expectedRichmenComp
-        when needComputeRichmen $ logInfo "Need to compute richmen"
-        when needComputeLeaders $ logInfo "Need to compute leaders"
-
-        when (needComputeLeaders || needComputeLeaders) $ do
-            logInfo $ "LRC computation is starting"
-            lrcSingleShot siEpoch expectedRichmenComp
-            logInfo $ "LRC computation has finished"
-    | otherwise = pass
+lrcOnNewSlotImpl consumers SlotId {..} =
+    when (siSlot < k) $ lrcSingleShot siEpoch consumers
 
 -- | Run leaders and richmen computation for given epoch. Behavior
 -- when there are not enough blocks in db is currently unspecified.
 lrcSingleShot
     :: WorkMode ssc m
     => EpochIndex -> [LrcConsumer m] -> m ()
-lrcSingleShot epoch consumers = withBlkSemaphore_ $ lrcDo epoch consumers
+lrcSingleShot epoch consumers = do
+    expectedRichmenComp <- filterM (flip lcIfNeedCompute epoch) consumers
+    needComputeLeaders <- not <$> isLeadersComputed epoch
+    let needComputeRichmen = not . null $ expectedRichmenComp
+    when needComputeRichmen $ logInfo "Need to compute richmen"
+    when needComputeLeaders $ logInfo "Need to compute leaders"
+    when (needComputeLeaders || needComputeLeaders) $ do
+        logInfo $ "LRC computation is starting"
+        withBlkSemaphore_ $ lrcDo epoch consumers
+        logInfo $ "LRC computation has finished"
 
 lrcDo
     :: WorkMode ssc m

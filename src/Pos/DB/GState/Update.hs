@@ -9,40 +9,45 @@ module Pos.DB.GState.Update
          getLastPV
        , getScriptVersion
        , getProposalState
+       , getAppProposal
+       , getProposalStateByApp
        , getStakeUS
        , getConfirmedSV
 
          -- * Operations
        , UpdateOp (..)
-       , putRichmenUS
+       -- , putRichmenUS
        , setScriptVersion
        , setConfirmedSV
+       , setLastPV
 
          -- * Initialization
        , prepareGStateUS
 
          -- * Iteration
-       , getOldProposals
+       -- , getOldProposals
        ) where
 
-import qualified Database.RocksDB     as Rocks
+import           Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
+import qualified Database.RocksDB          as Rocks
 import           Universum
 
-import           Pos.Binary.Class     (encodeStrict)
-import           Pos.Binary.DB        ()
-import           Pos.Constants        (curSoftwareVersion)
-import           Pos.DB.Class         (MonadDB, getUtxoDB)
-import           Pos.DB.Error         (DBError (DBMalformed))
-import           Pos.DB.Functions     (RocksBatchOp (..), traverseAllEntries)
-import           Pos.DB.GState.Common (getBi, putBi)
-import           Pos.DB.Types         (ProposalState (..), UndecidedProposalState (..),
-                                       psProposal)
-import           Pos.Genesis          (genesisProtocolVersion, genesisScriptVersion)
-import           Pos.Script.Type      (ScriptVersion)
-import           Pos.Types            (ApplicationName, Coin, EpochIndex, ProtocolVersion,
-                                       SlotId, SoftwareVersion (..), StakeholderId)
-import           Pos.Update.Types     (UpdateProposal (..))
-import           Pos.Util             (maybeThrow)
+import           Pos.Binary.Class          (encodeStrict)
+import           Pos.Binary.DB             ()
+import           Pos.Constants             (curSoftwareVersion)
+import           Pos.Crypto                (hash)
+import           Pos.DB.Class              (MonadDB)
+import           Pos.DB.Error              (DBError (DBMalformed))
+import           Pos.DB.Functions          (RocksBatchOp (..))
+import           Pos.DB.GState.Common      (getBi, putBi)
+import           Pos.DB.Types              (ProposalState (..), psProposal)
+import           Pos.Genesis               (genesisProtocolVersion, genesisScriptVersion)
+import           Pos.Script.Type           (ScriptVersion)
+import           Pos.Types                 (ApplicationName, Coin, EpochIndex,
+                                            ProtocolVersion, SoftwareVersion (..),
+                                            StakeholderId)
+import           Pos.Update.Types          (UpId, UpdateProposal (..))
+import           Pos.Util                  (maybeThrow)
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -58,9 +63,18 @@ getLastPV = maybeThrow (DBMalformed msg) =<< getLastPVMaybe
 getScriptVersion :: MonadDB ssc m => ProtocolVersion -> m (Maybe ScriptVersion)
 getScriptVersion = getBi . scriptVersionKey
 
--- | Get state of UpdateProposal for given SoftwareVersion.
-getProposalState :: MonadDB ssc m => SoftwareVersion -> m (Maybe ProposalState)
+-- | Get state of UpdateProposal for given UpId
+getProposalState :: MonadDB ssc m => UpId -> m (Maybe ProposalState)
 getProposalState = getBi . proposalKey
+
+-- | Get UpId of current proposal for given appName
+getAppProposal :: MonadDB ssc m => ApplicationName -> m (Maybe UpId)
+getAppProposal = getBi . proposalAppKey
+
+-- | Get state of Update Proposal for given AppName
+getProposalStateByApp :: MonadDB ssc m => ApplicationName -> m (Maybe ProposalState)
+getProposalStateByApp appName =
+    runMaybeT $ MaybeT (getAppProposal appName) >>= MaybeT . getProposalState
 
 -- | Get stake of richmen according to stake distribution for given
 -- epoch. If stakeholder was not richmen or if richmen for epoch are
@@ -82,31 +96,31 @@ getConfirmedSV = getBi . confirmedVersionKey
 
 data UpdateOp
     = PutProposal !ProposalState
-    | DeleteProposal !SlotId !SoftwareVersion
-    | ConfirmUpdate !SoftwareVersion
+    | DeleteProposal !UpId !ApplicationName
 
 instance RocksBatchOp UpdateOp where
     toBatchOp (PutProposal ps) =
-        Rocks.Put (proposalKey (upSoftwareVersion up)) (encodeStrict up) :
-        putUndecidedProposalSlot ps
+        [ Rocks.Put (proposalKey upId) (encodeStrict ps)
+        , Rocks.Put (proposalAppKey appName) (encodeStrict upId)
+        ]
       where
         up = psProposal ps
-    toBatchOp (DeleteProposal slotId sv) =
-        [Rocks.Del (proposalSlotKey slotId), Rocks.Del (proposalKey sv)]
-    toBatchOp (ConfirmUpdate SoftwareVersion {..}) =
-        [Rocks.Put (confirmedVersionKey svAppName) (encodeStrict svNumber)]
+        upId = hash up
+        appName = svAppName $ upSoftwareVersion up
+    toBatchOp (DeleteProposal upId appName) =
+        [Rocks.Del (proposalAppKey appName), Rocks.Del (proposalKey upId)]
 
-putUndecidedProposalSlot :: ProposalState -> [Rocks.BatchOp]
-putUndecidedProposalSlot (PSUndecided ups) =
-    [Rocks.Put (proposalSlotKey (upsSlot ups)) (encodeStrict (upsProposal ups))]
-putUndecidedProposalSlot _ = []
+-- putUndecidedProposalSlot :: ProposalState -> [Rocks.BatchOp]
+-- putUndecidedProposalSlot (PSUndecided ups) =
+--     [Rocks.Put (proposalAppKey (upsSlot ups)) (encodeStrict (upsProposal ups))]
+-- putUndecidedProposalSlot _ = []
 
--- I suppose batching is not necessary here.
--- | Put richmen and their stakes for given epoch.
-putRichmenUS :: MonadDB ssc m => EpochIndex -> [(StakeholderId, Coin)] -> m ()
-putRichmenUS e = mapM_ putRichmenDo
-  where
-    putRichmenDo (id, stake) = putBi (stakeKey e id) stake
+-- -- I suppose batching is not necessary here.
+-- -- | Put richmen and their stakes for given epoch.
+-- putRichmenUS :: MonadDB ssc m => EpochIndex -> [(StakeholderId, Coin)] -> m ()
+-- putRichmenUS e = mapM_ putRichmenDo
+--   where
+--     putRichmenDo (id, stake) = putBi (stakeKey e id) stake
 
 -- | Set last protocol version
 setLastPV :: MonadDB ssc m => ProtocolVersion -> m ()
@@ -117,8 +131,9 @@ setScriptVersion :: MonadDB ssc m => ProtocolVersion -> ScriptVersion -> m ()
 setScriptVersion = putBi . scriptVersionKey
 
 -- | Set confirmed version number for given app
-setConfirmedSV :: MonadDB ssc m => ApplicationName -> NumSoftwareVersion -> m ()
-setConfirmedSV = putBi . confirmedVersionKey
+setConfirmedSV :: MonadDB ssc m => SoftwareVersion -> m ()
+setConfirmedSV SoftwareVersion {..}
+    = putBi (confirmedVersionKey svAppName) svNumber
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -131,9 +146,7 @@ prepareGStateUS
 prepareGStateUS = unlessM isInitialized $ do
     putBi lastPVKey genesisProtocolVersion
     setScriptVersion genesisProtocolVersion genesisScriptVersion
-    let curAppName = svAppName curSoftwareVersion
-        curAppVer = svNumber curSoftwareVersion
-    setConfirmedSV curAppName curAppVer
+    setConfirmedSV curSoftwareVersion
 
 isInitialized :: MonadDB ssc m => m Bool
 isInitialized = isJust <$> getLastPVMaybe
@@ -152,21 +165,21 @@ isInitialized = isJust <$> getLastPVMaybe
 -- it's the only option now.
 -- | Get all proposals which were issued no later than given slot.
 -- Head is youngest proposal.
-getOldProposals
-    :: forall ssc m.
-       (MonadDB ssc m, MonadMask m)
-    => SlotId -> m [ProposalState]
-getOldProposals slotId = do
-    db <- getUtxoDB
-    traverseAllEntries db (pure []) step
-  where
-    msg = "proposal for version associated with slot is not found"
-    step :: [ProposalState] -> SlotId -> SoftwareVersion -> m [ProposalState]
-    step res storedSlotId sw
-        | storedSlotId > slotId = pure res
-        | otherwise = do
-            ps <- maybeThrow (DBMalformed msg) =<< getProposalState sw
-            return $ ps : res
+-- getOldProposals
+--     :: forall ssc m.
+--        (MonadDB ssc m, MonadMask m)
+--     => SlotId -> m [ProposalState]
+-- getOldProposals slotId = do
+--     db <- getUtxoDB
+--     traverseAllEntries db (pure []) step
+--   where
+--     msg = "proposal for version associated with slot is not found"
+--     step :: [ProposalState] -> SlotId -> SoftwareVersion -> m [ProposalState]
+--     step res storedSlotId sw
+--         | storedSlotId > slotId = pure res
+--         | otherwise = do
+--             ps <- maybeThrow (DBMalformed msg) =<< getProposalState sw
+--             return $ ps : res
 
 ----------------------------------------------------------------------------
 -- Keys ('us' prefix stands for Update System)
@@ -178,13 +191,13 @@ lastPVKey = "us/last-protocol"
 scriptVersionKey :: ProtocolVersion -> ByteString
 scriptVersionKey = mappend "us/vs" . encodeStrict
 
-proposalKey :: SoftwareVersion -> ByteString
+proposalKey :: UpId -> ByteString
 proposalKey = mappend "us/p" . encodeStrict
 
-proposalSlotKey :: SlotId -> ByteString
+proposalAppKey :: ApplicationName -> ByteString
 -- [CSL-379] Restore prefix after we have proper iterator
--- proposalSlotKey = mappend "us/s" . encodeStrict
-proposalSlotKey = encodeStrict
+-- proposalAppKey = mappend "us/s" . encodeStrict
+proposalAppKey = mappend "us/an" . encodeStrict
 
 -- Can be optimized I suppose.
 stakeKey :: EpochIndex -> StakeholderId -> ByteString

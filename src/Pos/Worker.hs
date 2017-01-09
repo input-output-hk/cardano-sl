@@ -34,11 +34,11 @@ import           Pos.WorkMode           (NewWorkMode)
 -- order becomes important, update this comment! I don't think you
 -- will read it, but who knows…
 --runWorkers :: (SscWorkersClass ssc, SecurityWorkersClass ssc, NewWorkMode ssc m) => m ()
-runWorkers :: (NewWorkMode ssc m) => SendActions BiP m -> m ()
+runWorkers :: (SscWorkersClass ssc, NewWorkMode ssc m) => SendActions BiP m -> m ()
 runWorkers sendActions = mapM_ fork $ concat
     [ [ onNewSlot' True $ onNewSlotWorkerImpl sendActions ]
     , blkWorkers sendActions
-    , untag sscWorkers
+    , map ($ sendActions) $ untag sscWorkers
     -- , untag securityWorkers
     ]
 

@@ -18,13 +18,14 @@ import           Data.Tagged                      (Tagged (..))
 import           Data.Time.Units                  (convertUnit)
 import           Formatting                       (build, ords, sformat, shown, (%))
 import           Mockable                         (currentTime, delay, for)
+import           Node                             (SendActions)
 import           Serokell.Util.Exceptions         ()
 import           System.Wlog                      (logDebug, logError, logWarning)
 import           Universum
 
-import           Pos.Binary.Class                 (Bi)
 import           Pos.Binary.Relay                 ()
 import           Pos.Binary.Ssc                   ()
+import           Pos.Communication.BiP            (BiP)
 import           Pos.Constants                    (k, mpcSendInterval, vssMaxTTL)
 import           Pos.Context                      (getNodeContext, ncPublicKey,
                                                    ncSecretKey, ncSscContext, readRichmen)
@@ -32,7 +33,8 @@ import           Pos.Crypto                       (SecretKey, VssKeyPair, random
                                                    runSecureRandom, toPublic)
 import           Pos.Crypto.SecretSharing         (toVssPublicKey)
 import           Pos.Crypto.Signing               (PublicKey)
-import           Pos.Slotting                     (getSlotStart, onNewSlot)
+import           Pos.NewDHT.Model                 (sendToNeighbors)
+import           Pos.Slotting                     (getSlotStart, onNewSlot')
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
 import           Pos.Ssc.Extra.MonadLD            (sscRunLocalQuery, sscRunLocalUpdate)
 import           Pos.Ssc.GodTossing.Functions     (genCommitmentAndOpening, getThreshold,
@@ -46,7 +48,7 @@ import           Pos.Ssc.GodTossing.SecretStorage (getSecret, prepareSecretToNew
 import           Pos.Ssc.GodTossing.Shares        (getOurShares)
 import           Pos.Ssc.GodTossing.Storage       (getGlobalCertificates,
                                                    gtGetGlobalState)
-import           Pos.Ssc.GodTossing.Types         (Commitment, Opening, SignedCommitment,
+import           Pos.Ssc.GodTossing.Types         (Opening, SignedCommitment,
                                                    SscGodTossing, VssCertificate (..),
                                                    gtcParticipateSsc, gtcVssKeyPair,
                                                    mkVssCertificate)
@@ -64,13 +66,13 @@ instance SscWorkersClass SscGodTossing where
 
 -- CHECK: @onStart
 -- #checkNSendOurCert
-onStart :: forall m. (NewWorkMode SscGodTossing m) => m ()
+onStart :: forall m. (NewWorkMode SscGodTossing m) => SendActions BiP m -> m ()
 onStart = checkNSendOurCert
 
 -- CHECK: @checkNSendOurCert
 -- Checks whether 'our' VSS certificate has been announced
-checkNSendOurCert :: forall m . (NewWorkMode SscGodTossing m) => m ()
-checkNSendOurCert = do
+checkNSendOurCert :: forall m . (NewWorkMode SscGodTossing m) => SendActions BiP m -> m ()
+checkNSendOurCert sendActions = do
     (_, ourId) <- getOurPkAndId
     isCertInBlockhain <- member ourId <$> getGlobalCertificates
     if isCertInBlockhain then
@@ -82,10 +84,9 @@ checkNSendOurCert = do
         let msg = DataMsg (MCVssCertificate ourVssCertificate) ourId
         -- [CSL-245]: do not catch all, catch something more concrete.
         -- [CSL-514] TODO Log long acting sends
-        -- [CSL-447] Uncomment:
-        -- (sendToNeighbors sendActions msg >> logDebug "Announcing our VssCertificate.")
-        --     `catchAll` \e ->
-        --     logError $ sformat ("Error announcing our VssCertificate: " % shown) e
+        (sendToNeighbors sendActions msg >> logDebug "Announcing our VssCertificate.")
+            `catchAll` \e ->
+            logError $ sformat ("Error announcing our VssCertificate: " % shown) e
         pure ()
   where
     getOurVssCertificate :: m VssCertificate
@@ -120,23 +121,23 @@ getOurVssKeyPair = gtcVssKeyPair . ncSscContext <$> getNodeContext
 -- #checkNSendOurCert
 onNewSlotSsc
     :: (NewWorkMode SscGodTossing m)
-    => m ()
-onNewSlotSsc = onNewSlot True $ \slotId-> do
+    => SendActions BiP m -> m ()
+onNewSlotSsc sendActions = onNewSlot' True $ \slotId-> do
     localOnNewSlot slotId
-    checkNSendOurCert
+    checkNSendOurCert sendActions
     prepareSecretToNewSlot slotId
     participationEnabled <- getNodeContext >>=
         atomically . readTVar . gtcParticipateSsc . ncSscContext
     when participationEnabled $ do
-        onNewSlotCommitment slotId
-        onNewSlotOpening slotId
-        onNewSlotShares slotId
+        onNewSlotCommitment sendActions slotId
+        onNewSlotOpening sendActions slotId
+        onNewSlotShares sendActions slotId
 
 -- Commitments-related part of new slot processing
 onNewSlotCommitment
     :: (NewWorkMode SscGodTossing m)
-    => SlotId -> m ()
-onNewSlotCommitment SlotId {..} = do
+    => SendActions BiP m -> SlotId -> m ()
+onNewSlotCommitment sendActions SlotId {..} = do
     ourId <- addressHash . ncPublicKey <$> getNodeContext
     ourSk <- ncSecretKey <$> getNodeContext
     shouldCreateCommitment <- do
@@ -156,17 +157,13 @@ onNewSlotCommitment SlotId {..} = do
         mbComm <- fmap (view _2) <$> getSecret
         whenJust mbComm $ \comm -> do
             _ <- sscProcessMessage (MCCommitment comm) ourId
-            sendOurData CommitmentMsg siEpoch 0 ourId
+            sendOurData sendActions CommitmentMsg siEpoch 0 ourId
 
 -- Openings-related part of new slot processing
 onNewSlotOpening
-    :: ( NewWorkMode SscGodTossing m
-       , Bi VssCertificate
-       , Bi Opening
-       , Bi Commitment
-       )
-    => SlotId -> m ()
-onNewSlotOpening SlotId {..} = do
+    :: NewWorkMode SscGodTossing m
+    => SendActions BiP m -> SlotId -> m ()
+onNewSlotOpening sendActions SlotId {..} = do
     ourId <- addressHash . ncPublicKey <$> getNodeContext
     shouldSendOpening <- do
         globalData <- gtGetGlobalState
@@ -179,13 +176,13 @@ onNewSlotOpening SlotId {..} = do
         mbOpen <- fmap (view _3) <$> getSecret
         whenJust mbOpen $ \open -> do
             _ <- sscProcessMessage (MCOpening open) ourId
-            sendOurData OpeningMsg siEpoch 2 ourId
+            sendOurData sendActions OpeningMsg siEpoch 2 ourId
 
 -- Shares-related part of new slot processing
 onNewSlotShares
     :: (NewWorkMode SscGodTossing m)
-    => SlotId -> m ()
-onNewSlotShares SlotId {..} = do
+    => SendActions BiP m -> SlotId -> m ()
+onNewSlotShares sendActions SlotId {..} = do
     ourId <- addressHash . ncPublicKey <$> getNodeContext
     -- Send decrypted shares that others have sent us
     shouldSendShares <- do
@@ -199,12 +196,12 @@ onNewSlotShares SlotId {..} = do
         let lShares = fmap asBinary shares
         unless (null shares) $ do
             _ <- sscProcessMessage (MCShares lShares) ourId
-            sendOurData SharesMsg siEpoch 4 ourId
+            sendOurData sendActions SharesMsg siEpoch 4 ourId
 
 sendOurData
     :: (NewWorkMode SscGodTossing m)
-    => GtMsgTag -> EpochIndex -> LocalSlotIndex -> StakeholderId -> m ()
-sendOurData msgTag epoch kMultiplier ourId = do
+    => SendActions BiP m -> GtMsgTag -> EpochIndex -> LocalSlotIndex -> StakeholderId -> m ()
+sendOurData sendActions msgTag epoch kMultiplier ourId = do
     -- Note: it's not necessary to create a new thread here, because
     -- in one invocation of onNewSlot we can't process more than one
     -- type of message.
@@ -212,8 +209,7 @@ sendOurData msgTag epoch kMultiplier ourId = do
     logDebug $ sformat ("Announcing our "%build) msgTag
     let msg = InvMsg {imTag = msgTag, imKeys = pure ourId}
     -- [CSL-514] TODO Log long acting sends
-    -- [CSL-447] Uncomment:
-    -- sendToNeighbors sendActions msg
+    sendToNeighbors sendActions msg
     logDebug $ sformat ("Sent our " %build%" to neighbors") msgTag
 
 -- | Generate new commitment and opening and use them for the current
@@ -223,7 +219,7 @@ sendOurData msgTag epoch kMultiplier ourId = do
 -- node doesn't have recent enough blocks and needs to be
 -- synchronized).
 generateAndSetNewSecret
-    :: (NewWorkMode SscGodTossing m, Bi Commitment)
+    :: NewWorkMode SscGodTossing m
     => SecretKey
     -> EpochIndex                         -- ^ Current epoch
     -> m (Maybe (SignedCommitment, Opening))
@@ -269,4 +265,4 @@ waitUntilSend msgTag epoch kMultiplier = do
         logDebug $
             sformat ("Waiting for "%shown%" before sending "%build)
                 ttwMillisecond msgTag
-        wait $ for timeToWait
+        delay $ for timeToWait

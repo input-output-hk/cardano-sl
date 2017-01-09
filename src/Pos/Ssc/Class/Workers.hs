@@ -5,6 +5,7 @@ module Pos.Ssc.Class.Workers
        ) where
 
 import           Data.Tagged           (Tagged)
+import           Node                  (SendActions)
 
 import           Pos.Communication.BiP (BiP)
 import           Pos.Ssc.Class.Types   (Ssc (..))

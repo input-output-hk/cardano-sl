@@ -31,15 +31,15 @@ import           Universum
 
 import           Pos.Context                 (WithNodeContext)
 import qualified Pos.DB                      as Modern (MonadDB (..))
+import           Pos.Lrc.Types               (RichmenStake)
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
 import           Pos.Ssc.Class.Types         (Ssc (..))
 import           Pos.Ssc.Extra.MonadGS       (MonadSscGS (..))
 import           Pos.Ssc.Extra.MonadLD       (MonadSscLD (..))
 import           Pos.Ssc.Extra.Richmen       (MonadSscRichmen (..))
-import           Pos.Types                   (EpochIndex, RichmenStake,
-                                              readUntilEpochMVar)
-import           Pos.Util                    (forcePutMVar)
+import           Pos.Types                   (EpochIndex)
+import           Pos.Util                    (forcePutMVar, readUntilEqualMVar)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 data SscState ssc =
@@ -106,7 +106,7 @@ instance MonadIO m => MonadSscRichmen (SscHolder ssc m) where
     -- or they was computed for previous epoch
     readSscRichmen epoch = do
         mvar <- SscHolder (asks sscRichmen)
-        snd <$> readUntilEpochMVar mvar epoch
+        snd <$> readUntilEqualMVar fst mvar epoch
 
     -- | Try read richmen
     tryReadSscRichmen = SscHolder (asks sscRichmen) >>= liftIO . tryReadMVar

@@ -7,10 +7,10 @@ import           Universum
 
 import           Pos.Constants            (k)
 import qualified Pos.DB                   as DB
+import           Pos.Lrc.Types            (LrcConsumer (..), RichmenStake, RichmenStake)
 import           Pos.Ssc.Extra.Richmen    (MonadSscRichmen (..), isEmptySscRichmen)
 import           Pos.Ssc.GodTossing.Types (SscGodTossing)
-import           Pos.Types                (Coin, LrcConsumer (..), RichmenStake,
-                                           RichmenStake, SlotId (..), mkCoin)
+import           Pos.Types                (Coin, SlotId (..), mkCoin)
 import           Pos.WorkMode             (WorkMode)
 
 -- | Consumer will be called on every Richmen computation.

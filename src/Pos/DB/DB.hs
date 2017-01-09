@@ -29,7 +29,7 @@ import           Pos.DB.Lrc                   (prepareLrcDB)
 import           Pos.DB.Misc                  (prepareMiscDB)
 import           Pos.DB.Types                 (NodeDBs (..))
 import           Pos.Genesis                  (genesisLeaders)
-import           Pos.Richmen.Eligibility      (findRichmenPure)
+import           Pos.Lrc.Eligibility          (findRichmenPure)
 import           Pos.Ssc.Class.Types          (Ssc)
 import           Pos.Types                    (Block, BlockHeader, Undo, getBlockHeader,
                                                headerHash, mkCoin, mkGenesisBlock)

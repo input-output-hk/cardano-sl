@@ -62,8 +62,11 @@ module Pos.Util
        , fromBinaryM
 
        , eitherToVerRes
+
+       -- * MVar
        , clearMVar
        , forcePutMVar
+       , readUntilEqualMVar
 
        , NamedMessagePart (..)
        -- * Instances
@@ -456,6 +459,10 @@ instance MonadFail TimedIO where
 instance MonadFail m => MonadFail (ResourceT m) where
     fail = lift . fail
 
+----------------------------------------------------------------------------
+-- MVar utilities
+----------------------------------------------------------------------------
+
 clearMVar :: MonadIO m => MVar a -> m ()
 clearMVar = liftIO . void . tryTakeMVar
 
@@ -465,3 +472,22 @@ forcePutMVar mvar val = do
     unless res $ do
         _ <- liftIO $ tryTakeMVar mvar
         forcePutMVar mvar val
+
+-- | Read until value is equal to stored value.
+-- Seems it works when value epoch doesn't decrease after every putMVar.
+-- Statement above is strange, because this function doesn't know about Ord.
+readUntilEqualMVar
+    :: (Eq a, MonadIO m)
+    => (x -> a) -> MVar x -> a -> m x
+readUntilEqualMVar f mvar expVal = do
+    rData <- liftIO . readMVar $ mvar -- first we try to read for optimization only
+    let valR = f rData
+    if valR == expVal then pure rData
+    else do
+        tData <- liftIO . takeMVar $ mvar -- now take data
+        let valT = f tData
+        if valT == expVal then do -- check again
+            _ <- liftIO $ tryPutMVar mvar tData -- try to put taken value
+            pure tData
+        else
+            readUntilEqualMVar f mvar expVal

@@ -3,7 +3,7 @@
 
 -- | Logic related to eligibility threshold.
 
-module Pos.Richmen.Eligibility
+module Pos.Lrc.Eligibility
        ( findRichmenStake
        , findRichmenPure
        , findAllRichmenMaybe
@@ -19,8 +19,9 @@ import           Pos.DB.Class             (MonadDB)
 import           Pos.DB.GState.Balances   (getFtsStake)
 import           Pos.DB.GState.Delegation (IssuerPublicKey (..), isIssuerByAddressHash,
                                            iteratePSKs)
-import           Pos.Types                (Coin, RichmenStake, StakeholderId, Utxo,
-                                           addressHash, mkCoin, txOutStake, unsafeAddCoin)
+import           Pos.Lrc.Types            (RichmenStake)
+import           Pos.Types                (Coin, StakeholderId, Utxo, addressHash, mkCoin,
+                                           txOutStake, unsafeAddCoin)
 import           Pos.Util                 (getKeys)
 import           Pos.Util.Iterator        (MonadIterator (nextItem), runListHolder,
                                            runListHolderT)

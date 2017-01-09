@@ -4,7 +4,7 @@
 
 -- | Workers responsible for Leaders and Richmen computation.
 
-module Pos.Worker.Lrc
+module Pos.Lrc.Worker
        ( lrcOnNewSlotWorker
        ) where
 
@@ -23,15 +23,16 @@ import           Pos.Context              (isLeadersComputed, readLeadersEager,
                                            writeLeaders)
 import qualified Pos.DB                   as DB
 import qualified Pos.DB.GState            as GS
-import           Pos.FollowTheSatoshi     (followTheSatoshiM)
-import           Pos.Richmen              (allLrcConsumers, findAllRichmenMaybe)
+import           Pos.Lrc.Consumers        (allLrcConsumers)
+import           Pos.Lrc.Eligibility      (findAllRichmenMaybe)
+import           Pos.Lrc.FollowTheSatoshi (followTheSatoshiM)
+import           Pos.Lrc.Types            (LrcConsumer (..))
 import           Pos.Slotting             (onNewSlot)
 import           Pos.Ssc.Class            (SscWorkersClass)
 import           Pos.Ssc.Extra            (sscCalculateSeed)
 import           Pos.Types                (EpochOrSlot (..), EpochOrSlot (..), HeaderHash,
-                                           HeaderHash, LrcConsumer (..), SlotId (..),
-                                           SlotId (..), crucialSlot, getEpochOrSlot,
-                                           getEpochOrSlot)
+                                           HeaderHash, SlotId (..), SlotId (..),
+                                           crucialSlot, getEpochOrSlot, getEpochOrSlot)
 import           Pos.WorkMode             (WorkMode)
 
 lrcOnNewSlotWorker :: (SscWorkersClass ssc, WorkMode ssc m) => m ()

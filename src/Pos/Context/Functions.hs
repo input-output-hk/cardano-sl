@@ -26,9 +26,8 @@ import           Universum
 
 import           Pos.Context.Class       (WithNodeContext (..))
 import           Pos.Context.Context     (NodeContext (..))
-import           Pos.Types               (EpochIndex, HeaderHash, SlotLeaders, Utxo,
-                                          readUntilEpochMVar)
-import           Pos.Util                (forcePutMVar)
+import           Pos.Types               (EpochIndex, HeaderHash, SlotLeaders, Utxo)
+import           Pos.Util                (forcePutMVar, readUntilEqualMVar)
 
 ----------------------------------------------------------------------------
 -- Genesis
@@ -92,7 +91,7 @@ readLeaders
     => EpochIndex -> m SlotLeaders
 readLeaders expEpoch = do
     nc <- getNodeContext
-    snd <$> readUntilEpochMVar (ncSscLeaders nc) expEpoch
+    snd <$> readUntilEqualMVar fst (ncSscLeaders nc) expEpoch
 
 -- | Return Just if value is present and
 -- computation epoch equals expEpoch, Nothing otherwise.

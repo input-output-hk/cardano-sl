@@ -3,7 +3,7 @@
 
 -- | Everything related to /follow-the-satoshi/ procedure.
 
-module Pos.FollowTheSatoshi
+module Pos.Lrc.FollowTheSatoshi
        ( followTheSatoshi
        , followTheSatoshiM
        ) where

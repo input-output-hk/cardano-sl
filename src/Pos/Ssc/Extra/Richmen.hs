@@ -15,7 +15,8 @@ import           Universum
 
 import           Pos.DHT.Model.Class  (DHTResponseT)
 import           Pos.DHT.Real         (KademliaDHT)
-import           Pos.Types            (EpochIndex, RichmenStake)
+import           Pos.Lrc.Types        (RichmenStake)
+import           Pos.Types            (EpochIndex)
 
 -- | Encapsulation manipulation of SSC richmen.
 -- We store SSC richmen into database and inmemory.

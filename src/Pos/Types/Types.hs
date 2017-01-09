@@ -67,9 +67,6 @@ module Pos.Types.Types
 
        , SharedSeed (..)
        , SlotLeaders
-       , Richmen
-       , RichmenStake
-       , toRichmen
 
        , ProxySigEpoch
        , ProxySKEpoch
@@ -112,10 +109,6 @@ module Pos.Types.Types
        , HasHeaderHash (..)
        , HasPrevBlock (..)
        , HasEpochOrSlot (..)
-
-       , FullRichmenData
-       , LrcConsumer (..)
-       , readUntilEpochMVar
 
        , blockHeader
        , blockLeaderKey
@@ -162,10 +155,8 @@ import           Control.Lens           (Getter, Lens', choosing, makeLenses,
 import           Data.Data              (Data)
 import           Data.DeriveTH          (derive, makeNFData)
 import           Data.Hashable          (Hashable)
-import qualified Data.HashMap.Strict    as HM
 import           Data.Ix                (Ix)
 import           Data.List.NonEmpty     (NonEmpty)
-import qualified Data.List.NonEmpty     as NE
 import qualified Data.Map               as M (toList)
 import           Data.SafeCopy          (SafeCopy (..), base, contain,
                                          deriveSafeCopySimple, safeGet, safePut)
@@ -487,18 +478,6 @@ instance Buildable SharedSeed where
 
 -- | 'NonEmpty' list of slot leaders.
 type SlotLeaders = NonEmpty StakeholderId
-
--- | Addresses which have enough stake for participation in SSC.
-type Richmen = NonEmpty StakeholderId
-
--- | Richmen with Stake
-type RichmenStake = HashMap StakeholderId Coin
-
-toRichmen :: RichmenStake -> Richmen
-toRichmen =
-    fromMaybe onNoRichmen . NE.nonEmpty . HM.keys
-  where
-    onNoRichmen = panic "There are no richmen!"
 
 ----------------------------------------------------------------------------
 -- Proxy signatures and delegation
@@ -1078,9 +1057,6 @@ instance (HasEpochIndex a, HasEpochIndex b) =>
          HasEpochIndex (Either a b) where
     epochIndexL = choosing epochIndexL epochIndexL
 
-instance HasEpochIndex (EpochIndex, b) where
-    epochIndexL = _1
-
 -- | Lens from 'MainBlock' to 'SlotId'.
 blockSlot :: Lens' (MainBlock ssc) SlotId
 blockSlot = gbHeader . headerSlot
@@ -1322,45 +1298,3 @@ derive makeNFData ''TxInWitness
 derive makeNFData ''TxOut
 derive makeNFData ''TxDistribution
 derive makeNFData ''Tx
-
-----------------------------------------------------------------------------
--- Richmen and LRC stuff
-----------------------------------------------------------------------------
-
--- | Full richmen data consists of total stake at some point and stake
--- distribution among richmen.
-type FullRichmenData = (Coin, RichmenStake)
-
--- | Datatype for LRC computation client.
--- If you want to compute richmen, you should add such client to LRC framework
-data LrcConsumer m = LrcConsumer
-    {
-      lcThreshold         :: Coin -> Coin
-    -- ^ Function which defines threshold depends on total stake
-    , lcIfNeedCompute     :: SlotId -> m Bool
-    -- ^ Function which defines necessity of richmen computation
-    , lcComputedCallback  :: SlotId -> Coin -> RichmenStake -> m ()
-    -- ^ Callback which will be called when richmen computed
-    , lcClearCallback     :: m ()
-    -- ^ Callback which will be called slot >= k
-    , lcConsiderDelegated :: Bool
-    -- Delegated or usual richmen should be computed
-    }
-
--- | Read until value's epoch equal expEpoch.
--- Seems it works when value's epoch doesn't decrease after every putMVar
-readUntilEpochMVar
-    :: (MonadIO m, HasEpochIndex a)
-    => MVar a -> EpochIndex -> m a
-readUntilEpochMVar mvar expEpoch = do
-    rData <- liftIO . readMVar $ mvar -- first we try to read for optimization only
-    let epochR = rData ^. epochIndexL
-    if epochR == expEpoch then pure rData
-    else do
-        tData <- liftIO . takeMVar $ mvar -- now take data
-        let epochT = tData ^. epochIndexL
-        if epochT == expEpoch then do -- check again
-            _ <- liftIO $ tryPutMVar mvar tData -- try to put taken value
-            pure tData
-        else
-            readUntilEpochMVar mvar expEpoch

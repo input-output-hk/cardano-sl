@@ -34,9 +34,9 @@ import qualified Database.RocksDB    as Rocks
 import           Universum
 
 import           Pos.Crypto          (PublicKey)
-import           Pos.Types           (Block, ChainDifficulty, Coin, EpochIndex,
-                                      RichmenStake, SlotId, SlotLeaders, mkCoin,
-                                      unsafeAddCoin)
+import           Pos.Lrc.Types       (RichmenStake)
+import           Pos.Types           (Block, ChainDifficulty, Coin, EpochIndex, SlotId,
+                                      SlotLeaders, mkCoin, unsafeAddCoin)
 import           Pos.Update.Types    (StakeholderVotes, UpdateProposal, combineVotes)
 
 ----------------------------------------------------------------------------

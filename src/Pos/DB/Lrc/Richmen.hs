@@ -36,8 +36,8 @@ import           Pos.Binary.Class  (Bi, encodeStrict)
 import           Pos.Binary.Types  ()
 import           Pos.DB.Class      (MonadDB)
 import           Pos.DB.Lrc.Common (getBi, putBi)
-import           Pos.Types         (EpochIndex, FullRichmenData, Richmen, StakeholderId,
-                                    toRichmen)
+import           Pos.Lrc.Types     (FullRichmenData, Richmen, toRichmen)
+import           Pos.Types         (EpochIndex, StakeholderId)
 
 ----------------------------------------------------------------------------
 -- Class

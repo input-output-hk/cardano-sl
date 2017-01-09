@@ -34,6 +34,7 @@ import           Pos.Crypto                       (SecretKey, VssKeyPair, random
 import           Pos.Crypto.SecretSharing         (toVssPublicKey)
 import           Pos.Crypto.Signing               (PublicKey)
 import           Pos.DB.GState                    (getTip)
+import           Pos.Lrc.Types                    (toRichmen)
 import           Pos.Slotting                     (getCurrentSlot, getSlotStart,
                                                    onNewSlot)
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
@@ -58,7 +59,7 @@ import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtMsgTag 
 import           Pos.Types                        (EpochIndex, LocalSlotIndex,
                                                    SlotId (..), StakeholderId,
                                                    StakeholderId, Timestamp (..),
-                                                   addressHash, toRichmen)
+                                                   addressHash)
 import           Pos.Util                         (asBinary)
 import           Pos.Util.Relay                   (DataMsg (..), InvMsg (..))
 import           Pos.WorkMode                     (WorkMode)

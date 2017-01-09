@@ -9,7 +9,7 @@ import           Pos.DB.Class       (MonadDB)
 import           Pos.DB.Lrc.Common  (prepareLrcCommon)
 import           Pos.DB.Lrc.Leaders (prepareLrcLeaders)
 import           Pos.DB.Lrc.Richmen (SomeRichmenComponent, prepareLrcRichmen)
-import           Pos.Types          (FullRichmenData)
+import           Pos.Lrc.Types      (FullRichmenData)
 
 -- | Put missing initial data into LRC DB.
 prepareLrcDB

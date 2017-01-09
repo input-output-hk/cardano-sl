@@ -26,12 +26,12 @@ import           Universum
 
 import           Pos.DHT.Model.Class   (DHTResponseT)
 import           Pos.DHT.Real          (KademliaDHT)
+import           Pos.Lrc.Types         (toRichmen)
 import           Pos.Slotting          (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class.Storage (SscStorageClass (..))
 import           Pos.Ssc.Class.Types   (Ssc (..))
 import           Pos.Ssc.Extra.Richmen (MonadSscRichmen (..))
-import           Pos.Types.Types       (EpochIndex, NEBlocks, SharedSeed, SlotId (..),
-                                        toRichmen)
+import           Pos.Types.Types       (EpochIndex, NEBlocks, SharedSeed, SlotId (..))
 
 class Monad m => MonadSscGS ssc m | m -> ssc where
     getGlobalState    :: m (SscGlobalState ssc)

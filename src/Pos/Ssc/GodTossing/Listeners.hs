@@ -22,6 +22,7 @@ import           Pos.Binary.Crypto                      ()
 import           Pos.Communication.Types                (ResponseMode)
 import           Pos.Context                            (WithNodeContext (getNodeContext))
 import           Pos.DHT.Model                          (ListenerDHT (..))
+import           Pos.Lrc.Types                          (toRichmen)
 import           Pos.Security                           (shouldIgnorePkAddress)
 import           Pos.Slotting                           (getCurrentSlot)
 import           Pos.Ssc.Class.Listeners                (SscListenersClass (..))
@@ -39,8 +40,7 @@ import           Pos.Ssc.GodTossing.Types.Message       (GtMsgContents (..),
 import           Pos.Ssc.GodTossing.Types.Type          (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types         (GtPayload (..), GtProof,
                                                          _gpCertificates)
-import           Pos.Types                              (SlotId (..), toRichmen)
-import           Pos.Types.Address                      (StakeholderId)
+import           Pos.Types                              (SlotId (..), StakeholderId)
 import           Pos.Util.Relay                         (DataMsg, InvMsg, Relay (..),
                                                          ReqMsg, handleDataL, handleInvL,
                                                          handleReqL)

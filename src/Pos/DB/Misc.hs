@@ -37,10 +37,10 @@ import           Pos.DB.Error                    (DBError (DBMalformed))
 import           Pos.DB.Functions                (rocksGetBi, rocksPutBi)
 import           Pos.DB.Types                    (GtRichmenStorage (..),
                                                   LeadersStorage (..))
+import           Pos.Lrc.Types                   (RichmenStake)
 import           Pos.Ssc.GodTossing.Secret.Types (GtSecretStorage)
 import           Pos.Ssc.GodTossing.Types.Type   (SscGodTossing)
-import           Pos.Types                       (EpochIndex, ProxySKEpoch, RichmenStake,
-                                                  SlotLeaders)
+import           Pos.Types                       (EpochIndex, ProxySKEpoch, SlotLeaders)
 
 ----------------------------------------------------------------------------
 -- Initialization

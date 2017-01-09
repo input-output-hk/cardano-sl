@@ -18,7 +18,7 @@ import qualified Database.RocksDB  as Rocks
 import           Universum
 
 import           Pos.Binary.Class  (Bi (..), encodeStrict)
-import           Pos.Crypto        (PublicKey, pskIssuerPk)
+import           Pos.Crypto        (PublicKey, pskDelegatePk, pskIssuerPk)
 import           Pos.DB.Class      (MonadDB, getUtxoDB)
 import           Pos.DB.DBIterator (DBMapIterator, mapIterator)
 import           Pos.DB.Functions  (RocksBatchOp (..), rocksGetBi)
@@ -53,9 +53,11 @@ data DelegationOp
     -- ^ Removes PSK by issuer PK.
 
 instance RocksBatchOp DelegationOp where
-    toBatchOp (AddPSK psk) =
-        [Rocks.Put (pskKey $ IssuerPublicKey $ addressHash $ pskIssuerPk psk)
-                   (encodeStrict psk)]
+    toBatchOp (AddPSK psk)
+        | pskIssuerPk psk == pskDelegatePk psk = [] -- panic maybe
+        | otherwise =
+            [Rocks.Put (pskKey $ IssuerPublicKey $ addressHash $ pskIssuerPk psk)
+                       (encodeStrict psk)]
     toBatchOp (DelPSK issuerPk) =
         [Rocks.Del $ pskKey $ IssuerPublicKey $ addressHash issuerPk]
 

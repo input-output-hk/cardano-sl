@@ -90,14 +90,16 @@ blkOnNewSlot slotId@SlotId {..} = do
         logLeadersF $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash
         logLeadersF $ sformat ("Slot leaders: "%listJson) $ map (sformat shortHashF) leaders
         logLeadersF $ sformat ("Current slot leader: "%build) leader
+        logDebug $ sformat ("Available lightweight PSKs: "%listJson) validCerts
         heavyPskM <- getPSKByIssuerAddressHash leader
         logDebug $ "Does someone have cert for this slot: " <> show (isJust heavyPskM)
-        let relatedHeavyPsk = maybe False ((== ourPk) . pskDelegatePk) heavyPskM
-        logDebug $ sformat ("Available lightweight PSKs: "%listJson) validCerts
-        if | leader == ourPkHash -> onNewSlotWhenLeader slotId Nothing
-           | relatedHeavyPsk -> onNewSlotWhenLeader slotId $ Right <$> heavyPskM
+        let heavyWeAreDelegate = maybe False ((== ourPk) . pskDelegatePk) heavyPskM
+        let heavyWeAreIssuer = maybe False ((== ourPk) . pskIssuerPk) heavyPskM
+        if | heavyWeAreIssuer -> pass
+           | leader == ourPkHash -> onNewSlotWhenLeader slotId Nothing
+           | heavyWeAreIssuer -> onNewSlotWhenLeader slotId $ Right <$> heavyPskM
            | isJust validCert -> onNewSlotWhenLeader slotId $ Left <$> validCert
-           | otherwise -> pure ()
+           | otherwise -> pass
 
 onNewSlotWhenLeader
     :: WorkMode ssc m

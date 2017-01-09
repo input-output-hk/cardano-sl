@@ -57,10 +57,8 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
         findLeaders cs sm stake
     -- We check whether `c` is covered by current item in the buffer
     findLeaders (c:cs) sm buf@((adr, val):bufRest)
-        | sm' >= fst c =
-            ((adr, snd c):) <$> findLeaders cs sm buf
-        | otherwise =
-            findLeaders (c:cs) sm' bufRest
+        | sm' >= fst c = ((adr, snd c):) <$> findLeaders cs sm buf
+        | otherwise = findLeaders (c:cs) sm' bufRest
       where
         sm' = unsafeAddCoin sm val
 

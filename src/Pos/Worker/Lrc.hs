@@ -21,18 +21,17 @@ import           Pos.Block.Logic          (applyBlocks, rollbackBlocks, withBlkS
 import           Pos.Constants            (k)
 import           Pos.Context              (isLeadersComputed, readLeadersEager,
                                            writeLeaders)
-import           Pos.DB                   (getTotalFtsStake, loadBlocksFromTipWhile,
-                                           mapUtxoIterator, putLeaders)
+import           Pos.DB                   (getTotalFtsStake, iterateByStake, iterateByTx,
+                                           loadBlocksFromTipWhile, putLeaders)
 import           Pos.FollowTheSatoshi     (followTheSatoshiM)
 import           Pos.Richmen              (allLrcConsumers, findAllRichmenMaybe)
 import           Pos.Slotting             (onNewSlot)
 import           Pos.Ssc.Class            (SscWorkersClass)
 import           Pos.Ssc.Extra            (sscCalculateSeed)
-import           Pos.Types                (Coin, EpochOrSlot (..), EpochOrSlot (..),
-                                           HeaderHash, HeaderHash, LrcConsumer (..),
-                                           SlotId (..), SlotId (..), StakeholderId, TxIn,
-                                           TxIn, TxOutAux, TxOutAux, crucialSlot,
-                                           getEpochOrSlot, getEpochOrSlot)
+import           Pos.Types                (EpochOrSlot (..), EpochOrSlot (..), HeaderHash,
+                                           HeaderHash, LrcConsumer (..), SlotId (..),
+                                           SlotId (..), crucialSlot, getEpochOrSlot,
+                                           getEpochOrSlot)
 import           Pos.WorkMode             (WorkMode)
 
 lrcOnNewSlotWorker :: (SscWorkersClass ssc, WorkMode ssc m) => m ()
@@ -63,10 +62,23 @@ lrcDo slotId consumers tip = tip <$ do
     rollbackBlocks blockUndos
     richmenComputationDo slotId consumers
     leadersComputationDo slotId
-    applyBlocks blockUndos
+    applyBlocks (NE.reverse blockUndos)
   where
-    whileMoreOrEq5k b _ = getEpochOrSlot b >= crucial
+    whileMoreOrEq5k b _ = getEpochOrSlot b > crucial
     crucial = EpochOrSlot $ Right $ crucialSlot slotId
+
+leadersComputationDo :: WorkMode ssc m => SlotId -> m ()
+leadersComputationDo SlotId {siEpoch = epochId} = do
+    unlessM (isLeadersComputed epochId) $ do
+        mbSeed <- sscCalculateSeed epochId
+        totalStake <- getTotalFtsStake
+        leaders <-
+            case mbSeed of
+                Left e     -> panic $ sformat ("SSC couldn't compute seed: "%build) e
+                Right seed -> iterateByTx (followTheSatoshiM seed totalStake) snd
+        writeLeaders epochId leaders
+    (epoch, leaders) <- readLeadersEager
+    putLeaders epoch leaders
 
 richmenComputationDo :: forall ssc m . WorkMode ssc m
     => SlotId -> [LrcConsumer m] -> m ()
@@ -75,10 +87,9 @@ richmenComputationDo slotId consumers = unless (null consumers) $ do
     total <- getTotalFtsStake
     let minThreshold = safeThreshold total (not . lcConsiderDelegated)
     let minThresholdD = safeThreshold total lcConsiderDelegated
-    (richmen, richmenD) <-
-        mapUtxoIterator @(StakeholderId, Coin)
-            (findAllRichmenMaybe @ssc minThreshold minThresholdD)
-            identity
+    (richmen, richmenD) <- iterateByStake
+                               (findAllRichmenMaybe @ssc minThreshold minThresholdD)
+                               identity
     let callCallback cons = fork_ $
             if lcConsiderDelegated cons
             then lcComputedCallback cons slotId total
@@ -92,20 +103,6 @@ richmenComputationDo slotId consumers = unless (null consumers) $ do
         $ map (flip lcThreshold total)
         $ filter f consumers
     safeMinimum a = if null a then Nothing else Just $ minimum a
-
-leadersComputationDo :: WorkMode ssc m => SlotId -> m ()
-leadersComputationDo SlotId {siEpoch = epochId} = do
-    unlessM (isLeadersComputed epochId) $ do
-        mbSeed <- sscCalculateSeed epochId
-        totalStake <- getTotalFtsStake
-        leaders <-
-            case mbSeed of
-                Left e     -> panic $ sformat ("SSC couldn't compute seed: "%build) e
-                Right seed -> mapUtxoIterator @(TxIn, TxOutAux) @TxOutAux
-                              (followTheSatoshiM seed totalStake) snd
-        writeLeaders epochId leaders
-    (epoch, leaders) <- readLeadersEager
-    putLeaders epoch leaders
 
 lrcConsumersClear :: WorkMode ssc m => [LrcConsumer m] -> m ()
 lrcConsumersClear = mapM_ lcClearCallback

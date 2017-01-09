@@ -36,6 +36,7 @@ data ParseResult a = FetchError  -- RocksDB internal error
                                  -- (For example we iterate by utxo (key, value)
                                  -- but encounter balance (key, value))
                    | Success a   -- Element is fetched and decoded successfully.
+    deriving Show
 
 -- | Iterator by keys of type @k@ and values of type @v@.
 instance (Bi k, Bi v, MonadIO m, MonadThrow m)
@@ -88,7 +89,7 @@ runIterator :: forall b m ssc . (MonadIO m, MonadMask m)
              => DBIterator m b -> DB ssc -> m b
 runIterator dbIter DB{..} =
     bracket (Rocks.createIter rocksDB rocksReadOpts) (Rocks.releaseIter)
-            (runReaderT (getDBIterator dbIter))
+            (\it -> Rocks.iterFirst it >> runReaderT (getDBIterator dbIter) it)
 
 -- | Run DBMapIterator by `DB ssc`.
 mapIterator :: forall u v m ssc a . (MonadIO m, MonadMask m)

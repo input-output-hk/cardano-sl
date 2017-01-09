@@ -180,7 +180,7 @@ makeLenses ''DelVerState
 -- Blocks are assumed to be oldest-first. It's assumed blocks are
 -- correct from 'Pos.Types.Block#verifyBlocks' point of view.
 delegationVerifyBlocks
-    :: forall ssc m. (Ssc ssc, MonadDB ssc m, MonadThrow m)
+    :: forall ssc m. (Ssc ssc, MonadDB ssc m)
     => NEBlocks ssc -> m (Either Text (NonEmpty [ProxySKSimple]))
 delegationVerifyBlocks blocks = do
     tip <- DB.getTip

@@ -75,6 +75,7 @@ iteratePSKs iter f = mapIterator @IterType @v iter f =<< getUtxoDB
 
 -- [CSL-379] Restore prefix after we have proper iterator
 newtype IssuerPublicKey = IssuerPublicKey (AddressHash PublicKey)
+    deriving Show
 
 instance Bi IssuerPublicKey where
     put (IssuerPublicKey p) = put ("d/" :: ByteString) >> put p -- chto by eto ne znaczilo

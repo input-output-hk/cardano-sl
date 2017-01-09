@@ -77,7 +77,6 @@ import qualified Pos.Types                 as Types
 import           Pos.Util                  (inAssertMode)
 import           Pos.WorkMode              (WorkMode)
 
-
 -- | Result of single (new) header classification.
 data ClassifyHeaderRes
     = CHContinues      -- ^ Header continues our main chain.
@@ -317,7 +316,7 @@ withBlkSemaphore_ = withBlkSemaphore . (fmap ((), ) .)
 -- have verified all predicates regarding block (including txs and ssc
 -- data checks).  We almost must have taken lock on block application
 -- and ensured that chain is based on our tip.
-applyBlocks :: WorkMode ssc m => NonEmpty (Blund ssc) -> m ()
+applyBlocks :: forall ssc m . WorkMode ssc m => NonEmpty (Blund ssc) -> m ()
 applyBlocks blunds = do
     let blks = fmap fst blunds
     -- Note: it's important to put blocks first

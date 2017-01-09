@@ -30,6 +30,7 @@ module Node (
     , Listener
     , ListenerAction(..)
 
+    , hoistListenerAction
     , hoistSendActions
     , hoistConversationActions
     , LL.NodeId(..)
@@ -78,6 +79,12 @@ data ListenerAction packing m where
     :: ( Packable packing snd, Unpackable packing rcv, Message rcv )
     => (LL.NodeId -> ConversationActions snd rcv m -> m ())
     -> ListenerAction packing m
+
+hoistListenerAction :: (forall a. n a -> m a) -> (forall a. m a -> n a) -> ListenerAction p n -> ListenerAction p m
+hoistListenerAction nat rnat (ListenerActionOneMsg f) = ListenerActionOneMsg $
+    \nId sendActions -> nat . f nId (hoistSendActions rnat nat sendActions)
+hoistListenerAction nat rnat (ListenerActionConversation f) = ListenerActionConversation $
+    \nId convActions -> nat $ f nId (hoistConversationActions rnat convActions)
 
 -- | Gets message type basing on type of incoming messages
 listenerMessageName :: Listener packing m -> MessageName

@@ -16,7 +16,8 @@ import           Control.Monad.Trans          (MonadTrans)
 import           Control.Monad.Trans.Resource (MonadResource)
 import           Mockable                     (ChannelT, MFunctor' (hoist'),
                                                Mockable (liftMockable), Promise,
-                                               SharedAtomicT, ThreadId, Throw)
+                                               SharedAtomicT, ThreadId, Throw,
+                                               liftMockableWrappedM)
 import           Serokell.Util.Lens           (WrappedM (..))
 import           System.Wlog                  (CanLog, HasLoggerName)
 import           Universum
@@ -56,7 +57,7 @@ instance ( Mockable d m
          , MFunctor' d (ReaderT (NodeDBs ssc) m) m
          , MFunctor' d (DBHolder ssc m) (ReaderT (NodeDBs ssc) m)
          ) => Mockable d (DBHolder ssc m) where
-    liftMockable dmt = DBHolder $ liftMockable $ hoist' getDBHolder dmt
+    liftMockable = liftMockableWrappedM
 
 -- | Execute 'DBHolder' action with given 'NodeState'.
 runDBHolder :: NodeDBs ssc -> DBHolder ssc m a -> m a

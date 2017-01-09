@@ -18,7 +18,8 @@ import           Control.Monad.Trans  (MonadTrans)
 import qualified Database.RocksDB     as Rocks
 import           Mockable             (Bracket, Catch, ChannelT, MFunctor' (hoist'),
                                        Mockable (liftMockable), Promise, SharedAtomicT,
-                                       ThreadId, Throw, bracket, catch)
+                                       ThreadId, Throw, bracket, catch,
+                                       liftMockableWrappedM)
 import           Universum            hiding (bracket, catch)
 
 import           Pos.Binary.Class     (Bi)
@@ -39,7 +40,7 @@ instance ( Mockable d m
          , MFunctor' d (ReaderT Rocks.Iterator m) m
          , MFunctor' d (DBIterator m) (ReaderT Rocks.Iterator m)
          ) => Mockable d (DBIterator m) where
-    liftMockable dmt = DBIterator $ liftMockable $ hoist' getDBIterator dmt
+    liftMockable = liftMockableWrappedM
 
 -- | RocksDB key value iteration errors.
 data ParseResult a = FetchError  -- RocksDB internal error
@@ -94,7 +95,7 @@ instance ( Mockable d m
          , MFunctor' d (ReaderT Rocks.Iterator m) m
          , MFunctor' d (DBIterator m) (ReaderT Rocks.Iterator m)
          ) => Mockable d (DBMapIterator f m) where
-    liftMockable dmt = DBMapIterator $ liftMockable $ hoist' getDBMapIterator dmt
+    liftMockable = liftMockableWrappedM
 
 -- | Instance for DBMapIterator using DBIterator.
 -- Fetch every element from DBIterator and apply `f` for it.

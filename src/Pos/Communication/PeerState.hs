@@ -20,7 +20,7 @@ import qualified ListT                         as LT
 import           Mockable                      (ChannelT, MFunctor' (hoist'),
                                                 Mockable (liftMockable), Promise,
                                                 SharedAtomic, SharedAtomicT, ThreadId,
-                                                newSharedAtomic)
+                                                liftMockableWrappedM, newSharedAtomic)
 import           Node                          (NodeId)
 import           Serokell.Util.Lens            (WrappedM (..))
 import qualified STMContainers.Map             as STM
@@ -75,7 +75,7 @@ instance ( Mockable d m
          , MFunctor' d (ReaderT (PeerStateCtx ssc m) m) m
          , MFunctor' d (PeerStateHolder ssc m) (ReaderT (PeerStateCtx ssc m) m)
          ) => Mockable d (PeerStateHolder ssc m) where
-    liftMockable dmt = PeerStateHolder $ liftMockable $ hoist' getPeerStateHolder dmt
+    liftMockable = liftMockableWrappedM
 
 instance (MonadIO m, Mockable SharedAtomic m) => WithPeerState ssc (PeerStateHolder ssc m) where
     getPeerState nodeId = (PeerStateHolder ask) >>= \m -> do

@@ -10,14 +10,16 @@ import           Control.Lens                      ((^.))
 import           Control.Monad.Trans.Reader        (ReaderT (..), ask)
 import qualified Data.HashMap.Strict               as HM
 import           Data.Tagged                       (Tagged (..))
+import           Node                              (SendActions)
 import           System.Wlog                       (logWarning)
 import           Universum                         hiding (ask)
 
+import           Pos.Communication.BiP             (BiP)
 import           Pos.Constants                     (k, mdNoBlocksSlotThreshold,
                                                     mdNoCommitmentsEpochThreshold)
 import           Pos.Context                       (getNodeContext, ncPublicKey)
 import           Pos.DB                            (getTipBlock, loadBlocksFromTipWhile)
-import           Pos.Slotting                      (onNewSlot)
+import           Pos.Slotting                      (onNewSlot')
 import           Pos.Ssc.Class.Types               (Ssc (..))
 import           Pos.Ssc.GodTossing.Types.Instance ()
 import           Pos.Ssc.GodTossing.Types.Type     (SscGodTossing)
@@ -27,10 +29,10 @@ import           Pos.Types                         (EpochIndex, MainBlock, SlotI
                                                     blockMpc, flattenSlotId, gbHeader,
                                                     gbhConsensus, gcdEpoch, headerSlot)
 import           Pos.Types.Address                 (addressHash)
-import           Pos.WorkMode                      (WorkMode)
+import           Pos.WorkMode                      (NewWorkMode)
 
 class Ssc ssc => SecurityWorkersClass ssc where
-    securityWorkers :: WorkMode ssc m => Tagged ssc [m ()]
+    securityWorkers :: NewWorkMode ssc m => Tagged ssc [SendActions BiP m -> m ()]
 
 instance SscBi => SecurityWorkersClass SscGodTossing where
     securityWorkers = Tagged [ checkForReceivedBlocksWorker
@@ -41,11 +43,11 @@ instance SecurityWorkersClass SscNistBeacon where
     securityWorkers = Tagged [ checkForReceivedBlocksWorker
                              ]
 
-reportAboutEclipsed :: WorkMode ssc m => m ()
+reportAboutEclipsed :: NewWorkMode ssc m => m ()
 reportAboutEclipsed = logWarning "We're doomed, we're eclipsed!"
 
-checkForReceivedBlocksWorker :: WorkMode ssc m => m ()
-checkForReceivedBlocksWorker = onNewSlot True $ \slotId -> do
+checkForReceivedBlocksWorker :: NewWorkMode ssc m => SendActions BiP m -> m ()
+checkForReceivedBlocksWorker __sendActions = onNewSlot' True $ \slotId -> do
     headBlock <- getTipBlock
     case headBlock of
         Left genesis -> compareSlots slotId $ SlotId (genesis ^. gbHeader . gbhConsensus . gcdEpoch) 0
@@ -57,14 +59,14 @@ checkForReceivedBlocksWorker = onNewSlot True $ \slotId -> do
         when (fSlotId - fBlockGeneratedSlotId > mdNoBlocksSlotThreshold)
             reportAboutEclipsed
 
-checkForIgnoredCommitmentsWorker :: forall m. WorkMode SscGodTossing m => m ()
-checkForIgnoredCommitmentsWorker = do
+checkForIgnoredCommitmentsWorker :: forall m. NewWorkMode SscGodTossing m => SendActions BiP m -> m ()
+checkForIgnoredCommitmentsWorker  __sendActions= do
     epochIdx <- atomically (newTVar 0)
-    _ <- runReaderT (onNewSlot True checkForIgnoredCommitmentsWorkerImpl) epochIdx
+    _ <- runReaderT (onNewSlot' True checkForIgnoredCommitmentsWorkerImpl) epochIdx
     return ()
 
 checkForIgnoredCommitmentsWorkerImpl
-    :: forall m. WorkMode SscGodTossing m
+    :: forall m. NewWorkMode SscGodTossing m
     => SlotId -> ReaderT (TVar EpochIndex) m ()
 checkForIgnoredCommitmentsWorkerImpl slotId = do
     checkCommitmentsInPreviousBlocks slotId
@@ -74,7 +76,7 @@ checkForIgnoredCommitmentsWorkerImpl slotId = do
         lift reportAboutEclipsed
 
 checkCommitmentsInPreviousBlocks
-    :: forall m. WorkMode SscGodTossing m
+    :: forall m. NewWorkMode SscGodTossing m
     => SlotId -> ReaderT (TVar EpochIndex) m ()
 checkCommitmentsInPreviousBlocks slotId = do
     kBlocks <- map fst <$> loadBlocksFromTipWhile (\_ depth -> depth < k)
@@ -83,7 +85,7 @@ checkCommitmentsInPreviousBlocks slotId = do
         _         -> return ()
 
 checkCommitmentsInBlock
-    :: forall m. WorkMode SscGodTossing m
+    :: forall m. NewWorkMode SscGodTossing m
     => SlotId -> MainBlock SscGodTossing -> ReaderT (TVar EpochIndex) m ()
 checkCommitmentsInBlock slotId block = do
     ourId <- addressHash . ncPublicKey <$> getNodeContext

@@ -33,13 +33,13 @@ import           Pos.WorkMode           (NewWorkMode)
 -- in parallel and we try to maintain this rule. If at some point
 -- order becomes important, update this comment! I don't think you
 -- will read it, but who knows…
---runWorkers :: (SscWorkersClass ssc, SecurityWorkersClass ssc, NewWorkMode ssc m) => m ()
-runWorkers :: (SscWorkersClass ssc, NewWorkMode ssc m) => SendActions BiP m -> m ()
-runWorkers sendActions = mapM_ fork $ concat
-    [ [ onNewSlot' True $ onNewSlotWorkerImpl sendActions ]
-    , blkWorkers sendActions
-    , map ($ sendActions) $ untag sscWorkers
-    -- , untag securityWorkers
+--runWorkers :: (SscWorkersClass ssc, NewWorkMode ssc m) => m ()
+runWorkers :: (SscWorkersClass ssc, SecurityWorkersClass ssc, NewWorkMode ssc m) => SendActions BiP m -> m ()
+runWorkers sendActions = mapM_ fork $ map ($ sendActions) $ concat
+    [ [ onNewSlot' True . onNewSlotWorkerImpl ]
+    , blkWorkers
+    , untag sscWorkers
+    , untag securityWorkers
     ]
 
 onNewSlotWorkerImpl :: NewWorkMode ssc m => SendActions BiP m -> SlotId -> m ()

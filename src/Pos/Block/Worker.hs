@@ -44,8 +44,8 @@ import           Pos.Util.JsonLog           (jlCreatedBlock, jlLog)
 import           Pos.WorkMode               (NewWorkMode)
 
 -- | All workers specific to block processing.
-blkWorkers :: NewWorkMode ssc m => SendActions BiP m -> [m ()]
-blkWorkers sendActions = [onNewSlot' True (blkOnNewSlot sendActions)]
+blkWorkers :: NewWorkMode ssc m => [SendActions BiP m -> m ()]
+blkWorkers = [onNewSlot' True . blkOnNewSlot]
 
 -- Action which should be done when new slot starts.
 blkOnNewSlot :: NewWorkMode ssc m => SendActions BiP m -> SlotId -> m ()

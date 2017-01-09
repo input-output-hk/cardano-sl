@@ -8,7 +8,8 @@ import           Universum
 
 import           Pos.Binary.Class    (Bi (..))
 import           Pos.DB.Types        (GtRichmenStorage (..), LeadersStorage (..),
-                                      StoredBlock (..))
+                                      ProposalState, StoredBlock (..),
+                                      UndecidedProposalState (..))
 import           Pos.Ssc.Class.Types (Ssc)
 
 instance Ssc ssc =>
@@ -23,3 +24,16 @@ instance Bi (LeadersStorage ssc) where
 instance Bi (GtRichmenStorage ssc) where
     put GtRichmenStorage {..} = put gtRichmenEpoch >> put gtRichmen
     get = GtRichmenStorage <$> get <*> get
+
+instance Bi UndecidedProposalState where
+    put UndecidedProposalState {..} = do
+        put upsVotes
+        put upsProposal
+        put upsSlot
+        put upsPositiveStake
+        put upsNegativeStake
+    get = UndecidedProposalState <$> get <*> get <*> get <*> get <*> get
+
+instance Bi ProposalState where
+    put = notImplemented
+    get = notImplemented

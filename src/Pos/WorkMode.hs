@@ -45,7 +45,8 @@ import           Pos.Ssc.Extra                 (MonadSscGS, MonadSscLD, MonadSsc
 import           Pos.Statistics.MonadStats     (MonadStats, NoStatsT, StatsT)
 import           Pos.Txp.Class                 (MonadTxpLD (..))
 import           Pos.Txp.Holder                (TxpLDHolder)
-import           Pos.Types.Utxo                (MonadUtxo)
+import           Pos.Types                     (MonadUtxo)
+import           Pos.Update.MemState           (MonadUSMem, USHolder)
 import           Pos.Util.JsonLog              (MonadJL (..))
 
 type MSockSt ssc = MutSocketState ssc
@@ -61,6 +62,7 @@ type WorkMode ssc m
       , Modern.MonadDB ssc m
       , MonadTxpLD ssc m
       , MonadDelegation m
+      , MonadUSMem m
       , MonadUtxo m
       , MonadSscGS ssc m
       , MonadSscLD ssc m
@@ -100,6 +102,7 @@ instance MonadJL m => MonadJL (KademliaDHT m) where
 -- | RawRealMode is a basis for `WorkMode`s used to really run system.
 type RawRealMode ssc =
     KademliaDHT (
+    USHolder (
     DelegationT (
     TxpLDHolder ssc (
     SscHolder ssc (
@@ -107,7 +110,7 @@ type RawRealMode ssc =
     Modern.DBHolder ssc (
     Dialog DHTPacking (
     Transfer (
-    MSockSt ssc))))))))
+    MSockSt ssc)))))))))
 
 -- | ProductionMode is an instance of WorkMode which is used
 -- (unsurprisingly) in production.

@@ -147,13 +147,17 @@ module Pos.Types.Types
        , mcdLeaderKey
        , mcdDifficulty
        , mcdSignature
+       , mehProtocolVersion
+       , mehSoftwareVersion
+       , mehAttributes
+       , mebAttributes
+       , mebUpdate
+       , mebUpdateVotes
        ) where
 
 import           Control.Exception      (assert)
 import           Control.Lens           (Getter, Lens', choosing, makeLenses,
                                          makeLensesFor, to, view, (^.), _1)
-import qualified Data.ByteString        as BS (pack, zipWith)
-import qualified Data.ByteString.Char8  as BSC (pack)
 import           Data.Data              (Data)
 import           Data.DeriveTH          (derive, makeNFData)
 import           Data.Hashable          (Hashable)
@@ -164,7 +168,6 @@ import qualified Data.List.NonEmpty     as NE
 import qualified Data.Map               as M (toList)
 import           Data.SafeCopy          (SafeCopy (..), base, contain,
                                          deriveSafeCopySimple, safeGet, safePut)
-import qualified Data.Semigroup         (Semigroup (..))
 import qualified Data.Serialize         as Cereal (getWord8, putWord8)
 import           Data.Tagged            (untag)
 import           Data.Text.Buildable    (Buildable)
@@ -182,7 +185,6 @@ import           Universum
 import           Pos.Binary.Address     ()
 import           Pos.Binary.Class       (Bi)
 import           Pos.Binary.Script      ()
-import           Pos.Constants          (sharedSeedLength)
 import           Pos.Crypto             (Hash, ProxySecretKey, ProxySignature, PublicKey,
                                          Signature, hash, hashHexF, shortHashF)
 import           Pos.Data.Attributes    (Attributes)
@@ -193,8 +195,8 @@ import           Pos.Types.Address      (Address (..), StakeholderId, addressF,
                                          checkPubKeyAddress, checkScriptAddress,
                                          decodeTextAddress, makePubKeyAddress,
                                          makeScriptAddress)
-import           Pos.Types.Update       (UpdateProposal, UpdateVote)
 import           Pos.Types.Version      (ProtocolVersion, SoftwareVersion)
+import           Pos.Update.Types.Types (UpdateProposal, UpdateVote)
 import           Pos.Util               (Color (Magenta), colorize)
 
 ----------------------------------------------------------------------------
@@ -378,6 +380,11 @@ instance Buildable TxOut where
 
 type TxOutAux = (TxOut, [(StakeholderId, Coin)])
 
+instance Buildable TxOutAux where
+    build (out, distr) =
+        bprint ("{txout = "%build%", distr = "%listJson%"}")
+               out (map pairBuilder distr)
+
 -- | Use this function if you need to know how a 'TxOut' distributes stake
 -- (e.g. for the purpose of running follow-the-satoshi).
 txOutStake :: TxOutAux -> [(StakeholderId, Coin)]
@@ -456,6 +463,13 @@ data Undo = Undo
 -- | Block and its Undo.
 type Blund ssc = (Block ssc, Undo)
 
+instance Buildable Undo where
+    build Undo{..} =
+        bprint ("Undo:\n"%
+                "  undoTx: "%listJson%"\n"%
+                "  undoPsk: "%listJson)
+               (map (bprint listJson) undoTx) undoPsk
+
 ----------------------------------------------------------------------------
 -- SSC. It means shared seed computation, btw
 ----------------------------------------------------------------------------
@@ -469,15 +483,6 @@ newtype SharedSeed = SharedSeed
 
 instance Buildable SharedSeed where
     build = B16.formatBase16 . getSharedSeed
-
-instance Semigroup SharedSeed where
-    (<>) (SharedSeed a) (SharedSeed b) =
-        SharedSeed $ BS.pack (BS.zipWith xor a b) -- fast due to rewrite rules
-
-instance Monoid SharedSeed where
-    mempty = SharedSeed $ BSC.pack $ replicate sharedSeedLength '\NUL'
-    mappend = (Data.Semigroup.<>)
-    mconcat = foldl' mappend mempty
 
 -- | 'NonEmpty' list of slot leaders.
 type SlotLeaders = NonEmpty StakeholderId
@@ -892,6 +897,9 @@ type NEBlocks ssc = NonEmpty (Block ssc)
 
 makeLenses ''GenericBlockHeader
 makeLenses ''GenericBlock
+
+makeLenses ''MainExtraHeaderData
+makeLenses ''MainExtraBodyData
 
 -- !!! Create issue about this on lens github or give link on existing issue !!!
 -- 'makeLensesData' doesn't work with types with parameters. I don't

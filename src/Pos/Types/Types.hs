@@ -113,6 +113,7 @@ module Pos.Types.Types
        , HasPrevBlock (..)
        , HasEpochOrSlot (..)
 
+       , FullRichmenData
        , LrcConsumer (..)
        , readUntilEpochMVar
 
@@ -1325,6 +1326,11 @@ derive makeNFData ''Tx
 ----------------------------------------------------------------------------
 -- Richmen and LRC stuff
 ----------------------------------------------------------------------------
+
+-- | Full richmen data consists of total stake at some point and stake
+-- distribution among richmen.
+type FullRichmenData = (Coin, RichmenStake)
+
 -- | Datatype for LRC computation client.
 -- If you want to compute richmen, you should add such client to LRC framework
 data LrcConsumer m = LrcConsumer

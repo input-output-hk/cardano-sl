@@ -8,13 +8,14 @@ import           Pos.Context.Class  (WithNodeContext)
 import           Pos.DB.Class       (MonadDB)
 import           Pos.DB.Lrc.Common  (prepareLrcCommon)
 import           Pos.DB.Lrc.Leaders (prepareLrcLeaders)
-import           Pos.DB.Lrc.Richmen (prepareLrcRichmen)
+import           Pos.DB.Lrc.Richmen (SomeRichmenComponent, prepareLrcRichmen)
+import           Pos.Types          (FullRichmenData)
 
 -- | Put missing initial data into LRC DB.
 prepareLrcDB
     :: (WithNodeContext ssc m, MonadDB ssc m)
-    => m ()
-prepareLrcDB = do
+    => [(SomeRichmenComponent, FullRichmenData)] -> m ()
+prepareLrcDB initialRichmen = do
     prepareLrcLeaders
-    prepareLrcRichmen
+    prepareLrcRichmen initialRichmen
     prepareLrcCommon

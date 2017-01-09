@@ -68,7 +68,7 @@ initNodeDBs = do
         initialTip = headerHash genesisBlock0
     prepareBlockDB genesisBlock0
     prepareGStateDB initialTip
-    prepareLrcDB @ssc
+    prepareLrcDB [] -- TODO
     prepareMiscDB leaders0 richmen0
 
 -- | Get block corresponding to tip.

@@ -11,69 +11,133 @@ module Pos.Wallet.Web.Server.Methods
        , walletServeImpl
        ) where
 
-import           Data.Default               (def)
-import           Data.List                  (elemIndex, (!!))
-import           Data.Time.Clock.POSIX      (getPOSIXTime)
-import           Formatting                 (build, ords, sformat, stext, (%))
-import           Network.Wai                (Application)
-import           Pos.Crypto                 (hash)
-import           Servant.API                ((:<|>) ((:<|>)),
-                                             FromHttpApiData (parseUrlPiece))
-import           Servant.Server             (Handler, Server, ServerT, serve)
-import           Servant.Utils.Enter        ((:~>) (..), enter)
-import           System.Wlog                (logInfo)
+import           Data.Default                  (def)
+import           Data.List                     (elemIndex, (!!))
+import           Data.Time.Clock.POSIX         (getPOSIXTime)
+import           Formatting                    (build, ords, sformat, stext, (%))
+import           Network.Wai                   (Application)
+import           Pos.Crypto                    (hash)
+import           Servant.API                   ((:<|>) ((:<|>)),
+                                                FromHttpApiData (parseUrlPiece))
+import           Servant.Server                (Handler, Server, ServerT, serve)
+import           Servant.Utils.Enter           ((:~>) (..), enter)
+import           System.Wlog                   (logInfo)
 import           Universum
 
-import           Pos.Aeson.ClientTypes      ()
-import           Pos.Crypto                 (toPublic)
-import           Pos.DHT.Model              (dhtAddr, getKnownPeers)
-import           Pos.Types                  (Address, Coin, Tx, TxId, TxOut (..),
-                                             addressF, coinF, decodeTextAddress,
-                                             makePubKeyAddress, mkCoin)
-import           Pos.Web.Server             (serveImpl)
+import           Pos.Aeson.ClientTypes         ()
+import           Pos.Crypto                    (toPublic)
+import           Pos.DHT.Model                 (dhtAddr, getKnownPeers)
+import           Pos.Types                     (Address, Coin, Tx, TxId, TxOut (..),
+                                                addressF, coinF, decodeTextAddress,
+                                                makePubKeyAddress, mkCoin)
+import           Pos.Web.Server                (serveImpl)
 
-import           Control.Monad.Catch        (try)
-import           Pos.Wallet.KeyStorage      (KeyError (..), MonadKeys (..), newSecretKey)
-import           Pos.Wallet.Tx              (submitTx)
-import           Pos.Wallet.WalletMode      (WalletMode, getBalance, getTxHistory)
-import           Pos.Wallet.Web.Api         (WalletApi, walletApi)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency (ADA), CTx, CTxId,
-                                             CTxMeta (..), CWallet (..), CWalletMeta (..),
-                                             addressToCAddress, cAddressToAddress, mkCTx,
-                                             mkCTxId, txIdToCTxId)
-import           Pos.Wallet.Web.Error       (WalletError (..))
-import           Pos.Wallet.Web.State       (MonadWalletWebDB (..), WalletWebDB,
-                                             addOnlyNewTxMeta, closeState, createWallet,
-                                             getTxMeta, getWalletMeta, openState,
-                                             removeWallet, runWalletWebDB, setWalletMeta,
-                                             setWalletTransactionMeta)
+import           Control.Monad.Catch           (try)
+import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
+                                                newSecretKey)
+import           Pos.Wallet.Tx                 (submitTx)
+import           Pos.Wallet.WalletMode         (WalletMode, getBalance, getTxHistory)
+import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
+import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CTx, CTxId,
+                                                CTxMeta (..), CWallet (..),
+                                                CWalletMeta (..), addressToCAddress,
+                                                cAddressToAddress, mkCTx, mkCTxId,
+                                                txIdToCTxId)
+import           Pos.Wallet.Web.Error          (WalletError (..))
+import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
+                                                WalletWebSockets, WebWalletSockets,
+                                                closeWSConnection, initWSConnection,
+                                                runWalletWS, upgradeApplicationWS)
+import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
+                                                addOnlyNewTxMeta, closeState,
+                                                createWallet, getTxMeta, getWalletMeta,
+                                                openState, removeWallet, runWalletWebDB,
+                                                setWalletMeta, setWalletTransactionMeta)
+--
+-- =======
+-- import           Control.Lens                  (view, _2)
+-- import           Data.Default                  (def)
+-- import           Data.List                     (elemIndex, (!!))
+-- import qualified Data.Text                     as T (unpack)
+-- import           Data.Time.Clock.POSIX         (getPOSIXTime)
+-- import           Formatting                    (build, ords, sformat, stext, (%))
+-- import           Network.Wai                   (Application)
+-- import           Pos.Crypto                    (hash)
+-- import           Servant.API                   ((:<|>) ((:<|>)),
+--                                                 FromHttpApiData (parseUrlPiece),
+--                                                 addHeader)
+-- import           Servant.Server                (Handler, Server, ServerT, serve)
+-- import           Servant.Utils.Enter           ((:~>) (..), enter)
+-- import           System.Wlog                   (logInfo)
+-- import           Universum
+--
+-- import           Pos.Aeson.ClientTypes         ()
+-- import           Pos.Crypto                    (toPublic)
+-- import           Pos.Crypto                    (hash)
+-- import           Pos.DHT.Model                 (dhtAddr, getKnownPeers)
+-- import           Pos.Types                     (Address, Coin, Tx, TxId, TxOut (..),
+--                                                 addressF, coinF, decodeTextAddress,
+--                                                 makePubKeyAddress, mkCoin)
+-- import           Pos.Web.Server                (serveImpl)
+--
+-- import           Control.Monad.Catch           (try)
+-- import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
+--                                                 newSecretKey)
+-- import           Pos.Wallet.Tx                 (submitTx)
+-- import           Pos.Wallet.WalletMode         (WalletMode, getBalance, getTxHistory)
+-- import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
+-- import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CHash (..),
+--                                                 CTx, CTx, CTxId, CTxMeta (..),
+--                                                 CWallet (..), CWalletMeta (..),
+--                                                 addressToCAddress, cAddressToAddress,
+--                                                 ctId, ctType, ctTypeMeta, mkCTx, mkCTxId,
+--                                                 txIdToCTxId)
+-- import           Pos.Wallet.Web.Error          (WalletError (..))
+-- import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
+--                                                 WalletWebSockets, WebWalletSockets,
+--                                                 closeWSConnection, initWSConnection,
+--                                                 runWalletWS, upgradeApplicationWS)
+-- import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
+--                                                 addOnlyNewTxMeta, closeState,
+--                                                 createWallet, getTxMeta, getWalletHistory,
+--                                                 getWalletMeta, openState, removeWallet,
+--                                                 runWalletWebDB, setWalletMeta,
+--                                                 setWalletTransactionMeta)
+-- import           Pos.Web.Server                (serveImpl)
+-- >>>>>>> feature/dae8-wallet-sockets
 
 ----------------------------------------------------------------------------
 -- Top level functionality
 ----------------------------------------------------------------------------
 
+type WalletWebHandler m = WalletWebSockets (WalletWebDB m)
+
 walletServeImpl
     :: (MonadIO m, MonadMask m)
-    => WalletWebDB m Application       -- ^ Application getter
+    => WalletWebHandler m Application     -- ^ Application getter
     -> FilePath                        -- ^ Path to wallet acid-state
     -> Bool                            -- ^ Rebuild flag for acid-state
     -> Word16                          -- ^ Port to listen
     -> m ()
-walletServeImpl app daedalusDbPath dbRebuild port = bracket openDB closeDB $ \ws ->
-    serveImpl (runWalletWebDB ws app) port
+walletServeImpl app daedalusDbPath dbRebuild port = bracket ((,) <$> openDB <*> initWS) (\(db, conn) -> closeDB db >> closeWS conn) $ \(db, conn) ->
+    serveImpl (runWalletWebDB db $ runWalletWS conn app) port
   where openDB = openState dbRebuild daedalusDbPath
         closeDB = closeState
+        initWS = initWSConnection
+        closeWS = closeWSConnection
 
 walletApplication
     :: WalletMode ssc m
-    => WalletWebDB m (Server WalletApi)
-    -> WalletWebDB m Application
-walletApplication serv = serv >>= return . serve walletApi
+    => WalletWebHandler m (Server WalletApi)
+    -> WalletWebHandler m Application
+walletApplication serv = do
+    wsConn <- getWalletWebSockets
+    serv >>= return . upgradeApplicationWS wsConn . serve walletApi
 
 walletServer
     :: WalletMode ssc m
-    => WalletWebDB m (WalletWebDB m :~> Handler)
-    -> WalletWebDB m (Server WalletApi)
+    => WalletWebHandler m (WalletWebHandler m :~> Handler)
+    -> WalletWebHandler m (Server WalletApi)
 walletServer nat = do
     join $ mapM_ insertAddressMeta <$> myCAddresses
     flip enter servantHandlers <$> nat
@@ -88,6 +152,7 @@ walletServer nat = do
 type WalletWebMode ssc m
     = ( WalletMode ssc m
       , MonadWalletWebDB m
+      , MonadWalletWebSockets m
       )
 
 servantHandlers :: WalletWebMode ssc m => ServerT WalletApi m

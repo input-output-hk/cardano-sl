@@ -16,6 +16,7 @@ import           Control.Monad.Fix             (MonadFix)
 import           Control.Monad.Reader          (ReaderT (..))
 import           Control.Monad.Trans.Class     (MonadTrans)
 import           Data.Default                  (Default (def))
+import qualified ListT                         as LT
 import           Mockable                      (ChannelT, MFunctor' (hoist'),
                                                 Mockable (liftMockable), Promise,
                                                 SharedAtomic, SharedAtomicT, ThreadId,
@@ -34,10 +35,14 @@ type PeerStateCtx ssc m = STM.Map NodeId (SharedAtomicT m (PeerState ssc))
 class WithPeerState ssc m | m -> ssc where
     getPeerState   :: NodeId -> m (SharedAtomicT m (PeerState ssc))
     clearPeerState :: NodeId -> m ()
+    getAllStates   :: m (PeerStateCtx ssc m)
+    setAllStates   :: PeerStateCtx ssc m -> m ()
 
 instance (Monad m, WithPeerState ssc m) => WithPeerState ssc (ReaderT r m) where
     getPeerState = lift . getPeerState
     clearPeerState = lift . clearPeerState
+    getAllStates = lift getAllStates
+    setAllStates = lift . setAllStates
 
 -- | Wrapper for monadic action which brings 'NodePeerState'.
 newtype PeerStateHolder ssc m a = PeerStateHolder
@@ -86,3 +91,7 @@ instance (MonadIO m, Mockable SharedAtomic m) => WithPeerState ssc (PeerStateHol
                     _      -> STM.insert st nodeId m $> st
 
     clearPeerState nodeId = (PeerStateHolder ask) >>= \m -> liftIO . atomically $ nodeId `STM.delete` m
+    getAllStates = PeerStateHolder ask
+    setAllStates s = (PeerStateHolder ask) >>= \m -> liftIO . atomically $ do
+        STM.deleteAll m
+        LT.traverse_ (\(v, k) -> STM.insert k v m) $ STM.stream s

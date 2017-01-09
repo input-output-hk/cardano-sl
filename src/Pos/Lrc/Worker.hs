@@ -20,6 +20,7 @@ import           Universum
 import           Pos.Binary.Communication ()
 import           Pos.Block.Logic          (applyBlocks, rollbackBlocks, withBlkSemaphore_)
 import           Pos.Constants            (k)
+import           Pos.Context              (updateLrcSync)
 import qualified Pos.DB                   as DB
 import qualified Pos.DB.GState            as GS
 import           Pos.DB.Lrc               (getLeaders, putEpoch, putLeaders)
@@ -65,6 +66,7 @@ lrcSingleShotImpl epoch consumers = do
         logInfo $ "LRC computation is starting"
         withBlkSemaphore_ $ lrcDo epoch consumers
         putEpoch epoch
+        updateLrcSync epoch
         logInfo $ "LRC computation has finished"
 
 lrcDo

@@ -66,6 +66,7 @@ module Pos.Util
        -- * MVar
        , clearMVar
        , forcePutMVar
+       , readMVarConditional
        , readUntilEqualMVar
 
        , NamedMessagePart (..)
@@ -473,21 +474,22 @@ forcePutMVar mvar val = do
         _ <- liftIO $ tryTakeMVar mvar
         forcePutMVar mvar val
 
--- | Read until value is equal to stored value.
--- Seems it works when value epoch doesn't decrease after every putMVar.
--- Statement above is strange, because this function doesn't know about Ord.
-readUntilEqualMVar
-    :: (Eq a, MonadIO m)
-    => (x -> a) -> MVar x -> a -> m x
-readUntilEqualMVar f mvar expVal = do
+-- | Block until value in MVar satisfies given predicate. When value
+-- satisfies, it is returned.
+readMVarConditional :: (MonadIO m) => (x -> Bool) -> MVar x -> m x
+readMVarConditional predicate mvar = do
     rData <- liftIO . readMVar $ mvar -- first we try to read for optimization only
-    let valR = f rData
-    if valR == expVal then pure rData
+    if predicate rData then pure rData
     else do
         tData <- liftIO . takeMVar $ mvar -- now take data
-        let valT = f tData
-        if valT == expVal then do -- check again
+        if predicate tData then do -- check again
             _ <- liftIO $ tryPutMVar mvar tData -- try to put taken value
             pure tData
         else
-            readUntilEqualMVar f mvar expVal
+            readMVarConditional predicate mvar
+
+-- | Read until value is equal to stored value comparing by some function.
+readUntilEqualMVar
+    :: (Eq a, MonadIO m)
+    => (x -> a) -> MVar x -> a -> m x
+readUntilEqualMVar f mvar expVal = readMVarConditional ((expVal ==) . f) mvar

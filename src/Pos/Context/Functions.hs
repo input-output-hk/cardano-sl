@@ -13,17 +13,18 @@ module Pos.Context.Functions
        , readBlkSemaphore
        , takeBlkSemaphore
 
-       -- FIXME: move somewhere
+       -- * LRC synchronization
        , waitLrc
+       , updateLrcSync
        ) where
 
 import           Control.Concurrent.MVar (putMVar)
-import           Control.TimeWarp.Timed  (MonadTimed, for, ms, wait)
 import           Universum
 
 import           Pos.Context.Class       (WithNodeContext (..))
 import           Pos.Context.Context     (NodeContext (..))
 import           Pos.Types               (EpochIndex, HeaderHash, SlotLeaders, Utxo)
+import           Pos.Util                (readMVarConditional)
 
 ----------------------------------------------------------------------------
 -- Genesis
@@ -55,18 +56,19 @@ readBlkSemaphore
 readBlkSemaphore = liftIO . readMVar . ncBlkSemaphore =<< getNodeContext
 
 ----------------------------------------------------------------------------
--- LRC data
--- FIXME: move somewhere
+-- LRC synchronization
 ----------------------------------------------------------------------------
 
--- FIXME: this function is very bad, it will be changed soon.
--- | Block until readers are available and then read them.
+-- | Block until LRC data is available for given epoch.
 waitLrc
-    :: (MonadTimed m, MonadIO m, WithNodeContext ssc m)
-    => (EpochIndex -> m (Maybe a)) -> EpochIndex -> m ()
-waitLrc checker epoch = () <$ do
-    leaders <- checker epoch
-    maybe (shortWait >> waitLrc checker epoch) (void . pure) leaders
-  where
-    -- FIXME: use MVar or TVar
-    shortWait = wait $ for 10 ms
+    :: (MonadIO m, WithNodeContext ssc m)
+    => EpochIndex -> m ()
+waitLrc epoch = do
+    sync <- ncLrcSync <$> getNodeContext
+    () <$ readMVarConditional (>= epoch) sync
+
+-- | Update LRC synchronization when LRC for epoch is finished.
+updateLrcSync
+    :: (MonadIO m, WithNodeContext ssc m)
+    => EpochIndex -> m ()
+updateLrcSync epoch = liftIO . flip putMVar epoch =<< ncLrcSync <$> getNodeContext

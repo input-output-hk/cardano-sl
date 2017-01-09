@@ -377,7 +377,7 @@ createGenesisBlockDo
        WorkMode ssc m
     => EpochIndex -> m (Maybe (GenesisBlock ssc))
 createGenesisBlockDo epoch = do
-    waitLrc LrcDB.getLeaders epoch
+    waitLrc epoch
     leaders <- maybeThrow noLeadersError =<< LrcDB.getLeaders epoch
     res <- withBlkSemaphore (createGenesisBlockCheckAgain leaders)
     res <$ inAssertMode (logDebug . sformat newTipFmt =<< readBlkSemaphore)

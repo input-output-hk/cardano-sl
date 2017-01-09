@@ -22,6 +22,7 @@ import           Pos.Constants            (k)
 import           Pos.Context              (isLeadersComputed, readLeadersEager,
                                            writeLeaders)
 import qualified Pos.DB                   as DB
+import qualified Pos.DB.GState            as GS
 import           Pos.FollowTheSatoshi     (followTheSatoshiM)
 import           Pos.Richmen              (allLrcConsumers, findAllRichmenMaybe)
 import           Pos.Slotting             (onNewSlot)
@@ -70,11 +71,11 @@ leadersComputationDo :: WorkMode ssc m => SlotId -> m ()
 leadersComputationDo SlotId {siEpoch = epochId} = do
     unlessM (isLeadersComputed epochId) $ do
         mbSeed <- sscCalculateSeed epochId
-        totalStake <- DB.getTotalFtsStake
+        totalStake <- GS.getTotalFtsStake
         leaders <-
             case mbSeed of
                 Left e     -> panic $ sformat ("SSC couldn't compute seed: "%build) e
-                Right seed -> DB.iterateByTx (followTheSatoshiM seed totalStake) snd
+                Right seed -> GS.iterateByTx (followTheSatoshiM seed totalStake) snd
         writeLeaders (epochId, leaders)
     (epoch, leaders) <- readLeadersEager
     DB.putLeaders (epoch, leaders)
@@ -83,10 +84,10 @@ richmenComputationDo :: forall ssc m . WorkMode ssc m
     => SlotId -> [LrcConsumer m] -> m ()
 richmenComputationDo slotId consumers = unless (null consumers) $ do
     -- [CSL-93] Use eligibility threshold here
-    total <- DB.getTotalFtsStake
+    total <- GS.getTotalFtsStake
     let minThreshold = safeThreshold total (not . lcConsiderDelegated)
     let minThresholdD = safeThreshold total lcConsiderDelegated
-    (richmen, richmenD) <- DB.iterateByStake
+    (richmen, richmenD) <- GS.iterateByStake
                                (findAllRichmenMaybe @ssc minThreshold minThresholdD)
                                identity
     let callCallback cons = fork_ $

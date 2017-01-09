@@ -51,9 +51,9 @@ import           Pos.Context                 (WithNodeContext (getNodeContext),
 import           Pos.Crypto                  (ProxySecretKey (..), PublicKey,
                                               pdDelegatePk, proxyVerify, toPublic,
                                               verifyProxySecretKey)
-import           Pos.DB                      as DB
-import           Pos.DB.Class                (MonadDB)
-import           Pos.DB.Error                (DBError (DBMalformed))
+import           Pos.DB                      (DBError (DBMalformed), MonadDB, toBatchOp)
+import qualified Pos.DB                      as DB
+import qualified Pos.DB.GState               as GS
 import qualified Pos.DB.Misc                 as Misc (addProxySecretKey,
                                                       getProxySecretKeys)
 import           Pos.Delegation.Class        (DelegationWrap, MonadDelegation (..),
@@ -126,7 +126,7 @@ getProxyMempool
 getProxyMempool = do
     sks <- runDelegationStateAction $ uses dwProxySKPool HM.elems
     let issuers = map pskIssuerPk sks
-    toRollback <- catMaybes <$> mapM DB.getPSKByIssuer issuers
+    toRollback <- catMaybes <$> mapM GS.getPSKByIssuer issuers
     pure (sks, toRollback)
 
 -- | Datatypes representing a verdict of simple PSK processing.
@@ -183,7 +183,7 @@ delegationVerifyBlocks
     :: forall ssc m. (Ssc ssc, MonadDB ssc m)
     => NEBlocks ssc -> m (Either Text (NonEmpty [ProxySKSimple]))
 delegationVerifyBlocks blocks = do
-    tip <- DB.getTip
+    tip <- GS.getTip
     -- TODO TAKE DATABASE SNAPSHOT AOEU AOEU AOEU !!! ПЫЩ
     fromGenesisPsks <-
         concatMap (either (const []) (map pskIssuerPk . view blockProxySKs)) <$>
@@ -200,7 +200,7 @@ delegationVerifyBlocks blocks = do
         isRemoved <- uses dvPSKSetRemoved $ HS.member issuer
         if isRemoved
         then pure Nothing
-        else maybe (DB.getPSKByIssuer issuer) (pure . Just) isAddedM
+        else maybe (GS.getPSKByIssuer issuer) (pure . Just) isAddedM
     withMapAdd psk = do
         let issuer = pskIssuerPk psk
         dvPSKMapAdded %= HM.insert issuer psk
@@ -237,7 +237,7 @@ delegationApplyBlocks
     :: forall ssc m. (DelegationWorkMode ssc m)
     => NonEmpty (Block ssc) -> m (NonEmpty [BatchOp])
 delegationApplyBlocks blocks = do
-    tip <- DB.getTip
+    tip <- GS.getTip
     when (tip /= blocks ^. _neHead . prevBlockL) $ throwM $
         DelegationCantApplyBlocks "oldest block in NEBlocks is not based on tip"
     let allIssuers =
@@ -255,7 +255,7 @@ delegationApplyBlocks blocks = do
                 partition (\ProxySecretKey{..} -> pskIssuerPk == pskDelegatePk)
                 proxySKs
         concatMap toBatchOp $
-            map (DelPSK . pskIssuerPk) toDelete ++ map AddPSK toReplace
+            map (GS.DelPSK . pskIssuerPk) toDelete ++ map GS.AddPSK toReplace
 
 -- | Rollbacks block list. Erases mempool of certificates. Better to
 -- restore them after the rollback (see Txp#normalizeTxpLD).
@@ -273,8 +273,8 @@ delegationRollbackBlocks blunds = do
                 map pskIssuerPk $
                 filter (\ProxySecretKey{..} -> pskIssuerPk /= pskDelegatePk)
                 proxySKs
-            toDeleteBatch = map DelPSK toReplace
-            toAddBatch = map AddPSK $ undoPsk undo
+            toDeleteBatch = map GS.DelPSK toReplace
+            toAddBatch = map GS.AddPSK $ undoPsk undo
         in concatMap toBatchOp $ toDeleteBatch ++ toAddBatch
 
 

@@ -45,6 +45,7 @@ library
                         Pos.Constants
                         Pos.Crypto
                         Pos.DB
+                        Pos.DB.GState
                         Pos.Data.Attributes
                         Pos.Delegation
                         Pos.DHT
@@ -52,9 +53,6 @@ library
                         Pos.DHT.Model.Types
                         Pos.DHT.Model.Util
                         Pos.DHT.Model.Class
-                        Pos.DHT.Model.Class.BiP
-                        Pos.DHT.Model.Class.MonadDHT
-                        Pos.DHT.Model.Class.MonadMessageDHT
                         Pos.DHT.Real
                         Pos.DHT.Real.Real
                         Pos.DHT.Real.Types
@@ -110,6 +108,8 @@ library
   if flag(with-wallet) && flag(with-web)
     exposed-modules:    Pos.Wallet.Web
   other-modules:        Pos.Aeson.CompileConfig
+
+                        -- Binary serialization
                         Pos.Binary.Address
                         Pos.Binary.Class
                         Pos.Binary.Crypto
@@ -124,6 +124,8 @@ library
                         Pos.Binary.Update
                         Pos.Binary.Util
                         Pos.Binary.Version
+
+                        -- Block processing
                         Pos.Block.Logic
                         Pos.Block.Network.Announce
                         Pos.Block.Network.Request
@@ -133,6 +135,8 @@ library
                         Pos.Block.Network.Server.Listeners
                         Pos.Block.Network.Server.Strategy
                         Pos.Block.Worker
+
+                        -- Network
                         Pos.Communication.Arbitrary
                         Pos.Communication.Methods
                         Pos.Communication.RelayMethods
@@ -144,11 +148,17 @@ library
                         Pos.Communication.Server.Protocol
                         Pos.Communication.Server.SysStart
                         Pos.Communication.Util
+
+                        -- Compile config
                         Pos.CompileConfig.Parser
                         Pos.CompileConfig.Type
+
+                        -- NodeContext
                         Pos.Context.Class
                         Pos.Context.Context
                         Pos.Context.Holder
+
+                        -- Crypto
                         Pos.Crypto.Arbitrary
                         Pos.Crypto.Arbitrary.Hash
                         Pos.Crypto.Arbitrary.Unsafe
@@ -157,22 +167,28 @@ library
                         Pos.Crypto.Random
                         Pos.Crypto.SecretSharing
                         Pos.Crypto.Signing
+
+                        -- Heavy delegation
                         Pos.Delegation.Class
                         Pos.Delegation.Methods
                         Pos.Delegation.Types
                         Pos.Delegation.Listeners
                         Pos.Delegation.Logic
+
+                        -- Launcher
                         Pos.Launcher.Launcher
                         Pos.Launcher.Options
                         Pos.Launcher.Param
                         Pos.Launcher.Runner
                         Pos.Launcher.Scenario
+
+                        -- DB
                         Pos.DB.Block
                         Pos.DB.Class
                         Pos.DB.DB
+                        Pos.DB.DBIterator
                         Pos.DB.Error
                         Pos.DB.Functions
-                        Pos.DB.GState
                         Pos.DB.GState.Balances
                         Pos.DB.GState.Common
                         Pos.DB.GState.Delegation
@@ -180,13 +196,26 @@ library
                         Pos.DB.GState.Update
                         Pos.DB.GState.Utxo
                         Pos.DB.Holder
+                        Pos.DB.Lrc
+                        Pos.DB.Lrc.Common
+                        Pos.DB.Lrc.Leaders
+                        Pos.DB.Lrc.Lrc
+                        Pos.DB.Lrc.Richmen
                         Pos.DB.Misc
                         Pos.DB.Types
-                        Pos.DB.DBIterator
+
+                        -- DHT
                         Pos.DHT.Arbitrary
+                        Pos.DHT.Model.Class.BiP
+                        Pos.DHT.Model.Class.MonadDHT
+                        Pos.DHT.Model.Class.MonadMessageDHT
+
+                        -- LRC
                         Pos.Richmen
                         Pos.Richmen.Consumers
                         Pos.Richmen.Eligibility
+
+                        -- SSC
                         Pos.Ssc.Extra.Holder
                         Pos.Ssc.Extra.MonadGS
                         Pos.Ssc.Extra.MonadLD
@@ -216,10 +245,14 @@ library
                         Pos.Ssc.GodTossing.Utils
                         Pos.Ssc.GodTossing.VssCertData
                         Pos.Ssc.GodTossing.Workers
+
+                        -- Statistics
                         Pos.Statistics.Helpers
                         Pos.Statistics.MonadStats
                         Pos.Statistics.StatEntry
                         Pos.Statistics.Tx
+
+                        -- Txp
                         Pos.Txp.Class
                         Pos.Txp.Error
                         Pos.Txp.Holder
@@ -228,12 +261,18 @@ library
                         Pos.Txp.Types.Communication
                         Pos.Txp.Types.Types
                         Pos.Txp.Types.UtxoView
+
+                        -- Types
                         Pos.Types.SharedSeed
                         Pos.Types.Utxo.Class
                         Pos.Types.Utxo.Functions
                         Pos.Types.Utxo.Pure
+
+                        -- Workers
                         Pos.Worker.Lrc
                         Pos.Worker.Stats
+
+                        -- Update System
                         Pos.Update.Download
                         Pos.Update.Error
                         Pos.Update.Listeners
@@ -248,6 +287,8 @@ library
                         Pos.Update.Types.Communication
                         Pos.Update.Types.Types
                         Pos.Update.Worker
+
+                        -- Utilities/helpers
                         Pos.Util.Arbitrary
                         Pos.Util.Iterator
                         Pos.Util.NotImplemented

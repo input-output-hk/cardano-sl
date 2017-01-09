@@ -62,8 +62,9 @@ import           Pos.Constants                (RunningMode (..), defaultPeers,
 import           Pos.Context                  (ContextHolder (..), NodeContext (..),
                                                runContextHolder)
 import           Pos.Crypto                   (createProxySecretKey, toPublic)
-import           Pos.DB                       (MonadDB (..), getTip, openNodeDBs,
-                                               runDBHolder, _utxoDB)
+import           Pos.DB                       (MonadDB (..), openNodeDBs, runDBHolder,
+                                               _gStateDB)
+import           Pos.DB.GState                (getTip)
 import           Pos.DB.Misc                  (addProxySecretKey)
 import           Pos.Delegation.Class         (runDelegationT)
 import           Pos.DHT.Model                (BiP (..), ListenerDHT, MonadDHT (..),
@@ -166,7 +167,7 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action =
                runDBHolder modernDBs .
                runCH np initNC .
                flip runSscHolder initGS .
-               runTxpLDHolder (UV.createFromDB . _utxoDB $ modernDBs) initTip .
+               runTxpLDHolder (UV.createFromDB . _gStateDB $ modernDBs) initTip .
                runDelegationT def .
                runUSHolder $
                finalAction

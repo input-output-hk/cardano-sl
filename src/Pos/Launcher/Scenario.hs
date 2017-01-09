@@ -15,6 +15,7 @@ import           Universum
 import           Pos.Context             (NodeContext (..), getNodeContext,
                                           ncPubKeyAddress, ncPublicKey, writeLeaders)
 import qualified Pos.DB                  as DB
+import qualified Pos.DB.GState           as GS
 import           Pos.DHT.Model           (DHTNodeType (DHTFull), discoverPeers)
 import           Pos.Slotting            (getCurrentSlot)
 import           Pos.Ssc.Class           (SscConstraint)
@@ -58,7 +59,7 @@ initSemaphore = do
     unlessM
         (liftIO $ isEmptyMVar semaphore)
         (logError "ncBlkSemaphore is not empty at the very beginning")
-    tip <- DB.getTip
+    tip <- GS.getTip
     liftIO $ putMVar semaphore tip
 
 initLrc :: WorkMode ssc m => m ()

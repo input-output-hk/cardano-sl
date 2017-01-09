@@ -47,9 +47,10 @@ import           Pos.Context               (NodeContext (ncSecretKey), getNodeCo
 import           Pos.Crypto                (SecretKey, WithHash (WithHash), hash,
                                             shortHashF)
 import           Pos.Data.Attributes       (mkAttributes)
-import           Pos.DB                    (MonadDB, getTipBlockHeader, loadHeadersWhile)
+import           Pos.DB                    (DBError (..), MonadDB, getTipBlockHeader,
+                                            loadHeadersWhile)
 import qualified Pos.DB                    as DB
-import           Pos.DB.Error              (DBError (..))
+import qualified Pos.DB.GState             as GS
 import           Pos.Delegation.Logic      (delegationApplyBlocks,
                                             delegationRollbackBlocks,
                                             delegationVerifyBlocks, getProxyMempool)
@@ -104,7 +105,7 @@ classifyNewHeader (Right header) = do
     -- First of all we check whether header is from current slot and
     -- ignore it if it's not.
     if curSlot == header ^. headerSlot
-        then classifyNewHeaderDo <$> DB.getTip <*> DB.getTipBlock
+        then classifyNewHeaderDo <$> GS.getTip <*> DB.getTipBlock
         else return $ CHUseless "header is not for current slot"
   where
     classifyNewHeaderDo tip tipBlock
@@ -195,7 +196,7 @@ getHeadersFromManyTo
     => [HeaderHash ssc] -> Maybe (HeaderHash ssc) -> m [BlockHeader ssc]
 getHeadersFromManyTo checkpoints startM = do
     validCheckpoints <- catMaybes <$> mapM DB.getBlockHeader checkpoints
-    tip <- DB.getTip
+    tip <- GS.getTip
     let startFrom = fromMaybe tip startM
         neq = (/=) `on` getEpochOrSlot
         whileCond bh _ = all (neq bh) validCheckpoints
@@ -215,7 +216,7 @@ getHeadersOlderExp
     :: (MonadDB ssc m, Ssc ssc)
     => Maybe (HeaderHash ssc) -> m [HeaderHash ssc]
 getHeadersOlderExp upto = do
-    tip <- DB.getTip
+    tip <- GS.getTip
     let upToReal = fromMaybe tip upto
         whileCond _ depth = depth <= k
     allHeaders <- reverse <$> loadHeadersWhile upToReal whileCond
@@ -321,7 +322,7 @@ applyBlocks blunds = do
     let blks = fmap fst blunds
     -- Note: it's important to put blocks first
     mapM_ putToDB blunds
-    mapM_ DB.writeBatchGState =<< delegationApplyBlocks (map fst blunds)
+    mapM_ GS.writeBatchGState =<< delegationApplyBlocks (map fst blunds)
     txApplyBlocks blunds
     sscApplyBlocks blks
     sscApplyGlobalState
@@ -334,7 +335,7 @@ applyBlocks blunds = do
 rollbackBlocks :: (WorkMode ssc m) => NonEmpty (Block ssc, Undo) -> m ()
 rollbackBlocks toRollback = do
     -- [CSL-378] Update sbInMain properly (in transaction)
-    mapM_ DB.writeBatchGState =<< delegationRollbackBlocks toRollback
+    mapM_ GS.writeBatchGState =<< delegationRollbackBlocks toRollback
     txRollbackBlocks toRollback
     forM_ (NE.toList toRollback) $
         \(blk,_) -> DB.setBlockInMainChain (hash $ blk ^. blockHeader) False

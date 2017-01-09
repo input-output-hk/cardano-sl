@@ -1,3 +1,6 @@
+{-# LANGUAGE Rank2Types          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 -- | Higher-level DB functionality.
 
 module Pos.DB.DB
@@ -21,6 +24,7 @@ import           Pos.DB.Error                 (DBError (DBMalformed))
 import           Pos.DB.Functions             (openDB)
 import           Pos.DB.GState                (getTip, prepareGStateDB)
 import           Pos.DB.Holder                (runDBHolder)
+import           Pos.DB.Lrc                   (prepareLrcDB)
 import           Pos.DB.Misc                  (prepareMiscDB)
 import           Pos.DB.Types                 (NodeDBs (..))
 import           Pos.Genesis                  (genesisLeaders)
@@ -32,30 +36,33 @@ import           Pos.Types                    (Block, BlockHeader, Undo, Utxo,
 
 -- | Open all DBs stored on disk.
 openNodeDBs
-    :: (Ssc ssc, MonadResource m)
+    :: forall ssc m.
+       (Ssc ssc, MonadResource m)
     => Bool -> FilePath -> Utxo -> m (NodeDBs ssc)
 openNodeDBs recreate fp customUtxo = do
     liftIO $
         whenM ((recreate &&) <$> doesDirectoryExist fp) $
             removeDirectoryRecursive fp
     let blockPath = fp </> "blocks"
-    let utxoPath = fp </> "utxo"
+    let gStatePath = fp </> "gState"
+    let lrcPath = fp </> "lrc"
     let miscPath = fp </> "misc"
-    mapM_ ensureDirectoryExists [blockPath, utxoPath, miscPath]
-    res <- NodeDBs <$> openDB blockPath <*> openDB utxoPath <*> openDB miscPath
+    mapM_ ensureDirectoryExists [blockPath, gStatePath, lrcPath, miscPath]
+    _blockDB <- openDB blockPath
+    _gStateDB <- openDB gStatePath
+    _lrcDB <- openDB lrcPath
+    _miscDB <- openDB miscPath
+    let res = NodeDBs {..}
     let prepare = do
           prepareBlockDB genesisBlock0
           prepareGStateDB customUtxo initialTip
+          prepareLrcDB @ssc
           prepareMiscDB leaders0 richmen0
     res <$ runDBHolder res prepare
   where
     leaders0 = genesisLeaders customUtxo
     -- [CSL-93] Use eligibility threshold here
     richmen0 = findRichmenPure customUtxo (mkCoin 0)
-    ensureDirectoryExists
-        :: MonadIO m
-        => FilePath -> m ()
-    ensureDirectoryExists = liftIO . createDirectoryIfMissing True
     genesisBlock0 = mkGenesisBlock Nothing 0 leaders0
     initialTip = headerHash genesisBlock0
 
@@ -79,3 +86,12 @@ loadBlocksFromTipWhile
     :: (Ssc ssc, MonadDB ssc m)
     => (Block ssc -> Int -> Bool) -> m [(Block ssc, Undo)]
 loadBlocksFromTipWhile condition = getTip >>= loadBlocksWithUndoWhile condition
+
+----------------------------------------------------------------------------
+-- Details
+----------------------------------------------------------------------------
+
+ensureDirectoryExists
+    :: MonadIO m
+    => FilePath -> m ()
+ensureDirectoryExists = liftIO . createDirectoryIfMissing True

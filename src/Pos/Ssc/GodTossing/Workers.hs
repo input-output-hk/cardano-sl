@@ -33,7 +33,7 @@ import           Pos.Crypto                       (SecretKey, VssKeyPair, random
                                                    runSecureRandom, toPublic)
 import           Pos.Crypto.SecretSharing         (toVssPublicKey)
 import           Pos.Crypto.Signing               (PublicKey)
-import           Pos.DB                           (getTip)
+import           Pos.DB.GState                    (getTip)
 import           Pos.Slotting                     (getCurrentSlot, getSlotStart,
                                                    onNewSlot)
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))

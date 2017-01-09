@@ -19,6 +19,7 @@ import           Universum
 import           Pos.Constants        (updateProposalThreshold, updateVoteThreshold)
 import           Pos.Crypto           (hash)
 import qualified Pos.DB               as DB
+import qualified Pos.DB.GState        as GS
 import           Pos.DB.Types         (ProposalState (..), UndecidedProposalState (..),
                                        mkUProposalState, voteToUProposalState)
 import           Pos.Types            (Block, Coin, EpochIndex, NEBlocks, SlotId (..),
@@ -34,7 +35,7 @@ import           Pos.WorkMode         (WorkMode)
 -- DB and to US local data. Head must be the __oldest__ block.
 usApplyBlocks :: WorkMode ssc m => NEBlocks ssc -> m [DB.SomeBatchOp]
 usApplyBlocks blocks = do
-    tip <- DB.getTip
+    tip <- GS.getTip
     when (tip /= blocks ^. _neHead . prevBlockL) $ throwM $
         USCantApplyBlocks "oldest block in NEBlocks is not based on tip"
     inAssertMode $
@@ -66,7 +67,7 @@ applyProposal
     :: WorkMode ssc m
     => SlotId -> [UpdateVote] -> UpdateProposal -> m [DB.SomeBatchOp]
 applyProposal slot votes proposal =
-    pure . DB.SomeBatchOp . DB.PutProposal . PSUndecided <$>
+    pure . DB.SomeBatchOp . GS.PutProposal . PSUndecided <$>
     execStateT (mapM_ (applyVote epoch) votes) ps
   where
     ps = mkUProposalState slot proposal
@@ -86,7 +87,7 @@ applyVotesGroup votes = do
         PSDecided _ -> pure []
         PSUndecided ups -> do
             let epoch = siEpoch $ upsSlot ups
-            pure . DB.SomeBatchOp . DB.PutProposal . PSUndecided <$>
+            pure . DB.SomeBatchOp . GS.PutProposal . PSUndecided <$>
                 execStateT (mapM_ (applyVote epoch) votes) ups
 
 applyVote
@@ -94,7 +95,7 @@ applyVote
     => EpochIndex -> UpdateVote -> StateT UndecidedProposalState m ()
 applyVote epoch UpdateVote {..} = do
     let id = addressHash uvKey
-    stake <- maybeThrow (USNotRichmen id) =<< DB.getStakeUS epoch id
+    stake <- maybeThrow (USNotRichmen id) =<< GS.getStakeUS epoch id
     modify $ voteToUProposalState uvKey stake uvDecision
 
 -- | Revert application of given blocks to US part of GState DB
@@ -125,7 +126,7 @@ verifyEnoughStake
     => [UpdateVote] -> Maybe UpdateProposal -> ExceptT Text m ()
 verifyEnoughStake votes mProposal = do
     -- [CSL-314] Snapshot must be used here.
-    totalStake <- maybe (pure zero) (const DB.getTotalFtsStake) mProposal
+    totalStake <- maybe (pure zero) (const GS.getTotalFtsStake) mProposal
     let proposalThreshold = applyCoinPortion totalStake updateProposalThreshold
     let voteThreshold = applyCoinPortion totalStake updateVoteThreshold
     totalVotedStake <- verifyUpdProposalDo voteThreshold votes
@@ -154,7 +155,7 @@ verifyEnoughStake votes mProposal = do
         -- FIXME: use stake corresponding to state right before block
         -- corresponding to UpdateProposal for which vote is given is
         -- applied.
-        stake <- fromMaybe zero <$> DB.getFtsStake id
+        stake <- fromMaybe zero <$> GS.getFtsStake id
         when (stake < voteThreshold) $ throwError $ msgVote stake voteThreshold
         let addedStake = if isVoteForProposal v then stake else zero
         unsafeAddCoin addedStake <$> verifyUpdProposalDo voteThreshold vs

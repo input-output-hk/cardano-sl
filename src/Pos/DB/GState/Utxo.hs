@@ -28,6 +28,7 @@ import qualified Database.RocksDB     as Rocks
 import           Universum
 
 import           Pos.Binary.Class     (encodeStrict)
+import           Pos.Binary.Types     ()
 import           Pos.DB.Class         (MonadDB, getUtxoDB)
 import           Pos.DB.DBIterator    (DBIterator, DBMapIterator, mapIterator,
                                        runIterator)
@@ -37,8 +38,6 @@ import           Pos.DB.GState.Common (getBi, putBi)
 import           Pos.DB.Types         (DB)
 import           Pos.Types            (Address, TxIn (..), TxOutAux, Utxo, belongsTo)
 import           Pos.Util             (maybeThrow)
-
-import           Pos.Binary.Types     ()
 
 ----------------------------------------------------------------------------
 -- Getters

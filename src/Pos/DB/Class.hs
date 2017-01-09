@@ -6,6 +6,7 @@ module Pos.DB.Class
        ( MonadDB (..)
        , getBlockDB
        , getUtxoDB
+       , getLrcDB
        , getMiscDB
        ) where
 
@@ -16,7 +17,7 @@ import           Control.TimeWarp.Rpc (ResponseT (..))
 import qualified Database.RocksDB     as Rocks
 import           Universum
 
-import           Pos.DB.Types         (DB, NodeDBs, blockDB, miscDB, utxoDB)
+import           Pos.DB.Types         (DB, NodeDBs, blockDB, gStateDB, lrcDB, miscDB)
 import           Pos.DHT.Model        (DHTResponseT (..))
 import           Pos.DHT.Real         (KademliaDHT (..))
 import           Pos.Util.Iterator    (ListHolderT (..))
@@ -32,7 +33,10 @@ getBlockDB :: MonadDB ssc m => m (DB ssc)
 getBlockDB = view blockDB <$> getNodeDBs
 
 getUtxoDB :: MonadDB ssc m => m (DB ssc)
-getUtxoDB = view utxoDB <$> getNodeDBs
+getUtxoDB = view gStateDB <$> getNodeDBs
+
+getLrcDB :: MonadDB ssc m => m (DB ssc)
+getLrcDB = view lrcDB <$> getNodeDBs
 
 getMiscDB :: MonadDB ssc m => m (DB ssc)
 getMiscDB = view miscDB <$> getNodeDBs

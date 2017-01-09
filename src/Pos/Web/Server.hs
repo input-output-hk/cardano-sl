@@ -38,6 +38,7 @@ import           Pos.Context                          (ContextHolder, NodeContex
                                                        ncSscContext, runContextHolder,
                                                        tryReadLeadersEpoch)
 import qualified Pos.DB                               as DB
+import qualified Pos.DB.GState                        as GS
 import           Pos.Slotting                         (getCurrentSlot)
 import           Pos.Ssc.Class                        (SscConstraint)
 import           Pos.Ssc.GodTossing                   (SscGodTossing, getOpening,
@@ -136,7 +137,7 @@ servantServerGT = flip enter (baseServantHandlers :<|> gtServantHandlers) <$>
 baseServantHandlers :: ServerT (BaseNodeApi ssc) (WebHandler ssc)
 baseServantHandlers =
     getCurrentSlot :<|> const getLeaders :<|> (ncPublicKey <$> getNodeContext) :<|>
-    DB.getTip :<|> getLocalTxsNum
+    GS.getTip :<|> getLocalTxsNum
 
 getLeaders :: WebHandler ssc SlotLeaders
 getLeaders = do

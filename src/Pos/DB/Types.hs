@@ -8,7 +8,8 @@ module Pos.DB.Types
          DB (..)
        , NodeDBs (..)
        , blockDB
-       , utxoDB
+       , gStateDB
+       , lrcDB
        , miscDB
 
         -- * Block DB related types.
@@ -51,10 +52,10 @@ data DB ssc = DB
     }
 
 data NodeDBs ssc = NodeDBs
-    { _blockDB :: DB ssc -- ^ Blocks, block index, undo data.
-    , _utxoDB  :: DB ssc -- ^ Txs-related data.
-    , _miscDB  :: DB ssc -- ^ Everything small and insignificant
-{-    , _updateDB :: DB ssc -- ^ Update-related data -}
+    { _blockDB  :: !(DB ssc) -- ^ Blocks, block index, undo data.
+    , _gStateDB :: !(DB ssc) -- ^ Global state corresponding to some tip.
+    , _lrcDB    :: !(DB ssc) -- ^ Data computed by LRC.
+    , _miscDB   :: !(DB ssc) -- ^ Everything small and insignificant
     }
 
 makeLenses ''NodeDBs

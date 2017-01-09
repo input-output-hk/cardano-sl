@@ -10,7 +10,7 @@ import qualified Pos.DB                   as DB
 import           Pos.Lrc.Types            (LrcConsumer (..), RichmenStake, RichmenStake)
 import           Pos.Ssc.Extra.Richmen    (MonadSscRichmen (..), isEmptySscRichmen)
 import           Pos.Ssc.GodTossing.Types (SscGodTossing)
-import           Pos.Types                (Coin, SlotId (..), mkCoin)
+import           Pos.Types                (Coin, EpochIndex, SlotId (..), mkCoin)
 import           Pos.WorkMode             (WorkMode)
 
 -- | Consumer will be called on every Richmen computation.
@@ -25,9 +25,9 @@ gtLrcConsumer = LrcConsumer
     , lcConsiderDelegated = False
     }
 
--- | Returns True if cached value isn't corresponds for current epoch
+-- | Returns True if cached value doesnt't correspond to current epoch
 ifNeed :: WorkMode SscGodTossing m => SlotId -> m Bool
-ifNeed SlotId{..} = do
+ifNeed SlotId {..} = do
     (epochIndex, richmen) <- DB.getGtRichmen
     isEmpty <- isEmptySscRichmen
     let needWrite = siSlot < k && siEpoch == epochIndex && isEmpty
@@ -35,10 +35,10 @@ ifNeed SlotId{..} = do
     pure (siSlot < k && epochIndex < siEpoch)
 
 -- | Store computed value into DB and cache.
-onComputed :: WorkMode SscGodTossing m => SlotId -> Coin -> RichmenStake -> m ()
-onComputed SlotId{..} _ richmen = do
-    DB.putGtRichmen (siEpoch, richmen)
-    writeSscRichmen (siEpoch, richmen)
+onComputed :: WorkMode SscGodTossing m => EpochIndex -> Coin -> RichmenStake -> m ()
+onComputed epoch _ richmen = do
+    DB.putGtRichmen (epoch, richmen)
+    writeSscRichmen (epoch, richmen)
 
 -- | Do nothing on clear
 onClear :: WorkMode SscGodTossing m => m ()

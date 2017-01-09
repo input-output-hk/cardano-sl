@@ -78,7 +78,7 @@ getGlobalCerts = sscRunGlobalQuery $ VCD.certs <$> view gsVssCertificates
 
 -- | Verified certs for slotId
 getVerifiedCerts :: (MonadSscGS SscGodTossing m) => SlotId -> m VssCertificatesMap
-getVerifiedCerts (crucialSlot -> crucSlotId) =
+getVerifiedCerts (crucialSlot . siEpoch -> crucSlotId) =
     sscRunGlobalQuery $
         VCD.certs . VCD.setLastKnownSlot crucSlotId <$> view gsVssCertificates
 

@@ -6,6 +6,7 @@
 
 module Pos.Lrc.Worker
        ( lrcOnNewSlotWorker
+       , lrcSingleShot
        ) where
 
 import           Control.TimeWarp.Timed   (fork_)
@@ -30,8 +31,8 @@ import           Pos.Lrc.Types            (LrcConsumer (..))
 import           Pos.Slotting             (onNewSlot)
 import           Pos.Ssc.Class            (SscWorkersClass)
 import           Pos.Ssc.Extra            (sscCalculateSeed)
-import           Pos.Types                (EpochOrSlot (..), EpochOrSlot (..), HeaderHash,
-                                           HeaderHash, SlotId (..), SlotId (..),
+import           Pos.Types                (EpochIndex, EpochOrSlot (..), EpochOrSlot (..),
+                                           HeaderHash, HeaderHash, SlotId (..),
                                            crucialSlot, getEpochOrSlot, getEpochOrSlot)
 import           Pos.WorkMode             (WorkMode)
 
@@ -49,27 +50,35 @@ lrcOnNewSlotImpl consumers slotId@SlotId{..}
 
         when (needComputeLeaders || needComputeLeaders) $ do
             logInfo $ "LRC computation is starting"
-            withBlkSemaphore_ $ lrcDo slotId expectedRichmenComp
+            withBlkSemaphore_ $ lrcDo siEpoch expectedRichmenComp
             logInfo $ "LRC computation has finished"
     | otherwise = lrcConsumersClear consumers
 
-lrcDo :: WorkMode ssc m
-      => SlotId -> [LrcConsumer m] -> HeaderHash ssc -> m (HeaderHash ssc)
-lrcDo slotId consumers tip = tip <$ do
+-- | Run leaders and richmen computation for given epoch. Behavior
+-- when there are not enough blocks in db is currently unspecified.
+lrcSingleShot
+    :: WorkMode ssc m
+    => EpochIndex -> [LrcConsumer m] -> m ()
+lrcSingleShot epoch consumers = withBlkSemaphore_ $ lrcDo epoch consumers
+
+lrcDo
+    :: WorkMode ssc m
+    => EpochIndex -> [LrcConsumer m] -> HeaderHash ssc -> m (HeaderHash ssc)
+lrcDo epoch consumers tip = tip <$ do
     blockUndoList <- DB.loadBlocksFromTipWhile whileMoreOrEq5k
     when (null blockUndoList) $
-        panic "No one block hasn't been generated during last k slots"
+        panic "No block has been generated during last k slots"
     let blockUndos = NE.fromList blockUndoList
     rollbackBlocks blockUndos
-    richmenComputationDo slotId consumers
-    leadersComputationDo slotId
+    richmenComputationDo epoch consumers
+    leadersComputationDo epoch
     applyBlocks (NE.reverse blockUndos)
   where
     whileMoreOrEq5k b _ = getEpochOrSlot b > crucial
-    crucial = EpochOrSlot $ Right $ crucialSlot slotId
+    crucial = EpochOrSlot $ Right $ crucialSlot epoch
 
-leadersComputationDo :: WorkMode ssc m => SlotId -> m ()
-leadersComputationDo SlotId {siEpoch = epochId} = do
+leadersComputationDo :: WorkMode ssc m => EpochIndex -> m ()
+leadersComputationDo epochId = do
     unlessM (isLeadersComputed epochId) $ do
         mbSeed <- sscCalculateSeed epochId
         totalStake <- GS.getTotalFtsStake
@@ -82,8 +91,8 @@ leadersComputationDo SlotId {siEpoch = epochId} = do
     DB.putLeaders (epoch, leaders)
 
 richmenComputationDo :: forall ssc m . WorkMode ssc m
-    => SlotId -> [LrcConsumer m] -> m ()
-richmenComputationDo slotId consumers = unless (null consumers) $ do
+    => EpochIndex -> [LrcConsumer m] -> m ()
+richmenComputationDo epochIdx consumers = unless (null consumers) $ do
     -- [CSL-93] Use eligibility threshold here
     total <- GS.getTotalFtsStake
     let minThreshold = safeThreshold total (not . lcConsiderDelegated)
@@ -93,9 +102,9 @@ richmenComputationDo slotId consumers = unless (null consumers) $ do
                                identity
     let callCallback cons = fork_ $
             if lcConsiderDelegated cons
-            then lcComputedCallback cons slotId total
+            then lcComputedCallback cons epochIdx total
                    (HM.filter (>= lcThreshold cons total) richmenD)
-            else lcComputedCallback cons slotId total
+            else lcComputedCallback cons epochIdx total
                    (HM.filter (>= lcThreshold cons total) richmen)
     mapM_ callCallback consumers
   where

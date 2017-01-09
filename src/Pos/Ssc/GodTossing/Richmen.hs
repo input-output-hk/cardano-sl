@@ -1,6 +1,5 @@
 module Pos.Ssc.GodTossing.Richmen
-       (
-         gtLrcConsumer
+       ( gtLrcConsumer
        ) where
 
 import           Universum
@@ -21,11 +20,10 @@ gtLrcConsumer = LrcConsumer
       lcThreshold = const (mkCoin 0)
     , lcIfNeedCompute = ifNeed
     , lcComputedCallback = onComputed
-    , lcClearCallback = onClear
     , lcConsiderDelegated = False
     }
 
--- | Returns True if cached value doesnt't correspond to current epoch
+-- Returns True if cached value doesnt't correspond to current epoch
 ifNeed :: WorkMode SscGodTossing m => SlotId -> m Bool
 ifNeed SlotId {..} = do
     (epochIndex, richmen) <- DB.getGtRichmen
@@ -34,12 +32,8 @@ ifNeed SlotId {..} = do
     when needWrite $ writeSscRichmen (epochIndex, richmen)
     pure (siSlot < k && epochIndex < siEpoch)
 
--- | Store computed value into DB and cache.
+-- Store computed value into DB and cache.
 onComputed :: WorkMode SscGodTossing m => EpochIndex -> Coin -> RichmenStake -> m ()
 onComputed epoch _ richmen = do
     DB.putGtRichmen (epoch, richmen)
     writeSscRichmen (epoch, richmen)
-
--- | Do nothing on clear
-onClear :: WorkMode SscGodTossing m => m ()
-onClear = pass

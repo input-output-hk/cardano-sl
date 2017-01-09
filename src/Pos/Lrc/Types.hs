@@ -41,8 +41,6 @@ data LrcConsumer m = LrcConsumer
     -- ^ Function which defines necessity of richmen computation
     , lcComputedCallback  :: EpochIndex -> Coin -> RichmenStake -> m ()
     -- ^ Callback which will be called when richmen computed
-    , lcClearCallback     :: m ()
-    -- ^ Callback which will be called slot >= k
     , lcConsiderDelegated :: Bool
     -- ^ Whether delegated stake should be considered
     }

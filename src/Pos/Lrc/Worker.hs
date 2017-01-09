@@ -50,9 +50,9 @@ lrcOnNewSlotImpl consumers slotId@SlotId{..}
 
         when (needComputeLeaders || needComputeLeaders) $ do
             logInfo $ "LRC computation is starting"
-            withBlkSemaphore_ $ lrcDo siEpoch expectedRichmenComp
+            lrcSingleShot siEpoch expectedRichmenComp
             logInfo $ "LRC computation has finished"
-    | otherwise = lrcConsumersClear consumers
+    | otherwise = pass
 
 -- | Run leaders and richmen computation for given epoch. Behavior
 -- when there are not enough blocks in db is currently unspecified.
@@ -113,7 +113,3 @@ richmenComputationDo epochIdx consumers = unless (null consumers) $ do
         $ map (flip lcThreshold total)
         $ filter f consumers
     safeMinimum a = if null a then Nothing else Just $ minimum a
-
-lrcConsumersClear :: WorkMode ssc m => [LrcConsumer m] -> m ()
-lrcConsumersClear = mapM_ lcClearCallback
--- dangerous ^, one thread

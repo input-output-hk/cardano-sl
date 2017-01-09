@@ -1,8 +1,8 @@
 {-# LANGUAGE AllowAmbiguousTypes  #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
 
 -- | Instance of SscListenersClass
 
@@ -18,14 +18,19 @@ import           Serokell.Util.Verify                   (VerificationRes (..))
 import           System.Wlog                            (logDebug)
 import           Universum
 
+import           Mockable.Monad                         (MonadMockable (..))
+import           Node                                   (ListenerAction (..))
 import           Pos.Binary.Class                       (Bi)
 import           Pos.Binary.Crypto                      ()
+import           Pos.Communication.BiP                  (BiP (..))
 import           Pos.Communication.Types                (ResponseMode)
 import           Pos.Context                            (WithNodeContext (getNodeContext))
 import           Pos.DHT.Model                          (ListenerDHT (..))
+import           Pos.NewDHT.Model.Class                 (MonadDHT (..))
 import           Pos.Security                           (shouldIgnorePkAddress)
 import           Pos.Slotting                           (getCurrentSlot)
 import           Pos.Ssc.Class.Listeners                (SscListenersClass (..))
+import           Pos.Ssc.Class.Types                    (Ssc (..))
 import           Pos.Ssc.Extra.MonadLD                  (sscGetLocalPayload)
 import           Pos.Ssc.GodTossing.LocalData.LocalData (sscIsDataUseful,
                                                          sscProcessMessage)
@@ -45,16 +50,8 @@ import           Pos.Util.Relay                         (DataMsg, InvMsg, Relay 
                                                          handleReqL)
 import           Pos.WorkMode                           (WorkMode)
 import           Pos.WorkMode                           (NewWorkMode)
-import           Pos.NewDHT.Model.Class                 (MonadDHT (..))
-import           Pos.Ssc.Class.Types                    (Ssc (..))
-import           Mockable.Monad                         (MonadMockable (..))
-import           Node                                   (ListenerAction (..))
-import           Pos.Communication.BiP                  (BiP (..))
 
-instance ( MonadDHT m
-         , MonadMockable m
-         , NewWorkMode SscGodTossing m
-         , Bi (InvMsg StakeholderId GtMsgTag)
+instance ( Bi (InvMsg StakeholderId GtMsgTag)
          , Bi (ReqMsg StakeholderId GtMsgTag)
          , Bi (DataMsg StakeholderId GtMsgContents)
          ) =>

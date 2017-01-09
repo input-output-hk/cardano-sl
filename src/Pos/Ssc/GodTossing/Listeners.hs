@@ -23,7 +23,6 @@ import           Pos.Binary.Crypto                      ()
 import           Pos.Binary.Relay                       ()
 import           Pos.Binary.Ssc                         ()
 import           Pos.Communication.BiP                  (BiP (..))
-import           Pos.Communication.Types                (ResponseMode)
 import           Pos.Context                            (WithNodeContext (getNodeContext))
 import           Pos.Lrc.Types                          (toRichmen)
 import           Pos.NewDHT.Model.Class                 (MonadDHT (..))
@@ -49,7 +48,6 @@ import           Pos.Types                              (SlotId (..), Stakeholde
 import           Pos.Util.Relay                         (DataMsg, InvMsg, Relay (..),
                                                          ReqMsg, handleDataL, handleInvL,
                                                          handleReqL)
-import           Pos.WorkMode                           (WorkMode)
 import           Pos.WorkMode                           (NewWorkMode)
 
 instance SscListenersClass SscGodTossing where
@@ -107,7 +105,7 @@ instance NewWorkMode SscGodTossing m
                 ("Malicious emulation: data "%build%" for address "%build%" ignored")
                 dat addr)
 
-sscProcessMessageRichmen :: WorkMode SscGodTossing m
+sscProcessMessageRichmen :: NewWorkMode SscGodTossing m
                           => GtMsgContents -> StakeholderId -> m Bool
 sscProcessMessageRichmen dat addr = do
     SlotId{..} <- getCurrentSlot

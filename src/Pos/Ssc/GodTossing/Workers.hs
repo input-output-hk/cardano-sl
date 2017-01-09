@@ -207,7 +207,7 @@ onNewSlotShares sendActions SlotId {..} = do
             _ <- sscProcessMessageRichmen (MCShares lShares) ourId
             sendOurData sendActions SharesMsg siEpoch 4 ourId
 
-sscProcessMessageRichmen :: WorkMode SscGodTossing m
+sscProcessMessageRichmen :: NewWorkMode SscGodTossing m
                          => GtMsgContents
                          -> StakeholderId
                          -> m Bool

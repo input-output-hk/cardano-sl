@@ -6,26 +6,28 @@
 module Pos.DB.DB
        ( openNodeDBs
        , initNodeDBs
+       , getTip
        , getTipBlock
        , getTipBlockHeader
        , loadBlocksFromTipWhile
        ) where
 
 import           Control.Monad.Trans.Resource (MonadResource)
-import           Mockable                     (Mockable, Throw, throw)
 import           System.Directory             (createDirectoryIfMissing,
                                                doesDirectoryExist,
                                                removeDirectoryRecursive)
 import           System.FilePath              ((</>))
 import           Universum
 
-import           Pos.Context                  (WithNodeContext, genesisUtxoM)
+import           Pos.Context.Class            (WithNodeContext)
+import           Pos.Context.Functions        (genesisUtxoM)
 import           Pos.DB.Block                 (getBlock, loadBlocksWithUndoWhile,
                                                prepareBlockDB)
 import           Pos.DB.Class                 (MonadDB)
 import           Pos.DB.Error                 (DBError (DBMalformed))
 import           Pos.DB.Functions             (openDB)
-import           Pos.DB.GState                (getTip, prepareGStateDB)
+import           Pos.DB.GState.Common         (getTip)
+import           Pos.DB.GState.GState         (prepareGStateDB)
 import           Pos.DB.Lrc                   (prepareLrcDB)
 import           Pos.DB.Misc                  (prepareMiscDB)
 import           Pos.DB.Types                 (NodeDBs (..))
@@ -37,7 +39,7 @@ import           Pos.Types                    (Block, BlockHeader, Undo, getBloc
 
 -- | Open all DBs stored on disk.
 openNodeDBs
-    :: (Ssc ssc, MonadIO m, Mockable Throw m)
+    :: (Ssc ssc, MonadIO m, MonadThrow m)
     => Bool -> FilePath -> m (NodeDBs ssc)
 openNodeDBs recreate fp = do
     liftIO $
@@ -77,7 +79,7 @@ getTipBlock
     => m (Block ssc)
 getTipBlock = maybe onFailure pure =<< getBlock =<< getTip
   where
-    onFailure = throw $ DBMalformed "there is no block corresponding to tip"
+    onFailure = throwM $ DBMalformed "there is no block corresponding to tip"
 
 -- | Get BlockHeader corresponding to tip.
 getTipBlockHeader

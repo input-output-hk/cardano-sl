@@ -16,10 +16,10 @@ module Pos.DB.DBIterator
 import           Control.Monad.Reader (ReaderT (..))
 import           Control.Monad.Trans  (MonadTrans)
 import qualified Database.RocksDB     as Rocks
-import           Mockable             (Bracket, Catch, ChannelT, MFunctor' (hoist'),
+import           Mockable             (ChannelT, MFunctor' (hoist'),
                                        Mockable (liftMockable), Promise, SharedAtomicT,
-                                       ThreadId, Throw, bracket, catch)
-import           Universum            hiding (bracket, catch)
+                                       ThreadId)
+import           Universum
 
 import           Pos.Binary.Class     (Bi)
 import           Pos.DB.Class         (MonadDB (..))
@@ -54,7 +54,7 @@ data ParseResult a = FetchError  -- RocksDB internal error
     deriving Show
 
 -- | Iterator by keys of type @k@ and values of type @v@.
-instance (Bi k, Bi v, MonadIO m, Mockable Throw m)
+instance (Bi k, Bi v, MonadIO m, MonadThrow m)
          => MonadIterator (DBIterator m) (k, v) where
     nextItem = do
         it <- DBIterator ask
@@ -113,13 +113,13 @@ deriving instance MonadDB ssc m => MonadDB ssc (DBIterator m)
 deriving instance MonadDB ssc m => MonadDB ssc (DBMapIterator f m)
 
 -- | Run DBIterator by `DB ssc`.
-runIterator :: forall b m ssc . (MonadIO m, Mockable Throw m, Mockable Catch m, Mockable Bracket m)
+runIterator :: forall b m ssc . (MonadIO m, MonadMask m)
              => DBIterator m b -> DB ssc -> m b
 runIterator dbIter DB{..} =
     bracket (Rocks.createIter rocksDB rocksReadOpts) (Rocks.releaseIter)
             (\it -> Rocks.iterFirst it >> runReaderT (getDBIterator dbIter) it)
 
 -- | Run DBMapIterator by `DB ssc`.
-mapIterator :: forall u v m ssc a . (MonadIO m, Mockable Throw m, Mockable Catch m, Mockable Bracket m)
+mapIterator :: forall u v m ssc a . (MonadIO m, MonadMask m)
             => DBMapIterator (u->v) m a -> (u->v) -> DB ssc -> m a
 mapIterator dbIter f = runIterator (runReaderT (getDBMapIterator dbIter) f)

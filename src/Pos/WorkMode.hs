@@ -10,9 +10,7 @@
 -}
 
 module Pos.WorkMode
-       ( WorkMode
-       , MinWorkMode
-       , NewWorkMode
+       ( NewWorkMode
        , NewMinWorkMode
 
        -- * Actual modes
@@ -23,65 +21,34 @@ module Pos.WorkMode
        ) where
 
 
-import           Control.Monad.Catch           (MonadMask)
-import           Control.Monad.Fix             (MonadFix)
-import           Control.TimeWarp.Rpc          (Dialog, Transfer)
-import           Control.TimeWarp.Timed        (MonadTimed (..), TimedIO)
-import           Mockable                      (MonadMockable)
-import           Mockable.Production           (Production)
-import           System.Wlog                   (LoggerNameBox (..), WithLogger)
+import           Control.Monad.Catch         (MonadMask)
+import           Control.Monad.Fix           (MonadFix)
+import           Control.TimeWarp.Rpc        (Dialog, Transfer)
+import           Control.TimeWarp.Timed      (MonadTimed (..), TimedIO)
+import           Mockable                    (MonadMockable)
+import           Mockable.Production         (Production)
+import           System.Wlog                 (LoggerNameBox (..), WithLogger)
 import           Universum
 
-import           Pos.Communication.PeerState   (PeerStateHolder (..), WithPeerState)
-import           Pos.Communication.Types.State (MutPeerState)
-import           Pos.Context                   (ContextHolder, WithNodeContext)
-import           Pos.DB.Class                  (MonadDB)
-import           Pos.DB.Holder                 (DBHolder)
-import           Pos.Delegation.Class          (DelegationT (..), MonadDelegation)
-import           Pos.DHT.Model                 (DHTPacking, MonadMessageDHT (..),
-                                                WithDefaultMsgHeader)
-import           Pos.NewDHT.Model              (MonadDHT)
-import           Pos.NewDHT.Real               (KademliaDHT (..))
-import           Pos.Slotting                  (MonadSlots (..))
-import           Pos.Ssc.Class.Helpers         (SscHelpersClass (..))
-import           Pos.Ssc.Class.LocalData       (SscLocalDataClass)
-import           Pos.Ssc.Class.Storage         (SscStorageClass)
-import           Pos.Ssc.Extra                 (MonadSscGS, MonadSscLD, MonadSscRichmen,
-                                                SscHolder)
-import           Pos.Statistics.MonadStats     (MonadStats, NoStatsT, StatsT)
-import           Pos.Txp.Class                 (MonadTxpLD (..))
-import           Pos.Txp.Holder                (TxpLDHolder)
-import           Pos.Types                     (MonadUtxo)
-import           Pos.Update.MemState           (MonadUSMem, USHolder)
-import           Pos.Util.JsonLog              (MonadJL (..))
-
-type MSockSt ssc = MutPeerState ssc
-
--- | Bunch of constraints to perform work for real world distributed system.
-type WorkMode ssc m
-    = ( WithLogger m
-      , MonadIO m
-      , MonadTimed m
-      , MonadMask m
-      , MonadSlots m
-      , MonadDB ssc m
-      , MonadTxpLD ssc m
-      , MonadDelegation m
-      , MonadUSMem m
-      , MonadUtxo m
-      , MonadSscGS ssc m
-      , MonadSscLD ssc m
-      , MonadSscRichmen m
-      , SscStorageClass ssc
-      , SscLocalDataClass ssc
-      , SscHelpersClass ssc
-      , WithNodeContext ssc m
-      , MonadMessageDHT (MSockSt ssc) m
-      , WithDefaultMsgHeader m
-      , MonadStats m
-      , MonadJL m
-      , MonadMockable m
-      )
+import           Pos.Communication.PeerState (PeerStateHolder (..), WithPeerState)
+import           Pos.Context                 (ContextHolder, WithNodeContext)
+import           Pos.DB.Class                (MonadDB)
+import           Pos.DB.Holder               (DBHolder)
+import           Pos.Delegation.Class        (DelegationT (..), MonadDelegation)
+import           Pos.NewDHT.Model            (MonadDHT)
+import           Pos.NewDHT.Real             (KademliaDHT (..))
+import           Pos.Slotting                (MonadSlots (..))
+import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
+import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
+import           Pos.Ssc.Class.Storage       (SscStorageClass)
+import           Pos.Ssc.Extra               (MonadSscGS, MonadSscLD, MonadSscRichmen,
+                                              SscHolder)
+import           Pos.Statistics.MonadStats   (MonadStats, NoStatsT, StatsT)
+import           Pos.Txp.Class               (MonadTxpLD (..))
+import           Pos.Txp.Holder              (TxpLDHolder)
+import           Pos.Types                   (MonadUtxo, MonadUtxoRead)
+import           Pos.Update.MemState         (MonadUSMem, USHolder)
+import           Pos.Util.JsonLog            (MonadJL (..))
 
 -- | Bunch of constraints to perform work for real world distributed system.
 type NewWorkMode ssc m
@@ -105,16 +72,8 @@ type NewWorkMode ssc m
       , MonadJL m
       , MonadFail m
       , WithPeerState ssc m
-      )
-
--- | More relaxed version of 'WorkMode'.
-type MinWorkMode ss m
-    = ( WithLogger m
-      , MonadTimed m
-      , MonadMask m
-      , MonadIO m
-      , MonadMessageDHT ss m
-      , WithDefaultMsgHeader m
+      , MonadSscRichmen m
+      , MonadUSMem m
       )
 
 -- | More relaxed version of 'WorkMode'.
@@ -150,6 +109,8 @@ deriving instance MonadSlots m => MonadSlots (KademliaDHT m)
 deriving instance MonadSscGS ssc m => MonadSscGS ssc (KademliaDHT m)
 deriving instance MonadDelegation m => MonadDelegation (KademliaDHT m)
 deriving instance MonadTxpLD ssc m => MonadTxpLD ssc (KademliaDHT m)
+deriving instance MonadUSMem m => MonadUSMem (KademliaDHT m)
+deriving instance MonadSscRichmen m => MonadSscRichmen (KademliaDHT m)
 
 deriving instance MonadSscLD ssc m => MonadSscLD ssc (PeerStateHolder ssc m)
 deriving instance MonadUtxoRead m => MonadUtxoRead (PeerStateHolder ssc m)
@@ -162,6 +123,8 @@ deriving instance MonadSscGS ssc m => MonadSscGS ssc (PeerStateHolder ssc m)
 deriving instance MonadDelegation m => MonadDelegation (PeerStateHolder ssc m)
 deriving instance MonadTxpLD ssc m => MonadTxpLD ssc (PeerStateHolder ssc m)
 deriving instance MonadJL m => MonadJL (PeerStateHolder ssc m)
+deriving instance MonadUSMem m => MonadUSMem (PeerStateHolder ssc m)
+deriving instance MonadSscRichmen m => MonadSscRichmen (PeerStateHolder ssc m)
 
 -- | RawRealMode is a basis for `WorkMode`s used to really run system.
 type RawRealMode ssc =

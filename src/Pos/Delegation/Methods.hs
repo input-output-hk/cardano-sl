@@ -6,26 +6,29 @@ module Pos.Delegation.Methods
        , sendProxyConfirmSK
        ) where
 
-import           Formatting           (build, sformat, (%))
-import           System.Wlog          (logDebug)
+import           Formatting               (build, sformat, (%))
+import           Node                     (SendActions)
+import           System.Wlog              (logDebug)
 import           Universum
 
-import           Pos.Context          (getNodeContext, ncSecretKey)
-import           Pos.Crypto           (proxySign)
-import           Pos.Delegation.Types (ConfirmProxySK (..), SendProxySK (..))
-import           Pos.NewDHT.Model     (sendToNeighbors)
-import           Pos.Types            (ProxySKEpoch, ProxySKSimple)
-import           Pos.WorkMode         (NewMinWorkMode, NewWorkMode)
+import           Pos.Binary.Communication ()
+import           Pos.Communication.BiP    (BiP)
+import           Pos.Context              (getNodeContext, ncSecretKey)
+import           Pos.Crypto               (proxySign)
+import           Pos.Delegation.Types     (ConfirmProxySK (..), SendProxySK (..))
+import           Pos.NewDHT.Model         (sendToNeighbors)
+import           Pos.Types                (ProxySKEpoch, ProxySKSimple)
+import           Pos.WorkMode             (NewMinWorkMode, NewWorkMode)
 
 -- | Sends epoch psk to neighbours
-sendProxySKEpoch :: (NewMinWorkMode ss m) => SendActions BiP m -> ProxySKEpoch -> m ()
+sendProxySKEpoch :: (NewMinWorkMode m) => SendActions BiP m -> ProxySKEpoch -> m ()
 sendProxySKEpoch sendActions psk = do
     logDebug $ sformat ("Sending lightweight psk to neigbours:\n"%build) psk
     -- [CSL-514] TODO Log long acting sends
     sendToNeighbors sendActions $ SendProxySKEpoch psk
 
 -- | Sends simple psk to neighbours
-sendProxySKSimple :: (NewMinWorkMode ss m) => SendActions BiP m -> ProxySKSimple -> m ()
+sendProxySKSimple :: (NewMinWorkMode m) => SendActions BiP m -> ProxySKSimple -> m ()
 sendProxySKSimple sendActions psk = do
     logDebug $ sformat ("Sending heavyweight psk to neigbours:\n"%build) psk
     -- [CSL-514] TODO Log long acting sends

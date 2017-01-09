@@ -7,7 +7,8 @@ module Pos.DB.GState.GState
        ( prepareGStateDB
        ) where
 
-import           Pos.Context            (WithNodeContext, genesisUtxoM)
+import           Pos.Context.Class      (WithNodeContext)
+import           Pos.Context.Functions  (genesisUtxoM)
 import           Pos.DB.Class           (MonadDB)
 import           Pos.DB.GState.Balances (prepareGStateBalances)
 import           Pos.DB.GState.Common   (prepareGStateCommon)

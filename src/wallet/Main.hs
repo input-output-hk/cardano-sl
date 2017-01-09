@@ -21,7 +21,7 @@ import           Pos.Crypto           (SecretKey, createProxySecretKey, toPublic
 import           Pos.Delegation       (sendProxySKEpoch, sendProxySKSimple)
 import           Pos.Genesis          (genesisPublicKeys, genesisSecretKeys)
 import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
-                                       bracketDHTInstance, runTimeSlaveReal)
+                                       bracketResources, runTimeSlaveReal)
 import           Pos.NewDHT.Model     (DHTNodeType (..), dhtAddr, discoverPeers)
 import           Pos.Ssc.SscAlgo      (SscAlgo (..))
 import           Pos.Types            (EpochIndex (..), coinF, makePubKeyAddress, txaF)
@@ -66,8 +66,9 @@ runCmd ListAddresses = do
 runCmd (DelegateLight i j) = do
     let issuerSk = genesisSecretKeys !! i
         delegatePk = genesisPublicKeys !! j
-    sendProxySKEpoch $
-        createProxySecretKey issuerSk delegatePk (EpochIndex 0, EpochIndex 50)
+    -- TODO [CSL-447] Uncomment
+    -- sendProxySKEpoch $
+    --    createProxySecretKey issuerSk delegatePk (EpochIndex 0, EpochIndex 50)
     putText "Sent lightweight cert"
 runCmd (DelegateHeavy i j) = do
     let issuerSk = genesisSecretKeys !! i

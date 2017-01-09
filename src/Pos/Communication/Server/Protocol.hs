@@ -15,20 +15,20 @@ import           Pos.Communication.Types     (MutPeerState, VersionReq (..),
 import           System.Wlog                 (logDebug, logWarning)
 import           Universum
 
+import           Message.Message             (BinaryP, messageName)
+import           Mockable.Monad              (MonadMockable (..))
+import           Mockable.SharedAtomic       (modifySharedAtomic, readSharedAtomic)
+import           Node                        (Listener (..), ListenerAction (..),
+                                              NodeId (..), SendActions (..), sendTo)
 import           Pos.Binary.Communication    ()
-import           Pos.Communication.Types     (ResponseMode, peerVersion)
+import           Pos.Communication.BiP       (BiP (..))
 import           Pos.Communication.PeerState (getPeerState)
+import           Pos.Communication.Types     (peerVersion)
 import           Pos.Constants               (curProtocolVersion, protocolMagic)
 import           Pos.DHT.Model               (ListenerDHT (..), MonadDHTDialog,
                                               getUserState, replyToNode)
+import           Pos.Ssc.Class.Types         (Ssc (..))
 import           Pos.WorkMode                (NewWorkMode)
-import           Node                        (Listener(..), ListenerAction(..), sendTo,
-                                              NodeId(..), SendActions(..))
-import           Message.Message             (BinaryP, messageName)
-import           Mockable.Monad              (MonadMockable(..))
-import           Pos.Communication.BiP       (BiP(..))
-import           Pos.Ssc.Class.Types         (Ssc(..))
-import           Mockable.SharedAtomic       (readSharedAtomic, modifySharedAtomic)
 
 protocolListeners
     :: ( Ssc ssc

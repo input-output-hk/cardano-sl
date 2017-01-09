@@ -99,7 +99,7 @@ type ReaderTCtx = TVar DelegationWrap
 -- | Wrapper of @ReaderT (TVar DelegationWrap)@, nothing smart.
 newtype DelegationT m a = DelegationT
     { getDelegationT :: ReaderT ReaderTCtx m a
-    } deriving (Functor, Applicative, Monad, MonadTrans,
+    } deriving (Functor, Applicative, Monad, MonadTrans, MonadFix,
                 MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
                 HasLoggerName, WithNodeContext ssc, MonadJL,
                 CanLog, MonadMask, MonadSscLD ssc, MonadSscGS ssc,

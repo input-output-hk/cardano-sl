@@ -17,12 +17,13 @@ module Pos.DB.Lrc.Leaders
 
 import           Universum
 
-import           Pos.Binary.Class  (encodeStrict)
-import           Pos.Binary.Types  ()
-import           Pos.Context       (WithNodeContext, genesisLeadersM)
-import           Pos.DB.Class      (MonadDB)
-import           Pos.DB.Lrc.Common (getBi, putBi)
-import           Pos.Types         (EpochIndex, SlotLeaders)
+import           Pos.Binary.Class      (encodeStrict)
+import           Pos.Binary.Types      ()
+import           Pos.Context.Class     (WithNodeContext)
+import           Pos.Context.Functions (genesisLeadersM)
+import           Pos.DB.Class          (MonadDB)
+import           Pos.DB.Lrc.Common     (getBi, putBi)
+import           Pos.Types             (EpochIndex, SlotLeaders)
 
 ----------------------------------------------------------------------------
 -- Getters

@@ -16,4 +16,4 @@ import           Pos.WorkMode          (NewWorkMode)
 class Ssc ssc => SscWorkersClass ssc where
     -- | All workers specific to SSC.
     sscWorkers :: NewWorkMode ssc m => Tagged ssc [SendActions BiP m -> m ()]
-    sscLrcConsumers :: WorkMode ssc m => Tagged ssc [LrcConsumer m]
+    sscLrcConsumers :: NewWorkMode ssc m => Tagged ssc [LrcConsumer m]

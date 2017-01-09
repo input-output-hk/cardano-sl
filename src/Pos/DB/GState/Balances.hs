@@ -21,7 +21,6 @@ module Pos.DB.GState.Balances
 
 import qualified Data.Map             as M
 import qualified Database.RocksDB     as Rocks
-import           Mockable             (Bracket, Catch, Mockable, Throw)
 import           Universum
 
 import           Pos.Binary.Class     (encodeStrict)
@@ -32,7 +31,7 @@ import           Pos.DB.Functions     (RocksBatchOp (..))
 import           Pos.DB.GState.Common (getBi, putBi)
 import           Pos.Types            (Coin, StakeholderId, Utxo, sumCoins, txOutStake,
                                        unsafeIntegerToCoin)
-import           Pos.Util             (maybeThrow')
+import           Pos.Util             (maybeThrow)
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -42,7 +41,7 @@ import           Pos.Util             (maybeThrow')
 -- different from total amount of coins in the system.
 getTotalFtsStake :: MonadDB ssc m => m Coin
 getTotalFtsStake =
-    maybeThrow' (DBMalformed "no total FTS stake in GState DB") =<< getFtsSumMaybe
+    maybeThrow (DBMalformed "no total FTS stake in GState DB") =<< getFtsSumMaybe
 
 -- | Get stake owne by given stakeholder (according to rules used for FTS).
 getFtsStake :: MonadDB ssc m => StakeholderId -> m (Maybe Coin)
@@ -93,7 +92,7 @@ putTotalFtsStake = putBi ftsSumKey
 
 type IterType = (StakeholderId, Coin)
 
-iterateByStake :: forall v m ssc a . (MonadDB ssc m, Mockable Catch m, Mockable Bracket m, Mockable Throw m)
+iterateByStake :: forall v m ssc a . (MonadDB ssc m, MonadMask m)
                 => DBMapIterator (IterType -> v) m a -> (IterType -> v) -> m a
 iterateByStake iter f = mapIterator @IterType @v iter f =<< getUtxoDB
 

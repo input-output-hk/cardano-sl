@@ -1,34 +1,26 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
--- | Wrappers on top of communication methods.
+-- | Wrappers on top of communication methods (for Pos.Util.Relay based methods).
 
 module Pos.Communication.Methods
-       (
-       -- * Sending data into network
-         sendProxySecretKey
-       , sendProxyConfirmSK
+       ( sendTx
        ) where
 
-import           Formatting               (build, sformat, (%))
-import           Mockable                 (fork)
-import           Node                     (SendActions (..))
-import           System.Wlog              (logDebug)
+import           Control.TimeWarp.Rpc        (NetworkAddress)
 import           Universum
 
-import           Pos.Binary.Class         (Bi)
-import           Pos.Binary.Communication ()
-import           Pos.Binary.Types         ()
-import           Pos.Communication.BiP    (BiP)
-import           Pos.Delegation.Types     (ConfirmProxySK (..), SendProxySK (..))
-import           Pos.NewDHT.Model         (sendToNeighbors)
-import           Pos.Types                (ProxySKEpoch)
-import           Pos.WorkMode             (NewMinWorkMode)
+import           Pos.Binary.Communication    ()
+import           Pos.Binary.Relay            ()
+import           Pos.Binary.Types            ()
+import           Pos.Crypto                  (hash)
+import           Pos.DHT.Model               (MonadMessageDHT, sendToNode)
+import           Pos.Txp.Types.Communication (TxMsgContents (..))
+import           Pos.Types                   (TxAux)
+import           Pos.Util.Relay              (DataMsg (..))
 
--- [CSL-514] TODO Log long acting sends
--- sendToNeighborsSafe :: (NewMinWorkMode ssc m, Message r) => SendActions BiP m -> r -> m ()
--- sendToNeighborsSafe sendActions msg = do
---     void $ fork $
---         logWarningWaitLinear 10
---             ("Sending " <> messageName' msg <> " to neighbors") $
---             sendToNeighbors sendActions msg
+-- | Send Tx to given address.
+sendTx :: (MonadMessageDHT s m) => NetworkAddress -> TxAux -> m ()
+sendTx addr (tx,w,d) = do
+    --sendToNode addr VersionReq
+    sendToNode addr $ DataMsg (TxMsgContents tx w d) (hash tx)

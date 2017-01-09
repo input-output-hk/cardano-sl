@@ -21,7 +21,7 @@ import           Control.Monad.Trans.Class (MonadTrans)
 import           Data.Default              (def)
 import           Mockable                  (ChannelT, MFunctor' (hoist'),
                                             Mockable (liftMockable), Promise,
-                                            SharedAtomicT, ThreadId, Throw)
+                                            SharedAtomicT, ThreadId)
 import           Serokell.Util.Lens        (WrappedM (..))
 import           System.Wlog               (CanLog, HasLoggerName)
 import           Universum
@@ -96,7 +96,7 @@ instance Monad m => WrappedM (TxpLDHolder ssc m) where
     type UnwrappedM (TxpLDHolder ssc m) = ReaderT (TxpLDWrap ssc) m
     _WrappedM = iso getTxpLDHolder TxpLDHolder
 
-instance (MonadIO m, Mockable Throw m) => MonadUtxoRead (TxpLDHolder ssc m) where
+instance (MonadIO m, MonadThrow m) => MonadUtxoRead (TxpLDHolder ssc m) where
     utxoGet key = TxpLDHolder (asks utxoView) >>=
                    (atomically . STM.readTVar >=> UV.getTxOut key)
 

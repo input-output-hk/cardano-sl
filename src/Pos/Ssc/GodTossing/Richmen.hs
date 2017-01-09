@@ -11,10 +11,10 @@ import           Pos.Lrc.Types            (LrcConsumer (..), RichmenStake, Richm
 import           Pos.Ssc.Extra.Richmen    (MonadSscRichmen (..), isEmptySscRichmen)
 import           Pos.Ssc.GodTossing.Types (SscGodTossing)
 import           Pos.Types                (Coin, SlotId (..), mkCoin)
-import           Pos.WorkMode             (WorkMode)
+import           Pos.WorkMode             (NewWorkMode)
 
 -- | Consumer will be called on every Richmen computation.
-gtLrcConsumer :: WorkMode SscGodTossing m => LrcConsumer m
+gtLrcConsumer :: NewWorkMode SscGodTossing m => LrcConsumer m
 gtLrcConsumer = LrcConsumer
     {
       -- [CSL-93] Use eligibility threshold here
@@ -26,7 +26,7 @@ gtLrcConsumer = LrcConsumer
     }
 
 -- | Returns True if cached value isn't corresponds for current epoch
-ifNeed :: WorkMode SscGodTossing m => SlotId -> m Bool
+ifNeed :: NewWorkMode SscGodTossing m => SlotId -> m Bool
 ifNeed SlotId{..} = do
     (epochIndex, richmen) <- DB.getGtRichmen
     isEmpty <- isEmptySscRichmen
@@ -35,11 +35,11 @@ ifNeed SlotId{..} = do
     pure (siSlot < k && epochIndex < siEpoch)
 
 -- | Store computed value into DB and cache.
-onComputed :: WorkMode SscGodTossing m => SlotId -> Coin -> RichmenStake -> m ()
+onComputed :: NewWorkMode SscGodTossing m => SlotId -> Coin -> RichmenStake -> m ()
 onComputed SlotId{..} _ richmen = do
     DB.putGtRichmen (siEpoch, richmen)
     writeSscRichmen (siEpoch, richmen)
 
 -- | Do nothing on clear
-onClear :: WorkMode SscGodTossing m => m ()
+onClear :: NewWorkMode SscGodTossing m => m ()
 onClear = pass

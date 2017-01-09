@@ -93,9 +93,9 @@ blkOnNewSlot sendActions slotId@SlotId {..} = do
         logDebug $ "Does someone have cert for this slot: " <> show (isJust heavyPskM)
         let relatedHeavyPsk = maybe False ((== ourPk) . pskDelegatePk) heavyPskM
         logDebug $ sformat ("Available lightweight PSKs: "%listJson) validCerts
-        if | leader == ourPkHash -> onNewSlotWhenLeader slotId Nothing
-           | relatedHeavyPsk -> onNewSlotWhenLeader slotId $ Right <$> heavyPskM
-           | isJust validCert -> onNewSlotWhenLeader slotId $ Left <$> validCert
+        if | leader == ourPkHash -> onNewSlotWhenLeader sendActions slotId Nothing
+           | relatedHeavyPsk -> onNewSlotWhenLeader sendActions slotId $ Right <$> heavyPskM
+           | isJust validCert -> onNewSlotWhenLeader sendActions slotId $ Left <$> validCert
            | otherwise -> pure ()
 
 onNewSlotWhenLeader

@@ -29,11 +29,11 @@ import           Pos.Types            (Block, Coin, EpochIndex, NEBlocks, SlotId
 import           Pos.Update.Error     (USError (..))
 import           Pos.Update.Types     (UpdateProposal (..), UpdateVote (..))
 import           Pos.Util             (inAssertMode, maybeThrow, _neHead)
-import           Pos.WorkMode         (WorkMode)
+import           Pos.WorkMode         (NewWorkMode)
 
 -- | Apply chain of /definitely/ valid blocks to US part of GState
 -- DB and to US local data. Head must be the __oldest__ block.
-usApplyBlocks :: WorkMode ssc m => NEBlocks ssc -> m [DB.SomeBatchOp]
+usApplyBlocks :: NewWorkMode ssc m => NEBlocks ssc -> m [DB.SomeBatchOp]
 usApplyBlocks blocks = do
     tip <- GS.getTip
     when (tip /= blocks ^. _neHead . prevBlockL) $ throwM $
@@ -46,7 +46,7 @@ usApplyBlocks blocks = do
                    panic $ "usVerifyBlocks failed: " <> errors
     concat <$> mapM usApplyBlock (toList blocks)
 
-usApplyBlock :: WorkMode ssc m => Block ssc -> m [DB.SomeBatchOp]
+usApplyBlock :: NewWorkMode ssc m => Block ssc -> m [DB.SomeBatchOp]
 usApplyBlock (Left _) = pure []
 -- Note: snapshot is not needed here, because we must have already
 -- taken semaphore.
@@ -64,7 +64,7 @@ usApplyBlock (Right blk) = do
     return (applyProposalBatch ++ applyOtherVotesBatch)
 
 applyProposal
-    :: WorkMode ssc m
+    :: NewWorkMode ssc m
     => SlotId -> [UpdateVote] -> UpdateProposal -> m [DB.SomeBatchOp]
 applyProposal slot votes proposal =
     pure . DB.SomeBatchOp . GS.PutProposal . PSUndecided <$>
@@ -75,7 +75,7 @@ applyProposal slot votes proposal =
 
 -- Votes must be for the same update here.
 applyVotesGroup
-    :: WorkMode ssc m
+    :: NewWorkMode ssc m
     => NonEmpty UpdateVote -> m [DB.SomeBatchOp]
 applyVotesGroup votes = do
     let upId = uvProposalId $ votes ^. _neHead
@@ -91,7 +91,7 @@ applyVotesGroup votes = do
                 execStateT (mapM_ (applyVote epoch) votes) ups
 
 applyVote
-    :: WorkMode ssc m
+    :: NewWorkMode ssc m
     => EpochIndex -> UpdateVote -> StateT UndecidedProposalState m ()
 applyVote epoch UpdateVote {..} = do
     let id = addressHash uvKey
@@ -103,7 +103,7 @@ applyVote epoch UpdateVote {..} = do
 -- ensure that tip stored in DB is 'headerHash' of head.
 --
 -- FIXME: return Batch.
-usRollbackBlocks :: WorkMode ssc m => NEBlocks ssc -> m ()
+usRollbackBlocks :: NewWorkMode ssc m => NEBlocks ssc -> m ()
 usRollbackBlocks _ = pass
 
 -- | Verify whether sequence of blocks can be applied to US part of
@@ -111,10 +111,10 @@ usRollbackBlocks _ = pass
 -- they are assumed to be done earlier.
 --
 -- TODO: add more checks! Most likely it should be stateful!
-usVerifyBlocks :: WorkMode ssc m => NEBlocks ssc -> m (Either Text ())
+usVerifyBlocks :: NewWorkMode ssc m => NEBlocks ssc -> m (Either Text ())
 usVerifyBlocks = runExceptT . mapM_ verifyBlock
 
-verifyBlock :: WorkMode ssc m => Block ssc -> ExceptT Text m ()
+verifyBlock :: NewWorkMode ssc m => Block ssc -> ExceptT Text m ()
 verifyBlock (Left _)    = pass
 verifyBlock (Right blk) = do
     let meb = blk ^. gbExtra
@@ -122,7 +122,7 @@ verifyBlock (Right blk) = do
 
 verifyEnoughStake
     :: forall ssc m.
-       WorkMode ssc m
+       NewWorkMode ssc m
     => [UpdateVote] -> Maybe UpdateProposal -> ExceptT Text m ()
 verifyEnoughStake votes mProposal = do
     -- [CSL-314] Snapshot must be used here.

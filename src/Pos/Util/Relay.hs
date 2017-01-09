@@ -31,7 +31,6 @@ import           Universum
 
 import           Pos.Binary.Class            (Bi)
 import           Pos.Communication.BiP       (BiP (..))
-import           Pos.Communication.Types     (ResponseMode)
 import           Pos.Context                 (WithNodeContext (getNodeContext),
                                               ncPropagation)
 import           Pos.NewDHT.Model.Class      (MonadDHT (..))

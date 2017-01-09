@@ -1,4 +1,5 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Server listeners for delegation logic
 
@@ -10,36 +11,36 @@ module Pos.Delegation.Listeners
        , handleCheckProxySKConfirmed
        ) where
 
-import           Data.Time.Clock           (getCurrentTime)
-import           Formatting                (build, sformat, shown, (%))
-import           System.Wlog               (logDebug, logInfo)
+import           Data.Time.Clock          (getCurrentTime)
+import           Formatting               (build, sformat, shown, (%))
+import           System.Wlog              (logDebug, logInfo)
 import           Universum
 
-import           Message.Message           (BinaryP, messageName)
-import           Mockable.Monad            (MonadMockable (..))
-import           Mockable.SharedAtomic     (modifySharedAtomic, readSharedAtomic)
-import           Node                      (Listener (..), ListenerAction (..),
-                                            NodeId (..), SendActions (..), sendTo)
-import           Pos.Binary.Communication  ()
-import           Pos.Communication.BiP     (BiP (..))
-import           Pos.Communication.Methods (sendProxyConfirmSK, sendProxySecretKey)
-import           Pos.Context               (getNodeContext, ncPropagation, ncSecretKey)
-import           Pos.Crypto                (proxySign)
-import           Pos.Delegation.Logic      (ConfirmPSKVerdict (..), PSKVerdict (..),
-                                            invalidateProxyCaches, isProxySKConfirmed,
-                                            processConfirmProxySk, processProxySKEpoch,
-                                            processProxySKSimple,
-                                            runDelegationStateAction)
-import           Pos.Delegation.Methods    (sendProxyConfirmSK, sendProxySKEpoch,
-                                            sendProxySKSimple)
-import           Pos.Delegation.Types      (CheckProxySKConfirmed (..),
-                                            CheckProxySKConfirmedRes (..),
-                                            ConfirmProxySK (..), SendProxySK (..))
-import           Pos.DHT.Model             (ListenerDHT (..), MonadDHTDialog, replyToNode)
-import           Pos.Ssc.Class.Types       (Ssc (..))
-import           Pos.Types                 (ProxySKEpoch)
-import           Pos.WorkMode              (WorkMode)
-import           Pos.WorkMode              (NewWorkMode)
+import           Message.Message          (BinaryP, messageName)
+import           Mockable.Monad           (MonadMockable (..))
+import           Mockable.SharedAtomic    (modifySharedAtomic, readSharedAtomic)
+import           Node                     (Listener (..), ListenerAction (..),
+                                           NodeId (..), SendActions (..), sendTo)
+
+
+import           Pos.Binary.Communication ()
+import           Pos.Communication.BiP    (BiP (..))
+import           Pos.Context              (getNodeContext, ncPropagation, ncSecretKey)
+import           Pos.Crypto               (proxySign)
+import           Pos.Delegation.Logic     (ConfirmPskEpochVerdict (..),
+                                           PskEpochVerdict (..), PskSimpleVerdict (..),
+                                           invalidateProxyCaches, isProxySKConfirmed,
+                                           processConfirmProxySk, processProxySKEpoch,
+                                           processProxySKSimple, runDelegationStateAction)
+import           Pos.Delegation.Methods   (sendProxyConfirmSK, sendProxySKEpoch,
+                                           sendProxySKSimple)
+import           Pos.Delegation.Types     (CheckProxySKConfirmed (..),
+                                           CheckProxySKConfirmedRes (..),
+                                           ConfirmProxySK (..), SendProxySK (..))
+import           Pos.NewDHT.Model         (sendToNeighbors)
+import           Pos.Ssc.Class.Types      (Ssc (..))
+import           Pos.Types                (ProxySKEpoch)
+import           Pos.WorkMode             (NewWorkMode)
 
 -- | Listeners for requests related to delegation processing.
 delegationListeners
@@ -70,11 +71,11 @@ handleSendProxySK = ListenerActionOneMsg $
             -- do it in worker once in ~sometimes instead of on every request
             curTime <- liftIO getCurrentTime
             runDelegationStateAction $ invalidateProxyCaches curTime
-            verdict <- processProxySecretKey pSk
+            verdict <- processProxySKEpoch pSk
             logResult verdict
             propagateProxySKEpoch verdict pSk sendActions
           where
-            logResult PSKAdded =
+            logResult PEAdded =
                 logInfo $ sformat ("Got valid related proxy secret key: "%build) pSk
             logResult verdict =
                 logDebug $
@@ -85,18 +86,18 @@ handleSendProxySK = ListenerActionOneMsg $
             doPropagate <- ncPropagation <$> getNodeContext
             when (verdict == PSAdded && doPropagate) $ do
                 logDebug $ sformat ("Propagating heavyweight PSK: "%build) pSk
-                sendProxySKSimple pSk
+                sendProxySKSimple sendActions pSk
 
 -- | Propagates lightweight PSK depending on the 'ProxyEpochVerdict'.
 propagateProxySKEpoch
   :: (Ssc ssc, NewWorkMode ssc m)
   => PskEpochVerdict -> ProxySKEpoch -> SendActions BiP m -> m ()
-propagateProxySKEpoch PEUnrelated pSk =
+propagateProxySKEpoch PEUnrelated pSk sendActions =
     whenM (ncPropagation <$> getNodeContext) $ do
         logDebug $ sformat ("Propagating lightweight PSK: "%build) pSk
         sendProxySKEpoch sendActions pSk
-propagateProxySKEpoch PEAdded pSk = sendProxyConfirmSK sendActions pSk
-propagateProxySKEpoch _ _ = pass
+propagateProxySKEpoch PEAdded pSk sendActions = sendProxyConfirmSK sendActions pSk
+propagateProxySKEpoch _ _ _ = pass
 
 ----------------------------------------------------------------------------
 -- Light PSKs backpropagation (confirmations)

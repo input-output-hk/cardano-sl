@@ -86,7 +86,7 @@ import qualified Pos.Constants                      as Const
 import           Pos.Context                        (ContextHolder (..), NodeContext (..),
                                                      runContextHolder)
 import           Pos.Crypto                         (createProxySecretKey, toPublic)
-import           Pos.DB                             (MonadDB (..), initNodeDBs,
+import           Pos.DB                             (MonadDB (..), getTip, initNodeDBs,
                                                      openNodeDBs, runDBHolder, _gStateDB)
 import           Pos.DB.Misc                        (addProxySecretKey)
 import           Pos.Delegation.Class               (runDelegationT)
@@ -111,9 +111,8 @@ import           Pos.Util                           (runWithRandomIntervals')
 import           Pos.Util.UserSecret                (peekUserSecret, usKeys,
                                                      writeUserSecret)
 import           Pos.Worker                         (statsWorkers)
-import           Pos.WorkMode                       (MinWorkMode, NewMinWorkMode,
-                                                     ProductionMode, RawRealMode,
-                                                     ServiceMode, StatsMode)
+import           Pos.WorkMode                       (NewMinWorkMode, ProductionMode,
+                                                     RawRealMode, ServiceMode, StatsMode)
 
 data RealModeResources = RealModeResources
     { rmTransport :: Transport

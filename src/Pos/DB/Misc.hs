@@ -26,7 +26,6 @@ module Pos.DB.Misc
        ) where
 
 import           Data.Default                    (def)
-import           Mockable                        (throw)
 import           Universum
 
 import           Pos.Binary.Class                (Bi)
@@ -136,7 +135,7 @@ getLeaders
        (MonadDB ssc m)
     => m (EpochIndex, SlotLeaders)
 getLeaders =
-    maybe (throw (DBMalformed "No leaders in MiscDB")) (pure . convert) =<< getBi lrcKey
+    maybe (throwM (DBMalformed "No leaders in MiscDB")) (pure . convert) =<< getBi lrcKey
   where
     convert LeadersStorage {..} = (lrcEpoch, lrcLeaders)
 

@@ -32,7 +32,7 @@ import           Pos.DB.Error     (DBError (DBMalformed))
 import           Pos.DB.Functions (RocksBatchOp (..), rocksDelete, rocksGetBi, rocksPutBi,
                                    rocksWriteBatch)
 import           Pos.Types        (HeaderHash)
-import           Pos.Util         (maybeThrow')
+import           Pos.Util         (maybeThrow)
 
 ----------------------------------------------------------------------------
 -- Common Helpers
@@ -60,11 +60,11 @@ writeBatchGState batch = rocksWriteBatch batch =<< getUtxoDB
 
 -- | Get current tip from GState DB.
 getTip :: (MonadDB ssc m) => m (HeaderHash ssc)
-getTip = maybeThrow' (DBMalformed "no tip in GState DB") =<< getTipMaybe
+getTip = maybeThrow (DBMalformed "no tip in GState DB") =<< getTipMaybe
 
 -- | Get the hash of the first genesis block from GState DB.
 getBot :: (MonadDB ssc m) => m (HeaderHash ssc)
-getBot = maybeThrow' (DBMalformed "no bot in GState DB") =<< getBotMaybe
+getBot = maybeThrow (DBMalformed "no bot in GState DB") =<< getBotMaybe
 
 ----------------------------------------------------------------------------
 -- Common operations

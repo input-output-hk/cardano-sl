@@ -13,15 +13,18 @@ module Pos.Update.MemState.Holder
 import           Control.Concurrent.STM       (TVar, newTVarIO, readTVar, writeTVar)
 import           Control.Lens                 (iso)
 import           Control.Monad.Base           (MonadBase (..))
+import           Control.Monad.Fix            (MonadFix)
 import           Control.Monad.State          (MonadState (..))
 import           Control.Monad.Trans.Class    (MonadTrans)
 import           Control.Monad.Trans.Control  (ComposeSt, MonadBaseControl (..),
                                                MonadTransControl (..), StM,
                                                defaultLiftBaseWith, defaultLiftWith,
                                                defaultRestoreM, defaultRestoreT)
-import           Control.TimeWarp.Rpc         (MonadDialog, MonadTransfer (..))
-import           Control.TimeWarp.Timed       (MonadTimed (..), ThreadId)
 import           Data.Default                 (Default (def))
+import           Mockable                     (ChannelT, MFunctor',
+                                               Mockable (liftMockable), Promise,
+                                               SharedAtomicT, ThreadId,
+                                               liftMockableWrappedM)
 import           Serokell.Util.Lens           (WrappedM (..))
 import           System.Wlog                  (CanLog, HasLoggerName)
 import           Universum
@@ -41,12 +44,24 @@ import           Pos.Util.JsonLog             (MonadJL (..))
 -- | Trivial monad transformer based on @ReaderT (TVar MemState)@.
 newtype USHolder m a = USHolder
     { getUSHolder :: ReaderT (TVar MemState) m a
-    } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed,
+    } deriving (Functor, Applicative, Monad, MonadTrans,
                 MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
-                HasLoggerName, MonadDialog s p, WithNodeContext ssc, MonadJL,
-                MonadDB ssc, CanLog, MonadMask, MonadSscLD kek, MonadSscGS ssc,
+                HasLoggerName, WithNodeContext ssc, MonadJL,
+                CanLog, MonadMask, MonadSscLD kek, MonadSscGS ssc,
                 MonadUtxoRead, MonadUtxo, MonadTxpLD ssc, MonadBase io,
-                MonadDelegation, MonadSscRichmen)
+                MonadDelegation, MonadSscRichmen, MonadFix)
+
+deriving instance MonadDB ssc m => MonadDB ssc (USHolder m)
+type instance ThreadId (USHolder m) = ThreadId m
+type instance Promise (USHolder m) = Promise m
+type instance SharedAtomicT (USHolder m) = SharedAtomicT m
+type instance ChannelT (USHolder m) = ChannelT m
+
+instance ( Mockable d m
+         , MFunctor' d (USHolder m) (ReaderT (TVar MemState) m)
+         , MFunctor' d (ReaderT (TVar MemState) m) m
+         ) => Mockable d (USHolder m) where
+    liftMockable = liftMockableWrappedM
 
 instance MonadIO m => MonadState MemState (USHolder m) where
     get = USHolder ask >>= atomically . readTVar
@@ -54,10 +69,6 @@ instance MonadIO m => MonadState MemState (USHolder m) where
 
 instance MonadDB ssc m => MonadUSMem (USHolder m) where
     askUSMemState = USHolder ask
-
-instance MonadTransfer s m => MonadTransfer s (USHolder m)
-
-type instance ThreadId (USHolder m) = ThreadId m
 
 instance Monad m => WrappedM (USHolder m) where
     type UnwrappedM (USHolder m) = ReaderT (TVar MemState) m

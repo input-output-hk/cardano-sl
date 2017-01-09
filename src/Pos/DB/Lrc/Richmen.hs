@@ -20,15 +20,24 @@ module Pos.DB.Lrc.Richmen
 
        -- * Initialization
        , prepareLrcRichmen
+
+       -- * Concrete instances
+       -- ** Ssc
+       , RCSsc
+       , getRichmenSsc
+       , putRichmenSsc
+
        ) where
 
+import qualified Data.HashSet      as HS
 import           Universum
 
 import           Pos.Binary.Class  (Bi, encodeStrict)
 import           Pos.Binary.Types  ()
 import           Pos.DB.Class      (MonadDB)
 import           Pos.DB.Lrc.Common (getBi, putBi)
-import           Pos.Types         (EpochIndex, FullRichmenData)
+import           Pos.Types         (EpochIndex, FullRichmenData, Richmen, StakeholderId,
+                                    toRichmen)
 
 ----------------------------------------------------------------------------
 -- Class
@@ -114,5 +123,20 @@ richmenKeyP
 richmenKeyP proxy e = mconcat ["r/", rcTag proxy, "/", encodeStrict e]
 
 ----------------------------------------------------------------------------
--- Instances
+-- Instances. They are here, because we want to have a DB schema in Pos.DB
 ----------------------------------------------------------------------------
+
+data RCSsc
+
+instance RichmenComponent RCSsc where
+    type RichmenData RCSsc = Richmen
+    rcToData = toRichmen . snd
+    rcTag Proxy = "ssc"
+
+getRichmenSsc :: MonadDB ssc m => EpochIndex -> m (Maybe (HashSet StakeholderId))
+getRichmenSsc epoch = fmap (HS.fromList . toList) <$> getRichmen @RCSsc epoch
+
+putRichmenSsc
+    :: (MonadDB ssc m)
+    => EpochIndex -> FullRichmenData -> m ()
+putRichmenSsc = putRichmen @RCSsc

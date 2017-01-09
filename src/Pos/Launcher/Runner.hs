@@ -62,8 +62,8 @@ import           Pos.Constants                (RunningMode (..), defaultPeers,
 import           Pos.Context                  (ContextHolder (..), NodeContext (..),
                                                runContextHolder)
 import           Pos.Crypto                   (createProxySecretKey, toPublic)
-import           Pos.DB                       (MonadDB (..), openNodeDBs, runDBHolder,
-                                               _gStateDB)
+import           Pos.DB                       (MonadDB (..), initNodeDBs, openNodeDBs,
+                                               runDBHolder, _gStateDB)
 import           Pos.DB.GState                (getTip)
 import           Pos.DB.Misc                  (addProxySecretKey)
 import           Pos.Delegation.Class         (runDelegationT)
@@ -156,10 +156,12 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action =
     runResourceT $
     do putText $ "Running listeners number: " <> show (length listeners)
        lift $ setupLoggers lp
-       modernDBs <- openNodeDBs npRebuildDb npDbPathM npCustomUtxo
+       initNC <- sscCreateNodeContext @ssc sscnp
+       modernDBs <- openNodeDBs npRebuildDb npDbPathM
+       -- FIXME: initialization logic must be in scenario.
+       runDBHolder modernDBs . runCH np initNC $ initNodeDBs
        initTip <- runDBHolder modernDBs getTip
        initGS <- runDBHolder modernDBs (sscLoadGlobalState @ssc initTip)
-       initNC <- sscCreateNodeContext @ssc sscnp
        let actionWithMsg = nodeStartMsg npBaseParams >> action
        let kademliazedAction = runKDHT inst npBaseParams listeners actionWithMsg
        let finalAction = setForkStrategy (forkStrategy @ssc) kademliazedAction

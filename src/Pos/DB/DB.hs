@@ -5,6 +5,7 @@
 
 module Pos.DB.DB
        ( openNodeDBs
+       , initNodeDBs
        , getTipBlock
        , getTipBlockHeader
        , loadBlocksFromTipWhile
@@ -17,29 +18,28 @@ import           System.Directory             (createDirectoryIfMissing,
 import           System.FilePath              ((</>))
 import           Universum
 
+import           Pos.Context                  (WithNodeContext, genesisUtxoM)
 import           Pos.DB.Block                 (getBlock, loadBlocksWithUndoWhile,
                                                prepareBlockDB)
 import           Pos.DB.Class                 (MonadDB)
 import           Pos.DB.Error                 (DBError (DBMalformed))
 import           Pos.DB.Functions             (openDB)
 import           Pos.DB.GState                (getTip, prepareGStateDB)
-import           Pos.DB.Holder                (runDBHolder)
 import           Pos.DB.Lrc                   (prepareLrcDB)
 import           Pos.DB.Misc                  (prepareMiscDB)
 import           Pos.DB.Types                 (NodeDBs (..))
 import           Pos.Genesis                  (genesisLeaders)
 import           Pos.Richmen.Eligibility      (findRichmenPure)
 import           Pos.Ssc.Class.Types          (Ssc)
-import           Pos.Types                    (Block, BlockHeader, Undo, Utxo,
-                                               getBlockHeader, headerHash, mkCoin,
-                                               mkGenesisBlock)
+import           Pos.Types                    (Block, BlockHeader, Undo, getBlockHeader,
+                                               headerHash, mkCoin, mkGenesisBlock)
 
 -- | Open all DBs stored on disk.
 openNodeDBs
     :: forall ssc m.
-       (Ssc ssc, MonadResource m)
-    => Bool -> FilePath -> Utxo -> m (NodeDBs ssc)
-openNodeDBs recreate fp customUtxo = do
+       (MonadResource m)
+    => Bool -> FilePath -> m (NodeDBs ssc)
+openNodeDBs recreate fp = do
     liftIO $
         whenM ((recreate &&) <$> doesDirectoryExist fp) $
             removeDirectoryRecursive fp
@@ -52,19 +52,24 @@ openNodeDBs recreate fp customUtxo = do
     _gStateDB <- openDB gStatePath
     _lrcDB <- openDB lrcPath
     _miscDB <- openDB miscPath
-    let res = NodeDBs {..}
-    let prepare = do
-          prepareBlockDB genesisBlock0
-          prepareGStateDB customUtxo initialTip
-          prepareLrcDB @ssc
-          prepareMiscDB leaders0 richmen0
-    res <$ runDBHolder res prepare
-  where
-    leaders0 = genesisLeaders customUtxo
-    -- [CSL-93] Use eligibility threshold here
-    richmen0 = findRichmenPure customUtxo (mkCoin 0)
-    genesisBlock0 = mkGenesisBlock Nothing 0 leaders0
-    initialTip = headerHash genesisBlock0
+    return NodeDBs {..}
+
+-- | Initialize DBs if necessary.
+initNodeDBs
+    :: forall ssc m.
+       (Ssc ssc, WithNodeContext ssc m, MonadDB ssc m)
+    => m ()
+initNodeDBs = do
+    genesisUtxo <- genesisUtxoM
+    let leaders0 = genesisLeaders genesisUtxo
+        -- [CSL-93] Use eligibility threshold here
+        richmen0 = findRichmenPure genesisUtxo (mkCoin 0)
+        genesisBlock0 = mkGenesisBlock Nothing 0 leaders0
+        initialTip = headerHash genesisBlock0
+    prepareBlockDB genesisBlock0
+    prepareGStateDB initialTip
+    prepareLrcDB @ssc
+    prepareMiscDB leaders0 richmen0
 
 -- | Get block corresponding to tip.
 getTipBlock

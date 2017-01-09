@@ -81,6 +81,7 @@ import           Control.Lens                  (Lens', LensLike', Magnified, Zoo
                                                 lensRules, magnify, zoom)
 import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
 import qualified Control.Monad                 as Monad (fail)
+import           Control.Monad.Trans.Resource  (ResourceT)
 import           Control.TimeWarp.Rpc          (Dialog (..), Message (messageName),
                                                 MessageName, ResponseT (..),
                                                 Transfer (..))
@@ -451,6 +452,9 @@ deriving instance MonadFail m => MonadFail (LoggerNameBox m)
 
 instance MonadFail TimedIO where
     fail = Monad.fail
+
+instance MonadFail m => MonadFail (ResourceT m) where
+    fail = lift . fail
 
 clearMVar :: MonadIO m => MVar a -> m ()
 clearMVar = liftIO . void . tryTakeMVar

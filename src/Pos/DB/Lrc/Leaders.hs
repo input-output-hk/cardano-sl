@@ -19,6 +19,7 @@ import           Universum
 
 import           Pos.Binary.Class  (encodeStrict)
 import           Pos.Binary.Types  ()
+import           Pos.Context       (WithNodeContext, genesisLeadersM)
 import           Pos.DB.Class      (MonadDB)
 import           Pos.DB.Lrc.Common (getBi, putBi)
 import           Pos.Types         (EpochIndex, SlotLeaders)
@@ -43,9 +44,9 @@ putLeaders epoch = putBi (leadersKey epoch)
 
 prepareLrcLeaders
     :: forall ssc m.
-       MonadDB ssc m
+       (WithNodeContext ssc m, MonadDB ssc m)
     => m ()
-prepareLrcLeaders = putIfEmpty (getLeaders 0) (putLeaders 0 undefined)
+prepareLrcLeaders = putIfEmpty (getLeaders 0) (putLeaders 0 =<< genesisLeadersM)
   where
     putIfEmpty
         :: forall a.

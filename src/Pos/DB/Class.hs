@@ -10,17 +10,19 @@ module Pos.DB.Class
        , getMiscDB
        ) where
 
-import           Control.Lens         (ASetter', view)
-import           Control.Monad.Except (ExceptT (..), mapExceptT)
-import           Control.Monad.State  (StateT (..), get)
-import           Control.TimeWarp.Rpc (ResponseT (..))
-import qualified Database.RocksDB     as Rocks
+import           Control.Lens                 (ASetter', view)
+import           Control.Monad.Except         (ExceptT (..), mapExceptT)
+import           Control.Monad.State          (StateT (..), get)
+import           Control.Monad.Trans.Resource (ResourceT, transResourceT)
+import           Control.TimeWarp.Rpc         (ResponseT (..))
+import qualified Database.RocksDB             as Rocks
 import           Universum
 
-import           Pos.DB.Types         (DB, NodeDBs, blockDB, gStateDB, lrcDB, miscDB)
-import           Pos.DHT.Model        (DHTResponseT (..))
-import           Pos.DHT.Real         (KademliaDHT (..))
-import           Pos.Util.Iterator    (ListHolderT (..))
+import           Pos.DB.Types                 (DB, NodeDBs, blockDB, gStateDB, lrcDB,
+                                               miscDB)
+import           Pos.DHT.Model                (DHTResponseT (..))
+import           Pos.DHT.Real                 (KademliaDHT (..))
+import           Pos.Util.Iterator            (ListHolderT (..))
 
 -- TODO write a documentation. LensLike' is just a lens. Written using
 -- LensLike' to avoid rankntypes.
@@ -59,6 +61,11 @@ instance (MonadDB ssc m) => MonadDB ssc (StateT a m) where
         get >>= lift . usingReadOptions how l . evalStateT m
     usingWriteOptions how l m =
         get >>= lift . usingWriteOptions how l . evalStateT m
+
+instance (MonadDB ssc m) => MonadDB ssc (ResourceT m) where
+    getNodeDBs = lift getNodeDBs
+    usingReadOptions how l = transResourceT (usingReadOptions how l)
+    usingWriteOptions how l = transResourceT (usingWriteOptions how l)
 
 deriving instance (MonadDB ssc m) => MonadDB ssc (ResponseT s m)
 deriving instance (MonadDB ssc m) => MonadDB ssc (KademliaDHT m)

@@ -17,9 +17,15 @@ import           Pos.DHT.Model.Class  (DHTResponseT)
 import           Pos.DHT.Real         (KademliaDHT)
 import           Pos.Types            (EpochIndex, RichmenStake)
 
+-- | Encapsulation manipulation of SSC richmen.
+-- We store SSC richmen into database and inmemory.
 class Monad m => MonadSscRichmen m where
+    -- | Non-blocking write. Write value even if another value stored.
     writeSscRichmen   :: (EpochIndex, RichmenStake) -> m ()
+    -- | Wait data for the specified epoch and return it
     readSscRichmen    :: EpochIndex -> m RichmenStake
+    -- | Non-blocking tryRead, returns Just if data is presented
+    -- Nothing otherwise.
     tryReadSscRichmen :: m (Maybe (EpochIndex, RichmenStake))
 
     default readSscRichmen :: (MonadTrans t, MonadSscRichmen m', t m' ~ m) => EpochIndex -> m RichmenStake
@@ -31,9 +37,11 @@ class Monad m => MonadSscRichmen m where
     default tryReadSscRichmen :: (MonadTrans t, MonadSscRichmen m', t m' ~ m) => m (Maybe (EpochIndex, RichmenStake))
     tryReadSscRichmen = lift tryReadSscRichmen
 
+-- | Check that SSC richmen cache empty
 isEmptySscRichmen :: MonadSscRichmen m => m Bool
 isEmptySscRichmen = isJust <$> tryReadSscRichmen
 
+-- | Returns Just if presented data corresponds to the specified epoch.
 tryReadSscRichmenEpoch :: MonadSscRichmen m => EpochIndex -> m (Maybe RichmenStake)
 tryReadSscRichmenEpoch epoch = do
     dt <- tryReadSscRichmen

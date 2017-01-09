@@ -1317,13 +1317,20 @@ derive makeNFData ''Tx
 ----------------------------------------------------------------------------
 -- Richmen and LRC stuff
 ----------------------------------------------------------------------------
+-- | Datatype for LRC computation client.
+-- If you want to compute richmen, you should add such client to LRC framework
 data LrcConsumer m = LrcConsumer
     {
       lcThreshold         :: Coin -> Coin
+    -- ^ Function which defines threshold depends on total stake
     , lcIfNeedCompute     :: SlotId -> m Bool
+    -- ^ Function which defines necessity of richmen computation
     , lcComputedCallback  :: SlotId -> Coin -> RichmenStake -> m ()
+    -- ^ Callback which will be called when richmen computed
     , lcClearCallback     :: m ()
+    -- ^ Callback which will be called slot >= k
     , lcConsiderDelegated :: Bool
+    -- Delegated or usual richmen should be computed
     }
 
 -- | Read until value's epoch equal expEpoch.

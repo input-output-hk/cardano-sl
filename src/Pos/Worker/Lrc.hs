@@ -21,8 +21,7 @@ import           Pos.Block.Logic          (applyBlocks, rollbackBlocks, withBlkS
 import           Pos.Constants            (k)
 import           Pos.Context              (isLeadersComputed, readLeadersEager,
                                            writeLeaders)
-import           Pos.DB                   (getTotalFtsStake, iterateByStake, iterateByTx,
-                                           loadBlocksFromTipWhile, putLeaders)
+import qualified Pos.DB                   as DB
 import           Pos.FollowTheSatoshi     (followTheSatoshiM)
 import           Pos.Richmen              (allLrcConsumers, findAllRichmenMaybe)
 import           Pos.Slotting             (onNewSlot)
@@ -55,7 +54,7 @@ lrcOnNewSlotImpl consumers slotId@SlotId{..}
 lrcDo :: WorkMode ssc m
       => SlotId -> [LrcConsumer m] -> HeaderHash ssc -> m (HeaderHash ssc)
 lrcDo slotId consumers tip = tip <$ do
-    blockUndoList <- loadBlocksFromTipWhile whileMoreOrEq5k
+    blockUndoList <- DB.loadBlocksFromTipWhile whileMoreOrEq5k
     when (null blockUndoList) $
         panic "No one block hasn't been generated during last k slots"
     let blockUndos = NE.fromList blockUndoList
@@ -71,23 +70,23 @@ leadersComputationDo :: WorkMode ssc m => SlotId -> m ()
 leadersComputationDo SlotId {siEpoch = epochId} = do
     unlessM (isLeadersComputed epochId) $ do
         mbSeed <- sscCalculateSeed epochId
-        totalStake <- getTotalFtsStake
+        totalStake <- DB.getTotalFtsStake
         leaders <-
             case mbSeed of
                 Left e     -> panic $ sformat ("SSC couldn't compute seed: "%build) e
-                Right seed -> iterateByTx (followTheSatoshiM seed totalStake) snd
-        writeLeaders epochId leaders
+                Right seed -> DB.iterateByTx (followTheSatoshiM seed totalStake) snd
+        writeLeaders (epochId, leaders)
     (epoch, leaders) <- readLeadersEager
-    putLeaders epoch leaders
+    DB.putLeaders (epoch, leaders)
 
 richmenComputationDo :: forall ssc m . WorkMode ssc m
     => SlotId -> [LrcConsumer m] -> m ()
 richmenComputationDo slotId consumers = unless (null consumers) $ do
     -- [CSL-93] Use eligibility threshold here
-    total <- getTotalFtsStake
+    total <- DB.getTotalFtsStake
     let minThreshold = safeThreshold total (not . lcConsiderDelegated)
     let minThresholdD = safeThreshold total lcConsiderDelegated
-    (richmen, richmenD) <- iterateByStake
+    (richmen, richmenD) <- DB.iterateByStake
                                (findAllRichmenMaybe @ssc minThreshold minThresholdD)
                                identity
     let callCallback cons = fork_ $

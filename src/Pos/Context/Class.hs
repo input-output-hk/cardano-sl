@@ -26,6 +26,7 @@ import           Pos.DHT.Model           (DHTResponseT)
 import           Pos.DHT.Real            (KademliaDHT)
 import           Pos.Types               (EpochIndex, HeaderHash, SlotLeaders,
                                           readUntilEpochMVar)
+import           Pos.Util                (forcePutMVar)
 
 -- | Class for something that has 'NodeContext' inside.
 class WithNodeContext ssc m | m -> ssc where
@@ -85,15 +86,16 @@ tryReadLeaders
     => m (Maybe (EpochIndex, SlotLeaders))
 tryReadLeaders = getNodeContext >>= liftIO . tryReadMVar . ncSscLeaders
 
--- | Put leaders into MVar, assuming it's empty.
+-- | Force put leaders into MVar.
 writeLeaders
     :: (MonadIO m, WithNodeContext ssc m)
-    => EpochIndex -> SlotLeaders -> m ()
-writeLeaders epoch leaders = getNodeContext >>=
-    liftIO . flip putMVar (epoch, leaders) . ncSscLeaders
+    => (EpochIndex, SlotLeaders) -> m ()
+writeLeaders el = getNodeContext >>= flip forcePutMVar el . ncSscLeaders
 
--- Epochs functions
+-- Function which using epoch as parameter
 
+-- | Wait until computation epoch equals expEpoch
+-- and return after that.
 readLeaders
     :: (MonadIO m, WithNodeContext ssc m)
     => EpochIndex -> m SlotLeaders
@@ -101,13 +103,16 @@ readLeaders expEpoch = do
     nc <- getNodeContext
     snd <$> readUntilEpochMVar (ncSscLeaders nc) expEpoch
 
+-- | Return Just if value is present and
+-- computation epoch equals expEpoch, Nothing otherwise.
 tryReadLeadersEpoch
     :: (MonadIO m, WithNodeContext ssc m)
     => EpochIndex -> m (Maybe SlotLeaders)
-tryReadLeadersEpoch epoch = do
+tryReadLeadersEpoch expEpoch = do
     dt <- tryReadLeaders
-    pure $ maybe Nothing (\(e, l) -> if e == epoch then Just l else Nothing) dt
+    pure $ maybe Nothing (\(e, l) -> if e == expEpoch then Just l else Nothing) dt
 
+-- | Returns True if leaders are computed for the specified epoch
 isLeadersComputed
     :: (MonadIO m, WithNodeContext ssc m)
     => EpochIndex -> m Bool

@@ -13,6 +13,7 @@ import           Pos.Types                (Coin, LrcConsumer (..), RichmenStake,
                                            RichmenStake, SlotId (..), mkCoin)
 import           Pos.WorkMode             (WorkMode)
 
+-- | Consumer will be called on every Richmen computation.
 gtLrcConsumer :: WorkMode SscGodTossing m => LrcConsumer m
 gtLrcConsumer = LrcConsumer
     {
@@ -24,6 +25,7 @@ gtLrcConsumer = LrcConsumer
     , lcConsiderDelegated = False
     }
 
+-- | Returns True if cached value isn't corresponds for current epoch
 ifNeed :: WorkMode SscGodTossing m => SlotId -> m Bool
 ifNeed SlotId{..} = do
     (epochIndex, richmen) <- DB.getGtRichmen
@@ -32,10 +34,12 @@ ifNeed SlotId{..} = do
     when needWrite $ writeSscRichmen (epochIndex, richmen)
     pure (siSlot < k && epochIndex < siEpoch)
 
+-- | Store computed value into DB and cache.
 onComputed :: WorkMode SscGodTossing m => SlotId -> Coin -> RichmenStake -> m ()
 onComputed SlotId{..} _ richmen = do
     DB.putGtRichmen (siEpoch, richmen)
     writeSscRichmen (siEpoch, richmen)
 
+-- | Do nothing on clear
 onClear :: WorkMode SscGodTossing m => m ()
 onClear = pass

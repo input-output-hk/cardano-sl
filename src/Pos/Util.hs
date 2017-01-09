@@ -63,6 +63,7 @@ module Pos.Util
 
        , eitherToVerRes
        , clearMVar
+       , forcePutMVar
 
        , NamedMessagePart (..)
        -- * Instances
@@ -453,3 +454,10 @@ instance MonadFail TimedIO where
 
 clearMVar :: MonadIO m => MVar a -> m ()
 clearMVar = liftIO . void . tryTakeMVar
+
+forcePutMVar :: MonadIO m => MVar a -> a -> m ()
+forcePutMVar mvar val = do
+    res <- liftIO $ tryPutMVar mvar val
+    unless res $ do
+        _ <- liftIO $ tryTakeMVar mvar
+        forcePutMVar mvar val

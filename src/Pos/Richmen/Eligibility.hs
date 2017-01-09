@@ -27,6 +27,10 @@ import           Pos.Util.Iterator        (MonadIterator (nextItem), runListHold
 
 type SetRichmen = HashSet StakeholderId
 
+-- | Function helper for delegated richmen.
+-- Iterate by Delegate -> [Issuer] map and compute two set:
+-- 1. Old richmen who delegated own stake and isn't richman more.
+-- 2. Delegates who became richmen.
 findDelegationStakes
     :: forall ssc m . (MonadDB ssc m
                       , MonadIterator m (StakeholderId, [StakeholderId]))
@@ -60,6 +64,8 @@ findDelegationStakes t = do
         pure (oldRichmen, newRichmen)
     safeBalance id = fromMaybe (mkCoin 0) <$> getFtsStake id
 
+-- | Find delegated richmen using precomputed usual richmen.
+-- Do it using one pass by delegation DB.
 findDelRichUsingPrecomp
     :: forall ssc m . (MonadDB ssc m, MonadMask m)
     => RichmenStake -> Coin -> m RichmenStake
@@ -67,7 +73,9 @@ findDelRichUsingPrecomp precomputed t = do
     delIssMap <- computeDelIssMap
     (old, new) <- runListHolderT @(StakeholderId, [StakeholderId])
                       (findDelegationStakes t) (HM.toList delIssMap)
-    pure (precomputed `HM.difference` (HS.toMap old) `HM.union` new)
+    -- attention: order of new and precomputed is important
+    -- we want to use new balances (computed from delegated) of precomputed richmen
+    pure (new `HM.union` (precomputed `HM.difference` (HS.toMap old)))
   where
     computeDelIssMap :: m (HashMap StakeholderId [StakeholderId])
     computeDelIssMap =
@@ -77,6 +85,7 @@ findDelRichUsingPrecomp precomputed t = do
         step (HM.insert del (iss:curList) hm))
     conv (IssuerPublicKey id, cert) = (id, addressHash (pskDelegatePk cert))
 
+-- | Find delegated richmen.
 findDelegatedRichmen
     :: (MonadDB ssc m, MonadMask m, MonadIterator m (StakeholderId, Coin))
     => Coin -> m RichmenStake
@@ -105,6 +114,8 @@ findRichmenStake t = step mempty
         if c >= t then HM.insert a c hm
         else hm
 
+-- | Function considers all variants of computation
+-- and compute using one pass by stake DB and one pass by delegation DB.
 findAllRichmenMaybe
     :: forall ssc m . (MonadDB ssc m, MonadMask m
                       , MonadIterator m (StakeholderId, Coin))

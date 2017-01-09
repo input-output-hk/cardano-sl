@@ -66,5 +66,5 @@ initLrc = do
     (epochIndex, leaders) <- DB.getLeaders
     (rEpochIndex, richmen) <- DB.getGtRichmen
     SlotId {..} <- getCurrentSlot
-    writeLeaders epochIndex leaders
+    writeLeaders (epochIndex, leaders)
     writeSscRichmen (rEpochIndex, richmen)

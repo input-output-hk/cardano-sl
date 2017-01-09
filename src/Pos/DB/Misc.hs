@@ -52,7 +52,7 @@ prepareMiscDB
     => SlotLeaders -> RichmenStake -> m ()
 prepareMiscDB leaders gtRichmen = do
     getBi @(LeadersStorage ssc) lrcKey >>=
-        maybe (putLeaders 0 leaders) (pure . const ())
+        maybe (putLeaders (0, leaders)) (pure . const ())
     getBi @(GtRichmenStorage ssc) gtRichmenKey >>=
         maybe (putGtRichmen (0, gtRichmen)) (pure . const ())
 
@@ -142,14 +142,9 @@ getLeaders =
 -- | Put SlotLeaders and Richmen for given epoch.
 putLeaders :: forall ssc m.
        (MonadDB ssc m)
-    => EpochIndex -> SlotLeaders -> m ()
-putLeaders epoch leaders =
-    putBi
-        lrcKey
-        LeadersStorage
-        { lrcEpoch = epoch
-        , lrcLeaders = leaders
-        }
+    => (EpochIndex, SlotLeaders) -> m ()
+putLeaders (lrcEpoch, lrcLeaders) =
+    putBi lrcKey LeadersStorage {..}
 
 getGtRichmen
     :: forall ssc m.
@@ -163,9 +158,7 @@ getGtRichmen =
 
 putGtRichmen :: MonadDB ssc m => (EpochIndex, RichmenStake) -> m ()
 putGtRichmen (gtRichmenEpoch, gtRichmen) =
-      putBi
-          gtRichmenKey
-          GtRichmenStorage {..}
+    putBi gtRichmenKey GtRichmenStorage {..}
 
 ----------------------------------------------------------------------------
 -- Helpers

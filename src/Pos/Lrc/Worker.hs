@@ -24,6 +24,7 @@ import           Pos.Context              (isLeadersComputed, readLeadersEager,
                                            writeLeaders)
 import qualified Pos.DB                   as DB
 import qualified Pos.DB.GState            as GS
+import           Pos.DB.Lrc               (putEpoch)
 import           Pos.Lrc.Consumer         (LrcConsumer (..))
 import           Pos.Lrc.Consumers        (allLrcConsumers)
 import           Pos.Lrc.Eligibility      (findAllRichmenMaybe)
@@ -65,6 +66,7 @@ lrcSingleShotImpl epoch consumers = do
     when (needComputeLeaders || needComputeLeaders) $ do
         logInfo $ "LRC computation is starting"
         withBlkSemaphore_ $ lrcDo epoch consumers
+        putEpoch epoch
         logInfo $ "LRC computation has finished"
 
 lrcDo

@@ -24,10 +24,10 @@ import           Pos.Context              (isLeadersComputed, readLeadersEager,
                                            writeLeaders)
 import qualified Pos.DB                   as DB
 import qualified Pos.DB.GState            as GS
+import           Pos.Lrc.Consumer         (LrcConsumer (..))
 import           Pos.Lrc.Consumers        (allLrcConsumers)
 import           Pos.Lrc.Eligibility      (findAllRichmenMaybe)
 import           Pos.Lrc.FollowTheSatoshi (followTheSatoshiM)
-import           Pos.Lrc.Types            (LrcConsumer (..))
 import           Pos.Slotting             (onNewSlot)
 import           Pos.Ssc.Class            (SscWorkersClass)
 import           Pos.Ssc.Extra            (sscCalculateSeed)

@@ -216,6 +216,7 @@ library
                         Pos.DHT.Model.Class.MonadMessageDHT
 
                         -- LRC
+                        Pos.Lrc.Consumer
                         Pos.Lrc.Consumers
                         Pos.Lrc.Eligibility
                         Pos.Lrc.Types

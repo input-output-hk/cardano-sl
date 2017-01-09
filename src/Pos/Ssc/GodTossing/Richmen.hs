@@ -5,7 +5,8 @@ module Pos.Ssc.GodTossing.Richmen
 import           Universum
 
 import qualified Pos.DB                   as DB
-import           Pos.Lrc.Types            (LrcConsumer (..), RichmenStake, RichmenStake)
+import           Pos.Lrc.Consumer         (LrcConsumer (..))
+import           Pos.Lrc.Types            (RichmenStake)
 import           Pos.Ssc.Extra.Richmen    (MonadSscRichmen (..), isEmptySscRichmen)
 import           Pos.Ssc.GodTossing.Types (SscGodTossing)
 import           Pos.Types                (Coin, EpochIndex, mkCoin)

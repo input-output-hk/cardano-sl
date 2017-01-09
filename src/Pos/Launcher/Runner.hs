@@ -67,17 +67,16 @@ import           Universum                          hiding (bracket)
 
 import           Pos.Binary                         ()
 
+import           Data.Tagged                        (untag)
 import           Pos.Block.Network.Server.Listeners (blockListeners)
 import           Pos.Communication.Server.Protocol  (protocolListeners)
 import           Pos.Delegation.Listeners           (delegationListeners)
-import           Pos.Txp.Listeners                  (txListeners)
 import           Pos.Ssc.Class.Listeners            (SscListenersClass, sscListeners)
-import           Data.Tagged                        (untag)
+import           Pos.Txp.Listeners                  (txListeners)
 
 import           Pos.CLI                            (readLoggerConfig)
 import           Pos.Communication                  (BiP (..), SysStartRequest (..),
-                                                     allListeners, forkStrategy,
-                                                     sysStartReqListener,
+                                                     allListeners, sysStartReqListener,
                                                      sysStartReqListenerSlave,
                                                      sysStartRespListener)
 import           Pos.Communication.PeerState        (runPeerStateHolder)
@@ -226,15 +225,7 @@ runProductionMode res np@NodeParams {..} sscnp action =
         \sendActions -> getNoStatsT . action $ hoistSendActions lift getNoStatsT sendActions
   where
     listeners = addDevListeners npSystemStart commonListeners
-    commonListeners = map mapper $ mconcat [ blockListeners
-                                           , protocolListeners
-                                           , delegationListeners
-                                           , txListeners
-                                           , untag sscListeners
-                                           ]
-    mapper = hoistListenerAction getNoStatsT lift
-    -- TODO [CSL-447] Uncomment
-    --noStatsListeners = map (mapListenerDHT getNoStatsT) (allListeners @ssc)
+    commonListeners = hoistListenerAction getNoStatsT lift <$> allListeners
 
 -- | StatsMode runner.
 -- [CSL-169]: spawn here additional listener, which would accept stat queries
@@ -250,15 +241,7 @@ runStatsMode
 runStatsMode res np@NodeParams {..} sscnp action = do
     statMap <- liftIO SM.newIO
     let listeners = addDevListeners npSystemStart commonListeners
-        commonListeners = map mapper $ mconcat [ blockListeners
-                                               , protocolListeners
-                                               , delegationListeners
-                                               , txListeners
-                                               , untag sscListeners
-                                               ]
-        mapper = hoistListenerAction (runStatsT' statMap) lift
-    -- [CSL-447] TODO uncomment
-    --mapM_ fork statsWorkers
+        commonListeners = hoistListenerAction (runStatsT' statMap) lift <$> allListeners
     runRawRealMode res np sscnp listeners $
         \sendActions -> do
             runStatsT' statMap . action $ hoistSendActions lift (runStatsT' statMap) sendActions

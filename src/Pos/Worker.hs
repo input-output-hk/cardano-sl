@@ -38,7 +38,7 @@ runWorkers :: (NewWorkMode ssc m) => SendActions BiP m -> m ()
 runWorkers sendActions = mapM_ fork $ concat
     [ [ onNewSlot' True $ onNewSlotWorkerImpl sendActions ]
     , blkWorkers sendActions
-    -- , untag sscWorkers
+    , untag sscWorkers
     -- , untag securityWorkers
     ]
 

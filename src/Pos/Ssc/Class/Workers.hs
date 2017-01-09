@@ -4,12 +4,13 @@ module Pos.Ssc.Class.Workers
        ( SscWorkersClass(..)
        ) where
 
-import           Data.Tagged         (Tagged)
+import           Data.Tagged           (Tagged)
 
-import           Pos.Ssc.Class.Types (Ssc (..))
-import           Pos.WorkMode        (WorkMode)
+import           Pos.Communication.BiP (BiP)
+import           Pos.Ssc.Class.Types   (Ssc (..))
+import           Pos.WorkMode          (NewWorkMode)
 
 -- | Class for @SSC@ workers.
 class Ssc ssc => SscWorkersClass ssc where
     -- | All workers specific to SSC.
-    sscWorkers :: WorkMode ssc m => Tagged ssc [m ()]
+    sscWorkers :: NewWorkMode ssc m => Tagged ssc [SendActions BiP m -> m ()]

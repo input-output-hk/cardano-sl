@@ -4,14 +4,16 @@ module Pos.Communication.Util
        ( modifyListenerLogger
        ) where
 
-import           System.Wlog   (HasLoggerName, LoggerName, modifyLoggerName)
+import           Node        (ListenerAction (..))
+import           System.Wlog (HasLoggerName, LoggerName, modifyLoggerName)
 import           Universum
 
-import           Pos.DHT.Model (ListenerDHT (..))
 
 -- | Append given logger name to the name used by listener.
 modifyListenerLogger
     :: (Monad m, HasLoggerName m)
-    => LoggerName -> ListenerDHT s m -> ListenerDHT s m
-modifyListenerLogger name (ListenerDHT listener) =
-    ListenerDHT $ \r -> modifyLoggerName (<> name) (listener r)
+    => LoggerName -> ListenerAction p m -> ListenerAction p m
+modifyListenerLogger name (ListenerActionOneMsg f) =
+    ListenerActionOneMsg $ \nId sA -> modifyLoggerName (<> name) . f nId sA
+modifyListenerLogger name (ListenerActionConversation f) =
+    ListenerActionConversation $ \nId -> modifyLoggerName (<> name) . f nId

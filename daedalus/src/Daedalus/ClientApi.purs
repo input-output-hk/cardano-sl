@@ -4,13 +4,14 @@ import Prelude
 import Daedalus.BackendApi as B
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (EXCEPTION)
+import Control.Monad.Eff.Ref (newRef, REF)
 import Control.Promise (Promise, fromAff)
 import Daedalus.Types (mkCAddress, mkCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency)
+import Daedalus.WS (WSConnection(WSNotConnected), mkWSState, ErrorCb, NotifyCb, openConn)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (encodeJson)
 import Data.Function.Uncurried (Fn2, mkFn2, Fn4, mkFn4, Fn3, mkFn3, Fn6, mkFn6)
 import Network.HTTP.Affjax (AJAX)
-import Pos.Wallet.Web.ClientTypes (NotifyEvent)
 import WebSocket (WEBSOCKET)
 
 getWallets :: forall eff. Eff(ajax :: AJAX | eff) (Promise Json)
@@ -54,10 +55,8 @@ deleteWallet = fromAff <<< B.deleteWallet <<< mkCAddress
 isValidAddress :: forall eff. Fn2 String String (Eff(ajax :: AJAX | eff) (Promise Boolean))
 isValidAddress = mkFn2 \currency -> fromAff <<< B.isValidAddress (mkCCurrency currency)
 
-
--- work in progress
-notify :: forall eff. Fn2
-  (NotifyEvent -> Eff () Unit)
-  (String -> Eff () Unit)
-  (Eff (ws :: WEBSOCKET, err :: EXCEPTION | eff) Unit)
-notify = mkFn2 \successCb errorCb -> pure unit
+notify :: forall eff. Fn2 (NotifyCb eff) (ErrorCb eff)
+    (Eff (ref :: REF, ws :: WEBSOCKET, err :: EXCEPTION | eff) Unit)
+notify = mkFn2 \messageCb errorCb -> do
+    conn <- newRef WSNotConnected
+    openConn $ mkWSState conn messageCb errorCb

@@ -67,6 +67,7 @@ import           Universum                          hiding (bracket)
 
 import           Pos.Binary                         ()
 import           Pos.Block.Network.Server.Listeners (blockListeners)
+import           Pos.Communication.Server.Protocol  (protocolListeners)
 import           Pos.CLI                            (readLoggerConfig)
 import           Pos.Communication                  (BiP (..), SysStartRequest (..),
                                                      allListeners, forkStrategy,
@@ -219,7 +220,7 @@ runProductionMode res np@NodeParams {..} sscnp action =
         \sendActions -> getNoStatsT . action $ hoistSendActions lift getNoStatsT sendActions
   where
     listeners = addDevListeners npSystemStart commonListeners
-    commonListeners = map mapper $ mconcat [blockListeners]
+    commonListeners = map mapper $ mconcat [blockListeners, protocolListeners]
     mapper = hoistListenerAction getNoStatsT lift
     -- TODO [CSL-447] Uncomment
     --noStatsListeners = map (mapListenerDHT getNoStatsT) (allListeners @ssc)
@@ -238,7 +239,7 @@ runStatsMode
 runStatsMode res np@NodeParams {..} sscnp action = do
     statMap <- liftIO SM.newIO
     let listeners = addDevListeners npSystemStart commonListeners
-        commonListeners = map mapper $ mconcat [blockListeners]
+        commonListeners = map mapper $ mconcat [blockListeners, protocolListeners]
         mapper = hoistListenerAction (runStatsT' statMap) lift
     -- [CSL-447] TODO uncomment
     --mapM_ fork statsWorkers

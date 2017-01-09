@@ -17,33 +17,25 @@ import           Universum
 
 import           Pos.Binary.Communication    ()
 import           Pos.Communication.Types     (ResponseMode, peerVersion)
+import           Pos.Communication.PeerState (getPeerState)
 import           Pos.Constants               (curProtocolVersion, protocolMagic)
 import           Pos.DHT.Model               (ListenerDHT (..), MonadDHTDialog,
                                               getUserState, replyToNode)
-import           Pos.WorkMode                (WorkMode)
+import           Pos.WorkMode                (NewWorkMode)
 import           Node                        (Listener(..), ListenerAction(..), sendTo,
                                               NodeId(..), SendActions(..))
 import           Message.Message             (BinaryP, messageName)
 import           Mockable.Monad              (MonadMockable(..))
 import           Pos.Communication.BiP       (BiP(..))
 import           Pos.Ssc.Class.Types         (Ssc(..))
+import           Mockable.SharedAtomic       (readSharedAtomic, modifySharedAtomic)
 
 protocolListeners
-    :: (MonadDHTDialog (MutPeerState ssc) m, WorkMode ssc m)
-    => [ListenerDHT (MutPeerState ssc) m]
-protocolListeners = notImplemented
-
-{-
-protocolListeners'
-    :: ( Typeable ssc
-       , Ssc ssc
-       , MonadDHTDialog (MutPeerState ssc) m
-       , ResponseMode ssc m
-       , MonadMockable m
-       , WorkMode ssc m
+    :: ( Ssc ssc
+       , NewWorkMode ssc m
        )
     => [ListenerAction BiP m]
-protocolListeners' =
+protocolListeners =
     [ handleVersionReq
     , handleVersionResp
     ]
@@ -51,12 +43,7 @@ protocolListeners' =
 -- | Handles a response to get current version
 handleVersionReq
     :: forall ssc m.
-       ( Typeable ssc
-       , Ssc ssc
-       , MonadMockable m
-       , ResponseMode ssc m
-       , WorkMode ssc m
-       )
+       (Ssc ssc, NewWorkMode ssc m)
     => ListenerAction BiP m
 handleVersionReq = ListenerActionOneMsg $
     \peerId sendActions VersionReq -> do
@@ -64,34 +51,30 @@ handleVersionReq = ListenerActionOneMsg $
         -- Retrieve version and respond with it
         sendTo sendActions peerId $ VersionResp protocolMagic curProtocolVersion
         -- Ask for the other side version also
-        stateVar <- getUserState
-        haveVersion <-
-            isJust . view peerVersion <$> atomically (readTVar stateVar)
+        peerState <- readSharedAtomic =<< getPeerState peerId
+        let haveVersion = isJust $ view peerVersion peerState
         unless haveVersion $ sendTo sendActions peerId $ VersionReq
 
 -- | Handles response on version request, just by overriding socket
 -- state `_peerVersion` parameter.
 handleVersionResp
     :: forall ssc m.
-       ( Typeable ssc
-       , Ssc ssc
-       , MonadMockable m
-       , ResponseMode ssc m
-       , WorkMode ssc m
-       )
+       (Ssc ssc, NewWorkMode ssc m)
     => ListenerAction BiP m
 handleVersionResp = ListenerActionOneMsg $
-    \_ _ resp@VersionResp{..} -> do
+    \peerId _ resp@VersionResp{..} -> do
         logDebug $ "Handling version response: " <> show resp
-        stateVar <- getUserState
+        -- peerState <- readSharedAtomic =<< getPeerState peerId
+        peerState <- getPeerState peerId
         if vRespMagic /= protocolMagic
         then do
             logWarning $ sformat ("Got VersionResp with magic "%build%
-                                  " that's not equal to ours "%build)
+                                 " that's not equal to ours "%build)
                                  vRespMagic protocolMagic
-             -- TODO ban node/close connection
-            atomically $ modifyTVar stateVar $ peerVersion .~ Nothing
+            -- TODO ban node/close connection
+            modifySharedAtomic peerState $ \st ->
+                return ((peerVersion .~ Nothing) st, ())
         else do
-            atomically $ modifyTVar stateVar $ peerVersion ?~ vRespProtocolVersion
+            modifySharedAtomic peerState $ \st ->
+                return ((peerVersion ?~ vRespProtocolVersion) st, ())
             logDebug "Successfully handled version response"
--}

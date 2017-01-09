@@ -20,7 +20,7 @@ instance Message VersionReq where
     messageName _ = "VersionReq"
     formatMessage = messageName'
 
-instance Typeable ssc => M.Message VersionReq where
+instance M.Message VersionReq where
     messageName _ = M.MessageName $ BC.pack "VersionReq"
     formatMessage _ = "VersionReq"
 
@@ -34,6 +34,6 @@ instance Message VersionResp where
     messageName _ = "VersionResp"
     formatMessage = messageName'
 
-instance Typeable ssc => M.Message VersionResp where
+instance M.Message VersionResp where
     messageName _ = M.MessageName $ BC.pack "VersionResp"
     formatMessage _ = "VersionResp"

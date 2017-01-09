@@ -11,7 +11,8 @@ import qualified Data.HashSet        as HS
 import           Mockable            (Mockable, Throw)
 import           Universum
 
-import           Pos.DB              (DB, getTxOutFromDB)
+import           Pos.DB              (DB)
+import           Pos.DB.GState       (getTxOutFromDB)
 import           Pos.Txp.Types.Types (UtxoView (..))
 import           Pos.Types           (TxIn (..), TxOutAux)
 

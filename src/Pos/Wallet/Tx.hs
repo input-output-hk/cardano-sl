@@ -33,7 +33,9 @@ submitTx
     -> [NetworkAddress]
     -> [TxOutAux]
     -> m (Either TxError TxAux)
-submitTx _ [] _ = logError "No addresses to send" >> fail "submitTx failed"
+submitTx _ [] _ = do
+    logError "No addresses to send"
+    return (Left "submitTx failed")
 submitTx sk na outputs = do
     utxo <- getOwnUtxo $ makePubKeyAddress $ toPublic sk
     runExceptT $ do

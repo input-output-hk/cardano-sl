@@ -4,6 +4,7 @@ module Pos.Context
        ( module Context
        ) where
 
-import           Pos.Context.Class   as Context
-import           Pos.Context.Context as Context
-import           Pos.Context.Holder  as Context
+import           Pos.Context.Class     as Context
+import           Pos.Context.Context   as Context
+import           Pos.Context.Functions as Context
+import           Pos.Context.Holder    as Context

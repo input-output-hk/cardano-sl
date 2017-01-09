@@ -12,9 +12,9 @@ import           Control.Lens                   (view, (^.), _1)
 import           Data.List.NonEmpty             (NonEmpty ((:|)), nonEmpty)
 import qualified Data.List.NonEmpty             as NE
 import           Formatting                     (build, sformat, stext, (%))
-import           Serokell.Util.Text             (listJson)
-import           System.Wlog                    (HasLoggerName, logDebug, logInfo,
-                                                 logWarning)
+import           Serokell.Util.Text             (listJson, listJsonIndent)
+import           System.Wlog                    (HasLoggerName, logDebug, logError,
+                                                 logInfo, logWarning)
 import           Universum
 
 import           Message.Message                (BinaryP, messageName)
@@ -255,11 +255,17 @@ applyWithoutRollback
 applyWithoutRollback sendActions blocks = do
     logDebug $ sformat ("Trying to apply blocks w/o rollback: "%listJson)
         (map (view blockHeader) blocks)
-    verRes <- verifyBlocks blocks
-    either
-        onFailedVerifyBlocks
-        (withBlkSemaphore_ . applyWithoutRollbackDo . NE.zip blocks)
-        verRes
+    verifyBlocks blocks >>= \case
+        Left err  -> onFailedVerifyBlocks err
+        Right ver -> do
+            logDebug "Verified blocks successfully, will apply them now"
+            when (length ver /= length blocks) $
+                logError $ sformat
+                    ("Length of verification results /= "%
+                     "length of block list, last blocks won't be applied\n"%
+                     "Verification results: "%listJsonIndent 4)
+                    ver
+            withBlkSemaphore_ . applyWithoutRollbackDo $ NE.zip blocks ver
     logDebug "Finished applying blocks w/o rollback"
   where
     oldestToApply = blocks ^. _neHead

@@ -25,10 +25,12 @@ import           Universum
 
 import           Pos.Binary.Class                     (Bi)
 import           Pos.Crypto                           (Share)
+import           Pos.Lrc.Types                        (Richmen)
 import           Pos.Ssc.Class.LocalData              (LocalQuery, LocalUpdate,
                                                        SscLocalDataClass (..))
 import           Pos.Ssc.Extra.MonadLD                (MonadSscLD)
-import           Pos.Ssc.GodTossing.Functions         (checkOpeningMatchesCommitment,
+import           Pos.Ssc.GodTossing.Functions         (checkCommShares,
+                                                       checkOpeningMatchesCommitment,
                                                        checkShares, isCommitmentIdx,
                                                        isOpeningIdx, isSharesIdx,
                                                        verifySignedCommitment)
@@ -46,7 +48,7 @@ import           Pos.Ssc.GodTossing.Types             (GtGlobalState (..), GtPay
                                                        SscBi, SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Base        (Commitment, Opening,
                                                        SignedCommitment, VssCertificate,
-                                                       VssCertificatesMap)
+                                                       VssCertificatesMap, vcVssKey)
 import           Pos.Ssc.GodTossing.Types.Message     (GtMsgContents (..), GtMsgTag (..))
 import qualified Pos.Ssc.GodTossing.VssCertData       as VCD
 import           Pos.Types                            (SlotId (..), StakeholderId)
@@ -165,32 +167,36 @@ sscIsDataUsefulSetImpl localG globalG addr =
 -- has been actually added.
 sscProcessMessage ::
        (MonadSscLD SscGodTossing m, SscBi)
-    => GtMsgContents -> StakeholderId -> m Bool
-sscProcessMessage dat addr = gtRunModify $ sscProcessMessageU dat addr
+    => Richmen -> GtMsgContents -> StakeholderId -> m Bool
+sscProcessMessage richmen msg = gtRunModify . sscProcessMessageU richmen msg
 
-sscProcessMessageU :: SscBi => GtMsgContents -> StakeholderId -> LDUpdate Bool
-sscProcessMessageU (MCCommitment comm)     addr = processCommitment addr comm
-sscProcessMessageU (MCOpening open)        addr = processOpening addr open
-sscProcessMessageU (MCShares shares)       addr = processShares addr shares
-sscProcessMessageU (MCVssCertificate cert) addr = processVssCertificate addr cert
+sscProcessMessageU :: SscBi => Richmen -> GtMsgContents -> StakeholderId -> LDUpdate Bool
+sscProcessMessageU richmen (MCCommitment comm) addr = processCommitment richmen addr comm
+sscProcessMessageU _ (MCOpening open)          addr = processOpening addr open
+sscProcessMessageU _ (MCShares shares)         addr = processShares addr shares
+sscProcessMessageU _ (MCVssCertificate cert)   addr = processVssCertificate addr cert
 
 processCommitment
     :: Bi Commitment
-    => StakeholderId
+    => Richmen
+    -> StakeholderId
     -> SignedCommitment
     -> LDUpdate Bool
-processCommitment addr c = do
+processCommitment richmen addr c = do
     certs <- VCD.certs <$> use gtGlobalCertificates
+    let participants = certs `HM.intersection`
+                      (HM.fromList $ zip (toList richmen) (repeat ()))
+    let vssPublicKeys = HS.fromList $ map vcVssKey $ toList participants
+    let checks epochIndex vssCerts =
+            [ not . HM.member addr <$> view gtGlobalCommitments
+            , not . HM.member addr <$> view gtLocalCommitments
+            , pure $ addr `HM.member` vssCerts
+            , pure . isVerSuccess $ verifySignedCommitment addr epochIndex c
+            , pure $ checkCommShares vssPublicKeys c
+            ]
     epochIdx <- siEpoch <$> use gtLastProcessedSlot
     ok <- readerToState $ andM $ checks epochIdx certs
     ok <$ when ok (gtLocalCommitments %= HM.insert addr c)
-  where
-    checks epochIndex certs =
-        [ not . HM.member addr <$> view gtGlobalCommitments
-        , not . HM.member addr <$> view gtLocalCommitments
-        , pure $ addr `HM.member` certs
-        , pure . isVerSuccess $ verifySignedCommitment addr epochIndex c
-        ]
 
 processOpening :: StakeholderId -> Opening -> LDUpdate Bool
 processOpening addr o = do

@@ -28,6 +28,7 @@ import qualified Pos.Context                   as PC
 import           Pos.Crypto                    (WithHash (..))
 import           Pos.DB                        (MonadDB)
 import qualified Pos.DB                        as DB
+import qualified Pos.DB.GState                 as GS
 import           Pos.Delegation                (DelegationT (..))
 import           Pos.NewDHT.Model              (MonadDHT)
 import           Pos.NewDHT.Real               (KademliaDHT (..))
@@ -43,6 +44,8 @@ import           Pos.Types                     (Address, Coin, Tx, TxAux, TxId, 
                                                 toPair, txOutValue)
 import           Pos.Types.Coin                (unsafeIntegerToCoin)
 import           Pos.Types.Utxo.Functions      (belongsTo, filterUtxoByAddr)
+import           Pos.Types.Utxo.Functions      (belongsTo, filterUtxoByAddr)
+import           Pos.Update                    (USHolder (..))
 import           Pos.Wallet.Context            (ContextHolder, WithWalletContext)
 import           Pos.Wallet.KeyStorage         (KeyStorage, MonadKeys)
 import           Pos.Wallet.State              (WalletDB)
@@ -71,6 +74,7 @@ instance MonadBalances m => MonadBalances (KeyStorage m)
 deriving instance MonadBalances m => MonadBalances (PC.ContextHolder ssc m)
 deriving instance MonadBalances m => MonadBalances (SscHolder ssc m)
 deriving instance MonadBalances m => MonadBalances (DelegationT m)
+deriving instance MonadBalances m => MonadBalances (USHolder m)
 
 -- | Instances of 'MonadBalances' for wallet's and node's DBs
 instance MonadIO m => MonadBalances (WalletDB m) where
@@ -78,7 +82,7 @@ instance MonadIO m => MonadBalances (WalletDB m) where
 
 instance (MonadDB ssc m, Mockable Throw m, Mockable Catch m, Mockable Bracket m) => MonadBalances (Modern.TxpLDHolder ssc m) where
     getOwnUtxo addr = do
-        utxo <- DB.getFilteredUtxo addr
+        utxo <- GS.getFilteredUtxo addr
         updates <- getUtxoView
         let toDel = delUtxo updates
             toAdd = HM.filter (`belongsTo` addr) $ addUtxo updates
@@ -106,6 +110,7 @@ instance MonadTxHistory m => MonadTxHistory (KeyStorage m)
 deriving instance MonadTxHistory m => MonadTxHistory (PC.ContextHolder ssc m)
 deriving instance MonadTxHistory m => MonadTxHistory (SscHolder ssc m)
 deriving instance MonadTxHistory m => MonadTxHistory (DelegationT m)
+deriving instance MonadTxHistory m => MonadTxHistory (USHolder m)
 
 -- | Instances of 'MonadTxHistory' for wallet's and node's DBs
 
@@ -123,8 +128,8 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
 instance (Ssc ssc, MonadDB ssc m, Mockable Throw m, MonadThrow m, WithLogger m)
          => MonadTxHistory (Modern.TxpLDHolder ssc m) where
     getTxHistory addr = do
-        bot <- DB.getBot
-        genUtxo <- filterUtxoByAddr addr <$> DB.getGenUtxo
+        bot <- GS.getBot
+        genUtxo <- filterUtxoByAddr addr <$> GS.getGenUtxo
 
         -- It's genesis hash at the very bottom already, so we don't look for txs there
         let getNextBlock h = runMaybeT $ do

@@ -17,11 +17,13 @@ import           Pos.Block.Worker       (blkWorkers)
 import           Pos.Communication      (BiP, SysStartResponse (..))
 import           Pos.Constants          (slotDuration, sysTimeBroadcastSlots)
 import           Pos.Context            (NodeContext (..), getNodeContext)
+import           Pos.Lrc.Worker         (lrcOnNewSlotWorker)
 import           Pos.NewDHT.Model       (sendToNeighbors)
 import           Pos.Security.Workers   (SecurityWorkersClass, securityWorkers)
 import           Pos.Slotting           (onNewSlot')
 import           Pos.Ssc.Class.Workers  (SscWorkersClass, sscWorkers)
 import           Pos.Types              (SlotId, flattenSlotId, slotIdF)
+import           Pos.Update             (usWorkers)
 import           Pos.Util               (waitRandomInterval')
 import           Pos.Worker.Stats       (statsWorkers)
 import           Pos.WorkMode           (NewWorkMode)
@@ -40,6 +42,8 @@ runWorkers sendActions = mapM_ fork $ map ($ sendActions) $ concat
     , blkWorkers
     , untag sscWorkers
     , untag securityWorkers
+    , [lrcOnNewSlotWorker]
+    , usWorkers
     ]
 
 onNewSlotWorkerImpl :: NewWorkMode ssc m => SendActions BiP m -> SlotId -> m ()

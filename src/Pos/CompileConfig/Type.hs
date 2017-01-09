@@ -6,8 +6,8 @@
 -}
 
 module Pos.CompileConfig.Type
-    ( CompileConfig (..)
-    ) where
+       ( CompileConfig (..)
+       ) where
 
 import           Data.String                (String)
 import           Language.Haskell.TH.Syntax (Lift)
@@ -47,4 +47,13 @@ data CompileConfig = CompileConfig
       -- ^ Servers for downloading application updates
     , ccMaxBlockProxySKs              :: !Int
       -- ^ Maximum number of PSKs allowed in block
+    , ccUpdateProposalThreshold       :: !Double
+      -- ^ Portion of total stake such that block containing
+      -- UpdateProposal must contain positive votes for this proposal
+      -- from stakeholders owning at least this amount of stake.
+    , ccUpdateVoteThreshold           :: !Double
+      -- ^ Portion of total stake necessary to vote for or against update.
+    , ccUpdateImplicitApproval        :: !Word
+      -- ^ Number of slots after which update is implicitly approved
+      -- unless it has more negative votes than positive.
     } deriving (Show, Lift)

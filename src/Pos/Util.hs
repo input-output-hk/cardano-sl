@@ -66,6 +66,11 @@ module Pos.Util
 
        , eitherToVerRes
 
+       -- * MVar
+       , clearMVar
+       , forcePutMVar
+       , readUntilEqualMVar
+
        , NamedMessagePart (..)
        -- * Instances
        -- ** SafeCopy (NonEmpty a)
@@ -82,6 +87,7 @@ import           Control.Lens                  (Lens', LensLike', Magnified, Zoo
                                                 lensRules, magnify, zoom)
 import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
 import qualified Control.Monad                 as Monad (fail)
+import           Control.Monad.Trans.Resource  (ResourceT)
 import           Control.TimeWarp.Rpc          (Dialog (..), Message (messageName),
                                                 MessageName, ResponseT (..),
                                                 Transfer (..))
@@ -479,3 +485,39 @@ deriving instance MonadFail m => MonadFail (LoggerNameBox m)
 
 instance MonadFail TimedIO where
     fail = Monad.fail
+
+instance MonadFail m => MonadFail (ResourceT m) where
+    fail = lift . fail
+
+----------------------------------------------------------------------------
+-- MVar utilities
+----------------------------------------------------------------------------
+
+clearMVar :: MonadIO m => MVar a -> m ()
+clearMVar = liftIO . void . tryTakeMVar
+
+forcePutMVar :: MonadIO m => MVar a -> a -> m ()
+forcePutMVar mvar val = do
+    res <- liftIO $ tryPutMVar mvar val
+    unless res $ do
+        _ <- liftIO $ tryTakeMVar mvar
+        forcePutMVar mvar val
+
+-- | Read until value is equal to stored value.
+-- Seems it works when value epoch doesn't decrease after every putMVar.
+-- Statement above is strange, because this function doesn't know about Ord.
+readUntilEqualMVar
+    :: (Eq a, MonadIO m)
+    => (x -> a) -> MVar x -> a -> m x
+readUntilEqualMVar f mvar expVal = do
+    rData <- liftIO . readMVar $ mvar -- first we try to read for optimization only
+    let valR = f rData
+    if valR == expVal then pure rData
+    else do
+        tData <- liftIO . takeMVar $ mvar -- now take data
+        let valT = f tData
+        if valT == expVal then do -- check again
+            _ <- liftIO $ tryPutMVar mvar tData -- try to put taken value
+            pure tData
+        else
+            readUntilEqualMVar f mvar expVal

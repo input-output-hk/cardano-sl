@@ -27,7 +27,7 @@ module Pos.Block.Logic
 
 import           Control.Lens              (view, (^.))
 import           Control.Monad.Catch       (onException)
-import           Control.Monad.Except      (ExceptT (ExceptT), runExceptT)
+import           Control.Monad.Except      (ExceptT (ExceptT), runExceptT, throwError)
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
 import           Data.Default              (Default (def))
 import qualified Data.HashMap.Strict       as HM
@@ -44,12 +44,16 @@ import           Pos.Constants             (curProtocolVersion, curSoftwareVersi
 import           Pos.Context               (NodeContext (ncSecretKey), getNodeContext,
                                             putBlkSemaphore, readBlkSemaphore,
                                             readLeaders, takeBlkSemaphore)
-import           Pos.Crypto                (ProxySecretKey, SecretKey,
-                                            WithHash (WithHash), hash, shortHashF)
+import           Pos.Crypto                (SecretKey, WithHash (WithHash), hash,
+                                            shortHashF)
 import           Pos.Data.Attributes       (mkAttributes)
-import           Pos.DB                    (MonadDB, getTipBlockHeader, loadHeadersWhile)
+import           Pos.DB                    (DBError (..), MonadDB, getTipBlockHeader,
+                                            loadHeadersWhile)
 import qualified Pos.DB                    as DB
-import           Pos.DB.Error              (DBError (..))
+import qualified Pos.DB.GState             as GS
+import           Pos.Delegation.Logic      (delegationApplyBlocks,
+                                            delegationRollbackBlocks,
+                                            delegationVerifyBlocks, getProxyMempool)
 import           Pos.Slotting              (getCurrentSlot)
 import           Pos.Ssc.Class             (Ssc (..))
 import           Pos.Ssc.Extra             (sscApplyBlocks, sscApplyGlobalState,
@@ -61,8 +65,9 @@ import           Pos.Txp.Logic             (txApplyBlocks, txRollbackBlocks,
 import           Pos.Types                 (Block, BlockHeader, Blund, EpochIndex,
                                             EpochOrSlot (..), GenesisBlock, HeaderHash,
                                             MainBlock, MainExtraBodyData (..),
-                                            MainExtraHeaderData (..), SlotId (..), TxAux,
-                                            TxId, Undo, VerifyHeaderParams (..),
+                                            MainExtraHeaderData (..), ProxySKEither,
+                                            ProxySKSimple, SlotId (..), TxAux, TxId,
+                                            Undo (..), VerifyHeaderParams (..),
                                             blockHeader, difficultyL, epochOrSlot,
                                             flattenEpochOrSlot, genesisHash,
                                             getEpochOrSlot, headerHash, headerSlot,
@@ -72,7 +77,6 @@ import           Pos.Types                 (Block, BlockHeader, Blund, EpochInde
 import qualified Pos.Types                 as Types
 import           Pos.Util                  (inAssertMode)
 import           Pos.WorkMode              (NewWorkMode)
-
 
 -- | Result of single (new) header classification.
 data ClassifyHeaderRes
@@ -101,7 +105,7 @@ classifyNewHeader (Right header) = do
     -- First of all we check whether header is from current slot and
     -- ignore it if it's not.
     if curSlot == header ^. headerSlot
-        then classifyNewHeaderDo <$> DB.getTip <*> DB.getTipBlock
+        then classifyNewHeaderDo <$> GS.getTip <*> DB.getTipBlock
         else return $ CHUseless "header is not for current slot"
   where
     classifyNewHeaderDo tip tipBlock
@@ -192,7 +196,7 @@ getHeadersFromManyTo
     => [HeaderHash ssc] -> Maybe (HeaderHash ssc) -> m [BlockHeader ssc]
 getHeadersFromManyTo checkpoints startM = do
     validCheckpoints <- catMaybes <$> mapM DB.getBlockHeader checkpoints
-    tip <- DB.getTip
+    tip <- GS.getTip
     let startFrom = fromMaybe tip startM
         neq = (/=) `on` getEpochOrSlot
         whileCond bh _ = all (neq bh) validCheckpoints
@@ -212,7 +216,7 @@ getHeadersOlderExp
     :: (MonadDB ssc m, Ssc ssc)
     => Maybe (HeaderHash ssc) -> m [HeaderHash ssc]
 getHeadersOlderExp upto = do
-    tip <- DB.getTip
+    tip <- GS.getTip
     let upToReal = fromMaybe tip upto
         whileCond _ depth = depth <= k
     allHeaders <- reverse <$> loadHeadersWhile upToReal whileCond
@@ -280,13 +284,16 @@ verifyBlocks
     :: NewWorkMode ssc m
     => NonEmpty (Block ssc) -> m (Either Text (NonEmpty Undo))
 verifyBlocks blocks =
-    runExceptT $
-    do curSlot <- getCurrentSlot
+    runExceptT $ do
+       curSlot <- getCurrentSlot
        tipBlk <- lift DB.getTipBlock
        verResToMonadError formatAllErrors $
            Types.verifyBlocks (Just curSlot) (tipBlk <| blocks)
        verResToMonadError formatAllErrors =<< sscVerifyBlocks False blocks
-       ExceptT $ txVerifyBlocks blocks
+       txUndo <- ExceptT $ txVerifyBlocks blocks
+       pskUndo <- ExceptT $ delegationVerifyBlocks blocks
+       when (length txUndo /= length pskUndo) $ throwError "Aoeu! Placeholder!"
+       pure $ NE.map (uncurry Undo) $ NE.zip txUndo pskUndo
 
 -- | Run action acquiring lock on block application. Argument of
 -- action is an old tip, result is put as a new tip.
@@ -315,6 +322,7 @@ applyBlocks blunds = do
     let blks = fmap fst blunds
     -- Note: it's important to put blocks first
     mapM_ putToDB blunds
+    mapM_ GS.writeBatchGState =<< delegationApplyBlocks (map fst blunds)
     txApplyBlocks blunds
     sscApplyBlocks blks
     sscApplyGlobalState
@@ -327,6 +335,7 @@ applyBlocks blunds = do
 rollbackBlocks :: (NewWorkMode ssc m) => NonEmpty (Block ssc, Undo) -> m ()
 rollbackBlocks toRollback = do
     -- [CSL-378] Update sbInMain properly (in transaction)
+    mapM_ GS.writeBatchGState =<< delegationRollbackBlocks toRollback
     txRollbackBlocks toRollback
     forM_ (NE.toList toRollback) $
         \(blk,_) -> DB.setBlockInMainChain (hash $ blk ^. blockHeader) False
@@ -366,7 +375,7 @@ createGenesisBlockDo
        NewWorkMode ssc m
     => EpochIndex -> m (Maybe (GenesisBlock ssc))
 createGenesisBlockDo epoch = do
-    leaders <- readLeaders
+    leaders <- readLeaders epoch
     res <- withBlkSemaphore (createGenesisBlockCheckAgain leaders)
     res <$ inAssertMode (logDebug . sformat newTipFmt =<< readBlkSemaphore)
   where
@@ -382,7 +391,7 @@ createGenesisBlockDo epoch = do
         | shouldCreateGenesisBlock epoch (getEpochOrSlot tipHeader) = do
               let blk = mkGenesisBlock (Just tipHeader) epoch leaders
               let newTip = headerHash blk
-              applyBlocks (pure (Left blk, [])) $> (Just blk, newTip)
+              applyBlocks (pure (Left blk, Undo [] [])) $> (Just blk, newTip)
         | otherwise = pure (Nothing, tip)
 
 ----------------------------------------------------------------------------
@@ -398,7 +407,7 @@ createMainBlock
     :: forall ssc m.
        NewWorkMode ssc m
     => SlotId
-    -> Maybe (ProxySecretKey (EpochIndex, EpochIndex))
+    -> Maybe ProxySKEither
     -> m (Either Text (MainBlock ssc))
 createMainBlock sId pSk = withBlkSemaphore createMainBlockDo
   where
@@ -428,36 +437,38 @@ createMainBlockFinish
     :: forall ssc m.
        NewWorkMode ssc m
     => SlotId
-    -> Maybe (ProxySecretKey (EpochIndex, EpochIndex))
+    -> Maybe ProxySKEither
     -> BlockHeader ssc
     -> m (MainBlock ssc)
 createMainBlockFinish slotId pSk prevHeader = do
-    (localTxs, localUndo) <- getLocalTxsNUndo
+    (localTxs, txUndo) <- getLocalTxsNUndo
     sscData <- sscGetLocalPayload slotId
+    (localPSKs, pskUndo) <- getProxyMempool
     let panicTopsort = panic "Topology of local transactions is broken!"
     let convertTx (txId, (tx, _, _)) = WithHash tx txId
     let sortedTxs = fromMaybe panicTopsort $ topsortTxs convertTx localTxs
     sk <- ncSecretKey <$> getNodeContext
-    let blk = createMainBlockPure prevHeader sortedTxs pSk slotId sscData sk
+    let blk = createMainBlockPure prevHeader sortedTxs pSk slotId localPSKs sscData sk
     let prependToUndo undos tx =
             fromMaybe (panic "Undo for tx not found")
-                      (HM.lookup (fst tx) localUndo) : undos
-    let blockUndo = reverse $ foldl' prependToUndo [] localTxs
+                      (HM.lookup (fst tx) txUndo) : undos
+    let blockUndo = Undo (reverse $ foldl' prependToUndo [] localTxs) pskUndo
     blk <$ applyBlocks (pure (Right blk, blockUndo))
 
 createMainBlockPure
     :: Ssc ssc
     => BlockHeader ssc
     -> [(TxId, TxAux)]
-    -> Maybe (ProxySecretKey (EpochIndex, EpochIndex))
+    -> Maybe ProxySKEither
     -> SlotId
+    -> [ProxySKSimple]
     -> SscPayload ssc
     -> SecretKey
     -> MainBlock ssc
-createMainBlockPure prevHeader txs pSk sId sscData sk =
+createMainBlockPure prevHeader txs pSk sId psks sscData sk =
     mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
   where
     -- TODO [CSL-351] inlclude proposal, votes into block
     extraB = MainExtraBodyData (mkAttributes ()) Nothing []
     extraH = MainExtraHeaderData curProtocolVersion curSoftwareVersion (mkAttributes ())
-    body = mkMainBody (fmap snd txs) sscData []
+    body = mkMainBody (fmap snd txs) sscData psks

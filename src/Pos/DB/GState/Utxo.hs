@@ -17,7 +17,7 @@ module Pos.DB.GState.Utxo
        , prepareGStateUtxo
 
        -- * Iteration
-       , iterateByUtxo
+       , iterateByTx
        , runUtxoIterator
        , mapUtxoIterator
        , getFilteredUtxo
@@ -29,6 +29,7 @@ import           Mockable             (Bracket, Catch, Mockable, Throw)
 import           Universum
 
 import           Pos.Binary.Class     (encodeStrict)
+import           Pos.Binary.Types     ()
 import           Pos.DB.Class         (MonadDB, getUtxoDB)
 import           Pos.DB.DBIterator    (DBIterator, DBMapIterator, mapIterator,
                                        runIterator)
@@ -75,7 +76,7 @@ prepareGStateUtxo
     :: forall ssc m.
        MonadDB ssc m
     => Utxo -> m ()
-prepareGStateUtxo genesisUtxo = do
+prepareGStateUtxo genesisUtxo =
     putIfEmpty getGenUtxoMaybe putGenesisUtxo
   where
     putIfEmpty
@@ -95,13 +96,11 @@ putTxOut = putBi . txInKey
 -- Iteration
 ----------------------------------------------------------------------------
 
-iterateByUtxo
-    :: forall ssc m . (MonadDB ssc m, Mockable Throw m, Mockable Catch m, Mockable Bracket m)
-    => ((TxIn, TxOutAux) -> m ())
-    -> m ()
-iterateByUtxo callback = do
-    db <- getUtxoDB
-    traverseAllEntries db (pure ()) $ const $ curry callback
+type IterType = (TxIn, TxOutAux)
+
+iterateByTx :: forall v m ssc a . (MonadDB ssc m, Mockable Throw m, Mockable Catch m, Mockable Bracket m)
+                => DBMapIterator (IterType -> v) m a -> (IterType -> v) -> m a
+iterateByTx iter f = mapIterator @IterType @v iter f =<< getUtxoDB
 
 filterUtxo
     :: forall ssc m . (MonadDB ssc m, Mockable Throw m, Mockable Catch m, Mockable Bracket m)

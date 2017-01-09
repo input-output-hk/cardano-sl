@@ -44,10 +44,12 @@ import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.NewDHT.Model            (MonadDHT)
 import           Pos.NewDHT.Real             (KademliaDHT)
 import           Pos.Slotting                (MonadSlots (..))
+import           Pos.Ssc.Extra               (MonadSscRichmen)
 import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..))
 import           Pos.Statistics.StatEntry    (StatLabel (..))
 import           Pos.Txp.Class               (MonadTxpLD (..))
 import           Pos.Types                   (MonadUtxo, MonadUtxoRead)
+import           Pos.Update.MemState         (MonadUSMem)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 
@@ -83,8 +85,8 @@ newtype NoStatsT m a = NoStatsT
                 MonadDHT, MonadSlots, WithPeerState ssc,
                 MonadJL, CanLog,
                 MonadUtxoRead, MonadUtxo,
-                MonadTxpLD ssc, MonadSscGS ssc, MonadSscLD ssc,
-                WithNodeContext ssc, MonadDelegation)
+                MonadTxpLD ssc, MonadSscGS ssc, MonadSscLD ssc, MonadSscRichmen,
+                WithNodeContext ssc, MonadDelegation, MonadUSMem)
 
 deriving instance MonadDB ssc m => MonadDB ssc (NoStatsT m)
 
@@ -134,7 +136,8 @@ newtype StatsT m a = StatsT
                 MonadDHT, MonadSlots, WithPeerState ssc,
                 MonadTrans, MonadJL, CanLog,
                 MonadUtxoRead, MonadUtxo, MonadTxpLD ssc,
-                MonadSscGS ssc, MonadSscLD ssc, WithNodeContext ssc, MonadDelegation)
+                MonadSscGS ssc, MonadSscLD ssc, WithNodeContext ssc, MonadSscRichmen,
+                MonadDelegation, MonadUSMem)
 
 deriving instance MonadDB ssc m => MonadDB ssc (StatsT m)
 instance Monad m => WrappedM (StatsT m) where

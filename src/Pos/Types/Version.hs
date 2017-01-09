@@ -2,7 +2,11 @@
 
 module Pos.Types.Version
        (
+         -- * Protocol Version
          ProtocolVersion (..)
+       , canBeNextPV
+
+         -- * Software Version
        , SoftwareVersion (..)
        , ApplicationName (..)
        , mkApplicationName
@@ -14,7 +18,7 @@ import           Data.Hashable       (Hashable)
 import           Data.SafeCopy       (base, deriveSafeCopySimple)
 import qualified Data.Text           as T
 import qualified Data.Text.Buildable as Buildable
-import           Formatting          (bprint, build, shown, stext, (%))
+import           Formatting          (bprint, int, shown, stext, (%))
 import           Prelude             (show)
 import           Universum           hiding (show)
 
@@ -31,6 +35,22 @@ instance Show ProtocolVersion where
 
 instance Buildable ProtocolVersion where
     build = bprint shown
+
+-- | This function checks whether protocol version passed as the
+-- second argument can be approved after approval of protocol version
+-- passed as the first argument.
+canBeNextPV :: ProtocolVersion -> ProtocolVersion -> Bool
+canBeNextPV ProtocolVersion { pvMajor = oldMajor
+                            , pvMinor = oldMinor
+                            , pvAlt = oldAlt}
+            ProtocolVersion { pvMajor = newMajor
+                            , pvMinor = newMinor
+                            , pvAlt = newAlt}
+    | oldMajor /= newMajor = and [newMajor == oldMajor + 1, newMinor == 0]
+    | otherwise = or [ newMinor == oldMinor + 1 && newAlt == oldAlt + 1
+                     , newMinor == oldMinor + 1 && newAlt == oldAlt
+                     , newMinor == oldMinor && newAlt == oldAlt + 1
+                     ]
 
 instance Hashable ProtocolVersion
 
@@ -52,24 +72,17 @@ mkApplicationName appName
 -- | Software version.
 data SoftwareVersion = SoftwareVersion
     { svAppName :: ApplicationName
-    , svMajor   :: Word8
-    , svMinor   :: Word16
+    , svNumber  :: Word32
     }
   deriving (Eq, Generic, Ord, Typeable)
 
 instance Buildable SoftwareVersion where
     build SoftwareVersion {..} =
-      bprint (stext % ":" % build % "." % build)
-         (getApplicationName svAppName) svMajor svMinor
+      bprint (stext % ":" % int)
+         (getApplicationName svAppName) svNumber
 
 instance Show SoftwareVersion where
-    show SoftwareVersion {..} = mconcat
-        [ toString svAppName
-        , ":"
-        , show svMajor
-        , "."
-        , show svMinor
-        ]
+    show = toString . pretty
 
 instance Hashable SoftwareVersion
 

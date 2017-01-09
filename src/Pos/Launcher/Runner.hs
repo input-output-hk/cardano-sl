@@ -86,9 +86,11 @@ import qualified Pos.Constants                      as Const
 import           Pos.Context                        (ContextHolder (..), NodeContext (..),
                                                      runContextHolder)
 import           Pos.Crypto                         (createProxySecretKey, toPublic)
-import qualified Pos.DB                             as Modern
+import           Pos.DB                             (MonadDB (..), initNodeDBs,
+                                                     openNodeDBs, runDBHolder, _gStateDB)
 import           Pos.DB.Misc                        (addProxySecretKey)
 import           Pos.Delegation.Class               (runDelegationT)
+import           Pos.Genesis                        (genesisLeaders)
 import           Pos.Launcher.Param                 (BaseParams (..), LoggingParams (..),
                                                      NodeParams (..))
 import           Pos.NewDHT.Model                   (MonadDHT (..), sendToNeighbors)
@@ -96,7 +98,6 @@ import           Pos.NewDHT.Real                    (KademliaDHT, KademliaDHTIns
                                                      KademliaDHTInstanceConfig (..),
                                                      runKademliaDHT, startDHTInstance,
                                                      stopDHTInstance)
-
 import           Pos.Ssc.Class                      (SscConstraint, SscNodeContext,
                                                      SscParams, sscCreateNodeContext,
                                                      sscLoadGlobalState)
@@ -105,6 +106,7 @@ import           Pos.Statistics                     (getNoStatsT, runStatsT')
 import           Pos.Txp.Holder                     (runTxpLDHolder)
 import qualified Pos.Txp.Types.UtxoView             as UV
 import           Pos.Types                          (Timestamp (Timestamp), timestampF)
+import           Pos.Update.MemState                (runUSHolder)
 import           Pos.Util                           (runWithRandomIntervals')
 import           Pos.Util.UserSecret                (peekUserSecret, usKeys,
                                                      writeUserSecret)
@@ -174,16 +176,19 @@ runRawRealMode
 runRawRealMode res np@NodeParams {..} sscnp listeners action =
     usingLoggerName lpRunnerTag $ do
       -- TODO [CSL-447] Close resources?
-       modernDBs <- Modern.openNodeDBs npRebuildDb npDbPathM npCustomUtxo
-       initTip <- Modern.runDBHolder modernDBs Modern.getTip
-       initGS <- Modern.runDBHolder modernDBs (sscLoadGlobalState @ssc initTip)
        initNC <- sscCreateNodeContext @ssc sscnp
+       modernDBs <- openNodeDBs npRebuildDb npDbPathM
+       -- FIXME: initialization logic must be in scenario.
+       runDBHolder modernDBs . runCH np initNC $ initNodeDBs
+       initTip <- runDBHolder modernDBs getTip
+       initGS <- runDBHolder modernDBs (sscLoadGlobalState @ssc initTip)
        stateM <- liftIO SM.newIO
-       Modern.runDBHolder modernDBs .
+       runDBHolder modernDBs .
           runCH np initNC .
           flip runSscHolder initGS .
-          runTxpLDHolder (UV.createFromDB . Modern._utxoDB $ modernDBs) initTip .
+          runTxpLDHolder (UV.createFromDB . _gStateDB $ modernDBs) initTip .
           runDelegationT def .
+          runUSHolder .
           runKademliaDHT (rmDHT res) .
           runPeerStateHolder stateM .
           runServer (rmTransport res) listeners $
@@ -250,12 +255,11 @@ runStatsMode res np@NodeParams {..} sscnp action = do
 -- Lower level runners
 ----------------------------------------------------------------------------
 
-runCH :: (Modern.MonadDB ssc m, MonadFail m)
+runCH :: (MonadDB ssc m, MonadFail m)
       => NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
 runCH NodeParams {..} sscNodeContext act = do
     jlFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
     semaphore <- liftIO newEmptyMVar
-    sscRichmen <- liftIO newEmptyMVar
     sscLeaders <- liftIO newEmptyMVar
     userSecret <- peekUserSecret npKeyfilePath
 
@@ -279,6 +283,8 @@ runCH NodeParams {..} sscNodeContext act = do
             NodeContext
             { ncSystemStart = npSystemStart
             , ncSecretKey = primarySecretKey
+            , ncGenesisUtxo = npCustomUtxo
+            , ncGenesisLeaders = genesisLeaders npCustomUtxo
             , ncTimeLord = npTimeLord
             , ncJLFile = jlFile
             , ncDbPath = npDbPathM
@@ -287,7 +293,6 @@ runCH NodeParams {..} sscNodeContext act = do
             , ncAttackTargets = npAttackTargets
             , ncPropagation = npPropagation
             , ncBlkSemaphore = semaphore
-            , ncSscRichmen = sscRichmen
             , ncSscLeaders = sscLeaders
             , ncUserSecret = userSecretVar
             }

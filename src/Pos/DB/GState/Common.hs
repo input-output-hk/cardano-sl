@@ -4,16 +4,22 @@
 -- | Common functions used by different parts of GState DB.
 
 module Pos.DB.GState.Common
-       ( CommonOp (..)
-       , getTip
+       (
+         -- * Getters
+         getTip
        , getBot
 
+         -- * Initialization
        , prepareGStateCommon
 
+         -- * Helpers
        , getBi
        , putBi
        , delete
        , writeBatchGState
+
+         -- * Operations
+       , CommonOp (..)
        ) where
 
 import qualified Database.RocksDB as Rocks
@@ -52,13 +58,13 @@ writeBatchGState batch = rocksWriteBatch batch =<< getUtxoDB
 -- Common getters
 ----------------------------------------------------------------------------
 
--- | Get current TIP from Utxo DB.
-getTip :: (Mockable Throw m, MonadDB ssc m) => m (HeaderHash ssc)
-getTip = maybeThrow' (DBMalformed "no tip in Utxo DB") =<< getTipMaybe
+-- | Get current tip from GState DB.
+getTip :: (MonadDB ssc m) => m (HeaderHash ssc)
+getTip = maybeThrow' (DBMalformed "no tip in GState DB") =<< getTipMaybe
 
--- | Get the hash of the first genesis block from Utxo DB
-getBot :: (Mockable Throw m, MonadDB ssc m) => m (HeaderHash ssc)
-getBot = maybeThrow' (DBMalformed "no bot in Utxo DB") =<< getBotMaybe
+-- | Get the hash of the first genesis block from GState DB.
+getBot :: (MonadDB ssc m) => m (HeaderHash ssc)
+getBot = maybeThrow' (DBMalformed "no bot in GState DB") =<< getBotMaybe
 
 ----------------------------------------------------------------------------
 -- Common operations
@@ -104,10 +110,10 @@ botKey = "c/bot"
 ----------------------------------------------------------------------------
 
 getTipMaybe :: MonadDB ssc m => m (Maybe (HeaderHash ssc))
-getTipMaybe = getUtxoDB >>= rocksGetBi tipKey
+getTipMaybe = getBi tipKey
 
 getBotMaybe :: MonadDB ssc m => m (Maybe (HeaderHash ssc))
-getBotMaybe = getUtxoDB >>= rocksGetBi botKey
+getBotMaybe = getBi botKey
 
 putTip :: MonadDB ssc m => HeaderHash ssc -> m ()
 putTip = putBi tipKey

@@ -36,8 +36,9 @@ import           Pos.Aeson.Types                      ()
 import           Pos.Context                          (ContextHolder, NodeContext,
                                                        getNodeContext, ncPublicKey,
                                                        ncSscContext, runContextHolder,
-                                                       tryReadLeaders)
+                                                       tryReadLeadersEpoch)
 import qualified Pos.DB                               as DB
+import qualified Pos.DB.GState                        as GS
 import           Pos.Slotting                         (getCurrentSlot)
 import           Pos.Ssc.Class                        (SscConstraint)
 import           Pos.Ssc.GodTossing                   (SscGodTossing, getOpening,
@@ -49,7 +50,7 @@ import           Pos.Txp.Class                        (getLocalTxs, getTxpLDWrap
 import           Pos.Txp.Holder                       (TxpLDHolder, TxpLDWrap,
                                                        runTxpLDHolderReader)
 import           Pos.Types                            (EpochIndex (..), SharedSeed,
-                                                       SlotLeaders, siSlot)
+                                                       SlotId (..), SlotLeaders, siSlot)
 import           Pos.Util                             (fromBinaryM)
 import           Pos.Web.Api                          (BaseNodeApi, GodTossingApi,
                                                        GtNodeApi, baseNodeApi, gtNodeApi)
@@ -135,10 +136,12 @@ servantServerGT = flip enter (baseServantHandlers :<|> gtServantHandlers) <$>
 baseServantHandlers :: ServerT (BaseNodeApi ssc) (WebHandler ssc)
 baseServantHandlers =
     getCurrentSlot :<|> const getLeaders :<|> (ncPublicKey <$> getNodeContext) :<|>
-    DB.getTip :<|> getLocalTxsNum
+    GS.getTip :<|> getLocalTxsNum
 
 getLeaders :: WebHandler ssc SlotLeaders
-getLeaders = maybe (throw err) pure =<< tryReadLeaders
+getLeaders = do
+    SlotId{..} <- getCurrentSlot
+    maybe (throw err) pure =<< tryReadLeadersEpoch siEpoch
   where
     err = err404 { errBody = encodeUtf8 ("Leaders are not know for current epoch"::Text) }
 

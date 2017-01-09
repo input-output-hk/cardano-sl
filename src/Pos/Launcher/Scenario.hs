@@ -16,12 +16,13 @@ import           Universum
 import           Pos.Communication       (BiP)
 import           Pos.Constants           (k)
 import           Pos.Context             (NodeContext (..), getNodeContext,
-                                          ncPubKeyAddress, ncPublicKey, putLeaders,
-                                          putRichmen)
+                                          ncPubKeyAddress, ncPublicKey, writeLeaders)
 import qualified Pos.DB                  as DB
+import qualified Pos.DB.GState           as GS
 import           Pos.NewDHT.Model        (DHTNodeType (DHTFull), discoverPeers)
 import           Pos.Slotting            (getCurrentSlot)
 import           Pos.Ssc.Class           (SscConstraint)
+import           Pos.Ssc.Extra           (writeSscRichmen)
 import           Pos.Types               (SlotId (..), Timestamp (Timestamp), addressHash)
 import           Pos.Util                (inAssertMode)
 import           Pos.Worker              (runWorkers)
@@ -42,7 +43,6 @@ runNode plugins sendActions = do
 
     initSemaphore
     initLrc
---    initSsc
     waitSystemStart
     runWorkers sendActions
     mapM_ fork plugins
@@ -62,13 +62,13 @@ initSemaphore = do
     unlessM
         (liftIO $ isEmptyMVar semaphore)
         (logError "ncBlkSemaphore is not empty at the very beginning")
-    tip <- DB.getTip
+    tip <- GS.getTip
     liftIO $ putMVar semaphore tip
 
 initLrc :: NewWorkMode ssc m => m ()
 initLrc = do
-    (epochIndex, leaders, richmen) <- DB.getLrc
+    (epochIndex, leaders) <- DB.getLeaders
+    (rEpochIndex, richmen) <- DB.getGtRichmen
     SlotId {..} <- getCurrentSlot
-    when (siSlot < k && siEpoch == epochIndex) $ do
-        putLeaders leaders
-        putRichmen richmen
+    writeLeaders (epochIndex, leaders)
+    writeSscRichmen (rEpochIndex, richmen)

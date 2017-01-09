@@ -15,5 +15,10 @@ if [[ "$SSC_ALGO" != "" ]]; then
     ssc_algo=" --ssc-algo $SSC_ALGO "
 fi
 
+nc="3"
+if [[ "$NODE_COUNT" != "" ]]; then
+    nc="$NODE_COUNT"
+fi
+
 $(find_binary cardano-smart-generator) $(peer_config $i) $(logs smartgen$i.log) \
-                                       --flat-distr "(3, 100000)" $ssc_algo -i $i "$@"
+                                       --flat-distr "($nc, 100000)" $ssc_algo -i $i "$@"

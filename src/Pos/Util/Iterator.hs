@@ -1,13 +1,16 @@
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Pos.Util.Iterator
        (
          MonadIterator (..)
        , ListHolder
+       , ListHolderT (..)
        , runListHolder
+       , runListHolderT
        ) where
 
-import           Control.Monad.State (state)
+import           Control.Monad.State (StateT (..))
 import           Control.Monad.Trans (MonadTrans)
 import           Universum
 
@@ -32,18 +35,23 @@ class Monad m => MonadIterator m a where
 instance MonadIterator m a => MonadIterator (StateT s m) a
 
 -- | Encapsulation of list iterator.
-newtype ListHolder s a = ListHolder (State [s] a)
-    deriving (Functor, Applicative, Monad)
+newtype ListHolderT s m a = ListHolderT (StateT [s] m a)
+    deriving (Functor, Applicative, Monad, MonadThrow, MonadIO)
 
-instance MonadIterator (ListHolder a) a where
-    nextItem = ListHolder $ state $ \s->
+type ListHolder s a = ListHolderT s Identity a
+
+instance Monad m => MonadIterator (ListHolderT a m) a where
+    nextItem = ListHolderT $ StateT $ \s-> pure $
         case s of
             []     -> (Nothing, [])
             (x:xs) -> (Just x, xs)
-    curItem = ListHolder $ state $ \s->
+    curItem = ListHolderT $ StateT $ \s-> pure $
         case s of
             []      -> (Nothing, [])
             l@(x:_) -> (Just x, l)
 
-runListHolder :: ListHolder s a -> [s] -> a
-runListHolder (ListHolder s) = evalState s
+runListHolderT :: forall s m a . Monad m => ListHolderT s m a -> [s] -> m a
+runListHolderT (ListHolderT s) = evalStateT s
+
+runListHolder :: forall s a . ListHolder s a -> [s] -> a
+runListHolder (ListHolderT s) = evalState s

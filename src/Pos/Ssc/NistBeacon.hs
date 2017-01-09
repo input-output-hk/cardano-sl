@@ -57,7 +57,6 @@ instance Ssc SscNistBeacon where
     type SscParams      SscNistBeacon = ()
 
     mkSscProof = Tagged $ const ()
-    -- sscFilterPayload _ _ = ()
     sscCreateNodeContext _ = return ()
 
 instance SscHelpersClass SscNistBeacon where
@@ -65,6 +64,7 @@ instance SscHelpersClass SscNistBeacon where
 
 instance SscWorkersClass SscNistBeacon where
     sscWorkers = Tagged []
+    sscLrcConsumers = Tagged []
 
 instance SscListenersClass SscNistBeacon where
     sscListeners = Tagged []
@@ -77,7 +77,7 @@ instance SscStorageClass SscNistBeacon where
     sscLoadGlobalState _ = pure ()
     sscApplyBlocksM _ = pure ()
     sscRollbackM _ = pure ()
-    sscVerifyBlocksM _ _ = pure mempty
+    sscVerifyBlocksM _ _ _ = pure mempty
     sscCalculateSeedM =
         pure . Right . coerce . ByteArray.convert @_ @ByteString .
             Hash.hashlazy @SHA256 . encode

@@ -22,7 +22,7 @@ import           Pos.Communication.Server.SysStart
 import           Pos.Communication.Util            (modifyListenerLogger)
 import           Pos.Delegation.Listeners          (delegationListeners)
 import           Pos.DHT.Model                     (ListenerDHT, MonadDHTDialog)
-import           Pos.Ssc.Class.Listeners           (SscListenersClass, sscListeners)
+import           Pos.Ssc.Class.Listeners           (SscListenersClass (..))
 import           Pos.Txp.Listeners                 (txListeners)
 import           Pos.WorkMode                      (NewWorkMode)
 

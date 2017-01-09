@@ -7,7 +7,7 @@
 module Pos.Wallet.Web.Server.Sockets
        ( WalletWebSockets
        , WebWalletSockets
-       , MonadWalletWebSockets
+       , MonadWalletWebSockets (..)
        , ConnectionsVar
        , initWSConnection
        , notify
@@ -33,6 +33,7 @@ import           Pos.Wallet.Context         (WithWalletContext)
 import           Pos.Wallet.KeyStorage      (MonadKeys)
 import           Pos.Wallet.State           (MonadWalletDB)
 import           Pos.Wallet.WalletMode      (MonadBalances, MonadTxHistory)
+import           Pos.Wallet.Web.State       (MonadWalletWebDB)
 import           Serokell.Util.Lens         (WrappedM (..))
 import           System.Wlog                (CanLog, HasLoggerName)
 import           Universum
@@ -66,7 +67,7 @@ newtype WalletWebSockets m a = WalletWebSockets
                 MonadDHT, MonadMessageDHT s, MonadSlots,
                 WithDefaultMsgHeader, CanLog, MonadKeys, MonadBalances,
                 MonadTxHistory, WithNodeContext ssc,
-                Modern.MonadDB ssc, MonadTxpLD ssc)
+                Modern.MonadDB ssc, MonadTxpLD ssc, MonadWalletWebDB)
 
 instance Monad m => WrappedM (WalletWebSockets m) where
     type UnwrappedM (WalletWebSockets m) = ReaderT ConnectionsVar m

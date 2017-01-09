@@ -37,8 +37,9 @@ import           Pos.WorkMode                  (RawRealMode)
 import           Pos.Wallet.KeyStorage         (addSecretKey)
 import           Pos.Wallet.Web.Server.Methods (walletApplication, walletServeImpl,
                                                 walletServer)
-import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar, WalletWebSockets (..),
-                                                initWSConnection, runWalletWS)
+import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar,
+                                                MonadWalletWebSockets (..),
+                                                WalletWebSockets, runWalletWS)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletState,
                                                 WalletWebDB, runWalletWebDB)
 
@@ -95,10 +96,10 @@ nat :: SscConstraint ssc => WebHandler ssc (WebHandler ssc :~> Handler)
 nat = do
     wsConn <- getWalletWebSockets
     ws <- getWalletWebState
-    kctx <- lift getKademliaDHTCtx
+    kctx <- lift . lift $ getKademliaDHTCtx
     tlw <- getTxpLDWrap
-    ssc <- lift . lift . lift $ SscHolder ask
+    ssc <- lift . lift . lift . lift $ SscHolder ask
     nc <- getNodeContext
     modernDB <- Modern.getNodeDBs
-    cp <- lift . lift . lift . lift . lift . lift . lift $ getConnPool
+    cp <- lift . lift . lift . lift . lift . lift . lift . lift $ getConnPool
     return $ Nat (convertHandler kctx cp nc modernDB tlw ssc ws wsConn)

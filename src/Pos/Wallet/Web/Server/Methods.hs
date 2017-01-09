@@ -49,8 +49,10 @@ import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CHash
                                                 ctId, ctType, ctTypeMeta, mkCTx, mkCTxId,
                                                 txIdToCTxId)
 import           Pos.Wallet.Web.Error          (WalletError (..))
-import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets, WalletWebSockets,
-                                                WebWalletSockets, runWalletWS)
+import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
+                                                WalletWebSockets, WebWalletSockets,
+                                                closeWSConnection, initWSConnection,
+                                                runWalletWS, upgradeApplicationWS)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
                                                 addOnlyNewTxMeta, closeState,
                                                 createWallet, getTxMeta, getWalletHistory,
@@ -72,18 +74,20 @@ walletServeImpl
     -> Bool                            -- ^ Rebuild flag for acid-state
     -> Word16                          -- ^ Port to listen
     -> m ()
-walletServeImpl app daedalusDbPath dbRebuild port = bracket ((,) <$> openDB <*> openWS) (\(db, conn) -> closeDB db >>= closeWS conn) $ \(db, conn) ->
+walletServeImpl app daedalusDbPath dbRebuild port = bracket ((,) <$> openDB <*> initWS) (\(db, conn) -> closeDB db >> closeWS conn) $ \(db, conn) ->
     serveImpl (runWalletWebDB db $ runWalletWS conn app) port
   where openDB = openState dbRebuild daedalusDbPath
         closeDB = closeState
-        openWS = undefined
-        closeWS = undefined
+        initWS = initWSConnection
+        closeWS = closeWSConnection
 
 walletApplication
     :: WalletMode ssc m
     => WalletWebHandler m (Server WalletApi)
     -> WalletWebHandler m Application
-walletApplication serv = serv >>= return . serve walletApi
+walletApplication serv = do
+    wsConn <- getWalletWebSockets
+    serv >>= return . upgradeApplicationWS wsConn . serve walletApi
 
 walletServer
     :: WalletMode ssc m

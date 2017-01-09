@@ -45,7 +45,9 @@ import           Pos.Types             (Address (..), Coin, Tx, TxId, decodeText
 import           Pos.Types.Coin        (unsafeIntegerToCoin)
 
 -- Notifications
-data NotifyEvent = Test
+data NotifyEvent
+    = ConnectionOpened
+    | ConnectionClosed
     deriving (Show, Generic)
 
 -- | currencies handled by client

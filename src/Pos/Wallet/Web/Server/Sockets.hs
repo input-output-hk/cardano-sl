@@ -10,44 +10,65 @@ module Pos.Wallet.Web.Server.Sockets
        , MonadWalletWebSockets (..)
        , ConnectionsVar
        , initWSConnection
+       , closeWSConnection
+       , waitForConnection
+       , upgradeApplicationWS
        , notify
        , runWalletWS
        ) where
 
-import qualified Network.WebSockets         as WS
-import           Pos.Wallet.Web.ClientTypes (NotifyEvent)
+import qualified Network.WebSockets             as WS
+import           Pos.Wallet.Web.ClientTypes     (NotifyEvent (ConnectionClosed, ConnectionOpened))
 
-import           Control.Lens               (iso)
-import           Control.Monad.Trans        (MonadTrans (..))
-import           Control.TimeWarp.Rpc       (MonadDialog, MonadTransfer)
-import           Control.TimeWarp.Timed     (MonadTimed, ThreadId)
-import           Data.Aeson                 (encode)
-import           Pos.Aeson.ClientTypes      ()
-import           Pos.Context                (WithNodeContext)
-import qualified Pos.DB                     as Modern
-import           Pos.DHT.Model              (MonadDHT, MonadMessageDHT,
-                                             WithDefaultMsgHeader)
-import           Pos.Slotting               (MonadSlots)
-import           Pos.Txp.Class              (MonadTxpLD)
-import           Pos.Wallet.Context         (WithWalletContext)
-import           Pos.Wallet.KeyStorage      (MonadKeys)
-import           Pos.Wallet.State           (MonadWalletDB)
-import           Pos.Wallet.WalletMode      (MonadBalances, MonadTxHistory)
-import           Pos.Wallet.Web.State       (MonadWalletWebDB)
-import           Serokell.Util.Lens         (WrappedM (..))
-import           System.Wlog                (CanLog, HasLoggerName)
+import           Control.Lens                   (iso)
+import           Control.Monad.Trans            (MonadTrans (..))
+import           Control.TimeWarp.Rpc           (MonadDialog, MonadTransfer)
+import           Control.TimeWarp.Timed         (MonadTimed, ThreadId)
+import           Data.Aeson                     (encode)
+import           Network.Wai                    (Application)
+import           Network.Wai.Handler.WebSockets (websocketsOr)
+import           Pos.Aeson.ClientTypes          ()
+import           Pos.Context                    (WithNodeContext)
+import qualified Pos.DB                         as Modern
+import           Pos.DHT.Model                  (MonadDHT, MonadMessageDHT,
+                                                 WithDefaultMsgHeader)
+import           Pos.Slotting                   (MonadSlots)
+import           Pos.Txp.Class                  (MonadTxpLD)
+import           Pos.Wallet.Context             (WithWalletContext)
+import           Pos.Wallet.KeyStorage          (MonadKeys)
+import           Pos.Wallet.State               (MonadWalletDB)
+import           Pos.Wallet.WalletMode          (MonadBalances, MonadTxHistory)
+import           Pos.Wallet.Web.State           (MonadWalletWebDB)
+import           Serokell.Util.Lens             (WrappedM (..))
+import           System.Wlog                    (CanLog, HasLoggerName)
 import           Universum
 
 -- NODE: for now we are assuming only one client will be used. If there will be need for multiple clients we should extend and hold multiple connections here.
 -- We might add multiple clients when we add user profiles but I am not sure if we are planning on supporting more at all.
 type ConnectionsVar = MVar WS.Connection
 
-initWSConnection :: IO ConnectionsVar
-initWSConnection = newEmptyMVar
+initWSConnection :: MonadIO m => m ConnectionsVar
+initWSConnection = liftIO newEmptyMVar
+
+closeWSConnection :: MonadIO m => ConnectionsVar -> m ()
+closeWSConnection = flip sendClose ConnectionClosed
+
+waitForConnection :: ConnectionsVar -> WS.ServerApp
+waitForConnection conn = mempty <* swapMVar conn <=< WS.acceptRequest
+
+upgradeApplicationWS :: ConnectionsVar -> Application -> Application
+upgradeApplicationWS wsConn =
+    websocketsOr WS.defaultConnectionOptions $ \pending -> waitForConnection wsConn pending >> sendWS wsConn ConnectionOpened
+
+sendClose :: MonadIO m => ConnectionsVar -> NotifyEvent -> m ()
+sendClose = send WS.sendClose
 
 -- Sends notification msg to connected client. If there is no connection, notification msg will be ignored.
 sendWS :: MonadIO m => ConnectionsVar -> NotifyEvent -> m ()
-sendWS connVar msg = liftIO $ maybe mempty (flip WS.sendTextData msg) =<< tryReadMVar connVar
+sendWS = send WS.sendTextData
+
+send :: MonadIO m => (WS.Connection -> NotifyEvent -> IO ()) -> ConnectionsVar -> NotifyEvent -> m ()
+send f connVar msg = liftIO $ maybe mempty (flip f msg) =<< tryReadMVar connVar
 
 instance WS.WebSocketsData NotifyEvent where
     fromLazyByteString _ = panic "Attempt to deserialize NotifyEvent is illegal"

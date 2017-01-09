@@ -1,8 +1,6 @@
-{-# LANGUAGE AllowAmbiguousTypes  #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Instance of SscListenersClass
 
@@ -22,6 +20,8 @@ import           Mockable.Monad                         (MonadMockable (..))
 import           Node                                   (ListenerAction (..))
 import           Pos.Binary.Class                       (Bi)
 import           Pos.Binary.Crypto                      ()
+import           Pos.Binary.Relay                       ()
+import           Pos.Binary.Ssc                         ()
 import           Pos.Communication.BiP                  (BiP (..))
 import           Pos.Communication.Types                (ResponseMode)
 import           Pos.Context                            (WithNodeContext (getNodeContext))
@@ -51,11 +51,7 @@ import           Pos.Util.Relay                         (DataMsg, InvMsg, Relay 
 import           Pos.WorkMode                           (WorkMode)
 import           Pos.WorkMode                           (NewWorkMode)
 
-instance ( Bi (InvMsg StakeholderId GtMsgTag)
-         , Bi (ReqMsg StakeholderId GtMsgTag)
-         , Bi (DataMsg StakeholderId GtMsgContents)
-         ) =>
-         SscListenersClass SscGodTossing where
+instance SscListenersClass SscGodTossing where
     sscListeners =
         Tagged [ handleInvGt
                , handleReqGt
@@ -63,34 +59,26 @@ instance ( Bi (InvMsg StakeholderId GtMsgTag)
                ]
 
 handleInvGt
-    :: ( NewWorkMode SscGodTossing m
-       , Bi (InvMsg StakeholderId GtMsgTag)
-       , Bi (ReqMsg StakeholderId GtMsgTag)
-       )
+    :: NewWorkMode SscGodTossing m
     => ListenerAction BiP m
 handleInvGt = ListenerActionOneMsg $ \peerId sendActions (i :: InvMsg StakeholderId GtMsgTag) ->
     handleInvL i peerId sendActions
 
 handleReqGt
-    :: ( NewWorkMode SscGodTossing m
-       , Bi (ReqMsg StakeholderId GtMsgTag)
-       , Bi (DataMsg StakeholderId GtMsgContents)
-       )
+    :: NewWorkMode SscGodTossing m
     => ListenerAction BiP m
 handleReqGt = ListenerActionOneMsg $ \peerId sendActions (r :: ReqMsg StakeholderId GtMsgTag) ->
     handleReqL r peerId sendActions
 
 handleDataGt
-    :: ( NewWorkMode SscGodTossing m
-       , Bi (InvMsg StakeholderId GtMsgTag)
-       , Bi (DataMsg StakeholderId GtMsgContents)
-       )
+    :: NewWorkMode SscGodTossing m
     => ListenerAction BiP m
 handleDataGt = ListenerActionOneMsg $ \peerId sendActions (d :: DataMsg StakeholderId GtMsgContents) ->
     handleDataL d peerId sendActions
 
-instance ( NewWorkMode SscGodTossing m
-         ) => Relay m GtMsgTag StakeholderId GtMsgContents where
+instance NewWorkMode SscGodTossing m
+    => Relay m GtMsgTag StakeholderId GtMsgContents where
+
     contentsToTag = pure . msgContentsTag
 
     verifyInvTag tag =

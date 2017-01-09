@@ -66,9 +66,14 @@ import           System.Wlog                        (LoggerName (..), WithLogger
 import           Universum                          hiding (bracket)
 
 import           Pos.Binary                         ()
+
 import           Pos.Block.Network.Server.Listeners (blockListeners)
 import           Pos.Communication.Server.Protocol  (protocolListeners)
 import           Pos.Delegation.Listeners           (delegationListeners)
+import           Pos.Txp.Listeners                  (txListeners)
+import           Pos.Ssc.Class.Listeners            (SscListenersClass, sscListeners)
+import           Data.Tagged                        (untag)
+
 import           Pos.CLI                            (readLoggerConfig)
 import           Pos.Communication                  (BiP (..), SysStartRequest (..),
                                                      allListeners, forkStrategy,
@@ -210,7 +215,7 @@ runServer transport listeners action = do
 -- | ProductionMode runner.
 runProductionMode
     :: forall ssc a.
-       SscConstraint ssc
+       (SscConstraint ssc, SscListenersClass ssc)
     => RealModeResources
     -> NodeParams
     -> SscParams ssc
@@ -224,6 +229,8 @@ runProductionMode res np@NodeParams {..} sscnp action =
     commonListeners = map mapper $ mconcat [ blockListeners
                                            , protocolListeners
                                            , delegationListeners
+                                           , txListeners
+                                           , untag sscListeners
                                            ]
     mapper = hoistListenerAction getNoStatsT lift
     -- TODO [CSL-447] Uncomment
@@ -234,7 +241,7 @@ runProductionMode res np@NodeParams {..} sscnp action =
 -- can be done as part of refactoring (or someone who will refactor will create new issue).
 runStatsMode
     :: forall ssc a.
-       SscConstraint ssc
+       (SscConstraint ssc, SscListenersClass ssc)
     => RealModeResources
     -> NodeParams
     -> SscParams ssc
@@ -246,6 +253,8 @@ runStatsMode res np@NodeParams {..} sscnp action = do
         commonListeners = map mapper $ mconcat [ blockListeners
                                                , protocolListeners
                                                , delegationListeners
+                                               , txListeners
+                                               , untag sscListeners
                                                ]
         mapper = hoistListenerAction (runStatsT' statMap) lift
     -- [CSL-447] TODO uncomment

@@ -50,46 +50,25 @@ import           Pos.Ssc.Class.Types                    (Ssc (..))
 import           Mockable.Monad                         (MonadMockable (..))
 import           Node                                   (ListenerAction (..))
 import           Pos.Communication.BiP                  (BiP (..))
-import           Pos.Ssc.Extra.MonadLD                  (MonadSscLD(..))
 
-instance ( Bi VssCertificate
-         , Bi Opening
-         , Bi Commitment
-         , Bi GtPayload
-         , Bi GtProof
+instance ( MonadDHT m
+         , MonadMockable m
+         , NewWorkMode SscGodTossing m
          , Bi (InvMsg StakeholderId GtMsgTag)
          , Bi (ReqMsg StakeholderId GtMsgTag)
          , Bi (DataMsg StakeholderId GtMsgContents)
          ) =>
          SscListenersClass SscGodTossing where
     sscListeners =
-        Tagged notImplemented
-            --[ ListenerDHT handleInvGt
-            --, ListenerDHT handleReqGt
-            --, ListenerDHT handleDataGt
-            --]
-
-sscListeners'
-    :: ( MonadDHT m
-       , MonadMockable m
-       , NewWorkMode SscGodTossing m
-       , Bi (InvMsg StakeholderId GtMsgTag)
-       , Bi (ReqMsg StakeholderId GtMsgTag)
-       , Bi (DataMsg StakeholderId GtMsgContents)
-       )
-    => [ListenerAction BiP m]
-sscListeners' =
-    [ handleInvGt
-    , handleReqGt
-    , handleDataGt
-    ]
+        Tagged [ handleInvGt
+               , handleReqGt
+               , handleDataGt
+               ]
 
 handleInvGt
     :: ( NewWorkMode SscGodTossing m
        , Bi (InvMsg StakeholderId GtMsgTag)
        , Bi (ReqMsg StakeholderId GtMsgTag)
-       , Bi (DataMsg StakeholderId GtMsgContents)
-       , MonadSscLD SscGodTossing m
        )
     => ListenerAction BiP m
 handleInvGt = ListenerActionOneMsg $ \peerId sendActions (i :: InvMsg StakeholderId GtMsgTag) ->
@@ -97,10 +76,8 @@ handleInvGt = ListenerActionOneMsg $ \peerId sendActions (i :: InvMsg Stakeholde
 
 handleReqGt
     :: ( NewWorkMode SscGodTossing m
-       , Bi (InvMsg StakeholderId GtMsgTag)
        , Bi (ReqMsg StakeholderId GtMsgTag)
        , Bi (DataMsg StakeholderId GtMsgContents)
-       , MonadSscLD SscGodTossing m
        )
     => ListenerAction BiP m
 handleReqGt = ListenerActionOneMsg $ \peerId sendActions (r :: ReqMsg StakeholderId GtMsgTag) ->
@@ -109,9 +86,7 @@ handleReqGt = ListenerActionOneMsg $ \peerId sendActions (r :: ReqMsg Stakeholde
 handleDataGt
     :: ( NewWorkMode SscGodTossing m
        , Bi (InvMsg StakeholderId GtMsgTag)
-       , Bi (ReqMsg StakeholderId GtMsgTag)
        , Bi (DataMsg StakeholderId GtMsgContents)
-       , MonadSscLD SscGodTossing m
        )
     => ListenerAction BiP m
 handleDataGt = ListenerActionOneMsg $ \peerId sendActions (d :: DataMsg StakeholderId GtMsgContents) ->

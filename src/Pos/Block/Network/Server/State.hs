@@ -4,8 +4,8 @@
 -- | Socket state of block processing server.
 
 module Pos.Block.Network.Server.State
-       ( BlockSocketState
-       , HasBlockSocketState (blockSocketState)
+       ( BlockPeerState
+       , HasBlockPeerState (blockPeerState)
        , bssRequestedBlocks
 
        , recordHeadersRequest
@@ -30,8 +30,8 @@ import           Pos.Ssc.Class.Types     (Ssc)
 import           Pos.Types               (Block, BlockHeader, HeaderHash, headerHash,
                                           prevBlockL, verifyHeaders)
 
--- | SocketState used for Block server.
-data BlockSocketState ssc = BlockSocketState
+-- | PeerState used for Block server.
+data BlockPeerState ssc = BlockPeerState
     { -- | This field is filled when we request headers (sending
       -- `GetHeaders` message) and is invalidated when we receive
       -- corresponding 'Headers' message in response.
@@ -45,21 +45,21 @@ data BlockSocketState ssc = BlockSocketState
       _bssReceivedBlocks   :: ![Block ssc]
     }
 
--- | Classy lenses generated for BlockSocketState.
-makeClassy ''BlockSocketState
+-- | Classy lenses generated for BlockPeerState.
+makeClassy ''BlockPeerState
 
-instance Default (BlockSocketState ssc) where
+instance Default (BlockPeerState ssc) where
     def =
-        BlockSocketState
+        BlockPeerState
         { _bssRequestedHeaders = Nothing
         , _bssRequestedBlocks = Nothing
         , _bssReceivedBlocks = []
         }
 
--- | Record headers request in BlockSocketState. This function blocks
+-- | Record headers request in BlockPeerState. This function blocks
 -- if some headers are requsted already.
 recordHeadersRequest
-    :: (MonadIO m, HasBlockSocketState s ssc)
+    :: (MonadIO m, HasBlockPeerState s ssc)
     => MsgGetHeaders ssc -> TVar s -> m ()
 recordHeadersRequest msg var =
     atomically $
@@ -75,7 +75,7 @@ recordHeadersRequest msg var =
 -- state matches 'Headers' message, it's invalidated and 'True' is
 -- returned.
 matchRequestedHeaders
-    :: (Ssc ssc, MonadIO m, HasBlockSocketState s ssc)
+    :: (Ssc ssc, MonadIO m, HasBlockPeerState s ssc)
     => NonEmpty (BlockHeader ssc) -> TVar s -> m Bool
 matchRequestedHeaders headers@(newTip :| hs) var =
     atomically $
@@ -96,10 +96,10 @@ matchRequestedHeaders headers@(newTip :| hs) var =
                , formChain
                ]
 
--- | Record blocks request in BlockSocketState. This function blocks
+-- | Record blocks request in BlockPeerState. This function blocks
 -- if some blocks are requsted already.
 recordBlocksRequest
-    :: (MonadIO m, HasBlockSocketState s ssc)
+    :: (MonadIO m, HasBlockPeerState s ssc)
     => HeaderHash ssc -> HeaderHash ssc -> TVar s -> m ()
 recordBlocksRequest fromHash toHash var =
     atomically $
@@ -119,7 +119,7 @@ data ProcessBlockMsgRes ssc
 -- | Process 'Block' message received from peer.
 processBlockMsg
     :: forall m s ssc.
-       (Ssc ssc, MonadIO m, HasBlockSocketState s ssc)
+       (Ssc ssc, MonadIO m, HasBlockPeerState s ssc)
     => MsgBlock ssc -> TVar s -> m (ProcessBlockMsgRes ssc)
 processBlockMsg (MsgBlock blk) var =
     atomically $

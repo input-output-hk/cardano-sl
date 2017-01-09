@@ -17,7 +17,7 @@ import           Universum
 
 import           Pos.Binary.Communication  ()
 import           Pos.Communication.Methods (sendProxyConfirmSK, sendProxySecretKey)
-import           Pos.Communication.Types   (MutSocketState, ResponseMode)
+import           Pos.Communication.Types   (MutPeerState, ResponseMode)
 import           Pos.Context               (getNodeContext, ncPropagation, ncSecretKey)
 import           Pos.Crypto                (proxySign)
 import           Pos.Delegation.Logic      (ConfirmPSKVerdict (..), PSKVerdict (..),
@@ -34,8 +34,8 @@ import           Pos.WorkMode              (WorkMode)
 
 -- | Listeners for requests related to delegation processing.
 delegationListeners
-    :: (MonadDHTDialog (MutSocketState ssc) m, WorkMode ssc m)
-    => [ListenerDHT (MutSocketState ssc) m]
+    :: (MonadDHTDialog (MutPeerState ssc) m, WorkMode ssc m)
+    => [ListenerDHT (MutPeerState ssc) m]
 delegationListeners = notImplemented
     --[ ListenerDHT handleSendProxySK
     --, ListenerDHT handleConfirmProxySK

@@ -16,7 +16,7 @@ import           Servant.Utils.Enter           ((:~>) (..))
 import           System.Wlog                   (logInfo)
 import           Universum
 
-import           Pos.Communication             (MutSocketState, newMutSocketState)
+import           Pos.Communication             (MutPeerState, newMutPeerState)
 import           Pos.Context                   (ContextHolder, NodeContext,
                                                 getNodeContext, runContextHolder)
 import qualified Pos.DB                        as Modern
@@ -60,9 +60,9 @@ walletServeWebFull = notImplemented
 --     Modern.DBHolder ssc (
 --     Dialog DHTPacking (
 --     Transfer (
---     MutSocketState ssc)))))))
+--     MutPeerState ssc)))))))
 --
--- type CPool ssc = TVar (ConnectionPool (MutSocketState ssc))
+-- type CPool ssc = TVar (ConnectionPool (MutPeerState ssc))
 --
 -- convertHandler
 --     :: forall ssc a .
@@ -77,7 +77,7 @@ walletServeWebFull = notImplemented
 --     -> WebHandler ssc a
 --     -> Handler a
 -- convertHandler kctx cp nc modernDBs tlw ssc ws delWrap handler = do
---     liftIO (runOurDialogRaw cp newMutSocketState "wallet-api" .
+--     liftIO (runOurDialogRaw cp newMutPeerState "wallet-api" .
 --             Modern.runDBHolder modernDBs .
 --             runContextHolder nc .
 --             runSscHolderRaw ssc .

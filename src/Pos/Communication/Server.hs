@@ -22,7 +22,7 @@ import           Pos.Binary.Communication          ()
 import           Pos.Block.Network.Server          (blkForkStrategy)
 import           Pos.Communication.Server.Protocol (protocolListeners)
 import           Pos.Communication.Server.SysStart
-import           Pos.Communication.Types           (MutSocketState)
+import           Pos.Communication.Types           (MutPeerState)
 import           Pos.Communication.Util            (modifyListenerLogger)
 import           Pos.Delegation.Listeners          (delegationListeners)
 import           Pos.DHT.Model                     (ListenerDHT, MonadDHTDialog)
@@ -32,8 +32,8 @@ import           Pos.WorkMode                      (WorkMode)
 
 -- | All listeners running on one node.
 allListeners
-    :: (SscListenersClass ssc, MonadDHTDialog (MutSocketState ssc) m, WorkMode ssc m)
-    => [ListenerDHT (MutSocketState ssc) m]
+    :: (SscListenersClass ssc, MonadDHTDialog (MutPeerState ssc) m, WorkMode ssc m)
+    => [ListenerDHT (MutPeerState ssc) m]
 allListeners = notImplemented
 -- TODO [CSL-447] Uncomment
     --map (modifyListenerLogger serverLoggerName) $

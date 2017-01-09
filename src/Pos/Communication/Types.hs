@@ -13,7 +13,7 @@ module Pos.Communication.Types
 import           Control.TimeWarp.Rpc             (MessageName, messageName)
 import           Data.Proxy                       (Proxy (..))
 
-import           Pos.Communication.Types.State    (MutSocketState)
+import           Pos.Communication.Types.State    (MutPeerState)
 import qualified Pos.Communication.Types.SysStart as SysStart
 import           Pos.DHT.Model                    (MonadResponseDHT)
 import           Pos.WorkMode                     (WorkMode)
@@ -26,4 +26,4 @@ import           Pos.Txp.Types.Communication      as Export
 -- [CSL-447] Remove ResponseMode
 -- | Constraint alias for 'WorkMode' with 'MonadResponseDHT'.
 type ResponseMode ssc m =
-    (WorkMode ssc m, MonadResponseDHT (MutSocketState ssc) m)
+    (WorkMode ssc m, MonadResponseDHT (MutPeerState ssc) m)

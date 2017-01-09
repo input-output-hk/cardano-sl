@@ -23,7 +23,7 @@ import           Mockable                      (Bracket, Catch, Mockable, MonadM
 import           System.Wlog                   (LoggerNameBox, WithLogger)
 import           Universum
 
-import           Pos.Communication.Types.State (MutSocketState)
+import           Pos.Communication.Types.State (MutPeerState)
 import qualified Pos.Context                   as PC
 import           Pos.Crypto                    (WithHash (..))
 import           Pos.DB                        (MonadDB)
@@ -173,7 +173,7 @@ deriving instance (Monad m, WithWalletContext m) => WithWalletContext (KademliaD
 ---------------------------------------------------------------
 -- Implementations of 'WalletMode'
 ---------------------------------------------------------------
-type SState = MutSocketState SscGodTossing
+type SState = MutPeerState SscGodTossing
 
 type WalletRealMode = KademliaDHT
                       (KeyStorage

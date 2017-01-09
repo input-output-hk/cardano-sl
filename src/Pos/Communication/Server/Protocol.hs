@@ -10,7 +10,7 @@ module Pos.Communication.Server.Protocol
 import           Control.Concurrent.STM.TVar (modifyTVar, readTVar)
 import           Control.Lens                (view, (.~), (?~))
 import           Formatting                  (build, sformat, (%))
-import           Pos.Communication.Types     (MutSocketState, VersionReq (..),
+import           Pos.Communication.Types     (MutPeerState, VersionReq (..),
                                               VersionResp (..))
 import           System.Wlog                 (logDebug, logWarning)
 import           Universum
@@ -29,15 +29,15 @@ import           Pos.Communication.BiP       (BiP(..))
 import           Pos.Ssc.Class.Types         (Ssc(..))
 
 protocolListeners
-    :: (MonadDHTDialog (MutSocketState ssc) m, WorkMode ssc m)
-    => [ListenerDHT (MutSocketState ssc) m]
+    :: (MonadDHTDialog (MutPeerState ssc) m, WorkMode ssc m)
+    => [ListenerDHT (MutPeerState ssc) m]
 protocolListeners = notImplemented
 
 {-
 protocolListeners'
     :: ( Typeable ssc
        , Ssc ssc
-       , MonadDHTDialog (MutSocketState ssc) m
+       , MonadDHTDialog (MutPeerState ssc) m
        , ResponseMode ssc m
        , MonadMockable m
        , WorkMode ssc m

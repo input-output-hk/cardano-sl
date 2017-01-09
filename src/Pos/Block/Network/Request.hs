@@ -67,7 +67,7 @@ mkBlocksRequest lcaChild wantedBlock =
     }
 
 -- | Reply with message which requests chain of blocks which is based
--- on our tip. This request is recorded in SocketState.
+-- on our tip. This request is recorded in PeerState.
 replyWithBlocksRequest
     :: forall ssc m.
        (Ssc ssc, ResponseMode ssc m, MonadMockable m, WorkMode ssc m)

@@ -3,9 +3,9 @@
 -- | Socket state of server.
 
 module Pos.Communication.Types.State
-       ( SocketState
-       , MutSocketState
-       , newMutSocketState
+       ( PeerState
+       , MutPeerState
+       , newMutPeerState
        , peerVersion
        , StateHolder(..)
        , newStateHolder
@@ -20,45 +20,45 @@ import           Node                           (NodeId)
 import qualified STMContainers.Map              as STM
 import           Universum
 
-import           Pos.Block.Network.Server.State (BlockSocketState,
-                                                 HasBlockSocketState (blockSocketState))
+import           Pos.Block.Network.Server.State (BlockPeerState,
+                                                 HasBlockPeerState (blockPeerState))
 import           Pos.Types                      (ProtocolVersion)
 
 --
 
--- | SocketState type aggregates socket states needed for different
+-- | PeerState type aggregates socket states needed for different
 -- parts of system.
-data SocketState ssc = SocketState
-    { __blockSocketState :: !(BlockSocketState ssc)
+data PeerState ssc = PeerState
+    { __blockPeerState :: !(BlockPeerState ssc)
       -- ^ State of block/header logic
     , _peerVersion       :: !(Maybe ProtocolVersion)
       -- ^ Version of the protocol peer uses
     }
 
--- | Classy lenses for SocketState.
-makeClassy ''SocketState
+-- | Classy lenses for PeerState.
+makeClassy ''PeerState
 
-instance Default (SocketState ssc) where
+instance Default (PeerState ssc) where
     def =
-        SocketState
-        { __blockSocketState = def
+        PeerState
+        { __blockPeerState = def
         , _peerVersion = Nothing
         }
 
-instance HasBlockSocketState (SocketState ssc) ssc where
-    blockSocketState = _blockSocketState
+instance HasBlockPeerState (PeerState ssc) ssc where
+    blockPeerState = _blockPeerState
 
 -- [CSL-447] TODO remove these types after refactoring `Transfer` out
 
--- | Mutable SocketState.
-type MutSocketState ssc = TVar (SocketState ssc)
+-- | Mutable PeerState.
+type MutPeerState ssc = TVar (PeerState ssc)
 
 -- | Create a new mutable socket state
-newMutSocketState :: IO (MutSocketState ssc)
-newMutSocketState = newTVarIO def
+newMutPeerState :: IO (MutPeerState ssc)
+newMutPeerState = newTVarIO def
 
 data PeerStateHolder ssc m = PeerStateHolder
-    { getState   :: NodeId -> m (SharedAtomicT m (SocketState ssc))
+    { getState   :: NodeId -> m (SharedAtomicT m (PeerState ssc))
     , clearState :: NodeId -> m ()
     }
 

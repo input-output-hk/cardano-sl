@@ -46,7 +46,7 @@ walletServeWebLite = notImplemented -- walletServeImpl $ walletApplication $ wal
 --    -> WebHandler a
 --    -> Handler a
 --convertHandler kctx wc mws kd ws handler =
---    liftIO (runOurDialog newMutSocketState "wallet-api" .
+--    liftIO (runOurDialog newMutPeerState "wallet-api" .
 --            runContextHolder wc .
 --            runWalletDB mws .
 --            flip runKeyStorageRaw kd .

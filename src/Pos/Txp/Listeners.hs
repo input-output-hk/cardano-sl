@@ -23,7 +23,7 @@ import           Universum
 import           Pos.Binary.Communication    ()
 import           Pos.Binary.Relay            ()
 import           Pos.Communication.BiP       (BiP (..))
-import           Pos.Communication.Types     (MutSocketState, ResponseMode)
+import           Pos.Communication.Types     (MutPeerState, ResponseMode)
 import           Pos.Crypto                  (hash)
 import           Pos.NewDHT.Model.Class      (MonadDHT (..))
 import           Pos.Ssc.Class.Types         (Ssc (..))

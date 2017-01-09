@@ -32,7 +32,7 @@ import           Mockable.Production           (Production)
 import           System.Wlog                   (LoggerNameBox (..), WithLogger)
 import           Universum
 
-import           Pos.Communication.Types.State (MutSocketState)
+import           Pos.Communication.Types.State (MutPeerState)
 import           Pos.Context                   (ContextHolder, WithNodeContext)
 import           Pos.DB.Class                  (MonadDB)
 import           Pos.DB.Holder                 (DBHolder)
@@ -52,7 +52,7 @@ import           Pos.Txp.Holder                (TxpLDHolder)
 import           Pos.Types                     (MonadUtxo, MonadUtxoRead)
 import           Pos.Util.JsonLog              (MonadJL (..))
 
-type MSockSt ssc = MutSocketState ssc
+type MSockSt ssc = MutPeerState ssc
 
 -- | Bunch of constraints to perform work for real world distributed system.
 type WorkMode ssc m

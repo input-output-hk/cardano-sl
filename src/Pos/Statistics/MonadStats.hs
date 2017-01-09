@@ -37,6 +37,7 @@ import qualified STMContainers.Map           as SM
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
+import           Pos.Communication.PeerState (WithPeerState (..))
 import           Pos.Context.Class           (WithNodeContext)
 import           Pos.DB                      (MonadDB (..))
 import           Pos.Delegation.Class        (MonadDelegation)
@@ -79,7 +80,7 @@ newtype NoStatsT m a = NoStatsT
     { getNoStatsT :: m a  -- ^ action inside wrapper without collecting statistics
     } deriving (Functor, Applicative, Monad, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
-                MonadDHT, MonadSlots,
+                MonadDHT, MonadSlots, WithPeerState ssc,
                 MonadJL, CanLog,
                 MonadUtxoRead, MonadUtxo,
                 MonadTxpLD ssc, MonadSscGS ssc, MonadSscLD ssc,
@@ -130,7 +131,7 @@ newtype StatsT m a = StatsT
     { getStatsT :: ReaderT StatsMap m a  -- ^ action inside wrapper with collected statistics
     } deriving (Functor, Applicative, Monad, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
-                MonadDHT, MonadSlots,
+                MonadDHT, MonadSlots, WithPeerState ssc,
                 MonadTrans, MonadJL, CanLog,
                 MonadUtxoRead, MonadUtxo, MonadTxpLD ssc,
                 MonadSscGS ssc, MonadSscLD ssc, WithNodeContext ssc, MonadDelegation)

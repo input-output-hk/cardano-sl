@@ -21,8 +21,8 @@ import           Control.Concurrent.MVar (putMVar)
 import           Universum
 
 import           Pos.Context.Context     (NodeContext (..))
-import           Pos.DHT.Model           (DHTResponseT)
-import           Pos.DHT.Real            (KademliaDHT)
+import qualified Pos.DHT.Model           as OldDHT
+import qualified Pos.DHT.Real            as OldDHT
 import           Pos.Types               (HeaderHash, Richmen, SlotLeaders)
 
 -- | Class for something that has 'NodeContext' inside.
@@ -30,7 +30,7 @@ class WithNodeContext ssc m | m -> ssc where
     getNodeContext :: m (NodeContext ssc)
 
 instance (Monad m, WithNodeContext ssc m) =>
-         WithNodeContext ssc (KademliaDHT m) where
+         WithNodeContext ssc (OldDHT.KademliaDHT m) where
     getNodeContext = lift getNodeContext
 
 instance (Monad m, WithNodeContext ssc m) =>
@@ -42,7 +42,7 @@ instance (Monad m, WithNodeContext ssc m) =>
     getNodeContext = lift getNodeContext
 
 instance (Monad m, WithNodeContext ssc m) =>
-         WithNodeContext ssc (DHTResponseT s m) where
+         WithNodeContext ssc (OldDHT.DHTResponseT s m) where
     getNodeContext = lift getNodeContext
 
 

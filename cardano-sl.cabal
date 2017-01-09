@@ -147,6 +147,7 @@ library
                         Pos.Communication.Arbitrary
                         Pos.Communication.BiP
                         Pos.Communication.Methods
+                        Pos.Communication.PeerState
                         Pos.Communication.RelayMethods
                         Pos.Communication.Types
                         Pos.Communication.Types.Protocol

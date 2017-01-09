@@ -18,15 +18,14 @@ import           Control.Monad.Fix         (MonadFix)
 import           Control.Monad.Reader      (ReaderT (ReaderT), ask)
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Formatting                (sformat, shown, (%))
-import           Mockable                  (Catch, CurrentTime, Mockable, catchAll,
+import           Mockable                  (Catch, ChannelT, CurrentTime,
+                                            MFunctor' (hoist'), Mockable (liftMockable),
+                                            Promise, SharedAtomicT, ThreadId, catchAll,
                                             currentTime)
 import           Serokell.Util.Lens        (WrappedM (..))
 import           System.Wlog               (CanLog, HasLoggerName, WithLogger, logWarning)
 import           Universum                 hiding (catchAll)
 
-import           Mockable                  (ChannelT, MFunctor' (hoist'),
-                                            Mockable (liftMockable), Promise,
-                                            SharedAtomicT, ThreadId)
 import           Pos.Context.Class         (WithNodeContext (..))
 import           Pos.Context.Context       (NodeContext (..))
 import           Pos.DB                    (MonadDB)

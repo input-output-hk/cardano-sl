@@ -16,12 +16,14 @@ module Pos.Block.Network.Server.State
        , processBlockMsg
        ) where
 
-import           Control.Concurrent.STM  (TVar, modifyTVar, readTVar)
 import           Control.Lens            (makeClassy, over, set, view, (.~), (^.))
 import           Data.Default            (Default (def))
 import           Data.List.NonEmpty      (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty      as NE
+import           Mockable                (Mockable, SharedAtomic, SharedAtomicT,
+                                          modifySharedAtomic, readSharedAtomic)
 import           Serokell.Util.Verify    (isVerSuccess)
+import           System.Wlog             (WithLogger, logInfo)
 import           Universum
 
 import           Pos.Block.Network.Types (MsgBlock (..), MsgGetHeaders (..))
@@ -59,14 +61,12 @@ instance Default (BlockPeerState ssc) where
 -- | Record headers request in BlockPeerState. This function blocks
 -- if some headers are requsted already.
 recordHeadersRequest
-    :: (MonadIO m, HasBlockPeerState s ssc)
-    => MsgGetHeaders ssc -> TVar s -> m ()
-recordHeadersRequest msg var =
-    atomically $
-    do existingMessage <- view bssRequestedHeaders <$> readTVar var
-       case existingMessage of
-           Nothing -> modifyTVar var (set bssRequestedHeaders (Just msg))
-           Just _  -> retry
+    :: (HasBlockPeerState s ssc, Mockable SharedAtomic m, WithLogger m)
+    => MsgGetHeaders ssc -> SharedAtomicT m s -> m Bool
+recordHeadersRequest msg var = modifySharedAtomic var $ \st -> do
+       case view bssRequestedHeaders st of
+           Nothing -> return (set bssRequestedHeaders (Just msg) st, True)
+           Just _  -> logInfo "Can't record headers request: another fetch in progress" $> (st, False)
 
 -- | Try to match headers from 'Headers' message with requested
 -- headers.  If 'bssRequestedHeaders' in socket state is Nothing or
@@ -75,16 +75,15 @@ recordHeadersRequest msg var =
 -- state matches 'Headers' message, it's invalidated and 'True' is
 -- returned.
 matchRequestedHeaders
-    :: (Ssc ssc, MonadIO m, HasBlockPeerState s ssc)
-    => NonEmpty (BlockHeader ssc) -> TVar s -> m Bool
-matchRequestedHeaders headers@(newTip :| hs) var =
-    atomically $
-    do blockSS <- readTVar var
+    :: (Ssc ssc, HasBlockPeerState s ssc, Mockable SharedAtomic m)
+    => NonEmpty (BlockHeader ssc) -> SharedAtomicT m s -> m Bool
+matchRequestedHeaders headers@(newTip :| hs) var = modifySharedAtomic var $ \st -> do
        let res = maybe False
                        matchRequestedHeadersDo
-                       (blockSS ^. bssRequestedHeaders)
-       when res $ modifyTVar var $ bssRequestedHeaders .~ Nothing
-       pure res
+                       (st ^. bssRequestedHeaders)
+       if res
+          then pure ((bssRequestedHeaders .~ Nothing) st, res)
+          else pure (st, res)
   where
     formChain = isVerSuccess (verifyHeaders True $ newTip:hs)
     matchRequestedHeadersDo mgh =
@@ -99,15 +98,12 @@ matchRequestedHeaders headers@(newTip :| hs) var =
 -- | Record blocks request in BlockPeerState. This function blocks
 -- if some blocks are requsted already.
 recordBlocksRequest
-    :: (MonadIO m, HasBlockPeerState s ssc)
-    => HeaderHash ssc -> HeaderHash ssc -> TVar s -> m ()
-recordBlocksRequest fromHash toHash var =
-    atomically $
-    do existing <- view bssRequestedBlocks <$> readTVar var
-       case existing of
-           Nothing ->
-               modifyTVar var (set bssRequestedBlocks (Just (fromHash, toHash)))
-           Just _ -> retry
+    :: (HasBlockPeerState s ssc, Mockable SharedAtomic m, WithLogger m)
+    => HeaderHash ssc -> HeaderHash ssc -> SharedAtomicT m s -> m Bool
+recordBlocksRequest fromHash toHash var = modifySharedAtomic var $ \st -> do
+       case view bssRequestedBlocks st of
+           Nothing -> return (set bssRequestedBlocks (Just (fromHash, toHash)) st, True)
+           Just _  -> logInfo "Can't record blocks request: another fetch in progress" $> (st, False)
 
 -- | Possible results of processBlockMsg.
 data ProcessBlockMsgRes ssc
@@ -119,27 +115,25 @@ data ProcessBlockMsgRes ssc
 -- | Process 'Block' message received from peer.
 processBlockMsg
     :: forall m s ssc.
-       (Ssc ssc, MonadIO m, HasBlockPeerState s ssc)
-    => MsgBlock ssc -> TVar s -> m (ProcessBlockMsgRes ssc)
-processBlockMsg (MsgBlock blk) var =
-    atomically $
-    do st <- readTVar var
+       (Ssc ssc, HasBlockPeerState s ssc, Mockable SharedAtomic m)
+    => MsgBlock ssc -> SharedAtomicT m s -> m (ProcessBlockMsgRes ssc)
+processBlockMsg (MsgBlock blk) var = modifySharedAtomic var $ \st -> do
        case st ^. bssRequestedBlocks of
-           Nothing    -> pure PBMunsolicited
-           Just range -> processBlockDo range (st ^. bssReceivedBlocks)
+           Nothing    -> pure (st, PBMunsolicited)
+           Just range -> processBlockDo st range (st ^. bssReceivedBlocks)
   where
-    processBlockDo (start, end) []
-        | headerHash blk == start = processBlockFinally end []
-        | otherwise = pure PBMunsolicited
-    processBlockDo (_, end) received@(lastReceived:_)
+    processBlockDo st (start, end) []
+        | headerHash blk == start = processBlockFinally st end []
+        | otherwise = pure (st, PBMunsolicited)
+    processBlockDo st (_, end) received@(lastReceived:_)
         | blk ^. prevBlockL == (headerHash lastReceived) =
-            processBlockFinally end received
-        | otherwise = pure PBMunsolicited
-    processBlockFinally end received
+            processBlockFinally st end received
+        | otherwise = pure (st, PBMunsolicited)
+    processBlockFinally st end received
         | headerHash blk == end =
-            (PBMfinal $ NE.reverse $ blk :| received) <$ modifyTVar var invalidateBlocks
+            pure (invalidateBlocks st, PBMfinal $ NE.reverse $ blk :| received)
         | otherwise =
-            PBMintermediate <$ modifyTVar var (over bssReceivedBlocks (blk :))
+            pure (over bssReceivedBlocks (blk :) st, PBMintermediate)
     invalidateBlocks :: s -> s
     invalidateBlocks st =
         st & bssRequestedBlocks .~ Nothing & bssReceivedBlocks .~ []

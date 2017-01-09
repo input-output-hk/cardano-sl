@@ -32,6 +32,7 @@ import           Mockable.Production           (Production)
 import           System.Wlog                   (LoggerNameBox (..), WithLogger)
 import           Universum
 
+import           Pos.Communication.PeerState   (PeerStateHolder (..), WithPeerState)
 import           Pos.Communication.Types.State (MutPeerState)
 import           Pos.Context                   (ContextHolder, WithNodeContext)
 import           Pos.DB.Class                  (MonadDB)
@@ -100,6 +101,7 @@ type NewWorkMode ssc m
       , MonadStats m
       , MonadJL m
       , MonadFail m
+      , WithPeerState ssc m
       )
 
 -- | More relaxed version of 'WorkMode'.
@@ -147,8 +149,21 @@ deriving instance MonadSscGS ssc m => MonadSscGS ssc (KademliaDHT m)
 deriving instance MonadDelegation m => MonadDelegation (KademliaDHT m)
 deriving instance MonadTxpLD ssc m => MonadTxpLD ssc (KademliaDHT m)
 
+deriving instance MonadSscLD ssc m => MonadSscLD ssc (PeerStateHolder ssc m)
+deriving instance MonadUtxoRead m => MonadUtxoRead (PeerStateHolder ssc m)
+deriving instance MonadUtxo m => MonadUtxo (PeerStateHolder ssc m)
+deriving instance (Monad m, WithNodeContext ssc m) => WithNodeContext ssc (PeerStateHolder ssc m)
+deriving instance MonadDB ssc m => MonadDB ssc (PeerStateHolder ssc m)
+deriving instance MonadSlots m => MonadSlots (PeerStateHolder ssc m)
+deriving instance MonadDHT m => MonadDHT (PeerStateHolder ssc m)
+deriving instance MonadSscGS ssc m => MonadSscGS ssc (PeerStateHolder ssc m)
+deriving instance MonadDelegation m => MonadDelegation (PeerStateHolder ssc m)
+deriving instance MonadTxpLD ssc m => MonadTxpLD ssc (PeerStateHolder ssc m)
+deriving instance MonadJL m => MonadJL (PeerStateHolder ssc m)
+
 -- | RawRealMode is a basis for `WorkMode`s used to really run system.
 type RawRealMode ssc =
+    PeerStateHolder ssc (
     KademliaDHT (
     DelegationT (
     TxpLDHolder ssc (
@@ -156,7 +171,7 @@ type RawRealMode ssc =
     ContextHolder ssc (
     DBHolder ssc (
     LoggerNameBox Production
-    ))))))
+    )))))))
 
 -- | ProductionMode is an instance of WorkMode which is used
 -- (unsurprisingly) in production.

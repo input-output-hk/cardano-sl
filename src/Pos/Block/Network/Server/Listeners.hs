@@ -37,6 +37,7 @@ import           Pos.Block.Network.Server.State (ProcessBlockMsgRes (..),
 import           Pos.Block.Network.Types        (MsgBlock (..), MsgGetBlocks (..),
                                                  MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.BiP          (BiP (..))
+import           Pos.Communication.PeerState    (WithPeerState (..))
 import           Pos.Crypto                     (hash, shortHashF)
 import qualified Pos.DB                         as DB
 import           Pos.DB.Error                   (DBError (DBMalformed))

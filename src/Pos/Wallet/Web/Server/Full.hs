@@ -68,7 +68,7 @@ walletServeWebFull = notImplemented
 --     :: forall ssc a .
 --        KademliaDHTContext (SubKademlia ssc)
 --     -> CPool ssc
---     -> NodeContext ssc
+--     -> NodeContext ssc (.. insert monad `m` here ..)
 --     -> Modern.NodeDBs ssc
 --     -> Modern.TxpLDWrap ssc
 --     -> SscState ssc

@@ -14,21 +14,20 @@ import           Formatting                     (build, sformat, (%))
 import           System.Wlog                    (logDebug)
 import           Universum
 
+import           Message.Message                (BinaryP, messageName)
+import           Mockable.Monad                 (MonadMockable (..))
+import           Node                           (Listener (..), ListenerAction (..),
+                                                 NodeId (..), SendActions (..), sendTo)
 import           Pos.Binary.Communication       ()
 import           Pos.Block.Logic                (getHeadersOlderExp)
 import           Pos.Block.Network.Server.State (recordBlocksRequest,
                                                  recordHeadersRequest)
 import           Pos.Block.Network.Types        (MsgGetBlocks (..), MsgGetHeaders (..))
-import           Pos.Communication.Types        (ResponseMode)
-import           Pos.DHT.Model                  (getUserState, replyToNode)
+import           Pos.Communication.BiP          (BiP (..))
+import           Pos.Communication.PeerState    (getPeerState)
+import           Pos.Ssc.Class.Types            (Ssc (..))
 import           Pos.Types                      (HeaderHash)
-import           Pos.WorkMode                   (WorkMode)
-import           Node                           (Listener(..), ListenerAction(..), sendTo,
-                                                 NodeId(..), SendActions(..))
-import           Message.Message                (BinaryP, messageName)
-import           Mockable.Monad                 (MonadMockable(..))
-import           Pos.Communication.BiP          (BiP(..))
-import           Pos.Ssc.Class.Types            (Ssc(..))
+import           Pos.WorkMode                   (NewWorkMode)
 
 
 
@@ -36,7 +35,7 @@ import           Pos.Ssc.Class.Types            (Ssc(..))
 -- chooses appropriate 'from' hashes and puts them into 'GetHeaders'
 -- message.
 mkHeadersRequest
-    :: WorkMode ssc m
+    :: NewWorkMode ssc m
     => Maybe (HeaderHash ssc) -> m (MsgGetHeaders ssc)
 mkHeadersRequest upto = do
     headers <- getHeadersOlderExp Nothing
@@ -44,7 +43,7 @@ mkHeadersRequest upto = do
 
 replyWithHeadersRequest
     :: forall ssc m.
-       (Ssc ssc, ResponseMode ssc m, MonadMockable m, WorkMode ssc m)
+       (Ssc ssc, NewWorkMode ssc m)
     => Maybe (HeaderHash ssc)
     -> NodeId
     -> SendActions BiP m
@@ -52,7 +51,8 @@ replyWithHeadersRequest
 replyWithHeadersRequest upto peerId sendActions = do
     logDebug "replyWithHeadersRequest: preparing request to be sent"
     msg <- mkHeadersRequest upto
-    recordHeadersRequest msg =<< getUserState
+    -- TODO [CSL-447] Do smth with recorded result
+    recorded <- recordHeadersRequest msg =<< getPeerState peerId
     sendTo sendActions peerId msg
     logDebug "replyWithHeadersRequest: data sent"
 
@@ -70,7 +70,7 @@ mkBlocksRequest lcaChild wantedBlock =
 -- on our tip. This request is recorded in PeerState.
 replyWithBlocksRequest
     :: forall ssc m.
-       (Ssc ssc, ResponseMode ssc m, MonadMockable m, WorkMode ssc m)
+       (Ssc ssc, NewWorkMode ssc m)
     => HeaderHash ssc
     -> HeaderHash ssc
     -> NodeId
@@ -80,7 +80,8 @@ replyWithBlocksRequest lcaChild wantedBlock peerId sendActions = do
     logDebug $
         sformat ("replyWithBlocksRequest: asking from (lca child) "%build%" to (new tip) "%build)
                 lcaChild wantedBlock
-    recordBlocksRequest lcaChild wantedBlock =<< getUserState
+    -- TODO [CSL-447] Do smth with recorded result
+    recorded <- recordBlocksRequest lcaChild wantedBlock =<< getPeerState peerId
     logDebug "replyWithBlocksRequest: replying to node"
     sendTo sendActions peerId msg
     logDebug "replyWithBlocksRequest: replied"

@@ -20,11 +20,9 @@ import           Universum
 import           Pos.Binary.Communication ()
 import           Pos.Block.Logic          (applyBlocks, rollbackBlocks, withBlkSemaphore_)
 import           Pos.Constants            (k)
-import           Pos.Context              (isLeadersComputed, readLeadersEager,
-                                           writeLeaders)
 import qualified Pos.DB                   as DB
 import qualified Pos.DB.GState            as GS
-import           Pos.DB.Lrc               (putEpoch)
+import           Pos.DB.Lrc               (getLeaders, putEpoch, putLeaders)
 import           Pos.Lrc.Consumer         (LrcConsumer (..))
 import           Pos.Lrc.Consumers        (allLrcConsumers)
 import           Pos.Lrc.Eligibility      (findAllRichmenMaybe)
@@ -59,7 +57,7 @@ lrcSingleShotImpl
     => EpochIndex -> [LrcConsumer m] -> m ()
 lrcSingleShotImpl epoch consumers = do
     expectedRichmenComp <- filterM (flip lcIfNeedCompute epoch) consumers
-    needComputeLeaders <- not <$> isLeadersComputed epoch
+    needComputeLeaders <- isNothing <$> getLeaders epoch
     let needComputeRichmen = not . null $ expectedRichmenComp
     when needComputeRichmen $ logInfo "Need to compute richmen"
     when needComputeLeaders $ logInfo "Need to compute leaders"
@@ -86,17 +84,17 @@ lrcDo epoch consumers tip = tip <$ do
     crucial = EpochOrSlot $ Right $ crucialSlot epoch
 
 leadersComputationDo :: WorkMode ssc m => EpochIndex -> m ()
-leadersComputationDo epochId = do
-    unlessM (isLeadersComputed epochId) $ do
+leadersComputationDo epochId =
+    unlessM (isJust <$> getLeaders epochId) $ do
         mbSeed <- sscCalculateSeed epochId
         totalStake <- GS.getTotalFtsStake
         leaders <-
             case mbSeed of
-                Left e     -> panic $ sformat ("SSC couldn't compute seed: "%build) e
-                Right seed -> GS.iterateByTx (followTheSatoshiM seed totalStake) snd
-        writeLeaders (epochId, leaders)
-    (epoch, leaders) <- readLeadersEager
-    DB.putLeaders (epoch, leaders)
+                Left e ->
+                    panic $ sformat ("SSC couldn't compute seed: " %build) e
+                Right seed ->
+                    GS.iterateByTx (followTheSatoshiM seed totalStake) snd
+        putLeaders epochId leaders
 
 richmenComputationDo :: forall ssc m . WorkMode ssc m
     => EpochIndex -> [LrcConsumer m] -> m ()

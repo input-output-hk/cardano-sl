@@ -130,6 +130,7 @@ library
                         Pos.Binary.Version
 
                         -- Block processing
+                        Pos.Block.Error
                         Pos.Block.Logic
                         Pos.Block.Network.Announce
                         Pos.Block.Network.Request

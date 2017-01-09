@@ -13,14 +13,12 @@ import           System.Wlog             (logError, logInfo)
 import           Universum
 
 import           Pos.Context             (NodeContext (..), getNodeContext,
-                                          ncPubKeyAddress, ncPublicKey, writeLeaders)
-import qualified Pos.DB                  as DB
+                                          ncPubKeyAddress, ncPublicKey)
 import qualified Pos.DB.GState           as GS
+import qualified Pos.DB.Lrc              as LrcDB
 import           Pos.DHT.Model           (DHTNodeType (DHTFull), discoverPeers)
-import           Pos.Slotting            (getCurrentSlot)
 import           Pos.Ssc.Class           (SscConstraint)
-import           Pos.Ssc.Extra           (writeSscRichmen)
-import           Pos.Types               (SlotId (..), Timestamp (Timestamp), addressHash)
+import           Pos.Types               (Timestamp (Timestamp), addressHash)
 import           Pos.Util                (inAssertMode)
 import           Pos.Worker              (runWorkers)
 import           Pos.WorkMode            (WorkMode)
@@ -64,8 +62,5 @@ initSemaphore = do
 
 initLrc :: WorkMode ssc m => m ()
 initLrc = do
-    (epochIndex, leaders) <- DB.getLeaders
-    (rEpochIndex, richmen) <- DB.getGtRichmen
-    SlotId {..} <- getCurrentSlot
-    writeLeaders (epochIndex, leaders)
-    writeSscRichmen (rEpochIndex, richmen)
+    lrcSync <- ncLrcSync <$> getNodeContext
+    liftIO . putMVar lrcSync =<< LrcDB.getEpoch

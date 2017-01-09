@@ -35,10 +35,10 @@ import           Universum
 import           Pos.Aeson.Types                      ()
 import           Pos.Context                          (ContextHolder, NodeContext,
                                                        getNodeContext, ncPublicKey,
-                                                       ncSscContext, runContextHolder,
-                                                       tryReadLeadersEpoch)
+                                                       ncSscContext, runContextHolder)
 import qualified Pos.DB                               as DB
 import qualified Pos.DB.GState                        as GS
+import qualified Pos.DB.Lrc                           as LrcDB
 import           Pos.Slotting                         (getCurrentSlot)
 import           Pos.Ssc.Class                        (SscConstraint)
 import           Pos.Ssc.GodTossing                   (SscGodTossing, getOpening,
@@ -142,7 +142,7 @@ baseServantHandlers =
 getLeaders :: WebHandler ssc SlotLeaders
 getLeaders = do
     SlotId{..} <- getCurrentSlot
-    maybe (throwM err) pure =<< tryReadLeadersEpoch siEpoch
+    maybe (throwM err) pure =<< LrcDB.getLeaders siEpoch
   where
     err = err404 { errBody = encodeUtf8 ("Leaders are not know for current epoch"::Text) }
 

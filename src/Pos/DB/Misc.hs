@@ -7,7 +7,6 @@ module Pos.DB.Misc
        (
          prepareMiscDB
 
-
        , getProxySecretKeys
        , addProxySecretKey
        , dropOldProxySecretKeys
@@ -17,30 +16,19 @@ module Pos.DB.Misc
 
        , putSecretKeyHash
        , checkSecretKeyHash
-
-       , getLeaders
-       , putLeaders
-
-       , getGtRichmen
-       , putGtRichmen
        ) where
 
 import           Data.Default                    (def)
 import           Universum
 
 import           Pos.Binary.Class                (Bi)
-import           Pos.Binary.DB                   ()
 import           Pos.Binary.Ssc                  ()
 import           Pos.Crypto                      (Hash, SecretKey, pskOmega)
 import           Pos.DB.Class                    (MonadDB, getMiscDB)
-import           Pos.DB.Error                    (DBError (DBMalformed))
 import           Pos.DB.Functions                (rocksGetBi, rocksPutBi)
-import           Pos.DB.Types                    (GtRichmenStorage (..),
-                                                  LeadersStorage (..))
-import           Pos.Lrc.Types                   (RichmenStake)
 import           Pos.Ssc.GodTossing.Secret.Types (GtSecretStorage)
 import           Pos.Ssc.GodTossing.Types.Type   (SscGodTossing)
-import           Pos.Types                       (EpochIndex, ProxySKEpoch, SlotLeaders)
+import           Pos.Types                       (EpochIndex, ProxySKEpoch)
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -49,12 +37,8 @@ import           Pos.Types                       (EpochIndex, ProxySKEpoch, Slot
 prepareMiscDB
     :: forall ssc m.
        (MonadDB ssc m)
-    => SlotLeaders -> RichmenStake -> m ()
-prepareMiscDB leaders gtRichmen = do
-    getBi @(LeadersStorage ssc) lrcKey >>=
-        maybe (putLeaders (0, leaders)) (pure . const ())
-    getBi @(GtRichmenStorage ssc) gtRichmenKey >>=
-        maybe (putGtRichmen (0, gtRichmen)) (pure . const ())
+    => m ()
+prepareMiscDB = pass
 
 ----------------------------------------------------------------------------
 -- Delegation and proxy signing
@@ -126,41 +110,6 @@ secretStorageKey :: ByteString
 secretStorageKey = "gtSecretStorageKey"
 
 ----------------------------------------------------------------------------
--- LRC
-----------------------------------------------------------------------------
-
--- | Get SlotLeaders and Richmen for last known epoch.
-getLeaders
-    :: forall ssc m.
-       (MonadDB ssc m)
-    => m (EpochIndex, SlotLeaders)
-getLeaders =
-    maybe (throwM (DBMalformed "No leaders in MiscDB")) (pure . convert) =<< getBi lrcKey
-  where
-    convert LeadersStorage {..} = (lrcEpoch, lrcLeaders)
-
--- | Put SlotLeaders and Richmen for given epoch.
-putLeaders :: forall ssc m.
-       (MonadDB ssc m)
-    => (EpochIndex, SlotLeaders) -> m ()
-putLeaders (lrcEpoch, lrcLeaders) =
-    putBi lrcKey LeadersStorage {..}
-
-getGtRichmen
-    :: forall ssc m.
-       (MonadDB ssc m)
-    => m (EpochIndex, RichmenStake)
-getGtRichmen =
-    maybe (throwM (DBMalformed "No GodTossing richmen in MiscDB"))
-          (pure . convert) =<< getBi gtRichmenKey
-  where
-    convert GtRichmenStorage {..} = (gtRichmenEpoch, gtRichmen)
-
-putGtRichmen :: MonadDB ssc m => (EpochIndex, RichmenStake) -> m ()
-putGtRichmen (gtRichmenEpoch, gtRichmen) =
-    putBi gtRichmenKey GtRichmenStorage {..}
-
-----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
 
@@ -179,9 +128,3 @@ proxySKKey = "psk_"
 
 skHashKey :: ByteString
 skHashKey = "skhash_"
-
-lrcKey :: ByteString
-lrcKey = "lrc_"
-
-gtRichmenKey :: ByteString
-gtRichmenKey = "gtRichmen_"

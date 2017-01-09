@@ -18,8 +18,7 @@ import           System.Directory             (createDirectoryIfMissing,
 import           System.FilePath              ((</>))
 import           Universum
 
-import           Pos.Context                  (WithNodeContext, genesisLeadersM,
-                                               genesisUtxoM)
+import           Pos.Context                  (WithNodeContext, genesisLeadersM)
 import           Pos.DB.Block                 (getBlock, loadBlocksWithUndoWhile,
                                                prepareBlockDB)
 import           Pos.DB.Class                 (MonadDB)
@@ -29,11 +28,9 @@ import           Pos.DB.GState                (getTip, prepareGStateDB)
 import           Pos.DB.Lrc                   (prepareLrcDB)
 import           Pos.DB.Misc                  (prepareMiscDB)
 import           Pos.DB.Types                 (NodeDBs (..))
-import           Pos.Lrc.Eligibility          (findRichmenPure)
 import           Pos.Ssc.Class.Types          (Ssc)
 import           Pos.Types                    (Block, BlockHeader, Undo, getBlockHeader,
-                                               headerHash, mkCoin, mkGenesisBlock,
-                                               txOutStake)
+                                               headerHash, mkGenesisBlock)
 
 -- | Open all DBs stored on disk.
 openNodeDBs
@@ -61,17 +58,13 @@ initNodeDBs
        (Ssc ssc, WithNodeContext ssc m, MonadDB ssc m)
     => m ()
 initNodeDBs = do
-    genesisUtxo <- genesisUtxoM
     leaders0 <- genesisLeadersM
-    let -- [CSL-93] Use eligibility threshold here
-        initialDistr = concatMap txOutStake genesisUtxo
-        richmen0 = snd $ findRichmenPure initialDistr (const $ mkCoin 0) True
-        genesisBlock0 = mkGenesisBlock Nothing 0 leaders0
+    let genesisBlock0 = mkGenesisBlock Nothing 0 leaders0
         initialTip = headerHash genesisBlock0
     prepareBlockDB genesisBlock0
     prepareGStateDB initialTip
     prepareLrcDB
-    prepareMiscDB leaders0 richmen0
+    prepareMiscDB
 
 -- | Get block corresponding to tip.
 getTipBlock

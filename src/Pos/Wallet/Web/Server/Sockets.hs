@@ -56,9 +56,15 @@ closeWSConnection = flip sendClose ConnectionClosed
 waitForConnection :: ConnectionsVar -> WS.ServerApp
 waitForConnection conn = mempty <* swapMVar conn <=< WS.acceptRequest
 
+-- If there is a new pending ws connection, the old connection will be replaced with new one.
+-- FIXME: this is not safe because someone can kick out previous ws connection. Authentication can solve this issue. Solution: reject pending connection if ws handshake doesn't have valid auth session token
 upgradeApplicationWS :: ConnectionsVar -> Application -> Application
-upgradeApplicationWS wsConn =
-    websocketsOr WS.defaultConnectionOptions $ \pending -> waitForConnection wsConn pending >> sendWS wsConn ConnectionOpened
+upgradeApplicationWS wsConn = websocketsOr WS.defaultConnectionOptions switchConnection
+  where
+    switchConnection pending = do
+        closeWSConnection
+        waitForConnection wsConn pending
+        sendWS wsConn ConnectionOpened
 
 sendClose :: MonadIO m => ConnectionsVar -> NotifyEvent -> m ()
 sendClose = send WS.sendClose

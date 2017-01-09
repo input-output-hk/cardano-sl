@@ -28,7 +28,6 @@ module Pos.DB.Lrc.Richmen
 
        ) where
 
-import qualified Data.HashSet          as HS
 import           Universum
 
 import           Pos.Binary.Class      (Bi, encodeStrict)
@@ -160,8 +159,8 @@ instance RichmenComponent RCSsc where
     rcThreshold Proxy = const (mkCoin 0)
     rcConsiderDelegated Proxy = True
 
-getRichmenSsc :: MonadDB ssc m => EpochIndex -> m (Maybe (HashSet StakeholderId))
-getRichmenSsc epoch = fmap (HS.fromList . toList) <$> getRichmen @RCSsc epoch
+getRichmenSsc :: MonadDB ssc m => EpochIndex -> m (Maybe Richmen)
+getRichmenSsc epoch = getRichmen @RCSsc epoch
 
 putRichmenSsc
     :: (MonadDB ssc m)

@@ -13,12 +13,9 @@ module Pos.Context.Functions
        , readBlkSemaphore
        , takeBlkSemaphore
 
-       , readLeadersEager
-       , readLeaders
-       , tryReadLeaders
-       , tryReadLeadersEpoch
-       , writeLeaders
-       , isLeadersComputed
+       -- * LRC synchronization
+       , waitLrc
+       , updateLrcSync
        ) where
 
 import           Control.Concurrent.MVar (putMVar)
@@ -27,7 +24,7 @@ import           Universum
 import           Pos.Context.Class       (WithNodeContext (..))
 import           Pos.Context.Context     (NodeContext (..))
 import           Pos.Types               (EpochIndex, HeaderHash, SlotLeaders, Utxo)
-import           Pos.Util                (forcePutMVar, readUntilEqualMVar)
+import           Pos.Util                (readMVarConditional)
 
 ----------------------------------------------------------------------------
 -- Genesis
@@ -59,51 +56,19 @@ readBlkSemaphore
 readBlkSemaphore = liftIO . readMVar . ncBlkSemaphore =<< getNodeContext
 
 ----------------------------------------------------------------------------
--- LRC data
+-- LRC synchronization
 ----------------------------------------------------------------------------
 
--- | Read slot leaders from node context. This function blocks if
--- leaders are not available.
-readLeadersEager
+-- | Block until LRC data is available for given epoch.
+waitLrc
     :: (MonadIO m, WithNodeContext ssc m)
-    => m (EpochIndex, SlotLeaders)
-readLeadersEager = getNodeContext >>= liftIO . readMVar . ncSscLeaders
+    => EpochIndex -> m ()
+waitLrc epoch = do
+    sync <- ncLrcSync <$> getNodeContext
+    () <$ readMVarConditional (>= epoch) sync
 
--- | Read slot leaders from node context. Nothing is returned if
--- leaders are not available.
-tryReadLeaders
+-- | Update LRC synchronization when LRC for epoch is finished.
+updateLrcSync
     :: (MonadIO m, WithNodeContext ssc m)
-    => m (Maybe (EpochIndex, SlotLeaders))
-tryReadLeaders = getNodeContext >>= liftIO . tryReadMVar . ncSscLeaders
-
--- | Force put leaders into MVar.
-writeLeaders
-    :: (MonadIO m, WithNodeContext ssc m)
-    => (EpochIndex, SlotLeaders) -> m ()
-writeLeaders el = getNodeContext >>= flip forcePutMVar el . ncSscLeaders
-
--- Function which using epoch as parameter
-
--- | Wait until computation epoch equals expEpoch
--- and return after that.
-readLeaders
-    :: (MonadIO m, WithNodeContext ssc m)
-    => EpochIndex -> m SlotLeaders
-readLeaders expEpoch = do
-    nc <- getNodeContext
-    snd <$> readUntilEqualMVar fst (ncSscLeaders nc) expEpoch
-
--- | Return Just if value is present and
--- computation epoch equals expEpoch, Nothing otherwise.
-tryReadLeadersEpoch
-    :: (MonadIO m, WithNodeContext ssc m)
-    => EpochIndex -> m (Maybe SlotLeaders)
-tryReadLeadersEpoch expEpoch = do
-    dt <- tryReadLeaders
-    pure $ maybe Nothing (\(e, l) -> if e == expEpoch then Just l else Nothing) dt
-
--- | Returns True if leaders are computed for the specified epoch
-isLeadersComputed
-    :: (MonadIO m, WithNodeContext ssc m)
-    => EpochIndex -> m Bool
-isLeadersComputed epoch = isJust <$> tryReadLeadersEpoch epoch
+    => EpochIndex -> m ()
+updateLrcSync epoch = liftIO . flip putMVar epoch =<< ncLrcSync <$> getNodeContext

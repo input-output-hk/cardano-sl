@@ -40,10 +40,11 @@ import           Serokell.Util.Verify      (VerificationRes (..), formatAllError
 import           System.Wlog               (logDebug)
 import           Universum
 
+import           Pos.Block.Error           (BlkError (BlkNoLeaders))
 import           Pos.Constants             (curProtocolVersion, curSoftwareVersion, k)
 import           Pos.Context               (NodeContext (ncSecretKey), getNodeContext,
                                             putBlkSemaphore, readBlkSemaphore,
-                                            readLeaders, takeBlkSemaphore)
+                                            takeBlkSemaphore, waitLrc)
 import           Pos.Crypto                (SecretKey, WithHash (WithHash), hash,
                                             shortHashF)
 import           Pos.Data.Attributes       (mkAttributes)
@@ -51,6 +52,7 @@ import           Pos.DB                    (DBError (..), MonadDB, getTipBlockHe
                                             loadHeadersWhile)
 import qualified Pos.DB                    as DB
 import qualified Pos.DB.GState             as GS
+import qualified Pos.DB.Lrc                as LrcDB
 import           Pos.Delegation.Logic      (delegationApplyBlocks,
                                             delegationRollbackBlocks,
                                             delegationVerifyBlocks, getProxyMempool)
@@ -75,7 +77,7 @@ import           Pos.Types                 (Block, BlockHeader, Blund, EpochInde
                                             prevBlockL, topsortTxs, verifyHeader,
                                             verifyHeaders, vhpVerifyConsensus)
 import qualified Pos.Types                 as Types
-import           Pos.Util                  (inAssertMode)
+import           Pos.Util                  (inAssertMode, maybeThrow')
 import           Pos.WorkMode              (NewWorkMode)
 
 -- | Result of single (new) header classification.
@@ -375,10 +377,12 @@ createGenesisBlockDo
        NewWorkMode ssc m
     => EpochIndex -> m (Maybe (GenesisBlock ssc))
 createGenesisBlockDo epoch = do
-    leaders <- readLeaders epoch
+    waitLrc epoch
+    leaders <- maybeThrow' noLeadersError =<< LrcDB.getLeaders epoch
     res <- withBlkSemaphore (createGenesisBlockCheckAgain leaders)
     res <$ inAssertMode (logDebug . sformat newTipFmt =<< readBlkSemaphore)
   where
+    noLeadersError = BlkNoLeaders epoch
     newTipFmt = "After creatingGenesisBlock our tip is: "%shortHashF
     createGenesisBlockCheckAgain leaders tip = do
         let noHeaderMsg =

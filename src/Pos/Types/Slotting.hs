@@ -46,7 +46,6 @@ subSlotSafe (flattenSlotId -> slotId) diff
     | diff >= slotId = unflattenSlotId 0
     | otherwise      = unflattenSlotId (slotId - diff)
 
-crucialSlot :: SlotId -> SlotId
-crucialSlot SlotId{siEpoch = epochId} =
-    if epochId == 0 then SlotId {siEpoch = 0, siSlot = 0}
-    else SlotId {siEpoch = epochId - 1, siSlot = 5 * k - 1}
+crucialSlot :: EpochIndex -> SlotId
+crucialSlot 0        = SlotId {siEpoch = 0, siSlot = 0}
+crucialSlot epochIdx = SlotId {siEpoch = epochIdx - 1, siSlot = 5 * k - 1}

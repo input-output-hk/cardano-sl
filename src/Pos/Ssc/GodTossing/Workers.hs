@@ -28,20 +28,18 @@ import           Pos.Binary.Ssc                   ()
 import           Pos.Communication.BiP            (BiP)
 import           Pos.Constants                    (k, mpcSendInterval, vssMaxTTL)
 import           Pos.Context                      (getNodeContext, ncPublicKey,
-                                                   ncSecretKey, ncSscContext)
+                                                   ncSecretKey, ncSscContext, waitLrc)
 import           Pos.Crypto                       (SecretKey, VssKeyPair, randomNumber,
                                                    runSecureRandom, toPublic)
 import           Pos.Crypto.SecretSharing         (toVssPublicKey)
 import           Pos.Crypto.Signing               (PublicKey)
 import           Pos.DB.GState                    (getTip)
-import           Pos.Lrc.Types                    (toRichmen)
+import           Pos.DB.Lrc                       (getRichmenSsc)
 import           Pos.NewDHT.Model                 (sendToNeighbors)
-import           Pos.Slotting                     (getSlotStart, onNewSlot')
 import           Pos.Slotting                     (getCurrentSlot, getSlotStart,
-                                                   onNewSlot)
+                                                   onNewSlot')
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
 import           Pos.Ssc.Extra.MonadLD            (sscRunLocalQuery, sscRunLocalUpdate)
-import           Pos.Ssc.Extra.Richmen            (MonadSscRichmen (..))
 import           Pos.Ssc.GodTossing.Functions     (genCommitmentAndOpening, getThreshold,
                                                    hasCommitment, hasOpening, hasShares,
                                                    isCommitmentIdx, isOpeningIdx,
@@ -62,7 +60,7 @@ import           Pos.Types                        (EpochIndex, LocalSlotIndex,
                                                    SlotId (..), StakeholderId,
                                                    StakeholderId, Timestamp (..),
                                                    addressHash)
-import           Pos.Util                         (asBinary)
+import           Pos.Util                         (asBinary, maybeThrow)
 import           Pos.Util.Relay                   (DataMsg (..), InvMsg (..))
 import           Pos.WorkMode                     (NewWorkMode)
 
@@ -212,9 +210,9 @@ sscProcessMessageRichmen :: NewWorkMode SscGodTossing m
                          -> StakeholderId
                          -> m Bool
 sscProcessMessageRichmen msg addr = do
-    SlotId{..} <- getCurrentSlot
-    richmen <- toRichmen <$> readSscRichmen siEpoch
-    sscProcessMessage richmen msg addr
+    epoch <- siEpoch <$> getCurrentSlot
+    richmen <- getRichmenSsc epoch
+    maybe (pure False) (\r -> sscProcessMessage r msg addr) richmen
 
 sendOurData
     :: (NewWorkMode SscGodTossing m)
@@ -242,7 +240,8 @@ generateAndSetNewSecret
     -> SlotId                         -- ^ Current slot
     -> m (Maybe (SignedCommitment, Opening))
 generateAndSetNewSecret sk SlotId{..} = do
-    richmen <- toRichmen <$> readSscRichmen siEpoch
+    waitLrc siEpoch
+    richmen <- maybeThrow noRichmenErr =<< getRichmenSsc siEpoch
     certs <- getGlobalCerts
     let noPsErr = panic "generateAndSetNewSecret: no participants"
     let ps = fromMaybe (panic noPsErr) . nonEmpty .
@@ -256,6 +255,9 @@ generateAndSetNewSecret sk SlotId{..} = do
       _ -> do
         logError "Wrong participants list: can't deserialize"
         return Nothing
+  where
+    noRichmenErr :: SomeException
+    noRichmenErr = undefined
 
 randomTimeInInterval
     :: NewWorkMode SscGodTossing m

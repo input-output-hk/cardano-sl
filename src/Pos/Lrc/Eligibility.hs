@@ -19,9 +19,9 @@ import           Pos.DB.Class             (MonadDB)
 import           Pos.DB.GState.Balances   (getFtsStake)
 import           Pos.DB.GState.Delegation (IssuerPublicKey (..), isIssuerByAddressHash,
                                            iteratePSKs)
-import           Pos.Lrc.Types            (RichmenStake)
-import           Pos.Types                (Coin, StakeholderId, Utxo, addressHash, mkCoin,
-                                           txOutStake, unsafeAddCoin)
+import           Pos.Lrc.Types            (FullRichmenData, RichmenStake)
+import           Pos.Types                (Coin, StakeholderId, addressHash, mkCoin,
+                                           sumCoins, unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Util                 (getKeys)
 import           Pos.Util.Iterator        (MonadIterator (nextItem), runListHolder,
                                            runListHolderT)
@@ -139,7 +139,12 @@ findAllRichmenMaybe maybeT maybeTD
     | otherwise = pure (mempty, mempty)
 
 -- | Pure version of findRichmen which uses in-memory Utxo.
-findRichmenPure :: Utxo -> Coin -> RichmenStake
-findRichmenPure utxo t =
-    runListHolder (findRichmenStake t) .
-                  concatMap txOutStake $ toList utxo
+findRichmenPure :: [(StakeholderId, Coin)]
+                -> (Coin -> Coin)
+                -> Bool
+                -> FullRichmenData
+findRichmenPure stakeDistribution thresholdF considerDelegated =
+    (total, runListHolder (findRichmenStake thresholdCoin) stakeDistribution)
+  where
+    total = unsafeIntegerToCoin $ sumCoins $ map snd stakeDistribution
+    thresholdCoin = thresholdF total

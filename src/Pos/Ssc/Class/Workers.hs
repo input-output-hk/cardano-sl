@@ -8,7 +8,7 @@ import           Data.Tagged           (Tagged)
 import           Node                  (SendActions)
 
 import           Pos.Communication.BiP (BiP)
-import           Pos.Lrc.Types         (LrcConsumer)
+import           Pos.Lrc.Consumer      (LrcConsumer)
 import           Pos.Ssc.Class.Types   (Ssc (..))
 import           Pos.WorkMode          (NewWorkMode)
 

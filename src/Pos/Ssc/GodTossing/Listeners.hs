@@ -24,14 +24,12 @@ import           Pos.Binary.Relay                       ()
 import           Pos.Binary.Ssc                         ()
 import           Pos.Communication.BiP                  (BiP (..))
 import           Pos.Context                            (WithNodeContext (getNodeContext))
-import           Pos.Lrc.Types                          (toRichmen)
-import           Pos.NewDHT.Model.Class                 (MonadDHT (..))
+import qualified Pos.DB.Lrc                             as LrcDB
 import           Pos.Security                           (shouldIgnorePkAddress)
 import           Pos.Slotting                           (getCurrentSlot)
 import           Pos.Ssc.Class.Listeners                (SscListenersClass (..))
 import           Pos.Ssc.Class.Types                    (Ssc (..))
 import           Pos.Ssc.Extra.MonadLD                  (sscGetLocalPayload)
-import           Pos.Ssc.Extra.Richmen                  (tryReadSscRichmenEpoch)
 import           Pos.Ssc.GodTossing.LocalData.LocalData (sscIsDataUseful,
                                                          sscProcessMessage)
 import           Pos.Ssc.GodTossing.Types.Base          (Commitment, Opening,
@@ -108,9 +106,9 @@ instance NewWorkMode SscGodTossing m
 sscProcessMessageRichmen :: NewWorkMode SscGodTossing m
                           => GtMsgContents -> StakeholderId -> m Bool
 sscProcessMessageRichmen dat addr = do
-    SlotId{..} <- getCurrentSlot
-    richmenMaybe <- tryReadSscRichmenEpoch siEpoch
-    maybe (pure False) (\(toRichmen -> r) -> sscProcessMessage r dat addr) richmenMaybe
+    epoch <- siEpoch <$> getCurrentSlot
+    richmenMaybe <- LrcDB.getRichmenSsc epoch
+    maybe (pure False) (\r -> sscProcessMessage r dat addr) richmenMaybe
 
 toContents :: GtMsgTag -> StakeholderId -> GtPayload -> Maybe GtMsgContents
 toContents CommitmentMsg addr (CommitmentsPayload comm _) =

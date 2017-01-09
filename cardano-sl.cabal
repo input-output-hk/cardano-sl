@@ -140,6 +140,7 @@ library
                         Pos.Binary.Version
 
                         -- Block processing
+                        Pos.Block.Error
                         Pos.Block.Logic
                         Pos.Block.Network.Announce
                         Pos.Block.Network.Request
@@ -227,6 +228,7 @@ library
                         Pos.DHT.Model.Class.MonadMessageDHT
 
                         -- LRC
+                        Pos.Lrc.Consumer
                         Pos.Lrc.Consumers
                         Pos.Lrc.Eligibility
                         Pos.Lrc.Types

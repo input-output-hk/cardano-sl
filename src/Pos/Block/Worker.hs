@@ -26,11 +26,11 @@ import           Pos.Block.Logic            (createGenesisBlock, createMainBlock
 import           Pos.Block.Network.Announce (announceBlock)
 import           Pos.Communication.BiP      (BiP)
 import           Pos.Constants              (networkDiameter)
-import           Pos.Context                (getNodeContext, ncPublicKey,
-                                             tryReadLeadersEpoch)
+import           Pos.Context                (getNodeContext, ncPublicKey)
 import           Pos.Crypto                 (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega),
                                              shortHashF)
 import           Pos.DB.GState              (getPSKByIssuerAddressHash)
+import           Pos.DB.Lrc                 (getLeaders)
 import           Pos.DB.Misc                (getProxySecretKeys)
 import           Pos.Slotting               (MonadSlots (getCurrentTime), getSlotStart,
                                              onNewSlot')
@@ -62,7 +62,7 @@ blkOnNewSlot sendActions slotId@SlotId {..} = do
     -- genesis block for current epoch, then we either have calculated
     -- it before and it implies presense of leaders in MVar or we have
     -- read leaders from DB during initialization.
-    leadersMaybe <- tryReadLeadersEpoch siEpoch
+    leadersMaybe <- getLeaders siEpoch
     case leadersMaybe of
         -- If we don't know leaders, we can't do anything.
         Nothing -> logWarning "Leaders are not known for new slot"
@@ -89,14 +89,16 @@ blkOnNewSlot sendActions slotId@SlotId {..} = do
         logLeadersF $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash
         logLeadersF $ sformat ("Slot leaders: "%listJson) $ map (sformat shortHashF) leaders
         logLeadersF $ sformat ("Current slot leader: "%build) leader
+        logDebug $ sformat ("Available lightweight PSKs: "%listJson) validCerts
         heavyPskM <- getPSKByIssuerAddressHash leader
         logDebug $ "Does someone have cert for this slot: " <> show (isJust heavyPskM)
-        let relatedHeavyPsk = maybe False ((== ourPk) . pskDelegatePk) heavyPskM
-        logDebug $ sformat ("Available lightweight PSKs: "%listJson) validCerts
-        if | leader == ourPkHash -> onNewSlotWhenLeader sendActions slotId Nothing
-           | relatedHeavyPsk -> onNewSlotWhenLeader sendActions slotId $ Right <$> heavyPskM
+        let heavyWeAreDelegate = maybe False ((== ourPk) . pskDelegatePk) heavyPskM
+        let heavyWeAreIssuer = maybe False ((== ourPk) . pskIssuerPk) heavyPskM
+        if | heavyWeAreIssuer -> pass
+           | leader == ourPkHash -> onNewSlotWhenLeader sendActions slotId Nothing
+           | heavyWeAreDelegate -> onNewSlotWhenLeader sendActions slotId $ Right <$> heavyPskM
            | isJust validCert -> onNewSlotWhenLeader sendActions slotId $ Left <$> validCert
-           | otherwise -> pure ()
+           | otherwise -> pass
 
 onNewSlotWhenLeader
     :: NewWorkMode ssc m

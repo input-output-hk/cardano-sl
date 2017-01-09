@@ -16,10 +16,7 @@ module Pos.DB.DBIterator
 import           Control.Monad.Reader (ReaderT (..))
 import           Control.Monad.Trans  (MonadTrans)
 import qualified Database.RocksDB     as Rocks
-import           Mockable             (ChannelT, MFunctor' (hoist'),
-                                       Mockable (liftMockable), Promise, SharedAtomicT,
-                                       ThreadId, bracket, catch, liftMockableWrappedM)
-import           Universum            hiding (bracket, catch)
+import           Universum
 
 import           Pos.Binary.Class     (Bi)
 import           Pos.DB.Class         (MonadDB (..))
@@ -31,17 +28,6 @@ newtype DBIterator m a = DBIterator
     { getDBIterator :: ReaderT Rocks.Iterator m a
     } deriving (Functor, Applicative, Monad, MonadIO, MonadTrans
                , MonadThrow, MonadCatch)
-
-type instance ThreadId (DBIterator m) = ThreadId m
-type instance Promise (DBIterator m) = Promise m
-type instance SharedAtomicT (DBIterator m) = SharedAtomicT m
-type instance ChannelT (DBIterator m) = ChannelT m
-
-instance ( Mockable d m
-         , MFunctor' d (ReaderT Rocks.Iterator m) m
-         , MFunctor' d (DBIterator m) (ReaderT Rocks.Iterator m)
-         ) => Mockable d (DBIterator m) where
-    liftMockable = liftMockableWrappedM
 
 -- | RocksDB key value iteration errors.
 data ParseResult a = FetchError  -- RocksDB internal error
@@ -85,19 +71,6 @@ newtype DBMapIterator f m a = DBMapIterator
 
 instance MonadTrans (DBMapIterator f)  where
     lift x = DBMapIterator $ ReaderT $ const $ lift x
-
-type instance ThreadId (DBMapIterator f m) = ThreadId m
-type instance Promise (DBMapIterator f m) = Promise m
-type instance SharedAtomicT (DBMapIterator f m) = SharedAtomicT m
-type instance ChannelT (DBMapIterator f m) = ChannelT m
-
-instance ( Mockable d m
-         , MFunctor' d (DBMapIterator f m) (ReaderT f (DBIterator m))
-         , MFunctor' d (ReaderT f (DBIterator m)) (DBIterator m)
-         , MFunctor' d (ReaderT Rocks.Iterator m) m
-         , MFunctor' d (DBIterator m) (ReaderT Rocks.Iterator m)
-         ) => Mockable d (DBMapIterator f m) where
-    liftMockable = liftMockableWrappedM
 
 -- | Instance for DBMapIterator using DBIterator.
 -- Fetch every element from DBIterator and apply `f` for it.

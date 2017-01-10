@@ -11,12 +11,10 @@ module Pos.DB.GState.Update
        , getProposalState
        , getAppProposal
        , getProposalStateByApp
-       , getStakeUS
        , getConfirmedSV
 
          -- * Operations
        , UpdateOp (..)
-       -- , putRichmenUS
        , setScriptVersion
        , setConfirmedSV
        , setLastPV
@@ -43,9 +41,8 @@ import           Pos.DB.GState.Common      (getBi, putBi)
 import           Pos.DB.Types              (ProposalState (..), psProposal)
 import           Pos.Genesis               (genesisProtocolVersion, genesisScriptVersion)
 import           Pos.Script.Type           (ScriptVersion)
-import           Pos.Types                 (ApplicationName, Coin, EpochIndex,
-                                            ProtocolVersion, SoftwareVersion (..),
-                                            StakeholderId)
+import           Pos.Types                 (ApplicationName, ProtocolVersion,
+                                            SoftwareVersion (..))
 import           Pos.Update.Types          (UpId, UpdateProposal (..))
 import           Pos.Util                  (maybeThrow)
 
@@ -75,12 +72,6 @@ getAppProposal = getBi . proposalAppKey
 getProposalStateByApp :: MonadDB ssc m => ApplicationName -> m (Maybe ProposalState)
 getProposalStateByApp appName =
     runMaybeT $ MaybeT (getAppProposal appName) >>= MaybeT . getProposalState
-
--- | Get stake of richmen according to stake distribution for given
--- epoch. If stakeholder was not richmen or if richmen for epoch are
--- unknown, 'Nothing' is returned.
-getStakeUS :: MonadDB ssc m => EpochIndex -> StakeholderId -> m (Maybe Coin)
-getStakeUS e = getBi . stakeKey e
 
 type NumSoftwareVersion = Word32
 
@@ -115,13 +106,6 @@ instance RocksBatchOp UpdateOp where
 --     [Rocks.Put (proposalAppKey (upsSlot ups)) (encodeStrict (upsProposal ups))]
 -- putUndecidedProposalSlot _ = []
 
--- -- I suppose batching is not necessary here.
--- -- | Put richmen and their stakes for given epoch.
--- putRichmenUS :: MonadDB ssc m => EpochIndex -> [(StakeholderId, Coin)] -> m ()
--- putRichmenUS e = mapM_ putRichmenDo
---   where
---     putRichmenDo (id, stake) = putBi (stakeKey e id) stake
-
 -- | Set last protocol version
 setLastPV :: MonadDB ssc m => ProtocolVersion -> m ()
 setLastPV = putBi lastPVKey
@@ -144,9 +128,9 @@ prepareGStateUS
        MonadDB ssc m
     => m ()
 prepareGStateUS = unlessM isInitialized $ do
-    putBi lastPVKey genesisProtocolVersion
     setScriptVersion genesisProtocolVersion genesisScriptVersion
     setConfirmedSV curSoftwareVersion
+    putBi lastPVKey genesisProtocolVersion
 
 isInitialized :: MonadDB ssc m => m Bool
 isInitialized = isJust <$> getLastPVMaybe
@@ -195,13 +179,7 @@ proposalKey :: UpId -> ByteString
 proposalKey = mappend "us/p" . encodeStrict
 
 proposalAppKey :: ApplicationName -> ByteString
--- [CSL-379] Restore prefix after we have proper iterator
--- proposalAppKey = mappend "us/s" . encodeStrict
 proposalAppKey = mappend "us/an" . encodeStrict
-
--- Can be optimized I suppose.
-stakeKey :: EpochIndex -> StakeholderId -> ByteString
-stakeKey e s = "us/s" <> encodeStrict e <> encodeStrict s
 
 confirmedVersionKey :: ApplicationName -> ByteString
 confirmedVersionKey = mappend "us/c" . encodeStrict

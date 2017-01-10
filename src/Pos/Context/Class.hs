@@ -6,6 +6,7 @@ module Pos.Context.Class
        ( WithNodeContext (..)
        ) where
 
+import           Control.Monad.Except         (ExceptT)
 import           Control.Monad.Trans.Resource (ResourceT)
 import           Universum
 
@@ -27,6 +28,10 @@ instance (Monad m, WithNodeContext ssc m) =>
 
 instance (Monad m, WithNodeContext ssc m) =>
          WithNodeContext ssc (StateT a m) where
+    getNodeContext = lift getNodeContext
+
+instance (Monad m, WithNodeContext ssc m) =>
+         WithNodeContext ssc (ExceptT e m) where
     getNodeContext = lift getNodeContext
 
 instance (Monad m, WithNodeContext ssc m) =>

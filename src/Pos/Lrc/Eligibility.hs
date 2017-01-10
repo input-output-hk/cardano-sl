@@ -3,11 +3,12 @@
 
 -- | Logic related to eligibility threshold.
 
-module Pos.Richmen.Eligibility
+module Pos.Lrc.Eligibility
        ( findRichmenStake
        , findRichmenPure
        , findAllRichmenMaybe
        , findDelegatedRichmen
+       , RichmenType (..)
        ) where
 
 import qualified Data.HashMap.Strict      as HM
@@ -19,8 +20,9 @@ import           Pos.DB.Class             (MonadDB)
 import           Pos.DB.GState.Balances   (getFtsStake)
 import           Pos.DB.GState.Delegation (IssuerPublicKey (..), isIssuerByAddressHash,
                                            iteratePSKs)
-import           Pos.Types                (Coin, RichmenStake, StakeholderId, Utxo,
-                                           addressHash, mkCoin, txOutStake, unsafeAddCoin)
+import           Pos.Lrc.Types            (FullRichmenData, RichmenStake)
+import           Pos.Types                (Coin, StakeholderId, addressHash, mkCoin,
+                                           sumCoins, unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Util                 (getKeys)
 import           Pos.Util.Iterator        (MonadIterator (nextItem), runListHolder,
                                            runListHolderT)
@@ -32,10 +34,12 @@ type SetRichmen = HashSet StakeholderId
 -- 1. Old richmen who delegated own stake and isn't richman more.
 -- 2. Delegates who became richmen.
 findDelegationStakes
-    :: forall ssc m . (MonadDB ssc m
-                      , MonadIterator m (StakeholderId, [StakeholderId]))
-    => Coin -> m (SetRichmen, RichmenStake) -- old richmen, new richmen
-findDelegationStakes t = do
+    :: forall m . MonadIterator m (StakeholderId, [StakeholderId])
+    => (StakeholderId -> m Bool) -- helper
+    -> (StakeholderId -> m (Maybe Coin)) -- helper
+    -> Coin
+    -> m (SetRichmen, RichmenStake) -- old richmen, new richmen
+findDelegationStakes isIssuer stakeResolver t = do
     (old, new) <- step (mempty, mempty)
     pure (getKeys ((HS.toMap old) `HM.difference` new), new)
   where
@@ -48,7 +52,7 @@ findDelegationStakes t = do
           foldM (\cr id -> (unsafeAddCoin cr) <$> safeBalance id)
                 (mkCoin 0)
                 issuers
-        isIss <- isIssuerByAddressHash delegate
+        isIss <- isIssuer delegate
         curStake <- if isIss then pure sumIssuers
                     else (unsafeAddCoin sumIssuers) <$> safeBalance delegate
         let newRichmen =
@@ -62,7 +66,7 @@ findDelegationStakes t = do
                 old
                 issuers
         pure (oldRichmen, newRichmen)
-    safeBalance id = fromMaybe (mkCoin 0) <$> getFtsStake id
+    safeBalance id = fromMaybe (mkCoin 0) <$> stakeResolver id
 
 -- | Find delegated richmen using precomputed usual richmen.
 -- Do it using one pass by delegation DB.
@@ -72,7 +76,8 @@ findDelRichUsingPrecomp
 findDelRichUsingPrecomp precomputed t = do
     delIssMap <- computeDelIssMap
     (old, new) <- runListHolderT @(StakeholderId, [StakeholderId])
-                      (findDelegationStakes t) (HM.toList delIssMap)
+                      (findDelegationStakes isIssuerByAddressHash getFtsStake t)
+                      (HM.toList delIssMap)
     -- attention: order of new and precomputed is important
     -- we want to use new balances (computed from delegated) of precomputed richmen
     pure (new `HM.union` (precomputed `HM.difference` (HS.toMap old)))
@@ -131,14 +136,32 @@ findAllRichmenMaybe maybeT maybeTD
         let precomputedD = HM.filter (>= tD) richmenMin
         richmenD <- findDelRichUsingPrecomp precomputedD tD
         pure (richmen, richmenD)
-    | Just t <- maybeT =
-        (,mempty) <$> findRichmenStake t
-    | Just tD <- maybeTD =
-        (mempty,) <$> findDelegatedRichmen tD
+    | Just t <- maybeT = (,mempty) <$> findRichmenStake t
+    | Just tD <- maybeTD = (mempty,) <$> findDelegatedRichmen tD
     | otherwise = pure (mempty, mempty)
 
+data RichmenType
+    = RTUsual
+    | RTDelegation (HashMap StakeholderId [StakeholderId])
+
 -- | Pure version of findRichmen which uses in-memory Utxo.
-findRichmenPure :: Utxo -> Coin -> RichmenStake
-findRichmenPure utxo t =
-    runListHolder (findRichmenStake t) .
-                  concatMap txOutStake $ toList utxo
+findRichmenPure :: [(StakeholderId, Coin)]
+                -> (Coin -> Coin)
+                -> RichmenType
+                -> FullRichmenData
+findRichmenPure stakeDistribution thresholdF computeType
+    | RTDelegation delegationMap <- computeType =
+        let issuers = HS.fromList (concat $ toList delegationMap)
+            (old, new) =
+                runListHolder
+                    (findDelegationStakes
+                        (pure . flip HS.member issuers)
+                        (pure . flip HM.lookup stakeMap) thresholdCoin)
+                    (HM.toList delegationMap) in
+        (total, new `HM.union` (usualRichmen `HM.difference` (HS.toMap old)))
+    | otherwise = (total, usualRichmen)
+  where
+    stakeMap = HM.fromList stakeDistribution
+    usualRichmen = runListHolder (findRichmenStake thresholdCoin) stakeDistribution
+    total = unsafeIntegerToCoin $ sumCoins $ map snd stakeDistribution
+    thresholdCoin = thresholdF total

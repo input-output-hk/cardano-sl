@@ -38,7 +38,7 @@ import           Pos.DB.Error                   (DBError (DBMalformed))
 import           Pos.DHT.Model                  (ListenerDHT (..), MonadDHTDialog,
                                                  getUserState, replyToNode)
 import           Pos.Types                      (Block, BlockHeader, Blund,
-                                                 HasHeaderHash (..), HeaderHash,
+                                                 HasHeaderHash (..), HeaderHash, NEBlocks,
                                                  blockHeader, gbHeader, prevBlockL)
 import           Pos.Util                       (inAssertMode, _neHead, _neLast)
 import           Pos.WorkMode                   (WorkMode)
@@ -237,7 +237,7 @@ applyWithoutRollback blocks = do
     logDebug $ sformat ("Trying to apply blocks w/o rollback: "%listJson)
         (map (view blockHeader) blocks)
     verifyBlocks blocks >>= \case
-        Left err  -> onFailedVerifyBlocks err
+        Left err  -> onFailedVerifyBlocks blocks err
         Right ver -> do
             logDebug "Verified blocks successfully, will apply them now"
             when (length ver /= length blocks) $
@@ -296,7 +296,7 @@ applyWithRollback toApply lca toRollback = do
                     logInfo $ blocksAppliedMsg toApplyAfterLca
                     relayBlock $ NE.last toApplyAfterLca
                 Left errors -> tip <$ do
-                    onFailedVerifyBlocks errors
+                    onFailedVerifyBlocks toApplyAfterLca errors
                     logDebug "Applying rollbacked blocks…"
                     applyBlocks toRollback
                     logDebug "Finished applying rollback blocks"
@@ -316,8 +316,10 @@ relayBlock (Right mainBlk) = announceBlock $ mainBlk ^. gbHeader
 onFailedVerifyBlocks
     :: forall ssc m.
        (ResponseMode ssc m)
-    => Text -> m ()
-onFailedVerifyBlocks = logWarning . sformat ("Failed to verify blocks: " %stext)
+    => NEBlocks ssc -> Text -> m ()
+onFailedVerifyBlocks blocks err = logWarning $
+    sformat ("Failed to verify blocks: "%stext%"\n  blocks = "%listJson)
+            err (fmap headerHash blocks)
 
 tipMismatchMsg :: Text -> HeaderHash ssc -> HeaderHash ssc -> Text
 tipMismatchMsg action storedTip attemptedTip =

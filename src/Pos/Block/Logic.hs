@@ -26,7 +26,7 @@ module Pos.Block.Logic
        ) where
 
 import           Control.Lens              (view, (^.))
-import           Control.Monad.Catch       (onException)
+import           Control.Monad.Catch       (bracketOnError)
 import           Control.Monad.Except      (ExceptT (ExceptT), runExceptT, throwError)
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
 import           Data.Default              (Default (def))
@@ -42,8 +42,8 @@ import           Universum
 
 import           Pos.Constants             (curProtocolVersion, curSoftwareVersion, k)
 import           Pos.Context               (NodeContext (ncSecretKey), getNodeContext,
-                                            putBlkSemaphore, readBlkSemaphore,
-                                            readLeaders, takeBlkSemaphore)
+                                            lrcActionOnEpochReason, putBlkSemaphore,
+                                            readBlkSemaphore, takeBlkSemaphore)
 import           Pos.Crypto                (SecretKey, WithHash (WithHash), hash,
                                             shortHashF)
 import           Pos.Data.Attributes       (mkAttributes)
@@ -51,6 +51,7 @@ import           Pos.DB                    (DBError (..), MonadDB, getTipBlockHe
                                             loadHeadersWhile)
 import qualified Pos.DB                    as DB
 import qualified Pos.DB.GState             as GS
+import qualified Pos.DB.Lrc                as LrcDB
 import           Pos.Delegation.Logic      (delegationApplyBlocks,
                                             delegationRollbackBlocks,
                                             delegationVerifyBlocks, getProxyMempool)
@@ -300,12 +301,12 @@ verifyBlocks blocks = do
 withBlkSemaphore
     :: WorkMode ssc m
     => (HeaderHash ssc -> m (a, HeaderHash ssc)) -> m a
-withBlkSemaphore action = do
-    tip <- takeBlkSemaphore
-    let impl = do
-            (res, newTip) <- action tip
-            res <$ putBlkSemaphore newTip
-    impl `onException` putBlkSemaphore tip
+withBlkSemaphore action =
+    bracketOnError takeBlkSemaphore putBlkSemaphore doAction
+  where
+    doAction tip = do
+        (res, newTip) <- action tip
+        res <$ putBlkSemaphore newTip
 
 -- | Version of withBlkSemaphore which doesn't have any result.
 withBlkSemaphore_
@@ -375,7 +376,9 @@ createGenesisBlockDo
        WorkMode ssc m
     => EpochIndex -> m (Maybe (GenesisBlock ssc))
 createGenesisBlockDo epoch = do
-    leaders <- readLeaders epoch
+    leaders <- lrcActionOnEpochReason epoch
+                   "there are no leaders"
+                   LrcDB.getLeaders
     res <- withBlkSemaphore (createGenesisBlockCheckAgain leaders)
     res <$ inAssertMode (logDebug . sformat newTipFmt =<< readBlkSemaphore)
   where

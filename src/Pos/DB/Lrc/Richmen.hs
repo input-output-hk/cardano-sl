@@ -10,7 +10,6 @@ module Pos.DB.Lrc.Richmen
        (
          -- * Generalization
          RichmenComponent (..)
-       , SomeRichmenComponent
 
          -- * Getters
        , getRichmen
@@ -29,15 +28,19 @@ module Pos.DB.Lrc.Richmen
 
        ) where
 
-import qualified Data.HashSet      as HS
 import           Universum
 
-import           Pos.Binary.Class  (Bi, encodeStrict)
-import           Pos.Binary.Types  ()
-import           Pos.DB.Class      (MonadDB)
-import           Pos.DB.Lrc.Common (getBi, putBi)
-import           Pos.Types         (EpochIndex, FullRichmenData, Richmen, StakeholderId,
-                                    toRichmen)
+import           Pos.Binary.Class      (Bi, encodeStrict)
+import           Pos.Binary.Types      ()
+import           Pos.Context.Class     (WithNodeContext)
+import           Pos.Context.Functions (genesisUtxoM)
+import           Pos.DB.Class          (MonadDB)
+import           Pos.DB.Lrc.Common     (getBi, putBi)
+import           Pos.Genesis           (genesisDelegation)
+import           Pos.Lrc.Eligibility   (RichmenType (..), findRichmenPure)
+import           Pos.Lrc.Types         (FullRichmenData, Richmen, toRichmen)
+import           Pos.Types             (Coin, EpochIndex, StakeholderId, mkCoin,
+                                        txOutStake)
 
 ----------------------------------------------------------------------------
 -- Class
@@ -48,10 +51,8 @@ class Bi (RichmenData a) =>
     type RichmenData a :: *
     rcToData :: FullRichmenData -> RichmenData a
     rcTag :: Proxy a -> ByteString
-
-data SomeRichmenComponent =
-    forall c. RichmenComponent c =>
-              SomeRichmenComponent (Proxy c)
+    rcThreshold :: Proxy a -> Coin -> Coin
+    rcConsiderDelegated :: Proxy a -> Bool
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -89,13 +90,40 @@ putRichmenP Proxy = putRichmen @c
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareLrcRichmen
-    :: MonadDB ssc m
-    => [(SomeRichmenComponent, FullRichmenData)] -> m ()
-prepareLrcRichmen = mapM_ prepareLrcRichmenDo
+data SomeRichmenComponent =
+    forall c. (RichmenComponent c) =>
+              SomeRichmenComponent (Proxy c)
+
+someRichmenComponent
+    :: forall c.
+       RichmenComponent c
+    => SomeRichmenComponent
+someRichmenComponent = SomeRichmenComponent proxy
   where
-    prepareLrcRichmenDo (SomeRichmenComponent proxy, frd) =
-        putIfEmpty (getRichmenP proxy 0) (putRichmenP proxy 0 frd)
+    proxy :: Proxy c
+    proxy = Proxy
+
+prepareLrcRichmen
+    :: (WithNodeContext ssc m, MonadDB ssc m)
+    => m ()
+prepareLrcRichmen = do
+    genesisDistribution <- concatMap txOutStake . toList <$> genesisUtxoM
+    mapM_ (prepareLrcRichmenDo genesisDistribution) components
+  where
+    prepareLrcRichmenDo distr (SomeRichmenComponent proxy) =
+        putIfEmpty
+            (getRichmenP proxy 0)
+            (putRichmenP proxy 0 $ computeInitial distr proxy)
+
+computeInitial
+    :: RichmenComponent c
+    => [(StakeholderId, Coin)] -> Proxy c -> FullRichmenData
+computeInitial initialDistr proxy =
+    findRichmenPure initialDistr (rcThreshold proxy) richmenType
+  where
+    richmenType
+        | rcConsiderDelegated proxy = RTDelegation genesisDelegation
+        | otherwise = RTUsual
 
 putIfEmpty
     :: forall a m.
@@ -132,11 +160,17 @@ instance RichmenComponent RCSsc where
     type RichmenData RCSsc = Richmen
     rcToData = toRichmen . snd
     rcTag Proxy = "ssc"
+    -- [CSL-93] Use eligibility threshold here.
+    rcThreshold Proxy = const (mkCoin 0)
+    rcConsiderDelegated Proxy = True
 
-getRichmenSsc :: MonadDB ssc m => EpochIndex -> m (Maybe (HashSet StakeholderId))
-getRichmenSsc epoch = fmap (HS.fromList . toList) <$> getRichmen @RCSsc epoch
+getRichmenSsc :: MonadDB ssc m => EpochIndex -> m (Maybe Richmen)
+getRichmenSsc epoch = getRichmen @RCSsc epoch
 
 putRichmenSsc
     :: (MonadDB ssc m)
     => EpochIndex -> FullRichmenData -> m ()
 putRichmenSsc = putRichmen @RCSsc
+
+components :: [SomeRichmenComponent]
+components = [someRichmenComponent @RCSsc]

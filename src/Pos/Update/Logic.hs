@@ -95,7 +95,8 @@ applyVote
     => EpochIndex -> UpdateVote -> StateT UndecidedProposalState m ()
 applyVote epoch UpdateVote {..} = do
     let id = addressHash uvKey
-    stake <- maybeThrow (USNotRichmen id) =<< GS.getStakeUS epoch id
+    -- stake <- maybeThrow (USNotRichmen id) =<< GS.getStakeUS epoch id
+    stake <- maybeThrow (USNotRichmen id) =<< undefined epoch id
     modify $ voteToUProposalState uvKey stake uvDecision
 
 -- | Revert application of given blocks to US part of GState DB

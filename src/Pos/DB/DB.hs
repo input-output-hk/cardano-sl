@@ -18,7 +18,7 @@ import           System.Directory             (createDirectoryIfMissing,
 import           System.FilePath              ((</>))
 import           Universum
 
-import           Pos.Context                  (WithNodeContext, genesisUtxoM)
+import           Pos.Context                  (WithNodeContext, genesisLeadersM)
 import           Pos.DB.Block                 (getBlock, loadBlocksWithUndoWhile,
                                                prepareBlockDB)
 import           Pos.DB.Class                 (MonadDB)
@@ -28,11 +28,9 @@ import           Pos.DB.GState                (getTip, prepareGStateDB)
 import           Pos.DB.Lrc                   (prepareLrcDB)
 import           Pos.DB.Misc                  (prepareMiscDB)
 import           Pos.DB.Types                 (NodeDBs (..))
-import           Pos.Genesis                  (genesisLeaders)
-import           Pos.Richmen.Eligibility      (findRichmenPure)
 import           Pos.Ssc.Class.Types          (Ssc)
 import           Pos.Types                    (Block, BlockHeader, Undo, getBlockHeader,
-                                               headerHash, mkCoin, mkGenesisBlock)
+                                               headerHash, mkGenesisBlock)
 
 -- | Open all DBs stored on disk.
 openNodeDBs
@@ -60,16 +58,13 @@ initNodeDBs
        (Ssc ssc, WithNodeContext ssc m, MonadDB ssc m)
     => m ()
 initNodeDBs = do
-    genesisUtxo <- genesisUtxoM
-    let leaders0 = genesisLeaders genesisUtxo
-        -- [CSL-93] Use eligibility threshold here
-        richmen0 = findRichmenPure genesisUtxo (mkCoin 0)
-        genesisBlock0 = mkGenesisBlock Nothing 0 leaders0
+    leaders0 <- genesisLeadersM
+    let genesisBlock0 = mkGenesisBlock Nothing 0 leaders0
         initialTip = headerHash genesisBlock0
     prepareBlockDB genesisBlock0
     prepareGStateDB initialTip
-    prepareLrcDB [] -- TODO
-    prepareMiscDB leaders0 richmen0
+    prepareLrcDB
+    prepareMiscDB
 
 -- | Get block corresponding to tip.
 getTipBlock

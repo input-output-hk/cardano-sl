@@ -1,18 +1,30 @@
 {-# LANGUAGE UndecidableInstances #-}
 
-module Pos.Block.Arbitrary () where
+module Pos.Block.Arbitrary
+       ( BlockHeaderList (..)
+       )
+       where
 
-import           Test.QuickCheck     (Arbitrary (..), Gen, listOf, oneof)
+import           Test.QuickCheck     (Arbitrary (..), Gen, choose, listOf, oneof,
+                                      vectorOf)
 import           Universum
 
+import           Control.Lens        (view, _1)
+import           Data.Ix             (range)
+import           Data.Text.Buildable (Buildable)
+import qualified Data.Text.Buildable as Buildable
+import           Formatting          (bprint, build, formatToString, (%))
 import           Pos.Binary          (Bi)
 import           Pos.Block.Network   as T
-import           Pos.Crypto          (Hash)
+import           Pos.Constants       (epochSlots)
+import           Pos.Crypto          (Hash, ProxySecretKey, PublicKey, SecretKey,
+                                      createProxySecretKey, toPublic)
 import           Pos.Data.Attributes (Attributes (..), mkAttributes)
 import           Pos.Merkle          (MerkleRoot (..), MerkleTree, mkMerkleTree)
 import           Pos.Ssc.Class.Types (Ssc (..))
 import qualified Pos.Types           as T
 import           Pos.Util            (Raw, makeSmall)
+import qualified Prelude
 
 ------------------------------------------------------------------------------------------
 -- Arbitrary instances for Blockchain related types
@@ -156,3 +168,127 @@ instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) => Arbitrary (T.MsgHeaders 
 instance (Arbitrary (SscProof ssc), Arbitrary (SscPayload ssc), Ssc ssc) =>
     Arbitrary (T.MsgBlock ssc) where
     arbitrary = T.MsgBlock <$> arbitrary
+
+instance T.BiSsc ssc => Buildable (T.BlockHeader ssc, PublicKey) where
+    build (block, key) =
+        bprint
+            ( build%"\n"%
+              build%"\n"
+            ) block key
+
+newtype BlockHeaderList ssc = BHL
+    { getHeaderList :: ([T.BlockHeader ssc], [PublicKey])
+    } deriving (Eq)
+
+instance T.BiSsc ssc => Show (BlockHeaderList ssc) where
+    show =
+        concat . intersperse "\n" . map (formatToString build) . uncurry zip . getHeaderList
+
+-- | Starting Epoch in block header verification tests
+startingEpoch :: Integral a => a
+startingEpoch = 0
+
+-- | Maximum permitted epoch in block header verification tests
+maxEpochs :: Integral a => a
+maxEpochs = 0
+
+-- | Generation of arbitrary, valid headerchain along with a list of leaders for
+-- each epoch.
+--
+-- Because `verifyHeaders` assumes the head of the list is the most recent
+-- block, this function is tail-recursive: while keeping track of the current
+-- block and epoch/slot, it adds the most recent one to the head of the header list
+-- it'll return when done.
+--
+-- The `[Either SecretKey (SecretKey, SecretKey, Bool)]` type is for determining what
+-- kind of signature the slot's block will have. If it's `Left sk`, it'll be a simple
+-- `BlockSignature`; if it's `Right (issuerSK, delegateSK, b)`, it will be a proxy
+-- signature, and if `b :: Bool` is false, it'll be a simple proxy secret key.
+-- Otherwise, it'll be a proxy secret key with epochs, whose lower and upper epoch
+-- bounds will be randomly generated.
+--
+-- Beware that
+-- * genesis blocks have no leaders, and that
+-- * if an epoch is `n` slots long, every `n+1`-th block will be of the genesis kind.
+
+
+recursiveHeaderGen
+    :: (Arbitrary (SscPayload ssc), Ssc ssc, Integral a)
+    => [Either SecretKey (SecretKey, SecretKey, Bool)]
+    -> [(a, a)]
+    -> [T.BlockHeader ssc]
+    -> Gen [T.BlockHeader ssc]
+recursiveHeaderGen
+    (eitherOfLeader : leaders)
+    ((epoch, slot) : rest)
+    blockchain@(prevHeader : _) = do
+        let epochCounter = fromIntegral epoch
+            slotCounter = fromIntegral slot
+        curHeader <- do
+            if slot == epochSlots
+                then do
+                    body <- arbitrary
+                    return $ Left $ T.mkGenesisHeader (Just prevHeader) (epochCounter + 1) body
+                else do
+                    body <- arbitrary
+                    extraHData <- arbitrary
+                    lowEpoch <- choose (0, epochCounter)
+                    highEpoch <- choose (epochCounter, maxEpochs + 1)
+                    -- These two values may not be used at all. If the slot in question
+                    -- will have a simple signature, laziness will prevent them from
+                    -- being calculated. Otherwise, they'll be the proxy secret key's ω.
+                    let slotId = T.SlotId epochCounter slotCounter
+                        (leader, proxySK) =
+                            case eitherOfLeader of
+                                Left sk -> (sk, Nothing)
+                                Right (issuerSK, delegateSK, isSigEpoch) ->
+                                    let w = (lowEpoch, highEpoch)
+                                        delegatePK = toPublic delegateSK
+                                        curried :: Bi w => w -> ProxySecretKey w
+                                        curried = createProxySecretKey issuerSK delegatePK
+                                        proxy = if isSigEpoch
+                                             then Right  $ curried ()
+                                             else Left $ curried w
+                                    in (delegateSK, Just $ proxy)
+                    return $ Right $ T.mkMainHeader (Just prevHeader) slotId leader proxySK body extraHData
+        recursiveHeaderGen leaders rest (curHeader : blockchain)
+recursiveHeaderGen [] _ b = return b
+recursiveHeaderGen _ [] b = return b
+recursiveHeaderGen _ _ _  = return []
+
+
+-- | This type is used to generate a blockchain, as well a list of leaders for every
+-- slot with which the chain will be paired. The leaders are in reverse order to the
+-- chain - the list goes from first to last leader. This is used in a `verifyHeader`
+-- test.
+--
+-- Note that every non-empty blockchain has at least one epoch, which may be complete
+-- or incomplete. To simulate this behavior, two random numbers are generated:
+-- one that stands for the number of complete epochs we have, and the other for the
+-- number of incomplete slots of the last epoch, which, in this instance, must exist.
+--
+-- A blockchain with only complete epochs is a subset of some blockchain with one
+-- incomplete epoch, so if the former is desired, a simple list `takeWhile` of the list
+-- this instance generates will be enough.
+--
+-- Note that a leader is generated for each slot.
+-- (Not exactly a leader - see previous comment)
+
+instance (Arbitrary (SscPayload ssc), Ssc ssc) => Arbitrary (BlockHeaderList ssc) where
+    arbitrary = BHL <$> do
+        fullEpochs <- choose (startingEpoch, maxEpochs)
+        incompleteEpochSize <- T.LocalSlotIndex <$> choose (1, epochSlots - 1)
+        leadersList <-
+            vectorOf ((epochSlots * fullEpochs) + fromIntegral incompleteEpochSize)
+                arbitrary
+        firstGenesisBody <- arbitrary
+        let firstHeader = Left $ T.mkGenesisHeader Nothing startingEpoch firstGenesisBody
+            actualLeaders = map (toPublic . either identity (view _1)) leadersList
+        (, actualLeaders) <$>
+            recursiveHeaderGen
+                leadersList
+                (range ((startingEpoch, 0), (fromIntegral fullEpochs, epochSlots)) ++
+                zip (repeat $ fromIntegral (fullEpochs + 1)) [0 .. incompleteEpochSize - 1])
+                -- This `range` will give us pairs with all complete epochs and for each,
+                -- every slot therein.
+                [firstHeader]

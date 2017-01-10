@@ -57,7 +57,11 @@ library
                         Pos.DHT.Real.Real
                         Pos.DHT.Real.Types
                         Pos.Genesis
-                        Pos.FollowTheSatoshi
+
+                        -- LRC
+                        Pos.Lrc
+                        Pos.Lrc.FollowTheSatoshi
+
                         Pos.Script
                         Pos.Script.Examples
                         Pos.Script.Type
@@ -126,6 +130,7 @@ library
                         Pos.Binary.Version
 
                         -- Block processing
+                        Pos.Block.Error
                         Pos.Block.Logic
                         Pos.Block.Network.Announce
                         Pos.Block.Network.Request
@@ -212,9 +217,12 @@ library
                         Pos.DHT.Model.Class.MonadMessageDHT
 
                         -- LRC
-                        Pos.Richmen
-                        Pos.Richmen.Consumers
-                        Pos.Richmen.Eligibility
+                        Pos.Lrc.Consumer
+                        Pos.Lrc.Consumers
+                        Pos.Lrc.Error
+                        Pos.Lrc.Eligibility
+                        Pos.Lrc.Types
+                        Pos.Lrc.Worker
 
                         -- SSC
                         Pos.Ssc.Extra.Holder
@@ -270,7 +278,6 @@ library
                         Pos.Types.Utxo.Pure
 
                         -- Workers
-                        Pos.Worker.Lrc
                         Pos.Worker.Stats
 
                         -- Update System

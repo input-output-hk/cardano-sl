@@ -6,8 +6,8 @@ module Pos.Ssc.Class.Workers
 
 import           Data.Tagged         (Tagged)
 
+import           Pos.Lrc.Consumer    (LrcConsumer)
 import           Pos.Ssc.Class.Types (Ssc (..))
-import           Pos.Types           (LrcConsumer)
 import           Pos.WorkMode        (WorkMode)
 
 -- | Class for @SSC@ workers.

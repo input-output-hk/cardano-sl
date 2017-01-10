@@ -1,0 +1,31 @@
+-- | Types used in LRC.
+
+module Pos.Lrc.Types
+       ( Richmen
+       , RichmenStake
+       , toRichmen
+       , FullRichmenData
+       ) where
+
+import qualified Data.HashMap.Strict as HM
+import           Data.List.NonEmpty  (NonEmpty)
+import qualified Data.List.NonEmpty  as NE
+import           Universum
+
+import           Pos.Types           (Coin, StakeholderId)
+
+-- | Addresses which have enough stake for participation in SSC.
+type Richmen = NonEmpty StakeholderId
+
+-- | Richmen with Stake
+type RichmenStake = HashMap StakeholderId Coin
+
+toRichmen :: RichmenStake -> Richmen
+toRichmen =
+    fromMaybe onNoRichmen . NE.nonEmpty . HM.keys
+  where
+    onNoRichmen = panic "There are no richmen!"
+
+-- | Full richmen data consists of total stake at some point and stake
+-- distribution among richmen.
+type FullRichmenData = (Coin, RichmenStake)

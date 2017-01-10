@@ -17,7 +17,7 @@ import           Universum
 
 import           Pos.Constants         (epochSlots)
 import           Pos.Crypto            (unsafeHash)
-import           Pos.FollowTheSatoshi  (followTheSatoshi)
+import           Pos.Lrc               (followTheSatoshi)
 import           Pos.Types             (Address (..), Coin, SharedSeed, StakeholderId,
                                         TxId, TxOut (..), Utxo, mkCoin, sumCoins,
                                         txOutStake)

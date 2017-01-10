@@ -21,9 +21,9 @@ import           Universum
 
 import           Pos.Context.Class    (WithNodeContext)
 import           Pos.DB.Class         (MonadDB)
+import           Pos.Lrc.Types        (Richmen)
 import           Pos.Ssc.Class.Types  (Ssc (..))
-import           Pos.Types            (EpochIndex, HeaderHash, NEBlocks, Richmen,
-                                       SharedSeed)
+import           Pos.Types            (EpochIndex, HeaderHash, NEBlocks, SharedSeed)
 
 ----------------------------------------------------------------------------
 -- Modern

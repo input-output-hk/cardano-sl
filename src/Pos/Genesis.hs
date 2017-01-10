@@ -13,6 +13,7 @@ module Pos.Genesis
        , genesisPublicKeys
        , genesisSecretKeys
        , genesisUtxo
+       , genesisDelegation
 
        -- * Ssc
        , genesisLeaders
@@ -23,23 +24,24 @@ module Pos.Genesis
        ) where
 
 
-import           Data.Default         (Default (def))
-import           Data.List            (genericLength, genericReplicate)
-import qualified Data.Map.Strict      as M
-import qualified Data.Text            as T
-import           Formatting           (int, sformat, (%))
-import           Serokell.Util        (enumerate)
+import           Data.Default             (Default (def))
+import           Data.List                (genericLength, genericReplicate)
+import qualified Data.Map.Strict          as M
+import qualified Data.Text                as T
+import           Formatting               (int, sformat, (%))
+import           Serokell.Util            (enumerate)
 import           Universum
 
-import           Pos.Constants        (genesisN)
-import           Pos.Crypto           (PublicKey, SecretKey, deterministicKeyGen,
-                                       unsafeHash)
-import           Pos.FollowTheSatoshi (followTheSatoshi)
-import           Pos.Script.Type      (ScriptVersion)
-import           Pos.Types            (Address (..), Coin, ProtocolVersion (..),
-                                       SharedSeed (SharedSeed), SlotLeaders, TxOut (..),
-                                       Utxo, coinToInteger, divCoin, makePubKeyAddress,
-                                       mkCoin, unsafeAddCoin, unsafeMulCoin)
+import           Pos.Constants            (genesisN)
+import           Pos.Crypto               (PublicKey, SecretKey, deterministicKeyGen,
+                                           unsafeHash)
+import           Pos.Lrc.FollowTheSatoshi (followTheSatoshi)
+import           Pos.Script.Type          (ScriptVersion)
+import           Pos.Types                (Address (..), Coin, ProtocolVersion (..),
+                                           SharedSeed (SharedSeed), SlotLeaders,
+                                           StakeholderId, TxOut (..), Utxo, coinToInteger,
+                                           divCoin, makePubKeyAddress, mkCoin,
+                                           unsafeAddCoin, unsafeMulCoin)
 
 ----------------------------------------------------------------------------
 -- Static state
@@ -129,6 +131,9 @@ genesisUtxo sd =
     M.fromList . zipWith zipF (stakeDistribution sd) $ genesisAddresses
   where
     zipF coin addr = ((unsafeHash addr, 0), (TxOut addr coin, []))
+
+genesisDelegation :: HashMap StakeholderId [StakeholderId]
+genesisDelegation = mempty
 
 ----------------------------------------------------------------------------
 -- Slot leaders

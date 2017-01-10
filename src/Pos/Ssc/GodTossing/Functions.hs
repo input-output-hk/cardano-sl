@@ -362,9 +362,9 @@ verifyGtPayload header payload =
         [ (inRange (0, 6 * k - 1) (siSlot slotId),
             "slot id is outside of [0, 6k)")]
 
-checkCommShares :: HashSet (AsBinary VssPublicKey) -> SignedCommitment -> Bool
+checkCommShares :: [AsBinary VssPublicKey] -> SignedCommitment -> Bool
 checkCommShares vssPublicKeys c =
-    vssPublicKeys == (HS.fromList . HM.keys . commShares $ c ^. _2)
+    vssPublicKeys == (HM.keys . commShares $ c ^. _2)
 ----------------------------------------------------------------------------
 -- Modern
 ----------------------------------------------------------------------------

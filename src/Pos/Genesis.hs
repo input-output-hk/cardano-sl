@@ -38,11 +38,11 @@ import           Pos.Crypto               (PublicKey, SecretKey, deterministicKe
                                            unsafeHash)
 import           Pos.Lrc.FollowTheSatoshi (followTheSatoshi)
 import           Pos.Script.Type          (ScriptVersion)
-import           Pos.Types                (Address (..), ApplicationName (..), Coin,
-                                           ProtocolVersion (..), SharedSeed (SharedSeed),
-                                           SlotLeaders, StakeholderId, TxOut (..), Utxo,
-                                           coinToInteger, divCoin, makePubKeyAddress,
-                                           mkCoin, unsafeAddCoin, unsafeMulCoin)
+import           Pos.Types                (Address (..), Coin, ProtocolVersion (..),
+                                           SharedSeed (SharedSeed), SlotLeaders,
+                                           StakeholderId, TxOut (..), Utxo, coinToInteger,
+                                           divCoin, makePubKeyAddress, mkCoin,
+                                           unsafeAddCoin, unsafeMulCoin)
 import           Pos.Types.Version        (SoftwareVersion (..))
 
 ----------------------------------------------------------------------------

@@ -29,7 +29,6 @@ import           Universum
 
 import           Pos.Binary.Class          (encodeStrict)
 import           Pos.Binary.DB             ()
-import           Pos.Constants             (curSoftwareVersion)
 import           Pos.Crypto                (hash)
 import           Pos.DB.Class              (MonadDB, getUtxoDB)
 import           Pos.DB.Error              (DBError (DBMalformed))
@@ -113,19 +112,6 @@ instance RocksBatchOp UpdateOp where
 --     [Rocks.Put (proposalAppKey (upsSlot ups)) (encodeStrict (upsProposal ups))]
 -- putUndecidedProposalSlot _ = []
 
--- | Set last protocol version
-setLastPV :: MonadDB ssc m => ProtocolVersion -> m ()
-setLastPV = putBi lastPVKey
-
--- | Set correspondence between protocol version and script version
-setScriptVersion :: MonadDB ssc m => ProtocolVersion -> ScriptVersion -> m ()
-setScriptVersion = putBi . scriptVersionKey
-
--- | Set confirmed version number for given app
-setConfirmedSV :: MonadDB ssc m => SoftwareVersion -> m ()
-setConfirmedSV SoftwareVersion {..}
-    = putBi (confirmedVersionKey svAppName) svNumber
-
 ----------------------------------------------------------------------------
 -- Initialization
 ----------------------------------------------------------------------------
@@ -199,3 +185,16 @@ confirmedVersionKey = mappend "us/c" . encodeStrict
 
 getLastPVMaybe :: MonadDB ssc m => m (Maybe ProtocolVersion)
 getLastPVMaybe = getBi lastPVKey
+
+-- -- Set last protocol version
+-- setLastPV :: MonadDB ssc m => ProtocolVersion -> m ()
+-- setLastPV = putBi lastPVKey
+
+-- -- Set correspondence between protocol version and script version
+-- setScriptVersion :: MonadDB ssc m => ProtocolVersion -> ScriptVersion -> m ()
+-- setScriptVersion = putBi . scriptVersionKey
+
+-- -- Set confirmed version number for given app
+-- setConfirmedSV :: MonadDB ssc m => SoftwareVersion -> m ()
+-- setConfirmedSV SoftwareVersion {..}
+--     = putBi (confirmedVersionKey svAppName) svNumber

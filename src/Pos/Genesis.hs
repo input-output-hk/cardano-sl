@@ -13,6 +13,7 @@ module Pos.Genesis
        , genesisPublicKeys
        , genesisSecretKeys
        , genesisUtxo
+       , genesisDelegation
 
        -- * Ssc
        , genesisLeaders
@@ -38,9 +39,9 @@ import           Pos.Lrc.FollowTheSatoshi (followTheSatoshi)
 import           Pos.Script.Type          (ScriptVersion)
 import           Pos.Types                (Address (..), Coin, ProtocolVersion (..),
                                            SharedSeed (SharedSeed), SlotLeaders,
-                                           TxOut (..), Utxo, coinToInteger, divCoin,
-                                           makePubKeyAddress, mkCoin, unsafeAddCoin,
-                                           unsafeMulCoin)
+                                           StakeholderId, TxOut (..), Utxo, coinToInteger,
+                                           divCoin, makePubKeyAddress, mkCoin,
+                                           unsafeAddCoin, unsafeMulCoin)
 
 ----------------------------------------------------------------------------
 -- Static state
@@ -130,6 +131,9 @@ genesisUtxo sd =
     M.fromList . zipWith zipF (stakeDistribution sd) $ genesisAddresses
   where
     zipF coin addr = ((unsafeHash addr, 0), (TxOut addr coin, []))
+
+genesisDelegation :: HashMap StakeholderId [StakeholderId]
+genesisDelegation = mempty
 
 ----------------------------------------------------------------------------
 -- Slot leaders

@@ -36,7 +36,8 @@ import           Pos.Context.Class     (WithNodeContext)
 import           Pos.Context.Functions (genesisUtxoM)
 import           Pos.DB.Class          (MonadDB)
 import           Pos.DB.Lrc.Common     (getBi, putBi)
-import           Pos.Lrc.Eligibility   (findRichmenPure)
+import           Pos.Genesis           (genesisDelegation)
+import           Pos.Lrc.Eligibility   (RichmenType (..), findRichmenPure)
 import           Pos.Lrc.Types         (FullRichmenData, Richmen, toRichmen)
 import           Pos.Types             (Coin, EpochIndex, StakeholderId, mkCoin,
                                         txOutStake)
@@ -118,7 +119,7 @@ computeInitial
     :: RichmenComponent c
     => [(StakeholderId, Coin)] -> Proxy c -> FullRichmenData
 computeInitial initialDistr proxy =
-    findRichmenPure initialDistr (rcThreshold proxy) (rcConsiderDelegated proxy)
+    findRichmenPure initialDistr (rcThreshold proxy) (Delegation genesisDelegation)
 
 putIfEmpty
     :: forall a m.

@@ -89,6 +89,9 @@ data VssCertificate = VssCertificate
     , vcSigningKey   :: !PublicKey
     } deriving (Show, Eq, Generic)
 
+instance Ord VssCertificate where
+    compare a b = compare (vcExpiryEpoch a) (vcExpiryEpoch b)
+
 mkVssCertificate :: SecretKey -> AsBinary VssPublicKey -> EpochIndex -> VssCertificate
 mkVssCertificate sk vk expiry = VssCertificate vk expiry (sign sk (vk, expiry)) $ toPublic sk
 

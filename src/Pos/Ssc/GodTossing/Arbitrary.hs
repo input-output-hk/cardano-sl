@@ -84,6 +84,7 @@ instance Arbitrary VssCertData where
         <*> arbitrary
         <*> arbitrary
         <*> arbitrary
+        <*> arbitrary
 
 instance Bi Commitment => Arbitrary GtGlobalState where
     arbitrary = makeSmall $ GtGlobalState

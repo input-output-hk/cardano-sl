@@ -20,7 +20,7 @@ import           System.Wlog                 (logInfo)
 import           Universum
 
 import           Pos.Binary.Communication    ()
-import           Pos.Block.Logic             (applyBlocks, rollbackBlocks,
+import           Pos.Block.Logic.Internal    (applyBlocksUnsafe, rollbackBlocksUnsafe,
                                               withBlkSemaphore_)
 import           Pos.Constants               (k)
 import           Pos.Context                 (LrcSyncData, getNodeContext, ncLrcSync)
@@ -104,10 +104,10 @@ lrcDo epoch consumers tip = tip <$ do
     blockUndoList <- DB.loadBlocksFromTipWhile whileMoreOrEq5k
     when (null blockUndoList) $ throwM UnknownBlocksForLrc
     let blockUndos = NE.fromList blockUndoList
-    rollbackBlocks blockUndos
+    rollbackBlocksUnsafe blockUndos
     richmenComputationDo epoch consumers
     leadersComputationDo epoch
-    applyBlocks (NE.reverse blockUndos)
+    applyBlocksUnsafe (NE.reverse blockUndos)
   where
     whileMoreOrEq5k b _ = getEpochOrSlot b > crucial
     crucial = EpochOrSlot $ Right $ crucialSlot epoch

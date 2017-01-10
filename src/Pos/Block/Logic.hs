@@ -25,12 +25,13 @@ module Pos.Block.Logic
        , createMainBlock
        ) where
 
-import           Control.Lens              (view, (^.))
+import           Control.Lens              (view, (^.), _1)
 import           Control.Monad.Catch       (bracketOnError)
 import           Control.Monad.Except      (ExceptT (ExceptT), runExceptT, throwError)
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
 import           Data.Default              (Default (def))
 import qualified Data.HashMap.Strict       as HM
+import           Data.List                 (span)
 import           Data.List.NonEmpty        (NonEmpty ((:|)), (<|))
 import qualified Data.List.NonEmpty        as NE
 import qualified Data.Text                 as T
@@ -40,6 +41,8 @@ import           Serokell.Util.Verify      (VerificationRes (..), formatAllError
 import           System.Wlog               (logDebug)
 import           Universum
 
+import           Pos.Block.Logic.Internal  (applyBlocksUnsafe, rollbackBlocksUnsafe,
+                                            withBlkSemaphore, withBlkSemaphore_)
 import           Pos.Constants             (curProtocolVersion, curSoftwareVersion, k)
 import           Pos.Context               (NodeContext (ncSecretKey), getNodeContext,
                                             lrcActionOnEpochReason, putBlkSemaphore,
@@ -55,8 +58,9 @@ import qualified Pos.DB.Lrc                as LrcDB
 import           Pos.Delegation.Logic      (delegationApplyBlocks,
                                             delegationRollbackBlocks,
                                             delegationVerifyBlocks, getProxyMempool)
+import           Pos.Lrc.Worker            (lrcSingleShot)
 import           Pos.Slotting              (getCurrentSlot)
-import           Pos.Ssc.Class             (Ssc (..))
+import           Pos.Ssc.Class             (Ssc (..), SscWorkersClass (..))
 import           Pos.Ssc.Extra             (sscApplyBlocks, sscApplyGlobalState,
                                             sscGetLocalPayload, sscRollback,
                                             sscVerifyBlocks)
@@ -69,14 +73,14 @@ import           Pos.Types                 (Block, BlockHeader, Blund, EpochInde
                                             MainExtraHeaderData (..), ProxySKEither,
                                             ProxySKSimple, SlotId (..), TxAux, TxId,
                                             Undo (..), VerifyHeaderParams (..),
-                                            blockHeader, difficultyL, epochOrSlot,
-                                            flattenEpochOrSlot, genesisHash,
+                                            blockHeader, difficultyL, epochIndexL,
+                                            epochOrSlot, flattenEpochOrSlot, genesisHash,
                                             getEpochOrSlot, headerHash, headerSlot,
                                             mkGenesisBlock, mkMainBlock, mkMainBody,
                                             prevBlockL, topsortTxs, verifyHeader,
                                             verifyHeaders, vhpVerifyConsensus)
 import qualified Pos.Types                 as Types
-import           Pos.Util                  (inAssertMode)
+import           Pos.Util                  (inAssertMode, spanSafe)
 import           Pos.WorkMode              (WorkMode)
 
 -- | Result of single (new) header classification.
@@ -296,63 +300,50 @@ verifyBlocks blocks = do
        when (length txUndo /= length pskUndo) $ throwError "Aoeu! Placeholder!"
        pure $ NE.map (uncurry Undo) $ NE.zip txUndo pskUndo
 
--- | Run action acquiring lock on block application. Argument of
--- action is an old tip, result is put as a new tip.
-withBlkSemaphore
+-- | Applies blocks if they're valid. Does nothing if at least one of
+-- them is invalid.
+verifyAndApplyBlocks
     :: WorkMode ssc m
-    => (HeaderHash ssc -> m (a, HeaderHash ssc)) -> m a
-withBlkSemaphore action =
-    bracketOnError takeBlkSemaphore putBlkSemaphore doAction
-  where
-    doAction tip = do
-        (res, newTip) <- action tip
-        res <$ putBlkSemaphore newTip
-
--- | Version of withBlkSemaphore which doesn't have any result.
-withBlkSemaphore_
-    :: WorkMode ssc m
-    => (HeaderHash ssc -> m (HeaderHash ssc)) -> m ()
-withBlkSemaphore_ = withBlkSemaphore . (fmap ((), ) .)
+    => NonEmpty (Block ssc) -> m (Maybe Text)
+verifyAndApplyBlocks = undefined
+--    applyBlocksUnsafe prefix
+--    case suffix of
+--        (genesis:xs) -> do
+--            when calculateLrc $ lrcSingleShot $ genesis ^. _1 . epochIndexL
+--            applyBlocks $ genesis:|xs
+--        [] -> pass
+--  where
+--    (prefix,suffix) =
+--        spanSafe (\(h,_) (b,_) -> b ^. epochIndexL == h ^. epochIndexL) blunds
 
 -- | Apply definitely valid sequence of blocks. At this point we must
 -- have verified all predicates regarding block (including txs and ssc
--- data checks).  We almost must have taken lock on block application
--- and ensured that chain is based on our tip.
+-- data checks). We almost must have taken lock on block application
+-- and ensured that chain is based on our tip. Blocks will be applied
+-- per-epoch, calculating lrc when needed if flag is set.
 applyBlocks
-    :: forall ssc m . WorkMode ssc m
-    => NonEmpty (Blund ssc) -> m ()
-applyBlocks blunds = do
-    let blks = fmap fst blunds
-    -- Note: it's important to put blocks first
-    mapM_ putToDB blunds
-    delegateBatch <- SomeBatchOp <$> delegationApplyBlocks (map fst blunds)
-    txBatch <- SomeBatchOp <$> txApplyBlocks blunds
-    sscApplyBlocks blks
-    sscApplyGlobalState
-    GS.writeBatchGState [delegateBatch, txBatch]
-    normalizeTxpLD
+    :: forall ssc m . (WorkMode ssc m, SscWorkersClass ssc)
+    => Bool -> NonEmpty (Blund ssc) -> m ()
+applyBlocks calculateLrc blunds = do
+    applyBlocksUnsafe prefix
+    case suffix of
+        (genesis:xs) -> do
+            when calculateLrc $ lrcSingleShot $ genesis ^. _1 . epochIndexL
+            applyBlocks calculateLrc $ genesis:|xs
+        [] -> pass
   where
-    putToDB (blk, undo) = DB.putBlock undo True blk
+    (prefix,suffix) =
+        spanSafe (\(h,_) (b,_) -> b ^. epochIndexL == h ^. epochIndexL) blunds
 
--- | Rollback sequence of blocks, head block corresponds to tip,
--- further blocks are parents. It's assumed that lock on block
--- application is taken.
-rollbackBlocks :: (WorkMode ssc m) => NonEmpty (Block ssc, Undo) -> m ()
-rollbackBlocks toRollback = do
-    -- [CSL-378] Update sbInMain properly (in transaction)
-    delRoll <- delegationRollbackBlocks toRollback
-    txRoll <- txRollbackBlocks toRollback
-    forM_ (NE.toList toRollback) $
-        \(blk,_) -> DB.setBlockInMainChain (hash $ blk ^. blockHeader) False
-    sscRollback $ fmap fst toRollback
-    GS.writeBatchGState [delRoll, txRoll]
+rollbackBlocks :: (WorkMode ssc m) => NonEmpty (Blund ssc) -> m ()
+rollbackBlocks = rollbackBlocksUnsafe
 
 ----------------------------------------------------------------------------
 -- GenesisBlock creation
 ----------------------------------------------------------------------------
 
 -- | Create genesis block if necessary.
-
+--
 -- We create genesis block for current epoch when head of currently known
 -- best chain is MainBlock corresponding to one of last `k` slots of
 -- (i - 1)-th epoch. Main check is that epoch is `(last stored epoch +
@@ -399,7 +390,7 @@ createGenesisBlockDo epoch = do
         | shouldCreateGenesisBlock epoch (getEpochOrSlot tipHeader) = do
               let blk = mkGenesisBlock (Just tipHeader) epoch leaders
               let newTip = headerHash blk
-              applyBlocks (pure (Left blk, Undo [] [])) $> (Just blk, newTip)
+              applyBlocksUnsafe (pure (Left blk, Undo [] [])) $> (Just blk, newTip)
         | otherwise = pure (Nothing, tip)
 
 ----------------------------------------------------------------------------
@@ -461,7 +452,7 @@ createMainBlockFinish slotId pSk prevHeader = do
             fromMaybe (panic "Undo for tx not found")
                       (HM.lookup (fst tx) txUndo) : undos
     let blockUndo = Undo (reverse $ foldl' prependToUndo [] localTxs) pskUndo
-    blk <$ applyBlocks (pure (Right blk, blockUndo))
+    blk <$ applyBlocksUnsafe (pure (Right blk, blockUndo))
 
 createMainBlockPure
     :: Ssc ssc

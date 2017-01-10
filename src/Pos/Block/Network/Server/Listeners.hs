@@ -259,7 +259,7 @@ applyWithoutRollback blocks = do
         | tip /= assumedTip =
             tip <$ logWarning (tipMismatchMsg "apply" tip assumedTip)
         | otherwise = newTip <$ do
-            applyBlocks blunds
+            applyBlocks True blunds
             logInfo $ blocksAppliedMsg @ssc blunds
             relayBlock $ fst $ NE.last blunds
 
@@ -292,13 +292,13 @@ applyWithRollback toApply lca toRollback = do
             verRes <- verifyBlocks toApplyAfterLca
             case verRes of
                 Right undos -> newTip <$ do
-                    applyBlocks (NE.zip toApplyAfterLca undos)
+                    applyBlocks True (NE.zip toApplyAfterLca undos)
                     logInfo $ blocksAppliedMsg toApplyAfterLca
                     relayBlock $ NE.last toApplyAfterLca
                 Left errors -> tip <$ do
                     onFailedVerifyBlocks toApplyAfterLca errors
                     logDebug "Applying rollbacked blocks…"
-                    applyBlocks toRollback
+                    applyBlocks True toRollback
                     logDebug "Finished applying rollback blocks"
 
 relayBlock

@@ -11,22 +11,21 @@ import qualified Control.Concurrent       as Conc
 import qualified Control.Concurrent.Async as Conc
 import qualified Control.Concurrent.STM   as Conc
 import qualified Control.Exception        as Exception
-import           Control.Monad            (forever)
 import           Control.Monad.Catch      (MonadCatch (..), MonadMask (..),
                                            MonadThrow (..))
 import           Control.Monad.Fix        (MonadFix)
 import           Control.Monad.IO.Class   (MonadIO)
-import           Control.TimeWarp.Timed   (for, hour)
 import           System.Wlog              (CanLog (..))
 
 import           Mockable.Channel         (Channel (..), ChannelT)
 import           Mockable.Class           (Mockable (..))
 import           Mockable.Concurrent      (Async (..), Concurrently (..), Delay (..),
                                            Fork (..), Promise, RunInUnboundThread (..),
-                                           ThreadId, delay)
+                                           ThreadId)
 import           Mockable.CurrentTime     (CurrentTime (..), realTime)
 import           Mockable.Exception       (Bracket (..), Catch (..), Throw (..))
 import           Mockable.SharedAtomic    (SharedAtomic (..), SharedAtomicT)
+import           Serokell.Util.Concurrent as Serokell
 import           Universum                (MonadFail (..))
 
 newtype Production t = Production
@@ -47,10 +46,8 @@ instance Mockable Fork Production where
     liftMockable (KillThread tid) = Production $ Conc.killThread tid
 
 instance Mockable Delay Production where
-    liftMockable (Delay relativeToNow) = Production $ do
-        now <- realTime
-        Conc.threadDelay $ fromIntegral $ relativeToNow now - now
-    liftMockable SleepForever = forever $ delay $ for 24 hour
+    liftMockable (Delay time) = Production $ Serokell.threadDelay time
+    liftMockable SleepForever = Production $ Conc.atomically Conc.retry
 
 instance Mockable RunInUnboundThread Production where
     liftMockable (RunInUnboundThread m) = Production $

@@ -44,9 +44,10 @@ import qualified Data.ByteString             as LBS
 import           Data.Foldable               (for_)
 import qualified Data.List                   as L
 import qualified Data.Set                    as S
+import           Data.Time.Units             (TimeUnit, Second, Millisecond)
 import           Data.Void                   (Void)
 import           GHC.Generics                (Generic)
-import           Mockable.Concurrent         (delay, fork, for, forConcurrently)
+import           Mockable.Concurrent         (delay, fork, forConcurrently)
 import           Mockable.Exception          (catch, throw)
 import           Mockable.Production         (Production (..))
 import           Network.Transport.Abstract  (closeTransport)
@@ -65,7 +66,6 @@ import           Node                        (ConversationActions (..), Listener
                                              NodeId, SendActions (..),
                                              Worker, nodeId, node, NodeAction(..))
 import           Message.Message             (BinaryP (..))
-import          Data.Time.Units              (fromMicroseconds)
 
 
 -- * Parcel
@@ -153,11 +153,11 @@ throwLeft = (>>= f)
     f (Right a) = return a
 
 -- | Await for predicate to become True, with timeout
-awaitSTM :: Int -> STM Bool -> Production ()
+awaitSTM :: TimeUnit t => t -> STM Bool -> Production ()
 awaitSTM time predicate = do
     tvar <- liftIO $ newTVarIO False
     void . fork $ do
-        delay $ for (fromMicroseconds . fromIntegral $ time)
+        delay time
         liftIO . atomically $ writeTVar tvar True
     liftIO . atomically $
         check =<< (||) <$> predicate <*> readTVar tvar
@@ -233,12 +233,12 @@ deliveryTest testState workers listeners = runProduction $ do
                     worker (nodeId serverNode) clientSendActions
 
                 -- wait for receiver to get everything, but not for too long
-                awaitSTM 5000000 $ S.null . _expected <$> readTVar testState
+                awaitSTM @Second 5 $ S.null . _expected <$> readTVar testState
 
     closeTransport transport
 
     -- wait till port gets free
-    delay $ for 20000
+    delay @_ @Millisecond 20
 
     -- form test results
     liftIO . atomically $

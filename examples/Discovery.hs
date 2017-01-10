@@ -17,8 +17,7 @@ import           Data.Time.Units                      (Microsecond, fromMicrosec
 import           Data.Void                            (Void)
 import           GHC.Generics                         (Generic)
 import           Message.Message                      (BinaryP (..))
-import           Mockable.Concurrent                  (ThreadId, delay, for, fork,
-                                                       killThread)
+import           Mockable.Concurrent                  (ThreadId, delay, fork, killThread)
 import           Mockable.Exception                   (finally)
 import           Mockable.Production
 import           Network.Discovery.Abstract
@@ -46,7 +45,7 @@ worker anId generator discovery = pingWorker generator
         loop g = do
             let (i, gen') = randomR (1000,2000000) g
                 us = fromMicroseconds i :: Microsecond
-            delay (for us)
+            delay us
             _ <- knownPeers discovery
             _ <- discoverPeers discovery
             peerSet <- knownPeers discovery

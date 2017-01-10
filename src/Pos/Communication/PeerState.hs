@@ -8,7 +8,9 @@ module Pos.Communication.PeerState
        ( WithPeerState (..)
        , runPeerStateHolder
        , PeerStateHolder (..)
-       , PeerStateCtx (..)
+       , PeerStateCtx
+       , PeerStateSnapshot
+       , peerStateFromSnapshot
        ) where
 
 import           Control.Lens                  (iso)
@@ -21,7 +23,8 @@ import qualified ListT                         as LT
 import           Mockable                      (ChannelT, MFunctor',
                                                 Mockable (liftMockable), Promise,
                                                 SharedAtomic, SharedAtomicT, ThreadId,
-                                                liftMockableWrappedM, newSharedAtomic)
+                                                liftMockableWrappedM, newSharedAtomic,
+                                                readSharedAtomic)
 import           Node                          (NodeId)
 import           Serokell.Util.Lens            (WrappedM (..))
 import qualified STMContainers.Map             as STM
@@ -32,17 +35,27 @@ import           Pos.Communication.Types.State (PeerState)
 
 type PeerStateCtx ssc m = STM.Map NodeId (SharedAtomicT m (PeerState ssc))
 
+-- | PeerStateCtx with no dependency on `m` type.
+newtype PeerStateSnapshot ssc = PeerStateSnapshot [(NodeId, PeerState ssc)]
+
 class WithPeerState ssc m | m -> ssc where
     getPeerState   :: NodeId -> m (SharedAtomicT m (PeerState ssc))
     clearPeerState :: NodeId -> m ()
-    getAllStates   :: m (PeerStateCtx ssc m)
-    setAllStates   :: PeerStateCtx ssc m -> m ()
+    getAllStates   :: m (PeerStateSnapshot ssc)
 
 instance (Monad m, WithPeerState ssc m) => WithPeerState ssc (ReaderT r m) where
     getPeerState = lift . getPeerState
     clearPeerState = lift . clearPeerState
     getAllStates = lift getAllStates
-    setAllStates = lift . setAllStates
+
+peerStateFromSnapshot
+    :: (MonadIO m, Mockable SharedAtomic m)
+    => PeerStateSnapshot ssc -> m (PeerStateCtx ssc m)
+peerStateFromSnapshot (PeerStateSnapshot snapshot) = do
+    ctx <- forM snapshot $ mapM newSharedAtomic
+    m   <- liftIO STM.newIO
+    liftIO . atomically $ forM_ ctx $ \(k, v) -> STM.insert v k m
+    return m
 
 -- | Wrapper for monadic action which brings 'NodePeerState'.
 newtype PeerStateHolder ssc m a = PeerStateHolder
@@ -91,7 +104,6 @@ instance (MonadIO m, Mockable SharedAtomic m) => WithPeerState ssc (PeerStateHol
                     _      -> STM.insert st nodeId m $> st
 
     clearPeerState nodeId = (PeerStateHolder ask) >>= \m -> liftIO . atomically $ nodeId `STM.delete` m
-    getAllStates = PeerStateHolder ask
-    setAllStates s = (PeerStateHolder ask) >>= \m -> liftIO . atomically $ do
-        STM.deleteAll m
-        LT.traverse_ (\(v, k) -> STM.insert k v m) $ STM.stream s
+    getAllStates = PeerStateHolder ask >>= \m -> do
+        stream <- liftIO . atomically $ LT.toList $ STM.stream m
+        PeerStateSnapshot <$> forM stream (mapM readSharedAtomic)

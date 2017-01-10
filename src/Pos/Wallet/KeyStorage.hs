@@ -31,6 +31,7 @@ import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
+import           Pos.Communication.PeerState (PeerStateHolder)
 import           Pos.Context                 (ContextHolder (..), NodeContext (..),
                                               WithNodeContext (..))
 import           Pos.Crypto                  (SecretKey, keyGen)
@@ -45,7 +46,6 @@ import           Pos.Update.MemState         (USHolder (..))
 import           Pos.Util                    ()
 import           Pos.Util.UserSecret         (UserSecret, peekUserSecret, usKeys,
                                               writeUserSecret)
-
 import           Pos.Wallet.Context          (WithWalletContext)
 import           Pos.Wallet.State.State      (MonadWalletDB)
 
@@ -75,6 +75,7 @@ instance MonadKeys m => MonadKeys (StateT s m)
 
 -- | Instances for ancestor in the monadic stack
 instance MonadKeys m => MonadKeys (KademliaDHT m)
+instance MonadKeys m => MonadKeys (PeerStateHolder ssc m)
 
 -- | Helper for generating a new secret key
 newSecretKey :: (MonadIO m, MonadKeys m) => m SecretKey

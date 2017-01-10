@@ -1,7 +1,7 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators       #-}
-{-# LANGUAGE AllowAmbiguousTypes #-}
 
 -- | Module for full-node implementation of Daedalus API
 
@@ -12,17 +12,16 @@ module Pos.Wallet.Web.Server.Full
 import           Control.Concurrent.STM        (TVar)
 import qualified Control.Monad.Catch           as Catch
 import           Control.Monad.Except          (MonadError (throwError))
+import           Mockable                      (runProduction)
 import           Servant.Server                (Handler)
 import           Servant.Utils.Enter           ((:~>) (..))
-import           System.Wlog                   (logInfo)
+import           System.Wlog                   (logInfo, usingLoggerName)
 import           Universum
 
-import           Pos.Communication             (MutPeerState, newMutPeerState)
-import           Pos.Context                   (ContextHolder, NodeContext,
-                                                getNodeContext, runContextHolder)
+import           Pos.Context                   (NodeContext, getNodeContext,
+                                                runContextHolder)
 import qualified Pos.DB                        as Modern
-import           Pos.Delegation.Class          (DelegationT, DelegationWrap,
-                                                askDelegationState,
+import           Pos.Delegation.Class          (DelegationWrap, askDelegationState,
                                                 runDelegationTFromTVar)
 import           Pos.Genesis                   (genesisSecretKeys)
 import           Pos.Ssc.Class                 (SscConstraint)
@@ -31,28 +30,20 @@ import           Pos.Txp.Class                 (getTxpLDWrap)
 import qualified Pos.Txp.Holder                as Modern
 import           Pos.WorkMode                  (RawRealMode)
 
-import           Pos.Wallet.KeyStorage         (addSecretKey)
+import           Pos.Communication.PeerState   (PeerStateSnapshot, WithPeerState (..),
+                                                getAllStates, peerStateFromSnapshot,
+                                                runPeerStateHolder)
+import           Pos.NewDHT.Real.Real          (getKademliaDHTInstance, runKademliaDHT)
+import           Pos.NewDHT.Real.Types         (KademliaDHTInstance (..))
+import           Pos.Update.MemState.Holder    (runUSHolder)
+import           Pos.Wallet.KeyStorage         (MonadKeys (..), addSecretKey)
 import           Pos.Wallet.Web.Server.Methods (walletApplication, walletServeImpl,
                                                 walletServer)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletState,
                                                 WalletWebDB, runWalletWebDB)
-import           Pos.NewDHT.Real.Real          (runKademliaDHT, getKademliaDHTInstance)
-import           Pos.NewDHT.Real.Types         (KademliaDHTInstance(..))
-import           Pos.Wallet.KeyStorage         (MonadKeys(..))
-import           Pos.Wallet.Context.Class      (WithWalletContext(..))
-import           Pos.Wallet.WalletMode         (MonadTxHistory(..))
-import           Pos.Wallet.WalletMode         (MonadBalances(..))
-import           Pos.Communication.PeerState   (PeerStateCtx(..), getAllStates, runPeerStateHolder)
-import           Pos.Update.MemState.Holder    (runUSHolder)
-import           Pos.Communication.PeerState   (WithPeerState(..))
 
 walletServeWebFull
-    :: ( SscConstraint ssc
-       , MonadKeys (RawRealMode ssc)
-       , WithWalletContext (RawRealMode ssc)
-       , MonadTxHistory (RawRealMode ssc)
-       , MonadBalances (RawRealMode ssc)
-       )
+    :: SscConstraint ssc
     => Bool               -- whether to include genesis keys
     -> FilePath           -- to Daedalus acid-state
     -> Bool               -- Rebuild flag
@@ -87,18 +78,20 @@ convertHandler
     -> SscState ssc
     -> WalletState
     -> (TVar DelegationWrap)
-    -> PeerStateCtx ssc (RawRealMode ssc)
+    -> PeerStateSnapshot ssc
     -> WebHandler ssc a
     -> Handler a
 convertHandler kinst nc modernDBs tlw ssc ws delWrap psCtx handler = do
-    liftIO ( Modern.runDBHolder modernDBs
+    liftIO ( runProduction
+           . usingLoggerName "wallet-api"
+           . Modern.runDBHolder modernDBs
            . runContextHolder nc
            . runSscHolderRaw ssc
            . Modern.runTxpLDHolderReader tlw
            . runDelegationTFromTVar delWrap
            . runUSHolder
            . runKademliaDHT kinst
-           . runPeerStateHolder psCtx
+           . (\m -> flip runPeerStateHolder m =<< peerStateFromSnapshot psCtx)
            . runWalletWebDB ws
            $ handler
            ) `Catch.catches` excHandlers

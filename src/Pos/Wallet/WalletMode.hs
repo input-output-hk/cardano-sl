@@ -22,6 +22,7 @@ import           Mockable                      (MonadMockable, Production)
 import           System.Wlog                   (LoggerNameBox, WithLogger)
 import           Universum
 
+import           Pos.Communication.PeerState   (PeerStateHolder)
 import           Pos.Communication.Types.State (MutPeerState)
 import qualified Pos.Context                   as PC
 import           Pos.Crypto                    (WithHash (..))
@@ -68,6 +69,7 @@ instance MonadBalances m => MonadBalances (ReaderT r m)
 instance MonadBalances m => MonadBalances (StateT s m)
 instance MonadBalances m => MonadBalances (KademliaDHT m)
 instance MonadBalances m => MonadBalances (KeyStorage m)
+instance MonadBalances m => MonadBalances (PeerStateHolder ssc m)
 
 deriving instance MonadBalances m => MonadBalances (PC.ContextHolder ssc m)
 deriving instance MonadBalances m => MonadBalances (SscHolder ssc m)
@@ -104,6 +106,7 @@ instance MonadTxHistory m => MonadTxHistory (ReaderT r m)
 instance MonadTxHistory m => MonadTxHistory (StateT s m)
 instance MonadTxHistory m => MonadTxHistory (KademliaDHT m)
 instance MonadTxHistory m => MonadTxHistory (KeyStorage m)
+instance MonadTxHistory m => MonadTxHistory (PeerStateHolder ssc m)
 
 deriving instance MonadTxHistory m => MonadTxHistory (PC.ContextHolder ssc m)
 deriving instance MonadTxHistory m => MonadTxHistory (SscHolder ssc m)

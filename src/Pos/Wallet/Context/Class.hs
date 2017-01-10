@@ -7,18 +7,19 @@ module Pos.Wallet.Context.Class
        ( WithWalletContext (..)
        ) where
 
-import           Control.Monad.Trans        (MonadTrans)
+import           Control.Monad.Trans         (MonadTrans)
 import           Universum
 
-import qualified Pos.Context                as PC
-import           Pos.Delegation.Class       (DelegationT (..))
-import           Pos.DHT.Model              (DHTResponseT)
-import           Pos.DHT.Real               (KademliaDHT)
-import           Pos.Ssc.Extra              (SscHolder (..))
-import qualified Pos.Txp.Holder             as Modern
-import           Pos.Update                 (USHolder (..))
+import           Pos.Communication.PeerState (PeerStateHolder)
+import qualified Pos.Context                 as PC
+import           Pos.Delegation.Class        (DelegationT (..))
+import           Pos.DHT.Model               (DHTResponseT)
+import           Pos.DHT.Real                (KademliaDHT)
+import           Pos.Ssc.Extra               (SscHolder (..))
+import qualified Pos.Txp.Holder              as Modern
+import           Pos.Update                  (USHolder (..))
 
-import           Pos.Wallet.Context.Context (WalletContext, fromNodeCtx)
+import           Pos.Wallet.Context.Context  (WalletContext, fromNodeCtx)
 
 -- | Class for something that has 'NodeContext' inside.
 class Monad m => WithWalletContext m where
@@ -30,6 +31,7 @@ instance (Monad m, WithWalletContext m) => WithWalletContext (KademliaDHT m)
 instance (Monad m, WithWalletContext m) => WithWalletContext (ReaderT a m)
 instance (Monad m, WithWalletContext m) => WithWalletContext (StateT a m)
 instance (Monad m, WithWalletContext m) => WithWalletContext (DHTResponseT s m)
+instance (Monad m, WithWalletContext m) => WithWalletContext (PeerStateHolder s m)
 
 instance Monad m => WithWalletContext (PC.ContextHolder ssc m) where
     getWalletContext = fromNodeCtx <$> PC.getNodeContext

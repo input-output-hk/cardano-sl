@@ -6,6 +6,8 @@ module Pos.NewDHT.Real.Real
        ( runKademliaDHT
        , startDHTInstance
        , stopDHTInstance
+       -- For Servant-based integration.
+       , getKademliaDHTInstance
        ) where
 
 import           Control.Concurrent.STM (newTVar, readTVar, writeTVar)
@@ -54,6 +56,10 @@ runKademliaDHT inst action = runReaderT (unKademliaDHT action') inst
   where
     action' = bracket spawnR killThread (const action)
     spawnR = fork $ runWithRandomIntervals' (ms 500) (sec 5) rejoinNetwork
+
+-- | For webserver Servant integration.
+getKademliaDHTInstance :: Monad m => KademliaDHT m KademliaDHTInstance
+getKademliaDHTInstance = KademliaDHT ask
 
 -- | Stop chosen 'KademliaDHTInstance'.
 stopDHTInstance

@@ -28,7 +28,6 @@ import           Pos.Ssc.Class                 (SscConstraint)
 import           Pos.Ssc.Extra                 (SscHolder (..), SscState, runSscHolderRaw)
 import           Pos.Txp.Class                 (getTxpLDWrap)
 import qualified Pos.Txp.Holder                as Modern
-import qualified Pos.Update                    as US
 import           Pos.WorkMode                  (RawRealMode)
 
 import           Pos.Wallet.KeyStorage         (addSecretKey)
@@ -36,6 +35,8 @@ import           Pos.Wallet.Web.Server.Methods (walletApplication, walletServeIm
                                                 walletServer)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletState,
                                                 WalletWebDB, runWalletWebDB)
+import           Pos.NewDHT.Real.Real          (runKademliaDHT, getKademliaDHTInstance)
+import           Pos.NewDHT.Real.Types         (KademliaDHTInstance(..))
 
 walletServeWebFull
     :: SscConstraint ssc
@@ -44,67 +45,46 @@ walletServeWebFull
     -> Bool               -- Rebuild flag
     -> Word16
     -> RawRealMode ssc ()
-walletServeWebFull = notImplemented
---walletServeWebFull debug = walletServeImpl $ do
---    logInfo "DAEDALUS has STARTED!"
---    when debug $ mapM_ addSecretKey genesisSecretKeys
---    walletApplication $ walletServer nat
+walletServeWebFull debug = walletServeImpl $ do
+    logInfo "DAEDALUS has STARTED!"
+    when debug $ mapM_ addSecretKey genesisSecretKeys
+    walletApplication $ walletServer nat
 
--- type WebHandler ssc = WalletWebDB (RawRealMode ssc)
---
--- -- RawRealMode without last layer
--- type SubKademlia ssc =
---     US.USHolder (
---     DelegationT (
---     Modern.TxpLDHolder ssc (
---     SscHolder ssc (
---     ContextHolder ssc (
---     Modern.DBHolder ssc (
---     Dialog DHTPacking (
---     Transfer (
---     MutSocketState ssc))))))))
---
--- type CPool ssc = TVar (ConnectionPool (MutSocketState ssc))
---
--- convertHandler
---     :: forall ssc a .
---        KademliaDHTContext (SubKademlia ssc)
---     -> CPool ssc
---     -> NodeContext ssc
---     -> Modern.NodeDBs ssc
---     -> Modern.TxpLDWrap ssc
---     -> SscState ssc
---     -> WalletState
---     -> TVar DelegationWrap
---     -> TVar US.MemState
---     -> WebHandler ssc a
---     -> Handler a
--- convertHandler kctx cp nc modernDBs tlw ssc ws delWrap usTVar handler = do
---     liftIO (runOurDialogRaw cp newMutSocketState "wallet-api" .
---             Modern.runDBHolder modernDBs .
---             runContextHolder nc .
---             runSscHolderRaw ssc .
---             Modern.runTxpLDHolderReader tlw .
---             runDelegationTFromTVar delWrap .
---             US.runUSHolderFromTVar usTVar .
---             runKademliaDHTRaw kctx .
---             runWalletWebDB ws $
---             handler)
---     `Catch.catches`
---     excHandlers
---   where
---     excHandlers = [Catch.Handler catchServant]
---     catchServant = throwError
---
--- nat :: WebHandler ssc (WebHandler ssc :~> Handler)
--- nat = do
---     ws <- getWalletWebState
---     kctx <- lift getKademliaDHTCtx
---     tlw <- getTxpLDWrap
---     ssc <- lift . lift . lift . lift . lift $ SscHolder ask
---     delWrap <- askDelegationState
---     usTVar <- US.askUSMemState
---     nc <- getNodeContext
---     modernDB <- Modern.getNodeDBs
---     cp <- lift . lift . lift . lift . lift . lift . lift . lift . lift $ getConnPool
---     pure $ Nat (convertHandler kctx cp nc modernDB tlw ssc ws delWrap usTVar)
+type WebHandler ssc = WalletWebDB (RawRealMode ssc)
+
+nat :: WebHandler ssc (WebHandler ssc :~> Handler)
+nat = do
+    ws       <- getWalletWebState
+    -- kctx  <- lift getKademliaDHTCtx
+    kinst    <- lift getKademliaDHTInstance
+    tlw      <- getTxpLDWrap
+    ssc      <- lift . lift . lift . lift $ SscHolder ask
+    delWrap  <- askDelegationState
+    nc       <- getNodeContext
+    modernDB <- Modern.getNodeDBs
+    pure $ Nat (convertHandler kinst nc modernDB tlw ssc ws delWrap)
+
+convertHandler
+    :: forall ssc a .
+       KademliaDHTInstance
+    -> NodeContext ssc              -- (.. insert monad `m` here ..)
+    -> Modern.NodeDBs ssc
+    -> Modern.TxpLDWrap ssc
+    -> SscState ssc
+    -> WalletState
+    -> (TVar DelegationWrap)
+    -> WebHandler ssc a
+    -> Handler a
+convertHandler kinst nc modernDBs tlw ssc ws delWrap handler = do
+    liftIO ( Modern.runDBHolder modernDBs
+           . runContextHolder nc
+           . runSscHolderRaw ssc
+           . Modern.runTxpLDHolderReader tlw
+           . runDelegationTFromTVar delWrap
+           . runKademliaDHT kinst
+           . runWalletWebDB ws
+           $ handler
+           ) `Catch.catches` excHandlers
+  where
+    excHandlers = [Catch.Handler catchServant]
+    catchServant = throwError

@@ -320,10 +320,6 @@ POSSIBILITY OF SUCH DAMAGE.
 -- Primitive types
 ----------------------------------------------------------------------------
 
-instance Bi Void where
-    put = absurd
-    get = fail "Cannot instantiate Void"
-
 instance Bi () where
     put ()  = mempty
     get     = return ()

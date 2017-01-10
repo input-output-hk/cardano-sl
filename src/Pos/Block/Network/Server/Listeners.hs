@@ -14,17 +14,13 @@ module Pos.Block.Network.Server.Listeners
 import           Control.Lens                   (view, (^.), _1)
 import           Data.List.NonEmpty             (NonEmpty ((:|)), nonEmpty)
 import qualified Data.List.NonEmpty             as NE
-import           Formatting                     (build, sformat, stext, (%), shown)
+import           Formatting                     (build, sformat, stext, (%))
 import           Serokell.Util.Text             (listJson, listJsonIndent)
-import           System.Wlog                    (WithLogger, logDebug, logError, logInfo,
-                                                 logWarning)
+import           System.Wlog                    (logDebug, logError, logInfo, logWarning)
 import           Universum
 
-import           Node                           (ConversationActions (..),
-                                                 ListenerAction (..), NodeId (..),
+import           Node                           (ListenerAction (..), NodeId (..),
                                                  SendActions (..), sendTo)
-import qualified Mockable                       as Mock
-import           Message.Message                (Packable, Unpackable, Message)
 import           Pos.Binary.Communication       ()
 import           Pos.Block.Logic                (ClassifyHeaderRes (..),
                                                  ClassifyHeadersRes (..), applyBlocks,
@@ -97,10 +93,9 @@ handleGetBlocks = ListenerActionOneMsg $
         sendBlocks peerId sendActions hashes = do
             logDebug $ sformat
                 ("handleGetBlocks: started sending blocks one-by-one: "%listJson) hashes
-            withConnectionTo sendActions @_ @Void peerId $ \cactions ->
-                forM_ hashes $ \hHash -> do
-                    block <- maybe failMalformed pure =<< DB.getBlock hHash
-                    send cactions $ MsgBlock block
+            forM_ hashes $ \hHash -> do
+                block <- maybe failMalformed pure =<< DB.getBlock hHash
+                sendTo sendActions peerId $ MsgBlock block
             logDebug "handleGetBlocks: blocks sending done"
 
 -- | Handles MsgHeaders request. There are two usecases:
@@ -194,29 +189,12 @@ handleUnsolicitedHeader header peerId sendActions = do
 -- Handle Block
 ----------------------------------------------------------------------------
 
--- | TODO: Move to tw-sketch
-foreverReceive
-    :: (Packable BiP snd, Message snd, Unpackable BiP rcv, Message rcv,
-       Monad m, WithLogger m, Mock.Mockable Mock.Catch m)
-    => (ConversationActions snd rcv m -> NodeId -> rcv -> m ())
-    -> ListenerAction BiP m
-foreverReceive handler = ListenerActionConversation listener
-  where
-    listener peerId cactions = loop
-      where
-        loop = do
-            mmsg <- recv cactions
-            whenJust mmsg $ \msg -> do
-                handler cactions peerId msg `Mock.catchAll` handlerE
-                loop
-    handlerE = logWarning . sformat ("foreverReceive: uncought error in handler"%shown)
-
 handleBlock
     :: forall ssc m.
        (NewWorkMode ssc m)
     => ListenerAction BiP m
-handleBlock = foreverReceive $
-    \cactions peerId (msg@(MsgBlock blk) :: MsgBlock ssc) -> do
+handleBlock = ListenerActionOneMsg $
+    \peerId sendActions ((msg@(MsgBlock blk)) :: MsgBlock ssc) -> do
         logDebug $ sformat ("handleBlock: got block "%build) (headerHash blk)
         pbmr <- processBlockMsg msg =<< getPeerState peerId
         case pbmr of

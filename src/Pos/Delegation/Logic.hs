@@ -36,7 +36,7 @@ import           Control.Lens                (makeLenses, use, uses, view, (%=),
 import           Control.Monad.Trans.Except  (runExceptT, throwE)
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
-import           Data.List                   (notElem, partition)
+import           Data.List                   (partition)
 import           Data.List.NonEmpty          (NonEmpty)
 import qualified Data.List.NonEmpty          as NE
 import qualified Data.Text.Buildable         as B
@@ -204,7 +204,7 @@ delegationVerifyBlocks blocks = do
     let _dvCurEpoch = HS.fromList fromGenesisPsks
         initState = DelVerState _dvCurEpoch HM.empty HS.empty
     richmen <-
-        NE.toList <$>
+        HS.fromList . NE.toList <$>
         lrcActionOnEpochReason
         headEpoch
         "Delegation.Logic#delegationVerifyBlocks: there are no richmen for current epoch"
@@ -236,7 +236,7 @@ delegationVerifyBlocks blocks = do
     verifyBlock richmen (Right blk) = do
         let proxySKs = view blockProxySKs blk
             issuers = map pskIssuerPk proxySKs
-        when (any ((`notElem` richmen) . addressHash) issuers) $
+        when (any (not . (`HS.member` richmen) . addressHash) issuers) $
             throwE $ sformat ("Block "%build%" contains psk issuers that "%
                               "don't have enough stake")
                              (headerHash blk)

@@ -39,10 +39,10 @@ import           Pos.Slotting                     (getCurrentSlot, getSlotStart,
                                                    onNewSlot)
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
 import           Pos.Ssc.Extra.MonadLD            (sscRunLocalQuery, sscRunLocalUpdate)
-import           Pos.Ssc.GodTossing.Functions     (genCommitmentAndOpening, getThreshold,
-                                                   hasCommitment, hasOpening, hasShares,
-                                                   isCommitmentIdx, isOpeningIdx,
-                                                   isSharesIdx, mkSignedCommitment)
+import           Pos.Ssc.GodTossing.Functions     (genCommitmentAndOpening, hasCommitment,
+                                                   hasOpening, hasShares, isCommitmentIdx,
+                                                   isOpeningIdx, isSharesIdx,
+                                                   mkSignedCommitment, vssThreshold)
 import           Pos.Ssc.GodTossing.LocalData     (ldCertificates, ldLastProcessedSlot,
                                                    localOnNewSlot, sscProcessMessage)
 import           Pos.Ssc.GodTossing.Richmen       (gtLrcConsumer)
@@ -243,7 +243,7 @@ generateAndSetNewSecret sk SlotId{..} = do
     let noPsErr = panic "generateAndSetNewSecret: no participants"
     let ps = fromMaybe (panic noPsErr) . nonEmpty .
                 map vcVssKey . mapMaybe (`lookup` certs) . toList $ richmen
-    let threshold = getThreshold $ length ps
+    let threshold = vssThreshold $ length ps
     mPair <- runMaybeT (genCommitmentAndOpening threshold ps)
     tip <- getTip
     case mPair of

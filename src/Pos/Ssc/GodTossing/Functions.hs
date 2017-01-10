@@ -32,8 +32,8 @@ module Pos.Ssc.GodTossing.Functions
        -- * GtPayload
        , verifyGtPayload
 
-       -- * Modern
-       , getThreshold
+       -- * VSS
+       , vssThreshold
        ) where
 
 import           Control.Lens                   ((^.), _2)
@@ -371,5 +371,5 @@ checkCommShares vssPublicKeys c =
 
 -- | Figure out the threshold (i.e. how many secret shares would be required
 -- to recover each node's secret) using number of participants.
-getThreshold :: Integral a => a -> Threshold
-getThreshold len = fromIntegral $ len `div` 2 + len `mod` 2
+vssThreshold :: Integral a => a -> Threshold
+vssThreshold len = fromIntegral $ len `div` 2 + len `mod` 2

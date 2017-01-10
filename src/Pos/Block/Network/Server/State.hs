@@ -68,32 +68,36 @@ recordHeadersRequest msg var = modifySharedAtomic var $ \st -> do
            Nothing -> return (set bssRequestedHeaders (Just msg) st, True)
            Just _  -> logInfo "Can't record headers request: another fetch in progress" $> (st, False)
 
--- | Try to match headers from 'Headers' message with requested
--- headers.  If 'bssRequestedHeaders' in socket state is Nothing or
--- `bssRequestedHeaders` doesn't match `Headers' message, nothing is
--- done and 'False' is returned.  If 'bssRequestedHeaders' in socket
--- state matches 'Headers' message, it's invalidated and 'True' is
--- returned.
+---- | Try to match headers from 'Headers' message with requested
+---- headers.  If 'bssRequestedHeaders' in socket state is Nothing or
+---- `bssRequestedHeaders` doesn't match `Headers' message, nothing is
+---- done and 'False' is returned.  If 'bssRequestedHeaders' in socket
+---- state matches 'Headers' message, it's invalidated and 'True' is
+---- returned.
+--matchRequestedHeaders
+--    :: (Ssc ssc, HasBlockPeerState s ssc, Mockable SharedAtomic m)
+--    => NonEmpty (BlockHeader ssc) -> SharedAtomicT m s -> m Bool
+--matchRequestedHeaders headers var = modifySharedAtomic var $ \st -> do
+--       let res = maybe False
+--                       (matchRequestedHeadersDo headers)
+--                       (st ^. bssRequestedHeaders)
+--       if res
+--          then pure ((bssRequestedHeaders .~ Nothing) st, res)
+--          else pure (st, res)
+
 matchRequestedHeaders
-    :: (Ssc ssc, HasBlockPeerState s ssc, Mockable SharedAtomic m)
-    => NonEmpty (BlockHeader ssc) -> SharedAtomicT m s -> m Bool
-matchRequestedHeaders headers@(newTip :| hs) var = modifySharedAtomic var $ \st -> do
-       let res = maybe False
-                       matchRequestedHeadersDo
-                       (st ^. bssRequestedHeaders)
-       if res
-          then pure ((bssRequestedHeaders .~ Nothing) st, res)
-          else pure (st, res)
+    :: (Ssc ssc)
+    => NonEmpty (BlockHeader ssc) -> MsgGetHeaders ssc -> Bool
+matchRequestedHeaders headers@(newTip :| hs) mgh =
+    let startHeader = NE.last headers
+        startMatches = hash startHeader `elem` mghFrom mgh
+        mghToMatches = Just (hash newTip) == mghTo mgh
+    in and [ startMatches
+           , mghToMatches
+           , formChain
+           ]
   where
     formChain = isVerSuccess (verifyHeaders True $ newTip:hs)
-    matchRequestedHeadersDo mgh =
-        let startHeader = NE.last headers
-            startMatches = hash startHeader `elem` mghFrom mgh
-            mghToMatches = Just (hash newTip) == mghTo mgh
-        in and [ startMatches
-               , mghToMatches
-               , formChain
-               ]
 
 -- | Record blocks request in BlockPeerState. This function blocks
 -- if some blocks are requsted already.

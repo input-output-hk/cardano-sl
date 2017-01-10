@@ -14,23 +14,26 @@ module Pos.Block.Network.Server.Listeners
 import           Control.Lens                   (view, (^.), _1)
 import           Data.List.NonEmpty             (NonEmpty ((:|)), nonEmpty)
 import qualified Data.List.NonEmpty             as NE
-import           Formatting                     (build, sformat, stext, (%))
-import           Serokell.Util.Text             (listJson, listJsonIndent)
+import           Formatting                     (build, sformat, shown, stext, (%))
+import           Serokell.Util.Text             (listJson, listJsonIndent, pairF)
 import           System.Wlog                    (logDebug, logError, logInfo, logWarning)
 import           Universum
 
-import           Node                           (ListenerAction (..), NodeId (..),
+import           Message.Message                (Message, Packable, Unpackable)
+import qualified Mockable                       as Mock
+import           Node                           (ConversationActions (..),
+                                                 ListenerAction (..), NodeId (..),
                                                  SendActions (..), sendTo)
 import           Pos.Binary.Communication       ()
 import           Pos.Block.Logic                (ClassifyHeaderRes (..),
                                                  ClassifyHeadersRes (..), applyBlocks,
                                                  classifyHeaders, classifyNewHeader,
                                                  getHeadersFromManyTo,
-                                                 getHeadersFromToIncl, rollbackBlocks,
-                                                 verifyBlocks, withBlkSemaphore_)
+                                                 getHeadersFromToIncl, lcaWithMainChain,
+                                                 rollbackBlocks, verifyBlocks,
+                                                 withBlkSemaphore_)
 import           Pos.Block.Network.Announce     (announceBlock)
-import           Pos.Block.Network.Request      (replyWithBlocksRequest,
-                                                 replyWithHeadersRequest)
+import           Pos.Block.Network.Request      (mkHeadersRequest, replyWithBlocksRequest)
 import           Pos.Block.Network.Server.State (ProcessBlockMsgRes (..),
                                                  matchRequestedHeaders, processBlockMsg)
 import           Pos.Block.Network.Types        (MsgBlock (..), MsgGetBlocks (..),
@@ -40,6 +43,7 @@ import           Pos.Communication.PeerState    (WithPeerState (..))
 import           Pos.Crypto                     (hash, shortHashF)
 import qualified Pos.DB                         as DB
 import           Pos.DB.Error                   (DBError (DBMalformed))
+import           Pos.NewDHT.Model               (nodeIdToAddress)
 import           Pos.Ssc.Class.Types            (Ssc (..))
 import           Pos.Types                      (Block, BlockHeader, Blund,
                                                  HasHeaderHash (..), HeaderHash, NEBlocks,
@@ -64,16 +68,18 @@ handleGetHeaders
     :: forall ssc m.
        (NewWorkMode ssc m)
     => ListenerAction BiP m
-handleGetHeaders = ListenerActionOneMsg $
-    \peerId sendActions (MsgGetHeaders {..} :: MsgGetHeaders ssc) -> do
-        logDebug "Got request on handleGetHeaders"
-        headers <- getHeadersFromManyTo mghFrom mghTo
-        case nonEmpty headers of
-            Nothing ->
-                logWarning $ "handleGetHeaders@retrieveHeadersFromTo returned empty " <>
-                             "list, not responding to node"
-            Just atLeastOneHeader ->
-                sendTo sendActions peerId $ MsgHeaders atLeastOneHeader
+handleGetHeaders = ListenerActionConversation $
+    \__peerId conv -> do
+        (msg :: Maybe (MsgGetHeaders ssc)) <- recv conv
+        whenJust msg $ \(MsgGetHeaders {..}) -> do
+            logDebug "Got request on handleGetHeaders"
+            headers <- getHeadersFromManyTo mghFrom mghTo
+            case nonEmpty headers of
+                Nothing ->
+                    logWarning $ "handleGetHeaders@retrieveHeadersFromTo returned empty " <>
+                                 "list, not responding to node"
+                Just atLeastOneHeader ->
+                    send conv $ MsgHeaders atLeastOneHeader
 
 handleGetBlocks
     :: forall ssc m.
@@ -98,17 +104,6 @@ handleGetBlocks = ListenerActionOneMsg $
                 sendTo sendActions peerId $ MsgBlock block
             logDebug "handleGetBlocks: blocks sending done"
 
--- | Handles MsgHeaders request. There are two usecases:
-handleBlockHeaders
-    :: forall ssc m.
-        (NewWorkMode ssc m)
-    => ListenerAction BiP m
-handleBlockHeaders = ListenerActionOneMsg $
-    \peerId sendActions (MsgHeaders headers :: MsgHeaders ssc) -> do
-        logDebug "handleBlockHeaders: got some block headers"
-        ifM (matchRequestedHeaders headers =<< getPeerState peerId)
-            (handleRequestedHeaders headers peerId sendActions)
-            (handleUnsolicitedHeaders headers peerId sendActions)
 
 -- First case of 'handleBlockheaders'
 handleRequestedHeaders
@@ -171,7 +166,15 @@ handleUnsolicitedHeader header peerId sendActions = do
             replyWithBlocksRequest hHash hHash peerId sendActions -- exactly one block in the range
         CHAlternative -> do
             logInfo $ sformat alternativeFormat hHash
-            replyWithHeadersRequest (Just hHash) peerId sendActions
+            mgh <- mkHeadersRequest (Just hHash)
+            withConnectionTo sendActions peerId $ \conv -> do
+                send conv mgh
+                mHeaders <- recv conv
+                whenJust mHeaders $ \headers -> do
+                    logDebug "handleUnsolicitedHeader: got some block headers"
+                    if matchRequestedHeaders headers mgh
+                       then handleRequestedHeaders headers peerId sendActions
+                       else handleUnexpected headers peerId
         CHUseless reason -> logDebug $ sformat uselessFormat hHash reason
         CHInvalid _ -> pass -- TODO: ban node for sending invalid block.
   where
@@ -184,6 +187,22 @@ handleUnsolicitedHeader header peerId sendActions = do
         " potentially represents good alternative chain, requesting more headers"
     uselessFormat =
         "Header " %shortHashF % " is useless for the following reason: " %stext
+    handleUnexpected (h:|hs) peerId = do
+        -- TODO: ban node for sending unsolicited header in conversation
+        logWarning $ sformat
+            ("handleUnsolicitedHeader: headers received were not requested, address: " % shown)
+            (nodeIdToAddress peerId)
+        logWarning $ sformat ("handleUnsolicitedHeader: unexpected headers: "%listJson) (h:hs)
+
+-- | Handles MsgHeaders request, unsolicited usecase
+handleBlockHeaders
+    :: forall ssc m.
+        (NewWorkMode ssc m)
+    => ListenerAction BiP m
+handleBlockHeaders = ListenerActionOneMsg $
+    \peerId sendActions (MsgHeaders headers :: MsgHeaders ssc) -> do
+        logDebug "handleBlockHeaders: got some unsolicited block header(s)"
+        handleUnsolicitedHeaders headers peerId sendActions
 
 ----------------------------------------------------------------------------
 -- Handle Block
@@ -218,19 +237,19 @@ handleBlocks
     -> SendActions BiP m
     -> m ()
 -- Head block is the oldest one here.
-handleBlocks blocks _ _ = do
+handleBlocks blocks peerId sendActions = do
     logDebug "handleBlocks: processing"
     inAssertMode $
         logDebug $
         sformat ("Processing sequence of blocks: " %listJson % "…") $
         fmap headerHash blocks
-    --maybe onNoLca (handleBlocksWithLca sendActions blocks) =<<
-    --    lcaWithMainChain (map (view blockHeader) $ NE.reverse blocks)
-    --inAssertMode $ logDebug $ "Finished processing sequence of blocks"
-  --where
-  --  onNoLca = logWarning $
-  --      "Sequence of blocks can't be processed, because there is no LCA. " <>
-  --      "Probably rollback happened in parallel"
+    maybe onNoLca (handleBlocksWithLca sendActions blocks) =<<
+        lcaWithMainChain (map (view blockHeader) $ NE.reverse blocks)
+    inAssertMode $ logDebug $ "Finished processing sequence of blocks"
+  where
+    onNoLca = logWarning $
+        "Sequence of blocks can't be processed, because there is no LCA. " <>
+        "Probably rollback happened in parallel"
 
 handleBlocksWithLca :: forall ssc m.
        (NewWorkMode ssc m)

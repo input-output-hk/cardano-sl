@@ -40,7 +40,6 @@ import           Data.List.NonEmpty          (NonEmpty)
 import qualified Data.List.NonEmpty          as NE
 import qualified Data.Text.Buildable         as B
 import           Data.Time.Clock             (UTCTime, addUTCTime, getCurrentTime)
-import           Database.RocksDB            (BatchOp)
 import           Formatting                  (bprint, build, sformat, stext, (%))
 import           System.Wlog                 (WithLogger)
 import           Universum
@@ -51,7 +50,8 @@ import           Pos.Context                 (WithNodeContext (getNodeContext),
 import           Pos.Crypto                  (ProxySecretKey (..), PublicKey,
                                               pdDelegatePk, proxyVerify, toPublic,
                                               verifyProxySecretKey)
-import           Pos.DB                      (DBError (DBMalformed), MonadDB, toBatchOp)
+import           Pos.DB                      (DBError (DBMalformed), MonadDB,
+                                              SomeBatchOp (..))
 import qualified Pos.DB                      as DB
 import qualified Pos.DB.GState               as GS
 import qualified Pos.DB.Misc                 as Misc (addProxySecretKey,
@@ -235,7 +235,7 @@ delegationVerifyBlocks blocks = do
 -- returns batchops.
 delegationApplyBlocks
     :: forall ssc m. (DelegationWorkMode ssc m)
-    => NonEmpty (Block ssc) -> m (NonEmpty [BatchOp])
+    => NonEmpty (Block ssc) -> m (NonEmpty SomeBatchOp)
 delegationApplyBlocks blocks = do
     tip <- GS.getTip
     when (tip /= blocks ^. _neHead . prevBlockL) $ throwM $
@@ -247,26 +247,27 @@ delegationApplyBlocks blocks = do
         forM_ allIssuers $ \i -> dwProxySKPool %= HM.delete i
     pure $ map applyBlock blocks
   where
-    applyBlock :: Block ssc -> [BatchOp]
-    applyBlock (Left _)      = []
+    applyBlock :: Block ssc -> SomeBatchOp
+    applyBlock (Left _)      = SomeBatchOp ([]::[GS.DelegationOp])
     applyBlock (Right block) = do
         let proxySKs = view blockProxySKs block
             (toDelete,toReplace) =
                 partition (\ProxySecretKey{..} -> pskIssuerPk == pskDelegatePk)
                 proxySKs
-        concatMap toBatchOp $
+        SomeBatchOp $
             map (GS.DelPSK . pskIssuerPk) toDelete ++ map GS.AddPSK toReplace
 
 -- | Rollbacks block list. Erases mempool of certificates. Better to
 -- restore them after the rollback (see Txp#normalizeTxpLD).
 delegationRollbackBlocks
     :: (MonadDelegation m, MonadIO m)
-    => NonEmpty (Blund ssc) -> m (NonEmpty [BatchOp])
+    => NonEmpty (Blund ssc) -> m (NonEmpty SomeBatchOp)
 delegationRollbackBlocks blunds = do
     runDelegationStateAction $ dwProxySKPool .= HM.empty
     pure $ map rollbackBlund blunds
   where
-    rollbackBlund (Left _, _) = []
+    rollbackBlund :: Blund ssc -> SomeBatchOp
+    rollbackBlund (Left _, _) = SomeBatchOp ([]::[GS.DelegationOp])
     rollbackBlund (Right block, undo) =
         let proxySKs = view blockProxySKs block
             toReplace =
@@ -275,7 +276,7 @@ delegationRollbackBlocks blunds = do
                 proxySKs
             toDeleteBatch = map GS.DelPSK toReplace
             toAddBatch = map GS.AddPSK $ undoPsk undo
-        in concatMap toBatchOp $ toDeleteBatch ++ toAddBatch
+        in SomeBatchOp $ toDeleteBatch ++ toAddBatch
 
 
 ----------------------------------------------------------------------------

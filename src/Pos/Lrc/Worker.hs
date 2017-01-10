@@ -69,13 +69,14 @@ lrcSingleShotImpl epoch consumers = do
         expectedRichmenComp <- filterM (flip lcIfNeedCompute epoch) consumers
         needComputeLeaders <- isNothing <$> getLeaders epoch
         let needComputeRichmen = not . null $ expectedRichmenComp
-        when needComputeRichmen $ logInfo "Need to compute richmen"
         when needComputeLeaders $ logInfo "Need to compute leaders"
-        when (needComputeLeaders || needComputeLeaders) $ do
-            logInfo $ "LRC computation is starting"
+        when needComputeRichmen $ logInfo "Need to compute richmen"
+        when (needComputeLeaders || needComputeRichmen) $ do
+            logInfo "LRC is starting"
             withBlkSemaphore_ $ lrcDo epoch consumers
-            putEpoch epoch
-            logInfo $ "LRC computation has finished"
+            logInfo "LRC has finished"
+        putEpoch epoch
+        logInfo "LRC has updated LRC DB"
 
 tryAcuireExclusiveLock
     :: (MonadMask m, MonadIO m)

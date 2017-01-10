@@ -233,7 +233,7 @@ data VerifyHeaderParams ssc = VerifyHeaderParams
     , vhpNextHeader      :: !(Maybe (BlockHeader ssc))
     , vhpCurrentSlot     :: !(Maybe SlotId)
     , vhpLeaders         :: !(Maybe SlotLeaders)
-    }
+    } deriving (Show, Eq)
 
 -- | By default nothing is checked.
 instance Default (VerifyHeaderParams ssc) where
@@ -272,7 +272,7 @@ verifyHeader VerifyHeaderParams {..} h =
     checkHash expectedHash actualHash =
         ( expectedHash == actualHash
         , sformat
-              ("inconsistent hash (expected "%build%", found"%build%")")
+              ("inconsistent hash (expected "%build%", found "%build%")")
               expectedHash
               actualHash)
     checkDifficulty expectedDifficulty actualDifficulty =

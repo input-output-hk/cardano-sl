@@ -6,22 +6,22 @@ module Pos.Launcher.Scenario
        , initLrc
        ) where
 
-import           Control.Concurrent.MVar (putMVar)
-import           Control.TimeWarp.Timed  (currentTime, for, fork, sleepForever, wait)
-import           Formatting              (build, sformat, (%))
-import           System.Wlog             (logError, logInfo)
+import           Control.Concurrent.STM.TVar (writeTVar)
+import           Control.TimeWarp.Timed      (currentTime, for, fork, sleepForever, wait)
+import           Formatting                  (build, sformat, (%))
+import           System.Wlog                 (logError, logInfo)
 import           Universum
 
-import           Pos.Context             (NodeContext (..), getNodeContext,
-                                          ncPubKeyAddress, ncPublicKey)
-import qualified Pos.DB.GState           as GS
-import qualified Pos.DB.Lrc              as LrcDB
-import           Pos.DHT.Model           (DHTNodeType (DHTFull), discoverPeers)
-import           Pos.Ssc.Class           (SscConstraint)
-import           Pos.Types               (Timestamp (Timestamp), addressHash)
-import           Pos.Util                (inAssertMode)
-import           Pos.Worker              (runWorkers)
-import           Pos.WorkMode            (WorkMode)
+import           Pos.Context                 (NodeContext (..), getNodeContext,
+                                              ncPubKeyAddress, ncPublicKey)
+import qualified Pos.DB.GState               as GS
+import qualified Pos.DB.Lrc                  as LrcDB
+import           Pos.DHT.Model               (DHTNodeType (DHTFull), discoverPeers)
+import           Pos.Ssc.Class               (SscConstraint)
+import           Pos.Types                   (Timestamp (Timestamp), addressHash)
+import           Pos.Util                    (inAssertMode)
+import           Pos.Worker                  (runWorkers)
+import           Pos.WorkMode                (WorkMode)
 
 -- | Run full node in any WorkMode.
 runNode :: (SscConstraint ssc, WorkMode ssc m) => [m ()] -> m ()
@@ -63,4 +63,4 @@ initSemaphore = do
 initLrc :: WorkMode ssc m => m ()
 initLrc = do
     lrcSync <- ncLrcSync <$> getNodeContext
-    liftIO . putMVar lrcSync =<< LrcDB.getEpoch
+    atomically . writeTVar lrcSync . Just =<< LrcDB.getEpoch

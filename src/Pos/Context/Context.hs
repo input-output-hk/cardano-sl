@@ -47,7 +47,7 @@ data NodeContext ssc = NodeContext
     , ncBlkSemaphore   :: !(MVar (HeaderHash ssc))
     -- ^ Semaphore which manages access to block application.
     -- Stored hash is a hash of last applied block.
-    , ncLrcSync        :: !(MVar EpochIndex)
+    , ncLrcSync        :: !(STM.TVar (Maybe EpochIndex))
     -- ^ Primitive for synchronization with LRC.
     , ncUserSecret     :: !(STM.TVar UserSecret)
     -- ^ Secret keys (and path to file) which are used to send transactions

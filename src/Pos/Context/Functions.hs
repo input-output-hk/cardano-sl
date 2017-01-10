@@ -17,7 +17,6 @@ module Pos.Context.Functions
        , waitLrc
        , lrcActionOnEpoch
        , lrcActionOnEpochReason
-       , updateLrcSync
        ) where
 
 import           Control.Concurrent.MVar (putMVar)
@@ -27,7 +26,7 @@ import           Pos.Context.Class       (WithNodeContext (..))
 import           Pos.Context.Context     (NodeContext (..))
 import           Pos.Lrc.Error           (LrcError (..))
 import           Pos.Types               (EpochIndex, HeaderHash, SlotLeaders, Utxo)
-import           Pos.Util                (maybeThrow, readMVarConditional)
+import           Pos.Util                (maybeThrow, readTVarConditional)
 
 ----------------------------------------------------------------------------
 -- Genesis
@@ -68,7 +67,7 @@ waitLrc
     => EpochIndex -> m ()
 waitLrc epoch = do
     sync <- ncLrcSync <$> getNodeContext
-    () <$ readMVarConditional (>= epoch) sync
+    () <$ readTVarConditional (maybe False (>= epoch)) sync
 
 lrcActionOnEpoch
     :: (MonadIO m, WithNodeContext ssc m, MonadThrow m)
@@ -90,9 +89,3 @@ lrcActionOnEpochReason epoch reason actionDependsOnLrc = do
   waitLrc epoch
   actionDependsOnLrc epoch >>=
       maybeThrow (LrcDataUnknown epoch reason)
-
--- | Update LRC synchronization when LRC for epoch is finished.
-updateLrcSync
-    :: (MonadIO m, WithNodeContext ssc m)
-    => EpochIndex -> m ()
-updateLrcSync epoch = liftIO . flip putMVar epoch =<< ncLrcSync <$> getNodeContext

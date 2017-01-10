@@ -10,7 +10,6 @@ module Pos.Communication.Server.SysStart
        ) where
 
 import           Control.Concurrent.MVar  (MVar, tryPutMVar)
-import           Message.Message          (Serializable)
 import           Node                     (Listener, ListenerAction (..),
                                            SendActions (sendTo))
 

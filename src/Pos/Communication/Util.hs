@@ -11,7 +11,7 @@ import           Universum
 
 -- | Append given logger name to the name used by listener.
 modifyListenerLogger
-    :: (Monad m, HasLoggerName m)
+    :: (HasLoggerName m)
     => LoggerName -> ListenerAction p m -> ListenerAction p m
 modifyListenerLogger name (ListenerActionOneMsg f) =
     ListenerActionOneMsg $ \nId sA -> modifyLoggerName (<> name) . f nId sA

@@ -14,10 +14,7 @@ import           Formatting                     (build, sformat, (%))
 import           System.Wlog                    (logDebug)
 import           Universum
 
-import           Message.Message                (BinaryP, messageName)
-import           Mockable.Monad                 (MonadMockable (..))
-import           Node                           (Listener (..), ListenerAction (..),
-                                                 NodeId (..), SendActions (..), sendTo)
+import           Node                           (NodeId (..), SendActions (..), sendTo)
 import           Pos.Binary.Communication       ()
 import           Pos.Block.Logic                (getHeadersOlderExp)
 import           Pos.Block.Network.Server.State (recordBlocksRequest,
@@ -25,7 +22,6 @@ import           Pos.Block.Network.Server.State (recordBlocksRequest,
 import           Pos.Block.Network.Types        (MsgGetBlocks (..), MsgGetHeaders (..))
 import           Pos.Communication.BiP          (BiP (..))
 import           Pos.Communication.PeerState    (getPeerState)
-import           Pos.Ssc.Class.Types            (Ssc (..))
 import           Pos.Types                      (HeaderHash)
 import           Pos.WorkMode                   (NewWorkMode)
 
@@ -43,7 +39,7 @@ mkHeadersRequest upto = do
 
 replyWithHeadersRequest
     :: forall ssc m.
-       (Ssc ssc, NewWorkMode ssc m)
+       (NewWorkMode ssc m)
     => Maybe (HeaderHash ssc)
     -> NodeId
     -> SendActions BiP m
@@ -70,7 +66,7 @@ mkBlocksRequest lcaChild wantedBlock =
 -- on our tip. This request is recorded in PeerState.
 replyWithBlocksRequest
     :: forall ssc m.
-       (Ssc ssc, NewWorkMode ssc m)
+       (NewWorkMode ssc m)
     => HeaderHash ssc
     -> HeaderHash ssc
     -> NodeId

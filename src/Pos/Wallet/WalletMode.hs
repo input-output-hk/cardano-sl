@@ -43,7 +43,6 @@ import           Pos.Types                     (Address, Coin, Tx, TxAux, TxId, 
                                                 toPair, txOutValue)
 import           Pos.Types.Coin                (unsafeIntegerToCoin)
 import           Pos.Types.Utxo.Functions      (belongsTo, filterUtxoByAddr)
-import           Pos.Types.Utxo.Functions      (belongsTo, filterUtxoByAddr)
 import           Pos.Update                    (USHolder (..))
 import           Pos.Wallet.Context            (ContextHolder, WithWalletContext)
 import           Pos.Wallet.KeyStorage         (KeyStorage, MonadKeys)

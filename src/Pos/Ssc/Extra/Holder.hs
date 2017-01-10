@@ -12,35 +12,30 @@ module Pos.Ssc.Extra.Holder
        , runSscHolderRaw
        ) where
 
-import qualified Control.Concurrent.STM      as STM
-import           Control.Lens                (iso)
-import           Control.Monad.Base          (MonadBase (..))
-import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
-import           Control.Monad.Fix           (MonadFix)
-import           Control.Monad.Reader        (ReaderT (ReaderT))
-import           Control.Monad.Trans.Class   (MonadTrans)
-import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
-                                              MonadTransControl (..), StM,
-                                              defaultLiftBaseWith, defaultLiftWith,
-                                              defaultRestoreM, defaultRestoreT)
-import           Data.Default                (Default (def))
-import           Mockable                    (ChannelT, MFunctor' (hoist'),
-                                              Mockable (liftMockable), Promise,
-                                              SharedAtomicT, ThreadId,
-                                              liftMockableWrappedM)
-import           Serokell.Util.Lens          (WrappedM (..))
-import           System.Wlog                 (CanLog, HasLoggerName)
+import qualified Control.Concurrent.STM    as STM
+import           Control.Lens              (iso)
+import           Control.Monad.Base        (MonadBase (..))
+import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow)
+import           Control.Monad.Fix         (MonadFix)
+import           Control.Monad.Reader      (ReaderT (ReaderT))
+import           Control.Monad.Trans.Class (MonadTrans)
+import           Data.Default              (Default (def))
+import           Mockable                  (ChannelT, MFunctor', Mockable (liftMockable),
+                                            Promise, SharedAtomicT, ThreadId,
+                                            liftMockableWrappedM)
+import           Serokell.Util.Lens        (WrappedM (..))
+import           System.Wlog               (CanLog, HasLoggerName)
 import           Universum
 
-import           Pos.Context                 (WithNodeContext)
-import           Pos.DB                      (MonadDB (..))
-import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
-import           Pos.Ssc.Class.Types         (Ssc (..))
-import           Pos.Ssc.Extra.MonadGS       (MonadSscGS (..))
-import           Pos.Ssc.Extra.MonadLD       (MonadSscLD (..))
-import           Pos.Ssc.Extra.Richmen       (MonadSscRichmen)
-import           Pos.Util.JsonLog            (MonadJL (..))
+import           Pos.Context               (WithNodeContext)
+import           Pos.DB                    (MonadDB (..))
+import           Pos.Slotting              (MonadSlots (..))
+import           Pos.Ssc.Class.LocalData   (SscLocalDataClass)
+import           Pos.Ssc.Class.Types       (Ssc (..))
+import           Pos.Ssc.Extra.MonadGS     (MonadSscGS (..))
+import           Pos.Ssc.Extra.MonadLD     (MonadSscLD (..))
+import           Pos.Ssc.Extra.Richmen     (MonadSscRichmen)
+import           Pos.Util.JsonLog          (MonadJL (..))
 
 data SscState ssc =
     SscState

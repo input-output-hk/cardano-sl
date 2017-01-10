@@ -7,32 +7,24 @@ module Pos.Communication.Server.Protocol
        ( protocolListeners
        ) where
 
-import           Control.Concurrent.STM.TVar (modifyTVar, readTVar)
 import           Control.Lens                (view, (.~), (?~))
 import           Formatting                  (build, sformat, (%))
-import           Pos.Communication.Types     (MutPeerState, VersionReq (..),
-                                              VersionResp (..))
+import           Pos.Communication.Types     (VersionReq (..), VersionResp (..))
 import           System.Wlog                 (logDebug, logWarning)
 import           Universum
 
-import           Message.Message             (BinaryP, messageName)
-import           Mockable.Monad              (MonadMockable (..))
 import           Mockable.SharedAtomic       (modifySharedAtomic, readSharedAtomic)
-import           Node                        (Listener (..), ListenerAction (..),
-                                              NodeId (..), SendActions (..), sendTo)
+import           Node                        (ListenerAction (..), SendActions (..),
+                                              sendTo)
 import           Pos.Binary.Communication    ()
 import           Pos.Communication.BiP       (BiP (..))
 import           Pos.Communication.PeerState (getPeerState)
 import           Pos.Communication.Types     (peerVersion)
 import           Pos.Constants               (curProtocolVersion, protocolMagic)
-import           Pos.DHT.Model               (ListenerDHT (..), MonadDHTDialog,
-                                              getUserState, replyToNode)
-import           Pos.Ssc.Class.Types         (Ssc (..))
 import           Pos.WorkMode                (NewWorkMode)
 
 protocolListeners
-    :: ( Ssc ssc
-       , NewWorkMode ssc m
+    :: ( NewWorkMode ssc m
        )
     => [ListenerAction BiP m]
 protocolListeners =
@@ -43,7 +35,7 @@ protocolListeners =
 -- | Handles a response to get current version
 handleVersionReq
     :: forall ssc m.
-       (Ssc ssc, NewWorkMode ssc m)
+       (NewWorkMode ssc m)
     => ListenerAction BiP m
 handleVersionReq = ListenerActionOneMsg $
     \peerId sendActions VersionReq -> do
@@ -59,7 +51,7 @@ handleVersionReq = ListenerActionOneMsg $
 -- state `_peerVersion` parameter.
 handleVersionResp
     :: forall ssc m.
-       (Ssc ssc, NewWorkMode ssc m)
+       (NewWorkMode ssc m)
     => ListenerAction BiP m
 handleVersionResp = ListenerActionOneMsg $
     \peerId _ resp@VersionResp{..} -> do

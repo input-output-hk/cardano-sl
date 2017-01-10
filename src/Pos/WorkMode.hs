@@ -23,8 +23,6 @@ module Pos.WorkMode
 
 import           Control.Monad.Catch         (MonadMask)
 import           Control.Monad.Fix           (MonadFix)
-import           Control.TimeWarp.Rpc        (Dialog, Transfer)
-import           Control.TimeWarp.Timed      (MonadTimed (..), TimedIO)
 import           Mockable                    (MonadMockable)
 import           Mockable.Production         (Production)
 import           System.Wlog                 (LoggerNameBox (..), WithLogger)

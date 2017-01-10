@@ -24,8 +24,7 @@ import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Context                 (WithNodeContext)
-import           Pos.DHT.Model               (MonadDHT, MonadMessageDHT,
-                                              WithDefaultMsgHeader)
+import           Pos.DHT.Model               (MonadDHT)
 import           Pos.Slotting                (MonadSlots)
 import           Pos.Ssc.Extra.MonadLD       (MonadSscLD)
 import           Pos.Statistics              (MonadStats)

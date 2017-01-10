@@ -143,7 +143,7 @@ findRichmenPure :: [(StakeholderId, Coin)]
                 -> (Coin -> Coin)
                 -> Bool
                 -> FullRichmenData
-findRichmenPure stakeDistribution thresholdF considerDelegated =
+findRichmenPure stakeDistribution thresholdF _ =
     (total, runListHolder (findRichmenStake thresholdCoin) stakeDistribution)
   where
     total = unsafeIntegerToCoin $ sumCoins $ map snd stakeDistribution

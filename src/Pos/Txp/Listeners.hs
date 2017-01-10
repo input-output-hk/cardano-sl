@@ -12,10 +12,7 @@ module Pos.Txp.Listeners
 
 import qualified Data.HashMap.Strict         as HM
 import           Formatting                  (build, sformat, stext, (%))
-import           Message.Message             (BinaryP, messageName)
-import           Mockable.Monad              (MonadMockable (..))
-import           Node                        (Listener (..), ListenerAction (..),
-                                              NodeId (..), SendActions (..), sendTo)
+import           Node                        (ListenerAction (..))
 import           Serokell.Util.Verify        (VerificationRes (..))
 import           System.Wlog                 (logDebug, logInfo, logWarning)
 import           Universum
@@ -24,8 +21,6 @@ import           Pos.Binary.Communication    ()
 import           Pos.Binary.Relay            ()
 import           Pos.Communication.BiP       (BiP (..))
 import           Pos.Crypto                  (hash)
-import           Pos.NewDHT.Model.Class      (MonadDHT (..))
-import           Pos.Ssc.Class.Types         (Ssc (..))
 import           Pos.Statistics              (StatProcessTx (..), statlogCountEvent)
 import           Pos.Txp.Class               (getMemPool)
 import           Pos.Txp.Logic               (processTx)
@@ -37,8 +32,7 @@ import           Pos.Util.Relay              (DataMsg, InvMsg, Relay (..), ReqMs
 import           Pos.WorkMode                (NewWorkMode)
 
 txListeners
-    :: ( Ssc ssc
-       , NewWorkMode ssc m
+    :: ( NewWorkMode ssc m
        )
     => [ListenerAction BiP m]
 txListeners =
@@ -48,19 +42,19 @@ txListeners =
     ]
 
 handleInvTx
-    :: (Ssc ssc, NewWorkMode ssc m)
+    :: (NewWorkMode ssc m)
     => ListenerAction BiP m
 handleInvTx = ListenerActionOneMsg $ \peerId sendActions (i :: InvMsg TxId TxMsgTag) ->
     handleInvL i peerId sendActions
 
 handleReqTx
-    :: (Ssc ssc, NewWorkMode ssc m)
+    :: (NewWorkMode ssc m)
     => ListenerAction BiP m
 handleReqTx = ListenerActionOneMsg $ \peerId sendActions (r :: ReqMsg TxId TxMsgTag) ->
     handleReqL r peerId sendActions
 
 handleDataTx
-    :: (MonadDHT m, Ssc ssc, NewWorkMode ssc m)
+    :: (NewWorkMode ssc m)
     => ListenerAction BiP m
 handleDataTx = ListenerActionOneMsg $ \peerId sendActions (d :: DataMsg TxId TxMsgContents) ->
     handleDataL d peerId sendActions

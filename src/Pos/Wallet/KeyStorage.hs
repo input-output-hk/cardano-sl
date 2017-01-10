@@ -36,8 +36,7 @@ import           Pos.Context                 (ContextHolder (..), NodeContext (.
 import           Pos.Crypto                  (SecretKey, keyGen)
 import           Pos.DB                      (MonadDB)
 import           Pos.Delegation.Class        (DelegationT (..), MonadDelegation)
-import           Pos.DHT.Model               (MonadDHT, MonadMessageDHT,
-                                              WithDefaultMsgHeader)
+import           Pos.DHT.Model               (MonadDHT)
 import           Pos.NewDHT.Real             (KademliaDHT)
 import           Pos.Slotting                (MonadSlots)
 import           Pos.Ssc.Extra               (SscHolder (..))

@@ -19,7 +19,6 @@ import           Control.Lens                (iso)
 import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
 import           Control.Monad.Except        (ExceptT)
-import           Control.Monad.Morph         (hoist)
 import           Control.Monad.Trans         (MonadTrans)
 import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,

@@ -14,7 +14,6 @@ import           System.Wlog             (logError, logInfo)
 import           Universum
 
 import           Pos.Communication       (BiP)
-import           Pos.Constants           (k)
 import           Pos.Context             (NodeContext (..), getNodeContext,
                                           ncPubKeyAddress, ncPublicKey)
 import qualified Pos.DB.GState           as GS

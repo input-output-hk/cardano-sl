@@ -16,9 +16,7 @@ import           Serokell.Util.Verify                   (VerificationRes (..))
 import           System.Wlog                            (logDebug)
 import           Universum
 
-import           Mockable.Monad                         (MonadMockable (..))
 import           Node                                   (ListenerAction (..))
-import           Pos.Binary.Class                       (Bi)
 import           Pos.Binary.Crypto                      ()
 import           Pos.Binary.Relay                       ()
 import           Pos.Binary.Ssc                         ()
@@ -28,20 +26,16 @@ import qualified Pos.DB.Lrc                             as LrcDB
 import           Pos.Security                           (shouldIgnorePkAddress)
 import           Pos.Slotting                           (getCurrentSlot)
 import           Pos.Ssc.Class.Listeners                (SscListenersClass (..))
-import           Pos.Ssc.Class.Types                    (Ssc (..))
 import           Pos.Ssc.Extra.MonadLD                  (sscGetLocalPayload)
 import           Pos.Ssc.GodTossing.LocalData.LocalData (sscIsDataUseful,
                                                          sscProcessMessage)
-import           Pos.Ssc.GodTossing.Types.Base          (Commitment, Opening,
-                                                         VssCertificate)
 import           Pos.Ssc.GodTossing.Types.Instance      ()
 import           Pos.Ssc.GodTossing.Types.Message       (GtMsgContents (..),
                                                          GtMsgTag (..),
                                                          isGoodSlotIdForTag,
                                                          msgContentsTag)
 import           Pos.Ssc.GodTossing.Types.Type          (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Types         (GtPayload (..), GtProof,
-                                                         _gpCertificates)
+import           Pos.Ssc.GodTossing.Types.Types         (GtPayload (..), _gpCertificates)
 import           Pos.Types                              (SlotId (..), StakeholderId)
 import           Pos.Util.Relay                         (DataMsg, InvMsg, Relay (..),
                                                          ReqMsg, handleDataL, handleInvL,

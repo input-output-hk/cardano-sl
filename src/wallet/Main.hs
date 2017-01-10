@@ -10,7 +10,7 @@ import           Control.TimeWarp.Rpc (NetworkAddress)
 import           Data.List            ((!!))
 import qualified Data.Text            as T
 import           Formatting           (build, int, sformat, stext, (%))
-import           Mockable             (Production, delay, for)
+import           Mockable             (delay, for)
 import           Options.Applicative  (execParser)
 import           System.IO            (hFlush, stdout)
 import           Universum

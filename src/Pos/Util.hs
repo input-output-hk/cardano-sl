@@ -93,8 +93,7 @@ import           Control.Monad.Trans.Resource  (ResourceT)
 import           Control.TimeWarp.Rpc          (Dialog (..), Message (messageName),
                                                 MessageName, ResponseT (..),
                                                 Transfer (..))
-import           Control.TimeWarp.Timed        (MonadTimed (fork, wait), Second, TimedIO,
-                                                for, killThread)
+import           Control.TimeWarp.Timed        (MonadTimed (wait), Second, TimedIO, for)
 import qualified Data.Cache.LRU                as LRU
 import           Data.Hashable                 (Hashable)
 import qualified Data.HashMap.Strict           as HM

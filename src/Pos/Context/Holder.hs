@@ -18,9 +18,9 @@ import           Control.Monad.Fix         (MonadFix)
 import           Control.Monad.Reader      (ReaderT (ReaderT), ask)
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Formatting                (sformat, shown, (%))
-import           Mockable                  (Catch, ChannelT, CurrentTime,
-                                            MFunctor' (hoist'), Mockable (liftMockable),
-                                            Promise, SharedAtomicT, ThreadId, catchAll,
+import           Mockable                  (Catch, ChannelT, CurrentTime, MFunctor',
+                                            Mockable (liftMockable), Promise,
+                                            SharedAtomicT, ThreadId, catchAll,
                                             currentTime, liftMockableWrappedM)
 import           Serokell.Util.Lens        (WrappedM (..))
 import           System.Wlog               (CanLog, HasLoggerName, WithLogger, logWarning)

@@ -13,10 +13,10 @@ import           Data.List.NonEmpty    (NonEmpty)
 import           Universum
 
 import           Control.TimeWarp.Rpc  (Message (..), messageName')
+import qualified Data.ByteString.Char8 as BC
+import qualified Message.Message       as M
 import           Pos.Ssc.Class.Types   (Ssc (SscPayload))
 import           Pos.Types             (Block, BlockHeader, HeaderHash)
-import qualified Message.Message       as M
-import qualified Data.ByteString.Char8 as BC
 
 -- | 'GetHeaders' message (see protocol specification).
 data MsgGetHeaders ssc = MsgGetHeaders
@@ -28,7 +28,7 @@ instance Typeable ssc => Message (MsgGetHeaders ssc) where
     messageName _ = "GetHeaders"
     formatMessage = messageName'
 
-instance Typeable ssc => M.Message (MsgGetHeaders ssc) where
+instance M.Message (MsgGetHeaders ssc) where
     messageName _ = M.MessageName $ BC.pack "GetHeaders"
     formatMessage _ = "GetHeaders"
 
@@ -42,7 +42,7 @@ instance Typeable ssc => Message (MsgGetBlocks ssc) where
     messageName _ = "GetBlocks"
     formatMessage = messageName'
 
-instance Typeable ssc => M.Message (MsgGetBlocks ssc) where
+instance M.Message (MsgGetBlocks ssc) where
     messageName _ = M.MessageName $ BC.pack "GetBlocks"
     formatMessage _ = "GetBlocks"
 
@@ -55,7 +55,7 @@ instance Typeable ssc => Message (MsgHeaders ssc) where
     messageName _ = "BlockHeaders"
     formatMessage = messageName'
 
-instance Typeable ssc => M.Message (MsgHeaders ssc) where
+instance M.Message (MsgHeaders ssc) where
     messageName _ = M.MessageName $ BC.pack "BlockHeaders"
     formatMessage _ = "BlockHeaders"
 
@@ -70,6 +70,6 @@ instance Typeable ssc => Message (MsgBlock ssc) where
     messageName _ = "Block"
     formatMessage = messageName'
 
-instance Typeable ssc => M.Message (MsgBlock ssc) where
+instance M.Message (MsgBlock ssc) where
     messageName _ = M.MessageName $ BC.pack "Block"
     formatMessage _ = "Block"

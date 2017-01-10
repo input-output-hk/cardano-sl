@@ -9,8 +9,7 @@ module Pos.Wallet.Launcher.Runner
        ) where
 
 import           Formatting                (build, sformat, (%))
-import           Mockable                  (Production (runProduction), bracket, fork,
-                                            sleepForever)
+import           Mockable                  (Production, bracket, fork, sleepForever)
 import           Node                      (Listener, SendActions)
 import           System.Wlog               (logInfo, usingLoggerName)
 import           Universum                 hiding (bracket)
@@ -18,16 +17,16 @@ import           Universum                 hiding (bracket)
 import           Pos.Communication         (BiP (..))
 import           Pos.Launcher              (BaseParams (..), LoggingParams (..),
                                             RealModeResources (..), addDevListeners,
-                                            loggerBracket, runServer, setupLoggers)
+                                            runServer)
 import           Pos.NewDHT.Model          (DHTNodeType (..), discoverPeers)
-import           Pos.NewDHT.Real           (KademliaDHTInstance, runKademliaDHT)
+import           Pos.NewDHT.Real           (runKademliaDHT)
 
 import           Pos.Wallet.Context        (ctxFromParams, runContextHolder)
 import           Pos.Wallet.KeyStorage     (runKeyStorage)
 import           Pos.Wallet.Launcher.Param (WalletParams (..))
 import           Pos.Wallet.State          (closeState, openMemState, openState,
                                             runWalletDB)
-import           Pos.Wallet.WalletMode     (SState, WalletMode, WalletRealMode)
+import           Pos.Wallet.WalletMode     (WalletMode, WalletRealMode)
 
 -- TODO: Move to some `Pos.Wallet.Communication` and provide
 -- meaningful listeners
@@ -85,6 +84,6 @@ runRawRealWallet res wp@WalletParams {..} listeners action =
             runServer (rmTransport res) listeners $
                 \sa -> logInfo "Started wallet, joining network" >> action sa
   where
-    lp@LoggingParams {..} = bpLoggingParams wpBaseParams
+    LoggingParams {..} = bpLoggingParams wpBaseParams
     openDB = maybe openMemState (openState wpRebuildDb) wpDbPath
     closeDB = closeState

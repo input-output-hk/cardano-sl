@@ -20,16 +20,15 @@ module Pos.DB.Functions
        , rocksWriteBatch
        ) where
 
-import           Control.Monad.Trans.Resource (MonadResource)
-import qualified Data.ByteString.Lazy         as BSL
-import           Data.Default                 (def)
-import qualified Database.RocksDB             as Rocks
-import           Formatting                   (sformat, shown, string, (%))
+import qualified Data.ByteString.Lazy as BSL
+import           Data.Default         (def)
+import qualified Database.RocksDB     as Rocks
+import           Formatting           (sformat, shown, string, (%))
 import           Universum
 
-import           Pos.Binary.Class             (Bi, decodeFull, encodeStrict)
-import           Pos.DB.Error                 (DBError (DBMalformed))
-import           Pos.DB.Types                 (DB (..))
+import           Pos.Binary.Class     (Bi, decodeFull, encodeStrict)
+import           Pos.DB.Error         (DBError (DBMalformed))
+import           Pos.DB.Types         (DB (..))
 
 -- | Open DB stored on disk.
 openDB :: MonadIO m => FilePath -> m (DB ssc)

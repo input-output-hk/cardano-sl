@@ -51,7 +51,7 @@ import           Pos.Ssc.GodTossing.SecretStorage (getSecret, getSecretForTip,
                                                    prepareSecretToNewSlot, setSecret)
 import           Pos.Ssc.GodTossing.Shares        (getOurShares)
 import           Pos.Ssc.GodTossing.Storage       (getGlobalCerts, gtGetGlobalState)
-import           Pos.Ssc.GodTossing.Types         (Commitment, Opening, SignedCommitment,
+import           Pos.Ssc.GodTossing.Types         (Opening, SignedCommitment,
                                                    SscGodTossing, VssCertificate (..),
                                                    gtcParticipateSsc, gtcVssKeyPair,
                                                    mkVssCertificate)

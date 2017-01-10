@@ -17,7 +17,7 @@ import           Control.Monad.Reader          (ReaderT (..))
 import           Control.Monad.Trans.Class     (MonadTrans)
 import           Data.Default                  (Default (def))
 import qualified ListT                         as LT
-import           Mockable                      (ChannelT, MFunctor' (hoist'),
+import           Mockable                      (ChannelT, MFunctor',
                                                 Mockable (liftMockable), Promise,
                                                 SharedAtomic, SharedAtomicT, ThreadId,
                                                 liftMockableWrappedM, newSharedAtomic)
@@ -28,7 +28,6 @@ import           System.Wlog                   (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Communication.Types.State (PeerState)
-import           Pos.Txp.Class                 (MonadTxpLD)
 
 type PeerStateCtx ssc m = STM.Map NodeId (SharedAtomicT m (PeerState ssc))
 

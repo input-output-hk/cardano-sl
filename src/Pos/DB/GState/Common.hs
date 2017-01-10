@@ -23,7 +23,6 @@ module Pos.DB.GState.Common
        ) where
 
 import qualified Database.RocksDB as Rocks
-import           Mockable         (Mockable, Throw)
 import           Universum
 
 import           Pos.Binary.Class (Bi, encodeStrict)

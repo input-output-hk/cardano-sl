@@ -7,7 +7,6 @@ module Pos.Ssc.Class.Listeners
 import           Data.Tagged           (Tagged)
 
 import           Node                  (Listener)
-import           Pos.Binary.Class      (Bi)
 import           Pos.Communication.BiP (BiP)
 import           Pos.Ssc.Class.Types   (Ssc (..))
 import           Pos.WorkMode          (NewWorkMode)

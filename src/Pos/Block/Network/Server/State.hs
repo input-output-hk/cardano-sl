@@ -21,7 +21,7 @@ import           Data.Default            (Default (def))
 import           Data.List.NonEmpty      (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty      as NE
 import           Mockable                (Mockable, SharedAtomic, SharedAtomicT,
-                                          modifySharedAtomic, readSharedAtomic)
+                                          modifySharedAtomic)
 import           Serokell.Util.Verify    (isVerSuccess)
 import           System.Wlog             (WithLogger, logInfo)
 import           Universum

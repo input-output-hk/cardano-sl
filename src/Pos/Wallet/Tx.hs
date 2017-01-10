@@ -17,7 +17,6 @@ import           System.Wlog           (logError, logInfo)
 import           Universum
 
 import           Pos.Binary            ()
-import           Pos.Communication     (sendTx)
 import           Pos.Crypto            (SecretKey, hash, toPublic)
 import           Pos.Types             (TxAux, TxOutAux, makePubKeyAddress, txaF)
 import           Pos.WorkMode          (NewMinWorkMode)

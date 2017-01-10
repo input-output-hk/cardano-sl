@@ -16,17 +16,12 @@ import           Formatting               (build, sformat, shown, (%))
 import           System.Wlog              (logDebug, logInfo)
 import           Universum
 
-import           Message.Message          (BinaryP, messageName)
-import           Mockable.Monad           (MonadMockable (..))
-import           Mockable.SharedAtomic    (modifySharedAtomic, readSharedAtomic)
-import           Node                     (Listener (..), ListenerAction (..),
-                                           NodeId (..), SendActions (..), sendTo)
+import           Node                     (ListenerAction (..), SendActions (..), sendTo)
 
 
 import           Pos.Binary.Communication ()
 import           Pos.Communication.BiP    (BiP (..))
-import           Pos.Context              (getNodeContext, ncPropagation, ncSecretKey)
-import           Pos.Crypto               (proxySign)
+import           Pos.Context              (getNodeContext, ncPropagation)
 import           Pos.Delegation.Logic     (ConfirmPskEpochVerdict (..),
                                            PskEpochVerdict (..), PskSimpleVerdict (..),
                                            invalidateProxyCaches, isProxySKConfirmed,
@@ -38,14 +33,12 @@ import           Pos.Delegation.Types     (CheckProxySKConfirmed (..),
                                            CheckProxySKConfirmedRes (..),
                                            ConfirmProxySK (..), SendProxySK (..))
 import           Pos.NewDHT.Model         (sendToNeighbors)
-import           Pos.Ssc.Class.Types      (Ssc (..))
 import           Pos.Types                (ProxySKEpoch)
 import           Pos.WorkMode             (NewWorkMode)
 
 -- | Listeners for requests related to delegation processing.
 delegationListeners
-    :: ( Ssc ssc
-       , NewWorkMode ssc m
+    :: ( NewWorkMode ssc m
        )
     => [ListenerAction BiP m]
 delegationListeners =
@@ -61,7 +54,7 @@ delegationListeners =
 -- | Handler 'SendProxySK' event.
 handleSendProxySK
     :: forall ssc m.
-       (Ssc ssc, NewWorkMode ssc m)
+       (NewWorkMode ssc m)
     => ListenerAction BiP m
 handleSendProxySK = ListenerActionOneMsg $
     \_ sendActions (pr :: SendProxySK) -> case pr of
@@ -90,7 +83,7 @@ handleSendProxySK = ListenerActionOneMsg $
 
 -- | Propagates lightweight PSK depending on the 'ProxyEpochVerdict'.
 propagateProxySKEpoch
-  :: (Ssc ssc, NewWorkMode ssc m)
+  :: (NewWorkMode ssc m)
   => PskEpochVerdict -> ProxySKEpoch -> SendActions BiP m -> m ()
 propagateProxySKEpoch PEUnrelated pSk sendActions =
     whenM (ncPropagation <$> getNodeContext) $ do
@@ -105,7 +98,7 @@ propagateProxySKEpoch _ _ _ = pass
 
 handleConfirmProxySK
     :: forall ssc m.
-       (Ssc ssc, NewWorkMode ssc m)
+       (NewWorkMode ssc m)
     => ListenerAction BiP m
 handleConfirmProxySK = ListenerActionOneMsg $
     \_ sendActions ((o@(ConfirmProxySK pSk proof)) :: ConfirmProxySK) -> do
@@ -115,7 +108,7 @@ handleConfirmProxySK = ListenerActionOneMsg $
 
 propagateConfirmProxySK
     :: forall ssc m.
-       (Ssc ssc, NewWorkMode ssc m)
+       (NewWorkMode ssc m)
     => ConfirmPskEpochVerdict
     -> ConfirmProxySK
     -> SendActions BiP m
@@ -130,7 +123,7 @@ propagateConfirmProxySK _ _ _ = pure ()
 
 handleCheckProxySKConfirmed
     :: forall ssc m.
-       (Ssc ssc, NewWorkMode ssc m)
+       (NewWorkMode ssc m)
     => ListenerAction BiP m
 handleCheckProxySKConfirmed = ListenerActionOneMsg $
     \peerId sendActions (CheckProxySKConfirmed pSk :: CheckProxySKConfirmed) -> do

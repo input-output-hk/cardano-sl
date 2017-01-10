@@ -14,9 +14,9 @@ import           Control.Monad.Base           (MonadBase (..))
 import           Control.Monad.Fix            (MonadFix)
 import           Control.Monad.Trans          (MonadTrans)
 import           Control.Monad.Trans.Resource (MonadResource)
-import           Mockable                     (ChannelT, MFunctor' (hoist'),
+import           Mockable                     (ChannelT, MFunctor',
                                                Mockable (liftMockable), Promise,
-                                               SharedAtomicT, ThreadId, Throw,
+                                               SharedAtomicT, ThreadId,
                                                liftMockableWrappedM)
 import           Serokell.Util.Lens           (WrappedM (..))
 import           System.Wlog                  (CanLog, HasLoggerName)

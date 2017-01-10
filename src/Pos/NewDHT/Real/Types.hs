@@ -19,14 +19,13 @@ import           Control.Concurrent.STM    (TVar)
 import           Control.Lens              (iso)
 import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow)
 import           Control.Monad.Fix         (MonadFix)
-import           Control.Monad.Morph       (MFunctor (hoist))
 import           Control.Monad.Trans.Class (MonadTrans)
 import qualified Data.ByteString           as BS
 import           Data.ByteString.Lazy      (fromStrict, toStrict)
 
-import           Mockable                  (ChannelT, MFunctor' (hoist'),
-                                            Mockable (liftMockable), Promise,
-                                            SharedAtomicT, ThreadId, liftMockableWrappedM)
+import           Mockable                  (ChannelT, MFunctor', Mockable (liftMockable),
+                                            Promise, SharedAtomicT, ThreadId,
+                                            liftMockableWrappedM)
 import qualified Network.Kademlia          as K
 import           Serokell.Util.Lens        (WrappedM (..))
 import           System.Wlog               (CanLog, HasLoggerName)

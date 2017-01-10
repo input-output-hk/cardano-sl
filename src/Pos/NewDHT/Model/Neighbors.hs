@@ -9,15 +9,12 @@ module Pos.NewDHT.Model.Neighbors
   ( sendToNeighbors
   ) where
 
-import           Control.Monad          (sequence)
-import           Data.ByteString.Char8  (pack)
 
-import           Data.Foldable          (notElem)
 import           Formatting             (int, sformat, shown, (%))
 import qualified Formatting             as F
 import           Message.Message        (Message, Serializable)
 import           Mockable               (MonadMockable, catchAll)
-import           Node                   (NodeId (..), SendActions (..))
+import           Node                   (SendActions (..))
 import           System.Wlog            (WithLogger, logInfo, logWarning)
 import           Universum              hiding (catchAll)
 
@@ -41,7 +38,7 @@ sendToNeighbors sender msg = do
            then discoverPeers DHTFull
            else return nodes_
     when (length nodes < neighborsSendThreshold) $
-        logWarning $ sformat ("Send to only " % int % " nodes, threshold is " % int) (length nodes) neighborsSendThreshold
+        logWarning $ sformat ("Send to only " % int % " nodes, threshold is " % int) (length nodes) (neighborsSendThreshold :: Int)
     -- We don't need to parallelize sends here, because they are asynchronous by design
     mapM_ send' nodes
   where

@@ -13,33 +13,28 @@ module Pos.Util.Relay
        , handleDataL
        ) where
 
-import           Control.TimeWarp.Rpc        (Message (..), messageName')
-import qualified Data.ByteString.Char8       as BC
-import           Data.List.NonEmpty          (NonEmpty (..))
-import           Data.Proxy                  (Proxy (..))
-import           Formatting                  (build, sformat, stext, (%))
-import qualified Message.Message             as M
-import           Mockable.Monad              (MonadMockable (..))
-import           Node                        (Listener (..), ListenerAction (..),
-                                              NodeId (..), SendActions (..), sendTo)
-import           Serokell.Util.Text          (listJson)
-import           Serokell.Util.Verify        (VerificationRes (..))
-import           System.Wlog                 (logDebug, logInfo, logWarning)
-import           System.Wlog                 (WithLogger)
-import           Test.QuickCheck             (Arbitrary (..))
+import           Control.TimeWarp.Rpc       (Message (..), messageName')
+import qualified Data.ByteString.Char8      as BC
+import           Data.List.NonEmpty         (NonEmpty (..))
+import           Data.Proxy                 (Proxy (..))
+import           Formatting                 (build, sformat, stext, (%))
+import qualified Message.Message            as M
+import           Node                       (NodeId (..), SendActions (..), sendTo)
+import           Serokell.Util.Text         (listJson)
+import           Serokell.Util.Verify       (VerificationRes (..))
+import           System.Wlog                (logDebug, logInfo, logWarning)
+import           System.Wlog                (WithLogger)
+import           Test.QuickCheck            (Arbitrary (..))
 import           Universum
 
-import           Pos.Binary.Class            (Bi)
-import           Pos.Communication.BiP       (BiP (..))
-import           Pos.Context                 (WithNodeContext (getNodeContext),
-                                              ncPropagation)
-import           Pos.NewDHT.Model.Class      (MonadDHT (..))
-import           Pos.NewDHT.Model.Neighbors  (sendToNeighbors)
-import           Pos.Ssc.Class.Types         (Ssc (..))
-import           Pos.Txp.Types.Communication (TxMsgTag (..))
-import           Pos.Types                   (TxId (..))
-import           Pos.Util                    (NamedMessagePart (..))
-import           Pos.WorkMode                (NewWorkMode)
+import           Pos.Binary.Class           (Bi)
+import           Pos.Communication.BiP      (BiP (..))
+import           Pos.Context                (WithNodeContext (getNodeContext),
+                                             ncPropagation)
+import           Pos.NewDHT.Model.Class     (MonadDHT (..))
+import           Pos.NewDHT.Model.Neighbors (sendToNeighbors)
+import           Pos.Util                   (NamedMessagePart (..))
+import           Pos.WorkMode               (NewWorkMode)
 
 -- | Typeclass for general Inv/Req/Dat framework. It describes monads,
 -- that store data described by tag, where "key" stands for node
@@ -92,7 +87,7 @@ instance (Typeable key, Typeable tag, NamedMessagePart tag) =>
         tagM _ = Proxy
     formatMessage = messageName'
 
-instance (Typeable key, Typeable tag, NamedMessagePart tag) =>
+instance (NamedMessagePart tag) =>
          M.Message (InvMsg key tag) where
     messageName p = M.MessageName $ BC.pack "Inventory " <> encodeUtf8 (nMessageName $ tagM p)
       where
@@ -120,7 +115,7 @@ instance (Typeable key, Typeable tag, NamedMessagePart tag) =>
         tagM _ = Proxy
     formatMessage = messageName'
 
-instance (Typeable key, Typeable tag, NamedMessagePart tag) =>
+instance (NamedMessagePart tag) =>
          M.Message (ReqMsg key tag) where
     messageName p = M.MessageName $ BC.pack "Request " <> encodeUtf8 (nMessageName $ tagM p)
       where
@@ -147,7 +142,7 @@ instance (Typeable key, Typeable contents, NamedMessagePart contents) =>
         contentsM _ = Proxy
     formatMessage = messageName'
 
-instance (Typeable key, Typeable contents, NamedMessagePart contents) =>
+instance (NamedMessagePart contents) =>
          M.Message (DataMsg key contents) where
     messageName p = M.MessageName $ BC.pack "Data " <> encodeUtf8 (nMessageName $ contentsM p)
       where
@@ -171,9 +166,8 @@ filterSecond :: (b -> Bool) -> [(a,b)] -> [a]
 filterSecond predicate = map fst . filter (predicate . snd)
 
 handleInvL
-    :: forall ssc m key tag contents.
+    :: forall m key tag contents.
        ( Bi (ReqMsg key tag)
-       , Buildable tag
        , Relay m tag key contents
        , WithLogger m
        )
@@ -194,9 +188,8 @@ handleInvL InvMsg {..} peerId sendActions = processMessage "Inventory" imTag ver
       (a:as) -> sendTo sendActions peerId $ ReqMsg imTag (a :| as)
 
 handleReqL
-    :: forall ssc m key tag contents.
+    :: forall m key tag contents.
        ( Bi (DataMsg key contents)
-       , Buildable tag
        , Relay m tag key contents
        , WithLogger m
        )
@@ -218,7 +211,6 @@ handleDataL
     :: forall ssc m key tag contents.
        ( MonadDHT m
        , Bi (InvMsg key tag)
-       , Buildable tag
        , Relay m tag key contents
        , WithLogger m
        , NewWorkMode ssc m
@@ -227,7 +219,7 @@ handleDataL
     -> NodeId
     -> SendActions BiP m
     -> m ()
-handleDataL DataMsg {..} peerId sendActions =
+handleDataL DataMsg {..} _ sendActions =
     processMessage "Data" dmContents verifyDataContents $
     ifM (handleData dmContents dmKey)
         handleDataLDo $

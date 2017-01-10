@@ -19,9 +19,9 @@ import           Control.Monad.Fix         (MonadFix)
 import           Control.Monad.Reader      (ReaderT (ReaderT))
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Data.Default              (def)
-import           Mockable                  (ChannelT, MFunctor' (hoist'),
-                                            Mockable (liftMockable), Promise,
-                                            SharedAtomicT, ThreadId, liftMockableWrappedM)
+import           Mockable                  (ChannelT, MFunctor', Mockable (liftMockable),
+                                            Promise, SharedAtomicT, ThreadId,
+                                            liftMockableWrappedM)
 import           Serokell.Util.Lens        (WrappedM (..))
 import           System.Wlog               (CanLog, HasLoggerName)
 import           Universum

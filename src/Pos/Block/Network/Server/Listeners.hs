@@ -6,6 +6,9 @@
 
 module Pos.Block.Network.Server.Listeners
        ( blockListeners
+
+         -- following functions are unused!
+       , handleBlocksWithLca
        ) where
 
 import           Control.Lens                   (view, (^.), _1)
@@ -13,22 +16,18 @@ import           Data.List.NonEmpty             (NonEmpty ((:|)), nonEmpty)
 import qualified Data.List.NonEmpty             as NE
 import           Formatting                     (build, sformat, stext, (%))
 import           Serokell.Util.Text             (listJson, listJsonIndent)
-import           System.Wlog                    (HasLoggerName, logDebug, logError,
-                                                 logInfo, logWarning)
+import           System.Wlog                    (logDebug, logError, logInfo, logWarning)
 import           Universum
 
-import           Message.Message                (BinaryP, messageName)
-import           Mockable.Monad                 (MonadMockable (..))
-import           Node                           (Listener (..), ListenerAction (..),
-                                                 NodeId (..), SendActions (..), sendTo)
+import           Node                           (ListenerAction (..), NodeId (..),
+                                                 SendActions (..), sendTo)
 import           Pos.Binary.Communication       ()
 import           Pos.Block.Logic                (ClassifyHeaderRes (..),
                                                  ClassifyHeadersRes (..), applyBlocks,
                                                  classifyHeaders, classifyNewHeader,
                                                  getHeadersFromManyTo,
-                                                 getHeadersFromToIncl, lcaWithMainChain,
-                                                 rollbackBlocks, verifyBlocks,
-                                                 withBlkSemaphore_)
+                                                 getHeadersFromToIncl, rollbackBlocks,
+                                                 verifyBlocks, withBlkSemaphore_)
 import           Pos.Block.Network.Announce     (announceBlock)
 import           Pos.Block.Network.Request      (replyWithBlocksRequest,
                                                  replyWithHeadersRequest)
@@ -49,9 +48,7 @@ import           Pos.Util                       (inAssertMode, _neHead, _neLast)
 import           Pos.WorkMode                   (NewWorkMode)
 
 blockListeners
-    :: ( Ssc ssc
-       , NewWorkMode ssc m
-       )
+    :: ( NewWorkMode ssc m )
     => [ListenerAction BiP m]
 blockListeners =
     [ handleGetHeaders
@@ -65,7 +62,7 @@ blockListeners =
 -- field.
 handleGetHeaders
     :: forall ssc m.
-       (Ssc ssc, NewWorkMode ssc m)
+       (NewWorkMode ssc m)
     => ListenerAction BiP m
 handleGetHeaders = ListenerActionOneMsg $
     \peerId sendActions (MsgGetHeaders {..} :: MsgGetHeaders ssc) -> do
@@ -104,7 +101,7 @@ handleGetBlocks = ListenerActionOneMsg $
 -- | Handles MsgHeaders request. There are two usecases:
 handleBlockHeaders
     :: forall ssc m.
-        (Ssc ssc, NewWorkMode ssc m)
+        (NewWorkMode ssc m)
     => ListenerAction BiP m
 handleBlockHeaders = ListenerActionOneMsg $
     \peerId sendActions (MsgHeaders headers :: MsgHeaders ssc) -> do
@@ -116,7 +113,7 @@ handleBlockHeaders = ListenerActionOneMsg $
 -- First case of 'handleBlockheaders'
 handleRequestedHeaders
     :: forall ssc m.
-       (Ssc ssc, NewWorkMode ssc m)
+       (NewWorkMode ssc m)
     => NonEmpty (BlockHeader ssc)
     -> NodeId
     -> SendActions BiP m
@@ -145,7 +142,7 @@ handleRequestedHeaders headers peerId sendActions = do
 -- Second case of 'handleBlockheaders'
 handleUnsolicitedHeaders
     :: forall ssc m.
-       (Ssc ssc, NewWorkMode ssc m)
+       (NewWorkMode ssc m)
     => NonEmpty (BlockHeader ssc)
     -> NodeId
     -> SendActions BiP m
@@ -159,7 +156,7 @@ handleUnsolicitedHeaders (h:|hs) _ _ = do
 
 handleUnsolicitedHeader
     :: forall ssc m.
-       (Ssc ssc, NewWorkMode ssc m)
+       (NewWorkMode ssc m)
     => BlockHeader ssc
     -> NodeId
     -> SendActions BiP m
@@ -194,7 +191,7 @@ handleUnsolicitedHeader header peerId sendActions = do
 
 handleBlock
     :: forall ssc m.
-       (Ssc ssc, NewWorkMode ssc m)
+       (NewWorkMode ssc m)
     => ListenerAction BiP m
 handleBlock = ListenerActionOneMsg $
     \peerId sendActions ((msg@(MsgBlock blk)) :: MsgBlock ssc) -> do
@@ -215,13 +212,13 @@ handleBlock = ListenerActionOneMsg $
 
 handleBlocks
     :: forall ssc m.
-       (Ssc ssc, NewWorkMode ssc m, HasLoggerName m)
+       (NewWorkMode ssc m)
     => NonEmpty (Block ssc)
     -> NodeId
     -> SendActions BiP m
     -> m ()
 -- Head block is the oldest one here.
-handleBlocks blocks peerId sendActions = do
+handleBlocks blocks _ _ = do
     logDebug "handleBlocks: processing"
     inAssertMode $
         logDebug $

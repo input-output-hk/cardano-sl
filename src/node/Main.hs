@@ -6,7 +6,6 @@ module Main where
 import qualified Data.ByteString.Lazy as LBS
 import           Data.List            ((!!))
 import           Mockable             (Production)
-import           Network.Transport    (Transport)
 import           System.Directory     (createDirectoryIfMissing)
 import           System.FilePath      ((</>))
 import           System.Wlog          (LoggerName)
@@ -22,7 +21,6 @@ import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
                                        bracketResources, runNodeProduction, runNodeStats,
                                        runTimeLordReal, runTimeSlaveReal, stakesDistr)
 import           Pos.NewDHT.Model     (DHTKey, DHTNodeType (..), dhtNodeType)
-import           Pos.NewDHT.Real      (KademliaDHTInstance)
 import           Pos.Ssc.GodTossing   (genesisVssKeyPairs)
 import           Pos.Ssc.GodTossing   (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon   (SscNistBeacon)

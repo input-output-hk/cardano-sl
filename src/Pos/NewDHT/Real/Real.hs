@@ -8,25 +8,21 @@ module Pos.NewDHT.Real.Real
        , stopDHTInstance
        ) where
 
-import           Control.Concurrent.STM (STM, TVar, modifyTVar, newTVar, readTVar,
-                                         swapTVar, writeTVar)
-import           Control.TimeWarp.Rpc   (Binding (..), NetworkAddress, RawData (..),
-                                         TransferException (..), listenR, sendH, sendR)
+import           Control.Concurrent.STM (newTVar, readTVar, writeTVar)
+import           Control.TimeWarp.Rpc   (NetworkAddress)
 import           Control.TimeWarp.Timed (ms, sec)
 import           Mockable               (Async, Catch, Mockable, MonadMockable, Promise,
                                          Throw, bracket, catchAll, fork, killThread,
-                                         newSharedAtomic, throw, waitAnyUnexceptional)
+                                         throw, waitAnyUnexceptional)
 
-import qualified Data.Cache.LRU         as LRU
-import           Data.Hashable          (hash)
 import qualified Data.HashMap.Strict    as HM
 import           Data.List              (intersect, (\\))
 
 import           Formatting             (build, int, sformat, shown, (%))
 import qualified Network.Kademlia       as K
 import           Prelude                (id)
-import           System.Wlog            (WithLogger, getLoggerName, logDebug, logError,
-                                         logInfo, logWarning, usingLoggerName)
+import           System.Wlog            (WithLogger, logDebug, logError, logInfo,
+                                         logWarning, usingLoggerName)
 import           Universum              hiding (Async, async, bracket, catchAll,
                                          fromStrict, mapConcurrently, toStrict)
 
@@ -35,15 +31,13 @@ import           Pos.Binary.NewDHTModel ()
 import           Pos.Constants          (enhancedMessageBroadcast)
 import           Pos.Constants          (neighborsSendThreshold)
 import           Pos.NewDHT.Model.Class (DHTException (..), MonadDHT (..), withDhtLogger)
-import           Pos.NewDHT.Model.Types (DHTData, DHTKey, DHTNode (..), addressToNodeId,
-                                         filterByNodeType, randomDHTKey)
+import           Pos.NewDHT.Model.Types (DHTData, DHTKey, DHTNode (..), filterByNodeType,
+                                         randomDHTKey)
 import           Pos.NewDHT.Model.Util  (joinNetworkNoThrow)
 import           Pos.NewDHT.Real.Types  (DHTHandle, KademliaDHT (..),
                                          KademliaDHTInstance (..),
                                          KademliaDHTInstanceConfig (..))
 import           Pos.Util               (runWithRandomIntervals')
-
-import           Node                   (node)
 
 kademliaConfig :: K.KademliaConfig
 kademliaConfig = K.defaultConfig { K.k = 16 }
@@ -116,7 +110,7 @@ rejoinNetwork = withDhtLogger $ do
     logDebug $ sformat ("rejoinNetwork: peers " % build) peers
     when (length peers < neighborsSendThreshold) $ do
       logWarning $ sformat ("Not enough peers: "%int%", threshold is "%int)
-                           (length peers) neighborsSendThreshold
+                           (length peers) (neighborsSendThreshold :: Int)
       joinNetworkNoThrow init
 
 instance ( MonadIO m

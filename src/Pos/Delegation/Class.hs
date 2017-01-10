@@ -25,7 +25,7 @@ import           Data.Default                (Default (def))
 import           Data.HashMap.Strict         (HashMap)
 import qualified Data.HashMap.Strict         as HM
 import           Data.Time.Clock             (UTCTime)
-import           Mockable                    (ChannelT, MFunctor' (hoist'),
+import           Mockable                    (ChannelT, MFunctor',
                                               Mockable (liftMockable), Promise,
                                               SharedAtomicT, ThreadId,
                                               liftMockableWrappedM)

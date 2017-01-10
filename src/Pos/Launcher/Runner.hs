@@ -30,24 +30,17 @@ module Pos.Launcher.Runner
 
 import           Control.Concurrent.MVar            (newEmptyMVar, newMVar, takeMVar,
                                                      tryReadMVar)
-import           Control.Concurrent.STM.TVar        (TVar, newTVar)
+import           Control.Concurrent.STM.TVar        (newTVar)
 import           Control.Lens                       (each, to, (%~), (^..), (^?), _head,
                                                      _tail)
-import qualified Control.Monad.Catch                as MonadCatch
 import           Control.Monad.Fix                  (MonadFix)
-import           Control.Monad.Trans.Control        (MonadBaseControl)
-import           Control.Monad.Trans.Resource       (runResourceT)
-import           Control.TimeWarp.Rpc               (ConnectionPool, Dialog, Transfer,
-                                                     commLoggerName, runDialog,
-                                                     runTransfer, runTransferRaw,
-                                                     setForkStrategy)
-import           Control.TimeWarp.Timed             (MonadTimed, runTimedIO, runTimedIO,
-                                                     sec)
+import           Control.TimeWarp.Rpc               (commLoggerName)
+import           Control.TimeWarp.Timed             (sec)
 import           Data.Default                       (def)
 import           Data.List                          (nub)
 import qualified Data.Time                          as Time
 import           Formatting                         (build, sformat, shown, (%))
-import           Mockable                           (Bracket, Mockable, MonadMockable,
+import           Mockable                           (Mockable, MonadMockable,
                                                      Production (..), Throw, bracket,
                                                      currentTime, fork, killThread, throw)
 import           Network.Transport                  (Transport, closeTransport)
@@ -58,7 +51,7 @@ import           Node                               (Listener, NodeAction (..),
                                                      hoistSendActions, node)
 import qualified STMContainers.Map                  as SM
 import           System.Random                      (newStdGen)
-import           System.Wlog                        (LoggerName (..), WithLogger,
+import           System.Wlog                        (WithLogger,
                                                      logDebug, logError, logInfo,
                                                      logWarning, releaseAllHandlers,
                                                      traverseLoggerConfig,
@@ -66,14 +59,6 @@ import           System.Wlog                        (LoggerName (..), WithLogger
 import           Universum                          hiding (bracket)
 
 import           Pos.Binary                         ()
-
-import           Data.Tagged                        (untag)
-import           Pos.Block.Network.Server.Listeners (blockListeners)
-import           Pos.Communication.Server.Protocol  (protocolListeners)
-import           Pos.Delegation.Listeners           (delegationListeners)
-import           Pos.Ssc.Class.Listeners            (SscListenersClass, sscListeners)
-import           Pos.Txp.Listeners                  (txListeners)
-
 import           Pos.CLI                            (readLoggerConfig)
 import           Pos.Communication                  (BiP (..), SysStartRequest (..),
                                                      allListeners, sysStartReqListener,
@@ -94,7 +79,7 @@ import           Pos.Genesis                        (genesisLeaders)
 import           Pos.Launcher.Param                 (BaseParams (..), LoggingParams (..),
                                                      NodeParams (..))
 import           Pos.NewDHT.Model                   (MonadDHT (..), sendToNeighbors)
-import           Pos.NewDHT.Real                    (KademliaDHT, KademliaDHTInstance,
+import           Pos.NewDHT.Real                    (KademliaDHTInstance,
                                                      KademliaDHTInstanceConfig (..),
                                                      runKademliaDHT, startDHTInstance,
                                                      stopDHTInstance)
@@ -110,9 +95,8 @@ import           Pos.Update.MemState                (runUSHolder)
 import           Pos.Util                           (runWithRandomIntervals')
 import           Pos.Util.UserSecret                (peekUserSecret, usKeys,
                                                      writeUserSecret)
-import           Pos.Worker                         (statsWorkers)
-import           Pos.WorkMode                       (NewMinWorkMode, ProductionMode,
-                                                     RawRealMode, ServiceMode, StatsMode)
+import           Pos.WorkMode                       (ProductionMode, RawRealMode,
+                                                     ServiceMode, StatsMode)
 
 data RealModeResources = RealModeResources
     { rmTransport :: Transport
@@ -150,7 +134,7 @@ runTimeSlaveReal res bp = do
 
 -- | Runs time-lord to acquire system start.
 runTimeLordReal :: LoggingParams -> Production Timestamp
-runTimeLordReal lp@LoggingParams{..} = do
+runTimeLordReal LoggingParams{..} = do
     t <- Timestamp <$> currentTime
     usingLoggerName lpRunnerTag (doLog t) $> t
   where
@@ -193,7 +177,7 @@ runRawRealMode res np@NodeParams {..} sscnp listeners action =
           runServer (rmTransport res) listeners $
               \sa -> nodeStartMsg npBaseParams >> action sa
   where
-    lp@LoggingParams {..} = bpLoggingParams npBaseParams
+    LoggingParams {..} = bpLoggingParams npBaseParams
 
 -- | ServiceMode runner.
 runServiceMode
@@ -208,7 +192,7 @@ runServiceMode res bp@BaseParams{..} listeners action =
     runServer (rmTransport res) listeners $
         \sa -> nodeStartMsg bp >> action sa
 
-runServer :: (MonadIO m, MonadMockable m, WithLogger m, MonadFix m)
+runServer :: (MonadIO m, MonadMockable m, MonadFix m)
   => Transport -> [Listener BiP m] -> (SendActions BiP m -> m b) -> m b
 runServer transport listeners action = do
     stdGen <- liftIO newStdGen
@@ -218,7 +202,7 @@ runServer transport listeners action = do
 -- | ProductionMode runner.
 runProductionMode
     :: forall ssc a.
-       (SscConstraint ssc, SscListenersClass ssc)
+       (SscConstraint ssc)
     => RealModeResources
     -> NodeParams
     -> SscParams ssc
@@ -236,7 +220,7 @@ runProductionMode res np@NodeParams {..} sscnp action =
 -- can be done as part of refactoring (or someone who will refactor will create new issue).
 runStatsMode
     :: forall ssc a.
-       (SscConstraint ssc, SscListenersClass ssc)
+       (SscConstraint ssc)
     => RealModeResources
     -> NodeParams
     -> SscParams ssc
@@ -321,8 +305,7 @@ loggerBracket :: LoggingParams -> IO a -> IO a
 loggerBracket lp = bracket_ (setupLoggers lp) releaseAllHandlers
 
 addDevListeners
-    :: (NewMinWorkMode m)
-    => Timestamp
+    :: Timestamp
     -> [Listener BiP m]
     -> [Listener BiP m]
 addDevListeners sysStart ls =

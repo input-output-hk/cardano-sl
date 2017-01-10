@@ -16,7 +16,6 @@ import           Control.Monad.Reader         (mapReaderT)
 import           Control.Monad.State          (StateT (..), mapStateT)
 import           Control.Monad.Trans.Resource (ResourceT, transResourceT)
 import qualified Database.RocksDB             as Rocks
-import           Mockable                     (Mockable, Throw)
 import           Universum
 
 import           Pos.DB.Types                 (DB, NodeDBs, blockDB, gStateDB, lrcDB,

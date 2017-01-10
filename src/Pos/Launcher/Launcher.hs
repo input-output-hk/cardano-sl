@@ -14,15 +14,13 @@ module Pos.Launcher.Launcher
        ) where
 
 import           Mockable              (Production)
-import           Universum
 
 import           Pos.Launcher.Param    (NodeParams (..))
 import           Pos.Launcher.Runner   (RealModeResources, runProductionMode,
                                         runStatsMode)
 import           Pos.Launcher.Scenario (runNode)
-import           Pos.NewDHT.Real       (KademliaDHT (..), KademliaDHTInstance)
 import           Pos.Ssc.Class         (SscConstraint)
-import           Pos.Ssc.Class.Types   (Ssc, SscParams)
+import           Pos.Ssc.Class.Types   (SscParams)
 import           Pos.WorkMode          (ProductionMode, StatsMode)
 
 -----------------------------------------------------------------------------

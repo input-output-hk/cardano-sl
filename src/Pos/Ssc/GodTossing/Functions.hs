@@ -67,7 +67,8 @@ import           Pos.Types.Address              (addressHash)
 import           Pos.Types.Types                (EpochIndex (..), LocalSlotIndex,
                                                  MainBlockHeader, SharedSeed (..),
                                                  SlotId (..), StakeholderId, headerSlot)
-import           Pos.Util                       (AsBinary, asBinary, fromBinaryM)
+import           Pos.Util                       (AsBinary, asBinary, fromBinaryM, getKeys)
+
 ----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
@@ -364,7 +365,8 @@ verifyGtPayload header payload =
 
 checkCommShares :: [AsBinary VssPublicKey] -> SignedCommitment -> Bool
 checkCommShares vssPublicKeys c =
-    vssPublicKeys == (HM.keys . commShares $ c ^. _2)
+    HS.fromList vssPublicKeys == (getKeys . commShares $ c ^. _2)
+
 ----------------------------------------------------------------------------
 -- Modern
 ----------------------------------------------------------------------------

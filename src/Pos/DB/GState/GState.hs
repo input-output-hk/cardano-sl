@@ -11,6 +11,7 @@ import           Pos.Context            (WithNodeContext, genesisUtxoM)
 import           Pos.DB.Class           (MonadDB)
 import           Pos.DB.GState.Balances (prepareGStateBalances)
 import           Pos.DB.GState.Common   (prepareGStateCommon)
+import           Pos.DB.GState.Update   (prepareGStateUS)
 import           Pos.DB.GState.Utxo     (prepareGStateUtxo)
 import           Pos.Types              (HeaderHash)
 
@@ -24,3 +25,4 @@ prepareGStateDB initialTip = do
     genesisUtxo <- genesisUtxoM
     prepareGStateUtxo genesisUtxo
     prepareGStateBalances genesisUtxo
+    prepareGStateUS

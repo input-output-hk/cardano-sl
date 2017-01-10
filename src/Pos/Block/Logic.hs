@@ -47,8 +47,8 @@ import           Pos.Context               (NodeContext (ncSecretKey), getNodeCo
 import           Pos.Crypto                (SecretKey, WithHash (WithHash), hash,
                                             shortHashF)
 import           Pos.Data.Attributes       (mkAttributes)
-import           Pos.DB                    (DBError (..), MonadDB, getTipBlockHeader,
-                                            loadHeadersWhile)
+import           Pos.DB                    (DBError (..), MonadDB, SomeBatchOp (..),
+                                            getTipBlockHeader, loadHeadersWhile)
 import qualified Pos.DB                    as DB
 import qualified Pos.DB.GState             as GS
 import qualified Pos.DB.Lrc                as LrcDB
@@ -61,8 +61,8 @@ import           Pos.Ssc.Extra             (sscApplyBlocks, sscApplyGlobalState,
                                             sscGetLocalPayload, sscRollback,
                                             sscVerifyBlocks)
 import           Pos.Txp.Class             (getLocalTxsNUndo)
-import           Pos.Txp.Logic             (txApplyBlocks, txRollbackBlocks,
-                                            txVerifyBlocks)
+import           Pos.Txp.Logic             (normalizeTxpLD, txApplyBlocks,
+                                            txRollbackBlocks, txVerifyBlocks)
 import           Pos.Types                 (Block, BlockHeader, Blund, EpochIndex,
                                             EpochOrSlot (..), GenesisBlock, HeaderHash,
                                             MainBlock, MainExtraBodyData (..),
@@ -318,15 +318,19 @@ withBlkSemaphore_ = withBlkSemaphore . (fmap ((), ) .)
 -- have verified all predicates regarding block (including txs and ssc
 -- data checks).  We almost must have taken lock on block application
 -- and ensured that chain is based on our tip.
-applyBlocks :: forall ssc m . WorkMode ssc m => NonEmpty (Blund ssc) -> m ()
+applyBlocks
+    :: forall ssc m . WorkMode ssc m
+    => NonEmpty (Blund ssc) -> m ()
 applyBlocks blunds = do
     let blks = fmap fst blunds
     -- Note: it's important to put blocks first
     mapM_ putToDB blunds
-    mapM_ GS.writeBatchGState =<< delegationApplyBlocks (map fst blunds)
-    txApplyBlocks blunds
+    delegateBatch <- SomeBatchOp <$> delegationApplyBlocks (map fst blunds)
+    txBatch <- SomeBatchOp <$> txApplyBlocks blunds
     sscApplyBlocks blks
     sscApplyGlobalState
+    GS.writeBatchGState [delegateBatch, txBatch]
+    normalizeTxpLD
   where
     putToDB (blk, undo) = DB.putBlock undo True blk
 
@@ -336,11 +340,12 @@ applyBlocks blunds = do
 rollbackBlocks :: (WorkMode ssc m) => NonEmpty (Block ssc, Undo) -> m ()
 rollbackBlocks toRollback = do
     -- [CSL-378] Update sbInMain properly (in transaction)
-    mapM_ GS.writeBatchGState =<< delegationRollbackBlocks toRollback
-    txRollbackBlocks toRollback
+    delRoll <- delegationRollbackBlocks toRollback
+    txRoll <- txRollbackBlocks toRollback
     forM_ (NE.toList toRollback) $
         \(blk,_) -> DB.setBlockInMainChain (hash $ blk ^. blockHeader) False
     sscRollback $ fmap fst toRollback
+    GS.writeBatchGState [delRoll, txRoll]
 
 ----------------------------------------------------------------------------
 -- GenesisBlock creation

@@ -73,7 +73,7 @@ lrcSingleShotImpl epoch consumers = do
         when needComputeRichmen $ logInfo "Need to compute richmen"
         when (needComputeLeaders || needComputeRichmen) $ do
             logInfo "LRC is starting"
-            withBlkSemaphore_ $ lrcDo epoch consumers
+            withBlkSemaphore_ $ lrcDo epoch expectedRichmenComp
             logInfo "LRC has finished"
         putEpoch epoch
         logInfo "LRC has updated LRC DB"

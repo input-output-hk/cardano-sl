@@ -23,6 +23,7 @@ module Pos.DB.Functions
 import           Control.Monad.Trans.Resource (MonadResource)
 import qualified Data.ByteString.Lazy         as BSL
 import           Data.Default                 (def)
+import           Data.List.NonEmpty           (NonEmpty)
 import qualified Database.RocksDB             as Rocks
 import           Formatting                   (sformat, shown, string, (%))
 import           Universum
@@ -113,15 +114,32 @@ traverseAllEntries DB{..} init folder =
 class RocksBatchOp a where
     toBatchOp :: a -> [Rocks.BatchOp]
 
+data EmptyBatchOp
+instance RocksBatchOp EmptyBatchOp where
+    toBatchOp _ = []
+
 data SomeBatchOp =
     forall a. RocksBatchOp a =>
               SomeBatchOp a
+
+instance Monoid SomeBatchOp where
+    mempty = SomeBatchOp ([]::[EmptyBatchOp])
+    mappend a b = SomeBatchOp [a, b]
 
 instance RocksBatchOp Rocks.BatchOp where
     toBatchOp = pure
 
 instance RocksBatchOp SomeBatchOp where
     toBatchOp (SomeBatchOp a) = toBatchOp a
+
+-- instance (Foldable t, RocksBatchOp a) => RocksBatchOp (t a) where
+--     toBatchOp = concatMap toBatchOp -- overlapping instances, wtf ?????
+
+instance RocksBatchOp a => RocksBatchOp [a] where
+    toBatchOp = concatMap toBatchOp
+
+instance RocksBatchOp a => RocksBatchOp (NonEmpty a) where
+    toBatchOp = concatMap toBatchOp
 
 -- | Write Batch encapsulation
 rocksWriteBatch :: (RocksBatchOp a, MonadIO m) => [a] -> DB ssc -> m ()

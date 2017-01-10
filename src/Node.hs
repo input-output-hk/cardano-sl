@@ -25,7 +25,7 @@ module Node (
     , messageName'
 
     , SendActions(sendTo, withConnectionTo)
-    , ConversationActions(send, recv, getCompanion)
+    , ConversationActions(send, recv)
     , Worker
     , Listener
     , ListenerAction(..)
@@ -119,19 +119,16 @@ data SendActions packing m = SendActions {
 
 data ConversationActions body rcv m = ConversationActions {
        -- | Send a message within the context of this conversation
-       send         :: body -> m (),
+       send :: body -> m (),
 
        -- | Receive a message within the context of this conversation.
        --   'Nothing' means end of input (peer ended conversation).
-       recv         :: m (Maybe rcv),
-
-       -- | Id of peer node.
-       getCompanion :: LL.NodeId
+       recv :: m (Maybe rcv)
      }
 
 hoistConversationActions :: (forall a. n a -> m a) -> ConversationActions body rcv n -> ConversationActions body rcv m
 hoistConversationActions nat ConversationActions {..} =
-  ConversationActions send' recv' getCompanion
+  ConversationActions send' recv'
       where
         send' = nat . send
         recv' = nat recv
@@ -211,8 +208,8 @@ nodeConversationActions
     -> ChannelIn m
     -> ChannelOut m
     -> ConversationActions snd rcv m
-nodeConversationActions _ nodeId packing inchan outchan =
-    ConversationActions nodeSend nodeRecv nodeId
+nodeConversationActions _ _ packing inchan outchan =
+    ConversationActions nodeSend nodeRecv
     where
 
     nodeSend = \body ->

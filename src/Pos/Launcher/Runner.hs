@@ -59,7 +59,8 @@ import           Pos.CLI                     (readLoggerConfig)
 import           Pos.Communication           (BiP (..), SysStartRequest (..),
                                               allListeners, sysStartReqListener,
                                               sysStartReqListenerSlave,
-                                              sysStartRespListener)
+                                              sysStartRespListener,
+                                              sysStartRespListenerNode)
 import           Pos.Communication.PeerState (runPeerStateHolder)
 import           Pos.Constants               (defaultPeers, isDevelopment, runningMode)
 import qualified Pos.Constants               as Const
@@ -298,12 +299,12 @@ loggerBracket :: LoggingParams -> IO a -> IO a
 loggerBracket lp = bracket_ (setupLoggers lp) releaseAllHandlers
 
 addDevListeners
-    :: Timestamp
+    :: Monad m => Timestamp
     -> [Listener BiP m]
     -> [Listener BiP m]
 addDevListeners sysStart ls =
     if isDevelopment
-    then sysStartReqListener sysStart : ls
+    then sysStartRespListenerNode : sysStartReqListener sysStart : ls
     else ls
 
 bracketDHTInstance

@@ -7,16 +7,32 @@ module Pos.Block.Network.Types
        , MsgGetBlocks (..)
        , MsgHeaders (..)
        , MsgBlock (..)
+       , InConv (..)
        ) where
-
-import           Data.List.NonEmpty    (NonEmpty)
-import           Universum
 
 import           Control.TimeWarp.Rpc  (Message (..), messageName')
 import qualified Data.ByteString.Char8 as BC
+import           Data.List.NonEmpty    (NonEmpty)
+import           Data.Proxy            (Proxy)
+import           Formatting            (sformat, stext, (%))
 import qualified Message.Message       as M
+import           Universum
+
+import           Pos.Binary.Class      (Bi)
 import           Pos.Ssc.Class.Types   (Ssc (SscPayload))
 import           Pos.Types             (Block, BlockHeader, HeaderHash)
+
+newtype InConv m = InConv { inConvMsg :: m }
+    deriving (Generic, Show, Eq, Bi)
+
+inConvUnproxy :: Proxy (InConv m) -> Proxy m
+inConvUnproxy _ = Proxy
+
+instance M.Message m => M.Message (InConv m) where
+    messageName (inConvUnproxy -> p) = M.MessageName $ BC.pack "InConv " <> mName
+      where
+        M.MessageName mName = M.messageName p
+    formatMessage InConv {..} = sformat ("InConv " % stext) $ M.formatMessage inConvMsg
 
 -- | 'GetHeaders' message (see protocol specification).
 data MsgGetHeaders ssc = MsgGetHeaders

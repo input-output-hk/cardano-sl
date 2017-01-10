@@ -13,7 +13,7 @@ module Pos.Block.Worker
 import           Control.Lens               (ix, (^.), (^?))
 import           Data.Default               (def)
 import           Formatting                 (build, sformat, shown, (%))
-import           Mockable                   (delay, for)
+import           Mockable                   (delay, for, fork)
 import           Node                       (SendActions)
 import           Serokell.Util              (VerificationRes (..), listJson)
 import           Serokell.Util.Exceptions   ()
@@ -131,7 +131,7 @@ onNewSlotWhenLeader sendActions slotId pSk = do
                         sformat ("Created a new block:\n" %build) createdBlk
                     jlLog $ jlCreatedBlock (Right createdBlk)
                     verifyCreatedBlock createdBlk
-                    announceBlock sendActions $ createdBlk ^. gbHeader
+                    void $ fork $ announceBlock sendActions $ createdBlk ^. gbHeader
             let whenNotCreated = logWarning . (mappend "I couldn't create a new block: ")
             createdBlock <- createMainBlock slotId pSk
             either whenNotCreated whenCreated createdBlock

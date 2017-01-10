@@ -36,8 +36,9 @@ import           Pos.Block.Network.Announce     (announceBlock)
 import           Pos.Block.Network.Request      (mkHeadersRequest, replyWithBlocksRequest)
 import           Pos.Block.Network.Server.State (ProcessBlockMsgRes (..),
                                                  matchRequestedHeaders, processBlockMsg)
-import           Pos.Block.Network.Types        (MsgBlock (..), MsgGetBlocks (..),
-                                                 MsgGetHeaders (..), MsgHeaders (..))
+import           Pos.Block.Network.Types        (InConv (..), MsgBlock (..),
+                                                 MsgGetBlocks (..), MsgGetHeaders (..),
+                                                 MsgHeaders (..))
 import           Pos.Communication.BiP          (BiP (..))
 import           Pos.Communication.PeerState    (WithPeerState (..))
 import           Pos.Crypto                     (hash, shortHashF)
@@ -79,7 +80,7 @@ handleGetHeaders = ListenerActionConversation $
                     logWarning $ "handleGetHeaders@retrieveHeadersFromTo returned empty " <>
                                  "list, not responding to node"
                 Just atLeastOneHeader ->
-                    send conv $ MsgHeaders atLeastOneHeader
+                    send conv $ InConv $ MsgHeaders atLeastOneHeader
 
 handleGetBlocks
     :: forall ssc m.
@@ -168,8 +169,11 @@ handleUnsolicitedHeader header peerId sendActions = do
             logInfo $ sformat alternativeFormat hHash
             mgh <- mkHeadersRequest (Just hHash)
             withConnectionTo sendActions peerId $ \conv -> do
+                logDebug "handleUnsolicitedHeader: withConnection: sending MsgGetHeaders"
                 send conv mgh
-                mHeaders <- recv conv
+                logDebug "handleUnsolicitedHeader: withConnection: receiving MsgHeaders"
+                mHeaders <- fmap inConvMsg <$> recv conv
+                logDebug "handleUnsolicitedHeader: withConnection: received MsgHeaders"
                 whenJust mHeaders $ \headers -> do
                     logDebug "handleUnsolicitedHeader: got some block headers"
                     if matchRequestedHeaders headers mgh

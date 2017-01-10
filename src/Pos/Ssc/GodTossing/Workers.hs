@@ -46,8 +46,7 @@ import           Pos.Ssc.GodTossing.Functions     (genCommitmentAndOpening, hasC
 import           Pos.Ssc.GodTossing.LocalData     (ldCertificates, ldLastProcessedSlot,
                                                    localOnNewSlot, sscProcessMessage)
 import           Pos.Ssc.GodTossing.Richmen       (gtLrcConsumer)
-import           Pos.Ssc.GodTossing.SecretStorage (getSecret, getSecretForTip,
-                                                   prepareSecretToNewSlot, setSecret)
+import           Pos.Ssc.GodTossing.SecretStorage (getSecret, getSecretForTip, setSecret)
 import           Pos.Ssc.GodTossing.Shares        (getOurShares)
 import           Pos.Ssc.GodTossing.Storage       (getGlobalCerts, gtGetGlobalState)
 import           Pos.Ssc.GodTossing.Types         (Commitment, Opening, SignedCommitment,
@@ -126,7 +125,6 @@ onNewSlotSsc
 onNewSlotSsc = onNewSlot True $ \slotId-> do
     localOnNewSlot slotId
     checkNSendOurCert
-    prepareSecretToNewSlot slotId
     participationEnabled <- getNodeContext >>=
         atomically . readTVar . gtcParticipateSsc . ncSscContext
     when participationEnabled $ do

@@ -48,15 +48,15 @@ library
                         Pos.DB.GState
                         Pos.Data.Attributes
                         Pos.Delegation
-                        -- Pos.NewDHT
-                        Pos.NewDHT.Model
-                        Pos.NewDHT.Model.Neighbors
-                        Pos.NewDHT.Model.Types
-                        Pos.NewDHT.Model.Util
-                        Pos.NewDHT.Model.Class
-                        Pos.NewDHT.Real
-                        Pos.NewDHT.Real.Real
-                        Pos.NewDHT.Real.Types
+                        -- Pos.DHT
+                        Pos.DHT.Model
+                        Pos.DHT.Model.Neighbors
+                        Pos.DHT.Model.Types
+                        Pos.DHT.Model.Util
+                        Pos.DHT.Model.Class
+                        Pos.DHT.Real
+                        Pos.DHT.Real.Real
+                        Pos.DHT.Real.Types
                         Pos.Genesis
 
                         -- LRC
@@ -120,7 +120,7 @@ library
                         Pos.Binary.Class
                         Pos.Binary.Crypto
                         Pos.Binary.Communication
-                        Pos.Binary.NewDHTModel
+                        Pos.Binary.DHTModel
                         Pos.Binary.Merkle
                         Pos.Binary.DB
                         Pos.Binary.Relay

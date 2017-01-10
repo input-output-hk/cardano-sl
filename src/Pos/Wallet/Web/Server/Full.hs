@@ -37,9 +37,18 @@ import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletSta
                                                 WalletWebDB, runWalletWebDB)
 import           Pos.NewDHT.Real.Real          (runKademliaDHT, getKademliaDHTInstance)
 import           Pos.NewDHT.Real.Types         (KademliaDHTInstance(..))
+import           Pos.Wallet.KeyStorage         (MonadKeys(..))
+import           Pos.Wallet.Context.Class      (WithWalletContext(..))
+import           Pos.Wallet.WalletMode         (MonadTxHistory(..))
+import           Pos.Wallet.WalletMode         (MonadBalances(..))
 
 walletServeWebFull
-    :: SscConstraint ssc
+    :: ( SscConstraint ssc
+       , MonadKeys (RawRealMode ssc)
+       , WithWalletContext (RawRealMode ssc)
+       , MonadTxHistory (RawRealMode ssc)
+       , MonadBalances (RawRealMode ssc)
+       )
     => Bool               -- whether to include genesis keys
     -> FilePath           -- to Daedalus acid-state
     -> Bool               -- Rebuild flag
@@ -56,9 +65,9 @@ nat :: WebHandler ssc (WebHandler ssc :~> Handler)
 nat = do
     ws       <- getWalletWebState
     -- kctx  <- lift getKademliaDHTCtx
-    kinst    <- lift getKademliaDHTInstance
+    kinst    <- lift . lift $ getKademliaDHTInstance
     tlw      <- getTxpLDWrap
-    ssc      <- lift . lift . lift . lift $ SscHolder ask
+    ssc      <- lift . lift . lift . lift . lift . lift $ SscHolder ask
     delWrap  <- askDelegationState
     nc       <- getNodeContext
     modernDB <- Modern.getNodeDBs

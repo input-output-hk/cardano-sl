@@ -140,7 +140,9 @@ findAllRichmenMaybe maybeT maybeTD
     | Just tD <- maybeTD = (mempty,) <$> findDelegatedRichmen tD
     | otherwise = pure (mempty, mempty)
 
-data RichmenType = Usual | Delegation (HashMap StakeholderId [StakeholderId])
+data RichmenType
+    = RTUsual
+    | RTDelegation (HashMap StakeholderId [StakeholderId])
 
 -- | Pure version of findRichmen which uses in-memory Utxo.
 findRichmenPure :: [(StakeholderId, Coin)]
@@ -148,7 +150,7 @@ findRichmenPure :: [(StakeholderId, Coin)]
                 -> RichmenType
                 -> FullRichmenData
 findRichmenPure stakeDistribution thresholdF computeType
-    | Delegation delegationMap <- computeType =
+    | RTDelegation delegationMap <- computeType =
         let issuers = HS.fromList (concat $ toList delegationMap)
             (old, new) =
                 runListHolder

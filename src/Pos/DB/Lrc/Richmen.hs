@@ -119,7 +119,11 @@ computeInitial
     :: RichmenComponent c
     => [(StakeholderId, Coin)] -> Proxy c -> FullRichmenData
 computeInitial initialDistr proxy =
-    findRichmenPure initialDistr (rcThreshold proxy) (Delegation genesisDelegation)
+    findRichmenPure initialDistr (rcThreshold proxy) richmenType
+  where
+    richmenType
+        | rcConsiderDelegated proxy = RTDelegation genesisDelegation
+        | otherwise = RTUsual
 
 putIfEmpty
     :: forall a m.

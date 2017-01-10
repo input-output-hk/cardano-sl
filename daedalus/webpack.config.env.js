@@ -16,9 +16,6 @@ export default {
       filename: '[name]-[hash].min.js',
     }
   ),
-  externals: {
-    "ws": "ws"
-  },
   plugins: [
     new HtmlWebpackPlugin({
       template: 'src/index.html',

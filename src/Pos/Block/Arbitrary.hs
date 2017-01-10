@@ -107,6 +107,7 @@ instance (Arbitrary (SscProof ssc), Bi Raw) =>
         <*> arbitrary
         <*> arbitrary
         <*> arbitrary
+        <*> arbitrary
 
 instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) =>
     Arbitrary (T.ConsensusData (T.MainBlockchain ssc)) where

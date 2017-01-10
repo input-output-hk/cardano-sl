@@ -654,6 +654,7 @@ instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
         , mpRoot          :: !(MerkleRoot Tx)
         , mpWitnessesHash :: !(Hash [TxWitness])
         , mpMpcProof      :: !(SscProof ssc)
+        , mpProxySKsProof :: !(Hash [ProxySKSimple])
         } deriving (Generic)
     data ConsensusData (MainBlockchain ssc) = MainConsensusData
         { -- | Id of the slot for which this block was generated.
@@ -709,6 +710,7 @@ instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
         , mpRoot = mtRoot _mbTxs
         , mpWitnessesHash = hash _mbWitnesses
         , mpMpcProof = untag @ssc mkSscProof _mbMpc
+        , mpProxySKsProof = hash _mbProxySKs
         }
 
 
@@ -1203,6 +1205,7 @@ instance (Ssc ssc, SafeCopy (SscProof ssc)) =>
            mpRoot <- safeGet
            mpWitnessesHash <- safeGet
            mpMpcProof <- safeGet
+           mpProxySKsProof <- safeGet
            return $!
                MainProof
                { ..
@@ -1213,6 +1216,7 @@ instance (Ssc ssc, SafeCopy (SscProof ssc)) =>
            safePut mpRoot
            safePut mpWitnessesHash
            safePut mpMpcProof
+           safePut mpProxySKsProof
 
 instance SafeCopy (BodyProof (GenesisBlockchain ssc)) where
     getCopy =

@@ -139,9 +139,11 @@ instance Ssc ssc => Bi (T.BodyProof (T.MainBlockchain ssc)) where
         put mpRoot
         put mpWitnessesHash
         put mpMpcProof
+        put mpProxySKsProof
     get = label "MainProof" $
         T.MainProof
             <$> (getUnsignedVarInt <$> get)
+            <*> get
             <*> get
             <*> get
             <*> get

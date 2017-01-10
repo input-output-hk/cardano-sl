@@ -11,6 +11,7 @@ module Pos.NewDHT.Model.Types
        , typeByte
        , filterByNodeType
        , addressToNodeId
+       , addressToNodeId'
        , nodeIdToAddress
        ) where
 
@@ -112,7 +113,10 @@ filterByNodeType type_ = filter (\n -> dhtNodeType (dhtNodeId n) == Just type_)
 
 -- TODO: What about node index, i.e. last number in '127.0.0.1:3000:0' ?
 addressToNodeId :: NetworkAddress -> NodeId
-addressToNodeId (host, port) = NodeId $ TCP.encodeEndPointAddress (BS8.unpack host) (show port) 0
+addressToNodeId = addressToNodeId' 0
+
+addressToNodeId' :: Word32 -> NetworkAddress -> NodeId
+addressToNodeId' eId (host, port) = NodeId $ TCP.encodeEndPointAddress (BS8.unpack host) (show port) eId
 
 nodeIdToAddress :: NodeId -> Maybe NetworkAddress
 nodeIdToAddress (NodeId ep) = toNA =<< TCP.decodeEndPointAddress ep

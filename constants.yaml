@@ -2,7 +2,7 @@ k: 2
 slotDurationSec: 10
 networkDiameter: 3
 neighboursSendThreshold: 4
-genesisN: 3
+genesisN: 20
 maxLocalTxs: 10000
 defaultPeers: []
 sysTimeBroadcastSlots: 6

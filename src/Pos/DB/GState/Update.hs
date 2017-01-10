@@ -15,9 +15,6 @@ module Pos.DB.GState.Update
 
          -- * Operations
        , UpdateOp (..)
-       , setScriptVersion
-       , setConfirmedSV
-       , setLastPV
 
          -- * Initialization
        , prepareGStateUS
@@ -34,12 +31,13 @@ import           Pos.Binary.Class          (encodeStrict)
 import           Pos.Binary.DB             ()
 import           Pos.Constants             (curSoftwareVersion)
 import           Pos.Crypto                (hash)
-import           Pos.DB.Class              (MonadDB)
+import           Pos.DB.Class              (MonadDB, getUtxoDB)
 import           Pos.DB.Error              (DBError (DBMalformed))
-import           Pos.DB.Functions          (RocksBatchOp (..))
+import           Pos.DB.Functions          (RocksBatchOp (..), rocksWriteBatch)
 import           Pos.DB.GState.Common      (getBi, putBi)
 import           Pos.DB.Types              (ProposalState (..), psProposal)
-import           Pos.Genesis               (genesisProtocolVersion, genesisScriptVersion)
+import           Pos.Genesis               (genesisProtocolVersion, genesisScriptVersion,
+                                            genesisSoftwareVersions)
 import           Pos.Script.Type           (ScriptVersion)
 import           Pos.Types                 (ApplicationName, ProtocolVersion,
                                             SoftwareVersion (..))
@@ -88,6 +86,9 @@ getConfirmedSV = getBi . confirmedVersionKey
 data UpdateOp
     = PutProposal !ProposalState
     | DeleteProposal !UpId !ApplicationName
+    | ConfirmVersion !SoftwareVersion
+    | SetLastPV !ProtocolVersion
+    | SetScriptVersion !ProtocolVersion !ScriptVersion
 
 instance RocksBatchOp UpdateOp where
     toBatchOp (PutProposal ps) =
@@ -100,6 +101,12 @@ instance RocksBatchOp UpdateOp where
         appName = svAppName $ upSoftwareVersion up
     toBatchOp (DeleteProposal upId appName) =
         [Rocks.Del (proposalAppKey appName), Rocks.Del (proposalKey upId)]
+    toBatchOp (ConfirmVersion sv) =
+        [Rocks.Put (confirmedVersionKey $ svAppName sv) (encodeStrict $ svNumber sv)]
+    toBatchOp (SetLastPV pv) =
+        [Rocks.Put lastPVKey (encodeStrict pv)]
+    toBatchOp (SetScriptVersion pv sv) =
+        [Rocks.Put (scriptVersionKey pv) (encodeStrict sv)]
 
 -- putUndecidedProposalSlot :: ProposalState -> [Rocks.BatchOp]
 -- putUndecidedProposalSlot (PSUndecided ups) =
@@ -128,9 +135,11 @@ prepareGStateUS
        MonadDB ssc m
     => m ()
 prepareGStateUS = unlessM isInitialized $ do
-    setScriptVersion genesisProtocolVersion genesisScriptVersion
-    setConfirmedSV curSoftwareVersion
-    putBi lastPVKey genesisProtocolVersion
+    db <- getUtxoDB
+    flip rocksWriteBatch db $
+        [ SetLastPV genesisProtocolVersion
+        , SetScriptVersion genesisProtocolVersion genesisScriptVersion
+        ] <> map ConfirmVersion genesisSoftwareVersions
 
 isInitialized :: MonadDB ssc m => m Bool
 isInitialized = isJust <$> getLastPVMaybe

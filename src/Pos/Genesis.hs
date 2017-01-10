@@ -20,6 +20,7 @@ module Pos.Genesis
 
        -- * Update System
        , genesisProtocolVersion
+       , genesisSoftwareVersions
        , genesisScriptVersion
        ) where
 
@@ -32,16 +33,17 @@ import           Formatting               (int, sformat, (%))
 import           Serokell.Util            (enumerate)
 import           Universum
 
-import           Pos.Constants            (genesisN)
+import           Pos.Constants            (curSoftwareVersion, genesisN)
 import           Pos.Crypto               (PublicKey, SecretKey, deterministicKeyGen,
                                            unsafeHash)
 import           Pos.Lrc.FollowTheSatoshi (followTheSatoshi)
 import           Pos.Script.Type          (ScriptVersion)
-import           Pos.Types                (Address (..), Coin, ProtocolVersion (..),
-                                           SharedSeed (SharedSeed), SlotLeaders,
-                                           StakeholderId, TxOut (..), Utxo, coinToInteger,
-                                           divCoin, makePubKeyAddress, mkCoin,
-                                           unsafeAddCoin, unsafeMulCoin)
+import           Pos.Types                (Address (..), ApplicationName (..), Coin,
+                                           ProtocolVersion (..), SharedSeed (SharedSeed),
+                                           SlotLeaders, StakeholderId, TxOut (..), Utxo,
+                                           coinToInteger, divCoin, makePubKeyAddress,
+                                           mkCoin, unsafeAddCoin, unsafeMulCoin)
+import           Pos.Types.Version        (SoftwareVersion (..))
 
 ----------------------------------------------------------------------------
 -- Static state
@@ -158,6 +160,10 @@ genesisProtocolVersion =
     , pvMinor = 0
     , pvAlt = 0
     }
+
+-- | Software Versions
+genesisSoftwareVersions :: [SoftwareVersion]
+genesisSoftwareVersions = [curSoftwareVersion { svNumber = 0 }]
 
 -- | ScriptVersion used at very beginning
 genesisScriptVersion :: ScriptVersion

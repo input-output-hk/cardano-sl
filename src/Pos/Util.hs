@@ -507,7 +507,7 @@ readUntilEqualMVar
     => (x -> a) -> MVar x -> a -> m x
 readUntilEqualMVar f mvar expVal = readMVarConditional ((expVal ==) . f) mvar
 
--- | Block until value in MVar satisfies given predicate. When value
+-- | Block until value in TVar satisfies given predicate. When value
 -- satisfies, it is returned.
 readTVarConditional :: (MonadIO m) => (x -> Bool) -> TVar x -> m x
 readTVarConditional predicate tvar = atomically $ do

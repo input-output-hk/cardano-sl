@@ -7,10 +7,10 @@
     <https://hackage.haskell.org/package/kademlia>
 -}
 
-module Pos.NewDHT.Real
-       ( module Pos.NewDHT.Real.Types
-       , module Pos.NewDHT.Real.Real
+module Pos.DHT.Real
+       ( module Pos.DHT.Real.Types
+       , module Pos.DHT.Real.Real
        ) where
 
-import           Pos.NewDHT.Real.Real
-import           Pos.NewDHT.Real.Types
+import           Pos.DHT.Real.Real
+import           Pos.DHT.Real.Types

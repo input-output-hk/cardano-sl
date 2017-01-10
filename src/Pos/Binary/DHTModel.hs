@@ -3,12 +3,12 @@
 -- | Provides functionality of representing `Bi` instances as correct
 -- `Message`s used by time-warp.
 
-module Pos.Binary.NewDHTModel () where
+module Pos.Binary.DHTModel () where
 
 import           Universum
 
 import           Pos.Binary.Class       (Bi (..))
-import           Pos.NewDHT.Model.Types (DHTData (..), DHTKey (..))
+import           Pos.DHT.Model.Types (DHTData (..), DHTKey (..))
 
 
 instance Bi DHTKey where

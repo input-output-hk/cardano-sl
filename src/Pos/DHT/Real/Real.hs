@@ -2,7 +2,7 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
-module Pos.NewDHT.Real.Real
+module Pos.DHT.Real.Real
        ( runKademliaDHT
        , startDHTInstance
        , stopDHTInstance
@@ -25,14 +25,14 @@ import           Universum              hiding (Async, async, bracket, catchAll,
                                          fromStrict, mapConcurrently, toStrict)
 
 import           Pos.Binary.Class       (Bi (..))
-import           Pos.Binary.NewDHTModel ()
+import           Pos.Binary.DHTModel ()
 import           Pos.Constants          (enhancedMessageBroadcast)
 import           Pos.Constants          (neighborsSendThreshold)
-import           Pos.NewDHT.Model.Class (DHTException (..), MonadDHT (..), withDhtLogger)
-import           Pos.NewDHT.Model.Types (DHTData, DHTKey, DHTNode (..), filterByNodeType,
+import           Pos.DHT.Model.Class (DHTException (..), MonadDHT (..), withDhtLogger)
+import           Pos.DHT.Model.Types (DHTData, DHTKey, DHTNode (..), filterByNodeType,
                                          randomDHTKey)
-import           Pos.NewDHT.Model.Util  (joinNetworkNoThrow)
-import           Pos.NewDHT.Real.Types  (DHTHandle, KademliaDHT (..),
+import           Pos.DHT.Model.Util  (joinNetworkNoThrow)
+import           Pos.DHT.Real.Types  (DHTHandle, KademliaDHT (..),
                                          KademliaDHTInstance (..),
                                          KademliaDHTInstanceConfig (..))
 import           Pos.Util               (runWithRandomIntervals')

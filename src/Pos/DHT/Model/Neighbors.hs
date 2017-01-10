@@ -5,7 +5,7 @@
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE UndecidableInstances      #-}
 
-module Pos.NewDHT.Model.Neighbors
+module Pos.DHT.Model.Neighbors
   ( sendToNeighbors
   ) where
 
@@ -19,8 +19,8 @@ import           System.Wlog            (WithLogger, logInfo, logWarning)
 import           Universum              hiding (catchAll)
 
 import           Pos.Constants          (neighborsSendThreshold)
-import           Pos.NewDHT.Model.Class (MonadDHT (..))
-import           Pos.NewDHT.Model.Types (DHTNode (..), DHTNodeType (..), addressToNodeId,
+import           Pos.DHT.Model.Class (MonadDHT (..))
+import           Pos.DHT.Model.Types (DHTNode (..), DHTNodeType (..), addressToNodeId,
                                          filterByNodeType)
 
 -- | Send default message to neighbours in parallel.

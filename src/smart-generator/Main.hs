@@ -29,7 +29,7 @@ import           Pos.Launcher                (BaseParams (..), LoggingParams (..
                                               bracketResources, initLrc, runNode,
                                               runProductionMode, runTimeSlaveReal,
                                               stakesDistr)
-import           Pos.NewDHT.Model            (DHTNodeType (..), MonadDHT, dhtAddr,
+import           Pos.DHT.Model            (DHTNodeType (..), MonadDHT, dhtAddr,
                                               discoverPeers, getKnownPeers)
 import           Pos.Ssc.Class               (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing          (GtParams (..), SscGodTossing)

@@ -30,8 +30,8 @@ import           Pos.Binary.Class           (Bi)
 import           Pos.Communication.BiP      (BiP (..))
 import           Pos.Context                (WithNodeContext (getNodeContext),
                                              ncPropagation)
-import           Pos.NewDHT.Model.Class     (MonadDHT (..))
-import           Pos.NewDHT.Model.Neighbors (sendToNeighbors)
+import           Pos.DHT.Model.Class     (MonadDHT (..))
+import           Pos.DHT.Model.Neighbors (sendToNeighbors)
 import           Pos.Util                   (NamedMessagePart (..))
 import           Pos.WorkMode               (NewWorkMode)
 

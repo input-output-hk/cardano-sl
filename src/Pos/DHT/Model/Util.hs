@@ -1,4 +1,4 @@
-module Pos.NewDHT.Model.Util
+module Pos.DHT.Model.Util
        ( joinNetworkNoThrow
        ) where
 
@@ -7,9 +7,9 @@ import           Mockable               (Catch, Mockable, Throw, catch, throw)
 import           System.Wlog            (WithLogger, logInfo)
 import           Universum              hiding (catch)
 
-import           Pos.NewDHT.Model.Class (DHTException (AllPeersUnavailable), MonadDHT,
+import           Pos.DHT.Model.Class (DHTException (AllPeersUnavailable), MonadDHT,
                                          joinNetwork)
-import           Pos.NewDHT.Model.Types (DHTNode)
+import           Pos.DHT.Model.Types (DHTNode)
 
 -- | Join distributed network without throwing 'AllPeersUnavailable' exception.
 joinNetworkNoThrow

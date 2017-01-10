@@ -20,7 +20,7 @@ import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
                                        NodeParams (..), RealModeResources,
                                        bracketResources, runNodeProduction, runNodeStats,
                                        runTimeLordReal, runTimeSlaveReal, stakesDistr)
-import           Pos.NewDHT.Model     (DHTKey, DHTNodeType (..), dhtNodeType)
+import           Pos.DHT.Model     (DHTKey, DHTNodeType (..), dhtNodeType)
 import           Pos.Ssc.GodTossing   (genesisVssKeyPairs)
 import           Pos.Ssc.GodTossing   (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon   (SscNistBeacon)

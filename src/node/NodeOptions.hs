@@ -16,7 +16,7 @@ import           Universum
 
 import           Paths_cardano_sl           (version)
 import qualified Pos.CLI                    as CLI
-import           Pos.NewDHT.Model           (DHTKey)
+import           Pos.DHT.Model           (DHTKey)
 import           Pos.Security.Types         (AttackTarget, AttackType)
 
 

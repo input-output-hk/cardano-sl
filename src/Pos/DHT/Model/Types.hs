@@ -1,6 +1,6 @@
 -- | DHT types.
 
-module Pos.NewDHT.Model.Types
+module Pos.DHT.Model.Types
        ( DHTData (..)
        , DHTKey (..)
        , DHTNode (..)

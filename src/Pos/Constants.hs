@@ -57,7 +57,7 @@ import           Universum                  hiding (lift)
 
 import           Pos.CLI                    (dhtNodeParser)
 import           Pos.CompileConfig          (CompileConfig (..), compileConfig)
-import           Pos.NewDHT.Model.Types     (DHTNode)
+import           Pos.DHT.Model.Types     (DHTNode)
 import           Pos.Types.Timestamp        (Timestamp)
 import           Pos.Types.Types            (CoinPortion, unsafeCoinPortion)
 import           Pos.Types.Version          (ApplicationName, ProtocolVersion (..),

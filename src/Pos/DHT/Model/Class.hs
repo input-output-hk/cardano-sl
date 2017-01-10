@@ -1,7 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
--- | Re-exports of Pos.NewDHT.Class.* modules
+-- | Re-exports of Pos.DHT.Class.* modules
 
-module Pos.NewDHT.Model.Class
+module Pos.DHT.Model.Class
        ( DHTException (..)
        , MonadDHT (..)
        , withDhtLogger
@@ -11,7 +11,7 @@ import           Data.Proxy             (Proxy (Proxy))
 import           System.Wlog            (HasLoggerName (modifyLoggerName), LoggerName)
 import           Universum
 
-import           Pos.NewDHT.Model.Types (DHTKey, DHTNode (..), DHTNodeType (..))
+import           Pos.DHT.Model.Types (DHTKey, DHTNode (..), DHTNodeType (..))
 
 -- | Monad for Distributed Hash Table operations.
 class Monad m => MonadDHT m where

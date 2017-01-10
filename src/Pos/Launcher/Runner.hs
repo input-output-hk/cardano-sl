@@ -76,8 +76,8 @@ import           Pos.Delegation.Class               (runDelegationT)
 import           Pos.Genesis                        (genesisLeaders)
 import           Pos.Launcher.Param                 (BaseParams (..), LoggingParams (..),
                                                      NodeParams (..))
-import           Pos.NewDHT.Model                   (MonadDHT (..), sendToNeighbors)
-import           Pos.NewDHT.Real                    (KademliaDHTInstance,
+import           Pos.DHT.Model                   (MonadDHT (..), sendToNeighbors)
+import           Pos.DHT.Real                    (KademliaDHTInstance,
                                                      KademliaDHTInstanceConfig (..),
                                                      runKademliaDHT, startDHTInstance,
                                                      stopDHTInstance)

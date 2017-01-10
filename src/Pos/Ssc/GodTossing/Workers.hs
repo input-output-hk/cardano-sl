@@ -34,7 +34,7 @@ import           Pos.Crypto.SecretSharing         (toVssPublicKey)
 import           Pos.Crypto.Signing               (PublicKey)
 import           Pos.DB.GState                    (getTip)
 import           Pos.DB.Lrc                       (getRichmenSsc)
-import           Pos.NewDHT.Model                 (sendToNeighbors)
+import           Pos.DHT.Model                 (sendToNeighbors)
 import           Pos.Slotting                     (getCurrentSlot, getSlotStart,
                                                    onNewSlot')
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))

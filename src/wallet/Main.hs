@@ -21,7 +21,7 @@ import           Pos.Delegation       (sendProxySKEpoch, sendProxySKSimple)
 import           Pos.Genesis          (genesisPublicKeys, genesisSecretKeys)
 import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
                                        bracketResources, runTimeSlaveReal)
-import           Pos.NewDHT.Model     (DHTNodeType (..), dhtAddr, discoverPeers)
+import           Pos.DHT.Model     (DHTNodeType (..), dhtAddr, discoverPeers)
 import           Pos.Ssc.SscAlgo      (SscAlgo (..))
 import           Pos.Util.TimeWarp    (NetworkAddress)
 import           Pos.Types            (EpochIndex (..), coinF, makePubKeyAddress, txaF)

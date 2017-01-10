@@ -1,13 +1,13 @@
 -- | Distributed Hash Table for peer discovery.
 
-module Pos.NewDHT.Model
-      ( module Pos.NewDHT.Model.Types
-      , module Pos.NewDHT.Model.Neighbors
-      , module Pos.NewDHT.Model.Class
-      , module Pos.NewDHT.Model.Util
+module Pos.DHT.Model
+      ( module Pos.DHT.Model.Types
+      , module Pos.DHT.Model.Neighbors
+      , module Pos.DHT.Model.Class
+      , module Pos.DHT.Model.Util
       ) where
 
-import           Pos.NewDHT.Model.Class
-import           Pos.NewDHT.Model.Types
-import           Pos.NewDHT.Model.Neighbors
-import           Pos.NewDHT.Model.Util
+import           Pos.DHT.Model.Class
+import           Pos.DHT.Model.Types
+import           Pos.DHT.Model.Neighbors
+import           Pos.DHT.Model.Util

@@ -36,7 +36,7 @@ import qualified Options.Applicative.Simple           as Opt (Mod, Parser, auto,
 
 import           Pos.Binary.Address                   ()
 import           Pos.Crypto                           (PublicKey)
-import           Pos.NewDHT.Model.Types               (DHTKey, DHTNode (..),
+import           Pos.DHT.Model.Types               (DHTKey, DHTNode (..),
                                                        bytesToDHTKey)
 import           Pos.Security.Types                   (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.SscAlgo                      (SscAlgo (..))

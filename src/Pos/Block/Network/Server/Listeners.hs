@@ -41,7 +41,7 @@ import           Pos.Communication.PeerState    (WithPeerState (..))
 import           Pos.Crypto                     (hash, shortHashF)
 import qualified Pos.DB                         as DB
 import           Pos.DB.Error                   (DBError (DBMalformed))
-import           Pos.NewDHT.Model               (nodeIdToAddress)
+import           Pos.DHT.Model               (nodeIdToAddress)
 import           Pos.Ssc.Class.Types            (Ssc (..))
 import           Pos.Types                      (Block, BlockHeader, Blund,
                                                  HasHeaderHash (..), HeaderHash, NEBlocks,

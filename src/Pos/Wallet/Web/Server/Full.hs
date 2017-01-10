@@ -1,6 +1,7 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 
 -- | Module for full-node implementation of Daedalus API
 
@@ -41,6 +42,9 @@ import           Pos.Wallet.KeyStorage         (MonadKeys(..))
 import           Pos.Wallet.Context.Class      (WithWalletContext(..))
 import           Pos.Wallet.WalletMode         (MonadTxHistory(..))
 import           Pos.Wallet.WalletMode         (MonadBalances(..))
+import           Pos.Communication.PeerState   (PeerStateCtx(..), getAllStates, runPeerStateHolder)
+import           Pos.Update.MemState.Holder    (runUSHolder)
+import           Pos.Communication.PeerState   (WithPeerState(..))
 
 walletServeWebFull
     :: ( SscConstraint ssc
@@ -64,14 +68,15 @@ type WebHandler ssc = WalletWebDB (RawRealMode ssc)
 nat :: WebHandler ssc (WebHandler ssc :~> Handler)
 nat = do
     ws       <- getWalletWebState
-    -- kctx  <- lift getKademliaDHTCtx
     kinst    <- lift . lift $ getKademliaDHTInstance
     tlw      <- getTxpLDWrap
     ssc      <- lift . lift . lift . lift . lift . lift $ SscHolder ask
     delWrap  <- askDelegationState
+    psCtx    <- lift getAllStates
+    -- psCtx    <- lift $ PeerStateCtx ask
     nc       <- getNodeContext
     modernDB <- Modern.getNodeDBs
-    pure $ Nat (convertHandler kinst nc modernDB tlw ssc ws delWrap)
+    pure $ Nat (convertHandler kinst nc modernDB tlw ssc ws delWrap psCtx)
 
 convertHandler
     :: forall ssc a .
@@ -82,15 +87,18 @@ convertHandler
     -> SscState ssc
     -> WalletState
     -> (TVar DelegationWrap)
+    -> PeerStateCtx ssc (RawRealMode ssc)
     -> WebHandler ssc a
     -> Handler a
-convertHandler kinst nc modernDBs tlw ssc ws delWrap handler = do
+convertHandler kinst nc modernDBs tlw ssc ws delWrap psCtx handler = do
     liftIO ( Modern.runDBHolder modernDBs
            . runContextHolder nc
            . runSscHolderRaw ssc
            . Modern.runTxpLDHolderReader tlw
            . runDelegationTFromTVar delWrap
+           . runUSHolder
            . runKademliaDHT kinst
+           . runPeerStateHolder psCtx
            . runWalletWebDB ws
            $ handler
            ) `Catch.catches` excHandlers

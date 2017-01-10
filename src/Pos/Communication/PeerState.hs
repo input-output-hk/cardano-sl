@@ -8,6 +8,7 @@ module Pos.Communication.PeerState
        ( WithPeerState (..)
        , runPeerStateHolder
        , PeerStateHolder (..)
+       , PeerStateCtx (..)
        ) where
 
 import           Control.Lens                  (iso)

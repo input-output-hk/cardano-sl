@@ -1,6 +1,7 @@
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | All logic of certificates processing
 
@@ -35,7 +36,7 @@ import           Control.Lens                (makeLenses, use, uses, view, (%=),
 import           Control.Monad.Trans.Except  (runExceptT, throwE)
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
-import           Data.List                   (partition)
+import           Data.List                   (notElem, partition)
 import           Data.List.NonEmpty          (NonEmpty)
 import qualified Data.List.NonEmpty          as NE
 import qualified Data.Text.Buildable         as B
@@ -47,13 +48,14 @@ import           Universum
 
 import           Pos.Binary.Communication    ()
 import           Pos.Context                 (WithNodeContext (getNodeContext),
-                                              ncSecretKey)
+                                              lrcActionOnEpochReason, ncSecretKey)
 import           Pos.Crypto                  (ProxySecretKey (..), PublicKey,
                                               pdDelegatePk, proxyVerify, toPublic,
                                               verifyProxySecretKey)
 import           Pos.DB                      (DBError (DBMalformed), MonadDB, toBatchOp)
 import qualified Pos.DB                      as DB
 import qualified Pos.DB.GState               as GS
+import qualified Pos.DB.Lrc                  as LrcDB
 import qualified Pos.DB.Misc                 as Misc (addProxySecretKey,
                                                       getProxySecretKeys)
 import           Pos.Delegation.Class        (DelegationWrap, MonadDelegation (..),
@@ -63,8 +65,8 @@ import           Pos.Delegation.Types        (SendProxySK (..))
 import           Pos.Ssc.Class               (Ssc)
 import           Pos.Types                   (Block, Blund, NEBlocks, ProxySKEpoch,
                                               ProxySKSimple, ProxySigEpoch,
-                                              Undo (undoPsk), blockProxySKs, headerHash,
-                                              prevBlockL)
+                                              Undo (undoPsk), addressHash, blockProxySKs,
+                                              epochIndexL, headerHash, prevBlockL)
 import           Pos.Util                    (_neHead)
 
 
@@ -131,29 +133,39 @@ getProxyMempool = do
 
 -- | Datatypes representing a verdict of simple PSK processing.
 data PskSimpleVerdict
-    = PSExists
-    | PSInvalid
-    | PSCached
-    | PSAdded
+    = PSExists    -- ^ If we have exactly the same cert in psk mempool
+    | PSForbidden -- ^ Not enough stake
+    | PSInvalid   -- ^ Broken
+    | PSCached    -- ^ Message is cached
+    | PSAdded     -- ^ Successfully processed/added to psk mempool
     deriving (Show,Eq)
 
 -- | Processes simple (hardweight) psk. Puts it into the mempool not
 -- (TODO) depending on issuer's stake, overrides if exists, checks
 -- validity and cachemsg state.
 processProxySKSimple
-    :: (MonadDelegation m, MonadIO m)
+    :: (Ssc ssc, MonadDB ssc m, MonadDelegation m, WithNodeContext ssc m)
     => ProxySKSimple -> m PskSimpleVerdict
 processProxySKSimple psk = do
     curTime <- liftIO getCurrentTime
+    headEpoch <- view epochIndexL <$> DB.getTipBlockHeader
+    richmen <-
+        NE.toList <$>
+        lrcActionOnEpochReason
+        headEpoch
+        "Delegation.Logic#processProxySKSimple: there are no richmen for current epoch"
+        LrcDB.getRichmenDlg
+    let msg = SendProxySKSimple psk
+        valid = verifyProxySecretKey psk
+        issuer = pskIssuerPk psk
+        enoughStake = addressHash issuer `elem` richmen
     runDelegationStateAction $ do
-        let msg = SendProxySKSimple psk
-            valid = verifyProxySecretKey psk
-            issuer = pskIssuerPk psk
         exists <- uses dwProxySKPool $ \m -> HM.lookup issuer m == Just psk
         cached <- uses dwProxyMsgCache $ HM.member msg
         dwProxyMsgCache %= HM.insert msg curTime
         unless exists $ dwProxySKPool %= HM.insert issuer psk
         pure $ if | not valid -> PSInvalid
+                  | not enoughStake -> PSForbidden
                   | cached -> PSCached
                   | exists -> PSExists
                   | otherwise -> PSAdded
@@ -180,21 +192,29 @@ makeLenses ''DelVerState
 -- Blocks are assumed to be oldest-first. It's assumed blocks are
 -- correct from 'Pos.Types.Block#verifyBlocks' point of view.
 delegationVerifyBlocks
-    :: forall ssc m. (Ssc ssc, MonadDB ssc m)
+    :: forall ssc m. (Ssc ssc, MonadDB ssc m, WithNodeContext ssc m)
     => NEBlocks ssc -> m (Either Text (NonEmpty [ProxySKSimple]))
 delegationVerifyBlocks blocks = do
+    -- TODO CSL-502 create snapshot
+    -- TODO CSL-505 check that no two block have different epoch
     tip <- GS.getTip
-    -- TODO TAKE DATABASE SNAPSHOT AOEU AOEU AOEU !!! ПЫЩ
     fromGenesisPsks <-
         concatMap (either (const []) (map pskIssuerPk . view blockProxySKs)) <$>
         DB.loadBlocksWhile (\x _ -> isRight x) tip
     let _dvCurEpoch = HS.fromList fromGenesisPsks
         initState = DelVerState _dvCurEpoch HM.empty HS.empty
+    richmen <-
+        NE.toList <$>
+        lrcActionOnEpochReason
+        headEpoch
+        "Delegation.Logic#delegationVerifyBlocks: there are no richmen for current epoch"
+        LrcDB.getRichmenDlg
     when (HS.size _dvCurEpoch /= length fromGenesisPsks) $
         throwM $ DBMalformed "Multiple stakeholders have issued & published psks this epoch"
-    res <- evalStateT (runExceptT $ mapM verifyBlock blocks) initState
+    res <- evalStateT (runExceptT $ mapM (verifyBlock richmen) blocks) initState
     pure $ NE.reverse <$> res
   where
+    headEpoch = view epochIndexL $ NE.head blocks
     withMapResolve issuer = do
         isAddedM <- uses dvPSKMapAdded $ HM.lookup issuer
         isRemoved <- uses dvPSKSetRemoved $ HS.member issuer
@@ -210,12 +230,16 @@ delegationVerifyBlocks blocks = do
         if inAdded
         then dvPSKMapAdded %= HM.delete issuer
         else dvPSKSetRemoved %= HS.insert issuer
-    verifyBlock (Left _) = do
+    verifyBlock _ (Left _) = do
         dvCurEpoch .= HS.empty
         pure []
-    verifyBlock (Right blk) = do
+    verifyBlock richmen (Right blk) = do
         let proxySKs = view blockProxySKs blk
             issuers = map pskIssuerPk proxySKs
+        when (any ((`notElem` richmen) . addressHash) issuers) $
+            throwE $ sformat ("Block "%build%" contains psk issuers that "%
+                              "don't have enough stake")
+                             (headerHash blk)
         curEpoch <- use dvCurEpoch
         when (any (`HS.member` curEpoch) issuers) $
             throwE $ sformat ("Block "%build%" contains issuers that "%

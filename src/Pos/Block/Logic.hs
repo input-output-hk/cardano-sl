@@ -40,11 +40,10 @@ import           Serokell.Util.Verify      (VerificationRes (..), formatAllError
 import           System.Wlog               (logDebug)
 import           Universum
 
-import           Pos.Block.Error           (BlkError (BlkNoLeaders))
 import           Pos.Constants             (curProtocolVersion, curSoftwareVersion, k)
 import           Pos.Context               (NodeContext (ncSecretKey), getNodeContext,
-                                            putBlkSemaphore, readBlkSemaphore,
-                                            takeBlkSemaphore, waitLrc)
+                                            lrcActionOnEpochReason, putBlkSemaphore,
+                                            readBlkSemaphore, takeBlkSemaphore)
 import           Pos.Crypto                (SecretKey, WithHash (WithHash), hash,
                                             shortHashF)
 import           Pos.Data.Attributes       (mkAttributes)
@@ -77,7 +76,7 @@ import           Pos.Types                 (Block, BlockHeader, Blund, EpochInde
                                             prevBlockL, topsortTxs, verifyHeader,
                                             verifyHeaders, vhpVerifyConsensus)
 import qualified Pos.Types                 as Types
-import           Pos.Util                  (inAssertMode, maybeThrow)
+import           Pos.Util                  (inAssertMode)
 import           Pos.WorkMode              (WorkMode)
 
 -- | Result of single (new) header classification.
@@ -377,12 +376,12 @@ createGenesisBlockDo
        WorkMode ssc m
     => EpochIndex -> m (Maybe (GenesisBlock ssc))
 createGenesisBlockDo epoch = do
-    waitLrc epoch
-    leaders <- maybeThrow noLeadersError =<< LrcDB.getLeaders epoch
+    leaders <- lrcActionOnEpochReason epoch
+                   "there are no leaders"
+                   LrcDB.getLeaders
     res <- withBlkSemaphore (createGenesisBlockCheckAgain leaders)
     res <$ inAssertMode (logDebug . sformat newTipFmt =<< readBlkSemaphore)
   where
-    noLeadersError = BlkNoLeaders epoch
     newTipFmt = "After creatingGenesisBlock our tip is: "%shortHashF
     createGenesisBlockCheckAgain leaders tip = do
         let noHeaderMsg =

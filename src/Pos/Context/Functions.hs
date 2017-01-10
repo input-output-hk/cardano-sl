@@ -15,6 +15,8 @@ module Pos.Context.Functions
 
        -- * LRC synchronization
        , waitLrc
+       , lrcActionOnEpoch
+       , lrcActionOnEpochReason
        , updateLrcSync
        ) where
 
@@ -23,8 +25,9 @@ import           Universum
 
 import           Pos.Context.Class       (WithNodeContext (..))
 import           Pos.Context.Context     (NodeContext (..))
+import           Pos.Lrc.Error           (LrcError (..))
 import           Pos.Types               (EpochIndex, HeaderHash, SlotLeaders, Utxo)
-import           Pos.Util                (readMVarConditional)
+import           Pos.Util                (maybeThrow, readMVarConditional)
 
 ----------------------------------------------------------------------------
 -- Genesis
@@ -66,6 +69,27 @@ waitLrc
 waitLrc epoch = do
     sync <- ncLrcSync <$> getNodeContext
     () <$ readMVarConditional (>= epoch) sync
+
+lrcActionOnEpoch
+    :: (MonadIO m, WithNodeContext ssc m, MonadThrow m)
+    => EpochIndex
+    -> (EpochIndex -> m (Maybe a))
+    -> m a
+lrcActionOnEpoch epoch actionDependsOnLrc = do
+  waitLrc epoch
+  actionDependsOnLrc epoch >>=
+      maybeThrow (LrcDataUnknown epoch "action on lrcCallOnEpoch couldn't be performed properly")
+
+lrcActionOnEpochReason
+    :: (MonadIO m, WithNodeContext ssc m, MonadThrow m)
+    => EpochIndex
+    -> Text
+    -> (EpochIndex -> m (Maybe a))
+    -> m a
+lrcActionOnEpochReason epoch reason actionDependsOnLrc = do
+  waitLrc epoch
+  actionDependsOnLrc epoch >>=
+      maybeThrow (LrcDataUnknown epoch reason)
 
 -- | Update LRC synchronization when LRC for epoch is finished.
 updateLrcSync

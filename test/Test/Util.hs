@@ -65,7 +65,7 @@ import           Node                        (ConversationActions (..), Listener
                                              ListenerAction (..), Message (..),
                                              NodeId, SendActions (..),
                                              Worker, nodeId, node, NodeAction(..))
-import           Message.Message             (BinaryP (..))
+import           Node.Message               (BinaryP (..))
 
 
 -- * Parcel

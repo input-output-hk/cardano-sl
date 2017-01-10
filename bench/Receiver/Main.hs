@@ -20,10 +20,10 @@ import           Mockable                   (Production (runProduction))
 
 import           Bench.Network.Commons      (MeasureEvent (..), Ping (..), Pong (..),
                                              loadLogConfig, logMeasure)
-import           Message.Message            (BinaryP (..))
 import           Network.Transport.Concrete (concrete)
 import           Node                       (ListenerAction (..), NodeAction (..), node,
                                              sendTo)
+import           Node.Message               (BinaryP (..))
 import           ReceiverOptions            (Args (..), argsParser)
 
 main :: IO ()

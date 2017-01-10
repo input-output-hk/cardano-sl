@@ -27,10 +27,11 @@ import           Network.Transport.Concrete (concrete)
 import           Node                       (ListenerAction (..), NodeAction (..), node,
                                              nodeEndPoint, sendTo)
 import           Node.Internal              (NodeId (..))
+import           Node.Message               (BinaryP (..))
+
 
 import           Bench.Network.Commons      (MeasureEvent (..), Payload (..), Ping (..),
                                              Pong (..), loadLogConfig, logMeasure)
-import           Message.Message            (BinaryP (..))
 import           SenderOptions              (Args (..), argsParser)
 
 data PingState = PingState

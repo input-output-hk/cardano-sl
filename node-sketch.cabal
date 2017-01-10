@@ -30,9 +30,8 @@ Library
                         Mockable.Production
                         Mockable.SharedAtomic
 
-                        Message.Message
-
                         Node.Internal
+                        Node.Message
 
                         NTP.Client
                         NTP.Example

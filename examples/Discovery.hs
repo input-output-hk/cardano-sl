@@ -16,7 +16,6 @@ import qualified Data.Set                             as S
 import           Data.Time.Units                      (Microsecond, fromMicroseconds)
 import           Data.Void                            (Void)
 import           GHC.Generics                         (Generic)
-import           Message.Message                      (BinaryP (..))
 import           Mockable.Concurrent                  (ThreadId, delay, fork, killThread)
 import           Mockable.Exception                   (finally)
 import           Mockable.Production
@@ -26,6 +25,7 @@ import           Network.Transport.Abstract           (Transport (..))
 import           Network.Transport.Concrete           (concrete)
 import qualified Network.Transport.TCP                as TCP
 import           Node
+import           Node.Message                         (BinaryP (..))
 import           System.Environment                   (getArgs)
 import           System.Random
 

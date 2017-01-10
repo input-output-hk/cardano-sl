@@ -13,12 +13,12 @@ import           Data.Binary
 import           Data.Data                  (Data)
 import           Data.Time.Units            (Microsecond, fromMicroseconds)
 import           GHC.Generics               (Generic)
-import           Message.Message            (BinaryP (..))
 import           Mockable.Concurrent        (delay, fork, killThread)
 import           Mockable.Production
 import           Network.Transport.Concrete (concrete)
 import qualified Network.Transport.TCP      as TCP
 import           Node
+import           Node.Message               (BinaryP (..))
 import           System.Random
 
 -- | Type for messages from the workers to the listeners.

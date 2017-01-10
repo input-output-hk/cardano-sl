@@ -9,7 +9,7 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
-module Message.Message
+module Node.Message
     ( Input (..)
     , Packable (..)
     , Unpackable (..)

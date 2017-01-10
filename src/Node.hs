@@ -42,8 +42,6 @@ import qualified Data.ByteString.Lazy       as LBS
 import           Data.Map.Strict            (Map)
 import qualified Data.Map.Strict            as M
 import           Data.Proxy                 (Proxy (..))
-import           Message.Message            (MessageName)
-import           Message.Message
 import           Mockable.Channel
 import           Mockable.Class
 import           Mockable.Concurrent
@@ -52,6 +50,7 @@ import           Mockable.SharedAtomic
 import qualified Network.Transport.Abstract as NT
 import           Node.Internal              (ChannelIn (..), ChannelOut (..))
 import qualified Node.Internal              as LL
+import           Node.Message
 import           System.Random              (StdGen)
 
 data Node m = Node {

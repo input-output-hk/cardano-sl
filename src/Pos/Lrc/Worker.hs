@@ -9,32 +9,37 @@ module Pos.Lrc.Worker
        , lrcSingleShot
        ) where
 
-import           Control.TimeWarp.Timed   (fork_)
-import qualified Data.HashMap.Strict      as HM
-import qualified Data.List.NonEmpty       as NE
-import           Formatting               (build, sformat, (%))
-import           Serokell.Util.Exceptions ()
-import           System.Wlog              (logInfo)
+import           Control.Concurrent.STM.TVar (TVar, readTVar, writeTVar)
+import           Control.Monad.Catch         (bracketOnError)
+import           Control.TimeWarp.Timed      (fork_)
+import qualified Data.HashMap.Strict         as HM
+import qualified Data.List.NonEmpty          as NE
+import           Formatting                  (build, sformat, (%))
+import           Serokell.Util.Exceptions    ()
+import           System.Wlog                 (logInfo)
 import           Universum
 
-import           Pos.Binary.Communication ()
-import           Pos.Block.Logic          (applyBlocks, rollbackBlocks, withBlkSemaphore_)
-import           Pos.Constants            (k)
-import           Pos.Context              (updateLrcSync)
-import qualified Pos.DB                   as DB
-import qualified Pos.DB.GState            as GS
-import           Pos.DB.Lrc               (getLeaders, putEpoch, putLeaders)
-import           Pos.Lrc.Consumer         (LrcConsumer (..))
-import           Pos.Lrc.Consumers        (allLrcConsumers)
-import           Pos.Lrc.Eligibility      (findAllRichmenMaybe)
-import           Pos.Lrc.FollowTheSatoshi (followTheSatoshiM)
-import           Pos.Slotting             (onNewSlot)
-import           Pos.Ssc.Class            (SscWorkersClass)
-import           Pos.Ssc.Extra            (sscCalculateSeed)
-import           Pos.Types                (EpochIndex, EpochOrSlot (..), EpochOrSlot (..),
-                                           HeaderHash, HeaderHash, SlotId (..),
-                                           crucialSlot, getEpochOrSlot, getEpochOrSlot)
-import           Pos.WorkMode             (WorkMode)
+import           Pos.Binary.Communication    ()
+import           Pos.Block.Logic             (applyBlocks, rollbackBlocks,
+                                              withBlkSemaphore_)
+import           Pos.Constants               (k)
+import           Pos.Context                 (LrcSyncData, getNodeContext, ncLrcSync)
+import qualified Pos.DB                      as DB
+import qualified Pos.DB.GState               as GS
+import           Pos.DB.Lrc                  (getLeaders, putEpoch, putLeaders)
+import           Pos.Lrc.Consumer            (LrcConsumer (..))
+import           Pos.Lrc.Consumers           (allLrcConsumers)
+import           Pos.Lrc.Eligibility         (findAllRichmenMaybe)
+import           Pos.Lrc.Error               (LrcError (..))
+import           Pos.Lrc.FollowTheSatoshi    (followTheSatoshiM)
+import           Pos.Slotting                (onNewSlot)
+import           Pos.Ssc.Class               (SscWorkersClass)
+import           Pos.Ssc.Extra               (sscCalculateSeed)
+import           Pos.Types                   (EpochIndex, EpochOrSlot (..),
+                                              EpochOrSlot (..), HeaderHash, HeaderHash,
+                                              SlotId (..), crucialSlot, getEpochOrSlot,
+                                              getEpochOrSlot)
+import           Pos.WorkMode                (WorkMode)
 
 lrcOnNewSlotWorker
     :: (SscWorkersClass ssc, WorkMode ssc m)
@@ -57,25 +62,46 @@ lrcSingleShotImpl
     :: WorkMode ssc m
     => EpochIndex -> [LrcConsumer m] -> m ()
 lrcSingleShotImpl epoch consumers = do
-    expectedRichmenComp <- filterM (flip lcIfNeedCompute epoch) consumers
-    needComputeLeaders <- isNothing <$> getLeaders epoch
-    let needComputeRichmen = not . null $ expectedRichmenComp
-    when needComputeRichmen $ logInfo "Need to compute richmen"
-    when needComputeLeaders $ logInfo "Need to compute leaders"
-    when (needComputeLeaders || needComputeLeaders) $ do
-        logInfo $ "LRC computation is starting"
-        withBlkSemaphore_ $ lrcDo epoch consumers
-        putEpoch epoch
-        updateLrcSync epoch
-        logInfo $ "LRC computation has finished"
+    lock <- ncLrcSync <$> getNodeContext
+    tryAcuireExclusiveLock epoch lock onAcquiredLock
+  where
+    onAcquiredLock = do
+        expectedRichmenComp <- filterM (flip lcIfNeedCompute epoch) consumers
+        needComputeLeaders <- isNothing <$> getLeaders epoch
+        let needComputeRichmen = not . null $ expectedRichmenComp
+        when needComputeRichmen $ logInfo "Need to compute richmen"
+        when needComputeLeaders $ logInfo "Need to compute leaders"
+        when (needComputeLeaders || needComputeLeaders) $ do
+            logInfo $ "LRC computation is starting"
+            withBlkSemaphore_ $ lrcDo epoch consumers
+            putEpoch epoch
+            logInfo $ "LRC computation has finished"
+
+tryAcuireExclusiveLock
+    :: (MonadMask m, MonadIO m)
+    => EpochIndex -> TVar LrcSyncData -> m () -> m ()
+tryAcuireExclusiveLock epoch lock action =
+    bracketOnError acquireLock (flip whenJust releaseLock) doAction
+  where
+    acquireLock = atomically $ do
+        res <- readTVar lock
+        case res of
+            (False, _) -> retry
+            (True, lockEpoch)
+                | lockEpoch >= epoch -> pure Nothing
+                | lockEpoch == epoch - 1 ->
+                    Just lockEpoch <$ writeTVar lock (False, lockEpoch)
+                | otherwise -> throwM UnknownBlocksForLrc
+    releaseLock = atomically . writeTVar lock . (True,)
+    doAction Nothing = pass
+    doAction _       = action >> releaseLock epoch
 
 lrcDo
     :: WorkMode ssc m
     => EpochIndex -> [LrcConsumer m] -> HeaderHash ssc -> m (HeaderHash ssc)
 lrcDo epoch consumers tip = tip <$ do
     blockUndoList <- DB.loadBlocksFromTipWhile whileMoreOrEq5k
-    when (null blockUndoList) $
-        panic "No block has been generated during last k slots"
+    when (null blockUndoList) $ throwM UnknownBlocksForLrc
     let blockUndos = NE.fromList blockUndoList
     rollbackBlocks blockUndos
     richmenComputationDo epoch consumers

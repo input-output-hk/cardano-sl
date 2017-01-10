@@ -15,7 +15,8 @@ module Pos.Context.Functions
 
        -- * LRC synchronization
        , waitLrc
-       , updateLrcSync
+       , lrcActionOnEpoch
+       , lrcActionOnEpochReason
        ) where
 
 import           Control.Concurrent.MVar (putMVar)
@@ -23,8 +24,9 @@ import           Universum
 
 import           Pos.Context.Class       (WithNodeContext (..))
 import           Pos.Context.Context     (NodeContext (..))
+import           Pos.Lrc.Error           (LrcError (..))
 import           Pos.Types               (EpochIndex, HeaderHash, SlotLeaders, Utxo)
-import           Pos.Util                (readMVarConditional)
+import           Pos.Util                (maybeThrow, readTVarConditional)
 
 ----------------------------------------------------------------------------
 -- Genesis
@@ -65,10 +67,25 @@ waitLrc
     => EpochIndex -> m ()
 waitLrc epoch = do
     sync <- ncLrcSync <$> getNodeContext
-    () <$ readMVarConditional (>= epoch) sync
+    () <$ readTVarConditional ((>= epoch) . snd) sync
 
--- | Update LRC synchronization when LRC for epoch is finished.
-updateLrcSync
-    :: (MonadIO m, WithNodeContext ssc m)
-    => EpochIndex -> m ()
-updateLrcSync epoch = liftIO . flip putMVar epoch =<< ncLrcSync <$> getNodeContext
+lrcActionOnEpoch
+    :: (MonadIO m, WithNodeContext ssc m, MonadThrow m)
+    => EpochIndex
+    -> (EpochIndex -> m (Maybe a))
+    -> m a
+lrcActionOnEpoch epoch =
+    lrcActionOnEpochReason
+        epoch
+        "action on lrcCallOnEpoch couldn't be performed properly"
+
+lrcActionOnEpochReason
+    :: (MonadIO m, WithNodeContext ssc m, MonadThrow m)
+    => EpochIndex
+    -> Text
+    -> (EpochIndex -> m (Maybe a))
+    -> m a
+lrcActionOnEpochReason epoch reason actionDependsOnLrc = do
+  waitLrc epoch
+  actionDependsOnLrc epoch >>=
+      maybeThrow (LrcDataUnknown epoch reason)

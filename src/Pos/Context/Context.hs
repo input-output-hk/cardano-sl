@@ -3,7 +3,8 @@
 -- | Runtime context of node.
 
 module Pos.Context.Context
-       ( NodeContext (..)
+       ( LrcSyncData
+       , NodeContext (..)
        , ncPublicKey
        , ncPubKeyAddress
        ) where
@@ -21,6 +22,11 @@ import           Pos.Util.UserSecret    (UserSecret)
 ----------------------------------------------------------------------------
 -- NodeContext
 ----------------------------------------------------------------------------
+
+-- | Data used for LRC syncronization. First value is __False__ iff
+-- LRC is running now. Second value is last epoch for which we have
+-- already computed LRC.
+type LrcSyncData = (Bool, EpochIndex)
 
 -- | NodeContext contains runtime context of node.
 data NodeContext ssc = NodeContext
@@ -47,7 +53,7 @@ data NodeContext ssc = NodeContext
     , ncBlkSemaphore   :: !(MVar (HeaderHash ssc))
     -- ^ Semaphore which manages access to block application.
     -- Stored hash is a hash of last applied block.
-    , ncLrcSync        :: !(MVar EpochIndex)
+    , ncLrcSync        :: !(STM.TVar LrcSyncData)
     -- ^ Primitive for synchronization with LRC.
     , ncUserSecret     :: !(STM.TVar UserSecret)
     -- ^ Secret keys (and path to file) which are used to send transactions

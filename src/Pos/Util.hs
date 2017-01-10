@@ -69,6 +69,8 @@ module Pos.Util
        , forcePutMVar
        , readMVarConditional
        , readUntilEqualMVar
+       , readTVarConditional
+       , readUntilEqualTVar
 
        , NamedMessagePart (..)
        -- * Instances
@@ -82,10 +84,12 @@ module Pos.Util
        -- ** MonadFail LoggerNameBox
        ) where
 
+import           Control.Concurrent.STM.TVar   (TVar, readTVar)
 import           Control.Lens                  (Lens', LensLike', Magnified, Zoomed,
                                                 lensRules, magnify, zoom)
 import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
 import qualified Control.Monad                 as Monad (fail)
+import           Control.Monad.STM             (retry)
 import           Control.Monad.Trans.Resource  (ResourceT)
 import           Control.TimeWarp.Rpc          (Dialog (..), Message (messageName),
                                                 MessageName, ResponseT (..),
@@ -502,3 +506,17 @@ readUntilEqualMVar
     :: (Eq a, MonadIO m)
     => (x -> a) -> MVar x -> a -> m x
 readUntilEqualMVar f mvar expVal = readMVarConditional ((expVal ==) . f) mvar
+
+-- | Block until value in TVar satisfies given predicate. When value
+-- satisfies, it is returned.
+readTVarConditional :: (MonadIO m) => (x -> Bool) -> TVar x -> m x
+readTVarConditional predicate tvar = atomically $ do
+    res <- readTVar tvar
+    if predicate res then pure res
+    else retry
+
+  -- | Read until value is equal to stored value comparing by some function.
+readUntilEqualTVar
+    :: (Eq a, MonadIO m)
+    => (x -> a) -> TVar x -> a -> m x
+readUntilEqualTVar f tvar expVal = readTVarConditional ((expVal ==) . f) tvar

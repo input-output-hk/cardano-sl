@@ -24,7 +24,7 @@ import           Control.TimeWarp.Rpc  (ResponseT)
 import           Serokell.Util         (VerificationRes)
 import           Universum
 
-import           Pos.Context           (WithNodeContext, waitLrc)
+import           Pos.Context           (WithNodeContext, lrcActionOnEpochReason)
 import           Pos.DB                (MonadDB)
 import qualified Pos.DB.Lrc            as LrcDB
 import           Pos.DHT.Model.Class   (DHTResponseT)
@@ -33,7 +33,6 @@ import           Pos.Slotting          (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class.Storage (SscStorageClass (..))
 import           Pos.Ssc.Class.Types   (Ssc (..))
 import           Pos.Types.Types       (EpochIndex, NEBlocks, SharedSeed, SlotId (..))
-import           Pos.Util              (maybeThrow)
 
 class Monad m => MonadSscGS ssc m | m -> ssc where
     getGlobalState    :: m (SscGlobalState ssc)
@@ -102,10 +101,8 @@ sscVerifyBlocks
        )
     => Bool -> NEBlocks ssc -> m VerificationRes
 sscVerifyBlocks verPure blocks = do
-    epoch <- siEpoch <$> getCurrentSlot
-    waitLrc epoch
-    richmen <- maybeThrow noRichmenError =<< LrcDB.getRichmenSsc epoch
+    epoch <- siEpoch <$> getCurrentSlot -- TODO fix it
+    richmen <- lrcActionOnEpochReason epoch
+                   "couldn't get SSC richmen"
+                   LrcDB.getRichmenSsc
     sscRunGlobalQuery $ sscVerifyBlocksM @ssc verPure richmen blocks
-  where
-    noRichmenError :: SomeException
-    noRichmenError = undefined

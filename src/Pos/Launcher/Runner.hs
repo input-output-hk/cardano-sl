@@ -250,7 +250,7 @@ runCH :: (MonadDB ssc m, MonadFail m)
 runCH NodeParams {..} sscNodeContext act = do
     jlFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
     semaphore <- liftIO newEmptyMVar
-    lrcSync <- liftIO newEmptyMVar
+    lrcSync <- atomically $ newTVar (True, 0)
     userSecret <- peekUserSecret npKeyfilePath
 
     -- Get primary secret key

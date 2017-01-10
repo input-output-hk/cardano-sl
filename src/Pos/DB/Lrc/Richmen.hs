@@ -31,13 +31,17 @@ module Pos.DB.Lrc.Richmen
        , getRichmenUS
        , putRichmenUS
 
+       -- ** Delegation
+       , RCDlg
+       , getRichmenDlg
+       , putRichmenDlg
        ) where
 
 import           Universum
 
 import           Pos.Binary.Class      (Bi, encodeStrict)
 import           Pos.Binary.Types      ()
-import           Pos.Constants         (updateVoteThreshold)
+import           Pos.Constants         (delegationThreshold, updateVoteThreshold)
 import           Pos.Context.Class     (WithNodeContext)
 import           Pos.Context.Functions (genesisUtxoM)
 import           Pos.DB.Class          (MonadDB)
@@ -52,12 +56,18 @@ import           Pos.Types             (Coin, EpochIndex, StakeholderId, applyCo
 -- Class
 ----------------------------------------------------------------------------
 
-class Bi (RichmenData a) =>
-      RichmenComponent a where
+-- | Class for components that store info about richmen.
+class Bi (RichmenData a) => RichmenComponent a where
+    -- | Datatype that stored. Consider using 'Richmen' or
+    -- 'RichmenStake' or 'FullRichmenData'.
     type RichmenData a :: *
+    -- | Converts 'FullRichmenData' to what's need to be saved.
     rcToData :: FullRichmenData -> RichmenData a
+    -- | Tag to identify component (short bytestring).
     rcTag :: Proxy a -> ByteString
+    -- | Threshold for the richman. Argument is total system stake.
     rcThreshold :: Proxy a -> Coin -> Coin
+    -- | Whether to consider delegated stake.
     rcConsiderDelegated :: Proxy a -> Bool
 
 ----------------------------------------------------------------------------
@@ -104,10 +114,7 @@ someRichmenComponent
     :: forall c.
        RichmenComponent c
     => SomeRichmenComponent
-someRichmenComponent = SomeRichmenComponent proxy
-  where
-    proxy :: Proxy c
-    proxy = Proxy
+someRichmenComponent = SomeRichmenComponent (Proxy :: Proxy c)
 
 prepareLrcRichmen
     :: (WithNodeContext ssc m, MonadDB ssc m)
@@ -161,7 +168,9 @@ richmenKeyP proxy e = mconcat ["r/", rcTag proxy, "/", encodeStrict e]
 ----------------------------------------------------------------------------
 
 components :: [SomeRichmenComponent]
-components = [someRichmenComponent @RCSsc, someRichmenComponent @RCUs]
+components = [ someRichmenComponent @RCSsc
+             , someRichmenComponent @RCUs
+             , someRichmenComponent @RCDlg]
 
 ----------------------------------------------------------------------------
 -- SSC instance
@@ -205,3 +214,22 @@ putRichmenUS
     :: (MonadDB ssc m)
     => EpochIndex -> FullRichmenData -> m ()
 putRichmenUS = putRichmen @RCUs
+
+----------------------------------------------------------------------------
+-- Delegation instance
+----------------------------------------------------------------------------
+
+data RCDlg
+
+instance RichmenComponent RCDlg where
+    type RichmenData RCDlg = Richmen
+    rcToData = toRichmen . snd
+    rcTag Proxy = "dlg"
+    rcThreshold Proxy = applyCoinPortion delegationThreshold
+    rcConsiderDelegated Proxy = False
+
+getRichmenDlg :: MonadDB ssc m => EpochIndex -> m (Maybe Richmen)
+getRichmenDlg epoch = getRichmen @RCDlg epoch
+
+putRichmenDlg :: (MonadDB ssc m) => EpochIndex -> FullRichmenData -> m ()
+putRichmenDlg = putRichmen @RCDlg

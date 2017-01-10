@@ -32,6 +32,7 @@ module Pos.Constants
        , vssMaxTTL
        , protocolMagic
        , enchancedMessageBroadcast
+       , delegationThreshold
 
          -- * Malicious activity detection constants
        , mdNoBlocksSlotThreshold
@@ -182,6 +183,10 @@ protocolMagic = fromIntegral . ccProtocolMagic $ compileConfig
 -- | Setting this to true enables enchanced message broadcast
 enchancedMessageBroadcast :: Integral a => a
 enchancedMessageBroadcast = fromIntegral $ ccEnchancedMessageBroadcast compileConfig
+
+-- | Portion of total stake necessary to vote for or against update.
+delegationThreshold :: CoinPortion
+delegationThreshold = unsafeCoinPortion $ ccDelegationThreshold compileConfig
 
 ----------------------------------------------------------------------------
 -- Malicious activity

@@ -43,6 +43,8 @@ data CompileConfig = CompileConfig
       -- ^ Magic constant for separating real/testnet
     , ccEnchancedMessageBroadcast     :: !Word
       -- ^ True if we should enable enchanced bessage broadcast
+    , ccDelegationThreshold           :: !Double
+      -- ^ Threshold for heavyweight delegation.
     , ccUpdateServers                 :: ![String]
       -- ^ Servers for downloading application updates
     , ccMaxBlockProxySKs              :: !Int

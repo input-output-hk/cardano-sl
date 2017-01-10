@@ -33,7 +33,7 @@ import           Pos.Crypto                (hash)
 import           Pos.DB.Class              (MonadDB, getUtxoDB)
 import           Pos.DB.Error              (DBError (DBMalformed))
 import           Pos.DB.Functions          (RocksBatchOp (..), rocksWriteBatch)
-import           Pos.DB.GState.Common      (getBi, putBi)
+import           Pos.DB.GState.Common      (getBi)
 import           Pos.DB.Types              (ProposalState (..), psProposal)
 import           Pos.Genesis               (genesisProtocolVersion, genesisScriptVersion,
                                             genesisSoftwareVersions)

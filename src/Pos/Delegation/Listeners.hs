@@ -71,6 +71,7 @@ handleSendProxySK (SendProxySKEpoch pSk) = do
 handleSendProxySK (SendProxySKSimple pSk) = do
     logDebug $ sformat ("Got request to handle heavyweight psk: "%build) pSk
     verdict <- processProxySKSimple pSk
+    logDebug $ sformat ("Verdict of processing "%build%" was "%shown) pSk verdict
     doPropagate <- ncPropagation <$> getNodeContext
     when (verdict == PSAdded && doPropagate) $ do
         logDebug $ sformat ("Propagating heavyweight PSK: "%build) pSk

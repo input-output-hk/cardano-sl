@@ -51,8 +51,8 @@ lrcOnNewSlotImpl
     => SlotId -> m ()
 lrcOnNewSlotImpl SlotId {..} = when (siSlot < k) $ lrcSingleShot siEpoch
 
--- | Run leaders and richmen computation for given epoch. Behavior
--- when there are not enough blocks in db is currently unspecified.
+-- | Run leaders and richmen computation for given epoch. If stable
+-- block for this epoch is not known, LrcError will be thrown.
 lrcSingleShot
     :: (SscWorkersClass ssc, WorkMode ssc m)
     => EpochIndex -> m ()

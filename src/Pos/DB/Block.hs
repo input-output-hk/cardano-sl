@@ -121,12 +121,14 @@ loadDataWhile :: (Monad m, HasPrevBlock a b)
               -> m [a]
 loadDataWhile getter predicate start = doIt 0 start
   where
-    doIt depth h = do
-        d <- getter h
-        let prev = d ^. prevBlockL
-        if predicate d depth && (prev /= genesisHash)
-            then (d:) <$> doIt (succ depth) prev
-            else pure []
+    doIt depth h
+        | h == genesisHash = pure []
+        | otherwise = do
+            d <- getter h
+            let prev = d ^. prevBlockL
+            if predicate d depth
+                then (d:) <$> doIt (succ depth) prev
+                else pure []
 
 -- | Load blocks starting from block with header hash equals @hash@
 -- and while @predicate@ is true.  The head of returned list is the

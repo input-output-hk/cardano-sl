@@ -40,16 +40,19 @@ import           Serokell.Util.Verify      (VerificationRes (..), formatAllError
 import           System.Wlog               (logDebug)
 import           Universum
 
+import           Pos.Block.Error           (BlkError (BlkNoLeaders))
 import           Pos.Constants             (curProtocolVersion, curSoftwareVersion, k)
 import           Pos.Context               (NodeContext (ncSecretKey), getNodeContext,
                                             putBlkSemaphore, readBlkSemaphore,
-                                            readLeaders, readRichmen, takeBlkSemaphore)
+                                            takeBlkSemaphore, waitLrc)
 import           Pos.Crypto                (SecretKey, WithHash (WithHash), hash,
                                             shortHashF)
 import           Pos.Data.Attributes       (mkAttributes)
-import           Pos.DB                    (MonadDB, getTipBlockHeader, loadHeadersWhile)
+import           Pos.DB                    (DBError (..), MonadDB, getTipBlockHeader,
+                                            loadHeadersWhile)
 import qualified Pos.DB                    as DB
-import           Pos.DB.Error              (DBError (..))
+import qualified Pos.DB.GState             as GS
+import qualified Pos.DB.Lrc                as LrcDB
 import           Pos.Delegation.Logic      (delegationApplyBlocks,
                                             delegationRollbackBlocks,
                                             delegationVerifyBlocks, getProxyMempool)
@@ -74,9 +77,8 @@ import           Pos.Types                 (Block, BlockHeader, Blund, EpochInde
                                             prevBlockL, topsortTxs, verifyHeader,
                                             verifyHeaders, vhpVerifyConsensus)
 import qualified Pos.Types                 as Types
-import           Pos.Util                  (inAssertMode)
+import           Pos.Util                  (inAssertMode, maybeThrow)
 import           Pos.WorkMode              (WorkMode)
-
 
 -- | Result of single (new) header classification.
 data ClassifyHeaderRes
@@ -105,7 +107,7 @@ classifyNewHeader (Right header) = do
     -- First of all we check whether header is from current slot and
     -- ignore it if it's not.
     if curSlot == header ^. headerSlot
-        then classifyNewHeaderDo <$> DB.getTip <*> DB.getTipBlock
+        then classifyNewHeaderDo <$> GS.getTip <*> DB.getTipBlock
         else return $ CHUseless "header is not for current slot"
   where
     classifyNewHeaderDo tip tipBlock
@@ -196,7 +198,7 @@ getHeadersFromManyTo
     => [HeaderHash ssc] -> Maybe (HeaderHash ssc) -> m [BlockHeader ssc]
 getHeadersFromManyTo checkpoints startM = do
     validCheckpoints <- catMaybes <$> mapM DB.getBlockHeader checkpoints
-    tip <- DB.getTip
+    tip <- GS.getTip
     let startFrom = fromMaybe tip startM
         neq = (/=) `on` getEpochOrSlot
         whileCond bh _ = all (neq bh) validCheckpoints
@@ -216,7 +218,7 @@ getHeadersOlderExp
     :: (MonadDB ssc m, Ssc ssc)
     => Maybe (HeaderHash ssc) -> m [HeaderHash ssc]
 getHeadersOlderExp upto = do
-    tip <- DB.getTip
+    tip <- GS.getTip
     let upToReal = fromMaybe tip upto
         whileCond _ depth = depth <= k
     allHeaders <- reverse <$> loadHeadersWhile upToReal whileCond
@@ -284,13 +286,12 @@ verifyBlocks
     :: WorkMode ssc m
     => NonEmpty (Block ssc) -> m (Either Text (NonEmpty Undo))
 verifyBlocks blocks = do
-    richmen <- readRichmen
     runExceptT $ do
        curSlot <- getCurrentSlot
        tipBlk <- DB.getTipBlock
        verResToMonadError formatAllErrors $
            Types.verifyBlocks (Just curSlot) (tipBlk <| blocks)
-       verResToMonadError formatAllErrors =<< sscVerifyBlocks False richmen blocks
+       verResToMonadError formatAllErrors =<< sscVerifyBlocks False blocks
        txUndo <- ExceptT $ txVerifyBlocks blocks
        pskUndo <- ExceptT $ delegationVerifyBlocks blocks
        when (length txUndo /= length pskUndo) $ throwError "Aoeu! Placeholder!"
@@ -318,12 +319,12 @@ withBlkSemaphore_ = withBlkSemaphore . (fmap ((), ) .)
 -- have verified all predicates regarding block (including txs and ssc
 -- data checks).  We almost must have taken lock on block application
 -- and ensured that chain is based on our tip.
-applyBlocks :: WorkMode ssc m => NonEmpty (Blund ssc) -> m ()
+applyBlocks :: forall ssc m . WorkMode ssc m => NonEmpty (Blund ssc) -> m ()
 applyBlocks blunds = do
     let blks = fmap fst blunds
     -- Note: it's important to put blocks first
     mapM_ putToDB blunds
-    mapM_ DB.writeBatchGState =<< delegationApplyBlocks (map fst blunds)
+    mapM_ GS.writeBatchGState =<< delegationApplyBlocks (map fst blunds)
     txApplyBlocks blunds
     sscApplyBlocks blks
     sscApplyGlobalState
@@ -336,7 +337,7 @@ applyBlocks blunds = do
 rollbackBlocks :: (WorkMode ssc m) => NonEmpty (Block ssc, Undo) -> m ()
 rollbackBlocks toRollback = do
     -- [CSL-378] Update sbInMain properly (in transaction)
-    mapM_ DB.writeBatchGState =<< delegationRollbackBlocks toRollback
+    mapM_ GS.writeBatchGState =<< delegationRollbackBlocks toRollback
     txRollbackBlocks toRollback
     forM_ (NE.toList toRollback) $
         \(blk,_) -> DB.setBlockInMainChain (hash $ blk ^. blockHeader) False
@@ -376,10 +377,12 @@ createGenesisBlockDo
        WorkMode ssc m
     => EpochIndex -> m (Maybe (GenesisBlock ssc))
 createGenesisBlockDo epoch = do
-    leaders <- readLeaders
+    waitLrc epoch
+    leaders <- maybeThrow noLeadersError =<< LrcDB.getLeaders epoch
     res <- withBlkSemaphore (createGenesisBlockCheckAgain leaders)
     res <$ inAssertMode (logDebug . sformat newTipFmt =<< readBlkSemaphore)
   where
+    noLeadersError = BlkNoLeaders epoch
     newTipFmt = "After creatingGenesisBlock our tip is: "%shortHashF
     createGenesisBlockCheckAgain leaders tip = do
         let noHeaderMsg =

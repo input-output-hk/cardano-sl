@@ -40,6 +40,7 @@ module Pos.Util
        -- * Prettification
        , Color (..)
        , colorize
+       , withColoredMessages
 
        -- * TimeWarp helpers
        , CanLogInParallel
@@ -63,6 +64,12 @@ module Pos.Util
 
        , eitherToVerRes
 
+       -- * MVar
+       , clearMVar
+       , forcePutMVar
+       , readMVarConditional
+       , readUntilEqualMVar
+
        , NamedMessagePart (..)
        -- * Instances
        -- ** SafeCopy (NonEmpty a)
@@ -79,6 +86,7 @@ import           Control.Lens                  (Lens', LensLike', Magnified, Zoo
                                                 lensRules, magnify, zoom)
 import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
 import qualified Control.Monad                 as Monad (fail)
+import           Control.Monad.Trans.Resource  (ResourceT)
 import           Control.TimeWarp.Rpc          (Dialog (..), Message (messageName),
                                                 MessageName, ResponseT (..),
                                                 Transfer (..))
@@ -291,6 +299,14 @@ colorize color msg =
         , toText (setSGRCode [Reset])
         ]
 
+-- | Write colored message, do some action, write colored message.
+-- Intended for debug only.
+withColoredMessages :: MonadIO m => Color -> Text -> m a -> m a
+withColoredMessages color activity action = do
+    putText (colorize color $ sformat ("Entered "%stext%"\n") activity)
+    res <- action
+    res <$ putText (colorize color $ sformat ("Finished "%stext%"\n") activity)
+
 ----------------------------------------------------------------------------
 -- TimeWarp helpers
 ----------------------------------------------------------------------------
@@ -449,3 +465,40 @@ deriving instance MonadFail m => MonadFail (LoggerNameBox m)
 
 instance MonadFail TimedIO where
     fail = Monad.fail
+
+instance MonadFail m => MonadFail (ResourceT m) where
+    fail = lift . fail
+
+----------------------------------------------------------------------------
+-- MVar utilities
+----------------------------------------------------------------------------
+
+clearMVar :: MonadIO m => MVar a -> m ()
+clearMVar = liftIO . void . tryTakeMVar
+
+forcePutMVar :: MonadIO m => MVar a -> a -> m ()
+forcePutMVar mvar val = do
+    res <- liftIO $ tryPutMVar mvar val
+    unless res $ do
+        _ <- liftIO $ tryTakeMVar mvar
+        forcePutMVar mvar val
+
+-- | Block until value in MVar satisfies given predicate. When value
+-- satisfies, it is returned.
+readMVarConditional :: (MonadIO m) => (x -> Bool) -> MVar x -> m x
+readMVarConditional predicate mvar = do
+    rData <- liftIO . readMVar $ mvar -- first we try to read for optimization only
+    if predicate rData then pure rData
+    else do
+        tData <- liftIO . takeMVar $ mvar -- now take data
+        if predicate tData then do -- check again
+            _ <- liftIO $ tryPutMVar mvar tData -- try to put taken value
+            pure tData
+        else
+            readMVarConditional predicate mvar
+
+-- | Read until value is equal to stored value comparing by some function.
+readUntilEqualMVar
+    :: (Eq a, MonadIO m)
+    => (x -> a) -> MVar x -> a -> m x
+readUntilEqualMVar f mvar expVal = readMVarConditional ((expVal ==) . f) mvar

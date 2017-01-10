@@ -36,12 +36,12 @@ import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
 import           Pos.Ssc.Class.Types         (Ssc (..))
 import           Pos.Ssc.Extra.MonadGS       (MonadSscGS (..))
 import           Pos.Ssc.Extra.MonadLD       (MonadSscLD (..))
+import           Pos.Ssc.Extra.Richmen       (MonadSscRichmen)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 data SscState ssc =
     SscState
-    {
-      sscGlobal :: !(STM.TVar (SscGlobalState ssc))
+    { sscGlobal :: !(STM.TVar (SscGlobalState ssc))
     , sscLocal  :: !(STM.TVar (SscLocalData ssc))
     }
 
@@ -91,6 +91,20 @@ instance MonadIO m => MonadSscLD ssc (SscHolder ssc m) where
                 STM.writeTVar (sscLocal sscSt) nl
                 return res
     setLocalData newSt = SscHolder (asks sscLocal) >>= atomically . flip STM.writeTVar newSt
+
+instance MonadIO m => MonadSscRichmen (SscHolder ssc m) where
+    -- -- | Force put richmen into MVar.
+    -- writeSscRichmen er = SscHolder (asks sscRichmen) >>= flip forcePutMVar er
+
+    -- -- | Read richmen from SSC node context corresponding to epoch.
+    -- -- This function blocks if richmen are not available
+    -- -- or they was computed for previous epoch
+    -- readSscRichmen epoch = do
+    --     mvar <- SscHolder (asks sscRichmen)
+    --     snd <$> readUntilEqualMVar fst mvar epoch
+
+    -- -- | Try read richmen
+    -- tryReadSscRichmen = SscHolder (asks sscRichmen) >>= liftIO . tryReadMVar
 
 runSscHolder :: forall ssc m a. (SscLocalDataClass ssc, MonadIO m)
              => SscHolder ssc m a -> SscGlobalState ssc -> m a

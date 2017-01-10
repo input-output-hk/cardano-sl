@@ -12,8 +12,8 @@ import           Control.Lens                   (view, (^.), _1)
 import           Data.List.NonEmpty             (NonEmpty ((:|)), nonEmpty)
 import qualified Data.List.NonEmpty             as NE
 import           Formatting                     (build, sformat, stext, (%))
-import           Serokell.Util.Text             (listJson)
-import           System.Wlog                    (logDebug, logInfo, logWarning)
+import           Serokell.Util.Text             (listJson, listJsonIndent)
+import           System.Wlog                    (logDebug, logError, logInfo, logWarning)
 import           Universum
 
 import           Pos.Binary.Communication       ()
@@ -38,7 +38,7 @@ import           Pos.DB.Error                   (DBError (DBMalformed))
 import           Pos.DHT.Model                  (ListenerDHT (..), MonadDHTDialog,
                                                  getUserState, replyToNode)
 import           Pos.Types                      (Block, BlockHeader, Blund,
-                                                 HasHeaderHash (..), HeaderHash,
+                                                 HasHeaderHash (..), HeaderHash, NEBlocks,
                                                  blockHeader, gbHeader, prevBlockL)
 import           Pos.Util                       (inAssertMode, _neHead, _neLast)
 import           Pos.WorkMode                   (WorkMode)
@@ -236,11 +236,17 @@ applyWithoutRollback
 applyWithoutRollback blocks = do
     logDebug $ sformat ("Trying to apply blocks w/o rollback: "%listJson)
         (map (view blockHeader) blocks)
-    verRes <- verifyBlocks blocks
-    either
-        onFailedVerifyBlocks
-        (withBlkSemaphore_ . applyWithoutRollbackDo . NE.zip blocks)
-        verRes
+    verifyBlocks blocks >>= \case
+        Left err  -> onFailedVerifyBlocks blocks err
+        Right ver -> do
+            logDebug "Verified blocks successfully, will apply them now"
+            when (length ver /= length blocks) $
+                logError $ sformat
+                    ("Length of verification results /= "%
+                     "length of block list, last blocks won't be applied\n"%
+                     "Verification results: "%listJsonIndent 4)
+                    ver
+            withBlkSemaphore_ . applyWithoutRollbackDo $ NE.zip blocks ver
     logDebug "Finished applying blocks w/o rollback"
   where
     oldestToApply = blocks ^. _neHead
@@ -290,7 +296,7 @@ applyWithRollback toApply lca toRollback = do
                     logInfo $ blocksAppliedMsg toApplyAfterLca
                     relayBlock $ NE.last toApplyAfterLca
                 Left errors -> tip <$ do
-                    onFailedVerifyBlocks errors
+                    onFailedVerifyBlocks toApplyAfterLca errors
                     logDebug "Applying rollbacked blocks…"
                     applyBlocks toRollback
                     logDebug "Finished applying rollback blocks"
@@ -310,8 +316,10 @@ relayBlock (Right mainBlk) = announceBlock $ mainBlk ^. gbHeader
 onFailedVerifyBlocks
     :: forall ssc m.
        (ResponseMode ssc m)
-    => Text -> m ()
-onFailedVerifyBlocks = logWarning . sformat ("Failed to verify blocks: " %stext)
+    => NEBlocks ssc -> Text -> m ()
+onFailedVerifyBlocks blocks err = logWarning $
+    sformat ("Failed to verify blocks: "%stext%"\n  blocks = "%listJson)
+            err (fmap headerHash blocks)
 
 tipMismatchMsg :: Text -> HeaderHash ssc -> HeaderHash ssc -> Text
 tipMismatchMsg action storedTip attemptedTip =

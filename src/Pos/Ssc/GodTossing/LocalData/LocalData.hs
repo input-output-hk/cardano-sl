@@ -25,6 +25,7 @@ import           Universum
 
 import           Pos.Binary.Class                     (Bi)
 import           Pos.Crypto                           (Share)
+import           Pos.Lrc.Types                        (Richmen)
 import           Pos.Ssc.Class.LocalData              (LocalQuery, LocalUpdate,
                                                        SscLocalDataClass (..))
 import           Pos.Ssc.Extra.MonadLD                (MonadSscLD)
@@ -50,8 +51,7 @@ import           Pos.Ssc.GodTossing.Types.Base        (Commitment, Opening,
                                                        VssCertificatesMap, vcVssKey)
 import           Pos.Ssc.GodTossing.Types.Message     (GtMsgContents (..), GtMsgTag (..))
 import qualified Pos.Ssc.GodTossing.VssCertData       as VCD
-import           Pos.Types                            (Richmen, SlotId (..),
-                                                       StakeholderId)
+import           Pos.Types                            (SlotId (..), StakeholderId)
 import           Pos.Util                             (AsBinary, diffDoubleMap, getKeys,
                                                        readerToState)
 

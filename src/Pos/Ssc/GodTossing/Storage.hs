@@ -30,6 +30,7 @@ import           Pos.Binary.Ssc                 ()
 import           Pos.Constants                  (k, vssMaxTTL)
 import           Pos.DB                         (MonadDB, getBlock, getBlockHeader,
                                                  loadBlocksWhile)
+import           Pos.Lrc.Types                  (Richmen)
 import           Pos.Ssc.Class.Storage          (SscStorageClass (..))
 import           Pos.Ssc.Class.Types            (Ssc (..))
 import           Pos.Ssc.Extra.MonadGS          (MonadSscGS (..), sscRunGlobalQuery)
@@ -49,10 +50,10 @@ import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), GtPayload (
 import           Pos.Ssc.GodTossing.Types.Base  (VssCertificate (..))
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types                      (Block, EpochIndex, HeaderHash, NEBlocks,
-                                                 Richmen, SharedSeed, SlotId (..),
-                                                 blockMpc, blockSlot, crucialSlot,
-                                                 epochIndexL, epochOrSlot, epochOrSlotG,
-                                                 gbHeader, prevBlockL)
+                                                 SharedSeed, SlotId (..), blockMpc,
+                                                 blockSlot, crucialSlot, epochIndexL,
+                                                 epochOrSlot, epochOrSlotG, gbHeader,
+                                                 prevBlockL)
 import           Pos.Util                       (readerToState)
 
 type GSQuery a  = forall m . (MonadReader GtGlobalState m) => m a
@@ -77,7 +78,7 @@ getGlobalCerts = sscRunGlobalQuery $ VCD.certs <$> view gsVssCertificates
 
 -- | Verified certs for slotId
 getVerifiedCerts :: (MonadSscGS SscGodTossing m) => SlotId -> m VssCertificatesMap
-getVerifiedCerts (crucialSlot -> crucSlotId) =
+getVerifiedCerts (crucialSlot . siEpoch -> crucSlotId) =
     sscRunGlobalQuery $
         VCD.certs . VCD.setLastKnownSlot crucSlotId <$> view gsVssCertificates
 

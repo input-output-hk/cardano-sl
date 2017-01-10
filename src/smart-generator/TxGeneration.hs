@@ -20,7 +20,7 @@ import           Universum                     hiding (head)
 
 import           Pos.Constants                 (k, slotDuration)
 import           Pos.Crypto                    (SecretKey, hash, toPublic, unsafeHash)
-import           Pos.DB                        (getTxOut)
+import           Pos.DB.GState                 (getTxOut)
 import           Pos.Genesis                   (genesisAddresses, genesisPublicKeys,
                                                 genesisSecretKeys)
 import           Pos.Script                    (Script)

@@ -285,6 +285,7 @@ library
                         Pos.Update.Error
                         Pos.Update.Listeners
                         Pos.Update.Logic
+                        Pos.Update.Lrc
                         Pos.Update.MemState
                         Pos.Update.MemState.Class
                         Pos.Update.MemState.Holder

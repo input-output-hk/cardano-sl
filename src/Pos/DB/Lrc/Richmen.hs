@@ -26,6 +26,11 @@ module Pos.DB.Lrc.Richmen
        , getRichmenSsc
        , putRichmenSsc
 
+       -- ** US
+       , RCUs
+       , getRichmenUS
+       , putRichmenUS
+
        ) where
 
 import           Universum
@@ -155,6 +160,13 @@ richmenKeyP proxy e = mconcat ["r/", rcTag proxy, "/", encodeStrict e]
 -- Instances. They are here, because we want to have a DB schema in Pos.DB
 ----------------------------------------------------------------------------
 
+components :: [SomeRichmenComponent]
+components = [someRichmenComponent @RCSsc, someRichmenComponent @RCUs]
+
+----------------------------------------------------------------------------
+-- SSC instance
+----------------------------------------------------------------------------
+
 data RCSsc
 
 instance RichmenComponent RCSsc where
@@ -173,11 +185,8 @@ putRichmenSsc
     => EpochIndex -> FullRichmenData -> m ()
 putRichmenSsc = putRichmen @RCSsc
 
-components :: [SomeRichmenComponent]
-components = [someRichmenComponent @RCSsc]
-
 ----------------------------------------------------------------------------
--- Update System
+-- Update System instance
 ----------------------------------------------------------------------------
 
 data RCUs
@@ -188,3 +197,11 @@ instance RichmenComponent RCUs where
     rcTag Proxy = "us"
     rcThreshold Proxy = applyCoinPortion updateVoteThreshold
     rcConsiderDelegated Proxy = False
+
+getRichmenUS :: MonadDB ssc m => EpochIndex -> m (Maybe FullRichmenData)
+getRichmenUS epoch = getRichmen @RCUs epoch
+
+putRichmenUS
+    :: (MonadDB ssc m)
+    => EpochIndex -> FullRichmenData -> m ()
+putRichmenUS = putRichmen @RCUs

@@ -4,13 +4,14 @@ module Pos.Lrc.Consumers
        ) where
 
 import           Data.Tagged           (untag)
-import           Universum
+-- import           Universum
 
 import           Pos.Lrc.Consumer      (LrcConsumer)
 import           Pos.Ssc.Class.Workers (SscWorkersClass (sscLrcConsumers))
+import           Pos.Update.Lrc        (usLrcConsumer)
 import           Pos.WorkMode          (WorkMode)
 
 allLrcConsumers
     :: (SscWorkersClass ssc, WorkMode ssc m)
     => [LrcConsumer m]
-allLrcConsumers = concat $ [untag sscLrcConsumers]
+allLrcConsumers = usLrcConsumer : (untag sscLrcConsumers)

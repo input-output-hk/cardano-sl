@@ -23,7 +23,7 @@ import           Pos.Binary.Communication    ()
 import           Pos.Block.Logic             (applyBlocks, rollbackBlocks,
                                               withBlkSemaphore_)
 import           Pos.Constants               (k)
-import           Pos.Context                 (getNodeContext, ncLrcSync)
+import           Pos.Context                 (LrcSyncData, getNodeContext, ncLrcSync)
 import qualified Pos.DB                      as DB
 import qualified Pos.DB.GState               as GS
 import           Pos.DB.Lrc                  (getLeaders, putEpoch, putLeaders)
@@ -79,20 +79,20 @@ lrcSingleShotImpl epoch consumers = do
 
 tryAcuireExclusiveLock
     :: (MonadMask m, MonadIO m)
-    => EpochIndex -> TVar (Maybe EpochIndex) -> m () -> m ()
+    => EpochIndex -> TVar LrcSyncData -> m () -> m ()
 tryAcuireExclusiveLock epoch lock action =
     bracketOnError acquireLock (flip whenJust releaseLock) doAction
   where
     acquireLock = atomically $ do
         res <- readTVar lock
         case res of
-            Nothing -> retry
-            Just lockEpoch
+            (False, _) -> retry
+            (True, lockEpoch)
                 | lockEpoch >= epoch -> pure Nothing
                 | lockEpoch == epoch - 1 ->
-                    Just lockEpoch <$ writeTVar lock Nothing
+                    Just lockEpoch <$ writeTVar lock (False, lockEpoch)
                 | otherwise -> throwM UnknownBlocksForLrc
-    releaseLock = atomically . writeTVar lock . Just
+    releaseLock = atomically . writeTVar lock . (True,)
     doAction Nothing = pass
     doAction _       = action >> releaseLock epoch
 

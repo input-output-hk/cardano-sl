@@ -67,7 +67,7 @@ waitLrc
     => EpochIndex -> m ()
 waitLrc epoch = do
     sync <- ncLrcSync <$> getNodeContext
-    () <$ readTVarConditional (maybe False (>= epoch)) sync
+    () <$ readTVarConditional ((>= epoch) . snd) sync
 
 lrcActionOnEpoch
     :: (MonadIO m, WithNodeContext ssc m, MonadThrow m)

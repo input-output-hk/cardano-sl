@@ -63,4 +63,4 @@ initSemaphore = do
 initLrc :: WorkMode ssc m => m ()
 initLrc = do
     lrcSync <- ncLrcSync <$> getNodeContext
-    atomically . writeTVar lrcSync . Just =<< LrcDB.getEpoch
+    atomically . writeTVar lrcSync . (True,) =<< LrcDB.getEpoch

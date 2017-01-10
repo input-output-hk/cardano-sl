@@ -180,7 +180,7 @@ newtype BlockHeaderList ssc = BHL
     { getHeaderList :: ([T.BlockHeader ssc], [PublicKey])
     } deriving (Eq)
 
-instance (T.BiSsc ssc, Show ssc) => Show (BlockHeaderList ssc) where
+instance T.BiSsc ssc => Show (BlockHeaderList ssc) where
     show =
         concat . intersperse "\n" . map (formatToString build) . uncurry zip . getHeaderList
 

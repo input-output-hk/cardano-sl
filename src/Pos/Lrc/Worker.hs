@@ -10,6 +10,7 @@ module Pos.Lrc.Worker
        ) where
 
 import           Control.Concurrent.STM.TVar (TVar, readTVar, writeTVar)
+import           Control.Monad.Catch         (bracketOnError)
 import           Control.TimeWarp.Timed      (fork_)
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.List.NonEmpty          as NE
@@ -62,8 +63,9 @@ lrcSingleShotImpl
     => EpochIndex -> [LrcConsumer m] -> m ()
 lrcSingleShotImpl epoch consumers = do
     lock <- ncLrcSync <$> getNodeContext
-    lockEpochMB <- tryAcuireExclusiveLock epoch lock
-    flip (maybe pass) lockEpochMB (\lockEpoch -> (do
+    tryAcuireExclusiveLock epoch lock onAcquiredLock
+  where
+    onAcquiredLock = do
         expectedRichmenComp <- filterM (flip lcIfNeedCompute epoch) consumers
         needComputeLeaders <- isNothing <$> getLeaders epoch
         let needComputeRichmen = not . null $ expectedRichmenComp
@@ -74,20 +76,25 @@ lrcSingleShotImpl epoch consumers = do
             withBlkSemaphore_ $ lrcDo epoch consumers
             putEpoch epoch
             logInfo $ "LRC computation has finished"
-        releaseLock epoch lock)
-      `catchAll` (const $ releaseLock lockEpoch lock))
-  where
-    releaseLock e = atomically . flip writeTVar (Just e)
 
 tryAcuireExclusiveLock
-    :: MonadIO m
-    => EpochIndex -> TVar (Maybe EpochIndex) -> m (Maybe EpochIndex)
-tryAcuireExclusiveLock epoch lock = atomically $ do
-    res <- readTVar lock
-    flip (maybe $ pure Nothing) res (\lockEpoch -> do
-        if lockEpoch >= epoch then pure Nothing
-        else if lockEpoch == epoch - 1 then Just lockEpoch <$ writeTVar lock Nothing
-        else throwM UnknownBlocksForLrc)
+    :: (MonadMask m, MonadIO m)
+    => EpochIndex -> TVar (Maybe EpochIndex) -> m () -> m ()
+tryAcuireExclusiveLock epoch lock action =
+    bracketOnError acquireLock (flip whenJust releaseLock) doAction
+  where
+    acquireLock = atomically $ do
+        res <- readTVar lock
+        case res of
+            Nothing -> retry
+            Just lockEpoch
+                | lockEpoch >= epoch -> pure Nothing
+                | lockEpoch == epoch - 1 ->
+                    Just lockEpoch <$ writeTVar lock Nothing
+                | otherwise -> throwM UnknownBlocksForLrc
+    releaseLock = atomically . writeTVar lock . Just
+    doAction Nothing = pass
+    doAction _       = action >> releaseLock epoch
 
 lrcDo
     :: WorkMode ssc m

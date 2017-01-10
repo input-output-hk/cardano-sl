@@ -31,6 +31,10 @@ module Pos.DB.Lrc.Richmen
        , getRichmenUS
        , putRichmenUS
 
+       -- ** Delegation
+       , RCDlg
+       , getRichmenDlg
+       , putRichmenDlg
        ) where
 
 import           Universum

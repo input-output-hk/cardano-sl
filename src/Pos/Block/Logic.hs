@@ -26,7 +26,7 @@ module Pos.Block.Logic
        ) where
 
 import           Control.Lens              (view, (^.))
-import           Control.Monad.Catch       (onException)
+import           Control.Monad.Catch       (bracketOnError)
 import           Control.Monad.Except      (ExceptT (ExceptT), runExceptT, throwError)
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
 import           Data.Default              (Default (def))
@@ -301,12 +301,12 @@ verifyBlocks blocks = do
 withBlkSemaphore
     :: WorkMode ssc m
     => (HeaderHash ssc -> m (a, HeaderHash ssc)) -> m a
-withBlkSemaphore action = do
-    tip <- takeBlkSemaphore
-    let impl = do
-            (res, newTip) <- action tip
-            res <$ putBlkSemaphore newTip
-    impl `onException` putBlkSemaphore tip
+withBlkSemaphore action =
+    bracketOnError takeBlkSemaphore putBlkSemaphore doAction
+  where
+    doAction tip = do
+        (res, newTip) <- action tip
+        res <$ putBlkSemaphore newTip
 
 -- | Version of withBlkSemaphore which doesn't have any result.
 withBlkSemaphore_

@@ -22,7 +22,6 @@ module Pos.WorkMode
 
 
 import           Control.Monad.Catch         (MonadMask)
-import           Control.Monad.Fix           (MonadFix)
 import           Mockable                    (MonadMockable)
 import           Mockable.Production         (Production)
 import           System.Wlog                 (LoggerNameBox (..), WithLogger)
@@ -93,9 +92,6 @@ instance MonadJL m => MonadJL (KademliaDHT m) where
 ----------------------------------------------------------------------------
 -- Concrete types
 ----------------------------------------------------------------------------
-
--- [CSL-447] TODO Move to log-warper
-deriving instance MonadFix m => MonadFix (LoggerNameBox m)
 
 -- [CSL-447] TODO Move to some "Pos.*.Instances"
 deriving instance MonadSscLD ssc m => MonadSscLD ssc (KademliaDHT m)

@@ -25,7 +25,6 @@ module Pos.CLI
 
 import           Universum
 
-import           Control.TimeWarp.Rpc                 (NetworkAddress)
 import           Data.Default                         (def)
 import           Data.Either                          (either)
 import           Data.Text                            (pack)
@@ -43,6 +42,7 @@ import           Pos.Security.Types                   (AttackTarget (..), Attack
 import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
 import           Pos.Types.Address                    (Address (..), AddressHash,
                                                        decodeTextAddress)
+import           Pos.Util.TimeWarp                    (NetworkAddress)
 import           Serokell.Util.OptParse               (fromParsec)
 import qualified Serokell.Util.Parse                  as P
 import           System.Wlog                          (LoggerConfig (..),

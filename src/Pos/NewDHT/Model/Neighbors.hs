@@ -12,9 +12,9 @@ module Pos.NewDHT.Model.Neighbors
 
 import           Formatting             (int, sformat, shown, (%))
 import qualified Formatting             as F
-import           Message.Message        (Message, Serializable)
 import           Mockable               (MonadMockable, catchAll)
 import           Node                   (SendActions (..))
+import           Node.Message           (Message, Serializable)
 import           System.Wlog            (WithLogger, logInfo, logWarning)
 import           Universum              hiding (catchAll)
 

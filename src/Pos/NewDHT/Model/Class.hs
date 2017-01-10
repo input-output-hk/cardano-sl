@@ -7,7 +7,6 @@ module Pos.NewDHT.Model.Class
        , withDhtLogger
        ) where
 
-import           Control.TimeWarp.Rpc   (ResponseT)
 import           Data.Proxy             (Proxy (Proxy))
 import           System.Wlog            (HasLoggerName (modifyLoggerName), LoggerName)
 import           Universum
@@ -51,13 +50,6 @@ instance MonadDHT m => MonadDHT (ReaderT r m) where
       where
         fromRProxy :: Proxy (ReaderT r m) -> Proxy m
         fromRProxy _ = Proxy
-
-instance MonadDHT m => MonadDHT (ResponseT s m) where
-    discoverPeers = lift . discoverPeers
-    getKnownPeers = lift getKnownPeers
-    currentNodeKey = lift currentNodeKey
-    joinNetwork = lift . joinNetwork
-    dhtLoggerName _ = dhtLoggerName (Proxy :: Proxy m)
 
 -- | Data type for DHT exceptions.
 data DHTException = NodeDown | AllPeersUnavailable

@@ -34,8 +34,6 @@ import           Control.Concurrent.STM.TVar        (newTVar)
 import           Control.Lens                       (each, to, (%~), (^..), (^?), _head,
                                                      _tail)
 import           Control.Monad.Fix                  (MonadFix)
-import           Control.TimeWarp.Rpc               (commLoggerName)
-import           Control.TimeWarp.Timed             (sec)
 import           Data.Default                       (def)
 import           Data.List                          (nub)
 import qualified Data.Time                          as Time
@@ -95,6 +93,7 @@ import           Pos.Update.MemState                (runUSHolder)
 import           Pos.Util                           (runWithRandomIntervals')
 import           Pos.Util.UserSecret                (peekUserSecret, usKeys,
                                                      writeUserSecret)
+import           Pos.Util.TimeWarp                  (sec)
 import           Pos.WorkMode                       (ProductionMode, RawRealMode,
                                                      ServiceMode, StatsMode)
 
@@ -293,10 +292,8 @@ nodeStartMsg BaseParams {..} = logInfo msg
 setupLoggers :: MonadIO m => LoggingParams -> m ()
 setupLoggers LoggingParams{..} = do
     lpLoggerConfig <- readLoggerConfig lpConfigPath
-    traverseLoggerConfig (commMapper . dhtMapper) lpLoggerConfig lpHandlerPrefix
+    traverseLoggerConfig dhtMapper lpLoggerConfig lpHandlerPrefix
   where
-    commMapper name | name == "comm" = commLoggerName
-                    | otherwise      = name
     dhtMapper  name | name == "dht"  = dhtLoggerName (Proxy :: Proxy (RawRealMode ssc))
                     | otherwise      = name
 

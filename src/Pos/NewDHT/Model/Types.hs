@@ -14,7 +14,6 @@ module Pos.NewDHT.Model.Types
        , nodeIdToAddress
        ) where
 
-import           Control.TimeWarp.Rpc  (NetworkAddress)
 import qualified Data.ByteString       as BS
 import qualified Data.ByteString.Char8 as BS8
 import           Data.Char             (isNumber)
@@ -29,8 +28,8 @@ import qualified Serokell.Util.Base64  as B64
 import           Serokell.Util.Text    (listBuilderJSON)
 import           Universum             hiding (show)
 
-
 import           Pos.Crypto.Random     (secureRandomBS)
+import           Pos.Util.TimeWarp     (NetworkAddress)
 
 -- | Dummy data for DHT.
 newtype DHTData = DHTData ()
@@ -121,4 +120,3 @@ nodeIdToAddress (NodeId ep) = toNA =<< TCP.decodeEndPointAddress ep
     toPort :: [Char] -> Maybe Word16
     toPort port' | all isNumber port' = pure $ read port'
                  | otherwise          = Nothing
-

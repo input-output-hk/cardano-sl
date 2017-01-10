@@ -9,8 +9,6 @@ module Pos.NewDHT.Real.Real
        ) where
 
 import           Control.Concurrent.STM (newTVar, readTVar, writeTVar)
-import           Control.TimeWarp.Rpc   (NetworkAddress)
-import           Control.TimeWarp.Timed (ms, sec)
 import           Mockable               (Async, Catch, Mockable, MonadMockable, Promise,
                                          Throw, bracket, catchAll, fork, killThread,
                                          throw, waitAnyUnexceptional)
@@ -38,6 +36,7 @@ import           Pos.NewDHT.Real.Types  (DHTHandle, KademliaDHT (..),
                                          KademliaDHTInstance (..),
                                          KademliaDHTInstanceConfig (..))
 import           Pos.Util               (runWithRandomIntervals')
+import           Pos.Util.TimeWarp      (NetworkAddress, ms, sec)
 
 kademliaConfig :: K.KademliaConfig
 kademliaConfig = K.defaultConfig { K.k = 16 }

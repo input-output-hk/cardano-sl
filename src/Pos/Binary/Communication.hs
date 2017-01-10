@@ -4,7 +4,7 @@ module Pos.Binary.Communication () where
 
 import           Data.Binary.Get         (getInt32be, getWord8, label)
 import           Data.Binary.Put         (putInt32be, putWord8)
-import           Message.Message         (MessageName (..))
+import           Node.Message            (MessageName (..))
 import           Universum
 
 import           Pos.Binary.Class        (Bi (..))

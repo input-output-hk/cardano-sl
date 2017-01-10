@@ -13,13 +13,12 @@ module Pos.Util.Relay
        , handleDataL
        ) where
 
-import           Control.TimeWarp.Rpc       (Message (..), messageName')
 import qualified Data.ByteString.Char8      as BC
 import           Data.List.NonEmpty         (NonEmpty (..))
 import           Data.Proxy                 (Proxy (..))
 import           Formatting                 (build, sformat, stext, (%))
-import qualified Message.Message            as M
 import           Node                       (NodeId (..), SendActions (..), sendTo)
+import           Node.Message               (Message (..), MessageName (..))
 import           Serokell.Util.Text         (listJson)
 import           Serokell.Util.Verify       (VerificationRes (..))
 import           System.Wlog                (logDebug, logInfo, logWarning)
@@ -78,18 +77,9 @@ deriving instance (Eq key, Eq tag) => Eq (InvMsg key tag)
 instance (Arbitrary key, Arbitrary tag) => Arbitrary (InvMsg key tag) where
     arbitrary = InvMsg <$> arbitrary <*> arbitrary
 
--- TODO [CSL-447] Remove old message instances
-instance (Typeable key, Typeable tag, NamedMessagePart tag) =>
-         Message (InvMsg key tag) where
-    messageName p = "Inventory " <> nMessageName (tagM p)
-      where
-        tagM :: Proxy (InvMsg key tag) -> Proxy tag
-        tagM _ = Proxy
-    formatMessage = messageName'
-
 instance (NamedMessagePart tag) =>
-         M.Message (InvMsg key tag) where
-    messageName p = M.MessageName $ BC.pack "Inventory " <> encodeUtf8 (nMessageName $ tagM p)
+         Message (InvMsg key tag) where
+    messageName p = MessageName $ BC.pack "Inventory " <> encodeUtf8 (nMessageName $ tagM p)
       where
         tagM :: Proxy (InvMsg key tag) -> Proxy tag
         tagM _ = Proxy
@@ -107,17 +97,9 @@ deriving instance (Eq key, Eq tag) => Eq (ReqMsg key tag)
 instance (Arbitrary key, Arbitrary tag) => Arbitrary (ReqMsg key tag) where
     arbitrary = ReqMsg <$> arbitrary <*> arbitrary
 
-instance (Typeable key, Typeable tag, NamedMessagePart tag) =>
-         Message (ReqMsg key tag) where
-    messageName p = "Request " <> nMessageName (tagM p)
-      where
-        tagM :: Proxy (ReqMsg key tag) -> Proxy tag
-        tagM _ = Proxy
-    formatMessage = messageName'
-
 instance (NamedMessagePart tag) =>
-         M.Message (ReqMsg key tag) where
-    messageName p = M.MessageName $ BC.pack "Request " <> encodeUtf8 (nMessageName $ tagM p)
+         Message (ReqMsg key tag) where
+    messageName p = MessageName $ BC.pack "Request " <> encodeUtf8 (nMessageName $ tagM p)
       where
         tagM :: Proxy (ReqMsg key tag) -> Proxy tag
         tagM _ = Proxy
@@ -134,17 +116,9 @@ deriving instance (Eq key, Eq contents) => Eq (DataMsg key contents)
 instance (Arbitrary key, Arbitrary contents) => Arbitrary (DataMsg key contents) where
     arbitrary = DataMsg <$> arbitrary <*> arbitrary
 
-instance (Typeable key, Typeable contents, NamedMessagePart contents) =>
-         Message (DataMsg key contents) where
-    messageName p = "Data " <> nMessageName (contentsM p)
-      where
-        contentsM :: Proxy (DataMsg key contents) -> Proxy contents
-        contentsM _ = Proxy
-    formatMessage = messageName'
-
 instance (NamedMessagePart contents) =>
-         M.Message (DataMsg key contents) where
-    messageName p = M.MessageName $ BC.pack "Data " <> encodeUtf8 (nMessageName $ contentsM p)
+         Message (DataMsg key contents) where
+    messageName p = MessageName $ BC.pack "Data " <> encodeUtf8 (nMessageName $ contentsM p)
       where
         contentsM :: Proxy (DataMsg key contents) -> Proxy contents
         contentsM _ = Proxy

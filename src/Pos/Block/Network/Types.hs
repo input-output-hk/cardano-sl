@@ -12,9 +12,8 @@ module Pos.Block.Network.Types
 import           Data.List.NonEmpty    (NonEmpty)
 import           Universum
 
-import           Control.TimeWarp.Rpc  (Message (..), messageName')
 import qualified Data.ByteString.Char8 as BC
-import qualified Message.Message       as M
+import           Node.Message          (Message (..), MessageName (..))
 import           Pos.Ssc.Class.Types   (Ssc (SscPayload))
 import           Pos.Types             (Block, BlockHeader, HeaderHash)
 
@@ -24,12 +23,8 @@ data MsgGetHeaders ssc = MsgGetHeaders
     , mghTo   :: !(Maybe (HeaderHash ssc))
     } deriving (Generic, Show, Eq)
 
-instance Typeable ssc => Message (MsgGetHeaders ssc) where
-    messageName _ = "GetHeaders"
-    formatMessage = messageName'
-
-instance M.Message (MsgGetHeaders ssc) where
-    messageName _ = M.MessageName $ BC.pack "GetHeaders"
+instance Message (MsgGetHeaders ssc) where
+    messageName _ = MessageName $ BC.pack "GetHeaders"
     formatMessage _ = "GetHeaders"
 
 -- | 'GetHeaders' message (see protocol specification).
@@ -38,12 +33,8 @@ data MsgGetBlocks ssc = MsgGetBlocks
     , mgbTo   :: !(HeaderHash ssc)
     } deriving (Generic, Show, Eq)
 
-instance Typeable ssc => Message (MsgGetBlocks ssc) where
-    messageName _ = "GetBlocks"
-    formatMessage = messageName'
-
-instance M.Message (MsgGetBlocks ssc) where
-    messageName _ = M.MessageName $ BC.pack "GetBlocks"
+instance Message (MsgGetBlocks ssc) where
+    messageName _ = MessageName $ BC.pack "GetBlocks"
     formatMessage _ = "GetBlocks"
 
 -- | 'Headers' message (see protocol specification).
@@ -51,12 +42,8 @@ newtype MsgHeaders ssc =
     MsgHeaders (NonEmpty (BlockHeader ssc))
     deriving (Generic, Show, Eq)
 
-instance Typeable ssc => Message (MsgHeaders ssc) where
-    messageName _ = "BlockHeaders"
-    formatMessage = messageName'
-
-instance M.Message (MsgHeaders ssc) where
-    messageName _ = M.MessageName $ BC.pack "BlockHeaders"
+instance Message (MsgHeaders ssc) where
+    messageName _ = MessageName $ BC.pack "BlockHeaders"
     formatMessage _ = "BlockHeaders"
 
 -- | 'Block' message (see protocol specification).
@@ -66,10 +53,6 @@ newtype MsgBlock ssc =
 
 deriving instance (Ssc ssc, Eq (SscPayload ssc)) => Eq (MsgBlock ssc)
 
-instance Typeable ssc => Message (MsgBlock ssc) where
-    messageName _ = "Block"
-    formatMessage = messageName'
-
-instance M.Message (MsgBlock ssc) where
-    messageName _ = M.MessageName $ BC.pack "Block"
+instance Message (MsgBlock ssc) where
+    messageName _ = MessageName $ BC.pack "Block"
     formatMessage _ = "Block"

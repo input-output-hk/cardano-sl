@@ -7,8 +7,8 @@ module Pos.Communication.Types.SysStart
 
 import           Universum
 
-import           Message.Message (Message (..))
-import           Pos.Types       (Timestamp)
+import           Node.Message (Message (..))
+import           Pos.Types    (Timestamp)
 
 -- | Communication request for system start.
 data SysStartRequest = SysStartRequest

@@ -12,8 +12,6 @@ import           Control.Monad.Except         (ExceptT)
 import           Control.Monad.Trans          (MonadTrans)
 import           Universum
 
-import           Pos.DHT.Model.Class          (DHTResponseT)
-import           Pos.DHT.Real                 (KademliaDHT)
 import           Pos.Update.MemState.MemState (MemState)
 
 -- | Equivalent of @MonadReader (TVar MemState) m@.
@@ -30,5 +28,3 @@ class Monad m => MonadUSMem m where
 instance MonadUSMem m => MonadUSMem (ReaderT s m)
 instance MonadUSMem m => MonadUSMem (StateT s m)
 instance MonadUSMem m => MonadUSMem (ExceptT s m)
-instance MonadUSMem m => MonadUSMem (DHTResponseT s m)
-instance MonadUSMem m => MonadUSMem (KademliaDHT m)

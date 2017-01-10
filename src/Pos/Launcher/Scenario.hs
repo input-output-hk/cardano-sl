@@ -8,7 +8,7 @@ module Pos.Launcher.Scenario
 
 import           Control.Concurrent.MVar (putMVar)
 import           Formatting              (build, sformat, (%))
-import           Mockable                (currentTime, delay, for, fork, sleepForever)
+import           Mockable                (currentTime, delay, fork, sleepForever)
 import           Node                    (SendActions)
 import           System.Wlog             (logError, logInfo)
 import           Universum
@@ -51,7 +51,7 @@ waitSystemStart :: NewWorkMode ssc m => m ()
 waitSystemStart = do
     Timestamp start <- ncSystemStart <$> getNodeContext
     cur <- currentTime
-    when (cur < start) $ delay (for (start - cur))
+    when (cur < start) $ delay (start - cur)
 
 initSemaphore :: (NewWorkMode ssc m) => m ()
 initSemaphore = do

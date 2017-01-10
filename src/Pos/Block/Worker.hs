@@ -13,7 +13,7 @@ module Pos.Block.Worker
 import           Control.Lens               (ix, (^.), (^?))
 import           Data.Default               (def)
 import           Formatting                 (build, sformat, shown, (%))
-import           Mockable                   (delay, for)
+import           Mockable                   (delay)
 import           Node                       (SendActions)
 import           Serokell.Util              (VerificationRes (..), listJson)
 import           Serokell.Util.Exceptions   ()
@@ -123,7 +123,7 @@ onNewSlotWhenLeader sendActions slotId pSk = do
         Timestamp timeToWait = timeToCreate - currentTime
     logInfo $
         sformat ("Waiting for "%shown%" before creating block") timeToWait
-    delay $ for timeToWait
+    delay timeToWait
     let onNewSlotWhenLeaderDo = do
             logInfo "It's time to create a block for current slot"
             let whenCreated createdBlk = do

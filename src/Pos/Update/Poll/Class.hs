@@ -11,8 +11,6 @@ import           Control.Monad.Except      (ExceptT)
 import           Control.Monad.Trans       (MonadTrans)
 import           Universum
 
-import           Pos.DHT.Model.Class       (DHTResponseT)
-import           Pos.DHT.Real              (KademliaDHT)
 import           Pos.Script.Type           (ScriptVersion)
 import           Pos.Types                 (ApplicationName, ProtocolVersion)
 import           Pos.Update.MemState.Types (LocalProposalState)
@@ -55,5 +53,3 @@ class Monad m => MonadPoll m where
 instance MonadPoll m => MonadPoll (ReaderT s m)
 instance MonadPoll m => MonadPoll (StateT s m)
 instance MonadPoll m => MonadPoll (ExceptT s m)
-instance MonadPoll m => MonadPoll (DHTResponseT s m)
-instance MonadPoll m => MonadPoll (KademliaDHT m)

@@ -5,23 +5,18 @@ module Pos.Communication.Types.Protocol
        , VersionResp (..)
        ) where
 
-import           Control.TimeWarp.Rpc (Message (..), messageName')
+import           Node.Message          (Message (..), MessageName (..))
 import           Universum
 
-import           Pos.Types            (ProtocolVersion)
-import qualified Message.Message       as M
 import qualified Data.ByteString.Char8 as BC
+import           Pos.Types             (ProtocolVersion)
 
 -- | Version request message. 'VersionResp' is expected as response.
 data VersionReq = VersionReq
     deriving (Show,Generic)
 
 instance Message VersionReq where
-    messageName _ = "VersionReq"
-    formatMessage = messageName'
-
-instance M.Message VersionReq where
-    messageName _ = M.MessageName $ BC.pack "VersionReq"
+    messageName _ = MessageName $ BC.pack "VersionReq"
     formatMessage _ = "VersionReq"
 
 -- | Version response (on 'VersionReq' response).
@@ -31,9 +26,5 @@ data VersionResp = VersionResp
     } deriving (Show,Generic)
 
 instance Message VersionResp where
-    messageName _ = "VersionResp"
-    formatMessage = messageName'
-
-instance M.Message VersionResp where
-    messageName _ = M.MessageName $ BC.pack "VersionResp"
+    messageName _ = MessageName $ BC.pack "VersionResp"
     formatMessage _ = "VersionResp"

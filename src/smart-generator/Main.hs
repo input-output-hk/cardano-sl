@@ -5,13 +5,12 @@ module Main where
 
 import           Control.Concurrent.STM.TVar (modifyTVar', newTVarIO, readTVarIO)
 import           Control.Lens                (view, _1)
-import           Control.TimeWarp.Rpc        (NetworkAddress)
-import           Control.TimeWarp.Timed      (Microsecond, ms, sec)
 import           Data.List                   ((!!))
 import           Data.Maybe                  (fromMaybe)
 import           Data.Time.Clock.POSIX       (getPOSIXTime)
+import           Data.Time.Units             (Microsecond)
 import           Formatting                  (float, int, sformat, (%))
-import           Mockable                    (Production, delay, for, forConcurrently,
+import           Mockable                    (Production, delay, forConcurrently,
                                               fork)
 import           Options.Applicative         (execParser)
 import           System.FilePath.Posix       ((</>))
@@ -38,6 +37,7 @@ import           Pos.Ssc.NistBeacon          (SscNistBeacon)
 import           Pos.Ssc.SscAlgo             (SscAlgo (..))
 import           Pos.Types                   (TxAux)
 import           Pos.Util.JsonLog            ()
+import           Pos.Util.TimeWarp           (NetworkAddress, ms, sec)
 import           Pos.Wallet                  (submitTxRaw)
 import           Pos.WorkMode                (ProductionMode)
 
@@ -58,7 +58,7 @@ seedInitTx recipShare bp initTx = do
     logInfo "Issuing seed transaction"
     submitTxRaw na initTx
     logInfo "Waiting for 1 slot before resending..."
-    delay $ for slotDuration
+    delay slotDuration
     -- If next tx is present in utxo, then everything is all right
     tx <- liftIO $ curBambooTx bp 1
     isVer <- isTxVerified $ view _1 tx
@@ -134,7 +134,7 @@ runSmartGen res np@NodeParams{..} sscnp opts@GenOptions{..} =
         realTxNum <- liftIO $ newTVarIO (0 :: Int)
 
         -- Make a pause between rounds
-        delay $ for (round $ goRoundPause * fromIntegral (sec 1) :: Microsecond)
+        delay (round $ goRoundPause * fromIntegral (sec 1) :: Microsecond)
 
         beginT <- getPosixMs
         let startMeasurementsT =
@@ -169,7 +169,7 @@ runSmartGen res np@NodeParams{..} sscnp opts@GenOptions{..} =
 
                       endT <- getPosixMs
                       let runDelta = endT - startT
-                      delay $ for $ ms (max 0 $ tpsDelta - runDelta)
+                      delay $ ms (max 0 $ tpsDelta - runDelta)
               liftIO $ resetBamboo bambooPool
 
         -- [CSL-220] Write MonadBaseControl instance for KademliaDHT
@@ -197,7 +197,7 @@ runSmartGen res np@NodeParams{..} sscnp opts@GenOptions{..} =
 
         -- Wait for 1 phase (to get all the last sent transactions)
         logInfo "Pausing transaction spawning for 1 phase"
-        delay $ for phaseDurationMs
+        delay phaseDurationMs
 
         return (newTPS, newStep)
 

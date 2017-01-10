@@ -128,8 +128,8 @@ verifyEnoughStake
 verifyEnoughStake votes mProposal = do
     -- [CSL-314] Snapshot must be used here.
     totalStake <- maybe (pure zero) (const GS.getTotalFtsStake) mProposal
-    let proposalThreshold = applyCoinPortion totalStake updateProposalThreshold
-    let voteThreshold = applyCoinPortion totalStake updateVoteThreshold
+    let proposalThreshold = applyCoinPortion updateProposalThreshold totalStake
+    let voteThreshold = applyCoinPortion updateVoteThreshold totalStake
     totalVotedStake <- verifyUpdProposalDo voteThreshold votes
     when (totalVotedStake < proposalThreshold) $
         throwError (msgProposal totalVotedStake proposalThreshold)

@@ -32,6 +32,7 @@ import           Universum
 
 import           Pos.Binary.Class      (Bi, encodeStrict)
 import           Pos.Binary.Types      ()
+import           Pos.Constants         (updateVoteThreshold)
 import           Pos.Context.Class     (WithNodeContext)
 import           Pos.Context.Functions (genesisUtxoM)
 import           Pos.DB.Class          (MonadDB)
@@ -39,8 +40,8 @@ import           Pos.DB.Lrc.Common     (getBi, putBi)
 import           Pos.Genesis           (genesisDelegation)
 import           Pos.Lrc.Eligibility   (RichmenType (..), findRichmenPure)
 import           Pos.Lrc.Types         (FullRichmenData, Richmen, toRichmen)
-import           Pos.Types             (Coin, EpochIndex, StakeholderId, mkCoin,
-                                        txOutStake)
+import           Pos.Types             (Coin, EpochIndex, StakeholderId, applyCoinPortion,
+                                        mkCoin, txOutStake)
 
 ----------------------------------------------------------------------------
 -- Class
@@ -174,3 +175,16 @@ putRichmenSsc = putRichmen @RCSsc
 
 components :: [SomeRichmenComponent]
 components = [someRichmenComponent @RCSsc]
+
+----------------------------------------------------------------------------
+-- Update System
+----------------------------------------------------------------------------
+
+data RCUs
+
+instance RichmenComponent RCUs where
+    type RichmenData RCUs = FullRichmenData
+    rcToData = identity
+    rcTag Proxy = "us"
+    rcThreshold Proxy = applyCoinPortion updateVoteThreshold
+    rcConsiderDelegated Proxy = False

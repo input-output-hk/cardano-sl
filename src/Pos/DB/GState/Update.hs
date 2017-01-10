@@ -16,7 +16,6 @@ module Pos.DB.GState.Update
 
          -- * Operations
        , UpdateOp (..)
-       -- , putRichmenUS
        , setScriptVersion
        , setConfirmedSV
        , setLastPV
@@ -115,13 +114,6 @@ instance RocksBatchOp UpdateOp where
 --     [Rocks.Put (proposalAppKey (upsSlot ups)) (encodeStrict (upsProposal ups))]
 -- putUndecidedProposalSlot _ = []
 
--- -- I suppose batching is not necessary here.
--- -- | Put richmen and their stakes for given epoch.
--- putRichmenUS :: MonadDB ssc m => EpochIndex -> [(StakeholderId, Coin)] -> m ()
--- putRichmenUS e = mapM_ putRichmenDo
---   where
---     putRichmenDo (id, stake) = putBi (stakeKey e id) stake
-
 -- | Set last protocol version
 setLastPV :: MonadDB ssc m => ProtocolVersion -> m ()
 setLastPV = putBi lastPVKey
@@ -195,8 +187,6 @@ proposalKey :: UpId -> ByteString
 proposalKey = mappend "us/p" . encodeStrict
 
 proposalAppKey :: ApplicationName -> ByteString
--- [CSL-379] Restore prefix after we have proper iterator
--- proposalAppKey = mappend "us/s" . encodeStrict
 proposalAppKey = mappend "us/an" . encodeStrict
 
 -- Can be optimized I suppose.

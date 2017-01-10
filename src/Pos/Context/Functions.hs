@@ -74,10 +74,10 @@ lrcActionOnEpoch
     => EpochIndex
     -> (EpochIndex -> m (Maybe a))
     -> m a
-lrcActionOnEpoch epoch actionDependsOnLrc = do
-  waitLrc epoch
-  actionDependsOnLrc epoch >>=
-      maybeThrow (LrcDataUnknown epoch "action on lrcCallOnEpoch couldn't be performed properly")
+lrcActionOnEpoch epoch =
+    lrcActionOnEpochReason
+        epoch
+        "action on lrcCallOnEpoch couldn't be performed properly"
 
 lrcActionOnEpochReason
     :: (MonadIO m, WithNodeContext ssc m, MonadThrow m)

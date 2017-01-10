@@ -110,11 +110,11 @@ data SendActions packing m = SendActions {
 
        -- | Establish a bi-direction conversation session with a node.
        withConnectionTo
-           :: forall snd rcv.
+           :: forall snd rcv t .
             ( Packable packing snd, Message snd, Unpackable packing rcv )
            => LL.NodeId
-           -> (ConversationActions snd rcv m -> m ())
-           -> m ()
+           -> (ConversationActions snd rcv m -> m t)
+           -> m t
      }
 
 data ConversationActions body rcv m = ConversationActions {
@@ -183,11 +183,11 @@ nodeSendActions nodeUnit packing =
                 ]
 
     nodeWithConnectionTo
-        :: forall snd rcv .
+        :: forall snd rcv t .
            ( Packable packing snd, Message snd, Unpackable packing rcv )
         => LL.NodeId
-        -> (ConversationActions snd rcv m -> m ())
-        -> m ()
+        -> (ConversationActions snd rcv m -> m t)
+        -> m t
     nodeWithConnectionTo = \nodeId f ->
         LL.withInOutChannel nodeUnit nodeId $ \inchan outchan -> do
             let msgName  = messageName (Proxy :: Proxy snd)

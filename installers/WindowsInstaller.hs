@@ -1,3 +1,5 @@
+module WindowsInstaller where
+
 import           Development.NSIS
 import           Development.NSIS.Plugins.EnvVarUpdate
 import           System.Directory

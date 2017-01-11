@@ -42,12 +42,9 @@ instance Default (PeerState ssc) where
 instance HasBlockPeerState (PeerState ssc) ssc where
     blockPeerState = _blockPeerState
 
--- [CSL-447] TODO remove these types after refactoring `Transfer` out
-
 -- | Mutable PeerState.
 type MutPeerState ssc = TVar (PeerState ssc)
 
 -- | Create a new mutable socket state
 newMutPeerState :: IO (MutPeerState ssc)
 newMutPeerState = newTVarIO def
-

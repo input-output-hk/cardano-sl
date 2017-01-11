@@ -198,7 +198,7 @@ receiveAll
 receiveAll SingleMessageStyle handler =
     ListenerActionOneMsg $ \_ _ -> handler
 receiveAll ConversationStyle  handler =
-    ListenerActionConversation @_ @_ @Void $ \_ cactions ->
+    ListenerActionConversation @_ @_ @Void $ \_ _ cactions ->
         let loop = do mmsg <- recv cactions
                       for_ mmsg $ \msg -> handler msg >> loop
         in  loop

@@ -63,7 +63,7 @@ listeners :: NodeId -> [Listener Packing Production]
 listeners anId = [pongWorker]
     where
     pongWorker :: ListenerAction Packing Production
-    pongWorker = ListenerActionConversation $ \peerId (cactions :: ConversationActions Pong Ping Production) -> do
+    pongWorker = ListenerActionConversation $ \peerId _ (cactions :: ConversationActions Pong Ping Production) -> do
         liftIO . putStrLn $ show anId ++  " heard PING from " ++ show peerId
         send cactions Pong
         liftIO . putStrLn $ show anId ++ " sent PONG to " ++ show peerId

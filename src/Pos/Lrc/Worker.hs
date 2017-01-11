@@ -7,6 +7,7 @@
 module Pos.Lrc.Worker
        ( lrcOnNewSlotWorker
        , lrcSingleShot
+       , lrcSingleShotNoLock
        ) where
 
 import           Control.Concurrent.STM.TVar (TVar, readTVar, writeTVar)
@@ -56,12 +57,18 @@ lrcOnNewSlotImpl SlotId {..} = when (siSlot < k) $ lrcSingleShot siEpoch
 lrcSingleShot
     :: (SscWorkersClass ssc, WorkMode ssc m)
     => EpochIndex -> m ()
-lrcSingleShot epoch = lrcSingleShotImpl epoch allLrcConsumers
+lrcSingleShot epoch = lrcSingleShotImpl True epoch allLrcConsumers
+
+-- | Same, but doesn't take lock on the semaphore.
+lrcSingleShotNoLock
+    :: (SscWorkersClass ssc, WorkMode ssc m)
+    => EpochIndex -> m ()
+lrcSingleShotNoLock epoch = lrcSingleShotImpl False epoch allLrcConsumers
 
 lrcSingleShotImpl
     :: WorkMode ssc m
-    => EpochIndex -> [LrcConsumer m] -> m ()
-lrcSingleShotImpl epoch consumers = do
+    => Bool -> EpochIndex -> [LrcConsumer m] -> m ()
+lrcSingleShotImpl withSemaphore epoch consumers = do
     lock <- ncLrcSync <$> getNodeContext
     tryAcuireExclusiveLock epoch lock onAcquiredLock
   where
@@ -73,7 +80,10 @@ lrcSingleShotImpl epoch consumers = do
         when needComputeRichmen $ logInfo "Need to compute richmen"
         when (needComputeLeaders || needComputeRichmen) $ do
             logInfo "LRC is starting"
-            withBlkSemaphore_ $ lrcDo epoch expectedRichmenComp
+            if withSemaphore
+            then withBlkSemaphore_ $ lrcDo epoch expectedRichmenComp
+            -- we don't change/use it in lcdDo in fact
+            else void . lrcDo epoch expectedRichmenComp =<< GS.getTip
             logInfo "LRC has finished"
         putEpoch epoch
         logInfo "LRC has updated LRC DB"

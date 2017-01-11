@@ -57,7 +57,7 @@ import qualified Pos.DB                    as DB
 import qualified Pos.DB.GState             as GS
 import qualified Pos.DB.Lrc                as LrcDB
 import           Pos.Delegation.Logic      (delegationVerifyBlocks, getProxyMempool)
-import           Pos.Lrc.Worker            (lrcSingleShot)
+import           Pos.Lrc.Worker            (lrcSingleShotNoLock)
 import           Pos.Slotting              (getCurrentSlot)
 import           Pos.Ssc.Class             (Ssc (..), SscWorkersClass (..))
 import           Pos.Ssc.Extra             (sscGetLocalPayload, sscVerifyBlocks)
@@ -309,16 +309,16 @@ verifyBlocksPrefix
     :: WorkMode ssc m
     => NonEmpty (Block ssc) -> m (Either Text (NonEmpty Undo))
 verifyBlocksPrefix blocks = runExceptT $ do
-   curSlot <- getCurrentSlot
-   tipBlk <- DB.getTipBlock
-   verResToMonadError formatAllErrors $
-       Types.verifyBlocks (Just curSlot) (tipBlk <| blocks)
-   verResToMonadError formatAllErrors =<< sscVerifyBlocks False blocks
-   txUndo <- ExceptT $ txVerifyBlocks blocks
-   pskUndo <- ExceptT $ delegationVerifyBlocks blocks
-   when (length txUndo /= length pskUndo) $
-       throwError "Internal error of verifyBlocksPrefix: length of undos don't match"
-   pure $ NE.map (uncurry Undo) $ NE.zip txUndo pskUndo
+    curSlot <- getCurrentSlot
+    tipBlk <- DB.getTipBlock
+    verResToMonadError formatAllErrors $
+        Types.verifyBlocks (Just curSlot) (tipBlk <| blocks)
+    verResToMonadError formatAllErrors =<< sscVerifyBlocks False blocks
+    txUndo <- ExceptT $ txVerifyBlocks blocks
+    pskUndo <- ExceptT $ delegationVerifyBlocks blocks
+    when (length txUndo /= length pskUndo) $
+        throwError "Internal error of verifyBlocksPrefix: length of undos don't match"
+    pure $ NE.map (uncurry Undo) $ NE.zip txUndo pskUndo
 
 -- | Applies blocks if they're valid. Takes one boolean flag
 -- "rollback". Returns header hash of last applied block (new tip) on
@@ -341,40 +341,39 @@ verifyAndApplyBlocksInternal
     => Bool -> Bool -> NonEmpty (Block ssc) -> m (Either Text (HeaderHash ssc))
 verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
     tip <- GS.getTip
-    let newestToApply = blocks ^. _neHead . headerHashG
-    when (tip /= newestToApply) $ throwError $
-        tipMismatchMsg "verify and apply" tip newestToApply
+    let assumedTip = blocks ^. _neHead . prevBlockL
+    when (tip /= assumedTip) $ throwError $
+        tipMismatchMsg "verify and apply" tip assumedTip
     rollingVerifyAndApply [] (spanEpoch blocks)
   where
     spanEpoch = spanSafe ((==) `on` view epochIndexL)
     -- Applies as much blocks from failed prefix as possible. Argument
     -- indicates if at least some progress was done so we should
     -- return tip. Fail otherwise.
-    applyAsMuchAsPossible e [] True            = throwError e
-    applyAsMuchAsPossible _ [] False           = GS.getTip
-    applyAsMuchAsPossible e (x:xs) nothingApplied = do
+    applyAMAP e [] True            = throwError e
+    applyAMAP _ [] False           = GS.getTip
+    applyAMAP e (x:xs) nothingApplied = do
         let block = x:|[]
         lift (verifyBlocksPrefix block) >>= \case
-            Left e' -> applyAsMuchAsPossible e' [] nothingApplied
+            Left e' -> applyAMAP e' [] nothingApplied
             Right undo -> do
                 lift $ applyBlocksUnsafe $ block `NE.zip` undo
-                applyAsMuchAsPossible e xs False
+                applyAMAP e xs False
     -- Rollbacks and returns an error
     failWithRollback e [] = throwError e
     failWithRollback e toRollback = do
         lift $ mapM_ rollbackBlocks toRollback
         throwError e
-    rollingVerifyAndApply blunds (prefix,suffix) =
+    rollingVerifyAndApply blunds (prefix,suffix) = do
         lift (verifyBlocksPrefix prefix) >>= \case
             Left failure | rollback -> failWithRollback failure blunds
-            Left failure ->
-                applyAsMuchAsPossible failure (NE.toList prefix) $ null blunds
+            Left failure -> applyAMAP failure (NE.toList prefix) $ null blunds
             Right undos -> do
-                let newBlunds = blocks `NE.zip` undos
+                let newBlunds = prefix `NE.zip` undos
                 lift $ applyBlocksUnsafe newBlunds
                 case suffix of
                     (genesis:xs) -> do
-                        when lrc $ lift $ lrcSingleShot $ genesis ^. epochIndexL
+                        when lrc $ lift $ lrcSingleShotNoLock $ genesis ^. epochIndexL
                         rollingVerifyAndApply (NE.reverse newBlunds : blunds) $
                             spanEpoch $ genesis:|xs
                     [] -> GS.getTip
@@ -392,7 +391,7 @@ applyBlocks calculateLrc blunds = do
     applyBlocksUnsafe prefix
     case suffix of
         (genesis:xs) -> do
-            when calculateLrc $ lrcSingleShot $ genesis ^. _1 . epochIndexL
+            when calculateLrc $ lrcSingleShotNoLock $ genesis ^. _1 . epochIndexL
             applyBlocks calculateLrc $ genesis:|xs
         [] -> pass
   where
@@ -402,9 +401,9 @@ applyBlocks calculateLrc blunds = do
 rollbackBlocks :: (WorkMode ssc m) => NonEmpty (Blund ssc) -> m (Maybe Text)
 rollbackBlocks blunds = do
     tip <- GS.getTip
-    let newestToRollback = blunds ^. _neHead . _1 . headerHashG
-    if tip /= newestToRollback
-    then pure $ Just $ tipMismatchMsg "rollback" tip newestToRollback
+    let firstToRollback = blunds ^. _neHead . _1 . headerHashG
+    if tip /= firstToRollback
+    then pure $ Just $ tipMismatchMsg "rollback" tip firstToRollback
     else rollbackBlocksUnsafe blunds $> Nothing
 
 -- | Given a number of blocks to rollback on and apply then, does
@@ -417,8 +416,8 @@ applyWithRollback
     -> m (Either Text (HeaderHash ssc))
 applyWithRollback toRollback toApply = runExceptT $ do
     tip <- lift GS.getTip
-    when (tip /= newestToRollback) $ do
-        throwError (tipMismatchMsg "apply with rollback" tip newestToRollback)
+    when (tip /= assumedTip) $ do
+        throwError (tipMismatchMsg "apply with rollback" tip assumedTip)
     lift $ rollbackBlocksUnsafe toRollback
     lift (verifyAndApplyBlocks True toApply) >>= \case
         -- We didn't succeed to apply blocks, so will apply
@@ -428,7 +427,7 @@ applyWithRollback toRollback toApply = runExceptT $ do
             throwError err
         Right tipHash  -> pure tipHash
   where
-    newestToRollback = toRollback ^. _neHead . _1 . headerHashG
+    assumedTip = toRollback ^. _neHead . _1 . prevBlockL
 
 
 ----------------------------------------------------------------------------

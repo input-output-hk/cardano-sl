@@ -49,8 +49,8 @@ import           Pos.Binary.Communication    ()
 import           Pos.Context                 (WithNodeContext (getNodeContext),
                                               lrcActionOnEpochReason, ncSecretKey)
 import           Pos.Crypto                  (ProxySecretKey (..), PublicKey,
-                                              pdDelegatePk, proxyVerify, toPublic,
-                                              verifyProxySecretKey)
+                                              pdDelegatePk, proxyVerify, shortHashF,
+                                              toPublic, verifyProxySecretKey)
 import           Pos.DB                      (DBError (DBMalformed), MonadDB,
                                               SomeBatchOp (..))
 import qualified Pos.DB                      as DB
@@ -262,8 +262,12 @@ delegationApplyBlocks
     => NonEmpty (Block ssc) -> m (NonEmpty SomeBatchOp)
 delegationApplyBlocks blocks = do
     tip <- GS.getTip
-    when (tip /= blocks ^. _neHead . prevBlockL) $ throwM $
-        DelegationCantApplyBlocks "oldest block in NEBlocks is not based on tip"
+    let assumedTip = blocks ^. _neHead . prevBlockL
+    when (tip /= assumedTip) $ throwM $
+        DelegationCantApplyBlocks $
+        sformat
+        ("Oldest block is based on tip "%shortHashF%", but our tip is "%shortHashF)
+        assumedTip tip
     let allIssuers =
             concatMap (either (const []) (map pskIssuerPk . view blockProxySKs))
                       blocks

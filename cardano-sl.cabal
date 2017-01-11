@@ -399,7 +399,7 @@ library
                       , quickcheck-instances
                       , random
                       , resourcet
-                      , rocksdb
+                      , rocksdb >= 0.1.0.1
                       , safecopy
                       , serokell-util
                       , stm

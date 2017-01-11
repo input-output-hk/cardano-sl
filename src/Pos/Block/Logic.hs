@@ -317,17 +317,17 @@ getHeadersFromToIncl older newer = runMaybeT $ do
 verifyBlocksPrefix
     :: WorkMode ssc m
     => NonEmpty (Block ssc) -> m (Either Text (NonEmpty Undo))
-verifyBlocksPrefix blocks = do
-    runExceptT $ do
-       curSlot <- getCurrentSlot
-       tipBlk <- DB.getTipBlock
-       verResToMonadError formatAllErrors $
-           Types.verifyBlocks (Just curSlot) (tipBlk <| blocks)
-       verResToMonadError formatAllErrors =<< sscVerifyBlocks False blocks
-       txUndo <- ExceptT $ txVerifyBlocks blocks
-       pskUndo <- ExceptT $ delegationVerifyBlocks blocks
-       when (length txUndo /= length pskUndo) $ throwError "Aoeu! Placeholder!"
-       pure $ NE.map (uncurry Undo) $ NE.zip txUndo pskUndo
+verifyBlocksPrefix blocks = runExceptT $ do
+   curSlot <- getCurrentSlot
+   tipBlk <- DB.getTipBlock
+   verResToMonadError formatAllErrors $
+       Types.verifyBlocks (Just curSlot) (tipBlk <| blocks)
+   verResToMonadError formatAllErrors =<< sscVerifyBlocks False blocks
+   txUndo <- ExceptT $ txVerifyBlocks blocks
+   pskUndo <- ExceptT $ delegationVerifyBlocks blocks
+   when (length txUndo /= length pskUndo) $
+       throwError "Internal error of verifyBlocksPrefix: length of undos don't match"
+   pure $ NE.map (uncurry Undo) $ NE.zip txUndo pskUndo
 
 -- | Applies blocks if they're valid. Takes one boolean flag
 -- "rollback". Returns header hash of last applied block (new tip) on
@@ -338,7 +338,7 @@ verifyBlocksPrefix blocks = do
 -- header hash of new tip. It's up to caller to log warning that
 -- partial application happened.
 verifyAndApplyBlocks
-    :: WorkMode ssc m
+    :: (WorkMode ssc m, SscWorkersClass ssc)
     => Bool -> NonEmpty (Block ssc) -> m (Either Text (HeaderHash ssc))
 verifyAndApplyBlocks rollback = verifyAndApplyBlocksInternal True rollback
 
@@ -346,11 +346,38 @@ verifyAndApplyBlocks rollback = verifyAndApplyBlocksInternal True rollback
 -- parametrizes lrc calcultion which can be turned on/off using first
 -- flag.
 verifyAndApplyBlocksInternal
-    :: WorkMode ssc m
+    :: (WorkMode ssc m, SscWorkersClass ssc)
     => Bool -> Bool -> NonEmpty (Block ssc) -> m (Either Text (HeaderHash ssc))
-verifyAndApplyBlocksInternal _lrc _rollback blocks = do
-    _ <- verifyBlocksPrefix blocks
-    notImplemented
+verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
+    tip <- GS.getTip
+    let newestToApply = blocks ^. _neHead . headerHashG
+    when (tip /= newestToApply) $ throwError $
+        tipMismatchMsg "verify and apply" tip newestToApply
+    rollingVerifyAndApply [] (spanEpoch blocks)
+  where
+    spanEpoch = spanSafe ((==) `on` view epochIndexL)
+    -- Applies as much blocks as possible. Argument indicates if at
+    -- least some progress was done so we should return tip. Fail
+    -- otherwise.
+    applyAsMuchAsPossible _nothingApplied = undefined
+    failWithRollback e [] = throwError e
+    failWithRollback e toRollback = do
+        lift $ mapM_ rollbackBlocks toRollback
+        throwError e
+    rollingVerifyAndApply blunds (prefix,suffix) =
+        lift (verifyBlocksPrefix prefix) >>= \case
+            Left failure | rollback -> failWithRollback failure blunds
+            Left failure -> applyAsMuchAsPossible $ null blunds
+            Right undos -> do
+                let newBlunds = blocks `NE.zip` undos
+                lift $ applyBlocksUnsafe newBlunds
+                case suffix of
+                    (genesis:xs) -> do
+                        when lrc $ lift $ lrcSingleShot $ genesis ^. epochIndexL
+                        rollingVerifyAndApply (NE.reverse newBlunds : blunds) $
+                            spanEpoch $ genesis:|xs
+                    [] -> GS.getTip
+
 
 -- | Apply definitely valid sequence of blocks. At this point we must
 -- have verified all predicates regarding block (including txs and ssc
@@ -368,8 +395,7 @@ applyBlocks calculateLrc blunds = do
             applyBlocks calculateLrc $ genesis:|xs
         [] -> pass
   where
-    (prefix,suffix) =
-        spanSafe (\(h,_) (b,_) -> b ^. epochIndexL == h ^. epochIndexL) blunds
+    (prefix,suffix) = spanSafe ((==) `on` view (_1 . epochIndexL)) blunds
 
 -- | Rollbacks blocks. Head is to be current tip (newest first order).
 rollbackBlocks :: (WorkMode ssc m) => NonEmpty (Blund ssc) -> m (Maybe Text)

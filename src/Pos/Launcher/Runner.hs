@@ -151,7 +151,6 @@ runRawRealMode
     -> Production a
 runRawRealMode res np@NodeParams {..} sscnp listeners action =
     usingLoggerName lpRunnerTag $ do
-      -- TODO [CSL-447] Close resources?
        initNC <- sscCreateNodeContext @ssc sscnp
        modernDBs <- openNodeDBs npRebuildDb npDbPathM
        -- FIXME: initialization logic must be in scenario.

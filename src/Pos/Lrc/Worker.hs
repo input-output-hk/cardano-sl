@@ -22,13 +22,13 @@ import           Pos.Binary.Communication ()
 import           Pos.Block.Logic          (applyBlocks, rollbackBlocks, withBlkSemaphore_)
 import           Pos.Communication.BiP    (BiP)
 import           Pos.Constants            (k)
-import           Pos.Context              (updateLrcSync)
 import qualified Pos.DB                   as DB
 import qualified Pos.DB.GState            as GS
 import           Pos.DB.Lrc               (getLeaders, putEpoch, putLeaders)
 import           Pos.Lrc.Consumer         (LrcConsumer (..))
 import           Pos.Lrc.Consumers        (allLrcConsumers)
 import           Pos.Lrc.Eligibility      (findAllRichmenMaybe)
+import           Pos.Lrc.Error            (LrcError (..))
 import           Pos.Lrc.FollowTheSatoshi (followTheSatoshiM)
 import           Pos.Slotting             (onNewSlot')
 import           Pos.Ssc.Class            (SscWorkersClass)
@@ -37,6 +37,10 @@ import           Pos.Types                (EpochIndex, EpochOrSlot (..), EpochOr
                                            HeaderHash, HeaderHash, SlotId (..),
                                            crucialSlot, getEpochOrSlot, getEpochOrSlot)
 import           Pos.WorkMode             (NewWorkMode)
+import           Control.Concurrent.STM.TVar (TVar, readTVar, writeTVar)
+import           Control.Monad.Catch         (bracketOnError)
+
+import           Pos.Context                 (LrcSyncData, getNodeContext, ncLrcSync)
 
 lrcOnNewSlotWorker
     :: (SscWorkersClass ssc, NewWorkMode ssc m)
@@ -48,8 +52,8 @@ lrcOnNewSlotImpl
     => SlotId -> m ()
 lrcOnNewSlotImpl SlotId {..} = when (siSlot < k) $ lrcSingleShot siEpoch
 
--- | Run leaders and richmen computation for given epoch. Behavior
--- when there are not enough blocks in db is currently unspecified.
+-- | Run leaders and richmen computation for given epoch. If stable
+-- block for this epoch is not known, LrcError will be thrown.
 lrcSingleShot
     :: (SscWorkersClass ssc, NewWorkMode ssc m)
     => EpochIndex -> m ()
@@ -59,25 +63,47 @@ lrcSingleShotImpl
     :: NewWorkMode ssc m
     => EpochIndex -> [LrcConsumer m] -> m ()
 lrcSingleShotImpl epoch consumers = do
-    expectedRichmenComp <- filterM (flip lcIfNeedCompute epoch) consumers
-    needComputeLeaders <- isNothing <$> getLeaders epoch
-    let needComputeRichmen = not . null $ expectedRichmenComp
-    when needComputeRichmen $ logInfo "Need to compute richmen"
-    when needComputeLeaders $ logInfo "Need to compute leaders"
-    when (needComputeLeaders || needComputeLeaders) $ do
-        logInfo $ "LRC computation is starting"
-        withBlkSemaphore_ $ lrcDo epoch consumers
+    lock <- ncLrcSync <$> getNodeContext
+    tryAcuireExclusiveLock epoch lock onAcquiredLock
+  where
+    onAcquiredLock = do
+        expectedRichmenComp <- filterM (flip lcIfNeedCompute epoch) consumers
+        needComputeLeaders <- isNothing <$> getLeaders epoch
+        let needComputeRichmen = not . null $ expectedRichmenComp
+        when needComputeLeaders $ logInfo "Need to compute leaders"
+        when needComputeRichmen $ logInfo "Need to compute richmen"
+        when (needComputeLeaders || needComputeRichmen) $ do
+            logInfo "LRC is starting"
+            withBlkSemaphore_ $ lrcDo epoch expectedRichmenComp
+            logInfo "LRC has finished"
         putEpoch epoch
-        updateLrcSync epoch
-        logInfo $ "LRC computation has finished"
+        logInfo "LRC has updated LRC DB"
+
+tryAcuireExclusiveLock
+    :: (MonadMask m, MonadIO m)
+    => EpochIndex -> TVar LrcSyncData -> m () -> m ()
+tryAcuireExclusiveLock epoch lock action =
+    bracketOnError acquireLock (flip whenJust releaseLock) doAction
+  where
+    acquireLock = atomically $ do
+        res <- readTVar lock
+        case res of
+            (False, _) -> retry
+            (True, lockEpoch)
+                | lockEpoch >= epoch -> pure Nothing
+                | lockEpoch == epoch - 1 ->
+                    Just lockEpoch <$ writeTVar lock (False, lockEpoch)
+                | otherwise -> throwM UnknownBlocksForLrc
+    releaseLock = atomically . writeTVar lock . (True,)
+    doAction Nothing = pass
+    doAction _       = action >> releaseLock epoch
 
 lrcDo
     :: NewWorkMode ssc m
     => EpochIndex -> [LrcConsumer m] -> HeaderHash ssc -> m (HeaderHash ssc)
 lrcDo epoch consumers tip = tip <$ do
     blockUndoList <- DB.loadBlocksFromTipWhile whileMoreOrEq5k
-    when (null blockUndoList) $
-        panic "No block has been generated during last k slots"
+    when (null blockUndoList) $ throwM UnknownBlocksForLrc
     let blockUndos = NE.fromList blockUndoList
     rollbackBlocks blockUndos
     richmenComputationDo epoch consumers

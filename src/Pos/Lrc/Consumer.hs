@@ -59,6 +59,6 @@ lrcConsumerFromComponentSimple
 lrcConsumerFromComponentSimple =
     lrcConsumerFromComponent @c ifNeedCompute onComputed
   where
-    ifNeedCompute epoch = isJust <$> getRichmen @c epoch
+    ifNeedCompute epoch = isNothing <$> getRichmen @c epoch
     onComputed epoch totalStake stakes =
         putRichmen @c epoch (totalStake, stakes)

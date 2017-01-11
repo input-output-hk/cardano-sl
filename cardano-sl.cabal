@@ -183,6 +183,7 @@ library
                         Pos.Delegation.Types
                         Pos.Delegation.Listeners
                         Pos.Delegation.Logic
+                        Pos.Delegation.Lrc
 
                         -- Launcher
                         Pos.Launcher.Launcher
@@ -216,6 +217,7 @@ library
                         -- LRC
                         Pos.Lrc.Consumer
                         Pos.Lrc.Consumers
+                        Pos.Lrc.Error
                         Pos.Lrc.Eligibility
                         Pos.Lrc.Types
                         Pos.Lrc.Worker
@@ -281,6 +283,7 @@ library
                         Pos.Update.Error
                         Pos.Update.Listeners
                         Pos.Update.Logic
+                        Pos.Update.Lrc
                         Pos.Update.MemState
                         Pos.Update.MemState.Class
                         Pos.Update.MemState.Holder

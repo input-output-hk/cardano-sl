@@ -26,7 +26,7 @@ module Pos.Block.Logic
        ) where
 
 import           Control.Lens              (view, (^.))
-import           Control.Monad.Catch       (onException)
+import           Control.Monad.Catch       (bracketOnError)
 import           Control.Monad.Except      (ExceptT (ExceptT), runExceptT, throwError)
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
 import           Data.Default              (Default (def))
@@ -40,16 +40,15 @@ import           Serokell.Util.Verify      (VerificationRes (..), formatAllError
 import           System.Wlog               (logDebug)
 import           Universum
 
-import           Pos.Block.Error           (BlkError (BlkNoLeaders))
 import           Pos.Constants             (curProtocolVersion, curSoftwareVersion, k)
 import           Pos.Context               (NodeContext (ncSecretKey), getNodeContext,
-                                            putBlkSemaphore, readBlkSemaphore,
-                                            takeBlkSemaphore, waitLrc)
+                                            lrcActionOnEpochReason, putBlkSemaphore,
+                                            readBlkSemaphore, takeBlkSemaphore)
 import           Pos.Crypto                (SecretKey, WithHash (WithHash), hash,
                                             shortHashF)
 import           Pos.Data.Attributes       (mkAttributes)
-import           Pos.DB                    (DBError (..), MonadDB, getTipBlockHeader,
-                                            loadHeadersWhile)
+import           Pos.DB                    (DBError (..), MonadDB, SomeBatchOp (..),
+                                            getTipBlockHeader, loadHeadersWhile)
 import qualified Pos.DB                    as DB
 import qualified Pos.DB.GState             as GS
 import qualified Pos.DB.Lrc                as LrcDB
@@ -62,8 +61,8 @@ import           Pos.Ssc.Extra             (sscApplyBlocks, sscApplyGlobalState,
                                             sscGetLocalPayload, sscRollback,
                                             sscVerifyBlocks)
 import           Pos.Txp.Class             (getLocalTxsNUndo)
-import           Pos.Txp.Logic             (txApplyBlocks, txRollbackBlocks,
-                                            txVerifyBlocks)
+import           Pos.Txp.Logic             (normalizeTxpLD, txApplyBlocks,
+                                            txRollbackBlocks, txVerifyBlocks)
 import           Pos.Types                 (Block, BlockHeader, Blund, EpochIndex,
                                             EpochOrSlot (..), GenesisBlock, HeaderHash,
                                             MainBlock, MainExtraBodyData (..),
@@ -77,8 +76,8 @@ import           Pos.Types                 (Block, BlockHeader, Blund, EpochInde
                                             prevBlockL, topsortTxs, verifyHeader,
                                             verifyHeaders, vhpVerifyConsensus)
 import qualified Pos.Types                 as Types
-import           Pos.Util                  (inAssertMode, maybeThrow')
 import           Pos.WorkMode              (NewWorkMode)
+import           Pos.Util                  (inAssertMode)
 
 -- | Result of single (new) header classification.
 data ClassifyHeaderRes
@@ -302,12 +301,12 @@ verifyBlocks blocks =
 withBlkSemaphore
     :: NewWorkMode ssc m
     => (HeaderHash ssc -> m (a, HeaderHash ssc)) -> m a
-withBlkSemaphore action = do
-    tip <- takeBlkSemaphore
-    let impl = do
-            (res, newTip) <- action tip
-            res <$ putBlkSemaphore newTip
-    impl `onException` putBlkSemaphore tip
+withBlkSemaphore action =
+    bracketOnError takeBlkSemaphore putBlkSemaphore doAction
+  where
+    doAction tip = do
+        (res, newTip) <- action tip
+        res <$ putBlkSemaphore newTip
 
 -- | Version of withBlkSemaphore which doesn't have any result.
 withBlkSemaphore_
@@ -324,10 +323,12 @@ applyBlocks blunds = do
     let blks = fmap fst blunds
     -- Note: it's important to put blocks first
     mapM_ putToDB blunds
-    mapM_ GS.writeBatchGState =<< delegationApplyBlocks (map fst blunds)
-    txApplyBlocks blunds
+    delegateBatch <- SomeBatchOp <$> delegationApplyBlocks (map fst blunds)
+    txBatch <- SomeBatchOp <$> txApplyBlocks blunds
     sscApplyBlocks blks
     sscApplyGlobalState
+    GS.writeBatchGState [delegateBatch, txBatch]
+    normalizeTxpLD
   where
     putToDB (blk, undo) = DB.putBlock undo True blk
 
@@ -337,11 +338,12 @@ applyBlocks blunds = do
 rollbackBlocks :: (NewWorkMode ssc m) => NonEmpty (Block ssc, Undo) -> m ()
 rollbackBlocks toRollback = do
     -- [CSL-378] Update sbInMain properly (in transaction)
-    mapM_ GS.writeBatchGState =<< delegationRollbackBlocks toRollback
-    txRollbackBlocks toRollback
+    delRoll <- delegationRollbackBlocks toRollback
+    txRoll <- txRollbackBlocks toRollback
     forM_ (NE.toList toRollback) $
         \(blk,_) -> DB.setBlockInMainChain (hash $ blk ^. blockHeader) False
     sscRollback $ fmap fst toRollback
+    GS.writeBatchGState [delRoll, txRoll]
 
 ----------------------------------------------------------------------------
 -- GenesisBlock creation
@@ -377,12 +379,12 @@ createGenesisBlockDo
        NewWorkMode ssc m
     => EpochIndex -> m (Maybe (GenesisBlock ssc))
 createGenesisBlockDo epoch = do
-    waitLrc epoch
-    leaders <- maybeThrow' noLeadersError =<< LrcDB.getLeaders epoch
+    leaders <- lrcActionOnEpochReason epoch
+                   "there are no leaders"
+                   LrcDB.getLeaders
     res <- withBlkSemaphore (createGenesisBlockCheckAgain leaders)
     res <$ inAssertMode (logDebug . sformat newTipFmt =<< readBlkSemaphore)
   where
-    noLeadersError = BlkNoLeaders epoch
     newTipFmt = "After creatingGenesisBlock our tip is: "%shortHashF
     createGenesisBlockCheckAgain leaders tip = do
         let noHeaderMsg =

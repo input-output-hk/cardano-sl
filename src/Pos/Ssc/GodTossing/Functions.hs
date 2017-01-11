@@ -32,8 +32,8 @@ module Pos.Ssc.GodTossing.Functions
        -- * GtPayload
        , verifyGtPayload
 
-       -- * Modern
-       , getThreshold
+       -- * VSS
+       , vssThreshold
        ) where
 
 import           Control.Lens                   ((^.), _2)
@@ -67,7 +67,8 @@ import           Pos.Types.Address              (addressHash)
 import           Pos.Types.Types                (EpochIndex (..), LocalSlotIndex,
                                                  MainBlockHeader, SharedSeed (..),
                                                  SlotId (..), StakeholderId, headerSlot)
-import           Pos.Util                       (AsBinary, asBinary, fromBinaryM)
+import           Pos.Util                       (AsBinary, asBinary, fromBinaryM, getKeys)
+
 ----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
@@ -362,14 +363,15 @@ verifyGtPayload header payload =
         [ (inRange (0, 6 * k - 1) (siSlot slotId),
             "slot id is outside of [0, 6k)")]
 
-checkCommShares :: HashSet (AsBinary VssPublicKey) -> SignedCommitment -> Bool
+checkCommShares :: [AsBinary VssPublicKey] -> SignedCommitment -> Bool
 checkCommShares vssPublicKeys c =
-    vssPublicKeys == (HS.fromList . HM.keys . commShares $ c ^. _2)
+    HS.fromList vssPublicKeys == (getKeys . commShares $ c ^. _2)
+
 ----------------------------------------------------------------------------
 -- Modern
 ----------------------------------------------------------------------------
 
 -- | Figure out the threshold (i.e. how many secret shares would be required
 -- to recover each node's secret) using number of participants.
-getThreshold :: Integral a => a -> Threshold
-getThreshold len = fromIntegral $ len `div` 2 + len `mod` 2
+vssThreshold :: Integral a => a -> Threshold
+vssThreshold len = fromIntegral $ len `div` 2 + len `mod` 2

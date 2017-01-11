@@ -95,7 +95,8 @@ applyVote
     => EpochIndex -> UpdateVote -> StateT UndecidedProposalState m ()
 applyVote epoch UpdateVote {..} = do
     let id = addressHash uvKey
-    stake <- maybeThrow (USNotRichmen id) =<< GS.getStakeUS epoch id
+    -- stake <- maybeThrow (USNotRichmen id) =<< GS.getStakeUS epoch id
+    stake <- maybeThrow (USNotRichmen id) =<< undefined epoch id
     modify $ voteToUProposalState uvKey stake uvDecision
 
 -- | Revert application of given blocks to US part of GState DB
@@ -127,8 +128,8 @@ verifyEnoughStake
 verifyEnoughStake votes mProposal = do
     -- [CSL-314] Snapshot must be used here.
     totalStake <- maybe (pure zero) (const GS.getTotalFtsStake) mProposal
-    let proposalThreshold = applyCoinPortion totalStake updateProposalThreshold
-    let voteThreshold = applyCoinPortion totalStake updateVoteThreshold
+    let proposalThreshold = applyCoinPortion updateProposalThreshold totalStake
+    let voteThreshold = applyCoinPortion updateVoteThreshold totalStake
     totalVotedStake <- verifyUpdProposalDo voteThreshold votes
     when (totalVotedStake < proposalThreshold) $
         throwError (msgProposal totalVotedStake proposalThreshold)

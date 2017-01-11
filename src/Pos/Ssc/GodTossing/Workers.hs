@@ -26,8 +26,8 @@ import           Pos.Binary.Relay                 ()
 import           Pos.Binary.Ssc                   ()
 import           Pos.Communication.BiP            (BiP)
 import           Pos.Constants                    (k, mpcSendInterval, vssMaxTTL)
-import           Pos.Context                      (getNodeContext, ncPublicKey,
-                                                   ncSecretKey, ncSscContext, waitLrc)
+import           Pos.Context                      (getNodeContext, lrcActionOnEpochReason,
+                                                   ncPublicKey, ncSecretKey, ncSscContext)
 import           Pos.Crypto                       (SecretKey, VssKeyPair, randomNumber,
                                                    runSecureRandom, toPublic)
 import           Pos.Crypto.SecretSharing         (toVssPublicKey)
@@ -39,15 +39,14 @@ import           Pos.Slotting                     (getCurrentSlot, getSlotStart,
                                                    onNewSlot')
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
 import           Pos.Ssc.Extra.MonadLD            (sscRunLocalQuery, sscRunLocalUpdate)
-import           Pos.Ssc.GodTossing.Functions     (genCommitmentAndOpening, getThreshold,
-                                                   hasCommitment, hasOpening, hasShares,
-                                                   isCommitmentIdx, isOpeningIdx,
-                                                   isSharesIdx, mkSignedCommitment)
+import           Pos.Ssc.GodTossing.Functions     (genCommitmentAndOpening, hasCommitment,
+                                                   hasOpening, hasShares, isCommitmentIdx,
+                                                   isOpeningIdx, isSharesIdx,
+                                                   mkSignedCommitment, vssThreshold)
 import           Pos.Ssc.GodTossing.LocalData     (ldCertificates, ldLastProcessedSlot,
                                                    localOnNewSlot, sscProcessMessage)
 import           Pos.Ssc.GodTossing.Richmen       (gtLrcConsumer)
-import           Pos.Ssc.GodTossing.SecretStorage (getSecret, getSecretForTip,
-                                                   prepareSecretToNewSlot, setSecret)
+import           Pos.Ssc.GodTossing.SecretStorage (getSecret, getSecretForTip, setSecret)
 import           Pos.Ssc.GodTossing.Shares        (getOurShares)
 import           Pos.Ssc.GodTossing.Storage       (getGlobalCerts, gtGetGlobalState)
 import           Pos.Ssc.GodTossing.Types         (Opening, SignedCommitment,
@@ -59,7 +58,7 @@ import           Pos.Types                        (EpochIndex, LocalSlotIndex,
                                                    SlotId (..), StakeholderId,
                                                    StakeholderId, Timestamp (..),
                                                    addressHash)
-import           Pos.Util                         (asBinary, maybeThrow)
+import           Pos.Util                         (asBinary)
 import           Pos.Util.Relay                   (DataMsg (..), InvMsg (..))
 import           Pos.WorkMode                     (NewWorkMode)
 
@@ -128,7 +127,6 @@ onNewSlotSsc
 onNewSlotSsc sendActions = onNewSlot' True $ \slotId-> do
     localOnNewSlot slotId
     checkNSendOurCert sendActions
-    prepareSecretToNewSlot slotId
     participationEnabled <- getNodeContext >>=
         atomically . readTVar . gtcParticipateSsc . ncSscContext
     when participationEnabled $ do
@@ -239,13 +237,14 @@ generateAndSetNewSecret
     -> SlotId                         -- ^ Current slot
     -> m (Maybe (SignedCommitment, Opening))
 generateAndSetNewSecret sk SlotId{..} = do
-    waitLrc siEpoch
-    richmen <- maybeThrow noRichmenErr =<< getRichmenSsc siEpoch
+    richmen <- lrcActionOnEpochReason siEpoch
+                   "couldn't get SSC richmen"
+                   getRichmenSsc
     certs <- getGlobalCerts
     let noPsErr = panic "generateAndSetNewSecret: no participants"
     let ps = fromMaybe (panic noPsErr) . nonEmpty .
                 map vcVssKey . mapMaybe (`lookup` certs) . toList $ richmen
-    let threshold = getThreshold $ length ps
+    let threshold = vssThreshold $ length ps
     mPair <- runMaybeT (genCommitmentAndOpening threshold ps)
     tip <- getTip
     case mPair of
@@ -254,9 +253,6 @@ generateAndSetNewSecret sk SlotId{..} = do
       _ -> do
         logError "Wrong participants list: can't deserialize"
         return Nothing
-  where
-    noRichmenErr :: SomeException
-    noRichmenErr = undefined
 
 randomTimeInInterval
     :: NewWorkMode SscGodTossing m

@@ -18,12 +18,13 @@ import           Pos.Context             (NodeContext (..), getNodeContext,
                                           ncPubKeyAddress, ncPublicKey)
 import qualified Pos.DB.GState           as GS
 import qualified Pos.DB.Lrc              as LrcDB
-import           Pos.DHT.Model        (DHTNodeType (DHTFull), discoverPeers)
+import           Pos.DHT.Model           (DHTNodeType (DHTFull), discoverPeers)
 import           Pos.Ssc.Class           (SscConstraint)
 import           Pos.Types               (Timestamp (Timestamp), addressHash)
 import           Pos.Util                (inAssertMode)
 import           Pos.Worker              (runWorkers)
 import           Pos.WorkMode            (NewWorkMode)
+import           Control.Concurrent.STM.TVar (writeTVar)
 
 -- | Run full node in any WorkMode.
 runNode :: (SscConstraint ssc, NewWorkMode ssc m) => [m ()] -> SendActions BiP m -> m ()
@@ -65,4 +66,4 @@ initSemaphore = do
 initLrc :: NewWorkMode ssc m => m ()
 initLrc = do
     lrcSync <- ncLrcSync <$> getNodeContext
-    liftIO . putMVar lrcSync =<< LrcDB.getEpoch
+    atomically . writeTVar lrcSync . (True,) =<< LrcDB.getEpoch

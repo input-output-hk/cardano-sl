@@ -2,18 +2,25 @@ k: 2
 slotDurationSec: 10
 networkDiameter: 3
 neighboursSendThreshold: 4
-genesisN: 3
+genesisN: 20
 maxLocalTxs: 10000
 defaultPeers: []
 sysTimeBroadcastSlots: 6
-mpcSendInterval: 12 # must be less than (k * slotDuration - networkDiameter)
 mdNoBlocksSlotThreshold: 10
 mdNoCommitmentsEpochThreshold: 3
-vssMaxTTL : 100 # epochs
 protocolMagic: 0
 enhancedMessageBroadcast: 2
-updateServers: []
+
+# GodTossing
+vssMaxTTL : 10 # epochs
+mpcSendInterval: 12 # must be less than (k * slotDuration - networkDiameter)
+
+# Delegation
+delegationThreshold: 0.001 # 1% of stake
 maxBlockProxySKs: 10000
+
+# Update mechanism
+updateServers: []
 updateProposalThreshold: 0.1 # 10% of total stake
 updateVoteThreshold: 0.001 # 0.1% of total stake
 updateImplicitApproval: 40000 # slots

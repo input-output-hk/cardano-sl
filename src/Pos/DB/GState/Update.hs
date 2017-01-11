@@ -11,15 +11,10 @@ module Pos.DB.GState.Update
        , getProposalState
        , getAppProposal
        , getProposalStateByApp
-       , getStakeUS
        , getConfirmedSV
 
          -- * Operations
        , UpdateOp (..)
-       -- , putRichmenUS
-       , setScriptVersion
-       , setConfirmedSV
-       , setLastPV
 
          -- * Initialization
        , prepareGStateUS
@@ -34,18 +29,17 @@ import           Universum
 
 import           Pos.Binary.Class          (encodeStrict)
 import           Pos.Binary.DB             ()
-import           Pos.Constants             (curSoftwareVersion)
 import           Pos.Crypto                (hash)
-import           Pos.DB.Class              (MonadDB)
+import           Pos.DB.Class              (MonadDB, getUtxoDB)
 import           Pos.DB.Error              (DBError (DBMalformed))
-import           Pos.DB.Functions          (RocksBatchOp (..))
-import           Pos.DB.GState.Common      (getBi, putBi)
+import           Pos.DB.Functions          (RocksBatchOp (..), rocksWriteBatch)
+import           Pos.DB.GState.Common      (getBi)
 import           Pos.DB.Types              (ProposalState (..), psProposal)
-import           Pos.Genesis               (genesisProtocolVersion, genesisScriptVersion)
+import           Pos.Genesis               (genesisProtocolVersion, genesisScriptVersion,
+                                            genesisSoftwareVersions)
 import           Pos.Script.Type           (ScriptVersion)
-import           Pos.Types                 (ApplicationName, Coin, EpochIndex,
-                                            ProtocolVersion, SoftwareVersion (..),
-                                            StakeholderId)
+import           Pos.Types                 (ApplicationName, ProtocolVersion,
+                                            SoftwareVersion (..))
 import           Pos.Update.Types          (UpId, UpdateProposal (..))
 import           Pos.Util                  (maybeThrow)
 
@@ -76,12 +70,6 @@ getProposalStateByApp :: MonadDB ssc m => ApplicationName -> m (Maybe ProposalSt
 getProposalStateByApp appName =
     runMaybeT $ MaybeT (getAppProposal appName) >>= MaybeT . getProposalState
 
--- | Get stake of richmen according to stake distribution for given
--- epoch. If stakeholder was not richmen or if richmen for epoch are
--- unknown, 'Nothing' is returned.
-getStakeUS :: MonadDB ssc m => EpochIndex -> StakeholderId -> m (Maybe Coin)
-getStakeUS e = getBi . stakeKey e
-
 type NumSoftwareVersion = Word32
 
 -- | Get last confirmed SoftwareVersion of given application.
@@ -97,6 +85,9 @@ getConfirmedSV = getBi . confirmedVersionKey
 data UpdateOp
     = PutProposal !ProposalState
     | DeleteProposal !UpId !ApplicationName
+    | ConfirmVersion !SoftwareVersion
+    | SetLastPV !ProtocolVersion
+    | SetScriptVersion !ProtocolVersion !ScriptVersion
 
 instance RocksBatchOp UpdateOp where
     toBatchOp (PutProposal ps) =
@@ -109,31 +100,17 @@ instance RocksBatchOp UpdateOp where
         appName = svAppName $ upSoftwareVersion up
     toBatchOp (DeleteProposal upId appName) =
         [Rocks.Del (proposalAppKey appName), Rocks.Del (proposalKey upId)]
+    toBatchOp (ConfirmVersion sv) =
+        [Rocks.Put (confirmedVersionKey $ svAppName sv) (encodeStrict $ svNumber sv)]
+    toBatchOp (SetLastPV pv) =
+        [Rocks.Put lastPVKey (encodeStrict pv)]
+    toBatchOp (SetScriptVersion pv sv) =
+        [Rocks.Put (scriptVersionKey pv) (encodeStrict sv)]
 
 -- putUndecidedProposalSlot :: ProposalState -> [Rocks.BatchOp]
 -- putUndecidedProposalSlot (PSUndecided ups) =
 --     [Rocks.Put (proposalAppKey (upsSlot ups)) (encodeStrict (upsProposal ups))]
 -- putUndecidedProposalSlot _ = []
-
--- -- I suppose batching is not necessary here.
--- -- | Put richmen and their stakes for given epoch.
--- putRichmenUS :: MonadDB ssc m => EpochIndex -> [(StakeholderId, Coin)] -> m ()
--- putRichmenUS e = mapM_ putRichmenDo
---   where
---     putRichmenDo (id, stake) = putBi (stakeKey e id) stake
-
--- | Set last protocol version
-setLastPV :: MonadDB ssc m => ProtocolVersion -> m ()
-setLastPV = putBi lastPVKey
-
--- | Set correspondence between protocol version and script version
-setScriptVersion :: MonadDB ssc m => ProtocolVersion -> ScriptVersion -> m ()
-setScriptVersion = putBi . scriptVersionKey
-
--- | Set confirmed version number for given app
-setConfirmedSV :: MonadDB ssc m => SoftwareVersion -> m ()
-setConfirmedSV SoftwareVersion {..}
-    = putBi (confirmedVersionKey svAppName) svNumber
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -144,9 +121,11 @@ prepareGStateUS
        MonadDB ssc m
     => m ()
 prepareGStateUS = unlessM isInitialized $ do
-    putBi lastPVKey genesisProtocolVersion
-    setScriptVersion genesisProtocolVersion genesisScriptVersion
-    setConfirmedSV curSoftwareVersion
+    db <- getUtxoDB
+    flip rocksWriteBatch db $
+        [ SetLastPV genesisProtocolVersion
+        , SetScriptVersion genesisProtocolVersion genesisScriptVersion
+        ] <> map ConfirmVersion genesisSoftwareVersions
 
 isInitialized :: MonadDB ssc m => m Bool
 isInitialized = isJust <$> getLastPVMaybe
@@ -195,13 +174,7 @@ proposalKey :: UpId -> ByteString
 proposalKey = mappend "us/p" . encodeStrict
 
 proposalAppKey :: ApplicationName -> ByteString
--- [CSL-379] Restore prefix after we have proper iterator
--- proposalAppKey = mappend "us/s" . encodeStrict
 proposalAppKey = mappend "us/an" . encodeStrict
-
--- Can be optimized I suppose.
-stakeKey :: EpochIndex -> StakeholderId -> ByteString
-stakeKey e s = "us/s" <> encodeStrict e <> encodeStrict s
 
 confirmedVersionKey :: ApplicationName -> ByteString
 confirmedVersionKey = mappend "us/c" . encodeStrict
@@ -212,3 +185,16 @@ confirmedVersionKey = mappend "us/c" . encodeStrict
 
 getLastPVMaybe :: MonadDB ssc m => m (Maybe ProtocolVersion)
 getLastPVMaybe = getBi lastPVKey
+
+-- -- Set last protocol version
+-- setLastPV :: MonadDB ssc m => ProtocolVersion -> m ()
+-- setLastPV = putBi lastPVKey
+
+-- -- Set correspondence between protocol version and script version
+-- setScriptVersion :: MonadDB ssc m => ProtocolVersion -> ScriptVersion -> m ()
+-- setScriptVersion = putBi . scriptVersionKey
+
+-- -- Set confirmed version number for given app
+-- setConfirmedSV :: MonadDB ssc m => SoftwareVersion -> m ()
+-- setConfirmedSV SoftwareVersion {..}
+--     = putBi (confirmedVersionKey svAppName) svNumber

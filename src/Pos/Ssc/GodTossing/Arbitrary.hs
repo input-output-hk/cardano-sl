@@ -84,6 +84,7 @@ instance Arbitrary VssCertData where
         <*> arbitrary
         <*> arbitrary
         <*> arbitrary
+        <*> arbitrary
 
 instance Bi Commitment => Arbitrary GtGlobalState where
     arbitrary = makeSmall $ GtGlobalState
@@ -93,7 +94,7 @@ instance Bi Commitment => Arbitrary GtGlobalState where
         <*> arbitrary
 
 instance SscBi => Arbitrary GtSecretStorage where
-    arbitrary = GtSecretStorage <$> arbitrary <*> arbitrary <*> arbitrary
+    arbitrary = GtSecretStorage <$> arbitrary <*> arbitrary
 
 ------------------------------------------------------------------------------------------
 -- Message types

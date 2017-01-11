@@ -30,7 +30,7 @@ import           Pos.Constants                    (k, mpcSendInterval, vssMaxTTL
 import           Pos.Context                      (getNodeContext, lrcActionOnEpochReason,
                                                    ncPublicKey, ncSecretKey, ncSscContext)
 import           Pos.Crypto                       (SecretKey, VssKeyPair, randomNumber,
-                                                   runSecureRandom, toPublic)
+                                                   runSecureRandom, shortHashF, toPublic)
 import           Pos.Crypto.SecretSharing         (toVssPublicKey)
 import           Pos.Crypto.Signing               (PublicKey)
 import           Pos.DB.GState                    (getTip)
@@ -147,12 +147,19 @@ onNewSlotCommitment slotId@SlotId{..} = do
         shouldCreateCommitment <- do
             secret <- getSecret
             secretForTip <- getSecretForTip
-            return $ and [isCommitmentIdx siSlot, (isNothing secret || tip /= secretForTip)]
+            if | not (isCommitmentIdx siSlot) ->
+                 False <$
+                 logDebug "We shouldn't generate secret, because current slot is not appropriate for it"
+               | isJust secret && tip == secretForTip ->
+                 False <$
+                 logDebug
+                 (sformat ("We shouldn't generate secret, because we have secret for current tip ("%shortHashF%")") tip)
+               | otherwise -> pure True
         when shouldCreateCommitment $ do
             logDebug $ sformat ("Generating secret for "%ords%" epoch") siEpoch
             generated <- generateAndSetNewSecret ourSk slotId
             case generated of
-                Nothing -> logWarning "I failed to generate secret for Mpc"
+                Nothing -> logWarning "I failed to generate secret for GodTossing"
                 Just _ -> logDebug $
                     sformat ("Generated secret for "%ords%" epoch") siEpoch
 

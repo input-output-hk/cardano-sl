@@ -32,8 +32,8 @@ import           Pos.Context                 (ContextHolder, WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
 import           Pos.DB.Holder               (DBHolder)
 import           Pos.Delegation.Class        (DelegationT (..), MonadDelegation)
-import           Pos.DHT.Model            (MonadDHT)
-import           Pos.DHT.Real             (KademliaDHT (..))
+import           Pos.DHT.Model               (MonadDHT)
+import           Pos.DHT.Real                (KademliaDHT (..))
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
 import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
@@ -93,7 +93,7 @@ instance MonadJL m => MonadJL (KademliaDHT m) where
 -- Concrete types
 ----------------------------------------------------------------------------
 
--- [CSL-447] TODO Move to some "Pos.*.Instances"
+-- Maybe we should move to somewhere else
 deriving instance MonadSscLD ssc m => MonadSscLD ssc (KademliaDHT m)
 deriving instance MonadUtxoRead m => MonadUtxoRead (KademliaDHT m)
 deriving instance MonadUtxo m => MonadUtxo (KademliaDHT m)

@@ -13,6 +13,7 @@ import           Universum
 import           Pos.Communication.PeerState (PeerStateHolder)
 import qualified Pos.Context                 as PC
 import           Pos.Delegation.Class        (DelegationT (..))
+import           Pos.DHT.Real.Types          (KademliaDHT (..))
 import           Pos.Ssc.Extra               (SscHolder (..))
 import qualified Pos.Txp.Holder              as Modern
 import           Pos.Update                  (USHolder (..))
@@ -36,3 +37,4 @@ deriving instance (Monad m, WithWalletContext m) => WithWalletContext (Modern.Tx
 deriving instance (Monad m, WithWalletContext m) => WithWalletContext (SscHolder ssc m)
 deriving instance (Monad m, WithWalletContext m) => WithWalletContext (DelegationT m)
 deriving instance (Monad m, WithWalletContext m) => WithWalletContext (USHolder m)
+deriving instance (Monad m, WithWalletContext m) => WithWalletContext (KademliaDHT m)

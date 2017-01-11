@@ -25,18 +25,15 @@ module Pos.Block.Logic
        , applyWithRollback
        , rollbackBlocks
        , verifyAndApplyBlocks
-       , applyWithRollback
        , createGenesisBlock
        , createMainBlock
        ) where
 
 import           Control.Lens              (view, (^.), _1)
-import           Control.Monad.Catch       (bracketOnError)
 import           Control.Monad.Except      (ExceptT (ExceptT), runExceptT, throwError)
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
 import           Data.Default              (Default (def))
 import qualified Data.HashMap.Strict       as HM
-import           Data.List                 (span)
 import           Data.List.NonEmpty        (NonEmpty ((:|)), (<|))
 import qualified Data.List.NonEmpty        as NE
 import qualified Data.Text                 as T
@@ -50,28 +47,22 @@ import           Pos.Block.Logic.Internal  (applyBlocksUnsafe, rollbackBlocksUns
                                             withBlkSemaphore, withBlkSemaphore_)
 import           Pos.Constants             (curProtocolVersion, curSoftwareVersion, k)
 import           Pos.Context               (NodeContext (ncSecretKey), getNodeContext,
-                                            lrcActionOnEpochReason, putBlkSemaphore,
-                                            readBlkSemaphore, takeBlkSemaphore)
+                                            lrcActionOnEpochReason, readBlkSemaphore)
 import           Pos.Crypto                (SecretKey, WithHash (WithHash), hash,
                                             shortHashF)
 import           Pos.Data.Attributes       (mkAttributes)
-import           Pos.DB                    (DBError (..), MonadDB, SomeBatchOp (..),
-                                            getTipBlockHeader, loadHeadersWhile)
+import           Pos.DB                    (DBError (..), MonadDB, getTipBlockHeader,
+                                            loadHeadersWhile)
 import qualified Pos.DB                    as DB
 import qualified Pos.DB.GState             as GS
 import qualified Pos.DB.Lrc                as LrcDB
-import           Pos.Delegation.Logic      (delegationApplyBlocks,
-                                            delegationRollbackBlocks,
-                                            delegationVerifyBlocks, getProxyMempool)
+import           Pos.Delegation.Logic      (delegationVerifyBlocks, getProxyMempool)
 import           Pos.Lrc.Worker            (lrcSingleShot)
 import           Pos.Slotting              (getCurrentSlot)
 import           Pos.Ssc.Class             (Ssc (..), SscWorkersClass (..))
-import           Pos.Ssc.Extra             (sscApplyBlocks, sscApplyGlobalState,
-                                            sscGetLocalPayload, sscRollback,
-                                            sscVerifyBlocks)
+import           Pos.Ssc.Extra             (sscGetLocalPayload, sscVerifyBlocks)
 import           Pos.Txp.Class             (getLocalTxsNUndo)
-import           Pos.Txp.Logic             (normalizeTxpLD, txApplyBlocks,
-                                            txRollbackBlocks, txVerifyBlocks)
+import           Pos.Txp.Logic             (txVerifyBlocks)
 import           Pos.Types                 (Block, BlockHeader, Blund, EpochIndex,
                                             EpochOrSlot (..), GenesisBlock, HeaderHash,
                                             MainBlock, MainExtraBodyData (..),
@@ -356,10 +347,19 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
     rollingVerifyAndApply [] (spanEpoch blocks)
   where
     spanEpoch = spanSafe ((==) `on` view epochIndexL)
-    -- Applies as much blocks as possible. Argument indicates if at
-    -- least some progress was done so we should return tip. Fail
-    -- otherwise.
-    applyAsMuchAsPossible _nothingApplied = undefined
+    -- Applies as much blocks from failed prefix as possible. Argument
+    -- indicates if at least some progress was done so we should
+    -- return tip. Fail otherwise.
+    applyAsMuchAsPossible e [] True            = throwError e
+    applyAsMuchAsPossible _ [] False           = GS.getTip
+    applyAsMuchAsPossible e (x:xs) nothingApplied = do
+        let block = x:|[]
+        lift (verifyBlocksPrefix block) >>= \case
+            Left e' -> applyAsMuchAsPossible e' [] nothingApplied
+            Right undo -> do
+                lift $ applyBlocksUnsafe $ block `NE.zip` undo
+                applyAsMuchAsPossible e xs False
+    -- Rollbacks and returns an error
     failWithRollback e [] = throwError e
     failWithRollback e toRollback = do
         lift $ mapM_ rollbackBlocks toRollback
@@ -367,7 +367,8 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
     rollingVerifyAndApply blunds (prefix,suffix) =
         lift (verifyBlocksPrefix prefix) >>= \case
             Left failure | rollback -> failWithRollback failure blunds
-            Left failure -> applyAsMuchAsPossible $ null blunds
+            Left failure ->
+                applyAsMuchAsPossible failure (NE.toList prefix) $ null blunds
             Right undos -> do
                 let newBlunds = blocks `NE.zip` undos
                 lift $ applyBlocksUnsafe newBlunds

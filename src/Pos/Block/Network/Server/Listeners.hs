@@ -8,12 +8,12 @@ module Pos.Block.Network.Server.Listeners
        ( blockListeners
        ) where
 
-import           Control.Lens                   (view, (^.), _1)
+import           Control.Lens                   (view, (^.))
 import           Data.List.NonEmpty             (NonEmpty ((:|)), nonEmpty)
 import qualified Data.List.NonEmpty             as NE
 import           Formatting                     (build, sformat, stext, (%))
-import           Serokell.Util.Text             (listJson, listJsonIndent)
-import           System.Wlog                    (logDebug, logError, logInfo, logWarning)
+import           Serokell.Util.Text             (listJson)
+import           System.Wlog                    (logDebug, logInfo, logWarning)
 import           Universum
 
 import           Pos.Binary.Communication       ()
@@ -236,7 +236,6 @@ applyWithoutRollback blocks = do
     L.withBlkSemaphore applyWithoutRollbackDo >>= \case
         Left err  -> onFailedVerifyBlocks blocks err
         Right newTip -> do
-            logDebug "Blocks were successfully applied"
             when (newTip /= newestTip) $
                 logWarning $ sformat
                     ("Only blocks up to "%shortHashF%" were applied, "%
@@ -301,7 +300,6 @@ onFailedVerifyBlocks
 onFailedVerifyBlocks blocks err = logWarning $
     sformat ("Failed to verify blocks: "%stext%"\n  blocks = "%listJson)
             err (fmap headerHash blocks)
-
 
 blocksAppliedMsg
     :: forall ssc a.

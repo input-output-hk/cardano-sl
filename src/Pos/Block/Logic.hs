@@ -37,7 +37,7 @@ import qualified Data.HashMap.Strict       as HM
 import           Data.List.NonEmpty        (NonEmpty ((:|)), (<|))
 import qualified Data.List.NonEmpty        as NE
 import qualified Data.Text                 as T
-import           Formatting                (build, int, sformat, stext, (%))
+import           Formatting                (build, int, ords, sformat, stext, (%))
 import           Serokell.Util.Verify      (VerificationRes (..), formatAllErrors,
                                             isVerSuccess, verResToMonadError)
 import           System.Wlog               (logDebug)
@@ -448,12 +448,14 @@ createGenesisBlock
     => EpochIndex -> m (Maybe (GenesisBlock ssc))
 createGenesisBlock epochIndex = do
     tipHeader <- getTipBlockHeader
-    logDebug $ sformat msgFmt tipHeader
+    logDebug $ sformat msgFmt epochIndex tipHeader
     if shouldCreateGenesisBlock epochIndex $ getEpochOrSlot tipHeader
         then createGenesisBlockDo epochIndex
         else Nothing <$ logDebug "We shouldn't create genesis block"
   where
-    msgFmt = "We are trying to create genesis block, our tip header is\n"%build
+    msgFmt =
+        "We are trying to create genesis block for "%ords %
+        " epoch, our tip header is\n"%build
 
 shouldCreateGenesisBlock :: EpochIndex -> EpochOrSlot -> Bool
 -- Genesis block for 0-th epoch is hardcoded.
@@ -474,7 +476,7 @@ createGenesisBlockDo epoch = do
     res <- withBlkSemaphore (createGenesisBlockCheckAgain leaders)
     res <$ inAssertMode (logDebug . sformat newTipFmt =<< readBlkSemaphore)
   where
-    newTipFmt = "After creatingGenesisBlock our tip is: "%shortHashF
+    newTipFmt = "After creating GenesisBlock our tip is: "%shortHashF
     createGenesisBlockCheckAgain leaders tip = do
         let noHeaderMsg =
                 "There is no header is DB corresponding to tip from semaphore"

@@ -136,37 +136,35 @@ onNewSlotSsc = onNewSlot True $ \slotId-> do
 onNewSlotCommitment
     :: (WorkMode SscGodTossing m)
     => SlotId -> m ()
-onNewSlotCommitment slotId@SlotId{..} = do
-    ourId <- addressHash . ncPublicKey <$> getNodeContext
-    ourSk <- ncSecretKey <$> getNodeContext
-    tip <- getTip
-    shouldSendCommitment <- do
-        commitmentInBlockchain <- hasCommitment ourId <$> gtGetGlobalState
-        return $ isCommitmentIdx siSlot && not commitmentInBlockchain
-    when shouldSendCommitment $ do
-        shouldCreateCommitment <- do
-            secret <- getSecret
-            secretForTip <- getSecretForTip
-            if | not (isCommitmentIdx siSlot) ->
-                 False <$
-                 logDebug "We shouldn't generate secret, because current slot is not appropriate for it"
-               | isJust secret && tip == secretForTip ->
-                 False <$
-                 logDebug
-                 (sformat ("We shouldn't generate secret, because we have secret for current tip ("%shortHashF%")") tip)
-               | otherwise -> pure True
-        when shouldCreateCommitment $ do
-            logDebug $ sformat ("Generating secret for "%ords%" epoch") siEpoch
-            generated <- generateAndSetNewSecret ourSk slotId
-            case generated of
-                Nothing -> logWarning "I failed to generate secret for GodTossing"
-                Just _ -> logDebug $
-                    sformat ("Generated secret for "%ords%" epoch") siEpoch
+onNewSlotCommitment slotId@SlotId {..}
+    | not (isCommitmentIdx siSlot) = pass
+    | otherwise = do
+        ourId <- addressHash . ncPublicKey <$> getNodeContext
+        ourSk <- ncSecretKey <$> getNodeContext
+        tip <- getTip
+        shouldSendCommitment <- not . hasCommitment siEpoch ourId <$> gtGetGlobalState
+        logDebug $ sformat ("shouldSendCommitment: "%shown) shouldSendCommitment
+        when shouldSendCommitment $ do
+            shouldCreateCommitment <- do
+                secret <- getSecret
+                secretForTip <- getSecretForTip
+                let should = isNothing secret || tip /= secretForTip
+                let fmt = "We shouldn't generate secret, because we have secret for current tip ("
+                          %shortHashF%")"
+                let msg = sformat fmt tip
+                should <$ unless should (logDebug msg)
+            when shouldCreateCommitment $ do
+                logDebug $ sformat ("Generating secret for "%ords%" epoch") siEpoch
+                generated <- generateAndSetNewSecret ourSk slotId
+                case generated of
+                    Nothing -> logWarning "I failed to generate secret for GodTossing"
+                    Just _ -> logDebug $
+                        sformat ("Generated secret for "%ords%" epoch") siEpoch
 
-        mbComm <- fmap (view _2) <$> getSecret
-        whenJust mbComm $ \comm -> do
-            _ <- sscProcessMessageRichmen (MCCommitment comm) ourId
-            sendOurData CommitmentMsg siEpoch 0 ourId
+            mbComm <- fmap (view _2) <$> getSecret
+            whenJust mbComm $ \comm -> do
+                _ <- sscProcessMessageRichmen (MCCommitment comm) ourId
+                sendOurData CommitmentMsg siEpoch 0 ourId
 
 -- Openings-related part of new slot processing
 onNewSlotOpening
@@ -177,7 +175,7 @@ onNewSlotOpening SlotId {..} = do
     shouldSendOpening <- do
         globalData <- gtGetGlobalState
         let openingInBlockchain = hasOpening ourId globalData
-        let commitmentInBlockchain = hasCommitment ourId globalData
+        let commitmentInBlockchain = hasCommitment siEpoch ourId globalData
         return $ and [ isOpeningIdx siSlot
                      , not openingInBlockchain
                      , commitmentInBlockchain]

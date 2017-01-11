@@ -36,7 +36,7 @@ module Pos.Ssc.GodTossing.Functions
        , vssThreshold
        ) where
 
-import           Control.Lens                   ((^.), _2)
+import           Control.Lens                   (at, (^.), _2)
 import           Data.Containers                (ContainerKey, SetContainer (notMember))
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.HashSet                   as HS (fromList, size)
@@ -61,7 +61,8 @@ import           Pos.Ssc.GodTossing.Types.Base  (Commitment (..), CommitmentsMap
                                                  InnerSharesMap, Opening (..),
                                                  SignedCommitment, VssCertificate (..),
                                                  VssCertificatesMap)
-import           Pos.Ssc.GodTossing.Types.Types (GtGlobalState (..), GtPayload (..))
+import           Pos.Ssc.GodTossing.Types.Types (GtGlobalState (..), GtPayload (..),
+                                                 gsCommitments)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types.Address              (addressHash)
 import           Pos.Types.Types                (EpochIndex (..), LocalSlotIndex,
@@ -124,8 +125,14 @@ isSharesId = isSharesIdx . siSlot
 inLastKSlotsId :: SlotId -> Bool
 inLastKSlotsId SlotId{..} = siSlot >= 5 * k
 
-hasCommitment :: StakeholderId -> GtGlobalState -> Bool
-hasCommitment addr = HM.member addr . _gsCommitments
+-- Not the best solution :(
+hasCommitment
+    :: Bi Commitment
+    => EpochIndex -> StakeholderId -> GtGlobalState -> Bool
+hasCommitment epoch id gs =
+    case gs ^. gsCommitments . at id of
+        Nothing              -> False
+        Just (pk, comm, sig) -> checkSig pk (epoch, comm) sig
 
 hasOpening :: StakeholderId -> GtGlobalState -> Bool
 hasOpening addr = HM.member addr . _gsOpenings

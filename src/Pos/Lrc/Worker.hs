@@ -7,6 +7,7 @@
 module Pos.Lrc.Worker
        ( lrcOnNewSlotWorker
        , lrcSingleShot
+       , lrcSingleShotNoLock
        ) where
 
 import           Control.Concurrent.STM.TVar (TVar, readTVar, writeTVar)
@@ -20,7 +21,7 @@ import           System.Wlog                 (logInfo)
 import           Universum
 
 import           Pos.Binary.Communication    ()
-import           Pos.Block.Logic             (applyBlocks, rollbackBlocks,
+import           Pos.Block.Logic.Internal    (applyBlocksUnsafe, rollbackBlocksUnsafe,
                                               withBlkSemaphore_)
 import           Pos.Constants               (k)
 import           Pos.Context                 (LrcSyncData, getNodeContext, ncLrcSync)
@@ -56,12 +57,18 @@ lrcOnNewSlotImpl SlotId {..} = when (siSlot < k) $ lrcSingleShot siEpoch
 lrcSingleShot
     :: (SscWorkersClass ssc, WorkMode ssc m)
     => EpochIndex -> m ()
-lrcSingleShot epoch = lrcSingleShotImpl epoch allLrcConsumers
+lrcSingleShot epoch = lrcSingleShotImpl True epoch allLrcConsumers
+
+-- | Same, but doesn't take lock on the semaphore.
+lrcSingleShotNoLock
+    :: (SscWorkersClass ssc, WorkMode ssc m)
+    => EpochIndex -> m ()
+lrcSingleShotNoLock epoch = lrcSingleShotImpl False epoch allLrcConsumers
 
 lrcSingleShotImpl
     :: WorkMode ssc m
-    => EpochIndex -> [LrcConsumer m] -> m ()
-lrcSingleShotImpl epoch consumers = do
+    => Bool -> EpochIndex -> [LrcConsumer m] -> m ()
+lrcSingleShotImpl withSemaphore epoch consumers = do
     lock <- ncLrcSync <$> getNodeContext
     tryAcuireExclusiveLock epoch lock onAcquiredLock
   where
@@ -73,7 +80,10 @@ lrcSingleShotImpl epoch consumers = do
         when needComputeRichmen $ logInfo "Need to compute richmen"
         when (needComputeLeaders || needComputeRichmen) $ do
             logInfo "LRC is starting"
-            withBlkSemaphore_ $ lrcDo epoch expectedRichmenComp
+            if withSemaphore
+            then withBlkSemaphore_ $ lrcDo epoch expectedRichmenComp
+            -- we don't change/use it in lcdDo in fact
+            else void . lrcDo epoch expectedRichmenComp =<< GS.getTip
             logInfo "LRC has finished"
         putEpoch epoch
         logInfo "LRC has updated LRC DB"
@@ -104,8 +114,8 @@ lrcDo epoch consumers tip = tip <$ do
     blockUndoList <- DB.loadBlocksFromTipWhile whileMoreOrEq5k
     when (null blockUndoList) $ throwM UnknownBlocksForLrc
     let blunds = NE.fromList blockUndoList
-    rollbackBlocks blunds
-    compute `finally` applyBlocks (NE.reverse blunds)
+    rollbackBlocksUnsafe blunds
+    compute `finally` applyBlocksUnsafe (NE.reverse blunds)
   where
     whileMoreOrEq5k b _ = getEpochOrSlot b > crucial
     crucial = EpochOrSlot $ Right $ crucialSlot epoch

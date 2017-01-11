@@ -132,6 +132,7 @@ library
                         -- Block processing
                         Pos.Block.Error
                         Pos.Block.Logic
+                        Pos.Block.Logic.Internal
                         Pos.Block.Network.Announce
                         Pos.Block.Network.Request
                         Pos.Block.Network.Types

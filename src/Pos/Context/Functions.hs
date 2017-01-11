@@ -86,6 +86,5 @@ lrcActionOnEpochReason
     -> (EpochIndex -> m (Maybe a))
     -> m a
 lrcActionOnEpochReason epoch reason actionDependsOnLrc = do
-  waitLrc epoch
-  actionDependsOnLrc epoch >>=
-      maybeThrow (LrcDataUnknown epoch reason)
+    waitLrc epoch
+    actionDependsOnLrc epoch >>= maybeThrow (LrcDataUnknown epoch reason)

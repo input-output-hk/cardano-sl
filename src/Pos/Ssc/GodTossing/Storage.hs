@@ -200,7 +200,7 @@ mpcVerifyBlocks verifyPure richmen blocks = do
             when (isVerSuccess v) $
                 mpcProcessBlock b
             return v
-        return (fold vs)
+        return $ fold vs
 
 -- | Apply sequence of blocks to state. Sequence must be based on last
 -- applied block and must be valid.

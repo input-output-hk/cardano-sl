@@ -34,8 +34,11 @@ import           Pos.DB.Types                 (DB (..))
 
 -- | Open DB stored on disk.
 openDB :: MonadResource m => FilePath -> m (DB ssc)
-openDB fp = DB def def def
-                   <$> Rocks.open fp def { Rocks.createIfMissing = True }
+openDB fp = DB def def def <$> Rocks.open fp opts
+  where
+    opts =
+        def
+        {Rocks.createIfMissing = True, Rocks.compression = Rocks.NoCompression}
 
 -- | Read ByteString from RocksDb using given key.
 rocksGetBytes :: (MonadIO m) => ByteString -> DB ssc -> m (Maybe ByteString)

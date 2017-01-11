@@ -11,10 +11,12 @@ import qualified Control.Concurrent       as Conc
 import qualified Control.Concurrent.Async as Conc
 import qualified Control.Concurrent.STM   as Conc
 import qualified Control.Exception        as Exception
+import           Control.Monad            (forever)
 import           Control.Monad.Catch      (MonadCatch (..), MonadMask (..),
                                            MonadThrow (..))
 import           Control.Monad.Fix        (MonadFix)
 import           Control.Monad.IO.Class   (MonadIO)
+import           Data.Time.Units          (Hour)
 import           System.Wlog              (CanLog (..))
 
 import           Mockable.Channel         (Channel (..), ChannelT)
@@ -47,7 +49,7 @@ instance Mockable Fork Production where
 
 instance Mockable Delay Production where
     liftMockable (Delay time) = Production $ Serokell.threadDelay time
-    liftMockable SleepForever = Production $ Conc.atomically Conc.retry
+    liftMockable SleepForever = Production $ forever $ Serokell.threadDelay (1 :: Hour)
 
 instance Mockable RunInUnboundThread Production where
     liftMockable (RunInUnboundThread m) = Production $

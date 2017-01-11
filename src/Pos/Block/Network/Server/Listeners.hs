@@ -6,22 +6,21 @@
 
 module Pos.Block.Network.Server.Listeners
        ( blockListeners
-
-         -- following functions are unused!
-       , handleBlocksWithLca
+       , blockStubListeners
        ) where
 
 import           Control.Lens                   (view, (^.), _1)
 import           Data.List.NonEmpty             (NonEmpty ((:|)), nonEmpty)
 import qualified Data.List.NonEmpty             as NE
+import           Data.Proxy                     (Proxy (..))
 import           Formatting                     (build, sformat, shown, stext, (%))
+import           Node                           (ConversationActions (..),
+                                                 ListenerAction (..), NodeId (..),
+                                                 SendActions (..), sendTo)
 import           Serokell.Util.Text             (listJson, listJsonIndent)
 import           System.Wlog                    (logDebug, logError, logInfo, logWarning)
 import           Universum
 
-import           Node                           (ConversationActions (..),
-                                                 ListenerAction (..), NodeId (..),
-                                                 SendActions (..), sendTo)
 import           Pos.Binary.Communication       ()
 import           Pos.Block.Logic                (ClassifyHeaderRes (..),
                                                  ClassifyHeadersRes (..), applyBlocks,
@@ -42,12 +41,13 @@ import           Pos.Communication.PeerState    (WithPeerState (..))
 import           Pos.Crypto                     (hash, shortHashF)
 import qualified Pos.DB                         as DB
 import           Pos.DB.Error                   (DBError (DBMalformed))
-import           Pos.DHT.Model               (nodeIdToAddress)
+import           Pos.DHT.Model                  (nodeIdToAddress)
 import           Pos.Ssc.Class.Types            (Ssc (..))
 import           Pos.Types                      (Block, BlockHeader, Blund,
                                                  HasHeaderHash (..), HeaderHash, NEBlocks,
                                                  blockHeader, gbHeader, prevBlockL)
 import           Pos.Util                       (inAssertMode, _neHead, _neLast)
+import           Pos.Util                       (stubListenerConv, stubListenerOneMsg)
 import           Pos.WorkMode                   (WorkMode)
 
 blockListeners
@@ -58,6 +58,16 @@ blockListeners =
     , handleGetBlocks
     , handleBlockHeaders
     , handleBlock
+    ]
+
+blockStubListeners
+    :: ( Ssc ssc, Monad m )
+    => Proxy ssc -> [ListenerAction BiP m]
+blockStubListeners p =
+    [ stubListenerConv $ (const Proxy :: Proxy ssc -> Proxy (MsgGetHeaders ssc)) p
+    , stubListenerOneMsg $ (const Proxy :: Proxy ssc -> Proxy (MsgGetBlocks ssc)) p
+    , stubListenerOneMsg $ (const Proxy :: Proxy ssc -> Proxy (MsgHeaders ssc)) p
+    , stubListenerOneMsg $ (const Proxy :: Proxy ssc -> Proxy (MsgBlock ssc)) p
     ]
 
 -- | Handles GetHeaders request which means client wants to get

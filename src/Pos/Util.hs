@@ -74,6 +74,9 @@ module Pos.Util
        , readTVarConditional
        , readUntilEqualTVar
 
+       , stubListenerOneMsg
+       , stubListenerConv
+
        , NamedMessagePart (..)
        -- * Instances
        -- ** SafeCopy (NonEmpty a)
@@ -99,6 +102,7 @@ import qualified Data.HashMap.Strict           as HM
 import           Data.HashSet                  (fromMap)
 import           Data.List.NonEmpty            (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty            as NE
+import           Data.Proxy                    (Proxy (..), asProxyTypeOf)
 import           Data.SafeCopy                 (Contained, SafeCopy (..), base, contain,
                                                 deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Serialize                as Cereal (Get, Put)
@@ -109,6 +113,9 @@ import           Formatting                    (sformat, shown, stext, (%))
 import           Language.Haskell.TH
 import           Mockable                      (Delay, Fork, Mockable, Throw, delay, fork,
                                                 killThread, throw)
+import           Node                          (ConversationActions, ListenerAction (..),
+                                                Message)
+import           Node.Message                  (Packable, Unpackable)
 import           Serokell.Util                 (VerificationRes (..))
 import           System.Console.ANSI           (Color (..), ColorIntensity (Vivid),
                                                 ConsoleLayer (Foreground),
@@ -525,3 +532,15 @@ readUntilEqualTVar
     :: (Eq a, MonadIO m)
     => (x -> a) -> TVar x -> a -> m x
 readUntilEqualTVar f tvar expVal = readTVarConditional ((expVal ==) . f) tvar
+
+stubListenerOneMsg :: (Monad m, Message r, Unpackable p r, Packable p r) => Proxy r -> ListenerAction p m
+stubListenerOneMsg p = ListenerActionOneMsg $ \_ _ m ->
+                          let _ = m `asProxyTypeOf` p
+                           in return ()
+
+stubListenerConv :: (Monad m, Message r, Unpackable p r, Packable p Void) => Proxy r -> ListenerAction p m
+stubListenerConv p = ListenerActionConversation $ \_ convActions ->
+                          let _ = convActions `asProxyTypeOf` modP p
+                              modP :: Proxy r -> Proxy (ConversationActions Void r m)
+                              modP _ = Proxy
+                           in return ()

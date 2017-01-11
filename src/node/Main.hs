@@ -5,6 +5,7 @@ module Main where
 
 import qualified Data.ByteString.Lazy as LBS
 import           Data.List            ((!!))
+import           Data.Proxy           (Proxy (..))
 import           Node                 (SendActions, hoistSendActions)
 import           Mockable             (Production)
 import           System.Directory     (createDirectoryIfMissing)
@@ -17,12 +18,12 @@ import qualified Pos.CLI              as CLI
 import           Pos.Communication     (BiP)
 import           Pos.Constants        (RunningMode (..), runningMode)
 import           Pos.Crypto           (VssKeyPair, vssKeyGen)
+import           Pos.DHT.Model        (DHTKey, DHTNodeType (..), dhtNodeType)
 import           Pos.Genesis          (genesisSecretKeys, genesisUtxo)
 import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
                                        NodeParams (..), RealModeResources,
                                        bracketResources, runNodeProduction, runNodeStats,
                                        runTimeLordReal, runTimeSlaveReal, stakesDistr)
-import           Pos.DHT.Model     (DHTKey, DHTNodeType (..), dhtNodeType)
 import           Pos.Ssc.GodTossing   (genesisVssKeyPairs)
 import           Pos.Ssc.GodTossing   (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon   (SscNistBeacon)
@@ -30,7 +31,7 @@ import           Pos.Ssc.SscAlgo      (SscAlgo (..))
 import           Pos.Statistics       (getNoStatsT, runStatsT', getStatsMap)
 import           Pos.Types            (Timestamp)
 #ifdef WITH_WEB
-import           Pos.Ssc.Class        (SscConstraint)
+import           Pos.Ssc.Class        (Ssc, SscConstraint)
 import           Pos.Web              (serveWebBase, serveWebGT)
 import           Pos.WorkMode         (WorkMode)
 #ifdef WITH_WALLET
@@ -61,13 +62,13 @@ decode' fpath = either fail' return . decode =<< LBS.readFile fpath
   where
     fail' e = fail $ "Error reading key from " ++ fpath ++ ": " ++ e
 
-getSystemStart :: RealModeResources -> Args -> Production Timestamp
-getSystemStart inst args  =
+getSystemStart :: Ssc ssc => Proxy ssc -> RealModeResources -> Args -> Production Timestamp
+getSystemStart sscProxy inst args  =
     case runningMode of
         Development ->
             if timeLord args
                 then runTimeLordReal (loggingParams "time-lord" args)
-                else runTimeSlaveReal inst (baseParams "time-slave" args)
+                else runTimeSlaveReal sscProxy inst (baseParams "time-slave" args)
         Production systemStart -> return systemStart
 
 loggingParams :: LoggerName -> Args -> LoggingParams
@@ -118,7 +119,9 @@ action args@Args {..} res = do
                     vssSecretPath
                     "vss.keypair"
                     vssKeyGen
-            systemStart <- getSystemStart res args
+            systemStart <- case CLI.sscAlgo commonArgs of
+                             GodTossingAlgo -> getSystemStart (Proxy :: Proxy SscGodTossing) res args
+                             NistBeaconAlgo -> getSystemStart (Proxy :: Proxy SscNistBeacon) res args
             let currentParams = nodeParams args systemStart
                 gtParams = gtSscParams args vssSK
 #ifdef WITH_WEB

@@ -35,6 +35,7 @@ import           Control.Lens                (each, to, (%~), (^..), (^?), _head
 import           Control.Monad.Fix           (MonadFix)
 import           Data.Default                (def)
 import           Data.List                   (nub)
+import           Data.Proxy                  (Proxy (..))
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
 import           Mockable                    (Mockable, MonadMockable, Production (..),
@@ -55,10 +56,9 @@ import           Universum                   hiding (bracket)
 import           Pos.Binary                  ()
 import           Pos.CLI                     (readLoggerConfig)
 import           Pos.Communication           (BiP (..), SysStartRequest (..),
-                                              allListeners, sysStartReqListener,
-                                              sysStartReqListenerSlave,
-                                              sysStartRespListener,
-                                              sysStartRespListenerNode)
+                                              SysStartResponse, allListeners,
+                                              allStubListeners, sysStartReqListener,
+                                              sysStartRespListener)
 import           Pos.Communication.PeerState (runPeerStateHolder)
 import           Pos.Constants               (defaultPeers, isDevelopment, runningMode)
 import qualified Pos.Constants               as Const
@@ -69,24 +69,25 @@ import           Pos.DB                      (MonadDB (..), getTip, initNodeDBs,
                                               openNodeDBs, runDBHolder, _gStateDB)
 import           Pos.DB.Misc                 (addProxySecretKey)
 import           Pos.Delegation.Class        (runDelegationT)
-import           Pos.Util.TimeWarp      (sec)
-import           Pos.Genesis                 (genesisLeaders)
-import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
-                                              NodeParams (..))
-import           Pos.DHT.Model            (MonadDHT (..), sendToNeighbors)
-import           Pos.DHT.Real             (KademliaDHTInstance,
+import           Pos.DHT.Model               (MonadDHT (..), sendToNeighbors)
+import           Pos.DHT.Real                (KademliaDHTInstance,
                                               KademliaDHTInstanceConfig (..),
                                               runKademliaDHT, startDHTInstance,
                                               stopDHTInstance)
-import           Pos.Ssc.Class               (SscConstraint, SscNodeContext, SscParams,
-                                              sscCreateNodeContext, sscLoadGlobalState)
+import           Pos.Genesis                 (genesisLeaders)
+import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
+                                              NodeParams (..))
+import           Pos.Ssc.Class               (Ssc, SscConstraint, SscNodeContext,
+                                              SscParams, sscCreateNodeContext,
+                                              sscLoadGlobalState)
 import           Pos.Ssc.Extra               (runSscHolder)
 import           Pos.Statistics              (getNoStatsT, runStatsT')
 import           Pos.Txp.Holder              (runTxpLDHolder)
 import qualified Pos.Txp.Types.UtxoView      as UV
 import           Pos.Types                   (Timestamp (Timestamp), timestampF)
 import           Pos.Update.MemState         (runUSHolder)
-import           Pos.Util                    (runWithRandomIntervals')
+import           Pos.Util                    (runWithRandomIntervals', stubListenerOneMsg)
+import           Pos.Util.TimeWarp           (sec)
 import           Pos.Util.UserSecret         (peekUserSecret, usKeys, writeUserSecret)
 import           Pos.WorkMode                (ProductionMode, RawRealMode, ServiceMode,
                                               StatsMode)
@@ -101,8 +102,8 @@ data RealModeResources = RealModeResources
 ----------------------------------------------------------------------------
 
 -- | Runs node as time-slave inside IO monad.
-runTimeSlaveReal :: RealModeResources -> BaseParams -> Production Timestamp
-runTimeSlaveReal res bp = do
+runTimeSlaveReal :: Ssc ssc => Proxy ssc -> RealModeResources -> BaseParams -> Production Timestamp
+runTimeSlaveReal sscProxy res bp = do
     mvar <- liftIO newEmptyMVar
     runServiceMode res bp (listeners mvar) $ \sendActions ->
       case runningMode of
@@ -122,8 +123,8 @@ runTimeSlaveReal res bp = do
   where
     listeners mvar =
       if isDevelopment
-         then [sysStartReqListenerSlave, sysStartRespListener mvar]
-         else []
+         then allStubListeners sscProxy ++ [stubListenerOneMsg (Proxy :: Proxy SysStartRequest), sysStartRespListener mvar]
+         else allStubListeners sscProxy
 
 -- | Runs time-lord to acquire system start.
 runTimeLordReal :: LoggingParams -> Production Timestamp
@@ -300,7 +301,7 @@ addDevListeners
     -> [Listener BiP m]
 addDevListeners sysStart ls =
     if isDevelopment
-    then sysStartRespListenerNode : sysStartReqListener sysStart : ls
+    then stubListenerOneMsg (Proxy :: Proxy SysStartResponse) : sysStartReqListener sysStart : ls
     else ls
 
 bracketDHTInstance

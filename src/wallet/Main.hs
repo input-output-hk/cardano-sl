@@ -7,6 +7,7 @@ module Main where
 
 import           Control.Monad.Reader (MonadReader (..), ReaderT, asks, runReaderT, ask)
 import           Data.List            ((!!))
+import           Data.Proxy           (Proxy (..))
 import qualified Data.Text            as T
 import           Formatting           (build, int, sformat, stext, (%))
 import           Node                 (SendActions, hoistSendActions)
@@ -20,14 +21,15 @@ import           Pos.Constants        (slotDuration)
 import           Pos.Communication (BiP)
 import           Pos.Crypto           (SecretKey, createProxySecretKey, toPublic)
 import           Pos.Delegation       (sendProxySKEpoch, sendProxySKSimple)
+import           Pos.DHT.Model        (DHTNodeType (..), dhtAddr, discoverPeers)
 import           Pos.Genesis          (genesisPublicKeys, genesisSecretKeys)
 import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
                                        bracketResources, runTimeSlaveReal)
-import           Pos.DHT.Model     (DHTNodeType (..), dhtAddr, discoverPeers)
+import           Pos.Ssc.GodTossing   (SscGodTossing)
+import           Pos.Ssc.NistBeacon   (SscNistBeacon)
 import           Pos.Ssc.SscAlgo      (SscAlgo (..))
+import           Pos.Types            (EpochIndex (..), coinF, makePubKeyAddress, txaF)
 import           Pos.Util.TimeWarp    (NetworkAddress)
-import           Pos.Types            (EpochIndex (..), coinF,
-                                       makePubKeyAddress, txaF)
 import           Pos.Wallet           (WalletMode, WalletParams (..), WalletRealMode,
                                        getBalance, runWalletReal, submitTx)
 #ifdef WITH_WEB
@@ -144,7 +146,9 @@ main = do
                 { bpLoggingParams = logParams { lpRunnerTag = "time-slave" }
                 }
 
-        systemStart <- runTimeSlaveReal res timeSlaveParams
+        systemStart <- case CLI.sscAlgo woCommonArgs of
+            GodTossingAlgo -> runTimeSlaveReal (Proxy :: Proxy SscGodTossing) res timeSlaveParams
+            NistBeaconAlgo -> runTimeSlaveReal (Proxy :: Proxy SscNistBeacon) res timeSlaveParams
 
         let params =
                 WalletParams

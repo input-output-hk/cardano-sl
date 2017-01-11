@@ -5,9 +5,7 @@
 
 module Pos.Communication.Server.SysStart
        ( sysStartReqListener
-       , sysStartReqListenerSlave
        , sysStartRespListener
-       , sysStartRespListenerNode
        ) where
 
 import           Control.Concurrent.MVar  (MVar, tryPutMVar)
@@ -23,16 +21,6 @@ import           Pos.Communication.Types  (SysStartRequest (..), SysStartRespons
 import           Pos.DHT.Model         (sendToNeighbors)
 import           Pos.Types                (Timestamp)
 import           Pos.WorkMode             (MinWorkMode)
-
-sysStartRespListenerNode
-    :: ( Monad m
-       ) => Listener BiP m
-sysStartRespListenerNode = ListenerActionOneMsg $ \_ _ (_ :: SysStartResponse) -> return ()
-
-sysStartReqListenerSlave
-    :: ( Monad m
-       ) => Listener BiP m
-sysStartReqListenerSlave = ListenerActionOneMsg $ \_ _ (_ :: SysStartRequest) -> return ()
 
 -- | Listener for 'SysStartRequest' message.
 sysStartReqListener

@@ -5,6 +5,7 @@
 
 module Pos.Communication.Server
        ( allListeners
+       , allStubListeners
        , serverLoggerName
        , module Pos.Communication.Server.SysStart
        ) where
@@ -15,13 +16,14 @@ import           System.Wlog                       (LoggerName)
 import           Universum
 
 import           Pos.Binary.Communication          ()
-import           Pos.Block.Network.Server          (blockListeners)
+import           Pos.Block.Network.Server          (blockListeners, blockStubListeners)
 import           Pos.Communication.BiP             (BiP)
 import           Pos.Communication.Server.Protocol (protocolListeners)
 import           Pos.Communication.Server.SysStart
 import           Pos.Communication.Util            (modifyListenerLogger)
 import           Pos.Delegation.Listeners          (delegationListeners)
 import           Pos.Ssc.Class.Listeners           (SscListenersClass (..))
+import           Pos.Ssc.Class.Types               (Ssc)
 import           Pos.Txp.Listeners                 (txListeners)
 import           Pos.WorkMode                      (WorkMode)
 
@@ -37,6 +39,18 @@ allListeners =
         , map (modifyListenerLogger "tx") txListeners
         , map (modifyListenerLogger "delegation") delegationListeners
         , map (modifyListenerLogger "protocol") protocolListeners
+        ]
+
+-- | All listeners running on one node.
+allStubListeners
+    :: (Ssc ssc, Monad m) => Proxy ssc -> [Listener BiP m]
+allStubListeners p =
+    concat
+        [ blockStubListeners p
+        -- , untag sscStubListeners
+        -- , txStubListeners
+        -- , delegationStubListeners
+        -- , protocolStubListeners
         ]
 
 ---- | ForkStrategy of whole server.

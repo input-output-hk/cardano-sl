@@ -7,11 +7,11 @@ import           Control.Concurrent.STM.TVar (modifyTVar', newTVarIO, readTVarIO
 import           Control.Lens                (view, _1)
 import           Data.List                   ((!!))
 import           Data.Maybe                  (fromMaybe)
+import           Data.Proxy                  (Proxy (..))
 import           Data.Time.Clock.POSIX       (getPOSIXTime)
 import           Data.Time.Units             (Microsecond)
 import           Formatting                  (float, int, sformat, (%))
-import           Mockable                    (Production, delay, forConcurrently,
-                                              fork)
+import           Mockable                    (Production, delay, forConcurrently, fork)
 import           Node                        (SendActions)
 import           Options.Applicative         (execParser)
 import           System.FilePath.Posix       ((</>))
@@ -25,14 +25,14 @@ import           Pos.Communication           (BiP)
 import           Pos.Constants               (genesisN, k, neighborsSendThreshold,
                                               slotDuration)
 import           Pos.Crypto                  (KeyPair (..), hash)
+import           Pos.DHT.Model               (DHTNodeType (..), MonadDHT, dhtAddr,
+                                              discoverPeers, getKnownPeers)
 import           Pos.Genesis                 (genesisUtxo)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
                                               NodeParams (..), RealModeResources,
                                               bracketResources, initLrc, runNode,
                                               runProductionMode, runTimeSlaveReal,
                                               stakesDistr)
-import           Pos.DHT.Model            (DHTNodeType (..), MonadDHT, dhtAddr,
-                                              discoverPeers, getKnownPeers)
 import           Pos.Ssc.Class               (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing          (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon          (SscNistBeacon)
@@ -245,7 +245,9 @@ main = do
                 { bpLoggingParams = logParams { lpRunnerTag = "time-slave" }
                 }
 
-        systemStart <- runTimeSlaveReal res timeSlaveParams
+        systemStart <- case CLI.sscAlgo goCommonArgs of
+            GodTossingAlgo -> runTimeSlaveReal (Proxy :: Proxy SscGodTossing) res timeSlaveParams
+            NistBeaconAlgo -> runTimeSlaveReal (Proxy :: Proxy SscNistBeacon) res timeSlaveParams
 
         let params =
                 NodeParams

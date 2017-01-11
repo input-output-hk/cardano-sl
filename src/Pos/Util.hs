@@ -46,7 +46,6 @@ module Pos.Util
        -- * TimeWarp helpers
        , CanLogInParallel
        , WaitingDelta (..)
-       , messageName'
        , logWarningLongAction
        , logWarningWaitOnce
        , logWarningWaitLinear
@@ -90,10 +89,6 @@ import           Control.Lens                  (Lens', LensLike', Magnified, Zoo
 import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
 import qualified Control.Monad                 as Monad (fail)
 import           Control.Monad.Trans.Resource  (ResourceT)
-import           Control.TimeWarp.Rpc          (Dialog (..), Message (messageName),
-                                                MessageName, ResponseT (..),
-                                                Transfer (..))
-import           Control.TimeWarp.Timed        (MonadTimed (wait), Second, TimedIO, for)
 import qualified Data.Cache.LRU                as LRU
 import           Data.Hashable                 (Hashable)
 import qualified Data.HashMap.Strict           as HM
@@ -105,13 +100,11 @@ import           Data.SafeCopy                 (Contained, SafeCopy (..), base, 
 import qualified Data.Serialize                as Cereal (Get, Put)
 import           Data.String                   (IsString (fromString), String)
 import qualified Data.Text                     as T
-import           Data.Time.Units               (convertUnit)
-import           Data.Time.Units               (Microsecond)
+import           Data.Time.Units               (Microsecond, Second, convertUnit)
 import           Formatting                    (sformat, shown, stext, (%))
 import           Language.Haskell.TH
-import           Mockable                      (Delay, Fork, Mockable)
--- TODO remove import of MonadTimed and make import unqualified
-import qualified Mockable                      as MC
+import           Mockable                      (Delay, Fork, Mockable, Throw, delay, fork,
+                                                killThread, throw)
 import           Serokell.Util                 (VerificationRes (..))
 import           System.Console.ANSI           (Color (..), ColorIntensity (Vivid),
                                                 ConsoleLayer (Foreground),
@@ -202,8 +195,8 @@ diffDoubleMap a b = HM.foldlWithKey' go mempty a
 maybeThrow :: (MonadThrow m, Exception e) => e -> Maybe a -> m a
 maybeThrow e = maybe (throwM e) pure
 
-maybeThrow' :: (Mockable MC.Throw m, Exception e) => e -> Maybe a -> m a
-maybeThrow' e = maybe (MC.throw e) pure
+maybeThrow' :: (Mockable Throw m, Exception e) => e -> Maybe a -> m a
+maybeThrow' e = maybe (throw e) pure
 
 ----------------------------------------------------------------------------
 -- List utils
@@ -316,14 +309,6 @@ withColoredMessages color activity action = do
     res <- action
     res <$ putText (colorize color $ sformat ("Finished "%stext%"\n") activity)
 
-----------------------------------------------------------------------------
--- TimeWarp helpers
-----------------------------------------------------------------------------
-
--- | Utility function to convert 'Message' into 'MessageName'.
-messageName' :: Message r => r -> MessageName
-messageName' = messageName . (const Proxy :: a -> Proxy a)
-
 -- | Data type to represent waiting strategy for printing warnings
 -- if action take too much time.
 --
@@ -340,22 +325,22 @@ type CanLogInParallel m = (MonadIO m, Mockable Delay m, Mockable Fork m, WithLog
 -- | Run action and print warning if it takes more time than expected.
 logWarningLongAction :: CanLogInParallel m => WaitingDelta -> Text -> m a -> m a
 logWarningLongAction delta actionTag action = do
-    logThreadId <- MC.fork $ waitAndWarn delta
-    action      <* MC.killThread logThreadId
+    logThreadId <- fork $ waitAndWarn delta
+    action      <* killThread logThreadId
   where
     printWarning t = logWarning $ sformat ("Action `"%stext%"` took more than "%shown)
                                   actionTag
                                   t
 
     -- [LW-4]: avoid code duplication somehow (during refactoring)
-    waitAndWarn (WaitOnce      s  ) = MC.delay (for s) >> printWarning s
+    waitAndWarn (WaitOnce      s  ) = delay s >> printWarning s
     waitAndWarn (WaitLinear    s  ) = let waitLoop acc = do
-                                              MC.delay $ for s
+                                              delay s
                                               printWarning acc
                                               waitLoop (acc + s)
                                       in waitLoop s
     waitAndWarn (WaitGeometric s q) = let waitLoop acc t = do
-                                              MC.delay $ for t
+                                              delay t
                                               let newAcc = acc + t
                                               let newT   = round $ fromIntegral t * q
                                               printWarning (convertUnit newAcc :: Second)
@@ -379,17 +364,17 @@ logWarningWaitInf = logWarningLongAction . (`WaitGeometric` 1.3) . convertUnit
 
 -- | Wait random number of 'Microsecond'`s between min and max.
 waitRandomInterval
-    :: (MonadIO m, MonadTimed m)
+    :: (MonadIO m, Mockable Delay m)
     => Microsecond -> Microsecond -> m ()
 waitRandomInterval minT maxT = do
     interval <-
         (+ minT) . fromIntegral <$>
         liftIO (randomNumber $ fromIntegral $ maxT - minT)
-    wait $ for interval
+    delay interval
 
 -- | Wait random interval and then perform given action.
 runWithRandomIntervals
-    :: (MonadIO m, MonadTimed m, WithLogger m)
+    :: (MonadIO m, WithLogger m, Mockable Fork m, Mockable Delay m)
     => Microsecond -> Microsecond -> m () -> m ()
 runWithRandomIntervals minT maxT action = do
   waitRandomInterval minT maxT
@@ -399,17 +384,17 @@ runWithRandomIntervals minT maxT action = do
 -- TODO remove MonadIO in preference to some `Mockable Random`
 -- | Wait random number of 'Microsecond'`s between min and max.
 waitRandomInterval'
-    :: (MonadIO m, Mockable MC.Delay m)
+    :: (MonadIO m, Mockable Delay m)
     => Microsecond -> Microsecond -> m ()
 waitRandomInterval' minT maxT = do
     interval <-
         (+ minT) . fromIntegral <$>
         liftIO (randomNumber $ fromIntegral $ maxT - minT)
-    MC.delay $ MC.for interval
+    delay interval
 
 -- | Wait random interval and then perform given action.
 runWithRandomIntervals'
-    :: (MonadIO m, Mockable MC.Delay m)
+    :: (MonadIO m, Mockable Delay m)
     => Microsecond -> Microsecond -> m () -> m ()
 runWithRandomIntervals' minT maxT action = do
   waitRandomInterval' minT maxT
@@ -484,16 +469,7 @@ instance IsString s => MonadFail (Either s) where
 instance MonadFail (ParsecT s u m) where
     fail = Monad.fail
 
-deriving instance MonadFail m => MonadFail (Dialog p m)
-
-deriving instance MonadFail m => MonadFail (ResponseT s m)
-
-deriving instance MonadFail (Transfer s)
-
 deriving instance MonadFail m => MonadFail (LoggerNameBox m)
-
-instance MonadFail TimedIO where
-    fail = Monad.fail
 
 instance MonadFail m => MonadFail (ResourceT m) where
     fail = lift . fail

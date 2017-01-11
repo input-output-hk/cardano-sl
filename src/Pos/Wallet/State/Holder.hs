@@ -24,7 +24,6 @@ import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Context                 (WithNodeContext)
-import           Pos.DHT.Model               (MonadDHT)
 import           Pos.Slotting                (MonadSlots)
 import           Pos.Ssc.Extra.MonadLD       (MonadSscLD)
 import           Pos.Statistics              (MonadStats)
@@ -40,7 +39,7 @@ newtype WalletDB m a = WalletDB
     { getWalletDB :: ReaderT WalletState m a
     } deriving (Functor, Applicative, Monad, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
-                WithNodeContext ssc, MonadDHT,
+                WithNodeContext ssc,
                 MonadSlots, MonadSscLD ssc, MonadFix,
                 MonadJL, CanLog, MonadStats,
                 MonadKeys, WithWalletContext, MonadTrans)

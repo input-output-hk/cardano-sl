@@ -10,20 +10,27 @@ module Pos.DHT.Model.Types
        , randomDHTKey
        , typeByte
        , filterByNodeType
+       , addressToNodeId
+       , addressToNodeId'
+       , nodeIdToAddress
        ) where
 
-import           Control.TimeWarp.Rpc (NetworkAddress)
-import qualified Data.ByteString      as BS
-import           Data.Hashable        (Hashable)
-import           Data.Text.Buildable  (Buildable (..))
-import           Formatting           (bprint, (%))
-import qualified Formatting           as F
-import           Prelude              (show)
-import qualified Serokell.Util.Base64 as B64
-import           Serokell.Util.Text   (listBuilderJSON)
-import           Universum            hiding (show)
+import qualified Data.ByteString       as BS
+import qualified Data.ByteString.Char8 as BS8
+import           Data.Char             (isNumber)
+import           Data.Hashable         (Hashable)
+import           Data.Text.Buildable   (Buildable (..))
+import           Formatting            (bprint, (%))
+import qualified Formatting            as F
+import qualified Network.Transport.TCP as TCP
+import           Node                  (NodeId (..))
+import           Prelude               (read, show)
+import qualified Serokell.Util.Base64  as B64
+import           Serokell.Util.Text    (listBuilderJSON)
+import           Universum             hiding (show)
 
-import           Pos.Crypto.Random    (secureRandomBS)
+import           Pos.Crypto.Random     (secureRandomBS)
+import           Pos.Util.TimeWarp     (NetworkAddress)
 
 -- | Dummy data for DHT.
 newtype DHTData = DHTData ()
@@ -102,3 +109,18 @@ typeByte DHTClient    = 0xF0
 -- | Leave only those nodes that has given @Just type@.
 filterByNodeType :: DHTNodeType -> [DHTNode] -> [DHTNode]
 filterByNodeType type_ = filter (\n -> dhtNodeType (dhtNodeId n) == Just type_)
+
+-- TODO: What about node index, i.e. last number in '127.0.0.1:3000:0' ?
+addressToNodeId :: NetworkAddress -> NodeId
+addressToNodeId = addressToNodeId' 0
+
+addressToNodeId' :: Word32 -> NetworkAddress -> NodeId
+addressToNodeId' eId (host, port) = NodeId $ TCP.encodeEndPointAddress (BS8.unpack host) (show port) eId
+
+nodeIdToAddress :: NodeId -> Maybe NetworkAddress
+nodeIdToAddress (NodeId ep) = toNA =<< TCP.decodeEndPointAddress ep
+  where
+    toNA (hostName, port', _) = (BS8.pack hostName,) <$> toPort port'
+    toPort :: [Char] -> Maybe Word16
+    toPort port' | all isNumber port' = pure $ read port'
+                 | otherwise          = Nothing

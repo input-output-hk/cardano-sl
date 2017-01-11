@@ -25,8 +25,8 @@ import           Pos.Wallet.Web.Server.Methods (walletApplication, walletServeIm
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletState,
                                                 WalletWebDB, getWalletWebState,
                                                 runWalletWebDB)
-import           Pos.NewDHT.Real.Real          (getKademliaDHTInstance, runKademliaDHT)
-import           Pos.NewDHT.Real.Types         (KademliaDHTInstance (..))
+import           Pos.DHT.Real.Real             (getKademliaDHTInstance, runKademliaDHT)
+import           Pos.DHT.Real.Types            (KademliaDHTInstance (..))
 import           Mockable                      (runProduction)
 import           Pos.Ssc.Class                 (SscConstraint)
 import           System.Wlog                   (usingLoggerName)

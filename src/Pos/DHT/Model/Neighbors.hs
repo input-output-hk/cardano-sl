@@ -5,24 +5,24 @@
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE UndecidableInstances      #-}
 
-module Pos.NewDHT.Model.Neighbors
+module Pos.DHT.Model.Neighbors
   ( sendToNeighbors
   ) where
 
 
-import           Formatting             (int, sformat, shown, (%))
-import qualified Formatting             as F
-import           Message.Message        (Message, Serializable)
-import           Mockable               (MonadMockable, handleAll)
-import           Node                   (SendActions (..))
-import           System.Wlog            (WithLogger, logInfo, logWarning)
-import           Universum              hiding (catchAll)
+import           Formatting          (int, sformat, shown, (%))
+import qualified Formatting          as F
+import           Mockable            (MonadMockable, handleAll)
+import           Node                (SendActions (..))
+import           Node.Message        (Message, Serializable)
+import           System.Wlog         (WithLogger, logInfo, logWarning)
+import           Universum           hiding (catchAll)
 
-import           Pos.Constants          (neighborsSendThreshold)
-import           Pos.Constants          (isDevelopment)
-import           Pos.NewDHT.Model.Class (MonadDHT (..))
-import           Pos.NewDHT.Model.Types (DHTNode (..), DHTNodeType (..), addressToNodeId',
-                                         filterByNodeType)
+import           Pos.Constants       (neighborsSendThreshold)
+import           Pos.Constants       (isDevelopment)
+import           Pos.DHT.Model.Class (MonadDHT (..))
+import           Pos.DHT.Model.Types (DHTNode (..), DHTNodeType (..), addressToNodeId',
+                                      filterByNodeType)
 
 -- | Send default message to neighbours in parallel.
 -- It's a broadcasting to the neighbours without sessions

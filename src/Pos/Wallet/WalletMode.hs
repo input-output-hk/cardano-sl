@@ -30,8 +30,8 @@ import           Pos.DB                        (MonadDB)
 import qualified Pos.DB                        as DB
 import qualified Pos.DB.GState                 as GS
 import           Pos.Delegation                (DelegationT (..))
-import           Pos.NewDHT.Model              (MonadDHT)
-import           Pos.NewDHT.Real               (KademliaDHT (..))
+import           Pos.DHT.Model              (MonadDHT)
+import           Pos.DHT.Real               (KademliaDHT (..))
 import           Pos.Ssc.Class.Types           (Ssc)
 import           Pos.Ssc.Extra                 (SscHolder (..))
 import           Pos.Ssc.GodTossing            (SscGodTossing)

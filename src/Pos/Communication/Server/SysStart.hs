@@ -17,10 +17,10 @@ import           Node                     (Listener, ListenerAction (..),
 import           Universum
 
 import           Pos.Binary.Communication ()
-import           Pos.Binary.NewDHTModel   ()
+import           Pos.Binary.DHTModel   ()
 import           Pos.Communication.BiP    (BiP)
 import           Pos.Communication.Types  (SysStartRequest (..), SysStartResponse (..))
-import           Pos.NewDHT.Model         (sendToNeighbors)
+import           Pos.DHT.Model         (sendToNeighbors)
 import           Pos.Types                (Timestamp)
 import           Pos.WorkMode             (NewMinWorkMode)
 

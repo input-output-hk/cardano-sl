@@ -5,9 +5,9 @@ module Pos.Types.Timestamp
        , timestampF
        ) where
 
-import           Control.TimeWarp.Timed (Microsecond)
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.Buildable    as Buildable
+import           Data.Time.Units        (Microsecond)
 
 import           Formatting             (Format, build)
 import           Prelude                (Read (..), Show (..))

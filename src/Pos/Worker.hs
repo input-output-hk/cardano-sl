@@ -5,28 +5,28 @@ module Pos.Worker
        , statsWorkers
        ) where
 
-import           Control.TimeWarp.Timed (ms)
-import           Data.Tagged            (untag)
-import           Formatting             (sformat, (%))
-import           Mockable               (fork)
-import           Node                   (SendActions)
-import           System.Wlog            (logInfo, logNotice)
+import           Data.Tagged           (untag)
+import           Formatting            (sformat, (%))
+import           Mockable              (fork)
+import           Node                  (SendActions)
+import           System.Wlog           (logInfo, logNotice)
 import           Universum
 
-import           Pos.Block.Worker       (blkWorkers)
-import           Pos.Communication      (BiP, SysStartResponse (..))
-import           Pos.Constants          (slotDuration, sysTimeBroadcastSlots)
-import           Pos.Context            (NodeContext (..), getNodeContext)
-import           Pos.Lrc.Worker         (lrcOnNewSlotWorker)
-import           Pos.NewDHT.Model       (sendToNeighbors)
-import           Pos.Security.Workers   (SecurityWorkersClass, securityWorkers)
-import           Pos.Slotting           (onNewSlot')
-import           Pos.Ssc.Class.Workers  (SscWorkersClass, sscWorkers)
-import           Pos.Types              (SlotId, flattenSlotId, slotIdF)
-import           Pos.Update             (usWorkers)
-import           Pos.Util               (waitRandomInterval')
-import           Pos.Worker.Stats       (statsWorkers)
-import           Pos.WorkMode           (NewWorkMode)
+import           Pos.Block.Worker      (blkWorkers)
+import           Pos.Communication     (BiP, SysStartResponse (..))
+import           Pos.Constants         (slotDuration, sysTimeBroadcastSlots)
+import           Pos.Context           (NodeContext (..), getNodeContext)
+import           Pos.Lrc.Worker        (lrcOnNewSlotWorker)
+import           Pos.DHT.Model      (sendToNeighbors)
+import           Pos.Security.Workers  (SecurityWorkersClass, securityWorkers)
+import           Pos.Slotting          (onNewSlot')
+import           Pos.Ssc.Class.Workers (SscWorkersClass, sscWorkers)
+import           Pos.Types             (SlotId, flattenSlotId, slotIdF)
+import           Pos.Update            (usWorkers)
+import           Pos.Util              (waitRandomInterval')
+import           Pos.Util.TimeWarp     (ms)
+import           Pos.Worker.Stats      (statsWorkers)
+import           Pos.WorkMode          (NewWorkMode)
 
 -- | Run all necessary workers in separate threads. This call doesn't
 -- block.

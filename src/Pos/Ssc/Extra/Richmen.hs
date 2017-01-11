@@ -9,11 +9,8 @@ module Pos.Ssc.Extra.Richmen
 
 import           Control.Monad.Except (ExceptT)
 -- import           Control.Monad.Trans  (MonadTrans)
-import           Control.TimeWarp.Rpc (ResponseT)
 import           Universum
 
-import           Pos.DHT.Model.Class  (DHTResponseT)
-import           Pos.DHT.Real         (KademliaDHT)
 -- import           Pos.Lrc.Types        (RichmenStake)
 -- import           Pos.Types            (EpochIndex)
 
@@ -49,6 +46,3 @@ class Monad m => MonadSscRichmen m where
 
 instance MonadSscRichmen m => MonadSscRichmen (ReaderT e m) where
 instance MonadSscRichmen m => MonadSscRichmen (ExceptT e m) where
-instance MonadSscRichmen m => MonadSscRichmen (ResponseT e m) where
-instance MonadSscRichmen m => MonadSscRichmen (DHTResponseT s m) where
-instance MonadSscRichmen m => MonadSscRichmen (KademliaDHT m) where

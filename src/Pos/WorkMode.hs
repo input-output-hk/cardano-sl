@@ -22,7 +22,6 @@ module Pos.WorkMode
 
 
 import           Control.Monad.Catch         (MonadMask)
-import           Control.Monad.Fix           (MonadFix)
 import           Mockable                    (MonadMockable)
 import           Mockable.Production         (Production)
 import           System.Wlog                 (LoggerNameBox (..), WithLogger)
@@ -33,8 +32,8 @@ import           Pos.Context                 (ContextHolder, WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
 import           Pos.DB.Holder               (DBHolder)
 import           Pos.Delegation.Class        (DelegationT (..), MonadDelegation)
-import           Pos.NewDHT.Model            (MonadDHT)
-import           Pos.NewDHT.Real             (KademliaDHT (..))
+import           Pos.DHT.Model            (MonadDHT)
+import           Pos.DHT.Real             (KademliaDHT (..))
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
 import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
@@ -93,9 +92,6 @@ instance MonadJL m => MonadJL (KademliaDHT m) where
 ----------------------------------------------------------------------------
 -- Concrete types
 ----------------------------------------------------------------------------
-
--- [CSL-447] TODO Move to log-warper
-deriving instance MonadFix m => MonadFix (LoggerNameBox m)
 
 -- [CSL-447] TODO Move to some "Pos.*.Instances"
 deriving instance MonadSscLD ssc m => MonadSscLD ssc (KademliaDHT m)

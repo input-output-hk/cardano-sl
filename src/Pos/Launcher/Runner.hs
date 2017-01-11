@@ -33,8 +33,6 @@ import           Control.Concurrent.MVar     (newEmptyMVar, newMVar, takeMVar,
 import           Control.Concurrent.STM.TVar (newTVar)
 import           Control.Lens                (each, to, (%~), (^..), (^?), _head, _tail)
 import           Control.Monad.Fix           (MonadFix)
-import           Control.TimeWarp.Rpc        (commLoggerName)
-import           Control.TimeWarp.Timed      (sec)
 import           Data.Default                (def)
 import           Data.List                   (nub)
 import qualified Data.Time                   as Time
@@ -71,11 +69,12 @@ import           Pos.DB                      (MonadDB (..), getTip, initNodeDBs,
                                               openNodeDBs, runDBHolder, _gStateDB)
 import           Pos.DB.Misc                 (addProxySecretKey)
 import           Pos.Delegation.Class        (runDelegationT)
+import           Pos.Util.TimeWarp      (sec)
 import           Pos.Genesis                 (genesisLeaders)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NodeParams (..))
-import           Pos.NewDHT.Model            (MonadDHT (..), sendToNeighbors)
-import           Pos.NewDHT.Real             (KademliaDHTInstance,
+import           Pos.DHT.Model            (MonadDHT (..), sendToNeighbors)
+import           Pos.DHT.Real             (KademliaDHTInstance,
                                               KademliaDHTInstanceConfig (..),
                                               runKademliaDHT, startDHTInstance,
                                               stopDHTInstance)
@@ -287,10 +286,8 @@ nodeStartMsg BaseParams {..} = logInfo msg
 setupLoggers :: MonadIO m => LoggingParams -> m ()
 setupLoggers LoggingParams{..} = do
     lpLoggerConfig <- readLoggerConfig lpConfigPath
-    traverseLoggerConfig (commMapper . dhtMapper) lpLoggerConfig lpHandlerPrefix
+    traverseLoggerConfig dhtMapper lpLoggerConfig lpHandlerPrefix
   where
-    commMapper name | name == "comm" = commLoggerName
-                    | otherwise      = name
     dhtMapper  name | name == "dht"  = dhtLoggerName (Proxy :: Proxy (RawRealMode ssc))
                     | otherwise      = name
 

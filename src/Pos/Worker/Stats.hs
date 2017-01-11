@@ -4,10 +4,11 @@ module Pos.Worker.Stats
        ( statsWorkers
        ) where
 
-import           Control.TimeWarp.Timed   (Microsecond, sec)
+import           Data.Time.Units          (Microsecond)
 import           Formatting               (build, sformat, (%))
-import           Mockable                 (delay, for)
+import           Mockable                 (delay)
 import           Node                     (SendActions)
+import           Pos.Util.TimeWarp        (sec)
 import           Serokell.Util.Exceptions ()
 import           System.Wlog              (logWarning)
 import           Universum
@@ -28,9 +29,9 @@ txStatsWorker = loop `catchAll` onError
   where
     loop = do
         resetStat StatProcessTx
-        delay $ for txStatsRefreshInterval
+        delay txStatsRefreshInterval
         loop
     onError e = do
         logWarning (sformat ("Error occured in txStatsWorker: "%build) e)
-        delay $ for txStatsRefreshInterval
+        delay txStatsRefreshInterval
         loop

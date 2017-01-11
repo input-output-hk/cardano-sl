@@ -19,8 +19,6 @@ module Pos.Wallet.State.State
        ) where
 
 import           Data.Acid                (EventResult, EventState, QueryEvent)
-import           Pos.DHT.Real             (KademliaDHT)
-import qualified Pos.NewDHT.Real          as NDHT
 import           Universum
 
 import           Pos.Types                (Tx, Utxo)
@@ -28,6 +26,8 @@ import           Pos.Wallet.State.Acidic  (WalletState, closeState, openMemState
                                            openState)
 import           Pos.Wallet.State.Acidic  as A
 import           Pos.Wallet.State.Storage (Block', HeaderHash', Storage)
+
+import           Pos.DHT.Real.Types       (KademliaDHT (..))
 
 -- | MonadWalletDB stands for monad which is able to get web wallet state
 class Monad m => MonadWalletDB m where
@@ -40,11 +40,7 @@ instance MonadWalletDB m => MonadWalletDB (ReaderT r m) where
 instance MonadWalletDB m => MonadWalletDB (StateT s m) where
     getWalletState = lift getWalletState
 
--- | Orphan instances for ancectors in monad stack
 instance MonadWalletDB m => MonadWalletDB (KademliaDHT m) where
-    getWalletState = lift getWalletState
-
-instance MonadWalletDB m => MonadWalletDB (NDHT.KademliaDHT m) where
     getWalletState = lift getWalletState
 
 -- | Constraint for working with web wallet DB

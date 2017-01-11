@@ -10,7 +10,7 @@ module Pos.Communication.BiP
 import           Data.Binary.Put               (execPut)
 import qualified Data.ByteString.Builder.Extra as BS
 import qualified Data.ByteString.Lazy          as LBS
-import           Message.Message               (Packable (..), Unpackable (..), recvNext)
+import           Node.Message                  (Packable (..), Unpackable (..), recvNext)
 import           Universum                     hiding (yield)
 
 import           Pos.Binary.Class              (Bi (..))

@@ -48,17 +48,9 @@ library
                         Pos.DB.GState
                         Pos.Data.Attributes
                         Pos.Delegation
-                        -- Pos.NewDHT
-                        Pos.NewDHT.Model
-                        Pos.NewDHT.Model.Neighbors
-                        Pos.NewDHT.Model.Types
-                        Pos.NewDHT.Model.Util
-                        Pos.NewDHT.Model.Class
-                        Pos.NewDHT.Real
-                        Pos.NewDHT.Real.Real
-                        Pos.NewDHT.Real.Types
-                        Pos.DHT
+                        -- Pos.DHT
                         Pos.DHT.Model
+                        Pos.DHT.Model.Neighbors
                         Pos.DHT.Model.Types
                         Pos.DHT.Model.Util
                         Pos.DHT.Model.Class
@@ -112,6 +104,7 @@ library
                         Pos.Util.JsonLog
                         Pos.Util.Relay
                         Pos.Util.UserSecret
+                        Pos.Util.TimeWarp
                         Pos.Worker
                         Pos.WorkMode
   if flag(with-web)
@@ -128,7 +121,6 @@ library
                         Pos.Binary.Crypto
                         Pos.Binary.Communication
                         Pos.Binary.DHTModel
-                        Pos.Binary.NewDHTModel
                         Pos.Binary.Merkle
                         Pos.Binary.DB
                         Pos.Binary.Relay
@@ -220,12 +212,6 @@ library
                         Pos.DB.Lrc.Richmen
                         Pos.DB.Misc
                         Pos.DB.Types
-
-                        -- DHT
-                        Pos.DHT.Arbitrary
-                        Pos.DHT.Model.Class.BiP
-                        Pos.DHT.Model.Class.MonadDHT
-                        Pos.DHT.Model.Class.MonadMessageDHT
 
                         -- LRC
                         Pos.Lrc.Consumer
@@ -541,6 +527,7 @@ executable cardano-analyzer
                      , serokell-util
                      , text
                      , time
+                     , time-units
                      , time-warp
                      , universum >= 0.1.11
                      , unordered-containers
@@ -704,6 +691,7 @@ executable cardano-smart-generator
                      , stm
                      , text
                      , time
+                     , time-units
                      , time-warp
                      , universum >= 0.1.11
                      , unordered-containers

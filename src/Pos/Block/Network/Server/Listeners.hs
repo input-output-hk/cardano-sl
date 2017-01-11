@@ -15,12 +15,10 @@ import           Control.Lens                   (view, (^.), _1)
 import           Data.List.NonEmpty             (NonEmpty ((:|)), nonEmpty)
 import qualified Data.List.NonEmpty             as NE
 import           Formatting                     (build, sformat, shown, stext, (%))
-import           Serokell.Util.Text             (listJson, listJsonIndent, pairF)
+import           Serokell.Util.Text             (listJson, listJsonIndent)
 import           System.Wlog                    (logDebug, logError, logInfo, logWarning)
 import           Universum
 
-import           Message.Message                (Message, Packable, Unpackable)
-import qualified Mockable                       as Mock
 import           Node                           (ConversationActions (..),
                                                  ListenerAction (..), NodeId (..),
                                                  SendActions (..), sendTo)
@@ -44,7 +42,7 @@ import           Pos.Communication.PeerState    (WithPeerState (..))
 import           Pos.Crypto                     (hash, shortHashF)
 import qualified Pos.DB                         as DB
 import           Pos.DB.Error                   (DBError (DBMalformed))
-import           Pos.NewDHT.Model               (nodeIdToAddress)
+import           Pos.DHT.Model               (nodeIdToAddress)
 import           Pos.Ssc.Class.Types            (Ssc (..))
 import           Pos.Types                      (Block, BlockHeader, Blund,
                                                  HasHeaderHash (..), HeaderHash, NEBlocks,
@@ -191,7 +189,7 @@ handleUnsolicitedHeader header peerId sendActions = do
         " potentially represents good alternative chain, requesting more headers"
     uselessFormat =
         "Header " %shortHashF % " is useless for the following reason: " %stext
-    handleUnexpected (h:|hs) peerId = do
+    handleUnexpected (h:|hs) _ = do
         -- TODO: ban node for sending unsolicited header in conversation
         logWarning $ sformat
             ("handleUnsolicitedHeader: headers received were not requested, address: " % shown)
@@ -241,7 +239,7 @@ handleBlocks
     -> SendActions BiP m
     -> m ()
 -- Head block is the oldest one here.
-handleBlocks blocks peerId sendActions = do
+handleBlocks blocks _ sendActions = do
     logDebug "handleBlocks: processing"
     inAssertMode $
         logDebug $

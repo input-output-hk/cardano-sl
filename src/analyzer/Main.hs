@@ -3,7 +3,6 @@
 module Main where
 
 import           Control.Applicative        (empty)
-import           Control.TimeWarp.Timed     (Millisecond)
 import           Data.Aeson                 (decode, fromJSON, json')
 import qualified Data.Aeson                 as A
 import           Data.Attoparsec.ByteString (eitherResult, many', parseWith)
@@ -12,6 +11,7 @@ import qualified Data.ByteString.Lazy       as LBS
 import qualified Data.HashMap.Strict        as HM
 import           Data.Time.Clock            (UTCTime)
 import           Data.Time.Clock.POSIX      (posixSecondsToUTCTime)
+import           Data.Time.Units            (Millisecond)
 import           Formatting                 (fixed, int, sformat, shown, string, (%))
 import           Options.Applicative.Simple (simpleOptions)
 import           Universum

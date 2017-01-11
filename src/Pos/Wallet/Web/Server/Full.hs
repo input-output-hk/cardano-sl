@@ -33,8 +33,8 @@ import           Pos.WorkMode                  (RawRealMode)
 import           Pos.Communication.PeerState   (PeerStateSnapshot, WithPeerState (..),
                                                 getAllStates, peerStateFromSnapshot,
                                                 runPeerStateHolder)
-import           Pos.NewDHT.Real.Real          (getKademliaDHTInstance, runKademliaDHT)
-import           Pos.NewDHT.Real.Types         (KademliaDHTInstance (..))
+import           Pos.DHT.Real.Real             (getKademliaDHTInstance, runKademliaDHT)
+import           Pos.DHT.Real.Types            (KademliaDHTInstance (..))
 import           Pos.Update.MemState.Holder    (runUSHolder)
 import           Pos.Wallet.KeyStorage         (MonadKeys (..), addSecretKey)
 import           Pos.Wallet.Web.Server.Methods (walletApplication, walletServeImpl,

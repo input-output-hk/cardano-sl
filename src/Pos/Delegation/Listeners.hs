@@ -32,7 +32,7 @@ import           Pos.Delegation.Methods   (sendProxyConfirmSK, sendProxySKEpoch,
 import           Pos.Delegation.Types     (CheckProxySKConfirmed (..),
                                            CheckProxySKConfirmedRes (..),
                                            ConfirmProxySK (..), SendProxySK (..))
-import           Pos.NewDHT.Model         (sendToNeighbors)
+import           Pos.DHT.Model         (sendToNeighbors)
 import           Pos.Types                (ProxySKEpoch)
 import           Pos.WorkMode             (NewWorkMode)
 

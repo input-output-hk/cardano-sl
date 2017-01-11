@@ -37,8 +37,6 @@ import           Pos.Context                 (WithNodeContext)
 import           Pos.Crypto                  (PublicKey)
 import           Pos.DB.Class                (MonadDB)
 import           Pos.Delegation.Types        (SendProxySK)
-import           Pos.DHT.Model.Class         (DHTResponseT)
-import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..),
                                               MonadSscRichmen)
@@ -88,8 +86,6 @@ class (Monad m) => MonadDelegation m where
 
 instance MonadDelegation m => MonadDelegation (ReaderT s m)
 instance MonadDelegation m => MonadDelegation (StateT s m)
-instance MonadDelegation m => MonadDelegation (DHTResponseT s m)
-instance MonadDelegation m => MonadDelegation (KademliaDHT m)
 
 ----------------------------------------------------------------------------
 -- Class implementation

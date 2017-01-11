@@ -17,8 +17,6 @@ module Pos.Ssc.Extra.MonadLD
 import           Control.Monad.Trans     (MonadTrans)
 import           Universum
 
-import           Pos.DHT.Model           (DHTResponseT)
-import           Pos.DHT.Real            (KademliaDHT)
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.Types.Types         (SlotId)
@@ -40,8 +38,6 @@ class Monad m => MonadSscLD ssc m | m -> ssc where
     modifyLocalData = lift . modifyLocalData
 
 instance (Monad m, MonadSscLD ssc m) => MonadSscLD ssc (ReaderT x m)
-instance (Monad m, MonadSscLD ssc m) => MonadSscLD ssc (DHTResponseT s m)
-instance (Monad m, MonadSscLD ssc m) => MonadSscLD ssc (KademliaDHT m)
 
 -- | Convenient wrapper to run LocalQuery in MonadSscLD.
 sscRunLocalQuery

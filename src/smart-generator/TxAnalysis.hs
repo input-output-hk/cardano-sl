@@ -13,7 +13,7 @@ import           Data.IORef            (IORef, modifyIORef', newIORef, readIORef
 import           Data.List             (intersect, last)
 import           Data.Maybe            (fromJust, maybeToList)
 import           Formatting            (build, sformat, (%))
-import           Mockable              (catchAll, delay, for)
+import           Mockable              (catchAll, delay)
 import           System.FilePath.Posix ((</>))
 import           System.Wlog           (logWarning)
 import           Universum             hiding (catchAll)
@@ -97,9 +97,9 @@ checkWorker txts logsPrefix = loop `catchAll` onError
   where
     loop = do
         checkTxsInLastBlock txts logsPrefix
-        delay $ for slotDuration
+        delay slotDuration
         loop
     onError e = do
         logWarning (sformat ("Error occured in checkWorker: " %build) e)
-        delay $ for slotDuration
+        delay slotDuration
         loop

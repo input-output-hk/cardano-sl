@@ -18,8 +18,8 @@ import           Pos.Communication         (BiP (..))
 import           Pos.Launcher              (BaseParams (..), LoggingParams (..),
                                             RealModeResources (..), addDevListeners,
                                             runServer)
-import           Pos.NewDHT.Model          (DHTNodeType (..), discoverPeers)
-import           Pos.NewDHT.Real           (runKademliaDHT)
+import           Pos.DHT.Model          (DHTNodeType (..), discoverPeers)
+import           Pos.DHT.Real           (runKademliaDHT)
 
 import           Pos.Wallet.Context        (ctxFromParams, runContextHolder)
 import           Pos.Wallet.KeyStorage     (runKeyStorage)

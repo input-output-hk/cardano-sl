@@ -11,13 +11,12 @@ module Pos.Ssc.GodTossing.Workers
 import           Control.Concurrent.STM           (readTVar)
 import           Control.Lens                     (use, view, (%=), _2, _3)
 import           Control.Monad.Trans.Maybe        (runMaybeT)
-import           Control.TimeWarp.Timed           (Microsecond, Millisecond)
 import           Data.HashMap.Strict              (insert, lookup, member)
 import           Data.List.NonEmpty               (nonEmpty)
 import           Data.Tagged                      (Tagged (..))
-import           Data.Time.Units                  (convertUnit)
+import           Data.Time.Units                  (Microsecond, Millisecond, convertUnit)
 import           Formatting                       (build, ords, sformat, shown, (%))
-import           Mockable                         (currentTime, delay, for)
+import           Mockable                         (currentTime, delay)
 import           Node                             (SendActions)
 import           Serokell.Util.Exceptions         ()
 import           System.Wlog                      (logDebug, logError, logWarning)
@@ -35,7 +34,7 @@ import           Pos.Crypto.SecretSharing         (toVssPublicKey)
 import           Pos.Crypto.Signing               (PublicKey)
 import           Pos.DB.GState                    (getTip)
 import           Pos.DB.Lrc                       (getRichmenSsc)
-import           Pos.NewDHT.Model                 (sendToNeighbors)
+import           Pos.DHT.Model                 (sendToNeighbors)
 import           Pos.Slotting                     (getCurrentSlot, getSlotStart,
                                                    onNewSlot')
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
@@ -286,4 +285,4 @@ waitUntilSend msgTag epoch kMultiplier = do
         logDebug $
             sformat ("Waiting for "%shown%" before sending "%build)
                 ttwMillisecond msgTag
-        delay $ for timeToWait
+        delay timeToWait

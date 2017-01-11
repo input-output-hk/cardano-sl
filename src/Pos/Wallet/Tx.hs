@@ -11,8 +11,8 @@ module Pos.Wallet.Tx
 
 import           Control.Lens          ((^.), _1)
 import           Control.Monad.Except  (ExceptT (..), runExceptT)
-import           Control.TimeWarp.Rpc  (NetworkAddress)
 import           Formatting            (build, sformat, (%))
+import           Pos.Util.TimeWarp     (NetworkAddress)
 import           System.Wlog           (logError, logInfo)
 import           Universum
 

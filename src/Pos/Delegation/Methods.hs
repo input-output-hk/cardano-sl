@@ -16,7 +16,7 @@ import           Pos.Communication.BiP    (BiP)
 import           Pos.Context              (getNodeContext, ncSecretKey)
 import           Pos.Crypto               (proxySign)
 import           Pos.Delegation.Types     (ConfirmProxySK (..), SendProxySK (..))
-import           Pos.NewDHT.Model         (sendToNeighbors)
+import           Pos.DHT.Model         (sendToNeighbors)
 import           Pos.Types                (ProxySKEpoch, ProxySKSimple)
 import           Pos.WorkMode             (NewMinWorkMode, NewWorkMode)
 

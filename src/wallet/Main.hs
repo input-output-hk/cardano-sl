@@ -6,11 +6,10 @@
 module Main where
 
 import           Control.Monad.Reader (MonadReader (..), ReaderT, asks, runReaderT)
-import           Control.TimeWarp.Rpc (NetworkAddress)
 import           Data.List            ((!!))
 import qualified Data.Text            as T
 import           Formatting           (build, int, sformat, stext, (%))
-import           Mockable             (delay, for)
+import           Mockable             (delay)
 import           Options.Applicative  (execParser)
 import           System.IO            (hFlush, stdout)
 import           Universum
@@ -22,8 +21,9 @@ import           Pos.Delegation       (sendProxySKEpoch, sendProxySKSimple)
 import           Pos.Genesis          (genesisPublicKeys, genesisSecretKeys)
 import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
                                        bracketResources, runTimeSlaveReal)
-import           Pos.NewDHT.Model     (DHTNodeType (..), dhtAddr, discoverPeers)
+import           Pos.DHT.Model     (DHTNodeType (..), dhtAddr, discoverPeers)
 import           Pos.Ssc.SscAlgo      (SscAlgo (..))
+import           Pos.Util.TimeWarp    (NetworkAddress)
 import           Pos.Types            (EpochIndex (..), coinF, makePubKeyAddress, txaF)
 import           Pos.Wallet           (WalletMode, WalletParams (..), WalletRealMode,
                                        getBalance, runWalletReal, submitTx)
@@ -96,7 +96,7 @@ initialize :: WalletMode ssc m => WalletOptions -> m [NetworkAddress]
 initialize WalletOptions{..} = do
     -- Wait some time to ensure blockchain is fetched
     putText $ sformat ("Started node. Waiting for "%int%" slots...") woInitialPause
-    delay $ for $ fromIntegral woInitialPause * slotDuration
+    delay $ fromIntegral woInitialPause * slotDuration
     fmap dhtAddr <$> discoverPeers DHTFull
 
 runWalletRepl :: WalletMode ssc m => WalletOptions -> m ()

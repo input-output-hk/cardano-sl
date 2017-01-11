@@ -5,8 +5,8 @@ module Pos.Security.Types
 
 import           Universum
 
-import           Control.TimeWarp.Rpc (NetworkAddress)
-import           Pos.Types.Address    (StakeholderId)
+import           Pos.Types.Address (StakeholderId)
+import           Pos.Util.TimeWarp (NetworkAddress)
 
 data AttackType = AttackNoBlocks
                 | AttackNoCommitments

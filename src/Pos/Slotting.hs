@@ -11,20 +11,19 @@ module Pos.Slotting
        , onNewSlot'
        ) where
 
+import           Control.Monad            (void)
 import           Control.Monad.Catch      (MonadCatch, catch)
 import           Control.Monad.Except     (ExceptT)
-import           Control.TimeWarp.Timed   (Microsecond, MonadTimed, for, fork_, wait)
+import           Data.Time.Units          (Microsecond)
 import           Formatting               (build, sformat, shown, (%))
-import           Mockable                 (MonadMockable)
-import qualified Mockable                 as MC
+import           Mockable                 (Delay, Fork, Mockable, MonadMockable, delay,
+                                           fork)
 import           Serokell.Util.Exceptions ()
 import           System.Wlog              (WithLogger, logError, logInfo,
                                            modifyLoggerName)
 import           Universum
 
 import           Pos.Constants            (slotDuration)
-import           Pos.DHT.Model            (DHTResponseT)
-import           Pos.DHT.Real             (KademliaDHT)
 import           Pos.Types                (FlatSlotId, SlotId (..), Timestamp (..),
                                            flattenSlotId, unflattenSlotId)
 
@@ -43,14 +42,6 @@ instance MonadSlots m => MonadSlots (ExceptT s m) where
     getCurrentTime = lift getCurrentTime
 
 instance MonadSlots m => MonadSlots (StateT s m) where
-    getSystemStartTime = lift getSystemStartTime
-    getCurrentTime = lift getCurrentTime
-
-instance MonadSlots m => MonadSlots (DHTResponseT s m) where
-    getSystemStartTime = lift getSystemStartTime
-    getCurrentTime = lift getCurrentTime
-
-instance MonadSlots m => MonadSlots (KademliaDHT m) where
     getSystemStartTime = lift getSystemStartTime
     getCurrentTime = lift getCurrentTime
 
@@ -75,7 +66,13 @@ getSlotStart (flattenSlotId -> slotId) =
 -- it.  This function uses MonadTimed and assumes consistency between
 -- MonadSlots and MonadTimed implementations.
 onNewSlot
-    :: (MonadIO m, MonadTimed m, MonadSlots m, MonadCatch m, WithLogger m)
+    :: ( MonadIO m
+       , MonadSlots m
+       , MonadCatch m
+       , WithLogger m
+       , Mockable Fork m
+       , Mockable Delay m
+       )
     => Bool -> (SlotId -> m ()) -> m a
 onNewSlot startImmediately action =
     onNewSlotDo Nothing startImmediately actionWithCatch
@@ -86,7 +83,13 @@ onNewSlot startImmediately action =
     handler = logError . sformat ("Error occurred: "%build)
 
 onNewSlotDo
-    :: (MonadIO m, MonadTimed m, MonadSlots m, MonadCatch m, WithLogger m)
+    :: ( MonadIO m
+       , MonadSlots m
+       , MonadCatch m
+       , WithLogger m
+       , Mockable Fork m
+       , Mockable Delay m
+       )
     => Maybe SlotId -> Bool -> (SlotId -> m ()) -> m a
 onNewSlotDo expectedSlotId startImmediately action = do
     -- here we wait for short intervals to be sure that expected slot
@@ -95,7 +98,7 @@ onNewSlotDo expectedSlotId startImmediately action = do
         (maybe (const True) (<=) expectedSlotId <$> getCurrentSlot)
     curSlot <- getCurrentSlot
     -- fork is necessary because action can take more time than slotDuration
-    when startImmediately $ fork_ $ action curSlot
+    when startImmediately $ void $ fork $ action curSlot
     Timestamp curTime <- getCurrentTime
     let nextSlot = succ curSlot
     Timestamp nextSlotStart <- getSlotStart nextSlot
@@ -104,13 +107,13 @@ onNewSlotDo expectedSlotId startImmediately action = do
         do modifyLoggerName (<> "slotting") $
                logInfo $
                sformat ("Waiting for "%shown%" before new slot") timeToWait
-           wait $ for timeToWait
+           delay timeToWait
     onNewSlotDo (Just nextSlot) True action
   where
     waitUntilPredicate predicate =
         unlessM predicate (shortWait >> waitUntilPredicate predicate)
     shortWaitTime = (10 :: Microsecond) `max` (slotDuration `div` 10000)
-    shortWait = wait $ for shortWaitTime
+    shortWait = delay shortWaitTime
 
 -- | Run given action as soon as new slot starts, passing SlotId to
 -- it.  This function uses MonadTimed and assumes consistency between
@@ -136,7 +139,7 @@ onNewSlotDo' expectedSlotId startImmediately action = do
         (maybe (const True) (<=) expectedSlotId <$> getCurrentSlot)
     curSlot <- getCurrentSlot
     -- fork is necessary because action can take more time than slotDuration
-    when startImmediately $ void $ MC.fork $ action curSlot
+    when startImmediately $ void $ fork $ action curSlot
     Timestamp curTime <- getCurrentTime
     let nextSlot = succ curSlot
     Timestamp nextSlotStart <- getSlotStart nextSlot
@@ -145,10 +148,10 @@ onNewSlotDo' expectedSlotId startImmediately action = do
         do modifyLoggerName (<> "slotting") $
                logInfo $
                sformat ("Waiting for "%shown%" before new slot") timeToWait
-           MC.delay $ MC.for timeToWait
+           delay timeToWait
     onNewSlotDo' (Just nextSlot) True action
   where
     waitUntilPredicate predicate =
         unlessM predicate (shortWait >> waitUntilPredicate predicate)
     shortWaitTime = (10 :: Microsecond) `max` (slotDuration `div` 10000)
-    shortWait = MC.delay $ MC.for shortWaitTime
+    shortWait = delay shortWaitTime

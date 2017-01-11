@@ -20,15 +20,12 @@ module Pos.Ssc.Extra.MonadGS
 
 import           Control.Monad.Except  (ExceptT)
 import           Control.Monad.Trans   (MonadTrans)
-import           Control.TimeWarp.Rpc  (ResponseT)
 import           Serokell.Util         (VerificationRes)
 import           Universum
 
 import           Pos.Context           (WithNodeContext, waitLrc)
 import           Pos.DB                (MonadDB)
 import qualified Pos.DB.Lrc            as LrcDB
-import           Pos.DHT.Model.Class   (DHTResponseT)
-import           Pos.DHT.Real          (KademliaDHT)
 import           Pos.Slotting          (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class.Storage (SscStorageClass (..))
 import           Pos.Ssc.Class.Types   (Ssc (..))
@@ -52,9 +49,6 @@ class Monad m => MonadSscGS ssc m | m -> ssc where
 
 instance MonadSscGS ssc m => MonadSscGS ssc (ReaderT a m) where
 instance MonadSscGS ssc m => MonadSscGS ssc (ExceptT a m) where
-instance MonadSscGS ssc m => MonadSscGS ssc (ResponseT s m) where
-instance MonadSscGS ssc m => MonadSscGS ssc (DHTResponseT s m) where
-instance MonadSscGS ssc m => MonadSscGS ssc (KademliaDHT m) where
 
 sscRunGlobalQuery
     :: forall ssc m a.

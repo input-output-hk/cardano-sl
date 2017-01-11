@@ -67,14 +67,19 @@ type LDUpdate a = forall m . MonadState GtState m  => m a
 ----------------------------------------------------------------------------
 applyGlobal :: GtGlobalState -> LocalUpdate SscGodTossing ()
 applyGlobal globalData = do
-    let globalCommitments = _gsCommitments globalData
+    let
+        globalCommitments = _gsCommitments globalData
         globalOpenings = _gsOpenings globalData
         globalShares = _gsShares globalData
-        globalCert = _gsVssCertificates globalData
+        globalCerts = VCD.certs . _gsVssCertificates $ globalData
+    -- remove commitments which are contained already in global state
     ldCommitments  %= (`HM.difference` globalCommitments)
+    -- remove commitments which corresponds to expired certs
+    ldCommitments %= (`HM.difference` globalCerts)
+    -- remove openings which are contained already in global state
     ldOpenings  %= (`HM.difference` globalOpenings)
     ldShares  %= (`diffDoubleMap` globalShares)
-    ldCertificates  %= (`HM.difference` (VCD.certs globalCert))
+    ldCertificates  %= (`HM.difference` globalCerts)
 
 ----------------------------------------------------------------------------
 -- Get Local Payload

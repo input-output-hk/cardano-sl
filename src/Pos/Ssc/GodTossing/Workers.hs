@@ -36,7 +36,8 @@ import           Pos.Crypto.SecretSharing         (toVssPublicKey)
 import           Pos.Crypto.Signing               (PublicKey)
 import           Pos.DB.GState                    (getTip)
 import           Pos.DB.Lrc                       (getRichmenSsc)
-import           Pos.Slotting                     (getSlotStart, onNewSlot)
+import           Pos.Slotting                     (getCurrentSlot, getSlotStart,
+                                                   onNewSlot)
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
 import           Pos.Ssc.Extra.MonadLD            (sscRunLocalQuery, sscRunLocalUpdate)
 import           Pos.Ssc.GodTossing.Functions     (genCommitmentAndOpening, hasCommitment,
@@ -76,7 +77,8 @@ onStart = checkNSendOurCert
 checkNSendOurCert :: forall m . (WorkMode SscGodTossing m) => m ()
 checkNSendOurCert = do
     (_, ourId) <- getOurPkAndId
-    isCertInBlockhain <- member ourId <$> getGlobalCerts
+    SlotId{..} <- getCurrentSlot
+    isCertInBlockhain <- member ourId <$> getGlobalCerts siEpoch
     if isCertInBlockhain then
        logDebug "Our VssCertificate has been already announced."
     else do
@@ -248,7 +250,7 @@ generateAndSetNewSecret
 generateAndSetNewSecret sk SlotId {..} = do
     richmen <-
         lrcActionOnEpochReason siEpoch "couldn't get SSC richmen" getRichmenSsc
-    certs <- getGlobalCerts
+    certs <- getGlobalCerts siEpoch
     let participants =
             nonEmpty . map vcVssKey . mapMaybe (`lookup` certs) . toList $
             richmen

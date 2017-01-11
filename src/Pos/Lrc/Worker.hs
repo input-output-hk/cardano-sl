@@ -103,14 +103,15 @@ lrcDo
 lrcDo epoch consumers tip = tip <$ do
     blockUndoList <- DB.loadBlocksFromTipWhile whileMoreOrEq5k
     when (null blockUndoList) $ throwM UnknownBlocksForLrc
-    let blockUndos = NE.fromList blockUndoList
-    rollbackBlocks blockUndos
-    richmenComputationDo epoch consumers
-    leadersComputationDo epoch
-    applyBlocks (NE.reverse blockUndos)
+    let blunds = NE.fromList blockUndoList
+    rollbackBlocks blunds
+    compute `finally` applyBlocks (NE.reverse blunds)
   where
     whileMoreOrEq5k b _ = getEpochOrSlot b > crucial
     crucial = EpochOrSlot $ Right $ crucialSlot epoch
+    compute = do
+        richmenComputationDo epoch consumers
+        leadersComputationDo epoch
 
 leadersComputationDo :: WorkMode ssc m => EpochIndex -> m ()
 leadersComputationDo epochId =

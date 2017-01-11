@@ -35,8 +35,7 @@ import           Pos.Crypto.SecretSharing         (toVssPublicKey)
 import           Pos.Crypto.Signing               (PublicKey)
 import           Pos.DB.GState                    (getTip)
 import           Pos.DB.Lrc                       (getRichmenSsc)
-import           Pos.Slotting                     (getCurrentSlot, getSlotStart,
-                                                   onNewSlot)
+import           Pos.Slotting                     (getSlotStart, onNewSlot)
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
 import           Pos.Ssc.Extra.MonadLD            (sscRunLocalQuery, sscRunLocalUpdate)
 import           Pos.Ssc.GodTossing.Functions     (genCommitmentAndOpening, hasCommitment,
@@ -163,7 +162,7 @@ onNewSlotCommitment slotId@SlotId {..}
 
             mbComm <- fmap (view _2) <$> getSecret
             whenJust mbComm $ \comm -> do
-                _ <- sscProcessMessageRichmen (MCCommitment comm) ourId
+                sscProcessOurMessage siEpoch (MCCommitment comm) ourId
                 sendOurData CommitmentMsg siEpoch 0 ourId
 
 -- Openings-related part of new slot processing
@@ -182,7 +181,7 @@ onNewSlotOpening SlotId {..} = do
     when shouldSendOpening $ do
         mbOpen <- fmap (view _3) <$> getSecret
         whenJust mbOpen $ \open -> do
-            _ <- sscProcessMessageRichmen (MCOpening open) ourId
+            sscProcessOurMessage siEpoch (MCOpening open) ourId
             sendOurData OpeningMsg siEpoch 2 ourId
 
 -- Shares-related part of new slot processing
@@ -202,17 +201,23 @@ onNewSlotShares SlotId {..} = do
         shares <- getOurShares ourVss
         let lShares = fmap asBinary shares
         unless (null shares) $ do
-            _ <- sscProcessMessageRichmen (MCShares lShares) ourId
+            sscProcessOurMessage siEpoch (MCShares lShares) ourId
             sendOurData SharesMsg siEpoch 4 ourId
 
-sscProcessMessageRichmen :: WorkMode SscGodTossing m
-                         => GtMsgContents
-                         -> StakeholderId
-                         -> m Bool
-sscProcessMessageRichmen msg addr = do
-    epoch <- siEpoch <$> getCurrentSlot
+sscProcessOurMessage
+    :: WorkMode SscGodTossing m
+    => EpochIndex -> GtMsgContents -> StakeholderId -> m ()
+sscProcessOurMessage epoch msg ourId = do
     richmen <- getRichmenSsc epoch
-    maybe (pure False) (\r -> sscProcessMessage r msg addr) richmen
+    case richmen of
+        Nothing ->
+            logWarning
+                "We are processing our SSC message and don't know richmen"
+        Just r -> do
+            sscProcessMessage r msg ourId >>= logResult
+  where
+    logResult True  = logDebug "We have accepted our message"
+    logResult False = logWarning "We have rejected our message"
 
 sendOurData
     :: (WorkMode SscGodTossing m)

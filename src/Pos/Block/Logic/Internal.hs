@@ -68,9 +68,9 @@ applyBlocksUnsafe blunds0 = do
     blocks = fmap fst blunds
     putToDB (blk, undo) = DB.putBlock undo True blk
 
--- | Rollback sequence of blocks, head block corresponds to tip,
--- further blocks are parents. It's assumed that lock on block
--- application is taken.
+-- | Rollback sequence of blocks, head-newest order exepected with
+-- head being current tip. It's also assumed that lock on block db is
+-- taken.  application is taken already.
 rollbackBlocksUnsafe :: (WorkMode ssc m) => NonEmpty (Blund ssc) -> m ()
 rollbackBlocksUnsafe toRollback = do
     -- [CSL-378] Update sbInMain properly (in transaction)

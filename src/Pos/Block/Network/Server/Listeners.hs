@@ -18,12 +18,8 @@ import           Universum
 
 import           Pos.Binary.Communication       ()
 import           Pos.Block.Logic                (ClassifyHeaderRes (..),
-                                                 ClassifyHeadersRes (..), applyBlocks,
-                                                 classifyHeaders, classifyNewHeader,
-                                                 getHeadersFromManyTo,
-                                                 getHeadersFromToIncl, lcaWithMainChain,
-                                                 rollbackBlocks, verifyBlocks,
-                                                 withBlkSemaphore_)
+                                                 ClassifyHeadersRes (..))
+import qualified Pos.Block.Logic                as L
 import           Pos.Block.Network.Announce     (announceBlock)
 import           Pos.Block.Network.Request      (replyWithBlocksRequest,
                                                  replyWithHeadersRequest)
@@ -37,6 +33,7 @@ import qualified Pos.DB                         as DB
 import           Pos.DB.Error                   (DBError (DBMalformed))
 import           Pos.DHT.Model                  (ListenerDHT (..), MonadDHTDialog,
                                                  getUserState, replyToNode)
+import           Pos.Ssc.Class                  (SscWorkersClass (..))
 import           Pos.Types                      (Block, BlockHeader, Blund,
                                                  HasHeaderHash (..), HeaderHash, NEBlocks,
                                                  blockHeader, gbHeader, prevBlockL)
@@ -45,7 +42,7 @@ import           Pos.WorkMode                   (WorkMode)
 
 -- | Listeners for requests related to blocks processing.
 blockListeners
-    :: (MonadDHTDialog (MutSocketState ssc) m, WorkMode ssc m)
+    :: (MonadDHTDialog (MutSocketState ssc) m, WorkMode ssc m, SscWorkersClass ssc)
     => [ListenerDHT (MutSocketState ssc) m]
 blockListeners =
     [ ListenerDHT handleGetHeaders
@@ -63,7 +60,7 @@ handleGetHeaders
     => MsgGetHeaders ssc -> m ()
 handleGetHeaders MsgGetHeaders {..} = do
     logDebug "Got request on handleGetHeaders"
-    rhResult <- getHeadersFromManyTo mghFrom mghTo
+    rhResult <- L.getHeadersFromManyTo mghFrom mghTo
     case nonEmpty rhResult of
         Nothing ->
             logWarning $
@@ -77,7 +74,7 @@ handleGetBlocks
     => MsgGetBlocks ssc -> m ()
 handleGetBlocks MsgGetBlocks {..} = do
     logDebug "Got request on handleGetBlocks"
-    hashes <- getHeadersFromToIncl mgbFrom mgbTo
+    hashes <- L.getHeadersFromToIncl mgbFrom mgbTo
     maybe warn sendBlocks hashes
   where
     warn = logWarning $ "getBLocksByHeaders@retrieveHeaders returned Nothing"
@@ -114,7 +111,7 @@ handleRequestedHeaders
     => NonEmpty (BlockHeader ssc) -> m ()
 handleRequestedHeaders headers = do
     logDebug "handleRequestedHeaders: headers were requested, will process"
-    classificationRes <- classifyHeaders headers
+    classificationRes <- L.classifyHeaders headers
     let newestHeader = headers ^. _neHead
         newestHash = headerHash newestHeader
         oldestHash = headerHash $ headers ^. _neLast
@@ -150,7 +147,7 @@ handleUnsolicitedHeader
     => BlockHeader ssc -> m ()
 handleUnsolicitedHeader header = do
     logDebug "handleUnsolicitedHeader: single header was propagated, processing"
-    classificationRes <- classifyNewHeader header
+    classificationRes <- L.classifyNewHeader header
     -- TODO: should we set 'To' hash to hash of header or leave it unlimited?
     case classificationRes of
         CHContinues -> do
@@ -179,7 +176,7 @@ handleUnsolicitedHeader header = do
 -- | Handle MsgBlock request. That's a response for @mkBlocksRequest@.
 handleBlock
     :: forall ssc m.
-       (ResponseMode ssc m)
+       (ResponseMode ssc m, SscWorkersClass ssc)
     => MsgBlock ssc -> m ()
 handleBlock msg@(MsgBlock blk) = do
     logDebug $ sformat ("handleBlock: got block "%build) (headerHash blk)
@@ -199,7 +196,7 @@ handleBlock msg@(MsgBlock blk) = do
 
 handleBlocks
     :: forall ssc m.
-       (ResponseMode ssc m)
+       (ResponseMode ssc m, SscWorkersClass ssc)
     => NonEmpty (Block ssc) -> m ()
 -- Head block is the oldest one here.
 handleBlocks blocks = do
@@ -209,7 +206,7 @@ handleBlocks blocks = do
         sformat ("Processing sequence of blocks: " %listJson % "…") $
         fmap headerHash blocks
     maybe onNoLca (handleBlocksWithLca blocks) =<<
-        lcaWithMainChain (map (view blockHeader) $ NE.reverse blocks)
+        L.lcaWithMainChain (map (view blockHeader) $ NE.reverse blocks)
     inAssertMode $ logDebug $ "Finished processing sequence of blocks"
   where
     onNoLca = logWarning $
@@ -217,7 +214,7 @@ handleBlocks blocks = do
         "Probably rollback happened in parallel"
 
 handleBlocksWithLca :: forall ssc m.
-       (ResponseMode ssc m)
+       (ResponseMode ssc m, SscWorkersClass ssc)
     => NonEmpty (Block ssc) -> HeaderHash ssc -> m ()
 handleBlocksWithLca blocks lcaHash = do
     logDebug $ sformat lcaFmt lcaHash
@@ -231,75 +228,59 @@ handleBlocksWithLca blocks lcaHash = do
 
 applyWithoutRollback
     :: forall ssc m.
-       (ResponseMode ssc m)
+       (ResponseMode ssc m, SscWorkersClass ssc)
     => NonEmpty (Block ssc) -> m ()
 applyWithoutRollback blocks = do
     logDebug $ sformat ("Trying to apply blocks w/o rollback: "%listJson)
         (map (view blockHeader) blocks)
-    verifyBlocks blocks >>= \case
+    L.withBlkSemaphore applyWithoutRollbackDo >>= \case
         Left err  -> onFailedVerifyBlocks blocks err
-        Right ver -> do
-            logDebug "Verified blocks successfully, will apply them now"
-            when (length ver /= length blocks) $
-                logError $ sformat
-                    ("Length of verification results /= "%
-                     "length of block list, last blocks won't be applied\n"%
-                     "Verification results: "%listJsonIndent 4)
-                    ver
-            withBlkSemaphore_ . applyWithoutRollbackDo $ NE.zip blocks ver
+        Right newTip -> do
+            logDebug "Blocks were successfully applied"
+            when (newTip /= newestTip) $
+                logWarning $ sformat
+                    ("Only blocks up to "%shortHashF%" were applied, "%
+                     "newer were considered invalid")
+                    newTip
+            let toRelay =
+                    fromMaybe (panic "Listeners#applyWithoutRollback is broken") $
+                    find (\b -> b ^. headerHashG == newTip) blocks
+            relayBlock toRelay
     logDebug "Finished applying blocks w/o rollback"
   where
-    oldestToApply = blocks ^. _neHead
-    assumedTip = oldestToApply ^. prevBlockL
-    newTip = blocks ^. _neLast . headerHashG
-    applyWithoutRollbackDo :: NonEmpty (Blund ssc)
-                           -> HeaderHash ssc
-                           -> m (HeaderHash ssc)
-    applyWithoutRollbackDo blunds tip
-        | tip /= assumedTip =
-            tip <$ logWarning (tipMismatchMsg "apply" tip assumedTip)
-        | otherwise = newTip <$ do
-            applyBlocks True blunds
-            logInfo $ blocksAppliedMsg @ssc blunds
-            relayBlock $ fst $ NE.last blunds
+    newestTip = blocks ^. _neLast . headerHashG
+    applyWithoutRollbackDo
+        :: HeaderHash ssc -> m (Either Text (HeaderHash ssc), HeaderHash ssc)
+    applyWithoutRollbackDo curTip = do
+        res <- L.verifyAndApplyBlocks False blocks
+        let newTip = either (const curTip) identity res
+        pure (res, newTip)
 
 -- | Head of @toRollback@ - the youngest block.
 applyWithRollback
     :: forall ssc m.
-       (ResponseMode ssc m)
+       (ResponseMode ssc m, SscWorkersClass ssc)
     => NonEmpty (Block ssc) -> HeaderHash ssc -> NonEmpty (Blund ssc) -> m ()
 applyWithRollback toApply lca toRollback = do
     logDebug $ sformat ("Trying to apply blocks w/ rollback: "%listJson)
         (map (view blockHeader) toApply)
     logDebug $
         sformat ("Blocks to rollback "%listJson) (fmap headerHash toRollback)
-    withBlkSemaphore_ applyWithRollbackDo
-    logDebug "Finished applying blocks w/ rollback"
+    res <- L.withBlkSemaphore $ \curTip -> do
+        res <- L.applyWithRollback toRollback toApplyAfterLca
+        pure (res, either (const curTip) identity res)
+    case res of
+        Left err -> logWarning $ "Couldn't apply blocks with rollback: " <> err
+        Right newTip -> do
+            logDebug $ sformat
+                ("Finished applying blocks w/ rollback, relaying new tip: "%shortHashF)
+                newTip
+            relayBlock $ toApply ^. _neLast
   where
-    newestToRollback = toRollback ^. _neHead . _1 . headerHashG
-    newTip = toApply ^. _neLast . headerHashG
     panicBrokenLca = panic "applyWithRollback: nothing after LCA :/"
     toApplyAfterLca =
         fromMaybe panicBrokenLca $ NE.nonEmpty $
         NE.dropWhile ((lca /=) . (^. prevBlockL)) toApply
-    applyWithRollbackDo :: HeaderHash ssc -> m (HeaderHash ssc)
-    applyWithRollbackDo tip
-        | tip /= newestToRollback =
-            tip <$ logWarning (tipMismatchMsg "rollback" tip newestToRollback)
-        | otherwise = do
-            rollbackBlocks toRollback
-            logInfo $ blocksRolledBackMsg toRollback
-            verRes <- verifyBlocks toApplyAfterLca
-            case verRes of
-                Right undos -> newTip <$ do
-                    applyBlocks True (NE.zip toApplyAfterLca undos)
-                    logInfo $ blocksAppliedMsg toApplyAfterLca
-                    relayBlock $ NE.last toApplyAfterLca
-                Left errors -> tip <$ do
-                    onFailedVerifyBlocks toApplyAfterLca errors
-                    logDebug "Applying rollbacked blocks…"
-                    applyBlocks True toRollback
-                    logDebug "Finished applying rollback blocks"
 
 relayBlock
     :: forall ssc m.
@@ -321,12 +302,6 @@ onFailedVerifyBlocks blocks err = logWarning $
     sformat ("Failed to verify blocks: "%stext%"\n  blocks = "%listJson)
             err (fmap headerHash blocks)
 
-tipMismatchMsg :: Text -> HeaderHash ssc -> HeaderHash ssc -> Text
-tipMismatchMsg action storedTip attemptedTip =
-    sformat
-        ("Can't "%stext%" block because of tip mismatch (stored is "
-         %shortHashF%", attempted is "%shortHashF%")")
-        action storedTip attemptedTip
 
 blocksAppliedMsg
     :: forall ssc a.

@@ -5,22 +5,27 @@
 
 module Pos.Block.Logic
        (
+         -- * Common/Utils
+         lcaWithMainChain
+       , tipMismatchMsg
+       , withBlkSemaphore
+       , withBlkSemaphore_
+
          -- * Headers
-         ClassifyHeaderRes (..)
+       , ClassifyHeaderRes (..)
        , classifyNewHeader
        , ClassifyHeadersRes (..)
        , classifyHeaders
        , getHeadersFromManyTo
        , getHeadersOlderExp
        , getHeadersFromToIncl
-       , lcaWithMainChain
 
          -- * Blocks
        , applyBlocks
+       , applyWithRollback
        , rollbackBlocks
-       , verifyBlocks
-       , withBlkSemaphore
-       , withBlkSemaphore_
+       , verifyAndApplyBlocks
+       , applyWithRollback
        , createGenesisBlock
        , createMainBlock
        ) where
@@ -35,7 +40,7 @@ import           Data.List                 (span)
 import           Data.List.NonEmpty        (NonEmpty ((:|)), (<|))
 import qualified Data.List.NonEmpty        as NE
 import qualified Data.Text                 as T
-import           Formatting                (build, int, sformat, (%))
+import           Formatting                (build, int, sformat, stext, (%))
 import           Serokell.Util.Verify      (VerificationRes (..), formatAllErrors,
                                             isVerSuccess, verResToMonadError)
 import           System.Wlog               (logDebug)
@@ -75,13 +80,43 @@ import           Pos.Types                 (Block, BlockHeader, Blund, EpochInde
                                             Undo (..), VerifyHeaderParams (..),
                                             blockHeader, difficultyL, epochIndexL,
                                             epochOrSlot, flattenEpochOrSlot, genesisHash,
-                                            getEpochOrSlot, headerHash, headerSlot,
-                                            mkGenesisBlock, mkMainBlock, mkMainBody,
-                                            prevBlockL, topsortTxs, verifyHeader,
-                                            verifyHeaders, vhpVerifyConsensus)
+                                            getEpochOrSlot, headerHash, headerHashG,
+                                            headerSlot, mkGenesisBlock, mkMainBlock,
+                                            mkMainBody, prevBlockL, topsortTxs,
+                                            verifyHeader, verifyHeaders,
+                                            vhpVerifyConsensus)
 import qualified Pos.Types                 as Types
-import           Pos.Util                  (inAssertMode, spanSafe)
+import           Pos.Util                  (inAssertMode, spanSafe, _neHead)
 import           Pos.WorkMode              (WorkMode)
+
+
+----------------------------------------------------------------------------
+-- Common
+----------------------------------------------------------------------------
+
+-- | Common error message
+tipMismatchMsg :: Text -> HeaderHash ssc -> HeaderHash ssc -> Text
+tipMismatchMsg action storedTip attemptedTip =
+    sformat
+        ("Can't "%stext%" block because of tip mismatch (stored is "
+         %shortHashF%", attempted is "%shortHashF%")")
+        action storedTip attemptedTip
+
+
+-- | Find lca headers and main chain, including oldest header's parent
+-- hash. Headers passed are __newest first__.
+lcaWithMainChain
+    :: (WorkMode ssc m)
+    => NonEmpty (BlockHeader ssc) -> m (Maybe (HeaderHash ssc))
+lcaWithMainChain headers@(h:|hs) =
+    fmap fst . find snd <$>
+        mapM (\hh -> (hh,) <$> DB.isBlockInMainChain hh)
+             -- take hash of parent of last BlockHeader and convert all headers to hashes
+             (map hash (h : hs) ++ [NE.last headers ^. prevBlockL])
+
+----------------------------------------------------------------------------
+-- Headers
+----------------------------------------------------------------------------
 
 -- | Result of single (new) header classification.
 data ClassifyHeaderRes
@@ -134,16 +169,6 @@ classifyNewHeader (Right header) = do
             CHUseless $
             "header doesn't continue main chain and is not more difficult"
 
--- | Find lca headers and main chain, including oldest header's parent
--- hash. Headers passed are __newest first__.
-lcaWithMainChain
-    :: (WorkMode ssc m)
-    => NonEmpty (BlockHeader ssc) -> m (Maybe (HeaderHash ssc))
-lcaWithMainChain headers@(h:|hs) =
-    fmap fst . find snd <$>
-        mapM (\hh -> (hh,) <$> DB.isBlockInMainChain hh)
-             -- take hash of parent of last BlockHeader and convert all headers to hashes
-             (map hash (h : hs) ++ [NE.last headers ^. prevBlockL])
 
 -- | Result of multiple headers classification.
 data ClassifyHeadersRes ssc
@@ -277,18 +302,22 @@ getHeadersFromToIncl older newer = runMaybeT $ do
             guard $ flattenEpochOrSlot nextHeader > lowerBound
             loadHeadersDo lowerBound (nextHash <| hashes) (nextHeader ^. prevBlockL)
 
--- CHECK: @verifyBlocksLogic
--- | Verify blocks received from network. Head is expected to be the
--- oldest block. If parent of head is not our tip, verification
--- fails. This function checks everything from block, including
--- header, transactions, SSC data.
---
--- #txVerifyBlocks
--- #sscVerifyBlocks
-verifyBlocks
+
+----------------------------------------------------------------------------
+-- Blocks verify/apply/rollback
+----------------------------------------------------------------------------
+
+-- -- CHECK: @verifyBlocksLogic
+-- -- #txVerifyBlocks
+-- -- #sscVerifyBlocks
+-- | Verify new blocks. Head is expected to be the oldest block. If
+-- parent of head is not our tip, verification fails. This function
+-- checks everything from block, including header, transactions,
+-- delegation data, SSC data.
+verifyBlocksPrefix
     :: WorkMode ssc m
     => NonEmpty (Block ssc) -> m (Either Text (NonEmpty Undo))
-verifyBlocks blocks = do
+verifyBlocksPrefix blocks = do
     runExceptT $ do
        curSlot <- getCurrentSlot
        tipBlk <- DB.getTipBlock
@@ -300,21 +329,28 @@ verifyBlocks blocks = do
        when (length txUndo /= length pskUndo) $ throwError "Aoeu! Placeholder!"
        pure $ NE.map (uncurry Undo) $ NE.zip txUndo pskUndo
 
--- | Applies blocks if they're valid. Does nothing if at least one of
--- them is invalid.
+-- | Applies blocks if they're valid. Takes one boolean flag
+-- "rollback". Returns header hash of last applied block (new tip) on
+-- success. Failure behaviour depends on "rollback" flag. If it's on,
+-- all blocks applied inside this function will be rollbacked, so it
+-- will do effectively nothing and return 'Left error'. If it's off,
+-- it will try to apply as much blocks as it's possible and return
+-- header hash of new tip. It's up to caller to log warning that
+-- partial application happened.
 verifyAndApplyBlocks
     :: WorkMode ssc m
-    => NonEmpty (Block ssc) -> m (Maybe Text)
-verifyAndApplyBlocks = undefined
---    applyBlocksUnsafe prefix
---    case suffix of
---        (genesis:xs) -> do
---            when calculateLrc $ lrcSingleShot $ genesis ^. _1 . epochIndexL
---            applyBlocks $ genesis:|xs
---        [] -> pass
---  where
---    (prefix,suffix) =
---        spanSafe (\(h,_) (b,_) -> b ^. epochIndexL == h ^. epochIndexL) blunds
+    => Bool -> NonEmpty (Block ssc) -> m (Either Text (HeaderHash ssc))
+verifyAndApplyBlocks rollback = verifyAndApplyBlocksInternal True rollback
+
+-- See the description for verifyAndApplyBlocks. This method also
+-- parametrizes lrc calcultion which can be turned on/off using first
+-- flag.
+verifyAndApplyBlocksInternal
+    :: WorkMode ssc m
+    => Bool -> Bool -> NonEmpty (Block ssc) -> m (Either Text (HeaderHash ssc))
+verifyAndApplyBlocksInternal _lrc _rollback blocks = do
+    _ <- verifyBlocksPrefix blocks
+    notImplemented
 
 -- | Apply definitely valid sequence of blocks. At this point we must
 -- have verified all predicates regarding block (including txs and ssc
@@ -335,8 +371,38 @@ applyBlocks calculateLrc blunds = do
     (prefix,suffix) =
         spanSafe (\(h,_) (b,_) -> b ^. epochIndexL == h ^. epochIndexL) blunds
 
-rollbackBlocks :: (WorkMode ssc m) => NonEmpty (Blund ssc) -> m ()
-rollbackBlocks = rollbackBlocksUnsafe
+-- | Rollbacks blocks. Head is to be current tip (newest first order).
+rollbackBlocks :: (WorkMode ssc m) => NonEmpty (Blund ssc) -> m (Maybe Text)
+rollbackBlocks blunds = do
+    tip <- GS.getTip
+    let newestToRollback = blunds ^. _neHead . _1 . headerHashG
+    if tip /= newestToRollback
+    then pure $ Just $ tipMismatchMsg "rollback" tip newestToRollback
+    else rollbackBlocksUnsafe blunds $> Nothing
+
+-- | Given a number of blocks to rollback on and apply then, does
+-- it. Blocks to rollback are expected tip-first. To apply --
+-- oldest-first.
+applyWithRollback
+    :: (WorkMode ssc m, SscWorkersClass ssc)
+    => NonEmpty (Blund ssc)
+    -> NonEmpty (Block ssc)
+    -> m (Either Text (HeaderHash ssc))
+applyWithRollback toRollback toApply = runExceptT $ do
+    tip <- lift GS.getTip
+    when (tip /= newestToRollback) $ do
+        throwError (tipMismatchMsg "apply with rollback" tip newestToRollback)
+    lift $ rollbackBlocksUnsafe toRollback
+    lift (verifyAndApplyBlocks True toApply) >>= \case
+        -- We didn't succeed to apply blocks, so will apply
+        -- rollbacked back.
+        Left err -> do
+            lift $ applyBlocks True $ NE.reverse toRollback
+            throwError err
+        Right tipHash  -> pure tipHash
+  where
+    newestToRollback = toRollback ^. _neHead . _1 . headerHashG
+
 
 ----------------------------------------------------------------------------
 -- GenesisBlock creation

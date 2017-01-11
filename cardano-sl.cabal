@@ -815,6 +815,38 @@ executable cardano-checks
                        -O2
   default-extensions:  OverloadedStrings
 
+executable cardano-keygen
+  hs-source-dirs:      src/keygen
+  main-is:             Main.hs
+  build-depends:       base    
+                     , cardano-sl
+                     , universum >= 0.1
+                     , text
+                     , lens
+                     , optparse-applicative >= 0.12
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -with-rtsopts=-N
+                       -O2
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+ 
 test-suite cardano-test
   main-is:             Test.hs
   other-modules:       Spec

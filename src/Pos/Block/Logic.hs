@@ -362,11 +362,15 @@ rollbackBlocks toRollback = do
 createGenesisBlock
     :: forall ssc m.
        WorkMode ssc m
-    => SlotId -> m (Maybe (GenesisBlock ssc))
-createGenesisBlock (siEpoch -> epochIndex) =
-    ifM (shouldCreateGenesisBlock epochIndex . getEpochOrSlot <$> getTipBlockHeader)
-        (createGenesisBlockDo epochIndex)
-        (pure Nothing)
+    => EpochIndex -> m (Maybe (GenesisBlock ssc))
+createGenesisBlock epochIndex = do
+    tipHeader <- getTipBlockHeader
+    logDebug $ sformat msgFmt tipHeader
+    if shouldCreateGenesisBlock epochIndex $ getEpochOrSlot tipHeader
+        then createGenesisBlockDo epochIndex
+        else Nothing <$ logDebug "We shouldn't create genesis block"
+  where
+    msgFmt = "We are trying to create genesis block, our tip header is\n"%build
 
 shouldCreateGenesisBlock :: EpochIndex -> EpochOrSlot -> Bool
 -- Genesis block for 0-th epoch is hardcoded.
@@ -400,7 +404,9 @@ createGenesisBlockDo epoch = do
               let blk = mkGenesisBlock (Just tipHeader) epoch leaders
               let newTip = headerHash blk
               applyBlocks (pure (Left blk, Undo [] [])) $> (Just blk, newTip)
-        | otherwise = pure (Nothing, tip)
+        | otherwise = (Nothing, tip) <$ logShouldNot
+    logShouldNot = logDebug
+          "After we took lock for genesis block creation, we noticed that we shouldn't create it"
 
 ----------------------------------------------------------------------------
 -- MainBlock creation

@@ -48,6 +48,12 @@
             .then(function(isValid) {console.log(isValid)})
             .catch(function(reason) {console.log(reason)})
       };
+      var notify = function() {
+        Daedalus.ClientApi.notify(
+           function(msg) { return function() { console.log('msg ', msg) } },
+           function(error) { return function() { console.log('error ', error) } }
+         )();
+     };
     </script>
 		<title></title>
 	</head>
@@ -64,6 +70,7 @@
       <li><button onclick="updateTransaction('wallet_address', 'transaction_hash', 'ADA', 'new_transaction_title', 'new_transaction_description', 1000);"/>updateTransaction</li>
       <li><button onclick="deleteWallet('wallet_address');"/>deleteWallet</li>
       <li><button onclick="isValidAddress('ADA', 'wallet_address');"/>isValidAddress</li>
+      <li><button onclick="notify()"/>add notify listener</li>
     </ul>
 	</body>
 </html>

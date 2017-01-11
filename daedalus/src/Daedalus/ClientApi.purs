@@ -55,8 +55,9 @@ deleteWallet = fromAff <<< B.deleteWallet <<< mkCAddress
 isValidAddress :: forall eff. Fn2 String String (Eff(ajax :: AJAX | eff) (Promise Boolean))
 isValidAddress = mkFn2 \currency -> fromAff <<< B.isValidAddress (mkCCurrency currency)
 
-notify :: forall eff. Fn2 (NotifyCb eff) (ErrorCb eff)
-    (Eff (ref :: REF, ws :: WEBSOCKET, err :: EXCEPTION | eff) Unit)
+notify :: forall eff. Fn2 NotifyCb ErrorCb (Eff (ref :: REF, ws :: WEBSOCKET, err :: EXCEPTION | eff) Unit)
 notify = mkFn2 \messageCb errorCb -> do
+    -- TODO (akegalj) grab global (mutable) state of  here
+    -- instead of creating newRef
     conn <- newRef WSNotConnected
     openConn $ mkWSState conn messageCb errorCb

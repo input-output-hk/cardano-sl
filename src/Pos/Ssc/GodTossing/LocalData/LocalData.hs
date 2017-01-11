@@ -186,7 +186,7 @@ processCommitment richmen addr c = do
     certs <- VCD.certs <$> use gtGlobalCertificates
     let participants = certs `HM.intersection`
                       (HM.fromList $ zip (toList richmen) (repeat ()))
-    let vssPublicKeys = HS.fromList $ map vcVssKey $ toList participants
+    let vssPublicKeys = map vcVssKey $ toList participants
     let checks epochIndex vssCerts =
             [ not . HM.member addr <$> view gtGlobalCommitments
             , not . HM.member addr <$> view gtLocalCommitments

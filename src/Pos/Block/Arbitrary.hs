@@ -37,6 +37,21 @@ instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) =>
                       , T.BlockPSignatureSimple <$> arbitrary
                       ]
 
+properBlock
+    :: (Arbitrary (T.Body b),
+       Arbitrary (T.ConsensusData b),
+       Arbitrary (T.ExtraBodyData b),
+       Arbitrary (T.ExtraHeaderData b),
+       Bi (T.BBlockHeader b),
+       T.Blockchain b)
+    => Gen (T.GenericBlock b)
+properBlock = do
+    body <- arbitrary
+    (prevBlock, consensus, extra) <- arbitrary
+    let proof = T.mkBodyProof body
+        header = T.GenericBlockHeader prevBlock proof consensus extra
+    T.GenericBlock <$> pure header <*> pure body <*> arbitrary
+
 ------------------------------------------------------------------------------------------
 -- GenesisBlockchain
 ------------------------------------------------------------------------------------------
@@ -60,10 +75,7 @@ instance Arbitrary (T.Body (T.GenesisBlockchain ssc)) where
     arbitrary = T.GenesisBody <$> arbitrary
 
 instance Ssc ssc => Arbitrary (T.GenericBlock (T.GenesisBlockchain ssc)) where
-    arbitrary = T.GenericBlock
-        <$> arbitrary
-        <*> arbitrary
-        <*> arbitrary
+    arbitrary = properBlock
 
 ------------------------------------------------------------------------------------------
 -- MainBlockchain
@@ -144,10 +156,7 @@ instance Arbitrary (SscPayload ssc) => Arbitrary (T.Body (T.MainBlockchain ssc))
 
 instance (Arbitrary (SscProof ssc), Arbitrary (SscPayload ssc), Ssc ssc) =>
     Arbitrary (T.GenericBlock (T.MainBlockchain ssc)) where
-    arbitrary = T.GenericBlock
-        <$> arbitrary
-        <*> arbitrary
-        <*> arbitrary
+    arbitrary = properBlock
 
 ------------------------------------------------------------------------------------------
 -- Block network types

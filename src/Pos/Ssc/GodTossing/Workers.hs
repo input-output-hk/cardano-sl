@@ -30,7 +30,7 @@ import           Pos.Constants                    (k, mpcSendInterval, vssMaxTTL
 import           Pos.Context                      (getNodeContext, lrcActionOnEpochReason,
                                                    ncPublicKey, ncSecretKey, ncSscContext)
 import           Pos.Crypto                       (SecretKey, VssKeyPair, randomNumber,
-                                                   runSecureRandom, toPublic)
+                                                   runSecureRandom, shortHashF, toPublic)
 import           Pos.Crypto.SecretSharing         (toVssPublicKey)
 import           Pos.Crypto.Signing               (PublicKey)
 import           Pos.DB.GState                    (getTip)
@@ -39,15 +39,14 @@ import           Pos.Slotting                     (getCurrentSlot, getSlotStart,
                                                    onNewSlot)
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
 import           Pos.Ssc.Extra.MonadLD            (sscRunLocalQuery, sscRunLocalUpdate)
-import           Pos.Ssc.GodTossing.Functions     (genCommitmentAndOpening, getThreshold,
-                                                   hasCommitment, hasOpening, hasShares,
-                                                   isCommitmentIdx, isOpeningIdx,
-                                                   isSharesIdx, mkSignedCommitment)
+import           Pos.Ssc.GodTossing.Functions     (genCommitmentAndOpening, hasCommitment,
+                                                   hasOpening, hasShares, isCommitmentIdx,
+                                                   isOpeningIdx, isSharesIdx,
+                                                   mkSignedCommitment, vssThreshold)
 import           Pos.Ssc.GodTossing.LocalData     (ldCertificates, ldLastProcessedSlot,
                                                    localOnNewSlot, sscProcessMessage)
 import           Pos.Ssc.GodTossing.Richmen       (gtLrcConsumer)
-import           Pos.Ssc.GodTossing.SecretStorage (getSecret, getSecretForTip,
-                                                   prepareSecretToNewSlot, setSecret)
+import           Pos.Ssc.GodTossing.SecretStorage (getSecret, getSecretForTip, setSecret)
 import           Pos.Ssc.GodTossing.Shares        (getOurShares)
 import           Pos.Ssc.GodTossing.Storage       (getGlobalCerts, gtGetGlobalState)
 import           Pos.Ssc.GodTossing.Types         (Commitment, Opening, SignedCommitment,
@@ -126,7 +125,6 @@ onNewSlotSsc
 onNewSlotSsc = onNewSlot True $ \slotId-> do
     localOnNewSlot slotId
     checkNSendOurCert
-    prepareSecretToNewSlot slotId
     participationEnabled <- getNodeContext >>=
         atomically . readTVar . gtcParticipateSsc . ncSscContext
     when participationEnabled $ do
@@ -138,30 +136,35 @@ onNewSlotSsc = onNewSlot True $ \slotId-> do
 onNewSlotCommitment
     :: (WorkMode SscGodTossing m)
     => SlotId -> m ()
-onNewSlotCommitment slotId@SlotId{..} = do
-    ourId <- addressHash . ncPublicKey <$> getNodeContext
-    ourSk <- ncSecretKey <$> getNodeContext
-    tip <- getTip
-    shouldSendCommitment <- do
-        commitmentInBlockchain <- hasCommitment ourId <$> gtGetGlobalState
-        return $ isCommitmentIdx siSlot && not commitmentInBlockchain
-    when shouldSendCommitment $ do
-        shouldCreateCommitment <- do
-            secret <- getSecret
-            secretForTip <- getSecretForTip
-            return $ and [isCommitmentIdx siSlot, (isNothing secret || tip /= secretForTip)]
-        when shouldCreateCommitment $ do
-            logDebug $ sformat ("Generating secret for "%ords%" epoch") siEpoch
-            generated <- generateAndSetNewSecret ourSk slotId
-            case generated of
-                Nothing -> logWarning "I failed to generate secret for Mpc"
-                Just _ -> logDebug $
-                    sformat ("Generated secret for "%ords%" epoch") siEpoch
+onNewSlotCommitment slotId@SlotId {..}
+    | not (isCommitmentIdx siSlot) = pass
+    | otherwise = do
+        ourId <- addressHash . ncPublicKey <$> getNodeContext
+        ourSk <- ncSecretKey <$> getNodeContext
+        tip <- getTip
+        shouldSendCommitment <- not . hasCommitment siEpoch ourId <$> gtGetGlobalState
+        logDebug $ sformat ("shouldSendCommitment: "%shown) shouldSendCommitment
+        when shouldSendCommitment $ do
+            shouldCreateCommitment <- do
+                secret <- getSecret
+                secretForTip <- getSecretForTip
+                let should = isNothing secret || tip /= secretForTip
+                let fmt = "We shouldn't generate secret, because we have secret for current tip ("
+                          %shortHashF%")"
+                let msg = sformat fmt tip
+                should <$ unless should (logDebug msg)
+            when shouldCreateCommitment $ do
+                logDebug $ sformat ("Generating secret for "%ords%" epoch") siEpoch
+                generated <- generateAndSetNewSecret ourSk slotId
+                case generated of
+                    Nothing -> logWarning "I failed to generate secret for GodTossing"
+                    Just _ -> logDebug $
+                        sformat ("Generated secret for "%ords%" epoch") siEpoch
 
-        mbComm <- fmap (view _2) <$> getSecret
-        whenJust mbComm $ \comm -> do
-            _ <- sscProcessMessageRichmen (MCCommitment comm) ourId
-            sendOurData CommitmentMsg siEpoch 0 ourId
+            mbComm <- fmap (view _2) <$> getSecret
+            whenJust mbComm $ \comm -> do
+                _ <- sscProcessMessageRichmen (MCCommitment comm) ourId
+                sendOurData CommitmentMsg siEpoch 0 ourId
 
 -- Openings-related part of new slot processing
 onNewSlotOpening
@@ -172,7 +175,7 @@ onNewSlotOpening SlotId {..} = do
     shouldSendOpening <- do
         globalData <- gtGetGlobalState
         let openingInBlockchain = hasOpening ourId globalData
-        let commitmentInBlockchain = hasCommitment ourId globalData
+        let commitmentInBlockchain = hasCommitment siEpoch ourId globalData
         return $ and [ isOpeningIdx siSlot
                      , not openingInBlockchain
                      , commitmentInBlockchain]
@@ -243,7 +246,7 @@ generateAndSetNewSecret sk SlotId{..} = do
     let noPsErr = panic "generateAndSetNewSecret: no participants"
     let ps = fromMaybe (panic noPsErr) . nonEmpty .
                 map vcVssKey . mapMaybe (`lookup` certs) . toList $ richmen
-    let threshold = getThreshold $ length ps
+    let threshold = vssThreshold $ length ps
     mPair <- runMaybeT (genCommitmentAndOpening threshold ps)
     tip <- getTip
     case mPair of

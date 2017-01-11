@@ -8,6 +8,7 @@ module Pos.Slotting
        , getCurrentSlotFlat
        , getSlotStart
        , onNewSlot
+       , onNewSlotWithLogging
        ) where
 
 import           Control.Monad.Catch      (MonadCatch, catch)
@@ -15,7 +16,7 @@ import           Control.Monad.Except     (ExceptT)
 import           Control.TimeWarp.Timed   (Microsecond, MonadTimed, for, fork_, wait)
 import           Formatting               (build, sformat, shown, (%))
 import           Serokell.Util.Exceptions ()
-import           System.Wlog              (WithLogger, logError, logInfo,
+import           System.Wlog              (WithLogger, logDebug, logError,
                                            modifyLoggerName)
 import           Universum
 
@@ -74,8 +75,19 @@ getSlotStart (flattenSlotId -> slotId) =
 onNewSlot
     :: (MonadIO m, MonadTimed m, MonadSlots m, MonadCatch m, WithLogger m)
     => Bool -> (SlotId -> m ()) -> m a
-onNewSlot startImmediately action =
-    onNewSlotDo Nothing startImmediately actionWithCatch
+onNewSlot = onNewSlotImpl False
+
+-- | Same as onNewSlot, but also logs debug information.
+onNewSlotWithLogging
+    :: (MonadIO m, MonadTimed m, MonadSlots m, MonadCatch m, WithLogger m)
+    => Bool -> (SlotId -> m ()) -> m a
+onNewSlotWithLogging = onNewSlotImpl True
+
+onNewSlotImpl
+    :: (MonadIO m, MonadTimed m, MonadSlots m, MonadCatch m, WithLogger m)
+    => Bool -> Bool -> (SlotId -> m ()) -> m a
+onNewSlotImpl withLogging startImmediately action =
+    onNewSlotDo withLogging Nothing startImmediately actionWithCatch
   where
     -- [CSL-198]: think about exceptions more carefully.
     actionWithCatch s = action s `catch` handler
@@ -84,8 +96,8 @@ onNewSlot startImmediately action =
 
 onNewSlotDo
     :: (MonadIO m, MonadTimed m, MonadSlots m, MonadCatch m, WithLogger m)
-    => Maybe SlotId -> Bool -> (SlotId -> m ()) -> m a
-onNewSlotDo expectedSlotId startImmediately action = do
+    => Bool -> Maybe SlotId -> Bool -> (SlotId -> m ()) -> m a
+onNewSlotDo withLogging expectedSlotId startImmediately action = do
     -- here we wait for short intervals to be sure that expected slot
     -- has really started, taking into account possible inaccuracies
     waitUntilPredicate
@@ -98,13 +110,13 @@ onNewSlotDo expectedSlotId startImmediately action = do
     Timestamp nextSlotStart <- getSlotStart nextSlot
     let timeToWait = nextSlotStart - curTime
     when (timeToWait > 0) $
-        do modifyLoggerName (<> "slotting") $
-               logInfo $
-               sformat ("Waiting for "%shown%" before new slot") timeToWait
+        do when withLogging $ logTTW timeToWait
            wait $ for timeToWait
-    onNewSlotDo (Just nextSlot) True action
+    onNewSlotDo withLogging (Just nextSlot) True action
   where
     waitUntilPredicate predicate =
         unlessM predicate (shortWait >> waitUntilPredicate predicate)
     shortWaitTime = (10 :: Microsecond) `max` (slotDuration `div` 10000)
     shortWait = wait $ for shortWaitTime
+    logTTW timeToWait = modifyLoggerName (<> "slotting") $ logDebug $
+                 sformat ("Waiting for "%shown%" before new slot") timeToWait

@@ -18,7 +18,7 @@ import           Pos.Context            (NodeContext (..), getNodeContext)
 import           Pos.DHT.Model          (sendToNetwork)
 import           Pos.Lrc.Worker         (lrcOnNewSlotWorker)
 import           Pos.Security.Workers   (SecurityWorkersClass, securityWorkers)
-import           Pos.Slotting           (onNewSlot)
+import           Pos.Slotting           (onNewSlotWithLogging)
 import           Pos.Ssc.Class.Workers  (SscWorkersClass, sscWorkers)
 import           Pos.Types              (SlotId, flattenSlotId, slotIdF)
 import           Pos.Update             (usWorkers)
@@ -44,7 +44,7 @@ runWorkers = mapM_ fork_ $ concat
     ]
 
 onNewSlotWorker :: WorkMode ssc m => m ()
-onNewSlotWorker = onNewSlot True onNewSlotWorkerImpl
+onNewSlotWorker = onNewSlotWithLogging True onNewSlotWorkerImpl
 
 onNewSlotWorkerImpl :: WorkMode ssc m => SlotId -> m ()
 onNewSlotWorkerImpl slotId = do

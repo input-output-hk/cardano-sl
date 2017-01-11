@@ -20,7 +20,6 @@ import           Control.Monad.IfElse           (whileM)
 import           Control.Monad.Reader           (ask)
 import           Data.Default                   (def)
 import qualified Data.HashMap.Strict            as HM
-import qualified Data.HashSet                   as HS
 import qualified Data.List.NonEmpty             as NE
 import           Serokell.Util.Verify           (VerificationRes (..), isVerSuccess,
                                                  verifyGeneric)
@@ -124,7 +123,7 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
           where
             allCerts = certs <> globalCerts
             participants = allCerts `HM.intersection` (HM.fromList $ zip (toList richmen) (repeat ()))
-            vssPublicKeys = HS.fromList $ map vcVssKey $ toList participants
+            vssPublicKeys = map vcVssKey $ toList participants
 
     -- For openings, we check that
     --   * the opening isn't present in previous blocks

@@ -38,7 +38,8 @@ import           Pos.Util            (AsBinary (..))
 type NodeSet = HashSet StakeholderId
 
 -- | Commitment is a message generated during the first stage of
--- MPC. It contains encrypted shares and proof of secret.
+-- GodTossing. It contains encrypted shares and proof of secret.
+-- Invariant which must be ensured: commShares is not empty.
 data Commitment = Commitment
     { commExtra  :: !(AsBinary SecretSharingExtra)
     , commProof  :: !(AsBinary SecretProof)
@@ -83,11 +84,17 @@ type SharesMap = HashMap StakeholderId InnerSharesMap
 -- Other nodes accept this certificate if it is valid and if node really
 -- has some stake.
 data VssCertificate = VssCertificate
-    { vcVssKey       :: !(AsBinary VssPublicKey)
-    , vcExpiryEpoch  :: !EpochIndex
-    , vcSignature    :: !(Signature (AsBinary VssPublicKey, EpochIndex))
-    , vcSigningKey   :: !PublicKey
+    { vcVssKey      :: !(AsBinary VssPublicKey)
+    , vcExpiryEpoch :: !EpochIndex
+    , vcSignature   :: !(Signature (AsBinary VssPublicKey, EpochIndex))
+    , vcSigningKey  :: !PublicKey
     } deriving (Show, Eq, Generic)
+
+instance Ord VssCertificate where
+    compare a b = toTuple a `compare` toTuple b
+      where
+        toTuple VssCertificate {..} =
+            (vcExpiryEpoch, vcVssKey, vcSigningKey, vcSignature)
 
 mkVssCertificate :: SecretKey -> AsBinary VssPublicKey -> EpochIndex -> VssCertificate
 mkVssCertificate sk vk expiry = VssCertificate vk expiry (sign sk (vk, expiry)) $ toPublic sk

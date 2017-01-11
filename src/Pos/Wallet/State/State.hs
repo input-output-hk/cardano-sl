@@ -20,6 +20,7 @@ module Pos.Wallet.State.State
 
 import           Data.Acid                (EventResult, EventState, QueryEvent)
 import           Pos.DHT.Real             (KademliaDHT)
+import qualified Pos.NewDHT.Real          as NDHT
 import           Universum
 
 import           Pos.Types                (Tx, Utxo)
@@ -41,6 +42,9 @@ instance MonadWalletDB m => MonadWalletDB (StateT s m) where
 
 -- | Orphan instances for ancectors in monad stack
 instance MonadWalletDB m => MonadWalletDB (KademliaDHT m) where
+    getWalletState = lift getWalletState
+
+instance MonadWalletDB m => MonadWalletDB (NDHT.KademliaDHT m) where
     getWalletState = lift getWalletState
 
 -- | Constraint for working with web wallet DB

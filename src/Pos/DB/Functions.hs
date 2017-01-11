@@ -22,19 +22,21 @@ module Pos.DB.Functions
 
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Default         (def)
+import           Data.List.NonEmpty   (NonEmpty)
 import qualified Database.RocksDB     as Rocks
 import           Formatting           (sformat, shown, string, (%))
-import           Data.List.NonEmpty   (NonEmpty)
 import           Universum
 
 import           Pos.Binary.Class     (Bi, decodeFull, encodeStrict)
 import           Pos.DB.Error         (DBError (DBMalformed))
 import           Pos.DB.Types         (DB (..))
 
--- | Open DB stored on disk.
 openDB :: MonadIO m => FilePath -> m (DB ssc)
 openDB fp = DB def def def
-                   <$> Rocks.open fp def { Rocks.createIfMissing = True }
+                   <$> Rocks.open fp def
+                        { Rocks.createIfMissing = True
+                        , Rocks.compression     = Rocks.NoCompression
+                        }
 
 -- | Read ByteString from RocksDb using given key.
 rocksGetBytes :: (MonadIO m) => ByteString -> DB ssc -> m (Maybe ByteString)

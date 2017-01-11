@@ -38,7 +38,8 @@ import           Pos.Util            (AsBinary (..))
 type NodeSet = HashSet StakeholderId
 
 -- | Commitment is a message generated during the first stage of
--- MPC. It contains encrypted shares and proof of secret.
+-- GodTossing. It contains encrypted shares and proof of secret.
+-- Invariant which must be ensured: commShares is not empty.
 data Commitment = Commitment
     { commExtra  :: !(AsBinary SecretSharingExtra)
     , commProof  :: !(AsBinary SecretProof)

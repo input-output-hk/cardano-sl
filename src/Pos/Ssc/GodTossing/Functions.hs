@@ -80,9 +80,11 @@ secretToSharedSeed = SharedSeed . getDhSecret . secretToDhSecret
 genCommitmentAndOpening
     :: (MonadFail m, MonadIO m)
     => Threshold -> NonEmpty (AsBinary VssPublicKey) -> m (Commitment, Opening)
-genCommitmentAndOpening n pks = do
-    pks' <- traverse fromBinaryM pks
-    liftIO . runSecureRandom . fmap convertRes . genSharedSecret n $ pks'
+genCommitmentAndOpening n pks
+    | n <= 0 = fail "genCommitmentAndOpening: threshold must be positive"
+    | otherwise = do
+        pks' <- traverse fromBinaryM pks
+        liftIO . runSecureRandom . fmap convertRes . genSharedSecret n $ pks'
   where
     convertRes (extra, secret, proof, shares) =
         ( Commitment

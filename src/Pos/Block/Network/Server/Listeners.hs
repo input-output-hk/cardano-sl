@@ -244,7 +244,11 @@ applyWithoutRollback blocks = do
             let toRelay =
                     fromMaybe (panic "Listeners#applyWithoutRollback is broken") $
                     find (\b -> b ^. headerHashG == newTip) blocks
+                prefix = fmap (view blockHeader) $
+                    NE.takeWhile ((/= newTip) . view headerHashG) blocks
+                applied = NE.reverse (toRelay ^. blockHeader :| reverse prefix)
             relayBlock toRelay
+            logDebug $ blocksAppliedMsg applied
     logDebug "Finished applying blocks w/o rollback"
   where
     newestTip = blocks ^. _neLast . headerHashG
@@ -274,6 +278,8 @@ applyWithRollback toApply lca toRollback = do
             logDebug $ sformat
                 ("Finished applying blocks w/ rollback, relaying new tip: "%shortHashF)
                 newTip
+            logDebug $ blocksRolledBackMsg toRollback
+            logDebug $ blocksAppliedMsg toApply
             relayBlock $ toApply ^. _neLast
   where
     panicBrokenLca = panic "applyWithRollback: nothing after LCA :/"

@@ -14,7 +14,7 @@ import           Control.Monad.Trans.Maybe        (runMaybeT)
 import           Control.TimeWarp.Timed           (Microsecond, Millisecond, currentTime,
                                                    for, wait)
 import           Data.HashMap.Strict              (insert, lookup, member)
-import           Data.List.NonEmpty               (nonEmpty)
+import           Data.List.NonEmpty               (NonEmpty, nonEmpty)
 import           Data.Tagged                      (Tagged (..))
 import           Data.Time.Units                  (convertUnit)
 import           Formatting                       (build, ords, sformat, shown, (%))
@@ -29,8 +29,9 @@ import           Pos.Communication.Methods        (sendToNeighborsSafe)
 import           Pos.Constants                    (k, mpcSendInterval, vssMaxTTL)
 import           Pos.Context                      (getNodeContext, lrcActionOnEpochReason,
                                                    ncPublicKey, ncSecretKey, ncSscContext)
-import           Pos.Crypto                       (SecretKey, VssKeyPair, randomNumber,
-                                                   runSecureRandom, shortHashF, toPublic)
+import           Pos.Crypto                       (SecretKey, VssKeyPair, VssPublicKey,
+                                                   randomNumber, runSecureRandom,
+                                                   shortHashF, toPublic)
 import           Pos.Crypto.SecretSharing         (toVssPublicKey)
 import           Pos.Crypto.Signing               (PublicKey)
 import           Pos.DB.GState                    (getTip)
@@ -57,7 +58,7 @@ import           Pos.Types                        (EpochIndex, LocalSlotIndex,
                                                    SlotId (..), StakeholderId,
                                                    StakeholderId, Timestamp (..),
                                                    addressHash)
-import           Pos.Util                         (asBinary)
+import           Pos.Util                         (AsBinary, asBinary)
 import           Pos.Util.Relay                   (DataMsg (..), InvMsg (..))
 import           Pos.WorkMode                     (WorkMode)
 
@@ -239,27 +240,33 @@ sendOurData msgTag epoch kMultiplier ourId = do
 -- node doesn't have recent enough blocks and needs to be
 -- synchronized).
 generateAndSetNewSecret
-    :: (WorkMode SscGodTossing m, Bi Commitment)
+    :: forall m.
+       (WorkMode SscGodTossing m, Bi Commitment)
     => SecretKey
-    -> SlotId                         -- ^ Current slot
+    -> SlotId -- ^ Current slot
     -> m (Maybe (SignedCommitment, Opening))
-generateAndSetNewSecret sk SlotId{..} = do
-    richmen <- lrcActionOnEpochReason siEpoch
-                   "couldn't get SSC richmen"
-                   getRichmenSsc
+generateAndSetNewSecret sk SlotId {..} = do
+    richmen <-
+        lrcActionOnEpochReason siEpoch "couldn't get SSC richmen" getRichmenSsc
     certs <- getGlobalCerts
-    let noPsErr = panic "generateAndSetNewSecret: no participants"
-    let ps = fromMaybe (panic noPsErr) . nonEmpty .
-                map vcVssKey . mapMaybe (`lookup` certs) . toList $ richmen
-    let threshold = vssThreshold $ length ps
-    mPair <- runMaybeT (genCommitmentAndOpening threshold ps)
-    tip <- getTip
-    case mPair of
-      Just (mkSignedCommitment sk siEpoch -> comm, op) ->
-          Just (comm, op) <$ setSecret (toPublic sk, comm, op) tip
-      _ -> do
-        logError "Wrong participants list: can't deserialize"
-        return Nothing
+    let participants =
+            nonEmpty . map vcVssKey . mapMaybe (`lookup` certs) . toList $
+            richmen
+    maybe (Nothing <$ warnNoPs) generateAndSetNewSecretDo participants
+  where
+    warnNoPs =
+        logWarning "generateAndSetNewSecret: can't generate, no participants"
+    reportDeserFail = logError "Wrong participants list: can't deserialize"
+    generateAndSetNewSecretDo :: NonEmpty (AsBinary VssPublicKey)
+                              -> m (Maybe (SignedCommitment, Opening))
+    generateAndSetNewSecretDo ps = do
+        let threshold = vssThreshold $ length ps
+        mPair <- runMaybeT (genCommitmentAndOpening threshold ps)
+        tip <- getTip
+        case mPair of
+            Just (mkSignedCommitment sk siEpoch -> comm, op) ->
+                Just (comm, op) <$ setSecret (toPublic sk, comm, op) tip
+            _ -> Nothing <$ reportDeserFail
 
 randomTimeInInterval
     :: WorkMode SscGodTossing m

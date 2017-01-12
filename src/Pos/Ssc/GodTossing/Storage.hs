@@ -116,7 +116,7 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
     --     in some different block
     --   * check that a VSS certificate is present for the committing nodeg
     --   * every commitment owner has enough (mpc+delegated) stake
-    let commChecks comms certs =
+    let commChecks comms =
             [ isComm
             , (all (`HM.member` participants)
                    (HM.keys comms),
@@ -129,8 +129,7 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
             -- [CSL-206]: check that share IDs are different.
             ]
           where
-            allCerts = certs <> globalCerts
-            participants = computeParticipants richmen allCerts
+            participants = computeParticipants richmen globalCerts
             vssPublicKeys = map vcVssKey $ toList participants
 
     -- For openings, we check that
@@ -186,7 +185,7 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
 
     let ourRes = verifyGeneric $ certChecks blockCerts ++
             case payload of
-                CommitmentsPayload comms certs -> commChecks comms certs
+                CommitmentsPayload comms _     -> commChecks comms
                 OpeningsPayload        opens _ -> openChecks opens
                 SharesPayload         shares _ -> shareChecks shares
                 CertificatesPayload          _ -> []

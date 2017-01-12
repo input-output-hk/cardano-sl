@@ -284,11 +284,6 @@ processShares richmen addr s
     | not (addr `HS.member` richmen) = pure False
     | otherwise = do
         certs <- VCD.certs <$> use gtGlobalCertificates
-        -- TODO: we accept shares that we already have (but don't add them to
-        -- local shares) because someone who sent us those shares might not be
-        -- aware of the fact that they are already in the blockchain. On the
-        -- other hand, now nodes can send us huge spammy messages and we can't
-        -- ban them for that. On the third hand, is this a concern?
         globalSharesPKForPK <- getKeys . HM.lookupDefault mempty addr <$> use gtGlobalShares
         localSharesForPk <- HM.lookupDefault mempty addr <$> use gtLocalShares
         let s' = s `HM.difference` (HS.toMap globalSharesPKForPK)

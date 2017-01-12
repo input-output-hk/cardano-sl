@@ -7,7 +7,6 @@ module Pos.Update.Listeners
        ( usListeners
        ) where
 
-import qualified Data.HashMap.Strict     as HM
 import           Serokell.Util.Verify    (VerificationRes (..))
 import           Universum
 

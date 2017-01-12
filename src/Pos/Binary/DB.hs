@@ -49,3 +49,4 @@ instance Bi ProposalState where
     get = getWord8 >>= \case
         0 -> PSUndecided <$> get
         1 -> PSDecided <$> get
+        x -> fail $ "get@ProposalState: invalid tag: " <> show x

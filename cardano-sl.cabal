@@ -822,12 +822,13 @@ executable cardano-checks
 executable cardano-keygen
   hs-source-dirs:      src/keygen
   main-is:             Main.hs
-  build-depends:       base    
+  build-depends:       base
                      , cardano-sl
                      , universum >= 0.1
                      , text
                      , lens
                      , optparse-applicative >= 0.12
+  default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
                        -fno-warn-orphans
@@ -850,7 +851,7 @@ executable cardano-keygen
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
- 
+
 test-suite cardano-test
   main-is:             Test.hs
   other-modules:       Spec

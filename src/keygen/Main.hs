@@ -1,9 +1,8 @@
 import           Control.Lens        ((.~))
 import qualified Data.Text           as T
-import           Options.Applicative (Parser, ParserInfo, auto, command, execParser,
-                                      fullDesc, help, helper, info, long, metavar, option,
-                                      option, progDesc, short, strOption, subparser,
-                                      switch, value)
+import           Options.Applicative (Parser, ParserInfo, auto, execParser, fullDesc,
+                                      help, helper, info, long, metavar, option, option,
+                                      progDesc, short, strOption)
 import           Prelude             (show)
 import           Universum           hiding (show)
 

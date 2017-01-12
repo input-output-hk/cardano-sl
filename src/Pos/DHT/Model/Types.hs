@@ -1,3 +1,5 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 -- | DHT types.
 
 module Pos.DHT.Model.Types
@@ -31,6 +33,8 @@ import           Universum             hiding (show)
 
 import           Pos.Crypto.Random     (secureRandomBS)
 import           Pos.Util.TimeWarp     (NetworkAddress)
+import           Pos.Util.Arbitrary
+import           Test.QuickCheck       (Arbitrary (..))
 
 -- | Dummy data for DHT.
 newtype DHTData = DHTData ()
@@ -50,6 +54,11 @@ instance Buildable DHTKey where
 
 instance Show DHTKey where
   show = toString . pretty
+
+deriving instance Arbitrary DHTData
+
+instance Arbitrary DHTKey where
+    arbitrary = DHTKey . BS.pack <$> arbitrary
 
 -- | Node type is determined by first byte of key.
 data DHTNodeType

@@ -42,7 +42,7 @@ import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CTx, 
                                                 CTxMeta (..), CWallet (..),
                                                 CWalletMeta (..), addressToCAddress,
                                                 cAddressToAddress, mkCTx, mkCTxId,
-                                                txIdToCTxId)
+                                                txContainsTitle, txIdToCTxId)
 import           Pos.Wallet.Web.Error          (WalletError (..))
 import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 WalletWebSockets, WebWalletSockets,
@@ -115,6 +115,8 @@ servantHandlers =
     :<|>
      catchWalletError . getHistory
     :<|>
+     (\a b -> catchWalletError . searchHistory a b)
+    :<|>
      (\a b -> catchWalletError . updateTransaction a b)
     :<|>
      catchWalletError . newWallet
@@ -181,6 +183,9 @@ getHistory :: WalletWebMode ssc m => CAddress -> m [CTx]
 getHistory cAddr = do
     history <- getTxHistory =<< decodeCAddressOrFail cAddr
     mapM (addHistoryTx cAddr ADA mempty mempty) history
+
+searchHistory :: WalletWebMode ssc m => CAddress -> Text -> Word -> m [CTx]
+searchHistory cAddr search limit = take (fromIntegral limit) . filter (txContainsTitle search) <$> getHistory cAddr
 
 addHistoryTx :: WalletWebMode ssc m => CAddress -> CCurrency -> Text -> Text -> (TxId, Tx, Bool) -> m CTx
 addHistoryTx cAddr curr title desc wtx@(txId, _, _) = do

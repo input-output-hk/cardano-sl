@@ -83,6 +83,9 @@ getWallet addr = getR ["get_wallet", _address addr]
 getHistory :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) (Array CTx)
 getHistory addr = getR ["history", _address addr]
 
+searchHistory :: forall eff. CAddress -> String -> Int -> Aff (ajax :: AJAX | eff) (Array CTx)
+searchHistory addr search limit = getR ["history", _address addr, search, show limit]
+
 send :: forall eff. CAddress -> CAddress -> Coin -> Aff (ajax :: AJAX | eff) CTx
 send addrFrom addrTo amount = postR ["send", _address addrFrom, _address addrTo, show $ _coin amount]
 

@@ -28,6 +28,12 @@
             .then(function(result) {console.log(result)})
             .catch(function(reason) {console.log(reason)})
       };
+      var searchHistory = function(address, searchItem, limit) {
+        Daedalus.ClientApi.searchHistory(address, searchItem, limit)()
+            .then(function(result) {console.log(result)})
+            .catch(function(reason) {console.log(reason)})
+      };
+
       var newWallet = function(type, currency, name) {
         Daedalus.ClientApi.newWallet(type, currency, name)()
             .then(function(result) {console.log(result)})
@@ -71,6 +77,7 @@
       <li><button onclick="send('wallet_address1', 'wallet_address2', 1);"/>send from a to b 1 coin</li>
       <li><button onclick="sendExtended('wallet_address1', 'wallet_address2', 1, 'ADA', 'title', 'desc');"/>send from a to b 1 coin, with title and description</li>
       <li><button onclick="getHistory('wallet_address')"/>get wallet history</li>
+      <li><button onclick="searchHistory('wallet_address', 'searchItem', 10)"/>search wallet history</li>
       <li><button onclick="newWallet('CWTPersonal', 'ADA', 'I am rich guy');"/>newWallet</li>
       <li><button onclick="updateWallet('wallet_address', 'CWTPersonal', 'ADA', 'wallet_name');"/>updateWallet</li>
       <li><button onclick="updateTransaction('wallet_address', 'transaction_hash', 'ADA', 'new_transaction_title', 'new_transaction_description', 1000);"/>updateTransaction</li>

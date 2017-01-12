@@ -29,9 +29,10 @@ module Pos.Wallet.Web.ClientTypes
       , mkCTxId
       , txIdToCTxId
       , ctTypeMeta
+      , txContainsTitle
       ) where
 
-import           Data.Text             (Text)
+import           Data.Text             (Text, isInfixOf)
 import           GHC.Generics          (Generic)
 import           Universum
 
@@ -174,6 +175,9 @@ data CTx = CTx
     , ctAmount :: Coin
     , ctType   :: CTType -- it includes all "meta data"
     } deriving (Show, Generic)
+
+txContainsTitle :: Text -> CTx -> Bool
+txContainsTitle search = isInfixOf search . ctmTitle . ctTypeMeta . ctType
 
 -- | meta data of exchanges
 data CTExMeta = CTExMeta

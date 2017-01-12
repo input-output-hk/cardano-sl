@@ -31,7 +31,7 @@ import           Pos.Ssc.SscAlgo      (SscAlgo (..))
 import           Pos.Statistics       (getNoStatsT, runStatsT', getStatsMap)
 import           Pos.Types            (Timestamp)
 #ifdef WITH_WEB
-import           Pos.Ssc.Class        (Ssc, SscConstraint)
+import           Pos.Ssc.Class        (SscConstraint, SscListenersClass)
 import           Pos.Web              (serveWebBase, serveWebGT)
 import           Pos.WorkMode         (WorkMode)
 #ifdef WITH_WALLET
@@ -62,7 +62,7 @@ decode' fpath = either fail' return . decode =<< LBS.readFile fpath
   where
     fail' e = fail $ "Error reading key from " ++ fpath ++ ": " ++ e
 
-getSystemStart :: Ssc ssc => Proxy ssc -> RealModeResources -> Args -> Production Timestamp
+getSystemStart :: SscListenersClass ssc => Proxy ssc -> RealModeResources -> Args -> Production Timestamp
 getSystemStart sscProxy inst args  =
     case runningMode of
         Development ->

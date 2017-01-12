@@ -135,6 +135,7 @@ onNewSlotWhenLeader sendActions slotId pSk = do
             let whenNotCreated = logWarning . (mappend "I couldn't create a new block: ")
             createdBlock <- createMainBlock slotId pSk
             either whenNotCreated whenCreated createdBlock
+            logInfo "onNewSlotWhenLeader: done"
     logWarningWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
 
 verifyCreatedBlock :: (WithLogger m, SscHelpersClass ssc) => MainBlock ssc -> m ()

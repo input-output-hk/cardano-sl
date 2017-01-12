@@ -76,8 +76,8 @@ import           Pos.Types                 (Block, BlockHeader, Blund, EpochInde
                                             prevBlockL, topsortTxs, verifyHeader,
                                             verifyHeaders, vhpVerifyConsensus)
 import qualified Pos.Types                 as Types
-import           Pos.WorkMode              (WorkMode)
 import           Pos.Util                  (inAssertMode)
+import           Pos.WorkMode              (WorkMode)
 
 -- | Result of single (new) header classification.
 data ClassifyHeaderRes
@@ -301,12 +301,18 @@ verifyBlocks blocks =
 withBlkSemaphore
     :: WorkMode ssc m
     => (HeaderHash ssc -> m (a, HeaderHash ssc)) -> m a
-withBlkSemaphore action =
-    bracketOnError takeBlkSemaphore putBlkSemaphore doAction
+withBlkSemaphore action = do
+    logDebug "withBlkSemaphore: trying to acquire"
+    bracketOnError takeBlkSemaphore release doAction
   where
+    release tip = do
+        logDebug $ sformat ("withBlkSemaphore: releasing... " % build) tip
+        putBlkSemaphore tip
+        logDebug $ sformat ("withBlkSemaphore: released " % build) tip
     doAction tip = do
+        logDebug $ sformat ("withBlkSemaphore: acquired " % build) tip
         (res, newTip) <- action tip
-        res <$ putBlkSemaphore newTip
+        res <$ release newTip
 
 -- | Version of withBlkSemaphore which doesn't have any result.
 withBlkSemaphore_

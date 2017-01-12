@@ -16,14 +16,14 @@ import           Pos.Block.Worker      (blkWorkers)
 import           Pos.Communication     (BiP, SysStartResponse (..))
 import           Pos.Constants         (slotDuration, sysTimeBroadcastSlots)
 import           Pos.Context           (NodeContext (..), getNodeContext)
+import           Pos.DHT.Model         (sendToNeighbors)
 import           Pos.Lrc.Worker        (lrcOnNewSlotWorker)
-import           Pos.DHT.Model      (sendToNeighbors)
 import           Pos.Security.Workers  (SecurityWorkersClass, securityWorkers)
 import           Pos.Slotting          (onNewSlot')
 import           Pos.Ssc.Class.Workers (SscWorkersClass, sscWorkers)
 import           Pos.Types             (SlotId, flattenSlotId, slotIdF)
 import           Pos.Update            (usWorkers)
-import           Pos.Util              (waitRandomInterval')
+import           Pos.Util              (waitRandomInterval', withWaitLog)
 import           Pos.Util.TimeWarp     (ms)
 import           Pos.Worker.Stats      (statsWorkers)
 import           Pos.WorkMode          (WorkMode)
@@ -37,7 +37,7 @@ import           Pos.WorkMode          (WorkMode)
 -- will read it, but who knows…
 --runWorkers :: (SscWorkersClass ssc, WorkMode ssc m) => m ()
 runWorkers :: (SscWorkersClass ssc, SecurityWorkersClass ssc, WorkMode ssc m) => SendActions BiP m -> m ()
-runWorkers sendActions = mapM_ fork $ map ($ sendActions) $ concat
+runWorkers sendActions = mapM_ fork $ map ($ withWaitLog sendActions) $ concat
     [ [ onNewSlot' True . onNewSlotWorkerImpl ]
     , blkWorkers
     , untag sscWorkers

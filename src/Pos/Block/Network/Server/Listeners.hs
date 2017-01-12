@@ -14,6 +14,7 @@ import           Data.List.NonEmpty             (NonEmpty ((:|)), nonEmpty)
 import qualified Data.List.NonEmpty             as NE
 import           Data.Proxy                     (Proxy (..))
 import           Formatting                     (build, sformat, shown, stext, (%))
+import           Mockable                       (fork)
 import           Node                           (ConversationActions (..),
                                                  ListenerAction (..), NodeId (..),
                                                  SendActions (..), sendTo)
@@ -78,7 +79,7 @@ handleGetHeaders
        (WorkMode ssc m)
     => ListenerAction BiP m
 handleGetHeaders = ListenerActionConversation $
-    \__peerId conv -> do
+    \__peerId __sendActions conv -> do
         (msg :: Maybe (MsgGetHeaders ssc)) <- recv conv
         whenJust msg $ \(MsgGetHeaders {..}) -> do
             logDebug "Got request on handleGetHeaders"
@@ -353,7 +354,7 @@ relayBlock
        (WorkMode ssc m)
     => SendActions BiP m -> Block ssc -> m ()
 relayBlock _ (Left _)                  = pass
-relayBlock sendActions (Right mainBlk) = announceBlock sendActions $ mainBlk ^. gbHeader
+relayBlock sendActions (Right mainBlk) = void $ fork $ announceBlock sendActions $ mainBlk ^. gbHeader
 
 ----------------------------------------------------------------------------
 -- Logging formats

@@ -13,11 +13,11 @@ module Pos.DHT.Model.Neighbors
 
 import           Formatting          (int, sformat, shown, (%))
 import qualified Formatting          as F
-import           Mockable            (MonadMockable, handleAll)
+import           Mockable            (MonadMockable, forConcurrently, handleAll)
 import           Node                (SendActions (..))
 import           Node.Message        (Message, Serializable)
-import           System.Wlog         (WithLogger, logInfo, logWarning)
-import           Universum           hiding (catchAll)
+import           System.Wlog         (WithLogger, logDebug, logInfo, logWarning)
+import           Universum           hiding (catchAll, forConcurrently)
 
 import           Pos.Constants       (neighborsSendThreshold)
 import           Pos.Constants       (isDevelopment)
@@ -42,8 +42,7 @@ sendToNeighbors sender msg = do
            else return nodes_
     when (length nodes < neighborsSendThreshold) $
         logWarning $ sformat ("Send to only " % int % " nodes, threshold is " % int) (length nodes) (neighborsSendThreshold :: Int)
-    -- We don't need to parallelize sends here, because they are asynchronous by design
-    forM_ nodes $ \node -> sendToNode sender (dhtAddr node) msg
+    void $ forConcurrently nodes $ \node -> sendToNode sender (dhtAddr node) msg
 
 sendToNode
     :: ( MonadMockable m, Serializable packing body, WithLogger m, Message body )
@@ -55,7 +54,7 @@ sendToNode sender addr msg =
     handleAll handleE $ sendTo sender (addressToNodeId' 0 addr) msg
       where
         handleE e = do
-            logInfo $ sformat ("Error sending message to " % F.shown % " (endpoint 0): " % shown) addr e
+            logDebug $ sformat ("Error sending message to " % shown % " (endpoint 0): " % shown) addr e
             -- [CSL-447] temporary solution, need a proper fix probably
             -- Solution: maintain state per network-address, most-known endpoint?
             -- But I bet we can request available endpoints or whatever
@@ -63,4 +62,4 @@ sendToNode sender addr msg =
             when isDevelopment . handleAll handleE1 $
                 sendTo sender (addressToNodeId' 1 addr) msg
         handleE1 e = do
-            logInfo $ sformat ("Error sending message to " % F.shown % " (endpoint 1): " % shown) addr e
+            logDebug $ sformat ("Error sending message to " % shown % " (endpoint 1): " % shown) addr e

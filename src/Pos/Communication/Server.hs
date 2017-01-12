@@ -11,7 +11,7 @@ module Pos.Communication.Server
        ) where
 
 import           Data.Tagged                       (untag)
-import           Node                              (Listener)
+import           Node                              (Listener, ListenerAction (..))
 import           System.Wlog                       (LoggerName)
 import           Universum
 
@@ -27,6 +27,7 @@ import           Pos.Delegation.Listeners          (delegationListeners,
 import           Pos.Ssc.Class.Listeners           (SscListenersClass (..),
                                                     sscStubListeners)
 import           Pos.Txp.Listeners                 (txListeners, txStubListeners)
+import           Pos.Util                          (withWaitLog, withWaitLogConvL)
 import           Pos.WorkMode                      (WorkMode)
 
 -- | All listeners running on one node.
@@ -34,6 +35,7 @@ allListeners
     :: (SscListenersClass ssc, WorkMode ssc m)
     => [Listener BiP m]
 allListeners =
+    map addWaitLogging $
     map (modifyListenerLogger serverLoggerName) $
     concat
         [ map (modifyListenerLogger "block") blockListeners
@@ -42,6 +44,11 @@ allListeners =
         , map (modifyListenerLogger "delegation") delegationListeners
         , map (modifyListenerLogger "protocol") protocolListeners
         ]
+  where
+    addWaitLogging (ListenerActionOneMsg f) =
+        ListenerActionOneMsg $ \nId sA msg -> f nId (withWaitLog sA) msg
+    addWaitLogging (ListenerActionConversation f) =
+        ListenerActionConversation $ \nId sA cA -> f nId (withWaitLog sA) (withWaitLogConvL nId cA)
 
 -- | All listeners running on one node.
 allStubListeners

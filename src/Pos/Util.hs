@@ -77,6 +77,10 @@ module Pos.Util
        , stubListenerOneMsg
        , stubListenerConv
 
+       , withWaitLogConv
+       , withWaitLogConvL
+       , withWaitLog
+
        , NamedMessagePart (..)
        -- * Instances
        -- ** SafeCopy (NonEmpty a)
@@ -111,19 +115,21 @@ import qualified Data.Text                     as T
 import           Data.Time.Units               (Microsecond, Second, convertUnit)
 import           Formatting                    (sformat, shown, stext, (%))
 import           Language.Haskell.TH
-import           Mockable                      (Delay, Fork, Mockable, Throw, delay, fork,
-                                                killThread, throw)
-import           Node                          (ConversationActions, ListenerAction (..),
-                                                Message)
-import           Node.Message                  (Packable, Unpackable)
+import           Mockable                      (Bracket, Delay, Fork, Mockable, Throw,
+                                                bracket, delay, fork, killThread, throw)
+import           Node                          (ConversationActions (..),
+                                                ListenerAction (..), Message, NodeId,
+                                                SendActions (..))
+import           Node.Message                  (MessageName (..), Packable, Unpackable,
+                                                messageName, messageName')
 import           Serokell.Util                 (VerificationRes (..))
 import           System.Console.ANSI           (Color (..), ColorIntensity (Vivid),
                                                 ConsoleLayer (Foreground),
                                                 SGR (Reset, SetColor), setSGRCode)
-import           System.Wlog                   (LoggerNameBox (..), WithLogger,
+import           System.Wlog                   (LoggerNameBox (..), WithLogger, logDebug,
                                                 logWarning)
 import           Text.Parsec                   (ParsecT)
-import           Universum
+import           Universum                     hiding (bracket)
 import           Unsafe                        (unsafeInit, unsafeLast)
 
 -- SafeCopy instance for HashMap
@@ -331,14 +337,14 @@ data WaitingDelta
     deriving (Show)
 
 -- | Constraint for something that can be logged in parallel with other action.
-type CanLogInParallel m = (MonadIO m, Mockable Delay m, Mockable Fork m, WithLogger m)
+type CanLogInParallel m = (Mockable Delay m, Mockable Fork m, WithLogger m, Mockable Bracket m)
 
 -- | Run action and print warning if it takes more time than expected.
 logWarningLongAction :: CanLogInParallel m => WaitingDelta -> Text -> m a -> m a
-logWarningLongAction delta actionTag action = do
-    logThreadId <- fork $ waitAndWarn delta
-    action      <* killThread logThreadId
+logWarningLongAction delta actionTag action =
+    bracket (fork $ waitAndWarn delta) onFinish (const action)
   where
+    onFinish logThreadId = killThread logThreadId *> logDebug (sformat ("Action `"%stext%"` finished") actionTag)
     printWarning t = logWarning $ sformat ("Action `"%stext%"` took more than "%shown)
                                   actionTag
                                   t
@@ -539,8 +545,44 @@ stubListenerOneMsg p = ListenerActionOneMsg $ \_ _ m ->
                            in return ()
 
 stubListenerConv :: (Monad m, Message r, Unpackable p r, Packable p Void) => Proxy r -> ListenerAction p m
-stubListenerConv p = ListenerActionConversation $ \_ convActions ->
-                          let _ = convActions `asProxyTypeOf` modP p
-                              modP :: Proxy r -> Proxy (ConversationActions Void r m)
-                              modP _ = Proxy
+stubListenerConv p = ListenerActionConversation $ \__nId __sA convActions ->
+                          let _ = convActions `asProxyTypeOf` __modP p
+                              __modP :: Proxy r -> Proxy (ConversationActions Void r m)
+                              __modP _ = Proxy
                            in return ()
+
+withWaitLog :: ( CanLogInParallel m ) => SendActions p m -> SendActions p m
+withWaitLog sendActions = sendActions
+    { sendTo = \nodeId msg ->
+                  let MessageName mName = messageName' msg
+                   in logWarningWaitLinear 8
+                        (sformat ("Send "%shown%" to "%shown) mName nodeId) $
+                          sendTo sendActions nodeId msg
+    , withConnectionTo = \nodeId action -> withConnectionTo sendActions nodeId $ action . withWaitLogConv nodeId
+    }
+
+withWaitLogConv :: ( CanLogInParallel m, Message snd ) => NodeId -> ConversationActions snd rcv m -> ConversationActions snd rcv m
+withWaitLogConv nodeId conv = conv { send = send', recv = recv' }
+  where
+    send' msg =
+        logWarningWaitLinear 8
+          (sformat ("Send "%shown%" to "%shown%" in conversation") sndMsg nodeId) $
+            send conv msg
+    recv' =
+        logWarningWaitLinear 8
+          (sformat ("Recv from "%shown%" in conversation") nodeId) $
+            recv conv
+    MessageName sndMsg = messageName $ ((\_ -> Proxy) :: ConversationActions snd rcv m -> Proxy snd) conv
+
+withWaitLogConvL :: ( CanLogInParallel m, Message rcv ) => NodeId -> ConversationActions snd rcv m -> ConversationActions snd rcv m
+withWaitLogConvL nodeId conv = conv { send = send', recv = recv' }
+  where
+    send' msg =
+        logWarningWaitLinear 8
+          (sformat ("Send to "%shown%" in conversation") nodeId) $
+            send conv msg
+    recv' =
+        logWarningWaitLinear 8
+          (sformat ("Recv "%shown%" from "%shown%" in conversation") rcvMsg nodeId) $
+            recv conv
+    MessageName rcvMsg = messageName $ ((\_ -> Proxy) :: ConversationActions snd rcv m -> Proxy rcv) conv

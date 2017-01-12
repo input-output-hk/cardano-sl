@@ -106,7 +106,7 @@ applyGlobal (HS.fromList . NE.toList -> richmen) globalData = do
             -- Select shares from nodes which sent certificates
             , (`HM.intersection` globalCerts)
             -- Select shares to nodes which sent commitments
-            , map (`HM.intersection` globalCerts)
+            , map (`HM.intersection` globalCommitments)
             -- Ensure that share sent from pkFrom to pkTo is valid
             , HM.mapWithKey checkCorrectShares
             ]

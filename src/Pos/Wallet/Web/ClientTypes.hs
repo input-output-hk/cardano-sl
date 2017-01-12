@@ -29,9 +29,10 @@ module Pos.Wallet.Web.ClientTypes
       , mkCTxId
       , txIdToCTxId
       , ctTypeMeta
+      , txContainsTitle
       ) where
 
-import           Data.Text             (Text)
+import           Data.Text             (Text, isInfixOf)
 import           GHC.Generics          (Generic)
 import           Universum
 
@@ -45,7 +46,9 @@ import           Pos.Types             (Address (..), Coin, Tx, TxId, decodeText
                                         unsafeIntegerToCoin)
 
 -- Notifications
-data NotifyEvent = Test
+data NotifyEvent
+    = ConnectionOpened
+    | ConnectionClosed
     deriving (Show, Generic)
 
 -- | currencies handled by client
@@ -109,7 +112,7 @@ data CWalletMeta = CWalletMeta
     } deriving (Show, Generic)
 
 instance Default CWalletMeta where
-    def = CWalletMeta CWTPersonal ADA ""
+    def = CWalletMeta CWTPersonal ADA "Personal Wallet"
 
 -- | Client Wallet (CW)
 -- (Flow type: walletType)
@@ -172,6 +175,9 @@ data CTx = CTx
     , ctAmount :: Coin
     , ctType   :: CTType -- it includes all "meta data"
     } deriving (Show, Generic)
+
+txContainsTitle :: Text -> CTx -> Bool
+txContainsTitle search = isInfixOf search . ctmTitle . ctTypeMeta . ctType
 
 -- | meta data of exchanges
 data CTExMeta = CTExMeta

@@ -14,7 +14,6 @@ import           Control.Monad.Trans.Maybe        (runMaybeT)
 import           Control.TimeWarp.Timed           (Microsecond, Millisecond, currentTime,
                                                    for, wait)
 import           Data.HashMap.Strict              (lookup, member)
-import           Data.HashMap.Strict              (lookup, member)
 import           Data.List.NonEmpty               (NonEmpty)
 import qualified Data.List.NonEmpty               as NE
 import           Data.Tagged                      (Tagged (..))
@@ -140,7 +139,6 @@ onNewSlotSsc
     => m ()
 onNewSlotSsc = onNewSlot True $ \slotId-> do
     localOnNewSlot slotId
-    checkNSendOurCert
     participationEnabled <- getNodeContext >>=
         atomically . readTVar . gtcParticipateSsc . ncSscContext
     richmen <- lrcActionOnEpochReason (siEpoch slotId)
@@ -149,6 +147,7 @@ onNewSlotSsc = onNewSlot True $ \slotId-> do
     ourId <- addressHash . ncPublicKey <$> getNodeContext
     let enoughStake = ourId `elem` NE.toList richmen
     when (participationEnabled && enoughStake) $ do
+        checkNSendOurCert
         onNewSlotCommitment slotId
         onNewSlotOpening slotId
         onNewSlotShares slotId

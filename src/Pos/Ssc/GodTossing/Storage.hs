@@ -37,9 +37,9 @@ import           Pos.Ssc.Extra.MonadGS          (MonadSscGS (..), sscRunGlobalQu
 import           Pos.Ssc.GodTossing.Error       (SeedError)
 import           Pos.Ssc.GodTossing.Functions   (checkCommShares,
                                                  checkOpeningMatchesCommitment,
-                                                 checkShares, isCommitmentIdx,
-                                                 isOpeningIdx, isSharesIdx,
-                                                 verifyGtPayload)
+                                                 checkShares, computeParticipants,
+                                                 isCommitmentIdx, isOpeningIdx,
+                                                 isSharesIdx, verifyGtPayload)
 import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
 import           Pos.Ssc.GodTossing.Seed        (calculateSeed)
 import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), GtPayload (..),
@@ -130,7 +130,7 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
             ]
           where
             allCerts = certs <> globalCerts
-            participants = allCerts `HM.intersection` HS.toMap richmenSet
+            participants = computeParticipants richmen allCerts
             vssPublicKeys = map vcVssKey $ toList participants
 
     -- For openings, we check that

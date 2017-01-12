@@ -21,7 +21,6 @@ import           Data.Containers                      (ContainerKey,
                                                        SetContainer (notMember))
 import qualified Data.HashMap.Strict                  as HM
 import qualified Data.HashSet                         as HS
-import qualified Data.List.NonEmpty                   as NE
 import           Serokell.Util.Verify                 (isVerSuccess)
 import           Universum
 
@@ -34,6 +33,7 @@ import           Pos.Ssc.Extra.MonadLD                (MonadSscLD)
 import           Pos.Ssc.GodTossing.Functions         (checkCommShares,
                                                        checkOpeningMatchesCommitment,
                                                        checkShare, checkShares,
+                                                       computeParticipants,
                                                        isCommitmentIdx, isOpeningIdx,
                                                        isSharesIdx,
                                                        verifySignedCommitment)
@@ -72,23 +72,26 @@ type LDUpdate a = forall m . MonadState GtState m  => m a
 -- Apply Global State
 ----------------------------------------------------------------------------
 applyGlobal :: Richmen -> GtGlobalState -> LocalUpdate SscGodTossing ()
-applyGlobal (HS.fromList . NE.toList -> richmen) globalData = do
+applyGlobal richmen globalData = do
     localCerts <- uses ldCertificates VCD.certs
     let globalCerts = VCD.certs . _gsVssCertificates $ globalData
-        participants = HS.toMap $ (getKeys $ localCerts `HM.union` globalCerts)
-                                   `HS.intersection` richmen
+        participants = computeParticipants richmen (localCerts `HM.union` globalCerts)
+        vssPublicKeys = map vcVssKey $ toList participants
         globalCommitments = _gsCommitments globalData
         globalOpenings = _gsOpenings globalData
         globalShares = _gsShares globalData
-    -- 1. remove commitments which are contained already in global state
-    -- 2. remove commitments which corresponds to expired certs
-    ldCommitments  %= (`HM.difference` globalCommitments) . (`HM.intersection` participants)
+    let filterCommitments comms =
+            foldl' (flip ($)) comms $
+            [
+            -- Remove commitments which are contained already in global state
+              (`HM.difference` globalCommitments)
+            -- Remove commitments which corresponds to expired certs
+            , (`HM.intersection` participants)
+            , (HM.filterWithKey (\_ c -> checkCommShares vssPublicKeys c))
+            ]
     let filterOpenings opens =
             foldl' (flip ($)) opens $
-            [
-            -- Select only new openings
-              (`HM.difference` globalOpenings)
-            -- Select commitments which sent opening
+            [ (`HM.difference` globalOpenings)
             , (`HM.intersection` globalCommitments)
             -- Select opening which corresponds its commitment
             , HM.filterWithKey
@@ -103,16 +106,14 @@ applyGlobal (HS.fromList . NE.toList -> richmen) globalData = do
                      (pkTo, pkFrom, share)) shares
     let filterShares shares =
             foldl' (flip ($)) shares $
-            [
-            -- Select only new shares
-              (`diffDoubleMap` globalShares)
-            -- Select shares from nodes which sent certificates
+            [ (`diffDoubleMap` globalShares)
             , (`HM.intersection` participants)
             -- Select shares to nodes which sent commitments
             , map (`HM.intersection` globalCommitments)
             -- Ensure that share sent from pkFrom to pkTo is valid
             , HM.mapWithKey checkCorrectShares
             ]
+    ldCommitments  %= filterCommitments
     ldOpenings  %= filterOpenings
     ldShares  %= filterShares
     ldCertificates  %= (`VCD.difference` globalCerts)

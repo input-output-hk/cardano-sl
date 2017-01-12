@@ -10,7 +10,7 @@ import           Universum
 import           Pos.Crypto                    (PublicKey, unsafeHash)
 import           Pos.Ssc.GodTossing.Types.Base (Opening, SignedCommitment)
 import           Pos.Ssc.GodTossing.Types.Type (SscGodTossing)
-import           Pos.Types                     (HeaderHash)
+import           Pos.Types                     (EpochIndex, HeaderHash)
 
 type GtSecret = (PublicKey, SignedCommitment, Opening)
 
@@ -19,10 +19,9 @@ defSecretForTip = unsafeHash ("dratuti" :: Text)
 
 data GtSecretStorage = GtSecretStorage
     {
-      -- | Secret that we are using for the current epoch.
-      _dsCurrentSecret :: !(Maybe GtSecret)
-      -- | Tip corresponding to the latter generated secret
-    , _dsSecretForTip  :: !(HeaderHash SscGodTossing)
+      -- | Secret that we are using for the current epoch and
+      -- Tip corresponding to the latter generated secret
+      _dsCurrentSecret :: !(Maybe (GtSecret, EpochIndex, HeaderHash SscGodTossing))
     } deriving (Show, Eq)
 
 instance Default GtSecretStorage where
@@ -30,5 +29,4 @@ instance Default GtSecretStorage where
         GtSecretStorage
         {
           _dsCurrentSecret = Nothing
-        , _dsSecretForTip = defSecretForTip
         }

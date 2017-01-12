@@ -1,8 +1,9 @@
 module Pos.Ssc.GodTossing.Secret.SecretStorage
        (
          getSecret
+       , getSecretNEpoch
+       , getSecretNTip
        , setSecret
-       , getSecretForTip
        ) where
 
 import           Universum
@@ -11,15 +12,26 @@ import           Pos.DB                          (MonadDB)
 import           Pos.DB.Misc                     (getSecretStorage, putSecretStorage)
 import           Pos.Ssc.GodTossing.Secret.Types (GtSecret, GtSecretStorage (..))
 import           Pos.Ssc.GodTossing.Types.Type   (SscGodTossing)
-import           Pos.Types                       (HeaderHash)
+import           Pos.Types                       (HeaderHash, EpochIndex)
 
 getSecret :: MonadDB SscGodTossing m => m (Maybe GtSecret)
-getSecret = _dsCurrentSecret <$> getSecretStorage
+getSecret = do
+    mb <- _dsCurrentSecret <$> getSecretStorage
+    pure $ maybe Nothing (\(s, _, _) -> Just s) mb
 
-getSecretForTip :: MonadDB SscGodTossing m => m (HeaderHash SscGodTossing)
-getSecretForTip = _dsSecretForTip <$> getSecretStorage
+getSecretNEpoch :: MonadDB SscGodTossing m => m (Maybe (GtSecret, EpochIndex))
+getSecretNEpoch = do
+    mb <- _dsCurrentSecret <$> getSecretStorage
+    pure $ maybe Nothing (\(s, e, _) -> Just (s, e)) mb
 
-setSecret :: MonadDB SscGodTossing m => GtSecret -> HeaderHash SscGodTossing -> m ()
-setSecret secret tip = do
-    st <- getSecretStorage
-    putSecretStorage $ st {_dsCurrentSecret = Just secret, _dsSecretForTip = tip}
+getSecretNTip :: MonadDB SscGodTossing m => m (Maybe (GtSecret, HeaderHash SscGodTossing))
+getSecretNTip = do
+    mb <- _dsCurrentSecret <$> getSecretStorage
+    pure $ maybe Nothing (\(s, _, t) -> Just (s, t)) mb
+
+setSecret :: MonadDB SscGodTossing m
+          => GtSecret
+          -> EpochIndex
+          -> HeaderHash SscGodTossing
+          -> m ()
+setSecret secret epoch tip = putSecretStorage . GtSecretStorage . Just $ (secret, epoch, tip)

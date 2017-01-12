@@ -13,8 +13,8 @@ import           Control.Lens                     (use, view, (%=), _2, _3)
 import           Control.Monad.Trans.Maybe        (runMaybeT)
 import           Control.TimeWarp.Timed           (Microsecond, Millisecond, currentTime,
                                                    for, wait)
-import           Data.HashMap.Strict              (lookup, member)
-import           Data.HashMap.Strict              (lookup, member)
+import qualified Data.HashMap.Strict              as HM
+import qualified Data.HashSet                     as HS
 import           Data.List.NonEmpty               (NonEmpty)
 import qualified Data.List.NonEmpty               as NE
 import           Data.Tagged                      (Tagged (..))
@@ -82,7 +82,7 @@ checkNSendOurCert :: forall m . (WorkMode SscGodTossing m) => m ()
 checkNSendOurCert = do
     (_, ourId) <- getOurPkAndId
     SlotId {..} <- getCurrentSlot
-    isCertInBlockhain <- member ourId <$> getGlobalCerts siEpoch
+    isCertInBlockhain <- HM.member ourId <$> getGlobalCerts siEpoch
     if isCertInBlockhain
         then logDebug "Our VssCertificate has been already announced."
         else do
@@ -108,7 +108,7 @@ checkNSendOurCert = do
     getOurVssCertificateDo :: Maybe VssCertificatesMap -> m VssCertificate
     getOurVssCertificateDo certs = do
         (_, ourId) <- getOurPkAndId
-        case lookup ourId =<< certs of
+        case HM.lookup ourId =<< certs of
             Just c -> return c
             Nothing -> do
                 ourSk <- ncSecretKey <$> getNodeContext
@@ -138,16 +138,17 @@ getOurVssKeyPair = gtcVssKeyPair . ncSscContext <$> getNodeContext
 onNewSlotSsc
     :: (WorkMode SscGodTossing m)
     => m ()
-onNewSlotSsc = onNewSlot True $ \slotId-> do
-    localOnNewSlot slotId
+onNewSlotSsc = onNewSlot True $ \slotId -> do
+    richmen <- HS.fromList . NE.toList <$>
+        lrcActionOnEpochReason (siEpoch slotId)
+            "couldn't get SSC richmen"
+            getRichmenSsc
+    localOnNewSlot richmen slotId
     checkNSendOurCert
     participationEnabled <- getNodeContext >>=
         atomically . readTVar . gtcParticipateSsc . ncSscContext
-    richmen <- lrcActionOnEpochReason (siEpoch slotId)
-                   "couldn't get SSC richmen"
-                   getRichmenSsc
     ourId <- addressHash . ncPublicKey <$> getNodeContext
-    let enoughStake = ourId `elem` NE.toList richmen
+    let enoughStake = ourId `HS.member` richmen
     when (participationEnabled && enoughStake) $ do
         onNewSlotCommitment slotId
         onNewSlotOpening slotId
@@ -222,7 +223,7 @@ onNewSlotShares SlotId {..} = do
         ourVss <- gtcVssKeyPair . ncSscContext <$> getNodeContext
         shares <- getOurShares ourVss
         let lShares = fmap asBinary shares
-        unless (null shares) $ do
+        unless (HM.null shares) $ do
             sscProcessOurMessage siEpoch (MCShares lShares) ourId
             sendOurData SharesMsg siEpoch 4 ourId
 
@@ -271,7 +272,7 @@ generateAndSetNewSecret sk SlotId {..} = do
         lrcActionOnEpochReason siEpoch "couldn't get SSC richmen" getRichmenSsc
     certs <- getGlobalCerts siEpoch
     let participants =
-            NE.nonEmpty . map vcVssKey . mapMaybe (`lookup` certs) . toList $
+            NE.nonEmpty . map vcVssKey . mapMaybe (`HM.lookup` certs) . toList $
             richmen
     maybe (Nothing <$ warnNoPs) generateAndSetNewSecretDo participants
   where

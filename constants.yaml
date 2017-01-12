@@ -12,8 +12,9 @@ protocolMagic: 0
 enchancedMessageBroadcast: 2
 
 # GodTossing
-vssMaxTTL : 10 # epochs
+vssMaxTTL: 10 # epochs
 mpcSendInterval: 12 # must be less than (k * slotDuration - networkDiameter)
+mpcThreshold: 0.01 # 1% of stake
 
 # Delegation
 delegationThreshold: 0.005 # 0.5% of stake

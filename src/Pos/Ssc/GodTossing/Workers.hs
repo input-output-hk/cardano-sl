@@ -13,7 +13,7 @@ import           Control.Lens                     (use, view, (%=), _2, _3)
 import           Control.Monad.Trans.Maybe        (runMaybeT)
 import           Control.TimeWarp.Timed           (Microsecond, Millisecond, currentTime,
                                                    for, wait)
-import           Data.HashMap.Strict              (insert, lookup, member)
+import           Data.HashMap.Strict              (lookup, member)
 import           Data.List.NonEmpty               (NonEmpty, nonEmpty)
 import           Data.Tagged                      (Tagged (..))
 import           Data.Time.Units                  (convertUnit)
@@ -39,7 +39,7 @@ import           Pos.DB.Lrc                       (getRichmenSsc)
 import           Pos.Slotting                     (getCurrentSlot, getSlotStart,
                                                    onNewSlot)
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
-import           Pos.Ssc.Extra.MonadLD            (sscRunLocalQuery, sscRunLocalUpdate)
+import           Pos.Ssc.Extra.MonadLD            (sscGetLocalPayload, sscRunLocalUpdate)
 import           Pos.Ssc.GodTossing.Functions     (genCommitmentAndOpening, hasCommitment,
                                                    hasOpening, hasShares, isCommitmentIdx,
                                                    isOpeningIdx, isSharesIdx,
@@ -53,8 +53,9 @@ import           Pos.Ssc.GodTossing.Storage       (getGlobalCerts, gtGetGlobalSt
 import           Pos.Ssc.GodTossing.Types         (Commitment, Opening, SignedCommitment,
                                                    SscGodTossing, VssCertificate (..),
                                                    gtcParticipateSsc, gtcVssKeyPair,
-                                                   mkVssCertificate)
+                                                   mkVssCertificate, _gpCertificates)
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtMsgTag (..))
+import qualified Pos.Ssc.GodTossing.VssCertData   as VCD
 import           Pos.Types                        (EpochIndex, LocalSlotIndex,
                                                    SlotId (..), StakeholderId,
                                                    StakeholderId, Timestamp (..),
@@ -93,8 +94,9 @@ checkNSendOurCert = do
   where
     getOurVssCertificate :: m VssCertificate
     getOurVssCertificate = do
+        slotId <- getCurrentSlot
         (_, ourId) <- getOurPkAndId
-        localCerts     <- sscRunLocalQuery $ view ldCertificates
+        localCerts <- _gpCertificates <$> sscGetLocalPayload slotId
         case lookup ourId localCerts of
           Just c  -> return c
           Nothing -> do
@@ -106,7 +108,7 @@ checkNSendOurCert = do
             sscRunLocalUpdate $ do
                 lps <- use ldLastProcessedSlot
                 let ourCert = createOurCert lps
-                ldCertificates %= insert ourId ourCert
+                ldCertificates %= VCD.insert ourId ourCert
                 return ourCert
 
 getOurPkAndId

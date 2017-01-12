@@ -15,7 +15,8 @@ module Pos.Ssc.GodTossing.LocalData.LocalData
          -- ** instance SscLocalDataClass SscGodTossing
        ) where
 
-import           Control.Lens                         (Getter, at, use, view, (%=), (.=))
+import           Control.Lens                         (Getter, at, use, uses, view, views,
+                                                       (%=), (.=))
 import           Data.Containers                      (ContainerKey,
                                                        SetContainer (notMember))
 import qualified Data.HashMap.Strict                  as HM
@@ -68,7 +69,7 @@ type LDUpdate a = forall m . MonadState GtState m  => m a
 ----------------------------------------------------------------------------
 applyGlobal :: Richmen -> GtGlobalState -> LocalUpdate SscGodTossing ()
 applyGlobal (HS.fromList . NE.toList -> richmen) globalData = do
-    localCerts <- use ldCertificates
+    localCerts <- uses ldCertificates VCD.certs
     let globalCerts = VCD.certs . _gsVssCertificates $ globalData
         participants = HS.toMap $ (getKeys $ localCerts `HM.union` globalCerts)
                                    `HS.intersection` richmen
@@ -82,7 +83,7 @@ applyGlobal (HS.fromList . NE.toList -> richmen) globalData = do
     -- 2. remove openings corresponding to invalid commitments
     ldOpenings  %= (`HM.difference` globalOpenings) . (`HM.difference` globalCommitments)
     ldShares  %= (`diffDoubleMap` globalShares) . (`HM.difference` globalCommitments)
-    ldCertificates  %= (`HM.difference` globalCerts)
+    ldCertificates  %= (`VCD.difference` globalCerts)
 
 ----------------------------------------------------------------------------
 -- Get Local Payload
@@ -97,7 +98,7 @@ getLocalPayload SlotId{..} =
         SharesPayload <$> view ldShares
     else
         pure CertificatesPayload)
-    <*> view ldCertificates
+    <*> views ldCertificates VCD.certs
 
 ----------------------------------------------------------------------------
 -- Process New Slot
@@ -113,6 +114,7 @@ localOnNewSlotU si@SlotId {siSlot = slotIdx} = do
     unless (isCommitmentIdx slotIdx) $ gtLocalCommitments .= mempty
     unless (isOpeningIdx slotIdx) $ gtLocalOpenings .= mempty
     unless (isSharesIdx slotIdx) $ gtLocalShares .= mempty
+    gtLocalCertificates %= VCD.setLastKnownSlot si
     gtLastProcessedSlot .= si
 
 ----------------------------------------------------------------------------
@@ -142,7 +144,7 @@ sscIsDataUsefulQ SharesMsg =
 sscIsDataUsefulQ VssCertificateMsg = sscIsCertUsefulImpl
   where
     sscIsCertUsefulImpl addr = do
-        loc <- view gtLocalCertificates
+        loc <- views gtLocalCertificates VCD.certs
         glob <- view gtGlobalCertificates
         lpe <- siEpoch <$> view gtLastProcessedSlot
         if addr `HM.member` loc then pure False
@@ -258,4 +260,4 @@ checkSharesLastVer certs addr shares =
 processVssCertificate :: StakeholderId -> VssCertificate -> LDUpdate Bool
 processVssCertificate addr c = do
     ok <- readerToState (sscIsDataUsefulQ VssCertificateMsg addr)
-    ok <$ when ok (gtLocalCertificates %= HM.insert addr c)
+    ok <$ when ok (gtLocalCertificates %= VCD.insert addr c)

@@ -25,6 +25,4 @@ import           Pos.WorkMode                (MinWorkMode)
 -- | Send Tx to given address.
 sendTx :: (MinWorkMode m) => SendActions BiP m -> NetworkAddress -> TxAux -> m ()
 sendTx sendActions addr (tx,w,d) = do
-    --sendToNode addr VersionReq
     sendToNode sendActions addr $ DataMsg (TxMsgContents tx w d) (hash tx)
-    return ()

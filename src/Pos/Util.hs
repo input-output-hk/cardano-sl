@@ -344,7 +344,9 @@ logWarningLongAction :: CanLogInParallel m => WaitingDelta -> Text -> m a -> m a
 logWarningLongAction delta actionTag action =
     bracket (fork $ waitAndWarn delta) onFinish (const action)
   where
-    onFinish logThreadId = killThread logThreadId *> logDebug (sformat ("Action `"%stext%"` finished") actionTag)
+    onFinish logThreadId = do
+        killThread logThreadId
+        --logDebug (sformat ("Action `"%stext%"` finished") actionTag)
     printWarning t = logWarning $ sformat ("Action `"%stext%"` took more than "%shown)
                                   actionTag
                                   t
@@ -555,7 +557,7 @@ withWaitLog :: ( CanLogInParallel m ) => SendActions p m -> SendActions p m
 withWaitLog sendActions = sendActions
     { sendTo = \nodeId msg ->
                   let MessageName mName = messageName' msg
-                   in logWarningWaitLinear 8
+                   in logWarningWaitLinear 4
                         (sformat ("Send "%shown%" to "%shown) mName nodeId) $
                           sendTo sendActions nodeId msg
     , withConnectionTo = \nodeId action -> withConnectionTo sendActions nodeId $ action . withWaitLogConv nodeId
@@ -565,11 +567,11 @@ withWaitLogConv :: ( CanLogInParallel m, Message snd ) => NodeId -> Conversation
 withWaitLogConv nodeId conv = conv { send = send', recv = recv' }
   where
     send' msg =
-        logWarningWaitLinear 8
+        logWarningWaitLinear 4
           (sformat ("Send "%shown%" to "%shown%" in conversation") sndMsg nodeId) $
             send conv msg
     recv' =
-        logWarningWaitLinear 8
+        logWarningWaitLinear 4
           (sformat ("Recv from "%shown%" in conversation") nodeId) $
             recv conv
     MessageName sndMsg = messageName $ ((\_ -> Proxy) :: ConversationActions snd rcv m -> Proxy snd) conv
@@ -578,11 +580,11 @@ withWaitLogConvL :: ( CanLogInParallel m, Message rcv ) => NodeId -> Conversatio
 withWaitLogConvL nodeId conv = conv { send = send', recv = recv' }
   where
     send' msg =
-        logWarningWaitLinear 8
+        logWarningWaitLinear 4
           (sformat ("Send to "%shown%" in conversation") nodeId) $
             send conv msg
     recv' =
-        logWarningWaitLinear 8
+        logWarningWaitLinear 4
           (sformat ("Recv "%shown%" from "%shown%" in conversation") rcvMsg nodeId) $
             recv conv
     MessageName rcvMsg = messageName $ ((\_ -> Proxy) :: ConversationActions snd rcv m -> Proxy rcv) conv

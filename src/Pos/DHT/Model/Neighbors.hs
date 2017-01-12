@@ -13,7 +13,7 @@ module Pos.DHT.Model.Neighbors
 
 import           Formatting          (int, sformat, shown, (%))
 import qualified Formatting          as F
-import           Mockable            (MonadMockable, forConcurrently, handleAll)
+import           Mockable            (MonadMockable, forConcurrently, handleAll, throw)
 import           Node                (SendActions (..))
 import           Node.Message        (Message, Serializable)
 import           System.Wlog         (WithLogger, logDebug, logInfo, logWarning)
@@ -42,7 +42,9 @@ sendToNeighbors sender msg = do
            else return nodes_
     when (length nodes < neighborsSendThreshold) $
         logWarning $ sformat ("Send to only " % int % " nodes, threshold is " % int) (length nodes) (neighborsSendThreshold :: Int)
-    void $ forConcurrently nodes $ \node -> sendToNode sender (dhtAddr node) msg
+    void $ forConcurrently nodes $ \node -> handleAll (logSendErr node) $ sendToNode sender (dhtAddr node) msg
+  where
+    logSendErr node e = logWarning $ sformat ("Error sending to "%shown%": "%shown) node e
 
 sendToNode
     :: ( MonadMockable m, Serializable packing body, WithLogger m, Message body )
@@ -53,13 +55,5 @@ sendToNode
 sendToNode sender addr msg =
     handleAll handleE $ sendTo sender (addressToNodeId' 0 addr) msg
       where
-        handleE e = do
-            logDebug $ sformat ("Error sending message to " % shown % " (endpoint 0): " % shown) addr e
-            -- [CSL-447] temporary solution, need a proper fix probably
-            -- Solution: maintain state per network-address, most-known endpoint?
-            -- But I bet we can request available endpoints or whatever
-            -- Though we don't need it for production, so maintaining shared variable in state works
-            when isDevelopment . handleAll handleE1 $
-                sendTo sender (addressToNodeId' 1 addr) msg
-        handleE1 e = do
-            logDebug $ sformat ("Error sending message to " % shown % " (endpoint 1): " % shown) addr e
+        handleE e | isDevelopment = sendTo sender (addressToNodeId' 1 addr) msg
+                  | otherwise     = throw e

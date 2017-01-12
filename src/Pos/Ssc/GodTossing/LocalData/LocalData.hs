@@ -152,7 +152,7 @@ localOnNewSlotU richmen si@SlotId {siSlot = slotIdx} = do
     unless (isOpeningIdx slotIdx) $ gtLocalOpenings .= mempty
     unless (isSharesIdx slotIdx) $ gtLocalShares .= mempty
     gtLocalCertificates %= VCD.setLastKnownSlot si
-    gtLocalCertificates %= VCD.filter (not . (`HS.member` richmen))
+    gtLocalCertificates %= VCD.filter (`HS.member` richmen)
     gtLastProcessedSlot .= si
 
 ----------------------------------------------------------------------------

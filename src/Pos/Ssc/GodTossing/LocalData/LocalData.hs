@@ -49,16 +49,17 @@ import           Pos.Ssc.GodTossing.LocalData.Types   (ldCertificates, ldCommitm
                                                        ldLastProcessedSlot, ldOpenings,
                                                        ldShares)
 import           Pos.Ssc.GodTossing.Types             (GtGlobalState (..), GtPayload (..),
-                                                       SscBi, SscGodTossing)
+                                                       InnerSharesMap, SscBi,
+                                                       SscGodTossing,
+                                                       VssCertificate (vcSigningKey, vcVssKey))
 import           Pos.Ssc.GodTossing.Types.Base        (Commitment, Opening,
                                                        SignedCommitment,
-                                                       VssCertificate (vcSigningKey),
-                                                       VssCertificatesMap, vcVssKey)
+                                                       VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Types.Message     (GtMsgContents (..), GtMsgTag (..))
 import qualified Pos.Ssc.GodTossing.VssCertData       as VCD
 import           Pos.Types                            (SlotId (..), StakeholderId,
                                                        addressHash)
-import           Pos.Util                             (AsBinary, getKeys, readerToState)
+import           Pos.Util                             (AsBinary, readerToState)
 
 instance SscBi => SscLocalDataClass SscGodTossing where
     sscGetLocalPayloadQ = getLocalPayload
@@ -275,27 +276,19 @@ matchOpening :: StakeholderId -> Opening -> LDQuery Bool
 matchOpening addr opening =
     flip checkOpeningMatchesCommitment (addr, opening) <$> view gtGlobalCommitments
 
-processShares :: RichmenSet
-              -> StakeholderId
-              -> HashMap StakeholderId (AsBinary Share)
-              -> LDUpdate Bool
-processShares richmen addr s
+processShares :: RichmenSet -> StakeholderId -> InnerSharesMap -> LDUpdate Bool
+processShares richmen id s
     | null s = pure False
-    | not (addr `HS.member` richmen) = pure False
+    | not (id `HS.member` richmen) = pure False
     | otherwise = do
         certs <- VCD.certs <$> use gtGlobalCertificates
-        globalSharesPKForPK <- getKeys . HM.lookupDefault mempty addr <$> use gtGlobalShares
-        localSharesForPk <- HM.lookupDefault mempty addr <$> use gtLocalShares
-        let s' = s `HM.difference` (HS.toMap globalSharesPKForPK)
-        let newLocalShares = localSharesForPk `HM.union` s'
-        -- Note: size is O(n), but union is also O(n + m), so
-        -- it doesn't matter.
         let checks =
-              [ pure (HM.size newLocalShares /= HM.size localSharesForPk)
-              , readerToState $ checkSharesLastVer certs addr s
+              [ not . HM.member id <$> use gtGlobalShares
+              , not . HM.member id <$> use gtLocalShares
+              , readerToState $ checkSharesLastVer certs id s
               ]
         ok <- andM checks
-        ok <$ when ok (gtLocalShares . at addr .= Just newLocalShares)
+        ok <$ when ok (gtLocalShares . at id .= Just s)
 
 -- CHECK: #checkShares
 checkSharesLastVer

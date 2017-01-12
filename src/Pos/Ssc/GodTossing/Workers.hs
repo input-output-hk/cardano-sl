@@ -224,8 +224,6 @@ onNewSlotShares SlotId {..} = do
     ourId <- addressHash . ncPublicKey <$> getNodeContext
     -- Send decrypted shares that others have sent us
     shouldSendShares <- do
-        -- [CSL-203]: here we assume that all shares are always sent
-        -- as a whole package.
         sharesInBlockchain <- hasShares ourId <$> gtGetGlobalState
         return $ isSharesIdx siSlot && not sharesInBlockchain
     when shouldSendShares $ do

@@ -165,10 +165,6 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
             , (all (`HM.member` globalCommitments)
                    (concatMap HM.keys $ toList shares),
                    "some shares don't have corresponding commitments")
-            -- [CSL-203]: here we assume that all shares are always sent as a
-            -- whole package.
-            -- Use intersectionDoubleMap (doesn't exist yet) or something to
-            -- allow spliting shares into multiple messages.
             , (null (shares `HM.intersection` globalShares),
                    "some shares have already been sent")
             , (all (uncurry (checkShares globalCommitments globalOpenings globalCerts))

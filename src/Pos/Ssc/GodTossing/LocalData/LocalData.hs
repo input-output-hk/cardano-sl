@@ -81,16 +81,18 @@ applyGlobal richmen globalData = do
         globalOpenings = _gsOpenings globalData
         globalShares = _gsShares globalData
     let filterCommitments comms =
-            foldl' (flip ($)) comms $
+            foldl' (&) comms $
             [
             -- Remove commitments which are contained already in global state
               (`HM.difference` globalCommitments)
             -- Remove commitments which corresponds to expired certs
             , (`HM.intersection` participants)
+            -- If set of certificates changes, set of participants can
+            -- change too.  Hence some commitments can become invalid.
             , (HM.filterWithKey (\_ c -> checkCommShares vssPublicKeys c))
             ]
     let filterOpenings opens =
-            foldl' (flip ($)) opens $
+            foldl' (&) opens $
             [ (`HM.difference` globalOpenings)
             , (`HM.intersection` globalCommitments)
             -- Select opening which corresponds its commitment

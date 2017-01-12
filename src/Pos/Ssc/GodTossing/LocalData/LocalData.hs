@@ -15,8 +15,8 @@ module Pos.Ssc.GodTossing.LocalData.LocalData
          -- ** instance SscLocalDataClass SscGodTossing
        ) where
 
-import           Control.Lens                         (Getter, at, use, view, views, (%=),
-                                                       (.=))
+import           Control.Lens                         (Getter, at, use, uses, view, views,
+                                                       (%=), (.=))
 import           Data.Containers                      (ContainerKey,
                                                        SetContainer (notMember))
 import qualified Data.HashMap.Strict                  as HM
@@ -30,13 +30,13 @@ import           Pos.Lrc.Types                        (Richmen, RichmenSet)
 import           Pos.Ssc.Class.LocalData              (LocalQuery, LocalUpdate,
                                                        SscLocalDataClass (..))
 import           Pos.Ssc.Extra.MonadLD                (MonadSscLD)
-import           Pos.Ssc.GodTossing.Functions         (checkCommShares,
+import           Pos.Ssc.GodTossing.Functions         (checkCertTTL, checkCommShares,
                                                        checkOpeningMatchesCommitment,
                                                        checkShare, checkShares,
                                                        computeParticipants,
                                                        isCommitmentIdx, isOpeningIdx,
                                                        isSharesIdx,
-                                                       verifySignedCommitment, checkCertTTL)
+                                                       verifySignedCommitment)
 import           Pos.Ssc.GodTossing.LocalData.Helpers (GtState, gtGlobalCertificates,
                                                        gtGlobalCommitments,
                                                        gtGlobalOpenings, gtGlobalShares,

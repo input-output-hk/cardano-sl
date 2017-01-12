@@ -45,9 +45,9 @@ import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CTx, 
                                                 txContainsTitle, txIdToCTxId)
 import           Pos.Wallet.Web.Error          (WalletError (..))
 import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
-                                                WalletWebSockets, WebWalletSockets,
-                                                closeWSConnection, initWSConnection,
-                                                runWalletWS, upgradeApplicationWS)
+                                                WalletWebSockets, closeWSConnection,
+                                                initWSConnection, runWalletWS,
+                                                upgradeApplicationWS)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
                                                 addOnlyNewTxMeta, closeState,
                                                 createWallet, getTxMeta, getWalletMeta,

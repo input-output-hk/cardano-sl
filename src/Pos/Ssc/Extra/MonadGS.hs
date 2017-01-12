@@ -18,17 +18,22 @@ module Pos.Ssc.Extra.MonadGS
        , sscVerifyBlocks
        ) where
 
+import           Control.Lens          ((^.))
 import           Control.Monad.Except  (ExceptT)
 import           Control.Monad.Trans   (MonadTrans)
 import           Control.TimeWarp.Rpc  (ResponseT)
 import           Serokell.Util         (VerificationRes)
 import           Universum
 
+import           Pos.Context           (WithNodeContext, lrcActionOnEpochReason)
+import           Pos.DB                (MonadDB)
+import qualified Pos.DB.Lrc            as LrcDB
 import           Pos.DHT.Model.Class   (DHTResponseT)
 import           Pos.DHT.Real          (KademliaDHT)
 import           Pos.Ssc.Class.Storage (SscStorageClass (..))
 import           Pos.Ssc.Class.Types   (Ssc (..))
-import           Pos.Types.Types       (EpochIndex, NEBlocks, Richmen, SharedSeed)
+import           Pos.Types.Types       (EpochIndex, NEBlocks, SharedSeed, epochIndexL)
+import           Pos.Util              (_neHead)
 
 class Monad m => MonadSscGS ssc m | m -> ssc where
     getGlobalState    :: m (SscGlobalState ssc)
@@ -89,6 +94,15 @@ sscRollback = sscRunGlobalModify . sscRollbackM @ssc
 
 sscVerifyBlocks
     :: forall ssc m.
-       (MonadSscGS ssc m, SscStorageClass ssc)
-    => Bool -> Richmen -> NEBlocks ssc -> m VerificationRes
-sscVerifyBlocks verPure richmen = sscRunGlobalQuery . sscVerifyBlocksM @ssc verPure richmen
+       ( MonadDB ssc m
+       , MonadSscGS ssc m
+       , WithNodeContext ssc m
+       , SscStorageClass ssc
+       )
+    => Bool -> NEBlocks ssc -> m VerificationRes
+sscVerifyBlocks verPure blocks = do
+    let epoch = blocks ^. _neHead . epochIndexL
+    richmen <- lrcActionOnEpochReason epoch
+                   "couldn't get SSC richmen"
+                   LrcDB.getRichmenSsc
+    sscRunGlobalQuery $ sscVerifyBlocksM @ssc verPure richmen blocks

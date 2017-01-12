@@ -20,8 +20,8 @@ import           Universum
 import           Pos.Binary.Class                       (Bi)
 import           Pos.Binary.Crypto                      ()
 import           Pos.Communication.Types                (ResponseMode)
-import           Pos.Context                            (WithNodeContext (getNodeContext),
-                                                         readRichmen)
+import           Pos.Context                            (WithNodeContext (getNodeContext))
+import qualified Pos.DB.Lrc                             as LrcDB
 import           Pos.DHT.Model                          (ListenerDHT (..))
 import           Pos.Security                           (shouldIgnorePkAddress)
 import           Pos.Slotting                           (getCurrentSlot)
@@ -39,7 +39,7 @@ import           Pos.Ssc.GodTossing.Types.Message       (GtMsgContents (..),
 import           Pos.Ssc.GodTossing.Types.Type          (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types         (GtPayload (..), GtProof,
                                                          _gpCertificates)
-import           Pos.Types.Address                      (StakeholderId)
+import           Pos.Types                              (SlotId (..), StakeholderId)
 import           Pos.Util.Relay                         (DataMsg, InvMsg, Relay (..),
                                                          ReqMsg, handleDataL, handleInvL,
                                                          handleReqL)
@@ -94,18 +94,26 @@ instance ( WorkMode SscGodTossing m
           (pure $ VerFailure ["slot is not appropriate"])
 
     handleInv = sscIsDataUseful
-    handleReq tag addr = toContents tag addr <$>
-                            (getCurrentSlot >>= sscGetLocalPayload)
+    handleReq tag addr = do
+      payload <- getCurrentSlot >>= sscGetLocalPayload
+      return $ case payload of Nothing -> Nothing
+                               Just p  -> toContents tag addr p
 
     handleData dat addr = do
         -- TODO: Add here malicious emulation for network addresses
         -- when TW will support getting peer address properly
         ifM (not <$> flip shouldIgnorePkAddress addr <$> getNodeContext)
-            (do richmen <- readRichmen
-                sscProcessMessage richmen dat addr) $ True <$
+            (sscProcessMessageRichmen dat addr) $ True <$
             (logDebug $ sformat
                 ("Malicious emulation: data "%build%" for address "%build%" ignored")
                 dat addr)
+
+sscProcessMessageRichmen :: WorkMode SscGodTossing m
+                          => GtMsgContents -> StakeholderId -> m Bool
+sscProcessMessageRichmen dat addr = do
+    epoch <- siEpoch <$> getCurrentSlot
+    richmenMaybe <- LrcDB.getRichmenSsc epoch
+    maybe (pure False) (\r -> sscProcessMessage r dat addr) richmenMaybe
 
 toContents :: GtMsgTag -> StakeholderId -> GtPayload -> Maybe GtMsgContents
 toContents CommitmentMsg addr (CommitmentsPayload comm _) =

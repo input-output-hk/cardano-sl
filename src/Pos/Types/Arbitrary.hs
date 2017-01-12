@@ -33,7 +33,7 @@ import           Pos.Binary.Update          ()
 import           Pos.Constants              (epochSlots, sharedSeedLength)
 import           Pos.Crypto                 (PublicKey, SecretKey, Share, hash, sign,
                                              toPublic)
-import           Pos.Crypto.Arbitrary       ()
+import           Pos.Crypto.Arbitrary       (KeyPair (..))
 import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.Script                 (Script)
 import           Pos.Script.Examples        (badIntRedeemer, goodIntRedeemer,
@@ -47,12 +47,13 @@ import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
                                              TxDistribution (..), TxIn (..),
                                              TxInWitness (..), TxOut (..), TxOutAux,
                                              makePubKeyAddress, makeScriptAddress, mkCoin)
-import           Pos.Types.Update           (SystemTag, UpdateData (..),
-                                             UpdateProposal (..), UpdateVote (..),
-                                             mkSystemTag)
 import           Pos.Types.Version          (ApplicationName (..), ProtocolVersion (..),
                                              SoftwareVersion (..),
                                              applicationNameMaxLength)
+import           Pos.Update.Types           (ProposalMsgTag (..), SystemTag,
+                                             UpdateData (..), UpdateProposal (..),
+                                             UpdateVote (..), VoteMsgTag (..),
+                                             mkSystemTag)
 import           Pos.Util                   (AsBinary, makeSmall)
 
 ----------------------------------------------------------------------------
@@ -260,6 +261,15 @@ instance Arbitrary SystemTag where
       where
         onFail = panic "instance Arbitrary SystemTag: disaster"
 
-derive makeArbitrary ''UpdateVote
+instance Arbitrary UpdateVote where
+    arbitrary = do
+        KeyPair uvKey sk <- arbitrary
+        uvProposalId <- arbitrary
+        uvDecision <- arbitrary
+        let uvSignature = sign sk (uvProposalId, uvDecision)
+        return UpdateVote {..}
+
 derive makeArbitrary ''UpdateData
 derive makeArbitrary ''UpdateProposal
+derive makeArbitrary ''ProposalMsgTag
+derive makeArbitrary ''VoteMsgTag

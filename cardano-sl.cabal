@@ -45,6 +45,7 @@ library
                         Pos.Constants
                         Pos.Crypto
                         Pos.DB
+                        Pos.DB.GState
                         Pos.Data.Attributes
                         Pos.Delegation
                         Pos.DHT
@@ -52,15 +53,15 @@ library
                         Pos.DHT.Model.Types
                         Pos.DHT.Model.Util
                         Pos.DHT.Model.Class
-                        Pos.DHT.Model.Class.BiP
-                        Pos.DHT.Model.Class.MonadDHT
-                        Pos.DHT.Model.Class.MonadMessageDHT
                         Pos.DHT.Real
                         Pos.DHT.Real.Real
                         Pos.DHT.Real.Types
-                        Pos.Eligibility
                         Pos.Genesis
-                        Pos.FollowTheSatoshi
+
+                        -- LRC
+                        Pos.Lrc
+                        Pos.Lrc.FollowTheSatoshi
+
                         Pos.Script
                         Pos.Script.Examples
                         Pos.Script.Type
@@ -94,9 +95,10 @@ library
                         Pos.Types.Timestamp
                         Pos.Types.Tx
                         Pos.Types.Types
-                        Pos.Types.Update
                         Pos.Types.Utxo
                         Pos.Types.Version
+                        Pos.Update
+                        Pos.Update.Types
                         Pos.Util
                         Pos.Util.JsonLog
                         Pos.Util.Relay
@@ -110,6 +112,8 @@ library
   if flag(with-wallet) && flag(with-web)
     exposed-modules:    Pos.Wallet.Web
   other-modules:        Pos.Aeson.CompileConfig
+
+                        -- Binary serialization
                         Pos.Binary.Address
                         Pos.Binary.Class
                         Pos.Binary.Crypto
@@ -124,7 +128,11 @@ library
                         Pos.Binary.Update
                         Pos.Binary.Util
                         Pos.Binary.Version
+
+                        -- Block processing
+                        Pos.Block.Error
                         Pos.Block.Logic
+                        Pos.Block.Logic.Internal
                         Pos.Block.Network.Announce
                         Pos.Block.Network.Request
                         Pos.Block.Network.Types
@@ -133,6 +141,8 @@ library
                         Pos.Block.Network.Server.Listeners
                         Pos.Block.Network.Server.Strategy
                         Pos.Block.Worker
+
+                        -- Network
                         Pos.Communication.Arbitrary
                         Pos.Communication.Methods
                         Pos.Communication.RelayMethods
@@ -144,11 +154,18 @@ library
                         Pos.Communication.Server.Protocol
                         Pos.Communication.Server.SysStart
                         Pos.Communication.Util
+
+                        -- Compile config
                         Pos.CompileConfig.Parser
                         Pos.CompileConfig.Type
+
+                        -- NodeContext
                         Pos.Context.Class
                         Pos.Context.Context
+                        Pos.Context.Functions
                         Pos.Context.Holder
+
+                        -- Crypto
                         Pos.Crypto.Arbitrary
                         Pos.Crypto.Arbitrary.Hash
                         Pos.Crypto.Arbitrary.Unsafe
@@ -157,22 +174,29 @@ library
                         Pos.Crypto.Random
                         Pos.Crypto.SecretSharing
                         Pos.Crypto.Signing
+
+                        -- Heavy delegation
                         Pos.Delegation.Class
                         Pos.Delegation.Methods
                         Pos.Delegation.Types
                         Pos.Delegation.Listeners
                         Pos.Delegation.Logic
+                        Pos.Delegation.Lrc
+
+                        -- Launcher
                         Pos.Launcher.Launcher
                         Pos.Launcher.Options
                         Pos.Launcher.Param
                         Pos.Launcher.Runner
                         Pos.Launcher.Scenario
+
+                        -- DB
                         Pos.DB.Block
                         Pos.DB.Class
                         Pos.DB.DB
+                        Pos.DB.DBIterator
                         Pos.DB.Error
                         Pos.DB.Functions
-                        Pos.DB.GState
                         Pos.DB.GState.Balances
                         Pos.DB.GState.Common
                         Pos.DB.GState.Delegation
@@ -180,13 +204,34 @@ library
                         Pos.DB.GState.Update
                         Pos.DB.GState.Utxo
                         Pos.DB.Holder
+                        Pos.DB.Lrc
+                        Pos.DB.Lrc.Common
+                        Pos.DB.Lrc.Leaders
+                        Pos.DB.Lrc.Lrc
+                        Pos.DB.Lrc.Richmen
                         Pos.DB.Misc
                         Pos.DB.Types
-                        Pos.DB.DBIterator
+
+                        -- DHT
                         Pos.DHT.Arbitrary
+                        Pos.DHT.Model.Class.BiP
+                        Pos.DHT.Model.Class.MonadDHT
+                        Pos.DHT.Model.Class.MonadMessageDHT
+
+                        -- LRC
+                        Pos.Lrc.Consumer
+                        Pos.Lrc.Consumers
+                        Pos.Lrc.Error
+                        Pos.Lrc.Eligibility
+                        Pos.Lrc.Types
+                        Pos.Lrc.Worker
+
+                        -- SSC
                         Pos.Ssc.Extra.Holder
                         Pos.Ssc.Extra.MonadGS
                         Pos.Ssc.Extra.MonadLD
+                        Pos.Ssc.Extra.Richmen
+                        Pos.Ssc.GodTossing.Richmen
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions
@@ -211,10 +256,14 @@ library
                         Pos.Ssc.GodTossing.Utils
                         Pos.Ssc.GodTossing.VssCertData
                         Pos.Ssc.GodTossing.Workers
+
+                        -- Statistics
                         Pos.Statistics.Helpers
                         Pos.Statistics.MonadStats
                         Pos.Statistics.StatEntry
                         Pos.Statistics.Tx
+
+                        -- Txp
                         Pos.Txp.Class
                         Pos.Txp.Error
                         Pos.Txp.Holder
@@ -223,13 +272,34 @@ library
                         Pos.Txp.Types.Communication
                         Pos.Txp.Types.Types
                         Pos.Txp.Types.UtxoView
+
+                        -- Types
+                        Pos.Types.SharedSeed
                         Pos.Types.Utxo.Class
                         Pos.Types.Utxo.Functions
                         Pos.Types.Utxo.Pure
-                        Pos.Worker.Lrc
+
+                        -- Workers
                         Pos.Worker.Stats
-                        Pos.Update
+
+                        -- Update System
                         Pos.Update.Download
+                        Pos.Update.Error
+                        Pos.Update.Listeners
+                        Pos.Update.Logic
+                        Pos.Update.Lrc
+                        Pos.Update.MemState
+                        Pos.Update.MemState.Class
+                        Pos.Update.MemState.Holder
+                        Pos.Update.MemState.MemState
+                        Pos.Update.MemState.Types
+                        Pos.Update.Poll
+                        Pos.Update.Poll.Class
+                        Pos.Update.Types.Communication
+                        Pos.Update.Types.Types
+                        Pos.Update.Worker
+
+                        -- Utilities/helpers
                         Pos.Util.Arbitrary
                         Pos.Util.Iterator
                         Pos.Util.NotImplemented
@@ -331,7 +401,7 @@ library
                       , quickcheck-instances
                       , random
                       , resourcet
-                      , rocksdb
+                      , rocksdb >= 0.1.0.1
                       , safecopy
                       , serokell-util
                       , stm
@@ -749,6 +819,38 @@ executable cardano-checks
                        -O2
   default-extensions:  OverloadedStrings
 
+executable cardano-keygen
+  hs-source-dirs:      src/keygen
+  main-is:             Main.hs
+  build-depends:       base    
+                     , cardano-sl
+                     , universum >= 0.1
+                     , text
+                     , lens
+                     , optparse-applicative >= 0.12
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -with-rtsopts=-N
+                       -O2
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+ 
 test-suite cardano-test
   main-is:             Test.hs
   other-modules:       Spec
@@ -774,6 +876,8 @@ test-suite cardano-test
                        Test.Pos.Types.SlottingSpec
                        Test.Pos.Types.TxSpec
                        Test.Pos.Types.UtxoSpec
+                       Test.Pos.Update.Identity.BinarySpec
+                       Test.Pos.Update.Identity.SafeCopySpec
                        Test.Pos.Util
                        Test.Pos.UtilSpec
   type:                exitcode-stdio-1.0

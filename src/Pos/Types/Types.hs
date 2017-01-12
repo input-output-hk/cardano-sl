@@ -67,7 +67,6 @@ module Pos.Types.Types
 
        , SharedSeed (..)
        , SlotLeaders
-       , Richmen
 
        , ProxySigEpoch
        , ProxySKEpoch
@@ -142,13 +141,17 @@ module Pos.Types.Types
        , mcdLeaderKey
        , mcdDifficulty
        , mcdSignature
+       , mehProtocolVersion
+       , mehSoftwareVersion
+       , mehAttributes
+       , mebAttributes
+       , mebUpdate
+       , mebUpdateVotes
        ) where
 
 import           Control.Exception      (assert)
 import           Control.Lens           (Getter, Lens', choosing, makeLenses,
                                          makeLensesFor, to, view, (^.), _1)
-import qualified Data.ByteString        as BS (pack, zipWith)
-import qualified Data.ByteString.Char8  as BSC (pack)
 import           Data.Data              (Data)
 import           Data.DeriveTH          (derive, makeNFData)
 import           Data.Hashable          (Hashable)
@@ -157,7 +160,6 @@ import           Data.List.NonEmpty     (NonEmpty)
 import qualified Data.Map               as M (toList)
 import           Data.SafeCopy          (SafeCopy (..), base, contain,
                                          deriveSafeCopySimple, safeGet, safePut)
-import qualified Data.Semigroup         (Semigroup (..))
 import qualified Data.Serialize         as Cereal (getWord8, putWord8)
 import           Data.Tagged            (untag)
 import           Data.Text.Buildable    (Buildable)
@@ -175,7 +177,6 @@ import           Universum
 import           Pos.Binary.Address     ()
 import           Pos.Binary.Class       (Bi)
 import           Pos.Binary.Script      ()
-import           Pos.Constants          (sharedSeedLength)
 import           Pos.Crypto             (Hash, ProxySecretKey, ProxySignature, PublicKey,
                                          Signature, hash, hashHexF, shortHashF)
 import           Pos.Data.Attributes    (Attributes)
@@ -186,8 +187,8 @@ import           Pos.Types.Address      (Address (..), StakeholderId, addressF,
                                          checkPubKeyAddress, checkScriptAddress,
                                          decodeTextAddress, makePubKeyAddress,
                                          makeScriptAddress)
-import           Pos.Types.Update       (UpdateProposal, UpdateVote)
 import           Pos.Types.Version      (ProtocolVersion, SoftwareVersion)
+import           Pos.Update.Types.Types (UpdateProposal, UpdateVote)
 import           Pos.Util               (Color (Magenta), colorize)
 
 ----------------------------------------------------------------------------
@@ -475,20 +476,8 @@ newtype SharedSeed = SharedSeed
 instance Buildable SharedSeed where
     build = B16.formatBase16 . getSharedSeed
 
-instance Semigroup SharedSeed where
-    (<>) (SharedSeed a) (SharedSeed b) =
-        SharedSeed $ BS.pack (BS.zipWith xor a b) -- fast due to rewrite rules
-
-instance Monoid SharedSeed where
-    mempty = SharedSeed $ BSC.pack $ replicate sharedSeedLength '\NUL'
-    mappend = (Data.Semigroup.<>)
-    mconcat = foldl' mappend mempty
-
 -- | 'NonEmpty' list of slot leaders.
 type SlotLeaders = NonEmpty StakeholderId
-
--- | Addresses which have enough stake for participation in SSC.
-type Richmen = NonEmpty StakeholderId
 
 ----------------------------------------------------------------------------
 -- Proxy signatures and delegation
@@ -665,6 +654,7 @@ instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
         , mpRoot          :: !(MerkleRoot Tx)
         , mpWitnessesHash :: !(Hash [TxWitness])
         , mpMpcProof      :: !(SscProof ssc)
+        , mpProxySKsProof :: !(Hash [ProxySKSimple])
         } deriving (Generic)
     data ConsensusData (MainBlockchain ssc) = MainConsensusData
         { -- | Id of the slot for which this block was generated.
@@ -720,6 +710,7 @@ instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
         , mpRoot = mtRoot _mbTxs
         , mpWitnessesHash = hash _mbWitnesses
         , mpMpcProof = untag @ssc mkSscProof _mbMpc
+        , mpProxySKsProof = hash _mbProxySKs
         }
 
 
@@ -888,6 +879,9 @@ type NEBlocks ssc = NonEmpty (Block ssc)
 
 makeLenses ''GenericBlockHeader
 makeLenses ''GenericBlock
+
+makeLenses ''MainExtraHeaderData
+makeLenses ''MainExtraBodyData
 
 -- !!! Create issue about this on lens github or give link on existing issue !!!
 -- 'makeLensesData' doesn't work with types with parameters. I don't
@@ -1211,6 +1205,7 @@ instance (Ssc ssc, SafeCopy (SscProof ssc)) =>
            mpRoot <- safeGet
            mpWitnessesHash <- safeGet
            mpMpcProof <- safeGet
+           mpProxySKsProof <- safeGet
            return $!
                MainProof
                { ..
@@ -1221,6 +1216,7 @@ instance (Ssc ssc, SafeCopy (SscProof ssc)) =>
            safePut mpRoot
            safePut mpWitnessesHash
            safePut mpMpcProof
+           safePut mpProxySKsProof
 
 instance SafeCopy (BodyProof (GenesisBlockchain ssc)) where
     getCopy =

@@ -25,10 +25,10 @@ import           Pos.Block.Logic            (createGenesisBlock, createMainBlock
 import           Pos.Block.Network.Announce (announceBlock)
 import           Pos.Constants              (networkDiameter)
 import           Pos.Context                (getNodeContext, ncPublicKey)
-import           Pos.Context.Class          (tryReadLeaders)
 import           Pos.Crypto                 (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega),
                                              shortHashF)
 import           Pos.DB.GState              (getPSKByIssuerAddressHash)
+import           Pos.DB.Lrc                 (getLeaders)
 import           Pos.DB.Misc                (getProxySecretKeys)
 import           Pos.Slotting               (MonadSlots (getCurrentTime), getSlotStart,
                                              onNewSlot)
@@ -53,7 +53,7 @@ blkOnNewSlotWorker = onNewSlot True blkOnNewSlot
 blkOnNewSlot :: WorkMode ssc m => SlotId -> m ()
 blkOnNewSlot slotId@SlotId {..} = do
     -- First of all we create genesis block if necessary.
-    mGenBlock <- createGenesisBlock slotId
+    mGenBlock <- createGenesisBlock siEpoch
     whenJust mGenBlock $ \createdBlk -> do
         logInfo $ sformat ("Created genesis block:\n" %build) createdBlk
         jlLog $ jlCreatedBlock (Left createdBlk)
@@ -63,7 +63,7 @@ blkOnNewSlot slotId@SlotId {..} = do
     -- genesis block for current epoch, then we either have calculated
     -- it before and it implies presense of leaders in MVar or we have
     -- read leaders from DB during initialization.
-    leadersMaybe <- tryReadLeaders
+    leadersMaybe <- getLeaders siEpoch
     case leadersMaybe of
         -- If we don't know leaders, we can't do anything.
         Nothing -> logWarning "Leaders are not known for new slot"
@@ -90,14 +90,16 @@ blkOnNewSlot slotId@SlotId {..} = do
         logLeadersF $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash
         logLeadersF $ sformat ("Slot leaders: "%listJson) $ map (sformat shortHashF) leaders
         logLeadersF $ sformat ("Current slot leader: "%build) leader
+        logDebug $ sformat ("Available lightweight PSKs: "%listJson) validCerts
         heavyPskM <- getPSKByIssuerAddressHash leader
         logDebug $ "Does someone have cert for this slot: " <> show (isJust heavyPskM)
-        let relatedHeavyPsk = maybe False ((== ourPk) . pskDelegatePk) heavyPskM
-        logDebug $ sformat ("Available lightweight PSKs: "%listJson) validCerts
-        if | leader == ourPkHash -> onNewSlotWhenLeader slotId Nothing
-           | relatedHeavyPsk -> onNewSlotWhenLeader slotId $ Right <$> heavyPskM
+        let heavyWeAreDelegate = maybe False ((== ourPk) . pskDelegatePk) heavyPskM
+        let heavyWeAreIssuer = maybe False ((== ourPk) . pskIssuerPk) heavyPskM
+        if | heavyWeAreIssuer -> pass
+           | leader == ourPkHash -> onNewSlotWhenLeader slotId Nothing
+           | heavyWeAreDelegate -> onNewSlotWhenLeader slotId $ Right <$> heavyPskM
            | isJust validCert -> onNewSlotWhenLeader slotId $ Left <$> validCert
-           | otherwise -> pure ()
+           | otherwise -> pass
 
 onNewSlotWhenLeader
     :: WorkMode ssc m

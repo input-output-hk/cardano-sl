@@ -15,23 +15,27 @@ module Pos.Ssc.GodTossing.LocalData.LocalData
          -- ** instance SscLocalDataClass SscGodTossing
        ) where
 
-import           Control.Lens                         (Getter, at, use, view, (%=), (.=))
+import           Control.Lens                         (Getter, at, use, uses, view, views,
+                                                       (%=), (.=))
 import           Data.Containers                      (ContainerKey,
                                                        SetContainer (notMember))
 import qualified Data.HashMap.Strict                  as HM
 import qualified Data.HashSet                         as HS
+import qualified Data.List.NonEmpty                   as NE
 import           Serokell.Util.Verify                 (isVerSuccess)
 import           Universum
 
 import           Pos.Binary.Class                     (Bi)
 import           Pos.Crypto                           (Share)
+import           Pos.Lrc.Types                        (Richmen)
 import           Pos.Ssc.Class.LocalData              (LocalQuery, LocalUpdate,
                                                        SscLocalDataClass (..))
 import           Pos.Ssc.Extra.MonadLD                (MonadSscLD)
 import           Pos.Ssc.GodTossing.Functions         (checkCommShares,
                                                        checkOpeningMatchesCommitment,
-                                                       checkShares, isCommitmentIdx,
-                                                       isOpeningIdx, isSharesIdx,
+                                                       checkShare, checkShares,
+                                                       isCommitmentIdx, isOpeningIdx,
+                                                       isSharesIdx,
                                                        verifySignedCommitment)
 import           Pos.Ssc.GodTossing.LocalData.Helpers (GtState, gtGlobalCertificates,
                                                        gtGlobalCommitments,
@@ -42,7 +46,8 @@ import           Pos.Ssc.GodTossing.LocalData.Helpers (GtState, gtGlobalCertific
                                                        gtLocalOpenings, gtLocalShares,
                                                        gtRunModify, gtRunRead)
 import           Pos.Ssc.GodTossing.LocalData.Types   (ldCertificates, ldCommitments,
-                                                       ldOpenings, ldShares)
+                                                       ldLastProcessedSlot, ldOpenings,
+                                                       ldShares)
 import           Pos.Ssc.GodTossing.Types             (GtGlobalState (..), GtPayload (..),
                                                        SscBi, SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Base        (Commitment, Opening,
@@ -50,8 +55,7 @@ import           Pos.Ssc.GodTossing.Types.Base        (Commitment, Opening,
                                                        VssCertificatesMap, vcVssKey)
 import           Pos.Ssc.GodTossing.Types.Message     (GtMsgContents (..), GtMsgTag (..))
 import qualified Pos.Ssc.GodTossing.VssCertData       as VCD
-import           Pos.Types                            (Richmen, SlotId (..),
-                                                       StakeholderId)
+import           Pos.Types                            (SlotId (..), StakeholderId)
 import           Pos.Util                             (AsBinary, diffDoubleMap, getKeys,
                                                        readerToState)
 
@@ -65,31 +69,66 @@ type LDUpdate a = forall m . MonadState GtState m  => m a
 ----------------------------------------------------------------------------
 -- Apply Global State
 ----------------------------------------------------------------------------
-applyGlobal :: GtGlobalState -> LocalUpdate SscGodTossing ()
-applyGlobal globalData = do
-    let globalCommitments = _gsCommitments globalData
+applyGlobal :: Richmen -> GtGlobalState -> LocalUpdate SscGodTossing ()
+applyGlobal (HS.fromList . NE.toList -> richmen) globalData = do
+    localCerts <- uses ldCertificates VCD.certs
+    let globalCerts = VCD.certs . _gsVssCertificates $ globalData
+        participants = HS.toMap $ (getKeys $ localCerts `HM.union` globalCerts)
+                                   `HS.intersection` richmen
+        globalCommitments = _gsCommitments globalData
         globalOpenings = _gsOpenings globalData
         globalShares = _gsShares globalData
-        globalCert = _gsVssCertificates globalData
-    ldCommitments  %= (`HM.difference` globalCommitments)
-    ldOpenings  %= (`HM.difference` globalOpenings)
-    ldShares  %= (`diffDoubleMap` globalShares)
-    ldCertificates  %= (`HM.difference` (VCD.certs globalCert))
+    -- 1. remove commitments which are contained already in global state
+    -- 2. remove commitments which corresponds to expired certs
+    ldCommitments  %= (`HM.difference` globalCommitments) . (`HM.intersection` participants)
+    let filterOpenings opens =
+            foldl' (flip ($)) opens $
+            [
+            -- Select only new openings
+              (`HM.difference` globalOpenings)
+            -- Select commitments which sent opening
+            , (`HM.intersection` globalCommitments)
+            -- Select opening which corresponds its commitment
+            , HM.filterWithKey
+                  (curry $ checkOpeningMatchesCommitment globalCommitments)
+            ]
+    let checkCorrectShares pkTo shares = HM.filterWithKey
+            (\pkFrom share ->
+                 checkShare
+                     globalCommitments
+                     globalOpenings
+                     globalCerts
+                     (pkTo, pkFrom, share)) shares
+    let filterShares shares =
+            foldl' (flip ($)) shares $
+            [
+            -- Select only new shares
+              (`diffDoubleMap` globalShares)
+            -- Select shares from nodes which sent certificates
+            , (`HM.intersection` participants)
+            -- Select shares to nodes which sent commitments
+            , map (`HM.intersection` globalCommitments)
+            -- Ensure that share sent from pkFrom to pkTo is valid
+            , HM.mapWithKey checkCorrectShares
+            ]
+    ldOpenings  %= filterOpenings
+    ldShares  %= filterShares
+    ldCertificates  %= (`VCD.difference` globalCerts)
 
 ----------------------------------------------------------------------------
 -- Get Local Payload
 ----------------------------------------------------------------------------
-getLocalPayload :: SlotId -> LocalQuery SscGodTossing GtPayload
-getLocalPayload SlotId{..} =
-    (if isCommitmentIdx siSlot then
-        CommitmentsPayload <$> view ldCommitments
-    else if isOpeningIdx siSlot then
-        OpeningsPayload <$> view ldOpenings
-    else if isSharesIdx siSlot then
-        SharesPayload <$> view ldShares
-    else
-        pure CertificatesPayload)
-    <*> view ldCertificates
+getLocalPayload :: LocalQuery SscGodTossing (SlotId, GtPayload)
+getLocalPayload = do
+    s <- view ldLastProcessedSlot
+    (s, ) <$> (getPayload (siSlot s) <*> views ldCertificates VCD.certs)
+  where
+    getPayload slotIdx =
+        if | isCommitmentIdx slotIdx ->
+               CommitmentsPayload <$> view ldCommitments
+           | isOpeningIdx slotIdx -> OpeningsPayload <$> view ldOpenings
+           | isSharesIdx slotIdx -> SharesPayload <$> view ldShares
+           | otherwise -> pure CertificatesPayload
 
 ----------------------------------------------------------------------------
 -- Process New Slot
@@ -105,6 +144,7 @@ localOnNewSlotU si@SlotId {siSlot = slotIdx} = do
     unless (isCommitmentIdx slotIdx) $ gtLocalCommitments .= mempty
     unless (isOpeningIdx slotIdx) $ gtLocalOpenings .= mempty
     unless (isSharesIdx slotIdx) $ gtLocalShares .= mempty
+    gtLocalCertificates %= VCD.setLastKnownSlot si
     gtLastProcessedSlot .= si
 
 ----------------------------------------------------------------------------
@@ -134,7 +174,7 @@ sscIsDataUsefulQ SharesMsg =
 sscIsDataUsefulQ VssCertificateMsg = sscIsCertUsefulImpl
   where
     sscIsCertUsefulImpl addr = do
-        loc <- view gtLocalCertificates
+        loc <- views gtLocalCertificates VCD.certs
         glob <- view gtGlobalCertificates
         lpe <- siEpoch <$> view gtLastProcessedSlot
         if addr `HM.member` loc then pure False
@@ -186,7 +226,7 @@ processCommitment richmen addr c = do
     certs <- VCD.certs <$> use gtGlobalCertificates
     let participants = certs `HM.intersection`
                       (HM.fromList $ zip (toList richmen) (repeat ()))
-    let vssPublicKeys = HS.fromList $ map vcVssKey $ toList participants
+    let vssPublicKeys = map vcVssKey $ toList participants
     let checks epochIndex vssCerts =
             [ not . HM.member addr <$> view gtGlobalCommitments
             , not . HM.member addr <$> view gtLocalCommitments
@@ -250,4 +290,4 @@ checkSharesLastVer certs addr shares =
 processVssCertificate :: StakeholderId -> VssCertificate -> LDUpdate Bool
 processVssCertificate addr c = do
     ok <- readerToState (sscIsDataUsefulQ VssCertificateMsg addr)
-    ok <$ when ok (gtLocalCertificates %= HM.insert addr c)
+    ok <$ when ok (gtLocalCertificates %= VCD.insert addr c)

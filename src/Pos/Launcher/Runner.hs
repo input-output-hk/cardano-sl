@@ -62,7 +62,9 @@ import           Pos.Constants                (RunningMode (..), defaultPeers,
 import           Pos.Context                  (ContextHolder (..), NodeContext (..),
                                                runContextHolder)
 import           Pos.Crypto                   (createProxySecretKey, toPublic)
-import qualified Pos.DB                       as Modern
+import           Pos.DB                       (MonadDB (..), initNodeDBs, openNodeDBs,
+                                               runDBHolder, _gStateDB)
+import           Pos.DB.GState                (getTip)
 import           Pos.DB.Misc                  (addProxySecretKey)
 import           Pos.Delegation.Class         (runDelegationT)
 import           Pos.DHT.Model                (BiP (..), ListenerDHT, MonadDHT (..),
@@ -73,6 +75,7 @@ import           Pos.DHT.Real                 (KademliaDHT, KademliaDHTConfig (.
                                                KademliaDHTInstanceConfig (..),
                                                runKademliaDHT, startDHTInstance,
                                                stopDHTInstance)
+import           Pos.Genesis                  (genesisLeaders)
 import           Pos.Launcher.Param           (BaseParams (..), LoggingParams (..),
                                                NodeParams (..))
 import           Pos.Ssc.Class                (SscConstraint, SscNodeContext, SscParams,
@@ -82,6 +85,7 @@ import           Pos.Statistics               (getNoStatsT, runStatsT)
 import           Pos.Txp.Holder               (runTxpLDHolder)
 import qualified Pos.Txp.Types.UtxoView       as UV
 import           Pos.Types                    (Timestamp (Timestamp), timestampF)
+import           Pos.Update.MemState          (runUSHolder)
 import           Pos.Util                     (runWithRandomIntervals)
 import           Pos.Util.UserSecret          (peekUserSecret, usKeys, writeUserSecret)
 import           Pos.Worker                   (statsWorkers)
@@ -152,20 +156,23 @@ runRawRealMode inst np@NodeParams {..} sscnp listeners action =
     runResourceT $
     do putText $ "Running listeners number: " <> show (length listeners)
        lift $ setupLoggers lp
-       modernDBs <- Modern.openNodeDBs npRebuildDb npDbPathM npCustomUtxo
-       initTip <- Modern.runDBHolder modernDBs Modern.getTip
-       initGS <- Modern.runDBHolder modernDBs (sscLoadGlobalState @ssc initTip)
        initNC <- sscCreateNodeContext @ssc sscnp
+       modernDBs <- openNodeDBs npRebuildDb npDbPathM
+       -- FIXME: initialization logic must be in scenario.
+       runDBHolder modernDBs . runCH np initNC $ initNodeDBs
+       initTip <- runDBHolder modernDBs getTip
+       initGS <- runDBHolder modernDBs (sscLoadGlobalState @ssc initTip)
        let actionWithMsg = nodeStartMsg npBaseParams >> action
        let kademliazedAction = runKDHT inst npBaseParams listeners actionWithMsg
        let finalAction = setForkStrategy (forkStrategy @ssc) kademliazedAction
        let run =
                runOurDialog newMutSocketState lpRunnerTag .
-               Modern.runDBHolder modernDBs .
+               runDBHolder modernDBs .
                runCH np initNC .
                flip runSscHolder initGS .
-               runTxpLDHolder (UV.createFromDB . Modern._utxoDB $ modernDBs) initTip .
-               runDelegationT def $
+               runTxpLDHolder (UV.createFromDB . _gStateDB $ modernDBs) initTip .
+               runDelegationT def .
+               runUSHolder $
                finalAction
        lift run
   where
@@ -238,13 +245,12 @@ runKDHT dhtInstance BaseParams {..} listeners = runKademliaDHT kadConfig
       , kdcDHTInstance = dhtInstance
       }
 
-runCH :: (Modern.MonadDB ssc m, MonadFail m)
+runCH :: (MonadDB ssc m, MonadFail m)
       => NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
 runCH NodeParams {..} sscNodeContext act = do
     jlFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
     semaphore <- liftIO newEmptyMVar
-    sscRichmen <- liftIO newEmptyMVar
-    sscLeaders <- liftIO newEmptyMVar
+    lrcSync <- atomically $ newTVar (True, 0)
     userSecret <- peekUserSecret npKeyfilePath
 
     -- Get primary secret key
@@ -267,6 +273,8 @@ runCH NodeParams {..} sscNodeContext act = do
             NodeContext
             { ncSystemStart = npSystemStart
             , ncSecretKey = primarySecretKey
+            , ncGenesisUtxo = npCustomUtxo
+            , ncGenesisLeaders = genesisLeaders npCustomUtxo
             , ncTimeLord = npTimeLord
             , ncJLFile = jlFile
             , ncDbPath = npDbPathM
@@ -275,8 +283,7 @@ runCH NodeParams {..} sscNodeContext act = do
             , ncAttackTargets = npAttackTargets
             , ncPropagation = npPropagation
             , ncBlkSemaphore = semaphore
-            , ncSscRichmen = sscRichmen
-            , ncSscLeaders = sscLeaders
+            , ncLrcSync = lrcSync
             , ncUserSecret = userSecretVar
             }
     runContextHolder ctx act

@@ -27,7 +27,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/rocksdb-haskell.git
-    commit: 5c17f60dad1fd91d47f05cd8b02e859aa26a3547
+    commit: cbe733d9bbdc61b07d9a6fd0bc7964ac1e78f6a5
   extra-dep: true
 # https://github.com/thoughtpolice/hs-ed25519/pull/18
 - location:

@@ -40,6 +40,7 @@ module Pos.Util
        -- * Prettification
        , Color (..)
        , colorize
+       , withColoredMessages
 
        -- * TimeWarp helpers
        , CanLogInParallel
@@ -61,7 +62,16 @@ module Pos.Util
        , AsBinaryClass (..)
        , fromBinaryM
 
+       , spanSafe
        , eitherToVerRes
+
+       -- * MVar
+       , clearMVar
+       , forcePutMVar
+       , readMVarConditional
+       , readUntilEqualMVar
+       , readTVarConditional
+       , readUntilEqualTVar
 
        , NamedMessagePart (..)
        -- * Instances
@@ -75,10 +85,13 @@ module Pos.Util
        -- ** MonadFail LoggerNameBox
        ) where
 
+import           Control.Concurrent.STM.TVar   (TVar, readTVar)
 import           Control.Lens                  (Lens', LensLike', Magnified, Zoomed,
                                                 lensRules, magnify, zoom)
 import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
 import qualified Control.Monad                 as Monad (fail)
+import           Control.Monad.STM             (retry)
+import           Control.Monad.Trans.Resource  (ResourceT)
 import           Control.TimeWarp.Rpc          (Dialog (..), Message (messageName),
                                                 MessageName, ResponseT (..),
                                                 Transfer (..))
@@ -88,6 +101,7 @@ import qualified Data.Cache.LRU                as LRU
 import           Data.Hashable                 (Hashable)
 import qualified Data.HashMap.Strict           as HM
 import           Data.HashSet                  (fromMap)
+import           Data.List                     (span)
 import           Data.List.NonEmpty            (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty            as NE
 import           Data.SafeCopy                 (Contained, SafeCopy (..), base, contain,
@@ -291,6 +305,14 @@ colorize color msg =
         , toText (setSGRCode [Reset])
         ]
 
+-- | Write colored message, do some action, write colored message.
+-- Intended for debug only.
+withColoredMessages :: MonadIO m => Color -> Text -> m a -> m a
+withColoredMessages color activity action = do
+    putText (colorize color $ sformat ("Entered "%stext%"\n") activity)
+    res <- action
+    res <$ putText (colorize color $ sformat ("Finished "%stext%"\n") activity)
+
 ----------------------------------------------------------------------------
 -- TimeWarp helpers
 ----------------------------------------------------------------------------
@@ -415,7 +437,7 @@ getKeys = fromMap . void
 
 newtype AsBinary a = AsBinary
     { getAsBinary :: ByteString
-    } deriving (Show, Eq)
+    } deriving (Show, Eq, Ord)
 
 instance SafeCopy (AsBinary a) where
     getCopy = contain $ AsBinary <$> safeGet
@@ -433,6 +455,12 @@ eitherToVerRes (Left errors) = if T.null errors then VerFailure []
                                else VerFailure $ T.split (==';') errors
 eitherToVerRes (Right _ )    = VerSuccess
 
+-- | Makes a span on the list, considering tail only. Predicate has
+-- list head as first argument. Used to take non-null prefix that
+-- depends on the first element.
+spanSafe :: (a -> a -> Bool) -> NonEmpty a -> (NonEmpty a, [a])
+spanSafe p (x:|xs) = let (a,b) = span (p x) xs in (x:|a,b)
+
 instance IsString s => MonadFail (Either s) where
     fail = Left . fromString
 
@@ -449,3 +477,54 @@ deriving instance MonadFail m => MonadFail (LoggerNameBox m)
 
 instance MonadFail TimedIO where
     fail = Monad.fail
+
+instance MonadFail m => MonadFail (ResourceT m) where
+    fail = lift . fail
+
+----------------------------------------------------------------------------
+-- MVar utilities
+----------------------------------------------------------------------------
+
+clearMVar :: MonadIO m => MVar a -> m ()
+clearMVar = liftIO . void . tryTakeMVar
+
+forcePutMVar :: MonadIO m => MVar a -> a -> m ()
+forcePutMVar mvar val = do
+    res <- liftIO $ tryPutMVar mvar val
+    unless res $ do
+        _ <- liftIO $ tryTakeMVar mvar
+        forcePutMVar mvar val
+
+-- | Block until value in MVar satisfies given predicate. When value
+-- satisfies, it is returned.
+readMVarConditional :: (MonadIO m) => (x -> Bool) -> MVar x -> m x
+readMVarConditional predicate mvar = do
+    rData <- liftIO . readMVar $ mvar -- first we try to read for optimization only
+    if predicate rData then pure rData
+    else do
+        tData <- liftIO . takeMVar $ mvar -- now take data
+        if predicate tData then do -- check again
+            _ <- liftIO $ tryPutMVar mvar tData -- try to put taken value
+            pure tData
+        else
+            readMVarConditional predicate mvar
+
+-- | Read until value is equal to stored value comparing by some function.
+readUntilEqualMVar
+    :: (Eq a, MonadIO m)
+    => (x -> a) -> MVar x -> a -> m x
+readUntilEqualMVar f mvar expVal = readMVarConditional ((expVal ==) . f) mvar
+
+-- | Block until value in TVar satisfies given predicate. When value
+-- satisfies, it is returned.
+readTVarConditional :: (MonadIO m) => (x -> Bool) -> TVar x -> m x
+readTVarConditional predicate tvar = atomically $ do
+    res <- readTVar tvar
+    if predicate res then pure res
+    else retry
+
+  -- | Read until value is equal to stored value comparing by some function.
+readUntilEqualTVar
+    :: (Eq a, MonadIO m)
+    => (x -> a) -> TVar x -> a -> m x
+readUntilEqualTVar f tvar expVal = readTVarConditional ((expVal ==) . f) tvar

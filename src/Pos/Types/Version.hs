@@ -2,7 +2,11 @@
 
 module Pos.Types.Version
        (
+         -- * Protocol Version
          ProtocolVersion (..)
+       , canBeNextPV
+
+         -- * Software Version
        , SoftwareVersion (..)
        , ApplicationName (..)
        , mkApplicationName
@@ -31,6 +35,22 @@ instance Show ProtocolVersion where
 
 instance Buildable ProtocolVersion where
     build = bprint shown
+
+-- | This function checks whether protocol version passed as the
+-- second argument can be approved after approval of protocol version
+-- passed as the first argument.
+canBeNextPV :: ProtocolVersion -> ProtocolVersion -> Bool
+canBeNextPV ProtocolVersion { pvMajor = oldMajor
+                            , pvMinor = oldMinor
+                            , pvAlt = oldAlt}
+            ProtocolVersion { pvMajor = newMajor
+                            , pvMinor = newMinor
+                            , pvAlt = newAlt}
+    | oldMajor /= newMajor = and [newMajor == oldMajor + 1, newMinor == 0]
+    | otherwise = or [ newMinor == oldMinor + 1 && newAlt == oldAlt + 1
+                     , newMinor == oldMinor + 1 && newAlt == oldAlt
+                     , newMinor == oldMinor && newAlt == oldAlt + 1
+                     ]
 
 instance Hashable ProtocolVersion
 

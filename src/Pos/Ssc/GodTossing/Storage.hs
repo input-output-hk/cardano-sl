@@ -20,7 +20,6 @@ import           Control.Monad.IfElse           (whileM)
 import           Control.Monad.Reader           (ask)
 import           Data.Default                   (def)
 import qualified Data.HashMap.Strict            as HM
-import qualified Data.HashSet                   as HS
 import qualified Data.List.NonEmpty             as NE
 import           Serokell.Util.Verify           (VerificationRes (..), isVerSuccess,
                                                  verifyGeneric)
@@ -30,6 +29,7 @@ import           Pos.Binary.Ssc                 ()
 import           Pos.Constants                  (k, vssMaxTTL)
 import           Pos.DB                         (MonadDB, getBlock, getBlockHeader,
                                                  loadBlocksWhile)
+import           Pos.Lrc.Types                  (Richmen)
 import           Pos.Ssc.Class.Storage          (SscStorageClass (..))
 import           Pos.Ssc.Class.Types            (Ssc (..))
 import           Pos.Ssc.Extra.MonadGS          (MonadSscGS (..), sscRunGlobalQuery)
@@ -49,10 +49,10 @@ import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), GtPayload (
 import           Pos.Ssc.GodTossing.Types.Base  (VssCertificate (..))
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types                      (Block, EpochIndex, HeaderHash, NEBlocks,
-                                                 Richmen, SharedSeed, SlotId (..),
-                                                 blockMpc, blockSlot, crucialSlot,
-                                                 epochIndexL, epochOrSlot, epochOrSlotG,
-                                                 gbHeader, prevBlockL)
+                                                 SharedSeed, SlotId (..), blockMpc,
+                                                 blockSlot, crucialSlot, epochIndexL,
+                                                 epochOrSlot, epochOrSlotG, gbHeader,
+                                                 prevBlockL)
 import           Pos.Util                       (readerToState)
 
 type GSQuery a  = forall m . (MonadReader GtGlobalState m) => m a
@@ -72,12 +72,16 @@ gtGetGlobalState = sscRunGlobalQuery ask
 
 getGlobalCerts
     :: (MonadSscGS SscGodTossing m)
-    => m VssCertificatesMap
-getGlobalCerts = sscRunGlobalQuery $ VCD.certs <$> view gsVssCertificates
+    => EpochIndex -> m VssCertificatesMap
+getGlobalCerts epoch =
+    sscRunGlobalQuery $
+        VCD.certs .
+        VCD.setLastKnownSlot (SlotId epoch 0) <$>
+        view (gsVssCertificates)
 
 -- | Verified certs for slotId
 getVerifiedCerts :: (MonadSscGS SscGodTossing m) => SlotId -> m VssCertificatesMap
-getVerifiedCerts (crucialSlot -> crucSlotId) =
+getVerifiedCerts (crucialSlot . siEpoch -> crucSlotId) =
     sscRunGlobalQuery $
         VCD.certs . VCD.setLastKnownSlot crucSlotId <$> view gsVssCertificates
 
@@ -123,7 +127,7 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
           where
             allCerts = certs <> globalCerts
             participants = allCerts `HM.intersection` (HM.fromList $ zip (toList richmen) (repeat ()))
-            vssPublicKeys = HS.fromList $ map vcVssKey $ toList participants
+            vssPublicKeys = map vcVssKey $ toList participants
 
     -- For openings, we check that
     --   * the opening isn't present in previous blocks
@@ -200,7 +204,7 @@ mpcVerifyBlocks verifyPure richmen blocks = do
             when (isVerSuccess v) $
                 mpcProcessBlock b
             return v
-        return (fold vs)
+        return $ fold vs
 
 -- | Apply sequence of blocks to state. Sequence must be based on last
 -- applied block and must be valid.

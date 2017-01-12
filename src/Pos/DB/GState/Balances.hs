@@ -25,8 +25,9 @@ import           Universum
 
 import           Pos.Binary.Class     (encodeStrict)
 import           Pos.DB.Class         (MonadDB, getUtxoDB)
+import           Pos.DB.DBIterator    (DBMapIterator, mapIterator)
 import           Pos.DB.Error         (DBError (..))
-import           Pos.DB.Functions     (RocksBatchOp (..), traverseAllEntries)
+import           Pos.DB.Functions     (RocksBatchOp (..))
 import           Pos.DB.GState.Common (getBi, putBi)
 import           Pos.Types            (Coin, StakeholderId, Utxo, sumCoins, txOutStake,
                                        unsafeIntegerToCoin)
@@ -69,7 +70,7 @@ prepareGStateBalances
     => Utxo -> m ()
 prepareGStateBalances genesisUtxo = do
     putIfEmpty getFtsSumMaybe putFtsStakes
-    putIfEmpty getFtsSumMaybe putGenesisSum
+    putIfEmpty getFtsSumMaybe putGenesisTotalStake
   where
     totalCoins = sumCoins $ map snd $ concatMap txOutStake $ toList genesisUtxo
     putIfEmpty
@@ -78,7 +79,7 @@ prepareGStateBalances genesisUtxo = do
     putIfEmpty getter putter = maybe putter (const pass) =<< getter
     -- Will 'panic' if the result doesn't fit into Word64 (which should never
     -- happen)
-    putGenesisSum = putTotalFtsStake (unsafeIntegerToCoin totalCoins)
+    putGenesisTotalStake = putTotalFtsStake (unsafeIntegerToCoin totalCoins)
     putFtsStakes = mapM_ putFtsStake' $ M.toList genesisUtxo
     putFtsStake' (_, toaux) = mapM (uncurry putFtsStake) (txOutStake toaux)
 
@@ -89,13 +90,11 @@ putTotalFtsStake = putBi ftsSumKey
 -- Iteration
 ----------------------------------------------------------------------------
 
-iterateByStake
-    :: forall ssc m . (MonadDB ssc m, MonadMask m)
-    => ((StakeholderId, Coin) -> m ())
-    -> m ()
-iterateByStake callback = do
-    db <- getUtxoDB
-    traverseAllEntries db (pure ()) $ const $ curry callback
+type IterType = (StakeholderId, Coin)
+
+iterateByStake :: forall v m ssc a . (MonadDB ssc m, MonadMask m)
+                => DBMapIterator (IterType -> v) m a -> (IterType -> v) -> m a
+iterateByStake iter f = mapIterator @IterType @v iter f =<< getUtxoDB
 
 ----------------------------------------------------------------------------
 -- Keys

@@ -35,6 +35,7 @@ import           Pos.DHT.Model                  (MonadDHT, MonadMessageDHT,
                                                  WithDefaultMsgHeader)
 import           Pos.Slotting                   (MonadSlots)
 import           Pos.Txp.Class                  (MonadTxpLD)
+import qualified Pos.Update                     as US
 import           Pos.Wallet.Context             (WithWalletContext)
 import           Pos.Wallet.KeyStorage          (MonadKeys)
 import           Pos.Wallet.State               (MonadWalletDB)
@@ -95,7 +96,7 @@ newtype WalletWebSockets m a = WalletWebSockets
                 MonadDHT, MonadMessageDHT s, MonadSlots,
                 WithDefaultMsgHeader, CanLog, MonadKeys, MonadBalances,
                 MonadTxHistory, WithNodeContext ssc,
-                Modern.MonadDB ssc, MonadTxpLD ssc, MonadWalletWebDB, MonadDelegation)
+                Modern.MonadDB ssc, MonadTxpLD ssc, MonadWalletWebDB, MonadDelegation, US.MonadUSMem)
 
 instance Monad m => WrappedM (WalletWebSockets m) where
     type UnwrappedM (WalletWebSockets m) = ReaderT ConnectionsVar m

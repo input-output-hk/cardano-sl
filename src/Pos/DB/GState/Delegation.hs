@@ -6,21 +6,24 @@
 module Pos.DB.GState.Delegation
        ( getPSKByIssuerAddressHash
        , getPSKByIssuer
+       , isIssuerByAddressHash
        , DelegationOp (..)
        , IssuerPublicKey (..)
        , iteratePSKs
        ) where
 
 import           Data.Binary       (Get)
+import           Data.Maybe        (isJust)
 import qualified Database.RocksDB  as Rocks
 import           Universum
 
 import           Pos.Binary.Class  (Bi (..), encodeStrict)
-import           Pos.Crypto        (PublicKey, pskIssuerPk)
+import           Pos.Crypto        (PublicKey, pskDelegatePk, pskIssuerPk)
 import           Pos.DB.Class      (MonadDB, getUtxoDB)
 import           Pos.DB.DBIterator (DBMapIterator, mapIterator)
 import           Pos.DB.Functions  (RocksBatchOp (..), rocksGetBi)
-import           Pos.Types         (AddressHash, ProxySKSimple, addressHash)
+import           Pos.Types         (AddressHash, ProxySKSimple, StakeholderId,
+                                    addressHash)
 
 
 ----------------------------------------------------------------------------
@@ -28,13 +31,16 @@ import           Pos.Types         (AddressHash, ProxySKSimple, addressHash)
 ----------------------------------------------------------------------------
 
 -- | Retrieves certificate by issuer address (hash of public key) if present.
-getPSKByIssuerAddressHash :: MonadDB ssc m => AddressHash PublicKey -> m (Maybe ProxySKSimple)
+getPSKByIssuerAddressHash :: MonadDB ssc m => StakeholderId -> m (Maybe ProxySKSimple)
 getPSKByIssuerAddressHash addrHash =
     rocksGetBi (pskKey $ IssuerPublicKey addrHash) =<< getUtxoDB
 
 -- | Retrieves certificate by issuer public key if present.
 getPSKByIssuer :: MonadDB ssc m => PublicKey -> m (Maybe ProxySKSimple)
 getPSKByIssuer = getPSKByIssuerAddressHash . addressHash
+
+isIssuerByAddressHash :: MonadDB ssc m => StakeholderId -> m Bool
+isIssuerByAddressHash = fmap isJust . getPSKByIssuerAddressHash
 
 ----------------------------------------------------------------------------
 -- Batch operations
@@ -47,9 +53,11 @@ data DelegationOp
     -- ^ Removes PSK by issuer PK.
 
 instance RocksBatchOp DelegationOp where
-    toBatchOp (AddPSK psk) =
-        [Rocks.Put (pskKey $ IssuerPublicKey $ addressHash $ pskIssuerPk psk)
-                   (encodeStrict psk)]
+    toBatchOp (AddPSK psk)
+        | pskIssuerPk psk == pskDelegatePk psk = [] -- panic maybe
+        | otherwise =
+            [Rocks.Put (pskKey $ IssuerPublicKey $ addressHash $ pskIssuerPk psk)
+                       (encodeStrict psk)]
     toBatchOp (DelPSK issuerPk) =
         [Rocks.Del $ pskKey $ IssuerPublicKey $ addressHash issuerPk]
 
@@ -69,6 +77,7 @@ iteratePSKs iter f = mapIterator @IterType @v iter f =<< getUtxoDB
 
 -- [CSL-379] Restore prefix after we have proper iterator
 newtype IssuerPublicKey = IssuerPublicKey (AddressHash PublicKey)
+    deriving Show
 
 instance Bi IssuerPublicKey where
     put (IssuerPublicKey p) = put ("d/" :: ByteString) >> put p -- chto by eto ne znaczilo

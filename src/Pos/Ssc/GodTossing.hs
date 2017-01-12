@@ -16,8 +16,8 @@ import           Pos.Ssc.GodTossing.Functions     as GodTossing
 import           Pos.Ssc.GodTossing.Genesis       as GodTossing
 import           Pos.Ssc.GodTossing.Listeners     ()
 import           Pos.Ssc.GodTossing.LocalData     ()
-import           Pos.Ssc.GodTossing.Seed          as GodTossing
 import           Pos.Ssc.GodTossing.SecretStorage as GodTossing
+import           Pos.Ssc.GodTossing.Seed          as GodTossing
 import           Pos.Ssc.GodTossing.Storage       ()
 import           Pos.Ssc.GodTossing.Types         as GodTossing
 import           Pos.Ssc.GodTossing.Workers       ()

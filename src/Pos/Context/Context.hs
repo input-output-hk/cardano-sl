@@ -3,7 +3,8 @@
 -- | Runtime context of node.
 
 module Pos.Context.Context
-       ( NodeContext (..)
+       ( LrcSyncData
+       , NodeContext (..)
        , ncPublicKey
        , ncPubKeyAddress
        ) where
@@ -14,38 +15,47 @@ import           Universum
 import           Pos.Crypto             (PublicKey, SecretKey, toPublic)
 import           Pos.Security.Types     (AttackTarget, AttackType)
 import           Pos.Ssc.Class.Types    (Ssc (SscNodeContext))
-import           Pos.Types              (Address, HeaderHash, Richmen, SlotLeaders,
-                                         Timestamp (..), makePubKeyAddress)
+import           Pos.Types              (Address, EpochIndex, HeaderHash, SlotLeaders,
+                                         Timestamp (..), Utxo, makePubKeyAddress)
 import           Pos.Util.UserSecret    (UserSecret)
 
 ----------------------------------------------------------------------------
 -- NodeContext
 ----------------------------------------------------------------------------
 
+-- | Data used for LRC syncronization. First value is __False__ iff
+-- LRC is running now. Second value is last epoch for which we have
+-- already computed LRC.
+type LrcSyncData = (Bool, EpochIndex)
+
 -- | NodeContext contains runtime context of node.
 data NodeContext ssc = NodeContext
-    { ncSystemStart   :: !Timestamp
+    { ncSystemStart    :: !Timestamp
     -- ^ Time when system started working.
-    , ncSecretKey     :: !SecretKey
+    , ncSecretKey      :: !SecretKey
     -- ^ Secret key used for blocks creation.
-    , ncTimeLord      :: !Bool
+    , ncGenesisUtxo    :: !Utxo
+    -- ^ Genesis utxo
+    , ncGenesisLeaders :: !SlotLeaders
+    -- ^ Leaders for 0-th epoch
+    , ncTimeLord       :: !Bool
     -- ^ Is time lord
-    , ncJLFile        :: !(Maybe (MVar FilePath))
-    , ncDbPath        :: !FilePath
+    , ncJLFile         :: !(Maybe (MVar FilePath))
+    , ncDbPath         :: !FilePath
     -- ^ Path to the database
-    , ncSscContext    :: !(SscNodeContext ssc)
-    , ncAttackTypes   :: ![AttackType]
+    , ncSscContext     :: !(SscNodeContext ssc)
+    , ncAttackTypes    :: ![AttackType]
     -- ^ Attack types used by malicious emulation
-    , ncAttackTargets :: ![AttackTarget]
+    , ncAttackTargets  :: ![AttackTarget]
     -- ^ Attack targets used by malicious emulation
-    , ncPropagation   :: !Bool
+    , ncPropagation    :: !Bool
     -- ^ Whether to propagate txs, ssc data, blocks to neighbors
-    , ncBlkSemaphore  :: !(MVar (HeaderHash ssc))
+    , ncBlkSemaphore   :: !(MVar (HeaderHash ssc))
     -- ^ Semaphore which manages access to block application.
     -- Stored hash is a hash of last applied block.
-    , ncSscLeaders    :: !(MVar SlotLeaders)
-    , ncSscRichmen    :: !(MVar Richmen)
-    , ncUserSecret    :: !(STM.TVar UserSecret)
+    , ncLrcSync        :: !(STM.TVar LrcSyncData)
+    -- ^ Primitive for synchronization with LRC.
+    , ncUserSecret     :: !(STM.TVar UserSecret)
     -- ^ Secret keys (and path to file) which are used to send transactions
     }
 

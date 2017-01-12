@@ -34,6 +34,7 @@ import           Pos.Ssc.Class                 (SscConstraint)
 import           Pos.Ssc.Extra                 (SscHolder (..), SscState, runSscHolderRaw)
 import           Pos.Txp.Class                 (getTxpLDWrap)
 import qualified Pos.Txp.Holder                as Modern
+import qualified Pos.Update                    as US
 import           Pos.WorkMode                  (RawRealMode)
 
 import           Pos.Wallet.KeyStorage         (addSecretKey)
@@ -61,6 +62,7 @@ type WebHandler ssc = WalletWebSockets (WalletWebDB (RawRealMode ssc))
 
 -- RawRealMode without last layer
 type SubKademlia ssc =
+    US.USHolder (
     DelegationT (
     Modern.TxpLDHolder ssc (
     SscHolder ssc (
@@ -68,7 +70,7 @@ type SubKademlia ssc =
     Modern.DBHolder ssc (
     Dialog DHTPacking (
     Transfer (
-    MutSocketState ssc)))))))
+    MutSocketState ssc))))))))
 
 type CPool ssc = TVar (ConnectionPool (MutSocketState ssc))
 
@@ -81,16 +83,19 @@ convertHandler
     -> Modern.TxpLDWrap ssc
     -> SscState ssc
     -> WalletState
-    -> (TVar DelegationWrap)
+    -> TVar DelegationWrap
+    -> TVar US.MemState
     -> ConnectionsVar
     -> WebHandler ssc a
     -> Handler a
-convertHandler kctx cp nc modernDBs tlw ssc ws delWrap wsConn handler = liftIO (runOurDialogRaw cp newMutSocketState "wallet-api" .
+convertHandler kctx cp nc modernDBs tlw ssc ws delWrap usTVar wsConn handler = do
+    liftIO (runOurDialogRaw cp newMutSocketState "wallet-api" .
             Modern.runDBHolder modernDBs .
             runContextHolder nc .
             runSscHolderRaw ssc .
             Modern.runTxpLDHolderReader tlw .
             runDelegationTFromTVar delWrap .
+            US.runUSHolderFromTVar usTVar .
             runKademliaDHTRaw kctx .
             runWalletWebDB ws .
             runWalletWS wsConn $
@@ -107,9 +112,10 @@ nat = do
     ws <- getWalletWebState
     kctx <- lift . lift $ getKademliaDHTCtx
     tlw <- getTxpLDWrap
-    ssc <- lift . lift . lift . lift . lift $ SscHolder ask
+    ssc <- lift . lift . lift . lift . lift . lift $ SscHolder ask
     delWrap <- askDelegationState
+    usTVar <- US.askUSMemState
     nc <- getNodeContext
     modernDB <- Modern.getNodeDBs
-    cp <- lift . lift . lift . lift . lift . lift . lift . lift . lift $ getConnPool
-    pure $ Nat (convertHandler kctx cp nc modernDB tlw ssc ws delWrap wsConn)
+    cp <- lift . lift . lift . lift . lift . lift . lift . lift . lift . lift $ getConnPool
+    pure $ Nat (convertHandler kctx cp nc modernDB tlw ssc ws delWrap usTVar wsConn)

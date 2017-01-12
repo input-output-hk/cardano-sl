@@ -117,13 +117,21 @@ instance ( Bi (T.BodyProof b)
          , Bi (T.ExtraHeaderData b)
          , Bi (T.Body b)
          , Bi (T.ExtraBodyData b)
+         , T.Blockchain b
          ) =>
          Bi (T.GenericBlock b) where
-    put T.GenericBlock{..} = do
+    put T.GenericBlock {..} = do
         put _gbHeader
         put _gbBody
         put _gbExtra
-    get = label "GenericBlock" $ T.GenericBlock <$> get <*> get <*> get
+    get =
+        label "GenericBlock" $ do
+            _gbHeader <- get
+            _gbBody <- get
+            _gbExtra <- get
+            unless (T.checkBodyProof _gbBody (T._gbhBodyProof _gbHeader)) $
+                fail "get@GenericBlock: incorrect proof of body"
+            return $ T.GenericBlock {..}
 
 ----------------------------------------------------------------------------
 -- MainBlock
@@ -139,9 +147,11 @@ instance Ssc ssc => Bi (T.BodyProof (T.MainBlockchain ssc)) where
         put mpRoot
         put mpWitnessesHash
         put mpMpcProof
+        put mpProxySKsProof
     get = label "MainProof" $
         T.MainProof
             <$> (getUnsignedVarInt <$> get)
+            <*> get
             <*> get
             <*> get
             <*> get

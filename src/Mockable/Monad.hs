@@ -9,7 +9,7 @@ module Mockable.Monad
 
 import           Mockable.Channel      (Channel)
 import           Mockable.Class        (Mockable)
-import           Mockable.Concurrent   (Async, Delay, Fork)
+import           Mockable.Concurrent   (Async, Concurrently, Delay, Fork)
 import           Mockable.CurrentTime  (CurrentTime)
 import           Mockable.Exception    (Bracket, Catch, Throw)
 import           Mockable.SharedAtomic (SharedAtomic)
@@ -20,6 +20,7 @@ type MonadMockable m
       , Mockable SharedAtomic m
       , Mockable Fork m
       , Mockable CurrentTime m
+      , Mockable Concurrently m
       , Mockable Async m
       , Mockable Bracket m
       , Mockable Channel m

@@ -111,7 +111,7 @@ data CWalletMeta = CWalletMeta
     } deriving (Show, Generic)
 
 instance Default CWalletMeta where
-    def = CWalletMeta CWTPersonal ADA ""
+    def = CWalletMeta CWTPersonal ADA "Personal Wallet"
 
 -- | Client Wallet (CW)
 -- (Flow type: walletType)

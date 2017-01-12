@@ -42,11 +42,11 @@ import           Pos.Slotting                     (getCurrentSlot, getSlotStart,
                                                    onNewSlot)
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
 import           Pos.Ssc.Extra.MonadLD            (sscGetLocalPayload, sscRunLocalUpdate)
-import           Pos.Ssc.GodTossing.Functions     (checkCommShares,
+import           Pos.Ssc.GodTossing.Functions     (checkCommShares, computeParticipants,
                                                    genCommitmentAndOpening, hasCommitment,
                                                    hasOpening, hasShares, isCommitmentIdx,
                                                    isOpeningIdx, isSharesIdx,
-                                                   mkSignedCommitment, vssThreshold, computeParticipants)
+                                                   mkSignedCommitment, vssThreshold)
 import           Pos.Ssc.GodTossing.LocalData     (ldCertificates, ldLastProcessedSlot,
                                                    localOnNewSlot, sscProcessMessage)
 import           Pos.Ssc.GodTossing.Richmen       (gtLrcConsumer)
@@ -83,20 +83,27 @@ checkNSendOurCert :: forall m . (WorkMode SscGodTossing m) => m ()
 checkNSendOurCert = do
     (_, ourId) <- getOurPkAndId
     SlotId {..} <- getCurrentSlot
-    isCertInBlockhain <- HM.member ourId <$> getGlobalCerts siEpoch
-    if isCertInBlockhain
-        then logDebug "Our VssCertificate has been already announced."
-        else do
-            logDebug
-                "Our VssCertificate hasn't been announced yet or TTL has expired\
-                 \, we will announce it now."
-            ourVssCertificate <- getOurVssCertificate
-            let msg = DataMsg (MCVssCertificate ourVssCertificate) ourId
-        -- [CSL-245]: do not catch all, catch something more concrete.
-            (sendToNeighborsSafe msg >> logDebug "Announced our VssCertificate.") `catchAll` \e ->
-                logError $
-                sformat ("Error announcing our VssCertificate: " % shown) e
+    ourCertMB <- HM.lookup ourId <$> getGlobalCerts siEpoch
+    case ourCertMB of
+        Just ourCert ->
+            if vcExpiryEpoch ourCert > siEpoch then
+                logDebug "Our VssCertificate has been already announced."
+            else
+                sendCert True ourId
+        Nothing -> sendCert False ourId
   where
+    sendCert resend ourId = do
+        if resend then
+            logDebug "TTL will expire in the next epoch, we will announce it now."
+        else
+            logDebug "Our VssCertificate hasn't been announced yet, TTL has expired,\
+                     \we will announce it now."
+        ourVssCertificate <- getOurVssCertificate
+        let msg = DataMsg (MCVssCertificate ourVssCertificate) ourId
+    -- [CSL-245]: do not catch all, catch something more concrete.
+        (sendToNeighborsSafe msg >> logDebug "Announced our VssCertificate.") `catchAll` \e ->
+            logError $
+            sformat ("Error announcing our VssCertificate: " % shown) e
     getOurVssCertificate :: m VssCertificate
     getOurVssCertificate = do
         slotId <- getCurrentSlot
@@ -117,7 +124,7 @@ checkNSendOurCert = do
                 let vssKey = asBinary $ toVssPublicKey ourVssKeyPair
                     createOurCert =
                         mkVssCertificate ourSk vssKey .
-                        (+) (vssMaxTTL - 1) . siEpoch
+                        (+) (vssMaxTTL - 1) . siEpoch -- TODO fix max ttl on random
                 sscRunLocalUpdate $ do
                     lps <- use ldLastProcessedSlot
                     let ourCert = createOurCert lps

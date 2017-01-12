@@ -36,7 +36,7 @@ import           Pos.Ssc.GodTossing.Functions         (checkCommShares,
                                                        computeParticipants,
                                                        isCommitmentIdx, isOpeningIdx,
                                                        isSharesIdx,
-                                                       verifySignedCommitment)
+                                                       verifySignedCommitment, checkCertTTL)
 import           Pos.Ssc.GodTossing.LocalData.Helpers (GtState, gtGlobalCertificates,
                                                        gtGlobalCommitments,
                                                        gtGlobalOpenings, gtGlobalShares,
@@ -319,6 +319,7 @@ processVssCertificate :: RichmenSet
                       -> LDUpdate Bool
 processVssCertificate richmen addr c
     | (addressHash $ vcSigningKey c) `HS.member` richmen = do
-        ok <- readerToState (sscIsDataUsefulQ VssCertificateMsg addr)
+        lpe <- uses gtLastProcessedSlot siEpoch
+        ok <- (checkCertTTL lpe c &&) <$> readerToState (sscIsDataUsefulQ VssCertificateMsg addr)
         ok <$ when ok (gtLocalCertificates %= VCD.insert addr c)
     | otherwise = pure False

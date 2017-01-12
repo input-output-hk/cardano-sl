@@ -13,6 +13,7 @@ enchancedMessageBroadcast: 2
 
 # GodTossing
 vssMaxTTL: 10 # epochs
+vssMinTTL : 2 # epochs
 mpcSendInterval: 12 # must be less than (k * slotDuration - networkDiameter)
 mpcThreshold: 0.01 # 1% of stake
 

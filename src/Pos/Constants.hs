@@ -31,6 +31,7 @@ module Pos.Constants
        , defaultPeers
        , sysTimeBroadcastSlots
        , vssMaxTTL
+       , vssMinTTL
        , protocolMagic
        , enchancedMessageBroadcast
        , delegationThreshold
@@ -184,6 +185,10 @@ defaultPeers = map parsePeer . ccDefaultPeers $ compileConfig
 -- | Max VSS certificate TTL (Ssc.GodTossing part)
 vssMaxTTL :: Integral i => i
 vssMaxTTL = fromIntegral . ccVssMaxTTL $ compileConfig
+
+-- | Min VSS certificate TTL (Ssc.GodTossing part)
+vssMinTTL :: Integral i => i
+vssMinTTL = fromIntegral . ccVssMinTTL $ compileConfig
 
 -- | Protocol magic constant. Is put to block serialized version to
 -- distinguish testnet and realnet (for example, possible usages are

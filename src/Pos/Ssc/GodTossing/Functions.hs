@@ -50,7 +50,7 @@ import           Universum
 
 import           Pos.Binary.Class               (Bi)
 import           Pos.Binary.Crypto              ()
-import           Pos.Constants                  (k, vssMaxTTL)
+import           Pos.Constants                  (k, vssMaxTTL, vssMinTTL)
 import           Pos.Crypto                     (EncShare, Secret, SecretKey,
                                                  SecureRandom (..), Share, Threshold,
                                                  VssPublicKey, checkSig, encShareId,
@@ -231,7 +231,7 @@ checkCertSign (addr, VssCertificate {..}) =
 -- more than 0 and less than vssMaxTTL
 checkCertTTL :: EpochIndex -> VssCertificate -> Bool
 checkCertTTL curEpochIndex VssCertificate{..} =
-    vcExpiryEpoch >= curEpochIndex &&
+    vcExpiryEpoch + 1 >= vssMinTTL + curEpochIndex &&
     getEpochIndex vcExpiryEpoch < vssMaxTTL + getEpochIndex curEpochIndex
 
 -- CHECK: @checkShare

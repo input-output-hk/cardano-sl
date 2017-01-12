@@ -33,8 +33,9 @@ import           Pos.Ssc.Class.LocalData              (LocalQuery, LocalUpdate,
 import           Pos.Ssc.Extra.MonadLD                (MonadSscLD)
 import           Pos.Ssc.GodTossing.Functions         (checkCommShares,
                                                        checkOpeningMatchesCommitment,
-                                                       checkShares, isCommitmentIdx,
-                                                       isOpeningIdx, isSharesIdx,
+                                                       checkShare, checkShares,
+                                                       isCommitmentIdx, isOpeningIdx,
+                                                       isSharesIdx,
                                                        verifySignedCommitment)
 import           Pos.Ssc.GodTossing.LocalData.Helpers (GtState, gtGlobalCertificates,
                                                        gtGlobalCommitments,
@@ -78,11 +79,39 @@ applyGlobal (HS.fromList . NE.toList -> richmen) globalData = do
         globalShares = _gsShares globalData
     -- 1. remove commitments which are contained already in global state
     -- 2. remove commitments which corresponds to expired certs
-    ldCommitments  %= (`HM.difference` globalCommitments) . (`HM.difference` participants)
-    -- 1. remove openings which are contained already in global state
-    -- 2. remove openings corresponding to invalid commitments
-    ldOpenings  %= (`HM.difference` globalOpenings) . (`HM.difference` globalCommitments)
-    ldShares  %= (`diffDoubleMap` globalShares) . (`HM.difference` globalCommitments)
+    ldCommitments  %= (`HM.difference` globalCommitments) . (`HM.intersection` participants)
+    let filterOpenings opens =
+            foldl' (flip ($)) opens $
+            [
+            -- Select only new openings
+              (`HM.difference` globalOpenings)
+            -- Select commitments which sent opening
+            , (`HM.intersection` globalCommitments)
+            -- Select opening which corresponds its commitment
+            , HM.filterWithKey
+                  (curry $ checkOpeningMatchesCommitment globalCommitments)
+            ]
+    let checkCorrectShares pkTo shares = HM.filterWithKey
+            (\pkFrom share ->
+                 checkShare
+                     globalCommitments
+                     globalOpenings
+                     globalCerts
+                     (pkTo, pkFrom, share)) shares
+    let filterShares shares =
+            foldl' (flip ($)) shares $
+            [
+            -- Select only new shares
+              (`diffDoubleMap` globalShares)
+            -- Select shares from nodes which sent certificates
+            , (`HM.intersection` globalCerts)
+            -- Select shares to nodes which sent commitments
+            , map (`HM.intersection` globalCerts)
+            -- Ensure that share sent from pkFrom to pkTo is valid
+            , HM.mapWithKey checkCorrectShares
+            ]
+    ldOpenings  %= filterOpenings
+    ldShares  %= filterShares
     ldCertificates  %= (`VCD.difference` globalCerts)
 
 ----------------------------------------------------------------------------

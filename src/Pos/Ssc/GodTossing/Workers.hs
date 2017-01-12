@@ -144,12 +144,12 @@ onNewSlotSsc = onNewSlot True $ \slotId -> do
             "couldn't get SSC richmen"
             getRichmenSsc
     localOnNewSlot richmen slotId
-    checkNSendOurCert
     participationEnabled <- getNodeContext >>=
         atomically . readTVar . gtcParticipateSsc . ncSscContext
     ourId <- addressHash . ncPublicKey <$> getNodeContext
     let enoughStake = ourId `HS.member` richmen
     when (participationEnabled && enoughStake) $ do
+        checkNSendOurCert
         onNewSlotCommitment slotId
         onNewSlotOpening slotId
         onNewSlotShares slotId

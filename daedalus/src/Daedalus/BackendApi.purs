@@ -5,22 +5,20 @@ import Control.Monad.Aff (Aff)
 import Control.Monad.Eff.Exception (error, Error)
 import Control.Monad.Error.Class (throwError)
 import Daedalus.Constants (backendPrefix)
-import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency, WalletError)
+import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency, WalletError, showCCurrency)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (decodeJson, encodeJson)
-import Data.Array.Partial (last)
 import Data.Bifunctor (bimap)
 import Data.Either (either, Either(Left))
 import Data.Generic (class Generic, gShow)
 import Data.HTTP.Method (Method(POST))
 import Data.Maybe (Maybe(Just))
 import Data.MediaType.Common (applicationJSON)
-import Data.String (split, joinWith)
+import Data.String (joinWith)
 import Network.HTTP.Affjax (AffjaxResponse, affjax, defaultRequest, AJAX, URL, AffjaxRequest)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Network.HTTP.RequestHeader (RequestHeader(ContentType))
 import Network.HTTP.StatusCode (StatusCode(..))
-import Partial.Unsafe (unsafePartial)
 
 -- HELPERS
 
@@ -85,8 +83,14 @@ getWallet addr = getR ["get_wallet", _address addr]
 getHistory :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) (Array CTx)
 getHistory addr = getR ["history", _address addr]
 
+searchHistory :: forall eff. CAddress -> String -> Int -> Aff (ajax :: AJAX | eff) (Array CTx)
+searchHistory addr search limit = getR ["history", _address addr, search, show limit]
+
 send :: forall eff. CAddress -> CAddress -> Coin -> Aff (ajax :: AJAX | eff) CTx
 send addrFrom addrTo amount = postR ["send", _address addrFrom, _address addrTo, show $ _coin amount]
+
+sendExtended :: forall eff. CAddress -> CAddress -> Coin -> CCurrency -> String -> String -> Aff (ajax :: AJAX | eff) CTx
+sendExtended addrFrom addrTo amount curr title desc = postR ["send", _address addrFrom, _address addrTo, show $ _coin amount, showCCurrency curr, title, desc]
 
 newWallet :: forall eff. CWalletMeta -> Aff (ajax :: AJAX | eff) CWallet
 newWallet = postRBody ["new_wallet"]
@@ -102,7 +106,4 @@ deleteWallet :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) Unit
 deleteWallet addr = postR ["delete_wallet", _address addr]
 
 isValidAddress :: forall eff. CCurrency -> String -> Aff (ajax :: AJAX | eff) Boolean
-isValidAddress cCurrency addr = getR ["valid_address", dropModuleName $ gShow cCurrency, addr]
-  where
-    -- TODO: this is again stupid. We should derive Show for this type instead of doing this
-    dropModuleName = unsafePartial last <<< split "."
+isValidAddress cCurrency addr = getR ["valid_address", showCCurrency cCurrency, addr]

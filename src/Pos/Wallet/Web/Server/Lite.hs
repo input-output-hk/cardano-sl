@@ -28,11 +28,15 @@ import qualified Pos.Wallet.State              as WS
 import           Pos.Wallet.WalletMode         (SState, WalletRealMode)
 import           Pos.Wallet.Web.Server.Methods (walletApplication, walletServeImpl,
                                                 walletServer)
+import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar,
+                                                MonadWalletWebSockets (..),
+                                                WalletWebSockets, runWalletWS)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletState,
                                                 WalletWebDB, getWalletWebState,
                                                 runWalletWebDB)
 
-type WebHandler = WalletWebDB WalletRealMode
+
+type WebHandler = WalletWebSockets (WalletWebDB WalletRealMode)
 type SubKademlia = KeyStorage
                    (WalletDB
                     (ContextHolder
@@ -49,15 +53,17 @@ convertHandler
     -> MainWalletState
     -> KeyData
     -> WalletState
+    -> ConnectionsVar
     -> WebHandler a
     -> Handler a
-convertHandler kctx wc mws kd ws handler =
+convertHandler kctx wc mws kd ws wsConn handler =
     liftIO (runOurDialog newMutSocketState "wallet-api" .
             runContextHolder wc .
             runWalletDB mws .
             flip runKeyStorageRaw kd .
             runKademliaDHTRaw kctx .
-            runWalletWebDB ws $
+            runWalletWebDB ws .
+            runWalletWS wsConn $
             handler)
     `Catch.catches`
     excHandlers
@@ -67,9 +73,10 @@ convertHandler kctx wc mws kd ws handler =
 
 nat :: WebHandler (WebHandler :~> Handler)
 nat = do
+    wsConn <- getWalletWebSockets
     ws <- getWalletWebState
-    kd <- (lift . lift) ask
-    kctx <- lift getKademliaDHTCtx
+    kd <- lift . lift . lift $ ask
+    kctx <- lift . lift $ getKademliaDHTCtx
     wc <- getWalletContext
     mws <- getWalletState
-    return $ Nat (convertHandler kctx wc mws kd ws)
+    return $ Nat (convertHandler kctx wc mws kd ws wsConn)

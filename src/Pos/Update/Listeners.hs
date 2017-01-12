@@ -7,7 +7,6 @@ module Pos.Update.Listeners
        ( usListeners
        ) where
 
-import qualified Data.HashMap.Strict     as HM
 import           Serokell.Util.Verify    (VerificationRes (..))
 import           Universum
 
@@ -45,10 +44,7 @@ instance WorkMode ssc m =>
     verifyInvTag _ = pure VerSuccess
     verifyReqTag _ = pure VerSuccess
     -- TODO: maybe somehow check that versions are not decreasing or whatevs?
-    verifyDataContents UpdateProposal{..} = pure $
-        if HM.null upData
-        then VerFailure ["Empty update"]
-        else VerSuccess
+    verifyDataContents UpdateProposal{..} = pure VerSuccess
 
     handleInv _ _ = notImplemented
     handleReq _ _ = notImplemented

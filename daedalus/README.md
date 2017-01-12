@@ -134,6 +134,17 @@ Daedalus.ClientApi.isValidAddress('XXX', 'ADA')()
   })
 ```
 
+_notify_
+
+```javascript
+Daedalus.ClientApi.notify(
+    // message callback
+   function(msg) { return function() { console.log('msg ', msg) } },
+   // error callback
+   function(error) { return function() { console.log('error ', error) } }
+ )();
+```
+
 
 ## Run tests
 

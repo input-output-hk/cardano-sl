@@ -14,13 +14,13 @@ import           Pos.Binary.Class                  (Bi)
 import           Pos.Crypto                        (deterministicVssKeyGen,
                                                     toVssPublicKey)
 import           Pos.Ssc.GodTossing.Functions      (genCommitmentAndOpening)
-import           Pos.Ssc.GodTossing.Secret.Types   (GtSecretStorage (..))
 import           Pos.Ssc.GodTossing.Types.Base     (Commitment, Opening,
                                                     VssCertificate (..), mkVssCertificate)
 import           Pos.Ssc.GodTossing.Types.Instance ()
 import           Pos.Ssc.GodTossing.Types.Message  (GtMsgContents (..), GtMsgTag (..))
 import           Pos.Ssc.GodTossing.Types.Types    (GtGlobalState (..), GtPayload (..),
-                                                    GtProof (..), SscBi)
+                                                    GtProof (..), GtSecretStorage (..),
+                                                    SscBi)
 import           Pos.Ssc.GodTossing.VssCertData    (VssCertData (..))
 import           Pos.Types.Arbitrary.Unsafe        ()
 import           Pos.Util                          (asBinary)

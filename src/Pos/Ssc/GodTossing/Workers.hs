@@ -273,7 +273,7 @@ generateAndSetNewSecret sk SlotId {..} = do
     richmen <-
         lrcActionOnEpochReason siEpoch "couldn't get SSC richmen" getRichmenSsc
     certs <- getGlobalCerts siEpoch
-    let participants = nonEmpty . map vcVssKey . toList $ computeParticipants richmen certs
+    let participants = NE.nonEmpty . map vcVssKey . toList $ computeParticipants richmen certs
     maybe (Nothing <$ warnNoPs) generateAndSetNewSecretDo participants
   where
     warnNoPs =

@@ -11,6 +11,7 @@ module Daedalus.Types
        , mkCTxId
        , mkCCurrency
        , _ctxIdValue
+       , showCCurrency
        ) where
 
 import Prelude
@@ -25,8 +26,18 @@ import Pos.Wallet.Web.Error as E
 import Data.Either (either)
 import Data.Argonaut.Generic.Aeson (decodeJson)
 import Data.Argonaut.Core (fromString)
+import Data.Generic (gShow)
+import Data.Array.Partial (last)
+import Partial.Unsafe (unsafePartial)
+import Data.String (split)
 
 import Data.Types (mkTime)
+
+showCCurrency :: CT.CCurrency -> String
+showCCurrency = dropModuleName <<< gShow
+  where
+    -- TODO: this is again stupid. We should derive Show for this type instead of doing this
+    dropModuleName = unsafePartial last <<< split "."
 
 -- TODO: it would be useful to extend purescript-bridge
 -- and generate lenses

@@ -34,14 +34,16 @@ module Pos.Ssc.GodTossing.Functions
 
        -- * VSS
        , vssThreshold
+       , computeParticipants
        ) where
 
 import           Control.Lens                   (at, (^.), _2)
 import           Data.Containers                (ContainerKey, SetContainer (notMember))
 import qualified Data.HashMap.Strict            as HM
-import qualified Data.HashSet                   as HS (fromList, size)
+import qualified Data.HashSet                   as HS
 import           Data.Ix                        (inRange)
 import           Data.List.NonEmpty             (NonEmpty (..))
+import qualified Data.List.NonEmpty             as NE
 import           Serokell.Util                  (VerificationRes, verifyGeneric)
 import           Serokell.Util.Verify           (isVerSuccess)
 import           Universum
@@ -56,6 +58,7 @@ import           Pos.Crypto                     (EncShare, Secret, SecretKey,
                                                  secretToDhSecret, sign, toPublic,
                                                  verifyEncShare, verifySecretProof,
                                                  verifyShare)
+import           Pos.Lrc.Types                  (Richmen)
 import           Pos.Ssc.Class.Types            (Ssc (..))
 import           Pos.Ssc.GodTossing.Types.Base  (Commitment (..), CommitmentsMap,
                                                  InnerSharesMap, Opening (..),
@@ -384,3 +387,7 @@ checkCommShares vssPublicKeys c =
 -- to recover each node's secret) using number of participants.
 vssThreshold :: Integral a => a -> Threshold
 vssThreshold len = fromIntegral $ len `div` 2 + len `mod` 2
+
+computeParticipants :: Richmen -> VssCertificatesMap -> VssCertificatesMap
+computeParticipants (HS.toMap . HS.fromList . NE.toList -> richmen) =
+    (`HM.intersection` richmen)

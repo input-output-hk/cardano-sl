@@ -139,7 +139,6 @@ leadersComputationDo epochId =
 richmenComputationDo :: forall ssc m . WorkMode ssc m
     => EpochIndex -> [LrcConsumer m] -> m ()
 richmenComputationDo epochIdx consumers = unless (null consumers) $ do
-    -- [CSL-93] Use eligibility threshold here
     total <- GS.getTotalFtsStake
     let minThreshold = safeThreshold total (not . lcConsiderDelegated)
     let minThresholdD = safeThreshold total lcConsiderDelegated

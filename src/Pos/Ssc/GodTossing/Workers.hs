@@ -13,8 +13,10 @@ import           Control.Lens                     (use, view, (%=), _2, _3)
 import           Control.Monad.Trans.Maybe        (runMaybeT)
 import           Control.TimeWarp.Timed           (Microsecond, Millisecond, currentTime,
                                                    for, wait)
-import           Data.HashMap.Strict              (lookup, member)
-import           Data.List.NonEmpty               (NonEmpty, nonEmpty)
+import qualified Data.HashMap.Strict              as HM
+import qualified Data.HashSet                     as HS
+import           Data.List.NonEmpty               (NonEmpty)
+import qualified Data.List.NonEmpty               as NE
 import           Data.Tagged                      (Tagged (..))
 import           Data.Time.Units                  (convertUnit)
 import           Formatting                       (build, ords, sformat, shown, (%))
@@ -31,7 +33,7 @@ import           Pos.Context                      (getNodeContext, lrcActionOnEp
                                                    ncPublicKey, ncSecretKey, ncSscContext)
 import           Pos.Crypto                       (SecretKey, VssKeyPair, VssPublicKey,
                                                    randomNumber, runSecureRandom,
-                                                   shortHashF, toPublic)
+                                                   toPublic)
 import           Pos.Crypto.SecretSharing         (toVssPublicKey)
 import           Pos.Crypto.Signing               (PublicKey)
 import           Pos.DB.GState                    (getTip)
@@ -40,14 +42,15 @@ import           Pos.Slotting                     (getCurrentSlot, getSlotStart,
                                                    onNewSlot)
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
 import           Pos.Ssc.Extra.MonadLD            (sscGetLocalPayload, sscRunLocalUpdate)
-import           Pos.Ssc.GodTossing.Functions     (genCommitmentAndOpening, hasCommitment,
+import           Pos.Ssc.GodTossing.Functions     (checkCommShares,
+                                                   genCommitmentAndOpening, hasCommitment,
                                                    hasOpening, hasShares, isCommitmentIdx,
                                                    isOpeningIdx, isSharesIdx,
-                                                   mkSignedCommitment, vssThreshold)
+                                                   mkSignedCommitment, vssThreshold, computeParticipants)
 import           Pos.Ssc.GodTossing.LocalData     (ldCertificates, ldLastProcessedSlot,
                                                    localOnNewSlot, sscProcessMessage)
 import           Pos.Ssc.GodTossing.Richmen       (gtLrcConsumer)
-import           Pos.Ssc.GodTossing.SecretStorage (getSecret, getSecretForTip, setSecret)
+import           Pos.Ssc.GodTossing.SecretStorage (getSecret, getSecretNEpoch, setSecret)
 import           Pos.Ssc.GodTossing.Shares        (getOurShares)
 import           Pos.Ssc.GodTossing.Storage       (getGlobalCerts, gtGetGlobalState)
 import           Pos.Ssc.GodTossing.Types         (Commitment, Opening, SignedCommitment,
@@ -80,7 +83,7 @@ checkNSendOurCert :: forall m . (WorkMode SscGodTossing m) => m ()
 checkNSendOurCert = do
     (_, ourId) <- getOurPkAndId
     SlotId {..} <- getCurrentSlot
-    isCertInBlockhain <- member ourId <$> getGlobalCerts siEpoch
+    isCertInBlockhain <- HM.member ourId <$> getGlobalCerts siEpoch
     if isCertInBlockhain
         then logDebug "Our VssCertificate has been already announced."
         else do
@@ -106,7 +109,7 @@ checkNSendOurCert = do
     getOurVssCertificateDo :: Maybe VssCertificatesMap -> m VssCertificate
     getOurVssCertificateDo certs = do
         (_, ourId) <- getOurPkAndId
-        case lookup ourId =<< certs of
+        case HM.lookup ourId =<< certs of
             Just c -> return c
             Nothing -> do
                 ourSk <- ncSecretKey <$> getNodeContext
@@ -136,12 +139,18 @@ getOurVssKeyPair = gtcVssKeyPair . ncSscContext <$> getNodeContext
 onNewSlotSsc
     :: (WorkMode SscGodTossing m)
     => m ()
-onNewSlotSsc = onNewSlot True $ \slotId-> do
-    localOnNewSlot slotId
-    checkNSendOurCert
+onNewSlotSsc = onNewSlot True $ \slotId -> do
+    richmen <- HS.fromList . NE.toList <$>
+        lrcActionOnEpochReason (siEpoch slotId)
+            "couldn't get SSC richmen"
+            getRichmenSsc
+    localOnNewSlot richmen slotId
     participationEnabled <- getNodeContext >>=
         atomically . readTVar . gtcParticipateSsc . ncSscContext
-    when participationEnabled $ do
+    ourId <- addressHash . ncPublicKey <$> getNodeContext
+    let enoughStake = ourId `HS.member` richmen
+    when (participationEnabled && enoughStake) $ do
+        checkNSendOurCert
         onNewSlotCommitment slotId
         onNewSlotOpening slotId
         onNewSlotShares slotId
@@ -155,18 +164,19 @@ onNewSlotCommitment slotId@SlotId {..}
     | otherwise = do
         ourId <- addressHash . ncPublicKey <$> getNodeContext
         ourSk <- ncSecretKey <$> getNodeContext
-        tip <- getTip
         shouldSendCommitment <- not . hasCommitment siEpoch ourId <$> gtGetGlobalState
         logDebug $ sformat ("shouldSendCommitment: "%shown) shouldSendCommitment
         when shouldSendCommitment $ do
+            richmen <-
+                lrcActionOnEpochReason siEpoch "couldn't get SSC richmen" getRichmenSsc
+            participants <- map vcVssKey . toList . computeParticipants richmen <$> getGlobalCerts siEpoch
             shouldCreateCommitment <- do
-                secret <- getSecret
-                secretForTip <- getSecretForTip
-                let should = isNothing secret || tip /= secretForTip
-                let fmt = "We shouldn't generate secret, because we have secret for current tip ("
-                          %shortHashF%")"
-                let msg = sformat fmt tip
-                should <$ unless should (logDebug msg)
+                se <- getSecretNEpoch
+                pure . maybe True (\((_, comm, _), e) -> not $
+                                     siEpoch == e &&
+                                     checkCommShares participants comm) $ se
+            let msg = "We shouldn't generate secret, because commitment is still valid"
+            unless shouldCreateCommitment $ logDebug msg
             when shouldCreateCommitment $ do
                 logDebug $ sformat ("Generating secret for "%ords%" epoch") siEpoch
                 generated <- generateAndSetNewSecret ourSk slotId
@@ -215,7 +225,7 @@ onNewSlotShares SlotId {..} = do
         ourVss <- gtcVssKeyPair . ncSscContext <$> getNodeContext
         shares <- getOurShares ourVss
         let lShares = fmap asBinary shares
-        unless (null shares) $ do
+        unless (HM.null shares) $ do
             sscProcessOurMessage siEpoch (MCShares lShares) ourId
             sendOurData SharesMsg siEpoch 4 ourId
 
@@ -263,9 +273,7 @@ generateAndSetNewSecret sk SlotId {..} = do
     richmen <-
         lrcActionOnEpochReason siEpoch "couldn't get SSC richmen" getRichmenSsc
     certs <- getGlobalCerts siEpoch
-    let participants =
-            nonEmpty . map vcVssKey . mapMaybe (`lookup` certs) . toList $
-            richmen
+    let participants = NE.nonEmpty . map vcVssKey . toList $ computeParticipants richmen certs
     maybe (Nothing <$ warnNoPs) generateAndSetNewSecretDo participants
   where
     warnNoPs =
@@ -279,7 +287,7 @@ generateAndSetNewSecret sk SlotId {..} = do
         tip <- getTip
         case mPair of
             Just (mkSignedCommitment sk siEpoch -> comm, op) ->
-                Just (comm, op) <$ setSecret (toPublic sk, comm, op) tip
+                Just (comm, op) <$ setSecret (toPublic sk, comm, op) siEpoch tip
             _ -> Nothing <$ reportDeserFail
 
 randomTimeInInterval

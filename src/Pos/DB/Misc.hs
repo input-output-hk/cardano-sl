@@ -18,17 +18,17 @@ module Pos.DB.Misc
        , checkSecretKeyHash
        ) where
 
-import           Data.Default                    (def)
+import           Data.Default                   (def)
 import           Universum
 
-import           Pos.Binary.Class                (Bi)
-import           Pos.Binary.Ssc                  ()
-import           Pos.Crypto                      (Hash, SecretKey, pskOmega)
-import           Pos.DB.Class                    (MonadDB, getMiscDB)
-import           Pos.DB.Functions                (rocksGetBi, rocksPutBi)
-import           Pos.Ssc.GodTossing.Secret.Types (GtSecretStorage)
-import           Pos.Ssc.GodTossing.Types.Type   (SscGodTossing)
-import           Pos.Types                       (EpochIndex, ProxySKEpoch)
+import           Pos.Binary.Class               (Bi)
+import           Pos.Binary.Ssc                 ()
+import           Pos.Crypto                     (Hash, SecretKey, pskOmega)
+import           Pos.DB.Class                   (MonadDB, getMiscDB)
+import           Pos.DB.Functions               (rocksGetBi, rocksPutBi)
+import           Pos.Ssc.GodTossing.Types.Type  (SscGodTossing)
+import           Pos.Ssc.GodTossing.Types.Types (GtSecretStorage)
+import           Pos.Types                      (EpochIndex, ProxySKEpoch)
 
 ----------------------------------------------------------------------------
 -- Initialization

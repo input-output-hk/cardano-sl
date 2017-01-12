@@ -117,6 +117,7 @@ data DecidedProposalState = DecidedProposalState
 data ProposalState
     = PSUndecided !UndecidedProposalState
     | PSDecided !DecidedProposalState
+      deriving (Generic)
 
 psProposal :: ProposalState -> UpdateProposal
 psProposal (PSUndecided ups) = upsProposal ups

@@ -94,6 +94,7 @@ instance ( WorkMode SscGodTossing m
           (pure $ VerFailure ["slot is not appropriate"])
 
     handleInv = sscIsDataUseful
+
     handleReq tag addr = do
       payload <- getCurrentSlot >>= sscGetLocalPayload
       return $ case payload of Nothing -> Nothing

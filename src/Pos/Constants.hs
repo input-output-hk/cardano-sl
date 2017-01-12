@@ -17,6 +17,8 @@ module Pos.Constants
 
          -- * SSC constants
        , sharedSeedLength
+       , mpcSendInterval
+       , mpcThreshold
 
          -- * Other constants
        , genesisN
@@ -28,7 +30,6 @@ module Pos.Constants
        , isDevelopment
        , defaultPeers
        , sysTimeBroadcastSlots
-       , mpcSendInterval
        , vssMaxTTL
        , protocolMagic
        , enchancedMessageBroadcast
@@ -110,6 +111,10 @@ sharedSeedLength = 32
 -- Also see 'Pos.CompileConfig.ccMpcSendInterval'.
 mpcSendInterval :: Microsecond
 mpcSendInterval = sec . fromIntegral . ccMpcSendInterval $ compileConfig
+
+-- | Threshold value for mpc participation.
+mpcThreshold :: CoinPortion
+mpcThreshold = unsafeCoinPortion $ ccMpcThreshold compileConfig
 
 ----------------------------------------------------------------------------
 -- Other constants

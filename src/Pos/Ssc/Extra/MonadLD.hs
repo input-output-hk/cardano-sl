@@ -14,6 +14,8 @@ module Pos.Ssc.Extra.MonadLD
        , sscRunLocalUpdate
        ) where
 
+import           Control.Concurrent.STM  (TVar, readTVar)
+import           Control.Monad.Except    (ExceptT)
 import           Control.Monad.Trans     (MonadTrans)
 import           Universum
 
@@ -25,10 +27,14 @@ import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.Types.Types         (SlotId)
 
 class Monad m => MonadSscLD ssc m | m -> ssc where
+    askSscLD :: m (TVar (SscLocalData ssc))
     getLocalData :: m (SscLocalData ssc)
     setLocalData :: SscLocalData ssc -> m ()
     modifyLocalData :: ((SscGlobalState ssc, SscLocalData ssc)
                      -> (a, SscLocalData ssc)) -> m a
+
+    default askSscLD :: (MonadTrans t, MonadSscLD ssc m', t m' ~ m) => m (TVar (SscLocalData ssc))
+    askSscLD = lift askSscLD
 
     default getLocalData :: (MonadTrans t, MonadSscLD ssc m', t m' ~ m) => m (SscLocalData ssc)
     getLocalData = lift getLocalData
@@ -41,6 +47,7 @@ class Monad m => MonadSscLD ssc m | m -> ssc where
     modifyLocalData = lift . modifyLocalData
 
 instance (Monad m, MonadSscLD ssc m) => MonadSscLD ssc (ReaderT x m)
+instance (Monad m, MonadSscLD ssc m) => MonadSscLD ssc (ExceptT x m)
 instance (Monad m, MonadSscLD ssc m) => MonadSscLD ssc (DHTResponseT s m)
 instance (Monad m, MonadSscLD ssc m) => MonadSscLD ssc (KademliaDHT m)
 
@@ -60,9 +67,16 @@ sscRunLocalUpdate upd =
 
 sscGetLocalPayload
     :: forall ssc m.
-       (MonadSscLD ssc m, SscLocalDataClass ssc)
-    => SlotId -> m (SscPayload ssc)
-sscGetLocalPayload = sscRunLocalQuery . sscGetLocalPayloadQ @ssc
+       (MonadIO m, MonadSscLD ssc m, SscLocalDataClass ssc)
+    => SlotId -> m (Maybe (SscPayload ssc))
+sscGetLocalPayload neededSlot = do
+    ldVar <- askSscLD
+    atomically $ do
+        ld <- readTVar ldVar
+        let (slot, payload) = runReader (sscGetLocalPayloadQ @ssc) ld
+        if | slot == neededSlot -> return (Just payload)
+           | slot < neededSlot -> retry
+           | otherwise -> return Nothing
 
 sscApplyGlobalState
     :: forall ssc m.

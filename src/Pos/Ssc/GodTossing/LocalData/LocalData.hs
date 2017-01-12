@@ -46,7 +46,8 @@ import           Pos.Ssc.GodTossing.LocalData.Helpers (GtState, gtGlobalCertific
                                                        gtLocalOpenings, gtLocalShares,
                                                        gtRunModify, gtRunRead)
 import           Pos.Ssc.GodTossing.LocalData.Types   (ldCertificates, ldCommitments,
-                                                       ldOpenings, ldShares)
+                                                       ldLastProcessedSlot, ldOpenings,
+                                                       ldShares)
 import           Pos.Ssc.GodTossing.Types             (GtGlobalState (..), GtPayload (..),
                                                        SscBi, SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Base        (Commitment, Opening,
@@ -117,17 +118,17 @@ applyGlobal (HS.fromList . NE.toList -> richmen) globalData = do
 ----------------------------------------------------------------------------
 -- Get Local Payload
 ----------------------------------------------------------------------------
-getLocalPayload :: SlotId -> LocalQuery SscGodTossing GtPayload
-getLocalPayload SlotId{..} =
-    (if isCommitmentIdx siSlot then
-        CommitmentsPayload <$> view ldCommitments
-    else if isOpeningIdx siSlot then
-        OpeningsPayload <$> view ldOpenings
-    else if isSharesIdx siSlot then
-        SharesPayload <$> view ldShares
-    else
-        pure CertificatesPayload)
-    <*> views ldCertificates VCD.certs
+getLocalPayload :: LocalQuery SscGodTossing (SlotId, GtPayload)
+getLocalPayload = do
+    s <- view ldLastProcessedSlot
+    (s, ) <$> (getPayload (siSlot s) <*> views ldCertificates VCD.certs)
+  where
+    getPayload slotIdx =
+        if | isCommitmentIdx slotIdx ->
+               CommitmentsPayload <$> view ldCommitments
+           | isOpeningIdx slotIdx -> OpeningsPayload <$> view ldOpenings
+           | isSharesIdx slotIdx -> SharesPayload <$> view ldShares
+           | otherwise -> pure CertificatesPayload
 
 ----------------------------------------------------------------------------
 -- Process New Slot

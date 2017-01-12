@@ -52,8 +52,9 @@ import           Pos.Ssc.GodTossing.Shares        (getOurShares)
 import           Pos.Ssc.GodTossing.Storage       (getGlobalCerts, gtGetGlobalState)
 import           Pos.Ssc.GodTossing.Types         (Commitment, Opening, SignedCommitment,
                                                    SscGodTossing, VssCertificate (..),
-                                                   gtcParticipateSsc, gtcVssKeyPair,
-                                                   mkVssCertificate, _gpCertificates)
+                                                   VssCertificatesMap, gtcParticipateSsc,
+                                                   gtcVssKeyPair, mkVssCertificate,
+                                                   _gpCertificates)
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtMsgTag (..))
 import qualified Pos.Ssc.GodTossing.VssCertData   as VCD
 import           Pos.Types                        (EpochIndex, LocalSlotIndex,
@@ -78,38 +79,47 @@ onStart = checkNSendOurCert
 checkNSendOurCert :: forall m . (WorkMode SscGodTossing m) => m ()
 checkNSendOurCert = do
     (_, ourId) <- getOurPkAndId
-    SlotId{..} <- getCurrentSlot
+    SlotId {..} <- getCurrentSlot
     isCertInBlockhain <- member ourId <$> getGlobalCerts siEpoch
-    if isCertInBlockhain then
-       logDebug "Our VssCertificate has been already announced."
-    else do
-        logDebug "Our VssCertificate hasn't been announced yet or TTL has expired\
+    if isCertInBlockhain
+        then logDebug "Our VssCertificate has been already announced."
+        else do
+            logDebug
+                "Our VssCertificate hasn't been announced yet or TTL has expired\
                  \, we will announce it now."
-        ourVssCertificate <- getOurVssCertificate
-        let msg = DataMsg (MCVssCertificate ourVssCertificate) ourId
+            ourVssCertificate <- getOurVssCertificate
+            let msg = DataMsg (MCVssCertificate ourVssCertificate) ourId
         -- [CSL-245]: do not catch all, catch something more concrete.
-        (sendToNeighborsSafe msg >> logDebug "Announced our VssCertificate.")
-            `catchAll` \e ->
-            logError $ sformat ("Error announcing our VssCertificate: " % shown) e
+            (sendToNeighborsSafe msg >> logDebug "Announced our VssCertificate.") `catchAll` \e ->
+                logError $
+                sformat ("Error announcing our VssCertificate: " % shown) e
   where
     getOurVssCertificate :: m VssCertificate
     getOurVssCertificate = do
         slotId <- getCurrentSlot
+        localCerts <- fmap _gpCertificates <$> sscGetLocalPayload slotId
+        case localCerts of
+            Nothing -> do
+                logWarning "checkNSendOurCert: local payload is unknown"
+                getOurVssCertificateDo Nothing
+            Just certs -> getOurVssCertificateDo (Just certs)
+    getOurVssCertificateDo :: Maybe VssCertificatesMap -> m VssCertificate
+    getOurVssCertificateDo certs = do
         (_, ourId) <- getOurPkAndId
-        localCerts <- _gpCertificates <$> sscGetLocalPayload slotId
-        case lookup ourId localCerts of
-          Just c  -> return c
-          Nothing -> do
-            ourSk         <- ncSecretKey <$> getNodeContext
-            ourVssKeyPair <- getOurVssKeyPair
-            let vssKey  = asBinary $ toVssPublicKey ourVssKeyPair
-                createOurCert = mkVssCertificate ourSk vssKey .
-                                (+) (vssMaxTTL - 1) . siEpoch
-            sscRunLocalUpdate $ do
-                lps <- use ldLastProcessedSlot
-                let ourCert = createOurCert lps
-                ldCertificates %= VCD.insert ourId ourCert
-                return ourCert
+        case lookup ourId =<< certs of
+            Just c -> return c
+            Nothing -> do
+                ourSk <- ncSecretKey <$> getNodeContext
+                ourVssKeyPair <- getOurVssKeyPair
+                let vssKey = asBinary $ toVssPublicKey ourVssKeyPair
+                    createOurCert =
+                        mkVssCertificate ourSk vssKey .
+                        (+) (vssMaxTTL - 1) . siEpoch
+                sscRunLocalUpdate $ do
+                    lps <- use ldLastProcessedSlot
+                    let ourCert = createOurCert lps
+                    ldCertificates %= VCD.insert ourId ourCert
+                    return ourCert
 
 getOurPkAndId
     :: WorkMode SscGodTossing m

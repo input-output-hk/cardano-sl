@@ -16,7 +16,7 @@ vssMaxTTL : 10 # epochs
 mpcSendInterval: 12 # must be less than (k * slotDuration - networkDiameter)
 
 # Delegation
-delegationThreshold: 0.001 # 1% of stake
+delegationThreshold: 0.005 # 0.5% of stake
 maxBlockProxySKs: 10000
 
 # Update mechanism

@@ -83,6 +83,7 @@ instance MonadIO m => MonadSscGS ssc (SscHolder ssc m) where
     setGlobalState newSt = SscHolder (asks sscGlobal) >>= atomically . flip STM.writeTVar newSt
 
 instance MonadIO m => MonadSscLD ssc (SscHolder ssc m) where
+    askSscLD = SscHolder $ asks sscLocal
     getLocalData = SscHolder (asks sscLocal) >>= atomically . STM.readTVar
     modifyLocalData f = SscHolder ask >>= \sscSt -> atomically $ do
                 g <- STM.readTVar (sscGlobal sscSt)

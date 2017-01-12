@@ -11,6 +11,7 @@ module Pos.Ssc.GodTossing.VssCertData
        , setLastKnownSlot
        , keys
        , member
+       , difference
        ) where
 
 import qualified Data.HashMap.Strict           as HM
@@ -97,6 +98,9 @@ keys VssCertData{..} = HM.keys certs
 -- | Return True if the specified address hash is present in the map, False otherwise.
 member :: StakeholderId -> VssCertData -> Bool
 member id VssCertData{..} = HM.member id certs
+
+difference :: VssCertData -> HM.HashMap StakeholderId a -> VssCertData
+difference mp hm = foldl' (flip delete) mp . HM.keys $ hm
 
 ----------------------------------------------------------------------------
 -- Helpers

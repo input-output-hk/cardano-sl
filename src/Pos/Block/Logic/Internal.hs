@@ -11,22 +11,24 @@ module Pos.Block.Logic.Internal
        , withBlkSemaphore_
        ) where
 
-import           Control.Lens         ((^.))
+import           Control.Lens         ((^.), _1)
 import           Control.Monad.Catch  (bracketOnError)
 import           Data.List.NonEmpty   (NonEmpty)
 import qualified Data.List.NonEmpty   as NE
 import           Universum
 
-import           Pos.Context          (putBlkSemaphore, takeBlkSemaphore)
+import           Pos.Context          (lrcActionOnEpochReason, putBlkSemaphore,
+                                       takeBlkSemaphore)
 import           Pos.Crypto           (hash)
 import           Pos.DB               (SomeBatchOp (..))
 import qualified Pos.DB               as DB
 import qualified Pos.DB.GState        as GS
+import qualified Pos.DB.Lrc           as DB
 import           Pos.Delegation.Logic (delegationApplyBlocks, delegationRollbackBlocks)
 import           Pos.Ssc.Extra        (sscApplyBlocks, sscApplyGlobalState, sscRollback)
 import           Pos.Txp.Logic        (normalizeTxpLD, txApplyBlocks, txRollbackBlocks)
 import           Pos.Types            (Blund, HeaderHash, blockHeader, epochIndexL)
-import           Pos.Util             (spanSafe)
+import           Pos.Util             (spanSafe, _neLast)
 import           Pos.WorkMode         (WorkMode)
 
 
@@ -59,7 +61,10 @@ applyBlocksUnsafe blunds0 = do
     delegateBatch <- SomeBatchOp <$> delegationApplyBlocks blocks
     txBatch <- SomeBatchOp <$> txApplyBlocks blunds
     sscApplyBlocks blocks
-    sscApplyGlobalState
+    let epoch = blunds ^. _neLast . _1 . epochIndexL
+    richmen <-
+        lrcActionOnEpochReason epoch "couldn't get SSC richmen" DB.getRichmenSsc
+    sscApplyGlobalState richmen
     GS.writeBatchGState [delegateBatch, txBatch]
     normalizeTxpLD
   where

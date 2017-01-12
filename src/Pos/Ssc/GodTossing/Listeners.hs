@@ -94,8 +94,11 @@ instance ( WorkMode SscGodTossing m
           (pure $ VerFailure ["slot is not appropriate"])
 
     handleInv = sscIsDataUseful
-    handleReq tag addr =
-        toContents tag addr <$> (getCurrentSlot >>= sscGetLocalPayload)
+
+    handleReq tag addr = do
+      payload <- getCurrentSlot >>= sscGetLocalPayload
+      return $ case payload of Nothing -> Nothing
+                               Just p  -> toContents tag addr p
 
     handleData dat addr = do
         -- TODO: Add here malicious emulation for network addresses

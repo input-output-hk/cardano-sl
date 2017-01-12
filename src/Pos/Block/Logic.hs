@@ -415,10 +415,14 @@ applyWithRollback
     -> NonEmpty (Block ssc)
     -> m (Either Text (HeaderHash ssc))
 applyWithRollback toRollback toApply = runExceptT $ do
-    tip <- lift GS.getTip
-    when (tip /= assumedTip) $ do
-        throwError (tipMismatchMsg "apply with rollback" tip assumedTip)
+    tip <- GS.getTip
+    when (tip /= newestToRollback) $ do
+        throwError (tipMismatchMsg "rollback in 'apply with rollback'" tip newestToRollback)
     lift $ rollbackBlocksUnsafe toRollback
+    tipAfterRollback <- GS.getTip
+    when (tipAfterRollback /= expectedTipApply) $ do
+        lift $ applyBlocksUnsafe $ NE.reverse toRollback
+        throwError (tipMismatchMsg "apply in 'apply with rollback'" tip newestToRollback)
     lift (verifyAndApplyBlocks True toApply) >>= \case
         -- We didn't succeed to apply blocks, so will apply
         -- rollbacked back.
@@ -427,7 +431,8 @@ applyWithRollback toRollback toApply = runExceptT $ do
             throwError err
         Right tipHash  -> pure tipHash
   where
-    assumedTip = toRollback ^. _neHead . _1 . prevBlockL
+    expectedTipApply = toApply ^. _neHead . prevBlockL
+    newestToRollback = toRollback ^. _neHead . _1 . headerHashG
 
 
 ----------------------------------------------------------------------------
@@ -514,9 +519,11 @@ createMainBlock sId pSk = withBlkSemaphore createMainBlockDo
         tipHeader <- getTipBlockHeader
         logDebug $ sformat msgFmt tipHeader
         case canCreateBlock sId tipHeader of
-            Nothing  -> convertRes <$> createMainBlockFinish sId pSk tipHeader
+            Nothing  -> convertRes tip <$>
+                runExceptT (createMainBlockFinish sId pSk tipHeader)
             Just err -> return (Left err, tip)
-    convertRes blk = (Right blk, headerHash blk)
+    convertRes oldTip (Left e) = (Left e, oldTip)
+    convertRes _ (Right blk)   = (Right blk, headerHash blk)
 
 canCreateBlock :: SlotId -> BlockHeader ssc -> Maybe Text
 canCreateBlock sId tipHeader
@@ -537,21 +544,23 @@ createMainBlockFinish
     => SlotId
     -> Maybe ProxySKEither
     -> BlockHeader ssc
-    -> m (MainBlock ssc)
+    -> ExceptT Text m (MainBlock ssc)
 createMainBlockFinish slotId pSk prevHeader = do
-    (localTxs, txUndo) <- getLocalTxsNUndo
-    sscData <- sscGetLocalPayload slotId
-    (localPSKs, pskUndo) <- getProxyMempool
-    let panicTopsort = panic "Topology of local transactions is broken!"
+    (localTxs, txUndo) <- getLocalTxsNUndo @ssc
+    sscData <- maybe onNoSsc pure =<< sscGetLocalPayload @ssc slotId
+    (localPSKs, pskUndo) <- lift getProxyMempool
     let convertTx (txId, (tx, _, _)) = WithHash tx txId
-    let sortedTxs = fromMaybe panicTopsort $ topsortTxs convertTx localTxs
+    sortedTxs <- maybe onBrokenTopo pure $ topsortTxs convertTx localTxs
     sk <- ncSecretKey <$> getNodeContext
     let blk = createMainBlockPure prevHeader sortedTxs pSk slotId localPSKs sscData sk
     let prependToUndo undos tx =
             fromMaybe (panic "Undo for tx not found")
                       (HM.lookup (fst tx) txUndo) : undos
     let blockUndo = Undo (reverse $ foldl' prependToUndo [] localTxs) pskUndo
-    blk <$ applyBlocksUnsafe (pure (Right blk, blockUndo))
+    lift $ blk <$ applyBlocksUnsafe (pure (Right blk, blockUndo))
+  where
+    onBrokenTopo = throwError "Topology of local transactions is broken!"
+    onNoSsc = throwError "can't obtain SSC payload to create block"
 
 createMainBlockPure
     :: Ssc ssc

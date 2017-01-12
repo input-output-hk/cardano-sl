@@ -30,7 +30,6 @@ import           Pos.DB                (MonadDB)
 import qualified Pos.DB.Lrc            as LrcDB
 import           Pos.DHT.Model.Class   (DHTResponseT)
 import           Pos.DHT.Real          (KademliaDHT)
-import           Pos.Slotting          (MonadSlots)
 import           Pos.Ssc.Class.Storage (SscStorageClass (..))
 import           Pos.Ssc.Class.Types   (Ssc (..))
 import           Pos.Types.Types       (EpochIndex, NEBlocks, SharedSeed, epochIndexL)
@@ -99,7 +98,6 @@ sscVerifyBlocks
        , MonadSscGS ssc m
        , WithNodeContext ssc m
        , SscStorageClass ssc
-       , MonadSlots m
        )
     => Bool -> NEBlocks ssc -> m VerificationRes
 sscVerifyBlocks verPure blocks = do

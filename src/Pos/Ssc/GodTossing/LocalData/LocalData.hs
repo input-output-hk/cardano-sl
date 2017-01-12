@@ -51,11 +51,13 @@ import           Pos.Ssc.GodTossing.LocalData.Types   (ldCertificates, ldCommitm
 import           Pos.Ssc.GodTossing.Types             (GtGlobalState (..), GtPayload (..),
                                                        SscBi, SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Base        (Commitment, Opening,
-                                                       SignedCommitment, VssCertificate,
+                                                       SignedCommitment,
+                                                       VssCertificate (vcSigningKey),
                                                        VssCertificatesMap, vcVssKey)
 import           Pos.Ssc.GodTossing.Types.Message     (GtMsgContents (..), GtMsgTag (..))
 import qualified Pos.Ssc.GodTossing.VssCertData       as VCD
-import           Pos.Types                            (SlotId (..), StakeholderId)
+import           Pos.Types                            (SlotId (..), StakeholderId,
+                                                       addressHash)
 import           Pos.Util                             (AsBinary, diffDoubleMap, getKeys,
                                                        readerToState)
 
@@ -203,29 +205,39 @@ sscIsDataUsefulSetImpl localG globalG addr =
 ----------------------------------------------------------------------------
 -- Ssc Process Message
 ----------------------------------------------------------------------------
+
 -- | Process message and save it if needed. Result is whether message
 -- has been actually added.
 sscProcessMessage ::
        (MonadSscLD SscGodTossing m, SscBi)
     => Richmen -> GtMsgContents -> StakeholderId -> m Bool
-sscProcessMessage richmen msg = gtRunModify . sscProcessMessageU richmen msg
+sscProcessMessage richmen msg =
+    gtRunModify . sscProcessMessageU (HS.fromList $ toList richmen) msg
 
-sscProcessMessageU :: SscBi => Richmen -> GtMsgContents -> StakeholderId -> LDUpdate Bool
-sscProcessMessageU richmen (MCCommitment comm) addr = processCommitment richmen addr comm
-sscProcessMessageU _ (MCOpening open)          addr = processOpening addr open
-sscProcessMessageU _ (MCShares shares)         addr = processShares addr shares
-sscProcessMessageU _ (MCVssCertificate cert)   addr = processVssCertificate addr cert
+sscProcessMessageU
+    :: SscBi
+    => (HashSet StakeholderId)
+    -> GtMsgContents
+    -> StakeholderId
+    -> LDUpdate Bool
+sscProcessMessageU richmen (MCCommitment comm) addr =
+    processCommitment richmen addr comm
+sscProcessMessageU _ (MCOpening open) addr =
+    processOpening addr open
+sscProcessMessageU richmen (MCShares shares) addr =
+    processShares richmen addr shares
+sscProcessMessageU richmen (MCVssCertificate cert) addr =
+    processVssCertificate richmen addr cert
 
 processCommitment
     :: Bi Commitment
-    => Richmen
+    => (HashSet StakeholderId)
     -> StakeholderId
     -> SignedCommitment
     -> LDUpdate Bool
 processCommitment richmen addr c = do
     certs <- VCD.certs <$> use gtGlobalCertificates
-    let participants = certs `HM.intersection`
-                      (HM.fromList $ zip (toList richmen) (repeat ()))
+    let participants = certs `HM.intersection` HS.toMap richmen
     let vssPublicKeys = map vcVssKey $ toList participants
     let checks epochIndex vssCerts =
             [ not . HM.member addr <$> view gtGlobalCommitments
@@ -251,10 +263,11 @@ matchOpening :: StakeholderId -> Opening -> LDQuery Bool
 matchOpening addr opening =
     flip checkOpeningMatchesCommitment (addr, opening) <$> view gtGlobalCommitments
 
-processShares :: StakeholderId
+processShares :: (HashSet StakeholderId)
+              -> StakeholderId
               -> HashMap StakeholderId (AsBinary Share)
               -> LDUpdate Bool
-processShares addr s
+processShares richmen addr s
     | null s = pure False
     | otherwise = do
         certs <- VCD.certs <$> use gtGlobalCertificates
@@ -263,9 +276,10 @@ processShares addr s
         -- aware of the fact that they are already in the blockchain. On the
         -- other hand, now nodes can send us huge spammy messages and we can't
         -- ban them for that. On the third hand, is this a concern?
+        let realShares = HM.filterWithKey (\k _ -> k `HS.member` richmen) s
         globalSharesPKForPK <- getKeys . HM.lookupDefault mempty addr <$> use gtGlobalShares
         localSharesForPk <- HM.lookupDefault mempty addr <$> use gtLocalShares
-        let s' = s `HM.difference` (HS.toMap globalSharesPKForPK)
+        let s' = realShares `HM.difference` (HS.toMap globalSharesPKForPK)
         let newLocalShares = localSharesForPk `HM.union` s'
         -- Note: size is O(n), but union is also O(n + m), so
         -- it doesn't matter.
@@ -287,7 +301,12 @@ checkSharesLastVer certs addr shares =
     view gtGlobalCommitments <*>
     view gtGlobalOpenings
 
-processVssCertificate :: StakeholderId -> VssCertificate -> LDUpdate Bool
-processVssCertificate addr c = do
-    ok <- readerToState (sscIsDataUsefulQ VssCertificateMsg addr)
-    ok <$ when ok (gtLocalCertificates %= VCD.insert addr c)
+processVssCertificate :: (HashSet StakeholderId)
+                      -> StakeholderId
+                      -> VssCertificate
+                      -> LDUpdate Bool
+processVssCertificate richmen addr c
+    | (addressHash $ vcSigningKey c) `HS.member` richmen = do
+        ok <- readerToState (sscIsDataUsefulQ VssCertificateMsg addr)
+        ok <$ when ok (gtLocalCertificates %= VCD.insert addr c)
+    | otherwise = pure False

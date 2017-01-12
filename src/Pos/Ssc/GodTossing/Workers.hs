@@ -14,7 +14,9 @@ import           Control.Monad.Trans.Maybe        (runMaybeT)
 import           Control.TimeWarp.Timed           (Microsecond, Millisecond, currentTime,
                                                    for, wait)
 import           Data.HashMap.Strict              (lookup, member)
-import           Data.List.NonEmpty               (NonEmpty, nonEmpty)
+import           Data.HashMap.Strict              (lookup, member)
+import           Data.List.NonEmpty               (NonEmpty)
+import qualified Data.List.NonEmpty               as NE
 import           Data.Tagged                      (Tagged (..))
 import           Data.Time.Units                  (convertUnit)
 import           Formatting                       (build, ords, sformat, shown, (%))
@@ -141,7 +143,12 @@ onNewSlotSsc = onNewSlot True $ \slotId-> do
     checkNSendOurCert
     participationEnabled <- getNodeContext >>=
         atomically . readTVar . gtcParticipateSsc . ncSscContext
-    when participationEnabled $ do
+    richmen <- lrcActionOnEpochReason (siEpoch slotId)
+                   "couldn't get SSC richmen"
+                   getRichmenSsc
+    ourId <- addressHash . ncPublicKey <$> getNodeContext
+    let enoughStake = ourId `elem` NE.toList richmen
+    when (participationEnabled && enoughStake) $ do
         onNewSlotCommitment slotId
         onNewSlotOpening slotId
         onNewSlotShares slotId
@@ -264,7 +271,7 @@ generateAndSetNewSecret sk SlotId {..} = do
         lrcActionOnEpochReason siEpoch "couldn't get SSC richmen" getRichmenSsc
     certs <- getGlobalCerts siEpoch
     let participants =
-            nonEmpty . map vcVssKey . mapMaybe (`lookup` certs) . toList $
+            NE.nonEmpty . map vcVssKey . mapMaybe (`lookup` certs) . toList $
             richmen
     maybe (Nothing <$ warnNoPs) generateAndSetNewSecretDo participants
   where

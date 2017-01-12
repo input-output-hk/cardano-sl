@@ -20,6 +20,7 @@ import           Data.Containers                      (ContainerKey,
                                                        SetContainer (notMember))
 import qualified Data.HashMap.Strict                  as HM
 import qualified Data.HashSet                         as HS
+import qualified Data.List.NonEmpty                   as NE
 import           Serokell.Util.Verify                 (isVerSuccess)
 import           Universum
 
@@ -65,20 +66,22 @@ type LDUpdate a = forall m . MonadState GtState m  => m a
 ----------------------------------------------------------------------------
 -- Apply Global State
 ----------------------------------------------------------------------------
-applyGlobal :: GtGlobalState -> LocalUpdate SscGodTossing ()
-applyGlobal globalData = do
-    let
+applyGlobal :: Richmen -> GtGlobalState -> LocalUpdate SscGodTossing ()
+applyGlobal (HS.fromList . NE.toList -> richmen) globalData = do
+    localCerts <- use ldCertificates
+    let globalCerts = VCD.certs . _gsVssCertificates $ globalData
+        participants = HS.toMap $ (getKeys $ localCerts `HM.union` globalCerts)
+                                   `HS.intersection` richmen
         globalCommitments = _gsCommitments globalData
         globalOpenings = _gsOpenings globalData
         globalShares = _gsShares globalData
-        globalCerts = VCD.certs . _gsVssCertificates $ globalData
-    -- remove commitments which are contained already in global state
-    ldCommitments  %= (`HM.difference` globalCommitments)
-    -- remove commitments which corresponds to expired certs
-    ldCommitments %= (`HM.difference` globalCerts)
-    -- remove openings which are contained already in global state
-    ldOpenings  %= (`HM.difference` globalOpenings)
-    ldShares  %= (`diffDoubleMap` globalShares)
+    -- 1. remove commitments which are contained already in global state
+    -- 2. remove commitments which corresponds to expired certs
+    ldCommitments  %= (`HM.difference` globalCommitments) . (`HM.difference` participants)
+    -- 1. remove openings which are contained already in global state
+    -- 2. remove openings corresponding to invalid commitments
+    ldOpenings  %= (`HM.difference` globalOpenings) . (`HM.difference` globalCommitments)
+    ldShares  %= (`diffDoubleMap` globalShares) . (`HM.difference` globalCommitments)
     ldCertificates  %= (`HM.difference` globalCerts)
 
 ----------------------------------------------------------------------------

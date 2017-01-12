@@ -19,6 +19,7 @@ import           Universum
 
 import           Pos.DHT.Model           (DHTResponseT)
 import           Pos.DHT.Real            (KademliaDHT)
+import           Pos.Lrc.Types           (Richmen)
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.Types.Types         (SlotId)
@@ -66,6 +67,6 @@ sscGetLocalPayload = sscRunLocalQuery . sscGetLocalPayloadQ @ssc
 sscApplyGlobalState
     :: forall ssc m.
        (MonadSscLD ssc m, SscLocalDataClass ssc)
-    =>  m ()
-sscApplyGlobalState =
-    modifyLocalData (\(gs, ld) -> runState (sscApplyGlobalStateU @ssc gs) ld)
+    => Richmen -> m ()
+sscApplyGlobalState richmen =
+    modifyLocalData (\(gs, ld) -> runState (sscApplyGlobalStateU @ssc richmen gs) ld)

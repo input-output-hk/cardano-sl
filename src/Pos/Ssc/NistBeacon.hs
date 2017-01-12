@@ -71,7 +71,7 @@ instance SscListenersClass SscNistBeacon where
 
 instance SscLocalDataClass SscNistBeacon where
     sscGetLocalPayloadQ _ = pure ()
-    sscApplyGlobalStateU _ = pure ()
+    sscApplyGlobalStateU _ _ = pure ()
 
 instance SscStorageClass SscNistBeacon where
     sscLoadGlobalState _ = pure ()

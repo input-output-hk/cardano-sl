@@ -14,6 +14,7 @@ module Pos.Ssc.Class.LocalData
 
 import           Universum
 
+import           Pos.Lrc.Types       (Richmen)
 import           Pos.Ssc.Class.Types (Ssc (..))
 import           Pos.Types.Types     (SlotId)
 
@@ -32,4 +33,4 @@ class Ssc ssc => SscLocalDataClass ssc where
     sscGetLocalPayloadQ :: SlotId -> LocalQuery ssc (SscPayload ssc)
     -- | Update LocalData using global data from blocks (last version
     -- of best known chain).
-    sscApplyGlobalStateU :: SscGlobalState ssc -> LocalUpdate ssc ()
+    sscApplyGlobalStateU :: Richmen -> SscGlobalState ssc -> LocalUpdate ssc ()

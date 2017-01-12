@@ -105,7 +105,7 @@ applyGlobal (HS.fromList . NE.toList -> richmen) globalData = do
             -- Select only new shares
               (`diffDoubleMap` globalShares)
             -- Select shares from nodes which sent certificates
-            , (`HM.intersection` globalCerts)
+            , (`HM.intersection` participants)
             -- Select shares to nodes which sent commitments
             , map (`HM.intersection` globalCommitments)
             -- Ensure that share sent from pkFrom to pkTo is valid

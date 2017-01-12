@@ -415,10 +415,14 @@ applyWithRollback
     -> NonEmpty (Block ssc)
     -> m (Either Text (HeaderHash ssc))
 applyWithRollback toRollback toApply = runExceptT $ do
-    tip <- lift GS.getTip
-    when (tip /= assumedTip) $ do
-        throwError (tipMismatchMsg "apply with rollback" tip assumedTip)
+    tip <- GS.getTip
+    when (tip /= newestToRollback) $ do
+        throwError (tipMismatchMsg "rollback in 'apply with rollback'" tip newestToRollback)
     lift $ rollbackBlocksUnsafe toRollback
+    tipAfterRollback <- GS.getTip
+    when (tipAfterRollback /= expectedTipApply) $ do
+        lift $ applyBlocksUnsafe $ NE.reverse toRollback
+        throwError (tipMismatchMsg "apply in 'apply with rollback'" tip newestToRollback)
     lift (verifyAndApplyBlocks True toApply) >>= \case
         -- We didn't succeed to apply blocks, so will apply
         -- rollbacked back.
@@ -427,7 +431,8 @@ applyWithRollback toRollback toApply = runExceptT $ do
             throwError err
         Right tipHash  -> pure tipHash
   where
-    assumedTip = toRollback ^. _neHead . _1 . prevBlockL
+    expectedTipApply = toApply ^. _neHead . prevBlockL
+    newestToRollback = toRollback ^. _neHead . _1 . headerHashG
 
 
 ----------------------------------------------------------------------------

@@ -84,7 +84,6 @@ putBlock
     => Undo -> Bool -> Block ssc -> m ()
 putBlock undo inMainChain blk = do
     let h = headerHash blk
-        ph = blk ^. prevBlockL
     putBi
         (blockKey h)
         StoredBlock

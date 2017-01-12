@@ -10,13 +10,15 @@ module Pos.Context.Context
        ) where
 
 import qualified Control.Concurrent.STM as STM
+import           Control.TimeWarp.Timed (Microsecond)
 import           Universum
 
 import           Pos.Crypto             (PublicKey, SecretKey, toPublic)
 import           Pos.Security.Types     (AttackTarget, AttackType)
 import           Pos.Ssc.Class.Types    (Ssc (SscNodeContext))
-import           Pos.Types              (Address, EpochIndex, HeaderHash, SlotLeaders,
-                                         Timestamp (..), Utxo, makePubKeyAddress)
+import           Pos.Types              (Address, EpochIndex, HeaderHash, SlotId,
+                                         SlotLeaders, Timestamp (..), Utxo,
+                                         makePubKeyAddress)
 import           Pos.Util.UserSecret    (UserSecret)
 
 ----------------------------------------------------------------------------
@@ -57,6 +59,14 @@ data NodeContext ssc = NodeContext
     -- ^ Primitive for synchronization with LRC.
     , ncUserSecret     :: !(STM.TVar UserSecret)
     -- ^ Secret keys (and path to file) which are used to send transactions
+
+    , ncNtpData        :: !(STM.TVar (Microsecond, Microsecond))
+    -- ^ Data for NTP Worker.
+    -- First element is margin (difference between global time and local time)
+    -- which we got from NTP server in last tme.
+    -- Second element is time (local time) for which we got margin in last time.
+    , ncNtpLastSlot    :: !(STM.TVar SlotId)
+    -- ^ Slot which was been returned from getCurrentSlot in last time
     }
 
 -- | Generate 'PublicKey' from 'SecretKey' of 'NodeContext'.

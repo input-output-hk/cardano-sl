@@ -27,9 +27,10 @@ import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
-import           Pos.Slotting                (MonadSlots (..))
+import           Pos.Slotting                (MonadSlots (..), getCurrentSlotUsingNtp)
 import           Pos.Types                   (Timestamp (..))
-import           Pos.Wallet.Context.Class    (WithWalletContext (..))
+import           Pos.Wallet.Context.Class    (WithWalletContext (..), readNtpData,
+                                              readNtpLastSlot, readNtpMargin)
 import           Pos.Wallet.Context.Context  (WalletContext (..))
 
 -- | Wrapper for monadic action which brings 'WalletContext'.
@@ -67,7 +68,15 @@ instance MonadTransfer s m => MonadTransfer s (ContextHolder m)
 instance Monad m => WithWalletContext (ContextHolder m) where
     getWalletContext = ContextHolder ask
 
-instance (MonadTimed m, Monad m) =>
+instance (MonadTimed m, Monad m, MonadIO m) =>
          MonadSlots (ContextHolder m) where
     getSystemStartTime = ContextHolder $ asks wcSystemStart
-    getCurrentTime = Timestamp <$> currentTime
+
+    getCurrentTime = do
+        lastMargin <- readNtpMargin
+        Timestamp . (+ lastMargin) <$> currentTime
+
+    getCurrentSlot = do
+        lastSlot <- readNtpLastSlot
+        ntpData <- readNtpData
+        getCurrentSlotUsingNtp lastSlot ntpData

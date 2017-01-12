@@ -51,6 +51,10 @@ data CompileConfig = CompileConfig
       -- ^ Servers for downloading application updates
     , ccMaxBlockProxySKs              :: !Int
       -- ^ Maximum number of PSKs allowed in block
+    , ccNtpResponseTimeout            :: !Int
+      -- ^ How often request to NTP server and response collection
+    , ccNtpPollDelay                  :: !Int
+      -- ^ How often send request to NTP server
     , ccUpdateProposalThreshold       :: !Double
       -- ^ Portion of total stake such that block containing
       -- UpdateProposal must contain positive votes for this proposal

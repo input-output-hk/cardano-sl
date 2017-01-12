@@ -16,7 +16,7 @@ import           Universum
 import           Pos.Constants           (epochDuration, slotDuration)
 import           Pos.Slotting            (MonadSlots (..), getCurrentSlot)
 import           Pos.Types               (EpochIndex, LocalSlotIndex, SlotId (..),
-                                          Timestamp (..))
+                                          Timestamp (..), unflattenSlotId)
 
 spec :: Spec
 spec = describe "Slotting" $ do
@@ -52,6 +52,10 @@ type EmulationProperty = PropertyM EmulationMode
 instance MonadSlots EmulationMode where
     getSystemStartTime = pure 0
     getCurrentTime = Timestamp <$> currentTime
+    getCurrentSlot =
+        f . getTimestamp <$> ((-) <$> getCurrentTime <*> getSystemStartTime)
+      where
+        f t = unflattenSlotId (fromIntegral $ t `div` slotDuration)
 
 waitForSlotScenario :: EpochIndex -> LocalSlotIndex -> EmulationProperty ()
 waitForSlotScenario epoch slot = do

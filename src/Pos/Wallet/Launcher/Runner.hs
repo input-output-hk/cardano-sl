@@ -8,8 +8,10 @@ module Pos.Wallet.Launcher.Runner
        , runWallet
        ) where
 
+import           Control.Concurrent.STM.TVar  (newTVarIO)
 import           Control.Monad.Trans.Resource (allocate, runResourceT)
-import           Control.TimeWarp.Timed       (fork, sleepForever)
+import           Control.TimeWarp.Timed       (currentTime, fork, runTimedIO,
+                                               sleepForever)
 import           Formatting                   (build, sformat, (%))
 import           System.Wlog                  (logInfo)
 import           Universum
@@ -22,7 +24,8 @@ import           Pos.Launcher                 (BaseParams (..), LoggingParams (.
                                                addDevListeners, runKDHT, runOurDialog,
                                                setupLoggers)
 
-import           Pos.Wallet.Context           (ctxFromParams, runContextHolder)
+import           Pos.Types                    (unflattenSlotId)
+import           Pos.Wallet.Context           (WalletContext (..), runContextHolder)
 import           Pos.Wallet.KeyStorage        (runKeyStorage)
 import           Pos.Wallet.Launcher.Param    (WalletParams (..))
 import           Pos.Wallet.State             (closeState, openMemState, openState,
@@ -75,12 +78,20 @@ runRawRealWallet
     -> [ListenerDHT SState WalletRealMode]
     -> WalletRealMode a
     -> IO a
-runRawRealWallet inst wp@WalletParams {..} listeners action = runResourceT $ do
+runRawRealWallet inst WalletParams {..} listeners action = runResourceT $ do
     setupLoggers lp
     db <- snd <$> allocate openDB closeDB
+    ntpData <- liftIO $ (runTimedIO $ currentTime) >>= newTVarIO . (0, )
+    lastSlot <- liftIO . newTVarIO $ unflattenSlotId 0
+    let walletContext
+          = WalletContext
+          { wcSystemStart = wpSystemStart
+          , wcNtpData = ntpData
+          , wcNtpLastSlot = lastSlot
+          }
     lift $
         runOurDialog newMutSocketState lpRunnerTag .
-        runContextHolder (ctxFromParams wp) .
+        runContextHolder walletContext .
         runWalletDB db .
         runKeyStorage wpKeyFilePath .
         runKDHT inst wpBaseParams listeners $

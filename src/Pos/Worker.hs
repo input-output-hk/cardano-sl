@@ -14,7 +14,7 @@ import           Universum
 import           Pos.Block.Worker       (blkWorkers)
 import           Pos.Communication      (SysStartResponse (..))
 import           Pos.Constants          (slotDuration, sysTimeBroadcastSlots)
-import           Pos.Context            (NodeContext (..), getNodeContext)
+import           Pos.Context            (NodeContext (..), getNodeContext, setNtpLastSlot)
 import           Pos.DHT.Model          (sendToNetwork)
 import           Pos.Lrc.Worker         (lrcOnNewSlotWorker)
 import           Pos.Security.Workers   (SecurityWorkersClass, securityWorkers)
@@ -23,6 +23,7 @@ import           Pos.Ssc.Class.Workers  (SscWorkersClass, sscWorkers)
 import           Pos.Types              (SlotId, flattenSlotId, slotIdF)
 import           Pos.Update             (usWorkers)
 import           Pos.Util               (waitRandomInterval)
+import           Pos.Worker.Ntp         (ntpWorker)
 import           Pos.Worker.Stats       (statsWorkers)
 import           Pos.WorkMode           (WorkMode)
 
@@ -39,6 +40,7 @@ runWorkers = mapM_ fork_ $ concat
     , blkWorkers
     , untag sscWorkers
     , untag securityWorkers
+    , [ntpWorker]
     , [lrcOnNewSlotWorker]
     , usWorkers
     ]
@@ -49,6 +51,7 @@ onNewSlotWorker = onNewSlotWithLogging True onNewSlotWorkerImpl
 onNewSlotWorkerImpl :: WorkMode ssc m => SlotId -> m ()
 onNewSlotWorkerImpl slotId = do
     logNotice $ sformat ("New slot has just started: "%slotIdF) slotId
+    setNtpLastSlot slotId
     when (flattenSlotId slotId <= sysTimeBroadcastSlots) $
       whenM (ncTimeLord <$> getNodeContext) $ fork_ $ do
         let send = ncSystemStart <$> getNodeContext

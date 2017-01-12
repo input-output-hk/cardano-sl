@@ -2,25 +2,30 @@
 
 module Pos.Wallet.Context.Context
        ( WalletContext (..)
-       , ctxFromParams
        , fromNodeCtx
        ) where
 
-import           Pos.Context               (NodeContext (..))
-import           Pos.Types                 (Timestamp)
+import qualified Control.Concurrent.STM    as STM
+import           Data.Time.Units           (Microsecond)
 
-import           Pos.Wallet.Launcher.Param (WalletParams (..))
+import           Pos.Context               (NodeContext (..))
+import           Pos.Types                 (Timestamp, SlotId)
 
 data WalletContext = WalletContext
     { wcSystemStart :: !Timestamp -- ^ Time when system started working
+
+    , wcNtpData     :: !(STM.TVar (Microsecond, Microsecond))
+    , wcNtpLastSlot :: !(STM.TVar SlotId)
     }
 
-ctxFromParams :: WalletParams -> WalletContext
-ctxFromParams WalletParams {..} = WalletContext
-    { wcSystemStart = wpSystemStart
-    }
+-- ctxFromParams :: WalletParams -> WalletContext
+-- ctxFromParams WalletParams {..} = WalletContext
+--     { wcSystemStart = wpSystemStart
+--     }
 
 fromNodeCtx :: NodeContext ssc -> WalletContext
 fromNodeCtx NodeContext {..} = WalletContext
     { wcSystemStart = ncSystemStart
+    , wcNtpData = ncNtpData
+    , wcNtpLastSlot = ncNtpLastSlot
     }

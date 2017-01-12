@@ -276,6 +276,7 @@ library
                         Pos.Types.Utxo.Class
                         Pos.Types.Utxo.Functions
                         Pos.Types.Utxo.Pure
+                        Pos.Worker.Ntp
 
                         -- Workers
                         Pos.Worker.Stats
@@ -391,6 +392,7 @@ library
                       , mono-traversable
                       , mtl
                       , neat-interpolation
+                      , node-sketch
                       , optparse-applicative
                       , optparse-simple
                       , parsec

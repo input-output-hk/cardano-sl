@@ -10,7 +10,7 @@ import           Control.Monad.Except         (ExceptT)
 import           Control.Monad.Trans.Resource (ResourceT)
 import           Universum
 
-import           Pos.Context.Context          (NodeContext)
+import           Pos.Context.Context          (NodeContext (..))
 import           Pos.DHT.Model                (DHTResponseT)
 import           Pos.DHT.Real                 (KademliaDHT)
 

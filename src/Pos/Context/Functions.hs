@@ -17,15 +17,24 @@ module Pos.Context.Functions
        , waitLrc
        , lrcActionOnEpoch
        , lrcActionOnEpochReason
+
+       -- * NTP
+       , setNtpLastSlot
+       , readNtpLastSlot
+       , readNtpMargin
+       , readNtpData
        ) where
 
 import           Control.Concurrent.MVar (putMVar)
+import qualified Control.Concurrent.STM  as STM
+import           Control.TimeWarp.Timed  (Microsecond)
 import           Universum
 
 import           Pos.Context.Class       (WithNodeContext (..))
 import           Pos.Context.Context     (NodeContext (..))
 import           Pos.Lrc.Error           (LrcError (..))
-import           Pos.Types               (EpochIndex, HeaderHash, SlotLeaders, Utxo)
+import           Pos.Types               (EpochIndex, HeaderHash, SlotId, SlotLeaders,
+                                          Utxo)
 import           Pos.Util                (maybeThrow, readTVarConditional)
 
 ----------------------------------------------------------------------------
@@ -88,3 +97,20 @@ lrcActionOnEpochReason
 lrcActionOnEpochReason epoch reason actionDependsOnLrc = do
     waitLrc epoch
     actionDependsOnLrc epoch >>= maybeThrow (LrcDataUnknown epoch reason)
+
+----------------------------------------------------------------------------
+-- NTP data
+----------------------------------------------------------------------------
+setNtpLastSlot :: (MonadIO m, WithNodeContext ssc m) => SlotId -> m ()
+setNtpLastSlot slotId = do
+    nc <- getNodeContext
+    atomically $ STM.modifyTVar (ncNtpLastSlot nc) (max slotId)
+
+readNtpLastSlot :: (MonadIO m, WithNodeContext ssc m) => m SlotId
+readNtpLastSlot = getNodeContext >>= atomically . STM.readTVar . ncNtpLastSlot
+
+readNtpMargin :: (MonadIO m, WithNodeContext ssc m) => m Microsecond
+readNtpMargin = getNodeContext >>= fmap fst . atomically . STM.readTVar . ncNtpData
+
+readNtpData :: (MonadIO m, WithNodeContext ssc m) => m (Microsecond, Microsecond)
+readNtpData = getNodeContext >>= atomically . STM.readTVar . ncNtpData

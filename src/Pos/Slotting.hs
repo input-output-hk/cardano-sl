@@ -1,26 +1,29 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Slotting functionality.
 
 module Pos.Slotting
        ( MonadSlots (..)
-       , getCurrentSlot
        , getCurrentSlotFlat
        , getSlotStart
+       , getCurrentSlotUsingNtp
+
        , onNewSlot
        , onNewSlotWithLogging
        ) where
 
 import           Control.Monad.Catch      (MonadCatch, catch)
 import           Control.Monad.Except     (ExceptT)
-import           Control.TimeWarp.Timed   (Microsecond, MonadTimed, for, fork_, wait)
+import           Control.Monad.Trans      (MonadTrans)
+import           Control.TimeWarp.Timed   (Microsecond, MonadTimed (..), for, fork_, wait)
 import           Formatting               (build, sformat, shown, (%))
 import           Serokell.Util.Exceptions ()
 import           System.Wlog              (WithLogger, logDebug, logError,
                                            modifyLoggerName)
 import           Universum
 
-import           Pos.Constants            (slotDuration)
+import           Pos.Constants            (ntpMaxError, ntpPollDelay, slotDuration)
 import           Pos.DHT.Model            (DHTResponseT)
 import           Pos.DHT.Real             (KademliaDHT)
 import           Pos.Types                (FlatSlotId, SlotId (..), Timestamp (..),
@@ -31,34 +34,22 @@ import           Pos.Types                (FlatSlotId, SlotId (..), Timestamp (.
 class Monad m => MonadSlots m where
     getSystemStartTime :: m Timestamp
     getCurrentTime :: m Timestamp
+    getCurrentSlot :: m SlotId
+
+    default getSystemStartTime :: (MonadTrans t, MonadSlots m', t m' ~ m) => m Timestamp
+    getSystemStartTime = lift getSystemStartTime
+
+    default getCurrentTime :: (MonadTrans t, MonadSlots m', t m' ~ m) => m Timestamp
+    getCurrentTime = lift getCurrentTime
+
+    default getCurrentSlot :: (MonadTrans t, MonadSlots m', t m' ~ m) => m SlotId
+    getCurrentSlot = lift getCurrentSlot
 
 instance MonadSlots m => MonadSlots (ReaderT s m) where
-    getSystemStartTime = lift getSystemStartTime
-    getCurrentTime = lift getCurrentTime
-
 instance MonadSlots m => MonadSlots (ExceptT s m) where
-    getSystemStartTime = lift getSystemStartTime
-    getCurrentTime = lift getCurrentTime
-
 instance MonadSlots m => MonadSlots (StateT s m) where
-    getSystemStartTime = lift getSystemStartTime
-    getCurrentTime = lift getCurrentTime
-
 instance MonadSlots m => MonadSlots (DHTResponseT s m) where
-    getSystemStartTime = lift getSystemStartTime
-    getCurrentTime = lift getCurrentTime
-
 instance MonadSlots m => MonadSlots (KademliaDHT m) where
-    getSystemStartTime = lift getSystemStartTime
-    getCurrentTime = lift getCurrentTime
-
--- | Get id of current slot based on MonadSlots.
-getCurrentSlot :: MonadSlots m => m SlotId
-getCurrentSlot =
-    f . getTimestamp <$> ((-) <$> getCurrentTime <*> getSystemStartTime)
-  where
-    f :: Microsecond -> SlotId
-    f t = unflattenSlotId (fromIntegral $ t `div` slotDuration)
 
 -- | Get flat id of current slot based on MonadSlots.
 getCurrentSlotFlat :: MonadSlots m => m FlatSlotId
@@ -68,6 +59,23 @@ getCurrentSlotFlat = flattenSlotId <$> getCurrentSlot
 getSlotStart :: MonadSlots m => SlotId -> m Timestamp
 getSlotStart (flattenSlotId -> slotId) =
     (Timestamp (fromIntegral slotId * slotDuration) +) <$> getSystemStartTime
+
+getCurrentSlotUsingNtp :: (MonadSlots m, MonadTimed m)
+                       => SlotId -> (Microsecond, Microsecond) -> m SlotId
+getCurrentSlotUsingNtp lastSlot (margin, measTime) = do
+    t <- (+ margin) <$> currentTime
+    canTrust <- canWeTrustLocalTime t
+    if canTrust then
+        max lastSlot . f  <$>
+            ((t -) . getTimestamp <$> getSystemStartTime)
+    else pure lastSlot
+  where
+    f :: Microsecond -> SlotId
+    f t = unflattenSlotId (fromIntegral $ t `div` slotDuration)
+    -- We can trust getCurrentTime if it isn't bigger than:
+    -- time for which we got margin (in last time) + NTP delay (+ some eps, for safety)
+    canWeTrustLocalTime t =
+        pure $ t <= measTime + ntpPollDelay + ntpMaxError
 
 -- | Run given action as soon as new slot starts, passing SlotId to
 -- it.  This function uses MonadTimed and assumes consistency between

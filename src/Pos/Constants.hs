@@ -44,12 +44,18 @@ module Pos.Constants
        , curSoftwareVersion
        , appSystemTag
        , updateServers
+
+       -- * NTP
+       , ntpMaxError
+       , ntpResponseTimeout
+       , ntpPollDelay
+
        , updateProposalThreshold
        , updateVoteThreshold
        , updateImplicitApproval
        ) where
 
-import           Control.TimeWarp.Timed     (Microsecond, sec)
+import           Control.TimeWarp.Timed     (Microsecond, mcs, sec)
 import           Data.String                (String)
 import           Language.Haskell.TH.Syntax (lift, runIO)
 import           System.Environment         (lookupEnv)
@@ -241,6 +247,21 @@ curSoftwareVersion = SoftwareVersion cardanoSlAppName 0
 -- | Update servers
 updateServers :: [String]
 updateServers = ccUpdateServers compileConfig
+
+----------------------------------------------------------------------------
+-- NTP
+----------------------------------------------------------------------------
+-- | Inaccuracy in call threadDelay (actually it is error much less than 1 sec)
+ntpMaxError :: Microsecond
+ntpMaxError = 1000000 -- 1 sec
+
+-- | How often request to NTP server and response collection
+ntpResponseTimeout :: Microsecond
+ntpResponseTimeout = mcs . ccNtpResponseTimeout $ compileConfig
+
+-- | How often send request to NTP server
+ntpPollDelay :: Microsecond
+ntpPollDelay = mcs . ccNtpPollDelay $ compileConfig
 
 -- | Portion of total stake such that block containing
 -- UpdateProposal must contain positive votes for this proposal

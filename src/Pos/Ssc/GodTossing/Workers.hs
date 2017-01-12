@@ -19,8 +19,10 @@ import           Data.List.NonEmpty               (NonEmpty)
 import qualified Data.List.NonEmpty               as NE
 import           Data.Tagged                      (Tagged (..))
 import           Data.Time.Units                  (convertUnit)
-import           Formatting                       (build, ords, sformat, shown, (%))
+import           Formatting                       (bprint, build, ords, sformat, shown,
+                                                   (%))
 import           Serokell.Util.Exceptions         ()
+import           Serokell.Util.Text               (listJson)
 import           System.Wlog                      (logDebug, logError, logWarning)
 import           Universum
 
@@ -33,7 +35,7 @@ import           Pos.Context                      (getNodeContext, lrcActionOnEp
                                                    ncPublicKey, ncSecretKey, ncSscContext)
 import           Pos.Crypto                       (SecretKey, VssKeyPair, VssPublicKey,
                                                    randomNumber, runSecureRandom,
-                                                   toPublic)
+                                                   shortHashF, toPublic)
 import           Pos.Crypto.SecretSharing         (toVssPublicKey)
 import           Pos.Crypto.Signing               (PublicKey)
 import           Pos.DB.GState                    (getTip)
@@ -65,7 +67,7 @@ import           Pos.Types                        (EpochIndex, LocalSlotIndex,
                                                    SlotId (..), StakeholderId,
                                                    StakeholderId, Timestamp (..),
                                                    addressHash)
-import           Pos.Util                         (AsBinary, asBinary)
+import           Pos.Util                         (AsBinary, asBinary, inAssertMode)
 import           Pos.Util.Relay                   (DataMsg (..), InvMsg (..))
 import           Pos.WorkMode                     (WorkMode)
 
@@ -281,7 +283,16 @@ generateAndSetNewSecret sk SlotId {..} = do
     richmen <-
         lrcActionOnEpochReason siEpoch "couldn't get SSC richmen" getRichmenSsc
     certs <- getGlobalCerts siEpoch
-    let participants = NE.nonEmpty . map vcVssKey . toList $ computeParticipants richmen certs
+    inAssertMode $ do
+        let participantIds =
+                map (addressHash . vcSigningKey) $
+                computeParticipants richmen certs
+        logDebug $
+            sformat ("generating secret for: " %listJson) $
+            map (bprint shortHashF) participantIds
+    let participants =
+            NE.nonEmpty . map vcVssKey . toList $
+            computeParticipants richmen certs
     maybe (Nothing <$ warnNoPs) generateAndSetNewSecretDo participants
   where
     warnNoPs =

@@ -10,35 +10,38 @@ module Pos.Context.Holder
        , runContextHolder
        ) where
 
-import           Control.Concurrent.MVar     (withMVar)
-import           Control.Lens                (iso)
-import           Control.Monad.Base          (MonadBase (..))
-import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow, catchAll)
-import           Control.Monad.Morph         (hoist)
-import           Control.Monad.Reader        (ReaderT (ReaderT), ask)
-import           Control.Monad.Trans.Class   (MonadTrans)
-import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
-                                              MonadTransControl (..), StM,
-                                              defaultLiftBaseWith, defaultLiftWith,
-                                              defaultRestoreM, defaultRestoreT)
-import           Control.TimeWarp.Rpc        (MonadDialog, MonadResponse (..),
-                                              MonadTransfer (..))
-import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
+import           Control.Concurrent.MVar      (withMVar)
+import           Control.Lens                 (iso)
+import           Control.Monad.Base           (MonadBase (..))
+import           Control.Monad.Catch          (MonadCatch, MonadMask, MonadThrow,
+                                               catchAll)
+import           Control.Monad.Morph          (hoist)
+import           Control.Monad.Reader         (ReaderT (ReaderT), ask)
+import           Control.Monad.Trans.Class    (MonadTrans)
+import           Control.Monad.Trans.Control  (ComposeSt, MonadBaseControl (..),
+                                               MonadTransControl (..), StM,
+                                               defaultLiftBaseWith, defaultLiftWith,
+                                               defaultRestoreM, defaultRestoreT)
+import           Control.Monad.Trans.Resource (MonadResource)
+import           Control.TimeWarp.Rpc         (MonadDialog, MonadResponse (..),
+                                               MonadTransfer (..))
+import           Control.TimeWarp.Timed       (MonadTimed (..), ThreadId)
 
-import           Formatting                  (sformat, shown, (%))
-import           Serokell.Util.Lens          (WrappedM (..))
-import           System.Wlog                 (CanLog, HasLoggerName, WithLogger,
-                                              logWarning)
+import           Formatting                   (sformat, shown, (%))
+import           Serokell.Util.Lens           (WrappedM (..))
+import           System.Wlog                  (CanLog, HasLoggerName, WithLogger,
+                                               logWarning)
 import           Universum
 
-import           Pos.Context.Class           (WithNodeContext (..), readNtpData,
-                                              readNtpLastSlot, readNtpMargin)
-import           Pos.Context.Context         (NodeContext (..))
-import           Pos.DB                      (MonadDB)
-import           Pos.Slotting                (MonadSlots (..), getCurrentSlotUsingNtp)
-import           Pos.Txp.Class               (MonadTxpLD)
-import           Pos.Types                   (Timestamp (..))
-import           Pos.Util.JsonLog            (MonadJL (..), appendJL)
+import           Pos.Context.Class            (WithNodeContext (..))
+import           Pos.Context.Context          (NodeContext (..))
+import           Pos.Context.Functions        (readNtpData, readNtpLastSlot,
+                                               readNtpMargin)
+import           Pos.DB.Class                 (MonadDB)
+import           Pos.Slotting                 (MonadSlots (..), getCurrentSlotUsingNtp)
+import           Pos.Txp.Class                (MonadTxpLD)
+import           Pos.Types                    (Timestamp (..))
+import           Pos.Util.JsonLog             (MonadJL (..), appendJL)
 
 -- | Wrapper for monadic action which brings 'NodeContext'.
 newtype ContextHolder ssc m a = ContextHolder
@@ -58,6 +61,8 @@ instance Monad m => WrappedM (ContextHolder ssc m) where
 
 instance MonadBase IO m => MonadBase IO (ContextHolder ssc m) where
     liftBase = lift . liftBase
+
+deriving instance (MonadResource m) => MonadResource (ContextHolder ssc m)
 
 instance MonadTransControl (ContextHolder ssc) where
     type StT (ContextHolder ssc) a = StT (ReaderT (NodeContext ssc)) a

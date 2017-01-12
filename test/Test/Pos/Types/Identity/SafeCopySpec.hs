@@ -26,7 +26,4 @@ spec = describe "Types" $ do
         safeCopyTest @T.Tx
         safeCopyTest @T.SharedSeed
         safeCopyTest @T.ChainDifficulty
-        safeCopyTest @T.UpdateProposal
-        safeCopyTest @T.UpdateVote
-        safeCopyTest @T.UpdateData
-        safeCopyTest @T.SystemTag
+

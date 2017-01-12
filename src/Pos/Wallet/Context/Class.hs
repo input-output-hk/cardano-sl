@@ -23,6 +23,7 @@ import           Pos.DHT.Real               (KademliaDHT)
 import           Pos.Ssc.Extra              (SscHolder (..))
 import qualified Pos.Txp.Holder             as Modern
 import           Pos.Types                  (SlotId)
+import           Pos.Update                 (USHolder (..))
 
 import           Pos.Wallet.Context.Context (WalletContext (..), fromNodeCtx)
 
@@ -43,6 +44,7 @@ instance Monad m => WithWalletContext (PC.ContextHolder ssc m) where
 deriving instance (Monad m, WithWalletContext m) => WithWalletContext (Modern.TxpLDHolder ssc m)
 deriving instance (Monad m, WithWalletContext m) => WithWalletContext (SscHolder ssc m)
 deriving instance (Monad m, WithWalletContext m) => WithWalletContext (DelegationT m)
+deriving instance (Monad m, WithWalletContext m) => WithWalletContext (USHolder m)
 
 readNtpLastSlot :: (MonadIO m, WithWalletContext m) => m SlotId
 readNtpLastSlot = getWalletContext >>= atomically . STM.readTVar . wcNtpLastSlot

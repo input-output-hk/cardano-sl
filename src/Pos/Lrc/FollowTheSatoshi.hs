@@ -3,7 +3,7 @@
 
 -- | Everything related to /follow-the-satoshi/ procedure.
 
-module Pos.FollowTheSatoshi
+module Pos.Lrc.FollowTheSatoshi
        ( followTheSatoshi
        , followTheSatoshiM
        ) where
@@ -16,12 +16,12 @@ import           Pos.Crypto         (deterministic, randomNumber)
 import           Pos.Types.Coin     (coinToInteger, sumCoins, unsafeAddCoin)
 import           Pos.Types.Types    (Coin, SharedSeed (..), StakeholderId, TxOutAux, Utxo,
                                      mkCoin, txOutStake)
-import           Pos.Util.Iterator  (ListHolder, MonadIterator (..), runListHolder)
+import           Pos.Util.Iterator  (MonadIterator (..), runListHolder)
 
 -- | A version of 'followTheSatoshi' that uses an iterator over 'TxOut's
 -- instead of 'Utxo'.
 followTheSatoshiM
-    :: forall m. MonadIterator m TxOutAux
+    :: forall m . MonadIterator m TxOutAux
     => SharedSeed -> Coin -> m (NonEmpty StakeholderId)
 followTheSatoshiM _ totalCoins
     | totalCoins == mkCoin 0 = panic "followTheSatoshiM: nobody has any stake"
@@ -57,10 +57,8 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
         findLeaders cs sm stake
     -- We check whether `c` is covered by current item in the buffer
     findLeaders (c:cs) sm buf@((adr, val):bufRest)
-        | sm' >= fst c =
-            ((adr, snd c):) <$> findLeaders cs sm buf
-        | otherwise =
-            findLeaders (c:cs) sm' bufRest
+        | sm' >= fst c = ((adr, snd c):) <$> findLeaders cs sm buf
+        | otherwise = findLeaders (c:cs) sm' bufRest
       where
         sm' = unsafeAddCoin sm val
 
@@ -90,7 +88,7 @@ followTheSatoshi seed utxo
           panic "followTheSatoshi: totalCoins exceeds Word64"
     | otherwise =
           runListHolder
-              (followTheSatoshiM @(ListHolder TxOutAux) seed
+              (followTheSatoshiM seed
                    (mkCoin (fromInteger totalCoins)))
               outputs
   where

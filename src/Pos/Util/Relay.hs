@@ -184,15 +184,17 @@ handleDataL DataMsg {..} =
             ("Ignoring data "%build%" for address "%build)
             dmContents dmKey
   where
-    handleDataLDo =
-        ifM (ncPropagation <$> getNodeContext)
-            propagate $
+    handleDataLDo = do
+        shouldPropagate <- ncPropagation <$> getNodeContext
+        if shouldPropagate then do
             logInfo $ sformat
-                ("Adopted data "%build%" for address "%build%", no propagation")
+                ("Adopted data "%build%" "%
+                 "for address "%build%", propagating...")
                 dmContents dmKey
-    propagate = do
-        logInfo $ sformat
-            ("Adopted data "%build%" for address "%build%", propagating...")
-            dmContents dmKey
-        tag <- contentsToTag dmContents
-        sendToNeighborsSafe $ InvMsg tag (dmKey :| [])
+            tag <- contentsToTag dmContents
+            sendToNeighborsSafe $ InvMsg tag (dmKey :| [])
+        else do
+            logInfo $ sformat
+                ("Adopted data "%build%" for "%
+                 "address "%build%", no propagation")
+                dmContents dmKey

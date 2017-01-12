@@ -21,11 +21,16 @@ import           Pos.Ssc.GodTossing.Types.Types   (GtPayload (..), GtProof (..))
 ----------------------------------------------------------------------------
 
 instance Bi Commitment where
-    put Commitment{..} = do
+    put Commitment {..} = do
+        put commShares
         put commExtra
         put commProof
-        put commShares
-    get = liftM3 Commitment get get get
+    get = do
+        commShares <- get
+        when (null commShares) $ fail "get@Commitment: no shares"
+        commExtra <- get
+        commProof <- get
+        return Commitment {..}
 
 instance Bi VssCertificate where
     put VssCertificate{..} = do
@@ -103,5 +108,5 @@ instance Bi GtMsgContents where
 -- SecretStorage Type
 ----------------------------------------------------------------------------
 instance Bi GtSecretStorage where
-    put (GtSecretStorage s last) = put s >> put last
+    put (GtSecretStorage s stip) = put s >> put stip
     get = GtSecretStorage <$> get <*> get

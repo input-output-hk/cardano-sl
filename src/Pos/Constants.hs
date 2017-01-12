@@ -32,6 +32,7 @@ module Pos.Constants
        , vssMaxTTL
        , protocolMagic
        , enchancedMessageBroadcast
+       , delegationThreshold
 
          -- * Malicious activity detection constants
        , mdNoBlocksSlotThreshold
@@ -47,6 +48,10 @@ module Pos.Constants
        , ntpMaxError
        , ntpResponseTimeout
        , ntpPollDelay
+
+       , updateProposalThreshold
+       , updateVoteThreshold
+       , updateImplicitApproval
        ) where
 
 import           Control.TimeWarp.Timed     (Microsecond, mcs, sec)
@@ -60,9 +65,10 @@ import           Pos.CLI                    (dhtNodeParser)
 import           Pos.CompileConfig          (CompileConfig (..), compileConfig)
 import           Pos.DHT.Model.Types        (DHTNode)
 import           Pos.Types.Timestamp        (Timestamp)
-import           Pos.Types.Update           (SystemTag, mkSystemTag)
+import           Pos.Types.Types            (CoinPortion, unsafeCoinPortion)
 import           Pos.Types.Version          (ApplicationName, ProtocolVersion (..),
                                              SoftwareVersion (..), mkApplicationName)
+import           Pos.Update.Types           (SystemTag, mkSystemTag)
 import           Pos.Util                   ()
 
 ----------------------------------------------------------------------------
@@ -184,6 +190,10 @@ protocolMagic = fromIntegral . ccProtocolMagic $ compileConfig
 enchancedMessageBroadcast :: Integral a => a
 enchancedMessageBroadcast = fromIntegral $ ccEnchancedMessageBroadcast compileConfig
 
+-- | Portion of total stake necessary to vote for or against update.
+delegationThreshold :: CoinPortion
+delegationThreshold = unsafeCoinPortion $ ccDelegationThreshold compileConfig
+
 ----------------------------------------------------------------------------
 -- Malicious activity
 ----------------------------------------------------------------------------
@@ -227,7 +237,7 @@ curProtocolVersion = ProtocolVersion 0 0 0
 
 -- | Version of application (code running)
 curSoftwareVersion :: SoftwareVersion
-curSoftwareVersion = SoftwareVersion cardanoSlAppName 1 0
+curSoftwareVersion = SoftwareVersion cardanoSlAppName 0
 
 -- | Update servers
 updateServers :: [String]
@@ -247,3 +257,36 @@ ntpResponseTimeout = mcs . ccNtpResponseTimeout $ compileConfig
 -- | How often send request to NTP server
 ntpPollDelay :: Microsecond
 ntpPollDelay = mcs . ccNtpPollDelay $ compileConfig
+
+-- | Portion of total stake such that block containing
+-- UpdateProposal must contain positive votes for this proposal
+-- from stakeholders owning at least this amount of stake.
+updateProposalThreshold :: CoinPortion
+updateProposalThreshold = unsafeCoinPortion $ ccUpdateProposalThreshold compileConfig
+
+-- GHC stage restriction
+-- staticAssert
+--     (getCoinPortion updateProposalThreshold >= 0)
+--     "updateProposalThreshold is negative"
+
+-- staticAssert
+--     (getCoinPortion updateProposalThreshold <= 1)
+--     "updateProposalThreshold is more than 1"
+
+-- | Portion of total stake necessary to vote for or against update.
+updateVoteThreshold :: CoinPortion
+updateVoteThreshold = unsafeCoinPortion $ ccUpdateVoteThreshold compileConfig
+
+-- GHC stage restriction
+-- staticAssert
+--     (getCoinPortion updateVoteThreshold >= 0)
+--     "updateVoteThreshold is negative"
+
+-- staticAssert
+--     (getCoinPortion updateVoteThreshold <= 1)
+--     "updateVoteThreshold is more than 1"
+
+-- | Number of slots after which update is implicitly approved
+-- unless it has more negative votes than positive.
+updateImplicitApproval :: Integral i => i
+updateImplicitApproval = fromIntegral $ ccUpdateImplicitApproval compileConfig

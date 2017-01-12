@@ -28,14 +28,15 @@ module Pos.Ssc.GodTossing.Functions
        , checkShare
        , checkShares
        , checkOpeningMatchesCommitment
+       , checkCommShares
        -- * GtPayload
        , verifyGtPayload
 
-       -- * Modern
-       , getThreshold
+       -- * VSS
+       , vssThreshold
        ) where
 
-import           Control.Lens                   ((^.))
+import           Control.Lens                   (at, (^.), _2)
 import           Data.Containers                (ContainerKey, SetContainer (notMember))
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.HashSet                   as HS (fromList, size)
@@ -60,13 +61,15 @@ import           Pos.Ssc.GodTossing.Types.Base  (Commitment (..), CommitmentsMap
                                                  InnerSharesMap, Opening (..),
                                                  SignedCommitment, VssCertificate (..),
                                                  VssCertificatesMap)
-import           Pos.Ssc.GodTossing.Types.Types (GtGlobalState (..), GtPayload (..))
+import           Pos.Ssc.GodTossing.Types.Types (GtGlobalState (..), GtPayload (..),
+                                                 gsCommitments)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types.Address              (addressHash)
 import           Pos.Types.Types                (EpochIndex (..), LocalSlotIndex,
                                                  MainBlockHeader, SharedSeed (..),
                                                  SlotId (..), StakeholderId, headerSlot)
-import           Pos.Util                       (AsBinary, asBinary, fromBinaryM)
+import           Pos.Util                       (AsBinary, asBinary, fromBinaryM, getKeys)
+
 ----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
@@ -78,9 +81,11 @@ secretToSharedSeed = SharedSeed . getDhSecret . secretToDhSecret
 genCommitmentAndOpening
     :: (MonadFail m, MonadIO m)
     => Threshold -> NonEmpty (AsBinary VssPublicKey) -> m (Commitment, Opening)
-genCommitmentAndOpening n pks = do
-    pks' <- traverse fromBinaryM pks
-    liftIO . runSecureRandom . fmap convertRes . genSharedSecret n $ pks'
+genCommitmentAndOpening n pks
+    | n <= 0 = fail "genCommitmentAndOpening: threshold must be positive"
+    | otherwise = do
+        pks' <- traverse fromBinaryM pks
+        liftIO . runSecureRandom . fmap convertRes . genSharedSecret n $ pks'
   where
     convertRes (extra, secret, proof, shares) =
         ( Commitment
@@ -120,8 +125,14 @@ isSharesId = isSharesIdx . siSlot
 inLastKSlotsId :: SlotId -> Bool
 inLastKSlotsId SlotId{..} = siSlot >= 5 * k
 
-hasCommitment :: StakeholderId -> GtGlobalState -> Bool
-hasCommitment addr = HM.member addr . _gsCommitments
+-- Not the best solution :(
+hasCommitment
+    :: Bi Commitment
+    => EpochIndex -> StakeholderId -> GtGlobalState -> Bool
+hasCommitment epoch id gs =
+    case gs ^. gsCommitments . at id of
+        Nothing              -> False
+        Just (pk, comm, sig) -> checkSig pk (epoch, comm) sig
 
 hasOpening :: StakeholderId -> GtGlobalState -> Bool
 hasOpening addr = HM.member addr . _gsOpenings
@@ -361,11 +372,15 @@ verifyGtPayload header payload =
         [ (inRange (0, 6 * k - 1) (siSlot slotId),
             "slot id is outside of [0, 6k)")]
 
+checkCommShares :: [AsBinary VssPublicKey] -> SignedCommitment -> Bool
+checkCommShares vssPublicKeys c =
+    HS.fromList vssPublicKeys == (getKeys . commShares $ c ^. _2)
+
 ----------------------------------------------------------------------------
 -- Modern
 ----------------------------------------------------------------------------
 
 -- | Figure out the threshold (i.e. how many secret shares would be required
 -- to recover each node's secret) using number of participants.
-getThreshold :: Integral a => a -> Threshold
-getThreshold len = fromIntegral $ len `div` 2 + len `mod` 2
+vssThreshold :: Integral a => a -> Threshold
+vssThreshold len = fromIntegral $ len `div` 2 + len `mod` 2

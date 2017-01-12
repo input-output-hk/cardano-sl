@@ -20,14 +20,14 @@ import           Universum                     hiding (head)
 
 import           Pos.Constants                 (k, slotDuration)
 import           Pos.Crypto                    (SecretKey, hash, toPublic, unsafeHash)
-import           Pos.DB                        (getTxOut)
+import           Pos.DB.GState                 (getTxOut)
 import           Pos.Genesis                   (genesisAddresses, genesisPublicKeys,
                                                 genesisSecretKeys)
 import           Pos.Script                    (Script)
 import           Pos.Script.Examples           (multisigValidator)
-import           Pos.Types                     (Tx (..), TxAux, TxId, TxIn (..),
-                                                TxOut (..), makePubKeyAddress,
-                                                makeScriptAddress, mkCoin)
+import           Pos.Types                     (Tx (..), TxAux, TxId, TxOut (..),
+                                                makePubKeyAddress, makeScriptAddress,
+                                                mkCoin)
 import           Pos.Wallet                    (makeMOfNTx, makePubKeyTx)
 import           Pos.WorkMode                  (WorkMode)
 
@@ -59,7 +59,7 @@ initTransaction :: GenOptions -> Int -> TxAux
 initTransaction GenOptions {..} i =
     let maxTps = goInitTps + goTpsIncreaseStep * fromIntegral goRoundNumber
         n' = tpsTxBound (maxTps / fromIntegral (length goGenesisIdxs)) goPropThreshold
-        n = min n' goInitBalance
+        outputsNum = min n' goInitBalance
         inAddr = genesisAddresses !! i
         sk = genesisSecretKeys !! i
         input = (unsafeHash inAddr, 0)
@@ -68,7 +68,7 @@ initTransaction GenOptions {..} i =
             Just (m, n) -> let pks = take n genesisPublicKeys
                                val = multisigValidator m pks
                            in makeScriptAddress val
-        outputs = replicate n (TxOut outAddr (mkCoin 1), [])
+        outputs = replicate outputsNum (TxOut outAddr (mkCoin 1), [])
     in makePubKeyTx sk [input] outputs
 
 selectSks :: Int -> Int -> [SecretKey] -> [Maybe SecretKey]

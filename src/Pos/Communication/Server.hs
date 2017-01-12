@@ -26,13 +26,17 @@ import           Pos.Communication.Types           (MutSocketState)
 import           Pos.Communication.Util            (modifyListenerLogger)
 import           Pos.Delegation.Listeners          (delegationListeners)
 import           Pos.DHT.Model                     (ListenerDHT, MonadDHTDialog)
-import           Pos.Ssc.Class.Listeners           (SscListenersClass, sscListeners)
+import           Pos.Ssc.Class.Listeners           (SscListenersClass (..))
+import           Pos.Ssc.Class.Workers             (SscWorkersClass (..))
 import           Pos.Txp.Listeners                 (txListeners)
 import           Pos.WorkMode                      (WorkMode)
 
 -- | All listeners running on one node.
 allListeners
-    :: (SscListenersClass ssc, MonadDHTDialog (MutSocketState ssc) m, WorkMode ssc m)
+    :: (SscListenersClass ssc
+       ,SscWorkersClass ssc
+       ,MonadDHTDialog (MutSocketState ssc) m
+       ,WorkMode ssc m)
     => [ListenerDHT (MutSocketState ssc) m]
 allListeners =
     map (modifyListenerLogger serverLoggerName) $

@@ -23,14 +23,15 @@ import           Serokell.Util.Lens           (WrappedM (..))
 import           System.Wlog                  (CanLog, HasLoggerName)
 import           Universum
 
+import           Pos.Context.Class            (WithNodeContext)
 import           Pos.DB.Class                 (MonadDB (..))
 import           Pos.DB.Types                 (DB (..), NodeDBs (..))
 
 newtype DBHolder ssc m a = DBHolder
     { getDBHolder :: ReaderT (NodeDBs ssc) m a
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed,
-                MonadThrow, MonadCatch, MonadMask, MonadIO, MonadFail,
-                HasLoggerName, CanLog, MonadDialog s p)
+                WithNodeContext kek, MonadThrow, MonadCatch, MonadMask,
+                MonadIO, MonadFail, HasLoggerName, CanLog, MonadDialog s p)
 
 instance Monad m => WrappedM (DBHolder ssc m) where
     type UnwrappedM (DBHolder ssc m) = ReaderT (NodeDBs ssc) m

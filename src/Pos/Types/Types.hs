@@ -61,17 +61,18 @@ module Pos.Types.Types
        , formatUtxo
        , utxoF
 
-       , Undo
+       , TxUndo
+       , Undo (..)
        , Blund
 
        , SharedSeed (..)
        , SlotLeaders
-       , Richmen
 
        , ProxySigEpoch
        , ProxySKEpoch
        , ProxySigSimple
        , ProxySKSimple
+       , ProxySKEither
 
        , Blockchain (..)
        , BodyProof (..)
@@ -140,13 +141,17 @@ module Pos.Types.Types
        , mcdLeaderKey
        , mcdDifficulty
        , mcdSignature
+       , mehProtocolVersion
+       , mehSoftwareVersion
+       , mehAttributes
+       , mebAttributes
+       , mebUpdate
+       , mebUpdateVotes
        ) where
 
 import           Control.Exception      (assert)
 import           Control.Lens           (Getter, Lens', choosing, makeLenses,
                                          makeLensesFor, to, view, (^.), _1)
-import qualified Data.ByteString        as BS (pack, zipWith)
-import qualified Data.ByteString.Char8  as BSC (pack)
 import           Data.Data              (Data)
 import           Data.DeriveTH          (derive, makeNFData)
 import           Data.Hashable          (Hashable)
@@ -155,7 +160,6 @@ import           Data.List.NonEmpty     (NonEmpty)
 import qualified Data.Map               as M (toList)
 import           Data.SafeCopy          (SafeCopy (..), base, contain,
                                          deriveSafeCopySimple, safeGet, safePut)
-import qualified Data.Semigroup         (Semigroup (..))
 import qualified Data.Serialize         as Cereal (getWord8, putWord8)
 import           Data.Tagged            (untag)
 import           Data.Text.Buildable    (Buildable)
@@ -173,7 +177,6 @@ import           Universum
 import           Pos.Binary.Address     ()
 import           Pos.Binary.Class       (Bi)
 import           Pos.Binary.Script      ()
-import           Pos.Constants          (sharedSeedLength)
 import           Pos.Crypto             (Hash, ProxySecretKey, ProxySignature, PublicKey,
                                          Signature, hash, hashHexF, shortHashF)
 import           Pos.Data.Attributes    (Attributes)
@@ -184,8 +187,8 @@ import           Pos.Types.Address      (Address (..), StakeholderId, addressF,
                                          checkPubKeyAddress, checkScriptAddress,
                                          decodeTextAddress, makePubKeyAddress,
                                          makeScriptAddress)
-import           Pos.Types.Update       (UpdateProposal, UpdateVote)
 import           Pos.Types.Version      (ProtocolVersion, SoftwareVersion)
+import           Pos.Update.Types.Types (UpdateProposal, UpdateVote)
 import           Pos.Util               (Color (Magenta), colorize)
 
 ----------------------------------------------------------------------------
@@ -369,6 +372,11 @@ instance Buildable TxOut where
 
 type TxOutAux = (TxOut, [(StakeholderId, Coin)])
 
+instance Buildable TxOutAux where
+    build (out, distr) =
+        bprint ("{txout = "%build%", distr = "%listJson%"}")
+               out (map pairBuilder distr)
+
 -- | Use this function if you need to know how a 'TxOut' distributes stake
 -- (e.g. for the purpose of running follow-the-satoshi).
 txOutStake :: TxOutAux -> [(StakeholderId, Coin)]
@@ -435,11 +443,24 @@ utxoF = later formatUtxo
 -- UNDO
 ----------------------------------------------------------------------------
 
+-- | Particular undo needed for transactions
+type TxUndo = [[TxOutAux]]
+
 -- | Structure for undo block during rollback
-type Undo = [[TxOutAux]]
+data Undo = Undo
+    { undoTx  :: [[TxOutAux]]
+    , undoPsk :: [ProxySKSimple] -- ^ PSKs we've overwritten/deleted
+    }
 
 -- | Block and its Undo.
 type Blund ssc = (Block ssc, Undo)
+
+instance Buildable Undo where
+    build Undo{..} =
+        bprint ("Undo:\n"%
+                "  undoTx: "%listJson%"\n"%
+                "  undoPsk: "%listJson)
+               (map (bprint listJson) undoTx) undoPsk
 
 ----------------------------------------------------------------------------
 -- SSC. It means shared seed computation, btw
@@ -455,20 +476,8 @@ newtype SharedSeed = SharedSeed
 instance Buildable SharedSeed where
     build = B16.formatBase16 . getSharedSeed
 
-instance Semigroup SharedSeed where
-    (<>) (SharedSeed a) (SharedSeed b) =
-        SharedSeed $ BS.pack (BS.zipWith xor a b) -- fast due to rewrite rules
-
-instance Monoid SharedSeed where
-    mempty = SharedSeed $ BSC.pack $ replicate sharedSeedLength '\NUL'
-    mappend = (Data.Semigroup.<>)
-    mconcat = foldl' mappend mempty
-
 -- | 'NonEmpty' list of slot leaders.
 type SlotLeaders = NonEmpty StakeholderId
-
--- | Addresses which have enough stake for participation in SSC.
-type Richmen = NonEmpty StakeholderId
 
 ----------------------------------------------------------------------------
 -- Proxy signatures and delegation
@@ -486,6 +495,9 @@ type ProxySigSimple a = ProxySignature () a
 
 -- | Correspondent SK for no-ttl proxy signature scheme.
 type ProxySKSimple = ProxySecretKey ()
+
+-- | Some proxy secret key.
+type ProxySKEither = Either ProxySKEpoch ProxySKSimple
 
 ----------------------------------------------------------------------------
 -- GenericBlock
@@ -583,12 +595,14 @@ type MainToSign ssc = (HeaderHash ssc, BodyProof (MainBlockchain ssc), SlotId, C
 -- inside the constrained interval).
 data BlockSignature ssc
     = BlockSignature (Signature (MainToSign ssc))
-    | BlockPSignature (ProxySigEpoch (MainToSign ssc))
+    | BlockPSignatureEpoch (ProxySigEpoch (MainToSign ssc))
+    | BlockPSignatureSimple (ProxySigSimple (MainToSign ssc))
     deriving (Show, Eq)
 
 instance Buildable (BlockSignature ssc) where
-    build (BlockSignature s)  = bprint ("BlockSignature: "%build) s
-    build (BlockPSignature s) = bprint ("BlockPSignature: "%build) s
+    build (BlockSignature s)        = bprint ("BlockSignature: "%build) s
+    build (BlockPSignatureEpoch s)  = bprint ("BlockPSignatureEpoch: "%build) s
+    build (BlockPSignatureSimple s) = bprint ("BlockPSignatureSimple: "%build) s
 
 -- | Represents main block body attributes: map from 1-byte integer to
 -- arbitrary-type value. To be used for extending block with new
@@ -640,6 +654,7 @@ instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
         , mpRoot          :: !(MerkleRoot Tx)
         , mpWitnessesHash :: !(Hash [TxWitness])
         , mpMpcProof      :: !(SscProof ssc)
+        , mpProxySKsProof :: !(Hash [ProxySKSimple])
         } deriving (Generic)
     data ConsensusData (MainBlockchain ssc) = MainConsensusData
         { -- | Id of the slot for which this block was generated.
@@ -695,6 +710,7 @@ instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
         , mpRoot = mtRoot _mbTxs
         , mpWitnessesHash = hash _mbWitnesses
         , mpMpcProof = untag @ssc mkSscProof _mbMpc
+        , mpProxySKsProof = hash _mbProxySKs
         }
 
 
@@ -746,13 +762,16 @@ instance BiSsc ssc => Buildable (MainBlock ssc) where
             (stext%":\n"%
              "  "%build%
              "  transactions ("%int%" items): "%listJson%"\n"%
-             build%
+             "  certificates ("%int%" items): "%listJson%"\n"%
+             build%"\n"%
              build
             )
             (colorize Magenta "MainBlock")
             _gbHeader
             (length _mbTxs)
             _mbTxs
+            (length _mbProxySKs)
+            _mbProxySKs
             _mbMpc
             _gbExtra
       where
@@ -860,6 +879,9 @@ type NEBlocks ssc = NonEmpty (Block ssc)
 
 makeLenses ''GenericBlockHeader
 makeLenses ''GenericBlock
+
+makeLenses ''MainExtraHeaderData
+makeLenses ''MainExtraBodyData
 
 -- !!! Create issue about this on lens github or give link on existing issue !!!
 -- 'makeLensesData' doesn't work with types with parameters. I don't
@@ -1183,6 +1205,7 @@ instance (Ssc ssc, SafeCopy (SscProof ssc)) =>
            mpRoot <- safeGet
            mpWitnessesHash <- safeGet
            mpMpcProof <- safeGet
+           mpProxySKsProof <- safeGet
            return $!
                MainProof
                { ..
@@ -1193,6 +1216,7 @@ instance (Ssc ssc, SafeCopy (SscProof ssc)) =>
            safePut mpRoot
            safePut mpWitnessesHash
            safePut mpMpcProof
+           safePut mpProxySKsProof
 
 instance SafeCopy (BodyProof (GenesisBlockchain ssc)) where
     getCopy =
@@ -1206,10 +1230,12 @@ instance SafeCopy (BodyProof (GenesisBlockchain ssc)) where
 instance SafeCopy (BlockSignature ssc) where
     getCopy = contain $ Cereal.getWord8 >>= \case
         0 -> BlockSignature <$> safeGet
-        1 -> BlockPSignature <$> safeGet
+        1 -> BlockPSignatureEpoch <$> safeGet
+        2 -> BlockPSignatureSimple <$> safeGet
         t -> fail $ "getCopy@BlockSignature: couldn't read tag: " <> show t
     putCopy (BlockSignature sig)       = contain $ Cereal.putWord8 0 >> safePut sig
-    putCopy (BlockPSignature proxySig) = contain $ Cereal.putWord8 1 >> safePut proxySig
+    putCopy (BlockPSignatureEpoch proxySig) = contain $ Cereal.putWord8 1 >> safePut proxySig
+    putCopy (BlockPSignatureSimple proxySig) = contain $ Cereal.putWord8 2 >> safePut proxySig
 
 instance SafeCopy (ConsensusData (MainBlockchain ssc)) where
     getCopy =

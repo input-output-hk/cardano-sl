@@ -7,4 +7,6 @@ module Pos.Delegation
 import           Pos.Delegation.Class     as Exports
 import           Pos.Delegation.Listeners as Exports
 import           Pos.Delegation.Logic     as Exports
+import           Pos.Delegation.Lrc       as Exports
+import           Pos.Delegation.Methods   as Exports
 import           Pos.Delegation.Types     as Exports

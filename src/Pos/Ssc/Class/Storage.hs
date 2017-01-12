@@ -21,6 +21,7 @@ import           Universum
 
 import           Pos.Context.Class    (WithNodeContext)
 import           Pos.DB.Class         (MonadDB)
+import           Pos.Lrc.Types        (Richmen)
 import           Pos.Ssc.Class.Types  (Ssc (..))
 import           Pos.Types            (EpochIndex, HeaderHash, NEBlocks, SharedSeed)
 
@@ -32,9 +33,9 @@ type SscGlobalQuery ssc a =  forall m . (MonadReader (SscGlobalState ssc) m) => 
 type SscGlobalUpdate ssc a = forall m . (MonadState (SscGlobalState ssc) m) => m a
 
 type SscImpureQuery ssc a = forall m. ( MonadReader (SscGlobalState ssc) m
-                                       , WithNodeContext ssc m
-                                       , MonadIO m) =>
-                                       m a
+                                      , WithNodeContext ssc m
+                                      , MonadIO m) =>
+                                      m a
 
 class Ssc ssc => SscStorageClass ssc where
     sscLoadGlobalState :: MonadDB ssc m => HeaderHash ssc -> m (SscGlobalState ssc)
@@ -48,7 +49,7 @@ class Ssc ssc => SscStorageClass ssc where
     -- about to be applied. It should check that SSC payload will be
     -- consistent if this blocks are applied (after possible rollback
     -- if first argument isn't zero).
-    sscVerifyBlocksM :: Bool -> NEBlocks ssc -> SscGlobalQuery ssc VerificationRes
+    sscVerifyBlocksM :: Bool -> Richmen -> NEBlocks ssc -> SscGlobalQuery ssc VerificationRes
 
     sscCalculateSeedM :: EpochIndex ->
-                         SscImpureQuery ssc (Either (SscSeedError ssc) SharedSeed)
+                         SscGlobalQuery ssc (Either (SscSeedError ssc) SharedSeed)

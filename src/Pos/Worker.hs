@@ -16,10 +16,12 @@ import           Pos.Communication      (SysStartResponse (..))
 import           Pos.Constants          (slotDuration, sysTimeBroadcastSlots)
 import           Pos.Context            (NodeContext (..), getNodeContext, setNtpLastSlot)
 import           Pos.DHT.Model          (sendToNetwork)
+import           Pos.Lrc.Worker         (lrcOnNewSlotWorker)
 import           Pos.Security.Workers   (SecurityWorkersClass, securityWorkers)
-import           Pos.Slotting           (onNewSlot)
+import           Pos.Slotting           (onNewSlotWithLogging)
 import           Pos.Ssc.Class.Workers  (SscWorkersClass, sscWorkers)
 import           Pos.Types              (SlotId, flattenSlotId, slotIdF)
+import           Pos.Update             (usWorkers)
 import           Pos.Util               (waitRandomInterval)
 import           Pos.Worker.Ntp         (ntpWorker)
 import           Pos.Worker.Stats       (statsWorkers)
@@ -39,10 +41,12 @@ runWorkers = mapM_ fork_ $ concat
     , untag sscWorkers
     , untag securityWorkers
     , [ntpWorker]
+    , [lrcOnNewSlotWorker]
+    , usWorkers
     ]
 
 onNewSlotWorker :: WorkMode ssc m => m ()
-onNewSlotWorker = onNewSlot True onNewSlotWorkerImpl
+onNewSlotWorker = onNewSlotWithLogging True onNewSlotWorkerImpl
 
 onNewSlotWorkerImpl :: WorkMode ssc m => SlotId -> m ()
 onNewSlotWorkerImpl slotId = do

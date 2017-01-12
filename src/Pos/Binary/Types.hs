@@ -79,6 +79,10 @@ instance Bi T.TxDistribution where
         either (\(UnsignedVarInt n) -> replicate n []) identity
             <$> get
 
+instance Bi T.Undo where
+    put (T.Undo txs psks) = put txs >> put psks
+    get = label "Undo" $ T.Undo <$> get <*> get
+
 -- serialized as vector of TxInWitness
 --instance Bi T.TxWitness where
 
@@ -113,13 +117,21 @@ instance ( Bi (T.BodyProof b)
          , Bi (T.ExtraHeaderData b)
          , Bi (T.Body b)
          , Bi (T.ExtraBodyData b)
+         , T.Blockchain b
          ) =>
          Bi (T.GenericBlock b) where
-    put T.GenericBlock{..} = do
+    put T.GenericBlock {..} = do
         put _gbHeader
         put _gbBody
         put _gbExtra
-    get = label "GenericBlock" $ T.GenericBlock <$> get <*> get <*> get
+    get =
+        label "GenericBlock" $ do
+            _gbHeader <- get
+            _gbBody <- get
+            _gbExtra <- get
+            unless (T.checkBodyProof _gbBody (T._gbhBodyProof _gbHeader)) $
+                fail "get@GenericBlock: incorrect proof of body"
+            return $ T.GenericBlock {..}
 
 ----------------------------------------------------------------------------
 -- MainBlock
@@ -135,19 +147,23 @@ instance Ssc ssc => Bi (T.BodyProof (T.MainBlockchain ssc)) where
         put mpRoot
         put mpWitnessesHash
         put mpMpcProof
+        put mpProxySKsProof
     get = label "MainProof" $
         T.MainProof
             <$> (getUnsignedVarInt <$> get)
             <*> get
             <*> get
             <*> get
+            <*> get
 
 instance Bi (T.BlockSignature ssc) where
-    put (T.BlockSignature sig)       = putWord8 0 >> put sig
-    put (T.BlockPSignature proxySig) = putWord8 1 >> put proxySig
+    put (T.BlockSignature sig)             = putWord8 0 >> put sig
+    put (T.BlockPSignatureEpoch proxySig)  = putWord8 1 >> put proxySig
+    put (T.BlockPSignatureSimple proxySig) = putWord8 2 >> put proxySig
     get = label "BlockSignature" $ getWord8 >>= \case
         0 -> T.BlockSignature <$> get
-        1 -> T.BlockPSignature <$> get
+        1 -> T.BlockPSignatureEpoch <$> get
+        2 -> T.BlockPSignatureSimple <$> get
         t -> fail $ "get@BlockSignature: unknown tag: " <> show t
 
 instance Bi (T.ConsensusData (T.MainBlockchain ssc)) where

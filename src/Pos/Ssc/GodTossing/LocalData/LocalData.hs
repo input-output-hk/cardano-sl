@@ -15,8 +15,8 @@ module Pos.Ssc.GodTossing.LocalData.LocalData
          -- ** instance SscLocalDataClass SscGodTossing
        ) where
 
-import           Control.Lens                         (Getter, at, use, uses, view, views,
-                                                       (%=), (.=))
+import           Control.Lens                         (Getter, at, use, view, views, (%=),
+                                                       (.=))
 import           Data.Containers                      (ContainerKey,
                                                        SetContainer (notMember))
 import qualified Data.HashMap.Strict                  as HM
@@ -58,8 +58,7 @@ import           Pos.Ssc.GodTossing.Types.Message     (GtMsgContents (..), GtMsg
 import qualified Pos.Ssc.GodTossing.VssCertData       as VCD
 import           Pos.Types                            (SlotId (..), StakeholderId,
                                                        addressHash)
-import           Pos.Util                             (AsBinary, diffDoubleMap, getKeys,
-                                                       readerToState)
+import           Pos.Util                             (AsBinary, getKeys, readerToState)
 
 instance SscBi => SscLocalDataClass SscGodTossing where
     sscGetLocalPayloadQ = getLocalPayload
@@ -73,9 +72,8 @@ type LDUpdate a = forall m . MonadState GtState m  => m a
 ----------------------------------------------------------------------------
 applyGlobal :: Richmen -> GtGlobalState -> LocalUpdate SscGodTossing ()
 applyGlobal richmen globalData = do
-    localCerts <- uses ldCertificates VCD.certs
     let globalCerts = VCD.certs . _gsVssCertificates $ globalData
-        participants = computeParticipants richmen (localCerts `HM.union` globalCerts)
+        participants = computeParticipants richmen globalCerts
         vssPublicKeys = map vcVssKey $ toList participants
         globalCommitments = _gsCommitments globalData
         globalOpenings = _gsOpenings globalData
@@ -107,8 +105,8 @@ applyGlobal richmen globalData = do
                      globalCerts
                      (pkTo, pkFrom, share)) shares
     let filterShares shares =
-            foldl' (flip ($)) shares $
-            [ (`diffDoubleMap` globalShares)
+            foldl' (&) shares $
+            [ (`HM.difference` globalShares)
             , (`HM.intersection` participants)
             -- Select shares to nodes which sent commitments
             , map (`HM.intersection` globalCommitments)

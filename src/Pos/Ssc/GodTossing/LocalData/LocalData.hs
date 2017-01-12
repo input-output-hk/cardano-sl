@@ -147,10 +147,17 @@ localOnNewSlot
 localOnNewSlot richmen = gtRunModify . localOnNewSlotU richmen
 
 localOnNewSlotU :: RichmenSet -> SlotId -> LDUpdate ()
-localOnNewSlotU richmen si@SlotId {siSlot = slotIdx} = do
-    unless (isCommitmentIdx slotIdx) $ gtLocalCommitments .= mempty
-    unless (isOpeningIdx slotIdx) $ gtLocalOpenings .= mempty
-    unless (isSharesIdx slotIdx) $ gtLocalShares .= mempty
+localOnNewSlotU richmen si@SlotId {siSlot = slotIdx, siEpoch = epochIdx} = do
+    lastSlot <- use gtLastProcessedSlot
+    if siEpoch lastSlot /= epochIdx
+      then do
+        gtLocalCommitments .= mempty
+        gtLocalOpenings .= mempty
+        gtLocalShares .= mempty
+      else do
+        unless (isCommitmentIdx slotIdx) $ gtLocalCommitments .= mempty
+        unless (isOpeningIdx slotIdx) $ gtLocalOpenings .= mempty
+        unless (isSharesIdx slotIdx) $ gtLocalShares .= mempty
     gtLocalCertificates %= VCD.setLastKnownSlot si
     gtLocalCertificates %= VCD.filter (`HS.member` richmen)
     gtLastProcessedSlot .= si

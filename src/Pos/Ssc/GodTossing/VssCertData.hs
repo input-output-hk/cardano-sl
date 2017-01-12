@@ -100,7 +100,7 @@ keys VssCertData{..} = HM.keys certs
 -- | Filtering the certificates.
 filter :: (StakeholderId -> Bool) -> VssCertData -> VssCertData
 filter predicate vcd =
-    foldl' (flip delete) vcd $ List.filter predicate $ keys vcd
+    foldl' (flip delete) vcd $ List.filter (not . predicate) $ keys vcd
 
 -- | Return True if the specified address hash is present in the map, False otherwise.
 member :: StakeholderId -> VssCertData -> Bool

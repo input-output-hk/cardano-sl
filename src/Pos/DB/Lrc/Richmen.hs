@@ -183,7 +183,6 @@ instance RichmenComponent RCSsc where
     type RichmenData RCSsc = Richmen
     rcToData = toRichmen . snd
     rcTag Proxy = "ssc"
-    -- [CSL-93] Use eligibility threshold here.
     rcThreshold Proxy = applyCoinPortion mpcThreshold
     rcConsiderDelegated Proxy = True
 

@@ -51,6 +51,10 @@ newtype USHolder m a = USHolder
 instance MonadIO m => MonadState MemState (USHolder m) where
     get = USHolder ask >>= atomically . readTVar
     put s = USHolder ask >>= atomically . flip writeTVar s
+    state f = USHolder ask >>= \tv -> atomically $ do
+        (a, s') <- f <$> readTVar tv
+        writeTVar tv s'
+        return a
 
 instance MonadDB ssc m => MonadUSMem (USHolder m) where
     askUSMemState = USHolder ask

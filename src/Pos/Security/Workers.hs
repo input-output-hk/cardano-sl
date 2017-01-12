@@ -29,10 +29,10 @@ import           Pos.Types                         (EpochIndex, MainBlock, SlotI
                                                     blockMpc, flattenSlotId, gbHeader,
                                                     gbhConsensus, gcdEpoch, headerSlot)
 import           Pos.Types.Address                 (addressHash)
-import           Pos.WorkMode                      (NewWorkMode)
+import           Pos.WorkMode                      (WorkMode)
 
 class Ssc ssc => SecurityWorkersClass ssc where
-    securityWorkers :: NewWorkMode ssc m => Tagged ssc [SendActions BiP m -> m ()]
+    securityWorkers :: WorkMode ssc m => Tagged ssc [SendActions BiP m -> m ()]
 
 instance SscBi => SecurityWorkersClass SscGodTossing where
     securityWorkers = Tagged [ checkForReceivedBlocksWorker
@@ -43,10 +43,10 @@ instance SecurityWorkersClass SscNistBeacon where
     securityWorkers = Tagged [ checkForReceivedBlocksWorker
                              ]
 
-reportAboutEclipsed :: NewWorkMode ssc m => m ()
+reportAboutEclipsed :: WorkMode ssc m => m ()
 reportAboutEclipsed = logWarning "We're doomed, we're eclipsed!"
 
-checkForReceivedBlocksWorker :: NewWorkMode ssc m => SendActions BiP m -> m ()
+checkForReceivedBlocksWorker :: WorkMode ssc m => SendActions BiP m -> m ()
 checkForReceivedBlocksWorker __sendActions = onNewSlot' True $ \slotId -> do
     headBlock <- getTipBlock
     case headBlock of
@@ -59,14 +59,14 @@ checkForReceivedBlocksWorker __sendActions = onNewSlot' True $ \slotId -> do
         when (fSlotId - fBlockGeneratedSlotId > mdNoBlocksSlotThreshold)
             reportAboutEclipsed
 
-checkForIgnoredCommitmentsWorker :: forall m. NewWorkMode SscGodTossing m => SendActions BiP m -> m ()
+checkForIgnoredCommitmentsWorker :: forall m. WorkMode SscGodTossing m => SendActions BiP m -> m ()
 checkForIgnoredCommitmentsWorker  __sendActions= do
     epochIdx <- atomically (newTVar 0)
     _ <- runReaderT (onNewSlot' True checkForIgnoredCommitmentsWorkerImpl) epochIdx
     return ()
 
 checkForIgnoredCommitmentsWorkerImpl
-    :: forall m. NewWorkMode SscGodTossing m
+    :: forall m. WorkMode SscGodTossing m
     => SlotId -> ReaderT (TVar EpochIndex) m ()
 checkForIgnoredCommitmentsWorkerImpl slotId = do
     checkCommitmentsInPreviousBlocks slotId
@@ -76,7 +76,7 @@ checkForIgnoredCommitmentsWorkerImpl slotId = do
         lift reportAboutEclipsed
 
 checkCommitmentsInPreviousBlocks
-    :: forall m. NewWorkMode SscGodTossing m
+    :: forall m. WorkMode SscGodTossing m
     => SlotId -> ReaderT (TVar EpochIndex) m ()
 checkCommitmentsInPreviousBlocks slotId = do
     kBlocks <- map fst <$> loadBlocksFromTipWhile (\_ depth -> depth < k)
@@ -85,7 +85,7 @@ checkCommitmentsInPreviousBlocks slotId = do
         _         -> return ()
 
 checkCommitmentsInBlock
-    :: forall m. NewWorkMode SscGodTossing m
+    :: forall m. WorkMode SscGodTossing m
     => SlotId -> MainBlock SscGodTossing -> ReaderT (TVar EpochIndex) m ()
 checkCommitmentsInBlock slotId block = do
     ourId <- addressHash . ncPublicKey <$> getNodeContext

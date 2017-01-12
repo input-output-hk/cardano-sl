@@ -51,7 +51,7 @@ import           Pos.Wallet.State              (WalletDB)
 import qualified Pos.Wallet.State              as WS
 import           Pos.Wallet.Tx.Pure            (deriveAddrHistory,
                                                 deriveAddrHistoryPartial, getRelatedTxs)
-import           Pos.WorkMode                  (NewMinWorkMode)
+import           Pos.WorkMode                  (MinWorkMode)
 
 -- | A class which have the methods to get state of address' balance
 class Monad m => MonadBalances m where
@@ -159,7 +159,7 @@ instance (Ssc ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
 --deriving instance MonadTxHistory m => MonadTxHistory (Modern.TxpLDHolder m)
 
 type TxMode ssc m
-    = ( NewMinWorkMode m
+    = ( MinWorkMode m
       , MonadBalances m
       , MonadTxHistory m
       , MonadMockable m

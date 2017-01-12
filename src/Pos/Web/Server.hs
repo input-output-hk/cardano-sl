@@ -55,14 +55,14 @@ import           Pos.Util                             (fromBinaryM)
 import           Pos.Web.Api                          (BaseNodeApi, GodTossingApi,
                                                        GtNodeApi, baseNodeApi, gtNodeApi)
 import           Pos.Web.Types                        (GodTossingStage (..))
-import           Pos.WorkMode                         (NewWorkMode)
+import           Pos.WorkMode                         (WorkMode)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
 ----------------------------------------------------------------------------
 
 -- [CSL-152]: I want SscConstraint to be part of WorkMode.
-type MyWorkMode ssc m = (NewWorkMode ssc m, SscConstraint ssc)
+type MyWorkMode ssc m = (WorkMode ssc m, SscConstraint ssc)
 
 serveWebBase :: MyWorkMode ssc m => Word16 -> m ()
 serveWebBase = serveImpl applicationBase

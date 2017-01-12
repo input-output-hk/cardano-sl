@@ -15,16 +15,16 @@ import           Universum
 
 import           Pos.Communication.BiP    (BiP)
 import           Pos.Statistics           (StatProcessTx (..), resetStat)
-import           Pos.WorkMode             (NewWorkMode)
+import           Pos.WorkMode             (WorkMode)
 
 txStatsRefreshInterval :: Microsecond
 txStatsRefreshInterval = sec 1
 
 -- | Workers for collecting statistics about transactions in background.
-statsWorkers :: NewWorkMode ssc m => [SendActions BiP m -> m ()]
+statsWorkers :: WorkMode ssc m => [SendActions BiP m -> m ()]
 statsWorkers = [const txStatsWorker]
 
-txStatsWorker :: NewWorkMode ssc m => m ()
+txStatsWorker :: WorkMode ssc m => m ()
 txStatsWorker = loop `catchAll` onError
   where
     loop = do

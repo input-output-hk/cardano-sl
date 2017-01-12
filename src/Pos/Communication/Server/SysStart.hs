@@ -22,7 +22,7 @@ import           Pos.Communication.BiP    (BiP)
 import           Pos.Communication.Types  (SysStartRequest (..), SysStartResponse (..))
 import           Pos.DHT.Model         (sendToNeighbors)
 import           Pos.Types                (Timestamp)
-import           Pos.WorkMode             (NewMinWorkMode)
+import           Pos.WorkMode             (MinWorkMode)
 
 sysStartRespListenerNode
     :: ( Monad m
@@ -43,7 +43,7 @@ sysStartReqListener sysStart = ListenerActionOneMsg $
 
 -- | Listener for 'SysStartResponce' message.
 sysStartRespListener
-    :: ( NewMinWorkMode m
+    :: ( MinWorkMode m
        ) => MVar Timestamp -> Listener BiP m
 sysStartRespListener mvar = ListenerActionOneMsg $
     \_ sendActions (SysStartResponse sysStart :: SysStartResponse) ->

@@ -18,17 +18,17 @@ import           Pos.Crypto               (proxySign)
 import           Pos.Delegation.Types     (ConfirmProxySK (..), SendProxySK (..))
 import           Pos.DHT.Model         (sendToNeighbors)
 import           Pos.Types                (ProxySKEpoch, ProxySKSimple)
-import           Pos.WorkMode             (NewMinWorkMode, NewWorkMode)
+import           Pos.WorkMode             (MinWorkMode, WorkMode)
 
 -- | Sends epoch psk to neighbours
-sendProxySKEpoch :: (NewMinWorkMode m) => SendActions BiP m -> ProxySKEpoch -> m ()
+sendProxySKEpoch :: (MinWorkMode m) => SendActions BiP m -> ProxySKEpoch -> m ()
 sendProxySKEpoch sendActions psk = do
     logDebug $ sformat ("Sending lightweight psk to neigbours:\n"%build) psk
     -- [CSL-514] TODO Log long acting sends
     sendToNeighbors sendActions $ SendProxySKEpoch psk
 
 -- | Sends simple psk to neighbours
-sendProxySKSimple :: (NewMinWorkMode m) => SendActions BiP m -> ProxySKSimple -> m ()
+sendProxySKSimple :: (MinWorkMode m) => SendActions BiP m -> ProxySKSimple -> m ()
 sendProxySKSimple sendActions psk = do
     logDebug $ sformat ("Sending heavyweight psk to neigbours:\n"%build) psk
     -- [CSL-514] TODO Log long acting sends
@@ -36,7 +36,7 @@ sendProxySKSimple sendActions psk = do
 
 -- | Generates a proof of being a delegate for psk and sends it to
 -- neighbors.
-sendProxyConfirmSK :: (NewWorkMode ss m) => SendActions BiP m -> ProxySKEpoch -> m ()
+sendProxyConfirmSK :: (WorkMode ss m) => SendActions BiP m -> ProxySKEpoch -> m ()
 sendProxyConfirmSK sendActions pSk = do
     logDebug $
         sformat ("Generating delivery proof and propagating it to neighbors: "%build) pSk

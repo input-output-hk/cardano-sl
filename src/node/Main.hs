@@ -32,7 +32,7 @@ import           Pos.Types            (Timestamp)
 #ifdef WITH_WEB
 import           Pos.Ssc.Class        (SscConstraint)
 import           Pos.Web              (serveWebBase, serveWebGT)
-import           Pos.WorkMode         (NewWorkMode)
+import           Pos.WorkMode         (WorkMode)
 #ifdef WITH_WALLET
 import           Pos.WorkMode         (ProductionMode, RawRealMode, StatsMode)
 
@@ -122,9 +122,9 @@ action args@Args {..} res = do
             let currentParams = nodeParams args systemStart
                 gtParams = gtSscParams args vssSK
 #ifdef WITH_WEB
-                currentPlugins :: (SscConstraint ssc, NewWorkMode ssc m) => [m ()]
+                currentPlugins :: (SscConstraint ssc, WorkMode ssc m) => [m ()]
                 currentPlugins = plugins args
-                currentPluginsGT :: (NewWorkMode SscGodTossing m) => [m ()]
+                currentPluginsGT :: (WorkMode SscGodTossing m) => [m ()]
                 currentPluginsGT = pluginsGT args
 #else
                 currentPlugins :: [a]
@@ -173,14 +173,14 @@ gtSscParams Args {..} vssSK =
     }
 
 #ifdef WITH_WEB
-plugins :: (SscConstraint ssc, NewWorkMode ssc m) => Args -> [m ()]
+plugins :: (SscConstraint ssc, WorkMode ssc m) => Args -> [m ()]
 plugins Args {..}
     | enableWeb = [serveWebBase webPort]
     | otherwise = []
 #endif
 
 #ifdef WITH_WEB
-pluginsGT :: (NewWorkMode SscGodTossing m) => Args -> [m ()]
+pluginsGT :: (WorkMode SscGodTossing m) => Args -> [m ()]
 pluginsGT Args {..}
     | enableWeb = [serveWebGT webPort]
     | otherwise = []

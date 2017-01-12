@@ -24,11 +24,11 @@ import           Pos.Ssc.Class               (SscConstraint)
 import           Pos.Types                   (Timestamp (Timestamp), addressHash)
 import           Pos.Util                    (inAssertMode)
 import           Pos.Worker                  (runWorkers)
-import           Pos.WorkMode                (NewWorkMode)
+import           Pos.WorkMode                (WorkMode)
 
 -- | Run full node in any WorkMode.
 runNode
-    :: (SscConstraint ssc, NewWorkMode ssc m)
+    :: (SscConstraint ssc, WorkMode ssc m)
     => [SendActions BiP m -> m ()]
     -> SendActions BiP m
     -> m ()
@@ -52,13 +52,13 @@ runNode plugins sendActions = do
 
 -- Sanity check in case start time is in future (may happen if clocks
 -- are not accurately synchronized, for example).
-waitSystemStart :: NewWorkMode ssc m => m ()
+waitSystemStart :: WorkMode ssc m => m ()
 waitSystemStart = do
     Timestamp start <- ncSystemStart <$> getNodeContext
     cur <- currentTime
     when (cur < start) $ delay (start - cur)
 
-initSemaphore :: (NewWorkMode ssc m) => m ()
+initSemaphore :: (WorkMode ssc m) => m ()
 initSemaphore = do
     semaphore <- ncBlkSemaphore <$> getNodeContext
     unlessM
@@ -67,7 +67,7 @@ initSemaphore = do
     tip <- GS.getTip
     liftIO $ putMVar semaphore tip
 
-initLrc :: NewWorkMode ssc m => m ()
+initLrc :: WorkMode ssc m => m ()
 initLrc = do
     lrcSync <- ncLrcSync <$> getNodeContext
     atomically . writeTVar lrcSync . (True,) =<< LrcDB.getEpoch

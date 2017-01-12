@@ -40,7 +40,7 @@ import           Pos.Types                              (SlotId (..), Stakeholde
 import           Pos.Util.Relay                         (DataMsg, InvMsg, Relay (..),
                                                          ReqMsg, handleDataL, handleInvL,
                                                          handleReqL)
-import           Pos.WorkMode                           (NewWorkMode)
+import           Pos.WorkMode                           (WorkMode)
 
 instance SscListenersClass SscGodTossing where
     sscListeners =
@@ -50,24 +50,24 @@ instance SscListenersClass SscGodTossing where
                ]
 
 handleInvGt
-    :: NewWorkMode SscGodTossing m
+    :: WorkMode SscGodTossing m
     => ListenerAction BiP m
 handleInvGt = ListenerActionOneMsg $ \peerId sendActions (i :: InvMsg StakeholderId GtMsgTag) ->
     handleInvL i peerId sendActions
 
 handleReqGt
-    :: NewWorkMode SscGodTossing m
+    :: WorkMode SscGodTossing m
     => ListenerAction BiP m
 handleReqGt = ListenerActionOneMsg $ \peerId sendActions (r :: ReqMsg StakeholderId GtMsgTag) ->
     handleReqL r peerId sendActions
 
 handleDataGt
-    :: NewWorkMode SscGodTossing m
+    :: WorkMode SscGodTossing m
     => ListenerAction BiP m
 handleDataGt = ListenerActionOneMsg $ \peerId sendActions (d :: DataMsg StakeholderId GtMsgContents) ->
     handleDataL d peerId sendActions
 
-instance NewWorkMode SscGodTossing m
+instance WorkMode SscGodTossing m
     => Relay m GtMsgTag StakeholderId GtMsgContents where
 
     contentsToTag = pure . msgContentsTag
@@ -97,7 +97,7 @@ instance NewWorkMode SscGodTossing m
                 ("Malicious emulation: data "%build%" for address "%build%" ignored")
                 dat addr)
 
-sscProcessMessageRichmen :: NewWorkMode SscGodTossing m
+sscProcessMessageRichmen :: WorkMode SscGodTossing m
                           => GtMsgContents -> StakeholderId -> m Bool
 sscProcessMessageRichmen dat addr = do
     epoch <- siEpoch <$> getCurrentSlot

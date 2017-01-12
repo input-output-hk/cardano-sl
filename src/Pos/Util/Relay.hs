@@ -33,7 +33,7 @@ import           Pos.Context                (WithNodeContext (getNodeContext),
 import           Pos.DHT.Model.Class     (MonadDHT (..))
 import           Pos.DHT.Model.Neighbors (sendToNeighbors)
 import           Pos.Util                   (NamedMessagePart (..))
-import           Pos.WorkMode               (NewWorkMode)
+import           Pos.WorkMode               (WorkMode)
 
 -- | Typeclass for general Inv/Req/Dat framework. It describes monads,
 -- that store data described by tag, where "key" stands for node
@@ -187,7 +187,7 @@ handleDataL
        , Bi (InvMsg key tag)
        , Relay m tag key contents
        , WithLogger m
-       , NewWorkMode ssc m
+       , WorkMode ssc m
        )
     => DataMsg key contents
     -> NodeId

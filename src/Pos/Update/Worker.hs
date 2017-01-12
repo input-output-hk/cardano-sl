@@ -10,14 +10,14 @@ import           Universum
 import           Pos.Communication.BiP (BiP)
 import           Pos.Slotting          (onNewSlot')
 import           Pos.Types             (SlotId)
-import           Pos.WorkMode          (NewWorkMode)
+import           Pos.WorkMode          (WorkMode)
 
 -- | Update System related workers.
-usWorkers :: NewWorkMode ssc m => [SendActions BiP m -> m ()]
+usWorkers :: WorkMode ssc m => [SendActions BiP m -> m ()]
 usWorkers = [const usOnNewSlot]
 
-usOnNewSlot :: NewWorkMode ssc m => m ()
+usOnNewSlot :: WorkMode ssc m => m ()
 usOnNewSlot = onNewSlot' True onNewSlotAction
 
-onNewSlotAction :: NewWorkMode ssc m => SlotId -> m ()
+onNewSlotAction :: WorkMode ssc m => SlotId -> m ()
 onNewSlotAction _ = pass

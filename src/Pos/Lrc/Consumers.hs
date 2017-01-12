@@ -9,10 +9,10 @@ import           Universum
 import           Pos.Delegation.Lrc    (delegationLrcConsumer)
 import           Pos.Lrc.Consumer      (LrcConsumer)
 import           Pos.Ssc.Class.Workers (SscWorkersClass (sscLrcConsumers))
-import           Pos.WorkMode          (NewWorkMode)
+import           Pos.WorkMode          (WorkMode)
 import           Pos.Update.Lrc        (usLrcConsumer)
 
 allLrcConsumers
-    :: (SscWorkersClass ssc, NewWorkMode ssc m)
+    :: (SscWorkersClass ssc, WorkMode ssc m)
     => [LrcConsumer m]
 allLrcConsumers = [delegationLrcConsumer, usLrcConsumer] ++ untag sscLrcConsumers

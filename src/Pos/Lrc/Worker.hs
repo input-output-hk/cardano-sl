@@ -36,31 +36,31 @@ import           Pos.Ssc.Extra            (sscCalculateSeed)
 import           Pos.Types                (EpochIndex, EpochOrSlot (..), EpochOrSlot (..),
                                            HeaderHash, HeaderHash, SlotId (..),
                                            crucialSlot, getEpochOrSlot, getEpochOrSlot)
-import           Pos.WorkMode             (NewWorkMode)
+import           Pos.WorkMode             (WorkMode)
 import           Control.Concurrent.STM.TVar (TVar, readTVar, writeTVar)
 import           Control.Monad.Catch         (bracketOnError)
 
 import           Pos.Context                 (LrcSyncData, getNodeContext, ncLrcSync)
 
 lrcOnNewSlotWorker
-    :: (SscWorkersClass ssc, NewWorkMode ssc m)
+    :: (SscWorkersClass ssc, WorkMode ssc m)
     => SendActions BiP m -> m ()
 lrcOnNewSlotWorker _ = onNewSlot' True $ lrcOnNewSlotImpl
 
 lrcOnNewSlotImpl
-    :: (SscWorkersClass ssc, NewWorkMode ssc m)
+    :: (SscWorkersClass ssc, WorkMode ssc m)
     => SlotId -> m ()
 lrcOnNewSlotImpl SlotId {..} = when (siSlot < k) $ lrcSingleShot siEpoch
 
 -- | Run leaders and richmen computation for given epoch. If stable
 -- block for this epoch is not known, LrcError will be thrown.
 lrcSingleShot
-    :: (SscWorkersClass ssc, NewWorkMode ssc m)
+    :: (SscWorkersClass ssc, WorkMode ssc m)
     => EpochIndex -> m ()
 lrcSingleShot epoch = lrcSingleShotImpl epoch allLrcConsumers
 
 lrcSingleShotImpl
-    :: NewWorkMode ssc m
+    :: WorkMode ssc m
     => EpochIndex -> [LrcConsumer m] -> m ()
 lrcSingleShotImpl epoch consumers = do
     lock <- ncLrcSync <$> getNodeContext
@@ -99,7 +99,7 @@ tryAcuireExclusiveLock epoch lock action =
     doAction _       = action >> releaseLock epoch
 
 lrcDo
-    :: NewWorkMode ssc m
+    :: WorkMode ssc m
     => EpochIndex -> [LrcConsumer m] -> HeaderHash ssc -> m (HeaderHash ssc)
 lrcDo epoch consumers tip = tip <$ do
     blockUndoList <- DB.loadBlocksFromTipWhile whileMoreOrEq5k
@@ -113,7 +113,7 @@ lrcDo epoch consumers tip = tip <$ do
     whileMoreOrEq5k b _ = getEpochOrSlot b > crucial
     crucial = EpochOrSlot $ Right $ crucialSlot epoch
 
-leadersComputationDo :: NewWorkMode ssc m => EpochIndex -> m ()
+leadersComputationDo :: WorkMode ssc m => EpochIndex -> m ()
 leadersComputationDo epochId =
     unlessM (isJust <$> getLeaders epochId) $ do
         mbSeed <- sscCalculateSeed epochId
@@ -126,7 +126,7 @@ leadersComputationDo epochId =
                     GS.iterateByTx (followTheSatoshiM seed totalStake) snd
         putLeaders epochId leaders
 
-richmenComputationDo :: forall ssc m . NewWorkMode ssc m
+richmenComputationDo :: forall ssc m . WorkMode ssc m
     => EpochIndex -> [LrcConsumer m] -> m ()
 richmenComputationDo epochIdx consumers = unless (null consumers) $ do
     -- [CSL-93] Use eligibility threshold here

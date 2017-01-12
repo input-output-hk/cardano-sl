@@ -60,7 +60,7 @@ import           Pos.Types                        (EpochIndex, LocalSlotIndex,
                                                    addressHash)
 import           Pos.Util                         (asBinary)
 import           Pos.Util.Relay                   (DataMsg (..), InvMsg (..))
-import           Pos.WorkMode                     (NewWorkMode)
+import           Pos.WorkMode                     (WorkMode)
 
 instance SscWorkersClass SscGodTossing where
     sscWorkers = Tagged [onStart, onNewSlotSsc]
@@ -68,12 +68,12 @@ instance SscWorkersClass SscGodTossing where
 
 -- CHECK: @onStart
 -- #checkNSendOurCert
-onStart :: forall m. (NewWorkMode SscGodTossing m) => SendActions BiP m -> m ()
+onStart :: forall m. (WorkMode SscGodTossing m) => SendActions BiP m -> m ()
 onStart = checkNSendOurCert
 
 -- CHECK: @checkNSendOurCert
 -- Checks whether 'our' VSS certificate has been announced
-checkNSendOurCert :: forall m . (NewWorkMode SscGodTossing m) => SendActions BiP m -> m ()
+checkNSendOurCert :: forall m . (WorkMode SscGodTossing m) => SendActions BiP m -> m ()
 checkNSendOurCert sendActions = do
     (_, ourId) <- getOurPkAndId
     isCertInBlockhain <- member ourId <$> getGlobalCerts
@@ -110,19 +110,19 @@ checkNSendOurCert sendActions = do
                 return ourCert
 
 getOurPkAndId
-    :: NewWorkMode SscGodTossing m
+    :: WorkMode SscGodTossing m
     => m (PublicKey, StakeholderId)
 getOurPkAndId = do
     ourPk <- ncPublicKey <$> getNodeContext
     return (ourPk, addressHash ourPk)
 
-getOurVssKeyPair :: NewWorkMode SscGodTossing m => m VssKeyPair
+getOurVssKeyPair :: WorkMode SscGodTossing m => m VssKeyPair
 getOurVssKeyPair = gtcVssKeyPair . ncSscContext <$> getNodeContext
 
 -- CHECK: @onNewSlotSsc
 -- #checkNSendOurCert
 onNewSlotSsc
-    :: (NewWorkMode SscGodTossing m)
+    :: (WorkMode SscGodTossing m)
     => SendActions BiP m -> m ()
 onNewSlotSsc sendActions = onNewSlot' True $ \slotId-> do
     localOnNewSlot slotId
@@ -136,7 +136,7 @@ onNewSlotSsc sendActions = onNewSlot' True $ \slotId-> do
 
 -- Commitments-related part of new slot processing
 onNewSlotCommitment
-    :: (NewWorkMode SscGodTossing m)
+    :: (WorkMode SscGodTossing m)
     => SendActions BiP m -> SlotId -> m ()
 onNewSlotCommitment sendActions slotId@SlotId {..} = do
     ourId <- addressHash . ncPublicKey <$> getNodeContext
@@ -165,7 +165,7 @@ onNewSlotCommitment sendActions slotId@SlotId {..} = do
 
 -- Openings-related part of new slot processing
 onNewSlotOpening
-    :: NewWorkMode SscGodTossing m
+    :: WorkMode SscGodTossing m
     => SendActions BiP m -> SlotId -> m ()
 onNewSlotOpening sendActions SlotId {..} = do
     ourId <- addressHash . ncPublicKey <$> getNodeContext
@@ -184,7 +184,7 @@ onNewSlotOpening sendActions SlotId {..} = do
 
 -- Shares-related part of new slot processing
 onNewSlotShares
-    :: (NewWorkMode SscGodTossing m)
+    :: (WorkMode SscGodTossing m)
     => SendActions BiP m -> SlotId -> m ()
 onNewSlotShares sendActions SlotId {..} = do
     ourId <- addressHash . ncPublicKey <$> getNodeContext
@@ -202,7 +202,7 @@ onNewSlotShares sendActions SlotId {..} = do
             _ <- sscProcessMessageRichmen (MCShares lShares) ourId
             sendOurData sendActions SharesMsg siEpoch 4 ourId
 
-sscProcessMessageRichmen :: NewWorkMode SscGodTossing m
+sscProcessMessageRichmen :: WorkMode SscGodTossing m
                          => GtMsgContents
                          -> StakeholderId
                          -> m Bool
@@ -212,7 +212,7 @@ sscProcessMessageRichmen msg addr = do
     maybe (pure False) (\r -> sscProcessMessage r msg addr) richmen
 
 sendOurData
-    :: (NewWorkMode SscGodTossing m)
+    :: (WorkMode SscGodTossing m)
     => SendActions BiP m -> GtMsgTag -> EpochIndex -> LocalSlotIndex -> StakeholderId -> m ()
 sendOurData sendActions msgTag epoch kMultiplier ourId = do
     -- Note: it's not necessary to create a new thread here, because
@@ -232,7 +232,7 @@ sendOurData sendActions msgTag epoch kMultiplier ourId = do
 -- node doesn't have recent enough blocks and needs to be
 -- synchronized).
 generateAndSetNewSecret
-    :: NewWorkMode SscGodTossing m
+    :: WorkMode SscGodTossing m
     => SecretKey
     -> SlotId                         -- ^ Current slot
     -> m (Maybe (SignedCommitment, Opening))
@@ -255,7 +255,7 @@ generateAndSetNewSecret sk SlotId{..} = do
         return Nothing
 
 randomTimeInInterval
-    :: NewWorkMode SscGodTossing m
+    :: WorkMode SscGodTossing m
     => Microsecond -> m Microsecond
 randomTimeInInterval interval =
     -- Type applications here ensure that the same time units are used.
@@ -265,7 +265,7 @@ randomTimeInInterval interval =
     n = toInteger @Microsecond interval
 
 waitUntilSend
-    :: NewWorkMode SscGodTossing m
+    :: WorkMode SscGodTossing m
     => GtMsgTag -> EpochIndex -> LocalSlotIndex -> m ()
 waitUntilSend msgTag epoch kMultiplier = do
     Timestamp beginning <-

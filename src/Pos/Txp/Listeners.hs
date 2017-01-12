@@ -29,10 +29,10 @@ import           Pos.Txp.Types.Types         (MemPool (..), ProcessTxRes (..))
 import           Pos.Types                   (TxAux, TxId)
 import           Pos.Util.Relay              (DataMsg, InvMsg, Relay (..), ReqMsg,
                                               handleDataL, handleInvL, handleReqL)
-import           Pos.WorkMode                (NewWorkMode)
+import           Pos.WorkMode                (WorkMode)
 
 txListeners
-    :: ( NewWorkMode ssc m
+    :: ( WorkMode ssc m
        )
     => [ListenerAction BiP m]
 txListeners =
@@ -42,24 +42,24 @@ txListeners =
     ]
 
 handleInvTx
-    :: (NewWorkMode ssc m)
+    :: (WorkMode ssc m)
     => ListenerAction BiP m
 handleInvTx = ListenerActionOneMsg $ \peerId sendActions (i :: InvMsg TxId TxMsgTag) ->
     handleInvL i peerId sendActions
 
 handleReqTx
-    :: (NewWorkMode ssc m)
+    :: (WorkMode ssc m)
     => ListenerAction BiP m
 handleReqTx = ListenerActionOneMsg $ \peerId sendActions (r :: ReqMsg TxId TxMsgTag) ->
     handleReqL r peerId sendActions
 
 handleDataTx
-    :: (NewWorkMode ssc m)
+    :: (WorkMode ssc m)
     => ListenerAction BiP m
 handleDataTx = ListenerActionOneMsg $ \peerId sendActions (d :: DataMsg TxId TxMsgContents) ->
     handleDataL d peerId sendActions
 
-instance ( NewWorkMode ssc m
+instance ( WorkMode ssc m
          ) => Relay m TxMsgTag TxId TxMsgContents where
     contentsToTag _ = pure TxMsgTag
 
@@ -79,7 +79,7 @@ instance ( NewWorkMode ssc m
 -- CHECK: @handleTxDo
 -- #processTx
 handleTxDo
-    :: NewWorkMode ssc m
+    :: WorkMode ssc m
     => (TxId, TxAux) -> m Bool
 handleTxDo tx = do
     res <- processTx tx

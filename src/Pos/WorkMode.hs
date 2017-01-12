@@ -10,8 +10,8 @@
 -}
 
 module Pos.WorkMode
-       ( NewWorkMode
-       , NewMinWorkMode
+       ( WorkMode
+       , MinWorkMode
 
        -- * Actual modes
        , ProductionMode
@@ -48,7 +48,7 @@ import           Pos.Update.MemState         (MonadUSMem, USHolder)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 -- | Bunch of constraints to perform work for real world distributed system.
-type NewWorkMode ssc m
+type WorkMode ssc m
     = ( WithLogger m
       , MonadIO m
       , MonadMockable m
@@ -74,7 +74,7 @@ type NewWorkMode ssc m
       )
 
 -- | More relaxed version of 'WorkMode'.
-type NewMinWorkMode m
+type MinWorkMode m
     = ( WithLogger m
       , MonadMockable m
       , MonadDHT m

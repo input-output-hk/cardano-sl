@@ -10,10 +10,10 @@ import           Node                  (SendActions)
 import           Pos.Communication.BiP (BiP)
 import           Pos.Lrc.Consumer      (LrcConsumer)
 import           Pos.Ssc.Class.Types   (Ssc (..))
-import           Pos.WorkMode          (NewWorkMode)
+import           Pos.WorkMode          (WorkMode)
 
 -- | Class for @SSC@ workers.
 class Ssc ssc => SscWorkersClass ssc where
     -- | All workers specific to SSC.
-    sscWorkers :: NewWorkMode ssc m => Tagged ssc [SendActions BiP m -> m ()]
-    sscLrcConsumers :: NewWorkMode ssc m => Tagged ssc [LrcConsumer m]
+    sscWorkers :: WorkMode ssc m => Tagged ssc [SendActions BiP m -> m ()]
+    sscLrcConsumers :: WorkMode ssc m => Tagged ssc [LrcConsumer m]

@@ -16,10 +16,10 @@ import           Pos.Context              (getNodeContext, ncAttackTypes)
 import           Pos.DHT.Model         (nodeIdToAddress, sendToNeighbors)
 import           Pos.Security             (AttackType (..), shouldIgnoreAddress)
 import           Pos.Types                (MainBlockHeader)
-import           Pos.WorkMode             (NewWorkMode)
+import           Pos.WorkMode             (WorkMode)
 
 announceBlock
-    :: NewWorkMode ssc m
+    :: WorkMode ssc m
     => SendActions BiP m -> MainBlockHeader ssc -> m ()
 announceBlock sendActions header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header

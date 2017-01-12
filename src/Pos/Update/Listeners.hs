@@ -18,11 +18,11 @@ import           Pos.Communication.BiP    (BiP)
 import           Pos.Update.Types         (ProposalMsgTag (..), UpId, UpdateProposal (..))
 import           Pos.Util.Relay           (DataMsg, InvMsg, Relay (..), ReqMsg,
                                            handleDataL, handleInvL, handleReqL)
-import           Pos.WorkMode             (NewWorkMode)
+import           Pos.WorkMode             (WorkMode)
 
 -- | Listeners for requests related to update system
 usListeners
-    :: (NewWorkMode ssc m)
+    :: (WorkMode ssc m)
     => [ListenerAction BiP m]
 usListeners =
     [ handleInvProposal
@@ -30,19 +30,19 @@ usListeners =
     , handleDataProposal
     ]
 
-handleInvProposal :: NewWorkMode ssc m => ListenerAction BiP m
+handleInvProposal :: WorkMode ssc m => ListenerAction BiP m
 handleInvProposal = ListenerActionOneMsg $ \peerId sendActions (i :: InvMsg UpId ProposalMsgTag) ->
     handleInvL i peerId sendActions
 
-handleReqProposal :: NewWorkMode ssc m => ListenerAction BiP m
+handleReqProposal :: WorkMode ssc m => ListenerAction BiP m
 handleReqProposal = ListenerActionOneMsg $ \peerId sendActions (i :: ReqMsg UpId ProposalMsgTag) ->
     handleReqL i peerId sendActions
 
-handleDataProposal :: NewWorkMode ssc m => ListenerAction BiP m
+handleDataProposal :: WorkMode ssc m => ListenerAction BiP m
 handleDataProposal = ListenerActionOneMsg $ \peerId sendActions (i :: DataMsg UpId UpdateProposal) ->
     handleDataL i peerId sendActions
 
-instance NewWorkMode ssc m =>
+instance WorkMode ssc m =>
          Relay m ProposalMsgTag UpId UpdateProposal where
     contentsToTag _ = pure ProposalMsgTag
 

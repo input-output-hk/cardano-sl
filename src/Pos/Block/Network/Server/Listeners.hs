@@ -48,10 +48,10 @@ import           Pos.Types                      (Block, BlockHeader, Blund,
                                                  HasHeaderHash (..), HeaderHash, NEBlocks,
                                                  blockHeader, gbHeader, prevBlockL)
 import           Pos.Util                       (inAssertMode, _neHead, _neLast)
-import           Pos.WorkMode                   (NewWorkMode)
+import           Pos.WorkMode                   (WorkMode)
 
 blockListeners
-    :: ( NewWorkMode ssc m )
+    :: ( WorkMode ssc m )
     => [ListenerAction BiP m]
 blockListeners =
     [ handleGetHeaders
@@ -65,7 +65,7 @@ blockListeners =
 -- field.
 handleGetHeaders
     :: forall ssc m.
-       (NewWorkMode ssc m)
+       (WorkMode ssc m)
     => ListenerAction BiP m
 handleGetHeaders = ListenerActionConversation $
     \__peerId conv -> do
@@ -82,7 +82,7 @@ handleGetHeaders = ListenerActionConversation $
 
 handleGetBlocks
     :: forall ssc m.
-       (Ssc ssc, NewWorkMode ssc m)
+       (Ssc ssc, WorkMode ssc m)
     => ListenerAction BiP m
 handleGetBlocks = ListenerActionOneMsg $
     \peerId sendActions (MsgGetBlocks {..} :: MsgGetBlocks ssc) -> do
@@ -107,7 +107,7 @@ handleGetBlocks = ListenerActionOneMsg $
 -- First case of 'handleBlockheaders'
 handleRequestedHeaders
     :: forall ssc m.
-       (NewWorkMode ssc m)
+       (WorkMode ssc m)
     => NonEmpty (BlockHeader ssc)
     -> NodeId
     -> SendActions BiP m
@@ -136,7 +136,7 @@ handleRequestedHeaders headers peerId sendActions = do
 -- Second case of 'handleBlockheaders'
 handleUnsolicitedHeaders
     :: forall ssc m.
-       (NewWorkMode ssc m)
+       (WorkMode ssc m)
     => NonEmpty (BlockHeader ssc)
     -> NodeId
     -> SendActions BiP m
@@ -150,7 +150,7 @@ handleUnsolicitedHeaders (h:|hs) _ _ = do
 
 handleUnsolicitedHeader
     :: forall ssc m.
-       (NewWorkMode ssc m)
+       (WorkMode ssc m)
     => BlockHeader ssc
     -> NodeId
     -> SendActions BiP m
@@ -199,7 +199,7 @@ handleUnsolicitedHeader header peerId sendActions = do
 -- | Handles MsgHeaders request, unsolicited usecase
 handleBlockHeaders
     :: forall ssc m.
-        (NewWorkMode ssc m)
+        (WorkMode ssc m)
     => ListenerAction BiP m
 handleBlockHeaders = ListenerActionOneMsg $
     \peerId sendActions (MsgHeaders headers :: MsgHeaders ssc) -> do
@@ -212,7 +212,7 @@ handleBlockHeaders = ListenerActionOneMsg $
 
 handleBlock
     :: forall ssc m.
-       (NewWorkMode ssc m)
+       (WorkMode ssc m)
     => ListenerAction BiP m
 handleBlock = ListenerActionOneMsg $
     \peerId sendActions ((msg@(MsgBlock blk)) :: MsgBlock ssc) -> do
@@ -233,7 +233,7 @@ handleBlock = ListenerActionOneMsg $
 
 handleBlocks
     :: forall ssc m.
-       (NewWorkMode ssc m)
+       (WorkMode ssc m)
     => NonEmpty (Block ssc)
     -> NodeId
     -> SendActions BiP m
@@ -254,7 +254,7 @@ handleBlocks blocks _ sendActions = do
         "Probably rollback happened in parallel"
 
 handleBlocksWithLca :: forall ssc m.
-       (NewWorkMode ssc m)
+       (WorkMode ssc m)
     => SendActions BiP m -> NonEmpty (Block ssc) -> HeaderHash ssc -> m ()
 handleBlocksWithLca sendActions blocks lcaHash = do
     logDebug $ sformat lcaFmt lcaHash
@@ -268,7 +268,7 @@ handleBlocksWithLca sendActions blocks lcaHash = do
 
 applyWithoutRollback
     :: forall ssc m.
-       (NewWorkMode ssc m)
+       (WorkMode ssc m)
     => SendActions BiP m -> NonEmpty (Block ssc) -> m ()
 applyWithoutRollback sendActions blocks = do
     logDebug $ sformat ("Trying to apply blocks w/o rollback: "%listJson)
@@ -303,7 +303,7 @@ applyWithoutRollback sendActions blocks = do
 -- | Head of @toRollback@ - the youngest block.
 applyWithRollback
     :: forall ssc m.
-       (NewWorkMode ssc m)
+       (WorkMode ssc m)
     => SendActions BiP m -> NonEmpty (Block ssc) -> HeaderHash ssc -> NonEmpty (Blund ssc) -> m ()
 applyWithRollback sendActions toApply lca toRollback = do
     logDebug $ sformat ("Trying to apply blocks w/ rollback: "%listJson)
@@ -340,7 +340,7 @@ applyWithRollback sendActions toApply lca toRollback = do
 
 relayBlock
     :: forall ssc m.
-       (NewWorkMode ssc m)
+       (WorkMode ssc m)
     => SendActions BiP m -> Block ssc -> m ()
 relayBlock _ (Left _)                  = pass
 relayBlock sendActions (Right mainBlk) = announceBlock sendActions $ mainBlk ^. gbHeader
@@ -352,7 +352,7 @@ relayBlock sendActions (Right mainBlk) = announceBlock sendActions $ mainBlk ^. 
 -- TODO: ban node for it!
 onFailedVerifyBlocks
     :: forall ssc m.
-       (NewWorkMode ssc m)
+       (WorkMode ssc m)
     => NEBlocks ssc -> Text -> m ()
 onFailedVerifyBlocks blocks err = logWarning $
     sformat ("Failed to verify blocks: "%stext%"\n  blocks = "%listJson)

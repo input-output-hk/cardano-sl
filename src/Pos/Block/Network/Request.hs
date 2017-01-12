@@ -23,7 +23,7 @@ import           Pos.Block.Network.Types        (MsgGetBlocks (..), MsgGetHeader
 import           Pos.Communication.BiP          (BiP (..))
 import           Pos.Communication.PeerState    (getPeerState)
 import           Pos.Types                      (HeaderHash)
-import           Pos.WorkMode                   (NewWorkMode)
+import           Pos.WorkMode                   (WorkMode)
 
 
 
@@ -31,7 +31,7 @@ import           Pos.WorkMode                   (NewWorkMode)
 -- chooses appropriate 'from' hashes and puts them into 'GetHeaders'
 -- message.
 mkHeadersRequest
-    :: NewWorkMode ssc m
+    :: WorkMode ssc m
     => Maybe (HeaderHash ssc) -> m (MsgGetHeaders ssc)
 mkHeadersRequest upto = do
     headers <- getHeadersOlderExp Nothing
@@ -39,7 +39,7 @@ mkHeadersRequest upto = do
 
 replyWithHeadersRequest
     :: forall ssc m.
-       (NewWorkMode ssc m)
+       (WorkMode ssc m)
     => Maybe (HeaderHash ssc)
     -> NodeId
     -> SendActions BiP m
@@ -66,7 +66,7 @@ mkBlocksRequest lcaChild wantedBlock =
 -- on our tip. This request is recorded in PeerState.
 replyWithBlocksRequest
     :: forall ssc m.
-       (NewWorkMode ssc m)
+       (WorkMode ssc m)
     => HeaderHash ssc
     -> HeaderHash ssc
     -> NodeId

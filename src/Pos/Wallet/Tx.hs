@@ -22,7 +22,7 @@ import           Pos.Communication.BiP     (BiP)
 import           Pos.Communication.Methods (sendTx)
 import           Pos.Crypto                (SecretKey, hash, toPublic)
 import           Pos.Types                 (TxAux, TxOutAux, makePubKeyAddress, txaF)
-import           Pos.WorkMode              (NewMinWorkMode)
+import           Pos.WorkMode              (MinWorkMode)
 
 import           Pos.Wallet.Tx.Pure        (TxError, createMOfNTx, createTx, makeMOfNTx,
                                             makePubKeyTx)
@@ -49,7 +49,7 @@ submitTx sendActions sk na outputs = do
         return txw
 
 -- | Send the ready-to-use transaction
-submitTxRaw :: NewMinWorkMode m => SendActions BiP m -> [NetworkAddress] -> TxAux -> m ()
+submitTxRaw :: MinWorkMode m => SendActions BiP m -> [NetworkAddress] -> TxAux -> m ()
 submitTxRaw sa na tx = do
     let txId = hash (tx ^. _1)
     logInfo $ sformat ("Submitting transaction: "%txaF) tx

@@ -21,10 +21,10 @@ import           Pos.Communication.BiP       (BiP (..))
 import           Pos.Communication.PeerState (getPeerState)
 import           Pos.Communication.Types     (peerVersion)
 import           Pos.Constants               (curProtocolVersion, protocolMagic)
-import           Pos.WorkMode                (NewWorkMode)
+import           Pos.WorkMode                (WorkMode)
 
 protocolListeners
-    :: ( NewWorkMode ssc m
+    :: ( WorkMode ssc m
        )
     => [ListenerAction BiP m]
 protocolListeners =
@@ -35,7 +35,7 @@ protocolListeners =
 -- | Handles a response to get current version
 handleVersionReq
     :: forall ssc m.
-       (NewWorkMode ssc m)
+       (WorkMode ssc m)
     => ListenerAction BiP m
 handleVersionReq = ListenerActionOneMsg $
     \peerId sendActions VersionReq -> do
@@ -51,7 +51,7 @@ handleVersionReq = ListenerActionOneMsg $
 -- state `_peerVersion` parameter.
 handleVersionResp
     :: forall ssc m.
-       (NewWorkMode ssc m)
+       (WorkMode ssc m)
     => ListenerAction BiP m
 handleVersionResp = ListenerActionOneMsg $
     \peerId _ resp@VersionResp{..} -> do

@@ -20,10 +20,10 @@ import           Pos.Txp.Types.Communication (TxMsgContents (..))
 import           Pos.Types                   (TxAux)
 import           Pos.Util.Relay              (DataMsg (..))
 import           Pos.Util.TimeWarp           (NetworkAddress)
-import           Pos.WorkMode                (NewMinWorkMode)
+import           Pos.WorkMode                (MinWorkMode)
 
 -- | Send Tx to given address.
-sendTx :: (NewMinWorkMode m) => SendActions BiP m -> NetworkAddress -> TxAux -> m ()
+sendTx :: (MinWorkMode m) => SendActions BiP m -> NetworkAddress -> TxAux -> m ()
 sendTx sendActions addr (tx,w,d) = do
     --sendToNode addr VersionReq
     sendToNode sendActions addr $ DataMsg (TxMsgContents tx w d) (hash tx)

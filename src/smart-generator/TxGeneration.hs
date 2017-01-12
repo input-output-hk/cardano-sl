@@ -29,7 +29,7 @@ import           Pos.Types                     (Tx (..), TxAux, TxId, TxOut (..)
                                                 mkCoin)
 import           Pos.Util.TimeWarp             (sec)
 import           Pos.Wallet                    (makeMOfNTx, makePubKeyTx)
-import           Pos.WorkMode                  (NewWorkMode)
+import           Pos.WorkMode                  (WorkMode)
 
 import           GenOptions                    (GenOptions (..))
 
@@ -119,11 +119,11 @@ curBambooTx bp@BambooPool {..} idx = atomically $
 peekTx :: BambooPool -> IO TxAux
 peekTx bp = curBambooTx bp 0
 
-isTxVerified :: (NewWorkMode ssc m) => Tx -> m Bool
+isTxVerified :: (WorkMode ssc m) => Tx -> m Bool
 isTxVerified tx = allM (fmap isJust . getTxOut) (txInputs tx)
 
 nextValidTx
-    :: NewWorkMode ssc m
+    :: WorkMode ssc m
     => BambooPool
     -> Double
     -> Int

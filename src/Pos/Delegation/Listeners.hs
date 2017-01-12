@@ -34,11 +34,11 @@ import           Pos.Delegation.Types     (CheckProxySKConfirmed (..),
                                            ConfirmProxySK (..), SendProxySK (..))
 import           Pos.DHT.Model         (sendToNeighbors)
 import           Pos.Types                (ProxySKEpoch)
-import           Pos.WorkMode             (NewWorkMode)
+import           Pos.WorkMode             (WorkMode)
 
 -- | Listeners for requests related to delegation processing.
 delegationListeners
-    :: ( NewWorkMode ssc m
+    :: ( WorkMode ssc m
        )
     => [ListenerAction BiP m]
 delegationListeners =
@@ -54,7 +54,7 @@ delegationListeners =
 -- | Handler 'SendProxySK' event.
 handleSendProxySK
     :: forall ssc m.
-       (NewWorkMode ssc m)
+       (WorkMode ssc m)
     => ListenerAction BiP m
 handleSendProxySK = ListenerActionOneMsg $
     \_ sendActions (pr :: SendProxySK) -> case pr of
@@ -83,7 +83,7 @@ handleSendProxySK = ListenerActionOneMsg $
 
 -- | Propagates lightweight PSK depending on the 'ProxyEpochVerdict'.
 propagateProxySKEpoch
-  :: (NewWorkMode ssc m)
+  :: (WorkMode ssc m)
   => PskEpochVerdict -> ProxySKEpoch -> SendActions BiP m -> m ()
 propagateProxySKEpoch PEUnrelated pSk sendActions =
     whenM (ncPropagation <$> getNodeContext) $ do
@@ -98,7 +98,7 @@ propagateProxySKEpoch _ _ _ = pass
 
 handleConfirmProxySK
     :: forall ssc m.
-       (NewWorkMode ssc m)
+       (WorkMode ssc m)
     => ListenerAction BiP m
 handleConfirmProxySK = ListenerActionOneMsg $
     \_ sendActions ((o@(ConfirmProxySK pSk proof)) :: ConfirmProxySK) -> do
@@ -108,7 +108,7 @@ handleConfirmProxySK = ListenerActionOneMsg $
 
 propagateConfirmProxySK
     :: forall ssc m.
-       (NewWorkMode ssc m)
+       (WorkMode ssc m)
     => ConfirmPskEpochVerdict
     -> ConfirmProxySK
     -> SendActions BiP m
@@ -123,7 +123,7 @@ propagateConfirmProxySK _ _ _ = pure ()
 
 handleCheckProxySKConfirmed
     :: forall ssc m.
-       (NewWorkMode ssc m)
+       (WorkMode ssc m)
     => ListenerAction BiP m
 handleCheckProxySKConfirmed = ListenerActionOneMsg $
     \peerId sendActions (CheckProxySKConfirmed pSk :: CheckProxySKConfirmed) -> do

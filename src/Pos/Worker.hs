@@ -26,7 +26,7 @@ import           Pos.Update            (usWorkers)
 import           Pos.Util              (waitRandomInterval')
 import           Pos.Util.TimeWarp     (ms)
 import           Pos.Worker.Stats      (statsWorkers)
-import           Pos.WorkMode          (NewWorkMode)
+import           Pos.WorkMode          (WorkMode)
 
 -- | Run all necessary workers in separate threads. This call doesn't
 -- block.
@@ -35,8 +35,8 @@ import           Pos.WorkMode          (NewWorkMode)
 -- in parallel and we try to maintain this rule. If at some point
 -- order becomes important, update this comment! I don't think you
 -- will read it, but who knows…
---runWorkers :: (SscWorkersClass ssc, NewWorkMode ssc m) => m ()
-runWorkers :: (SscWorkersClass ssc, SecurityWorkersClass ssc, NewWorkMode ssc m) => SendActions BiP m -> m ()
+--runWorkers :: (SscWorkersClass ssc, WorkMode ssc m) => m ()
+runWorkers :: (SscWorkersClass ssc, SecurityWorkersClass ssc, WorkMode ssc m) => SendActions BiP m -> m ()
 runWorkers sendActions = mapM_ fork $ map ($ sendActions) $ concat
     [ [ onNewSlot' True . onNewSlotWorkerImpl ]
     , blkWorkers
@@ -46,7 +46,7 @@ runWorkers sendActions = mapM_ fork $ map ($ sendActions) $ concat
     , usWorkers
     ]
 
-onNewSlotWorkerImpl :: NewWorkMode ssc m => SendActions BiP m -> SlotId -> m ()
+onNewSlotWorkerImpl :: WorkMode ssc m => SendActions BiP m -> SlotId -> m ()
 onNewSlotWorkerImpl sendActions slotId = do
     logNotice $ sformat ("New slot has just started: "%slotIdF) slotId
     when (flattenSlotId slotId <= sysTimeBroadcastSlots) $

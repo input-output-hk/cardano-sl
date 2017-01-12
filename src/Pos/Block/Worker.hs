@@ -42,14 +42,14 @@ import           Pos.Types                  (MainBlock, ProxySKEither, SlotId (.
 import           Pos.Types.Address          (addressHash)
 import           Pos.Util                   (inAssertMode, logWarningWaitLinear)
 import           Pos.Util.JsonLog           (jlCreatedBlock, jlLog)
-import           Pos.WorkMode               (NewWorkMode)
+import           Pos.WorkMode               (WorkMode)
 
 -- | All workers specific to block processing.
-blkWorkers :: NewWorkMode ssc m => [SendActions BiP m -> m ()]
+blkWorkers :: WorkMode ssc m => [SendActions BiP m -> m ()]
 blkWorkers = [onNewSlot' True . blkOnNewSlot]
 
 -- Action which should be done when new slot starts.
-blkOnNewSlot :: NewWorkMode ssc m => SendActions BiP m -> SlotId -> m ()
+blkOnNewSlot :: WorkMode ssc m => SendActions BiP m -> SlotId -> m ()
 blkOnNewSlot sendActions slotId@SlotId {..} = do
     -- First of all we create genesis block if necessary.
     mGenBlock <- createGenesisBlock slotId
@@ -101,7 +101,7 @@ blkOnNewSlot sendActions slotId@SlotId {..} = do
            | otherwise -> pass
 
 onNewSlotWhenLeader
-    :: NewWorkMode ssc m
+    :: WorkMode ssc m
     => SendActions BiP m
     -> SlotId
     -> Maybe ProxySKEither

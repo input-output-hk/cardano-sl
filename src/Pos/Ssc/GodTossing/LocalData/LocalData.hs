@@ -27,7 +27,7 @@ import           Universum
 
 import           Pos.Binary.Class                     (Bi)
 import           Pos.Crypto                           (Share)
-import           Pos.Lrc.Types                        (Richmen)
+import           Pos.Lrc.Types                        (Richmen, RichmenSet)
 import           Pos.Ssc.Class.LocalData              (LocalQuery, LocalUpdate,
                                                        SscLocalDataClass (..))
 import           Pos.Ssc.Extra.MonadLD                (MonadSscLD)
@@ -120,6 +120,7 @@ applyGlobal (HS.fromList . NE.toList -> richmen) globalData = do
 ----------------------------------------------------------------------------
 -- Get Local Payload
 ----------------------------------------------------------------------------
+
 getLocalPayload :: LocalQuery SscGodTossing (SlotId, GtPayload)
 getLocalPayload = do
     s <- view ldLastProcessedSlot
@@ -135,18 +136,20 @@ getLocalPayload = do
 ----------------------------------------------------------------------------
 -- Process New Slot
 ----------------------------------------------------------------------------
+
 -- | Clean-up some data when new slot starts.
 localOnNewSlot
     :: MonadSscLD SscGodTossing m
-    => SlotId -> m ()
-localOnNewSlot = gtRunModify . localOnNewSlotU
+    => RichmenSet -> SlotId -> m ()
+localOnNewSlot richmen = gtRunModify . localOnNewSlotU richmen
 
-localOnNewSlotU :: SlotId -> LDUpdate ()
-localOnNewSlotU si@SlotId {siSlot = slotIdx} = do
+localOnNewSlotU :: RichmenSet -> SlotId -> LDUpdate ()
+localOnNewSlotU richmen si@SlotId {siSlot = slotIdx} = do
     unless (isCommitmentIdx slotIdx) $ gtLocalCommitments .= mempty
     unless (isOpeningIdx slotIdx) $ gtLocalOpenings .= mempty
     unless (isSharesIdx slotIdx) $ gtLocalShares .= mempty
     gtLocalCertificates %= VCD.setLastKnownSlot si
+    gtLocalCertificates %= VCD.filter (not . (`HS.member` richmen))
     gtLastProcessedSlot .= si
 
 ----------------------------------------------------------------------------
@@ -216,7 +219,7 @@ sscProcessMessage richmen msg =
 
 sscProcessMessageU
     :: SscBi
-    => (HashSet StakeholderId)
+    => RichmenSet
     -> GtMsgContents
     -> StakeholderId
     -> LDUpdate Bool
@@ -231,10 +234,11 @@ sscProcessMessageU richmen (MCVssCertificate cert) addr =
 
 processCommitment
     :: Bi Commitment
-    => (HashSet StakeholderId)
+    => RichmenSet
     -> StakeholderId
     -> SignedCommitment
     -> LDUpdate Bool
+processCommitment richmen addr _ | not (addr `HS.member` richmen) = pure False
 processCommitment richmen addr c = do
     certs <- VCD.certs <$> use gtGlobalCertificates
     let participants = certs `HM.intersection` HS.toMap richmen
@@ -263,12 +267,13 @@ matchOpening :: StakeholderId -> Opening -> LDQuery Bool
 matchOpening addr opening =
     flip checkOpeningMatchesCommitment (addr, opening) <$> view gtGlobalCommitments
 
-processShares :: (HashSet StakeholderId)
+processShares :: RichmenSet
               -> StakeholderId
               -> HashMap StakeholderId (AsBinary Share)
               -> LDUpdate Bool
 processShares richmen addr s
     | null s = pure False
+    | not (addr `HS.member` richmen) = pure False
     | otherwise = do
         certs <- VCD.certs <$> use gtGlobalCertificates
         -- TODO: we accept shares that we already have (but don't add them to
@@ -276,10 +281,9 @@ processShares richmen addr s
         -- aware of the fact that they are already in the blockchain. On the
         -- other hand, now nodes can send us huge spammy messages and we can't
         -- ban them for that. On the third hand, is this a concern?
-        let realShares = HM.filterWithKey (\k _ -> k `HS.member` richmen) s
         globalSharesPKForPK <- getKeys . HM.lookupDefault mempty addr <$> use gtGlobalShares
         localSharesForPk <- HM.lookupDefault mempty addr <$> use gtLocalShares
-        let s' = realShares `HM.difference` (HS.toMap globalSharesPKForPK)
+        let s' = s `HM.difference` (HS.toMap globalSharesPKForPK)
         let newLocalShares = localSharesForPk `HM.union` s'
         -- Note: size is O(n), but union is also O(n + m), so
         -- it doesn't matter.
@@ -301,7 +305,7 @@ checkSharesLastVer certs addr shares =
     view gtGlobalCommitments <*>
     view gtGlobalOpenings
 
-processVssCertificate :: (HashSet StakeholderId)
+processVssCertificate :: RichmenSet
                       -> StakeholderId
                       -> VssCertificate
                       -> LDUpdate Bool

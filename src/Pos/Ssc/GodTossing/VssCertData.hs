@@ -12,12 +12,14 @@ module Pos.Ssc.GodTossing.VssCertData
        , keys
        , member
        , difference
+       , filter
        ) where
 
 import qualified Data.HashMap.Strict           as HM
+import qualified Data.List                     as List
 import           Data.SafeCopy                 (base, deriveSafeCopySimple)
 import qualified Data.Set                      as S
-import           Universum                     hiding (empty)
+import           Universum                     hiding (empty, filter)
 
 import           Pos.Constants                 (epochSlots)
 import           Pos.Ssc.GodTossing.Types.Base (VssCertificate (..), VssCertificatesMap)
@@ -94,6 +96,11 @@ setLastKnownSlot (flattenSlotId -> nlks) mp@VssCertData{..}
 -- | Address hashes of certificates.
 keys :: VssCertData -> [StakeholderId]
 keys VssCertData{..} = HM.keys certs
+
+-- | Filtering the certificates.
+filter :: (StakeholderId -> Bool) -> VssCertData -> VssCertData
+filter predicate vcd =
+    foldl' (flip delete) vcd $ List.filter (not . predicate) $ keys vcd
 
 -- | Return True if the specified address hash is present in the map, False otherwise.
 member :: StakeholderId -> VssCertData -> Bool

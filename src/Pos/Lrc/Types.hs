@@ -2,6 +2,7 @@
 
 module Pos.Lrc.Types
        ( Richmen
+       , RichmenSet
        , RichmenStake
        , toRichmen
        , FullRichmenData
@@ -16,6 +17,9 @@ import           Pos.Types           (Coin, StakeholderId)
 
 -- | Addresses which have enough stake for participation in SSC.
 type Richmen = NonEmpty StakeholderId
+
+-- | Hashset of richmen.
+type RichmenSet = HashSet StakeholderId
 
 -- | Richmen with Stake
 type RichmenStake = HashMap StakeholderId Coin

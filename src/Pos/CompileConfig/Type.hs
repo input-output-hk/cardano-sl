@@ -33,6 +33,8 @@ data CompileConfig = CompileConfig
       -- ^ Number of slots to broadcast system time
     , ccMpcSendInterval               :: !Word
       -- ^ Length of interval for sending MPC message
+    , ccMpcThreshold                  :: !Double
+      -- ^ Threshold for ssc/mpc participation
     , ccMdNoBlocksSlotThreshold       :: !Int
       -- ^ Threshold of slots for malicious activity detection
     , ccMdNoCommitmentsEpochThreshold :: !Int

@@ -5,9 +5,11 @@
 
 module Pos.Communication.Server.Protocol
        ( protocolListeners
+       , protocolStubListeners
        ) where
 
 import           Control.Lens                (view, (.~), (?~))
+import           Data.Proxy                  (Proxy (..))
 import           Formatting                  (build, sformat, (%))
 import           Pos.Communication.Types     (VersionReq (..), VersionResp (..))
 import           System.Wlog                 (logDebug, logWarning)
@@ -21,6 +23,7 @@ import           Pos.Communication.BiP       (BiP (..))
 import           Pos.Communication.PeerState (getPeerState)
 import           Pos.Communication.Types     (peerVersion)
 import           Pos.Constants               (curProtocolVersion, protocolMagic)
+import           Pos.Util                    (stubListenerOneMsg)
 import           Pos.WorkMode                (WorkMode)
 
 protocolListeners
@@ -31,6 +34,17 @@ protocolListeners =
     [ handleVersionReq
     , handleVersionResp
     ]
+
+protocolStubListeners
+    :: ( Monad m
+       )
+    => [ListenerAction BiP m]
+protocolStubListeners =
+    [ stubListenerOneMsg $ (Proxy :: Proxy VersionReq)
+    , stubListenerOneMsg $ (Proxy :: Proxy VersionResp)
+    ]
+
+
 
 -- | Handles a response to get current version
 handleVersionReq

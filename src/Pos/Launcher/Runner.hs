@@ -77,9 +77,10 @@ import           Pos.DHT.Real                (KademliaDHTInstance,
 import           Pos.Genesis                 (genesisLeaders)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NodeParams (..))
-import           Pos.Ssc.Class               (Ssc, SscConstraint, SscNodeContext,
+import           Pos.Ssc.Class               (SscConstraint, SscNodeContext,
                                               SscParams, sscCreateNodeContext,
                                               sscLoadGlobalState)
+import           Pos.Ssc.Class.Listeners     (SscListenersClass)
 import           Pos.Ssc.Extra               (runSscHolder)
 import           Pos.Statistics              (getNoStatsT, runStatsT')
 import           Pos.Txp.Holder              (runTxpLDHolder)
@@ -102,7 +103,7 @@ data RealModeResources = RealModeResources
 ----------------------------------------------------------------------------
 
 -- | Runs node as time-slave inside IO monad.
-runTimeSlaveReal :: Ssc ssc => Proxy ssc -> RealModeResources -> BaseParams -> Production Timestamp
+runTimeSlaveReal :: SscListenersClass ssc => Proxy ssc -> RealModeResources -> BaseParams -> Production Timestamp
 runTimeSlaveReal sscProxy res bp = do
     mvar <- liftIO newEmptyMVar
     runServiceMode res bp (listeners mvar) $ \sendActions ->

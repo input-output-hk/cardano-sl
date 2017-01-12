@@ -16,6 +16,7 @@ import           Serokell.Util.Verify                   (VerificationRes (..))
 import           System.Wlog                            (logDebug)
 import           Universum
 
+import           Data.Proxy                             (Proxy (..))
 import           Node                                   (ListenerAction (..))
 import           Pos.Binary.Crypto                      ()
 import           Pos.Binary.Relay                       ()
@@ -37,6 +38,7 @@ import           Pos.Ssc.GodTossing.Types.Message       (GtMsgContents (..),
 import           Pos.Ssc.GodTossing.Types.Type          (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types         (GtPayload (..), _gpCertificates)
 import           Pos.Types                              (SlotId (..), StakeholderId)
+import           Pos.Util                               (stubListenerOneMsg)
 import           Pos.Util.Relay                         (DataMsg, InvMsg, Relay (..),
                                                          ReqMsg, handleDataL, handleInvL,
                                                          handleReqL)
@@ -48,6 +50,14 @@ instance SscListenersClass SscGodTossing where
                , handleReqGt
                , handleDataGt
                ]
+    sscStubListeners p =
+        [ stubListenerOneMsg $
+            (const Proxy :: Proxy ssc -> Proxy (InvMsg StakeholderId GtMsgTag)) p
+        , stubListenerOneMsg $
+            (const Proxy :: Proxy ssc -> Proxy (ReqMsg StakeholderId GtMsgTag)) p
+        , stubListenerOneMsg $
+            (const Proxy :: Proxy ssc -> Proxy (DataMsg StakeholderId GtMsgContents)) p
+        ]
 
 handleInvGt
     :: WorkMode SscGodTossing m

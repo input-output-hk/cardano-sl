@@ -7,6 +7,7 @@
 
 module Pos.Txp.Listeners
        ( txListeners
+       , txStubListeners
        , processTx
        ) where
 
@@ -27,6 +28,7 @@ import           Pos.Txp.Logic               (processTx)
 import           Pos.Txp.Types.Communication (TxMsgContents (..), TxMsgTag (..))
 import           Pos.Txp.Types.Types         (MemPool (..), ProcessTxRes (..))
 import           Pos.Types                   (TxAux, TxId)
+import           Pos.Util                    (stubListenerOneMsg)
 import           Pos.Util.Relay              (DataMsg, InvMsg, Relay (..), ReqMsg,
                                               handleDataL, handleInvL, handleReqL)
 import           Pos.WorkMode                (WorkMode)
@@ -58,6 +60,17 @@ handleDataTx
     => ListenerAction BiP m
 handleDataTx = ListenerActionOneMsg $ \peerId sendActions (d :: DataMsg TxId TxMsgContents) ->
     handleDataL d peerId sendActions
+
+txStubListeners
+    :: Monad m
+    => Proxy ssc -> [ListenerAction BiP m]
+txStubListeners p =
+    [ stubListenerOneMsg $ (const Proxy :: Proxy ssc -> Proxy (InvMsg TxId TxMsgTag)) p
+    , stubListenerOneMsg $ (const Proxy :: Proxy ssc -> Proxy (ReqMsg TxId TxMsgTag)) p
+    , stubListenerOneMsg $
+        (const Proxy :: Proxy ssc -> Proxy (DataMsg TxId TxMsgContents)) p
+    ]
+
 
 instance ( WorkMode ssc m
          ) => Relay m TxMsgTag TxId TxMsgContents where

@@ -18,13 +18,15 @@ import           Universum
 import           Pos.Binary.Communication          ()
 import           Pos.Block.Network.Server          (blockListeners, blockStubListeners)
 import           Pos.Communication.BiP             (BiP)
-import           Pos.Communication.Server.Protocol (protocolListeners)
+import           Pos.Communication.Server.Protocol (protocolListeners,
+                                                    protocolStubListeners)
 import           Pos.Communication.Server.SysStart
 import           Pos.Communication.Util            (modifyListenerLogger)
-import           Pos.Delegation.Listeners          (delegationListeners)
-import           Pos.Ssc.Class.Listeners           (SscListenersClass (..))
-import           Pos.Ssc.Class.Types               (Ssc)
-import           Pos.Txp.Listeners                 (txListeners)
+import           Pos.Delegation.Listeners          (delegationListeners,
+                                                    delegationStubListeners)
+import           Pos.Ssc.Class.Listeners           (SscListenersClass (..),
+                                                    sscStubListeners)
+import           Pos.Txp.Listeners                 (txListeners, txStubListeners)
 import           Pos.WorkMode                      (WorkMode)
 
 -- | All listeners running on one node.
@@ -43,14 +45,14 @@ allListeners =
 
 -- | All listeners running on one node.
 allStubListeners
-    :: (Ssc ssc, Monad m) => Proxy ssc -> [Listener BiP m]
+    :: (SscListenersClass ssc, Monad m) => Proxy ssc -> [Listener BiP m]
 allStubListeners p =
     concat
         [ blockStubListeners p
-        -- , untag sscStubListeners
-        -- , txStubListeners
-        -- , delegationStubListeners
-        -- , protocolStubListeners
+        , sscStubListeners p
+        , txStubListeners p
+        , delegationStubListeners
+        , protocolStubListeners
         ]
 
 ---- | ForkStrategy of whole server.

@@ -5,12 +5,14 @@
 
 module Pos.Delegation.Listeners
        ( delegationListeners
+       , delegationStubListeners
 
        , handleSendProxySK
        , handleConfirmProxySK
        , handleCheckProxySKConfirmed
        ) where
 
+import           Data.Proxy               (Proxy (..))
 import           Data.Time.Clock          (getCurrentTime)
 import           Formatting               (build, sformat, shown, (%))
 import           System.Wlog              (logDebug, logInfo)
@@ -34,6 +36,7 @@ import           Pos.Delegation.Types     (CheckProxySKConfirmed (..),
                                            ConfirmProxySK (..), SendProxySK (..))
 import           Pos.DHT.Model         (sendToNeighbors)
 import           Pos.Types                (ProxySKEpoch)
+import           Pos.Util                 (stubListenerOneMsg)
 import           Pos.WorkMode             (WorkMode)
 
 -- | Listeners for requests related to delegation processing.
@@ -45,6 +48,16 @@ delegationListeners =
     [ handleSendProxySK
     , handleConfirmProxySK
     , handleCheckProxySKConfirmed
+    ]
+
+delegationStubListeners
+    :: ( Monad m
+       )
+    => [ListenerAction BiP m]
+delegationStubListeners =
+    [ stubListenerOneMsg (Proxy :: Proxy SendProxySK)
+    , stubListenerOneMsg (Proxy :: Proxy ConfirmProxySK)
+    , stubListenerOneMsg (Proxy :: Proxy CheckProxySKConfirmed)
     ]
 
 ----------------------------------------------------------------------------

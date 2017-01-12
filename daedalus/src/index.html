@@ -18,6 +18,11 @@
             .then(function() {})
             .catch(function(reason) {console.log(reason)})
       };
+      var sendExtended = function(from, to, amount, currency, title, description) {
+        Daedalus.ClientApi.sendExtended(from, to, amount, currency, title, description)()
+            .then(function() {})
+            .catch(function(reason) {console.log(reason)})
+      };
       var getHistory = function(address) {
         Daedalus.ClientApi.getHistory(address)()
             .then(function(result) {console.log(result)})
@@ -64,6 +69,7 @@
       <li><button onclick="getWallets();"/>getWallets</li>
       <li><button onclick="getWallet('wallet_address');"/>getWallet</li>
       <li><button onclick="send('wallet_address1', 'wallet_address2', 1);"/>send from a to b 1 coin</li>
+      <li><button onclick="sendExtended('wallet_address1', 'wallet_address2', 1, 'ADA', 'title', 'desc');"/>send from a to b 1 coin, with title and description</li>
       <li><button onclick="getHistory('wallet_address')"/>get wallet history</li>
       <li><button onclick="newWallet('CWTPersonal', 'ADA', 'I am rich guy');"/>newWallet</li>
       <li><button onclick="updateWallet('wallet_address', 'CWTPersonal', 'ADA', 'wallet_name');"/>updateWallet</li>

@@ -30,6 +30,16 @@ send = mkFn3 \addrFrom addrTo amount -> fromAff <<< map encodeJson $
         (mkCAddress addrTo)
         (mkCoin amount)
 
+sendExtended :: forall eff. Fn6 String String Int String String String (Eff(ajax :: AJAX | eff) (Promise Json))
+sendExtended = mkFn6 \addrFrom addrTo amount curr title desc -> fromAff <<< map encodeJson $
+    B.sendExtended
+        (mkCAddress addrFrom)
+        (mkCAddress addrTo)
+        (mkCoin amount)
+        (mkCCurrency curr)
+        title
+        desc
+
 newWallet :: forall eff. Fn3 String String String
   (Eff(ajax :: AJAX | eff) (Promise Json))
 newWallet = mkFn3 \wType wCurrency wName -> fromAff <<< map encodeJson <<<

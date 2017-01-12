@@ -7,6 +7,8 @@ module Pos.Wallet.Web.State.Storage
          WalletStorage (..)
        , Query
        , Update
+       , getProfile
+       , setProfile
        , getWalletMetas
        , getWalletMeta
        , getTxMeta
@@ -23,8 +25,8 @@ import           Control.Lens               (at, ix, makeClassy, preview, view, 
                                              (.=), _1, _2, _Just)
 import           Data.Default               (Default, def)
 import           Data.SafeCopy              (base, deriveSafeCopySimple)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CTxId, CTxMeta,
-                                             CWalletMeta, CWalletType)
+import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile, CTxId,
+                                             CTxMeta, CWalletMeta, CWalletType)
 import           Universum
 
 type TransactionHistory = HashMap CTxId CTxMeta
@@ -32,6 +34,7 @@ type TransactionHistory = HashMap CTxId CTxMeta
 data WalletStorage = WalletStorage
     {
       _wsWalletMetas :: !(HashMap CAddress (CWalletMeta, TransactionHistory))
+    , _wsProfile     :: Maybe CProfile
     }
 
 makeClassy ''WalletStorage
@@ -41,10 +44,17 @@ instance Default WalletStorage where
         WalletStorage
         {
           _wsWalletMetas = mempty
+        , _wsProfile = mzero
         }
 
 type Query a = forall m. (MonadReader WalletStorage m) => m a
 type Update a = forall m. ({-MonadThrow m, -}MonadState WalletStorage m) => m a
+
+getProfile :: Query (Maybe CProfile)
+getProfile = view wsProfile
+
+setProfile :: CProfile -> Update ()
+setProfile profile = wsProfile .= Just profile
 
 getWalletMetas :: Query [CWalletMeta]
 getWalletMetas = toList . map fst <$> view wsWalletMetas
@@ -81,6 +91,7 @@ setWalletTransactionMeta cAddr ctxId ctxMeta = wsWalletMetas . at cAddr . _Just 
 removeWallet :: CAddress -> Update ()
 removeWallet cAddr = wsWalletMetas . at cAddr .= Nothing
 
+deriveSafeCopySimple 0 'base ''CProfile
 deriveSafeCopySimple 0 'base ''CHash
 deriveSafeCopySimple 0 'base ''CAddress
 deriveSafeCopySimple 0 'base ''CCurrency

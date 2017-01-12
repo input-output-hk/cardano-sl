@@ -6,13 +6,19 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Ref (newRef, REF)
 import Control.Promise (Promise, fromAff)
-import Daedalus.Types (mkCAddress, mkCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency)
+import Daedalus.Types (mkCAddress, mkCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile)
 import Daedalus.WS (WSConnection(WSNotConnected), mkWSState, ErrorCb, NotifyCb, openConn)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (encodeJson)
-import Data.Function.Uncurried (Fn2, mkFn2, Fn4, mkFn4, Fn3, mkFn3, Fn6, mkFn6)
+import Data.Function.Uncurried (Fn2, mkFn2, Fn4, mkFn4, Fn3, mkFn3, Fn6, mkFn6, Fn7, mkFn7)
 import Network.HTTP.Affjax (AJAX)
 import WebSocket (WEBSOCKET)
+
+getProfile :: forall eff. Eff(ajax :: AJAX | eff) (Promise Json)
+getProfile = fromAff $ map encodeJson B.getProfile
+
+updateProfile :: forall eff. Fn7 String String String String Number String String (Eff(ajax :: AJAX | eff) (Promise Json))
+updateProfile = mkFn7 \name email phone pass date locale picture -> fromAff <<< map encodeJson <<< B.updateProfile $ mkCProfile name email phone pass date locale picture
 
 getWallets :: forall eff. Eff(ajax :: AJAX | eff) (Promise Json)
 getWallets = fromAff $ map encodeJson B.getWallets

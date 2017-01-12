@@ -38,11 +38,12 @@ import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
 import           Pos.Wallet.Tx                 (submitTx)
 import           Pos.Wallet.WalletMode         (WalletMode, getBalance, getTxHistory)
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
-import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CTx, CTxId,
-                                                CTxMeta (..), CWallet (..),
-                                                CWalletMeta (..), addressToCAddress,
-                                                cAddressToAddress, mkCTx, mkCTxId,
-                                                txContainsTitle, txIdToCTxId)
+import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CProfile,
+                                                CProfile (..), CTx, CTxId, CTxMeta (..),
+                                                CWallet (..), CWalletMeta (..),
+                                                addressToCAddress, cAddressToAddress,
+                                                mkCTx, mkCTxId, txContainsTitle,
+                                                txIdToCTxId)
 import           Pos.Wallet.Web.Error          (WalletError (..))
 import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 WalletWebSockets, closeWSConnection,
@@ -50,9 +51,10 @@ import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 upgradeApplicationWS)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
                                                 addOnlyNewTxMeta, closeState,
-                                                createWallet, getTxMeta, getWalletMeta,
-                                                openState, removeWallet, runWalletWebDB,
-                                                setWalletMeta, setWalletTransactionMeta)
+                                                createWallet, getProfile, getTxMeta,
+                                                getWalletMeta, openState, removeWallet,
+                                                runWalletWebDB, setProfile, setWalletMeta,
+                                                setWalletTransactionMeta)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -87,11 +89,16 @@ walletServer
     => WalletWebHandler m (WalletWebHandler m :~> Handler)
     -> WalletWebHandler m (Server WalletApi)
 walletServer nat = do
+    whenM (isNothing <$> getProfile) $
+        createUserProfile >>= setProfile
     join $ mapM_ insertAddressMeta <$> myCAddresses
     flip enter servantHandlers <$> nat
   where
     insertAddressMeta cAddr =
         getWalletMeta cAddr >>= createWallet cAddr . fromMaybe def
+    createUserProfile = do
+        time <- liftIO getPOSIXTime
+        pure $ CProfile mempty mempty mempty mempty time mempty mempty
 
 ----------------------------------------------------------------------------
 -- Handlers
@@ -126,6 +133,10 @@ servantHandlers =
      catchWalletError . deleteWallet
     :<|>
      (\a -> catchWalletError . isValidAddress a)
+    :<|>
+     catchWalletError getUserProfile
+    :<|>
+     catchWalletError . updateUserProfile
   where
     -- TODO: can we with Traversable map catchWalletError over :<|>
     -- TODO: add logging on error
@@ -137,6 +148,14 @@ servantHandlers =
 -- getBalances :: WalletWebMode ssc m => m [(CAddress, Coin)]
 -- getBalances = join $ mapM gb <$> myAddresses
 --   where gb addr = (,) (addressToCAddress addr) <$> getBalance addr
+
+getUserProfile :: WalletWebMode ssc m => m CProfile
+getUserProfile = getProfile >>= maybe noProfile pure
+  where
+    noProfile = throwM $ Internal "No user profile"
+
+updateUserProfile :: WalletWebMode ssc m => CProfile -> m CProfile
+updateUserProfile profile = setProfile profile >> getUserProfile
 
 getWallet :: WalletWebMode ssc m => CAddress -> m CWallet
 getWallet cAddr = do

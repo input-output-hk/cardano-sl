@@ -5,7 +5,7 @@ import Control.Monad.Aff (Aff)
 import Control.Monad.Eff.Exception (error, Error)
 import Control.Monad.Error.Class (throwError)
 import Daedalus.Constants (backendPrefix)
-import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency, WalletError, showCCurrency)
+import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency, WalletError, showCCurrency, CProfile)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (decodeJson, encodeJson)
 import Data.Bifunctor (bimap)
@@ -74,6 +74,12 @@ postRBody urlPath content = flip makeRequest urlPath $
                    }
 
 -- REQUESTS
+getProfile :: forall eff. Aff (ajax :: AJAX | eff) CProfile
+getProfile = getR ["get_profile"]
+
+updateProfile :: forall eff. CProfile -> Aff (ajax :: AJAX | eff) CProfile
+updateProfile = postRBody ["update_profile"]
+
 getWallets :: forall eff. Aff (ajax :: AJAX | eff) (Array CWallet)
 getWallets = getR ["get_wallets"]
 

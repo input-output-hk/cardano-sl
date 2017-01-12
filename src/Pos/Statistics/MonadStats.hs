@@ -13,6 +13,7 @@ module Pos.Statistics.MonadStats
        , StatsT (..)
        , runStatsT
        , runStatsT'
+       , getStatsMap
        ) where
 
 import           Control.Lens                (iso)
@@ -40,8 +41,8 @@ import           Pos.Communication.PeerState (WithPeerState (..))
 import           Pos.Context.Class           (WithNodeContext)
 import           Pos.DB                      (MonadDB (..))
 import           Pos.Delegation.Class        (MonadDelegation)
-import           Pos.DHT.Model            (MonadDHT)
-import           Pos.DHT.Real             (KademliaDHT)
+import           Pos.DHT.Model               (MonadDHT)
+import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Extra               (MonadSscRichmen)
 import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..))
@@ -169,6 +170,9 @@ runStatsT action = liftIO SM.newIO >>= flip runStatsT' action
 
 runStatsT' :: StatsMap -> StatsT m a -> m a
 runStatsT' statsMap action = runReaderT (getStatsT action) statsMap
+
+getStatsMap :: Monad m => StatsT m StatsMap
+getStatsMap = StatsT ask
 
 instance (MonadIO m, MonadJL m) => MonadStats (StatsT m) where
     statLog label entry = do

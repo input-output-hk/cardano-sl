@@ -13,8 +13,10 @@ module Pos.Launcher.Launcher
          -- * Utility launchers.
        ) where
 
+import           Node                  (SendActions)
 import           Mockable              (Production)
 
+import           Pos.Communication.BiP (BiP)
 import           Pos.Launcher.Param    (NodeParams (..))
 import           Pos.Launcher.Runner   (RealModeResources, runProductionMode,
                                         runStatsMode)
@@ -31,12 +33,20 @@ import           Pos.WorkMode          (ProductionMode, StatsMode)
 runNodeProduction
     :: forall ssc.
        SscConstraint ssc
-    => RealModeResources -> [ProductionMode ssc ()] -> NodeParams -> SscParams ssc -> Production ()
+    => RealModeResources
+    -> [SendActions BiP (ProductionMode ssc) -> ProductionMode ssc ()]
+    -> NodeParams
+    -> SscParams ssc
+    -> Production ()
 runNodeProduction inst plugins np sscnp = runProductionMode inst np sscnp (runNode @ssc plugins)
 
 -- | Run full node in benchmarking node
 runNodeStats
     :: forall ssc.
        SscConstraint ssc
-    => RealModeResources -> [StatsMode ssc ()] -> NodeParams -> SscParams ssc -> Production ()
+    => RealModeResources
+    -> [SendActions BiP (StatsMode ssc) -> StatsMode ssc ()]
+    -> NodeParams
+    -> SscParams ssc
+    -> Production ()
 runNodeStats inst plugins np sscnp = runStatsMode inst np sscnp (runNode @ssc plugins)

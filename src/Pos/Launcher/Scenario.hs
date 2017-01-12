@@ -6,28 +6,32 @@ module Pos.Launcher.Scenario
        , initLrc
        ) where
 
-import           Control.Concurrent.MVar (putMVar)
-import           Formatting              (build, sformat, (%))
-import           Mockable                (currentTime, delay, fork, sleepForever)
-import           Node                    (SendActions)
-import           System.Wlog             (logError, logInfo)
+import           Control.Concurrent.MVar     (putMVar)
+import           Formatting                  (build, sformat, (%))
+import           Mockable                    (currentTime, delay, fork, sleepForever)
+import           Node                        (SendActions)
+import           System.Wlog                 (logError, logInfo)
 import           Universum
 
-import           Pos.Communication       (BiP)
-import           Pos.Context             (NodeContext (..), getNodeContext,
-                                          ncPubKeyAddress, ncPublicKey)
-import qualified Pos.DB.GState           as GS
-import qualified Pos.DB.Lrc              as LrcDB
-import           Pos.DHT.Model           (DHTNodeType (DHTFull), discoverPeers)
-import           Pos.Ssc.Class           (SscConstraint)
-import           Pos.Types               (Timestamp (Timestamp), addressHash)
-import           Pos.Util                (inAssertMode)
-import           Pos.Worker              (runWorkers)
-import           Pos.WorkMode            (NewWorkMode)
 import           Control.Concurrent.STM.TVar (writeTVar)
+import           Pos.Communication           (BiP)
+import           Pos.Context                 (NodeContext (..), getNodeContext,
+                                              ncPubKeyAddress, ncPublicKey)
+import qualified Pos.DB.GState               as GS
+import qualified Pos.DB.Lrc                  as LrcDB
+import           Pos.DHT.Model               (DHTNodeType (DHTFull), discoverPeers)
+import           Pos.Ssc.Class               (SscConstraint)
+import           Pos.Types                   (Timestamp (Timestamp), addressHash)
+import           Pos.Util                    (inAssertMode)
+import           Pos.Worker                  (runWorkers)
+import           Pos.WorkMode                (NewWorkMode)
 
 -- | Run full node in any WorkMode.
-runNode :: (SscConstraint ssc, NewWorkMode ssc m) => [m ()] -> SendActions BiP m -> m ()
+runNode
+    :: (SscConstraint ssc, NewWorkMode ssc m)
+    => [SendActions BiP m -> m ()]
+    -> SendActions BiP m
+    -> m ()
 runNode plugins sendActions = do
     inAssertMode $ logInfo "Assert mode on"
     pk <- ncPublicKey <$> getNodeContext
@@ -43,7 +47,7 @@ runNode plugins sendActions = do
     initLrc
     waitSystemStart
     runWorkers sendActions
-    mapM_ fork plugins
+    mapM_ (fork . ($ sendActions)) plugins
     sleepForever
 
 -- Sanity check in case start time is in future (may happen if clocks

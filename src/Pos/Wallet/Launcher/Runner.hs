@@ -15,11 +15,11 @@ import           System.Wlog               (logInfo, usingLoggerName)
 import           Universum                 hiding (bracket)
 
 import           Pos.Communication         (BiP (..))
+import           Pos.DHT.Model             (DHTNodeType (..), discoverPeers)
+import           Pos.DHT.Real              (runKademliaDHT)
 import           Pos.Launcher              (BaseParams (..), LoggingParams (..),
                                             RealModeResources (..), addDevListeners,
                                             runServer)
-import           Pos.DHT.Model          (DHTNodeType (..), discoverPeers)
-import           Pos.DHT.Real           (runKademliaDHT)
 
 import           Pos.Wallet.Context        (ctxFromParams, runContextHolder)
 import           Pos.Wallet.KeyStorage     (runKeyStorage)
@@ -55,17 +55,17 @@ runWalletRealMode res wp@WalletParams {..} = runRawRealWallet res wp listeners
 runWalletReal
     :: RealModeResources
     -> WalletParams
-    -> [WalletRealMode ()]
+    -> [SendActions BiP WalletRealMode -> WalletRealMode ()]
     -> Production ()
 runWalletReal res wp = runWalletRealMode res wp . runWallet
 
-runWallet :: WalletMode ssc m => [m ()] -> SendActions BiP m -> m ()
-runWallet plugins __sendActions = do
+runWallet :: WalletMode ssc m => [SendActions BiP m -> m ()] -> SendActions BiP m -> m ()
+runWallet plugins sendActions = do
     logInfo "Wallet is initialized!"
     peers <- discoverPeers DHTFull
     logInfo $ sformat ("Known peers: "%build) peers
     mapM_ fork allWorkers
-    mapM_ fork plugins
+    mapM_ (fork . ($ sendActions)) plugins
     sleepForever
 
 runRawRealWallet

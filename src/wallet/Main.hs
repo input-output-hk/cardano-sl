@@ -5,10 +5,11 @@
 
 module Main where
 
-import           Control.Monad.Reader (MonadReader (..), ReaderT, asks, runReaderT)
+import           Control.Monad.Reader (MonadReader (..), ReaderT, asks, runReaderT, ask)
 import           Data.List            ((!!))
 import qualified Data.Text            as T
 import           Formatting           (build, int, sformat, stext, (%))
+import           Node                 (SendActions, hoistSendActions)
 import           Mockable             (delay)
 import           Options.Applicative  (execParser)
 import           System.IO            (hFlush, stdout)
@@ -16,6 +17,7 @@ import           Universum
 
 import qualified Pos.CLI              as CLI
 import           Pos.Constants        (slotDuration)
+import           Pos.Communication (BiP)
 import           Pos.Crypto           (SecretKey, createProxySecretKey, toPublic)
 import           Pos.Delegation       (sendProxySKEpoch, sendProxySKSimple)
 import           Pos.Genesis          (genesisPublicKeys, genesisSecretKeys)
@@ -24,7 +26,8 @@ import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
 import           Pos.DHT.Model     (DHTNodeType (..), dhtAddr, discoverPeers)
 import           Pos.Ssc.SscAlgo      (SscAlgo (..))
 import           Pos.Util.TimeWarp    (NetworkAddress)
-import           Pos.Types            (EpochIndex (..), coinF, makePubKeyAddress, txaF)
+import           Pos.Types            (EpochIndex (..), coinF,
+                                       makePubKeyAddress, txaF)
 import           Pos.Wallet           (WalletMode, WalletParams (..), WalletRealMode,
                                        getBalance, runWalletReal, submitTx)
 #ifdef WITH_WEB
@@ -36,16 +39,16 @@ import           WalletOptions        (WalletAction (..), WalletOptions (..), op
 
 type CmdRunner = ReaderT ([SecretKey], [NetworkAddress])
 
-runCmd :: WalletMode ssc m => Command -> CmdRunner m ()
-runCmd (Balance addr) = lift (getBalance addr) >>=
+runCmd :: WalletMode ssc m => SendActions BiP m -> Command -> CmdRunner m ()
+runCmd _ (Balance addr) = lift (getBalance addr) >>=
                          putText . sformat ("Current balance: "%coinF)
-runCmd (Send idx outputs) = do
+runCmd sendActions (Send idx outputs) = do
     (skeys, na) <- ask
-    etx <- lift $ submitTx (skeys !! idx) na (map (,[]) outputs)
+    etx <- lift $ submitTx sendActions (skeys !! idx) na (map (,[]) outputs)
     case etx of
         Left err -> putText $ sformat ("Error: "%stext) err
         Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
-runCmd Help = do
+runCmd _ Help = do
     putText $
         unlines
             [ "Avaliable commands:"
@@ -58,39 +61,40 @@ runCmd Help = do
             , "   help                           -- show this message"
             , "   quit                           -- shutdown node wallet"
             ]
-runCmd ListAddresses = do
+runCmd _ ListAddresses = do
     addrs <- map (makePubKeyAddress . toPublic) <$> asks fst
     putText "Available addrsses:"
     forM_ (zip [0 :: Int ..] addrs) $
         putText . uncurry (sformat $ "    #"%int%":   "%build)
-runCmd (DelegateLight i j) = do
+runCmd sendActions (DelegateLight i j) = do
     let issuerSk = genesisSecretKeys !! i
         delegatePk = genesisPublicKeys !! j
-    -- TODO [CSL-447] Uncomment
-    -- sendProxySKEpoch $
-    --    createProxySecretKey issuerSk delegatePk (EpochIndex 0, EpochIndex 50)
+    r <- ask
+    sendProxySKEpoch (hoistSendActions lift (`runReaderT` r) sendActions) $
+        createProxySecretKey issuerSk delegatePk (EpochIndex 0, EpochIndex 50)
     putText "Sent lightweight cert"
-runCmd (DelegateHeavy i j) = do
+runCmd sendActions (DelegateHeavy i j) = do
     let issuerSk = genesisSecretKeys !! i
         delegatePk = genesisPublicKeys !! j
-    -- TODO [CSL-447] Uncomment
-    -- sendProxySKSimple $ createProxySecretKey issuerSk delegatePk ()
+    r <- ask
+    sendProxySKSimple (hoistSendActions lift (`runReaderT` r) sendActions) $
+        createProxySecretKey issuerSk delegatePk ()
     putText "Sent heavyweight cert"
-runCmd Quit = pure ()
+runCmd _ Quit = pure ()
 
-evalCmd :: WalletMode ssc m => Command -> CmdRunner m ()
-evalCmd Quit = pure ()
-evalCmd cmd  = runCmd cmd >> evalCommands
+evalCmd :: WalletMode ssc m => SendActions BiP m -> Command -> CmdRunner m ()
+evalCmd _ Quit = pure ()
+evalCmd sa cmd  = runCmd sa cmd >> evalCommands sa
 
-evalCommands :: WalletMode ssc m => CmdRunner m ()
-evalCommands = do
+evalCommands :: WalletMode ssc m => SendActions BiP m -> CmdRunner m ()
+evalCommands sa = do
     putStr @Text "> "
     liftIO $ hFlush stdout
     line <- getLine
     let cmd = parseCommand line
     case cmd of
-        Left err  -> putStrLn err >> evalCommands
-        Right cmd -> evalCmd cmd
+        Left err  -> putStrLn err >> evalCommands sa
+        Right cmd -> evalCmd sa cmd
 
 initialize :: WalletMode ssc m => WalletOptions -> m [NetworkAddress]
 initialize WalletOptions{..} = do
@@ -99,21 +103,21 @@ initialize WalletOptions{..} = do
     delay $ fromIntegral woInitialPause * slotDuration
     fmap dhtAddr <$> discoverPeers DHTFull
 
-runWalletRepl :: WalletMode ssc m => WalletOptions -> m ()
-runWalletRepl wo = do
+runWalletRepl :: WalletMode ssc m => WalletOptions -> SendActions BiP m -> m ()
+runWalletRepl wo sa = do
     na <- initialize wo
     putText "Welcome to Wallet CLI Node"
-    runReaderT (evalCmd Help) (genesisSecretKeys, na)
+    runReaderT (evalCmd sa Help) (genesisSecretKeys, na)
 
-runWalletCmd :: WalletMode ssc m => WalletOptions -> Text -> m ()
-runWalletCmd wo str = do
+runWalletCmd :: WalletMode ssc m => WalletOptions -> Text -> SendActions BiP m -> m ()
+runWalletCmd wo str sa = do
     na <- initialize wo
     let strs = T.splitOn "," str
     flip runReaderT (genesisSecretKeys, na) $ forM_ strs $ \scmd -> do
         let mcmd = parseCommand scmd
         case mcmd of
             Left err   -> putStrLn err
-            Right cmd' -> runCmd cmd'
+            Right cmd' -> runCmd sa cmd'
     putText "Command execution finished"
     putText " " -- for exit by SIGPIPE
 
@@ -152,12 +156,13 @@ main = do
                 , wpBaseParams  = baseParams
                 }
 
-            plugins :: [WalletRealMode ()]
+            plugins :: [SendActions BiP WalletRealMode -> WalletRealMode ()]
             plugins = case woAction of
                 Repl          -> [runWalletRepl opts]
                 Cmd cmd       -> [runWalletCmd opts cmd]
 #ifdef WITH_WEB
-                Serve webPort webDaedalusDbPath -> [walletServeWebLite webDaedalusDbPath False webPort]
+                Serve webPort webDaedalusDbPath -> [\sendActions ->
+                    walletServeWebLite sendActions webDaedalusDbPath False webPort]
 #endif
 
         case CLI.sscAlgo woCommonArgs of

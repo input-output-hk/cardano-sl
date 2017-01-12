@@ -9,34 +9,36 @@ module Pos.Wallet.Web.Server.Lite
 
 import qualified Control.Monad.Catch           as Catch
 import           Control.Monad.Except          (MonadError (throwError))
+import           Node                          (SendActions)
 import           Servant.Server                (Handler)
 import           Servant.Utils.Enter           ((:~>) (..))
 import           Universum
 
-
-import           Pos.Wallet.Context            (ContextHolder, WalletContext,
-                                                getWalletContext, runContextHolder)
-import           Pos.Wallet.KeyStorage         (KeyData, KeyStorage, runKeyStorageRaw)
-import           Pos.Wallet.State              (WalletDB, getWalletState, runWalletDB)
+import           Mockable                      (runProduction)
+import           Pos.Communication.BiP         (BiP)
+import           Pos.DHT.Real.Real             (getKademliaDHTInstance, runKademliaDHT)
+import           Pos.DHT.Real.Types            (KademliaDHTInstance (..))
+import           Pos.Wallet.Context            (WalletContext, getWalletContext,
+                                                runContextHolder)
+import           Pos.Wallet.KeyStorage         (KeyData, runKeyStorageRaw)
+import           Pos.Wallet.State              (getWalletState, runWalletDB)
 import qualified Pos.Wallet.State              as WS
-import           Pos.Wallet.WalletMode         (SState, WalletRealMode)
+import           Pos.Wallet.WalletMode         (WalletRealMode)
 import           Pos.Wallet.Web.Server.Methods (walletApplication, walletServeImpl,
                                                 walletServer)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletState,
                                                 WalletWebDB, getWalletWebState,
                                                 runWalletWebDB)
-import           Pos.DHT.Real.Real             (getKademliaDHTInstance, runKademliaDHT)
-import           Pos.DHT.Real.Types            (KademliaDHTInstance (..))
-import           Mockable                      (runProduction)
-import           Pos.Ssc.Class                 (SscConstraint)
 import           System.Wlog                   (usingLoggerName)
 
 walletServeWebLite
-    :: FilePath
+    :: SendActions BiP WalletRealMode
+    -> FilePath
     -> Bool
     -> Word16
     -> WalletRealMode ()
-walletServeWebLite = walletServeImpl $ walletApplication $ walletServer nat
+walletServeWebLite sendActions =
+    walletServeImpl $ walletApplication $ walletServer sendActions nat
 
 -- type WebHandler ssc = WalletWebDB (RawRealMode ssc)
 type WebHandler = WalletWebDB WalletRealMode

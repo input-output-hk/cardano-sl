@@ -13,6 +13,7 @@ import           Control.Concurrent.STM        (TVar)
 import qualified Control.Monad.Catch           as Catch
 import           Control.Monad.Except          (MonadError (throwError))
 import           Mockable                      (runProduction)
+import           Node                          (SendActions)
 import           Servant.Server                (Handler)
 import           Servant.Utils.Enter           ((:~>) (..))
 import           System.Wlog                   (logInfo, usingLoggerName)
@@ -30,6 +31,7 @@ import           Pos.Txp.Class                 (getTxpLDWrap)
 import qualified Pos.Txp.Holder                as Modern
 import           Pos.WorkMode                  (RawRealMode)
 
+import           Pos.Communication.BiP         (BiP)
 import           Pos.Communication.PeerState   (PeerStateSnapshot, WithPeerState (..),
                                                 getAllStates, peerStateFromSnapshot,
                                                 runPeerStateHolder)
@@ -44,15 +46,16 @@ import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletSta
 
 walletServeWebFull
     :: SscConstraint ssc
-    => Bool               -- whether to include genesis keys
+    => SendActions BiP (RawRealMode ssc)
+    -> Bool               -- whether to include genesis keys
     -> FilePath           -- to Daedalus acid-state
     -> Bool               -- Rebuild flag
     -> Word16
     -> RawRealMode ssc ()
-walletServeWebFull debug = walletServeImpl $ do
+walletServeWebFull sendActions debug = walletServeImpl $ do
     logInfo "DAEDALUS has STARTED!"
     when debug $ mapM_ addSecretKey genesisSecretKeys
-    walletApplication $ walletServer nat
+    walletApplication $ walletServer sendActions nat
 
 type WebHandler ssc = WalletWebDB (RawRealMode ssc)
 

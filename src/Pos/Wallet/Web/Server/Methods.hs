@@ -16,6 +16,7 @@ import           Data.List                  (elemIndex, (!!))
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Formatting                 (build, ords, sformat, stext, (%))
 import           Network.Wai                (Application)
+import           Node                       (SendActions, hoistSendActions)
 import           Pos.Crypto                 (hash)
 import           Servant.API                ((:<|>) ((:<|>)),
                                              FromHttpApiData (parseUrlPiece))
@@ -26,13 +27,14 @@ import           Universum
 
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Crypto                 (toPublic)
-import           Pos.DHT.Model           (dhtAddr, getKnownPeers)
+import           Pos.DHT.Model              (dhtAddr, getKnownPeers)
 import           Pos.Types                  (Address, Coin, Tx, TxId, TxOut (..),
                                              addressF, coinF, decodeTextAddress,
                                              makePubKeyAddress, mkCoin)
 import           Pos.Web.Server             (serveImpl)
 
 import           Control.Monad.Catch        (try)
+import           Pos.Communication.BiP      (BiP)
 import           Pos.Wallet.KeyStorage      (KeyError (..), MonadKeys (..), newSecretKey)
 import           Pos.Wallet.Tx              (submitTx)
 import           Pos.Wallet.WalletMode      (WalletMode, getBalance, getTxHistory)
@@ -44,9 +46,9 @@ import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency (ADA), CTx, CTx
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.State       (MonadWalletWebDB (..), WalletWebDB,
                                              addOnlyNewTxMeta, closeState, createWallet,
-                                             getTxMeta, getWalletMeta, openState,
-                                             removeWallet, runWalletWebDB, setWalletMeta,
-                                             setWalletTransactionMeta)
+                                             getTxMeta, getWalletMeta, getWalletState,
+                                             openState, removeWallet, runWalletWebDB,
+                                             setWalletMeta, setWalletTransactionMeta)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -72,11 +74,14 @@ walletApplication serv = serv >>= return . serve walletApi
 
 walletServer
     :: WalletMode ssc m
-    => WalletWebDB m (WalletWebDB m :~> Handler)
+    => SendActions BiP m
+    -> WalletWebDB m (WalletWebDB m :~> Handler)
     -> WalletWebDB m (Server WalletApi)
-walletServer nat = do
+walletServer sendActions nat = do
+    ws <- getWalletState
+    let sendActions' = hoistSendActions lift (runWalletWebDB ws) sendActions
     join $ mapM_ insertAddressMeta <$> myCAddresses
-    flip enter servantHandlers <$> nat
+    (`enter` servantHandlers sendActions') <$> nat
   where
     insertAddressMeta cAddr =
         getWalletMeta cAddr >>= createWallet cAddr . fromMaybe def
@@ -90,13 +95,13 @@ type WalletWebMode ssc m
       , MonadWalletWebDB m
       )
 
-servantHandlers :: WalletWebMode ssc m => ServerT WalletApi m
-servantHandlers =
-     catchWalletError . getWallet
+servantHandlers :: WalletWebMode ssc m => SendActions BiP m -> ServerT WalletApi m
+servantHandlers sendActions =
+     (catchWalletError . getWallet)
     :<|>
      catchWalletError getWallets
     :<|>
-     (\a b -> catchWalletError . send a b)
+     (\a b -> catchWalletError . send sendActions a b)
     :<|>
      catchWalletError . getHistory
     :<|>
@@ -139,15 +144,15 @@ decodeCAddressOrFail = either wrongAddress pure . cAddressToAddress
 getWallets :: WalletWebMode ssc m => m [CWallet]
 getWallets = join $ mapM getWallet <$> myCAddresses
 
-send :: WalletWebMode ssc m => CAddress -> CAddress -> Coin -> m CTx
-send srcCAddr dstCAddr c = do
+send :: WalletWebMode ssc m => SendActions BiP m -> CAddress -> CAddress -> Coin -> m CTx
+send sendActions srcCAddr dstCAddr c = do
     srcAddr <- decodeCAddressOrFail srcCAddr
     dstAddr <- decodeCAddressOrFail dstCAddr
     idx <- getAddrIdx srcAddr
     sks <- getSecretKeys
     let sk = sks !! idx
     na <- fmap dhtAddr <$> getKnownPeers
-    etx <- submitTx sk na [(TxOut dstAddr c, [])]
+    etx <- submitTx sendActions sk na [(TxOut dstAddr c, [])]
     case etx of
         Left err -> throwM . Internal $ sformat ("Cannot send transaction: "%stext) err
         Right (tx, _, _) -> do

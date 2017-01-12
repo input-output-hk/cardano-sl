@@ -12,6 +12,7 @@ import           Data.Time.Units             (Microsecond)
 import           Formatting                  (float, int, sformat, (%))
 import           Mockable                    (Production, delay, forConcurrently,
                                               fork)
+import           Node                        (SendActions)
 import           Options.Applicative         (execParser)
 import           System.FilePath.Posix       ((</>))
 import           System.Random.Shuffle       (shuffleM)
@@ -20,6 +21,7 @@ import           Test.QuickCheck             (arbitrary, generate)
 import           Universum                   hiding (forConcurrently)
 
 import qualified Pos.CLI                     as CLI
+import           Pos.Communication           (BiP)
 import           Pos.Constants               (genesisN, k, neighborsSendThreshold,
                                               slotDuration)
 import           Pos.Crypto                  (KeyPair (..), hash)
@@ -52,11 +54,15 @@ import           Util
 
 -- | Resend initTx with `slotDuration` period until it's verified
 seedInitTx :: forall ssc . SscConstraint ssc
-           => Double -> BambooPool -> TxAux -> ProductionMode ssc ()
-seedInitTx recipShare bp initTx = do
+           => SendActions BiP (ProductionMode ssc)
+           -> Double
+           -> BambooPool
+           -> TxAux
+           -> ProductionMode ssc ()
+seedInitTx sendActions recipShare bp initTx = do
     na <- getPeers recipShare
     logInfo "Issuing seed transaction"
-    submitTxRaw na initTx
+    submitTxRaw sendActions na initTx
     logInfo "Waiting for 1 slot before resending..."
     delay slotDuration
     -- If next tx is present in utxo, then everything is all right
@@ -64,7 +70,7 @@ seedInitTx recipShare bp initTx = do
     isVer <- isTxVerified $ view _1 tx
     if isVer
         then pure ()
-        else seedInitTx recipShare bp initTx
+        else seedInitTx sendActions recipShare bp initTx
 
 chooseSubset :: Double -> [a] -> [a]
 chooseSubset share ls = take n ls
@@ -109,7 +115,7 @@ runSmartGen res np@NodeParams{..} sscnp opts@GenOptions{..} =
     -- [CSL-220] Write MonadBaseControl instance for KademliaDHT
     -- Seeding init tx
     _ <- forConcurrently goGenesisIdxs $ \(fromIntegral -> i) ->
-            seedInitTx goRecipientShare (bambooPools !! i) (initTx i)
+            seedInitTx sendActions goRecipientShare (bambooPools !! i) (initTx i)
 
     -- Start writing tps file
     liftIO $ writeFile (logsFilePrefix </> tpsCsvFile) tpsCsvHeader
@@ -156,12 +162,12 @@ runSmartGen res np@NodeParams{..} sscnp opts@GenOptions{..} =
                           Left parent -> do
                               logInfo $ sformat ("Transaction #"%int%" is not verified yet!") idx
                               logInfo "Resend the transaction parent again"
-                              submitTxRaw na parent
+                              submitTxRaw sendActions na parent
 
                           Right (transaction, witness, distr) -> do
                               let curTxId = hash transaction
                               logInfo $ sformat ("Sending transaction #"%int) idx
-                              submitTxRaw na (transaction, witness, distr)
+                              submitTxRaw sendActions na (transaction, witness, distr)
                               when (startT >= startMeasurementsT) $ liftIO $ do
                                   liftIO $ atomically $ modifyTVar' realTxNum (+1)
                                   -- put timestamp to current txmap

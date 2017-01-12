@@ -4,6 +4,7 @@
 module Pos.Wallet.Web.State.Holder
        ( WalletWebDB
        , runWalletWebDB
+       , getWalletState
        ) where
 
 import           Universum
@@ -19,7 +20,7 @@ import           System.Wlog                (CanLog, HasLoggerName)
 import           Pos.Context                (WithNodeContext)
 import           Pos.DB                     (MonadDB)
 import           Pos.Delegation.Class       (MonadDelegation)
-import           Pos.DHT.Model           (MonadDHT)
+import           Pos.DHT.Model              (MonadDHT)
 import           Pos.Slotting               (MonadSlots)
 import           Pos.Txp.Class              (MonadTxpLD)
 import           Pos.Update                 (MonadPoll, MonadUSMem)
@@ -65,3 +66,6 @@ instance Monad m => MonadWalletWebDB (WalletWebDB m) where
 -- | Execute `WalletWebDB` action with given `WalletState`
 runWalletWebDB :: WalletState -> WalletWebDB m a -> m a
 runWalletWebDB ws = flip runReaderT ws . getWalletWebDB
+
+getWalletState :: Monad m => WalletWebDB m WalletState
+getWalletState = WalletWebDB ask

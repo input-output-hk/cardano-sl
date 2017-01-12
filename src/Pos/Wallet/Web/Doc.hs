@@ -121,6 +121,20 @@ instance ToCapture (Capture "address" Text) where
         , _capDesc = "Address"
         }
 
+instance ToCapture (Capture "description" Text) where
+    toCapture Proxy =
+        DocCapture
+        { _capSymbol = "description"
+        , _capDesc = "Transaction description"
+        }
+
+instance ToCapture (Capture "title" Text) where
+    toCapture Proxy =
+        DocCapture
+        { _capSymbol = "title"
+        , _capDesc = "Transaction title"
+        }
+
 instance ToCapture (Capture "currency" CCurrency) where
     toCapture Proxy =
         DocCapture

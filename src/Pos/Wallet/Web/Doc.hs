@@ -197,6 +197,9 @@ instance ToSample CTxMeta where
 instance ToSample CProfile where
     toSamples Proxy = fail "ToSample CProfile: Not Implemented!"
 
+instance ToSample Word where
+    toSamples Proxy = fail "ToSample Word: Not Implemented!"
+
 --
 --instance ToSample Tx where
 --    toSamples Proxy = singleSample $ Tx [TxIn hsh idx] [out]

@@ -69,8 +69,12 @@ walletServeImpl
     -> Bool                            -- ^ Rebuild flag for acid-state
     -> Word16                          -- ^ Port to listen
     -> m ()
-walletServeImpl app daedalusDbPath dbRebuild port = bracket ((,) <$> openDB <*> initWS) (\(db, conn) -> closeDB db >> closeWS conn) $ \(db, conn) ->
-    serveImpl (runWalletWebDB db $ runWalletWS conn app) port
+walletServeImpl app daedalusDbPath dbRebuild port =
+    bracket
+        ((,) <$> openDB <*> initWS)
+        (\(db, conn) -> closeDB db >> closeWS conn)
+        $ \(db, conn) ->
+            serveImpl (runWalletWebDB db $ runWalletWS conn app) port
   where openDB = openState dbRebuild daedalusDbPath
         closeDB = closeState
         initWS = initWSConnection
@@ -203,8 +207,13 @@ getHistory cAddr = do
     history <- getTxHistory =<< decodeCAddressOrFail cAddr
     mapM (addHistoryTx cAddr ADA mempty mempty) history
 
-searchHistory :: WalletWebMode ssc m => CAddress -> Text -> Word -> m [CTx]
-searchHistory cAddr search limit = take (fromIntegral limit) . filter (txContainsTitle search) <$> getHistory cAddr
+-- FIXME: is Word enough for length here?
+searchHistory :: WalletWebMode ssc m => CAddress -> Text -> Word -> m ([CTx], Word)
+searchHistory cAddr search limit = do
+    history <- getHistory cAddr
+    pure (filterHistory history, fromIntegral $ length history)
+  where
+    filterHistory = take (fromIntegral limit) . filter (txContainsTitle search)
 
 addHistoryTx :: WalletWebMode ssc m => CAddress -> CCurrency -> Text -> Text -> (TxId, Tx, Bool) -> m CTx
 addHistoryTx cAddr curr title desc wtx@(txId, _, _) = do

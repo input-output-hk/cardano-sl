@@ -15,6 +15,7 @@ import Data.HTTP.Method (Method(POST))
 import Data.Maybe (Maybe(Just))
 import Data.MediaType.Common (applicationJSON)
 import Data.String (joinWith)
+import Data.Tuple (Tuple)
 import Network.HTTP.Affjax (AffjaxResponse, affjax, defaultRequest, AJAX, URL, AffjaxRequest)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Network.HTTP.RequestHeader (RequestHeader(ContentType))
@@ -89,7 +90,7 @@ getWallet addr = getR ["get_wallet", _address addr]
 getHistory :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) (Array CTx)
 getHistory addr = getR ["history", _address addr]
 
-searchHistory :: forall eff. CAddress -> String -> Int -> Aff (ajax :: AJAX | eff) (Array CTx)
+searchHistory :: forall eff. CAddress -> String -> Int -> Aff (ajax :: AJAX | eff) (Tuple (Array CTx) Int)
 searchHistory addr search limit = getR ["history", _address addr, search, show limit]
 
 send :: forall eff. CAddress -> CAddress -> Coin -> Aff (ajax :: AJAX | eff) CTx

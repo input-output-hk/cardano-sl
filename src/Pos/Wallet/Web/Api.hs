@@ -32,7 +32,7 @@ type WalletApi =
     :<|>
      "api" :> "history" :> Capture "address" CAddress :> Get '[JSON] (Either WalletError [CTx])
     :<|>
-     "api" :> "history" :> Capture "address" CAddress :> Capture "search" Text :> Capture "limit" Word :> Get '[JSON] (Either WalletError [CTx])
+     "api" :> "history" :> Capture "address" CAddress :> Capture "search" Text :> Capture "limit" Word :> Get '[JSON] (Either WalletError ([CTx], Word))
     :<|>
      "api" :> "update_transaction" :> Capture "address" CAddress :> Capture "transaction" CTxId :> ReqBody '[JSON] CTxMeta :> Post '[JSON] (Either WalletError ())
     :<|>

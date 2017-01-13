@@ -37,6 +37,7 @@ import           Data.Map.Strict               (Map)
 import qualified Data.Map.Strict               as Map
 import           Data.Monoid
 import           Data.Typeable
+import           Formatting                    (sformat, shown, (%))
 import qualified Mockable.Channel              as Channel
 import           Mockable.Class
 import           Mockable.Concurrent
@@ -45,6 +46,7 @@ import           Mockable.SharedAtomic
 import qualified Network.Transport             as NT (EventErrorCode (EventConnectionLost, EventEndPointFailed, EventTransportFailed))
 import qualified Network.Transport.Abstract    as NT
 import           System.Random                 (Random, StdGen, random)
+import           System.Wlog                   (WithLogger, logDebug)
 
 -- | A 'NodeId' wraps a network-transport endpoint address
 newtype NodeId = NodeId NT.EndPointAddress
@@ -105,7 +107,8 @@ newtype ChannelOut m = ChannelOut (NT.Connection m)
 -- | Bring up a 'Node' using a network transport.
 startNode :: ( Mockable SharedAtomic m, Mockable Fork m, Mockable Bracket m
              , Mockable Channel.Channel m, Mockable Throw m, Mockable Catch m
-             , Mockable Async m )
+             , Mockable Async m
+             , WithLogger m )
           => NT.Transport m
           -> StdGen
           -> (NodeId -> ChannelIn m -> m ())
@@ -207,7 +210,8 @@ instance Show (NonceState m) where
 nodeDispatcher :: forall m .
                   ( Mockable SharedAtomic m, Mockable Fork m, Mockable Bracket m
                   , Mockable Channel.Channel m, Mockable Throw m
-                  , Mockable Catch m )
+                  , Mockable Catch m
+                  , WithLogger m )
                => NT.EndPoint m
                -> SharedAtomicT m (NodeState m)
                -- ^ Nonce states and a StdGen to generate nonces. It's in a
@@ -328,8 +332,13 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                           case mconn of
                             Left  err  -> throw err
                             Right conn -> do
-                              -- TODO: error handling
-                              () <$ NT.send conn [controlHeaderBidirectionalAck nonce]
+                              outcome <- NT.send conn [controlHeaderBidirectionalAck nonce]
+                              -- TODO: proper error handling
+                              case outcome of
+                                  Left err -> logDebug $
+                                    sformat ("Error initiating response to "%shown%
+                                    ": "%shown) peer err
+                                  Right _  -> return ()
                               handlerInOut peer (ChannelIn chan) (ChannelOut conn)
                                   `finally'`
                                   closeChannel (ChannelOut conn)
@@ -547,7 +556,7 @@ fixedSizeBuilder n =
 -- | Connect to a peer given by a 'NodeId' bidirectionally.
 connectInOutChannel
     :: ( Mockable Channel.Channel m, Mockable Fork m, Mockable SharedAtomic m
-       , Mockable Throw m )
+       , Mockable Throw m, WithLogger m )
     => Node m
     -> NodeId
     -> m (Nonce, ChannelIn m, ChannelOut m)
@@ -565,8 +574,13 @@ connectInOutChannel Node{nodeEndPoint, nodeState} (NodeId endpointaddr) = do
       Left  err  -> throw err
       Right outconn -> do
         (nonce, inchan) <- allocateInChannel
-        -- TODO: error handling
-        () <$ NT.send outconn [controlHeaderBidirectionalSyn nonce]
+        -- TODO: proper error handling
+        outcome <- NT.send outconn [controlHeaderBidirectionalSyn nonce]
+        case outcome of
+            Left  err -> logDebug $ sformat
+                ("Error initializing bidirectional connection to "%shown%": "%shown)
+                endpointaddr err
+            Right _   -> return ()
         return (nonce, ChannelIn inchan, ChannelOut outconn)
   where
     allocateInChannel = do
@@ -582,7 +596,7 @@ connectInOutChannel Node{nodeEndPoint, nodeState} (NodeId endpointaddr) = do
 
 -- | Connect to a peer given by a 'NodeId' unidirectionally.
 connectOutChannel
-    :: ( Mockable Throw m )
+    :: ( Mockable Throw m, WithLogger m )
     => Node m
     -> NodeId
     -> m (ChannelOut m)
@@ -599,8 +613,12 @@ connectOutChannel Node{nodeEndPoint} (NodeId endpointaddr) = do
     case mconn of
       Left  err  -> throw err
       Right conn -> do
-        -- TODO error handling
-        () <$ NT.send conn [controlHeaderUnidirectional]
+        outcome <- NT.send conn [controlHeaderUnidirectional]
+        case outcome of
+            Left  err -> logDebug $ sformat
+                ("Error initializing unidirectional connection to "%shown%": "%shown)
+                endpointaddr err
+            Right _   -> return ()
         return (ChannelOut conn)
 
 closeChannel :: ChannelOut m -> m ()
@@ -611,7 +629,8 @@ closeChannel (ChannelOut conn) = NT.close conn
 withInOutChannel
     :: forall m a .
        ( Mockable Bracket m, Mockable Fork m, Mockable Channel.Channel m
-       , Mockable SharedAtomic m, Mockable Throw m, Mockable Catch m )
+       , Mockable SharedAtomic m, Mockable Throw m, Mockable Catch m
+       , WithLogger m )
     => Node m
     -> NodeId
     -> (ChannelIn m -> ChannelOut m -> m a)
@@ -630,7 +649,7 @@ withInOutChannel node@Node{nodeState} nodeid action =
 -- | Create, use, and tear down a unidirectional channel to a peer identified
 --   by 'NodeId'.
 withOutChannel
-    :: ( Mockable Bracket m, Mockable Throw m )
+    :: ( Mockable Bracket m, Mockable Throw m, WithLogger m )
     => Node m
     -> NodeId
     -> (ChannelOut m -> m a)
@@ -641,16 +660,19 @@ withOutChannel node nodeid =
 -- | Write some ByteStrings to an out channel. It does not close the
 --   transport when finished. If you want that, use withOutChannel or
 --   withInOutChannel.
-writeChannel :: ( Monad m ) => ChannelOut m -> [BS.ByteString] -> m ()
-writeChannel (ChannelOut _) [] = pure ()
+writeChannel
+    :: ( Monad m, WithLogger m )
+    => ChannelOut m
+    -> [BS.ByteString]
+    -> m (Either (NT.TransportError NT.SendErrorCode) ())
+writeChannel (ChannelOut _) [] = pure (Right ())
 writeChannel (ChannelOut conn) (chunk:chunks) = do
     res <- NT.send conn [chunk]
     -- Any error detected here will be reported to the dispatcher thread
     -- so we don't need to do anything
-     --TODO: though we could log here
     case res of
-      Left _err -> return ()
-      Right _   -> writeChannel (ChannelOut conn) chunks
+      Left err -> pure (Left err)
+      Right _  -> writeChannel (ChannelOut conn) chunks
 
 -- | Read a 'ChannelIn', blocking until the next 'ByteString' arrives, or end
 --   of input is signalled via 'Nothing'.

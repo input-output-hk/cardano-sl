@@ -17,7 +17,7 @@ import           Control.Monad.Catch      (MonadCatch (..), MonadMask (..),
 import           Control.Monad.Fix        (MonadFix)
 import           Control.Monad.IO.Class   (MonadIO)
 import           Data.Time.Units          (Hour)
-import           System.Wlog              (CanLog (..))
+import           System.Wlog              (CanLog (..), HasLoggerName (..))
 
 import           Mockable.Channel         (Channel (..), ChannelT)
 import           Mockable.Class           (Mockable (..))
@@ -111,3 +111,7 @@ instance MonadMask Production where
         \unmask -> runProduction $ act $ Production . unmask . runProduction
     uninterruptibleMask act = Production $ uninterruptibleMask $
         \unmask -> runProduction $ act $ Production . unmask . runProduction
+
+instance HasLoggerName Production where
+    getLoggerName = return "*production*"
+    modifyLoggerName = const id

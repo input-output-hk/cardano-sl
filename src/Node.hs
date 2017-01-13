@@ -42,6 +42,7 @@ import qualified Data.ByteString.Lazy       as LBS
 import           Data.Map.Strict            (Map)
 import qualified Data.Map.Strict            as M
 import           Data.Proxy                 (Proxy (..))
+import           Formatting                 (sformat, shown, (%))
 import           Mockable.Channel
 import           Mockable.Class
 import           Mockable.Concurrent
@@ -52,6 +53,7 @@ import           Node.Internal              (ChannelIn (..), ChannelOut (..))
 import qualified Node.Internal              as LL
 import           Node.Message
 import           System.Random              (StdGen)
+import           System.Wlog                (WithLogger, logDebug)
 
 data Node m = Node {
       nodeId       :: LL.NodeId
@@ -154,11 +156,24 @@ makeListenerIndex = foldr combine (M.empty, [])
             overlapping = maybe [] (const [name]) replaced
         in  (dict', overlapping ++ existing)
 
+logOnSendFail
+    :: ( WithLogger m )
+    => LL.NodeId
+    -> Either (NT.TransportError NT.SendErrorCode) ()
+    -> m ()
+logOnSendFail nodeId outcome = do
+    case outcome of
+        Left err ->
+            logDebug $ sformat ("Data transmition failed to "%shown%": "%shown)
+                nodeId err
+        Right _  -> pure ()
+
 -- | Send actions for a given 'LL.Node'.
 nodeSendActions
     :: forall m packing .
        ( Mockable Channel m, Mockable Throw m, Mockable Catch m
        , Mockable Bracket m, Mockable Fork m, Mockable SharedAtomic m
+       , WithLogger m
        , Packable packing MessageName )
     => LL.Node m
     -> packing
@@ -173,12 +188,13 @@ nodeSendActions nodeUnit packing =
         => LL.NodeId
         -> msg
         -> m ()
-    nodeSendTo = \nodeId msg ->
-        LL.withOutChannel nodeUnit nodeId $ \channelOut ->
+    nodeSendTo = \nodeId msg -> do
+        outcome <- LL.withOutChannel nodeUnit nodeId $ \channelOut ->
             LL.writeChannel channelOut $ concatMap LBS.toChunks
                 [ packMsg packing $ messageName' msg
                 , packMsg packing msg
                 ]
+        logOnSendFail nodeId outcome
 
     nodeWithConnectionTo
         :: forall snd rcv t .
@@ -191,16 +207,19 @@ nodeSendActions nodeUnit packing =
             let msgName  = messageName (Proxy :: Proxy snd)
                 cactions :: ConversationActions snd rcv m
                 cactions = nodeConversationActions nodeUnit nodeId packing inchan outchan
-            LL.writeChannel outchan . LBS.toChunks $
+            outcome <- LL.writeChannel outchan . LBS.toChunks $
                 packMsg packing msgName
+
+            logOnSendFail nodeId outcome
+            -- TODO: don't start conversation on fail
             f cactions
 
 -- | Conversation actions for a given peer and in/out channels.
 nodeConversationActions
     :: forall packing snd rcv m .
-       ( Mockable Throw m, Mockable Bracket m, Mockable Channel m, Mockable SharedAtomic m
+       ( Mockable Throw m, Mockable Channel m
+       , WithLogger m
        , Packable packing snd
-       , Packable packing MessageName
        , Unpackable packing rcv
        )
     => LL.Node m
@@ -209,18 +228,21 @@ nodeConversationActions
     -> ChannelIn m
     -> ChannelOut m
     -> ConversationActions snd rcv m
-nodeConversationActions _ _ packing inchan outchan =
+nodeConversationActions _ peerId packing inchan outchan =
     ConversationActions nodeSend nodeRecv
     where
 
-    nodeSend = \body ->
-        LL.writeChannel outchan . LBS.toChunks $ packMsg packing body
+    nodeSend = \body -> do
+        outcome <- LL.writeChannel outchan . LBS.toChunks $ packMsg packing body
+        logOnSendFail peerId outcome
 
     nodeRecv = do
         next <- recvNext' inchan packing
         case next of
             End     -> pure Nothing
-            NoParse -> error "Unexpected end of conversation input"
+            NoParse -> do
+                logDebug "Unexpected end of conversation input"
+                pure Nothing
             Input t -> pure (Just t)
 
 data NodeAction packing m t = NodeAction [Listener packing m] (SendActions packing m -> m t)
@@ -237,6 +259,7 @@ node
        , Mockable Async m
        , MonadFix m
        , Serializable packing MessageName
+       , WithLogger m
        )
     => NT.Transport m
     -> StdGen
@@ -265,17 +288,17 @@ node transport prng packing k = do
     handlerIn listenerIndex sendActions peerId inchan = do
         input <- recvNext' inchan packing
         case input of
-            End -> error "handerIn : unexpected end of input"
+            End -> logDebug "handerIn : unexpected end of input"
             -- TBD recurse and continue handling even after a no parse?
-            NoParse -> error "handlerIn : failed to parse message name"
+            NoParse -> logDebug "handlerIn : failed to parse message name"
             Input msgName -> do
                 let listener = M.lookup msgName listenerIndex
                 case listener of
                     Just (ListenerActionOneMsg action) -> do
                         input' <- recvNext' inchan packing
                         case input' of
-                            End -> error "handerIn : unexpected end of input"
-                            NoParse -> error "handlerIn : failed to parse message body"
+                            End -> logDebug "handerIn : unexpected end of input"
+                            NoParse -> logDebug "handlerIn : failed to parse message body"
                             Input msgBody -> do
                                 action peerId sendActions msgBody
                     -- If it's a conversation listener, then that's an error, no?
@@ -294,8 +317,8 @@ node transport prng packing k = do
     handlerInOut nodeUnit listenerIndex sendActions peerId inchan outchan = do
         input <- recvNext' inchan packing
         case input of
-            End -> error "handlerInOut : unexpected end of input"
-            NoParse -> error "handlerInOut : failed to parse message name"
+            End -> logDebug "handlerInOut : unexpected end of input"
+            NoParse -> logDebug "handlerInOut : failed to parse message name"
             Input msgName -> do
                 let listener = M.lookup msgName listenerIndex
                 case listener of

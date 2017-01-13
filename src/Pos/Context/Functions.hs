@@ -27,7 +27,7 @@ module Pos.Context.Functions
 
 import           Control.Concurrent.MVar (putMVar)
 import qualified Control.Concurrent.STM  as STM
-import           Control.TimeWarp.Timed  (Microsecond)
+import           Data.Time.Units         (Microsecond)
 import           Universum
 
 import           Pos.Context.Class       (WithNodeContext (..))

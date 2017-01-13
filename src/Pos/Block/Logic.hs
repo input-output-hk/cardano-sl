@@ -240,7 +240,7 @@ getHeadersFromManyTo checkpoints startM = runMaybeT $ do
         whileCond bh depth =
             not (parentIsCheckpoint bh) && depth < maxHeadersMessage
     headers <- MaybeT $ NE.nonEmpty <$> DB.loadHeadersWhile startFrom whileCond
-    lift $ logDebug $ sformat ("God headers: "%listJson) headers
+    lift $ logDebug $ sformat ("Got headers: "%listJson) headers
     if parentIsCheckpoint $ headers ^. _neHead
     then do
         lift $ logDebug "ghmft: branch 1"
@@ -248,7 +248,7 @@ getHeadersFromManyTo checkpoints startM = runMaybeT $ do
     else do
         let lowestCheckpoint =
                 minimumBy (comparing flattenEpochOrSlot) validCheckpoints
-            loadUpCond _ h = h < maxHeadersMessage
+            loadUpCond _ h = h < 3 * maxHeadersMessage
         lift $ logDebug "ghmft: branch 2 loading"
         up <- lift $ GS.loadHeadersUpWhile lowestCheckpoint loadUpCond
         lift $ logDebug "ghmft: branch 2 loading done"

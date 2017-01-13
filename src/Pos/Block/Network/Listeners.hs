@@ -10,7 +10,7 @@ module Pos.Block.Network.Listeners
 
 import           Control.Concurrent.STM.TBQueue (isFullTBQueue, writeTBQueue)
 import           Control.Lens                   ((^.))
-import           Data.List.NonEmpty             (NonEmpty ((:|)), nonEmpty)
+import           Data.List.NonEmpty             (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty             as NE
 import           Data.Proxy                     (Proxy (..))
 import           Formatting                     (sformat, shown, stext, (%))
@@ -31,6 +31,7 @@ import           Pos.Block.Network.Types        (InConv (..), MsgBlock (..),
                                                  MsgGetBlocks (..), MsgGetHeaders (..),
                                                  MsgHeaders (..))
 import           Pos.Communication.BiP          (BiP (..))
+import           Pos.Constants                  (k)
 import           Pos.Context                    (getNodeContext, ncBlockRetrievalQueue)
 import           Pos.Crypto                     (hash, shortHashF)
 import qualified Pos.DB                         as DB
@@ -38,7 +39,8 @@ import           Pos.DB.Error                   (DBError (DBMalformed))
 import           Pos.DHT.Model                  (nodeIdToAddress)
 import           Pos.Ssc.Class.Types            (Ssc (..))
 import           Pos.Types                      (BlockHeader, HasHeaderHash (..),
-                                                 HeaderHash, verifyHeaders)
+                                                 HeaderHash, headerHashG, prevBlockL,
+                                                 verifyHeaders)
 import           Pos.Util                       (_neHead, _neLast)
 import           Pos.Util                       (stubListenerConv, stubListenerOneMsg)
 import           Pos.WorkMode                   (WorkMode)
@@ -76,8 +78,12 @@ matchRequestedHeaders
     => NonEmpty (BlockHeader ssc) -> MsgGetHeaders ssc -> Bool
 matchRequestedHeaders headers@(newTip :| hs) mgh =
     let startHeader = NE.last headers
-        startMatches = hash startHeader `elem` mghFrom mgh
-        mghToMatches = Just (hash newTip) == mghTo mgh
+        startMatches =
+            or [ (startHeader ^. headerHashG) `elem` mghFrom mgh
+               , (startHeader ^. prevBlockL) `elem` mghFrom mgh]
+        mghToMatches
+            | length headers > k = True
+            | otherwise =  Just (hash newTip) == mghTo mgh
      in and [ startMatches
             , mghToMatches
             , formChain
@@ -110,7 +116,7 @@ handleGetBlocks = ListenerActionConversation $ \__peerId __sendActions conv -> d
         hashes <- getHeadersFromToIncl mgbFrom mgbTo
         maybe warn (sendBlocks conv) hashes
   where
-    warn = logWarning $ "getBLocksByHeaders@retrieveHeaders returned Nothing"
+    warn = logWarning $ "getBlocksByHeaders@retrieveHeaders returned Nothing"
     failMalformed =
         throwM $ DBMalformed $
         "hadleGetBlocks: getHeadersFromToIncl returned header that doesn't " <>
@@ -193,7 +199,9 @@ handleUnsolicitedHeader
     -> SendActions BiP m
     -> m ()
 handleUnsolicitedHeader header peerId sendActions = do
-    logDebug "handleUnsolicitedHeader: single header was propagated, processing"
+    logDebug $ sformat
+        ("handleUnsolicitedHeader: single header "%shortHashF%" was propagated, processing")
+        hHash
     classificationRes <- classifyNewHeader header
     -- TODO: should we set 'To' hash to hash of header or leave it unlimited?
     case classificationRes of
@@ -206,7 +214,9 @@ handleUnsolicitedHeader header peerId sendActions = do
             whenJust mghM $ \mgh ->
                 withConnectionTo sendActions peerId $ processAlt mgh
         CHUseless reason -> logDebug $ sformat uselessFormat hHash reason
-        CHInvalid _ -> pass -- TODO: ban node for sending invalid block.
+        CHInvalid _ -> do
+            logDebug $ sformat ("handleUnsolicited: header "%shortHashF%" is invalid") hHash
+            pass -- TODO: ban node for sending invalid block.
   where
     processAlt mgh conv = do
         logDebug "handleUnsolicitedHeader: withConnection: sending MsgGetHeaders"

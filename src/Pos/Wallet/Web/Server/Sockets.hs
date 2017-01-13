@@ -62,7 +62,7 @@ switchConnection var pending = do
     atomically . writeTVar var $ Just conn
     sendWS var ConnectionOpened
     WS.forkPingThread conn 30
-    mempty <* ignoreData conn `finally` releaseResources
+    forever (ignoreData conn) `finally` releaseResources
   where
     ignoreData :: WS.Connection -> IO Text
     ignoreData = WS.receiveData

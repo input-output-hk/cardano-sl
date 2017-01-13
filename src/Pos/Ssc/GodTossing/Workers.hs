@@ -9,7 +9,7 @@ module Pos.Ssc.GodTossing.Workers
        ) where
 
 import           Control.Concurrent.STM           (readTVar)
-import           Control.Lens                     (use, view, (%=), _2, _3)
+import           Control.Lens                     (view, _2, _3)
 import           Control.Monad.Trans.Maybe        (runMaybeT)
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.HashSet                     as HS
@@ -18,8 +18,8 @@ import           Data.Tagged                      (Tagged (..))
 import           Data.Time.Units                  (Microsecond, Millisecond, convertUnit)
 import           Formatting                       (bprint, build, ords, sformat, shown,
                                                    (%))
-import           Node                             (SendActions)
 import           Mockable                         (currentTime, delay)
+import           Node                             (SendActions)
 import           Serokell.Util.Exceptions         ()
 import           Serokell.Util.Text               (listJson)
 import           System.Wlog                      (logDebug, logError, logWarning)
@@ -43,15 +43,15 @@ import           Pos.DHT.Model                    (sendToNeighbors)
 import           Pos.Slotting                     (getCurrentSlot, getSlotStart,
                                                    onNewSlot)
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
-import           Pos.Ssc.Extra.MonadLD            (sscGetLocalPayload, sscRunLocalUpdate)
+import           Pos.Ssc.Extra.MonadLD            (sscRunLocalQuery)
 import           Pos.Ssc.GodTossing.Functions     (checkCommShares, computeParticipants,
                                                    genCommitmentAndOpening, hasCommitment,
                                                    hasOpening, hasShares,
                                                    hasVssCertificate, isCommitmentIdx,
                                                    isOpeningIdx, isSharesIdx,
                                                    mkSignedCommitment, vssThreshold)
-import           Pos.Ssc.GodTossing.LocalData     (ldCertificates, ldLastProcessedSlot,
-                                                   localOnNewSlot, sscProcessMessage)
+import           Pos.Ssc.GodTossing.LocalData     (getLocalPayload, localOnNewSlot,
+                                                   sscProcessMessage)
 import           Pos.Ssc.GodTossing.Richmen       (gtLrcConsumer)
 import           Pos.Ssc.GodTossing.SecretStorage (getSecret, getSecretNEpoch, setSecret)
 import           Pos.Ssc.GodTossing.Shares        (getOurShares)
@@ -62,7 +62,6 @@ import           Pos.Ssc.GodTossing.Types         (Commitment, Opening, SignedCo
                                                    gtcVssKeyPair, mkVssCertificate,
                                                    _gpCertificates)
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtMsgTag (..))
-import qualified Pos.Ssc.GodTossing.VssCertData   as VCD
 import           Pos.Types                        (EpochIndex, LocalSlotIndex,
                                                    SlotId (..), StakeholderId,
                                                    StakeholderId, Timestamp (..),
@@ -85,42 +84,39 @@ onStart = checkNSendOurCert
 checkNSendOurCert :: forall m . (WorkMode SscGodTossing m) => SendActions BiP m -> m ()
 checkNSendOurCert sendActions = do
     (_, ourId) <- getOurPkAndId
-    SlotId {..} <- getCurrentSlot
-    ourCertMB <- HM.lookup ourId <$> getGlobalCerts siEpoch
+    sl@SlotId {..} <- getCurrentSlot
+    certts <- getGlobalCerts sl
+    let ourCertMB = HM.lookup ourId certts
     case ourCertMB of
         Just ourCert ->
             if vcExpiryEpoch ourCert > siEpoch then
                 logDebug "Our VssCertificate has been already announced."
             else
-                sendCert True ourId
-        Nothing -> sendCert False ourId
+                sendCert siEpoch True ourId
+        Nothing -> sendCert siEpoch False ourId
   where
-    sendCert resend ourId = do
+    sendCert epoch resend ourId = do
         if resend then
             logDebug "TTL will expire in the next epoch, we will announce it now."
         else
             logDebug "Our VssCertificate hasn't been announced yet, TTL has expired,\
                      \we will announce it now."
         ourVssCertificate <- getOurVssCertificate
-        let msg = DataMsg (MCVssCertificate ourVssCertificate) ourId
+        let contents = MCVssCertificate ourVssCertificate
+        sscProcessOurMessage epoch contents ourId
+        let msg = DataMsg contents ourId
     -- [CSL-245]: do not catch all, catch something more concrete.
-    -- [CSL-514] TODO Log long acting sends
         (sendToNeighbors sendActions msg >> logDebug "Announced our VssCertificate.") `catchAll` \e ->
             logError $
             sformat ("Error announcing our VssCertificate: " % shown) e
     getOurVssCertificate :: m VssCertificate
     getOurVssCertificate = do
-        slotId <- getCurrentSlot
-        localCerts <- fmap _gpCertificates <$> sscGetLocalPayload slotId
-        case localCerts of
-            Nothing -> do
-                logWarning "checkNSendOurCert: local payload is unknown"
-                getOurVssCertificateDo Nothing
-            Just certs -> getOurVssCertificateDo (Just certs)
-    getOurVssCertificateDo :: Maybe VssCertificatesMap -> m VssCertificate
+        localCerts <- _gpCertificates . snd <$> sscRunLocalQuery getLocalPayload
+        getOurVssCertificateDo localCerts
+    getOurVssCertificateDo :: VssCertificatesMap -> m VssCertificate
     getOurVssCertificateDo certs = do
         (_, ourId) <- getOurPkAndId
-        case HM.lookup ourId =<< certs of
+        case HM.lookup ourId certs of
             Just c -> return c
             Nothing -> do
                 ourSk <- ncSecretKey <$> getNodeContext
@@ -129,11 +125,7 @@ checkNSendOurCert sendActions = do
                     createOurCert =
                         mkVssCertificate ourSk vssKey .
                         (+) (vssMaxTTL - 1) . siEpoch -- TODO fix max ttl on random
-                sscRunLocalUpdate $ do
-                    lps <- use ldLastProcessedSlot
-                    let ourCert = createOurCert lps
-                    ldCertificates %= VCD.insert ourId ourCert
-                    return ourCert
+                createOurCert <$> getCurrentSlot
 
 getOurPkAndId
     :: WorkMode SscGodTossing m
@@ -184,7 +176,8 @@ onNewSlotCommitment sendActions slotId@SlotId {..}
         when shouldSendCommitment $ do
             richmen <-
                 lrcActionOnEpochReason siEpoch "couldn't get SSC richmen" getRichmenSsc
-            participants <- map vcVssKey . toList . computeParticipants richmen <$> getGlobalCerts siEpoch
+            participants <- map vcVssKey . toList . computeParticipants richmen
+                <$> getGlobalCerts slotId
             shouldCreateCommitment <- do
                 se <- getSecretNEpoch
                 pure . maybe True (\((_, comm, _), e) -> not $
@@ -283,10 +276,10 @@ generateAndSetNewSecret
     => SecretKey
     -> SlotId -- ^ Current slot
     -> m (Maybe (SignedCommitment, Opening))
-generateAndSetNewSecret sk SlotId {..} = do
+generateAndSetNewSecret sk sl@SlotId {..} = do
     richmen <-
         lrcActionOnEpochReason siEpoch "couldn't get SSC richmen" getRichmenSsc
-    certs <- getGlobalCerts siEpoch
+    certs <- getGlobalCerts sl
     inAssertMode $ do
         let participantIds =
                 map (addressHash . vcSigningKey) $

@@ -1,3 +1,5 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 -- | High-level scenarios which can be launched.
 
 module Pos.Launcher.Scenario
@@ -7,6 +9,8 @@ module Pos.Launcher.Scenario
        ) where
 
 import           Control.Concurrent.MVar     (putMVar)
+import           Control.Concurrent.STM.TVar (writeTVar)
+import           Development.GitRev          (gitBranch, gitHash)
 import           Formatting                  (build, sformat, (%))
 import           Mockable                    (currentTime, delay, fork, sleepForever)
 import           Node                        (SendActions)
@@ -33,6 +37,7 @@ runNode
     -> SendActions BiP m
     -> m ()
 runNode plugins sendActions = do
+    logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)
     inAssertMode $ logInfo "Assert mode on"
     pk <- ncPublicKey <$> getNodeContext
     addr <- ncPubKeyAddress <$> getNodeContext

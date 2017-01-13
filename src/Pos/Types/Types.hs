@@ -1015,6 +1015,9 @@ class HasHeaderHash a ssc | a -> ssc where
     headerHashG :: Getter a (HeaderHash ssc)
     headerHashG = to headerHash
 
+instance BiSsc ssc => HasHeaderHash (HeaderHash ssc) ssc where
+    headerHash = identity
+
 instance BiSsc ssc => HasHeaderHash (MainBlockHeader ssc) ssc where
     headerHash = hash . Right
 

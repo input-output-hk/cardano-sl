@@ -73,11 +73,11 @@ gtGetGlobalState = sscRunGlobalQuery ask
 
 getGlobalCerts
     :: (MonadSscGS SscGodTossing m)
-    => EpochIndex -> m VssCertificatesMap
-getGlobalCerts epoch =
+    => SlotId -> m VssCertificatesMap
+getGlobalCerts sl =
     sscRunGlobalQuery $
         VCD.certs .
-        VCD.setLastKnownSlot (SlotId epoch 0) <$>
+        VCD.setLastKnownSlot sl <$>
         view (gsVssCertificates)
 
 -- | Verified certs for slotId

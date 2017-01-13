@@ -64,9 +64,9 @@ makeLenses ''NodeDBs
 -- Blocks DB
 ----------------------------------------------------------------------------
 
+-- Todo maybe remove this wrapper at all?
 data StoredBlock ssc = StoredBlock
     { sbBlock  :: !(Block ssc)  -- ^ Block itself.
-    , sbInMain :: !Bool         -- ^ Whether block is part of our main chain.
     } deriving (Generic)
 
 ----------------------------------------------------------------------------

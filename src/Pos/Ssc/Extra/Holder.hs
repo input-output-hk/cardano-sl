@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns         #-}
 {-# LANGUAGE RankNTypes           #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeFamilies         #-}
@@ -77,10 +78,10 @@ instance MonadIO m => MonadSscGS ssc (SscHolder ssc m) where
     getGlobalState = SscHolder (asks sscGlobal) >>= atomically . STM.readTVar
     modifyGlobalState f = SscHolder ask >>= \sscSt -> atomically $ do
                 g <- STM.readTVar (sscGlobal sscSt)
-                let (res, ng) = f g
+                let (res, !ng) = f g
                 STM.writeTVar (sscGlobal sscSt) ng
                 return res
-    setGlobalState newSt = SscHolder (asks sscGlobal) >>= atomically . flip STM.writeTVar newSt
+    setGlobalState !newSt = SscHolder (asks sscGlobal) >>= atomically . flip STM.writeTVar newSt
 
 instance MonadIO m => MonadSscLD ssc (SscHolder ssc m) where
     askSscLD = SscHolder $ asks sscLocal
@@ -88,10 +89,10 @@ instance MonadIO m => MonadSscLD ssc (SscHolder ssc m) where
     modifyLocalData f = SscHolder ask >>= \sscSt -> atomically $ do
                 g <- STM.readTVar (sscGlobal sscSt)
                 l <- STM.readTVar (sscLocal sscSt)
-                let (res, nl) = f (g, l)
+                let (res, !nl) = f (g, l)
                 STM.writeTVar (sscLocal sscSt) nl
                 return res
-    setLocalData newSt = SscHolder (asks sscLocal) >>= atomically . flip STM.writeTVar newSt
+    setLocalData !newSt = SscHolder (asks sscLocal) >>= atomically . flip STM.writeTVar newSt
 
 instance MonadIO m => MonadSscRichmen (SscHolder ssc m) where
     -- -- | Force put richmen into MVar.

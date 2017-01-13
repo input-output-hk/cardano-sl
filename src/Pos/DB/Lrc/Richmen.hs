@@ -51,7 +51,7 @@ import           Pos.Genesis           (genesisDelegation)
 import           Pos.Lrc.Eligibility   (RichmenType (..), findRichmenPure)
 import           Pos.Lrc.Types         (FullRichmenData, Richmen, toRichmen)
 import           Pos.Types             (Coin, EpochIndex, StakeholderId, applyCoinPortion,
-                                        mkCoin, txOutStake)
+                                        txOutStake)
 
 ----------------------------------------------------------------------------
 -- Class

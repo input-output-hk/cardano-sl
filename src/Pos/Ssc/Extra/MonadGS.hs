@@ -21,7 +21,9 @@ module Pos.Ssc.Extra.MonadGS
 import           Control.Lens          ((^.))
 import           Control.Monad.Except  (ExceptT)
 import           Control.Monad.Trans   (MonadTrans)
+import           Formatting            (build, sformat, (%))
 import           Serokell.Util         (VerificationRes)
+import           System.Wlog           (WithLogger, logDebug)
 import           Universum
 
 import           Pos.Context           (WithNodeContext, lrcActionOnEpochReason)
@@ -30,7 +32,7 @@ import qualified Pos.DB.Lrc            as LrcDB
 import           Pos.Ssc.Class.Storage (SscStorageClass (..))
 import           Pos.Ssc.Class.Types   (Ssc (..))
 import           Pos.Types.Types       (EpochIndex, NEBlocks, SharedSeed, epochIndexL)
-import           Pos.Util              (_neHead)
+import           Pos.Util              (inAssertMode, _neHead)
 
 class Monad m => MonadSscGS ssc m | m -> ssc where
     getGlobalState    :: m (SscGlobalState ssc)
@@ -76,9 +78,13 @@ sscCalculateSeed = sscRunGlobalQuery . sscCalculateSeedM @ssc
 
 sscApplyBlocks
     :: forall ssc m.
-       (MonadSscGS ssc m, SscStorageClass ssc)
+       (MonadSscGS ssc m, SscStorageClass ssc, WithLogger m)
     => NEBlocks ssc -> m ()
-sscApplyBlocks = sscRunGlobalModify . sscApplyBlocksM @ssc
+sscApplyBlocks blocks = do
+    sscRunGlobalModify $ sscApplyBlocksM @ssc blocks
+    gs <- getGlobalState @ssc
+    inAssertMode $ do
+        logDebug $ sformat ("After applying blocks SSC global state is:\n" %build) gs
 
 sscRollback
     :: forall ssc m.

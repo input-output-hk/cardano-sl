@@ -10,40 +10,41 @@ module Pos.Lrc.Worker
        , lrcSingleShotNoLock
        ) where
 
-import qualified Data.HashMap.Strict      as HM
-import qualified Data.List.NonEmpty       as NE
-import           Formatting               (build, sformat, (%))
-import           Mockable                 (fork)
-import           Node                     (SendActions)
-import           Serokell.Util.Exceptions ()
-import           System.Wlog              (logInfo)
-import           Universum
-
-import           Pos.Binary.Communication ()
-import           Pos.Communication.BiP    (BiP)
-import           Pos.Constants            (k)
-import qualified Pos.DB                   as DB
-import qualified Pos.DB.GState            as GS
-import           Pos.DB.Lrc               (getLeaders, putEpoch, putLeaders)
-import           Pos.Lrc.Consumer         (LrcConsumer (..))
-import           Pos.Lrc.Consumers        (allLrcConsumers)
-import           Pos.Lrc.Eligibility      (findAllRichmenMaybe)
-import           Pos.Lrc.Error            (LrcError (..))
-import           Pos.Lrc.FollowTheSatoshi (followTheSatoshiM)
-import           Pos.Slotting             (onNewSlot)
-import           Pos.Ssc.Class            (SscWorkersClass)
-import           Pos.Ssc.Extra            (sscCalculateSeed)
-import           Pos.Types                (EpochIndex, EpochOrSlot (..), EpochOrSlot (..),
-                                           HeaderHash, HeaderHash, SlotId (..),
-                                           crucialSlot, getEpochOrSlot, getEpochOrSlot)
-import           Pos.WorkMode             (WorkMode)
 import           Control.Concurrent.STM.TVar (TVar, readTVar, writeTVar)
 import           Control.Monad.Catch         (bracketOnError)
+import qualified Data.HashMap.Strict         as HM
+import qualified Data.List.NonEmpty          as NE
+import           Formatting                  (build, sformat, (%))
+import           Mockable                    (fork)
+import           Node                        (SendActions)
+import           Serokell.Util.Exceptions    ()
+import           System.Wlog                 (logInfo)
+import           Universum
 
+import           Pos.Binary.Communication    ()
 import           Pos.Binary.Communication    ()
 import           Pos.Block.Logic.Internal    (applyBlocksUnsafe, rollbackBlocksUnsafe,
                                               withBlkSemaphore_)
+import           Pos.Communication.BiP       (BiP)
+import           Pos.Constants               (k)
 import           Pos.Context                 (LrcSyncData, getNodeContext, ncLrcSync)
+import qualified Pos.DB                      as DB
+import qualified Pos.DB.GState               as GS
+import           Pos.DB.Lrc                  (getLeaders, putEpoch, putLeaders)
+import           Pos.Lrc.Consumer            (LrcConsumer (..))
+import           Pos.Lrc.Consumers           (allLrcConsumers)
+import           Pos.Lrc.Eligibility         (findAllRichmenMaybe)
+import           Pos.Lrc.Error               (LrcError (..))
+import           Pos.Lrc.FollowTheSatoshi    (followTheSatoshiM)
+import           Pos.Slotting                (onNewSlot)
+import           Pos.Ssc.Class               (SscWorkersClass)
+import           Pos.Ssc.Extra               (sscCalculateSeed)
+import           Pos.Types                   (EpochIndex, EpochOrSlot (..),
+                                              EpochOrSlot (..), HeaderHash, HeaderHash,
+                                              SlotId (..), crucialSlot, getEpochOrSlot,
+                                              getEpochOrSlot)
+import           Pos.Util                    (logWarningWaitLinear)
+import           Pos.WorkMode                (WorkMode)
 
 lrcOnNewSlotWorker
     :: (SscWorkersClass ssc, WorkMode ssc m)
@@ -76,17 +77,23 @@ lrcSingleShotImpl withSemaphore epoch consumers = do
     tryAcuireExclusiveLock epoch lock onAcquiredLock
   where
     onAcquiredLock = do
-        expectedRichmenComp <- filterM (flip lcIfNeedCompute epoch) consumers
-        needComputeLeaders <- isNothing <$> getLeaders epoch
-        let needComputeRichmen = not . null $ expectedRichmenComp
-        when needComputeLeaders $ logInfo "Need to compute leaders"
-        when needComputeRichmen $ logInfo "Need to compute richmen"
-        when (needComputeLeaders || needComputeRichmen) $ do
+        (need, filteredConsumers) <-
+            logWarningWaitLinear 5 "determining whether LRC is needed" $ do
+                expectedRichmenComp <-
+                    filterM (flip lcIfNeedCompute epoch) consumers
+                needComputeLeaders <- isNothing <$> getLeaders epoch
+                let needComputeRichmen = not . null $ expectedRichmenComp
+                when needComputeLeaders $ logInfo "Need to compute leaders"
+                when needComputeRichmen $ logInfo "Need to compute richmen"
+                return $
+                    ( needComputeLeaders || needComputeRichmen
+                    , expectedRichmenComp)
+        when need $ do
             logInfo "LRC is starting"
             if withSemaphore
-            then withBlkSemaphore_ $ lrcDo epoch expectedRichmenComp
+                then withBlkSemaphore_ $ lrcDo epoch filteredConsumers
             -- we don't change/use it in lcdDo in fact
-            else void . lrcDo epoch expectedRichmenComp =<< GS.getTip
+                else void . lrcDo epoch filteredConsumers =<< GS.getTip
             logInfo "LRC has finished"
         putEpoch epoch
         logInfo "LRC has updated LRC DB"

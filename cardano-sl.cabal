@@ -202,6 +202,7 @@ library
                         Pos.DB.GState.Delegation
                         Pos.DB.GState.GState
                         Pos.DB.GState.Update
+                        Pos.DB.GState.BlockExtra
                         Pos.DB.GState.Utxo
                         Pos.DB.Holder
                         Pos.DB.Lrc
@@ -370,6 +371,7 @@ library
                       , filepath
                       , focus
                       , formatting
+                      , gitrev
                       , hashable
                       , http-client
                       , http-client-tls

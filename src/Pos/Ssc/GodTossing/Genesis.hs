@@ -42,8 +42,8 @@ genesisVssPublicKeys = map toVssPublicKey genesisVssKeyPairs
 genesisCertificates :: VssCertificatesMap
 genesisCertificates =
     case l of
-        c0:_:cs -> HM.fromList $ c0 : cs
-        _       -> panic "genesisCertificates: can't happen"
+        c0:c1:_:cs -> HM.fromList $ c0 : c1 : cs
+        _          -> panic "genesisCertificates: can't happen"
   where
     l =
         zipWith3
@@ -53,5 +53,5 @@ genesisCertificates =
             [0 :: Int ..]
             genesisKeyPairs
             genesisVssPublicKeys
-    ttlExp 2 = EpochIndex vssMinTTL
+    ttlExp 1 = EpochIndex vssMinTTL - 1
     ttlExp _ = vssMaxTTL - 1

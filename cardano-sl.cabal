@@ -377,6 +377,7 @@ library
                       , filepath
                       , focus
                       , formatting
+                      , gitrev
                       , hashable
                       , http-client
                       , http-client-tls

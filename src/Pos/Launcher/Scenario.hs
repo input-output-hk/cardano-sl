@@ -1,3 +1,5 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 -- | High-level scenarios which can be launched.
 
 module Pos.Launcher.Scenario
@@ -8,6 +10,7 @@ module Pos.Launcher.Scenario
 
 import           Control.Concurrent.STM.TVar (writeTVar)
 import           Control.TimeWarp.Timed      (currentTime, for, fork, sleepForever, wait)
+import           Development.GitRev          (gitBranch, gitHash)
 import           Formatting                  (build, sformat, (%))
 import           System.Wlog                 (logError, logInfo)
 import           Universum
@@ -26,6 +29,7 @@ import           Pos.WorkMode                (WorkMode)
 -- | Run full node in any WorkMode.
 runNode :: (SscConstraint ssc, WorkMode ssc m) => [m ()] -> m ()
 runNode plugins = do
+    logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)
     inAssertMode $ logInfo "Assert mode on"
     pk <- ncPublicKey <$> getNodeContext
     addr <- ncPubKeyAddress <$> getNodeContext

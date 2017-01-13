@@ -17,10 +17,14 @@ module Pos.DB.GState.Balances
 
          -- * Iteration
        , iterateByStake
+
+         -- * Sanity checks
+       , sanityCheckBalances
        ) where
 
 import qualified Data.Map             as M
 import qualified Database.RocksDB     as Rocks
+import           Formatting           (sformat, (%))
 import           Universum
 
 import           Pos.Binary.Class     (encodeStrict)
@@ -30,9 +34,10 @@ import           Pos.DB.Error         (DBError (..))
 import           Pos.DB.Functions     (RocksBatchOp (..), WithKeyPrefix (..),
                                        encodeWithKeyPrefix)
 import           Pos.DB.GState.Common (getBi, putBi)
-import           Pos.Types            (Coin, StakeholderId, Utxo, sumCoins, txOutStake,
-                                       unsafeIntegerToCoin)
+import           Pos.Types            (Coin, StakeholderId, Utxo, coinF, mkCoin, sumCoins,
+                                       txOutStake, unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Util             (maybeThrow)
+import           Pos.Util.Iterator    (MonadIterator (..))
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -96,6 +101,24 @@ type IterType = (StakeholderId, Coin)
 iterateByStake :: forall v m ssc a . (MonadDB ssc m, MonadMask m)
                 => DBMapIterator IterType v m a -> (IterType -> v) -> m a
 iterateByStake iter f = mapIterator @IterType @v iter f =<< getUtxoDB
+
+----------------------------------------------------------------------------
+-- Sanity checks
+----------------------------------------------------------------------------
+
+sanityCheckBalances
+    :: (MonadMask m, MonadDB ssc m)
+    => m ()
+sanityCheckBalances = do
+    let step sm = nextItem >>= maybe (pure sm) (\c -> step (unsafeAddCoin sm c))
+    realTotalStake <- iterateByStake (step (mkCoin 0)) snd
+    totalStake <- getTotalFtsStake
+    let fmt =
+            ("Wrong total FTS stake: \
+             \real total FTS stake (sum of balances): "%coinF%
+             ", but getTotalFtsStake returned: "%coinF)
+    unless (realTotalStake == totalStake) $
+        throwM $ DBMalformed $ sformat fmt realTotalStake totalStake
 
 ----------------------------------------------------------------------------
 -- Keys

@@ -10,8 +10,10 @@ module Pos.DB.DB
        , getTipBlock
        , getTipBlockHeader
        , loadBlocksFromTipWhile
+       , sanityCheckDB
        ) where
 
+import           Control.Monad.Catch      (MonadMask)
 import           System.Directory         (createDirectoryIfMissing, doesDirectoryExist,
                                            removeDirectoryRecursive)
 import           System.FilePath          ((</>))
@@ -26,7 +28,7 @@ import           Pos.DB.Error             (DBError (DBMalformed))
 import           Pos.DB.Functions         (openDB)
 import           Pos.DB.GState.BlockExtra (prepareGStateBlockExtra)
 import           Pos.DB.GState.Common     (getTip)
-import           Pos.DB.GState.GState     (prepareGStateDB)
+import           Pos.DB.GState.GState     (prepareGStateDB, sanityCheckGStateDB)
 import           Pos.DB.Lrc               (prepareLrcDB)
 import           Pos.DB.Misc              (prepareMiscDB)
 import           Pos.DB.Types             (NodeDBs (..))
@@ -88,6 +90,11 @@ loadBlocksFromTipWhile
     :: (Ssc ssc, MonadDB ssc m)
     => (Block ssc -> Int -> Bool) -> m [(Block ssc, Undo)]
 loadBlocksFromTipWhile condition = getTip >>= loadBlocksWithUndoWhile condition
+
+sanityCheckDB
+    :: (MonadMask m, MonadDB ssc m)
+    => m ()
+sanityCheckDB = sanityCheckGStateDB
 
 ----------------------------------------------------------------------------
 -- Details

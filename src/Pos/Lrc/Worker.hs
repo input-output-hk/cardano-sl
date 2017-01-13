@@ -41,11 +41,9 @@ import           Pos.Ssc.Class               (SscWorkersClass)
 import           Pos.Ssc.Extra               (sscCalculateSeed)
 import           Pos.Types                   (EpochIndex, EpochOrSlot (..),
                                               EpochOrSlot (..), HeaderHash, HeaderHash,
-                                              SlotId (..), coinF, crucialSlot,
-                                              getEpochOrSlot, getEpochOrSlot, mkCoin,
-                                              unsafeAddCoin)
+                                              SlotId (..), crucialSlot, getEpochOrSlot,
+                                              getEpochOrSlot)
 import           Pos.Util                    (inAssertMode, logWarningWaitLinear)
-import           Pos.Util.Iterator           (MonadIterator (..))
 import           Pos.WorkMode                (WorkMode)
 
 lrcOnNewSlotWorker
@@ -133,17 +131,7 @@ lrcDo epoch consumers tip = tip <$ do
     crucial = EpochOrSlot $ Right $ crucialSlot epoch
     compute = do
         richmenComputationDo epoch consumers
-        inAssertMode $ do
-            let step sm = nextItem  >>=
-                    maybe (pure sm) (\c -> step (unsafeAddCoin sm c))
-            realTotalStake <- GS.iterateByStake (step (mkCoin 0)) snd
-            totalStake <- GS.getTotalFtsStake
-            unless (realTotalStake == totalStake) $ do
-                void $ panic $ sformat ("Wrong total FTS stake: \
-                        \real total FTS stake (sum of balances): " % coinF %
-                        ", but getTotalFtsStake returned: " % coinF)
-                        realTotalStake totalStake
-
+        inAssertMode DB.sanityCheckDB
         leadersComputationDo epoch
 
 leadersComputationDo :: WorkMode ssc m => EpochIndex -> m ()

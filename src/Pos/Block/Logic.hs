@@ -40,7 +40,7 @@ import qualified Data.Text                 as T
 import           Formatting                (build, int, ords, sformat, stext, (%))
 import           Serokell.Util.Verify      (VerificationRes (..), formatAllErrors,
                                             isVerSuccess, verResToMonadError)
-import           System.Wlog               (logDebug)
+import           System.Wlog               (logDebug, logError)
 import           Universum
 
 import           Pos.Block.Logic.Internal  (applyBlocksUnsafe, rollbackBlocksUnsafe,
@@ -562,6 +562,9 @@ createMainBlockFinish slotId pSk prevHeader = do
             fromMaybe (panic "Undo for tx not found")
                       (HM.lookup (fst tx) txUndo) : undos
     let blockUndo = Undo (reverse $ foldl' prependToUndo [] localTxs) pskUndo
+    lift $ inAssertMode $ verifyBlocksPrefix (pure (Right blk)) >>=
+        \case Left err -> logError $ sformat ("We've created bad block: "%stext) err
+              Right _ -> pass
     lift $ blk <$ applyBlocksUnsafe (pure (Right blk, blockUndo))
   where
     onBrokenTopo = throwError "Topology of local transactions is broken!"

@@ -20,7 +20,7 @@ import           Universum             hiding (catchAll)
 
 import           Pos.Constants         (blkSecurityParam, slotDuration)
 import           Pos.Crypto            (hash)
-import           Pos.DB                (loadBlocksFromTipWhile)
+import           Pos.DB                (loadBlundsFromTipWhile)
 import           Pos.Slotting          (getCurrentSlot, getSlotStart)
 import           Pos.Ssc.Class         (SscConstraint)
 import           Pos.Types             (SlotId (..), TxId, blockSlot, blockTxs)
@@ -60,7 +60,7 @@ checkTxsInLastBlock :: forall ssc . SscConstraint ssc
 checkTxsInLastBlock TxTimestamps {..} logsPrefix = do
     let lastSafe [] = Nothing
         lastSafe xs = Just $ last xs
-    mBlock <- fmap fst . lastSafe <$> loadBlocksFromTipWhile (\_ depth -> depth < blkSecurityParam)
+    mBlock <- fmap fst . lastSafe <$> loadBlundsFromTipWhile (\_ depth -> depth < blkSecurityParam)
     case mBlock of
         Nothing -> pure ()
         Just (Left _) -> pure ()

@@ -9,7 +9,7 @@ module Pos.DB.DB
        , getTip
        , getTipBlock
        , getTipBlockHeader
-       , loadBlocksFromTipWhile
+       , loadBlundsFromTipWhile
        , sanityCheckDB
        ) where
 
@@ -22,8 +22,7 @@ import           Universum
 
 import           Pos.Context.Class        (WithNodeContext)
 import           Pos.Context.Functions    (genesisLeadersM)
-import           Pos.DB.Block             (getBlock, loadBlocksWithUndoWhile,
-                                           prepareBlockDB)
+import           Pos.DB.Block             (getBlock, loadBlundsWhile, prepareBlockDB)
 import           Pos.DB.Class             (MonadDB)
 import           Pos.DB.Error             (DBError (DBMalformed))
 import           Pos.DB.Functions         (openDB)
@@ -86,12 +85,12 @@ getTipBlockHeader
     => m (BlockHeader ssc)
 getTipBlockHeader = getBlockHeader <$> getTipBlock
 
--- | Load blocks from BlockDB starting from tip and while @condition@ is true.
--- The head of returned list is the youngest block.
-loadBlocksFromTipWhile
+-- | Load blunds from BlockDB starting from tip and while @condition@
+-- is true.  The head of returned list is the youngest blund.
+loadBlundsFromTipWhile
     :: (Ssc ssc, MonadDB ssc m)
     => (Block ssc -> Int -> Bool) -> m [(Block ssc, Undo)]
-loadBlocksFromTipWhile condition = getTip >>= loadBlocksWithUndoWhile condition
+loadBlundsFromTipWhile condition = getTip >>= loadBlundsWhile condition
 
 sanityCheckDB
     :: (MonadMask m, MonadDB ssc m, WithLogger m)

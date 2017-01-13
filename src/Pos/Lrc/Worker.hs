@@ -122,9 +122,9 @@ lrcDo
     :: WorkMode ssc m
     => EpochIndex -> [LrcConsumer m] -> HeaderHash ssc -> m (HeaderHash ssc)
 lrcDo epoch consumers tip = tip <$ do
-    blockUndoList <- DB.loadBlocksFromTipWhile whileAfterCrucial
-    when (null blockUndoList) $ throwM UnknownBlocksForLrc
-    let blunds = NE.fromList blockUndoList
+    blundsList <- DB.loadBlundsFromTipWhile whileAfterCrucial
+    when (null blundsList) $ throwM UnknownBlocksForLrc
+    let blunds = NE.fromList blundsList
     rollbackBlocksUnsafe blunds
     compute `finally` applyBlocksUnsafe (NE.reverse blunds)
   where

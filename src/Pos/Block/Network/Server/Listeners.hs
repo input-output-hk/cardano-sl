@@ -18,8 +18,8 @@ import           Mockable                       (fork)
 import           Node                           (ConversationActions (..),
                                                  ListenerAction (..), NodeId (..),
                                                  SendActions (..), sendTo)
-import           Serokell.Util.Text             (listJson, listJsonIndent)
-import           System.Wlog                    (logDebug, logError, logInfo, logWarning)
+import           Serokell.Util.Text             (listJson)
+import           System.Wlog                    (logDebug, logInfo, logWarning)
 import           Universum
 
 import           Pos.Binary.Communication       ()
@@ -58,13 +58,13 @@ blockListeners =
     ]
 
 blockStubListeners
-    :: ( Ssc ssc, Monad m )
+    :: ( Monad m )
     => Proxy ssc -> [ListenerAction BiP m]
 blockStubListeners p =
     [ stubListenerConv $ (const Proxy :: Proxy ssc -> Proxy (MsgGetHeaders ssc)) p
     , stubListenerOneMsg $ (const Proxy :: Proxy ssc -> Proxy (MsgGetBlocks ssc)) p
-    , stubListenerOneMsg $ (const Proxy :: Proxy ssc -> Proxy (MsgHeaders ssc)) p
-    , stubListenerOneMsg $ (const Proxy :: Proxy ssc -> Proxy (MsgBlock ssc)) p
+    --, stubListenerOneMsg $ (const Proxy :: Proxy ssc -> Proxy (MsgHeaders ssc)) p
+    --, stubListenerOneMsg $ (const Proxy :: Proxy ssc -> Proxy (MsgBlock ssc)) p
     ]
 
 -- | Handles GetHeaders request which means client wants to get
@@ -72,38 +72,42 @@ blockStubListeners p =
 -- field.
 handleGetHeaders
     :: forall ssc m.
-       (ResponseMode ssc m)
-    => MsgGetHeaders ssc -> m ()
-handleGetHeaders MsgGetHeaders {..} = do
-    logDebug "Got request on handleGetHeaders"
-    rhResult <- L.getHeadersFromManyTo mghFrom mghTo
-    case nonEmpty rhResult of
-        Nothing ->
-            logWarning $
-            "handleGetHeaders@retrieveHeadersFromTo returned empty " <>
-            "list, not responding to node"
-        Just ne -> replyToNode $ MsgHeaders ne
+       (WorkMode ssc m)
+    => ListenerAction BiP m
+handleGetHeaders = ListenerActionConversation $
+    \_ _ conv -> do
+        (msg :: Maybe (MsgGetHeaders ssc)) <- recv conv
+        whenJust msg $ \(MsgGetHeaders {..}) -> do
+            logDebug "Got request on handleGetHeaders"
+            rhResult <- L.getHeadersFromManyTo mghFrom mghTo
+            case nonEmpty rhResult of
+                Nothing ->
+                    logWarning $
+                        "handleGetHeaders@retrieveHeadersFromTo returned empty " <>
+                        "list, not responding to node"
+                Just ne -> send conv $ MsgHeaders ne
 
 handleGetBlocks
     :: forall ssc m.
-       (ResponseMode ssc m)
-    => MsgGetBlocks ssc -> m ()
-handleGetBlocks MsgGetBlocks {..} = do
-    logDebug "Got request on handleGetBlocks"
-    hashes <- L.getHeadersFromToIncl mgbFrom mgbTo
-    maybe warn sendBlocks hashes
+       (WorkMode ssc m)
+    => ListenerAction BiP m
+handleGetBlocks = ListenerActionOneMsg $
+    \peerId sendActions (MsgGetBlocks {..} :: MsgGetBlocks ssc) -> do
+        logDebug "Got request on handleGetBlocks"
+        hashes <- L.getHeadersFromToIncl mgbFrom mgbTo
+        maybe warn (sendBlocks sendActions peerId) hashes
   where
     warn = logWarning $ "getBLocksByHeaders@retrieveHeaders returned Nothing"
     failMalformed =
         throwM $ DBMalformed $
         "hadleGetBlocks: getHeadersFromToIncl returned header that doesn't " <>
         "have corresponding block in storage."
-    sendBlocks hashes = do
+    sendBlocks sendActions peerId hashes = do
         logDebug $ sformat
             ("handleGetBlocks: started sending blocks one-by-one: "%listJson) hashes
         forM_ hashes $ \hHash -> do
             block <- maybe failMalformed pure =<< DB.getBlock hHash
-            replyToNode $ MsgBlock block
+            sendTo sendActions peerId $ MsgBlock block
         logDebug "handleGetBlocks: blocks sending done"
 
 
@@ -215,28 +219,32 @@ handleBlockHeaders = ListenerActionOneMsg $
 
 handleBlock
     :: forall ssc m.
-       (ResponseMode ssc m, SscWorkersClass ssc)
-    => MsgBlock ssc -> m ()
-handleBlock msg@(MsgBlock blk) = do
-    logDebug $ sformat ("handleBlock: got block "%build) (headerHash blk)
-    pbmr <- processBlockMsg msg =<< getUserState
-    case pbmr of
-        -- [CSL-335] Process intermediate blocks ASAP.
-        PBMintermediate -> do
-            logDebug $ sformat intermediateFormat (headerHash blk)
-        PBMfinal blocks -> do
-            logDebug "handleBlock: it was final block, launching handleBlocks"
-            handleBlocks blocks
-        PBMunsolicited ->
-            -- TODO: ban node for sending unsolicited block.
-            logDebug "handleBlock: got unsolicited"
+       (WorkMode ssc m, SscWorkersClass ssc)
+    => ListenerAction BiP m
+handleBlock = ListenerActionOneMsg $
+    \peerId sendActions ((msg@(MsgBlock blk)) :: MsgBlock ssc) -> do
+        logDebug $ sformat ("handleBlock: got block "%build) (headerHash blk)
+        pbmr <- processBlockMsg msg =<< getPeerState peerId
+        case pbmr of
+            -- [CSL-335] Process intermediate blocks ASAP.
+            PBMintermediate -> do
+                logDebug $ sformat intermediateFormat (headerHash blk)
+            PBMfinal blocks -> do
+                logDebug "handleBlock: it was final block, launching handleBlocks"
+                handleBlocks blocks peerId sendActions
+            PBMunsolicited ->
+                -- TODO: ban node for sending unsolicited block.
+                logDebug "handleBlock: got unsolicited"
   where
     intermediateFormat = "Received intermediate block " %shortHashF
 
 handleBlocks
     :: forall ssc m.
-       (ResponseMode ssc m, SscWorkersClass ssc)
-    => NonEmpty (Block ssc) -> m ()
+       (WorkMode ssc m, SscWorkersClass ssc)
+    => NonEmpty (Block ssc)
+    -> NodeId
+    -> SendActions BiP m
+    -> m ()
 -- Head block is the oldest one here.
 handleBlocks blocks _ sendActions = do
     logDebug "handleBlocks: processing"
@@ -286,7 +294,7 @@ applyWithoutRollback sendActions blocks = do
                 prefix = fmap (view blockHeader) $
                     NE.takeWhile ((/= newTip) . view headerHashG) blocks
                 applied = NE.reverse (toRelay ^. blockHeader :| reverse prefix)
-            relayBlock toRelay
+            relayBlock sendActions toRelay
             logDebug $ blocksAppliedMsg applied
     logDebug "Finished applying blocks w/o rollback"
   where
@@ -319,7 +327,7 @@ applyWithRollback sendActions toApply lca toRollback = do
                 newTip
             logDebug $ blocksRolledBackMsg toRollback
             logDebug $ blocksAppliedMsg toApply
-            relayBlock $ toApply ^. _neLast
+            relayBlock sendActions $ toApply ^. _neLast
   where
     panicBrokenLca = panic "applyWithRollback: nothing after LCA :/"
     toApplyAfterLca =

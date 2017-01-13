@@ -5,29 +5,30 @@ module Pos.Worker
        , statsWorkers
        ) where
 
-import           Data.Tagged           (untag)
-import           Formatting            (sformat, (%))
-import           Mockable              (fork)
-import           Node                  (SendActions)
-import           System.Wlog           (logInfo, logNotice)
+import           Data.Tagged             (untag)
+import           Formatting              (sformat, (%))
+import           Mockable                (fork)
+import           Node                    (SendActions)
+import           System.Wlog             (logInfo, logNotice)
 import           Universum
 
-import           Pos.Block.Worker      (blkWorkers)
-import           Pos.Communication     (BiP, SysStartResponse (..))
-import           Pos.Constants         (slotDuration, sysTimeBroadcastSlots)
-import           Pos.Context           (NodeContext (..), getNodeContext, setNtpLastSlot)
-import           Pos.DHT.Model         (sendToNetwork)
-import           Pos.Lrc.Worker        (lrcOnNewSlotWorker)
-import           Pos.Security.Workers  (SecurityWorkersClass, securityWorkers)
-import           Pos.Slotting          (onNewSlotWithLogging)
-import           Pos.Ssc.Class.Workers (SscWorkersClass, sscWorkers)
-import           Pos.Types             (SlotId, flattenSlotId, slotIdF)
-import           Pos.Update            (usWorkers)
-import           Pos.Util              (waitRandomInterval)
-import           Pos.Util.TimeWarp     (ms)
-import           Pos.Worker.Ntp        (ntpWorker)
-import           Pos.Worker.Stats      (statsWorkers)
-import           Pos.WorkMode          (WorkMode)
+import           Pos.Block.Worker        (blkWorkers)
+import           Pos.Communication       (BiP, SysStartResponse (..))
+import           Pos.Constants           (slotDuration, sysTimeBroadcastSlots)
+import           Pos.Context             (NodeContext (..), getNodeContext,
+                                          setNtpLastSlot)
+import           Pos.DHT.Model.Neighbors (sendToNeighbors)
+import           Pos.Lrc.Worker          (lrcOnNewSlotWorker)
+import           Pos.Security.Workers    (SecurityWorkersClass, securityWorkers)
+import           Pos.Slotting            (onNewSlotWithLogging)
+import           Pos.Ssc.Class.Workers   (SscWorkersClass, sscWorkers)
+import           Pos.Types               (SlotId, flattenSlotId, slotIdF)
+import           Pos.Update              (usWorkers)
+import           Pos.Util                (waitRandomInterval, withWaitLog)
+import           Pos.Util.TimeWarp       (ms)
+import           Pos.Worker.Ntp          (ntpWorker)
+import           Pos.Worker.Stats        (statsWorkers)
+import           Pos.WorkMode            (WorkMode)
 
 -- | Run all necessary workers in separate threads. This call doesn't
 -- block.
@@ -39,11 +40,11 @@ import           Pos.WorkMode          (WorkMode)
 --runWorkers :: (SscWorkersClass ssc, WorkMode ssc m) => m ()
 runWorkers :: (SscWorkersClass ssc, SecurityWorkersClass ssc, WorkMode ssc m) => SendActions BiP m -> m ()
 runWorkers sendActions = mapM_ fork $ map ($ withWaitLog sendActions) $ concat
-    [ [ onNewSlot' True . onNewSlotWorkerImpl ]
+    [ [ onNewSlotWorker ]
     , blkWorkers
     , untag sscWorkers
     , untag securityWorkers
-    , [ntpWorker]
+    , [const ntpWorker]
     , [lrcOnNewSlotWorker]
     , usWorkers
     ]
@@ -62,5 +63,5 @@ onNewSlotWorkerImpl sendActions slotId = do
                         logInfo "Broadcasting system start"
                         sendToNeighbors sendActions $ SysStartResponse sysStart
         send
-        waitRandomInterval' (ms 500) (slotDuration `div` 2)
+        waitRandomInterval (ms 500) (slotDuration `div` 2)
         send

@@ -25,6 +25,7 @@ import           Serokell.Util.Text               (listJson)
 import           System.Wlog                      (logDebug, logError, logWarning)
 import           Universum
 
+import           Pos.Binary.Class                 (Bi)
 import           Pos.Binary.Relay                 ()
 import           Pos.Binary.Ssc                   ()
 import           Pos.Communication.BiP            (BiP)
@@ -38,9 +39,9 @@ import           Pos.Crypto.SecretSharing         (toVssPublicKey)
 import           Pos.Crypto.Signing               (PublicKey)
 import           Pos.DB.GState                    (getTip)
 import           Pos.DB.Lrc                       (getRichmenSsc)
-import           Pos.DHT.Model                 (sendToNeighbors)
+import           Pos.DHT.Model                    (sendToNeighbors)
 import           Pos.Slotting                     (getCurrentSlot, getSlotStart,
-                                                   onNewSlot')
+                                                   onNewSlot)
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
 import           Pos.Ssc.Extra.MonadLD            (sscGetLocalPayload, sscRunLocalUpdate)
 import           Pos.Ssc.GodTossing.Functions     (checkCommShares, computeParticipants,
@@ -55,7 +56,7 @@ import           Pos.Ssc.GodTossing.Richmen       (gtLrcConsumer)
 import           Pos.Ssc.GodTossing.SecretStorage (getSecret, getSecretNEpoch, setSecret)
 import           Pos.Ssc.GodTossing.Shares        (getOurShares)
 import           Pos.Ssc.GodTossing.Storage       (getGlobalCerts, gtGetGlobalState)
-import           Pos.Ssc.GodTossing.Types         (Opening, SignedCommitment,
+import           Pos.Ssc.GodTossing.Types         (Commitment, Opening, SignedCommitment,
                                                    SscGodTossing, VssCertificate (..),
                                                    VssCertificatesMap, gtcParticipateSsc,
                                                    gtcVssKeyPair, mkVssCertificate,
@@ -148,8 +149,8 @@ getOurVssKeyPair = gtcVssKeyPair . ncSscContext <$> getNodeContext
 -- #checkNSendOurCert
 onNewSlotSsc
     :: (WorkMode SscGodTossing m)
-    -> SendActions BiP m
-    => m ()
+    => SendActions BiP m
+    -> m ()
 onNewSlotSsc sendActions = onNewSlot True $ \slotId -> do
     richmen <- HS.fromList . NE.toList <$>
         lrcActionOnEpochReason (siEpoch slotId)
@@ -161,16 +162,16 @@ onNewSlotSsc sendActions = onNewSlot True $ \slotId -> do
     ourId <- addressHash . ncPublicKey <$> getNodeContext
     let enoughStake = ourId `HS.member` richmen
     when (participationEnabled && enoughStake) $ do
-        checkNSendOurCert
-        onNewSlotCommitment slotId
-        onNewSlotOpening slotId
-        onNewSlotShares slotId
+        checkNSendOurCert sendActions
+        onNewSlotCommitment sendActions slotId
+        onNewSlotOpening sendActions slotId
+        onNewSlotShares sendActions slotId
 
 -- Commitments-related part of new slot processing
 onNewSlotCommitment
     :: (WorkMode SscGodTossing m)
-    -> SendActions BiP m
-    => SlotId -> m ()
+    => SendActions BiP m
+    -> SlotId -> m ()
 onNewSlotCommitment sendActions slotId@SlotId {..}
     | not (isCommitmentIdx siSlot) = pass
     | otherwise = do
@@ -202,7 +203,7 @@ onNewSlotCommitment sendActions slotId@SlotId {..}
             mbComm <- fmap (view _2) <$> getSecret
             whenJust mbComm $ \comm -> do
                 sscProcessOurMessage siEpoch (MCCommitment comm) ourId
-                sendOurData CommitmentMsg siEpoch 0 ourId
+                sendOurData sendActions CommitmentMsg siEpoch 0 ourId
 
 -- Openings-related part of new slot processing
 onNewSlotOpening
@@ -301,7 +302,7 @@ generateAndSetNewSecret sk SlotId {..} = do
     warnNoPs =
         logWarning "generateAndSetNewSecret: can't generate, no participants"
     reportDeserFail = logError "Wrong participants list: can't deserialize"
-    generateAndSetNewSecretDo :: NonEmpty (AsBinary VssPublicKey)
+    generateAndSetNewSecretDo :: NE.NonEmpty (AsBinary VssPublicKey)
                               -> m (Maybe (SignedCommitment, Opening))
     generateAndSetNewSecretDo ps = do
         let threshold = vssThreshold $ length ps

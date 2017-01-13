@@ -15,6 +15,7 @@ module Pos.Wallet.Web.Server.Sockets
        , upgradeApplicationWS
        , notify
        , runWalletWS
+       , getWalletWebSocketsState
        ) where
 
 import qualified Network.WebSockets             as WS
@@ -22,17 +23,18 @@ import           Pos.Wallet.Web.ClientTypes     (NotifyEvent (ConnectionClosed, 
 
 import           Control.Lens                   (iso)
 import           Control.Monad.Trans            (MonadTrans (..))
-import           Control.TimeWarp.Rpc           (MonadDialog, MonadTransfer)
-import           Control.TimeWarp.Timed         (MonadTimed, ThreadId)
 import           Data.Aeson                     (encode)
+import           Mockable                       (ChannelT, MFunctor',
+                                                 Mockable (liftMockable), Promise,
+                                                 SharedAtomicT, ThreadId,
+                                                 liftMockableWrappedM)
 import           Network.Wai                    (Application)
 import           Network.Wai.Handler.WebSockets (websocketsOr)
 import           Pos.Aeson.ClientTypes          ()
 import           Pos.Context                    (WithNodeContext)
 import qualified Pos.DB                         as Modern
 import           Pos.Delegation.Class           (MonadDelegation)
-import           Pos.DHT.Model                  (MonadDHT, MonadMessageDHT,
-                                                 WithDefaultMsgHeader)
+import           Pos.DHT.Model                  (MonadDHT)
 import           Pos.Slotting                   (MonadSlots)
 import           Pos.Txp.Class                  (MonadTxpLD)
 import qualified Pos.Update                     as US
@@ -90,11 +92,11 @@ instance WS.WebSocketsData NotifyEvent where
 -- | Holder for web wallet data
 newtype WalletWebSockets m a = WalletWebSockets
     { getWalletWS :: ReaderT ConnectionsVar m a
-    } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow,
+    } deriving (Functor, Applicative, Monad, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
-                MonadWalletDB, WithWalletContext, MonadDialog s p,
-                MonadDHT, MonadMessageDHT s, MonadSlots,
-                WithDefaultMsgHeader, CanLog, MonadKeys, MonadBalances,
+                MonadWalletDB, WithWalletContext,
+                MonadDHT, MonadSlots,
+                CanLog, MonadKeys, MonadBalances,
                 MonadTxHistory, WithNodeContext ssc,
                 Modern.MonadDB ssc, MonadTxpLD ssc, MonadWalletWebDB, MonadDelegation, US.MonadUSMem)
 
@@ -105,16 +107,23 @@ instance Monad m => WrappedM (WalletWebSockets m) where
 instance MonadTrans WalletWebSockets where
     lift = WalletWebSockets . lift
 
-instance MonadTransfer s m => MonadTransfer s (WalletWebSockets m)
-
-type instance ThreadId (WalletWebSockets m) = ThreadId m
-
 -- | MonadWalletWebSockets stands for monad which is able to get web wallet sockets
 class Monad m => MonadWalletWebSockets m where
     getWalletWebSockets :: m ConnectionsVar
 
 instance Monad m => MonadWalletWebSockets (WalletWebSockets m) where
     getWalletWebSockets = WalletWebSockets ask
+
+type instance ThreadId (WalletWebSockets m) = ThreadId m
+type instance Promise (WalletWebSockets m) = Promise m
+type instance SharedAtomicT (WalletWebSockets m) = SharedAtomicT m
+type instance ChannelT (WalletWebSockets m) = ChannelT m
+
+instance ( Mockable d m
+         , MFunctor' d (WalletWebSockets m) (ReaderT ConnectionsVar m)
+         , MFunctor' d (ReaderT ConnectionsVar m) m
+         ) => Mockable d (WalletWebSockets m) where
+    liftMockable = liftMockableWrappedM
 
 runWalletWS :: ConnectionsVar -> WalletWebSockets m a -> m a
 runWalletWS conn = flip runReaderT conn . getWalletWS
@@ -123,3 +132,6 @@ type WebWalletSockets m = (MonadWalletWebSockets m, MonadIO m)
 
 notify :: WebWalletSockets m => NotifyEvent -> m ()
 notify msg = getWalletWebSockets >>= flip sendWS msg
+
+getWalletWebSocketsState :: Monad m => WalletWebSockets m ConnectionsVar
+getWalletWebSocketsState = WalletWebSockets ask

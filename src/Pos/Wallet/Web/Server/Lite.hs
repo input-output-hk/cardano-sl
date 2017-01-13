@@ -33,24 +33,28 @@ import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletSta
                                                 WalletWebDB, getWalletWebState,
                                                 runWalletWebDB)
 import           System.Wlog                   (usingLoggerName)
+import           Pos.WorkMode                  (RawRealMode)
 
 
 type WebHandler = WalletWebSockets (WalletWebDB WalletRealMode)
-type SubKademlia = KeyStorage
-                   (WalletDB
-                    (ContextHolder
-                     (Dialog DHTPacking (Transfer SState))))
 
--- type WebHandler ssc = WalletWebDB (RawRealMode ssc)
-type WebHandler = WalletWebDB WalletRealMode
 type MainWalletState = WS.WalletState
+
+walletServeWebLite
+    :: SendActions BiP WalletRealMode
+    -> FilePath
+    -> Bool
+    -> Word16
+    -> WalletRealMode ()
+walletServeWebLite sendActions =
+    walletServeImpl $ walletApplication $ walletServer sendActions nat
 
 nat :: WebHandler (WebHandler :~> Handler)
 nat = do
     wsConn <- getWalletWebSockets
     ws    <- getWalletWebState
-    kd    <- (lift . lift) ask
-    kinst <- lift $ getKademliaDHTInstance
+    kd    <- lift . lift . lift $ ask
+    kinst <- lift . lift $ getKademliaDHTInstance
     wc    <- getWalletContext
     mws   <- getWalletState
     return $ Nat (convertHandler kinst wc mws kd ws wsConn)

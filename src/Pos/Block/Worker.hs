@@ -33,7 +33,7 @@ import           Pos.DB.GState              (getPSKByIssuerAddressHash)
 import           Pos.DB.Lrc                 (getLeaders)
 import           Pos.DB.Misc                (getProxySecretKeys)
 import           Pos.Slotting               (MonadSlots (getCurrentTime), getSlotStart,
-                                             onNewSlot')
+                                             onNewSlot)
 import           Pos.Ssc.Class              (SscHelpersClass)
 import           Pos.Types                  (MainBlock, ProxySKEither, SlotId (..),
                                              Timestamp (Timestamp),
@@ -46,7 +46,7 @@ import           Pos.WorkMode               (WorkMode)
 
 -- | All workers specific to block processing.
 blkWorkers :: WorkMode ssc m => [SendActions BiP m -> m ()]
-blkWorkers = [onNewSlot' True . blkOnNewSlot]
+blkWorkers = [onNewSlot True . blkOnNewSlot]
 
 -- Action which should be done when new slot starts.
 blkOnNewSlot :: WorkMode ssc m => SendActions BiP m -> SlotId -> m ()

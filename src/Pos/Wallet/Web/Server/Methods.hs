@@ -48,13 +48,15 @@ import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CTx, 
 import           Pos.Wallet.Web.Error          (WalletError (..))
 import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 WalletWebSockets, closeWSConnection,
+                                                getWalletWebSocketsState,
                                                 initWSConnection, runWalletWS,
                                                 upgradeApplicationWS)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
                                                 addOnlyNewTxMeta, closeState,
                                                 createWallet, getTxMeta, getWalletMeta,
-                                                openState, removeWallet, runWalletWebDB,
-                                                setWalletMeta, setWalletTransactionMeta)
+                                                getWalletState, openState, removeWallet,
+                                                runWalletWebDB, setWalletMeta,
+                                                setWalletTransactionMeta)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -90,6 +92,12 @@ walletServer
     -> WalletWebHandler m (WalletWebHandler m :~> Handler)
     -> WalletWebHandler m (Server WalletApi)
 walletServer sendActions nat = do
+    ws    <- lift getWalletState
+    socks <- getWalletWebSocketsState
+    let sendActions' = hoistSendActions
+            (lift . lift)
+            (runWalletWebDB ws . runWalletWS socks)
+            sendActions
     join $ mapM_ insertAddressMeta <$> myCAddresses
     (`enter` servantHandlers sendActions') <$> nat
   where
@@ -114,7 +122,7 @@ servantHandlers sendActions =
     :<|>
      (\a b -> catchWalletError . send sendActions a b)
     :<|>
-     (\a b c d e -> catchWalletError . sendExtended a b c d e)
+     (\a b c d e -> catchWalletError . sendExtended sendActions a b c d e)
     :<|>
      catchWalletError . getHistory
     :<|>

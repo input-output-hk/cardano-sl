@@ -65,15 +65,15 @@ type WebHandler ssc = WalletWebSockets (WalletWebDB (RawRealMode ssc))
 nat :: WebHandler ssc (WebHandler ssc :~> Handler)
 nat = do
     ws       <- getWalletWebState
-    kinst    <- lift . lift $ getKademliaDHTInstance
+    kinst    <- lift . lift . lift $ getKademliaDHTInstance
     tlw      <- getTxpLDWrap
-    ssc      <- lift . lift . lift . lift . lift . lift $ SscHolder ask
+    ssc      <- lift . lift . lift . lift . lift . lift . lift $ SscHolder ask
     delWrap  <- askDelegationState
-    psCtx    <- lift getAllStates
-    -- psCtx    <- lift $ PeerStateCtx ask
+    psCtx    <- lift . lift $ getAllStates
     nc       <- getNodeContext
     modernDB <- Modern.getNodeDBs
-    pure $ Nat (convertHandler kinst nc modernDB tlw ssc ws delWrap psCtx)
+    conn     <- getWalletWebSockets
+    pure $ Nat (convertHandler kinst nc modernDB tlw ssc ws delWrap psCtx conn)
 
 convertHandler
     :: forall ssc a .
@@ -83,12 +83,12 @@ convertHandler
     -> Modern.TxpLDWrap ssc
     -> SscState ssc
     -> WalletState
-<<<<<<< HEAD
     -> (TVar DelegationWrap)
     -> PeerStateSnapshot ssc
+    -> ConnectionsVar
     -> WebHandler ssc a
     -> Handler a
-convertHandler kinst nc modernDBs tlw ssc ws delWrap psCtx handler = do
+convertHandler kinst nc modernDBs tlw ssc ws delWrap psCtx conn handler = do
     liftIO ( runProduction
            . usingLoggerName "wallet-api"
            . Modern.runDBHolder modernDBs
@@ -100,46 +100,9 @@ convertHandler kinst nc modernDBs tlw ssc ws delWrap psCtx handler = do
            . runKademliaDHT kinst
            . (\m -> flip runPeerStateHolder m =<< peerStateFromSnapshot psCtx)
            . runWalletWebDB ws
+           . runWalletWS conn
            $ handler
            ) `Catch.catches` excHandlers
   where
     excHandlers = [Catch.Handler catchServant]
     catchServant = throwError
-=======
-    -> TVar DelegationWrap
-    -> TVar US.MemState
-    -> ConnectionsVar
-    -> WebHandler ssc a
-    -> Handler a
-convertHandler kctx cp nc modernDBs tlw ssc ws delWrap usTVar wsConn handler = do
-    liftIO (runOurDialogRaw cp newMutSocketState "wallet-api" .
-            Modern.runDBHolder modernDBs .
-            runContextHolder nc .
-            runSscHolderRaw ssc .
-            Modern.runTxpLDHolderReader tlw .
-            runDelegationTFromTVar delWrap .
-            US.runUSHolderFromTVar usTVar .
-            runKademliaDHTRaw kctx .
-            runWalletWebDB ws .
-            runWalletWS wsConn $
-            handler)
-    `Catch.catches`
-    excHandlers
-  where
-    excHandlers = [Catch.Handler catchServant]
-    catchServant = throwError
-
-nat :: WebHandler ssc (WebHandler ssc :~> Handler)
-nat = do
-    wsConn <- getWalletWebSockets
-    ws <- getWalletWebState
-    kctx <- lift . lift $ getKademliaDHTCtx
-    tlw <- getTxpLDWrap
-    ssc <- lift . lift . lift . lift . lift . lift $ SscHolder ask
-    delWrap <- askDelegationState
-    usTVar <- US.askUSMemState
-    nc <- getNodeContext
-    modernDB <- Modern.getNodeDBs
-    cp <- lift . lift . lift . lift . lift . lift . lift . lift . lift . lift $ getConnPool
-    pure $ Nat (convertHandler kctx cp nc modernDB tlw ssc ws delWrap usTVar wsConn)
->>>>>>> master

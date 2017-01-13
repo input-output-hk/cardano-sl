@@ -30,38 +30,37 @@ module Pos.Launcher.Runner
 
 import           Control.Concurrent.MVar      (newEmptyMVar, newMVar, takeMVar,
                                                tryReadMVar)
-import           Control.Concurrent.STM.TVar  (TVar, newTVar)
+import           Control.Concurrent.STM.TVar  (newTVar)
 import           Control.Lens                 (each, to, (%~), (^..), (^?), _head, _tail)
-import           Control.Monad.Catch          (bracket)
-import           Control.Monad.Trans.Control  (MonadBaseControl)
-import           Control.Monad.Trans.Resource (runResourceT)
+import           Control.Monad.Fix            (MonadFix)
 import qualified Data.Time                    as Time
+import           Data.Default                 (def)
+import           Data.List                    (nub)
 import           Formatting                   (build, sformat, shown, (%))
-import           Mockable                     (Mockable, MonadMockable, Production (..),
-                                               Throw, bracket, currentTime, fork,
-                                               killThread, throw)
+import           Mockable                     (CurrentTime, Mockable, MonadMockable,
+                                               Production (..), Throw, bracket,
+                                               currentTime, fork, killThread, throw)
 import           Network.Transport            (Transport, closeTransport)
 import           Network.Transport.Concrete   (concrete)
 import qualified Network.Transport.TCP        as TCP
-import           Data.Default                 (def)
-import           Data.List                    (nub)
-import qualified Data.Time                    as Time
-import           Formatting                   (build, sformat, shown, (%))
-import           System.Wlog                  (LoggerName (..), WithLogger, logDebug,
-                                               logInfo, logWarning, releaseAllHandlers,
-                                               traverseLoggerConfig, usingLoggerName)
-import           Universum
+import           Node                        (Listener, NodeAction (..), SendActions,
+                                              hoistListenerAction, hoistSendActions, node)
+import qualified STMContainers.Map            as SM
+import           System.Random                (newStdGen)
+import           System.Wlog                  (WithLogger, logDebug,
+                                               logError, logInfo, logWarning,
+                                               releaseAllHandlers,             traverseLoggerConfig, usingLoggerName,)
+import           Universum                    hiding (bracket)
 
 import           Pos.Binary                   ()
 import           Pos.CLI                      (readLoggerConfig)
-import           Pos.Communication            (MutSocketState, SysStartRequest (..),
-                                               allListeners, forkStrategy,
-                                               newMutSocketState, noCacheMessageNames,
+import           Pos.Communication            (BiP (..), SysStartRequest (..),
+                                               SysStartResponse,
+                                               allListeners, allStubListeners,
                                                sysStartReqListener,
-                                               sysStartReqListenerSlave,
                                                sysStartRespListener)
-import           Pos.Constants                (RunningMode (..), defaultPeers,
-                                               isDevelopment, runningMode)
+import           Pos.Communication.PeerState  (runPeerStateHolder)
+import qualified Pos.Constants                as Const
 import           Pos.Context                  (ContextHolder (..), NodeContext (..),
                                                runContextHolder)
 import           Pos.Crypto                   (createProxySecretKey, toPublic)
@@ -70,31 +69,35 @@ import           Pos.DB                       (MonadDB (..), initNodeDBs, openNo
 import           Pos.DB.GState                (getTip)
 import           Pos.DB.Misc                  (addProxySecretKey)
 import           Pos.Delegation.Class         (runDelegationT)
-import           Pos.DHT.Model                (BiP (..), ListenerDHT, MonadDHT (..),
-                                               mapListenerDHT, sendToNeighbors)
-import           Pos.DHT.Model.Class          (DHTPacking, MonadDHTDialog)
-import           Pos.DHT.Real                 (KademliaDHT, KademliaDHTConfig (..),
-                                               KademliaDHTInstance,
+import           Pos.DHT.Model                (MonadDHT (..),
+                                               sendToNeighbors)
+import           Pos.DHT.Real                 (KademliaDHTInstance,
                                                KademliaDHTInstanceConfig (..),
                                                runKademliaDHT, startDHTInstance,
                                                stopDHTInstance)
 import           Pos.Genesis                  (genesisLeaders)
 import           Pos.Launcher.Param           (BaseParams (..), LoggingParams (..),
                                                NodeParams (..))
-import           Pos.Ssc.Class                (SscConstraint, SscNodeContext, SscParams,
+import           Pos.Ssc.Class                (SscConstraint, SscListenersClass,
+                                               SscNodeContext, SscParams,
                                                sscCreateNodeContext, sscLoadGlobalState)
 import           Pos.Ssc.Extra                (runSscHolder)
-import           Pos.Statistics               (getNoStatsT, runStatsT)
+import           Pos.Statistics               (getNoStatsT, runStatsT')
 import           Pos.Txp.Holder               (runTxpLDHolder)
 import qualified Pos.Txp.Types.UtxoView       as UV
 import           Pos.Types                    (Timestamp (Timestamp), timestampF,
                                                unflattenSlotId)
 import           Pos.Update.MemState          (runUSHolder)
-import           Pos.Util                     (runWithRandomIntervals)
+import           Pos.Util                     (runWithRandomIntervals, stubListenerOneMsg)
+import           Pos.Util.TimeWarp            (sec)
 import           Pos.Util.UserSecret          (peekUserSecret, usKeys, writeUserSecret)
-import           Pos.Worker                   (statsWorkers)
-import           Pos.WorkMode                 (MinWorkMode, ProductionMode, RawRealMode,
-                                               ServiceMode, StatsMode, TimedMode)
+import           Pos.WorkMode                 (ProductionMode, RawRealMode,
+                                               ServiceMode, StatsMode)
+
+data RealModeResources = RealModeResources
+    { rmTransport :: Transport
+    , rmDHT       :: KademliaDHTInstance
+    }
 
 ----------------------------------------------------------------------------
 -- Service node runners
@@ -105,10 +108,10 @@ runTimeSlaveReal :: SscListenersClass ssc => Proxy ssc -> RealModeResources -> B
 runTimeSlaveReal sscProxy res bp = do
     mvar <- liftIO newEmptyMVar
     runServiceMode res bp (listeners mvar) $ \sendActions ->
-      case runningMode of
+      case Const.runningMode of
          Const.Development -> do
            tId <- fork $
-             runWithRandomIntervals' (sec 10) (sec 60) $ liftIO (tryReadMVar mvar) >>= \case
+             runWithRandomIntervals (sec 10) (sec 60) $ liftIO (tryReadMVar mvar) >>= \case
                  Nothing -> do
                     logInfo "Asking neighbors for system start"
                     sendToNeighbors sendActions SysStartRequest `catchAll`
@@ -121,7 +124,7 @@ runTimeSlaveReal sscProxy res bp = do
          Const.Production ts -> logWarning "Time slave launched in Production" $> ts
   where
     listeners mvar =
-      if isDevelopment
+      if Const.isDevelopment
          then allStubListeners sscProxy ++ [stubListenerOneMsg (Proxy :: Proxy SysStartRequest), sysStartRespListener mvar]
          else allStubListeners sscProxy
 
@@ -230,7 +233,7 @@ runStatsMode res np@NodeParams {..} sscnp action = do
 -- Lower level runners
 ----------------------------------------------------------------------------
 
-runCH :: (MonadDB ssc m, MonadFail m)
+runCH :: (MonadDB ssc m, MonadFail m, Mockable CurrentTime m)
       => NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
 runCH NodeParams {..} sscNodeContext act = do
     jlFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
@@ -254,7 +257,7 @@ runCH NodeParams {..} sscNodeContext act = do
     forM_ ownPSKs addProxySecretKey
 
     userSecretVar <- liftIO . atomically . newTVar $ userSecret'
-    ntpData <- (liftIO . runTimedIO $ currentTime) >>= atomically . newTVar . (0, )
+    ntpData <- currentTime >>= atomically . newTVar . (0, )
     lastSlot <- atomically . newTVar $ unflattenSlotId 0
     let ctx =
             NodeContext
@@ -303,7 +306,7 @@ addDevListeners
     -> [Listener BiP m]
     -> [Listener BiP m]
 addDevListeners sysStart ls =
-    if isDevelopment
+    if Const.isDevelopment
     then stubListenerOneMsg (Proxy :: Proxy SysStartResponse) : sysStartReqListener sysStart : ls
     else ls
 
@@ -318,7 +321,7 @@ bracketDHTInstance BaseParams {..} action = bracket acquire release action
         KademliaDHTInstanceConfig
         { kdcKeyOrType = bpDHTKeyOrType
         , kdcPort = bpPort
-        , kdcInitialPeers = nub $ bpDHTPeers ++ defaultPeers
+        , kdcInitialPeers = nub $ bpDHTPeers ++ Const.defaultPeers
         , kdcExplicitInitial = bpDHTExplicitInitial
         }
 

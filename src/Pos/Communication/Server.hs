@@ -22,8 +22,8 @@ import           Pos.Communication.Server.Protocol (protocolListeners,
                                                     protocolStubListeners)
 import           Pos.Communication.Server.SysStart
 import           Pos.Communication.Util            (modifyListenerLogger)
-import           Pos.Delegation.Listeners          (delegationListeners)
-import           Pos.DHT.Model                     (ListenerDHT, MonadDHTDialog)
+import           Pos.Delegation.Listeners          (delegationListeners,
+                                                    delegationStubListeners)
 import           Pos.Ssc.Class.Listeners           (SscListenersClass (..))
 import           Pos.Ssc.Class.Workers             (SscWorkersClass (..))
 import           Pos.Txp.Listeners                 (txListeners, txStubListeners)

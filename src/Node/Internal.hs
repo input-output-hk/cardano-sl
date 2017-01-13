@@ -330,13 +330,15 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                                      NT.ReliableOrdered
                                      NT.ConnectHints{ connectTimeout = Nothing } --TODO use timeout
                           case mconn of
-                            Left  err  -> throw err
+                            Left  err  -> logDebug $
+                                sformat ("Error sending ack to "%shown%": "%shown)
+                                peer err
                             Right conn -> do
                               outcome <- NT.send conn [controlHeaderBidirectionalAck nonce]
                               -- TODO: proper error handling
                               case outcome of
                                   Left err -> logDebug $
-                                    sformat ("Error initiating response to "%shown%
+                                    sformat ("Error sending ack to "%shown%
                                     ": "%shown) peer err
                                   Right _  -> return ()
                               handlerInOut peer (ChannelIn chan) (ChannelOut conn)
@@ -427,7 +429,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                   -- network-transport to allow for selective closing of peer
                   -- connection based on EndPointAddress.
                   Just (ConnectionHandlerFinished _) ->
-                    throw (InternalError "received too much data")
+                        throw (InternalError "received too much data")
 
           NT.ConnectionClosed connid ->
               case Map.lookup connid state of

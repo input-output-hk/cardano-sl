@@ -187,7 +187,7 @@ sendAll SingleMessageStyle sendActions peerId msgs =
     forM_ msgs $ sendTo sendActions peerId
 
 sendAll ConversationStyle  sendActions peerId msgs =
-    withConnectionTo sendActions @_ @Void peerId $
+    void . withConnectionTo sendActions @_ @Void peerId $
         \cactions -> forM_ msgs $ send cactions
 
 receiveAll

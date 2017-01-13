@@ -7,7 +7,8 @@ import           Data.Binary.Put  (Put, putWord8)
 import           Universum
 
 import           Pos.Binary.Class (Bi (..), UnsignedVarInt (..))
-import           Pos.Genesis      (StakeDistribution (..))
+import           Pos.Binary.Ssc   ()
+import           Pos.Genesis      (GenesisData (..), StakeDistribution (..))
 
 getUVI :: Get Word
 getUVI = getUnsignedVarInt <$> get
@@ -25,3 +26,9 @@ instance Bi StakeDistribution where
     put (BitcoinStakes n total)   = putWord8 1 >> putUVI n >> put total
     put (TestnetStakes total m n) = putWord8 2 >> put total >>
                                     putUVI m >> putUVI n
+
+instance Bi GenesisData where
+    get = GenesisData <$> get <*> get <*> get
+    put GenesisData {..} = put gdAddresses >>
+                           put gdDistribution >>
+                           put gdVssCertificates

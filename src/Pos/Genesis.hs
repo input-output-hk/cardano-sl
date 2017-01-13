@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 {-| Blockchain genesis. Not to be confused with genesis block in epoch.
     Blockchain genesis means genesis values which are hardcoded in advance
     (before system starts doing anything). Genesis block in epoch exists
@@ -8,10 +10,13 @@ module Pos.Genesis
        (
        -- * Static state
          StakeDistribution (..)
+       , GenesisData (..)
+#ifdef DEV_MODE
        , genesisAddresses
        , genesisKeyPairs
        , genesisPublicKeys
        , genesisSecretKeys
+#endif
        , genesisUtxo
        , genesisDelegation
 
@@ -25,7 +30,7 @@ module Pos.Genesis
        ) where
 
 import           Control.Lens             ((%~), _head)
-import           Data.Default             (Default (def))
+import           Data.Default             (Default (..))
 import           Data.List                (genericLength, genericReplicate)
 import qualified Data.Map.Strict          as M
 import qualified Data.Text                as T
@@ -36,6 +41,7 @@ import           Universum
 import           Pos.Constants            (curSoftwareVersion, genesisN, mpcThreshold)
 import           Pos.Crypto               (PublicKey, SecretKey, deterministicKeyGen,
                                            unsafeHash)
+import           Pos.Genesis.Types        (GenesisData (..), StakeDistribution (..))
 import           Pos.Lrc.FollowTheSatoshi (followTheSatoshi)
 import           Pos.Script.Type          (ScriptVersion)
 import           Pos.Types                (Address (..), Coin, ProtocolVersion (..),
@@ -50,6 +56,7 @@ import           Pos.Types.Version        (SoftwareVersion (..))
 -- Static state
 ----------------------------------------------------------------------------
 
+#ifdef DEV_MODE
 -- | List of pairs from 'SecretKey' with corresponding 'PublicKey'.
 genesisKeyPairs :: [(PublicKey, SecretKey)]
 genesisKeyPairs = map gen [0 .. genesisN - 1]
@@ -73,19 +80,12 @@ genesisPublicKeys = map fst genesisKeyPairs
 genesisAddresses :: [Address]
 genesisAddresses = map makePubKeyAddress genesisPublicKeys
 
--- | Stake distribution in genesis block.
--- FlatStakes is a flat distribution, i. e. each node has the same amount of coins.
--- BitcoinStakes is a Bitcoin mining pool-style ditribution.
-data StakeDistribution
-    = FlatStakes !Word     -- number of stakeholders
-                 !Coin     -- total number of coins
-    | BitcoinStakes !Word  -- number of stakeholders
-                    !Coin  -- total number of coins
-    | TestnetStakes
-        { sdTotalStake :: !Coin
-        , sdRichmen    :: !Word
-        , sdPoor       :: !Word
-        }
+#else
+
+genesisAddresses :: [Address]
+genesisAddresses = panic "No genesis addresses in prod mode!"
+
+#endif
 
 instance Default StakeDistribution where
     def = FlatStakes genesisN

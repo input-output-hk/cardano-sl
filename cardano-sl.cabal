@@ -214,6 +214,9 @@ library
                         Pos.DB.Misc
                         Pos.DB.Types
 
+                        -- Genesis
+                        Pos.Genesis.Types
+
                         -- LRC
                         Pos.Lrc.Consumer
                         Pos.Lrc.Consumers

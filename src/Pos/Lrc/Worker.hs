@@ -40,6 +40,7 @@ import           Pos.Types                   (EpochIndex, EpochOrSlot (..),
                                               EpochOrSlot (..), HeaderHash, HeaderHash,
                                               SlotId (..), crucialSlot, getEpochOrSlot,
                                               getEpochOrSlot)
+import           Pos.Util                    (logWarningWaitLinear)
 import           Pos.WorkMode                (WorkMode)
 
 lrcOnNewSlotWorker
@@ -73,17 +74,23 @@ lrcSingleShotImpl withSemaphore epoch consumers = do
     tryAcuireExclusiveLock epoch lock onAcquiredLock
   where
     onAcquiredLock = do
-        expectedRichmenComp <- filterM (flip lcIfNeedCompute epoch) consumers
-        needComputeLeaders <- isNothing <$> getLeaders epoch
-        let needComputeRichmen = not . null $ expectedRichmenComp
-        when needComputeLeaders $ logInfo "Need to compute leaders"
-        when needComputeRichmen $ logInfo "Need to compute richmen"
-        when (needComputeLeaders || needComputeRichmen) $ do
+        (need, filteredConsumers) <-
+            logWarningWaitLinear 5 "determining whether LRC is needed" $ do
+                expectedRichmenComp <-
+                    filterM (flip lcIfNeedCompute epoch) consumers
+                needComputeLeaders <- isNothing <$> getLeaders epoch
+                let needComputeRichmen = not . null $ expectedRichmenComp
+                when needComputeLeaders $ logInfo "Need to compute leaders"
+                when needComputeRichmen $ logInfo "Need to compute richmen"
+                return $
+                    ( needComputeLeaders || needComputeRichmen
+                    , expectedRichmenComp)
+        when need $ do
             logInfo "LRC is starting"
             if withSemaphore
-            then withBlkSemaphore_ $ lrcDo epoch expectedRichmenComp
+                then withBlkSemaphore_ $ lrcDo epoch filteredConsumers
             -- we don't change/use it in lcdDo in fact
-            else void . lrcDo epoch expectedRichmenComp =<< GS.getTip
+                else void . lrcDo epoch filteredConsumers =<< GS.getTip
             logInfo "LRC has finished"
         putEpoch epoch
         logInfo "LRC has updated LRC DB"

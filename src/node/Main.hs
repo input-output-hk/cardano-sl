@@ -148,7 +148,8 @@ action args@Args {..} res = do
                     runNodeProduction @SscNistBeacon res (map const currentPlugins ++ walletProd args) currentParams ()
 
 #ifdef DEV_MODE
-userSecretWithGenesisKey :: Args -> UserSecret -> IO (SecretKey, UserSecret)
+userSecretWithGenesisKey
+    :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m (SecretKey, UserSecret)
 userSecretWithGenesisKey Args {..} userSecret = case spendingGenesisI of
     Nothing -> (, userSecret) <$> fetchPrimaryKey userSecret
     Just i -> do
@@ -161,19 +162,22 @@ getKeyfilePath :: Args -> FilePath
 getKeyfilePath Args {..} =
     maybe keyfilePath (\i -> "node-" ++ show i ++ "." ++ keyfilePath) spendingGenesisI
 
-updateUserSecretVSS :: Args -> UserSecret -> IO UserSecret
+updateUserSecretVSS
+    :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m UserSecret
 updateUserSecretVSS Args {..} us = case vssGenesisI of
     Just i  -> return $ us & usVss .~ Just (genesisVssKeyPairs !! i)
     Nothing -> fillUserSecretVSS us
 #else
-userSecretWithGenesisKey :: Args -> UserSecret -> IO (SecretKey, UserSecret)
+userSecretWithGenesisKey
+    :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m (SecretKey, UserSecret)
 userSecretWithGenesisKey _ userSecret =
     (, userSecret) <$> fetchPrimaryKey userSecret
 
 getKeyfilePath :: Args -> FilePath
 getKeyfilePath = keyfilePath
 
-updateUserSecretVSS :: Args -> UserSecret -> IO UserSecret
+updateUserSecretVSS
+    :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m UserSecret
 updateUserSecretVSS _ = fillUserSecretVSS
 #endif
 
@@ -182,7 +186,7 @@ fetchPrimaryKey userSecret = case userSecret ^? usKeys . _head of
     Nothing -> fail $ "No secret keys are found in " ++ getUSPath userSecret
     Just sk -> return sk
 
-fillUserSecretVSS :: UserSecret -> IO UserSecret
+fillUserSecretVSS :: (MonadIO m, MonadFail m) => UserSecret -> m UserSecret
 fillUserSecretVSS userSecret = case userSecret ^. usVss of
     Just _  -> return userSecret
     Nothing -> do
@@ -191,7 +195,7 @@ fillUserSecretVSS userSecret = case userSecret ^. usVss of
         writeUserSecret us
         return us
 
-getNodeParams :: Args -> Timestamp -> IO NodeParams
+getNodeParams :: (MonadIO m, MonadFail m) => Args -> Timestamp -> m NodeParams
 getNodeParams args@Args {..} systemStart = do
     (primarySK, userSecret) <-
         userSecretWithGenesisKey args =<<

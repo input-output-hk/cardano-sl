@@ -84,8 +84,8 @@ onStart = checkNSendOurCert
 checkNSendOurCert :: forall m . (WorkMode SscGodTossing m) => m ()
 checkNSendOurCert = do
     (_, ourId) <- getOurPkAndId
-    SlotId {..} <- getCurrentSlot
-    certts <- getGlobalCerts siEpoch
+    sl@SlotId {..} <- getCurrentSlot
+    certts <- getGlobalCerts sl
     logDebug $ sformat ("Certs: "%listJson) $ HM.keys certts
     let ourCertMB = HM.lookup ourId certts
     case ourCertMB of
@@ -175,7 +175,8 @@ onNewSlotCommitment slotId@SlotId {..}
         when shouldSendCommitment $ do
             richmen <-
                 lrcActionOnEpochReason siEpoch "couldn't get SSC richmen" getRichmenSsc
-            participants <- map vcVssKey . toList . computeParticipants richmen <$> getGlobalCerts siEpoch
+            participants <- map vcVssKey . toList . computeParticipants richmen
+                <$> getGlobalCerts slotId
             shouldCreateCommitment <- do
                 se <- getSecretNEpoch
                 pure . maybe True (\((_, comm, _), e) -> not $
@@ -273,10 +274,10 @@ generateAndSetNewSecret
     => SecretKey
     -> SlotId -- ^ Current slot
     -> m (Maybe (SignedCommitment, Opening))
-generateAndSetNewSecret sk SlotId {..} = do
+generateAndSetNewSecret sk sl@SlotId {..} = do
     richmen <-
         lrcActionOnEpochReason siEpoch "couldn't get SSC richmen" getRichmenSsc
-    certs <- getGlobalCerts siEpoch
+    certs <- getGlobalCerts sl
     inAssertMode $ do
         let participantIds =
                 map (addressHash . vcSigningKey) $

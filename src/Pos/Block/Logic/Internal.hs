@@ -30,7 +30,7 @@ import           Pos.Ssc.Extra        (sscApplyBlocks, sscApplyGlobalState, sscR
 import           Pos.Txp.Logic        (normalizeTxpLD, txApplyBlocks, txRollbackBlocks)
 import           Pos.Types            (Blund, HeaderHash, epochIndexL, headerHashG,
                                        prevBlockL)
-import           Pos.Util             (inAssertMode, spanSafe, _neLast)
+import           Pos.Util             (spanSafe, _neLast)
 import           Pos.WorkMode         (WorkMode)
 
 
@@ -69,7 +69,7 @@ applyBlocksUnsafe blunds0 = do
     sscApplyGlobalState richmen
     GS.writeBatchGState [delegateBatch, txBatch, forwardLinksBatch, inMainBatch]
     normalizeTxpLD
-    inAssertMode DB.sanityCheckDB
+    DB.sanityCheckDB
   where
     -- hehe it's not unsafe yet TODO
     (blunds,_) = spanSafe ((==) `on` view (_1 . epochIndexL)) blunds0

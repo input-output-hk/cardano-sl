@@ -43,7 +43,7 @@ import           Pos.Types                   (EpochIndex, EpochOrSlot (..),
                                               EpochOrSlot (..), HeaderHash, HeaderHash,
                                               SlotId (..), crucialSlot, getEpochOrSlot,
                                               getEpochOrSlot)
-import           Pos.Util                    (inAssertMode, logWarningWaitLinear)
+import           Pos.Util                    (logWarningWaitLinear)
 import           Pos.WorkMode                (WorkMode)
 
 lrcOnNewSlotWorker
@@ -131,7 +131,7 @@ lrcDo epoch consumers tip = tip <$ do
     crucial = EpochOrSlot $ Right $ crucialSlot epoch
     compute = do
         richmenComputationDo epoch consumers
-        inAssertMode DB.sanityCheckDB
+        DB.sanityCheckDB
         leadersComputationDo epoch
 
 leadersComputationDo :: WorkMode ssc m => EpochIndex -> m ()

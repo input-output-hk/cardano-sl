@@ -35,6 +35,7 @@ import           Pos.DB.Types             (NodeDBs (..))
 import           Pos.Ssc.Class.Types      (Ssc)
 import           Pos.Types                (Block, BlockHeader, Undo, getBlockHeader,
                                            headerHash, mkGenesisBlock)
+import           Pos.Util                 (inAssertMode)
 
 -- | Open all DBs stored on disk.
 openNodeDBs
@@ -94,7 +95,7 @@ loadBlocksFromTipWhile condition = getTip >>= loadBlocksWithUndoWhile condition
 sanityCheckDB
     :: (MonadMask m, MonadDB ssc m)
     => m ()
-sanityCheckDB = sanityCheckGStateDB
+sanityCheckDB = inAssertMode sanityCheckGStateDB
 
 ----------------------------------------------------------------------------
 -- Details

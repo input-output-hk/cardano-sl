@@ -27,7 +27,7 @@ import           Serokell.Util.Verify           (VerificationRes (..), isVerSucc
 import           Universum
 
 import           Pos.Binary.Ssc                 ()
-import           Pos.Constants                  (k, vssMaxTTL)
+import           Pos.Constants                  (epochSlots, vssMaxTTL)
 import           Pos.DB                         (MonadDB, getBlock, getBlockHeader,
                                                  loadBlocksWhile)
 import           Pos.Lrc.Types                  (Richmen)
@@ -247,7 +247,7 @@ mpcRollback blocks = do
     prevSlot SlotId{..} =
         if (siSlot == 0) then
             if siEpoch == 0 then panic "Most genesis block passed to mpc rollback"
-            else SlotId (siEpoch - 1) (6 * k - 1)
+            else SlotId (siEpoch - 1) (epochSlots - 1)
         else SlotId siEpoch (siSlot - 1)
     differenceBlock :: Block SscGodTossing -> GSUpdate Bool
     differenceBlock (Left _)  = pure True

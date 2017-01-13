@@ -26,7 +26,7 @@ import           Pos.Binary.Communication    ()
 import           Pos.Block.Logic.Internal    (applyBlocksUnsafe, rollbackBlocksUnsafe,
                                               withBlkSemaphore_)
 import           Pos.Communication.BiP       (BiP)
-import           Pos.Constants               (k)
+import           Pos.Constants               (slotSecurityParam)
 import           Pos.Context                 (LrcSyncData, getNodeContext, ncLrcSync)
 import qualified Pos.DB                      as DB
 import qualified Pos.DB.GState               as GS
@@ -54,7 +54,8 @@ lrcOnNewSlotWorker _ = onNewSlot True $ lrcOnNewSlotImpl
 lrcOnNewSlotImpl
     :: (SscWorkersClass ssc, WorkMode ssc m)
     => SlotId -> m ()
-lrcOnNewSlotImpl SlotId {..} = when (siSlot < k) $ lrcSingleShot siEpoch
+lrcOnNewSlotImpl SlotId {..} =
+    when (siSlot < slotSecurityParam) $ lrcSingleShot siEpoch
 
 -- | Run leaders and richmen computation for given epoch. If stable
 -- block for this epoch is not known, LrcError will be thrown.
@@ -121,13 +122,13 @@ lrcDo
     :: WorkMode ssc m
     => EpochIndex -> [LrcConsumer m] -> HeaderHash ssc -> m (HeaderHash ssc)
 lrcDo epoch consumers tip = tip <$ do
-    blockUndoList <- DB.loadBlocksFromTipWhile whileMoreOrEq5k
+    blockUndoList <- DB.loadBlocksFromTipWhile whileAfterCrucial
     when (null blockUndoList) $ throwM UnknownBlocksForLrc
     let blunds = NE.fromList blockUndoList
     rollbackBlocksUnsafe blunds
     compute `finally` applyBlocksUnsafe (NE.reverse blunds)
   where
-    whileMoreOrEq5k b _ = getEpochOrSlot b > crucial
+    whileAfterCrucial b _ = getEpochOrSlot b > crucial
     crucial = EpochOrSlot $ Right $ crucialSlot epoch
     compute = do
         richmenComputationDo epoch consumers

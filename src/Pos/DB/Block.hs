@@ -127,15 +127,21 @@ loadHeadersWhile startHHash cond = loadHeadersWhileDo startHHash 0
     errFmt =
         ("loadHeadersWhile: no header parent with such HeaderHash: " %shortHashF)
     loadHeadersWhileDo :: HeaderHash ssc -> Int -> m [BlockHeader ssc]
-    loadHeadersWhileDo curH _ | curH == genesisHash = pure []
+    loadHeadersWhileDo curH _
+        | curH == genesisHash = pure []
     loadHeadersWhileDo curH depth = do
         curHeaderM <- getBlockHeader curH
         case curHeaderM of
             Nothing -> throwM $ DBMalformed $ sformat errFmt curH
             Just curHeader
                 | cond curHeader depth ->
-                  (curHeader :) <$> loadHeadersWhileDo (curHeader ^. prevBlockL) (succ depth)
+                    (curHeader :) <$>
+                    loadHeadersWhileDo
+                        (curHeader ^. prevBlockL)
+                        (depth + depthDelta curHeader)
                 | otherwise -> pure []
+    depthDelta (Left _)  = 0
+    depthDelta (Right _) = 1
 
 ----------------------------------------------------------------------------
 -- Initialization

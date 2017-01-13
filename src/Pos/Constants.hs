@@ -69,6 +69,7 @@ import           Universum                  hiding (lift)
 import           Pos.CLI                    (dhtNodeParser)
 import           Pos.CompileConfig          (CompileConfig (..), compileConfig)
 import           Pos.DHT.Model.Types        (DHTNode)
+import           Pos.Genesis.Parser         (compileGenData)
 import           Pos.Types.Timestamp        (Timestamp)
 import           Pos.Types.Types            (CoinPortion, unsafeCoinPortion)
 import           Pos.Types.Version          (ApplicationName, ProtocolVersion (..),
@@ -89,7 +90,7 @@ k = fromIntegral . ccK $ compileConfig
 -- | Length of slot. Also see 'Pos.CompileConfig.ccSlotDurationSec'.
 slotDuration :: Microsecond
 slotDuration = sec . ccSlotDurationSec $ compileConfig
-
+compileGenData
 -- | Number of slots inside one epoch.
 epochSlots :: Integral a => a
 epochSlots = 6 * k
@@ -127,7 +128,11 @@ mpcThreshold = unsafeCoinPortion $ ccMpcThreshold compileConfig
 
 -- | See 'Pos.CompileConfig.ccGenesisN'.
 genesisN :: Integral i => i
+#ifdef DEV_MODE
 genesisN = fromIntegral . ccGenesisN $ compileConfig
+#else
+genesisN = fromIntegral . length . gdAddresses $ compileGenData
+#endif
 
 -- | Maximum amount of transactions we have in storage
 -- (i.e. we can accept without putting them in block).
@@ -175,7 +180,7 @@ runningMode :: RunningMode
 #ifdef DEV_MODE
 runningMode = Development
 #else
-runningMode = Production $ panic "System start is not known!"
+runningMode = Production $ Timestamp $ sec 1484342000
 #endif
 
 -- | @True@ if current mode is 'Development'.

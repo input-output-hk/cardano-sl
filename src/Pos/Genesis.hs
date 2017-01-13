@@ -11,6 +11,7 @@ module Pos.Genesis
        -- * Static state
          StakeDistribution (..)
        , GenesisData (..)
+       , compileGenData
 #ifdef DEV_MODE
        , genesisAddresses
        , genesisKeyPairs
@@ -41,6 +42,7 @@ import           Universum
 import           Pos.Constants            (curSoftwareVersion, genesisN, mpcThreshold)
 import           Pos.Crypto               (PublicKey, SecretKey, deterministicKeyGen,
                                            unsafeHash)
+import           Pos.Genesis.Parser       (compileGenData)
 import           Pos.Genesis.Types        (GenesisData (..), StakeDistribution (..))
 import           Pos.Lrc.FollowTheSatoshi (followTheSatoshi)
 import           Pos.Script.Type          (ScriptVersion)
@@ -83,7 +85,7 @@ genesisAddresses = map makePubKeyAddress genesisPublicKeys
 #else
 
 genesisAddresses :: [Address]
-genesisAddresses = panic "No genesis addresses in prod mode!"
+genesisAddresses = gdAddresses compileGenData
 
 #endif
 

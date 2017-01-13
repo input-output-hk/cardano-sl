@@ -94,8 +94,8 @@ import           Pos.Util                       (runWithRandomIntervals,
                                                  stubListenerOneMsg)
 import           Pos.Util.TimeWarp              (sec)
 import           Pos.Util.UserSecret            (usKeys)
-import           Pos.WorkMode                   (ProductionMode, RawRealMode, ServiceMode,
-                                                 StatsMode)
+import           Pos.WorkMode                   (MinWorkMode, ProductionMode, RawRealMode,
+                                                 ServiceMode, StatsMode)
 data RealModeResources = RealModeResources
     { rmTransport :: Transport
     , rmDHT       :: KademliaDHTInstance
@@ -295,7 +295,7 @@ loggerBracket :: LoggingParams -> IO a -> IO a
 loggerBracket lp = bracket_ (setupLoggers lp) releaseAllHandlers
 
 addDevListeners
-    :: Monad m => Timestamp
+    :: MinWorkMode m => Timestamp
     -> [Listener BiP m]
     -> [Listener BiP m]
 addDevListeners sysStart ls =

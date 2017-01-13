@@ -19,7 +19,8 @@ import           Node                           (ConversationActions (..),
                                                  SendActions (..))
 import           Serokell.Util.Text             (listJson)
 import           Serokell.Util.Verify           (isVerSuccess)
-import           System.Wlog                    (logDebug, logInfo, logWarning)
+import           System.Wlog                    (WithLogger, logDebug, logInfo,
+                                                 logWarning)
 import           Universum
 
 import           Pos.Binary.Communication       ()
@@ -52,7 +53,7 @@ blockListeners =
     , handleBlockHeaders
     ]
 blockStubListeners
-    :: ( Ssc ssc, Monad m )
+    :: ( Ssc ssc, WithLogger m )
     => Proxy ssc -> [ListenerAction BiP m]
 blockStubListeners p =
     [ stubListenerConv $ (const Proxy :: Proxy ssc -> Proxy (MsgGetHeaders ssc)) p

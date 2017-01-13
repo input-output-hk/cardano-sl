@@ -128,8 +128,8 @@ import           Serokell.Util                 (VerificationRes (..))
 import           System.Console.ANSI           (Color (..), ColorIntensity (Vivid),
                                                 ConsoleLayer (Foreground),
                                                 SGR (Reset, SetColor), setSGRCode)
-import           System.Wlog                   (LoggerNameBox (..), WithLogger,
-                                                logWarning)
+import           System.Wlog                   (LoggerNameBox (..), WithLogger, logDebug,
+                                                logWarning, modifyLoggerName)
 import           Text.Parsec                   (ParsecT)
 import           Universum                     hiding (bracket)
 import           Unsafe                        (unsafeInit, unsafeLast)
@@ -549,17 +549,23 @@ readUntilEqualTVar
     => (x -> a) -> TVar x -> a -> m x
 readUntilEqualTVar f tvar expVal = readTVarConditional ((expVal ==) . f) tvar
 
-stubListenerOneMsg :: (Monad m, Message r, Unpackable p r, Packable p r) => Proxy r -> ListenerAction p m
+stubListenerOneMsg :: (WithLogger m, Message r, Unpackable p r, Packable p r) => Proxy r -> ListenerAction p m
 stubListenerOneMsg p = ListenerActionOneMsg $ \_ _ m ->
                           let _ = m `asProxyTypeOf` p
-                           in return ()
+                           in modifyLoggerName (<> "stub") $
+                                logDebug $ sformat
+                                    ("Stub listener (one msg) for "%shown%": received message")
+                                    (messageName p)
 
-stubListenerConv :: (Monad m, Message r, Unpackable p r, Packable p Void) => Proxy r -> ListenerAction p m
+stubListenerConv :: (WithLogger m, Message r, Unpackable p r, Packable p Void) => Proxy r -> ListenerAction p m
 stubListenerConv p = ListenerActionConversation $ \__nId __sA convActions ->
                           let _ = convActions `asProxyTypeOf` __modP p
                               __modP :: Proxy r -> Proxy (ConversationActions Void r m)
                               __modP _ = Proxy
-                           in return ()
+                           in modifyLoggerName (<> "stub") $
+                                logDebug $ sformat
+                                    ("Stub listener (conv) for "%shown%": received message")
+                                    (messageName p)
 
 withWaitLog :: ( CanLogInParallel m ) => SendActions p m -> SendActions p m
 withWaitLog sendActions = sendActions

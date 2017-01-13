@@ -15,7 +15,7 @@ import qualified Data.HashMap.Strict         as HM
 import           Formatting                  (build, sformat, stext, (%))
 import           Node                        (ListenerAction (..))
 import           Serokell.Util.Verify        (VerificationRes (..))
-import           System.Wlog                 (logDebug, logInfo, logWarning)
+import           System.Wlog                 (WithLogger, logDebug, logInfo, logWarning)
 import           Universum
 
 import           Pos.Binary.Communication    ()
@@ -34,8 +34,7 @@ import           Pos.Util.Relay              (DataMsg, InvMsg, Relay (..), ReqMs
 import           Pos.WorkMode                (WorkMode)
 
 txListeners
-    :: ( WorkMode ssc m
-       )
+    :: WorkMode ssc m
     => [ListenerAction BiP m]
 txListeners =
     [ handleInvTx
@@ -44,25 +43,25 @@ txListeners =
     ]
 
 handleInvTx
-    :: (WorkMode ssc m)
+    :: WorkMode ssc m
     => ListenerAction BiP m
 handleInvTx = ListenerActionOneMsg $ \peerId sendActions (i :: InvMsg TxId TxMsgTag) ->
     handleInvL i peerId sendActions
 
 handleReqTx
-    :: (WorkMode ssc m)
+    :: WorkMode ssc m
     => ListenerAction BiP m
 handleReqTx = ListenerActionOneMsg $ \peerId sendActions (r :: ReqMsg TxId TxMsgTag) ->
     handleReqL r peerId sendActions
 
 handleDataTx
-    :: (WorkMode ssc m)
+    :: WorkMode ssc m
     => ListenerAction BiP m
 handleDataTx = ListenerActionOneMsg $ \peerId sendActions (d :: DataMsg TxId TxMsgContents) ->
     handleDataL d peerId sendActions
 
 txStubListeners
-    :: Monad m
+    :: WithLogger m
     => Proxy ssc -> [ListenerAction BiP m]
 txStubListeners p =
     [ stubListenerOneMsg $ (const Proxy :: Proxy ssc -> Proxy (InvMsg TxId TxMsgTag)) p
@@ -70,7 +69,6 @@ txStubListeners p =
     , stubListenerOneMsg $
         (const Proxy :: Proxy ssc -> Proxy (DataMsg TxId TxMsgContents)) p
     ]
-
 
 instance ( WorkMode ssc m
          ) => Relay m TxMsgTag TxId TxMsgContents where

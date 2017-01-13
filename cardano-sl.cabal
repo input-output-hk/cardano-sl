@@ -221,7 +221,7 @@ library
                         Pos.Lrc.Consumer
                         Pos.Lrc.Consumers
                         Pos.Lrc.Error
-                        Pos.Lrc.Eligibility
+                        Pos.Lrc.Logic
                         Pos.Lrc.Types
                         Pos.Lrc.Worker
 

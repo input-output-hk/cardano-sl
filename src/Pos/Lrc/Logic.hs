@@ -3,7 +3,7 @@
 
 -- | Logic related to eligibility threshold.
 
-module Pos.Lrc.Eligibility
+module Pos.Lrc.Logic
        ( findRichmenStake
        , findRichmenPure
        , findAllRichmenMaybe

@@ -47,7 +47,7 @@ import           Pos.Context.Functions (genesisUtxoM)
 import           Pos.DB.Class          (MonadDB)
 import           Pos.DB.Lrc.Common     (getBi, putBi)
 import           Pos.Genesis           (genesisDelegation)
-import           Pos.Lrc.Eligibility   (RichmenType (..), findRichmenPure)
+import           Pos.Lrc.Logic         (RichmenType (..), findRichmenPure)
 import           Pos.Lrc.Types         (FullRichmenData, Richmen, toRichmen)
 import           Pos.Types             (Coin, EpochIndex, StakeholderId, applyCoinPortion,
                                         mkCoin, txOutStake)

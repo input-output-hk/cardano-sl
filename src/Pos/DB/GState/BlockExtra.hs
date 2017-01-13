@@ -14,7 +14,7 @@ module Pos.DB.GState.BlockExtra
        , prepareGStateBlockExtra
        ) where
 
-import           Control.Lens        (view, (^.))
+import           Control.Lens        (view)
 import           Data.Maybe          (fromJust)
 import qualified Database.RocksDB    as Rocks
 import           Universum
@@ -25,7 +25,7 @@ import           Pos.DB.Class        (MonadDB, getUtxoDB)
 import           Pos.DB.Functions    (RocksBatchOp (..), rocksGetBi, rocksPutBi)
 import           Pos.Ssc.Class.Types (Ssc)
 import           Pos.Types           (Block, BlockHeader, HasHeaderHash, HeaderHash,
-                                      Undo (..), blockHeader, headerHash, prevBlockL)
+                                      Undo (..), blockHeader, headerHash)
 
 
 ----------------------------------------------------------------------------
@@ -35,7 +35,7 @@ import           Pos.Types           (Block, BlockHeader, HasHeaderHash, HeaderH
 -- | Tries to retrieve next block using current one (given a block/header).
 resolveForwardLink
     :: (HasHeaderHash a ssc, Ssc ssc, MonadDB ssc m)
-    => a -> m (Maybe (Block ssc))
+    => a -> m (Maybe (HeaderHash ssc))
 resolveForwardLink x =
     rocksGetBi (forwardLinkKey $ headerHash x) =<< getUtxoDB
 

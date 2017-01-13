@@ -42,7 +42,8 @@ import           Formatting                (build, int, ords, sformat, stext, (%
 import           Serokell.Util.Text        (listJson)
 import           Serokell.Util.Verify      (VerificationRes (..), formatAllErrors,
                                             isVerSuccess, verResToMonadError)
-import           System.Wlog               (logDebug, logError, logInfo)
+import           System.Wlog               (CanLog, HasLoggerName, logDebug, logError,
+                                            logInfo)
 import           Universum
 
 import           Pos.Block.Logic.Internal  (applyBlocksUnsafe, rollbackBlocksUnsafe,
@@ -54,8 +55,7 @@ import           Pos.Context               (NodeContext (ncSecretKey), getNodeCo
 import           Pos.Crypto                (SecretKey, WithHash (WithHash), hash,
                                             shortHashF)
 import           Pos.Data.Attributes       (mkAttributes)
-import           Pos.DB                    (DBError (..), MonadDB, getTipBlockHeader,
-                                            loadHeadersWhile)
+import           Pos.DB                    (DBError (..), MonadDB)
 import qualified Pos.DB                    as DB
 import qualified Pos.DB.GState             as GS
 import qualified Pos.DB.Lrc                as LrcDB
@@ -223,28 +223,35 @@ classifyHeaders headers@(h:|hs) = do
 -- 'maxHeadersMessage' headers starting from the oldest checkpoint to
 -- the newest ones. Returned headers are newest-first.
 getHeadersFromManyTo
-    :: forall ssc m. (MonadDB ssc m, Ssc ssc)
+    :: forall ssc m. (MonadDB ssc m, Ssc ssc, CanLog m, HasLoggerName m)
     => NonEmpty (HeaderHash ssc)
     -> Maybe (HeaderHash ssc)
     -> m (Maybe (NonEmpty (BlockHeader ssc)))
 getHeadersFromManyTo checkpoints startM = runMaybeT $ do
+    lift $ logDebug $ sformat ("ghfmt: "%listJson%", start: "%build) checkpoints startM
     validCheckpoints <- MaybeT $
         NE.nonEmpty . catMaybes <$>
         mapM DB.getBlockHeader (NE.toList checkpoints)
+    lift $ logDebug "Got valid checkpoints"
     tip <- lift GS.getTip
     let startFrom = fromMaybe tip startM
         parentIsCheckpoint bh =
             any (\c -> bh ^. prevBlockL == c ^. headerHashG) validCheckpoints
         whileCond bh depth =
             not (parentIsCheckpoint bh) && depth < maxHeadersMessage
-    headers <- MaybeT $ NE.nonEmpty <$> loadHeadersWhile startFrom whileCond
+    headers <- MaybeT $ NE.nonEmpty <$> DB.loadHeadersWhile startFrom whileCond
+    lift $ logDebug $ sformat ("God headers: "%listJson) headers
     if parentIsCheckpoint $ headers ^. _neHead
-    then pure headers
+    then do
+        lift $ logDebug "ghmft: branch 1"
+        pure headers
     else do
         let lowestCheckpoint =
                 minimumBy (comparing flattenEpochOrSlot) validCheckpoints
             loadUpCond _ h = h < maxHeadersMessage
+        lift $ logDebug "ghmft: branch 2 loading"
         up <- lift $ GS.loadHeadersUpWhile lowestCheckpoint loadUpCond
+        lift $ logDebug "ghmft: branch 2 loading done"
         MaybeT $ pure $ NE.nonEmpty $ reverse up
 
 -- | Given a starting point hash (we take tip if it's not in storage)
@@ -257,7 +264,7 @@ getHeadersOlderExp upto = do
     tip <- GS.getTip
     let upToReal = fromMaybe tip upto
         whileCond _ depth = depth <= k
-    allHeaders <- reverse <$> loadHeadersWhile upToReal whileCond
+    allHeaders <- reverse <$> DB.loadHeadersWhile upToReal whileCond
     pure $ selectIndices (takeHashes allHeaders) (twoPowers $ length allHeaders)
   where
     -- Given list of headers newest first, maps it to their hashes
@@ -537,7 +544,7 @@ createMainBlock sId pSk = withBlkSemaphore createMainBlockDo
   where
     msgFmt = "We are trying to create main block, our tip header is\n"%build
     createMainBlockDo tip = do
-        tipHeader <- getTipBlockHeader
+        tipHeader <- DB.getTipBlockHeader
         logDebug $ sformat msgFmt tipHeader
         case canCreateBlock sId tipHeader of
             Nothing  -> convertRes tip <$>

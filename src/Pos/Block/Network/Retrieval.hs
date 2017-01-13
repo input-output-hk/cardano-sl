@@ -17,16 +17,14 @@ import           Mockable                       (fork, handleAll, throw)
 import           Node                           (ConversationActions (..),
                                                  SendActions (..))
 import           Serokell.Util.Text             (listJson)
-import           System.Wlog                    (logDebug, logError, logInfo, logWarning)
+import           System.Wlog                    (logDebug, logError, logWarning)
 import           Universum
 
 import           Pos.Binary.Communication       ()
 import           Pos.Block.Logic                (ClassifyHeaderRes (..),
-                                                 ClassifyHeadersRes (..), applyBlocks,
-                                                 classifyHeaders, classifyNewHeader,
-                                                 lcaWithMainChain, rollbackBlocks,
-                                                 verifyAndApplyBlocks, withBlkSemaphore,
-                                                 withBlkSemaphore_)
+                                                 ClassifyHeadersRes (..), classifyHeaders,
+                                                 classifyNewHeader, lcaWithMainChain,
+                                                 verifyAndApplyBlocks, withBlkSemaphore)
 import qualified Pos.Block.Logic                as L
 import           Pos.Block.Network.Announce     (announceBlock)
 import           Pos.Block.Network.Types        (MsgBlock (..), MsgGetBlocks (..))

@@ -17,7 +17,6 @@ import           Node                        (SendActions)
 import           System.Wlog                 (logError, logInfo)
 import           Universum
 
-import           Control.Concurrent.STM.TVar (writeTVar)
 import           Pos.Communication           (BiP)
 import           Pos.Context                 (NodeContext (..), getNodeContext,
                                               ncPubKeyAddress, ncPublicKey)

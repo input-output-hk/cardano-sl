@@ -17,6 +17,7 @@ import           Control.Monad.Catch      (MonadMask)
 import           System.Directory         (createDirectoryIfMissing, doesDirectoryExist,
                                            removeDirectoryRecursive)
 import           System.FilePath          ((</>))
+import           System.Wlog              (WithLogger)
 import           Universum
 
 import           Pos.Context.Class        (WithNodeContext)
@@ -93,7 +94,7 @@ loadBlocksFromTipWhile
 loadBlocksFromTipWhile condition = getTip >>= loadBlocksWithUndoWhile condition
 
 sanityCheckDB
-    :: (MonadMask m, MonadDB ssc m)
+    :: (MonadMask m, MonadDB ssc m, WithLogger m)
     => m ()
 sanityCheckDB = inAssertMode sanityCheckGStateDB
 

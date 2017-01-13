@@ -9,6 +9,7 @@ module Pos.DB.GState.GState
        ) where
 
 import           Control.Monad.Catch    (MonadMask)
+import           System.Wlog            (WithLogger)
 
 import           Pos.Context.Class      (WithNodeContext)
 import           Pos.Context.Functions  (genesisUtxoM)
@@ -34,6 +35,6 @@ prepareGStateDB initialTip = do
 -- | Check that GState DB is consistent.
 sanityCheckGStateDB
     :: forall ssc m.
-       (MonadDB ssc m, MonadMask m)
+       (MonadDB ssc m, MonadMask m, WithLogger m)
     => m ()
 sanityCheckGStateDB = sanityCheckBalances

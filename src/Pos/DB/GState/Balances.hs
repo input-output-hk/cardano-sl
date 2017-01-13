@@ -25,6 +25,7 @@ module Pos.DB.GState.Balances
 import qualified Data.Map             as M
 import qualified Database.RocksDB     as Rocks
 import           Formatting           (sformat, (%))
+import           System.Wlog          (WithLogger, logError)
 import           Universum
 
 import           Pos.Binary.Class     (encodeStrict)
@@ -36,7 +37,7 @@ import           Pos.DB.Functions     (RocksBatchOp (..), WithKeyPrefix (..),
 import           Pos.DB.GState.Common (getBi, putBi)
 import           Pos.Types            (Coin, StakeholderId, Utxo, coinF, mkCoin, sumCoins,
                                        txOutStake, unsafeAddCoin, unsafeIntegerToCoin)
-import           Pos.Util             (maybeThrow)
+import           Pos.Util             (Color (Red), colorize, maybeThrow)
 import           Pos.Util.Iterator    (MonadIterator (..))
 
 ----------------------------------------------------------------------------
@@ -107,7 +108,7 @@ iterateByStake iter f = mapIterator @IterType @v iter f =<< getUtxoDB
 ----------------------------------------------------------------------------
 
 sanityCheckBalances
-    :: (MonadMask m, MonadDB ssc m)
+    :: (MonadMask m, MonadDB ssc m, WithLogger m)
     => m ()
 sanityCheckBalances = do
     let step sm = nextItem >>= maybe (pure sm) (\c -> step (unsafeAddCoin sm c))
@@ -117,8 +118,10 @@ sanityCheckBalances = do
             ("Wrong total FTS stake: \
              \real total FTS stake (sum of balances): "%coinF%
              ", but getTotalFtsStake returned: "%coinF)
-    unless (realTotalStake == totalStake) $
-        throwM $ DBMalformed $ sformat fmt realTotalStake totalStake
+    let msg = sformat fmt realTotalStake totalStake
+    unless (realTotalStake == totalStake) $ do
+        logError $ colorize Red msg
+        throwM $ DBMalformed msg
 
 ----------------------------------------------------------------------------
 -- Keys

@@ -135,12 +135,9 @@ library
                         Pos.Block.Error
                         Pos.Block.Logic
                         Pos.Block.Network.Announce
-                        Pos.Block.Network.Request
                         Pos.Block.Network.Types
-                        Pos.Block.Network.Server
-                        Pos.Block.Network.Server.State
-                        Pos.Block.Network.Server.Listeners
-                        Pos.Block.Network.Server.Strategy
+                        Pos.Block.Network.Listeners
+                        Pos.Block.Network.Retrieval
                         Pos.Block.Worker
 
                         -- Network

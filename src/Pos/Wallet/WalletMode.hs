@@ -11,47 +11,45 @@ module Pos.Wallet.WalletMode
        , TxMode
        , WalletMode
        , WalletRealMode
-       , SState
        ) where
 
-import           Control.Monad.Trans           (MonadTrans)
-import           Control.Monad.Trans.Maybe     (MaybeT (..))
-import qualified Data.HashMap.Strict           as HM
-import qualified Data.Map                      as M
-import           Mockable                      (MonadMockable, Production)
-import           System.Wlog                   (LoggerNameBox, WithLogger)
+import           Control.Monad.Trans         (MonadTrans)
+import           Control.Monad.Trans.Maybe   (MaybeT (..))
+import qualified Data.HashMap.Strict         as HM
+import qualified Data.Map                    as M
+import           Mockable                    (MonadMockable, Production)
+import           System.Wlog                 (LoggerNameBox, WithLogger)
 import           Universum
 
-import           Pos.Communication.PeerState   (PeerStateHolder)
-import           Pos.Communication.Types.State (MutPeerState)
-import qualified Pos.Context                   as PC
-import           Pos.Crypto                    (WithHash (..))
-import           Pos.DB                        (MonadDB)
-import qualified Pos.DB                        as DB
-import qualified Pos.DB.GState                 as GS
-import           Pos.Delegation                (DelegationT (..))
-import           Pos.DHT.Model                 (MonadDHT)
-import           Pos.DHT.Real                  (KademliaDHT (..))
-import           Pos.Ssc.Class.Types           (Ssc)
-import           Pos.Ssc.Extra                 (SscHolder (..))
-import           Pos.Ssc.GodTossing            (SscGodTossing)
-import           Pos.Txp.Class                 (getMemPool, getUtxoView)
-import qualified Pos.Txp.Holder                as Modern
-import           Pos.Txp.Logic                 (processTx)
-import           Pos.Txp.Types                 (UtxoView (..), localTxs)
-import           Pos.Types                     (Address, Coin, Tx, TxAux, TxId, Utxo,
-                                                evalUtxoStateT, runUtxoStateT, sumCoins,
-                                                toPair, txOutValue)
-import           Pos.Types.Coin                (unsafeIntegerToCoin)
-import           Pos.Types.Utxo.Functions      (belongsTo, filterUtxoByAddr)
-import           Pos.Update                    (USHolder (..))
-import           Pos.Wallet.Context            (ContextHolder, WithWalletContext)
-import           Pos.Wallet.KeyStorage         (KeyStorage, MonadKeys)
-import           Pos.Wallet.State              (WalletDB)
-import qualified Pos.Wallet.State              as WS
-import           Pos.Wallet.Tx.Pure            (deriveAddrHistory,
-                                                deriveAddrHistoryPartial, getRelatedTxs)
-import           Pos.WorkMode                  (MinWorkMode)
+import           Pos.Communication.PeerState (PeerStateHolder)
+import qualified Pos.Context                 as PC
+import           Pos.Crypto                  (WithHash (..))
+import           Pos.DB                      (MonadDB)
+import qualified Pos.DB                      as DB
+import qualified Pos.DB.GState               as GS
+import           Pos.Delegation              (DelegationT (..))
+import           Pos.DHT.Model               (MonadDHT)
+import           Pos.DHT.Real                (KademliaDHT (..))
+import           Pos.Ssc.Class.Types         (Ssc)
+import           Pos.Ssc.Extra               (SscHolder (..))
+import           Pos.Ssc.GodTossing          (SscGodTossing)
+import           Pos.Txp.Class               (getMemPool, getUtxoView)
+import qualified Pos.Txp.Holder              as Modern
+import           Pos.Txp.Logic               (processTx)
+import           Pos.Txp.Types               (UtxoView (..), localTxs)
+import           Pos.Types                   (Address, Coin, Tx, TxAux, TxId, Utxo,
+                                              evalUtxoStateT, runUtxoStateT, sumCoins,
+                                              toPair, txOutValue)
+import           Pos.Types.Coin              (unsafeIntegerToCoin)
+import           Pos.Types.Utxo.Functions    (belongsTo, filterUtxoByAddr)
+import           Pos.Update                  (USHolder (..))
+import           Pos.Wallet.Context          (ContextHolder, WithWalletContext)
+import           Pos.Wallet.KeyStorage       (KeyStorage, MonadKeys)
+import           Pos.Wallet.State            (WalletDB)
+import qualified Pos.Wallet.State            as WS
+import           Pos.Wallet.Tx.Pure          (deriveAddrHistory, deriveAddrHistoryPartial,
+                                              getRelatedTxs)
+import           Pos.WorkMode                (MinWorkMode)
 
 -- | A class which have the methods to get state of address' balance
 class Monad m => MonadBalances m where
@@ -177,7 +175,6 @@ type WalletMode ssc m
 ---------------------------------------------------------------
 -- Implementations of 'WalletMode'
 ---------------------------------------------------------------
-type SState = MutPeerState SscGodTossing
 
 type WalletRealMode = KademliaDHT
                       (KeyStorage

@@ -6,6 +6,7 @@ module Pos.DB.GState
        ) where
 
 import           Pos.DB.GState.Balances   as GState
+import           Pos.DB.GState.BlockExtra as GState
 import           Pos.DB.GState.Common     as GState (CommonOp (..), getBot, getTip,
                                                      writeBatchGState)
 import           Pos.DB.GState.Delegation as GState

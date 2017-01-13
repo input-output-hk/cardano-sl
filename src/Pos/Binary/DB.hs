@@ -4,18 +4,20 @@ module Pos.Binary.DB
        (
        ) where
 
+import           Data.Binary.Get     (getWord8)
+import           Data.Binary.Put     (putWord8)
 import           Universum
 
 import           Pos.Binary.Class    (Bi (..))
-import           Pos.DB.Types        (GtRichmenStorage (..), LeadersStorage (..),
-                                      ProposalState, StoredBlock (..),
-                                      UndecidedProposalState (..))
+import           Pos.DB.Types        (DecidedProposalState (..), GtRichmenStorage (..),
+                                      LeadersStorage (..), ProposalState (..),
+                                      StoredBlock (..), UndecidedProposalState (..))
 import           Pos.Ssc.Class.Types (Ssc)
 
 instance Ssc ssc =>
          Bi (StoredBlock ssc) where
-    put StoredBlock {..} = put sbBlock >> put sbInMain
-    get = StoredBlock <$> get <*> get
+    put StoredBlock {..} = put sbBlock
+    get = StoredBlock <$> get
 
 instance Bi (LeadersStorage ssc) where
     put LeadersStorage {..} = put lrcEpoch >> put lrcLeaders
@@ -34,6 +36,17 @@ instance Bi UndecidedProposalState where
         put upsNegativeStake
     get = UndecidedProposalState <$> get <*> get <*> get <*> get <*> get
 
+instance Bi DecidedProposalState where
+    put DecidedProposalState {..} = do
+        put dpsDecision
+        put dpsProposal
+        put dpsDifficulty
+    get = DecidedProposalState <$> get <*> get <*> get
+
 instance Bi ProposalState where
-    put = notImplemented
-    get = notImplemented
+    put (PSUndecided us) = putWord8 0 >> put us
+    put (PSDecided ds)   = putWord8 1 >> put ds
+    get = getWord8 >>= \case
+        0 -> PSUndecided <$> get
+        1 -> PSDecided <$> get
+        x -> fail $ "get@ProposalState: invalid tag: " <> show x

@@ -17,21 +17,25 @@ module Pos.Constants
 
          -- * SSC constants
        , sharedSeedLength
+       , mpcSendInterval
+       , mpcThreshold
 
          -- * Other constants
        , genesisN
        , maxLocalTxs
        , maxBlockProxySKs
        , neighborsSendThreshold
+       , networkConnectionTimeout
+       , blockRetrievalQueueSize
        , RunningMode (..)
        , runningMode
        , isDevelopment
        , defaultPeers
        , sysTimeBroadcastSlots
-       , mpcSendInterval
        , vssMaxTTL
+       , vssMinTTL
        , protocolMagic
-       , enchancedMessageBroadcast
+       , enhancedMessageBroadcast
        , delegationThreshold
 
          -- * Malicious activity detection constants
@@ -43,14 +47,21 @@ module Pos.Constants
        , curSoftwareVersion
        , appSystemTag
        , updateServers
+
+       -- * NTP
+       , ntpMaxError
+       , ntpResponseTimeout
+       , ntpPollDelay
+
        , updateProposalThreshold
        , updateVoteThreshold
        , updateImplicitApproval
        ) where
 
-import           Control.TimeWarp.Timed     (Microsecond, sec)
 import           Data.String                (String)
+import           Data.Time.Units            (Microsecond)
 import           Language.Haskell.TH.Syntax (lift, runIO)
+import           Pos.Util.TimeWarp          (ms, sec)
 import           System.Environment         (lookupEnv)
 import qualified Text.Parsec                as P
 import           Universum                  hiding (lift)
@@ -64,6 +75,7 @@ import           Pos.Types.Version          (ApplicationName, ProtocolVersion (.
                                              SoftwareVersion (..), mkApplicationName)
 import           Pos.Update.Types           (SystemTag, mkSystemTag)
 import           Pos.Util                   ()
+import           Pos.Util.TimeWarp          (mcs, sec)
 
 ----------------------------------------------------------------------------
 -- Main constants mentioned in paper
@@ -105,6 +117,10 @@ sharedSeedLength = 32
 mpcSendInterval :: Microsecond
 mpcSendInterval = sec . fromIntegral . ccMpcSendInterval $ compileConfig
 
+-- | Threshold value for mpc participation.
+mpcThreshold :: CoinPortion
+mpcThreshold = unsafeCoinPortion $ ccMpcThreshold compileConfig
+
 ----------------------------------------------------------------------------
 -- Other constants
 ----------------------------------------------------------------------------
@@ -142,6 +158,13 @@ neighborsSendThreshold :: Integral a => a
 neighborsSendThreshold =
     fromIntegral . ccNeighboursSendThreshold $ compileConfig
 
+networkConnectionTimeout :: Microsecond
+networkConnectionTimeout = ms . fromIntegral . ccNetworkConnectionTimeout $ compileConfig
+
+blockRetrievalQueueSize :: Integral a => a
+blockRetrievalQueueSize =
+    fromIntegral . ccBlockRetrievalQueueSize $ compileConfig
+
 -- | Defines mode of running application: in tested mode or in production.
 data RunningMode
     = Development
@@ -174,15 +197,19 @@ defaultPeers = map parsePeer . ccDefaultPeers $ compileConfig
 vssMaxTTL :: Integral i => i
 vssMaxTTL = fromIntegral . ccVssMaxTTL $ compileConfig
 
+-- | Min VSS certificate TTL (Ssc.GodTossing part)
+vssMinTTL :: Integral i => i
+vssMinTTL = fromIntegral . ccVssMinTTL $ compileConfig
+
 -- | Protocol magic constant. Is put to block serialized version to
 -- distinguish testnet and realnet (for example, possible usages are
 -- wider).
 protocolMagic :: Int32
 protocolMagic = fromIntegral . ccProtocolMagic $ compileConfig
 
--- | Setting this to true enables enchanced message broadcast
-enchancedMessageBroadcast :: Integral a => a
-enchancedMessageBroadcast = fromIntegral $ ccEnchancedMessageBroadcast compileConfig
+-- | Setting this to true enables enhanced message broadcast
+enhancedMessageBroadcast :: Integral a => a
+enhancedMessageBroadcast = fromIntegral $ ccEnhancedMessageBroadcast compileConfig
 
 -- | Portion of total stake necessary to vote for or against update.
 delegationThreshold :: CoinPortion
@@ -236,6 +263,21 @@ curSoftwareVersion = SoftwareVersion cardanoSlAppName 0
 -- | Update servers
 updateServers :: [String]
 updateServers = ccUpdateServers compileConfig
+
+----------------------------------------------------------------------------
+-- NTP
+----------------------------------------------------------------------------
+-- | Inaccuracy in call threadDelay (actually it is error much less than 1 sec)
+ntpMaxError :: Microsecond
+ntpMaxError = 1000000 -- 1 sec
+
+-- | How often request to NTP server and response collection
+ntpResponseTimeout :: Microsecond
+ntpResponseTimeout = mcs . ccNtpResponseTimeout $ compileConfig
+
+-- | How often send request to NTP server
+ntpPollDelay :: Microsecond
+ntpPollDelay = mcs . ccNtpPollDelay $ compileConfig
 
 -- | Portion of total stake such that block containing
 -- UpdateProposal must contain positive votes for this proposal

@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns         #-}
 {-# LANGUAGE RankNTypes           #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeFamilies         #-}
@@ -12,32 +13,30 @@ module Pos.Ssc.Extra.Holder
        , runSscHolderRaw
        ) where
 
-import qualified Control.Concurrent.STM      as STM
-import           Control.Lens                (iso)
-import           Control.Monad.Base          (MonadBase (..))
-import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
-import           Control.Monad.Reader        (ReaderT (ReaderT))
-import           Control.Monad.Trans.Class   (MonadTrans)
-import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
-                                              MonadTransControl (..), StM,
-                                              defaultLiftBaseWith, defaultLiftWith,
-                                              defaultRestoreM, defaultRestoreT)
-import           Control.TimeWarp.Rpc        (MonadDialog, MonadTransfer (..))
-import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
-import           Data.Default                (Default (def))
-import           Serokell.Util.Lens          (WrappedM (..))
-import           System.Wlog                 (CanLog, HasLoggerName)
+import qualified Control.Concurrent.STM    as STM
+import           Control.Lens              (iso)
+import           Control.Monad.Base        (MonadBase (..))
+import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow)
+import           Control.Monad.Fix         (MonadFix)
+import           Control.Monad.Reader      (ReaderT (ReaderT))
+import           Control.Monad.Trans.Class (MonadTrans)
+import           Data.Default              (Default (def))
+import           Mockable                  (ChannelT, MFunctor', Mockable (liftMockable),
+                                            Promise, SharedAtomicT, ThreadId,
+                                            liftMockableWrappedM)
+import           Serokell.Util.Lens        (WrappedM (..))
+import           System.Wlog               (CanLog, HasLoggerName)
 import           Universum
 
-import           Pos.Context                 (WithNodeContext)
-import qualified Pos.DB                      as Modern (MonadDB (..))
-import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
-import           Pos.Ssc.Class.Types         (Ssc (..))
-import           Pos.Ssc.Extra.MonadGS       (MonadSscGS (..))
-import           Pos.Ssc.Extra.MonadLD       (MonadSscLD (..))
-import           Pos.Ssc.Extra.Richmen       (MonadSscRichmen)
-import           Pos.Util.JsonLog            (MonadJL (..))
+import           Pos.Context               (WithNodeContext)
+import           Pos.DB                    (MonadDB (..))
+import           Pos.Slotting              (MonadSlots (..))
+import           Pos.Ssc.Class.LocalData   (SscLocalDataClass)
+import           Pos.Ssc.Class.Types       (Ssc (..))
+import           Pos.Ssc.Extra.MonadGS     (MonadSscGS (..))
+import           Pos.Ssc.Extra.MonadLD     (MonadSscLD (..))
+import           Pos.Ssc.Extra.Richmen     (MonadSscRichmen)
+import           Pos.Util.JsonLog          (MonadJL (..))
 
 data SscState ssc =
     SscState
@@ -48,26 +47,28 @@ data SscState ssc =
 newtype SscHolder ssc m a =
     SscHolder
     { getSscHolder :: ReaderT (SscState ssc) m a
-    } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed,
+    } deriving (Functor, Applicative, Monad, MonadTrans,
                 MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
-                HasLoggerName, MonadDialog s p, WithNodeContext ssc,
-                MonadJL, CanLog, MonadMask, Modern.MonadDB ssc)
+                HasLoggerName, WithNodeContext ssc,
+                MonadJL, CanLog, MonadMask, MonadFix)
 
-instance MonadTransfer s m => MonadTransfer s (SscHolder ssc m)
 type instance ThreadId (SscHolder ssc m) = ThreadId m
 
 instance MonadBase IO m => MonadBase IO (SscHolder ssc m) where
     liftBase = lift . liftBase
 
-instance MonadTransControl (SscHolder ssc) where
-    type StT (SscHolder ssc) a = StT (ReaderT (SscState ssc)) a
-    liftWith = defaultLiftWith SscHolder getSscHolder
-    restoreT = defaultRestoreT SscHolder
+type instance ThreadId (SscHolder ssc m) = ThreadId m
+type instance Promise (SscHolder ssc m) = Promise m
+type instance SharedAtomicT (SscHolder ssc m) = SharedAtomicT m
+type instance ChannelT (SscHolder ssc m) = ChannelT m
 
-instance MonadBaseControl IO m => MonadBaseControl IO (SscHolder ssc m) where
-    type StM (SscHolder ssc m) a = ComposeSt (SscHolder ssc) m a
-    liftBaseWith     = defaultLiftBaseWith
-    restoreM         = defaultRestoreM
+instance ( Mockable d m
+         , MFunctor' d (ReaderT (SscState ssc) m) m
+         , MFunctor' d (SscHolder ssc m) (ReaderT (SscState ssc) m)
+         ) => Mockable d (SscHolder ssc m) where
+    liftMockable = liftMockableWrappedM
+
+deriving instance MonadDB ssc m => MonadDB ssc (SscHolder ssc m)
 
 instance Monad m => WrappedM (SscHolder ssc m) where
     type UnwrappedM (SscHolder ssc m) = ReaderT (SscState ssc) m
@@ -77,20 +78,21 @@ instance MonadIO m => MonadSscGS ssc (SscHolder ssc m) where
     getGlobalState = SscHolder (asks sscGlobal) >>= atomically . STM.readTVar
     modifyGlobalState f = SscHolder ask >>= \sscSt -> atomically $ do
                 g <- STM.readTVar (sscGlobal sscSt)
-                let (res, ng) = f g
+                let (res, !ng) = f g
                 STM.writeTVar (sscGlobal sscSt) ng
                 return res
-    setGlobalState newSt = SscHolder (asks sscGlobal) >>= atomically . flip STM.writeTVar newSt
+    setGlobalState !newSt = SscHolder (asks sscGlobal) >>= atomically . flip STM.writeTVar newSt
 
 instance MonadIO m => MonadSscLD ssc (SscHolder ssc m) where
+    askSscLD = SscHolder $ asks sscLocal
     getLocalData = SscHolder (asks sscLocal) >>= atomically . STM.readTVar
     modifyLocalData f = SscHolder ask >>= \sscSt -> atomically $ do
                 g <- STM.readTVar (sscGlobal sscSt)
                 l <- STM.readTVar (sscLocal sscSt)
-                let (res, nl) = f (g, l)
+                let (res, !nl) = f (g, l)
                 STM.writeTVar (sscLocal sscSt) nl
                 return res
-    setLocalData newSt = SscHolder (asks sscLocal) >>= atomically . flip STM.writeTVar newSt
+    setLocalData !newSt = SscHolder (asks sscLocal) >>= atomically . flip STM.writeTVar newSt
 
 instance MonadIO m => MonadSscRichmen (SscHolder ssc m) where
     -- -- | Force put richmen into MVar.

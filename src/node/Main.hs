@@ -5,6 +5,9 @@ module Main where
 
 import qualified Data.ByteString.Lazy as LBS
 import           Data.List            ((!!))
+import           Data.Proxy           (Proxy (..))
+import           Node                 (SendActions, hoistSendActions)
+import           Mockable             (Production)
 import           System.Directory     (createDirectoryIfMissing)
 import           System.FilePath      ((</>))
 import           System.Wlog          (LoggerName)
@@ -12,22 +15,23 @@ import           Universum
 
 import           Pos.Binary           (Bi, decode, encode)
 import qualified Pos.CLI              as CLI
+import           Pos.Communication     (BiP)
 import           Pos.Constants        (RunningMode (..), runningMode)
 import           Pos.Crypto           (VssKeyPair, vssKeyGen)
 import           Pos.DHT.Model        (DHTKey, DHTNodeType (..), dhtNodeType)
-import           Pos.DHT.Real         (KademliaDHTInstance)
 import           Pos.Genesis          (genesisSecretKeys, genesisUtxo)
 import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
-                                       NodeParams (..), bracketDHTInstance,
-                                       runNodeProduction, runNodeStats, runSupporterReal,
+                                       NodeParams (..), RealModeResources,
+                                       bracketResources, runNodeProduction, runNodeStats,
                                        runTimeLordReal, runTimeSlaveReal, stakesDistr)
 import           Pos.Ssc.GodTossing   (genesisVssKeyPairs)
 import           Pos.Ssc.GodTossing   (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon   (SscNistBeacon)
 import           Pos.Ssc.SscAlgo      (SscAlgo (..))
+import           Pos.Statistics       (getNoStatsT, runStatsT', getStatsMap)
 import           Pos.Types            (Timestamp)
 #ifdef WITH_WEB
-import           Pos.Ssc.Class        (SscConstraint)
+import           Pos.Ssc.Class        (SscConstraint, SscListenersClass)
 import           Pos.Web              (serveWebBase, serveWebGT)
 import           Pos.WorkMode         (WorkMode)
 #ifdef WITH_WALLET
@@ -58,13 +62,13 @@ decode' fpath = either fail' return . decode =<< LBS.readFile fpath
   where
     fail' e = fail $ "Error reading key from " ++ fpath ++ ": " ++ e
 
-getSystemStart :: KademliaDHTInstance -> Args -> IO Timestamp
-getSystemStart inst args =
+getSystemStart :: SscListenersClass ssc => Proxy ssc -> RealModeResources -> Args -> Production Timestamp
+getSystemStart sscProxy inst args  =
     case runningMode of
         Development ->
             if timeLord args
                 then runTimeLordReal (loggingParams "time-lord" args)
-                else runTimeSlaveReal inst (baseParams "time-slave" args)
+                else runTimeSlaveReal sscProxy inst (baseParams "time-slave" args)
         Production systemStart -> return systemStart
 
 loggingParams :: LoggerName -> Args -> LoggingParams
@@ -89,7 +93,7 @@ baseParams loggingTag args@Args {..} =
         | supporterNode = maybe (Right DHTSupporter) Left dhtKey
         | otherwise = maybe (Right DHTFull) Left dhtKey
 
-checkDhtKey :: Bool -> Maybe DHTKey -> IO ()
+checkDhtKey :: Bool -> Maybe DHTKey -> Production ()
 checkDhtKey _ Nothing = pass
 checkDhtKey isSupporter (Just (dhtNodeType -> keyType))
     | keyType == Just expectedType = pass
@@ -103,19 +107,21 @@ checkDhtKey isSupporter (Just (dhtNodeType -> keyType))
         | isSupporter = DHTSupporter
         | otherwise = DHTFull
 
-action :: Args -> KademliaDHTInstance -> IO ()
-action args@Args {..} inst = do
+action :: Args -> RealModeResources -> Production ()
+action args@Args {..} res = do
     checkDhtKey supporterNode dhtKey
     if supporterNode
-        then runSupporterReal inst (baseParams "supporter" args)
+        then fail "Supporter not supported" -- runSupporterReal res (baseParams "supporter" args)
         else do
             vssSK <-
-                getKey
+                liftIO $ getKey
                     ((genesisVssKeyPairs !!) <$> vssGenesisI)
                     vssSecretPath
                     "vss.keypair"
                     vssKeyGen
-            systemStart <- getSystemStart inst args
+            systemStart <- case CLI.sscAlgo commonArgs of
+                             GodTossingAlgo -> getSystemStart (Proxy :: Proxy SscGodTossing) res args
+                             NistBeaconAlgo -> getSystemStart (Proxy :: Proxy SscNistBeacon) res args
             let currentParams = nodeParams args systemStart
                 gtParams = gtSscParams args vssSK
 #ifdef WITH_WEB
@@ -133,13 +139,13 @@ action args@Args {..} inst = do
             putText $ "If stats is on: " <> show enableStats
             case (enableStats, CLI.sscAlgo commonArgs) of
                 (True, GodTossingAlgo) ->
-                    runNodeStats @SscGodTossing inst (currentPluginsGT ++ walletStats args) currentParams gtParams
+                    runNodeStats @SscGodTossing res (map const currentPluginsGT ++ walletStats args) currentParams gtParams
                 (True, NistBeaconAlgo) ->
-                    runNodeStats @SscNistBeacon inst (currentPlugins ++ walletStats args) currentParams ()
+                    runNodeStats @SscNistBeacon res (map const currentPlugins ++  walletStats args) currentParams ()
                 (False, GodTossingAlgo) ->
-                    runNodeProduction @SscGodTossing inst (currentPluginsGT ++ walletProd args) currentParams gtParams
+                    runNodeProduction @SscGodTossing res (map const currentPluginsGT ++ walletProd args) currentParams gtParams
                 (False, NistBeaconAlgo) ->
-                    runNodeProduction @SscNistBeacon inst (currentPlugins ++ walletProd args) currentParams ()
+                    runNodeProduction @SscNistBeacon res (map const currentPlugins ++ walletProd args) currentParams ()
 
 nodeParams :: Args -> Timestamp -> NodeParams
 nodeParams args@Args {..} systemStart =
@@ -184,24 +190,40 @@ pluginsGT Args {..}
 #endif
 
 #if defined WITH_WEB && defined WITH_WALLET
-walletServe :: SscConstraint ssc => Args -> [RawRealMode ssc ()]
+walletServe
+    :: SscConstraint ssc
+    => Args
+    -> [SendActions BiP (RawRealMode ssc) -> RawRealMode ssc ()]
 walletServe Args {..} =
     if enableWallet
-    then [walletServeWebFull walletDebug walletDbPath walletRebuildDb walletPort]
+    then [\sendActions -> walletServeWebFull sendActions walletDebug walletDbPath
+        walletRebuildDb walletPort]
     else []
 
-walletProd :: SscConstraint ssc => Args -> [ProductionMode ssc ()]
-walletProd = map lift . walletServe
+walletProd
+    :: SscConstraint ssc
+    => Args
+    -> [SendActions BiP (ProductionMode ssc) -> ProductionMode ssc ()]
+walletProd = map liftPlugin . walletServe
+  where
+    liftPlugin = \p sa -> lift . p $ hoistSendActions getNoStatsT lift sa
 
-walletStats :: SscConstraint ssc => Args -> [StatsMode ssc ()]
-walletStats = map lift . walletServe
+walletStats
+    :: SscConstraint ssc
+    => Args
+    -> [SendActions BiP (StatsMode ssc) -> StatsMode ssc ()]
+walletStats = map (liftPlugin) . walletServe
+  where
+    liftPlugin = \p sa -> do
+        s <- getStatsMap
+        lift . p $ hoistSendActions (runStatsT' s) lift sa
 #else
 walletProd, walletStats :: Args -> [a]
-walletProd _ = []
-walletStats _ = []
+walletProd _ _ = []
+walletStats _ _ = []
 #endif
 
 main :: IO ()
 main = do
-    args <- getNodeOptions
-    bracketDHTInstance (baseParams "node" args) (action args)
+    args@Args{..} <- getNodeOptions
+    bracketResources (baseParams "node" args) (action args)

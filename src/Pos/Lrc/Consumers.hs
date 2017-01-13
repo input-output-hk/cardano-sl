@@ -9,8 +9,8 @@ import           Universum
 import           Pos.Delegation.Lrc    (delegationLrcConsumer)
 import           Pos.Lrc.Consumer      (LrcConsumer)
 import           Pos.Ssc.Class.Workers (SscWorkersClass (sscLrcConsumers))
-import           Pos.Update.Lrc        (usLrcConsumer)
 import           Pos.WorkMode          (WorkMode)
+import           Pos.Update.Lrc        (usLrcConsumer)
 
 allLrcConsumers
     :: (SscWorkersClass ssc, WorkMode ssc m)

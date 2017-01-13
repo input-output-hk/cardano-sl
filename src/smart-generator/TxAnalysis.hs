@@ -6,27 +6,27 @@ module TxAnalysis
        , checkWorker
        ) where
 
-import           Control.Lens           ((^.))
-import           Control.TimeWarp.Timed (repeatForever)
-import qualified Data.HashMap.Strict    as M
-import           Data.IORef             (IORef, modifyIORef', newIORef, readIORef,
-                                         writeIORef)
-import           Data.List              (intersect, last)
-import           Data.Maybe             (fromJust, maybeToList)
-import           Formatting             (build, sformat, (%))
-import           System.FilePath.Posix  ((</>))
-import           System.Wlog            (logWarning)
-import           Universum
+import           Control.Lens          ((^.))
+import qualified Data.HashMap.Strict   as M
+import           Data.IORef            (IORef, modifyIORef', newIORef, readIORef,
+                                        writeIORef)
+import           Data.List             (intersect, last)
+import           Data.Maybe            (fromJust, maybeToList)
+import           Formatting            (build, sformat, (%))
+import           Mockable              (catchAll, delay)
+import           System.FilePath.Posix ((</>))
+import           System.Wlog           (logWarning)
+import           Universum             hiding (catchAll)
 
-import           Pos.Constants          (k, slotDuration)
-import           Pos.Crypto             (hash)
-import           Pos.DB                 (loadBlocksFromTipWhile)
-import           Pos.Slotting           (getCurrentSlot, getSlotStart)
-import           Pos.Ssc.Class          (SscConstraint)
-import           Pos.Types              (SlotId (..), TxId, blockSlot, blockTxs)
-import           Pos.WorkMode           (ProductionMode)
+import           Pos.Constants         (k, slotDuration)
+import           Pos.Crypto            (hash)
+import           Pos.DB                (loadBlocksFromTipWhile)
+import           Pos.Slotting          (getCurrentSlot, getSlotStart)
+import           Pos.Ssc.Class         (SscConstraint)
+import           Pos.Types             (SlotId (..), TxId, blockSlot, blockTxs)
+import           Pos.WorkMode          (ProductionMode)
 
-import           Util                   (verifyCsvFile, verifyCsvFormat)
+import           Util                  (verifyCsvFile, verifyCsvFormat)
 
 type TxTimeMap = M.HashMap TxId (Int, Word64)
 
@@ -93,7 +93,13 @@ checkTxsInLastBlock TxTimestamps {..} logsPrefix = do
 
 checkWorker :: forall ssc . SscConstraint ssc
             => TxTimestamps -> FilePath -> ProductionMode ssc ()
-checkWorker txts logsPrefix = repeatForever slotDuration onError $
-                              checkTxsInLastBlock txts logsPrefix
-  where onError e = slotDuration <$
-                    logWarning (sformat ("Error occured in checkWorker: " %build) e)
+checkWorker txts logsPrefix = loop `catchAll` onError
+  where
+    loop = do
+        checkTxsInLastBlock txts logsPrefix
+        delay slotDuration
+        loop
+    onError e = do
+        logWarning (sformat ("Error occured in checkWorker: " %build) e)
+        delay slotDuration
+        loop

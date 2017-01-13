@@ -3,68 +3,74 @@
 
 module Main where
 
-import           Control.Concurrent.Async.Lifted (forConcurrently)
-import           Control.Concurrent.STM.TVar     (modifyTVar', newTVarIO, readTVarIO)
-import           Control.Lens                    (view, _1)
-import           Control.TimeWarp.Rpc            (NetworkAddress)
-import           Control.TimeWarp.Timed          (Microsecond, for, fork_, ms, sec, wait)
-import           Data.List                       ((!!))
-import           Data.Maybe                      (fromMaybe)
-import           Data.Time.Clock.POSIX           (getPOSIXTime)
-import           Formatting                      (float, int, sformat, (%))
-import           Options.Applicative             (execParser)
-import           System.FilePath.Posix           ((</>))
-import           System.Random.Shuffle           (shuffleM)
-import           System.Wlog                     (logInfo)
-import           Test.QuickCheck                 (arbitrary, generate)
-import           Universum                       hiding (forConcurrently)
+import           Control.Concurrent.STM.TVar (modifyTVar', newTVarIO, readTVarIO)
+import           Control.Lens                (view, _1)
+import           Data.List                   ((!!))
+import           Data.Maybe                  (fromMaybe)
+import           Data.Proxy                  (Proxy (..))
+import           Data.Time.Clock.POSIX       (getPOSIXTime)
+import           Data.Time.Units             (Microsecond)
+import           Formatting                  (float, int, sformat, (%))
+import           Mockable                    (Production, delay, forConcurrently, fork)
+import           Node                        (SendActions)
+import           Options.Applicative         (execParser)
+import           System.FilePath.Posix       ((</>))
+import           System.Random.Shuffle       (shuffleM)
+import           System.Wlog                 (logInfo)
+import           Test.QuickCheck             (arbitrary, generate)
+import           Universum                   hiding (forConcurrently)
 
-import qualified Pos.CLI                         as CLI
-import           Pos.Constants                   (genesisN, k, neighborsSendThreshold,
-                                                  slotDuration)
-import           Pos.Crypto                      (KeyPair (..), hash)
-import           Pos.DHT.Model                   (DHTNodeType (..), MonadDHT, dhtAddr,
-                                                  discoverPeers, getKnownPeers)
-import           Pos.DHT.Real                    (KademliaDHT (..), KademliaDHTInstance)
-import           Pos.Genesis                     (genesisUtxo)
-import           Pos.Launcher                    (BaseParams (..), LoggingParams (..),
-                                                  NodeParams (..), bracketDHTInstance,
-                                                  initLrc, runNode, runProductionMode,
-                                                  runTimeSlaveReal, stakesDistr)
-import           Pos.Ssc.Class                   (SscConstraint, SscParams)
-import           Pos.Ssc.GodTossing              (GtParams (..), SscGodTossing)
-import           Pos.Ssc.NistBeacon              (SscNistBeacon)
-import           Pos.Ssc.SscAlgo                 (SscAlgo (..))
-import           Pos.Statistics                  (NoStatsT (..))
-import           Pos.Types                       (TxAux)
-import           Pos.Util.JsonLog                ()
-import           Pos.Wallet                      (submitTxRaw)
-import           Pos.WorkMode                    (ProductionMode)
+import qualified Pos.CLI                     as CLI
+import           Pos.Communication           (BiP)
+import           Pos.Constants               (genesisN, k, neighborsSendThreshold,
+                                              slotDuration)
+import           Pos.Crypto                  (KeyPair (..), hash)
+import           Pos.DHT.Model               (DHTNodeType (..), MonadDHT, dhtAddr,
+                                              discoverPeers, getKnownPeers)
+import           Pos.Genesis                 (genesisUtxo)
+import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
+                                              NodeParams (..), RealModeResources,
+                                              bracketResources, initLrc, runNode,
+                                              runProductionMode, runTimeSlaveReal,
+                                              stakesDistr)
+import           Pos.Ssc.Class               (SscConstraint, SscParams)
+import           Pos.Ssc.GodTossing          (GtParams (..), SscGodTossing)
+import           Pos.Ssc.NistBeacon          (SscNistBeacon)
+import           Pos.Ssc.SscAlgo             (SscAlgo (..))
+import           Pos.Types                   (TxAux)
+import           Pos.Util.JsonLog            ()
+import           Pos.Util.TimeWarp           (NetworkAddress, ms, sec)
+import           Pos.Wallet                  (submitTxRaw)
+import           Pos.WorkMode                (ProductionMode)
 
-import           GenOptions                      (GenOptions (..), optsInfo)
-import           TxAnalysis                      (checkWorker, createTxTimestamps,
-                                                  registerSentTx)
-import           TxGeneration                    (BambooPool, createBambooPool,
-                                                  curBambooTx, initTransaction,
-                                                  isTxVerified, nextValidTx, resetBamboo)
+import           GenOptions                  (GenOptions (..), optsInfo)
+import           TxAnalysis                  (checkWorker, createTxTimestamps,
+                                              registerSentTx)
+import           TxGeneration                (BambooPool, createBambooPool, curBambooTx,
+                                              initTransaction, isTxVerified, nextValidTx,
+                                              resetBamboo)
 import           Util
 
 
 -- | Resend initTx with `slotDuration` period until it's verified
 seedInitTx :: forall ssc . SscConstraint ssc
-           => Double -> BambooPool -> TxAux -> ProductionMode ssc ()
-seedInitTx recipShare bp initTx = do
+           => SendActions BiP (ProductionMode ssc)
+           -> Double
+           -> BambooPool
+           -> TxAux
+           -> ProductionMode ssc ()
+seedInitTx sendActions recipShare bp initTx = do
     na <- getPeers recipShare
     logInfo "Issuing seed transaction"
-    submitTxRaw na initTx
+    submitTxRaw sendActions na initTx
     logInfo "Waiting for 1 slot before resending..."
-    wait $ for slotDuration
+    delay slotDuration
     -- If next tx is present in utxo, then everything is all right
     tx <- liftIO $ curBambooTx bp 1
     isVer <- isTxVerified $ view _1 tx
     if isVer
         then pure ()
-        else seedInitTx recipShare bp initTx
+        else seedInitTx sendActions recipShare bp initTx
 
 chooseSubset :: Double -> [a] -> [a]
 chooseSubset share ls = take n ls
@@ -81,9 +87,9 @@ getPeers share = do
     liftIO $ chooseSubset share <$> shuffleM peers
 
 runSmartGen :: forall ssc . SscConstraint ssc
-            => KademliaDHTInstance -> NodeParams -> SscParams ssc -> GenOptions -> IO ()
-runSmartGen inst np@NodeParams{..} sscnp opts@GenOptions{..} =
-    runProductionMode inst np sscnp $ do
+            => RealModeResources -> NodeParams -> SscParams ssc -> GenOptions -> Production ()
+runSmartGen res np@NodeParams{..} sscnp opts@GenOptions{..} =
+  runProductionMode res np sscnp $ \sendActions -> do
     initLrc
     let getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
         initTx = initTransaction opts
@@ -95,12 +101,12 @@ runSmartGen inst np@NodeParams{..} sscnp opts@GenOptions{..} =
 
     -- | Run all the usual node workers in order to get
     -- access to blockchain
-    fork_ $ runNode @ssc []
+    void $ fork $ runNode @ssc [] sendActions
 
     let logsFilePrefix = fromMaybe "." (CLI.logPrefix goCommonArgs)
     -- | Run the special worker to check new blocks and
     -- fill tx verification times
-    fork_ $ checkWorker txTimestamps logsFilePrefix
+    void $ fork $ checkWorker txTimestamps logsFilePrefix
 
     logInfo "STARTING TXGEN"
 
@@ -108,9 +114,8 @@ runSmartGen inst np@NodeParams{..} sscnp opts@GenOptions{..} =
 
     -- [CSL-220] Write MonadBaseControl instance for KademliaDHT
     -- Seeding init tx
-    _ <- NoStatsT $ KademliaDHT $ forConcurrently goGenesisIdxs $
-        \(fromIntegral -> i) -> unKademliaDHT $ getNoStatsT $
-            seedInitTx goRecipientShare (bambooPools !! i) (initTx i)
+    _ <- forConcurrently goGenesisIdxs $ \(fromIntegral -> i) ->
+            seedInitTx sendActions goRecipientShare (bambooPools !! i) (initTx i)
 
     -- Start writing tps file
     liftIO $ writeFile (logsFilePrefix </> tpsCsvFile) tpsCsvHeader
@@ -135,7 +140,7 @@ runSmartGen inst np@NodeParams{..} sscnp opts@GenOptions{..} =
         realTxNum <- liftIO $ newTVarIO (0 :: Int)
 
         -- Make a pause between rounds
-        wait $ for (round $ goRoundPause * fromIntegral (sec 1) :: Microsecond)
+        delay (round $ goRoundPause * fromIntegral (sec 1) :: Microsecond)
 
         beginT <- getPosixMs
         let startMeasurementsT =
@@ -157,12 +162,12 @@ runSmartGen inst np@NodeParams{..} sscnp opts@GenOptions{..} =
                           Left parent -> do
                               logInfo $ sformat ("Transaction #"%int%" is not verified yet!") idx
                               logInfo "Resend the transaction parent again"
-                              submitTxRaw na parent
+                              submitTxRaw sendActions na parent
 
                           Right (transaction, witness, distr) -> do
                               let curTxId = hash transaction
                               logInfo $ sformat ("Sending transaction #"%int) idx
-                              submitTxRaw na (transaction, witness, distr)
+                              submitTxRaw sendActions na (transaction, witness, distr)
                               when (startT >= startMeasurementsT) $ liftIO $ do
                                   liftIO $ atomically $ modifyTVar' realTxNum (+1)
                                   -- put timestamp to current txmap
@@ -170,12 +175,11 @@ runSmartGen inst np@NodeParams{..} sscnp opts@GenOptions{..} =
 
                       endT <- getPosixMs
                       let runDelta = endT - startT
-                      wait $ for $ ms (max 0 $ tpsDelta - runDelta)
+                      delay $ ms (max 0 $ tpsDelta - runDelta)
               liftIO $ resetBamboo bambooPool
 
         -- [CSL-220] Write MonadBaseControl instance for KademliaDHT
-        _ <- NoStatsT $ KademliaDHT $
-            forConcurrently bambooPools (unKademliaDHT . getNoStatsT . sendThread)
+        _ <- forConcurrently bambooPools sendThread
         finishT <- getPosixMs
 
         realTxNumVal <- liftIO $ readTVarIO realTxNum
@@ -199,7 +203,7 @@ runSmartGen inst np@NodeParams{..} sscnp opts@GenOptions{..} =
 
         -- Wait for 1 phase (to get all the last sent transactions)
         logInfo "Pausing transaction spawning for 1 phase"
-        wait $ for phaseDurationMs
+        delay phaseDurationMs
 
         return (newTPS, newStep)
 
@@ -235,13 +239,15 @@ main = do
             , bpDHTExplicitInitial = CLI.dhtExplicitInitial goCommonArgs
             }
 
-    bracketDHTInstance baseParams $ \inst -> do
+    bracketResources baseParams $ \res -> do
         let timeSlaveParams =
                 baseParams
                 { bpLoggingParams = logParams { lpRunnerTag = "time-slave" }
                 }
 
-        systemStart <- runTimeSlaveReal inst timeSlaveParams
+        systemStart <- case CLI.sscAlgo goCommonArgs of
+            GodTossingAlgo -> runTimeSlaveReal (Proxy :: Proxy SscGodTossing) res timeSlaveParams
+            NistBeaconAlgo -> runTimeSlaveReal (Proxy :: Proxy SscNistBeacon) res timeSlaveParams
 
         let params =
                 NodeParams
@@ -270,6 +276,6 @@ main = do
 
         case CLI.sscAlgo goCommonArgs of
             GodTossingAlgo -> putText "Using MPC coin tossing" *>
-                              runSmartGen @SscGodTossing inst params gtParams opts
+                              runSmartGen @SscGodTossing res params gtParams opts
             NistBeaconAlgo -> putText "Using NIST beacon" *>
-                              runSmartGen @SscNistBeacon inst params () opts
+                              runSmartGen @SscNistBeacon res params () opts

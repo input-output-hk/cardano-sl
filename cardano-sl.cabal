@@ -48,8 +48,9 @@ library
                         Pos.DB.GState
                         Pos.Data.Attributes
                         Pos.Delegation
-                        Pos.DHT
+                        -- Pos.DHT
                         Pos.DHT.Model
+                        Pos.DHT.Model.Neighbors
                         Pos.DHT.Model.Types
                         Pos.DHT.Model.Util
                         Pos.DHT.Model.Class
@@ -103,6 +104,7 @@ library
                         Pos.Util.JsonLog
                         Pos.Util.Relay
                         Pos.Util.UserSecret
+                        Pos.Util.TimeWarp
                         Pos.Worker
                         Pos.WorkMode
   if flag(with-web)
@@ -132,19 +134,18 @@ library
                         -- Block processing
                         Pos.Block.Error
                         Pos.Block.Logic
+                        Pos.Block.Logic.Internal
                         Pos.Block.Network.Announce
-                        Pos.Block.Network.Request
                         Pos.Block.Network.Types
-                        Pos.Block.Network.Server
-                        Pos.Block.Network.Server.State
-                        Pos.Block.Network.Server.Listeners
-                        Pos.Block.Network.Server.Strategy
+                        Pos.Block.Network.Listeners
+                        Pos.Block.Network.Retrieval
                         Pos.Block.Worker
 
                         -- Network
                         Pos.Communication.Arbitrary
+                        Pos.Communication.BiP
                         Pos.Communication.Methods
-                        Pos.Communication.RelayMethods
+                        Pos.Communication.PeerState
                         Pos.Communication.Types
                         Pos.Communication.Types.Protocol
                         Pos.Communication.Types.State
@@ -201,6 +202,7 @@ library
                         Pos.DB.GState.Delegation
                         Pos.DB.GState.GState
                         Pos.DB.GState.Update
+                        Pos.DB.GState.BlockExtra
                         Pos.DB.GState.Utxo
                         Pos.DB.Holder
                         Pos.DB.Lrc
@@ -210,12 +212,6 @@ library
                         Pos.DB.Lrc.Richmen
                         Pos.DB.Misc
                         Pos.DB.Types
-
-                        -- DHT
-                        Pos.DHT.Arbitrary
-                        Pos.DHT.Model.Class.BiP
-                        Pos.DHT.Model.Class.MonadDHT
-                        Pos.DHT.Model.Class.MonadMessageDHT
 
                         -- LRC
                         Pos.Lrc.Consumer
@@ -240,8 +236,6 @@ library
                         Pos.Ssc.GodTossing.LocalData.Helpers
                         Pos.Ssc.GodTossing.LocalData.LocalData
                         Pos.Ssc.GodTossing.LocalData.Types
-                        Pos.Ssc.GodTossing.Secret.SecretStorage
-                        Pos.Ssc.GodTossing.Secret.Types
                         Pos.Ssc.GodTossing.SecretStorage
                         Pos.Ssc.GodTossing.Seed
                         Pos.Ssc.GodTossing.Shares
@@ -277,6 +271,7 @@ library
                         Pos.Types.Utxo.Class
                         Pos.Types.Utxo.Functions
                         Pos.Types.Utxo.Pure
+                        Pos.Worker.Ntp
 
                         -- Workers
                         Pos.Worker.Stats
@@ -338,6 +333,7 @@ library
                         Pos.Wallet.Web.Server.Methods
                         Pos.Wallet.Web.Server.Full
                         Pos.Wallet.Web.Server.Lite
+                        Pos.Wallet.Web.Server.Sockets
                         Pos.Wallet.Web.State
                         Pos.Wallet.Web.State.Acidic
                         Pos.Wallet.Web.State.Holder
@@ -375,6 +371,7 @@ library
                       , filepath
                       , focus
                       , formatting
+                      , gitrev
                       , hashable
                       , http-client
                       , http-client-tls
@@ -391,6 +388,9 @@ library
                       , mono-traversable
                       , mtl
                       , neat-interpolation
+                      , network-transport
+                      , network-transport-tcp
+                      , node-sketch
                       , optparse-applicative
                       , optparse-simple
                       , parsec
@@ -399,7 +399,7 @@ library
                       , quickcheck-instances
                       , random
                       , resourcet
-                      , rocksdb
+                      , rocksdb >= 0.1.0.1
                       , safecopy
                       , serokell-util
                       , stm
@@ -411,7 +411,7 @@ library
                       , th-lift-instances
                       , time
                       , time-units
-                      , time-warp
+                      , list-t
                       , transformers
                       , transformers-base
                       , universum >= 0.1.11
@@ -427,6 +427,8 @@ library
                       , wai
                       , wai-extra
                       , warp
+                      , websockets
+                      , wai-websockets
   hs-source-dirs:       src
   default-language:     Haskell2010
   ghc-options:         -Wall
@@ -475,10 +477,11 @@ executable cardano-node
                      , filepath
                      , formatting
                      , log-warper >= 0.1.0
+                     , network-transport
+                     , node-sketch
                      , optparse-simple
                      , parsec
                      , serokell-util
-                     , time-warp
                      , universum >= 0.1.11
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
@@ -527,7 +530,7 @@ executable cardano-analyzer
                      , serokell-util
                      , text
                      , time
-                     , time-warp
+                     , time-units
                      , universum >= 0.1.11
                      , unordered-containers
   default-language:    Haskell2010
@@ -573,12 +576,13 @@ executable cardano-wallet
                      , lifted-async
                      , log-warper >= 0.1.0
                      , mtl
+                     , network-transport
+                     , node-sketch
                      , optparse-applicative
                      , parsec
                      , serokell-util
                      , text
                      , time
-                     , time-warp
                      , universum >= 0.1.11
                      , unordered-containers
   default-language:    Haskell2010
@@ -679,6 +683,7 @@ executable cardano-smart-generator
                      , lens
                      , lifted-async
                      , log-warper >= 0.1.0
+                     , node-sketch
                      , optparse-applicative
                      , parsec
                      , random
@@ -687,7 +692,7 @@ executable cardano-smart-generator
                      , stm
                      , text
                      , time
-                     , time-warp
+                     , time-units
                      , universum >= 0.1.11
                      , unordered-containers
                      , vector
@@ -815,6 +820,39 @@ executable cardano-checks
                        -O2
   default-extensions:  OverloadedStrings
 
+executable cardano-keygen
+  hs-source-dirs:      src/keygen
+  main-is:             Main.hs
+  build-depends:       base
+                     , cardano-sl
+                     , universum >= 0.1
+                     , text
+                     , lens
+                     , optparse-applicative >= 0.12
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -with-rtsopts=-N
+                       -O2
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+
 test-suite cardano-test
   main-is:             Test.hs
   other-modules:       Spec
@@ -866,7 +904,6 @@ test-suite cardano-test
                      , regex-tdfa
                      , regex-tdfa-text
                      , time-units
-                     , time-warp
                      , universum >= 0.1.11
                      , unordered-containers
                      , vector

@@ -11,16 +11,10 @@ import           Control.Monad.Trans.Resource (ResourceT)
 import           Universum
 
 import           Pos.Context.Context          (NodeContext)
-import           Pos.DHT.Model                (DHTResponseT)
-import           Pos.DHT.Real                 (KademliaDHT)
 
 -- | Class for something that has 'NodeContext' inside.
 class WithNodeContext ssc m | m -> ssc where
     getNodeContext :: m (NodeContext ssc)
-
-instance (Monad m, WithNodeContext ssc m) =>
-         WithNodeContext ssc (KademliaDHT m) where
-    getNodeContext = lift getNodeContext
 
 instance (Monad m, WithNodeContext ssc m) =>
          WithNodeContext ssc (ReaderT a m) where
@@ -32,10 +26,6 @@ instance (Monad m, WithNodeContext ssc m) =>
 
 instance (Monad m, WithNodeContext ssc m) =>
          WithNodeContext ssc (ExceptT e m) where
-    getNodeContext = lift getNodeContext
-
-instance (Monad m, WithNodeContext ssc m) =>
-         WithNodeContext ssc (DHTResponseT s m) where
     getNodeContext = lift getNodeContext
 
 instance (Monad m, WithNodeContext ssc m) =>

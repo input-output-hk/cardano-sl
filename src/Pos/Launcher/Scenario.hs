@@ -1,3 +1,5 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 -- | High-level scenarios which can be launched.
 
 module Pos.Launcher.Scenario
@@ -6,12 +8,17 @@ module Pos.Launcher.Scenario
        , initLrc
        ) where
 
+import           Control.Concurrent.MVar     (putMVar)
 import           Control.Concurrent.STM.TVar (writeTVar)
-import           Control.TimeWarp.Timed      (currentTime, for, fork, sleepForever, wait)
+import           Development.GitRev          (gitBranch, gitHash)
 import           Formatting                  (build, sformat, (%))
+import           Mockable                    (currentTime, delay, fork, sleepForever)
+import           Node                        (SendActions)
 import           System.Wlog                 (logError, logInfo)
 import           Universum
 
+import           Control.Concurrent.STM.TVar (writeTVar)
+import           Pos.Communication           (BiP)
 import           Pos.Context                 (NodeContext (..), getNodeContext,
                                               ncPubKeyAddress, ncPublicKey)
 import qualified Pos.DB.GState               as GS
@@ -24,8 +31,13 @@ import           Pos.Worker                  (runWorkers)
 import           Pos.WorkMode                (WorkMode)
 
 -- | Run full node in any WorkMode.
-runNode :: (SscConstraint ssc, WorkMode ssc m) => [m ()] -> m ()
-runNode plugins = do
+runNode
+    :: (SscConstraint ssc, WorkMode ssc m)
+    => [SendActions BiP m -> m ()]
+    -> SendActions BiP m
+    -> m ()
+runNode plugins sendActions = do
+    logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)
     inAssertMode $ logInfo "Assert mode on"
     pk <- ncPublicKey <$> getNodeContext
     addr <- ncPubKeyAddress <$> getNodeContext
@@ -39,8 +51,8 @@ runNode plugins = do
     initSemaphore
     initLrc
     waitSystemStart
-    runWorkers
-    mapM_ fork plugins
+    runWorkers sendActions
+    mapM_ (fork . ($ sendActions)) plugins
     sleepForever
 
 -- Sanity check in case start time is in future (may happen if clocks
@@ -49,7 +61,7 @@ waitSystemStart :: WorkMode ssc m => m ()
 waitSystemStart = do
     Timestamp start <- ncSystemStart <$> getNodeContext
     cur <- currentTime
-    when (cur < start) $ wait (for (start - cur))
+    when (cur < start) $ delay (start - cur)
 
 initSemaphore :: (WorkMode ssc m) => m ()
 initSemaphore = do

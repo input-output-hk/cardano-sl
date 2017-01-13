@@ -26,23 +26,24 @@ module Pos.DB.Functions
        , rocksWriteBatch
        ) where
 
-import           Control.Monad.Trans.Resource (MonadResource)
-import qualified Data.ByteString.Lazy         as BSL
-import qualified Data.ByteString      as BS (isPrefixOf, drop)
-import           Data.Default                 (def)
-import           Data.List.NonEmpty           (NonEmpty)
-import qualified Database.RocksDB             as Rocks
-import           Formatting                   (sformat, shown, string, (%))
+import qualified Data.ByteString      as BS (drop, isPrefixOf)
+import qualified Data.ByteString.Lazy as BSL
+import           Data.Default         (def)
+import           Data.List.NonEmpty   (NonEmpty)
+import qualified Database.RocksDB     as Rocks
+import           Formatting           (sformat, shown, string, (%))
 import           Universum
 
-import           Pos.Binary.Class             (Bi, decodeFull, encodeStrict)
-import           Pos.DB.Error                 (DBError (DBMalformed))
-import           Pos.DB.Types                 (DB (..))
+import           Pos.Binary.Class     (Bi, decodeFull, encodeStrict)
+import           Pos.DB.Error         (DBError (DBMalformed))
+import           Pos.DB.Types         (DB (..))
 
--- | Open DB stored on disk.
-openDB :: MonadResource m => FilePath -> m (DB ssc)
+openDB :: MonadIO m => FilePath -> m (DB ssc)
 openDB fp = DB def def def
-                   <$> Rocks.open fp def { Rocks.createIfMissing = True }
+                   <$> Rocks.open fp def
+                        { Rocks.createIfMissing = True
+                        , Rocks.compression     = Rocks.NoCompression
+                        }
 
 class WithKeyPrefix c where
     keyPrefix :: Proxy c -> ByteString

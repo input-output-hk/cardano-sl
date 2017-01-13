@@ -1,46 +1,87 @@
 module Daedalus.WS where
 
-import Daedalus.Constants (wsUri)
 import Prelude
+import WebSocket as WS
 import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Console (log)
 import Control.Monad.Eff.Exception (EXCEPTION)
-import Control.Monad.Eff.Var (($=), get)
+import Control.Monad.Eff.Ref (writeRef, REF, readRef, Ref)
+import Control.Monad.Eff.Var (($=))
+import DOM.Event.Types (Event)
+import DOM.Websocket.Event.Types (MessageEvent)
+import Daedalus.Constants (wsUri)
+import Data.Function.Uncurried (Fn1, runFn1)
+import Data.Maybe (Maybe(Just, Nothing))
 import Debug.Trace (traceAnyM)
-import WebSocket (WEBSOCKET, runMessageEvent, Message(Message), runURL, URL(URL), runMessage, newWebSocket, Connection(Connection))
+import WebSocket (runMessage, runMessageEvent)
 
+type NotifyCb = Fn1 String (forall eff. Eff (| eff) Unit)
+type ErrorCb = Fn1 Event (forall eff. Eff (| eff) Unit)
 
-openConn :: forall eff. String -> Eff (ws :: WEBSOCKET, err :: EXCEPTION | eff) Connection
-openConn u = newWebSocket (URL u) []
+newtype WSState = WSState
+    { url :: WS.URL
+    , connection :: Ref WSConnection
+    , notifyCb :: Maybe NotifyCb
+    , errorCb :: Maybe ErrorCb
+    }
 
--- Simple example based on https://github.com/zudov/purescript-websocket-simple/blob/master/example/src/Main.purs
--- It should be removed later on
-example :: forall eff . Eff (ws :: WEBSOCKET, err :: EXCEPTION | eff) Unit
-example = do
-  Connection socket <- openConn wsUri
+mkWSState :: Ref WSConnection -> NotifyCb -> ErrorCb -> WSState
+mkWSState conn notifyCb errorCb = WSState
+    { url: (WS.URL wsUri)
+    , notifyCb: Just notifyCb
+    , errorCb: Just errorCb
+    , connection: conn
+    }
 
-  socket.onopen $= \event -> do
-    traceAnyM event
-    log "onopen: Connection opened"
+data WSConnection
+    = WSNotConnected
+    | WSConnectionRequested
+    | WSConnected WS.Connection
 
-    log <<< runURL =<< get socket.url
+closeConn :: forall eff. WSState -> Eff (ref :: REF, ws :: WS.WEBSOCKET
+    , err :: EXCEPTION | eff) Unit
+closeConn (WSState state) = do
+    connection <- readRef state.connection
+    case connection of
+        WSConnected (WS.Connection socket) -> socket.close
+        _ -> pure unit
 
-    log "onopen: Sending 'hello'"
-    socket.send (Message "hello")
+openConn :: forall eff. WSState -> Eff (ref :: REF, ws :: WS.WEBSOCKET
+    , err :: EXCEPTION | eff) Unit
+openConn (WSState state) = do
+    connection <- readRef state.connection
+    case connection of
+        WSNotConnected -> mkConn (WSState state)
+        _ -> pure unit
 
-    log "onopen: Sending 'goodbye'"
-    socket.send (Message "goodbye")
+mkConn :: forall eff. WSState -> Eff (ref :: REF, ws :: WS.WEBSOCKET
+    , err :: EXCEPTION | eff) Unit
+mkConn (WSState state) = do
+    WS.Connection socket <- WS.newWebSocket state.url []
+    writeRef state.connection WSConnectionRequested
+    socket.onclose $= \_ -> onClose (WSState state)
+    socket.onmessage $= \event -> onMessage (WSState state) event
+    socket.onerror $= \event ->
+        case state.errorCb of
+            Just cb -> runFn1 cb event
+            Nothing -> pure unit
+    socket.onopen $= \_ -> onOpened (WSState state) $ WS.Connection socket
 
-  socket.onmessage $= \event -> do
-    traceAnyM event
-    let received = runMessage (runMessageEvent event)
+onClose :: forall eff. WSState -> Eff (ref :: REF | eff) Unit
+onClose (WSState state) =
+    writeRef state.connection WSNotConnected
 
-    log $ "onmessage: Received '" <> received <> "'"
+onMessage :: forall eff. WSState -> MessageEvent -> Eff eff Unit
+onMessage (WSState state) event = do
+    let msg = runMessage $ runMessageEvent event
+    traceAnyM msg
+    traceAnyM state.notifyCb
+    case state.notifyCb of
+        Just cb -> runFn1 cb msg
+        Nothing -> pure unit
 
-    when (received == "goodbye") do
-      log "onmessage: closing connection"
-      socket.close
-
-  socket.onclose $= \event -> do
-    traceAnyM event
-    log "onclose: Connection closed"
+onOpened :: forall eff. WSState -> WS.Connection -> Eff (ref :: REF
+    , ws :: WS.WEBSOCKET, err :: EXCEPTION | eff) Unit
+onOpened (WSState state) (WS.Connection socket) = do
+    writeRef state.connection <<< WSConnected $ WS.Connection socket
+    -- TODO (jk) "socket.send" can be removed later on, just a check to get a message
+    socket.send $ WS.Message "Opened 4 Daedalus"

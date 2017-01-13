@@ -25,6 +25,7 @@ class (Typeable ssc
       ,Show (SscPayload ssc)
       ,Buildable (SscPayload ssc)
       ,Buildable (SscSeedError ssc)
+      ,Buildable (SscGlobalState ssc)
       ,Bi (SscProof ssc)
       ,Bi (SscPayload ssc)
       ,Default (SscLocalData ssc)

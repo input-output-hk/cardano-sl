@@ -13,7 +13,6 @@ import           Control.Concurrent.STM.TArray (TArray)
 import           Control.Concurrent.STM.TVar   (TVar, modifyTVar', newTVar, readTVar,
                                                 writeTVar)
 import           Control.Lens                  (view, _1)
-import           Control.TimeWarp.Timed        (sec)
 import           Data.Array.MArray             (newListArray, readArray, writeArray)
 import           Data.List                     (tail, (!!))
 import           Universum                     hiding (head)
@@ -28,6 +27,7 @@ import           Pos.Script.Examples           (multisigValidator)
 import           Pos.Types                     (Tx (..), TxAux, TxId, TxOut (..),
                                                 makePubKeyAddress, makeScriptAddress,
                                                 mkCoin)
+import           Pos.Util.TimeWarp             (sec)
 import           Pos.Wallet                    (makeMOfNTx, makePubKeyTx)
 import           Pos.WorkMode                  (WorkMode)
 

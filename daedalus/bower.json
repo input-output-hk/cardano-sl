@@ -38,6 +38,7 @@
     "purescript-aff-promise": "0.2.1",
     "purescript-media-types": "1.0.0",
     "purescript-functions": "1.0.0",
-    "purescript-websocket-simple": "0.5.0"
+    "purescript-websocket-simple": "0.5.0",
+    "purescript-refs": "1.0.0"
   }
 }

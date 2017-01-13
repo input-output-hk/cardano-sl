@@ -33,7 +33,7 @@ import           Pos.DB.Class         (MonadDB, getUtxoDB)
 import           Pos.DB.DBIterator    (DBIterator, DBMapIterator, mapIterator,
                                        runIterator)
 import           Pos.DB.Error         (DBError (..))
-import           Pos.DB.Functions     (WithKeyPrefix (..), RocksBatchOp (..),
+import           Pos.DB.Functions     (RocksBatchOp (..), WithKeyPrefix (..),
                                        encodeWithKeyPrefix, rocksGetBi,
                                        traverseAllEntries)
 import           Pos.DB.GState.Common (getBi, putBi)
@@ -114,8 +114,9 @@ filterUtxo p = do
         then return $ M.insert (txInHash k, txInIndex k) v m
         else return m
 
-runUtxoIterator :: forall v ssc m a . (MonadDB ssc m, MonadMask m)
-                 => DBIterator v m a -> m a
+runUtxoIterator
+    :: (MonadDB ssc m, MonadMask m)
+    => DBIterator v m a -> m a
 runUtxoIterator iter = runIterator iter =<< getUtxoDB
 
 mapUtxoIterator :: forall u v m ssc a . (MonadDB ssc m, MonadMask m)

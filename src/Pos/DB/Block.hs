@@ -8,9 +8,6 @@ module Pos.DB.Block
        , getBlockHeader
        , getStoredBlock
        , getUndo
-       , getNextHash
-       , setBlockInMainChain
-       , isBlockInMainChain
 
        , deleteBlock
        , putBlock
@@ -58,27 +55,6 @@ getBlockHeader
     => HeaderHash ssc -> m (Maybe (BlockHeader ssc))
 getBlockHeader h = fmap T.getBlockHeader <$> getBlock h
 
--- | Gets hash of the next block in the blockchain
-getNextHash
-    :: (MonadDB ssc m)
-    => HeaderHash ssc -> m (Maybe (HeaderHash ssc))
-getNextHash = getBi . ptrKey
-
--- | Sets block's inMainChain flag to supplied value. Does nothing if
--- block wasn't found.
-setBlockInMainChain
-    :: (Ssc ssc, MonadDB ssc m)
-    => HeaderHash ssc -> Bool -> m ()
-setBlockInMainChain h inMainChain =
-    whenJustM (getBlock h) $ \blk ->
-        putBi (blockKey h) $ StoredBlock blk inMainChain
-
--- | Get block with given hash from Block DB.
-isBlockInMainChain
-    :: (Ssc ssc, MonadDB ssc m)
-    => HeaderHash ssc -> m Bool
-isBlockInMainChain = fmap (maybe False sbInMain) . getStoredBlock
-
 -- | Get undo data for block with given hash from Block DB.
 getUndo
     :: (MonadDB ssc m)
@@ -88,19 +64,11 @@ getUndo = getBi . undoKey
 -- | Put given block, its metadata and Undo data into Block DB.
 putBlock
     :: (Ssc ssc, MonadDB ssc m)
-    => Undo -> Bool -> Block ssc -> m ()
-putBlock undo inMainChain blk = do
+    => Undo -> Block ssc -> m ()
+putBlock undo blk = do
     let h = headerHash blk
-        ph = blk ^. prevBlockL
-    putBi
-        (blockKey h)
-        StoredBlock
-        { sbBlock = blk
-        , sbInMain = inMainChain
-        }
+    putBi (blockKey h) $ StoredBlock { sbBlock = blk }
     putBi (undoKey h) undo
-    -- Save forward link to enable forward traversal
-    putBi (ptrKey ph) h
 
 deleteBlock :: (MonadDB ssc m) => HeaderHash ssc -> m ()
 deleteBlock = delete . blockKey
@@ -177,7 +145,7 @@ prepareBlockDB
     :: forall ssc m.
        (Ssc ssc, MonadDB ssc m)
     => GenesisBlock ssc -> m ()
-prepareBlockDB = putBlock (Undo [] []) True . Left
+prepareBlockDB = putBlock (Undo [] []) . Left
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -201,6 +169,3 @@ blockKey h = "b" <> convert h
 
 undoKey :: HeaderHash ssc -> ByteString
 undoKey h = "u" <> convert h
-
-ptrKey :: HeaderHash ssc -> ByteString
-ptrKey h = "p" <> convert h

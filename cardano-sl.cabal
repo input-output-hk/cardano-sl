@@ -898,6 +898,7 @@ test-suite cardano-test
                      , hspec
                      , lens
                      , log-warper >= 0.1.0
+                     , node-sketch
                      , memory
                      , mtl
                      , quickcheck-instances

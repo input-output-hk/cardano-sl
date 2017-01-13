@@ -86,7 +86,6 @@ checkNSendOurCert = do
     (_, ourId) <- getOurPkAndId
     sl@SlotId {..} <- getCurrentSlot
     certts <- getGlobalCerts sl
-    logDebug $ sformat ("Certs: "%listJson) $ HM.keys certts
     let ourCertMB = HM.lookup ourId certts
     case ourCertMB of
         Just ourCert ->

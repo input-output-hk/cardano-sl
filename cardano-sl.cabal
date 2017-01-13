@@ -412,7 +412,6 @@ library
                       , th-lift-instances
                       , time
                       , time-units
-                      , time-warp
                       , list-t
                       , transformers
                       , transformers-base
@@ -484,7 +483,6 @@ executable cardano-node
                      , optparse-simple
                      , parsec
                      , serokell-util
-                     , time-warp
                      , universum >= 0.1.11
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
@@ -534,7 +532,6 @@ executable cardano-analyzer
                      , text
                      , time
                      , time-units
-                     , time-warp
                      , universum >= 0.1.11
                      , unordered-containers
   default-language:    Haskell2010
@@ -587,7 +584,6 @@ executable cardano-wallet
                      , serokell-util
                      , text
                      , time
-                     , time-warp
                      , universum >= 0.1.11
                      , unordered-containers
   default-language:    Haskell2010
@@ -698,7 +694,6 @@ executable cardano-smart-generator
                      , text
                      , time
                      , time-units
-                     , time-warp
                      , universum >= 0.1.11
                      , unordered-containers
                      , vector
@@ -910,7 +905,6 @@ test-suite cardano-test
                      , regex-tdfa
                      , regex-tdfa-text
                      , time-units
-                     , time-warp
                      , universum >= 0.1.11
                      , unordered-containers
                      , vector

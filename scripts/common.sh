@@ -29,7 +29,6 @@ function logs {
 
   local log_file=$1
   local conf_dir="$logs_dir/conf"
-  dump_dir="$logs_dir/dump"
   local template_name="log-template.yaml"
   if [[ "$LOG_TEMPLATE" != "" ]]; then
     template_name="$LOG_TEMPLATE"
@@ -37,7 +36,7 @@ function logs {
   local template="$base_common/$template_name"
 
   mkdir -p "$conf_dir"
-  mkdir -p "$dump_dir"
+  mkdir -p "$logs_dir/dump"
 
   local conf_file="$conf_dir/$log_file.yaml"
   cat "$template" \
@@ -63,7 +62,7 @@ function dht_key {
     i2="0$i"
   fi
 
-  echo "MHdtsP-oPf7UWly"$i2"7QuXnLK5RD="
+  $(find_binary "cardano-key-generator") 000000000000$i2 | tr -d '\n'
 }
 
 function peer_config {
@@ -139,7 +138,7 @@ function node_cmd {
   echo -n " $stake_distr $ssc_algo "
   echo -n " $web "
   echo -n " $wallet_args "
-  echo -n " --kademlia-dump-path  $dump_dir/$kademlia_dump_path "
+  echo -n " --kademlia-dump-path  $logs_dir/dump/$kademlia_dump_path "
   echo ''
 }
 

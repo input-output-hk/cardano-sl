@@ -16,8 +16,7 @@ import           Pos.Binary.Class    (encodeStrict)
 import           Pos.DB.Class        (MonadDB, getUtxoDB)
 import           Pos.DB.Functions    (RocksBatchOp (..), rocksGetBi, rocksPutBi)
 import           Pos.Ssc.Class.Types (Ssc)
-import           Pos.Types           (Block, HasHeaderHash, HeaderHash, genesisHash,
-                                      headerHash)
+import           Pos.Types           (Block, HasHeaderHash, HeaderHash, headerHash)
 
 
 ----------------------------------------------------------------------------

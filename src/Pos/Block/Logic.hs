@@ -39,6 +39,7 @@ import           Data.List.NonEmpty        (NonEmpty ((:|)), (<|))
 import qualified Data.List.NonEmpty        as NE
 import qualified Data.Text                 as T
 import           Formatting                (build, int, ords, sformat, stext, (%))
+import           Serokell.Util.Text        (listJson)
 import           Serokell.Util.Verify      (VerificationRes (..), formatAllErrors,
                                             isVerSuccess, verResToMonadError)
 import           System.Wlog               (logDebug, logError, logInfo)
@@ -182,30 +183,28 @@ classifyHeaders
     :: WorkMode ssc m
     => NonEmpty (BlockHeader ssc) -> m (ClassifyHeadersRes ssc)
 classifyHeaders headers@(h:|hs) = do
+    tip <- GS.getTip
     haveLast <- isJust <$> DB.getBlockHeader (hash $ NE.last headers)
     let headersValid = isVerSuccess $ verifyHeaders True $ h : hs
     if | not headersValid ->
              pure $ CHsInvalid "Header chain is invalid"
        | not haveLast ->
              pure $ CHsInvalid "Last block of the passed chain wasn't found locally"
-       | otherwise -> processClassify
+       | h ^. headerHashG == tip ^. headerHashG ->
+             pure $ CHsUseless "Newest hash is the same as our tip"
+       | otherwise -> fromMaybe uselessGeneral <$> processClassify
   where
-    processClassify = do
-        tipHeader <- view blockHeader <$> DB.getTipBlock
-        let tipHash = tipHeader ^. headerHashG
-        lcaHash <-
-            fromMaybe (panic $ sformat ("lca should exist, our tip: "%shortHashF) tipHash) <$>
-            lcaWithMainChain headers
-        lca <-
-            fromMaybe (panic $ sformat ("lca should be resolvable: "%shortHashF) lcaHash) <$>
-            DB.getBlockHeader lcaHash
+    uselessGeneral =
+        CHsUseless "Couldn't find lca -- maybe db state updated in the process"
+    processClassify = runMaybeT $ do
+        tipHeader <- view blockHeader <$> lift DB.getTipBlock
+        lift $ logDebug $
+            sformat ("Classifying headers: "%listJson) $ map (view headerHashG) (h:hs)
+        lcaHash <- MaybeT $ lcaWithMainChain headers
+        lca <- MaybeT $ DB.getBlockHeader lcaHash
         -- depth in terms of slots, not difficulty
-        let depthDiff =
-                flattenEpochOrSlot tipHeader -
-                flattenEpochOrSlot lca
-        let lcaChild =
-                fromMaybe (panic "processClassify@classifyHeaders") $
-                find (\bh -> bh ^. prevBlockL == hash lca) (h:hs)
+        let depthDiff = flattenEpochOrSlot tipHeader - flattenEpochOrSlot lca
+        lcaChild <- MaybeT $ pure $ find (\bh -> bh ^. prevBlockL == hash lca) (h:hs)
         pure $ if
             | hash lca == hash tipHeader -> CHsValid lcaChild
             | depthDiff < 0 -> panic "classifyHeaders@depthDiff is negative"

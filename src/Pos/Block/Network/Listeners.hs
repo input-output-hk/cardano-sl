@@ -9,29 +9,24 @@ module Pos.Block.Network.Listeners
        ) where
 
 import           Control.Concurrent.STM.TBQueue (isFullTBQueue, writeTBQueue)
-import           Control.Lens                   (view, (^.), _1)
+import           Control.Lens                   ((^.))
 import           Data.List.NonEmpty             (NonEmpty ((:|)), nonEmpty)
 import qualified Data.List.NonEmpty             as NE
 import           Data.Proxy                     (Proxy (..))
-import           Formatting                     (build, sformat, shown, stext, (%))
-import           Mockable                       (fork)
+import           Formatting                     (sformat, shown, stext, (%))
 import           Node                           (ConversationActions (..),
                                                  ListenerAction (..), NodeId (..),
-                                                 SendActions (..), sendTo)
-import           Serokell.Util.Text             (listJson, listJsonIndent)
+                                                 SendActions (..))
+import           Serokell.Util.Text             (listJson)
 import           Serokell.Util.Verify           (isVerSuccess)
-import           System.Wlog                    (logDebug, logError, logInfo, logWarning)
+import           System.Wlog                    (logDebug, logInfo, logWarning)
 import           Universum
 
 import           Pos.Binary.Communication       ()
 import           Pos.Block.Logic                (ClassifyHeaderRes (..),
-                                                 ClassifyHeadersRes (..), applyBlocks,
-                                                 classifyHeaders, classifyNewHeader,
-                                                 getHeadersFromManyTo,
-                                                 getHeadersFromToIncl, getHeadersOlderExp,
-                                                 lcaWithMainChain, rollbackBlocks,
-                                                 verifyBlocks, withBlkSemaphore_)
-import           Pos.Block.Network.Announce     (announceBlock)
+                                                 ClassifyHeadersRes (..), classifyHeaders,
+                                                 classifyNewHeader, getHeadersFromManyTo,
+                                                 getHeadersFromToIncl, getHeadersOlderExp)
 import           Pos.Block.Network.Types        (InConv (..), MsgBlock (..),
                                                  MsgGetBlocks (..), MsgGetHeaders (..),
                                                  MsgHeaders (..))
@@ -42,11 +37,9 @@ import qualified Pos.DB                         as DB
 import           Pos.DB.Error                   (DBError (DBMalformed))
 import           Pos.DHT.Model                  (nodeIdToAddress)
 import           Pos.Ssc.Class.Types            (Ssc (..))
-import           Pos.Types                      (Block, BlockHeader, Blund,
-                                                 HasHeaderHash (..), HeaderHash, NEBlocks,
-                                                 blockHeader, gbHeader, prevBlockL,
-                                                 verifyHeaders)
-import           Pos.Util                       (inAssertMode, _neHead, _neLast)
+import           Pos.Types                      (BlockHeader, HasHeaderHash (..),
+                                                 HeaderHash, verifyHeaders)
+import           Pos.Util                       (_neHead, _neLast)
 import           Pos.Util                       (stubListenerConv, stubListenerOneMsg)
 import           Pos.WorkMode                   (WorkMode)
 
@@ -161,9 +154,8 @@ handleRequestedHeaders
        (WorkMode ssc m)
     => NonEmpty (BlockHeader ssc)
     -> NodeId
-    -> SendActions BiP m
     -> m ()
-handleRequestedHeaders headers peerId sendActions = do
+handleRequestedHeaders headers peerId = do
     logDebug "handleRequestedHeaders: headers were requested, will process"
     classificationRes <- classifyHeaders headers
     let newestHeader = headers ^. _neHead
@@ -226,7 +218,7 @@ handleUnsolicitedHeader header peerId sendActions = do
                 whenJust mHeaders $ \headers -> do
                     logDebug "handleUnsolicitedHeader: got some block headers"
                     if matchRequestedHeaders headers mgh
-                       then handleRequestedHeaders headers peerId sendActions
+                       then handleRequestedHeaders headers peerId
                        else handleUnexpected headers peerId
         CHUseless reason -> logDebug $ sformat uselessFormat hHash reason
         CHInvalid _ -> pass -- TODO: ban node for sending invalid block.

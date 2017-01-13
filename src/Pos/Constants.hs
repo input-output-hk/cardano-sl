@@ -53,7 +53,7 @@ module Pos.Constants
 import           Data.String                (String)
 import           Data.Time.Units            (Microsecond)
 import           Language.Haskell.TH.Syntax (lift, runIO)
-import           Pos.Util.TimeWarp          (sec)
+import           Pos.Util.TimeWarp          (ms, sec)
 import           System.Environment         (lookupEnv)
 import qualified Text.Parsec                as P
 import           Universum                  hiding (lift)

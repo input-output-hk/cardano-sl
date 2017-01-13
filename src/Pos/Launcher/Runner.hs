@@ -332,7 +332,7 @@ createTransport port = do
     transportE <- liftIO $ TCP.createTransport
                              "0.0.0.0"
                              (show port)
-                             (TCP.defaultTCPParameters { transportConnectTimeout = Just networkConnectionTimeout })
+                             (TCP.defaultTCPParameters { TCP.transportConnectTimeout = Just $ fromIntegral networkConnectionTimeout })
     case transportE of
       Left e -> do
           logError $ sformat ("Error creating TCP transport: " % shown) e

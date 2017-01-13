@@ -6,14 +6,15 @@ module Pos.Binary.Types () where
 
 import           Data.Binary.Get     (getInt32be, getWord64be, getWord8, label)
 import           Data.Binary.Put     (putInt32be, putWord64be, putWord8)
-import           Formatting          (int, sformat, (%))
+import           Data.Ix             (inRange)
+import           Formatting          (formatToString, int, sformat, (%))
 import           Universum
 
 import           Pos.Binary.Class    (Bi (..), UnsignedVarInt (..))
 import           Pos.Binary.Merkle   ()
 import           Pos.Binary.Update   ()
 import           Pos.Binary.Version  ()
-import           Pos.Constants       (protocolMagic)
+import           Pos.Constants       (epochSlots, protocolMagic)
 import qualified Pos.Data.Attributes as A
 import           Pos.Ssc.Class.Types (Ssc (..))
 import qualified Pos.Types.Timestamp as T
@@ -45,7 +46,13 @@ instance Bi T.LocalSlotIndex where
 
 instance Bi T.SlotId where
     put (T.SlotId e s) = put e >> put s
-    get = T.SlotId <$> get <*> get
+    get = do
+        siEpoch <- get
+        siSlot <- get
+        let errMsg =
+                formatToString ("get@SlotId: ivalid slotId ("%int%")") siSlot
+        unless (inRange (0, epochSlots - 1) siSlot) $ fail errMsg
+        return $ T.SlotId {..}
 
 instance Bi T.TxIn where
     put (T.TxIn hash index) = put hash >> put (UnsignedVarInt index)

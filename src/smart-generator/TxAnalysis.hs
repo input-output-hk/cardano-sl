@@ -18,7 +18,7 @@ import           System.FilePath.Posix ((</>))
 import           System.Wlog           (logWarning)
 import           Universum             hiding (catchAll)
 
-import           Pos.Constants         (k, slotDuration)
+import           Pos.Constants         (blkSecurityParam, slotDuration)
 import           Pos.Crypto            (hash)
 import           Pos.DB                (loadBlocksFromTipWhile)
 import           Pos.Slotting          (getCurrentSlot, getSlotStart)
@@ -60,7 +60,7 @@ checkTxsInLastBlock :: forall ssc . SscConstraint ssc
 checkTxsInLastBlock TxTimestamps {..} logsPrefix = do
     let lastSafe [] = Nothing
         lastSafe xs = Just $ last xs
-    mBlock <- fmap fst . lastSafe <$> loadBlocksFromTipWhile (\_ depth -> depth < k)
+    mBlock <- fmap fst . lastSafe <$> loadBlocksFromTipWhile (\_ depth -> depth < blkSecurityParam)
     case mBlock of
         Nothing -> pure ()
         Just (Left _) -> pure ()
@@ -79,7 +79,7 @@ checkTxsInLastBlock TxTimestamps {..} logsPrefix = do
                 liftIO $ writeIORef sentTimes newSt
 
                 -- We don't know exact time when checked block has been created/adopted,
-                -- but we do know that it was not at `k` depth a slot ago,
+                -- but we do know that it was not at `blkSecurityParam` depth a slot ago,
                 -- so we just take a beginning of current slot
                 slStart <- getSlotStart =<< getCurrentSlot
                 liftIO $ writeIORef lastSlot curSlot

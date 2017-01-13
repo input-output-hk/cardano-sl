@@ -22,8 +22,8 @@ import           Universum                   hiding (forConcurrently)
 
 import qualified Pos.CLI                     as CLI
 import           Pos.Communication           (BiP)
-import           Pos.Constants               (genesisN, k, neighborsSendThreshold,
-                                              slotDuration)
+import           Pos.Constants               (genesisN, neighborsSendThreshold,
+                                              slotDuration, slotSecurityParam)
 import           Pos.Crypto                  (KeyPair (..), hash)
 import           Pos.DHT.Model               (DHTNodeType (..), MonadDHT, dhtAddr,
                                               discoverPeers, getKnownPeers)
@@ -122,7 +122,7 @@ runSmartGen res np@NodeParams{..} sscnp opts@GenOptions{..} =
     -- Start writing tps file
     liftIO $ writeFile (logsFilePrefix </> tpsCsvFile) tpsCsvHeader
 
-    let phaseDurationMs = fromIntegral (k + goPropThreshold) * slotDuration
+    let phaseDurationMs = fromIntegral (slotSecurityParam + goPropThreshold) * slotDuration
         roundDurationSec = fromIntegral (goRoundPeriodRate + 1) *
                            fromIntegral (phaseDurationMs `div` sec 1)
 

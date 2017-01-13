@@ -15,7 +15,8 @@ import           System.Wlog                       (logWarning)
 import           Universum                         hiding (ask)
 
 import           Pos.Communication.BiP             (BiP)
-import           Pos.Constants                     (k, mdNoBlocksSlotThreshold,
+import           Pos.Constants                     (blkSecurityParam,
+                                                    mdNoBlocksSlotThreshold,
                                                     mdNoCommitmentsEpochThreshold)
 import           Pos.Context                       (getNodeContext, ncPublicKey)
 import           Pos.DB                            (getTipBlock, loadBlocksFromTipWhile)
@@ -79,7 +80,7 @@ checkCommitmentsInPreviousBlocks
     :: forall m. WorkMode SscGodTossing m
     => SlotId -> ReaderT (TVar EpochIndex) m ()
 checkCommitmentsInPreviousBlocks slotId = do
-    kBlocks <- map fst <$> loadBlocksFromTipWhile (\_ depth -> depth < k)
+    kBlocks <- map fst <$> loadBlocksFromTipWhile (\_ depth -> depth < blkSecurityParam)
     forM_ kBlocks $ \case
         Right blk -> checkCommitmentsInBlock slotId blk
         _         -> return ()

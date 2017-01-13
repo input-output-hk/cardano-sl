@@ -31,7 +31,7 @@ import           Pos.Block.Network.Types        (InConv (..), MsgBlock (..),
                                                  MsgGetBlocks (..), MsgGetHeaders (..),
                                                  MsgHeaders (..))
 import           Pos.Communication.BiP          (BiP (..))
-import           Pos.Constants                  (k)
+import           Pos.Constants                  (blkSecurityParam)
 import           Pos.Context                    (getNodeContext, ncBlockRetrievalQueue)
 import           Pos.Crypto                     (hash, shortHashF)
 import qualified Pos.DB                         as DB
@@ -82,7 +82,7 @@ matchRequestedHeaders headers@(newTip :| hs) mgh =
             or [ (startHeader ^. headerHashG) `elem` mghFrom mgh
                , (startHeader ^. prevBlockL) `elem` mghFrom mgh]
         mghToMatches
-            | length headers > k = True
+            | length headers > blkSecurityParam = True
             | otherwise =  Just (hash newTip) == mghTo mgh
      in and [ startMatches
             , mghToMatches

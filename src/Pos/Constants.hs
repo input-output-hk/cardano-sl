@@ -9,7 +9,8 @@
 module Pos.Constants
        (
          -- * Constants mentioned in paper
-         k
+         blkSecurityParam
+       , slotSecurityParam
        , slotDuration
        , epochSlots
        , epochDuration
@@ -82,10 +83,15 @@ import           Pos.Util.TimeWarp          (mcs)
 -- Main constants mentioned in paper
 ----------------------------------------------------------------------------
 
--- | Consensus guarantee (i.e. after what amount of blocks can we consider
--- blocks stable?).
-k :: Integral a => a
-k = fromIntegral . ccK $ compileConfig
+-- | Security parameter which is maximum number of blocks which can be
+-- rolled back.
+blkSecurityParam :: Integral a => a
+blkSecurityParam = fromIntegral . ccK $ compileConfig
+
+-- | Security parameter expressed in number of slots. It uses chain
+-- quality property. It's basically 'blkSecurityParam / chain_quality'.
+slotSecurityParam :: Integral a => a
+slotSecurityParam = 2 * blkSecurityParam
 
 -- | Length of slot. Also see 'Pos.CompileConfig.ccSlotDurationSec'.
 slotDuration :: Microsecond
@@ -93,7 +99,7 @@ slotDuration = sec . ccSlotDurationSec $ compileConfig
 
 -- | Number of slots inside one epoch.
 epochSlots :: Integral a => a
-epochSlots = 6 * k
+epochSlots = 12 * blkSecurityParam
 
 -- | Length of one epoch in 'Microsecond's.
 epochDuration :: Microsecond
@@ -217,9 +223,9 @@ delegationThreshold :: CoinPortion
 delegationThreshold = unsafeCoinPortion $ ccDelegationThreshold compileConfig
 
 -- | Maximum amount of headers node can put into headers
--- message. Should be more than 'k'.
+-- message. Should be more than 'blkSecurityParam'.
 maxHeadersMessage :: (Integral a) => a
-maxHeadersMessage = 2 * k
+maxHeadersMessage = 2 * blkSecurityParam
 
 ----------------------------------------------------------------------------
 -- Malicious activity

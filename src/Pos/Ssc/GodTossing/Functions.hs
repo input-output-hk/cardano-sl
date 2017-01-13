@@ -10,7 +10,6 @@ module Pos.Ssc.GodTossing.Functions
        , isOpeningIdx
        , isSharesId
        , isSharesIdx
-       , inLastKSlotsId
        , hasCommitment
        , hasOpening
        , hasShares
@@ -50,7 +49,7 @@ import           Universum
 
 import           Pos.Binary.Class               (Bi)
 import           Pos.Binary.Crypto              ()
-import           Pos.Constants                  (k, vssMaxTTL, vssMinTTL)
+import           Pos.Constants                  (blkSecurityParam, vssMaxTTL, vssMinTTL)
 import           Pos.Crypto                     (EncShare, Secret, SecretKey,
                                                  SecureRandom (..), Share, Threshold,
                                                  VssPublicKey, checkSig, encShareId,
@@ -108,13 +107,13 @@ mkSignedCommitment sk i c = (toPublic sk, c, sign sk (i, c))
 -- Simple predicates for GodTossing.Types.Base
 ----------------------------------------------------------------------------
 isCommitmentIdx :: LocalSlotIndex -> Bool
-isCommitmentIdx = inRange (0, k - 1)
+isCommitmentIdx = inRange (0, 2 * blkSecurityParam - 1)
 
 isOpeningIdx :: LocalSlotIndex -> Bool
-isOpeningIdx = inRange (2 * k, 3 * k - 1)
+isOpeningIdx = inRange (4 * blkSecurityParam, 6 * blkSecurityParam - 1)
 
 isSharesIdx :: LocalSlotIndex -> Bool
-isSharesIdx = inRange (4 * k, 5 * k - 1)
+isSharesIdx = inRange (8 * blkSecurityParam, 10 * blkSecurityParam - 1)
 
 isCommitmentId :: SlotId -> Bool
 isCommitmentId = isCommitmentIdx . siSlot
@@ -124,9 +123,6 @@ isOpeningId = isOpeningIdx . siSlot
 
 isSharesId :: SlotId -> Bool
 isSharesId = isSharesIdx . siSlot
-
-inLastKSlotsId :: SlotId -> Bool
-inLastKSlotsId SlotId{..} = siSlot >= 5 * k
 
 -- Not the best solution :(
 hasCommitment
@@ -307,7 +303,7 @@ checkOpeningMatchesCommitment globalCommitments (addr, opening) =
 -- For each DS datum we check:
 --
 --   1. Whether it's stored in the correct block (e.g. commitments have to be in
---      first k blocks, etc.)
+--      first 2 * blkSecurityParam blocks, etc.)
 --
 --   2. Whether the message itself is correct (e.g. commitment signature is
 --      valid, etc.)
@@ -317,7 +313,7 @@ verifyGtPayload
     :: (SscPayload ssc ~ GtPayload, Bi Commitment)
     => MainBlockHeader ssc -> SscPayload ssc -> VerificationRes
 verifyGtPayload header payload =
-    verifyGeneric $ otherChecks ++
+    verifyGeneric $
         case payload of
             CommitmentsPayload comms certs ->   isComm
                                               : commChecks comms
@@ -367,13 +363,6 @@ verifyGtPayload header payload =
       , (all (checkCertTTL epochIndex) (toList certs),
             "some VSS certificates have invalid TTL")
       ]
-
-    -- CHECK: For all blocks (no matter the type), we check that
-    --
-    --   * slot ID is in range
-    otherChecks =
-        [ (inRange (0, 6 * k - 1) (siSlot slotId),
-            "slot id is outside of [0, 6k)")]
 
 checkCommShares :: [AsBinary VssPublicKey] -> SignedCommitment -> Bool
 checkCommShares vssPublicKeys c =

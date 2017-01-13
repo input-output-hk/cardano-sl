@@ -22,14 +22,16 @@ import           Mockable                         (currentTime, delay)
 import           Node                             (SendActions)
 import           Serokell.Util.Exceptions         ()
 import           Serokell.Util.Text               (listJson)
-import           System.Wlog                      (logDebug, logError, logWarning, logInfo)
+import           System.Wlog                      (logDebug, logError, logInfo,
+                                                   logWarning)
 import           Universum
 
 import           Pos.Binary.Class                 (Bi)
 import           Pos.Binary.Relay                 ()
 import           Pos.Binary.Ssc                   ()
 import           Pos.Communication.BiP            (BiP)
-import           Pos.Constants                    (k, mpcSendInterval, vssMaxTTL)
+import           Pos.Constants                    (mpcSendInterval, slotSecurityParam,
+                                                   vssMaxTTL)
 import           Pos.Context                      (getNodeContext, lrcActionOnEpochReason,
                                                    ncPublicKey, ncSecretKey, ncSscContext)
 import           Pos.Crypto                       (SecretKey, VssKeyPair, VssPublicKey,
@@ -254,11 +256,11 @@ sscProcessOurMessage epoch msg ourId = do
 sendOurData
     :: (WorkMode SscGodTossing m)
     => SendActions BiP m -> GtMsgTag -> EpochIndex -> LocalSlotIndex -> StakeholderId -> m ()
-sendOurData sendActions msgTag epoch kMultiplier ourId = do
+sendOurData sendActions msgTag epoch slMultiplier ourId = do
     -- Note: it's not necessary to create a new thread here, because
     -- in one invocation of onNewSlot we can't process more than one
     -- type of message.
-    waitUntilSend msgTag epoch kMultiplier
+    waitUntilSend msgTag epoch slMultiplier
     logInfo $ sformat ("Announcing our "%build) msgTag
     let msg = InvMsg {imTag = msgTag, imKeys = pure ourId}
     -- [CSL-514] TODO Log long acting sends
@@ -320,9 +322,10 @@ randomTimeInInterval interval =
 waitUntilSend
     :: WorkMode SscGodTossing m
     => GtMsgTag -> EpochIndex -> LocalSlotIndex -> m ()
-waitUntilSend msgTag epoch kMultiplier = do
+waitUntilSend msgTag epoch slMultiplier = do
     Timestamp beginning <-
-        getSlotStart $ SlotId {siEpoch = epoch, siSlot = kMultiplier * k}
+        getSlotStart $
+        SlotId {siEpoch = epoch, siSlot = slMultiplier * slotSecurityParam}
     curTime <- currentTime
     let minToSend = curTime
     let maxToSend = beginning + mpcSendInterval
@@ -332,6 +335,8 @@ waitUntilSend msgTag epoch kMultiplier = do
         let ttwMillisecond :: Millisecond
             ttwMillisecond = convertUnit timeToWait
         logDebug $
-            sformat ("Waiting for "%shown%" before sending "%build)
-                ttwMillisecond msgTag
+            sformat
+                ("Waiting for " %shown % " before sending " %build)
+                ttwMillisecond
+                msgTag
         delay timeToWait

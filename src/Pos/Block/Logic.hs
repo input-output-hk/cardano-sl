@@ -48,8 +48,9 @@ import           Universum
 
 import           Pos.Block.Logic.Internal  (applyBlocksUnsafe, rollbackBlocksUnsafe,
                                             withBlkSemaphore, withBlkSemaphore_)
-import           Pos.Constants             (curProtocolVersion, curSoftwareVersion, k,
-                                            maxHeadersMessage)
+import           Pos.Constants             (blkSecurityParam, curProtocolVersion,
+                                            curSoftwareVersion, epochSlots,
+                                            maxHeadersMessage, slotSecurityParam)
 import           Pos.Context               (NodeContext (ncSecretKey), getNodeContext,
                                             lrcActionOnEpochReason)
 import           Pos.Crypto                (SecretKey, WithHash (WithHash), hash,
@@ -203,17 +204,16 @@ classifyHeaders headers@(h:|hs) = do
             sformat ("Classifying headers: "%listJson) $ map (view headerHashG) (h:hs)
         lcaHash <- MaybeT $ lcaWithMainChain headers
         lca <- MaybeT $ DB.getBlockHeader lcaHash
-        -- depth in terms of slots, not difficulty
-        let depthDiff = flattenEpochOrSlot tipHeader - flattenEpochOrSlot lca
+        let depthDiff = tipHeader ^. difficultyL - lca ^. difficultyL
         lcaChild <- MaybeT $ pure $ find (\bh -> bh ^. prevBlockL == hash lca) (h:hs)
         pure $ if
             | hash lca == hash tipHeader -> CHsValid lcaChild
             | depthDiff < 0 -> panic "classifyHeaders@depthDiff is negative"
-            | depthDiff > k ->
+            | depthDiff > blkSecurityParam ->
                   CHsUseless $
-                  sformat ("Slot difference of (tip,lca) is "%int%
-                           " which is more than k = "%int)
-                          depthDiff (k :: Int)
+                  sformat ("Difficulty difference of (tip,lca) is "%int%
+                           " which is more than blkSecurityParam = "%int)
+                          depthDiff (blkSecurityParam :: Int)
             | otherwise -> CHsValid lcaChild
 
 -- | Given a set of checkpoints @c@ to stop at and a terminating
@@ -255,15 +255,15 @@ getHeadersFromManyTo checkpoints startM = runMaybeT $ do
         MaybeT $ pure $ NE.nonEmpty $ reverse up
 
 -- | Given a starting point hash (we take tip if it's not in storage)
--- it returns not more than 'k' blocks distributed exponentially base
--- 2 relatively to the depth in the blockchain.
+-- it returns not more than 'blkSecurityParam' blocks distributed
+-- exponentially base 2 relatively to the depth in the blockchain.
 getHeadersOlderExp
     :: (MonadDB ssc m, Ssc ssc)
     => Maybe (HeaderHash ssc) -> m [HeaderHash ssc]
 getHeadersOlderExp upto = do
     tip <- GS.getTip
     let upToReal = fromMaybe tip upto
-        whileCond _ depth = depth <= k
+        whileCond _ depth = depth <= blkSecurityParam
     allHeaders <- reverse <$> DB.loadHeadersWhile upToReal whileCond
     pure $ selectIndices (takeHashes allHeaders) (twoPowers $ length allHeaders)
   where
@@ -272,6 +272,7 @@ getHeadersOlderExp upto = do
     takeHashes headers@(x:_) =
         let prevHashes = map (view prevBlockL) headers
         in hash x : take (length prevHashes - 1) prevHashes
+    -- Powers of 2
     twoPowers n | n < 0 =
         panic $ "getHeadersOlderExp#twoPowers called w/" <> show n
     twoPowers 0 = []
@@ -285,7 +286,7 @@ getHeadersOlderExp upto = do
             selGo [] _ _ = []
             selGo ee@(e:es) ii@(i:is) skipped
                 | skipped == i = e : selGo ee is skipped
-                | otherwise    = selGo es ii $ succ skipped
+                | otherwise = selGo es ii $ succ skipped
         in selGo elems ixs 0
 
 -- CSL-396 don't load all the blocks into memory at once
@@ -468,12 +469,14 @@ applyWithRollback toRollback toApply = runExceptT $ do
 
 -- | Create genesis block if necessary.
 --
--- We create genesis block for current epoch when head of currently known
--- best chain is MainBlock corresponding to one of last `k` slots of
--- (i - 1)-th epoch. Main check is that epoch is `(last stored epoch +
--- 1)`, but we also don't want to create genesis block on top of blocks
--- from previous epoch which are not from last k slots, because it's
--- practically impossible for them to be valid.
+-- We create genesis block for current epoch when head of currently
+-- known best chain is MainBlock corresponding to one of last
+-- `slotSecurityParam` slots of (i - 1)-th epoch. Main check is that
+-- epoch is `(last stored epoch + 1)`, but we also don't want to
+-- create genesis block on top of blocks from previous epoch which are
+-- not from last slotSecurityParam slots, because it's practically
+-- impossible for them to be valid.
+-- [CSL-481] We can do consider doing it though.
 createGenesisBlock
     :: forall ssc m.
        WorkMode ssc m
@@ -494,7 +497,8 @@ shouldCreateGenesisBlock 0 _ = False
 shouldCreateGenesisBlock epoch headEpochOrSlot =
     doCheck $ epochOrSlot (`SlotId` 0) identity headEpochOrSlot
   where
-    doCheck SlotId {..} = siEpoch == epoch - 1 && siSlot >= 5 * k
+    doCheck SlotId {..} =
+        siEpoch == epoch - 1 && siSlot >= epochSlots - slotSecurityParam
 
 createGenesisBlockDo
     :: forall ssc m.
@@ -532,7 +536,7 @@ createGenesisBlockDo epoch leaders tip = do
 -- | Create a new main block on top of best chain if possible.
 -- Block can be created if:
 -- • we know genesis block for epoch from given SlotId
--- • last known block is not more than k slots away from
+-- • last known block is not more than 'slotSecurityParam' blocks away from
 -- given SlotId
 createMainBlock
     :: forall ssc m.
@@ -555,15 +559,15 @@ createMainBlock sId pSk = withBlkSemaphore createMainBlockDo
 
 canCreateBlock :: SlotId -> BlockHeader ssc -> Maybe Text
 canCreateBlock sId tipHeader
-       | sId > maxSlotId =
-           Just "slot id is too big, we don't know recent block"
-       | (EpochOrSlot $ Right sId) < headSlot =
-           Just "slot id is not biger than one from last known block"
-       | otherwise = Nothing
+    | sId > maxSlotId = Just "slot id is too big, we don't know recent block"
+    | (EpochOrSlot $ Right sId) < headSlot =
+        Just "slot id is not biger than one from last known block"
+    | otherwise = Nothing
   where
-    addKSafe si = si {siSlot = min (6 * k - 1) (siSlot si + k)}
     headSlot = getEpochOrSlot tipHeader
-    maxSlotId = addKSafe $ epochOrSlot (`SlotId` 0) identity headSlot
+    addSafe si =
+        si {siSlot = min (epochSlots - 1) (siSlot si + slotSecurityParam)}
+    maxSlotId = addSafe $ epochOrSlot (`SlotId` 0) identity headSlot
 
 -- Here we assume that blkSemaphore has been taken.
 createMainBlockFinish

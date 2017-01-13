@@ -24,7 +24,8 @@ import           Pos.DB.Block                 (getBlock, loadBlocksWithUndoWhile
 import           Pos.DB.Class                 (MonadDB)
 import           Pos.DB.Error                 (DBError (DBMalformed))
 import           Pos.DB.Functions             (openDB)
-import           Pos.DB.GState                (getTip, prepareGStateDB)
+import           Pos.DB.GState                (getTip, prepareGStateBlockExtra,
+                                               prepareGStateDB)
 import           Pos.DB.Lrc                   (prepareLrcDB)
 import           Pos.DB.Misc                  (prepareMiscDB)
 import           Pos.DB.Types                 (NodeDBs (..))
@@ -63,6 +64,7 @@ initNodeDBs = do
         initialTip = headerHash genesisBlock0
     prepareBlockDB genesisBlock0
     prepareGStateDB initialTip
+    prepareGStateBlockExtra initialTip
     prepareLrcDB
     prepareMiscDB
 

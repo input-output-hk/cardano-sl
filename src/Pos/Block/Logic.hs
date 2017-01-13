@@ -101,7 +101,7 @@ lcaWithMainChain
     => NonEmpty (BlockHeader ssc) -> m (Maybe (HeaderHash ssc))
 lcaWithMainChain headers@(h:|hs) =
     fmap fst . find snd <$>
-        mapM (\hh -> (hh,) <$> DB.isBlockInMainChain hh)
+        mapM (\hh -> (hh,) <$> GS.isBlockInMainChain hh)
              -- take hash of parent of last BlockHeader and convert all headers to hashes
              (map hash (h : hs) ++ [NE.last headers ^. prevBlockL])
 
@@ -189,8 +189,13 @@ classifyHeaders headers@(h:|hs) = do
   where
     processClassify = do
         tipHeader <- view blockHeader <$> DB.getTipBlock
-        lcaHash <- fromMaybe (panic "lca should exist") <$> lcaWithMainChain headers
-        lca <- fromMaybe (panic "lca should be resolvable") <$> DB.getBlockHeader lcaHash
+        let tipHash = tipHeader ^. headerHashG
+        lcaHash <-
+            fromMaybe (panic $ sformat ("lca should exist, our tip: "%shortHashF) tipHash) <$>
+            lcaWithMainChain headers
+        lca <-
+            fromMaybe (panic $ sformat ("lca should be resolvable: "%shortHashF) lcaHash) <$>
+            DB.getBlockHeader lcaHash
         -- depth in terms of slots, not difficulty
         let depthDiff =
                 flattenEpochOrSlot tipHeader -

@@ -120,9 +120,10 @@ library
                         Pos.Binary.Class
                         Pos.Binary.Crypto
                         Pos.Binary.Communication
-                        Pos.Binary.DHTModel
-                        Pos.Binary.Merkle
+                        Pos.Binary.DHTModel                        
                         Pos.Binary.DB
+                        Pos.Binary.Genesis
+                        Pos.Binary.Merkle
                         Pos.Binary.Relay
                         Pos.Binary.Script
                         Pos.Binary.Ssc

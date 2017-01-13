@@ -24,7 +24,7 @@ module Pos.Genesis
        , genesisScriptVersion
        ) where
 
-
+import           Control.Lens             ((%~), _head)
 import           Data.Default             (Default (def))
 import           Data.List                (genericLength, genericReplicate)
 import qualified Data.Map.Strict          as M
@@ -33,16 +33,17 @@ import           Formatting               (int, sformat, (%))
 import           Serokell.Util            (enumerate)
 import           Universum
 
-import           Pos.Constants            (curSoftwareVersion, genesisN)
+import           Pos.Constants            (curSoftwareVersion, genesisN, mpcThreshold)
 import           Pos.Crypto               (PublicKey, SecretKey, deterministicKeyGen,
                                            unsafeHash)
 import           Pos.Lrc.FollowTheSatoshi (followTheSatoshi)
 import           Pos.Script.Type          (ScriptVersion)
 import           Pos.Types                (Address (..), Coin, ProtocolVersion (..),
                                            SharedSeed (SharedSeed), SlotLeaders,
-                                           StakeholderId, TxOut (..), Utxo, coinToInteger,
-                                           divCoin, makePubKeyAddress, mkCoin,
-                                           unsafeAddCoin, unsafeMulCoin)
+                                           StakeholderId, TxOut (..), Utxo,
+                                           applyCoinPortion, coinToInteger, divCoin,
+                                           makePubKeyAddress, mkCoin, unsafeAddCoin,
+                                           unsafeMulCoin)
 import           Pos.Types.Version        (SoftwareVersion (..))
 
 ----------------------------------------------------------------------------
@@ -80,6 +81,11 @@ data StakeDistribution
                  !Coin     -- total number of coins
     | BitcoinStakes !Word  -- number of stakeholders
                     !Coin  -- total number of coins
+    | TestnetStakes
+        { sdTotalStake :: !Coin
+        , sdRichmen    :: !Word
+        , sdPoor       :: !Word
+        }
 
 instance Default StakeDistribution where
     def = FlatStakes genesisN
@@ -99,6 +105,17 @@ stakeDistribution (BitcoinStakes stakeholders coins) =
   where
     normalize x = x `unsafeMulCoin`
                   coinToInteger (coins `divCoin` (1000 :: Int))
+stakeDistribution TestnetStakes {..} =
+    map (mkCoin . fromIntegral) $ basicDist & _head %~ (+ rmd)
+  where
+    rich = coinToInteger $ applyCoinPortion mpcThreshold sdTotalStake
+    richs = fromIntegral sdRichmen
+    poorStake = coinToInteger sdTotalStake - richs * rich
+    poors = fromIntegral sdPoor
+    (poor, rmd) = if poorStake < poors
+                  then panic "Not enough stake for non-rich stakeholders!"
+                  else (poorStake `div` poors, poorStake `mod` poors)
+    basicDist = genericReplicate richs rich ++ genericReplicate poors poor
 
 bitcoinDistribution1000Coins :: Word -> [Coin]
 bitcoinDistribution1000Coins stakeholders

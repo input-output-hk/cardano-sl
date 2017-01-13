@@ -69,6 +69,7 @@ applyBlocksUnsafe blunds0 = do
     sscApplyGlobalState richmen
     GS.writeBatchGState [delegateBatch, txBatch, forwardLinksBatch, inMainBatch]
     normalizeTxpLD
+    DB.sanityCheckDB
   where
     -- hehe it's not unsafe yet TODO
     (blunds,_) = spanSafe ((==) `on` view (_1 . epochIndexL)) blunds0
@@ -88,6 +89,7 @@ rollbackBlocksUnsafe toRollback = do
     txRoll <- SomeBatchOp <$> txRollbackBlocks toRollback
     sscRollback $ fmap fst toRollback
     GS.writeBatchGState [delRoll, txRoll, forwardLinksBatch, inMainBatch]
+    DB.sanityCheckDB
   where
     inMainBatch =
         SomeBatchOp $

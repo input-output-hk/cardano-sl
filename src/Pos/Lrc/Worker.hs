@@ -33,9 +33,9 @@ import qualified Pos.DB.GState               as GS
 import           Pos.DB.Lrc                  (getLeaders, putEpoch, putLeaders)
 import           Pos.Lrc.Consumer            (LrcConsumer (..))
 import           Pos.Lrc.Consumers           (allLrcConsumers)
-import           Pos.Lrc.Eligibility         (findAllRichmenMaybe)
 import           Pos.Lrc.Error               (LrcError (..))
 import           Pos.Lrc.FollowTheSatoshi    (followTheSatoshiM)
+import           Pos.Lrc.Logic               (findAllRichmenMaybe)
 import           Pos.Slotting                (onNewSlot)
 import           Pos.Ssc.Class               (SscWorkersClass)
 import           Pos.Ssc.Extra               (sscCalculateSeed)
@@ -131,6 +131,7 @@ lrcDo epoch consumers tip = tip <$ do
     crucial = EpochOrSlot $ Right $ crucialSlot epoch
     compute = do
         richmenComputationDo epoch consumers
+        DB.sanityCheckDB
         leadersComputationDo epoch
 
 leadersComputationDo :: WorkMode ssc m => EpochIndex -> m ()

@@ -12,7 +12,6 @@ module Pos.DB.GState.Delegation
        , iteratePSKs
        ) where
 
-import           Data.Binary       (Get)
 import           Data.Maybe        (isJust)
 import qualified Database.RocksDB  as Rocks
 import           Universum
@@ -21,9 +20,10 @@ import           Pos.Binary.Class  (Bi (..), encodeStrict)
 import           Pos.Crypto        (PublicKey, pskDelegatePk, pskIssuerPk)
 import           Pos.DB.Class      (MonadDB, getUtxoDB)
 import           Pos.DB.DBIterator (DBMapIterator, mapIterator)
-import           Pos.DB.Functions  (RocksBatchOp (..), rocksGetBi)
+import           Pos.DB.Functions  (RocksBatchOp (..), WithKeyPrefix (..),
+                                    encodeWithKeyPrefix, rocksGetBi)
 import           Pos.Types         (AddressHash, ProxySKSimple, StakeholderId,
-                                    addressHash)
+                                    StakeholderId, addressHash)
 
 
 ----------------------------------------------------------------------------
@@ -68,21 +68,20 @@ instance RocksBatchOp DelegationOp where
 type IterType = (IssuerPublicKey,ProxySKSimple)
 
 iteratePSKs :: forall v m ssc a . (MonadDB ssc m, MonadMask m)
-                => DBMapIterator (IterType -> v) m a -> (IterType -> v) -> m a
+                => DBMapIterator IterType v m a -> (IterType -> v) -> m a
 iteratePSKs iter f = mapIterator @IterType @v iter f =<< getUtxoDB
 
 ----------------------------------------------------------------------------
 -- Keys
 ----------------------------------------------------------------------------
 
--- [CSL-379] Restore prefix after we have proper iterator
-newtype IssuerPublicKey = IssuerPublicKey (AddressHash PublicKey)
-    deriving Show
+newtype IssuerPublicKey =
+    IssuerPublicKey (AddressHash PublicKey)
+    deriving (Show, Bi)
 
-instance Bi IssuerPublicKey where
-    put (IssuerPublicKey p) = put ("d/" :: ByteString) >> put p -- chto by eto ne znaczilo
-    get = (get :: Get ByteString) >> IssuerPublicKey <$> get
+instance WithKeyPrefix IssuerPublicKey where
+    keyPrefix _ = "d/"
 
 -- Storing Hash IssuerPk -> ProxySKSimple
 pskKey :: IssuerPublicKey -> ByteString
-pskKey = encodeStrict
+pskKey = encodeWithKeyPrefix

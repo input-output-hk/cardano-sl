@@ -32,8 +32,7 @@ import           Control.Concurrent.MVar        (newEmptyMVar, newMVar, takeMVar
                                                  tryReadMVar)
 import           Control.Concurrent.STM.TBQueue (newTBQueueIO)
 import           Control.Concurrent.STM.TVar    (newTVar)
-import           Control.Lens                   (each, to, (%~), (^..), (^?), _head,
-                                                 _tail)
+import           Control.Lens                   (each, to, (^..), _tail)
 import           Control.Monad.Fix              (MonadFix)
 import           Data.Default                   (def)
 import           Data.List                      (nub)
@@ -63,9 +62,8 @@ import           Pos.Communication              (BiP (..), SysStartRequest (..),
                                                  allStubListeners, sysStartReqListener,
                                                  sysStartRespListener)
 import           Pos.Communication.PeerState    (runPeerStateHolder)
-import           Pos.Constants                  (blockRetrievalQueueSize, defaultPeers,
-                                                 isDevelopment, networkConnectionTimeout,
-                                                 runningMode)
+import           Pos.Constants                  (blockRetrievalQueueSize,
+                                                 networkConnectionTimeout)
 import qualified Pos.Constants                  as Const
 import           Pos.Context                    (ContextHolder (..), NodeContext (..),
                                                  runContextHolder)
@@ -95,7 +93,7 @@ import           Pos.Update.MemState            (runUSHolder)
 import           Pos.Util                       (runWithRandomIntervals,
                                                  stubListenerOneMsg)
 import           Pos.Util.TimeWarp              (sec)
-import           Pos.Util.UserSecret            (peekUserSecret, usKeys, writeUserSecret)
+import           Pos.Util.UserSecret            (usKeys)
 import           Pos.WorkMode                   (ProductionMode, RawRealMode, ServiceMode,
                                                  StatsMode)
 data RealModeResources = RealModeResources
@@ -191,7 +189,7 @@ runServiceMode res bp@BaseParams{..} listeners action =
     runServer (rmTransport res) listeners $
         \sa -> nodeStartMsg bp >> action sa
 
-runServer :: (MonadIO m, MonadMockable m, MonadFix m)
+runServer :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)
   => Transport -> [Listener BiP m] -> (SendActions BiP m -> m b) -> m b
 runServer transport listeners action = do
     stdGen <- liftIO newStdGen
@@ -237,37 +235,26 @@ runStatsMode res np@NodeParams {..} sscnp action = do
 -- Lower level runners
 ----------------------------------------------------------------------------
 
-runCH :: (MonadDB ssc m, MonadFail m, Mockable CurrentTime m)
+runCH :: (MonadDB ssc m, Mockable CurrentTime m)
       => NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
 runCH NodeParams {..} sscNodeContext act = do
     jlFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
     semaphore <- liftIO newEmptyMVar
     lrcSync <- atomically $ newTVar (True, 0)
-    userSecret <- peekUserSecret npKeyfilePath
-
-    -- Get primary secret key
-    (primarySecretKey, userSecret') <- case npSecretKey of
-        Nothing -> case userSecret ^? usKeys . _head of
-            Nothing -> fail $ "No secret keys are found in " ++ npKeyfilePath
-            Just sk -> return (sk, userSecret)
-        Just sk -> do
-            let us = userSecret & usKeys %~ (sk :) . filter (/= sk)
-            writeUserSecret us
-            return (sk, us)
 
     let eternity = (minBound, maxBound)
-        makeOwnPSK = flip (createProxySecretKey primarySecretKey) eternity . toPublic
-        ownPSKs = userSecret' ^.. usKeys._tail.each.to makeOwnPSK
+        makeOwnPSK = flip (createProxySecretKey npSecretKey) eternity . toPublic
+        ownPSKs = npUserSecret ^.. usKeys._tail.each.to makeOwnPSK
     forM_ ownPSKs addProxySecretKey
 
-    userSecretVar <- liftIO . atomically . newTVar $ userSecret'
+    userSecretVar <- liftIO . atomically . newTVar $ npUserSecret
     ntpData <- currentTime >>= atomically . newTVar . (0, )
     lastSlot <- atomically . newTVar $ unflattenSlotId 0
     queue <- liftIO $ newTBQueueIO blockRetrievalQueueSize
     let ctx =
             NodeContext
             { ncSystemStart = npSystemStart
-            , ncSecretKey = primarySecretKey
+            , ncSecretKey = npSecretKey
             , ncGenesisUtxo = npCustomUtxo
             , ncGenesisLeaders = genesisLeaders npCustomUtxo
             , ncTimeLord = npTimeLord

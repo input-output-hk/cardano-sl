@@ -17,21 +17,28 @@ module Pos.DB.GState.Balances
 
          -- * Iteration
        , iterateByStake
+
+         -- * Sanity checks
+       , sanityCheckBalances
        ) where
 
 import qualified Data.Map             as M
 import qualified Database.RocksDB     as Rocks
+import           Formatting           (sformat, (%))
+import           System.Wlog          (WithLogger, logError)
 import           Universum
 
 import           Pos.Binary.Class     (encodeStrict)
 import           Pos.DB.Class         (MonadDB, getUtxoDB)
 import           Pos.DB.DBIterator    (DBMapIterator, mapIterator)
 import           Pos.DB.Error         (DBError (..))
-import           Pos.DB.Functions     (RocksBatchOp (..))
+import           Pos.DB.Functions     (RocksBatchOp (..), WithKeyPrefix (..),
+                                       encodeWithKeyPrefix)
 import           Pos.DB.GState.Common (getBi, putBi)
-import           Pos.Types            (Coin, StakeholderId, Utxo, sumCoins, txOutStake,
-                                       unsafeIntegerToCoin)
-import           Pos.Util             (maybeThrow)
+import           Pos.Types            (Coin, StakeholderId, Utxo, coinF, mkCoin, sumCoins,
+                                       txOutStake, unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Util             (Color (Red), colorize, maybeThrow)
+import           Pos.Util.Iterator    (MonadIterator (..))
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -93,17 +100,38 @@ putTotalFtsStake = putBi ftsSumKey
 type IterType = (StakeholderId, Coin)
 
 iterateByStake :: forall v m ssc a . (MonadDB ssc m, MonadMask m)
-                => DBMapIterator (IterType -> v) m a -> (IterType -> v) -> m a
+                => DBMapIterator IterType v m a -> (IterType -> v) -> m a
 iterateByStake iter f = mapIterator @IterType @v iter f =<< getUtxoDB
+
+----------------------------------------------------------------------------
+-- Sanity checks
+----------------------------------------------------------------------------
+
+sanityCheckBalances
+    :: (MonadMask m, MonadDB ssc m, WithLogger m)
+    => m ()
+sanityCheckBalances = do
+    let step sm = nextItem >>= maybe (pure sm) (\c -> step (unsafeAddCoin sm c))
+    realTotalStake <- iterateByStake (step (mkCoin 0)) snd
+    totalStake <- getTotalFtsStake
+    let fmt =
+            ("Wrong total FTS stake: \
+             \real total FTS stake (sum of balances): "%coinF%
+             ", but getTotalFtsStake returned: "%coinF)
+    let msg = sformat fmt realTotalStake totalStake
+    unless (realTotalStake == totalStake) $ do
+        logError $ colorize Red msg
+        throwM $ DBMalformed msg
 
 ----------------------------------------------------------------------------
 -- Keys
 ----------------------------------------------------------------------------
 
+instance WithKeyPrefix StakeholderId where
+    keyPrefix _ = "b/s"
+
 ftsStakeKey :: StakeholderId -> ByteString
--- [CSL-379] Restore prefix after we have proper iterator
--- ftsStakeKey = (<> "b/s") . encodeStrict
-ftsStakeKey = encodeStrict
+ftsStakeKey = encodeWithKeyPrefix
 
 ftsSumKey :: ByteString
 ftsSumKey = "b/ftssum"

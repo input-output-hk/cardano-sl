@@ -33,7 +33,6 @@ import           Universum             hiding (show)
 
 import           Pos.Crypto.Random     (secureRandomBS)
 import           Pos.Util.TimeWarp     (NetworkAddress)
-import           Pos.Util.Arbitrary
 import           Test.QuickCheck       (Arbitrary (..))
 
 -- | Dummy data for DHT.

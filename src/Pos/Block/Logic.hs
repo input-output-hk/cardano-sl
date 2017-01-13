@@ -525,7 +525,7 @@ createMainBlock sId pSk = withBlkSemaphore createMainBlockDo
     msgFmt = "We are trying to create main block, our tip header is\n"%build
     createMainBlockDo tip = do
         tipHeader <- getTipBlockHeader
-        logDebug $ sformat msgFmt tipHeader
+        logInfo $ sformat msgFmt tipHeader
         case canCreateBlock sId tipHeader of
             Nothing  -> convertRes tip <$>
                 runExceptT (createMainBlockFinish sId pSk tipHeader)

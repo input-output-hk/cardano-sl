@@ -17,7 +17,7 @@ import           Mockable                       (fork, handleAll, throw)
 import           Node                           (ConversationActions (..),
                                                  SendActions (..))
 import           Serokell.Util.Text             (listJson)
-import           System.Wlog                    (logDebug, logError, logWarning)
+import           System.Wlog                    (logDebug, logError, logInfo, logWarning)
 import           Universum
 
 import           Pos.Binary.Communication       ()
@@ -63,21 +63,8 @@ retrievalWorker sendActions = handleAll handleWE $
             newestHash = headerHash newestHeader
             oldestHash = headerHash $ headers ^. _neLast
         case classificationRes of
-            CHsValid lcaChild -> do
-                let lcaChildHash = hash lcaChild
-                logDebug $ sformat validFormat lcaChildHash newestHash
-                withConnectionTo sendActions peerId $ \conv -> do
-                    send conv $ mkBlocksRequest lcaChildHash newestHash
-                    chainE <- runExceptT (retrieveBlocks conv lcaChild newestHash)
-                    case chainE of
-                      Left e ->
-                        logWarning $ sformat
-                          ("Error retrieving blocks from "%shortHashF%" to"%
-                                        shortHashF%" from peer "%shown%": "%stext)
-                          lcaChildHash newestHash peerId e
-                      Right blocks -> do
-                          logDebug $ sformat ("retrievalWorker: retrieved blocks "%listJson) $ map (headerHash . view blockHeader) $ toList blocks
-                          handleBlocks blocks sendActions
+            CHsValid lcaChild ->
+                handleCHsValid peerId lcaChild newestHash
             CHsUseless reason ->
                 logDebug $ sformat uselessFormat oldestHash newestHash reason
             CHsInvalid reason ->
@@ -99,6 +86,22 @@ retrievalWorker sendActions = handleAll handleWE $
     uselessFormat =
         "Chain of headers from " %shortHashF % " to " %shortHashF %
         " is useless for the following reason: " %stext
+    handleCHsValid peerId lcaChild newestHash = do
+        let lcaChildHash = hash lcaChild
+        logDebug $ sformat validFormat lcaChildHash newestHash
+        withConnectionTo sendActions peerId $ \conv -> do
+            send conv $ mkBlocksRequest lcaChildHash newestHash
+            chainE <- runExceptT (retrieveBlocks conv lcaChild newestHash)
+            case chainE of
+                Left e ->
+                    logWarning $ sformat
+                        ("Error retrieving blocks from "%shortHashF%" to"%
+                                      shortHashF%" from peer "%shown%": "%stext)
+                        lcaChildHash newestHash peerId e
+                Right blocks -> do
+                    logDebug $ sformat ("retrievalWorker: retrieved blocks "%listJson)
+                        $ map (headerHash . view blockHeader) $ toList blocks
+                    handleBlocks blocks sendActions
     retrieveBlocks conv lcaChild endH =
         retrieveBlocks' 0 conv (lcaChild ^. prevBlockL) endH >>=
             \blocks@(b0 :| _) ->
@@ -117,18 +120,18 @@ retrievalWorker sendActions = handleAll handleWE $
     retrieveBlocks' i conv prevH endH = do
         mBlock <- lift $ recv conv
         case mBlock of
-          Nothing -> throwE $ sformat ("Failed to receive block #"%int) i
-          Just (MsgBlock block) -> do
-              let prevH' = block ^. prevBlockL
-                  curH = headerHash block
-              when (prevH' /= prevH) $
-                  throwE $ sformat
-                      ("Received block #"%int%" with prev hash "%shortHashF
-                            %" while "%shortHashF%" expected: "%build)
-                      i prevH' prevH (block ^. blockHeader)
-              if curH == endH
-                 then return $ block :| []
-                 else (block <|) <$> retrieveBlocks' (i+1) conv curH endH
+            Nothing -> throwE $ sformat ("Failed to receive block #"%int) i
+            Just (MsgBlock block) -> do
+                let prevH' = block ^. prevBlockL
+                    curH = headerHash block
+                when (prevH' /= prevH) $
+                    throwE $ sformat
+                        ("Received block #"%int%" with prev hash "%shortHashF
+                              %" while "%shortHashF%" expected: "%build)
+                        i prevH' prevH (block ^. blockHeader)
+                if curH == endH
+                  then return $ block :| []
+                  else (block <|) <$> retrieveBlocks' (i+1) conv curH endH
 
 -- | Make message which requests chain of blocks which is based on our
 -- tip. LcaChild is the first block after LCA we don't
@@ -150,9 +153,9 @@ handleBlocks
 handleBlocks blocks sendActions = do
     logDebug "handleBlocks: processing"
     inAssertMode $
-        logDebug $
-        sformat ("Processing sequence of blocks: " %listJson % "…") $
-        fmap headerHash blocks
+        logInfo $
+            sformat ("Processing sequence of blocks: " %listJson % "…") $
+                    fmap headerHash blocks
     maybe onNoLca (handleBlocksWithLca sendActions blocks) =<<
         lcaWithMainChain (map (view blockHeader) $ NE.reverse blocks)
     inAssertMode $ logDebug $ "Finished processing sequence of blocks"
@@ -179,7 +182,7 @@ applyWithoutRollback
        (WorkMode ssc m, SscWorkersClass ssc)
     => SendActions BiP m -> NonEmpty (Block ssc) -> m ()
 applyWithoutRollback sendActions blocks = do
-    logDebug $ sformat ("Trying to apply blocks w/o rollback: "%listJson)
+    logInfo $ sformat ("Trying to apply blocks w/o rollback: "%listJson)
         (map (view blockHeader) blocks)
     withBlkSemaphore applyWithoutRollbackDo >>= \case
         Left err  -> onFailedVerifyBlocks blocks err
@@ -196,7 +199,7 @@ applyWithoutRollback sendActions blocks = do
                     NE.takeWhile ((/= newTip) . view headerHashG) blocks
                 applied = NE.reverse (toRelay ^. blockHeader :| reverse prefix)
             relayBlock sendActions toRelay
-            logDebug $ blocksAppliedMsg applied
+            logInfo $ blocksAppliedMsg applied
     logDebug "Finished applying blocks w/o rollback"
   where
     newestTip = blocks ^. _neLast . headerHashG
@@ -213,9 +216,9 @@ applyWithRollback
        (WorkMode ssc m, SscWorkersClass ssc)
     => SendActions BiP m -> NonEmpty (Block ssc) -> HeaderHash ssc -> NonEmpty (Blund ssc) -> m ()
 applyWithRollback sendActions toApply lca toRollback = do
-    logDebug $ sformat ("Trying to apply blocks w/ rollback: "%listJson)
+    logInfo $ sformat ("Trying to apply blocks w/ rollback: "%listJson)
         (map (view blockHeader) toApply)
-    logDebug $
+    logInfo $
         sformat ("Blocks to rollback "%listJson) (fmap headerHash toRollback)
     res <- withBlkSemaphore $ \curTip -> do
         res <- L.applyWithRollback toRollback toApplyAfterLca
@@ -226,8 +229,8 @@ applyWithRollback sendActions toApply lca toRollback = do
             logDebug $ sformat
                 ("Finished applying blocks w/ rollback, relaying new tip: "%shortHashF)
                 newTip
-            logDebug $ blocksRolledBackMsg toRollback
-            logDebug $ blocksAppliedMsg toApply
+            logInfo $ blocksRolledBackMsg toRollback
+            logInfo $ blocksAppliedMsg toApply
             relayBlock sendActions $ toApply ^. _neLast
   where
     panicBrokenLca = panic "applyWithRollback: nothing after LCA :/"

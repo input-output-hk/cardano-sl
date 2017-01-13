@@ -4,6 +4,7 @@
 
 module Pos.DB.GState.BlockExtra
        ( resolveForwardLink
+       , isBlockInMainChain
        , BlockExtraOp (..)
        ) where
 
@@ -28,22 +29,36 @@ resolveForwardLink
 resolveForwardLink x =
     rocksGetBi (forwardLinkKey $ headerHash x) =<< getUtxoDB
 
+-- | Check if given hash representing block is in main chain.
+isBlockInMainChain
+    :: (HasHeaderHash a ssc, Ssc ssc, MonadDB ssc m)
+    => a -> m Bool
+isBlockInMainChain h = do
+    db <- getUtxoDB
+    maybe False (\() -> True) <$> rocksGetBi (mainChainKey $ headerHash h) db
+
 ----------------------------------------------------------------------------
 -- BlockOp
 ----------------------------------------------------------------------------
 
 data BlockExtraOp ssc
-    = BlockExtraAddForwardLink (HeaderHash ssc) (HeaderHash ssc)
+    = AddForwardLink (HeaderHash ssc) (HeaderHash ssc)
       -- ^ Adds or overwrites forward link
-    | BlockExtraRemoveForwardLink (HeaderHash ssc)
+    | RemoveForwardLink (HeaderHash ssc)
       -- ^ Removes forward link
+    | SetInMainChain Bool (HeaderHash ssc)
+      -- ^ Enables or disables "in main chain" status of the block
     deriving (Show)
 
 instance RocksBatchOp (BlockExtraOp ssc) where
-    toBatchOp (BlockExtraAddForwardLink from to) =
+    toBatchOp (AddForwardLink from to) =
         [Rocks.Put (forwardLinkKey from) (encodeStrict to)]
-    toBatchOp (BlockExtraRemoveForwardLink from) =
+    toBatchOp (RemoveForwardLink from) =
         [Rocks.Del $ forwardLinkKey from]
+    toBatchOp (SetInMainChain False h) =
+        [Rocks.Del $ mainChainKey h]
+    toBatchOp (SetInMainChain True h) =
+        [Rocks.Put (mainChainKey h) (encodeStrict ()) ]
 
 ----------------------------------------------------------------------------
 -- Keys
@@ -51,3 +66,6 @@ instance RocksBatchOp (BlockExtraOp ssc) where
 
 forwardLinkKey :: HeaderHash ssc -> ByteString
 forwardLinkKey h = "e/fl" <> encodeStrict h
+
+mainChainKey :: HeaderHash ssc -> ByteString
+mainChainKey h = "e/mc" <> encodeStrict h

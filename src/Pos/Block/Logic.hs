@@ -101,7 +101,7 @@ lcaWithMainChain
     => NonEmpty (BlockHeader ssc) -> m (Maybe (HeaderHash ssc))
 lcaWithMainChain headers@(h:|hs) =
     fmap fst . find snd <$>
-        mapM (\hh -> (hh,) <$> DB.isBlockInMainChain hh)
+        mapM (\hh -> (hh,) <$> GS.isBlockInMainChain hh)
              -- take hash of parent of last BlockHeader and convert all headers to hashes
              (map hash (h : hs) ++ [NE.last headers ^. prevBlockL])
 

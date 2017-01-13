@@ -16,8 +16,8 @@ import           Pos.Ssc.Class.Types (Ssc)
 
 instance Ssc ssc =>
          Bi (StoredBlock ssc) where
-    put StoredBlock {..} = put sbBlock >> put sbInMain
-    get = StoredBlock <$> get <*> get
+    put StoredBlock {..} = put sbBlock
+    get = StoredBlock <$> get
 
 instance Bi (LeadersStorage ssc) where
     put LeadersStorage {..} = put lrcEpoch >> put lrcLeaders

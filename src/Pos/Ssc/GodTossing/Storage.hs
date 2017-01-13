@@ -15,7 +15,7 @@ module Pos.Ssc.GodTossing.Storage
        ) where
 
 import           Control.Lens                   (over, to, use, view, views, (%=), (.=),
-                                                 (^.), _1, _2)
+                                                 (<>=), (^.), _1, _2)
 import           Control.Monad.IfElse           (whileM)
 import           Control.Monad.Reader           (ask)
 import           Data.Default                   (def)
@@ -308,18 +308,18 @@ resetGS = do
     gsShares      .= mempty
 
 unionPayload :: GtPayload -> GtGlobalState -> GtGlobalState
-unionPayload payload =
-    execState (do
-    let blockCertificates = _gpCertificates payload
-    case payload of
-        CommitmentsPayload comms _ ->
-            gsCommitments %= HM.union comms
-        OpeningsPayload    opens _ ->
-            gsOpenings %= HM.union opens
-        SharesPayload     shares _ ->
-            gsShares %= HM.unionWith HM.union shares
-        CertificatesPayload      _ -> pure ()
-    gsVssCertificates %= flip (foldl' (flip $ uncurry VCD.insert)) (HM.toList blockCertificates))
+unionPayload payload gs =
+    flip execState gs $ do
+        let blockCertificates = _gpCertificates payload
+        case payload of
+            CommitmentsPayload comms _ -> gsCommitments <>= comms
+            OpeningsPayload opens _    -> gsOpenings <>= opens
+            SharesPayload shares _     -> gsShares <>= shares
+            CertificatesPayload _      -> pure ()
+        gsVssCertificates %=
+            flip
+                (foldl' (flip $ uncurry VCD.insert))
+                (HM.toList blockCertificates)
 
 -- | Union payloads of blocks until meet genesis block
 -- Invalid restore of VSS certificates

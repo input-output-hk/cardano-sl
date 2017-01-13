@@ -23,6 +23,8 @@ module Pos.Constants
        , maxLocalTxs
        , maxBlockProxySKs
        , neighborsSendThreshold
+       , networkConnectionTimeout
+       , blockRetrievalQueueSize
        , RunningMode (..)
        , runningMode
        , isDevelopment
@@ -58,7 +60,7 @@ import           Universum                  hiding (lift)
 
 import           Pos.CLI                    (dhtNodeParser)
 import           Pos.CompileConfig          (CompileConfig (..), compileConfig)
-import           Pos.DHT.Model.Types     (DHTNode)
+import           Pos.DHT.Model.Types        (DHTNode)
 import           Pos.Types.Timestamp        (Timestamp)
 import           Pos.Types.Types            (CoinPortion, unsafeCoinPortion)
 import           Pos.Types.Version          (ApplicationName, ProtocolVersion (..),
@@ -142,6 +144,13 @@ sysTimeBroadcastSlots = fromIntegral . ccSysTimeBroadcastSlots $ compileConfig
 neighborsSendThreshold :: Integral a => a
 neighborsSendThreshold =
     fromIntegral . ccNeighboursSendThreshold $ compileConfig
+
+networkConnectionTimeout :: Microsecond
+networkConnectionTimeout = ms . fromIntegral . ccNetworkConnectionTimeout $ compileConfig
+
+blockRetrievalQueueSize :: Integral a => a
+blockRetrievalQueueSize =
+    fromIntegral . ccBlockRetrievalQueueSize $ compileConfig
 
 -- | Defines mode of running application: in tested mode or in production.
 data RunningMode

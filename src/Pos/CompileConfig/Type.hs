@@ -58,4 +58,8 @@ data CompileConfig = CompileConfig
     , ccUpdateImplicitApproval        :: !Word
       -- ^ Number of slots after which update is implicitly approved
       -- unless it has more negative votes than positive.
+    , ccNetworkConnectionTimeout      :: !Int
+      -- ^ Network connection timeout in milliseconds
+    , ccBlockRetrievalQueueSize       :: !Int
+      -- ^ Block retrieval queue capacity
     } deriving (Show, Lift)

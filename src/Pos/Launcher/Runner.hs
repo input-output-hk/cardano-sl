@@ -63,7 +63,9 @@ import           Pos.Communication              (BiP (..), SysStartRequest (..),
                                                  allStubListeners, sysStartReqListener,
                                                  sysStartRespListener)
 import           Pos.Communication.PeerState    (runPeerStateHolder)
-import           Pos.Constants                  (defaultPeers, isDevelopment, runningMode)
+import           Pos.Constants                  (blockRetrievalQueueSize, defaultPeers,
+                                                 isDevelopment, networkConnectionTimeout,
+                                                 runningMode)
 import qualified Pos.Constants                  as Const
 import           Pos.Context                    (ContextHolder (..), NodeContext (..),
                                                  runContextHolder)
@@ -259,7 +261,7 @@ runCH NodeParams {..} sscNodeContext act = do
     forM_ ownPSKs addProxySecretKey
 
     userSecretVar <- liftIO . atomically . newTVar $ userSecret'
-    queue <- liftIO $ newTBQueueIO 100 -- TODO [CSL-542] move to constants
+    queue <- liftIO $ newTBQueueIO blockRetrievalQueueSize
     let ctx =
             NodeContext
             { ncSystemStart = npSystemStart
@@ -330,7 +332,7 @@ createTransport port = do
     transportE <- liftIO $ TCP.createTransport
                              "0.0.0.0"
                              (show port)
-                             TCP.defaultTCPParameters
+                             (TCP.defaultTCPParameters { transportConnectTimeout = Just networkConnectionTimeout })
     case transportE of
       Left e -> do
           logError $ sformat ("Error creating TCP transport: " % shown) e

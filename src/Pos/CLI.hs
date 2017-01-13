@@ -25,7 +25,6 @@ module Pos.CLI
 
 import           Universum
 
-import           Control.TimeWarp.Rpc                 (NetworkAddress)
 import           Data.Default                         (def)
 import           Data.Either                          (either)
 import           Data.Text                            (pack)
@@ -37,12 +36,13 @@ import qualified Options.Applicative.Simple           as Opt (Mod, Parser, auto,
 
 import           Pos.Binary.Address                   ()
 import           Pos.Crypto                           (PublicKey)
-import           Pos.DHT.Model.Types                  (DHTKey, DHTNode (..),
+import           Pos.DHT.Model.Types               (DHTKey, DHTNode (..),
                                                        bytesToDHTKey)
 import           Pos.Security.Types                   (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
 import           Pos.Types.Address                    (Address (..), AddressHash,
                                                        decodeTextAddress)
+import           Pos.Util.TimeWarp                    (NetworkAddress)
 import           Serokell.Util.OptParse               (fromParsec)
 import qualified Serokell.Util.Parse                  as P
 import           System.Wlog                          (LoggerConfig (..),

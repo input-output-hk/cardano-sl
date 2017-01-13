@@ -21,6 +21,7 @@ module Pos.Util
        , diffDoubleMap
        , getKeys
        , maybeThrow
+       , maybeThrow'
 
        -- * Lists
        , allDistinct
@@ -40,15 +41,17 @@ module Pos.Util
        -- * Prettification
        , Color (..)
        , colorize
+       , withColoredMessages
 
        -- * TimeWarp helpers
        , CanLogInParallel
        , WaitingDelta (..)
-       , messageName'
        , logWarningLongAction
        , logWarningWaitOnce
        , logWarningWaitLinear
        , logWarningWaitInf
+       , runWithRandomIntervals'
+       , waitRandomInterval'
        , runWithRandomIntervals
        , waitRandomInterval
        , waitAnyUnexceptional
@@ -61,7 +64,23 @@ module Pos.Util
        , AsBinaryClass (..)
        , fromBinaryM
 
+       , spanSafe
        , eitherToVerRes
+
+       -- * MVar
+       , clearMVar
+       , forcePutMVar
+       , readMVarConditional
+       , readUntilEqualMVar
+       , readTVarConditional
+       , readUntilEqualTVar
+
+       , stubListenerOneMsg
+       , stubListenerConv
+
+       , withWaitLogConv
+       , withWaitLogConvL
+       , withWaitLog
 
        , NamedMessagePart (..)
        -- * Instances
@@ -75,29 +94,36 @@ module Pos.Util
        -- ** MonadFail LoggerNameBox
        ) where
 
+import           Control.Concurrent.STM.TVar   (TVar, readTVar)
 import           Control.Lens                  (Lens', LensLike', Magnified, Zoomed,
                                                 lensRules, magnify, zoom)
 import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
 import qualified Control.Monad                 as Monad (fail)
-import           Control.TimeWarp.Rpc          (Dialog (..), Message (messageName),
-                                                MessageName, ResponseT (..),
-                                                Transfer (..))
-import           Control.TimeWarp.Timed        (Microsecond, MonadTimed (fork, wait),
-                                                Second, TimedIO, for, killThread)
+import           Control.Monad.STM             (retry)
+import           Control.Monad.Trans.Resource  (ResourceT)
 import qualified Data.Cache.LRU                as LRU
 import           Data.Hashable                 (Hashable)
 import qualified Data.HashMap.Strict           as HM
 import           Data.HashSet                  (fromMap)
+import           Data.List                     (span)
 import           Data.List.NonEmpty            (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty            as NE
+import           Data.Proxy                    (Proxy (..), asProxyTypeOf)
 import           Data.SafeCopy                 (Contained, SafeCopy (..), base, contain,
                                                 deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Serialize                as Cereal (Get, Put)
 import           Data.String                   (IsString (fromString), String)
 import qualified Data.Text                     as T
-import           Data.Time.Units               (convertUnit)
+import           Data.Time.Units               (Microsecond, Second, convertUnit)
 import           Formatting                    (sformat, shown, stext, (%))
 import           Language.Haskell.TH
+import           Mockable                      (Bracket, Delay, Fork, Mockable, Throw,
+                                                bracket, delay, fork, killThread, throw)
+import           Node                          (ConversationActions (..),
+                                                ListenerAction (..), Message, NodeId,
+                                                SendActions (..))
+import           Node.Message                  (MessageName (..), Packable, Unpackable,
+                                                messageName, messageName')
 import           Serokell.Util                 (VerificationRes (..))
 import           System.Console.ANSI           (Color (..), ColorIntensity (Vivid),
                                                 ConsoleLayer (Foreground),
@@ -105,7 +131,7 @@ import           System.Console.ANSI           (Color (..), ColorIntensity (Vivi
 import           System.Wlog                   (LoggerNameBox (..), WithLogger,
                                                 logWarning)
 import           Text.Parsec                   (ParsecT)
-import           Universum
+import           Universum                     hiding (bracket)
 import           Unsafe                        (unsafeInit, unsafeLast)
 
 -- SafeCopy instance for HashMap
@@ -187,6 +213,9 @@ diffDoubleMap a b = HM.foldlWithKey' go mempty a
 
 maybeThrow :: (MonadThrow m, Exception e) => e -> Maybe a -> m a
 maybeThrow e = maybe (throwM e) pure
+
+maybeThrow' :: (Mockable Throw m, Exception e) => e -> Maybe a -> m a
+maybeThrow' e = maybe (throw e) pure
 
 ----------------------------------------------------------------------------
 -- List utils
@@ -291,13 +320,13 @@ colorize color msg =
         , toText (setSGRCode [Reset])
         ]
 
-----------------------------------------------------------------------------
--- TimeWarp helpers
-----------------------------------------------------------------------------
-
--- | Utility function to convert 'Message' into 'MessageName'.
-messageName' :: Message r => r -> MessageName
-messageName' = messageName . (const Proxy :: a -> Proxy a)
+-- | Write colored message, do some action, write colored message.
+-- Intended for debug only.
+withColoredMessages :: MonadIO m => Color -> Text -> m a -> m a
+withColoredMessages color activity action = do
+    putText (colorize color $ sformat ("Entered "%stext%"\n") activity)
+    res <- action
+    res <$ putText (colorize color $ sformat ("Finished "%stext%"\n") activity)
 
 -- | Data type to represent waiting strategy for printing warnings
 -- if action take too much time.
@@ -310,27 +339,29 @@ data WaitingDelta
     deriving (Show)
 
 -- | Constraint for something that can be logged in parallel with other action.
-type CanLogInParallel m = (MonadIO m, MonadTimed m, WithLogger m)
+type CanLogInParallel m = (Mockable Delay m, Mockable Fork m, WithLogger m, Mockable Bracket m)
 
 -- | Run action and print warning if it takes more time than expected.
 logWarningLongAction :: CanLogInParallel m => WaitingDelta -> Text -> m a -> m a
-logWarningLongAction delta actionTag action = do
-    logThreadId <- fork $ waitAndWarn delta
-    action      <* killThread logThreadId
+logWarningLongAction delta actionTag action =
+    bracket (fork $ waitAndWarn delta) onFinish (const action)
   where
+    onFinish logThreadId = do
+        killThread logThreadId
+        --logDebug (sformat ("Action `"%stext%"` finished") actionTag)
     printWarning t = logWarning $ sformat ("Action `"%stext%"` took more than "%shown)
                                   actionTag
                                   t
 
     -- [LW-4]: avoid code duplication somehow (during refactoring)
-    waitAndWarn (WaitOnce      s  ) = wait (for s) >> printWarning s
+    waitAndWarn (WaitOnce      s  ) = delay s >> printWarning s
     waitAndWarn (WaitLinear    s  ) = let waitLoop acc = do
-                                              wait $ for s
+                                              delay s
                                               printWarning acc
                                               waitLoop (acc + s)
                                       in waitLoop s
     waitAndWarn (WaitGeometric s q) = let waitLoop acc t = do
-                                              wait $ for t
+                                              delay t
                                               let newAcc = acc + t
                                               let newT   = round $ fromIntegral t * q
                                               printWarning (convertUnit newAcc :: Second)
@@ -354,22 +385,42 @@ logWarningWaitInf = logWarningLongAction . (`WaitGeometric` 1.3) . convertUnit
 
 -- | Wait random number of 'Microsecond'`s between min and max.
 waitRandomInterval
-    :: (MonadIO m, MonadTimed m)
+    :: (MonadIO m, Mockable Delay m)
     => Microsecond -> Microsecond -> m ()
 waitRandomInterval minT maxT = do
     interval <-
         (+ minT) . fromIntegral <$>
         liftIO (randomNumber $ fromIntegral $ maxT - minT)
-    wait $ for interval
+    delay interval
 
 -- | Wait random interval and then perform given action.
 runWithRandomIntervals
-    :: (MonadIO m, MonadTimed m, WithLogger m)
+    :: (MonadIO m, WithLogger m, Mockable Fork m, Mockable Delay m)
     => Microsecond -> Microsecond -> m () -> m ()
 runWithRandomIntervals minT maxT action = do
   waitRandomInterval minT maxT
   action
   runWithRandomIntervals minT maxT action
+
+-- TODO remove MonadIO in preference to some `Mockable Random`
+-- | Wait random number of 'Microsecond'`s between min and max.
+waitRandomInterval'
+    :: (MonadIO m, Mockable Delay m)
+    => Microsecond -> Microsecond -> m ()
+waitRandomInterval' minT maxT = do
+    interval <-
+        (+ minT) . fromIntegral <$>
+        liftIO (randomNumber $ fromIntegral $ maxT - minT)
+    delay interval
+
+-- | Wait random interval and then perform given action.
+runWithRandomIntervals'
+    :: (MonadIO m, Mockable Delay m)
+    => Microsecond -> Microsecond -> m () -> m ()
+runWithRandomIntervals' minT maxT action = do
+  waitRandomInterval' minT maxT
+  action
+  runWithRandomIntervals' minT maxT action
 
 -- [TW-84]: move to serokell-core or time-warp?
 waitAnyUnexceptional
@@ -415,7 +466,7 @@ getKeys = fromMap . void
 
 newtype AsBinary a = AsBinary
     { getAsBinary :: ByteString
-    } deriving (Show, Eq)
+    } deriving (Show, Eq, Ord)
 
 instance SafeCopy (AsBinary a) where
     getCopy = contain $ AsBinary <$> safeGet
@@ -433,19 +484,115 @@ eitherToVerRes (Left errors) = if T.null errors then VerFailure []
                                else VerFailure $ T.split (==';') errors
 eitherToVerRes (Right _ )    = VerSuccess
 
+-- | Makes a span on the list, considering tail only. Predicate has
+-- list head as first argument. Used to take non-null prefix that
+-- depends on the first element.
+spanSafe :: (a -> a -> Bool) -> NonEmpty a -> (NonEmpty a, [a])
+spanSafe p (x:|xs) = let (a,b) = span (p x) xs in (x:|a,b)
+
 instance IsString s => MonadFail (Either s) where
     fail = Left . fromString
 
 instance MonadFail (ParsecT s u m) where
     fail = Monad.fail
 
-deriving instance MonadFail m => MonadFail (Dialog p m)
-
-deriving instance MonadFail m => MonadFail (ResponseT s m)
-
-deriving instance MonadFail (Transfer s)
-
 deriving instance MonadFail m => MonadFail (LoggerNameBox m)
 
-instance MonadFail TimedIO where
-    fail = Monad.fail
+instance MonadFail m => MonadFail (ResourceT m) where
+    fail = lift . fail
+
+----------------------------------------------------------------------------
+-- MVar utilities
+----------------------------------------------------------------------------
+
+clearMVar :: MonadIO m => MVar a -> m ()
+clearMVar = liftIO . void . tryTakeMVar
+
+forcePutMVar :: MonadIO m => MVar a -> a -> m ()
+forcePutMVar mvar val = do
+    res <- liftIO $ tryPutMVar mvar val
+    unless res $ do
+        _ <- liftIO $ tryTakeMVar mvar
+        forcePutMVar mvar val
+
+-- | Block until value in MVar satisfies given predicate. When value
+-- satisfies, it is returned.
+readMVarConditional :: (MonadIO m) => (x -> Bool) -> MVar x -> m x
+readMVarConditional predicate mvar = do
+    rData <- liftIO . readMVar $ mvar -- first we try to read for optimization only
+    if predicate rData then pure rData
+    else do
+        tData <- liftIO . takeMVar $ mvar -- now take data
+        if predicate tData then do -- check again
+            _ <- liftIO $ tryPutMVar mvar tData -- try to put taken value
+            pure tData
+        else
+            readMVarConditional predicate mvar
+
+-- | Read until value is equal to stored value comparing by some function.
+readUntilEqualMVar
+    :: (Eq a, MonadIO m)
+    => (x -> a) -> MVar x -> a -> m x
+readUntilEqualMVar f mvar expVal = readMVarConditional ((expVal ==) . f) mvar
+
+-- | Block until value in TVar satisfies given predicate. When value
+-- satisfies, it is returned.
+readTVarConditional :: (MonadIO m) => (x -> Bool) -> TVar x -> m x
+readTVarConditional predicate tvar = atomically $ do
+    res <- readTVar tvar
+    if predicate res then pure res
+    else retry
+
+  -- | Read until value is equal to stored value comparing by some function.
+readUntilEqualTVar
+    :: (Eq a, MonadIO m)
+    => (x -> a) -> TVar x -> a -> m x
+readUntilEqualTVar f tvar expVal = readTVarConditional ((expVal ==) . f) tvar
+
+stubListenerOneMsg :: (Monad m, Message r, Unpackable p r, Packable p r) => Proxy r -> ListenerAction p m
+stubListenerOneMsg p = ListenerActionOneMsg $ \_ _ m ->
+                          let _ = m `asProxyTypeOf` p
+                           in return ()
+
+stubListenerConv :: (Monad m, Message r, Unpackable p r, Packable p Void) => Proxy r -> ListenerAction p m
+stubListenerConv p = ListenerActionConversation $ \__nId __sA convActions ->
+                          let _ = convActions `asProxyTypeOf` __modP p
+                              __modP :: Proxy r -> Proxy (ConversationActions Void r m)
+                              __modP _ = Proxy
+                           in return ()
+
+withWaitLog :: ( CanLogInParallel m ) => SendActions p m -> SendActions p m
+withWaitLog sendActions = sendActions
+    { sendTo = \nodeId msg ->
+                  let MessageName mName = messageName' msg
+                   in logWarningWaitLinear 4
+                        (sformat ("Send "%shown%" to "%shown) mName nodeId) $
+                          sendTo sendActions nodeId msg
+    , withConnectionTo = \nodeId action -> withConnectionTo sendActions nodeId $ action . withWaitLogConv nodeId
+    }
+
+withWaitLogConv :: ( CanLogInParallel m, Message snd ) => NodeId -> ConversationActions snd rcv m -> ConversationActions snd rcv m
+withWaitLogConv nodeId conv = conv { send = send', recv = recv' }
+  where
+    send' msg =
+        logWarningWaitLinear 4
+          (sformat ("Send "%shown%" to "%shown%" in conversation") sndMsg nodeId) $
+            send conv msg
+    recv' =
+        logWarningWaitLinear 4
+          (sformat ("Recv from "%shown%" in conversation") nodeId) $
+            recv conv
+    MessageName sndMsg = messageName $ ((\_ -> Proxy) :: ConversationActions snd rcv m -> Proxy snd) conv
+
+withWaitLogConvL :: ( CanLogInParallel m, Message rcv ) => NodeId -> ConversationActions snd rcv m -> ConversationActions snd rcv m
+withWaitLogConvL nodeId conv = conv { send = send', recv = recv' }
+  where
+    send' msg =
+        logWarningWaitLinear 4
+          (sformat ("Send to "%shown%" in conversation") nodeId) $
+            send conv msg
+    recv' =
+        logWarningWaitLinear 4
+          (sformat ("Recv "%shown%" from "%shown%" in conversation") rcvMsg nodeId) $
+            recv conv
+    MessageName rcvMsg = messageName $ ((\_ -> Proxy) :: ConversationActions snd rcv m -> Proxy rcv) conv

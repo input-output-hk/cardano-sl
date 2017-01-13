@@ -26,7 +26,6 @@ data Args = Args
     , spendingGenesisI          :: !(Maybe Int)
     , vssGenesisI               :: !(Maybe Int)
     , keyfilePath               :: !FilePath
-    , vssSecretPath             :: !(Maybe FilePath)
     , port                      :: !Word16
     , supporterNode             :: !Bool
     , dhtKey                    :: !(Maybe DHTKey)
@@ -76,10 +75,6 @@ argsParser =
          metavar "FILEPATH" <>
          value "secret.key" <>
          help "Path to file with secret keys") <*>
-    optional
-        (strOption
-             (long "vss-sk" <> metavar "FILEPATH" <>
-              help "Path to VSS secret key")) <*>
     CLI.portOption 3000 <*>
     switch
         (long "supporter" <> help "Launch DHT supporter instead of full node") <*>

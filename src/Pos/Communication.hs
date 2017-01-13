@@ -1,14 +1,11 @@
 -- | Re-exports of Pos.Communication.*
 
 module Pos.Communication
-       ( module Pos.Communication.Methods
-       , module Pos.Communication.RelayMethods
-       , module Pos.Communication.Server
-       , module Pos.Communication.Types
+       ( module M
        ) where
 
-import           Pos.Communication.Arbitrary    ()
-import           Pos.Communication.Methods
-import           Pos.Communication.RelayMethods
-import           Pos.Communication.Server
-import           Pos.Communication.Types
+import           Pos.Communication.Arbitrary ()
+import           Pos.Communication.BiP       as M
+import           Pos.Communication.Methods   as M
+import           Pos.Communication.Server    as M
+import           Pos.Communication.Types     as M

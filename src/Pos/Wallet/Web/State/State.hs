@@ -26,6 +26,7 @@ module Pos.Wallet.Web.State.State
 
 import           Data.Acid                    (EventResult, EventState, QueryEvent,
                                                UpdateEvent)
+import           Mockable                     (MonadMockable)
 import           Universum
 
 import           Pos.Wallet.Web.ClientTypes   (CAddress, CTxId, CTxMeta, CWalletMeta)
@@ -46,7 +47,7 @@ instance MonadWalletWebDB m => MonadWalletWebDB (StateT s m) where
     getWalletWebState = lift getWalletWebState
 
 -- | Constraint for working with web wallet DB
-type WebWalletModeDB m = (MonadWalletWebDB m, MonadIO m)
+type WebWalletModeDB m = (MonadWalletWebDB m, MonadIO m, MonadMockable m)
 
 queryDisk
     :: (EventState event ~ WalletStorage, QueryEvent event, WebWalletModeDB m)

@@ -1,53 +1,76 @@
 {-# LANGUAGE AllowAmbiguousTypes  #-}
 {-# LANGUAGE CPP                  #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Server which handles transactions.
 
 module Pos.Txp.Listeners
        ( txListeners
+       , txStubListeners
        , processTx
        ) where
 
 import qualified Data.HashMap.Strict         as HM
 import           Formatting                  (build, sformat, stext, (%))
+import           Node                        (ListenerAction (..))
 import           Serokell.Util.Verify        (VerificationRes (..))
 import           System.Wlog                 (logDebug, logInfo, logWarning)
 import           Universum
 
+import           Pos.Binary.Communication    ()
 import           Pos.Binary.Relay            ()
-import           Pos.Communication.Types     (MutSocketState, ResponseMode)
+import           Pos.Communication.BiP       (BiP (..))
 import           Pos.Crypto                  (hash)
-import           Pos.DHT.Model               (ListenerDHT (..), MonadDHTDialog)
 import           Pos.Statistics              (StatProcessTx (..), statlogCountEvent)
 import           Pos.Txp.Class               (getMemPool)
 import           Pos.Txp.Logic               (processTx)
 import           Pos.Txp.Types.Communication (TxMsgContents (..), TxMsgTag (..))
 import           Pos.Txp.Types.Types         (MemPool (..), ProcessTxRes (..))
 import           Pos.Types                   (TxAux, TxId)
+import           Pos.Util                    (stubListenerOneMsg)
 import           Pos.Util.Relay              (DataMsg, InvMsg, Relay (..), ReqMsg,
                                               handleDataL, handleInvL, handleReqL)
 import           Pos.WorkMode                (WorkMode)
 
--- | Listeners for requests related to blocks processing.
 txListeners
-    :: (MonadDHTDialog (MutSocketState ssc) m, WorkMode ssc m)
-    => [ListenerDHT (MutSocketState ssc) m]
+    :: ( WorkMode ssc m
+       )
+    => [ListenerAction BiP m]
 txListeners =
-    [
-      ListenerDHT handleInvTx
-    , ListenerDHT handleReqTx
-    , ListenerDHT handleDataTx
+    [ handleInvTx
+    , handleReqTx
+    , handleDataTx
     ]
 
-handleInvTx :: ResponseMode ssc m => InvMsg TxId TxMsgTag -> m ()
-handleInvTx = handleInvL
+handleInvTx
+    :: (WorkMode ssc m)
+    => ListenerAction BiP m
+handleInvTx = ListenerActionOneMsg $ \peerId sendActions (i :: InvMsg TxId TxMsgTag) ->
+    handleInvL i peerId sendActions
 
-handleReqTx :: ResponseMode ssc m => ReqMsg TxId TxMsgTag -> m ()
-handleReqTx = handleReqL
+handleReqTx
+    :: (WorkMode ssc m)
+    => ListenerAction BiP m
+handleReqTx = ListenerActionOneMsg $ \peerId sendActions (r :: ReqMsg TxId TxMsgTag) ->
+    handleReqL r peerId sendActions
 
-handleDataTx :: ResponseMode ssc m => DataMsg TxId TxMsgContents -> m ()
-handleDataTx = handleDataL
+handleDataTx
+    :: (WorkMode ssc m)
+    => ListenerAction BiP m
+handleDataTx = ListenerActionOneMsg $ \peerId sendActions (d :: DataMsg TxId TxMsgContents) ->
+    handleDataL d peerId sendActions
+
+txStubListeners
+    :: Monad m
+    => Proxy ssc -> [ListenerAction BiP m]
+txStubListeners p =
+    [ stubListenerOneMsg $ (const Proxy :: Proxy ssc -> Proxy (InvMsg TxId TxMsgTag)) p
+    , stubListenerOneMsg $ (const Proxy :: Proxy ssc -> Proxy (ReqMsg TxId TxMsgTag)) p
+    , stubListenerOneMsg $
+        (const Proxy :: Proxy ssc -> Proxy (DataMsg TxId TxMsgContents)) p
+    ]
+
 
 instance ( WorkMode ssc m
          ) => Relay m TxMsgTag TxId TxMsgContents where

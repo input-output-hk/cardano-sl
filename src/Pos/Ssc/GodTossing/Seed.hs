@@ -13,8 +13,8 @@ import           Universum
 
 import           Pos.Crypto                    (Secret, Share, unsafeRecoverSecret)
 import           Pos.Ssc.GodTossing.Error      (SeedError (..))
-import           Pos.Ssc.GodTossing.Functions  (getThreshold, secretToSharedSeed,
-                                                verifyOpening)
+import           Pos.Ssc.GodTossing.Functions  (secretToSharedSeed, verifyOpening,
+                                                vssThreshold)
 import           Pos.Ssc.GodTossing.Types.Base (CommitmentsMap, OpeningsMap, SharesMap,
                                                 commShares, getOpening)
 import           Pos.Types                     (SharedSeed, StakeholderId)
@@ -79,7 +79,7 @@ calculateSeed commitments openings lShares = do
             -- shares? maybe it'd be better to 'assert' it.
             let secrets :: [Share]
                 secrets = mapMaybe (HM.lookup id) (toList shares)
-            let t = fromIntegral . getThreshold . length . commShares $
+            let t = fromIntegral . vssThreshold . length . commShares $
                         (commitments HM.! id) ^. _2
             -- Then we recover the secret
             return (id, if length secrets < t

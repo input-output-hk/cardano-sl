@@ -9,15 +9,15 @@ import           Network.Kademlia.HashNodeId (HashId (..))
 import           Test.QuickCheck             (Arbitrary (..), oneof)
 import           Universum
 
-import           Pos.DHT.Model               (DHTData (..), DHTKey (..),
-                                              DHTMsgHeader (..))
+--import           Pos.DHT.Model             (DHTMsgHeader (..), DHTData (..), DHTKey (..))
 
-instance Arbitrary DHTMsgHeader where
-    arbitrary = oneof [ pure BroadcastHeader
-                      , SimpleHeader <$> arbitrary
-                      ]
+--instance Arbitrary DHTMsgHeader where
+--    arbitrary = oneof [ pure BroadcastHeader
+--                      , SimpleHeader <$> arbitrary
+--                      ]
 
-instance Arbitrary DHTKey where
-    arbitrary = DHTKey . HashId <$> arbitrary
+--instance Arbitrary DHTKey where
+--    arbitrary = DHTKey . HashId <$> arbitrary
 
-derive makeArbitrary ''DHTData
+--derive makeArbitrary ''DHTData
+>>>>>>> master

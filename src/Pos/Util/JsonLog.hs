@@ -15,7 +15,6 @@ module Pos.Util.JsonLog
        ) where
 
 import           Control.Lens           (view, (^.))
-import           Control.TimeWarp.Timed (currentTime, runTimedIO)
 import           Data.Aeson             (encode)
 import           Data.Aeson.TH          (deriveJSON)
 import qualified Data.ByteString.Lazy   as LBS
@@ -25,11 +24,11 @@ import           Universum
 
 import           Pos.Binary.Types       ()
 import           Pos.Crypto             (Hash, hash, hashHexF)
-import           Pos.DHT.Model          (DHTResponseT)
 import           Pos.Ssc.Class.Types    (Ssc)
 import           Pos.Types              (BiSsc, Block, SlotId (..), blockHeader, blockTxs,
                                          epochIndexL, gbHeader, gbhPrevBlock, headerHash,
                                          headerSlot)
+import           Pos.Util.TimeWarp      (currentTime)
 
 type BlockId = Text
 type TxId = Text
@@ -89,17 +88,14 @@ jlAdoptedBlock :: Ssc ssc => Block ssc -> JLEvent
 jlAdoptedBlock = JLAdoptedBlock . showHash . headerHash
 
 -- | Append event into log by given 'FilePath'.
-appendJL :: MonadIO m => FilePath -> JLEvent -> m ()
+appendJL :: (MonadIO m) => FilePath -> JLEvent -> m ()
 appendJL path ev = liftIO $ do
-  time <- runTimedIO currentTime
+  time <- currentTime
   LBS.appendFile path . encode $ JLTimedEvent (fromIntegral time) ev
 
 -- | Monad for things that can log Json log events.
 class Monad m => MonadJL m where
   jlLog :: JLEvent -> m ()
-
-instance MonadJL m => MonadJL (DHTResponseT s m) where
-    jlLog = lift . jlLog
 
 instance MonadJL m => MonadJL (ReaderT s m) where
     jlLog = lift . jlLog

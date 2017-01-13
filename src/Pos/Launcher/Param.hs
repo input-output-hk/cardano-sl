@@ -6,13 +6,14 @@ module Pos.Launcher.Param
        , NodeParams (..)
        ) where
 
-import           System.Wlog        (LoggerName)
+import           System.Wlog         (LoggerName)
 import           Universum
 
-import           Pos.Crypto         (SecretKey)
-import           Pos.DHT.Model      (DHTKey, DHTNode)
-import           Pos.Security.Types (AttackTarget, AttackType)
-import           Pos.Types          (Timestamp, Utxo)
+import           Pos.Crypto          (SecretKey)
+import           Pos.DHT.Model       (DHTKey, DHTNode)
+import           Pos.Security.Types  (AttackTarget, AttackType)
+import           Pos.Types           (Timestamp, Utxo)
+import           Pos.Util.UserSecret (UserSecret)
 
 -- | Contains all parameters required for hierarchical logger initialization.
 data LoggingParams = LoggingParams
@@ -35,9 +36,8 @@ data NodeParams = NodeParams
     { npDbPathM       :: !FilePath          -- ^ Modern path to node's data-base.
     , npRebuildDb     :: !Bool              -- ^ @True@ if data-base should be rebuilt
     , npSystemStart   :: !Timestamp         -- ^ System start
-    , npSecretKey     :: !(Maybe SecretKey) -- ^ Secret key of this node (if specified explicitly, if not - see next option)
-    , npKeyfilePath   :: !FilePath          -- ^ Path to a file with secret keys. If `npSecretKey` is `Nothing`,
-                                            -- then first key in file is used as block signing key
+    , npSecretKey     :: !SecretKey         -- ^ Primary secret key of node
+    , npUserSecret    :: !UserSecret        -- ^ All node secret keys
     , npBaseParams    :: !BaseParams        -- ^ See 'BaseParams'
     , npCustomUtxo    :: !Utxo              -- ^ predefined custom utxo
     , npTimeLord      :: !Bool              -- ^ @True@ if node started as time-lord

@@ -13,14 +13,13 @@ import           Control.Concurrent.STM.TArray (TArray)
 import           Control.Concurrent.STM.TVar   (TVar, modifyTVar', newTVar, readTVar,
                                                 writeTVar)
 import           Control.Lens                  (view, _1)
-import           Control.TimeWarp.Timed        (sec)
 import           Data.Array.MArray             (newListArray, readArray, writeArray)
 import           Data.List                     (tail, (!!))
 import           Universum                     hiding (head)
 
 import           Pos.Constants                 (k, slotDuration)
 import           Pos.Crypto                    (SecretKey, hash, toPublic, unsafeHash)
-import           Pos.DB                        (getTxOut)
+import           Pos.DB.GState                 (getTxOut)
 import           Pos.Genesis                   (genesisAddresses, genesisPublicKeys,
                                                 genesisSecretKeys)
 import           Pos.Script                    (Script)
@@ -28,6 +27,7 @@ import           Pos.Script.Examples           (multisigValidator)
 import           Pos.Types                     (Tx (..), TxAux, TxId, TxOut (..),
                                                 makePubKeyAddress, makeScriptAddress,
                                                 mkCoin)
+import           Pos.Util.TimeWarp             (sec)
 import           Pos.Wallet                    (makeMOfNTx, makePubKeyTx)
 import           Pos.WorkMode                  (WorkMode)
 

@@ -13,40 +13,43 @@ module Pos.Statistics.MonadStats
        , StatsT (..)
        , runStatsT
        , runStatsT'
+       , getStatsMap
        ) where
 
 import           Control.Lens                (iso)
 import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
 import           Control.Monad.Except        (ExceptT)
-import           Control.Monad.Morph         (hoist)
 import           Control.Monad.Trans         (MonadTrans)
 import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,
                                               defaultLiftBaseWith, defaultLiftWith,
                                               defaultRestoreM, defaultRestoreT)
-import           Control.TimeWarp.Rpc        (MonadDialog, MonadResponse (..),
-                                              MonadTransfer (..))
-import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
 import qualified Data.Binary                 as Binary
 import           Data.Maybe                  (fromMaybe)
 import           Focus                       (Decision (Remove), alterM)
+import           Mockable                    (ChannelT, MFunctor',
+                                              Mockable (liftMockable), Promise,
+                                              SharedAtomicT, ThreadId,
+                                              liftMockableWrappedM)
 import           Serokell.Util               (WrappedM (..), show')
 import qualified STMContainers.Map           as SM
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
+import           Pos.Communication.PeerState (WithPeerState (..))
 import           Pos.Context.Class           (WithNodeContext)
-import qualified Pos.DB                      as Modern
+import           Pos.DB                      (MonadDB (..))
 import           Pos.Delegation.Class        (MonadDelegation)
-import           Pos.DHT.Model               (DHTResponseT, MonadDHT,
-                                              MonadMessageDHT (..), WithDefaultMsgHeader)
-import           Pos.DHT.Real                (KademliaDHT, WithKademliaDHTInstance (..))
+import           Pos.DHT.Model               (MonadDHT)
+import           Pos.DHT.Real                (KademliaDHT, WithKademliaDHTInstance)
 import           Pos.Slotting                (MonadSlots (..))
+import           Pos.Ssc.Extra               (MonadSscRichmen)
 import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..))
 import           Pos.Statistics.StatEntry    (StatLabel (..))
 import           Pos.Txp.Class               (MonadTxpLD (..))
 import           Pos.Types                   (MonadUtxo, MonadUtxoRead)
+import           Pos.Update.MemState         (MonadUSMem)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 
@@ -70,22 +73,19 @@ instance MonadStats m => MonadStats (KademliaDHT    m)
 instance MonadStats m => MonadStats (ReaderT      a m)
 instance MonadStats m => MonadStats (StateT       a m)
 instance MonadStats m => MonadStats (ExceptT      e m)
-instance MonadStats m => MonadStats (DHTResponseT s m)
-
-type instance ThreadId (NoStatsT m) = ThreadId m
-type instance ThreadId (StatsT m) = ThreadId m
-
 
 -- | Stats wrapper for collecting statistics without collecting it.
 newtype NoStatsT m a = NoStatsT
     { getNoStatsT :: m a  -- ^ action inside wrapper without collecting statistics
-    } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow,
+    } deriving (Functor, Applicative, Monad, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
-                MonadDialog s p, MonadDHT, MonadMessageDHT s, MonadSlots,
-                WithDefaultMsgHeader, WithKademliaDHTInstance, MonadJL, CanLog,
-                MonadUtxoRead, MonadUtxo, Modern.MonadDB ssc,
-                MonadTxpLD ssc, MonadSscGS ssc, MonadSscLD ssc,
-                WithNodeContext ssc, MonadDelegation)
+                MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState ssc,
+                MonadJL, CanLog,
+                MonadUtxoRead, MonadUtxo,
+                MonadTxpLD ssc, MonadSscGS ssc, MonadSscLD ssc, MonadSscRichmen,
+                WithNodeContext ssc, MonadDelegation, MonadUSMem)
+
+deriving instance MonadDB ssc m => MonadDB ssc (NoStatsT m)
 
 instance Monad m => WrappedM (NoStatsT m) where
     type UnwrappedM (NoStatsT m) = m
@@ -104,12 +104,6 @@ instance MonadBaseControl IO m => MonadBaseControl IO (NoStatsT m) where
     liftBaseWith     = defaultLiftBaseWith
     restoreM         = defaultRestoreM
 
-instance MonadTransfer s m => MonadTransfer s (NoStatsT m)
-instance MonadResponse s m => MonadResponse s (NoStatsT m) where
-    replyRaw dat = NoStatsT $ replyRaw (hoist getNoStatsT dat)
-    closeR = lift closeR
-    peerAddr = lift peerAddr
-
 instance MonadTrans NoStatsT where
     lift = NoStatsT
 
@@ -120,18 +114,29 @@ instance Monad m => MonadStats (NoStatsT m) where
 
 type StatsMap = SM.Map Text LByteString
 
+type instance ThreadId (NoStatsT m) = ThreadId m
+type instance Promise (NoStatsT m) = Promise m
+type instance SharedAtomicT (NoStatsT m) = SharedAtomicT m
+type instance ChannelT (NoStatsT m) = ChannelT m
+
+instance ( Mockable d m
+         , MFunctor' d (NoStatsT m) m
+         ) => Mockable d (NoStatsT m) where
+    liftMockable = liftMockableWrappedM
 
 -- | Statistics wrapper around some monadic action to collect statistics
 -- during execution of this action. Used in benchmarks.
 newtype StatsT m a = StatsT
     { getStatsT :: ReaderT StatsMap m a  -- ^ action inside wrapper with collected statistics
-    } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow,
+    } deriving (Functor, Applicative, Monad, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
-                MonadDialog s p, MonadDHT, MonadMessageDHT s, MonadSlots,
-                WithDefaultMsgHeader, WithKademliaDHTInstance, MonadTrans, MonadJL, CanLog,
-                MonadUtxoRead, MonadUtxo, Modern.MonadDB ssc, MonadTxpLD ssc,
-                MonadSscGS ssc, MonadSscLD ssc, WithNodeContext ssc, MonadDelegation)
+                MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState ssc,
+                MonadTrans, MonadJL, CanLog,
+                MonadUtxoRead, MonadUtxo, MonadTxpLD ssc,
+                MonadSscGS ssc, MonadSscLD ssc, WithNodeContext ssc, MonadSscRichmen,
+                MonadDelegation, MonadUSMem)
 
+deriving instance MonadDB ssc m => MonadDB ssc (StatsT m)
 instance Monad m => WrappedM (StatsT m) where
     type UnwrappedM (StatsT m) = ReaderT StatsMap m
     _WrappedM = iso getStatsT StatsT
@@ -149,18 +154,25 @@ instance MonadBaseControl IO m => MonadBaseControl IO (StatsT m) where
 instance MonadBase IO m => MonadBase IO (StatsT m) where
     liftBase = lift . liftBase
 
-instance MonadTransfer s m => MonadTransfer s (StatsT m)
+type instance ThreadId (StatsT m) = ThreadId m
+type instance Promise (StatsT m) = Promise m
+type instance SharedAtomicT (StatsT m) = SharedAtomicT m
+type instance ChannelT (StatsT m) = ChannelT m
 
-instance MonadResponse s m => MonadResponse s (StatsT m) where
-    replyRaw dat = StatsT $ replyRaw (hoist getStatsT dat)
-    closeR = lift closeR
-    peerAddr = lift peerAddr
+instance ( Mockable d m
+         , MFunctor' d (StatsT m) (ReaderT StatsMap m)
+         , MFunctor' d (ReaderT StatsMap m) m
+         ) => Mockable d (StatsT m) where
+    liftMockable = liftMockableWrappedM
 
 runStatsT :: MonadIO m => StatsT m a -> m a
 runStatsT action = liftIO SM.newIO >>= flip runStatsT' action
 
 runStatsT' :: StatsMap -> StatsT m a -> m a
 runStatsT' statsMap action = runReaderT (getStatsT action) statsMap
+
+getStatsMap :: Monad m => StatsT m StatsMap
+getStatsMap = StatsT ask
 
 instance (MonadIO m, MonadJL m) => MonadStats (StatsT m) where
     statLog label entry = do

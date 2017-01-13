@@ -13,13 +13,13 @@ module Pos.Txp.Class
        ) where
 
 import qualified Control.Concurrent.STM as STM
+import           Control.Monad.Except   (ExceptT)
 import           Control.Monad.Trans    (MonadTrans)
 import qualified Data.HashMap.Strict    as HM
 import           Universum
 
-import           Pos.DHT.Model.Class    (DHTResponseT)
 import           Pos.DHT.Real           (KademliaDHT)
-import           Pos.Txp.Types          (MemPool (localTxs), UtxoView)
+import           Pos.Txp.Types.Types    (MemPool (localTxs), UtxoView)
 import           Pos.Types              (HeaderHash, TxAux, TxId, TxOutAux)
 
 -- | LocalData of transactions processing.
@@ -74,9 +74,7 @@ class Monad m => MonadTxpLD ssc m | m -> ssc where
     getTxpLD = lift getTxpLD
 
 instance MonadTxpLD ssc m => MonadTxpLD ssc (ReaderT r m)
-
-instance MonadTxpLD ssc m => MonadTxpLD ssc (DHTResponseT s m)
-
+instance MonadTxpLD ssc m => MonadTxpLD ssc (ExceptT r m)
 instance MonadTxpLD ssc m => MonadTxpLD ssc (KademliaDHT m)
 
 getLocalTxs :: MonadTxpLD ssc m => m [(TxId, TxAux)]

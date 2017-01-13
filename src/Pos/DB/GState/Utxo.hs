@@ -17,7 +17,7 @@ module Pos.DB.GState.Utxo
        , prepareGStateUtxo
 
        -- * Iteration
-       , iterateByUtxo
+       , iterateByTx
        , runUtxoIterator
        , mapUtxoIterator
        , getFilteredUtxo
@@ -28,11 +28,14 @@ import qualified Database.RocksDB     as Rocks
 import           Universum
 
 import           Pos.Binary.Class     (encodeStrict)
+import           Pos.Binary.Types     ()
 import           Pos.DB.Class         (MonadDB, getUtxoDB)
 import           Pos.DB.DBIterator    (DBIterator, DBMapIterator, mapIterator,
                                        runIterator)
 import           Pos.DB.Error         (DBError (..))
-import           Pos.DB.Functions     (RocksBatchOp (..), rocksGetBi, traverseAllEntries)
+import           Pos.DB.Functions     (RocksBatchOp (..), WithKeyPrefix (..),
+                                       encodeWithKeyPrefix, rocksGetBi,
+                                       traverseAllEntries)
 import           Pos.DB.GState.Common (getBi, putBi)
 import           Pos.DB.Types         (DB)
 import           Pos.Types            (Address, TxIn (..), TxOutAux, Utxo, belongsTo)
@@ -74,7 +77,7 @@ prepareGStateUtxo
     :: forall ssc m.
        MonadDB ssc m
     => Utxo -> m ()
-prepareGStateUtxo genesisUtxo = do
+prepareGStateUtxo genesisUtxo =
     putIfEmpty getGenUtxoMaybe putGenesisUtxo
   where
     putIfEmpty
@@ -94,13 +97,11 @@ putTxOut = putBi . txInKey
 -- Iteration
 ----------------------------------------------------------------------------
 
-iterateByUtxo
-    :: forall ssc m . (MonadDB ssc m, MonadMask m)
-    => ((TxIn, TxOutAux) -> m ())
-    -> m ()
-iterateByUtxo callback = do
-    db <- getUtxoDB
-    traverseAllEntries db (pure ()) $ const $ curry callback
+type IterType = (TxIn, TxOutAux)
+
+iterateByTx :: forall v m ssc a . (MonadDB ssc m, MonadMask m)
+                => DBMapIterator IterType v m a -> (IterType -> v) -> m a
+iterateByTx iter f = mapIterator @IterType @v iter f =<< getUtxoDB
 
 filterUtxo
     :: forall ssc m . (MonadDB ssc m, MonadMask m)
@@ -113,12 +114,13 @@ filterUtxo p = do
         then return $ M.insert (txInHash k, txInIndex k) v m
         else return m
 
-runUtxoIterator :: (MonadDB ssc m, MonadMask m)
-                 => DBIterator m a -> m a
+runUtxoIterator
+    :: (MonadDB ssc m, MonadMask m)
+    => DBIterator v m a -> m a
 runUtxoIterator iter = runIterator iter =<< getUtxoDB
 
 mapUtxoIterator :: forall u v m ssc a . (MonadDB ssc m, MonadMask m)
-                => DBMapIterator (u -> v) m a -> (u -> v) -> m a
+                => DBMapIterator u v m a -> (u -> v) -> m a
 mapUtxoIterator iter f = mapIterator @u @v iter f =<< getUtxoDB
 
 -- | Get small sub-utxo containing only outputs of given address
@@ -129,13 +131,14 @@ getFilteredUtxo addr = filterUtxo $ \(_, out) -> out `belongsTo` addr
 -- Keys
 ----------------------------------------------------------------------------
 
+instance WithKeyPrefix TxIn where
+    keyPrefix _ = "t/"
+
 genUtxoKey :: ByteString
 genUtxoKey = "ut/gutxo"
 
 txInKey :: TxIn -> ByteString
--- [CSL-379] Restore prefix after we have proper iterator
--- txInKey = (<> "t") . encodeStrict
-txInKey = encodeStrict
+txInKey = encodeWithKeyPrefix
 
 ----------------------------------------------------------------------------
 -- Details

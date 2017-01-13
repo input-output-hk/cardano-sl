@@ -9,44 +9,49 @@ module Pos.Wallet.Tx
        , createMOfNTx
        ) where
 
-import           Control.Lens          ((^.), _1)
-import           Control.Monad.Except  (ExceptT (..), runExceptT)
-import           Control.TimeWarp.Rpc  (NetworkAddress)
-import           Formatting            (build, sformat, (%))
-import           System.Wlog           (logError, logInfo)
+import           Control.Lens              ((^.), _1)
+import           Control.Monad.Except      (ExceptT (..), runExceptT)
+import           Formatting                (build, sformat, (%))
+import           Node                      (SendActions)
+import           Pos.Util.TimeWarp         (NetworkAddress)
+import           System.Wlog               (logError, logInfo)
 import           Universum
 
-import           Pos.Binary            ()
-import           Pos.Communication     (sendTx)
-import           Pos.Crypto            (SecretKey, hash, toPublic)
-import           Pos.Types             (TxAux, TxOutAux, makePubKeyAddress, txaF)
-import           Pos.WorkMode          (MinWorkMode)
+import           Pos.Binary                ()
+import           Pos.Communication.BiP     (BiP)
+import           Pos.Communication.Methods (sendTx)
+import           Pos.Crypto                (SecretKey, hash, toPublic)
+import           Pos.Types                 (TxAux, TxOutAux, makePubKeyAddress, txaF)
+import           Pos.WorkMode              (MinWorkMode)
 
-import           Pos.Wallet.Tx.Pure    (TxError, createMOfNTx, createTx, makeMOfNTx,
-                                        makePubKeyTx)
-import           Pos.Wallet.WalletMode (TxMode, getOwnUtxo, saveTx)
+import           Pos.Wallet.Tx.Pure        (TxError, createMOfNTx, createTx, makeMOfNTx,
+                                            makePubKeyTx)
+import           Pos.Wallet.WalletMode     (TxMode, getOwnUtxo, saveTx)
 
 -- | Construct Tx using secret key and given list of desired outputs
 submitTx
     :: TxMode ssc m
-    => SecretKey
+    => SendActions BiP m
+    -> SecretKey
     -> [NetworkAddress]
     -> [TxOutAux]
     -> m (Either TxError TxAux)
-submitTx _ [] _ = logError "No addresses to send" >> fail "submitTx failed"
-submitTx sk na outputs = do
+submitTx _ _ [] _ = do
+    logError "No addresses to send"
+    return (Left "submitTx failed")
+submitTx sendActions sk na outputs = do
     utxo <- getOwnUtxo $ makePubKeyAddress $ toPublic sk
     runExceptT $ do
         txw <- ExceptT $ return $ createTx utxo sk outputs
         let txId = hash (txw ^. _1)
-        lift $ submitTxRaw na txw
+        lift $ submitTxRaw sendActions na txw
         lift $ saveTx (txId, txw)
         return txw
 
 -- | Send the ready-to-use transaction
-submitTxRaw :: MinWorkMode ss m => [NetworkAddress] -> TxAux -> m ()
-submitTxRaw na tx = do
+submitTxRaw :: MinWorkMode m => SendActions BiP m -> [NetworkAddress] -> TxAux -> m ()
+submitTxRaw sa na tx = do
     let txId = hash (tx ^. _1)
     logInfo $ sformat ("Submitting transaction: "%txaF) tx
     logInfo $ sformat ("Transaction id: "%build) txId
-    mapM_ (`sendTx` tx) na
+    mapM_ (flip (sendTx sa) tx) na

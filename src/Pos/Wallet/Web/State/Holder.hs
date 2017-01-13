@@ -4,24 +4,26 @@
 module Pos.Wallet.Web.State.Holder
        ( WalletWebDB
        , runWalletWebDB
+       , getWalletState
        ) where
 
 import           Universum
 
 import           Control.Lens               (iso)
 import           Control.Monad.Trans        (MonadTrans (..))
-import           Control.TimeWarp.Rpc       (MonadDialog, MonadTransfer)
-import           Control.TimeWarp.Timed     (MonadTimed, ThreadId)
+import           Mockable                   (ChannelT, MFunctor', Mockable (liftMockable),
+                                             Promise, SharedAtomicT, ThreadId,
+                                             liftMockableWrappedM)
 import           Serokell.Util.Lens         (WrappedM (..))
 import           System.Wlog                (CanLog, HasLoggerName)
 
 import           Pos.Context                (WithNodeContext)
-import qualified Pos.DB                     as Modern
+import           Pos.DB                     (MonadDB)
 import           Pos.Delegation.Class       (MonadDelegation)
-import           Pos.DHT.Model              (MonadDHT, MonadMessageDHT,
-                                             WithDefaultMsgHeader)
+import           Pos.DHT.Model              (MonadDHT)
 import           Pos.Slotting               (MonadSlots)
 import           Pos.Txp.Class              (MonadTxpLD)
+import           Pos.Update                 (MonadPoll, MonadUSMem)
 
 import           Pos.Wallet.Context         (WithWalletContext)
 import           Pos.Wallet.KeyStorage      (MonadKeys)
@@ -33,24 +35,29 @@ import           Pos.Wallet.Web.State.State (MonadWalletWebDB (..), WalletState)
 -- | Holder for web wallet data
 newtype WalletWebDB m a = WalletWebDB
     { getWalletWebDB :: ReaderT WalletState m a
-    } deriving (Functor, Applicative, Monad, MonadTimed, MonadThrow,
+    } deriving (Functor, Applicative, Monad, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
-                MonadWalletDB, WithWalletContext, MonadDialog s p,
-                MonadDHT, MonadMessageDHT s, MonadSlots,
-                WithDefaultMsgHeader, CanLog, MonadKeys, MonadBalances,
-                MonadTxHistory, WithNodeContext ssc,
-                Modern.MonadDB ssc, MonadTxpLD ssc, MonadDelegation)
+                MonadWalletDB, WithWalletContext,
+                MonadDHT, MonadSlots, MonadTrans,
+                CanLog, MonadKeys, MonadBalances,
+                MonadTxHistory, WithNodeContext ssc, MonadUSMem, MonadPoll,
+                MonadTxpLD ssc, MonadDelegation)
 
+deriving instance MonadDB ssc m => MonadDB ssc (WalletWebDB m)
 instance Monad m => WrappedM (WalletWebDB m) where
     type UnwrappedM (WalletWebDB m) = ReaderT WalletState m
     _WrappedM = iso getWalletWebDB WalletWebDB
 
-instance MonadTrans WalletWebDB where
-    lift = WalletWebDB . lift
-
-instance MonadTransfer s m => MonadTransfer s (WalletWebDB m)
-
 type instance ThreadId (WalletWebDB m) = ThreadId m
+type instance Promise (WalletWebDB m) = Promise m
+type instance SharedAtomicT (WalletWebDB m) = SharedAtomicT m
+type instance ChannelT (WalletWebDB m) = ChannelT m
+
+instance ( Mockable d m
+         , MFunctor' d (WalletWebDB m) (ReaderT WalletState m)
+         , MFunctor' d (ReaderT WalletState m) m
+         ) => Mockable d (WalletWebDB m) where
+    liftMockable = liftMockableWrappedM
 
 -- | Instance for generic web wallet class
 instance Monad m => MonadWalletWebDB (WalletWebDB m) where
@@ -59,3 +66,6 @@ instance Monad m => MonadWalletWebDB (WalletWebDB m) where
 -- | Execute `WalletWebDB` action with given `WalletState`
 runWalletWebDB :: WalletState -> WalletWebDB m a -> m a
 runWalletWebDB ws = flip runReaderT ws . getWalletWebDB
+
+getWalletState :: Monad m => WalletWebDB m WalletState
+getWalletState = WalletWebDB ask

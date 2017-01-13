@@ -39,7 +39,7 @@ import qualified Data.ByteArray      as ByteArray
 import           Data.Hashable       (Hashable (hashWithSalt), hashPtrWithSalt)
 import           Data.SafeCopy       (SafeCopy (..))
 import qualified Data.Text.Buildable as Buildable
-import           Formatting          (Format, bprint, fitLeft, later, shown, (%.))
+import           Formatting          (Format, bprint, fitLeft, later, (%.))
 import           System.IO.Unsafe    (unsafeDupablePerformIO)
 import           Universum
 
@@ -91,7 +91,7 @@ instance Bi (AbstractHash algo a) =>
     getCopy = getCopyBinary "AbstractHash"
 
 instance Buildable.Buildable (AbstractHash algo a) where
-    build (AbstractHash x) = bprint shown x
+    build = bprint shortHashF
 
 -- | Encode thing as 'Binary' data and then wrap into constructor.
 abstractHash
@@ -121,11 +121,11 @@ unsafeHash :: Bi a => a -> Hash b
 unsafeHash = unsafeAbstractHash
 
 -- | Specialized formatter for 'Hash'.
-hashHexF :: Format r (Hash a -> r)
+hashHexF :: Format r (AbstractHash algo a -> r)
 hashHexF = later $ \(AbstractHash x) -> Buildable.build (show x :: Text)
 
 -- | Smart formatter for 'Hash' to show only first @8@ characters of 'Hash'.
-shortHashF :: Format r (Hash a -> r)
+shortHashF :: Format r (AbstractHash algo a -> r)
 shortHashF = fitLeft 8 %. hashHexF
 
 -- | Type class for unsafe cast between hashes.

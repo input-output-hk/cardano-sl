@@ -121,6 +121,34 @@ instance ToCapture (Capture "address" Text) where
         , _capDesc = "Address"
         }
 
+instance ToCapture (Capture "description" Text) where
+    toCapture Proxy =
+        DocCapture
+        { _capSymbol = "description"
+        , _capDesc = "Transaction description"
+        }
+
+instance ToCapture (Capture "title" Text) where
+    toCapture Proxy =
+        DocCapture
+        { _capSymbol = "title"
+        , _capDesc = "Transaction title"
+        }
+
+instance ToCapture (Capture "search" Text) where
+    toCapture Proxy =
+        DocCapture
+        { _capSymbol = "search"
+        , _capDesc = "Wallet title search pattern"
+        }
+
+instance ToCapture (Capture "limit" Word) where
+    toCapture Proxy =
+        DocCapture
+        { _capSymbol = "limit"
+        , _capDesc = "Max numbers of wallets to return"
+        }
+
 instance ToCapture (Capture "currency" CCurrency) where
     toCapture Proxy =
         DocCapture

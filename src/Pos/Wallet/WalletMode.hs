@@ -11,45 +11,48 @@ module Pos.Wallet.WalletMode
        , TxMode
        , WalletMode
        , WalletRealMode
-       , SState
        ) where
 
-import           Control.Monad.Trans           (MonadTrans)
-import           Control.Monad.Trans.Maybe     (MaybeT (..))
-import           Control.TimeWarp.Rpc          (Dialog, Transfer)
-import qualified Data.HashMap.Strict           as HM
-import qualified Data.Map                      as M
-import           System.Wlog                   (WithLogger)
+import           Control.Lens                ((^.))
+import           Control.Monad.Loops         (unfoldrM)
+import           Control.Monad.Trans         (MonadTrans)
+import           Control.Monad.Trans.Maybe   (MaybeT (..))
+import qualified Data.HashMap.Strict         as HM
+import qualified Data.Map                    as M
+import           Mockable                    (MonadMockable, Production)
+import           System.Wlog                 (LoggerNameBox, WithLogger)
 import           Universum
 
-import           Pos.Communication.Types.State (MutSocketState)
-import qualified Pos.Context                   as PC
-import           Pos.Crypto                    (WithHash (..))
-import           Pos.DB                        (MonadDB)
-import qualified Pos.DB                        as DB
-import           Pos.Delegation                (DelegationT (..))
-import           Pos.DHT.Model                 (DHTPacking)
-import           Pos.DHT.Real                  (KademliaDHT)
-import           Pos.Ssc.Class.Types           (Ssc)
-import           Pos.Ssc.Extra                 (SscHolder (..))
-import           Pos.Ssc.GodTossing            (SscGodTossing)
-import           Pos.Txp.Class                 (getMemPool, getUtxoView)
-import qualified Pos.Txp.Holder                as Modern
-import           Pos.Txp.Logic                 (processTx)
-import           Pos.Txp.Types                 (UtxoView (..), localTxs)
-import           Pos.Types                     (Address, Coin, Tx, TxAux, TxId, Utxo,
-                                                evalUtxoStateT, runUtxoStateT, sumCoins,
-                                                toPair, txOutValue)
-import           Pos.Types.Utxo.Functions      (belongsTo, filterUtxoByAddr)
-import           Pos.WorkMode                  (MinWorkMode)
-
-import           Pos.Types.Coin                (unsafeIntegerToCoin)
-import           Pos.Wallet.Context            (ContextHolder, WithWalletContext)
-import           Pos.Wallet.KeyStorage         (KeyStorage, MonadKeys)
-import           Pos.Wallet.State              (WalletDB)
-import qualified Pos.Wallet.State              as WS
-import           Pos.Wallet.Tx.Pure            (deriveAddrHistory,
-                                                deriveAddrHistoryPartial, getRelatedTxs)
+import           Pos.Communication.PeerState (PeerStateHolder)
+import qualified Pos.Context                 as PC
+import           Pos.Crypto                  (WithHash (..))
+import           Pos.DB                      (MonadDB)
+import qualified Pos.DB                      as DB
+import           Pos.DB.Error                (DBError (..))
+import qualified Pos.DB.GState               as GS
+import           Pos.Delegation              (DelegationT (..))
+import           Pos.DHT.Model               (MonadDHT)
+import           Pos.DHT.Real                (KademliaDHT (..))
+import           Pos.Ssc.Class.Types         (Ssc)
+import           Pos.Ssc.Extra               (SscHolder (..))
+import           Pos.Txp.Class               (getMemPool, getUtxoView)
+import qualified Pos.Txp.Holder              as Modern
+import           Pos.Txp.Logic               (processTx)
+import           Pos.Txp.Types               (UtxoView (..), localTxs)
+import           Pos.Types                   (Address, Coin, Tx, TxAux, TxId, Utxo,
+                                              evalUtxoStateT, prevBlockL, runUtxoStateT,
+                                              sumCoins, toPair, txOutValue)
+import           Pos.Types.Coin              (unsafeIntegerToCoin)
+import           Pos.Types.Utxo.Functions    (belongsTo, filterUtxoByAddr)
+import           Pos.Update                  (USHolder (..))
+import           Pos.Util                    (maybeThrow)
+import           Pos.Wallet.Context          (ContextHolder, WithWalletContext)
+import           Pos.Wallet.KeyStorage       (KeyStorage, MonadKeys)
+import           Pos.Wallet.State            (WalletDB)
+import qualified Pos.Wallet.State            as WS
+import           Pos.Wallet.Tx.Pure          (deriveAddrHistory, deriveAddrHistoryPartial,
+                                              getRelatedTxs)
+import           Pos.WorkMode                (MinWorkMode)
 
 -- | A class which have the methods to get state of address' balance
 class Monad m => MonadBalances m where
@@ -67,10 +70,12 @@ instance MonadBalances m => MonadBalances (ReaderT r m)
 instance MonadBalances m => MonadBalances (StateT s m)
 instance MonadBalances m => MonadBalances (KademliaDHT m)
 instance MonadBalances m => MonadBalances (KeyStorage m)
+instance MonadBalances m => MonadBalances (PeerStateHolder ssc m)
 
 deriving instance MonadBalances m => MonadBalances (PC.ContextHolder ssc m)
 deriving instance MonadBalances m => MonadBalances (SscHolder ssc m)
 deriving instance MonadBalances m => MonadBalances (DelegationT m)
+deriving instance MonadBalances m => MonadBalances (USHolder m)
 
 -- | Instances of 'MonadBalances' for wallet's and node's DBs
 instance MonadIO m => MonadBalances (WalletDB m) where
@@ -78,7 +83,7 @@ instance MonadIO m => MonadBalances (WalletDB m) where
 
 instance (MonadDB ssc m, MonadMask m) => MonadBalances (Modern.TxpLDHolder ssc m) where
     getOwnUtxo addr = do
-        utxo <- DB.getFilteredUtxo addr
+        utxo <- GS.getFilteredUtxo addr
         updates <- getUtxoView
         let toDel = delUtxo updates
             toAdd = HM.filter (`belongsTo` addr) $ addUtxo updates
@@ -102,10 +107,12 @@ instance MonadTxHistory m => MonadTxHistory (ReaderT r m)
 instance MonadTxHistory m => MonadTxHistory (StateT s m)
 instance MonadTxHistory m => MonadTxHistory (KademliaDHT m)
 instance MonadTxHistory m => MonadTxHistory (KeyStorage m)
+instance MonadTxHistory m => MonadTxHistory (PeerStateHolder ssc m)
 
 deriving instance MonadTxHistory m => MonadTxHistory (PC.ContextHolder ssc m)
 deriving instance MonadTxHistory m => MonadTxHistory (SscHolder ssc m)
 deriving instance MonadTxHistory m => MonadTxHistory (DelegationT m)
+deriving instance MonadTxHistory m => MonadTxHistory (USHolder m)
 
 -- | Instances of 'MonadTxHistory' for wallet's and node's DBs
 
@@ -123,21 +130,23 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
 instance (Ssc ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
          => MonadTxHistory (Modern.TxpLDHolder ssc m) where
     getTxHistory addr = do
-        bot <- DB.getBot
-        genUtxo <- filterUtxoByAddr addr <$> DB.getGenUtxo
+        bot <- GS.getBot
+        tip <- GS.getTip
+        genUtxo <- filterUtxoByAddr addr <$> GS.getGenUtxo
 
-        -- It's genesis hash at the very bottom already, so we don't look for txs there
-        let getNextBlock h = runMaybeT $ do
-                next <- MaybeT $ DB.getNextHash h
-                blk <- MaybeT $ DB.getBlock next
-                return (next, blk)
-            blockFetcher h = do
-                nblk <- lift . lift $ getNextBlock h
-                case nblk of
-                    Nothing -> return []
-                    Just (next, blk) -> do
-                        txs <- deriveAddrHistoryPartial [] addr [blk]
-                        (++ txs) <$> blockFetcher next
+        -- Getting list of all hashes in main blockchain
+        hashList <- flip unfoldrM tip $ \h -> do
+            header <- DB.getBlockHeader h >>=
+                      maybeThrow (DBMalformed "Best blockchain is non-continuous")
+            let prev = header ^. prevBlockL
+            return $ if prev == bot
+                     then Nothing
+                     else Just (prev, prev)
+
+        let blockFetcher h txs = do
+                blk <- lift . lift $ DB.getBlock h >>=
+                       maybeThrow (DBMalformed "A block mysteriously disappeared!")
+                deriveAddrHistoryPartial txs addr [blk]
             localFetcher blkTxs = do
                 let mp (txid, (tx, txw, txd)) = (WithHash tx txid, txw, txd)
                 ltxs <- HM.toList . localTxs <$> lift (lift getMemPool)
@@ -145,7 +154,7 @@ instance (Ssc ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
                 return $ txs ++ blkTxs
 
         result <- runMaybeT $
-                  evalUtxoStateT (blockFetcher bot >>= localFetcher) genUtxo
+            evalUtxoStateT (foldrM blockFetcher [] hashList >>= localFetcher) genUtxo
         maybe (panic "deriveAddrHistory: Nothing") return result
 
     saveTx txw = () <$ processTx txw
@@ -153,24 +162,29 @@ instance (Ssc ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
 --deriving instance MonadTxHistory m => MonadTxHistory (Modern.TxpLDHolder m)
 
 type TxMode ssc m
-    = ( MinWorkMode (MutSocketState ssc) m
+    = ( MinWorkMode m
       , MonadBalances m
       , MonadTxHistory m
+      , MonadMockable m
+      , MonadFail m
+      , MonadMask m
       )
 
 type WalletMode ssc m
     = ( TxMode ssc m
       , MonadKeys m
       , WithWalletContext m
+      , MonadDHT m
       )
 
 ---------------------------------------------------------------
 -- Implementations of 'WalletMode'
 ---------------------------------------------------------------
-type SState = MutSocketState SscGodTossing
 
 type WalletRealMode = KademliaDHT
                       (KeyStorage
                        (WalletDB
                         (ContextHolder
-                         (Dialog DHTPacking (Transfer SState)))))
+                         (
+                           LoggerNameBox Production
+                           ))))

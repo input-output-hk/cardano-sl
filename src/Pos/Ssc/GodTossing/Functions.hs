@@ -32,23 +32,25 @@ module Pos.Ssc.GodTossing.Functions
        -- * GtPayload
        , verifyGtPayload
 
-       -- * Modern
-       , getThreshold
+       -- * VSS
+       , vssThreshold
+       , computeParticipants
        ) where
 
-import           Control.Lens                   ((^.), _2)
+import           Control.Lens                   (at, (^.), _2)
 import           Data.Containers                (ContainerKey, SetContainer (notMember))
 import qualified Data.HashMap.Strict            as HM
-import qualified Data.HashSet                   as HS (fromList, size)
+import qualified Data.HashSet                   as HS
 import           Data.Ix                        (inRange)
 import           Data.List.NonEmpty             (NonEmpty (..))
+import qualified Data.List.NonEmpty             as NE
 import           Serokell.Util                  (VerificationRes, verifyGeneric)
 import           Serokell.Util.Verify           (isVerSuccess)
 import           Universum
 
 import           Pos.Binary.Class               (Bi)
 import           Pos.Binary.Crypto              ()
-import           Pos.Constants                  (k, vssMaxTTL)
+import           Pos.Constants                  (k, vssMaxTTL, vssMinTTL)
 import           Pos.Crypto                     (EncShare, Secret, SecretKey,
                                                  SecureRandom (..), Share, Threshold,
                                                  VssPublicKey, checkSig, encShareId,
@@ -56,18 +58,21 @@ import           Pos.Crypto                     (EncShare, Secret, SecretKey,
                                                  secretToDhSecret, sign, toPublic,
                                                  verifyEncShare, verifySecretProof,
                                                  verifyShare)
+import           Pos.Lrc.Types                  (Richmen)
 import           Pos.Ssc.Class.Types            (Ssc (..))
 import           Pos.Ssc.GodTossing.Types.Base  (Commitment (..), CommitmentsMap,
                                                  InnerSharesMap, Opening (..),
                                                  SignedCommitment, VssCertificate (..),
                                                  VssCertificatesMap)
-import           Pos.Ssc.GodTossing.Types.Types (GtGlobalState (..), GtPayload (..))
+import           Pos.Ssc.GodTossing.Types.Types (GtGlobalState (..), GtPayload (..),
+                                                 gsCommitments)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types.Address              (addressHash)
 import           Pos.Types.Types                (EpochIndex (..), LocalSlotIndex,
                                                  MainBlockHeader, SharedSeed (..),
                                                  SlotId (..), StakeholderId, headerSlot)
-import           Pos.Util                       (AsBinary, asBinary, fromBinaryM)
+import           Pos.Util                       (AsBinary, asBinary, fromBinaryM, getKeys)
+
 ----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
@@ -79,9 +84,11 @@ secretToSharedSeed = SharedSeed . getDhSecret . secretToDhSecret
 genCommitmentAndOpening
     :: (MonadFail m, MonadIO m)
     => Threshold -> NonEmpty (AsBinary VssPublicKey) -> m (Commitment, Opening)
-genCommitmentAndOpening n pks = do
-    pks' <- traverse fromBinaryM pks
-    liftIO . runSecureRandom . fmap convertRes . genSharedSecret n $ pks'
+genCommitmentAndOpening n pks
+    | n <= 0 = fail "genCommitmentAndOpening: threshold must be positive"
+    | otherwise = do
+        pks' <- traverse fromBinaryM pks
+        liftIO . runSecureRandom . fmap convertRes . genSharedSecret n $ pks'
   where
     convertRes (extra, secret, proof, shares) =
         ( Commitment
@@ -121,8 +128,14 @@ isSharesId = isSharesIdx . siSlot
 inLastKSlotsId :: SlotId -> Bool
 inLastKSlotsId SlotId{..} = siSlot >= 5 * k
 
-hasCommitment :: StakeholderId -> GtGlobalState -> Bool
-hasCommitment addr = HM.member addr . _gsCommitments
+-- Not the best solution :(
+hasCommitment
+    :: Bi Commitment
+    => EpochIndex -> StakeholderId -> GtGlobalState -> Bool
+hasCommitment epoch id gs =
+    case gs ^. gsCommitments . at id of
+        Nothing              -> False
+        Just (pk, comm, sig) -> checkSig pk (epoch, comm) sig
 
 hasOpening :: StakeholderId -> GtGlobalState -> Bool
 hasOpening addr = HM.member addr . _gsOpenings
@@ -218,7 +231,7 @@ checkCertSign (addr, VssCertificate {..}) =
 -- more than 0 and less than vssMaxTTL
 checkCertTTL :: EpochIndex -> VssCertificate -> Bool
 checkCertTTL curEpochIndex VssCertificate{..} =
-    vcExpiryEpoch >= curEpochIndex &&
+    vcExpiryEpoch + 1 >= vssMinTTL + curEpochIndex &&
     getEpochIndex vcExpiryEpoch < vssMaxTTL + getEpochIndex curEpochIndex
 
 -- CHECK: @checkShare
@@ -362,14 +375,19 @@ verifyGtPayload header payload =
         [ (inRange (0, 6 * k - 1) (siSlot slotId),
             "slot id is outside of [0, 6k)")]
 
-checkCommShares :: HashSet (AsBinary VssPublicKey) -> SignedCommitment -> Bool
+checkCommShares :: [AsBinary VssPublicKey] -> SignedCommitment -> Bool
 checkCommShares vssPublicKeys c =
-    vssPublicKeys == (HS.fromList . HM.keys . commShares $ c ^. _2)
+    HS.fromList vssPublicKeys == (getKeys . commShares $ c ^. _2)
+
 ----------------------------------------------------------------------------
 -- Modern
 ----------------------------------------------------------------------------
 
 -- | Figure out the threshold (i.e. how many secret shares would be required
 -- to recover each node's secret) using number of participants.
-getThreshold :: Integral a => a -> Threshold
-getThreshold len = fromIntegral $ len `div` 2 + len `mod` 2
+vssThreshold :: Integral a => a -> Threshold
+vssThreshold len = fromIntegral $ len `div` 2 + len `mod` 2
+
+computeParticipants :: Richmen -> VssCertificatesMap -> VssCertificatesMap
+computeParticipants (HS.toMap . HS.fromList . NE.toList -> richmen) =
+    (`HM.intersection` richmen)

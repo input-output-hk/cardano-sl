@@ -6,6 +6,7 @@ module Pos.DB.GState.BlockExtra
        ( resolveForwardLink
        , isBlockInMainChain
        , BlockExtraOp (..)
+       , prepareGStateBlockExtra
        ) where
 
 import qualified Database.RocksDB    as Rocks
@@ -13,9 +14,10 @@ import           Universum
 
 import           Pos.Binary.Class    (encodeStrict)
 import           Pos.DB.Class        (MonadDB, getUtxoDB)
-import           Pos.DB.Functions    (RocksBatchOp (..), rocksGetBi)
+import           Pos.DB.Functions    (RocksBatchOp (..), rocksGetBi, rocksPutBi)
 import           Pos.Ssc.Class.Types (Ssc)
-import           Pos.Types           (Block, HasHeaderHash, HeaderHash, headerHash)
+import           Pos.Types           (Block, HasHeaderHash, HeaderHash, genesisHash,
+                                      headerHash)
 
 
 ----------------------------------------------------------------------------
@@ -59,6 +61,14 @@ instance RocksBatchOp (BlockExtraOp ssc) where
         [Rocks.Del $ mainChainKey h]
     toBatchOp (SetInMainChain True h) =
         [Rocks.Put (mainChainKey h) (encodeStrict ()) ]
+
+----------------------------------------------------------------------------
+-- Initialization
+----------------------------------------------------------------------------
+
+prepareGStateBlockExtra :: MonadDB ssc m => HeaderHash ssc -> m ()
+prepareGStateBlockExtra firstGenesisHash =
+    rocksPutBi (mainChainKey firstGenesisHash) () =<< getUtxoDB
 
 ----------------------------------------------------------------------------
 -- Keys

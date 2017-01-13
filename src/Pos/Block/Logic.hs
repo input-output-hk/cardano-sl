@@ -189,8 +189,13 @@ classifyHeaders headers@(h:|hs) = do
   where
     processClassify = do
         tipHeader <- view blockHeader <$> DB.getTipBlock
-        lcaHash <- fromMaybe (panic "lca should exist") <$> lcaWithMainChain headers
-        lca <- fromMaybe (panic "lca should be resolvable") <$> DB.getBlockHeader lcaHash
+        let tipHash = tipHeader ^. headerHashG
+        lcaHash <-
+            fromMaybe (panic $ sformat ("lca should exist, our tip: "%shortHashF) tipHash) <$>
+            lcaWithMainChain headers
+        lca <-
+            fromMaybe (panic $ sformat ("lca should be resolvable: "%shortHashF) lcaHash) <$>
+            DB.getBlockHeader lcaHash
         -- depth in terms of slots, not difficulty
         let depthDiff =
                 flattenEpochOrSlot tipHeader -

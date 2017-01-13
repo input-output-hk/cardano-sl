@@ -26,19 +26,20 @@ import qualified Pos.Wallet.State              as WS
 import           Pos.Wallet.WalletMode         (WalletRealMode)
 import           Pos.Wallet.Web.Server.Methods (walletApplication, walletServeImpl,
                                                 walletServer)
+import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar,
+                                                MonadWalletWebSockets (..),
+                                                WalletWebSockets, runWalletWS)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletState,
                                                 WalletWebDB, getWalletWebState,
                                                 runWalletWebDB)
 import           System.Wlog                   (usingLoggerName)
 
-walletServeWebLite
-    :: SendActions BiP WalletRealMode
-    -> FilePath
-    -> Bool
-    -> Word16
-    -> WalletRealMode ()
-walletServeWebLite sendActions =
-    walletServeImpl $ walletApplication $ walletServer sendActions nat
+
+type WebHandler = WalletWebSockets (WalletWebDB WalletRealMode)
+type SubKademlia = KeyStorage
+                   (WalletDB
+                    (ContextHolder
+                     (Dialog DHTPacking (Transfer SState))))
 
 -- type WebHandler ssc = WalletWebDB (RawRealMode ssc)
 type WebHandler = WalletWebDB WalletRealMode
@@ -46,12 +47,13 @@ type MainWalletState = WS.WalletState
 
 nat :: WebHandler (WebHandler :~> Handler)
 nat = do
+    wsConn <- getWalletWebSockets
     ws    <- getWalletWebState
     kd    <- (lift . lift) ask
     kinst <- lift $ getKademliaDHTInstance
     wc    <- getWalletContext
     mws   <- getWalletState
-    return $ Nat (convertHandler kinst wc mws kd ws)
+    return $ Nat (convertHandler kinst wc mws kd ws wsConn)
 
 convertHandler
     :: forall a .
@@ -60,9 +62,10 @@ convertHandler
     -> MainWalletState
     -> KeyData
     -> WalletState
+    -> ConnectionsVar
     -> WebHandler a
     -> Handler a
-convertHandler kinst wc mws kd ws handler =
+convertHandler kinst wc mws kd ws wsConn handler =
     liftIO ( runProduction
            . usingLoggerName "wallet-lite-api"
            . runContextHolder wc
@@ -70,6 +73,7 @@ convertHandler kinst wc mws kd ws handler =
            . flip runKeyStorageRaw kd
            . runKademliaDHT kinst
            . runWalletWebDB ws
+           . runWalletWS wsConn
            $ handler
            ) `Catch.catches` excHandlers
   where

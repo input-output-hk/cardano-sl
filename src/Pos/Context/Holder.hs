@@ -28,8 +28,9 @@ import           Universum                 hiding (catchAll)
 
 import           Pos.Context.Class         (WithNodeContext (..))
 import           Pos.Context.Context       (NodeContext (..))
-import           Pos.DB                    (MonadDB)
-import           Pos.Slotting              (MonadSlots (..))
+import           Pos.Context.Functions     (readNtpData, readNtpLastSlot, readNtpMargin)
+import           Pos.DB.Class              (MonadDB)
+import           Pos.Slotting              (MonadSlots (..), getCurrentSlotUsingNtp)
 import           Pos.Txp.Class             (MonadTxpLD)
 import           Pos.Types                 (Timestamp (..))
 import           Pos.Util.JsonLog          (MonadJL (..), appendJL)
@@ -69,10 +70,18 @@ instance ( Mockable d m
 instance Monad m => WithNodeContext ssc (ContextHolder ssc m) where
     getNodeContext = ContextHolder ask
 
-instance (Mockable CurrentTime m) =>
+instance (Mockable CurrentTime m, MonadIO m) =>
          MonadSlots (ContextHolder ssc m) where
     getSystemStartTime = ContextHolder $ asks ncSystemStart
-    getCurrentTime = Timestamp <$> currentTime
+
+    getCurrentTime = do
+        lastMargin <- readNtpMargin
+        Timestamp . (+ lastMargin) <$> currentTime
+
+    getCurrentSlot = do
+        lastSlot <- readNtpLastSlot
+        ntpData <- readNtpData
+        getCurrentSlotUsingNtp lastSlot ntpData
 
 instance (MonadIO m, Mockable Catch m, WithLogger m) => MonadJL (ContextHolder ssc m) where
     jlLog ev = ContextHolder (asks ncJLFile) >>= maybe (pure ()) doLog

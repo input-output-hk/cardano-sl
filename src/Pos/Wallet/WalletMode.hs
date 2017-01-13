@@ -14,6 +14,8 @@ module Pos.Wallet.WalletMode
        , SState
        ) where
 
+import           Control.Lens                  ((^.))
+import           Control.Monad.Loops           (unfoldrM)
 import           Control.Monad.Trans           (MonadTrans)
 import           Control.Monad.Trans.Maybe     (MaybeT (..))
 import qualified Data.HashMap.Strict           as HM
@@ -28,6 +30,7 @@ import qualified Pos.Context                   as PC
 import           Pos.Crypto                    (WithHash (..))
 import           Pos.DB                        (MonadDB)
 import qualified Pos.DB                        as DB
+import           Pos.DB.Error                  (DBError (..))
 import qualified Pos.DB.GState                 as GS
 import           Pos.Delegation                (DelegationT (..))
 import           Pos.DHT.Model                 (MonadDHT)
@@ -40,11 +43,14 @@ import qualified Pos.Txp.Holder                as Modern
 import           Pos.Txp.Logic                 (processTx)
 import           Pos.Txp.Types                 (UtxoView (..), localTxs)
 import           Pos.Types                     (Address, Coin, Tx, TxAux, TxId, Utxo,
-                                                evalUtxoStateT, runUtxoStateT, sumCoins,
-                                                toPair, txOutValue)
-import           Pos.Types.Coin                (unsafeIntegerToCoin)
+                                                evalUtxoStateT, prevBlockL, runUtxoStateT,
+                                                sumCoins, toPair, txOutValue)
 import           Pos.Types.Utxo.Functions      (belongsTo, filterUtxoByAddr)
 import           Pos.Update                    (USHolder (..))
+import           Pos.Util                      (maybeThrow)
+import           Pos.WorkMode                  (MinWorkMode)
+
+import           Pos.Types.Coin                (unsafeIntegerToCoin)
 import           Pos.Wallet.Context            (ContextHolder, WithWalletContext)
 import           Pos.Wallet.KeyStorage         (KeyStorage, MonadKeys)
 import           Pos.Wallet.State              (WalletDB)
@@ -130,20 +136,22 @@ instance (Ssc ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
          => MonadTxHistory (Modern.TxpLDHolder ssc m) where
     getTxHistory addr = do
         bot <- GS.getBot
+        tip <- GS.getTip
         genUtxo <- filterUtxoByAddr addr <$> GS.getGenUtxo
 
-        -- It's genesis hash at the very bottom already, so we don't look for txs there
-        let getNextBlock h = runMaybeT $ do
-                next <- MaybeT $ DB.getNextHash h
-                blk <- MaybeT $ DB.getBlock next
-                return (next, blk)
-            blockFetcher h = do
-                nblk <- lift . lift $ getNextBlock h
-                case nblk of
-                    Nothing -> return []
-                    Just (next, blk) -> do
-                        txs <- deriveAddrHistoryPartial [] addr [blk]
-                        (++ txs) <$> blockFetcher next
+        -- Getting list of all hashes in main blockchain
+        hashList <- flip unfoldrM tip $ \h -> do
+            header <- DB.getBlockHeader h >>=
+                      maybeThrow (DBMalformed "Best blockchain is non-continuous")
+            let prev = header ^. prevBlockL
+            return $ if prev == bot
+                     then Nothing
+                     else Just (prev, prev)
+
+        let blockFetcher h txs = do
+                blk <- lift . lift $ DB.getBlock h >>=
+                       maybeThrow (DBMalformed "A block mysteriously disappeared!")
+                deriveAddrHistoryPartial txs addr [blk]
             localFetcher blkTxs = do
                 let mp (txid, (tx, txw, txd)) = (WithHash tx txid, txw, txd)
                 ltxs <- HM.toList . localTxs <$> lift (lift getMemPool)
@@ -151,7 +159,7 @@ instance (Ssc ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
                 return $ txs ++ blkTxs
 
         result <- runMaybeT $
-                  evalUtxoStateT (blockFetcher bot >>= localFetcher) genUtxo
+            evalUtxoStateT (foldrM blockFetcher [] hashList >>= localFetcher) genUtxo
         maybe (panic "deriveAddrHistory: Nothing") return result
 
     saveTx txw = () <$ processTx txw

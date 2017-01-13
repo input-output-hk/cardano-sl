@@ -33,12 +33,16 @@ data CompileConfig = CompileConfig
       -- ^ Number of slots to broadcast system time
     , ccMpcSendInterval               :: !Word
       -- ^ Length of interval for sending MPC message
+    , ccMpcThreshold                  :: !Double
+      -- ^ Threshold for ssc/mpc participation
     , ccMdNoBlocksSlotThreshold       :: !Int
       -- ^ Threshold of slots for malicious activity detection
     , ccMdNoCommitmentsEpochThreshold :: !Int
       -- ^ Threshold of epochs for malicious activity detection
     , ccVssMaxTTL                     :: !Word64
       -- ^ VSS certificates max timeout to live (number of epochs)
+    , ccVssMinTTL                     :: !Word64
+      -- ^ VSS certificates min timeout to live (number of epochs)
     , ccProtocolMagic                 :: !Int
       -- ^ Magic constant for separating real/testnet
     , ccEnhancedMessageBroadcast      :: !Word
@@ -49,6 +53,10 @@ data CompileConfig = CompileConfig
       -- ^ Servers for downloading application updates
     , ccMaxBlockProxySKs              :: !Int
       -- ^ Maximum number of PSKs allowed in block
+    , ccNtpResponseTimeout            :: !Int
+      -- ^ How often request to NTP server and response collection
+    , ccNtpPollDelay                  :: !Int
+      -- ^ How often send request to NTP server
     , ccUpdateProposalThreshold       :: !Double
       -- ^ Portion of total stake such that block containing
       -- UpdateProposal must contain positive votes for this proposal

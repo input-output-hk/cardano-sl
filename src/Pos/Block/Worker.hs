@@ -52,7 +52,7 @@ blkWorkers = [onNewSlot' True . blkOnNewSlot]
 blkOnNewSlot :: WorkMode ssc m => SendActions BiP m -> SlotId -> m ()
 blkOnNewSlot sendActions slotId@SlotId {..} = do
     -- First of all we create genesis block if necessary.
-    mGenBlock <- createGenesisBlock slotId
+    mGenBlock <- createGenesisBlock siEpoch
     whenJust mGenBlock $ \createdBlk -> do
         logInfo $ sformat ("Created genesis block:\n" %build) createdBlk
         jlLog $ jlCreatedBlock (Left createdBlk)

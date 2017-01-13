@@ -5,18 +5,23 @@ module Pos.Ssc.GodTossing.VssCertData
        ( VssCertData (..)
        , empty
        , insert
-       , delete
        , lookup
        , lookupExpiryEpoch
        , setLastKnownSlot
        , keys
        , member
+
+       -- * Functions which delete certificates. Be careful
+       , delete
+       , difference
+       , filter
        ) where
 
 import qualified Data.HashMap.Strict           as HM
+import qualified Data.List                     as List
 import           Data.SafeCopy                 (base, deriveSafeCopySimple)
 import qualified Data.Set                      as S
-import           Universum                     hiding (empty)
+import           Universum                     hiding (empty, filter)
 
 import           Pos.Constants                 (epochSlots)
 import           Pos.Ssc.GodTossing.Types.Base (VssCertificate (..), VssCertificatesMap)
@@ -71,6 +76,8 @@ lookupExpiryEpoch :: StakeholderId -> VssCertData -> Maybe EpochIndex
 lookupExpiryEpoch id mp = vcExpiryEpoch <$> lookup id mp
 
 -- | Delete certificate corresponding to the specified address hash.
+-- This function is dangerous, because after you using it you can't rollback
+-- deleted certificates. Use carefully.
 delete :: StakeholderId -> VssCertData -> VssCertData
 delete id mp@VssCertData{..} =
     case lookupAux id mp of
@@ -94,9 +101,21 @@ setLastKnownSlot (flattenSlotId -> nlks) mp@VssCertData{..}
 keys :: VssCertData -> [StakeholderId]
 keys VssCertData{..} = HM.keys certs
 
+-- | Filtering the certificates.
+-- This function is dangerous, because after you using it you can't rollback
+-- deleted certificates. Use carefully.
+filter :: (StakeholderId -> Bool) -> VssCertData -> VssCertData
+filter predicate vcd =
+    foldl' (flip delete) vcd $ List.filter (not . predicate) $ keys vcd
+
 -- | Return True if the specified address hash is present in the map, False otherwise.
 member :: StakeholderId -> VssCertData -> Bool
 member id VssCertData{..} = HM.member id certs
+
+-- This function is dangerous, because after you using it you can't rollback
+-- deleted certificates. Use carefully.
+difference :: VssCertData -> HM.HashMap StakeholderId a -> VssCertData
+difference mp hm = foldl' (flip delete) mp . HM.keys $ hm
 
 ----------------------------------------------------------------------------
 -- Helpers

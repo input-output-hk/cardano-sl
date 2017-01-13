@@ -15,9 +15,9 @@ import           Pos.Ssc.Extra                      (MonadSscLD (modifyLocalData
 import qualified Pos.Ssc.GodTossing.LocalData.Types as LD
 import           Pos.Ssc.GodTossing.Types           (CommitmentsMap, GtGlobalState,
                                                      OpeningsMap, SharesMap,
-                                                     SscGodTossing, VssCertificatesMap,
-                                                     _gsCommitments, _gsOpenings,
-                                                     _gsShares, _gsVssCertificates)
+                                                     SscGodTossing, _gsCommitments,
+                                                     _gsOpenings, _gsShares,
+                                                     _gsVssCertificates)
 import qualified Pos.Ssc.GodTossing.VssCertData     as VCD
 import           Pos.Types                          (SlotId)
 
@@ -48,7 +48,7 @@ data GtState = GtState
       -- commitments).
       _gtLocalShares        :: !SharesMap
     , -- | Local set of VSS certificates
-      _gtLocalCertificates  :: !VssCertificatesMap
+      _gtLocalCertificates  :: !VCD.VssCertData
     , -- | Last slot we are aware of.
       _gtLastProcessedSlot  :: !SlotId
     } deriving Show

@@ -53,10 +53,6 @@ isGoodSlotIdForTag OpeningMsg        = isOpeningId
 isGoodSlotIdForTag SharesMsg         = isSharesId
 isGoodSlotIdForTag VssCertificateMsg = const True
 
--- [CSL-203]: this model assumes that shares and commitments are
--- always sent as a single message, it allows to identify such
--- messages using only Address.
-
 -- | Data message. Can be used to send actual data.
 data GtMsgContents
     = MCCommitment !SignedCommitment

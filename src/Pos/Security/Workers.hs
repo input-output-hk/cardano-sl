@@ -19,7 +19,7 @@ import           Pos.Constants                     (k, mdNoBlocksSlotThreshold,
                                                     mdNoCommitmentsEpochThreshold)
 import           Pos.Context                       (getNodeContext, ncPublicKey)
 import           Pos.DB                            (getTipBlock, loadBlocksFromTipWhile)
-import           Pos.Slotting                      (onNewSlot')
+import           Pos.Slotting                      (onNewSlot)
 import           Pos.Ssc.Class.Types               (Ssc (..))
 import           Pos.Ssc.GodTossing.Types.Instance ()
 import           Pos.Ssc.GodTossing.Types.Type     (SscGodTossing)
@@ -47,7 +47,7 @@ reportAboutEclipsed :: WorkMode ssc m => m ()
 reportAboutEclipsed = logWarning "We're doomed, we're eclipsed!"
 
 checkForReceivedBlocksWorker :: WorkMode ssc m => SendActions BiP m -> m ()
-checkForReceivedBlocksWorker __sendActions = onNewSlot' True $ \slotId -> do
+checkForReceivedBlocksWorker __sendActions = onNewSlot True $ \slotId -> do
     headBlock <- getTipBlock
     case headBlock of
         Left genesis -> compareSlots slotId $ SlotId (genesis ^. gbHeader . gbhConsensus . gcdEpoch) 0
@@ -62,7 +62,7 @@ checkForReceivedBlocksWorker __sendActions = onNewSlot' True $ \slotId -> do
 checkForIgnoredCommitmentsWorker :: forall m. WorkMode SscGodTossing m => SendActions BiP m -> m ()
 checkForIgnoredCommitmentsWorker  __sendActions= do
     epochIdx <- atomically (newTVar 0)
-    _ <- runReaderT (onNewSlot' True checkForIgnoredCommitmentsWorkerImpl) epochIdx
+    _ <- runReaderT (onNewSlot True checkForIgnoredCommitmentsWorkerImpl) epochIdx
     return ()
 
 checkForIgnoredCommitmentsWorkerImpl

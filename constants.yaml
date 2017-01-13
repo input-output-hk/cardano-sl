@@ -12,12 +12,16 @@ protocolMagic: 0
 enhancedMessageBroadcast: 2
 
 # GodTossing
-vssMaxTTL : 10 # epochs
+vssMaxTTL: 10 # epochs
+vssMinTTL : 2 # epochs
 mpcSendInterval: 12 # must be less than (k * slotDuration - networkDiameter)
+mpcThreshold: 0.01 # 1% of stake
 
 # Delegation
-delegationThreshold: 0.001 # 1% of stake
+delegationThreshold: 0.005 # 0.5% of stake
 maxBlockProxySKs: 10000
+ntpResponseTimeout: 1000000 # 1 sec
+ntpPollDelay: 300000000 # 300 sec
 
 # Update mechanism
 updateServers: []

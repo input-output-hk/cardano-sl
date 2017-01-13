@@ -19,7 +19,7 @@ import           System.FileLock      (FileLock, SharedExclusive (..), lockFile,
                                        unlockFile, withFileLock)
 import           Universum
 
-import           Pos.Binary.Class     (Bi (..), decode, decodeFull, encode)
+import           Pos.Binary.Class     (Bi (..), decodeFull, encode)
 import           Pos.Crypto           (SecretKey)
 
 -- | User secret data. Includes secret keys only for now (not
@@ -60,24 +60,29 @@ peekUserSecret path =
 takeUserSecret :: (MonadIO m) => FilePath -> m UserSecret
 takeUserSecret path = liftIO $ do
     l <- lockFile path Exclusive
-    content <- decode <$> BSL.readFile path
-    pure $ content & usPath .~ path
-                   & usLock .~ Just l
+    econtent <- decodeFull <$> BSL.readFile path
+    pure $ either (const def) identity econtent
+        & usPath .~ path
+        & usLock .~ Just l
 
 -- | Writes user secret .
 writeUserSecret :: (MonadFail m, MonadIO m) => UserSecret -> m ()
 writeUserSecret u
     | canWrite u = fail "writeUserSecret: UserSecret is already locked"
     | otherwise = liftIO $ withFileLock (u ^. usPath) Exclusive $ const $
-                  BSL.writeFile (u ^. usPath) $ encode u
+                  writeRaw u
 
 -- | Writes user secret and releases the lock. UserSecret can't be
 -- used after this function call anymore.
 writeUserSecretRelease :: (MonadFail m, MonadIO m) => UserSecret -> m ()
 writeUserSecretRelease u
     | not (canWrite u) = fail "writeUserSecretRelease: UserSecret is not writable"
-    | otherwise = do
-        writeUserSecret u
-        liftIO $ unlockFile
+    | otherwise = liftIO $ do
+          writeRaw u
+          unlockFile
             (fromMaybe (panic "writeUserSecretRelease: incorrect UserSecret") $
             u ^. usLock)
+
+-- | Helper for writing secret to file
+writeRaw :: UserSecret -> IO ()
+writeRaw u = BSL.writeFile (u ^. usPath) $ encode u

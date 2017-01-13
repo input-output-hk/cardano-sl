@@ -8,25 +8,30 @@ module Pos.Wallet.Launcher.Runner
        , runWallet
        ) where
 
-import           Formatting                (build, sformat, (%))
-import           Mockable                  (Production, bracket, fork, sleepForever)
-import           Node                      (Listener, SendActions)
-import           System.Wlog               (logInfo, usingLoggerName)
-import           Universum                 hiding (bracket)
+import           Control.Concurrent.STM.TVar  (newTVarIO)
+import           Control.Monad.Trans.Resource (allocate, runResourceT)
+import           Control.TimeWarp.Timed       (currentTime, fork, runTimedIO,
+                                               sleepForever)
+import           Formatting                   (build, sformat, (%))
+import           Mockable                     (Production, bracket, fork, sleepForever)
+import           Node                         (Listener, SendActions)
+import           System.Wlog                  (logInfo)
+import           Universum
 
-import           Pos.Communication         (BiP (..))
-import           Pos.DHT.Model             (DHTNodeType (..), discoverPeers)
-import           Pos.DHT.Real              (runKademliaDHT)
-import           Pos.Launcher              (BaseParams (..), LoggingParams (..),
-                                            RealModeResources (..), addDevListeners,
-                                            runServer)
+import           Pos.Communication            (BiP (..))
+import           Pos.DHT.Model                (DHTNodeType (..), discoverPeers)
+import           Pos.DHT.Real                 (runKademliaDHT)
+import           Pos.Launcher                 (BaseParams (..), LoggingParams (..),
+                                               RealModeResources (..), addDevListeners,
+                                               runServer)
 
-import           Pos.Wallet.Context        (ctxFromParams, runContextHolder)
-import           Pos.Wallet.KeyStorage     (runKeyStorage)
-import           Pos.Wallet.Launcher.Param (WalletParams (..))
-import           Pos.Wallet.State          (closeState, openMemState, openState,
-                                            runWalletDB)
-import           Pos.Wallet.WalletMode     (WalletMode, WalletRealMode)
+import           Pos.Types                    (unflattenSlotId)
+import           Pos.Wallet.Context           (WalletContext (..), runContextHolder)
+import           Pos.Wallet.KeyStorage        (runKeyStorage)
+import           Pos.Wallet.Launcher.Param    (WalletParams (..))
+import           Pos.Wallet.State             (closeState, openMemState, openState,
+                                               runWalletDB)
+import           Pos.Wallet.WalletMode        (SState, WalletMode, WalletRealMode)
 
 -- TODO: Move to some `Pos.Wallet.Communication` and provide
 -- meaningful listeners
@@ -77,7 +82,16 @@ runRawRealWallet
 runRawRealWallet res wp@WalletParams {..} listeners action =
     usingLoggerName lpRunnerTag .
     bracket openDB closeDB $ \db -> do
+        ntpData <- liftIO $ (runTimedIO $ currentTime) >>= newTVarIO . (0, )
+        lastSlot <- liftIO . newTVarIO $ unflattenSlotId 0
+        let walletContext
+              = WalletContext
+              { wcSystemStart = wpSystemStart
+              , wcNtpData = ntpData
+              , wcNtpLastSlot = lastSlot
+              }
         runContextHolder (ctxFromParams wp) .
+            runContextHolder walletContext .
             runWalletDB db .
             runKeyStorage wpKeyFilePath .
             runKademliaDHT (rmDHT res) .

@@ -15,16 +15,17 @@ import           Universum
 import           Pos.Block.Worker      (blkWorkers)
 import           Pos.Communication     (BiP, SysStartResponse (..))
 import           Pos.Constants         (slotDuration, sysTimeBroadcastSlots)
-import           Pos.Context           (NodeContext (..), getNodeContext)
-import           Pos.DHT.Model         (sendToNeighbors)
+import           Pos.Context           (NodeContext (..), getNodeContext, setNtpLastSlot)
+import           Pos.DHT.Model         (sendToNetwork)
 import           Pos.Lrc.Worker        (lrcOnNewSlotWorker)
 import           Pos.Security.Workers  (SecurityWorkersClass, securityWorkers)
-import           Pos.Slotting          (onNewSlot')
+import           Pos.Slotting          (onNewSlotWithLogging)
 import           Pos.Ssc.Class.Workers (SscWorkersClass, sscWorkers)
 import           Pos.Types             (SlotId, flattenSlotId, slotIdF)
 import           Pos.Update            (usWorkers)
-import           Pos.Util              (waitRandomInterval', withWaitLog)
+import           Pos.Util              (waitRandomInterval)
 import           Pos.Util.TimeWarp     (ms)
+import           Pos.Worker.Ntp        (ntpWorker)
 import           Pos.Worker.Stats      (statsWorkers)
 import           Pos.WorkMode          (WorkMode)
 
@@ -42,13 +43,18 @@ runWorkers sendActions = mapM_ fork $ map ($ withWaitLog sendActions) $ concat
     , blkWorkers
     , untag sscWorkers
     , untag securityWorkers
+    , [ntpWorker]
     , [lrcOnNewSlotWorker]
     , usWorkers
     ]
 
+onNewSlotWorker :: WorkMode ssc m => SendActions BiP m -> m ()
+onNewSlotWorker sendActions = onNewSlotWithLogging True $ onNewSlotWorkerImpl sendActions
+
 onNewSlotWorkerImpl :: WorkMode ssc m => SendActions BiP m -> SlotId -> m ()
 onNewSlotWorkerImpl sendActions slotId = do
     logNotice $ sformat ("New slot has just started: "%slotIdF) slotId
+    setNtpLastSlot slotId
     when (flattenSlotId slotId <= sysTimeBroadcastSlots) $
       whenM (ncTimeLord <$> getNodeContext) $ void $ fork $ do
         let send = ncSystemStart <$> getNodeContext

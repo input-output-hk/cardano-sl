@@ -18,6 +18,7 @@ module Pos.Ssc.Extra.MonadGS
        , sscVerifyBlocks
        ) where
 
+import           Control.Lens          ((^.))
 import           Control.Monad.Except  (ExceptT)
 import           Control.Monad.Trans   (MonadTrans)
 import           Serokell.Util         (VerificationRes)
@@ -26,10 +27,10 @@ import           Universum
 import           Pos.Context           (WithNodeContext, lrcActionOnEpochReason)
 import           Pos.DB                (MonadDB)
 import qualified Pos.DB.Lrc            as LrcDB
-import           Pos.Slotting          (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class.Storage (SscStorageClass (..))
 import           Pos.Ssc.Class.Types   (Ssc (..))
-import           Pos.Types.Types       (EpochIndex, NEBlocks, SharedSeed, SlotId (..))
+import           Pos.Types.Types       (EpochIndex, NEBlocks, SharedSeed, epochIndexL)
+import           Pos.Util              (_neHead)
 
 class Monad m => MonadSscGS ssc m | m -> ssc where
     getGlobalState    :: m (SscGlobalState ssc)
@@ -91,11 +92,10 @@ sscVerifyBlocks
        , MonadSscGS ssc m
        , WithNodeContext ssc m
        , SscStorageClass ssc
-       , MonadSlots m
        )
     => Bool -> NEBlocks ssc -> m VerificationRes
 sscVerifyBlocks verPure blocks = do
-    epoch <- siEpoch <$> getCurrentSlot -- TODO fix it
+    let epoch = blocks ^. _neHead . epochIndexL
     richmen <- lrcActionOnEpochReason epoch
                    "couldn't get SSC richmen"
                    LrcDB.getRichmenSsc

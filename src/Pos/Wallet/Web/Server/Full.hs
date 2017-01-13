@@ -41,6 +41,9 @@ import           Pos.Update.MemState.Holder    (runUSHolder)
 import           Pos.Wallet.KeyStorage         (MonadKeys (..), addSecretKey)
 import           Pos.Wallet.Web.Server.Methods (walletApplication, walletServeImpl,
                                                 walletServer)
+import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar,
+                                                MonadWalletWebSockets (..),
+                                                WalletWebSockets, runWalletWS)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletState,
                                                 WalletWebDB, runWalletWebDB)
 
@@ -57,7 +60,7 @@ walletServeWebFull sendActions debug = walletServeImpl $ do
     when debug $ mapM_ addSecretKey genesisSecretKeys
     walletApplication $ walletServer sendActions nat
 
-type WebHandler ssc = WalletWebDB (RawRealMode ssc)
+type WebHandler ssc = WalletWebSockets (WalletWebDB (RawRealMode ssc))
 
 nat :: WebHandler ssc (WebHandler ssc :~> Handler)
 nat = do
@@ -80,6 +83,7 @@ convertHandler
     -> Modern.TxpLDWrap ssc
     -> SscState ssc
     -> WalletState
+<<<<<<< HEAD
     -> (TVar DelegationWrap)
     -> PeerStateSnapshot ssc
     -> WebHandler ssc a
@@ -101,3 +105,41 @@ convertHandler kinst nc modernDBs tlw ssc ws delWrap psCtx handler = do
   where
     excHandlers = [Catch.Handler catchServant]
     catchServant = throwError
+=======
+    -> TVar DelegationWrap
+    -> TVar US.MemState
+    -> ConnectionsVar
+    -> WebHandler ssc a
+    -> Handler a
+convertHandler kctx cp nc modernDBs tlw ssc ws delWrap usTVar wsConn handler = do
+    liftIO (runOurDialogRaw cp newMutSocketState "wallet-api" .
+            Modern.runDBHolder modernDBs .
+            runContextHolder nc .
+            runSscHolderRaw ssc .
+            Modern.runTxpLDHolderReader tlw .
+            runDelegationTFromTVar delWrap .
+            US.runUSHolderFromTVar usTVar .
+            runKademliaDHTRaw kctx .
+            runWalletWebDB ws .
+            runWalletWS wsConn $
+            handler)
+    `Catch.catches`
+    excHandlers
+  where
+    excHandlers = [Catch.Handler catchServant]
+    catchServant = throwError
+
+nat :: WebHandler ssc (WebHandler ssc :~> Handler)
+nat = do
+    wsConn <- getWalletWebSockets
+    ws <- getWalletWebState
+    kctx <- lift . lift $ getKademliaDHTCtx
+    tlw <- getTxpLDWrap
+    ssc <- lift . lift . lift . lift . lift . lift $ SscHolder ask
+    delWrap <- askDelegationState
+    usTVar <- US.askUSMemState
+    nc <- getNodeContext
+    modernDB <- Modern.getNodeDBs
+    cp <- lift . lift . lift . lift . lift . lift . lift . lift . lift . lift $ getConnPool
+    pure $ Nat (convertHandler kctx cp nc modernDB tlw ssc ws delWrap usTVar wsConn)
+>>>>>>> master

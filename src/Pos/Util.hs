@@ -64,6 +64,7 @@ module Pos.Util
        , AsBinaryClass (..)
        , fromBinaryM
 
+       , spanSafe
        , eitherToVerRes
 
        -- * MVar
@@ -104,6 +105,7 @@ import qualified Data.Cache.LRU                as LRU
 import           Data.Hashable                 (Hashable)
 import qualified Data.HashMap.Strict           as HM
 import           Data.HashSet                  (fromMap)
+import           Data.List                     (span)
 import           Data.List.NonEmpty            (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty            as NE
 import           Data.Proxy                    (Proxy (..), asProxyTypeOf)
@@ -126,7 +128,7 @@ import           Serokell.Util                 (VerificationRes (..))
 import           System.Console.ANSI           (Color (..), ColorIntensity (Vivid),
                                                 ConsoleLayer (Foreground),
                                                 SGR (Reset, SetColor), setSGRCode)
-import           System.Wlog                   (LoggerNameBox (..), WithLogger, logDebug,
+import           System.Wlog                   (LoggerNameBox (..), WithLogger,
                                                 logWarning)
 import           Text.Parsec                   (ParsecT)
 import           Universum                     hiding (bracket)
@@ -481,6 +483,12 @@ eitherToVerRes :: Either Text a -> VerificationRes
 eitherToVerRes (Left errors) = if T.null errors then VerFailure []
                                else VerFailure $ T.split (==';') errors
 eitherToVerRes (Right _ )    = VerSuccess
+
+-- | Makes a span on the list, considering tail only. Predicate has
+-- list head as first argument. Used to take non-null prefix that
+-- depends on the first element.
+spanSafe :: (a -> a -> Bool) -> NonEmpty a -> (NonEmpty a, [a])
+spanSafe p (x:|xs) = let (a,b) = span (p x) xs in (x:|a,b)
 
 instance IsString s => MonadFail (Either s) where
     fail = Left . fromString

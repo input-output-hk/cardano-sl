@@ -94,15 +94,12 @@ instance MonadJL m => MonadJL (KademliaDHT m) where
 ----------------------------------------------------------------------------
 
 -- Maybe we should move to somewhere else
-deriving instance MonadSscLD ssc m => MonadSscLD ssc (KademliaDHT m)
 deriving instance MonadUtxoRead m => MonadUtxoRead (KademliaDHT m)
 deriving instance MonadUtxo m => MonadUtxo (KademliaDHT m)
 deriving instance (Monad m, WithNodeContext ssc m) => WithNodeContext ssc (KademliaDHT m)
 deriving instance MonadDB ssc m => MonadDB ssc (KademliaDHT m)
-deriving instance MonadSlots m => MonadSlots (KademliaDHT m)
 deriving instance MonadSscGS ssc m => MonadSscGS ssc (KademliaDHT m)
 deriving instance MonadDelegation m => MonadDelegation (KademliaDHT m)
-deriving instance MonadTxpLD ssc m => MonadTxpLD ssc (KademliaDHT m)
 deriving instance MonadUSMem m => MonadUSMem (KademliaDHT m)
 deriving instance MonadSscRichmen m => MonadSscRichmen (KademliaDHT m)
 

@@ -25,20 +25,23 @@ import           Pos.Block.Logic                (ClassifyHeaderRes (..),
                                                  ClassifyHeadersRes (..), applyBlocks,
                                                  classifyHeaders, classifyNewHeader,
                                                  lcaWithMainChain, rollbackBlocks,
-                                                 verifyBlocks, withBlkSemaphore_)
+                                                 verifyAndApplyBlocks, withBlkSemaphore,
+                                                 withBlkSemaphore_)
+import qualified Pos.Block.Logic                as L
 import           Pos.Block.Network.Announce     (announceBlock)
 import           Pos.Block.Network.Types        (MsgBlock (..), MsgGetBlocks (..))
 import           Pos.Communication.BiP          (BiP (..))
 import           Pos.Context                    (getNodeContext, ncBlockRetreivalQueue)
 import           Pos.Crypto                     (hash, shortHashF)
 import qualified Pos.DB                         as DB
+import           Pos.Ssc.Class                  (SscWorkersClass)
 import           Pos.Types                      (Block, Blund, HasHeaderHash (..),
                                                  HeaderHash, NEBlocks, blockHeader,
                                                  gbHeader, prevBlockL)
 import           Pos.Util                       (inAssertMode, _neHead, _neLast)
 import           Pos.WorkMode                   (WorkMode)
 
-retrievalWorker :: WorkMode ssc m => SendActions BiP m -> m ()
+retrievalWorker :: (SscWorkersClass ssc, WorkMode ssc m) => SendActions BiP m -> m ()
 retrievalWorker sendActions = handleAll handleWE $
     ncBlockRetreivalQueue <$> getNodeContext >>= loop
   where
@@ -141,7 +144,7 @@ mkBlocksRequest lcaChild wantedBlock =
 
 handleBlocks
     :: forall ssc m.
-       (WorkMode ssc m)
+       (SscWorkersClass ssc, WorkMode ssc m)
     => NonEmpty (Block ssc)
     -> SendActions BiP m
     -> m ()
@@ -161,7 +164,7 @@ handleBlocks blocks sendActions = do
         "Probably rollback happened in parallel"
 
 handleBlocksWithLca :: forall ssc m.
-       (WorkMode ssc m)
+       (SscWorkersClass ssc, WorkMode ssc m)
     => SendActions BiP m -> NonEmpty (Block ssc) -> HeaderHash ssc -> m ()
 handleBlocksWithLca sendActions blocks lcaHash = do
     logDebug $ sformat lcaFmt lcaHash
@@ -217,7 +220,7 @@ applyWithRollback sendActions toApply lca toRollback = do
     logDebug $
         sformat ("Blocks to rollback "%listJson) (fmap headerHash toRollback)
     res <- withBlkSemaphore $ \curTip -> do
-        res <- applyWithRollback toRollback toApplyAfterLca
+        res <- L.applyWithRollback toRollback toApplyAfterLca
         pure (res, either (const curTip) identity res)
     case res of
         Left err -> logWarning $ "Couldn't apply blocks with rollback: " <> err

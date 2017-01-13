@@ -19,34 +19,6 @@ import           System.Wlog                 (WithLogger, logDebug, logError, lo
                                               logWarning)
 import           Universum
 
-<<<<<<< HEAD
-import           Pos.Binary.Communication   ()
-import           Pos.Block.Logic            (createGenesisBlock, createMainBlock)
-import           Pos.Block.Network.Announce (announceBlock)
-import           Pos.Communication.BiP      (BiP)
-import           Pos.Constants              (networkDiameter)
-import           Pos.Context                (getNodeContext, ncPublicKey)
-import           Pos.Crypto                 (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega),
-                                             shortHashF)
-import           Pos.DB.GState              (getPSKByIssuerAddressHash)
-import           Pos.DB.Lrc                 (getLeaders)
-import           Pos.DB.Misc                (getProxySecretKeys)
-import           Pos.Slotting               (MonadSlots (getCurrentTime), getSlotStart,
-                                             onNewSlot)
-import           Pos.Ssc.Class              (SscHelpersClass)
-import           Pos.Types                  (MainBlock, ProxySKEither, SlotId (..),
-                                             Timestamp (Timestamp),
-                                             VerifyBlockParams (..), gbHeader, slotIdF,
-                                             verifyBlock)
-import           Pos.Types.Address          (addressHash)
-import           Pos.Util                   (inAssertMode, logWarningWaitLinear)
-import           Pos.Util.JsonLog           (jlCreatedBlock, jlLog)
-import           Pos.WorkMode               (WorkMode)
-
--- | All workers specific to block processing.
-blkWorkers :: WorkMode ssc m => [SendActions BiP m -> m ()]
-blkWorkers = [onNewSlot True . blkOnNewSlot]
-=======
 import           Pos.Binary.Communication    ()
 import           Pos.Block.Logic             (createGenesisBlock, createMainBlock)
 import           Pos.Block.Network.Announce  (announceBlock)
@@ -60,8 +32,8 @@ import           Pos.DB.GState               (getPSKByIssuerAddressHash)
 import           Pos.DB.Lrc                  (getLeaders)
 import           Pos.DB.Misc                 (getProxySecretKeys)
 import           Pos.Slotting                (MonadSlots (getCurrentTime), getSlotStart,
-                                              onNewSlot')
-import           Pos.Ssc.Class               (SscHelpersClass)
+                                              onNewSlot)
+import           Pos.Ssc.Class               (SscHelpersClass, SscWorkersClass)
 import           Pos.Types                   (MainBlock, ProxySKEither, SlotId (..),
                                               Timestamp (Timestamp),
                                               VerifyBlockParams (..), gbHeader, slotIdF,
@@ -72,9 +44,8 @@ import           Pos.Util.JsonLog            (jlCreatedBlock, jlLog)
 import           Pos.WorkMode                (WorkMode)
 
 -- | All workers specific to block processing.
-blkWorkers :: WorkMode ssc m => [SendActions BiP m -> m ()]
-blkWorkers = [onNewSlot' True . blkOnNewSlot, retrievalWorker]
->>>>>>> feature/csl542-block-retrieval
+blkWorkers :: (SscWorkersClass ssc, WorkMode ssc m) => [SendActions BiP m -> m ()]
+blkWorkers = [onNewSlot True . blkOnNewSlot, retrievalWorker]
 
 -- Action which should be done when new slot starts.
 blkOnNewSlot :: WorkMode ssc m => SendActions BiP m -> SlotId -> m ()

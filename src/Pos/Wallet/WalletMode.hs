@@ -13,6 +13,8 @@ module Pos.Wallet.WalletMode
        , WalletRealMode
        ) where
 
+import           Control.Lens                ((^.))
+import           Control.Monad.Loops         (unfoldrM)
 import           Control.Monad.Trans         (MonadTrans)
 import           Control.Monad.Trans.Maybe   (MaybeT (..))
 import qualified Data.HashMap.Strict         as HM
@@ -26,23 +28,24 @@ import qualified Pos.Context                 as PC
 import           Pos.Crypto                  (WithHash (..))
 import           Pos.DB                      (MonadDB)
 import qualified Pos.DB                      as DB
+import           Pos.DB.Error                (DBError (..))
 import qualified Pos.DB.GState               as GS
 import           Pos.Delegation              (DelegationT (..))
 import           Pos.DHT.Model               (MonadDHT)
 import           Pos.DHT.Real                (KademliaDHT (..))
 import           Pos.Ssc.Class.Types         (Ssc)
 import           Pos.Ssc.Extra               (SscHolder (..))
-import           Pos.Ssc.GodTossing          (SscGodTossing)
 import           Pos.Txp.Class               (getMemPool, getUtxoView)
 import qualified Pos.Txp.Holder              as Modern
 import           Pos.Txp.Logic               (processTx)
 import           Pos.Txp.Types               (UtxoView (..), localTxs)
 import           Pos.Types                   (Address, Coin, Tx, TxAux, TxId, Utxo,
-                                              evalUtxoStateT, runUtxoStateT, sumCoins,
-                                              toPair, txOutValue)
+                                              evalUtxoStateT, prevBlockL, runUtxoStateT,
+                                              sumCoins, toPair, txOutValue)
 import           Pos.Types.Coin              (unsafeIntegerToCoin)
 import           Pos.Types.Utxo.Functions    (belongsTo, filterUtxoByAddr)
 import           Pos.Update                  (USHolder (..))
+import           Pos.Util                    (maybeThrow)
 import           Pos.Wallet.Context          (ContextHolder, WithWalletContext)
 import           Pos.Wallet.KeyStorage       (KeyStorage, MonadKeys)
 import           Pos.Wallet.State            (WalletDB)

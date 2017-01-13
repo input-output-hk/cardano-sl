@@ -40,9 +40,9 @@ import           Data.List                      (nub)
 import           Data.Proxy                     (Proxy (..))
 import qualified Data.Time                      as Time
 import           Formatting                     (build, sformat, shown, (%))
-import           Mockable                       (Mockable, MonadMockable, Production (..),
-                                                 Throw, bracket, currentTime, fork,
-                                                 killThread, throw)
+import           Mockable                       (CurrentTime, Mockable, MonadMockable,
+                                                 Production (..), Throw, bracket,
+                                                 currentTime, fork, killThread, throw)
 import           Network.Transport              (Transport, closeTransport)
 import           Network.Transport.Concrete     (concrete)
 import qualified Network.Transport.TCP          as TCP
@@ -89,9 +89,10 @@ import           Pos.Ssc.Extra                  (runSscHolder)
 import           Pos.Statistics                 (getNoStatsT, runStatsT')
 import           Pos.Txp.Holder                 (runTxpLDHolder)
 import qualified Pos.Txp.Types.UtxoView         as UV
-import           Pos.Types                      (Timestamp (Timestamp), timestampF)
+import           Pos.Types                      (Timestamp (Timestamp), timestampF,
+                                                 unflattenSlotId)
 import           Pos.Update.MemState            (runUSHolder)
-import           Pos.Util                       (runWithRandomIntervals',
+import           Pos.Util                       (runWithRandomIntervals,
                                                  stubListenerOneMsg)
 import           Pos.Util.TimeWarp              (sec)
 import           Pos.Util.UserSecret            (peekUserSecret, usKeys, writeUserSecret)

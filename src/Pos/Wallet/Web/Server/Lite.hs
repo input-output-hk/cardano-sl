@@ -33,7 +33,6 @@ import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletSta
                                                 WalletWebDB, getWalletWebState,
                                                 runWalletWebDB)
 import           System.Wlog                   (usingLoggerName)
-import           Pos.WorkMode                  (RawRealMode)
 
 
 type WebHandler = WalletWebSockets (WalletWebDB WalletRealMode)

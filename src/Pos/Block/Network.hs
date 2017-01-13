@@ -4,7 +4,7 @@ module Pos.Block.Network
        ( module X
        ) where
 
-import Pos.Block.Network.Announce as X
-import Pos.Block.Network.Request  as X
-import Pos.Block.Network.Server   as X
-import Pos.Block.Network.Types    as X
+import           Pos.Block.Network.Announce  as X
+import           Pos.Block.Network.Listeners as X
+import           Pos.Block.Network.Retrieval as X
+import           Pos.Block.Network.Types     as X

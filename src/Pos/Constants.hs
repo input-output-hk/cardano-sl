@@ -25,6 +25,8 @@ module Pos.Constants
        , maxLocalTxs
        , maxBlockProxySKs
        , neighborsSendThreshold
+       , networkConnectionTimeout
+       , blockRetrievalQueueSize
        , RunningMode (..)
        , runningMode
        , isDevelopment
@@ -59,6 +61,7 @@ module Pos.Constants
 import           Data.String                (String)
 import           Data.Time.Units            (Microsecond)
 import           Language.Haskell.TH.Syntax (lift, runIO)
+import           Pos.Util.TimeWarp          (ms, sec)
 import           System.Environment         (lookupEnv)
 import qualified Text.Parsec                as P
 import           Universum                  hiding (lift)
@@ -154,6 +157,13 @@ sysTimeBroadcastSlots = fromIntegral . ccSysTimeBroadcastSlots $ compileConfig
 neighborsSendThreshold :: Integral a => a
 neighborsSendThreshold =
     fromIntegral . ccNeighboursSendThreshold $ compileConfig
+
+networkConnectionTimeout :: Microsecond
+networkConnectionTimeout = ms . fromIntegral . ccNetworkConnectionTimeout $ compileConfig
+
+blockRetrievalQueueSize :: Integral a => a
+blockRetrievalQueueSize =
+    fromIntegral . ccBlockRetrievalQueueSize $ compileConfig
 
 -- | Defines mode of running application: in tested mode or in production.
 data RunningMode

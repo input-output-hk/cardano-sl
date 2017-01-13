@@ -1,7 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE RankNTypes   #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Block processing related workers.
 
@@ -10,17 +8,18 @@ module Pos.Block.Worker
        , blkWorkers
        ) where
 
-import           Control.Lens               (ix, (^.), (^?))
-import           Data.Default               (def)
-import           Formatting                 (build, sformat, shown, (%))
-import           Mockable                   (delay, fork)
-import           Node                       (SendActions)
-import           Serokell.Util              (VerificationRes (..), listJson)
-import           Serokell.Util.Exceptions   ()
-import           System.Wlog                (WithLogger, logDebug, logError, logInfo,
-                                             logWarning)
+import           Control.Lens                (ix, (^.), (^?))
+import           Data.Default                (def)
+import           Formatting                  (build, sformat, shown, (%))
+import           Mockable                    (delay, fork)
+import           Node                        (SendActions)
+import           Serokell.Util               (VerificationRes (..), listJson)
+import           Serokell.Util.Exceptions    ()
+import           System.Wlog                 (WithLogger, logDebug, logError, logInfo,
+                                              logWarning)
 import           Universum
 
+<<<<<<< HEAD
 import           Pos.Binary.Communication   ()
 import           Pos.Block.Logic            (createGenesisBlock, createMainBlock)
 import           Pos.Block.Network.Announce (announceBlock)
@@ -47,6 +46,35 @@ import           Pos.WorkMode               (WorkMode)
 -- | All workers specific to block processing.
 blkWorkers :: WorkMode ssc m => [SendActions BiP m -> m ()]
 blkWorkers = [onNewSlot True . blkOnNewSlot]
+=======
+import           Pos.Binary.Communication    ()
+import           Pos.Block.Logic             (createGenesisBlock, createMainBlock)
+import           Pos.Block.Network.Announce  (announceBlock)
+import           Pos.Block.Network.Retrieval (retrievalWorker)
+import           Pos.Communication.BiP       (BiP)
+import           Pos.Constants               (networkDiameter)
+import           Pos.Context                 (getNodeContext, ncPublicKey)
+import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega),
+                                              shortHashF)
+import           Pos.DB.GState               (getPSKByIssuerAddressHash)
+import           Pos.DB.Lrc                  (getLeaders)
+import           Pos.DB.Misc                 (getProxySecretKeys)
+import           Pos.Slotting                (MonadSlots (getCurrentTime), getSlotStart,
+                                              onNewSlot')
+import           Pos.Ssc.Class               (SscHelpersClass)
+import           Pos.Types                   (MainBlock, ProxySKEither, SlotId (..),
+                                              Timestamp (Timestamp),
+                                              VerifyBlockParams (..), gbHeader, slotIdF,
+                                              verifyBlock)
+import           Pos.Types.Address           (addressHash)
+import           Pos.Util                    (inAssertMode, logWarningWaitLinear)
+import           Pos.Util.JsonLog            (jlCreatedBlock, jlLog)
+import           Pos.WorkMode                (WorkMode)
+
+-- | All workers specific to block processing.
+blkWorkers :: WorkMode ssc m => [SendActions BiP m -> m ()]
+blkWorkers = [onNewSlot' True . blkOnNewSlot, retrievalWorker]
+>>>>>>> feature/csl542-block-retrieval
 
 -- Action which should be done when new slot starts.
 blkOnNewSlot :: WorkMode ssc m => SendActions BiP m -> SlotId -> m ()

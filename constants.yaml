@@ -10,6 +10,8 @@ mdNoBlocksSlotThreshold: 10
 mdNoCommitmentsEpochThreshold: 3
 protocolMagic: 0
 enhancedMessageBroadcast: 2
+networkConnectionTimeout: 2000
+blockRetrievalQueueSize: 100
 
 # GodTossing
 vssMaxTTL: 10 # epochs

@@ -16,7 +16,7 @@ import           System.Wlog                       (LoggerName)
 import           Universum
 
 import           Pos.Binary.Communication          ()
-import           Pos.Block.Network.Server          (blockListeners, blockStubListeners)
+import           Pos.Block.Network.Listeners       (blockListeners, blockStubListeners)
 import           Pos.Communication.BiP             (BiP)
 import           Pos.Communication.Server.Protocol (protocolListeners,
                                                     protocolStubListeners)
@@ -61,19 +61,6 @@ allStubListeners p =
         , delegationStubListeners
         , protocolStubListeners
         ]
-
----- | ForkStrategy of whole server.
---forkStrategy
---    :: forall ssc.
---       Typeable ssc
---    => ForkStrategy MessageName
---forkStrategy = ForkStrategy forkStrategyImpl
---  where
---    forkStrategyImpl
---        :: forall m.
---           (MonadTimed m)
---        => MessageName -> m () -> m ()
---    forkStrategyImpl = fromMaybe fork_ . (blkForkStrategy @ssc)
 
 -- | Logger name for server.
 serverLoggerName :: LoggerName

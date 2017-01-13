@@ -28,72 +28,75 @@ module Pos.Launcher.Runner
        , RealModeResources(..)
        ) where
 
-import           Control.Concurrent.MVar      (newEmptyMVar, newMVar, takeMVar,
-                                               tryReadMVar)
-import           Control.Concurrent.STM.TVar  (newTVar)
-import           Control.Lens                 (each, to, (%~), (^..), (^?), _head, _tail)
-import           Control.Monad.Fix            (MonadFix)
-import qualified Data.Time                    as Time
-import           Data.Default                 (def)
-import           Data.List                    (nub)
-import           Formatting                   (build, sformat, shown, (%))
-import           Mockable                     (CurrentTime, Mockable, MonadMockable,
-                                               Production (..), Throw, bracket,
-                                               currentTime, fork, killThread, throw)
-import           Network.Transport            (Transport, closeTransport)
-import           Network.Transport.Concrete   (concrete)
-import qualified Network.Transport.TCP        as TCP
-import           Node                        (Listener, NodeAction (..), SendActions,
-                                              hoistListenerAction, hoistSendActions, node)
-import qualified STMContainers.Map            as SM
-import           System.Random                (newStdGen)
-import           System.Wlog                  (WithLogger, logDebug,
-                                               logError, logInfo, logWarning,
-                                               releaseAllHandlers,             traverseLoggerConfig, usingLoggerName,)
-import           Universum                    hiding (bracket)
+import           Control.Concurrent.MVar        (newEmptyMVar, newMVar, takeMVar,
+                                                 tryReadMVar)
+import           Control.Concurrent.STM.TBQueue (newTBQueueIO)
+import           Control.Concurrent.STM.TVar    (newTVar)
+import           Control.Lens                   (each, to, (%~), (^..), (^?), _head,
+                                                 _tail)
+import           Control.Monad.Fix              (MonadFix)
+import           Data.Default                   (def)
+import           Data.List                      (nub)
+import           Data.Proxy                     (Proxy (..))
+import qualified Data.Time                      as Time
+import           Formatting                     (build, sformat, shown, (%))
+import           Mockable                       (Mockable, MonadMockable, Production (..),
+                                                 Throw, bracket, currentTime, fork,
+                                                 killThread, throw)
+import           Network.Transport              (Transport, closeTransport)
+import           Network.Transport.Concrete     (concrete)
+import qualified Network.Transport.TCP          as TCP
+import           Node                           (Listener, NodeAction (..), SendActions,
+                                                 hoistListenerAction, hoistSendActions,
+                                                 node)
+import qualified STMContainers.Map              as SM
+import           System.Random                  (newStdGen)
+import           System.Wlog                    (WithLogger, logDebug, logError, logInfo,
+                                                 logWarning, releaseAllHandlers,
+                                                 traverseLoggerConfig, usingLoggerName)
+import           Universum                      hiding (bracket)
 
-import           Pos.Binary                   ()
-import           Pos.CLI                      (readLoggerConfig)
-import           Pos.Communication            (BiP (..), SysStartRequest (..),
-                                               SysStartResponse,
-                                               allListeners, allStubListeners,
-                                               sysStartReqListener,
-                                               sysStartRespListener)
-import           Pos.Communication.PeerState  (runPeerStateHolder)
-import qualified Pos.Constants                as Const
-import           Pos.Context                  (ContextHolder (..), NodeContext (..),
-                                               runContextHolder)
-import           Pos.Crypto                   (createProxySecretKey, toPublic)
-import           Pos.DB                       (MonadDB (..), initNodeDBs, openNodeDBs,
-                                               runDBHolder, _gStateDB)
-import           Pos.DB.GState                (getTip)
-import           Pos.DB.Misc                  (addProxySecretKey)
-import           Pos.Delegation.Class         (runDelegationT)
-import           Pos.DHT.Model                (MonadDHT (..),
-                                               sendToNeighbors)
-import           Pos.DHT.Real                 (KademliaDHTInstance,
-                                               KademliaDHTInstanceConfig (..),
-                                               runKademliaDHT, startDHTInstance,
-                                               stopDHTInstance)
-import           Pos.Genesis                  (genesisLeaders)
-import           Pos.Launcher.Param           (BaseParams (..), LoggingParams (..),
-                                               NodeParams (..))
-import           Pos.Ssc.Class                (SscConstraint, SscListenersClass,
-                                               SscNodeContext, SscParams,
-                                               sscCreateNodeContext, sscLoadGlobalState)
-import           Pos.Ssc.Extra                (runSscHolder)
-import           Pos.Statistics               (getNoStatsT, runStatsT')
-import           Pos.Txp.Holder               (runTxpLDHolder)
-import qualified Pos.Txp.Types.UtxoView       as UV
-import           Pos.Types                    (Timestamp (Timestamp), timestampF,
-                                               unflattenSlotId)
-import           Pos.Update.MemState          (runUSHolder)
-import           Pos.Util                     (runWithRandomIntervals, stubListenerOneMsg)
-import           Pos.Util.TimeWarp            (sec)
-import           Pos.Util.UserSecret          (peekUserSecret, usKeys, writeUserSecret)
-import           Pos.WorkMode                 (ProductionMode, RawRealMode,
-                                               ServiceMode, StatsMode)
-
+import           Pos.Binary                     ()
+import           Pos.CLI                        (readLoggerConfig)
+import           Pos.Communication              (BiP (..), SysStartRequest (..),
+                                                 SysStartResponse, allListeners,
+                                                 allStubListeners, sysStartReqListener,
+                                                 sysStartRespListener)
+import           Pos.Communication.PeerState    (runPeerStateHolder)
+import           Pos.Constants                  (blockRetrievalQueueSize, defaultPeers,
+                                                 isDevelopment, networkConnectionTimeout,
+                                                 runningMode)
+import qualified Pos.Constants                  as Const
+import           Pos.Context                    (ContextHolder (..), NodeContext (..),
+                                                 runContextHolder)
+import           Pos.Crypto                     (createProxySecretKey, toPublic)
+import           Pos.DB                         (MonadDB (..), getTip, initNodeDBs,
+                                                 openNodeDBs, runDBHolder, _gStateDB)
+import           Pos.DB.Misc                    (addProxySecretKey)
+import           Pos.Delegation.Class           (runDelegationT)
+import           Pos.DHT.Model                  (MonadDHT (..), sendToNeighbors)
+import           Pos.DHT.Real                   (KademliaDHTInstance,
+                                                 KademliaDHTInstanceConfig (..),
+                                                 runKademliaDHT, startDHTInstance,
+                                                 stopDHTInstance)
+import           Pos.Genesis                    (genesisLeaders)
+import           Pos.Launcher.Param             (BaseParams (..), LoggingParams (..),
+                                                 NodeParams (..))
+import           Pos.Ssc.Class                  (SscConstraint, SscNodeContext, SscParams,
+                                                 sscCreateNodeContext, sscLoadGlobalState)
+import           Pos.Ssc.Class.Listeners        (SscListenersClass)
+import           Pos.Ssc.Extra                  (runSscHolder)
+import           Pos.Statistics                 (getNoStatsT, runStatsT')
+import           Pos.Txp.Holder                 (runTxpLDHolder)
+import qualified Pos.Txp.Types.UtxoView         as UV
+import           Pos.Types                      (Timestamp (Timestamp), timestampF)
+import           Pos.Update.MemState            (runUSHolder)
+import           Pos.Util                       (runWithRandomIntervals',
+                                                 stubListenerOneMsg)
+import           Pos.Util.TimeWarp              (sec)
+import           Pos.Util.UserSecret            (peekUserSecret, usKeys, writeUserSecret)
+import           Pos.WorkMode                   (ProductionMode, RawRealMode, ServiceMode,
+                                                 StatsMode)
 data RealModeResources = RealModeResources
     { rmTransport :: Transport
     , rmDHT       :: KademliaDHTInstance
@@ -259,6 +262,7 @@ runCH NodeParams {..} sscNodeContext act = do
     userSecretVar <- liftIO . atomically . newTVar $ userSecret'
     ntpData <- currentTime >>= atomically . newTVar . (0, )
     lastSlot <- atomically . newTVar $ unflattenSlotId 0
+    queue <- liftIO $ newTBQueueIO blockRetrievalQueueSize
     let ctx =
             NodeContext
             { ncSystemStart = npSystemStart
@@ -277,6 +281,7 @@ runCH NodeParams {..} sscNodeContext act = do
             , ncUserSecret = userSecretVar
             , ncNtpData = ntpData
             , ncNtpLastSlot = lastSlot
+            , ncBlockRetreivalQueue = queue
             }
     runContextHolder ctx act
 
@@ -330,7 +335,7 @@ createTransport port = do
     transportE <- liftIO $ TCP.createTransport
                              "0.0.0.0"
                              (show port)
-                             TCP.defaultTCPParameters
+                             (TCP.defaultTCPParameters { TCP.transportConnectTimeout = Just $ fromIntegral networkConnectionTimeout })
     case transportE of
       Left e -> do
           logError $ sformat ("Error creating TCP transport: " % shown) e

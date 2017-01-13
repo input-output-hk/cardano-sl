@@ -31,7 +31,7 @@ import           Pos.Block.Network.Types        (InConv (..), MsgBlock (..),
                                                  MsgGetBlocks (..), MsgGetHeaders (..),
                                                  MsgHeaders (..))
 import           Pos.Communication.BiP          (BiP (..))
-import           Pos.Context                    (getNodeContext, ncBlockRetreivalQueue)
+import           Pos.Context                    (getNodeContext, ncBlockRetrievalQueue)
 import           Pos.Crypto                     (hash, shortHashF)
 import qualified Pos.DB                         as DB
 import           Pos.DB.Error                   (DBError (DBMalformed))
@@ -51,6 +51,7 @@ blockListeners =
     , handleGetBlocks
     , handleBlockHeaders
     ]
+
 blockStubListeners
     :: ( Ssc ssc, Monad m )
     => Proxy ssc -> [ListenerAction BiP m]
@@ -65,10 +66,10 @@ blockStubListeners p =
 -- message.
 mkHeadersRequest
     :: WorkMode ssc m
-    => Maybe (HeaderHash ssc) -> m (MsgGetHeaders ssc)
+    => Maybe (HeaderHash ssc) -> m (Maybe (MsgGetHeaders ssc))
 mkHeadersRequest upto = do
-    headers <- getHeadersOlderExp Nothing
-    pure $ MsgGetHeaders headers upto
+    headers <- NE.nonEmpty <$> getHeadersOlderExp Nothing
+    pure $ (\h -> MsgGetHeaders h upto) <$> headers
 
 matchRequestedHeaders
     :: (Ssc ssc)
@@ -91,43 +92,36 @@ handleGetHeaders
     :: forall ssc m.
        (WorkMode ssc m)
     => ListenerAction BiP m
-handleGetHeaders = ListenerActionConversation $
-    \__peerId __sendActions conv -> do
-        (msg :: Maybe (MsgGetHeaders ssc)) <- recv conv
-        whenJust msg $ \(MsgGetHeaders {..}) -> do
-            logDebug "Got request on handleGetHeaders"
-            headers <- getHeadersFromManyTo mghFrom mghTo
-            case nonEmpty headers of
-                Nothing ->
-                    logWarning $ "handleGetHeaders@retrieveHeadersFromTo returned empty " <>
-                                 "list, not responding to node"
-                Just ne ->
-                    send conv $ InConv $ MsgHeaders ne
+handleGetHeaders = ListenerActionConversation $ \__peerId __sendActions conv -> do
+    (msg :: Maybe (MsgGetHeaders ssc)) <- recv conv
+    whenJust msg $ \(MsgGetHeaders {..}) -> do
+        logDebug "Got request on handleGetHeaders"
+        headers <- getHeadersFromManyTo mghFrom mghTo
+        whenJust headers $ \h -> send conv $ InConv $ MsgHeaders h
 
 handleGetBlocks
     :: forall ssc m.
        (Ssc ssc, WorkMode ssc m)
     => ListenerAction BiP m
-handleGetBlocks = ListenerActionConversation $
-    \__peerId __sendActions conv -> do
-        (mGB :: Maybe (MsgGetBlocks ssc)) <- recv conv
-        whenJust mGB $ \(MsgGetBlocks {..}) -> do
-            logDebug "Got request on handleGetBlocks"
-            hashes <- getHeadersFromToIncl mgbFrom mgbTo
-            maybe warn (sendBlocks conv) hashes
-      where
-        warn = logWarning $ "getBLocksByHeaders@retrieveHeaders returned Nothing"
-        failMalformed =
-            throwM $ DBMalformed $
-            "hadleGetBlocks: getHeadersFromToIncl returned header that doesn't " <>
-            "have corresponding block in storage."
-        sendBlocks conv hashes = do
-            logDebug $ sformat
-                ("handleGetBlocks: started sending blocks one-by-one: "%listJson) hashes
-            forM_ hashes $ \hHash -> do
-                block <- maybe failMalformed pure =<< DB.getBlock hHash
-                send conv $ MsgBlock block
-            logDebug "handleGetBlocks: blocks sending done"
+handleGetBlocks = ListenerActionConversation $ \__peerId __sendActions conv -> do
+    (mGB :: Maybe (MsgGetBlocks ssc)) <- recv conv
+    whenJust mGB $ \(MsgGetBlocks {..}) -> do
+        logDebug "Got request on handleGetBlocks"
+        hashes <- getHeadersFromToIncl mgbFrom mgbTo
+        maybe warn (sendBlocks conv) hashes
+  where
+    warn = logWarning $ "getBLocksByHeaders@retrieveHeaders returned Nothing"
+    failMalformed =
+        throwM $ DBMalformed $
+        "hadleGetBlocks: getHeadersFromToIncl returned header that doesn't " <>
+        "have corresponding block in storage."
+    sendBlocks conv hashes = do
+        logDebug $ sformat
+            ("handleGetBlocks: started sending blocks one-by-one: "%listJson) hashes
+        forM_ hashes $ \hHash -> do
+            block <- maybe failMalformed pure =<< DB.getBlock hHash
+            send conv $ MsgBlock block
+        logDebug "handleGetBlocks: blocks sending done"
 
 addToBlockRequestQueue
     :: forall ssc m.
@@ -136,7 +130,7 @@ addToBlockRequestQueue
     -> NodeId
     -> m ()
 addToBlockRequestQueue headers peerId = do
-    queue <- ncBlockRetreivalQueue <$> getNodeContext
+    queue <- ncBlockRetrievalQueue <$> getNodeContext
     added <- liftIO . atomically $
                 ifM (isFullTBQueue queue)
                     (pure False)
@@ -208,21 +202,23 @@ handleUnsolicitedHeader header peerId sendActions = do
             addToBlockRequestQueue (header :| []) peerId
         CHAlternative -> do
             logInfo $ sformat alternativeFormat hHash
-            mgh <- mkHeadersRequest (Just hHash)
-            withConnectionTo sendActions peerId $ \conv -> do
-                logDebug "handleUnsolicitedHeader: withConnection: sending MsgGetHeaders"
-                send conv mgh
-                logDebug "handleUnsolicitedHeader: withConnection: receiving MsgHeaders"
-                mHeaders <- fmap inConvMsg <$> recv conv
-                logDebug "handleUnsolicitedHeader: withConnection: received MsgHeaders"
-                whenJust mHeaders $ \headers -> do
-                    logDebug "handleUnsolicitedHeader: got some block headers"
-                    if matchRequestedHeaders headers mgh
-                       then handleRequestedHeaders headers peerId
-                       else handleUnexpected headers peerId
+            mghM <- mkHeadersRequest (Just hHash)
+            whenJust mghM $ \mgh ->
+                withConnectionTo sendActions peerId $ processAlt mgh
         CHUseless reason -> logDebug $ sformat uselessFormat hHash reason
         CHInvalid _ -> pass -- TODO: ban node for sending invalid block.
   where
+    processAlt mgh conv = do
+        logDebug "handleUnsolicitedHeader: withConnection: sending MsgGetHeaders"
+        send conv mgh
+        logDebug "handleUnsolicitedHeader: withConnection: receiving MsgHeaders"
+        mHeaders <- fmap inConvMsg <$> recv conv
+        logDebug "handleUnsolicitedHeader: withConnection: received MsgHeaders"
+        whenJust mHeaders $ \headers -> do
+            logDebug "handleUnsolicitedHeader: got some block headers"
+            if matchRequestedHeaders headers mgh
+               then handleRequestedHeaders headers peerId
+               else handleUnexpected headers peerId
     hHash = headerHash header
     continuesFormat =
         "Header " %shortHashF %

@@ -1,22 +1,31 @@
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 -- | Extra information for blocks.
 --   * Forward links
---   * TODO InMainChain flags
+--   * InMainChain flags
 
 module Pos.DB.GState.BlockExtra
        ( resolveForwardLink
        , isBlockInMainChain
        , BlockExtraOp (..)
+       , loadHeadersUpWhile
+       , loadBlocksUpWhile
        , prepareGStateBlockExtra
        ) where
 
+import           Control.Lens        (view, (^.))
+import           Data.Maybe          (fromJust)
 import qualified Database.RocksDB    as Rocks
 import           Universum
 
 import           Pos.Binary.Class    (encodeStrict)
+import           Pos.DB.Block        (getBlockWithUndo)
 import           Pos.DB.Class        (MonadDB, getUtxoDB)
 import           Pos.DB.Functions    (RocksBatchOp (..), rocksGetBi, rocksPutBi)
 import           Pos.Ssc.Class.Types (Ssc)
-import           Pos.Types           (Block, HasHeaderHash, HeaderHash, headerHash)
+import           Pos.Types           (Block, BlockHeader, HasHeaderHash, HeaderHash,
+                                      Undo (..), blockHeader, headerHash, prevBlockL)
 
 
 ----------------------------------------------------------------------------
@@ -60,6 +69,41 @@ instance RocksBatchOp (BlockExtraOp ssc) where
         [Rocks.Del $ mainChainKey h]
     toBatchOp (SetInMainChain True h) =
         [Rocks.Put (mainChainKey h) (encodeStrict ()) ]
+
+
+----------------------------------------------------------------------------
+-- Loops on forward links
+----------------------------------------------------------------------------
+
+-- Loads something from old to new.
+loadUpWhile
+    :: forall a b ssc m . (Ssc ssc, MonadDB ssc m, HasHeaderHash a ssc)
+    => ((Block ssc, Undo) -> b) -> a -> (b -> Int -> Bool) -> m [b]
+loadUpWhile morph start  condition = loadUpWhileDo (headerHash start) 0
+  where
+    loadUpWhileDo :: HeaderHash ssc -> Int -> m [b]
+    loadUpWhileDo curH height = getBlockWithUndo curH >>= \case
+        Nothing -> pure []
+        Just x@(block,_) -> do
+            nextLink <- fmap headerHash <$> resolveForwardLink block
+            let curB = morph x
+            if | condition curB height && isJust nextLink ->
+                 (curB :) <$> loadUpWhileDo (fromJust nextLink) (succ height)
+               | condition curB height -> pure [curB]
+               | otherwise -> pure []
+
+-- | Returns headers loaded up oldest first.
+loadHeadersUpWhile
+    :: (Ssc ssc, MonadDB ssc m, HasHeaderHash a ssc)
+    => a -> (BlockHeader ssc -> Int -> Bool) -> m [(BlockHeader ssc)]
+loadHeadersUpWhile start condition =
+    loadUpWhile (view blockHeader . fst) start condition
+
+-- | Returns blocks loaded up oldest first.
+loadBlocksUpWhile
+    :: (Ssc ssc, MonadDB ssc m, HasHeaderHash a ssc)
+    => a -> (Block ssc -> Int -> Bool) -> m [(Block ssc)]
+loadBlocksUpWhile start condition = loadUpWhile fst start condition
 
 ----------------------------------------------------------------------------
 -- Initialization

@@ -37,6 +37,7 @@ module Pos.Constants
        , protocolMagic
        , enhancedMessageBroadcast
        , delegationThreshold
+       , maxHeadersMessage
 
          -- * Malicious activity detection constants
        , mdNoBlocksSlotThreshold
@@ -214,6 +215,11 @@ enhancedMessageBroadcast = fromIntegral $ ccEnhancedMessageBroadcast compileConf
 -- | Portion of total stake necessary to vote for or against update.
 delegationThreshold :: CoinPortion
 delegationThreshold = unsafeCoinPortion $ ccDelegationThreshold compileConfig
+
+-- | Maximum amount of headers node can put into headers
+-- message. Should be more than 'k'.
+maxHeadersMessage :: (Integral a) => a
+maxHeadersMessage = 2 * k
 
 ----------------------------------------------------------------------------
 -- Malicious activity

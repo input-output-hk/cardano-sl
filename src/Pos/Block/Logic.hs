@@ -47,7 +47,8 @@ import           Universum
 
 import           Pos.Block.Logic.Internal  (applyBlocksUnsafe, rollbackBlocksUnsafe,
                                             withBlkSemaphore, withBlkSemaphore_)
-import           Pos.Constants             (curProtocolVersion, curSoftwareVersion, k)
+import           Pos.Constants             (curProtocolVersion, curSoftwareVersion, k,
+                                            maxHeadersMessage)
 import           Pos.Context               (NodeContext (ncSecretKey), getNodeContext,
                                             lrcActionOnEpochReason)
 import           Pos.Crypto                (SecretKey, WithHash (WithHash), hash,
@@ -107,7 +108,7 @@ lcaWithMainChain headers@(h:|hs) =
     fmap fst . find snd <$>
         mapM (\hh -> (hh,) <$> GS.isBlockInMainChain hh)
              -- take hash of parent of last BlockHeader and convert all headers to hashes
-             (map hash (h : hs) ++ [NE.last headers ^. prevBlockL])
+             (map (view headerHashG) (h : hs) ++ [NE.last headers ^. prevBlockL])
 
 ----------------------------------------------------------------------------
 -- Headers
@@ -215,27 +216,36 @@ classifyHeaders headers@(h:|hs) = do
                           depthDiff (k :: Int)
             | otherwise -> CHsValid lcaChild
 
--- | Given a set of checkpoints to stop at, we take second header hash
--- block (or tip if latter is @Nothing@) and fetch the blocks until we
--- reach genesis block or one of checkpoints. Returned headers are
--- newest-first.
+-- | Given a set of checkpoints @c@ to stop at and a terminating
+-- header hash @h@, we take @h@ block (or tip if latter is @Nothing@)
+-- and fetch the blocks until one of checkpoints is encountered. In
+-- case we got deeper than 'maxHeadersMessage', we return
+-- 'maxHeadersMessage' headers starting from the oldest checkpoint to
+-- the newest ones. Returned headers are newest-first.
 getHeadersFromManyTo
-    :: (MonadDB ssc m, Ssc ssc)
-    => [HeaderHash ssc] -> Maybe (HeaderHash ssc) -> m [BlockHeader ssc]
-getHeadersFromManyTo checkpoints startM = do
-    validCheckpoints <- catMaybes <$> mapM DB.getBlockHeader checkpoints
-    tip <- GS.getTip
+    :: forall ssc m. (MonadDB ssc m, Ssc ssc)
+    => NonEmpty (HeaderHash ssc)
+    -> Maybe (HeaderHash ssc)
+    -> m (Maybe (NonEmpty (BlockHeader ssc)))
+getHeadersFromManyTo checkpoints startM = runMaybeT $ do
+    validCheckpoints <- MaybeT $
+        NE.nonEmpty . catMaybes <$>
+        mapM DB.getBlockHeader (NE.toList checkpoints)
+    tip <- lift GS.getTip
     let startFrom = fromMaybe tip startM
-        neq = (/=) `on` getEpochOrSlot
-        whileCond bh _ = all (neq bh) validCheckpoints
-    headers <- reverse <$> loadHeadersWhile startFrom whileCond
-    -- In case we didn't reach the very-first block we take one more
-    -- because "until" predicate will stop us before we get
-    -- checkpoint block and we do want to return it as well
-    oneMore <- case headers of
-        []       -> pure Nothing
-        (last:_) -> DB.getBlockHeader $ last ^. prevBlockL
-    pure $ reverse $ maybe identity (:) oneMore $ headers
+        parentIsCheckpoint bh =
+            any (\c -> bh ^. prevBlockL == c ^. headerHashG) validCheckpoints
+        whileCond bh depth =
+            not (parentIsCheckpoint bh) && depth < maxHeadersMessage
+    headers <- MaybeT $ NE.nonEmpty <$> loadHeadersWhile startFrom whileCond
+    if parentIsCheckpoint $ headers ^. _neHead
+    then pure headers
+    else do
+        let lowestCheckpoint =
+                minimumBy (comparing flattenEpochOrSlot) validCheckpoints
+            loadUpCond _ h = h < maxHeadersMessage
+        up <- lift $ GS.loadHeadersUpWhile lowestCheckpoint loadUpCond
+        MaybeT $ pure $ NE.nonEmpty $ reverse up
 
 -- | Given a starting point hash (we take tip if it's not in storage)
 -- it returns not more than 'k' blocks distributed exponentially base
@@ -248,15 +258,18 @@ getHeadersOlderExp upto = do
     let upToReal = fromMaybe tip upto
         whileCond _ depth = depth <= k
     allHeaders <- reverse <$> loadHeadersWhile upToReal whileCond
-    pure $ selectIndices (takeHashes allHeaders) twoPowers
+    pure $ selectIndices (takeHashes allHeaders) (twoPowers $ length allHeaders)
   where
     -- Given list of headers newest first, maps it to their hashes
     takeHashes [] = []
     takeHashes headers@(x:_) =
         let prevHashes = map (view prevBlockL) headers
         in hash x : take (length prevHashes - 1) prevHashes
-    -- Powers of 2
-    twoPowers = (takeWhile (<k) $ 0 : 1 : iterate (*2) 2) ++ [k]
+    twoPowers n | n < 0 =
+        panic $ "getHeadersOlderExp#twoPowers called w/" <> show n
+    twoPowers 0 = []
+    twoPowers 1 = [0]
+    twoPowers n = (takeWhile (<(n-1)) $ 0 : 1 : iterate (*2) 2) ++ [n-1]
     -- Effectively do @!i@ for any @i@ from the index list applied to
     -- source list. Index list should be inreasing.
     selectIndices :: [a] -> [Int] -> [a]

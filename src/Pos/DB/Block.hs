@@ -8,6 +8,7 @@ module Pos.DB.Block
        , getBlockHeader
        , getStoredBlock
        , getUndo
+       , getBlockWithUndo
 
        , deleteBlock
        , putBlock
@@ -18,23 +19,24 @@ module Pos.DB.Block
        , prepareBlockDB
        ) where
 
-import           Control.Lens        ((^.))
-import           Data.ByteArray      (convert)
-import           Formatting          (sformat, (%))
+import           Control.Lens              ((^.))
+import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
+import           Data.ByteArray            (convert)
+import           Formatting                (sformat, (%))
 import           Universum
 
-import           Pos.Binary.Class    (Bi)
-import           Pos.Binary.DB       ()
-import           Pos.Crypto          (Hash, shortHashF)
-import           Pos.DB.Class        (MonadDB, getBlockDB)
-import           Pos.DB.Error        (DBError (..))
-import           Pos.DB.Functions    (rocksDelete, rocksGetBi, rocksPutBi)
-import           Pos.DB.Types        (StoredBlock (..))
-import           Pos.Ssc.Class.Types (Ssc)
-import           Pos.Types           (Block, BlockHeader, GenesisBlock, HasPrevBlock,
-                                      HeaderHash, Undo (..), genesisHash, headerHash,
-                                      prevBlockL)
-import qualified Pos.Types           as T
+import           Pos.Binary.Class          (Bi)
+import           Pos.Binary.DB             ()
+import           Pos.Crypto                (Hash, shortHashF)
+import           Pos.DB.Class              (MonadDB, getBlockDB)
+import           Pos.DB.Error              (DBError (..))
+import           Pos.DB.Functions          (rocksDelete, rocksGetBi, rocksPutBi)
+import           Pos.DB.Types              (StoredBlock (..))
+import           Pos.Ssc.Class.Types       (Ssc)
+import           Pos.Types                 (Block, BlockHeader, GenesisBlock,
+                                            HasPrevBlock, HeaderHash, Undo (..),
+                                            genesisHash, headerHash, prevBlockL)
+import qualified Pos.Types                 as T
 
 
 -- | Get StoredBlock by hash from Block DB.
@@ -61,6 +63,13 @@ getUndo
     => HeaderHash ssc -> m (Maybe Undo)
 getUndo = getBi . undoKey
 
+-- | Retrieves block and undo together.
+getBlockWithUndo
+    :: (Ssc ssc, MonadDB ssc m)
+    => HeaderHash ssc -> m (Maybe (Block ssc, Undo))
+getBlockWithUndo x =
+    runMaybeT $ (,) <$> MaybeT (getBlock x) <*> MaybeT (getUndo x)
+
 -- | Put given block, its metadata and Undo data into Block DB.
 putBlock
     :: (Ssc ssc, MonadDB ssc m)
@@ -73,14 +82,14 @@ putBlock undo blk = do
 deleteBlock :: (MonadDB ssc m) => HeaderHash ssc -> m ()
 deleteBlock = delete . blockKey
 
-getBlockWithUndo :: (Ssc ssc, MonadDB ssc m)
+getBlockWithUndo' :: (Ssc ssc, MonadDB ssc m)
                  => HeaderHash ssc -> m (Block ssc, Undo)
-getBlockWithUndo hash =
+getBlockWithUndo' hash =
     maybe (throwM $ DBMalformed $ sformat errFmt hash) pure =<<
     (liftA2 (,) <$> getBlock hash <*> getUndo hash)
   where
     errFmt =
-        ("getBlockWithUndo: no block or undo with such HeaderHash: " %shortHashF)
+        ("getBlockWithUndo': no block or undo with such HeaderHash: " %shortHashF)
 
 loadDataWhile :: (Monad m, HasPrevBlock a b)
               => (Hash b -> m a)
@@ -105,7 +114,7 @@ loadBlocksWithUndoWhile
     :: (Ssc ssc, MonadDB ssc m)
     => (Block ssc -> Int -> Bool) -> HeaderHash ssc -> m [(Block ssc, Undo)]
 loadBlocksWithUndoWhile predicate =
-    loadDataWhile getBlockWithUndo (predicate . fst)
+    loadDataWhile getBlockWithUndo' (predicate . fst)
 
 loadBlocksWhile
     :: (Ssc ssc, MonadDB ssc m)

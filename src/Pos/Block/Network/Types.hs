@@ -35,7 +35,7 @@ instance Message m => Message (InConv m) where
 
 -- | 'GetHeaders' message (see protocol specification).
 data MsgGetHeaders ssc = MsgGetHeaders
-    { mghFrom :: ![HeaderHash ssc]
+    { mghFrom :: !(NonEmpty (HeaderHash ssc))
     , mghTo   :: !(Maybe (HeaderHash ssc))
     } deriving (Generic, Show, Eq)
 

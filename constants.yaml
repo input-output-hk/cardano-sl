@@ -1,17 +1,23 @@
-k: 2
-slotDurationSec: 10
-networkDiameter: 3
-neighboursSendThreshold: 4
 genesisN: 20
 maxLocalTxs: 10000
 defaultPeers: []
-sysTimeBroadcastSlots: 6
 mdNoBlocksSlotThreshold: 10
 mdNoCommitmentsEpochThreshold: 3
 protocolMagic: 0
 enhancedMessageBroadcast: 2
-networkConnectionTimeout: 2000
 blockRetrievalQueueSize: 100
+
+# Fundamental constants for core protocol
+k: 2
+slotDurationSec: 10
+
+# Time slave/lord
+sysTimeBroadcastSlots: 6
+
+# Networking
+neighboursSendThreshold: 2
+networkDiameter: 3
+networkConnectionTimeout: 2000
 
 # GodTossing
 vssMaxTTL: 10 # epochs

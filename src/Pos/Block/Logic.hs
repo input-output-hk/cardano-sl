@@ -30,6 +30,7 @@ module Pos.Block.Logic
        ) where
 
 import           Control.Lens              (view, (^.), _1)
+import           Control.Monad.Catch       (try)
 import           Control.Monad.Except      (ExceptT (ExceptT), runExceptT, throwError)
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
 import           Data.Default              (Default (def))
@@ -40,14 +41,14 @@ import qualified Data.Text                 as T
 import           Formatting                (build, int, ords, sformat, stext, (%))
 import           Serokell.Util.Verify      (VerificationRes (..), formatAllErrors,
                                             isVerSuccess, verResToMonadError)
-import           System.Wlog               (logDebug, logError)
+import           System.Wlog               (logDebug, logError, logInfo)
 import           Universum
 
 import           Pos.Block.Logic.Internal  (applyBlocksUnsafe, rollbackBlocksUnsafe,
                                             withBlkSemaphore, withBlkSemaphore_)
 import           Pos.Constants             (curProtocolVersion, curSoftwareVersion, k)
 import           Pos.Context               (NodeContext (ncSecretKey), getNodeContext,
-                                            lrcActionOnEpochReason, readBlkSemaphore)
+                                            lrcActionOnEpochReason)
 import           Pos.Crypto                (SecretKey, WithHash (WithHash), hash,
                                             shortHashF)
 import           Pos.Data.Attributes       (mkAttributes)
@@ -57,6 +58,7 @@ import qualified Pos.DB                    as DB
 import qualified Pos.DB.GState             as GS
 import qualified Pos.DB.Lrc                as LrcDB
 import           Pos.Delegation.Logic      (delegationVerifyBlocks, getProxyMempool)
+import           Pos.Lrc.Error             (LrcError (..))
 import           Pos.Lrc.Worker            (lrcSingleShotNoLock)
 import           Pos.Slotting              (getCurrentSlot)
 import           Pos.Ssc.Class             (Ssc (..), SscWorkersClass (..))
@@ -67,10 +69,11 @@ import           Pos.Types                 (Block, BlockHeader, Blund, EpochInde
                                             EpochOrSlot (..), GenesisBlock, HeaderHash,
                                             MainBlock, MainExtraBodyData (..),
                                             MainExtraHeaderData (..), ProxySKEither,
-                                            ProxySKSimple, SlotId (..), TxAux, TxId,
-                                            Undo (..), VerifyHeaderParams (..),
-                                            blockHeader, difficultyL, epochIndexL,
-                                            epochOrSlot, flattenEpochOrSlot, genesisHash,
+                                            ProxySKSimple, SlotId (..), SlotLeaders,
+                                            TxAux, TxId, Undo (..),
+                                            VerifyHeaderParams (..), blockHeader,
+                                            difficultyL, epochIndexL, epochOrSlot,
+                                            flattenEpochOrSlot, genesisHash,
                                             getEpochOrSlot, headerHash, headerHashG,
                                             headerSlot, mkGenesisBlock, mkMainBlock,
                                             mkMainBody, prevBlockL, topsortTxs,
@@ -456,16 +459,15 @@ createGenesisBlock
     :: forall ssc m.
        WorkMode ssc m
     => EpochIndex -> m (Maybe (GenesisBlock ssc))
-createGenesisBlock epochIndex = do
-    tipHeader <- getTipBlockHeader
-    logDebug $ sformat msgFmt epochIndex tipHeader
-    if shouldCreateGenesisBlock epochIndex $ getEpochOrSlot tipHeader
-        then createGenesisBlockDo epochIndex
-        else Nothing <$ logDebug "We shouldn't create genesis block"
-  where
-    msgFmt =
-        "We are trying to create genesis block for "%ords %
-        " epoch, our tip header is\n"%build
+createGenesisBlock epoch = do
+    leadersOrErr <-
+        try $
+        lrcActionOnEpochReason epoch "there are no leaders" LrcDB.getLeaders
+    case leadersOrErr of
+        Left UnknownBlocksForLrc ->
+            Nothing <$ logInfo "createGenesisBlock: not enough blocks for LRC"
+        Left err -> throwM err
+        Right leaders -> withBlkSemaphore (createGenesisBlockDo epoch leaders)
 
 shouldCreateGenesisBlock :: EpochIndex -> EpochOrSlot -> Bool
 -- Genesis block for 0-th epoch is hardcoded.
@@ -478,30 +480,32 @@ shouldCreateGenesisBlock epoch headEpochOrSlot =
 createGenesisBlockDo
     :: forall ssc m.
        WorkMode ssc m
-    => EpochIndex -> m (Maybe (GenesisBlock ssc))
-createGenesisBlockDo epoch = do
-    leaders <- lrcActionOnEpochReason epoch
-                   "there are no leaders"
-                   LrcDB.getLeaders
-    res <- withBlkSemaphore (createGenesisBlockCheckAgain leaders)
-    res <$ inAssertMode (logDebug . sformat newTipFmt =<< readBlkSemaphore)
+    => EpochIndex
+    -> SlotLeaders
+    -> HeaderHash ssc
+    -> m (Maybe (GenesisBlock ssc), HeaderHash ssc)
+createGenesisBlockDo epoch leaders tip = do
+    let noHeaderMsg =
+            "There is no header is DB corresponding to tip from semaphore"
+    tipHeader <-
+        maybe (throwM $ DBMalformed noHeaderMsg) pure =<< DB.getBlockHeader tip
+    logDebug $ sformat msgTryingFmt epoch tipHeader
+    createGenesisBlockFinally tipHeader
   where
-    newTipFmt = "After creating GenesisBlock our tip is: "%shortHashF
-    createGenesisBlockCheckAgain leaders tip = do
-        let noHeaderMsg =
-                "There is no header is DB corresponding to tip from semaphore"
-        tipHeader <-
-            maybe (throwM $ DBMalformed noHeaderMsg) pure =<<
-            DB.getBlockHeader tip
-        createGenesisBlockFinally leaders tip tipHeader
-    createGenesisBlockFinally leaders tip tipHeader
+    createGenesisBlockFinally tipHeader
         | shouldCreateGenesisBlock epoch (getEpochOrSlot tipHeader) = do
-              let blk = mkGenesisBlock (Just tipHeader) epoch leaders
-              let newTip = headerHash blk
-              applyBlocksUnsafe (pure (Left blk, Undo [] [])) $> (Just blk, newTip)
+            let blk = mkGenesisBlock (Just tipHeader) epoch leaders
+            let newTip = headerHash blk
+            applyBlocksUnsafe (pure (Left blk, Undo [] [])) $>
+                (Just blk, newTip)
         | otherwise = (Nothing, tip) <$ logShouldNot
-    logShouldNot = logDebug
-          "After we took lock for genesis block creation, we noticed that we shouldn't create it"
+    logShouldNot =
+        logDebug
+            "After we took lock for genesis block creation, we noticed that we shouldn't create it"
+    msgTryingFmt =
+        "We are trying to create genesis block for " %ords %
+        " epoch, our tip header is\n" %build
+
 ----------------------------------------------------------------------------
 -- MainBlock creation
 ----------------------------------------------------------------------------

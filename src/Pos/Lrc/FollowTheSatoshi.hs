@@ -48,13 +48,9 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
     findLeaders [] _ _ = pure []
     -- We ran out of items in the buffer so we take a new output
     -- and refill the buffer
-    findLeaders cs sm [] = do
-        mbOut <- curItem
-        stake <- case mbOut of
-            Nothing -> panic "followTheSatoshiM: indices out of range"
-            Just out -> do _ <- nextItem @_ @TxOutAux
-                           return (txOutStake out)
-        findLeaders cs sm stake
+    findLeaders cs sm [] = nextItem @_ @TxOutAux >>=
+        maybe (panic "followTheSatoshiM: indices out of range")
+              (findLeaders cs sm . txOutStake)
     -- We check whether `c` is covered by current item in the buffer
     findLeaders (c:cs) sm buf@((adr, val):bufRest)
         | sm' >= fst c = ((adr, snd c):) <$> findLeaders cs sm buf

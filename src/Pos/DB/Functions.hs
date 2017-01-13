@@ -5,13 +5,19 @@
 
 module Pos.DB.Functions
        ( openDB
+
+       -- * Key/Value helpers
+       , WithKeyPrefix (..)
+       , encodeWithKeyPrefix
        , rocksDelete
        , rocksGetBi
        , rocksGetBytes
        , rocksPutBi
        , rocksPutBytes
        , traverseAllEntries
+       , rocksDecodeWP
        , rocksDecodeMaybe
+       , rocksDecodeMaybeWP
        , rocksDecodeKeyValMaybe
 
        -- * Batch
@@ -20,6 +26,7 @@ module Pos.DB.Functions
        , rocksWriteBatch
        ) where
 
+import qualified Data.ByteString      as BS (drop, isPrefixOf)
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Default         (def)
 import           Data.List.NonEmpty   (NonEmpty)
@@ -37,6 +44,12 @@ openDB fp = DB def def def
                         { Rocks.createIfMissing = True
                         , Rocks.compression     = Rocks.NoCompression
                         }
+
+class WithKeyPrefix c where
+    keyPrefix :: Proxy c -> ByteString
+
+encodeWithKeyPrefix :: forall k . (Bi k, WithKeyPrefix k) => k -> ByteString
+encodeWithKeyPrefix = (keyPrefix @k Proxy <> ) . encodeStrict
 
 -- | Read ByteString from RocksDb using given key.
 rocksGetBytes :: (MonadIO m) => ByteString -> DB ssc -> m (Maybe ByteString)
@@ -67,13 +80,37 @@ onParseError rawKey errMsg = throwM $ DBMalformed $ sformat fmt rawKey errMsg
   where
     fmt = "rocksGetBi: stored value is malformed, key = "%shown%", err: "%string
 
+-- rocksDecodeKeyVal :: (Bi k, Bi v, MonadThrow m)
+--                   => (ByteString, ByteString) -> m (k, v)
+-- rocksDecodeKeyVal (k, v) =
+--     (,) <$> rocksDecode (ToDecodeKey k) <*> rocksDecode (ToDecodeValue k v)
+
+-- with prefix
+rocksDecodeWP :: forall v m . (Bi v, MonadThrow m, WithKeyPrefix v)
+                 => ByteString -> m v
+rocksDecodeWP key
+    | BS.isPrefixOf (keyPrefix @v Proxy) key =
+          either (onParseError key) pure . decodeFull . BSL.fromStrict $ key
+    | otherwise = onParseError key "unexpected prefix"
+
+rocksDecodeKeyValWP :: (Bi k, Bi v, MonadThrow m, WithKeyPrefix k)
+                  => (ByteString, ByteString) -> m (k, v)
+rocksDecodeKeyValWP (k, v) =
+    (,) <$> rocksDecodeWP k <*> rocksDecode (ToDecodeValue k v)
+
+
+-- Parse maybe
+rocksDecodeMaybeWP :: forall v . (Bi v, WithKeyPrefix v) => ByteString -> Maybe v
+rocksDecodeMaybeWP s
+    | BS.isPrefixOf (keyPrefix @v Proxy) s =
+          rightToMaybe .
+          decodeFull .
+          BSL.fromStrict .
+          BS.drop (length $ keyPrefix @v Proxy) $ s
+    | otherwise = Nothing
+
 rocksDecodeMaybe :: (Bi v) => ByteString -> Maybe v
 rocksDecodeMaybe = rightToMaybe . decodeFull . BSL.fromStrict
-
-rocksDecodeKeyVal :: (Bi k, Bi v, MonadThrow m)
-                  => (ByteString, ByteString) -> m (k, v)
-rocksDecodeKeyVal (k, v) =
-    (,) <$> rocksDecode (ToDecodeKey k) <*> rocksDecode (ToDecodeValue k v)
 
 rocksDecodeKeyValMaybe
     :: (Bi k, Bi v)
@@ -91,8 +128,11 @@ rocksPutBi k v = rocksPutBytes k (encodeStrict v)
 rocksDelete :: (MonadIO m) => ByteString -> DB ssc -> m ()
 rocksDelete k DB {..} = Rocks.delete rocksDB rocksWriteOpts k
 
+----------------------------------------------------------------------------
+-- Iterator
+----------------------------------------------------------------------------
 traverseAllEntries
-    :: (Bi k, Bi v, MonadMask m, MonadIO m)
+    :: (Bi k, Bi v, MonadMask m, MonadIO m, WithKeyPrefix k)
     => DB ssc
     -> m b
     -> (b -> k -> v -> m b)
@@ -104,7 +144,7 @@ traverseAllEntries DB{..} init folder =
         let step = do
                 kv <- Rocks.iterEntry it
                 Rocks.iterNext it
-                traverse rocksDecodeKeyVal kv `catch` \(_ :: DBError) -> step
+                traverse rocksDecodeKeyValWP kv `catch` \(_ :: DBError) -> step
             run b = step >>= maybe (pure b) (uncurry (folder b) >=> run)
         init >>= run
 

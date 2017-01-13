@@ -27,7 +27,8 @@ import           Pos.Binary.Class     (encodeStrict)
 import           Pos.DB.Class         (MonadDB, getUtxoDB)
 import           Pos.DB.DBIterator    (DBMapIterator, mapIterator)
 import           Pos.DB.Error         (DBError (..))
-import           Pos.DB.Functions     (RocksBatchOp (..))
+import           Pos.DB.Functions     (RocksBatchOp (..), WithKeyPrefix (..),
+                                       encodeWithKeyPrefix)
 import           Pos.DB.GState.Common (getBi, putBi)
 import           Pos.Types            (Coin, StakeholderId, Utxo, sumCoins, txOutStake,
                                        unsafeIntegerToCoin)
@@ -93,17 +94,18 @@ putTotalFtsStake = putBi ftsSumKey
 type IterType = (StakeholderId, Coin)
 
 iterateByStake :: forall v m ssc a . (MonadDB ssc m, MonadMask m)
-                => DBMapIterator (IterType -> v) m a -> (IterType -> v) -> m a
+                => DBMapIterator IterType v m a -> (IterType -> v) -> m a
 iterateByStake iter f = mapIterator @IterType @v iter f =<< getUtxoDB
 
 ----------------------------------------------------------------------------
 -- Keys
 ----------------------------------------------------------------------------
 
+instance WithKeyPrefix StakeholderId where
+    keyPrefix _ = "b/s"
+
 ftsStakeKey :: StakeholderId -> ByteString
--- [CSL-379] Restore prefix after we have proper iterator
--- ftsStakeKey = (<> "b/s") . encodeStrict
-ftsStakeKey = encodeStrict
+ftsStakeKey = encodeWithKeyPrefix
 
 ftsSumKey :: ByteString
 ftsSumKey = "b/ftssum"

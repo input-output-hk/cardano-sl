@@ -170,7 +170,7 @@ handleBlocksWithLca :: forall ssc m.
 handleBlocksWithLca sendActions blocks lcaHash = do
     logDebug $ sformat lcaFmt lcaHash
     -- Head blund in result is the youngest one.
-    toRollback <- DB.loadBlundsFromTipWhile $ \blk _ -> headerHash blk /= lcaHash
+    toRollback <- DB.loadBlundsFromTipWhile $ \blk -> headerHash blk /= lcaHash
     maybe (applyWithoutRollback sendActions blocks)
           (applyWithRollback sendActions blocks lcaHash)
           (nonEmpty toRollback)

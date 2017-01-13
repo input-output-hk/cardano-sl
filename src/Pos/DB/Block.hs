@@ -11,11 +11,15 @@ module Pos.DB.Block
 
        , deleteBlock
        , putBlock
-       , loadBlundsWhile
-       , loadBlocksWhile
-       , loadHeadersWhile
 
        , prepareBlockDB
+
+       -- * Load data
+       , loadBlundsWhile
+       , loadBlundsByDepth
+       , loadBlocksWhile
+       , loadHeadersWhile
+       , loadHeadersByDepth
        ) where
 
 import           Control.Lens        (view, (^.))
@@ -31,9 +35,10 @@ import           Pos.DB.Error        (DBError (..))
 import           Pos.DB.Functions    (rocksDelete, rocksGetBi, rocksPutBi)
 import           Pos.DB.Types        (StoredBlock (..))
 import           Pos.Ssc.Class.Types (Ssc)
-import           Pos.Types           (Block, BlockHeader, GenesisBlock, HasPrevBlock,
-                                      HeaderHash, Undo (..), blockHeader, genesisHash,
-                                      headerHash, prevBlockL)
+import           Pos.Types           (Block, BlockHeader, Blund, GenesisBlock,
+                                      HasDifficulty (difficultyL), HasPrevBlock,
+                                      HeaderHash, Undo (..), genesisHash, headerHash,
+                                      prevBlockL)
 import qualified Pos.Types           as T
 import           Pos.Util            (maybeThrow)
 
@@ -73,38 +78,70 @@ putBlock undo blk = do
 deleteBlock :: (MonadDB ssc m) => HeaderHash ssc -> m ()
 deleteBlock = delete . blockKey
 
+----------------------------------------------------------------------------
+-- Load
+----------------------------------------------------------------------------
+
 loadDataWhile
     :: forall m a b.
        (Monad m, HasPrevBlock a b)
-    => (Hash b -> m a) -> (a -> Int -> Bool) -> Hash b -> m [a]
-loadDataWhile getter predicate start = doIt 0 start
+    => (Hash b -> m a) -> (a -> Bool) -> Hash b -> m [a]
+loadDataWhile getter predicate start = doIt start
   where
-    doIt :: Int -> Hash b -> m [a]
-    doIt depth h
+    doIt :: Hash b -> m [a]
+    doIt h
         | h == genesisHash = pure []
         | otherwise = do
             d <- getter h
             let prev = d ^. prevBlockL
-            if predicate d depth
-                then (d :) <$> doIt (succ depth) prev
+            if predicate d
+                then (d :) <$> doIt prev
                 else pure []
-    -- depthDelta (Left _)  = 0
-    -- depthDelta (Right _) = 1
+
+loadDataByDepth
+    :: forall m a b.
+       (Monad m, HasPrevBlock a b, HasDifficulty a)
+    => (Hash b -> m a) -> Word -> Hash b -> m [a]
+loadDataByDepth _ 0 _ = pure []
+loadDataByDepth getter depth h = do
+    -- First of all, we load data corresponding to h.
+    top <- getter h
+    let topDifficulty = top ^. difficultyL
+    -- If top difficulty is 0, we can load all data starting from it.
+    -- Then we calculate difficulty of data at which we should stop.
+    -- Difficulty of the oldest data to return is 'topDifficulty - depth + 1'
+    -- So we are loading all blocks which have difficulty ≥ targetDifficulty.
+    let targetDelta = fromIntegral depth - 1
+        targetDifficulty
+            | topDifficulty <= targetDelta = 0
+            | otherwise = topDifficulty - targetDelta
+    -- Then we load blocks starting with previous block of already
+    -- loaded block.  We load them until we find block with target
+    -- difficulty. And then we drop last (oldest) block.
+    let prev = top ^. prevBlockL
+    (top :) <$>
+        loadDataWhile getter ((>= targetDifficulty) . view difficultyL) prev
 
 -- | Load blunds starting from block with header hash equal to given hash
 -- and while @predicate@ is true.  The head of returned list is the
 -- youngest blund.
 loadBlundsWhile
     :: (Ssc ssc, MonadDB ssc m)
-    => (Block ssc -> Int -> Bool) -> HeaderHash ssc -> m [(Block ssc, Undo)]
+    => (Block ssc -> Bool) -> HeaderHash ssc -> m [Blund ssc]
 loadBlundsWhile predicate = loadDataWhile getBlundThrow (predicate . fst)
+
+-- | Load blunds which have depth less than given.
+loadBlundsByDepth
+    :: (Ssc ssc, MonadDB ssc m)
+    => Word -> HeaderHash ssc -> m [Blund ssc]
+loadBlundsByDepth = loadDataByDepth getBlundThrow
 
 -- | Load blocks starting from block with header hash equal to given hash
 -- and while @predicate@ is true.  The head of returned list is the
 -- youngest block.
 loadBlocksWhile
     :: (Ssc ssc, MonadDB ssc m)
-    => (Block ssc -> Int -> Bool) -> HeaderHash ssc -> m [Block ssc]
+    => (Block ssc -> Bool) -> HeaderHash ssc -> m [Block ssc]
 loadBlocksWhile = loadDataWhile getBlockThrow
 
 -- | Load headers starting from block with header hash equal to given hash
@@ -112,10 +149,14 @@ loadBlocksWhile = loadDataWhile getBlockThrow
 -- youngest header.
 loadHeadersWhile
     :: (Ssc ssc, MonadDB ssc m)
-    => (BlockHeader ssc -> Int -> Bool) -> HeaderHash ssc -> m [BlockHeader ssc]
-loadHeadersWhile predicate h =
-    map (view blockHeader) <$>
-    loadDataWhile getBlockThrow (predicate . view blockHeader) h
+    => (BlockHeader ssc -> Bool) -> HeaderHash ssc -> m [BlockHeader ssc]
+loadHeadersWhile = loadDataWhile getHeaderThrow
+
+-- | Load headers which have depth less than given.
+loadHeadersByDepth
+    :: (Ssc ssc, MonadDB ssc m)
+    => Word -> HeaderHash ssc -> m [BlockHeader ssc]
+loadHeadersByDepth = loadDataByDepth getHeaderThrow
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -174,3 +215,11 @@ getBlockThrow hash = maybeThrow (DBMalformed $ sformat errFmt hash) =<< getBlock
   where
     errFmt =
         ("getBlockThrow: no block with HeaderHash: "%shortHashF)
+
+getHeaderThrow
+    :: (Ssc ssc, MonadDB ssc m)
+    => HeaderHash ssc -> m (BlockHeader ssc)
+getHeaderThrow hash = maybeThrow (DBMalformed $ sformat errFmt hash) =<< getBlockHeader hash
+  where
+    errFmt =
+        ("getBlockThrow: no block header with hash: "%shortHashF)

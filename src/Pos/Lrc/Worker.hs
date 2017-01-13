@@ -128,7 +128,7 @@ lrcDo epoch consumers tip = tip <$ do
     rollbackBlocksUnsafe blunds
     compute `finally` applyBlocksUnsafe (NE.reverse blunds)
   where
-    whileAfterCrucial b _ = getEpochOrSlot b > crucial
+    whileAfterCrucial b = getEpochOrSlot b > crucial
     crucial = EpochOrSlot $ Right $ crucialSlot epoch
     compute = do
         richmenComputationDo epoch consumers

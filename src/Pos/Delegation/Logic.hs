@@ -200,7 +200,7 @@ delegationVerifyBlocks blocks = do
     tip <- GS.getTip
     fromGenesisPsks <-
         concatMap (either (const []) (map pskIssuerPk . view blockProxySKs)) <$>
-        DB.loadBlocksWhile (\x _ -> isRight x) tip
+        DB.loadBlocksWhile isRight tip
     let _dvCurEpoch = HS.fromList fromGenesisPsks
         initState = DelVerState _dvCurEpoch HM.empty HS.empty
     richmen <-

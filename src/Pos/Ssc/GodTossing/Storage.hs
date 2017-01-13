@@ -276,10 +276,10 @@ mpcLoadGlobalState tip = do
     let endEpoch =
           epochOrSlot identity siEpoch $
               maybe (panic "No block header with such header hash")
-              (^. epochOrSlotG)
+              (view epochOrSlotG)
               bh
         startEpoch = safeSub endEpoch -- load blocks while >= endEpoch
-        whileEpoch b _ = epochOrSlot identity siEpoch (b ^. epochOrSlotG) >= startEpoch
+        whileEpoch b = b ^. epochIndexL >= startEpoch
         blkCert =
           either (const mempty)
                  (^. blockMpc

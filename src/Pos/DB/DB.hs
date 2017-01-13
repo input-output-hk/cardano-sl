@@ -10,6 +10,7 @@ module Pos.DB.DB
        , getTipBlock
        , getTipBlockHeader
        , loadBlundsFromTipWhile
+       , loadBlundsFromTipByDepth
        , sanityCheckDB
        ) where
 
@@ -22,7 +23,8 @@ import           Universum
 
 import           Pos.Context.Class        (WithNodeContext)
 import           Pos.Context.Functions    (genesisLeadersM)
-import           Pos.DB.Block             (getBlock, loadBlundsWhile, prepareBlockDB)
+import           Pos.DB.Block             (getBlock, loadBlundsByDepth, loadBlundsWhile,
+                                           prepareBlockDB)
 import           Pos.DB.Class             (MonadDB)
 import           Pos.DB.Error             (DBError (DBMalformed))
 import           Pos.DB.Functions         (openDB)
@@ -89,8 +91,15 @@ getTipBlockHeader = getBlockHeader <$> getTipBlock
 -- is true.  The head of returned list is the youngest blund.
 loadBlundsFromTipWhile
     :: (Ssc ssc, MonadDB ssc m)
-    => (Block ssc -> Int -> Bool) -> m [(Block ssc, Undo)]
+    => (Block ssc -> Bool) -> m [(Block ssc, Undo)]
 loadBlundsFromTipWhile condition = getTip >>= loadBlundsWhile condition
+
+-- | Load blunds from BlockDB starting from tip which have depth less than given.
+-- The head of returned list is the youngest blund.
+loadBlundsFromTipByDepth
+    :: (Ssc ssc, MonadDB ssc m)
+    => Word -> m [(Block ssc, Undo)]
+loadBlundsFromTipByDepth d = getTip >>= loadBlundsByDepth d
 
 sanityCheckDB
     :: (MonadMask m, MonadDB ssc m, WithLogger m)

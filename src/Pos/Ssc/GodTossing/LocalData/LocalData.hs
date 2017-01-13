@@ -11,6 +11,7 @@ module Pos.Ssc.GodTossing.LocalData.LocalData
          localOnNewSlot
        , sscIsDataUseful
        , sscProcessMessage
+       , getLocalPayload
          -- * Instances
          -- ** instance SscLocalDataClass SscGodTossing
        ) where

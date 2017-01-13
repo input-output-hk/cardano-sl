@@ -476,6 +476,7 @@ executable cardano-node
                      , directory
                      , filepath
                      , formatting
+                     , lens
                      , log-warper >= 0.1.0
                      , network-transport
                      , node-sketch
@@ -514,6 +515,8 @@ executable cardano-node
     cpp-options: -DWITH_WEB
   if flag(with-wallet)
     cpp-options: -DWITH_WALLET
+  if flag(dev-mode)
+    cpp-options: -DDEV_MODE
 
 executable cardano-analyzer
   hs-source-dirs:      src/analyzer

@@ -40,6 +40,7 @@ import           Pos.Ssc.SscAlgo             (SscAlgo (..))
 import           Pos.Types                   (TxAux)
 import           Pos.Util.JsonLog            ()
 import           Pos.Util.TimeWarp           (NetworkAddress, ms, sec)
+import           Pos.Util.UserSecret         (simpleUserSecret)
 import           Pos.Wallet                  (submitTxRaw)
 import           Pos.WorkMode                (ProductionMode)
 
@@ -49,6 +50,7 @@ import           TxAnalysis                  (checkWorker, createTxTimestamps,
 import           TxGeneration                (BambooPool, createBambooPool, curBambooTx,
                                               initTransaction, isTxVerified, nextValidTx,
                                               resetBamboo)
+
 import           Util
 
 
@@ -254,8 +256,8 @@ main = do
                 { npDbPathM       = "rocks-smartwallet"
                 , npRebuildDb     = True
                 , npSystemStart   = systemStart
-                , npSecretKey     = Just sk
-                , npKeyfilePath   = "smartgen-secret.sk"
+                , npSecretKey     = sk
+                , npUserSecret    = simpleUserSecret sk "smartgen-secret.sk"
                 , npBaseParams    = baseParams
                 , npCustomUtxo    = genesisUtxo $
                                         stakesDistr

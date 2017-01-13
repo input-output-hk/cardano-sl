@@ -24,6 +24,11 @@ function ensure_logs {
   mkdir -p "$logs_dir"
 }
 
+function dump_path {
+    ensure_logs
+    echo -n "$logs_dir/dump/$1"
+}
+
 function logs {
   ensure_logs
 
@@ -138,7 +143,7 @@ function node_cmd {
   echo -n " $stake_distr $ssc_algo "
   echo -n " $web "
   echo -n " $wallet_args "
-  echo -n " --kademlia-dump-path  $logs_dir/dump/$kademlia_dump_path "
+  echo -n " --kademlia-dump-path  $(dump_path $kademlia_dump_path)"
   echo ''
 }
 

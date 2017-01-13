@@ -6,8 +6,9 @@ import           Options.Applicative (Parser, ParserInfo, auto, execParser, full
 import           Prelude             (show)
 import           Universum           hiding (show)
 
-import           Pos.Crypto          (keyGen)
-import           Pos.Util.UserSecret (takeUserSecret, usKeys, writeUserSecretRelease)
+import           Pos.Crypto          (keyGen, vssKeyGen)
+import           Pos.Util.UserSecret (takeUserSecret, usKeys, usVss,
+                                      writeUserSecretRelease)
 
 data KeygenOptions = KO
     { koPattern :: FilePath
@@ -17,8 +18,11 @@ data KeygenOptions = KO
 generateKeyfile :: FilePath -> IO ()
 generateKeyfile fp = do
     sk <- snd <$> keyGen
+    vss <- vssKeyGen
     us <- takeUserSecret fp
-    writeUserSecretRelease $ us & usKeys .~ [sk]
+    writeUserSecretRelease $
+        us & usKeys .~ [sk]
+           & usVss .~ Just vss
 
 replace :: FilePath -> FilePath -> FilePath -> FilePath
 replace a b = T.unpack . (T.replace `on` T.pack) a b . T.pack

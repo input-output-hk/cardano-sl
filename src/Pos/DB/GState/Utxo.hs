@@ -33,7 +33,9 @@ import           Pos.DB.Class         (MonadDB, getUtxoDB)
 import           Pos.DB.DBIterator    (DBIterator, DBMapIterator, mapIterator,
                                        runIterator)
 import           Pos.DB.Error         (DBError (..))
-import           Pos.DB.Functions     (RocksBatchOp (..), rocksGetBi, traverseAllEntries)
+import           Pos.DB.Functions     (WithKeyPrefix (..), RocksBatchOp (..),
+                                       encodeWithKeyPrefix, rocksGetBi,
+                                       traverseAllEntries)
 import           Pos.DB.GState.Common (getBi, putBi)
 import           Pos.DB.Types         (DB)
 import           Pos.Types            (Address, TxIn (..), TxOutAux, Utxo, belongsTo)
@@ -98,7 +100,7 @@ putTxOut = putBi . txInKey
 type IterType = (TxIn, TxOutAux)
 
 iterateByTx :: forall v m ssc a . (MonadDB ssc m, MonadMask m)
-                => DBMapIterator (IterType -> v) m a -> (IterType -> v) -> m a
+                => DBMapIterator IterType v m a -> (IterType -> v) -> m a
 iterateByTx iter f = mapIterator @IterType @v iter f =<< getUtxoDB
 
 filterUtxo
@@ -112,12 +114,12 @@ filterUtxo p = do
         then return $ M.insert (txInHash k, txInIndex k) v m
         else return m
 
-runUtxoIterator :: forall a ssc m . (MonadDB ssc m, MonadMask m)
-                 => DBIterator m a -> m a
+runUtxoIterator :: forall v ssc m a . (MonadDB ssc m, MonadMask m)
+                 => DBIterator v m a -> m a
 runUtxoIterator iter = runIterator iter =<< getUtxoDB
 
 mapUtxoIterator :: forall u v m ssc a . (MonadDB ssc m, MonadMask m)
-                => DBMapIterator (u -> v) m a -> (u -> v) -> m a
+                => DBMapIterator u v m a -> (u -> v) -> m a
 mapUtxoIterator iter f = mapIterator @u @v iter f =<< getUtxoDB
 
 -- | Get small sub-utxo containing only outputs of given address
@@ -128,13 +130,14 @@ getFilteredUtxo addr = filterUtxo $ \(_, out) -> out `belongsTo` addr
 -- Keys
 ----------------------------------------------------------------------------
 
+instance WithKeyPrefix TxIn where
+    keyPrefix _ = "t/"
+
 genUtxoKey :: ByteString
 genUtxoKey = "ut/gutxo"
 
 txInKey :: TxIn -> ByteString
--- [CSL-379] Restore prefix after we have proper iterator
--- txInKey = (<> "t") . encodeStrict
-txInKey = encodeStrict
+txInKey = encodeWithKeyPrefix
 
 ----------------------------------------------------------------------------
 -- Details

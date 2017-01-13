@@ -21,9 +21,9 @@ import           Pos.Binary.Class  (Bi (..), encodeStrict)
 import           Pos.Crypto        (PublicKey, pskDelegatePk, pskIssuerPk)
 import           Pos.DB.Class      (MonadDB, getUtxoDB)
 import           Pos.DB.DBIterator (DBMapIterator, mapIterator)
-import           Pos.DB.Functions  (RocksBatchOp (..), rocksGetBi)
+import           Pos.DB.Functions  (RocksBatchOp (..), rocksGetBi, WithKeyPrefix (..), encodeWithKeyPrefix)
 import           Pos.Types         (AddressHash, ProxySKSimple, StakeholderId,
-                                    addressHash)
+                                    addressHash, StakeholderId)
 
 
 ----------------------------------------------------------------------------
@@ -68,21 +68,23 @@ instance RocksBatchOp DelegationOp where
 type IterType = (IssuerPublicKey,ProxySKSimple)
 
 iteratePSKs :: forall v m ssc a . (MonadDB ssc m, MonadMask m)
-                => DBMapIterator (IterType -> v) m a -> (IterType -> v) -> m a
+                => DBMapIterator IterType v m a -> (IterType -> v) -> m a
 iteratePSKs iter f = mapIterator @IterType @v iter f =<< getUtxoDB
 
 ----------------------------------------------------------------------------
 -- Keys
 ----------------------------------------------------------------------------
 
--- [CSL-379] Restore prefix after we have proper iterator
 newtype IssuerPublicKey = IssuerPublicKey (AddressHash PublicKey)
     deriving Show
 
 instance Bi IssuerPublicKey where
-    put (IssuerPublicKey p) = put ("d/" :: ByteString) >> put p -- chto by eto ne znaczilo
+    put (IssuerPublicKey p) = put p
     get = (get :: Get ByteString) >> IssuerPublicKey <$> get
+
+instance WithKeyPrefix IssuerPublicKey where
+    keyPrefix _ = "d/"
 
 -- Storing Hash IssuerPk -> ProxySKSimple
 pskKey :: IssuerPublicKey -> ByteString
-pskKey = encodeStrict
+pskKey = encodeWithKeyPrefix

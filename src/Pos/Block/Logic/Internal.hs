@@ -89,6 +89,7 @@ rollbackBlocksUnsafe toRollback = do
     txRoll <- SomeBatchOp <$> txRollbackBlocks toRollback
     sscRollback $ fmap fst toRollback
     GS.writeBatchGState [delRoll, txRoll, forwardLinksBatch, inMainBatch]
+    DB.sanityCheckDB
   where
     inMainBatch =
         SomeBatchOp $

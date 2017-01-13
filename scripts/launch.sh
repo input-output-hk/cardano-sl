@@ -31,7 +31,7 @@ mode=$2
 stats=$3
 
 i=0
-while [[ $i -lt $n ]]; do
+while [[ $i -le $n ]]; do
   im=$((i%4))
   ir=$((i/4))
 
@@ -69,7 +69,11 @@ while [[ $i -lt $n ]]; do
 
   stake_distr=" --flat-distr \"($n, 100000)\" "
 
-  tmux send-keys "$(node_cmd $i "$time_lord" "$dht_conf" "$stats" "$stake_distr" "$wallet_args")" C-m
+  if [[ $i -lt $n ]]; then
+    tmux send-keys "$(node_cmd $i "$time_lord" "$dht_conf" "$stats" "$stake_distr" "$wallet_args")" C-m
+  else
+    tmux send-keys "NODE_COUNT=$n $base/bench/runSmartGen.sh 0 -R 1 -N 2 -t 10 -S 1 --init-money 100000 --recipients-share 0" C-m
+  fi
   i=$((i+1))
 done
 

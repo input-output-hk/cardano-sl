@@ -8,7 +8,7 @@ enhancedMessageBroadcast: 2
 blockRetrievalQueueSize: 100
 
 # Fundamental constants for core protocol
-k: 2
+k: 6
 slotDurationSec: 10
 
 # Time slave/lord

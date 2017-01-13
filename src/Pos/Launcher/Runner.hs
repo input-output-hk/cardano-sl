@@ -189,7 +189,7 @@ runServiceMode res bp@BaseParams{..} listeners action =
     runServer (rmTransport res) listeners $
         \sa -> nodeStartMsg bp >> action sa
 
-runServer :: (MonadIO m, MonadMockable m, MonadFix m)
+runServer :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)
   => Transport -> [Listener BiP m] -> (SendActions BiP m -> m b) -> m b
 runServer transport listeners action = do
     stdGen <- liftIO newStdGen

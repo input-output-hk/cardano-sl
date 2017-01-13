@@ -12,7 +12,6 @@ module Pos.DB.GState.Delegation
        , iteratePSKs
        ) where
 
-import           Data.Binary       (Get)
 import           Data.Maybe        (isJust)
 import qualified Database.RocksDB  as Rocks
 import           Universum
@@ -21,9 +20,10 @@ import           Pos.Binary.Class  (Bi (..), encodeStrict)
 import           Pos.Crypto        (PublicKey, pskDelegatePk, pskIssuerPk)
 import           Pos.DB.Class      (MonadDB, getUtxoDB)
 import           Pos.DB.DBIterator (DBMapIterator, mapIterator)
-import           Pos.DB.Functions  (RocksBatchOp (..), rocksGetBi, WithKeyPrefix (..), encodeWithKeyPrefix)
+import           Pos.DB.Functions  (RocksBatchOp (..), WithKeyPrefix (..),
+                                    encodeWithKeyPrefix, rocksGetBi)
 import           Pos.Types         (AddressHash, ProxySKSimple, StakeholderId,
-                                    addressHash, StakeholderId)
+                                    StakeholderId, addressHash)
 
 
 ----------------------------------------------------------------------------
@@ -75,12 +75,9 @@ iteratePSKs iter f = mapIterator @IterType @v iter f =<< getUtxoDB
 -- Keys
 ----------------------------------------------------------------------------
 
-newtype IssuerPublicKey = IssuerPublicKey (AddressHash PublicKey)
-    deriving Show
-
-instance Bi IssuerPublicKey where
-    put (IssuerPublicKey p) = put p
-    get = (get :: Get ByteString) >> IssuerPublicKey <$> get
+newtype IssuerPublicKey =
+    IssuerPublicKey (AddressHash PublicKey)
+    deriving (Show, Bi)
 
 instance WithKeyPrefix IssuerPublicKey where
     keyPrefix _ = "d/"

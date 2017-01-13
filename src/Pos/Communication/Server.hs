@@ -25,14 +25,13 @@ import           Pos.Communication.Util            (modifyListenerLogger)
 import           Pos.Delegation.Listeners          (delegationListeners,
                                                     delegationStubListeners)
 import           Pos.Ssc.Class.Listeners           (SscListenersClass (..))
-import           Pos.Ssc.Class.Workers             (SscWorkersClass (..))
 import           Pos.Txp.Listeners                 (txListeners, txStubListeners)
 import           Pos.Util                          (withWaitLog, withWaitLogConvL)
 import           Pos.WorkMode                      (WorkMode)
 
 -- | All listeners running on one node.
 allListeners
-    :: (SscListenersClass ssc, SscWorkersClass ssc, WorkMode ssc m)
+    :: (SscListenersClass ssc, WorkMode ssc m)
     => [Listener BiP m]
 allListeners =
     map addWaitLogging $

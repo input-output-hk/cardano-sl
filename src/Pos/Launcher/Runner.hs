@@ -62,9 +62,8 @@ import           Pos.Communication              (BiP (..), SysStartRequest (..),
                                                  allStubListeners, sysStartReqListener,
                                                  sysStartRespListener)
 import           Pos.Communication.PeerState    (runPeerStateHolder)
-import           Pos.Constants                  (blockRetrievalQueueSize, defaultPeers,
-                                                 isDevelopment, networkConnectionTimeout,
-                                                 runningMode)
+import           Pos.Constants                  (blockRetrievalQueueSize,
+                                                 networkConnectionTimeout)
 import qualified Pos.Constants                  as Const
 import           Pos.Context                    (ContextHolder (..), NodeContext (..),
                                                  runContextHolder)
@@ -236,7 +235,7 @@ runStatsMode res np@NodeParams {..} sscnp action = do
 -- Lower level runners
 ----------------------------------------------------------------------------
 
-runCH :: (MonadDB ssc m, MonadFail m, Mockable CurrentTime m)
+runCH :: (MonadDB ssc m, Mockable CurrentTime m)
       => NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
 runCH NodeParams {..} sscNodeContext act = do
     jlFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)

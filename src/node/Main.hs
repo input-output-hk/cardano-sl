@@ -35,8 +35,9 @@ import           Pos.Statistics       (getNoStatsT, getStatsMap, runStatsT')
 import           Pos.Types            (Timestamp)
 import           Pos.Util.UserSecret  (UserSecret, getUSPath, peekUserSecret, usKeys,
                                        usVss, writeUserSecret)
-#ifdef WITH_WEB
 import           Pos.Ssc.Class        (SscConstraint, SscListenersClass)
+
+#ifdef WITH_WEB
 import           Pos.Web              (serveWebBase, serveWebGT)
 import           Pos.WorkMode         (WorkMode)
 #ifdef WITH_WALLET
@@ -272,8 +273,8 @@ walletStats = map (liftPlugin) . walletServe
         lift . p $ hoistSendActions (runStatsT' s) lift sa
 #else
 walletProd, walletStats :: Args -> [a]
-walletProd _ _ = []
-walletStats _ _ = []
+walletProd _ = []
+walletStats _ = []
 #endif
 
 main :: IO ()

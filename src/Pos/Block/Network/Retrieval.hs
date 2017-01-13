@@ -8,7 +8,7 @@ module Pos.Block.Network.Retrieval
        ) where
 
 import           Control.Concurrent.STM.TBQueue (readTBQueue)
-import           Control.Lens                   (view, (^.), _1)
+import           Control.Lens                   (view, (^.))
 import           Control.Monad.Trans.Except     (ExceptT, runExceptT, throwE)
 import           Data.List.NonEmpty             (NonEmpty ((:|)), nonEmpty, (<|))
 import qualified Data.List.NonEmpty             as NE
@@ -16,17 +16,15 @@ import           Formatting                     (build, int, sformat, shown, ste
 import           Mockable                       (fork, handleAll, throw)
 import           Node                           (ConversationActions (..),
                                                  SendActions (..))
-import           Serokell.Util.Text             (listJson, listJsonIndent)
-import           System.Wlog                    (logDebug, logError, logInfo, logWarning)
+import           Serokell.Util.Text             (listJson)
+import           System.Wlog                    (logDebug, logError, logWarning)
 import           Universum
 
 import           Pos.Binary.Communication       ()
 import           Pos.Block.Logic                (ClassifyHeaderRes (..),
-                                                 ClassifyHeadersRes (..), applyBlocks,
-                                                 classifyHeaders, classifyNewHeader,
-                                                 lcaWithMainChain, rollbackBlocks,
-                                                 verifyAndApplyBlocks, withBlkSemaphore,
-                                                 withBlkSemaphore_)
+                                                 ClassifyHeadersRes (..), classifyHeaders,
+                                                 classifyNewHeader, lcaWithMainChain,
+                                                 verifyAndApplyBlocks, withBlkSemaphore)
 import qualified Pos.Block.Logic                as L
 import           Pos.Block.Network.Announce     (announceBlock)
 import           Pos.Block.Network.Types        (MsgBlock (..), MsgGetBlocks (..))

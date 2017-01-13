@@ -22,11 +22,12 @@
     "tests"
   ],
   "devDependencies": {
-    "purescript-psci-support": "^1.0.0"
+    "purescript-psci-support": "^1.0.0",
+    "purescript-debug": "1.0.0"
   },
   "dependencies": {
     "purescript-console": "^1.0.0",
-    "purescript-affjax": "^2.0.1",
+    "purescript-affjax": "https://github.com/serokell/purescript-affjax.git#fix-empty-response-2.0.1",
     "purescript-eff-functions": "^1.0.0",
     "purescript-eff": "^1.0.0",
     "purescript-argonaut": "^1.0.0",
@@ -36,6 +37,8 @@
     "purescript-datetime": "^1.0.0",
     "purescript-aff-promise": "0.2.1",
     "purescript-media-types": "1.0.0",
-    "purescript-functions": "1.0.0"
+    "purescript-functions": "1.0.0",
+    "purescript-websocket-simple": "0.5.0",
+    "purescript-refs": "1.0.0"
   }
 }

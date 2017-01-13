@@ -1,76 +1,28 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
--- | Wrappers on top of communication methods.
+-- | Wrappers on top of communication methods (for Pos.Util.Relay based methods).
 
 module Pos.Communication.Methods
-       (
-       -- * Sending data into network
-         sendToNeighborsSafe
-       , sendToNeighborsSafeWithMaliciousEmulation
-       , sendProxySecretKey
-       , sendProxyConfirmSK
+       ( sendTx
        ) where
 
-import           Control.TimeWarp.Rpc     (Message)
-import           Control.TimeWarp.Timed   (fork_)
-import           Formatting               (build, sformat, (%))
-import           System.Wlog              (logDebug)
+import           Node                        (SendActions)
 import           Universum
 
-import           Pos.Binary.Class         (Bi)
-import           Pos.Binary.Communication ()
-import           Pos.Binary.Types         ()
-import           Pos.Context              (getNodeContext, ncAttackTypes)
-import           Pos.Delegation.Types     (ConfirmProxySK (..), SendProxySK (..))
-import           Pos.DHT.Model            (defaultSendToNeighbors, sendToNeighbors,
-                                           sendToNode)
-import           Pos.Security             (AttackType (..), shouldIgnoreAddress)
-import           Pos.Types                (ProxySKEpoch)
-import           Pos.Util                 (logWarningWaitLinear, messageName')
-import           Pos.WorkMode             (MinWorkMode, WorkMode)
+import           Pos.Binary.Communication    ()
+import           Pos.Binary.Relay            ()
+import           Pos.Binary.Types            ()
+import           Pos.Communication.BiP       (BiP)
+import           Pos.Crypto                  (hash)
+import           Pos.DHT.Model.Neighbors     (sendToNode)
+import           Pos.Txp.Types.Communication (TxMsgContents (..))
+import           Pos.Types                   (TxAux)
+import           Pos.Util.Relay              (DataMsg (..))
+import           Pos.Util.TimeWarp           (NetworkAddress)
+import           Pos.WorkMode                (MinWorkMode)
 
--- thread and controls how much time action takes.
-sendToNeighborsSafeImpl :: (Message r, MinWorkMode ssc m) => (r -> m ()) -> r -> m ()
-sendToNeighborsSafeImpl sender msg = do
-    let msgName = messageName' msg
-    let action = () <$ sender msg
-    fork_ $
-        logWarningWaitLinear 10 ("Sending " <> msgName <> " to neighbors") action
-
-sendToNeighborsSafe :: forall r m ssc . (Bi r, Message r, MinWorkMode ssc m) => r -> m ()
-sendToNeighborsSafe msg = do
-    let action :: forall r0 . (Bi r0, Message r0) => r0 -> m ()
-        action = void . sendToNeighbors
-    --sendToNeighborsSafeImpl action VersionReq
-    sendToNeighborsSafeImpl action msg
-
-sendToNeighborsSafeWithMaliciousEmulation
-    :: forall r m ssc.
-       (Bi r, Message r, WorkMode ssc m)
-    => r -> m ()
-sendToNeighborsSafeWithMaliciousEmulation msg = do
-    cont <- getNodeContext
-    -- [CSL-336] Make this parallel
-    let sender :: forall r0 . (Bi r0, Message r0) => r0 -> m Int
-        sender = if AttackNoBlocks `elem` ncAttackTypes cont
-                 then defaultSendToNeighbors sequence (sendToNode' cont)
-                 else sendToNeighbors
-    --sendToNeighborsSafeImpl (void . sender) VersionReq
-    sendToNeighborsSafeImpl (void . sender) msg
-  where
-    sendToNode' cont addr message =
-        unless (shouldIgnoreAddress cont addr) $
-            sendToNode addr message
-
--- | Sends proxy secret key to neighbours
-sendProxySecretKey :: (MinWorkMode ss m) => ProxySKEpoch -> m ()
-sendProxySecretKey psk = do
-    logDebug $ sformat ("Sending proxySecretKey to neigbours:\n"%build) psk
-    sendToNeighborsSafe $ SendProxySKEpoch psk
-
-sendProxyConfirmSK :: (MinWorkMode ss m) => ConfirmProxySK -> m ()
-sendProxyConfirmSK confirmPSK@(ConfirmProxySK psk _) = do
-    logDebug $
-        sformat ("Sending proxy receival confirmation for psk "%build%" to neigbours") psk
-    sendToNeighborsSafe confirmPSK
+-- | Send Tx to given address.
+sendTx :: (MinWorkMode m) => SendActions BiP m -> NetworkAddress -> TxAux -> m ()
+sendTx sendActions addr (tx,w,d) = do
+    sendToNode sendActions addr $ DataMsg (TxMsgContents tx w d) (hash tx)

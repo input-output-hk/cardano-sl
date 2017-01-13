@@ -4,6 +4,7 @@ module Pos.Binary.Communication () where
 
 import           Data.Binary.Get         (getInt32be, getWord8, label)
 import           Data.Binary.Put         (putInt32be, putWord8)
+import           Node.Message            (MessageName (..))
 import           Universum
 
 import           Pos.Binary.Class        (Bi (..))
@@ -16,7 +17,9 @@ import           Pos.Delegation.Types    (CheckProxySKConfirmed (..),
                                           ConfirmProxySK (..), SendProxySK (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.Txp.Types           (TxMsgTag (..))
-import           Pos.Types               ()
+import           Pos.Update.Types        (ProposalMsgTag (..), VoteMsgTag (..))
+
+deriving instance Bi MessageName
 
 ----------------------------------------------------------------------------
 -- System start
@@ -27,8 +30,8 @@ instance Bi SysStartRequest where
     get = pure SysStartRequest
 
 instance Bi SysStartResponse where
-    put (SysStartResponse t msid) = put t >> put msid
-    get = SysStartResponse <$> get <*> get
+    put (SysStartResponse t) = put t
+    get = SysStartResponse <$> get
 
 ----------------------------------------------------------------------------
 -- Blocks
@@ -94,3 +97,15 @@ instance Bi VersionResp where
     put VersionResp{..} =  putInt32be vRespMagic
                         *> put vRespProtocolVersion
     get = label "GenericBlockHeader" $ VersionResp <$> getInt32be <*> get
+
+----------------------------------------------------------------------------
+-- Update system
+----------------------------------------------------------------------------
+
+instance Bi ProposalMsgTag where
+    put ProposalMsgTag = pure ()
+    get = pure ProposalMsgTag
+
+instance Bi VoteMsgTag where
+    put VoteMsgTag = pure ()
+    get = pure VoteMsgTag

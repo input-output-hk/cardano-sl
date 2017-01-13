@@ -22,7 +22,7 @@ import           Control.Concurrent.STM.TVar          (writeTVar)
 import           Control.Lens                         (view, _3)
 import qualified Control.Monad.Catch                  as Catch
 import           Control.Monad.Except                 (MonadError (throwError))
-import           Control.TimeWarp.Timed               (TimedIO, runTimedIO)
+import           Mockable                             (Production (runProduction), throw)
 import           Network.Wai                          (Application)
 import           Network.Wai.Handler.Warp             (run)
 import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
@@ -35,9 +35,10 @@ import           Universum
 import           Pos.Aeson.Types                      ()
 import           Pos.Context                          (ContextHolder, NodeContext,
                                                        getNodeContext, ncPublicKey,
-                                                       ncSscContext, runContextHolder,
-                                                       tryReadLeaders)
+                                                       ncSscContext, runContextHolder)
 import qualified Pos.DB                               as DB
+import qualified Pos.DB.GState                        as GS
+import qualified Pos.DB.Lrc                           as LrcDB
 import           Pos.Slotting                         (getCurrentSlot)
 import           Pos.Ssc.Class                        (SscConstraint)
 import           Pos.Ssc.GodTossing                   (SscGodTossing, getOpening,
@@ -49,7 +50,7 @@ import           Pos.Txp.Class                        (getLocalTxs, getTxpLDWrap
 import           Pos.Txp.Holder                       (TxpLDHolder, TxpLDWrap,
                                                        runTxpLDHolderReader)
 import           Pos.Types                            (EpochIndex (..), SharedSeed,
-                                                       SlotLeaders, siSlot)
+                                                       SlotId (..), SlotLeaders, siSlot)
 import           Pos.Util                             (fromBinaryM)
 import           Pos.Web.Api                          (BaseNodeApi, GodTossingApi,
                                                        GtNodeApi, baseNodeApi, gtNodeApi)
@@ -88,8 +89,7 @@ serveImpl application port =
 -- Servant infrastructure
 ----------------------------------------------------------------------------
 
-type WebHandler ssc = ContextHolder ssc (TxpLDHolder ssc (DB.DBHolder ssc TimedIO))
--- type WebHandler ssc = TxLDImpl (ContextHolder ssc (St.DBHolder ssc TimedIO))
+type WebHandler ssc = ContextHolder ssc (TxpLDHolder ssc (DB.DBHolder ssc Production))
 
 convertHandler
     :: forall ssc a.
@@ -100,7 +100,7 @@ convertHandler
     -> WebHandler ssc a
     -> Handler a
 convertHandler nc nodeDBs wrap handler =
-    liftIO (runTimedIO .
+    liftIO (runProduction .
             DB.runDBHolder nodeDBs .
             runTxpLDHolderReader wrap .
             runContextHolder nc $
@@ -136,10 +136,12 @@ servantServerGT = flip enter (baseServantHandlers :<|> gtServantHandlers) <$>
 baseServantHandlers :: ServerT (BaseNodeApi ssc) (WebHandler ssc)
 baseServantHandlers =
     getCurrentSlot :<|> const getLeaders :<|> (ncPublicKey <$> getNodeContext) :<|>
-    DB.getTip :<|> getLocalTxsNum
+    GS.getTip :<|> getLocalTxsNum
 
 getLeaders :: WebHandler ssc SlotLeaders
-getLeaders = maybe (throwM err) pure =<< tryReadLeaders
+getLeaders = do
+    SlotId{..} <- getCurrentSlot
+    maybe (throwM err) pure =<< LrcDB.getLeaders siEpoch
   where
     err = err404 { errBody = encodeUtf8 ("Leaders are not know for current epoch"::Text) }
 
@@ -165,7 +167,7 @@ gtHasSecret :: GtWebHandler Bool
 gtHasSecret = isJust <$> getSecret
 
 getOurSecret :: GtWebHandler SharedSeed
-getOurSecret = maybe (throwM err) (pure . convertGtSecret) =<< getSecret
+getOurSecret = maybe (throw err) (pure . convertGtSecret) =<< getSecret
   where
     err = err404 { errBody = "I don't have secret" }
     doPanic = panic "our secret is malformed"

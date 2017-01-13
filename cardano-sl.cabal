@@ -45,22 +45,24 @@ library
                         Pos.Constants
                         Pos.Crypto
                         Pos.DB
+                        Pos.DB.GState
                         Pos.Data.Attributes
                         Pos.Delegation
-                        Pos.DHT
+                        -- Pos.DHT
                         Pos.DHT.Model
+                        Pos.DHT.Model.Neighbors
                         Pos.DHT.Model.Types
                         Pos.DHT.Model.Util
                         Pos.DHT.Model.Class
-                        Pos.DHT.Model.Class.BiP
-                        Pos.DHT.Model.Class.MonadDHT
-                        Pos.DHT.Model.Class.MonadMessageDHT
                         Pos.DHT.Real
                         Pos.DHT.Real.Real
                         Pos.DHT.Real.Types
-                        Pos.Eligibility
                         Pos.Genesis
-                        Pos.FollowTheSatoshi
+
+                        -- LRC
+                        Pos.Lrc
+                        Pos.Lrc.FollowTheSatoshi
+
                         Pos.Script
                         Pos.Script.Examples
                         Pos.Script.Type
@@ -94,13 +96,15 @@ library
                         Pos.Types.Timestamp
                         Pos.Types.Tx
                         Pos.Types.Types
-                        Pos.Types.Update
                         Pos.Types.Utxo
                         Pos.Types.Version
+                        Pos.Update
+                        Pos.Update.Types
                         Pos.Util
                         Pos.Util.JsonLog
                         Pos.Util.Relay
                         Pos.Util.UserSecret
+                        Pos.Util.TimeWarp
                         Pos.Worker
                         Pos.WorkMode
   if flag(with-web)
@@ -109,8 +113,9 @@ library
     exposed-modules:    Pos.Wallet
   if flag(with-wallet) && flag(with-web)
     exposed-modules:    Pos.Wallet.Web
-                        Pos.Wallet.Web.ClientTypes
   other-modules:        Pos.Aeson.CompileConfig
+
+                        -- Binary serialization
                         Pos.Binary.Address
                         Pos.Binary.Class
                         Pos.Binary.Crypto
@@ -125,18 +130,22 @@ library
                         Pos.Binary.Update
                         Pos.Binary.Util
                         Pos.Binary.Version
+
+                        -- Block processing
+                        Pos.Block.Error
                         Pos.Block.Logic
+                        Pos.Block.Logic.Internal
                         Pos.Block.Network.Announce
-                        Pos.Block.Network.Request
                         Pos.Block.Network.Types
-                        Pos.Block.Network.Server
-                        Pos.Block.Network.Server.State
-                        Pos.Block.Network.Server.Listeners
-                        Pos.Block.Network.Server.Strategy
+                        Pos.Block.Network.Listeners
+                        Pos.Block.Network.Retrieval
                         Pos.Block.Worker
+
+                        -- Network
                         Pos.Communication.Arbitrary
+                        Pos.Communication.BiP
                         Pos.Communication.Methods
-                        Pos.Communication.RelayMethods
+                        Pos.Communication.PeerState
                         Pos.Communication.Types
                         Pos.Communication.Types.Protocol
                         Pos.Communication.Types.State
@@ -145,11 +154,18 @@ library
                         Pos.Communication.Server.Protocol
                         Pos.Communication.Server.SysStart
                         Pos.Communication.Util
+
+                        -- Compile config
                         Pos.CompileConfig.Parser
                         Pos.CompileConfig.Type
+
+                        -- NodeContext
                         Pos.Context.Class
                         Pos.Context.Context
+                        Pos.Context.Functions
                         Pos.Context.Holder
+
+                        -- Crypto
                         Pos.Crypto.Arbitrary
                         Pos.Crypto.Arbitrary.Hash
                         Pos.Crypto.Arbitrary.Unsafe
@@ -158,35 +174,59 @@ library
                         Pos.Crypto.Random
                         Pos.Crypto.SecretSharing
                         Pos.Crypto.Signing
+
+                        -- Heavy delegation
                         Pos.Delegation.Class
+                        Pos.Delegation.Methods
                         Pos.Delegation.Types
                         Pos.Delegation.Listeners
                         Pos.Delegation.Logic
+                        Pos.Delegation.Lrc
+
+                        -- Launcher
                         Pos.Launcher.Launcher
                         Pos.Launcher.Options
                         Pos.Launcher.Param
                         Pos.Launcher.Runner
                         Pos.Launcher.Scenario
+
+                        -- DB
                         Pos.DB.Block
                         Pos.DB.Class
                         Pos.DB.DB
+                        Pos.DB.DBIterator
                         Pos.DB.Error
                         Pos.DB.Functions
-                        Pos.DB.GState
                         Pos.DB.GState.Balances
                         Pos.DB.GState.Common
                         Pos.DB.GState.Delegation
                         Pos.DB.GState.GState
                         Pos.DB.GState.Update
+                        Pos.DB.GState.BlockExtra
                         Pos.DB.GState.Utxo
                         Pos.DB.Holder
+                        Pos.DB.Lrc
+                        Pos.DB.Lrc.Common
+                        Pos.DB.Lrc.Leaders
+                        Pos.DB.Lrc.Lrc
+                        Pos.DB.Lrc.Richmen
                         Pos.DB.Misc
                         Pos.DB.Types
-                        Pos.DB.DBIterator
-                        Pos.DHT.Arbitrary
+
+                        -- LRC
+                        Pos.Lrc.Consumer
+                        Pos.Lrc.Consumers
+                        Pos.Lrc.Error
+                        Pos.Lrc.Eligibility
+                        Pos.Lrc.Types
+                        Pos.Lrc.Worker
+
+                        -- SSC
                         Pos.Ssc.Extra.Holder
                         Pos.Ssc.Extra.MonadGS
                         Pos.Ssc.Extra.MonadLD
+                        Pos.Ssc.Extra.Richmen
+                        Pos.Ssc.GodTossing.Richmen
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions
@@ -196,8 +236,6 @@ library
                         Pos.Ssc.GodTossing.LocalData.Helpers
                         Pos.Ssc.GodTossing.LocalData.LocalData
                         Pos.Ssc.GodTossing.LocalData.Types
-                        Pos.Ssc.GodTossing.Secret.SecretStorage
-                        Pos.Ssc.GodTossing.Secret.Types
                         Pos.Ssc.GodTossing.SecretStorage
                         Pos.Ssc.GodTossing.Seed
                         Pos.Ssc.GodTossing.Shares
@@ -211,10 +249,14 @@ library
                         Pos.Ssc.GodTossing.Utils
                         Pos.Ssc.GodTossing.VssCertData
                         Pos.Ssc.GodTossing.Workers
+
+                        -- Statistics
                         Pos.Statistics.Helpers
                         Pos.Statistics.MonadStats
                         Pos.Statistics.StatEntry
                         Pos.Statistics.Tx
+
+                        -- Txp
                         Pos.Txp.Class
                         Pos.Txp.Error
                         Pos.Txp.Holder
@@ -223,13 +265,35 @@ library
                         Pos.Txp.Types.Communication
                         Pos.Txp.Types.Types
                         Pos.Txp.Types.UtxoView
+
+                        -- Types
+                        Pos.Types.SharedSeed
                         Pos.Types.Utxo.Class
                         Pos.Types.Utxo.Functions
                         Pos.Types.Utxo.Pure
-                        Pos.Worker.Lrc
+                        Pos.Worker.Ntp
+
+                        -- Workers
                         Pos.Worker.Stats
-                        Pos.Update
+
+                        -- Update System
                         Pos.Update.Download
+                        Pos.Update.Error
+                        Pos.Update.Listeners
+                        Pos.Update.Logic
+                        Pos.Update.Lrc
+                        Pos.Update.MemState
+                        Pos.Update.MemState.Class
+                        Pos.Update.MemState.Holder
+                        Pos.Update.MemState.MemState
+                        Pos.Update.MemState.Types
+                        Pos.Update.Poll
+                        Pos.Update.Poll.Class
+                        Pos.Update.Types.Communication
+                        Pos.Update.Types.Types
+                        Pos.Update.Worker
+
+                        -- Utilities/helpers
                         Pos.Util.Arbitrary
                         Pos.Util.Iterator
                         Pos.Util.NotImplemented
@@ -261,12 +325,15 @@ library
                         Pos.Wallet.Context.Holder
   if (flag(with-wallet) && flag(with-web))
     other-modules:      Pos.Aeson.ClientTypes
+                        Pos.Wallet.Web.ClientTypes
                         Pos.Wallet.Web.Api
                         Pos.Wallet.Web.Doc
+                        Pos.Wallet.Web.Error
                         Pos.Wallet.Web.Server
                         Pos.Wallet.Web.Server.Methods
                         Pos.Wallet.Web.Server.Full
                         Pos.Wallet.Web.Server.Lite
+                        Pos.Wallet.Web.Server.Sockets
                         Pos.Wallet.Web.State
                         Pos.Wallet.Web.State.Acidic
                         Pos.Wallet.Web.State.Holder
@@ -304,6 +371,7 @@ library
                       , filepath
                       , focus
                       , formatting
+                      , gitrev
                       , hashable
                       , http-client
                       , http-client-tls
@@ -320,6 +388,9 @@ library
                       , mono-traversable
                       , mtl
                       , neat-interpolation
+                      , network-transport
+                      , network-transport-tcp
+                      , node-sketch
                       , optparse-applicative
                       , optparse-simple
                       , parsec
@@ -328,7 +399,7 @@ library
                       , quickcheck-instances
                       , random
                       , resourcet
-                      , rocksdb
+                      , rocksdb >= 0.1.0.1
                       , safecopy
                       , serokell-util
                       , stm
@@ -340,7 +411,7 @@ library
                       , th-lift-instances
                       , time
                       , time-units
-                      , time-warp
+                      , list-t
                       , transformers
                       , transformers-base
                       , universum >= 0.1.11
@@ -356,6 +427,8 @@ library
                       , wai
                       , wai-extra
                       , warp
+                      , websockets
+                      , wai-websockets
   hs-source-dirs:       src
   default-language:     Haskell2010
   ghc-options:         -Wall
@@ -404,10 +477,11 @@ executable cardano-node
                      , filepath
                      , formatting
                      , log-warper >= 0.1.0
+                     , network-transport
+                     , node-sketch
                      , optparse-simple
                      , parsec
                      , serokell-util
-                     , time-warp
                      , universum >= 0.1.11
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
@@ -456,7 +530,7 @@ executable cardano-analyzer
                      , serokell-util
                      , text
                      , time
-                     , time-warp
+                     , time-units
                      , universum >= 0.1.11
                      , unordered-containers
   default-language:    Haskell2010
@@ -502,12 +576,13 @@ executable cardano-wallet
                      , lifted-async
                      , log-warper >= 0.1.0
                      , mtl
+                     , network-transport
+                     , node-sketch
                      , optparse-applicative
                      , parsec
                      , serokell-util
                      , text
                      , time
-                     , time-warp
                      , universum >= 0.1.11
                      , unordered-containers
   default-language:    Haskell2010
@@ -608,6 +683,7 @@ executable cardano-smart-generator
                      , lens
                      , lifted-async
                      , log-warper >= 0.1.0
+                     , node-sketch
                      , optparse-applicative
                      , parsec
                      , random
@@ -616,7 +692,7 @@ executable cardano-smart-generator
                      , stm
                      , text
                      , time
-                     , time-warp
+                     , time-units
                      , universum >= 0.1.11
                      , unordered-containers
                      , vector
@@ -744,6 +820,39 @@ executable cardano-checks
                        -O2
   default-extensions:  OverloadedStrings
 
+executable cardano-keygen
+  hs-source-dirs:      src/keygen
+  main-is:             Main.hs
+  build-depends:       base
+                     , cardano-sl
+                     , universum >= 0.1
+                     , text
+                     , lens
+                     , optparse-applicative >= 0.12
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -with-rtsopts=-N
+                       -O2
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+
 test-suite cardano-test
   main-is:             Test.hs
   other-modules:       Spec
@@ -769,6 +878,8 @@ test-suite cardano-test
                        Test.Pos.Types.SlottingSpec
                        Test.Pos.Types.TxSpec
                        Test.Pos.Types.UtxoSpec
+                       Test.Pos.Update.Identity.BinarySpec
+                       Test.Pos.Update.Identity.SafeCopySpec
                        Test.Pos.Util
                        Test.Pos.UtilSpec
   type:                exitcode-stdio-1.0
@@ -793,7 +904,6 @@ test-suite cardano-test
                      , regex-tdfa
                      , regex-tdfa-text
                      , time-units
-                     , time-warp
                      , universum >= 0.1.11
                      , unordered-containers
                      , vector

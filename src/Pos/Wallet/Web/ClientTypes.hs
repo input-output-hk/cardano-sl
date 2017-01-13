@@ -22,15 +22,17 @@ module Pos.Wallet.Web.ClientTypes
       , CWallet (..)
       , CWalletType (..)
       , CWalletMeta (..)
+      , NotifyEvent (..)
       , addressToCAddress
       , cAddressToAddress
       , mkCTx
       , mkCTxId
       , txIdToCTxId
       , ctTypeMeta
+      , txContainsTitle
       ) where
 
-import           Data.Text             (Text)
+import           Data.Text             (Text, isInfixOf)
 import           GHC.Generics          (Generic)
 import           Universum
 
@@ -42,6 +44,12 @@ import           Pos.Aeson.Types       ()
 import           Pos.Types             (Address (..), Coin, Tx, TxId, decodeTextAddress,
                                         sumCoins, txOutAddress, txOutValue, txOutputs,
                                         unsafeIntegerToCoin)
+
+-- Notifications
+data NotifyEvent
+    = ConnectionOpened
+    | ConnectionClosed
+    deriving (Show, Generic)
 
 -- | currencies handled by client
 -- Note: Cardano does not deal with other currency than ADA yet
@@ -82,7 +90,7 @@ mkCTx :: Address -> (TxId, Tx, Bool) -> CTxMeta -> CTx
 mkCTx addr (txId, tx, isOutgoing) = CTx (txIdToCTxId txId) outputCoins . meta
   where
     outputCoins = unsafeIntegerToCoin . sumCoins . map txOutValue $
-        filter ((/= addr) . txOutAddress) $ txOutputs tx
+        filter (xor isOutgoing . (== addr) . txOutAddress) $ txOutputs tx
     meta = if isOutgoing then CTOut else CTIn
 
 ----------------------------------------------------------------------------
@@ -104,7 +112,7 @@ data CWalletMeta = CWalletMeta
     } deriving (Show, Generic)
 
 instance Default CWalletMeta where
-    def = CWalletMeta CWTPersonal ADA ""
+    def = CWalletMeta CWTPersonal ADA "Personal Wallet"
 
 -- | Client Wallet (CW)
 -- (Flow type: walletType)
@@ -129,8 +137,9 @@ data CProfile = CProfile
     , cpEmail       :: Text
     , cpPhoneNumber :: Text
     , cpPwHash      :: CPwHash
-    , cpPwCreated   :: Text -- TODO jk: should be NominalDiffTime
+    , cpPwCreated   :: POSIXTime
     , cpLocale      :: Text
+    , cpPicture     :: Text -- TODO: base64
     } deriving (Show, Generic)
 
 ----------------------------------------------------------------------------
@@ -166,6 +175,9 @@ data CTx = CTx
     , ctAmount :: Coin
     , ctType   :: CTType -- it includes all "meta data"
     } deriving (Show, Generic)
+
+txContainsTitle :: Text -> CTx -> Bool
+txContainsTitle search = isInfixOf search . ctmTitle . ctTypeMeta . ctType
 
 -- | meta data of exchanges
 data CTExMeta = CTExMeta

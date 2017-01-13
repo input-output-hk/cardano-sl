@@ -5,22 +5,20 @@ import Control.Monad.Aff (Aff)
 import Control.Monad.Eff.Exception (error, Error)
 import Control.Monad.Error.Class (throwError)
 import Daedalus.Constants (backendPrefix)
-import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency)
+import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency, WalletError, showCCurrency)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (decodeJson, encodeJson)
-import Data.Array.Partial (last)
 import Data.Bifunctor (bimap)
 import Data.Either (either, Either(Left))
 import Data.Generic (class Generic, gShow)
 import Data.HTTP.Method (Method(POST))
 import Data.Maybe (Maybe(Just))
 import Data.MediaType.Common (applicationJSON)
-import Data.String (split, joinWith)
+import Data.String (joinWith)
 import Network.HTTP.Affjax (AffjaxResponse, affjax, defaultRequest, AJAX, URL, AffjaxRequest)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Network.HTTP.RequestHeader (RequestHeader(ContentType))
 import Network.HTTP.StatusCode (StatusCode(..))
-import Partial.Unsafe (unsafePartial)
 
 -- HELPERS
 
@@ -35,24 +33,32 @@ backendApi path = mkUrl $ [backendPrefix, "api"] <> path
 data ApiError
     = HTTPStatusError (AffjaxResponse Json)
     | JSONDecodingError String
+    | ServerError WalletError
 
 instance showApiError :: Show ApiError where
     show (HTTPStatusError res) =
-        "HTTPStatusError: " <> show res.status
+        "HTTPStatusError: " <> show res.status <> " msg: " <> show res.response
     show (JSONDecodingError e) =
         "JSONDecodingError: " <> show e
+    show (ServerError e) =
+        "ServerError: " <> gShow e
 
 -- REQUESTS HELPERS
 
 decodeResult :: forall a eff. Generic a => {response :: Json | eff} -> Either Error a
-decodeResult res = bimap (error <<< show <<< JSONDecodingError) id $ decodeJson res.response
+decodeResult = either (Left <<< mkJSONError) (bimap mkServerError id) <<< decodeJson <<< _.response
+  where
+    mkJSONError = error <<< show <<< JSONDecodingError
+    mkServerError = error <<< show <<< ServerError
 
 makeRequest :: forall eff a r. (Generic a, Requestable r) => AffjaxRequest r -> URLPath -> Aff (ajax :: AJAX | eff) a
 makeRequest request urlPath = do
     res <- affjax $ request { url = backendApi urlPath }
-    when (res.status /= StatusCode 200) $
-      throwError <<< error <<< show $ HTTPStatusError res
+    when (isHttpError res.status) $
+        throwError <<< error <<< show $ HTTPStatusError res
     either throwError pure $ decodeResult res
+  where
+    isHttpError (StatusCode c) = c >= 400
 
 getR :: forall eff a. Generic a => URLPath -> Aff (ajax :: AJAX | eff) a
 getR = makeRequest defaultRequest
@@ -77,8 +83,14 @@ getWallet addr = getR ["get_wallet", _address addr]
 getHistory :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) (Array CTx)
 getHistory addr = getR ["history", _address addr]
 
+searchHistory :: forall eff. CAddress -> String -> Int -> Aff (ajax :: AJAX | eff) (Array CTx)
+searchHistory addr search limit = getR ["history", _address addr, search, show limit]
+
 send :: forall eff. CAddress -> CAddress -> Coin -> Aff (ajax :: AJAX | eff) CTx
 send addrFrom addrTo amount = postR ["send", _address addrFrom, _address addrTo, show $ _coin amount]
+
+sendExtended :: forall eff. CAddress -> CAddress -> Coin -> CCurrency -> String -> String -> Aff (ajax :: AJAX | eff) CTx
+sendExtended addrFrom addrTo amount curr title desc = postR ["send", _address addrFrom, _address addrTo, show $ _coin amount, showCCurrency curr, title, desc]
 
 newWallet :: forall eff. CWalletMeta -> Aff (ajax :: AJAX | eff) CWallet
 newWallet = postRBody ["new_wallet"]
@@ -94,7 +106,4 @@ deleteWallet :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) Unit
 deleteWallet addr = postR ["delete_wallet", _address addr]
 
 isValidAddress :: forall eff. CCurrency -> String -> Aff (ajax :: AJAX | eff) Boolean
-isValidAddress cCurrency addr = getR ["valid_address", dropModuleName $ gShow cCurrency, addr]
-  where
-    -- TODO: this is again stupid. We should derive Show for this type instead of doing this
-    dropModuleName = unsafePartial last <<< split "."
+isValidAddress cCurrency addr = getR ["valid_address", showCCurrency cCurrency, addr]

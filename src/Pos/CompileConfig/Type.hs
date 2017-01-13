@@ -6,8 +6,8 @@
 -}
 
 module Pos.CompileConfig.Type
-    ( CompileConfig (..)
-    ) where
+       ( CompileConfig (..)
+       ) where
 
 import           Data.String                (String)
 import           Language.Haskell.TH.Syntax (Lift)
@@ -33,18 +33,41 @@ data CompileConfig = CompileConfig
       -- ^ Number of slots to broadcast system time
     , ccMpcSendInterval               :: !Word
       -- ^ Length of interval for sending MPC message
+    , ccMpcThreshold                  :: !Double
+      -- ^ Threshold for ssc/mpc participation
     , ccMdNoBlocksSlotThreshold       :: !Int
       -- ^ Threshold of slots for malicious activity detection
     , ccMdNoCommitmentsEpochThreshold :: !Int
       -- ^ Threshold of epochs for malicious activity detection
     , ccVssMaxTTL                     :: !Word64
       -- ^ VSS certificates max timeout to live (number of epochs)
+    , ccVssMinTTL                     :: !Word64
+      -- ^ VSS certificates min timeout to live (number of epochs)
     , ccProtocolMagic                 :: !Int
       -- ^ Magic constant for separating real/testnet
-    , ccEnchancedMessageBroadcast     :: !Word
-      -- ^ True if we should enable enchanced bessage broadcast
+    , ccEnhancedMessageBroadcast      :: !Word
+      -- ^ True if we should enable enhanced bessage broadcast
+    , ccDelegationThreshold           :: !Double
+      -- ^ Threshold for heavyweight delegation.
     , ccUpdateServers                 :: ![String]
       -- ^ Servers for downloading application updates
     , ccMaxBlockProxySKs              :: !Int
       -- ^ Maximum number of PSKs allowed in block
+    , ccNtpResponseTimeout            :: !Int
+      -- ^ How often request to NTP server and response collection
+    , ccNtpPollDelay                  :: !Int
+      -- ^ How often send request to NTP server
+    , ccUpdateProposalThreshold       :: !Double
+      -- ^ Portion of total stake such that block containing
+      -- UpdateProposal must contain positive votes for this proposal
+      -- from stakeholders owning at least this amount of stake.
+    , ccUpdateVoteThreshold           :: !Double
+      -- ^ Portion of total stake necessary to vote for or against update.
+    , ccUpdateImplicitApproval        :: !Word
+      -- ^ Number of slots after which update is implicitly approved
+      -- unless it has more negative votes than positive.
+    , ccNetworkConnectionTimeout      :: !Int
+      -- ^ Network connection timeout in milliseconds
+    , ccBlockRetrievalQueueSize       :: !Int
+      -- ^ Block retrieval queue capacity
     } deriving (Show, Lift)

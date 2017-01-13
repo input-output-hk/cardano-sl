@@ -5,47 +5,52 @@
 
 module Main where
 
-import           Control.Monad.Reader   (MonadReader (..), ReaderT, asks, runReaderT)
-import           Control.TimeWarp.Rpc   (NetworkAddress)
-import           Control.TimeWarp.Timed (for, wait)
-import           Data.List              ((!!))
-import qualified Data.Text              as T
-import           Formatting             (build, int, sformat, stext, (%))
-import           Options.Applicative    (execParser)
-import           System.IO              (hFlush, stdout)
+import           Control.Monad.Reader (MonadReader (..), ReaderT, asks, runReaderT, ask)
+import           Data.List            ((!!))
+import           Data.Proxy           (Proxy (..))
+import qualified Data.Text            as T
+import           Formatting           (build, int, sformat, stext, (%))
+import           Node                 (SendActions, hoistSendActions)
+import           Mockable             (delay)
+import           Options.Applicative  (execParser)
+import           System.IO            (hFlush, stdout)
 import           Universum
 
-import qualified Pos.CLI                as CLI
-import           Pos.Communication      (sendProxySecretKey)
-import           Pos.Constants          (slotDuration)
-import           Pos.Crypto             (SecretKey, createProxySecretKey, toPublic)
-import           Pos.DHT.Model          (DHTNodeType (..), dhtAddr, discoverPeers)
-import           Pos.Genesis            (genesisPublicKeys, genesisSecretKeys)
-import           Pos.Launcher           (BaseParams (..), LoggingParams (..),
-                                         bracketDHTInstance, runTimeSlaveReal)
-import           Pos.Ssc.SscAlgo        (SscAlgo (..))
-import           Pos.Types              (EpochIndex (..), coinF, makePubKeyAddress, txaF)
-import           Pos.Wallet             (WalletMode, WalletParams (..), WalletRealMode,
-                                         getBalance, runWalletReal, submitTx)
+import qualified Pos.CLI              as CLI
+import           Pos.Constants        (slotDuration)
+import           Pos.Communication (BiP)
+import           Pos.Crypto           (SecretKey, createProxySecretKey, toPublic)
+import           Pos.Delegation       (sendProxySKEpoch, sendProxySKSimple)
+import           Pos.DHT.Model        (DHTNodeType (..), dhtAddr, discoverPeers)
+import           Pos.Genesis          (genesisPublicKeys, genesisSecretKeys)
+import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
+                                       bracketResources, runTimeSlaveReal)
+import           Pos.Ssc.GodTossing   (SscGodTossing)
+import           Pos.Ssc.NistBeacon   (SscNistBeacon)
+import           Pos.Ssc.SscAlgo      (SscAlgo (..))
+import           Pos.Types            (EpochIndex (..), coinF, makePubKeyAddress, txaF)
+import           Pos.Util.TimeWarp    (NetworkAddress)
+import           Pos.Wallet           (WalletMode, WalletParams (..), WalletRealMode,
+                                       getBalance, runWalletReal, submitTx)
 #ifdef WITH_WEB
-import           Pos.Wallet.Web         (walletServeWebLite)
+import           Pos.Wallet.Web       (walletServeWebLite)
 #endif
 
-import           Command                (Command (..), parseCommand)
-import           WalletOptions          (WalletAction (..), WalletOptions (..), optsInfo)
+import           Command              (Command (..), parseCommand)
+import           WalletOptions        (WalletAction (..), WalletOptions (..), optsInfo)
 
 type CmdRunner = ReaderT ([SecretKey], [NetworkAddress])
 
-runCmd :: WalletMode ssc m => Command -> CmdRunner m ()
-runCmd (Balance addr) = lift (getBalance addr) >>=
+runCmd :: WalletMode ssc m => SendActions BiP m -> Command -> CmdRunner m ()
+runCmd _ (Balance addr) = lift (getBalance addr) >>=
                          putText . sformat ("Current balance: "%coinF)
-runCmd (Send idx outputs) = do
+runCmd sendActions (Send idx outputs) = do
     (skeys, na) <- ask
-    etx <- lift $ submitTx (skeys !! idx) na (map (,[]) outputs)
+    etx <- lift $ submitTx sendActions (skeys !! idx) na (map (,[]) outputs)
     case etx of
         Left err -> putText $ sformat ("Error: "%stext) err
         Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
-runCmd Help = do
+runCmd _ Help = do
     putText $
         unlines
             [ "Avaliable commands:"
@@ -53,64 +58,70 @@ runCmd Help = do
             , "   send <N> [<address> <coins>]+  -- create and send transaction with given outputs"
             , "                                     from own address #N"
             , "   listaddr                       -- list own addresses"
-            , "   delegate <N> <M>               -- delegate secret key #N to #M (genesis)"
+            , "   delegate-light <N> <M>         -- delegate secret key #N to #M (genesis) light version"
+            , "   delegate-hard <N> <M>          -- delegate secret key #N to #M (genesis) hardweight "
             , "   help                           -- show this message"
             , "   quit                           -- shutdown node wallet"
             ]
-runCmd ListAddresses = do
+runCmd _ ListAddresses = do
     addrs <- map (makePubKeyAddress . toPublic) <$> asks fst
     putText "Available addrsses:"
     forM_ (zip [0 :: Int ..] addrs) $
         putText . uncurry (sformat $ "    #"%int%":   "%build)
-runCmd (Delegate i j) = do
+runCmd sendActions (DelegateLight i j) = do
     let issuerSk = genesisSecretKeys !! i
         delegatePk = genesisPublicKeys !! j
-        proxySig =
-            createProxySecretKey issuerSk delegatePk (EpochIndex 0, EpochIndex 50)
-    putText $ pretty issuerSk
-    putText $ pretty delegatePk
-    putText "sending cert"
-    sendProxySecretKey proxySig
-    putText "sent cert"
-runCmd Quit = pure ()
+    r <- ask
+    sendProxySKEpoch (hoistSendActions lift (`runReaderT` r) sendActions) $
+        createProxySecretKey issuerSk delegatePk (EpochIndex 0, EpochIndex 50)
+    putText "Sent lightweight cert"
+runCmd sendActions (DelegateHeavy i j) = do
+    let issuerSk = genesisSecretKeys !! i
+        delegatePk = genesisPublicKeys !! j
+    r <- ask
+    sendProxySKSimple (hoistSendActions lift (`runReaderT` r) sendActions) $
+        createProxySecretKey issuerSk delegatePk ()
+    putText "Sent heavyweight cert"
+runCmd _ Quit = pure ()
 
-evalCmd :: WalletMode ssc m => Command -> CmdRunner m ()
-evalCmd Quit = pure ()
-evalCmd cmd  = runCmd cmd >> evalCommands
+evalCmd :: WalletMode ssc m => SendActions BiP m -> Command -> CmdRunner m ()
+evalCmd _ Quit = pure ()
+evalCmd sa cmd  = runCmd sa cmd >> evalCommands sa
 
-evalCommands :: WalletMode ssc m => CmdRunner m ()
-evalCommands = do
+evalCommands :: WalletMode ssc m => SendActions BiP m -> CmdRunner m ()
+evalCommands sa = do
     putStr @Text "> "
     liftIO $ hFlush stdout
     line <- getLine
     let cmd = parseCommand line
     case cmd of
-        Left err  -> putStrLn err >> evalCommands
-        Right cmd -> evalCmd cmd
+        Left err  -> putStrLn err >> evalCommands sa
+        Right cmd -> evalCmd sa cmd
 
 initialize :: WalletMode ssc m => WalletOptions -> m [NetworkAddress]
 initialize WalletOptions{..} = do
     -- Wait some time to ensure blockchain is fetched
     putText $ sformat ("Started node. Waiting for "%int%" slots...") woInitialPause
-    wait $ for $ fromIntegral woInitialPause * slotDuration
+    delay $ fromIntegral woInitialPause * slotDuration
     fmap dhtAddr <$> discoverPeers DHTFull
 
-runWalletRepl :: WalletMode ssc m => WalletOptions -> m ()
-runWalletRepl wo = do
+runWalletRepl :: WalletMode ssc m => WalletOptions -> SendActions BiP m -> m ()
+runWalletRepl wo sa = do
     na <- initialize wo
     putText "Welcome to Wallet CLI Node"
-    runReaderT (evalCmd Help) (genesisSecretKeys, na)
+    runReaderT (evalCmd sa Help) (genesisSecretKeys, na)
 
-runWalletCmd :: WalletMode ssc m => WalletOptions -> Text -> m ()
-runWalletCmd wo str = do
+runWalletCmd :: WalletMode ssc m => WalletOptions -> Text -> SendActions BiP m -> m ()
+runWalletCmd wo str sa = do
     na <- initialize wo
     let strs = T.splitOn "," str
     flip runReaderT (genesisSecretKeys, na) $ forM_ strs $ \scmd -> do
         let mcmd = parseCommand scmd
         case mcmd of
             Left err   -> putStrLn err
-            Right cmd' -> runCmd cmd'
-    liftIO exitSuccess
+            Right cmd' -> runCmd sa cmd'
+    putText "Command execution finished"
+    putText " " -- for exit by SIGPIPE
 
 main :: IO ()
 main = do
@@ -129,14 +140,15 @@ main = do
             , bpDHTKeyOrType       = Right DHTFull
             , bpDHTExplicitInitial = CLI.dhtExplicitInitial woCommonArgs
             }
-
-    bracketDHTInstance baseParams $ \inst -> do
+    bracketResources baseParams $ \res -> do
         let timeSlaveParams =
                 baseParams
                 { bpLoggingParams = logParams { lpRunnerTag = "time-slave" }
                 }
 
-        systemStart <- runTimeSlaveReal inst timeSlaveParams
+        systemStart <- case CLI.sscAlgo woCommonArgs of
+            GodTossingAlgo -> runTimeSlaveReal (Proxy :: Proxy SscGodTossing) res timeSlaveParams
+            NistBeaconAlgo -> runTimeSlaveReal (Proxy :: Proxy SscNistBeacon) res timeSlaveParams
 
         let params =
                 WalletParams
@@ -148,15 +160,16 @@ main = do
                 , wpBaseParams  = baseParams
                 }
 
-            plugins :: [WalletRealMode ()]
+            plugins :: [SendActions BiP WalletRealMode -> WalletRealMode ()]
             plugins = case woAction of
                 Repl          -> [runWalletRepl opts]
                 Cmd cmd       -> [runWalletCmd opts cmd]
 #ifdef WITH_WEB
-                Serve webPort webDaedalusDbPath -> [walletServeWebLite webDaedalusDbPath False webPort]
+                Serve webPort webDaedalusDbPath -> [\sendActions ->
+                    walletServeWebLite sendActions webDaedalusDbPath False webPort]
 #endif
 
         case CLI.sscAlgo woCommonArgs of
             GodTossingAlgo -> putText "Using MPC coin tossing" *>
-                              runWalletReal inst params plugins
+                              runWalletReal res params plugins
             NistBeaconAlgo -> putText "Wallet does not support NIST beacon!"

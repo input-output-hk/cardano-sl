@@ -5,3 +5,4 @@ module Pos.Wallet.Web.Server
 import           Pos.Wallet.Web.Server.Full    as Server
 import           Pos.Wallet.Web.Server.Lite    as Server
 import           Pos.Wallet.Web.Server.Methods as Server
+import           Pos.Wallet.Web.Server.Sockets as Server

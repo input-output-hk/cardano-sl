@@ -5,18 +5,18 @@ module Pos.Ssc.GodTossing.Seed
        ) where
 
 
-import           Control.Lens                  (view, _2)
+import           Control.Lens                  (view, (^.), _2)
 import qualified Data.HashMap.Strict           as HM (fromList, lookup, mapMaybe, toList,
-                                                      traverseWithKey)
+                                                      traverseWithKey, (!))
 import qualified Data.HashSet                  as HS (difference)
 import           Universum
 
-import           Pos.Crypto                    (Secret, Share, Threshold,
-                                                unsafeRecoverSecret)
+import           Pos.Crypto                    (Secret, Share, unsafeRecoverSecret)
 import           Pos.Ssc.GodTossing.Error      (SeedError (..))
-import           Pos.Ssc.GodTossing.Functions  (secretToSharedSeed, verifyOpening)
+import           Pos.Ssc.GodTossing.Functions  (secretToSharedSeed, verifyOpening,
+                                                vssThreshold)
 import           Pos.Ssc.GodTossing.Types.Base (CommitmentsMap, OpeningsMap, SharesMap,
-                                                getOpening)
+                                                commShares, getOpening)
 import           Pos.Types                     (SharedSeed, StakeholderId)
 import           Pos.Util                      (fromBinaryM, getKeys)
 
@@ -25,13 +25,12 @@ import           Pos.Util                      (fromBinaryM, getKeys)
 -- nodes generate together and agree on.
 --
 -- TODO: do we need to check secrets' lengths? Probably not.
-calculateSeed
-    :: Threshold
-    -> CommitmentsMap        -- ^ All participating nodes
+calculateSeed ::
+       CommitmentsMap        -- ^ All participating nodes
     -> OpeningsMap
     -> SharesMap             -- ^ Decrypted shares
     -> Either SeedError SharedSeed
-calculateSeed (fromIntegral -> t) commitments openings lShares = do
+calculateSeed commitments openings lShares = do
     let participants = getKeys commitments
 
     -- First let's do some sanity checks.
@@ -71,7 +70,7 @@ calculateSeed (fromIntegral -> t) commitments openings lShares = do
     let recovered :: HashMap StakeholderId (Maybe Secret)
         recovered = HM.fromList $ do
             -- We are now trying to recover a secret for key 'k'
-            k <- toList mustBeRecovered
+            id <- toList mustBeRecovered
             -- We collect all secrets that 'k' has sent to other nodes (and
             -- remove shares with equal IDs; when [CSL-206] is done, I assume
             -- we won't have to do this).
@@ -79,9 +78,11 @@ calculateSeed (fromIntegral -> t) commitments openings lShares = do
             -- TODO: can we be sure that here different IDs mean different
             -- shares? maybe it'd be better to 'assert' it.
             let secrets :: [Share]
-                secrets = mapMaybe (HM.lookup k) (toList shares)
+                secrets = mapMaybe (HM.lookup id) (toList shares)
+            let t = fromIntegral . vssThreshold . length . commShares $
+                        (commitments HM.! id) ^. _2
             -- Then we recover the secret
-            return (k, if length secrets < t
+            return (id, if length secrets < t
                          then Nothing
                          else Just $ unsafeRecoverSecret (take t secrets))
 

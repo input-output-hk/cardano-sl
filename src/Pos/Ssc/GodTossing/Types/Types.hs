@@ -13,6 +13,8 @@ module Pos.Ssc.GodTossing.Types.Types
        , GtGlobalState (..)
        , GtContext (..)
        , GtParams (..)
+       , GtSecretStorage (..)
+       , GtSecret
 
        -- * Lenses
        -- ** GtPayload
@@ -42,13 +44,14 @@ import           Serokell.Util                  (listJson)
 import           Universum
 
 import           Pos.Binary.Class               (Bi)
-import           Pos.Crypto                     (Hash, VssKeyPair, hash)
+import           Pos.Crypto                     (Hash, PublicKey, VssKeyPair, hash)
 import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
 import           Pos.Ssc.GodTossing.Types.Base  (Commitment, CommitmentsMap, Opening,
-                                                 OpeningsMap, SharesMap, VssCertificate,
-                                                 VssCertificatesMap)
-import           Pos.Ssc.GodTossing.VssCertData (VssCertData)
+                                                 OpeningsMap, SharesMap, SignedCommitment,
+                                                 VssCertificate, VssCertificatesMap)
+import           Pos.Ssc.GodTossing.Types.Type  (SscGodTossing)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
+import           Pos.Types                      (EpochIndex, HeaderHash)
 
 ----------------------------------------------------------------------------
 -- SscGlobalState
@@ -64,7 +67,7 @@ data GtGlobalState = GtGlobalState
     , _gsShares          :: !SharesMap
       -- | Vss certificates are added at any time if they are valid and
       -- received from stakeholders.
-    , _gsVssCertificates :: !VssCertData
+    , _gsVssCertificates :: !VCD.VssCertData
     } deriving (Eq, Show, Generic)
 
 deriveSafeCopySimple 0 'base ''GtGlobalState
@@ -236,6 +239,24 @@ createGtContext GtParams {..} =
            <$> liftIO (newTVarIO gtpSscEnabled)
            <*> liftIO (newTVarIO False)
 
+----------------------------------------------------------------------------
+-- Secret storage
+----------------------------------------------------------------------------
+type GtSecret = (PublicKey, SignedCommitment, Opening)
+
+data GtSecretStorage = GtSecretStorage
+    {
+      -- | Secret that we are using for the current epoch and
+      -- Tip corresponding to the latter generated secret
+      _dsCurrentSecret :: !(Maybe (GtSecret, EpochIndex, HeaderHash SscGodTossing))
+    } deriving (Show, Eq)
+
+instance Default GtSecretStorage where
+    def =
+        GtSecretStorage
+        {
+          _dsCurrentSecret = Nothing
+        }
 ----------------------------------------------------------------------------
 -- Convinient binary type alias
 ----------------------------------------------------------------------------

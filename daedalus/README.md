@@ -95,6 +95,57 @@ Daedalus.ClientApi.deleteWallet('XXX')()
 ```
 
 
+_send_
+
+```javascript
+// IdFrom - wallet id to send amount from
+// IdTo - wallet id to send amount to
+Daedalus.ClientApi.send('IdFrom', 'IdTo', 80)()
+  .then(function(value) {
+    console.log('SUCCESS', value);
+  }, function(reason) {
+    console.log(reason);
+  })
+```
+
+
+_history_
+
+```javascript
+// XXX - wallet id
+Daedalus.ClientApi.getHistory('XXX')()
+  .then(function(value) {
+    console.log('SUCCESS', value);
+  }, function(reason) {
+    console.log(reason);
+  })
+```
+
+
+_isValidAddress_
+
+```javascript
+// XXX - wallet id
+Daedalus.ClientApi.isValidAddress('XXX', 'ADA')()
+  .then(function(value) {
+    console.log('SUCCESS', value);
+  }, function(reason) {
+    console.log(reason);
+  })
+```
+
+_notify_
+
+```javascript
+Daedalus.ClientApi.notify(
+    // message callback
+   function(msg) { return function() { console.log('msg ', msg) } },
+   // error callback
+   function(error) { return function() { console.log('error ', error) } }
+ )();
+```
+
+
 ## Run tests
 
 First, make sure that you have all dependencies installed. Run (only once):

@@ -10,9 +10,11 @@ import           Control.Lens                      ((^.))
 import           Control.Monad.Trans.Reader        (ReaderT (..), ask)
 import qualified Data.HashMap.Strict               as HM
 import           Data.Tagged                       (Tagged (..))
+import           Node                              (SendActions)
 import           System.Wlog                       (logWarning)
 import           Universum                         hiding (ask)
 
+import           Pos.Communication.BiP             (BiP)
 import           Pos.Constants                     (k, mdNoBlocksSlotThreshold,
                                                     mdNoCommitmentsEpochThreshold)
 import           Pos.Context                       (getNodeContext, ncPublicKey)
@@ -30,7 +32,7 @@ import           Pos.Types.Address                 (addressHash)
 import           Pos.WorkMode                      (WorkMode)
 
 class Ssc ssc => SecurityWorkersClass ssc where
-    securityWorkers :: WorkMode ssc m => Tagged ssc [m ()]
+    securityWorkers :: WorkMode ssc m => Tagged ssc [SendActions BiP m -> m ()]
 
 instance SscBi => SecurityWorkersClass SscGodTossing where
     securityWorkers = Tagged [ checkForReceivedBlocksWorker
@@ -44,8 +46,8 @@ instance SecurityWorkersClass SscNistBeacon where
 reportAboutEclipsed :: WorkMode ssc m => m ()
 reportAboutEclipsed = logWarning "We're doomed, we're eclipsed!"
 
-checkForReceivedBlocksWorker :: WorkMode ssc m => m ()
-checkForReceivedBlocksWorker = onNewSlot True $ \slotId -> do
+checkForReceivedBlocksWorker :: WorkMode ssc m => SendActions BiP m -> m ()
+checkForReceivedBlocksWorker __sendActions = onNewSlot True $ \slotId -> do
     headBlock <- getTipBlock
     case headBlock of
         Left genesis -> compareSlots slotId $ SlotId (genesis ^. gbHeader . gbhConsensus . gcdEpoch) 0
@@ -57,8 +59,8 @@ checkForReceivedBlocksWorker = onNewSlot True $ \slotId -> do
         when (fSlotId - fBlockGeneratedSlotId > mdNoBlocksSlotThreshold)
             reportAboutEclipsed
 
-checkForIgnoredCommitmentsWorker :: forall m. WorkMode SscGodTossing m => m ()
-checkForIgnoredCommitmentsWorker = do
+checkForIgnoredCommitmentsWorker :: forall m. WorkMode SscGodTossing m => SendActions BiP m -> m ()
+checkForIgnoredCommitmentsWorker  __sendActions= do
     epochIdx <- atomically (newTVar 0)
     _ <- runReaderT (onNewSlot True checkForIgnoredCommitmentsWorkerImpl) epochIdx
     return ()

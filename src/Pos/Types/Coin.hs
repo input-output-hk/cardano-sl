@@ -67,6 +67,6 @@ unsafeIntegerToCoin n
 
 -- | Apply CoinPortion to Coin. 'applyCoinPortion a b' is basically
 -- 'round (a * b)'.
-applyCoinPortion :: Coin -> CoinPortion -> Coin
-applyCoinPortion (unsafeGetCoin -> c) (getCoinPortion -> p) =
+applyCoinPortion :: CoinPortion -> Coin -> Coin
+applyCoinPortion (getCoinPortion -> p) (unsafeGetCoin -> c) =
     mkCoin $ round $ (realToFrac c) * p

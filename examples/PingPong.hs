@@ -71,7 +71,7 @@ listeners anId = [pongWorker]
 main :: IO ()
 main = runProduction $ do
 
-    Right transport_ <- liftIO $ TCP.createTransport ("127.0.0.1") ("10128") TCP.defaultTCPParameters
+    Right transport_ <- liftIO $ TCP.createTransport "0.0.0.0" "127.0.0.1" "10128" TCP.defaultTCPParameters
     let transport = concrete transport_
 
     let prng1 = mkStdGen 0

@@ -43,9 +43,9 @@ import           Data.Binary                 (Binary (..))
 import qualified Data.ByteString             as LBS
 import qualified Data.List                   as L
 import qualified Data.Set                    as S
-import           Data.Time.Units             (TimeUnit, Second, Millisecond)
+import           Data.Time.Units             (Millisecond, Second, TimeUnit)
 import           GHC.Generics                (Generic)
-import           Mockable.Concurrent         (delay, fork, forConcurrently)
+import           Mockable.Concurrent         (delay, forConcurrently, fork)
 import           Mockable.Exception          (catch, throw)
 import           Mockable.Production         (Production (..))
 import           Network.Transport.Abstract  (closeTransport)
@@ -60,10 +60,10 @@ import           Test.QuickCheck.Modifiers   (getLarge)
 import           Test.QuickCheck.Property    (Testable (..), failed, reason, succeeded)
 
 import           Node                        (ConversationActions (..), Listener,
-                                             ListenerAction (..), Message (..),
-                                             NodeId, SendActions (..),
-                                             Worker, nodeId, node, NodeAction(..))
-import           Node.Message             (BinaryP (..))
+                                              ListenerAction (..), Message (..),
+                                              NodeAction (..), NodeId, SendActions (..),
+                                              Worker, node, nodeId)
+import           Node.Message                (BinaryP (..))
 
 
 -- * Parcel
@@ -76,8 +76,8 @@ instance Binary Payload where
     get = Payload . LBS.length <$> get
 
 data Parcel = Parcel
-    { parcelNo  :: Int
-    , payload   :: Payload
+    { parcelNo :: Int
+    , payload  :: Payload
     } deriving (Eq, Ord, Show, Generic)
 
 instance Binary Parcel
@@ -103,8 +103,8 @@ instance Arbitrary HeavyParcel where
 -- * TestState
 
 data TestState = TestState
-    { _fails         :: [String]
-    , _expected      :: S.Set Parcel
+    { _fails    :: [String]
+    , _expected :: S.Set Parcel
     }
 
 mkTestState :: TestState
@@ -224,7 +224,7 @@ deliveryTest testState workers listeners = runProduction $ do
               TCP.tcpReuseServerAddr = True
             , TCP.tcpReuseClientAddr = True
             }
-    transport_ <- throwLeft $ liftIO $ TCP.createTransport "127.0.0.1" "10342" tcpParams
+    transport_ <- throwLeft $ liftIO $ TCP.createTransport "0.0.0.0" "127.0.0.1" "10342" tcpParams
     let transport = concrete transport_
 
     let prng1 = mkStdGen 0

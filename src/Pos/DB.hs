@@ -17,7 +17,8 @@ import           Pos.DB.Class
 import           Pos.DB.DB
 import           Pos.DB.DBIterator
 import           Pos.DB.Error
-import           Pos.DB.Functions  (RocksBatchOp (..), SomeBatchOp (..))
+import           Pos.DB.Functions  (RocksBatchOp (..), SomeBatchOp (..),
+                                    SomePrettyBatchOp (..))
 import           Pos.DB.Holder
 import           Pos.DB.Misc
 import           Pos.DB.Types

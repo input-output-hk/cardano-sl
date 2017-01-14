@@ -26,8 +26,8 @@ import           Universum
 
 import           Pos.Constants          (maxLocalTxs)
 import           Pos.Crypto             (WithHash (..), hash, withHash)
-import           Pos.DB                 (DB, MonadDB, SomeBatchOp (SomeBatchOp),
-                                         getUtxoDB)
+import           Pos.DB                 (DB, MonadDB,
+                                         SomePrettyBatchOp (SomePrettyBatchOp), getUtxoDB)
 import           Pos.DB.GState          (BalancesOp (..), CommonOp (..), UtxoOp (..),
                                          getFtsStake, getTip, getTotalFtsStake)
 import           Pos.Ssc.Class.Types    (Ssc)
@@ -66,7 +66,7 @@ type MinTxpWorkMode ssc m = ( MonadDB ssc m
 
 -- | Apply chain of /definitely/ valid blocks to state on transactions
 -- processing.
-txApplyBlocks :: TxpWorkMode ssc m => NonEmpty (Blund ssc) -> m (NonEmpty SomeBatchOp)
+txApplyBlocks :: TxpWorkMode ssc m => NonEmpty (Blund ssc) -> m (NonEmpty SomePrettyBatchOp)
 txApplyBlocks blunds = do
     let blocks = map fst blunds
     tip <- getTip
@@ -87,23 +87,23 @@ txApplyBlocks blunds = do
 
 txApplyBlock
     :: TxpWorkMode ssc m
-    => Blund ssc -> m SomeBatchOp
+    => Blund ssc -> m SomePrettyBatchOp
 txApplyBlock (blk, undo) = do
     let batch = foldr' prependToBatch [] txsAndIds
-    let putTip = SomeBatchOp $ PutTip (headerHash blk)
+    let putTip = SomePrettyBatchOp $ PutTip (headerHash blk)
     filterMemPool txsAndIds
     let (txOutPlus, txInMinus) = concatStakes (txas, undoTx undo)
     stakesBatch <- recomputeStakes txOutPlus txInMinus
-    pure $ SomeBatchOp $ [stakesBatch, SomeBatchOp batch, putTip]
+    pure $ SomePrettyBatchOp $ [stakesBatch, SomePrettyBatchOp batch, putTip]
   where
     txas = either (const []) (toList . view blockTxas) blk
     txsAndIds = map (\tx -> (hash (tx ^. _1), (tx ^. _1, tx ^. _3))) txas
     prependToBatch :: (TxId, (Tx, TxDistribution))
-                   -> [SomeBatchOp] -> [SomeBatchOp]
+                   -> [SomePrettyBatchOp] -> [SomePrettyBatchOp]
     prependToBatch (txId, (Tx{..}, distr)) batch =
         let keys = zipWith TxIn (repeat txId) [0 ..]
-            delIn = map (SomeBatchOp . DelTxIn) txInputs
-            putOut = zipWith (\i o -> SomeBatchOp $ AddTxOut i o)
+            delIn = map (SomePrettyBatchOp . DelTxIn) txInputs
+            putOut = zipWith (\i o -> SomePrettyBatchOp $ AddTxOut i o)
                          keys
                          (zip txOutputs (getTxDistribution distr))
         in foldr' (:) (foldr' (:) batch putOut) delIn --how we could simplify it?
@@ -207,12 +207,12 @@ processTxDo ld@(uv, mp, undos, tip) resolvedIns utxoDB (id, (tx, txw, txd))
 
 -- | Head of list is the youngest block
 txRollbackBlocks :: (WithLogger m, MonadDB ssc m)
-                 => NonEmpty (Block ssc, Undo) -> m (NonEmpty SomeBatchOp)
+                 => NonEmpty (Block ssc, Undo) -> m (NonEmpty SomePrettyBatchOp)
 txRollbackBlocks blunds = mapM txRollbackBlock blunds
 
 -- | Rollback block
 txRollbackBlock :: (WithLogger m, MonadDB ssc m)
-                => (Block ssc, Undo) -> m SomeBatchOp
+                => (Block ssc, Undo) -> m SomePrettyBatchOp
 txRollbackBlock (block, undo) = do
     --TODO more detailed message must be here
     unless (length (undoTx undo) == length txs)
@@ -221,15 +221,17 @@ txRollbackBlock (block, undo) = do
     -- If we store block cache in UtxoView we must invalidate it
     -- Stakes/balances part
     let (txOutMinus, txInPlus) = concatStakes (txas, undoTx undo)
-    let putTip = SomeBatchOp $ PutTip (block ^. prevBlockL)
+    let putTip = SomePrettyBatchOp $ PutTip (block ^. prevBlockL)
     stakesBatch <- recomputeStakes txInPlus txOutMinus
-    either panic (pure . SomeBatchOp . (\x->SomeBatchOp x : [stakesBatch, putTip]))
+    either panic (pure . SomePrettyBatchOp . (\x->SomePrettyBatchOp x : [stakesBatch, putTip]))
            batchOrError
   where
     txas = either (const []) (toList . view blockTxas) block
     txs = either (const []) (toList . map (^. _1) . view blockTxas) block
 
-    prependToBatch :: Either Text [SomeBatchOp] -> (Tx, [TxOutAux]) -> Either Text [SomeBatchOp]
+    prependToBatch :: Either Text [SomePrettyBatchOp] ->
+                      (Tx, [TxOutAux]) ->
+                      Either Text [SomePrettyBatchOp]
     prependToBatch batchOrError (tx@Tx{..}, undoTx) = do
         batch <- batchOrError
         --TODO more detailed message must be here
@@ -237,35 +239,42 @@ txRollbackBlock (block, undo) = do
             Left "Number of txInputs must be equal length of undo"
         let txId = hash tx
             keys = zipWith TxIn (repeat txId) [0..]
-            putIn = zipWith (\i o -> SomeBatchOp $ AddTxOut i o) txInputs undoTx
-            delOut = map (SomeBatchOp . DelTxIn) $ take (length txOutputs) keys
+            putIn = zipWith (\i o -> SomePrettyBatchOp $ AddTxOut i o) txInputs undoTx
+            delOut = map (SomePrettyBatchOp . DelTxIn) $ take (length txOutputs) keys
         return $ foldr' (:) (foldr' (:) batch putIn) delOut --how we could simplify it?
 
 recomputeStakes :: (WithLogger m, MonadDB ssc m)
                 => [(StakeholderId, Coin)]
                 -> [(StakeholderId, Coin)]
-                -> m SomeBatchOp
+                -> m SomePrettyBatchOp
 recomputeStakes plusDistr minusDistr = do
-    resolvedStakes <- mapM (\ad ->
-                              maybe (mkCoin 0 <$ logInfo (createInfo ad))
-                                    pure =<< getFtsStake ad)
-                           needResolve
+    resolvedStakes <-
+        mapM
+            (\ad ->
+                 maybe (mkCoin 0 <$ logInfo (createInfo ad)) pure =<<
+                 getFtsStake ad)
+            needResolve
     totalStake <- getTotalFtsStake
     let positiveDelta = sumCoins (map snd plusDistr)
     let negativeDelta = sumCoins (map snd minusDistr)
-    let newTotalStake = unsafeIntegerToCoin $
-                        coinToInteger totalStake + positiveDelta - negativeDelta
-
-    let newStakes
-          = HM.toList $
-              calcNegStakes minusDistr
-                  (calcPosStakes $ zip needResolve resolvedStakes ++ plusDistr)
-    pure $ SomeBatchOp $ (PutFtsSum newTotalStake) : map (uncurry PutFtsStake) newStakes
+    let newTotalStake =
+            unsafeIntegerToCoin $
+            coinToInteger totalStake + positiveDelta - negativeDelta
+    let newStakes =
+            HM.toList $
+            calcNegStakes
+                minusDistr
+                (calcPosStakes $ zip needResolve resolvedStakes ++ plusDistr)
+    pure $
+        SomePrettyBatchOp $
+        (SomePrettyBatchOp $ PutFtsSum newTotalStake) :
+        map (SomePrettyBatchOp . uncurry PutFtsStake) newStakes
   where
-    createInfo = sformat ("Stake for "%build%" will be created in UtxoDB")
-    needResolve = HS.toList $
-                      HS.fromList (map fst plusDistr) `HS.union`
-                      HS.fromList (map fst minusDistr)
+    createInfo = sformat ("Stake for " %build % " will be created in UtxoDB")
+    needResolve =
+        HS.toList $
+        HS.fromList (map fst plusDistr) `HS.union`
+        HS.fromList (map fst minusDistr)
     calcPosStakes distr = foldl' plusAt HM.empty distr
     calcNegStakes distr hm = foldl' minusAt hm distr
     -- @pva701 says it's not possible to get negative coin here. We *can* in

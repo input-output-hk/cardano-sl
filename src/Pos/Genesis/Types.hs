@@ -21,6 +21,7 @@ data StakeDistribution
         , sdRichmen    :: !Word
         , sdPoor       :: !Word
         }
+    deriving (Show, Eq)
 
 -- | Hardcoded genesis data
 data GenesisData = GenesisData

@@ -99,7 +99,7 @@ walletServer nat = do
     whenM (isNothing <$> getProfile) $
         createUserProfile >>= setProfile
     join $ mapM_ insertAddressMeta <$> myCAddresses
-    launchNotifier <$> nat
+    nat >>= launchNotifier
     flip enter servantHandlers <$> nat
   where
     insertAddressMeta cAddr =

@@ -189,8 +189,8 @@ runningMode = Development
 runningMode = Production . Timestamp . sec $
     let st = ccProductionNetworkStartTime compileConfig
     in if st > 0 then st
-       else let pause = 60
-                divider = 20
+       else let pause = 30
+                divider = 10
                 after3Mins = pause + unsafePerformIO (round <$> getPOSIXTime)
                 minuteMod = after3Mins `mod` divider
                 alignment = if minuteMod > (divider `div` 2) then 1 else 0

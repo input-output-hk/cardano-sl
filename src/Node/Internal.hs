@@ -543,7 +543,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
 
                   -- Connection closed, handler already finished. We're done
                   -- with the connection. The case in which the handler finishes
-                  -- *after* the connection closes is taken care of in
+                  -- __after__ the connection closes is taken care of in
                   -- 'updateStateForFinishedHandlers'.
                   Just (peer, ConnectionHandlerFinished _) ->
                       loop $ state {

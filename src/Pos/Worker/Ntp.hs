@@ -7,20 +7,19 @@ import qualified Control.Concurrent.STM as STM
 import           Data.List              ((!!))
 import           Data.Time.Units        (Microsecond)
 import           NTP.Client             (NtpClientSettings (..), startNtpClient)
+import           NTP.Example            ()
 import           System.Wlog            (WithLogger, logDebug)
 import           Universum
 
 import qualified Pos.Constants          as C
 import           Pos.Context            (NodeContext (..), getNodeContext)
-import           Pos.Launcher.Param     (BaseParams (..))
 import           Pos.WorkMode           (WorkMode)
 
-settings :: BaseParams -> NodeContext ssc -> NtpClientSettings
-settings BaseParams{..} nc = NtpClientSettings
-        {
-          ntpBindPort        = bpNtpPort
-        -- list of servers addresses
-        , ntpServers         = [ "ntp5.stratum2.ru"
+
+settings :: NodeContext ssc -> NtpClientSettings
+settings nc = NtpClientSettings
+        { -- list of servers addresses
+          ntpServers         = [ "ntp5.stratum2.ru"
                                , "ntp1.stratum1.ru"
                                , "clock.isc.org"
                                ]
@@ -38,9 +37,9 @@ settings BaseParams{..} nc = NtpClientSettings
         }
 
 -- | Worker for synchronization of local time and global time
-ntpWorker :: WorkMode ssc m => BaseParams -> m ()
-ntpWorker bp = getNodeContext >>=
-    void . startNtpClient . settings bp
+ntpWorker :: WorkMode ssc m => m ()
+ntpWorker = getNodeContext >>=
+    void . startNtpClient . settings
 
 ntpHandlerDo :: (MonadIO m, WithLogger m)
              => NodeContext ssc

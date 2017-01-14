@@ -139,7 +139,6 @@ main = do
             , bpDHTPeers           = CLI.dhtPeers woCommonArgs
             , bpDHTKeyOrType       = Right DHTFull
             , bpDHTExplicitInitial = CLI.dhtExplicitInitial woCommonArgs
-            , bpNtpPort            = fromMaybe (snd woIpPort + 1000) woNtpPort
             }
     bracketResources baseParams $ \res -> do
         let timeSlaveParams =

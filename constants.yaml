@@ -1,7 +1,7 @@
 genesisN: 8
 maxLocalTxs: 10000
 defaultPeers: []
-mdNoBlocksSlotThreshold: 10
+mdNoBlocksSlotThreshold: 1
 mdNoCommitmentsEpochThreshold: 3
 protocolMagic: 0
 enhancedMessageBroadcast: 2

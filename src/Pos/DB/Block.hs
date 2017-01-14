@@ -8,6 +8,7 @@ module Pos.DB.Block
        , getBlockHeader
        , getStoredBlock
        , getUndo
+       , getBlockWithUndo
 
        , deleteBlock
        , putBlock
@@ -20,27 +21,29 @@ module Pos.DB.Block
        , loadBlocksWhile
        , loadHeadersWhile
        , loadHeadersByDepth
+       , loadHeadersByDepthWhile
        ) where
 
-import           Control.Lens        (view, (^.))
-import           Data.ByteArray      (convert)
-import           Formatting          (sformat, (%))
+import           Control.Lens              ((^.))
+import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
+import           Data.ByteArray            (convert)
+import           Formatting                (sformat, (%))
 import           Universum
 
-import           Pos.Binary.Class    (Bi)
-import           Pos.Binary.DB       ()
-import           Pos.Crypto          (Hash, shortHashF)
-import           Pos.DB.Class        (MonadDB, getBlockDB)
-import           Pos.DB.Error        (DBError (..))
-import           Pos.DB.Functions    (rocksDelete, rocksGetBi, rocksPutBi)
-import           Pos.DB.Types        (StoredBlock (..))
-import           Pos.Ssc.Class.Types (Ssc)
-import           Pos.Types           (Block, BlockHeader, Blund, GenesisBlock,
-                                      HasDifficulty (difficultyL), HasPrevBlock,
-                                      HeaderHash, Undo (..), genesisHash, headerHash,
-                                      prevBlockL)
-import qualified Pos.Types           as T
-import           Pos.Util            (maybeThrow)
+import           Pos.Binary.Class          (Bi)
+import           Pos.Binary.DB             ()
+import           Pos.Crypto                (Hash, shortHashF)
+import           Pos.DB.Class              (MonadDB, getBlockDB)
+import           Pos.DB.Error              (DBError (..))
+import           Pos.DB.Functions          (rocksDelete, rocksGetBi, rocksPutBi)
+import           Pos.DB.Types              (StoredBlock (..))
+import           Pos.Ssc.Class.Types       (Ssc)
+import           Pos.Types                 (Block, BlockHeader, Blund, GenesisBlock,
+                                            HasDifficulty (difficultyL), HasPrevBlock,
+                                            HeaderHash, Undo (..), genesisHash,
+                                            headerHash, prevBlockL)
+import qualified Pos.Types                 as T
+import           Pos.Util                  (maybeThrow)
 
 -- | Get StoredBlock by hash from Block DB.
 getStoredBlock
@@ -65,6 +68,13 @@ getUndo
     :: (MonadDB ssc m)
     => HeaderHash ssc -> m (Maybe Undo)
 getUndo = getBi . undoKey
+
+-- | Retrieves block and undo together.
+getBlockWithUndo
+    :: (Ssc ssc, MonadDB ssc m)
+    => HeaderHash ssc -> m (Maybe (Block ssc, Undo))
+getBlockWithUndo x =
+    runMaybeT $ (,) <$> MaybeT (getBlock x) <*> MaybeT (getUndo x)
 
 -- | Put given block, its metadata and Undo data into Block DB.
 putBlock
@@ -101,9 +111,9 @@ loadDataWhile getter predicate start = doIt start
 loadDataByDepth
     :: forall m a b.
        (Monad m, HasPrevBlock a b, HasDifficulty a)
-    => (Hash b -> m a) -> Word -> Hash b -> m [a]
-loadDataByDepth _ 0 _ = pure []
-loadDataByDepth getter depth h = do
+    => (Hash b -> m a) -> (a -> Bool) -> Word -> Hash b -> m [a]
+loadDataByDepth _ _ 0 _ = pure []
+loadDataByDepth getter extraPredicate depth h = do
     -- First of all, we load data corresponding to h.
     top <- getter h
     let topDifficulty = top ^. difficultyL
@@ -120,7 +130,10 @@ loadDataByDepth getter depth h = do
     -- difficulty. And then we drop last (oldest) block.
     let prev = top ^. prevBlockL
     (top :) <$>
-        loadDataWhile getter ((>= targetDifficulty) . view difficultyL) prev
+        loadDataWhile
+        getter
+        (\a -> a ^. difficultyL >= targetDifficulty && extraPredicate a)
+        prev
 
 -- | Load blunds starting from block with header hash equal to given hash
 -- and while @predicate@ is true.  The head of returned list is the
@@ -134,7 +147,7 @@ loadBlundsWhile predicate = loadDataWhile getBlundThrow (predicate . fst)
 loadBlundsByDepth
     :: (Ssc ssc, MonadDB ssc m)
     => Word -> HeaderHash ssc -> m [Blund ssc]
-loadBlundsByDepth = loadDataByDepth getBlundThrow
+loadBlundsByDepth = loadDataByDepth getBlundThrow (const True)
 
 -- | Load blocks starting from block with header hash equal to given hash
 -- and while @predicate@ is true.  The head of returned list is the
@@ -156,7 +169,14 @@ loadHeadersWhile = loadDataWhile getHeaderThrow
 loadHeadersByDepth
     :: (Ssc ssc, MonadDB ssc m)
     => Word -> HeaderHash ssc -> m [BlockHeader ssc]
-loadHeadersByDepth = loadDataByDepth getHeaderThrow
+loadHeadersByDepth = loadDataByDepth getHeaderThrow (const True)
+
+-- | Load headers which have depth less than given and match some
+-- criterion.
+loadHeadersByDepthWhile
+    :: (Ssc ssc, MonadDB ssc m)
+    => (BlockHeader ssc -> Bool) -> Word -> HeaderHash ssc -> m [BlockHeader ssc]
+loadHeadersByDepthWhile = loadDataByDepth getHeaderThrow
 
 ----------------------------------------------------------------------------
 -- Initialization

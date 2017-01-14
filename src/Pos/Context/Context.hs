@@ -68,8 +68,8 @@ data NodeContext ssc = NodeContext
     -- which we got from NTP server in last tme.
     -- Second element is time (local time) for which we got margin in last time.
     , ncNtpLastSlot         :: !(STM.TVar SlotId)
-    -- ^ Slot which was been returned from getCurrentSlot in last time
-    , ncBlockRetreivalQueue :: !(TBQueue (NodeId, NonEmpty (BlockHeader ssc)))
+    -- ^ Slot which was returned from getCurrentSlot in last time
+    , ncBlockRetrievalQueue :: !(TBQueue (NodeId, NonEmpty (BlockHeader ssc)))
     }
 
 -- | Generate 'PublicKey' from 'SecretKey' of 'NodeContext'.

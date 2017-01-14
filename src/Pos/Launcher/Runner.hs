@@ -270,7 +270,7 @@ runCH NodeParams {..} sscNodeContext act = do
             , ncUserSecret = userSecretVar
             , ncNtpData = ntpData
             , ncNtpLastSlot = lastSlot
-            , ncBlockRetreivalQueue = queue
+            , ncBlockRetrievalQueue = queue
             }
     runContextHolder ctx act
 

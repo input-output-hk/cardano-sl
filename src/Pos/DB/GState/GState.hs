@@ -10,14 +10,16 @@ module Pos.DB.GState.GState
 
 import           Control.Monad.Catch    (MonadMask)
 import           System.Wlog            (WithLogger)
+import           Universum
 
 import           Pos.Context.Class      (WithNodeContext)
 import           Pos.Context.Functions  (genesisUtxoM)
 import           Pos.DB.Class           (MonadDB)
-import           Pos.DB.GState.Balances (prepareGStateBalances, sanityCheckBalances)
+import           Pos.DB.GState.Balances (getTotalFtsStake, prepareGStateBalances,
+                                         sanityCheckBalances)
 import           Pos.DB.GState.Common   (prepareGStateCommon)
 import           Pos.DB.GState.Update   (prepareGStateUS)
-import           Pos.DB.GState.Utxo     (prepareGStateUtxo)
+import           Pos.DB.GState.Utxo     (prepareGStateUtxo, sanityCheckUtxo)
 import           Pos.Types              (HeaderHash)
 
 -- | Put missing initial data into GState DB.
@@ -37,4 +39,6 @@ sanityCheckGStateDB
     :: forall ssc m.
        (MonadDB ssc m, MonadMask m, WithLogger m)
     => m ()
-sanityCheckGStateDB = sanityCheckBalances
+sanityCheckGStateDB = do
+    sanityCheckBalances
+    sanityCheckUtxo =<< getTotalFtsStake

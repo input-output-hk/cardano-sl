@@ -21,10 +21,15 @@ module Pos.DB.GState.Utxo
        , runUtxoIterator
        , mapUtxoIterator
        , getFilteredUtxo
+
+       -- * Sanity checks
+       , sanityCheckUtxo
        ) where
 
 import qualified Data.Map             as M
 import qualified Database.RocksDB     as Rocks
+import           Formatting           (sformat, (%))
+import           System.Wlog          (WithLogger, logError)
 import           Universum
 
 import           Pos.Binary.Class     (encodeStrict)
@@ -38,8 +43,11 @@ import           Pos.DB.Functions     (RocksBatchOp (..), WithKeyPrefix (..),
                                        traverseAllEntries)
 import           Pos.DB.GState.Common (getBi, putBi)
 import           Pos.DB.Types         (DB)
-import           Pos.Types            (Address, TxIn (..), TxOutAux, Utxo, belongsTo)
-import           Pos.Util             (maybeThrow)
+import           Pos.Types            (Address, Coin, TxIn (..), TxOutAux, Utxo,
+                                       belongsTo, coinF, mkCoin, sumCoins, txOutStake,
+                                       unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Util             (Color (..), colorize, maybeThrow)
+import           Pos.Util.Iterator    (nextItem)
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -126,6 +134,32 @@ mapUtxoIterator iter f = mapIterator @u @v iter f =<< getUtxoDB
 -- | Get small sub-utxo containing only outputs of given address
 getFilteredUtxo :: (MonadDB ssc m, MonadMask m) => Address -> m Utxo
 getFilteredUtxo addr = filterUtxo $ \(_, out) -> out `belongsTo` addr
+
+----------------------------------------------------------------------------
+-- Sanity checks
+----------------------------------------------------------------------------
+
+sanityCheckUtxo
+    :: (MonadMask m, MonadDB ssc m, WithLogger m)
+    => Coin -> m ()
+sanityCheckUtxo expectedTotalStake = do
+    calculatedTotalStake <-
+        iterateByTx (step (mkCoin 0)) (map snd . txOutStake . snd)
+    let fmt =
+            ("Sum of stakes in Utxo differs from expected total stake (the former is "
+             %coinF%", while the latter is "%coinF%")")
+    let msg = sformat fmt calculatedTotalStake expectedTotalStake
+    unless (calculatedTotalStake == expectedTotalStake) $ do
+        logError $ colorize Red msg
+        throwM $ DBMalformed msg
+  where
+    step sm = do
+        n <- nextItem
+        maybe
+            (pure sm)
+            (\stakes ->
+                 step (sm `unsafeAddCoin` unsafeIntegerToCoin (sumCoins stakes)))
+            n
 
 ----------------------------------------------------------------------------
 -- Keys

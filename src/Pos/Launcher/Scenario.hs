@@ -10,8 +10,6 @@ module Pos.Launcher.Scenario
 
 import           Control.Concurrent.MVar     (putMVar)
 import           Control.Concurrent.STM.TVar (writeTVar)
-import           Data.List.NonEmpty          (NonEmpty (..))
-import qualified Data.List.NonEmpty          as NE
 import           Development.GitRev          (gitBranch, gitHash)
 import           Formatting                  (build, int, sformat, (%))
 import           Mockable                    (currentTime, delay, fork, sleepForever)
@@ -48,9 +46,7 @@ runNode plugins sendActions = do
     logInfo $ sformat ("My public key is: "%build%
                        ", address: "%build%
                        ", pk hash: "%build) pk addr pkHash
-    peers <- NE.toList <$> waitForPeers
-    logInfo $ sformat ("Known peers: " % build) peers
-
+    fork waitForPeers
     initSemaphore
     initLrc
     waitSystemStart
@@ -70,12 +66,12 @@ waitSystemStart = do
     when (cur < start) $ delay (start - cur)
 
 -- | Try to discover peers repeatedly until at least one live peer is found
-waitForPeers :: WorkMode ssc m => m (NonEmpty DHTNode)
+waitForPeers :: WorkMode ssc m => m ()
 waitForPeers = discoverPeers DHTFull >>= \case
-    (p:ps) -> return (p :| ps)
-    []     -> logInfo "Couldn't connect to any peer, trying again..." >>
-              waitRandomInterval (sec 3) (sec 10) >>
-              waitForPeers
+    ps@(_:_) -> () <$ logInfo (sformat ("Known peers: "%build) ps)
+    []       -> logInfo "Couldn't connect to any peer, trying again..." >>
+                waitRandomInterval (sec 3) (sec 10) >>
+                waitForPeers
 
 initSemaphore :: (WorkMode ssc m) => m ()
 initSemaphore = do

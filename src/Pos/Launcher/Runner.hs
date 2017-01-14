@@ -325,7 +325,10 @@ createTransport ip port = do
                              "0.0.0.0"
                              ip
                              (show port)
-                             (TCP.defaultTCPParameters { TCP.transportConnectTimeout = Just $ fromIntegral networkConnectionTimeout })
+                             (TCP.defaultTCPParameters
+                                { TCP.transportConnectTimeout = Just $ fromIntegral networkConnectionTimeout
+                                , TCP.tcpKeepAlive = True
+                                })
     case transportE of
       Left e -> do
           logError $ sformat ("Error creating TCP transport: " % shown) e

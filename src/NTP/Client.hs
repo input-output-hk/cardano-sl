@@ -40,11 +40,12 @@ import           Serokell.Util.Concurrent    (modifyTVarS, threadDelay)
 import           System.Wlog                 (LoggerName, Severity (..), WithLogger,
                                               logMessage, modifyLoggerName)
 
-import Mockable.Class      (Mockable)
-import Mockable.Concurrent (Fork, fork)
-import Mockable.Exception  (Catch, Throw, catchAll, handleAll, throw)
-import NTP.Packet          (NtpPacket (..), evalClockOffset, mkCliNtpPacket)
-import NTP.Util            (datagramPacketSize, resolveNtpHost)
+import           Mockable.Class              (Mockable)
+import           Mockable.Concurrent         (Fork, fork)
+import           Mockable.Exception          (Catch, Throw, catchAll, handleAll, throw)
+import           NTP.Packet                  (NtpPacket (..), evalClockOffset,
+                                              mkCliNtpPacket, ntpPacketSize)
+import           NTP.Util                    (resolveNtpHost)
 
 data NtpClientSettings = NtpClientSettings
     { ntpServers         :: [String]
@@ -195,7 +196,7 @@ doReceive :: NtpMonad m => NtpClient -> m ()
 doReceive cli = do
     sock <- liftIO . readTVarIO $ ncSocket cli
     forever $ do
-        (received, _) <- liftIO $ recvFrom sock datagramPacketSize
+        (received, _) <- liftIO $ recvFrom sock ntpPacketSize
         let eNtpPacket = decodeOrFail $ LBS.fromStrict received
         case eNtpPacket of
             Left  (_, _, err)    ->

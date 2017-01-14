@@ -2,21 +2,22 @@
 
 module NTP.Packet
     ( NtpPacket (..)
+    , ntpPacketSize
     , mkCliNtpPacket
     , evalClockOffset
     ) where
 
 
-import Control.Lens        (both, (^..))
-import Control.Monad       (replicateM_)
-import Control.Monad.Trans (MonadIO (..))
-import Data.Binary         (Binary (..))
-import Data.Binary.Get     (getInt8, getWord32be, getWord8)
-import Data.Binary.Put     (putWord32be, putWord8)
-import Data.Time.Units     (Microsecond, fromMicroseconds, toMicroseconds)
-import Data.Word           (Word32, Word8)
+import           Control.Lens        (both, (^..))
+import           Control.Monad       (replicateM_)
+import           Control.Monad.Trans (MonadIO (..))
+import           Data.Binary         (Binary (..))
+import           Data.Binary.Get     (getInt8, getWord32be, getWord8)
+import           Data.Binary.Put     (putWord32be, putWord8)
+import           Data.Time.Units     (Microsecond, fromMicroseconds, toMicroseconds)
+import           Data.Word           (Word32, Word8)
 
-import NTP.Util (getCurrentTime)
+import           NTP.Util            (getCurrentTime)
 
 data NtpPacket = NtpPacket
     { ntpParams       :: Word8        -- some magic parameters
@@ -30,6 +31,9 @@ data NtpPacket = NtpPacket
 -- 70 years
 ntpTimestampDelta :: Integer
 ntpTimestampDelta = 2208988800
+
+ntpPacketSize :: Int
+ntpPacketSize = 48
 
 power2of32 :: Integer
 power2of32 = 4294967296

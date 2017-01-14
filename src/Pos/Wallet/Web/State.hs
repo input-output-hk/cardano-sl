@@ -1,6 +1,7 @@
 module Pos.Wallet.Web.State
-       ( module Exports
+       ( module Pos.Wallet.Web.State.Holder
+       , module Pos.Wallet.Web.State.State
        ) where
 
-import           Pos.Wallet.Web.State.Holder as Exports
-import           Pos.Wallet.Web.State.State  as Exports
+import           Pos.Wallet.Web.State.Holder
+import           Pos.Wallet.Web.State.State

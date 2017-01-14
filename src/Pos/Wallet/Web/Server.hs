@@ -1,8 +1,11 @@
 module Pos.Wallet.Web.Server
-       ( module Server
+       ( module Pos.Wallet.Web.Server.Full
+       , module Pos.Wallet.Web.Server.Lite
+       , module Pos.Wallet.Web.Server.Methods
+       , module Pos.Wallet.Web.Server.Sockets
        ) where
 
-import           Pos.Wallet.Web.Server.Full    as Server
-import           Pos.Wallet.Web.Server.Lite    as Server
-import           Pos.Wallet.Web.Server.Methods as Server
-import           Pos.Wallet.Web.Server.Sockets as Server
+import           Pos.Wallet.Web.Server.Full
+import           Pos.Wallet.Web.Server.Lite
+import           Pos.Wallet.Web.Server.Methods
+import           Pos.Wallet.Web.Server.Sockets

@@ -143,7 +143,9 @@ classifyNewHeader (Right header) = do
     -- ignore it if it's not.
     if curSlot == header ^. headerSlot
         then classifyNewHeaderDo <$> GS.getTip <*> DB.getTipBlock
-        else return $ CHUseless "header is not for current slot"
+        else pure $ CHUseless $ sformat
+                 ("header is not for current slot: our is "%build%", header's is "%build)
+                 curSlot (header ^. headerSlot)
   where
     classifyNewHeaderDo tip tipBlock
         -- If header's parent is our tip, we verify it against tip's header.

@@ -46,7 +46,8 @@ import           Mockable                       (CurrentTime, Mockable, MonadMoc
 import           Network.Transport              (Transport, closeTransport)
 import           Network.Transport.Concrete     (concrete)
 import qualified Network.Transport.TCP          as TCP
-import           Node                           (Listener, NodeAction (..), SendActions,
+import           Node                           (ConversationActions (..), Listener,
+                                                 NodeAction (..), SendActions,
                                                  hoistListenerAction, hoistSendActions,
                                                  node)
 import qualified STMContainers.Map              as SM
@@ -60,7 +61,8 @@ import           Pos.Binary                     ()
 import           Pos.CLI                        (readLoggerConfig)
 import           Pos.Communication              (BiP (..), SysStartRequest (..),
                                                  SysStartResponse, allListeners,
-                                                 allStubListeners, sysStartReqListener,
+                                                 allStubListeners, handleSysStartResp,
+                                                 sysStartReqListener,
                                                  sysStartRespListener)
 import           Pos.Communication.PeerState    (runPeerStateHolder)
 import           Pos.Constants                  (blockRetrievalQueueSize,
@@ -73,7 +75,7 @@ import           Pos.DB                         (MonadDB (..), getTip, initNodeD
                                                  openNodeDBs, runDBHolder, _gStateDB)
 import           Pos.DB.Misc                    (addProxySecretKey)
 import           Pos.Delegation.Class           (runDelegationT)
-import           Pos.DHT.Model                  (MonadDHT (..), sendToNeighbors)
+import           Pos.DHT.Model                  (MonadDHT (..), converseToNeighbors)
 import           Pos.DHT.Real                   (KademliaDHTInstance,
                                                  KademliaDHTInstanceConfig (..),
                                                  runKademliaDHT, startDHTInstance,
@@ -119,9 +121,10 @@ runTimeSlaveReal sscProxy res bp = do
              runWithRandomIntervals (sec 10) (sec 60) $ liftIO (tryReadMVar mvar) >>= \case
                  Nothing -> do
                     logInfo "Asking neighbors for system start"
-                    sendToNeighbors sendActions SysStartRequest `catchAll`
-                       \e -> logDebug $ sformat
-                       ("Error sending SysStartRequest to neighbors: " % shown) e
+                    converseToNeighbors sendActions $ \peerId conv -> do
+                        send conv SysStartRequest
+                        mResp <- recv conv
+                        whenJust mResp $ handleSysStartResp mvar peerId sendActions
                  Just _ -> fail "Close thread"
            t <- liftIO $ takeMVar mvar
            killThread tId

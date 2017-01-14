@@ -180,7 +180,7 @@ logOnSendFail nodeId action = do
 nodeSendActions
     :: forall m packing .
        ( Mockable Channel m, Mockable Throw m, Mockable Catch m
-       , Mockable Bracket m, Mockable Fork m, Mockable SharedAtomic m
+       , Mockable Bracket m, Mockable SharedAtomic m
        , Mockable Async m
        , WithLogger m, MonadFix m
        , Packable packing MessageName )

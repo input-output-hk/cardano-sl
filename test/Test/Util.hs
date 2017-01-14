@@ -41,11 +41,9 @@ import           Control.Monad.IO.Class      (MonadIO (..))
 import           Control.Monad.State         (StateT)
 import           Data.Binary                 (Binary (..))
 import qualified Data.ByteString             as LBS
-import           Data.Foldable               (for_)
 import qualified Data.List                   as L
 import qualified Data.Set                    as S
 import           Data.Time.Units             (TimeUnit, Second, Millisecond)
-import           Data.Void                   (Void)
 import           GHC.Generics                (Generic)
 import           Mockable.Concurrent         (delay, fork, forConcurrently)
 import           Mockable.Exception          (catch, throw)
@@ -65,8 +63,7 @@ import           Node                        (ConversationActions (..), Listener
                                              ListenerAction (..), Message (..),
                                              NodeId, SendActions (..),
                                              Worker, nodeId, node, NodeAction(..))
-import           Message.Message             (BinaryP (..))
-import           Data.Time.Units             (fromMicroseconds)
+import           Node.Message             (BinaryP (..))
 
 
 -- * Parcel
@@ -191,7 +188,7 @@ sendAll ConversationStyle sendActions peerId msgs =
     void . withConnectionTo sendActions @_ @Bool peerId $ \cactions -> forM_ msgs $
     \msg -> do
         send cactions msg
-        recv cactions
+        _ <- recv cactions
         pure ()
 
 receiveAll
@@ -205,7 +202,7 @@ receiveAll SingleMessageStyle handler =
 -- The sender awaits a response for each message. This ensures that the
 -- sender doesn't finish before the conversation SYN/ACK completes.
 receiveAll ConversationStyle  handler =
-    ListenerActionConversation @_ @_ @Bool $ \_ cactions ->
+    ListenerActionConversation @_ @_ @Bool $ \_ _ cactions ->
         let loop = do mmsg <- recv cactions
                       case mmsg of
                           Nothing -> pure ()

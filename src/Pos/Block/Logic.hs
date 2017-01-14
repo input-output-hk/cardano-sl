@@ -42,21 +42,21 @@ import           Formatting                (build, int, ords, sformat, stext, (%
 import           Serokell.Util.Text        (listJson)
 import           Serokell.Util.Verify      (VerificationRes (..), formatAllErrors,
                                             isVerSuccess, verResToMonadError)
-import           System.Wlog               (logDebug, logError, logInfo)
+import           System.Wlog               (CanLog, HasLoggerName, logDebug, logError,
+                                            logInfo)
 import           Universum
 
 import           Pos.Block.Logic.Internal  (applyBlocksUnsafe, rollbackBlocksUnsafe,
                                             withBlkSemaphore, withBlkSemaphore_)
 import           Pos.Constants             (blkSecurityParam, curProtocolVersion,
                                             curSoftwareVersion, epochSlots,
-                                            slotSecurityParam)
+                                            recoveryHeadersMessage, slotSecurityParam)
 import           Pos.Context               (NodeContext (ncSecretKey), getNodeContext,
                                             lrcActionOnEpochReason)
 import           Pos.Crypto                (SecretKey, WithHash (WithHash), hash,
                                             shortHashF)
 import           Pos.Data.Attributes       (mkAttributes)
-import           Pos.DB                    (DBError (..), MonadDB, getTipBlockHeader,
-                                            loadHeadersWhile)
+import           Pos.DB                    (DBError (..), MonadDB)
 import qualified Pos.DB                    as DB
 import qualified Pos.DB.GState             as GS
 import qualified Pos.DB.Lrc                as LrcDB
@@ -109,7 +109,7 @@ lcaWithMainChain headers@(h:|hs) =
     fmap fst . find snd <$>
         mapM (\hh -> (hh,) <$> GS.isBlockInMainChain hh)
              -- take hash of parent of last BlockHeader and convert all headers to hashes
-             (map hash (h : hs) ++ [NE.last headers ^. prevBlockL])
+             (map (view headerHashG) (h : hs) ++ [NE.last headers ^. prevBlockL])
 
 ----------------------------------------------------------------------------
 -- Headers
@@ -216,27 +216,47 @@ classifyHeaders headers@(h:|hs) = do
                           depthDiff (blkSecurityParam :: Int)
             | otherwise -> CHsValid lcaChild
 
--- | Given a set of checkpoints to stop at, we take second header hash
--- block (or tip if latter is @Nothing@) and fetch the blocks until we
--- reach genesis block or one of checkpoints. Returned headers are
--- newest-first.
+-- | Given a set of checkpoints @c@ to stop at and a terminating
+-- header hash @h@, we take @h@ block (or tip if latter is @Nothing@)
+-- and fetch the blocks until one of checkpoints is encountered. In
+-- case we got deeper than 'recoveryHeadersMessage', we return
+-- 'recoveryHeadersMessage' headers starting from the the newest
+-- checkpoint that's in our main chain to the newest ones. Returned
+-- headers are newest-first.
 getHeadersFromManyTo
-    :: (MonadDB ssc m, Ssc ssc)
-    => [HeaderHash ssc] -> Maybe (HeaderHash ssc) -> m [BlockHeader ssc]
-getHeadersFromManyTo checkpoints startM = do
-    validCheckpoints <- catMaybes <$> mapM DB.getBlockHeader checkpoints
-    tip <- GS.getTip
+    :: forall ssc m. (MonadDB ssc m, Ssc ssc, CanLog m, HasLoggerName m)
+    => NonEmpty (HeaderHash ssc)
+    -> Maybe (HeaderHash ssc)
+    -> m (Maybe (NonEmpty (BlockHeader ssc)))
+getHeadersFromManyTo checkpoints startM = runMaybeT $ do
+    lift $ logDebug $
+        sformat ("getHeadersFromManyTo: "%listJson%", start: "%build)
+                checkpoints startM
+    validCheckpoints <- MaybeT $
+        NE.nonEmpty . catMaybes <$>
+        mapM DB.getBlockHeader (NE.toList checkpoints)
+    tip <- lift GS.getTip
+    guard $ all ((/= tip) . view headerHashG) validCheckpoints
     let startFrom = fromMaybe tip startM
-        neq = (/=) `on` getEpochOrSlot
-        whileCond bh = all (neq bh) validCheckpoints
-    headers <- reverse <$> loadHeadersWhile whileCond startFrom
-    -- In case we didn't reach the very-first block we take one more
-    -- because "until" predicate will stop us before we get
-    -- checkpoint block and we do want to return it as well
-    oneMore <- case headers of
-        []       -> pure Nothing
-        (last:_) -> DB.getBlockHeader $ last ^. prevBlockL
-    pure $ reverse $ maybe identity (:) oneMore $ headers
+        parentIsCheckpoint bh =
+            any (\c -> bh ^. prevBlockL == c ^. headerHashG) validCheckpoints
+        whileCond bh = not (parentIsCheckpoint bh)
+    headers <-
+        MaybeT $ NE.nonEmpty <$>
+        DB.loadHeadersByDepthWhile whileCond recoveryHeadersMessage startFrom
+    if parentIsCheckpoint $ headers ^. _neHead
+    then pure headers
+    else do
+        lift $ logDebug $ "getHeadersFromManyTo: giving headers in recovery mode"
+        inMainCheckpoints <-
+            MaybeT $ NE.nonEmpty <$>
+            filterM (GS.isBlockInMainChain . headerHash)
+                    (NE.toList validCheckpoints)
+        let lowestCheckpoint =
+                maximumBy (comparing flattenEpochOrSlot) inMainCheckpoints
+            loadUpCond _ h = h < recoveryHeadersMessage
+        up <- lift $ GS.loadHeadersUpWhile lowestCheckpoint loadUpCond
+        MaybeT $ pure $ NE.nonEmpty $ reverse up
 
 -- | Given a starting point hash (we take tip if it's not in storage)
 -- it returns not more than 'blkSecurityParam' blocks distributed
@@ -248,7 +268,7 @@ getHeadersOlderExp upto = do
     tip <- GS.getTip
     let upToReal = fromMaybe tip upto
     allHeaders <- reverse <$> DB.loadHeadersByDepth blkSecurityParam upToReal
-    pure $ selectIndices (takeHashes allHeaders) twoPowers
+    pure $ selectIndices (takeHashes allHeaders) (twoPowers $ length allHeaders)
   where
     -- Given list of headers newest first, maps it to their hashes
     takeHashes [] = []
@@ -256,9 +276,11 @@ getHeadersOlderExp upto = do
         let prevHashes = map (view prevBlockL) headers
         in hash x : take (length prevHashes - 1) prevHashes
     -- Powers of 2
-    twoPowers =
-        (takeWhile (< blkSecurityParam) $ 0 : 1 : iterate (* 2) 2) ++
-        [blkSecurityParam]
+    twoPowers n | n < 0 =
+        panic $ "getHeadersOlderExp#twoPowers called w/" <> show n
+    twoPowers 0 = []
+    twoPowers 1 = [0]
+    twoPowers n = (takeWhile (<(n-1)) $ 0 : 1 : iterate (*2) 2) ++ [n-1]
     -- Effectively do @!i@ for any @i@ from the index list applied to
     -- source list. Index list should be inreasing.
     selectIndices :: [a] -> [Int] -> [a]
@@ -529,7 +551,7 @@ createMainBlock sId pSk = withBlkSemaphore createMainBlockDo
   where
     msgFmt = "We are trying to create main block, our tip header is\n"%build
     createMainBlockDo tip = do
-        tipHeader <- getTipBlockHeader
+        tipHeader <- DB.getTipBlockHeader
         logInfo $ sformat msgFmt tipHeader
         case canCreateBlock sId tipHeader of
             Nothing  -> convertRes tip <$>

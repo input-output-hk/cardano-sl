@@ -29,7 +29,7 @@ import qualified Pos.Block.Logic                as L
 import           Pos.Block.Network.Announce     (announceBlock)
 import           Pos.Block.Network.Types        (MsgBlock (..), MsgGetBlocks (..))
 import           Pos.Communication.BiP          (BiP (..))
-import           Pos.Context                    (getNodeContext, ncBlockRetreivalQueue)
+import           Pos.Context                    (getNodeContext, ncBlockRetrievalQueue)
 import           Pos.Crypto                     (hash, shortHashF)
 import qualified Pos.DB                         as DB
 import           Pos.Ssc.Class                  (SscWorkersClass)
@@ -41,7 +41,7 @@ import           Pos.WorkMode                   (WorkMode)
 
 retrievalWorker :: (SscWorkersClass ssc, WorkMode ssc m) => SendActions BiP m -> m ()
 retrievalWorker sendActions = handleAll handleWE $
-    ncBlockRetreivalQueue <$> getNodeContext >>= loop
+    ncBlockRetrievalQueue <$> getNodeContext >>= loop
   where
     handleWE e = do
         logError $ sformat ("retrievalWorker: error caught "%shown) e
@@ -74,7 +74,8 @@ retrievalWorker sendActions = handleAll handleWE $
         -- TODO: should we set 'To' hash to hash of header or leave it unlimited?
         case classificationRes of
             CHContinues -> pure $ CHsValid header
-            CHAlternative -> pure $ CHsInvalid "Expected header to be continuation, not alternative"
+            CHAlternative ->
+                pure $ CHsInvalid "Expected header to be continuation, not alternative"
             CHUseless reason -> pure $ CHsUseless reason
             CHInvalid reason -> pure $ CHsInvalid reason
     classifyHeaders' headers = classifyHeaders headers
@@ -243,7 +244,8 @@ relayBlock
        (WorkMode ssc m)
     => SendActions BiP m -> Block ssc -> m ()
 relayBlock _ (Left _)                  = pass
-relayBlock sendActions (Right mainBlk) = void $ fork $ announceBlock sendActions $ mainBlk ^. gbHeader
+relayBlock sendActions (Right mainBlk) =
+    void $ fork $ announceBlock sendActions $ mainBlk ^. gbHeader
 
 ----------------------------------------------------------------------------
 -- Logging formats

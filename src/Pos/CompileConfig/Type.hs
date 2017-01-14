@@ -49,6 +49,8 @@ data CompileConfig = CompileConfig
       -- ^ True if we should enable enhanced bessage broadcast
     , ccDelegationThreshold           :: !Double
       -- ^ Threshold for heavyweight delegation.
+    , ccRecoveryHeadersMessage        :: !Int
+      -- ^ Numbers of headers put in message in recovery mode.
     , ccUpdateServers                 :: ![String]
       -- ^ Servers for downloading application updates
     , ccMaxBlockProxySKs              :: !Int

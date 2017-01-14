@@ -9,7 +9,6 @@ module Pos.Wallet.Web.Doc
 
 import           Control.Lens               ((.~), (<>~))
 import qualified Data.HashMap.Strict        as HM
-import           Data.List                  ((!!))
 import           Data.Proxy                 (Proxy (..))
 import           Network.HTTP.Types.Method  (methodPost)
 import           Servant.API                (Capture)
@@ -24,7 +23,7 @@ import           System.IO.Unsafe           (unsafePerformIO)
 import           Universum
 
 import           Pos.Aeson.ClientTypes      ()
-import           Pos.Crypto                 (KeyPair, keyGen)
+import           Pos.Crypto                 (keyGen)
 import           Pos.Types                  (Coin, makePubKeyAddress, mkCoin)
 import           Pos.Wallet.Web.Api         (walletApi)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CTx, CTxId,

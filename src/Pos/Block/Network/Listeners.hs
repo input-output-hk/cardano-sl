@@ -214,9 +214,8 @@ handleUnsolicitedHeader header peerId sendActions = do
                 logDebug $ sformat ("handleUnsolicitedHeader: withConnection: sending "%shown) mgh
                 send conv mgh
                 mHeaders <- fmap inConvMsg <$> recv conv
-                logDebug $ sformat ("handleUnsolicitedHeader: withConnection: received "%shown) mHeaders
                 whenJust mHeaders $ \headers -> do
-                    logDebug "handleUnsolicitedHeader: got some block headers"
+                    logDebug $ sformat ("handleUnsolicitedHeader: withConnection: received "%listJson) headers
                     if matchRequestedHeaders headers mgh
                        then handleRequestedHeaders headers peerId
                        else handleUnexpected headers peerId

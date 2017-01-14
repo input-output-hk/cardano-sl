@@ -11,6 +11,7 @@ module Pos.Wallet.Web.Server.Methods
        , walletServeImpl
        ) where
 
+import           Control.Monad.Except          (runExceptT)
 import           Control.TimeWarp.Timed        (Millisecond)
 import           Data.Default                  (def)
 import           Data.List                     (elemIndex, (!!))
@@ -83,22 +84,22 @@ walletServeImpl app daedalusDbPath dbRebuild port =
         closeWS = closeWSConnection
 
 walletApplication
-    :: WalletMode ssc m
-    => WalletWebHandler m (Server WalletApi)
-    -> WalletWebHandler m Application
+    :: WalletWebMode ssc m
+    => m (Server WalletApi)
+    -> m Application
 walletApplication serv = do
     wsConn <- getWalletWebSockets
     serv >>= return . upgradeApplicationWS wsConn . serve walletApi
 
 walletServer
-    :: WalletMode ssc m
-    => WalletWebHandler m (WalletWebHandler m :~> Handler)
-    -> WalletWebHandler m (Server WalletApi)
+    :: WalletWebMode ssc m
+    => m (m :~> Handler)
+    -> m (Server WalletApi)
 walletServer nat = do
     whenM (isNothing <$> getProfile) $
         createUserProfile >>= setProfile
     join $ mapM_ insertAddressMeta <$> myCAddresses
-    launchNotifier
+    launchNotifier <$> nat
     flip enter servantHandlers <$> nat
   where
     insertAddressMeta cAddr =
@@ -108,8 +109,8 @@ walletServer nat = do
         pure $ CProfile mempty mempty mempty mempty time mempty mempty
 
 -- FIXME: this is really inaficient. Temporary solution
-launchNotifier :: WalletWebMode ssc m => m ()
-launchNotifier = getWalletWebSockets >>= void . liftIO . forkForever . notifier
+launchNotifier :: WalletWebMode ssc m => (m :~> Handler) -> m ()
+launchNotifier = void . liftIO . forkForever . notifier . unNat
   where
     notifyPeriod = fromIntegral (10000000 :: Millisecond)
     forkForever action = forkFinally action $ const $ do
@@ -117,7 +118,9 @@ launchNotifier = getWalletWebSockets >>= void . liftIO . forkForever . notifier
         -- colldown
         threadDelay notifyPeriod
         void $ forkForever action
-    notifier = flip runWalletWS $ forever $ do
+    -- TODO: use Servant.enter here
+    -- FIXME: don't ignore errors, send error msg to the socket
+    notifier f = void . runExceptT . f $ forever $ do
         liftIO $ threadDelay notifyPeriod
         sequence_ [historyNotifier]
     -- NOTE: temp solution, dummy notifier that pings every 10 secs

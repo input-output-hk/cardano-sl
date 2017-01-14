@@ -43,7 +43,7 @@ import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CProfile,
                                                 CProfile (..), CTx, CTxId, CTxMeta (..),
                                                 CWallet (..), CWalletMeta (..),
-                                                NotifyEvent (NewTransaction),
+                                                NotifyEvent (NewWalletTransaction),
                                                 addressToCAddress, cAddressToAddress,
                                                 mkCTx, mkCTxId, txContainsTitle,
                                                 txIdToCTxId)
@@ -55,8 +55,9 @@ import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
                                                 addOnlyNewTxMeta, closeState,
                                                 createWallet, getProfile, getTxMeta,
-                                                getWalletMeta, openState, removeWallet,
-                                                runWalletWebDB, setProfile, setWalletMeta,
+                                                getWalletHistory, getWalletMeta,
+                                                openState, removeWallet, runWalletWebDB,
+                                                setProfile, setWalletMeta,
                                                 setWalletTransactionMeta)
 
 ----------------------------------------------------------------------------
@@ -110,7 +111,7 @@ walletServer nat = do
 
 -- FIXME: this is really inaficient. Temporary solution
 launchNotifier :: WalletWebMode ssc m => (m :~> Handler) -> m ()
-launchNotifier = void . liftIO . forkForever . notifier . unNat
+launchNotifier = void . liftIO . forkForever . notifier
   where
     notifyPeriod = fromIntegral (10000000 :: Millisecond)
     forkForever action = forkFinally action $ const $ do
@@ -120,19 +121,18 @@ launchNotifier = void . liftIO . forkForever . notifier . unNat
         void $ forkForever action
     -- TODO: use Servant.enter here
     -- FIXME: don't ignore errors, send error msg to the socket
-    notifier f = void . runExceptT . f $ forever $ do
+    notifier f = void . runExceptT . unNat f $ forever $ do
         liftIO $ threadDelay notifyPeriod
         sequence_ [historyNotifier]
     -- NOTE: temp solution, dummy notifier that pings every 10 secs
-    historyNotifier = notify NewTransaction
-    -- runWalletWebDB db $ runWalletWS conn $ do
---        cAddresses <- myCAddresses
---        forM cAddresses $ \cAddress -> do
---            -- TODO: is reading from acid RAM only (not reading from disk?)
---            oldHistoryLength <- length . fromMaybe mempty <$> getWalletHistory cAddress
---            newHistoryLength <- length <$> getHistory cAddress
---            when (oldHistoryLength /= newHistoryLength) .
---                notify $ NewTransaction cAddress
+    historyNotifier = do
+        cAddresses <- myCAddresses
+        forM cAddresses $ \cAddress -> do
+            -- TODO: is reading from acid RAM only (not reading from disk?)
+            oldHistoryLength <- length . fromMaybe mempty <$> getWalletHistory cAddress
+            newHistoryLength <- length <$> getHistory cAddress
+            when (oldHistoryLength /= newHistoryLength) .
+                notify $ NewWalletTransaction cAddress
 
 
 ----------------------------------------------------------------------------

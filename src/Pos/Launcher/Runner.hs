@@ -52,7 +52,7 @@ import           Node                           (ConversationActions (..), Liste
                                                  node)
 import qualified STMContainers.Map              as SM
 import           System.Random                  (newStdGen)
-import           System.Wlog                    (WithLogger, logDebug, logError, logInfo,
+import           System.Wlog                    (WithLogger, logError, logInfo,
                                                  logWarning, releaseAllHandlers,
                                                  traverseLoggerConfig, usingLoggerName)
 import           Universum                      hiding (bracket)

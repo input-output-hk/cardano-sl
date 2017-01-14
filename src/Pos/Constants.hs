@@ -61,12 +61,10 @@ module Pos.Constants
        ) where
 
 import           Data.String                (String)
-import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Data.Time.Units            (Microsecond)
 import           Language.Haskell.TH.Syntax (lift, runIO)
 import           Pos.Util.TimeWarp          (ms, sec)
 import           System.Environment         (lookupEnv)
-import           System.IO.Unsafe           (unsafePerformIO)
 import qualified Text.Parsec                as P
 import           Universum                  hiding (lift)
 

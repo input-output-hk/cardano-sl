@@ -4,7 +4,7 @@ module Pos.Security.Class
 
 import           Data.Tagged           (Tagged)
 import           Node                  (SendActions)
-import           Universum
+-- import           Universum
 
 import           Pos.Communication.BiP (BiP)
 import           Pos.Ssc.Class.Types   (Ssc)

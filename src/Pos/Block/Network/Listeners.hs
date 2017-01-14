@@ -8,11 +8,9 @@ module Pos.Block.Network.Listeners
        , blockStubListeners
        ) where
 
-import           Control.Lens                ((^.))
 import           Data.List.NonEmpty          (NonEmpty ((:|)))
-import qualified Data.List.NonEmpty          as NE
 import           Data.Proxy                  (Proxy (..))
-import           Formatting                  (sformat, shown, stext, (%))
+import           Formatting                  (sformat, stext, (%))
 import           Node                        (ConversationActions (..),
                                               ListenerAction (..), NodeId (..),
                                               SendActions (..))

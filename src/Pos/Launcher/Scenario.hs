@@ -22,8 +22,7 @@ import           Pos.Context                 (NodeContext (..), getNodeContext,
                                               ncPubKeyAddress, ncPublicKey)
 import qualified Pos.DB.GState               as GS
 import qualified Pos.DB.Lrc                  as LrcDB
-import           Pos.DHT.Model               (DHTNode, DHTNodeType (DHTFull),
-                                              discoverPeers)
+import           Pos.DHT.Model               (DHTNodeType (DHTFull), discoverPeers)
 import           Pos.Ssc.Class               (SscConstraint)
 import           Pos.Types                   (Timestamp (Timestamp), addressHash)
 import           Pos.Util                    (inAssertMode, waitRandomInterval)
@@ -46,7 +45,7 @@ runNode plugins sendActions = do
     logInfo $ sformat ("My public key is: "%build%
                        ", address: "%build%
                        ", pk hash: "%build) pk addr pkHash
-    fork waitForPeers
+    () <$ fork waitForPeers
     initSemaphore
     initLrc
     waitSystemStart

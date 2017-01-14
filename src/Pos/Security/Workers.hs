@@ -24,7 +24,6 @@ import           Pos.DB                            (getTipBlock, loadBlundsFromT
 import           Pos.DHT.Model                     (converseToNeighbors)
 import           Pos.Security.Class                (SecurityWorkersClass (..))
 import           Pos.Slotting                      (onNewSlot)
-import           Pos.Ssc.Class.Types               (Ssc (..))
 import           Pos.Ssc.GodTossing.Types.Instance ()
 import           Pos.Ssc.GodTossing.Types.Type     (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types    (GtPayload (..), SscBi)

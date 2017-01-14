@@ -210,7 +210,7 @@ handleUnsolicitedHeader header peerId sendActions = do
         CHAlternative -> do
             logInfo $ sformat alternativeFormat hHash
             mgh <- mkHeadersRequest (Just hHash)
-            withConnectionTo sendActions peerId $ \conv -> do
+            void $ withConnectionTo sendActions peerId $ \conv -> do
                 logDebug "handleUnsolicitedHeader: withConnection: sending MsgGetHeaders"
                 send conv mgh
                 logDebug "handleUnsolicitedHeader: withConnection: receiving MsgHeaders"

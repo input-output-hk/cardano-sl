@@ -89,7 +89,7 @@ retrievalWorker sendActions = handleAll handleWE $
     handleCHsValid peerId lcaChild newestHash = do
         let lcaChildHash = hash lcaChild
         logDebug $ sformat validFormat lcaChildHash newestHash
-        withConnectionTo sendActions peerId $ \conv -> do
+        void $ withConnectionTo sendActions peerId $ \conv -> do
             send conv $ mkBlocksRequest lcaChildHash newestHash
             chainE <- runExceptT (retrieveBlocks conv lcaChild newestHash)
             case chainE of

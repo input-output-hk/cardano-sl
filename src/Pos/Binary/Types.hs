@@ -50,7 +50,7 @@ instance Bi T.SlotId where
         siEpoch <- get
         siSlot <- get
         let errMsg =
-                formatToString ("get@SlotId: ivalid slotId ("%int%")") siSlot
+                formatToString ("get@SlotId: invalid slotId ("%int%")") siSlot
         unless (inRange (0, epochSlots - 1) siSlot) $ fail errMsg
         return $ T.SlotId {..}
 

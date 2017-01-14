@@ -229,11 +229,12 @@ getHeadersFromManyTo
     -> Maybe (HeaderHash ssc)
     -> m (Maybe (NonEmpty (BlockHeader ssc)))
 getHeadersFromManyTo checkpoints startM = runMaybeT $ do
-    lift $ logDebug $ sformat ("ghfmt: "%listJson%", start: "%build) checkpoints startM
+    lift $ logDebug $
+        sformat ("getHeadersFromManyTo: "%listJson%", start: "%build)
+                checkpoints startM
     validCheckpoints <- MaybeT $
         NE.nonEmpty . catMaybes <$>
         mapM DB.getBlockHeader (NE.toList checkpoints)
-    lift $ logDebug "Got valid checkpoints"
     tip <- lift GS.getTip
     guard $ all ((/= tip) . view headerHashG) validCheckpoints
     let startFrom = fromMaybe tip startM
@@ -243,12 +244,10 @@ getHeadersFromManyTo checkpoints startM = runMaybeT $ do
     headers <-
         MaybeT $ NE.nonEmpty <$>
         DB.loadHeadersByDepthWhile whileCond recoveryHeadersMessage startFrom
-    lift $ logDebug $ sformat ("Got headers: "%listJson) headers
     if parentIsCheckpoint $ headers ^. _neHead
-    then do
-        lift $ logDebug "ghmft: branch 1"
-        pure headers
+    then pure headers
     else do
+        lift $ logDebug $ "getHeadersFromManyTo: giving headers in recovery mode"
         inMainCheckpoints <-
             MaybeT $ NE.nonEmpty <$>
             filterM (GS.isBlockInMainChain . headerHash)
@@ -256,9 +255,7 @@ getHeadersFromManyTo checkpoints startM = runMaybeT $ do
         let lowestCheckpoint =
                 maximumBy (comparing flattenEpochOrSlot) inMainCheckpoints
             loadUpCond _ h = h < recoveryHeadersMessage
-        lift $ logDebug "ghmft: branch 2 loading"
         up <- lift $ GS.loadHeadersUpWhile lowestCheckpoint loadUpCond
-        lift $ logDebug "ghmft: branch 2 loading done"
         MaybeT $ pure $ NE.nonEmpty $ reverse up
 
 -- | Given a starting point hash (we take tip if it's not in storage)

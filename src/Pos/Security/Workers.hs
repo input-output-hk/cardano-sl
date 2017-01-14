@@ -14,12 +14,15 @@ import           Node                              (SendActions)
 import           System.Wlog                       (logWarning)
 import           Universum                         hiding (ask)
 
+import           Pos.Block.Network.Retrieval       (mkHeadersRequest, requestHeaders)
 import           Pos.Communication.BiP             (BiP)
 import           Pos.Constants                     (blkSecurityParam,
                                                     mdNoBlocksSlotThreshold,
                                                     mdNoCommitmentsEpochThreshold)
 import           Pos.Context                       (getNodeContext, ncPublicKey)
 import           Pos.DB                            (getTipBlock, loadBlundsFromTipByDepth)
+import           Pos.DHT.Model                     (converseToNeighbors)
+import           Pos.Security.Class                (SecurityWorkersClass (..))
 import           Pos.Slotting                      (onNewSlot)
 import           Pos.Ssc.Class.Types               (Ssc (..))
 import           Pos.Ssc.GodTossing.Types.Instance ()
@@ -31,9 +34,6 @@ import           Pos.Types                         (EpochIndex, MainBlock, SlotI
                                                     gbhConsensus, gcdEpoch, headerSlot)
 import           Pos.Types.Address                 (addressHash)
 import           Pos.WorkMode                      (WorkMode)
-
-class Ssc ssc => SecurityWorkersClass ssc where
-    securityWorkers :: WorkMode ssc m => Tagged ssc [SendActions BiP m -> m ()]
 
 instance SscBi => SecurityWorkersClass SscGodTossing where
     securityWorkers = Tagged [ checkForReceivedBlocksWorker
@@ -48,7 +48,7 @@ reportAboutEclipsed :: WorkMode ssc m => m ()
 reportAboutEclipsed = logWarning "We're doomed, we're eclipsed!"
 
 checkForReceivedBlocksWorker :: WorkMode ssc m => SendActions BiP m -> m ()
-checkForReceivedBlocksWorker __sendActions = onNewSlot True $ \slotId -> do
+checkForReceivedBlocksWorker sendActions = onNewSlot True $ \slotId -> do
     headBlock <- getTipBlock
     case headBlock of
         Left genesis -> compareSlots slotId $ SlotId (genesis ^. gbHeader . gbhConsensus . gcdEpoch) 0
@@ -57,8 +57,11 @@ checkForReceivedBlocksWorker __sendActions = onNewSlot True $ \slotId -> do
     compareSlots slotId blockGeneratedId = do
         let fSlotId = flattenSlotId slotId
         let fBlockGeneratedSlotId = flattenSlotId blockGeneratedId
-        when (fSlotId - fBlockGeneratedSlotId > mdNoBlocksSlotThreshold)
+        when (fSlotId - fBlockGeneratedSlotId > mdNoBlocksSlotThreshold) $ do
             reportAboutEclipsed
+            mghM <- mkHeadersRequest Nothing
+            whenJust mghM $ \mgh ->
+                converseToNeighbors sendActions (requestHeaders mgh)
 
 checkForIgnoredCommitmentsWorker :: forall m. WorkMode SscGodTossing m => SendActions BiP m -> m ()
 checkForIgnoredCommitmentsWorker  __sendActions= do

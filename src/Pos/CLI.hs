@@ -46,7 +46,7 @@ import           Pos.Binary.Address                   ()
 import           Pos.Crypto                           (PublicKey)
 import           Pos.DHT.Model.Types                  (DHTKey, DHTNode (..),
                                                        bytesToDHTKey)
-import           Pos.Security.Types                   (AttackTarget (..), AttackType (..))
+import           Pos.Security.CLI                   (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
 import           Pos.Types.Address                    (Address (..), AddressHash,
                                                        decodeTextAddress)

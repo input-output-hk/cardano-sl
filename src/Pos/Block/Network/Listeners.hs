@@ -8,43 +8,39 @@ module Pos.Block.Network.Listeners
        , blockStubListeners
        ) where
 
-import           Control.Concurrent.STM.TBQueue (isFullTBQueue, writeTBQueue)
-import           Control.Lens                   ((^.))
-import           Data.List.NonEmpty             (NonEmpty ((:|)))
-import qualified Data.List.NonEmpty             as NE
-import           Data.Proxy                     (Proxy (..))
-import           Formatting                     (sformat, shown, stext, (%))
-import           Node                           (ConversationActions (..),
-                                                 ListenerAction (..), NodeId (..),
-                                                 SendActions (..))
-import           Serokell.Util.Text             (listJson)
-import           Serokell.Util.Verify           (isVerSuccess)
-import           System.Wlog                    (WithLogger, logDebug, logInfo,
-                                                 logWarning)
+import           Control.Lens                ((^.))
+import           Data.List.NonEmpty          (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty          as NE
+import           Data.Proxy                  (Proxy (..))
+import           Formatting                  (sformat, shown, stext, (%))
+import           Node                        (ConversationActions (..),
+                                              ListenerAction (..), NodeId (..),
+                                              SendActions (..))
+import           Serokell.Util.Text          (listJson)
+import           System.Wlog                 (WithLogger, logDebug, logInfo, logWarning)
 import           Universum
 
-import           Pos.Binary.Communication       ()
-import           Pos.Block.Logic                (ClassifyHeaderRes (..),
-                                                 ClassifyHeadersRes (..), classifyHeaders,
-                                                 classifyNewHeader, getHeadersFromManyTo,
-                                                 getHeadersFromToIncl, getHeadersOlderExp)
-import           Pos.Block.Network.Types        (InConv (..), MsgBlock (..),
-                                                 MsgGetBlocks (..), MsgGetHeaders (..),
-                                                 MsgHeaders (..))
-import           Pos.Communication.BiP          (BiP (..))
-import           Pos.Constants                  (blkSecurityParam)
-import           Pos.Context                    (getNodeContext, ncBlockRetrievalQueue)
-import           Pos.Crypto                     (hash, shortHashF)
-import qualified Pos.DB                         as DB
-import           Pos.DB.Error                   (DBError (DBMalformed))
-import           Pos.DHT.Model                  (nodeIdToAddress)
-import           Pos.Ssc.Class.Types            (Ssc (..))
-import           Pos.Types                      (BlockHeader, HasHeaderHash (..),
-                                                 HeaderHash, headerHashG, prevBlockL,
-                                                 verifyHeaders)
-import           Pos.Util                       (_neHead, _neLast)
-import           Pos.Util                       (stubListenerConv, stubListenerOneMsg)
-import           Pos.WorkMode                   (WorkMode)
+import           Pos.Binary.Communication    ()
+import           Pos.Block.Logic             (ClassifyHeaderRes (..),
+                                              ClassifyHeadersRes (..), classifyHeaders,
+                                              classifyNewHeader, getHeadersFromManyTo,
+                                              getHeadersFromToIncl)
+import           Pos.Block.Network.Retrieval (addToBlockRequestQueue, mkHeadersRequest,
+                                              requestHeaders)
+import           Pos.Block.Network.Types     (InConv (..), MsgBlock (..),
+                                              MsgGetBlocks (..), MsgGetHeaders (..),
+                                              MsgHeaders (..))
+import           Pos.Communication.BiP       (BiP (..))
+import           Pos.Context                 (getNodeContext, ncBlockRetrievalQueue)
+import           Pos.Crypto                  (hash, shortHashF)
+import qualified Pos.DB                      as DB
+import           Pos.DB.Error                (DBError (DBMalformed))
+import           Pos.Ssc.Class.Types         (Ssc)
+import           Pos.Types                   (BlockHeader, HasHeaderHash (..), HeaderHash,
+                                              headerHashG, prevBlockL)
+import           Pos.Util                    (_neHead, _neLast)
+import           Pos.Util                    (stubListenerConv, stubListenerOneMsg)
+import           Pos.WorkMode                (WorkMode)
 
 blockListeners
     :: ( WorkMode ssc m )
@@ -63,34 +59,6 @@ blockStubListeners p =
     , stubListenerOneMsg $ (const Proxy :: Proxy ssc -> Proxy (MsgGetBlocks ssc)) p
     , stubListenerOneMsg $ (const Proxy :: Proxy ssc -> Proxy (MsgHeaders ssc)) p
     ]
-
--- | Make 'GetHeaders' message using our main chain. This function
--- chooses appropriate 'from' hashes and puts them into 'GetHeaders'
--- message.
-mkHeadersRequest
-    :: WorkMode ssc m
-    => Maybe (HeaderHash ssc) -> m (Maybe (MsgGetHeaders ssc))
-mkHeadersRequest upto = do
-    headers <- NE.nonEmpty <$> getHeadersOlderExp Nothing
-    pure $ (\h -> MsgGetHeaders h upto) <$> headers
-
-matchRequestedHeaders
-    :: (Ssc ssc)
-    => NonEmpty (BlockHeader ssc) -> MsgGetHeaders ssc -> Bool
-matchRequestedHeaders headers@(newTip :| hs) mgh =
-    let startHeader = NE.last headers
-        startMatches =
-            or [ (startHeader ^. headerHashG) `elem` mghFrom mgh
-               , (startHeader ^. prevBlockL) `elem` mghFrom mgh]
-        mghToMatches
-            | length headers > blkSecurityParam = True
-            | otherwise =  Just (hash newTip) == mghTo mgh
-     in and [ startMatches
-            , mghToMatches
-            , formChain
-            ]
-  where
-    formChain = isVerSuccess (verifyHeaders True $ newTip:hs)
 
 -- | Handles GetHeaders request which means client wants to get
 -- headers from some checkpoints that are older than optional @to@
@@ -133,53 +101,6 @@ handleGetBlocks = ListenerActionConversation $ \__peerId __sendActions conv -> d
             send conv $ MsgBlock block
         logDebug "handleGetBlocks: blocks sending done"
 
-addToBlockRequestQueue
-    :: forall ssc m.
-       (WorkMode ssc m)
-    => NonEmpty (BlockHeader ssc)
-    -> NodeId
-    -> m ()
-addToBlockRequestQueue headers peerId = do
-    queue <- ncBlockRetrievalQueue <$> getNodeContext
-    added <- liftIO . atomically $
-                ifM (isFullTBQueue queue)
-                    (pure False)
-                    (True <$ writeTBQueue queue (peerId, headers))
-    if added
-      then logDebug $ sformat
-        ("Added to block request queue: peerId="%shown%", headers="%listJson) peerId headers
-      else logWarning $ sformat
-        ("Failed to add headers from "%shown%" to block retrieval queue: queue is full")
-        peerId
-
--- First case of 'handleBlockheaders'
-handleRequestedHeaders
-    :: forall ssc m.
-       (WorkMode ssc m)
-    => NonEmpty (BlockHeader ssc)
-    -> NodeId
-    -> m ()
-handleRequestedHeaders headers peerId = do
-    logDebug "handleRequestedHeaders: headers were requested, will process"
-    classificationRes <- classifyHeaders headers
-    let newestHeader = headers ^. _neHead
-        newestHash = headerHash newestHeader
-        oldestHash = headerHash $ headers ^. _neLast
-    case classificationRes of
-        CHsValid lcaChild -> do
-            let lcaChildHash = hash lcaChild
-            logDebug $ sformat validFormat lcaChildHash newestHash
-            addToBlockRequestQueue headers peerId
-        CHsUseless reason ->
-            logDebug $ sformat uselessFormat oldestHash newestHash reason
-        CHsInvalid _ -> pass -- TODO: ban node for sending invalid block.
-  where
-    validFormat =
-        "Received valid headers, can request blocks from " %shortHashF % " to " %shortHashF
-    uselessFormat =
-        "Chain of headers from " %shortHashF % " to " %shortHashF %
-        " is useless for the following reason: " %stext
-
 -- Second case of 'handleBlockheaders'
 handleUnsolicitedHeaders
     :: forall ssc m.
@@ -216,23 +137,12 @@ handleUnsolicitedHeader header peerId sendActions = do
             logInfo $ sformat alternativeFormat hHash
             mghM <- mkHeadersRequest (Just hHash)
             whenJust mghM $ \mgh ->
-                withConnectionTo sendActions peerId $ processAlt mgh
+                withConnectionTo sendActions peerId $ requestHeaders mgh peerId
         CHUseless reason -> logDebug $ sformat uselessFormat hHash reason
         CHInvalid _ -> do
             logDebug $ sformat ("handleUnsolicited: header "%shortHashF%" is invalid") hHash
             pass -- TODO: ban node for sending invalid block.
   where
-    processAlt mgh conv = do
-        logDebug $ sformat ("handleUnsolicitedHeader: withConnection: sending "%shown) mgh
-        send conv mgh
-        mHeaders <- fmap inConvMsg <$> recv conv
-        whenJust mHeaders $ \headers -> do
-            logDebug $ sformat
-                ("handleUnsolicitedHeader: withConnection: received "%listJson)
-                headers
-            if matchRequestedHeaders headers mgh
-               then handleRequestedHeaders headers peerId
-               else handleUnexpected headers peerId
     hHash = headerHash header
     continuesFormat =
         "Header " %shortHashF %
@@ -242,12 +152,6 @@ handleUnsolicitedHeader header peerId sendActions = do
         " potentially represents good alternative chain, requesting more headers"
     uselessFormat =
         "Header " %shortHashF % " is useless for the following reason: " %stext
-    handleUnexpected (h:|hs) _ = do
-        -- TODO: ban node for sending unsolicited header in conversation
-        logWarning $ sformat
-            ("handleUnsolicitedHeader: headers received were not requested, address: " % shown)
-            (nodeIdToAddress peerId)
-        logWarning $ sformat ("handleUnsolicitedHeader: unexpected headers: "%listJson) (h:hs)
 
 -- | Handles MsgHeaders request, unsolicited usecase
 handleBlockHeaders

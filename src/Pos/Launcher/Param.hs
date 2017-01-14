@@ -12,7 +12,7 @@ import           Universum
 
 import           Pos.Crypto          (SecretKey)
 import           Pos.DHT.Model       (DHTKey, DHTNode, DHTNodeType)
-import           Pos.Security.Types  (AttackTarget, AttackType)
+import           Pos.Security.CLI  (AttackTarget, AttackType)
 import           Pos.Types           (Timestamp, Utxo)
 import           Pos.Util.UserSecret (UserSecret)
 

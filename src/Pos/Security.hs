@@ -1,9 +1,9 @@
 module Pos.Security
-       ( module Pos.Security.Types
+       ( module Pos.Security.Class
+       , module Pos.Security.CLI
        , module Pos.Security.Util
-       , module Pos.Security.Workers
        ) where
 
-import           Pos.Security.Types
+import           Pos.Security.Class
+import           Pos.Security.CLI
 import           Pos.Security.Util
-import           Pos.Security.Workers

@@ -5,37 +5,47 @@
 
 module Pos.Block.Network.Retrieval
        ( retrievalWorker
+       , requestHeaders
+       , addToBlockRequestQueue
+       , mkHeadersRequest
        ) where
 
-import           Control.Concurrent.STM.TBQueue (readTBQueue)
+import           Control.Concurrent.STM.TBQueue (isFullTBQueue, readTBQueue, writeTBQueue)
 import           Control.Lens                   (view, (^.))
 import           Control.Monad.Trans.Except     (ExceptT, runExceptT, throwE)
 import           Data.List.NonEmpty             (NonEmpty ((:|)), nonEmpty, (<|))
 import qualified Data.List.NonEmpty             as NE
 import           Formatting                     (build, int, sformat, shown, stext, (%))
 import           Mockable                       (fork, handleAll, throw)
-import           Node                           (ConversationActions (..),
+import           Node                           (ConversationActions (..), NodeId,
                                                  SendActions (..))
 import           Serokell.Util.Text             (listJson)
+import           Serokell.Util.Verify           (isVerSuccess)
 import           System.Wlog                    (logDebug, logError, logInfo, logWarning)
 import           Universum
 
 import           Pos.Binary.Communication       ()
 import           Pos.Block.Logic                (ClassifyHeaderRes (..),
                                                  ClassifyHeadersRes (..), classifyHeaders,
-                                                 classifyNewHeader, lcaWithMainChain,
-                                                 verifyAndApplyBlocks, withBlkSemaphore)
+                                                 classifyNewHeader, getHeadersOlderExp,
+                                                 lcaWithMainChain, verifyAndApplyBlocks,
+                                                 withBlkSemaphore)
 import qualified Pos.Block.Logic                as L
 import           Pos.Block.Network.Announce     (announceBlock)
-import           Pos.Block.Network.Types        (MsgBlock (..), MsgGetBlocks (..))
+import           Pos.Block.Network.Types        (InConv (..), MsgBlock (..),
+                                                 MsgGetBlocks (..), MsgGetHeaders (..),
+                                                 MsgHeaders (..))
 import           Pos.Communication.BiP          (BiP (..))
+import           Pos.Constants                  (blkSecurityParam)
 import           Pos.Context                    (getNodeContext, ncBlockRetrievalQueue)
 import           Pos.Crypto                     (hash, shortHashF)
 import qualified Pos.DB                         as DB
-import           Pos.Ssc.Class                  (SscWorkersClass)
-import           Pos.Types                      (Block, Blund, HasHeaderHash (..),
-                                                 HeaderHash, NEBlocks, blockHeader,
-                                                 gbHeader, prevBlockL)
+import           Pos.DHT.Model                  (nodeIdToAddress)
+import           Pos.Ssc.Class                  (Ssc, SscWorkersClass)
+import           Pos.Types                      (Block, BlockHeader, Blund,
+                                                 HasHeaderHash (..), HeaderHash, NEBlocks,
+                                                 blockHeader, gbHeader, prevBlockL,
+                                                 verifyHeaders)
 import           Pos.Util                       (inAssertMode, _neHead, _neLast)
 import           Pos.WorkMode                   (WorkMode)
 
@@ -133,6 +143,107 @@ retrievalWorker sendActions = handleAll handleWE $
                 if curH == endH
                   then return $ block :| []
                   else (block <|) <$> retrieveBlocks' (i+1) conv curH endH
+
+-- | Make 'GetHeaders' message using our main chain. This function
+-- chooses appropriate 'from' hashes and puts them into 'GetHeaders'
+-- message.
+mkHeadersRequest
+    :: WorkMode ssc m
+    => Maybe (HeaderHash ssc) -> m (Maybe (MsgGetHeaders ssc))
+mkHeadersRequest upto = do
+    headers <- NE.nonEmpty <$> getHeadersOlderExp Nothing
+    pure $ (\h -> MsgGetHeaders h upto) <$> headers
+
+matchRequestedHeaders
+    :: (Ssc ssc)
+    => NonEmpty (BlockHeader ssc) -> MsgGetHeaders ssc -> Bool
+matchRequestedHeaders headers@(newTip :| hs) mgh =
+    let startHeader = NE.last headers
+        startMatches =
+            or [ (startHeader ^. headerHashG) `elem` mghFrom mgh
+               , (startHeader ^. prevBlockL) `elem` mghFrom mgh]
+        mghToMatches
+            | length headers > blkSecurityParam = True
+            | otherwise =  Just (hash newTip) == mghTo mgh
+     in and [ startMatches
+            , mghToMatches
+            , formChain
+            ]
+  where
+    formChain = isVerSuccess (verifyHeaders True $ newTip:hs)
+
+requestHeaders
+    :: forall ssc m.
+       (WorkMode ssc m)
+    => MsgGetHeaders ssc
+    -> NodeId
+    -> ConversationActions (MsgGetHeaders ssc) (InConv (MsgHeaders ssc)) m
+    -> m ()
+requestHeaders mgh peerId conv = do
+    logDebug $ sformat ("handleUnsolicitedHeader: withConnection: sending "%shown) mgh
+    send conv mgh
+    mHeaders <- fmap inConvMsg <$> recv conv
+    whenJust mHeaders $ \(MsgHeaders headers) -> do
+        logDebug $ sformat
+            ("handleUnsolicitedHeader: withConnection: received "%listJson)
+            headers
+        if matchRequestedHeaders headers mgh
+           then handleRequestedHeaders headers peerId
+           else handleUnexpected headers peerId
+  where
+    handleUnexpected (h:|hs) _ = do
+        -- TODO: ban node for sending unsolicited header in conversation
+        logWarning $ sformat
+            ("handleUnsolicitedHeader: headers received were not requested, address: " % shown)
+            (nodeIdToAddress peerId)
+        logWarning $ sformat ("handleUnsolicitedHeader: unexpected headers: "%listJson) (h:hs)
+
+-- First case of 'handleBlockheaders'
+handleRequestedHeaders
+    :: forall ssc m.
+       (WorkMode ssc m)
+    => NonEmpty (BlockHeader ssc)
+    -> NodeId
+    -> m ()
+handleRequestedHeaders headers peerId = do
+    logDebug "handleRequestedHeaders: headers were requested, will process"
+    classificationRes <- classifyHeaders headers
+    let newestHeader = headers ^. _neHead
+        newestHash = headerHash newestHeader
+        oldestHash = headerHash $ headers ^. _neLast
+    case classificationRes of
+        CHsValid lcaChild -> do
+            let lcaChildHash = hash lcaChild
+            logDebug $ sformat validFormat lcaChildHash newestHash
+            addToBlockRequestQueue headers peerId
+        CHsUseless reason ->
+            logDebug $ sformat uselessFormat oldestHash newestHash reason
+        CHsInvalid _ -> pass -- TODO: ban node for sending invalid block.
+  where
+    validFormat =
+        "Received valid headers, can request blocks from " %shortHashF % " to " %shortHashF
+    uselessFormat =
+        "Chain of headers from " %shortHashF % " to " %shortHashF %
+        " is useless for the following reason: " %stext
+
+addToBlockRequestQueue
+    :: forall ssc m.
+       (WorkMode ssc m)
+    => NonEmpty (BlockHeader ssc)
+    -> NodeId
+    -> m ()
+addToBlockRequestQueue headers peerId = do
+    queue <- ncBlockRetrievalQueue <$> getNodeContext
+    added <- liftIO . atomically $
+                ifM (isFullTBQueue queue)
+                    (pure False)
+                    (True <$ writeTBQueue queue (peerId, headers))
+    if added
+      then logDebug $ sformat
+        ("Added to block request queue: peerId="%shown%", headers="%listJson) peerId headers
+      else logWarning $ sformat
+        ("Failed to add headers from "%shown%" to block retrieval queue: queue is full")
+        peerId
 
 -- | Make message which requests chain of blocks which is based on our
 -- tip. LcaChild is the first block after LCA we don't

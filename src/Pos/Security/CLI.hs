@@ -1,4 +1,4 @@
-module Pos.Security.Types
+module Pos.Security.CLI
        ( AttackType (..)
        , AttackTarget (..)
        ) where

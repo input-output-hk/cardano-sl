@@ -156,6 +156,8 @@ onNewSlotSsc sendActions = onNewSlot True $ \slotId -> do
         atomically . readTVar . gtcParticipateSsc . ncSscContext
     ourId <- addressHash . ncPublicKey <$> getNodeContext
     let enoughStake = ourId `HS.member` richmen
+    when (participationEnabled && not enoughStake) $
+        logDebug "Not enough stake to participate in MPC"
     when (participationEnabled && enoughStake) $ do
         checkNSendOurCert sendActions
         onNewSlotCommitment sendActions slotId

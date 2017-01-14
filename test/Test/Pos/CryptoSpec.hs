@@ -6,7 +6,7 @@ module Test.Pos.CryptoSpec
        ) where
 
 import qualified Data.ByteString       as BS
-import           Formatting            (build, sformat)
+import           Formatting            (sformat)
 import           Test.Hspec            (Expectation, Spec, describe, shouldBe, specify)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Property, (===), (==>))

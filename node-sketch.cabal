@@ -40,6 +40,7 @@ Library
 
   other-modules:        NTP.Packet
                         NTP.Util
+                        Data.NonEmptySet
 
   build-depends:        async
                       , attoparsec
@@ -73,6 +74,8 @@ Library
                       , time-warp
                       , transformers
                       , unordered-containers
+                      , semigroups
+
   hs-source-dirs:       src
   default-language:     Haskell2010
   ghc-options:          -Wall -fno-warn-orphans

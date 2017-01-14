@@ -181,7 +181,8 @@ nodeSendActions
     :: forall m packing .
        ( Mockable Channel m, Mockable Throw m, Mockable Catch m
        , Mockable Bracket m, Mockable Fork m, Mockable SharedAtomic m
-       , WithLogger m
+       , Mockable Async m
+       , WithLogger m, MonadFix m
        , Packable packing MessageName )
     => LL.Node m
     -> packing

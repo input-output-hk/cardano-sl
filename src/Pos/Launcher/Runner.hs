@@ -328,7 +328,6 @@ createTransport ip port = do
                              (TCP.defaultTCPParameters
                                 { TCP.transportConnectTimeout = Just $ fromIntegral networkConnectionTimeout
                                 , TCP.tcpKeepAlive = True
-                                , TCP.tcpUserTimeout = Just 10000
                                 })
     case transportE of
       Left e -> do

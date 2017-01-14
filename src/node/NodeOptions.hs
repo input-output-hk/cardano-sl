@@ -31,9 +31,7 @@ data Args = Args
     , port                      :: !Word16
     , supporterNode             :: !Bool
     , dhtKey                    :: !(Maybe DHTKey)
-#ifdef DEV_MODE
     , timeLord                  :: !Bool
-#endif
     , enableStats               :: !Bool
     , jlPath                    :: !(Maybe FilePath)
     , maliciousEmulationAttacks :: ![AttackType]
@@ -86,9 +84,7 @@ argsParser =
     optional
         (option (fromParsec CLI.dhtKeyParser) $
          long "dht-key" <> metavar "HOST_ID" <> help "DHT key in base64-url") <*>
-#ifdef DEV_MODE
     CLI.timeLordOption <*>
-#endif
     switch (long "stats" <> help "Enable stats logging") <*>
     CLI.optionalJSONPath <*>
     many

@@ -20,11 +20,12 @@ import           Servant.Docs               (API, DocCapture (..), DocIntro (..)
                                              docsWith, markdown, method, notes, path,
                                              singleSample)
 import qualified Servant.Docs               as SD
+import           System.IO.Unsafe           (unsafePerformIO)
 import           Universum
 
 import           Pos.Aeson.ClientTypes      ()
-import           Pos.Genesis                (genesisAddresses)
-import           Pos.Types                  (Coin, mkCoin)
+import           Pos.Crypto                 (KeyPair, keyGen)
+import           Pos.Types                  (Coin, makePubKeyAddress, mkCoin)
 import           Pos.Wallet.Web.Api         (walletApi)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CTx, CTxId,
                                              CTxMeta, CWallet, CWalletMeta,
@@ -178,7 +179,8 @@ instance ToSample CWalletMeta where
     toSamples Proxy = fail "ToSample CWalletMeta: Not Implemented!"
 
 instance ToSample CAddress where
-    toSamples Proxy = singleSample . addressToCAddress $ genesisAddresses !! 0
+    toSamples Proxy = singleSample . addressToCAddress . makePubKeyAddress . fst $
+        unsafePerformIO keyGen
 
 -- FIXME: this is required because of Wallet.Web.Api `type Cors...`
 -- I don't really what should be sample for Cors ?

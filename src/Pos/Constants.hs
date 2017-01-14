@@ -69,7 +69,7 @@ import           Universum                  hiding (lift)
 import           Pos.CLI                    (dhtNodeParser)
 import           Pos.CompileConfig          (CompileConfig (..), compileConfig)
 import           Pos.DHT.Model.Types        (DHTNode)
-import           Pos.Types.Timestamp        (Timestamp)
+import           Pos.Types.Timestamp        (Timestamp (..))
 import           Pos.Types.Types            (CoinPortion, unsafeCoinPortion)
 import           Pos.Types.Version          (ApplicationName, ProtocolVersion (..),
                                              SoftwareVersion (..), mkApplicationName)
@@ -175,7 +175,7 @@ runningMode :: RunningMode
 #ifdef DEV_MODE
 runningMode = Development
 #else
-runningMode = Production $ Timestamp $ sec 1484342000
+runningMode = Production $ Timestamp $ sec 1484399700
 #endif
 
 -- | @True@ if current mode is 'Development'.

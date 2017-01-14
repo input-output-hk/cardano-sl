@@ -568,6 +568,12 @@ executable cardano-analyzer
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
+  if flag(dev-mode)
+    buildable:          True
+  else
+    buildable:          False
+
+
 executable cardano-wallet
   hs-source-dirs:      src/wallet
   main-is:             Main.hs
@@ -620,7 +626,7 @@ executable cardano-wallet
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  if flag(with-wallet)
+  if flag(with-wallet) && flag(dev-mode)
     buildable:         True
   else
     buildable:         False
@@ -731,7 +737,7 @@ executable cardano-smart-generator
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  if flag(with-wallet)
+  if flag(with-wallet) && flag(dev-mode)
     buildable:         True
   else
     buildable:         False
@@ -809,7 +815,7 @@ executable cardano-wallet-web-docs
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  if flag(with-web) && flag(with-wallet)
+  if flag(with-web) && flag(with-wallet) && flag(dev-mode)
     buildable:         True
   else
     buildable:         False

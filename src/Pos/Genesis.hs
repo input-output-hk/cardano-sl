@@ -18,6 +18,7 @@ module Pos.Genesis
        , genesisPublicKeys
        , genesisSecretKeys
 #endif
+       , genesisStakeDistribution
        , genesisUtxo
        , genesisDelegation
 
@@ -82,11 +83,14 @@ genesisPublicKeys = map fst genesisKeyPairs
 genesisAddresses :: [Address]
 genesisAddresses = map makePubKeyAddress genesisPublicKeys
 
+genesisStakeDistribution :: StakeDistribution
+genesisStakeDistribution = def
 #else
-
 genesisAddresses :: [Address]
 genesisAddresses = gdAddresses compileGenData
 
+genesisStakeDistribution :: StakeDistribution
+genesisStakeDistribution = gdDistribution compileGenData
 #endif
 
 instance Default StakeDistribution where

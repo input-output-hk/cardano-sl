@@ -22,12 +22,17 @@ import           Pos.Communication    (BiP)
 import           Pos.Constants        (RunningMode (..), runningMode)
 import           Pos.Crypto           (SecretKey, VssKeyPair, vssKeyGen)
 import           Pos.DHT.Model        (DHTKey, DHTNodeType (..), dhtNodeType)
-import           Pos.Genesis          (genesisSecretKeys, genesisUtxo)
+#ifdef DEV_MODE
+import           Pos.Genesis          (genesisSecretKeys)
+#endif
+import           Pos.Genesis          (genesisStakeDistribution, genesisUtxo)
 import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
                                        NodeParams (..), RealModeResources,
                                        bracketResources, runNodeProduction, runNodeStats,
                                        runTimeLordReal, runTimeSlaveReal, stakesDistr)
+#ifdef DEV_MODE
 import           Pos.Ssc.GodTossing   (genesisVssKeyPairs)
+#endif
 import           Pos.Ssc.GodTossing   (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon   (SscNistBeacon)
 import           Pos.Ssc.SscAlgo      (SscAlgo (..))
@@ -211,7 +216,11 @@ getNodeParams args@Args {..} systemStart = do
         , npBaseParams = baseParams "node" args
         , npCustomUtxo =
                 genesisUtxo $
+#ifdef DEV_MODE
                 stakesDistr (CLI.flatDistr commonArgs) (CLI.bitcoinDistr commonArgs)
+#else
+                genesisStakeDistribution
+#endif
         , npTimeLord = timeLord
         , npJLFile = jlPath
         , npAttackTypes = maliciousEmulationAttacks

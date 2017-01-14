@@ -20,7 +20,7 @@ import           Pos.DHT.Model       (DHTKey, DHTNodeType (..), dhtNodeType)
 #ifdef DEV_MODE
 import           Pos.Genesis         (genesisSecretKeys)
 #endif
-import           Pos.Genesis         (genesisUtxo)
+import           Pos.Genesis         (genesisStakeDistribution, genesisUtxo)
 import           Pos.Launcher        (BaseParams (..), LoggingParams (..),
                                       NodeParams (..), RealModeResources,
                                       bracketResources, runNodeProduction, runNodeStats,

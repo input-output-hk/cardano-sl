@@ -40,7 +40,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/network-transport-tcp.git
-    commit: 586c9bf830252476522cab6274ef8ddc32615686
+    commit: e34d3824022234508d1f2f62c41a7a577553d4d6
   extra-dep: true
 
 nix:

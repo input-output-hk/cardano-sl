@@ -15,11 +15,10 @@ import           Pos.Context            (NodeContext (..), getNodeContext)
 import           Pos.Launcher.Param     (BaseParams (..))
 import           Pos.WorkMode           (WorkMode)
 
-
 settings :: BaseParams -> NodeContext ssc -> NtpClientSettings
 settings BaseParams{..} nc = NtpClientSettings
         {
-          ntpBindPort        = snd bpIpPort
+          ntpBindPort        = bpNtpPort
         -- list of servers addresses
         , ntpServers         = [ "ntp5.stratum2.ru"
                                , "ntp1.stratum1.ru"

@@ -29,6 +29,7 @@ data BaseParams = BaseParams
     , bpDHTPeers           :: ![DHTNode]      -- ^ peers passed from CLI
     , bpDHTKeyOrType       :: !(Either DHTKey DHTNodeType)
     , bpDHTExplicitInitial :: !Bool
+    , bpNtpPort            :: !Word16         -- ^ ntp binds to separate port
     , bpLoggingParams      :: !LoggingParams  -- ^ logger parameters
     } deriving (Show)
 

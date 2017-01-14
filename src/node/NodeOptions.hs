@@ -35,6 +35,7 @@ data Args = Args
     , timeLord                  :: !Bool
     , enableStats               :: !Bool
     , jlPath                    :: !(Maybe FilePath)
+    , ntpPort                   :: !(Maybe Word16)
     , maliciousEmulationAttacks :: ![AttackType]
     , maliciousEmulationTargets :: ![AttackTarget]
 #ifdef WITH_WEB
@@ -88,6 +89,10 @@ argsParser =
     CLI.timeLordOption <*>
     switch (long "stats" <> help "Enable stats logging") <*>
     CLI.optionalJSONPath <*>
+    optional
+        (option auto $
+         long "ntp-port" <> metavar "INT" <>
+         help "Port for NTP client") <*>
     many
         (option (fromParsec CLI.attackTypeParser) $
          long "attack" <> metavar "NoBlocks|NoCommitments"

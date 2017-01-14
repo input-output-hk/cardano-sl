@@ -30,6 +30,7 @@ data GenOptions = GenOptions
     , goJLFile          :: !(Maybe FilePath)
     , goCommonArgs      :: !CLI.CommonArgs -- ^ Common CLI arguments, including initial DHT nodes
     , goIpPort          :: !NetworkAddress         -- ^ DHT/Blockchain ip/port
+    , goNtpPort         :: !(Maybe Word16)  -- ^ Ntp port, by default (main port + 1000) is used
     }
 
 optionsParser :: Parser GenOptions
@@ -88,6 +89,11 @@ optionsParser = GenOptions
     <*> CLI.optionalJSONPath
     <*> CLI.commonArgsParser "Initial DHT peer (may be many)"
     <*> CLI.ipPortOption ("0.0.0.0", 24962)
+    <*> optional
+            (option auto $
+             long "ntp-port"
+          <> metavar "INT"
+          <> help "Port for NTP client")
 
 optsInfo :: ParserInfo GenOptions
 optsInfo = info (helper <*> optionsParser) $

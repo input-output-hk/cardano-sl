@@ -239,6 +239,7 @@ main = do
             , bpDHTPeers           = CLI.dhtPeers goCommonArgs
             , bpDHTKeyOrType       = Right DHTFull
             , bpDHTExplicitInitial = CLI.dhtExplicitInitial goCommonArgs
+            , bpNtpPort            = fromMaybe (snd goIpPort + 1000) goNtpPort
             }
 
     bracketResources baseParams $ \res -> do

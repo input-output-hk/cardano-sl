@@ -76,6 +76,7 @@ baseParams loggingTag args@Args {..} =
     , bpDHTPeers = CLI.dhtPeers commonArgs
     , bpDHTKeyOrType = dhtKeyOrType
     , bpDHTExplicitInitial = CLI.dhtExplicitInitial commonArgs
+    , bpNtpPort = fromMaybe (snd ipPort + 1000) ntpPort
     }
   where
     dhtKeyOrType

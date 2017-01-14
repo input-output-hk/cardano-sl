@@ -19,8 +19,10 @@ import           Pos.Crypto          (SecretKey, VssKeyPair, keyGen, vssKeyGen)
 import           Pos.DHT.Model       (DHTKey, DHTNodeType (..), dhtNodeType)
 #ifdef DEV_MODE
 import           Pos.Genesis         (genesisSecretKeys)
+#else
+import           Pos.Genesis         (genesisStakeDistribution)
 #endif
-import           Pos.Genesis         (genesisStakeDistribution, genesisUtxo)
+import           Pos.Genesis         (genesisUtxo)
 import           Pos.Launcher        (BaseParams (..), LoggingParams (..),
                                       NodeParams (..), RealModeResources,
                                       bracketResources, runNodeProduction, runNodeStats,
@@ -201,7 +203,9 @@ getNodeParams args@Args {..} systemStart = do
         , npCustomUtxo =
                 genesisUtxo $
 #ifdef DEV_MODE
-                stakesDistr (CLI.flatDistr commonArgs) (CLI.bitcoinDistr commonArgs)
+                stakesDistr (CLI.flatDistr commonArgs)
+                            (CLI.bitcoinDistr commonArgs)
+                            (CLI.expDistr commonArgs)
 #else
                 genesisStakeDistribution
 #endif

@@ -127,6 +127,7 @@ data CommonArgs = CommonArgs
 #ifdef DEV_MODE
     , flatDistr          :: !(Maybe (Int, Int))
     , bitcoinDistr       :: !(Maybe (Int, Int))
+    , expDistr           :: !Bool
 #endif
     } deriving Show
 
@@ -141,6 +142,7 @@ commonArgsParser peerHelpMsg = CommonArgs
 #ifdef DEV_MODE
     <*> flatDistrOptional
     <*> btcDistrOptional
+    <*> expDistrOption
 #endif
 
 templateParser :: (HasName f, HasMetavar f) => [Char] -> [Char] -> [Char] -> Opt.Mod f a
@@ -219,6 +221,12 @@ btcDistrOptional =
                 "(INT,INT)"
                 "Use bitcoin stake distribution with given parameters (nodes,\
                 \ coins)"
+
+expDistrOption :: Opt.Parser Bool
+expDistrOption =
+    Opt.switch
+        (Opt.long "exp-distr" <> Opt.help "Enable exponential distribution")
+
 #endif
 
 timeLordOption :: Opt.Parser Bool

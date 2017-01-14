@@ -162,12 +162,13 @@ processProxySKSimple psk = do
         exists <- uses dwProxySKPool $ \m -> HM.lookup issuer m == Just psk
         cached <- uses dwProxyMsgCache $ HM.member msg
         dwProxyMsgCache %= HM.insert msg curTime
-        unless exists $ dwProxySKPool %= HM.insert issuer psk
-        pure $ if | not valid -> PSInvalid
-                  | not enoughStake -> PSForbidden
-                  | cached -> PSCached
-                  | exists -> PSExists
-                  | otherwise -> PSAdded
+        let res = if | not valid -> PSInvalid
+                     | not enoughStake -> PSForbidden
+                     | cached -> PSCached
+                     | exists -> PSExists
+                     | otherwise -> PSAdded
+        when (res == PSAdded) $ dwProxySKPool %= HM.insert issuer psk
+        pure res
 
 -- state needed for 'delegationVerifyBlocks'
 data DelVerState = DelVerState

@@ -263,6 +263,7 @@ main = do
                                         stakesDistr
                                         (CLI.flatDistr goCommonArgs)
                                         (CLI.bitcoinDistr goCommonArgs)
+                                        (CLI.expDistr goCommonArgs)
                 , npTimeLord      = False
                 , npJLFile        = goJLFile
                 , npAttackTypes   = []

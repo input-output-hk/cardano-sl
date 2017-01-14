@@ -124,8 +124,10 @@ data CommonArgs = CommonArgs
     , logPrefix          :: !(Maybe FilePath)
     , sscAlgo            :: !SscAlgo
     , disablePropagation :: !Bool
+#ifdef DEV_MODE
     , flatDistr          :: !(Maybe (Int, Int))
     , bitcoinDistr       :: !(Maybe (Int, Int))
+#endif
     } deriving Show
 
 commonArgsParser :: [Char] -> Opt.Parser CommonArgs
@@ -136,8 +138,10 @@ commonArgsParser peerHelpMsg = CommonArgs
     <*> optionalLogPrefix
     <*> sscAlgoOption
     <*> disablePropagationOption
+#ifdef DEV_MODE
     <*> flatDistrOptional
     <*> btcDistrOptional
+#endif
 
 templateParser :: (HasName f, HasMetavar f) => [Char] -> [Char] -> [Char] -> Opt.Mod f a
 templateParser long metavar help =
@@ -196,6 +200,7 @@ disablePropagationOption =
                   \ all data is to be sent only by entity who creates data and entity is\
                   \ yosend it to all peers on his own")
 
+#ifdef DEV_MODE
 flatDistrOptional :: Opt.Parser (Maybe (Int, Int))
 flatDistrOptional =
     Opt.optional $
@@ -214,6 +219,7 @@ btcDistrOptional =
                 "(INT,INT)"
                 "Use bitcoin stake distribution with given parameters (nodes,\
                 \ coins)"
+#endif
 
 timeLordOption :: Opt.Parser Bool
 timeLordOption =

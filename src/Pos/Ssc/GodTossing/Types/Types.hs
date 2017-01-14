@@ -45,7 +45,6 @@ import           Universum
 
 import           Pos.Binary.Class               (Bi)
 import           Pos.Crypto                     (Hash, PublicKey, VssKeyPair, hash)
-import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
 import           Pos.Ssc.GodTossing.Types.Base  (Commitment, CommitmentsMap, Opening,
                                                  OpeningsMap, SharesMap, SignedCommitment,
                                                  VssCertificate, VssCertificatesMap)
@@ -130,9 +129,6 @@ data GtPayload
 
 emptyPayload :: GtPayload
 emptyPayload = CertificatesPayload mempty
-
-instance Default GtPayload where
-    def = CertificatesPayload genesisCertificates
 
 _gpCertificates :: GtPayload -> VssCertificatesMap
 _gpCertificates (CommitmentsPayload _ certs) = certs

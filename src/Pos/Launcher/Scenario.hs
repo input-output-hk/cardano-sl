@@ -11,7 +11,7 @@ module Pos.Launcher.Scenario
 import           Control.Concurrent.MVar     (putMVar)
 import           Control.Concurrent.STM.TVar (writeTVar)
 import           Development.GitRev          (gitBranch, gitHash)
-import           Formatting                  (build, sformat, (%))
+import           Formatting                  (build, int, sformat, (%))
 import           Mockable                    (currentTime, delay, fork, sleepForever)
 import           Node                        (SendActions)
 import           System.Wlog                 (logError, logInfo)
@@ -60,6 +60,7 @@ waitSystemStart :: WorkMode ssc m => m ()
 waitSystemStart = do
     Timestamp start <- ncSystemStart <$> getNodeContext
     cur <- currentTime
+    logInfo $ sformat ("Waiting "%int%" seconds for system start") $ start - cur
     when (cur < start) $ delay (start - cur)
 
 initSemaphore :: (WorkMode ssc m) => m ()

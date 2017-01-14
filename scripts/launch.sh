@@ -74,6 +74,9 @@ while [[ $i -lt $panesCnt ]]; do
   fi
 
   stake_distr=" --flat-distr \"($n, 100000)\" "
+  if [[ "$CSL_PRODUCTION" != "" ]]; then
+      stake_distr=""
+  fi
 
   if [[ $i -lt $n ]]; then
     tmux send-keys "$(node_cmd $i "$time_lord" "$dht_conf" "$stats" "$stake_distr" "$wallet_args")" C-m

@@ -120,9 +120,10 @@ library
                         Pos.Binary.Class
                         Pos.Binary.Crypto
                         Pos.Binary.Communication
-                        Pos.Binary.DHTModel
-                        Pos.Binary.Merkle
+                        Pos.Binary.DHTModel                        
                         Pos.Binary.DB
+                        Pos.Binary.Genesis
+                        Pos.Binary.Merkle
                         Pos.Binary.Relay
                         Pos.Binary.Script
                         Pos.Binary.Ssc
@@ -212,6 +213,10 @@ library
                         Pos.DB.Lrc.Richmen
                         Pos.DB.Misc
                         Pos.DB.Types
+
+                        -- Genesis
+                        Pos.Genesis.Types
+                        Pos.Genesis.Parser
 
                         -- LRC
                         Pos.Lrc.Consumer
@@ -563,6 +568,12 @@ executable cardano-analyzer
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
+  if flag(dev-mode)
+    buildable:          True
+  else
+    buildable:          False
+
+
 executable cardano-wallet
   hs-source-dirs:      src/wallet
   main-is:             Main.hs
@@ -615,7 +626,7 @@ executable cardano-wallet
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  if flag(with-wallet)
+  if flag(with-wallet) && flag(dev-mode)
     buildable:         True
   else
     buildable:         False
@@ -726,7 +737,7 @@ executable cardano-smart-generator
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  if flag(with-wallet)
+  if flag(with-wallet) && flag(dev-mode)
     buildable:         True
   else
     buildable:         False
@@ -804,7 +815,7 @@ executable cardano-wallet-web-docs
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  if flag(with-web) && flag(with-wallet)
+  if flag(with-web) && flag(with-wallet) && flag(dev-mode)
     buildable:         True
   else
     buildable:         False
@@ -832,6 +843,11 @@ executable cardano-keygen
                      , text
                      , lens
                      , optparse-applicative >= 0.12
+                     , unordered-containers >= 0.2
+                     , bytestring >= 0.10
+                     , random >= 1.1
+                     , filepath
+                     , directory
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall

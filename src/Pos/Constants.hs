@@ -61,10 +61,12 @@ module Pos.Constants
        ) where
 
 import           Data.String                (String)
+import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Data.Time.Units            (Microsecond)
 import           Language.Haskell.TH.Syntax (lift, runIO)
 import           Pos.Util.TimeWarp          (ms, sec)
 import           System.Environment         (lookupEnv)
+import           System.IO.Unsafe           (unsafePerformIO)
 import qualified Text.Parsec                as P
 import           Universum                  hiding (lift)
 
@@ -182,7 +184,17 @@ runningMode :: RunningMode
 #ifdef DEV_MODE
 runningMode = Development
 #else
-runningMode = Production $ Timestamp $ sec 1484399700
+runningMode = Production . Timestamp . sec $
+    let st = ccProductionNetworkStartTime compileConfig
+    in if st > 0 then st
+       else let pause = 60
+                divider = 20
+                after3Mins = pause + unsafePerformIO (round <$> getPOSIXTime)
+                minuteMod = after3Mins `mod` divider
+                alignment = if minuteMod > (divider `div` 2) then 1 else 0
+            in (after3Mins `div` divider + alignment) * divider
+               -- ^ If several local nodes are started within 20 sec,
+               -- they'll have same start time
 #endif
 
 -- | @True@ if current mode is 'Development'.

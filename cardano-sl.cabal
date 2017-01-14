@@ -868,7 +868,6 @@ test-suite cardano-test
                        Test.Pos.FollowTheSatoshiSpec
                        Test.Pos.MerkleSpec
                        Test.Pos.Script.Identity.BinarySpec
-                       Test.Pos.SlottingSpec
                        Test.Pos.Ssc.GodTossing.Identity.BinarySpec
                        Test.Pos.Ssc.GodTossing.Identity.SafeCopySpec
                        Test.Pos.Ssc.GodTossing.SeedSpec

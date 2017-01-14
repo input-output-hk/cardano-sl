@@ -80,15 +80,15 @@ lookupExpiryEpoch id mp = vcExpiryEpoch <$> lookup id mp
 -- deleted certificates. Use carefully.
 delete :: StakeholderId -> VssCertData -> VssCertData
 delete id mp@VssCertData{..} =
-    case lookupAux id mp of
-        Nothing         -> mp
-        Just (ins, expiry, cert) -> VssCertData
+    case lookupSlots id mp of
+        Nothing                  -> mp
+        Just (ins, expiry) -> VssCertData
             lastKnownSlot
             (HM.delete id certs)
             (HM.delete id certsIns)
             (S.delete (ins, id) insSlotSet)
             (S.delete (expiry, id) expirySlotSet)
-            (S.delete (expiry + epochSlots, (id, ins, cert)) expiredCerts)
+            expiredCerts
 
 -- | Set last known slot (lks). If new lks bigger than lastKnownSlot
 -- then some expired certificates will be removed.
@@ -178,8 +178,7 @@ setSmallerLKS lks VssCertData{..}
 expiryFlatSlot :: VssCertificate -> FlatSlotId
 expiryFlatSlot cert = (1 + getEpochIndex (vcExpiryEpoch cert)) * epochSlots
 
-lookupAux :: StakeholderId -> VssCertData -> Maybe (FlatSlotId, FlatSlotId, VssCertificate)
-lookupAux id VssCertData{..} =
-    (,,) <$> HM.lookup id certsIns
-         <*> (expiryFlatSlot <$> HM.lookup id certs)
-         <*> (HM.lookup id certs)
+lookupSlots :: StakeholderId -> VssCertData -> Maybe (FlatSlotId, FlatSlotId)
+lookupSlots id VssCertData{..} =
+    (,) <$> HM.lookup id certsIns
+        <*> (expiryFlatSlot <$> HM.lookup id certs)

@@ -10,7 +10,6 @@ module Pos.Ssc.GodTossing.Storage
        ( -- * Instances
          -- ** instance SscStorageClass SscGodTossing
          getGlobalCerts
-       , getVerifiedCerts
        , gtGetGlobalState
        ) where
 
@@ -51,7 +50,7 @@ import           Pos.Ssc.GodTossing.Types.Base  (VssCertificate (..))
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types                      (Block, EpochIndex, HeaderHash, NEBlocks,
                                                  SharedSeed, SlotId (..), addressHash,
-                                                 blockMpc, blockSlot, crucialSlot,
+                                                 blockMpc, blockSlot,
                                                  epochIndexL, epochOrSlot, epochOrSlotG,
                                                  gbHeader, prevBlockL)
 import           Pos.Util                       (readerToState)
@@ -80,11 +79,12 @@ getGlobalCerts sl =
         VCD.setLastKnownSlot sl <$>
         view (gsVssCertificates)
 
+-- I doubt that crucialSlot is correct
 -- | Verified certs for slotId
-getVerifiedCerts :: (MonadSscGS SscGodTossing m) => SlotId -> m VssCertificatesMap
-getVerifiedCerts (crucialSlot . siEpoch -> crucSlotId) =
-    sscRunGlobalQuery $
-        VCD.certs . VCD.setLastKnownSlot crucSlotId <$> view gsVssCertificates
+-- getVerifiedCerts :: (MonadSscGS SscGodTossing m) => SlotId -> m VssCertificatesMap
+-- getVerifiedCerts (crucialSlot . siEpoch -> crucSlotId) =
+--     sscRunGlobalQuery $
+--         VCD.certs . VCD.setLastKnownSlot crucSlotId <$> view gsVssCertificates
 
 -- | Verify that if one adds given block to the current chain, it will
 -- remain consistent with respect to SSC-related data.
@@ -234,10 +234,11 @@ mpcProcessBlock blk = do
 -- | Head - youngest
 mpcRollback :: NEBlocks SscGodTossing -> GSUpdate ()
 mpcRollback blocks = do
-    let slot = prevSlot $ blkSlot $ NE.last blocks
-    -- Rollback certs
-    -- [TODO] Is it ok? @pva please take a look!
-    gsVssCertificates %= VCD.setLastKnownSlot slot
+    let slotMB = prevSlot $ blkSlot $ NE.last blocks
+     -- Rollback certs
+    case slotMB of
+        Nothing -> gsVssCertificates .= unionCerts genesisCertificates
+        Just slot -> gsVssCertificates %= VCD.setLastKnownSlot slot
     -- Rollback other payload
     wasGenesis <- foldM foldStep False blocks
     when wasGenesis resetGS
@@ -246,10 +247,10 @@ mpcRollback blocks = do
         | wasGen = pure wasGen
         | otherwise = differenceBlock b
     prevSlot si@SlotId {..}
-        | siSlot > 0 = si {siSlot = siSlot - 1}
-        | siEpoch > 0 = SlotId {siEpoch = siEpoch - 1, siSlot = epochSlots - 1}
+        | siSlot > 0 = Just $ si {siSlot = siSlot - 1}
+        | siEpoch > 0 = Just $ SlotId {siEpoch = siEpoch - 1, siSlot = epochSlots - 1}
         -- It means that we are rolling back all main blocks.
-        | otherwise = si
+        | otherwise = Nothing
     differenceBlock :: Block SscGodTossing -> GSUpdate Bool
     differenceBlock (Left _) = pure True
     differenceBlock (Right b) = do
@@ -263,6 +264,7 @@ mpcRollback blocks = do
         pure False
     blkSlot :: Block ssc -> SlotId
     blkSlot = epochOrSlot (flip SlotId 0) identity . (^. epochOrSlotG)
+    unionCerts = (foldl' (flip $ uncurry VCD.insert)) VCD.empty . HM.toList
 
 -- | Calculate leaders for the next epoch.
 calculateSeedQ :: EpochIndex -> GSQuery (Either SeedError SharedSeed)

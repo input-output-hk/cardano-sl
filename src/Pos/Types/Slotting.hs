@@ -7,7 +7,6 @@ module Pos.Types.Slotting
        , flattenEpochIndex
        , flattenEpochOrSlot
        , unflattenSlotId
-       , subSlotSafe
        , crucialSlot
        ) where
 
@@ -40,11 +39,6 @@ unflattenSlotId n =
 instance Enum SlotId where
     toEnum = unflattenSlotId . fromIntegral
     fromEnum = fromIntegral . flattenSlotId
-
-subSlotSafe :: SlotId -> Word64 -> SlotId
-subSlotSafe (flattenSlotId -> slotId) diff
-    | diff >= slotId = unflattenSlotId 0
-    | otherwise      = unflattenSlotId (slotId - diff)
 
 -- | Slot such that at the beginning of epoch blocks with SlotId ≤- this slot
 -- are stable.

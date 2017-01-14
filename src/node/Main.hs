@@ -12,24 +12,30 @@ import           Mockable            (Production)
 import           System.Wlog         (LoggerName)
 import           Universum
 
+import           Pos.Binary          (Bi, decode, encode)
 import qualified Pos.CLI             as CLI
+import           Pos.Communication   (BiP)
 import           Pos.Constants       (RunningMode (..), runningMode)
 import           Pos.Crypto          (SecretKey, VssKeyPair, keyGen, vssKeyGen)
 import           Pos.DHT.Model       (DHTKey, DHTNodeType (..), dhtNodeType)
-import           Pos.Genesis         (genesisSecretKeys, genesisUtxo)
+#ifdef DEV_MODE
+import           Pos.Genesis         (genesisSecretKeys)
+#endif
+import           Pos.Genesis         (genesisStakeDistribution, genesisUtxo)
 import           Pos.Launcher        (BaseParams (..), LoggingParams (..),
                                       NodeParams (..), RealModeResources,
                                       bracketResources, runNodeProduction, runNodeStats,
                                       runTimeLordReal, runTimeSlaveReal, stakesDistr)
-import           Pos.Ssc.Class       (SscListenersClass)
+#ifdef DEV_MODE
 import           Pos.Ssc.GodTossing  (genesisVssKeyPairs)
+#endif
+import           Pos.Ssc.Class       (SscListenersClass)
 import           Pos.Ssc.GodTossing  (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon  (SscNistBeacon)
 import           Pos.Ssc.SscAlgo     (SscAlgo (..))
 import           Pos.Types           (Timestamp)
-import           Pos.Util.UserSecret (UserSecret, peekUserSecret, usKeys, usVss,
-                                      writeUserSecret)
-
+import           Pos.Util.UserSecret (UserSecret, getUSPath, peekUserSecret, usKeys,
+                                      usVss, writeUserSecret)
 #ifdef WITH_WEB
 import           Pos.Web             (serveWebBase, serveWebGT)
 import           Pos.WorkMode        (WorkMode)
@@ -195,7 +201,11 @@ getNodeParams args@Args {..} systemStart = do
         , npBaseParams = baseParams "node" args
         , npCustomUtxo =
                 genesisUtxo $
+#ifdef DEV_MODE
                 stakesDistr (CLI.flatDistr commonArgs) (CLI.bitcoinDistr commonArgs)
+#else
+                genesisStakeDistribution
+#endif
         , npTimeLord = timeLord
         , npJLFile = jlPath
         , npAttackTypes = maliciousEmulationAttacks

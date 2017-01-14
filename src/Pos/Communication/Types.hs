@@ -6,10 +6,13 @@
 
 module Pos.Communication.Types
        ( -- * Messages and socket state
-         module Export
+         module Pos.Communication.Types.Protocol
+       , module Pos.Communication.Types.State
+       , module Pos.Communication.Types.SysStart
+       , module Pos.Txp.Types.Communication
        ) where
 
-import           Pos.Communication.Types.Protocol as Export
-import           Pos.Communication.Types.State    as Export
-import           Pos.Communication.Types.SysStart as Export
-import           Pos.Txp.Types.Communication      as Export
+import           Pos.Communication.Types.Protocol
+import           Pos.Communication.Types.State
+import           Pos.Communication.Types.SysStart
+import           Pos.Txp.Types.Communication

@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 {-| Blockchain genesis. Not to be confused with genesis block in epoch.
     Blockchain genesis means genesis values which are hardcoded in advance
     (before system starts doing anything). Genesis block in epoch exists
@@ -8,10 +10,15 @@ module Pos.Genesis
        (
        -- * Static state
          StakeDistribution (..)
+       , GenesisData (..)
+       , compileGenData
+#ifdef DEV_MODE
        , genesisAddresses
        , genesisKeyPairs
        , genesisPublicKeys
        , genesisSecretKeys
+#endif
+       , genesisStakeDistribution
        , genesisUtxo
        , genesisDelegation
 
@@ -24,8 +31,8 @@ module Pos.Genesis
        , genesisScriptVersion
        ) where
 
-
-import           Data.Default             (Default (def))
+import           Control.Lens             ((%~), _head)
+import           Data.Default             (Default (..))
 import           Data.List                (genericLength, genericReplicate)
 import qualified Data.Map.Strict          as M
 import qualified Data.Text                as T
@@ -33,22 +40,26 @@ import           Formatting               (int, sformat, (%))
 import           Serokell.Util            (enumerate)
 import           Universum
 
-import           Pos.Constants            (curSoftwareVersion, genesisN)
+import           Pos.Constants            (curSoftwareVersion, genesisN, mpcThreshold)
 import           Pos.Crypto               (PublicKey, SecretKey, deterministicKeyGen,
                                            unsafeHash)
+import           Pos.Genesis.Parser       (compileGenData)
+import           Pos.Genesis.Types        (GenesisData (..), StakeDistribution (..))
 import           Pos.Lrc.FollowTheSatoshi (followTheSatoshi)
 import           Pos.Script.Type          (ScriptVersion)
 import           Pos.Types                (Address (..), Coin, ProtocolVersion (..),
                                            SharedSeed (SharedSeed), SlotLeaders,
-                                           StakeholderId, TxOut (..), Utxo, coinToInteger,
-                                           divCoin, makePubKeyAddress, mkCoin,
-                                           unsafeAddCoin, unsafeMulCoin)
+                                           StakeholderId, TxOut (..), Utxo,
+                                           applyCoinPortion, coinToInteger, divCoin,
+                                           makePubKeyAddress, mkCoin, unsafeAddCoin,
+                                           unsafeMulCoin)
 import           Pos.Types.Version        (SoftwareVersion (..))
 
 ----------------------------------------------------------------------------
 -- Static state
 ----------------------------------------------------------------------------
 
+#ifdef DEV_MODE
 -- | List of pairs from 'SecretKey' with corresponding 'PublicKey'.
 genesisKeyPairs :: [(PublicKey, SecretKey)]
 genesisKeyPairs = map gen [0 .. genesisN - 1]
@@ -72,14 +83,15 @@ genesisPublicKeys = map fst genesisKeyPairs
 genesisAddresses :: [Address]
 genesisAddresses = map makePubKeyAddress genesisPublicKeys
 
--- | Stake distribution in genesis block.
--- FlatStakes is a flat distribution, i. e. each node has the same amount of coins.
--- BitcoinStakes is a Bitcoin mining pool-style ditribution.
-data StakeDistribution
-    = FlatStakes !Word     -- number of stakeholders
-                 !Coin     -- total number of coins
-    | BitcoinStakes !Word  -- number of stakeholders
-                    !Coin  -- total number of coins
+genesisStakeDistribution :: StakeDistribution
+genesisStakeDistribution = def
+#else
+genesisAddresses :: [Address]
+genesisAddresses = gdAddresses compileGenData
+
+genesisStakeDistribution :: StakeDistribution
+genesisStakeDistribution = gdDistribution compileGenData
+#endif
 
 instance Default StakeDistribution where
     def = FlatStakes genesisN
@@ -99,6 +111,17 @@ stakeDistribution (BitcoinStakes stakeholders coins) =
   where
     normalize x = x `unsafeMulCoin`
                   coinToInteger (coins `divCoin` (1000 :: Int))
+stakeDistribution TestnetStakes {..} =
+    map (mkCoin . fromIntegral) $ basicDist & _head %~ (+ rmd)
+  where
+    rich = coinToInteger $ applyCoinPortion mpcThreshold sdTotalStake
+    richs = fromIntegral sdRichmen
+    poorStake = coinToInteger sdTotalStake - richs * rich
+    poors = fromIntegral sdPoor
+    (poor, rmd) = if poorStake < poors
+                  then panic "Not enough stake for non-rich stakeholders!"
+                  else (poorStake `div` poors, poorStake `mod` poors)
+    basicDist = genericReplicate richs rich ++ genericReplicate poors poor
 
 bitcoinDistribution1000Coins :: Word -> [Coin]
 bitcoinDistribution1000Coins stakeholders

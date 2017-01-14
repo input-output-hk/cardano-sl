@@ -13,4 +13,6 @@ in
      # See https://github.com/NixOS/nixpkgs/issues/21200
      ] ++ (lib.optionals stdenv.isLinux [ cabal-install stack ]);
      LANG = "en_US.UTF-8";
+     # Needed to be changed to clever conditional
+     CSL_SYSTEM_TAG = "linux64";
   }

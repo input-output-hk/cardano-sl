@@ -1,5 +1,4 @@
 {-# LANGUAGE ScopedTypeVariables #-}
--- | Re-exports of Pos.DHT.Class.* modules
 
 module Pos.DHT.Model.Class
        ( DHTException (..)
@@ -7,8 +6,8 @@ module Pos.DHT.Model.Class
        , withDhtLogger
        ) where
 
-import           Data.Proxy             (Proxy (Proxy))
-import           System.Wlog            (HasLoggerName (modifyLoggerName), LoggerName)
+import           Data.Proxy          (Proxy (Proxy))
+import           System.Wlog         (HasLoggerName (modifyLoggerName), LoggerName)
 import           Universum
 
 import           Pos.DHT.Model.Types (DHTKey, DHTNode (..), DHTNodeType (..))

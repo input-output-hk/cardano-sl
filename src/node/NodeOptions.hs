@@ -24,8 +24,10 @@ import           Pos.Util.TimeWarp          (NetworkAddress)
 data Args = Args
     { dbPath                    :: !FilePath
     , rebuildDB                 :: !Bool
+#ifdef DEV_MODE
     , spendingGenesisI          :: !(Maybe Int)
     , vssGenesisI               :: !(Maybe Int)
+#endif
     , keyfilePath               :: !FilePath
     , ipPort                    :: !NetworkAddress
     , supporterNode             :: !Bool
@@ -61,6 +63,7 @@ argsParser =
          help
              "If we DB already exist, discard it's contents and create new one from\
              \ scratch") <*>
+#ifdef DEV_MODE
     optional
         (option
              auto
@@ -70,6 +73,7 @@ argsParser =
         (option
              auto
              (long "vss-genesis" <> metavar "INT" <> help "Use genesis vss #i")) <*>
+#endif
     strOption
         (long "keyfile" <>
          metavar "FILEPATH" <>

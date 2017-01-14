@@ -830,17 +830,17 @@ withOutChannel node nodeid =
 --   transport when finished. If you want that, use withOutChannel or
 --   withInOutChannel.
 writeChannel
-    :: ( Monad m, WithLogger m )
+    :: ( Monad m, WithLogger m, Mockable Throw m )
     => ChannelOut m
     -> [BS.ByteString]
-    -> m (Either (NT.TransportError NT.SendErrorCode) ())
-writeChannel (ChannelOut _) [] = pure (Right ())
+    -> m ()
+writeChannel (ChannelOut _) [] = pure ()
 writeChannel (ChannelOut conn) (chunk:chunks) = do
     res <- NT.send conn [chunk]
     -- Any error detected here will be reported to the dispatcher thread
     -- so we don't need to do anything
     case res of
-      Left err -> pure (Left err)
+      Left err -> throw err
       Right _  -> writeChannel (ChannelOut conn) chunks
 
 -- | Read a 'ChannelIn', blocking until the next 'ByteString' arrives, or end

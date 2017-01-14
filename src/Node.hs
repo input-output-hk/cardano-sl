@@ -37,14 +37,11 @@ module Node (
 
     ) where
 
-import           Control.Exception          (SomeException (..))
-import           Control.Monad              (void)
 import           Control.Monad.Fix          (MonadFix)
 import qualified Data.ByteString.Lazy       as LBS
 import           Data.Map.Strict            (Map)
 import qualified Data.Map.Strict            as M
 import           Data.Proxy                 (Proxy (..))
-import           Formatting                 (sformat, shown, (%))
 import           Mockable.Channel
 import           Mockable.Class
 import           Mockable.Concurrent
@@ -119,7 +116,7 @@ data SendActions packing m = SendActions {
             ( Packable packing snd, Message snd, Unpackable packing rcv )
            => LL.NodeId
            -> (ConversationActions snd rcv m -> m t)
-           -> m (Either SomeException t)
+           -> m t
      }
 
 data ConversationActions body rcv m = ConversationActions {
@@ -158,24 +155,6 @@ makeListenerIndex = foldr combine (M.empty, [])
             overlapping = maybe [] (const [name]) replaced
         in  (dict', overlapping ++ existing)
 
-logOnSendFail
-    :: ( WithLogger m, Mockable Catch m )
-    => LL.NodeId
-    -> m (Either (NT.TransportError NT.SendErrorCode) t)
-    -> m (Either SomeException t)
-logOnSendFail nodeId action = do
-    outcome <- try action
-    case outcome of
-        Left  err -> do
-            logDebug $ sformat ("Exception while sending "%shown%": "%shown)
-                nodeId err
-            pure (Left err)
-        Right (Left err) -> do
-            logDebug $ sformat ("Data transmition failed to "%shown%": "%shown)
-                nodeId err
-            pure (Left (SomeException err))
-        Right (Right res) -> pure (Right res)
-
 -- | Send actions for a given 'LL.Node'.
 nodeSendActions
     :: forall m packing .
@@ -198,36 +177,32 @@ nodeSendActions nodeUnit packing =
         -> msg
         -> m ()
     nodeSendTo = \nodeId msg ->
-        void . logOnSendFail nodeId $
-            LL.withOutChannel nodeUnit nodeId $ \channelOut ->
-                LL.writeChannel channelOut $ concatMap LBS.toChunks
-                    [ packMsg packing $ messageName' msg
-                    , packMsg packing msg
-                    ]
+        LL.withOutChannel nodeUnit nodeId $ \channelOut ->
+            LL.writeChannel channelOut $ concatMap LBS.toChunks
+                [ packMsg packing $ messageName' msg
+                , packMsg packing msg
+                ]
 
     nodeWithConnectionTo
         :: forall snd rcv t .
            ( Packable packing snd, Message snd, Unpackable packing rcv )
         => LL.NodeId
         -> (ConversationActions snd rcv m -> m t)
-        -> m (Either SomeException t)
+        -> m t
     nodeWithConnectionTo = \nodeId f ->
-        logOnSendFail nodeId $
-            LL.withInOutChannel nodeUnit nodeId $ \inchan outchan -> do
-                let msgName  = messageName (Proxy :: Proxy snd)
-                    cactions :: ConversationActions snd rcv m
-                    cactions = nodeConversationActions nodeUnit nodeId packing inchan
-                        outchan
-                outcome <- LL.writeChannel outchan . LBS.toChunks $
-                    packMsg packing msgName
-                case outcome of
-                    Left err -> pure (Left err)
-                    Right _  -> Right <$> f cactions
+        LL.withInOutChannel nodeUnit nodeId $ \inchan outchan -> do
+            let msgName  = messageName (Proxy :: Proxy snd)
+                cactions :: ConversationActions snd rcv m
+                cactions = nodeConversationActions nodeUnit nodeId packing inchan
+                    outchan
+            LL.writeChannel outchan . LBS.toChunks $
+                packMsg packing msgName
+            f cactions
 
 -- | Conversation actions for a given peer and in/out channels.
 nodeConversationActions
     :: forall packing snd rcv m .
-       ( Mockable Throw m, Mockable Catch m, Mockable Channel m
+       ( Mockable Throw m, Mockable Channel m
        , WithLogger m
        , Packable packing snd
        , Unpackable packing rcv
@@ -238,13 +213,12 @@ nodeConversationActions
     -> ChannelIn m
     -> ChannelOut m
     -> ConversationActions snd rcv m
-nodeConversationActions _ peerId packing inchan outchan =
+nodeConversationActions _ _ packing inchan outchan =
     ConversationActions nodeSend nodeRecv
     where
 
     nodeSend = \body -> do
-        void . logOnSendFail peerId $
-            LL.writeChannel outchan . LBS.toChunks $ packMsg packing body
+        LL.writeChannel outchan . LBS.toChunks $ packMsg packing body
 
     nodeRecv = do
         next <- recvNext' inchan packing

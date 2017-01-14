@@ -17,6 +17,7 @@ import           Control.Lens         (view, (^.), _1)
 import           Control.Monad.Catch  (bracketOnError)
 import           Data.List.NonEmpty   (NonEmpty)
 import qualified Data.List.NonEmpty   as NE
+import           System.Wlog          (logError)
 import           Universum
 
 import           Pos.Context          (lrcActionOnEpochReason, putBlkSemaphore,
@@ -30,7 +31,8 @@ import           Pos.Ssc.Extra        (sscApplyBlocks, sscApplyGlobalState, sscR
 import           Pos.Txp.Logic        (normalizeTxpLD, txApplyBlocks, txRollbackBlocks)
 import           Pos.Types            (Blund, HeaderHash, epochIndexL, headerHashG,
                                        prevBlockL)
-import           Pos.Util             (spanSafe, _neLast)
+import           Pos.Util             (Color (Red), colorize, inAssertMode, spanSafe,
+                                       _neLast)
 import           Pos.WorkMode         (WorkMode)
 
 
@@ -90,6 +92,10 @@ rollbackBlocksUnsafe toRollback = do
     sscRollback $ fmap fst toRollback
     GS.writeBatchGState [delRoll, txRoll, forwardLinksBatch, inMainBatch]
     DB.sanityCheckDB
+    inAssertMode $
+        when (isGenesis0 $ fst $ NE.last $ toRollback) $
+        logError $
+        colorize Red "FATAL: we are TRYING TO ROLLBACK 0-TH GENESIS block"
   where
     inMainBatch =
         SomeBatchOp $
@@ -97,3 +103,5 @@ rollbackBlocksUnsafe toRollback = do
     forwardLinksBatch =
         SomeBatchOp $
         fmap (GS.RemoveForwardLink . view prevBlockL . fst) (toRollback)
+    isGenesis0 (Left genesisBlk) = genesisBlk ^. epochIndexL == 0
+    isGenesis0 (Right _)         = False

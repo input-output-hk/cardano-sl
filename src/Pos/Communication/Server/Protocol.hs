@@ -12,7 +12,7 @@ import           Control.Lens                (view, (.~), (?~))
 import           Data.Proxy                  (Proxy (..))
 import           Formatting                  (build, sformat, (%))
 import           Pos.Communication.Types     (VersionReq (..), VersionResp (..))
-import           System.Wlog                 (logDebug, logWarning)
+import           System.Wlog                 (WithLogger, logDebug, logWarning)
 import           Universum
 
 import           Mockable.SharedAtomic       (modifySharedAtomic, readSharedAtomic)
@@ -36,15 +36,12 @@ protocolListeners =
     ]
 
 protocolStubListeners
-    :: ( Monad m
-       )
+    :: WithLogger m
     => [ListenerAction BiP m]
 protocolStubListeners =
     [ stubListenerOneMsg $ (Proxy :: Proxy VersionReq)
     , stubListenerOneMsg $ (Proxy :: Proxy VersionResp)
     ]
-
-
 
 -- | Handles a response to get current version
 handleVersionReq

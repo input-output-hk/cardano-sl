@@ -5,12 +5,16 @@
 
 module Pos.DB.GState.GState
        ( prepareGStateDB
+       , sanityCheckGStateDB
        ) where
+
+import           Control.Monad.Catch    (MonadMask)
+import           System.Wlog            (WithLogger)
 
 import           Pos.Context.Class      (WithNodeContext)
 import           Pos.Context.Functions  (genesisUtxoM)
 import           Pos.DB.Class           (MonadDB)
-import           Pos.DB.GState.Balances (prepareGStateBalances)
+import           Pos.DB.GState.Balances (prepareGStateBalances, sanityCheckBalances)
 import           Pos.DB.GState.Common   (prepareGStateCommon)
 import           Pos.DB.GState.Update   (prepareGStateUS)
 import           Pos.DB.GState.Utxo     (prepareGStateUtxo)
@@ -27,3 +31,10 @@ prepareGStateDB initialTip = do
     prepareGStateUtxo genesisUtxo
     prepareGStateBalances genesisUtxo
     prepareGStateUS
+
+-- | Check that GState DB is consistent.
+sanityCheckGStateDB
+    :: forall ssc m.
+       (MonadDB ssc m, MonadMask m, WithLogger m)
+    => m ()
+sanityCheckGStateDB = sanityCheckBalances

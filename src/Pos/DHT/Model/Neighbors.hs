@@ -12,11 +12,10 @@ module Pos.DHT.Model.Neighbors
 
 
 import           Formatting          (int, sformat, shown, (%))
-import qualified Formatting          as F
 import           Mockable            (MonadMockable, forConcurrently, handleAll, throw)
 import           Node                (SendActions (..))
 import           Node.Message        (Message, Serializable)
-import           System.Wlog         (WithLogger, logDebug, logInfo, logWarning)
+import           System.Wlog         (WithLogger, logWarning)
 import           Universum           hiding (catchAll, forConcurrently)
 
 import           Pos.Constants       (neighborsSendThreshold)
@@ -47,7 +46,7 @@ sendToNeighbors sender msg = do
     logSendErr node e = logWarning $ sformat ("Error sending to "%shown%": "%shown) node e
 
 sendToNode
-    :: ( MonadMockable m, Serializable packing body, WithLogger m, Message body )
+    :: ( MonadMockable m, Serializable packing body, Message body )
     => SendActions packing m
     -> NetworkAddress
     -> body

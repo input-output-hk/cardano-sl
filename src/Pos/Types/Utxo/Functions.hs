@@ -12,19 +12,22 @@ module Pos.Types.Utxo.Functions
        , applyTxToUtxo'
        , belongsTo
        , filterUtxoByAddr
+       , utxoToStakes
        ) where
 
 import           Control.Lens         (over, (^.), _1, _3)
+import qualified Data.HashMap.Strict  as HM
 import qualified Data.Map.Strict      as M
 import           Universum
 
 import           Pos.Binary.Types     ()
 import           Pos.Crypto           (WithHash (..))
+import           Pos.Types.Coin       (unsafeAddCoin)
 import           Pos.Types.Tx         (VTxGlobalContext (..), VTxLocalContext (..),
                                        verifyTx)
-import           Pos.Types.Types      (Address, Tx (..), TxAux, TxDistribution (..), TxId,
-                                       TxIn (..), TxOut (..), TxOutAux, TxUndo, TxWitness,
-                                       Utxo)
+import           Pos.Types.Types      (Address, Coin, StakeholderId, Tx (..), TxAux,
+                                       TxDistribution (..), TxId, TxIn (..), TxOut (..),
+                                       TxOutAux, TxUndo, TxWitness, Utxo, txOutStake)
 import           Pos.Types.Utxo.Class (MonadUtxo (..), MonadUtxoRead (utxoGet))
 
 -- | Find transaction input in Utxo assuming it is valid.
@@ -88,3 +91,9 @@ belongsTo :: TxOutAux -> Address -> Bool
 -- | Select only TxOuts for given addresses
 filterUtxoByAddr :: Address -> Utxo -> Utxo
 filterUtxoByAddr addr = M.filter (`belongsTo` addr)
+
+utxoToStakes :: Utxo -> HashMap StakeholderId Coin
+utxoToStakes = foldl' putDistr mempty . M.toList
+  where
+    plusAt hm (key, val) = HM.insertWith unsafeAddCoin key val hm
+    putDistr hm (_, toaux) = foldl' plusAt hm (txOutStake toaux)

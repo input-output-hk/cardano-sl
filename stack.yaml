@@ -23,7 +23,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/plutus-prototype
-    commit: aa6d535cf47fe92aabfbdb8bb709f5cba52ab793
+    commit: 62b4aaf5e8dfe70a7734a555032d8461ce4a812a
   extra-dep: true
 - location:
     git: https://github.com/serokell/rocksdb-haskell.git
@@ -35,8 +35,12 @@ packages:
     commit: 96e5db162d88482bc0e120dc61cadd45c168c275
   extra-dep: true
 - location:
-    git: https://github.com/serokell/tw-rework-sketch
-    commit: 633714c23879ea60e697db7bf70548a291cdbcda
+    git: https://github.com/serokell/tw-rework-sketch.git
+    commit: 71487c0f1f008492962eb4a4d0fe9555a74319aa
+  extra-dep: true
+- location:
+    git: https://github.com/serokell/network-transport-tcp.git
+    commit: 586c9bf830252476522cab6274ef8ddc32615686
   extra-dep: true
 
 nix:

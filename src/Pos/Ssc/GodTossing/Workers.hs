@@ -22,14 +22,16 @@ import           Mockable                         (currentTime, delay)
 import           Node                             (SendActions)
 import           Serokell.Util.Exceptions         ()
 import           Serokell.Util.Text               (listJson)
-import           System.Wlog                      (logDebug, logError, logWarning)
+import           System.Wlog                      (logDebug, logError, logInfo,
+                                                   logWarning)
 import           Universum
 
 import           Pos.Binary.Class                 (Bi)
 import           Pos.Binary.Relay                 ()
 import           Pos.Binary.Ssc                   ()
 import           Pos.Communication.BiP            (BiP)
-import           Pos.Constants                    (k, mpcSendInterval, vssMaxTTL)
+import           Pos.Constants                    (mpcSendInterval, slotSecurityParam,
+                                                   vssMaxTTL)
 import           Pos.Context                      (getNodeContext, lrcActionOnEpochReason,
                                                    ncPublicKey, ncSecretKey, ncSscContext)
 import           Pos.Crypto                       (SecretKey, VssKeyPair, VssPublicKey,
@@ -97,18 +99,19 @@ checkNSendOurCert sendActions = do
   where
     sendCert epoch resend ourId = do
         if resend then
-            logDebug "TTL will expire in the next epoch, we will announce it now."
+            logInfo "TTL will expire in the next epoch, we will announce it now."
         else
-            logDebug "Our VssCertificate hasn't been announced yet, TTL has expired,\
+            logInfo "Our VssCertificate hasn't been announced yet or TTL has expired, \
                      \we will announce it now."
         ourVssCertificate <- getOurVssCertificate
         let contents = MCVssCertificate ourVssCertificate
         sscProcessOurMessage epoch contents ourId
         let msg = DataMsg contents ourId
     -- [CSL-245]: do not catch all, catch something more concrete.
-        (sendToNeighbors sendActions msg >> logDebug "Announced our VssCertificate.") `catchAll` \e ->
-            logError $
-            sformat ("Error announcing our VssCertificate: " % shown) e
+        (sendToNeighbors sendActions msg >>
+         logDebug "Announced our VssCertificate.")
+        `catchAll` \e ->
+            logError $ sformat ("Error announcing our VssCertificate: " % shown) e
     getOurVssCertificate :: m VssCertificate
     getOurVssCertificate = do
         localCerts <- _gpCertificates . snd <$> sscRunLocalQuery getLocalPayload
@@ -183,14 +186,14 @@ onNewSlotCommitment sendActions slotId@SlotId {..}
                 pure . maybe True (\((_, comm, _), e) -> not $
                                      siEpoch == e &&
                                      checkCommShares participants comm) $ se
-            let msg = "We shouldn't generate secret, because commitment is still valid"
+            let msg = "We shouldn't generate secret, because it is still valid"
             unless shouldCreateCommitment $ logDebug msg
             when shouldCreateCommitment $ do
                 logDebug $ sformat ("Generating secret for "%ords%" epoch") siEpoch
                 generated <- generateAndSetNewSecret ourSk slotId
                 case generated of
                     Nothing -> logWarning "I failed to generate secret for GodTossing"
-                    Just _ -> logDebug $
+                    Just _ -> logInfo $
                         sformat ("Generated secret for "%ords%" epoch") siEpoch
 
             mbComm <- fmap (view _2) <$> getSecret
@@ -253,12 +256,12 @@ sscProcessOurMessage epoch msg ourId = do
 sendOurData
     :: (WorkMode SscGodTossing m)
     => SendActions BiP m -> GtMsgTag -> EpochIndex -> LocalSlotIndex -> StakeholderId -> m ()
-sendOurData sendActions msgTag epoch kMultiplier ourId = do
+sendOurData sendActions msgTag epoch slMultiplier ourId = do
     -- Note: it's not necessary to create a new thread here, because
     -- in one invocation of onNewSlot we can't process more than one
     -- type of message.
-    waitUntilSend msgTag epoch kMultiplier
-    logDebug $ sformat ("Announcing our "%build) msgTag
+    waitUntilSend msgTag epoch slMultiplier
+    logInfo $ sformat ("Announcing our "%build) msgTag
     let msg = InvMsg {imTag = msgTag, imKeys = pure ourId}
     -- [CSL-514] TODO Log long acting sends
     sendToNeighbors sendActions msg
@@ -286,7 +289,7 @@ generateAndSetNewSecret sk sl@SlotId {..} = do
                 computeParticipants richmen certs
         logDebug $
             sformat ("generating secret for: " %listJson) $
-            map (bprint shortHashF) participantIds
+                map (bprint shortHashF) participantIds
     let participants =
             NE.nonEmpty . map vcVssKey . toList $
             computeParticipants richmen certs
@@ -319,9 +322,10 @@ randomTimeInInterval interval =
 waitUntilSend
     :: WorkMode SscGodTossing m
     => GtMsgTag -> EpochIndex -> LocalSlotIndex -> m ()
-waitUntilSend msgTag epoch kMultiplier = do
+waitUntilSend msgTag epoch slMultiplier = do
     Timestamp beginning <-
-        getSlotStart $ SlotId {siEpoch = epoch, siSlot = kMultiplier * k}
+        getSlotStart $
+        SlotId {siEpoch = epoch, siSlot = slMultiplier * slotSecurityParam}
     curTime <- currentTime
     let minToSend = curTime
     let maxToSend = beginning + mpcSendInterval
@@ -331,6 +335,8 @@ waitUntilSend msgTag epoch kMultiplier = do
         let ttwMillisecond :: Millisecond
             ttwMillisecond = convertUnit timeToWait
         logDebug $
-            sformat ("Waiting for "%shown%" before sending "%build)
-                ttwMillisecond msgTag
+            sformat
+                ("Waiting for " %shown % " before sending " %build)
+                ttwMillisecond
+                msgTag
         delay timeToWait

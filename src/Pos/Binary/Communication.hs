@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 -- | Communication-related serialization -- messages mostly.
 
 module Pos.Binary.Communication () where
@@ -26,8 +27,11 @@ deriving instance Bi MessageName
 ----------------------------------------------------------------------------
 
 instance Bi SysStartRequest where
-    put = mempty
-    get = pure SysStartRequest
+    put _ = put (0 :: Word8)
+    get = SysStartRequest <$ do
+              (i :: Word8) <- get
+              when (i /= 0) $
+                 fail "SysStartRequest: 0 expected"
 
 instance Bi SysStartResponse where
     put (SysStartResponse t) = put t

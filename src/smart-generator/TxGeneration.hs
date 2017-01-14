@@ -17,7 +17,7 @@ import           Data.Array.MArray             (newListArray, readArray, writeAr
 import           Data.List                     (tail, (!!))
 import           Universum                     hiding (head)
 
-import           Pos.Constants                 (k, slotDuration)
+import           Pos.Constants                 (slotDuration, slotSecurityParam)
 import           Pos.Crypto                    (SecretKey, hash, toPublic, unsafeHash)
 import           Pos.DB.GState                 (getTxOut)
 import           Pos.Genesis                   (genesisAddresses, genesisPublicKeys,
@@ -37,9 +37,12 @@ import           GenOptions                    (GenOptions (..))
 -- txChain i = genChain (genesisSecretKeys !! i) addr (unsafeHash addr) 0
 --   where addr = genesisAddresses !! i
 
+-- TODO: should it use slotSecurityParam or blkSecurityParam?
 tpsTxBound :: Double -> Int -> Int
 tpsTxBound tps propThreshold =
-    round $ tps * fromIntegral (k + propThreshold) * fromIntegral (slotDuration `div` sec 1)
+    round $
+    tps * fromIntegral (slotSecurityParam + propThreshold) *
+    fromIntegral (slotDuration `div` sec 1)
 
 genChain :: SecretKey -> TxId -> Word32 -> [TxAux]
 genChain sk txInHash txInIndex =

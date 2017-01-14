@@ -18,7 +18,7 @@ import           Pos.Crypto            (EncShare, Hash, KeyPair (..), ProxyCert,
                                         Secret, SecretKey, SecretProof,
                                         SecretSharingExtra, Share, Signature, Signed,
                                         VssPublicKey, checkSig, createProxySecretKey,
-                                        deterministic, fullPublicKeyF, hash,
+                                        deterministic, fullPublicKeyF, hash, hashHexF,
                                         parseFullPublicKey, proxySign, proxyVerify,
                                         randomNumber, sign, toPublic,
                                         verifyProxySecretKey)
@@ -153,7 +153,7 @@ hashInequality :: (Eq a, Bi a) => a -> a -> Property
 hashInequality a b = a /= b ==> hash a /= hash b
 
 checkHash :: Bi a => a -> Text -> Expectation
-checkHash x s = sformat build (hash x) `shouldBe` s
+checkHash x s = sformat hashHexF (hash x) `shouldBe` s
 
 keyDerivation :: KeyPair -> Property
 keyDerivation kp = getPub kp === toPublic (getSec kp)

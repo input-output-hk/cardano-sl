@@ -225,7 +225,7 @@ delegationThreshold = unsafeCoinPortion $ ccDelegationThreshold compileConfig
 -- | Maximum amount of headers node can put into headers
 -- message. Should be more than 'blkSecurityParam'.
 maxHeadersMessage :: (Integral a) => a
-maxHeadersMessage = 2 * blkSecurityParam
+maxHeadersMessage = 4 * blkSecurityParam
 
 ----------------------------------------------------------------------------
 -- Malicious activity

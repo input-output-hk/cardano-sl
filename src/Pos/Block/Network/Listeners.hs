@@ -104,7 +104,10 @@ handleGetHeaders = ListenerActionConversation $ \__peerId __sendActions conv -> 
     whenJust msg $ \(MsgGetHeaders {..}) -> do
         logDebug "Got request on handleGetHeaders"
         headers <- getHeadersFromManyTo mghFrom mghTo
-        whenJust headers $ \h -> send conv $ InConv $ MsgHeaders h
+        maybe onNoHeaders (send conv . InConv . MsgHeaders) headers
+  where
+    onNoHeaders =
+        logDebug "getheadersFromManyTo returned Nothing, not replying to node"
 
 handleGetBlocks
     :: forall ssc m.

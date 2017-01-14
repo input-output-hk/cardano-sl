@@ -234,6 +234,7 @@ getHeadersFromManyTo checkpoints startM = runMaybeT $ do
         mapM DB.getBlockHeader (NE.toList checkpoints)
     lift $ logDebug "Got valid checkpoints"
     tip <- lift GS.getTip
+    guard $ all ((/= tip) . view headerHashG) validCheckpoints
     let startFrom = fromMaybe tip startM
         parentIsCheckpoint bh =
             any (\c -> bh ^. prevBlockL == c ^. headerHashG) validCheckpoints
@@ -249,7 +250,7 @@ getHeadersFromManyTo checkpoints startM = runMaybeT $ do
     else do
         let lowestCheckpoint =
                 minimumBy (comparing flattenEpochOrSlot) validCheckpoints
-            loadUpCond _ h = h < 3 * maxHeadersMessage
+            loadUpCond _ h = h < maxHeadersMessage
         lift $ logDebug "ghmft: branch 2 loading"
         up <- lift $ GS.loadHeadersUpWhile lowestCheckpoint loadUpCond
         lift $ logDebug "ghmft: branch 2 loading done"

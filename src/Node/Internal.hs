@@ -339,7 +339,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
     -- | Wait for all running handlers to finish.
     waitForRunningHandlers :: DispatcherState m -> m ()
     waitForRunningHandlers state = do
-        nonces <- modifySharedAtomic nodeState $ \ns@(NodeState prng nonces finished closed) ->
+        nonces <- modifySharedAtomic nodeState $ \ns@(NodeState _prng nonces _finished _closed) ->
             pure (ns, nonces)
         let outgoingHandlerPromises :: [(SomeHandler m, Maybe (ChannelIn m))]
             outgoingHandlerPromises = foldr pickOutgoingHandlerPromise [] nonces
@@ -410,7 +410,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                           -- we just ignore it. network-transport should
                           -- ensure that the peer receives an error event
                           -- indicating that we've closed their connection.
-                          mconn <- modifySharedAtomic nodeState $ \ns@(NodeState prng nonces finishedHandlers closed) ->
+                          mconn <- modifySharedAtomic nodeState $ \ns@(NodeState _prng _nonces _finishedHandlers closed) ->
                               if closed
                               then pure (ns, Nothing)
                               else do
@@ -518,11 +518,11 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
 
                   -- Connection is receiving data and there's some handler
                   -- at 'tid' to run it. Dump the new data to its ChannelIn.
-                  Just (peer, ConnectionReceiving _ (ChannelIn chan)) -> do
+                  Just (_peer, ConnectionReceiving _ (ChannelIn chan)) -> do
                     Channel.writeChannel chan (Just (BS.concat chunks))
                     loop state
 
-                  Just (peer, ConnectionClosed _) ->
+                  Just (_peer, ConnectionClosed _) ->
                     throw (InternalError "received data on closed connection")
 
                   -- The peer keeps pushing data but our handler is finished.
@@ -533,7 +533,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                   -- EndPointId of the peer, and then maybe patch
                   -- network-transport to allow for selective closing of peer
                   -- connection based on EndPointAddress.
-                  Just (peer, ConnectionHandlerFinished _) ->
+                  Just (_peer, ConnectionHandlerFinished _) ->
                     throw (InternalError "received too much data")
 
           NT.ConnectionClosed connid ->
@@ -588,7 +588,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                             dispatcherConnections = Map.insert connid (peer, ConnectionClosed promise) (dispatcherConnections state)
                           }
 
-                  Just (peer, ConnectionClosed _) ->
+                  Just (_peer, ConnectionClosed _) ->
                       throw (InternalError "closed a closed connection")
 
           NT.EndPointClosed -> waitForRunningHandlers state
@@ -628,9 +628,9 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                   :: (DispatcherState m, [NT.ConnectionId])
                   -> NT.ConnectionId
                   -> m (DispatcherState m, [NT.ConnectionId])
-              eliminateConnection (state, removals) connid = case Map.lookup connid (dispatcherConnections state) of
+              eliminateConnection (_state, removals) connid = case Map.lookup connid (dispatcherConnections state) of
                   Nothing -> throw (InternalError "connection associated with peer does not exist")
-                  Just (peer, ConnectionReceiving handler (ChannelIn chan)) -> do
+                  Just (_peer, ConnectionReceiving handler (ChannelIn chan)) -> do
                       -- Signal to the handler that there's no more input.
                       Channel.writeChannel chan Nothing
                       let state' = state {
@@ -796,7 +796,7 @@ withInOutChannel
     :: forall m a .
        ( Mockable Bracket m, Mockable Async m, Mockable Channel.Channel m
        , Mockable SharedAtomic m, Mockable Throw m, Mockable Catch m
-       , Mockable Fork m, MonadFix m, WithLogger m )
+       , MonadFix m, WithLogger m )
     => Node m
     -> NodeId
     -> (ChannelIn m -> ChannelOut m -> m a)

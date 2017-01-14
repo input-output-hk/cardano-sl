@@ -17,11 +17,12 @@ import           Universum
 
 
 import qualified Pos.CLI                as CLI
+import           Pos.Util.TimeWarp      (NetworkAddress)
 
 data WalletOptions = WalletOptions
     { woDbPath       :: !FilePath
     , woRebuildDb    :: !Bool
-    , woPort         :: !Word16         -- ^ DHT/Blockchain port
+    , woIpPort       :: !NetworkAddress         -- ^ DHT/Blockchain port
     , woInitialPause :: !Int            -- ^ Pause between connecting to network
                                              -- and starting accepting commands (in slots)
     , woKeyFilePath  :: !FilePath       -- ^ Path to file with secret keys
@@ -77,7 +78,7 @@ optionsParser = WalletOptions
     <*> switch (long "rebuild-db"
              <> help ("If we DB already exist, discard it's contents and " <>
                       "create new one from scratch"))
-    <*> CLI.portOption 24961    -- truly random value
+    <*> CLI.ipPortOption ("0.0.0.0", 24961)   -- truly random value
     <*> option auto (long "initial-pause"
                   <> short 'p'
                   <> value 1

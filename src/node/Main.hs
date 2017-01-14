@@ -9,12 +9,10 @@ import           Data.List           ((!!))
 import           Data.Maybe          (fromJust)
 import           Data.Proxy          (Proxy (..))
 import           Mockable            (Production)
-import           Node                (SendActions, hoistSendActions)
 import           System.Wlog         (LoggerName)
 import           Universum
 
 import qualified Pos.CLI             as CLI
-import           Pos.Communication   (BiP)
 import           Pos.Constants       (RunningMode (..), runningMode)
 import           Pos.Crypto          (SecretKey, VssKeyPair, keyGen, vssKeyGen)
 import           Pos.DHT.Model       (DHTKey, DHTNodeType (..), dhtNodeType)
@@ -23,12 +21,11 @@ import           Pos.Launcher        (BaseParams (..), LoggingParams (..),
                                       NodeParams (..), RealModeResources,
                                       bracketResources, runNodeProduction, runNodeStats,
                                       runTimeLordReal, runTimeSlaveReal, stakesDistr)
-import           Pos.Ssc.Class       (SscConstraint, SscListenersClass)
+import           Pos.Ssc.Class       (SscListenersClass)
 import           Pos.Ssc.GodTossing  (genesisVssKeyPairs)
 import           Pos.Ssc.GodTossing  (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon  (SscNistBeacon)
 import           Pos.Ssc.SscAlgo     (SscAlgo (..))
-import           Pos.Statistics      (getNoStatsT, getStatsMap, runStatsT')
 import           Pos.Types           (Timestamp)
 import           Pos.Util.UserSecret (UserSecret, peekUserSecret, usKeys, usVss,
                                       writeUserSecret)
@@ -37,8 +34,12 @@ import           Pos.Util.UserSecret (UserSecret, peekUserSecret, usKeys, usVss,
 import           Pos.Web             (serveWebBase, serveWebGT)
 import           Pos.WorkMode        (WorkMode)
 #ifdef WITH_WALLET
+import           Pos.Ssc.Class       (SscConstraint)
 import           Pos.WorkMode        (ProductionMode, RawRealMode, StatsMode)
 
+import           Node                (SendActions, hoistSendActions)
+import           Pos.Communication   (BiP)
+import           Pos.Statistics      (getNoStatsT, getStatsMap, runStatsT')
 import           Pos.Wallet.Web      (walletServeWebFull)
 #endif
 #endif
@@ -66,7 +67,7 @@ baseParams :: LoggerName -> Args -> BaseParams
 baseParams loggingTag args@Args {..} =
     BaseParams
     { bpLoggingParams = loggingParams loggingTag args
-    , bpPort = port
+    , bpIpPort = ipPort
     , bpDHTPeers = CLI.dhtPeers commonArgs
     , bpDHTKeyOrType = dhtKeyOrType
     , bpDHTExplicitInitial = CLI.dhtExplicitInitial commonArgs

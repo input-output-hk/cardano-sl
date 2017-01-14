@@ -101,7 +101,7 @@ checkNSendOurCert sendActions = do
         if resend then
             logInfo "TTL will expire in the next epoch, we will announce it now."
         else
-            logInfo "Our VssCertificate hasn't been announced yet, TTL has expired,\
+            logInfo "Our VssCertificate hasn't been announced yet or TTL has expired, \
                      \we will announce it now."
         ourVssCertificate <- getOurVssCertificate
         let contents = MCVssCertificate ourVssCertificate

@@ -16,13 +16,14 @@ module Pos.Types.Arbitrary
 import           Control.Lens               (set, view, _3, _4)
 import qualified Data.ByteString            as BS (pack)
 import           Data.Char                  (chr)
-import           Data.DeriveTH              (derive, makeArbitrary, makeNFData)
+import           Data.DeriveTH              (derive, makeArbitrary)
+import qualified Data.HashMap.Strict        as HM (fromList)
 import           Data.Text                  (pack)
 import           Data.Time.Units            (Microsecond, fromMicroseconds)
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (..),
                                              NonZero (..), choose, choose, elements,
-                                             oneof)
+                                             listOf1, oneof)
 import           Test.QuickCheck.Instances  ()
 import           Universum
 
@@ -71,7 +72,11 @@ instance Arbitrary Address where
 
 deriving instance Arbitrary ChainDifficulty
 
-derive makeArbitrary ''SlotId
+instance Arbitrary SlotId where
+    arbitrary = SlotId
+        <$> arbitrary
+        <*> choose (0, epochSlots - 1)
+
 derive makeArbitrary ''TxOut
 
 instance Arbitrary Coin where
@@ -244,8 +249,6 @@ newtype SmallHashMap =
 instance Arbitrary SmallHashMap where
     arbitrary = SmallHashMap <$> makeSmall arbitrary
 
-derive makeNFData ''GoodTx
-
 derive makeArbitrary ''UnsignedVarInt
 derive makeArbitrary ''SignedVarInt
 derive makeArbitrary ''FixedSizeInt
@@ -269,7 +272,13 @@ instance Arbitrary UpdateVote where
         let uvSignature = sign sk (uvProposalId, uvDecision)
         return UpdateVote {..}
 
+instance Arbitrary UpdateProposal where
+    arbitrary = UpdateProposal
+        <$> arbitrary
+        <*> arbitrary
+        <*> arbitrary
+        <*> (HM.fromList <$> listOf1 arbitrary)
+
 derive makeArbitrary ''UpdateData
-derive makeArbitrary ''UpdateProposal
 derive makeArbitrary ''ProposalMsgTag
 derive makeArbitrary ''VoteMsgTag

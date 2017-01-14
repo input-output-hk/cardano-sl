@@ -122,13 +122,13 @@ lrcDo
     :: WorkMode ssc m
     => EpochIndex -> [LrcConsumer m] -> HeaderHash ssc -> m (HeaderHash ssc)
 lrcDo epoch consumers tip = tip <$ do
-    blockUndoList <- DB.loadBlocksFromTipWhile whileAfterCrucial
-    when (null blockUndoList) $ throwM UnknownBlocksForLrc
-    let blunds = NE.fromList blockUndoList
+    blundsList <- DB.loadBlundsFromTipWhile whileAfterCrucial
+    when (null blundsList) $ throwM UnknownBlocksForLrc
+    let blunds = NE.fromList blundsList
     rollbackBlocksUnsafe blunds
     compute `finally` applyBlocksUnsafe (NE.reverse blunds)
   where
-    whileAfterCrucial b _ = getEpochOrSlot b > crucial
+    whileAfterCrucial b = getEpochOrSlot b > crucial
     crucial = EpochOrSlot $ Right $ crucialSlot epoch
     compute = do
         richmenComputationDo epoch consumers
@@ -145,7 +145,7 @@ leadersComputationDo epochId =
                 Left e ->
                     panic $ sformat ("SSC couldn't compute seed: " %build) e
                 Right seed ->
-                    GS.iterateByTx (followTheSatoshiM seed totalStake) snd
+                    GS.iterateByStake (followTheSatoshiM seed totalStake) identity
         putLeaders epochId leaders
 
 richmenComputationDo :: forall ssc m . WorkMode ssc m

@@ -19,7 +19,8 @@ import           Node                           (ConversationActions (..),
                                                  SendActions (..))
 import           Serokell.Util.Text             (listJson)
 import           Serokell.Util.Verify           (isVerSuccess)
-import           System.Wlog                    (logDebug, logInfo, logWarning)
+import           System.Wlog                    (WithLogger, logDebug, logInfo,
+                                                 logWarning)
 import           Universum
 
 import           Pos.Binary.Communication       ()
@@ -55,7 +56,7 @@ blockListeners =
     ]
 
 blockStubListeners
-    :: ( Ssc ssc, Monad m )
+    :: ( Ssc ssc, WithLogger m )
     => Proxy ssc -> [ListenerAction BiP m]
 blockStubListeners p =
     [ stubListenerConv $ (const Proxy :: Proxy ssc -> Proxy (MsgGetHeaders ssc)) p
@@ -219,13 +220,13 @@ handleUnsolicitedHeader header peerId sendActions = do
             pass -- TODO: ban node for sending invalid block.
   where
     processAlt mgh conv = do
-        logDebug "handleUnsolicitedHeader: withConnection: sending MsgGetHeaders"
+        logDebug $ sformat ("handleUnsolicitedHeader: withConnection: sending "%shown) mgh
         send conv mgh
-        logDebug "handleUnsolicitedHeader: withConnection: receiving MsgHeaders"
         mHeaders <- fmap inConvMsg <$> recv conv
-        logDebug "handleUnsolicitedHeader: withConnection: received MsgHeaders"
         whenJust mHeaders $ \headers -> do
-            logDebug "handleUnsolicitedHeader: got some block headers"
+            logDebug $ sformat
+                ("handleUnsolicitedHeader: withConnection: received "%listJson)
+                headers
             if matchRequestedHeaders headers mgh
                then handleRequestedHeaders headers peerId
                else handleUnexpected headers peerId

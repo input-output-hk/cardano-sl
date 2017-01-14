@@ -234,34 +234,35 @@ mpcProcessBlock blk = do
 -- | Head - youngest
 mpcRollback :: NEBlocks SscGodTossing -> GSUpdate ()
 mpcRollback blocks = do
-     -- is there guarantee that most genesis block won't be passed to mpcRollback?
     let slot = prevSlot $ blkSlot $ NE.last blocks
     -- Rollback certs
+    -- [TODO] Is it ok? @pva please take a look!
     gsVssCertificates %= VCD.setLastKnownSlot slot
     -- Rollback other payload
-    wasGenesis <- foldM (\wasGen b -> if wasGen then pure wasGen
-                                      else differenceBlock b)
-                         False blocks
+    wasGenesis <- foldM foldStep False blocks
     when wasGenesis resetGS
   where
-    prevSlot SlotId{..} =
-        if (siSlot == 0) then
-            if siEpoch == 0 then panic "Most genesis block passed to mpc rollback"
-            else SlotId (siEpoch - 1) (epochSlots - 1)
-        else SlotId siEpoch (siSlot - 1)
+    foldStep wasGen b
+        | wasGen = pure wasGen
+        | otherwise = differenceBlock b
+    prevSlot si@SlotId {..}
+        | siSlot > 0 = si {siSlot = siSlot - 1}
+        | siEpoch > 0 = SlotId {siEpoch = siEpoch - 1, siSlot = epochSlots - 1}
+        -- It means that we are rolling back all main blocks.
+        | otherwise = si
     differenceBlock :: Block SscGodTossing -> GSUpdate Bool
-    differenceBlock (Left _)  = pure True
+    differenceBlock (Left _) = pure True
     differenceBlock (Right b) = do
         let payload = b ^. blockMpc
         case payload of
             CommitmentsPayload comms _ ->
                 gsCommitments %= (`HM.difference` comms)
-            OpeningsPayload    opens _ ->
-                gsOpenings %= (`HM.difference` opens)
-            SharesPayload     shares _ ->
-                gsShares %= (`HM.difference` shares)
-            CertificatesPayload      _ -> return ()
+            OpeningsPayload opens _ -> gsOpenings %= (`HM.difference` opens)
+            SharesPayload shares _ -> gsShares %= (`HM.difference` shares)
+            CertificatesPayload _ -> return ()
         pure False
+    blkSlot :: Block ssc -> SlotId
+    blkSlot = epochOrSlot (flip SlotId 0) identity . (^. epochOrSlotG)
 
 -- | Calculate leaders for the next epoch.
 calculateSeedQ :: EpochIndex -> GSQuery (Either SeedError SharedSeed)
@@ -276,10 +277,10 @@ mpcLoadGlobalState tip = do
     let endEpoch =
           epochOrSlot identity siEpoch $
               maybe (panic "No block header with such header hash")
-              (^. epochOrSlotG)
+              (view epochOrSlotG)
               bh
         startEpoch = safeSub endEpoch -- load blocks while >= endEpoch
-        whileEpoch b _ = epochOrSlot identity siEpoch (b ^. epochOrSlotG) >= startEpoch
+        whileEpoch b = b ^. epochIndexL >= startEpoch
         blkCert =
           either (const mempty)
                  (^. blockMpc
@@ -336,6 +337,3 @@ unionBlocks = whileM
                 _1 %= unionPayload (mb ^. blockMpc)
                 True <$ (_2 .= b ^. prevBlockL)
     ) (pure ())
-
-blkSlot :: Block ssc -> SlotId
-blkSlot = epochOrSlot (flip SlotId 0) identity . (^. epochOrSlotG)

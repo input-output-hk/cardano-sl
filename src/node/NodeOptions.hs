@@ -18,6 +18,7 @@ import           Paths_cardano_sl           (version)
 import qualified Pos.CLI                    as CLI
 import           Pos.DHT.Model              (DHTKey)
 import           Pos.Security.Types         (AttackTarget, AttackType)
+import           Pos.Util.TimeWarp          (NetworkAddress)
 
 
 data Args = Args
@@ -26,7 +27,7 @@ data Args = Args
     , spendingGenesisI          :: !(Maybe Int)
     , vssGenesisI               :: !(Maybe Int)
     , keyfilePath               :: !FilePath
-    , port                      :: !Word16
+    , ipPort                    :: !NetworkAddress
     , supporterNode             :: !Bool
     , dhtKey                    :: !(Maybe DHTKey)
     , timeLord                  :: !Bool
@@ -74,7 +75,7 @@ argsParser =
          metavar "FILEPATH" <>
          value "secret.key" <>
          help "Path to file with secret keys") <*>
-    CLI.portOption 3000 <*>
+    CLI.ipPortOption ("0.0.0.0", 3000) <*>
     switch
         (long "supporter" <> help "Launch DHT supporter instead of full node") <*>
     optional

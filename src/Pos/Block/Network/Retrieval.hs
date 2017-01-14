@@ -64,7 +64,7 @@ retrievalWorker sendActions = handleAll handleWE $
             oldestHash = headerHash $ headers ^. _neLast
         case classificationRes of
             CHsValid lcaChild ->
-                handleCHsValid peerId lcaChild newestHash
+                void $ handleCHsValid peerId lcaChild newestHash
             CHsUseless reason ->
                 logDebug $ sformat uselessFormat oldestHash newestHash reason
             CHsInvalid reason ->
@@ -90,7 +90,7 @@ retrievalWorker sendActions = handleAll handleWE $
     handleCHsValid peerId lcaChild newestHash = do
         let lcaChildHash = hash lcaChild
         logDebug $ sformat validFormat lcaChildHash newestHash
-        withConnectionTo sendActions peerId $ \conv -> do
+        void $ withConnectionTo sendActions peerId $ \conv -> do
             send conv $ mkBlocksRequest lcaChildHash newestHash
             chainE <- runExceptT (retrieveBlocks conv lcaChild newestHash)
             case chainE of
@@ -170,8 +170,8 @@ handleBlocksWithLca :: forall ssc m.
     => SendActions BiP m -> NonEmpty (Block ssc) -> HeaderHash ssc -> m ()
 handleBlocksWithLca sendActions blocks lcaHash = do
     logDebug $ sformat lcaFmt lcaHash
-    -- Head block in result is the newest one.
-    toRollback <- DB.loadBlocksFromTipWhile $ \blk _ -> headerHash blk /= lcaHash
+    -- Head blund in result is the youngest one.
+    toRollback <- DB.loadBlundsFromTipWhile $ \blk -> headerHash blk /= lcaHash
     maybe (applyWithoutRollback sendActions blocks)
           (applyWithRollback sendActions blocks lcaHash)
           (nonEmpty toRollback)

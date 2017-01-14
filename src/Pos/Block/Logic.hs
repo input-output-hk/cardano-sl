@@ -237,9 +237,10 @@ getHeadersFromManyTo checkpoints startM = runMaybeT $ do
     let startFrom = fromMaybe tip startM
         parentIsCheckpoint bh =
             any (\c -> bh ^. prevBlockL == c ^. headerHashG) validCheckpoints
-        whileCond bh depth =
-            not (parentIsCheckpoint bh) && depth < maxHeadersMessage
-    headers <- MaybeT $ NE.nonEmpty <$> DB.loadHeadersWhile startFrom whileCond
+        whileCond bh = not (parentIsCheckpoint bh)
+    headers <-
+        MaybeT $ NE.nonEmpty <$>
+        DB.loadHeadersByDepthWhile whileCond blkSecurityParam startFrom
     lift $ logDebug $ sformat ("Got headers: "%listJson) headers
     if parentIsCheckpoint $ headers ^. _neHead
     then do
@@ -263,8 +264,7 @@ getHeadersOlderExp
 getHeadersOlderExp upto = do
     tip <- GS.getTip
     let upToReal = fromMaybe tip upto
-        whileCond _ depth = depth <= blkSecurityParam
-    allHeaders <- reverse <$> DB.loadHeadersWhile upToReal whileCond
+    allHeaders <- reverse <$> DB.loadHeadersByDepth blkSecurityParam upToReal
     pure $ selectIndices (takeHashes allHeaders) (twoPowers $ length allHeaders)
   where
     -- Given list of headers newest first, maps it to their hashes

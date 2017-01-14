@@ -19,7 +19,7 @@ import           Pos.Constants                     (blkSecurityParam,
                                                     mdNoBlocksSlotThreshold,
                                                     mdNoCommitmentsEpochThreshold)
 import           Pos.Context                       (getNodeContext, ncPublicKey)
-import           Pos.DB                            (getTipBlock, loadBlocksFromTipWhile)
+import           Pos.DB                            (getTipBlock, loadBlundsFromTipByDepth)
 import           Pos.Slotting                      (onNewSlot)
 import           Pos.Ssc.Class.Types               (Ssc (..))
 import           Pos.Ssc.GodTossing.Types.Instance ()
@@ -80,7 +80,7 @@ checkCommitmentsInPreviousBlocks
     :: forall m. WorkMode SscGodTossing m
     => SlotId -> ReaderT (TVar EpochIndex) m ()
 checkCommitmentsInPreviousBlocks slotId = do
-    kBlocks <- map fst <$> loadBlocksFromTipWhile (\_ depth -> depth < blkSecurityParam)
+    kBlocks <- map fst <$> loadBlundsFromTipByDepth blkSecurityParam
     forM_ kBlocks $ \case
         Right blk -> checkCommitmentsInBlock slotId blk
         _         -> return ()

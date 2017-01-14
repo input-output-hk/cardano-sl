@@ -17,6 +17,12 @@ import           Pos.Slotting            (MonadSlots (..), getCurrentSlot)
 import           Pos.Types               (EpochIndex, LocalSlotIndex, SlotId (..),
                                           Timestamp (..), unflattenSlotId)
 
+-- | These tests are not included into .cabal
+
+-- Once they were based on emulation mode.
+-- New time-warp doesn't support emulation yet, and being rewriten on real mode
+-- they just hang :(
+
 spec :: Spec
 spec = describe "Slotting" $ do
     describe "getCurrentSlot" $ do

@@ -21,6 +21,7 @@ module Pos.CLI
        , portOption
        , timeLordOption
        , webPortOption
+       , ipPortOption
        ) where
 
 import           Universum
@@ -33,16 +34,6 @@ import qualified Options.Applicative.Simple           as Opt (Mod, Parser, auto,
                                                               long, metavar, option,
                                                               optional, showDefault,
                                                               strOption, switch, value)
-
-import           Pos.Binary.Address                   ()
-import           Pos.Crypto                           (PublicKey)
-import           Pos.DHT.Model.Types               (DHTKey, DHTNode (..),
-                                                       bytesToDHTKey)
-import           Pos.Security.Types                   (AttackTarget (..), AttackType (..))
-import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
-import           Pos.Types.Address                    (Address (..), AddressHash,
-                                                       decodeTextAddress)
-import           Pos.Util.TimeWarp                    (NetworkAddress)
 import           Serokell.Util.OptParse               (fromParsec)
 import qualified Serokell.Util.Parse                  as P
 import           System.Wlog                          (LoggerConfig (..),
@@ -50,6 +41,16 @@ import           System.Wlog                          (LoggerConfig (..),
                                                        parseLoggerConfig)
 import           Text.ParserCombinators.Parsec        (many1, try)
 import qualified Text.ParserCombinators.Parsec.Char   as P
+
+import           Pos.Binary.Address                   ()
+import           Pos.Crypto                           (PublicKey)
+import           Pos.DHT.Model.Types                  (DHTKey, DHTNode (..),
+                                                       bytesToDHTKey)
+import           Pos.Security.Types                   (AttackTarget (..), AttackType (..))
+import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
+import           Pos.Types.Address                    (Address (..), AddressHash,
+                                                       decodeTextAddress)
+import           Pos.Util.TimeWarp                    (NetworkAddress)
 
 -- | Parser for DHT key.
 dhtKeyParser :: P.Parser DHTKey
@@ -227,3 +228,17 @@ webPortOption portNum help =
         templateParser "web-port" "PORT" help -- "Port for web server"
         <> Opt.value portNum
         <> Opt.showDefault
+
+ipPortOption :: NetworkAddress -> Opt.Parser NetworkAddress
+ipPortOption na =
+    Opt.option (fromParsec addrParser) $
+            Opt.long "listen"
+         <> Opt.metavar "IP:PORT"
+         <> Opt.help helpMsg
+         <> Opt.showDefault
+         <> Opt.value na
+  where
+    helpMsg = "Ip and port on which to listen. "
+        <> "Please mind that you need to specify actual accessible "
+        <> "ip of host, at which node is run,"
+        <> " otherwise work of CSL is not guaranteed."

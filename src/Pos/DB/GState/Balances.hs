@@ -23,12 +23,14 @@ module Pos.DB.GState.Balances
        ) where
 
 import qualified Data.HashMap.Strict  as HM
+import qualified Data.Text.Buildable
 import qualified Database.RocksDB     as Rocks
-import           Formatting           (sformat, (%))
+import           Formatting           (bprint, bprint, sformat, (%))
 import           System.Wlog          (WithLogger, logError)
 import           Universum
 
 import           Pos.Binary.Class     (encodeStrict)
+import           Pos.Crypto           (shortHashF)
 import           Pos.DB.Class         (MonadDB, getUtxoDB)
 import           Pos.DB.DBIterator    (DBMapIterator, mapIterator)
 import           Pos.DB.Error         (DBError (..))
@@ -63,6 +65,11 @@ data BalancesOp
     = PutFtsSum !Coin
     | PutFtsStake !StakeholderId
                   !Coin
+
+instance Buildable BalancesOp where
+    build (PutFtsSum c) = bprint ("PutFtsSum ("%coinF%")") c
+    build (PutFtsStake ad c) =
+        bprint ("PutFtsStake ("%shortHashF%", "%coinF%")") ad c
 
 instance RocksBatchOp BalancesOp where
     toBatchOp (PutFtsSum c)      = [Rocks.Put ftsSumKey (encodeStrict c)]

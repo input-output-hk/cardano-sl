@@ -16,10 +16,13 @@ module Pos.DB.GState.BlockExtra
 
 import           Control.Lens        (view)
 import           Data.Maybe          (fromJust)
+import qualified Data.Text.Buildable
 import qualified Database.RocksDB    as Rocks
+import           Formatting          (bprint, build, (%))
 import           Universum
 
 import           Pos.Binary.Class    (encodeStrict)
+import           Pos.Crypto          (shortHashF)
 import           Pos.DB.Block        (getBlockWithUndo)
 import           Pos.DB.Class        (MonadDB, getUtxoDB)
 import           Pos.DB.Functions    (RocksBatchOp (..), rocksGetBi, rocksPutBi)
@@ -60,6 +63,14 @@ data BlockExtraOp ssc
       -- ^ Enables or disables "in main chain" status of the block
     deriving (Show)
 
+instance Buildable (BlockExtraOp ssc) where
+    build (AddForwardLink from to) =
+        bprint ("AddForwardLink from "%shortHashF%" to "%shortHashF) from to
+    build (RemoveForwardLink from) =
+        bprint ("RemoveForwardLink from "%shortHashF) from
+    build (SetInMainChain flag h) =
+        bprint ("SetInMainChain for "%shortHashF%": "%build) h flag
+
 instance RocksBatchOp (BlockExtraOp ssc) where
     toBatchOp (AddForwardLink from to) =
         [Rocks.Put (forwardLinkKey from) (encodeStrict to)]
@@ -69,7 +80,6 @@ instance RocksBatchOp (BlockExtraOp ssc) where
         [Rocks.Del $ mainChainKey h]
     toBatchOp (SetInMainChain True h) =
         [Rocks.Put (mainChainKey h) (encodeStrict ()) ]
-
 
 ----------------------------------------------------------------------------
 -- Loops on forward links

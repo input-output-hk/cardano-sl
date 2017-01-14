@@ -27,8 +27,10 @@ module Pos.DB.GState.Utxo
        ) where
 
 import qualified Data.Map             as M
+import qualified Data.Text.Buildable
 import qualified Database.RocksDB     as Rocks
-import           Formatting           (sformat, (%))
+import           Formatting           (bprint, build, sformat, (%))
+import           Serokell.Util.Text   (listJson, pairF)
 import           System.Wlog          (WithLogger, logError)
 import           Universum
 
@@ -71,6 +73,13 @@ data UtxoOp
     = DelTxIn !TxIn
     | AddTxOut !TxIn
                !TxOutAux
+
+instance Buildable UtxoOp where
+    build (DelTxIn txIn)           =
+        bprint ("DelTxIn ("%build%")") txIn
+    build (AddTxOut txIn txOutAux) =
+        bprint ("AddTxOut ("%build%", "%listJson%")")
+        txIn (map (bprint pairF) $ txOutStake txOutAux)
 
 instance RocksBatchOp UtxoOp where
     toBatchOp (AddTxOut txIn txOut) =

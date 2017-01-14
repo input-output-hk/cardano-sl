@@ -322,6 +322,7 @@ bracketDHTInstance BaseParams {..} action = bracket acquire release action
 createTransport :: (MonadIO m, WithLogger m, Mockable Throw m) => [Char] -> Word16 -> m Transport
 createTransport ip port = do
     transportE <- liftIO $ TCP.createTransport
+                             "0.0.0.0"
                              ip
                              (show port)
                              (TCP.defaultTCPParameters { TCP.transportConnectTimeout = Just $ fromIntegral networkConnectionTimeout })

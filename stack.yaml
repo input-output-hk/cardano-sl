@@ -35,8 +35,12 @@ packages:
     commit: 96e5db162d88482bc0e120dc61cadd45c168c275
   extra-dep: true
 - location:
-    git: https://github.com/serokell/tw-rework-sketch
-    commit: dbb2d27ddf7e90054afa7bf2a43d1c49cc4bdb1b
+    git: https://github.com/serokell/tw-rework-sketch.git
+    commit: 8d4773a6a03b9b1d676115ba4bf6a5021bc184c9
+  extra-dep: true
+- location:
+    git: https://github.com/serokell/network-transport-tcp.git
+    commit: 586c9bf830252476522cab6274ef8ddc32615686
   extra-dep: true
 
 nix:

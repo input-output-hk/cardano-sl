@@ -114,13 +114,25 @@ stakeDistribution (BitcoinStakes stakeholders coins) =
 stakeDistribution TestnetStakes {..} =
     map (mkCoin . fromIntegral) $ basicDist & _head %~ (+ rmd)
   where
-    rich = coinToInteger $ applyCoinPortion mpcThreshold sdTotalStake
+    -- Total number of richmen
     richs = fromIntegral sdRichmen
-    poorStake = coinToInteger sdTotalStake - richs * rich
+    -- Total number of poor
     poors = fromIntegral sdPoor
-    (poor, rmd) = if poorStake < poors
-                  then panic "Not enough stake for non-rich stakeholders!"
-                  else (poorStake `div` poors, poorStake `mod` poors)
+    -- Minimum amount of money to become rich
+    thresholdRich = coinToInteger $ applyCoinPortion mpcThreshold sdTotalStake
+    -- Maximal amount of total money which poor stakeholders can hold
+    maxPoorStake = (rich - 1) * poors
+    -- Minimum amount of richmen's money to prevent poors becoming richmen
+    minRichStake = sdTotalStake - maxPoorStake
+    -- Minimum amount of money per richman to maintain number of richmen
+    minRich = minRichStake `div` richs
+    -- Final amount of money per richman
+    rich = max thresholdRich minRich
+    -- Amount of money left to poor
+    poorStake = coinToInteger sdTotalStake - richs * rich
+    -- Money per poor and modulo (it goes to first richman)
+    (poor, rmd) = (poorStake `div` poors, poorStake `mod` poors)
+    -- Coin distribution (w/o modulo added)
     basicDist = genericReplicate richs rich ++ genericReplicate poors poor
 
 bitcoinDistribution1000Coins :: Word -> [Coin]

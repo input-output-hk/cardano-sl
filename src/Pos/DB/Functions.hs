@@ -90,7 +90,9 @@ rocksDecodeWP :: forall v m . (Bi v, MonadThrow m, WithKeyPrefix v)
                  => ByteString -> m v
 rocksDecodeWP key
     | BS.isPrefixOf (keyPrefix @v Proxy) key =
-          either (onParseError key) pure . decodeFull . BSL.fromStrict $ key
+        either (onParseError key) pure .
+        decodeFull . BSL.fromStrict . BS.drop (length $ keyPrefix @v Proxy) $
+        key
     | otherwise = onParseError key "unexpected prefix"
 
 rocksDecodeKeyValWP :: (Bi k, Bi v, MonadThrow m, WithKeyPrefix k)

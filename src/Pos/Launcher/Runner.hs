@@ -107,7 +107,9 @@ data RealModeResources = RealModeResources
 ----------------------------------------------------------------------------
 
 -- | Runs node as time-slave inside IO monad.
-runTimeSlaveReal :: SscListenersClass ssc => Proxy ssc -> RealModeResources -> BaseParams -> Production Timestamp
+runTimeSlaveReal
+    :: SscListenersClass ssc
+    => Proxy ssc -> RealModeResources -> BaseParams -> Production Timestamp
 runTimeSlaveReal sscProxy res bp = do
     mvar <- liftIO newEmptyMVar
     runServiceMode res bp (listeners mvar) $ \sendActions ->
@@ -128,7 +130,8 @@ runTimeSlaveReal sscProxy res bp = do
   where
     listeners mvar =
       if Const.isDevelopment
-         then allStubListeners sscProxy ++ [stubListenerOneMsg (Proxy :: Proxy SysStartRequest), sysStartRespListener mvar]
+         then allStubListeners sscProxy ++
+              [stubListenerOneMsg (Proxy :: Proxy SysStartRequest), sysStartRespListener mvar]
          else allStubListeners sscProxy
 
 -- | Runs time-lord to acquire system start.

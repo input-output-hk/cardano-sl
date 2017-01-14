@@ -82,6 +82,10 @@ handleSendProxySK = ListenerActionOneMsg $
           where
             logResult PEAdded =
                 logInfo $ sformat ("Got valid related proxy secret key: "%build) pSk
+            logResult PERemoved =
+                logInfo $
+                sformat ("Removing keys from issuer because got "%
+                         "self-signed revocation: "%build) pSk
             logResult verdict =
                 logDebug $
                 sformat ("Got proxy signature that wasn't accepted. Reason: "%shown) verdict

@@ -56,8 +56,7 @@ import           Pos.DB                      (DBError (DBMalformed), MonadDB,
 import qualified Pos.DB                      as DB
 import qualified Pos.DB.GState               as GS
 import qualified Pos.DB.Lrc                  as LrcDB
-import qualified Pos.DB.Misc                 as Misc (addProxySecretKey,
-                                                      getProxySecretKeys)
+import qualified Pos.DB.Misc                 as Misc
 import           Pos.Delegation.Class        (DelegationWrap, MonadDelegation (..),
                                               dwProxyConfCache, dwProxyMsgCache,
                                               dwProxySKPool)
@@ -318,6 +317,7 @@ data PskEpochVerdict
     | PEInvalid
     | PEExists
     | PECached
+    | PERemoved
     | PEAdded
     deriving (Show,Eq)
 
@@ -339,15 +339,18 @@ processProxySKEpoch psk = do
             exists = psk `elem` psks
             msg = SendProxySKEpoch psk
             valid = verifyProxySecretKey psk
+            selfSigned = pskDelegatePk psk == pskIssuerPk psk
         cached <- uses dwProxyMsgCache $ HM.member msg
         dwProxyMsgCache %= HM.insert msg curTime
         pure $ if | not valid -> PEInvalid
                   | cached -> PECached
                   | exists -> PEExists
+                  | selfSigned -> PERemoved
                   | not related -> PEUnrelated
                   | otherwise -> PEAdded
     -- (2) We're writing to DB
     when (res == PEAdded) $ Misc.addProxySecretKey psk
+    when (res == PERemoved) $ Misc.removeProxySecretKey $ pskIssuerPk psk
     pure res
 
 ----------------------------------------------------------------------------

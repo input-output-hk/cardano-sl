@@ -29,6 +29,7 @@ import           Data.Monoid                 ((<>))
 import           Data.Text                   (Text)
 import           Data.Time.Units             (Microsecond, Second)
 import           Data.Typeable               (Typeable)
+import           Data.Word                   (Word16)
 import           Formatting                  (sformat, shown, (%))
 import           Network.Socket              (AddrInfoFlag (AI_PASSIVE), SockAddr (..),
                                               Socket, SocketOption (ReuseAddr),
@@ -50,7 +51,10 @@ import           NTP.Packet                  (NtpPacket (..), evalClockOffset,
 import           NTP.Util                    (resolveNtpHost)
 
 data NtpClientSettings = NtpClientSettings
-    { ntpServers         :: [String]
+    { ntpBindPort        :: Word16
+      -- ^ port at which client socket binds.
+      -- server port to send requets at is always 123
+    , ntpServers         :: [String]
       -- ^ list of servers addresses
     , ntpHandler         :: forall m . ( MonadIO m, WithLogger m )
                          => (Microsecond, Microsecond) -> m ()
@@ -84,7 +88,8 @@ mkNtpClient ncSettings sock = liftIO $ do
 
 instance Default NtpClientSettings where
     def = NtpClientSettings
-        { ntpServers         = [ "ntp5.stratum2.ru"
+        { ntpBindPort        = 5237
+        , ntpServers         = [ "ntp5.stratum2.ru"
                                , "ntp1.stratum1.ru"
                                , "clock.isc.org"
                                ]
@@ -170,10 +175,12 @@ mkSocket :: NtpMonad m => NtpClientSettings -> m Socket
 mkSocket settings = doMkSocket `catchAll` handlerE
   where
     doMkSocket = liftIO $ do
+        let port = show $ ntpBindPort settings
+
         -- Copied from Kademlia library
         (serveraddr:_) <- getAddrInfo
                      (Just (defaultHints {addrFlags = [AI_PASSIVE]}))
-                     Nothing (Just "5323")
+                     Nothing (Just port)
 
         sock <- socket (addrFamily serveraddr) Datagram defaultProtocol
         setSocketOption sock ReuseAddr 1

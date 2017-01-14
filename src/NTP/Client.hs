@@ -30,10 +30,12 @@ import           Data.Text                   (Text)
 import           Data.Time.Units             (Microsecond, Second)
 import           Data.Typeable               (Typeable)
 import           Formatting                  (sformat, shown, (%))
-import           Network.Socket              (Family (AF_INET), SockAddr (..), Socket,
-                                              SocketOption (ReuseAddr),
-                                              SocketType (Datagram), close,
-                                              defaultProtocol, setSocketOption, socket)
+import           Network.Socket              (AddrInfoFlag (AI_PASSIVE), SockAddr (..),
+                                              Socket, SocketOption (ReuseAddr),
+                                              SocketType (Datagram), addrAddress,
+                                              addrFamily, addrFlags, bind, close,
+                                              defaultHints, defaultProtocol, getAddrInfo,
+                                              setSocketOption, socket)
 import           Network.Socket.ByteString   (recvFrom, sendTo)
 import           Prelude                     hiding (log)
 import           Serokell.Util.Concurrent    (modifyTVarS, threadDelay)
@@ -168,8 +170,14 @@ mkSocket :: NtpMonad m => NtpClientSettings -> m Socket
 mkSocket settings = doMkSocket `catchAll` handlerE
   where
     doMkSocket = liftIO $ do
-        sock <- socket AF_INET Datagram defaultProtocol
+        -- Copied from Kademlia library
+        (serveraddr:_) <- getAddrInfo
+                     (Just (defaultHints {addrFlags = [AI_PASSIVE]}))
+                     Nothing (Just "5323")
+
+        sock <- socket (addrFamily serveraddr) Datagram defaultProtocol
         setSocketOption sock ReuseAddr 1
+        bind sock (addrAddress serveraddr)
         return sock
     handlerE e = do
         log' settings Warning $

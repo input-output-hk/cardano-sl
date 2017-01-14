@@ -109,14 +109,14 @@ walletServer nat = do
 
 -- FIXME: this is really inaficient. Temporary solution
 launchNotifier :: WalletWebMode ssc m => m ()
-launchNotifier = getWalletWebSockets >>= void . liftIO . forkForever notifier
+launchNotifier = getWalletWebSockets >>= void . liftIO . forkForever . notifier
   where
     notifyPeriod = fromIntegral (10000000 :: Millisecond)
     forkForever action = forkFinally action $ const $ do
         -- TODO: log error
         -- colldown
         threadDelay notifyPeriod
-        forkForever action
+        void $ forkForever action
     notifier = flip runWalletWS $ forever $ do
         liftIO $ threadDelay notifyPeriod
         sequence_ [historyNotifier]

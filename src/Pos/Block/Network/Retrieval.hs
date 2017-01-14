@@ -64,7 +64,7 @@ retrievalWorker sendActions = handleAll handleWE $
             oldestHash = headerHash $ headers ^. _neLast
         case classificationRes of
             CHsValid lcaChild ->
-                handleCHsValid peerId lcaChild newestHash
+                void $ handleCHsValid peerId lcaChild newestHash
             CHsUseless reason ->
                 logDebug $ sformat uselessFormat oldestHash newestHash reason
             CHsInvalid reason ->

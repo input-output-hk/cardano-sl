@@ -12,13 +12,11 @@ module Pos.Ssc.GodTossing
        , module Pos.Ssc.GodTossing.Error
        , module Pos.Ssc.GodTossing.Functions
        , module Pos.Ssc.GodTossing.Genesis
-       , module Pos.Ssc.GodTossing.Listeners
        , module Pos.Ssc.GodTossing.LocalData
        , module Pos.Ssc.GodTossing.SecretStorage
        , module Pos.Ssc.GodTossing.Seed
        , module Pos.Ssc.GodTossing.Storage
        , module Pos.Ssc.GodTossing.Types
-       , module Pos.Ssc.GodTossing.Workers
        ) where
 
 import           Pos.Binary.Ssc                   ()

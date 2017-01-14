@@ -66,7 +66,7 @@ switchConnection var pending = do
   where
     ignoreData :: WS.Connection -> IO Text
     ignoreData = WS.receiveData
-    releaseResources = pure ()
+    releaseResources = atomically $ writeTVar var Nothing -- TODO: log
 
 -- If there is a new pending ws connection, the old connection will be replaced with new one.
 -- FIXME: this is not safe because someone can kick out previous ws connection. Authentication can solve this issue. Solution: reject pending connection if ws handshake doesn't have valid auth session token

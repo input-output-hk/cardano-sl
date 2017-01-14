@@ -11,6 +11,7 @@ module Pos.Wallet.Web.Server.Methods
        , walletServeImpl
        ) where
 
+import           Control.TimeWarp.Timed        (Millisecond)
 import           Data.Default                  (def)
 import           Data.List                     (elemIndex, (!!))
 import           Data.Time.Clock.POSIX         (getPOSIXTime)
@@ -41,13 +42,14 @@ import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CProfile,
                                                 CProfile (..), CTx, CTxId, CTxMeta (..),
                                                 CWallet (..), CWalletMeta (..),
+                                                NotifyEvent (NewTransaction),
                                                 addressToCAddress, cAddressToAddress,
                                                 mkCTx, mkCTxId, txContainsTitle,
                                                 txIdToCTxId)
 import           Pos.Wallet.Web.Error          (WalletError (..))
 import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 WalletWebSockets, closeWSConnection,
-                                                initWSConnection, runWalletWS,
+                                                initWSConnection, notify, runWalletWS,
                                                 upgradeApplicationWS)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
                                                 addOnlyNewTxMeta, closeState,
@@ -96,6 +98,7 @@ walletServer nat = do
     whenM (isNothing <$> getProfile) $
         createUserProfile >>= setProfile
     join $ mapM_ insertAddressMeta <$> myCAddresses
+    launchNotifier
     flip enter servantHandlers <$> nat
   where
     insertAddressMeta cAddr =
@@ -103,6 +106,31 @@ walletServer nat = do
     createUserProfile = do
         time <- liftIO getPOSIXTime
         pure $ CProfile mempty mempty mempty mempty time mempty mempty
+
+-- FIXME: this is really inaficient. Temporary solution
+launchNotifier :: WalletWebMode ssc m => m ()
+launchNotifier = getWalletWebSockets >>= void . liftIO . forkForever notifier
+  where
+    notifyPeriod = fromIntegral (10000000 :: Millisecond)
+    forkForever action = forkFinally action $ const $ do
+        -- TODO: log error
+        -- colldown
+        threadDelay notifyPeriod
+        forkForever action
+    notifier = flip runWalletWS $ forever $ do
+        liftIO $ threadDelay notifyPeriod
+        sequence_ [historyNotifier]
+    -- NOTE: temp solution, dummy notifier that pings every 10 secs
+    historyNotifier = notify NewTransaction
+    -- runWalletWebDB db $ runWalletWS conn $ do
+--        cAddresses <- myCAddresses
+--        forM cAddresses $ \cAddress -> do
+--            -- TODO: is reading from acid RAM only (not reading from disk?)
+--            oldHistoryLength <- length . fromMaybe mempty <$> getWalletHistory cAddress
+--            newHistoryLength <- length <$> getHistory cAddress
+--            when (oldHistoryLength /= newHistoryLength) .
+--                notify $ NewTransaction cAddress
+
 
 ----------------------------------------------------------------------------
 -- Handlers

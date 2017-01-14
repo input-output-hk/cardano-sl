@@ -22,7 +22,7 @@ module Pos.DB.GState.Balances
        , sanityCheckBalances
        ) where
 
-import qualified Data.Map             as M
+import qualified Data.HashMap.Strict  as HM
 import qualified Database.RocksDB     as Rocks
 import           Formatting           (sformat, (%))
 import           System.Wlog          (WithLogger, logError)
@@ -36,7 +36,8 @@ import           Pos.DB.Functions     (RocksBatchOp (..), WithKeyPrefix (..),
                                        encodeWithKeyPrefix)
 import           Pos.DB.GState.Common (getBi, putBi)
 import           Pos.Types            (Coin, StakeholderId, Utxo, coinF, mkCoin, sumCoins,
-                                       txOutStake, unsafeAddCoin, unsafeIntegerToCoin)
+                                       txOutStake, unsafeAddCoin, unsafeIntegerToCoin,
+                                       utxoToStakes)
 import           Pos.Util             (Color (Red), colorize, maybeThrow)
 import           Pos.Util.Iterator    (MonadIterator (..))
 
@@ -87,8 +88,7 @@ prepareGStateBalances genesisUtxo = do
     -- Will 'panic' if the result doesn't fit into Word64 (which should never
     -- happen)
     putGenesisTotalStake = putTotalFtsStake (unsafeIntegerToCoin totalCoins)
-    putFtsStakes = mapM_ putFtsStake' $ M.toList genesisUtxo
-    putFtsStake' (_, toaux) = mapM (uncurry putFtsStake) (txOutStake toaux)
+    putFtsStakes = mapM_ (uncurry putFtsStake) . HM.toList $ utxoToStakes genesisUtxo
 
 putTotalFtsStake :: MonadDB ssc m => Coin -> m ()
 putTotalFtsStake = putBi ftsSumKey

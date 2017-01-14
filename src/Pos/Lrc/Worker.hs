@@ -145,7 +145,7 @@ leadersComputationDo epochId =
                 Left e ->
                     panic $ sformat ("SSC couldn't compute seed: " %build) e
                 Right seed ->
-                    GS.iterateByTx (followTheSatoshiM seed totalStake) snd
+                    GS.iterateByStake (followTheSatoshiM seed totalStake) identity
         putLeaders epochId leaders
 
 richmenComputationDo :: forall ssc m . WorkMode ssc m

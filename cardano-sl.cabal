@@ -216,6 +216,7 @@ library
 
                         -- Genesis
                         Pos.Genesis.Types
+                        Pos.Genesis.Parser
 
                         -- LRC
                         Pos.Lrc.Consumer
@@ -839,6 +840,8 @@ executable cardano-keygen
                      , unordered-containers >= 0.2
                      , bytestring >= 0.10
                      , random >= 1.1
+                     , filepath
+                     , directory
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall

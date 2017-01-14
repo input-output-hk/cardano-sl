@@ -23,13 +23,17 @@ import           Pos.Security.Types         (AttackTarget, AttackType)
 data Args = Args
     { dbPath                    :: !FilePath
     , rebuildDB                 :: !Bool
+#ifdef DEV_MODE
     , spendingGenesisI          :: !(Maybe Int)
     , vssGenesisI               :: !(Maybe Int)
+#endif
     , keyfilePath               :: !FilePath
     , port                      :: !Word16
     , supporterNode             :: !Bool
     , dhtKey                    :: !(Maybe DHTKey)
+#ifdef DEV_MODE
     , timeLord                  :: !Bool
+#endif
     , enableStats               :: !Bool
     , jlPath                    :: !(Maybe FilePath)
     , maliciousEmulationAttacks :: ![AttackType]
@@ -60,6 +64,7 @@ argsParser =
          help
              "If we DB already exist, discard it's contents and create new one from\
              \ scratch") <*>
+#ifdef DEV_MODE
     optional
         (option
              auto
@@ -69,6 +74,7 @@ argsParser =
         (option
              auto
              (long "vss-genesis" <> metavar "INT" <> help "Use genesis vss #i")) <*>
+#endif
     strOption
         (long "keyfile" <>
          metavar "FILEPATH" <>
@@ -80,7 +86,9 @@ argsParser =
     optional
         (option (fromParsec CLI.dhtKeyParser) $
          long "dht-key" <> metavar "HOST_ID" <> help "DHT key in base64-url") <*>
+#ifdef DEV_MODE
     CLI.timeLordOption <*>
+#endif
     switch (long "stats" <> help "Enable stats logging") <*>
     CLI.optionalJSONPath <*>
     many

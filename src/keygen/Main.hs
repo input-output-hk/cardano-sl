@@ -1,3 +1,5 @@
+module Main where
+
 import           Control.Lens         ((%~), (.~), _1)
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict  as HM
@@ -6,6 +8,8 @@ import           Options.Applicative  (Parser, ParserInfo, auto, execParser, ful
                                        help, helper, info, long, metavar, option, option,
                                        progDesc, short, strOption, value)
 import           Prelude              (show)
+import           System.Directory     (createDirectoryIfMissing)
+import           System.FilePath      (takeDirectory)
 import           System.Random        (randomRIO)
 import           Universum            hiding (show)
 
@@ -74,6 +78,11 @@ optsInfo = info (helper <*> optsParser) $
 main :: IO ()
 main = do
     KO {..} <- execParser optsInfo
+    let keysDir = takeDirectory koPattern
+        genFileDir = takeDirectory koGenesisFile
+    createDirectoryIfMissing True keysDir
+    createDirectoryIfMissing True genFileDir
+
     genesisList <- forM [1..koStakeholders] $ \i ->
         generateKeyfile $ replace "{}" (show i) koPattern
     print $ show koStakeholders ++ " keyfiles are generated"

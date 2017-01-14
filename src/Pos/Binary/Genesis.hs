@@ -2,13 +2,13 @@
 
 module Pos.Binary.Genesis () where
 
-import           Data.Binary.Get  (Get, getWord8)
-import           Data.Binary.Put  (Put, putWord8)
+import           Data.Binary.Get   (Get, getWord8)
+import           Data.Binary.Put   (Put, putWord8)
 import           Universum
 
-import           Pos.Binary.Class (Bi (..), UnsignedVarInt (..))
-import           Pos.Binary.Ssc   ()
-import           Pos.Genesis      (GenesisData (..), StakeDistribution (..))
+import           Pos.Binary.Class  (Bi (..), UnsignedVarInt (..))
+import           Pos.Binary.Ssc    ()
+import           Pos.Genesis.Types (GenesisData (..), StakeDistribution (..))
 
 getUVI :: Get Word
 getUVI = getUnsignedVarInt <$> get

@@ -8,20 +8,22 @@ module Pos.Ssc.GodTossing.Genesis
        , genesisCertificates
        ) where
 
-import qualified Data.HashMap.Strict           as HM
-import           Data.List                     (zipWith3)
-import qualified Data.Text                     as T
-import           Formatting                    (int, sformat, (%))
+import           Data.Default                   (Default (..))
+import qualified Data.HashMap.Strict            as HM
+import           Data.List                      (zipWith3)
+import qualified Data.Text                      as T
+import           Formatting                     (int, sformat, (%))
 import           Universum
 
-import           Pos.Constants                 (genesisN, vssMaxTTL, vssMinTTL)
-import           Pos.Crypto                    (VssKeyPair, VssPublicKey,
-                                                deterministicVssKeyGen, toVssPublicKey)
-import           Pos.Genesis                   (genesisKeyPairs)
-import           Pos.Ssc.GodTossing.Types.Base (VssCertificatesMap, mkVssCertificate)
-import           Pos.Types                     (EpochIndex (..))
-import           Pos.Types.Address             (addressHash)
-import           Pos.Util                      (asBinary)
+import           Pos.Constants                  (genesisN, vssMaxTTL, vssMinTTL)
+import           Pos.Crypto                     (VssKeyPair, VssPublicKey,
+                                                 deterministicVssKeyGen, toVssPublicKey)
+import           Pos.Genesis                    (genesisKeyPairs)
+import           Pos.Ssc.GodTossing.Types.Base  (VssCertificatesMap, mkVssCertificate)
+import           Pos.Ssc.GodTossing.Types.Types (GtPayload (..))
+import           Pos.Types                      (EpochIndex (..))
+import           Pos.Types.Address              (addressHash)
+import           Pos.Util                       (asBinary)
 
 -- | List of 'VssKeyPair' in genesis.
 genesisVssKeyPairs :: [VssKeyPair]
@@ -55,3 +57,6 @@ genesisCertificates =
             genesisVssPublicKeys
     ttlExp 1 = EpochIndex vssMinTTL - 1
     ttlExp _ = vssMaxTTL - 1
+
+instance Default GtPayload where
+    def = CertificatesPayload genesisCertificates

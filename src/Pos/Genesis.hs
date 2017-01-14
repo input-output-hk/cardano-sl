@@ -131,7 +131,9 @@ stakeDistribution TestnetStakes {..} =
     -- Amount of money left to poor
     poorStake = coinToInteger sdTotalStake - richs * rich
     -- Money per poor and modulo (it goes to first richman)
-    (poor, rmd) = (poorStake `div` poors, poorStake `mod` poors)
+    (poor, rmd) = if poors == 0
+                  then (0, poorStake)
+                  else (poorStake `div` poors, poorStake `mod` poors)
     -- Coin distribution (w/o modulo added)
     basicDist = genericReplicate richs rich ++ genericReplicate poors poor
 

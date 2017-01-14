@@ -237,7 +237,7 @@ main = do
             { bpLoggingParams      = logParams
             , bpIpPort             = goIpPort
             , bpDHTPeers           = CLI.dhtPeers goCommonArgs
-            , bpDHTKeyOrType       = Right DHTFull
+            , bpDHTKeyOrType       = Right DHTClient
             , bpDHTExplicitInitial = CLI.dhtExplicitInitial goCommonArgs
             }
 

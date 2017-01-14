@@ -137,7 +137,7 @@ main = do
             { bpLoggingParams      = logParams
             , bpIpPort             = woIpPort
             , bpDHTPeers           = CLI.dhtPeers woCommonArgs
-            , bpDHTKeyOrType       = Right DHTFull
+            , bpDHTKeyOrType       = Right DHTClient
             , bpDHTExplicitInitial = CLI.dhtExplicitInitial woCommonArgs
             }
     bracketResources baseParams $ \res -> do

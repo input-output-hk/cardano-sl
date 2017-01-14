@@ -34,6 +34,7 @@ import           Control.Concurrent.STM.TBQueue (newTBQueueIO)
 import           Control.Concurrent.STM.TVar    (newTVar)
 import           Control.Lens                   (each, to, (^..), _tail)
 import           Control.Monad.Fix              (MonadFix)
+import qualified Data.ByteString.Char8          as BS8
 import           Data.Default                   (def)
 import           Data.List                      (nub)
 import           Data.Proxy                     (Proxy (..))
@@ -313,15 +314,15 @@ bracketDHTInstance BaseParams {..} action = bracket acquire release action
     instConfig =
         KademliaDHTInstanceConfig
         { kdcKeyOrType = bpDHTKeyOrType
-        , kdcPort = bpPort
+        , kdcPort = snd bpIpPort
         , kdcInitialPeers = nub $ bpDHTPeers ++ Const.defaultPeers
         , kdcExplicitInitial = bpDHTExplicitInitial
         }
 
-createTransport :: (MonadIO m, WithLogger m, Mockable Throw m) => Word16 -> m Transport
-createTransport port = do
+createTransport :: (MonadIO m, WithLogger m, Mockable Throw m) => [Char] -> Word16 -> m Transport
+createTransport ip port = do
     transportE <- liftIO $ TCP.createTransport
-                             "0.0.0.0"
+                             ip
                              (show port)
                              (TCP.defaultTCPParameters { TCP.transportConnectTimeout = Just $ fromIntegral networkConnectionTimeout })
     case transportE of
@@ -331,7 +332,7 @@ createTransport port = do
       Right transport -> return transport
 
 bracketTransport :: BaseParams -> (Transport -> Production a) -> Production a
-bracketTransport BaseParams{..} = bracket (withLog $ createTransport bpPort) (liftIO . closeTransport)
+bracketTransport BaseParams{..} = bracket (withLog $ createTransport (BS8.unpack $ fst bpIpPort) (snd bpIpPort)) (liftIO . closeTransport)
   where
     withLog = usingLoggerName $ lpRunnerTag bpLoggingParams
 

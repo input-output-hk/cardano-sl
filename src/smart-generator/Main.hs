@@ -235,7 +235,7 @@ main = do
         baseParams =
             BaseParams
             { bpLoggingParams      = logParams
-            , bpPort               = 24962 + (fromIntegral $ minimum goGenesisIdxs)
+            , bpIpPort             = ("0.0.0.0", 24962 + (fromIntegral $ minimum goGenesisIdxs))
             , bpDHTPeers           = CLI.dhtPeers goCommonArgs
             , bpDHTKeyOrType       = Right DHTFull
             , bpDHTExplicitInitial = CLI.dhtExplicitInitial goCommonArgs

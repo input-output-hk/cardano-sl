@@ -131,7 +131,7 @@ function node_cmd {
 
   $dht_cmd
 
-  echo -n " --spending-genesis $i --port "`get_port $i`
+  echo -n " --spending-genesis $i --listen 127.0.0.1:"`get_port $i`
   echo -n " $(logs node$i.log) $time_lord $stats"
   echo -n " $stake_distr $ssc_algo "
   echo -n " $web "

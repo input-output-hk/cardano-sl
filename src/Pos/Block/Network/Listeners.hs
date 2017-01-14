@@ -211,11 +211,10 @@ handleUnsolicitedHeader header peerId sendActions = do
             logInfo $ sformat alternativeFormat hHash
             mgh <- mkHeadersRequest (Just hHash)
             void $ withConnectionTo sendActions peerId $ \conv -> do
-                logDebug "handleUnsolicitedHeader: withConnection: sending MsgGetHeaders"
+                logDebug $ sformat ("handleUnsolicitedHeader: withConnection: sending "%shown) mgh
                 send conv mgh
-                logDebug "handleUnsolicitedHeader: withConnection: receiving MsgHeaders"
                 mHeaders <- fmap inConvMsg <$> recv conv
-                logDebug "handleUnsolicitedHeader: withConnection: received MsgHeaders"
+                logDebug $ sformat ("handleUnsolicitedHeader: withConnection: received "%shown) mHeaders
                 whenJust mHeaders $ \headers -> do
                     logDebug "handleUnsolicitedHeader: got some block headers"
                     if matchRequestedHeaders headers mgh

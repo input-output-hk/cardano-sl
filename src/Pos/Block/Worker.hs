@@ -89,7 +89,6 @@ blkOnNewSlot sendActions slotId@SlotId {..} = do
         logLeadersF $ sformat ("Slot leaders: "%listJson) $ map (sformat shortHashF) leaders
         logLeadersF $ sformat ("Current slot leader: "%build) leader
         logDebug $ sformat ("Available to use lightweight PSKs: "%listJson) validCerts
-        logDebug $ sformat ("All lightweight PSKs: "%listJson) proxyCerts
         heavyPskM <- getPSKByIssuerAddressHash leader
         logDebug $ "Does someone have cert for this slot: " <> show (isJust heavyPskM)
         let heavyWeAreDelegate = maybe False ((== ourPk) . pskDelegatePk) heavyPskM

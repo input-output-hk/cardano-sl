@@ -92,7 +92,7 @@ handleSendProxySK = ListenerActionOneMsg $
         SendProxySKSimple pSk -> do
             logDebug $ sformat ("Got request to handle heavyweight psk: "%build) pSk
             verdict <- processProxySKSimple pSk
-            logDebug $ "The verdict is: " <> show verdict
+            logDebug $ sformat ("The verdict for cert "%build%" is: "%shown) pSk verdict
             doPropagate <- ncPropagation <$> getNodeContext
             when (verdict == PSAdded && doPropagate) $ do
                 logDebug $ sformat ("Propagating heavyweight PSK: "%build) pSk

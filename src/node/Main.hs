@@ -12,16 +12,15 @@ import           Mockable            (Production)
 import           System.Wlog         (LoggerName)
 import           Universum
 
-import           Pos.Binary          (Bi, decode, encode)
+import           Pos.Binary          ()
 import qualified Pos.CLI             as CLI
-import           Pos.Communication   (BiP)
 import           Pos.Constants       (RunningMode (..), runningMode)
 import           Pos.Crypto          (SecretKey, VssKeyPair, keyGen, vssKeyGen)
 import           Pos.DHT.Model       (DHTKey, DHTNodeType (..), dhtNodeType)
 #ifdef DEV_MODE
 import           Pos.Genesis         (genesisSecretKeys)
 #endif
-import           Pos.Genesis         (genesisStakeDistribution, genesisUtxo)
+import           Pos.Genesis         (genesisUtxo)
 import           Pos.Launcher        (BaseParams (..), LoggingParams (..),
                                       NodeParams (..), RealModeResources,
                                       bracketResources, runNodeProduction, runNodeStats,
@@ -34,8 +33,8 @@ import           Pos.Ssc.GodTossing  (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon  (SscNistBeacon)
 import           Pos.Ssc.SscAlgo     (SscAlgo (..))
 import           Pos.Types           (Timestamp)
-import           Pos.Util.UserSecret (UserSecret, getUSPath, peekUserSecret, usKeys,
-                                      usVss, writeUserSecret)
+import           Pos.Util.UserSecret (UserSecret, peekUserSecret, usKeys, usVss,
+                                      writeUserSecret)
 #ifdef WITH_WEB
 import           Pos.Web             (serveWebBase, serveWebGT)
 import           Pos.WorkMode        (WorkMode)

@@ -8,7 +8,6 @@ import           Data.Proxy            (Proxy (..))
 import           Data.Tagged           (Tagged)
 import           Node                  (Listener)
 import           System.Wlog           (WithLogger)
-import           Universum
 
 import           Pos.Communication.BiP (BiP)
 import           Pos.Ssc.Class.Types   (Ssc (..))

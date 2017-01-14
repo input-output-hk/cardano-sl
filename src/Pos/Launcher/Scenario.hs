@@ -24,6 +24,7 @@ import qualified Pos.DB.GState               as GS
 import qualified Pos.DB.Lrc                  as LrcDB
 import           Pos.DHT.Model               (DHTNode, DHTNodeType (DHTFull),
                                               discoverPeers)
+import           Pos.Launcher.Param          (BaseParams)
 import           Pos.Ssc.Class               (SscConstraint)
 import           Pos.Types                   (Timestamp (Timestamp), addressHash)
 import           Pos.Util                    (inAssertMode, waitRandomInterval)
@@ -34,10 +35,11 @@ import           Pos.WorkMode                (WorkMode)
 -- | Run full node in any WorkMode.
 runNode
     :: (SscConstraint ssc, WorkMode ssc m)
-    => [SendActions BiP m -> m ()]
+    => BaseParams
+    -> [SendActions BiP m -> m ()]
     -> SendActions BiP m
     -> m ()
-runNode plugins sendActions = do
+runNode bp plugins sendActions = do
     logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)
     inAssertMode $ logInfo "Assert mode on"
     pk <- ncPublicKey <$> getNodeContext
@@ -50,7 +52,7 @@ runNode plugins sendActions = do
     initSemaphore
     initLrc
     waitSystemStart
-    runWorkers sendActions
+    runWorkers bp sendActions
     mapM_ (fork . ($ sendActions)) plugins
     sleepForever
 

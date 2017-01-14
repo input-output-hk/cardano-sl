@@ -89,8 +89,8 @@ getPeers share = do
     liftIO $ chooseSubset share <$> shuffleM peers
 
 runSmartGen :: forall ssc . SscConstraint ssc
-            => RealModeResources -> NodeParams -> SscParams ssc -> GenOptions -> Production ()
-runSmartGen res np@NodeParams{..} sscnp opts@GenOptions{..} =
+            => BaseParams -> RealModeResources -> NodeParams -> SscParams ssc -> GenOptions -> Production ()
+runSmartGen bp res np@NodeParams{..} sscnp opts@GenOptions{..} =
   runProductionMode res np sscnp $ \sendActions -> do
     initLrc
     let getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
@@ -103,7 +103,7 @@ runSmartGen res np@NodeParams{..} sscnp opts@GenOptions{..} =
 
     -- | Run all the usual node workers in order to get
     -- access to blockchain
-    void $ fork $ runNode @ssc [] sendActions
+    void $ fork $ runNode @ssc bp [] sendActions
 
     let logsFilePrefix = fromMaybe "." (CLI.logPrefix goCommonArgs)
     -- | Run the special worker to check new blocks and
@@ -278,6 +278,7 @@ main = do
 
         case CLI.sscAlgo goCommonArgs of
             GodTossingAlgo -> putText "Using MPC coin tossing" *>
-                              runSmartGen @SscGodTossing res params gtParams opts
+                              runSmartGen @SscGodTossing baseParams res params gtParams
+                                opts
             NistBeaconAlgo -> putText "Using NIST beacon" *>
-                              runSmartGen @SscNistBeacon res params () opts
+                              runSmartGen @SscNistBeacon baseParams res params () opts

@@ -96,8 +96,8 @@ checkDhtKey isSupporter (Just (dhtNodeType -> keyType))
         | isSupporter = DHTSupporter
         | otherwise = DHTFull
 
-action :: Args -> RealModeResources -> Production ()
-action args@Args {..} res = do
+action :: Args -> BaseParams -> RealModeResources -> Production ()
+action args@Args {..} bp res = do
     checkDhtKey supporterNode dhtKey
     if supporterNode
         then fail "Supporter not supported" -- runSupporterReal res (baseParams "supporter" args)
@@ -123,13 +123,13 @@ action args@Args {..} res = do
             putText $ "If stats is on: " <> show enableStats
             case (enableStats, CLI.sscAlgo commonArgs) of
                 (True, GodTossingAlgo) ->
-                    runNodeStats @SscGodTossing res (map const currentPluginsGT ++ walletStats args) currentParams gtParams
+                    runNodeStats @SscGodTossing bp res (map const currentPluginsGT ++ walletStats args) currentParams gtParams
                 (True, NistBeaconAlgo) ->
-                    runNodeStats @SscNistBeacon res (map const currentPlugins ++  walletStats args) currentParams ()
+                    runNodeStats @SscNistBeacon bp res (map const currentPlugins ++  walletStats args) currentParams ()
                 (False, GodTossingAlgo) ->
-                    runNodeProduction @SscGodTossing res (map const currentPluginsGT ++ walletProd args) currentParams gtParams
+                    runNodeProduction @SscGodTossing bp res (map const currentPluginsGT ++ walletProd args) currentParams gtParams
                 (False, NistBeaconAlgo) ->
-                    runNodeProduction @SscNistBeacon res (map const currentPlugins ++ walletProd args) currentParams ()
+                    runNodeProduction @SscNistBeacon bp res (map const currentPlugins ++ walletProd args) currentParams ()
 
 #ifdef DEV_MODE
 userSecretWithGenesisKey
@@ -272,4 +272,5 @@ walletStats _ = []
 main :: IO ()
 main = do
     args@Args{..} <- getNodeOptions
-    bracketResources (baseParams "node" args) (action args)
+    let bp = baseParams "node" args
+    bracketResources bp (action args bp)

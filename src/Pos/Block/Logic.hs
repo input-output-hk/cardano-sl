@@ -50,7 +50,7 @@ import           Pos.Block.Logic.Internal  (applyBlocksUnsafe, rollbackBlocksUns
                                             withBlkSemaphore, withBlkSemaphore_)
 import           Pos.Constants             (blkSecurityParam, curProtocolVersion,
                                             curSoftwareVersion, epochSlots,
-                                            maxHeadersMessage, slotSecurityParam)
+                                            recoveryHeadersMessage, slotSecurityParam)
 import           Pos.Context               (NodeContext (ncSecretKey), getNodeContext,
                                             lrcActionOnEpochReason)
 import           Pos.Crypto                (SecretKey, WithHash (WithHash), hash,
@@ -219,9 +219,10 @@ classifyHeaders headers@(h:|hs) = do
 -- | Given a set of checkpoints @c@ to stop at and a terminating
 -- header hash @h@, we take @h@ block (or tip if latter is @Nothing@)
 -- and fetch the blocks until one of checkpoints is encountered. In
--- case we got deeper than 'maxHeadersMessage', we return
--- 'maxHeadersMessage' headers starting from the oldest checkpoint to
--- the newest ones. Returned headers are newest-first.
+-- case we got deeper than 'recoveryHeadersMessage', we return
+-- 'recoveryHeadersMessage' headers starting from the the newest
+-- checkpoint that's in our main chain to the newest ones. Returned
+-- headers are newest-first.
 getHeadersFromManyTo
     :: forall ssc m. (MonadDB ssc m, Ssc ssc, CanLog m, HasLoggerName m)
     => NonEmpty (HeaderHash ssc)
@@ -241,16 +242,20 @@ getHeadersFromManyTo checkpoints startM = runMaybeT $ do
         whileCond bh = not (parentIsCheckpoint bh)
     headers <-
         MaybeT $ NE.nonEmpty <$>
-        DB.loadHeadersByDepthWhile whileCond blkSecurityParam startFrom
+        DB.loadHeadersByDepthWhile whileCond recoveryHeadersMessage startFrom
     lift $ logDebug $ sformat ("Got headers: "%listJson) headers
     if parentIsCheckpoint $ headers ^. _neHead
     then do
         lift $ logDebug "ghmft: branch 1"
         pure headers
     else do
+        inMainCheckpoints <-
+            MaybeT $ NE.nonEmpty <$>
+            filterM (GS.isBlockInMainChain . headerHash)
+                    (NE.toList validCheckpoints)
         let lowestCheckpoint =
-                minimumBy (comparing flattenEpochOrSlot) validCheckpoints
-            loadUpCond _ h = h < maxHeadersMessage
+                maximumBy (comparing flattenEpochOrSlot) inMainCheckpoints
+            loadUpCond _ h = h < recoveryHeadersMessage
         lift $ logDebug "ghmft: branch 2 loading"
         up <- lift $ GS.loadHeadersUpWhile lowestCheckpoint loadUpCond
         lift $ logDebug "ghmft: branch 2 loading done"

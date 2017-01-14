@@ -6,6 +6,7 @@ mdNoCommitmentsEpochThreshold: 3
 protocolMagic: 0
 enhancedMessageBroadcast: 2
 blockRetrievalQueueSize: 100
+recoveryHeadersMessage: 100 # should be more than k, less than blockRetrievalQueueSize
 
 # Fundamental constants for core protocol
 k: 2

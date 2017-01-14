@@ -38,7 +38,7 @@ module Pos.Constants
        , protocolMagic
        , enhancedMessageBroadcast
        , delegationThreshold
-       , maxHeadersMessage
+       , recoveryHeadersMessage
 
          -- * Malicious activity detection constants
        , mdNoBlocksSlotThreshold
@@ -222,10 +222,11 @@ enhancedMessageBroadcast = fromIntegral $ ccEnhancedMessageBroadcast compileConf
 delegationThreshold :: CoinPortion
 delegationThreshold = unsafeCoinPortion $ ccDelegationThreshold compileConfig
 
--- | Maximum amount of headers node can put into headers
--- message. Should be more than 'blkSecurityParam'.
-maxHeadersMessage :: (Integral a) => a
-maxHeadersMessage = 4 * blkSecurityParam
+-- | Maximum amount of headers node can put into headers message while
+-- in "after offline" or "recovery" mode. Should be more than
+-- 'blkSecurityParam'.
+recoveryHeadersMessage :: (Integral a) => a
+recoveryHeadersMessage = fromIntegral . ccRecoveryHeadersMessage $ compileConfig
 
 ----------------------------------------------------------------------------
 -- Malicious activity

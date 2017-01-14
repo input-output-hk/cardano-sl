@@ -19,6 +19,7 @@ import           Control.Monad.Trans         (MonadTrans)
 import           Control.Monad.Trans.Maybe   (MaybeT (..))
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.Map                    as M
+import           Formatting                  (build, sformat, (%))
 import           Mockable                    (MonadMockable, Production)
 import           System.Wlog                 (LoggerNameBox, WithLogger)
 import           Universum
@@ -134,14 +135,15 @@ instance (Ssc ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
         tip <- GS.getTip
         genUtxo <- filterUtxoByAddr addr <$> GS.getGenUtxo
 
-        -- Getting list of all hashes in main blockchain
-        hashList <- flip unfoldrM tip $ \h -> do
-            header <- DB.getBlockHeader h >>=
-                      maybeThrow (DBMalformed "Best blockchain is non-continuous")
-            let prev = header ^. prevBlockL
-            return $ if prev == bot
-                     then Nothing
-                     else Just (prev, prev)
+        -- Getting list of all hashes in main blockchain (excluding bottom block - it's genesis anyway)
+        hashList <- flip unfoldrM tip $ \h ->
+            if h == bot
+            then return Nothing
+            else do
+                header <- DB.getBlockHeader h >>=
+                    maybeThrow (DBMalformed "Best blockchain is non-continuous")
+                let prev = header ^. prevBlockL
+                return $ Just (prev, prev)
 
         let blockFetcher h txs = do
                 blk <- lift . lift $ DB.getBlock h >>=

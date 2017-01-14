@@ -34,14 +34,14 @@ import           Pos.Types           (Block, BlockHeader, HasHeaderHash, HeaderH
 
 -- | Tries to retrieve next block using current one (given a block/header).
 resolveForwardLink
-    :: (HasHeaderHash a ssc, Ssc ssc, MonadDB ssc m)
+    :: (HasHeaderHash a ssc, MonadDB ssc m)
     => a -> m (Maybe (HeaderHash ssc))
 resolveForwardLink x =
     rocksGetBi (forwardLinkKey $ headerHash x) =<< getUtxoDB
 
 -- | Check if given hash representing block is in main chain.
 isBlockInMainChain
-    :: (HasHeaderHash a ssc, Ssc ssc, MonadDB ssc m)
+    :: (HasHeaderHash a ssc, MonadDB ssc m)
     => a -> m Bool
 isBlockInMainChain h = do
     db <- getUtxoDB

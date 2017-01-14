@@ -13,6 +13,7 @@ import           Universum
 import           Paths_cardano_sl    (version)
 
 import qualified Pos.CLI             as CLI
+import           Pos.Util.TimeWarp   (NetworkAddress)
 
 data GenOptions = GenOptions
     { goGenesisIdxs     :: ![Word]       -- ^ Index in genesis key pairs.
@@ -28,6 +29,7 @@ data GenOptions = GenOptions
     , goMOfNParams      :: !(Maybe (Int, Int)) -- ^ If this is provided, send M-of-N script transactions instead of P2PKH
     , goJLFile          :: !(Maybe FilePath)
     , goCommonArgs      :: !CLI.CommonArgs -- ^ Common CLI arguments, including initial DHT nodes
+    , goIpPort          :: !NetworkAddress         -- ^ DHT/Blockchain ip/port
     }
 
 optionsParser :: Parser GenOptions
@@ -85,6 +87,7 @@ optionsParser = GenOptions
           <> help "If enabled, send M-of-N txs instead of regular ones")
     <*> CLI.optionalJSONPath
     <*> CLI.commonArgsParser "Initial DHT peer (may be many)"
+    <*> CLI.ipPortOption ("0.0.0.0", 24962)
 
 optsInfo :: ParserInfo GenOptions
 optsInfo = info (helper <*> optionsParser) $

@@ -59,7 +59,7 @@ runCmd _ Help = do
             , "                                     from own address #N"
             , "   listaddr                       -- list own addresses"
             , "   delegate-light <N> <M>         -- delegate secret key #N to #M (genesis) light version"
-            , "   delegate-hard <N> <M>          -- delegate secret key #N to #M (genesis) hardweight "
+            , "   delegate-heavy <N> <M>         -- delegate secret key #N to #M (genesis) heavyweight "
             , "   help                           -- show this message"
             , "   quit                           -- shutdown node wallet"
             ]

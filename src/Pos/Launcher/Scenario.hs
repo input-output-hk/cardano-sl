@@ -10,6 +10,8 @@ module Pos.Launcher.Scenario
 
 import           Control.Concurrent.MVar     (putMVar)
 import           Control.Concurrent.STM.TVar (writeTVar)
+import           Data.List.NonEmpty          (NonEmpty (..))
+import qualified Data.List.NonEmpty          as NE
 import           Development.GitRev          (gitBranch, gitHash)
 import           Formatting                  (build, int, sformat, (%))
 import           Mockable                    (currentTime, delay, fork, sleepForever)
@@ -22,10 +24,12 @@ import           Pos.Context                 (NodeContext (..), getNodeContext,
                                               ncPubKeyAddress, ncPublicKey)
 import qualified Pos.DB.GState               as GS
 import qualified Pos.DB.Lrc                  as LrcDB
-import           Pos.DHT.Model               (DHTNodeType (DHTFull), discoverPeers)
+import           Pos.DHT.Model               (DHTNode, DHTNodeType (DHTFull),
+                                              discoverPeers)
 import           Pos.Ssc.Class               (SscConstraint)
 import           Pos.Types                   (Timestamp (Timestamp), addressHash)
-import           Pos.Util                    (inAssertMode)
+import           Pos.Util                    (inAssertMode, waitRandomInterval)
+import           Pos.Util.TimeWarp           (sec)
 import           Pos.Worker                  (runWorkers)
 import           Pos.WorkMode                (WorkMode)
 
@@ -44,7 +48,7 @@ runNode plugins sendActions = do
     logInfo $ sformat ("My public key is: "%build%
                        ", address: "%build%
                        ", pk hash: "%build) pk addr pkHash
-    peers <- discoverPeers DHTFull
+    peers <- NE.toList <$> waitForPeers
     logInfo $ sformat ("Known peers: " % build) peers
 
     initSemaphore
@@ -60,8 +64,18 @@ waitSystemStart :: WorkMode ssc m => m ()
 waitSystemStart = do
     Timestamp start <- ncSystemStart <$> getNodeContext
     cur <- currentTime
-    logInfo $ sformat ("Waiting "%int%" seconds for system start") $ start - cur
+    let waitPeriod = start - cur
+    logInfo $ sformat ("Waiting "%int%" seconds for system start") $
+        waitPeriod `div` sec 1
     when (cur < start) $ delay (start - cur)
+
+-- | Try to discover peers repeatedly until at least one live peer is found
+waitForPeers :: WorkMode ssc m => m (NonEmpty DHTNode)
+waitForPeers = discoverPeers DHTFull >>= \case
+    (p:ps) -> return (p :| ps)
+    []     -> logInfo "Couldn't connect to any peer, trying again..." >>
+              waitRandomInterval (sec 3) (sec 10) >>
+              waitForPeers
 
 initSemaphore :: (WorkMode ssc m) => m ()
 initSemaphore = do

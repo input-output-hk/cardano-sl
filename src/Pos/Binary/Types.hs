@@ -219,6 +219,18 @@ instance Ssc ssc => Bi (T.Body (T.MainBlockchain ssc)) where
                             lenOut i lenDist
         return T.MainBody{..}
 
+instance Bi T.MainExtraHeaderData where
+    put T.MainExtraHeaderData {..} =  put _mehProtocolVersion
+                                   *> put _mehSoftwareVersion
+                                   *> put _mehAttributes
+    get = label "MainExtraHeaderData" $ T.MainExtraHeaderData <$> get <*> get <*> get
+
+instance Bi T.MainExtraBodyData where
+   put T.MainExtraBodyData {..} =  put _mebAttributes
+                                *> put _mebUpdate
+                                *> put _mebUpdateVotes
+   get = label "MainExtraBodyData" $ T.MainExtraBodyData <$> get <*> get <*> get
+
 ----------------------------------------------------------------------------
 -- GenesisBlock
 ----------------------------------------------------------------------------
@@ -234,15 +246,3 @@ instance Bi (T.ConsensusData (T.GenesisBlockchain ssc)) where
 instance Bi (T.Body (T.GenesisBlockchain ssc)) where
     put (T.GenesisBody leaders) = put leaders
     get = label "GenesisBody" $ T.GenesisBody <$> get
-
-instance Bi T.MainExtraHeaderData where
-    put T.MainExtraHeaderData {..} =  put _mehProtocolVersion
-                                   *> put _mehSoftwareVersion
-                                   *> put _mehAttributes
-    get = label "MainExtraHeaderData" $ T.MainExtraHeaderData <$> get <*> get <*> get
-
-instance Bi T.MainExtraBodyData where
-   put T.MainExtraBodyData {..} =  put _mebAttributes
-                                *> put _mebUpdate
-                                *> put _mebUpdateVotes
-   get = label "MainExtraBodyData" $ T.MainExtraBodyData <$> get <*> get <*> get

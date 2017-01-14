@@ -543,7 +543,7 @@ readTVarConditional predicate tvar = atomically $ do
     if predicate res then pure res
     else retry
 
-  -- | Read until value is equal to stored value comparing by some function.
+-- | Read until value is equal to stored value comparing by some function.
 readUntilEqualTVar
     :: (Eq a, MonadIO m)
     => (x -> a) -> TVar x -> a -> m x

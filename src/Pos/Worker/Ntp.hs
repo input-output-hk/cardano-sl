@@ -18,23 +18,24 @@ import           Pos.WorkMode           (WorkMode)
 
 settings :: NodeContext ssc -> NtpClientSettings
 settings nc = NtpClientSettings
-        { ntpServers         = [ "ntp5.stratum2.ru"
+        { -- list of servers addresses
+          ntpServers         = [ "ntp5.stratum2.ru"
                                , "ntp1.stratum1.ru"
                                , "clock.isc.org"
                                ]
-          -- ^ list of servers addresses
+        -- got time margin callback
         , ntpHandler         = ntpHandlerDo nc
-        -- ^ got time margin callback
+        -- logger name modifier
         , ntpLogName         = "ntp"
-        -- ^ logger name modifier
-        , ntpResponseTimeout = C.ntpResponseTimeout
-        -- ^ delay between making requests and response collection;
+        -- delay between making requests and response collection;
         -- it also means that handler will be invoked with this lag
+        , ntpResponseTimeout = C.ntpResponseTimeout
+        -- how often to send responses to server
         , ntpPollDelay       = C.ntpPollDelay
-        -- ^ how often to send responses to server
+        -- way to sumarize results received from different servers.
         , ntpMeanSelection   = \l -> let len = length l in sort l !! ((len - 1) `div` 2)
-        -- ^ way to sumarize results received from different servers.
         }
+
 -- | Worker for synchronization of local time and global time
 ntpWorker :: WorkMode ssc m => m ()
 ntpWorker = getNodeContext >>=

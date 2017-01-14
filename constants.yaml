@@ -10,7 +10,7 @@ recoveryHeadersMessage: 100 # should be more than k, less than blockRetrievalQue
 
 # Fundamental constants for core protocol
 k: 2
-slotDurationSec: 10
+slotDurationSec: 7
 
 # Time slave/lord
 sysTimeBroadcastSlots: 6

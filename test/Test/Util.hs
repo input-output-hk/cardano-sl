@@ -65,7 +65,7 @@ import           Node                        (ConversationActions (..), Listener
                                              NodeId, SendActions (..),
                                              Worker, nodeId, node, NodeAction(..))
 import           Message.Message             (BinaryP (..))
-import          Data.Time.Units              (fromMicroseconds)
+import           Data.Time.Units              (fromMicroseconds)
 
 
 -- * Parcel
@@ -177,7 +177,7 @@ instance Show TalkStyle where
     show ConversationStyle  = "conversation style"
 
 sendAll
-    :: ( Binary msg, Message msg, Monad m )
+    :: ( Binary msg, Message msg, MonadIO m )
     => TalkStyle
     -> SendActions BinaryP m
     -> NodeId
@@ -186,21 +186,31 @@ sendAll
 sendAll SingleMessageStyle sendActions peerId msgs =
     forM_ msgs $ sendTo sendActions peerId
 
-sendAll ConversationStyle  sendActions peerId msgs =
-    withConnectionTo sendActions @_ @Void peerId $
-        \cactions -> forM_ msgs $ send cactions
+sendAll ConversationStyle sendActions peerId msgs =
+    withConnectionTo sendActions @_ @Bool peerId $ \cactions -> forM_ msgs $ \msg -> do
+        send cactions msg
+        recv cactions
+        pure ()
 
 receiveAll
-    :: ( Binary msg, Message msg, Monad m )
+    :: ( Binary msg, Message msg, MonadIO m )
     => TalkStyle
     -> (msg -> m ())
     -> ListenerAction BinaryP m
 receiveAll SingleMessageStyle handler =
     ListenerActionOneMsg $ \_ _ -> handler
+-- For conversation style, we send a response for every message received.
+-- The sender awaits a response for each message. This ensures that the
+-- sender doesn't finish before the conversation SYN/ACK completes.
 receiveAll ConversationStyle  handler =
-    ListenerActionConversation @_ @_ @Void $ \_ cactions ->
+    ListenerActionConversation @_ @_ @Bool $ \_ cactions ->
         let loop = do mmsg <- recv cactions
-                      for_ mmsg $ \msg -> handler msg >> loop
+                      case mmsg of
+                          Nothing -> pure ()
+                          Just msg -> do
+                              handler msg
+                              send cactions True
+                              loop
         in  loop
 
 
@@ -221,19 +231,22 @@ deliveryTest testState workers listeners = runProduction $ do
     let prng1 = mkStdGen 0
     let prng2 = mkStdGen 1
 
-    -- wait for sender or receiver to complete
-    -- TODO: make receiver stop automatically when sender finishes
-
     -- launch nodes
-    node transport prng1 BinaryP $ \_ ->
-        pure $ NodeAction [] $ \clientSendActions ->
-        node transport prng2 BinaryP $ \serverNode ->
-            pure $ NodeAction listeners $ \_ -> do
-                void . forConcurrently workers $ \worker ->
-                    worker (nodeId serverNode) clientSendActions
-
-                -- wait for receiver to get everything, but not for too long
-                awaitSTM 5000000 $ S.null . _expected <$> readTVar testState
+    node transport prng1 BinaryP $ \serverNode -> do
+        -- Server EndPoint is up.
+        pure $ NodeAction listeners $ \_ -> do
+            node transport prng2 BinaryP $ \_ -> do
+                -- Client EndPoint is up.
+                pure $ NodeAction [] $ \clientSendActions -> do
+                    void . forConcurrently workers $ \worker ->
+                        worker (nodeId serverNode) clientSendActions
+                    -- Client EndPoint closes here
+            -- Must not let the server EndPoint close too soon. It's possible
+            -- that the client (which has just closed) will still have data
+            -- in-flight, which we expect the server to pick up.
+            -- So we wait for receiver to get everything, but not for too long.
+            awaitSTM 5000000 $ S.null . _expected <$> readTVar testState
+            -- Server EndPoint closes here
 
     closeTransport transport
 

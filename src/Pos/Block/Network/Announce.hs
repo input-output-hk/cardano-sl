@@ -66,7 +66,8 @@ handleHeadersCommunication
     => ConversationActions (MsgHeaders ssc) (MsgGetHeaders ssc) m
     -> m ()
 handleHeadersCommunication conv = do
-    (msg :: Maybe (MsgGetHeaders ssc)) <- join <$> execWithTimeLimit recvGetHeadersTimeout (recv conv)
+    --(msg :: Maybe (MsgGetHeaders ssc)) <- join <$> execWithTimeLimit recvGetHeadersTimeout (recv conv)
+    (msg :: Maybe (MsgGetHeaders ssc)) <- recv conv
     whenJust msg $ \(MsgGetHeaders {..}) -> do
         logDebug "Got request on handleGetHeaders"
         headers <- getHeadersFromManyTo mghFrom mghTo

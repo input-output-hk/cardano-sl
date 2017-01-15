@@ -78,8 +78,8 @@ getAttributes keyGetMapper (fromIntegral -> maxLen) initData = do
        fail $ "Attributes: wrong totalLen " ++ show totalLen
                    ++ " (maxLen=" ++ show maxLen ++ ")"
     read1 <- G.bytesRead
-    let cond = orM [ G.isEmpty
-                   , (\r -> r - read1 >= totalLen) <$> G.bytesRead ]
+    let cond = orM [ (\r -> r - read1 >= totalLen) <$> G.bytesRead
+                   , G.isEmpty]
         readWhileKnown dat = ifM cond (return dat) $ do
             key <- G.lookAhead getWord8
             case keyGetMapper key dat of

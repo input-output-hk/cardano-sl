@@ -271,6 +271,7 @@ library
                         Pos.Txp.Types.Communication
                         Pos.Txp.Types.Types
                         Pos.Txp.Types.UtxoView
+                        Pos.Txp.Types.BalancesView
 
                         -- Types
                         Pos.Types.SharedSeed

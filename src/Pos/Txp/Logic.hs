@@ -15,41 +15,44 @@ module Pos.Txp.Logic
        , normalizeTxpLD
        ) where
 
-import           Control.Lens           (each, over, view, (<&>), (^.), _1, _3)
-import qualified Data.HashMap.Strict    as HM
-import qualified Data.HashSet           as HS
-import           Data.List.NonEmpty     (NonEmpty)
-import qualified Data.List.NonEmpty     as NE
-import           Formatting             (build, sformat, stext, (%))
-import           System.Wlog            (WithLogger, logDebug, logInfo)
+import           Control.Lens               (each, over, view, (<&>), (^.), _1, _3)
+import qualified Data.HashMap.Strict        as HM
+import qualified Data.HashSet               as HS
+import           Data.List.NonEmpty         (NonEmpty)
+import qualified Data.List.NonEmpty         as NE
+import           Formatting                 (build, sformat, stext, (%))
+import           System.Wlog                (WithLogger, logDebug, logInfo)
 import           Universum
 
-import           Pos.Constants          (maxLocalTxs)
-import           Pos.Crypto             (WithHash (..), hash, withHash)
-import           Pos.DB                 (DB, MonadDB,
-                                         SomePrettyBatchOp (SomePrettyBatchOp), getUtxoDB)
-import           Pos.DB.GState          (BalancesOp (..), CommonOp (..), UtxoOp (..),
-                                         getFtsStake, getTip, getTotalFtsStake)
-import           Pos.Ssc.Class.Types    (Ssc)
-import           Pos.Txp.Class          (MonadTxpLD (..), TxpLD, getUtxoView)
-import           Pos.Txp.Error          (TxpError (..))
-import           Pos.Txp.Holder         (TxpLDHolder, runLocalTxpLDHolder)
-import           Pos.Txp.Types          (MemPool (..), UtxoView (..))
-import           Pos.Txp.Types.Types    (ProcessTxRes (..), mkPTRinvalid)
-import qualified Pos.Txp.Types.UtxoView as UV
-import           Pos.Types              (Block, Blund, Coin, MonadUtxo,
-                                         MonadUtxoRead (utxoGet), NEBlocks, SlotId,
-                                         StakeholderId, Tx (..), TxAux,
-                                         TxDistribution (..), TxId, TxIn (..), TxOutAux,
-                                         TxUndo, TxWitness, Undo, VTxGlobalContext (..),
-                                         VTxLocalContext (..), applyTxToUtxo', blockSlot,
-                                         blockTxas, coinToInteger, headerHash, mkCoin,
-                                         prevBlockL, slotIdF, sumCoins, sumCoins,
-                                         topsortTxs, txOutStake, undoTx, verifyTxPure)
-import           Pos.Types.Coin         (unsafeAddCoin, unsafeIntegerToCoin,
-                                         unsafeSubCoin)
-import           Pos.Types.Utxo         (verifyAndApplyTxs, verifyTxUtxo)
-import           Pos.Util               (inAssertMode, _neHead)
+import           Pos.Constants              (maxLocalTxs)
+import           Pos.Crypto                 (WithHash (..), hash, withHash)
+import           Pos.DB                     (DB, MonadDB,
+                                             SomePrettyBatchOp (SomePrettyBatchOp),
+                                             getUtxoDB)
+import           Pos.DB.GState              (BalancesOp (..), CommonOp (..), UtxoOp (..),
+                                             getTip, getTotalFtsStake)
+import           Pos.Ssc.Class.Types        (Ssc)
+import           Pos.Txp.Class              (MonadTxpLD (..), TxpLD, getUtxoView)
+import           Pos.Txp.Error              (TxpError (..))
+import           Pos.Txp.Holder             (TxpLDHolder, runLocalTxpLDHolder)
+import           Pos.Txp.Types              (MemPool (..), UtxoView (..))
+import           Pos.Txp.Types.BalancesView (BalancesView (..), MonadBalances (..))
+import           Pos.Txp.Types.Types        (ProcessTxRes (..), mkPTRinvalid)
+import qualified Pos.Txp.Types.UtxoView     as UV
+import           Pos.Types                  (Block, Blund, Coin, MonadUtxo,
+                                             MonadUtxoRead (utxoGet), NEBlocks, SlotId,
+                                             StakeholderId, Tx (..), TxAux,
+                                             TxDistribution (..), TxId, TxIn (..),
+                                             TxOutAux, TxUndo, TxWitness, Undo,
+                                             VTxGlobalContext (..), VTxLocalContext (..),
+                                             applyTxToUtxo', blockSlot, blockTxas,
+                                             coinToInteger, headerHash, mkCoin,
+                                             prevBlockL, slotIdF, sumCoins, sumCoins,
+                                             topsortTxs, txOutStake, undoTx, verifyTxPure)
+import           Pos.Types.Coin             (unsafeAddCoin, unsafeIntegerToCoin,
+                                             unsafeSubCoin)
+import           Pos.Types.Utxo             (verifyAndApplyTxs, verifyTxUtxo)
+import           Pos.Util                   (inAssertMode, _neHead)
 
 type TxpWorkMode ssc m = ( Ssc ssc
                          , WithLogger m
@@ -83,10 +86,15 @@ txApplyBlocks blunds = do
     -- Now we recalculate TxIn which must be removed from Utxo DB or added to Utxo DB
 
     -- We apply all blocks and filter mempool for every block
-    mapM txApplyBlock blunds
+    total <- getTotalFtsStake
+    db <- getUtxoDB
+    evalStateT (mapM txApplyBlock blunds) (BalancesView mempty total db)
 
 txApplyBlock
-    :: TxpWorkMode ssc m
+    :: ( Ssc ssc
+       , WithLogger m,
+         MonadBalances ssc m,
+         MonadTxpLD ssc m)
     => Blund ssc -> m SomePrettyBatchOp
 txApplyBlock (blk, undo) = do
     let batch = foldr' prependToBatch [] txsAndIds
@@ -208,10 +216,14 @@ processTxDo ld@(uv, mp, undos, tip) resolvedIns utxoDB (id, (tx, txw, txd))
 -- | Head of list is the youngest block
 txRollbackBlocks :: (WithLogger m, MonadDB ssc m)
                  => NonEmpty (Block ssc, Undo) -> m (NonEmpty SomePrettyBatchOp)
-txRollbackBlocks blunds = mapM txRollbackBlock blunds
+txRollbackBlocks blunds = do
+    total <- getTotalFtsStake
+    db <- getUtxoDB
+    evalStateT (mapM txRollbackBlock blunds) (BalancesView mempty total db)
 
 -- | Rollback block
-txRollbackBlock :: (WithLogger m, MonadDB ssc m)
+txRollbackBlock :: ( WithLogger m,
+                     MonadBalances ssc m)
                 => (Block ssc, Undo) -> m SomePrettyBatchOp
 txRollbackBlock (block, undo) = do
     --TODO more detailed message must be here
@@ -243,28 +255,27 @@ txRollbackBlock (block, undo) = do
             delOut = map (SomePrettyBatchOp . DelTxIn) $ take (length txOutputs) keys
         return $ foldr' (:) (foldr' (:) batch putIn) delOut --how we could simplify it?
 
-recomputeStakes :: (WithLogger m, MonadDB ssc m)
+recomputeStakes :: (WithLogger m, MonadBalances ssc m)
                 => [(StakeholderId, Coin)]
                 -> [(StakeholderId, Coin)]
                 -> m SomePrettyBatchOp
 recomputeStakes plusDistr minusDistr = do
-    resolvedStakes <-
-        mapM
-            (\ad ->
-                 maybe (mkCoin 0 <$ logInfo (createInfo ad)) pure =<<
-                 getFtsStake ad)
-            needResolve
-    totalStake <- getTotalFtsStake
+    resolvedStakes <- mapM (\ad ->
+                              maybe (mkCoin 0 <$ logInfo (createInfo ad))
+                                    pure =<< getStake ad)
+                           needResolve
+    totalStake <- getTotalStake
     let positiveDelta = sumCoins (map snd plusDistr)
     let negativeDelta = sumCoins (map snd minusDistr)
-    let newTotalStake =
-            unsafeIntegerToCoin $
-            coinToInteger totalStake + positiveDelta - negativeDelta
-    let newStakes =
-            HM.toList $
-            calcNegStakes
-                minusDistr
-                (calcPosStakes $ zip needResolve resolvedStakes ++ plusDistr)
+    let newTotalStake = unsafeIntegerToCoin $
+                        coinToInteger totalStake + positiveDelta - negativeDelta
+
+    let newStakes
+          = HM.toList $
+              calcNegStakes minusDistr
+                  (calcPosStakes $ zip needResolve resolvedStakes ++ plusDistr)
+    setTotalStake newTotalStake
+    mapM_ (uncurry setStake) newStakes
     pure $
         SomePrettyBatchOp $
         (SomePrettyBatchOp $ PutFtsSum newTotalStake) :

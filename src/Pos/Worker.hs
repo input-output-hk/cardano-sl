@@ -26,7 +26,6 @@ import           Pos.Types               (SlotId, flattenSlotId, slotIdF)
 import           Pos.Update              (usWorkers)
 import           Pos.Util                (waitRandomInterval, withWaitLog)
 import           Pos.Util.TimeWarp       (ms)
-import           Pos.Worker.Ntp          (ntpWorker)
 import           Pos.Worker.Stats        (statsWorkers)
 import           Pos.WorkMode            (WorkMode)
 
@@ -44,7 +43,6 @@ runWorkers sendActions = mapM_ fork $ map ($ withWaitLog sendActions) $ concat
     , blkWorkers
     , untag sscWorkers
     , untag securityWorkers
-    , [const ntpWorker]
     , [lrcOnNewSlotWorker]
     , usWorkers
     ]

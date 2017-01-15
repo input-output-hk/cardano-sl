@@ -1,36 +1,36 @@
-genesisN: 8
+genesisN: 12007
 maxLocalTxs: 10000
 defaultPeers: []
 mdNoBlocksSlotThreshold: 3
 mdNoCommitmentsEpochThreshold: 3
-protocolMagic: 0
+protocolMagic: 50987833
 enhancedMessageBroadcast: 2
 blockRetrievalQueueSize: 100
 recoveryHeadersMessage: 100 # should be more than k, less than blockRetrievalQueueSize
 
 # Fundamental constants for core protocol
-k: 2
-slotDurationSec: 7
+k: 60
+slotDurationSec: 120
 
 # Time slave/lord
 sysTimeBroadcastSlots: 6
 
 # Networking
-neighboursSendThreshold: 2
-networkDiameter: 3
+neighboursSendThreshold: 3
+networkDiameter: 45
 networkConnectionTimeout: 2000
 
 # GodTossing
 vssMaxTTL: 10 # epochs
 vssMinTTL : 2 # epochs
-mpcSendInterval: 12 # must be less than (k * slotDuration - networkDiameter)
-mpcThreshold: 0.01 # 1% of stake
+mpcSendInterval: 100 # must be less than (k * slotDuration - networkDiameter)
+mpcThreshold: 0.05 # 5% of stake
 
 # Delegation
-delegationThreshold: 0.005 # 0.5% of stake
+delegationThreshold: 0.0003 # 0.03% of stake
 maxBlockProxySKs: 10000
 ntpResponseTimeout: 1000000 # 1 sec
-ntpPollDelay: 300000000 # 300 sec
+ntpPollDelay: 15000000 # 15 sec
 
 # Update mechanism
 updateServers: []
@@ -39,4 +39,4 @@ updateVoteThreshold: 0.001 # 0.1% of total stake
 updateImplicitApproval: 40000 # slots
 
 # Production start time
-productionNetworkStartTime: 0
+productionNetworkStartTime: 1484507400

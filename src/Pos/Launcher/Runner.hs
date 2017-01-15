@@ -115,8 +115,8 @@ runTimeSlaveReal
 runTimeSlaveReal sscProxy res bp = do
     mvar <- liftIO newEmptyMVar
     runServiceMode res bp (listeners mvar) $ \sendActions ->
-      case Const.runningMode of
-         Const.Development -> do
+      case Const.isDevelopment of
+         True -> do
            tId <- fork $
              runWithRandomIntervals (sec 10) (sec 60) $ liftIO (tryReadMVar mvar) >>= \case
                  Nothing -> do
@@ -129,7 +129,8 @@ runTimeSlaveReal sscProxy res bp = do
            t <- liftIO $ takeMVar mvar
            killThread tId
            t <$ logInfo (sformat ("[Time slave] adopted system start " % timestampF) t)
-         Const.Production ts -> logWarning "Time slave launched in Production" $> ts
+         False -> logWarning "Time slave launched in Production" $>
+           panic "Time slave in production, rly?"
   where
     listeners mvar =
       if Const.isDevelopment
@@ -256,6 +257,7 @@ runCH NodeParams {..} sscNodeContext act = do
 
     userSecretVar <- liftIO . atomically . newTVar $ npUserSecret
     ntpData <- currentTime >>= atomically . newTVar . (0, )
+    -- current time isn't quite validly, but it doesn't matter
     lastSlot <- atomically . newTVar $ unflattenSlotId 0
     queue <- liftIO $ newTBQueueIO blockRetrievalQueueSize
     let ctx =

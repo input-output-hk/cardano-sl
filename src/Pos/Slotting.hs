@@ -72,7 +72,9 @@ getCurrentSlotUsingNtp lastSlot (margin, measTime) = do
     else pure lastSlot
   where
     f :: Microsecond -> SlotId
-    f t = unflattenSlotId (fromIntegral $ t `div` slotDuration)
+    f diff
+        | diff < 0 = SlotId 0 0
+        | otherwise = unflattenSlotId (fromIntegral $ diff `div` slotDuration)
     -- We can trust getCurrentTime if it isn't bigger than:
     -- time for which we got margin (in last time) + NTP delay (+ some eps, for safety)
     canWeTrustLocalTime t =

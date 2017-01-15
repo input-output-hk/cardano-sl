@@ -21,6 +21,10 @@ module Pos.Constants
        , mpcSendInterval
        , mpcThreshold
 
+       -- * Dev/production mode, system start
+       , isDevelopment
+       , staticSysStart
+
          -- * Other constants
        , genesisN
        , maxLocalTxs
@@ -28,9 +32,6 @@ module Pos.Constants
        , neighborsSendThreshold
        , networkConnectionTimeout
        , blockRetrievalQueueSize
-       , RunningMode (..)
-       , runningMode
-       , isDevelopment
        , defaultPeers
        , sysTimeBroadcastSlots
        , vssMaxTTL
@@ -176,17 +177,16 @@ blockRetrievalQueueSize :: Integral a => a
 blockRetrievalQueueSize =
     fromIntegral . ccBlockRetrievalQueueSize $ compileConfig
 
--- | Defines mode of running application: in tested mode or in production.
-data RunningMode
-    = Development
-    | Production { rmSystemStart :: !Timestamp}
+-- | @True@ if current mode is 'Development'.
+isDevelopment :: Bool
+isDevelopment = isNothing staticSysStart
 
--- | Current running mode.
-runningMode :: RunningMode
+-- | System start time embeded into binary.
+staticSysStart :: Maybe Timestamp
 #ifdef DEV_MODE
-runningMode = Development
+staticSysStart = Nothing
 #else
-runningMode = Production . Timestamp . sec $
+staticSysStart = Just $ Timestamp $ sec $
     let st = ccProductionNetworkStartTime compileConfig
     in if st > 0 then st
        else let pause = 30
@@ -198,12 +198,6 @@ runningMode = Production . Timestamp . sec $
                -- ^ If several local nodes are started within 20 sec,
                -- they'll have same start time
 #endif
-
--- | @True@ if current mode is 'Development'.
-isDevelopment :: Bool
-isDevelopment = case runningMode of
-                  Development -> True
-                  _           -> False
 
 -- | See 'Pos.CompileConfig.ccDefaultPeers'.
 defaultPeers :: [DHTNode]

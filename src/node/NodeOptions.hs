@@ -17,7 +17,7 @@ import           Universum
 import           Paths_cardano_sl           (version)
 import qualified Pos.CLI                    as CLI
 import           Pos.DHT.Model              (DHTKey)
-import           Pos.Security.CLI         (AttackTarget, AttackType)
+import           Pos.Security.CLI           (AttackTarget, AttackType)
 import           Pos.Util.TimeWarp          (NetworkAddress)
 
 
@@ -49,6 +49,7 @@ data Args = Args
 #endif
 #endif
     , commonArgs                :: !CLI.CommonArgs
+    , noSystemStart             :: !Int
     }
   deriving Show
 
@@ -121,6 +122,7 @@ argsParser =
 #endif
 #endif
     <*> CLI.commonArgsParser peerHelpMsg
+    <*> option auto (long "system-start" <> metavar "TIMESTAMP" <> value (-1))
   where
     peerHelpMsg =
         "Peer to connect to for initial peer discovery. Format\

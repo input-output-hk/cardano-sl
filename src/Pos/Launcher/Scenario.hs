@@ -18,8 +18,9 @@ import           System.Wlog                 (logError, logInfo)
 import           Universum
 
 import           Pos.Communication           (BiP)
+import           Pos.Constants               (ntpMaxError, ntpResponseTimeout, isDevelopment)
 import           Pos.Context                 (NodeContext (..), getNodeContext,
-                                              ncPubKeyAddress, ncPublicKey)
+                                              ncPubKeyAddress, ncPublicKey, readNtpMargin)
 import qualified Pos.DB.GState               as GS
 import qualified Pos.DB.Lrc                  as LrcDB
 import           Pos.DHT.Model               (DHTNodeType (DHTFull), discoverPeers)
@@ -28,6 +29,7 @@ import           Pos.Types                   (Timestamp (Timestamp), addressHash
 import           Pos.Util                    (inAssertMode, waitRandomInterval)
 import           Pos.Util.TimeWarp           (sec)
 import           Pos.Worker                  (runWorkers)
+import           Pos.Worker.Ntp              (ntpWorker)
 import           Pos.WorkMode                (WorkMode)
 
 -- | Run full node in any WorkMode.
@@ -48,6 +50,9 @@ runNode plugins sendActions = do
     () <$ fork waitForPeers
     initSemaphore
     initLrc
+    _ <- fork ntpWorker -- start NTP worker for synchronization time
+    logInfo $ "Waiting response from NTP servers"
+    unless isDevelopment $ delay (ntpResponseTimeout + ntpMaxError)
     waitSystemStart
     runWorkers sendActions
     mapM_ (fork . ($ sendActions)) plugins
@@ -57,12 +62,13 @@ runNode plugins sendActions = do
 -- are not accurately synchronized, for example).
 waitSystemStart :: WorkMode ssc m => m ()
 waitSystemStart = do
+    margin <- readNtpMargin
     Timestamp start <- ncSystemStart <$> getNodeContext
-    cur <- currentTime
+    cur <- (+ margin) <$> currentTime
     let waitPeriod = start - cur
     logInfo $ sformat ("Waiting "%int%" seconds for system start") $
         waitPeriod `div` sec 1
-    when (cur < start) $ delay (start - cur)
+    when (cur < start) $ delay waitPeriod
 
 -- | Try to discover peers repeatedly until at least one live peer is found
 waitForPeers :: WorkMode ssc m => m ()

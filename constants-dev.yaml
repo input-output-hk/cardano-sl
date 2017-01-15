@@ -1,4 +1,4 @@
-genesisN: 8
+genesisN: 228
 maxLocalTxs: 10000
 defaultPeers: []
 mdNoBlocksSlotThreshold: 3

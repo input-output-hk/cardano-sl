@@ -14,9 +14,10 @@ import           Universum
 
 import           Pos.Binary          ()
 import qualified Pos.CLI             as CLI
-import           Pos.Constants       (RunningMode (..), runningMode)
+import           Pos.Constants       (staticSysStart)
 import           Pos.Crypto          (SecretKey, VssKeyPair, keyGen, vssKeyGen)
 import           Pos.DHT.Model       (DHTKey, DHTNodeType (..), dhtNodeType)
+import           Pos.Util.TimeWarp   (sec)
 #ifdef DEV_MODE
 import           Pos.Genesis         (genesisSecretKeys)
 #else
@@ -34,7 +35,7 @@ import           Pos.Ssc.Class       (SscListenersClass)
 import           Pos.Ssc.GodTossing  (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon  (SscNistBeacon)
 import           Pos.Ssc.SscAlgo     (SscAlgo (..))
-import           Pos.Types           (Timestamp)
+import           Pos.Types           (Timestamp (Timestamp))
 import           Pos.Util.UserSecret (UserSecret, peekUserSecret, usKeys, usVss,
                                       writeUserSecret)
 #ifdef WITH_WEB
@@ -53,14 +54,21 @@ import           Pos.Wallet.Web      (walletServeWebFull)
 
 import           NodeOptions         (Args (..), getNodeOptions)
 
-getSystemStart :: SscListenersClass ssc => Proxy ssc -> RealModeResources -> Args -> Production Timestamp
-getSystemStart sscProxy inst args  =
-    case runningMode of
-        Development ->
-            if timeLord args
-                then runTimeLordReal (loggingParams "time-lord" args)
-                else runTimeSlaveReal sscProxy inst (baseParams "time-slave" args)
-        Production systemStart -> return systemStart
+getSystemStart
+    :: SscListenersClass ssc
+    => Proxy ssc -> RealModeResources -> Args -> Production Timestamp
+getSystemStart sscProxy inst args
+    | noSystemStart args > 0 = pure $ Timestamp $ sec $ noSystemStart args
+    | otherwise =
+        case staticSysStart of
+            Nothing ->
+                if timeLord args
+                    then runTimeLordReal (loggingParams "time-lord" args)
+                    else runTimeSlaveReal
+                             sscProxy
+                             inst
+                             (baseParams "time-slave" args)
+            Just systemStart -> return systemStart
 
 loggingParams :: LoggerName -> Args -> LoggingParams
 loggingParams tag Args{..} =
@@ -275,5 +283,5 @@ walletStats _ = []
 
 main :: IO ()
 main = do
-    args@Args{..} <- getNodeOptions
+    args <- getNodeOptions
     bracketResources (baseParams "node" args) (action args)

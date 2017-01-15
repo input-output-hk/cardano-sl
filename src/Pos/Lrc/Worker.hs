@@ -55,7 +55,12 @@ lrcOnNewSlotImpl
     :: (SscWorkersClass ssc, WorkMode ssc m)
     => SlotId -> m ()
 lrcOnNewSlotImpl SlotId {..} =
-    when (siSlot < slotSecurityParam) $ lrcSingleShot siEpoch
+    when (siSlot < slotSecurityParam) $ lrcSingleShot siEpoch `catch` onLrcError
+  where
+    onLrcError UnknownBlocksForLrc =
+        logInfo
+            "LRC worker can't do anything, because recent blocks aren't known"
+    onLrcError e = throwM e
 
 -- | Run leaders and richmen computation for given epoch. If stable
 -- block for this epoch is not known, LrcError will be thrown.

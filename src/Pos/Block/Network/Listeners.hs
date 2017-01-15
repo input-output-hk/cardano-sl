@@ -21,13 +21,12 @@ import           Universum
 import           Pos.Binary.Communication    ()
 import           Pos.Block.Logic             (ClassifyHeaderRes (..),
                                               ClassifyHeadersRes (..), classifyHeaders,
-                                              classifyNewHeader, getHeadersFromManyTo,
-                                              getHeadersFromToIncl)
+                                              classifyNewHeader, getHeadersFromToIncl)
+import           Pos.Block.Network.Announce  (handleHeadersCommunication)
 import           Pos.Block.Network.Retrieval (addToBlockRequestQueue, mkHeadersRequest,
                                               requestHeaders)
-import           Pos.Block.Network.Types     (InConv (..), MsgBlock (..),
-                                              MsgGetBlocks (..), MsgGetHeaders (..),
-                                              MsgHeaders (..))
+import           Pos.Block.Network.Types     (MsgBlock (..), MsgGetBlocks (..),
+                                              MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.BiP       (BiP (..))
 import           Pos.Context                 (getNodeContext, ncBlockRetrievalQueue)
 import           Pos.Crypto                  (hash, shortHashF)
@@ -65,15 +64,8 @@ handleGetHeaders
     :: forall ssc m.
        (WorkMode ssc m)
     => ListenerAction BiP m
-handleGetHeaders = ListenerActionConversation $ \__peerId __sendActions conv -> do
-    (msg :: Maybe (MsgGetHeaders ssc)) <- recv conv
-    whenJust msg $ \(MsgGetHeaders {..}) -> do
-        logDebug "Got request on handleGetHeaders"
-        headers <- getHeadersFromManyTo mghFrom mghTo
-        maybe onNoHeaders (send conv . InConv . MsgHeaders) headers
-  where
-    onNoHeaders =
-        logDebug "getheadersFromManyTo returned Nothing, not replying to node"
+handleGetHeaders = ListenerActionConversation $ \__peerId __sendActions conv ->
+    handleHeadersCommunication conv
 
 handleGetBlocks
     :: forall ssc m.
@@ -99,6 +91,18 @@ handleGetBlocks = ListenerActionConversation $ \__peerId __sendActions conv -> d
             send conv $ MsgBlock block
         logDebug "handleGetBlocks: blocks sending done"
 
+-- | Handles MsgHeaders request, unsolicited usecase
+handleBlockHeaders
+    :: forall ssc m.
+        (WorkMode ssc m)
+    => ListenerAction BiP m
+handleBlockHeaders = ListenerActionConversation $
+    \peerId sendActions conv -> do
+        logDebug "handleBlockHeaders: got some unsolicited block header(s)"
+        (mHeaders :: Maybe (MsgHeaders ssc)) <- recv conv
+        whenJust mHeaders $ \(MsgHeaders headers) ->
+            handleUnsolicitedHeaders headers peerId sendActions conv
+
 -- Second case of 'handleBlockheaders'
 handleUnsolicitedHeaders
     :: forall ssc m.
@@ -106,11 +110,12 @@ handleUnsolicitedHeaders
     => NonEmpty (BlockHeader ssc)
     -> NodeId
     -> SendActions BiP m
+    -> ConversationActions (MsgGetHeaders ssc) (MsgHeaders ssc) m
     -> m ()
-handleUnsolicitedHeaders (header :| []) peerId sendActions =
-    handleUnsolicitedHeader header peerId sendActions
+handleUnsolicitedHeaders (header :| []) peerId sendActions conv =
+    handleUnsolicitedHeader header peerId sendActions conv
 -- TODO: ban node for sending more than one unsolicited header.
-handleUnsolicitedHeaders (h:|hs) _ _ = do
+handleUnsolicitedHeaders (h:|hs) _ _ _ = do
     logWarning "Someone sent us nonzero amount of headers we didn't expect"
     logWarning $ sformat ("Here they are: "%listJson) (h:hs)
 
@@ -120,8 +125,9 @@ handleUnsolicitedHeader
     => BlockHeader ssc
     -> NodeId
     -> SendActions BiP m
+    -> ConversationActions (MsgGetHeaders ssc) (MsgHeaders ssc) m
     -> m ()
-handleUnsolicitedHeader header peerId sendActions = do
+handleUnsolicitedHeader header peerId sendActions conv = do
     logDebug $ sformat
         ("handleUnsolicitedHeader: single header "%shortHashF%" was propagated, processing")
         hHash
@@ -135,7 +141,7 @@ handleUnsolicitedHeader header peerId sendActions = do
             logInfo $ sformat alternativeFormat hHash
             mghM <- mkHeadersRequest (Just hHash)
             whenJust mghM $ \mgh ->
-                withConnectionTo sendActions peerId $ requestHeaders mgh peerId
+                requestHeaders mgh peerId conv
         CHUseless reason -> logDebug $ sformat uselessFormat hHash reason
         CHInvalid _ -> do
             logDebug $ sformat ("handleUnsolicited: header "%shortHashF%" is invalid") hHash
@@ -150,13 +156,3 @@ handleUnsolicitedHeader header peerId sendActions = do
         " potentially represents good alternative chain, requesting more headers"
     uselessFormat =
         "Header " %shortHashF % " is useless for the following reason: " %stext
-
--- | Handles MsgHeaders request, unsolicited usecase
-handleBlockHeaders
-    :: forall ssc m.
-        (WorkMode ssc m)
-    => ListenerAction BiP m
-handleBlockHeaders = ListenerActionOneMsg $
-    \peerId sendActions (MsgHeaders headers :: MsgHeaders ssc) -> do
-        logDebug "handleBlockHeaders: got some unsolicited block header(s)"
-        handleUnsolicitedHeaders headers peerId sendActions

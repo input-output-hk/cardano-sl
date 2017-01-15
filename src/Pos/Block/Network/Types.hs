@@ -7,7 +7,6 @@ module Pos.Block.Network.Types
        , MsgGetBlocks (..)
        , MsgHeaders (..)
        , MsgBlock (..)
-       , InConv (..)
        ) where
 
 import qualified Data.ByteString.Char8 as BC
@@ -20,18 +19,6 @@ import           Node.Message          (Message (..), MessageName (..))
 import           Pos.Binary.Class      (Bi)
 import           Pos.Ssc.Class.Types   (Ssc (SscPayload))
 import           Pos.Types             (Block, BlockHeader, HeaderHash)
-
-newtype InConv m = InConv { inConvMsg :: m }
-    deriving (Generic, Show, Eq, Bi)
-
-inConvUnproxy :: Proxy (InConv m) -> Proxy m
-inConvUnproxy _ = Proxy
-
-instance Message m => Message (InConv m) where
-    messageName (inConvUnproxy -> p) = MessageName $ BC.pack "InConv " <> mName
-      where
-        MessageName mName = messageName p
-    formatMessage InConv {..} = sformat ("InConv " % stext) $ formatMessage inConvMsg
 
 -- | 'GetHeaders' message (see protocol specification).
 data MsgGetHeaders ssc = MsgGetHeaders

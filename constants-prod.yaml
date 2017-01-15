@@ -16,7 +16,7 @@ slotDurationSec: 120
 sysTimeBroadcastSlots: 6
 
 # Networking
-neighboursSendThreshold: 2
+neighboursSendThreshold: 3
 networkDiameter: 45
 networkConnectionTimeout: 2000
 
@@ -39,4 +39,4 @@ updateVoteThreshold: 0.001 # 0.1% of total stake
 updateImplicitApproval: 40000 # slots
 
 # Production start time
-productionNetworkStartTime: 1484499600
+productionNetworkStartTime: 1484505600

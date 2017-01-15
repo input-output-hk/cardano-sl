@@ -15,7 +15,7 @@ module NTP.Client
 import           Control.Concurrent.STM      (atomically)
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVar, readTVarIO,
                                               writeTVar)
-import           Control.Lens                ((%=), (.=), _Just)
+import           Control.Lens                (both, (%=), (%~), (.=), _Just)
 import           Control.Monad               (forM_, forever, unless, void, when)
 import           Control.Monad.Catch         (Exception)
 import           Control.Monad.State         (gets)
@@ -135,8 +135,10 @@ handleCollectedResponses cli = do
         Just []        -> log cli Warning "No servers responded"
         Just responses -> handleE `handleAll` do
             let time = selection responses
-            log cli Notice $ sformat ("Evaluated clock offset: "%shown%" mcs")
+            log cli Notice $ sformat ("Evaluated clock offset "%shown%
+                " mcs for request at "%shown%" mcs")
                 (toMicroseconds $ fst time)
+                (toMicroseconds $ snd time)
             handler time
   where
     handleE = log cli Error . sformat ("ntpMeanSelection: "%shown)

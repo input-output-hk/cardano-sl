@@ -15,7 +15,6 @@ import           Control.Monad.Except          (runExceptT)
 import           Data.Default                  (def)
 import           Data.List                     (elemIndex, (!!))
 import           Data.Time.Clock.POSIX         (getPOSIXTime)
-import           Data.Time.Units               (Millisecond)
 import           Formatting                    (build, ords, sformat, stext, (%))
 import           Network.Wai                   (Application)
 import           Node                          (SendActions, hoistSendActions)
@@ -45,10 +44,9 @@ import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CProfile,
                                                 CProfile (..), CTx, CTxId, CTxMeta (..),
                                                 CWallet (..), CWalletMeta (..),
-                                                NotifyEvent (NewWalletTransaction),
-                                                addressToCAddress, cAddressToAddress,
-                                                mkCTx, mkCTxId, txContainsTitle,
-                                                txIdToCTxId)
+                                                NotifyEvent (..), addressToCAddress,
+                                                cAddressToAddress, mkCTx, mkCTxId,
+                                                txContainsTitle, txIdToCTxId)
 import           Pos.Wallet.Web.Error          (WalletError (..))
 import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 WalletWebSockets, closeWSConnection,
@@ -123,7 +121,7 @@ walletServer sendActions nat = do
 launchNotifier :: WalletWebMode ssc m => (m :~> Handler) -> m ()
 launchNotifier = void . liftIO . forkForever . notifier
   where
-    notifyPeriod = fromIntegral (10000000 :: Millisecond)
+    notifyPeriod = 10000000 -- microseconds
     forkForever action = forkFinally action $ const $ do
         -- TODO: log error
         -- colldown
@@ -133,11 +131,13 @@ launchNotifier = void . liftIO . forkForever . notifier
     -- FIXME: don't ignore errors, send error msg to the socket
     notifier f = void . runExceptT . unNat f $ forever $ do
         liftIO $ threadDelay notifyPeriod
-        sequence_ [historyNotifier]
+        sequence_ [dummyHistoryNotifier]
     -- NOTE: temp solution, dummy notifier that pings every 10 secs
+    dummyHistoryNotifier = notify NewTransaction
+    historyNotifier :: WalletWebMode ssc m => m ()
     historyNotifier = do
         cAddresses <- myCAddresses
-        forM cAddresses $ \cAddress -> do
+        forM_ cAddresses $ \cAddress -> do
             -- TODO: is reading from acid RAM only (not reading from disk?)
             oldHistoryLength <- length . fromMaybe mempty <$> getWalletHistory cAddress
             newHistoryLength <- length <$> getHistory cAddress

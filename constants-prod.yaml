@@ -3,7 +3,7 @@ maxLocalTxs: 10000
 defaultPeers: []
 mdNoBlocksSlotThreshold: 3
 mdNoCommitmentsEpochThreshold: 3
-protocolMagic: 0
+protocolMagic: 50987833
 enhancedMessageBroadcast: 2
 blockRetrievalQueueSize: 100
 recoveryHeadersMessage: 100 # should be more than k, less than blockRetrievalQueueSize

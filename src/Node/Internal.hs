@@ -479,8 +479,10 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                           Channel.writeChannel chan (Just (BS.concat (LBS.toChunks ws')))
                           pure . Just $ ConnectionReceiving promise (ChannelIn chan)
 
-                | otherwise ->
-                    throw (ProtocolError $ "unexpected control header " ++ show w)
+                | otherwise -> do
+                    logDebug $ sformat ("protocol error: unexpected control header "
+                        %shown) w
+                    pure Nothing
 
     loop :: DispatcherState m -> m ()
     loop !initialState = do

@@ -62,16 +62,6 @@ import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWeb
                                                 getWalletState, openState, removeWallet,
                                                 runWalletWebDB, setProfile, setWalletMeta,
                                                 setWalletTransactionMeta)
--- <<<<<<< HEAD
---                                                 initWSConnection, notify, runWalletWS,
---                                                 upgradeApplicationWS)
--- import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
---                                                 addOnlyNewTxMeta, closeState,
---                                                 createWallet, getProfile, getTxMeta,
---                                                 getWalletHistory, getWalletMeta,
---                                                 openState, removeWallet, runWalletWebDB,
---                                                 setProfile, setWalletMeta,
--- =======
 
 ----------------------------------------------------------------------------
 -- Top level functionality

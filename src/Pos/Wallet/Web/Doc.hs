@@ -26,8 +26,8 @@ import           Pos.Aeson.ClientTypes      ()
 import           Pos.Crypto                 (keyGen)
 import           Pos.Types                  (Coin, makePubKeyAddress, mkCoin)
 import           Pos.Wallet.Web.Api         (walletApi)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CTx, CTxId,
-                                             CTxMeta, CWallet, CWalletMeta,
+import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile, CTx,
+                                             CTxId, CTxMeta, CWallet, CWalletMeta,
                                              addressToCAddress)
 import           Pos.Wallet.Web.Error       (WalletError)
 
@@ -194,6 +194,13 @@ instance ToSample CTx where
 
 instance ToSample CTxMeta where
     toSamples Proxy = fail "ToSample CTxMeta: Not Implemented!"
+
+instance ToSample CProfile where
+    toSamples Proxy = fail "ToSample CProfile: Not Implemented!"
+
+instance ToSample Word where
+    toSamples Proxy = fail "ToSample Word: Not Implemented!"
+
 --
 --instance ToSample Tx where
 --    toSamples Proxy = singleSample $ Tx [TxIn hsh idx] [out]

@@ -65,6 +65,16 @@
            function(error) { return function() { console.log('error ', error) } }
          )();
      };
+      var getProfile = function() {
+        Daedalus.ClientApi.getProfile()
+            .then(function(result) {console.log(result)})
+            .catch(function(reason) {console.log(reason)})
+      };
+      var updateProfile = function(name, email, phone, password, time, locale, picture) {
+        Daedalus.ClientApi.updateProfile(name, email, phone, password, time, locale, picture)()
+            .then(function(result) {console.log(result)})
+            .catch(function(reason) {console.log(reason)})
+      };
     </script>
 		<title></title>
 	</head>
@@ -80,10 +90,12 @@
       <li><button onclick="searchHistory('wallet_address', 'searchItem', 10)"/>search wallet history</li>
       <li><button onclick="newWallet('CWTPersonal', 'ADA', 'I am rich guy');"/>newWallet</li>
       <li><button onclick="updateWallet('wallet_address', 'CWTPersonal', 'ADA', 'wallet_name');"/>updateWallet</li>
-      <li><button onclick="updateTransaction('wallet_address', 'transaction_hash', 'ADA', 'new_transaction_title', 'new_transaction_description', 1000);"/>updateTransaction</li>
+      <li><button onclick="updateTransaction('wallet_address', 'transaction_hash', 'ADA', 'new_transaction_title', 'new_transaction_description', 1484253370.9182513);"/>updateTransaction</li>
       <li><button onclick="deleteWallet('wallet_address');"/>deleteWallet</li>
       <li><button onclick="isValidAddress('ADA', 'wallet_address');"/>isValidAddress</li>
       <li><button onclick="notify()"/>add notify listener</li>
+      <li><button onclick="getProfile()"/>get user profile</li>
+      <li><button onclick="updateProfile('name', 'email', 'phone', 'password', 1484253370.9182513, 'locale', 'picture')"/>update user profile</li>
     </ul>
 	</body>
 </html>

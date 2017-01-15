@@ -11,7 +11,6 @@ import DOM.Websocket.Event.Types (MessageEvent)
 import Daedalus.Constants (wsUri)
 import Data.Function.Uncurried (Fn1, runFn1)
 import Data.Maybe (Maybe(Just, Nothing))
-import Debug.Trace (traceAnyM)
 import WebSocket (runMessage, runMessageEvent)
 
 type NotifyCb = Fn1 String (forall eff. Eff (| eff) Unit)
@@ -73,8 +72,6 @@ onClose (WSState state) =
 onMessage :: forall eff. WSState -> MessageEvent -> Eff eff Unit
 onMessage (WSState state) event = do
     let msg = runMessage $ runMessageEvent event
-    traceAnyM msg
-    traceAnyM state.notifyCb
     case state.notifyCb of
         Just cb -> runFn1 cb msg
         Nothing -> pure unit

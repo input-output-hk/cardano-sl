@@ -8,6 +8,8 @@ module Pos.DB.GState.Balances
          -- * Getters
          getTotalFtsStake
        , getFtsStake
+       -- kostil for BalancesView
+       , getFtsStakeFromDB
 
          -- * Operations
        , BalancesOp (..)
@@ -35,8 +37,9 @@ import           Pos.DB.Class         (MonadDB, getUtxoDB)
 import           Pos.DB.DBIterator    (DBMapIterator, mapIterator)
 import           Pos.DB.Error         (DBError (..))
 import           Pos.DB.Functions     (RocksBatchOp (..), WithKeyPrefix (..),
-                                       encodeWithKeyPrefix)
+                                       encodeWithKeyPrefix, rocksGetBi)
 import           Pos.DB.GState.Common (getBi, putBi)
+import           Pos.DB.Types         (DB)
 import           Pos.Types            (Coin, StakeholderId, Utxo, coinF, mkCoin, sumCoins,
                                        txOutStake, unsafeAddCoin, unsafeIntegerToCoin,
                                        utxoToStakes)
@@ -57,6 +60,12 @@ getTotalFtsStake =
 getFtsStake :: MonadDB ssc m => StakeholderId -> m (Maybe Coin)
 getFtsStake = getBi . ftsStakeKey
 
+getFtsStakeFromDB :: (MonadIO m, MonadThrow m)
+                  => StakeholderId
+                  -> DB ssc
+                  -> m (Maybe Coin)
+getFtsStakeFromDB id = rocksGetBi (ftsStakeKey id)
+
 ----------------------------------------------------------------------------
 -- Operations
 ----------------------------------------------------------------------------
@@ -73,7 +82,9 @@ instance Buildable BalancesOp where
 
 instance RocksBatchOp BalancesOp where
     toBatchOp (PutFtsSum c)      = [Rocks.Put ftsSumKey (encodeStrict c)]
-    toBatchOp (PutFtsStake ad c) = [Rocks.Put (ftsStakeKey ad) (encodeStrict c)]
+    toBatchOp (PutFtsStake ad c) =
+        if c == mkCoin 0 then [Rocks.Del (ftsStakeKey ad)]
+        else [Rocks.Put (ftsStakeKey ad) (encodeStrict c)]
 
 ----------------------------------------------------------------------------
 -- Initialization

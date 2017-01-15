@@ -538,7 +538,9 @@ readUntilEqualTVar
     => (x -> a) -> TVar x -> a -> m x
 readUntilEqualTVar f tvar expVal = readTVarConditional ((expVal ==) . f) tvar
 
-stubListenerOneMsg :: (WithLogger m, Message r, Unpackable p r, Packable p r) => Proxy r -> ListenerAction p m
+stubListenerOneMsg
+    :: (WithLogger m, Message r, Unpackable p r, Packable p r)
+    => Proxy r -> ListenerAction p m
 stubListenerOneMsg p = ListenerActionOneMsg $ \_ _ m ->
                           let _ = m `asProxyTypeOf` p
                            in modifyLoggerName (<> "stub") $
@@ -546,7 +548,9 @@ stubListenerOneMsg p = ListenerActionOneMsg $ \_ _ m ->
                                     ("Stub listener (one msg) for "%shown%": received message")
                                     (messageName p)
 
-stubListenerConv :: (WithLogger m, Message r, Unpackable p r, Packable p Void) => Proxy r -> ListenerAction p m
+stubListenerConv
+    :: (WithLogger m, Message r, Unpackable p r, Packable p Void)
+    => Proxy r -> ListenerAction p m
 stubListenerConv p = ListenerActionConversation $ \__nId __sA convActions ->
                           let _ = convActions `asProxyTypeOf` __modP p
                               __modP :: Proxy r -> Proxy (ConversationActions Void r m)
@@ -566,7 +570,9 @@ withWaitLog sendActions = sendActions
     , withConnectionTo = \nodeId action -> withConnectionTo sendActions nodeId $ action . withWaitLogConv nodeId
     }
 
-withWaitLogConv :: ( CanLogInParallel m, Message snd ) => NodeId -> ConversationActions snd rcv m -> ConversationActions snd rcv m
+withWaitLogConv
+    :: (CanLogInParallel m, Message snd)
+    => NodeId -> ConversationActions snd rcv m -> ConversationActions snd rcv m
 withWaitLogConv nodeId conv = conv { send = send', recv = recv' }
   where
     send' msg =
@@ -579,7 +585,9 @@ withWaitLogConv nodeId conv = conv { send = send', recv = recv' }
             recv conv
     MessageName sndMsg = messageName $ ((\_ -> Proxy) :: ConversationActions snd rcv m -> Proxy snd) conv
 
-withWaitLogConvL :: ( CanLogInParallel m, Message rcv ) => NodeId -> ConversationActions snd rcv m -> ConversationActions snd rcv m
+withWaitLogConvL
+    :: (CanLogInParallel m, Message rcv)
+    => NodeId -> ConversationActions snd rcv m -> ConversationActions snd rcv m
 withWaitLogConvL nodeId conv = conv { send = send', recv = recv' }
   where
     send' msg =

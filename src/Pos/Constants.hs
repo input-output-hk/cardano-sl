@@ -67,6 +67,10 @@ import           Pos.Util.TimeWarp          (ms, sec)
 import           System.Environment         (lookupEnv)
 import qualified Text.Parsec                as P
 import           Universum                  hiding (lift)
+#ifndef DEV_MODE
+import           Data.Time.Clock.POSIX      (getPOSIXTime)
+import           System.IO.Unsafe           (unsafePerformIO)
+#endif
 
 import           Pos.CLI                    (dhtNodeParser)
 import           Pos.CompileConfig          (CompileConfig (..), compileConfig)
@@ -185,8 +189,8 @@ runningMode = Development
 runningMode = Production . Timestamp . sec $
     let st = ccProductionNetworkStartTime compileConfig
     in if st > 0 then st
-       else let pause = 60
-                divider = 20
+       else let pause = 30
+                divider = 10
                 after3Mins = pause + unsafePerformIO (round <$> getPOSIXTime)
                 minuteMod = after3Mins `mod` divider
                 alignment = if minuteMod > (divider `div` 2) then 1 else 0

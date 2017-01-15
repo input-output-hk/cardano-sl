@@ -156,14 +156,15 @@ mkHeadersRequest upto = do
 matchRequestedHeaders
     :: (Ssc ssc)
     => NonEmpty (BlockHeader ssc) -> MsgGetHeaders ssc -> Bool
-matchRequestedHeaders headers@(newTip :| hs) mgh =
+matchRequestedHeaders headers@(newTip :| hs) MsgGetHeaders {..} =
     let startHeader = NE.last headers
         startMatches =
-            or [ (startHeader ^. headerHashG) `elem` mghFrom mgh
-               , (startHeader ^. prevBlockL) `elem` mghFrom mgh]
+            or [ (startHeader ^. headerHashG) `elem` mghFrom
+               , (startHeader ^. prevBlockL) `elem` mghFrom]
         mghToMatches
             | length headers > blkSecurityParam = True
-            | otherwise =  Just (hash newTip) == mghTo mgh
+            | isNothing mghTo = True
+            | otherwise =  Just (hash newTip) == mghTo
      in and [ startMatches
             , mghToMatches
             , formChain

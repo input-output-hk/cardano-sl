@@ -1,7 +1,7 @@
-genesisN: 8
+genesisN: 1000
 maxLocalTxs: 10000
 defaultPeers: []
-mdNoBlocksSlotThreshold: 3
+mdNoBlocksSlotThreshold: 1
 mdNoCommitmentsEpochThreshold: 3
 protocolMagic: 0
 enhancedMessageBroadcast: 2
@@ -9,15 +9,15 @@ blockRetrievalQueueSize: 100
 recoveryHeadersMessage: 100 # should be more than k, less than blockRetrievalQueueSize
 
 # Fundamental constants for core protocol
-k: 2
-slotDurationSec: 7
+k: 6
+slotDurationSec: 20
 
 # Time slave/lord
 sysTimeBroadcastSlots: 6
 
 # Networking
-neighboursSendThreshold: 2
-networkDiameter: 3
+neighboursSendThreshold: 4
+networkDiameter: 15
 networkConnectionTimeout: 2000
 
 # GodTossing

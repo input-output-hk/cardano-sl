@@ -12,10 +12,12 @@ module Pos.Wallet.Web.State.Acidic
        , tidyState
        , update
 
+       , GetProfile (..)
        , GetWalletMetas (..)
        , GetWalletMeta (..)
        , GetTxMeta (..)
        , CreateWallet (..)
+       , SetProfile (..)
        , SetWalletMeta (..)
        , SetWalletTransactionMeta (..)
        , SetWalletHistory (..)
@@ -62,10 +64,12 @@ tidyState = tidyExtendedState
 
 makeAcidic ''WalletStorage
     [
-      'WS.getWalletMetas
+      'WS.getProfile
+    , 'WS.getWalletMetas
     , 'WS.getWalletMeta
     , 'WS.getTxMeta
     , 'WS.createWallet
+    , 'WS.setProfile
     , 'WS.setWalletMeta
     , 'WS.setWalletTransactionMeta
     , 'WS.setWalletHistory

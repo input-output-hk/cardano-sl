@@ -107,7 +107,8 @@ calculateSeed commitments openings lShares = do
     if | null secrets && not (null participants) ->
              panic "calculateSeed: there were some participants \
                    \but they produced no secrets somehow"
-       | null secrets -> Left NoParticipants
+       -- [CSL-481] We don't want to completely fail in case of SSC failures.
+       --- | null secrets -> Left NoParticipants
        | otherwise    -> Right $
                          mconcat $ map secretToSharedSeed (toList secrets)
 

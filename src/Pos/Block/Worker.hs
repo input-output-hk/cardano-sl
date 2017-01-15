@@ -10,10 +10,10 @@ module Pos.Block.Worker
 
 import           Control.Lens                (ix, (^.), (^?))
 import           Data.Default                (def)
-import           Formatting                  (build, sformat, shown, (%))
+import           Formatting                  (bprint, build, sformat, shown, (%))
 import           Mockable                    (delay, fork)
 import           Node                        (SendActions)
-import           Serokell.Util               (VerificationRes (..), listJson)
+import           Serokell.Util               (VerificationRes (..), listJson, pairF)
 import           Serokell.Util.Exceptions    ()
 import           System.Wlog                 (WithLogger, logDebug, logError, logInfo,
                                               logWarning)
@@ -26,8 +26,7 @@ import           Pos.Block.Network.Retrieval (retrievalWorker)
 import           Pos.Communication.BiP       (BiP)
 import           Pos.Constants               (networkDiameter)
 import           Pos.Context                 (getNodeContext, ncPublicKey)
-import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega),
-                                              shortHashF)
+import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
 import           Pos.DB.GState               (getPSKByIssuerAddressHash)
 import           Pos.DB.Lrc                  (getLeaders)
 import           Pos.DB.Misc                 (getProxySecretKeys)
@@ -86,7 +85,8 @@ blkOnNewSlot sendActions slotId@SlotId {..} = do
             validCert = find (\pSk -> addressHash (pskIssuerPk pSk) == leader)
                              validCerts
         logLeadersF $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash
-        logLeadersF $ sformat ("Slot leaders: "%listJson) $ map (sformat shortHashF) leaders
+        logLeadersF $ sformat ("Slot leaders: "%listJson) $
+                      map (bprint pairF) (zip [0 :: Int ..] $ toList leaders)
         logLeadersF $ sformat ("Current slot leader: "%build) leader
         logDebug $ sformat ("Available to use lightweight PSKs: "%listJson) validCerts
         heavyPskM <- getPSKByIssuerAddressHash leader

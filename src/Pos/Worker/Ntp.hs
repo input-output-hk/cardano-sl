@@ -19,10 +19,10 @@ import           Pos.WorkMode           (WorkMode)
 settings :: NodeContext ssc -> NtpClientSettings
 settings nc = NtpClientSettings
         { -- list of servers addresses
-          ntpServers         = [ "ntp5.stratum2.ru"
-                               , "ntp1.stratum1.ru"
+          ntpServers         = [ "pool.ntp.org"
+                               , "time.windows.com"
                                , "clock.isc.org"
-                               ]
+                               , "ntp5.stratum2.ru"]
         -- got time margin callback
         , ntpHandler         = ntpHandlerDo nc
         -- logger name modifier

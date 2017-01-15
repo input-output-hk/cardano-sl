@@ -19,24 +19,19 @@ import           System.Wlog                 (WithLogger, logDebug, logInfo, log
 import           Universum
 
 import           Pos.Binary.Communication    ()
-import           Pos.Block.Logic             (ClassifyHeaderRes (..),
-                                              ClassifyHeadersRes (..), classifyHeaders,
-                                              classifyNewHeader, getHeadersFromManyTo,
-                                              getHeadersFromToIncl)
+import           Pos.Block.Logic             (ClassifyHeaderRes (..), classifyNewHeader,
+                                              getHeadersFromManyTo, getHeadersFromToIncl)
 import           Pos.Block.Network.Retrieval (addToBlockRequestQueue, mkHeadersRequest,
                                               requestHeaders)
 import           Pos.Block.Network.Types     (InConv (..), MsgBlock (..),
                                               MsgGetBlocks (..), MsgGetHeaders (..),
                                               MsgHeaders (..))
 import           Pos.Communication.BiP       (BiP (..))
-import           Pos.Context                 (getNodeContext, ncBlockRetrievalQueue)
-import           Pos.Crypto                  (hash, shortHashF)
+import           Pos.Crypto                  (shortHashF)
 import qualified Pos.DB                      as DB
 import           Pos.DB.Error                (DBError (DBMalformed))
 import           Pos.Ssc.Class.Types         (Ssc)
-import           Pos.Types                   (BlockHeader, HasHeaderHash (..), HeaderHash,
-                                              headerHashG, prevBlockL)
-import           Pos.Util                    (_neHead, _neLast)
+import           Pos.Types                   (BlockHeader, HasHeaderHash (..))
 import           Pos.Util                    (stubListenerConv, stubListenerOneMsg)
 import           Pos.WorkMode                (WorkMode)
 

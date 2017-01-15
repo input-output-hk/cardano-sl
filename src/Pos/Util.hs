@@ -562,7 +562,7 @@ stubListenerOneMsg p = ListenerActionOneMsg $ \_ _ m ->
 stubListenerConv
     :: (WithLogger m, Message r, Unpackable p r, Packable p Void)
     => Proxy r -> ListenerAction p m
-stubListenerConv p = ListenerActionConversation $ \__nId __sA convActions ->
+stubListenerConv p = ListenerActionConversation $ \__nId convActions ->
                           let _ = convActions `asProxyTypeOf` __modP p
                               __modP :: Proxy r -> Proxy (ConversationActions Void r m)
                               __modP _ = Proxy

@@ -29,7 +29,7 @@ import           Pos.WorkMode             (MinWorkMode)
 sysStartReqListener
     :: MinWorkMode m => Timestamp -> Listener BiP m
 sysStartReqListener sysStart = ListenerActionConversation $
-    \peerId __sA conv  -> do
+    \peerId conv  -> do
         (mReq :: Maybe SysStartRequest) <- recv conv
         whenJust mReq $ \_ -> do
             logInfo $ sformat

@@ -22,16 +22,19 @@ module Pos.DB.GState.Common
        , CommonOp (..)
        ) where
 
-import qualified Database.RocksDB as Rocks
+import qualified Data.Text.Buildable
+import qualified Database.RocksDB    as Rocks
+import           Formatting          (bprint, (%))
 import           Universum
 
-import           Pos.Binary.Class (Bi, encodeStrict)
-import           Pos.DB.Class     (MonadDB, getUtxoDB)
-import           Pos.DB.Error     (DBError (DBMalformed))
-import           Pos.DB.Functions (RocksBatchOp (..), rocksDelete, rocksGetBi, rocksPutBi,
-                                   rocksWriteBatch)
-import           Pos.Types        (HeaderHash)
-import           Pos.Util         (maybeThrow)
+import           Pos.Binary.Class    (Bi, encodeStrict)
+import           Pos.Crypto          (shortHashF)
+import           Pos.DB.Class        (MonadDB, getUtxoDB)
+import           Pos.DB.Error        (DBError (DBMalformed))
+import           Pos.DB.Functions    (RocksBatchOp (..), rocksDelete, rocksGetBi,
+                                      rocksPutBi, rocksWriteBatch)
+import           Pos.Types           (HeaderHash)
+import           Pos.Util            (maybeThrow)
 
 ----------------------------------------------------------------------------
 -- Common Helpers
@@ -70,6 +73,9 @@ getBot = maybeThrow (DBMalformed "no bot in GState DB") =<< getBotMaybe
 ----------------------------------------------------------------------------
 
 data CommonOp ssc = PutTip (HeaderHash ssc)
+
+instance Buildable (CommonOp patak) where
+    build (PutTip h) = bprint ("PutTip ("%shortHashF%")") h
 
 instance RocksBatchOp (CommonOp ssc) where
     toBatchOp (PutTip h) = [Rocks.Put tipKey (encodeStrict h)]

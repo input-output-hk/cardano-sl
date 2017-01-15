@@ -13,31 +13,33 @@ module Pos.Wallet.Context.Holder
 import           Control.Lens                (iso)
 import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
+import           Control.Monad.Fix           (MonadFix)
 import           Control.Monad.Reader        (ReaderT (ReaderT), ask)
-
 import           Control.Monad.Trans.Class   (MonadTrans)
 import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,
                                               defaultLiftBaseWith, defaultLiftWith,
                                               defaultRestoreM, defaultRestoreT)
-import           Control.TimeWarp.Rpc        (MonadDialog, MonadTransfer (..))
-import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
-
+import           Mockable                    (ChannelT, CurrentTime, MFunctor',
+                                              Mockable (liftMockable), Promise,
+                                              SharedAtomicT, ThreadId, currentTime,
+                                              liftMockableWrappedM)
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
-import           Pos.Slotting                (MonadSlots (..))
+import           Pos.Slotting                (MonadSlots (..), getCurrentSlotUsingNtp)
 import           Pos.Types                   (Timestamp (..))
-import           Pos.Wallet.Context.Class    (WithWalletContext (..))
+import           Pos.Wallet.Context.Class    (WithWalletContext (..), readNtpData,
+                                              readNtpLastSlot, readNtpMargin)
 import           Pos.Wallet.Context.Context  (WalletContext (..))
 
 -- | Wrapper for monadic action which brings 'WalletContext'.
 newtype ContextHolder m a = ContextHolder
     { getContextHolder :: ReaderT WalletContext m a
-    } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed,
+    } deriving (Functor, Applicative, Monad, MonadTrans, MonadFix,
                 MonadThrow, MonadCatch, MonadMask, MonadIO, MonadFail,
-                HasLoggerName, CanLog, MonadDialog s p)
+                HasLoggerName, CanLog)
 
 -- | Run 'ContextHolder' action.
 runContextHolder :: WalletContext -> ContextHolder m a -> m a
@@ -61,13 +63,26 @@ instance MonadBaseControl IO m => MonadBaseControl IO (ContextHolder m) where
     restoreM         = defaultRestoreM
 
 type instance ThreadId (ContextHolder m) = ThreadId m
+type instance Promise (ContextHolder m) = Promise m
+type instance SharedAtomicT (ContextHolder m) = SharedAtomicT m
+type instance ChannelT (ContextHolder m) = ChannelT m
 
-instance MonadTransfer s m => MonadTransfer s (ContextHolder m)
+instance ( Mockable d m
+         , MFunctor' d (ContextHolder m) (ReaderT WalletContext m)
+         , MFunctor' d (ReaderT WalletContext m) m
+         ) => Mockable d (ContextHolder m) where
+    liftMockable = liftMockableWrappedM
 
 instance Monad m => WithWalletContext (ContextHolder m) where
     getWalletContext = ContextHolder ask
 
-instance (MonadTimed m, Monad m) =>
+instance (Mockable CurrentTime m, MonadIO m) =>
          MonadSlots (ContextHolder m) where
     getSystemStartTime = ContextHolder $ asks wcSystemStart
-    getCurrentTime = Timestamp <$> currentTime
+    getCurrentTime = do
+        lastMargin <- readNtpMargin
+        Timestamp . (+ lastMargin) <$> currentTime
+    getCurrentSlot = do
+        lastSlot <- readNtpLastSlot
+        ntpData <- readNtpData
+        getCurrentSlotUsingNtp lastSlot ntpData

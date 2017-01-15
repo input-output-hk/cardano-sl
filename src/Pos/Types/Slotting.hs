@@ -7,13 +7,12 @@ module Pos.Types.Slotting
        , flattenEpochIndex
        , flattenEpochOrSlot
        , unflattenSlotId
-       , subSlotSafe
        , crucialSlot
        ) where
 
 import           Universum
 
-import           Pos.Constants   (epochSlots, k)
+import           Pos.Constants   (epochSlots, slotSecurityParam)
 import           Pos.Types.Types (EpochIndex (..), FlatSlotId, HasEpochOrSlot,
                                   SlotId (..), _getEpochOrSlot)
 
@@ -41,11 +40,9 @@ instance Enum SlotId where
     toEnum = unflattenSlotId . fromIntegral
     fromEnum = fromIntegral . flattenSlotId
 
-subSlotSafe :: SlotId -> Word64 -> SlotId
-subSlotSafe (flattenSlotId -> slotId) diff
-    | diff >= slotId = unflattenSlotId 0
-    | otherwise      = unflattenSlotId (slotId - diff)
-
+-- | Slot such that at the beginning of epoch blocks with SlotId ≤- this slot
+-- are stable.
 crucialSlot :: EpochIndex -> SlotId
 crucialSlot 0        = SlotId {siEpoch = 0, siSlot = 0}
-crucialSlot epochIdx = SlotId {siEpoch = epochIdx - 1, siSlot = 5 * k - 1}
+crucialSlot epochIdx =
+    SlotId {siEpoch = epochIdx - 1, siSlot = epochSlots - slotSecurityParam - 1}

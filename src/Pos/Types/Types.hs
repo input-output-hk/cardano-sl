@@ -990,6 +990,9 @@ instance HasDifficulty (GenesisBlock ssc) where
 instance HasDifficulty (Block ssc) where
     difficultyL = choosing difficultyL difficultyL
 
+instance HasDifficulty (Blund ssc) where
+    difficultyL = _1 . difficultyL
+
 -- | Class for something that has previous block (lens to 'Hash' for this block).
 class HasPrevBlock s a | s -> a where
     prevBlockL :: Lens' s (Hash a)
@@ -1014,6 +1017,9 @@ class HasHeaderHash a ssc | a -> ssc where
     headerHash :: a -> HeaderHash ssc
     headerHashG :: Getter a (HeaderHash ssc)
     headerHashG = to headerHash
+
+instance BiSsc ssc => HasHeaderHash (HeaderHash ssc) ssc where
+    headerHash = identity
 
 instance BiSsc ssc => HasHeaderHash (MainBlockHeader ssc) ssc where
     headerHash = hash . Right

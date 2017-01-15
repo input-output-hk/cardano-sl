@@ -56,8 +56,7 @@ import           Pos.DB                      (DBError (DBMalformed), MonadDB,
 import qualified Pos.DB                      as DB
 import qualified Pos.DB.GState               as GS
 import qualified Pos.DB.Lrc                  as LrcDB
-import qualified Pos.DB.Misc                 as Misc (addProxySecretKey,
-                                                      getProxySecretKeys)
+import qualified Pos.DB.Misc                 as Misc
 import           Pos.Delegation.Class        (DelegationWrap, MonadDelegation (..),
                                               dwProxyConfCache, dwProxyMsgCache,
                                               dwProxySKPool)
@@ -163,12 +162,13 @@ processProxySKSimple psk = do
         exists <- uses dwProxySKPool $ \m -> HM.lookup issuer m == Just psk
         cached <- uses dwProxyMsgCache $ HM.member msg
         dwProxyMsgCache %= HM.insert msg curTime
-        unless exists $ dwProxySKPool %= HM.insert issuer psk
-        pure $ if | not valid -> PSInvalid
-                  | not enoughStake -> PSForbidden
-                  | cached -> PSCached
-                  | exists -> PSExists
-                  | otherwise -> PSAdded
+        let res = if | not valid -> PSInvalid
+                     | not enoughStake -> PSForbidden
+                     | cached -> PSCached
+                     | exists -> PSExists
+                     | otherwise -> PSAdded
+        when (res == PSAdded) $ dwProxySKPool %= HM.insert issuer psk
+        pure res
 
 -- state needed for 'delegationVerifyBlocks'
 data DelVerState = DelVerState
@@ -200,7 +200,7 @@ delegationVerifyBlocks blocks = do
     tip <- GS.getTip
     fromGenesisPsks <-
         concatMap (either (const []) (map pskIssuerPk . view blockProxySKs)) <$>
-        DB.loadBlocksWhile (\x _ -> isRight x) tip
+        DB.loadBlocksWhile isRight tip
     let _dvCurEpoch = HS.fromList fromGenesisPsks
         initState = DelVerState _dvCurEpoch HM.empty HS.empty
     richmen <-
@@ -318,6 +318,7 @@ data PskEpochVerdict
     | PEInvalid
     | PEExists
     | PECached
+    | PERemoved
     | PEAdded
     deriving (Show,Eq)
 
@@ -339,15 +340,18 @@ processProxySKEpoch psk = do
             exists = psk `elem` psks
             msg = SendProxySKEpoch psk
             valid = verifyProxySecretKey psk
+            selfSigned = pskDelegatePk psk == pskIssuerPk psk
         cached <- uses dwProxyMsgCache $ HM.member msg
         dwProxyMsgCache %= HM.insert msg curTime
         pure $ if | not valid -> PEInvalid
                   | cached -> PECached
                   | exists -> PEExists
+                  | selfSigned -> PERemoved
                   | not related -> PEUnrelated
                   | otherwise -> PEAdded
     -- (2) We're writing to DB
     when (res == PEAdded) $ Misc.addProxySecretKey psk
+    when (res == PERemoved) $ Misc.removeProxySecretKey $ pskIssuerPk psk
     pure res
 
 ----------------------------------------------------------------------------

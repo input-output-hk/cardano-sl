@@ -10,11 +10,11 @@ import           Universum
 
 import           Pos.Binary.Class                 (Bi (..))
 import           Pos.Binary.Crypto                ()
-import           Pos.Ssc.GodTossing.Secret.Types  (GtSecretStorage (..))
 import           Pos.Ssc.GodTossing.Types.Base    (Commitment (..), Opening (..),
                                                    VssCertificate (..))
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtMsgTag (..))
-import           Pos.Ssc.GodTossing.Types.Types   (GtPayload (..), GtProof (..))
+import           Pos.Ssc.GodTossing.Types.Types   (GtPayload (..), GtProof (..),
+                                                   GtSecretStorage (..))
 
 ----------------------------------------------------------------------------
 -- Types.Base
@@ -108,5 +108,5 @@ instance Bi GtMsgContents where
 -- SecretStorage Type
 ----------------------------------------------------------------------------
 instance Bi GtSecretStorage where
-    put (GtSecretStorage s stip) = put s >> put stip
-    get = GtSecretStorage <$> get <*> get
+    put (GtSecretStorage s) = put s
+    get = GtSecretStorage <$> get

@@ -6,36 +6,42 @@
 module Pos.DB.DB
        ( openNodeDBs
        , initNodeDBs
+       , getTip
        , getTipBlock
        , getTipBlockHeader
-       , loadBlocksFromTipWhile
+       , loadBlundsFromTipWhile
+       , loadBlundsFromTipByDepth
+       , sanityCheckDB
        ) where
 
-import           Control.Monad.Trans.Resource (MonadResource)
-import           System.Directory             (createDirectoryIfMissing,
-                                               doesDirectoryExist,
-                                               removeDirectoryRecursive)
-import           System.FilePath              ((</>))
+import           Control.Monad.Catch      (MonadMask)
+import           System.Directory         (createDirectoryIfMissing, doesDirectoryExist,
+                                           removeDirectoryRecursive)
+import           System.FilePath          ((</>))
+import           System.Wlog              (WithLogger)
 import           Universum
 
-import           Pos.Context                  (WithNodeContext, genesisLeadersM)
-import           Pos.DB.Block                 (getBlock, loadBlocksWithUndoWhile,
-                                               prepareBlockDB)
-import           Pos.DB.Class                 (MonadDB)
-import           Pos.DB.Error                 (DBError (DBMalformed))
-import           Pos.DB.Functions             (openDB)
-import           Pos.DB.GState                (getTip, prepareGStateDB)
-import           Pos.DB.Lrc                   (prepareLrcDB)
-import           Pos.DB.Misc                  (prepareMiscDB)
-import           Pos.DB.Types                 (NodeDBs (..))
-import           Pos.Ssc.Class.Types          (Ssc)
-import           Pos.Types                    (Block, BlockHeader, Undo, getBlockHeader,
-                                               headerHash, mkGenesisBlock)
+import           Pos.Context.Class        (WithNodeContext)
+import           Pos.Context.Functions    (genesisLeadersM)
+import           Pos.DB.Block             (getBlock, loadBlundsByDepth, loadBlundsWhile,
+                                           prepareBlockDB)
+import           Pos.DB.Class             (MonadDB)
+import           Pos.DB.Error             (DBError (DBMalformed))
+import           Pos.DB.Functions         (openDB)
+import           Pos.DB.GState.BlockExtra (prepareGStateBlockExtra)
+import           Pos.DB.GState.Common     (getTip)
+import           Pos.DB.GState.GState     (prepareGStateDB, sanityCheckGStateDB)
+import           Pos.DB.Lrc               (prepareLrcDB)
+import           Pos.DB.Misc              (prepareMiscDB)
+import           Pos.DB.Types             (NodeDBs (..))
+import           Pos.Ssc.Class.Types      (Ssc)
+import           Pos.Types                (Block, BlockHeader, Undo, getBlockHeader,
+                                           headerHash, mkGenesisBlock)
+import           Pos.Util                 (inAssertMode)
 
 -- | Open all DBs stored on disk.
 openNodeDBs
-    :: forall ssc m.
-       (MonadResource m)
+    :: (MonadIO m)
     => Bool -> FilePath -> m (NodeDBs ssc)
 openNodeDBs recreate fp = do
     liftIO $
@@ -63,6 +69,7 @@ initNodeDBs = do
         initialTip = headerHash genesisBlock0
     prepareBlockDB genesisBlock0
     prepareGStateDB initialTip
+    prepareGStateBlockExtra initialTip
     prepareLrcDB
     prepareMiscDB
 
@@ -80,12 +87,24 @@ getTipBlockHeader
     => m (BlockHeader ssc)
 getTipBlockHeader = getBlockHeader <$> getTipBlock
 
--- | Load blocks from BlockDB starting from tip and while @condition@ is true.
--- The head of returned list is the youngest block.
-loadBlocksFromTipWhile
+-- | Load blunds from BlockDB starting from tip and while @condition@
+-- is true.  The head of returned list is the youngest blund.
+loadBlundsFromTipWhile
     :: (Ssc ssc, MonadDB ssc m)
-    => (Block ssc -> Int -> Bool) -> m [(Block ssc, Undo)]
-loadBlocksFromTipWhile condition = getTip >>= loadBlocksWithUndoWhile condition
+    => (Block ssc -> Bool) -> m [(Block ssc, Undo)]
+loadBlundsFromTipWhile condition = getTip >>= loadBlundsWhile condition
+
+-- | Load blunds from BlockDB starting from tip which have depth less than given.
+-- The head of returned list is the youngest blund.
+loadBlundsFromTipByDepth
+    :: (Ssc ssc, MonadDB ssc m)
+    => Word -> m [(Block ssc, Undo)]
+loadBlundsFromTipByDepth d = getTip >>= loadBlundsByDepth d
+
+sanityCheckDB
+    :: (MonadMask m, MonadDB ssc m, WithLogger m)
+    => m ()
+sanityCheckDB = inAssertMode sanityCheckGStateDB
 
 ----------------------------------------------------------------------------
 -- Details

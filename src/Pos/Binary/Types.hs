@@ -6,14 +6,15 @@ module Pos.Binary.Types () where
 
 import           Data.Binary.Get     (getInt32be, getWord64be, getWord8, label)
 import           Data.Binary.Put     (putInt32be, putWord64be, putWord8)
-import           Formatting          (int, sformat, (%))
+import           Data.Ix             (inRange)
+import           Formatting          (formatToString, int, sformat, (%))
 import           Universum
 
 import           Pos.Binary.Class    (Bi (..), UnsignedVarInt (..))
 import           Pos.Binary.Merkle   ()
 import           Pos.Binary.Update   ()
 import           Pos.Binary.Version  ()
-import           Pos.Constants       (protocolMagic)
+import           Pos.Constants       (epochSlots, protocolMagic)
 import qualified Pos.Data.Attributes as A
 import           Pos.Ssc.Class.Types (Ssc (..))
 import qualified Pos.Types.Timestamp as T
@@ -45,7 +46,13 @@ instance Bi T.LocalSlotIndex where
 
 instance Bi T.SlotId where
     put (T.SlotId e s) = put e >> put s
-    get = T.SlotId <$> get <*> get
+    get = do
+        siEpoch <- get
+        siSlot <- get
+        let errMsg =
+                formatToString ("get@SlotId: invalid slotId ("%int%")") siSlot
+        unless (inRange (0, epochSlots - 1) siSlot) $ fail errMsg
+        return $ T.SlotId {..}
 
 instance Bi T.TxIn where
     put (T.TxIn hash index) = put hash >> put (UnsignedVarInt index)
@@ -212,6 +219,18 @@ instance Ssc ssc => Bi (T.Body (T.MainBlockchain ssc)) where
                             lenOut i lenDist
         return T.MainBody{..}
 
+instance Bi T.MainExtraHeaderData where
+    put T.MainExtraHeaderData {..} =  put _mehProtocolVersion
+                                   *> put _mehSoftwareVersion
+                                   *> put _mehAttributes
+    get = label "MainExtraHeaderData" $ T.MainExtraHeaderData <$> get <*> get <*> get
+
+instance Bi T.MainExtraBodyData where
+   put T.MainExtraBodyData {..} =  put _mebAttributes
+                                *> put _mebUpdate
+                                *> put _mebUpdateVotes
+   get = label "MainExtraBodyData" $ T.MainExtraBodyData <$> get <*> get <*> get
+
 ----------------------------------------------------------------------------
 -- GenesisBlock
 ----------------------------------------------------------------------------
@@ -227,15 +246,3 @@ instance Bi (T.ConsensusData (T.GenesisBlockchain ssc)) where
 instance Bi (T.Body (T.GenesisBlockchain ssc)) where
     put (T.GenesisBody leaders) = put leaders
     get = label "GenesisBody" $ T.GenesisBody <$> get
-
-instance Bi T.MainExtraHeaderData where
-    put T.MainExtraHeaderData {..} =  put _mehProtocolVersion
-                                   *> put _mehSoftwareVersion
-                                   *> put _mehAttributes
-    get = label "MainExtraHeaderData" $ T.MainExtraHeaderData <$> get <*> get <*> get
-
-instance Bi T.MainExtraBodyData where
-   put T.MainExtraBodyData {..} =  put _mebAttributes
-                                *> put _mebUpdate
-                                *> put _mebUpdateVotes
-   get = label "MainExtraBodyData" $ T.MainExtraBodyData <$> get <*> get <*> get

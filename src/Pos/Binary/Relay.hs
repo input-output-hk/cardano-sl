@@ -7,12 +7,14 @@ import           Universum
 import           Pos.Binary.Class                 (Bi (..))
 import           Pos.Binary.Crypto                ()
 import           Pos.Crypto                       (hash)
+import           Pos.Ssc.GodTossing.Types.Base    (VssCertificate (..))
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..))
 import           Pos.Txp.Types.Communication      (TxMsgContents (..))
 import           Pos.Types                        (TxId)
-import           Pos.Types.Address                (StakeholderId)
+import           Pos.Types.Address                (StakeholderId, addressHash)
 import           Pos.Update.Types                 (UpId, UpdateProposal)
-import           Pos.Util.Relay                   (DataMsg (..), InvMsg (..), ReqMsg (..))
+import           Pos.Util.Relay                   (DataMsg (..), DataMsgGodTossing (..),
+                                                   InvMsg (..), ReqMsg (..))
 
 instance (Bi tag, Bi key) => Bi (InvMsg key tag) where
     put InvMsg {..} = put imTag >> put imKeys
@@ -29,7 +31,24 @@ instance (Bi tag, Bi key) => Bi (ReqMsg key tag) where
 
 instance Bi (DataMsg StakeholderId GtMsgContents) where
     put DataMsg {..} = put dmContents >> put dmKey
-    get = liftM2 DataMsg get get
+    get = do
+        dmContents <- get
+        dmKey <- get
+        case dmContents of
+            MCCommitment (pk, _, _) ->
+                when (addressHash pk /= dmKey) $
+                fail
+                    "get@DataMsg@GodTossing: stakeholder ID doesn't correspond to public key from commitment"
+            MCVssCertificate VssCertificate {..} ->
+                when (addressHash vcSigningKey /= dmKey) $
+                fail
+                    "get@DataMsg@GodTossing: stakeholder ID doesn't correspond to public key from VSS certificate"
+            _ -> pass
+        return $ DataMsg {..}
+
+instance Bi DataMsgGodTossing where
+    put = put . getDataMsg
+    get = DataMsgGT <$> get
 
 instance Bi (DataMsg TxId TxMsgContents) where
     put (DataMsg (TxMsgContents dmTx dmWitness dmDistr) _) =

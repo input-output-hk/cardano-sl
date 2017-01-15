@@ -22,10 +22,11 @@ import           Data.Text.Buildable     (Buildable (build))
 import           Serokell.Util.Verify    (VerificationRes (..))
 import           Universum
 
+import           Pos.Binary.Relay        ()
 import           Pos.Binary.Class        (encode)
 import           Pos.Slotting            (onNewSlot)
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass (..))
-import           Pos.Ssc.Class.Listeners (SscListenersClass (..))
+import           Pos.Ssc.Class.Listeners (SscListenersClass (..), sscStubListeners)
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..))
 import           Pos.Ssc.Class.Storage   (SscStorageClass (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
@@ -66,11 +67,14 @@ instance SscHelpersClass SscNistBeacon where
     sscVerifyPayload = Tagged $ const $ const VerSuccess
 
 instance SscWorkersClass SscNistBeacon where
-    sscWorkers = Tagged [onNewSlot True $ \s -> sscRunLocalUpdate (put $ LocalData s)]
+    sscWorkers = Tagged
+        [ \_ -> onNewSlot True $ \s -> sscRunLocalUpdate (put $ LocalData s)
+        ]
     sscLrcConsumers = Tagged []
 
 instance SscListenersClass SscNistBeacon where
     sscListeners = Tagged []
+    sscStubListeners _ = []
 
 instance SscLocalDataClass SscNistBeacon where
     sscGetLocalPayloadQ = (,()) . getLocalData <$> ask

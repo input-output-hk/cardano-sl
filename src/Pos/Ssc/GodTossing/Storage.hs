@@ -10,23 +10,23 @@ module Pos.Ssc.GodTossing.Storage
        ( -- * Instances
          -- ** instance SscStorageClass SscGodTossing
          getGlobalCerts
-       , getVerifiedCerts
        , gtGetGlobalState
        ) where
 
 import           Control.Lens                   (over, to, use, view, views, (%=), (.=),
-                                                 (^.), _1, _2)
+                                                 (<>=), (^.), _1, _2)
 import           Control.Monad.IfElse           (whileM)
 import           Control.Monad.Reader           (ask)
 import           Data.Default                   (def)
 import qualified Data.HashMap.Strict            as HM
+import qualified Data.HashSet                   as HS
 import qualified Data.List.NonEmpty             as NE
 import           Serokell.Util.Verify           (VerificationRes (..), isVerSuccess,
                                                  verifyGeneric)
 import           Universum
 
 import           Pos.Binary.Ssc                 ()
-import           Pos.Constants                  (k, vssMaxTTL)
+import           Pos.Constants                  (epochSlots, vssMaxTTL)
 import           Pos.DB                         (MonadDB, getBlock, getBlockHeader,
                                                  loadBlocksWhile)
 import           Pos.Lrc.Types                  (Richmen)
@@ -36,9 +36,9 @@ import           Pos.Ssc.Extra.MonadGS          (MonadSscGS (..), sscRunGlobalQu
 import           Pos.Ssc.GodTossing.Error       (SeedError)
 import           Pos.Ssc.GodTossing.Functions   (checkCommShares,
                                                  checkOpeningMatchesCommitment,
-                                                 checkShares, isCommitmentIdx,
-                                                 isOpeningIdx, isSharesIdx,
-                                                 verifyGtPayload)
+                                                 checkShares, computeParticipants,
+                                                 isCommitmentIdx, isOpeningIdx,
+                                                 isSharesIdx, verifyGtPayload)
 import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
 import           Pos.Ssc.GodTossing.Seed        (calculateSeed)
 import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), GtPayload (..),
@@ -49,10 +49,10 @@ import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), GtPayload (
 import           Pos.Ssc.GodTossing.Types.Base  (VssCertificate (..))
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types                      (Block, EpochIndex, HeaderHash, NEBlocks,
-                                                 SharedSeed, SlotId (..), blockMpc,
-                                                 blockSlot, crucialSlot, epochIndexL,
-                                                 epochOrSlot, epochOrSlotG, gbHeader,
-                                                 prevBlockL)
+                                                 SharedSeed, SlotId (..), addressHash,
+                                                 blockMpc, blockSlot,
+                                                 epochIndexL, epochOrSlot, epochOrSlotG,
+                                                 gbHeader, prevBlockL)
 import           Pos.Util                       (readerToState)
 
 type GSQuery a  = forall m . (MonadReader GtGlobalState m) => m a
@@ -72,18 +72,19 @@ gtGetGlobalState = sscRunGlobalQuery ask
 
 getGlobalCerts
     :: (MonadSscGS SscGodTossing m)
-    => EpochIndex -> m VssCertificatesMap
-getGlobalCerts epoch =
+    => SlotId -> m VssCertificatesMap
+getGlobalCerts sl =
     sscRunGlobalQuery $
         VCD.certs .
-        VCD.setLastKnownSlot (SlotId epoch 0) <$>
+        VCD.setLastKnownSlot sl <$>
         view (gsVssCertificates)
 
+-- I doubt that crucialSlot is correct
 -- | Verified certs for slotId
-getVerifiedCerts :: (MonadSscGS SscGodTossing m) => SlotId -> m VssCertificatesMap
-getVerifiedCerts (crucialSlot . siEpoch -> crucSlotId) =
-    sscRunGlobalQuery $
-        VCD.certs . VCD.setLastKnownSlot crucSlotId <$> view gsVssCertificates
+-- getVerifiedCerts :: (MonadSscGS SscGodTossing m) => SlotId -> m VssCertificatesMap
+-- getVerifiedCerts (crucialSlot . siEpoch -> crucSlotId) =
+--     sscRunGlobalQuery $
+--         VCD.certs . VCD.setLastKnownSlot crucSlotId <$> view gsVssCertificates
 
 -- | Verify that if one adds given block to the current chain, it will
 -- remain consistent with respect to SSC-related data.
@@ -99,20 +100,23 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
         payload      = b ^. blockMpc
         curEpoch = siEpoch $ b ^. blockSlot
         blockCerts = _gpCertificates payload
+        richmenSet = HS.fromList $ NE.toList richmen
 
     globalCommitments <- view gsCommitments
     globalOpenings    <- view gsOpenings
     globalShares      <- view gsShares
     globalCerts       <- views gsVssCertificates VCD.certs
 
-    let isComm       = (isCommitmentIdx slotId, "slotId doesn't belong commitment phase")
-        isOpen       = (isOpeningIdx slotId, "slotId doesn't belong openings phase")
-        isShare      = (isSharesIdx slotId, "slotId doesn't belong share phase")
+    let isComm  = (isCommitmentIdx slotId, "slotId doesn't belong commitment phase")
+        isOpen  = (isOpeningIdx slotId, "slotId doesn't belong openings phase")
+        isShare = (isSharesIdx slotId, "slotId doesn't belong share phase")
+
     -- For commitments we
     --   * check that the nodes haven't already sent their commitments before
     --     in some different block
-    --   * check that a VSS certificate is present for the committing node
-    let commChecks comms certs =
+    --   * check that a VSS certificate is present for the committing nodeg
+    --   * every commitment owner has enough (mpc+delegated) stake
+    let commChecks comms =
             [ isComm
             , (all (`HM.member` participants)
                    (HM.keys comms),
@@ -125,8 +129,7 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
             -- [CSL-206]: check that share IDs are different.
             ]
           where
-            allCerts = certs <> globalCerts
-            participants = allCerts `HM.intersection` (HM.fromList $ zip (toList richmen) (repeat ()))
+            participants = computeParticipants richmen globalCerts
             vssPublicKeys = map vcVssKey $ toList participants
 
     -- For openings, we check that
@@ -138,8 +141,7 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
             , (all (not . (`HM.member` globalOpenings))
                    (HM.keys opens),
                    "some nodes have already sent their openings")
-            , (all (`HM.member` globalCommitments)
-                   (HM.keys opens),
+            , (all (`HM.member` globalCommitments) (HM.keys opens),
                    "some openings don't have corresponding commitments")
             , (all (checkOpeningMatchesCommitment globalCommitments) (HM.toList opens),
                    "some openings don't match corresponding commitments")
@@ -153,37 +155,37 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
     -- We don't check whether shares match the openings.
     let shareChecks shares =
             [ isShare
+            , (all (`HS.member` richmenSet) $ HM.keys shares,
+                   "some shares are posted by stakeholders that don't have enough stake")
             -- We intentionally don't check, that nodes which decrypted shares
             -- sent its commitments.
             -- If node decrypted shares correctly, such node is useful for us, despite of
             -- it didn't send its commitment.
             , (all (`HM.member` globalCommitments)
-                   (concatMap HM.keys (toList shares)),
+                   (concatMap HM.keys $ toList shares),
                    "some shares don't have corresponding commitments")
-            -- [CSL-203]: here we assume that all shares are always sent as a
-            -- whole package.
-            -- Use intersectionDoubleMap (doesn't exist yet) or something to
-            -- allow spliting shares into multiple messages.
             , (null (shares `HM.intersection` globalShares),
                    "some shares have already been sent")
-            , (all (uncurry (checkShares globalCommitments globalOpenings
-                             globalCerts)) $
-                     HM.toList shares,
+            , (all (uncurry (checkShares globalCommitments globalOpenings globalCerts))
+                   (HM.toList shares),
                    "some decrypted shares don't match encrypted shares \
                    \in the corresponding commitment")
             ]
+
     let certChecks certs =
             [
-              (all (maybe True
-                          ((==) curEpoch . vcExpiryEpoch)
-                          . flip HM.lookup globalCerts
-                   ) (HM.keys certs),
-               "some VSS certificates have been resubmitted earlier than expiry epoch")
+              (all (maybe True ((==) curEpoch . vcExpiryEpoch) . (`HM.lookup` globalCerts))
+                   (HM.keys certs),
+                   "some VSS certificates have been resubmitted \
+                   \earlier than expiry epoch")
+            , (all ((`HS.member` richmenSet) . addressHash . vcSigningKey)
+                   (HM.elems certs),
+                   "some VSS certificates' users are not passing stake threshold")
             ]
 
     let ourRes = verifyGeneric $ certChecks blockCerts ++
             case payload of
-                CommitmentsPayload comms certs -> commChecks comms certs
+                CommitmentsPayload comms _     -> commChecks comms
                 OpeningsPayload        opens _ -> openChecks opens
                 SharesPayload         shares _ -> shareChecks shares
                 CertificatesPayload          _ -> []
@@ -232,34 +234,37 @@ mpcProcessBlock blk = do
 -- | Head - youngest
 mpcRollback :: NEBlocks SscGodTossing -> GSUpdate ()
 mpcRollback blocks = do
-     -- is there guarantee that most genesis block won't be passed to mpcRollback?
-    let slot = prevSlot $ blkSlot $ NE.last blocks
-    -- Rollback certs
-    gsVssCertificates %= VCD.setLastKnownSlot slot
+    let slotMB = prevSlot $ blkSlot $ NE.last blocks
+     -- Rollback certs
+    case slotMB of
+        Nothing -> gsVssCertificates .= unionCerts genesisCertificates
+        Just slot -> gsVssCertificates %= VCD.setLastKnownSlot slot
     -- Rollback other payload
-    wasGenesis <- foldM (\wasGen b -> if wasGen then pure wasGen
-                                      else differenceBlock b)
-                         False blocks
+    wasGenesis <- foldM foldStep False blocks
     when wasGenesis resetGS
   where
-    prevSlot SlotId{..} =
-        if (siSlot == 0) then
-            if siEpoch == 0 then panic "Most genesis block passed to mpc rollback"
-            else SlotId (siEpoch - 1) (6 * k - 1)
-        else SlotId siEpoch (siSlot - 1)
+    foldStep wasGen b
+        | wasGen = pure wasGen
+        | otherwise = differenceBlock b
+    prevSlot si@SlotId {..}
+        | siSlot > 0 = Just $ si {siSlot = siSlot - 1}
+        | siEpoch > 0 = Just $ SlotId {siEpoch = siEpoch - 1, siSlot = epochSlots - 1}
+        -- It means that we are rolling back all main blocks.
+        | otherwise = Nothing
     differenceBlock :: Block SscGodTossing -> GSUpdate Bool
-    differenceBlock (Left _)  = pure True
+    differenceBlock (Left _) = pure True
     differenceBlock (Right b) = do
         let payload = b ^. blockMpc
         case payload of
             CommitmentsPayload comms _ ->
                 gsCommitments %= (`HM.difference` comms)
-            OpeningsPayload    opens _ ->
-                gsOpenings %= (`HM.difference` opens)
-            SharesPayload     shares _ ->
-                gsShares %= (`HM.difference` shares)
-            CertificatesPayload      _ -> return ()
+            OpeningsPayload opens _ -> gsOpenings %= (`HM.difference` opens)
+            SharesPayload shares _ -> gsShares %= (`HM.difference` shares)
+            CertificatesPayload _ -> return ()
         pure False
+    blkSlot :: Block ssc -> SlotId
+    blkSlot = epochOrSlot (flip SlotId 0) identity . (^. epochOrSlotG)
+    unionCerts = (foldl' (flip $ uncurry VCD.insert)) VCD.empty . HM.toList
 
 -- | Calculate leaders for the next epoch.
 calculateSeedQ :: EpochIndex -> GSQuery (Either SeedError SharedSeed)
@@ -274,10 +279,10 @@ mpcLoadGlobalState tip = do
     let endEpoch =
           epochOrSlot identity siEpoch $
               maybe (panic "No block header with such header hash")
-              (^. epochOrSlotG)
+              (view epochOrSlotG)
               bh
         startEpoch = safeSub endEpoch -- load blocks while >= endEpoch
-        whileEpoch b _ = epochOrSlot identity siEpoch (b ^. epochOrSlotG) >= startEpoch
+        whileEpoch b = b ^. epochIndexL >= startEpoch
         blkCert =
           either (const mempty)
                  (^. blockMpc
@@ -306,18 +311,18 @@ resetGS = do
     gsShares      .= mempty
 
 unionPayload :: GtPayload -> GtGlobalState -> GtGlobalState
-unionPayload payload =
-    execState (do
-    let blockCertificates = _gpCertificates payload
-    case payload of
-        CommitmentsPayload comms _ ->
-            gsCommitments %= HM.union comms
-        OpeningsPayload    opens _ ->
-            gsOpenings %= HM.union opens
-        SharesPayload     shares _ ->
-            gsShares %= HM.unionWith HM.union shares
-        CertificatesPayload      _ -> pure ()
-    gsVssCertificates %= flip (foldl' (flip $ uncurry VCD.insert)) (HM.toList blockCertificates))
+unionPayload payload gs =
+    flip execState gs $ do
+        let blockCertificates = _gpCertificates payload
+        case payload of
+            CommitmentsPayload comms _ -> gsCommitments <>= comms
+            OpeningsPayload opens _    -> gsOpenings <>= opens
+            SharesPayload shares _     -> gsShares <>= shares
+            CertificatesPayload _      -> pure ()
+        gsVssCertificates %=
+            flip
+                (foldl' (flip $ uncurry VCD.insert))
+                (HM.toList blockCertificates)
 
 -- | Union payloads of blocks until meet genesis block
 -- Invalid restore of VSS certificates
@@ -334,6 +339,3 @@ unionBlocks = whileM
                 _1 %= unionPayload (mb ^. blockMpc)
                 True <$ (_2 .= b ^. prevBlockL)
     ) (pure ())
-
-blkSlot :: Block ssc -> SlotId
-blkSlot = epochOrSlot (flip SlotId 0) identity . (^. epochOrSlotG)

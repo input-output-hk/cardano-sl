@@ -34,8 +34,7 @@ type SscGlobalUpdate ssc a = forall m . (MonadState (SscGlobalState ssc) m) => m
 
 type SscImpureQuery ssc a = forall m. ( MonadReader (SscGlobalState ssc) m
                                       , WithNodeContext ssc m
-                                      , MonadIO m) =>
-                                      m a
+                                      , MonadIO m) => m a
 
 class Ssc ssc => SscStorageClass ssc where
     sscLoadGlobalState :: MonadDB ssc m => HeaderHash ssc -> m (SscGlobalState ssc)

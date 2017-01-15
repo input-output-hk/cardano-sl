@@ -8,25 +8,26 @@ module Pos.Lrc.FollowTheSatoshi
        , followTheSatoshiM
        ) where
 
-import           Data.List.NonEmpty (NonEmpty, fromList)
+import qualified Data.HashMap.Strict as HM
+import           Data.List.NonEmpty  (NonEmpty, fromList)
 import           Universum
 
-import           Pos.Constants      (epochSlots)
-import           Pos.Crypto         (deterministic, randomNumber)
-import           Pos.Types.Coin     (coinToInteger, sumCoins, unsafeAddCoin)
-import           Pos.Types.Types    (Coin, SharedSeed (..), StakeholderId, TxOutAux, Utxo,
-                                     mkCoin, txOutStake)
-import           Pos.Util.Iterator  (MonadIterator (..), runListHolder)
+import           Pos.Constants       (epochSlots)
+import           Pos.Crypto          (deterministic, randomNumber)
+import           Pos.Types.Coin      (coinToInteger, sumCoins, unsafeAddCoin)
+import           Pos.Types.Types     (Coin, SharedSeed (..), StakeholderId, Utxo, mkCoin)
+import           Pos.Types.Utxo      (utxoToStakes)
+import           Pos.Util.Iterator   (MonadIterator (..), runListHolder)
 
 -- | A version of 'followTheSatoshi' that uses an iterator over 'TxOut's
 -- instead of 'Utxo'.
 followTheSatoshiM
-    :: forall m . MonadIterator m TxOutAux
+    :: forall m . MonadIterator m (StakeholderId, Coin)
     => SharedSeed -> Coin -> m (NonEmpty StakeholderId)
 followTheSatoshiM _ totalCoins
     | totalCoins == mkCoin 0 = panic "followTheSatoshiM: nobody has any stake"
 followTheSatoshiM (SharedSeed seed) totalCoins = do
-    res <- findLeaders (sortOn fst $ zip coinIndices [1..]) (mkCoin 0) []
+    res <- findLeaders (sortOn fst $ zip coinIndices [1..]) (mkCoin 0)
     pure . fromList . map fst . sortOn snd $ res
   where
     coinIndices :: [Coin]
@@ -38,29 +39,21 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
     findLeaders
         :: [(Coin, Int)]
         -> Coin
-        -> [(StakeholderId, Coin)] -- buffer of stake; we need it
-                                   -- because each TxOut can expand
-                                   -- into several pieces of stake
-                                   -- and we need some buffer to
-                                   -- iterate over them
         -> m [(StakeholderId, Int)]
     -- We found all coins we wanted to find
-    findLeaders [] _ _ = pure []
+    findLeaders [] _ = pure []
     -- We ran out of items in the buffer so we take a new output
     -- and refill the buffer
-    findLeaders cs sm [] = do
-        mbOut <- curItem
-        stake <- case mbOut of
-            Nothing -> panic "followTheSatoshiM: indices out of range"
-            Just out -> do _ <- nextItem @_ @TxOutAux
-                           return (txOutStake out)
-        findLeaders cs sm stake
-    -- We check whether `c` is covered by current item in the buffer
-    findLeaders (c:cs) sm buf@((adr, val):bufRest)
-        | sm' >= fst c = ((adr, snd c):) <$> findLeaders cs sm buf
-        | otherwise = findLeaders (c:cs) sm' bufRest
+    findLeaders coins sm = nextItem @_ @(StakeholderId, Coin) >>=
+        maybe (panic "followTheSatoshiM: indices out of range") (onItem coins)
       where
-        sm' = unsafeAddCoin sm val
+        -- We check whether `c` is covered by current item in the buffer
+        onItem [] _ = pure []
+        onItem (c:cs) it@(adr, val)
+            | sm' >= fst c = ((adr, snd c):) <$> onItem cs it
+            | otherwise = findLeaders (c:cs) sm'
+          where
+            sm' = unsafeAddCoin sm val
 
 -- | Choose several random stakeholders (specifically, their amount is
 -- currently hardcoded in 'Pos.Constants.epochSlots').
@@ -82,7 +75,7 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
 -- of follow-the-satoshi.
 followTheSatoshi :: SharedSeed -> Utxo -> NonEmpty StakeholderId
 followTheSatoshi seed utxo
-    | null outputs =
+    | null stakes =
           panic "followTheSatoshi: utxo is empty"
     | totalCoins > coinToInteger (maxBound @Coin) =
           panic "followTheSatoshi: totalCoins exceeds Word64"
@@ -90,7 +83,7 @@ followTheSatoshi seed utxo
           runListHolder
               (followTheSatoshiM seed
                    (mkCoin (fromInteger totalCoins)))
-              outputs
+              stakes
   where
-    outputs = toList utxo
-    totalCoins = sumCoins (map snd (concatMap txOutStake outputs))
+    stakes = HM.toList $ utxoToStakes utxo
+    totalCoins = sumCoins $ map snd stakes

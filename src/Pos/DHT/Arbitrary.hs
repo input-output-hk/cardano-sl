@@ -8,12 +8,12 @@ import           Data.DeriveTH   (derive, makeArbitrary)
 import           Test.QuickCheck (Arbitrary (..), oneof)
 import           Universum
 
-import           Pos.DHT.Model    (DHTMsgHeader (..), DHTData (..), DHTKey (..))
+--import           Pos.DHT.Model    (DHTMsgHeader (..), DHTData (..), DHTKey (..))
 
-instance Arbitrary DHTMsgHeader where
-    arbitrary = oneof [ pure BroadcastHeader
-                      , SimpleHeader <$> arbitrary
-                      ]
+--instance Arbitrary DHTMsgHeader where
+--    arbitrary = oneof [ pure BroadcastHeader
+--                      , SimpleHeader <$> arbitrary
+--                      ]
 
-derive makeArbitrary ''DHTData
-derive makeArbitrary ''DHTKey
+--derive makeArbitrary ''DHTData
+--derive makeArbitrary ''DHTKey

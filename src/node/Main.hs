@@ -1,70 +1,65 @@
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections       #-}
 
 module Main where
 
-import qualified Data.ByteString.Lazy as LBS
-import           Data.List            ((!!))
-import           System.Directory     (createDirectoryIfMissing)
-import           System.FilePath      ((</>))
-import           System.Wlog          (LoggerName)
+import           Control.Lens        ((%~), (.~), (^.), (^?), _head)
+import           Data.List           ((!!))
+import           Data.Maybe          (fromJust)
+import           Data.Proxy          (Proxy (..))
+import           Mockable            (Production)
+import           System.Wlog         (LoggerName)
 import           Universum
 
-import           Pos.Binary           (Bi, decode, encode)
-import qualified Pos.CLI              as CLI
-import           Pos.Constants        (RunningMode (..), runningMode)
-import           Pos.Crypto           (VssKeyPair, vssKeyGen)
-import           Pos.DHT.Model        (DHTKey, DHTNodeType (..), dhtNodeType)
-import           Pos.DHT.Real         (KademliaDHTInstance)
-import           Pos.Genesis          (genesisSecretKeys, genesisUtxo)
-import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
-                                       NodeParams (..), bracketDHTInstance,
-                                       runNodeProduction, runNodeStats, runSupporterReal,
-                                       runTimeLordReal, runTimeSlaveReal, stakesDistr)
-import           Pos.Ssc.GodTossing   (genesisVssKeyPairs)
-import           Pos.Ssc.GodTossing   (GtParams (..), SscGodTossing)
-import           Pos.Ssc.NistBeacon   (SscNistBeacon)
-import           Pos.Ssc.SscAlgo      (SscAlgo (..))
-import           Pos.Types            (Timestamp)
+import           Pos.Binary          ()
+import qualified Pos.CLI             as CLI
+import           Pos.Constants       (RunningMode (..), runningMode)
+import           Pos.Crypto          (SecretKey, VssKeyPair, keyGen, vssKeyGen)
+import           Pos.DHT.Model       (DHTKey, DHTNodeType (..), dhtNodeType)
+#ifdef DEV_MODE
+import           Pos.Genesis         (genesisSecretKeys)
+#else
+import           Pos.Genesis         (genesisStakeDistribution)
+#endif
+import           Pos.Genesis         (genesisUtxo)
+import           Pos.Launcher        (BaseParams (..), LoggingParams (..),
+                                      NodeParams (..), RealModeResources,
+                                      bracketResources, runNodeProduction, runNodeStats,
+                                      runTimeLordReal, runTimeSlaveReal, stakesDistr)
+#ifdef DEV_MODE
+import           Pos.Ssc.GodTossing  (genesisVssKeyPairs)
+#endif
+import           Pos.Ssc.Class       (SscListenersClass)
+import           Pos.Ssc.GodTossing  (GtParams (..), SscGodTossing)
+import           Pos.Ssc.NistBeacon  (SscNistBeacon)
+import           Pos.Ssc.SscAlgo     (SscAlgo (..))
+import           Pos.Types           (Timestamp)
+import           Pos.Util.UserSecret (UserSecret, peekUserSecret, usKeys, usVss,
+                                      writeUserSecret)
 #ifdef WITH_WEB
-import           Pos.Ssc.Class        (SscConstraint)
-import           Pos.Web              (serveWebBase, serveWebGT)
-import           Pos.WorkMode         (WorkMode)
+import           Pos.Web             (serveWebBase, serveWebGT)
+import           Pos.WorkMode        (WorkMode)
 #ifdef WITH_WALLET
-import           Pos.WorkMode         (ProductionMode, RawRealMode, StatsMode)
+import           Pos.Ssc.Class       (SscConstraint)
+import           Pos.WorkMode        (ProductionMode, RawRealMode, StatsMode)
 
-import           Pos.Wallet.Web       (walletServeWebFull)
+import           Node                (SendActions, hoistSendActions)
+import           Pos.Communication   (BiP)
+import           Pos.Statistics      (getNoStatsT, getStatsMap, runStatsT')
+import           Pos.Wallet.Web      (walletServeWebFull)
 #endif
 #endif
 
-import           NodeOptions          (Args (..), getNodeOptions)
+import           NodeOptions         (Args (..), getNodeOptions)
 
-
-getKey
-    :: Bi key
-    => Maybe key -> Maybe FilePath -> FilePath -> IO key -> IO key
-getKey (Just key) _ _ _ = return key
-getKey _ (Just path) _ _ = decode' path
-getKey _ _ fpath gen = do
-    createDirectoryIfMissing True "cardano-keys"
-    decode' ("cardano-keys" </> fpath) `catch` \(_ :: SomeException) -> do
-        key <- gen
-        LBS.writeFile ("cardano-keys" </> fpath) $ encode key
-        putStrLn $ "Generated key " ++ ("cardano-keys" </> fpath)
-        return key
-
-decode' :: Bi key => FilePath -> IO key
-decode' fpath = either fail' return . decode =<< LBS.readFile fpath
-  where
-    fail' e = fail $ "Error reading key from " ++ fpath ++ ": " ++ e
-
-getSystemStart :: KademliaDHTInstance -> Args -> IO Timestamp
-getSystemStart inst args =
+getSystemStart :: SscListenersClass ssc => Proxy ssc -> RealModeResources -> Args -> Production Timestamp
+getSystemStart sscProxy inst args  =
     case runningMode of
         Development ->
             if timeLord args
                 then runTimeLordReal (loggingParams "time-lord" args)
-                else runTimeSlaveReal inst (baseParams "time-slave" args)
+                else runTimeSlaveReal sscProxy inst (baseParams "time-slave" args)
         Production systemStart -> return systemStart
 
 loggingParams :: LoggerName -> Args -> LoggingParams
@@ -79,7 +74,7 @@ baseParams :: LoggerName -> Args -> BaseParams
 baseParams loggingTag args@Args {..} =
     BaseParams
     { bpLoggingParams = loggingParams loggingTag args
-    , bpPort = port
+    , bpIpPort = ipPort
     , bpDHTPeers = CLI.dhtPeers commonArgs
     , bpDHTKeyOrType = dhtKeyOrType
     , bpDHTExplicitInitial = CLI.dhtExplicitInitial commonArgs
@@ -89,7 +84,7 @@ baseParams loggingTag args@Args {..} =
         | supporterNode = maybe (Right DHTSupporter) Left dhtKey
         | otherwise = maybe (Right DHTFull) Left dhtKey
 
-checkDhtKey :: Bool -> Maybe DHTKey -> IO ()
+checkDhtKey :: Bool -> Maybe DHTKey -> Production ()
 checkDhtKey _ Nothing = pass
 checkDhtKey isSupporter (Just (dhtNodeType -> keyType))
     | keyType == Just expectedType = pass
@@ -103,20 +98,17 @@ checkDhtKey isSupporter (Just (dhtNodeType -> keyType))
         | isSupporter = DHTSupporter
         | otherwise = DHTFull
 
-action :: Args -> KademliaDHTInstance -> IO ()
-action args@Args {..} inst = do
+action :: Args -> RealModeResources -> Production ()
+action args@Args {..} res = do
     checkDhtKey supporterNode dhtKey
     if supporterNode
-        then runSupporterReal inst (baseParams "supporter" args)
+        then fail "Supporter not supported" -- runSupporterReal res (baseParams "supporter" args)
         else do
-            vssSK <-
-                getKey
-                    ((genesisVssKeyPairs !!) <$> vssGenesisI)
-                    vssSecretPath
-                    "vss.keypair"
-                    vssKeyGen
-            systemStart <- getSystemStart inst args
-            let currentParams = nodeParams args systemStart
+            systemStart <- case CLI.sscAlgo commonArgs of
+                               GodTossingAlgo -> getSystemStart (Proxy :: Proxy SscGodTossing) res args
+                               NistBeaconAlgo -> getSystemStart (Proxy :: Proxy SscNistBeacon) res args
+            currentParams <- getNodeParams args systemStart
+            let vssSK = fromJust $ npUserSecret currentParams ^. usVss
                 gtParams = gtSscParams args vssSK
 #ifdef WITH_WEB
                 currentPlugins :: (SscConstraint ssc, WorkMode ssc m) => [m ()]
@@ -133,32 +125,96 @@ action args@Args {..} inst = do
             putText $ "If stats is on: " <> show enableStats
             case (enableStats, CLI.sscAlgo commonArgs) of
                 (True, GodTossingAlgo) ->
-                    runNodeStats @SscGodTossing inst (currentPluginsGT ++ walletStats args) currentParams gtParams
+                    runNodeStats @SscGodTossing res (map const currentPluginsGT ++ walletStats args) currentParams gtParams
                 (True, NistBeaconAlgo) ->
-                    runNodeStats @SscNistBeacon inst (currentPlugins ++ walletStats args) currentParams ()
+                    runNodeStats @SscNistBeacon res (map const currentPlugins ++  walletStats args) currentParams ()
                 (False, GodTossingAlgo) ->
-                    runNodeProduction @SscGodTossing inst (currentPluginsGT ++ walletProd args) currentParams gtParams
+                    runNodeProduction @SscGodTossing res (map const currentPluginsGT ++ walletProd args) currentParams gtParams
                 (False, NistBeaconAlgo) ->
-                    runNodeProduction @SscNistBeacon inst (currentPlugins ++ walletProd args) currentParams ()
+                    runNodeProduction @SscNistBeacon res (map const currentPlugins ++ walletProd args) currentParams ()
 
-nodeParams :: Args -> Timestamp -> NodeParams
-nodeParams args@Args {..} systemStart =
-    NodeParams
-    { npDbPathM = dbPath
-    , npRebuildDb = rebuildDB
-    , npSecretKey = (genesisSecretKeys !!) <$> spendingGenesisI
-    , npKeyfilePath = maybe keyfilePath (\i -> "node-" ++ show i ++ "." ++ keyfilePath) spendingGenesisI
-    , npSystemStart = systemStart
-    , npBaseParams = baseParams "node" args
-    , npCustomUtxo =
-            genesisUtxo $
-                stakesDistr (CLI.flatDistr commonArgs) (CLI.bitcoinDistr commonArgs)
-    , npTimeLord = timeLord
-    , npJLFile = jlPath
-    , npAttackTypes = maliciousEmulationAttacks
-    , npAttackTargets = maliciousEmulationTargets
-    , npPropagation = not (CLI.disablePropagation commonArgs)
-    }
+#ifdef DEV_MODE
+userSecretWithGenesisKey
+    :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m (SecretKey, UserSecret)
+userSecretWithGenesisKey Args {..} userSecret = case spendingGenesisI of
+    Nothing -> fetchPrimaryKey userSecret
+    Just i -> do
+        let sk = genesisSecretKeys !! i
+            us = userSecret & usKeys %~ (sk :) . filter (/= sk)
+        writeUserSecret us
+        return (sk, us)
+
+getKeyfilePath :: Args -> FilePath
+getKeyfilePath Args {..} =
+    maybe keyfilePath (\i -> "node-" ++ show i ++ "." ++ keyfilePath) spendingGenesisI
+
+updateUserSecretVSS
+    :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m UserSecret
+updateUserSecretVSS Args {..} us = case vssGenesisI of
+    Just i  -> return $ us & usVss .~ Just (genesisVssKeyPairs !! i)
+    Nothing -> fillUserSecretVSS us
+#else
+userSecretWithGenesisKey
+    :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m (SecretKey, UserSecret)
+userSecretWithGenesisKey _ = fetchPrimaryKey
+
+getKeyfilePath :: Args -> FilePath
+getKeyfilePath = keyfilePath
+
+updateUserSecretVSS
+    :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m UserSecret
+updateUserSecretVSS _ = fillUserSecretVSS
+#endif
+
+fetchPrimaryKey :: (MonadIO m, MonadFail m) => UserSecret -> m (SecretKey, UserSecret)
+fetchPrimaryKey userSecret = case userSecret ^? usKeys . _head of
+    Just sk -> return (sk, userSecret)
+    Nothing -> do
+        putText "Found no signing keys in keyfile, generating random one..."
+        sk <- snd <$> keyGen
+        let us = userSecret & usKeys .~ [sk]
+        writeUserSecret us
+        return (sk, us)
+
+fillUserSecretVSS :: (MonadIO m, MonadFail m) => UserSecret -> m UserSecret
+fillUserSecretVSS userSecret = case userSecret ^. usVss of
+    Just _  -> return userSecret
+    Nothing -> do
+        putText "Found no VSS keypair in keyfile, generating random one..."
+        vss <- vssKeyGen
+        let us = userSecret & usVss .~ Just vss
+        writeUserSecret us
+        return us
+
+getNodeParams :: (MonadIO m, MonadFail m) => Args -> Timestamp -> m NodeParams
+getNodeParams args@Args {..} systemStart = do
+    (primarySK, userSecret) <-
+        userSecretWithGenesisKey args =<<
+        updateUserSecretVSS args =<<
+        peekUserSecret (getKeyfilePath args)
+
+    return NodeParams
+        { npDbPathM = dbPath
+        , npRebuildDb = rebuildDB
+        , npSecretKey = primarySK
+        , npUserSecret = userSecret
+        , npSystemStart = systemStart
+        , npBaseParams = baseParams "node" args
+        , npCustomUtxo =
+                genesisUtxo $
+#ifdef DEV_MODE
+                stakesDistr (CLI.flatDistr commonArgs)
+                            (CLI.bitcoinDistr commonArgs)
+                            (CLI.expDistr commonArgs)
+#else
+                genesisStakeDistribution
+#endif
+        , npTimeLord = timeLord
+        , npJLFile = jlPath
+        , npAttackTypes = maliciousEmulationAttacks
+        , npAttackTargets = maliciousEmulationTargets
+        , npPropagation = not (CLI.disablePropagation commonArgs)
+        }
 
 gtSscParams :: Args -> VssKeyPair -> GtParams
 gtSscParams Args {..} vssSK =
@@ -184,17 +240,33 @@ pluginsGT Args {..}
 #endif
 
 #if defined WITH_WEB && defined WITH_WALLET
-walletServe :: SscConstraint ssc => Args -> [RawRealMode ssc ()]
+walletServe
+    :: SscConstraint ssc
+    => Args
+    -> [SendActions BiP (RawRealMode ssc) -> RawRealMode ssc ()]
 walletServe Args {..} =
     if enableWallet
-    then [walletServeWebFull walletDebug walletDbPath walletRebuildDb walletPort]
+    then [\sendActions -> walletServeWebFull sendActions walletDebug walletDbPath
+        walletRebuildDb walletPort]
     else []
 
-walletProd :: SscConstraint ssc => Args -> [ProductionMode ssc ()]
-walletProd = map lift . walletServe
+walletProd
+    :: SscConstraint ssc
+    => Args
+    -> [SendActions BiP (ProductionMode ssc) -> ProductionMode ssc ()]
+walletProd = map liftPlugin . walletServe
+  where
+    liftPlugin = \p sa -> lift . p $ hoistSendActions getNoStatsT lift sa
 
-walletStats :: SscConstraint ssc => Args -> [StatsMode ssc ()]
-walletStats = map lift . walletServe
+walletStats
+    :: SscConstraint ssc
+    => Args
+    -> [SendActions BiP (StatsMode ssc) -> StatsMode ssc ()]
+walletStats = map (liftPlugin) . walletServe
+  where
+    liftPlugin = \p sa -> do
+        s <- getStatsMap
+        lift . p $ hoistSendActions (runStatsT' s) lift sa
 #else
 walletProd, walletStats :: Args -> [a]
 walletProd _ = []
@@ -203,5 +275,5 @@ walletStats _ = []
 
 main :: IO ()
 main = do
-    args <- getNodeOptions
-    bracketDHTInstance (baseParams "node" args) (action args)
+    args@Args{..} <- getNodeOptions
+    bracketResources (baseParams "node" args) (action args)

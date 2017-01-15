@@ -12,12 +12,13 @@ module Pos.Wallet.Web.Server.Methods
        ) where
 
 import           Control.Monad.Except          (runExceptT)
-import           Control.TimeWarp.Timed        (Millisecond)
 import           Data.Default                  (def)
 import           Data.List                     (elemIndex, (!!))
 import           Data.Time.Clock.POSIX         (getPOSIXTime)
+import           Data.Time.Units               (Millisecond)
 import           Formatting                    (build, ords, sformat, stext, (%))
 import           Network.Wai                   (Application)
+import           Node                          (SendActions, hoistSendActions)
 import           Pos.Crypto                    (hash)
 import           Servant.API                   ((:<|>) ((:<|>)),
                                                 FromHttpApiData (parseUrlPiece))
@@ -35,6 +36,7 @@ import           Pos.Types                     (Address, Coin, Tx, TxId, TxOut (
 import           Pos.Web.Server                (serveImpl)
 
 import           Control.Monad.Catch           (try)
+import           Pos.Communication.BiP         (BiP)
 import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
                                                 newSecretKey)
 import           Pos.Wallet.Tx                 (submitTx)
@@ -50,15 +52,26 @@ import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CProf
 import           Pos.Wallet.Web.Error          (WalletError (..))
 import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 WalletWebSockets, closeWSConnection,
+                                                getWalletWebSocketsState,
                                                 initWSConnection, notify, runWalletWS,
                                                 upgradeApplicationWS)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
                                                 addOnlyNewTxMeta, closeState,
                                                 createWallet, getProfile, getTxMeta,
                                                 getWalletHistory, getWalletMeta,
-                                                openState, removeWallet, runWalletWebDB,
-                                                setProfile, setWalletMeta,
+                                                getWalletState, openState, removeWallet,
+                                                runWalletWebDB, setProfile, setWalletMeta,
                                                 setWalletTransactionMeta)
+-- <<<<<<< HEAD
+--                                                 initWSConnection, notify, runWalletWS,
+--                                                 upgradeApplicationWS)
+-- import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
+--                                                 addOnlyNewTxMeta, closeState,
+--                                                 createWallet, getProfile, getTxMeta,
+--                                                 getWalletHistory, getWalletMeta,
+--                                                 openState, removeWallet, runWalletWebDB,
+--                                                 setProfile, setWalletMeta,
+-- =======
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -93,15 +106,22 @@ walletApplication serv = do
     serv >>= return . upgradeApplicationWS wsConn . serve walletApi
 
 walletServer
-    :: WalletWebMode ssc m
-    => m (m :~> Handler)
-    -> m (Server WalletApi)
-walletServer nat = do
+    :: WalletMode ssc m
+    => SendActions BiP m
+    -> WalletWebHandler m (WalletWebHandler m :~> Handler)
+    -> WalletWebHandler m (Server WalletApi)
+walletServer sendActions nat = do
     whenM (isNothing <$> getProfile) $
         createUserProfile >>= setProfile
-    join $ mapM_ insertAddressMeta <$> myCAddresses
+    ws    <- lift getWalletState
+    socks <- getWalletWebSocketsState
+    let sendActions' = hoistSendActions
+            (lift . lift)
+            (runWalletWebDB ws . runWalletWS socks)
+            sendActions
     nat >>= launchNotifier
-    flip enter servantHandlers <$> nat
+    join $ mapM_ insertAddressMeta <$> myCAddresses
+    (`enter` servantHandlers sendActions') <$> nat
   where
     insertAddressMeta cAddr =
         getWalletMeta cAddr >>= createWallet cAddr . fromMaybe def
@@ -145,15 +165,15 @@ type WalletWebMode ssc m
       , MonadWalletWebSockets m
       )
 
-servantHandlers :: WalletWebMode ssc m => ServerT WalletApi m
-servantHandlers =
-     catchWalletError . getWallet
+servantHandlers :: WalletWebMode ssc m => SendActions BiP m -> ServerT WalletApi m
+servantHandlers sendActions =
+     (catchWalletError . getWallet)
     :<|>
      catchWalletError getWallets
     :<|>
-     (\a b -> catchWalletError . send a b)
+     (\a b -> catchWalletError . send sendActions a b)
     :<|>
-     (\a b c d e -> catchWalletError . sendExtended a b c d e)
+     (\a b c d e -> catchWalletError . sendExtended sendActions a b c d e)
     :<|>
      catchWalletError . getHistory
     :<|>
@@ -210,18 +230,19 @@ decodeCAddressOrFail = either wrongAddress pure . cAddressToAddress
 getWallets :: WalletWebMode ssc m => m [CWallet]
 getWallets = join $ mapM getWallet <$> myCAddresses
 
-send :: WalletWebMode ssc m => CAddress -> CAddress -> Coin -> m CTx
-send srcCAddr dstCAddr c = sendExtended srcCAddr dstCAddr c ADA mempty mempty
+send :: WalletWebMode ssc m => SendActions BiP m -> CAddress -> CAddress -> Coin -> m CTx
+send sendActions srcCAddr dstCAddr c =
+    sendExtended sendActions srcCAddr dstCAddr c ADA mempty mempty
 
-sendExtended :: WalletWebMode ssc m => CAddress -> CAddress -> Coin -> CCurrency -> Text -> Text -> m CTx
-sendExtended srcCAddr dstCAddr c curr title desc = do
+sendExtended :: WalletWebMode ssc m => SendActions BiP m -> CAddress -> CAddress -> Coin -> CCurrency -> Text -> Text -> m CTx
+sendExtended sendActions srcCAddr dstCAddr c curr title desc = do
     srcAddr <- decodeCAddressOrFail srcCAddr
     dstAddr <- decodeCAddressOrFail dstCAddr
     idx <- getAddrIdx srcAddr
     sks <- getSecretKeys
     let sk = sks !! idx
     na <- fmap dhtAddr <$> getKnownPeers
-    etx <- submitTx sk na [(TxOut dstAddr c, [])]
+    etx <- submitTx sendActions sk na [(TxOut dstAddr c, [])]
     case etx of
         Left err -> throwM . Internal $ sformat ("Cannot send transaction: "%stext) err
         Right (tx, _, _) -> do

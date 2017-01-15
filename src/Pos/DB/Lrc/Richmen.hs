@@ -41,16 +41,17 @@ import           Universum
 
 import           Pos.Binary.Class      (Bi, encodeStrict)
 import           Pos.Binary.Types      ()
-import           Pos.Constants         (delegationThreshold, updateVoteThreshold)
+import           Pos.Constants         (delegationThreshold, mpcThreshold,
+                                        updateVoteThreshold)
 import           Pos.Context.Class     (WithNodeContext)
 import           Pos.Context.Functions (genesisUtxoM)
 import           Pos.DB.Class          (MonadDB)
 import           Pos.DB.Lrc.Common     (getBi, putBi)
 import           Pos.Genesis           (genesisDelegation)
-import           Pos.Lrc.Eligibility   (RichmenType (..), findRichmenPure)
+import           Pos.Lrc.Logic         (RichmenType (..), findRichmenPure)
 import           Pos.Lrc.Types         (FullRichmenData, Richmen, toRichmen)
 import           Pos.Types             (Coin, EpochIndex, StakeholderId, applyCoinPortion,
-                                        mkCoin, txOutStake)
+                                        txOutStake)
 
 ----------------------------------------------------------------------------
 -- Class
@@ -182,8 +183,7 @@ instance RichmenComponent RCSsc where
     type RichmenData RCSsc = Richmen
     rcToData = toRichmen . snd
     rcTag Proxy = "ssc"
-    -- [CSL-93] Use eligibility threshold here.
-    rcThreshold Proxy = const (mkCoin 0)
+    rcThreshold Proxy = applyCoinPortion mpcThreshold
     rcConsiderDelegated Proxy = True
 
 getRichmenSsc :: MonadDB ssc m => EpochIndex -> m (Maybe Richmen)

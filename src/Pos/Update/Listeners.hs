@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes  #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Server which handles update system.
@@ -7,36 +7,39 @@ module Pos.Update.Listeners
        ( usListeners
        ) where
 
-import qualified Data.HashMap.Strict     as HM
-import           Serokell.Util.Verify    (VerificationRes (..))
+import           Node                     (ListenerAction (..))
+import           Serokell.Util.Verify     (VerificationRes (..))
 import           Universum
 
-import           Pos.Binary.Relay        ()
-import           Pos.Communication.Types (MutSocketState, ResponseMode)
-import           Pos.DHT.Model           (ListenerDHT (..), MonadDHTDialog)
-import           Pos.Update.Types        (ProposalMsgTag (..), UpId, UpdateProposal (..))
-import           Pos.Util.Relay          (DataMsg, InvMsg, Relay (..), ReqMsg,
-                                          handleDataL, handleInvL, handleReqL)
-import           Pos.WorkMode            (WorkMode)
+import           Pos.Binary.Communication ()
+import           Pos.Binary.Relay         ()
+import           Pos.Communication.BiP    (BiP)
+import           Pos.Update.Types         (ProposalMsgTag (..), UpId, UpdateProposal (..))
+import           Pos.Util.Relay           (DataMsg, InvMsg, Relay (..), ReqMsg,
+                                           handleDataL, handleInvL, handleReqL)
+import           Pos.WorkMode             (WorkMode)
 
 -- | Listeners for requests related to update system
 usListeners
-    :: (MonadDHTDialog (MutSocketState ssc) m, WorkMode ssc m)
-    => [ListenerDHT (MutSocketState ssc) m]
+    :: (WorkMode ssc m)
+    => [ListenerAction BiP m]
 usListeners =
-    [ ListenerDHT handleInvProposal
-    , ListenerDHT handleReqProposal
-    , ListenerDHT handleDataProposal
+    [ handleInvProposal
+    , handleReqProposal
+    , handleDataProposal
     ]
 
-handleInvProposal :: ResponseMode ssc m => InvMsg UpId ProposalMsgTag -> m ()
-handleInvProposal = handleInvL
+handleInvProposal :: WorkMode ssc m => ListenerAction BiP m
+handleInvProposal = ListenerActionOneMsg $ \peerId sendActions (i :: InvMsg UpId ProposalMsgTag) ->
+    handleInvL i peerId sendActions
 
-handleReqProposal :: ResponseMode ssc m => ReqMsg UpId ProposalMsgTag -> m ()
-handleReqProposal = handleReqL
+handleReqProposal :: WorkMode ssc m => ListenerAction BiP m
+handleReqProposal = ListenerActionOneMsg $ \peerId sendActions (i :: ReqMsg UpId ProposalMsgTag) ->
+    handleReqL i peerId sendActions
 
-handleDataProposal :: ResponseMode ssc m => DataMsg UpId UpdateProposal -> m ()
-handleDataProposal = handleDataL
+handleDataProposal :: WorkMode ssc m => ListenerAction BiP m
+handleDataProposal = ListenerActionOneMsg $ \peerId sendActions (i :: DataMsg UpId UpdateProposal) ->
+    handleDataL i peerId sendActions
 
 instance WorkMode ssc m =>
          Relay m ProposalMsgTag UpId UpdateProposal where
@@ -45,10 +48,7 @@ instance WorkMode ssc m =>
     verifyInvTag _ = pure VerSuccess
     verifyReqTag _ = pure VerSuccess
     -- TODO: maybe somehow check that versions are not decreasing or whatevs?
-    verifyDataContents UpdateProposal{..} = pure $
-        if HM.null upData
-        then VerFailure ["Empty update"]
-        else VerSuccess
+    verifyDataContents UpdateProposal{..} = pure VerSuccess
 
     handleInv _ _ = notImplemented
     handleReq _ _ = notImplemented

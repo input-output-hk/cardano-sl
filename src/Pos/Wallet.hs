@@ -1,7 +1,9 @@
 module Pos.Wallet
-       ( module Wallet
+       ( module Pos.Wallet.Launcher
+       , module Pos.Wallet.Tx
+       , module Pos.Wallet.WalletMode
        ) where
 
-import           Pos.Wallet.Launcher   as Wallet
-import           Pos.Wallet.Tx         as Wallet
-import           Pos.Wallet.WalletMode as Wallet
+import           Pos.Wallet.Launcher
+import           Pos.Wallet.Tx
+import           Pos.Wallet.WalletMode

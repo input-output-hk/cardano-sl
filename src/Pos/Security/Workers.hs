@@ -10,27 +10,34 @@ import           Control.Lens                      ((^.))
 import           Control.Monad.Trans.Reader        (ReaderT (..), ask)
 import qualified Data.HashMap.Strict               as HM
 import           Data.Tagged                       (Tagged (..))
-import           System.Wlog                       (logWarning)
+import           Formatting                        (sformat, (%))
+import           Node                              (SendActions)
+import           System.Wlog                       (logError, logWarning)
 import           Universum                         hiding (ask)
 
-import           Pos.Constants                     (k, mdNoBlocksSlotThreshold,
+import           Pos.Block.Network.Retrieval       (mkHeadersRequest, requestHeaders)
+import           Pos.Communication.BiP             (BiP)
+import           Pos.Constants                     (blkSecurityParam,
+                                                    mdNoBlocksSlotThreshold,
                                                     mdNoCommitmentsEpochThreshold)
 import           Pos.Context                       (getNodeContext, ncPublicKey)
-import           Pos.DB                            (getTipBlock, loadBlocksFromTipWhile)
+import           Pos.Crypto                        (PublicKey, shortHashF)
+import           Pos.DB                            (getBlockHeader, getTipBlockHeader,
+                                                    loadBlundsFromTipByDepth)
+import           Pos.DHT.Model                     (converseToNeighbors)
+import           Pos.Security.Class                (SecurityWorkersClass (..))
 import           Pos.Slotting                      (onNewSlot)
-import           Pos.Ssc.Class.Types               (Ssc (..))
 import           Pos.Ssc.GodTossing.Types.Instance ()
 import           Pos.Ssc.GodTossing.Types.Type     (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types    (GtPayload (..), SscBi)
 import           Pos.Ssc.NistBeacon                (SscNistBeacon)
-import           Pos.Types                         (EpochIndex, MainBlock, SlotId (..),
-                                                    blockMpc, flattenSlotId, gbHeader,
-                                                    gbhConsensus, gcdEpoch, headerSlot)
+import           Pos.Types                         (BlockHeader, EpochIndex, MainBlock,
+                                                    SlotId (..), blockMpc,
+                                                    flattenEpochOrSlot, flattenSlotId,
+                                                    genesisHash, headerLeaderKey,
+                                                    prevBlockL)
 import           Pos.Types.Address                 (addressHash)
 import           Pos.WorkMode                      (WorkMode)
-
-class Ssc ssc => SecurityWorkersClass ssc where
-    securityWorkers :: WorkMode ssc m => Tagged ssc [m ()]
 
 instance SscBi => SecurityWorkersClass SscGodTossing where
     securityWorkers = Tagged [ checkForReceivedBlocksWorker
@@ -44,21 +51,33 @@ instance SecurityWorkersClass SscNistBeacon where
 reportAboutEclipsed :: WorkMode ssc m => m ()
 reportAboutEclipsed = logWarning "We're doomed, we're eclipsed!"
 
-checkForReceivedBlocksWorker :: WorkMode ssc m => m ()
-checkForReceivedBlocksWorker = onNewSlot True $ \slotId -> do
-    headBlock <- getTipBlock
-    case headBlock of
-        Left genesis -> compareSlots slotId $ SlotId (genesis ^. gbHeader . gbhConsensus . gcdEpoch) 0
-        Right blk    -> compareSlots slotId (blk ^. gbHeader . headerSlot)
+checkForReceivedBlocksWorker :: WorkMode ssc m => SendActions BiP m -> m ()
+checkForReceivedBlocksWorker sendActions = onNewSlot True $ \slotId -> do
+    ourPk <- ncPublicKey <$> getNodeContext
+    whenM (getTipBlockHeader >>= iterateWhileOurs ourPk slotId) onEclipse
   where
-    compareSlots slotId blockGeneratedId = do
-        let fSlotId = flattenSlotId slotId
-        let fBlockGeneratedSlotId = flattenSlotId blockGeneratedId
-        when (fSlotId - fBlockGeneratedSlotId > mdNoBlocksSlotThreshold)
-            reportAboutEclipsed
+    onEclipse = do
+        reportAboutEclipsed
+        mghM <- mkHeadersRequest Nothing
+        whenJust mghM $ \mgh ->
+            converseToNeighbors sendActions (requestHeaders mgh)
+    condition slotId h = flattenSlotId slotId - flattenEpochOrSlot h > mdNoBlocksSlotThreshold
+    isNotOurs _ (Left _)       = False
+    isNotOurs ourPk (Right mb) = mb ^. headerLeaderKey /= ourPk
+    iterateWhileOurs :: WorkMode ssc m => PublicKey -> SlotId -> BlockHeader ssc -> m Bool
+    iterateWhileOurs ourPk slotId h
+        | condition slotId h = return True
+        | isNotOurs ourPk h = return False
+        | h ^. prevBlockL == genesisHash = return False
+        | otherwise = maybe onLoadFailure (iterateWhileOurs ourPk slotId)
+                            =<< getBlockHeader (h ^. prevBlockL)
+      where
+        onLoadFailure :: WorkMode ssc m => m Bool
+        onLoadFailure = False <$ logError (sformat
+                                    ("no block corresponding to hash "%shortHashF) (h ^. prevBlockL))
 
-checkForIgnoredCommitmentsWorker :: forall m. WorkMode SscGodTossing m => m ()
-checkForIgnoredCommitmentsWorker = do
+checkForIgnoredCommitmentsWorker :: forall m. WorkMode SscGodTossing m => SendActions BiP m -> m ()
+checkForIgnoredCommitmentsWorker  __sendActions= do
     epochIdx <- atomically (newTVar 0)
     _ <- runReaderT (onNewSlot True checkForIgnoredCommitmentsWorkerImpl) epochIdx
     return ()
@@ -77,7 +96,7 @@ checkCommitmentsInPreviousBlocks
     :: forall m. WorkMode SscGodTossing m
     => SlotId -> ReaderT (TVar EpochIndex) m ()
 checkCommitmentsInPreviousBlocks slotId = do
-    kBlocks <- map fst <$> loadBlocksFromTipWhile (\_ depth -> depth < k)
+    kBlocks <- map fst <$> loadBlundsFromTipByDepth blkSecurityParam
     forM_ kBlocks $ \case
         Right blk -> checkCommitmentsInBlock slotId blk
         _         -> return ()

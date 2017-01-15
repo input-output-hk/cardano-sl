@@ -19,7 +19,6 @@ import           Control.Monad.Except    (ExceptT)
 import           Control.Monad.Trans     (MonadTrans)
 import           Universum
 
-import           Pos.DHT.Model           (DHTResponseT)
 import           Pos.DHT.Real            (KademliaDHT)
 import           Pos.Lrc.Types           (Richmen)
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..))
@@ -48,7 +47,6 @@ class Monad m => MonadSscLD ssc m | m -> ssc where
 
 instance (Monad m, MonadSscLD ssc m) => MonadSscLD ssc (ReaderT x m)
 instance (Monad m, MonadSscLD ssc m) => MonadSscLD ssc (ExceptT x m)
-instance (Monad m, MonadSscLD ssc m) => MonadSscLD ssc (DHTResponseT s m)
 instance (Monad m, MonadSscLD ssc m) => MonadSscLD ssc (KademliaDHT m)
 
 -- | Convenient wrapper to run LocalQuery in MonadSscLD.

@@ -21,10 +21,17 @@ module Pos.DB.GState.Utxo
        , runUtxoIterator
        , mapUtxoIterator
        , getFilteredUtxo
+
+       -- * Sanity checks
+       , sanityCheckUtxo
        ) where
 
 import qualified Data.Map             as M
+import qualified Data.Text.Buildable
 import qualified Database.RocksDB     as Rocks
+import           Formatting           (bprint, build, sformat, (%))
+import           Serokell.Util.Text   (listJson, pairF)
+import           System.Wlog          (WithLogger, logError)
 import           Universum
 
 import           Pos.Binary.Class     (encodeStrict)
@@ -33,11 +40,16 @@ import           Pos.DB.Class         (MonadDB, getUtxoDB)
 import           Pos.DB.DBIterator    (DBIterator, DBMapIterator, mapIterator,
                                        runIterator)
 import           Pos.DB.Error         (DBError (..))
-import           Pos.DB.Functions     (RocksBatchOp (..), rocksGetBi, traverseAllEntries)
+import           Pos.DB.Functions     (RocksBatchOp (..), WithKeyPrefix (..),
+                                       encodeWithKeyPrefix, rocksGetBi,
+                                       traverseAllEntries)
 import           Pos.DB.GState.Common (getBi, putBi)
 import           Pos.DB.Types         (DB)
-import           Pos.Types            (Address, TxIn (..), TxOutAux, Utxo, belongsTo)
-import           Pos.Util             (maybeThrow)
+import           Pos.Types            (Address, Coin, TxIn (..), TxOutAux, Utxo,
+                                       belongsTo, coinF, mkCoin, sumCoins, txOutStake,
+                                       unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Util             (Color (..), colorize, maybeThrow)
+import           Pos.Util.Iterator    (nextItem)
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -61,6 +73,13 @@ data UtxoOp
     = DelTxIn !TxIn
     | AddTxOut !TxIn
                !TxOutAux
+
+instance Buildable UtxoOp where
+    build (DelTxIn txIn)           =
+        bprint ("DelTxIn ("%build%")") txIn
+    build (AddTxOut txIn txOutAux) =
+        bprint ("AddTxOut ("%build%", "%listJson%")")
+        txIn (map (bprint pairF) $ txOutStake txOutAux)
 
 instance RocksBatchOp UtxoOp where
     toBatchOp (AddTxOut txIn txOut) =
@@ -98,7 +117,7 @@ putTxOut = putBi . txInKey
 type IterType = (TxIn, TxOutAux)
 
 iterateByTx :: forall v m ssc a . (MonadDB ssc m, MonadMask m)
-                => DBMapIterator (IterType -> v) m a -> (IterType -> v) -> m a
+                => DBMapIterator IterType v m a -> (IterType -> v) -> m a
 iterateByTx iter f = mapIterator @IterType @v iter f =<< getUtxoDB
 
 filterUtxo
@@ -112,12 +131,13 @@ filterUtxo p = do
         then return $ M.insert (txInHash k, txInIndex k) v m
         else return m
 
-runUtxoIterator :: forall a ssc m . (MonadDB ssc m, MonadMask m)
-                 => DBIterator m a -> m a
+runUtxoIterator
+    :: (MonadDB ssc m, MonadMask m)
+    => DBIterator v m a -> m a
 runUtxoIterator iter = runIterator iter =<< getUtxoDB
 
 mapUtxoIterator :: forall u v m ssc a . (MonadDB ssc m, MonadMask m)
-                => DBMapIterator (u -> v) m a -> (u -> v) -> m a
+                => DBMapIterator u v m a -> (u -> v) -> m a
 mapUtxoIterator iter f = mapIterator @u @v iter f =<< getUtxoDB
 
 -- | Get small sub-utxo containing only outputs of given address
@@ -125,16 +145,43 @@ getFilteredUtxo :: (MonadDB ssc m, MonadMask m) => Address -> m Utxo
 getFilteredUtxo addr = filterUtxo $ \(_, out) -> out `belongsTo` addr
 
 ----------------------------------------------------------------------------
+-- Sanity checks
+----------------------------------------------------------------------------
+
+sanityCheckUtxo
+    :: (MonadMask m, MonadDB ssc m, WithLogger m)
+    => Coin -> m ()
+sanityCheckUtxo expectedTotalStake = do
+    calculatedTotalStake <-
+        iterateByTx (step (mkCoin 0)) (map snd . txOutStake . snd)
+    let fmt =
+            ("Sum of stakes in Utxo differs from expected total stake (the former is "
+             %coinF%", while the latter is "%coinF%")")
+    let msg = sformat fmt calculatedTotalStake expectedTotalStake
+    unless (calculatedTotalStake == expectedTotalStake) $ do
+        logError $ colorize Red msg
+        throwM $ DBMalformed msg
+  where
+    step sm = do
+        n <- nextItem
+        maybe
+            (pure sm)
+            (\stakes ->
+                 step (sm `unsafeAddCoin` unsafeIntegerToCoin (sumCoins stakes)))
+            n
+
+----------------------------------------------------------------------------
 -- Keys
 ----------------------------------------------------------------------------
+
+instance WithKeyPrefix TxIn where
+    keyPrefix _ = "t/"
 
 genUtxoKey :: ByteString
 genUtxoKey = "ut/gutxo"
 
 txInKey :: TxIn -> ByteString
--- [CSL-379] Restore prefix after we have proper iterator
--- txInKey = (<> "t") . encodeStrict
-txInKey = encodeStrict
+txInKey = encodeWithKeyPrefix
 
 ----------------------------------------------------------------------------
 -- Details

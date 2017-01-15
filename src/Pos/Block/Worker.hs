@@ -1,7 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE RankNTypes   #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Block processing related workers.
 
@@ -10,48 +8,48 @@ module Pos.Block.Worker
        , blkWorkers
        ) where
 
-import           Control.Lens               (ix, (^.), (^?))
-import           Control.TimeWarp.Timed     (for, wait)
-import           Data.Default               (def)
-import           Formatting                 (build, sformat, shown, (%))
-import           Serokell.Util              (VerificationRes (..), listJson)
-import           Serokell.Util.Exceptions   ()
-import           System.Wlog                (WithLogger, logDebug, logError, logInfo,
-                                             logWarning)
+import           Control.Lens                (ix, (^.), (^?))
+import           Data.Default                (def)
+import           Formatting                  (build, sformat, shown, (%))
+import           Mockable                    (delay, fork)
+import           Node                        (SendActions)
+import           Serokell.Util               (VerificationRes (..), listJson)
+import           Serokell.Util.Exceptions    ()
+import           System.Wlog                 (WithLogger, logDebug, logError, logInfo,
+                                              logWarning)
 import           Universum
 
-import           Pos.Binary.Communication   ()
-import           Pos.Block.Logic            (createGenesisBlock, createMainBlock)
-import           Pos.Block.Network.Announce (announceBlock)
-import           Pos.Constants              (networkDiameter)
-import           Pos.Context                (getNodeContext, ncPublicKey)
-import           Pos.Crypto                 (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega),
-                                             shortHashF)
-import           Pos.DB.GState              (getPSKByIssuerAddressHash)
-import           Pos.DB.Lrc                 (getLeaders)
-import           Pos.DB.Misc                (getProxySecretKeys)
-import           Pos.Slotting               (MonadSlots (getCurrentTime), getSlotStart,
-                                             onNewSlot)
-import           Pos.Ssc.Class              (SscHelpersClass)
-import           Pos.Types                  (MainBlock, ProxySKEither, SlotId (..),
-                                             Timestamp (Timestamp),
-                                             VerifyBlockParams (..), gbHeader, slotIdF,
-                                             verifyBlock)
-import           Pos.Types.Address          (addressHash)
-import           Pos.Util                   (inAssertMode, logWarningWaitLinear)
-import           Pos.Util.JsonLog           (jlCreatedBlock, jlLog)
-import           Pos.WorkMode               (WorkMode)
+import           Pos.Binary.Communication    ()
+import           Pos.Block.Logic             (createGenesisBlock, createMainBlock)
+import           Pos.Block.Network.Announce  (announceBlock)
+import           Pos.Block.Network.Retrieval (retrievalWorker)
+import           Pos.Communication.BiP       (BiP)
+import           Pos.Constants               (networkDiameter)
+import           Pos.Context                 (getNodeContext, ncPublicKey)
+import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega),
+                                              shortHashF)
+import           Pos.DB.GState               (getPSKByIssuerAddressHash)
+import           Pos.DB.Lrc                  (getLeaders)
+import           Pos.DB.Misc                 (getProxySecretKeys)
+import           Pos.Slotting                (MonadSlots (getCurrentTime), getSlotStart,
+                                              onNewSlot)
+import           Pos.Ssc.Class               (SscHelpersClass, SscWorkersClass)
+import           Pos.Types                   (MainBlock, ProxySKEither, SlotId (..),
+                                              Timestamp (Timestamp),
+                                              VerifyBlockParams (..), gbHeader, slotIdF,
+                                              verifyBlock)
+import           Pos.Types.Address           (addressHash)
+import           Pos.Util                    (inAssertMode, logWarningWaitLinear)
+import           Pos.Util.JsonLog            (jlCreatedBlock, jlLog)
+import           Pos.WorkMode                (WorkMode)
 
 -- | All workers specific to block processing.
-blkWorkers :: WorkMode ssc m => [m ()]
-blkWorkers = [blkOnNewSlotWorker]
-
-blkOnNewSlotWorker :: WorkMode ssc m => m ()
-blkOnNewSlotWorker = onNewSlot True blkOnNewSlot
+blkWorkers :: (SscWorkersClass ssc, WorkMode ssc m) => [SendActions BiP m -> m ()]
+blkWorkers = [onNewSlot True . blkOnNewSlot, retrievalWorker]
 
 -- Action which should be done when new slot starts.
-blkOnNewSlot :: WorkMode ssc m => SlotId -> m ()
-blkOnNewSlot slotId@SlotId {..} = do
+blkOnNewSlot :: WorkMode ssc m => SendActions BiP m -> SlotId -> m ()
+blkOnNewSlot sendActions slotId@SlotId {..} = do
     -- First of all we create genesis block if necessary.
     mGenBlock <- createGenesisBlock siEpoch
     whenJust mGenBlock $ \createdBlk -> do
@@ -90,23 +88,27 @@ blkOnNewSlot slotId@SlotId {..} = do
         logLeadersF $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash
         logLeadersF $ sformat ("Slot leaders: "%listJson) $ map (sformat shortHashF) leaders
         logLeadersF $ sformat ("Current slot leader: "%build) leader
-        logDebug $ sformat ("Available lightweight PSKs: "%listJson) validCerts
+        logDebug $ sformat ("Available to use lightweight PSKs: "%listJson) validCerts
         heavyPskM <- getPSKByIssuerAddressHash leader
         logDebug $ "Does someone have cert for this slot: " <> show (isJust heavyPskM)
         let heavyWeAreDelegate = maybe False ((== ourPk) . pskDelegatePk) heavyPskM
         let heavyWeAreIssuer = maybe False ((== ourPk) . pskIssuerPk) heavyPskM
-        if | heavyWeAreIssuer -> pass
-           | leader == ourPkHash -> onNewSlotWhenLeader slotId Nothing
-           | heavyWeAreDelegate -> onNewSlotWhenLeader slotId $ Right <$> heavyPskM
-           | isJust validCert -> onNewSlotWhenLeader slotId $ Left <$> validCert
+        if | heavyWeAreIssuer ->
+             logDebug $ sformat
+             ("Not creating the block because it's delegated by psk: "%build)
+             heavyPskM
+           | leader == ourPkHash -> onNewSlotWhenLeader sendActions slotId Nothing
+           | heavyWeAreDelegate -> onNewSlotWhenLeader sendActions slotId $ Right <$> heavyPskM
+           | isJust validCert -> onNewSlotWhenLeader sendActions slotId $ Left <$> validCert
            | otherwise -> pass
 
 onNewSlotWhenLeader
     :: WorkMode ssc m
-    => SlotId
+    => SendActions BiP m
+    -> SlotId
     -> Maybe ProxySKEither
     -> m ()
-onNewSlotWhenLeader slotId pSk = do
+onNewSlotWhenLeader sendActions slotId pSk = do
     let logReason =
             sformat ("I have a right to create a block for the slot "%slotIdF%" ")
                     slotId
@@ -123,7 +125,7 @@ onNewSlotWhenLeader slotId pSk = do
         Timestamp timeToWait = timeToCreate - currentTime
     logInfo $
         sformat ("Waiting for "%shown%" before creating block") timeToWait
-    wait (for timeToWait)
+    delay timeToWait
     let onNewSlotWhenLeaderDo = do
             logInfo "It's time to create a block for current slot"
             let whenCreated createdBlk = do
@@ -131,10 +133,11 @@ onNewSlotWhenLeader slotId pSk = do
                         sformat ("Created a new block:\n" %build) createdBlk
                     jlLog $ jlCreatedBlock (Right createdBlk)
                     verifyCreatedBlock createdBlk
-                    announceBlock $ createdBlk ^. gbHeader
+                    void $ fork $ announceBlock sendActions $ createdBlk ^. gbHeader
             let whenNotCreated = logWarning . (mappend "I couldn't create a new block: ")
             createdBlock <- createMainBlock slotId pSk
             either whenNotCreated whenCreated createdBlock
+            logInfo "onNewSlotWhenLeader: done"
     logWarningWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
 
 verifyCreatedBlock :: (WithLogger m, SscHelpersClass ssc) => MainBlock ssc -> m ()

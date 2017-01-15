@@ -9,11 +9,8 @@ module Pos.Types.Utxo.Class
 
 import           Control.Monad.Except (ExceptT)
 import           Control.Monad.Trans  (MonadTrans)
-import           Control.TimeWarp.Rpc (ResponseT)
 import           Universum
 
-import           Pos.DHT.Model.Class  (DHTResponseT)
-import           Pos.DHT.Real         (KademliaDHT)
 import           Pos.Types.Types      (TxIn, TxOutAux)
 
 class Monad m => MonadUtxoRead m where
@@ -34,12 +31,3 @@ instance MonadUtxo m => MonadUtxo (ReaderT e m) where
 
 instance MonadUtxoRead m => MonadUtxoRead (ExceptT e m) where
 instance MonadUtxo m => MonadUtxo (ExceptT e m) where
-
-instance MonadUtxoRead m => MonadUtxoRead (ResponseT s m) where
-instance MonadUtxo m => MonadUtxo (ResponseT e m) where
-
-instance MonadUtxoRead m => MonadUtxoRead (DHTResponseT s m) where
-instance MonadUtxo m => MonadUtxo (DHTResponseT s m) where
-
-instance MonadUtxoRead m => MonadUtxoRead (KademliaDHT m) where
-instance MonadUtxo m => MonadUtxo (KademliaDHT m) where

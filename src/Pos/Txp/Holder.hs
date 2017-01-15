@@ -12,34 +12,31 @@ module Pos.Txp.Holder
        , runTxpLDHolderReader
        ) where
 
-import qualified Control.Concurrent.STM      as STM
-import           Control.Lens                (iso)
-import           Control.Monad.Base          (MonadBase (..))
-import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
-import           Control.Monad.Reader        (ReaderT (ReaderT))
-import           Control.Monad.Trans.Class   (MonadTrans)
-import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
-                                              MonadTransControl (..), StM,
-                                              defaultLiftBaseWith, defaultLiftWith,
-                                              defaultRestoreM, defaultRestoreT)
-import           Control.TimeWarp.Rpc        (MonadDialog, MonadTransfer (..))
-import           Control.TimeWarp.Timed      (MonadTimed (..), ThreadId)
-import           Data.Default                (def)
-import           Serokell.Util.Lens          (WrappedM (..))
-import           System.Wlog                 (CanLog, HasLoggerName)
+import qualified Control.Concurrent.STM    as STM
+import           Control.Lens              (iso)
+import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow)
+import           Control.Monad.Fix         (MonadFix)
+import           Control.Monad.Reader      (ReaderT (ReaderT))
+import           Control.Monad.Trans.Class (MonadTrans)
+import           Data.Default              (def)
+import           Mockable                  (ChannelT, MFunctor', Mockable (liftMockable),
+                                            Promise, SharedAtomicT, ThreadId,
+                                            liftMockableWrappedM)
+import           Serokell.Util.Lens        (WrappedM (..))
+import           System.Wlog               (CanLog, HasLoggerName)
 import           Universum
 
-import           Pos.Context                 (WithNodeContext)
-import           Pos.DB.Class                (MonadDB)
-import           Pos.DB.Holder               (DBHolder (..))
-import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Ssc.Extra               (MonadSscGS, MonadSscLD, MonadSscRichmen)
-import           Pos.Txp.Class               (MonadTxpLD (..), TxpLDWrap (..))
-import           Pos.Txp.Types               (UtxoView)
-import qualified Pos.Txp.Types.UtxoView      as UV
-import           Pos.Types                   (HeaderHash, MonadUtxo (..),
-                                              MonadUtxoRead (..), genesisHash)
-import           Pos.Util.JsonLog            (MonadJL (..))
+import           Pos.Context               (WithNodeContext)
+import           Pos.DB.Class              (MonadDB)
+import           Pos.DB.Holder             (DBHolder (..))
+import           Pos.Slotting              (MonadSlots (..))
+import           Pos.Ssc.Extra             (MonadSscGS, MonadSscLD, MonadSscRichmen)
+import           Pos.Txp.Class             (MonadTxpLD (..), TxpLDWrap (..))
+import           Pos.Txp.Types             (UtxoView)
+import qualified Pos.Txp.Types.UtxoView    as UV
+import           Pos.Types                 (HeaderHash, MonadUtxo (..),
+                                            MonadUtxoRead (..), genesisHash)
+import           Pos.Util.JsonLog          (MonadJL (..))
 
 ----------------------------------------------------------------------------
 -- Holder
@@ -47,26 +44,23 @@ import           Pos.Util.JsonLog            (MonadJL (..))
 
 newtype TxpLDHolder ssc m a = TxpLDHolder
     { getTxpLDHolder :: ReaderT (TxpLDWrap ssc) m a
-    } deriving (Functor, Applicative, Monad, MonadTrans, MonadTimed,
+    } deriving (Functor, Applicative, Monad, MonadTrans,
                 MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
-                HasLoggerName, MonadDialog s p, WithNodeContext ssc, MonadJL,
-                MonadDB ssc, CanLog, MonadMask, MonadSscLD ssc, MonadSscGS ssc, MonadSscRichmen)
+                HasLoggerName, WithNodeContext ssc, MonadJL, MonadSscRichmen,
+                CanLog, MonadMask, MonadSscLD ssc, MonadSscGS ssc, MonadFix)
 
-instance MonadTransfer s m => MonadTransfer s (TxpLDHolder ssc m)
 type instance ThreadId (TxpLDHolder ssc m) = ThreadId m
+type instance Promise (TxpLDHolder ssc m) = Promise m
+type instance SharedAtomicT (TxpLDHolder ssc m) = SharedAtomicT m
+type instance ChannelT (TxpLDHolder ssc m) = ChannelT m
 
-instance MonadBase IO m => MonadBase IO (TxpLDHolder ssc m) where
-    liftBase = lift . liftBase
+instance ( Mockable d m
+         , MFunctor' d (ReaderT (TxpLDWrap ssc) m) m
+         , MFunctor' d (TxpLDHolder ssc m) (ReaderT (TxpLDWrap ssc) m)
+         ) => Mockable d (TxpLDHolder ssc m) where
+    liftMockable = liftMockableWrappedM
 
-instance MonadTransControl (TxpLDHolder ssc) where
-    type StT (TxpLDHolder ssc) a = StT (ReaderT (TxpLDWrap ssc)) a
-    liftWith = defaultLiftWith TxpLDHolder getTxpLDHolder
-    restoreT = defaultRestoreT TxpLDHolder
-
-instance MonadBaseControl IO m => MonadBaseControl IO (TxpLDHolder ssc m) where
-    type StM (TxpLDHolder ssc m) a = ComposeSt (TxpLDHolder ssc) m a
-    liftBaseWith     = defaultLiftBaseWith
-    restoreM         = defaultRestoreM
+deriving instance MonadDB ssc m => MonadDB ssc (TxpLDHolder ssc m)
 
 deriving instance MonadTxpLD ssc m => MonadTxpLD ssc (DBHolder ssc m)
 

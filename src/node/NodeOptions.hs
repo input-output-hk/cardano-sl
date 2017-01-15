@@ -17,17 +17,19 @@ import           Universum
 import           Paths_cardano_sl           (version)
 import qualified Pos.CLI                    as CLI
 import           Pos.DHT.Model              (DHTKey)
-import           Pos.Security.Types         (AttackTarget, AttackType)
+import           Pos.Security.CLI         (AttackTarget, AttackType)
+import           Pos.Util.TimeWarp          (NetworkAddress)
 
 
 data Args = Args
     { dbPath                    :: !FilePath
     , rebuildDB                 :: !Bool
+#ifdef DEV_MODE
     , spendingGenesisI          :: !(Maybe Int)
     , vssGenesisI               :: !(Maybe Int)
+#endif
     , keyfilePath               :: !FilePath
-    , vssSecretPath             :: !(Maybe FilePath)
-    , port                      :: !Word16
+    , ipPort                    :: !NetworkAddress
     , supporterNode             :: !Bool
     , dhtKey                    :: !(Maybe DHTKey)
     , timeLord                  :: !Bool
@@ -61,6 +63,7 @@ argsParser =
          help
              "If we DB already exist, discard it's contents and create new one from\
              \ scratch") <*>
+#ifdef DEV_MODE
     optional
         (option
              auto
@@ -70,16 +73,13 @@ argsParser =
         (option
              auto
              (long "vss-genesis" <> metavar "INT" <> help "Use genesis vss #i")) <*>
+#endif
     strOption
         (long "keyfile" <>
          metavar "FILEPATH" <>
          value "secret.key" <>
          help "Path to file with secret keys") <*>
-    optional
-        (strOption
-             (long "vss-sk" <> metavar "FILEPATH" <>
-              help "Path to VSS secret key")) <*>
-    CLI.portOption 3000 <*>
+    CLI.ipPortOption ("0.0.0.0", 3000) <*>
     switch
         (long "supporter" <> help "Launch DHT supporter instead of full node") <*>
     optional

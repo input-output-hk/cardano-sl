@@ -1,25 +1,49 @@
-import           Control.Lens        ((.~))
-import qualified Data.Text           as T
-import           Options.Applicative (Parser, ParserInfo, auto, command, execParser,
-                                      fullDesc, help, helper, info, long, metavar, option,
-                                      option, progDesc, short, strOption, subparser,
-                                      switch, value)
-import           Prelude             (show)
-import           Universum           hiding (show)
+module Main where
 
-import           Pos.Crypto          (keyGen)
-import           Pos.Util.UserSecret (takeUserSecret, usKeys, writeUserSecretRelease)
+import           Control.Lens         ((%~), (.~), _1)
+import qualified Data.ByteString.Lazy as BSL
+import qualified Data.HashMap.Strict  as HM
+import qualified Data.Text            as T
+import           Options.Applicative  (Parser, ParserInfo, auto, execParser, fullDesc,
+                                       help, helper, info, long, metavar, option, option,
+                                       progDesc, short, strOption, value)
+import           Prelude              (show)
+import           System.Directory     (createDirectoryIfMissing)
+import           System.FilePath      (takeDirectory)
+import           System.Random        (randomRIO)
+import           Universum            hiding (show)
+
+import           Pos.Binary           (encode)
+import           Pos.Constants        (vssMaxTTL, vssMinTTL)
+import           Pos.Crypto           (PublicKey, keyGen, toPublic, toVssPublicKey,
+                                       vssKeyGen)
+import           Pos.Genesis          (GenesisData (..), StakeDistribution (..))
+import           Pos.Ssc.GodTossing   (VssCertificate, mkVssCertificate)
+import           Pos.Types            (addressHash, makePubKeyAddress, mkCoin)
+import           Pos.Util             (asBinary)
+import           Pos.Util.UserSecret  (takeUserSecret, usKeys, usVss,
+                                       writeUserSecretRelease)
 
 data KeygenOptions = KO
-    { koPattern :: FilePath
-    , koN       :: Int
+    { koPattern      :: FilePath
+    , koGenesisFile  :: FilePath
+    , koStakeholders :: Word
+    , koRichmen      :: Word
+    , koTotalStake   :: Word64
     }
 
-generateKeyfile :: FilePath -> IO ()
+generateKeyfile :: FilePath -> IO (PublicKey, VssCertificate)
 generateKeyfile fp = do
     sk <- snd <$> keyGen
+    vss <- vssKeyGen
     us <- takeUserSecret fp
-    writeUserSecretRelease $ us & usKeys .~ [sk]
+    writeUserSecretRelease $
+        us & usKeys .~ [sk]
+           & usVss .~ Just vss
+    expiry <- fromIntegral <$> randomRIO (vssMinTTL :: Int, vssMaxTTL)
+    let vssPk = asBinary $ toVssPublicKey vss
+        vssCert = mkVssCertificate sk vssPk expiry
+    return (toPublic sk, vssCert)
 
 replace :: FilePath -> FilePath -> FilePath -> FilePath
 replace a b = T.unpack . (T.replace `on` T.pack) a b . T.pack
@@ -30,10 +54,22 @@ optsParser = KO <$>
                short 'f' <>
                metavar "PATTERN" <>
                help "Filename pattern for generated keyfiles (`{}` is a place for number)") <*>
-    option auto (long "count" <>
+    strOption (long "genesis-file" <>
+               metavar "FILE" <>
+               value "genesis.bin" <>
+               help "File to dump binary shared genesis data") <*>
+    option auto (long "total-stakeholders" <>
                  short 'n' <>
                  metavar "INT" <>
-                 help "Number of files to generate")
+                 help "Total number of keyfiles to generate") <*>
+    option auto (long "richmen" <>
+                 short 'm' <>
+                 metavar "INT" <>
+                 help "Number of richmen among stakeholders") <*>
+    option auto (long "total-stake" <>
+                 metavar "INT" <>
+                 help "Total coins in genesis")
+
 
 optsInfo :: ParserInfo KeygenOptions
 optsInfo = info (helper <*> optsParser) $
@@ -42,6 +78,27 @@ optsInfo = info (helper <*> optsParser) $
 main :: IO ()
 main = do
     KO {..} <- execParser optsInfo
-    forM_ [1..koN] $ \i ->
+    let keysDir = takeDirectory koPattern
+        genFileDir = takeDirectory koGenesisFile
+    createDirectoryIfMissing True keysDir
+    createDirectoryIfMissing True genFileDir
+
+    genesisList <- forM [1..koStakeholders] $ \i ->
         generateKeyfile $ replace "{}" (show i) koPattern
-    print $ show koN ++ " keyfiles are generated"
+    print $ show koStakeholders ++ " keyfiles are generated"
+
+    let distr = TestnetStakes
+            { sdTotalStake = mkCoin koTotalStake
+            , sdRichmen    = koRichmen
+            , sdPoor       = koStakeholders - koRichmen
+            }
+        genesisAddrs = map (makePubKeyAddress . fst) genesisList
+        genesisVssCerts = HM.fromList
+                          $ map (_1 %~ addressHash)
+                          $ take (fromIntegral koRichmen) genesisList
+        genData = GenesisData
+            { gdAddresses = genesisAddrs
+            , gdDistribution = distr
+            , gdVssCertificates = genesisVssCerts
+            }
+    BSL.writeFile koGenesisFile $ encode genData

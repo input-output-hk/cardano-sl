@@ -5,37 +5,48 @@
 
 module Pos.Communication.Server.SysStart
        ( sysStartReqListener
-       , sysStartReqListenerSlave
        , sysStartRespListener
+       , handleSysStartResp
        ) where
 
 import           Control.Concurrent.MVar  (MVar, tryPutMVar)
+import           Formatting               (build, sformat, shown, (%))
+import           Node                     (ConversationActions (..), Listener,
+                                           ListenerAction (..), NodeId,
+                                           SendActions (sendTo))
+import           System.Wlog              (logInfo)
+
 import           Universum
 
 import           Pos.Binary.Communication ()
+import           Pos.Binary.DHTModel      ()
+import           Pos.Communication.BiP    (BiP)
 import           Pos.Communication.Types  (SysStartRequest (..), SysStartResponse (..))
-import           Pos.DHT.Model            (ListenerDHT (..), MonadDHTDialog,
-                                           closeResponse, replyToNode)
+import           Pos.DHT.Model            (sendToNeighbors)
 import           Pos.Types                (Timestamp)
 import           Pos.WorkMode             (MinWorkMode)
 
-sysStartReqListenerSlave :: (MonadDHTDialog s m) => ListenerDHT s m
-sysStartReqListenerSlave = ListenerDHT $ \(_ :: SysStartRequest) -> return ()
-
 -- | Listener for 'SysStartRequest' message.
 sysStartReqListener
-    :: (MonadDHTDialog ss m, MinWorkMode ss m)
-    => Timestamp -> ListenerDHT ss m
-sysStartReqListener sysStart = ListenerDHT $
-    \(_ :: SysStartRequest) -> do
-        replyToNode $ SysStartResponse sysStart Nothing
-        closeResponse
+    :: MinWorkMode m => Timestamp -> Listener BiP m
+sysStartReqListener sysStart = ListenerActionConversation $
+    \peerId __sA conv  -> do
+        (mReq :: Maybe SysStartRequest) <- recv conv
+        whenJust mReq $ \_ -> do
+            logInfo $ sformat
+                ("Received sysStart request from "%shown%", sending "%build)
+                peerId sysStart
+            send conv $ SysStartResponse sysStart
 
 -- | Listener for 'SysStartResponce' message.
-sysStartRespListener
-    :: (MonadDHTDialog ss m, MinWorkMode ss m)
-    => MVar Timestamp -> ListenerDHT ss m
-sysStartRespListener mvar = ListenerDHT $
-    \(SysStartResponse ts _ :: SysStartResponse) -> do
-        liftIO . void . tryPutMVar mvar $ ts
-        closeResponse
+sysStartRespListener :: MinWorkMode m => MVar Timestamp -> Listener BiP m
+sysStartRespListener mvar = ListenerActionOneMsg $ handleSysStartResp mvar
+
+handleSysStartResp
+  :: MinWorkMode m => MVar Timestamp -> NodeId -> SendActions BiP m -> SysStartResponse -> m ()
+handleSysStartResp mvar peerId sendActions (SysStartResponse sysStart) = do
+        logInfo $ sformat
+            ("Received sysStart response from "%shown%", "%build)
+            peerId sysStart
+        whenM (liftIO . tryPutMVar mvar $ sysStart) $
+            sendToNeighbors sendActions $ SysStartResponse sysStart

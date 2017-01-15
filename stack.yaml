@@ -11,7 +11,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/log-warper.git
-    commit: 8b1f81014383e9b21c8378e6c2ab388d32463d87
+    commit: e05d74587ff9270891a3e57f1f15d9e91c8d2c83
   extra-dep: true
 - location:
     git: https://github.com/serokell/acid-state.git
@@ -19,11 +19,11 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/kademlia.git
-    commit: 278171b8ab104c78aa95bcdd9b63c8ced4fb1ed2
+    commit: 8ebc91484994fbd1b8383d42786ae40bb5c99042
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/plutus-prototype
-    commit: aa6d535cf47fe92aabfbdb8bb709f5cba52ab793
+    commit: 62b4aaf5e8dfe70a7734a555032d8461ce4a812a
   extra-dep: true
 - location:
     git: https://github.com/serokell/rocksdb-haskell.git
@@ -33,6 +33,14 @@ packages:
 - location:
     git: https://github.com/domenkozar/hs-ed25519.git
     commit: 96e5db162d88482bc0e120dc61cadd45c168c275
+  extra-dep: true
+- location:
+    git: https://github.com/serokell/tw-rework-sketch.git
+    commit: 2b9363332dea57bc38e60220de0d3f8009643a77
+  extra-dep: true
+- location:
+    git: https://github.com/serokell/network-transport-tcp.git
+    commit: 586c9bf830252476522cab6274ef8ddc32615686
   extra-dep: true
 
 nix:

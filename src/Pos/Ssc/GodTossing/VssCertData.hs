@@ -5,19 +5,23 @@ module Pos.Ssc.GodTossing.VssCertData
        ( VssCertData (..)
        , empty
        , insert
-       , delete
        , lookup
        , lookupExpiryEpoch
        , setLastKnownSlot
        , keys
        , member
+
+       -- * Functions which delete certificates. Be careful
+       , delete
        , difference
+       , filter
        ) where
 
 import qualified Data.HashMap.Strict           as HM
+import qualified Data.List                     as List
 import           Data.SafeCopy                 (base, deriveSafeCopySimple)
 import qualified Data.Set                      as S
-import           Universum                     hiding (empty)
+import           Universum                     hiding (empty, filter)
 
 import           Pos.Constants                 (epochSlots)
 import           Pos.Ssc.GodTossing.Types.Base (VssCertificate (..), VssCertificatesMap)
@@ -72,17 +76,19 @@ lookupExpiryEpoch :: StakeholderId -> VssCertData -> Maybe EpochIndex
 lookupExpiryEpoch id mp = vcExpiryEpoch <$> lookup id mp
 
 -- | Delete certificate corresponding to the specified address hash.
+-- This function is dangerous, because after you using it you can't rollback
+-- deleted certificates. Use carefully.
 delete :: StakeholderId -> VssCertData -> VssCertData
 delete id mp@VssCertData{..} =
-    case lookupAux id mp of
-        Nothing         -> mp
-        Just (ins, expiry, cert) -> VssCertData
+    case lookupSlots id mp of
+        Nothing                  -> mp
+        Just (ins, expiry) -> VssCertData
             lastKnownSlot
             (HM.delete id certs)
             (HM.delete id certsIns)
             (S.delete (ins, id) insSlotSet)
             (S.delete (expiry, id) expirySlotSet)
-            (S.delete (expiry + epochSlots, (id, ins, cert)) expiredCerts)
+            expiredCerts
 
 -- | Set last known slot (lks). If new lks bigger than lastKnownSlot
 -- then some expired certificates will be removed.
@@ -95,10 +101,19 @@ setLastKnownSlot (flattenSlotId -> nlks) mp@VssCertData{..}
 keys :: VssCertData -> [StakeholderId]
 keys VssCertData{..} = HM.keys certs
 
+-- | Filtering the certificates.
+-- This function is dangerous, because after you using it you can't rollback
+-- deleted certificates. Use carefully.
+filter :: (StakeholderId -> Bool) -> VssCertData -> VssCertData
+filter predicate vcd =
+    foldl' (flip delete) vcd $ List.filter (not . predicate) $ keys vcd
+
 -- | Return True if the specified address hash is present in the map, False otherwise.
 member :: StakeholderId -> VssCertData -> Bool
 member id VssCertData{..} = HM.member id certs
 
+-- This function is dangerous, because after you using it you can't rollback
+-- deleted certificates. Use carefully.
 difference :: VssCertData -> HM.HashMap StakeholderId a -> VssCertData
 difference mp hm = foldl' (flip delete) mp . HM.keys $ hm
 
@@ -163,8 +178,7 @@ setSmallerLKS lks VssCertData{..}
 expiryFlatSlot :: VssCertificate -> FlatSlotId
 expiryFlatSlot cert = (1 + getEpochIndex (vcExpiryEpoch cert)) * epochSlots
 
-lookupAux :: StakeholderId -> VssCertData -> Maybe (FlatSlotId, FlatSlotId, VssCertificate)
-lookupAux id VssCertData{..} =
-    (,,) <$> HM.lookup id certsIns
-         <*> (expiryFlatSlot <$> HM.lookup id certs)
-         <*> (HM.lookup id certs)
+lookupSlots :: StakeholderId -> VssCertData -> Maybe (FlatSlotId, FlatSlotId)
+lookupSlots id VssCertData{..} =
+    (,) <$> HM.lookup id certsIns
+        <*> (expiryFlatSlot <$> HM.lookup id certs)

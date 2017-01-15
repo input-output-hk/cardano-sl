@@ -12,27 +12,30 @@ module Pos.Lrc.Worker
 
 import           Control.Concurrent.STM.TVar (TVar, readTVar, writeTVar)
 import           Control.Monad.Catch         (bracketOnError)
-import           Control.TimeWarp.Timed      (fork_)
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.List.NonEmpty          as NE
 import           Formatting                  (build, sformat, (%))
+import           Mockable                    (fork)
+import           Node                        (SendActions)
 import           Serokell.Util.Exceptions    ()
 import           System.Wlog                 (logInfo)
 import           Universum
 
 import           Pos.Binary.Communication    ()
+import           Pos.Binary.Communication    ()
 import           Pos.Block.Logic.Internal    (applyBlocksUnsafe, rollbackBlocksUnsafe,
                                               withBlkSemaphore_)
-import           Pos.Constants               (k)
+import           Pos.Communication.BiP       (BiP)
+import           Pos.Constants               (slotSecurityParam)
 import           Pos.Context                 (LrcSyncData, getNodeContext, ncLrcSync)
 import qualified Pos.DB                      as DB
 import qualified Pos.DB.GState               as GS
 import           Pos.DB.Lrc                  (getLeaders, putEpoch, putLeaders)
 import           Pos.Lrc.Consumer            (LrcConsumer (..))
 import           Pos.Lrc.Consumers           (allLrcConsumers)
-import           Pos.Lrc.Eligibility         (findAllRichmenMaybe)
 import           Pos.Lrc.Error               (LrcError (..))
 import           Pos.Lrc.FollowTheSatoshi    (followTheSatoshiM)
+import           Pos.Lrc.Logic               (findAllRichmenMaybe)
 import           Pos.Slotting                (onNewSlot)
 import           Pos.Ssc.Class               (SscWorkersClass)
 import           Pos.Ssc.Extra               (sscCalculateSeed)
@@ -40,17 +43,19 @@ import           Pos.Types                   (EpochIndex, EpochOrSlot (..),
                                               EpochOrSlot (..), HeaderHash, HeaderHash,
                                               SlotId (..), crucialSlot, getEpochOrSlot,
                                               getEpochOrSlot)
+import           Pos.Util                    (logWarningWaitLinear)
 import           Pos.WorkMode                (WorkMode)
 
 lrcOnNewSlotWorker
     :: (SscWorkersClass ssc, WorkMode ssc m)
-    => m ()
-lrcOnNewSlotWorker = onNewSlot True $ lrcOnNewSlotImpl
+    => SendActions BiP m -> m ()
+lrcOnNewSlotWorker _ = onNewSlot True $ lrcOnNewSlotImpl
 
 lrcOnNewSlotImpl
     :: (SscWorkersClass ssc, WorkMode ssc m)
     => SlotId -> m ()
-lrcOnNewSlotImpl SlotId {..} = when (siSlot < k) $ lrcSingleShot siEpoch
+lrcOnNewSlotImpl SlotId {..} =
+    when (siSlot < slotSecurityParam) $ lrcSingleShot siEpoch
 
 -- | Run leaders and richmen computation for given epoch. If stable
 -- block for this epoch is not known, LrcError will be thrown.
@@ -73,17 +78,23 @@ lrcSingleShotImpl withSemaphore epoch consumers = do
     tryAcuireExclusiveLock epoch lock onAcquiredLock
   where
     onAcquiredLock = do
-        expectedRichmenComp <- filterM (flip lcIfNeedCompute epoch) consumers
-        needComputeLeaders <- isNothing <$> getLeaders epoch
-        let needComputeRichmen = not . null $ expectedRichmenComp
-        when needComputeLeaders $ logInfo "Need to compute leaders"
-        when needComputeRichmen $ logInfo "Need to compute richmen"
-        when (needComputeLeaders || needComputeRichmen) $ do
+        (need, filteredConsumers) <-
+            logWarningWaitLinear 5 "determining whether LRC is needed" $ do
+                expectedRichmenComp <-
+                    filterM (flip lcIfNeedCompute epoch) consumers
+                needComputeLeaders <- isNothing <$> getLeaders epoch
+                let needComputeRichmen = not . null $ expectedRichmenComp
+                when needComputeLeaders $ logInfo "Need to compute leaders"
+                when needComputeRichmen $ logInfo "Need to compute richmen"
+                return $
+                    ( needComputeLeaders || needComputeRichmen
+                    , expectedRichmenComp)
+        when need $ do
             logInfo "LRC is starting"
             if withSemaphore
-            then withBlkSemaphore_ $ lrcDo epoch expectedRichmenComp
+                then withBlkSemaphore_ $ lrcDo epoch filteredConsumers
             -- we don't change/use it in lcdDo in fact
-            else void . lrcDo epoch expectedRichmenComp =<< GS.getTip
+                else void . lrcDo epoch filteredConsumers =<< GS.getTip
             logInfo "LRC has finished"
         putEpoch epoch
         logInfo "LRC has updated LRC DB"
@@ -111,16 +122,17 @@ lrcDo
     :: WorkMode ssc m
     => EpochIndex -> [LrcConsumer m] -> HeaderHash ssc -> m (HeaderHash ssc)
 lrcDo epoch consumers tip = tip <$ do
-    blockUndoList <- DB.loadBlocksFromTipWhile whileMoreOrEq5k
-    when (null blockUndoList) $ throwM UnknownBlocksForLrc
-    let blunds = NE.fromList blockUndoList
+    blundsList <- DB.loadBlundsFromTipWhile whileAfterCrucial
+    when (null blundsList) $ throwM UnknownBlocksForLrc
+    let blunds = NE.fromList blundsList
     rollbackBlocksUnsafe blunds
     compute `finally` applyBlocksUnsafe (NE.reverse blunds)
   where
-    whileMoreOrEq5k b _ = getEpochOrSlot b > crucial
+    whileAfterCrucial b = getEpochOrSlot b > crucial
     crucial = EpochOrSlot $ Right $ crucialSlot epoch
     compute = do
         richmenComputationDo epoch consumers
+        DB.sanityCheckDB
         leadersComputationDo epoch
 
 leadersComputationDo :: WorkMode ssc m => EpochIndex -> m ()
@@ -133,20 +145,19 @@ leadersComputationDo epochId =
                 Left e ->
                     panic $ sformat ("SSC couldn't compute seed: " %build) e
                 Right seed ->
-                    GS.iterateByTx (followTheSatoshiM seed totalStake) snd
+                    GS.iterateByStake (followTheSatoshiM seed totalStake) identity
         putLeaders epochId leaders
 
 richmenComputationDo :: forall ssc m . WorkMode ssc m
     => EpochIndex -> [LrcConsumer m] -> m ()
 richmenComputationDo epochIdx consumers = unless (null consumers) $ do
-    -- [CSL-93] Use eligibility threshold here
     total <- GS.getTotalFtsStake
     let minThreshold = safeThreshold total (not . lcConsiderDelegated)
     let minThresholdD = safeThreshold total lcConsiderDelegated
     (richmen, richmenD) <- GS.iterateByStake
                                (findAllRichmenMaybe @ssc minThreshold minThresholdD)
                                identity
-    let callCallback cons = fork_ $
+    let callCallback cons = void $ fork $
             if lcConsiderDelegated cons
             then lcComputedCallback cons epochIdx total
                    (HM.filter (>= lcThreshold cons total) richmenD)

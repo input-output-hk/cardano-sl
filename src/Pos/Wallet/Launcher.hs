@@ -1,6 +1,7 @@
 module Pos.Wallet.Launcher
-       ( module Launcher
+       ( module Pos.Wallet.Launcher.Param
+       , module Pos.Wallet.Launcher.Runner
        ) where
 
-import           Pos.Wallet.Launcher.Param  as Launcher
-import           Pos.Wallet.Launcher.Runner as Launcher
+import           Pos.Wallet.Launcher.Param
+import           Pos.Wallet.Launcher.Runner

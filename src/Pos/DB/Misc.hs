@@ -9,6 +9,7 @@ module Pos.DB.Misc
 
        , getProxySecretKeys
        , addProxySecretKey
+       , removeProxySecretKey
        , dropOldProxySecretKeys
 
        , getSecretStorage
@@ -18,17 +19,19 @@ module Pos.DB.Misc
        , checkSecretKeyHash
        ) where
 
-import           Data.Default                    (def)
+import           Data.Default                   (def)
+import           Data.List                      (nub)
 import           Universum
 
-import           Pos.Binary.Class                (Bi)
-import           Pos.Binary.Ssc                  ()
-import           Pos.Crypto                      (Hash, SecretKey, pskOmega)
-import           Pos.DB.Class                    (MonadDB, getMiscDB)
-import           Pos.DB.Functions                (rocksGetBi, rocksPutBi)
-import           Pos.Ssc.GodTossing.Secret.Types (GtSecretStorage)
-import           Pos.Ssc.GodTossing.Types.Type   (SscGodTossing)
-import           Pos.Types                       (EpochIndex, ProxySKEpoch)
+import           Pos.Binary.Class               (Bi)
+import           Pos.Binary.Ssc                 ()
+import           Pos.Crypto                     (Hash, PublicKey, SecretKey, pskIssuerPk,
+                                                 pskOmega)
+import           Pos.DB.Class                   (MonadDB, getMiscDB)
+import           Pos.DB.Functions               (rocksGetBi, rocksPutBi)
+import           Pos.Ssc.GodTossing.Types.Type  (SscGodTossing)
+import           Pos.Ssc.GodTossing.Types.Types (GtSecretStorage)
+import           Pos.Types                      (EpochIndex, ProxySKEpoch)
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -58,7 +61,13 @@ getProxySecretKeys = do
 addProxySecretKey :: MonadDB ssc m => ProxySKEpoch -> m ()
 addProxySecretKey psk = do
     keys <- getProxySecretKeys
-    putBi proxySKKey (psk:keys)
+    putBi proxySKKey $ nub $ psk:keys
+
+-- | Removes proxy secret key if present by issuer pk.
+removeProxySecretKey :: MonadDB ssc m => PublicKey -> m ()
+removeProxySecretKey pk = do
+    keys <- getProxySecretKeys
+    putBi proxySKKey $ filter ((/= pk) . pskIssuerPk) keys
 
 -- | Given epochindex, throws away all outdated PSKs. Remark: it
 -- doesn't remove keys that can be used in future.

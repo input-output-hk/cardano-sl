@@ -479,3 +479,7 @@ instance Bi a => Bi (V.Vector a) where
     put v = do
         put (UnsignedVarInt (G.length v))
         G.mapM_ put v
+
+instance Bi Void where
+    put = absurd
+    get = mzero

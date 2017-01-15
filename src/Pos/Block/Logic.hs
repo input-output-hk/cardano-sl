@@ -30,6 +30,7 @@ module Pos.Block.Logic
        ) where
 
 import           Control.Lens              (view, (^.), _1)
+import           Control.Monad.Catch       (try)
 import           Control.Monad.Except      (ExceptT (ExceptT), runExceptT, throwError)
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
 import           Data.Default              (Default (def))
@@ -38,25 +39,29 @@ import           Data.List.NonEmpty        (NonEmpty ((:|)), (<|))
 import qualified Data.List.NonEmpty        as NE
 import qualified Data.Text                 as T
 import           Formatting                (build, int, ords, sformat, stext, (%))
+import           Serokell.Util.Text        (listJson)
 import           Serokell.Util.Verify      (VerificationRes (..), formatAllErrors,
                                             isVerSuccess, verResToMonadError)
-import           System.Wlog               (logDebug)
+import           System.Wlog               (CanLog, HasLoggerName, logDebug, logError,
+                                            logInfo)
 import           Universum
 
 import           Pos.Block.Logic.Internal  (applyBlocksUnsafe, rollbackBlocksUnsafe,
                                             withBlkSemaphore, withBlkSemaphore_)
-import           Pos.Constants             (curProtocolVersion, curSoftwareVersion, k)
+import           Pos.Constants             (blkSecurityParam, curProtocolVersion,
+                                            curSoftwareVersion, epochSlots,
+                                            recoveryHeadersMessage, slotSecurityParam)
 import           Pos.Context               (NodeContext (ncSecretKey), getNodeContext,
-                                            lrcActionOnEpochReason, readBlkSemaphore)
+                                            lrcActionOnEpochReason)
 import           Pos.Crypto                (SecretKey, WithHash (WithHash), hash,
                                             shortHashF)
 import           Pos.Data.Attributes       (mkAttributes)
-import           Pos.DB                    (DBError (..), MonadDB, getTipBlockHeader,
-                                            loadHeadersWhile)
+import           Pos.DB                    (DBError (..), MonadDB)
 import qualified Pos.DB                    as DB
 import qualified Pos.DB.GState             as GS
 import qualified Pos.DB.Lrc                as LrcDB
 import           Pos.Delegation.Logic      (delegationVerifyBlocks, getProxyMempool)
+import           Pos.Lrc.Error             (LrcError (..))
 import           Pos.Lrc.Worker            (lrcSingleShotNoLock)
 import           Pos.Slotting              (getCurrentSlot)
 import           Pos.Ssc.Class             (Ssc (..), SscWorkersClass (..))
@@ -67,10 +72,11 @@ import           Pos.Types                 (Block, BlockHeader, Blund, EpochInde
                                             EpochOrSlot (..), GenesisBlock, HeaderHash,
                                             MainBlock, MainExtraBodyData (..),
                                             MainExtraHeaderData (..), ProxySKEither,
-                                            ProxySKSimple, SlotId (..), TxAux, TxId,
-                                            Undo (..), VerifyHeaderParams (..),
-                                            blockHeader, difficultyL, epochIndexL,
-                                            epochOrSlot, flattenEpochOrSlot, genesisHash,
+                                            ProxySKSimple, SlotId (..), SlotLeaders,
+                                            TxAux, TxId, Undo (..),
+                                            VerifyHeaderParams (..), blockHeader,
+                                            difficultyL, epochIndexL, epochOrSlot,
+                                            flattenEpochOrSlot, genesisHash,
                                             getEpochOrSlot, headerHash, headerHashG,
                                             headerSlot, mkGenesisBlock, mkMainBlock,
                                             mkMainBody, prevBlockL, topsortTxs,
@@ -101,9 +107,9 @@ lcaWithMainChain
     => NonEmpty (BlockHeader ssc) -> m (Maybe (HeaderHash ssc))
 lcaWithMainChain headers@(h:|hs) =
     fmap fst . find snd <$>
-        mapM (\hh -> (hh,) <$> DB.isBlockInMainChain hh)
+        mapM (\hh -> (hh,) <$> GS.isBlockInMainChain hh)
              -- take hash of parent of last BlockHeader and convert all headers to hashes
-             (map hash (h : hs) ++ [NE.last headers ^. prevBlockL])
+             (map (view headerHashG) (h : hs) ++ [NE.last headers ^. prevBlockL])
 
 ----------------------------------------------------------------------------
 -- Headers
@@ -137,7 +143,9 @@ classifyNewHeader (Right header) = do
     -- ignore it if it's not.
     if curSlot == header ^. headerSlot
         then classifyNewHeaderDo <$> GS.getTip <*> DB.getTipBlock
-        else return $ CHUseless "header is not for current slot"
+        else pure $ CHUseless $ sformat
+                 ("header is not for current slot: our is "%build%", header's is "%build)
+                 curSlot (header ^. headerSlot)
   where
     classifyNewHeaderDo tip tipBlock
         -- If header's parent is our tip, we verify it against tip's header.
@@ -179,69 +187,90 @@ classifyHeaders
     :: WorkMode ssc m
     => NonEmpty (BlockHeader ssc) -> m (ClassifyHeadersRes ssc)
 classifyHeaders headers@(h:|hs) = do
+    tip <- GS.getTip
     haveLast <- isJust <$> DB.getBlockHeader (hash $ NE.last headers)
     let headersValid = isVerSuccess $ verifyHeaders True $ h : hs
     if | not headersValid ->
              pure $ CHsInvalid "Header chain is invalid"
        | not haveLast ->
              pure $ CHsInvalid "Last block of the passed chain wasn't found locally"
-       | otherwise -> processClassify
+       | h ^. headerHashG == tip ^. headerHashG ->
+             pure $ CHsUseless "Newest hash is the same as our tip"
+       | otherwise -> fromMaybe uselessGeneral <$> processClassify
   where
-    processClassify = do
-        tipHeader <- view blockHeader <$> DB.getTipBlock
-        lcaHash <- fromMaybe (panic "lca should exist") <$> lcaWithMainChain headers
-        lca <- fromMaybe (panic "lca should be resolvable") <$> DB.getBlockHeader lcaHash
-        -- depth in terms of slots, not difficulty
-        let depthDiff =
-                flattenEpochOrSlot tipHeader -
-                flattenEpochOrSlot lca
-        let lcaChild =
-                fromMaybe (panic "processClassify@classifyHeaders") $
-                find (\bh -> bh ^. prevBlockL == hash lca) (h:hs)
+    uselessGeneral =
+        CHsUseless "Couldn't find lca -- maybe db state updated in the process"
+    processClassify = runMaybeT $ do
+        tipHeader <- view blockHeader <$> lift DB.getTipBlock
+        lift $ logDebug $
+            sformat ("Classifying headers: "%listJson) $ map (view headerHashG) (h:hs)
+        lcaHash <- MaybeT $ lcaWithMainChain headers
+        lca <- MaybeT $ DB.getBlockHeader lcaHash
+        let depthDiff = tipHeader ^. difficultyL - lca ^. difficultyL
+        lcaChild <- MaybeT $ pure $ find (\bh -> bh ^. prevBlockL == hash lca) (h:hs)
         pure $ if
             | hash lca == hash tipHeader -> CHsValid lcaChild
             | depthDiff < 0 -> panic "classifyHeaders@depthDiff is negative"
-            | depthDiff > k ->
+            | depthDiff > blkSecurityParam ->
                   CHsUseless $
-                  sformat ("Slot difference of (tip,lca) is "%int%
-                           " which is more than k = "%int)
-                          depthDiff (k :: Int)
+                  sformat ("Difficulty difference of (tip,lca) is "%int%
+                           " which is more than blkSecurityParam = "%int)
+                          depthDiff (blkSecurityParam :: Int)
             | otherwise -> CHsValid lcaChild
 
--- | Given a set of checkpoints to stop at, we take second header hash
--- block (or tip if latter is @Nothing@) and fetch the blocks until we
--- reach genesis block or one of checkpoints. Returned headers are
--- newest-first.
+-- | Given a set of checkpoints @c@ to stop at and a terminating
+-- header hash @h@, we take @h@ block (or tip if latter is @Nothing@)
+-- and fetch the blocks until one of checkpoints is encountered. In
+-- case we got deeper than 'recoveryHeadersMessage', we return
+-- 'recoveryHeadersMessage' headers starting from the the newest
+-- checkpoint that's in our main chain to the newest ones. Returned
+-- headers are newest-first.
 getHeadersFromManyTo
-    :: (MonadDB ssc m, Ssc ssc)
-    => [HeaderHash ssc] -> Maybe (HeaderHash ssc) -> m [BlockHeader ssc]
-getHeadersFromManyTo checkpoints startM = do
-    validCheckpoints <- catMaybes <$> mapM DB.getBlockHeader checkpoints
-    tip <- GS.getTip
+    :: forall ssc m. (MonadDB ssc m, Ssc ssc, CanLog m, HasLoggerName m)
+    => NonEmpty (HeaderHash ssc)
+    -> Maybe (HeaderHash ssc)
+    -> m (Maybe (NonEmpty (BlockHeader ssc)))
+getHeadersFromManyTo checkpoints startM = runMaybeT $ do
+    lift $ logDebug $
+        sformat ("getHeadersFromManyTo: "%listJson%", start: "%build)
+                checkpoints startM
+    validCheckpoints <- MaybeT $
+        NE.nonEmpty . catMaybes <$>
+        mapM DB.getBlockHeader (NE.toList checkpoints)
+    tip <- lift GS.getTip
+    guard $ all ((/= tip) . view headerHashG) validCheckpoints
     let startFrom = fromMaybe tip startM
-        neq = (/=) `on` getEpochOrSlot
-        whileCond bh _ = all (neq bh) validCheckpoints
-    headers <- reverse <$> loadHeadersWhile startFrom whileCond
-    -- In case we didn't reach the very-first block we take one more
-    -- because "until" predicate will stop us before we get
-    -- checkpoint block and we do want to return it as well
-    oneMore <- case headers of
-        []       -> pure Nothing
-        (last:_) -> DB.getBlockHeader $ last ^. prevBlockL
-    pure $ reverse $ maybe identity (:) oneMore $ headers
+        parentIsCheckpoint bh =
+            any (\c -> bh ^. prevBlockL == c ^. headerHashG) validCheckpoints
+        whileCond bh = not (parentIsCheckpoint bh)
+    headers <-
+        MaybeT $ NE.nonEmpty <$>
+        DB.loadHeadersByDepthWhile whileCond recoveryHeadersMessage startFrom
+    if parentIsCheckpoint $ headers ^. _neHead
+    then pure headers
+    else do
+        lift $ logDebug $ "getHeadersFromManyTo: giving headers in recovery mode"
+        inMainCheckpoints <-
+            MaybeT $ NE.nonEmpty <$>
+            filterM (GS.isBlockInMainChain . headerHash)
+                    (NE.toList validCheckpoints)
+        let lowestCheckpoint =
+                maximumBy (comparing flattenEpochOrSlot) inMainCheckpoints
+            loadUpCond _ h = h < recoveryHeadersMessage
+        up <- lift $ GS.loadHeadersUpWhile lowestCheckpoint loadUpCond
+        MaybeT $ pure $ NE.nonEmpty $ reverse up
 
 -- | Given a starting point hash (we take tip if it's not in storage)
--- it returns not more than 'k' blocks distributed exponentially base
--- 2 relatively to the depth in the blockchain.
+-- it returns not more than 'blkSecurityParam' blocks distributed
+-- exponentially base 2 relatively to the depth in the blockchain.
 getHeadersOlderExp
     :: (MonadDB ssc m, Ssc ssc)
     => Maybe (HeaderHash ssc) -> m [HeaderHash ssc]
 getHeadersOlderExp upto = do
     tip <- GS.getTip
     let upToReal = fromMaybe tip upto
-        whileCond _ depth = depth <= k
-    allHeaders <- reverse <$> loadHeadersWhile upToReal whileCond
-    pure $ selectIndices (takeHashes allHeaders) twoPowers
+    allHeaders <- reverse <$> DB.loadHeadersByDepth blkSecurityParam upToReal
+    pure $ selectIndices (takeHashes allHeaders) (twoPowers $ length allHeaders)
   where
     -- Given list of headers newest first, maps it to their hashes
     takeHashes [] = []
@@ -249,7 +278,11 @@ getHeadersOlderExp upto = do
         let prevHashes = map (view prevBlockL) headers
         in hash x : take (length prevHashes - 1) prevHashes
     -- Powers of 2
-    twoPowers = (takeWhile (<k) $ 0 : 1 : iterate (*2) 2) ++ [k]
+    twoPowers n | n < 0 =
+        panic $ "getHeadersOlderExp#twoPowers called w/" <> show n
+    twoPowers 0 = []
+    twoPowers 1 = [0]
+    twoPowers n = (takeWhile (<(n-1)) $ 0 : 1 : iterate (*2) 2) ++ [n-1]
     -- Effectively do @!i@ for any @i@ from the index list applied to
     -- source list. Index list should be inreasing.
     selectIndices :: [a] -> [Int] -> [a]
@@ -258,7 +291,7 @@ getHeadersOlderExp upto = do
             selGo [] _ _ = []
             selGo ee@(e:es) ii@(i:is) skipped
                 | skipped == i = e : selGo ee is skipped
-                | otherwise    = selGo es ii $ succ skipped
+                | otherwise = selGo es ii $ succ skipped
         in selGo elems ixs 0
 
 -- CSL-396 don't load all the blocks into memory at once
@@ -415,10 +448,14 @@ applyWithRollback
     -> NonEmpty (Block ssc)
     -> m (Either Text (HeaderHash ssc))
 applyWithRollback toRollback toApply = runExceptT $ do
-    tip <- lift GS.getTip
-    when (tip /= assumedTip) $ do
-        throwError (tipMismatchMsg "apply with rollback" tip assumedTip)
+    tip <- GS.getTip
+    when (tip /= newestToRollback) $ do
+        throwError (tipMismatchMsg "rollback in 'apply with rollback'" tip newestToRollback)
     lift $ rollbackBlocksUnsafe toRollback
+    tipAfterRollback <- GS.getTip
+    when (tipAfterRollback /= expectedTipApply) $ do
+        lift $ applyBlocksUnsafe $ NE.reverse toRollback
+        throwError (tipMismatchMsg "apply in 'apply with rollback'" tip newestToRollback)
     lift (verifyAndApplyBlocks True toApply) >>= \case
         -- We didn't succeed to apply blocks, so will apply
         -- rollbacked back.
@@ -427,7 +464,8 @@ applyWithRollback toRollback toApply = runExceptT $ do
             throwError err
         Right tipHash  -> pure tipHash
   where
-    assumedTip = toRollback ^. _neHead . _1 . prevBlockL
+    expectedTipApply = toApply ^. _neHead . prevBlockL
+    newestToRollback = toRollback ^. _neHead . _1 . headerHashG
 
 
 ----------------------------------------------------------------------------
@@ -436,26 +474,27 @@ applyWithRollback toRollback toApply = runExceptT $ do
 
 -- | Create genesis block if necessary.
 --
--- We create genesis block for current epoch when head of currently known
--- best chain is MainBlock corresponding to one of last `k` slots of
--- (i - 1)-th epoch. Main check is that epoch is `(last stored epoch +
--- 1)`, but we also don't want to create genesis block on top of blocks
--- from previous epoch which are not from last k slots, because it's
--- practically impossible for them to be valid.
+-- We create genesis block for current epoch when head of currently
+-- known best chain is MainBlock corresponding to one of last
+-- `slotSecurityParam` slots of (i - 1)-th epoch. Main check is that
+-- epoch is `(last stored epoch + 1)`, but we also don't want to
+-- create genesis block on top of blocks from previous epoch which are
+-- not from last slotSecurityParam slots, because it's practically
+-- impossible for them to be valid.
+-- [CSL-481] We can do consider doing it though.
 createGenesisBlock
     :: forall ssc m.
        WorkMode ssc m
     => EpochIndex -> m (Maybe (GenesisBlock ssc))
-createGenesisBlock epochIndex = do
-    tipHeader <- getTipBlockHeader
-    logDebug $ sformat msgFmt epochIndex tipHeader
-    if shouldCreateGenesisBlock epochIndex $ getEpochOrSlot tipHeader
-        then createGenesisBlockDo epochIndex
-        else Nothing <$ logDebug "We shouldn't create genesis block"
-  where
-    msgFmt =
-        "We are trying to create genesis block for "%ords %
-        " epoch, our tip header is\n"%build
+createGenesisBlock epoch = do
+    leadersOrErr <-
+        try $
+        lrcActionOnEpochReason epoch "there are no leaders" LrcDB.getLeaders
+    case leadersOrErr of
+        Left UnknownBlocksForLrc ->
+            Nothing <$ logInfo "createGenesisBlock: not enough blocks for LRC"
+        Left err -> throwM err
+        Right leaders -> withBlkSemaphore (createGenesisBlockDo epoch leaders)
 
 shouldCreateGenesisBlock :: EpochIndex -> EpochOrSlot -> Bool
 -- Genesis block for 0-th epoch is hardcoded.
@@ -463,35 +502,38 @@ shouldCreateGenesisBlock 0 _ = False
 shouldCreateGenesisBlock epoch headEpochOrSlot =
     doCheck $ epochOrSlot (`SlotId` 0) identity headEpochOrSlot
   where
-    doCheck SlotId {..} = siEpoch == epoch - 1 && siSlot >= 5 * k
+    doCheck SlotId {..} =
+        siEpoch == epoch - 1 && siSlot >= epochSlots - slotSecurityParam
 
 createGenesisBlockDo
     :: forall ssc m.
        WorkMode ssc m
-    => EpochIndex -> m (Maybe (GenesisBlock ssc))
-createGenesisBlockDo epoch = do
-    leaders <- lrcActionOnEpochReason epoch
-                   "there are no leaders"
-                   LrcDB.getLeaders
-    res <- withBlkSemaphore (createGenesisBlockCheckAgain leaders)
-    res <$ inAssertMode (logDebug . sformat newTipFmt =<< readBlkSemaphore)
+    => EpochIndex
+    -> SlotLeaders
+    -> HeaderHash ssc
+    -> m (Maybe (GenesisBlock ssc), HeaderHash ssc)
+createGenesisBlockDo epoch leaders tip = do
+    let noHeaderMsg =
+            "There is no header is DB corresponding to tip from semaphore"
+    tipHeader <-
+        maybe (throwM $ DBMalformed noHeaderMsg) pure =<< DB.getBlockHeader tip
+    logDebug $ sformat msgTryingFmt epoch tipHeader
+    createGenesisBlockFinally tipHeader
   where
-    newTipFmt = "After creating GenesisBlock our tip is: "%shortHashF
-    createGenesisBlockCheckAgain leaders tip = do
-        let noHeaderMsg =
-                "There is no header is DB corresponding to tip from semaphore"
-        tipHeader <-
-            maybe (throwM $ DBMalformed noHeaderMsg) pure =<<
-            DB.getBlockHeader tip
-        createGenesisBlockFinally leaders tip tipHeader
-    createGenesisBlockFinally leaders tip tipHeader
+    createGenesisBlockFinally tipHeader
         | shouldCreateGenesisBlock epoch (getEpochOrSlot tipHeader) = do
-              let blk = mkGenesisBlock (Just tipHeader) epoch leaders
-              let newTip = headerHash blk
-              applyBlocksUnsafe (pure (Left blk, Undo [] [])) $> (Just blk, newTip)
+            let blk = mkGenesisBlock (Just tipHeader) epoch leaders
+            let newTip = headerHash blk
+            applyBlocksUnsafe (pure (Left blk, Undo [] [])) $>
+                (Just blk, newTip)
         | otherwise = (Nothing, tip) <$ logShouldNot
-    logShouldNot = logDebug
-          "After we took lock for genesis block creation, we noticed that we shouldn't create it"
+    logShouldNot =
+        logDebug
+            "After we took lock for genesis block creation, we noticed that we shouldn't create it"
+    msgTryingFmt =
+        "We are trying to create genesis block for " %ords %
+        " epoch, our tip header is\n" %build
+
 ----------------------------------------------------------------------------
 -- MainBlock creation
 ----------------------------------------------------------------------------
@@ -499,7 +541,7 @@ createGenesisBlockDo epoch = do
 -- | Create a new main block on top of best chain if possible.
 -- Block can be created if:
 -- • we know genesis block for epoch from given SlotId
--- • last known block is not more than k slots away from
+-- • last known block is not more than 'slotSecurityParam' blocks away from
 -- given SlotId
 createMainBlock
     :: forall ssc m.
@@ -511,8 +553,8 @@ createMainBlock sId pSk = withBlkSemaphore createMainBlockDo
   where
     msgFmt = "We are trying to create main block, our tip header is\n"%build
     createMainBlockDo tip = do
-        tipHeader <- getTipBlockHeader
-        logDebug $ sformat msgFmt tipHeader
+        tipHeader <- DB.getTipBlockHeader
+        logInfo $ sformat msgFmt tipHeader
         case canCreateBlock sId tipHeader of
             Nothing  -> convertRes tip <$>
                 runExceptT (createMainBlockFinish sId pSk tipHeader)
@@ -522,15 +564,15 @@ createMainBlock sId pSk = withBlkSemaphore createMainBlockDo
 
 canCreateBlock :: SlotId -> BlockHeader ssc -> Maybe Text
 canCreateBlock sId tipHeader
-       | sId > maxSlotId =
-           Just "slot id is too big, we don't know recent block"
-       | (EpochOrSlot $ Right sId) < headSlot =
-           Just "slot id is not biger than one from last known block"
-       | otherwise = Nothing
+    | sId > maxSlotId = Just "slot id is too big, we don't know recent block"
+    | (EpochOrSlot $ Right sId) < headSlot =
+        Just "slot id is not biger than one from last known block"
+    | otherwise = Nothing
   where
-    addKSafe si = si {siSlot = min (6 * k - 1) (siSlot si + k)}
     headSlot = getEpochOrSlot tipHeader
-    maxSlotId = addKSafe $ epochOrSlot (`SlotId` 0) identity headSlot
+    addSafe si =
+        si {siSlot = min (epochSlots - 1) (siSlot si + slotSecurityParam)}
+    maxSlotId = addSafe $ epochOrSlot (`SlotId` 0) identity headSlot
 
 -- Here we assume that blkSemaphore has been taken.
 createMainBlockFinish
@@ -552,6 +594,9 @@ createMainBlockFinish slotId pSk prevHeader = do
             fromMaybe (panic "Undo for tx not found")
                       (HM.lookup (fst tx) txUndo) : undos
     let blockUndo = Undo (reverse $ foldl' prependToUndo [] localTxs) pskUndo
+    lift $ inAssertMode $ verifyBlocksPrefix (pure (Right blk)) >>=
+        \case Left err -> logError $ sformat ("We've created bad block: "%stext) err
+              Right _ -> pass
     lift $ blk <$ applyBlocksUnsafe (pure (Right blk, blockUndo))
   where
     onBrokenTopo = throwError "Topology of local transactions is broken!"

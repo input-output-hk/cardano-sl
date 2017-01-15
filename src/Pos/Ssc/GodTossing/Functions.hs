@@ -10,7 +10,6 @@ module Pos.Ssc.GodTossing.Functions
        , isOpeningIdx
        , isSharesId
        , isSharesIdx
-       , inLastKSlotsId
        , hasCommitment
        , hasOpening
        , hasShares
@@ -34,21 +33,23 @@ module Pos.Ssc.GodTossing.Functions
 
        -- * VSS
        , vssThreshold
+       , computeParticipants
        ) where
 
 import           Control.Lens                   (at, (^.), _2)
 import           Data.Containers                (ContainerKey, SetContainer (notMember))
 import qualified Data.HashMap.Strict            as HM
-import qualified Data.HashSet                   as HS (fromList, size)
+import qualified Data.HashSet                   as HS
 import           Data.Ix                        (inRange)
 import           Data.List.NonEmpty             (NonEmpty (..))
+import qualified Data.List.NonEmpty             as NE
 import           Serokell.Util                  (VerificationRes, verifyGeneric)
 import           Serokell.Util.Verify           (isVerSuccess)
 import           Universum
 
 import           Pos.Binary.Class               (Bi)
 import           Pos.Binary.Crypto              ()
-import           Pos.Constants                  (k, vssMaxTTL)
+import           Pos.Constants                  (blkSecurityParam, vssMaxTTL, vssMinTTL)
 import           Pos.Crypto                     (EncShare, Secret, SecretKey,
                                                  SecureRandom (..), Share, Threshold,
                                                  VssPublicKey, checkSig, encShareId,
@@ -56,6 +57,7 @@ import           Pos.Crypto                     (EncShare, Secret, SecretKey,
                                                  secretToDhSecret, sign, toPublic,
                                                  verifyEncShare, verifySecretProof,
                                                  verifyShare)
+import           Pos.Lrc.Types                  (Richmen)
 import           Pos.Ssc.Class.Types            (Ssc (..))
 import           Pos.Ssc.GodTossing.Types.Base  (Commitment (..), CommitmentsMap,
                                                  InnerSharesMap, Opening (..),
@@ -105,13 +107,13 @@ mkSignedCommitment sk i c = (toPublic sk, c, sign sk (i, c))
 -- Simple predicates for GodTossing.Types.Base
 ----------------------------------------------------------------------------
 isCommitmentIdx :: LocalSlotIndex -> Bool
-isCommitmentIdx = inRange (0, k - 1)
+isCommitmentIdx = inRange (0, 2 * blkSecurityParam - 1)
 
 isOpeningIdx :: LocalSlotIndex -> Bool
-isOpeningIdx = inRange (2 * k, 3 * k - 1)
+isOpeningIdx = inRange (4 * blkSecurityParam, 6 * blkSecurityParam - 1)
 
 isSharesIdx :: LocalSlotIndex -> Bool
-isSharesIdx = inRange (4 * k, 5 * k - 1)
+isSharesIdx = inRange (8 * blkSecurityParam, 10 * blkSecurityParam - 1)
 
 isCommitmentId :: SlotId -> Bool
 isCommitmentId = isCommitmentIdx . siSlot
@@ -121,9 +123,6 @@ isOpeningId = isOpeningIdx . siSlot
 
 isSharesId :: SlotId -> Bool
 isSharesId = isSharesIdx . siSlot
-
-inLastKSlotsId :: SlotId -> Bool
-inLastKSlotsId SlotId{..} = siSlot >= 5 * k
 
 -- Not the best solution :(
 hasCommitment
@@ -228,7 +227,7 @@ checkCertSign (addr, VssCertificate {..}) =
 -- more than 0 and less than vssMaxTTL
 checkCertTTL :: EpochIndex -> VssCertificate -> Bool
 checkCertTTL curEpochIndex VssCertificate{..} =
-    vcExpiryEpoch >= curEpochIndex &&
+    vcExpiryEpoch + 1 >= vssMinTTL + curEpochIndex &&
     getEpochIndex vcExpiryEpoch < vssMaxTTL + getEpochIndex curEpochIndex
 
 -- CHECK: @checkShare
@@ -304,7 +303,7 @@ checkOpeningMatchesCommitment globalCommitments (addr, opening) =
 -- For each DS datum we check:
 --
 --   1. Whether it's stored in the correct block (e.g. commitments have to be in
---      first k blocks, etc.)
+--      first 2 * blkSecurityParam blocks, etc.)
 --
 --   2. Whether the message itself is correct (e.g. commitment signature is
 --      valid, etc.)
@@ -314,7 +313,7 @@ verifyGtPayload
     :: (SscPayload ssc ~ GtPayload, Bi Commitment)
     => MainBlockHeader ssc -> SscPayload ssc -> VerificationRes
 verifyGtPayload header payload =
-    verifyGeneric $ otherChecks ++
+    verifyGeneric $
         case payload of
             CommitmentsPayload comms certs ->   isComm
                                               : commChecks comms
@@ -365,13 +364,6 @@ verifyGtPayload header payload =
             "some VSS certificates have invalid TTL")
       ]
 
-    -- CHECK: For all blocks (no matter the type), we check that
-    --
-    --   * slot ID is in range
-    otherChecks =
-        [ (inRange (0, 6 * k - 1) (siSlot slotId),
-            "slot id is outside of [0, 6k)")]
-
 checkCommShares :: [AsBinary VssPublicKey] -> SignedCommitment -> Bool
 checkCommShares vssPublicKeys c =
     HS.fromList vssPublicKeys == (getKeys . commShares $ c ^. _2)
@@ -384,3 +376,7 @@ checkCommShares vssPublicKeys c =
 -- to recover each node's secret) using number of participants.
 vssThreshold :: Integral a => a -> Threshold
 vssThreshold len = fromIntegral $ len `div` 2 + len `mod` 2
+
+computeParticipants :: Richmen -> VssCertificatesMap -> VssCertificatesMap
+computeParticipants (HS.toMap . HS.fromList . NE.toList -> richmen) =
+    (`HM.intersection` richmen)

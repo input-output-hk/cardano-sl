@@ -12,6 +12,10 @@ module Pos.DB.Types
        , lrcDB
        , miscDB
 
+       -- * Snapshot
+       , Snapshot (..)
+       , usingSnapshot
+
         -- * Block DB related types.
        , StoredBlock (..)
 
@@ -59,6 +63,16 @@ data NodeDBs ssc = NodeDBs
     }
 
 makeLenses ''NodeDBs
+
+----------------------------------------------------------------------------
+-- Snapshot
+----------------------------------------------------------------------------
+newtype Snapshot = Snapshot Rocks.Snapshot
+
+usingSnapshot :: (MonadIO m, MonadMask m) => DB ssc -> (Snapshot -> m a) -> m a
+usingSnapshot DB{..} action =
+    bracket (Rocks.createSnapshot rocksDB) (Rocks.releaseSnapshot rocksDB)
+            (action . Snapshot)
 
 ----------------------------------------------------------------------------
 -- Blocks DB

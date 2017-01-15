@@ -30,7 +30,7 @@ mpcThreshold: 0.05 # 5% of stake
 delegationThreshold: 0.0003 # 0.03% of stake
 maxBlockProxySKs: 10000
 ntpResponseTimeout: 1000000 # 1 sec
-ntpPollDelay: 300000000 # 300 sec
+ntpPollDelay: 15000000 # 15 sec
 
 # Update mechanism
 updateServers: []

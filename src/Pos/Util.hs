@@ -466,7 +466,7 @@ getKeys = fromMap . void
 
 newtype AsBinary a = AsBinary
     { getAsBinary :: ByteString
-    } deriving (Show, Eq, Ord)
+    } deriving (Show, Eq, Ord, Hashable)
 
 instance SafeCopy (AsBinary a) where
     getCopy = contain $ AsBinary <$> safeGet

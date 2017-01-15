@@ -14,7 +14,6 @@ module Pos.Ssc.GodTossing.Types.Types
        , GtContext (..)
        , GtParams (..)
        , GtSecretStorage (..)
-       , GtSecret
 
        -- * Lenses
        -- ** GtPayload
@@ -44,13 +43,13 @@ import           Serokell.Util                  (listJson)
 import           Universum
 
 import           Pos.Binary.Class               (Bi)
-import           Pos.Crypto                     (Hash, PublicKey, VssKeyPair, hash)
+import           Pos.Crypto                     (Hash, SecretProof, VssKeyPair, hash)
 import           Pos.Ssc.GodTossing.Types.Base  (Commitment, CommitmentsMap, Opening,
                                                  OpeningsMap, SharesMap, SignedCommitment,
                                                  VssCertificate, VssCertificatesMap)
-import           Pos.Ssc.GodTossing.Types.Type  (SscGodTossing)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
-import           Pos.Types                      (EpochIndex, HeaderHash)
+import           Pos.Types                      (EpochIndex)
+import           Pos.Util                       (AsBinary)
 
 ----------------------------------------------------------------------------
 -- SscGlobalState
@@ -238,20 +237,19 @@ createGtContext GtParams {..} =
 ----------------------------------------------------------------------------
 -- Secret storage
 ----------------------------------------------------------------------------
-type GtSecret = (PublicKey, SignedCommitment, Opening)
-
 data GtSecretStorage = GtSecretStorage
     {
-      -- | Secret that we are using for the current epoch and
-      -- Tip corresponding to the latter generated secret
-      _dsCurrentSecret :: !(Maybe (GtSecret, EpochIndex, HeaderHash SscGodTossing))
+      -- | Secrets which we've generated so far.
+      gssSecrets :: !(HashMap (AsBinary SecretProof) (SignedCommitment, Opening))
+    , -- | Epoch for which this secret were generated
+      gssEpoch   :: !EpochIndex
     } deriving (Show, Eq)
 
 instance Default GtSecretStorage where
     def =
         GtSecretStorage
-        {
-          _dsCurrentSecret = Nothing
+        { gssSecrets = mempty
+        , gssEpoch = 0
         }
 ----------------------------------------------------------------------------
 -- Convinient binary type alias

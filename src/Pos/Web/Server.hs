@@ -19,10 +19,9 @@ module Pos.Web.Server
        ) where
 
 import           Control.Concurrent.STM.TVar          (writeTVar)
-import           Control.Lens                         (view, _3)
 import qualified Control.Monad.Catch                  as Catch
 import           Control.Monad.Except                 (MonadError (throwError))
-import           Mockable                             (Production (runProduction), throw)
+import           Mockable                             (Production (runProduction))
 import           Network.Wai                          (Application)
 import           Network.Wai.Handler.Warp             (run)
 import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
@@ -41,17 +40,15 @@ import qualified Pos.DB.GState                        as GS
 import qualified Pos.DB.Lrc                           as LrcDB
 import           Pos.Slotting                         (getCurrentSlot)
 import           Pos.Ssc.Class                        (SscConstraint)
-import           Pos.Ssc.GodTossing                   (SscGodTossing, getOpening,
-                                                       gtcParticipateSsc, isCommitmentIdx,
-                                                       isOpeningIdx, isSharesIdx,
-                                                       secretToSharedSeed)
-import           Pos.Ssc.GodTossing.SecretStorage     (getSecret)
+import           Pos.Ssc.GodTossing                   (SscGodTossing, gtcParticipateSsc,
+                                                       isCommitmentIdx, isOpeningIdx,
+                                                       isSharesIdx)
+-- import           Pos.Ssc.GodTossing.SecretStorage     (getSecret)
 import           Pos.Txp.Class                        (getLocalTxs, getTxpLDWrap)
 import           Pos.Txp.Holder                       (TxpLDHolder, TxpLDWrap,
                                                        runTxpLDHolderReader)
-import           Pos.Types                            (EpochIndex (..), SharedSeed,
-                                                       SlotId (..), SlotLeaders, siSlot)
-import           Pos.Util                             (fromBinaryM)
+import           Pos.Types                            (EpochIndex (..), SlotId (..),
+                                                       SlotLeaders, siSlot)
 import           Pos.Web.Api                          (BaseNodeApi, GodTossingApi,
                                                        GtNodeApi, baseNodeApi, gtNodeApi)
 import           Pos.Web.Types                        (GodTossingStage (..))
@@ -156,24 +153,24 @@ type GtWebHandler = WebHandler SscGodTossing
 
 gtServantHandlers :: ServerT GodTossingApi GtWebHandler
 gtServantHandlers =
-    toggleGtParticipation :<|> gtHasSecret :<|> getOurSecret :<|> getGtStage
+    toggleGtParticipation {- :<|> gtHasSecret :<|> getOurSecret -} :<|> getGtStage
 
 toggleGtParticipation :: Bool -> GtWebHandler ()
 toggleGtParticipation enable =
     getNodeContext >>=
     atomically . flip writeTVar enable . gtcParticipateSsc . ncSscContext
 
-gtHasSecret :: GtWebHandler Bool
-gtHasSecret = isJust <$> getSecret
+-- gtHasSecret :: GtWebHandler Bool
+-- gtHasSecret = isJust <$> getSecret
 
-getOurSecret :: GtWebHandler SharedSeed
-getOurSecret = maybe (throw err) (pure . convertGtSecret) =<< getSecret
-  where
-    err = err404 { errBody = "I don't have secret" }
-    doPanic = panic "our secret is malformed"
-    convertGtSecret =
-        secretToSharedSeed .
-        fromMaybe doPanic . fromBinaryM . getOpening . view _3
+-- getOurSecret :: GtWebHandler SharedSeed
+-- getOurSecret = maybe (throw err) (pure . convertGtSecret) =<< getSecret
+--   where
+--     err = err404 { errBody = "I don't have secret" }
+--     doPanic = panic "our secret is malformed"
+--     convertGtSecret =
+--         secretToSharedSeed .
+--         fromMaybe doPanic . fromBinaryM . getOpening . view _2
 
 getGtStage :: GtWebHandler GodTossingStage
 getGtStage = do

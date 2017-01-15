@@ -1,10 +1,10 @@
 mkdir -p logs/rc0
 
-stack exec -- cardano-node \
+stack --nix exec -- cardano-node \
   --peer 35.157.26.73:3000/MHdrsP-oPf7UWl0007QuXnLK5RD= \
   --flat-distr '(20,60000000)' \
-  --spending-genesis 10 \
-  --vss-genesis 10 \
+  --spending-genesis 5 \
+  --vss-genesis 5 \
   --wallet \
   --listen 0.0.0.0:3001 \
   --rebuild-db \

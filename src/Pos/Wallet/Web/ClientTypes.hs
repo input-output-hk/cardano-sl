@@ -48,6 +48,8 @@ import           Pos.Types             (Address (..), Coin, Tx, TxId, decodeText
 -- Notifications
 data NotifyEvent
     = ConnectionOpened
+    | NewWalletTransaction CAddress
+    | NewTransaction
     | ConnectionClosed
     deriving (Show, Generic)
 

@@ -10,6 +10,7 @@ module Pos.Wallet.Web.State.State
        , closeState
 
        -- * Getters
+       , getProfile
        , getWalletMetas
        , getWalletMeta
        , getTxMeta
@@ -17,6 +18,7 @@ module Pos.Wallet.Web.State.State
 
        -- * Setters
        , createWallet
+       , setProfile
        , setWalletMeta
        , setWalletTransactionMeta
        , setWalletHistory
@@ -29,7 +31,8 @@ import           Data.Acid                    (EventResult, EventState, QueryEve
 import           Mockable                     (MonadMockable)
 import           Universum
 
-import           Pos.Wallet.Web.ClientTypes   (CAddress, CTxId, CTxMeta, CWalletMeta)
+import           Pos.Wallet.Web.ClientTypes   (CAddress, CProfile, CTxId, CTxMeta,
+                                               CWalletMeta)
 import           Pos.Wallet.Web.State.Acidic  (WalletState, closeState, openMemState,
                                                openState)
 import           Pos.Wallet.Web.State.Acidic  as A
@@ -62,6 +65,9 @@ updateDisk e = getWalletWebState >>= flip A.update e
 getWalletMetas :: WebWalletModeDB m => m [CWalletMeta]
 getWalletMetas = queryDisk A.GetWalletMetas
 
+getProfile :: WebWalletModeDB m => m (Maybe CProfile)
+getProfile = queryDisk A.GetProfile
+
 getWalletMeta :: WebWalletModeDB m => CAddress -> m (Maybe CWalletMeta)
 getWalletMeta = queryDisk . A.GetWalletMeta
 
@@ -76,6 +82,9 @@ createWallet addr = updateDisk . A.CreateWallet addr
 
 setWalletMeta :: WebWalletModeDB m => CAddress -> CWalletMeta -> m ()
 setWalletMeta addr = updateDisk . A.SetWalletMeta addr
+
+setProfile :: WebWalletModeDB m => CProfile -> m ()
+setProfile = updateDisk . A.SetProfile
 
 setWalletTransactionMeta :: WebWalletModeDB m => CAddress -> CTxId -> CTxMeta -> m ()
 setWalletTransactionMeta addr ctxId = updateDisk . A.SetWalletTransactionMeta addr ctxId

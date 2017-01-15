@@ -27,7 +27,7 @@ import           Data.List                   (sortOn)
 import           Data.Maybe                  (isNothing)
 import           Data.Monoid                 ((<>))
 import           Data.Text                   (Text)
-import           Data.Time.Units             (Microsecond, Second)
+import           Data.Time.Units             (Microsecond, Second, toMicroseconds)
 import           Data.Typeable               (Typeable)
 import           Formatting                  (sformat, shown, (%))
 import           Network.Socket              (AddrInfoFlag (AI_PASSIVE), Family (AF_INET),
@@ -135,7 +135,8 @@ handleCollectedResponses cli = do
         Just []        -> log cli Warning "No servers responded"
         Just responses -> handleE `handleAll` do
             let time = selection responses
-            log cli Notice $ sformat ("Evaluated clock offset: "%shown) time
+            log cli Notice $ sformat ("Evaluated clock offset: "%shown%" mcs")
+                (toMicroseconds $ fst time)
             handler time
   where
     handleE = log cli Error . sformat ("ntpMeanSelection: "%shown)
@@ -195,7 +196,8 @@ handleNtpPacket cli packet = do
 
     clockOffset <- evalClockOffset packet
 
-    log cli Info $ sformat ("Received time delta "%shown) clockOffset
+    log cli Info $ sformat ("Received time delta "%shown%" mcs")
+        (toMicroseconds clockOffset)
 
     late <- liftIO . atomically . modifyTVarS (ncState cli) $ do
         _Just %= ((clockOffset, ntpOriginTime packet) :)

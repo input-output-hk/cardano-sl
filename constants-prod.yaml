@@ -17,7 +17,7 @@ sysTimeBroadcastSlots: 6
 
 # Networking
 neighboursSendThreshold: 2
-networkDiameter: 3
+networkDiameter: 45
 networkConnectionTimeout: 2000
 
 # GodTossing

@@ -55,7 +55,10 @@ initWSConnection :: MonadIO m => m ConnectionsVar
 initWSConnection = liftIO $ newTVarIO Nothing
 
 closeWSConnection :: MonadIO m => ConnectionsVar -> m ()
-closeWSConnection = flip sendClose ConnectionClosed
+closeWSConnection var = do
+    conn <- liftIO $ readTVarIO var
+    atomically $ writeTVar var Nothing
+    liftIO $ maybe mempty (flip WS.sendClose ConnectionClosed) conn
 
 switchConnection :: ConnectionsVar -> WS.ServerApp
 switchConnection var pending = do
@@ -68,7 +71,7 @@ switchConnection var pending = do
   where
     ignoreData :: WS.Connection -> IO Text
     ignoreData = WS.receiveData
-    releaseResources = atomically $ writeTVar var Nothing -- TODO: log
+    releaseResources = closeWSConnection var -- TODO: log
 
 -- If there is a new pending ws connection, the old connection will be replaced with new one.
 -- FIXME: this is not safe because someone can kick out previous ws connection. Authentication can solve this issue. Solution: reject pending connection if ws handshake doesn't have valid auth session token

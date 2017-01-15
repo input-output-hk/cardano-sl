@@ -22,11 +22,12 @@ module Pos.WorkMode
 
 
 import           Control.Monad.Catch         (MonadMask)
-import           Mockable                    (MonadMockable)
+import           Mockable                    (MonadMockable, Promise)
 import           Mockable.Production         (Production)
 import           System.Wlog                 (LoggerNameBox (..), WithLogger)
 import           Universum
 
+import           Pos.Block.Network.Types     (MsgGetHeaders)
 import           Pos.Communication.PeerState (PeerStateHolder (..), WithPeerState)
 import           Pos.Context                 (ContextHolder, WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
@@ -46,6 +47,9 @@ import           Pos.Txp.Holder              (TxpLDHolder)
 import           Pos.Types                   (MonadUtxo, MonadUtxoRead)
 import           Pos.Update.MemState         (MonadUSMem, USHolder)
 import           Pos.Util.JsonLog            (MonadJL (..))
+
+-- TODO find nicer solution
+type PromiseEqs ssc m = (Eq (Promise m (Maybe (Maybe (MsgGetHeaders ssc)))))
 
 -- | Bunch of constraints to perform work for real world distributed system.
 type WorkMode ssc m
@@ -71,6 +75,7 @@ type WorkMode ssc m
       , WithPeerState ssc m
       , MonadSscRichmen m
       , MonadUSMem m
+      , PromiseEqs ssc m
       )
 
 -- | More relaxed version of 'WorkMode'.

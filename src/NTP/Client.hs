@@ -33,10 +33,10 @@ import           Formatting                  (sformat, shown, (%))
 import           Network.Socket              (AddrInfoFlag (AI_PASSIVE), Family (AF_INET),
                                               SockAddr (..), Socket,
                                               SocketOption (ReuseAddr),
-                                              SocketType (Datagram), addrAddress,
-                                              addrFamily, addrFlags, bind, close,
-                                              defaultHints, defaultProtocol, getAddrInfo,
-                                              setSocketOption, socket)
+                                              SocketType (Datagram), aNY_PORT,
+                                              addrAddress, addrFamily, addrFlags, bind,
+                                              close, defaultHints, defaultProtocol,
+                                              getAddrInfo, setSocketOption, socket)
 import           Network.Socket.ByteString   (recvFrom, sendTo)
 import           Prelude                     hiding (log)
 import           Serokell.Util.Concurrent    (modifyTVarS, threadDelay)
@@ -174,7 +174,7 @@ mkSocket settings = doMkSocket `catchAll` handlerE
         -- Copied from Kademlia library
         serveraddrs <- getAddrInfo
                      (Just (defaultHints {addrFlags = [AI_PASSIVE]}))
-                     Nothing (Just "0")
+                     Nothing (Just $ show aNY_PORT)
 
         let serveraddr = head $ filter (\a -> addrFamily a == AF_INET) serveraddrs
 

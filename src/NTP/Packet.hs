@@ -35,18 +35,18 @@ ntpTimestampDelta = 2208988800
 ntpPacketSize :: Int
 ntpPacketSize = 48
 
-power2of32 :: Integer
-power2of32 = 4294967296
+exp2'32 :: Integer
+exp2'32 = 4294967296
 
 ntpToRealMcs :: Word32 -> Word32 -> Microsecond
 ntpToRealMcs integerSec fracSec = fromMicroseconds $
        (fromIntegral integerSec - ntpTimestampDelta) * 1000000
-      + ((fromIntegral fracSec * 1000000) `div` power2of32)
+      + ((fromIntegral fracSec * 1000000) `div` exp2'32)
 
 realMcsToNtp :: Microsecond -> (Word32, Word32)
 realMcsToNtp (toMicroseconds -> mcs) =
     let integerSec = (mcs `div` 1000000) + ntpTimestampDelta
-        fracSec    = ((mcs * power2of32) `div` 1000000)
+        fracSec    = ((mcs * exp2'32) `div` 1000000)
     in  (fromIntegral integerSec, fromIntegral fracSec)
 
 instance Binary NtpPacket where

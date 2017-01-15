@@ -425,8 +425,8 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                           case mconn of
                               -- The EndPoint is closed, so we do nothing.
                               -- TODO should probably log this.
-                              Nothing -> logDebug "Got connection request, but endpoint\
-                                \is closed"
+                              Nothing -> logDebug $ sformat ("Got connection\
+                                \request from "%shown%", but endpoint is closed") peer
                               Just conn -> do
                                   outcome <- NT.send conn [controlHeaderBidirectionalAck nonce]
                                   case outcome of
@@ -481,7 +481,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
 
                 | otherwise -> do
                     logDebug $ sformat ("protocol error: unexpected control header "
-                        %shown) w
+                        %shown%" from "%shown) w peer
                     pure Nothing
 
     loop :: DispatcherState m -> m ()

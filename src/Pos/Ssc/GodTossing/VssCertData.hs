@@ -10,6 +10,7 @@ module Pos.Ssc.GodTossing.VssCertData
        , setLastKnownSlot
        , keys
        , member
+       , expiryFlatSlot
 
        -- * Functions which delete certificates. Be careful
        , delete

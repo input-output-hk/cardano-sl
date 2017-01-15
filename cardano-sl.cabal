@@ -120,7 +120,7 @@ library
                         Pos.Binary.Class
                         Pos.Binary.Crypto
                         Pos.Binary.Communication
-                        Pos.Binary.DHTModel                        
+                        Pos.Binary.DHTModel
                         Pos.Binary.DB
                         Pos.Binary.Genesis
                         Pos.Binary.Merkle
@@ -888,6 +888,7 @@ test-suite cardano-test
                        Test.Pos.Ssc.GodTossing.Identity.SafeCopySpec
                        Test.Pos.Ssc.GodTossing.SeedSpec
                        Test.Pos.Ssc.GodTossing.Types.BaseSpec
+                       Test.Pos.Ssc.GodTossing.VssCertDataSpec
                        Test.Pos.Types.AddressSpec
                        Test.Pos.Types.BlockSpec
                        Test.Pos.Types.Identity.BinarySpec

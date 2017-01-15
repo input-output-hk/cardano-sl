@@ -256,7 +256,7 @@ runCH NodeParams {..} sscNodeContext act = do
 
     userSecretVar <- liftIO . atomically . newTVar $ npUserSecret
     ntpData <- currentTime >>= atomically . newTVar . (0, )
-    -- ^ current time isn't quite validly, but it doesn't matter
+    -- current time isn't quite validly, but it doesn't matter
     lastSlot <- atomically . newTVar $ unflattenSlotId 0
     queue <- liftIO $ newTBQueueIO blockRetrievalQueueSize
     let ctx =

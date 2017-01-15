@@ -44,5 +44,5 @@ instance (MonadIO m, MonadThrow m)
 
     setStake id coin = modify (over stakes (HM.insert id coin))
     -- at lens ?
-    getTotalStake = gets _total
+    getTotalStake = use total
     setTotalStake tot = total .= tot

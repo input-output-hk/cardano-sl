@@ -67,6 +67,10 @@ import           Pos.Util.TimeWarp          (ms, sec)
 import           System.Environment         (lookupEnv)
 import qualified Text.Parsec                as P
 import           Universum                  hiding (lift)
+#ifndef DEV_MODE
+import           Data.Time.Clock.POSIX      (getPOSIXTime)
+import           System.IO.Unsafe           (unsafePerformIO)
+#endif
 
 import           Pos.CLI                    (dhtNodeParser)
 import           Pos.CompileConfig          (CompileConfig (..), compileConfig)

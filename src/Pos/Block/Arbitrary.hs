@@ -108,15 +108,13 @@ instance Arbitrary T.MainExtraHeaderData where
         <*> arbitrary
 
 instance Arbitrary T.MainExtraBodyData where
-    arbitrary = T.MainExtraBodyData
-        <$> arbitrary
-        <*> arbitrary
-        <*> arbitrary
+    arbitrary = T.MainExtraBodyData <$> arbitrary
 
 instance (Arbitrary (SscProof ssc), Bi Raw) =>
     Arbitrary (T.BodyProof (T.MainBlockchain ssc)) where
     arbitrary = T.MainProof
         <$> arbitrary
+        <*> arbitrary
         <*> arbitrary
         <*> arbitrary
         <*> arbitrary
@@ -151,9 +149,10 @@ txOutDistGen = listOf $ do
 instance Arbitrary (SscPayload ssc) => Arbitrary (T.Body (T.MainBlockchain ssc)) where
     arbitrary = makeSmall $ do
         (txList, txDists, txInW) <- unzip3 <$> txOutDistGen
-        mpcData <- arbitrary
+        mpcData     <- arbitrary
         mpcProxySKs <- arbitrary
-        return $ T.MainBody (mkMerkleTree txList) txDists txInW mpcData mpcProxySKs
+        mpcUpload   <- arbitrary
+        return $ T.MainBody (mkMerkleTree txList) txDists txInW mpcData mpcProxySKs mpcUpload
 
 instance (Arbitrary (SscProof ssc), Arbitrary (SscPayload ssc), Ssc ssc) =>
     Arbitrary (T.GenericBlock (T.MainBlockchain ssc)) where

@@ -18,6 +18,7 @@ spec = describe "Update system" $ do
         binaryTest @U.UpdateProposal
         binaryTest @U.UpdateVote
         binaryTest @U.UpdateData
+        binaryTest @U.UpdatePayload
         binaryTest @U.SystemTag
         binaryTest @(R.InvMsg U.UpId U.ProposalMsgTag)
         binaryTest @(R.ReqMsg U.UpId U.ProposalMsgTag)

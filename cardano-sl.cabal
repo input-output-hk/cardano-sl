@@ -99,9 +99,13 @@ library
                         Pos.Types.Types
                         Pos.Types.Utxo
                         Pos.Types.Version
+
+                        -- Update system
                         Pos.Update
                         Pos.Update.Arbitrary
                         Pos.Update.Core
+
+                        -- Utilities/helpers
                         Pos.Util
                         Pos.Util.JsonLog
                         Pos.Util.Relay

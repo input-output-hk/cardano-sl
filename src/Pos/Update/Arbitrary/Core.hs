@@ -17,8 +17,8 @@ import           Pos.Crypto.Arbitrary         (KeyPair (..))
 import           Pos.Types.Arbitrary          ()
 import           Pos.Update.Arbitrary.Network ()
 import           Pos.Update.Core.Types        (SystemTag, UpdateData (..),
-                                               UpdateProposal (..), UpdateVote (..),
-                                               mkSystemTag)
+                                               UpdatePayload (..), UpdateProposal (..),
+                                               UpdateVote (..), mkSystemTag)
 
 instance Arbitrary SystemTag where
     arbitrary =
@@ -43,3 +43,4 @@ instance Arbitrary UpdateProposal where
         <*> (HM.fromList <$> listOf1 arbitrary)
 
 derive makeArbitrary ''UpdateData
+derive makeArbitrary ''UpdatePayload

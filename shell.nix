@@ -1,4 +1,4 @@
-with import (fetchTarball https://github.com/NixOS/nixpkgs/archive/663048f37849667f84bb1d941132369eff6e630f.tar.gz) { };
+with import (fetchTarball https://github.com/NixOS/nixpkgs/archive/3224c6c1a66dcd5da0253d31f2270d505b1cfe70.tar.gz) { };
 
 let
   hsPkgs = haskell.packages.ghc802;

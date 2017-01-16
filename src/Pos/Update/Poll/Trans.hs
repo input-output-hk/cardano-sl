@@ -36,8 +36,8 @@ import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..))
 import           Pos.Txp.Class               (MonadTxpLD (..))
 import           Pos.Types.Utxo.Class        (MonadUtxo, MonadUtxoRead)
 import           Pos.Update.MemState.Class   (MonadUSMem (..))
-import           Pos.Update.MemState.Types   (PollModifier)
 import           Pos.Update.Poll.Class       (MonadPoll (..), MonadPollRead (..))
+import           Pos.Update.Poll.Types       (PollModifier)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 ----------------------------------------------------------------------------

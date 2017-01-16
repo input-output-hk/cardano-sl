@@ -8,7 +8,8 @@ import           Data.Default              (Default (def))
 -- import           Universum
 
 import           Pos.Types                 (EpochIndex)
-import           Pos.Update.MemState.Types (MemPool, PollModifier)
+import           Pos.Update.MemState.Types (MemPool)
+import           Pos.Update.Poll.Types     (PollModifier)
 
 -- TODO: store tip here.
 -- | MemState contains all in-memory data necesary for Update System.

@@ -12,8 +12,7 @@ module Pos.Communication.Server.SysStart
 import           Control.Concurrent.MVar  (MVar, tryPutMVar)
 import           Formatting               (build, sformat, shown, (%))
 import           Node                     (ConversationActions (..), Listener,
-                                           ListenerAction (..), NodeId,
-                                           SendActions (sendTo))
+                                           ListenerAction (..), NodeId, SendActions)
 import           System.Wlog              (logInfo)
 
 import           Universum

@@ -21,10 +21,7 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               defaultRestoreM, defaultRestoreT)
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
-import           Mockable                    (ChannelT, MFunctor',
-                                              Mockable (liftMockable), Promise,
-                                              SharedAtomicT, ThreadId,
-                                              liftMockableWrappedM)
+import           Mockable                    (ChannelT, Promise, SharedAtomicT, ThreadId)
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum

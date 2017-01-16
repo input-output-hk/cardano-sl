@@ -7,6 +7,7 @@ module Pos.Types.Version
        , canBeNextPV
 
          -- * Software Version
+       , NumSoftwareVersion
        , SoftwareVersion (..)
        , ApplicationName (..)
        , mkApplicationName
@@ -70,10 +71,13 @@ mkApplicationName appName
         fail "ApplicationName: not ascii string passed"
     | otherwise = pure $ ApplicationName appName
 
+-- | Numeric software version associated with ApplicationName.
+type NumSoftwareVersion = Word32
+
 -- | Software version.
 data SoftwareVersion = SoftwareVersion
-    { svAppName :: ApplicationName
-    , svNumber  :: Word32
+    { svAppName :: !ApplicationName
+    , svNumber  :: !NumSoftwareVersion
     } deriving (Eq, Generic, Ord, Typeable)
 
 instance Buildable SoftwareVersion where

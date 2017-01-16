@@ -10,7 +10,7 @@ module Pos.Update.Poll.Trans
        , execPollT
        ) where
 
-import           Control.Lens                (iso)
+import           Control.Lens                (at, iso, (.=))
 import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Fix           (MonadFix)
 import           Control.Monad.State         (MonadState (..))
@@ -30,15 +30,22 @@ import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Context                 (WithNodeContext)
+import           Pos.Crypto                  (hash)
 import           Pos.DB.Class                (MonadDB)
+import           Pos.DB.Types                (psProposal)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..))
 import           Pos.Txp.Class               (MonadTxpLD (..))
+import           Pos.Types                   (SoftwareVersion (..))
 import           Pos.Types.Utxo.Class        (MonadUtxo, MonadUtxoRead)
+import           Pos.Update.Core             (UpdateProposal (..))
 import           Pos.Update.MemState.Class   (MonadUSMem (..))
 import           Pos.Update.Poll.Class       (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Types       (PollModifier (..))
+import           Pos.Update.Poll.Types       (PollModifier (..), pmDelActivePropsIdxL,
+                                              pmDelActivePropsL, pmLastAdoptedPVL,
+                                              pmNewActivePropsIdxL, pmNewActivePropsL,
+                                              pmNewConfirmedL, pmNewScriptVersionsL)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 ----------------------------------------------------------------------------
@@ -103,10 +110,17 @@ instance MonadPollRead m =>
 
 instance MonadPollRead m =>
          MonadPoll (PollT m) where
-    addScriptVersionDep = notImplemented
-    setLastAdoptedPV = notImplemented
-    setLastConfirmedSV = notImplemented
-    addActiveProposal = notImplemented
+    addScriptVersionDep pv sv = PollT $ pmNewScriptVersionsL . at pv .= Just sv
+    setLastAdoptedPV pv = PollT $ pmLastAdoptedPVL .= Just pv
+    setLastConfirmedSV SoftwareVersion {..} =
+        PollT $ pmNewConfirmedL . at svAppName .= Just svNumber
+    addActiveProposal ps =
+        PollT $ do
+            let up = psProposal ps
+                upId = hash up
+                sv = upSoftwareVersion up
+            pmNewActivePropsL . at upId .= Just ps
+            pmNewActivePropsIdxL . at (svAppName sv) .= Just upId
 
 ----------------------------------------------------------------------------
 -- Common instances used all over the code

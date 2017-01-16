@@ -1,9 +1,19 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 -- | Types related to Poll monad.
 
 module Pos.Update.Poll.Types
        ( PollModifier (..)
+       , pmNewScriptVersionsL
+       , pmLastAdoptedPVL
+       , pmNewConfirmedL
+       , pmNewActivePropsL
+       , pmDelActivePropsL
+       , pmNewActivePropsIdxL
+       , pmDelActivePropsIdxL
        ) where
 
+import           Control.Lens    (makeLensesFor)
 import           Data.Default    (Default (def))
 import           Universum
 
@@ -24,6 +34,16 @@ data PollModifier = PollModifier
     , pmNewActivePropsIdx :: !(HashMap ApplicationName UpId)
     , pmDelActivePropsIdx :: !(HashSet ApplicationName)
     }
+
+makeLensesFor [ ("pmNewScriptVersions", "pmNewScriptVersionsL")
+              , ("pmLastAdoptedPV", "pmLastAdoptedPVL")
+              , ("pmNewConfirmed", "pmNewConfirmedL")
+              , ("pmNewActiveProps", "pmNewActivePropsL")
+              , ("pmDelActiveProps", "pmDelActivePropsL")
+              , ("pmNewActivePropsIdx", "pmNewActivePropsIdxL")
+              , ("pmDelActivePropsIdx", "pmDelActivePropsIdxL")
+              ]
+  ''PollModifier
 
 instance Default PollModifier where
     def =

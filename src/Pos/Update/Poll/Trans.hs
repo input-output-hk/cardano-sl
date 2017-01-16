@@ -19,7 +19,8 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,
                                               defaultLiftBaseWith, defaultLiftWith,
                                               defaultRestoreM, defaultRestoreT)
-import           Data.Default                (Default (def))
+import qualified Data.HashMap.Strict         as HM
+import qualified Data.HashSet                as HS
 import           Mockable                    (ChannelT, MFunctor',
                                               Mockable (liftMockable), Promise,
                                               SharedAtomicT, ThreadId,
@@ -37,7 +38,7 @@ import           Pos.Txp.Class               (MonadTxpLD (..))
 import           Pos.Types.Utxo.Class        (MonadUtxo, MonadUtxoRead)
 import           Pos.Update.MemState.Class   (MonadUSMem (..))
 import           Pos.Update.Poll.Class       (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Types       (PollModifier)
+import           Pos.Update.Poll.Types       (PollModifier (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 ----------------------------------------------------------------------------
@@ -61,13 +62,13 @@ newtype PollT m a = PollT
 -- Runners
 ----------------------------------------------------------------------------
 
-runPollT :: Monad m => PollModifier -> PollT m a -> m (a, PollModifier)
+runPollT :: PollModifier -> PollT m a -> m (a, PollModifier)
 runPollT m (PollT s) = runStateT s m
 
-evalPollT :: Monad m => PollModifier -> PollT m a -> m a
+evalPollT :: Functor m => PollModifier -> PollT m a -> m a
 evalPollT m = fmap fst . runPollT m
 
-execPollT :: Monad m => PollModifier -> PollT m a -> m PollModifier
+execPollT :: Functor m => PollModifier -> PollT m a -> m PollModifier
 execPollT m = fmap snd . runPollT m
 
 ----------------------------------------------------------------------------
@@ -76,11 +77,29 @@ execPollT m = fmap snd . runPollT m
 
 instance MonadPollRead m =>
          MonadPollRead (PollT m) where
-    getScriptVersion = notImplemented
-    getLastAdoptedPV = notImplemented
-    getLastConfirmedSV = notImplemented
-    hasActiveProposal = notImplemented
-    getProposal = notImplemented
+    getScriptVersion pv = do
+        new <- pmNewScriptVersions <$> PollT get
+        maybe (PollT $ getScriptVersion pv) (pure . Just) $ HM.lookup pv new
+    getLastAdoptedPV = do
+        new <- pmLastAdoptedPV <$> PollT get
+        maybe (PollT getLastAdoptedPV) pure new
+    getLastConfirmedSV appName = do
+        new <- pmNewConfirmed <$> PollT get
+        maybe (PollT $ getLastConfirmedSV appName) (pure . Just) $
+            HM.lookup appName new
+    hasActiveProposal appName = do
+        new <- pmNewActivePropsIdx <$> PollT get
+        del <- pmDelActivePropsIdx <$> PollT get
+        if | appName `HS.member` del -> return False
+           | Just _ <- HM.lookup appName new -> return True
+           | otherwise -> PollT $ hasActiveProposal appName
+    getProposal upId = do
+        new <- pmNewActiveProps <$> PollT get
+        del <- pmDelActiveProps <$> PollT get
+        if | upId `HS.member` del -> return Nothing
+           | Just res <- HM.lookup upId new -> return (Just res)
+           | otherwise -> PollT $ getProposal upId
+
 
 instance MonadPollRead m =>
          MonadPoll (PollT m) where

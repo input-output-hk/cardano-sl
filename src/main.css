@@ -1,3 +1,4 @@
 @import "normalize.css";
+@import "../node_modules/material-design-lite/dist/material.css";
 @import "const.css";
 @import "App/example.css";

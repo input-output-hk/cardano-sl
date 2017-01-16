@@ -1,6 +1,6 @@
 module App.Example where
 
-import Pux.Html (Html, button, div, h1, h3, text, p)
+import Pux.Html (Html, button, div, h1, h3, text, footer, ul, li, header)
 import Pux.Html.Events (onClick)
 import Pux.Html.Attributes (className)
 import Prelude hiding (div)
@@ -25,10 +25,26 @@ update NoOp state = state
 
 view :: State -> Html Action
 view (State state) =
-  div []
-    [ h1 [] [ text "Let's start!" ]
-    , h3 [className "label-count"] [ text $ "counted: " <> show state.count]
-    , button [ onClick (const $ Count) ] [ text "count" ]
-    , p [] [ text $ "version: " <> show version ]
-    , p [] [ text $ "commit: " <> commitHash ]
+  div [ className "app-container mdl-layout"]
+    [ header [ className "mdl-layout__header"]
+      [ div [ className "mdl-layout__header-row" ]
+        [ h1 []
+          [ text "cardano-sl explorer" ]
+        ]
+      ]
+    , div [ className "content" ]
+      [ h3 [ className "label-count" ] [ text $ "counted: " <> show state.count]
+      , button
+          [ className "mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect"
+          , onClick (const $ Count) ]
+          [ text "count" ]
+      ]
+    , footer [ className "mdl-mega-footer" ]
+      [ div [ className "mdl-mega-footer__bottom-section" ]
+        [ ul [ className "mdl-mega-footer__link-list" ]
+          [ li [] [ text $ "version: " <> show version ]
+          , li [] [ text $ "commit: " <> commitHash ]
+          ]
+        ]
+      ]
     ]

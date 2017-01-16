@@ -1,5 +1,15 @@
 @import "../const.css";
 
+.app-container {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+}
+
+.content {
+  flex: 1;
+}
+
 .label-count {
   color: var(--color1);
 }

@@ -1,9 +1,10 @@
 module App.Example where
 
-import Pux.Html (Html, button, div, h1, h3, text)
+import Pux.Html (Html, button, div, h1, h3, text, p)
 import Pux.Html.Events (onClick)
 import Pux.Html.Attributes (className)
 import Prelude hiding (div)
+import Util.Version (version, commitHash)
 
 data Action
     = Count
@@ -28,4 +29,6 @@ view (State state) =
     [ h1 [] [ text "Let's start!" ]
     , h3 [className "label-count"] [ text $ "counted: " <> show state.count]
     , button [ onClick (const $ Count) ] [ text "count" ]
+    , p [] [ text $ "version: " <> show version ]
+    , p [] [ text $ "commit: " <> commitHash ]
     ]

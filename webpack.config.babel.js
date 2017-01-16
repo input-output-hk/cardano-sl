@@ -10,6 +10,7 @@ const {
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const NamedModulesPlugin = require('webpack/lib/NamedModulesPlugin');
 const UglifyJsPlugin = require('webpack/lib/optimize/UglifyJsPlugin');
+const GitRevisionPlugin = require('git-revision-webpack-plugin')
 
 const nodeEnv = process.env.NODE_ENV || 'development';
 const isProd = nodeEnv === 'production';
@@ -42,6 +43,8 @@ module.exports = {
     }),
     new DefinePlugin({
       'process.env.NODE_ENV': JSON.stringify(nodeEnv),
+      '$VERSION': JSON.stringify(require('./package.json').version),
+      '$COMMIT_HASH': JSON.stringify(new GitRevisionPlugin().commithash()),
       '$DEBUG': !isProd
     }),
     new NamedModulesPlugin(),

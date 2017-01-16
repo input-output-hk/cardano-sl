@@ -37,6 +37,7 @@
     "babel-preset-react": "^6.16.0",
     "babel-preset-stage-2": "^6.18.0",
     "css-loader": "^0.26.1",
+    "git-revision-webpack-plugin": "^2.4.1",
     "html-webpack-plugin": "^2.26.0",
     "normalize.css": "^5.0.0",
     "postcss-custom-properties": "^5.0.1",

@@ -1,3 +1,5 @@
+import "./main.css";
+
 const Main = require('./Main.purs');
 const initialState = require('./App/Example.purs').initialState;
 const isDebug = $DEBUG; // set by webpack

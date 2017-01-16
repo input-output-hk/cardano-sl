@@ -2,6 +2,7 @@ module App.Example where
 
 import Pux.Html (Html, button, div, h1, h3, text)
 import Pux.Html.Events (onClick)
+import Pux.Html.Attributes (className)
 import Prelude hiding (div)
 
 data Action
@@ -25,6 +26,6 @@ view :: State -> Html Action
 view (State state) =
   div []
     [ h1 [] [ text "Let's start!" ]
-    , h3 [] [ text $ "counted: " <> show state.count]
+    , h3 [className "label-count"] [ text $ "counted: " <> show state.count]
     , button [ onClick (const $ Count) ] [ text "count" ]
     ]

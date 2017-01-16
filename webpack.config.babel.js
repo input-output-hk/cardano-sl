@@ -47,6 +47,16 @@ module.exports = {
     new NamedModulesPlugin(),
     new LoaderOptionsPlugin({
       options: {
+        postcss: [
+          require('postcss-import'),
+          require('autoprefixer')({
+            browsers: [
+              'last 2 versions',
+              'ie >= 10'
+            ]
+          }),
+          require('postcss-custom-properties')
+        ],
         purs: {
           psc: 'psa',
           jsonErrors: true,
@@ -82,6 +92,14 @@ module.exports = {
         test: /\.purs$/,
         loader: 'purs-loader',
         exclude: /node_modules/
+      },
+      {
+        test: /\.css$/,
+        use: [
+          'style-loader',
+          'css-loader?importLoaders=1',
+          'postcss-loader'
+        ]
       }
     ]
   },

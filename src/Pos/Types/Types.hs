@@ -639,8 +639,8 @@ newtype MainExtraBodyData = MainExtraBodyData
     } deriving (Eq, Show, Generic)
 
 instance Buildable MainExtraBodyData where
-    -- is there any sense in such instance?
-    build MainExtraBodyData{..} = bprint "some extra data"
+    -- Currently there is no extra data in block body, attributes are empty.
+    build _ = bprint "no extra data"
 
 instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
     -- | Proof of transactions list and MPC data.

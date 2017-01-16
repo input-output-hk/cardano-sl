@@ -26,7 +26,6 @@ import           Serokell.Util.Verify                 (isVerSuccess)
 import           Universum
 
 import           Pos.Binary.Class                     (Bi)
-import           Pos.Crypto                           (Share)
 import           Pos.Lrc.Types                        (Richmen, RichmenSet)
 import           Pos.Ssc.Class.LocalData              (LocalQuery, LocalUpdate,
                                                        SscLocalDataClass (..))
@@ -38,6 +37,7 @@ import           Pos.Ssc.GodTossing.Functions         (checkCertTTL, checkCommSh
                                                        isCommitmentIdx, isOpeningIdx,
                                                        isSharesIdx,
                                                        verifySignedCommitment)
+import           Pos.Ssc.GodTossing.Genesis           (genesisCertificates)
 import           Pos.Ssc.GodTossing.LocalData.Helpers (GtState, gtGlobalCertificates,
                                                        gtGlobalCommitments,
                                                        gtGlobalOpenings, gtGlobalShares,
@@ -58,9 +58,10 @@ import           Pos.Ssc.GodTossing.Types.Base        (Commitment, Opening,
                                                        VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Types.Message     (GtMsgContents (..), GtMsgTag (..))
 import qualified Pos.Ssc.GodTossing.VssCertData       as VCD
-import           Pos.Types                            (SlotId (..), StakeholderId,
-                                                       addressHash)
-import           Pos.Util                             (AsBinary, readerToState)
+import           Pos.Types                            (EpochIndex, SlotId (..),
+                                                       StakeholderId, addressHash,
+                                                       crucialSlot)
+import           Pos.Util                             (readerToState)
 
 instance SscBi => SscLocalDataClass SscGodTossing where
     sscGetLocalPayloadQ = getLocalPayload
@@ -219,6 +220,12 @@ sscIsDataUsefulSetImpl localG globalG addr =
 -- Ssc Process Message
 ----------------------------------------------------------------------------
 
+getVerifiedPure :: EpochIndex -> VCD.VssCertData -> VssCertificatesMap
+getVerifiedPure epoch certs
+    | epoch == 0 = genesisCertificates
+    | otherwise =
+          VCD.certs $ VCD.setLastKnownSlot (crucialSlot epoch) certs
+
 -- | Process message and save it if needed. Result is whether message
 -- has been actually added.
 sscProcessMessage ::
@@ -250,8 +257,9 @@ processCommitment
     -> LDUpdate Bool
 processCommitment richmen addr _ | not (addr `HS.member` richmen) = pure False
 processCommitment richmen addr c = do
-    certs <- VCD.certs <$> use gtGlobalCertificates
-    let participants = certs `HM.intersection` HS.toMap richmen
+    epochIdx <- siEpoch <$> use gtLastProcessedSlot
+    verified <- getVerifiedPure epochIdx <$> use gtGlobalCertificates
+    let participants = verified `HM.intersection` HS.toMap richmen
     let vssPublicKeys = map vcVssKey $ toList participants
     let checks epochIndex vssCerts =
             [ not . HM.member addr <$> view gtGlobalCommitments
@@ -260,8 +268,7 @@ processCommitment richmen addr c = do
             , pure . isVerSuccess $ verifySignedCommitment addr epochIndex c
             , pure $ checkCommShares vssPublicKeys c
             ]
-    epochIdx <- siEpoch <$> use gtLastProcessedSlot
-    ok <- readerToState $ andM $ checks epochIdx certs
+    ok <- readerToState $ andM $ checks epochIdx verified
     ok <$ when ok (gtLocalCommitments %= HM.insert addr c)
 
 processOpening :: StakeholderId -> Opening -> LDUpdate Bool
@@ -277,30 +284,26 @@ matchOpening :: StakeholderId -> Opening -> LDQuery Bool
 matchOpening addr opening =
     flip checkOpeningMatchesCommitment (addr, opening) <$> view gtGlobalCommitments
 
+-- CHECK: #checkShares
 processShares :: RichmenSet -> StakeholderId -> InnerSharesMap -> LDUpdate Bool
 processShares richmen id s
     | null s = pure False
     | not (id `HS.member` richmen) = pure False
     | otherwise = do
-        certs <- VCD.certs <$> use gtGlobalCertificates
+        epochIdx <- siEpoch <$> use gtLastProcessedSlot
+        verified <- getVerifiedPure epochIdx <$> use gtGlobalCertificates
         let checks =
               [ not . HM.member id <$> use gtGlobalShares
               , not . HM.member id <$> use gtLocalShares
-              , readerToState $ checkSharesLastVer certs id s
+              , readerToState $ checkSharesVerified verified id s
               ]
         ok <- andM checks
         ok <$ when ok (gtLocalShares . at id .= Just s)
-
--- CHECK: #checkShares
-checkSharesLastVer
-    :: VssCertificatesMap
-    -> StakeholderId
-    -> HashMap StakeholderId (AsBinary Share)
-    -> LDQuery Bool
-checkSharesLastVer certs addr shares =
-    (\comms openings -> checkShares comms openings certs addr shares) <$>
-    view gtGlobalCommitments <*>
-    view gtGlobalOpenings
+  where
+    checkSharesVerified certs addr shares =
+        (\comms openings -> checkShares comms openings certs addr shares) <$>
+        view gtGlobalCommitments <*>
+        view gtGlobalOpenings
 
 processVssCertificate :: RichmenSet
                       -> StakeholderId

@@ -5,10 +5,9 @@ module Pos.Update.MemState.Types
        , fixLocalState
 
        , MemPool (..)
-       , PollView (..)
        ) where
 
--- import           Data.Default     (Default (def))
+import           Data.Default    (Default (def))
 import           Universum
 
 import           Pos.DB.Types    (UndecidedProposalState (..))
@@ -44,9 +43,5 @@ data MemPool = MemPool
     , mpGlobalVotes :: !(HashMap UpId StakeholderVotes)
     }
 
--- | PollView is used in verification. It's represents operation which
--- one should apply to global state to obtain result of application of
--- MemPool or blocks which are verified.
-data PollView = PollView
-    {
-    }
+instance Default MemPool where
+    def = MemPool mempty mempty

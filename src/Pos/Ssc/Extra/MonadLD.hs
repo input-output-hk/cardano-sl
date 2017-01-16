@@ -46,6 +46,7 @@ class Monad m => MonadSscLD ssc m | m -> ssc where
     modifyLocalData = lift . modifyLocalData
 
 instance (Monad m, MonadSscLD ssc m) => MonadSscLD ssc (ReaderT x m)
+instance (Monad m, MonadSscLD ssc m) => MonadSscLD ssc (StateT x m)
 instance (Monad m, MonadSscLD ssc m) => MonadSscLD ssc (ExceptT x m)
 instance (Monad m, MonadSscLD ssc m) => MonadSscLD ssc (KademliaDHT m)
 

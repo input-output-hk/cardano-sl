@@ -11,9 +11,9 @@ module Pos.Update.MemState.Types
 -- import           Data.Default     (Default (def))
 import           Universum
 
-import           Pos.DB.Types     (UndecidedProposalState (..))
-import           Pos.Types        (Coin, SlotId)
-import           Pos.Update.Types (StakeholderVotes, UpId, UpdateProposal)
+import           Pos.DB.Types    (UndecidedProposalState (..))
+import           Pos.Types       (Coin, SlotId)
+import           Pos.Update.Core (StakeholderVotes, UpId, UpdateProposal)
 
 -- | Local state of proposal
 data LocalProposalState = LocalProposalState

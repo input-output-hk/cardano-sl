@@ -102,7 +102,8 @@ library
 
                         -- Update system
                         Pos.Update
-                        Pos.Update.Types
+                        Pos.Update.Arbitrary
+                        Pos.Update.Core
 
                         -- Utilities/helpers
                         Pos.Util
@@ -288,9 +289,11 @@ library
                         Pos.Worker.Stats
 
                         -- Update System
+                        Pos.Update.Arbitrary.Core
+                        Pos.Update.Arbitrary.Network
+                        Pos.Update.Core.Types
                         Pos.Update.Download
                         Pos.Update.Error
-                        Pos.Update.Listeners
                         Pos.Update.Logic
                         Pos.Update.Lrc
                         Pos.Update.MemState
@@ -298,10 +301,11 @@ library
                         Pos.Update.MemState.Holder
                         Pos.Update.MemState.MemState
                         Pos.Update.MemState.Types
+                        Pos.Update.Network
+                        Pos.Update.Network.Listeners
+                        Pos.Update.Network.Types
                         Pos.Update.Poll
                         Pos.Update.Poll.Class
-                        Pos.Update.Types.Communication
-                        Pos.Update.Types.Types
                         Pos.Update.Worker
 
                         -- Utilities/helpers

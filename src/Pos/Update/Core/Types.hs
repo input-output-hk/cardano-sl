@@ -3,7 +3,7 @@
 
 -- | This module contains all basic types for @cardano-sl@ update system.
 
-module Pos.Update.Types.Types
+module Pos.Update.Core.Types
        ( UpdateProposal (..)
        , UpId
 

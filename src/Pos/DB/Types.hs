@@ -37,7 +37,7 @@ import           Pos.Crypto          (PublicKey)
 import           Pos.Lrc.Types       (RichmenStake)
 import           Pos.Types           (Block, ChainDifficulty, Coin, EpochIndex, SlotId,
                                       SlotLeaders, mkCoin, unsafeAddCoin)
-import           Pos.Update.Types    (StakeholderVotes, UpdateProposal, combineVotes)
+import           Pos.Update.Core     (StakeholderVotes, UpdateProposal, combineVotes)
 
 ----------------------------------------------------------------------------
 -- General

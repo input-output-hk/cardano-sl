@@ -83,10 +83,9 @@ import           Pos.Types                 (Block, BlockHeader, Blund, EpochInde
                                             verifyHeader, verifyHeaders,
                                             vhpVerifyConsensus)
 import qualified Pos.Types                 as Types
-import           Pos.Update.Types          (UpdatePayload (..))
+import           Pos.Update.Core           (UpdatePayload (..))
 import           Pos.Util                  (inAssertMode, spanSafe, _neHead)
 import           Pos.WorkMode              (WorkMode)
-
 
 ----------------------------------------------------------------------------
 -- Common

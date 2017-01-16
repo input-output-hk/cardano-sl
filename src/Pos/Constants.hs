@@ -80,7 +80,7 @@ import           Pos.Types.Timestamp        (Timestamp (..))
 import           Pos.Types.Types            (CoinPortion, unsafeCoinPortion)
 import           Pos.Types.Version          (ApplicationName, ProtocolVersion (..),
                                              SoftwareVersion (..), mkApplicationName)
-import           Pos.Update.Types           (SystemTag, mkSystemTag)
+import           Pos.Update.Core            (SystemTag, mkSystemTag)
 import           Pos.Util                   ()
 import           Pos.Util.TimeWarp          (mcs)
 

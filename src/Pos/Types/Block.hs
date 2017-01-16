@@ -49,7 +49,7 @@ import           Pos.Types.Address     (addressHash)
 -- See: https://ghc.haskell.org/trac/ghc/ticket/12127
 import           Pos.Types.Tx          (verifyTxAlone)
 import           Pos.Types.Types
-import           Pos.Update.Types      (UpdatePayload)
+import           Pos.Update.Core       (UpdatePayload)
 
 -- | Difficulty of the BlockHeader. 0 for genesis block, 1 for main block.
 headerDifficulty :: BlockHeader ssc -> ChainDifficulty

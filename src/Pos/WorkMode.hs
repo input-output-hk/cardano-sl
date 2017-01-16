@@ -69,7 +69,6 @@ type WorkMode ssc m
       , MonadJL m
       , MonadFail m
       , WithPeerState ssc m
-      , MonadSscRichmen m
       , MonadUSMem m
       )
 

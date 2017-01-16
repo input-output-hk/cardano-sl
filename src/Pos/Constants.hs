@@ -243,11 +243,7 @@ recoveryHeadersMessage = fromIntegral . ccRecoveryHeadersMessage $ compileConfig
 -- | Number of slots used by malicious actions detection to check if
 -- we are not receiving generated blocks.
 mdNoBlocksSlotThreshold :: Integral i => i
-#if !defined(DEV_MODE) && defined(WITH_WALLET)
-mdNoBlocksSlotThreshold = 0
-#else
 mdNoBlocksSlotThreshold = fromIntegral . ccMdNoBlocksSlotThreshold $ compileConfig
-#endif
 
 -- | Number of epochs used by malicious actions detection to check if
 -- our commitments are not included in blockchain.

@@ -186,7 +186,7 @@ makeLenses ''DelVerState
 -- an returns non-empty list of proxySKs needed for undoing
 -- them. Predicate for correctness here is:
 -- * Issuer can post only one cert per epoch
--- * For every new certificate issuer had enough state at the
+-- * For every new certificate issuer had enough stake at the
 --   end of prev. epoch
 --
 -- Blocks are assumed to be oldest-first. It's assumed blocks are
@@ -196,7 +196,6 @@ delegationVerifyBlocks
     => NEBlocks ssc -> m (Either Text (NonEmpty [ProxySKSimple]))
 delegationVerifyBlocks blocks = do
     -- TODO CSL-502 create snapshot
-    -- TODO CSL-505 check that no two block have different epoch
     tip <- GS.getTip
     fromGenesisPsks <-
         concatMap (either (const []) (map pskIssuerPk . view blockProxySKs)) <$>

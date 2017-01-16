@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveLift      #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Pos.Update.Types.Types
+module Pos.Update.Core.Types
        ( UpdateProposal (..)
        , UpId
 

@@ -13,8 +13,8 @@ import           Universum
 
 import           Pos.Script.Type           (ScriptVersion)
 import           Pos.Types                 (ApplicationName, ProtocolVersion)
+import           Pos.Update.Core           (UpId)
 import           Pos.Update.MemState.Types (LocalProposalState)
-import           Pos.Update.Types          (UpId)
 
 -- | Type class which provides function necessary for verification of US data.
 class Monad m => MonadPoll m where

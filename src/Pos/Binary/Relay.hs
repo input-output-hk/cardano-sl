@@ -12,7 +12,7 @@ import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..))
 import           Pos.Txp.Types.Communication      (TxMsgContents (..))
 import           Pos.Types                        (TxId)
 import           Pos.Types.Address                (StakeholderId, addressHash)
-import           Pos.Update.Types                 (UpId, UpdateProposal)
+import           Pos.Update.Core                  (UpId, UpdateProposal)
 import           Pos.Util.Relay                   (DataMsg (..), DataMsgGodTossing (..),
                                                    InvMsg (..), ReqMsg (..))
 

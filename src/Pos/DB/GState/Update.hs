@@ -40,7 +40,7 @@ import           Pos.Genesis               (genesisProtocolVersion, genesisScrip
 import           Pos.Script.Type           (ScriptVersion)
 import           Pos.Types                 (ApplicationName, ProtocolVersion,
                                             SoftwareVersion (..))
-import           Pos.Update.Types          (UpId, UpdateProposal (..))
+import           Pos.Update.Core           (UpId, UpdateProposal (..))
 import           Pos.Util                  (maybeThrow)
 
 ----------------------------------------------------------------------------

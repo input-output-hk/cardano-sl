@@ -5,25 +5,26 @@ module Pos.Block.Arbitrary
        )
        where
 
-import           Test.QuickCheck     (Arbitrary (..), Gen, choose, listOf, oneof,
-                                      vectorOf)
+import           Control.Lens         (view, _1)
+import           Data.Ix              (range)
+import           Data.Text.Buildable  (Buildable)
+import qualified Data.Text.Buildable  as Buildable
+import           Formatting           (bprint, build, formatToString, (%))
+import           Test.QuickCheck      (Arbitrary (..), Gen, choose, listOf, oneof,
+                                       vectorOf)
 import           Universum
 
-import           Control.Lens        (view, _1)
-import           Data.Ix             (range)
-import           Data.Text.Buildable (Buildable)
-import qualified Data.Text.Buildable as Buildable
-import           Formatting          (bprint, build, formatToString, (%))
-import           Pos.Binary          (Bi)
-import           Pos.Block.Network   as T
-import           Pos.Constants       (epochSlots)
-import           Pos.Crypto          (Hash, ProxySecretKey, PublicKey, SecretKey,
-                                      createProxySecretKey, toPublic)
-import           Pos.Data.Attributes (Attributes (..), mkAttributes)
-import           Pos.Merkle          (MerkleRoot (..), MerkleTree, mkMerkleTree)
-import           Pos.Ssc.Class.Types (Ssc (..))
-import qualified Pos.Types           as T
-import           Pos.Util            (Raw, makeSmall)
+import           Pos.Binary           (Bi)
+import           Pos.Block.Network    as T
+import           Pos.Constants        (epochSlots)
+import           Pos.Crypto           (Hash, ProxySecretKey, PublicKey, SecretKey,
+                                       createProxySecretKey, toPublic)
+import           Pos.Data.Attributes  (Attributes (..), mkAttributes)
+import           Pos.Merkle           (MerkleRoot (..), MerkleTree, mkMerkleTree)
+import           Pos.Ssc.Class.Types  (Ssc (..))
+import qualified Pos.Types            as T
+import           Pos.Update.Arbitrary ()
+import           Pos.Util             (Raw, makeSmall)
 import qualified Prelude
 
 ------------------------------------------------------------------------------------------

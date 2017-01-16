@@ -10,7 +10,7 @@ import           Universum
 
 import           Pos.Crypto          (shortHashF)
 import           Pos.Types           (SoftwareVersion, StakeholderId)
-import           Pos.Update.Types    (UpId)
+import           Pos.Update.Core     (UpId)
 
 data USError
     = USCantApplyBlocks !Text

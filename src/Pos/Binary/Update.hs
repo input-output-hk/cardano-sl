@@ -4,17 +4,17 @@
 
 module Pos.Binary.Update () where
 
-import           Data.Binary         (Binary)
-import           Data.Binary.Get     (label)
-import qualified Data.HashMap.Strict as HM
-import qualified Data.Text           as T
+import           Data.Binary           (Binary)
+import           Data.Binary.Get       (label)
+import qualified Data.HashMap.Strict   as HM
+import qualified Data.Text             as T
 import           Universum
 
-import           Pos.Binary.Class    (Bi (..))
-import           Pos.Binary.Util     (getAsciiString1b, putAsciiString1b)
-import           Pos.Binary.Version  ()
-import           Pos.Crypto          (checkSig)
-import qualified Pos.Update.Types    as U
+import           Pos.Binary.Class      (Bi (..))
+import           Pos.Binary.Util       (getAsciiString1b, putAsciiString1b)
+import           Pos.Binary.Version    ()
+import           Pos.Crypto            (checkSig)
+import qualified Pos.Update.Core.Types as U
 
 instance Bi U.SystemTag where
     get =
@@ -60,4 +60,3 @@ instance Bi U.UpdateProposal where
 -- [CSL-124]
 instance Binary U.VoteState
 instance Bi U.VoteState
-

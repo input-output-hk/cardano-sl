@@ -26,8 +26,8 @@ import           Pos.Types            (Block, Coin, EpochIndex, NEBlocks, SlotId
                                        addressHash, applyCoinPortion, blockSlot, coinF,
                                        gbExtra, mebUpdate, mebUpdateVotes, mkCoin,
                                        prevBlockL, unsafeAddCoin)
+import           Pos.Update.Core      (UpdateProposal (..), UpdateVote (..))
 import           Pos.Update.Error     (USError (..))
-import           Pos.Update.Types     (UpdateProposal (..), UpdateVote (..))
 import           Pos.Util             (inAssertMode, maybeThrow, _neHead)
 import           Pos.WorkMode         (WorkMode)
 

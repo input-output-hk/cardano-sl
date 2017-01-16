@@ -3,7 +3,7 @@
 
 -- | Server which handles update system.
 
-module Pos.Update.Listeners
+module Pos.Update.Network.Listeners
        ( usListeners
        ) where
 
@@ -14,7 +14,8 @@ import           Universum
 import           Pos.Binary.Communication ()
 import           Pos.Binary.Relay         ()
 import           Pos.Communication.BiP    (BiP)
-import           Pos.Update.Types         (ProposalMsgTag (..), UpId, UpdateProposal (..))
+import           Pos.Update.Core          (UpId, UpdateProposal (..))
+import           Pos.Update.Network.Types (ProposalMsgTag (..))
 import           Pos.Util.Relay           (DataMsg, InvMsg, Relay (..), ReqMsg,
                                            handleDataL, handleInvL, handleReqL)
 import           Pos.WorkMode             (WorkMode)

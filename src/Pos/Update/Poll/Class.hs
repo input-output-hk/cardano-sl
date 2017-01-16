@@ -4,7 +4,7 @@
 -- | Type class for Poll abstraction.
 
 module Pos.Update.Poll.Class
-       ( MonadPoll (..)
+       ( MonadPollRead (..)
        ) where
 
 import           Control.Monad.Except (ExceptT)
@@ -18,7 +18,7 @@ import           Pos.Types            (ApplicationName, NumSoftwareVersion,
 import           Pos.Update.Core      (UpId)
 
 -- | Type class which provides function necessary for verification of US data.
-class Monad m => MonadPoll m where
+class Monad m => MonadPollRead m where
     getScriptVersion :: ProtocolVersion -> m (Maybe ScriptVersion)
     -- ^ Retrieve script version for given protocol version
     getLastAdoptedPV :: m ProtocolVersion
@@ -32,26 +32,26 @@ class Monad m => MonadPoll m where
 
     -- | Default implementations for 'MonadTrans'.
     default getScriptVersion
-        :: (MonadTrans t, MonadPoll m', t m' ~ m) => ProtocolVersion -> m (Maybe ScriptVersion)
+        :: (MonadTrans t, MonadPollRead m', t m' ~ m) => ProtocolVersion -> m (Maybe ScriptVersion)
     getScriptVersion = lift . getScriptVersion
 
     default getLastAdoptedPV
-        :: (MonadTrans t, MonadPoll m', t m' ~ m) => m ProtocolVersion
+        :: (MonadTrans t, MonadPollRead m', t m' ~ m) => m ProtocolVersion
     getLastAdoptedPV = lift getLastAdoptedPV
 
     default getLastConfirmedSV
-        :: (MonadTrans t, MonadPoll m', t m' ~ m) => ApplicationName -> m (Maybe Word32)
+        :: (MonadTrans t, MonadPollRead m', t m' ~ m) => ApplicationName -> m (Maybe Word32)
     getLastConfirmedSV = lift . getLastConfirmedSV
 
     default hasActiveProposal
-        :: (MonadTrans t, MonadPoll m', t m' ~ m) => ApplicationName -> m Bool
+        :: (MonadTrans t, MonadPollRead m', t m' ~ m) => ApplicationName -> m Bool
     hasActiveProposal = lift . hasActiveProposal
 
     default getProposal
-        :: (MonadTrans t, MonadPoll m', t m' ~ m) =>
+        :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
         UpId -> m (Maybe ProposalState)
     getProposal = lift . getProposal
 
-instance MonadPoll m => MonadPoll (ReaderT s m)
-instance MonadPoll m => MonadPoll (StateT s m)
-instance MonadPoll m => MonadPoll (ExceptT s m)
+instance MonadPollRead m => MonadPollRead (ReaderT s m)
+instance MonadPollRead m => MonadPollRead (StateT s m)
+instance MonadPollRead m => MonadPollRead (ExceptT s m)

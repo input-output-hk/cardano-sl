@@ -1,7 +1,7 @@
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
--- | Instance of Poll which uses DB.
+-- | Instance of MoandPollRead which uses DB.
 
 module Pos.Update.Poll.DBPoll
        ( DBPoll (..)
@@ -31,7 +31,7 @@ import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..))
 import           Pos.Txp.Class               (MonadTxpLD (..))
 import           Pos.Types.Utxo.Class        (MonadUtxo, MonadUtxoRead)
 import           Pos.Update.MemState.Class   (MonadUSMem (..))
-import           Pos.Update.Poll.Class       (MonadPoll (..))
+import           Pos.Update.Poll.Class       (MonadPollRead (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 ----------------------------------------------------------------------------
@@ -83,7 +83,7 @@ instance MonadBaseControl IO m => MonadBaseControl IO (DBPoll m) where
 ----------------------------------------------------------------------------
 
 instance MonadDB patak m =>
-         MonadPoll (DBPoll m) where
+         MonadPollRead (DBPoll m) where
     getScriptVersion = GS.getScriptVersion
     getLastAdoptedPV = GS.getLastPV
     getLastConfirmedSV = GS.getConfirmedSV

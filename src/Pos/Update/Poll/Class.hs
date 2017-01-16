@@ -77,6 +77,8 @@ class MonadPollRead m => MonadPoll m where
     -- ^ Set last confirmed version of application.
     addActiveProposal :: ProposalState -> m ()
     -- ^ Add new active proposal with its state.
+    deactivateProposal :: UpId -> ApplicationName -> m ()
+    -- ^ Delete active proposal given its name and identifier.
 
     -- | Default implementations for 'MonadTrans'.
     default addScriptVersionDep
@@ -94,6 +96,10 @@ class MonadPollRead m => MonadPoll m where
     default addActiveProposal
         :: (MonadTrans t, MonadPoll m', t m' ~ m) => ProposalState -> m ()
     addActiveProposal = lift . addActiveProposal
+
+    default deactivateProposal
+        :: (MonadTrans t, MonadPoll m', t m' ~ m) => UpId -> ApplicationName -> m ()
+    deactivateProposal i = lift . deactivateProposal i
 
 instance MonadPoll m => MonadPoll (ReaderT s m)
 instance MonadPoll m => MonadPoll (StateT s m)

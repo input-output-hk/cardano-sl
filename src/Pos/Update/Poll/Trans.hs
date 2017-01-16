@@ -119,8 +119,16 @@ instance MonadPollRead m =>
             let up = psProposal ps
                 upId = hash up
                 sv = upSoftwareVersion up
+                appName = svAppName sv
             pmNewActivePropsL . at upId .= Just ps
-            pmNewActivePropsIdxL . at (svAppName sv) .= Just upId
+            pmNewActivePropsIdxL . at appName .= Just upId
+            pmDelActivePropsL . at upId .= Nothing
+            pmDelActivePropsIdxL . at appName .= Nothing
+    deactivateProposal id appName = PollT $ do
+        pmNewActivePropsL . at id .= Nothing
+        pmNewActivePropsIdxL . at appName .= Nothing
+        pmDelActivePropsL . at id .= Just ()
+        pmDelActivePropsIdxL . at appName .= Just ()
 
 ----------------------------------------------------------------------------
 -- Common instances used all over the code

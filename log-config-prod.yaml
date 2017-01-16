@@ -1,0 +1,8 @@
+severity: Info
+node:
+    severity: Debug
+    file: node.log
+    comm:
+        severity: Info
+    dht:
+        severity: Info

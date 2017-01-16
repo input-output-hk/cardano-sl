@@ -49,6 +49,7 @@ import           Pos.Types.Address     (addressHash)
 -- See: https://ghc.haskell.org/trac/ghc/ticket/12127
 import           Pos.Types.Tx          (verifyTxAlone)
 import           Pos.Types.Types
+import           Pos.Update.Types      (UpdatePayload)
 
 -- | Difficulty of the BlockHeader. 0 for genesis block, 1 for main block.
 headerDifficulty :: BlockHeader ssc -> ChainDifficulty
@@ -180,14 +181,16 @@ mkMainBody
     :: [(Tx, TxWitness, TxDistribution)]
     -> SscPayload ssc
     -> [ProxySKSimple]
+    -> UpdatePayload
     -> Body (MainBlockchain ssc)
-mkMainBody txws mpc proxySKs =
+mkMainBody txws mpc proxySKs updatePayload =
     MainBody
-    { _mbTxs = mkMerkleTree (map (^. _1) txws)
-    , _mbWitnesses = map (^. _2) txws
+    { _mbTxs                 = mkMerkleTree (map (^. _1) txws)
+    , _mbWitnesses           = map (^. _2) txws
     , _mbTxAddrDistributions = map (^. _3) txws
-    , _mbMpc = mpc
-    , _mbProxySKs = proxySKs
+    , _mbMpc                 = mpc
+    , _mbProxySKs            = proxySKs
+    , _mbUpdatePayload       = updatePayload
     }
 
 -- CHECK: @verifyConsensusLocal

@@ -83,6 +83,7 @@ import           Pos.Types                 (Block, BlockHeader, Blund, EpochInde
                                             verifyHeader, verifyHeaders,
                                             vhpVerifyConsensus)
 import qualified Pos.Types                 as Types
+import           Pos.Update.Types          (UpdatePayload (..))
 import           Pos.Util                  (inAssertMode, spanSafe, _neHead)
 import           Pos.WorkMode              (WorkMode)
 
@@ -615,7 +616,6 @@ createMainBlockPure
 createMainBlockPure prevHeader txs pSk sId psks sscData sk =
     mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
   where
-    -- TODO [CSL-351] inlclude proposal, votes into block
-    extraB = MainExtraBodyData (mkAttributes ()) Nothing []
+    extraB = MainExtraBodyData (mkAttributes ())
     extraH = MainExtraHeaderData curProtocolVersion curSoftwareVersion (mkAttributes ())
-    body = mkMainBody (fmap snd txs) sscData psks
+    body = mkMainBody (fmap snd txs) sscData psks (UpdatePayload Nothing [])

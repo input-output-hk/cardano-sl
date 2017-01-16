@@ -155,9 +155,11 @@ instance Ssc ssc => Bi (T.BodyProof (T.MainBlockchain ssc)) where
         put mpWitnessesHash
         put mpMpcProof
         put mpProxySKsProof
+        put mpUpdateProof
     get = label "MainProof" $
         T.MainProof
             <$> (getUnsignedVarInt <$> get)
+            <*> get
             <*> get
             <*> get
             <*> get
@@ -188,12 +190,14 @@ instance Ssc ssc => Bi (T.Body (T.MainBlockchain ssc)) where
         put _mbTxAddrDistributions
         put _mbMpc
         put _mbProxySKs
+        put _mbUpdatePayload
     get = label "MainBody" $ do
-        _mbTxs <- get
-        _mbWitnesses <- get
+        _mbTxs                 <- get
+        _mbWitnesses           <- get
         _mbTxAddrDistributions <- get
-        _mbMpc <- get
-        _mbProxySKs <- get
+        _mbMpc                 <- get
+        _mbProxySKs            <- get
+        _mbUpdatePayload       <- get
         let lenTxs    = length _mbTxs
             lenWit    = length _mbWitnesses
             lenDistrs = length _mbTxAddrDistributions
@@ -226,10 +230,8 @@ instance Bi T.MainExtraHeaderData where
     get = label "MainExtraHeaderData" $ T.MainExtraHeaderData <$> get <*> get <*> get
 
 instance Bi T.MainExtraBodyData where
-   put T.MainExtraBodyData {..} =  put _mebAttributes
-                                *> put _mebUpdate
-                                *> put _mebUpdateVotes
-   get = label "MainExtraBodyData" $ T.MainExtraBodyData <$> get <*> get <*> get
+   put T.MainExtraBodyData{..} = put _mebAttributes
+   get = label "MainExtraBodyData" $ T.MainExtraBodyData <$> get
 
 ----------------------------------------------------------------------------
 -- GenesisBlock

@@ -13,6 +13,8 @@ module Pos.Types.Version
        , applicationNameMaxLength
        ) where
 
+import           Universum           hiding (show)
+
 import           Data.Char           (isAscii)
 import           Data.Hashable       (Hashable)
 import           Data.SafeCopy       (base, deriveSafeCopySimple)
@@ -20,7 +22,6 @@ import qualified Data.Text           as T
 import qualified Data.Text.Buildable as Buildable
 import           Formatting          (bprint, int, shown, stext, (%))
 import           Prelude             (show)
-import           Universum           hiding (show)
 
 -- | Communication protocol version.
 data ProtocolVersion = ProtocolVersion
@@ -73,8 +74,7 @@ mkApplicationName appName
 data SoftwareVersion = SoftwareVersion
     { svAppName :: ApplicationName
     , svNumber  :: Word32
-    }
-  deriving (Eq, Generic, Ord, Typeable)
+    } deriving (Eq, Generic, Ord, Typeable)
 
 instance Buildable SoftwareVersion where
     build SoftwareVersion {..} =

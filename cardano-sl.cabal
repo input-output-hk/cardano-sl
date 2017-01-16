@@ -99,8 +99,12 @@ library
                         Pos.Types.Types
                         Pos.Types.Utxo
                         Pos.Types.Version
+
+                        -- Update system
                         Pos.Update
                         Pos.Update.Types
+
+                        -- Utilities/helpers
                         Pos.Util
                         Pos.Util.JsonLog
                         Pos.Util.Relay
@@ -121,7 +125,7 @@ library
                         Pos.Binary.Class
                         Pos.Binary.Crypto
                         Pos.Binary.Communication
-                        Pos.Binary.DHTModel                        
+                        Pos.Binary.DHTModel
                         Pos.Binary.DB
                         Pos.Binary.Genesis
                         Pos.Binary.Merkle

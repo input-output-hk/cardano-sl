@@ -52,9 +52,9 @@ import           Pos.Types.Version          (ApplicationName (..), ProtocolVersi
                                              SoftwareVersion (..),
                                              applicationNameMaxLength)
 import           Pos.Update.Types           (ProposalMsgTag (..), SystemTag,
-                                             UpdateData (..), UpdateProposal (..),
-                                             UpdateVote (..), VoteMsgTag (..),
-                                             mkSystemTag)
+                                             UpdateData (..), UpdatePayload (..),
+                                             UpdateProposal (..), UpdateVote (..),
+                                             VoteMsgTag (..), mkSystemTag)
 import           Pos.Util                   (AsBinary, makeSmall)
 
 ----------------------------------------------------------------------------
@@ -280,5 +280,6 @@ instance Arbitrary UpdateProposal where
         <*> (HM.fromList <$> listOf1 arbitrary)
 
 derive makeArbitrary ''UpdateData
+derive makeArbitrary ''UpdatePayload
 derive makeArbitrary ''ProposalMsgTag
 derive makeArbitrary ''VoteMsgTag

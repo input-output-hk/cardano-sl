@@ -24,10 +24,11 @@ import           Pos.DB.Types         (ProposalState (..), UndecidedProposalStat
                                        mkUProposalState, voteToUProposalState)
 import           Pos.Types            (Block, Coin, EpochIndex, NEBlocks, SlotId (..),
                                        addressHash, applyCoinPortion, blockSlot, coinF,
-                                       gbExtra, mebUpdate, mebUpdateVotes, mkCoin,
-                                       prevBlockL, unsafeAddCoin)
+                                       gbBody, mbUpdatePayload, mkCoin, prevBlockL,
+                                       unsafeAddCoin)
 import           Pos.Update.Error     (USError (..))
-import           Pos.Update.Types     (UpdateProposal (..), UpdateVote (..))
+import           Pos.Update.Types     (UpdatePayload (..), UpdateProposal (..),
+                                       UpdateVote (..))
 import           Pos.Util             (inAssertMode, maybeThrow, _neHead)
 import           Pos.WorkMode         (WorkMode)
 
@@ -51,15 +52,13 @@ usApplyBlock (Left _) = pure []
 -- Note: snapshot is not needed here, because we must have already
 -- taken semaphore.
 usApplyBlock (Right blk) = do
-    let meb = blk ^. gbExtra
-    let votes = meb ^. mebUpdateVotes
-    let proposal = meb ^. mebUpdate
-    let upId = hash <$> proposal
+    let UpdatePayload{..} = blk ^. gbBody.mbUpdatePayload
+    let upId = hash <$> upProposal
     let votePredicate vote = maybe False (uvProposalId vote ==) upId
-    let (curPropVotes, otherVotes) = partition votePredicate votes
+    let (curPropVotes, otherVotes) = partition votePredicate upVotes
     let otherGroups = groupWith uvProposalId otherVotes
     let slot = blk ^. blockSlot
-    applyProposalBatch <- maybe (pure []) (applyProposal slot curPropVotes) proposal
+    applyProposalBatch   <- maybe (pure []) (applyProposal slot curPropVotes) upProposal
     applyOtherVotesBatch <- concat <$> mapM applyVotesGroup otherGroups
     return (applyProposalBatch ++ applyOtherVotesBatch)
 
@@ -96,7 +95,7 @@ applyVote
 applyVote epoch UpdateVote {..} = do
     let id = addressHash uvKey
     -- stake <- maybeThrow (USNotRichmen id) =<< GS.getStakeUS epoch id
-    stake <- maybeThrow (USNotRichmen id) =<< undefined epoch id
+    stake <- maybeThrow (USNotRichmen id) =<< notImplemented epoch id
     modify $ voteToUProposalState uvKey stake uvDecision
 
 -- | Revert application of given blocks to US part of GState DB
@@ -118,8 +117,8 @@ usVerifyBlocks = runExceptT . mapM_ verifyBlock
 verifyBlock :: WorkMode ssc m => Block ssc -> ExceptT Text m ()
 verifyBlock (Left _)    = pass
 verifyBlock (Right blk) = do
-    let meb = blk ^. gbExtra
-    verifyEnoughStake (meb ^. mebUpdateVotes) (meb ^. mebUpdate)
+    let UpdatePayload{..} = blk ^. gbBody.mbUpdatePayload
+    verifyEnoughStake upVotes upProposal
 
 verifyEnoughStake
     :: forall ssc m.

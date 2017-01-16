@@ -55,9 +55,13 @@ instance Bi U.UpdateProposal where
                               *> put upSoftwareVersion
                               *> put upData
 
+instance Bi U.UpdatePayload where
+    get = label "UpdatePayload" $ liftA2 U.UpdatePayload get get
+    put U.UpdatePayload{..} =  put upProposal
+                            *> put upVotes
+
 -- These types are used only for DB. But it still makes sense to
 -- define serialization manually I suppose.
 -- [CSL-124]
 instance Binary U.VoteState
 instance Bi U.VoteState
-

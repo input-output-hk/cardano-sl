@@ -73,7 +73,7 @@ instance Bi UserSecret where
 -- If the file does not exist/is empty, returns empty user secret
 peekUserSecret :: (MonadIO m) => FilePath -> m UserSecret
 peekUserSecret path =
-    liftIO $ withFileLock path Shared $ const $ do
+    liftIO $ do
         econtent <- decodeFull <$> BSL.readFile path
         pure $ either (const def) identity econtent & usPath .~ path
 
@@ -91,8 +91,7 @@ takeUserSecret path = liftIO $ do
 writeUserSecret :: (MonadFail m, MonadIO m) => UserSecret -> m ()
 writeUserSecret u
     | canWrite u = fail "writeUserSecret: UserSecret is already locked"
-    | otherwise = liftIO $ withFileLock (u ^. usPath) Exclusive $ const $
-                  writeRaw u
+    | otherwise = liftIO $ writeRaw u
 
 -- | Writes user secret and releases the lock. UserSecret can't be
 -- used after this function call anymore.

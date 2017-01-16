@@ -13,5 +13,5 @@ main = do
   case os of
     "linux" -> fail "No installer yet"
     "darwin" -> MacInstaller.main
-    "windows" -> WindowsInstaller.main
-    _ -> fail "Unknown platform."
+    "mingw32" -> WindowsInstaller.main
+    _ -> fail "No installer available for this platform."

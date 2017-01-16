@@ -1,0 +1,3 @@
+start stack exec cardano-node.exe -- --db-path .\node-db0    --rebuild-db  --dht-key MHdtsP-oPf7UWly007QuXnLK5RD= --listen 127.0.0.1:3000  --json-log=.\node0.json  --logs-prefix .\logs --log-config ..\logging.yaml --time-lord --keyfile ..\secrets\secret-1.key
+start stack exec cardano-node.exe -- --db-path .\node-db1    --rebuild-db  --peer 127.0.0.1:3000/MHdtsP-oPf7UWly007QuXnLK5RD= --listen 127.0.0.1:3001  --json-log=.\node1.json  --logs-prefix .\logs --log-config ..\logging.yaml --keyfile ..\secrets\secret-2.key
+start stack exec cardano-node.exe -- --db-path .\node-db2    --rebuild-db  --peer 127.0.0.1:3000/MHdtsP-oPf7UWly007QuXnLK5RD= --listen 127.0.0.1:3001  --json-log=.\node1.json  --logs-prefix .\logs --log-config ..\logging.yaml --keyfile ..\secrets\secret-3.key

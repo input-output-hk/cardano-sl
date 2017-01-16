@@ -139,8 +139,8 @@ data PskSimpleVerdict
     | PSAdded     -- ^ Successfully processed/added to psk mempool
     deriving (Show,Eq)
 
--- | Processes simple (hardweight) psk. Puts it into the mempool not
--- (TODO) depending on issuer's stake, overrides if exists, checks
+-- | Processes simple (hardweight) psk. Puts it into the mempool
+-- depending on issuer's stake, overrides if exists, checks
 -- validity and cachemsg state.
 processProxySKSimple
     :: (Ssc ssc, MonadDB ssc m, MonadDelegation m, WithNodeContext ssc m)

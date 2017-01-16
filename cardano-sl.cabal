@@ -306,6 +306,7 @@ library
                         Pos.Update.Network.Types
                         Pos.Update.Poll
                         Pos.Update.Poll.Class
+                        Pos.Update.Poll.DBPoll
                         Pos.Update.Worker
 
                         -- Utilities/helpers

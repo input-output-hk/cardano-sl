@@ -7,14 +7,15 @@ module Pos.Update.Poll.Class
        ( MonadPoll (..)
        ) where
 
-import           Control.Monad.Except      (ExceptT)
-import           Control.Monad.Trans       (MonadTrans)
+import           Control.Monad.Except (ExceptT)
+import           Control.Monad.Trans  (MonadTrans)
 import           Universum
 
-import           Pos.Script.Type           (ScriptVersion)
-import           Pos.Types                 (ApplicationName, ProtocolVersion)
-import           Pos.Update.Core           (UpId)
-import           Pos.Update.MemState.Types (LocalProposalState)
+import           Pos.DB.Types         (ProposalState)
+import           Pos.Script.Type      (ScriptVersion)
+import           Pos.Types            (ApplicationName, NumSoftwareVersion,
+                                       ProtocolVersion)
+import           Pos.Update.Core      (UpId)
 
 -- | Type class which provides function necessary for verification of US data.
 class Monad m => MonadPoll m where
@@ -22,11 +23,11 @@ class Monad m => MonadPoll m where
     -- ^ Retrieve script version for given protocol version
     getLastAdoptedPV :: m ProtocolVersion
     -- ^ Get last protocol version
-    getLastConfirmedSV :: ApplicationName -> m (Maybe Word32)
+    getLastConfirmedSV :: ApplicationName -> m (Maybe NumSoftwareVersion)
     -- ^ Get number of last confirmed version of application
     hasActiveProposal :: ApplicationName -> m Bool
     -- ^ Check if given application has an active (non-confirmed) proposal
-    getProposal :: UpId -> m LocalProposalState
+    getProposal :: UpId -> m (Maybe ProposalState)
     -- ^ Get active proposal
 
     -- | Default implementations for 'MonadTrans'.
@@ -47,7 +48,8 @@ class Monad m => MonadPoll m where
     hasActiveProposal = lift . hasActiveProposal
 
     default getProposal
-        :: (MonadTrans t, MonadPoll m', t m' ~ m) => UpId -> m LocalProposalState
+        :: (MonadTrans t, MonadPoll m', t m' ~ m) =>
+        UpId -> m (Maybe ProposalState)
     getProposal = lift . getProposal
 
 instance MonadPoll m => MonadPoll (ReaderT s m)

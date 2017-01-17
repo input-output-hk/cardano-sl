@@ -128,12 +128,12 @@ getLocalPayload = do
     s <- view ldLastProcessedSlot
     (s, ) <$> (getPayload (siSlot s) <*> (VCD.certs <$> view ldCertificates))
   where
-    getPayload slotIdx =
-        if | isCommitmentIdx slotIdx ->
-               CommitmentsPayload <$> view ldCommitments
-           | isOpeningIdx slotIdx -> OpeningsPayload <$> view ldOpenings
-           | isSharesIdx slotIdx -> SharesPayload <$> view ldShares
-           | otherwise -> pure CertificatesPayload
+    getPayload slotIdx
+        | isCommitmentIdx slotIdx =
+              CommitmentsPayload <$> view ldCommitments
+        | isOpeningIdx slotIdx = OpeningsPayload <$> view ldOpenings
+        | isSharesIdx slotIdx = SharesPayload <$> view ldShares
+        | otherwise = pure CertificatesPayload
 
 ----------------------------------------------------------------------------
 -- Process New Slot

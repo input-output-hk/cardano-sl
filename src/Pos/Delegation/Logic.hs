@@ -161,11 +161,11 @@ processProxySKSimple psk = do
         exists <- (\m -> HM.lookup issuer m == Just psk) <$> use dwProxySKPool
         cached <- HM.member msg <$> use dwProxyMsgCache
         dwProxyMsgCache %= HM.insert msg curTime
-        let res = if | not valid -> PSInvalid
-                     | not enoughStake -> PSForbidden
-                     | cached -> PSCached
-                     | exists -> PSExists
-                     | otherwise -> PSAdded
+        let res | not valid = PSInvalid
+                | not enoughStake = PSForbidden
+                | cached = PSCached
+                | exists = PSExists
+                | otherwise = PSAdded
         when (res == PSAdded) $ dwProxySKPool %= HM.insert issuer psk
         pure res
 

@@ -201,7 +201,6 @@ library
                         Pos.DB.Block
                         Pos.DB.Class
                         Pos.DB.DB
-                        Pos.DB.DBIterator
                         Pos.DB.Error
                         Pos.DB.Functions
                         Pos.DB.GState.Balances
@@ -212,6 +211,9 @@ library
                         Pos.DB.GState.BlockExtra
                         Pos.DB.GState.Utxo
                         Pos.DB.Holder
+                        Pos.DB.Iterator
+                        Pos.DB.Iterator.Class
+                        Pos.DB.Iterator.DBIterator
                         Pos.DB.Lrc
                         Pos.DB.Lrc.Common
                         Pos.DB.Lrc.Leaders

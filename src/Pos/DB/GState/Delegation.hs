@@ -1,5 +1,6 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Part of GState DB which stores data necessary for heavyweight delegation.
 
@@ -8,22 +9,20 @@ module Pos.DB.GState.Delegation
        , getPSKByIssuer
        , isIssuerByAddressHash
        , DelegationOp (..)
-       , IssuerPublicKey (..)
-       , iteratePSKs
+       , runPskIterator
        ) where
 
-import           Data.Maybe        (isJust)
-import qualified Database.RocksDB  as Rocks
+import           Data.Maybe       (isJust)
+import qualified Database.RocksDB as Rocks
 import           Universum
 
-import           Pos.Binary.Class  (Bi (..), encodeStrict)
-import           Pos.Crypto        (PublicKey, pskDelegatePk, pskIssuerPk)
-import           Pos.DB.Class      (MonadDB, getUtxoDB)
-import           Pos.DB.DBIterator (DBMapIterator, mapIterator)
-import           Pos.DB.Functions  (RocksBatchOp (..), WithKeyPrefix (..),
-                                    encodeWithKeyPrefix, rocksGetBi)
-import           Pos.Types         (AddressHash, ProxySKSimple, StakeholderId,
-                                    StakeholderId, addressHash)
+import           Pos.Binary.Class (encodeStrict)
+import           Pos.Crypto       (PublicKey, pskDelegatePk, pskIssuerPk)
+import           Pos.DB.Class     (MonadDB, getUtxoDB)
+import           Pos.DB.Functions (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi)
+import           Pos.DB.Iterator  (DBMapIterator, IterType, MonadDBIterator (..),
+                                   mapIterator)
+import           Pos.Types        (ProxySKSimple, StakeholderId, addressHash)
 
 
 ----------------------------------------------------------------------------
@@ -32,8 +31,7 @@ import           Pos.Types         (AddressHash, ProxySKSimple, StakeholderId,
 
 -- | Retrieves certificate by issuer address (hash of public key) if present.
 getPSKByIssuerAddressHash :: MonadDB ssc m => StakeholderId -> m (Maybe ProxySKSimple)
-getPSKByIssuerAddressHash addrHash =
-    rocksGetBi (pskKey $ IssuerPublicKey addrHash) =<< getUtxoDB
+getPSKByIssuerAddressHash addrHash = rocksGetBi (pskKey addrHash) =<< getUtxoDB
 
 -- | Retrieves certificate by issuer public key if present.
 getPSKByIssuer :: MonadDB ssc m => PublicKey -> m (Maybe ProxySKSimple)
@@ -56,32 +54,31 @@ instance RocksBatchOp DelegationOp where
     toBatchOp (AddPSK psk)
         | pskIssuerPk psk == pskDelegatePk psk = [] -- panic maybe
         | otherwise =
-            [Rocks.Put (pskKey $ IssuerPublicKey $ addressHash $ pskIssuerPk psk)
+            [Rocks.Put (pskKey $ addressHash $ pskIssuerPk psk)
                        (encodeStrict psk)]
     toBatchOp (DelPSK issuerPk) =
-        [Rocks.Del $ pskKey $ IssuerPublicKey $ addressHash issuerPk]
+        [Rocks.Del $ pskKey $ addressHash issuerPk]
 
 ----------------------------------------------------------------------------
 -- Iteration
 ----------------------------------------------------------------------------
 
-type IterType = (IssuerPublicKey,ProxySKSimple)
+data PskIter
 
-iteratePSKs :: forall v m ssc a . (MonadDB ssc m, MonadMask m)
-                => DBMapIterator IterType v m a -> (IterType -> v) -> m a
-iteratePSKs iter f = mapIterator @IterType @v iter f =<< getUtxoDB
+instance MonadDBIterator PskIter where
+    type IterKey PskIter = StakeholderId
+    type IterValue PskIter = ProxySKSimple
+    iterKeyPrefix _ = "d/"
+
+runPskIterator
+    :: forall v m ssc a . (MonadDB ssc m, MonadMask m)
+    => DBMapIterator PskIter v m a -> (IterType PskIter -> v) -> m a
+runPskIterator iter f = mapIterator @PskIter @v iter f =<< getUtxoDB
 
 ----------------------------------------------------------------------------
 -- Keys
 ----------------------------------------------------------------------------
 
-newtype IssuerPublicKey =
-    IssuerPublicKey (AddressHash PublicKey)
-    deriving (Show, Bi)
-
-instance WithKeyPrefix IssuerPublicKey where
-    keyPrefix _ = "d/"
-
 -- Storing Hash IssuerPk -> ProxySKSimple
-pskKey :: IssuerPublicKey -> ByteString
-pskKey = encodeWithKeyPrefix
+pskKey :: StakeholderId -> ByteString
+pskKey = encodeWithKeyPrefix @PskIter

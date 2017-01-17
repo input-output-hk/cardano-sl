@@ -19,7 +19,7 @@ module Pos.DB.GState.Balances
        , prepareGStateBalances
 
          -- * Iteration
-       , runBalancesIterator
+       , runBalanceIterator
 
          -- * Sanity checks
        , sanityCheckBalances
@@ -35,12 +35,11 @@ import           Universum
 import           Pos.Binary.Class     (encodeStrict)
 import           Pos.Crypto           (shortHashF)
 import           Pos.DB.Class         (MonadDB, getUtxoDB)
-import           Pos.DB.DBIterator    (DBMapIterator, IterType,
-                                       MonadDBIterator (..), mapIterator)
 import           Pos.DB.Error         (DBError (..))
-import           Pos.DB.Functions     (RocksBatchOp (..), WithKeyPrefix (..),
-                                       encodeWithKeyPrefix, rocksGetBi)
+import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi)
 import           Pos.DB.GState.Common (getBi, putBi)
+import           Pos.DB.Iterator      (DBMapIterator, IterType, MonadDBIterator (..),
+                                       mapIterator)
 import           Pos.DB.Types         (DB)
 import           Pos.Types            (Coin, StakeholderId, Utxo, coinF, mkCoin, sumCoins,
                                        txOutStake, unsafeAddCoin, unsafeIntegerToCoin,
@@ -124,10 +123,10 @@ instance MonadDBIterator BalIter where
     type IterValue BalIter = Coin
     iterKeyPrefix _ = "b/s"
 
-runBalancesIterator
+runBalanceIterator
     :: forall v m ssc a . (MonadDB ssc m, MonadMask m)
     => DBMapIterator BalIter v m a -> (IterType BalIter -> v) -> m a
-runBalancesIterator iter f = mapIterator @BalIter @v iter f =<< getUtxoDB
+runBalanceIterator iter f = mapIterator @BalIter @v iter f =<< getUtxoDB
 
 ----------------------------------------------------------------------------
 -- Sanity checks
@@ -138,7 +137,7 @@ sanityCheckBalances
     => m ()
 sanityCheckBalances = do
     let step sm = nextItem >>= maybe (pure sm) (\c -> step (unsafeAddCoin sm c))
-    realTotalStake <- runBalancesIterator (step (mkCoin 0)) snd
+    realTotalStake <- runBalanceIterator (step (mkCoin 0)) snd
     totalStake <- getTotalFtsStake
     let fmt =
             ("Wrong total FTS stake: \
@@ -152,12 +151,8 @@ sanityCheckBalances = do
 ----------------------------------------------------------------------------
 -- Keys
 ----------------------------------------------------------------------------
-
-instance WithKeyPrefix StakeholderId where
-    keyPrefix _ = "b/s"
-
 ftsStakeKey :: StakeholderId -> ByteString
-ftsStakeKey = encodeWithKeyPrefix
+ftsStakeKey = encodeWithKeyPrefix @BalIter
 
 ftsSumKey :: ByteString
 ftsSumKey = "b/ftssum"

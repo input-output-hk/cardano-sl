@@ -1,5 +1,6 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Part of GState DB which stores unspent transaction outputs.
 
@@ -17,9 +18,7 @@ module Pos.DB.GState.Utxo
        , prepareGStateUtxo
 
        -- * Iteration
-       , iterateByTx
        , runUtxoIterator
-       , mapUtxoIterator
        , getFilteredUtxo
 
        -- * Sanity checks
@@ -37,13 +36,11 @@ import           Universum
 import           Pos.Binary.Class     (encodeStrict)
 import           Pos.Binary.Types     ()
 import           Pos.DB.Class         (MonadDB, getUtxoDB)
-import           Pos.DB.DBIterator    (DBIterator, DBMapIterator, mapIterator,
-                                       runIterator)
 import           Pos.DB.Error         (DBError (..))
-import           Pos.DB.Functions     (RocksBatchOp (..), WithKeyPrefix (..),
-                                       encodeWithKeyPrefix, rocksGetBi,
-                                       traverseAllEntries)
+import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi)
 import           Pos.DB.GState.Common (getBi, putBi)
+import           Pos.DB.Iterator      (DBMapIterator, IterType, MonadDBIterator (..),
+                                       mapIterator)
 import           Pos.DB.Types         (DB)
 import           Pos.Types            (Address, Coin, TxIn (..), TxOutAux, Utxo,
                                        belongsTo, coinF, mkCoin, sumCoins, txOutStake,
@@ -114,31 +111,27 @@ putTxOut = putBi . txInKey
 -- Iteration
 ----------------------------------------------------------------------------
 
-type IterType = (TxIn, TxOutAux)
+data UtxoIter
 
-iterateByTx :: forall v m ssc a . (MonadDB ssc m, MonadMask m)
-                => DBMapIterator IterType v m a -> (IterType -> v) -> m a
-iterateByTx iter f = mapIterator @IterType @v iter f =<< getUtxoDB
+instance MonadDBIterator UtxoIter where
+    type IterKey UtxoIter = TxIn
+    type IterValue UtxoIter = TxOutAux
+    iterKeyPrefix _ = "t/"
+
+runUtxoIterator
+    :: forall v m ssc a . (MonadDB ssc m, MonadMask m)
+    => DBMapIterator UtxoIter v m a -> (IterType UtxoIter -> v) -> m a
+runUtxoIterator iter f = mapIterator @UtxoIter @v iter f =<< getUtxoDB
 
 filterUtxo
     :: forall ssc m . (MonadDB ssc m, MonadMask m)
-    => ((TxIn, TxOutAux) -> Bool)
+    => (IterType UtxoIter -> Bool)
     -> m Utxo
-filterUtxo p = do
-    db <- getUtxoDB
-    traverseAllEntries db (pure M.empty) $ \m k v ->
-        if p (k, v)
-        then return $ M.insert (txInHash k, txInIndex k) v m
-        else return m
-
-runUtxoIterator
-    :: (MonadDB ssc m, MonadMask m)
-    => DBIterator v m a -> m a
-runUtxoIterator iter = runIterator iter =<< getUtxoDB
-
-mapUtxoIterator :: forall u v m ssc a . (MonadDB ssc m, MonadMask m)
-                => DBMapIterator u v m a -> (u -> v) -> m a
-mapUtxoIterator iter f = mapIterator @u @v iter f =<< getUtxoDB
+filterUtxo p = runUtxoIterator (step mempty) identity
+  where
+    step res = nextItem @_ @(IterType UtxoIter) >>= maybe (pure res) (\e@(k, v) ->
+      if | p e       -> step (M.insert (txInHash k, txInIndex k) v res)
+         | otherwise -> step res)
 
 -- | Get small sub-utxo containing only outputs of given address
 getFilteredUtxo :: (MonadDB ssc m, MonadMask m) => Address -> m Utxo
@@ -153,7 +146,7 @@ sanityCheckUtxo
     => Coin -> m ()
 sanityCheckUtxo expectedTotalStake = do
     calculatedTotalStake <-
-        iterateByTx (step (mkCoin 0)) (map snd . txOutStake . snd)
+        runUtxoIterator (step (mkCoin 0)) (map snd . txOutStake . snd)
     let fmt =
             ("Sum of stakes in Utxo differs from expected total stake (the former is "
              %coinF%", while the latter is "%coinF%")")
@@ -174,14 +167,11 @@ sanityCheckUtxo expectedTotalStake = do
 -- Keys
 ----------------------------------------------------------------------------
 
-instance WithKeyPrefix TxIn where
-    keyPrefix _ = "t/"
-
 genUtxoKey :: ByteString
 genUtxoKey = "ut/gutxo"
 
 txInKey :: TxIn -> ByteString
-txInKey = encodeWithKeyPrefix
+txInKey = encodeWithKeyPrefix @UtxoIter
 
 ----------------------------------------------------------------------------
 -- Details

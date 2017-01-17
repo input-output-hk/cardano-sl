@@ -18,8 +18,7 @@ import           Universum
 import           Pos.Crypto.Signing       (pskDelegatePk)
 import           Pos.DB.Class             (MonadDB)
 import           Pos.DB.GState.Balances   (getFtsStake)
-import           Pos.DB.GState.Delegation (IssuerPublicKey (..), isIssuerByAddressHash,
-                                           iteratePSKs)
+import           Pos.DB.GState.Delegation (isIssuerByAddressHash, runPskIterator)
 import           Pos.Lrc.Types            (FullRichmenData, RichmenStake)
 import           Pos.Types                (Coin, StakeholderId, addressHash, mkCoin,
                                            sumCoins, unsafeAddCoin, unsafeIntegerToCoin)
@@ -84,11 +83,11 @@ findDelRichUsingPrecomp precomputed t = do
   where
     computeDelIssMap :: m (HashMap StakeholderId [StakeholderId])
     computeDelIssMap =
-        iteratePSKs @(StakeholderId, StakeholderId) (step mempty) conv
+        runPskIterator (step mempty) conv
     step hm = nextItem >>= maybe (pure hm) (\(iss, del) -> do
         let curList = HM.lookupDefault [] del hm
         step (HM.insert del (iss:curList) hm))
-    conv (IssuerPublicKey id, cert) = (id, addressHash (pskDelegatePk cert))
+    conv (id, cert) = (id, addressHash (pskDelegatePk cert))
 
 -- | Find delegated richmen.
 findDelegatedRichmen

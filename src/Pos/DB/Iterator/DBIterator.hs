@@ -5,28 +5,26 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Encapsulation of RocksDB iterator
-module Pos.DB.DBIterator
-       ( MonadDBIterator (..)
-       , DBIterator (..)
+module Pos.DB.Iterator.DBIterator
+       ( DBIterator (..)
        , DBMapIterator (..)
-       , IterType
        , DBKeyIterator
        , DBValueIterator
        , runIterator
        , mapIterator
        ) where
 
-import           Control.Monad.Reader (ReaderT (..))
-import           Control.Monad.Trans  (MonadTrans)
-import qualified Database.RocksDB     as Rocks
+import           Control.Monad.Reader  (ReaderT (..))
+import           Control.Monad.Trans   (MonadTrans)
+import qualified Database.RocksDB      as Rocks
 import           Universum
 
-import           Pos.Binary.Class     (Bi)
-import           Pos.DB.Class         (MonadDB (..))
-import           Pos.DB.Functions     (WithKeyPrefix (..), rocksDecodeMaybe,
-                                       rocksDecodeMaybeWP)
-import           Pos.DB.Types         (DB (..))
-import           Pos.Util.Iterator    (MonadIterator (..))
+import           Pos.Binary.Class      (Bi)
+import           Pos.DB.Class          (MonadDB (..))
+import           Pos.DB.Functions      (rocksDecodeMaybe, rocksDecodeMaybeWP)
+import           Pos.DB.Iterator.Class (IterType, MonadDBIterator (..))
+import           Pos.DB.Types          (DB (..))
+import           Pos.Util.Iterator     (MonadIterator (..))
 
 newtype DBIterator i m a = DBIterator
     { getDBIterator :: ReaderT Rocks.Iterator m a
@@ -46,8 +44,7 @@ data ParseResult a = FetchError  -- RocksDB internal error
 -- | Iterator by keys of type @k@ and values of type @v@.
 instance ( Bi k, Bi v
          , MonadIO m, MonadThrow m
-         , MonadDBIterator i, k ~ IterKey i, v ~ IterValue i
-         , WithKeyPrefix k)
+         , MonadDBIterator i, IterKey i ~ k, IterValue i ~ v)
          => MonadIterator (DBIterator i m) (k, v) where
     nextItem = do
         it <- DBIterator ask
@@ -68,8 +65,9 @@ instance ( Bi k, Bi v
                     DecodeError -> Rocks.iterNext it >> curItem
                     Success v   -> pure $ Just (k, v)
       where
+        parseKey :: Rocks.Iterator -> DBIterator i m (ParseResult (IterKey i))
         parseKey it =
-            maybe FetchError (maybe DecodeError Success . rocksDecodeMaybeWP)
+            maybe FetchError (maybe DecodeError Success . rocksDecodeMaybeWP @i)
             <$> Rocks.iterKey it
         parseVal it =
             maybe FetchError (maybe DecodeError Success . rocksDecodeMaybe)
@@ -97,17 +95,11 @@ instance ( Monad m
     curItem = DBMapIterator $ ReaderT $ \f -> fmap f <$> curItem
 
 deriving instance MonadMask m => MonadMask (DBIterator i m)
---deriving instance MonadMask m => MonadMask (DBMapIterator i v m)
+deriving instance MonadMask m => MonadMask (DBMapIterator i v m)
 
 deriving instance MonadDB ssc m => MonadDB ssc (DBIterator i m)
 deriving instance MonadDB ssc m => MonadDB ssc (DBMapIterator i v m)
 
-class MonadDBIterator i where
-    type IterKey   i :: *
-    type IterValue i :: *
-    iterKeyPrefix :: Proxy i -> ByteString
-
-type IterType i = (IterKey i, IterValue i)
 -- | Run DBIterator by `DB ssc`.
 runIterator :: forall i a m ssc . (MonadIO m, MonadMask m)
              => DBIterator i m a -> DB ssc -> m a

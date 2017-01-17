@@ -17,12 +17,13 @@ import           Data.List.NonEmpty   (NonEmpty)
 import           System.Wlog          (WithLogger, logError)
 import           Universum
 
-import           Pos.Block.Types      (Blund)
 import qualified Pos.DB               as DB
-import           Pos.Types            (Block, NEBlocks, addressHash, gbBody,
+import           Pos.Types            (Block, NEBlocks, difficultyL, gbBody,
                                        mbUpdatePayload)
-import           Pos.Update.Poll      (MonadPoll, PollModifier, PollVerFailure, USUndo,
-                                       runDBPoll, runPollT, verifyAndApplyUSPayload)
+import           Pos.Update.Poll      (DBPoll, MonadPoll, PollModifier, PollT,
+                                       PollVerFailure, USUndo, execPollT,
+                                       rollbackUSPayload, runDBPoll, runPollT,
+                                       verifyAndApplyUSPayload)
 import           Pos.Util             (Color (Red), colorize, inAssertMode)
 
 type USGlobalApplyMode endless_useless m = (WithLogger m, DB.MonadDB endless_useless m)
@@ -54,9 +55,19 @@ usApplyBlocks blocks _ = do
 -- and US local data. Head must be the __youngest__ block. Caller must
 -- ensure that tip stored in DB is 'headerHash' of head.
 usRollbackBlocks
-    :: USGlobalApplyMode ssc m
-    => NonEmpty (Blund ssc) -> m [DB.SomeBatchOp]
-usRollbackBlocks _ = pure []
+    :: forall ssc m.
+       (USGlobalApplyMode ssc m)
+    => NonEmpty (Block ssc, USUndo) -> m [DB.SomeBatchOp]
+usRollbackBlocks blunds =
+    modifierToBatch <$> (runDBPoll . execPollT def $ mapM_ rollbackDo blunds)
+  where
+    rollbackDo :: (Block ssc, USUndo) -> PollT (DBPoll m) ()
+    rollbackDo (Left _, _) = pass
+    rollbackDo (Right blk, undo) =
+        rollbackUSPayload
+            (blk ^. difficultyL)
+            (blk ^. gbBody . mbUpdatePayload)
+            undo
 
 -- | Verify whether sequence of blocks can be applied to US part of
 -- current GState DB.  This function doesn't make pure checks, they
@@ -76,3 +87,6 @@ verifyBlock
 verifyBlock (Left _)    = pure def
 verifyBlock (Right blk) =
     verifyAndApplyUSPayload True (blk ^. gbBody . mbUpdatePayload)
+
+modifierToBatch :: PollModifier -> [DB.SomeBatchOp]
+modifierToBatch = notImplemented

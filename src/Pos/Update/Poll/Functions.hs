@@ -2,11 +2,13 @@
 
 module Pos.Update.Poll.Functions
        ( verifyAndApplyUSPayload
+       , rollbackUSPayload
        ) where
 
 import           Control.Monad.Except  (MonadError)
 import           Universum
 
+import           Pos.Types.Types       (ChainDifficulty)
 import           Pos.Update.Core       (UpdatePayload)
 import           Pos.Update.Poll.Class (MonadPoll)
 import           Pos.Update.Poll.Types (PollVerFailure, USUndo)
@@ -15,12 +17,19 @@ import           Pos.Update.Poll.Types (PollVerFailure, USUndo)
 -- MonadPoll. If data is valid it is also applied.  Otherwise
 -- PollVerificationFailure is thrown using MonadError type class.
 -- When first flag is true and proposal is present,
--- updateProposalThreshold is checked for it, otherwise it's not
+-- 'updateProposalThreshold' is checked for it, otherwise it's not
 -- checked.
 verifyAndApplyUSPayload
     :: (MonadError PollVerFailure m, MonadPoll m)
     => Bool -> UpdatePayload -> m USUndo
 verifyAndApplyUSPayload = notImplemented
+
+-- | Rollback application of UpdatePayload in MonadPoll using payload
+-- itself and undo data.
+rollbackUSPayload
+    :: MonadPoll m
+    => ChainDifficulty -> UpdatePayload -> USUndo -> m ()
+rollbackUSPayload = notImplemented
 
 ----------------------------------------------------------------------------
 -- Legacy garbage

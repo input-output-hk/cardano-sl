@@ -20,6 +20,7 @@ module Pos.DB.GState.Utxo
        -- * Iteration
        , UtxoIter
        , runUtxoIterator
+       , runUtxoMapIterator
        , getFilteredUtxo
 
        -- * Sanity checks
@@ -40,8 +41,8 @@ import           Pos.DB.Class         (MonadDB, getUtxoDB)
 import           Pos.DB.Error         (DBError (..))
 import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi)
 import           Pos.DB.GState.Common (getBi, putBi)
-import           Pos.DB.Iterator      (DBMapIterator, IterType, MonadDBIterator (..),
-                                       mapIterator)
+import           Pos.DB.Iterator      (DBIterator, DBMapIterator, IterType,
+                                       MonadDBIterator (..), mapIterator, runIterator)
 import           Pos.DB.Types         (DB)
 import           Pos.Types            (Address, Coin, TxIn (..), TxOutAux, Utxo,
                                        belongsTo, coinF, mkCoin, sumCoins, txOutStake,
@@ -119,16 +120,21 @@ instance MonadDBIterator UtxoIter where
     type IterValue UtxoIter = TxOutAux
     iterKeyPrefix _ = "t/"
 
-runUtxoIterator
+runUtxoMapIterator
     :: forall v m ssc a . (MonadDB ssc m, MonadMask m)
     => DBMapIterator UtxoIter v m a -> (IterType UtxoIter -> v) -> m a
-runUtxoIterator iter f = mapIterator @UtxoIter @v iter f =<< getUtxoDB
+runUtxoMapIterator iter f = mapIterator @UtxoIter @v iter f =<< getUtxoDB
+
+runUtxoIterator
+    :: forall m ssc a . (MonadDB ssc m, MonadMask m)
+    => DBIterator UtxoIter m a -> m a
+runUtxoIterator iter = runIterator @UtxoIter iter =<< getUtxoDB
 
 filterUtxo
     :: forall ssc m . (MonadDB ssc m, MonadMask m)
     => (IterType UtxoIter -> Bool)
     -> m Utxo
-filterUtxo p = runUtxoIterator (step mempty) identity
+filterUtxo p = runUtxoIterator (step mempty)
   where
     step res = nextItem @_ @(IterType UtxoIter) >>= maybe (pure res) (\e@(k, v) ->
       if | p e       -> step (M.insert (txInHash k, txInIndex k) v res)
@@ -147,7 +153,7 @@ sanityCheckUtxo
     => Coin -> m ()
 sanityCheckUtxo expectedTotalStake = do
     calculatedTotalStake <-
-        runUtxoIterator (step (mkCoin 0)) (map snd . txOutStake . snd)
+        runUtxoMapIterator (step (mkCoin 0)) (map snd . txOutStake . snd)
     let fmt =
             ("Sum of stakes in Utxo differs from expected total stake (the former is "
              %coinF%", while the latter is "%coinF%")")

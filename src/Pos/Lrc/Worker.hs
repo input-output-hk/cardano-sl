@@ -150,7 +150,7 @@ leadersComputationDo epochId =
                 Left e ->
                     panic $ sformat ("SSC couldn't compute seed: " %build) e
                 Right seed ->
-                    GS.runBalanceIterator (followTheSatoshiM seed totalStake) identity
+                    GS.runBalanceIterator (followTheSatoshiM seed totalStake)
         putLeaders epochId leaders
 
 richmenComputationDo :: forall ssc m . WorkMode ssc m
@@ -161,7 +161,6 @@ richmenComputationDo epochIdx consumers = unless (null consumers) $ do
     let minThresholdD = safeThreshold total lcConsiderDelegated
     (richmen, richmenD) <- GS.runBalanceIterator
                                (findAllRichmenMaybe @ssc minThreshold minThresholdD)
-                               identity
     let callCallback cons = void $ fork $
             if lcConsiderDelegated cons
             then lcComputedCallback cons epochIdx total

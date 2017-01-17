@@ -21,6 +21,7 @@ module Pos.DB.GState.Balances
          -- * Iteration
        , BalIter
        , runBalanceIterator
+       , runBalanceMapIterator
 
          -- * Sanity checks
        , sanityCheckBalances
@@ -39,8 +40,8 @@ import           Pos.DB.Class         (MonadDB, getUtxoDB)
 import           Pos.DB.Error         (DBError (..))
 import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi)
 import           Pos.DB.GState.Common (getBi, putBi)
-import           Pos.DB.Iterator      (DBMapIterator, IterType, MonadDBIterator (..),
-                                       mapIterator)
+import           Pos.DB.Iterator      (DBIterator, DBMapIterator, IterType,
+                                       MonadDBIterator (..), mapIterator, runIterator)
 import           Pos.DB.Types         (DB)
 import           Pos.Types            (Coin, StakeholderId, Utxo, coinF, mkCoin, sumCoins,
                                        txOutStake, unsafeAddCoin, unsafeIntegerToCoin,
@@ -124,11 +125,15 @@ instance MonadDBIterator BalIter where
     type IterValue BalIter = Coin
     iterKeyPrefix _ = "b/s"
 
-runBalanceIterator
+runBalanceMapIterator
     :: forall v m ssc a . (MonadDB ssc m, MonadMask m)
     => DBMapIterator BalIter v m a -> (IterType BalIter -> v) -> m a
-runBalanceIterator iter f = mapIterator @BalIter @v iter f =<< getUtxoDB
+runBalanceMapIterator iter f = mapIterator @BalIter @v iter f =<< getUtxoDB
 
+runBalanceIterator
+    :: forall m ssc a . (MonadDB ssc m, MonadMask m)
+    => DBIterator BalIter m a -> m a
+runBalanceIterator iter = runIterator @BalIter iter =<< getUtxoDB
 ----------------------------------------------------------------------------
 -- Sanity checks
 ----------------------------------------------------------------------------
@@ -138,7 +143,7 @@ sanityCheckBalances
     => m ()
 sanityCheckBalances = do
     let step sm = nextItem >>= maybe (pure sm) (\c -> step (unsafeAddCoin sm c))
-    realTotalStake <- runBalanceIterator (step (mkCoin 0)) snd
+    realTotalStake <- runBalanceMapIterator (step (mkCoin 0)) snd
     totalStake <- getTotalFtsStake
     let fmt =
             ("Wrong total FTS stake: \

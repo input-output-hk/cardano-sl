@@ -1,13 +1,53 @@
 @import "../../const.css";
 
-.app-container {
-  display: flex;
-  min-height: 100vh;
-  flex-direction: column;
+.content-container {
+  max-width: var(--max-width-desktop);
 }
 
-.content {
-  flex: 1;
+.explorer-header {
+  background: linear-gradient(to bottom, var(--color1) 0%, var(--color2) 100%);
+
+  &__top {
+    max-width: var(--max-width-desktop);
+    justify-content: center;
+    color: var(--color0);
+    font-size: 12px;
+    font-family: var(--fontFamily0);
+  }
+
+  &__content {
+    max-width: var(--max-width-desktop);
+    justify-content: center;
+    min-height: 220px;
+
+    .headline {
+      text-align: center;
+      font-size: 26px;
+      color: var(--color3);
+      font-family: var(--fontFamily0);
+      padding-bottom: 15px;
+    }
+
+    .subheadline {
+      text-align: center;
+      font-size: 13px;
+      font-family: var(--fontFamily0);
+      color: var(--color3);
+      opacity: 0.5;
+      padding-bottom: 30px;
+    }
+  }
+
+  &__nav {
+  }
+}
+
+.explorer-footer {
+  background-color: var(--color2);
+
+  &__content{
+    max-width: var(--max-width-desktop);
+  }
 }
 
 .label-count {

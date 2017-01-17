@@ -1,3 +1,10 @@
 :root {
-	--color1: #ce851f;
+  --color0: #fff;
+	--color1: #082737;
+	--color2: #0c1723;
+	--color3: #fcfcfc;
+
+  --max-width-desktop: 960px;
+
+  --fontFamily0: 'Montserrat', sans-serif;
 }

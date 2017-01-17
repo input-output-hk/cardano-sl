@@ -56,6 +56,7 @@ module.exports = {
         debug: !isProd,
         postcss: [
           require('postcss-import'),
+          require('postcss-nested'),
           require('autoprefixer')({
             browsers: [
               'last 2 versions',

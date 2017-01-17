@@ -44,6 +44,7 @@
     "postcss-custom-properties": "^5.0.1",
     "postcss-import": "^9.1.0",
     "postcss-loader": "^1.2.2",
+    "postcss-nested": "^1.0.0",
     "purescript": "^0.10.5",
     "purescript-psa": "^0.4.0",
     "purs-loader": "^2.2.0",

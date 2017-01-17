@@ -1,4 +1,5 @@
-@import "normalize.css";
+/*@import "normalize.css";*/
 @import "../node_modules/material-design-lite/dist/material.css";
 @import "const.css";
+@import "Explorer/View/layout.css";
 @import "Explorer/View/dashboard.css";

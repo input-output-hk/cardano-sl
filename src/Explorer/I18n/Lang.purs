@@ -40,7 +40,16 @@ languageNativeName English = "English"
 languageNativeName German = "Deutsch"
 
 type Translation =
-    { welcome :: String
+    { title :: String
+    , subtitle :: String
+    , version :: String
+    , nav ::
+      { home :: String
+      , blockchain :: String
+      , market :: String
+      , charts :: String
+      , tools :: String
+    }
     , count :: String
     , counted :: String
     }

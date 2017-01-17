@@ -46,9 +46,7 @@ data ParseResult a = FetchError  -- RocksDB internal error
 -- | Iterator by keys of type @k@ and values of type @v@.
 instance ( Bi k, Bi v
          , MonadIO m, MonadThrow m
-         , DBIteratorClass i, IterKey i ~ k, IterValue i ~ v,
-           Show k, Show v --TODO remove after debug
-         )
+         , DBIteratorClass i, IterKey i ~ k, IterValue i ~ v)
          => MonadIterator (k, v) (DBIterator i m) where
     nextItem = do
         it <- DBIterator ask

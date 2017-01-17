@@ -1,13 +1,11 @@
 module Util.Version where
 
-import Data.Function.Uncurried (Fn0, runFn0)
-
-foreign import versionImpl :: Fn0 Int
+foreign import versionImpl :: Int
 
 version :: Int
-version = runFn0 versionImpl
+version = versionImpl
 
-foreign import commitHashImpl :: Fn0 String
+foreign import commitHashImpl :: String
 
 commitHash :: String
-commitHash = runFn0 commitHashImpl
+commitHash = commitHashImpl

@@ -202,17 +202,15 @@ sscIsDataUsefulImpl :: MapGetter a
                     -> StakeholderId
                     -> LDQuery Bool
 sscIsDataUsefulImpl localG globalG addr =
-    (&&) <$>
-        (notMember addr <$> view globalG) <*>
-        (notMember addr <$> view localG)
+    andM [ notMember addr <$> view globalG
+         , notMember addr <$> view localG ]
 
 sscIsDataUsefulSetImpl
     :: (SetContainer set, ContainerKey set ~ StakeholderId)
     => MapGetter a -> SetGetter set -> StakeholderId -> LDQuery Bool
 sscIsDataUsefulSetImpl localG globalG addr =
-    (&&) <$>
-        (notMember addr <$> view localG) <*>
-        (notMember addr <$> view globalG)
+    andM [ notMember addr <$> view localG
+         , notMember addr <$> view globalG ]
 
 ----------------------------------------------------------------------------
 -- Ssc Process Message

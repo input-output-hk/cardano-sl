@@ -191,8 +191,9 @@ sscIsDataUsefulQ VssCertificateMsg = sscIsCertUsefulImpl
         loc <- VCD.certs <$> view gtLocalCertificates
         glob <- view gtGlobalCertificates
         lpe <- siEpoch <$> view gtLastProcessedSlot
-        if addr `HM.member` loc then pure False
-        else pure $ maybe True (== lpe) (VCD.lookupExpiryEpoch addr glob)
+        return $ if addr `HM.member` loc
+            then False
+            else maybe True (== lpe) (VCD.lookupExpiryEpoch addr glob)
 
 type MapGetter a = Getter GtState (HashMap StakeholderId a)
 type SetGetter set = Getter GtState set
@@ -294,10 +295,10 @@ checkSharesLastVer
     -> StakeholderId
     -> HashMap StakeholderId (AsBinary Share)
     -> LDQuery Bool
-checkSharesLastVer certs addr shares =
-    (\comms openings -> checkShares comms openings certs addr shares) <$>
-    view gtGlobalCommitments <*>
-    view gtGlobalOpenings
+checkSharesLastVer certs addr shares = do
+    comms    <- view gtGlobalCommitments
+    openings <- view gtGlobalOpenings
+    pure (checkShares comms openings certs addr shares)
 
 processVssCertificate :: RichmenSet
                       -> StakeholderId

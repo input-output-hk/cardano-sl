@@ -236,7 +236,7 @@ mpcRollback blocks = do
     let slotMB = prevSlot $ blkSlot $ NE.last blocks
      -- Rollback certs
     case slotMB of
-        Nothing -> gsVssCertificates .= unionCerts genesisCertificates
+        Nothing   -> gsVssCertificates .= unionCerts genesisCertificates
         Just slot -> gsVssCertificates %= VCD.setLastKnownSlot slot
     -- Rollback other payload
     wasGenesis <- foldM foldStep False blocks

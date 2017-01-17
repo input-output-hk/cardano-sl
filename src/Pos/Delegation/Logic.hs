@@ -46,6 +46,7 @@ import           System.Wlog                 (WithLogger)
 import           Universum
 
 import           Pos.Binary.Communication    ()
+import           Pos.Block.Types             (Blund, Undo (undoPsk))
 import           Pos.Context                 (WithNodeContext (getNodeContext),
                                               lrcActionOnEpochReason, ncSecretKey)
 import           Pos.Crypto                  (ProxySecretKey (..), PublicKey,
@@ -62,10 +63,10 @@ import           Pos.Delegation.Class        (DelegationWrap, MonadDelegation (.
                                               dwProxySKPool)
 import           Pos.Delegation.Types        (SendProxySK (..))
 import           Pos.Ssc.Class               (Ssc)
-import           Pos.Types                   (Block, Blund, NEBlocks, ProxySKEpoch,
-                                              ProxySKSimple, ProxySigEpoch,
-                                              Undo (undoPsk), addressHash, blockProxySKs,
-                                              epochIndexL, headerHash, prevBlockL)
+import           Pos.Types                   (Block, NEBlocks, ProxySKEpoch,
+                                              ProxySKSimple, ProxySigEpoch, addressHash,
+                                              blockProxySKs, epochIndexL, headerHash,
+                                              prevBlockL)
 import           Pos.Util                    (_neHead)
 
 

@@ -123,6 +123,7 @@ library
 
                         -- Binary serialization
                         Pos.Binary.Address
+                        Pos.Binary.Block
                         Pos.Binary.Class
                         Pos.Binary.Crypto
                         Pos.Binary.Communication
@@ -146,6 +147,7 @@ library
                         Pos.Block.Network.Types
                         Pos.Block.Network.Listeners
                         Pos.Block.Network.Retrieval
+                        Pos.Block.Types
                         Pos.Block.Worker
 
                         -- Network
@@ -295,6 +297,8 @@ library
                         Pos.Update.Download
                         Pos.Update.Error
                         Pos.Update.Logic
+                        Pos.Update.Logic.Global
+                        Pos.Update.Logic.Local
                         Pos.Update.Lrc
                         Pos.Update.MemState
                         Pos.Update.MemState.Class
@@ -307,6 +311,7 @@ library
                         Pos.Update.Poll
                         Pos.Update.Poll.Class
                         Pos.Update.Poll.DBPoll
+                        Pos.Update.Poll.Functions
                         Pos.Update.Poll.Trans
                         Pos.Update.Poll.Types
                         Pos.Update.Worker

@@ -16,6 +16,7 @@ module Pos.Update.Core.Types
 
        , UpdatePayload (..)
        , UpdateProof
+       , mkUpdateProof
 
        , mkSystemTag
        , systemTagMaxLength
@@ -35,7 +36,8 @@ import           Language.Haskell.TH.Syntax (Lift)
 import           Serokell.Util.Text         (listJson)
 import           Universum                  hiding (show)
 
-import           Pos.Crypto                 (Hash, PublicKey, Signature)
+import           Pos.Binary.Class           (Bi)
+import           Pos.Crypto                 (Hash, PublicKey, Signature, hash)
 import           Pos.Script.Type            (ScriptVersion)
 import           Pos.Types.Version          (ProtocolVersion, SoftwareVersion)
 -- Import instance Safecopy HM.HashMap
@@ -113,6 +115,11 @@ instance Buildable UpdatePayload where
 
 -- | Proof that body of update message contains 'UpdatePayload'.
 type UpdateProof = Hash UpdatePayload
+
+mkUpdateProof
+    :: Bi UpdatePayload
+    => UpdatePayload -> UpdateProof
+mkUpdateProof = hash
 
 -- | Check whether given decision is a valid vote if applied to
 -- existing vote (which may not exist).

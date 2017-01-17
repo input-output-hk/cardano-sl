@@ -20,6 +20,7 @@ import qualified Data.List.NonEmpty   as NE
 import           System.Wlog          (logError)
 import           Universum
 
+import           Pos.Block.Types      (Blund)
 import           Pos.Context          (lrcActionOnEpochReason, putBlkSemaphore,
                                        takeBlkSemaphore)
 import           Pos.DB               (SomeBatchOp (..))
@@ -29,8 +30,7 @@ import qualified Pos.DB.Lrc           as DB
 import           Pos.Delegation.Logic (delegationApplyBlocks, delegationRollbackBlocks)
 import           Pos.Ssc.Extra        (sscApplyBlocks, sscApplyGlobalState, sscRollback)
 import           Pos.Txp.Logic        (normalizeTxpLD, txApplyBlocks, txRollbackBlocks)
-import           Pos.Types            (Blund, HeaderHash, epochIndexL, headerHashG,
-                                       prevBlockL)
+import           Pos.Types            (HeaderHash, epochIndexL, headerHashG, prevBlockL)
 import           Pos.Util             (Color (Red), colorize, inAssertMode, spanSafe,
                                        _neLast)
 import           Pos.WorkMode         (WorkMode)

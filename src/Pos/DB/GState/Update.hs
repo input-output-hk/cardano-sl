@@ -34,13 +34,13 @@ import           Pos.DB.Class              (MonadDB, getUtxoDB)
 import           Pos.DB.Error              (DBError (DBMalformed))
 import           Pos.DB.Functions          (RocksBatchOp (..), rocksWriteBatch)
 import           Pos.DB.GState.Common      (getBi)
-import           Pos.DB.Types              (ProposalState (..), psProposal)
 import           Pos.Genesis               (genesisProtocolVersion, genesisScriptVersion,
                                             genesisSoftwareVersions)
 import           Pos.Script.Type           (ScriptVersion)
 import           Pos.Types                 (ApplicationName, NumSoftwareVersion,
                                             ProtocolVersion, SoftwareVersion (..))
 import           Pos.Update.Core           (UpId, UpdateProposal (..))
+import           Pos.Update.Poll.Types     (ProposalState (..), psProposal)
 import           Pos.Util                  (maybeThrow)
 
 ----------------------------------------------------------------------------

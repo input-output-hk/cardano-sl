@@ -9,11 +9,13 @@ module Pos.Update.Poll.DBPoll
 
 import           Control.Lens                (iso)
 import           Control.Monad.Base          (MonadBase (..))
+import           Control.Monad.Except        (MonadError)
 import           Control.Monad.Fix           (MonadFix)
 import           Control.Monad.Trans         (MonadTrans (lift))
 import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,
                                               defaultLiftBaseWith, defaultRestoreM)
+import qualified Data.HashMap.Strict         as HM
 import           Mockable                    (ChannelT, MFunctor',
                                               Mockable (liftMockable), Promise,
                                               SharedAtomicT, ThreadId,
@@ -25,10 +27,13 @@ import           Universum
 import           Pos.Context                 (WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
 import qualified Pos.DB.GState               as GS
+import           Pos.DB.Lrc                  (getRichmenUS)
 import           Pos.Delegation.Class        (MonadDelegation)
+import           Pos.Lrc.Types               (FullRichmenData)
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..))
 import           Pos.Txp.Class               (MonadTxpLD (..))
+import           Pos.Types.Types             (Coin)
 import           Pos.Types.Utxo.Class        (MonadUtxo, MonadUtxoRead)
 import           Pos.Update.MemState.Class   (MonadUSMem (..))
 import           Pos.Update.Poll.Class       (MonadPollRead (..))
@@ -41,7 +46,7 @@ import           Pos.Util.JsonLog            (MonadJL (..))
 newtype DBPoll m a = DBPoll
     { runDBPoll :: m a
     } deriving (Functor, Applicative, Monad, MonadThrow, MonadSlots,
-                MonadCatch, MonadIO, MonadFail, HasLoggerName,
+                MonadCatch, MonadIO, MonadFail, HasLoggerName, MonadError e,
                 WithNodeContext ssc, MonadJL, CanLog, MonadMask, MonadUSMem,
                 MonadSscLD kek, MonadSscGS ssc, MonadUtxoRead, MonadUtxo,
                 MonadTxpLD ssc, MonadBase io, MonadDelegation, MonadFix)
@@ -89,3 +94,9 @@ instance MonadDB patak m =>
     getLastConfirmedSV = GS.getConfirmedSV
     hasActiveProposal = fmap isJust . GS.getAppProposal
     getProposal = GS.getProposalState
+    getEpochTotalStake e = fmap fst <$> getRichmenUS e
+    getRichmanStake e id = (findStake =<<) <$> getRichmenUS e
+      where
+        findStake :: FullRichmenData -> Maybe Coin
+        findStake = HM.lookup id . snd
+    getOldProposals = notImplemented

@@ -24,6 +24,7 @@ import           Formatting             (build, sformat, stext, (%))
 import           System.Wlog            (WithLogger, logDebug, logInfo)
 import           Universum
 
+import           Pos.Block.Types        (Blund, Undo (undoTx))
 import           Pos.Constants          (maxLocalTxs)
 import           Pos.Crypto             (WithHash (..), hash, withHash)
 import           Pos.DB                 (DB, MonadDB,
@@ -38,15 +39,14 @@ import           Pos.Txp.Types          (BalancesView (..), MemPool (..),
                                          MonadBalances (..), UtxoView (..))
 import           Pos.Txp.Types.Types    (ProcessTxRes (..), mkPTRinvalid)
 import qualified Pos.Txp.Types.UtxoView as UV
-import           Pos.Types              (Block, Blund, Coin, MonadUtxo,
-                                         MonadUtxoRead (utxoGet), NEBlocks, SlotId,
-                                         StakeholderId, Tx (..), TxAux,
+import           Pos.Types              (Block, Coin, MonadUtxo, MonadUtxoRead (utxoGet),
+                                         NEBlocks, SlotId, StakeholderId, Tx (..), TxAux,
                                          TxDistribution (..), TxId, TxIn (..), TxOutAux,
-                                         TxUndo, TxWitness, Undo, VTxGlobalContext (..),
+                                         TxUndo, TxWitness, VTxGlobalContext (..),
                                          VTxLocalContext (..), applyTxToUtxo', blockSlot,
                                          blockTxas, coinToInteger, headerHash, mkCoin,
                                          prevBlockL, slotIdF, sumCoins, sumCoins,
-                                         topsortTxs, txOutStake, undoTx, verifyTxPure)
+                                         topsortTxs, txOutStake, verifyTxPure)
 import           Pos.Types.Coin         (unsafeAddCoin, unsafeIntegerToCoin,
                                          unsafeSubCoin)
 import           Pos.Types.Utxo         (verifyAndApplyTxs, verifyTxUtxo)

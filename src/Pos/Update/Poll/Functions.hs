@@ -3,6 +3,7 @@
 module Pos.Update.Poll.Functions
        ( verifyAndApplyUSPayload
        , rollbackUSPayload
+       , normalizePoll
        ) where
 
 import           Control.Monad.Except  (MonadError)
@@ -30,6 +31,13 @@ rollbackUSPayload
     :: MonadPoll m
     => ChainDifficulty -> UpdatePayload -> USUndo -> m ()
 rollbackUSPayload = notImplemented
+
+-- | Remove some data from Poll to make it valid. First argument
+-- determines whether 'updateProposalThreshold' should be checked.
+normalizePoll
+    :: MonadPoll m
+    => Bool -> m ()
+normalizePoll = notImplemented
 
 ----------------------------------------------------------------------------
 -- Legacy garbage

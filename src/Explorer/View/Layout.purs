@@ -6,6 +6,7 @@ import Prelude hiding (div)
 import Explorer.Util.Version (version, commitHash)
 import Explorer.State (State, Action)
 import Explorer.View.Dashboard (dashboardView)
+import Explorer.I18n.Lang (translate)
 
 view :: State -> Html Action
 view state =
@@ -21,7 +22,7 @@ headerView state =
     header  [ className "mdl-layout__header"]
             [ div [ className "mdl-layout__header-row" ]
                   [ h1 []
-                    [ text "cardano-sl explorer" ]
+                    [ text $ translate _.welcome state.lang ]
                   ]
             ]
 
@@ -32,6 +33,7 @@ footerView state =
           [ ul  [ className "mdl-mega-footer__link-list" ]
                 [ li [] [ text $ "version: " <> show version ]
                 , li [] [ text $ "commit: " <> commitHash ]
+                , li [] [ text $ "lang: " <> show state.lang ]
         ]
       ]
     ]

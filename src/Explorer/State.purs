@@ -1,24 +1,28 @@
 module Explorer.State where
 
 import Prelude
+import Explorer.I18n.Lang (Language(English))
 
 
 -- State
 
-type State = {
-    count :: Int
-}
+type State =
+    { lang :: Language
+    , count :: Int
+    }
 
 initialState :: State
-initialState = {
-    count: 0
-}
+initialState =
+    { lang: English
+    , count: 0
+    }
 
 
 -- Actions
 
 data Action
     = Count
+    | SetLanguage Language
     | NoOp
 
 
@@ -26,4 +30,5 @@ data Action
 
 update :: Action -> State -> State
 update Count state = state { count = state.count + 1 }
+update (SetLanguage lang) state = state { lang = lang }
 update NoOp state = state

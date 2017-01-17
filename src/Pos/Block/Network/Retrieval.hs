@@ -11,7 +11,6 @@ module Pos.Block.Network.Retrieval
        ) where
 
 import           Control.Concurrent.STM.TBQueue (isFullTBQueue, readTBQueue, writeTBQueue)
-import           Control.Lens                   (view, (^.))
 import           Control.Monad.Trans.Except     (ExceptT, runExceptT, throwE)
 import           Data.List.NonEmpty             (NonEmpty ((:|)), nonEmpty, (<|))
 import qualified Data.List.NonEmpty             as NE

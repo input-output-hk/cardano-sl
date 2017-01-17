@@ -9,7 +9,6 @@ module Pos.Update.Logic
        , usVerifyBlocks
        ) where
 
-import           Control.Lens         ((^.))
 import           Control.Monad.Except (ExceptT, runExceptT, throwError)
 import           Data.List            (partition)
 import           Data.List.NonEmpty   (NonEmpty, groupWith)

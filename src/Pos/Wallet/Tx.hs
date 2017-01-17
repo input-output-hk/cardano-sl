@@ -9,7 +9,6 @@ module Pos.Wallet.Tx
        , createMOfNTx
        ) where
 
-import           Control.Lens              ((^.), _1)
 import           Control.Monad.Except      (ExceptT (..), runExceptT)
 import           Formatting                (build, sformat, (%))
 import           Mockable                  (mapConcurrently)

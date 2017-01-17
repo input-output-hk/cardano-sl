@@ -149,8 +149,7 @@ module Pos.Types.Types
        ) where
 
 import           Control.Exception      (assert)
-import           Control.Lens           (Getter, Lens', choosing, makeLenses,
-                                         makeLensesFor, to, view, (^.), _1)
+import           Control.Lens           (Getter, choosing, makeLenses, makeLensesFor, to)
 import           Data.Data              (Data)
 import           Data.DeriveTH          (derive, makeNFData)
 import           Data.Hashable          (Hashable)

@@ -96,8 +96,8 @@ module Pos.Util
        ) where
 
 import           Control.Concurrent.STM.TVar   (TVar, readTVar)
-import           Control.Lens                  (Lens', LensLike', Magnified, Zoomed,
-                                                lensRules, magnify, zoom)
+import           Control.Lens                  (LensLike', Magnified, Zoomed, lensRules,
+                                                magnify, zoom)
 import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
 import qualified Control.Monad                 as Monad (fail)
 import           Control.Monad.STM             (retry)

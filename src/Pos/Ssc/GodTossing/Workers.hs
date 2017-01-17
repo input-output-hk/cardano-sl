@@ -9,7 +9,7 @@ module Pos.Ssc.GodTossing.Workers
        ) where
 
 import           Control.Concurrent.STM           (readTVar)
-import           Control.Lens                     (at, (^.))
+import           Control.Lens                     (at)
 import           Control.Monad.Trans.Maybe        (runMaybeT)
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.HashSet                     as HS

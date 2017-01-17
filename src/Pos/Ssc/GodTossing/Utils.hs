@@ -2,7 +2,6 @@ module Pos.Ssc.GodTossing.Utils
        ( -- verifiedVssCertificates
        ) where
 
--- import           Control.Lens                      ((^.))
 -- import           Data.HashMap.Strict               (union)
 -- import           Universum
 

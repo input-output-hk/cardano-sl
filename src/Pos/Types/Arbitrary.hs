@@ -13,7 +13,6 @@ module Pos.Types.Arbitrary
        , SmallOverflowTx (..)
        ) where
 
-import           Control.Lens               (set, view, _3, _4)
 import qualified Data.ByteString            as BS (pack)
 import           Data.Char                  (chr)
 import           Data.DeriveTH              (derive, makeArbitrary)

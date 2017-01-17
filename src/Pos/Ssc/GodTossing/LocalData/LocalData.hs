@@ -16,8 +16,7 @@ module Pos.Ssc.GodTossing.LocalData.LocalData
          -- ** instance SscLocalDataClass SscGodTossing
        ) where
 
-import           Control.Lens                         (Getter, at, use, uses, view, views,
-                                                       (%=), (.=))
+import           Control.Lens                         (Getter, at, (%=), (.=))
 import           Data.Containers                      (ContainerKey,
                                                        SetContainer (notMember))
 import qualified Data.HashMap.Strict                  as HM
@@ -127,7 +126,7 @@ applyGlobal richmen globalData = do
 getLocalPayload :: LocalQuery SscGodTossing (SlotId, GtPayload)
 getLocalPayload = do
     s <- view ldLastProcessedSlot
-    (s, ) <$> (getPayload (siSlot s) <*> views ldCertificates VCD.certs)
+    (s, ) <$> (getPayload (siSlot s) <*> (VCD.certs <$> view ldCertificates))
   where
     getPayload slotIdx =
         if | isCommitmentIdx slotIdx ->
@@ -189,7 +188,7 @@ sscIsDataUsefulQ SharesMsg =
 sscIsDataUsefulQ VssCertificateMsg = sscIsCertUsefulImpl
   where
     sscIsCertUsefulImpl addr = do
-        loc <- views gtLocalCertificates VCD.certs
+        loc <- VCD.certs <$> view gtLocalCertificates
         glob <- view gtGlobalCertificates
         lpe <- siEpoch <$> view gtLastProcessedSlot
         if addr `HM.member` loc then pure False
@@ -308,7 +307,7 @@ processVssCertificate :: RichmenSet
                       -> LDUpdate Bool
 processVssCertificate richmen addr c
     | (addressHash $ vcSigningKey c) `HS.member` richmen = do
-        lpe <- uses gtLastProcessedSlot siEpoch
+        lpe <- siEpoch <$> use gtLastProcessedSlot
         ok <- (checkCertTTL lpe c &&) <$> readerToState (sscIsDataUsefulQ VssCertificateMsg addr)
         ok <$ when ok (gtLocalCertificates %= VCD.insert addr c)
     | otherwise = pure False

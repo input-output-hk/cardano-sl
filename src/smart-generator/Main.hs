@@ -4,7 +4,6 @@
 module Main where
 
 import           Control.Concurrent.STM.TVar (modifyTVar', newTVarIO, readTVarIO)
-import           Control.Lens                (view, _1)
 import           Data.Maybe                  (fromMaybe)
 import           Data.Proxy                  (Proxy (..))
 import           Data.Time.Clock.POSIX       (getPOSIXTime)

@@ -10,7 +10,7 @@ module Pos.DB.Class
        , getMiscDB
        ) where
 
-import           Control.Lens                 (ASetter', view)
+import           Control.Lens                 (ASetter')
 import           Control.Monad.Except         (ExceptT (..), mapExceptT)
 import           Control.Monad.Reader         (mapReaderT)
 import           Control.Monad.State          (StateT (..), mapStateT)

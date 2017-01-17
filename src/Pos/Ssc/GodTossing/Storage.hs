@@ -13,8 +13,7 @@ module Pos.Ssc.GodTossing.Storage
        , gtGetGlobalState
        ) where
 
-import           Control.Lens                   (over, to, use, view, views, (%=), (.=),
-                                                 (<>=), (^.), _1, _2)
+import           Control.Lens                   (to, (%=), (.=), (<>=))
 import           Control.Monad.IfElse           (whileM)
 import           Control.Monad.Reader           (ask)
 import           Data.Default                   (def)
@@ -50,9 +49,9 @@ import           Pos.Ssc.GodTossing.Types.Base  (VssCertificate (..))
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types                      (Block, EpochIndex, HeaderHash, NEBlocks,
                                                  SharedSeed, SlotId (..), addressHash,
-                                                 blockMpc, blockSlot,
-                                                 epochIndexL, epochOrSlot, epochOrSlotG,
-                                                 gbHeader, prevBlockL)
+                                                 blockMpc, blockSlot, epochIndexL,
+                                                 epochOrSlot, epochOrSlotG, gbHeader,
+                                                 prevBlockL)
 import           Pos.Util                       (readerToState)
 
 type GSQuery a  = forall m . (MonadReader GtGlobalState m) => m a
@@ -105,7 +104,7 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
     globalCommitments <- view gsCommitments
     globalOpenings    <- view gsOpenings
     globalShares      <- view gsShares
-    globalCerts       <- views gsVssCertificates VCD.certs
+    globalCerts       <- VCD.certs <$> view gsVssCertificates
 
     let isComm  = (isCommitmentIdx slotId, "slotId doesn't belong commitment phase")
         isOpen  = (isOpeningIdx slotId, "slotId doesn't belong openings phase")

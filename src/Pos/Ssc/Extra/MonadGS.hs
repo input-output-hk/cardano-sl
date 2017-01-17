@@ -18,7 +18,6 @@ module Pos.Ssc.Extra.MonadGS
        , sscVerifyBlocks
        ) where
 
-import           Control.Lens          ((^.))
 import           Control.Monad.Except  (ExceptT)
 import           Control.Monad.Trans   (MonadTrans)
 import           Formatting            (build, sformat, (%))

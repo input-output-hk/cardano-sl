@@ -13,7 +13,6 @@ module Pos.Block.Logic.Internal
        ) where
 
 import           Control.Arrow        ((&&&))
-import           Control.Lens         (view, (^.), _1)
 import           Control.Monad.Catch  (bracketOnError)
 import           Data.List.NonEmpty   (NonEmpty)
 import qualified Data.List.NonEmpty   as NE

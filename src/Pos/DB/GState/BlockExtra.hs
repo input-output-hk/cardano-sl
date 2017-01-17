@@ -14,7 +14,6 @@ module Pos.DB.GState.BlockExtra
        , prepareGStateBlockExtra
        ) where
 
-import           Control.Lens        (view)
 import           Data.Maybe          (fromJust)
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB    as Rocks

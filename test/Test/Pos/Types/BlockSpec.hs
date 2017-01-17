@@ -11,9 +11,7 @@ import           Test.Hspec            (Spec, describe, it)
 import           Test.Hspec.QuickCheck (prop)
 import           Universum
 
-import           Control.Lens          (view, (^.))
 import           Data.List.NonEmpty    (fromList)
-import           Pos.Types.Address     (addressHash)
 import           Pos.Binary            (Bi)
 import           Pos.Block.Arbitrary   as T
 import           Pos.Constants         (epochSlots)
@@ -24,6 +22,7 @@ import           Pos.Ssc.Class.Types   (Ssc (..))
 import           Pos.Ssc.GodTossing    (SscGodTossing)
 import           Pos.Ssc.NistBeacon    (SscNistBeacon)
 import qualified Pos.Types             as T
+import           Pos.Types.Address     (addressHash)
 import           Serokell.Util         (isVerSuccess)
 import           System.Random         (mkStdGen, randomR)
 

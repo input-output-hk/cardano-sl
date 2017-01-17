@@ -24,7 +24,6 @@ module Pos.DB.Block
        , loadHeadersByDepthWhile
        ) where
 
-import           Control.Lens              ((^.))
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
 import           Data.ByteArray            (convert)
 import           Formatting                (sformat, (%))

@@ -29,7 +29,6 @@ module Pos.Block.Logic
        , createMainBlock
        ) where
 
-import           Control.Lens              (view, (^.), _1)
 import           Control.Monad.Catch       (try)
 import           Control.Monad.Except      (ExceptT (ExceptT), runExceptT, throwError)
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)

@@ -5,7 +5,6 @@ module Pos.Ssc.GodTossing.Seed
        ) where
 
 
-import           Control.Lens                  (view, (^.), _2)
 import qualified Data.HashMap.Strict           as HM (fromList, lookup, mapMaybe, toList,
                                                       traverseWithKey, (!))
 import qualified Data.HashSet                  as HS (difference)

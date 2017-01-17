@@ -18,7 +18,6 @@ module Pos.Types.Address
        , unsafeAddressHash
        ) where
 
-import           Control.Lens           (view, _3)
 import           Crypto.Hash            (Blake2s_224, Digest, SHA3_256, hashlazy)
 import qualified Crypto.Hash            as CryptoHash
 import           Data.ByteString.Base58 (Alphabet (..), bitcoinAlphabet, decodeBase58,

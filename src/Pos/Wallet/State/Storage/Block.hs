@@ -17,7 +17,7 @@ module Pos.Wallet.State.Storage.Block
        , blkSetHead
        ) where
 
-import           Control.Lens              (at, makeClassy, view, (.=), (^.))
+import           Control.Lens              (at, makeClassy, (.=))
 import           Control.Monad.Loops       (unfoldrM)
 import           Control.Monad.Trans.Maybe (MaybeT (..))
 import           Data.Default              (Default, def)

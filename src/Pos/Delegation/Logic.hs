@@ -31,8 +31,7 @@ module Pos.Delegation.Logic
        ) where
 
 import           Control.Concurrent.STM.TVar (readTVar, writeTVar)
-import           Control.Lens                (makeLenses, use, uses, view, (%=), (.=),
-                                              (^.))
+import           Control.Lens                (makeLenses, (%=), (.=))
 import           Control.Monad.Trans.Except  (runExceptT, throwE)
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
@@ -125,7 +124,7 @@ getProxyMempool
     :: (MonadDB ssc m, MonadDelegation m)
     => m ([ProxySKSimple], [ProxySKSimple])
 getProxyMempool = do
-    sks <- runDelegationStateAction $ uses dwProxySKPool HM.elems
+    sks <- runDelegationStateAction (HM.elems <$> use dwProxySKPool)
     let issuers = map pskIssuerPk sks
     toRollback <- catMaybes <$> mapM GS.getPSKByIssuer issuers
     pure (sks, toRollback)
@@ -159,8 +158,8 @@ processProxySKSimple psk = do
         issuer = pskIssuerPk psk
         enoughStake = addressHash issuer `elem` richmen
     runDelegationStateAction $ do
-        exists <- uses dwProxySKPool $ \m -> HM.lookup issuer m == Just psk
-        cached <- uses dwProxyMsgCache $ HM.member msg
+        exists <- (\m -> HM.lookup issuer m == Just psk) <$> use dwProxySKPool
+        cached <- HM.member msg <$> use dwProxyMsgCache
         dwProxyMsgCache %= HM.insert msg curTime
         let res = if | not valid -> PSInvalid
                      | not enoughStake -> PSForbidden
@@ -215,8 +214,8 @@ delegationVerifyBlocks blocks = do
   where
     headEpoch = view epochIndexL $ NE.head blocks
     withMapResolve issuer = do
-        isAddedM <- uses dvPSKMapAdded $ HM.lookup issuer
-        isRemoved <- uses dvPSKSetRemoved $ HS.member issuer
+        isAddedM <- HM.lookup issuer <$> use dvPSKMapAdded
+        isRemoved <- HS.member issuer <$> use dvPSKSetRemoved
         if isRemoved
         then pure Nothing
         else maybe (GS.getPSKByIssuer issuer) (pure . Just) isAddedM
@@ -225,7 +224,7 @@ delegationVerifyBlocks blocks = do
         dvPSKMapAdded %= HM.insert issuer psk
         dvPSKSetRemoved %= HS.delete issuer
     withMapRemove issuer = do
-        inAdded <- uses dvPSKMapAdded $ HM.member issuer
+        inAdded <- HM.member issuer <$> use dvPSKMapAdded
         if inAdded
         then dvPSKMapAdded %= HM.delete issuer
         else dvPSKSetRemoved %= HS.insert issuer
@@ -340,7 +339,7 @@ processProxySKEpoch psk = do
             msg = SendProxySKEpoch psk
             valid = verifyProxySecretKey psk
             selfSigned = pskDelegatePk psk == pskIssuerPk psk
-        cached <- uses dwProxyMsgCache $ HM.member msg
+        cached <- HM.member msg <$> use dwProxyMsgCache
         dwProxyMsgCache %= HM.insert msg curTime
         pure $ if | not valid -> PEInvalid
                   | cached -> PECached
@@ -373,7 +372,7 @@ processConfirmProxySk psk proof = do
     curTime <- liftIO getCurrentTime
     runDelegationStateAction $ do
         let valid = proxyVerify (pdDelegatePk proof) proof (const True) psk
-        cached <- uses dwProxyConfCache $ HM.member psk
+        cached <- HM.member psk <$> use dwProxyConfCache
         when valid $ dwProxyConfCache %= HM.insert psk curTime
         pure $ if | cached -> CPCached
                   | not valid -> CPInvalid
@@ -381,4 +380,4 @@ processConfirmProxySk psk proof = do
 
 -- | Checks if we hold a confirmation for given PSK.
 isProxySKConfirmed :: ProxySKEpoch -> DelegationStateAction Bool
-isProxySKConfirmed psk = uses dwProxyConfCache $ HM.member psk
+isProxySKConfirmed psk = HM.member psk <$> use dwProxyConfCache

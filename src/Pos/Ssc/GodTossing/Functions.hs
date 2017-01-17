@@ -36,7 +36,7 @@ module Pos.Ssc.GodTossing.Functions
        , computeParticipants
        ) where
 
-import           Control.Lens                   (at, (^.), _2)
+import           Control.Lens                   (at)
 import           Data.Containers                (ContainerKey, SetContainer (notMember))
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.HashSet                   as HS

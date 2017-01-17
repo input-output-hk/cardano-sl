@@ -21,6 +21,7 @@ import           System.FilePath          ((</>))
 import           System.Wlog              (WithLogger)
 import           Universum
 
+import           Pos.Block.Types          (Blund)
 import           Pos.Context.Class        (WithNodeContext)
 import           Pos.Context.Functions    (genesisLeadersM)
 import           Pos.DB.Block             (getBlock, loadBlundsByDepth, loadBlundsWhile,
@@ -35,8 +36,8 @@ import           Pos.DB.Lrc               (prepareLrcDB)
 import           Pos.DB.Misc              (prepareMiscDB)
 import           Pos.DB.Types             (NodeDBs (..))
 import           Pos.Ssc.Class.Types      (Ssc)
-import           Pos.Types                (Block, BlockHeader, Undo, getBlockHeader,
-                                           headerHash, mkGenesisBlock)
+import           Pos.Types                (Block, BlockHeader, getBlockHeader, headerHash,
+                                           mkGenesisBlock)
 import           Pos.Util                 (inAssertMode)
 
 -- | Open all DBs stored on disk.
@@ -91,14 +92,14 @@ getTipBlockHeader = getBlockHeader <$> getTipBlock
 -- is true.  The head of returned list is the youngest blund.
 loadBlundsFromTipWhile
     :: (Ssc ssc, MonadDB ssc m)
-    => (Block ssc -> Bool) -> m [(Block ssc, Undo)]
+    => (Block ssc -> Bool) -> m [Blund ssc]
 loadBlundsFromTipWhile condition = getTip >>= loadBlundsWhile condition
 
 -- | Load blunds from BlockDB starting from tip which have depth less than given.
 -- The head of returned list is the youngest blund.
 loadBlundsFromTipByDepth
     :: (Ssc ssc, MonadDB ssc m)
-    => Word -> m [(Block ssc, Undo)]
+    => Word -> m [Blund ssc]
 loadBlundsFromTipByDepth d = getTip >>= loadBlundsByDepth d
 
 sanityCheckDB

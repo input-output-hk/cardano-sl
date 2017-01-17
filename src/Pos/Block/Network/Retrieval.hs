@@ -34,6 +34,7 @@ import qualified Pos.Block.Logic                as L
 import           Pos.Block.Network.Announce     (announceBlock)
 import           Pos.Block.Network.Types        (MsgBlock (..), MsgGetBlocks (..),
                                                  MsgGetHeaders (..), MsgHeaders (..))
+import           Pos.Block.Types                (Blund)
 import           Pos.Communication.BiP          (BiP (..))
 import           Pos.Constants                  (blkSecurityParam)
 import           Pos.Context                    (getNodeContext, ncBlockRetrievalQueue)
@@ -41,10 +42,9 @@ import           Pos.Crypto                     (hash, shortHashF)
 import qualified Pos.DB                         as DB
 import           Pos.DHT.Model                  (nodeIdToAddress)
 import           Pos.Ssc.Class                  (Ssc, SscWorkersClass)
-import           Pos.Types                      (Block, BlockHeader, Blund,
-                                                 HasHeaderHash (..), HeaderHash, NEBlocks,
-                                                 blockHeader, gbHeader, prevBlockL,
-                                                 verifyHeaders)
+import           Pos.Types                      (Block, BlockHeader, HasHeaderHash (..),
+                                                 HeaderHash, NEBlocks, blockHeader,
+                                                 gbHeader, prevBlockL, verifyHeaders)
 import           Pos.Util                       (inAssertMode, _neHead, _neLast)
 import           Pos.WorkMode                   (WorkMode)
 

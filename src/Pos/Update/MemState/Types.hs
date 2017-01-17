@@ -7,12 +7,12 @@ module Pos.Update.MemState.Types
        , MemPool (..)
        ) where
 
-import           Data.Default    (Default (def))
+import           Data.Default          (Default (def))
 import           Universum
 
-import           Pos.DB.Types    (UndecidedProposalState (..))
-import           Pos.Types       (Coin, SlotId)
-import           Pos.Update.Core (StakeholderVotes, UpId, UpdateProposal)
+import           Pos.Types             (Coin, SlotId)
+import           Pos.Update.Core       (StakeholderVotes, UpId, UpdateProposal)
+import           Pos.Update.Poll.Types (UndecidedProposalState (..))
 
 -- | Local state of proposal
 data LocalProposalState = LocalProposalState

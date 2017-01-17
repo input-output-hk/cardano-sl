@@ -62,8 +62,6 @@ module Pos.Types.Types
        , utxoF
 
        , TxUndo
-       , Undo (..)
-       , Blund
 
        , SharedSeed (..)
        , SlotLeaders
@@ -176,7 +174,6 @@ import           Universum
 import           Pos.Binary.Address     ()
 import           Pos.Binary.Class       (Bi)
 import           Pos.Binary.Script      ()
-import           Pos.Binary.Update      ()
 import           Pos.Crypto             (Hash, ProxySecretKey, ProxySignature, PublicKey,
                                          Signature, hash, hashHexF, shortHashF)
 import           Pos.Data.Attributes    (Attributes)
@@ -188,7 +185,7 @@ import           Pos.Types.Address      (Address (..), StakeholderId, addressF,
                                          decodeTextAddress, makePubKeyAddress,
                                          makeScriptAddress)
 import           Pos.Types.Version      (ProtocolVersion, SoftwareVersion)
-import           Pos.Update.Core.Types  (UpdatePayload, UpdateProof)
+import           Pos.Update.Core.Types  (UpdatePayload, UpdateProof, mkUpdateProof)
 import           Pos.Util               (Color (Magenta), colorize)
 
 ----------------------------------------------------------------------------
@@ -446,22 +443,6 @@ utxoF = later formatUtxo
 -- | Particular undo needed for transactions
 type TxUndo = [[TxOutAux]]
 
--- | Structure for undo block during rollback
-data Undo = Undo
-    { undoTx  :: [[TxOutAux]]
-    , undoPsk :: [ProxySKSimple] -- ^ PSKs we've overwritten/deleted
-    }
-
--- | Block and its Undo.
-type Blund ssc = (Block ssc, Undo)
-
-instance Buildable Undo where
-    build Undo{..} =
-        bprint ("Undo:\n"%
-                "  undoTx: "%listJson%"\n"%
-                "  undoPsk: "%listJson)
-               (map (bprint listJson) undoTx) undoPsk
-
 ----------------------------------------------------------------------------
 -- SSC. It means shared seed computation, btw
 ----------------------------------------------------------------------------
@@ -642,7 +623,8 @@ instance Buildable MainExtraBodyData where
     -- Currently there is no extra data in block body, attributes are empty.
     build _ = bprint "no extra data"
 
-instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
+instance (Ssc ssc, Bi TxWitness, Bi UpdatePayload) =>
+         Blockchain (MainBlockchain ssc) where
     -- | Proof of transactions list and MPC data.
     data BodyProof (MainBlockchain ssc) = MainProof
         { mpNumber        :: !Word32
@@ -709,7 +691,7 @@ instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
         , mpWitnessesHash = hash _mbWitnesses
         , mpMpcProof = untag @ssc mkSscProof _mbMpc
         , mpProxySKsProof = hash _mbProxySKs
-        , mpUpdateProof = hash _mbUpdatePayload
+        , mpUpdateProof = mkUpdateProof _mbUpdatePayload
         }
 
 
@@ -995,9 +977,6 @@ instance HasDifficulty (GenesisBlock ssc) where
 instance HasDifficulty (Block ssc) where
     difficultyL = choosing difficultyL difficultyL
 
-instance HasDifficulty (Blund ssc) where
-    difficultyL = _1 . difficultyL
-
 -- | Class for something that has previous block (lens to 'Hash' for this block).
 class HasPrevBlock s a | s -> a where
     prevBlockL :: Lens' s (Hash a)
@@ -1043,9 +1022,6 @@ instance BiSsc ssc => HasHeaderHash (GenesisBlock ssc) ssc where
 
 instance BiSsc ssc => HasHeaderHash (Block ssc) ssc where
     headerHash = hash . getBlockHeader
-
-instance BiSsc ssc => HasHeaderHash (Blund ssc) ssc where
-    headerHash = headerHash . fst
 
 -- | Class for something that has 'EpochIndex'.
 class HasEpochIndex a where

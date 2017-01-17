@@ -31,7 +31,8 @@ module Pos.Block.Logic
 
 import           Control.Lens              (view, (^.), _1)
 import           Control.Monad.Catch       (try)
-import           Control.Monad.Except      (ExceptT (ExceptT), runExceptT, throwError)
+import           Control.Monad.Except      (ExceptT (ExceptT), runExceptT, throwError,
+                                            withExceptT)
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
 import           Data.Default              (Default (def))
 import qualified Data.HashMap.Strict       as HM
@@ -48,6 +49,7 @@ import           Universum
 
 import           Pos.Block.Logic.Internal  (applyBlocksUnsafe, rollbackBlocksUnsafe,
                                             withBlkSemaphore, withBlkSemaphore_)
+import           Pos.Block.Types           (Blund, Undo (..))
 import           Pos.Constants             (blkSecurityParam, curProtocolVersion,
                                             curSoftwareVersion, epochSlots,
                                             recoveryHeadersMessage, slotSecurityParam)
@@ -68,15 +70,14 @@ import           Pos.Ssc.Class             (Ssc (..), SscWorkersClass (..))
 import           Pos.Ssc.Extra             (sscGetLocalPayload, sscVerifyBlocks)
 import           Pos.Txp.Class             (getLocalTxsNUndo)
 import           Pos.Txp.Logic             (txVerifyBlocks)
-import           Pos.Types                 (Block, BlockHeader, Blund, EpochIndex,
+import           Pos.Types                 (Block, BlockHeader, EpochIndex,
                                             EpochOrSlot (..), GenesisBlock, HeaderHash,
                                             MainBlock, MainExtraBodyData (..),
                                             MainExtraHeaderData (..), ProxySKEither,
                                             ProxySKSimple, SlotId (..), SlotLeaders,
-                                            TxAux, TxId, Undo (..),
-                                            VerifyHeaderParams (..), blockHeader,
-                                            difficultyL, epochIndexL, epochOrSlot,
-                                            flattenEpochOrSlot, genesisHash,
+                                            TxAux, TxId, VerifyHeaderParams (..),
+                                            blockHeader, difficultyL, epochIndexL,
+                                            epochOrSlot, flattenEpochOrSlot, genesisHash,
                                             getEpochOrSlot, headerHash, headerHashG,
                                             headerSlot, mkGenesisBlock, mkMainBlock,
                                             mkMainBody, prevBlockL, topsortTxs,
@@ -84,7 +85,8 @@ import           Pos.Types                 (Block, BlockHeader, Blund, EpochInde
                                             vhpVerifyConsensus)
 import qualified Pos.Types                 as Types
 import           Pos.Update.Core           (UpdatePayload (..))
-import           Pos.Util                  (inAssertMode, spanSafe, _neHead)
+import           Pos.Update.Logic          (usVerifyBlocks)
+import           Pos.Util                  (inAssertMode, neZipWith3, spanSafe, _neHead)
 import           Pos.WorkMode              (WorkMode)
 
 ----------------------------------------------------------------------------
@@ -334,6 +336,8 @@ getHeadersFromToIncl older newer = runMaybeT $ do
 -- -- CHECK: @verifyBlocksLogic
 -- -- #txVerifyBlocks
 -- -- #sscVerifyBlocks
+-- -- #delegationVerifyBlocks
+-- -- #usVerifyBlocks
 -- | Verify new blocks. Head is expected to be the oldest block. If
 -- parent of head is not our tip, verification fails. This function
 -- checks everything from block, including header, transactions,
@@ -349,9 +353,10 @@ verifyBlocksPrefix blocks = runExceptT $ do
     verResToMonadError formatAllErrors =<< sscVerifyBlocks False blocks
     txUndo <- ExceptT $ txVerifyBlocks blocks
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks
+    (_, usUndos) <- withExceptT pretty $ usVerifyBlocks blocks
     when (length txUndo /= length pskUndo) $
         throwError "Internal error of verifyBlocksPrefix: length of undos don't match"
-    pure $ NE.map (uncurry Undo) $ NE.zip txUndo pskUndo
+    pure $ neZipWith3 Undo txUndo pskUndo usUndos
 
 -- | Applies blocks if they're valid. Takes one boolean flag
 -- "rollback". Returns header hash of last applied block (new tip) on
@@ -520,11 +525,12 @@ createGenesisBlockDo epoch leaders tip = do
     logDebug $ sformat msgTryingFmt epoch tipHeader
     createGenesisBlockFinally tipHeader
   where
+    emptyUndo = Undo [] [] def
     createGenesisBlockFinally tipHeader
         | shouldCreateGenesisBlock epoch (getEpochOrSlot tipHeader) = do
             let blk = mkGenesisBlock (Just tipHeader) epoch leaders
             let newTip = headerHash blk
-            applyBlocksUnsafe (pure (Left blk, Undo [] [])) $>
+            applyBlocksUnsafe (pure (Left blk, emptyUndo)) $>
                 (Just blk, newTip)
         | otherwise = (Nothing, tip) <$ logShouldNot
     logShouldNot =
@@ -593,7 +599,7 @@ createMainBlockFinish slotId pSk prevHeader = do
     let prependToUndo undos tx =
             fromMaybe (panic "Undo for tx not found")
                       (HM.lookup (fst tx) txUndo) : undos
-    let blockUndo = Undo (reverse $ foldl' prependToUndo [] localTxs) pskUndo
+    let blockUndo = Undo (reverse $ foldl' prependToUndo [] localTxs) pskUndo def
     lift $ inAssertMode $ verifyBlocksPrefix (pure (Right blk)) >>=
         \case Left err -> logError $ sformat ("We've created bad block: "%stext) err
               Right _ -> pass

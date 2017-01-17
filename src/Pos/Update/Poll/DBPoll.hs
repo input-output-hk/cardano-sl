@@ -9,6 +9,7 @@ module Pos.Update.Poll.DBPoll
 
 import           Control.Lens                (iso)
 import           Control.Monad.Base          (MonadBase (..))
+import           Control.Monad.Except        (MonadError)
 import           Control.Monad.Fix           (MonadFix)
 import           Control.Monad.Trans         (MonadTrans (lift))
 import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
@@ -41,7 +42,7 @@ import           Pos.Util.JsonLog            (MonadJL (..))
 newtype DBPoll m a = DBPoll
     { runDBPoll :: m a
     } deriving (Functor, Applicative, Monad, MonadThrow, MonadSlots,
-                MonadCatch, MonadIO, MonadFail, HasLoggerName,
+                MonadCatch, MonadIO, MonadFail, HasLoggerName, MonadError e,
                 WithNodeContext ssc, MonadJL, CanLog, MonadMask, MonadUSMem,
                 MonadSscLD kek, MonadSscGS ssc, MonadUtxoRead, MonadUtxo,
                 MonadTxpLD ssc, MonadBase io, MonadDelegation, MonadFix)

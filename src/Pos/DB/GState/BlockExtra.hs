@@ -22,13 +22,14 @@ import           Formatting          (bprint, build, (%))
 import           Universum
 
 import           Pos.Binary.Class    (encodeStrict)
+import           Pos.Block.Types     (Blund)
 import           Pos.Crypto          (shortHashF)
 import           Pos.DB.Block        (getBlockWithUndo)
 import           Pos.DB.Class        (MonadDB, getUtxoDB)
 import           Pos.DB.Functions    (RocksBatchOp (..), rocksGetBi, rocksPutBi)
 import           Pos.Ssc.Class.Types (Ssc)
 import           Pos.Types           (Block, BlockHeader, HasHeaderHash, HeaderHash,
-                                      Undo (..), blockHeader, headerHash)
+                                      blockHeader, headerHash)
 
 
 ----------------------------------------------------------------------------
@@ -88,7 +89,7 @@ instance RocksBatchOp (BlockExtraOp ssc) where
 -- Loads something from old to new.
 loadUpWhile
     :: forall a b ssc m . (Ssc ssc, MonadDB ssc m, HasHeaderHash a ssc)
-    => ((Block ssc, Undo) -> b) -> a -> (b -> Int -> Bool) -> m [b]
+    => (Blund ssc -> b) -> a -> (b -> Int -> Bool) -> m [b]
 loadUpWhile morph start  condition = loadUpWhileDo (headerHash start) 0
   where
     loadUpWhileDo :: HeaderHash ssc -> Int -> m [b]

@@ -1,22 +1,22 @@
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
--- | Type class for Poll abstraction.
+-- | Type classes for Poll abstraction.
 
 module Pos.Update.Poll.Class
        ( MonadPollRead (..)
        , MonadPoll (..)
        ) where
 
-import           Control.Monad.Except (ExceptT)
-import           Control.Monad.Trans  (MonadTrans)
+import           Control.Monad.Except  (ExceptT)
+import           Control.Monad.Trans   (MonadTrans)
 import           Universum
 
-import           Pos.DB.Types         (ProposalState)
-import           Pos.Script.Type      (ScriptVersion)
-import           Pos.Types            (ApplicationName, NumSoftwareVersion,
-                                       ProtocolVersion, SoftwareVersion)
-import           Pos.Update.Core      (UpId)
+import           Pos.Script.Type       (ScriptVersion)
+import           Pos.Types             (ApplicationName, NumSoftwareVersion,
+                                        ProtocolVersion, SoftwareVersion)
+import           Pos.Update.Core       (UpId)
+import           Pos.Update.Poll.Types (ProposalState)
 
 ----------------------------------------------------------------------------
 -- Read-only

@@ -14,6 +14,10 @@ packages:
       git: https://github.com/serokell/universum
       commit: db3cd301545e5da000e53ca2cdf274e0386192bf
     extra-dep: true
+  - location:
+      git: https://github.com/serokell/network-transport-tcp.git
+      commit: 586c9bf830252476522cab6274ef8ddc32615686
+    extra-dep: true
 
 extra-deps:
   - network-transport-inmemory-0.5.2

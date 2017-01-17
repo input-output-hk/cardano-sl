@@ -19,6 +19,7 @@ module Mockable.Exception (
     , catchAll
     , handle
     , handleAll
+    , try
 
     ) where
 
@@ -64,3 +65,6 @@ handle = flip catch
 
 handleAll :: ( Mockable Catch m ) => (SomeException -> m t) -> m t -> m t
 handleAll = handle
+
+try :: ( Mockable Catch m, Exception e ) => m t -> m (Either e t)
+try = handle (return . Left) . fmap Right

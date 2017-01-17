@@ -2,21 +2,22 @@
 
 module NTP.Packet
     ( NtpPacket (..)
+    , ntpPacketSize
     , mkCliNtpPacket
     , evalClockOffset
     ) where
 
 
-import Control.Lens        (both, (^..))
-import Control.Monad       (replicateM_)
-import Control.Monad.Trans (MonadIO (..))
-import Data.Binary         (Binary (..))
-import Data.Binary.Get     (getInt8, getWord32be, getWord8)
-import Data.Binary.Put     (putWord32be, putWord8)
-import Data.Time.Units     (Microsecond, fromMicroseconds, toMicroseconds)
-import Data.Word           (Word32, Word8)
+import           Control.Lens        (both, (^..))
+import           Control.Monad       (replicateM_)
+import           Control.Monad.Trans (MonadIO (..))
+import           Data.Binary         (Binary (..))
+import           Data.Binary.Get     (getInt8, getWord32be, getWord8)
+import           Data.Binary.Put     (putWord32be, putWord8)
+import           Data.Time.Units     (Microsecond, fromMicroseconds, toMicroseconds)
+import           Data.Word           (Word32, Word8)
 
-import NTP.Util (getCurrentTime)
+import           NTP.Util            (getCurrentTime)
 
 data NtpPacket = NtpPacket
     { ntpParams       :: Word8        -- some magic parameters
@@ -31,18 +32,21 @@ data NtpPacket = NtpPacket
 ntpTimestampDelta :: Integer
 ntpTimestampDelta = 2208988800
 
-power2of32 :: Integer
-power2of32 = 4294967296
+ntpPacketSize :: Int
+ntpPacketSize = 48
+
+exp2'32 :: Integer
+exp2'32 = 4294967296
 
 ntpToRealMcs :: Word32 -> Word32 -> Microsecond
 ntpToRealMcs integerSec fracSec = fromMicroseconds $
        (fromIntegral integerSec - ntpTimestampDelta) * 1000000
-      + ((fromIntegral fracSec * 1000000) `div` power2of32)
+      + ((fromIntegral fracSec * 1000000) `div` exp2'32)
 
 realMcsToNtp :: Microsecond -> (Word32, Word32)
 realMcsToNtp (toMicroseconds -> mcs) =
     let integerSec = (mcs `div` 1000000) + ntpTimestampDelta
-        fracSec    = ((mcs * power2of32) `div` 1000000)
+        fracSec    = ((mcs * exp2'32) `div` 1000000)
     in  (fromIntegral integerSec, fromIntegral fracSec)
 
 instance Binary NtpPacket where

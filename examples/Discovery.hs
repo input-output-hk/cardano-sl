@@ -16,9 +16,7 @@ import qualified Data.Set                             as S
 import           Data.Time.Units                      (Microsecond, fromMicroseconds)
 import           Data.Void                            (Void)
 import           GHC.Generics                         (Generic)
-import           Message.Message                      (BinaryP (..))
-import           Mockable.Concurrent                  (ThreadId, delay, for, fork,
-                                                       killThread)
+import           Mockable.Concurrent                  (ThreadId, delay, fork, killThread)
 import           Mockable.Exception                   (finally)
 import           Mockable.Production
 import           Network.Discovery.Abstract
@@ -27,6 +25,7 @@ import           Network.Transport.Abstract           (Transport (..))
 import           Network.Transport.Concrete           (concrete)
 import qualified Network.Transport.TCP                as TCP
 import           Node
+import           Node.Message                         (BinaryP (..))
 import           System.Environment                   (getArgs)
 import           System.Random
 
@@ -46,7 +45,7 @@ worker anId generator discovery = pingWorker generator
         loop g = do
             let (i, gen') = randomR (1000,2000000) g
                 us = fromMicroseconds i :: Microsecond
-            delay (for us)
+            delay us
             _ <- knownPeers discovery
             _ <- discoverPeers discovery
             peerSet <- knownPeers discovery
@@ -102,7 +101,7 @@ main = runProduction $ do
 
     when (number > 99 || number < 1) $ error "Give a number in [1,99]"
 
-    Right transport_ <- liftIO $ TCP.createTransport ("127.0.0.1") ("10128") TCP.defaultTCPParameters
+    Right transport_ <- liftIO $ TCP.createTransport "0.0.0.0" "127.0.0.1" "10128" TCP.defaultTCPParameters
     let transport = concrete transport_
 
     liftIO . putStrLn $ "Spawning " ++ show number ++ " nodes"

@@ -27,24 +27,28 @@ import           Data.List                   (sortOn)
 import           Data.Maybe                  (isNothing)
 import           Data.Monoid                 ((<>))
 import           Data.Text                   (Text)
-import           Data.Time.Units             (Microsecond, Second)
+import           Data.Time.Units             (Microsecond, Second, toMicroseconds)
 import           Data.Typeable               (Typeable)
 import           Formatting                  (sformat, shown, (%))
-import           Network.Socket              (Family (AF_INET), SockAddr (..), Socket,
+import           Network.Socket              (AddrInfoFlag (AI_PASSIVE), Family (AF_INET),
+                                              SockAddr (..), Socket,
                                               SocketOption (ReuseAddr),
-                                              SocketType (Datagram), close,
-                                              defaultProtocol, setSocketOption, socket)
+                                              SocketType (Datagram), aNY_PORT,
+                                              addrAddress, addrFamily, addrFlags, bind,
+                                              close, defaultHints, defaultProtocol,
+                                              getAddrInfo, setSocketOption, socket)
 import           Network.Socket.ByteString   (recvFrom, sendTo)
 import           Prelude                     hiding (log)
 import           Serokell.Util.Concurrent    (modifyTVarS, threadDelay)
 import           System.Wlog                 (LoggerName, Severity (..), WithLogger,
                                               logMessage, modifyLoggerName)
 
-import Mockable.Class      (Mockable)
-import Mockable.Concurrent (Fork, fork)
-import Mockable.Exception  (Catch, Throw, catchAll, handleAll, throw)
-import NTP.Packet          (NtpPacket (..), evalClockOffset, mkCliNtpPacket)
-import NTP.Util            (datagramPacketSize, resolveNtpHost)
+import           Mockable.Class              (Mockable)
+import           Mockable.Concurrent         (Fork, fork)
+import           Mockable.Exception          (Catch, Throw, catchAll, handleAll, throw)
+import           NTP.Packet                  (NtpPacket (..), evalClockOffset,
+                                              mkCliNtpPacket, ntpPacketSize)
+import           NTP.Util                    (resolveNtpHost)
 
 data NtpClientSettings = NtpClientSettings
     { ntpServers         :: [String]
@@ -131,7 +135,10 @@ handleCollectedResponses cli = do
         Just []        -> log cli Warning "No servers responded"
         Just responses -> handleE `handleAll` do
             let time = selection responses
-            log cli Notice $ sformat ("Evaluated clock offset: "%shown) time
+            log cli Notice $ sformat ("Evaluated clock offset "%shown%
+                " mcs for request at "%shown%" mcs")
+                (toMicroseconds $ fst time)
+                (toMicroseconds $ snd time)
             handler time
   where
     handleE = log cli Error . sformat ("ntpMeanSelection: "%shown)
@@ -167,8 +174,16 @@ mkSocket :: NtpMonad m => NtpClientSettings -> m Socket
 mkSocket settings = doMkSocket `catchAll` handlerE
   where
     doMkSocket = liftIO $ do
-        sock <- socket AF_INET Datagram defaultProtocol
+        -- Copied from Kademlia library
+        serveraddrs <- getAddrInfo
+                     (Just (defaultHints {addrFlags = [AI_PASSIVE]}))
+                     Nothing (Just $ show aNY_PORT)
+
+        let serveraddr = head $ filter (\a -> addrFamily a == AF_INET) serveraddrs
+
+        sock <- socket (addrFamily serveraddr) Datagram defaultProtocol
         setSocketOption sock ReuseAddr 1
+        bind sock (addrAddress serveraddr)
         return sock
     handlerE e = do
         log' settings Warning $
@@ -183,7 +198,8 @@ handleNtpPacket cli packet = do
 
     clockOffset <- evalClockOffset packet
 
-    log cli Info $ sformat ("Received time delta "%shown) clockOffset
+    log cli Info $ sformat ("Received time delta "%shown%" mcs")
+        (toMicroseconds clockOffset)
 
     late <- liftIO . atomically . modifyTVarS (ncState cli) $ do
         _Just %= ((clockOffset, ntpOriginTime packet) :)
@@ -195,7 +211,7 @@ doReceive :: NtpMonad m => NtpClient -> m ()
 doReceive cli = do
     sock <- liftIO . readTVarIO $ ncSocket cli
     forever $ do
-        (received, _) <- liftIO $ recvFrom sock datagramPacketSize
+        (received, _) <- liftIO $ recvFrom sock ntpPacketSize
         let eNtpPacket = decodeOrFail $ LBS.fromStrict received
         case eNtpPacket of
             Left  (_, _, err)    ->

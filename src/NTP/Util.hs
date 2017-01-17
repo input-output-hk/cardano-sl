@@ -1,24 +1,21 @@
 {-# LANGUAGE TypeApplications #-}
 
 module NTP.Util
-    ( datagramPacketSize
-    , ntpPort
+    ( ntpPort
     , resolveNtpHost
     , getCurrentTime
     ) where
 
-import Control.Lens          (to, (^?), _head)
-import Control.Monad.Catch   (catchAll)
-import Control.Monad.Trans   (MonadIO (..))
-import Data.Time.Clock.POSIX (getPOSIXTime)
-import Data.Time.Units       (Microsecond, fromMicroseconds)
-import Network.Socket        (AddrInfoFlag (AI_ADDRCONFIG), PortNumber (..),
-                              SockAddr (..), SocketType (Datagram), addrAddress,
-                              addrFlags, addrSocketType, defaultHints, getAddrInfo)
+import           Control.Lens          (to, (^?), _head)
+import           Control.Monad.Catch   (catchAll)
+import           Control.Monad.Trans   (MonadIO (..))
+import           Data.Time.Clock.POSIX (getPOSIXTime)
+import           Data.Time.Units       (Microsecond, fromMicroseconds)
+import           Network.Socket        (AddrInfoFlag (AI_ADDRCONFIG), PortNumber (..),
+                                        SockAddr (..), SocketType (Datagram), addrAddress,
+                                        addrFlags, addrSocketType, defaultHints,
+                                        getAddrInfo)
 
-
-datagramPacketSize :: Int
-datagramPacketSize = 1500
 
 ntpPort :: PortNumber
 ntpPort = 123

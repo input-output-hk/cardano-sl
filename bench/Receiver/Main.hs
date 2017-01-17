@@ -20,10 +20,10 @@ import           Mockable                   (Production (runProduction))
 
 import           Bench.Network.Commons      (MeasureEvent (..), Ping (..), Pong (..),
                                              loadLogConfig, logMeasure)
-import           Message.Message            (BinaryP (..))
 import           Network.Transport.Concrete (concrete)
 import           Node                       (ListenerAction (..), NodeAction (..), node,
                                              sendTo)
+import           Node.Message               (BinaryP (..))
 import           ReceiverOptions            (Args (..), argsParser)
 
 main :: IO ()
@@ -39,7 +39,7 @@ main = do
     loadLogConfig logsPrefix logConfig
     setLocaleEncoding utf8
 
-    Right transport_ <- TCP.createTransport ("0.0.0.0") (show port)
+    Right transport_ <- TCP.createTransport "0.0.0.0" "127.0.0.1" (show port)
         TCP.defaultTCPParameters
     let transport = concrete transport_
 

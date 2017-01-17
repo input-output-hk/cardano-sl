@@ -16,17 +16,18 @@ import           Control.Monad.Catch      (MonadCatch (..), MonadMask (..),
                                            MonadThrow (..))
 import           Control.Monad.Fix        (MonadFix)
 import           Control.Monad.IO.Class   (MonadIO)
-import           Control.TimeWarp.Timed   (for, hour)
-import           System.Wlog              (CanLog (..))
+import           Data.Time.Units          (Hour)
+import           System.Wlog              (CanLog (..), HasLoggerName (..))
 
 import           Mockable.Channel         (Channel (..), ChannelT)
 import           Mockable.Class           (Mockable (..))
 import           Mockable.Concurrent      (Async (..), Concurrently (..), Delay (..),
                                            Fork (..), Promise, RunInUnboundThread (..),
-                                           ThreadId, delay)
+                                           ThreadId)
 import           Mockable.CurrentTime     (CurrentTime (..), realTime)
 import           Mockable.Exception       (Bracket (..), Catch (..), Throw (..))
 import           Mockable.SharedAtomic    (SharedAtomic (..), SharedAtomicT)
+import           Serokell.Util.Concurrent as Serokell
 import           Universum                (MonadFail (..))
 
 newtype Production t = Production
@@ -47,10 +48,8 @@ instance Mockable Fork Production where
     liftMockable (KillThread tid) = Production $ Conc.killThread tid
 
 instance Mockable Delay Production where
-    liftMockable (Delay relativeToNow) = Production $ do
-        now <- realTime
-        Conc.threadDelay $ fromIntegral $ relativeToNow now - now
-    liftMockable SleepForever = forever $ delay $ for 24 hour
+    liftMockable (Delay time) = Production $ Serokell.threadDelay time
+    liftMockable SleepForever = Production $ forever $ Serokell.threadDelay (1 :: Hour)
 
 instance Mockable RunInUnboundThread Production where
     liftMockable (RunInUnboundThread m) = Production $
@@ -112,3 +111,7 @@ instance MonadMask Production where
         \unmask -> runProduction $ act $ Production . unmask . runProduction
     uninterruptibleMask act = Production $ uninterruptibleMask $
         \unmask -> runProduction $ act $ Production . unmask . runProduction
+
+instance HasLoggerName Production where
+    getLoggerName = return "*production*"
+    modifyLoggerName = const id

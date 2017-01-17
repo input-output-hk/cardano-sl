@@ -27,10 +27,11 @@ import           Network.Transport.Concrete (concrete)
 import           Node                       (ListenerAction (..), NodeAction (..), node,
                                              nodeEndPoint, sendTo)
 import           Node.Internal              (NodeId (..))
+import           Node.Message               (BinaryP (..))
+
 
 import           Bench.Network.Commons      (MeasureEvent (..), Payload (..), Ping (..),
                                              Pong (..), loadLogConfig, logMeasure)
-import           Message.Message            (BinaryP (..))
 import           SenderOptions              (Args (..), argsParser)
 
 data PingState = PingState
@@ -56,7 +57,7 @@ main = do
     loadLogConfig logsPrefix logConfig
     setLocaleEncoding utf8
 
-    Right transport_ <- TCP.createTransport "0.0.0.0" "3432" TCP.defaultTCPParameters
+    Right transport_ <- TCP.createTransport "0.0.0.0" "127.0.0.1" "3432" TCP.defaultTCPParameters
     let transport = concrete transport_
 
     let prngNode = mkStdGen 0

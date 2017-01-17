@@ -41,12 +41,11 @@ import           Control.Monad.IO.Class      (MonadIO (..))
 import           Control.Monad.State         (StateT)
 import           Data.Binary                 (Binary (..))
 import qualified Data.ByteString             as LBS
-import           Data.Foldable               (for_)
 import qualified Data.List                   as L
 import qualified Data.Set                    as S
-import           Data.Void                   (Void)
+import           Data.Time.Units             (Millisecond, Second, TimeUnit)
 import           GHC.Generics                (Generic)
-import           Mockable.Concurrent         (delay, fork, for, forConcurrently)
+import           Mockable.Concurrent         (delay, forConcurrently, fork)
 import           Mockable.Exception          (catch, throw)
 import           Mockable.Production         (Production (..))
 import           Network.Transport.Abstract  (closeTransport)
@@ -61,11 +60,10 @@ import           Test.QuickCheck.Modifiers   (getLarge)
 import           Test.QuickCheck.Property    (Testable (..), failed, reason, succeeded)
 
 import           Node                        (ConversationActions (..), Listener,
-                                             ListenerAction (..), Message (..),
-                                             NodeId, SendActions (..),
-                                             Worker, nodeId, node, NodeAction(..))
-import           Message.Message             (BinaryP (..))
-import           Data.Time.Units              (fromMicroseconds)
+                                              ListenerAction (..), Message (..),
+                                              NodeAction (..), NodeId, SendActions (..),
+                                              Worker, node, nodeId)
+import           Node.Message                (BinaryP (..))
 
 
 -- * Parcel
@@ -78,8 +76,8 @@ instance Binary Payload where
     get = Payload . LBS.length <$> get
 
 data Parcel = Parcel
-    { parcelNo  :: Int
-    , payload   :: Payload
+    { parcelNo :: Int
+    , payload  :: Payload
     } deriving (Eq, Ord, Show, Generic)
 
 instance Binary Parcel
@@ -105,8 +103,8 @@ instance Arbitrary HeavyParcel where
 -- * TestState
 
 data TestState = TestState
-    { _fails         :: [String]
-    , _expected      :: S.Set Parcel
+    { _fails    :: [String]
+    , _expected :: S.Set Parcel
     }
 
 mkTestState :: TestState
@@ -153,11 +151,11 @@ throwLeft = (>>= f)
     f (Right a) = return a
 
 -- | Await for predicate to become True, with timeout
-awaitSTM :: Int -> STM Bool -> Production ()
+awaitSTM :: TimeUnit t => t -> STM Bool -> Production ()
 awaitSTM time predicate = do
     tvar <- liftIO $ newTVarIO False
     void . fork $ do
-        delay $ for (fromMicroseconds . fromIntegral $ time)
+        delay time
         liftIO . atomically $ writeTVar tvar True
     liftIO . atomically $
         check =<< (||) <$> predicate <*> readTVar tvar
@@ -187,9 +185,10 @@ sendAll SingleMessageStyle sendActions peerId msgs =
     forM_ msgs $ sendTo sendActions peerId
 
 sendAll ConversationStyle sendActions peerId msgs =
-    withConnectionTo sendActions @_ @Bool peerId $ \cactions -> forM_ msgs $ \msg -> do
+    void . withConnectionTo sendActions @_ @Bool peerId $ \cactions -> forM_ msgs $
+    \msg -> do
         send cactions msg
-        recv cactions
+        _ <- recv cactions
         pure ()
 
 receiveAll
@@ -225,7 +224,7 @@ deliveryTest testState workers listeners = runProduction $ do
               TCP.tcpReuseServerAddr = True
             , TCP.tcpReuseClientAddr = True
             }
-    transport_ <- throwLeft $ liftIO $ TCP.createTransport "127.0.0.1" "10342" tcpParams
+    transport_ <- throwLeft $ liftIO $ TCP.createTransport "0.0.0.0" "127.0.0.1" "10342" tcpParams
     let transport = concrete transport_
 
     let prng1 = mkStdGen 0
@@ -245,13 +244,13 @@ deliveryTest testState workers listeners = runProduction $ do
             -- that the client (which has just closed) will still have data
             -- in-flight, which we expect the server to pick up.
             -- So we wait for receiver to get everything, but not for too long.
-            awaitSTM 5000000 $ S.null . _expected <$> readTVar testState
+            awaitSTM (5 :: Second) $ S.null . _expected <$> readTVar testState
             -- Server EndPoint closes here
 
     closeTransport transport
 
     -- wait till port gets free
-    delay $ for 20000
+    delay @_ @Millisecond 20
 
     -- form test results
     liftIO . atomically $

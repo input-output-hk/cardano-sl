@@ -13,12 +13,12 @@ import           Data.Binary
 import           Data.Data                  (Data)
 import           Data.Time.Units            (Microsecond, fromMicroseconds)
 import           GHC.Generics               (Generic)
-import           Message.Message            (BinaryP (..))
-import           Mockable.Concurrent        (delay, for, fork, killThread)
+import           Mockable.Concurrent        (delay, fork, killThread)
 import           Mockable.Production
 import           Network.Transport.Concrete (concrete)
 import qualified Network.Transport.TCP      as TCP
 import           Node
+import           Node.Message               (BinaryP (..))
 import           System.Random
 
 -- | Type for messages from the workers to the listeners.
@@ -48,7 +48,7 @@ worker anId generator peerIds = pingWorker generator
         loop g = do
             let (i, gen') = randomR (0,1000000) g
                 us = fromMicroseconds i :: Microsecond
-            delay (for us)
+            delay us
             let pong :: NodeId -> ConversationActions Ping Pong Production -> Production ()
                 pong peerId cactions = do
                     liftIO . putStrLn $ show anId ++ " sent PING to " ++ show peerId
@@ -71,7 +71,7 @@ listeners anId = [pongWorker]
 main :: IO ()
 main = runProduction $ do
 
-    Right transport_ <- liftIO $ TCP.createTransport ("127.0.0.1") ("10128") TCP.defaultTCPParameters
+    Right transport_ <- liftIO $ TCP.createTransport "0.0.0.0" "127.0.0.1" "10128" TCP.defaultTCPParameters
     let transport = concrete transport_
 
     let prng1 = mkStdGen 0

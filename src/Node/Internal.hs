@@ -7,9 +7,9 @@
 {-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE NamedFieldPuns             #-}
 {-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE RecursiveDo                #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE StandaloneDeriving         #-}
-{-# LANGUAGE RecursiveDo                #-}
 
 module Node.Internal (
     NodeId(..),
@@ -26,23 +26,24 @@ module Node.Internal (
     readChannel
   ) where
 
+import           Control.Exception             hiding (bracket, catch, finally, throw)
 import           Control.Monad                 (forM_)
 import           Control.Monad.Fix             (MonadFix)
-import           Control.Exception             hiding (bracket, catch, finally, throw)
-import           Data.Foldable                 (foldlM)
 import           Data.Binary                   as Bin
 import qualified Data.ByteString               as BS
 import qualified Data.ByteString.Builder       as BS
 import qualified Data.ByteString.Builder.Extra as BS
 import qualified Data.ByteString.Lazy          as LBS
+import           Data.Foldable                 (foldlM)
 import           Data.Hashable                 (Hashable)
+import           Data.List.NonEmpty            (NonEmpty ((:|)))
 import           Data.Map.Strict               (Map)
 import qualified Data.Map.Strict               as Map
+import           Data.Monoid
 import           Data.NonEmptySet              (NonEmptySet)
 import qualified Data.NonEmptySet              as NESet
-import           Data.List.NonEmpty            (NonEmpty((:|)))
-import           Data.Monoid
 import           Data.Typeable
+import           Formatting                    (sformat, shown, (%))
 import qualified Mockable.Channel              as Channel
 import           Mockable.Class
 import           Mockable.Concurrent
@@ -51,6 +52,7 @@ import           Mockable.SharedAtomic
 import qualified Network.Transport             as NT (EventErrorCode (EventConnectionLost, EventEndPointFailed, EventTransportFailed))
 import qualified Network.Transport.Abstract    as NT
 import           System.Random                 (Random, StdGen, random)
+import           System.Wlog                   (WithLogger, logDebug)
 
 -- | A 'NodeId' wraps a network-transport endpoint address
 newtype NodeId = NodeId NT.EndPointAddress
@@ -59,16 +61,16 @@ newtype NodeId = NodeId NT.EndPointAddress
 -- | The state of a Node, to be held in a shared atomic cell because other
 --   threads will mutate it in order to set up bidirectional connections.
 data NodeState m = NodeState {
-      _nodeStateGen      :: !StdGen
+      _nodeStateGen              :: !StdGen
       -- ^ To generate nonces.
-    , _nodeStateNonces   :: !(Map Nonce (NonceState m))
+    , _nodeStateNonces           :: !(Map Nonce (NonceState m))
       -- ^ Nonces identify bidirectional connections, and this gives the state
       --   of each one.
     , _nodeStateFinishedHandlers :: ![(Either NT.ConnectionId Nonce, Maybe SomeException)]
       -- ^ Connection identifiers or nonces for handlers which have finished.
       --   'Nonce's for bidirectional connections, 'ConnectionId's for handlers
       --   spawned to respond to incoming connections.
-    , _nodeStateClosed :: !Bool
+    , _nodeStateClosed           :: !Bool
       -- ^ Indicates whether the Node has been closed and is no longer capable
       --   of establishing or accepting connections (its EndPoint is closed).
     }
@@ -112,8 +114,10 @@ newtype ChannelIn m = ChannelIn (Channel.ChannelT m (Maybe BS.ByteString))
 newtype ChannelOut m = ChannelOut (NT.Connection m)
 
 -- | Bring up a 'Node' using a network transport.
-startNode :: ( Mockable SharedAtomic m, Mockable Async m, Mockable Bracket m
-             , Mockable Channel.Channel m, Mockable Throw m, Mockable Catch m )
+startNode :: ( Mockable SharedAtomic m, Mockable Bracket m
+             , Mockable Channel.Channel m, Mockable Throw m, Mockable Catch m
+             , Mockable Async m
+             , WithLogger m )
           => NT.Transport m
           -> StdGen
           -> (NodeId -> ChannelIn m -> m ())
@@ -244,7 +248,8 @@ instance Show (NonceState m) where
 nodeDispatcher :: forall m .
                   ( Mockable SharedAtomic m, Mockable Async m, Mockable Bracket m
                   , Mockable Channel.Channel m, Mockable Throw m
-                  , Mockable Catch m )
+                  , Mockable Catch m
+                  , WithLogger m )
                => NT.EndPoint m
                -> SharedAtomicT m (NodeState m)
                -- ^ Nonce states and a StdGen to generate nonces. It's in a
@@ -297,7 +302,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
             -> (Either NT.ConnectionId Nonce, Maybe SomeException)
             -> m (DispatcherState m, Map Nonce (NonceState m))
         folder (dispatcherState, nonces) (connidOrNonce, e) = case connidOrNonce of
-            -- The handler for a ConnectionId has finished. 
+            -- The handler for a ConnectionId has finished.
             Left connid -> (,) <$> updateDispatcherState dispatcherState connid e <*> pure nonces
             -- The handler for a locally-iniated conversation has finished.
             Right nonce -> folderNonce (dispatcherState, nonces) (nonce, e)
@@ -334,7 +339,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
     -- | Wait for all running handlers to finish.
     waitForRunningHandlers :: DispatcherState m -> m ()
     waitForRunningHandlers state = do
-        nonces <- modifySharedAtomic nodeState $ \ns@(NodeState prng nonces finished closed) ->
+        nonces <- modifySharedAtomic nodeState $ \ns@(NodeState _prng nonces _finished _closed) ->
             pure (ns, nonces)
         let outgoingHandlerPromises :: [(SomeHandler m, Maybe (ChannelIn m))]
             outgoingHandlerPromises = foldr pickOutgoingHandlerPromise [] nonces
@@ -347,7 +352,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
         -- TBD should we signal "premature end of input" instead, to
         -- differentiate it from the peer terminating the connection?
         closeChannelIn :: Maybe (ChannelIn m) -> m ()
-        closeChannelIn Nothing = pure ()
+        closeChannelIn Nothing                 = pure ()
         closeChannelIn (Just (ChannelIn chan)) = Channel.writeChannel chan Nothing
 
         incomingHandlerPromises :: [(SomeHandler m, Maybe (ChannelIn m))]
@@ -405,7 +410,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                           -- we just ignore it. network-transport should
                           -- ensure that the peer receives an error event
                           -- indicating that we've closed their connection.
-                          mconn <- modifySharedAtomic nodeState $ \ns@(NodeState prng nonces finishedHandlers closed) ->
+                          mconn <- modifySharedAtomic nodeState $ \ns@(NodeState _prng _nonces _finishedHandlers closed) ->
                               if closed
                               then pure (ns, Nothing)
                               else do
@@ -420,9 +425,15 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                           case mconn of
                               -- The EndPoint is closed, so we do nothing.
                               -- TODO should probably log this.
-                              Nothing -> pure ()
+                              Nothing -> logDebug $ sformat ("Got connection\
+                                \request from "%shown%", but endpoint is closed") peer
                               Just conn -> do
-                                  () <$ NT.send conn [controlHeaderBidirectionalAck nonce]
+                                  outcome <- NT.send conn [controlHeaderBidirectionalAck nonce]
+                                  case outcome of
+                                      Left err -> logDebug $
+                                        sformat ("Error sending ack to "%shown%": "
+                                        %shown) peer err
+                                      Right _  -> return ()
                                   handlerInOut (NodeId peer) (ChannelIn chan) (ChannelOut conn)
                                       `finally'`
                                       closeChannel (ChannelOut conn)
@@ -468,8 +479,10 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                           Channel.writeChannel chan (Just (BS.concat (LBS.toChunks ws')))
                           pure . Just $ ConnectionReceiving promise (ChannelIn chan)
 
-                | otherwise ->
-                    throw (ProtocolError $ "unexpected control header " ++ show w)
+                | otherwise -> do
+                    logDebug $ sformat ("protocol error: unexpected control header "
+                        %shown%" from "%shown) w peer
+                    pure Nothing
 
     loop :: DispatcherState m -> m ()
     loop !initialState = do
@@ -507,11 +520,11 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
 
                   -- Connection is receiving data and there's some handler
                   -- at 'tid' to run it. Dump the new data to its ChannelIn.
-                  Just (peer, ConnectionReceiving _ (ChannelIn chan)) -> do
+                  Just (_peer, ConnectionReceiving _ (ChannelIn chan)) -> do
                     Channel.writeChannel chan (Just (BS.concat chunks))
                     loop state
 
-                  Just (peer, ConnectionClosed _) ->
+                  Just (_peer, ConnectionClosed _) ->
                     throw (InternalError "received data on closed connection")
 
                   -- The peer keeps pushing data but our handler is finished.
@@ -522,7 +535,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                   -- EndPointId of the peer, and then maybe patch
                   -- network-transport to allow for selective closing of peer
                   -- connection based on EndPointAddress.
-                  Just (peer, ConnectionHandlerFinished _) ->
+                  Just (_peer, ConnectionHandlerFinished _) ->
                     throw (InternalError "received too much data")
 
           NT.ConnectionClosed connid ->
@@ -532,7 +545,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
 
                   -- Connection closed, handler already finished. We're done
                   -- with the connection. The case in which the handler finishes
-                  -- *after* the connection closes is taken care of in
+                  -- __after__ the connection closes is taken care of in
                   -- 'updateStateForFinishedHandlers'.
                   Just (peer, ConnectionHandlerFinished _) ->
                       loop $ state {
@@ -577,7 +590,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                             dispatcherConnections = Map.insert connid (peer, ConnectionClosed promise) (dispatcherConnections state)
                           }
 
-                  Just (peer, ConnectionClosed _) ->
+                  Just (_peer, ConnectionClosed _) ->
                       throw (InternalError "closed a closed connection")
 
           NT.EndPointClosed -> waitForRunningHandlers state
@@ -603,7 +616,7 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
           NT.ErrorEvent (NT.TransportError (NT.EventErrorCode (NT.EventConnectionLost peer)) _msg) -> do
               let connids :: [NT.ConnectionId]
                   connids = case Map.lookup peer (dispatcherPeers state) of
-                      Nothing -> []
+                      Nothing    -> []
                       Just neset -> let t :| ts = NESet.toList neset in t : ts
               (!state', removals) <- foldlM eliminateConnection (state, []) connids
               loop $ state' {
@@ -617,9 +630,9 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut =
                   :: (DispatcherState m, [NT.ConnectionId])
                   -> NT.ConnectionId
                   -> m (DispatcherState m, [NT.ConnectionId])
-              eliminateConnection (state, removals) connid = case Map.lookup connid (dispatcherConnections state) of
+              eliminateConnection (_state, removals) connid = case Map.lookup connid (dispatcherConnections state) of
                   Nothing -> throw (InternalError "connection associated with peer does not exist")
-                  Just (peer, ConnectionReceiving handler (ChannelIn chan)) -> do
+                  Just (_peer, ConnectionReceiving handler (ChannelIn chan)) -> do
                       -- Signal to the handler that there's no more input.
                       Channel.writeChannel chan Nothing
                       let state' = state {
@@ -708,7 +721,8 @@ fixedSizeBuilder n =
 
 -- | Connect to a peer given by a 'NodeId' bidirectionally.
 connectInOutChannel
-    :: ( Mockable Channel.Channel m, Mockable SharedAtomic m, Mockable Throw m )
+    :: ( Mockable Channel.Channel m, Mockable SharedAtomic m
+       , Mockable Throw m, WithLogger m )
     => Node m
     -> NodeId
     -> Promise m t
@@ -729,8 +743,13 @@ connectInOutChannel Node{nodeEndPoint, nodeState} (NodeId endpointaddr) promise 
       Left  err  -> throw err
       Right outconn -> do
         (nonce, inchan) <- allocateInChannel
-        -- TODO: error handling
-        () <$ NT.send outconn [controlHeaderBidirectionalSyn nonce]
+        -- TODO: proper error handling
+        outcome <- NT.send outconn [controlHeaderBidirectionalSyn nonce]
+        case outcome of
+            Left  err -> logDebug $ sformat
+                ("Error initializing bidirectional connection to "%shown%": "%shown)
+                endpointaddr err
+            Right _   -> return ()
         return (nonce, ChannelIn inchan, ChannelOut outconn)
     where
     allocateInChannel = do
@@ -745,7 +764,7 @@ connectInOutChannel Node{nodeEndPoint, nodeState} (NodeId endpointaddr) promise 
 
 -- | Connect to a peer given by a 'NodeId' unidirectionally.
 connectOutChannel
-    :: ( Mockable Throw m )
+    :: ( Mockable Throw m, WithLogger m )
     => Node m
     -> NodeId
     -> m (ChannelOut m)
@@ -762,8 +781,12 @@ connectOutChannel Node{nodeEndPoint} (NodeId endpointaddr) = do
     case mconn of
       Left  err  -> throw err
       Right conn -> do
-        -- TODO error handling
-        () <$ NT.send conn [controlHeaderUnidirectional]
+        outcome <- NT.send conn [controlHeaderUnidirectional]
+        case outcome of
+            Left  err -> logDebug $ sformat
+                ("Error initializing unidirectional connection to "%shown%": "%shown)
+                endpointaddr err
+            Right _   -> return ()
         return (ChannelOut conn)
 
 closeChannel :: ChannelOut m -> m ()
@@ -775,7 +798,7 @@ withInOutChannel
     :: forall m a .
        ( Mockable Bracket m, Mockable Async m, Mockable Channel.Channel m
        , Mockable SharedAtomic m, Mockable Throw m, Mockable Catch m
-       , MonadFix m )
+       , MonadFix m, WithLogger m )
     => Node m
     -> NodeId
     -> (ChannelIn m -> ChannelOut m -> m a)
@@ -797,7 +820,7 @@ withInOutChannel node@Node{nodeState} nodeid action = do
 -- | Create, use, and tear down a unidirectional channel to a peer identified
 --   by 'NodeId'.
 withOutChannel
-    :: ( Mockable Bracket m, Mockable Throw m )
+    :: ( Mockable Bracket m, Mockable Throw m, WithLogger m )
     => Node m
     -> NodeId
     -> (ChannelOut m -> m a)
@@ -808,16 +831,19 @@ withOutChannel node nodeid =
 -- | Write some ByteStrings to an out channel. It does not close the
 --   transport when finished. If you want that, use withOutChannel or
 --   withInOutChannel.
-writeChannel :: ( Monad m ) => ChannelOut m -> [BS.ByteString] -> m ()
+writeChannel
+    :: ( Monad m, WithLogger m, Mockable Throw m )
+    => ChannelOut m
+    -> [BS.ByteString]
+    -> m ()
 writeChannel (ChannelOut _) [] = pure ()
 writeChannel (ChannelOut conn) (chunk:chunks) = do
     res <- NT.send conn [chunk]
     -- Any error detected here will be reported to the dispatcher thread
     -- so we don't need to do anything
-     --TODO: though we could log here
     case res of
-      Left _err -> return ()
-      Right _   -> writeChannel (ChannelOut conn) chunks
+      Left err -> throw err
+      Right _  -> writeChannel (ChannelOut conn) chunks
 
 -- | Read a 'ChannelIn', blocking until the next 'ByteString' arrives, or end
 --   of input is signalled via 'Nothing'.

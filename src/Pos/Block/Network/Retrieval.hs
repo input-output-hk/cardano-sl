@@ -32,9 +32,8 @@ import           Pos.Block.Logic                (ClassifyHeaderRes (..),
                                                  withBlkSemaphore)
 import qualified Pos.Block.Logic                as L
 import           Pos.Block.Network.Announce     (announceBlock)
-import           Pos.Block.Network.Types        (InConv (..), MsgBlock (..),
-                                                 MsgGetBlocks (..), MsgGetHeaders (..),
-                                                 MsgHeaders (..))
+import           Pos.Block.Network.Types        (MsgBlock (..), MsgGetBlocks (..),
+                                                 MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.BiP          (BiP (..))
 import           Pos.Constants                  (blkSecurityParam)
 import           Pos.Context                    (getNodeContext, ncBlockRetrievalQueue)
@@ -178,12 +177,12 @@ requestHeaders
        (WorkMode ssc m)
     => MsgGetHeaders ssc
     -> NodeId
-    -> ConversationActions (MsgGetHeaders ssc) (InConv (MsgHeaders ssc)) m
+    -> ConversationActions (MsgGetHeaders ssc) (MsgHeaders ssc) m
     -> m ()
 requestHeaders mgh peerId conv = do
     logDebug $ sformat ("handleUnsolicitedHeader: withConnection: sending "%shown) mgh
     send conv mgh
-    mHeaders <- fmap inConvMsg <$> recv conv
+    mHeaders <- recv conv
     whenJust mHeaders $ \(MsgHeaders headers) -> do
         logDebug $ sformat
             ("handleUnsolicitedHeader: withConnection: received "%listJson)

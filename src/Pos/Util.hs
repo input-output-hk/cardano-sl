@@ -54,7 +54,6 @@ module Pos.Util
        , waitRandomInterval'
        , runWithRandomIntervals
        , waitRandomInterval
-       , waitAnyUnexceptional
 
        -- * LRU
        , clearLRU
@@ -81,6 +80,8 @@ module Pos.Util
        , withWaitLogConv
        , withWaitLogConvL
        , withWaitLog
+
+       , execWithTimeLimit
 
        , NamedMessagePart (..)
        -- * Instances
@@ -117,8 +118,9 @@ import qualified Data.Text                     as T
 import           Data.Time.Units               (Microsecond, Second, convertUnit)
 import           Formatting                    (sformat, shown, stext, (%))
 import           Language.Haskell.TH
-import           Mockable                      (Bracket, Delay, Fork, Mockable, Throw,
-                                                bracket, delay, fork, killThread, throw)
+import           Mockable                      (Async, Bracket, Delay, Fork, Mockable,
+                                                Promise, Throw, async, bracket, cancel,
+                                                delay, fork, killThread, throw, waitAny)
 import           Node                          (ConversationActions (..),
                                                 ListenerAction (..), Message, NodeId,
                                                 SendActions (..))
@@ -131,7 +133,8 @@ import           System.Console.ANSI           (Color (..), ColorIntensity (Vivi
 import           System.Wlog                   (LoggerNameBox (..), WithLogger, logDebug,
                                                 logWarning, modifyLoggerName)
 import           Text.Parsec                   (ParsecT)
-import           Universum                     hiding (bracket)
+import           Universum                     hiding (Async, async, bracket, cancel,
+                                                waitAny)
 import           Unsafe                        (unsafeInit, unsafeLast)
 
 -- SafeCopy instance for HashMap
@@ -422,20 +425,6 @@ runWithRandomIntervals' minT maxT action = do
   action
   runWithRandomIntervals' minT maxT action
 
--- [TW-84]: move to serokell-core or time-warp?
-waitAnyUnexceptional
-    :: (MonadIO m, WithLogger m)
-    => [Async a] -> m (Maybe (Async a, a))
-waitAnyUnexceptional asyncs = liftIO (waitAnyCatch asyncs) >>= handleRes
-  where
-    handleRes (async', Right res) = pure $ Just (async', res)
-    handleRes (async', Left e) = do
-      logWarning $ sformat ("waitAnyUnexceptional: caught error " % shown) e
-      if null asyncs'
-         then pure Nothing
-         else waitAnyUnexceptional asyncs'
-      where asyncs' = filter (/= async') asyncs
-
 ----------------------------------------------------------------------------
 -- LRU cache
 ----------------------------------------------------------------------------
@@ -610,3 +599,15 @@ withWaitLogConvL nodeId conv = conv { send = send', recv = recv' }
           (sformat ("Recv "%shown%" from "%shown%" in conversation") rcvMsg nodeId) $
             recv conv
     MessageName rcvMsg = messageName $ ((\_ -> Proxy) :: ConversationActions snd rcv m -> Proxy rcv) conv
+
+
+
+execWithTimeLimit :: ( Mockable Async m
+                     , Mockable Delay m
+                     , Eq (Promise m (Maybe a))
+                     ) => Microsecond -> m a -> m (Maybe a)
+execWithTimeLimit timeout action = do
+    promises <- mapM async [ Just <$> action, delay timeout $> Nothing ]
+    (promise, val) <- waitAny promises
+    mapM_ cancel $ filter (/= promise) promises
+    return val

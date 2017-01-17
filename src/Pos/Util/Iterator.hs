@@ -16,7 +16,7 @@ import           Universum
 
 -- | MonadIterator encapsulates iteration by collection elements of type @a@.
 -- Traverse starts with first element of container.
-class Monad m => MonadIterator m a where
+class Monad m => MonadIterator a m where
     -- | Returns the current element of the iteration if it exists
     -- and moves iterator to the next element.
     -- Returns Nothing if the end of collection is reached
@@ -26,13 +26,13 @@ class Monad m => MonadIterator m a where
     -- or Nothing if it doesn't exist.
     curItem  :: m (Maybe a)
 
-    default nextItem :: (MonadTrans t, MonadIterator n a, t n ~ m) => m (Maybe a)
+    default nextItem :: (MonadTrans t, MonadIterator a n, t n ~ m) => m (Maybe a)
     nextItem = lift nextItem
 
-    default curItem :: (MonadTrans t, MonadIterator n a, t n ~ m) => m (Maybe a)
+    default curItem :: (MonadTrans t, MonadIterator a n, t n ~ m) => m (Maybe a)
     curItem = lift curItem
 
-instance MonadIterator m a => MonadIterator (StateT s m) a
+instance MonadIterator a m => MonadIterator a (StateT s m)
 
 -- | Encapsulation of list iterator.
 newtype ListHolderT s m a = ListHolderT (StateT [s] m a)
@@ -40,7 +40,7 @@ newtype ListHolderT s m a = ListHolderT (StateT [s] m a)
 
 type ListHolder s a = ListHolderT s Identity a
 
-instance Monad m => MonadIterator (ListHolderT a m) a where
+instance Monad m => MonadIterator a (ListHolderT a m) where
     nextItem = ListHolderT $ StateT $ \s-> pure $
         case s of
             []     -> (Nothing, [])

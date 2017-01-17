@@ -15,7 +15,7 @@ module NTP.Client
 import           Control.Concurrent.STM      (atomically)
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVar, readTVarIO,
                                               writeTVar)
-import           Control.Lens                (both, (%=), (%~), (.=), _Just)
+import           Control.Lens                ((%=), (.=), _Just)
 import           Control.Monad               (forM_, forever, unless, void, when)
 import           Control.Monad.Catch         (Exception)
 import           Control.Monad.State         (gets)

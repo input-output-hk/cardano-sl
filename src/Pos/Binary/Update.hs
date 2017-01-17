@@ -7,7 +7,6 @@ module Pos.Binary.Update () where
 import           Data.Binary           (Binary)
 import           Data.Binary.Get       (label)
 import qualified Data.HashMap.Strict   as HM
-import qualified Data.Text             as T
 import           Universum
 
 import           Pos.Binary.Class      (Bi (..))
@@ -19,8 +18,8 @@ import qualified Pos.Update.Core.Types as U
 instance Bi U.SystemTag where
     get =
         label "SystemTag" $
-        U.mkSystemTag =<< T.pack <$> getAsciiString1b "SystemTag" U.systemTagMaxLength
-    put (T.unpack . U.getSystemTag -> tag) = putAsciiString1b tag
+        U.mkSystemTag . toText =<< getAsciiString1b "SystemTag" U.systemTagMaxLength
+    put (toString . U.getSystemTag -> tag) = putAsciiString1b tag
 
 instance Bi U.UpdateVote where
     get = label "UpdateVote" $ do

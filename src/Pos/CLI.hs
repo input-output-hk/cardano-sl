@@ -28,7 +28,6 @@ import           Universum
 
 import           Data.Default                         (def)
 import           Data.Either                          (either)
-import           Data.Text                            (pack)
 import           Options.Applicative.Builder.Internal (HasMetavar, HasName)
 import qualified Options.Applicative.Simple           as Opt (Mod, Parser, auto, help,
                                                               long, metavar, option,
@@ -46,7 +45,7 @@ import           Pos.Binary.Address                   ()
 import           Pos.Crypto                           (PublicKey)
 import           Pos.DHT.Model.Types                  (DHTKey, DHTNode (..),
                                                        bytesToDHTKey)
-import           Pos.Security.CLI                   (AttackTarget (..), AttackType (..))
+import           Pos.Security.CLI                     (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
 import           Pos.Types.Address                    (Address (..), AddressHash,
                                                        decodeTextAddress)
@@ -79,7 +78,7 @@ attackTypeParser = P.string "No" >>
 base58AddrParser :: P.Parser (AddressHash PublicKey)
 base58AddrParser = do
     token <- many1 $ P.noneOf " "
-    case decodeTextAddress $ pack token of
+    case decodeTextAddress (toText token) of
       Left _  -> fail "Incorrect address"
       Right r -> return $ addrKeyHash r
 

@@ -17,6 +17,7 @@ module Pos.Update.Logic.Local
          -- * Normalization
        , usNormalize
        , processNewSlot
+       , usPreparePayload
        ) where
 
 import           Universum
@@ -24,7 +25,8 @@ import           Universum
 import           Pos.Crypto                (PublicKey)
 import           Pos.DB.Class              (MonadDB)
 import           Pos.Types                 (SlotId)
-import           Pos.Update.Core           (UpId, UpdateProposal, UpdateVote)
+import           Pos.Update.Core           (UpId, UpdatePayload, UpdateProposal,
+                                            UpdateVote)
 import           Pos.Update.MemState.Class (MonadUSMem)
 import           Pos.Update.Poll.Types     (PollVerFailure)
 
@@ -91,9 +93,13 @@ processVote = notImplemented
 -- | Remove local data from memory state to make it consistent with
 -- current GState.  This function assumes that GState is locked. It
 -- tries to leave as much data as possible.
-usNormalize:: USLocalLogicMode ς m => m ()
+usNormalize :: USLocalLogicMode ς m => m ()
 usNormalize = notImplemented
 
 -- | Update memory state to make it correct for given slot.
 processNewSlot :: USLocalLogicMode μ m => SlotId -> m ()
 processNewSlot = notImplemented
+
+-- | Prepare UpdatePayload for inclusion into new block with given SlotId.
+usPreparePayload :: USLocalLogicMode μ m => SlotId -> m UpdatePayload
+usPreparePayload = notImplemented

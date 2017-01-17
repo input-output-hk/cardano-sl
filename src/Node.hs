@@ -77,16 +77,14 @@ data ListenerAction packing m where
   -- | A listener that handles an incoming bi-directional conversation.
   ListenerActionConversation
     :: ( Packable packing snd, Unpackable packing rcv, Message rcv )
-    => (LL.NodeId -> SendActions packing m -> ConversationActions snd rcv m -> m ())
+    => (LL.NodeId -> ConversationActions snd rcv m -> m ())
     -> ListenerAction packing m
 
 hoistListenerAction :: (forall a. n a -> m a) -> (forall a. m a -> n a) -> ListenerAction p n -> ListenerAction p m
 hoistListenerAction nat rnat (ListenerActionOneMsg f) = ListenerActionOneMsg $
     \nId sendActions -> nat . f nId (hoistSendActions rnat nat sendActions)
 hoistListenerAction nat rnat (ListenerActionConversation f) = ListenerActionConversation $
-    \nId sendActions convActions ->
-        nat $ f nId (hoistSendActions rnat nat sendActions)
-                    (hoistConversationActions rnat convActions)
+    \nId convActions -> nat $ f nId (hoistConversationActions rnat convActions)
 
 -- | Gets message type basing on type of incoming messages
 listenerMessageName :: Listener packing m -> MessageName
@@ -100,7 +98,7 @@ listenerMessageName (ListenerActionConversation f) =
                 -> Proxy rcv
                 -> MessageName
         msgName _ = messageName
-    in  msgName (f undefined undefined) Proxy
+    in  msgName (f undefined) Proxy
 
 data SendActions packing m = SendActions {
        -- | Send a isolated (sessionless) message to a node
@@ -251,7 +249,7 @@ node
     -> (Node m -> m (NodeAction packing m t))
     -> m t
 node transport prng packing k = do
-    rec { llnode <- LL.startNode transport prng (handlerIn listenerIndex sendActions) (handlerInOut llnode listenerIndex sendActions)
+    rec { llnode <- LL.startNode transport prng (handlerIn listenerIndex sendActions) (handlerInOut llnode listenerIndex)
         ; let nId = LL.nodeId llnode
         ; let endPoint = LL.nodeEndPoint llnode
         ; let nodeUnit = Node nId endPoint
@@ -293,12 +291,11 @@ node transport prng packing k = do
     -- message name, then choose a listener and fork a thread to run it.
     handlerInOut :: LL.Node m
                  -> ListenerIndex packing m
-                 -> SendActions packing m
                  -> LL.NodeId
                  -> ChannelIn m
                  -> ChannelOut m
                  -> m ()
-    handlerInOut nodeUnit listenerIndex sendActions peerId inchan outchan = do
+    handlerInOut nodeUnit listenerIndex peerId inchan outchan = do
         input <- recvNext' inchan packing
         case input of
             End -> logDebug "handlerInOut : unexpected end of input"
@@ -309,7 +306,7 @@ node transport prng packing k = do
                     Just (ListenerActionConversation action) ->
                         let cactions = nodeConversationActions nodeUnit peerId packing
                                 inchan outchan
-                        in  action peerId sendActions cactions
+                        in  action peerId cactions
                     Just (ListenerActionOneMsg _) -> error ("handlerInOut : wrong listener type. Expected bidirectional for " ++ show msgName)
                     Nothing -> error ("handlerInOut : no listener for " ++ show msgName)
 

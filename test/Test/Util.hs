@@ -202,7 +202,7 @@ receiveAll SingleMessageStyle handler =
 -- The sender awaits a response for each message. This ensures that the
 -- sender doesn't finish before the conversation SYN/ACK completes.
 receiveAll ConversationStyle  handler =
-    ListenerActionConversation @_ @_ @Bool $ \_ _ cactions ->
+    ListenerActionConversation @_ @_ @Bool $ \_ cactions ->
         let loop = do mmsg <- recv cactions
                       case mmsg of
                           Nothing -> pure ()

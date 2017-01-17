@@ -62,7 +62,7 @@ listeners :: NodeId -> [Listener Packing Production]
 listeners anId = [pongListener]
     where
     pongListener :: ListenerAction Packing Production
-    pongListener = ListenerActionConversation $ \peerId _ (cactions :: ConversationActions Pong Void Production) -> do
+    pongListener = ListenerActionConversation $ \peerId (cactions :: ConversationActions Pong Void Production) -> do
         liftIO . putStrLn $ show anId ++  " heard PING from " ++ show peerId
         send cactions Pong
 

@@ -16,11 +16,13 @@ module Pos.DB.Iterator.DBIterator
 
 import           Control.Monad.Reader  (ReaderT (..))
 import           Control.Monad.Trans   (MonadTrans)
+import qualified Data.ByteString       as BS (isPrefixOf)
 import qualified Database.RocksDB      as Rocks
 import           Universum
 
 import           Pos.Binary.Class      (Bi)
 import           Pos.DB.Class          (MonadDB (..))
+import           Pos.DB.Error          (DBError (DBMalformed))
 import           Pos.DB.Functions      (rocksDecodeMaybe, rocksDecodeMaybeWP)
 import           Pos.DB.Iterator.Class (IterType, MonadDBIterator (..))
 import           Pos.DB.Types          (DB (..))
@@ -44,7 +46,9 @@ data ParseResult a = FetchError  -- RocksDB internal error
 -- | Iterator by keys of type @k@ and values of type @v@.
 instance ( Bi k, Bi v
          , MonadIO m, MonadThrow m
-         , MonadDBIterator i, IterKey i ~ k, IterValue i ~ v)
+         , MonadDBIterator i, IterKey i ~ k, IterValue i ~ v,
+           Show k, Show v --TODO remove after debug
+         )
          => MonadIterator (DBIterator i m) (k, v) where
     nextItem = do
         it <- DBIterator ask
@@ -54,24 +58,13 @@ instance ( Bi k, Bi v
     -- curItem returns first successfully fetched and parsed elements.
     curItem = do
         it <- DBIterator ask
-        resk <- parseKey it
-        case resk of
-            FetchError  -> pure Nothing
-            DecodeError -> Rocks.iterNext it >> curItem
-            Success k   -> do
-                resv <- parseVal it
-                case resv of
-                    FetchError  -> pure Nothing
-                    DecodeError -> Rocks.iterNext it >> curItem
-                    Success v   -> pure $ Just (k, v)
-      where
-        parseKey :: Rocks.Iterator -> DBIterator i m (ParseResult (IterKey i))
-        parseKey it =
-            maybe FetchError (maybe DecodeError Success . rocksDecodeMaybeWP @i)
-            <$> Rocks.iterKey it
-        parseVal it =
-            maybe FetchError (maybe DecodeError Success . rocksDecodeMaybe)
-            <$> Rocks.iterValue it
+        entryStr <- Rocks.iterEntry it
+        if | Nothing <- entryStr -> pure Nothing -- end of Database is reached
+           | Just (key, val) <- entryStr,
+             BS.isPrefixOf (iterKeyPrefix @i Proxy) key ->
+                maybe (throwM $ DBMalformed "Invalid entry") (pure . Just) $
+                    (,) <$> rocksDecodeMaybeWP @i key <*> rocksDecodeMaybe val
+            | otherwise -> pure Nothing -- all entries with specified prefix was viewed
 
 -- | Encapsulate `map f elements`, where @elements@ - collection elements of type @a@.
 -- Holds `DBIterator m a` and apply f for every `nextItem` and `curItem` call.
@@ -101,14 +94,15 @@ deriving instance MonadDB ssc m => MonadDB ssc (DBIterator i m)
 deriving instance MonadDB ssc m => MonadDB ssc (DBMapIterator i v m)
 
 -- | Run DBIterator by `DB ssc`.
-runIterator :: forall i a m ssc . (MonadIO m, MonadMask m)
+runIterator :: forall i a m ssc . (MonadIO m, MonadMask m, MonadDBIterator i)
              => DBIterator i m a -> DB ssc -> m a
 runIterator dbIter DB{..} =
     bracket (Rocks.createIter rocksDB rocksReadOpts) (Rocks.releaseIter)
-            (\it -> Rocks.iterFirst it >> runReaderT (getDBIterator dbIter) it)
+--            (\it -> Rocks.iterFirst it >> runReaderT (getDBIterator dbIter) it)
+            (\it -> Rocks.iterSeek it (iterKeyPrefix @i Proxy) >> runReaderT (getDBIterator dbIter) it)
 
 -- | Run DBMapIterator by `DB ssc`.
-mapIterator :: forall i v m ssc a . (MonadIO m, MonadMask m)
+mapIterator :: forall i v m ssc a . (MonadIO m, MonadMask m, MonadDBIterator i)
             => DBMapIterator i v m a
             -> (IterType i -> v)
             -> DB ssc

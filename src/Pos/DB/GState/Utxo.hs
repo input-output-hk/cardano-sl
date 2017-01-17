@@ -18,6 +18,7 @@ module Pos.DB.GState.Utxo
        , prepareGStateUtxo
 
        -- * Iteration
+       , UtxoIter
        , runUtxoIterator
        , getFilteredUtxo
 

@@ -19,6 +19,7 @@ module Pos.DB.GState.Balances
        , prepareGStateBalances
 
          -- * Iteration
+       , BalIter
        , runBalanceIterator
 
          -- * Sanity checks

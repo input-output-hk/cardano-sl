@@ -13,8 +13,9 @@ import           Control.Monad.Trans   (MonadTrans)
 import           Universum
 
 import           Pos.Script.Type       (ScriptVersion)
-import           Pos.Types             (ApplicationName, NumSoftwareVersion,
-                                        ProtocolVersion, SoftwareVersion)
+import           Pos.Types             (ApplicationName, Coin, EpochIndex,
+                                        NumSoftwareVersion, ProtocolVersion,
+                                        SoftwareVersion, StakeholderId)
 import           Pos.Update.Core       (UpId)
 import           Pos.Update.Poll.Types (ProposalState)
 
@@ -35,6 +36,11 @@ class Monad m => MonadPollRead m where
     -- ^ Check if given application has an active (non-confirmed) proposal
     getProposal :: UpId -> m (Maybe ProposalState)
     -- ^ Get active proposal
+    getEpochTotalStake :: EpochIndex -> m (Maybe Coin)
+    -- ^ Get total stake from distribution corresponding to give epoch
+    getRichmanStake :: EpochIndex -> StakeholderId -> m (Maybe Coin)
+    -- ^ Get stake of ricmhan corresponding to given epoch (if she is
+    -- really rich)
 
     -- | Default implementations for 'MonadTrans'.
     default getScriptVersion
@@ -57,6 +63,16 @@ class Monad m => MonadPollRead m where
         :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
         UpId -> m (Maybe ProposalState)
     getProposal = lift . getProposal
+
+    default getEpochTotalStake
+        :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
+        EpochIndex -> m (Maybe Coin)
+    getEpochTotalStake = lift . getEpochTotalStake
+
+    default getRichmanStake
+        :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
+        EpochIndex -> StakeholderId -> m (Maybe Coin)
+    getRichmanStake e = lift . getRichmanStake e
 
 instance MonadPollRead m => MonadPollRead (ReaderT s m)
 instance MonadPollRead m => MonadPollRead (StateT s m)

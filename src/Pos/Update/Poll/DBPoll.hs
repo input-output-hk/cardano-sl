@@ -15,6 +15,7 @@ import           Control.Monad.Trans         (MonadTrans (lift))
 import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,
                                               defaultLiftBaseWith, defaultRestoreM)
+import qualified Data.HashMap.Strict         as HM
 import           Mockable                    (ChannelT, MFunctor',
                                               Mockable (liftMockable), Promise,
                                               SharedAtomicT, ThreadId,
@@ -26,10 +27,13 @@ import           Universum
 import           Pos.Context                 (WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
 import qualified Pos.DB.GState               as GS
+import           Pos.DB.Lrc                  (getRichmenUS)
 import           Pos.Delegation.Class        (MonadDelegation)
+import           Pos.Lrc.Types               (FullRichmenData)
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..))
 import           Pos.Txp.Class               (MonadTxpLD (..))
+import           Pos.Types.Types             (Coin)
 import           Pos.Types.Utxo.Class        (MonadUtxo, MonadUtxoRead)
 import           Pos.Update.MemState.Class   (MonadUSMem (..))
 import           Pos.Update.Poll.Class       (MonadPollRead (..))
@@ -90,3 +94,8 @@ instance MonadDB patak m =>
     getLastConfirmedSV = GS.getConfirmedSV
     hasActiveProposal = fmap isJust . GS.getAppProposal
     getProposal = GS.getProposalState
+    getEpochTotalStake e = fmap fst <$> getRichmenUS e
+    getRichmanStake e id = (findStake =<<) <$> getRichmenUS e
+      where
+        findStake :: FullRichmenData -> Maybe Coin
+        findStake = HM.lookup id . snd

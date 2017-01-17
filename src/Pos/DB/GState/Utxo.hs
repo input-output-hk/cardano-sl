@@ -41,8 +41,8 @@ import           Pos.DB.Class         (MonadDB, getUtxoDB)
 import           Pos.DB.Error         (DBError (..))
 import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi)
 import           Pos.DB.GState.Common (getBi, putBi)
-import           Pos.DB.Iterator      (DBIterator, DBMapIterator, IterType,
-                                       MonadDBIterator (..), mapIterator, runIterator)
+import           Pos.DB.Iterator      (DBIterator, DBIteratorClass (..), DBMapIterator,
+                                       IterType, mapIterator, runIterator)
 import           Pos.DB.Types         (DB)
 import           Pos.Types            (Address, Coin, TxIn (..), TxOutAux, Utxo,
                                        belongsTo, coinF, mkCoin, sumCoins, txOutStake,
@@ -115,7 +115,7 @@ putTxOut = putBi . txInKey
 
 data UtxoIter
 
-instance MonadDBIterator UtxoIter where
+instance DBIteratorClass UtxoIter where
     type IterKey UtxoIter = TxIn
     type IterValue UtxoIter = TxOutAux
     iterKeyPrefix _ = iterationPrefix

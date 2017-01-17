@@ -40,8 +40,8 @@ import           Pos.DB.Class         (MonadDB, getUtxoDB)
 import           Pos.DB.Error         (DBError (..))
 import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi)
 import           Pos.DB.GState.Common (getBi, putBi)
-import           Pos.DB.Iterator      (DBIterator, DBMapIterator, IterType,
-                                       MonadDBIterator (..), mapIterator, runIterator)
+import           Pos.DB.Iterator      (DBIterator, DBIteratorClass (..), DBMapIterator,
+                                       IterType, mapIterator, runIterator)
 import           Pos.DB.Types         (DB)
 import           Pos.Types            (Coin, StakeholderId, Utxo, coinF, mkCoin, sumCoins,
                                        txOutStake, unsafeAddCoin, unsafeIntegerToCoin,
@@ -120,7 +120,7 @@ putTotalFtsStake = putBi ftsSumKey
 
 data BalIter
 
-instance MonadDBIterator BalIter where
+instance DBIteratorClass BalIter where
     type IterKey BalIter = StakeholderId
     type IterValue BalIter = Coin
     iterKeyPrefix _ = iterationPrefix

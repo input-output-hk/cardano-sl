@@ -21,8 +21,8 @@ import           Pos.Binary.Class (encodeStrict)
 import           Pos.Crypto       (PublicKey, pskDelegatePk, pskIssuerPk)
 import           Pos.DB.Class     (MonadDB, getUtxoDB)
 import           Pos.DB.Functions (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi)
-import           Pos.DB.Iterator  (DBIterator, DBMapIterator, IterType,
-                                   MonadDBIterator (..), mapIterator, runIterator)
+import           Pos.DB.Iterator  (DBIterator, DBIteratorClass (..), DBMapIterator,
+                                   IterType, mapIterator, runIterator)
 import           Pos.Types        (ProxySKSimple, StakeholderId, addressHash)
 
 
@@ -66,7 +66,7 @@ instance RocksBatchOp DelegationOp where
 
 data PskIter
 
-instance MonadDBIterator PskIter where
+instance DBIteratorClass PskIter where
     type IterKey PskIter = StakeholderId
     type IterValue PskIter = ProxySKSimple
     iterKeyPrefix _ = iterationPrefix

@@ -24,7 +24,7 @@ import           Pos.Binary.Class      (Bi)
 import           Pos.DB.Class          (MonadDB (..))
 import           Pos.DB.Error          (DBError (DBMalformed))
 import           Pos.DB.Functions      (rocksDecodeMaybe, rocksDecodeMaybeWP)
-import           Pos.DB.Iterator.Class (IterType, MonadDBIterator (..))
+import           Pos.DB.Iterator.Class (DBIteratorClass (..), IterType)
 import           Pos.DB.Types          (DB (..))
 import           Pos.Util.Iterator     (MonadIterator (..))
 
@@ -46,7 +46,7 @@ data ParseResult a = FetchError  -- RocksDB internal error
 -- | Iterator by keys of type @k@ and values of type @v@.
 instance ( Bi k, Bi v
          , MonadIO m, MonadThrow m
-         , MonadDBIterator i, IterKey i ~ k, IterValue i ~ v,
+         , DBIteratorClass i, IterKey i ~ k, IterValue i ~ v,
            Show k, Show v --TODO remove after debug
          )
          => MonadIterator (k, v) (DBIterator i m) where
@@ -94,7 +94,7 @@ deriving instance MonadDB ssc m => MonadDB ssc (DBIterator i m)
 deriving instance MonadDB ssc m => MonadDB ssc (DBMapIterator i v m)
 
 -- | Run DBIterator by `DB ssc`.
-runIterator :: forall i a m ssc . (MonadIO m, MonadMask m, MonadDBIterator i)
+runIterator :: forall i a m ssc . (MonadIO m, MonadMask m, DBIteratorClass i)
              => DBIterator i m a -> DB ssc -> m a
 runIterator dbIter DB{..} =
     bracket (Rocks.createIter rocksDB rocksReadOpts) (Rocks.releaseIter)
@@ -102,7 +102,7 @@ runIterator dbIter DB{..} =
             (\it -> Rocks.iterSeek it (iterKeyPrefix @i Proxy) >> runReaderT (getDBIterator dbIter) it)
 
 -- | Run DBMapIterator by `DB ssc`.
-mapIterator :: forall i v m ssc a . (MonadIO m, MonadMask m, MonadDBIterator i)
+mapIterator :: forall i v m ssc a . (MonadIO m, MonadMask m, DBIteratorClass i)
             => DBMapIterator i v m a
             -> (IterType i -> v)
             -> DB ssc

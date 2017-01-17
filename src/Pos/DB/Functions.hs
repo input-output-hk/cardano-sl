@@ -39,7 +39,7 @@ import           Universum
 
 import           Pos.Binary.Class      (Bi, decodeFull, encodeStrict)
 import           Pos.DB.Error          (DBError (DBMalformed))
-import           Pos.DB.Iterator.Class (MonadDBIterator (..))
+import           Pos.DB.Iterator.Class (DBIteratorClass (..))
 import           Pos.DB.Types          (DB (..))
 
 openDB :: MonadIO m => FilePath -> m (DB ssc)
@@ -50,7 +50,7 @@ openDB fp = DB def def def
                         }
 
 encodeWithKeyPrefix
-    :: forall i . (MonadDBIterator i, Bi (IterKey i))
+    :: forall i . (DBIteratorClass i, Bi (IterKey i))
     => IterKey i -> ByteString
 encodeWithKeyPrefix = (iterKeyPrefix @i Proxy <>) . encodeStrict
 
@@ -85,7 +85,7 @@ onParseError rawKey errMsg = throwM $ DBMalformed $ sformat fmt rawKey errMsg
 
 -- with prefix
 rocksDecodeWP
-    :: forall i m . (MonadThrow m, MonadDBIterator i, Bi (IterKey i))
+    :: forall i m . (MonadThrow m, DBIteratorClass i, Bi (IterKey i))
     => ByteString -> m (IterKey i)
 rocksDecodeWP key
     | BS.isPrefixOf (iterKeyPrefix @i Proxy) key =
@@ -96,7 +96,7 @@ rocksDecodeWP key
         key
     | otherwise = onParseError key "unexpected prefix"
 
--- rocksDecodeKeyValWP :: forall i m . (MonadThrow m, MonadDBIterator i,
+-- rocksDecodeKeyValWP :: forall i m . (MonadThrow m, DBIteratorClass i,
 --                         Bi (IterKey i), Bi (IterValue i))
 --                     => (ByteString, ByteString) -> m (IterKey i, IterValue i)
 -- rocksDecodeKeyValWP (k, v) =
@@ -104,7 +104,7 @@ rocksDecodeWP key
 
 -- Parse maybe
 rocksDecodeMaybeWP
-    :: forall i . (MonadDBIterator i, Bi (IterKey i))
+    :: forall i . (DBIteratorClass i, Bi (IterKey i))
     => ByteString -> Maybe (IterKey i)
 rocksDecodeMaybeWP s
     | BS.isPrefixOf (iterKeyPrefix @i Proxy) s =

@@ -1,5 +1,6 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Part of GState DB which stores stakeholders' balances.
 
@@ -18,7 +19,7 @@ module Pos.DB.GState.Balances
        , prepareGStateBalances
 
          -- * Iteration
-       , iterateByStake
+       , runBalancesIterator
 
          -- * Sanity checks
        , sanityCheckBalances
@@ -34,7 +35,8 @@ import           Universum
 import           Pos.Binary.Class     (encodeStrict)
 import           Pos.Crypto           (shortHashF)
 import           Pos.DB.Class         (MonadDB, getUtxoDB)
-import           Pos.DB.DBIterator    (DBMapIterator, mapIterator)
+import           Pos.DB.DBIterator    (DBMapIterator, IterType,
+                                       MonadDBIterator (..), mapIterator)
 import           Pos.DB.Error         (DBError (..))
 import           Pos.DB.Functions     (RocksBatchOp (..), WithKeyPrefix (..),
                                        encodeWithKeyPrefix, rocksGetBi)
@@ -115,11 +117,17 @@ putTotalFtsStake = putBi ftsSumKey
 -- Iteration
 ----------------------------------------------------------------------------
 
-type IterType = (StakeholderId, Coin)
+data BalIter
 
-iterateByStake :: forall v m ssc a . (MonadDB ssc m, MonadMask m)
-                => DBMapIterator IterType v m a -> (IterType -> v) -> m a
-iterateByStake iter f = mapIterator @IterType @v iter f =<< getUtxoDB
+instance MonadDBIterator BalIter where
+    type IterKey BalIter = StakeholderId
+    type IterValue BalIter = Coin
+    iterKeyPrefix _ = "b/s"
+
+runBalancesIterator
+    :: forall v m ssc a . (MonadDB ssc m, MonadMask m)
+    => DBMapIterator BalIter v m a -> (IterType BalIter -> v) -> m a
+runBalancesIterator iter f = mapIterator @BalIter @v iter f =<< getUtxoDB
 
 ----------------------------------------------------------------------------
 -- Sanity checks
@@ -130,7 +138,7 @@ sanityCheckBalances
     => m ()
 sanityCheckBalances = do
     let step sm = nextItem >>= maybe (pure sm) (\c -> step (unsafeAddCoin sm c))
-    realTotalStake <- iterateByStake (step (mkCoin 0)) snd
+    realTotalStake <- runBalancesIterator (step (mkCoin 0)) snd
     totalStake <- getTotalFtsStake
     let fmt =
             ("Wrong total FTS stake: \

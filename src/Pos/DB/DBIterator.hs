@@ -6,9 +6,12 @@
 
 -- | Encapsulation of RocksDB iterator
 module Pos.DB.DBIterator
-       (
-         DBIterator (..)
+       ( MonadDBIterator (..)
+       , DBIterator (..)
        , DBMapIterator (..)
+       , IterType
+       , DBKeyIterator
+       , DBValueIterator
        , runIterator
        , mapIterator
        ) where
@@ -25,7 +28,7 @@ import           Pos.DB.Functions     (WithKeyPrefix (..), rocksDecodeMaybe,
 import           Pos.DB.Types         (DB (..))
 import           Pos.Util.Iterator    (MonadIterator (..))
 
-newtype DBIterator v m a = DBIterator
+newtype DBIterator i m a = DBIterator
     { getDBIterator :: ReaderT Rocks.Iterator m a
     } deriving (Functor, Applicative, Monad, MonadIO, MonadTrans
                , MonadThrow, MonadCatch)
@@ -41,8 +44,11 @@ data ParseResult a = FetchError  -- RocksDB internal error
     deriving Show
 
 -- | Iterator by keys of type @k@ and values of type @v@.
-instance (Bi k, Bi v, MonadIO m, MonadThrow m, WithKeyPrefix k, Show k, Show v)
-         => MonadIterator (DBIterator (k, v) m) (k, v) where
+instance ( Bi k, Bi v
+         , MonadIO m, MonadThrow m
+         , MonadDBIterator i, k ~ IterKey i, v ~ IterValue i
+         , WithKeyPrefix k)
+         => MonadIterator (DBIterator i m) (k, v) where
     nextItem = do
         it <- DBIterator ask
         cur <- curItem
@@ -72,34 +78,47 @@ instance (Bi k, Bi v, MonadIO m, MonadThrow m, WithKeyPrefix k, Show k, Show v)
 -- | Encapsulate `map f elements`, where @elements@ - collection elements of type @a@.
 -- Holds `DBIterator m a` and apply f for every `nextItem` and `curItem` call.
 -- If f :: a -> b then we iterate by collection elements of type b.
-newtype DBMapIterator u v m a = DBMapIterator
-    { getDBMapIterator :: ReaderT (u->v) (DBIterator u m) a
+newtype DBMapIterator i v m a = DBMapIterator
+    { getDBMapIterator :: ReaderT (IterType i -> v) (DBIterator i m) a
     } deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch)
 
-instance MonadTrans (DBMapIterator u v)  where
+type DBKeyIterator   i = DBMapIterator i (IterKey i)
+type DBValueIterator i = DBMapIterator i (IterValue i)
+
+instance MonadTrans (DBMapIterator i v)  where
     lift x = DBMapIterator $ ReaderT $ const $ lift x
 
--- | Instance for DBMapIterator using DBIterator.
--- Fetch every element from DBIterator and apply `f` for it.
-instance (Monad m, MonadIterator (DBIterator u m) u)
-         => MonadIterator (DBMapIterator u v m) v where
+-- -- | Instance for DBMapIterator using DBIterator.
+-- -- Fetch every element from DBIterator and apply `f` for it.
+instance ( Monad m
+         , MonadIterator (DBIterator i m) (IterKey i, IterValue i))
+         => MonadIterator (DBMapIterator i v m) v where
     nextItem = DBMapIterator $ ReaderT $ \f -> fmap f <$> nextItem
     curItem = DBMapIterator $ ReaderT $ \f -> fmap f <$> curItem
 
-deriving instance MonadMask m => MonadMask (DBIterator u m)
-deriving instance MonadMask m => MonadMask (DBMapIterator u v m)
+deriving instance MonadMask m => MonadMask (DBIterator i m)
+--deriving instance MonadMask m => MonadMask (DBMapIterator i v m)
 
-deriving instance MonadDB ssc m => MonadDB ssc (DBIterator u m)
-deriving instance MonadDB ssc m => MonadDB ssc (DBMapIterator u v m)
+deriving instance MonadDB ssc m => MonadDB ssc (DBIterator i m)
+deriving instance MonadDB ssc m => MonadDB ssc (DBMapIterator i v m)
 
+class MonadDBIterator i where
+    type IterKey   i :: *
+    type IterValue i :: *
+    iterKeyPrefix :: Proxy i -> ByteString
+
+type IterType i = (IterKey i, IterValue i)
 -- | Run DBIterator by `DB ssc`.
-runIterator :: forall v a m ssc . (MonadIO m, MonadMask m)
-             => DBIterator v m a -> DB ssc -> m a
+runIterator :: forall i a m ssc . (MonadIO m, MonadMask m)
+             => DBIterator i m a -> DB ssc -> m a
 runIterator dbIter DB{..} =
     bracket (Rocks.createIter rocksDB rocksReadOpts) (Rocks.releaseIter)
             (\it -> Rocks.iterFirst it >> runReaderT (getDBIterator dbIter) it)
 
 -- | Run DBMapIterator by `DB ssc`.
-mapIterator :: forall u v m ssc a . (MonadIO m, MonadMask m)
-            => DBMapIterator u v m a -> (u->v) -> DB ssc -> m a
+mapIterator :: forall i v m ssc a . (MonadIO m, MonadMask m)
+            => DBMapIterator i v m a
+            -> (IterType i -> v)
+            -> DB ssc
+            -> m a
 mapIterator dbIter f = runIterator (runReaderT (getDBMapIterator dbIter) f)

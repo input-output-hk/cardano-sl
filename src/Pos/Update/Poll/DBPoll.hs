@@ -99,3 +99,4 @@ instance MonadDB patak m =>
       where
         findStake :: FullRichmenData -> Maybe Coin
         findStake = HM.lookup id . snd
+    getOldProposals = notImplemented

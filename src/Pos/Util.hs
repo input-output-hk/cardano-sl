@@ -25,6 +25,7 @@ module Pos.Util
 
        -- * Lists
        , allDistinct
+       , neZipWith3
 
        -- * SafeCopy
        , getCopyBinary
@@ -106,7 +107,7 @@ import qualified Data.Cache.LRU                as LRU
 import           Data.Hashable                 (Hashable)
 import qualified Data.HashMap.Strict           as HM
 import           Data.HashSet                  (fromMap)
-import           Data.List                     (span)
+import           Data.List                     (span, zipWith3)
 import           Data.List.NonEmpty            (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty            as NE
 import           Data.Proxy                    (Proxy (..), asProxyTypeOf)
@@ -228,6 +229,9 @@ allDistinct :: Ord a => [a] -> Bool
 allDistinct xs = and $ zipWith (/=) sorted (drop 1 sorted)
   where
     sorted = sort xs
+
+neZipWith3 :: (x -> y -> z -> q) -> NonEmpty x -> NonEmpty y -> NonEmpty z -> NonEmpty q
+neZipWith3 f (x :| xs) (y :| ys) (z :| zs) = f x y z :| zipWith3 f xs ys zs
 
 ----------------------------------------------------------------------------
 -- Lens utils

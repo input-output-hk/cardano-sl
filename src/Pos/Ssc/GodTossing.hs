@@ -17,6 +17,7 @@ module Pos.Ssc.GodTossing
        , module Pos.Ssc.GodTossing.Seed
        , module Pos.Ssc.GodTossing.Storage
        , module Pos.Ssc.GodTossing.Types
+       , module Pos.Ssc.GodTossing.VssCertData
        ) where
 
 import           Pos.Binary.Ssc                   ()
@@ -30,4 +31,5 @@ import           Pos.Ssc.GodTossing.SecretStorage
 import           Pos.Ssc.GodTossing.Seed
 import           Pos.Ssc.GodTossing.Storage
 import           Pos.Ssc.GodTossing.Types
+import           Pos.Ssc.GodTossing.VssCertData
 import           Pos.Ssc.GodTossing.Workers       ()

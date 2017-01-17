@@ -19,7 +19,6 @@ import           Control.Monad.Trans         (MonadTrans)
 import           Control.Monad.Trans.Maybe   (MaybeT (..))
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.Map                    as M
-import           Formatting                  (build, sformat, (%))
 import           Mockable                    (MonadMockable, Production)
 import           System.Wlog                 (LoggerNameBox, WithLogger)
 import           Universum

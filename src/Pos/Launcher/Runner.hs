@@ -46,12 +46,13 @@ import           Mockable                       (CurrentTime, Mockable, MonadMoc
 import           Network.Transport              (Transport, closeTransport)
 import           Network.Transport.Concrete     (concrete)
 import qualified Network.Transport.TCP          as TCP
-import           Node                           (Listener, NodeAction (..), SendActions,
+import           Node                           (ConversationActions (..), Listener,
+                                                 NodeAction (..), SendActions,
                                                  hoistListenerAction, hoistSendActions,
                                                  node)
 import qualified STMContainers.Map              as SM
 import           System.Random                  (newStdGen)
-import           System.Wlog                    (WithLogger, logDebug, logError, logInfo,
+import           System.Wlog                    (WithLogger, logError, logInfo,
                                                  logWarning, releaseAllHandlers,
                                                  traverseLoggerConfig, usingLoggerName)
 import           Universum                      hiding (bracket)
@@ -60,7 +61,8 @@ import           Pos.Binary                     ()
 import           Pos.CLI                        (readLoggerConfig)
 import           Pos.Communication              (BiP (..), SysStartRequest (..),
                                                  SysStartResponse, allListeners,
-                                                 allStubListeners, sysStartReqListener,
+                                                 allStubListeners, handleSysStartResp,
+                                                 sysStartReqListener,
                                                  sysStartRespListener)
 import           Pos.Communication.PeerState    (runPeerStateHolder)
 import           Pos.Constants                  (blockRetrievalQueueSize,
@@ -73,7 +75,7 @@ import           Pos.DB                         (MonadDB (..), getTip, initNodeD
                                                  openNodeDBs, runDBHolder, _gStateDB)
 import           Pos.DB.Misc                    (addProxySecretKey)
 import           Pos.Delegation.Class           (runDelegationT)
-import           Pos.DHT.Model                  (MonadDHT (..), sendToNeighbors)
+import           Pos.DHT.Model                  (MonadDHT (..), converseToNeighbors)
 import           Pos.DHT.Real                   (KademliaDHTInstance,
                                                  KademliaDHTInstanceConfig (..),
                                                  runKademliaDHT, startDHTInstance,
@@ -113,20 +115,22 @@ runTimeSlaveReal
 runTimeSlaveReal sscProxy res bp = do
     mvar <- liftIO newEmptyMVar
     runServiceMode res bp (listeners mvar) $ \sendActions ->
-      case Const.runningMode of
-         Const.Development -> do
+      case Const.isDevelopment of
+         True -> do
            tId <- fork $
              runWithRandomIntervals (sec 10) (sec 60) $ liftIO (tryReadMVar mvar) >>= \case
                  Nothing -> do
                     logInfo "Asking neighbors for system start"
-                    sendToNeighbors sendActions SysStartRequest `catchAll`
-                       \e -> logDebug $ sformat
-                       ("Error sending SysStartRequest to neighbors: " % shown) e
+                    converseToNeighbors sendActions $ \peerId conv -> do
+                        send conv SysStartRequest
+                        mResp <- recv conv
+                        whenJust mResp $ handleSysStartResp mvar peerId sendActions
                  Just _ -> fail "Close thread"
            t <- liftIO $ takeMVar mvar
            killThread tId
            t <$ logInfo (sformat ("[Time slave] adopted system start " % timestampF) t)
-         Const.Production ts -> logWarning "Time slave launched in Production" $> ts
+         False -> logWarning "Time slave launched in Production" $>
+           panic "Time slave in production, rly?"
   where
     listeners mvar =
       if Const.isDevelopment
@@ -253,6 +257,7 @@ runCH NodeParams {..} sscNodeContext act = do
 
     userSecretVar <- liftIO . atomically . newTVar $ npUserSecret
     ntpData <- currentTime >>= atomically . newTVar . (0, )
+    -- current time isn't quite validly, but it doesn't matter
     lastSlot <- atomically . newTVar $ unflattenSlotId 0
     queue <- liftIO $ newTBQueueIO blockRetrievalQueueSize
     let ctx =

@@ -21,6 +21,10 @@ module Pos.Constants
        , mpcSendInterval
        , mpcThreshold
 
+       -- * Dev/production mode, system start
+       , isDevelopment
+       , staticSysStart
+
          -- * Other constants
        , genesisN
        , maxLocalTxs
@@ -28,9 +32,6 @@ module Pos.Constants
        , neighborsSendThreshold
        , networkConnectionTimeout
        , blockRetrievalQueueSize
-       , RunningMode (..)
-       , runningMode
-       , isDevelopment
        , defaultPeers
        , sysTimeBroadcastSlots
        , vssMaxTTL
@@ -61,14 +62,16 @@ module Pos.Constants
        ) where
 
 import           Data.String                (String)
-import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Data.Time.Units            (Microsecond)
 import           Language.Haskell.TH.Syntax (lift, runIO)
 import           Pos.Util.TimeWarp          (ms, sec)
 import           System.Environment         (lookupEnv)
-import           System.IO.Unsafe           (unsafePerformIO)
 import qualified Text.Parsec                as P
 import           Universum                  hiding (lift)
+#ifndef DEV_MODE
+import           Data.Time.Clock.POSIX      (getPOSIXTime)
+import           System.IO.Unsafe           (unsafePerformIO)
+#endif
 
 import           Pos.CLI                    (dhtNodeParser)
 import           Pos.CompileConfig          (CompileConfig (..), compileConfig)
@@ -77,7 +80,7 @@ import           Pos.Types.Timestamp        (Timestamp (..))
 import           Pos.Types.Types            (CoinPortion, unsafeCoinPortion)
 import           Pos.Types.Version          (ApplicationName, ProtocolVersion (..),
                                              SoftwareVersion (..), mkApplicationName)
-import           Pos.Update.Types           (SystemTag, mkSystemTag)
+import           Pos.Update.Core            (SystemTag, mkSystemTag)
 import           Pos.Util                   ()
 import           Pos.Util.TimeWarp          (mcs)
 
@@ -174,21 +177,20 @@ blockRetrievalQueueSize :: Integral a => a
 blockRetrievalQueueSize =
     fromIntegral . ccBlockRetrievalQueueSize $ compileConfig
 
--- | Defines mode of running application: in tested mode or in production.
-data RunningMode
-    = Development
-    | Production { rmSystemStart :: !Timestamp}
+-- | @True@ if current mode is 'Development'.
+isDevelopment :: Bool
+isDevelopment = isNothing staticSysStart
 
--- | Current running mode.
-runningMode :: RunningMode
+-- | System start time embeded into binary.
+staticSysStart :: Maybe Timestamp
 #ifdef DEV_MODE
-runningMode = Development
+staticSysStart = Nothing
 #else
-runningMode = Production . Timestamp . sec $
+staticSysStart = Just $ Timestamp $ sec $
     let st = ccProductionNetworkStartTime compileConfig
     in if st > 0 then st
-       else let pause = 60
-                divider = 20
+       else let pause = 30
+                divider = 10
                 after3Mins = pause + unsafePerformIO (round <$> getPOSIXTime)
                 minuteMod = after3Mins `mod` divider
                 alignment = if minuteMod > (divider `div` 2) then 1 else 0
@@ -196,12 +198,6 @@ runningMode = Production . Timestamp . sec $
                -- ^ If several local nodes are started within 20 sec,
                -- they'll have same start time
 #endif
-
--- | @True@ if current mode is 'Development'.
-isDevelopment :: Bool
-isDevelopment = case runningMode of
-                  Development -> True
-                  _           -> False
 
 -- | See 'Pos.CompileConfig.ccDefaultPeers'.
 defaultPeers :: [DHTNode]

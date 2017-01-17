@@ -14,13 +14,16 @@ import           Universum
 
 import           Pos.Binary          ()
 import qualified Pos.CLI             as CLI
-import           Pos.Constants       (RunningMode (..), runningMode)
+import           Pos.Constants       (staticSysStart)
 import           Pos.Crypto          (SecretKey, VssKeyPair, keyGen, vssKeyGen)
 import           Pos.DHT.Model       (DHTKey, DHTNodeType (..), dhtNodeType)
+import           Pos.Util.TimeWarp   (sec)
 #ifdef DEV_MODE
 import           Pos.Genesis         (genesisSecretKeys)
+#else
+import           Pos.Genesis         (genesisStakeDistribution)
 #endif
-import           Pos.Genesis         (genesisStakeDistribution, genesisUtxo)
+import           Pos.Genesis         (genesisUtxo)
 import           Pos.Launcher        (BaseParams (..), LoggingParams (..),
                                       NodeParams (..), RealModeResources,
                                       bracketResources, runNodeProduction, runNodeStats,
@@ -32,7 +35,7 @@ import           Pos.Ssc.Class       (SscListenersClass)
 import           Pos.Ssc.GodTossing  (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon  (SscNistBeacon)
 import           Pos.Ssc.SscAlgo     (SscAlgo (..))
-import           Pos.Types           (Timestamp)
+import           Pos.Types           (Timestamp (Timestamp))
 import           Pos.Util.UserSecret (UserSecret, peekUserSecret, usKeys, usVss,
                                       writeUserSecret)
 #ifdef WITH_WEB
@@ -51,14 +54,21 @@ import           Pos.Wallet.Web      (walletServeWebFull)
 
 import           NodeOptions         (Args (..), getNodeOptions)
 
-getSystemStart :: SscListenersClass ssc => Proxy ssc -> RealModeResources -> Args -> Production Timestamp
-getSystemStart sscProxy inst args  =
-    case runningMode of
-        Development ->
-            if timeLord args
-                then runTimeLordReal (loggingParams "time-lord" args)
-                else runTimeSlaveReal sscProxy inst (baseParams "time-slave" args)
-        Production systemStart -> return systemStart
+getSystemStart
+    :: SscListenersClass ssc
+    => Proxy ssc -> RealModeResources -> Args -> Production Timestamp
+getSystemStart sscProxy inst args
+    | noSystemStart args > 0 = pure $ Timestamp $ sec $ noSystemStart args
+    | otherwise =
+        case staticSysStart of
+            Nothing ->
+                if timeLord args
+                    then runTimeLordReal (loggingParams "time-lord" args)
+                    else runTimeSlaveReal
+                             sscProxy
+                             inst
+                             (baseParams "time-slave" args)
+            Just systemStart -> return systemStart
 
 loggingParams :: LoggerName -> Args -> LoggingParams
 loggingParams tag Args{..} =
@@ -76,7 +86,6 @@ baseParams loggingTag args@Args {..} =
     , bpDHTPeers = CLI.dhtPeers commonArgs
     , bpDHTKeyOrType = dhtKeyOrType
     , bpDHTExplicitInitial = CLI.dhtExplicitInitial commonArgs
-    , bpNtpPort = fromMaybe (snd ipPort + 1000) ntpPort
     }
   where
     dhtKeyOrType
@@ -97,8 +106,8 @@ checkDhtKey isSupporter (Just (dhtNodeType -> keyType))
         | isSupporter = DHTSupporter
         | otherwise = DHTFull
 
-action :: Args -> BaseParams -> RealModeResources -> Production ()
-action args@Args {..} bp res = do
+action :: Args -> RealModeResources -> Production ()
+action args@Args {..} res = do
     checkDhtKey supporterNode dhtKey
     if supporterNode
         then fail "Supporter not supported" -- runSupporterReal res (baseParams "supporter" args)
@@ -124,13 +133,13 @@ action args@Args {..} bp res = do
             putText $ "If stats is on: " <> show enableStats
             case (enableStats, CLI.sscAlgo commonArgs) of
                 (True, GodTossingAlgo) ->
-                    runNodeStats @SscGodTossing bp res (map const currentPluginsGT ++ walletStats args) currentParams gtParams
+                    runNodeStats @SscGodTossing res (map const currentPluginsGT ++ walletStats args) currentParams gtParams
                 (True, NistBeaconAlgo) ->
-                    runNodeStats @SscNistBeacon bp res (map const currentPlugins ++  walletStats args) currentParams ()
+                    runNodeStats @SscNistBeacon res (map const currentPlugins ++  walletStats args) currentParams ()
                 (False, GodTossingAlgo) ->
-                    runNodeProduction @SscGodTossing bp res (map const currentPluginsGT ++ walletProd args) currentParams gtParams
+                    runNodeProduction @SscGodTossing res (map const currentPluginsGT ++ walletProd args) currentParams gtParams
                 (False, NistBeaconAlgo) ->
-                    runNodeProduction @SscNistBeacon bp res (map const currentPlugins ++ walletProd args) currentParams ()
+                    runNodeProduction @SscNistBeacon res (map const currentPlugins ++ walletProd args) currentParams ()
 
 #ifdef DEV_MODE
 userSecretWithGenesisKey
@@ -202,7 +211,9 @@ getNodeParams args@Args {..} systemStart = do
         , npCustomUtxo =
                 genesisUtxo $
 #ifdef DEV_MODE
-                stakesDistr (CLI.flatDistr commonArgs) (CLI.bitcoinDistr commonArgs)
+                stakesDistr (CLI.flatDistr commonArgs)
+                            (CLI.bitcoinDistr commonArgs)
+                            (CLI.expDistr commonArgs)
 #else
                 genesisStakeDistribution
 #endif
@@ -272,6 +283,5 @@ walletStats _ = []
 
 main :: IO ()
 main = do
-    args@Args{..} <- getNodeOptions
-    let bp = baseParams "node" args
-    bracketResources bp (action args bp)
+    args <- getNodeOptions
+    bracketResources (baseParams "node" args) (action args)

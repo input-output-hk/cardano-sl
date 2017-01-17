@@ -5,7 +5,6 @@ module Main where
 
 import           Control.Concurrent.STM.TVar (modifyTVar', newTVarIO, readTVarIO)
 import           Control.Lens                (view, _1)
-import           Data.List                   ((!!))
 import           Data.Maybe                  (fromMaybe)
 import           Data.Proxy                  (Proxy (..))
 import           Data.Time.Clock.POSIX       (getPOSIXTime)
@@ -89,8 +88,8 @@ getPeers share = do
     liftIO $ chooseSubset share <$> shuffleM peers
 
 runSmartGen :: forall ssc . SscConstraint ssc
-            => BaseParams -> RealModeResources -> NodeParams -> SscParams ssc -> GenOptions -> Production ()
-runSmartGen bp res np@NodeParams{..} sscnp opts@GenOptions{..} =
+            => RealModeResources -> NodeParams -> SscParams ssc -> GenOptions -> Production ()
+runSmartGen res np@NodeParams{..} sscnp opts@GenOptions{..} =
   runProductionMode res np sscnp $ \sendActions -> do
     initLrc
     let getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
@@ -103,7 +102,7 @@ runSmartGen bp res np@NodeParams{..} sscnp opts@GenOptions{..} =
 
     -- | Run all the usual node workers in order to get
     -- access to blockchain
-    void $ fork $ runNode @ssc bp [] sendActions
+    void $ fork $ runNode @ssc [] sendActions
 
     let logsFilePrefix = fromMaybe "." (CLI.logPrefix goCommonArgs)
     -- | Run the special worker to check new blocks and
@@ -116,8 +115,8 @@ runSmartGen bp res np@NodeParams{..} sscnp opts@GenOptions{..} =
 
     -- [CSL-220] Write MonadBaseControl instance for KademliaDHT
     -- Seeding init tx
-    _ <- forConcurrently goGenesisIdxs $ \(fromIntegral -> i) ->
-            seedInitTx sendActions goRecipientShare (bambooPools !! i) (initTx i)
+    _ <- forConcurrently (zip bambooPools goGenesisIdxs) $ \(pool, fromIntegral -> idx) ->
+            seedInitTx sendActions goRecipientShare pool (initTx idx)
 
     -- Start writing tps file
     liftIO $ writeFile (logsFilePrefix </> tpsCsvFile) tpsCsvHeader
@@ -237,9 +236,8 @@ main = do
             { bpLoggingParams      = logParams
             , bpIpPort             = goIpPort
             , bpDHTPeers           = CLI.dhtPeers goCommonArgs
-            , bpDHTKeyOrType       = Right DHTFull
+            , bpDHTKeyOrType       = Right DHTClient
             , bpDHTExplicitInitial = CLI.dhtExplicitInitial goCommonArgs
-            , bpNtpPort            = fromMaybe (snd goIpPort + 1000) goNtpPort
             }
 
     bracketResources baseParams $ \res -> do
@@ -264,6 +262,7 @@ main = do
                                         stakesDistr
                                         (CLI.flatDistr goCommonArgs)
                                         (CLI.bitcoinDistr goCommonArgs)
+                                        (CLI.expDistr goCommonArgs)
                 , npTimeLord      = False
                 , npJLFile        = goJLFile
                 , npAttackTypes   = []
@@ -279,7 +278,6 @@ main = do
 
         case CLI.sscAlgo goCommonArgs of
             GodTossingAlgo -> putText "Using MPC coin tossing" *>
-                              runSmartGen @SscGodTossing baseParams res params gtParams
-                                opts
+                              runSmartGen @SscGodTossing res params gtParams opts
             NistBeaconAlgo -> putText "Using NIST beacon" *>
-                              runSmartGen @SscNistBeacon baseParams res params () opts
+                              runSmartGen @SscNistBeacon res params () opts

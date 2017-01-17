@@ -18,7 +18,6 @@ import           Pos.Constants           (slotDuration, sysTimeBroadcastSlots)
 import           Pos.Context             (NodeContext (..), getNodeContext,
                                           setNtpLastSlot)
 import           Pos.DHT.Model.Neighbors (sendToNeighbors)
-import           Pos.Launcher.Param      (BaseParams (..))
 import           Pos.Lrc.Worker          (lrcOnNewSlotWorker)
 import           Pos.Security.Workers    (SecurityWorkersClass, securityWorkers)
 import           Pos.Slotting            (onNewSlotWithLogging)
@@ -27,7 +26,6 @@ import           Pos.Types               (SlotId, flattenSlotId, slotIdF)
 import           Pos.Update              (usWorkers)
 import           Pos.Util                (waitRandomInterval, withWaitLog)
 import           Pos.Util.TimeWarp       (ms)
-import           Pos.Worker.Ntp          (ntpWorker)
 import           Pos.Worker.Stats        (statsWorkers)
 import           Pos.WorkMode            (WorkMode)
 
@@ -39,13 +37,12 @@ import           Pos.WorkMode            (WorkMode)
 -- order becomes important, update this comment! I don't think you
 -- will read it, but who knows…
 --runWorkers :: (SscWorkersClass ssc, WorkMode ssc m) => m ()
-runWorkers :: (SscWorkersClass ssc, SecurityWorkersClass ssc, WorkMode ssc m) => BaseParams -> SendActions BiP m -> m ()
-runWorkers bp sendActions = mapM_ fork $ map ($ withWaitLog sendActions) $ concat
+runWorkers :: (SscWorkersClass ssc, SecurityWorkersClass ssc, WorkMode ssc m) => SendActions BiP m -> m ()
+runWorkers sendActions = mapM_ fork $ map ($ withWaitLog sendActions) $ concat
     [ [ onNewSlotWorker ]
     , blkWorkers
     , untag sscWorkers
     , untag securityWorkers
-    , [const $ ntpWorker bp]
     , [lrcOnNewSlotWorker]
     , usWorkers
     ]

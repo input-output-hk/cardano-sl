@@ -11,8 +11,8 @@ module Pos.Wallet.Tx.Pure
        , TxError
        ) where
 
-import           Control.Lens              (over, use, uses, view, (%=), (%=), (.~), (^.),
-                                            _1, _2)
+import           Control.Lens              (over, use, uses, view, (%=), (%=), (^.), _1,
+                                            _2)
 import           Control.Monad.State       (StateT (..), evalStateT)
 import           Control.Monad.Trans.Maybe (MaybeT (..))
 import qualified Data.DList                as DL
@@ -34,7 +34,7 @@ import           Pos.Types                 (Address, Block, Coin, MonadUtxoRead 
                                             UtxoStateT (..), applyTxToUtxo, blockTxas,
                                             filterUtxoByAddr, makePubKeyAddress,
                                             makeScriptAddress, mkCoin, sumCoins,
-                                            topsortTxs, _txOutputs)
+                                            topsortTxs)
 import           Pos.Types.Coin            (unsafeIntegerToCoin, unsafeSubCoin)
 
 type TxOutIdx = (TxId, Word32)
@@ -155,22 +155,17 @@ getRelatedTxs
     => Address
     -> [(WithHash Tx, TxWitness, TxDistribution)]
     -> TxSelectorT m [(TxId, Tx, Bool)]
-getRelatedTxs addr txs = lift (MaybeT $ return $ topsortTxs (view _1) txs) >>=
-                         foldlM step DL.empty >>= return . DL.toList
+getRelatedTxs addr txs = fmap DL.toList $
+    lift (MaybeT $ return $ topsortTxs (view _1) txs) >>=
+    foldlM step DL.empty
   where
     step ls (WithHash tx txId, _wit, dist) = do
         let isIncoming = tx `hasReceiver` addr
         isOutgoing <- tx `hasSender` addr
         if isOutgoing || isIncoming
             then do
-            -- Filter outputs that go to 'addr'
-            let outputsToAddr = do
-                    (out, d) <- zip (txOutputs tx) (getTxDistribution dist)
-                    guard (txOutAddress out == addr)
-                    return (out, d)
-            applyTxToUtxo
-                (WithHash (tx & _txOutputs .~ map fst outputsToAddr) txId)
-                (TxDistribution (map snd outputsToAddr))
+            applyTxToUtxo (WithHash tx txId) dist
+            identity %= filterUtxoByAddr addr
             return $ ls <> DL.singleton (txId, tx, isOutgoing)
             else return ls
 

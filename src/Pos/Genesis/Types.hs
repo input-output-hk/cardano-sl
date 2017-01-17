@@ -21,6 +21,7 @@ data StakeDistribution
         , sdRichmen    :: !Word
         , sdPoor       :: !Word
         }
+    | ExponentialStakes -- First three nodes get 0.875% of stake.
     deriving (Show, Eq)
 
 -- | Hardcoded genesis data

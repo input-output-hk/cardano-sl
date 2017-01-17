@@ -97,6 +97,12 @@ instance Default StakeDistribution where
     def = FlatStakes genesisN
               (mkCoin 10000 `unsafeMulCoin` (genesisN :: Int))
 
+-- 10000 coins in total. For thresholds testing.
+-- 0.5,0.25,0.125,0.0625,0.0312,0.0156,0.0078,0.0039,0.0019,0.0008,0.0006,0.0004,0.0002,0.0001
+expTwoDistribution :: [Coin]
+expTwoDistribution =
+    map mkCoin [5000,2500,1250,625,312,156,78,39,19,8,6,4,2,1]
+
 bitcoinDistribution20 :: [Coin]
 bitcoinDistribution20 = map mkCoin
     [200,163,120,105,78,76,57,50,46,31,26,13,11,11,7,4,2,0,0,0]
@@ -111,6 +117,7 @@ stakeDistribution (BitcoinStakes stakeholders coins) =
   where
     normalize x = x `unsafeMulCoin`
                   coinToInteger (coins `divCoin` (1000 :: Int))
+stakeDistribution ExponentialStakes = expTwoDistribution
 stakeDistribution TestnetStakes {..} =
     map (mkCoin . fromIntegral) $ basicDist & _head %~ (+ rmd)
   where

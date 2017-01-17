@@ -35,7 +35,7 @@ import           Pos.Types                     (EpochIndex (..), FlatSlotId, Slo
 -- Wrapper holds 'VssCertificatesMap'
 -- and 'S.Set' of certificates sorted by expiry epoch.
 data VssCertData = VssCertData
-    { -- | Last known slot, every element of bySlot > lastKnownSlot
+    { -- | Last known slot, every element of expirySlotSet > lastKnownSlot
       lastKnownSlot :: !FlatSlotId
       -- | Not expired certificates
     , certs         :: !VssCertificatesMap
@@ -43,6 +43,7 @@ data VssCertData = VssCertData
       --   It is needed for deletion from 'insSlotSet' (by 'StakeholderId').
     , certsIns      :: !(HashMap StakeholderId FlatSlotId)
       -- | Set of pairs (insertion slot, address hash)
+      -- Every element of insSlotSet <= lastKnownSlot
     , insSlotSet    :: !(Set (FlatSlotId, StakeholderId))
       -- | Set of pairs (expiry slot, address hash).
       --   Expiry slot is first slot when certificate expires.
@@ -82,15 +83,15 @@ lookupExpiryEpoch id mp = vcExpiryEpoch <$> lookup id mp
 -- deleted certificates. Use carefully.
 delete :: StakeholderId -> VssCertData -> VssCertData
 delete id mp@VssCertData{..} =
-    case lookupAux id mp of
-        Nothing         -> mp
-        Just (ins, expiry, cert) -> VssCertData
+    case lookupSlots id mp of
+        Nothing                  -> mp
+        Just (ins, expiry) -> VssCertData
             lastKnownSlot
             (HM.delete id certs)
             (HM.delete id certsIns)
             (S.delete (ins, id) insSlotSet)
             (S.delete (expiry, id) expirySlotSet)
-            (S.delete (expiry + epochSlots, (id, ins, cert)) expiredCerts)
+            expiredCerts
 
 -- | Set last known slot (lks).
 --   1. If new lks is bigger than 'lastKnownSlot' then some expired certificates
@@ -184,10 +185,7 @@ setSmallerLKS lks vcd@VssCertData{..}
 expiryFlatSlot :: VssCertificate -> FlatSlotId
 expiryFlatSlot cert = (1 + getEpochIndex (vcExpiryEpoch cert)) * epochSlots
 
-lookupAux :: StakeholderId -> VssCertData -> Maybe (FlatSlotId, FlatSlotId, VssCertificate)
-lookupAux id VssCertData{..} =
-    (,,) <$> HM.lookup id certsIns
-         <*> (expiryFlatSlot <$> stakeholderCertificate)
-         <*> stakeholderCertificate
-  where
-    stakeholderCertificate = HM.lookup id certs
+lookupSlots :: StakeholderId -> VssCertData -> Maybe (FlatSlotId, FlatSlotId)
+lookupSlots id VssCertData{..} =
+    (,) <$> HM.lookup id certsIns
+        <*> (expiryFlatSlot <$> HM.lookup id certs)

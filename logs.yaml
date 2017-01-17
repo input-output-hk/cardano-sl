@@ -1,0 +1,21 @@
+severity: Info
+smart-wallet:
+    severity: Error
+node:
+    severity: Debug
+    file: node0.log
+    comm:
+        severity: Info
+        file: comm-node0.log
+    dht:
+        severity: Error
+    server:
+        file: server-node0.log
+        ssc:
+            file: server-ssc-node0.log
+        tx:
+            file: server-tx-node0.log
+        block:
+            file: server-block-node0.log
+smart-gen:
+    severity: Info

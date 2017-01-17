@@ -13,24 +13,24 @@ import           Pos.Ssc.GodTossing  (SscGodTossing)
 import           Pos.Ssc.NistBeacon  (SscNistBeacon)
 import qualified Pos.Types           as BT
 
-import           Test.Pos.Util       (binaryTest)
+import           Test.Pos.Util       (binaryTest, networkBinaryTest)
 
 spec :: Spec
 spec = describe "Block types" $ do
     describe "Bi instances" $ do
         describe "Block network types" $ do
             describe "MsgGetHeaders" $ do
-                binaryTest @(BT.MsgGetHeaders SscNistBeacon)
-                binaryTest @(BT.MsgGetHeaders SscGodTossing)
+                networkBinaryTest @(BT.MsgGetHeaders SscNistBeacon)
+                networkBinaryTest @(BT.MsgGetHeaders SscGodTossing)
             describe "MsgGetBlocks" $ do
-                binaryTest @(BT.MsgGetBlocks SscNistBeacon)
-                binaryTest @(BT.MsgGetBlocks SscGodTossing)
+                networkBinaryTest @(BT.MsgGetBlocks SscNistBeacon)
+                networkBinaryTest @(BT.MsgGetBlocks SscGodTossing)
             describe "MsgHeaders" $ do
-                binaryTest @(BT.MsgHeaders SscNistBeacon)
-                binaryTest @(BT.MsgHeaders SscGodTossing)
+                networkBinaryTest @(BT.MsgHeaders SscNistBeacon)
+                networkBinaryTest @(BT.MsgHeaders SscGodTossing)
             describe "MsgBlock" $ do
-                binaryTest @(BT.MsgBlock SscNistBeacon)
-                binaryTest @(BT.MsgBlock SscGodTossing)
+                networkBinaryTest @(BT.MsgBlock SscNistBeacon)
+                networkBinaryTest @(BT.MsgBlock SscGodTossing)
         describe "Blockchains and blockheaders" $ do
             describe "GenericBlockHeader" $ do
                 describe "GenesisBlockHeader" $ do

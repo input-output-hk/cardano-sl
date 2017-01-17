@@ -50,6 +50,7 @@ class Monad m => MonadSscGS ssc m | m -> ssc where
     modifyGlobalState = lift . modifyGlobalState
 
 instance MonadSscGS ssc m => MonadSscGS ssc (ReaderT a m) where
+instance MonadSscGS ssc m => MonadSscGS ssc (StateT a m) where
 instance MonadSscGS ssc m => MonadSscGS ssc (ExceptT a m) where
 
 sscRunGlobalQuery

@@ -6,12 +6,13 @@
 module Pos.Communication.Server.SysStart
        ( sysStartReqListener
        , sysStartRespListener
+       , handleSysStartResp
        ) where
 
 import           Control.Concurrent.MVar  (MVar, tryPutMVar)
 import           Formatting               (build, sformat, shown, (%))
-import           Node                     (Listener, ListenerAction (..),
-                                           SendActions (sendTo))
+import           Node                     (ConversationActions (..), Listener,
+                                           ListenerAction (..), NodeId, SendActions)
 import           System.Wlog              (logInfo)
 
 import           Universum
@@ -27,18 +28,22 @@ import           Pos.WorkMode             (MinWorkMode)
 -- | Listener for 'SysStartRequest' message.
 sysStartReqListener
     :: MinWorkMode m => Timestamp -> Listener BiP m
-sysStartReqListener sysStart = ListenerActionOneMsg $
-    \peerId sendActions (_ :: SysStartRequest) -> do
-        logInfo $ sformat
-            ("Received sysStart request from "%shown%", sending "%build)
-            peerId sysStart
-        sendTo sendActions peerId $ SysStartResponse sysStart
+sysStartReqListener sysStart = ListenerActionConversation $
+    \peerId conv  -> do
+        (mReq :: Maybe SysStartRequest) <- recv conv
+        whenJust mReq $ \_ -> do
+            logInfo $ sformat
+                ("Received sysStart request from "%shown%", sending "%build)
+                peerId sysStart
+            send conv $ SysStartResponse sysStart
 
 -- | Listener for 'SysStartResponce' message.
-sysStartRespListener
-    :: MinWorkMode m => MVar Timestamp -> Listener BiP m
-sysStartRespListener mvar = ListenerActionOneMsg $
-    \peerId sendActions (SysStartResponse sysStart :: SysStartResponse) -> do
+sysStartRespListener :: MinWorkMode m => MVar Timestamp -> Listener BiP m
+sysStartRespListener mvar = ListenerActionOneMsg $ handleSysStartResp mvar
+
+handleSysStartResp
+  :: MinWorkMode m => MVar Timestamp -> NodeId -> SendActions BiP m -> SysStartResponse -> m ()
+handleSysStartResp mvar peerId sendActions (SysStartResponse sysStart) = do
         logInfo $ sformat
             ("Received sysStart response from "%shown%", "%build)
             peerId sysStart

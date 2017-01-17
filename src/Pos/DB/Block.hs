@@ -27,21 +27,24 @@ module Pos.DB.Block
 import           Control.Lens              ((^.))
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
 import           Data.ByteArray            (convert)
+import           Data.Default              (Default (def))
 import           Formatting                (sformat, (%))
 import           Universum
 
+import           Pos.Binary.Block          ()
 import           Pos.Binary.Class          (Bi)
 import           Pos.Binary.DB             ()
+import           Pos.Block.Types           (Blund, Undo (..))
 import           Pos.Crypto                (Hash, shortHashF)
 import           Pos.DB.Class              (MonadDB, getBlockDB)
 import           Pos.DB.Error              (DBError (..))
 import           Pos.DB.Functions          (rocksDelete, rocksGetBi, rocksPutBi)
 import           Pos.DB.Types              (StoredBlock (..))
 import           Pos.Ssc.Class.Types       (Ssc)
-import           Pos.Types                 (Block, BlockHeader, Blund, GenesisBlock,
+import           Pos.Types                 (Block, BlockHeader, GenesisBlock,
                                             HasDifficulty (difficultyL), HasPrevBlock,
-                                            HeaderHash, Undo (..), genesisHash,
-                                            headerHash, prevBlockL)
+                                            HeaderHash, genesisHash, headerHash,
+                                            prevBlockL)
 import qualified Pos.Types                 as T
 import           Pos.Util                  (maybeThrow)
 
@@ -186,7 +189,7 @@ prepareBlockDB
     :: forall ssc m.
        (Ssc ssc, MonadDB ssc m)
     => GenesisBlock ssc -> m ()
-prepareBlockDB = putBlock (Undo [] []) . Left
+prepareBlockDB = putBlock (Undo [] [] def) . Left
 
 ----------------------------------------------------------------------------
 -- Keys

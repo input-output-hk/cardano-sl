@@ -17,7 +17,7 @@ import           Universum
 import           Paths_cardano_sl           (version)
 import qualified Pos.CLI                    as CLI
 import           Pos.DHT.Model              (DHTKey)
-import           Pos.Security.Types         (AttackTarget, AttackType)
+import           Pos.Security.CLI           (AttackTarget, AttackType)
 import           Pos.Util.TimeWarp          (NetworkAddress)
 
 
@@ -35,7 +35,6 @@ data Args = Args
     , timeLord                  :: !Bool
     , enableStats               :: !Bool
     , jlPath                    :: !(Maybe FilePath)
-    , ntpPort                   :: !(Maybe Word16)
     , maliciousEmulationAttacks :: ![AttackType]
     , maliciousEmulationTargets :: ![AttackTarget]
 #ifdef WITH_WEB
@@ -50,6 +49,7 @@ data Args = Args
 #endif
 #endif
     , commonArgs                :: !CLI.CommonArgs
+    , noSystemStart             :: !Int
     }
   deriving Show
 
@@ -89,10 +89,6 @@ argsParser =
     CLI.timeLordOption <*>
     switch (long "stats" <> help "Enable stats logging") <*>
     CLI.optionalJSONPath <*>
-    optional
-        (option auto $
-         long "ntp-port" <> metavar "INT" <>
-         help "Port for NTP client") <*>
     many
         (option (fromParsec CLI.attackTypeParser) $
          long "attack" <> metavar "NoBlocks|NoCommitments"
@@ -126,6 +122,7 @@ argsParser =
 #endif
 #endif
     <*> CLI.commonArgsParser peerHelpMsg
+    <*> option auto (long "system-start" <> metavar "TIMESTAMP" <> value (-1))
   where
     peerHelpMsg =
         "Peer to connect to for initial peer discovery. Format\

@@ -16,16 +16,20 @@ module Pos.DB.GState.BlockExtra
 
 import           Control.Lens        (view)
 import           Data.Maybe          (fromJust)
+import qualified Data.Text.Buildable
 import qualified Database.RocksDB    as Rocks
+import           Formatting          (bprint, build, (%))
 import           Universum
 
 import           Pos.Binary.Class    (encodeStrict)
+import           Pos.Block.Types     (Blund)
+import           Pos.Crypto          (shortHashF)
 import           Pos.DB.Block        (getBlockWithUndo)
 import           Pos.DB.Class        (MonadDB, getUtxoDB)
 import           Pos.DB.Functions    (RocksBatchOp (..), rocksGetBi, rocksPutBi)
 import           Pos.Ssc.Class.Types (Ssc)
 import           Pos.Types           (Block, BlockHeader, HasHeaderHash, HeaderHash,
-                                      Undo (..), blockHeader, headerHash)
+                                      blockHeader, headerHash)
 
 
 ----------------------------------------------------------------------------
@@ -60,6 +64,14 @@ data BlockExtraOp ssc
       -- ^ Enables or disables "in main chain" status of the block
     deriving (Show)
 
+instance Buildable (BlockExtraOp ssc) where
+    build (AddForwardLink from to) =
+        bprint ("AddForwardLink from "%shortHashF%" to "%shortHashF) from to
+    build (RemoveForwardLink from) =
+        bprint ("RemoveForwardLink from "%shortHashF) from
+    build (SetInMainChain flag h) =
+        bprint ("SetInMainChain for "%shortHashF%": "%build) h flag
+
 instance RocksBatchOp (BlockExtraOp ssc) where
     toBatchOp (AddForwardLink from to) =
         [Rocks.Put (forwardLinkKey from) (encodeStrict to)]
@@ -70,7 +82,6 @@ instance RocksBatchOp (BlockExtraOp ssc) where
     toBatchOp (SetInMainChain True h) =
         [Rocks.Put (mainChainKey h) (encodeStrict ()) ]
 
-
 ----------------------------------------------------------------------------
 -- Loops on forward links
 ----------------------------------------------------------------------------
@@ -78,7 +89,7 @@ instance RocksBatchOp (BlockExtraOp ssc) where
 -- Loads something from old to new.
 loadUpWhile
     :: forall a b ssc m . (Ssc ssc, MonadDB ssc m, HasHeaderHash a ssc)
-    => ((Block ssc, Undo) -> b) -> a -> (b -> Int -> Bool) -> m [b]
+    => (Blund ssc -> b) -> a -> (b -> Int -> Bool) -> m [b]
 loadUpWhile morph start  condition = loadUpWhileDo (headerHash start) 0
   where
     loadUpWhileDo :: HeaderHash ssc -> Int -> m [b]

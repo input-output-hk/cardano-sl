@@ -12,7 +12,7 @@ import           Universum
 
 import           Pos.Crypto          (SecretKey)
 import           Pos.DHT.Model       (DHTKey, DHTNode, DHTNodeType)
-import           Pos.Security.Types  (AttackTarget, AttackType)
+import           Pos.Security.CLI  (AttackTarget, AttackType)
 import           Pos.Types           (Timestamp, Utxo)
 import           Pos.Util.UserSecret (UserSecret)
 
@@ -29,7 +29,6 @@ data BaseParams = BaseParams
     , bpDHTPeers           :: ![DHTNode]      -- ^ peers passed from CLI
     , bpDHTKeyOrType       :: !(Either DHTKey DHTNodeType)
     , bpDHTExplicitInitial :: !Bool
-    , bpNtpPort            :: !Word16         -- ^ ntp binds to separate port
     , bpLoggingParams      :: !LoggingParams  -- ^ logger parameters
     } deriving (Show)
 

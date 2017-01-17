@@ -22,7 +22,7 @@ import           Pos.Ssc.Class.Storage
 import           Pos.Ssc.Class.Types
 import           Pos.Ssc.Class.Workers
 
-import           Pos.Security            (SecurityWorkersClass)
+import           Pos.Security.Class      (SecurityWorkersClass)
 
 type WorkModeSsc ssc =
     ( SscLocalDataClass ssc

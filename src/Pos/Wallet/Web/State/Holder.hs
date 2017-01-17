@@ -23,7 +23,7 @@ import           Pos.Delegation.Class       (MonadDelegation)
 import           Pos.DHT.Model              (MonadDHT)
 import           Pos.Slotting               (MonadSlots)
 import           Pos.Txp.Class              (MonadTxpLD)
-import           Pos.Update                 (MonadPoll, MonadUSMem)
+import           Pos.Update                 (MonadPollRead, MonadUSMem)
 
 import           Pos.Wallet.Context         (WithWalletContext)
 import           Pos.Wallet.KeyStorage      (MonadKeys)
@@ -40,7 +40,7 @@ newtype WalletWebDB m a = WalletWebDB
                 MonadWalletDB, WithWalletContext,
                 MonadDHT, MonadSlots, MonadTrans,
                 CanLog, MonadKeys, MonadBalances,
-                MonadTxHistory, WithNodeContext ssc, MonadUSMem, MonadPoll,
+                MonadTxHistory, WithNodeContext ssc, MonadUSMem, MonadPollRead,
                 MonadTxpLD ssc, MonadDelegation)
 
 deriving instance MonadDB ssc m => MonadDB ssc (WalletWebDB m)

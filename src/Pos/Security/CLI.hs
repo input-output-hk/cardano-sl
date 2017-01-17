@@ -1,6 +1,7 @@
-module Pos.Security.Types
+module Pos.Security.CLI
        ( AttackType (..)
        , AttackTarget (..)
+       , NodeAttackedError (..)
        ) where
 
 import           Universum
@@ -15,3 +16,10 @@ data AttackType = AttackNoBlocks
 data AttackTarget = NetworkAddressTarget { attNetworkAddr :: NetworkAddress }
                   | PubKeyAddressTarget { attPkAddr :: StakeholderId }
                   deriving (Eq, Show)
+
+-- TODO Move to Pos.Secirity.Types
+
+data NodeAttackedError = AttackNoBlocksTriggered
+    deriving Show
+
+instance Exception NodeAttackedError

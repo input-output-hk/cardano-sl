@@ -17,7 +17,7 @@ import           Node                           (NodeId)
 import           Universum
 
 import           Pos.Crypto                     (PublicKey, SecretKey, toPublic)
-import           Pos.Security.Types             (AttackTarget, AttackType)
+import           Pos.Security.CLI             (AttackTarget, AttackType)
 import           Pos.Ssc.Class.Types            (Ssc (SscNodeContext))
 import           Pos.Types                      (Address, BlockHeader, EpochIndex,
                                                  HeaderHash, SlotId, SlotLeaders,

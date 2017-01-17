@@ -73,7 +73,8 @@ library
                         Pos.Launcher
                         Pos.Merkle
                         Pos.Security
-                        Pos.Security.Types
+                        Pos.Security.Class
+                        Pos.Security.CLI
                         Pos.Security.Util
                         Pos.Security.Workers
                         Pos.Slotting
@@ -98,8 +99,13 @@ library
                         Pos.Types.Types
                         Pos.Types.Utxo
                         Pos.Types.Version
+
+                        -- Update system
                         Pos.Update
-                        Pos.Update.Types
+                        Pos.Update.Arbitrary
+                        Pos.Update.Core
+
+                        -- Utilities/helpers
                         Pos.Util
                         Pos.Util.JsonLog
                         Pos.Util.Relay
@@ -117,6 +123,7 @@ library
 
                         -- Binary serialization
                         Pos.Binary.Address
+                        Pos.Binary.Block
                         Pos.Binary.Class
                         Pos.Binary.Crypto
                         Pos.Binary.Communication
@@ -140,6 +147,7 @@ library
                         Pos.Block.Network.Types
                         Pos.Block.Network.Listeners
                         Pos.Block.Network.Retrieval
+                        Pos.Block.Types
                         Pos.Block.Worker
 
                         -- Network
@@ -270,6 +278,7 @@ library
                         Pos.Txp.Types.Communication
                         Pos.Txp.Types.Types
                         Pos.Txp.Types.UtxoView
+                        Pos.Txp.Types.BalancesView
 
                         -- Types
                         Pos.Types.SharedSeed
@@ -282,20 +291,29 @@ library
                         Pos.Worker.Stats
 
                         -- Update System
+                        Pos.Update.Arbitrary.Core
+                        Pos.Update.Arbitrary.Network
+                        Pos.Update.Core.Types
                         Pos.Update.Download
                         Pos.Update.Error
-                        Pos.Update.Listeners
                         Pos.Update.Logic
+                        Pos.Update.Logic.Global
+                        Pos.Update.Logic.Local
                         Pos.Update.Lrc
                         Pos.Update.MemState
                         Pos.Update.MemState.Class
                         Pos.Update.MemState.Holder
                         Pos.Update.MemState.MemState
                         Pos.Update.MemState.Types
+                        Pos.Update.Network
+                        Pos.Update.Network.Listeners
+                        Pos.Update.Network.Types
                         Pos.Update.Poll
                         Pos.Update.Poll.Class
-                        Pos.Update.Types.Communication
-                        Pos.Update.Types.Types
+                        Pos.Update.Poll.DBPoll
+                        Pos.Update.Poll.Functions
+                        Pos.Update.Poll.Trans
+                        Pos.Update.Poll.Types
                         Pos.Update.Worker
 
                         -- Utilities/helpers

@@ -30,7 +30,6 @@ data WalletOptions = WalletOptions
     , woJLFile       :: !(Maybe FilePath)
     , woCommonArgs   :: !CLI.CommonArgs -- ^ Common CLI args, including initial DHT nodes
     , woAction       :: !WalletAction
-    , woNtpPort      :: !(Maybe Word16)  -- ^ port for NTP client, (main port + 1000) used by default
     }
 
 data WalletAction = Repl
@@ -95,10 +94,6 @@ optionsParser = WalletOptions
     <*> CLI.optionalJSONPath
     <*> CLI.commonArgsParser "Initial DHT peer (may be many)"
     <*> actionParser
-    <*> optional (option auto $
-             long "ntp-port"
-          <> metavar "INT"
-          <> help "Port for NTP client")
 
 optsInfo :: ParserInfo WalletOptions
 optsInfo = info (helper <*> optionsParser) $

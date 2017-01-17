@@ -1,4 +1,3 @@
-{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 -- | Announcements related to blocks.
 
@@ -7,9 +6,8 @@ module Pos.Block.Network.Announce
        , handleHeadersCommunication
        ) where
 
-import           Data.Time.Units          (Microsecond)
 import           Formatting               (build, sformat, shown, (%))
-import           Mockable                 (Promise, throw)
+import           Mockable                 (throw)
 import           Node                     (ConversationActions (..), SendActions (..))
 import           System.Wlog              (logDebug)
 import           Universum
@@ -24,13 +22,7 @@ import           Pos.DHT.Model            (converseToNeighbors, nodeIdToAddress)
 import           Pos.Security             (AttackType (..), NodeAttackedError (..),
                                            shouldIgnoreAddress)
 import           Pos.Types                (MainBlockHeader, headerHash)
-import           Pos.Util                 (execWithTimeLimit)
-import           Pos.Util.TimeWarp        (sec)
 import           Pos.WorkMode             (WorkMode)
-
--- [CSL-464] TODO move to constants
-recvGetHeadersTimeout :: Microsecond
-recvGetHeadersTimeout = sec 2
 
 announceBlock
     :: WorkMode ssc m
@@ -66,7 +58,6 @@ handleHeadersCommunication
     => ConversationActions (MsgHeaders ssc) (MsgGetHeaders ssc) m
     -> m ()
 handleHeadersCommunication conv = do
-    --(msg :: Maybe (MsgGetHeaders ssc)) <- join <$> execWithTimeLimit recvGetHeadersTimeout (recv conv)
     (msg :: Maybe (MsgGetHeaders ssc)) <- recv conv
     whenJust msg $ \(MsgGetHeaders {..}) -> do
         logDebug "Got request on handleGetHeaders"

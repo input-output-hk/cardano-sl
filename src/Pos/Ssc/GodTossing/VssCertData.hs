@@ -47,10 +47,11 @@ data VssCertData = VssCertData
       -- | Set of pairs (expiry slot, address hash).
       --   Expiry slot is first slot when certificate expires.
       --   Pairs are sorted by expiry slot
-      --   (in increase order, so the oldest certificate is first element).
+      --   (in increasing order, so the oldest certificate is first element).
     , expirySlotSet :: !(Set (FlatSlotId, StakeholderId))
       -- | Set of expired certs for current 'lastKnownSlot'.
-      --   We store only such certs which will expire after one epoch passed.
+      --   We store only certificates which expried no earlier than
+      --   in previous epoch.
     , expiredCerts  :: !(Set (FlatSlotId, (StakeholderId, FlatSlotId, VssCertificate)))
     } deriving (Show, Eq)
 
@@ -60,23 +61,24 @@ deriveSafeCopySimple 0 'base ''VssCertData
 empty :: VssCertData
 empty = VssCertData 0 mempty mempty mempty mempty mempty
 
--- | Remove old certificate corresponding to the specified address hash
+-- | Remove old certificate corresponding to the specified 'StakeholderId'
 -- and insert new certificate.
 insert :: StakeholderId -> VssCertificate -> VssCertData -> VssCertData
 insert id cert mp@VssCertData{..}
     | expiryFlatSlot cert <= lastKnownSlot = mp
     | otherwise                            = addInt id cert mp
 
--- | Lookup certificate corresponding to the specified address hash.
+-- | Lookup certificate corresponding to the specified 'StakeholderId'.
 lookup :: StakeholderId -> VssCertData -> Maybe VssCertificate
 lookup id VssCertData{..} = HM.lookup id certs
 
--- | Lookup expiry epoch of certificate corresponding to the specified address hash.
+-- | Lookup expiry epoch of certificate corresponding to the specified
+-- 'StakeholderId'.
 lookupExpiryEpoch :: StakeholderId -> VssCertData -> Maybe EpochIndex
 lookupExpiryEpoch id mp = vcExpiryEpoch <$> lookup id mp
 
--- | Delete certificate corresponding to the specified address hash.
--- This function is dangerous, because after you using it you can't rollback
+-- | Delete certificate corresponding to the specified 'StakeholderId'.
+-- This function is dangerous, because after using it you can't rollback
 -- deleted certificates. Use carefully.
 delete :: StakeholderId -> VssCertData -> VssCertData
 delete id mp@VssCertData{..} =
@@ -91,16 +93,17 @@ delete id mp@VssCertData{..} =
             (S.delete (expiry + epochSlots, (id, ins, cert)) expiredCerts)
 
 -- | Set last known slot (lks).
---   1. If new lks bigger than lastKnownSlot then some expired certificates will be removed.
---   2. If new lks less than lastKnownslot then some inserted after @nlks@ certificates will
---      be removed (and 'expirySlotSet') also will be updated
+--   1. If new lks is bigger than 'lastKnownSlot' then some expired certificates
+--      will be removed.
+--   2. If new lks is less than 'lastKnownSlot' then some inserted after @nlks@
+--      certificates will be removed (and 'expirySlotSet') also will be updated.
 setLastKnownSlot :: SlotId -> VssCertData -> VssCertData
 setLastKnownSlot (flattenSlotId -> nlks) mp@VssCertData{..}
     | nlks > lastKnownSlot = setBiggerLKS nlks mp
     | nlks < lastKnownSlot = setSmallerLKS nlks mp
     | otherwise            = mp
 
--- | Address hashes of certificates.
+-- | Ids of stakeholders issued certificates.
 keys :: VssCertData -> [StakeholderId]
 keys VssCertData{..} = HM.keys certs
 

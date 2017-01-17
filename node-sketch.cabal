@@ -71,7 +71,6 @@ Library
                       , text-format
                       , time
                       , time-units
-                      , time-warp
                       , transformers
                       , unordered-containers
                       , semigroups

@@ -30,7 +30,6 @@ extra-deps:
   - serokell-util-0.1.2.3
   - time-units-1.0.0
   - pqueue-1.3.2
-  - time-warp-1.1.1.0
   - aeson-extra-0.4.0.0
   - data-msgpack-0.0.8
   - recursion-schemes-5.0.1

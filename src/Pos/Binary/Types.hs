@@ -97,7 +97,14 @@ instance Bi T.SharedSeed where
 -- Generic block header
 ----------------------------------------------------------------------------
 
-instance ( Bi (T.BodyProof b)
+-- | This instance required only for Arbitrary instance of HeaderHash
+-- due to @instance Bi a => Hash a@.
+instance Bi T.BlockHeaderStub where
+    put _ = panic "somebody tried to binary put BlockHeaderStub"
+    get   = panic "somebody tried to binary get BlockHeaderStub"
+
+instance ( Bi (T.BHeaderHash b)
+         , Bi (T.BodyProof b)
          , Bi (T.ConsensusData b)
          , Bi (T.ExtraHeaderData b)
          ) =>
@@ -115,7 +122,8 @@ instance ( Bi (T.BodyProof b)
             fail $ "GenericBlockHeader failed with wrong magic: " <> show blockMagic
         T.GenericBlockHeader <$> get <*> get <*> get <*> get
 
-instance ( Bi (T.BodyProof b)
+instance ( Bi (T.BHeaderHash b)
+         , Bi (T.BodyProof b)
          , Bi (T.ConsensusData b)
          , Bi (T.ExtraHeaderData b)
          , Bi (T.Body b)

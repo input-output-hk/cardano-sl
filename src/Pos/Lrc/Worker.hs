@@ -125,7 +125,7 @@ tryAcuireExclusiveLock epoch lock action =
 
 lrcDo
     :: WorkMode ssc m
-    => EpochIndex -> [LrcConsumer m] -> HeaderHash ssc -> m (HeaderHash ssc)
+    => EpochIndex -> [LrcConsumer m] -> HeaderHash -> m HeaderHash
 lrcDo epoch consumers tip = tip <$ do
     blundsList <- DB.loadBlundsFromTipWhile whileAfterCrucial
     when (null blundsList) $ throwM UnknownBlocksForLrc

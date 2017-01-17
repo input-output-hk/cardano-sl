@@ -94,7 +94,7 @@ import           Pos.WorkMode              (WorkMode)
 ----------------------------------------------------------------------------
 
 -- | Common error message
-tipMismatchMsg :: Text -> HeaderHash ssc -> HeaderHash ssc -> Text
+tipMismatchMsg :: Text -> HeaderHash -> HeaderHash -> Text
 tipMismatchMsg action storedTip attemptedTip =
     sformat
         ("Can't "%stext%" block because of tip mismatch (stored is "
@@ -106,7 +106,7 @@ tipMismatchMsg action storedTip attemptedTip =
 -- hash. Headers passed are __newest first__.
 lcaWithMainChain
     :: (WorkMode ssc m)
-    => NonEmpty (BlockHeader ssc) -> m (Maybe (HeaderHash ssc))
+    => NonEmpty (BlockHeader ssc) -> m (Maybe HeaderHash)
 lcaWithMainChain headers@(h:|hs) =
     fmap fst . find snd <$>
         mapM (\hh -> (hh,) <$> GS.isBlockInMainChain hh)
@@ -190,7 +190,7 @@ classifyHeaders
     => NonEmpty (BlockHeader ssc) -> m (ClassifyHeadersRes ssc)
 classifyHeaders headers@(h:|hs) = do
     tip <- GS.getTip
-    haveLast <- isJust <$> DB.getBlockHeader (hash $ NE.last headers)
+    haveLast <- isJust <$> DB.getBlockHeader (headerHash $ NE.last headers)
     let headersValid = isVerSuccess $ verifyHeaders True $ h : hs
     if | not headersValid ->
              pure $ CHsInvalid "Header chain is invalid"
@@ -209,7 +209,7 @@ classifyHeaders headers@(h:|hs) = do
         lcaHash <- MaybeT $ lcaWithMainChain headers
         lca <- MaybeT $ DB.getBlockHeader lcaHash
         let depthDiff = tipHeader ^. difficultyL - lca ^. difficultyL
-        lcaChild <- MaybeT $ pure $ find (\bh -> bh ^. prevBlockL == hash lca) (h:hs)
+        lcaChild <- MaybeT $ pure $ find (\bh -> bh ^. prevBlockL == headerHash lca) (h:hs)
         pure $ if
             | hash lca == hash tipHeader -> CHsValid lcaChild
             | depthDiff < 0 -> panic "classifyHeaders@depthDiff is negative"
@@ -229,8 +229,8 @@ classifyHeaders headers@(h:|hs) = do
 -- headers are newest-first.
 getHeadersFromManyTo
     :: forall ssc m. (MonadDB ssc m, Ssc ssc, CanLog m, HasLoggerName m)
-    => NonEmpty (HeaderHash ssc)
-    -> Maybe (HeaderHash ssc)
+    => NonEmpty HeaderHash
+    -> Maybe HeaderHash
     -> m (Maybe (NonEmpty (BlockHeader ssc)))
 getHeadersFromManyTo checkpoints startM = runMaybeT $ do
     lift $ logDebug $
@@ -267,7 +267,7 @@ getHeadersFromManyTo checkpoints startM = runMaybeT $ do
 -- exponentially base 2 relatively to the depth in the blockchain.
 getHeadersOlderExp
     :: (MonadDB ssc m, Ssc ssc)
-    => Maybe (HeaderHash ssc) -> m [HeaderHash ssc]
+    => Maybe HeaderHash -> m [HeaderHash]
 getHeadersOlderExp upto = do
     tip <- GS.getTip
     let upToReal = fromMaybe tip upto
@@ -278,7 +278,7 @@ getHeadersOlderExp upto = do
     takeHashes [] = []
     takeHashes headers@(x:_) =
         let prevHashes = map (view prevBlockL) headers
-        in hash x : take (length prevHashes - 1) prevHashes
+        in headerHash x : take (length prevHashes - 1) prevHashes
     -- Powers of 2
     twoPowers n | n < 0 =
         panic $ "getHeadersOlderExp#twoPowers called w/" <> show n
@@ -304,7 +304,7 @@ getHeadersOlderExp upto = do
 getHeadersFromToIncl
     :: forall ssc m .
        (MonadDB ssc m, Ssc ssc)
-    => HeaderHash ssc -> HeaderHash ssc -> m (Maybe (NonEmpty (HeaderHash ssc)))
+    => HeaderHash -> HeaderHash -> m (Maybe (NonEmpty HeaderHash))
 getHeadersFromToIncl older newer = runMaybeT $ do
     -- oldest and newest blocks do exist
     start <- MaybeT $ DB.getBlockHeader newer
@@ -317,9 +317,9 @@ getHeadersFromToIncl older newer = runMaybeT $ do
   where
     loadHeadersDo
         :: Word64
-        -> NonEmpty (HeaderHash ssc)
-        -> HeaderHash ssc
-        -> MaybeT m (NonEmpty (HeaderHash ssc))
+        -> NonEmpty HeaderHash
+        -> HeaderHash
+        -> MaybeT m (NonEmpty HeaderHash)
     loadHeadersDo lowerBound hashes nextHash
         | nextHash == genesisHash = mzero
         | nextHash == older = pure $ nextHash <| hashes
@@ -368,7 +368,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
 -- partial application happened.
 verifyAndApplyBlocks
     :: (WorkMode ssc m, SscWorkersClass ssc)
-    => Bool -> NonEmpty (Block ssc) -> m (Either Text (HeaderHash ssc))
+    => Bool -> NonEmpty (Block ssc) -> m (Either Text HeaderHash)
 verifyAndApplyBlocks rollback = verifyAndApplyBlocksInternal True rollback
 
 -- See the description for verifyAndApplyBlocks. This method also
@@ -376,7 +376,7 @@ verifyAndApplyBlocks rollback = verifyAndApplyBlocksInternal True rollback
 -- flag.
 verifyAndApplyBlocksInternal
     :: (WorkMode ssc m, SscWorkersClass ssc)
-    => Bool -> Bool -> NonEmpty (Block ssc) -> m (Either Text (HeaderHash ssc))
+    => Bool -> Bool -> NonEmpty (Block ssc) -> m (Either Text HeaderHash)
 verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
     tip <- GS.getTip
     let assumedTip = blocks ^. _neHead . prevBlockL
@@ -451,7 +451,7 @@ applyWithRollback
     :: (WorkMode ssc m, SscWorkersClass ssc)
     => NonEmpty (Blund ssc)
     -> NonEmpty (Block ssc)
-    -> m (Either Text (HeaderHash ssc))
+    -> m (Either Text HeaderHash)
 applyWithRollback toRollback toApply = runExceptT $ do
     tip <- GS.getTip
     when (tip /= newestToRollback) $ do
@@ -515,8 +515,8 @@ createGenesisBlockDo
        WorkMode ssc m
     => EpochIndex
     -> SlotLeaders
-    -> HeaderHash ssc
-    -> m (Maybe (GenesisBlock ssc), HeaderHash ssc)
+    -> HeaderHash
+    -> m (Maybe (GenesisBlock ssc), HeaderHash)
 createGenesisBlockDo epoch leaders tip = do
     let noHeaderMsg =
             "There is no header is DB corresponding to tip from semaphore"

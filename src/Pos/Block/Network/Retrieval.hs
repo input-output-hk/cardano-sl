@@ -97,7 +97,7 @@ retrievalWorker sendActions = handleAll handleWE $
         "Chain of headers from " %shortHashF % " to " %shortHashF %
         " is useless for the following reason: " %stext
     handleCHsValid peerId lcaChild newestHash = do
-        let lcaChildHash = hash lcaChild
+        let lcaChildHash = headerHash lcaChild
         logDebug $ sformat validFormat lcaChildHash newestHash
         void $ withConnectionTo sendActions peerId $ \conv -> do
             send conv $ mkBlocksRequest lcaChildHash newestHash
@@ -123,9 +123,9 @@ retrievalWorker sendActions = handleAll handleWE $
                             (b0 ^. blockHeader) lcaChild
     retrieveBlocks' :: WorkMode ssc m
                    => Int
-                   -> ConversationActions (MsgGetBlocks ssc) (MsgBlock ssc) m
-                   -> HeaderHash ssc
-                   -> HeaderHash ssc
+                   -> ConversationActions MsgGetBlocks (MsgBlock ssc) m
+                   -> HeaderHash
+                   -> HeaderHash
                    -> ExceptT Text m (NonEmpty (Block ssc))
     retrieveBlocks' i conv prevH endH = do
         mBlock <- lift $ recv conv
@@ -148,14 +148,14 @@ retrievalWorker sendActions = handleAll handleWE $
 -- message.
 mkHeadersRequest
     :: WorkMode ssc m
-    => Maybe (HeaderHash ssc) -> m (Maybe (MsgGetHeaders ssc))
+    => Maybe HeaderHash -> m (Maybe MsgGetHeaders)
 mkHeadersRequest upto = do
     headers <- NE.nonEmpty <$> getHeadersOlderExp Nothing
     pure $ (\h -> MsgGetHeaders h upto) <$> headers
 
 matchRequestedHeaders
     :: (Ssc ssc)
-    => NonEmpty (BlockHeader ssc) -> MsgGetHeaders ssc -> Bool
+    => NonEmpty (BlockHeader ssc) -> MsgGetHeaders -> Bool
 matchRequestedHeaders headers@(newTip :| hs) MsgGetHeaders {..} =
     let startHeader = NE.last headers
         startMatches =
@@ -164,7 +164,7 @@ matchRequestedHeaders headers@(newTip :| hs) MsgGetHeaders {..} =
         mghToMatches
             | length headers > blkSecurityParam = True
             | isNothing mghTo = True
-            | otherwise =  Just (hash newTip) == mghTo
+            | otherwise =  Just (headerHash newTip) == mghTo
      in and [ startMatches
             , mghToMatches
             , formChain
@@ -175,9 +175,9 @@ matchRequestedHeaders headers@(newTip :| hs) MsgGetHeaders {..} =
 requestHeaders
     :: forall ssc m.
        (WorkMode ssc m)
-    => MsgGetHeaders ssc
+    => MsgGetHeaders
     -> NodeId
-    -> ConversationActions (MsgGetHeaders ssc) (MsgHeaders ssc) m
+    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
 requestHeaders mgh peerId conv = do
     logDebug $ sformat ("handleUnsolicitedHeader: withConnection: sending "%shown) mgh
@@ -248,7 +248,7 @@ addToBlockRequestQueue headers peerId = do
 -- | Make message which requests chain of blocks which is based on our
 -- tip. LcaChild is the first block after LCA we don't
 -- know. WantedBlock is the newest one we want to get.
-mkBlocksRequest :: HeaderHash ssc -> HeaderHash ssc -> MsgGetBlocks ssc
+mkBlocksRequest :: HeaderHash -> HeaderHash -> MsgGetBlocks
 mkBlocksRequest lcaChild wantedBlock =
     MsgGetBlocks
     { mgbFrom = lcaChild
@@ -278,7 +278,7 @@ handleBlocks blocks sendActions = do
 
 handleBlocksWithLca :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
-    => SendActions BiP m -> NonEmpty (Block ssc) -> HeaderHash ssc -> m ()
+    => SendActions BiP m -> NonEmpty (Block ssc) -> HeaderHash -> m ()
 handleBlocksWithLca sendActions blocks lcaHash = do
     logDebug $ sformat lcaFmt lcaHash
     -- Head blund in result is the youngest one.
@@ -316,7 +316,7 @@ applyWithoutRollback sendActions blocks = do
   where
     newestTip = blocks ^. _neLast . headerHashG
     applyWithoutRollbackDo
-        :: HeaderHash ssc -> m (Either Text (HeaderHash ssc), HeaderHash ssc)
+        :: HeaderHash -> m (Either Text HeaderHash, HeaderHash)
     applyWithoutRollbackDo curTip = do
         res <- verifyAndApplyBlocks False blocks
         let newTip = either (const curTip) identity res
@@ -326,7 +326,7 @@ applyWithoutRollback sendActions blocks = do
 applyWithRollback
     :: forall ssc m.
        (WorkMode ssc m, SscWorkersClass ssc)
-    => SendActions BiP m -> NonEmpty (Block ssc) -> HeaderHash ssc -> NonEmpty (Blund ssc) -> m ()
+    => SendActions BiP m -> NonEmpty (Block ssc) -> HeaderHash -> NonEmpty (Blund ssc) -> m ()
 applyWithRollback sendActions toApply lca toRollback = do
     logInfo $ sformat ("Trying to apply blocks w/ rollback: "%listJson)
         (map (view blockHeader) toApply)
@@ -372,17 +372,17 @@ onFailedVerifyBlocks blocks err = logWarning $
             err (fmap headerHash blocks)
 
 blocksAppliedMsg
-    :: forall ssc a.
-       HasHeaderHash a ssc
+    :: forall a.
+       HasHeaderHash a
     => NonEmpty a -> Text
 blocksAppliedMsg (block :| []) =
     sformat ("Block has been adopted "%shortHashF) (headerHash block)
 blocksAppliedMsg blocks =
-    sformat ("Blocks have been adopted: "%listJson) (fmap (headerHash @a @ssc) blocks)
+    sformat ("Blocks have been adopted: "%listJson) (fmap (headerHash @a) blocks)
 
 blocksRolledBackMsg
-    :: forall ssc a.
-       HasHeaderHash a ssc
+    :: forall a.
+       HasHeaderHash a
     => NonEmpty a -> Text
 blocksRolledBackMsg =
-    sformat ("Blocks have been rolled back: "%listJson) . fmap (headerHash @a @ssc)
+    sformat ("Blocks have been rolled back: "%listJson) . fmap (headerHash @a)

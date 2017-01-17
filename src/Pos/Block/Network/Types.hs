@@ -18,22 +18,22 @@ import           Pos.Ssc.Class.Types   (Ssc (SscPayload))
 import           Pos.Types             (Block, BlockHeader, HeaderHash)
 
 -- | 'GetHeaders' message (see protocol specification).
-data MsgGetHeaders ssc = MsgGetHeaders
-    { mghFrom :: !(NonEmpty (HeaderHash ssc))
-    , mghTo   :: !(Maybe (HeaderHash ssc))
+data MsgGetHeaders = MsgGetHeaders
+    { mghFrom :: !(NonEmpty HeaderHash)
+    , mghTo   :: !(Maybe HeaderHash)
     } deriving (Generic, Show, Eq)
 
-instance Message (MsgGetHeaders ssc) where
+instance Message MsgGetHeaders where
     messageName _ = MessageName $ BC.pack "GetHeaders"
     formatMessage _ = "GetHeaders"
 
 -- | 'GetHeaders' message (see protocol specification).
-data MsgGetBlocks ssc = MsgGetBlocks
-    { mgbFrom :: !(HeaderHash ssc)
-    , mgbTo   :: !(HeaderHash ssc)
+data MsgGetBlocks = MsgGetBlocks
+    { mgbFrom :: !HeaderHash
+    , mgbTo   :: !HeaderHash
     } deriving (Generic, Show, Eq)
 
-instance Message (MsgGetBlocks ssc) where
+instance Message MsgGetBlocks where
     messageName _ = MessageName $ BC.pack "GetBlocks"
     formatMessage _ = "GetBlocks"
 

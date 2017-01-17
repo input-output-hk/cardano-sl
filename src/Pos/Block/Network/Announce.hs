@@ -55,10 +55,10 @@ announceBlock sendActions header = do
 
 handleHeadersCommunication
     :: WorkMode ssc m
-    => ConversationActions (MsgHeaders ssc) (MsgGetHeaders ssc) m
+    => ConversationActions (MsgHeaders ssc) MsgGetHeaders m
     -> m ()
 handleHeadersCommunication conv = do
-    (msg :: Maybe (MsgGetHeaders ssc)) <- recv conv
+    (msg :: Maybe MsgGetHeaders) <- recv conv
     whenJust msg $ \(MsgGetHeaders {..}) -> do
         logDebug "Got request on handleGetHeaders"
         headers <- getHeadersFromManyTo mghFrom mghTo

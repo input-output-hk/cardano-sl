@@ -37,5 +37,5 @@ instance Buildable Undo where
 instance HasDifficulty (Blund ssc) where
     difficultyL = _1 . difficultyL
 
-instance BiSsc ssc => HasHeaderHash (Blund ssc) ssc where
+instance BiSsc ssc => HasHeaderHash (Blund ssc) where
     headerHash = headerHash . fst

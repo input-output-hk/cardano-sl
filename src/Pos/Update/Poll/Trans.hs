@@ -12,6 +12,7 @@ module Pos.Update.Poll.Trans
 
 import           Control.Lens                (at, iso, (.=))
 import           Control.Monad.Base          (MonadBase (..))
+import           Control.Monad.Except        (MonadError)
 import           Control.Monad.Fix           (MonadFix)
 import           Control.Monad.State         (MonadState (..))
 import           Control.Monad.Trans.Class   (MonadTrans)
@@ -29,7 +30,6 @@ import           Universum
 import           Pos.Context                 (WithNodeContext)
 import           Pos.Crypto                  (hash)
 import           Pos.DB.Class                (MonadDB)
-import           Pos.DB.Types                (psProposal)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..))
@@ -42,7 +42,8 @@ import           Pos.Update.Poll.Class       (MonadPoll (..), MonadPollRead (..)
 import           Pos.Update.Poll.Types       (PollModifier (..), pmDelActivePropsIdxL,
                                               pmDelActivePropsL, pmLastAdoptedPVL,
                                               pmNewActivePropsIdxL, pmNewActivePropsL,
-                                              pmNewConfirmedL, pmNewScriptVersionsL)
+                                              pmNewConfirmedL, pmNewScriptVersionsL,
+                                              psProposal)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 ----------------------------------------------------------------------------
@@ -57,7 +58,7 @@ import           Pos.Util.JsonLog            (MonadJL (..))
 newtype PollT m a = PollT
     { getPollT :: StateT PollModifier m a
     } deriving (Functor, Applicative, Monad, MonadThrow, MonadSlots,
-                MonadCatch, MonadIO, HasLoggerName, MonadTrans,
+                MonadCatch, MonadIO, HasLoggerName, MonadTrans, MonadError e,
                 WithNodeContext ssc, MonadJL, CanLog, MonadMask, MonadUSMem,
                 MonadSscLD kek, MonadSscGS ssc, MonadUtxoRead, MonadUtxo,
                 MonadTxpLD ssc, MonadBase io, MonadDelegation, MonadFix)

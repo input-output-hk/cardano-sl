@@ -11,7 +11,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/log-warper.git
-    commit: e05d74587ff9270891a3e57f1f15d9e91c8d2c83
+    commit: fa5f0ab17b4248d072e5a5bb01ce1a72fae4eebc
   extra-dep: true
 - location:
     git: https://github.com/serokell/acid-state.git
@@ -35,8 +35,8 @@ packages:
     commit: 96e5db162d88482bc0e120dc61cadd45c168c275
   extra-dep: true
 - location:
-    git: https://github.com/serokell/tw-rework-sketch.git
-    commit: 2fdcc82fcc3afa3dec66e38d8baa805eef777d2f
+    git: https://github.com/serokell/time-warp-nt.git
+    commit: 6bb7af7e9339a45c02ccbc2e6131a844cb851505
   extra-dep: true
 - location:
     git: https://github.com/serokell/network-transport-tcp.git
@@ -56,10 +56,9 @@ extra-deps:
 - QuickCheck-2.9.2
 - cryptonite-openssl-0.3
 - UtilityTM-0.0.4
-- serokell-util-0.1.3.0
+- serokell-util-0.1.3.2
 - pvss-0.1
 - base58-bytestring-0.1.0
-- time-warp-1.1.1.1
 
 resolver: lts-7.9
 

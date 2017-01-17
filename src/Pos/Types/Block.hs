@@ -37,6 +37,7 @@ import           Universum
 
 import           Pos.Binary.Class      (Bi (..))
 import           Pos.Binary.Types      ()
+import           Pos.Binary.Update     ()
 import           Pos.Constants         (epochSlots, maxBlockProxySKs)
 import           Pos.Crypto            (Hash, SecretKey, checkSig, hash, proxySign,
                                         proxyVerify, pskIssuerPk, sign, toPublic,

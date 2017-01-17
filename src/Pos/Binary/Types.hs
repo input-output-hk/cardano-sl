@@ -4,21 +4,21 @@
 
 module Pos.Binary.Types () where
 
-import           Data.Binary.Get     (getInt32be, getWord64be, getWord8, label)
-import           Data.Binary.Put     (putInt32be, putWord64be, putWord8)
-import           Data.Ix             (inRange)
-import           Formatting          (formatToString, int, sformat, (%))
+import           Data.Binary.Get       (getInt32be, getWord64be, getWord8, label)
+import           Data.Binary.Put       (putInt32be, putWord64be, putWord8)
+import           Data.Ix               (inRange)
+import           Formatting            (formatToString, int, sformat, (%))
 import           Universum
 
-import           Pos.Binary.Class    (Bi (..), UnsignedVarInt (..))
-import           Pos.Binary.Merkle   ()
-import           Pos.Binary.Update   ()
-import           Pos.Binary.Version  ()
-import           Pos.Constants       (epochSlots, protocolMagic)
-import qualified Pos.Data.Attributes as A
-import           Pos.Ssc.Class.Types (Ssc (..))
-import qualified Pos.Types.Timestamp as T
-import qualified Pos.Types.Types     as T
+import           Pos.Binary.Class      (Bi (..), UnsignedVarInt (..))
+import           Pos.Binary.Merkle     ()
+import           Pos.Binary.Version    ()
+import           Pos.Constants         (epochSlots, protocolMagic)
+import qualified Pos.Data.Attributes   as A
+import           Pos.Ssc.Class.Types   (Ssc (..))
+import qualified Pos.Types.Timestamp   as T
+import qualified Pos.Types.Types       as T
+import           Pos.Update.Core.Types (UpdatePayload)
 
 -- kind of boilerplate, but anyway that's what it was made for --
 -- verbosity and clarity
@@ -85,10 +85,6 @@ instance Bi T.TxDistribution where
         T.TxDistribution .
         either (\(UnsignedVarInt n) -> replicate n []) identity
             <$> get
-
-instance Bi T.Undo where
-    put (T.Undo txs psks) = put txs >> put psks
-    get = label "Undo" $ T.Undo <$> get <*> get
 
 -- serialized as vector of TxInWitness
 --instance Bi T.TxWitness where
@@ -183,7 +179,7 @@ instance Bi (T.ConsensusData (T.MainBlockchain ssc)) where
         put _mcdSignature
     get = label "MainConsensusData" $ T.MainConsensusData <$> get <*> get <*> get <*> get
 
-instance Ssc ssc => Bi (T.Body (T.MainBlockchain ssc)) where
+instance (Ssc ssc, Bi UpdatePayload) => Bi (T.Body (T.MainBlockchain ssc)) where
     put T.MainBody{..} = do
         put _mbTxs
         put _mbWitnesses

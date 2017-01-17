@@ -88,17 +88,13 @@ hoistListenerAction nat rnat (ListenerActionConversation f) = ListenerActionConv
 
 -- | Gets message type basing on type of incoming messages
 listenerMessageName :: Listener packing m -> MessageName
-listenerMessageName (ListenerActionOneMsg f) =
-    let msgName :: Message msg => (msg -> m ()) -> Proxy msg -> MessageName
-        msgName _ = messageName
-    in  msgName (f undefined undefined) Proxy
-listenerMessageName (ListenerActionConversation f) =
-    let msgName :: Message rcv
-                => (ConversationActions snd rcv m -> m ())
-                -> Proxy rcv
-                -> MessageName
-        msgName _ = messageName
-    in  msgName (f undefined) Proxy
+listenerMessageName (ListenerActionOneMsg (
+        _ :: LL.NodeId -> SendActions packing m -> msg -> m ()
+    )) = messageName (Proxy :: Proxy msg)
+
+listenerMessageName (ListenerActionConversation (
+        _ :: LL.NodeId -> ConversationActions snd rcv m -> m ()
+    )) = messageName (Proxy :: Proxy rcv)
 
 data SendActions packing m = SendActions {
        -- | Send a isolated (sessionless) message to a node

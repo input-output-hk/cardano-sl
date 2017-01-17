@@ -123,7 +123,7 @@ data BalIter
 instance MonadDBIterator BalIter where
     type IterKey BalIter = StakeholderId
     type IterValue BalIter = Coin
-    iterKeyPrefix _ = "b/s"
+    iterKeyPrefix _ = iterationPrefix
 
 runBalanceMapIterator
     :: forall v m ssc a . (MonadDB ssc m, MonadMask m)
@@ -162,6 +162,9 @@ ftsStakeKey = encodeWithKeyPrefix @BalIter
 
 ftsSumKey :: ByteString
 ftsSumKey = "b/ftssum"
+
+iterationPrefix :: ByteString
+iterationPrefix = "b/s"
 
 ----------------------------------------------------------------------------
 -- Details

@@ -118,7 +118,7 @@ data UtxoIter
 instance MonadDBIterator UtxoIter where
     type IterKey UtxoIter = TxIn
     type IterValue UtxoIter = TxOutAux
-    iterKeyPrefix _ = "t/"
+    iterKeyPrefix _ = iterationPrefix
 
 runUtxoMapIterator
     :: forall v m ssc a . (MonadDB ssc m, MonadMask m)
@@ -179,6 +179,9 @@ genUtxoKey = "ut/gutxo"
 
 txInKey :: TxIn -> ByteString
 txInKey = encodeWithKeyPrefix @UtxoIter
+
+iterationPrefix :: ByteString
+iterationPrefix = "ut/t"
 
 ----------------------------------------------------------------------------
 -- Details

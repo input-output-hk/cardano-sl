@@ -69,7 +69,7 @@ data PskIter
 instance MonadDBIterator PskIter where
     type IterKey PskIter = StakeholderId
     type IterValue PskIter = ProxySKSimple
-    iterKeyPrefix _ = "d/"
+    iterKeyPrefix _ = iterationPrefix
 
 runPskMapIterator
     :: forall v m ssc a . (MonadDB ssc m, MonadMask m)
@@ -88,3 +88,6 @@ runPskIterator iter = runIterator @PskIter iter =<< getUtxoDB
 -- Storing Hash IssuerPk -> ProxySKSimple
 pskKey :: StakeholderId -> ByteString
 pskKey = encodeWithKeyPrefix @PskIter
+
+iterationPrefix :: ByteString
+iterationPrefix = "d/p"

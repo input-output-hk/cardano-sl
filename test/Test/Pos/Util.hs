@@ -17,7 +17,8 @@ module Test.Pos.Util
        , showReadTest
        ) where
 
-import           Data.Binary.Get       (runGetIncremental, Decoder (..))
+import           Data.Binary.Get       (isEmpty, runGetIncremental, Decoder (..))
+import qualified Data.Binary.Get       as Bin
 import qualified Data.ByteString       as BS
 import qualified Data.ByteString.Lazy  as LBS
 import           Data.SafeCopy         (SafeCopy, safeGet, safePut)
@@ -26,7 +27,7 @@ import           Data.Typeable         (typeRep)
 import           Test.QuickCheck       (counterexample)
 import           Prelude               (read)
 
-import           Pos.Binary            (Bi (..), decode, encode)
+import           Pos.Binary            (Bi (..), encode)
 import           Pos.Util              (AsBinaryClass (..))
 
 import           Test.Hspec            (Spec)
@@ -35,7 +36,9 @@ import           Test.QuickCheck       (Arbitrary, Property, (===))
 import           Universum
 
 binaryEncodeDecode :: (Show a, Eq a, Bi a) => a -> Property
-binaryEncodeDecode a = decode (encode a) === a
+binaryEncodeDecode a = Bin.runGet parser (encode a) === a
+  where
+    parser = get <* unlessM isEmpty (fail "Unconsumed input")
 
 -- | This check is indended to be used for all messages sent via
 -- networking.

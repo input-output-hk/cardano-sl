@@ -4,8 +4,10 @@ import '../node_modules/material-design-lite/dist/material.js';
 import './main.css';
 // app
 const Main = require('./Main.purs');
-const initialState = require('./App/Example.purs').initialState;
+const initialState = require('./Explorer/State.purs').initialState;
+
 const isDebug = $DEBUG; // set by webpack
+
 // HMR
 if(module.hot) {
   var main = Main[isDebug ? 'debug' : 'main'](window.lastState || initialState)();

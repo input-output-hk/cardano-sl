@@ -1,4 +1,4 @@
-module Util.Version where
+module Explorer.Util.Version where
 
 foreign import versionImpl :: Int
 

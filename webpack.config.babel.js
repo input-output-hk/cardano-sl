@@ -84,7 +84,7 @@ module.exports = {
     )
   ],
   entry: [
-    path.join(__dirname, 'src/main.js')
+    path.join(__dirname, 'src/index.js')
   ],
   resolve: {
     extensions: [ '.js', '.purs']

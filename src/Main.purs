@@ -1,6 +1,7 @@
-module App where
+module Main where
 
-import App.Example (Action, State, update, view)
+import Explorer.View.Layout (view)
+import Explorer.State (Action, State, update)
 import Control.Monad.Eff (Eff)
 import DOM (DOM)
 import Control.Bind ((=<<))

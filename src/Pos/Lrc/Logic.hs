@@ -33,7 +33,7 @@ type SetRichmen = HashSet StakeholderId
 -- 1. Old richmen who delegated own stake and isn't richman more.
 -- 2. Delegates who became richmen.
 findDelegationStakes
-    :: forall m . MonadIterator m (StakeholderId, [StakeholderId])
+    :: forall m . MonadIterator (StakeholderId, [StakeholderId]) m
     => (StakeholderId -> m Bool) -- helper
     -> (StakeholderId -> m (Maybe Coin)) -- helper
     -> Coin
@@ -44,7 +44,7 @@ findDelegationStakes isIssuer stakeResolver t = do
   where
     step :: (SetRichmen, RichmenStake)
          -> m (SetRichmen, RichmenStake)
-    step richmen = nextItem @_ @(StakeholderId, [StakeholderId]) >>=
+    step richmen = nextItem @(StakeholderId, [StakeholderId]) >>=
         maybe (pure richmen) (onItem richmen >=> step)
     onItem (old, new) (delegate, issuers) = do
         sumIssuers <-
@@ -91,14 +91,14 @@ findDelRichUsingPrecomp precomputed t = do
 
 -- | Find delegated richmen.
 findDelegatedRichmen
-    :: (MonadDB ssc m, MonadMask m, MonadIterator m (StakeholderId, Coin))
+    :: (MonadDB ssc m, MonadMask m, MonadIterator (StakeholderId, Coin) m)
     => Coin -> m RichmenStake
 findDelegatedRichmen t =
     findRichmenStake t >>= flip findDelRichUsingPrecomp t
 
 -- | Find nodes which have at least 'eligibility threshold' coins.
 findRichmenStake
-    :: forall m . MonadIterator m (StakeholderId, Coin)
+    :: forall m . MonadIterator (StakeholderId, Coin) m
     => Coin  -- ^ Eligibility threshold
     -> m RichmenStake
 findRichmenStake t = step mempty
@@ -122,7 +122,7 @@ findRichmenStake t = step mempty
 -- and compute using one pass by stake DB and one pass by delegation DB.
 findAllRichmenMaybe
     :: forall ssc m . (MonadDB ssc m, MonadMask m
-                      , MonadIterator m (StakeholderId, Coin))
+                      , MonadIterator (StakeholderId, Coin) m)
     => Maybe Coin -- ^ Eligibility threshold (optional)
     -> Maybe Coin -- ^ Delegation threshold (optional)
     -> m (RichmenStake, RichmenStake)

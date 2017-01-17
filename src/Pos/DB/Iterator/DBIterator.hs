@@ -49,7 +49,7 @@ instance ( Bi k, Bi v
          , MonadDBIterator i, IterKey i ~ k, IterValue i ~ v,
            Show k, Show v --TODO remove after debug
          )
-         => MonadIterator (DBIterator i m) (k, v) where
+         => MonadIterator (k, v) (DBIterator i m) where
     nextItem = do
         it <- DBIterator ask
         cur <- curItem
@@ -82,8 +82,8 @@ instance MonadTrans (DBMapIterator i v)  where
 -- -- | Instance for DBMapIterator using DBIterator.
 -- -- Fetch every element from DBIterator and apply `f` for it.
 instance ( Monad m
-         , MonadIterator (DBIterator i m) (IterKey i, IterValue i))
-         => MonadIterator (DBMapIterator i v m) v where
+         , MonadIterator (IterKey i, IterValue i) (DBIterator i m))
+         => MonadIterator v (DBMapIterator i v m) where
     nextItem = DBMapIterator $ ReaderT $ \f -> fmap f <$> nextItem
     curItem = DBMapIterator $ ReaderT $ \f -> fmap f <$> curItem
 

@@ -136,7 +136,7 @@ filterUtxo
     -> m Utxo
 filterUtxo p = runUtxoIterator (step mempty)
   where
-    step res = nextItem @_ @(IterType UtxoIter) >>= maybe (pure res) (\e@(k, v) ->
+    step res = nextItem >>= maybe (pure res) (\e@(k, v) ->
       if | p e       -> step (M.insert (txInHash k, txInIndex k) v res)
          | otherwise -> step res)
 

@@ -43,5 +43,4 @@ type Translation =
     { welcome :: String
     , count :: String
     , counted :: String
-    , hello :: String
     }

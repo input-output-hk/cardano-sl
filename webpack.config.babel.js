@@ -14,6 +14,7 @@ const GitRevisionPlugin = require('git-revision-webpack-plugin')
 
 const nodeEnv = process.env.NODE_ENV || 'development';
 const isProd = nodeEnv === 'production';
+console.log("production build: ", isProd);
 
 const paths = {
   src: path.join(__dirname, '/src/'),
@@ -22,7 +23,7 @@ const paths = {
 }
 
 module.exports = {
-  devtool: isProd ? 'hidden-source-map' : 'cheap-module-eval-source-map',
+  devtool: isProd ? 'nosources-source-map' : 'cheap-module-eval-source-map',
   output: {
     path: paths.output,
     publicPath: paths.public,
@@ -49,7 +50,10 @@ module.exports = {
     }),
     new NamedModulesPlugin(),
     new LoaderOptionsPlugin({
+      minimize: isProd,
       options: {
+        minimize: isProd,
+        debug: !isProd,
         postcss: [
           require('postcss-import'),
           require('autoprefixer')({
@@ -72,6 +76,7 @@ module.exports = {
     ...(isProd ? [
       new NoErrorsPlugin(),
       new UglifyJsPlugin({
+        sourceMap: false,
         beautify: false,
         comments: false
       })

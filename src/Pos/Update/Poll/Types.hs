@@ -122,6 +122,7 @@ voteToUProposalState voter stake decision UndecidedProposalState {..} =
 -- MemPool or blocks which are verified.
 data PollModifier = PollModifier
     { pmNewScriptVersions :: !(HashMap ProtocolVersion ScriptVersion)
+    , pmDelScriptVersions :: !(HashSet PropocolVersion)
     , pmLastAdoptedPV     :: !(Maybe ProtocolVersion)
     , pmNewConfirmed      :: !(HashMap ApplicationName NumSoftwareVersion)
     , pmNewActiveProps    :: !(HashMap UpId ProposalState)
@@ -131,6 +132,7 @@ data PollModifier = PollModifier
     }
 
 makeLensesFor [ ("pmNewScriptVersions", "pmNewScriptVersionsL")
+              , ("pmDelScriptVersions", "pmDelScriptVersionsL")
               , ("pmLastAdoptedPV", "pmLastAdoptedPVL")
               , ("pmNewConfirmed", "pmNewConfirmedL")
               , ("pmNewActiveProps", "pmNewActivePropsL")

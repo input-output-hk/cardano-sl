@@ -6,7 +6,7 @@ module Pos.Update.MemState.MemState
        , newMemVar
        ) where
 
-import           Control.Concurrent.MVar   (newMVar)
+import           Control.Concurrent.Lock   (Lock, new)
 import           Control.Concurrent.STM    (TVar, newTVarIO)
 import           Data.Default              (Default (def))
 import           Universum
@@ -34,11 +34,10 @@ mkMemState = MemState {msSlot = SlotId 0 0, msPool = def, msModifier = def}
 -- | MemVar uses concurrency primitives and stores MemState.
 data MemVar = MemVar
     { mvState :: !(TVar MemState)  -- ^ MemState itself.
-    , mvLock  :: !(MVar ())        -- ^ Lock for modifting MemState.
+    , mvLock  :: !Lock             -- ^ Lock for modifting MemState.
     }
 
 newMemVar
     :: MonadIO m
     => m MemVar
-newMemVar =
-    liftIO $ MemVar <$> newTVarIO mkMemState <*> newMVar ()
+newMemVar = liftIO $ MemVar <$> newTVarIO mkMemState <*> new

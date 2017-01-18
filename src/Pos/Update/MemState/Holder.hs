@@ -87,7 +87,7 @@ instance MonadBaseControl IO m => MonadBaseControl IO (USHolder m) where
 ----------------------------------------------------------------------------
 
 instance Monad m => MonadUSMem (USHolder m) where
-    askUSMemState = USHolder ask
+    askUSMemVar = USHolder ask
 
 ----------------------------------------------------------------------------
 -- Runners

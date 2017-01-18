@@ -379,6 +379,7 @@ library
                       , binary-orphans
                       , bytestring
                       , cereal
+                      , concurrent-extra
                       , conduit >= 1.2.8
                       , containers
                       , cryptonite >= 0.19 && < 0.21

@@ -13,16 +13,15 @@ import           Universum
 
 import           Pos.Update.MemState.MemState (MemVar)
 
--- | Equivalent of @MonadReader (TVar MemState) m@.
--- TODO: askUSMemState and all the other things should probably be separated
+-- | Reduced equivalent of @MonadReader MemVar m@.
 class Monad m => MonadUSMem m where
-    askUSMemState :: m MemVar
-    -- ^ Retrieve 'TVar' on 'Pos.Update.State.MemState'.
+    askUSMemVar :: m MemVar
+    -- ^ Retrieve 'MemVar'.
 
-    -- | Default implementations for 'MonadTrans'.
-    default askUSMemState
+    -- | Default implementation for 'MonadTrans'.
+    default askUSMemVar
         :: (MonadTrans t, MonadUSMem m', t m' ~ m) => m MemVar
-    askUSMemState = lift askUSMemState
+    askUSMemVar = lift askUSMemVar
 
 instance MonadUSMem m => MonadUSMem (ReaderT s m)
 instance MonadUSMem m => MonadUSMem (StateT s m)

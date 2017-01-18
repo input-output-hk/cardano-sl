@@ -20,6 +20,7 @@ import           Universum
 import qualified Pos.DB               as DB
 import           Pos.Types            (Block, NEBlocks, difficultyL, gbBody,
                                        mbUpdatePayload)
+import           Pos.Update.Error     (USError (USInternalError))
 import           Pos.Update.Poll      (DBPoll, MonadPoll, PollModifier, PollT,
                                        PollVerFailure, USUndo, execPollT,
                                        rollbackUSPayload, runDBPoll, runPollT,
@@ -38,7 +39,7 @@ type USGlobalVerifyMode ы m = (DB.MonadDB ы m, MonadError PollVerFailure m)
 -- function assumes that no other thread applies block in parallel. It
 -- also assumes that parent of oldest block is current tip.
 usApplyBlocks
-    :: USGlobalApplyMode ssc m
+    :: (MonadThrow m, USGlobalApplyMode ssc m)
     => NEBlocks ssc -> PollModifier -> m [DB.SomeBatchOp]
 usApplyBlocks blocks _ = do
     inAssertMode $ do
@@ -47,9 +48,9 @@ usApplyBlocks blocks _ = do
     return []
   where
     onFailure failure = do
-        logError $ colorize Red $ "usVerifyBlocks failed: " <> pretty failure
-        error
-            "You already know that usApplyBlock failed, my point is that better exception should be here"
+        let msg = "usVerifyBlocks failed in 'apply': " <> pretty failure
+        logError $ colorize Red msg
+        throwM $ USInternalError msg
 
 -- | Revert application of given blocks to US part of GState DB
 -- and US local data. Head must be the __youngest__ block. Caller must

@@ -31,12 +31,14 @@ import           Control.Lens        (makeLensesFor)
 import           Data.Default        (Default (def))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Buildable
+import           Formatting          (bprint, build, int, (%))
 import           Universum
 
 import           Pos.Crypto          (PublicKey)
 import           Pos.Script.Type     (ScriptVersion)
-import           Pos.Types.Coin      (unsafeAddCoin)
-import           Pos.Types.Types     (ChainDifficulty, Coin, SlotId, mkCoin)
+import           Pos.Types.Coin      (coinF, unsafeAddCoin)
+import           Pos.Types.Types     (ChainDifficulty, Coin, SlotId, StakeholderId,
+                                      mkCoin)
 import           Pos.Types.Version   (ApplicationName, NumSoftwareVersion,
                                       ProtocolVersion)
 import           Pos.Update.Core     (StakeholderVotes, UpId, UpdateProposal,
@@ -150,6 +152,10 @@ instance Default PollModifier where
         , pmDelActivePropsIdx = mempty
         }
 
+----------------------------------------------------------------------------
+-- Verification failures
+----------------------------------------------------------------------------
+
 -- To be extended for sure.
 -- | PollVerificationFailure represents all possible errors which can
 -- appear in Poll data verification.
@@ -158,10 +164,32 @@ data PollVerFailure
                             ,  pwsvFound    :: !ScriptVersion}
     | PollSmallProposalStake { pspsThreshold :: !Coin
                             ,  pspsActual    :: !Coin}
+    | PollNotRichman { pnrStakeholder :: !StakeholderId
+                    ,  pnrThreshold   :: !Coin
+                    ,  pnrStake       :: !Coin}
+    | PollUnknownProposal { pupStakeholder :: !StakeholderId
+                         ,  pupProposal    :: !UpId}
 
 -- To be implemented for sure.
 instance Buildable PollVerFailure where
-    build = notImplemented
+    build (PollWrongScriptVersion expected found) =
+        bprint ("wrong script version (expected "%int%", found "%int%")")
+        expected found
+    build (PollSmallProposalStake threshold actual) =
+        bprint ("proposal doesn't have enough stake from positive votes "%
+                "(threshold is "%coinF%", proposal has "%coinF%")")
+        threshold actual
+    build (PollNotRichman id threshold stake) =
+        bprint ("voter "%build%" is not richman (his stake is "%coinF%", but"%
+                " threshold is "%coinF%")")
+        id stake threshold
+    build (PollUnknownProposal stakeholder proposal) =
+        bprint (build%" has voted for unkown proposal "%build)
+        stakeholder proposal
+
+----------------------------------------------------------------------------
+-- Undo
+----------------------------------------------------------------------------
 
 -- To be extended for sure.
 data USUndo = USUndo

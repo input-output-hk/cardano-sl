@@ -12,7 +12,7 @@ import           Universum
 import           Pos.Types.Types       (ChainDifficulty)
 import           Pos.Update.Core       (UpdatePayload)
 import           Pos.Update.Poll.Class (MonadPoll)
-import           Pos.Update.Poll.Types (PollVerFailure, USUndo)
+import           Pos.Update.Poll.Types (PollVerFailure, USUndo (..))
 
 -- | Verify UpdatePayload with respect to data provided by
 -- MonadPoll. If data is valid it is also applied.  Otherwise
@@ -23,7 +23,7 @@ import           Pos.Update.Poll.Types (PollVerFailure, USUndo)
 verifyAndApplyUSPayload
     :: (MonadError PollVerFailure m, MonadPoll m)
     => Bool -> UpdatePayload -> m USUndo
-verifyAndApplyUSPayload = notImplemented
+verifyAndApplyUSPayload _ _ = pure $ const USUndo notImplemented
 
 -- | Rollback application of UpdatePayload in MonadPoll using payload
 -- itself and undo data.

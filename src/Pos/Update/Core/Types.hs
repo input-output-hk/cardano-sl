@@ -26,6 +26,7 @@ module Pos.Update.Core.Types
 
 import           Control.Exception          (assert)
 import           Data.Char                  (isAscii)
+import           Data.Default               (Default (def))
 import qualified Data.HashMap.Strict        as HM
 import           Data.SafeCopy              (base, deriveSafeCopySimple)
 import qualified Data.Text                  as T
@@ -112,6 +113,9 @@ instance Buildable UpdatePayload where
       bprint (build%", "%int%" votes")
              (maybe "no proposal" Buildable.build upProposal)
              (length upVotes)
+
+instance Default UpdatePayload where
+    def = UpdatePayload Nothing []
 
 -- | Proof that body of update message contains 'UpdatePayload'.
 type UpdateProof = Hash UpdatePayload

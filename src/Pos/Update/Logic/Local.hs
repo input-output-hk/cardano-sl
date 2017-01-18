@@ -20,6 +20,7 @@ module Pos.Update.Logic.Local
        , usPreparePayload
        ) where
 
+import           Data.Default              (Default (def))
 import           Universum
 
 import           Pos.Crypto                (PublicKey)
@@ -94,12 +95,12 @@ processVote = notImplemented
 -- current GState.  This function assumes that GState is locked. It
 -- tries to leave as much data as possible.
 usNormalize :: USLocalLogicMode ς m => m ()
-usNormalize = notImplemented
+usNormalize = const pass notImplemented
 
 -- | Update memory state to make it correct for given slot.
 processNewSlot :: USLocalLogicMode μ m => SlotId -> m ()
-processNewSlot = notImplemented
+processNewSlot _ = const pass notImplemented
 
 -- | Prepare UpdatePayload for inclusion into new block with given SlotId.
 usPreparePayload :: USLocalLogicMode μ m => SlotId -> m UpdatePayload
-usPreparePayload = notImplemented
+usPreparePayload _ = const (pure def) notImplemented

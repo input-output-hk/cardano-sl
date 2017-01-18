@@ -30,14 +30,14 @@ verifyAndApplyUSPayload _ _ = pure $ const USUndo notImplemented
 rollbackUSPayload
     :: MonadPoll m
     => ChainDifficulty -> UpdatePayload -> USUndo -> m ()
-rollbackUSPayload = notImplemented
+rollbackUSPayload _ _ _ = const pass notImplemented
 
 -- | Remove some data from Poll to make it valid. First argument
 -- determines whether 'updateProposalThreshold' should be checked.
 normalizePoll
     :: MonadPoll m
     => Bool -> m ()
-normalizePoll = notImplemented
+normalizePoll _ = const pass notImplemented
 
 ----------------------------------------------------------------------------
 -- Legacy garbage

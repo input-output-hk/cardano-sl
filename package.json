@@ -51,8 +51,8 @@
     "rimraf": "^2.5.4",
     "source-map-loader": "^0.1.6",
     "style-loader": "^0.13.1",
-    "webpack": "^2.2.0-rc.3",
-    "webpack-dev-server": "^2.2.0-rc.0"
+    "webpack": "^2.2.0",
+    "webpack-dev-server": "^2.2.0"
   },
   "babel": {
     "presets": [

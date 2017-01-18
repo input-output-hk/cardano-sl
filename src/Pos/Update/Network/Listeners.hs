@@ -14,9 +14,11 @@ import           Universum
 import           Pos.Binary.Communication ()
 import           Pos.Binary.Relay         ()
 import           Pos.Communication.BiP    (BiP)
-import           Pos.Update.Core          (UpId, UpdateProposal (..), UpdateVote (..), VoteId)
+import           Pos.Update.Core          (UpId, UpdateProposal (..), UpdateVote (..),
+                                           VoteId)
 import           Pos.Update.Logic.Local   (getLocalProposal, getLocalVote,
-                                           isProposalNeeded, isVoteNeeded)
+                                           isProposalNeeded, isVoteNeeded,
+                                           processProposal, processVote)
 import           Pos.Update.Network.Types (ProposalMsgTag (..), VoteMsgTag (..))
 import           Pos.Util.Relay           (DataMsg, InvMsg, Relay (..), ReqMsg,
                                            handleDataL, handleInvL, handleReqL)
@@ -63,7 +65,7 @@ instance WorkMode ssc m =>
 
     handleInv _ = isProposalNeeded
     handleReq _ = getLocalProposal
-    handleData _ _ = notImplemented
+    handleData proposal _ = isRight <$> processProposal proposal
 
 ----------------------------------------------------------------------------
 -- UpdateVote listeners
@@ -91,4 +93,4 @@ instance WorkMode ssc m =>
 
     handleInv _ (id, pk, dec) = isVoteNeeded id pk dec
     handleReq _ (id, pk, dec) = getLocalVote id pk dec
-    handleData _ _ = notImplemented
+    handleData uv _ = isRight <$> processVote uv

@@ -11,7 +11,8 @@ import           Control.Concurrent.STM    (TVar, newTVarIO)
 import           Data.Default              (Default (def))
 import           Universum
 
-import           Pos.Types                 (SlotId (..))
+import           Pos.Crypto                (unsafeHash)
+import           Pos.Types                 (HeaderHash, SlotId (..))
 import           Pos.Update.MemState.Types (MemPool)
 import           Pos.Update.Poll.Types     (PollModifier)
 
@@ -22,6 +23,8 @@ data MemState = MemState
     -- ^ Slot for which data is valid.
     -- In reality EpochIndex should be enough, but we sometimes
     -- overgeneralize things.
+    , msTip      :: !HeaderHash
+    -- ^ Tip for which data is valid.
     , msPool     :: !MemPool
     -- ^ Pool of data to be included into block.
     , msModifier :: !PollModifier
@@ -29,7 +32,12 @@ data MemState = MemState
     }
 
 mkMemState :: MemState
-mkMemState = MemState {msSlot = SlotId 0 0, msPool = def, msModifier = def}
+mkMemState = MemState
+    { msSlot = SlotId 0 0
+    , msTip = unsafeHash ("dratuti" :: Text)
+    , msPool = def
+    , msModifier = def
+    }
 
 -- | MemVar uses concurrency primitives and stores MemState.
 data MemVar = MemVar

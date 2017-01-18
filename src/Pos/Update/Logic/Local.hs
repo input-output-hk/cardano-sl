@@ -21,22 +21,22 @@ module Pos.Update.Logic.Local
        , usPreparePayload
        ) where
 
-import           Control.Concurrent.STM (readTVar, writeTVar)
+import           Control.Concurrent.STM (modifyTVar', readTVar)
 import           Control.Lens           (at, (%=))
-import           Control.Monad.Except   (MonadError, runExceptT)
+import           Control.Monad.Except   (runExceptT)
 import           Data.Default           (Default (def))
 import qualified Data.HashMap.Strict    as HM
 import           Universum
 
-import           Pos.Crypto             (PublicKey, hash)
+import           Pos.Crypto             (PublicKey)
 import           Pos.DB.Class           (MonadDB)
+import qualified Pos.DB.GState          as DB
 import           Pos.Types              (SlotId (siEpoch))
 import           Pos.Update.Core        (UpId, UpdatePayload (..), UpdateProposal,
                                          UpdateVote, canCombineVotes)
 import           Pos.Update.MemState    (GlobalVotes, MemPool (..), MemState (..),
-                                         MemVar (..), MonadUSMem (askUSMemVar),
-                                         UpdateProposals, askUSMemState, modifyMemPool,
-                                         modifyPollModifier, withUSLock)
+                                         MonadUSMem, UpdateProposals, askUSMemState,
+                                         modifyMemPool, modifyPollModifier, withUSLock)
 import           Pos.Update.Poll        (PollModifier, PollVerFailure, ProposalState (..),
                                          UndecidedProposalState (..), evalPollT,
                                          execPollT, normalizePoll, pmNewActivePropsL,
@@ -119,20 +119,27 @@ processVote
     => UpdateVote -> m (Either PollVerFailure ())
 processVote vote = processSkeleton $ UpdatePayload Nothing [vote]
 
+withCurrentTip :: (MonadDB ssc m, MonadUSMem m) => (MemState -> m MemState) -> m ()
+withCurrentTip action = do
+    tipBefore <- DB.getTip
+    stateVar <- askUSMemState
+    ms <- atomically $ readTVar stateVar
+    newMS <- action ms
+    atomically $ modifyTVar' stateVar $ \cur ->
+      if | tipBefore == msTip cur -> newMS
+         | otherwise -> cur
+
 processSkeleton
     :: USLocalLogicMode ϟ m
     => UpdatePayload -> m (Either PollVerFailure ())
-processSkeleton payload = withUSLock $ runExceptT $ do
-        stateVar <- askUSMemState
-        ms@MemState {..} <- atomically $ readTVar stateVar
-        modifier <-
-            runDBPoll . evalPollT msModifier . execPollT def $
-            verifyAndApplyUSPayload False payload
-        let newModifier = modifyPollModifier msModifier modifier
-        let newPool = modifyMemPool payload modifier msPool
-        let newMS = ms {msModifier = newModifier, msPool = newPool}
-        -- FIXME: check tip here.
-        atomically $ writeTVar stateVar newMS
+processSkeleton payload = withUSLock $ runExceptT $ withCurrentTip $ \ms@MemState{..} -> do
+    modifier <-
+        runDBPoll . evalPollT msModifier . execPollT def $
+        verifyAndApplyUSPayload False payload
+    let newModifier = modifyPollModifier msModifier modifier
+    let newPool = modifyMemPool payload modifier msPool
+    pure $ ms {msModifier = newModifier, msPool = newPool}
+
 ----------------------------------------------------------------------------
 -- Normalization
 ----------------------------------------------------------------------------
@@ -145,16 +152,12 @@ usNormalize = const pass notImplemented
 
 -- | Update memory state to make it correct for given slot.
 processNewSlot :: USLocalLogicMode μ m => SlotId -> m ()
-processNewSlot slotId =
-    withUSLock $ do
-        stateVar <- askUSMemState
-        ms@MemState {..} <- atomically $ readTVar stateVar
-        if | msSlot >= slotId -> pass
-           | siEpoch msSlot == siEpoch slotId ->
-               atomically $ writeTVar stateVar ms {msSlot = slotId}
-           | otherwise -> processNewSlotDo stateVar ms
+processNewSlot slotId = withUSLock $ withCurrentTip $ \ms@MemState{..} -> do
+    if | msSlot >= slotId -> pure ms
+       | siEpoch msSlot == siEpoch slotId -> pure $ ms {msSlot = slotId}
+       | otherwise -> processNewSlotDo ms
   where
-    processNewSlotDo stateVar ms@MemState {..} = do
+    processNewSlotDo ms@MemState{..} = do
         let localUpIds = getKeys $ mpProposals msPool
         let slotModifier = updateSlot slotId localUpIds msModifier
         normalizingModifier <-
@@ -162,9 +165,7 @@ processNewSlot slotId =
             normalizePoll False
         let validModifier = modifyPollModifier msModifier normalizingModifier
         let validPool = modifyMemPool def normalizingModifier msPool
-        let newMS = ms {msModifier = validModifier, msPool = validPool}
-        -- FIXME: check tip here.
-        atomically $ writeTVar stateVar newMS
+        pure $ ms {msModifier = validModifier, msPool = validPool}
 
 updateSlot :: SlotId -> HashSet UpId -> PollModifier -> PollModifier
 updateSlot newSlot localIds =

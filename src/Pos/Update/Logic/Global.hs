@@ -23,8 +23,8 @@ import           Pos.DB.GState        (UpdateOp (..))
 import           Pos.Script.Type      (ScriptVersion)
 import           Pos.Types            (ApplicationName, Block, NEBlocks,
                                        NumSoftwareVersion, ProtocolVersion,
-                                       SoftwareVersion (..), difficultyL, gbBody,
-                                       mbUpdatePayload)
+                                       SoftwareVersion (..), difficultyL, epochIndexL,
+                                       gbBody, mbUpdatePayload)
 import           Pos.Update.Core      (UpId)
 import           Pos.Update.Error     (USError (USInternalError))
 import           Pos.Update.Poll      (DBPoll, MonadPoll, PollModifier (..), PollT,
@@ -93,7 +93,10 @@ verifyBlock
     => Block ssc -> m USUndo
 verifyBlock (Left _)    = pure def
 verifyBlock (Right blk) =
-    verifyAndApplyUSPayload True (blk ^. gbBody . mbUpdatePayload)
+    verifyAndApplyUSPayload
+        True
+        (blk ^. epochIndexL)
+        (blk ^. gbBody . mbUpdatePayload)
 
 ----------------------------------------------------------------------------
 -- Conversion to batch

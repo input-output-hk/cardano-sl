@@ -129,7 +129,7 @@ data PollModifier = PollModifier
     , pmNewActiveProps    :: !(HashMap UpId ProposalState)
     , pmDelActiveProps    :: !(HashSet UpId)
     , pmNewActivePropsIdx :: !(HashMap ApplicationName UpId)
-    , pmDelActivePropsIdx :: !(HashSet ApplicationName)
+    , pmDelActivePropsIdx :: !(HashMap ApplicationName UpId)
     }
 
 makeLensesFor [ ("pmNewScriptVersions", "pmNewScriptVersionsL")

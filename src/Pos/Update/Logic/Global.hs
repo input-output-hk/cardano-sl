@@ -13,16 +13,22 @@ module Pos.Update.Logic.Global
 import           Control.Lens         ((^.))
 import           Control.Monad.Except (MonadError, runExceptT)
 import           Data.Default         (Default (def))
+import qualified Data.HashMap.Strict  as HM
 import           Data.List.NonEmpty   (NonEmpty)
 import           System.Wlog          (WithLogger, logError)
 import           Universum
 
 import qualified Pos.DB               as DB
-import           Pos.Types            (Block, NEBlocks, difficultyL, gbBody,
+import           Pos.DB.GState        (UpdateOp (..))
+import           Pos.Script.Type      (ScriptVersion)
+import           Pos.Types            (ApplicationName, Block, NEBlocks,
+                                       NumSoftwareVersion, ProtocolVersion,
+                                       SoftwareVersion (..), difficultyL, gbBody,
                                        mbUpdatePayload)
+import           Pos.Update.Core      (UpId)
 import           Pos.Update.Error     (USError (USInternalError))
-import           Pos.Update.Poll      (DBPoll, MonadPoll, PollModifier, PollT,
-                                       PollVerFailure, USUndo, execPollT,
+import           Pos.Update.Poll      (DBPoll, MonadPoll, PollModifier (..), PollT,
+                                       PollVerFailure, ProposalState, USUndo, execPollT,
                                        rollbackUSPayload, runDBPoll, runPollT,
                                        verifyAndApplyUSPayload)
 import           Pos.Util             (Color (Red), colorize, inAssertMode)
@@ -89,5 +95,41 @@ verifyBlock (Left _)    = pure def
 verifyBlock (Right blk) =
     verifyAndApplyUSPayload True (blk ^. gbBody . mbUpdatePayload)
 
+----------------------------------------------------------------------------
+-- Conversion to batch
+----------------------------------------------------------------------------
+
 modifierToBatch :: PollModifier -> [DB.SomeBatchOp]
-modifierToBatch = notImplemented
+modifierToBatch PollModifier {..} =
+    concat $
+    [ scModifierToBatch pmNewScriptVersions pmDelScriptVersions
+    , pvModifierToBatch pmLastAdoptedPV
+    , confirmedModifierToBatch pmNewConfirmed
+    , upModifierToBatch pmNewActiveProps pmDelActivePropsIdx
+    ]
+
+scModifierToBatch
+    :: HashMap ProtocolVersion ScriptVersion
+    -> HashSet ProtocolVersion
+    -> [DB.SomeBatchOp]
+scModifierToBatch (HM.toList -> added) (toList -> deleted) = addOps ++ delOps
+  where
+    addOps = map (DB.SomeBatchOp . uncurry SetScriptVersion) added
+    delOps = map (DB.SomeBatchOp . DelScriptVersion) deleted
+
+pvModifierToBatch :: Maybe ProtocolVersion -> [DB.SomeBatchOp]
+pvModifierToBatch Nothing  = []
+pvModifierToBatch (Just v) = [DB.SomeBatchOp $ SetLastPV v]
+
+confirmedModifierToBatch :: HashMap ApplicationName NumSoftwareVersion
+                         -> [DB.SomeBatchOp]
+confirmedModifierToBatch (HM.toList -> added) =
+    map (DB.SomeBatchOp . ConfirmVersion . uncurry SoftwareVersion) added
+
+upModifierToBatch :: HashMap UpId ProposalState
+                  -> HashMap ApplicationName UpId
+                  -> [DB.SomeBatchOp]
+upModifierToBatch (toList -> added) (HM.toList -> deleted) = addOps ++ delOps
+  where
+    addOps = map (DB.SomeBatchOp . PutProposal) added
+    delOps = map (DB.SomeBatchOp . uncurry (flip DeleteProposal)) deleted

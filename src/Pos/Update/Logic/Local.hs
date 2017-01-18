@@ -156,11 +156,11 @@ processNewSlot slotId =
   where
     processNewSlotDo stateVar ms@MemState {..} = do
         let localUpIds = getKeys $ mpProposals msPool
-        let invalidModifier = updateSlot slotId localUpIds msModifier
+        let slotModifier = updateSlot slotId localUpIds msModifier
         normalizingModifier <-
-            runDBPoll . evalPollT msModifier . execPollT def $
+            runDBPoll . evalPollT slotModifier . execPollT def $
             normalizePoll False
-        let validModifier = modifyPollModifier normalizingModifier msModifier
+        let validModifier = modifyPollModifier msModifier normalizingModifier
         let validPool = modifyMemPool def normalizingModifier msPool
         let newMS = ms {msModifier = validModifier, msPool = validPool}
         -- FIXME: check tip here.

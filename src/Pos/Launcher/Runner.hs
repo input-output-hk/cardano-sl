@@ -74,7 +74,7 @@ import           Pos.Crypto                     (createProxySecretKey, toPublic)
 import           Pos.DB                         (MonadDB (..), getTip, initNodeDBs,
                                                  openNodeDBs, runDBHolder, _gStateDB)
 import           Pos.DB.Misc                    (addProxySecretKey)
-import           Pos.Delegation.Class           (runDelegationT)
+import           Pos.Delegation.Holder          (runDelegationT)
 import           Pos.DHT.Model                  (MonadDHT (..), converseToNeighbors)
 import           Pos.DHT.Real                   (KademliaDHTInstance,
                                                  KademliaDHTInstanceConfig (..),

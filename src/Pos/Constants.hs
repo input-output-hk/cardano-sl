@@ -13,7 +13,6 @@ module Pos.Constants
        , slotSecurityParam
        , slotDuration
        , epochSlots
-       , epochDuration
        , networkDiameter
 
          -- * SSC constants
@@ -99,16 +98,15 @@ slotSecurityParam :: Integral a => a
 slotSecurityParam = 2 * blkSecurityParam
 
 -- | Length of slot. Also see 'Pos.CompileConfig.ccSlotDurationSec'.
+--
+-- Instead of this, use 'ncSlotDuration' from 'NodeContext', or
+-- 'getSlotDuration' (a method of 'MonadSlots')
 slotDuration :: Microsecond
 slotDuration = sec . ccSlotDurationSec $ compileConfig
 
 -- | Number of slots inside one epoch.
 epochSlots :: Integral a => a
 epochSlots = 12 * blkSecurityParam
-
--- | Length of one epoch in 'Microsecond's.
-epochDuration :: Microsecond
-epochDuration = epochSlots * slotDuration
 
 -- | Estimated time needed to broadcast message from one node to all
 -- other nodes. Also see 'Pos.CompileConfig.ccNetworkDiameter'.

@@ -263,6 +263,7 @@ runCH NodeParams {..} sscNodeContext act = do
             NodeContext
             { ncSystemStart = npSystemStart
             , ncSecretKey = npSecretKey
+            , ncSlotDuration = Const.slotDuration
             , ncGenesisUtxo = npCustomUtxo
             , ncGenesisLeaders = genesisLeaders npCustomUtxo
             , ncTimeLord = npTimeLord

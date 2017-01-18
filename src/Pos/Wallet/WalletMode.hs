@@ -241,6 +241,7 @@ type WalletMode ssc m
       , MonadBlockchainInfo m
       , WithWalletContext m
       , MonadDHT m
+      , MonadSlots m
       )
 
 ---------------------------------------------------------------

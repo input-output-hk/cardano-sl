@@ -86,3 +86,5 @@ instance (Mockable CurrentTime m, MonadIO m) =>
         lastSlot <- readNtpLastSlot
         ntpData <- readNtpData
         getCurrentSlotUsingNtp lastSlot ntpData
+    getSlotDuration =
+        ContextHolder $ asks wcSlotDuration

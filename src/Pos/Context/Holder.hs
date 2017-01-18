@@ -83,6 +83,9 @@ instance (Mockable CurrentTime m, MonadIO m) =>
         ntpData <- readNtpData
         getCurrentSlotUsingNtp lastSlot ntpData
 
+    getSlotDuration =
+        ContextHolder $ asks ncSlotDuration
+
 instance (MonadIO m, Mockable Catch m, WithLogger m) => MonadJL (ContextHolder ssc m) where
     jlLog ev = ContextHolder (asks ncJLFile) >>= maybe (pure ()) doLog
       where

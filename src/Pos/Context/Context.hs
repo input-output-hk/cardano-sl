@@ -37,6 +37,8 @@ type LrcSyncData = (Bool, EpochIndex)
 data NodeContext ssc = NodeContext
     { ncSystemStart         :: !Timestamp
     -- ^ Time when system started working.
+    , ncSlotDuration        :: !Microsecond
+    -- ^ Length of slot
     , ncSecretKey           :: !SecretKey
     -- ^ Secret key used for blocks creation.
     , ncGenesisUtxo         :: !Utxo

@@ -17,6 +17,7 @@ import           System.Wlog                 (logInfo, usingLoggerName)
 import           Universum                   hiding (bracket)
 
 import           Pos.Communication           (BiP (..))
+import           Pos.Constants               (slotDuration)
 import           Pos.DHT.Model               (discoverPeers)
 import           Pos.DHT.Real                (runKademliaDHT)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
@@ -85,6 +86,7 @@ runRawRealWallet res WalletParams {..} listeners action =
         let walletContext
               = WalletContext
               { wcSystemStart = wpSystemStart
+              , wcSlotDuration = slotDuration
               , wcNtpData = ntpData
               , wcNtpLastSlot = lastSlot
               }

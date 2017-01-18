@@ -18,7 +18,6 @@ import           Universum
 
 import qualified Pos.CLI              as CLI
 import           Pos.Communication    (BiP)
-import           Pos.Constants        (slotDuration)
 import           Pos.Crypto           (SecretKey, createProxySecretKey, sign, toPublic)
 import           Pos.Data.Attributes  (mkAttributes)
 import           Pos.Delegation       (sendProxySKEpoch, sendProxySKSimple)
@@ -26,6 +25,7 @@ import           Pos.DHT.Model        (dhtAddr, discoverPeers)
 import           Pos.Genesis          (genesisPublicKeys, genesisSecretKeys)
 import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
                                        bracketResources, runTimeSlaveReal)
+import           Pos.Slotting         (getSlotDuration)
 import           Pos.Ssc.GodTossing   (SscGodTossing)
 import           Pos.Ssc.NistBeacon   (SscNistBeacon)
 import           Pos.Ssc.SscAlgo      (SscAlgo (..))
@@ -141,7 +141,8 @@ initialize :: WalletMode ssc m => WalletOptions -> m [NetworkAddress]
 initialize WalletOptions{..} = do
     -- Wait some time to ensure blockchain is fetched
     putText $ sformat ("Started node. Waiting for "%int%" slots...") woInitialPause
-    delay $ fromIntegral woInitialPause * slotDuration
+    slotDuration <- getSlotDuration
+    delay (fromIntegral woInitialPause * slotDuration)
     fmap dhtAddr <$> discoverPeers
 
 runWalletRepl :: WalletMode ssc m => WalletOptions -> SendActions BiP m -> m ()

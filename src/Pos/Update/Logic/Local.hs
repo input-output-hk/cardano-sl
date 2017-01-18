@@ -41,18 +41,28 @@ import           Pos.Util               (getKeys, zoom')
 -- MonadMask is needed because are using Lock. It can be improved later.
 type USLocalLogicMode σ m = (MonadDB σ m, MonadUSMem m, MonadMask m)
 
+getMemPool :: (MonadUSMem m, MonadIO m) => m MemPool
+getMemPool = msPool <$> (askUSMemState >>= atomically . readTVar)
+
+getLocalProposals :: (MonadUSMem m, MonadIO m) => m UpdateProposals
+getLocalProposals = mpProposals <$> getMemPool
+
+
+getLocalVotes :: (MonadUSMem m, MonadIO m) => m GlobalVotes
+getLocalVotes = mpGlobalVotes <$> getMemPool
+
 ----------------------------------------------------------------------------
 -- Proposals
 ----------------------------------------------------------------------------
 
 -- | This function returns true if update proposal with given
 -- identifier should be requested.
-isProposalNeeded :: MonadUSMem m => UpId -> m Bool
-isProposalNeeded = notImplemented
+isProposalNeeded :: (MonadIO m, MonadUSMem m) => UpId -> m Bool
+isProposalNeeded id = not . HM.member id <$> getLocalProposals
 
 -- | Get update proposal with given id if it is known.
-getLocalProposal :: MonadUSMem m => UpId -> m (Maybe UpdateProposal)
-getLocalProposal = notImplemented
+getLocalProposal :: (MonadIO m, MonadUSMem m) => UpId -> m (Maybe UpdateProposal)
+getLocalProposal id = HM.lookup id <$> getLocalProposals
 
 -- | Process proposal received from network, checking it against
 -- current state (global + local) and adding to local state if it's
@@ -73,16 +83,25 @@ processProposal = notImplemented
 -- identifier issued by stakeholder with given PublicKey and with
 -- given decision should be requested.
 isVoteNeeded
-    :: MonadUSMem m
+    :: (MonadIO m, MonadUSMem m)
     => UpId -> PublicKey -> Bool -> m Bool
-isVoteNeeded = notImplemented
+isVoteNeeded propId pk decision =
+    canCombineVotes decision . fmap snd . lookupVote <$> getLocalVotes
+  where
+    lookupVote locVotes = HM.lookup propId locVotes >>= HM.lookup pk
 
 -- | Get update vote for proposal with given id from given issuer and
 -- with given decision if it is known.
 getLocalVote
-    :: MonadUSMem m
-    => UpId -> PublicKey -> Bool -> m (Maybe UpdateProposal)
-getLocalVote = notImplemented
+    :: (MonadIO m, MonadUSMem m)
+    => UpId -> PublicKey -> Bool -> m (Maybe UpdateVote)
+getLocalVote propId pk decision = do
+    vote <- lookupVote <$> getLocalVotes
+    pure $
+      if | canCombineVotes decision (snd <$> vote) -> Nothing
+         | otherwise -> fst <$> vote
+  where
+    lookupVote locVotes = HM.lookup propId locVotes >>= HM.lookup pk
 
 -- | Process vote received from network, checking it against
 -- current state (global + local) and adding to local state if it's

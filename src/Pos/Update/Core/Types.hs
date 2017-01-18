@@ -8,8 +8,11 @@ module Pos.Update.Core.Types
        , UpId
 
        , UpdateVote (..)
+       , VoteId
        , StakeholderVotes
+       , ExtStakeholderVotes
        , VoteState (..)
+       , ExtendedUpdateVote
 
        , UpdateData (..)
        , SystemTag (getSystemTag)
@@ -81,6 +84,8 @@ data UpdateData = UpdateData
     , udUpdaterHash :: !(Hash LByteString)
     } deriving (Eq, Show, Generic, Typeable)
 
+type VoteId = (UpId, PublicKey, Bool)
+
 -- | Vote for update proposal
 data UpdateVote = UpdateVote
     { -- | Public key of stakeholder, who votes
@@ -93,6 +98,16 @@ data UpdateVote = UpdateVote
       --   by stakeholder
       uvSignature  :: !(Signature (UpId, Bool))
     } deriving (Eq, Show, Generic, Typeable)
+
+instance Buildable UpdateVote where
+    build UpdateVote {..} =
+      bprint ("Update Vote { voter: "%build%", proposal id: "%build%", voter's decision: "%build%" }")
+             uvKey uvProposalId uvDecision
+
+instance Buildable VoteId where
+    build (upId, pk, dec) =
+      bprint ("Vote Id { voter: "%build%", proposal id: "%build%", voter's decision: "%build%" }")
+             pk upId dec
 
 -- | This type represents summary of votes issued by stakeholder.
 data VoteState
@@ -152,6 +167,9 @@ combineVotes decision oldVote = assert (canCombineVotes decision oldVote) combin
         ("combineVotes: these votes can't be combined ("%shown%" and "%shown%")")
         decision
 
+type ExtendedUpdateVote = (UpdateVote, VoteState)
+
+type ExtStakeholderVotes = HashMap PublicKey ExtendedUpdateVote
 -- | Type alias for set of votes from stakeholders
 type StakeholderVotes = HashMap PublicKey VoteState
 

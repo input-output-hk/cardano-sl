@@ -29,8 +29,7 @@ import           Pos.Binary.DHTModel    ()
 import           Pos.Constants          (enhancedMessageBroadcast)
 import           Pos.Constants          (neighborsSendThreshold)
 import           Pos.DHT.Model.Class    (DHTException (..), MonadDHT (..), withDhtLogger)
-import           Pos.DHT.Model.Types    (DHTData, DHTKey, DHTNode (..),
-                                         randomDHTKey)
+import           Pos.DHT.Model.Types    (DHTData, DHTKey, DHTNode (..), randomDHTKey)
 import           Pos.DHT.Model.Util     (joinNetworkNoThrow)
 import           Pos.DHT.Real.Types     (DHTHandle, KademliaDHT (..),
                                          KademliaDHTInstance (..),
@@ -71,7 +70,9 @@ startDHTInstance
        )
     => KademliaDHTInstanceConfig -> m KademliaDHTInstance
 startDHTInstance KademliaDHTInstanceConfig {..} = do
+    logInfo "Generating dht key.."
     kdiKey <- maybe randomDHTKey pure kdcKey
+    logInfo $ sformat ("Generated dht key "%build) kdiKey
     kdiHandle <-
         (liftIO $
         K.createL
@@ -85,6 +86,7 @@ startDHTInstance KademliaDHTInstanceConfig {..} = do
            do logError $ sformat
                   ("Error launching kademlia at port " % int % ": " % shown) kdcPort e
               throw e)
+    logInfo "Created DHT instance"
     let kdiInitialPeers = kdcInitialPeers
     let kdiExplicitInitial = kdcExplicitInitial
     kdiKnownPeersCache <- atomically $ newTVar []

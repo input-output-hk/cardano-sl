@@ -198,7 +198,7 @@ getNodeParams args@Args {..} systemStart = do
         , npJLFile = jlPath
         , npAttackTypes = maliciousEmulationAttacks
         , npAttackTargets = maliciousEmulationTargets
-        , npKademliaDump = fromMaybe "kademlia.dump" kademliaDumpPath
+        , npKademliaDump = kademliaDumpPath
         , npPropagation = not (CLI.disablePropagation commonArgs)
         }
 

@@ -15,15 +15,15 @@ module Pos.DHT.Model.Types
 
 import qualified Data.ByteString             as BS
 import qualified Data.ByteString.Char8       as BS8
-import           Data.Char             (isNumber)
-import           Data.Hashable (Hashable)
+import           Data.Char                   (isNumber)
+import           Data.Hashable               (Hashable)
 import           Data.Hashable               (Hashable (..))
 import           Data.Text.Buildable         (Buildable (..))
 import           Formatting                  (bprint, (%))
 import qualified Formatting                  as F
 import           Network.Kademlia            (fromBS)
-import qualified Network.Transport.TCP as TCP
 import           Network.Kademlia.HashNodeId (HashId (..), genNonce, hashAddress)
+import qualified Network.Transport.TCP       as TCP
 import           Node                        (NodeId (..))
 import           Prelude                     (read, show)
 import           Serokell.Util.Text          (listBuilderJSON)
@@ -77,7 +77,7 @@ bytesToDHTKey bs = either (Left . fromString) (Right . DHTKey . fst) $ fromBS bs
 
 -- | Generate random 'DHTKey'.
 randomDHTKey :: MonadIO m => m DHTKey
-randomDHTKey = liftIO $ DHTKey . hashAddress <$> runSecureRandom genNonce
+randomDHTKey = DHTKey . hashAddress <$> liftIO (runSecureRandom genNonce)
 
 -- TODO: What about node index, i.e. last number in '127.0.0.1:3000:0' ?
 addressToNodeId :: NetworkAddress -> NodeId

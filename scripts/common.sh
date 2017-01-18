@@ -67,7 +67,7 @@ function dht_key {
     i2="0$i"
   fi
 
-  $(find_binary "cardano-key-generator") 000000000000$i2 | tr -d '\n'
+  $(find_binary "cardano-dht-keygen") 000000000000$i2 | tr -d '\n'
 }
 
 function peer_config {

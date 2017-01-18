@@ -10,7 +10,8 @@ module NodeOptions
 
 import           Data.Version               (showVersion)
 import           Options.Applicative.Simple (Parser, auto, help, long, metavar, option,
-                                             simpleOptions, strOption, switch, value)
+                                             showDefault, simpleOptions, strOption,
+                                             switch, value)
 import           Serokell.Util.OptParse     (fromParsec)
 import           Universum
 
@@ -37,7 +38,7 @@ data Args = Args
     , jlPath                    :: !(Maybe FilePath)
     , maliciousEmulationAttacks :: ![AttackType]
     , maliciousEmulationTargets :: ![AttackTarget]
-    , kademliaDumpPath          :: !(Maybe FilePath)
+    , kademliaDumpPath          :: !FilePath
 #ifdef WITH_WEB
     , enableWeb                 :: !Bool
     , webPort                   :: !Word16
@@ -97,10 +98,9 @@ argsParser =
     many
         (option (fromParsec CLI.attackTargetParser) $
          long "attack-target" <> metavar "HOST:PORT|PUBKEYHASH") <*>
-    optional
-        (strOption
-             (long "kademlia-dump-path" <> metavar "FILEPATH" <>
-              help "Path to kademlia dump file"))
+    strOption
+        (long "kademlia-dump-path" <> metavar "FILEPATH" <> showDefault <>
+        help "Path to kademlia dump file" <> value "kademlia.dump")
 #ifdef WITH_WEB
     <*>
     switch

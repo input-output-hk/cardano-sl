@@ -7,38 +7,33 @@ cache:
   # TODO: https://github.com/commercialhaskell/stack/issues/1176#issuecomment-269520803
   #- "c:\\sr"
   #- '.stack-work'
-  - 'rocksdb'
 
+# Avoid long paths on Windows
 environment:
   global:
     STACK_ROOT: "c:\\sr"
 
 before_test:
-- curl -sS -ostack.zip -L --insecure http://www.stackage.org/stack/windows-x86_64
+# Install stack
+- curl -sSL -o stack.zip --insecure http://www.stackage.org/stack/windows-x86_64
 - 7z x stack.zip stack.exe
 
 # Install rocksdb
-- git clone https://github.com/facebook/rocksdb.git --branch v4.13.5 || timeout /t 0
-- mkdir rocksdb\build || timeout /t 0
-- cd rocksdb\build
-- cmake -G "Visual Studio 14 2015 Win64" -DOPTDBG=1 -DXPRESS=1 ..
-- msbuild rocksdb.sln /p:Configuration=Release /m
-- cd ..\..
-- xcopy rocksdb\build\Release\rocksdb.dll .
-- xcopy rocksdb\build\Release\rocksdb.dll installers
+- git clone https://github.com/facebook/rocksdb.git --branch v4.13.5
+- ps: Start-FileDownload 'https://ci.appveyor.com/api/buildjobs/kbpteb8j55p6sa2m/artifacts/rocksdb%2Fbuild%2FRocksdb.zip' -FileName rocksdb.zip
+- 7z x rocksdb.zip
 
 test_script:
   - stack setup --no-reinstall
   # No parallelization due to https://github.com/haskell/cabal/issues/4005 
-  # no tests due to too long builds  
   - stack --no-terminal --local-bin-path installers 
-      build -j 1 --no-haddock-deps --bench --no-run-benchmarks 
+      build -j 1 --test --no-haddock-deps --bench --no-run-benchmarks 
       --flag cardano-sl:with-web 
       --flag cardano-sl:with-wallet 
       --extra-include-dirs="C:\OpenSSL-Win64\include" 
       --extra-lib-dirs="C:\OpenSSL-Win64" 
-      --extra-lib-dirs="C:\projects\pos-haskell-prototype\rocksdb\build\Release" 
       --extra-include-dirs="C:\projects\pos-haskell-prototype\rocksdb\include" 
+      --extra-lib-dirs="C:\projects\pos-haskell-prototype" 
       --copy-bins
    #  - xcopy stack.exe installers
    #  - cd installers
@@ -46,15 +41,15 @@ test_script:
    #  - stack --no-terminal build -j 1 --exec windows-installer
    #  - cd ..
   - stack exec -- cardano-wallet-hs2purs
-  - cd Daedalus
+  - cd daedalus
   - npm install
   - npm run build:prod
 
 artifacts:
   - path: installers/cardano-node.exe
-    name: CardanoNode.exe
+    name: cardano-node.exe
   - path: daedalus/
-    name: DaedalusBridge.zip
+    name: DaedalusBridge
     type: zip
 
 notifications:

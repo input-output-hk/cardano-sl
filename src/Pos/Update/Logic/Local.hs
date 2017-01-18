@@ -113,7 +113,7 @@ processNewSlot slotId =
         ms@MemState {..} <- atomically $ readTVar stateVar
         if | msSlot >= slotId -> pass
            | siEpoch msSlot == siEpoch slotId ->
-               atomically $ writeTVar stateVar MemState {msSlot = slotId, ..}
+               atomically $ writeTVar stateVar ms {msSlot = slotId}
            | otherwise -> processNewSlotDo stateVar ms
   where
     processNewSlotDo stateVar ms@MemState {..} = do
@@ -127,7 +127,6 @@ processNewSlot slotId =
         let newMS = ms {msModifier = validModifier, msPool = validPool}
         -- FIXME: check tip here.
         atomically $ writeTVar stateVar newMS
-
 
 updateSlot :: SlotId -> HashSet UpId -> PollModifier -> PollModifier
 updateSlot newSlot localIds =

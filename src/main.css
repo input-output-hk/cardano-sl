@@ -3,3 +3,6 @@
 @import "const.css";
 @import "Explorer/View/layout.css";
 @import "Explorer/View/dashboard.css";
+@import "Explorer/View/address.css";
+@import "Explorer/View/calculator.css";
+@import "Explorer/View/transaction.css";

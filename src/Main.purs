@@ -1,35 +1,43 @@
 module Main where
 
-import Explorer.View.Layout (view)
-import Explorer.State (Action, State, update)
+import Prelude (bind, pure, (<<<))
 import Control.Monad.Eff (Eff)
+import Network.HTTP.Affjax (AJAX)
 import DOM (DOM)
 import Control.Bind ((=<<))
-import Prelude (pure, bind, ($))
-import Pux (App, Config, CoreEffects, fromSimple, renderToDOM, start)
-import Pux.Devtool (Action, start, defaultOptions) as Pux.Devtool
+import Signal ((~>))
 
-type AppEffects = (dom :: DOM)
+import Pux (App, Config, CoreEffects, Update, renderToDOM, start)
+import Pux.Router (sampleUrl)
+import Pux.Devtool (Action, start) as Pux.Devtool
 
-config :: forall eff. State -> Eff (dom :: DOM | eff) (Config State Action AppEffects)
-config state =
+import Explorer.View.Layout (view)
+import Explorer.State (Action(..), State, update) as Ex
+import Explorer.Routes (match)
+
+type AppEffects = (dom :: DOM, ajax :: AJAX)
+
+config :: forall eff. Ex.State -> Eff (dom :: DOM, ajax :: AJAX | eff)
+    (Config Ex.State Ex.Action AppEffects)
+config state = do
+  urlSignal <- sampleUrl
+  let routeSignal = urlSignal ~> Ex.UpdateView <<< match
   pure
     { initialState: state
-    , update: fromSimple update
+    , update: Ex.update :: Update Ex.State Ex.Action AppEffects
     , view: view
-    , inputs: []
+    , inputs: [routeSignal]
     }
 
-main :: State -> Eff (CoreEffects AppEffects) (App State Action)
+main :: Ex.State -> Eff (CoreEffects AppEffects) (App Ex.State Ex.Action)
 main state = do
   app <- start =<< config state
   renderToDOM "#app" app.html
   pure app
 
-debug :: State -> Eff (CoreEffects AppEffects) (App State (Pux.Devtool.Action Action))
+debug :: Ex.State -> Eff (CoreEffects AppEffects) (App Ex.State (Pux.Devtool.Action Ex.Action))
 debug state = do
   appConfig <- config state
-  -- app <- Pux.Devtool.start appConfig Pux.Devtool.defaultOptions
   app <- Pux.Devtool.start appConfig {opened: false}
   renderToDOM "#app" app.html
   pure app

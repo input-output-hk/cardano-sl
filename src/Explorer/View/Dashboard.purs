@@ -1,25 +1,42 @@
 module Explorer.View.Dashboard where
 
-import Pux.Html (Html, button, div, h3, text)
-import Pux.Html.Events (onClick)
-import Pux.Html.Attributes (className)
-import Prelude hiding (div)
-import Explorer.State (State, Action(..))
+import Prelude
+
+import Pux.Html (Html, button, div, h3, text) as P
+import Pux.Html.Attributes (className) as P
+import Pux.Html.Events (onClick) as P
+import Pux.Router (link) as P
+
 import Explorer.I18n.Lang (Language(..), translate)
+import Explorer.Routes (Route(..), toUrl)
+import Explorer.State (State, Action(..))
 import Explorer.Util.String (substitute)
 
-dashboardView :: State -> Html Action
-dashboardView state =
-    div [ className "dashboard" ]
-        [ h3  [ className "label-count" ]
-              [ text <<< flip substitute [show state.count] $ translate _.counted lang ]
-        , button  [ className btnClazz, onClick (const $ Count)]
-                  [ text $ translate _.count lang ]
-        , button  [ className btnClazz, onClick (const $ SetLanguage English)]
-                  [ text "EN" ]
-        , button  [ className btnClazz, onClick (const $ SetLanguage German)]
-                  [ text "DE" ]
+dashboardView :: State -> P.Html Action
+dashboardView state = do
+    let lang = state.lang
+    let btnClazz = "mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect"
+    P.div
+        [ P.className "dashboard" ]
+        [ P.h3
+            [ P.className "label-count" ]
+            [ P.text <<< flip substitute [show state.count] $ translate _.counted lang ]
+        , P.button
+            [ P.className btnClazz, P.onClick (const $ Count) ]
+            [ P.text $ translate _.count lang ]
+        , P.link (toUrl Transaction)
+            [ P.className btnClazz ]
+            [ P.text $ translate _.transaction lang ]
+        , P.link (toUrl Address)
+            [ P.className btnClazz ]
+            [ P.text $ translate _.address lang ]
+        , P.link (toUrl Calculator)
+            [ P.className btnClazz ]
+            [ P.text $ translate _.calculator lang ]
+        , P.button
+            [ P.className btnClazz, P.onClick (const $ SetLanguage English)]
+            [ P.text "EN" ]
+        , P.button
+            [ P.className btnClazz, P.onClick (const $ SetLanguage German)]
+            [ P.text "DE" ]
         ]
-      where
-        lang = state.lang
-        btnClazz = "mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect"

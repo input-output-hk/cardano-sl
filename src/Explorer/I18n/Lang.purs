@@ -42,6 +42,10 @@ languageNativeName German = "Deutsch"
 type Translation =
     { title :: String
     , subtitle :: String
+    , back :: String
+    , transaction :: String
+    , address :: String
+    , calculator :: String
     , version :: String
     , nav ::
       { home :: String

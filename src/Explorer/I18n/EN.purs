@@ -3,6 +3,10 @@ module Explorer.I18n.EN where
 translation =
     { title: "Cardano Blockchain Explorer"
     , subtitle: "most effective way to reasearch crypto currencies network"
+    , back: "Back"
+    , transaction: "Transaction"
+    , address: "Address"
+    , calculator: "Calculator"
     , nav : { home: "Home"
       , blockchain: "Blockchain"
       , market: "Market"

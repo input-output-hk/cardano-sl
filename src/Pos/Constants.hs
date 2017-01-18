@@ -9,7 +9,8 @@
 module Pos.Constants
        (
          -- * Constants mentioned in paper
-         k
+         blkSecurityParam
+       , slotSecurityParam
        , slotDuration
        , epochSlots
        , epochDuration
@@ -20,6 +21,10 @@ module Pos.Constants
        , mpcSendInterval
        , mpcThreshold
 
+       -- * Dev/production mode, system start
+       , isDevelopment
+       , staticSysStart
+
          -- * Other constants
        , genesisN
        , maxLocalTxs
@@ -27,9 +32,6 @@ module Pos.Constants
        , neighborsSendThreshold
        , networkConnectionTimeout
        , blockRetrievalQueueSize
-       , RunningMode (..)
-       , runningMode
-       , isDevelopment
        , defaultPeers
        , sysTimeBroadcastSlots
        , vssMaxTTL
@@ -37,6 +39,7 @@ module Pos.Constants
        , protocolMagic
        , enhancedMessageBroadcast
        , delegationThreshold
+       , recoveryHeadersMessage
 
          -- * Malicious activity detection constants
        , mdNoBlocksSlotThreshold
@@ -65,15 +68,19 @@ import           Pos.Util.TimeWarp          (ms, sec)
 import           System.Environment         (lookupEnv)
 import qualified Text.Parsec                as P
 import           Universum                  hiding (lift)
+#ifndef DEV_MODE
+import           Data.Time.Clock.POSIX      (getPOSIXTime)
+import           System.IO.Unsafe           (unsafePerformIO)
+#endif
 
 import           Pos.CLI                    (dhtNodeParser)
 import           Pos.CompileConfig          (CompileConfig (..), compileConfig)
 import           Pos.DHT.Model.Types        (DHTNode)
-import           Pos.Types.Timestamp        (Timestamp)
+import           Pos.Types.Timestamp        (Timestamp (..))
 import           Pos.Types.Types            (CoinPortion, unsafeCoinPortion)
 import           Pos.Types.Version          (ApplicationName, ProtocolVersion (..),
                                              SoftwareVersion (..), mkApplicationName)
-import           Pos.Update.Types           (SystemTag, mkSystemTag)
+import           Pos.Update.Core            (SystemTag, mkSystemTag)
 import           Pos.Util                   ()
 import           Pos.Util.TimeWarp          (mcs)
 
@@ -81,10 +88,15 @@ import           Pos.Util.TimeWarp          (mcs)
 -- Main constants mentioned in paper
 ----------------------------------------------------------------------------
 
--- | Consensus guarantee (i.e. after what amount of blocks can we consider
--- blocks stable?).
-k :: Integral a => a
-k = fromIntegral . ccK $ compileConfig
+-- | Security parameter which is maximum number of blocks which can be
+-- rolled back.
+blkSecurityParam :: Integral a => a
+blkSecurityParam = fromIntegral . ccK $ compileConfig
+
+-- | Security parameter expressed in number of slots. It uses chain
+-- quality property. It's basically 'blkSecurityParam / chain_quality'.
+slotSecurityParam :: Integral a => a
+slotSecurityParam = 2 * blkSecurityParam
 
 -- | Length of slot. Also see 'Pos.CompileConfig.ccSlotDurationSec'.
 slotDuration :: Microsecond
@@ -92,7 +104,7 @@ slotDuration = sec . ccSlotDurationSec $ compileConfig
 
 -- | Number of slots inside one epoch.
 epochSlots :: Integral a => a
-epochSlots = 6 * k
+epochSlots = 12 * blkSecurityParam
 
 -- | Length of one epoch in 'Microsecond's.
 epochDuration :: Microsecond
@@ -165,24 +177,27 @@ blockRetrievalQueueSize :: Integral a => a
 blockRetrievalQueueSize =
     fromIntegral . ccBlockRetrievalQueueSize $ compileConfig
 
--- | Defines mode of running application: in tested mode or in production.
-data RunningMode
-    = Development
-    | Production { rmSystemStart :: !Timestamp}
-
--- | Current running mode.
-runningMode :: RunningMode
-#ifdef DEV_MODE
-runningMode = Development
-#else
-runningMode = Production $ panic "System start is not known!"
-#endif
-
 -- | @True@ if current mode is 'Development'.
 isDevelopment :: Bool
-isDevelopment = case runningMode of
-                  Development -> True
-                  _           -> False
+isDevelopment = isNothing staticSysStart
+
+-- | System start time embeded into binary.
+staticSysStart :: Maybe Timestamp
+#ifdef DEV_MODE
+staticSysStart = Nothing
+#else
+staticSysStart = Just $ Timestamp $ sec $
+    let st = ccProductionNetworkStartTime compileConfig
+    in if st > 0 then st
+       else let pause = 30
+                divider = 10
+                after3Mins = pause + unsafePerformIO (round <$> getPOSIXTime)
+                minuteMod = after3Mins `mod` divider
+                alignment = if minuteMod > (divider `div` 2) then 1 else 0
+            in (after3Mins `div` divider + alignment) * divider
+               -- ^ If several local nodes are started within 20 sec,
+               -- they'll have same start time
+#endif
 
 -- | See 'Pos.CompileConfig.ccDefaultPeers'.
 defaultPeers :: [DHTNode]
@@ -214,6 +229,12 @@ enhancedMessageBroadcast = fromIntegral $ ccEnhancedMessageBroadcast compileConf
 -- | Portion of total stake necessary to vote for or against update.
 delegationThreshold :: CoinPortion
 delegationThreshold = unsafeCoinPortion $ ccDelegationThreshold compileConfig
+
+-- | Maximum amount of headers node can put into headers message while
+-- in "after offline" or "recovery" mode. Should be more than
+-- 'blkSecurityParam'.
+recoveryHeadersMessage :: (Integral a) => a
+recoveryHeadersMessage = fromIntegral . ccRecoveryHeadersMessage $ compileConfig
 
 ----------------------------------------------------------------------------
 -- Malicious activity

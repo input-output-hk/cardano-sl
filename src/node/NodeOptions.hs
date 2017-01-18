@@ -17,16 +17,19 @@ import           Universum
 import           Paths_cardano_sl           (version)
 import qualified Pos.CLI                    as CLI
 import           Pos.DHT.Model              (DHTKey)
-import           Pos.Security.Types         (AttackTarget, AttackType)
+import           Pos.Security.CLI           (AttackTarget, AttackType)
+import           Pos.Util.TimeWarp          (NetworkAddress)
 
 
 data Args = Args
     { dbPath                    :: !FilePath
     , rebuildDB                 :: !Bool
+#ifdef DEV_MODE
     , spendingGenesisI          :: !(Maybe Int)
     , vssGenesisI               :: !(Maybe Int)
+#endif
     , keyfilePath               :: !FilePath
-    , port                      :: !Word16
+    , ipPort                    :: !NetworkAddress
     , supporterNode             :: !Bool
     , dhtKey                    :: !(Maybe DHTKey)
     , timeLord                  :: !Bool
@@ -47,6 +50,7 @@ data Args = Args
 #endif
 #endif
     , commonArgs                :: !CLI.CommonArgs
+    , noSystemStart             :: !Int
     }
   deriving Show
 
@@ -61,6 +65,7 @@ argsParser =
          help
              "If we DB already exist, discard it's contents and create new one from\
              \ scratch") <*>
+#ifdef DEV_MODE
     optional
         (option
              auto
@@ -70,12 +75,13 @@ argsParser =
         (option
              auto
              (long "vss-genesis" <> metavar "INT" <> help "Use genesis vss #i")) <*>
+#endif
     strOption
         (long "keyfile" <>
          metavar "FILEPATH" <>
          value "secret.key" <>
          help "Path to file with secret keys") <*>
-    CLI.portOption 3000 <*>
+    CLI.ipPortOption ("0.0.0.0", 3000) <*>
     switch
         (long "supporter" <> help "Launch DHT supporter instead of full node") <*>
     optional
@@ -121,6 +127,7 @@ argsParser =
 #endif
 #endif
     <*> CLI.commonArgsParser peerHelpMsg
+    <*> option auto (long "system-start" <> metavar "TIMESTAMP" <> value (-1))
   where
     peerHelpMsg =
         "Peer to connect to for initial peer discovery. Format\

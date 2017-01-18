@@ -1,12 +1,17 @@
 -- | Reexport module
 
 module Pos.Delegation
-       ( module Exports
+       ( module Pos.Delegation.Class
+       , module Pos.Delegation.Listeners
+       , module Pos.Delegation.Logic
+       , module Pos.Delegation.Lrc
+       , module Pos.Delegation.Methods
+       , module Pos.Delegation.Types
        ) where
 
-import           Pos.Delegation.Class     as Exports
-import           Pos.Delegation.Listeners as Exports
-import           Pos.Delegation.Logic     as Exports
-import           Pos.Delegation.Lrc       as Exports
-import           Pos.Delegation.Methods   as Exports
-import           Pos.Delegation.Types     as Exports
+import           Pos.Delegation.Class
+import           Pos.Delegation.Listeners
+import           Pos.Delegation.Logic
+import           Pos.Delegation.Lrc
+import           Pos.Delegation.Methods
+import           Pos.Delegation.Types

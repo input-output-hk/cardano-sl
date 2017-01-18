@@ -7,7 +7,7 @@ import           Pos.Util.TimeWarp  (NetworkAddress)
 import           Universum
 
 import           Pos.Context        (NodeContext, ncAttackTargets, ncAttackTypes)
-import           Pos.Security.Types (AttackTarget (..), AttackType (..))
+import           Pos.Security.CLI (AttackTarget (..), AttackType (..))
 import           Pos.Types.Types    (StakeholderId)
 
 shouldIgnoreAddress :: NodeContext ssc -> NetworkAddress -> Bool

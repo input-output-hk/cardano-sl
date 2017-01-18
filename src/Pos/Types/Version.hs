@@ -7,11 +7,14 @@ module Pos.Types.Version
        , canBeNextPV
 
          -- * Software Version
+       , NumSoftwareVersion
        , SoftwareVersion (..)
        , ApplicationName (..)
        , mkApplicationName
        , applicationNameMaxLength
        ) where
+
+import           Universum           hiding (show)
 
 import           Data.Char           (isAscii)
 import           Data.Hashable       (Hashable)
@@ -20,7 +23,6 @@ import qualified Data.Text           as T
 import qualified Data.Text.Buildable as Buildable
 import           Formatting          (bprint, int, shown, stext, (%))
 import           Prelude             (show)
-import           Universum           hiding (show)
 
 -- | Communication protocol version.
 data ProtocolVersion = ProtocolVersion
@@ -69,12 +71,14 @@ mkApplicationName appName
         fail "ApplicationName: not ascii string passed"
     | otherwise = pure $ ApplicationName appName
 
+-- | Numeric software version associated with ApplicationName.
+type NumSoftwareVersion = Word32
+
 -- | Software version.
 data SoftwareVersion = SoftwareVersion
-    { svAppName :: ApplicationName
-    , svNumber  :: Word32
-    }
-  deriving (Eq, Generic, Ord, Typeable)
+    { svAppName :: !ApplicationName
+    , svNumber  :: !NumSoftwareVersion
+    } deriving (Eq, Generic, Ord, Typeable)
 
 instance Buildable SoftwareVersion where
     build SoftwareVersion {..} =

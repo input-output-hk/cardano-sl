@@ -45,9 +45,11 @@ run
 *.swp
 .ghci
 *.key
+!secrets/*.key
 wallet-db/
 zhogovo/
 smartgen-secret.sk
 rocks-smartwallet/
 cardano-keys/
 bla/
+testnetStakes/

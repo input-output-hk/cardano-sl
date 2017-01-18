@@ -4,20 +4,21 @@
 
 module Pos.Binary.Types () where
 
-import           Data.Binary.Get     (getInt32be, getWord64be, getWord8, label)
-import           Data.Binary.Put     (putInt32be, putWord64be, putWord8)
-import           Formatting          (int, sformat, (%))
+import           Data.Binary.Get       (getInt32be, getWord64be, getWord8, label)
+import           Data.Binary.Put       (putInt32be, putWord64be, putWord8)
+import           Data.Ix               (inRange)
+import           Formatting            (formatToString, int, sformat, (%))
 import           Universum
 
-import           Pos.Binary.Class    (Bi (..), UnsignedVarInt (..))
-import           Pos.Binary.Merkle   ()
-import           Pos.Binary.Update   ()
-import           Pos.Binary.Version  ()
-import           Pos.Constants       (protocolMagic)
-import qualified Pos.Data.Attributes as A
-import           Pos.Ssc.Class.Types (Ssc (..))
-import qualified Pos.Types.Timestamp as T
-import qualified Pos.Types.Types     as T
+import           Pos.Binary.Class      (Bi (..), UnsignedVarInt (..))
+import           Pos.Binary.Merkle     ()
+import           Pos.Binary.Version    ()
+import           Pos.Constants         (epochSlots, protocolMagic)
+import qualified Pos.Data.Attributes   as A
+import           Pos.Ssc.Class.Types   (Ssc (..))
+import qualified Pos.Types.Timestamp   as T
+import qualified Pos.Types.Types       as T
+import           Pos.Update.Core.Types (UpdatePayload)
 
 -- kind of boilerplate, but anyway that's what it was made for --
 -- verbosity and clarity
@@ -45,7 +46,13 @@ instance Bi T.LocalSlotIndex where
 
 instance Bi T.SlotId where
     put (T.SlotId e s) = put e >> put s
-    get = T.SlotId <$> get <*> get
+    get = do
+        siEpoch <- get
+        siSlot <- get
+        let errMsg =
+                formatToString ("get@SlotId: invalid slotId ("%int%")") siSlot
+        unless (inRange (0, epochSlots - 1) siSlot) $ fail errMsg
+        return $ T.SlotId {..}
 
 instance Bi T.TxIn where
     put (T.TxIn hash index) = put hash >> put (UnsignedVarInt index)
@@ -78,10 +85,6 @@ instance Bi T.TxDistribution where
         T.TxDistribution .
         either (\(UnsignedVarInt n) -> replicate n []) identity
             <$> get
-
-instance Bi T.Undo where
-    put (T.Undo txs psks) = put txs >> put psks
-    get = label "Undo" $ T.Undo <$> get <*> get
 
 -- serialized as vector of TxInWitness
 --instance Bi T.TxWitness where
@@ -148,9 +151,11 @@ instance Ssc ssc => Bi (T.BodyProof (T.MainBlockchain ssc)) where
         put mpWitnessesHash
         put mpMpcProof
         put mpProxySKsProof
+        put mpUpdateProof
     get = label "MainProof" $
         T.MainProof
             <$> (getUnsignedVarInt <$> get)
+            <*> get
             <*> get
             <*> get
             <*> get
@@ -174,19 +179,21 @@ instance Bi (T.ConsensusData (T.MainBlockchain ssc)) where
         put _mcdSignature
     get = label "MainConsensusData" $ T.MainConsensusData <$> get <*> get <*> get <*> get
 
-instance Ssc ssc => Bi (T.Body (T.MainBlockchain ssc)) where
+instance (Ssc ssc, Bi UpdatePayload) => Bi (T.Body (T.MainBlockchain ssc)) where
     put T.MainBody{..} = do
         put _mbTxs
         put _mbWitnesses
         put _mbTxAddrDistributions
         put _mbMpc
         put _mbProxySKs
+        put _mbUpdatePayload
     get = label "MainBody" $ do
-        _mbTxs <- get
-        _mbWitnesses <- get
+        _mbTxs                 <- get
+        _mbWitnesses           <- get
         _mbTxAddrDistributions <- get
-        _mbMpc <- get
-        _mbProxySKs <- get
+        _mbMpc                 <- get
+        _mbProxySKs            <- get
+        _mbUpdatePayload       <- get
         let lenTxs    = length _mbTxs
             lenWit    = length _mbWitnesses
             lenDistrs = length _mbTxAddrDistributions
@@ -212,6 +219,16 @@ instance Ssc ssc => Bi (T.Body (T.MainBlockchain ssc)) where
                             lenOut i lenDist
         return T.MainBody{..}
 
+instance Bi T.MainExtraHeaderData where
+    put T.MainExtraHeaderData {..} =  put _mehProtocolVersion
+                                   *> put _mehSoftwareVersion
+                                   *> put _mehAttributes
+    get = label "MainExtraHeaderData" $ T.MainExtraHeaderData <$> get <*> get <*> get
+
+instance Bi T.MainExtraBodyData where
+   put T.MainExtraBodyData{..} = put _mebAttributes
+   get = label "MainExtraBodyData" $ T.MainExtraBodyData <$> get
+
 ----------------------------------------------------------------------------
 -- GenesisBlock
 ----------------------------------------------------------------------------
@@ -227,15 +244,3 @@ instance Bi (T.ConsensusData (T.GenesisBlockchain ssc)) where
 instance Bi (T.Body (T.GenesisBlockchain ssc)) where
     put (T.GenesisBody leaders) = put leaders
     get = label "GenesisBody" $ T.GenesisBody <$> get
-
-instance Bi T.MainExtraHeaderData where
-    put T.MainExtraHeaderData {..} =  put _mehProtocolVersion
-                                   *> put _mehSoftwareVersion
-                                   *> put _mehAttributes
-    get = label "MainExtraHeaderData" $ T.MainExtraHeaderData <$> get <*> get <*> get
-
-instance Bi T.MainExtraBodyData where
-   put T.MainExtraBodyData {..} =  put _mebAttributes
-                                *> put _mebUpdate
-                                *> put _mebUpdateVotes
-   get = label "MainExtraBodyData" $ T.MainExtraBodyData <$> get <*> get <*> get

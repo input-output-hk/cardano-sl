@@ -7,8 +7,8 @@
     "start": "npm run build:dev",
     "postinstall": "bower cache clean && bower install",
     "clean": "rimraf dist && rimraf output",
-    "build:prod": "npm run clean && mkdir dist && NODE_ENV=prod ./node_modules/.bin/webpack --config webpack.config.js --progress",
-    "build:dev": "rimraf output && NODE_ENV=dev ./node_modules/.bin/webpack-dev-server --hot --config webpack.config.js --progress",
+    "build:prod": "npm run clean && mkdir dist && cross-env NODE_ENV=prod ./node_modules/.bin/webpack --config webpack.config.js --progress",
+    "build:dev": "rimraf output && cross-env NODE_ENV=dev ./node_modules/.bin/webpack-dev-server --hot --config webpack.config.js --progress",
     "test": "npm run build:prod && npm run test:mocha",
     "test:mocha": "mocha ./test/**/*.test.js"
   },
@@ -29,6 +29,7 @@
     "babel-preset-stage-2": "^6.18.0",
     "bower": "^1.8.0",
     "chai": "^3.5.0",
+    "cross-env": "^3.1.4",
     "extract-text-webpack-plugin": "^1.0.1",
     "html-webpack-plugin": "^2.24.1",
     "mocha": "^3.2.0",

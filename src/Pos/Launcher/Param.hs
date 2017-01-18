@@ -6,12 +6,13 @@ module Pos.Launcher.Param
        , NodeParams (..)
        ) where
 
+import           Pos.Util.TimeWarp   (NetworkAddress)
 import           System.Wlog         (LoggerName)
 import           Universum
 
 import           Pos.Crypto          (SecretKey)
 import           Pos.DHT.Model       (DHTKey, DHTNode)
-import           Pos.Security.Types  (AttackTarget, AttackType)
+import           Pos.Security.CLI    (AttackTarget, AttackType)
 import           Pos.Types           (Timestamp, Utxo)
 import           Pos.Util.UserSecret (UserSecret)
 
@@ -24,7 +25,7 @@ data LoggingParams = LoggingParams
 
 -- | Contains basic & networking parameters for running node.
 data BaseParams = BaseParams
-    { bpPort               :: !Word16         -- ^ port to run on
+    { bpIpPort             :: !NetworkAddress         -- ^ port to run on
     , bpDHTPeers           :: ![DHTNode]      -- ^ peers passed from CLI
     , bpDHTKey             :: !(Maybe DHTKey)
     , bpDHTExplicitInitial :: !Bool

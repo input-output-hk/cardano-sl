@@ -7,7 +7,10 @@ module Pos.Communication.Methods
        ( sendTx
        ) where
 
+import           Formatting                  (build, sformat, shown, (%))
+import           Mockable                    (handleAll)
 import           Node                        (SendActions)
+import           System.Wlog                 (logWarning)
 import           Universum
 
 import           Pos.Binary.Communication    ()
@@ -24,5 +27,7 @@ import           Pos.WorkMode                (MinWorkMode)
 
 -- | Send Tx to given address.
 sendTx :: (MinWorkMode m) => SendActions BiP m -> NetworkAddress -> TxAux -> m ()
-sendTx sendActions addr (tx,w,d) = do
+sendTx sendActions addr (tx,w,d) = handleAll handleE $ do
     sendToNode sendActions addr $ DataMsg (TxMsgContents tx w d) (hash tx)
+  where
+    handleE e = logWarning $ sformat ("Error sending tx "%build%" to "%shown%": "%shown) tx addr e

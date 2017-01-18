@@ -17,7 +17,7 @@ import           Node                           (NodeId)
 import           Universum
 
 import           Pos.Crypto                     (PublicKey, SecretKey, toPublic)
-import           Pos.Security.Types             (AttackTarget, AttackType)
+import           Pos.Security.CLI             (AttackTarget, AttackType)
 import           Pos.Ssc.Class.Types            (Ssc (SscNodeContext))
 import           Pos.Types                      (Address, BlockHeader, EpochIndex,
                                                  HeaderHash, SlotId, SlotLeaders,
@@ -70,8 +70,8 @@ data NodeContext ssc = NodeContext
     -- which we got from NTP server in last tme.
     -- Second element is time (local time) for which we got margin in last time.
     , ncNtpLastSlot         :: !(STM.TVar SlotId)
-    -- ^ Slot which was been returned from getCurrentSlot in last time
-    , ncBlockRetreivalQueue :: !(TBQueue (NodeId, NonEmpty (BlockHeader ssc)))
+    -- ^ Slot which was returned from getCurrentSlot in last time
+    , ncBlockRetrievalQueue :: !(TBQueue (NodeId, NonEmpty (BlockHeader ssc)))
     }
 
 -- | Generate 'PublicKey' from 'SecretKey' of 'NodeContext'.

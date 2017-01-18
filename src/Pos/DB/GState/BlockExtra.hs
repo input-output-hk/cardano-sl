@@ -1,22 +1,35 @@
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 -- | Extra information for blocks.
 --   * Forward links
---   * TODO InMainChain flags
+--   * InMainChain flags
 
 module Pos.DB.GState.BlockExtra
        ( resolveForwardLink
        , isBlockInMainChain
        , BlockExtraOp (..)
+       , loadHeadersUpWhile
+       , loadBlocksUpWhile
        , prepareGStateBlockExtra
        ) where
 
+import           Control.Lens        (view)
+import           Data.Maybe          (fromJust)
+import qualified Data.Text.Buildable
 import qualified Database.RocksDB    as Rocks
+import           Formatting          (bprint, build, (%))
 import           Universum
 
 import           Pos.Binary.Class    (encodeStrict)
+import           Pos.Block.Types     (Blund)
+import           Pos.Crypto          (shortHashF)
+import           Pos.DB.Block        (getBlockWithUndo)
 import           Pos.DB.Class        (MonadDB, getUtxoDB)
 import           Pos.DB.Functions    (RocksBatchOp (..), rocksGetBi, rocksPutBi)
 import           Pos.Ssc.Class.Types (Ssc)
-import           Pos.Types           (Block, HasHeaderHash, HeaderHash, headerHash)
+import           Pos.Types           (Block, BlockHeader, HasHeaderHash, HeaderHash,
+                                      blockHeader, headerHash)
 
 
 ----------------------------------------------------------------------------
@@ -25,14 +38,14 @@ import           Pos.Types           (Block, HasHeaderHash, HeaderHash, headerHa
 
 -- | Tries to retrieve next block using current one (given a block/header).
 resolveForwardLink
-    :: (HasHeaderHash a ssc, Ssc ssc, MonadDB ssc m)
-    => a -> m (Maybe (Block ssc))
+    :: (HasHeaderHash a ssc, MonadDB ssc m)
+    => a -> m (Maybe (HeaderHash ssc))
 resolveForwardLink x =
     rocksGetBi (forwardLinkKey $ headerHash x) =<< getUtxoDB
 
 -- | Check if given hash representing block is in main chain.
 isBlockInMainChain
-    :: (HasHeaderHash a ssc, Ssc ssc, MonadDB ssc m)
+    :: (HasHeaderHash a ssc, MonadDB ssc m)
     => a -> m Bool
 isBlockInMainChain h = do
     db <- getUtxoDB
@@ -51,6 +64,14 @@ data BlockExtraOp ssc
       -- ^ Enables or disables "in main chain" status of the block
     deriving (Show)
 
+instance Buildable (BlockExtraOp ssc) where
+    build (AddForwardLink from to) =
+        bprint ("AddForwardLink from "%shortHashF%" to "%shortHashF) from to
+    build (RemoveForwardLink from) =
+        bprint ("RemoveForwardLink from "%shortHashF) from
+    build (SetInMainChain flag h) =
+        bprint ("SetInMainChain for "%shortHashF%": "%build) h flag
+
 instance RocksBatchOp (BlockExtraOp ssc) where
     toBatchOp (AddForwardLink from to) =
         [Rocks.Put (forwardLinkKey from) (encodeStrict to)]
@@ -60,6 +81,40 @@ instance RocksBatchOp (BlockExtraOp ssc) where
         [Rocks.Del $ mainChainKey h]
     toBatchOp (SetInMainChain True h) =
         [Rocks.Put (mainChainKey h) (encodeStrict ()) ]
+
+----------------------------------------------------------------------------
+-- Loops on forward links
+----------------------------------------------------------------------------
+
+-- Loads something from old to new.
+loadUpWhile
+    :: forall a b ssc m . (Ssc ssc, MonadDB ssc m, HasHeaderHash a ssc)
+    => (Blund ssc -> b) -> a -> (b -> Int -> Bool) -> m [b]
+loadUpWhile morph start  condition = loadUpWhileDo (headerHash start) 0
+  where
+    loadUpWhileDo :: HeaderHash ssc -> Int -> m [b]
+    loadUpWhileDo curH height = getBlockWithUndo curH >>= \case
+        Nothing -> pure []
+        Just x@(block,_) -> do
+            nextLink <- fmap headerHash <$> resolveForwardLink block
+            let curB = morph x
+            if | condition curB height && isJust nextLink ->
+                 (curB :) <$> loadUpWhileDo (fromJust nextLink) (succ height)
+               | condition curB height -> pure [curB]
+               | otherwise -> pure []
+
+-- | Returns headers loaded up oldest first.
+loadHeadersUpWhile
+    :: (Ssc ssc, MonadDB ssc m, HasHeaderHash a ssc)
+    => a -> (BlockHeader ssc -> Int -> Bool) -> m [(BlockHeader ssc)]
+loadHeadersUpWhile start condition =
+    loadUpWhile (view blockHeader . fst) start condition
+
+-- | Returns blocks loaded up oldest first.
+loadBlocksUpWhile
+    :: (Ssc ssc, MonadDB ssc m, HasHeaderHash a ssc)
+    => a -> (Block ssc -> Int -> Bool) -> m [(Block ssc)]
+loadBlocksUpWhile start condition = loadUpWhile fst start condition
 
 ----------------------------------------------------------------------------
 -- Initialization

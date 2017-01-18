@@ -6,8 +6,6 @@ module Pos.Crypto.AsBinary () where
 
 import qualified Data.ByteString     as BS
 import qualified Data.ByteString.Lazy     as LBS
-import           Data.Hashable            (Hashable)
-import qualified Data.Hashable            as Hashable
 import           Data.Text.Buildable      (Buildable)
 import qualified Data.Text.Buildable      as Buildable
 import           Formatting               (bprint, int, sformat, stext, (%))
@@ -60,9 +58,6 @@ Ser(Secret, 33, "Secret")
 Ser(Share, 101, "Share") --4+33+64
 Ser(EncShare, 101, "EncShare")
 Ser(SecretProof, 64, "SecretProof")
-
-instance Hashable (AsBinary VssPublicKey) where
-    hashWithSalt s = Hashable.hashWithSalt s . encode
 
 instance Buildable (AsBinary Secret) where
     build _ = "secret ¯\\_(ツ)_/¯"

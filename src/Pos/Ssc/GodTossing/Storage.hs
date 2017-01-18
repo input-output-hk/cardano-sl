@@ -10,13 +10,11 @@ module Pos.Ssc.GodTossing.Storage
        ( -- * Instances
          -- ** instance SscStorageClass SscGodTossing
          getGlobalCerts
-       , getVerifiedCerts
        , gtGetGlobalState
        ) where
 
-import           Control.Lens                   (over, to, use, view, views, (%=), (.=),
-                                                 (<>=), (^.), _1, _2)
-import           Control.Monad.IfElse           (whileM)
+import           Control.Lens                   (over, to, view, views, (%=), (.=), (<>=),
+                                                 (^.))
 import           Control.Monad.Reader           (ask)
 import           Data.Default                   (def)
 import qualified Data.HashMap.Strict            as HM
@@ -27,9 +25,9 @@ import           Serokell.Util.Verify           (VerificationRes (..), isVerSucc
 import           Universum
 
 import           Pos.Binary.Ssc                 ()
-import           Pos.Constants                  (k, vssMaxTTL)
-import           Pos.DB                         (MonadDB, getBlock, getBlockHeader,
-                                                 loadBlocksWhile)
+import           Pos.Constants                  (epochSlots, vssMaxTTL)
+import           Pos.DB                         (DBError (DBMalformed), MonadDB,
+                                                 getBlockHeader, loadBlocksWhile)
 import           Pos.Lrc.Types                  (Richmen)
 import           Pos.Ssc.Class.Storage          (SscStorageClass (..))
 import           Pos.Ssc.Class.Types            (Ssc (..))
@@ -49,11 +47,11 @@ import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), GtPayload (
                                                  _gpCertificates)
 import           Pos.Ssc.GodTossing.Types.Base  (VssCertificate (..))
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
-import           Pos.Types                      (Block, EpochIndex, HeaderHash, NEBlocks,
-                                                 SharedSeed, SlotId (..), addressHash,
-                                                 blockMpc, blockSlot, crucialSlot,
-                                                 epochIndexL, epochOrSlot, epochOrSlotG,
-                                                 gbHeader, prevBlockL)
+import           Pos.Types                      (Block, EpochIndex, EpochOrSlot (..),
+                                                 HeaderHash, NEBlocks, SharedSeed,
+                                                 SlotId (..), addressHash, blockMpc,
+                                                 blockSlot, epochIndexL, epochOrSlot,
+                                                 epochOrSlotG, gbHeader)
 import           Pos.Util                       (readerToState)
 
 type GSQuery a  = forall m . (MonadReader GtGlobalState m) => m a
@@ -80,11 +78,12 @@ getGlobalCerts sl =
         VCD.setLastKnownSlot sl <$>
         view (gsVssCertificates)
 
+-- I doubt that crucialSlot is correct
 -- | Verified certs for slotId
-getVerifiedCerts :: (MonadSscGS SscGodTossing m) => SlotId -> m VssCertificatesMap
-getVerifiedCerts (crucialSlot . siEpoch -> crucSlotId) =
-    sscRunGlobalQuery $
-        VCD.certs . VCD.setLastKnownSlot crucSlotId <$> view gsVssCertificates
+-- getVerifiedCerts :: (MonadSscGS SscGodTossing m) => SlotId -> m VssCertificatesMap
+-- getVerifiedCerts (crucialSlot . siEpoch -> crucSlotId) =
+--     sscRunGlobalQuery $
+--         VCD.certs . VCD.setLastKnownSlot crucSlotId <$> view gsVssCertificates
 
 -- | Verify that if one adds given block to the current chain, it will
 -- remain consistent with respect to SSC-related data.
@@ -234,34 +233,37 @@ mpcProcessBlock blk = do
 -- | Head - youngest
 mpcRollback :: NEBlocks SscGodTossing -> GSUpdate ()
 mpcRollback blocks = do
-     -- is there guarantee that most genesis block won't be passed to mpcRollback?
-    let slot = prevSlot $ blkSlot $ NE.last blocks
-    -- Rollback certs
-    gsVssCertificates %= VCD.setLastKnownSlot slot
+    let slotMB = prevSlot $ blkSlot $ NE.last blocks
+     -- Rollback certs
+    case slotMB of
+        Nothing   -> gsVssCertificates .= unionCerts genesisCertificates
+        Just slot -> gsVssCertificates %= VCD.setLastKnownSlot slot
     -- Rollback other payload
-    wasGenesis <- foldM (\wasGen b -> if wasGen then pure wasGen
-                                      else differenceBlock b)
-                         False blocks
+    wasGenesis <- foldM foldStep False blocks
     when wasGenesis resetGS
   where
-    prevSlot SlotId{..} =
-        if (siSlot == 0) then
-            if siEpoch == 0 then panic "Most genesis block passed to mpc rollback"
-            else SlotId (siEpoch - 1) (6 * k - 1)
-        else SlotId siEpoch (siSlot - 1)
+    foldStep wasGen b
+        | wasGen = pure wasGen
+        | otherwise = differenceBlock b
+    prevSlot si@SlotId {..}
+        | siSlot > 0 = Just $ si {siSlot = siSlot - 1}
+        | siEpoch > 0 = Just $ SlotId {siEpoch = siEpoch - 1, siSlot = epochSlots - 1}
+        -- It means that we are rolling back all main blocks.
+        | otherwise = Nothing
     differenceBlock :: Block SscGodTossing -> GSUpdate Bool
-    differenceBlock (Left _)  = pure True
+    differenceBlock (Left _) = pure True
     differenceBlock (Right b) = do
         let payload = b ^. blockMpc
         case payload of
             CommitmentsPayload comms _ ->
                 gsCommitments %= (`HM.difference` comms)
-            OpeningsPayload    opens _ ->
-                gsOpenings %= (`HM.difference` opens)
-            SharesPayload     shares _ ->
-                gsShares %= (`HM.difference` shares)
-            CertificatesPayload      _ -> return ()
+            OpeningsPayload opens _ -> gsOpenings %= (`HM.difference` opens)
+            SharesPayload shares _ -> gsShares %= (`HM.difference` shares)
+            CertificatesPayload _ -> return ()
         pure False
+    blkSlot :: Block ssc -> SlotId
+    blkSlot = epochOrSlot (flip SlotId 0) identity . (^. epochOrSlotG)
+    unionCerts = (foldl' (flip $ uncurry VCD.insert)) VCD.empty . HM.toList
 
 -- | Calculate leaders for the next epoch.
 calculateSeedQ :: EpochIndex -> GSQuery (Either SeedError SharedSeed)
@@ -271,32 +273,31 @@ calculateSeedQ _ =
 
 mpcLoadGlobalState :: MonadDB SscGodTossing m => HeaderHash SscGodTossing -> m GtGlobalState
 mpcLoadGlobalState tip = do
-    (global', curHash) <- execStateT unionBlocks (def, tip)
-    bh <- getBlockHeader curHash
-    let endEpoch =
-          epochOrSlot identity siEpoch $
-              maybe (panic "No block header with such header hash")
-              (^. epochOrSlotG)
-              bh
-        startEpoch = safeSub endEpoch -- load blocks while >= endEpoch
-        whileEpoch b _ = epochOrSlot identity siEpoch (b ^. epochOrSlotG) >= startEpoch
-        blkCert =
-          either (const mempty)
-                 (^. blockMpc
-                  . to (HM.filter ((<=) endEpoch . vcExpiryEpoch) -- filter expired certs
-                                  . _gpCertificates))
-    blocksCerts <- map blkCert <$> loadBlocksWhile whileEpoch curHash -- filtered certs
-    let global = over gsVssCertificates (flip (foldl' unionCerts) blocksCerts) global'
-    pure $
-      if startEpoch == 0 then
-          -- insert genesis certs if startEpoch == 0
-          over gsVssCertificates (flip unionCerts genesisCertificates) global
-      else
-          global
+    bh <- getBlockHeader tip
+    endEpoch <-
+          epochOrSlot identity siEpoch <$>
+            maybe (throwM $ DBMalformed "No block header with tip")
+                  (pure . view epochOrSlotG) bh
+    let startEpoch = safeSub endEpoch -- load blocks while >= endEpoch
+        whileEpoch b = b ^. epochIndexL >= startEpoch
+    blocks <- loadBlocksWhile whileEpoch tip
+    let global' = unionBlocks blocks
+        global = over gsVssCertificates (unionBlksCerts . reverse $ blocks) global'
+    pure $ if | startEpoch == 0 ->
+                   over gsVssCertificates unionGenCerts global
+              | otherwise -> global
   where
-    safeSub epoch = epoch + 1 - min (epoch + 1) vssMaxTTL
-    unionCerts gs =
-      (foldl' (flip $ uncurry VCD.insert)) gs . HM.toList
+    setLastKnownEoS (EpochOrSlot eos) vcd
+        | Left e <- eos, e == 0 = VCD.empty
+        | Left e <- eos = VCD.setLastKnownSlot (SlotId (e - 1) (epochSlots - 1)) vcd
+        | Right s <- eos = VCD.setLastKnownSlot s vcd
+    safeSub epoch = epoch - min epoch vssMaxTTL
+    unionBlckCert vcd block =
+        let blkCert = either (const mempty) (^. blockMpc . to _gpCertificates)
+            res = foldl' (flip $ uncurry VCD.insert) vcd . HM.toList $ (blkCert block) in
+        setLastKnownEoS (block ^. epochOrSlotG) res
+    unionBlksCerts blocks gs = foldl' unionBlckCert gs blocks
+    unionGenCerts gs = foldl' (flip $ uncurry VCD.insert) gs . HM.toList $ genesisCertificates
 
 ----------------------------------------------------------------------------
 -- Utilities
@@ -310,32 +311,15 @@ resetGS = do
 unionPayload :: GtPayload -> GtGlobalState -> GtGlobalState
 unionPayload payload gs =
     flip execState gs $ do
-        let blockCertificates = _gpCertificates payload
         case payload of
             CommitmentsPayload comms _ -> gsCommitments <>= comms
             OpeningsPayload opens _    -> gsOpenings <>= opens
             SharesPayload shares _     -> gsShares <>= shares
             CertificatesPayload _      -> pure ()
-        gsVssCertificates %=
-            flip
-                (foldl' (flip $ uncurry VCD.insert))
-                (HM.toList blockCertificates)
 
 -- | Union payloads of blocks until meet genesis block
 -- Invalid restore of VSS certificates
-unionBlocks :: MonadDB SscGodTossing m
-            => StateT (GtGlobalState, HeaderHash SscGodTossing) m ()
-unionBlocks = whileM
-    (do
-        curHH <- use _2
-        block <- lift $ getBlock curHH
-        let b = fromMaybe (panic "No block with such header hash") block
-        case b of
-            Left _   -> pure False
-            Right mb -> do
-                _1 %= unionPayload (mb ^. blockMpc)
-                True <$ (_2 .= b ^. prevBlockL)
-    ) (pure ())
-
-blkSlot :: Block ssc -> SlotId
-blkSlot = epochOrSlot (flip SlotId 0) identity . (^. epochOrSlotG)
+unionBlocks :: [Block SscGodTossing] -> GtGlobalState
+unionBlocks []            = def
+unionBlocks (Left _:_)    = def
+unionBlocks (Right mb:xs) = unionPayload (mb ^. blockMpc) $ unionBlocks xs

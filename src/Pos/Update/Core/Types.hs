@@ -1,7 +1,9 @@
 {-# LANGUAGE DeriveLift      #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Pos.Update.Types.Types
+-- | This module contains all basic types for @cardano-sl@ update system.
+
+module Pos.Update.Core.Types
        ( UpdateProposal (..)
        , UpId
 
@@ -11,6 +13,10 @@ module Pos.Update.Types.Types
 
        , UpdateData (..)
        , SystemTag (getSystemTag)
+
+       , UpdatePayload (..)
+       , UpdateProof
+       , mkUpdateProof
 
        , mkSystemTag
        , systemTagMaxLength
@@ -25,12 +31,13 @@ import           Data.SafeCopy              (base, deriveSafeCopySimple)
 import qualified Data.Text                  as T
 import           Data.Text.Buildable        (Buildable)
 import qualified Data.Text.Buildable        as Buildable
-import           Formatting                 (bprint, build, sformat, shown, (%))
+import           Formatting                 (bprint, build, int, sformat, shown, (%))
 import           Language.Haskell.TH.Syntax (Lift)
 import           Serokell.Util.Text         (listJson)
 import           Universum                  hiding (show)
 
-import           Pos.Crypto                 (Hash, PublicKey, Signature)
+import           Pos.Binary.Class           (Bi)
+import           Pos.Crypto                 (Hash, PublicKey, Signature, hash)
 import           Pos.Script.Type            (ScriptVersion)
 import           Pos.Types.Version          (ProtocolVersion, SoftwareVersion)
 -- Import instance Safecopy HM.HashMap
@@ -60,8 +67,7 @@ data UpdateProposal = UpdateProposal
     , upScriptVersion   :: !ScriptVersion
     , upSoftwareVersion :: !SoftwareVersion
     , upData            :: !(HM.HashMap SystemTag UpdateData)
-    }
-  deriving (Eq, Show, Generic, Typeable)
+    } deriving (Eq, Show, Generic, Typeable)
 
 instance Buildable UpdateProposal where
     build UpdateProposal {..} =
@@ -72,8 +78,7 @@ data UpdateData = UpdateData
     { udAppDiffHash :: !(Hash LByteString)
     , udPkgHash     :: !(Hash LByteString)
     , udUpdaterHash :: !(Hash LByteString)
-    }
-  deriving (Eq, Show, Generic, Typeable)
+    } deriving (Eq, Show, Generic, Typeable)
 
 -- | Vote for update proposal
 data UpdateVote = UpdateVote
@@ -86,8 +91,7 @@ data UpdateVote = UpdateVote
     , -- | Signature of (Update proposal, Approval/rejection bit)
       --   by stakeholder
       uvSignature  :: !(Signature (UpId, Bool))
-    }
-  deriving (Eq, Show, Generic, Typeable)
+    } deriving (Eq, Show, Generic, Typeable)
 
 -- | This type represents summary of votes issued by stakeholder.
 data VoteState
@@ -96,6 +100,26 @@ data VoteState
     | PositiveRevote  -- ^ Stakeholder voted negatively, then positively.
     | NegativeRevote  -- ^ Stakeholder voted positively, then negatively.
     deriving (Show, Generic)
+
+-- | Update System payload. 'Pos.Types.BodyProof' contains 'UpdateProof' = @Hash UpdatePayload@.
+data UpdatePayload = UpdatePayload
+    { upProposal :: !(Maybe UpdateProposal)
+    , upVotes    :: ![UpdateVote]
+    } deriving (Eq, Show, Generic, Typeable)
+
+instance Buildable UpdatePayload where
+    build UpdatePayload{..} =
+      bprint (build%", "%int%" votes")
+             (maybe "no proposal" Buildable.build upProposal)
+             (length upVotes)
+
+-- | Proof that body of update message contains 'UpdatePayload'.
+type UpdateProof = Hash UpdatePayload
+
+mkUpdateProof
+    :: Bi UpdatePayload
+    => UpdatePayload -> UpdateProof
+mkUpdateProof = hash
 
 -- | Check whether given decision is a valid vote if applied to
 -- existing vote (which may not exist).
@@ -131,3 +155,4 @@ deriveSafeCopySimple 0 'base ''SystemTag
 deriveSafeCopySimple 0 'base ''UpdateData
 deriveSafeCopySimple 0 'base ''UpdateProposal
 deriveSafeCopySimple 0 'base ''UpdateVote
+deriveSafeCopySimple 0 'base ''UpdatePayload

@@ -5,7 +5,7 @@ import Control.Monad.Aff (Aff)
 import Control.Monad.Eff.Exception (error, Error)
 import Control.Monad.Error.Class (throwError)
 import Daedalus.Constants (backendPrefix)
-import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency, WalletError, showCCurrency)
+import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency, WalletError, showCCurrency, CProfile)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (decodeJson, encodeJson)
 import Data.Bifunctor (bimap)
@@ -15,6 +15,7 @@ import Data.HTTP.Method (Method(POST))
 import Data.Maybe (Maybe(Just))
 import Data.MediaType.Common (applicationJSON)
 import Data.String (joinWith)
+import Data.Tuple (Tuple)
 import Network.HTTP.Affjax (AffjaxResponse, affjax, defaultRequest, AJAX, URL, AffjaxRequest)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Network.HTTP.RequestHeader (RequestHeader(ContentType))
@@ -74,6 +75,12 @@ postRBody urlPath content = flip makeRequest urlPath $
                    }
 
 -- REQUESTS
+getProfile :: forall eff. Aff (ajax :: AJAX | eff) CProfile
+getProfile = getR ["get_profile"]
+
+updateProfile :: forall eff. CProfile -> Aff (ajax :: AJAX | eff) CProfile
+updateProfile = postRBody ["update_profile"]
+
 getWallets :: forall eff. Aff (ajax :: AJAX | eff) (Array CWallet)
 getWallets = getR ["get_wallets"]
 
@@ -83,7 +90,7 @@ getWallet addr = getR ["get_wallet", _address addr]
 getHistory :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) (Array CTx)
 getHistory addr = getR ["history", _address addr]
 
-searchHistory :: forall eff. CAddress -> String -> Int -> Aff (ajax :: AJAX | eff) (Array CTx)
+searchHistory :: forall eff. CAddress -> String -> Int -> Aff (ajax :: AJAX | eff) (Tuple (Array CTx) Int)
 searchHistory addr search limit = getR ["history", _address addr, search, show limit]
 
 send :: forall eff. CAddress -> CAddress -> Coin -> Aff (ajax :: AJAX | eff) CTx

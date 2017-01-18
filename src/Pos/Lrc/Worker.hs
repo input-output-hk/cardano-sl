@@ -26,7 +26,7 @@ import           Pos.Binary.Communication    ()
 import           Pos.Block.Logic.Internal    (applyBlocksUnsafe, rollbackBlocksUnsafe,
                                               withBlkSemaphore_)
 import           Pos.Communication.BiP       (BiP)
-import           Pos.Constants               (k)
+import           Pos.Constants               (slotSecurityParam)
 import           Pos.Context                 (LrcSyncData, getNodeContext, ncLrcSync)
 import qualified Pos.DB                      as DB
 import qualified Pos.DB.GState               as GS
@@ -54,7 +54,13 @@ lrcOnNewSlotWorker _ = onNewSlot True $ lrcOnNewSlotImpl
 lrcOnNewSlotImpl
     :: (SscWorkersClass ssc, WorkMode ssc m)
     => SlotId -> m ()
-lrcOnNewSlotImpl SlotId {..} = when (siSlot < k) $ lrcSingleShot siEpoch
+lrcOnNewSlotImpl SlotId {..} =
+    when (siSlot < slotSecurityParam) $ lrcSingleShot siEpoch `catch` onLrcError
+  where
+    onLrcError UnknownBlocksForLrc =
+        logInfo
+            "LRC worker can't do anything, because recent blocks aren't known"
+    onLrcError e = throwM e
 
 -- | Run leaders and richmen computation for given epoch. If stable
 -- block for this epoch is not known, LrcError will be thrown.
@@ -121,13 +127,13 @@ lrcDo
     :: WorkMode ssc m
     => EpochIndex -> [LrcConsumer m] -> HeaderHash ssc -> m (HeaderHash ssc)
 lrcDo epoch consumers tip = tip <$ do
-    blockUndoList <- DB.loadBlocksFromTipWhile whileMoreOrEq5k
-    when (null blockUndoList) $ throwM UnknownBlocksForLrc
-    let blunds = NE.fromList blockUndoList
+    blundsList <- DB.loadBlundsFromTipWhile whileAfterCrucial
+    when (null blundsList) $ throwM UnknownBlocksForLrc
+    let blunds = NE.fromList blundsList
     rollbackBlocksUnsafe blunds
     compute `finally` applyBlocksUnsafe (NE.reverse blunds)
   where
-    whileMoreOrEq5k b _ = getEpochOrSlot b > crucial
+    whileAfterCrucial b = getEpochOrSlot b > crucial
     crucial = EpochOrSlot $ Right $ crucialSlot epoch
     compute = do
         richmenComputationDo epoch consumers
@@ -144,7 +150,7 @@ leadersComputationDo epochId =
                 Left e ->
                     panic $ sformat ("SSC couldn't compute seed: " %build) e
                 Right seed ->
-                    GS.iterateByTx (followTheSatoshiM seed totalStake) snd
+                    GS.runBalanceIterator (followTheSatoshiM seed totalStake)
         putLeaders epochId leaders
 
 richmenComputationDo :: forall ssc m . WorkMode ssc m
@@ -153,9 +159,8 @@ richmenComputationDo epochIdx consumers = unless (null consumers) $ do
     total <- GS.getTotalFtsStake
     let minThreshold = safeThreshold total (not . lcConsiderDelegated)
     let minThresholdD = safeThreshold total lcConsiderDelegated
-    (richmen, richmenD) <- GS.iterateByStake
+    (richmen, richmenD) <- GS.runBalanceIterator
                                (findAllRichmenMaybe @ssc minThreshold minThresholdD)
-                               identity
     let callCallback cons = void $ fork $
             if lcConsiderDelegated cons
             then lcComputedCallback cons epochIdx total

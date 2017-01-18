@@ -113,6 +113,11 @@ function node_cmd {
 
   ensure_run
 
+  keys_args="--vss-genesis $i --spending-genesis $i"
+  if [[ "$CSL_PRODUCTION" != "" ]]; then
+      keys_args="--keyfile \"secrets/secret-$((i+1)).key\""
+  fi
+
   if [[ $time_lord != "" ]] && [[ $time_lord != 0 ]]; then
     time_lord=" --time-lord"
   fi
@@ -134,11 +139,11 @@ function node_cmd {
     rts_opts="+RTS -N -pa -A6G -qg -RTS"
   fi
 
-  echo -n "$(find_binary cardano-node) --db-path $run_dir/node-db$i $rts_opts  $reb --vss-genesis $i"
+  echo -n "$(find_binary cardano-node) --db-path $run_dir/node-db$i $rts_opts  $reb $keys_args"
 
   $dht_cmd
 
-  echo -n " --spending-genesis $i --port "`get_port $i`
+  echo -n " --listen 127.0.0.1:"`get_port $i`
   echo -n " $(logs node$i.log) $time_lord $stats"
   echo -n " $stake_distr $ssc_algo "
   echo -n " $web "

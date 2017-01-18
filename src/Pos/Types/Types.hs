@@ -62,8 +62,6 @@ module Pos.Types.Types
        , utxoF
 
        , TxUndo
-       , Undo (..)
-       , Blund
 
        , SharedSeed (..)
        , SlotLeaders
@@ -137,6 +135,7 @@ module Pos.Types.Types
        , mbTxs
        , mbWitnesses
        , mbProxySKs
+       , mbUpdatePayload
        , mcdSlot
        , mcdLeaderKey
        , mcdDifficulty
@@ -145,8 +144,6 @@ module Pos.Types.Types
        , mehSoftwareVersion
        , mehAttributes
        , mebAttributes
-       , mebUpdate
-       , mebUpdateVotes
        ) where
 
 import           Control.Exception      (assert)
@@ -188,7 +185,7 @@ import           Pos.Types.Address      (Address (..), StakeholderId, addressF,
                                          decodeTextAddress, makePubKeyAddress,
                                          makeScriptAddress)
 import           Pos.Types.Version      (ProtocolVersion, SoftwareVersion)
-import           Pos.Update.Types.Types (UpdateProposal, UpdateVote)
+import           Pos.Update.Core.Types  (UpdatePayload, UpdateProof, mkUpdateProof)
 import           Pos.Util               (Color (Magenta), colorize)
 
 ----------------------------------------------------------------------------
@@ -446,22 +443,6 @@ utxoF = later formatUtxo
 -- | Particular undo needed for transactions
 type TxUndo = [[TxOutAux]]
 
--- | Structure for undo block during rollback
-data Undo = Undo
-    { undoTx  :: [[TxOutAux]]
-    , undoPsk :: [ProxySKSimple] -- ^ PSKs we've overwritten/deleted
-    }
-
--- | Block and its Undo.
-type Blund ssc = (Block ssc, Undo)
-
-instance Buildable Undo where
-    build Undo{..} =
-        bprint ("Undo:\n"%
-                "  undoTx: "%listJson%"\n"%
-                "  undoPsk: "%listJson)
-               (map (bprint listJson) undoTx) undoPsk
-
 ----------------------------------------------------------------------------
 -- SSC. It means shared seed computation, btw
 ----------------------------------------------------------------------------
@@ -634,20 +615,16 @@ instance Buildable MainExtraHeaderData where
             _mehSoftwareVersion
 
 -- | Represents main block extra data
-data MainExtraBodyData = MainExtraBodyData
-    { _mebAttributes  :: !BlockBodyAttributes
-    , _mebUpdate      :: !(Maybe UpdateProposal)
-    , _mebUpdateVotes :: ![UpdateVote]
-    }
-    deriving (Eq, Show, Generic)
+newtype MainExtraBodyData = MainExtraBodyData
+    { _mebAttributes  :: BlockBodyAttributes
+    } deriving (Eq, Show, Generic)
 
 instance Buildable MainExtraBodyData where
-    build MainExtraBodyData {..} =
-      bprint ("    update: "%build%", "%int%" votes\n")
-             (maybe "no proposal" Buildable.build  _mebUpdate)
-             (length _mebUpdateVotes)
+    -- Currently there is no extra data in block body, attributes are empty.
+    build _ = bprint "no extra data"
 
-instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
+instance (Ssc ssc, Bi TxWitness, Bi UpdatePayload) =>
+         Blockchain (MainBlockchain ssc) where
     -- | Proof of transactions list and MPC data.
     data BodyProof (MainBlockchain ssc) = MainProof
         { mpNumber        :: !Word32
@@ -655,6 +632,7 @@ instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
         , mpWitnessesHash :: !(Hash [TxWitness])
         , mpMpcProof      :: !(SscProof ssc)
         , mpProxySKsProof :: !(Hash [ProxySKSimple])
+        , mpUpdateProof   :: !UpdateProof
         } deriving (Generic)
     data ConsensusData (MainBlockchain ssc) = MainConsensusData
         { -- | Id of the slot for which this block was generated.
@@ -699,18 +677,21 @@ instance (Ssc ssc, Bi TxWitness) => Blockchain (MainBlockchain ssc) where
           _mbMpc :: !(SscPayload ssc)
         , -- | No-ttl heavyweight delegation certificates
           _mbProxySKs :: ![ProxySKSimple]
+          -- | Additional update information for update system.
+        , _mbUpdatePayload :: !UpdatePayload
         } deriving (Generic, Typeable)
 
     type ExtraBodyData (MainBlockchain ssc) = MainExtraBodyData
     type BBlock (MainBlockchain ssc) = Block ssc
 
-    mkBodyProof MainBody {..} =
+    mkBodyProof MainBody{..} =
         MainProof
         { mpNumber = fromIntegral (length _mbTxs)
         , mpRoot = mtRoot _mbTxs
         , mpWitnessesHash = hash _mbWitnesses
         , mpMpcProof = untag @ssc mkSscProof _mbMpc
         , mpProxySKsProof = hash _mbProxySKs
+        , mpUpdateProof = mkUpdateProof _mbUpdatePayload
         }
 
 
@@ -764,6 +745,7 @@ instance BiSsc ssc => Buildable (MainBlock ssc) where
              "  transactions ("%int%" items): "%listJson%"\n"%
              "  certificates ("%int%" items): "%listJson%"\n"%
              build%"\n"%
+             "  update payload: "%build%"\n"%
              build
             )
             (colorize Magenta "MainBlock")
@@ -773,6 +755,7 @@ instance BiSsc ssc => Buildable (MainBlock ssc) where
             (length _mbProxySKs)
             _mbProxySKs
             _mbMpc
+            _mbUpdatePayload
             _gbExtra
       where
         MainBody {..} = _gbBody
@@ -940,6 +923,10 @@ MAKE_LENS(mbMpc, _mbMpc)
 mbProxySKs :: Lens' (Body (MainBlockchain ssc)) [ProxySKSimple]
 MAKE_LENS(mbProxySKs, _mbProxySKs)
 
+-- | Lens for 'UpdatePayload' in main block body.
+mbUpdatePayload :: Lens' (Body (MainBlockchain ssc)) UpdatePayload
+MAKE_LENS(mbUpdatePayload, _mbUpdatePayload)
+
 -- makeLensesData ''Body ''(GenesisBlockchain ssc)
 
 -- | Lens for 'SlotLeaders' in 'Body' of 'GenesisBlockchain'.
@@ -1035,9 +1022,6 @@ instance BiSsc ssc => HasHeaderHash (GenesisBlock ssc) ssc where
 
 instance BiSsc ssc => HasHeaderHash (Block ssc) ssc where
     headerHash = hash . getBlockHeader
-
-instance BiSsc ssc => HasHeaderHash (Blund ssc) ssc where
-    headerHash = headerHash . fst
 
 -- | Class for something that has 'EpochIndex'.
 class HasEpochIndex a where
@@ -1202,24 +1186,21 @@ deriveSafeCopySimple 0 'base ''ChainDifficulty
 
 instance (Ssc ssc, SafeCopy (SscProof ssc)) =>
          SafeCopy (BodyProof (MainBlockchain ssc)) where
-    getCopy =
-        contain $
-        do mpNumber <- safeGet
-           mpRoot <- safeGet
-           mpWitnessesHash <- safeGet
-           mpMpcProof <- safeGet
-           mpProxySKsProof <- safeGet
-           return $!
-               MainProof
-               { ..
-               }
-    putCopy MainProof {..} =
-        contain $
-        do safePut mpNumber
-           safePut mpRoot
-           safePut mpWitnessesHash
-           safePut mpMpcProof
-           safePut mpProxySKsProof
+    getCopy = contain $ do
+        mpNumber        <- safeGet
+        mpRoot          <- safeGet
+        mpWitnessesHash <- safeGet
+        mpMpcProof      <- safeGet
+        mpProxySKsProof <- safeGet
+        mpUpdateProof   <- safeGet
+        return $! MainProof{..}
+    putCopy MainProof {..} = contain $ do
+        safePut mpNumber
+        safePut mpRoot
+        safePut mpWitnessesHash
+        safePut mpMpcProof
+        safePut mpProxySKsProof
+        safePut mpUpdateProof
 
 instance SafeCopy (BodyProof (GenesisBlockchain ssc)) where
     getCopy =
@@ -1268,24 +1249,21 @@ instance SafeCopy (ConsensusData (GenesisBlockchain ssc)) where
 
 instance (Ssc ssc, SafeCopy (SscPayload ssc)) =>
          SafeCopy (Body (MainBlockchain ssc)) where
-    getCopy =
-        contain $
-        do _mbTxs <- safeGet
-           _mbWitnesses <- safeGet
-           _mbTxAddrDistributions <- safeGet
-           _mbMpc <- safeGet
-           _mbProxySKs <- safeGet
-           return $!
-               MainBody
-               { ..
-               }
-    putCopy MainBody {..} =
-        contain $
-        do safePut _mbTxs
-           safePut _mbWitnesses
-           safePut _mbTxAddrDistributions
-           safePut _mbMpc
-           safePut _mbProxySKs
+    getCopy = contain $ do
+        _mbTxs                 <- safeGet
+        _mbWitnesses           <- safeGet
+        _mbTxAddrDistributions <- safeGet
+        _mbMpc                 <- safeGet
+        _mbProxySKs            <- safeGet
+        _mbUpdatePayload       <- safeGet
+        return $! MainBody{..}
+    putCopy MainBody {..} = contain $ do
+        safePut _mbTxs
+        safePut _mbWitnesses
+        safePut _mbTxAddrDistributions
+        safePut _mbMpc
+        safePut _mbProxySKs
+        safePut _mbUpdatePayload
 
 instance SafeCopy (Body (GenesisBlockchain ssc)) where
     getCopy =

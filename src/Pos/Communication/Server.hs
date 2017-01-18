@@ -12,7 +12,7 @@ module Pos.Communication.Server
 
 import           Data.Tagged                       (untag)
 import           Node                              (Listener, ListenerAction (..))
-import           System.Wlog                       (LoggerName)
+import           System.Wlog                       (LoggerName, WithLogger)
 import           Universum
 
 import           Pos.Binary.Communication          ()
@@ -47,11 +47,11 @@ allListeners =
     addWaitLogging (ListenerActionOneMsg f) =
         ListenerActionOneMsg $ \nId sA msg -> f nId (withWaitLog sA) msg
     addWaitLogging (ListenerActionConversation f) =
-        ListenerActionConversation $ \nId sA cA -> f nId (withWaitLog sA) (withWaitLogConvL nId cA)
+        ListenerActionConversation $ \nId cA -> f nId (withWaitLogConvL nId cA)
 
 -- | All listeners running on one node.
 allStubListeners
-    :: (SscListenersClass ssc, Monad m) => Proxy ssc -> [Listener BiP m]
+    :: (SscListenersClass ssc, WithLogger m) => Proxy ssc -> [Listener BiP m]
 allStubListeners p =
     concat
         [ blockStubListeners p

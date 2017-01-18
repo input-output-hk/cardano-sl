@@ -1,28 +1,37 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Genesis values related to GodTossing SSC.
 
 module Pos.Ssc.GodTossing.Genesis
-       ( genesisVssKeyPairs
-       , genesisVssPublicKeys
-       , genesisCertificates
+       ( genesisCertificates
+#ifdef DEV_MODE
+       , genesisVssKeyPairs
+#endif
        ) where
 
-import qualified Data.HashMap.Strict           as HM
-import           Data.List                     (zipWith3)
-import qualified Data.Text                     as T
-import           Formatting                    (int, sformat, (%))
+import           Data.Default                   (Default (..))
+import qualified Data.HashMap.Strict            as HM
+import           Data.List                      (zipWith3)
+import qualified Data.Text                      as T
+import           Formatting                     (int, sformat, (%))
 import           Universum
 
-import           Pos.Constants                 (genesisN, vssMaxTTL, vssMinTTL)
-import           Pos.Crypto                    (VssKeyPair, VssPublicKey,
-                                                deterministicVssKeyGen, toVssPublicKey)
-import           Pos.Genesis                   (genesisKeyPairs)
-import           Pos.Ssc.GodTossing.Types.Base (VssCertificatesMap, mkVssCertificate)
-import           Pos.Types                     (EpochIndex (..))
-import           Pos.Types.Address             (addressHash)
-import           Pos.Util                      (asBinary)
+import           Pos.Constants                  (genesisN, vssMaxTTL, vssMinTTL)
+import           Pos.Crypto                     (VssKeyPair, VssPublicKey,
+                                                 deterministicVssKeyGen, toVssPublicKey)
+#ifdef DEV_MODE
+import           Pos.Genesis                    (genesisKeyPairs)
+#else
+import           Pos.Genesis                    (compileGenData, gdVssCertificates)
+#endif
+import           Pos.Ssc.GodTossing.Types.Base  (VssCertificatesMap, mkVssCertificate)
+import           Pos.Ssc.GodTossing.Types.Types (GtPayload (..))
+import           Pos.Types                      (EpochIndex (..))
+import           Pos.Types.Address              (addressHash)
+import           Pos.Util                       (asBinary)
 
+#ifdef DEV_MODE
 -- | List of 'VssKeyPair' in genesis.
 genesisVssKeyPairs :: [VssKeyPair]
 genesisVssKeyPairs = map gen [0 .. genesisN - 1]
@@ -55,3 +64,10 @@ genesisCertificates =
             genesisVssPublicKeys
     ttlExp 1 = EpochIndex vssMinTTL - 1
     ttlExp _ = vssMaxTTL - 1
+#else
+genesisCertificates :: VssCertificatesMap
+genesisCertificates = gdVssCertificates compileGenData
+#endif
+
+instance Default GtPayload where
+    def = CertificatesPayload genesisCertificates

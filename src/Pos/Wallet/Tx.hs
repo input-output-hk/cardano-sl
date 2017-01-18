@@ -12,10 +12,11 @@ module Pos.Wallet.Tx
 import           Control.Lens              ((^.), _1)
 import           Control.Monad.Except      (ExceptT (..), runExceptT)
 import           Formatting                (build, sformat, (%))
+import           Mockable                  (mapConcurrently)
 import           Node                      (SendActions)
 import           Pos.Util.TimeWarp         (NetworkAddress)
 import           System.Wlog               (logError, logInfo)
-import           Universum
+import           Universum                 hiding (mapConcurrently)
 
 import           Pos.Binary                ()
 import           Pos.Communication.BiP     (BiP)
@@ -54,4 +55,4 @@ submitTxRaw sa na tx = do
     let txId = hash (tx ^. _1)
     logInfo $ sformat ("Submitting transaction: "%txaF) tx
     logInfo $ sformat ("Transaction id: "%build) txId
-    mapM_ (flip (sendTx sa) tx) na
+    void $ mapConcurrently (flip (sendTx sa) tx) na

@@ -30,8 +30,14 @@ mode=$2
 # Stats are not mandatory either
 stats=$3
 
+panesCnt=$n
+
+if [[ "$TPS" != "" ]]; then
+  panesCnt=$((n+1))
+fi
+
 i=0
-while [[ $i -lt $n ]]; do
+while [[ $i -lt $panesCnt ]]; do
   im=$((i%4))
   ir=$((i/4))
 
@@ -70,7 +76,15 @@ while [[ $i -lt $n ]]; do
   stake_distr=" --flat-distr \"($n, 100000)\" "
   kademlia_dump_path="kademlia$i.dump"
 
-  tmux send-keys "$(node_cmd $i "$time_lord" "$dht_conf" "$stats" "$stake_distr" "$wallet_args" "$kademlia_dump_path")" C-m
+  if [[ "$CSL_PRODUCTION" != "" ]]; then
+      stake_distr=""
+  fi
+
+  if [[ $i -lt $n ]]; then
+    tmux send-keys "$(node_cmd $i "$time_lord" "$dht_conf" "$stats" "$stake_distr" "$wallet_args" "$kademlia_dump_path")" C-m
+  else
+    tmux send-keys "NODE_COUNT=$n $base/bench/runSmartGen.sh 0 -R 1 -N 2 -t $TPS -S 3 --init-money 100000 --recipients-share 0" C-m
+  fi
   i=$((i+1))
 done
 

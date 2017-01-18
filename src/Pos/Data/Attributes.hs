@@ -71,29 +71,33 @@ getAttributes :: (Word8 -> h -> Maybe (Get h))
               -> Word32
               -> h
               -> Get (Attributes h)
-getAttributes keyGetMapper maxLen initData = do
-    totalLen <- getWord32be
+getAttributes keyGetMapper (fromIntegral -> maxLen) initData = do
+    -- CSL-594 TODO use varint
+    totalLen <- fromIntegral <$> getWord32be
     when (maxLen > 0 && totalLen > maxLen) $
        fail $ "Attributes: wrong totalLen " ++ show totalLen
                    ++ " (maxLen=" ++ show maxLen ++ ")"
     read1 <- G.bytesRead
-    let readWhileKnown dat = ifM G.isEmpty (return dat) $ do
+    let cond = orM [ (\r -> r - read1 >= totalLen) <$> G.bytesRead
+                   , G.isEmpty]
+        readWhileKnown dat = ifM cond (return dat) $ do
             key <- G.lookAhead getWord8
             case keyGetMapper key dat of
                 Nothing -> return dat
                 Just gh -> getWord8 >> gh >>= readWhileKnown
     attrData <- readWhileKnown initData
     read <- flip (-) read1 <$> G.bytesRead
-    when (read > fromIntegral totalLen) $
+    when (read > totalLen) $
        fail $ "Attributes: wrong total length field value, deserialized "
                    ++ show read ++ " bytes, totalLen=" ++ show totalLen
-    attrRemain <- getByteString $ fromIntegral totalLen - fromIntegral read
+    attrRemain <- getByteString $ fromIntegral $ totalLen - read
     return $ Attributes {..}
 
 -- | Generate 'Put' given the way to serialize inner attribute value
 -- into set of keys and values.
 putAttributes :: (h -> [(Word8, ByteString)]) -> Attributes h -> Put
 putAttributes putMapper Attributes {..} = do
+    -- CSL-594 TODO use varint
     putWord32be totalLen
     mapM_ putAttr kvs
     putByteString attrRemain

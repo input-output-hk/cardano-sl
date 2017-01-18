@@ -34,6 +34,7 @@ import           Control.Concurrent.STM.TBQueue (newTBQueueIO)
 import           Control.Concurrent.STM.TVar    (newTVar)
 import           Control.Lens                   (each, to, (^..), _tail)
 import           Control.Monad.Fix              (MonadFix)
+import qualified Data.ByteString.Char8          as BS8
 import           Data.Default                   (def)
 import           Data.List                      (nub)
 import           Data.Proxy                     (Proxy (..))
@@ -45,12 +46,13 @@ import           Mockable                       (CurrentTime, Mockable, MonadMoc
 import           Network.Transport              (Transport, closeTransport)
 import           Network.Transport.Concrete     (concrete)
 import qualified Network.Transport.TCP          as TCP
-import           Node                           (Listener, NodeAction (..), SendActions,
+import           Node                           (ConversationActions (..), Listener,
+                                                 NodeAction (..), SendActions,
                                                  hoistListenerAction, hoistSendActions,
                                                  node)
 import qualified STMContainers.Map              as SM
 import           System.Random                  (newStdGen)
-import           System.Wlog                    (WithLogger, logDebug, logError, logInfo,
+import           System.Wlog                    (WithLogger, logError, logInfo,
                                                  logWarning, releaseAllHandlers,
                                                  traverseLoggerConfig, usingLoggerName)
 import           Universum                      hiding (bracket)
@@ -59,7 +61,8 @@ import           Pos.Binary                     ()
 import           Pos.CLI                        (readLoggerConfig)
 import           Pos.Communication              (BiP (..), SysStartRequest (..),
                                                  SysStartResponse, allListeners,
-                                                 allStubListeners, sysStartReqListener,
+                                                 allStubListeners, handleSysStartResp,
+                                                 sysStartReqListener,
                                                  sysStartRespListener)
 import           Pos.Communication.PeerState    (runPeerStateHolder)
 import           Pos.Constants                  (blockRetrievalQueueSize,
@@ -72,7 +75,7 @@ import           Pos.DB                         (MonadDB (..), getTip, initNodeD
                                                  openNodeDBs, runDBHolder, _gStateDB)
 import           Pos.DB.Misc                    (addProxySecretKey)
 import           Pos.Delegation.Class           (runDelegationT)
-import           Pos.DHT.Model                  (MonadDHT (..), sendToNeighbors)
+import           Pos.DHT.Model                  (MonadDHT (..), converseToNeighbors)
 import           Pos.DHT.Real                   (KademliaDHTInstance,
                                                  KademliaDHTInstanceConfig (..),
                                                  runKademliaDHT, startDHTInstance,
@@ -94,8 +97,8 @@ import           Pos.Util                       (runWithRandomIntervals,
                                                  stubListenerOneMsg)
 import           Pos.Util.TimeWarp              (sec)
 import           Pos.Util.UserSecret            (usKeys)
-import           Pos.WorkMode                   (ProductionMode, RawRealMode, ServiceMode,
-                                                 StatsMode)
+import           Pos.WorkMode                   (MinWorkMode, ProductionMode, RawRealMode,
+                                                 ServiceMode, StatsMode)
 data RealModeResources = RealModeResources
     { rmTransport :: Transport
     , rmDHT       :: KademliaDHTInstance
@@ -106,28 +109,33 @@ data RealModeResources = RealModeResources
 ----------------------------------------------------------------------------
 
 -- | Runs node as time-slave inside IO monad.
-runTimeSlaveReal :: SscListenersClass ssc => Proxy ssc -> RealModeResources -> BaseParams -> Production Timestamp
+runTimeSlaveReal
+    :: SscListenersClass ssc
+    => Proxy ssc -> RealModeResources -> BaseParams -> Production Timestamp
 runTimeSlaveReal sscProxy res bp = do
     mvar <- liftIO newEmptyMVar
     runServiceMode res bp (listeners mvar) $ \sendActions ->
-      case Const.runningMode of
-         Const.Development -> do
+      case Const.isDevelopment of
+         True -> do
            tId <- fork $
              runWithRandomIntervals (sec 10) (sec 60) $ liftIO (tryReadMVar mvar) >>= \case
                  Nothing -> do
                     logInfo "Asking neighbors for system start"
-                    sendToNeighbors sendActions SysStartRequest `catchAll`
-                       \e -> logDebug $ sformat
-                       ("Error sending SysStartRequest to neighbors: " % shown) e
+                    converseToNeighbors sendActions $ \peerId conv -> do
+                        send conv SysStartRequest
+                        mResp <- recv conv
+                        whenJust mResp $ handleSysStartResp mvar peerId sendActions
                  Just _ -> fail "Close thread"
            t <- liftIO $ takeMVar mvar
            killThread tId
            t <$ logInfo (sformat ("[Time slave] adopted system start " % timestampF) t)
-         Const.Production ts -> logWarning "Time slave launched in Production" $> ts
+         False -> logWarning "Time slave launched in Production" $>
+           panic "Time slave in production, rly?"
   where
     listeners mvar =
       if Const.isDevelopment
-         then allStubListeners sscProxy ++ [stubListenerOneMsg (Proxy :: Proxy SysStartRequest), sysStartRespListener mvar]
+         then allStubListeners sscProxy ++
+              [stubListenerOneMsg (Proxy :: Proxy SysStartRequest), sysStartRespListener mvar]
          else allStubListeners sscProxy
 
 -- | Runs time-lord to acquire system start.
@@ -189,7 +197,7 @@ runServiceMode res bp@BaseParams{..} listeners action =
     runServer (rmTransport res) listeners $
         \sa -> nodeStartMsg bp >> action sa
 
-runServer :: (MonadIO m, MonadMockable m, MonadFix m)
+runServer :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)
   => Transport -> [Listener BiP m] -> (SendActions BiP m -> m b) -> m b
 runServer transport listeners action = do
     stdGen <- liftIO newStdGen
@@ -249,6 +257,7 @@ runCH NodeParams {..} sscNodeContext act = do
 
     userSecretVar <- liftIO . atomically . newTVar $ npUserSecret
     ntpData <- currentTime >>= atomically . newTVar . (0, )
+    -- current time isn't quite validly, but it doesn't matter
     lastSlot <- atomically . newTVar $ unflattenSlotId 0
     queue <- liftIO $ newTBQueueIO blockRetrievalQueueSize
     let ctx =
@@ -270,7 +279,7 @@ runCH NodeParams {..} sscNodeContext act = do
             , ncKademliaDump = npKademliaDump
             , ncNtpData = ntpData
             , ncNtpLastSlot = lastSlot
-            , ncBlockRetreivalQueue = queue
+            , ncBlockRetrievalQueue = queue
             }
     runContextHolder ctx act
 
@@ -296,7 +305,7 @@ loggerBracket :: LoggingParams -> IO a -> IO a
 loggerBracket lp = bracket_ (setupLoggers lp) releaseAllHandlers
 
 addDevListeners
-    :: Monad m => Timestamp
+    :: MinWorkMode m => Timestamp
     -> [Listener BiP m]
     -> [Listener BiP m]
 addDevListeners sysStart ls =
@@ -314,15 +323,16 @@ bracketDHTInstance BaseParams {..} action = bracket acquire release action
     instConfig =
         KademliaDHTInstanceConfig
         { kdcKey = bpDHTKey
-        , kdcPort = bpPort
+        , kdcPort = snd bpIpPort
         , kdcInitialPeers = nub $ bpDHTPeers ++ Const.defaultPeers
         , kdcExplicitInitial = bpDHTExplicitInitial
         }
 
-createTransport :: (MonadIO m, WithLogger m, Mockable Throw m) => Word16 -> m Transport
-createTransport port = do
+createTransport :: (MonadIO m, WithLogger m, Mockable Throw m) => [Char] -> Word16 -> m Transport
+createTransport ip port = do
     transportE <- liftIO $ TCP.createTransport
                              "0.0.0.0"
+                             ip
                              (show port)
                              (TCP.defaultTCPParameters { TCP.transportConnectTimeout = Just $ fromIntegral networkConnectionTimeout })
     case transportE of
@@ -332,7 +342,7 @@ createTransport port = do
       Right transport -> return transport
 
 bracketTransport :: BaseParams -> (Transport -> Production a) -> Production a
-bracketTransport BaseParams{..} = bracket (withLog $ createTransport bpPort) (liftIO . closeTransport)
+bracketTransport BaseParams{..} = bracket (withLog $ createTransport (BS8.unpack $ fst bpIpPort) (snd bpIpPort)) (liftIO . closeTransport)
   where
     withLog = usingLoggerName $ lpRunnerTag bpLoggingParams
 

@@ -12,8 +12,9 @@ import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..))
 import           Pos.Txp.Types.Communication      (TxMsgContents (..))
 import           Pos.Types                        (TxId)
 import           Pos.Types.Address                (StakeholderId, addressHash)
-import           Pos.Update.Types                 (UpId, UpdateProposal)
-import           Pos.Util.Relay                   (DataMsg (..), InvMsg (..), ReqMsg (..))
+import           Pos.Update.Core                  (UpId, UpdateProposal)
+import           Pos.Util.Relay                   (DataMsg (..), DataMsgGodTossing (..),
+                                                   InvMsg (..), ReqMsg (..))
 
 instance (Bi tag, Bi key) => Bi (InvMsg key tag) where
     put InvMsg {..} = put imTag >> put imKeys
@@ -44,6 +45,10 @@ instance Bi (DataMsg StakeholderId GtMsgContents) where
                     "get@DataMsg@GodTossing: stakeholder ID doesn't correspond to public key from VSS certificate"
             _ -> pass
         return $ DataMsg {..}
+
+instance Bi DataMsgGodTossing where
+    put = put . getDataMsg
+    get = DataMsgGT <$> get
 
 instance Bi (DataMsg TxId TxMsgContents) where
     put (DataMsg (TxMsgContents dmTx dmWitness dmDistr) _) =

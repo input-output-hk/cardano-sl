@@ -46,6 +46,7 @@ import           System.Wlog                 (WithLogger)
 import           Universum
 
 import           Pos.Binary.Communication    ()
+import           Pos.Block.Types             (Blund, Undo (undoPsk))
 import           Pos.Context                 (WithNodeContext (getNodeContext),
                                               lrcActionOnEpochReason, ncSecretKey)
 import           Pos.Crypto                  (ProxySecretKey (..), PublicKey,
@@ -56,17 +57,16 @@ import           Pos.DB                      (DBError (DBMalformed), MonadDB,
 import qualified Pos.DB                      as DB
 import qualified Pos.DB.GState               as GS
 import qualified Pos.DB.Lrc                  as LrcDB
-import qualified Pos.DB.Misc                 as Misc (addProxySecretKey,
-                                                      getProxySecretKeys)
+import qualified Pos.DB.Misc                 as Misc
 import           Pos.Delegation.Class        (DelegationWrap, MonadDelegation (..),
                                               dwProxyConfCache, dwProxyMsgCache,
                                               dwProxySKPool)
 import           Pos.Delegation.Types        (SendProxySK (..))
 import           Pos.Ssc.Class               (Ssc)
-import           Pos.Types                   (Block, Blund, NEBlocks, ProxySKEpoch,
-                                              ProxySKSimple, ProxySigEpoch,
-                                              Undo (undoPsk), addressHash, blockProxySKs,
-                                              epochIndexL, headerHash, prevBlockL)
+import           Pos.Types                   (Block, NEBlocks, ProxySKEpoch,
+                                              ProxySKSimple, ProxySigEpoch, addressHash,
+                                              blockProxySKs, epochIndexL, headerHash,
+                                              prevBlockL)
 import           Pos.Util                    (_neHead)
 
 
@@ -140,8 +140,8 @@ data PskSimpleVerdict
     | PSAdded     -- ^ Successfully processed/added to psk mempool
     deriving (Show,Eq)
 
--- | Processes simple (hardweight) psk. Puts it into the mempool not
--- (TODO) depending on issuer's stake, overrides if exists, checks
+-- | Processes simple (hardweight) psk. Puts it into the mempool
+-- depending on issuer's stake, overrides if exists, checks
 -- validity and cachemsg state.
 processProxySKSimple
     :: (Ssc ssc, MonadDB ssc m, MonadDelegation m, WithNodeContext ssc m)
@@ -163,12 +163,13 @@ processProxySKSimple psk = do
         exists <- uses dwProxySKPool $ \m -> HM.lookup issuer m == Just psk
         cached <- uses dwProxyMsgCache $ HM.member msg
         dwProxyMsgCache %= HM.insert msg curTime
-        unless exists $ dwProxySKPool %= HM.insert issuer psk
-        pure $ if | not valid -> PSInvalid
-                  | not enoughStake -> PSForbidden
-                  | cached -> PSCached
-                  | exists -> PSExists
-                  | otherwise -> PSAdded
+        let res = if | not valid -> PSInvalid
+                     | not enoughStake -> PSForbidden
+                     | cached -> PSCached
+                     | exists -> PSExists
+                     | otherwise -> PSAdded
+        when (res == PSAdded) $ dwProxySKPool %= HM.insert issuer psk
+        pure res
 
 -- state needed for 'delegationVerifyBlocks'
 data DelVerState = DelVerState
@@ -186,7 +187,7 @@ makeLenses ''DelVerState
 -- an returns non-empty list of proxySKs needed for undoing
 -- them. Predicate for correctness here is:
 -- * Issuer can post only one cert per epoch
--- * For every new certificate issuer had enough state at the
+-- * For every new certificate issuer had enough stake at the
 --   end of prev. epoch
 --
 -- Blocks are assumed to be oldest-first. It's assumed blocks are
@@ -196,11 +197,10 @@ delegationVerifyBlocks
     => NEBlocks ssc -> m (Either Text (NonEmpty [ProxySKSimple]))
 delegationVerifyBlocks blocks = do
     -- TODO CSL-502 create snapshot
-    -- TODO CSL-505 check that no two block have different epoch
     tip <- GS.getTip
     fromGenesisPsks <-
         concatMap (either (const []) (map pskIssuerPk . view blockProxySKs)) <$>
-        DB.loadBlocksWhile (\x _ -> isRight x) tip
+        DB.loadBlocksWhile isRight tip
     let _dvCurEpoch = HS.fromList fromGenesisPsks
         initState = DelVerState _dvCurEpoch HM.empty HS.empty
     richmen <-
@@ -318,6 +318,7 @@ data PskEpochVerdict
     | PEInvalid
     | PEExists
     | PECached
+    | PERemoved
     | PEAdded
     deriving (Show,Eq)
 
@@ -339,15 +340,18 @@ processProxySKEpoch psk = do
             exists = psk `elem` psks
             msg = SendProxySKEpoch psk
             valid = verifyProxySecretKey psk
+            selfSigned = pskDelegatePk psk == pskIssuerPk psk
         cached <- uses dwProxyMsgCache $ HM.member msg
         dwProxyMsgCache %= HM.insert msg curTime
         pure $ if | not valid -> PEInvalid
                   | cached -> PECached
                   | exists -> PEExists
+                  | selfSigned -> PERemoved
                   | not related -> PEUnrelated
                   | otherwise -> PEAdded
     -- (2) We're writing to DB
     when (res == PEAdded) $ Misc.addProxySecretKey psk
+    when (res == PERemoved) $ Misc.removeProxySecretKey $ pskIssuerPk psk
     pure res
 
 ----------------------------------------------------------------------------

@@ -9,7 +9,6 @@ module Pos.Wallet.Web.Doc
 
 import           Control.Lens               ((.~), (<>~))
 import qualified Data.HashMap.Strict        as HM
-import           Data.List                  ((!!))
 import           Data.Proxy                 (Proxy (..))
 import           Network.HTTP.Types.Method  (methodPost)
 import           Servant.API                (Capture)
@@ -20,14 +19,15 @@ import           Servant.Docs               (API, DocCapture (..), DocIntro (..)
                                              docsWith, markdown, method, notes, path,
                                              singleSample)
 import qualified Servant.Docs               as SD
+import           System.IO.Unsafe           (unsafePerformIO)
 import           Universum
 
 import           Pos.Aeson.ClientTypes      ()
-import           Pos.Genesis                (genesisAddresses)
-import           Pos.Types                  (Coin, mkCoin)
+import           Pos.Crypto                 (keyGen)
+import           Pos.Types                  (Coin, makePubKeyAddress, mkCoin)
 import           Pos.Wallet.Web.Api         (walletApi)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CTx, CTxId,
-                                             CTxMeta, CWallet, CWalletMeta,
+import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile, CTx,
+                                             CTxId, CTxMeta, CWallet, CWalletMeta,
                                              addressToCAddress)
 import           Pos.Wallet.Web.Error       (WalletError)
 
@@ -178,7 +178,8 @@ instance ToSample CWalletMeta where
     toSamples Proxy = fail "ToSample CWalletMeta: Not Implemented!"
 
 instance ToSample CAddress where
-    toSamples Proxy = singleSample . addressToCAddress $ genesisAddresses !! 0
+    toSamples Proxy = singleSample . addressToCAddress . makePubKeyAddress . fst $
+        unsafePerformIO keyGen
 
 -- FIXME: this is required because of Wallet.Web.Api `type Cors...`
 -- I don't really what should be sample for Cors ?
@@ -193,6 +194,13 @@ instance ToSample CTx where
 
 instance ToSample CTxMeta where
     toSamples Proxy = fail "ToSample CTxMeta: Not Implemented!"
+
+instance ToSample CProfile where
+    toSamples Proxy = fail "ToSample CProfile: Not Implemented!"
+
+instance ToSample Word where
+    toSamples Proxy = fail "ToSample Word: Not Implemented!"
+
 --
 --instance ToSample Tx where
 --    toSamples Proxy = singleSample $ Tx [TxIn hsh idx] [out]

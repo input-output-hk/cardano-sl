@@ -31,3 +31,6 @@ instance MonadUtxo m => MonadUtxo (ReaderT e m) where
 
 instance MonadUtxoRead m => MonadUtxoRead (ExceptT e m) where
 instance MonadUtxo m => MonadUtxo (ExceptT e m) where
+
+instance MonadUtxoRead m => MonadUtxoRead (StateT e m) where
+instance MonadUtxo m => MonadUtxo (StateT e m) where

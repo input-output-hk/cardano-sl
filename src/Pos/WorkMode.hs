@@ -70,7 +70,6 @@ type WorkMode ssc m
       , WithKademliaDHTInstance m
       , MonadFail m
       , WithPeerState ssc m
-      , MonadSscRichmen m
       , MonadUSMem m
       )
 

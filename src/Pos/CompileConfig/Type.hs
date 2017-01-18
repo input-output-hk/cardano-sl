@@ -49,6 +49,8 @@ data CompileConfig = CompileConfig
       -- ^ True if we should enable enhanced bessage broadcast
     , ccDelegationThreshold           :: !Double
       -- ^ Threshold for heavyweight delegation.
+    , ccRecoveryHeadersMessage        :: !Int
+      -- ^ Numbers of headers put in message in recovery mode.
     , ccUpdateServers                 :: ![String]
       -- ^ Servers for downloading application updates
     , ccMaxBlockProxySKs              :: !Int
@@ -70,4 +72,7 @@ data CompileConfig = CompileConfig
       -- ^ Network connection timeout in milliseconds
     , ccBlockRetrievalQueueSize       :: !Int
       -- ^ Block retrieval queue capacity
+    , ccProductionNetworkStartTime    :: !Int
+      -- ^ Start time of network (in `Prodution` running mode).
+      -- If set to zero, then running time is 2 minutes after build.
     } deriving (Show, Lift)

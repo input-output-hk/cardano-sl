@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators       #-}
@@ -24,7 +25,9 @@ import           Pos.Context                   (NodeContext, getNodeContext,
 import qualified Pos.DB                        as Modern
 import           Pos.Delegation.Class          (DelegationWrap, askDelegationState,
                                                 runDelegationTFromTVar)
+#ifdef DEV_MODE
 import           Pos.Genesis                   (genesisSecretKeys)
+#endif
 import           Pos.Ssc.Class                 (SscConstraint)
 import           Pos.Ssc.Extra                 (SscHolder (..), SscState, runSscHolderRaw)
 import           Pos.Txp.Class                 (getTxpLDWrap)
@@ -57,7 +60,9 @@ walletServeWebFull
     -> RawRealMode ssc ()
 walletServeWebFull sendActions debug = walletServeImpl $ do
     logInfo "DAEDALUS has STARTED!"
+#ifdef DEV_MODE
     when debug $ mapM_ addSecretKey genesisSecretKeys
+#endif
     walletApplication $ walletServer sendActions nat
 
 type WebHandler ssc = WalletWebSockets (WalletWebDB (RawRealMode ssc))

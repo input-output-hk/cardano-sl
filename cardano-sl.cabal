@@ -74,7 +74,8 @@ library
                         Pos.Launcher
                         Pos.Merkle
                         Pos.Security
-                        Pos.Security.Types
+                        Pos.Security.Class
+                        Pos.Security.CLI
                         Pos.Security.Util
                         Pos.Security.Workers
                         Pos.Slotting
@@ -99,8 +100,13 @@ library
                         Pos.Types.Types
                         Pos.Types.Utxo
                         Pos.Types.Version
+
+                        -- Update system
                         Pos.Update
-                        Pos.Update.Types
+                        Pos.Update.Arbitrary
+                        Pos.Update.Core
+
+                        -- Utilities/helpers
                         Pos.Util
                         Pos.Util.JsonLog
                         Pos.Util.Relay
@@ -118,12 +124,14 @@ library
 
                         -- Binary serialization
                         Pos.Binary.Address
+                        Pos.Binary.Block
                         Pos.Binary.Class
                         Pos.Binary.Crypto
                         Pos.Binary.Communication
                         Pos.Binary.DHTModel
-                        Pos.Binary.Merkle
                         Pos.Binary.DB
+                        Pos.Binary.Genesis
+                        Pos.Binary.Merkle
                         Pos.Binary.Relay
                         Pos.Binary.Script
                         Pos.Binary.Ssc
@@ -140,6 +148,7 @@ library
                         Pos.Block.Network.Types
                         Pos.Block.Network.Listeners
                         Pos.Block.Network.Retrieval
+                        Pos.Block.Types
                         Pos.Block.Worker
 
                         -- Network
@@ -195,7 +204,6 @@ library
                         Pos.DB.Block
                         Pos.DB.Class
                         Pos.DB.DB
-                        Pos.DB.DBIterator
                         Pos.DB.Error
                         Pos.DB.Functions
                         Pos.DB.GState.Balances
@@ -206,6 +214,9 @@ library
                         Pos.DB.GState.BlockExtra
                         Pos.DB.GState.Utxo
                         Pos.DB.Holder
+                        Pos.DB.Iterator
+                        Pos.DB.Iterator.Class
+                        Pos.DB.Iterator.DBIterator
                         Pos.DB.Lrc
                         Pos.DB.Lrc.Common
                         Pos.DB.Lrc.Leaders
@@ -213,6 +224,10 @@ library
                         Pos.DB.Lrc.Richmen
                         Pos.DB.Misc
                         Pos.DB.Types
+
+                        -- Genesis
+                        Pos.Genesis.Types
+                        Pos.Genesis.Parser
 
                         -- LRC
                         Pos.Lrc.Consumer
@@ -266,6 +281,7 @@ library
                         Pos.Txp.Types.Communication
                         Pos.Txp.Types.Types
                         Pos.Txp.Types.UtxoView
+                        Pos.Txp.Types.BalancesView
 
                         -- Types
                         Pos.Types.SharedSeed
@@ -278,20 +294,29 @@ library
                         Pos.Worker.Stats
 
                         -- Update System
+                        Pos.Update.Arbitrary.Core
+                        Pos.Update.Arbitrary.Network
+                        Pos.Update.Core.Types
                         Pos.Update.Download
                         Pos.Update.Error
-                        Pos.Update.Listeners
                         Pos.Update.Logic
+                        Pos.Update.Logic.Global
+                        Pos.Update.Logic.Local
                         Pos.Update.Lrc
                         Pos.Update.MemState
                         Pos.Update.MemState.Class
                         Pos.Update.MemState.Holder
                         Pos.Update.MemState.MemState
                         Pos.Update.MemState.Types
+                        Pos.Update.Network
+                        Pos.Update.Network.Listeners
+                        Pos.Update.Network.Types
                         Pos.Update.Poll
                         Pos.Update.Poll.Class
-                        Pos.Update.Types.Communication
-                        Pos.Update.Types.Types
+                        Pos.Update.Poll.DBPoll
+                        Pos.Update.Poll.Functions
+                        Pos.Update.Poll.Trans
+                        Pos.Update.Poll.Types
                         Pos.Update.Worker
 
                         -- Utilities/helpers
@@ -564,6 +589,12 @@ executable cardano-analyzer
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
+  if flag(dev-mode)
+    buildable:          True
+  else
+    buildable:          False
+
+
 executable cardano-wallet
   hs-source-dirs:      src/wallet
   main-is:             Main.hs
@@ -616,7 +647,7 @@ executable cardano-wallet
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  if flag(with-wallet)
+  if flag(with-wallet) && flag(dev-mode)
     buildable:         True
   else
     buildable:         False
@@ -727,13 +758,13 @@ executable cardano-smart-generator
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  if flag(with-wallet)
+  if flag(with-wallet) && flag(dev-mode)
     buildable:         True
   else
     buildable:         False
 
-executable cardano-key-generator
-  hs-source-dirs:      src/key-generator
+executable cardano-dht-keygen
+  hs-source-dirs:      src/dht-keygen
   main-is:             Main.hs
   build-depends:       QuickCheck
                      , base
@@ -756,7 +787,6 @@ executable cardano-key-generator
                      , stm
                      , text
                      , time
-                     , time-warp
                      , universum >= 0.1.11
                      , unordered-containers
                      , vector
@@ -865,7 +895,7 @@ executable cardano-wallet-web-docs
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  if flag(with-web) && flag(with-wallet)
+  if flag(with-web) && flag(with-wallet) && flag(dev-mode)
     buildable:         True
   else
     buildable:         False
@@ -893,6 +923,11 @@ executable cardano-keygen
                      , text
                      , lens
                      , optparse-applicative >= 0.12
+                     , unordered-containers >= 0.2
+                     , bytestring >= 0.10
+                     , random >= 1.1
+                     , filepath
+                     , directory
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
@@ -929,11 +964,11 @@ test-suite cardano-test
                        Test.Pos.FollowTheSatoshiSpec
                        Test.Pos.MerkleSpec
                        Test.Pos.Script.Identity.BinarySpec
-                       Test.Pos.SlottingSpec
                        Test.Pos.Ssc.GodTossing.Identity.BinarySpec
                        Test.Pos.Ssc.GodTossing.Identity.SafeCopySpec
                        Test.Pos.Ssc.GodTossing.SeedSpec
                        Test.Pos.Ssc.GodTossing.Types.BaseSpec
+                       Test.Pos.Ssc.GodTossing.VssCertDataSpec
                        Test.Pos.Types.AddressSpec
                        Test.Pos.Types.BlockSpec
                        Test.Pos.Types.Identity.BinarySpec

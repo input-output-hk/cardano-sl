@@ -48,6 +48,8 @@ import           Pos.Types             (Address (..), Coin, Tx, TxId, decodeText
 -- Notifications
 data NotifyEvent
     = ConnectionOpened
+    | NewWalletTransaction CAddress
+    | NewTransaction
     | ConnectionClosed
     deriving (Show, Generic)
 
@@ -156,10 +158,10 @@ data CTxMeta = CTxMeta
 
 -- | type of transactions
 -- It can be an input / output / exchange transaction
+-- CTInOut CTExMeta -- Ex == exchange
 data CTType
     = CTIn CTxMeta
     | CTOut CTxMeta
-    -- | CTInOut CTExMeta -- Ex == exchange
     deriving (Show, Generic)
 
 ctTypeMeta :: CTType -> CTxMeta

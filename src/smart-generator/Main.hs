@@ -5,7 +5,6 @@ module Main where
 
 import           Control.Concurrent.STM.TVar (modifyTVar', newTVarIO, readTVarIO)
 import           Control.Lens                (view, _1)
-import           Data.List                   ((!!))
 import           Data.Maybe                  (fromMaybe)
 import           Data.Proxy                  (Proxy (..))
 import           Data.Time.Clock.POSIX       (getPOSIXTime)
@@ -22,11 +21,11 @@ import           Universum                   hiding (forConcurrently)
 
 import qualified Pos.CLI                     as CLI
 import           Pos.Communication           (BiP)
-import           Pos.Constants               (genesisN, k, neighborsSendThreshold,
-                                              slotDuration)
+import           Pos.Constants               (genesisN, neighborsSendThreshold,
+                                              slotDuration, slotSecurityParam)
 import           Pos.Crypto                  (KeyPair (..), hash)
-import           Pos.DHT.Model               (MonadDHT, dhtAddr,
-                                              discoverPeers, getKnownPeers)
+import           Pos.DHT.Model               (MonadDHT, dhtAddr, discoverPeers,
+                                              getKnownPeers)
 import           Pos.Genesis                 (genesisUtxo)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
                                               NodeParams (..), RealModeResources,
@@ -116,13 +115,13 @@ runSmartGen res np@NodeParams{..} sscnp opts@GenOptions{..} =
 
     -- [CSL-220] Write MonadBaseControl instance for KademliaDHT
     -- Seeding init tx
-    _ <- forConcurrently goGenesisIdxs $ \(fromIntegral -> i) ->
-            seedInitTx sendActions goRecipientShare (bambooPools !! i) (initTx i)
+    _ <- forConcurrently (zip bambooPools goGenesisIdxs) $ \(pool, fromIntegral -> idx) ->
+            seedInitTx sendActions goRecipientShare pool (initTx idx)
 
     -- Start writing tps file
     liftIO $ writeFile (logsFilePrefix </> tpsCsvFile) tpsCsvHeader
 
-    let phaseDurationMs = fromIntegral (k + goPropThreshold) * slotDuration
+    let phaseDurationMs = fromIntegral (slotSecurityParam + goPropThreshold) * slotDuration
         roundDurationSec = fromIntegral (goRoundPeriodRate + 1) *
                            fromIntegral (phaseDurationMs `div` sec 1)
 
@@ -235,7 +234,7 @@ main = do
         baseParams =
             BaseParams
             { bpLoggingParams      = logParams
-            , bpPort               = 24962 + (fromIntegral $ minimum goGenesisIdxs)
+            , bpIpPort             = goIpPort
             , bpDHTPeers           = CLI.dhtPeers goCommonArgs
             , bpDHTKey             = Nothing
             , bpDHTExplicitInitial = CLI.dhtExplicitInitial goCommonArgs
@@ -263,6 +262,7 @@ main = do
                                         stakesDistr
                                         (CLI.flatDistr goCommonArgs)
                                         (CLI.bitcoinDistr goCommonArgs)
+                                        (CLI.expDistr goCommonArgs)
                 , npTimeLord      = False
                 , npJLFile        = goJLFile
                 , npAttackTypes   = []

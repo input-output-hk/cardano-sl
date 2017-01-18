@@ -5,20 +5,20 @@
 
 module Main where
 
-import           Control.Monad.Reader (MonadReader (..), ReaderT, asks, runReaderT, ask)
+import           Control.Monad.Reader (MonadReader (..), ReaderT, ask, asks, runReaderT)
 import           Data.List            ((!!))
 import           Data.Proxy           (Proxy (..))
 import qualified Data.Text            as T
 import           Formatting           (build, int, sformat, stext, (%))
-import           Node                 (SendActions, hoistSendActions)
 import           Mockable             (delay)
+import           Node                 (SendActions, hoistSendActions)
 import           Options.Applicative  (execParser)
 import           System.IO            (hFlush, stdout)
 import           Universum
 
 import qualified Pos.CLI              as CLI
+import           Pos.Communication    (BiP)
 import           Pos.Constants        (slotDuration)
-import           Pos.Communication (BiP)
 import           Pos.Crypto           (SecretKey, createProxySecretKey, toPublic)
 import           Pos.Delegation       (sendProxySKEpoch, sendProxySKSimple)
 import           Pos.DHT.Model        (dhtAddr, discoverPeers)
@@ -59,7 +59,7 @@ runCmd _ Help = do
             , "                                     from own address #N"
             , "   listaddr                       -- list own addresses"
             , "   delegate-light <N> <M>         -- delegate secret key #N to #M (genesis) light version"
-            , "   delegate-hard <N> <M>          -- delegate secret key #N to #M (genesis) hardweight "
+            , "   delegate-heavy <N> <M>         -- delegate secret key #N to #M (genesis) heavyweight "
             , "   help                           -- show this message"
             , "   quit                           -- shutdown node wallet"
             ]
@@ -86,7 +86,7 @@ runCmd _ Quit = pure ()
 
 evalCmd :: WalletMode ssc m => SendActions BiP m -> Command -> CmdRunner m ()
 evalCmd _ Quit = pure ()
-evalCmd sa cmd  = runCmd sa cmd >> evalCommands sa
+evalCmd sa cmd = runCmd sa cmd >> evalCommands sa
 
 evalCommands :: WalletMode ssc m => SendActions BiP m -> CmdRunner m ()
 evalCommands sa = do
@@ -135,7 +135,7 @@ main = do
         baseParams =
             BaseParams
             { bpLoggingParams      = logParams
-            , bpPort               = woPort
+            , bpIpPort             = woIpPort
             , bpDHTPeers           = CLI.dhtPeers woCommonArgs
             , bpDHTKey             = Nothing
             , bpDHTExplicitInitial = CLI.dhtExplicitInitial woCommonArgs

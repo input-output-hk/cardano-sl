@@ -1,5 +1,6 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Part of GState DB which stores stakeholders' balances.
 
@@ -8,6 +9,8 @@ module Pos.DB.GState.Balances
          -- * Getters
          getTotalFtsStake
        , getFtsStake
+       -- kostil for BalancesView
+       , getFtsStakeFromDB
 
          -- * Operations
        , BalancesOp (..)
@@ -16,27 +19,33 @@ module Pos.DB.GState.Balances
        , prepareGStateBalances
 
          -- * Iteration
-       , iterateByStake
+       , BalIter
+       , runBalanceIterator
+       , runBalanceMapIterator
 
          -- * Sanity checks
        , sanityCheckBalances
        ) where
 
-import qualified Data.Map             as M
+import qualified Data.HashMap.Strict  as HM
+import qualified Data.Text.Buildable
 import qualified Database.RocksDB     as Rocks
-import           Formatting           (sformat, (%))
+import           Formatting           (bprint, bprint, sformat, (%))
 import           System.Wlog          (WithLogger, logError)
 import           Universum
 
 import           Pos.Binary.Class     (encodeStrict)
+import           Pos.Crypto           (shortHashF)
 import           Pos.DB.Class         (MonadDB, getUtxoDB)
-import           Pos.DB.DBIterator    (DBMapIterator, mapIterator)
 import           Pos.DB.Error         (DBError (..))
-import           Pos.DB.Functions     (RocksBatchOp (..), WithKeyPrefix (..),
-                                       encodeWithKeyPrefix)
+import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi)
 import           Pos.DB.GState.Common (getBi, putBi)
+import           Pos.DB.Iterator      (DBIterator, DBIteratorClass (..), DBMapIterator,
+                                       IterType, mapIterator, runIterator)
+import           Pos.DB.Types         (DB)
 import           Pos.Types            (Coin, StakeholderId, Utxo, coinF, mkCoin, sumCoins,
-                                       txOutStake, unsafeAddCoin, unsafeIntegerToCoin)
+                                       txOutStake, unsafeAddCoin, unsafeIntegerToCoin,
+                                       utxoToStakes)
 import           Pos.Util             (Color (Red), colorize, maybeThrow)
 import           Pos.Util.Iterator    (MonadIterator (..))
 
@@ -54,6 +63,12 @@ getTotalFtsStake =
 getFtsStake :: MonadDB ssc m => StakeholderId -> m (Maybe Coin)
 getFtsStake = getBi . ftsStakeKey
 
+getFtsStakeFromDB :: (MonadIO m, MonadThrow m)
+                  => StakeholderId
+                  -> DB ssc
+                  -> m (Maybe Coin)
+getFtsStakeFromDB id = rocksGetBi (ftsStakeKey id)
+
 ----------------------------------------------------------------------------
 -- Operations
 ----------------------------------------------------------------------------
@@ -63,9 +78,16 @@ data BalancesOp
     | PutFtsStake !StakeholderId
                   !Coin
 
+instance Buildable BalancesOp where
+    build (PutFtsSum c) = bprint ("PutFtsSum ("%coinF%")") c
+    build (PutFtsStake ad c) =
+        bprint ("PutFtsStake ("%shortHashF%", "%coinF%")") ad c
+
 instance RocksBatchOp BalancesOp where
     toBatchOp (PutFtsSum c)      = [Rocks.Put ftsSumKey (encodeStrict c)]
-    toBatchOp (PutFtsStake ad c) = [Rocks.Put (ftsStakeKey ad) (encodeStrict c)]
+    toBatchOp (PutFtsStake ad c) =
+        if c == mkCoin 0 then [Rocks.Del (ftsStakeKey ad)]
+        else [Rocks.Put (ftsStakeKey ad) (encodeStrict c)]
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -87,8 +109,7 @@ prepareGStateBalances genesisUtxo = do
     -- Will 'panic' if the result doesn't fit into Word64 (which should never
     -- happen)
     putGenesisTotalStake = putTotalFtsStake (unsafeIntegerToCoin totalCoins)
-    putFtsStakes = mapM_ putFtsStake' $ M.toList genesisUtxo
-    putFtsStake' (_, toaux) = mapM (uncurry putFtsStake) (txOutStake toaux)
+    putFtsStakes = mapM_ (uncurry putFtsStake) . HM.toList $ utxoToStakes genesisUtxo
 
 putTotalFtsStake :: MonadDB ssc m => Coin -> m ()
 putTotalFtsStake = putBi ftsSumKey
@@ -97,12 +118,22 @@ putTotalFtsStake = putBi ftsSumKey
 -- Iteration
 ----------------------------------------------------------------------------
 
-type IterType = (StakeholderId, Coin)
+data BalIter
 
-iterateByStake :: forall v m ssc a . (MonadDB ssc m, MonadMask m)
-                => DBMapIterator IterType v m a -> (IterType -> v) -> m a
-iterateByStake iter f = mapIterator @IterType @v iter f =<< getUtxoDB
+instance DBIteratorClass BalIter where
+    type IterKey BalIter = StakeholderId
+    type IterValue BalIter = Coin
+    iterKeyPrefix _ = iterationPrefix
 
+runBalanceMapIterator
+    :: forall v m ssc a . (MonadDB ssc m, MonadMask m)
+    => DBMapIterator BalIter v m a -> (IterType BalIter -> v) -> m a
+runBalanceMapIterator iter f = mapIterator @BalIter @v iter f =<< getUtxoDB
+
+runBalanceIterator
+    :: forall m ssc a . (MonadDB ssc m, MonadMask m)
+    => DBIterator BalIter m a -> m a
+runBalanceIterator iter = runIterator @BalIter iter =<< getUtxoDB
 ----------------------------------------------------------------------------
 -- Sanity checks
 ----------------------------------------------------------------------------
@@ -112,7 +143,7 @@ sanityCheckBalances
     => m ()
 sanityCheckBalances = do
     let step sm = nextItem >>= maybe (pure sm) (\c -> step (unsafeAddCoin sm c))
-    realTotalStake <- iterateByStake (step (mkCoin 0)) snd
+    realTotalStake <- runBalanceMapIterator (step (mkCoin 0)) snd
     totalStake <- getTotalFtsStake
     let fmt =
             ("Wrong total FTS stake: \
@@ -126,15 +157,14 @@ sanityCheckBalances = do
 ----------------------------------------------------------------------------
 -- Keys
 ----------------------------------------------------------------------------
-
-instance WithKeyPrefix StakeholderId where
-    keyPrefix _ = "b/s"
-
 ftsStakeKey :: StakeholderId -> ByteString
-ftsStakeKey = encodeWithKeyPrefix
+ftsStakeKey = encodeWithKeyPrefix @BalIter
 
 ftsSumKey :: ByteString
 ftsSumKey = "b/ftssum"
+
+iterationPrefix :: ByteString
+iterationPrefix = "b/s"
 
 ----------------------------------------------------------------------------
 -- Details

@@ -16,7 +16,7 @@ module Pos.Types.Arbitrary
 import           Control.Lens               (set, view, _3, _4)
 import qualified Data.ByteString            as BS (pack)
 import           Data.Char                  (chr)
-import           Data.DeriveTH              (derive, makeArbitrary, makeNFData)
+import           Data.DeriveTH              (derive, makeArbitrary)
 import           Data.Text                  (pack)
 import           Data.Time.Units            (Microsecond, fromMicroseconds)
 import           System.Random              (Random)
@@ -29,11 +29,9 @@ import           Universum
 import           Pos.Binary.Class           (FixedSizeInt (..), SignedVarInt (..),
                                              UnsignedVarInt (..))
 import           Pos.Binary.Types           ()
-import           Pos.Binary.Update          ()
 import           Pos.Constants              (epochSlots, sharedSeedLength)
 import           Pos.Crypto                 (PublicKey, SecretKey, Share, hash, sign,
                                              toPublic)
-import           Pos.Crypto.Arbitrary       (KeyPair (..))
 import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.Script                 (Script)
 import           Pos.Script.Examples        (badIntRedeemer, goodIntRedeemer,
@@ -50,10 +48,6 @@ import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
 import           Pos.Types.Version          (ApplicationName (..), ProtocolVersion (..),
                                              SoftwareVersion (..),
                                              applicationNameMaxLength)
-import           Pos.Update.Types           (ProposalMsgTag (..), SystemTag,
-                                             UpdateData (..), UpdateProposal (..),
-                                             UpdateVote (..), VoteMsgTag (..),
-                                             mkSystemTag)
 import           Pos.Util                   (AsBinary, makeSmall)
 
 ----------------------------------------------------------------------------
@@ -71,7 +65,11 @@ instance Arbitrary Address where
 
 deriving instance Arbitrary ChainDifficulty
 
-derive makeArbitrary ''SlotId
+instance Arbitrary SlotId where
+    arbitrary = SlotId
+        <$> arbitrary
+        <*> choose (0, epochSlots - 1)
+
 derive makeArbitrary ''TxOut
 
 instance Arbitrary Coin where
@@ -244,32 +242,6 @@ newtype SmallHashMap =
 instance Arbitrary SmallHashMap where
     arbitrary = SmallHashMap <$> makeSmall arbitrary
 
-derive makeNFData ''GoodTx
-
 derive makeArbitrary ''UnsignedVarInt
 derive makeArbitrary ''SignedVarInt
 derive makeArbitrary ''FixedSizeInt
-
-----------------------------------------------------------------------------
--- Update
-----------------------------------------------------------------------------
-
-instance Arbitrary SystemTag where
-    arbitrary =
-        oneof $
-        map (pure . fromMaybe onFail) [mkSystemTag "win64", mkSystemTag "mac32"]
-      where
-        onFail = panic "instance Arbitrary SystemTag: disaster"
-
-instance Arbitrary UpdateVote where
-    arbitrary = do
-        KeyPair uvKey sk <- arbitrary
-        uvProposalId <- arbitrary
-        uvDecision <- arbitrary
-        let uvSignature = sign sk (uvProposalId, uvDecision)
-        return UpdateVote {..}
-
-derive makeArbitrary ''UpdateData
-derive makeArbitrary ''UpdateProposal
-derive makeArbitrary ''ProposalMsgTag
-derive makeArbitrary ''VoteMsgTag

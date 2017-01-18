@@ -12,11 +12,16 @@ import           Pos.Types    (mkCoin)
 
 type DistrOption = Maybe (Int, Int)
 
-stakesDistr :: DistrOption -> DistrOption -> StakeDistribution
-stakesDistr Nothing Nothing = def
-stakesDistr (Just _) (Just _) =
-    panic "flat-distr and bitcoin distr are conflicting options"
-stakesDistr (Just (nodes, coins)) Nothing =
+panicConflicting :: panic
+panicConflicting =
+    panic $ "Conflicting distribution options were enabled. " <>
+            "Choose one at most or nothing."
+
+stakesDistr :: DistrOption -> DistrOption -> Bool -> StakeDistribution
+stakesDistr Nothing Nothing False = def
+stakesDistr (Just (nodes, coins)) Nothing False =
     FlatStakes (fromIntegral nodes) (mkCoin (fromIntegral coins))
-stakesDistr Nothing (Just (nodes, coins)) =
+stakesDistr Nothing (Just (nodes, coins)) False =
     BitcoinStakes (fromIntegral nodes) (mkCoin (fromIntegral coins))
+stakesDistr Nothing Nothing True = ExponentialStakes
+stakesDistr _ _ _ = panicConflicting

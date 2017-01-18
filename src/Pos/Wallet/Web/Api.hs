@@ -11,8 +11,8 @@ module Pos.Wallet.Web.Api
 import           Data.Proxy                 (Proxy (Proxy))
 
 import           Pos.Types                  (Coin)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CTx, CTxId, CTxMeta,
-                                             CWallet, CWalletMeta)
+import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CProfile, CTx, CTxId,
+                                             CTxMeta, CWallet, CWalletMeta)
 import           Pos.Wallet.Web.Error       (WalletError)
 import           Servant.API                ((:<|>), (:>), Capture, Get, JSON, Post,
                                              ReqBody)
@@ -32,7 +32,7 @@ type WalletApi =
     :<|>
      "api" :> "history" :> Capture "address" CAddress :> Get '[JSON] (Either WalletError [CTx])
     :<|>
-     "api" :> "history" :> Capture "address" CAddress :> Capture "search" Text :> Capture "limit" Word :> Get '[JSON] (Either WalletError [CTx])
+     "api" :> "history" :> Capture "address" CAddress :> Capture "search" Text :> Capture "limit" Word :> Get '[JSON] (Either WalletError ([CTx], Word))
     :<|>
      "api" :> "update_transaction" :> Capture "address" CAddress :> Capture "transaction" CTxId :> ReqBody '[JSON] CTxMeta :> Post '[JSON] (Either WalletError ())
     :<|>
@@ -44,6 +44,10 @@ type WalletApi =
      "api" :> "delete_wallet" :> Capture "address" CAddress :> Post '[JSON] (Either WalletError ())
     :<|>
      "api" :> "valid_address" :> Capture "currency" CCurrency :> Capture "address" Text :> Get '[JSON] (Either WalletError Bool)
+    :<|>
+     "api" :> "get_profile" :> Get '[JSON] (Either WalletError CProfile)
+    :<|>
+     "api" :> "update_profile" :> ReqBody '[JSON] CProfile :> Post '[JSON] (Either WalletError CProfile)
 
 -- | Helper Proxy.
 walletApi :: Proxy WalletApi

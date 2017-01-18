@@ -11,6 +11,7 @@ module Pos.Wallet.Web.Server.Methods
        , walletServeImpl
        ) where
 
+import           Control.Monad.Except          (runExceptT)
 import           Data.Default                  (def)
 import           Data.List                     (elemIndex, (!!))
 import           Data.Time.Clock.POSIX         (getPOSIXTime)
@@ -40,22 +41,24 @@ import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
 import           Pos.Wallet.Tx                 (submitTx)
 import           Pos.Wallet.WalletMode         (WalletMode, getBalance, getTxHistory)
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
-import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CTx, CTxId,
-                                                CTxMeta (..), CWallet (..),
-                                                CWalletMeta (..), addressToCAddress,
+import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CProfile,
+                                                CProfile (..), CTx, CTxId, CTxMeta (..),
+                                                CWallet (..), CWalletMeta (..),
+                                                NotifyEvent (..), addressToCAddress,
                                                 cAddressToAddress, mkCTx, mkCTxId,
                                                 txContainsTitle, txIdToCTxId)
 import           Pos.Wallet.Web.Error          (WalletError (..))
 import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 WalletWebSockets, closeWSConnection,
                                                 getWalletWebSocketsState,
-                                                initWSConnection, runWalletWS,
+                                                initWSConnection, notify, runWalletWS,
                                                 upgradeApplicationWS)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
                                                 addOnlyNewTxMeta, closeState,
-                                                createWallet, getTxMeta, getWalletMeta,
+                                                createWallet, getProfile, getTxMeta,
+                                                getWalletHistory, getWalletMeta,
                                                 getWalletState, openState, removeWallet,
-                                                runWalletWebDB, setWalletMeta,
+                                                runWalletWebDB, setProfile, setWalletMeta,
                                                 setWalletTransactionMeta)
 
 ----------------------------------------------------------------------------
@@ -71,17 +74,21 @@ walletServeImpl
     -> Bool                            -- ^ Rebuild flag for acid-state
     -> Word16                          -- ^ Port to listen
     -> m ()
-walletServeImpl app daedalusDbPath dbRebuild port = bracket ((,) <$> openDB <*> initWS) (\(db, conn) -> closeDB db >> closeWS conn) $ \(db, conn) ->
-    serveImpl (runWalletWebDB db $ runWalletWS conn app) port
+walletServeImpl app daedalusDbPath dbRebuild port =
+    bracket
+        ((,) <$> openDB <*> initWS)
+        (\(db, conn) -> closeDB db >> closeWS conn)
+        $ \(db, conn) ->
+            serveImpl (runWalletWebDB db $ runWalletWS conn app) port
   where openDB = openState dbRebuild daedalusDbPath
         closeDB = closeState
         initWS = initWSConnection
         closeWS = closeWSConnection
 
 walletApplication
-    :: WalletMode ssc m
-    => WalletWebHandler m (Server WalletApi)
-    -> WalletWebHandler m Application
+    :: WalletWebMode ssc m
+    => m (Server WalletApi)
+    -> m Application
 walletApplication serv = do
     wsConn <- getWalletWebSockets
     serv >>= return . upgradeApplicationWS wsConn . serve walletApi
@@ -92,17 +99,51 @@ walletServer
     -> WalletWebHandler m (WalletWebHandler m :~> Handler)
     -> WalletWebHandler m (Server WalletApi)
 walletServer sendActions nat = do
+    whenM (isNothing <$> getProfile) $
+        createUserProfile >>= setProfile
     ws    <- lift getWalletState
     socks <- getWalletWebSocketsState
     let sendActions' = hoistSendActions
             (lift . lift)
             (runWalletWebDB ws . runWalletWS socks)
             sendActions
+    nat >>= launchNotifier
     join $ mapM_ insertAddressMeta <$> myCAddresses
     (`enter` servantHandlers sendActions') <$> nat
   where
     insertAddressMeta cAddr =
         getWalletMeta cAddr >>= createWallet cAddr . fromMaybe def
+    createUserProfile = do
+        time <- liftIO getPOSIXTime
+        pure $ CProfile mempty mempty mempty mempty time mempty mempty
+
+-- FIXME: this is really inaficient. Temporary solution
+launchNotifier :: WalletWebMode ssc m => (m :~> Handler) -> m ()
+launchNotifier = void . liftIO . forkForever . notifier
+  where
+    notifyPeriod = 10000000 -- microseconds
+    forkForever action = forkFinally action $ const $ do
+        -- TODO: log error
+        -- colldown
+        threadDelay notifyPeriod
+        void $ forkForever action
+    -- TODO: use Servant.enter here
+    -- FIXME: don't ignore errors, send error msg to the socket
+    notifier f = void . runExceptT . unNat f $ forever $ do
+        liftIO $ threadDelay notifyPeriod
+        sequence_ [dummyHistoryNotifier]
+    -- NOTE: temp solution, dummy notifier that pings every 10 secs
+    dummyHistoryNotifier = notify NewTransaction
+    historyNotifier :: WalletWebMode ssc m => m ()
+    historyNotifier = do
+        cAddresses <- myCAddresses
+        forM_ cAddresses $ \cAddress -> do
+            -- TODO: is reading from acid RAM only (not reading from disk?)
+            oldHistoryLength <- length . fromMaybe mempty <$> getWalletHistory cAddress
+            newHistoryLength <- length <$> getHistory cAddress
+            when (oldHistoryLength /= newHistoryLength) .
+                notify $ NewWalletTransaction cAddress
+
 
 ----------------------------------------------------------------------------
 -- Handlers
@@ -137,6 +178,10 @@ servantHandlers sendActions =
      catchWalletError . deleteWallet
     :<|>
      (\a -> catchWalletError . isValidAddress a)
+    :<|>
+     catchWalletError getUserProfile
+    :<|>
+     catchWalletError . updateUserProfile
   where
     -- TODO: can we with Traversable map catchWalletError over :<|>
     -- TODO: add logging on error
@@ -148,6 +193,14 @@ servantHandlers sendActions =
 -- getBalances :: WalletWebMode ssc m => m [(CAddress, Coin)]
 -- getBalances = join $ mapM gb <$> myAddresses
 --   where gb addr = (,) (addressToCAddress addr) <$> getBalance addr
+
+getUserProfile :: WalletWebMode ssc m => m CProfile
+getUserProfile = getProfile >>= maybe noProfile pure
+  where
+    noProfile = throwM $ Internal "No user profile"
+
+updateUserProfile :: WalletWebMode ssc m => CProfile -> m CProfile
+updateUserProfile profile = setProfile profile >> getUserProfile
 
 getWallet :: WalletWebMode ssc m => CAddress -> m CWallet
 getWallet cAddr = do
@@ -196,8 +249,13 @@ getHistory cAddr = do
     history <- getTxHistory =<< decodeCAddressOrFail cAddr
     mapM (addHistoryTx cAddr ADA mempty mempty) history
 
-searchHistory :: WalletWebMode ssc m => CAddress -> Text -> Word -> m [CTx]
-searchHistory cAddr search limit = take (fromIntegral limit) . filter (txContainsTitle search) <$> getHistory cAddr
+-- FIXME: is Word enough for length here?
+searchHistory :: WalletWebMode ssc m => CAddress -> Text -> Word -> m ([CTx], Word)
+searchHistory cAddr search limit = do
+    history <- getHistory cAddr
+    pure (filterHistory history, fromIntegral $ length history)
+  where
+    filterHistory = take (fromIntegral limit) . filter (txContainsTitle search)
 
 addHistoryTx :: WalletWebMode ssc m => CAddress -> CCurrency -> Text -> Text -> (TxId, Tx, Bool) -> m CTx
 addHistoryTx cAddr curr title desc wtx@(txId, _, _) = do

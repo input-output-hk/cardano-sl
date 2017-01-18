@@ -41,6 +41,10 @@ import           Pos.Update.MemState.Class    (MonadUSMem (..))
 import           Pos.Update.MemState.MemState (MemState)
 import           Pos.Util.JsonLog             (MonadJL (..))
 
+----------------------------------------------------------------------------
+-- Transformer
+----------------------------------------------------------------------------
+
 -- | Trivial monad transformer based on @ReaderT (TVar MemState)@.
 newtype USHolder m a = USHolder
     { getUSHolder :: ReaderT (TVar MemState) m a
@@ -50,6 +54,10 @@ newtype USHolder m a = USHolder
                 CanLog, MonadMask, MonadSscLD kek, MonadSscGS ssc,
                 MonadUtxoRead, MonadUtxo, MonadTxpLD ssc, MonadBase io,
                 MonadDelegation, MonadSscRichmen, MonadFix)
+
+----------------------------------------------------------------------------
+-- Common instances used all over the code
+----------------------------------------------------------------------------
 
 deriving instance MonadDB ssc m => MonadDB ssc (USHolder m)
 type instance ThreadId (USHolder m) = ThreadId m
@@ -62,17 +70,6 @@ instance ( Mockable d m
          , MFunctor' d (ReaderT (TVar MemState) m) m
          ) => Mockable d (USHolder m) where
     liftMockable = liftMockableWrappedM
-
-instance MonadIO m => MonadState MemState (USHolder m) where
-    get = USHolder ask >>= atomically . readTVar
-    put s = USHolder ask >>= atomically . flip writeTVar s
-    state f = USHolder ask >>= \tv -> atomically $ do
-        (a, s') <- f <$> readTVar tv
-        writeTVar tv s'
-        return a
-
-instance MonadDB ssc m => MonadUSMem (USHolder m) where
-    askUSMemState = USHolder ask
 
 instance Monad m => WrappedM (USHolder m) where
     type UnwrappedM (USHolder m) = ReaderT (TVar MemState) m
@@ -87,6 +84,29 @@ instance MonadBaseControl IO m => MonadBaseControl IO (USHolder m) where
     type StM (USHolder m) a = ComposeSt USHolder m a
     liftBaseWith     = defaultLiftBaseWith
     restoreM         = defaultRestoreM
+
+----------------------------------------------------------------------------
+-- MonadState because why not
+----------------------------------------------------------------------------
+
+instance MonadIO m => MonadState MemState (USHolder m) where
+    get = USHolder ask >>= atomically . readTVar
+    put s = USHolder ask >>= atomically . flip writeTVar s
+    state f = USHolder ask >>= \tv -> atomically $ do
+        (a, s') <- f <$> readTVar tv
+        writeTVar tv s'
+        return a
+
+----------------------------------------------------------------------------
+-- MonadUSMem
+----------------------------------------------------------------------------
+
+instance Monad m => MonadUSMem (USHolder m) where
+    askUSMemState = USHolder ask
+
+----------------------------------------------------------------------------
+-- Runners
+----------------------------------------------------------------------------
 
 -- | Run USHolder using default (empty) MemState.
 runUSHolder :: MonadIO m => USHolder m a -> m a

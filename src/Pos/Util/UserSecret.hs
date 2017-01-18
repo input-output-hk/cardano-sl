@@ -81,8 +81,9 @@ peekUserSecret path =
 -- 'writeUserSecret' or 'writeUserSecretRelease'.
 takeUserSecret :: (MonadIO m) => FilePath -> m UserSecret
 takeUserSecret path = liftIO $ do
+    print "looking"
     l <- lockFile path Exclusive
-    econtent <- decodeFull <$> BSL.readFile path
+    econtent <- decodeFull . BSL.fromStrict <$> BS.readFile path
     pure $ either (const def) identity econtent
         & usPath .~ path
         & usLock .~ Just l

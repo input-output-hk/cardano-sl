@@ -31,9 +31,10 @@ before_test:
 
 test_script:
   - stack setup --no-reinstall
-  # No parallelization due to https://github.com/haskell/cabal/issues/4005   
+  # No parallelization due to https://github.com/haskell/cabal/issues/4005 
+  # no tests due to too long builds  
   - stack --no-terminal --local-bin-path installers 
-      build -j 1 --test --no-haddock-deps --bench --no-run-benchmarks 
+      build -j 1 --no-haddock-deps --bench --no-run-benchmarks 
       --flag cardano-sl:with-web 
       --flag cardano-sl:with-wallet 
       --extra-include-dirs="C:\OpenSSL-Win64\include" 

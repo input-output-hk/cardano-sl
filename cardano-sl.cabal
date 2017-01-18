@@ -304,6 +304,7 @@ library
                         Pos.Update.Lrc
                         Pos.Update.MemState
                         Pos.Update.MemState.Class
+                        Pos.Update.MemState.Functions
                         Pos.Update.MemState.Holder
                         Pos.Update.MemState.MemState
                         Pos.Update.MemState.Types

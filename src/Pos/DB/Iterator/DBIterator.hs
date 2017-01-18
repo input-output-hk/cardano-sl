@@ -18,6 +18,7 @@ import           Control.Monad.Reader  (ReaderT (..))
 import           Control.Monad.Trans   (MonadTrans)
 import qualified Data.ByteString       as BS (isPrefixOf)
 import qualified Database.RocksDB      as Rocks
+import           Formatting            (sformat, shown, string, (%))
 import           Universum
 
 import           Pos.Binary.Class      (Bi)
@@ -28,20 +29,6 @@ import           Pos.DB.Iterator.Class (DBIteratorClass (..), IterType)
 import           Pos.DB.Types          (DB (..))
 import           Pos.Util              (maybeThrow)
 import           Pos.Util.Iterator     (MonadIterator (..))
-
-----------------------------------------------------------------------------
--- ParseResult
-----------------------------------------------------------------------------
-
--- | RocksDB key value iteration errors.
-data ParseResult a = FetchError  -- RocksDB internal error
-                                 -- caused by invalid database of smth else (on RocksDB side)
-                   | DecodeError -- Parsing error caused by invalid format of data
-                                 -- or not expected (key, value) pair.
-                                 -- (For example we iterate by utxo (key, value)
-                                 -- but encounter balance (key, value))
-                   | Success a   -- Element is fetched and decoded successfully.
-    deriving Show
 
 ----------------------------------------------------------------------------
 -- DBIterator
@@ -72,12 +59,20 @@ instance ( Bi k, Bi v
         if | Nothing <- entryStr -> pure Nothing -- end of Database is reached
            | Just (key, val) <- entryStr,
              BS.isPrefixOf (iterKeyPrefix @i Proxy) key ->
-               Just <$>
-               maybeThrow
-                   (DBMalformed "Invalid entry")
-                   ((,) <$> rocksDecodeMaybeWP @i key <*> rocksDecodeMaybe val)
+               Just <$> ((,) <$>
+                  maybeThrow
+                      (DBMalformed $ fmt key "key invalid")
+                      (rocksDecodeMaybeWP @i key) <*>
+                  maybeThrow
+                      (DBMalformed $ fmt key "value invalid")
+                      (rocksDecodeMaybe val))
             -- all entries with specified prefix have been viewed
             | otherwise -> pure Nothing
+      where
+        fmt key err =
+          sformat ("Iterator entry with keyPrefix = "%shown%" is malformed: \
+                   \key = "%shown%", err: "%string)
+                  (iterKeyPrefix @i Proxy) key err
 
 -- | Run DBIterator by `DB ssc`.
 runIterator :: forall i a m ssc . (MonadIO m, MonadMask m, DBIteratorClass i)

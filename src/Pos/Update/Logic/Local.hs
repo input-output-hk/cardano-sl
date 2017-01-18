@@ -23,19 +23,24 @@ module Pos.Update.Logic.Local
 
 import           Control.Concurrent.STM (readTVar, writeTVar)
 import           Control.Lens           (at, (%=))
+import           Control.Monad.Except   (MonadError, runExceptT)
 import           Data.Default           (Default (def))
+import qualified Data.HashMap.Strict    as HM
 import           Universum
 
-import           Pos.Crypto             (PublicKey)
+import           Pos.Crypto             (PublicKey, hash)
 import           Pos.DB.Class           (MonadDB)
 import           Pos.Types              (SlotId (siEpoch))
-import           Pos.Update.Core        (UpId, UpdatePayload, UpdateProposal, UpdateVote)
-import           Pos.Update.MemState    (MemPool (..), MemState (..), MemVar (..),
-                                         MonadUSMem (askUSMemVar), modifyMemPool,
+import           Pos.Update.Core        (UpId, UpdatePayload (..), UpdateProposal,
+                                         UpdateVote, canCombineVotes)
+import           Pos.Update.MemState    (GlobalVotes, MemPool (..), MemState (..),
+                                         MemVar (..), MonadUSMem (askUSMemVar),
+                                         UpdateProposals, askUSMemState, modifyMemPool,
                                          modifyPollModifier, withUSLock)
 import           Pos.Update.Poll        (PollModifier, PollVerFailure, ProposalState (..),
-                                         UndecidedProposalState (..), execPollT,
-                                         normalizePoll, pmNewActivePropsL, runDBPoll)
+                                         UndecidedProposalState (..), evalPollT,
+                                         execPollT, normalizePoll, pmNewActivePropsL,
+                                         runDBPoll, verifyAndApplyUSPayload)
 import           Pos.Util               (getKeys, zoom')
 
 -- MonadMask is needed because are using Lock. It can be improved later.
@@ -73,7 +78,7 @@ getLocalProposal id = HM.lookup id <$> getLocalProposals
 processProposal
     :: USLocalLogicMode θ m
     => UpdateProposal -> m (Either PollVerFailure ())
-processProposal = notImplemented
+processProposal proposal = processSkeleton $ UpdatePayload (Just proposal) []
 
 ----------------------------------------------------------------------------
 -- Votes
@@ -112,8 +117,22 @@ getLocalVote propId pk decision = do
 processVote
     :: USLocalLogicMode ϟ m
     => UpdateVote -> m (Either PollVerFailure ())
-processVote = notImplemented
+processVote vote = processSkeleton $ UpdatePayload Nothing [vote]
 
+processSkeleton
+    :: USLocalLogicMode ϟ m
+    => UpdatePayload -> m (Either PollVerFailure ())
+processSkeleton payload = withUSLock $ runExceptT $ do
+        stateVar <- askUSMemState
+        ms@MemState {..} <- atomically $ readTVar stateVar
+        modifier <-
+            runDBPoll . evalPollT msModifier . execPollT def $
+            verifyAndApplyUSPayload False payload
+        let newModifier = modifyPollModifier msModifier modifier
+        let newPool = modifyMemPool payload modifier msPool
+        let newMS = ms {msModifier = newModifier, msPool = newPool}
+        -- FIXME: check tip here.
+        atomically $ writeTVar stateVar newMS
 ----------------------------------------------------------------------------
 -- Normalization
 ----------------------------------------------------------------------------
@@ -128,7 +147,7 @@ usNormalize = const pass notImplemented
 processNewSlot :: USLocalLogicMode μ m => SlotId -> m ()
 processNewSlot slotId =
     withUSLock $ do
-        stateVar <- mvState <$> askUSMemVar
+        stateVar <- askUSMemState
         ms@MemState {..} <- atomically $ readTVar stateVar
         if | msSlot >= slotId -> pass
            | siEpoch msSlot == siEpoch slotId ->
@@ -139,10 +158,10 @@ processNewSlot slotId =
         let localUpIds = getKeys $ mpProposals msPool
         let invalidModifier = updateSlot slotId localUpIds msModifier
         normalizingModifier <-
-            runDBPoll . execPollT msModifier . execPollT def $
+            runDBPoll . evalPollT msModifier . execPollT def $
             normalizePoll False
         let validModifier = modifyPollModifier normalizingModifier msModifier
-        let validPool = modifyMemPool normalizingModifier msPool
+        let validPool = modifyMemPool def normalizingModifier msPool
         let newMS = ms {msModifier = validModifier, msPool = validPool}
         -- FIXME: check tip here.
         atomically $ writeTVar stateVar newMS

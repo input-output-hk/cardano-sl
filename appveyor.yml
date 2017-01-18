@@ -14,8 +14,6 @@ environment:
     STACK_ROOT: "c:\\sr"
 
 before_test:
-# Install stack
-#- if %PLATFORM% == Win32 curl -sS -ostack.zip -L --insecure http://www.stackage.org/stack/windows-i386
 - curl -sS -ostack.zip -L --insecure http://www.stackage.org/stack/windows-x86_64
 - 7z x stack.zip stack.exe
 
@@ -42,15 +40,22 @@ test_script:
       --extra-lib-dirs="C:\projects\pos-haskell-prototype\rocksdb\build\Release" 
       --extra-include-dirs="C:\projects\pos-haskell-prototype\rocksdb\include" 
       --copy-bins
-  - xcopy stack.exe installers
-  - cd installers
-  - SET PATH=C:\Program Files\NSIS\;C:\Program Files (x86)\NSIS\;%PATH%
-  - stack --no-terminal build -j 1 --exec windows-installer
-  - cd ..
+   #  - xcopy stack.exe installers
+   #  - cd installers
+   #  - SET PATH=C:\Program Files\NSIS\;C:\Program Files (x86)\NSIS\;%PATH%
+   #  - stack --no-terminal build -j 1 --exec windows-installer
+   #  - cd ..
+  - stack exec -- cardano-wallet-hs2purs
+  - cd Daedalus
+  - npm install
+  - npm run build:prod
 
 artifacts:
-  - path: installers/cardano-win64-installer.exe
-    name: CardanoWindows64Installer.exe
+  - path: installers/cardano-node.exe
+    name: CardanoNode.exe
+  - path: daedalus/
+    name: DaedalusBridge.zip
+    type: zip
 
 notifications:
   - provider: Slack

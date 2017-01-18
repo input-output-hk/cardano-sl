@@ -28,7 +28,7 @@ type BaseNodeApi ssc =
     "current_slot" :> Get '[JSON] SlotId :<|>
     "leaders" :> QueryParam "epoch" EpochIndex :> Get '[JSON] SlotLeaders :<|>
     "spending_key" :> Get '[JSON] PublicKey :<|>
-    "head_hash" :> Get '[JSON] (HeaderHash ssc) :<|>
+    "head_hash" :> Get '[JSON] HeaderHash :<|>
     "local_txs_num" :> Get '[JSON] Word
 
 -- | Helper Proxy.

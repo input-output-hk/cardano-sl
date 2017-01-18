@@ -34,13 +34,13 @@ import           Pos.DB.Class              (MonadDB, getUtxoDB)
 import           Pos.DB.Error              (DBError (DBMalformed))
 import           Pos.DB.Functions          (RocksBatchOp (..), rocksWriteBatch)
 import           Pos.DB.GState.Common      (getBi)
-import           Pos.DB.Types              (ProposalState (..), psProposal)
 import           Pos.Genesis               (genesisProtocolVersion, genesisScriptVersion,
                                             genesisSoftwareVersions)
 import           Pos.Script.Type           (ScriptVersion)
 import           Pos.Types                 (ApplicationName, NumSoftwareVersion,
                                             ProtocolVersion, SoftwareVersion (..))
 import           Pos.Update.Core           (UpId, UpdateProposal (..))
+import           Pos.Update.Poll.Types     (ProposalState (..), psProposal)
 import           Pos.Util                  (maybeThrow)
 
 ----------------------------------------------------------------------------
@@ -86,6 +86,7 @@ data UpdateOp
     | ConfirmVersion !SoftwareVersion
     | SetLastPV !ProtocolVersion
     | SetScriptVersion !ProtocolVersion !ScriptVersion
+    | DelScriptVersion !ProtocolVersion
 
 instance RocksBatchOp UpdateOp where
     toBatchOp (PutProposal ps) =
@@ -104,6 +105,8 @@ instance RocksBatchOp UpdateOp where
         [Rocks.Put lastPVKey (encodeStrict pv)]
     toBatchOp (SetScriptVersion pv sv) =
         [Rocks.Put (scriptVersionKey pv) (encodeStrict sv)]
+    toBatchOp (DelScriptVersion pv) =
+        [Rocks.Del (scriptVersionKey pv)]
 
 -- putUndecidedProposalSlot :: ProposalState -> [Rocks.BatchOp]
 -- putUndecidedProposalSlot (PSUndecided ups) =

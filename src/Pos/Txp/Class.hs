@@ -33,14 +33,14 @@ import           Pos.Types              (HeaderHash, TxAux, TxId, TxOutAux)
 -- 2. If one applies all transactions from 'memPool' to 'utxo1',
 -- resulting Utxo will be equivalent to 'uv' with respect to
 -- MonadUtxo.
-type TxpLD ssc = (UtxoView ssc, MemPool, HashMap TxId [TxOutAux], HeaderHash ssc)
+type TxpLD ssc = (UtxoView ssc, MemPool, HashMap TxId [TxOutAux], HeaderHash)
 
 -- | Real data inside TxpLDHolder
 data TxpLDWrap ssc = TxpLDWrap
     { utxoView :: !(STM.TVar (UtxoView ssc))
     , memPool  :: !(STM.TVar MemPool)
     , undos    :: !(STM.TVar (HashMap TxId [TxOutAux]))
-    , ldTip    :: !(STM.TVar (HeaderHash ssc))
+    , ldTip    :: !(STM.TVar HeaderHash)
     }
 
 -- TODO: this monad class is stupid and should be removed. Method

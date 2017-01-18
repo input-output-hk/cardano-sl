@@ -271,7 +271,7 @@ calculateSeedQ _ =
     calculateSeed <$> view gsCommitments <*> view gsOpenings <*>
         view gsShares
 
-mpcLoadGlobalState :: MonadDB SscGodTossing m => HeaderHash SscGodTossing -> m GtGlobalState
+mpcLoadGlobalState :: MonadDB SscGodTossing m => HeaderHash -> m GtGlobalState
 mpcLoadGlobalState tip = do
     bh <- getBlockHeader tip
     endEpoch <-

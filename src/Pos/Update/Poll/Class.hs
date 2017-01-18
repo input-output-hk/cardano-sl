@@ -1,22 +1,23 @@
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
--- | Type class for Poll abstraction.
+-- | Type classes for Poll abstraction.
 
 module Pos.Update.Poll.Class
        ( MonadPollRead (..)
        , MonadPoll (..)
        ) where
 
-import           Control.Monad.Except (ExceptT)
-import           Control.Monad.Trans  (MonadTrans)
+import           Control.Monad.Except  (ExceptT)
+import           Control.Monad.Trans   (MonadTrans)
 import           Universum
 
-import           Pos.DB.Types         (ProposalState)
-import           Pos.Script.Type      (ScriptVersion)
-import           Pos.Types            (ApplicationName, NumSoftwareVersion,
-                                       ProtocolVersion, SoftwareVersion)
-import           Pos.Update.Core      (UpId)
+import           Pos.Script.Type       (ScriptVersion)
+import           Pos.Types             (ApplicationName, Coin, EpochIndex,
+                                        NumSoftwareVersion, ProtocolVersion, SlotId,
+                                        SoftwareVersion, StakeholderId)
+import           Pos.Update.Core       (UpId)
+import           Pos.Update.Poll.Types (ProposalState, UndecidedProposalState)
 
 ----------------------------------------------------------------------------
 -- Read-only
@@ -35,6 +36,14 @@ class Monad m => MonadPollRead m where
     -- ^ Check if given application has an active (non-confirmed) proposal
     getProposal :: UpId -> m (Maybe ProposalState)
     -- ^ Get active proposal
+    getEpochTotalStake :: EpochIndex -> m (Maybe Coin)
+    -- ^ Get total stake from distribution corresponding to give epoch
+    getRichmanStake :: EpochIndex -> StakeholderId -> m (Maybe Coin)
+    -- ^ Get stake of ricmhan corresponding to given epoch (if she is
+    -- really rich)
+    getOldProposals :: SlotId -> m [UndecidedProposalState]
+    -- ^ Get all proposals which are in undecided state and were
+    -- included into block with slot less than or equal to given.
 
     -- | Default implementations for 'MonadTrans'.
     default getScriptVersion
@@ -57,6 +66,21 @@ class Monad m => MonadPollRead m where
         :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
         UpId -> m (Maybe ProposalState)
     getProposal = lift . getProposal
+
+    default getEpochTotalStake
+        :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
+        EpochIndex -> m (Maybe Coin)
+    getEpochTotalStake = lift . getEpochTotalStake
+
+    default getRichmanStake
+        :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
+        EpochIndex -> StakeholderId -> m (Maybe Coin)
+    getRichmanStake e = lift . getRichmanStake e
+
+    default getOldProposals
+        :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
+        SlotId -> m [UndecidedProposalState]
+    getOldProposals = lift . getOldProposals
 
 instance MonadPollRead m => MonadPollRead (ReaderT s m)
 instance MonadPollRead m => MonadPollRead (StateT s m)

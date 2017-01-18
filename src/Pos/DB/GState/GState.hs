@@ -26,7 +26,7 @@ import           Pos.Types              (HeaderHash)
 prepareGStateDB
     :: forall ssc m.
        (WithNodeContext ssc m, MonadDB ssc m)
-    => HeaderHash ssc -> m ()
+    => HeaderHash -> m ()
 prepareGStateDB initialTip = do
     prepareGStateCommon initialTip
     genesisUtxo <- genesisUtxoM

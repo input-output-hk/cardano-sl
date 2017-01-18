@@ -53,17 +53,17 @@ genesisLeadersM = ncGenesisLeaders <$> getNodeContext
 
 takeBlkSemaphore
     :: (MonadIO m, WithNodeContext ssc m)
-    => m (HeaderHash ssc)
+    => m HeaderHash
 takeBlkSemaphore = liftIO . takeMVar . ncBlkSemaphore =<< getNodeContext
 
 putBlkSemaphore
     :: (MonadIO m, WithNodeContext ssc m)
-    => HeaderHash ssc -> m ()
+    => HeaderHash -> m ()
 putBlkSemaphore tip = liftIO . flip putMVar tip . ncBlkSemaphore =<< getNodeContext
 
 readBlkSemaphore
     :: (MonadIO m, WithNodeContext ssc m)
-    => m (HeaderHash ssc)
+    => m HeaderHash
 readBlkSemaphore = liftIO . readMVar . ncBlkSemaphore =<< getNodeContext
 
 ----------------------------------------------------------------------------

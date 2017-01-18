@@ -22,7 +22,7 @@ import           Pos.Util.Iterator   (MonadIterator (..), runListHolder)
 -- | A version of 'followTheSatoshi' that uses an iterator over 'TxOut's
 -- instead of 'Utxo'.
 followTheSatoshiM
-    :: forall m . MonadIterator m (StakeholderId, Coin)
+    :: forall m . MonadIterator (StakeholderId, Coin) m
     => SharedSeed -> Coin -> m (NonEmpty StakeholderId)
 followTheSatoshiM _ totalCoins
     | totalCoins == mkCoin 0 = panic "followTheSatoshiM: nobody has any stake"
@@ -44,7 +44,7 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
     findLeaders [] _ = pure []
     -- We ran out of items in the buffer so we take a new output
     -- and refill the buffer
-    findLeaders coins sm = nextItem @_ @(StakeholderId, Coin) >>=
+    findLeaders coins sm = nextItem @(StakeholderId, Coin) >>=
         maybe (panic "followTheSatoshiM: indices out of range") (onItem coins)
       where
         -- We check whether `c` is covered by current item in the buffer

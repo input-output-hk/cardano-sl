@@ -4,7 +4,6 @@
 module Pos.Wallet.State.Storage
        ( Storage (..)
        , Block'
-       , HeaderHash'
 
        , Query
        , getBlock
@@ -28,8 +27,8 @@ import           Universum
 import           Pos.Crypto                     (ProxyCert)
 import           Pos.Types                      (Address, EpochIndex)
 import           Pos.Wallet.State.Storage.Block (Block', BlockStorage,
-                                                 HasBlockStorage (..), HeaderHash',
-                                                 blkSetHead, getBestChain, getBlock)
+                                                 HasBlockStorage (..), blkSetHead,
+                                                 getBestChain, getBlock)
 import           Pos.Wallet.State.Storage.Tx    (HasTxStorage (..), TxStorage,
                                                  getOldestUtxo, getTxHistory, getUtxo)
 

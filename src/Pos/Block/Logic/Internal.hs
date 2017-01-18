@@ -20,6 +20,7 @@ import qualified Data.List.NonEmpty   as NE
 import           System.Wlog          (logError)
 import           Universum
 
+import           Pos.Block.Types      (Blund)
 import           Pos.Context          (lrcActionOnEpochReason, putBlkSemaphore,
                                        takeBlkSemaphore)
 import           Pos.DB               (SomeBatchOp (..))
@@ -29,8 +30,7 @@ import qualified Pos.DB.Lrc           as DB
 import           Pos.Delegation.Logic (delegationApplyBlocks, delegationRollbackBlocks)
 import           Pos.Ssc.Extra        (sscApplyBlocks, sscApplyGlobalState, sscRollback)
 import           Pos.Txp.Logic        (normalizeTxpLD, txApplyBlocks, txRollbackBlocks)
-import           Pos.Types            (Blund, HeaderHash, epochIndexL, headerHashG,
-                                       prevBlockL)
+import           Pos.Types            (HeaderHash, epochIndexL, headerHashG, prevBlockL)
 import           Pos.Util             (Color (Red), colorize, inAssertMode, spanSafe,
                                        _neLast)
 import           Pos.WorkMode         (WorkMode)
@@ -40,7 +40,7 @@ import           Pos.WorkMode         (WorkMode)
 -- action is an old tip, result is put as a new tip.
 withBlkSemaphore
     :: WorkMode ssc m
-    => (HeaderHash ssc -> m (a, HeaderHash ssc)) -> m a
+    => (HeaderHash -> m (a, HeaderHash)) -> m a
 withBlkSemaphore action =
     bracketOnError takeBlkSemaphore putBlkSemaphore doAction
   where
@@ -51,7 +51,7 @@ withBlkSemaphore action =
 -- | Version of withBlkSemaphore which doesn't have any result.
 withBlkSemaphore_
     :: WorkMode ssc m
-    => (HeaderHash ssc -> m (HeaderHash ssc)) -> m ()
+    => (HeaderHash -> m HeaderHash) -> m ()
 withBlkSemaphore_ = withBlkSemaphore . (fmap ((), ) .)
 
 -- | Applies definitely valid prefix of blocks -- that has the same

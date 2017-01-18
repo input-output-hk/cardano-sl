@@ -37,7 +37,7 @@ type SscImpureQuery ssc a = forall m. ( MonadReader (SscGlobalState ssc) m
                                       , MonadIO m) => m a
 
 class Ssc ssc => SscStorageClass ssc where
-    sscLoadGlobalState :: MonadDB ssc m => HeaderHash ssc -> m (SscGlobalState ssc)
+    sscLoadGlobalState :: MonadDB ssc m => HeaderHash -> m (SscGlobalState ssc)
 
     sscApplyBlocksM :: NEBlocks ssc -> SscGlobalUpdate ssc ()
 

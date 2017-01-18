@@ -35,12 +35,11 @@ import           Formatting            (build, int, sformat, (%))
 import           Serokell.Util.Verify  (VerificationRes (..), verifyGeneric)
 import           Universum
 
-import           Pos.Binary.Class      (Bi (..))
 import           Pos.Binary.Types      ()
+import           Pos.Binary.Update     ()
 import           Pos.Constants         (epochSlots, maxBlockProxySKs)
-import           Pos.Crypto            (Hash, SecretKey, checkSig, hash, proxySign,
-                                        proxyVerify, pskIssuerPk, sign, toPublic,
-                                        unsafeHash)
+import           Pos.Crypto            (Hash, SecretKey, checkSig, proxySign, proxyVerify,
+                                        pskIssuerPk, sign, toPublic, unsafeHash)
 import           Pos.Merkle            (mkMerkleTree)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types   (Ssc (..))
@@ -68,10 +67,13 @@ genesisHash = unsafeHash ("patak" :: Text)
 -- | Smart constructor for 'GenericBlockHeader'.
 mkGenericHeader
     :: forall b.
-       (Bi (BBlockHeader b), Blockchain b)
+       ( HasHeaderHash (BBlockHeader b)
+       , Blockchain b
+       , BHeaderHash b ~ HeaderHash
+       )
     => Maybe (BBlockHeader b)
     -> Body b
-    -> (Hash (BBlockHeader b) -> BodyProof b -> ConsensusData b)
+    -> (BHeaderHash b -> BodyProof b -> ConsensusData b)
     -> ExtraHeaderData b
     -> GenericBlockHeader b
 mkGenericHeader prevHeader body consensus extra =
@@ -82,24 +84,26 @@ mkGenericHeader prevHeader body consensus extra =
     , _gbhExtra = extra
     }
   where
-    h :: Hash (BBlockHeader b)
-    h = maybe genesisHash hash prevHeader
+    h :: HeaderHash
+    h = maybe genesisHash headerHash prevHeader
     proof = mkBodyProof body
 
 -- | Smart constructor for 'GenericBlock'. Uses 'mkGenericBlockHeader'.
 mkGenericBlock
     :: forall b.
-       (Bi (BBlockHeader b), Blockchain b)
+       ( HasHeaderHash (BBlockHeader b)
+       , Blockchain b
+       , BHeaderHash b ~ HeaderHash
+       )
     => Maybe (BBlockHeader b)
     -> Body b
-    -> (Hash (BBlockHeader b) -> BodyProof b -> ConsensusData b)
+    -> (BHeaderHash b -> BodyProof b -> ConsensusData b)
     -> ExtraHeaderData b
     -> ExtraBodyData b
     -> GenericBlock b
-mkGenericBlock prevHeader body consensus extraH extraB =
-    GenericBlock {_gbHeader = header, _gbBody = body, _gbExtra = extraB}
+mkGenericBlock prevHeader _gbBody consensus extraH _gbExtra = GenericBlock{..}
   where
-    header = mkGenericHeader prevHeader body consensus extraH
+    _gbHeader = mkGenericHeader prevHeader _gbBody consensus extraH
 
 -- | Smart constructor for 'MainBlockHeader'.
 mkMainHeader
@@ -258,7 +262,7 @@ maybeEmpty = maybe mempty
 -- #verifyConsensusLocal
 --
 verifyHeader
-    :: BiSsc ssc
+    :: forall ssc . BiSsc ssc
     => VerifyHeaderParams ssc -> BlockHeader ssc -> VerificationRes
 verifyHeader VerifyHeaderParams {..} h =
    consensusRes <> verifyGeneric checks
@@ -272,6 +276,7 @@ verifyHeader VerifyHeaderParams {..} h =
             , maybeEmpty relatedToCurrentSlot vhpCurrentSlot
             , maybeEmpty relatedToLeaders vhpLeaders
             ]
+    checkHash :: HeaderHash -> HeaderHash -> (Bool, Text)
     checkHash expectedHash actualHash =
         ( expectedHash == actualHash
         , sformat
@@ -309,7 +314,9 @@ verifyHeader VerifyHeaderParams {..} h =
         [ checkDifficulty
               (prevHeader ^. difficultyL + headerDifficulty h)
               (h ^. difficultyL)
-        , checkHash (hash prevHeader) (h ^. prevBlockL)
+        , checkHash
+              (headerHash prevHeader)
+              (h ^. prevBlockL)
         , checkSlot (getEpochOrSlot prevHeader) (getEpochOrSlot h)
         , case h of
               Left  _ -> (True, "") -- check that epochId prevHeader < epochId h performed above
@@ -325,7 +332,7 @@ verifyHeader VerifyHeaderParams {..} h =
         [ checkDifficulty
               (nextHeader ^. difficultyL - headerDifficulty nextHeader)
               (h ^. difficultyL)
-        , checkHash (hash h) (nextHeader ^. prevBlockL)
+        , checkHash (headerHash h) (nextHeader ^. prevBlockL)
         , checkSlot (getEpochOrSlot h) (getEpochOrSlot nextHeader)
         , case nextHeader of
               Left  _ -> (True, "") -- check that epochId h  < epochId nextHeader performed above

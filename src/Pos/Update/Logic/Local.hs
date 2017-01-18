@@ -1,4 +1,5 @@
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE TypeFamilies    #-}
 
 -- | Logic of local data processing in Update System.
 
@@ -20,18 +21,25 @@ module Pos.Update.Logic.Local
        , usPreparePayload
        ) where
 
-import           Data.Default              (Default (def))
+import           Control.Concurrent.STM (readTVar, writeTVar)
+import           Control.Lens           (at, (%=))
+import           Data.Default           (Default (def))
 import           Universum
 
-import           Pos.Crypto                (PublicKey)
-import           Pos.DB.Class              (MonadDB)
-import           Pos.Types                 (SlotId)
-import           Pos.Update.Core           (UpId, UpdatePayload, UpdateProposal,
-                                            UpdateVote)
-import           Pos.Update.MemState.Class (MonadUSMem)
-import           Pos.Update.Poll.Types     (PollVerFailure)
+import           Pos.Crypto             (PublicKey)
+import           Pos.DB.Class           (MonadDB)
+import           Pos.Types              (SlotId (siEpoch))
+import           Pos.Update.Core        (UpId, UpdatePayload, UpdateProposal, UpdateVote)
+import           Pos.Update.MemState    (MemPool (..), MemState (..), MemVar (..),
+                                         MonadUSMem (askUSMemVar), modifyMemPool,
+                                         modifyPollModifier, withUSLock)
+import           Pos.Update.Poll        (PollModifier, PollVerFailure, ProposalState (..),
+                                         UndecidedProposalState (..), execPollT,
+                                         normalizePoll, pmNewActivePropsL, runDBPoll)
+import           Pos.Util               (getKeys, zoom')
 
-type USLocalLogicMode σ m = (MonadDB σ m, MonadUSMem m)
+-- MonadMask is needed because are using Lock. It can be improved later.
+type USLocalLogicMode σ m = (MonadDB σ m, MonadUSMem m, MonadMask m)
 
 ----------------------------------------------------------------------------
 -- Proposals
@@ -99,7 +107,36 @@ usNormalize = const pass notImplemented
 
 -- | Update memory state to make it correct for given slot.
 processNewSlot :: USLocalLogicMode μ m => SlotId -> m ()
-processNewSlot _ = const pass notImplemented
+processNewSlot slotId =
+    withUSLock $ do
+        stateVar <- mvState <$> askUSMemVar
+        ms@MemState {..} <- atomically $ readTVar stateVar
+        if | msSlot >= slotId -> pass
+           | siEpoch msSlot == siEpoch slotId ->
+               atomically $ writeTVar stateVar MemState {msSlot = slotId, ..}
+           | otherwise -> processNewSlotDo stateVar ms
+  where
+    processNewSlotDo stateVar ms@MemState {..} = do
+        let localUpIds = getKeys $ mpProposals msPool
+        let invalidModifier = updateSlot slotId localUpIds msModifier
+        normalizingModifier <-
+            runDBPoll . execPollT msModifier . execPollT def $
+            normalizePoll False
+        let validModifier = modifyPollModifier normalizingModifier msModifier
+        let validPool = modifyMemPool normalizingModifier msPool
+        let newMS = ms {msModifier = validModifier, msPool = validPool}
+        -- FIXME: check tip here.
+        atomically $ writeTVar stateVar newMS
+
+
+updateSlot :: SlotId -> HashSet UpId -> PollModifier -> PollModifier
+updateSlot newSlot localIds =
+    execState $ zoom' pmNewActivePropsL $ mapM_ updateSlotSingle localIds
+  where
+    updateSlotSingle upId = at upId %= updateSlotSingleF
+    updateSlotSingleF Nothing                  = Nothing
+    updateSlotSingleF (Just (PSUndecided ups)) = Just $ PSUndecided ups {upsSlot = newSlot}
+    updateSlotSingleF (Just decided)           = Just decided
 
 -- | Prepare UpdatePayload for inclusion into new block with given SlotId.
 usPreparePayload :: USLocalLogicMode μ m => SlotId -> m UpdatePayload

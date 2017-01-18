@@ -15,8 +15,9 @@
     "tests"
   ],
   "dependencies": {
-    "purescript-pux-devtool": "^4.1.0",
-    "purescript-maybe": "^2.0.1"
+    "purescript-pux": "^7.0.0",
+    "purescript-maybe": "^2.0.1",
+    "purescript-pux-devtool": "https://github.com/sectore/pux-devtool.git#feature/add-options"
   },
   "devDependencies": {
     "purescript-debug": "^2.0.0",

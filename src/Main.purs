@@ -5,9 +5,9 @@ import Explorer.State (Action, State, update)
 import Control.Monad.Eff (Eff)
 import DOM (DOM)
 import Control.Bind ((=<<))
-import Prelude (pure, bind)
+import Prelude (pure, bind, ($))
 import Pux (App, Config, CoreEffects, fromSimple, renderToDOM, start)
-import Pux.Devtool (Action, start) as Pux.Devtool
+import Pux.Devtool (Action, start, defaultOptions) as Pux.Devtool
 
 type AppEffects = (dom :: DOM)
 
@@ -28,6 +28,8 @@ main state = do
 
 debug :: State -> Eff (CoreEffects AppEffects) (App State (Pux.Devtool.Action Action))
 debug state = do
-  app <- Pux.Devtool.start =<< config state
+  appConfig <- config state
+  -- app <- Pux.Devtool.start appConfig Pux.Devtool.defaultOptions
+  app <- Pux.Devtool.start appConfig {opened: false}
   renderToDOM "#app" app.html
   pure app

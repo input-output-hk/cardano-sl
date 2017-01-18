@@ -15,6 +15,7 @@ module Pos.Update.Poll.Types
          -- * Poll modifier
        , PollModifier (..)
        , pmNewScriptVersionsL
+       , pmDelScriptVersionsL
        , pmLastAdoptedPVL
        , pmNewConfirmedL
        , pmNewActivePropsL
@@ -122,7 +123,7 @@ voteToUProposalState voter stake decision UndecidedProposalState {..} =
 -- MemPool or blocks which are verified.
 data PollModifier = PollModifier
     { pmNewScriptVersions :: !(HashMap ProtocolVersion ScriptVersion)
-    , pmDelScriptVersions :: !(HashSet PropocolVersion)
+    , pmDelScriptVersions :: !(HashSet ProtocolVersion)
     , pmLastAdoptedPV     :: !(Maybe ProtocolVersion)
     , pmNewConfirmed      :: !(HashMap ApplicationName NumSoftwareVersion)
     , pmNewActiveProps    :: !(HashMap UpId ProposalState)
@@ -146,6 +147,7 @@ instance Default PollModifier where
     def =
         PollModifier
         { pmNewScriptVersions = mempty
+        , pmDelScriptVersions = mempty
         , pmLastAdoptedPV = Nothing
         , pmNewConfirmed = mempty
         , pmNewActiveProps = mempty

@@ -34,8 +34,9 @@ import           Pos.Update.MemState    (MemPool (..), MemState (..), MemVar (..
                                          MonadUSMem (askUSMemVar), modifyMemPool,
                                          modifyPollModifier, withUSLock)
 import           Pos.Update.Poll        (PollModifier, PollVerFailure, ProposalState (..),
-                                         UndecidedProposalState (..), execPollT,
-                                         normalizePoll, pmNewActivePropsL, runDBPoll)
+                                         UndecidedProposalState (..), evalPollT,
+                                         execPollT, normalizePoll, pmNewActivePropsL,
+                                         runDBPoll)
 import           Pos.Util               (getKeys, zoom')
 
 -- MonadMask is needed because are using Lock. It can be improved later.
@@ -118,9 +119,9 @@ processNewSlot slotId =
   where
     processNewSlotDo stateVar ms@MemState {..} = do
         let localUpIds = getKeys $ mpProposals msPool
-        let invalidModifier = updateSlot slotId localUpIds msModifier
+        let slotModifier = updateSlot slotId localUpIds msModifier
         normalizingModifier <-
-            runDBPoll . execPollT msModifier . execPollT def $
+            runDBPoll . evalPollT slotModifier . execPollT def $
             normalizePoll False
         let validModifier = modifyPollModifier normalizingModifier msModifier
         let validPool = modifyMemPool normalizingModifier msPool

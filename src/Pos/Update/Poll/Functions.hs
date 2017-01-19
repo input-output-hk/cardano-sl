@@ -19,13 +19,15 @@ import qualified Data.List.NonEmpty    as NE
 import           Exceptions            (note)
 import           Universum
 
-import           Pos.Constants         (updateProposalThreshold, updateVoteThreshold)
+import           Pos.Constants         (blkSecurityParam, updateImplicitApproval,
+                                        updateProposalThreshold, updateVoteThreshold)
 import           Pos.Crypto            (PublicKey, hash)
 import           Pos.Types             (ChainDifficulty, Coin, EpochIndex,
                                         MainBlockHeader, SlotId (siEpoch),
                                         SoftwareVersion (..), addressHash,
                                         applyCoinPortion, coinToInteger, difficultyL,
-                                        epochIndexL, headerSlot, sumCoins, unsafeAddCoin,
+                                        epochIndexL, flattenSlotId, headerSlot, sumCoins,
+                                        unflattenSlotId, unsafeAddCoin,
                                         unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Update.Core       (UpId, UpdatePayload (..), UpdateProposal (..),
                                         UpdateVote (..), combineVotes, isPositiveVote,
@@ -188,6 +190,16 @@ verifyAndApplyUSPayload considerPropThreshold slotOrHeader UpdatePayload {..} = 
     -- and then we'll need to track whether it becomes confirmed.
     let cd = either (const Nothing) (Just . view difficultyL) slotOrHeader
     mapM_ (verifyAndApplyVotesGroup cd) otherGroups
+    -- If we are applying payload from block, we also check implicit
+    -- agreement rule and depth of decided proposals (they can become
+    -- confirmed/discarded).
+    case slotOrHeader of
+        Left _ -> pass
+        Right mainBlk -> do
+            applyImplicitAgreement
+                (mainBlk ^. headerSlot)
+                (mainBlk ^. difficultyL)
+            applyDepthCheck (mainBlk ^. difficultyL)
     return USUndo
 
 -- Get stake of stakeholder who issued given vote as per given epoch.
@@ -366,6 +378,48 @@ verifyAndApplyVote cd ups v@UpdateVote {..} = do
                     }
             | otherwise = PSUndecided ups
     addActiveProposal newPS
+
+-- According to implicit agreement rule all proposals which were put
+-- into blocks earlier than 'updateImplicitApproval' slots before slot
+-- of current block become implicitly decided (approved or rejected).
+-- If proposal's total positive stake is bigger than negative, it's
+-- approved. Otherwise it's rejected.
+applyImplicitAgreement
+    :: MonadPoll m
+    => SlotId -> ChainDifficulty -> m ()
+applyImplicitAgreement (flattenSlotId -> slotId) cd
+    | slotId < updateImplicitApproval = pass
+    | otherwise = do
+        let oldSlot = unflattenSlotId $ slotId - updateImplicitApproval
+        mapM_ applyImplicitAgreementDo =<< getOldProposals oldSlot
+  where
+    applyImplicitAgreementDo ups =
+        addActiveProposal $ PSDecided $ makeImplicitlyDecided ups
+    makeImplicitlyDecided ups@UndecidedProposalState {..} =
+        DecidedProposalState
+        { dpsUndecided = ups
+        , dpsDecision = upsPositiveStake > upsNegativeStake
+        , dpsDifficulty = Just cd
+        }
+
+-- All decided proposals which became decided more than
+-- 'blkSecurityParam' blocks deeper than current block become
+-- confirmed or discarded (approved become confirmed, rejected become
+-- discarded).
+applyDepthCheck
+    :: MonadPoll m
+    => ChainDifficulty -> m ()
+applyDepthCheck cd
+    | cd <= blkSecurityParam = pass
+    | otherwise = do
+        deepProposals <- getDeepProposals (cd - blkSecurityParam)
+        mapM_ applyDepthCheckDo deepProposals
+  where
+    applyDepthCheckDo DecidedProposalState {..} = do
+        let UndecidedProposalState {..} = dpsUndecided
+        let sv = upSoftwareVersion upsProposal
+        setLastConfirmedSV sv
+        deactivateProposal (hash upsProposal) (svAppName sv)
 
 ----------------------------------------------------------------------------
 -- Rollback

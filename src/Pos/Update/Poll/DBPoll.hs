@@ -100,3 +100,4 @@ instance MonadDB patak m =>
         findStake :: FullRichmenData -> Maybe Coin
         findStake = HM.lookup id . snd
     getOldProposals = GS.getOldProposals
+    getDeepProposals = GS.getDeepProposals

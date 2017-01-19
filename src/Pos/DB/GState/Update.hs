@@ -25,6 +25,7 @@ module Pos.DB.GState.Update
        , runProposalMapIterator
        , runProposalIterator
        , getOldProposals
+       , getDeepProposals
        ) where
 
 import           Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
@@ -46,10 +47,12 @@ import           Pos.DB.Types              (NodeDBs (..))
 import           Pos.Genesis               (genesisProtocolVersion, genesisScriptVersion,
                                             genesisSoftwareVersions)
 import           Pos.Script.Type           (ScriptVersion)
-import           Pos.Types                 (ApplicationName, NumSoftwareVersion,
-                                            ProtocolVersion, SlotId, SoftwareVersion (..))
+import           Pos.Types                 (ApplicationName, ChainDifficulty,
+                                            NumSoftwareVersion, ProtocolVersion, SlotId,
+                                            SoftwareVersion (..))
 import           Pos.Update.Core           (UpId, UpdateProposal (..))
-import           Pos.Update.Poll.Types     (ProposalState (..),
+import           Pos.Update.Poll.Types     (DecidedProposalState (dpsDifficulty),
+                                            ProposalState (..),
                                             UndecidedProposalState (upsSlot), psProposal)
 import           Pos.Util                  (maybeThrow)
 import           Pos.Util.Iterator         (MonadIterator (..))
@@ -182,6 +185,22 @@ getOldProposals slotId = runProposalMapIterator (step []) snd
     onItem res e
         | PSUndecided u <- e
         , upsSlot u <= slotId = step (u:res)
+        | otherwise = step res
+
+-- TODO: eliminate copy-paste here!
+
+-- | Get all decided proposals which were accepted deeper than given
+-- difficulty.
+getDeepProposals
+    :: forall ssc m. MonadDB ssc m
+    => ChainDifficulty -> m [DecidedProposalState]
+getDeepProposals cd = runProposalMapIterator (step []) snd
+  where
+    step res = nextItem >>= maybe (pure res) (onItem res)
+    onItem res e
+        | PSDecided u <- e
+        , Just proposalDifficulty <- dpsDifficulty u
+        , proposalDifficulty <= cd = step (u : res)
         | otherwise = step res
 
 ----------------------------------------------------------------------------

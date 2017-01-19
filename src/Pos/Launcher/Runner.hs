@@ -326,6 +326,7 @@ bracketDHTInstance BaseParams {..} action = bracket acquire release action
         , kdcPort = snd bpIpPort
         , kdcInitialPeers = nub $ bpDHTPeers ++ Const.defaultPeers
         , kdcExplicitInitial = bpDHTExplicitInitial
+        , kdcDumpPath = bpKademliaDump
         }
 
 createTransport :: (MonadIO m, WithLogger m, Mockable Throw m) => [Char] -> Word16 -> m Transport

@@ -30,6 +30,7 @@ data BaseParams = BaseParams
     , bpDHTKey             :: !(Maybe DHTKey)
     , bpDHTExplicitInitial :: !Bool
     , bpLoggingParams      :: !LoggingParams  -- ^ logger parameters
+    , bpKademliaDump       :: !FilePath       -- ^ Path to kademlia dump file
     } deriving (Show)
 
 -- | Contains algorithm specific & storage parameters for Node.

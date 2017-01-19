@@ -13,12 +13,15 @@ import           Mockable               (Async, Catch, Mockable, MonadMockable, 
                                          Throw, bracket, catchAll, fork, killThread,
                                          throw, waitAnyUnexceptional)
 
+import           Data.Binary           (decode)
+import qualified Data.ByteString.Lazy  as BS
 import qualified Data.HashMap.Strict    as HM
 import           Data.List              (intersect, (\\))
 
 import           Formatting             (build, int, sformat, shown, (%))
 import qualified Network.Kademlia       as K
 import           Prelude                (id)
+import           System.Directory       (doesFileExist)
 import           System.Wlog            (WithLogger, logDebug, logError, logInfo,
                                          logWarning, usingLoggerName)
 import           Universum              hiding (Async, async, bracket, catchAll,
@@ -73,26 +76,29 @@ startDHTInstance KademliaDHTInstanceConfig {..} = do
     logInfo "Generating dht key.."
     kdiKey <- maybe randomDHTKey pure kdcKey
     logInfo $ sformat ("Generated dht key "%build) kdiKey
-    kdiHandle <-
-        (liftIO $
-        K.createL
-            (fromInteger . toInteger $ kdcPort)
-            kdiKey
-            kademliaConfig
-            (log' logDebug)
-            (log' logError))
-          `catchAll`
-        (\e ->
-           do logError $ sformat
-                  ("Error launching kademlia at port " % int % ": " % shown) kdcPort e
-              throw e)
+    shouldRestore <- liftIO $ doesFileExist kdcDumpPath
+    kdiHandle <- if shouldRestore
+                 then do logInfo "Restoring DHT Instance from snapshot"
+                         catchErrors $ createKademliaFromSnapshot kdcPort kademliaConfig =<< decode <$> BS.readFile kdcDumpPath
+                 else do logInfo "Creating new DHT instance"
+                         catchErrors $ createKademlia kdcPort kdiKey kademliaConfig
+
     logInfo "Created DHT instance"
     let kdiInitialPeers = kdcInitialPeers
     let kdiExplicitInitial = kdcExplicitInitial
     kdiKnownPeersCache <- atomically $ newTVar []
     pure $ KademliaDHTInstance {..}
   where
+    catchErrors =
+        (flip catchAll (\e -> do logError $ sformat
+                                    ("Error launching kademlia at port " % int % ": " % shown) kdcPort e
+                                 throw e)) . liftIO
+
     log' logF =  usingLoggerName ("kademlia" <> "messager") . logF . toText
+    createKademlia port key cfg =
+        K.createL (fromInteger . toInteger $ port) key cfg (log' logDebug) (log' logError)
+    createKademliaFromSnapshot port cfg snapshot =
+        K.createLFromSnapshot (fromInteger . toInteger $ port) cfg snapshot (log' logDebug) (log' logError)
 
 rejoinNetwork
     :: ( MonadIO m

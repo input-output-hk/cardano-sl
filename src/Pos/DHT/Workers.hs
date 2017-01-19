@@ -3,7 +3,7 @@ module Pos.DHT.Workers
        ( dhtWorkers
        ) where
 
-import           Data.Binary           (Binary (..), encode)
+import           Data.Binary           (encode)
 import qualified Data.ByteString.Lazy  as BS
 import           Formatting            (sformat, (%))
 import           Network.Kademlia      (takeSnapshot)
@@ -23,10 +23,6 @@ import           Pos.Slotting          (onNewSlot)
 import           Pos.Types             (slotIdF)
 import           Pos.Types.Slotting    (flattenSlotId)
 import           Pos.WorkMode          (WorkMode)
-
-instance Binary DHTKey where
-    get = BI.get
-    put = BI.put
 
 dumpKademliaStateInterval :: Integral a => a
 dumpKademliaStateInterval = epochSlots

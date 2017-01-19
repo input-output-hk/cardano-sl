@@ -5,6 +5,7 @@
 
 module Pos.Binary.DHTModel () where
 
+import qualified Data.Binary                 as B (Binary (..))
 import           Network.Kademlia.HashNodeId (HashId (..))
 import           Universum
 
@@ -18,3 +19,7 @@ instance Bi DHTKey where
 instance Bi DHTData where
     put (DHTData ()) = mempty
     get = pure $ DHTData ()
+
+instance B.Binary DHTKey where
+    get = get
+    put = put

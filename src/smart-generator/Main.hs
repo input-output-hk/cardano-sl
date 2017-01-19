@@ -238,6 +238,7 @@ main = do
             , bpDHTPeers           = CLI.dhtPeers goCommonArgs
             , bpDHTKey             = Nothing
             , bpDHTExplicitInitial = CLI.dhtExplicitInitial goCommonArgs
+            , bpKademliaDump       = "kademlia.dump"
             }
 
     bracketResources baseParams $ \res -> do

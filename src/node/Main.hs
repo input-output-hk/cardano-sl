@@ -85,6 +85,7 @@ baseParams loggingTag args@Args {..} =
     , bpDHTPeers = CLI.dhtPeers commonArgs
     , bpDHTKey = dhtKey
     , bpDHTExplicitInitial = CLI.dhtExplicitInitial commonArgs
+    , bpKademliaDump = kademliaDumpPath
     }
 
 action :: Args -> RealModeResources -> Production ()
@@ -198,8 +199,8 @@ getNodeParams args@Args {..} systemStart = do
         , npJLFile = jlPath
         , npAttackTypes = maliciousEmulationAttacks
         , npAttackTargets = maliciousEmulationTargets
-        , npKademliaDump = kademliaDumpPath
         , npPropagation = not (CLI.disablePropagation commonArgs)
+        , npKademliaDump = kademliaDumpPath
         }
 
 gtSscParams :: Args -> VssKeyPair -> GtParams

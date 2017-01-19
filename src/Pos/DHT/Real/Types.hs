@@ -68,6 +68,7 @@ data KademliaDHTInstanceConfig = KademliaDHTInstanceConfig
     , kdcKey             :: !(Maybe DHTKey)
     , kdcInitialPeers    :: ![DHTNode]
     , kdcExplicitInitial :: !Bool
+    , kdcDumpPath        :: !FilePath
     }
 
 -- | Node of /Kademlia DHT/ algorithm with access to 'KademliaDHTContext'.

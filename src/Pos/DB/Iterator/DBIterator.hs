@@ -10,25 +10,32 @@ module Pos.DB.Iterator.DBIterator
        , DBMapIterator (..)
        , DBKeyIterator
        , DBValueIterator
+
+       , DBnIterator
+       , DBnMapIterator
+       , runDBnIterator
+       , runDBnMapIterator
        , runIterator
-       , mapIterator
+       , runMapIterator
        ) where
 
-import           Control.Monad.Reader  (ReaderT (..))
-import           Control.Monad.Trans   (MonadTrans)
-import qualified Data.ByteString       as BS (isPrefixOf)
-import qualified Database.RocksDB      as Rocks
-import           Formatting            (sformat, shown, string, (%))
+import qualified Control.Exception.Base       as CE (bracket)
+import           Control.Monad.Reader         (ReaderT (..))
+import           Control.Monad.Trans          (MonadTrans)
+import qualified Data.ByteString              as BS (isPrefixOf)
+import qualified Database.RocksDB             as Rocks
+import           Formatting                   (sformat, shown, string, (%))
 import           Universum
 
-import           Pos.Binary.Class      (Bi)
-import           Pos.DB.Class          (MonadDB (..))
-import           Pos.DB.Error          (DBError (DBMalformed))
-import           Pos.DB.Functions      (rocksDecodeMaybe, rocksDecodeMaybeWP)
-import           Pos.DB.Iterator.Class (DBIteratorClass (..), IterType)
-import           Pos.DB.Types          (DB (..))
-import           Pos.Util              (maybeThrow)
-import           Pos.Util.Iterator     (MonadIterator (..))
+import           Pos.Binary.Class             (Bi)
+import           Pos.DB.Class                 (MonadDB (..))
+import           Pos.DB.Error                 (DBError (DBMalformed))
+import           Pos.DB.Functions             (rocksDecodeMaybe, rocksDecodeMaybeWP)
+import           Pos.DB.Holder                (DBHolder (..), runDBHolder)
+import           Pos.DB.Iterator.Class        (DBIteratorClass (..), IterType)
+import           Pos.DB.Types                 (DB (..), NodeDBs (..))
+import           Pos.Util                     (maybeThrow)
+import           Pos.Util.Iterator            (MonadIterator (..))
 
 ----------------------------------------------------------------------------
 -- DBIterator
@@ -111,11 +118,54 @@ instance ( Monad m
 
 deriving instance MonadMask m => MonadMask (DBMapIterator i v m)
 deriving instance MonadDB ssc m => MonadDB ssc (DBMapIterator i v m)
-
 -- | Run DBMapIterator by `DB ssc`.
-mapIterator :: forall i v m ssc a . (MonadIO m, MonadMask m, DBIteratorClass i)
+runMapIterator :: forall i v m ssc a . (MonadIO m, MonadMask m, DBIteratorClass i)
             => DBMapIterator i v m a
             -> (IterType i -> v)
             -> DB ssc
             -> m a
-mapIterator dbIter f = runIterator (runReaderT (getDBMapIterator dbIter) f)
+runMapIterator dbIter f = runIterator (runReaderT (getDBMapIterator dbIter) f)
+
+----------------------------------------------------------------------------
+-- Wrappers for Iterators in IO
+----------------------------------------------------------------------------
+
+-- | Run DBIterator by `DB ssc` in IO.
+runIteratorIO :: forall i a m ssc . (MonadIO m, DBIteratorClass i)
+            => DBIterator i IO a -> DB ssc -> m a
+runIteratorIO dbIter DB {..} = liftIO $
+    CE.bracket (Rocks.createIter rocksDB rocksReadOpts) Rocks.releaseIter run
+  where
+    run it = do
+        Rocks.iterSeek it (iterKeyPrefix @i Proxy)
+        runReaderT (getDBIterator dbIter) it
+
+-- | Run DBMapIterator by `DB ssc` in IO.
+mapIteratorIO :: forall i v m ssc a . (MonadIO m, DBIteratorClass i)
+            => DBMapIterator i v IO a
+            -> (IterType i -> v)
+            -> DB ssc
+            -> m a
+mapIteratorIO dbIter f = runIteratorIO (runReaderT (getDBMapIterator dbIter) f)
+
+type DBnIterator ssc i      = DBHolder ssc (DBIterator i IO)
+type DBnMapIterator ssc i v = DBHolder ssc (DBMapIterator i v IO)
+
+instance MonadIterator e m => MonadIterator e (DBHolder ssc m)
+
+runDBnIterator
+    :: forall i m ssc a . (MonadDB ssc m, DBIteratorClass i)
+    => (NodeDBs ssc -> DB ssc) -> DBnIterator ssc i a -> m a
+runDBnIterator getter dbi = do
+    dbs <- getNodeDBs
+    let db = getter dbs
+    flip (runIteratorIO @i) db $ runDBHolder dbs dbi
+
+runDBnMapIterator
+    :: forall i v m ssc a . (MonadDB ssc m, DBIteratorClass i)
+    => (NodeDBs ssc -> DB ssc) -> DBnMapIterator ssc i v a -> (IterType i -> v) -> m a
+runDBnMapIterator getter dbi f = do
+    dbs <- getNodeDBs
+    let db = getter dbs
+    let it = runDBHolder dbs dbi
+    mapIteratorIO @i @v it f db

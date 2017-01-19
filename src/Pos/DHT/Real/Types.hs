@@ -31,7 +31,7 @@ import           Serokell.Util.Lens        (WrappedM (..))
 import           System.Wlog               (CanLog, HasLoggerName)
 
 import           Pos.Binary.Class          (Bi (..), decodeOrFail, encode)
-import           Pos.DHT.Model.Types    (DHTData, DHTKey, DHTNode (..),
+import           Pos.DHT.Model.Types       (DHTData, DHTKey, DHTNode (..),
                                             DHTNodeType (..))
 
 toBSBinary :: Bi b => b -> BS.ByteString

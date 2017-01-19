@@ -87,7 +87,7 @@ instance MonadBaseControl IO m => MonadBaseControl IO (DBPoll m) where
 -- MonadPoll
 ----------------------------------------------------------------------------
 
-instance (MonadDB patak m, MonadMask m) =>
+instance MonadDB patak m =>
          MonadPollRead (DBPoll m) where
     getScriptVersion = GS.getScriptVersion
     getLastAdoptedPV = GS.getLastPV

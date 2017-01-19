@@ -82,6 +82,7 @@ class Monad m => MonadPollRead m where
         SlotId -> m [UndecidedProposalState]
     getOldProposals = lift . getOldProposals
 
+
 instance MonadPollRead m => MonadPollRead (ReaderT s m)
 instance MonadPollRead m => MonadPollRead (StateT s m)
 instance MonadPollRead m => MonadPollRead (ExceptT s m)

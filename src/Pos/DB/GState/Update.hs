@@ -20,10 +20,11 @@ module Pos.DB.GState.Update
          -- * Initialization
        , prepareGStateUS
 
-         -- * Iteration
-        , runProposalMapIterator
-        , runProposalIterator
-        , getOldProposals
+        -- * Iteration
+       , PropIter
+       , runProposalMapIterator
+       , runProposalIterator
+       , getOldProposals
        ) where
 
 import           Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
@@ -38,9 +39,10 @@ import           Pos.DB.Error              (DBError (DBMalformed))
 import           Pos.DB.Functions          (RocksBatchOp (..), encodeWithKeyPrefix,
                                             rocksWriteBatch)
 import           Pos.DB.GState.Common      (getBi)
-import           Pos.DB.Iterator           (DBIterator, DBIteratorClass (..),
-                                            DBMapIterator, IterType, mapIterator,
-                                            runIterator)
+import           Pos.DB.Iterator           (DBIteratorClass (..), DBnIterator,
+                                            DBnMapIterator, IterType, runDBnIterator,
+                                            runDBnMapIterator)
+import           Pos.DB.Types              (NodeDBs (..))
 import           Pos.Genesis               (genesisProtocolVersion, genesisScriptVersion,
                                             genesisSoftwareVersions)
 import           Pos.Script.Type           (ScriptVersion)
@@ -50,7 +52,7 @@ import           Pos.Update.Core           (UpId, UpdateProposal (..))
 import           Pos.Update.Poll.Types     (ProposalState (..),
                                             UndecidedProposalState (upsSlot), psProposal)
 import           Pos.Util                  (maybeThrow)
-import           Pos.Util.Iterator         (nextItem)
+import           Pos.Util.Iterator         (MonadIterator (..))
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -151,15 +153,15 @@ instance DBIteratorClass PropIter where
     type IterValue PropIter = ProposalState
     iterKeyPrefix _ = iterationPrefix
 
-runProposalMapIterator
-    :: forall v m ssc a . (MonadDB ssc m, MonadMask m)
-    => DBMapIterator PropIter v m a -> (IterType PropIter -> v) -> m a
-runProposalMapIterator iter f = mapIterator @PropIter @v iter f =<< getUtxoDB
-
 runProposalIterator
-    :: forall m ssc a . (MonadDB ssc m, MonadMask m)
-    => DBIterator PropIter m a -> m a
-runProposalIterator iter = runIterator @PropIter iter =<< getUtxoDB
+    :: forall m ssc a . MonadDB ssc m
+    => DBnIterator ssc PropIter a -> m a
+runProposalIterator = runDBnIterator @PropIter _gStateDB
+
+runProposalMapIterator
+    :: forall v m ssc a . MonadDB ssc m
+    => DBnMapIterator ssc PropIter v a -> (IterType PropIter -> v) -> m a
+runProposalMapIterator = runDBnMapIterator @PropIter _gStateDB
 
 
 -- TODO!
@@ -171,19 +173,16 @@ runProposalIterator iter = runIterator @PropIter iter =<< getUtxoDB
 -- It is definitly not necessary. But we never have time to write good code, so
 -- it's the only option now.
 -- | Get all proposals which were issued no later than given slot.
--- Head is youngest proposal.
 getOldProposals
-    :: forall ssc m. (MonadMask m, MonadDB ssc m)
+    :: forall ssc m. MonadDB ssc m
     => SlotId -> m [UndecidedProposalState]
 getOldProposals slotId = runProposalMapIterator (step []) snd
   where
-    step res = nextItem >>= maybe (pure res) (\e ->
-        case e of
-            PSUndecided u ->
-              if | upsSlot u <= slotId -> step (u:res)
-                 | otherwise -> step (u:res)
-            PSDecided _   -> step res
-     )
+    step res = nextItem >>= maybe (pure res) (onItem res)
+    onItem res e
+        | PSUndecided u <- e
+        , upsSlot u <= slotId = step (u:res)
+        | otherwise = step res
 
 ----------------------------------------------------------------------------
 -- Keys ('us' prefix stands for Update System)

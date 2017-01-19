@@ -9,6 +9,7 @@ module Pos.DB.GState.Delegation
        , getPSKByIssuer
        , isIssuerByAddressHash
        , DelegationOp (..)
+
        , runPskIterator
        , runPskMapIterator
        ) where
@@ -21,8 +22,9 @@ import           Pos.Binary.Class (encodeStrict)
 import           Pos.Crypto       (PublicKey, pskDelegatePk, pskIssuerPk)
 import           Pos.DB.Class     (MonadDB, getUtxoDB)
 import           Pos.DB.Functions (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi)
-import           Pos.DB.Iterator  (DBIterator, DBIteratorClass (..), DBMapIterator,
-                                   IterType, mapIterator, runIterator)
+import           Pos.DB.Iterator  (DBIteratorClass (..), DBnIterator, DBnMapIterator,
+                                   IterType, runDBnIterator, runDBnMapIterator)
+import           Pos.DB.Types     (NodeDBs (_gStateDB))
 import           Pos.Types        (ProxySKSimple, StakeholderId, addressHash)
 
 
@@ -71,15 +73,15 @@ instance DBIteratorClass PskIter where
     type IterValue PskIter = ProxySKSimple
     iterKeyPrefix _ = iterationPrefix
 
-runPskMapIterator
-    :: forall v m ssc a . (MonadDB ssc m, MonadMask m)
-    => DBMapIterator PskIter v m a -> (IterType PskIter -> v) -> m a
-runPskMapIterator iter f = mapIterator @PskIter @v iter f =<< getUtxoDB
-
 runPskIterator
-    :: forall m ssc a . (MonadDB ssc m, MonadMask m)
-    => DBIterator PskIter m a -> m a
-runPskIterator iter = runIterator @PskIter iter =<< getUtxoDB
+    :: forall m ssc a . MonadDB ssc m
+    => DBnIterator ssc PskIter a -> m a
+runPskIterator = runDBnIterator @PskIter _gStateDB
+
+runPskMapIterator
+    :: forall v m ssc a . MonadDB ssc m
+    => DBnMapIterator ssc PskIter v a -> (IterType PskIter -> v) -> m a
+runPskMapIterator = runDBnMapIterator @PskIter _gStateDB
 
 ----------------------------------------------------------------------------
 -- Keys

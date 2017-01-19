@@ -83,10 +83,9 @@ usRollbackBlocks blunds =
 usVerifyBlocks
     :: (USGlobalVerifyMode ssc m)
     => NEBlocks ssc -> m (PollModifier, NonEmpty USUndo)
-usVerifyBlocks blocks = convertRes <$> run (mapM verifyBlock blocks)
+usVerifyBlocks blocks = swap <$> run (mapM verifyBlock blocks)
   where
     run = runDBPoll . runPollT def
-    convertRes (undos, modifier) = (modifier, undos)
 
 verifyBlock
     :: (USGlobalVerifyMode ssc m, MonadPoll m)

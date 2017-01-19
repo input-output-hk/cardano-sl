@@ -11,15 +11,16 @@ module NodeOptions
 import           Data.Version               (showVersion)
 import           Options.Applicative.Simple (Parser, auto, help, long, metavar, option,
                                              simpleOptions, strOption, switch, value)
+import           Prelude                    (show)
 import           Serokell.Util.OptParse     (fromParsec)
-import           Universum
+import           Universum                  hiding (show)
 
 import           Paths_cardano_sl           (version)
 import qualified Pos.CLI                    as CLI
 import           Pos.DHT.Model              (DHTKey)
 import           Pos.Security.CLI           (AttackTarget, AttackType)
+import           Pos.Util.BackupPhrase      (BackupPhrase, backupPhraseWordsNum)
 import           Pos.Util.TimeWarp          (NetworkAddress)
-
 
 data Args = Args
     { dbPath                    :: !FilePath
@@ -29,6 +30,7 @@ data Args = Args
     , vssGenesisI               :: !(Maybe Int)
 #endif
     , keyfilePath               :: !FilePath
+    , backupPhrase              :: !(Maybe BackupPhrase)
     , ipPort                    :: !NetworkAddress
     , supporterNode             :: !Bool
     , dhtKey                    :: !(Maybe DHTKey)
@@ -80,6 +82,11 @@ argsParser =
          metavar "FILEPATH" <>
          value "secret.key" <>
          help "Path to file with secret keys") <*>
+    optional
+        (option auto $
+            long "backup-phrase" <>
+            metavar "PHRASE" <>
+            help (show backupPhraseWordsNum ++ "-word phrase to recover the wallet")) <*>
     CLI.ipPortOption ("0.0.0.0", 3000) <*>
     switch
         (long "supporter" <> help "Launch DHT supporter instead of full node") <*>

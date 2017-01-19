@@ -3,12 +3,14 @@
 module Pos.Util.BackupPhrase
        ( BackupPhrase
        , mkBackupPhrase
+       , backupPhraseWordsNum
        , bpToList
        , toSeed
+       , keysFromPhrase
        ) where
 
 import           Control.Lens        (over, (%~), _1)
-import qualified Data.ByteString     as BS
+import           Crypto.Hash         (SHA3_256)
 import           Data.Char           (isAlpha, isSpace)
 import           Data.List           (span, (!!))
 import           Data.Maybe          (maybeToList)
@@ -17,8 +19,10 @@ import           Data.Text.Buildable (Buildable (..))
 import           Prelude             (readsPrec, show)
 import           Universum           hiding (show)
 
-import           Pos.Binary          (encodeStrict)
-import           Pos.Crypto          (unsafeHash)
+import           Pos.Binary          (Bi, encodeStrict)
+import           Pos.Crypto          (AbstractHash, SecretKey, VssKeyPair,
+                                      deterministicKeyGen, deterministicVssKeyGen,
+                                      unsafeAbstractHash)
 
 -- | Datatype to contain a valid backup phrase
 newtype BackupPhrase = BackupPhrase
@@ -57,5 +61,14 @@ instance Read BackupPhrase where
                 else over _1 (T.pack w :) <$> takeW (n - 1) rest
 
 toSeed :: BackupPhrase -> ByteString
-toSeed bp = encodeStrict $ iterate unsafeHash (unsafeHash ph) !! (hashingRoundsNum - 1)
+toSeed bp = encodeStrict $ iterate hash256 (hash256 ph) !! (hashingRoundsNum - 1)
   where ph = T.concat $ bpToList bp
+        hash256 :: Bi a => a -> AbstractHash SHA3_256 b
+        hash256 = unsafeAbstractHash
+
+keysFromPhrase :: BackupPhrase -> (SecretKey, VssKeyPair)
+keysFromPhrase ph = (sk, vss)
+  where seed = toSeed ph
+        panicMsg = "Pos.Util.BackupPhrase: impossible: seed is always 32-bit"
+        sk = snd $ maybe (panic panicMsg) identity $ deterministicKeyGen seed
+        vss = deterministicVssKeyGen seed

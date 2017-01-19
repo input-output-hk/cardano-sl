@@ -38,29 +38,34 @@ module Node (
     ) where
 
 import           Control.Monad.Fix          (MonadFix)
+import           Control.Exception          (SomeException)
 import qualified Data.ByteString.Lazy       as LBS
 import           Data.Map.Strict            (Map)
 import qualified Data.Map.Strict            as M
 import           Data.Proxy                 (Proxy (..))
-import           Mockable.Channel
 import           Mockable.Class
 import           Mockable.Concurrent
 import           Mockable.Exception
 import           Mockable.SharedAtomic
+import           Mockable.SharedExclusive
+import qualified Network.Transport.ConnectionBuffers as CB
 import qualified Network.Transport.Abstract as NT
-import           Node.Internal              (ChannelIn (..), ChannelOut (..))
+import           Node.Internal              (ChannelIn, ChannelOut)
 import qualified Node.Internal              as LL
 import           Node.Message
 import           System.Random              (StdGen)
-import           System.Wlog                (WithLogger, logDebug)
+import           Formatting                 (sformat, shown, (%))
+import           System.Wlog                (WithLogger, logError, logDebug)
 
-data Node m = Node {
+data Node m = forall event . Node {
       nodeId       :: LL.NodeId
-    , nodeEndPoint :: NT.EndPoint m
+    , nodeEndPoint :: NT.EndPoint m event
     }
 
 nodeEndPointAddress :: Node m -> NT.EndPointAddress
-nodeEndPointAddress = NT.address . nodeEndPoint
+nodeEndPointAddress (Node addr _) = LL.nodeEndPointAddress addr
+
+data Input t = Input t | NoParse | End
 
 type Worker packing m = SendActions packing m -> m ()
 
@@ -152,9 +157,9 @@ makeListenerIndex = foldr combine (M.empty, [])
 -- | Send actions for a given 'LL.Node'.
 nodeSendActions
     :: forall m packing .
-       ( Mockable Channel m, Mockable Throw m, Mockable Catch m
-       , Mockable Bracket m, Mockable SharedAtomic m
-       , Mockable Async m
+       ( Mockable CB.Buffer m, Mockable Throw m, Mockable Catch m
+       , Mockable Bracket m, Mockable SharedAtomic m, Mockable SharedExclusive m
+       , Mockable Async m, Ord (Promise m ())
        , WithLogger m, MonadFix m
        , Packable packing MessageName )
     => LL.Node m
@@ -196,7 +201,7 @@ nodeSendActions nodeUnit packing =
 -- | Conversation actions for a given peer and in/out channels.
 nodeConversationActions
     :: forall packing snd rcv m .
-       ( Mockable Throw m, Mockable Channel m
+       ( Mockable Throw m, Mockable CB.Buffer m, Mockable SharedExclusive m
        , WithLogger m
        , Packable packing snd
        , Unpackable packing rcv
@@ -215,7 +220,7 @@ nodeConversationActions _ _ packing inchan outchan =
         LL.writeChannel outchan . LBS.toChunks $ packMsg packing body
 
     nodeRecv = do
-        next <- recvNext' inchan packing
+        next <- recvNext inchan packing
         case next of
             End     -> pure Nothing
             NoParse -> do
@@ -232,12 +237,11 @@ data NodeAction packing m t = NodeAction [Listener packing m] (SendActions packi
 --   finished.
 node
     :: forall packing m t .
-       ( Mockable Fork m, Mockable Throw m, Mockable Channel m
+       ( Mockable Fork m, Mockable Throw m, Mockable CB.Buffer m
        , Mockable SharedAtomic m, Mockable Bracket m, Mockable Catch m
-       , Mockable Async m
-       , MonadFix m
-       , Serializable packing MessageName
-       , WithLogger m
+       , Mockable Async m, Mockable Concurrently m, Ord (Promise m ())
+       , Mockable SharedExclusive m
+       , MonadFix m, Serializable packing MessageName, WithLogger m
        )
     => NT.Transport m
     -> StdGen
@@ -257,14 +261,18 @@ node transport prng packing k = do
               (listenerIndex, _conflictingNames) = makeListenerIndex listeners
         ; let sendActions = nodeSendActions llnode packing
         }
-    act sendActions `finally` LL.stopNode llnode
+    act sendActions `finally` LL.stopNode llnode `catch` logException
   where
+    logException :: SomeException -> m t
+    logException e = do
+        logError (sformat ("node stopped with exception " % shown) e)
+        throw e
     -- Handle incoming data from unidirectional connections: try to read the
     -- message name, use it to determine a listener, parse the body, then
     -- run the listener.
     handlerIn :: ListenerIndex packing m -> SendActions packing m -> LL.NodeId -> ChannelIn m -> m ()
     handlerIn listenerIndex sendActions peerId inchan = do
-        input <- recvNext' inchan packing
+        input <- recvNext inchan packing
         case input of
             End -> logDebug "handerIn : unexpected end of input"
             -- TBD recurse and continue handling even after a no parse?
@@ -273,7 +281,7 @@ node transport prng packing k = do
                 let listener = M.lookup msgName listenerIndex
                 case listener of
                     Just (ListenerActionOneMsg action) -> do
-                        input' <- recvNext' inchan packing
+                        input' <- recvNext inchan packing
                         case input' of
                             End -> logDebug "handerIn : unexpected end of input"
                             NoParse -> logDebug "handlerIn : failed to parse message body"
@@ -292,7 +300,7 @@ node transport prng packing k = do
                  -> ChannelOut m
                  -> m ()
     handlerInOut nodeUnit listenerIndex peerId inchan outchan = do
-        input <- recvNext' inchan packing
+        input <- recvNext inchan packing
         case input of
             End -> logDebug "handlerInOut : unexpected end of input"
             NoParse -> logDebug "handlerInOut : failed to parse message name"
@@ -306,9 +314,10 @@ node transport prng packing k = do
                     Just (ListenerActionOneMsg _) -> error ("handlerInOut : wrong listener type. Expected bidirectional for " ++ show msgName)
                     Nothing -> error ("handlerInOut : no listener for " ++ show msgName)
 
-recvNext'
-    :: ( Mockable Channel m, Unpackable packing thing )
+recvNext
+    :: ( Mockable CB.Buffer m, Mockable SharedExclusive m
+       , Unpackable packing thing )
     => ChannelIn m
     -> packing
     -> m (Input thing)
-recvNext' (ChannelIn chan) packing = unpackMsg packing chan
+recvNext channelIn packing = LL.readChannel packing End End NoParse Input channelIn

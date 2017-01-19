@@ -10,6 +10,7 @@ module Mockable.Production
 import qualified Control.Concurrent       as Conc
 import qualified Control.Concurrent.Async as Conc
 import qualified Control.Concurrent.STM   as Conc
+import qualified Control.Concurrent.STM.TVar  as TVar
 import qualified Control.Exception        as Exception
 import           Control.Monad            (forever)
 import           Control.Monad.Catch      (MonadCatch (..), MonadMask (..),
@@ -27,6 +28,9 @@ import           Mockable.Concurrent      (Async (..), Concurrently (..), Delay 
 import           Mockable.CurrentTime     (CurrentTime (..), realTime)
 import           Mockable.Exception       (Bracket (..), Catch (..), Throw (..))
 import           Mockable.SharedAtomic    (SharedAtomic (..), SharedAtomicT)
+import           Mockable.SharedExclusive (SharedExclusive (..), SharedExclusiveT)
+import           Mockable.BoundedQueue
+import           Network.Transport.ConnectionBuffers (Buffer(..), BufferT(..))
 import           Serokell.Util.Concurrent as Serokell
 import           Universum                (MonadFail (..))
 
@@ -78,6 +82,18 @@ instance Mockable SharedAtomic Production where
     liftMockable (ModifySharedAtomic atomic f)
         = Production $ Conc.modifyMVar atomic (runProduction . f)
 
+type instance SharedExclusiveT Production = Conc.MVar
+
+instance Mockable SharedExclusive Production where
+    liftMockable (NewSharedExclusive)
+        = Production $ Conc.newEmptyMVar
+    liftMockable (PutSharedExclusive var t)
+        = Production $ Conc.putMVar var t
+    liftMockable (TakeSharedExclusive var)
+        = Production $ Conc.takeMVar var
+    liftMockable (ModifySharedExclusive var f)
+        = Production $ Conc.modifyMVar var (runProduction . f)
+
 type instance ChannelT Production = Conc.TChan
 
 instance Mockable Channel Production where
@@ -115,3 +131,59 @@ instance MonadMask Production where
 instance HasLoggerName Production where
     getLoggerName = return "*production*"
     modifyLoggerName = const id
+
+
+data TBQueue t = TBQueue {
+      front :: !(TVar.TVar (TBQueueList t))
+    , back :: !(TVar.TVar (TBQueueList t))
+    , bound :: !(TVar.TVar (Maybe Int))
+    , size :: !(TVar.TVar Int)
+    }
+
+data TBQueueList t = TBQNil | TBQCons t !(TVar.TVar (TBQueueList t))
+
+
+type instance BufferT Production = TBQueue
+
+instance Mockable Buffer Production where
+
+    liftMockable (NewBuffer bound) = Production $ do
+        front <- TVar.newTVarIO TBQNil
+        back <- TVar.newTVarIO TBQNil
+        bound <- TVar.newTVarIO (Just bound)
+        size <- TVar.newTVarIO 0
+        return $ TBQueue front back bound size
+
+    liftMockable (ReadBuffer tbq k) = Production . Conc.atomically $ do
+        it <- TVar.readTVar (front tbq)
+        case it of
+            TBQNil -> Conc.retry
+            TBQCons t next -> do
+                let (replace, r) = k t
+                case replace of
+                    Nothing -> do
+                        next' <- TVar.readTVar next
+                        TVar.writeTVar (front tbq) next'
+                    Just s -> TVar.writeTVar (front tbq) (TBQCons s next)
+                TVar.modifyTVar' (size tbq) (\x -> x - 1)
+                return r
+
+    liftMockable (WriteBuffer tbq t) = Production . Conc.atomically $ do
+        bound <- TVar.readTVar (bound tbq)
+        cur <- TVar.readTVar (size tbq)
+        if maybe False (\b -> b <= cur) bound
+        then Conc.retry
+        else do
+            it <- TVar.readTVar (back tbq)
+            case it of
+                TBQNil -> do
+                    tail <- TVar.newTVar TBQNil
+                    let only = TBQCons t tail
+                    TVar.writeTVar (front tbq) only
+                    TVar.writeTVar (back tbq) only
+                TBQCons _ end -> do
+                    newEnd <- TVar.newTVar TBQNil
+                    let tail = TBQCons t newEnd
+                    TVar.writeTVar end tail
+                    TVar.writeTVar (back tbq) tail
+            TVar.modifyTVar' (size tbq) ((+) 1)

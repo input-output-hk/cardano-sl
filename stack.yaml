@@ -15,8 +15,8 @@ packages:
       commit: db3cd301545e5da000e53ca2cdf274e0386192bf
     extra-dep: true
   - location:
-      git: https://github.com/serokell/network-transport-tcp.git
-      commit: 586c9bf830252476522cab6274ef8ddc32615686
+      git: https://github.com/avieth/network-transport-tcp
+      commit: b9892b2be4cae3ca5f3720c6e0fc0ae458119700
     extra-dep: true
 
 extra-deps:

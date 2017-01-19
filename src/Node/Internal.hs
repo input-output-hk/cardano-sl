@@ -16,13 +16,14 @@ module Node.Internal (
     Node(..),
     nodeId,
     nodeEndPointAddress,
-    ChannelIn(..),
-    ChannelOut(..),
+    ChannelIn,
+    ChannelOut,
     startNode,
     stopNode,
     withOutChannel,
     withInOutChannel,
     writeChannel,
+    ConnectionEvent(..),
     readChannel
   ) where
 
@@ -39,9 +40,9 @@ import           Data.Hashable                 (Hashable)
 import           Data.List.NonEmpty            (NonEmpty ((:|)))
 import           Data.Map.Strict               (Map)
 import qualified Data.Map.Strict               as Map
+import           Data.Set                      (Set)
+import qualified Data.Set                      as Set
 import           Data.Monoid
-import           Data.NonEmptySet              (NonEmptySet)
-import qualified Data.NonEmptySet              as NESet
 import           Data.Typeable
 import           Formatting                    (sformat, shown, (%))
 import qualified Mockable.Channel              as Channel
@@ -49,10 +50,13 @@ import           Mockable.Class
 import           Mockable.Concurrent
 import           Mockable.Exception
 import           Mockable.SharedAtomic
+import           Mockable.SharedExclusive
 import qualified Network.Transport             as NT (EventErrorCode (EventConnectionLost, EventEndPointFailed, EventTransportFailed))
 import qualified Network.Transport.Abstract    as NT
+import           Network.Transport.ConnectionBuffers
 import           System.Random                 (Random, StdGen, random)
-import           System.Wlog                   (WithLogger, logDebug)
+import           System.Wlog                   (WithLogger, logDebug, logError)
+import qualified Node.Message                  as Message
 
 -- | A 'NodeId' wraps a network-transport endpoint address
 newtype NodeId = NodeId NT.EndPointAddress
@@ -61,16 +65,16 @@ newtype NodeId = NodeId NT.EndPointAddress
 -- | The state of a Node, to be held in a shared atomic cell because other
 --   threads will mutate it in order to set up bidirectional connections.
 data NodeState m = NodeState {
-      _nodeStateGen              :: !StdGen
+      _nodeStateGen                :: !StdGen
       -- ^ To generate nonces.
-    , _nodeStateNonces           :: !(Map Nonce (NonceState m))
-      -- ^ Nonces identify bidirectional connections, and this gives the state
-      --   of each one.
-    , _nodeStateFinishedHandlers :: ![(Either NT.ConnectionId Nonce, Maybe SomeException)]
-      -- ^ Connection identifiers or nonces for handlers which have finished.
-      --   'Nonce's for bidirectional connections, 'ConnectionId's for handlers
-      --   spawned to respond to incoming connections.
-    , _nodeStateClosed           :: !Bool
+    , _nodeStateNonces             :: !(Map Nonce (Promise m (), Maybe (SharedExclusiveT m (ConnectionBuffer m))))
+      -- ^ Handlers for each nonce which we generated (locally-initiated
+      --   bidirectional connections).
+      --   If the second component is Just, then it's an empty shared exclusive.
+    , _noceStateConnectionHandlers :: !(Set (Promise m ()))
+      -- ^ A set of handlers for connections (remotely-initiated unidirectional
+      --   or bidirectional connections).
+    , _nodeStateClosed             :: !Bool
       -- ^ Indicates whether the Node has been closed and is no longer capable
       --   of establishing or accepting connections (its EndPoint is closed).
     }
@@ -78,7 +82,7 @@ data NodeState m = NodeState {
 -- | A 'Node' is a network-transport 'EndPoint' with bidirectional connection
 --   state and a thread to dispatch network-transport events.
 data Node (m :: * -> *) = Node {
-       nodeEndPoint         :: NT.EndPoint m,
+       nodeEndPoint         :: NT.EndPoint m (EndPointEvent m),
        nodeDispatcherThread :: Promise m (),
        nodeState            :: SharedAtomicT m (NodeState m)
      }
@@ -107,17 +111,77 @@ data NodeException =
 
 instance Exception NodeException
 
--- | Input from the wire. Nothing means there's no more to come.
-newtype ChannelIn m = ChannelIn (Channel.ChannelT m (Maybe BS.ByteString))
+data ChannelIn m =
+    -- | A channel for a remotely-initiated connection, whether bidirectional
+    --   or unidirectional.
+    ChannelRemotelyInitiated !(ConnectionBuffer m)
+    -- | A channel for a locally-initiated bidirectional connection. The
+    --   shared exclusive will become full once the peer establishes the other
+    --   direction.
+  | ChannelLocallyInitiated !(SharedExclusiveT m (ConnectionBuffer m))
 
 -- | Output to the wire.
 newtype ChannelOut m = ChannelOut (NT.Connection m)
 
+closeChannel :: ChannelOut m -> m ()
+closeChannel (ChannelOut conn) = NT.close conn
+
+-- | Write some ByteStrings to an out channel. It does not close the
+--   transport when finished. If you want that, use withOutChannel or
+--   withInOutChannel.
+writeChannel
+    :: ( Monad m, WithLogger m, Mockable Throw m )
+    => ChannelOut m
+    -> [BS.ByteString]
+    -> m ()
+writeChannel (ChannelOut conn) chunks = do
+    res <- NT.send conn chunks
+    -- TBD error handling? Throw exception or report it as a Left?
+    case res of
+      Left err -> throw err
+      Right _  -> pure ()
+
+-- | Read from a ChannelIn with the option to replace unconsumed output.
+readChannel
+    :: ( Mockable SharedExclusive m, Mockable Buffer m
+       , Message.Unpackable packingType thing )
+    => packingType
+    -> t -- ^ Use for closed channel
+    -> t -- ^ Use for lost channel
+    -> t -- ^ Use for failed parse
+    -> (thing -> t) -- ^ Use for successful parse.
+    -> ChannelIn m -- ^ Parse from here (if data is needed).
+    -> m t
+readChannel packingType closed lost fail done inputChan = case Message.unpackMsg packingType of
+    Message.Done _ _ t -> return $ done t
+    Message.Fail _ _ _ -> return $ fail
+    Message.Partial continue -> case inputChan of
+      ChannelRemotelyInitiated buffer -> go buffer continue
+      ChannelLocallyInitiated exclusive -> do
+          buffer <- readSharedExclusive exclusive
+          go buffer continue
+    where
+    go buffer continue = do
+        next <- readBuffer buffer $ \ev -> case ev of
+            Closed -> (Nothing, Right closed)
+            Lost -> (Nothing, Right lost)
+            Data bs -> case continue (Just (LBS.toStrict bs)) of
+                Message.Done trailing _ t -> (leftover trailing, Right (done t))
+                Message.Fail trailing _ _ -> (leftover trailing, Right fail)
+                Message.Partial continue' -> (Nothing, Left continue')
+        case next of 
+            Left continue' -> go buffer continue'
+            Right t -> return t
+
+    leftover bs = if BS.null bs then Nothing else Just (Data (LBS.fromStrict bs))
+    
+
 -- | Bring up a 'Node' using a network transport.
 startNode :: ( Mockable SharedAtomic m, Mockable Bracket m
-             , Mockable Channel.Channel m, Mockable Throw m, Mockable Catch m
-             , Mockable Async m
-             , WithLogger m )
+             , Mockable Buffer m, Mockable Throw m, Mockable Catch m
+             , Mockable Async m, Mockable Concurrently m, Ord (Promise m ())
+             , Mockable Buffer m, Mockable SharedExclusive m
+             , MonadFix m, WithLogger m )
           => NT.Transport m
           -> StdGen
           -> (NodeId -> ChannelIn m -> m ())
@@ -126,8 +190,19 @@ startNode :: ( Mockable SharedAtomic m, Mockable Bracket m
           -- ^ Handle incoming bidirectional connections.
           -> m (Node m)
 startNode transport prng handlerIn handlerOut = do
-    Right endPoint <- NT.newEndPoint transport
-    sharedState <- newSharedAtomic (NodeState prng Map.empty [] False)
+    qdisc <- connectionBufferQDisc $ ConnectionBuffersParams {
+                   qdiscEventBufferSize = 1024
+                   -- At most 1024 * 4096 + c bytes in the pipe for a
+                   -- connection
+                 , qdiscConnectionBufferSize = 1024
+                 , qdiscConnectionDataSize = 4096
+                 , qdiscInternalError = \ie -> do
+                       logDebug (sformat shown ie)
+                       throw ie
+                 }
+    Right endPoint <- NT.newEndPoint transport qdisc
+    sharedState <- newSharedAtomic (NodeState prng Map.empty Set.empty False)
+    -- TODO this thread should get exceptions from the dispatcher thread.
     dispatcherThread <- async $
         nodeDispatcher endPoint sharedState handlerIn handlerOut
     return Node {
@@ -137,12 +212,12 @@ startNode transport prng handlerIn handlerOut = do
     }
 
 -- | Stop a 'Node', closing its network transport endpoint.
-stopNode :: ( Mockable Async m, Mockable SharedAtomic m ) => Node m -> m ()
+stopNode :: ( WithLogger m, Mockable Async m, Mockable SharedAtomic m ) => Node m -> m ()
 stopNode Node {..} = do
-    modifySharedAtomic nodeState $ \(NodeState prng nonces finishedHandlers closed) ->
+    modifySharedAtomic nodeState $ \(NodeState prng nonces handlers closed) ->
         if closed
         then error "Node internal error : already stopped"
-        else pure (NodeState prng nonces finishedHandlers True, ())
+        else pure (NodeState prng nonces handlers True, ())
     -- This eventually will shut down the dispatcher thread, which in turn
     -- ought to stop the connection handling threads.
     -- It'll also close all TCP connections.
@@ -154,103 +229,28 @@ stopNode Node {..} = do
     -- only if some handler is blocked indefinitely or looping.
     wait nodeDispatcherThread
 
--- | State which is local to the dispatcher, and need not be accessible to
---   any other thread.
-data DispatcherState m = DispatcherState {
-      dispatcherConnections :: !(Map NT.ConnectionId (NT.EndPointAddress, ConnectionState m))
-    , dispatcherPeers :: !(Map NT.EndPointAddress (NonEmptySet NT.ConnectionId))
-      -- ^ For each peer 'EndPointAddress', the set of all 'ConnectionId's such
-      -- that
-      --
-      --   elem connId <$> lookup endPointAddress (dispatcherPeers state) == Just True
-      --   => fst <$> lookup connId (dispatcherConnections state) == Just endPointAddress
-      --
-      --
-    }
-
-emptyDispatcherState :: DispatcherState m
-emptyDispatcherState = DispatcherState Map.empty Map.empty
-
-data SomeHandler m = forall t . SomeHandler (Promise m t)
-
-asyncHandler :: ( Mockable Async m ) => m t -> m (SomeHandler m)
-asyncHandler = fmap SomeHandler . async
-
-waitForHandler :: ( Mockable Async m ) => SomeHandler m -> m ()
-waitForHandler (SomeHandler promise) = wait promise >> pure ()
-
--- | The state of a connection (associated with a 'ConnectionId', see
---   'DispatcherState'.
+-- | The state of a connection to a peer.
 data ConnectionState m =
-
-       -- | We got a new connection and are waiting on the first chunk of data
-      ConnectionNew
-
-      -- | We got the first chunk of data, we're now waiting either for more
-      --   data or for the connection to be closed. This supports the small
-      --   message optimisation.
-    | ConnectionNewChunks ![BS.ByteString]
-
-      -- | We've forked a thread to handle the message. The connection is still
-      --   open and data is still arriving. We have a channel to pass the
-      --   incoming chunks off to the other thread.
-    | ConnectionReceiving !(SomeHandler m) !(ChannelIn m)
-
-      -- | We've forked a thread to handle the message. The connection is now
-      --   closed and we have all the data already, but the thread we forked
-      --   to handle it is still active.
-    | ConnectionClosed !(SomeHandler m)
-
-      -- | The handler which we forked to process the data has finished.
-      --   Subsequent incoming data has nowhere to go.
-    | ConnectionHandlerFinished !(Maybe SomeException)
-
-instance Show (ConnectionState m) where
-    show term = case term of
-        ConnectionNew               -> "ConnectionNew"
-        ConnectionNewChunks _       -> "ConnectionNewChunks"
-        ConnectionReceiving _ _     -> "ConnectionReceiving"
-        ConnectionClosed _          -> "ConnectionClosed"
-        ConnectionHandlerFinished e -> "ConnectionHandlerFinished" ++ maybe " " ((++) " " . show) e
-
--- | Bidirectional connections (conversations) are identified not by
---   'ConnectionId' but by 'Nonce', because their handlers run before any
---   connection is established.
---
---   Once a connection for a conversation is established, its nonce is
---   associated with it via 'NonceHandlerConnected', but prior to this it's
---   'NonceHandlerNotConnected', meaning the handler is running but a
---   SYN/ACK handshake has not been completed.
---
---   The NonceState must be accessible by the dispatcher and by other threads,
---   because other threads may initiate a conversation.
-data NonceState m =
-
-      -- | The local handler for the conversation is running but no ACK has
-      -- yet been received from the peer.
-      NonceHandlerNotConnected !(SomeHandler m) !(ChannelIn m)
-
-      -- | SYN/ACK completed and the local handler for the conversation
-      -- is now a typical connection.
-    | NonceHandlerConnected !NT.ConnectionId
-
-instance Show (NonceState m) where
-    show term = case term of
-        NonceHandlerNotConnected _ _ -> "NonceHandlerNotConnected"
-        NonceHandlerConnected connid -> "NonceHandlerConnected " ++ show connid
-
---TODO: extend this to keep track of the number of active threads and total
--- amount of in flight incoming data. This will be needed to inform the
--- back-pressure policy.
+      -- | New connection from some peer.
+      Unprocessed
+      -- | Handshake completed and it's unidirectional.
+    | UnidirectionalEstablished (ChannelIn m)
+      -- | Handhsake completed and it's bidirectional.
+    | BidirectionalEstablished (ChannelIn m) (ChannelOut m)
+      -- | We got an ACK from the peer.
+    | BidirectionalGotACK
+      -- | We got a SYN from the peer.
+    | BidirectionalGotSYN
 
 -- | The one thread that handles /all/ incoming messages and dispatches them
 -- to various handlers.
 nodeDispatcher :: forall m .
-                  ( Mockable SharedAtomic m, Mockable Async m, Mockable Bracket m
-                  , Mockable Channel.Channel m, Mockable Throw m
+                  ( Mockable SharedAtomic m, Mockable Async m, Mockable Concurrently m
+                  , Ord (Promise m ()), Mockable Bracket m, Mockable SharedExclusive m
+                  , Mockable Buffer m, Mockable Throw m
                   , Mockable Catch m
-                  , WithLogger m )
-               => NT.EndPoint m
+                  , MonadFix m, WithLogger m )
+               => NT.EndPoint m (EndPointEvent m)
                -> SharedAtomicT m (NodeState m)
                -- ^ Nonce states and a StdGen to generate nonces. It's in a
                --   shared atomic because other threads must be able to alter
@@ -260,435 +260,235 @@ nodeDispatcher :: forall m .
                -> (NodeId -> ChannelIn m -> m ())
                -> (NodeId -> ChannelIn m -> ChannelOut m -> m ())
                -> m ()
-nodeDispatcher endpoint nodeState handlerIn handlerInOut =
-    loop emptyDispatcherState
+nodeDispatcher endpoint nodeState handlerIn handlerInOut = loop
+
     where
 
-    finally' :: m t -> m () -> m t
-    finally' action after = bracket (pure ()) (const after) (const action)
-
-    -- Take the dead threads from the shared atomic and release them all from
-    -- the map if their connection is also closed.
-    -- Only if the connection is closed *and* the handler is finished, can we
-    -- forget about a connection id. It could be that the handler is finished,
-    -- but we receive more data, in which case we want to somehow make the
-    -- peer stop pushing any data.
-    -- If the connection is closed after the handler finishes, then the entry
-    -- in the state map will be cleared by the dispatcher loop.
+    -- Much work is done by the ConnectionBuffers QDisc to organize
+    -- network-transport opened, received, and closed events into a single
+    -- 'PeerOpenedConnection' which comes with an input buffer.
     --
-    -- TBD use the reported exceptions to inform the dispatcher somehow?
-    -- If a lot of threads are giving exceptions, should we change dispatcher
-    -- behavior?
-    updateStateForFinishedHandlers :: DispatcherState m -> m (DispatcherState m)
-    updateStateForFinishedHandlers state = modifySharedAtomic nodeState $ \(NodeState prng nonces finished closed) -> do
-        -- For every Left (c :: NT.ConnectionId) we can remove it from the map
-        -- if its connection is closed, or indicate that the handler is finished
-        -- so that it will be removed when the connection is closed.
-        --
-        -- For every Right (n :: Nonce) we act depending on the nonce state.
-        -- If the handler isn't connected, we'll just drop the nonce state
-        -- entry.
-        -- If the handler is connected, we'll update the connection state for
-        -- that ConnectionId to say the handler has finished.
-        (!state', !nonces') <- foldlM folder (state, nonces) finished
-        --() <- trace ("DEBUG: state map size is " ++ show (Map.size state')) (pure ())
-        --() <- trace ("DEBUG: nonce map size is " ++ show (Map.size nonces')) (pure ())
-        pure ((NodeState prng nonces' [] closed), state')
-        where
+    -- The dispatcher here is responsible for spawning handlers for each of
+    -- those 'PeerOpenedConnection' events. They will do a handshake with the
+    -- peer to establish a unidirectional or bidirectional connection, and
+    -- then give control to the relevant caller-supplied handler.
+    --
+    -- The simplest case is a unidirectional incoming connection, in which
+    -- the dispatcher needs only to match the first byte of input with the
+    -- unidirectional control byte, and then pass the input buffer to the
+    -- caller-supplied handler. This is done in a new thread, and the handler
+    -- runs in the same thread. The dispatcher will keep this thread in
+    -- shared state so that, if it is shut down, it can wait until the thread
+    -- finishes before finishing itself.
 
-        -- Updates connection and nonce states in a left fold.
-        folder
-            :: (DispatcherState m, Map Nonce (NonceState m))
-            -> (Either NT.ConnectionId Nonce, Maybe SomeException)
-            -> m (DispatcherState m, Map Nonce (NonceState m))
-        folder (dispatcherState, nonces) (connidOrNonce, e) = case connidOrNonce of
-            -- The handler for a ConnectionId has finished.
-            Left connid -> (,) <$> updateDispatcherState dispatcherState connid e <*> pure nonces
-            -- The handler for a locally-iniated conversation has finished.
-            Right nonce -> folderNonce (dispatcherState, nonces) (nonce, e)
-
-        folderNonce (dispatcherState, nonces) (nonce, e) = case Map.lookup nonce nonces of
-            Nothing -> throw $ InternalError "handler for unknown nonce finished"
-            -- The handler did not yet connect (SYN/ACK handshake did not go
-            -- through). It's weird, but normal: the conversation did not
-            -- 'recv' any data and ended before the peer could respond with the
-            -- ACK.
-            Just (NonceHandlerNotConnected _ _) ->
-                pure (dispatcherState, Map.delete nonce nonces)
-            -- The handler has connected, so we update the relevant parts of
-            -- the DispatcherState.
-            Just (NonceHandlerConnected connid) ->
-                (,) <$> updateDispatcherState dispatcherState connid e <*> pure (Map.delete nonce nonces)
-
-        updateDispatcherState dispatcherState connid e = case Map.lookup connid (dispatcherConnections dispatcherState) of
-            Nothing -> throw $ InternalError "handler for unknown connection finished"
-            -- Handler finished after the connection closed. Now we can
-            -- remove this entry from the map, as well as from the reverse
-            -- lookup map.
-            Just (peer, ConnectionClosed _) -> pure $ dispatcherState {
-                  dispatcherConnections = Map.delete connid (dispatcherConnections dispatcherState)
-                , dispatcherPeers = Map.update (NESet.delete connid) peer (dispatcherPeers dispatcherState)
-                }
-            -- Handler finished before the connection closed. Update the
-            -- connections map and it will be cleared when the connection
-            -- closes.
-            Just (addr, _) -> pure $ dispatcherState {
-                  dispatcherConnections = Map.insert connid (addr, ConnectionHandlerFinished e) (dispatcherConnections dispatcherState)
-                }
-
-    -- | Wait for all running handlers to finish.
-    waitForRunningHandlers :: DispatcherState m -> m ()
-    waitForRunningHandlers state = do
-        nonces <- modifySharedAtomic nodeState $ \ns@(NodeState _prng nonces _finished _closed) ->
-            pure (ns, nonces)
-        let outgoingHandlerPromises :: [(SomeHandler m, Maybe (ChannelIn m))]
-            outgoingHandlerPromises = foldr pickOutgoingHandlerPromise [] nonces
-        let allHandlerPromises = incomingHandlerPromises ++ outgoingHandlerPromises
-        forM_ allHandlerPromises (closeChannelIn . snd)
-        forM_ allHandlerPromises (waitForHandler . fst)
-        where
-
-        -- Close the in channel by writing Nothing, to signal end-of-input.
-        -- TBD should we signal "premature end of input" instead, to
-        -- differentiate it from the peer terminating the connection?
-        closeChannelIn :: Maybe (ChannelIn m) -> m ()
-        closeChannelIn Nothing                 = pure ()
-        closeChannelIn (Just (ChannelIn chan)) = Channel.writeChannel chan Nothing
-
-        incomingHandlerPromises :: [(SomeHandler m, Maybe (ChannelIn m))]
-        incomingHandlerPromises = foldr pickIncomingHandlerPromise [] (dispatcherConnections state)
-
-        pickIncomingHandlerPromise (_, ConnectionReceiving promise inchan) = (:) (promise, Just inchan)
-        pickIncomingHandlerPromise (_, ConnectionClosed promise) = (:) (promise, Nothing)
-        pickIncomingHandlerPromise _ = id
-
-        pickOutgoingHandlerPromise (NonceHandlerNotConnected promise inchan) = (:) (promise, Just inchan)
-        pickOutgoingHandlerPromise _ = id
-
-    -- Handle the first chunks received, interpreting the control byte(s).
-    -- TODO: review this. It currently does not use the 'DispatcherState' but
-    -- that's dubious. Implementing good error handling will probably demand
-    -- using it.
-    handleFirstChunks
-        :: NT.ConnectionId
-        -> NT.EndPointAddress
-        -> [BS.ByteString]
-        -> DispatcherState m
-        -> m (Maybe (ConnectionState m))
-    handleFirstChunks connid peer chunks _ =
-        case LBS.uncons (LBS.fromChunks chunks) of
-            -- Empty. Wait for more data.
-            Nothing -> pure Nothing
-            Just (w, ws)
-                -- Peer wants a unidirectional (peer -> local)
-                -- connection. Make a channel for the incoming
-                -- data and fork a thread to consume it.
-                | w == controlHeaderCodeUnidirectional -> do
-                  chan <- Channel.newChannel
-                  Channel.writeChannel chan (Just (BS.concat (LBS.toChunks ws)))
-                  promise <- asyncHandler $ finishHandler nodeState (Left connid) (handlerIn (NodeId peer) (ChannelIn chan))
-                  pure . Just $ ConnectionReceiving promise (ChannelIn chan)
-
-                -- Bidirectional header without the nonce
-                -- attached. Wait for the nonce.
-                | w == controlHeaderCodeBidirectionalAck ||
-                  w == controlHeaderCodeBidirectionalSyn
-                , LBS.length ws < 8 -> -- need more data
-                  pure . Just $ ConnectionNewChunks chunks
-
-                -- Peer wants a bidirectional connection.
-                -- Fork a thread to reply with an ACK and then
-                -- handle according to handlerInOut.
-                | w == controlHeaderCodeBidirectionalSyn
-                , Right (ws',_,nonce) <- decodeOrFail ws -> do
-                  chan <- Channel.newChannel
-                  Channel.writeChannel chan (Just (BS.concat (LBS.toChunks ws')))
-                  let action = do
-                          -- It's possible that the local EndPoint is closed.
-                          -- If that's the case, we must not try to establish
-                          -- a connection to the peer who sent the SYN. Instead,
-                          -- we just ignore it. network-transport should
-                          -- ensure that the peer receives an error event
-                          -- indicating that we've closed their connection.
-                          mconn <- modifySharedAtomic nodeState $ \ns@(NodeState _prng _nonces _finishedHandlers closed) ->
-                              if closed
-                              then pure (ns, Nothing)
-                              else do
-                                  mconn <- NT.connect
-                                      endpoint
-                                      peer
-                                      NT.ReliableOrdered
-                                      NT.ConnectHints{ connectTimeout = Nothing } --TODO use timeout
-                                  case mconn of
-                                    Left  err  -> throw err
-                                    Right conn -> pure (ns, Just conn)
-                          case mconn of
-                              -- The EndPoint is closed, so we do nothing.
-                              -- TODO should probably log this.
-                              Nothing -> logDebug $ sformat ("Got connection\
-                                \request from "%shown%", but endpoint is closed") peer
-                              Just conn -> do
-                                  outcome <- NT.send conn [controlHeaderBidirectionalAck nonce]
-                                  case outcome of
-                                      Left err -> logDebug $
-                                        sformat ("Error sending ack to "%shown%": "
-                                        %shown) peer err
-                                      Right _  -> return ()
-                                  handlerInOut (NodeId peer) (ChannelIn chan) (ChannelOut conn)
-                                      `finally'`
-                                      closeChannel (ChannelOut conn)
-                  promise <- asyncHandler $ finishHandler nodeState (Left connid) action
-                  pure . Just $ ConnectionReceiving promise (ChannelIn chan)
-
-                -- We want a bidirectional connection and the
-                -- peer has acknowledged. Check that their nonce
-                -- matches what we sent and if so start writing
-                -- to the channel associated with that nonce.
-                -- See connectInOutChannel/withInOutChannel for the other half
-                -- of the story (where we send SYNs and record
-                -- nonces).
-                --
-                -- A call to withInOutChannel ensures that when the action using
-                -- the in/out channel completes, it will update the shared
-                -- atomic 'finished' variable to indicate that thread
-                -- corresponding to the *nonce* is completed. It may have
-                -- already completed at this point, which is weird but not
-                -- out of the question (the handler didn't ask to receive
-                -- anything).
-                --
-                | w == controlHeaderCodeBidirectionalAck
-                , Right (ws',_,nonce) <- decodeOrFail ws -> do
-                  outcome <- modifySharedAtomic nodeState $ \(NodeState prng expected finished closed) ->
-                      case Map.lookup nonce expected of
-                          -- Got an ACK for a nonce that we don't know about
-                          -- It could be that we never sent a SYN on that
-                          -- nonce (peer made a protocol error), but it could
-                          -- also be that we did send the SYN, but our handler
-                          -- for that conversation has already finished!
-                          -- That's just normal.
-                          Nothing -> return ((NodeState prng expected finished closed), Nothing)
-                          -- Got an ACK for a nonce that we *do* know about (we
-                          -- sent a SYN for it).
-                          Just (NonceHandlerNotConnected promise inchan) -> do
-                              let !expected' = Map.insert nonce (NonceHandlerConnected connid) expected
-                              return ((NodeState prng expected' finished closed), Just (promise, inchan))
-                          Just _ -> throw (InternalError $ "duplicate or delayed ACK for " ++ show nonce)
-                  case outcome of
-                      Nothing -> pure Nothing
-                      Just (promise, ChannelIn chan) -> do
-                          Channel.writeChannel chan (Just (BS.concat (LBS.toChunks ws')))
-                          pure . Just $ ConnectionReceiving promise (ChannelIn chan)
-
-                | otherwise -> do
-                    logDebug $ sformat ("protocol error: unexpected control header "
-                        %shown%" from "%shown) w peer
-                    pure Nothing
-
-    loop :: DispatcherState m -> m ()
-    loop !initialState = do
-      !state <- updateStateForFinishedHandlers initialState
+    -- A loop to handle 'EndPointEvent's.
+    loop :: m ()
+    loop = do
       event <- NT.receive endpoint
       case event of
 
-          NT.ConnectionOpened connid NT.ReliableOrdered peer ->
-              -- Just keep track of the new connection and reverse lookup
-              -- from EndPointAddress.
-              loop $ state {
-                    dispatcherConnections = Map.insert connid (peer, ConnectionNew) (dispatcherConnections state)
-                  , dispatcherPeers = Map.alter (Just . maybe (NESet.singleton connid) (NESet.insert connid)) peer (dispatcherPeers state)
-                  }
+          -- Peer opened a connection.
+          -- Spawn a thread to handle it.
+          PeerOpenedConnection connid NT.ReliableOrdered peer connBuffer -> do
+              spawnHandler nodeState (Left connid) (peerConnectionHandler peer connid connBuffer Unprocessed)
+              loop
 
-          -- receiving data for an existing connection (ie a multi-chunk message)
-          NT.Received connid chunks ->
-              case Map.lookup connid (dispatcherConnections state) of
-                  Nothing ->
-                      throw (InternalError "received data on unknown connection")
+          -- Only reliable, ordered connections are accepted.
+          -- TODO close the connection. No sense receiving any data on it.
+          PeerOpenedConnection _ _ addr _ -> do
+              logError $ sformat ("Unexpected connection reliability from" % shown) addr
+              loop
 
-                  -- TODO: need policy here on queue size
-                  Just (peer, ConnectionNew) ->
-                      loop $ state {
-                            dispatcherConnections = Map.insert connid (peer, ConnectionNewChunks chunks) (dispatcherConnections state)
-                          }
+          -- Wait for the handlers to finish before returning.
+          LocalEndPointClosed -> waitForHandlers
 
-                  Just (peer, ConnectionNewChunks chunks0) -> do
-                      mConnState <- handleFirstChunks connid peer (chunks0 ++ chunks) state
-                      case mConnState of
-                          Nothing -> loop $ state
-                          Just cs -> loop $ state {
-                                dispatcherConnections = Map.insert connid (peer, cs) (dispatcherConnections state)
-                              }
-
-                  -- Connection is receiving data and there's some handler
-                  -- at 'tid' to run it. Dump the new data to its ChannelIn.
-                  Just (_peer, ConnectionReceiving _ (ChannelIn chan)) -> do
-                    Channel.writeChannel chan (Just (BS.concat chunks))
-                    loop state
-
-                  Just (_peer, ConnectionClosed _) ->
-                    throw (InternalError "received data on closed connection")
-
-                  -- The peer keeps pushing data but our handler is finished.
-                  -- What to do? Would like to close the connection but I'm
-                  -- not sure that's possible in network-transport. Would like
-                  -- to say "stop receiving on this ConnectionId".
-                  -- We could maintain an association between ConnectionId and
-                  -- EndPointId of the peer, and then maybe patch
-                  -- network-transport to allow for selective closing of peer
-                  -- connection based on EndPointAddress.
-                  Just (_peer, ConnectionHandlerFinished _) ->
-                    throw (InternalError "received too much data")
-
-          NT.ConnectionClosed connid ->
-              case Map.lookup connid (dispatcherConnections state) of
-                  Nothing ->
-                      throw (InternalError "closed unknown connection")
-
-                  -- Connection closed, handler already finished. We're done
-                  -- with the connection. The case in which the handler finishes
-                  -- __after__ the connection closes is taken care of in
-                  -- 'updateStateForFinishedHandlers'.
-                  Just (peer, ConnectionHandlerFinished _) ->
-                      loop $ state {
-                            dispatcherConnections = Map.delete connid (dispatcherConnections state)
-                          , dispatcherPeers = Map.update (NESet.delete connid) peer (dispatcherPeers state)
-                          }
-
-                  -- Empty message
-                  Just (peer, ConnectionNew) -> do
-                      chan <- Channel.newChannel
-                      Channel.writeChannel chan Nothing
-                      promise <- asyncHandler $ finishHandler nodeState (Left connid) (handlerIn (NodeId peer) (ChannelIn chan))
-                      loop $ state {
-                            dispatcherConnections = Map.insert connid (peer, ConnectionClosed promise) (dispatcherConnections state)
-                          }
-
-                  -- Small message
-                  Just (peer, ConnectionNewChunks chunks0) -> do
-                      mConnState <- handleFirstChunks connid peer chunks0 state
-                      case mConnState of
-                          Just (ConnectionReceiving promise (ChannelIn chan)) -> do
-                              -- Write Nothing to indicate end of input.
-                              Channel.writeChannel chan Nothing
-                              loop $ state {
-                                    dispatcherConnections = Map.insert connid (peer, ConnectionClosed promise) (dispatcherConnections state)
-                                  }
-                          Just other -> loop $ state {
-                                dispatcherConnections = Map.insert connid (peer, other) (dispatcherConnections state)
-                              }
-                          -- There's no handler for the chunks, possibly because
-                          -- the small message was from a peer contacted in
-                          -- conversation mode, but the local handler has
-                          -- already finished. It's strange behavior but not
-                          -- an error.
-                          Nothing -> loop state
-
-                  -- End of incoming data. Signal that by writing 'Nothing'
-                  -- to the ChannelIn.
-                  Just (peer, ConnectionReceiving promise (ChannelIn chan)) -> do
-                      Channel.writeChannel chan Nothing
-                      loop $ state {
-                            dispatcherConnections = Map.insert connid (peer, ConnectionClosed promise) (dispatcherConnections state)
-                          }
-
-                  Just (_peer, ConnectionClosed _) ->
-                      throw (InternalError "closed a closed connection")
-
-          NT.EndPointClosed -> waitForRunningHandlers state
-
-          -- Losing a connection is no reason to stop the dispatcher. It is in
-          -- fact a normal thing, as it can be caused by peers failing or
-          -- otherwise choosing to go down.
-          --
-          -- When this happens, all handlers between the local EndPoint and the
-          -- given EndPointAddress must be made to realize that receiving from
-          -- and sending to their peer is no longer possible. This is done by
-          -- making it so that their ChannelIn and ChannelOut throws an
-          -- exception when used. Thus if a peer goes down after a local handler
-          -- has finished all of its sending and receiving, the local handler
-          -- need not die early.
-          --
-          -- Sending on a ChannelOut will report an error, so no work must be
-          -- done here in order to support that. But the ChannelIn for each
-          -- handler must be plugged (with Nothing or perhaps with a new
-          -- constructor indicating exceptional end of input). In order to
-          -- do so, we must associate an EndPointAddress with all ConnectionIds
-          -- of connections to/from it.
-          NT.ErrorEvent (NT.TransportError (NT.EventErrorCode (NT.EventConnectionLost peer)) _msg) -> do
-              let connids :: [NT.ConnectionId]
-                  connids = case Map.lookup peer (dispatcherPeers state) of
-                      Nothing    -> []
-                      Just neset -> let t :| ts = NESet.toList neset in t : ts
-              (!state', removals) <- foldlM eliminateConnection (state, []) connids
-              loop $ state' {
-                    dispatcherPeers = Map.update (NESet.deleteMany removals) peer (dispatcherPeers state')
-                  }
-              where
-              -- Every receiving connection becomes closed.
-              -- Every closed connection remains closed.
-              -- Every other connection can be forgotten.
-              eliminateConnection
-                  :: (DispatcherState m, [NT.ConnectionId])
-                  -> NT.ConnectionId
-                  -> m (DispatcherState m, [NT.ConnectionId])
-              eliminateConnection (_state, removals) connid = case Map.lookup connid (dispatcherConnections state) of
-                  Nothing -> throw (InternalError "connection associated with peer does not exist")
-                  Just (_peer, ConnectionReceiving handler (ChannelIn chan)) -> do
-                      -- Signal to the handler that there's no more input.
-                      Channel.writeChannel chan Nothing
-                      let state' = state {
-                                dispatcherConnections = Map.insert connid (peer, ConnectionClosed handler) (dispatcherConnections state)
-                              }
-                      pure (state', removals)
-                  Just (_, ConnectionClosed _) -> do
-                      -- We've already written Nothing to the channel
-                      pure (state, removals)
-                  -- If the connection is in any other state, we can remove it.
-                  _ -> let state' = state { dispatcherConnections = Map.delete connid (dispatcherConnections state) }
-                       in  pure (state', connid : removals)
-
-          NT.ErrorEvent (NT.TransportError (NT.EventErrorCode NT.EventEndPointFailed) _) ->
+          LocalEndPointFailed -> do
+              waitForHandlers
               throw (InternalError "EndPoint failed")
 
-          NT.ErrorEvent (NT.TransportError (NT.EventErrorCode NT.EventTransportFailed) _) ->
+          LocalTransportFailed -> do
+              waitForHandlers
               throw (InternalError "Transport failed")
 
-          NT.ErrorEvent (NT.TransportError NT.UnsupportedEvent _) ->
-              throw (InternalError "Unsupported event")
+    -- | Handle a connection from a peer. Spawned in a new thread for every
+    --   'PeerOpenedConnection' event.
+    --   Wait for a control header indicating whether the connection is
+    --   unidirectional or bidirectional, then pass control onto the relevant
+    --   handler supplied by the call to 'startNode'.
+    peerConnectionHandler
+        :: NT.EndPointAddress
+        -> NT.ConnectionId
+        -> ConnectionBuffer m
+        -> ConnectionState m
+        -> m ()
+    peerConnectionHandler peer connid connBuffer state = case state of
 
-          NT.ConnectionOpened _ _ _ ->
-              throw (ProtocolError "unexpected connection reliability")
+        Unprocessed -> do
+            -- Take 1 byte and check for a control header.
+            next <- recvAtMost 1 connBuffer
+            case next of
+                -- TODO Debug messages.
+                Lost -> logError $ sformat ("unprocessed connection lost " % shown) peer
+                Closed -> logError $ sformat ("unprocessed connection closed " % shown) peer
+                -- How to handle too much input? We want to only take at most
+                -- n bytes from the buffer... 
+                Data bs -> case LBS.unpack bs of
+                    [control] -> do
+                        if control == controlHeaderCodeUnidirectional
+                        then peerConnectionHandler peer connid connBuffer (UnidirectionalEstablished (ChannelRemotelyInitiated connBuffer))
+                        else if control == controlHeaderCodeBidirectionalSyn
+                        then peerConnectionHandler peer connid connBuffer BidirectionalGotSYN
+                        else if control == controlHeaderCodeBidirectionalAck
+                        then peerConnectionHandler peer connid connBuffer BidirectionalGotACK
+                        else logError $ sformat ("unrecognized control byte " % shown) peer
+                    [] -> do
+                        let err = InternalError "recvAtMost 1 gave 0 bytes"
+                        logError $ sformat shown err
+                        throw err
+                    _ -> do
+                        let err = InternalError "recvAtMost 1 gave >1 bytes"
+                        logError $ sformat shown err
+                        throw err
 
--- | Augment some m term so that it always updates a 'NodeState' mutable
---   cell when finished, along with the exception if one was raised. We catch
---   all exceptions in order to do this, but they are re-thrown.
---   Use an 'NT.ConnectionId' if the handler is spawned in response to a
---   connection, or a 'Nonce' if the handler is spawned for a locally
---   initiated bidirectional connection.
-finishHandler
+        -- We got an ACK. We use shared state to determine whether there's a
+        -- running handler corresponding to that nonce.
+        -- If there isn't, it's not necessarily an error. It could be that the
+        -- handler finished before the peer even acknowledged.
+        --
+        -- All we must do here is update the shared exclusive for that nonce to
+        -- have the input buffer for this connection.
+        BidirectionalGotACK -> do
+            nonce <- recvNonce peer connBuffer
+            modifySharedAtomic nodeState $ \(NodeState prng locally remotely closed) -> do
+                locally' <- case Map.lookup nonce locally of
+                    -- Not an error. Could be that the nonce handler already
+                    -- finished.
+                    Nothing -> return locally
+                    Just (promise, Nothing) -> do
+                        logError $ sformat ("duplicate ACK " % shown % shown) peer nonce
+                        undefined
+                    Just (promise, Just var) -> do
+                        putSharedExclusive var connBuffer
+                        return $ Map.insert nonce (promise, Nothing) locally
+                return (NodeState prng locally' remotely closed, ())
+            -- This thread ends, but the locally-initiated thread for that nonce
+            -- may live on.
+
+        -- We got a SYN. Receive the nonce, try to establish a connection and
+        -- send an ACK, then run the handler.
+        BidirectionalGotSYN -> do
+            nonce <- recvNonce peer connBuffer
+            mconn <- modifySharedAtomic nodeState $ \ns@(NodeState _prng _nonces _finishedHandlers closed) ->
+                if closed
+                then pure (ns, Nothing)
+                else do
+                    mconn <- NT.connect
+                        endpoint
+                        peer
+                        NT.ReliableOrdered
+                        NT.ConnectHints{ connectTimeout = Nothing } --TODO use timeout
+                    case mconn of
+                      Left  err  -> throw err
+                      Right conn -> pure (ns, Just conn)
+            case mconn of
+                -- The EndPoint is closed, so we do nothing.
+                -- TODO should probably log this.
+                Nothing -> logDebug $ sformat ("Got connection\
+                    \request from "%shown%", but endpoint is closed") peer
+                Just conn -> do
+                    outcome <- NT.send conn [controlHeaderBidirectionalAck nonce]
+                    case outcome of
+                        Left err -> logDebug $
+                            sformat ("Error sending ack to "%shown%": " %shown) peer err
+                        Right _ -> do
+                            let input = ChannelRemotelyInitiated connBuffer
+                            let output = ChannelOut conn
+                            peerConnectionHandler peer connid connBuffer (BidirectionalEstablished input output)
+
+        UnidirectionalEstablished input -> handlerIn (NodeId peer) input
+
+        BidirectionalEstablished input output -> handlerInOut (NodeId peer) input output
+
+    -- Try to receive an 8-byte nonce.
+    recvNonce :: NT.EndPointAddress -> ConnectionBuffer m -> m Nonce
+    recvNonce peer connBuffer = do
+        next <- recvAtMost 8 connBuffer
+        case next of
+            Lost -> do
+                logError $ sformat ("expected nonce lost " % shown) peer
+                undefined
+            Closed -> do
+                logError $ sformat ("expected nonce closed " % shown) peer
+                undefined
+            Data bs -> case decodeOrFail bs of
+                Right (_,_,nonce) -> pure nonce
+                _ -> do
+                    logError $ sformat ("malformed nonce " % shown) peer
+                    undefined
+
+    -- | Wait for all running handlers to finish.
+    waitForHandlers :: m ()
+    waitForHandlers = do
+        (locally, remotely) <- modifySharedAtomic nodeState $ \ns@(NodeState _ locally remotely _) ->
+            pure (ns, (locally, remotely))
+        let locallyInitiated :: [Promise m ()]
+            locallyInitiated = fmap fst (Map.elems locally)
+        let remotelyInitiated :: [Promise m ()]
+            remotelyInitiated = Set.toList remotely
+        let allHandlerPromises = locallyInitiated ++ remotelyInitiated
+        -- All we have to do is wait. Sending on the out channels will fail
+        -- because the transport is assumed to be closed, and receiving on
+        -- the in channels will eventually give Lost or Closed and certainly
+        -- not block forever.
+        _ <- forConcurrently allHandlerPromises wait
+        pure ()
+
+-- | Spawn a thread and track it in shared state, taking care to remove it from
+--   shared state when it's finished.
+spawnHandler
     :: forall m t .
-       ( Mockable SharedAtomic m, Mockable Throw m, Mockable Catch m )
+       ( Mockable SharedAtomic m, Mockable Throw m, Mockable Catch m
+       , Mockable Async m, Ord (Promise m ()), MonadFix m )
     => SharedAtomicT m (NodeState m)
-    -> Either NT.ConnectionId Nonce
+    -> Either NT.ConnectionId (Nonce, SharedExclusiveT m (ConnectionBuffer m))
     -> m t
-    -> m t
-finishHandler stateVar connidOrNonce action = normal `catch` exceptional
+    -> m (Promise m t)
+spawnHandler stateVar connidOrNonce action =
+    modifySharedAtomic stateVar $ \(NodeState prng locally remotely closed) -> do
+        -- Spawn the thread to get a 'SomeHandler'.
+        rec { promise <- async $ normal waitForIt `catch` exceptional waitForIt
+            -- A new promise which finishes when the other promise does, but returns
+            -- ().
+            ; waitForIt <- async $ do
+                  wait promise
+                  pure ()
+            }
+        -- It is assumed that different promises do not compare equal.
+        -- It is assumed to be highly unlikely that there will be nonce
+        -- collisions (that we have a good prng).
+        let (locally', remotely') = case connidOrNonce of
+                Left connid -> (locally, Set.insert waitForIt remotely)
+                Right (nonce, var) -> (Map.insert nonce (waitForIt, Just var) locally, remotely)
+        return (NodeState prng locally' remotely' closed, promise)
     where
-    normal :: m t
-    normal = do
+
+    normal :: Promise m () -> m t
+    normal promise = do
         t <- action
-        signalFinished (connidOrNonce, Nothing)
+        signalFinished promise Nothing
         pure t
-    exceptional :: SomeException -> m t
-    exceptional e = do
-        signalFinished (connidOrNonce, Just e)
+
+    exceptional :: Promise m () -> SomeException -> m t
+    exceptional promise e = do
+        signalFinished promise (Just e)
         throw e
-    -- Signal that a thread handling a given ConnectionId is finished.
-    -- It's very important that this is run to completion for every thread
-    -- spawned by the dispatcher, else the DispatcherState will never forget
-    -- the entry for this ConnectionId.
-    signalFinished :: (Either NT.ConnectionId Nonce, Maybe SomeException) -> m ()
-    signalFinished outcome = modifySharedAtomic stateVar $ \(NodeState prng nonces finished closed) ->
-            pure ((NodeState prng nonces (outcome : finished) closed), ())
+
+    signalFinished :: Promise m () -> Maybe SomeException -> m ()
+    signalFinished promise outcome = modifySharedAtomic stateVar $ \(NodeState prng locally remotely closed) -> do
+        let (locally', remotely') = case connidOrNonce of
+                Left connid -> (locally, Set.delete promise remotely)
+                Right (nonce, _) -> (Map.delete nonce locally, remotely)
+        pure ((NodeState prng locally' remotely' closed), ())
 
 controlHeaderCodeBidirectionalSyn :: Word8
 controlHeaderCodeBidirectionalSyn = fromIntegral (fromEnum 'S')
@@ -721,46 +521,60 @@ fixedSizeBuilder n =
 
 -- | Connect to a peer given by a 'NodeId' bidirectionally.
 connectInOutChannel
-    :: ( Mockable Channel.Channel m, Mockable SharedAtomic m
+    :: ( Mockable Buffer m, Mockable SharedAtomic m
        , Mockable Throw m, WithLogger m )
     => Node m
     -> NodeId
-    -> Promise m t
-       -- ^ Finishes when the in/out channel is no longer used. See
-       -- 'withInOutChannel'
-    -> m (Nonce, ChannelIn m, ChannelOut m)
-connectInOutChannel Node{nodeEndPoint, nodeState} (NodeId endpointaddr) promise = do
+    -> Nonce
+    -> m (ChannelOut m)
+connectInOutChannel Node{nodeEndPoint, nodeState} (NodeId endpointaddr) nonce = do
     mconn <- NT.connect
-               nodeEndPoint
-               endpointaddr
-               NT.ReliableOrdered
-               NT.ConnectHints{ connectTimeout = Nothing } --TODO use timeout
+                 nodeEndPoint
+                 endpointaddr
+                 NT.ReliableOrdered
+                 NT.ConnectHints{ connectTimeout = Nothing } --TODO use timeout
 
     -- TODO: Any error detected here needs to be reported because it's not
     -- reported via the dispatcher thread. It means we cannot establish a
     -- connection in the first place, e.g. timeout.
     case mconn of
-      Left  err  -> throw err
+      Left err -> throw err
       Right outconn -> do
-        (nonce, inchan) <- allocateInChannel
-        -- TODO: proper error handling
         outcome <- NT.send outconn [controlHeaderBidirectionalSyn nonce]
         case outcome of
-            Left  err -> logDebug $ sformat
+            Left err -> logDebug $ sformat
                 ("Error initializing bidirectional connection to "%shown%": "%shown)
                 endpointaddr err
-            Right _   -> return ()
-        return (nonce, ChannelIn inchan, ChannelOut outconn)
-    where
-    allocateInChannel = do
-      chan  <- Channel.newChannel
-      -- Create a nonce and update the shared atomic so that the nonce indicates
-      -- that there's a handler for it.
-      nonce <- modifySharedAtomic nodeState $ \(NodeState prng expected finished closed) -> do
-                 let (nonce, !prng') = random prng
-                     !expected' = Map.insert nonce (NonceHandlerNotConnected (SomeHandler promise) (ChannelIn chan)) expected
-                 pure ((NodeState prng' expected' finished closed), nonce)
-      return (nonce, chan)
+            Right _ -> return ()
+        return (ChannelOut outconn)
+
+-- | Create, use, and tear down a conversation channel with a given peer
+--   (NodeId).
+withInOutChannel
+    :: forall m a .
+       ( Mockable Bracket m, Mockable Async m, Ord (Promise m ())
+       , Mockable SharedAtomic m, Mockable SharedExclusive m, Mockable Throw m
+       , Mockable Catch m, Mockable Buffer m, MonadFix m, WithLogger m )
+    => Node m
+    -> NodeId
+    -> (ChannelIn m -> ChannelOut m -> m a)
+    -> m a
+withInOutChannel node@Node{nodeState} nodeid action = do
+    input <- newSharedExclusive
+    nonce <- modifySharedAtomic nodeState $ \(NodeState prng locally remotely closed) -> do
+               let (nonce, !prng') = random prng
+               pure ((NodeState prng' locally remotely closed), nonce)
+    let action' :: ChannelOut m -> m a
+        action' = action (ChannelLocallyInitiated input)
+    -- connectInOurChannel will update the nonce state to indicate that there's
+    -- a handler for it. When the handler is finished (whether normally or
+    -- exceptionally) we have to update it to say so.
+    rec { promise <- spawnHandler nodeState (Right (nonce, input)) $
+              bracket (connectInOutChannel node nodeid nonce)
+                      (closeChannel)
+                      (action')
+        }
+    wait promise
 
 -- | Connect to a peer given by a 'NodeId' unidirectionally.
 connectOutChannel
@@ -770,52 +584,26 @@ connectOutChannel
     -> m (ChannelOut m)
 connectOutChannel Node{nodeEndPoint} (NodeId endpointaddr) = do
     mconn <- NT.connect
-               nodeEndPoint
-               endpointaddr
-               NT.ReliableOrdered
-               NT.ConnectHints{ connectTimeout = Nothing } --TODO use timeout
+                 nodeEndPoint
+                 endpointaddr
+                 NT.ReliableOrdered
+                 NT.ConnectHints{ connectTimeout = Nothing } --TODO use timeout
 
     -- TODO: Any error detected here needs to be reported because it's not
     -- reported via the dispatcher thread. It means we cannot establish a
     -- connection in the first place, e.g. timeout.
+    --
+    -- TODO: don't report the error if the end point is closed.
     case mconn of
       Left  err  -> throw err
       Right conn -> do
         outcome <- NT.send conn [controlHeaderUnidirectional]
         case outcome of
-            Left  err -> logDebug $ sformat
+            Left err -> logDebug $ sformat
                 ("Error initializing unidirectional connection to "%shown%": "%shown)
                 endpointaddr err
-            Right _   -> return ()
+            Right _ -> return ()
         return (ChannelOut conn)
-
-closeChannel :: ChannelOut m -> m ()
-closeChannel (ChannelOut conn) = NT.close conn
-
--- | Create, use, and tear down a conversation channel with a given peer
---   (NodeId).
-withInOutChannel
-    :: forall m a .
-       ( Mockable Bracket m, Mockable Async m, Mockable Channel.Channel m
-       , Mockable SharedAtomic m, Mockable Throw m, Mockable Catch m
-       , MonadFix m, WithLogger m )
-    => Node m
-    -> NodeId
-    -> (ChannelIn m -> ChannelOut m -> m a)
-    -> m a
-withInOutChannel node@Node{nodeState} nodeid action = do
-    -- connectInOurChannel will update the nonce state to indicate that there's
-    -- a handler for it. When the handler is finished (whether normally or
-    -- exceptionally) we have to update it to say so.
-    rec { promise <- async $
-              bracket (connectInOutChannel node nodeid promise)
-                  (\(_, _, outchan) -> closeChannel outchan)
-                  (\(nonce, inchan, outchan) -> action' nonce inchan outchan)
-        }
-    wait promise
-    where
-    -- Updates the nonce state map always, and re-throws any caught exception.
-    action' nonce inchan outchan = finishHandler nodeState (Right nonce) (action inchan outchan)
 
 -- | Create, use, and tear down a unidirectional channel to a peer identified
 --   by 'NodeId'.
@@ -827,25 +615,3 @@ withOutChannel
     -> m a
 withOutChannel node nodeid =
     bracket (connectOutChannel node nodeid) closeChannel
-
--- | Write some ByteStrings to an out channel. It does not close the
---   transport when finished. If you want that, use withOutChannel or
---   withInOutChannel.
-writeChannel
-    :: ( Monad m, WithLogger m, Mockable Throw m )
-    => ChannelOut m
-    -> [BS.ByteString]
-    -> m ()
-writeChannel (ChannelOut _) [] = pure ()
-writeChannel (ChannelOut conn) (chunk:chunks) = do
-    res <- NT.send conn [chunk]
-    -- Any error detected here will be reported to the dispatcher thread
-    -- so we don't need to do anything
-    case res of
-      Left err -> throw err
-      Right _  -> writeChannel (ChannelOut conn) chunks
-
--- | Read a 'ChannelIn', blocking until the next 'ByteString' arrives, or end
---   of input is signalled via 'Nothing'.
-readChannel :: ( Mockable Channel.Channel m ) => ChannelIn m -> m (Maybe BS.ByteString)
-readChannel (ChannelIn chan) = Channel.readChannel chan

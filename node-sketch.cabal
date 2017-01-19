@@ -16,6 +16,8 @@ Library
                         Network.Discovery.Transport.Kademlia
                         Network.Transport.Abstract
                         Network.Transport.Concrete
+                        Network.Transport.Concrete.TCP
+                        Network.Transport.ConnectionBuffers
 
                         Node
 
@@ -29,6 +31,8 @@ Library
                         Mockable.Monad
                         Mockable.Production
                         Mockable.SharedAtomic
+                        Mockable.SharedExclusive
+                        Mockable.BoundedQueue
 
                         Node.Internal
                         Node.Message
@@ -62,6 +66,7 @@ Library
                       , network
                       , network-transport
                       , network-transport-inmemory
+                      , network-transport-tcp
                       , mtl >= 2.2.1
                       , random
                       , universum

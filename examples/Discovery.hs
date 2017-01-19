@@ -23,6 +23,7 @@ import           Network.Discovery.Abstract
 import qualified Network.Discovery.Transport.Kademlia as K
 import           Network.Transport.Abstract           (Transport (..))
 import           Network.Transport.Concrete           (concrete)
+import           Network.Transport.Concrete.TCP       as TCP (concrete)
 import qualified Network.Transport.TCP                as TCP
 import           Node
 import           Node.Message                         (BinaryP (..))
@@ -101,8 +102,9 @@ main = runProduction $ do
 
     when (number > 99 || number < 1) $ error "Give a number in [1,99]"
 
-    Right transport_ <- liftIO $ TCP.createTransport "0.0.0.0" "127.0.0.1" "10128" TCP.defaultTCPParameters
-    let transport = concrete transport_
+    Right (transport_, internals) <- liftIO $
+        TCP.createTransportExposeInternals "0.0.0.0" "127.0.0.1" "10128" TCP.defaultTCPParameters
+    let transport = TCP.concrete runProduction (transport_, internals)
 
     liftIO . putStrLn $ "Spawning " ++ show number ++ " nodes"
     nodeThreads <- forM [0..number] (makeNode transport)
@@ -112,3 +114,4 @@ main = runProduction $ do
 
     liftIO $ putStrLn "Stopping nodes"
     forM_ nodeThreads killThread
+    closeTransport transport

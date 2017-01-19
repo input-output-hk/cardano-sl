@@ -1,11 +1,13 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- | Network Transport
 module Network.Transport.Abstract
   ( -- * Types
     Transport(..)
+  , QDisc(..)
   , EndPoint(..)
   , Connection(..)
   , Event(..)
@@ -20,7 +22,8 @@ module Network.Transport.Abstract
   , NT.NewEndPointErrorCode(..)
   , NT.ConnectErrorCode(..)
   , NT.SendErrorCode(..)
-  , EventErrorCode(..)
+  , NT.EventErrorCode(..)
+  , EventError(..)
   ) where
 
 import Data.Typeable
@@ -33,18 +36,28 @@ import qualified Network.Transport as NT
 -- Main API                                                                   --
 --------------------------------------------------------------------------------
 
+-- | Queueing discipline.
+--   TODO support output queueing as well.
+data QDisc m t = QDisc {
+    qdiscEnqueue :: Event -> m ()
+  , qdiscDequeue :: m t
+  }
+
 -- | A network transport over some monad.
 data Transport m = Transport {
     -- | Create a new end point (heavyweight operation)
-    newEndPoint :: m (Either (NT.TransportError NT.NewEndPointErrorCode) (EndPoint m))
+    newEndPoint
+      :: forall t . 
+         QDisc m t
+      -> m (Either (NT.TransportError NT.NewEndPointErrorCode) (EndPoint m t))
     -- | Shutdown the transport completely
   , closeTransport :: m ()
   }
 
 -- | Network endpoint over some monad.
-data EndPoint m = EndPoint {
+data EndPoint m t = EndPoint {
     -- | Endpoints have a single shared receive queue.
-    receive :: m Event
+    receive :: m t
     -- | EndPointAddress of the endpoint.
   , address :: NT.EndPointAddress
     -- | Create a new lightweight connection.
@@ -53,7 +66,11 @@ data EndPoint m = EndPoint {
     -- Transport implementations based on some heavy-weight underlying network
     -- protocol (TCP, ssh), a call to 'connect' should be asynchronous when a
     -- heavyweight connection has already been established.
-  , connect :: NT.EndPointAddress -> NT.Reliability -> NT.ConnectHints -> m (Either (NT.TransportError NT.ConnectErrorCode) (Connection m))
+  , connect
+      :: NT.EndPointAddress
+      -> NT.Reliability
+      -> NT.ConnectHints
+      -> m (Either (NT.TransportError NT.ConnectErrorCode) (Connection m))
     -- | Close the endpoint
   , closeEndPoint :: m ()
   }
@@ -83,12 +100,12 @@ data Event =
     -- | The endpoint got closed (manually, by a call to closeEndPoint or closeTransport)
   | EndPointClosed
     -- | An error occurred
-  | ErrorEvent (NT.TransportError EventErrorCode)
+  | ErrorEvent (NT.TransportError EventError)
   deriving (Show, Eq, Generic)
 
 instance Binary Event
 
-data EventErrorCode = UnsupportedEvent | EventErrorCode NT.EventErrorCode
+data EventError = UnsupportedEvent | EventError NT.EventErrorCode
   deriving (Show, Eq, Generic, Typeable)
 
-instance Binary EventErrorCode
+instance Binary EventError

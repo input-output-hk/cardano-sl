@@ -15,7 +15,8 @@ import           Data.Time.Units            (Microsecond, fromMicroseconds)
 import           GHC.Generics               (Generic)
 import           Mockable.Concurrent        (delay, fork, killThread)
 import           Mockable.Production
-import           Network.Transport.Concrete (concrete)
+import           Network.Transport.Abstract (closeTransport)
+import           Network.Transport.Concrete.TCP as TCP (concrete)
 import qualified Network.Transport.TCP      as TCP
 import           Node
 import           Node.Message               (BinaryP (..))
@@ -71,8 +72,9 @@ listeners anId = [pongWorker]
 main :: IO ()
 main = runProduction $ do
 
-    Right transport_ <- liftIO $ TCP.createTransport "0.0.0.0" "127.0.0.1" "10128" TCP.defaultTCPParameters
-    let transport = concrete transport_
+    Right transport_ <- liftIO $
+        TCP.createTransportExposeInternals "0.0.0.0" "127.0.0.1" "10128" TCP.defaultTCPParameters
+    let transport = TCP.concrete runProduction transport_
 
     let prng1 = mkStdGen 0
     let prng2 = mkStdGen 1
@@ -92,3 +94,4 @@ main = runProduction $ do
         killThread tid2
         liftIO . putStrLn $ "Stopping nodes"
     liftIO . putStrLn $ "All done."
+    closeTransport transport

@@ -9,6 +9,7 @@ module Pos.Update.Poll.Types
        , DecidedProposalState (..)
        , ProposalState (..)
        , psProposal
+       , psVotes
        , mkUProposalState
        , voteToUProposalState
 
@@ -69,8 +70,8 @@ data UndecidedProposalState = UndecidedProposalState
 data DecidedProposalState = DecidedProposalState
     { dpsDecision   :: !Bool
       -- ^ Whether proposal is approved.
-    , dpsProposal   :: !UpdateProposal
-      -- ^ Proposal itself.
+    , dpsUndecided   :: !UndecidedProposalState
+      -- ^ Corresponding UndecidedProposalState
     , dpsDifficulty :: !ChainDifficulty
       -- ^ Difficulty at which this proposal became approved/rejected.
     } deriving (Generic)
@@ -83,7 +84,11 @@ data ProposalState
 
 psProposal :: ProposalState -> UpdateProposal
 psProposal (PSUndecided ups) = upsProposal ups
-psProposal (PSDecided dps)   = dpsProposal dps
+psProposal (PSDecided dps)   = upsProposal (dpsUndecided dps)
+
+psVotes :: ProposalState -> StakeholderVotes
+psVotes (PSUndecided ups) = upsVotes ups
+psVotes (PSDecided dps)   = upsVotes (dpsUndecided dps)
 
 -- | Make UndecidedProposalState from immutable data, i. e. SlotId and
 -- UpdateProposal.

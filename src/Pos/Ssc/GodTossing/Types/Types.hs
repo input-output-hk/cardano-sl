@@ -237,6 +237,7 @@ createGtContext GtParams {..} =
 ----------------------------------------------------------------------------
 -- Secret storage
 ----------------------------------------------------------------------------
+
 data GtSecretStorage = GtSecretStorage
     {
       -- | Secrets which we've generated so far.
@@ -251,6 +252,7 @@ instance Default GtSecretStorage where
         { gssSecrets = mempty
         , gssEpoch = 0
         }
+
 ----------------------------------------------------------------------------
 -- Convinient binary type alias
 ----------------------------------------------------------------------------

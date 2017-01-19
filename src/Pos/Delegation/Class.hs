@@ -7,9 +7,11 @@
 
 module Pos.Delegation.Class
        ( DelegationWrap (..)
-       , dwProxyMsgCache
-       , dwProxyConfCache
+       , dwMessageCache
+       , dwConfirmationCache
        , dwProxySKPool
+       , dwEpochId
+       , dwThisEpochPosted
        , MonadDelegation (..)
        ) where
 
@@ -17,14 +19,14 @@ import           Control.Concurrent.STM    (TVar)
 import           Control.Lens              (makeLenses)
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Data.Default              (Default (def))
-import           Data.HashMap.Strict       (HashMap)
 import qualified Data.HashMap.Strict       as HM
+import qualified Data.HashSet              as HS
 import           Data.Time.Clock           (UTCTime)
 import           Universum
 
 import           Pos.Crypto                (PublicKey)
 import           Pos.Delegation.Types      (SendProxySK)
-import           Pos.Types                 (ProxySKEpoch, ProxySKSimple)
+import           Pos.Types                 (EpochIndex, ProxySKEpoch, ProxySKSimple)
 
 ---------------------------------------------------------------------------
 -- Delegation in-memory data
@@ -34,19 +36,25 @@ import           Pos.Types                 (ProxySKEpoch, ProxySKSimple)
 -- Maybe ncProxyCache should be LRU instead of hashmap, but that's not
 -- urgent optimization idea.
 data DelegationWrap = DelegationWrap
-    { _dwProxyMsgCache  :: HashMap SendProxySK UTCTime
-      -- ^ Message cache to prevent infinite propagation of useless certs
-    , _dwProxyConfCache :: HashMap ProxySKEpoch UTCTime
-      -- ^ Confirmation cache for lightweight PSKs
-    , _dwProxySKPool    :: HashMap PublicKey ProxySKSimple
+    { _dwMessageCache      :: HashMap SendProxySK UTCTime
+      -- ^ Message cache to prevent infinite propagation of useless
+      -- certs.
+    , _dwConfirmationCache :: HashMap ProxySKEpoch UTCTime
+      -- ^ Confirmation cache for lightweight PSKs.
+    , _dwProxySKPool       :: HashMap PublicKey ProxySKSimple
       -- ^ Memory pool of hardweight proxy secret keys. Keys of this
       -- map are issuer public keys.
+    , _dwEpochId           :: EpochIndex
+      -- ^ Epoch index 'DelegationWrap' is correct in relation to.
+    , _dwThisEpochPosted   :: HashSet PublicKey
+      -- ^ Set of stakeholders that have already posted their PSKs
+      -- this epoch.
     }
 
 makeLenses ''DelegationWrap
 
 instance Default DelegationWrap where
-    def = DelegationWrap HM.empty HM.empty HM.empty
+    def = DelegationWrap HM.empty HM.empty HM.empty 0 HS.empty
 
 ----------------------------------------------------------------------------
 -- Class definition

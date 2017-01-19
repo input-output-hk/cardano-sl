@@ -25,6 +25,7 @@ import           Pos.Context                 (NodeContext (..), getNodeContext,
                                               ncPubKeyAddress, ncPublicKey, readNtpMargin)
 import qualified Pos.DB.GState               as GS
 import qualified Pos.DB.Lrc                  as LrcDB
+import           Pos.Delegation.Logic        (initDelegation)
 import           Pos.DHT.Model               (DHTNodeType (DHTFull), discoverPeers)
 import           Pos.Slotting                (getCurrentSlot)
 import           Pos.Ssc.Class               (SscConstraint)
@@ -52,9 +53,10 @@ runNode plugins sendActions = do
                        ", address: "%build%
                        ", pk hash: "%build) pk addr pkHash
     () <$ fork waitForPeers
-    initSemaphore
+    initDelegation
     initLrc
     initUSMemState
+    initSemaphore
     _ <- fork ntpWorker -- start NTP worker for synchronization time
     logInfo $ "Waiting response from NTP servers"
     unless isDevelopment $ delay (ntpResponseTimeout + ntpMaxError)

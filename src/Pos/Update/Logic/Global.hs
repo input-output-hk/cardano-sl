@@ -61,7 +61,7 @@ usApplyBlocks blocks _ = do
 -- ensure that tip stored in DB is 'headerHash' of head.
 usRollbackBlocks
     :: forall ssc m.
-       (USGlobalApplyMode ssc m)
+       USGlobalApplyMode ssc m
     => NonEmpty (Block ssc, USUndo) -> m [DB.SomeBatchOp]
 usRollbackBlocks blunds =
     modifierToBatch <$> (runDBPoll . execPollT def $ mapM_ rollbackDo blunds)
@@ -79,7 +79,7 @@ usRollbackBlocks blunds =
 -- are assumed to be done earlier, most likely during objects
 -- construction.
 usVerifyBlocks
-    :: (USGlobalVerifyMode ssc m)
+    :: USGlobalVerifyMode ssc m
     => NEBlocks ssc -> m (PollModifier, NonEmpty USUndo)
 usVerifyBlocks blocks = swap <$> run (mapM verifyBlock blocks)
   where

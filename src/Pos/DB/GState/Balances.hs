@@ -1,4 +1,3 @@
-{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 
@@ -18,7 +17,7 @@ module Pos.DB.GState.Balances
          -- * Initialization
        , prepareGStateBalances
 
-         -- * Iteration
+                -- * Iteration
        , BalIter
        , runBalanceIterator
        , runBalanceMapIterator
@@ -36,13 +35,13 @@ import           Universum
 
 import           Pos.Binary.Class     (encodeStrict)
 import           Pos.Crypto           (shortHashF)
-import           Pos.DB.Class         (MonadDB, getUtxoDB)
+import           Pos.DB.Class         (MonadDB)
 import           Pos.DB.Error         (DBError (..))
 import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi)
 import           Pos.DB.GState.Common (getBi, putBi)
-import           Pos.DB.Iterator      (DBIterator, DBIteratorClass (..), DBMapIterator,
-                                       IterType, mapIterator, runIterator)
-import           Pos.DB.Types         (DB)
+import           Pos.DB.Iterator      (DBIteratorClass (..), DBnIterator, DBnMapIterator,
+                                       IterType, runDBnIterator, runDBnMapIterator)
+import           Pos.DB.Types         (DB, NodeDBs (_gStateDB))
 import           Pos.Types            (Coin, StakeholderId, Utxo, coinF, mkCoin, sumCoins,
                                        txOutStake, unsafeAddCoin, unsafeIntegerToCoin,
                                        utxoToStakes)
@@ -115,7 +114,7 @@ putTotalFtsStake :: MonadDB ssc m => Coin -> m ()
 putTotalFtsStake = putBi ftsSumKey
 
 ----------------------------------------------------------------------------
--- Iteration
+-- Balance
 ----------------------------------------------------------------------------
 
 data BalIter
@@ -125,15 +124,16 @@ instance DBIteratorClass BalIter where
     type IterValue BalIter = Coin
     iterKeyPrefix _ = iterationPrefix
 
-runBalanceMapIterator
-    :: forall v m ssc a . (MonadDB ssc m, MonadMask m)
-    => DBMapIterator BalIter v m a -> (IterType BalIter -> v) -> m a
-runBalanceMapIterator iter f = mapIterator @BalIter @v iter f =<< getUtxoDB
-
 runBalanceIterator
-    :: forall m ssc a . (MonadDB ssc m, MonadMask m)
-    => DBIterator BalIter m a -> m a
-runBalanceIterator iter = runIterator @BalIter iter =<< getUtxoDB
+    :: forall m ssc a . MonadDB ssc m
+    => DBnIterator ssc BalIter a -> m a
+runBalanceIterator = runDBnIterator @BalIter _gStateDB
+
+runBalanceMapIterator
+    :: forall v m ssc a . MonadDB ssc m
+    => DBnMapIterator ssc BalIter v a -> (IterType BalIter -> v) -> m a
+runBalanceMapIterator = runDBnMapIterator @BalIter _gStateDB
+
 ----------------------------------------------------------------------------
 -- Sanity checks
 ----------------------------------------------------------------------------
@@ -157,6 +157,7 @@ sanityCheckBalances = do
 ----------------------------------------------------------------------------
 -- Keys
 ----------------------------------------------------------------------------
+
 ftsStakeKey :: StakeholderId -> ByteString
 ftsStakeKey = encodeWithKeyPrefix @BalIter
 

@@ -27,8 +27,8 @@ import           Pos.Crypto                 (keyGen)
 import           Pos.Types                  (Coin, makePubKeyAddress, mkCoin)
 import           Pos.Wallet.Web.Api         (walletApi)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile, CTx,
-                                             CTxId, CTxMeta, CWallet, CWalletMeta,
-                                             addressToCAddress)
+                                             CTxId, CTxMeta, CWallet, CWalletInit,
+                                             CWalletMeta, addressToCAddress)
 import           Pos.Wallet.Web.Error       (WalletError)
 
 walletDocs :: API
@@ -176,6 +176,10 @@ instance ToSample CWallet where
 -- FIXME!
 instance ToSample CWalletMeta where
     toSamples Proxy = fail "ToSample CWalletMeta: Not Implemented!"
+
+-- FIXME!
+instance ToSample CWalletInit where
+    toSamples Proxy = fail "ToSample CWalletInit: Not Implemented!"
 
 instance ToSample CAddress where
     toSamples Proxy = singleSample . addressToCAddress . makePubKeyAddress . fst $

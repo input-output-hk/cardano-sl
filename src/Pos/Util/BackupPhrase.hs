@@ -11,6 +11,7 @@ module Pos.Util.BackupPhrase
 
 import           Control.Lens        (over, (%~), _1)
 import           Crypto.Hash         (SHA3_256)
+import           Data.Aeson          (FromJSON (..), ToJSON (..))
 import           Data.Char           (isAlpha, isSpace)
 import           Data.List           (span, (!!))
 import           Data.Maybe          (maybeToList)
@@ -59,6 +60,12 @@ instance Read BackupPhrase where
             if null w
                 then fail "Invalid phrase"
                 else over _1 (T.pack w :) <$> takeW (n - 1) rest
+
+instance FromJSON BackupPhrase where
+    parseJSON = fmap (BackupPhrase . T.words) . parseJSON
+
+instance ToJSON BackupPhrase where
+    toJSON = toJSON . show
 
 toSeed :: BackupPhrase -> ByteString
 toSeed bp = encodeStrict $ iterate hash256 (hash256 ph) !! (hashingRoundsNum - 1)

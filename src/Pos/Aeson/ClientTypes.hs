@@ -7,13 +7,14 @@ module Pos.Aeson.ClientTypes
 import           Data.Aeson.TH              (defaultOptions, deriveJSON, deriveToJSON)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile,
                                              CProfile, CTExMeta, CTType, CTx, CTxId,
-                                             CTxMeta, CWallet, CWalletMeta, CWalletType,
-                                             NotifyEvent)
+                                             CTxMeta, CWallet, CWalletInit, CWalletMeta,
+                                             CWalletType, NotifyEvent)
 import           Pos.Wallet.Web.Error       (WalletError)
 
 deriveJSON defaultOptions ''CCurrency
 deriveJSON defaultOptions ''CWalletType
 deriveJSON defaultOptions ''CWalletMeta
+deriveJSON defaultOptions ''CWalletInit
 deriveJSON defaultOptions ''CTxMeta
 deriveJSON defaultOptions ''CProfile
 

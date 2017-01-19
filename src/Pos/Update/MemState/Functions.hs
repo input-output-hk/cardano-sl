@@ -8,6 +8,7 @@ module Pos.Update.MemState.Functions
 
 import qualified Control.Concurrent.Lock      as Lock
 import           Control.Monad.Catch          (MonadMask, bracket_)
+import           Data.Hashable                (Hashable)
 import qualified Data.HashMap.Strict          as HM
 import qualified Data.HashSet                 as HS
 import           Universum
@@ -48,18 +49,22 @@ modifyMemPool UpdatePayload {..} PollModifier{..} =
     append e@(UpdateVote{..}, _) Nothing        = Just $ HM.singleton uvKey e
     append e@(UpdateVote{..}, _) (Just stVotes) = Just $ HM.insert uvKey e stVotes
 
--- Old modifier, new modifier
+-- | Unite two PollModifiers. Second argument dominates, i. e. if
+-- there are two confliciting modifications, the second one wisn.
 modifyPollModifier :: PollModifier -> PollModifier -> PollModifier
 modifyPollModifier pmOld pmNew = PollModifier
-    (unionHM pmNewScriptVersions `diff` pmDelScriptVersions pmNew)
+    (unionHM pmNewScriptVersions `diffMapSet` pmDelScriptVersions pmNew)
     (unionHS pmDelScriptVersions)
     (pmLastAdoptedPV pmNew <|> pmLastAdoptedPV pmOld)
     (unionHM pmNewConfirmed)
-    (unionHM pmNewActiveProps `diff` pmDelActiveProps pmNew)
+    (unionHM pmNewActiveProps `diffMapSet` pmDelActiveProps pmNew)
     (unionHS pmDelActiveProps)
     (unionHM pmNewActivePropsIdx `HM.difference` pmDelActivePropsIdx pmNew)
     (unionHM pmDelActivePropsIdx)
   where
+    unionHM :: (Hashable k, Eq k) => (PollModifier -> HashMap k v) -> HashMap k v
     unionHM getter = getter pmNew `HM.union` getter pmOld
+    unionHS :: (Hashable a, Eq a) => (PollModifier -> HashSet a) -> HashSet a
     unionHS getter = getter pmNew `HS.union` getter pmOld
-    diff a b = a `HM.difference` (HS.toMap b)
+    diffMapSet :: (Hashable k, Eq k) => HashMap k v -> HashSet k -> HashMap k v
+    diffMapSet a b = a `HM.difference` (HS.toMap b)

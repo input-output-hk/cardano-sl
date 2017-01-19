@@ -186,11 +186,12 @@ library
 
                         -- Heavy delegation
                         Pos.Delegation.Class
-                        Pos.Delegation.Methods
-                        Pos.Delegation.Types
+                        Pos.Delegation.Holder
                         Pos.Delegation.Listeners
                         Pos.Delegation.Logic
                         Pos.Delegation.Lrc
+                        Pos.Delegation.Methods
+                        Pos.Delegation.Types
 
                         -- Launcher
                         Pos.Launcher.Launcher
@@ -315,6 +316,7 @@ library
                         Pos.Update.Poll.Class
                         Pos.Update.Poll.DBPoll
                         Pos.Update.Poll.Functions
+                        Pos.Update.Poll.Modifier
                         Pos.Update.Poll.Trans
                         Pos.Update.Poll.Types
                         Pos.Update.Worker

@@ -10,6 +10,7 @@ module Pos.Launcher.Scenario
 
 import           Control.Concurrent.MVar     (putMVar)
 import           Control.Concurrent.STM.TVar (writeTVar)
+import           Data.Default                (def)
 import           Development.GitRev          (gitBranch, gitHash)
 import           Formatting                  (build, int, sformat, (%))
 import           Mockable                    (currentTime, delay, fork, sleepForever)
@@ -18,14 +19,18 @@ import           System.Wlog                 (logError, logInfo)
 import           Universum
 
 import           Pos.Communication           (BiP)
-import           Pos.Constants               (ntpMaxError, ntpResponseTimeout, isDevelopment)
+import           Pos.Constants               (isDevelopment, ntpMaxError,
+                                              ntpResponseTimeout)
 import           Pos.Context                 (NodeContext (..), getNodeContext,
                                               ncPubKeyAddress, ncPublicKey, readNtpMargin)
 import qualified Pos.DB.GState               as GS
 import qualified Pos.DB.Lrc                  as LrcDB
+import           Pos.Delegation.Logic        (initDelegation)
 import           Pos.DHT.Model               (DHTNodeType (DHTFull), discoverPeers)
+import           Pos.Slotting                (getCurrentSlot)
 import           Pos.Ssc.Class               (SscConstraint)
 import           Pos.Types                   (Timestamp (Timestamp), addressHash)
+import           Pos.Update                  (MemState (..), askUSMemVar, mvState)
 import           Pos.Util                    (inAssertMode, waitRandomInterval)
 import           Pos.Util.TimeWarp           (sec)
 import           Pos.Worker                  (runWorkers)
@@ -48,8 +53,10 @@ runNode plugins sendActions = do
                        ", address: "%build%
                        ", pk hash: "%build) pk addr pkHash
     () <$ fork waitForPeers
-    initSemaphore
+    initDelegation
     initLrc
+    initUSMemState
+    initSemaphore
     _ <- fork ntpWorker -- start NTP worker for synchronization time
     logInfo $ "Waiting response from NTP servers"
     unless isDevelopment $ delay (ntpResponseTimeout + ntpMaxError)
@@ -91,3 +98,10 @@ initLrc :: WorkMode ssc m => m ()
 initLrc = do
     lrcSync <- ncLrcSync <$> getNodeContext
     atomically . writeTVar lrcSync . (True,) =<< LrcDB.getEpoch
+
+initUSMemState :: WorkMode ssc m => m ()
+initUSMemState = do
+    tip <- GS.getTip
+    tvar <- mvState <$> askUSMemVar
+    slot <- getCurrentSlot
+    atomically $ writeTVar tvar (MemState slot tip def def)

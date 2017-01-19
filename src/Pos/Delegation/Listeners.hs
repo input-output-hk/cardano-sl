@@ -23,7 +23,7 @@ import           Node                     (ListenerAction (..), SendActions (..)
 
 import           Pos.Binary.Communication ()
 import           Pos.Communication.BiP    (BiP (..))
-import           Pos.Context              (getNodeContext, ncPropagation)
+import           Pos.Context              (getNodeContext, ncBlkSemaphore, ncPropagation)
 import           Pos.Delegation.Logic     (ConfirmPskEpochVerdict (..),
                                            PskEpochVerdict (..), PskSimpleVerdict (..),
                                            invalidateProxyCaches, isProxySKConfirmed,
@@ -69,34 +69,42 @@ handleSendProxySK
        (WorkMode ssc m)
     => ListenerAction BiP m
 handleSendProxySK = ListenerActionOneMsg $
-    \_ sendActions (pr :: SendProxySK) -> case pr of
-        SendProxySKEpoch pSk -> do
-            logDebug "Got request on handleGetHeaders"
-            logDebug $ sformat ("Got request to handle lightweight psk: "%build) pSk
-            -- do it in worker once in ~sometimes instead of on every request
-            curTime <- liftIO getCurrentTime
-            runDelegationStateAction $ invalidateProxyCaches curTime
-            verdict <- processProxySKEpoch pSk
-            logResult verdict
-            propagateProxySKEpoch verdict pSk sendActions
-          where
-            logResult PEAdded =
-                logInfo $ sformat ("Got valid related proxy secret key: "%build) pSk
-            logResult PERemoved =
-                logInfo $
-                sformat ("Removing keys from issuer because got "%
-                         "self-signed revocation: "%build) pSk
-            logResult verdict =
-                logDebug $
-                sformat ("Got proxy signature that wasn't accepted. Reason: "%shown) verdict
-        SendProxySKSimple pSk -> do
-            logDebug $ sformat ("Got request to handle heavyweight psk: "%build) pSk
-            verdict <- processProxySKSimple pSk
-            logDebug $ sformat ("The verdict for cert "%build%" is: "%shown) pSk verdict
-            doPropagate <- ncPropagation <$> getNodeContext
-            when (verdict == PSAdded && doPropagate) $ do
-                logDebug $ sformat ("Propagating heavyweight PSK: "%build) pSk
-                sendProxySKSimple sendActions pSk
+    \_ sendActions (pr :: SendProxySK) -> handleDo sendActions pr
+  where
+    handleDo sendActions req@(SendProxySKSimple pSk) = do
+        logDebug $ sformat ("Got request to handle heavyweight psk: "%build) pSk
+        verdict <- processProxySKSimple pSk
+        logDebug $ sformat ("The verdict for cert "%build%" is: "%shown) pSk verdict
+        doPropagate <- ncPropagation <$> getNodeContext
+        if | verdict == PSIncoherent -> do
+               -- We're probably updating state over epoch, so leaders
+               -- can be calculated incorrectly.
+               blkSemaphore <- ncBlkSemaphore <$> getNodeContext
+               void $ liftIO $ readMVar blkSemaphore
+               handleDo sendActions req
+           | verdict == PSAdded && doPropagate -> do
+               logDebug $ sformat ("Propagating heavyweight PSK: "%build) pSk
+               sendProxySKSimple sendActions pSk
+           | otherwise -> pass
+    handleDo sendActions (SendProxySKEpoch pSk) = do
+        logDebug "Got request on handleGetHeaders"
+        logDebug $ sformat ("Got request to handle lightweight psk: "%build) pSk
+        -- do it in worker once in ~sometimes instead of on every request
+        curTime <- liftIO getCurrentTime
+        runDelegationStateAction $ invalidateProxyCaches curTime
+        verdict <- processProxySKEpoch pSk
+        logResult verdict
+        propagateProxySKEpoch verdict pSk sendActions
+      where
+        logResult PEAdded =
+            logInfo $ sformat ("Got valid related proxy secret key: "%build) pSk
+        logResult PERemoved =
+            logInfo $
+            sformat ("Removing keys from issuer because got "%
+                     "self-signed revocation: "%build) pSk
+        logResult verdict =
+            logDebug $
+            sformat ("Got proxy signature that wasn't accepted. Reason: "%shown) verdict
 
 -- | Propagates lightweight PSK depending on the 'ProxyEpochVerdict'.
 propagateProxySKEpoch

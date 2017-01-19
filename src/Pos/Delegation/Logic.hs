@@ -12,6 +12,9 @@ module Pos.Delegation.Logic
        , runDelegationStateAction
        , invalidateProxyCaches
 
+       -- * Initialization
+       , initDelegation
+
        -- * Heavyweight psks handling
        , getProxyMempool
        , PskSimpleVerdict (..)
@@ -31,8 +34,8 @@ module Pos.Delegation.Logic
        ) where
 
 import           Control.Concurrent.STM.TVar (readTVar, writeTVar)
-import           Control.Lens                (makeLenses, use, uses, view, (%=), (.=),
-                                              (^.))
+import           Control.Lens                (makeLenses, to, use, uses, view, (%=), (.=),
+                                              (^.), _1)
 import           Control.Monad.Trans.Except  (runExceptT, throwE)
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
@@ -59,15 +62,16 @@ import qualified Pos.DB.GState               as GS
 import qualified Pos.DB.Lrc                  as LrcDB
 import qualified Pos.DB.Misc                 as Misc
 import           Pos.Delegation.Class        (DelegationWrap, MonadDelegation (..),
-                                              dwProxyConfCache, dwProxyMsgCache,
-                                              dwProxySKPool)
+                                              dwConfirmationCache, dwEpochId,
+                                              dwMessageCache, dwProxySKPool,
+                                              dwThisEpochPosted)
 import           Pos.Delegation.Types        (SendProxySK (..))
 import           Pos.Ssc.Class               (Ssc)
-import           Pos.Types                   (Block, NEBlocks, ProxySKEpoch,
+import           Pos.Types                   (Block, HeaderHash, NEBlocks, ProxySKEpoch,
                                               ProxySKSimple, ProxySigEpoch, addressHash,
                                               blockProxySKs, epochIndexL, headerHash,
-                                              prevBlockL)
-import           Pos.Util                    (_neHead)
+                                              headerHashG, prevBlockL)
+import           Pos.Util                    (_neHead, _neLast)
 
 
 ----------------------------------------------------------------------------
@@ -97,8 +101,8 @@ runDelegationStateAction action = do
 -- | Invalidates proxy caches using built-in constants.
 invalidateProxyCaches :: UTCTime -> DelegationStateAction ()
 invalidateProxyCaches curTime = do
-    dwProxyMsgCache %= HM.filter (\t -> addUTCTime 60 t > curTime)
-    dwProxyConfCache %= HM.filter (\t -> addUTCTime 500 t > curTime)
+    dwMessageCache %= HM.filter (\t -> addUTCTime 60 t > curTime)
+    dwConfirmationCache %= HM.filter (\t -> addUTCTime 500 t > curTime)
 
 type DelegationWorkMode ssc m = (MonadDelegation m, MonadDB ssc m, WithLogger m)
 
@@ -118,8 +122,33 @@ instance B.Buildable DelegationError where
         bprint ("can't apply in delegation module: "%stext) msg
 
 ----------------------------------------------------------------------------
+-- Initialization
+----------------------------------------------------------------------------
+
+-- | Initializes delegation in-memory storage.
+--   * Sets `_dwEpochId` to epoch of tip.
+--   * Loads `_dwThisEpochPosted` from database
+initDelegation :: (Ssc ssc, MonadDB ssc m, MonadDelegation m) => m ()
+initDelegation = do
+    tip <- DB.getTipBlockHeader
+    let tipEpoch = tip ^. epochIndexL
+    fromGenesisPsks <-
+        concatMap (either (const []) (map pskIssuerPk . view blockProxySKs)) <$>
+        DB.loadBlocksWhile isRight (tip ^. headerHashG)
+    runDelegationStateAction $ do
+        dwEpochId .= tipEpoch
+        dwThisEpochPosted .= HS.fromList fromGenesisPsks
+
+----------------------------------------------------------------------------
 -- Heavyweight PSK
 ----------------------------------------------------------------------------
+
+-- Retrieves psk certificated that have been accumulated before given
+-- block. The block itself should be in DB.
+getPSKsFromThisEpoch :: (Ssc ssc, MonadDB ssc m) => HeaderHash -> m [ProxySKSimple]
+getPSKsFromThisEpoch tip = do
+    concatMap (either (const []) (view blockProxySKs)) <$>
+        DB.loadBlocksWhile isRight tip
 
 -- | Retrieves current mempool of heavyweight psks plus undo part.
 getProxyMempool
@@ -133,11 +162,12 @@ getProxyMempool = do
 
 -- | Datatypes representing a verdict of simple PSK processing.
 data PskSimpleVerdict
-    = PSExists    -- ^ If we have exactly the same cert in psk mempool
-    | PSForbidden -- ^ Not enough stake
-    | PSInvalid   -- ^ Broken
-    | PSCached    -- ^ Message is cached
-    | PSAdded     -- ^ Successfully processed/added to psk mempool
+    = PSExists     -- ^ If we have exactly the same cert in psk mempool
+    | PSForbidden  -- ^ Not enough stake
+    | PSInvalid    -- ^ Broken
+    | PSCached     -- ^ Message is cached
+    | PSIncoherent -- ^ Verdict can't be made at the moment (we're updating)
+    | PSAdded      -- ^ Successfully processed/added to psk mempool
     deriving (Show,Eq)
 
 -- | Processes simple (hardweight) psk. Puts it into the mempool
@@ -161,9 +191,11 @@ processProxySKSimple psk = do
         enoughStake = addressHash issuer `elem` richmen
     runDelegationStateAction $ do
         exists <- uses dwProxySKPool $ \m -> HM.lookup issuer m == Just psk
-        cached <- uses dwProxyMsgCache $ HM.member msg
-        dwProxyMsgCache %= HM.insert msg curTime
+        cached <- uses dwMessageCache $ HM.member msg
+        epochMatches <- uses dwEpochId $ (== headEpoch)
+        dwMessageCache %= HM.insert msg curTime
         let res = if | not valid -> PSInvalid
+                     | not epochMatches -> PSIncoherent
                      | not enoughStake -> PSForbidden
                      | cached -> PSCached
                      | exists -> PSExists
@@ -198,10 +230,8 @@ delegationVerifyBlocks
 delegationVerifyBlocks blocks = do
     -- TODO CSL-502 create snapshot
     tip <- GS.getTip
-    fromGenesisPsks <-
-        concatMap (either (const []) (map pskIssuerPk . view blockProxySKs)) <$>
-        DB.loadBlocksWhile isRight tip
-    let _dvCurEpoch = HS.fromList fromGenesisPsks
+    fromGenesisPsks <- getPSKsFromThisEpoch tip
+    let _dvCurEpoch = HS.fromList $ map pskIssuerPk fromGenesisPsks
         initState = DelVerState _dvCurEpoch HM.empty HS.empty
     richmen <-
         HS.fromList . NE.toList <$>
@@ -256,7 +286,8 @@ delegationVerifyBlocks blocks = do
         pure toRollback
 
 -- | Applies a sequence of definitely valid blocks to memory state and
--- returns batchops.
+-- returns batchops. It works correctly only in case blocks don't
+-- cross over epoch. So genesis block is either absent or the head.
 delegationApplyBlocks
     :: forall ssc m. (DelegationWorkMode ssc m)
     => NonEmpty (Block ssc) -> m (NonEmpty SomeBatchOp)
@@ -268,32 +299,64 @@ delegationApplyBlocks blocks = do
         sformat
         ("Oldest block is based on tip "%shortHashF%", but our tip is "%shortHashF)
         assumedTip tip
-    let allIssuers =
-            concatMap (either (const []) (map pskIssuerPk . view blockProxySKs))
-                      blocks
-    runDelegationStateAction $
-        forM_ allIssuers $ \i -> dwProxySKPool %= HM.delete i
-    pure $ map applyBlock blocks
+    mapM applyBlock blocks
   where
-    applyBlock :: Block ssc -> SomeBatchOp
-    applyBlock (Left _)      = SomeBatchOp ([]::[GS.DelegationOp])
+    applyBlock :: Block ssc -> m SomeBatchOp
+    applyBlock (Left block)      = do
+        runDelegationStateAction $ do
+            dwThisEpochPosted .= HS.empty
+            dwEpochId .= (block ^. epochIndexL)
+        pure (SomeBatchOp ([]::[GS.DelegationOp]))
     applyBlock (Right block) = do
         let proxySKs = view blockProxySKs block
+            issuers = map pskIssuerPk proxySKs
             (toDelete,toReplace) =
                 partition (\ProxySecretKey{..} -> pskIssuerPk == pskDelegatePk)
                 proxySKs
-        SomeBatchOp $
-            map (GS.DelPSK . pskIssuerPk) toDelete ++ map GS.AddPSK toReplace
+            batchOps = map (GS.DelPSK . pskIssuerPk) toDelete ++ map GS.AddPSK toReplace
+        runDelegationStateAction $ do
+            dwEpochId .= block ^. epochIndexL
+            forM_ issuers $ \i -> do
+                dwProxySKPool %= HM.delete i
+                dwThisEpochPosted %= HS.insert i
+        pure $ SomeBatchOp batchOps
+
 
 -- | Rollbacks block list. Erases mempool of certificates. Better to
--- restore them after the rollback (see Txp#normalizeTxpLD).
+-- restore them after the rollback (see Txp#normalizeTxpLD). You can
+-- rollback arbitrary number of blocks.
 delegationRollbackBlocks
-    :: (MonadDelegation m, MonadIO m)
+    :: ( Ssc ssc
+       , MonadDelegation m
+       , MonadIO m
+       , MonadThrow m
+       , MonadDB ssc m
+       , WithNodeContext ssc m)
     => NonEmpty (Blund ssc) -> m (NonEmpty SomeBatchOp)
 delegationRollbackBlocks blunds = do
-    runDelegationStateAction $ dwProxySKPool .= HM.empty
+    tipBlockAfterRollback <-
+        maybe (throwM malformedLastParent) pure =<<
+        DB.getBlock (blunds ^. _neLast . _1 . prevBlockL)
+    richmen <-
+        HS.fromList . NE.toList <$>
+        lrcActionOnEpochReason
+        (tipBlockAfterRollback ^. epochIndexL)
+        "delegationRollbackBlocks: there are no richmen for last rollbacked block epoch"
+        LrcDB.getRichmenDlg
+    fromGenesisIssuers <-
+        HS.fromList . map pskIssuerPk <$> getPSKsFromThisEpoch tipAfterRollbackHash
+    runDelegationStateAction $ do
+        dwProxySKPool %=
+            (HM.filterWithKey $ \pk _ ->
+                 not (pk `HS.member` fromGenesisIssuers) &&
+                 (addressHash pk) `HS.member` richmen)
+        dwThisEpochPosted .= fromGenesisIssuers
+        dwEpochId .= tipBlockAfterRollback ^. epochIndexL
     pure $ map rollbackBlund blunds
   where
+    malformedLastParent = DBMalformed $
+        "delegationRollbackBlocks: parent of last rollbacked block is not in blocks db"
+    tipAfterRollbackHash = blunds ^. _neLast . _1 . prevBlockL
     rollbackBlund :: Blund ssc -> SomeBatchOp
     rollbackBlund (Left _, _) = SomeBatchOp ([]::[GS.DelegationOp])
     rollbackBlund (Right block, undo) =
@@ -341,8 +404,8 @@ processProxySKEpoch psk = do
             msg = SendProxySKEpoch psk
             valid = verifyProxySecretKey psk
             selfSigned = pskDelegatePk psk == pskIssuerPk psk
-        cached <- uses dwProxyMsgCache $ HM.member msg
-        dwProxyMsgCache %= HM.insert msg curTime
+        cached <- uses dwMessageCache $ HM.member msg
+        dwMessageCache %= HM.insert msg curTime
         pure $ if | not valid -> PEInvalid
                   | cached -> PECached
                   | exists -> PEExists
@@ -374,12 +437,12 @@ processConfirmProxySk psk proof = do
     curTime <- liftIO getCurrentTime
     runDelegationStateAction $ do
         let valid = proxyVerify (pdDelegatePk proof) proof (const True) psk
-        cached <- uses dwProxyConfCache $ HM.member psk
-        when valid $ dwProxyConfCache %= HM.insert psk curTime
+        cached <- uses dwConfirmationCache $ HM.member psk
+        when valid $ dwConfirmationCache %= HM.insert psk curTime
         pure $ if | cached -> CPCached
                   | not valid -> CPInvalid
                   | otherwise -> CPValid
 
 -- | Checks if we hold a confirmation for given PSK.
 isProxySKConfirmed :: ProxySKEpoch -> DelegationStateAction Bool
-isProxySKConfirmed psk = uses dwProxyConfCache $ HM.member psk
+isProxySKConfirmed psk = uses dwConfirmationCache $ HM.member psk

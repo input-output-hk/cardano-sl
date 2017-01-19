@@ -4,6 +4,7 @@ module Pos.Update.Poll
        ( module Pos.Update.Poll.Class
        , module Pos.Update.Poll.DBPoll
        , module Pos.Update.Poll.Functions
+       , module Pos.Update.Poll.Modifier
        , module Pos.Update.Poll.Trans
        , module Pos.Update.Poll.Types
        ) where
@@ -11,5 +12,6 @@ module Pos.Update.Poll
 import           Pos.Update.Poll.Class
 import           Pos.Update.Poll.DBPoll
 import           Pos.Update.Poll.Functions
+import           Pos.Update.Poll.Modifier
 import           Pos.Update.Poll.Trans
 import           Pos.Update.Poll.Types

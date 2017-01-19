@@ -85,7 +85,7 @@ instance Bi U.UndecidedProposalState where
 instance Bi U.DecidedProposalState where
     put U.DecidedProposalState {..} = do
         put dpsDecision
-        put dpsProposal
+        put dpsUndecided
         put dpsDifficulty
     get = U.DecidedProposalState <$> get <*> get <*> get
 

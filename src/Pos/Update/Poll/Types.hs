@@ -70,7 +70,7 @@ data UndecidedProposalState = UndecidedProposalState
 data DecidedProposalState = DecidedProposalState
     { dpsDecision   :: !Bool
       -- ^ Whether proposal is approved.
-    , dpsUndecided   :: !UndecidedProposalState
+    , dpsUndecided  :: !UndecidedProposalState
       -- ^ Corresponding UndecidedProposalState
     , dpsDifficulty :: !ChainDifficulty
       -- ^ Difficulty at which this proposal became approved/rejected.
@@ -147,19 +147,6 @@ makeLensesFor [ ("pmNewScriptVersions", "pmNewScriptVersionsL")
               , ("pmDelActivePropsIdx", "pmDelActivePropsIdxL")
               ]
   ''PollModifier
-
-instance Default PollModifier where
-    def =
-        PollModifier
-        { pmNewScriptVersions = mempty
-        , pmDelScriptVersions = mempty
-        , pmLastAdoptedPV = Nothing
-        , pmNewConfirmed = mempty
-        , pmNewActiveProps = mempty
-        , pmDelActiveProps = mempty
-        , pmNewActivePropsIdx = mempty
-        , pmDelActivePropsIdx = mempty
-        }
 
 ----------------------------------------------------------------------------
 -- Verification failures

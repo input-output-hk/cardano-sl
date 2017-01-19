@@ -36,11 +36,12 @@ import           Pos.Update.Core        (UpId, UpdatePayload (..), UpdateProposa
                                          UpdateVote (..), VoteState, canCombineVotes)
 import           Pos.Update.MemState    (LocalVotes, MemPool (..), MemState (..),
                                          MonadUSMem, UpdateProposals, askUSMemState,
-                                         modifyMemPool, modifyPollModifier, withUSLock)
+                                         modifyMemPool, withUSLock)
 import           Pos.Update.Poll        (PollModifier, PollVerFailure, ProposalState (..),
                                          UndecidedProposalState (..), evalPollT,
-                                         execPollT, normalizePoll, pmNewActivePropsL,
-                                         runDBPoll, verifyAndApplyUSPayload)
+                                         execPollT, modifyPollModifier, normalizePoll,
+                                         pmNewActivePropsL, runDBPoll,
+                                         verifyAndApplyUSPayload)
 import           Pos.Util               (getKeys, zoom')
 
 -- MonadMask is needed because are using Lock. It can be improved later.

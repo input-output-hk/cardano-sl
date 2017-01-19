@@ -14,6 +14,7 @@ import           Universum
 import           Pos.Crypto                (unsafeHash)
 import           Pos.Types                 (HeaderHash, SlotId (..))
 import           Pos.Update.MemState.Types (MemPool)
+import           Pos.Update.Poll.Modifier  ()
 import           Pos.Update.Poll.Types     (PollModifier)
 
 -- TODO: store tip here.

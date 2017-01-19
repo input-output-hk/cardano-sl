@@ -11,7 +11,6 @@ module Pos.Context.Context
 
 import qualified Control.Concurrent.STM         as STM
 import           Control.Concurrent.STM.TBQueue (TBQueue)
-import           Data.List.NonEmpty             (NonEmpty)
 import           Data.Time.Units                (Microsecond)
 import           Node                           (NodeId)
 import           Universum

@@ -14,7 +14,6 @@ module Pos.Util.JsonLog
        , fromJLSlotId
        ) where
 
-import           Control.Lens           (view, (^.))
 import           Data.Aeson             (encode)
 import           Data.Aeson.TH          (deriveJSON)
 import qualified Data.ByteString.Lazy   as LBS

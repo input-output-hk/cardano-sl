@@ -12,7 +12,6 @@ module TxGeneration
 import           Control.Concurrent.STM.TArray (TArray)
 import           Control.Concurrent.STM.TVar   (TVar, modifyTVar', newTVar, readTVar,
                                                 writeTVar)
-import           Control.Lens                  (view, _1)
 import           Data.Array.MArray             (newListArray, readArray, writeArray)
 import           Data.List                     (tail, (!!))
 import           Universum                     hiding (head)

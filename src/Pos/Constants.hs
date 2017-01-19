@@ -61,7 +61,6 @@ module Pos.Constants
        , updateImplicitApproval
        ) where
 
-import           Data.String                (String)
 import           Data.Time.Units            (Microsecond)
 import           Language.Haskell.TH.Syntax (lift, runIO)
 import           Pos.Util.TimeWarp          (ms, sec)
@@ -203,7 +202,7 @@ staticSysStart = Just $ Timestamp $ sec $
 defaultPeers :: [DHTNode]
 defaultPeers = map parsePeer . ccDefaultPeers $ compileConfig
   where
-    parsePeer :: [Char] -> DHTNode
+    parsePeer :: String -> DHTNode
     parsePeer =
         either (panic . show) identity .
         P.parse dhtNodeParser "Compile time config"

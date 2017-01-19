@@ -13,7 +13,6 @@ module Pos.Wallet.WalletMode
        , WalletRealMode
        ) where
 
-import           Control.Lens                ((^.))
 import           Control.Monad.Loops         (unfoldrM)
 import           Control.Monad.Trans         (MonadTrans)
 import           Control.Monad.Trans.Maybe   (MaybeT (..))

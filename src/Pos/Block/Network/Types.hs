@@ -10,7 +10,6 @@ module Pos.Block.Network.Types
        ) where
 
 import qualified Data.ByteString.Char8 as BC
-import           Data.List.NonEmpty    (NonEmpty)
 import           Universum
 
 import           Node.Message          (Message (..), MessageName (..))

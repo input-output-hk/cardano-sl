@@ -4,7 +4,6 @@ module Pos.Block.Arbitrary
        ( BlockHeaderList (..)
        ) where
 
-import           Control.Lens         (view, _1)
 import           Data.Ix              (range)
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable

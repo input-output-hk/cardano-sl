@@ -97,8 +97,8 @@ module Pos.Util
        ) where
 
 import           Control.Concurrent.STM.TVar   (TVar, readTVar)
-import           Control.Lens                  (Lens', LensLike', Magnified, Zoomed,
-                                                lensRules, magnify, zoom)
+import           Control.Lens                  (LensLike', Magnified, Zoomed, lensRules,
+                                                magnify, zoom)
 import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
 import qualified Control.Monad                 as Monad (fail)
 import           Control.Monad.STM             (retry)
@@ -108,13 +108,10 @@ import           Data.Hashable                 (Hashable)
 import qualified Data.HashMap.Strict           as HM
 import           Data.HashSet                  (fromMap)
 import           Data.List                     (span, zipWith3)
-import           Data.List.NonEmpty            (NonEmpty ((:|)))
-import qualified Data.List.NonEmpty            as NE
 import           Data.Proxy                    (Proxy (..), asProxyTypeOf)
 import           Data.SafeCopy                 (Contained, SafeCopy (..), base, contain,
                                                 deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Serialize                as Cereal (Get, Put)
-import           Data.String                   (IsString (fromString), String)
 import qualified Data.Text                     as T
 import           Data.Time.Units               (Microsecond, Second, convertUnit)
 import           Formatting                    (sformat, shown, stext, (%))
@@ -289,7 +286,7 @@ _neLast f (x :| xs) = (\y -> x :| unsafeInit xs ++ [y]) <$> f (unsafeLast xs)
 instance SafeCopy a => SafeCopy (NonEmpty a) where
     getCopy = contain $ do
         xs <- safeGet
-        case NE.nonEmpty xs of
+        case nonEmpty xs of
             Nothing -> fail "getCopy@NonEmpty: list can't be empty"
             Just xx -> return xx
     putCopy = contain . safePut . toList
@@ -467,7 +464,7 @@ instance SafeCopy (AsBinary a) where
 
 class AsBinaryClass a where
   asBinary :: a -> AsBinary a
-  fromBinary :: AsBinary a -> Either [Char] a
+  fromBinary :: AsBinary a -> Either String a
 
 fromBinaryM :: (AsBinaryClass a, MonadFail m) => AsBinary a -> m a
 fromBinaryM = either fail return . fromBinary

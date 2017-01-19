@@ -4,7 +4,6 @@ module Test.Pos.Types.TxSpec
        ( spec
        ) where
 
-import           Control.Lens           (view, _2, _3, _4)
 import qualified Data.HashMap.Strict    as HM
 import           Data.List              (elemIndex, lookup, zipWith3, (\\))
 import qualified Data.Map               as M (singleton)

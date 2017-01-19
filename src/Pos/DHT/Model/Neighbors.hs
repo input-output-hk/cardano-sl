@@ -18,7 +18,7 @@ import           Mockable            (MonadMockable, forConcurrently, handleAll,
 import           Node                (ConversationActions, NodeId, SendActions (..))
 import           Node.Message        (Message, Packable, Serializable, Unpackable)
 import           System.Wlog         (WithLogger, logWarning)
-import           Universum           hiding (catchAll, forConcurrently)
+import           Universum           hiding (catchAll)
 
 import           Pos.Constants       (neighborsSendThreshold)
 import           Pos.Constants       (isDevelopment)

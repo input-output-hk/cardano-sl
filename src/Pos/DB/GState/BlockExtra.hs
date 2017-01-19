@@ -14,8 +14,6 @@ module Pos.DB.GState.BlockExtra
        , prepareGStateBlockExtra
        ) where
 
-import           Control.Lens        (view)
-import           Data.Maybe          (fromJust)
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB    as Rocks
 import           Formatting          (bprint, build, (%))
@@ -96,12 +94,12 @@ loadUpWhile morph start  condition = loadUpWhileDo (headerHash start) 0
     loadUpWhileDo curH height = getBlockWithUndo curH >>= \case
         Nothing -> pure []
         Just x@(block,_) -> do
-            nextLink <- fmap headerHash <$> resolveForwardLink block
+            mbNextLink <- fmap headerHash <$> resolveForwardLink block
             let curB = morph x
-            if | condition curB height && isJust nextLink ->
-                 (curB :) <$> loadUpWhileDo (fromJust nextLink) (succ height)
-               | condition curB height -> pure [curB]
-               | otherwise -> pure []
+            if | not (condition curB height) -> pure []
+               | Just nextLink <- mbNextLink ->
+                     (curB :) <$> loadUpWhileDo nextLink (succ height)
+               | otherwise -> pure [curB]
 
 -- | Returns headers loaded up oldest first.
 loadHeadersUpWhile

@@ -31,7 +31,7 @@ module Pos.Genesis
        , genesisScriptVersion
        ) where
 
-import           Control.Lens             ((%~), _head)
+import           Control.Lens             (_head)
 import           Data.Default             (Default (..))
 import           Data.List                (genericLength, genericReplicate)
 import qualified Data.Map.Strict          as M

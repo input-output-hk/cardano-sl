@@ -6,7 +6,6 @@ module Pos.Security.Workers
        ) where
 
 import           Control.Concurrent.STM            (TVar, newTVar, readTVar, writeTVar)
-import           Control.Lens                      ((^.))
 import           Control.Monad.Trans.Reader        (ReaderT (..), ask)
 import qualified Data.HashMap.Strict               as HM
 import           Data.Tagged                       (Tagged (..))

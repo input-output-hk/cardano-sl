@@ -9,7 +9,7 @@ module Pos.Ssc.GodTossing.Workers
        ) where
 
 import           Control.Concurrent.STM           (readTVar)
-import           Control.Lens                     (at, (^.))
+import           Control.Lens                     (at)
 import           Control.Monad.Trans.Maybe        (runMaybeT)
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.HashSet                     as HS
@@ -269,7 +269,7 @@ sendOurData sendActions msgTag epoch slMultiplier ourId = do
     -- type of message.
     waitUntilSend msgTag epoch slMultiplier
     logInfo $ sformat ("Announcing our "%build) msgTag
-    let msg = InvMsg {imTag = msgTag, imKeys = pure ourId}
+    let msg = InvMsg {imTag = msgTag, imKeys = one ourId}
     -- [CSL-514] TODO Log long acting sends
     sendToNeighbors sendActions msg
     logDebug $ sformat ("Sent our " %build%" to neighbors") msgTag
@@ -297,14 +297,14 @@ generateAndSetNewSecret sk sl@SlotId {..} = do
         logDebug $
             sformat ("generating secret for: " %listJson) $ participantIds
     let participants =
-            NE.nonEmpty . map vcVssKey . toList $
+            nonEmpty . map vcVssKey . toList $
             computeParticipants richmen certs
     maybe (Nothing <$ warnNoPs) generateAndSetNewSecretDo participants
   where
     warnNoPs =
         logWarning "generateAndSetNewSecret: can't generate, no participants"
     reportDeserFail = logError "Wrong participants list: can't deserialize"
-    generateAndSetNewSecretDo :: NE.NonEmpty (AsBinary VssPublicKey)
+    generateAndSetNewSecretDo :: NonEmpty (AsBinary VssPublicKey)
                               -> m (Maybe SignedCommitment)
     generateAndSetNewSecretDo ps = do
         let threshold = vssThreshold $ length ps

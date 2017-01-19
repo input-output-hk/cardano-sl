@@ -151,13 +151,11 @@ module Pos.Types.Types
        ) where
 
 import           Control.Exception      (assert)
-import           Control.Lens           (Getter, Lens', choosing, makeLenses,
-                                         makeLensesFor, to, (^.), _1)
+import           Control.Lens           (Getter, choosing, makeLenses, makeLensesFor, to)
 import           Data.Data              (Data)
 import           Data.DeriveTH          (derive, makeNFData)
 import           Data.Hashable          (Hashable)
 import           Data.Ix                (Ix)
-import           Data.List.NonEmpty     (NonEmpty)
 import qualified Data.Map               as M (toList)
 import           Data.SafeCopy          (SafeCopy (..), base, contain,
                                          deriveSafeCopySimple, safeGet, safePut)

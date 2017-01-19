@@ -13,7 +13,7 @@ import qualified Data.ByteString as BS
 import           Data.Char       (chr, isAscii, ord)
 import           Universum       hiding (putByteString)
 
-getAsciiString1b :: [Char] -> Word8 -> Get [Char]
+getAsciiString1b :: String -> Word8 -> Get String
 getAsciiString1b typeName limit = getWord8 >>= \sz -> do
             if sz > limit
                then fail $ typeName ++ " shouldn't be more than "
@@ -25,6 +25,6 @@ getAsciiString1b typeName limit = getWord8 >>= \sz -> do
            then return c
            else fail $ "Not an ascii symbol in " ++ typeName ++ " " ++ show c
 
-putAsciiString1b :: [Char] -> Put
+putAsciiString1b :: String -> Put
 putAsciiString1b str =  putWord8 (fromIntegral $ length str)
                      >> putByteString (BS.pack $ map (fromIntegral . ord) str)

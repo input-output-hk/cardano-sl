@@ -1,6 +1,5 @@
 module Main where
 
-import           Control.Lens         ((%~), (.~), _1)
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict  as HM
 import qualified Data.Text            as T

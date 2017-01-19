@@ -131,10 +131,11 @@ lrcDo
     => EpochIndex -> [LrcConsumer m] -> HeaderHash -> m HeaderHash
 lrcDo epoch consumers tip = tip <$ do
     blundsList <- DB.loadBlundsFromTipWhile whileAfterCrucial
-    when (null blundsList) $ throwM UnknownBlocksForLrc
-    let blunds = NE.fromList blundsList
-    rollbackBlocksUnsafe blunds
-    compute `finally` applyBack (NE.reverse blunds)
+    case nonEmpty blundsList of
+        Nothing -> throwM UnknownBlocksForLrc
+        Just blunds -> do
+            rollbackBlocksUnsafe blunds
+            compute `finally` applyBack (NE.reverse blunds)
   where
     applyBackFail _ =
         throwM $ DBMalformed "lrcDo: can't verify just rollbacked blocks"

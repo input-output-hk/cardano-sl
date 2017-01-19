@@ -1,24 +1,22 @@
 @import "../../const.css";
 
-.content-container {
-  max-width: var(--max-width-desktop);
+.explorer-content {
+
+  &__container {
+    width: var(--max-width-desktop);
+  }
+
 }
 
 .explorer-header {
   background: linear-gradient(to bottom, var(--color1) 0%, var(--color2) 100%);
 
-  &__top {
-    max-width: var(--max-width-desktop);
-    justify-content: center;
-    color: var(--color0);
-    font-size: 12px;
-    font-family: var(--fontFamily0);
+  &__container {
+    width: var(--max-width-desktop);
   }
 
-  &__content {
-    max-width: var(--max-width-desktop);
-    justify-content: center;
-    min-height: 220px;
+  &__hero {
+    color: var(--color0);
 
     .headline {
       text-align: center;
@@ -39,6 +37,13 @@
   }
 
   &__nav {
+    color: var(--color0);
+    font-size: 12px;
+    /*margin: 0 auto;*/
+
+    nav {
+      font-family: var(--fontFamily0);
+    }
   }
 }
 
@@ -46,6 +51,7 @@
   background-color: var(--color2);
 
   &__content{
+    color: var(--color0);
     max-width: var(--max-width-desktop);
   }
 }

@@ -15,7 +15,7 @@ import Explorer.Util.String (substitute)
 dashboardView :: State -> P.Html Action
 dashboardView state = do
     let lang = state.lang
-    let btnClazz = "mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect"
+    let btnClazz = "btn btn-big btn-outline"
     P.div
         [ P.className "dashboard" ]
         [ P.h3

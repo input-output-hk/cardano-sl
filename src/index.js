@@ -1,5 +1,3 @@
-// mdl
-import '../node_modules/material-design-lite/dist/material.js';
 // styles
 import './main.css';
 // app

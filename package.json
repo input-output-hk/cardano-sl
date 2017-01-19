@@ -25,12 +25,15 @@
   },
   "homepage": "https://github.com/input-output-hk/cardano-sl-explorer-frontend#readme",
   "dependencies": {
-    "material-design-lite": "^1.3.0",
+    "basscss": "^8.0.3",
+    "basscss-btn": "^1.1.1",
+    "basscss-btn-outline": "^1.1.0",
+    "basscss-btn-sizes": "^1.2.0",
+    "normalize.css": "^5.0.0",
     "react": "^15.4.2",
     "react-dom": "^15.4.2"
   },
   "devDependencies": {
-    "autoprefixer": "^6.6.1",
     "babel-core": "^6.21.0",
     "babel-loader": "^6.2.10",
     "babel-plugin-transform-es2015-destructuring": "^6.19.0",
@@ -40,7 +43,7 @@
     "css-loader": "^0.26.1",
     "git-revision-webpack-plugin": "^2.4.1",
     "html-webpack-plugin": "^2.26.0",
-    "normalize.css": "^5.0.0",
+    "postcss-cssnext": "^2.9.0",
     "postcss-custom-properties": "^5.0.1",
     "postcss-import": "^9.1.0",
     "postcss-loader": "^1.2.2",

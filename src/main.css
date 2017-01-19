@@ -1,5 +1,9 @@
-/*@import "normalize.css";*/
-@import "../node_modules/material-design-lite/dist/material.css";
+@import "normalize.css";
+@import "basscss";
+@import "basscss-btn";
+@import "basscss-btn-outline";
+@import "basscss-btn-sizes";
+
 @import "const.css";
 @import "Explorer/View/layout.css";
 @import "Explorer/View/dashboard.css";

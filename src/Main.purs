@@ -32,12 +32,12 @@ config state = do
 main :: Ex.State -> Eff (CoreEffects AppEffects) (App Ex.State Ex.Action)
 main state = do
   app <- start =<< config state
-  renderToDOM "#app" app.html
+  renderToDOM "#explorer" app.html
   pure app
 
 debug :: Ex.State -> Eff (CoreEffects AppEffects) (App Ex.State (Pux.Devtool.Action Ex.Action))
 debug state = do
   appConfig <- config state
   app <- Pux.Devtool.start appConfig {opened: false}
-  renderToDOM "#app" app.html
+  renderToDOM "#explorer" app.html
   pure app

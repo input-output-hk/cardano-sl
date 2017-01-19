@@ -18,6 +18,6 @@ addressView state =
               [ P.text $ translate _.address state.lang ]
         , P.link
               (toUrl Dashboard)
-              [ P.className "mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect" ]
+              [ P.className "btn btn-big btn-outline" ]
               [ P.text $ translate _.back state.lang ]
         ]

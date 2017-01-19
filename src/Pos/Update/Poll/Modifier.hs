@@ -43,3 +43,9 @@ modifyPollModifier pmOld pmNew = PollModifier
     unionHS getter = getter pmNew `HS.union` getter pmOld
     diffMapSet :: (Hashable k, Eq k) => HashMap k v -> HashSet k -> HashMap k v
     diffMapSet a b = a `HM.difference` (HS.toMap b)
+
+instance Monoid PollModifier where
+    mempty = def
+    mappend = modifyPollModifier
+
+instance Semigroup PollModifier

@@ -2,7 +2,7 @@ A Provably Secure Proof-of-Stake Blockchain Protocol
 ----------------------------------------------------
 
 [![Build Status](https://travis-ci.org/input-output-hk/cardano-sl.svg)](https://travis-ci.org/input-output-hk/cardano-sl)
-[![Windows build status](https://ci.appveyor.com/api/projects/status/github/input-output-hk/pos-haskell-prototype?branch=master&svg=true)](https://ci.appveyor.com/project/jagajaga/pos-haskell-prototype)
+[![Windows build status](https://ci.appveyor.com/api/projects/status/github/input-output-hk/cardano-sl?branch=master&svg=true)](https://ci.appveyor.com/project/jagajaga/pos-haskell-prototype)
 [![Release](https://img.shields.io/github/release/input-output-hk/cardano-sl.svg)](https://github.com/input-output-hk/cardano-sl/releases)
 
 This repository

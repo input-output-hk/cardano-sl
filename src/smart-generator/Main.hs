@@ -16,7 +16,7 @@ import           System.FilePath.Posix       ((</>))
 import           System.Random.Shuffle       (shuffleM)
 import           System.Wlog                 (logInfo)
 import           Test.QuickCheck             (arbitrary, generate)
-import           Universum                   hiding (forConcurrently)
+import           Universum
 
 import qualified Pos.CLI                     as CLI
 import           Pos.Communication           (BiP)

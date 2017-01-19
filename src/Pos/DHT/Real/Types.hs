@@ -12,8 +12,7 @@ module Pos.DHT.Real.Types
        , DHTHandle
        ) where
 
-import           Universum                 hiding (async, fromStrict, mapConcurrently,
-                                            toStrict)
+import           Universum                 hiding (async, fromStrict, toStrict)
 
 import           Control.Concurrent.STM    (TVar)
 import           Control.Lens              (iso)

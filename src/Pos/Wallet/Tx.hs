@@ -15,7 +15,7 @@ import           Mockable                  (mapConcurrently)
 import           Node                      (SendActions)
 import           Pos.Util.TimeWarp         (NetworkAddress)
 import           System.Wlog               (logError, logInfo)
-import           Universum                 hiding (mapConcurrently)
+import           Universum
 
 import           Pos.Binary                ()
 import           Pos.Communication.BiP     (BiP)

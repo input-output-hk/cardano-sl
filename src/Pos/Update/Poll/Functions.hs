@@ -126,7 +126,15 @@ verifySoftwareVersion upId UpdateProposal {..} =
     getLastConfirmedSV app >>= \case
         -- If there is no confirmed versions for given application,
         -- We check that version is 0.
-        Nothing -> svNumber sv == 0
+        Nothing | svNumber sv == 0 -> pass
+                | otherwise ->
+                  throwError
+                    PollWrongSoftwareVersion
+                    { pwsvStored = Nothing
+                    , pwsvGiven = svNumber sv
+                    , pwsvApp = app
+                    , pwsvUpId = upId
+                    }
         -- Otherwise we check that version is 1 more than stored
         -- version.
         Just n
@@ -134,7 +142,7 @@ verifySoftwareVersion upId UpdateProposal {..} =
             | otherwise ->
                 throwError
                     PollWrongSoftwareVersion
-                    { pwsvStored = n
+                    { pwsvStored = Just n
                     , pwsvGiven = svNumber sv
                     , pwsvApp = app
                     , pwsvUpId = upId

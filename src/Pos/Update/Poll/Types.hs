@@ -169,7 +169,7 @@ data PollVerFailure
                          ,  pupProposal    :: !UpId}
     | PollUnknownStakes !EpochIndex
     | Poll2ndActiveProposal !SoftwareVersion
-    | PollWrongSoftwareVersion { pwsvStored :: !NumSoftwareVersion
+    | PollWrongSoftwareVersion { pwsvStored :: !(Maybe NumSoftwareVersion)
                               ,  pwsvApp    :: !ApplicationName
                               ,  pwsvGiven  :: !NumSoftwareVersion
                               ,  pwsvUpId   :: !UpId}
@@ -202,8 +202,8 @@ instance Buildable PollVerFailure where
         sv
     build (PollWrongSoftwareVersion {..}) =
         bprint ("proposal "%build%" has wrong software version for app "%
-                build%" (last known is "%int%", proposal contains "%int%")")
-        pwsvUpId pwsvApp pwsvStored pwsvGiven
+                build%" (last known is "%stext%", proposal contains "%int%")")
+        pwsvUpId pwsvApp (maybe "unknown" pretty pwsvStored) pwsvGiven
     build (PollProposalIsDecided {..}) =
         bprint ("proposal "%build%" is in decided state, but stakeholder "%
                 build%" has voted for it")

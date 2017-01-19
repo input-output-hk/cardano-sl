@@ -132,7 +132,7 @@ withCurrentTip action = do
          | otherwise -> cur
 
 processSkeleton
-    :: USLocalLogicMode ϟ m
+    :: (USLocalLogicMode ϟ m, MonadMask m)
     => UpdatePayload -> m (Either PollVerFailure ())
 processSkeleton payload = withUSLock $ runExceptT $ withCurrentTip $ \ms@MemState{..} -> do
     modifier <-

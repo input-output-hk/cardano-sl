@@ -11,7 +11,8 @@ module Pos.Update.Logic.Global
        ) where
 
 import           Control.Lens         ((^.))
-import           Control.Monad.Except (MonadError, runExceptT)
+--import           Control.Monad.Catch  (mask, uninterruptibleMask)
+import           Control.Monad.Except (ExceptT, MonadError, runExceptT)
 import           Data.Default         (Default (def))
 import qualified Data.HashMap.Strict  as HM
 import           Data.List.NonEmpty   (NonEmpty)
@@ -45,12 +46,12 @@ type USGlobalVerifyMode ы m = (DB.MonadDB ы m, MonadError PollVerFailure m)
 -- function assumes that no other thread applies block in parallel. It
 -- also assumes that parent of oldest block is current tip.
 usApplyBlocks
-    :: (MonadThrow m, USGlobalApplyMode ssc m)
+    :: (MonadThrow m, USGlobalApplyMode ssc m, MonadMask m)
     => NEBlocks ssc -> PollModifier -> m [DB.SomeBatchOp]
 usApplyBlocks blocks _ = do
-    inAssertMode $ do
-        verdict <- runExceptT $ usVerifyBlocks blocks
-        either onFailure (const pass) verdict
+    -- inAssertMode $ do
+    --     verdict <- runExceptT $ usVerifyBlocks blocks
+    --     either onFailure (const pass) verdict
     return []
   where
     onFailure failure = do
@@ -63,7 +64,7 @@ usApplyBlocks blocks _ = do
 -- ensure that tip stored in DB is 'headerHash' of head.
 usRollbackBlocks
     :: forall ssc m.
-       (USGlobalApplyMode ssc m)
+       (USGlobalApplyMode ssc m, MonadMask m)
     => NonEmpty (Block ssc, USUndo) -> m [DB.SomeBatchOp]
 usRollbackBlocks blunds =
     modifierToBatch <$> (runDBPoll . execPollT def $ mapM_ rollbackDo blunds)
@@ -81,7 +82,7 @@ usRollbackBlocks blunds =
 -- are assumed to be done earlier, most likely during objects
 -- construction.
 usVerifyBlocks
-    :: (USGlobalVerifyMode ssc m)
+    :: (USGlobalVerifyMode ssc m, MonadMask m)
     => NEBlocks ssc -> m (PollModifier, NonEmpty USUndo)
 usVerifyBlocks blocks = convertRes <$> run (mapM verifyBlock blocks)
   where
@@ -89,7 +90,7 @@ usVerifyBlocks blocks = convertRes <$> run (mapM verifyBlock blocks)
     convertRes (undos, modifier) = (modifier, undos)
 
 verifyBlock
-    :: (USGlobalVerifyMode ssc m, MonadPoll m)
+    :: (USGlobalVerifyMode ssc m, MonadPoll m, MonadMask m)
     => Block ssc -> m USUndo
 verifyBlock (Left _)    = pure def
 verifyBlock (Right blk) =

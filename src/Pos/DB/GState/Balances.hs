@@ -134,6 +134,7 @@ runBalanceIterator
     :: forall m ssc a . (MonadDB ssc m, MonadMask m)
     => DBIterator BalIter m a -> m a
 runBalanceIterator iter = runIterator @BalIter iter =<< getUtxoDB
+
 ----------------------------------------------------------------------------
 -- Sanity checks
 ----------------------------------------------------------------------------

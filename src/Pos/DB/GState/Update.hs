@@ -1,5 +1,6 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Part of GState DB which stores data necessary for update system.
 
@@ -20,7 +21,9 @@ module Pos.DB.GState.Update
        , prepareGStateUS
 
          -- * Iteration
-       -- , getOldProposals
+        , runProposalMapIterator
+        , runProposalIterator
+        , getOldProposals
        ) where
 
 import           Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
@@ -32,16 +35,22 @@ import           Pos.Binary.DB             ()
 import           Pos.Crypto                (hash)
 import           Pos.DB.Class              (MonadDB, getUtxoDB)
 import           Pos.DB.Error              (DBError (DBMalformed))
-import           Pos.DB.Functions          (RocksBatchOp (..), rocksWriteBatch)
+import           Pos.DB.Functions          (RocksBatchOp (..), encodeWithKeyPrefix,
+                                            rocksWriteBatch)
 import           Pos.DB.GState.Common      (getBi)
+import           Pos.DB.Iterator           (DBIterator, DBIteratorClass (..),
+                                            DBMapIterator, IterType, mapIterator,
+                                            runIterator)
 import           Pos.Genesis               (genesisProtocolVersion, genesisScriptVersion,
                                             genesisSoftwareVersions)
 import           Pos.Script.Type           (ScriptVersion)
 import           Pos.Types                 (ApplicationName, NumSoftwareVersion,
-                                            ProtocolVersion, SoftwareVersion (..))
+                                            ProtocolVersion, SlotId, SoftwareVersion (..))
 import           Pos.Update.Core           (UpId, UpdateProposal (..))
-import           Pos.Update.Poll.Types     (ProposalState (..), psProposal)
+import           Pos.Update.Poll.Types     (ProposalState (..),
+                                            UndecidedProposalState (upsSlot), psProposal)
 import           Pos.Util                  (maybeThrow)
+import           Pos.Util.Iterator         (nextItem)
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -135,6 +144,24 @@ isInitialized = isJust <$> getLastPVMaybe
 -- Iteration
 ----------------------------------------------------------------------------
 
+data PropIter
+
+instance DBIteratorClass PropIter where
+    type IterKey PropIter = UpId
+    type IterValue PropIter = ProposalState
+    iterKeyPrefix _ = iterationPrefix
+
+runProposalMapIterator
+    :: forall v m ssc a . (MonadDB ssc m, MonadMask m)
+    => DBMapIterator PropIter v m a -> (IterType PropIter -> v) -> m a
+runProposalMapIterator iter f = mapIterator @PropIter @v iter f =<< getUtxoDB
+
+runProposalIterator
+    :: forall m ssc a . (MonadDB ssc m, MonadMask m)
+    => DBIterator PropIter m a -> m a
+runProposalIterator iter = runIterator @PropIter iter =<< getUtxoDB
+
+
 -- TODO!
 -- I don't like it at all!
 -- 1. Idea is to iterate in sorted order and stop early.
@@ -145,21 +172,18 @@ isInitialized = isJust <$> getLastPVMaybe
 -- it's the only option now.
 -- | Get all proposals which were issued no later than given slot.
 -- Head is youngest proposal.
--- getOldProposals
---     :: forall ssc m.
---        (MonadDB ssc m, MonadMask m)
---     => SlotId -> m [ProposalState]
--- getOldProposals slotId = do
---     db <- getUtxoDB
---     traverseAllEntries db (pure []) step
---   where
---     msg = "proposal for version associated with slot is not found"
---     step :: [ProposalState] -> SlotId -> SoftwareVersion -> m [ProposalState]
---     step res storedSlotId sw
---         | storedSlotId > slotId = pure res
---         | otherwise = do
---             ps <- maybeThrow (DBMalformed msg) =<< getProposalState sw
---             return $ ps : res
+getOldProposals
+    :: forall ssc m. (MonadMask m, MonadDB ssc m)
+    => SlotId -> m [UndecidedProposalState]
+getOldProposals slotId = runProposalMapIterator (step []) snd
+  where
+    step res = nextItem >>= maybe (pure res) (\e ->
+        case e of
+            PSUndecided u ->
+              if | upsSlot u <= slotId -> step (u:res)
+                 | otherwise -> step (u:res)
+            PSDecided _   -> step res
+     )
 
 ----------------------------------------------------------------------------
 -- Keys ('us' prefix stands for Update System)
@@ -172,13 +196,16 @@ scriptVersionKey :: ProtocolVersion -> ByteString
 scriptVersionKey = mappend "us/vs" . encodeStrict
 
 proposalKey :: UpId -> ByteString
-proposalKey = mappend "us/p" . encodeStrict
+proposalKey = encodeWithKeyPrefix @PropIter
 
 proposalAppKey :: ApplicationName -> ByteString
 proposalAppKey = mappend "us/an" . encodeStrict
 
 confirmedVersionKey :: ApplicationName -> ByteString
 confirmedVersionKey = mappend "us/c" . encodeStrict
+
+iterationPrefix :: ByteString
+iterationPrefix = "us/p"
 
 ----------------------------------------------------------------------------
 -- Details

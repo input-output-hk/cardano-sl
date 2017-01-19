@@ -87,7 +87,7 @@ instance MonadBaseControl IO m => MonadBaseControl IO (DBPoll m) where
 -- MonadPoll
 ----------------------------------------------------------------------------
 
-instance MonadDB patak m =>
+instance (MonadDB patak m, MonadMask m) =>
          MonadPollRead (DBPoll m) where
     getScriptVersion = GS.getScriptVersion
     getLastAdoptedPV = GS.getLastPV
@@ -99,4 +99,4 @@ instance MonadDB patak m =>
       where
         findStake :: FullRichmenData -> Maybe Coin
         findStake = HM.lookup id . snd
-    getOldProposals = notImplemented
+    getOldProposals = GS.getOldProposals

@@ -41,9 +41,9 @@ import           Pos.DB.Class         (MonadDB, getUtxoDB)
 import           Pos.DB.Error         (DBError (..))
 import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi)
 import           Pos.DB.GState.Common (getBi, putBi)
-import           Pos.DB.Iterator      (DBIterator, DBIteratorClass (..), DBMapIterator,
-                                       IterType, mapIterator, runIterator)
-import           Pos.DB.Types         (DB)
+import           Pos.DB.Iterator      (DBIteratorClass (..), DBnIterator, DBnMapIterator,
+                                       IterType, runDBnIterator, runDBnMapIterator)
+import           Pos.DB.Types         (DB, NodeDBs (_gStateDB))
 import           Pos.Types            (Address, Coin, TxIn (..), TxOutAux, Utxo,
                                        belongsTo, coinF, mkCoin, sumCoins, txOutStake,
                                        unsafeAddCoin, unsafeIntegerToCoin)
@@ -120,18 +120,18 @@ instance DBIteratorClass UtxoIter where
     type IterValue UtxoIter = TxOutAux
     iterKeyPrefix _ = iterationPrefix
 
-runUtxoMapIterator
-    :: forall v m ssc a . (MonadDB ssc m, MonadMask m)
-    => DBMapIterator UtxoIter v m a -> (IterType UtxoIter -> v) -> m a
-runUtxoMapIterator iter f = mapIterator @UtxoIter @v iter f =<< getUtxoDB
-
 runUtxoIterator
-    :: forall m ssc a . (MonadDB ssc m, MonadMask m)
-    => DBIterator UtxoIter m a -> m a
-runUtxoIterator iter = runIterator @UtxoIter iter =<< getUtxoDB
+    :: forall m ssc a . MonadDB ssc m
+    => DBnIterator ssc UtxoIter a -> m a
+runUtxoIterator = runDBnIterator @UtxoIter _gStateDB
+
+runUtxoMapIterator
+    :: forall v m ssc a . MonadDB ssc m
+    => DBnMapIterator ssc UtxoIter v a -> (IterType UtxoIter -> v) -> m a
+runUtxoMapIterator = runDBnMapIterator @UtxoIter _gStateDB
 
 filterUtxo
-    :: forall ssc m . (MonadDB ssc m, MonadMask m)
+    :: forall ssc m . MonadDB ssc m
     => (IterType UtxoIter -> Bool)
     -> m Utxo
 filterUtxo p = runUtxoIterator (step mempty)
@@ -141,7 +141,7 @@ filterUtxo p = runUtxoIterator (step mempty)
          | otherwise -> step res)
 
 -- | Get small sub-utxo containing only outputs of given address
-getFilteredUtxo :: (MonadDB ssc m, MonadMask m) => Address -> m Utxo
+getFilteredUtxo :: MonadDB ssc m => Address -> m Utxo
 getFilteredUtxo addr = filterUtxo $ \(_, out) -> out `belongsTo` addr
 
 ----------------------------------------------------------------------------
@@ -149,7 +149,7 @@ getFilteredUtxo addr = filterUtxo $ \(_, out) -> out `belongsTo` addr
 ----------------------------------------------------------------------------
 
 sanityCheckUtxo
-    :: (MonadMask m, MonadDB ssc m, WithLogger m)
+    :: (MonadDB ssc m, WithLogger m)
     => Coin -> m ()
 sanityCheckUtxo expectedTotalStake = do
     calculatedTotalStake <-

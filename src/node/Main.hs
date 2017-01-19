@@ -16,7 +16,6 @@ import           Pos.Binary          ()
 import qualified Pos.CLI             as CLI
 import           Pos.Constants       (staticSysStart)
 import           Pos.Crypto          (SecretKey, VssKeyPair, keyGen, vssKeyGen)
-import           Pos.DHT.Model       (DHTKey, DHTNodeType (..), dhtNodeType)
 import           Pos.Util.TimeWarp   (sec)
 #ifdef DEV_MODE
 import           Pos.Genesis         (genesisSecretKeys)
@@ -84,62 +83,41 @@ baseParams loggingTag args@Args {..} =
     { bpLoggingParams = loggingParams loggingTag args
     , bpIpPort = ipPort
     , bpDHTPeers = CLI.dhtPeers commonArgs
-    , bpDHTKeyOrType = dhtKeyOrType
+    , bpDHTKey = dhtKey
     , bpDHTExplicitInitial = CLI.dhtExplicitInitial commonArgs
+    , bpKademliaDump = kademliaDumpPath
     }
-  where
-    dhtKeyOrType
-        | supporterNode = maybe (Right DHTSupporter) Left dhtKey
-        | otherwise = maybe (Right DHTFull) Left dhtKey
-
-checkDhtKey :: Bool -> Maybe DHTKey -> Production ()
-checkDhtKey _ Nothing = pass
-checkDhtKey isSupporter (Just (dhtNodeType -> keyType))
-    | keyType == Just expectedType = pass
-    | otherwise =
-        fail $
-        case keyType of
-            Just type_' -> "Id of type " ++ (show type_') ++ " supplied"
-            _           -> "Id of unknown type supplied"
-  where
-    expectedType
-        | isSupporter = DHTSupporter
-        | otherwise = DHTFull
 
 action :: Args -> RealModeResources -> Production ()
 action args@Args {..} res = do
-    checkDhtKey supporterNode dhtKey
-    if supporterNode
-        then fail "Supporter not supported" -- runSupporterReal res (baseParams "supporter" args)
-        else do
-            systemStart <- case CLI.sscAlgo commonArgs of
-                               GodTossingAlgo -> getSystemStart (Proxy :: Proxy SscGodTossing) res args
-                               NistBeaconAlgo -> getSystemStart (Proxy :: Proxy SscNistBeacon) res args
-            currentParams <- getNodeParams args systemStart
-            let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-                gtParams = gtSscParams args vssSK
+    systemStart <- case CLI.sscAlgo commonArgs of
+                       GodTossingAlgo -> getSystemStart (Proxy :: Proxy SscGodTossing) res args
+                       NistBeaconAlgo -> getSystemStart (Proxy :: Proxy SscNistBeacon) res args
+    currentParams <- getNodeParams args systemStart
+    let vssSK = fromJust $ npUserSecret currentParams ^. usVss
+        gtParams = gtSscParams args vssSK
 #ifdef WITH_WEB
-                currentPlugins :: (SscConstraint ssc, WorkMode ssc m) => [m ()]
-                currentPlugins = plugins args
-                currentPluginsGT :: (WorkMode SscGodTossing m) => [m ()]
-                currentPluginsGT = pluginsGT args
+        currentPlugins :: (SscConstraint ssc, WorkMode ssc m) => [m ()]
+        currentPlugins = plugins args
+        currentPluginsGT :: (WorkMode SscGodTossing m) => [m ()]
+        currentPluginsGT = pluginsGT args
 #else
-                currentPlugins :: [a]
-                currentPlugins = []
-                currentPluginsGT :: [a]
-                currentPluginsGT = []
+        currentPlugins :: [a]
+        currentPlugins = []
+        currentPluginsGT :: [a]
+        currentPluginsGT = []
 #endif
-            putText $ "Running using " <> show (CLI.sscAlgo commonArgs)
-            putText $ "If stats is on: " <> show enableStats
-            case (enableStats, CLI.sscAlgo commonArgs) of
-                (True, GodTossingAlgo) ->
-                    runNodeStats @SscGodTossing res (map const currentPluginsGT ++ walletStats args) currentParams gtParams
-                (True, NistBeaconAlgo) ->
-                    runNodeStats @SscNistBeacon res (map const currentPlugins ++  walletStats args) currentParams ()
-                (False, GodTossingAlgo) ->
-                    runNodeProduction @SscGodTossing res (map const currentPluginsGT ++ walletProd args) currentParams gtParams
-                (False, NistBeaconAlgo) ->
-                    runNodeProduction @SscNistBeacon res (map const currentPlugins ++ walletProd args) currentParams ()
+    putText $ "Running using " <> show (CLI.sscAlgo commonArgs)
+    putText $ "If stats is on: " <> show enableStats
+    case (enableStats, CLI.sscAlgo commonArgs) of
+        (True, GodTossingAlgo) ->
+            runNodeStats @SscGodTossing res (map const currentPluginsGT ++ walletStats args) currentParams gtParams
+        (True, NistBeaconAlgo) ->
+            runNodeStats @SscNistBeacon res (map const currentPlugins ++  walletStats args) currentParams ()
+        (False, GodTossingAlgo) ->
+            runNodeProduction @SscGodTossing res (map const currentPluginsGT ++ walletProd args) currentParams gtParams
+        (False, NistBeaconAlgo) ->
+            runNodeProduction @SscNistBeacon res (map const currentPlugins ++ walletProd args) currentParams ()
 
 #ifdef DEV_MODE
 userSecretWithGenesisKey

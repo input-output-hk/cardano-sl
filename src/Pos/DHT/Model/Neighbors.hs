@@ -23,8 +23,7 @@ import           Universum           hiding (catchAll)
 import           Pos.Constants       (neighborsSendThreshold)
 import           Pos.Constants       (isDevelopment)
 import           Pos.DHT.Model.Class (MonadDHT (..))
-import           Pos.DHT.Model.Types (DHTNode (..), DHTNodeType (..), addressToNodeId',
-                                      filterByNodeType)
+import           Pos.DHT.Model.Types (DHTNode (..), addressToNodeId')
 import           Pos.Util.TimeWarp   (NetworkAddress)
 
 -- | Send default message to neighbours in parallel.
@@ -44,9 +43,9 @@ sendToNeighbors sendActions msg = do
 getNodesWithCheck :: (MonadDHT m, WithLogger m) => m [DHTNode]
 getNodesWithCheck = do
     nodes <- do
-        nodes_ <- filterByNodeType DHTFull <$> getKnownPeers
+        nodes_ <- getKnownPeers
         if length nodes_ < neighborsSendThreshold
-           then discoverPeers DHTFull
+           then discoverPeers
            else return nodes_
     when (length nodes < neighborsSendThreshold) $
         logWarning $ sformat

@@ -57,6 +57,7 @@ library
                         Pos.DHT.Real
                         Pos.DHT.Real.Real
                         Pos.DHT.Real.Types
+                        Pos.DHT.Workers
                         Pos.Genesis
 
                         -- LRC
@@ -762,6 +763,65 @@ executable cardano-smart-generator
   ghc-options: -pgmP cpphs -optP --cpp
 
   if flag(with-wallet) && flag(dev-mode)
+    buildable:         True
+  else
+    buildable:         False
+
+executable cardano-dht-keygen
+  hs-source-dirs:      src/dht-keygen
+  main-is:             Main.hs
+  build-depends:       QuickCheck
+                     , base
+                     , aeson
+                     , array
+                     , bytestring
+                     , data-default
+                     , cardano-sl
+                     , filepath
+                     , formatting
+                     , kademlia
+                     , lens
+                     , lifted-async
+                     , log-warper >= 0.1.0
+                     , optparse-applicative
+                     , parsec
+                     , random
+                     , random-shuffle
+                     , serokell-util
+                     , stm
+                     , text
+                     , time
+                     , universum >= 0.1.11
+                     , unordered-containers
+                     , vector
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -with-rtsopts=-N
+                       -O2
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
+  if flag(with-wallet)
     buildable:         True
   else
     buildable:         False

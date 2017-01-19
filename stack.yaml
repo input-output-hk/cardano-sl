@@ -15,7 +15,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/kademlia.git
-    commit: 8ebc91484994fbd1b8383d42786ae40bb5c99042
+    commit: bf65ac0cd50d2ccd7ef6507f0d71786c4bd10ae1
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/plutus-prototype
@@ -46,7 +46,6 @@ extra-deps:
 - universum-0.2
 - pqueue-1.3.2
 - data-msgpack-0.0.8
-- double-conversion-2.0.2.0
 - time-units-1.0.0
 - aeson-extra-0.4.0.0
 - recursion-schemes-5

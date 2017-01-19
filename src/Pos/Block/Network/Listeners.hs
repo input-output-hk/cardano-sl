@@ -8,7 +8,6 @@ module Pos.Block.Network.Listeners
        , blockStubListeners
        ) where
 
-import           Data.List.NonEmpty          (NonEmpty ((:|)))
 import           Data.Proxy                  (Proxy (..))
 import           Formatting                  (sformat, stext, (%))
 import           Node                        (ConversationActions (..),
@@ -129,7 +128,7 @@ handleUnsolicitedHeader header peerId conv = do
     case classificationRes of
         CHContinues -> do
             logDebug $ sformat continuesFormat hHash
-            addToBlockRequestQueue (header :| []) peerId
+            addToBlockRequestQueue (one header) peerId
         CHAlternative -> do
             logInfo $ sformat alternativeFormat hHash
             mghM <- mkHeadersRequest (Just hHash)

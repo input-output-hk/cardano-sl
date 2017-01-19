@@ -18,7 +18,6 @@ module Pos.Types.Address
        , unsafeAddressHash
        ) where
 
-import           Control.Lens           (view, _3)
 import           Crypto.Hash            (Blake2s_224, Digest, SHA3_256, hashlazy)
 import qualified Crypto.Hash            as CryptoHash
 import           Data.ByteString.Base58 (Alphabet (..), bitcoinAlphabet, decodeBase58,
@@ -31,7 +30,7 @@ import           Data.List              (span)
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.Buildable    as Buildable
 import           Formatting             (Format, bprint, build, later, (%))
-import           Prelude                (String, readsPrec, show)
+import           Prelude                (readsPrec, show)
 import           Universum              hiding (show)
 
 import           Pos.Binary.Class       (Bi)

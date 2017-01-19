@@ -9,7 +9,6 @@ module Pos.CompileConfig.Type
        ( CompileConfig (..)
        ) where
 
-import           Data.String                (String)
 import           Language.Haskell.TH.Syntax (Lift)
 import           Universum
 
@@ -27,7 +26,7 @@ data CompileConfig = CompileConfig
       -- ^ Number of pre-generated keys
     , ccMaxLocalTxs                   :: !Word
       -- ^ Max number of transactions in Storage
-    , ccDefaultPeers                  :: ![[Char]]
+    , ccDefaultPeers                  :: ![String]
       -- ^ List of default peers
     , ccSysTimeBroadcastSlots         :: !Int
       -- ^ Number of slots to broadcast system time

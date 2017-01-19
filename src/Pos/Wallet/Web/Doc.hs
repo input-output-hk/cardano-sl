@@ -7,7 +7,7 @@ module Pos.Wallet.Web.Doc
        ( walletDocsText
        ) where
 
-import           Control.Lens               ((.~), (<>~))
+import           Control.Lens               ((<>~))
 import qualified Data.HashMap.Strict        as HM
 import           Data.Proxy                 (Proxy (..))
 import           Network.HTTP.Types.Method  (methodPost)

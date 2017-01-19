@@ -22,7 +22,7 @@ module Pos.Types.Utxo.Pure
        , verifyTxUtxoPure
        ) where
 
-import           Control.Lens             (at, use, view, (.=))
+import           Control.Lens             (at, (.=))
 import           Control.Monad.Reader     (runReaderT)
 import           Control.Monad.Trans      (MonadTrans (..))
 import           Serokell.Util.Verify     (VerificationRes (..))

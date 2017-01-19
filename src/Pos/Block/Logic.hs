@@ -29,14 +29,13 @@ module Pos.Block.Logic
        , createMainBlock
        ) where
 
-import           Control.Lens              (view, (^.), _1)
 import           Control.Monad.Catch       (try)
 import           Control.Monad.Except      (ExceptT (ExceptT), runExceptT, throwError,
                                             withExceptT)
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
 import           Data.Default              (Default (def))
 import qualified Data.HashMap.Strict       as HM
-import           Data.List.NonEmpty        (NonEmpty ((:|)), (<|))
+import           Data.List.NonEmpty        ((<|))
 import qualified Data.List.NonEmpty        as NE
 import qualified Data.Text                 as T
 import           Formatting                (build, int, ords, sformat, stext, (%))
@@ -86,6 +85,7 @@ import           Pos.Types                 (Block, BlockHeader, EpochIndex,
 import qualified Pos.Types                 as Types
 import           Pos.Update.Core           (UpdatePayload (..))
 import           Pos.Update.Logic          (usVerifyBlocks)
+import           Pos.Update.Poll           (PollModifier, PollVerFailure)
 import           Pos.Util                  (inAssertMode, neZipWith3, spanSafe, _neHead)
 import           Pos.WorkMode              (WorkMode)
 
@@ -237,7 +237,7 @@ getHeadersFromManyTo checkpoints startM = runMaybeT $ do
         sformat ("getHeadersFromManyTo: "%listJson%", start: "%build)
                 checkpoints startM
     validCheckpoints <- MaybeT $
-        NE.nonEmpty . catMaybes <$>
+        nonEmpty . catMaybes <$>
         mapM DB.getBlockHeader (NE.toList checkpoints)
     tip <- lift GS.getTip
     guard $ all ((/= tip) . view headerHashG) validCheckpoints
@@ -246,21 +246,21 @@ getHeadersFromManyTo checkpoints startM = runMaybeT $ do
             any (\c -> bh ^. prevBlockL == c ^. headerHashG) validCheckpoints
         whileCond bh = not (parentIsCheckpoint bh)
     headers <-
-        MaybeT $ NE.nonEmpty <$>
+        MaybeT $ nonEmpty <$>
         DB.loadHeadersByDepthWhile whileCond recoveryHeadersMessage startFrom
     if parentIsCheckpoint $ headers ^. _neHead
     then pure headers
     else do
         lift $ logDebug $ "getHeadersFromManyTo: giving headers in recovery mode"
         inMainCheckpoints <-
-            MaybeT $ NE.nonEmpty <$>
+            MaybeT $ nonEmpty <$>
             filterM (GS.isBlockInMainChain . headerHash)
                     (NE.toList validCheckpoints)
         let lowestCheckpoint =
                 maximumBy (comparing flattenEpochOrSlot) inMainCheckpoints
             loadUpCond _ h = h < recoveryHeadersMessage
         up <- lift $ GS.loadHeadersUpWhile lowestCheckpoint loadUpCond
-        MaybeT $ pure $ NE.nonEmpty $ reverse up
+        MaybeT $ pure $ nonEmpty $ reverse up
 
 -- | Given a starting point hash (we take tip if it's not in storage)
 -- it returns not more than 'blkSecurityParam' blocks distributed
@@ -271,20 +271,19 @@ getHeadersOlderExp
 getHeadersOlderExp upto = do
     tip <- GS.getTip
     let upToReal = fromMaybe tip upto
-    allHeaders <- reverse <$> DB.loadHeadersByDepth blkSecurityParam upToReal
-    pure $ selectIndices (takeHashes allHeaders) (twoPowers $ length allHeaders)
+    -- Using 'blkSecurityParam + 1' because fork can happen on k+1th one.
+    allHeaders <-
+        reverse <$> DB.loadHeadersByDepth (blkSecurityParam + 1) upToReal
+    pure $ selectIndices
+              (map headerHash allHeaders)
+              (twoPowers $ length allHeaders)
   where
-    -- Given list of headers newest first, maps it to their hashes
-    takeHashes [] = []
-    takeHashes headers@(x:_) =
-        let prevHashes = map (view prevBlockL) headers
-        in headerHash x : take (length prevHashes - 1) prevHashes
     -- Powers of 2
-    twoPowers n | n < 0 =
-        panic $ "getHeadersOlderExp#twoPowers called w/" <> show n
+    twoPowers n
+        | n < 0 = panic $ "getHeadersOlderExp#twoPowers called w/" <> show n
     twoPowers 0 = []
     twoPowers 1 = [0]
-    twoPowers n = (takeWhile (<(n-1)) $ 0 : 1 : iterate (*2) 2) ++ [n-1]
+    twoPowers n = (takeWhile (< (n - 1)) $ 0 : 1 : iterate (* 2) 2) ++ [n - 1]
     -- Effectively do @!i@ for any @i@ from the index list applied to
     -- source list. Index list should be inreasing.
     selectIndices :: [a] -> [Int] -> [a]
@@ -312,8 +311,8 @@ getHeadersFromToIncl older newer = runMaybeT $ do
     guard $ flattenEpochOrSlot start >= flattenEpochOrSlot end
     let lowerBound = flattenEpochOrSlot end
     if newer == older
-    then pure $ newer :| []
-    else loadHeadersDo lowerBound (newer :| []) $ start ^. prevBlockL
+    then pure $ one newer
+    else loadHeadersDo lowerBound (one newer) $ start ^. prevBlockL
   where
     loadHeadersDo
         :: Word64
@@ -344,7 +343,7 @@ getHeadersFromToIncl older newer = runMaybeT $ do
 -- delegation data, SSC data.
 verifyBlocksPrefix
     :: WorkMode ssc m
-    => NonEmpty (Block ssc) -> m (Either Text (NonEmpty Undo))
+    => NonEmpty (Block ssc) -> m (Either Text (NonEmpty Undo, PollModifier))
 verifyBlocksPrefix blocks = runExceptT $ do
     curSlot <- getCurrentSlot
     tipBlk <- DB.getTipBlock
@@ -353,10 +352,10 @@ verifyBlocksPrefix blocks = runExceptT $ do
     verResToMonadError formatAllErrors =<< sscVerifyBlocks False blocks
     txUndo <- ExceptT $ txVerifyBlocks blocks
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks
-    (_, usUndos) <- withExceptT pretty $ usVerifyBlocks blocks
+    (pModifier, usUndos) <- withExceptT pretty $ usVerifyBlocks blocks
     when (length txUndo /= length pskUndo) $
         throwError "Internal error of verifyBlocksPrefix: length of undos don't match"
-    pure $ neZipWith3 Undo txUndo pskUndo usUndos
+    pure $ (neZipWith3 Undo txUndo pskUndo usUndos, pModifier)
 
 -- | Applies blocks if they're valid. Takes one boolean flag
 -- "rollback". Returns header hash of last applied block (new tip) on
@@ -391,11 +390,11 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
     applyAMAP e [] True            = throwError e
     applyAMAP _ [] False           = GS.getTip
     applyAMAP e (x:xs) nothingApplied = do
-        let block = x:|[]
+        let block = one x
         lift (verifyBlocksPrefix block) >>= \case
             Left e' -> applyAMAP e' [] nothingApplied
-            Right undo -> do
-                lift $ applyBlocksUnsafe $ block `NE.zip` undo
+            Right (undo,pModifier) -> do
+                lift $ applyBlocksUnsafe (block `NE.zip` undo) pModifier
                 applyAMAP e xs False
     -- Rollbacks and returns an error
     failWithRollback e [] = throwError e
@@ -406,9 +405,9 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
         lift (verifyBlocksPrefix prefix) >>= \case
             Left failure | rollback -> failWithRollback failure blunds
             Left failure -> applyAMAP failure (NE.toList prefix) $ null blunds
-            Right undos -> do
+            Right (undos,pModifier) -> do
                 let newBlunds = prefix `NE.zip` undos
-                lift $ applyBlocksUnsafe newBlunds
+                lift $ applyBlocksUnsafe newBlunds pModifier
                 case suffix of
                     (genesis:xs) -> do
                         when lrc $ lift $ lrcSingleShotNoLock $ genesis ^. epochIndexL
@@ -424,13 +423,13 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
 -- per-epoch, calculating lrc when needed if flag is set.
 applyBlocks
     :: forall ssc m . (WorkMode ssc m, SscWorkersClass ssc)
-    => Bool -> NonEmpty (Blund ssc) -> m ()
-applyBlocks calculateLrc blunds = do
-    applyBlocksUnsafe prefix
+    => Bool -> PollModifier -> NonEmpty (Blund ssc) -> m ()
+applyBlocks calculateLrc pModifier blunds = do
+    applyBlocksUnsafe prefix pModifier
     case suffix of
         (genesis:xs) -> do
             when calculateLrc $ lrcSingleShotNoLock $ genesis ^. _1 . epochIndexL
-            applyBlocks calculateLrc $ genesis:|xs
+            applyBlocks calculateLrc pModifier $ genesis:|xs
         [] -> pass
   where
     (prefix,suffix) = spanSafe ((==) `on` view (_1 . epochIndexL)) blunds
@@ -459,16 +458,23 @@ applyWithRollback toRollback toApply = runExceptT $ do
     lift $ rollbackBlocksUnsafe toRollback
     tipAfterRollback <- GS.getTip
     when (tipAfterRollback /= expectedTipApply) $ do
-        lift $ applyBlocksUnsafe $ NE.reverse toRollback
+        applyBack
         throwError (tipMismatchMsg "apply in 'apply with rollback'" tip newestToRollback)
     lift (verifyAndApplyBlocks True toApply) >>= \case
         -- We didn't succeed to apply blocks, so will apply
         -- rollbacked back.
         Left err -> do
-            lift $ applyBlocks True $ NE.reverse toRollback
+            applyBack
             throwError err
         Right tipHash  -> pure tipHash
   where
+    reApply = NE.reverse toRollback
+    applyBackFail (_ :: PollVerFailure) =
+        throwM $ DBMalformed "applyWithRollback: can't verify just rollbacked blocks"
+    applyBack = do
+        verRes <- lift $ runExceptT $ usVerifyBlocks $ map fst reApply
+        pModifier <- either applyBackFail (pure . fst) verRes
+        lift $ applyBlocks True pModifier reApply
     expectedTipApply = toApply ^. _neHead . prevBlockL
     newestToRollback = toRollback ^. _neHead . _1 . headerHashG
 
@@ -530,7 +536,7 @@ createGenesisBlockDo epoch leaders tip = do
         | shouldCreateGenesisBlock epoch (getEpochOrSlot tipHeader) = do
             let blk = mkGenesisBlock (Just tipHeader) epoch leaders
             let newTip = headerHash blk
-            applyBlocksUnsafe (pure (Left blk, emptyUndo)) $>
+            applyBlocksUnsafe (one (Left blk, emptyUndo)) def $>
                 (Just blk, newTip)
         | otherwise = (Nothing, tip) <$ logShouldNot
     logShouldNot =
@@ -599,11 +605,15 @@ createMainBlockFinish slotId pSk prevHeader = do
     let prependToUndo undos tx =
             fromMaybe (panic "Undo for tx not found")
                       (HM.lookup (fst tx) txUndo) : undos
-    let blockUndo = Undo (reverse $ foldl' prependToUndo [] localTxs) pskUndo def
-    lift $ inAssertMode $ verifyBlocksPrefix (pure (Right blk)) >>=
-        \case Left err -> logError $ sformat ("We've created bad block: "%stext) err
-              Right _ -> pass
-    lift $ blk <$ applyBlocksUnsafe (pure (Right blk, blockUndo))
+    lift $ inAssertMode $ verifyBlocksPrefix (one (Right blk)) >>= \case
+        Left err -> logError $ sformat ("We've created bad block: "%stext) err
+        Right _ -> pass
+    (pModifier,verUndo) <- runExceptT (usVerifyBlocks (one (Right blk))) >>= \case
+        Left _ -> throwError "Couldn't get pModifier while creating MainBlock"
+        Right o -> pure o
+    let blockUndo =
+            Undo (reverse $ foldl' prependToUndo [] localTxs) pskUndo (NE.head verUndo)
+    lift $ blk <$ applyBlocksUnsafe (one (Right blk, blockUndo)) pModifier
   where
     onBrokenTopo = throwError "Topology of local transactions is broken!"
     onNoSsc = throwError "can't obtain SSC payload to create block"

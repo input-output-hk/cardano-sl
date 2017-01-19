@@ -15,7 +15,7 @@ module Pos.Util.UserSecret
        , writeUserSecretRelease
        ) where
 
-import           Control.Lens         (makeLenses, to, (.~), (^.))
+import           Control.Lens         (makeLenses, to)
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Default         (Default (..))
 import           Prelude              (show)

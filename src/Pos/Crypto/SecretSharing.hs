@@ -45,7 +45,6 @@ import qualified Crypto.PVSS         as Pvss
 import           Crypto.Random       (MonadRandom)
 import           Data.Hashable       (Hashable (hashWithSalt))
 import           Data.List           (genericLength)
-import           Data.List.NonEmpty  (NonEmpty)
 import           Data.Text.Buildable (Buildable)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting          (bprint, (%))

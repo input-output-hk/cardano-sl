@@ -11,7 +11,6 @@ import           Test.Hspec            (Spec, describe, it)
 import           Test.Hspec.QuickCheck (prop)
 import           Universum
 
-import           Control.Lens          (view, (^.))
 import           Data.List.NonEmpty    (fromList)
 import           Pos.Binary            (Bi)
 import           Pos.Block.Arbitrary   as T

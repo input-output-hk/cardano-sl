@@ -11,7 +11,6 @@ module Pos.Context.Context
 
 import qualified Control.Concurrent.STM         as STM
 import           Control.Concurrent.STM.TBQueue (TBQueue)
-import           Data.List.NonEmpty             (NonEmpty)
 import           Data.Time.Units                (Microsecond)
 import           Node                           (NodeId)
 import           Universum
@@ -62,6 +61,8 @@ data NodeContext ssc = NodeContext
     -- ^ Primitive for synchronization with LRC.
     , ncUserSecret          :: !(STM.TVar UserSecret)
     -- ^ Secret keys (and path to file) which are used to send transactions
+    , ncKademliaDump  :: !FilePath
+    -- ^ Path to kademlia dump file
     , ncNtpData             :: !(STM.TVar (Microsecond, Microsecond))
     -- ^ Data for NTP Worker.
     -- First element is margin (difference between global time and local time)

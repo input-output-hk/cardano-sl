@@ -12,6 +12,7 @@ module Pos.Lrc.Worker
 
 import           Control.Concurrent.STM.TVar (TVar, readTVar, writeTVar)
 import           Control.Monad.Catch         (bracketOnError)
+import           Control.Monad.Except        (runExceptT)
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.List.NonEmpty          as NE
 import           Formatting                  (build, sformat, (%))
@@ -28,6 +29,7 @@ import           Pos.Block.Logic.Internal    (applyBlocksUnsafe, rollbackBlocksU
 import           Pos.Communication.BiP       (BiP)
 import           Pos.Constants               (slotSecurityParam)
 import           Pos.Context                 (LrcSyncData, getNodeContext, ncLrcSync)
+import           Pos.DB                      (DBError (DBMalformed))
 import qualified Pos.DB                      as DB
 import qualified Pos.DB.GState               as GS
 import           Pos.DB.Lrc                  (getLeaders, putEpoch, putLeaders)
@@ -43,6 +45,7 @@ import           Pos.Types                   (EpochIndex, EpochOrSlot (..),
                                               EpochOrSlot (..), HeaderHash, HeaderHash,
                                               SlotId (..), crucialSlot, getEpochOrSlot,
                                               getEpochOrSlot)
+import           Pos.Update.Logic            (usVerifyBlocks)
 import           Pos.Util                    (logWarningWaitLinear)
 import           Pos.WorkMode                (WorkMode)
 
@@ -128,11 +131,19 @@ lrcDo
     => EpochIndex -> [LrcConsumer m] -> HeaderHash -> m HeaderHash
 lrcDo epoch consumers tip = tip <$ do
     blundsList <- DB.loadBlundsFromTipWhile whileAfterCrucial
-    when (null blundsList) $ throwM UnknownBlocksForLrc
-    let blunds = NE.fromList blundsList
-    rollbackBlocksUnsafe blunds
-    compute `finally` applyBlocksUnsafe (NE.reverse blunds)
+    case nonEmpty blundsList of
+        Nothing -> throwM UnknownBlocksForLrc
+        Just blunds -> do
+            rollbackBlocksUnsafe blunds
+            compute `finally` applyBack (NE.reverse blunds)
   where
+    applyBackFail _ =
+        throwM $ DBMalformed "lrcDo: can't verify just rollbacked blocks"
+    applyBack blunds = do
+        -- well, that's ugly, but we can't do other way
+        verRes <- runExceptT $ usVerifyBlocks $ map fst blunds
+        pModifier <- either applyBackFail (pure . fst) verRes
+        applyBlocksUnsafe blunds pModifier
     whileAfterCrucial b = getEpochOrSlot b > crucial
     crucial = EpochOrSlot $ Right $ crucialSlot epoch
     compute = do

@@ -13,11 +13,9 @@ module Pos.Types.Arbitrary
        , SmallOverflowTx (..)
        ) where
 
-import           Control.Lens               (set, view, _3, _4)
 import qualified Data.ByteString            as BS (pack)
 import           Data.Char                  (chr)
 import           Data.DeriveTH              (derive, makeArbitrary)
-import           Data.Text                  (pack)
 import           Data.Time.Units            (Microsecond, fromMicroseconds)
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (..),
@@ -219,7 +217,7 @@ instance Arbitrary SharedSeed where
 
 instance Arbitrary ApplicationName where
     arbitrary = ApplicationName  .
-        pack                     .
+        toText                   .
         map (chr . flip mod 128) .
         take applicationNameMaxLength <$> arbitrary
 

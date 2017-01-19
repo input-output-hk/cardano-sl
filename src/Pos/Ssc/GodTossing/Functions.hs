@@ -36,12 +36,11 @@ module Pos.Ssc.GodTossing.Functions
        , computeParticipants
        ) where
 
-import           Control.Lens                   (at, (^.), _2)
+import           Control.Lens                   (at)
 import           Data.Containers                (ContainerKey, SetContainer (notMember))
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.HashSet                   as HS
 import           Data.Ix                        (inRange)
-import           Data.List.NonEmpty             (NonEmpty (..))
 import qualified Data.List.NonEmpty             as NE
 import           Serokell.Util                  (VerificationRes, verifyGeneric)
 import           Serokell.Util.Verify           (isVerSuccess)

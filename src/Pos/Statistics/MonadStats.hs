@@ -42,7 +42,7 @@ import           Pos.Context.Class           (WithNodeContext)
 import           Pos.DB                      (MonadDB (..))
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.DHT.Model               (MonadDHT)
-import           Pos.DHT.Real                (KademliaDHT)
+import           Pos.DHT.Real                (KademliaDHT, WithKademliaDHTInstance)
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Extra               (MonadSscRichmen)
 import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..))
@@ -79,7 +79,7 @@ newtype NoStatsT m a = NoStatsT
     { getNoStatsT :: m a  -- ^ action inside wrapper without collecting statistics
     } deriving (Functor, Applicative, Monad, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
-                MonadDHT, MonadSlots, WithPeerState ssc,
+                MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState ssc,
                 MonadJL, CanLog,
                 MonadUtxoRead, MonadUtxo,
                 MonadTxpLD ssc, MonadSscGS ssc, MonadSscLD ssc, MonadSscRichmen,
@@ -130,7 +130,7 @@ newtype StatsT m a = StatsT
     { getStatsT :: ReaderT StatsMap m a  -- ^ action inside wrapper with collected statistics
     } deriving (Functor, Applicative, Monad, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
-                MonadDHT, MonadSlots, WithPeerState ssc,
+                MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState ssc,
                 MonadTrans, MonadJL, CanLog,
                 MonadUtxoRead, MonadUtxo, MonadTxpLD ssc,
                 MonadSscGS ssc, MonadSscLD ssc, WithNodeContext ssc, MonadSscRichmen,

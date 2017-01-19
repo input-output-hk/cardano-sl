@@ -6,7 +6,6 @@ module Pos.Crypto.Arbitrary
     ( KeyPair(..)
     ) where
 
-import           Control.Lens                (view, _1, _2, _3, _4)
 import           Data.List.NonEmpty          (fromList)
 import           System.IO.Unsafe            (unsafePerformIO)
 import           Test.QuickCheck             (Arbitrary (..), choose, elements, generate)

@@ -6,7 +6,6 @@ module Test.Pos.Ssc.GodTossing.VssCertDataSpec
 
 import           Universum             hiding (empty, filter)
 
-import           Control.Lens          (view, _3)
 import qualified Data.HashMap.Strict   as HM
 import qualified Data.HashSet          as HS
 import qualified Data.Set              as S

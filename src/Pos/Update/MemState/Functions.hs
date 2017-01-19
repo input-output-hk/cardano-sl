@@ -27,6 +27,15 @@ withUSLock action = do
     lock <- mvLock <$> askUSMemVar
     bracket_ (liftIO $ Lock.acquire lock) (liftIO $ Lock.release lock) action
 
+-- | Modify MemPool using UpdatePayload and PollModifier.
+--
+-- UpdatePayload is used to add new data to MemPool. Data must be
+-- verified by caller. It's added directly to MemPool.
+--
+-- PollModifier is used to remove or modify some data in MemPool.
+-- All deleted proposals and votes for them are removed.
+-- TODO [CSL-625] Deleted and modified votes from non-deleted proposals
+-- are not handled properly.
 modifyMemPool :: UpdatePayload -> PollModifier -> MemPool -> MemPool
 modifyMemPool UpdatePayload {..} PollModifier{..} =
      addModifiers . delModifiers . addProposal upProposal

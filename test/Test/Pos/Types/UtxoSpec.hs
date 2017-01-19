@@ -4,7 +4,6 @@ module Test.Pos.Types.UtxoSpec
        ( spec
        ) where
 
-import           Control.Lens          (view, _1, _4)
 import qualified Data.Map              as M (Map, delete, elems, fromList, insert, keys)
 import           Data.Maybe            (isJust, isNothing)
 import qualified Data.Vector           as V (fromList)

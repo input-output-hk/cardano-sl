@@ -96,9 +96,13 @@ module Pos.Types.Types
        , GenesisBlock
 
        , BlockHeader
-       , HeaderHash
        , Block
        , NEBlocks
+
+       -- * HeaderHash related types and functions
+       , BlockHeaderStub
+       , HeaderHash
+       , blockHeaderHash
        , headerHashF
 
        -- * Lenses
@@ -147,13 +151,11 @@ module Pos.Types.Types
        ) where
 
 import           Control.Exception      (assert)
-import           Control.Lens           (Getter, Lens', choosing, makeLenses,
-                                         makeLensesFor, to, view, (^.), _1)
+import           Control.Lens           (Getter, choosing, makeLenses, makeLensesFor, to)
 import           Data.Data              (Data)
 import           Data.DeriveTH          (derive, makeNFData)
 import           Data.Hashable          (Hashable)
 import           Data.Ix                (Ix)
-import           Data.List.NonEmpty     (NonEmpty)
 import qualified Data.Map               as M (toList)
 import           Data.SafeCopy          (SafeCopy (..), base, contain,
                                          deriveSafeCopySimple, safeGet, safePut)
@@ -175,7 +177,8 @@ import           Pos.Binary.Address     ()
 import           Pos.Binary.Class       (Bi)
 import           Pos.Binary.Script      ()
 import           Pos.Crypto             (Hash, ProxySecretKey, ProxySignature, PublicKey,
-                                         Signature, hash, hashHexF, shortHashF)
+                                         Signature, hash, hashHexF, shortHashF,
+                                         unsafeHash)
 import           Pos.Data.Attributes    (Attributes)
 import           Pos.Merkle             (MerkleRoot, MerkleTree, mtRoot)
 import           Pos.Script.Type        (Script)
@@ -497,6 +500,9 @@ class Blockchain p where
     -- | Block header used in this blockchain.
     type BBlockHeader p :: *
     type BBlockHeader p = GenericBlockHeader p
+    -- | Hash of 'BBlockHeader'. This is something like @Hash (BBlockHeader p)@.
+    type BHeaderHash p :: *
+    type BHeaderHash p = HeaderHash
 
     -- | Body contains payload and other heavy data.
     data Body p :: *
@@ -516,7 +522,7 @@ class Blockchain p where
 -- benefits which people get by separating header from other data.
 data GenericBlockHeader b = GenericBlockHeader
     { -- | Pointer to the header of the previous block.
-      _gbhPrevBlock :: !(Hash (BBlockHeader b))
+      _gbhPrevBlock :: !(BHeaderHash b)
     , -- | Proof of body.
       _gbhBodyProof :: !(BodyProof b)
     , -- | Consensus data to verify consensus algorithm.
@@ -525,15 +531,17 @@ data GenericBlockHeader b = GenericBlockHeader
       _gbhExtra     :: !(ExtraHeaderData b)
     } deriving (Generic)
 
-deriving instance
-         (Show (BodyProof b), Show (ConsensusData b),
-          Show (ExtraHeaderData b)) =>
-         Show (GenericBlockHeader b)
+deriving instance ( Show (BHeaderHash b)
+                  , Show (BodyProof b)
+                  , Show (ConsensusData b)
+                  , Show (ExtraHeaderData b)
+                  ) => Show (GenericBlockHeader b)
 
-deriving instance
-         (Eq (BodyProof b), Eq (ConsensusData b),
-          Eq (ExtraHeaderData b)) =>
-         Eq (GenericBlockHeader b)
+deriving instance ( Eq (BHeaderHash b)
+                  , Eq (BodyProof b)
+                  , Eq (ConsensusData b)
+                  , Eq (ExtraHeaderData b)
+                  ) => Eq (GenericBlockHeader b)
 
 -- | In general Block consists of header and body. It may contain
 -- extra data as well.
@@ -548,10 +556,13 @@ deriving instance
           Show (ExtraBodyData b)) =>
          Show (GenericBlock b)
 
-deriving instance
-         (Eq (BodyProof b), Eq (ConsensusData b), Eq (ExtraHeaderData b),
-          Eq (Body b), Eq (ExtraBodyData b)) =>
-         Eq (GenericBlock b)
+deriving instance ( Eq (BHeaderHash b)
+                  , Eq (Body b)
+                  , Eq (BodyProof b)
+                  , Eq (ConsensusData b)
+                  , Eq (ExtraBodyData b)
+                  , Eq (ExtraHeaderData b)
+                  ) => Eq (GenericBlock b)
 
 ----------------------------------------------------------------------------
 -- MainBlock
@@ -567,8 +578,8 @@ newtype ChainDifficulty = ChainDifficulty
     { getChainDifficulty :: Word64
     } deriving (Show, Eq, Ord, Num, Enum, Real, Integral, Generic, Buildable, Typeable)
 
--- | Constraint for data to be signed in main block.
-type MainToSign ssc = (HeaderHash ssc, BodyProof (MainBlockchain ssc), SlotId, ChainDifficulty)
+-- | Data to be signed in main block.
+type MainToSign ssc = (HeaderHash, BodyProof (MainBlockchain ssc), SlotId, ChainDifficulty)
 
 -- | Signature of the block. Can be either regular signature from the
 -- issuer or delegated signature having a constraint on epoch indices
@@ -722,15 +733,15 @@ instance BiSsc ssc => Buildable (MainBlockHeader ssc) where
              "    difficulty: "%int%"\n"%
              build
             )
-            headerHash
+            gbhHeaderHash
             _gbhPrevBlock
             _mcdSlot
             _mcdLeaderKey
             _mcdDifficulty
             _gbhExtra
       where
-        headerHash :: HeaderHash ssc
-        headerHash = hash $ Right gbh
+        gbhHeaderHash :: HeaderHash
+        gbhHeaderHash = blockHeaderHash $ Right gbh
         MainConsensusData {..} = _gbhConsensus
 
 -- | MainBlock is a block with transactions and MPC messages. It's the
@@ -825,13 +836,13 @@ instance BiSsc ssc => Buildable (GenesisBlockHeader ssc) where
              "    epoch: "%build%"\n"%
              "    difficulty: "%int%"\n"
             )
-            headerHash
+            gbhHeaderHash
             _gbhPrevBlock
             _gcdEpoch
             _gcdDifficulty
       where
-        headerHash :: HeaderHash ssc
-        headerHash = hash $ Left gbh
+        gbhHeaderHash :: HeaderHash
+        gbhHeaderHash = blockHeaderHash $ Left gbh
         GenesisConsensusData {..} = _gbhConsensus
 
 ----------------------------------------------------------------------------
@@ -840,14 +851,60 @@ instance BiSsc ssc => Buildable (GenesisBlockHeader ssc) where
 
 -- | Either header of ordinary main block or genesis block.
 type BlockHeader ssc = Either (GenesisBlockHeader ssc) (MainBlockHeader ssc)
--- | 'Hash' of block header.
-type HeaderHash ssc = Hash (BlockHeader ssc)
 
 instance BiSsc ssc => Buildable (BlockHeader ssc) where
     build = either Buildable.build Buildable.build
 
+-- | Lens from 'Block' to 'BlockHeader'.
+--
+-- This gives a “redundant constraint” message warning which will be fixed in
+-- lens-4.15 (not in LTS yet).
+blockHeader :: Getter (Block ssc) (BlockHeader ssc)
+blockHeader = to getBlockHeader
+
+-- | Take 'BlockHeader' from either 'GenesisBlock' or 'MainBlock'.
+getBlockHeader :: Block ssc -> BlockHeader ssc
+getBlockHeader = bimap _gbHeader _gbHeader
+
+-- | 'Hash' of block header. This should be @Hash (BlockHeader ssc)@
+-- but we don't want to have @ssc@ in 'HeaderHash' type.
+type HeaderHash = Hash BlockHeaderStub
+data BlockHeaderStub
+
+-- | Class for something that has 'HeaderHash'.
+class HasHeaderHash a where
+    headerHash :: a -> HeaderHash
+    headerHashG :: Getter a HeaderHash
+    headerHashG = to headerHash
+
+-- | This function is required because type inference fails in attempts to
+-- hash only @Right@ or @Left@.
+blockHeaderHash :: BiSsc ssc => BlockHeader ssc -> HeaderHash
+blockHeaderHash = headerHash
+
+instance HasHeaderHash HeaderHash where
+    headerHash = identity
+
+instance BiSsc ssc => HasHeaderHash (MainBlockHeader ssc) where
+    headerHash = blockHeaderHash . Right
+
+instance BiSsc ssc => HasHeaderHash (GenesisBlockHeader ssc) where
+    headerHash = blockHeaderHash . Left
+
+instance BiSsc ssc => HasHeaderHash (BlockHeader ssc) where
+    headerHash = unsafeHash
+
+instance BiSsc ssc => HasHeaderHash (MainBlock ssc) where
+    headerHash = blockHeaderHash . Right . _gbHeader
+
+instance BiSsc ssc => HasHeaderHash (GenesisBlock ssc) where
+    headerHash = blockHeaderHash . Left  . _gbHeader
+
+instance BiSsc ssc => HasHeaderHash (Block ssc) where
+    headerHash = blockHeaderHash . getBlockHeader
+
 -- | Specialized formatter for 'HeaderHash'.
-headerHashF :: Format r (HeaderHash ssc -> r)
+headerHashF :: Format r (HeaderHash -> r)
 headerHashF = build
 
 -- | Block.
@@ -978,50 +1035,23 @@ instance HasDifficulty (Block ssc) where
     difficultyL = choosing difficultyL difficultyL
 
 -- | Class for something that has previous block (lens to 'Hash' for this block).
-class HasPrevBlock s a | s -> a where
-    prevBlockL :: Lens' s (Hash a)
+class HasPrevBlock s where
+    prevBlockL :: Lens' s HeaderHash
 
-instance HasPrevBlock f a => HasPrevBlock (f, s) a where
+instance HasPrevBlock s => HasPrevBlock (s, z) where
     prevBlockL = _1 . prevBlockL
 
-instance (a ~ BBlockHeader b) =>
-         HasPrevBlock (GenericBlockHeader b) a where
+instance (BHeaderHash b ~ HeaderHash) =>
+         HasPrevBlock (GenericBlockHeader b) where
     prevBlockL = gbhPrevBlock
 
-instance (a ~ BBlockHeader b) =>
-         HasPrevBlock (GenericBlock b) a where
+instance (BHeaderHash b ~ HeaderHash) =>
+         HasPrevBlock (GenericBlock b) where
     prevBlockL = gbHeader . gbhPrevBlock
 
-instance (HasPrevBlock s a, HasPrevBlock s' a) =>
-         HasPrevBlock (Either s s') a where
+instance (HasPrevBlock s, HasPrevBlock s') =>
+         HasPrevBlock (Either s s') where
     prevBlockL = choosing prevBlockL prevBlockL
-
--- | Class for something that has 'HeaderHash'.
-class HasHeaderHash a ssc | a -> ssc where
-    headerHash :: a -> HeaderHash ssc
-    headerHashG :: Getter a (HeaderHash ssc)
-    headerHashG = to headerHash
-
-instance BiSsc ssc => HasHeaderHash (HeaderHash ssc) ssc where
-    headerHash = identity
-
-instance BiSsc ssc => HasHeaderHash (MainBlockHeader ssc) ssc where
-    headerHash = hash . Right
-
-instance BiSsc ssc => HasHeaderHash (GenesisBlockHeader ssc) ssc where
-    headerHash = hash . Left
-
-instance BiSsc ssc => HasHeaderHash (BlockHeader ssc) ssc where
-    headerHash = hash
-
-instance BiSsc ssc => HasHeaderHash (MainBlock ssc) ssc where
-    headerHash = hash . Right . view gbHeader
-
-instance BiSsc ssc => HasHeaderHash (GenesisBlock ssc) ssc where
-    headerHash = hash . Left  . view gbHeader
-
-instance BiSsc ssc => HasHeaderHash (Block ssc) ssc where
-    headerHash = hash . getBlockHeader
 
 -- | Class for something that has 'EpochIndex'.
 class HasEpochIndex a where
@@ -1083,16 +1113,6 @@ blockProxySKs = gbBody . mbProxySKs
 blockLeaders :: Lens' (GenesisBlock ssc) SlotLeaders
 blockLeaders = gbBody . gbLeaders
 
--- | Lens from 'Block' to 'BlockHeader'.
---
--- This gives a “redundant constraint” message warning which will be fixed in
--- lens-4.15 (not in LTS yet).
-blockHeader :: Getter (Block ssc) (BlockHeader ssc)
-blockHeader = to getBlockHeader
-
--- | Take 'BlockHeader' from either 'GenesisBlock' or 'MainBlock'.
-getBlockHeader :: Block ssc -> BlockHeader ssc
-getBlockHeader = bimap (view gbHeader) (view gbHeader)
 
 class HasEpochOrSlot a where
     _getEpochOrSlot :: a -> Either EpochIndex SlotId
@@ -1144,7 +1164,8 @@ deriveSafeCopySimple 0 'base ''MainExtraHeaderData
 -- Manually written instances can't be derived because
 -- 'deriveSafeCopySimple' is not clever enough to add
 -- “SafeCopy (Whatever a) =>” constaints.
-instance ( SafeCopy (BodyProof b)
+instance ( SafeCopy (BHeaderHash b)
+         , SafeCopy (BodyProof b)
          , SafeCopy (ConsensusData b)
          , SafeCopy (ExtraHeaderData b)
          ) =>
@@ -1163,7 +1184,8 @@ instance ( SafeCopy (BodyProof b)
            safePut _gbhConsensus
            safePut _gbhExtra
 
-instance ( SafeCopy (BodyProof b)
+instance ( SafeCopy (BHeaderHash b)
+         , SafeCopy (BodyProof b)
          , SafeCopy (ConsensusData b)
          , SafeCopy (ExtraHeaderData b)
          , SafeCopy (Body b)

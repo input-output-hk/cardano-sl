@@ -86,6 +86,7 @@ data UpdateOp
     | ConfirmVersion !SoftwareVersion
     | SetLastPV !ProtocolVersion
     | SetScriptVersion !ProtocolVersion !ScriptVersion
+    | DelScriptVersion !ProtocolVersion
 
 instance RocksBatchOp UpdateOp where
     toBatchOp (PutProposal ps) =
@@ -104,6 +105,8 @@ instance RocksBatchOp UpdateOp where
         [Rocks.Put lastPVKey (encodeStrict pv)]
     toBatchOp (SetScriptVersion pv sv) =
         [Rocks.Put (scriptVersionKey pv) (encodeStrict sv)]
+    toBatchOp (DelScriptVersion pv) =
+        [Rocks.Del (scriptVersionKey pv)]
 
 -- putUndecidedProposalSlot :: ProposalState -> [Rocks.BatchOp]
 -- putUndecidedProposalSlot (PSUndecided ups) =

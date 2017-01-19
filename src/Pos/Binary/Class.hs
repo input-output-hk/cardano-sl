@@ -34,7 +34,6 @@ import qualified Data.ByteString             as BS
 import qualified Data.ByteString.Lazy        as BSL
 import           Data.Hashable               (Hashable (..))
 import qualified Data.HashMap.Strict         as HM
-import qualified Data.List.NonEmpty          as NE
 import qualified Data.Text.Encoding          as T
 import qualified Data.Vector                 as V
 import qualified Data.Vector.Generic         as G
@@ -87,12 +86,12 @@ decode = runGet get
 decodeOrFail
     :: Bi a
     => LByteString
-    -> Either (LByteString, ByteOffset, [Char])
+    -> Either (LByteString, ByteOffset, String)
               (LByteString, ByteOffset, a)
 decodeOrFail = runGetOrFail get
 
 -- | Like 'decode', but ensures that the whole input has been consumed.
-decodeFull :: Bi a => LByteString -> Either [Char] a
+decodeFull :: Bi a => LByteString -> Either String a
 decodeFull bs = case (runGetOrFail get) bs of
     Left (_, _, err) -> Left ("decodeFull: " ++ err)
     Right (unconsumed, _, a)
@@ -445,9 +444,9 @@ instance (Bi a, Bi b) => Bi (Either a b) where
             0 -> liftM Left  get
             _ -> liftM Right get
 
-instance Bi a => Bi (NE.NonEmpty a) where
-    get = maybe (fail "Empty list") pure . NE.nonEmpty =<< get
-    put = put . NE.toList
+instance Bi a => Bi (NonEmpty a) where
+    get = maybe (fail "Empty list") pure . nonEmpty =<< get
+    put = put . toList
 
 instance (Bi a) => Bi (Maybe a) where
     put Nothing  = putWord8 0

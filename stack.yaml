@@ -6,10 +6,6 @@ packages:
 - '.'
 
 - location:
-    git: https://github.com/serokell/universum
-    commit: db3cd301545e5da000e53ca2cdf274e0386192bf
-  extra-dep: true
-- location:
     git: https://github.com/serokell/log-warper.git
     commit: fa5f0ab17b4248d072e5a5bb01ce1a72fae4eebc
   extra-dep: true
@@ -36,7 +32,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 6bb7af7e9339a45c02ccbc2e6131a844cb851505
+    commit: 951751aab248f0f181becc73949058cf58fc958d
   extra-dep: true
 - location:
     git: https://github.com/serokell/network-transport-tcp.git
@@ -47,6 +43,7 @@ nix:
   shell-file: shell.nix
 
 extra-deps:
+- universum-0.2
 - pqueue-1.3.2
 - data-msgpack-0.0.8
 - time-units-1.0.0

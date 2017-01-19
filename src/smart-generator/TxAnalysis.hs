@@ -6,7 +6,6 @@ module TxAnalysis
        , checkWorker
        ) where
 
-import           Control.Lens          ((^.))
 import qualified Data.HashMap.Strict   as M
 import           Data.IORef            (IORef, modifyIORef', newIORef, readIORef,
                                         writeIORef)

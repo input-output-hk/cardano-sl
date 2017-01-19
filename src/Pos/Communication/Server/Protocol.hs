@@ -8,7 +8,7 @@ module Pos.Communication.Server.Protocol
        , protocolStubListeners
        ) where
 
-import           Control.Lens                (view, (.~), (?~))
+import           Control.Lens                ((?~))
 import           Data.Proxy                  (Proxy (..))
 import           Formatting                  (build, sformat, (%))
 import           Pos.Communication.Types     (VersionReq (..), VersionResp (..))

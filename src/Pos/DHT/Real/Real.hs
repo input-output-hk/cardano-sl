@@ -25,7 +25,7 @@ import           System.Directory       (doesFileExist)
 import           System.Wlog            (WithLogger, logDebug, logError, logInfo,
                                          logWarning, usingLoggerName)
 import           Universum              hiding (Async, async, bracket, catchAll,
-                                         fromStrict, mapConcurrently, toStrict)
+                                         fromStrict, toStrict)
 
 import           Pos.Binary.Class       (Bi (..))
 import           Pos.Binary.DHTModel    ()

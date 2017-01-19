@@ -187,11 +187,12 @@ library
 
                         -- Heavy delegation
                         Pos.Delegation.Class
-                        Pos.Delegation.Methods
-                        Pos.Delegation.Types
+                        Pos.Delegation.Holder
                         Pos.Delegation.Listeners
                         Pos.Delegation.Logic
                         Pos.Delegation.Lrc
+                        Pos.Delegation.Methods
+                        Pos.Delegation.Types
 
                         -- Launcher
                         Pos.Launcher.Launcher
@@ -305,6 +306,7 @@ library
                         Pos.Update.Lrc
                         Pos.Update.MemState
                         Pos.Update.MemState.Class
+                        Pos.Update.MemState.Functions
                         Pos.Update.MemState.Holder
                         Pos.Update.MemState.MemState
                         Pos.Update.MemState.Types
@@ -315,6 +317,7 @@ library
                         Pos.Update.Poll.Class
                         Pos.Update.Poll.DBPoll
                         Pos.Update.Poll.Functions
+                        Pos.Update.Poll.Modifier
                         Pos.Update.Poll.Trans
                         Pos.Update.Poll.Types
                         Pos.Update.Worker
@@ -380,6 +383,7 @@ library
                       , binary-orphans
                       , bytestring
                       , cereal
+                      , concurrent-extra
                       , conduit >= 1.2.8
                       , containers
                       , cryptonite >= 0.19 && < 0.21

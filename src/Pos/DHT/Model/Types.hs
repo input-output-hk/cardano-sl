@@ -91,6 +91,6 @@ nodeIdToAddress :: NodeId -> Maybe NetworkAddress
 nodeIdToAddress (NodeId ep) = toNA =<< TCP.decodeEndPointAddress ep
   where
     toNA (hostName, port', _) = (BS8.pack hostName,) <$> toPort port'
-    toPort :: [Char] -> Maybe Word16
+    toPort :: String -> Maybe Word16
     toPort port' | all isNumber port' = pure $ read port'
                  | otherwise          = Nothing

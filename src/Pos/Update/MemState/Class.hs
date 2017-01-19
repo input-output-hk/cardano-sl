@@ -5,6 +5,7 @@
 
 module Pos.Update.MemState.Class
        ( MonadUSMem (..)
+       , askUSMemState
        ) where
 
 import           Control.Concurrent.STM       (TVar)
@@ -12,18 +13,20 @@ import           Control.Monad.Except         (ExceptT)
 import           Control.Monad.Trans          (MonadTrans)
 import           Universum
 
-import           Pos.Update.MemState.MemState (MemState)
+import           Pos.Update.MemState.MemState (MemState, MemVar (mvState))
 
--- | Equivalent of @MonadReader (TVar MemState) m@.
--- TODO: askUSMemState and all the other things should probably be separated
+-- | Reduced equivalent of @MonadReader MemVar m@.
 class Monad m => MonadUSMem m where
-    askUSMemState :: m (TVar MemState)
-    -- ^ Retrieve 'TVar' on 'Pos.Update.State.MemState'.
+    askUSMemVar :: m MemVar
+    -- ^ Retrieve 'MemVar'.
 
-    -- | Default implementations for 'MonadTrans'.
-    default askUSMemState
-        :: (MonadTrans t, MonadUSMem m', t m' ~ m) => m (TVar MemState)
-    askUSMemState = lift askUSMemState
+    -- | Default implementation for 'MonadTrans'.
+    default askUSMemVar
+        :: (MonadTrans t, MonadUSMem m', t m' ~ m) => m MemVar
+    askUSMemVar = lift askUSMemVar
+
+askUSMemState :: MonadUSMem m => m (TVar MemState)
+askUSMemState = mvState <$> askUSMemVar
 
 instance MonadUSMem m => MonadUSMem (ReaderT s m)
 instance MonadUSMem m => MonadUSMem (StateT s m)

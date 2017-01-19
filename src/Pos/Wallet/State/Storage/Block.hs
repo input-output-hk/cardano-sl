@@ -8,7 +8,6 @@ module Pos.Wallet.State.Storage.Block
        , HasBlockStorage (blockStorage)
 
        , Block'
-       , HeaderHash'
        , NEBlocks
 
        , getBlock
@@ -17,12 +16,11 @@ module Pos.Wallet.State.Storage.Block
        , blkSetHead
        ) where
 
-import           Control.Lens              (at, makeClassy, view, (.=), (^.))
+import           Control.Lens              (at, makeClassy, (.=))
 import           Control.Monad.Loops       (unfoldrM)
 import           Control.Monad.Trans.Maybe (MaybeT (..))
 import           Data.Default              (Default, def)
 import qualified Data.HashMap.Strict       as HM
-import           Data.List.NonEmpty        (NonEmpty (..))
 import           Data.SafeCopy             (base, deriveSafeCopySimple)
 import           Universum
 
@@ -31,18 +29,17 @@ import           Pos.Ssc.GodTossing        (SscGodTossing)
 import           Pos.Types                 (Block, HeaderHash, prevBlockL)
 
 type Block' = Block SscGodTossing
-type HeaderHash' = HeaderHash SscGodTossing
 type NEBlocks = NonEmpty Block'
 
 data BlockStorage = BlockStorage
     { -- | All blocks known to the node. Blocks have pointers to other
       -- blocks and can be easily traversed.
-      _blkBlocks    :: !(HashMap HeaderHash' Block')
+      _blkBlocks    :: !(HashMap HeaderHash Block')
     , -- | Hash of the head in the best chain.
-      _blkHead      :: !HeaderHash'
+      _blkHead      :: !HeaderHash
     , -- | Hash of bottom block (of depth `k + 1`, or, if the whole
       -- chain is shorter than `k + 1`, the first block in the chain)
-      _blkBottom    :: !HeaderHash'
+      _blkBottom    :: !HeaderHash
     , -- | Alternative chains which can be merged into main chain.
       _blkNEBlockss :: ![NEBlocks]
     }
@@ -57,7 +54,7 @@ type Query a = forall m x. (HasBlockStorage x, MonadReader x m) => m a
 type Update a = forall m x. (HasBlockStorage x, MonadState x m) => m a
 
 -- | Get block by hash of its header.
-getBlock :: HeaderHash' -> Query (Maybe Block')
+getBlock :: HeaderHash -> Query (Maybe Block')
 getBlock h = view (blkBlocks . at h)
 
 getBestChain :: Query [Block']
@@ -72,5 +69,5 @@ getBestChain = do
 
 -- | Set head of main blockchain to block which is guaranteed to
 -- represent valid chain and be stored in blkBlocks.
-blkSetHead :: HeaderHash' -> Update ()
+blkSetHead :: HeaderHash -> Update ()
 blkSetHead headHash = blkHead .= headHash

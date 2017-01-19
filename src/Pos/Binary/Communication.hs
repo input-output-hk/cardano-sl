@@ -41,11 +41,11 @@ instance Bi SysStartResponse where
 -- Blocks
 ----------------------------------------------------------------------------
 
-instance Bi (MsgGetHeaders ssc) where
+instance Bi MsgGetHeaders where
     put (MsgGetHeaders f t) = put f >> put t
     get = MsgGetHeaders <$> get <*> get
 
-instance Bi (MsgGetBlocks ssc) where
+instance Bi MsgGetBlocks where
     put (MsgGetBlocks f t) = put f >> put t
     get = MsgGetBlocks <$> get <*> get
 

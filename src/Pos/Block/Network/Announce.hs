@@ -50,15 +50,15 @@ announceBlock sendActions header = do
   where
     announceBlockDo nodeId conv = do
         logDebug $ sformat ("Announcing block "%shortHashF%" to "%shown) (headerHash header) nodeId
-        send conv $ MsgHeaders $ pure $ Right header
+        send conv $ MsgHeaders (one (Right header))
         handleHeadersCommunication conv
 
 handleHeadersCommunication
     :: WorkMode ssc m
-    => ConversationActions (MsgHeaders ssc) (MsgGetHeaders ssc) m
+    => ConversationActions (MsgHeaders ssc) MsgGetHeaders m
     -> m ()
 handleHeadersCommunication conv = do
-    (msg :: Maybe (MsgGetHeaders ssc)) <- recv conv
+    (msg :: Maybe MsgGetHeaders) <- recv conv
     whenJust msg $ \(MsgGetHeaders {..}) -> do
         logDebug "Got request on handleGetHeaders"
         headers <- getHeadersFromManyTo mghFrom mghTo

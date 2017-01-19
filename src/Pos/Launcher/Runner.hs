@@ -32,7 +32,7 @@ import           Control.Concurrent.MVar        (newEmptyMVar, newMVar, takeMVar
                                                  tryReadMVar)
 import           Control.Concurrent.STM.TBQueue (newTBQueueIO)
 import           Control.Concurrent.STM.TVar    (newTVar)
-import           Control.Lens                   (each, to, (^..), _tail)
+import           Control.Lens                   (each, to, _tail)
 import           Control.Monad.Fix              (MonadFix)
 import qualified Data.ByteString.Char8          as BS8
 import           Data.Default                   (def)
@@ -74,7 +74,7 @@ import           Pos.Crypto                     (createProxySecretKey, toPublic)
 import           Pos.DB                         (MonadDB (..), getTip, initNodeDBs,
                                                  openNodeDBs, runDBHolder, _gStateDB)
 import           Pos.DB.Misc                    (addProxySecretKey)
-import           Pos.Delegation.Class           (runDelegationT)
+import           Pos.Delegation.Holder          (runDelegationT)
 import           Pos.DHT.Model                  (MonadDHT (..), converseToNeighbors)
 import           Pos.DHT.Real                   (KademliaDHTInstance,
                                                  KademliaDHTInstanceConfig (..),
@@ -329,7 +329,7 @@ bracketDHTInstance BaseParams {..} action = bracket acquire release action
         , kdcDumpPath = bpKademliaDump
         }
 
-createTransport :: (MonadIO m, WithLogger m, Mockable Throw m) => [Char] -> Word16 -> m Transport
+createTransport :: (MonadIO m, WithLogger m, Mockable Throw m) => String -> Word16 -> m Transport
 createTransport ip port = do
     transportE <- liftIO $ TCP.createTransport
                              "0.0.0.0"

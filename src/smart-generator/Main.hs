@@ -4,7 +4,6 @@
 module Main where
 
 import           Control.Concurrent.STM.TVar (modifyTVar', newTVarIO, readTVarIO)
-import           Control.Lens                (view, _1)
 import           Data.Maybe                  (fromMaybe)
 import           Data.Proxy                  (Proxy (..))
 import           Data.Time.Clock.POSIX       (getPOSIXTime)
@@ -17,7 +16,7 @@ import           System.FilePath.Posix       ((</>))
 import           System.Random.Shuffle       (shuffleM)
 import           System.Wlog                 (logInfo)
 import           Test.QuickCheck             (arbitrary, generate)
-import           Universum                   hiding (forConcurrently)
+import           Universum
 
 import qualified Pos.CLI                     as CLI
 import           Pos.Communication           (BiP)

@@ -17,7 +17,6 @@ module Pos.Merkle
        , mkLeaf
        ) where
 
-import qualified Data.ByteString      as BS
 import qualified Data.ByteString.Lazy as BL (toStrict)
 import           Data.Coerce          (coerce)
 import qualified Data.Foldable        as Foldable
@@ -79,7 +78,7 @@ mkLeaf a =
     MerkleLeaf
     { mVal  = a
     , mRoot = MerkleRoot $ coerce $
-              hashRaw (BS.singleton 0 <> BL.toStrict (encode a))
+              hashRaw (one 0 <> BL.toStrict (encode a))
     }
 
 mkBranch :: MerkleNode a -> MerkleNode a -> MerkleNode a
@@ -88,7 +87,7 @@ mkBranch a b =
     { mLeft  = a
     , mRight = b
     , mRoot  = MerkleRoot $ coerce $
-               hashRaw $ mconcat [ BS.singleton 1
+               hashRaw $ mconcat [ one 1
                                  , convert (mRoot a)
                                  , convert (mRoot b) ]
     }

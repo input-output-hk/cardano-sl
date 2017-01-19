@@ -13,8 +13,7 @@ module Pos.DHT.Real.Types
        , WithKademliaDHTInstance (..)
        ) where
 
-import           Universum                 hiding (async, fromStrict, mapConcurrently,
-                                            toStrict)
+import           Universum                 hiding (async, fromStrict, toStrict)
 
 import           Control.Concurrent.STM    (TVar)
 import           Control.Lens              (iso)
@@ -37,7 +36,7 @@ import           Pos.DHT.Model.Types       (DHTData, DHTKey, DHTNode (..))
 toBSBinary :: Bi b => b -> BS.ByteString
 toBSBinary = toStrict . encode
 
-fromBSBinary :: Bi b => BS.ByteString -> Either [Char] (b, BS.ByteString)
+fromBSBinary :: Bi b => BS.ByteString -> Either String (b, BS.ByteString)
 fromBSBinary bs =
     case decodeOrFail $ fromStrict bs of
         Left (_, _, errMsg)  -> Left errMsg

@@ -6,7 +6,6 @@ module Pos.Block.Types
        , Blund
        ) where
 
-import           Control.Lens          (_1)
 import qualified Data.Text.Buildable
 import           Formatting            (bprint, build, (%))
 import           Serokell.Util.Text    (listJson)
@@ -37,5 +36,5 @@ instance Buildable Undo where
 instance HasDifficulty (Blund ssc) where
     difficultyL = _1 . difficultyL
 
-instance BiSsc ssc => HasHeaderHash (Blund ssc) ssc where
+instance BiSsc ssc => HasHeaderHash (Blund ssc) where
     headerHash = headerHash . fst

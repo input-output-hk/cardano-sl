@@ -19,12 +19,10 @@ spec :: Spec
 spec = describe "Block types" $ do
     describe "Bi instances" $ do
         describe "Block network types" $ do
-            describe "MsgGetHeaders" $ do
-                networkBinaryTest @(BT.MsgGetHeaders SscNistBeacon)
-                networkBinaryTest @(BT.MsgGetHeaders SscGodTossing)
-            describe "MsgGetBlocks" $ do
-                networkBinaryTest @(BT.MsgGetBlocks SscNistBeacon)
-                networkBinaryTest @(BT.MsgGetBlocks SscGodTossing)
+            describe "MsgGetHeaders" $
+                networkBinaryTest @BT.MsgGetHeaders
+            describe "MsgGetBlocks" $
+                networkBinaryTest @BT.MsgGetBlocks
             describe "MsgHeaders" $ do
                 networkBinaryTest @(BT.MsgHeaders SscNistBeacon)
                 networkBinaryTest @(BT.MsgHeaders SscGodTossing)

@@ -13,8 +13,7 @@ module Pos.Ssc.GodTossing.Storage
        , gtGetGlobalState
        ) where
 
-import           Control.Lens                   (over, to, view, views, (%=), (.=), (<>=),
-                                                 (^.))
+import           Control.Lens                   (to, (%=), (.=), (<>=))
 import           Control.Monad.Reader           (ask)
 import           Data.Default                   (def)
 import qualified Data.HashMap.Strict            as HM
@@ -104,7 +103,7 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
     globalCommitments <- view gsCommitments
     globalOpenings    <- view gsOpenings
     globalShares      <- view gsShares
-    globalCerts       <- views gsVssCertificates VCD.certs
+    globalCerts       <- VCD.certs <$> view gsVssCertificates
 
     let isComm  = (isCommitmentIdx slotId, "slotId doesn't belong commitment phase")
         isOpen  = (isOpeningIdx slotId, "slotId doesn't belong openings phase")
@@ -271,7 +270,7 @@ calculateSeedQ _ =
     calculateSeed <$> view gsCommitments <*> view gsOpenings <*>
         view gsShares
 
-mpcLoadGlobalState :: MonadDB SscGodTossing m => HeaderHash SscGodTossing -> m GtGlobalState
+mpcLoadGlobalState :: MonadDB SscGodTossing m => HeaderHash -> m GtGlobalState
 mpcLoadGlobalState tip = do
     bh <- getBlockHeader tip
     endEpoch <-

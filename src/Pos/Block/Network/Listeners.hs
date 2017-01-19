@@ -8,7 +8,6 @@ module Pos.Block.Network.Listeners
        , blockStubListeners
        ) where
 
-import           Data.List.NonEmpty          (NonEmpty ((:|)))
 import           Data.Proxy                  (Proxy (..))
 import           Formatting                  (sformat, stext, (%))
 import           Node                        (ConversationActions (..),
@@ -47,8 +46,8 @@ blockStubListeners
     :: ( Ssc ssc, WithLogger m )
     => Proxy ssc -> [ListenerAction BiP m]
 blockStubListeners p =
-    [ stubListenerConv $ (const Proxy :: Proxy ssc -> Proxy (MsgGetHeaders ssc)) p
-    , stubListenerOneMsg $ (const Proxy :: Proxy ssc -> Proxy (MsgGetBlocks ssc)) p
+    [ stubListenerConv $ (const Proxy :: Proxy ssc -> Proxy MsgGetHeaders) p
+    , stubListenerOneMsg $ (const Proxy :: Proxy ssc -> Proxy MsgGetBlocks) p
     , stubListenerOneMsg $ (const Proxy :: Proxy ssc -> Proxy (MsgHeaders ssc)) p
     ]
 
@@ -67,8 +66,8 @@ handleGetBlocks
        (Ssc ssc, WorkMode ssc m)
     => ListenerAction BiP m
 handleGetBlocks = ListenerActionConversation $ \__peerId conv -> do
-    (mGB :: Maybe (MsgGetBlocks ssc)) <- recv conv
-    whenJust mGB $ \(MsgGetBlocks {..}) -> do
+    (mGB :: Maybe MsgGetBlocks) <- recv conv
+    whenJust mGB $ \MsgGetBlocks{..} -> do
         logDebug "Got request on handleGetBlocks"
         hashes <- getHeadersFromToIncl mgbFrom mgbTo
         maybe warn (sendBlocks conv) hashes
@@ -104,7 +103,7 @@ handleUnsolicitedHeaders
        (WorkMode ssc m)
     => NonEmpty (BlockHeader ssc)
     -> NodeId
-    -> ConversationActions (MsgGetHeaders ssc) (MsgHeaders ssc) m
+    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
 handleUnsolicitedHeaders (header :| []) peerId conv =
     handleUnsolicitedHeader header peerId conv
@@ -118,7 +117,7 @@ handleUnsolicitedHeader
        (WorkMode ssc m)
     => BlockHeader ssc
     -> NodeId
-    -> ConversationActions (MsgGetHeaders ssc) (MsgHeaders ssc) m
+    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
 handleUnsolicitedHeader header peerId conv = do
     logDebug $ sformat
@@ -129,7 +128,7 @@ handleUnsolicitedHeader header peerId conv = do
     case classificationRes of
         CHContinues -> do
             logDebug $ sformat continuesFormat hHash
-            addToBlockRequestQueue (header :| []) peerId
+            addToBlockRequestQueue (one header) peerId
         CHAlternative -> do
             logInfo $ sformat alternativeFormat hHash
             mghM <- mkHeadersRequest (Just hHash)

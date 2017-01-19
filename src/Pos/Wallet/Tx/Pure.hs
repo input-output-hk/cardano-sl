@@ -11,8 +11,7 @@ module Pos.Wallet.Tx.Pure
        , TxError
        ) where
 
-import           Control.Lens              (over, use, uses, view, (%=), (%=), (^.), _1,
-                                            _2)
+import           Control.Lens              ((%=))
 import           Control.Monad.State       (StateT (..), evalStateT)
 import           Control.Monad.Trans.Maybe (MaybeT (..))
 import qualified Data.DList                as DL
@@ -105,7 +104,7 @@ prepareInpOuts utxo addr outputs = do
         if moneyLeft == mkCoin 0
             then return inps
             else do
-                mNextOut <- uses _2 head
+                mNextOut <- head <$> use _2
                 case mNextOut of
                     Nothing -> fail "Not enough money to send!"
                     Just inp@(_, (TxOut{..}, _)) -> do

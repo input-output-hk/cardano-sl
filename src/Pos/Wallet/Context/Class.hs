@@ -18,7 +18,7 @@ import           Universum
 
 import           Pos.Communication.PeerState (PeerStateHolder)
 import qualified Pos.Context                 as PC
-import           Pos.Delegation.Class        (DelegationT (..))
+import           Pos.Delegation.Holder       (DelegationT (..))
 import           Pos.DHT.Real                (KademliaDHT (..))
 import           Pos.Ssc.Extra               (SscHolder (..))
 import qualified Pos.Txp.Holder              as Modern

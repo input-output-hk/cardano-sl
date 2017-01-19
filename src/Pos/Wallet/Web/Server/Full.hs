@@ -23,8 +23,8 @@ import           Universum
 import           Pos.Context                   (NodeContext, getNodeContext,
                                                 runContextHolder)
 import qualified Pos.DB                        as Modern
-import           Pos.Delegation.Class          (DelegationWrap, askDelegationState,
-                                                runDelegationTFromTVar)
+import           Pos.Delegation.Class          (DelegationWrap, askDelegationState)
+import           Pos.Delegation.Holder         (runDelegationTFromTVar)
 #ifdef DEV_MODE
 import           Pos.Genesis                   (genesisSecretKeys)
 #endif

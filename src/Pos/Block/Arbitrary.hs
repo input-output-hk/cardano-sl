@@ -2,10 +2,8 @@
 
 module Pos.Block.Arbitrary
        ( BlockHeaderList (..)
-       )
-       where
+       ) where
 
-import           Control.Lens         (view, _1)
 import           Data.Ix              (range)
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
@@ -39,12 +37,12 @@ instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) =>
                       ]
 
 properBlock
-    :: (Arbitrary (T.Body b),
-       Arbitrary (T.ConsensusData b),
-       Arbitrary (T.ExtraBodyData b),
-       Arbitrary (T.ExtraHeaderData b),
-       Bi (T.BBlockHeader b),
-       T.Blockchain b)
+    :: ( Arbitrary (T.BHeaderHash b)
+       , Arbitrary (T.Body b)
+       , Arbitrary (T.ConsensusData b)
+       , Arbitrary (T.ExtraBodyData b)
+       , Arbitrary (T.ExtraHeaderData b)
+       , T.Blockchain b)
     => Gen (T.GenericBlock b)
 properBlock = do
     body <- arbitrary
@@ -57,7 +55,7 @@ properBlock = do
 -- GenesisBlockchain
 ------------------------------------------------------------------------------------------
 
-instance Ssc ssc => Arbitrary (T.GenesisBlockHeader ssc) where
+instance Arbitrary (T.GenesisBlockHeader ssc) where
     arbitrary = T.GenericBlockHeader
         <$> arbitrary
         <*> arbitrary
@@ -75,7 +73,7 @@ instance Arbitrary (T.ConsensusData (T.GenesisBlockchain ssc)) where
 instance Arbitrary (T.Body (T.GenesisBlockchain ssc)) where
     arbitrary = T.GenesisBody <$> arbitrary
 
-instance Ssc ssc => Arbitrary (T.GenericBlock (T.GenesisBlockchain ssc)) where
+instance Arbitrary (T.GenericBlock (T.GenesisBlockchain ssc)) where
     arbitrary = properBlock
 
 ------------------------------------------------------------------------------------------
@@ -162,12 +160,12 @@ instance (Arbitrary (SscProof ssc), Arbitrary (SscPayload ssc), Ssc ssc) =>
 -- Block network types
 ------------------------------------------------------------------------------------------
 
-instance Ssc ssc => Arbitrary (T.MsgGetHeaders ssc) where
+instance Arbitrary T.MsgGetHeaders where
     arbitrary = T.MsgGetHeaders
         <$> arbitrary
         <*> arbitrary
 
-instance Ssc ssc => Arbitrary (T.MsgGetBlocks ssc) where
+instance Arbitrary T.MsgGetBlocks where
     arbitrary = T.MsgGetBlocks
         <$> arbitrary
         <*> arbitrary

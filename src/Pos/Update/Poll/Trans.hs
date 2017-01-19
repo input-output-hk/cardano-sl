@@ -95,8 +95,8 @@ instance MonadPollRead m =>
     hasActiveProposal appName = do
         new <- pmNewActivePropsIdx <$> PollT get
         del <- pmDelActivePropsIdx <$> PollT get
-        if | appName `HS.member` del -> return False
-           | Just _ <- HM.lookup appName new -> return True
+        if | appName `HM.member` del -> return False
+           | appName `HM.member` new -> return True
            | otherwise -> PollT $ hasActiveProposal appName
     getProposal upId = do
         new <- pmNewActiveProps <$> PollT get
@@ -126,7 +126,7 @@ instance MonadPollRead m =>
         pmNewActivePropsL . at id .= Nothing
         pmNewActivePropsIdxL . at appName .= Nothing
         pmDelActivePropsL . at id .= Just ()
-        pmDelActivePropsIdxL . at appName .= Just ()
+        pmDelActivePropsIdxL . at appName .= Just id
 
 ----------------------------------------------------------------------------
 -- Common instances used all over the code

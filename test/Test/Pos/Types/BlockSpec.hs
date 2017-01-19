@@ -11,9 +11,7 @@ import           Test.Hspec            (Spec, describe, it)
 import           Test.Hspec.QuickCheck (prop)
 import           Universum
 
-import           Control.Lens          (view, (^.))
 import           Data.List.NonEmpty    (fromList)
-import           Pos.Types.Address     (addressHash)
 import           Pos.Binary            (Bi)
 import           Pos.Block.Arbitrary   as T
 import           Pos.Constants         (epochSlots)
@@ -24,6 +22,7 @@ import           Pos.Ssc.Class.Types   (Ssc (..))
 import           Pos.Ssc.GodTossing    (SscGodTossing)
 import           Pos.Ssc.NistBeacon    (SscNistBeacon)
 import qualified Pos.Types             as T
+import           Pos.Types.Address     (addressHash)
 import           Serokell.Util         (isVerSuccess)
 import           System.Random         (mkStdGen, randomR)
 
@@ -82,7 +81,7 @@ genesisHeaderFormation prevHeader epoch body =
         , T._gbhConsensus = consensus h proof
         , T._gbhExtra = ()
         }
-    h = maybe T.genesisHash hash prevHeader
+    h = maybe T.genesisHash T.headerHash prevHeader
     proof = T.mkBodyProof body
     difficulty = maybe 0 (view T.difficultyL) prevHeader
     consensus _ _ =
@@ -107,7 +106,7 @@ mainHeaderFormation prevHeader slotId signer body extra =
         , T._gbhConsensus = consensus h proof
         , T._gbhExtra = extra
         }
-    h = maybe T.genesisHash hash prevHeader
+    h = maybe T.genesisHash T.headerHash prevHeader
     proof = T.mkBodyProof body
 
     (sk, pSk) = either (, Nothing) mkProxySk signer

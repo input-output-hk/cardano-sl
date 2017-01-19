@@ -9,12 +9,14 @@ module Pos.Update.Poll.Types
        , DecidedProposalState (..)
        , ProposalState (..)
        , psProposal
+       , psVotes
        , mkUProposalState
        , voteToUProposalState
 
          -- * Poll modifier
        , PollModifier (..)
        , pmNewScriptVersionsL
+       , pmDelScriptVersionsL
        , pmLastAdoptedPVL
        , pmNewConfirmedL
        , pmNewActivePropsL
@@ -31,12 +33,14 @@ import           Control.Lens        (makeLensesFor)
 import           Data.Default        (Default (def))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Buildable
+import           Formatting          (bprint, build, int, (%))
 import           Universum
 
 import           Pos.Crypto          (PublicKey)
 import           Pos.Script.Type     (ScriptVersion)
-import           Pos.Types.Coin      (unsafeAddCoin)
-import           Pos.Types.Types     (ChainDifficulty, Coin, SlotId, mkCoin)
+import           Pos.Types.Coin      (coinF, unsafeAddCoin)
+import           Pos.Types.Types     (ChainDifficulty, Coin, SlotId, StakeholderId,
+                                      mkCoin)
 import           Pos.Types.Version   (ApplicationName, NumSoftwareVersion,
                                       ProtocolVersion)
 import           Pos.Update.Core     (StakeholderVotes, UpId, UpdateProposal,
@@ -66,8 +70,8 @@ data UndecidedProposalState = UndecidedProposalState
 data DecidedProposalState = DecidedProposalState
     { dpsDecision   :: !Bool
       -- ^ Whether proposal is approved.
-    , dpsProposal   :: !UpdateProposal
-      -- ^ Proposal itself.
+    , dpsUndecided  :: !UndecidedProposalState
+      -- ^ Corresponding UndecidedProposalState
     , dpsDifficulty :: !ChainDifficulty
       -- ^ Difficulty at which this proposal became approved/rejected.
     } deriving (Generic)
@@ -80,7 +84,11 @@ data ProposalState
 
 psProposal :: ProposalState -> UpdateProposal
 psProposal (PSUndecided ups) = upsProposal ups
-psProposal (PSDecided dps)   = dpsProposal dps
+psProposal (PSDecided dps)   = upsProposal (dpsUndecided dps)
+
+psVotes :: ProposalState -> StakeholderVotes
+psVotes (PSUndecided ups) = upsVotes ups
+psVotes (PSDecided dps)   = upsVotes (dpsUndecided dps)
 
 -- | Make UndecidedProposalState from immutable data, i. e. SlotId and
 -- UpdateProposal.
@@ -120,15 +128,17 @@ voteToUProposalState voter stake decision UndecidedProposalState {..} =
 -- MemPool or blocks which are verified.
 data PollModifier = PollModifier
     { pmNewScriptVersions :: !(HashMap ProtocolVersion ScriptVersion)
+    , pmDelScriptVersions :: !(HashSet ProtocolVersion)
     , pmLastAdoptedPV     :: !(Maybe ProtocolVersion)
     , pmNewConfirmed      :: !(HashMap ApplicationName NumSoftwareVersion)
     , pmNewActiveProps    :: !(HashMap UpId ProposalState)
     , pmDelActiveProps    :: !(HashSet UpId)
     , pmNewActivePropsIdx :: !(HashMap ApplicationName UpId)
-    , pmDelActivePropsIdx :: !(HashSet ApplicationName)
+    , pmDelActivePropsIdx :: !(HashMap ApplicationName UpId)
     }
 
 makeLensesFor [ ("pmNewScriptVersions", "pmNewScriptVersionsL")
+              , ("pmDelScriptVersions", "pmDelScriptVersionsL")
               , ("pmLastAdoptedPV", "pmLastAdoptedPVL")
               , ("pmNewConfirmed", "pmNewConfirmedL")
               , ("pmNewActiveProps", "pmNewActivePropsL")
@@ -138,17 +148,9 @@ makeLensesFor [ ("pmNewScriptVersions", "pmNewScriptVersionsL")
               ]
   ''PollModifier
 
-instance Default PollModifier where
-    def =
-        PollModifier
-        { pmNewScriptVersions = mempty
-        , pmLastAdoptedPV = Nothing
-        , pmNewConfirmed = mempty
-        , pmNewActiveProps = mempty
-        , pmDelActiveProps = mempty
-        , pmNewActivePropsIdx = mempty
-        , pmDelActivePropsIdx = mempty
-        }
+----------------------------------------------------------------------------
+-- Verification failures
+----------------------------------------------------------------------------
 
 -- To be extended for sure.
 -- | PollVerificationFailure represents all possible errors which can
@@ -158,10 +160,32 @@ data PollVerFailure
                             ,  pwsvFound    :: !ScriptVersion}
     | PollSmallProposalStake { pspsThreshold :: !Coin
                             ,  pspsActual    :: !Coin}
+    | PollNotRichman { pnrStakeholder :: !StakeholderId
+                    ,  pnrThreshold   :: !Coin
+                    ,  pnrStake       :: !Coin}
+    | PollUnknownProposal { pupStakeholder :: !StakeholderId
+                         ,  pupProposal    :: !UpId}
 
 -- To be implemented for sure.
 instance Buildable PollVerFailure where
-    build = notImplemented
+    build (PollWrongScriptVersion expected found) =
+        bprint ("wrong script version (expected "%int%", found "%int%")")
+        expected found
+    build (PollSmallProposalStake threshold actual) =
+        bprint ("proposal doesn't have enough stake from positive votes "%
+                "(threshold is "%coinF%", proposal has "%coinF%")")
+        threshold actual
+    build (PollNotRichman id threshold stake) =
+        bprint ("voter "%build%" is not richman (his stake is "%coinF%", but"%
+                " threshold is "%coinF%")")
+        id stake threshold
+    build (PollUnknownProposal stakeholder proposal) =
+        bprint (build%" has voted for unkown proposal "%build)
+        stakeholder proposal
+
+----------------------------------------------------------------------------
+-- Undo
+----------------------------------------------------------------------------
 
 -- To be extended for sure.
 data USUndo = USUndo

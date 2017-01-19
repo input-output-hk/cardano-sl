@@ -4,7 +4,7 @@
 
 module Main where
 
-import           Control.Lens        ((%~), (.~), (^.), (^?), _head)
+import           Control.Lens        (_head)
 import           Data.List           ((!!))
 import           Data.Maybe          (fromJust)
 import           Data.Proxy          (Proxy (..))

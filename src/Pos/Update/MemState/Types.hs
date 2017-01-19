@@ -2,6 +2,8 @@
 
 module Pos.Update.MemState.Types
        ( MemPool (..)
+       , UpdateProposals
+       , LocalVotes
 
        -- , LocalProposalState (..)
        -- , fixLocalState
@@ -10,7 +12,7 @@ module Pos.Update.MemState.Types
 import           Data.Default    (Default (def))
 import           Universum
 
-import           Pos.Update.Core (StakeholderVotes, UpId, UpdateProposal)
+import           Pos.Update.Core (LocalVotes, UpdateProposals)
 
 -- I suppose it's not needed nowadays.
 
@@ -38,9 +40,10 @@ import           Pos.Update.Core (StakeholderVotes, UpId, UpdateProposal)
 
 -- | MemPool is data maintained by node to be included into block and
 -- relayed to other nodes.
+
 data MemPool = MemPool
-    { mpProposals   :: !(HashMap UpId UpdateProposal)
-    , mpGlobalVotes :: !(HashMap UpId StakeholderVotes)
+    { mpProposals  :: !UpdateProposals
+    , mpLocalVotes :: !LocalVotes
     }
 
 instance Default MemPool where

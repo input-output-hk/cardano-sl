@@ -12,7 +12,7 @@ module Pos.Wallet.KeyStorage
        ) where
 
 import qualified Control.Concurrent.STM      as STM
-import           Control.Lens                (Lens', iso, lens, use, (%=), (%~), (<>=))
+import           Control.Lens                (iso, lens, (%=), (<>=))
 import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
 import           Control.Monad.Fix           (MonadFix)
@@ -36,8 +36,9 @@ import           Pos.Context                 (ContextHolder (..), NodeContext (.
                                               WithNodeContext (..))
 import           Pos.Crypto                  (SecretKey, keyGen)
 import           Pos.DB                      (MonadDB)
-import           Pos.Delegation.Class        (DelegationT (..), MonadDelegation)
-import           Pos.DHT.Real             (KademliaDHT)
+import           Pos.Delegation.Class        (MonadDelegation)
+import           Pos.Delegation.Holder       (DelegationT (..))
+import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Slotting                (MonadSlots)
 import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp.Holder              (TxpLDHolder (..))

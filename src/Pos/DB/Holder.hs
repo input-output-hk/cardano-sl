@@ -9,7 +9,7 @@ module Pos.DB.Holder
        , runDBHolder
        ) where
 
-import           Control.Lens                 (iso, over)
+import           Control.Lens                 (iso)
 import           Control.Monad.Base           (MonadBase (..))
 import           Control.Monad.Fix            (MonadFix)
 import           Control.Monad.Trans          (MonadTrans)

@@ -8,7 +8,7 @@ module Pos.Update.Network.Types
 import           Data.Text.Buildable (Buildable (..))
 import           Universum
 
-import           Pos.Update.Core     (UpdateProposal)
+import           Pos.Update.Core     (UpdateProposal, UpdateVote)
 import           Pos.Util            (NamedMessagePart (..))
 
 -- | Tag for proposal messages
@@ -20,6 +20,10 @@ instance NamedMessagePart ProposalMsgTag where
 instance Buildable ProposalMsgTag where
     build _ = "ProposalMsgTag"
 
+-- | Instance for `UpdateProposal`
+instance NamedMessagePart UpdateProposal where
+    nMessageName _ = "Update proposal"
+
 -- | Tag for vote messages
 data VoteMsgTag = VoteMsgTag deriving (Eq, Show)
 
@@ -29,6 +33,6 @@ instance NamedMessagePart VoteMsgTag where
 instance Buildable VoteMsgTag where
     build _ = "VoteMsgTag"
 
--- | Instance for `UpdateProposal`
-instance NamedMessagePart UpdateProposal where
-    nMessageName _ = "Update proposal"
+-- | Instance for `UpdateVote`
+instance NamedMessagePart UpdateVote where
+    nMessageName _ = "Update vote"

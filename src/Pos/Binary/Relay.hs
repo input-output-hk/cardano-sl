@@ -12,7 +12,8 @@ import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..))
 import           Pos.Txp.Types.Communication      (TxMsgContents (..))
 import           Pos.Types                        (TxId)
 import           Pos.Types.Address                (StakeholderId, addressHash)
-import           Pos.Update.Core                  (UpId, UpdateProposal)
+import           Pos.Update.Core                  (UpId, UpdateProposal, UpdateVote (..),
+                                                   VoteId)
 import           Pos.Util.Relay                   (DataMsg (..), DataMsgGodTossing (..),
                                                    InvMsg (..), ReqMsg (..))
 
@@ -61,3 +62,9 @@ instance Bi (DataMsg TxId TxMsgContents) where
 instance Bi (DataMsg UpId UpdateProposal) where
     put DataMsg {..} = put dmContents >> put dmKey
     get = liftM2 DataMsg get get
+
+instance Bi (DataMsg VoteId UpdateVote) where
+    put (DataMsg uv _) = put uv
+    get = do
+        uv@UpdateVote{..} <- get
+        pure $ DataMsg uv (uvProposalId, uvKey, uvDecision)

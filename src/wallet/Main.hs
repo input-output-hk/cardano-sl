@@ -21,7 +21,7 @@ import           Pos.Communication    (BiP)
 import           Pos.Constants        (slotDuration)
 import           Pos.Crypto           (SecretKey, createProxySecretKey, toPublic)
 import           Pos.Delegation       (sendProxySKEpoch, sendProxySKSimple)
-import           Pos.DHT.Model        (DHTNodeType (..), dhtAddr, discoverPeers)
+import           Pos.DHT.Model        (dhtAddr, discoverPeers)
 import           Pos.Genesis          (genesisPublicKeys, genesisSecretKeys)
 import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
                                        bracketResources, runTimeSlaveReal)
@@ -103,7 +103,7 @@ initialize WalletOptions{..} = do
     -- Wait some time to ensure blockchain is fetched
     putText $ sformat ("Started node. Waiting for "%int%" slots...") woInitialPause
     delay $ fromIntegral woInitialPause * slotDuration
-    fmap dhtAddr <$> discoverPeers DHTFull
+    fmap dhtAddr <$> discoverPeers
 
 runWalletRepl :: WalletMode ssc m => WalletOptions -> SendActions BiP m -> m ()
 runWalletRepl wo sa = do
@@ -137,8 +137,9 @@ main = do
             { bpLoggingParams      = logParams
             , bpIpPort             = woIpPort
             , bpDHTPeers           = CLI.dhtPeers woCommonArgs
-            , bpDHTKeyOrType       = Right DHTClient
+            , bpDHTKey             = Nothing
             , bpDHTExplicitInitial = CLI.dhtExplicitInitial woCommonArgs
+            , bpKademliaDump       = "kademlia.dump"
             }
     bracketResources baseParams $ \res -> do
         let timeSlaveParams =

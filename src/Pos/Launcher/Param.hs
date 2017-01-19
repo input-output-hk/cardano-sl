@@ -11,8 +11,8 @@ import           System.Wlog         (LoggerName)
 import           Universum
 
 import           Pos.Crypto          (SecretKey)
-import           Pos.DHT.Model       (DHTKey, DHTNode, DHTNodeType)
-import           Pos.Security.CLI  (AttackTarget, AttackType)
+import           Pos.DHT.Model       (DHTKey, DHTNode)
+import           Pos.Security.CLI    (AttackTarget, AttackType)
 import           Pos.Types           (Timestamp, Utxo)
 import           Pos.Util.UserSecret (UserSecret)
 
@@ -27,9 +27,10 @@ data LoggingParams = LoggingParams
 data BaseParams = BaseParams
     { bpIpPort             :: !NetworkAddress         -- ^ port to run on
     , bpDHTPeers           :: ![DHTNode]      -- ^ peers passed from CLI
-    , bpDHTKeyOrType       :: !(Either DHTKey DHTNodeType)
+    , bpDHTKey             :: !(Maybe DHTKey)
     , bpDHTExplicitInitial :: !Bool
     , bpLoggingParams      :: !LoggingParams  -- ^ logger parameters
+    , bpKademliaDump       :: !FilePath       -- ^ Path to kademlia dump file
     } deriving (Show)
 
 -- | Contains algorithm specific & storage parameters for Node.

@@ -26,7 +26,7 @@ import           Pos.Context                 (NodeContext (..), getNodeContext,
 import qualified Pos.DB.GState               as GS
 import qualified Pos.DB.Lrc                  as LrcDB
 import           Pos.Delegation.Logic        (initDelegation)
-import           Pos.DHT.Model               (DHTNodeType (DHTFull), discoverPeers)
+import           Pos.DHT.Model               (discoverPeers)
 import           Pos.Slotting                (getCurrentSlot)
 import           Pos.Ssc.Class               (SscConstraint)
 import           Pos.Types                   (Timestamp (Timestamp), addressHash)
@@ -79,7 +79,7 @@ waitSystemStart = do
 
 -- | Try to discover peers repeatedly until at least one live peer is found
 waitForPeers :: WorkMode ssc m => m ()
-waitForPeers = discoverPeers DHTFull >>= \case
+waitForPeers = discoverPeers >>= \case
     ps@(_:_) -> () <$ logInfo (sformat ("Known peers: "%build) ps)
     []       -> logInfo "Couldn't connect to any peer, trying again..." >>
                 waitRandomInterval (sec 3) (sec 10) >>

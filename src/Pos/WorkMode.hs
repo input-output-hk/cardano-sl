@@ -34,7 +34,7 @@ import           Pos.DB.Holder               (DBHolder)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Delegation.Holder       (DelegationT (..))
 import           Pos.DHT.Model               (MonadDHT)
-import           Pos.DHT.Real                (KademliaDHT (..))
+import           Pos.DHT.Real                (KademliaDHT (..), WithKademliaDHTInstance)
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
 import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
@@ -68,6 +68,7 @@ type WorkMode ssc m
       , WithNodeContext ssc m
       , MonadStats m
       , MonadJL m
+      , WithKademliaDHTInstance m
       , MonadFail m
       , WithPeerState ssc m
       , MonadUSMem m
@@ -116,6 +117,7 @@ deriving instance MonadTxpLD ssc m => MonadTxpLD ssc (PeerStateHolder ssc m)
 deriving instance MonadJL m => MonadJL (PeerStateHolder ssc m)
 deriving instance MonadUSMem m => MonadUSMem (PeerStateHolder ssc m)
 deriving instance MonadSscRichmen m => MonadSscRichmen (PeerStateHolder ssc m)
+deriving instance (Monad m, WithKademliaDHTInstance m) => WithKademliaDHTInstance (PeerStateHolder ssc m)
 
 -- | RawRealMode is a basis for `WorkMode`s used to really run system.
 type RawRealMode ssc =

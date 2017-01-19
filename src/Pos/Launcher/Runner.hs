@@ -278,6 +278,7 @@ runCH NodeParams {..} sscNodeContext act = do
             , ncBlkSemaphore = semaphore
             , ncLrcSync = lrcSync
             , ncUserSecret = userSecretVar
+            , ncKademliaDump = bpKademliaDump npBaseParams
             , ncNtpData = ntpData
             , ncNtpLastSlot = lastSlot
             , ncBlockRetrievalQueue = queue
@@ -323,10 +324,11 @@ bracketDHTInstance BaseParams {..} action = bracket acquire release action
     release = withLog . stopDHTInstance
     instConfig =
         KademliaDHTInstanceConfig
-        { kdcKeyOrType = bpDHTKeyOrType
+        { kdcKey = bpDHTKey
         , kdcPort = snd bpIpPort
         , kdcInitialPeers = nub $ bpDHTPeers ++ Const.defaultPeers
         , kdcExplicitInitial = bpDHTExplicitInitial
+        , kdcDumpPath = bpKademliaDump
         }
 
 createTransport :: (MonadIO m, WithLogger m, Mockable Throw m) => String -> Word16 -> m Transport

@@ -26,6 +26,7 @@ import           Network.Kademlia.HashNodeId (HashId (..), genNonce, hashAddress
 import qualified Network.Transport.TCP       as TCP
 import           Node                        (NodeId (..))
 import           Prelude                     (read, show)
+import qualified Serokell.Util.Base64        as B64
 import           Serokell.Util.Text          (listBuilderJSON)
 import           Universum                   hiding (show)
 
@@ -45,7 +46,7 @@ instance Hashable DHTKey where
     hashWithSalt s (DHTKey (HashId bs)) = hashWithSalt s bs
 
 instance Buildable DHTKey where
-    build = build . show
+    build (DHTKey (HashId bs)) = build (B64.encodeUrl bs)
 
 instance Show DHTKey where
     show = toString . pretty

@@ -1,4 +1,6 @@
-{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE BangPatterns        #-}
+{-# LANGUAGE Rank2Types          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Functions which operate on MonadPoll[Read].
 
@@ -8,7 +10,9 @@ module Pos.Update.Poll.Functions
        , normalizePoll
        ) where
 
+import           Control.Lens          (view, (^.))
 import           Control.Monad.Except  (MonadError, throwError)
+import qualified Data.HashMap.Strict   as HM
 import           Data.List             (partition)
 import           Data.List.NonEmpty    (NonEmpty)
 import qualified Data.List.NonEmpty    as NE
@@ -18,14 +22,66 @@ import           Universum
 import           Pos.Constants         (updateProposalThreshold, updateVoteThreshold)
 import           Pos.Crypto            (hash)
 import           Pos.Types             (ChainDifficulty, Coin, EpochIndex,
-                                        SlotId (siEpoch), SoftwareVersion (..),
-                                        addressHash, applyCoinPortion, coinToInteger,
-                                        sumCoins, unsafeIntegerToCoin)
+                                        MainBlockHeader, SlotId (siEpoch),
+                                        SoftwareVersion (..), addressHash,
+                                        applyCoinPortion, coinToInteger, difficultyL,
+                                        epochIndexL, headerSlot, sumCoins,
+                                        unsafeIntegerToCoin)
 import           Pos.Update.Core       (UpId, UpdatePayload (..), UpdateProposal (..),
-                                        UpdateVote (..))
+                                        UpdateVote (..), combineVotes)
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Types (PollVerFailure (..), ProposalState (..),
-                                        USUndo (..), UndecidedProposalState (..))
+import           Pos.Update.Poll.Types (DecidedProposalState (..), PollVerFailure (..),
+                                        ProposalState (..), USUndo (..),
+                                        UndecidedProposalState (..))
+
+----------------------------------------------------------------------------
+-- Primitive operations, helpers
+----------------------------------------------------------------------------
+
+newtype TotalPositive = TotalPositive Integer
+newtype TotalNegative = TotalNegative Integer
+newtype TotalSum = TotalSum Integer
+
+isDecided :: TotalPositive -> TotalNegative -> TotalSum -> Maybe Bool
+isDecided (TotalPositive totalPositive) (TotalNegative totalNegative) (TotalSum totalSum)
+    | totalPositive * 2 > totalSum = Just True
+    | totalNegative * 2 > totalSum = Just False
+    | otherwise = Nothing
+
+putNewProposal
+    :: forall ssc m.
+       (MonadPoll m)
+    => Either SlotId (MainBlockHeader ssc)
+    -> Coin
+    -> [(UpdateVote, Coin)]
+    -> UpdateProposal
+    -> m ()
+putNewProposal slotOrHeader totalStake votesAndStakes up = addActiveProposal ps
+  where
+    slotId = either identity (view headerSlot) slotOrHeader
+    cd = either (const Nothing) (Just . view difficultyL) slotOrHeader
+    totalPositive = sumCoins . map snd . filter (uvDecision . fst) $ votesAndStakes
+    totalNegative = sumCoins . map snd . filter (not . uvDecision . fst) $ votesAndStakes
+    votes = HM.fromList . map convertVote $ votesAndStakes
+    convertVote (UpdateVote {..}, _) = (uvKey, uvDecision `combineVotes` Nothing)
+    ups =
+        UndecidedProposalState
+        { upsVotes = votes
+        , upsProposal = up
+        , upsSlot = slotId
+        , upsPositiveStake = unsafeIntegerToCoin totalPositive
+        , upsNegativeStake = unsafeIntegerToCoin totalNegative
+        }
+    ps
+        | Just decision <-
+             isDecided
+                 (TotalPositive totalPositive)
+                 (TotalNegative totalNegative)
+                 (TotalSum $ coinToInteger totalStake) =
+            PSDecided
+                DecidedProposalState
+                {dpsDecision = decision, dpsUndecided = ups, dpsDifficulty = cd}
+        | otherwise = PSUndecided ups
 
 ----------------------------------------------------------------------------
 -- Verify and apply
@@ -37,10 +93,14 @@ import           Pos.Update.Poll.Types (PollVerFailure (..), ProposalState (..),
 -- When first flag is true and proposal is present,
 -- 'updateProposalThreshold' is checked for it, otherwise it's not
 -- checked.
+-- When second argument is 'Left epoch', it means that temporary payload
+-- for given slot is applied.
+-- When it is 'Right header', it means that payload from block with
+-- given header is applied.
 verifyAndApplyUSPayload
     :: (MonadError PollVerFailure m, MonadPoll m)
-    => Bool -> EpochIndex -> UpdatePayload -> m USUndo
-verifyAndApplyUSPayload considerPropThreshold epoch UpdatePayload {..} = do
+    => Bool -> Either SlotId (MainBlockHeader __) -> UpdatePayload -> m USUndo
+verifyAndApplyUSPayload considerPropThreshold slotOrHeader UpdatePayload {..} = do
     -- First of all, we split all votes into groups. One group
     -- consists of votes for proposal from payload. Each other group
     -- consists of votes for other proposals.
@@ -51,7 +111,7 @@ verifyAndApplyUSPayload considerPropThreshold epoch UpdatePayload {..} = do
     -- When there is proposal in payload, it's verified and applied.
     whenJust
         upProposal
-        (verifyAndApplyProposal considerPropThreshold epoch curPropVotes)
+        (verifyAndApplyProposal considerPropThreshold slotOrHeader curPropVotes)
     -- Then we also apply votes from other groups.
     mapM_ verifyAndApplyVotesGroup otherGroups
     return USUndo
@@ -87,8 +147,13 @@ resolveVoteStake epoch totalStake UpdateVote {..} = do
 -- state (if it has enough voted stake at once).
 verifyAndApplyProposal
     :: (MonadError PollVerFailure m, MonadPoll m)
-    => Bool -> EpochIndex -> [UpdateVote] -> UpdateProposal -> m ()
-verifyAndApplyProposal considerThreshold epoch votes up@UpdateProposal {..} = do
+    => Bool
+    -> Either SlotId (MainBlockHeader __)
+    -> [UpdateVote]
+    -> UpdateProposal
+    -> m ()
+verifyAndApplyProposal considerThreshold slotOrHeader votes up@UpdateProposal {..} = do
+    let epoch = slotOrHeader ^. epochIndexL
     let !upId = hash up
     whenM (hasActiveProposal (svAppName upSoftwareVersion)) $
         throwError $ Poll2ndActiveProposal upSoftwareVersion
@@ -98,6 +163,7 @@ verifyAndApplyProposal considerThreshold epoch votes up@UpdateProposal {..} = do
     votesAndStakes <-
         mapM (\v -> (v, ) <$> resolveVoteStake epoch totalStake v) votes
     when considerThreshold $ verifyProposalStake totalStake votesAndStakes upId
+    putNewProposal slotOrHeader totalStake votesAndStakes up
 
 verifyAndApplyProposalScript
     :: (MonadError PollVerFailure m, MonadPoll m)

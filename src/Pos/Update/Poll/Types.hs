@@ -72,8 +72,9 @@ data DecidedProposalState = DecidedProposalState
       -- ^ Whether proposal is approved.
     , dpsUndecided  :: !UndecidedProposalState
       -- ^ Corresponding UndecidedProposalState
-    , dpsDifficulty :: !ChainDifficulty
+    , dpsDifficulty :: !(Maybe ChainDifficulty)
       -- ^ Difficulty at which this proposal became approved/rejected.
+      --   Can be Nothing in temporary state.
     } deriving (Generic)
 
 -- | State of UpdateProposal.

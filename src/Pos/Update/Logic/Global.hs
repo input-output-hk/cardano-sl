@@ -23,8 +23,8 @@ import           Pos.DB.GState        (UpdateOp (..))
 import           Pos.Script.Type      (ScriptVersion)
 import           Pos.Types            (ApplicationName, Block, NEBlocks,
                                        NumSoftwareVersion, ProtocolVersion,
-                                       SoftwareVersion (..), difficultyL, epochIndexL,
-                                       gbBody, mbUpdatePayload)
+                                       SoftwareVersion (..), difficultyL, gbBody,
+                                       gbHeader, mbUpdatePayload)
 import           Pos.Update.Core      (UpId)
 import           Pos.Update.Error     (USError (USInternalError))
 import           Pos.Update.Poll      (DBPoll, MonadPoll, PollModifier (..), PollT,
@@ -94,7 +94,7 @@ verifyBlock (Left _)    = pure def
 verifyBlock (Right blk) =
     verifyAndApplyUSPayload
         True
-        (blk ^. epochIndexL)
+        (Right $ blk ^. gbHeader)
         (blk ^. gbBody . mbUpdatePayload)
 
 ----------------------------------------------------------------------------

@@ -135,10 +135,9 @@ processSkeleton
     :: USLocalLogicMode ϟ m
     => UpdatePayload -> m (Either PollVerFailure ())
 processSkeleton payload = withUSLock $ runExceptT $ withCurrentTip $ \ms@MemState{..} -> do
-    let epoch = siEpoch msSlot
     modifier <-
         runDBPoll . evalPollT msModifier . execPollT def $
-        verifyAndApplyUSPayload False epoch payload
+        verifyAndApplyUSPayload False (Left msSlot) payload
     let newModifier = modifyPollModifier msModifier modifier
     let newPool = modifyMemPool payload modifier msPool
     pure $ ms {msModifier = newModifier, msPool = newPool}

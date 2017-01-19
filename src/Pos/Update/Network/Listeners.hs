@@ -60,7 +60,6 @@ instance WorkMode ssc m =>
 
     verifyInvTag _ = pure VerSuccess
     verifyReqTag _ = pure VerSuccess
-    -- TODO: maybe somehow check that versions are not decreasing or whatevs?
     verifyDataContents UpdateProposal{..} = pure VerSuccess
 
     handleInv _ = isProposalNeeded

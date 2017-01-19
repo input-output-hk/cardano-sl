@@ -11,12 +11,9 @@ import           Node                  (SendActions)
 import           System.Wlog           (logNotice)
 import           Universum
 
-import qualified Pos.Binary.Class      as BI
 import           Pos.Binary.DHTModel   ()
-import           Pos.Constants         (epochSlots)
-import           Pos.Context           (getNodeContext, ncKademliaDump)
 import           Pos.Communication.BiP (BiP)
-import           Pos.DHT.Model.Types   (DHTKey)
+import           Pos.Context           (getNodeContext, ncKademliaDump)
 import           Pos.DHT.Real.Types    (KademliaDHTInstance (..),
                                         WithKademliaDHTInstance (..))
 import           Pos.Slotting          (onNewSlot)

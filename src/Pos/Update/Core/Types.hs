@@ -13,6 +13,8 @@ module Pos.Update.Core.Types
        , ExtStakeholderVotes
        , VoteState (..)
        , ExtendedUpdateVote
+       , UpdateProposals
+       , LocalVotes
 
        , UpdateData (..)
        , SystemTag (getSystemTag)
@@ -172,6 +174,9 @@ type ExtendedUpdateVote = (UpdateVote, VoteState)
 type ExtStakeholderVotes = HashMap PublicKey ExtendedUpdateVote
 -- | Type alias for set of votes from stakeholders
 type StakeholderVotes = HashMap PublicKey VoteState
+
+type UpdateProposals = HashMap UpId UpdateProposal
+type LocalVotes = HashMap UpId ExtStakeholderVotes
 
 deriveSafeCopySimple 0 'base ''SystemTag
 deriveSafeCopySimple 0 'base ''UpdateData

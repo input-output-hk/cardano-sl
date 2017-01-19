@@ -15,12 +15,13 @@ module Pos.Block.Logic.Internal
 import           Control.Arrow        ((&&&))
 import           Control.Lens         (view, (^.), _1)
 import           Control.Monad.Catch  (bracketOnError)
+import           Data.Bifunctor       (second)
 import           Data.List.NonEmpty   (NonEmpty)
 import qualified Data.List.NonEmpty   as NE
 import           System.Wlog          (logError)
 import           Universum
 
-import           Pos.Block.Types      (Blund)
+import           Pos.Block.Types      (Blund, Undo (undoUS))
 import           Pos.Context          (lrcActionOnEpochReason, putBlkSemaphore,
                                        takeBlkSemaphore)
 import           Pos.DB               (SomeBatchOp (..))
@@ -31,6 +32,8 @@ import           Pos.Delegation.Logic (delegationApplyBlocks, delegationRollback
 import           Pos.Ssc.Extra        (sscApplyBlocks, sscApplyGlobalState, sscRollback)
 import           Pos.Txp.Logic        (normalizeTxpLD, txApplyBlocks, txRollbackBlocks)
 import           Pos.Types            (HeaderHash, epochIndexL, headerHashG, prevBlockL)
+import           Pos.Update.Logic     (usApplyBlocks, usRollbackBlocks)
+import           Pos.Update.Poll      (PollModifier)
 import           Pos.Util             (Color (Red), colorize, inAssertMode, spanSafe,
                                        _neLast)
 import           Pos.WorkMode         (WorkMode)
@@ -58,10 +61,11 @@ withBlkSemaphore_ = withBlkSemaphore . (fmap ((), ) .)
 -- epoch index. This function is unsafe, use it only if you understand
 -- what you're doing. That means you can break system guarantees.
 applyBlocksUnsafe
-    :: forall ssc m . WorkMode ssc m => NonEmpty (Blund ssc) -> m ()
-applyBlocksUnsafe blunds0 = do
+    :: forall ssc m . WorkMode ssc m => NonEmpty (Blund ssc) -> PollModifier -> m ()
+applyBlocksUnsafe blunds0 pModifier = do
     -- Note: it's important to put blocks first
     mapM_ putToDB blunds
+    usBatch <- SomeBatchOp <$> usApplyBlocks blocks pModifier
     delegateBatch <- SomeBatchOp <$> delegationApplyBlocks blocks
     txBatch <- SomeBatchOp <$> txApplyBlocks blunds
     sscApplyBlocks blocks
@@ -69,7 +73,7 @@ applyBlocksUnsafe blunds0 = do
     richmen <-
         lrcActionOnEpochReason epoch "couldn't get SSC richmen" DB.getRichmenSsc
     sscApplyGlobalState richmen
-    GS.writeBatchGState [delegateBatch, txBatch, forwardLinksBatch, inMainBatch]
+    GS.writeBatchGState [delegateBatch, usBatch, txBatch, forwardLinksBatch, inMainBatch]
     normalizeTxpLD
     DB.sanityCheckDB
   where
@@ -88,9 +92,10 @@ applyBlocksUnsafe blunds0 = do
 rollbackBlocksUnsafe :: (WorkMode ssc m) => NonEmpty (Blund ssc) -> m ()
 rollbackBlocksUnsafe toRollback = do
     delRoll <- SomeBatchOp <$> delegationRollbackBlocks toRollback
+    usRoll <- SomeBatchOp <$> usRollbackBlocks (map (second undoUS) toRollback)
     txRoll <- SomeBatchOp <$> txRollbackBlocks toRollback
     sscRollback $ fmap fst toRollback
-    GS.writeBatchGState [delRoll, txRoll, forwardLinksBatch, inMainBatch]
+    GS.writeBatchGState [delRoll, usRoll, txRoll, forwardLinksBatch, inMainBatch]
     DB.sanityCheckDB
     inAssertMode $
         when (isGenesis0 $ fst $ NE.last $ toRollback) $

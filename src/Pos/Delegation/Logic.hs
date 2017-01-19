@@ -34,7 +34,7 @@ module Pos.Delegation.Logic
        ) where
 
 import           Control.Concurrent.STM.TVar (readTVar, writeTVar)
-import           Control.Lens                (makeLenses, to, use, uses, view, (%=), (.=),
+import           Control.Lens                (makeLenses, use, uses, view, (%=), (.=),
                                               (^.), _1)
 import           Control.Monad.Trans.Except  (runExceptT, throwE)
 import qualified Data.HashMap.Strict         as HM

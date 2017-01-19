@@ -10,7 +10,7 @@ module Pos.Update.Poll.Functions
        , normalizePoll
        ) where
 
-import           Control.Lens          (at, view, (^.))
+import           Control.Lens          (at)
 import           Control.Monad.Except  (MonadError, throwError)
 import qualified Data.HashMap.Strict   as HM
 import           Data.List             (partition)

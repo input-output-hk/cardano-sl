@@ -10,6 +10,7 @@ import           Language.PureScript.Bridge.PSTypes (psInt)
 import           Universum
 
 import qualified Pos.Types.Types                    as PT
+import qualified Pos.Util.BackupPhrase              as BP
 import qualified Pos.Wallet.Web                     as CT
 
 import           PSTypes                            (psHash, psPosixTime)
@@ -22,6 +23,7 @@ main =
       [ mkSumType (Proxy @CT.WalletError)
       , mkSumType (Proxy @CT.CCurrency)
       , mkSumType (Proxy @CT.CWalletMeta)
+      , mkSumType (Proxy @CT.CWalletInit)
       , mkSumType (Proxy @CT.CWalletType)
       , mkSumType (Proxy @CT.CWallet)
       , mkSumType (Proxy @CT.CProfile)
@@ -34,6 +36,7 @@ main =
       , mkSumType (Proxy @CT.CTx)
       , mkSumType (Proxy @CT.NotifyEvent)
       , mkSumType (Proxy @PT.Coin)
+      , mkSumType (Proxy @BP.BackupPhrase)
       ]
   where
       customBridge =

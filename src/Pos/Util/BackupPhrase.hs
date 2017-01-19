@@ -28,7 +28,7 @@ import           Pos.Crypto          (AbstractHash, SecretKey, VssKeyPair,
 -- | Datatype to contain a valid backup phrase
 newtype BackupPhrase = BackupPhrase
     { bpToList :: [Text]
-    } deriving (Eq)
+    } deriving (Eq, Generic)
 
 -- | Number of words in backup phrase
 backupPhraseWordsNum :: Int

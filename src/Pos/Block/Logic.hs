@@ -272,20 +272,19 @@ getHeadersOlderExp
 getHeadersOlderExp upto = do
     tip <- GS.getTip
     let upToReal = fromMaybe tip upto
-    allHeaders <- reverse <$> DB.loadHeadersByDepth blkSecurityParam upToReal
-    pure $ selectIndices (takeHashes allHeaders) (twoPowers $ length allHeaders)
+    -- Using 'blkSecurityParam + 1' because fork can happen on k+1th one.
+    allHeaders <-
+        reverse <$> DB.loadHeadersByDepth (blkSecurityParam + 1) upToReal
+    pure $ selectIndices
+              (map headerHash allHeaders)
+              (twoPowers $ length allHeaders)
   where
-    -- Given list of headers newest first, maps it to their hashes
-    takeHashes [] = []
-    takeHashes headers@(x:_) =
-        let prevHashes = map (view prevBlockL) headers
-        in headerHash x : take (length prevHashes - 1) prevHashes
     -- Powers of 2
-    twoPowers n | n < 0 =
-        panic $ "getHeadersOlderExp#twoPowers called w/" <> show n
+    twoPowers n
+        | n < 0 = panic $ "getHeadersOlderExp#twoPowers called w/" <> show n
     twoPowers 0 = []
     twoPowers 1 = [0]
-    twoPowers n = (takeWhile (<(n-1)) $ 0 : 1 : iterate (*2) 2) ++ [n-1]
+    twoPowers n = (takeWhile (< (n - 1)) $ 0 : 1 : iterate (* 2) 2) ++ [n - 1]
     -- Effectively do @!i@ for any @i@ from the index list applied to
     -- source list. Index list should be inreasing.
     selectIndices :: [a] -> [Int] -> [a]

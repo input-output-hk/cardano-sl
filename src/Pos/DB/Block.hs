@@ -109,6 +109,8 @@ loadDataWhile getter predicate start = doIt start
                 then (d :) <$> doIt prev
                 else pure []
 
+-- For depth 'd' load blocks that have depth < 'd'. Given header
+-- (newest one) is assumed to have depth 0.
 loadDataByDepth
     :: forall m a .
        (Monad m, HasPrevBlock a, HasDifficulty a)
@@ -150,17 +152,17 @@ loadBlundsByDepth
     => Word -> HeaderHash -> m [Blund ssc]
 loadBlundsByDepth = loadDataByDepth getBlundThrow (const True)
 
--- | Load blocks starting from block with header hash equal to given hash
--- and while @predicate@ is true.  The head of returned list is the
--- youngest block.
+-- | Load blocks starting from block with header hash equal to given
+-- hash and while @predicate@ is true. The head of returned list is
+-- the youngest block.
 loadBlocksWhile
     :: (Ssc ssc, MonadDB ssc m)
     => (Block ssc -> Bool) -> HeaderHash -> m [Block ssc]
 loadBlocksWhile = loadDataWhile getBlockThrow
 
--- | Load headers starting from block with header hash equal to given hash
--- and while @predicate@ is true.  The head of returned list is the
--- youngest header.
+-- | Load headers starting from block with header hash equal to given
+-- hash and while @predicate@ is true. The head of returned list is
+-- the youngest header.
 loadHeadersWhile
     :: (Ssc ssc, MonadDB ssc m)
     => (BlockHeader ssc -> Bool) -> HeaderHash -> m [BlockHeader ssc]

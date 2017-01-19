@@ -11,11 +11,13 @@ import qualified Data.HashMap.Strict          as HM
 import           Universum
 
 import           Pos.Crypto                   (hash)
-import           Pos.Update.Core.Types        (UpdatePayload (..), UpdateVote (..))
+import           Pos.Update.Core.Types        (UpId, UpdatePayload (..), UpdateVote (..),
+                                               VoteState)
 import           Pos.Update.MemState.Class    (MonadUSMem (askUSMemVar))
 import           Pos.Update.MemState.MemState (MemVar (..))
 import           Pos.Update.MemState.Types    (MemPool (..))
-import           Pos.Update.Poll.Types        (PollModifier (..), psProposal, psVotes)
+import           Pos.Update.Poll.Types        (PollModifier (..), ProposalState,
+                                               psProposal, psVotes)
 
 withUSLock
     :: (MonadUSMem m, MonadIO m, MonadMask m)
@@ -40,6 +42,7 @@ modifyMemPool UpdatePayload {..} PollModifier{..} =
     addProposal (Just p) MemPool {..} = MemPool
         (HM.insert (hash p) p mpProposals)
         mpLocalVotes
+    lookupVS :: HashMap UpId ProposalState -> UpdateVote -> Maybe VoteState
     lookupVS activeProps UpdateVote{..} =
         HM.lookup uvProposalId activeProps >>= HM.lookup uvKey . psVotes
     insertVote e@(UpdateVote{..}, _) = HM.alter (append e) uvProposalId

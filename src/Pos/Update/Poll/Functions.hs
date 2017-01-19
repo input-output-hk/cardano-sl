@@ -166,7 +166,10 @@ verifyAndApplyUSPayload considerPropThreshold slotOrHeader UpdatePayload {..} = 
         upProposal
         (verifyAndApplyProposal considerPropThreshold slotOrHeader curPropVotes)
     -- Then we also apply votes from other groups.
-    mapM_ verifyAndApplyVotesGroup otherGroups
+    -- ChainDifficulty is needed, because proposal may become approved
+    -- and then we'll need to track whether it becomes confirmed.
+    let cd = either (const Nothing) (Just . view difficultyL) slotOrHeader
+    mapM_ (verifyAndApplyVotesGroup cd) otherGroups
     return USUndo
 
 -- Get stake of stakeholder who issued given vote as per given epoch.
@@ -290,8 +293,8 @@ verifyProposalStake totalStake votesAndStakes upId = do
 -- Votes are assumed to be for the same proposal.
 verifyAndApplyVotesGroup
     :: (MonadError PollVerFailure m, MonadPoll m)
-    => NonEmpty UpdateVote -> m ()
-verifyAndApplyVotesGroup votes = do
+    => Maybe ChainDifficulty -> NonEmpty UpdateVote -> m ()
+verifyAndApplyVotesGroup cd votes = do
     let upId = uvProposalId $ NE.head votes
         !stakeholderId = addressHash . uvKey $ NE.head votes
         unknownProposalErr =
@@ -300,12 +303,12 @@ verifyAndApplyVotesGroup votes = do
     ps <- note unknownProposalErr =<< getProposal upId
     case ps of
         PSDecided _     -> throwError $ PollProposalIsDecided upId stakeholderId
-        PSUndecided ups -> mapM_ (verifyAndApplyVote ups) votes
+        PSUndecided ups -> mapM_ (verifyAndApplyVote cd ups) votes
 
 verifyAndApplyVote
     :: (MonadError PollVerFailure m, MonadPoll m)
-    => UndecidedProposalState -> UpdateVote -> m ()
-verifyAndApplyVote ups v@UpdateVote {..} = do
+    => Maybe ChainDifficulty -> UndecidedProposalState -> UpdateVote -> m ()
+verifyAndApplyVote cd ups v@UpdateVote {..} = do
     let e = siEpoch $ upsSlot ups
     totalStake <- note (PollUnknownStakes e) =<< getEpochTotalStake e
     voteStake <- resolveVoteStake e totalStake v
@@ -321,7 +324,7 @@ verifyAndApplyVote ups v@UpdateVote {..} = do
                     DecidedProposalState
                     { dpsUndecided = newUPS
                     , dpsDecision = decision
-                    , dpsDifficulty = undefined
+                    , dpsDifficulty = cd
                     }
             | otherwise = PSUndecided ups
     addActiveProposal newPS

@@ -50,7 +50,7 @@ announceBlock sendActions header = do
   where
     announceBlockDo nodeId conv = do
         logDebug $ sformat ("Announcing block "%shortHashF%" to "%shown) (headerHash header) nodeId
-        send conv $ MsgHeaders $ pure $ Right header
+        send conv $ MsgHeaders (one (Right header))
         handleHeadersCommunication conv
 
 handleHeadersCommunication

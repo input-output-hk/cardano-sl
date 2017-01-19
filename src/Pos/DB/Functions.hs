@@ -160,7 +160,7 @@ class RocksBatchOp a where
     toBatchOp :: a -> [Rocks.BatchOp]
 
 instance RocksBatchOp Rocks.BatchOp where
-    toBatchOp = pure
+    toBatchOp = one
 
 data EmptyBatchOp
 

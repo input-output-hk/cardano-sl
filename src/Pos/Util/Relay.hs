@@ -233,7 +233,7 @@ handleDataL DataMsg {..} _ sendActions =
                 dmContents dmKey
             tag <- contentsToTag dmContents
             -- [CSL-514] TODO Log long acting sends
-            sendToNeighbors sendActions $ InvMsg tag (dmKey :| [])
+            sendToNeighbors sendActions $ InvMsg tag (one dmKey)
         else do
             logInfo $ sformat
                 ("Adopted data "%build%" for "%

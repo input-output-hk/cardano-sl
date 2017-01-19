@@ -37,7 +37,7 @@ commitmentsAndOpenings :: [CommitmentOpening]
 commitmentsAndOpenings =
     map (uncurry CommitmentOpening) $
     unsafeMakePool "[generating Commitments and Openings for tests...]" 50 $
-       genCommitmentAndOpening 1 (asBinary vssPk :| [])
+       genCommitmentAndOpening 1 (one (asBinary vssPk))
   where
     vssPk = toVssPublicKey $ deterministicVssKeyGen "aaaaaaaaaaaaaaaaaaaaaassss"
 {-# NOINLINE commitmentsAndOpenings #-}

@@ -139,7 +139,7 @@ retrievalWorker sendActions = handleAll handleWE $
                               %" while "%shortHashF%" expected: "%build)
                         i prevH' prevH (block ^. blockHeader)
                 if curH == endH
-                  then return $ block :| []
+                  then return $ one block
                   else (block <|) <$> retrieveBlocks' (i+1) conv curH endH
 
 -- | Make 'GetHeaders' message using our main chain. This function

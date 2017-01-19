@@ -269,7 +269,7 @@ sendOurData sendActions msgTag epoch slMultiplier ourId = do
     -- type of message.
     waitUntilSend msgTag epoch slMultiplier
     logInfo $ sformat ("Announcing our "%build) msgTag
-    let msg = InvMsg {imTag = msgTag, imKeys = pure ourId}
+    let msg = InvMsg {imTag = msgTag, imKeys = one ourId}
     -- [CSL-514] TODO Log long acting sends
     sendToNeighbors sendActions msg
     logDebug $ sformat ("Sent our " %build%" to neighbors") msgTag

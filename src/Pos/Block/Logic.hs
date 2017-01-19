@@ -309,8 +309,8 @@ getHeadersFromToIncl older newer = runMaybeT $ do
     guard $ flattenEpochOrSlot start >= flattenEpochOrSlot end
     let lowerBound = flattenEpochOrSlot end
     if newer == older
-    then pure $ newer :| []
-    else loadHeadersDo lowerBound (newer :| []) $ start ^. prevBlockL
+    then pure $ one newer
+    else loadHeadersDo lowerBound (one newer) $ start ^. prevBlockL
   where
     loadHeadersDo
         :: Word64
@@ -385,7 +385,7 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
     applyAMAP e [] True            = throwError e
     applyAMAP _ [] False           = GS.getTip
     applyAMAP e (x:xs) nothingApplied = do
-        let block = x:|[]
+        let block = one x
         lift (verifyBlocksPrefix block) >>= \case
             Left e' -> applyAMAP e' [] nothingApplied
             Right undo -> do
@@ -523,7 +523,7 @@ createGenesisBlockDo epoch leaders tip = do
         | shouldCreateGenesisBlock epoch (getEpochOrSlot tipHeader) = do
             let blk = mkGenesisBlock (Just tipHeader) epoch leaders
             let newTip = headerHash blk
-            applyBlocksUnsafe (pure (Left blk, Undo [] [])) $>
+            applyBlocksUnsafe (one (Left blk, Undo [] [])) $>
                 (Just blk, newTip)
         | otherwise = (Nothing, tip) <$ logShouldNot
     logShouldNot =
@@ -593,10 +593,10 @@ createMainBlockFinish slotId pSk prevHeader = do
             fromMaybe (panic "Undo for tx not found")
                       (HM.lookup (fst tx) txUndo) : undos
     let blockUndo = Undo (reverse $ foldl' prependToUndo [] localTxs) pskUndo
-    lift $ inAssertMode $ verifyBlocksPrefix (pure (Right blk)) >>=
+    lift $ inAssertMode $ verifyBlocksPrefix (one (Right blk)) >>=
         \case Left err -> logError $ sformat ("We've created bad block: "%stext) err
               Right _ -> pass
-    lift $ blk <$ applyBlocksUnsafe (pure (Right blk, blockUndo))
+    lift $ blk <$ applyBlocksUnsafe (one (Right blk, blockUndo))
   where
     onBrokenTopo = throwError "Topology of local transactions is broken!"
     onNoSsc = throwError "can't obtain SSC payload to create block"

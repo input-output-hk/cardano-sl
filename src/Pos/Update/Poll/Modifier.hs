@@ -25,7 +25,7 @@ instance Default PollModifier where
         }
 
 -- | Unite two PollModifiers. Second argument dominates, i. e. if
--- there are two confliciting modifications, the second one wisn.
+-- there are two confliciting modifications, the second one wins.
 modifyPollModifier :: PollModifier -> PollModifier -> PollModifier
 modifyPollModifier pmOld pmNew = PollModifier
     (unionHM pmNewScriptVersions `diffMapSet` pmDelScriptVersions pmNew)

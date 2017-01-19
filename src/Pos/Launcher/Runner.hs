@@ -42,7 +42,8 @@ import qualified Data.Time                      as Time
 import           Formatting                     (build, sformat, shown, (%))
 import           Mockable                       (CurrentTime, Mockable, MonadMockable,
                                                  Production (..), Throw, bracket,
-                                                 currentTime, fork, killThread, throw)
+                                                 currentTime, delay, fork, killThread,
+                                                 throw)
 import           Network.Transport              (Transport, closeTransport)
 import           Network.Transport.Concrete     (concrete)
 import qualified Network.Transport.TCP          as TCP
@@ -93,7 +94,7 @@ import qualified Pos.Txp.Types.UtxoView         as UV
 import           Pos.Types                      (Timestamp (Timestamp), timestampF,
                                                  unflattenSlotId)
 import           Pos.Update.MemState            (runUSHolder)
-import           Pos.Util                       (runWithRandomIntervals,
+import           Pos.Util                       (runWithRandomIntervalsNow,
                                                  stubListenerOneMsg)
 import           Pos.Util.TimeWarp              (sec)
 import           Pos.Util.UserSecret            (usKeys)
@@ -117,8 +118,9 @@ runTimeSlaveReal sscProxy res bp = do
     runServiceMode res bp (listeners mvar) $ \sendActions ->
       case Const.isDevelopment of
          True -> do
-           tId <- fork $
-             runWithRandomIntervals (sec 10) (sec 60) $ liftIO (tryReadMVar mvar) >>= \case
+           tId <- fork $ do
+             delay (sec 5)
+             runWithRandomIntervalsNow (sec 10) (sec 60) $ liftIO (tryReadMVar mvar) >>= \case
                  Nothing -> do
                     logInfo "Asking neighbors for system start"
                     converseToNeighbors sendActions $ \peerId conv -> do

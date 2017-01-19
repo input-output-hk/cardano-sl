@@ -54,6 +54,7 @@ module Pos.Util
        , runWithRandomIntervals'
        , waitRandomInterval'
        , runWithRandomIntervals
+       , runWithRandomIntervalsNow
        , waitRandomInterval
 
        -- * LRU
@@ -403,6 +404,15 @@ runWithRandomIntervals
     => Microsecond -> Microsecond -> m () -> m ()
 runWithRandomIntervals minT maxT action = do
   waitRandomInterval minT maxT
+  action
+  runWithRandomIntervals minT maxT action
+
+-- | Like `runWithRandomIntervals`, but performs action immidiatelly
+-- at first time.
+runWithRandomIntervalsNow
+    :: (MonadIO m, WithLogger m, Mockable Fork m, Mockable Delay m)
+    => Microsecond -> Microsecond -> m () -> m ()
+runWithRandomIntervalsNow minT maxT action = do
   action
   runWithRandomIntervals minT maxT action
 

@@ -10,7 +10,7 @@ module Pos.Update.Poll.Functions
        , normalizePoll
        ) where
 
-import           Control.Lens          (view, (^.))
+import           Control.Lens          (at, view, (^.))
 import           Control.Monad.Except  (MonadError, throwError)
 import qualified Data.HashMap.Strict   as HM
 import           Data.List             (partition)
@@ -20,15 +20,16 @@ import           Exceptions            (note)
 import           Universum
 
 import           Pos.Constants         (updateProposalThreshold, updateVoteThreshold)
-import           Pos.Crypto            (hash)
+import           Pos.Crypto            (PublicKey, hash)
 import           Pos.Types             (ChainDifficulty, Coin, EpochIndex,
                                         MainBlockHeader, SlotId (siEpoch),
                                         SoftwareVersion (..), addressHash,
                                         applyCoinPortion, coinToInteger, difficultyL,
-                                        epochIndexL, headerSlot, sumCoins,
-                                        unsafeIntegerToCoin)
+                                        epochIndexL, headerSlot, sumCoins, unsafeAddCoin,
+                                        unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Update.Core       (UpId, UpdatePayload (..), UpdateProposal (..),
-                                        UpdateVote (..), combineVotes)
+                                        UpdateVote (..), combineVotes, isPositiveVote,
+                                        newVoteState)
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Types (DecidedProposalState (..), PollVerFailure (..),
                                         ProposalState (..), USUndo (..),
@@ -42,11 +43,63 @@ newtype TotalPositive = TotalPositive Integer
 newtype TotalNegative = TotalNegative Integer
 newtype TotalSum = TotalSum Integer
 
+mkTotPositive :: Coin -> TotalPositive
+mkTotPositive = TotalPositive . coinToInteger
+
+mkTotNegative :: Coin -> TotalNegative
+mkTotNegative = TotalNegative . coinToInteger
+
+mkTotSum :: Coin -> TotalSum
+mkTotSum = TotalSum . coinToInteger
+
 isDecided :: TotalPositive -> TotalNegative -> TotalSum -> Maybe Bool
 isDecided (TotalPositive totalPositive) (TotalNegative totalNegative) (TotalSum totalSum)
     | totalPositive * 2 > totalSum = Just True
     | totalNegative * 2 > totalSum = Just False
     | otherwise = Nothing
+
+-- | Apply vote to UndecidedProposalState, thus modifing mutable data,
+-- i. e. votes and stakes.
+voteToUProposalState
+    :: MonadError PollVerFailure m
+    => PublicKey
+    -> Coin
+    -> Bool
+    -> UndecidedProposalState
+    -> m UndecidedProposalState
+voteToUProposalState voter stake decision ups@UndecidedProposalState {..} = do
+    let upId = hash upsProposal
+    let oldVote = upsVotes ^. at voter
+    let oldPositive = maybe False isPositiveVote oldVote
+    let oldNegative = maybe False (not . isPositiveVote) oldVote
+    let combinedMaybe = decision `combineVotes` oldVote
+    combined <-
+        note
+            (PollExtraRevote
+             { perStakeholder = addressHash voter
+             , perUpId = upId
+             , perDecision = decision
+             })
+            combinedMaybe
+    let posStakeAfterRemove
+            | oldPositive = upsPositiveStake `unsafeSubCoin` stake
+            | otherwise = upsPositiveStake
+        negStakeAfterRemove
+            | oldNegative = upsNegativeStake
+            | otherwise = upsNegativeStake `unsafeSubCoin` stake
+        posStakeFinal
+            | decision = posStakeAfterRemove `unsafeAddCoin` stake
+            | otherwise = posStakeAfterRemove
+        negStakeFinal
+            | decision = negStakeAfterRemove
+            | otherwise = negStakeAfterRemove `unsafeAddCoin` stake
+    let newVotes = HM.insert voter combined upsVotes
+    return
+        ups
+        { upsVotes = newVotes
+        , upsPositiveStake = posStakeFinal
+        , upsNegativeStake = negStakeFinal
+        }
 
 putNewProposal
     :: forall ssc m.
@@ -63,7 +116,7 @@ putNewProposal slotOrHeader totalStake votesAndStakes up = addActiveProposal ps
     totalPositive = sumCoins . map snd . filter (uvDecision . fst) $ votesAndStakes
     totalNegative = sumCoins . map snd . filter (not . uvDecision . fst) $ votesAndStakes
     votes = HM.fromList . map convertVote $ votesAndStakes
-    convertVote (UpdateVote {..}, _) = (uvKey, uvDecision `combineVotes` Nothing)
+    convertVote (UpdateVote {..}, _) = (uvKey, newVoteState uvDecision)
     ups =
         UndecidedProposalState
         { upsVotes = votes
@@ -77,7 +130,7 @@ putNewProposal slotOrHeader totalStake votesAndStakes up = addActiveProposal ps
              isDecided
                  (TotalPositive totalPositive)
                  (TotalNegative totalNegative)
-                 (TotalSum $ coinToInteger totalStake) =
+                 (mkTotSum totalStake) =
             PSDecided
                 DecidedProposalState
                 {dpsDecision = decision, dpsUndecided = ups, dpsDifficulty = cd}
@@ -252,11 +305,26 @@ verifyAndApplyVotesGroup votes = do
 verifyAndApplyVote
     :: (MonadError PollVerFailure m, MonadPoll m)
     => UndecidedProposalState -> UpdateVote -> m ()
-verifyAndApplyVote UndecidedProposalState {..} v@UpdateVote {..} = do
-    let e = siEpoch upsSlot
+verifyAndApplyVote ups v@UpdateVote {..} = do
+    let e = siEpoch $ upsSlot ups
     totalStake <- note (PollUnknownStakes e) =<< getEpochTotalStake e
-    _ <- resolveVoteStake e totalStake v
-    pass
+    voteStake <- resolveVoteStake e totalStake v
+    newUPS@UndecidedProposalState {..} <-
+        voteToUProposalState uvKey voteStake uvDecision ups
+    let newPS
+            | Just decision <-
+                 isDecided
+                     (mkTotPositive upsPositiveStake)
+                     (mkTotNegative upsNegativeStake)
+                     (mkTotSum totalStake) =
+                PSDecided
+                    DecidedProposalState
+                    { dpsUndecided = newUPS
+                    , dpsDecision = decision
+                    , dpsDifficulty = undefined
+                    }
+            | otherwise = PSUndecided ups
+    addActiveProposal newPS
 
 ----------------------------------------------------------------------------
 -- Rollback

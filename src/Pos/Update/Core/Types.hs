@@ -11,7 +11,6 @@ module Pos.Update.Core.Types
        , VoteId
        , StakeholderVotes
        , ExtStakeholderVotes
-       , VoteState (..)
        , ExtendedUpdateVote
        , UpdateProposals
        , LocalVotes
@@ -25,11 +24,15 @@ module Pos.Update.Core.Types
 
        , mkSystemTag
        , systemTagMaxLength
+
+       -- * VoteState
+       , VoteState (..)
        , canCombineVotes
        , combineVotes
+       , isPositiveVote
+       , newVoteState
        ) where
 
-import           Control.Exception          (assert)
 import           Data.Char                  (isAscii)
 import           Data.Default               (Default (def))
 import qualified Data.HashMap.Strict        as HM
@@ -37,7 +40,7 @@ import           Data.SafeCopy              (base, deriveSafeCopySimple)
 import qualified Data.Text                  as T
 import           Data.Text.Buildable        (Buildable)
 import qualified Data.Text.Buildable        as Buildable
-import           Formatting                 (bprint, build, int, sformat, shown, (%))
+import           Formatting                 (bprint, build, int, (%))
 import           Language.Haskell.TH.Syntax (Lift)
 import           Serokell.Util.Text         (listJson)
 import           Universum                  hiding (show)
@@ -111,14 +114,6 @@ instance Buildable VoteId where
       bprint ("Vote Id { voter: "%build%", proposal id: "%build%", voter's decision: "%build%" }")
              pk upId dec
 
--- | This type represents summary of votes issued by stakeholder.
-data VoteState
-    = PositiveVote    -- ^ Stakeholder voted once positively.
-    | NegativeVote    -- ^ Stakeholder voted once positively.
-    | PositiveRevote  -- ^ Stakeholder voted negatively, then positively.
-    | NegativeRevote  -- ^ Stakeholder voted positively, then negatively.
-    deriving (Show, Generic)
-
 -- | Update System payload. 'Pos.Types.BodyProof' contains 'UpdateProof' = @Hash UpdatePayload@.
 data UpdatePayload = UpdatePayload
     { upProposal :: !(Maybe UpdateProposal)
@@ -142,6 +137,28 @@ mkUpdateProof
     => UpdatePayload -> UpdateProof
 mkUpdateProof = hash
 
+----------------------------------------------------------------------------
+-- VoteState
+----------------------------------------------------------------------------
+
+-- | This type represents summary of votes issued by stakeholder.
+data VoteState
+    = PositiveVote    -- ^ Stakeholder voted once positively.
+    | NegativeVote    -- ^ Stakeholder voted once positively.
+    | PositiveRevote  -- ^ Stakeholder voted negatively, then positively.
+    | NegativeRevote  -- ^ Stakeholder voted positively, then negatively.
+    deriving (Show, Generic)
+
+-- | Create new VoteState from bool, which is simple vote, not revote.
+newVoteState :: Bool -> VoteState
+newVoteState True  = PositiveVote
+newVoteState False = NegativeVote
+
+isPositiveVote :: VoteState -> Bool
+isPositiveVote PositiveVote   = True
+isPositiveVote PositiveRevote = True
+isPositiveVote _              = False
+
 -- | Check whether given decision is a valid vote if applied to
 -- existing vote (which may not exist).
 canCombineVotes :: Bool -> Maybe VoteState -> Bool
@@ -150,24 +167,17 @@ canCombineVotes True (Just NegativeVote)  = True
 canCombineVotes False (Just PositiveVote) = True
 canCombineVotes _ _                       = False
 
--- | Apply decision to given vote (or Nothing). This function will
--- 'panic' if decision can't be applied. Use 'canCombineVotes' in
--- advance.
-combineVotes :: Bool -> Maybe VoteState -> VoteState
-combineVotes decision oldVote = assert (canCombineVotes decision oldVote) combineVotesDo
-  where
-    combineVotesDo =
-        case (decision, oldVote) of
-            (True, Nothing)            -> PositiveVote
-            (False, Nothing)           -> NegativeVote
-            (True, Just NegativeVote)  -> PositiveRevote
-            (False, Just PositiveVote) -> NegativeRevote
-            (_, Just vote)             -> onFailure vote
-    onFailure =
-        panic .
-        sformat
-        ("combineVotes: these votes can't be combined ("%shown%" and "%shown%")")
-        decision
+-- | Apply decision to given vote (or Nothing). This function returns
+-- 'Nothing' if decision can't be applied. 'canCombineVotes' can be
+-- used to check whether it will be successful.
+combineVotes :: Bool -> Maybe VoteState -> Maybe VoteState
+combineVotes decision oldVote =
+    case (decision, oldVote) of
+        (True, Nothing)            -> Just PositiveVote
+        (False, Nothing)           -> Just NegativeVote
+        (True, Just NegativeVote)  -> Just PositiveRevote
+        (False, Just PositiveVote) -> Just NegativeRevote
+        (_, Just _)                -> Nothing
 
 type ExtendedUpdateVote = (UpdateVote, VoteState)
 

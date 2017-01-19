@@ -11,7 +11,6 @@ module Pos.Update.Poll.Types
        , psProposal
        , psVotes
        , mkUProposalState
-       , voteToUProposalState
 
          -- * Poll modifier
        , PollModifier (..)
@@ -31,20 +30,17 @@ module Pos.Update.Poll.Types
 
 import           Control.Lens        (makeLensesFor)
 import           Data.Default        (Default (def))
-import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Buildable
 import           Formatting          (bprint, build, int, sformat, stext, (%))
 import           Universum
 
-import           Pos.Crypto          (PublicKey)
 import           Pos.Script.Type     (ScriptVersion)
-import           Pos.Types.Coin      (coinF, unsafeAddCoin)
+import           Pos.Types.Coin      (coinF)
 import           Pos.Types.Types     (ChainDifficulty, Coin, EpochIndex, SlotId,
                                       StakeholderId, mkCoin)
 import           Pos.Types.Version   (ApplicationName, NumSoftwareVersion,
                                       ProtocolVersion, SoftwareVersion)
-import           Pos.Update.Core     (StakeholderVotes, UpId, UpdateProposal,
-                                      combineVotes)
+import           Pos.Update.Core     (StakeholderVotes, UpId, UpdateProposal)
 
 ----------------------------------------------------------------------------
 -- Proposal State
@@ -100,25 +96,6 @@ mkUProposalState upsSlot upsProposal =
     , upsNegativeStake = mkCoin 0
     , ..
     }
-
--- | Apply vote to UndecidedProposalState, thus modifing mutable data,
--- i. e. votes and stakes.
-voteToUProposalState ::
-    PublicKey -> Coin -> Bool -> UndecidedProposalState -> UndecidedProposalState
-voteToUProposalState voter stake decision UndecidedProposalState {..} =
-    UndecidedProposalState
-    { upsVotes = HM.alter (Just . combineVotes decision) voter upsVotes
-    , upsPositiveStake = newPositiveStake
-    , upsNegativeStake = newNegativeStake
-    , ..
-    }
-  where
-    newPositiveStake
-        | decision = upsPositiveStake `unsafeAddCoin` stake
-        | otherwise = upsPositiveStake
-    newNegativeStake
-        | decision = upsNegativeStake
-        | otherwise = upsNegativeStake `unsafeAddCoin` stake
 
 ----------------------------------------------------------------------------
 -- Modifier
@@ -176,6 +153,9 @@ data PollVerFailure
                               ,  pwsvUpId   :: !UpId}
     | PollProposalIsDecided { ppidUpId        :: !UpId
                            ,  ppidStakeholder :: !StakeholderId}
+    | PollExtraRevote { perUpId        :: !UpId
+                     ,  perStakeholder :: !StakeholderId
+                     ,  perDecision    :: !Bool}
 
 -- To be implemented for sure.
 instance Buildable PollVerFailure where
@@ -209,6 +189,10 @@ instance Buildable PollVerFailure where
         bprint ("proposal "%build%" is in decided state, but stakeholder "%
                 build%" has voted for it")
         ppidUpId ppidStakeholder
+    build (PollExtraRevote {..}) =
+        bprint ("stakeholder "%build%" vote "%stext%" proposal "
+                %build%" more than once")
+        perStakeholder (bool "against" "for" perDecision) perUpId
 
 ----------------------------------------------------------------------------
 -- Undo

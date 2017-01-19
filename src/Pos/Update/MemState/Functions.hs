@@ -32,20 +32,20 @@ modifyMemPool UpdatePayload {..} PollModifier{..} =
   where
     delModifiers MemPool{..} = MemPool
         (foldr' HM.delete mpProposals pmDelActiveProps)
-        (foldr' HM.delete mpGlobalVotes pmDelActiveProps)
+        (foldr' HM.delete mpLocalVotes pmDelActiveProps)
     addModifiers MemPool{..} = MemPool
         (foldr' (uncurry HM.insert) mpProposals
              (HM.toList $ HM.map psProposal pmNewActiveProps))
-        (foldr' insertVote mpGlobalVotes .
+        (foldr' insertVote mpLocalVotes .
              mapMaybe (\x -> (x,) <$> lookupVS pmNewActiveProps x) $ upVotes)
     addProposal Nothing  mp = mp
     addProposal (Just p) MemPool {..} = MemPool
         (HM.insert (hash p) p mpProposals)
-        mpGlobalVotes
+        mpLocalVotes
     lookupVS activeProps UpdateVote{..} =
         HM.lookup uvProposalId activeProps >>= HM.lookup uvKey . psVotes
     insertVote e@(UpdateVote{..}, _) = HM.alter (append e) uvProposalId
-    append e@(UpdateVote{..}, _) Nothing = Just $ HM.singleton uvKey e
+    append e@(UpdateVote{..}, _) Nothing        = Just $ HM.singleton uvKey e
     append e@(UpdateVote{..}, _) (Just stVotes) = Just $ HM.insert uvKey e stVotes
 
 -- Old modifier, new modifier

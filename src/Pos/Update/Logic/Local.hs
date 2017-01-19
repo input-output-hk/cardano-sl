@@ -33,8 +33,8 @@ import           Pos.DB.Class           (MonadDB)
 import qualified Pos.DB.GState          as DB
 import           Pos.Types              (SlotId (siEpoch))
 import           Pos.Update.Core        (UpId, UpdatePayload (..), UpdateProposal,
-                                         UpdateVote, canCombineVotes)
-import           Pos.Update.MemState    (GlobalVotes, MemPool (..), MemState (..),
+                                         UpdateVote (..), VoteState, canCombineVotes)
+import           Pos.Update.MemState    (LocalVotes, MemPool (..), MemState (..),
                                          MonadUSMem, UpdateProposals, askUSMemState,
                                          modifyMemPool, modifyPollModifier, withUSLock)
 import           Pos.Update.Poll        (PollModifier, PollVerFailure, ProposalState (..),
@@ -52,9 +52,8 @@ getMemPool = msPool <$> (askUSMemState >>= atomically . readTVar)
 getLocalProposals :: (MonadUSMem m, MonadIO m) => m UpdateProposals
 getLocalProposals = mpProposals <$> getMemPool
 
-
-getLocalVotes :: (MonadUSMem m, MonadIO m) => m GlobalVotes
-getLocalVotes = mpGlobalVotes <$> getMemPool
+getLocalVotes :: (MonadUSMem m, MonadIO m) => m LocalVotes
+getLocalVotes = mpLocalVotes <$> getMemPool
 
 ----------------------------------------------------------------------------
 -- Proposals
@@ -84,6 +83,9 @@ processProposal proposal = processSkeleton $ UpdatePayload (Just proposal) []
 -- Votes
 ----------------------------------------------------------------------------
 
+lookupVote :: UpId -> PublicKey -> LocalVotes -> Maybe (UpdateVote, VoteState)
+lookupVote propId pk locVotes = HM.lookup propId locVotes >>= HM.lookup pk
+
 -- | This function returns true if update vote proposal with given
 -- identifier issued by stakeholder with given PublicKey and with
 -- given decision should be requested.
@@ -91,9 +93,7 @@ isVoteNeeded
     :: (MonadIO m, MonadUSMem m)
     => UpId -> PublicKey -> Bool -> m Bool
 isVoteNeeded propId pk decision =
-    canCombineVotes decision . fmap snd . lookupVote <$> getLocalVotes
-  where
-    lookupVote locVotes = HM.lookup propId locVotes >>= HM.lookup pk
+    canCombineVotes decision . fmap snd . lookupVote propId pk <$> getLocalVotes
 
 -- | Get update vote for proposal with given id from given issuer and
 -- with given decision if it is known.
@@ -101,12 +101,13 @@ getLocalVote
     :: (MonadIO m, MonadUSMem m)
     => UpId -> PublicKey -> Bool -> m (Maybe UpdateVote)
 getLocalVote propId pk decision = do
-    vote <- lookupVote <$> getLocalVotes
+    voteMaybe <- fmap fst . lookupVote propId pk <$> getLocalVotes
     pure $
-      if | canCombineVotes decision (snd <$> vote) -> Nothing
-         | otherwise -> fst <$> vote
-  where
-    lookupVote locVotes = HM.lookup propId locVotes >>= HM.lookup pk
+        case voteMaybe of
+            Nothing -> Nothing
+            Just vote
+                | uvDecision vote == decision -> Just vote
+                | otherwise -> Nothing
 
 -- | Process vote received from network, checking it against
 -- current state (global + local) and adding to local state if it's

@@ -3,7 +3,7 @@
 module Pos.Update.MemState.Types
        ( MemPool (..)
        , UpdateProposals
-       , GlobalVotes
+       , LocalVotes
 
        -- , LocalProposalState (..)
        -- , fixLocalState
@@ -42,11 +42,11 @@ import           Pos.Update.Core (ExtStakeholderVotes, UpId, UpdateProposal)
 -- relayed to other nodes.
 
 type UpdateProposals = HashMap UpId UpdateProposal
-type GlobalVotes = HashMap UpId ExtStakeholderVotes
+type LocalVotes = HashMap UpId ExtStakeholderVotes
 
 data MemPool = MemPool
-    { mpProposals   :: !UpdateProposals
-    , mpGlobalVotes :: !GlobalVotes
+    { mpProposals  :: !UpdateProposals
+    , mpLocalVotes :: !LocalVotes
     }
 
 instance Default MemPool where

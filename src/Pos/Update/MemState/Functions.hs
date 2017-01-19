@@ -46,10 +46,19 @@ modifyMemPool UpdatePayload {..} PollModifier{..} =
         (foldr' HM.delete mpLocalVotes pmDelActiveProps)
 
     addModifiers :: MemPool -> MemPool
-    addModifiers MemPool{..} = MemPool
-        (foldr' (uncurry HM.insert) mpProposals
-             (HM.toList $ HM.map psProposal pmNewActiveProps))
-        (foldr' insertVote mpLocalVotes .
+    addModifiers MemPool{..} =
+        let removeNotPresentedInActiveProps :: UpId -> ExtStakeholderVotes -> ExtStakeholderVotes
+            removeNotPresentedInActiveProps id stVotes
+                | Just activeProposal <- HM.lookup id pmNewActiveProps =
+                    stVotes `HM.intersection` (psVotes activeProposal)
+                | otherwise = stVotes
+
+            filteredLocalVotes :: LocalVotes
+            filteredLocalVotes = HM.mapWithKey removeNotPresentedInActiveProps mpLocalVotes
+        in MemPool
+              (foldr' (uncurry HM.insert) mpProposals
+                  (HM.toList $ HM.map psProposal pmNewActiveProps))
+        (foldr' forceInsertVote filteredLocalVotes .
              mapMaybe (\x -> (x,) <$> lookupVS pmNewActiveProps x) $ upVotes)
 
     addProposal :: Maybe UpdateProposal -> MemPool -> MemPool
@@ -58,13 +67,25 @@ modifyMemPool UpdatePayload {..} PollModifier{..} =
         (HM.insert (hash p) p mpProposals)
         mpLocalVotes
 
-    lookupVS :: HashMap UpId ProposalState -> UpdateVote -> Maybe VoteState
-    lookupVS activeProps UpdateVote{..} =
-        HM.lookup uvProposalId activeProps >>= HM.lookup uvKey . psVotes
-
-    insertVote :: ExtendedUpdateVote -> LocalVotes -> LocalVotes
-    insertVote e@(UpdateVote{..}, _) = HM.alter (append e) uvProposalId
+    forceInsertVote :: ExtendedUpdateVote -> LocalVotes -> LocalVotes
+    forceInsertVote e@(UpdateVote{..}, _) = HM.alter (append e) uvProposalId
 
     append :: ExtendedUpdateVote -> Maybe ExtStakeholderVotes -> Maybe ExtStakeholderVotes
     append e@(UpdateVote{..}, _) Nothing        = Just $ HM.singleton uvKey e
     append e@(UpdateVote{..}, _) (Just stVotes) = Just $ HM.insert uvKey e stVotes
+
+    lookupVS :: HashMap UpId ProposalState -> UpdateVote -> Maybe VoteState
+    lookupVS activeProps UpdateVote{..} =
+        HM.lookup uvProposalId activeProps >>= HM.lookup uvKey . psVotes
+
+    -- I'll remove it, if it won't be needed.
+    -- safeInsertVote :: ExtendedUpdateVote -> LocalVotes -> LocalVotes
+    -- safeInsertVote e@(UpdateVote{..}, _) = HM.alter (insertOrRevote e) uvProposalId
+
+    -- insertOrRevote :: ExtendedUpdateVote -> Maybe ExtStakeholderVotes -> Maybe ExtStakeholderVotes
+    -- insertOrRevote e@(UpdateVote{..}, _) Nothing        = Just $ HM.singleton uvKey e
+    -- insertOrRevote e@(UpdateVote{..}, _) (Just stVotes) = Just $ HM.alter (voteOrRevote e) uvKey stVotes
+
+    -- voteOrRevote :: ExtendedUpdateVote -> Maybe ExtendedUpdateVote -> Maybe ExtendedUpdateVote
+    -- voteOrRevote (uv, vs) (fmap snd -> mb) = Just (uv, ) <*> -- we remove vote if it can't be combined
+    --     (combineVotes (isPositiveVote vs) mb)

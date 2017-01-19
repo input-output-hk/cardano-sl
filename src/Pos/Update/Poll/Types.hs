@@ -11,7 +11,6 @@ module Pos.Update.Poll.Types
        , psProposal
        , psVotes
        , mkUProposalState
-       , voteToUProposalState
 
          -- * Poll modifier
        , PollModifier (..)
@@ -31,20 +30,17 @@ module Pos.Update.Poll.Types
 
 import           Control.Lens        (makeLensesFor)
 import           Data.Default        (Default (def))
-import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Buildable
-import           Formatting          (bprint, build, int, (%))
+import           Formatting          (bprint, build, int, sformat, stext, (%))
 import           Universum
 
-import           Pos.Crypto          (PublicKey)
 import           Pos.Script.Type     (ScriptVersion)
-import           Pos.Types.Coin      (coinF, unsafeAddCoin)
-import           Pos.Types.Types     (ChainDifficulty, Coin, SlotId, StakeholderId,
-                                      mkCoin)
+import           Pos.Types.Coin      (coinF)
+import           Pos.Types.Types     (ChainDifficulty, Coin, EpochIndex, SlotId,
+                                      StakeholderId, mkCoin)
 import           Pos.Types.Version   (ApplicationName, NumSoftwareVersion,
-                                      ProtocolVersion)
-import           Pos.Update.Core     (StakeholderVotes, UpId, UpdateProposal,
-                                      combineVotes)
+                                      ProtocolVersion, SoftwareVersion)
+import           Pos.Update.Core     (StakeholderVotes, UpId, UpdateProposal)
 
 ----------------------------------------------------------------------------
 -- Proposal State
@@ -72,8 +68,9 @@ data DecidedProposalState = DecidedProposalState
       -- ^ Whether proposal is approved.
     , dpsUndecided  :: !UndecidedProposalState
       -- ^ Corresponding UndecidedProposalState
-    , dpsDifficulty :: !ChainDifficulty
+    , dpsDifficulty :: !(Maybe ChainDifficulty)
       -- ^ Difficulty at which this proposal became approved/rejected.
+      --   Can be Nothing in temporary state.
     } deriving (Generic)
 
 -- | State of UpdateProposal.
@@ -99,25 +96,6 @@ mkUProposalState upsSlot upsProposal =
     , upsNegativeStake = mkCoin 0
     , ..
     }
-
--- | Apply vote to UndecidedProposalState, thus modifing mutable data,
--- i. e. votes and stakes.
-voteToUProposalState ::
-    PublicKey -> Coin -> Bool -> UndecidedProposalState -> UndecidedProposalState
-voteToUProposalState voter stake decision UndecidedProposalState {..} =
-    UndecidedProposalState
-    { upsVotes = HM.alter (Just . combineVotes decision) voter upsVotes
-    , upsPositiveStake = newPositiveStake
-    , upsNegativeStake = newNegativeStake
-    , ..
-    }
-  where
-    newPositiveStake
-        | decision = upsPositiveStake `unsafeAddCoin` stake
-        | otherwise = upsPositiveStake
-    newNegativeStake
-        | decision = upsNegativeStake
-        | otherwise = upsNegativeStake `unsafeAddCoin` stake
 
 ----------------------------------------------------------------------------
 -- Modifier
@@ -157,31 +135,64 @@ makeLensesFor [ ("pmNewScriptVersions", "pmNewScriptVersionsL")
 -- appear in Poll data verification.
 data PollVerFailure
     = PollWrongScriptVersion { pwsvExpected :: !ScriptVersion
-                            ,  pwsvFound    :: !ScriptVersion}
+                            ,  pwsvFound    :: !ScriptVersion
+                            ,  pwsvUpId     :: !UpId}
     | PollSmallProposalStake { pspsThreshold :: !Coin
-                            ,  pspsActual    :: !Coin}
+                            ,  pspsActual    :: !Coin
+                            ,  pspsUpId      :: !UpId}
     | PollNotRichman { pnrStakeholder :: !StakeholderId
                     ,  pnrThreshold   :: !Coin
-                    ,  pnrStake       :: !Coin}
+                    ,  pnrStake       :: !(Maybe Coin)}
     | PollUnknownProposal { pupStakeholder :: !StakeholderId
                          ,  pupProposal    :: !UpId}
+    | PollUnknownStakes !EpochIndex
+    | Poll2ndActiveProposal !SoftwareVersion
+    | PollWrongSoftwareVersion { pwsvStored :: !(Maybe NumSoftwareVersion)
+                              ,  pwsvApp    :: !ApplicationName
+                              ,  pwsvGiven  :: !NumSoftwareVersion
+                              ,  pwsvUpId   :: !UpId}
+    | PollProposalIsDecided { ppidUpId        :: !UpId
+                           ,  ppidStakeholder :: !StakeholderId}
+    | PollExtraRevote { perUpId        :: !UpId
+                     ,  perStakeholder :: !StakeholderId
+                     ,  perDecision    :: !Bool}
 
 -- To be implemented for sure.
 instance Buildable PollVerFailure where
-    build (PollWrongScriptVersion expected found) =
-        bprint ("wrong script version (expected "%int%", found "%int%")")
-        expected found
-    build (PollSmallProposalStake threshold actual) =
-        bprint ("proposal doesn't have enough stake from positive votes "%
+    build (PollWrongScriptVersion expected found upId) =
+        bprint ("wrong script version in proposal "%build%
+                " (expected "%int%", found "%int%")")
+        upId expected found
+    build (PollSmallProposalStake threshold actual upId) =
+        bprint ("proposal "%build%
+                " doesn't have enough stake from positive votes "%
                 "(threshold is "%coinF%", proposal has "%coinF%")")
-        threshold actual
+        upId threshold actual
     build (PollNotRichman id threshold stake) =
-        bprint ("voter "%build%" is not richman (his stake is "%coinF%", but"%
+        bprint ("voter "%build%" is not richman (his stake is "%stext%", but"%
                 " threshold is "%coinF%")")
-        id stake threshold
+        id (maybe "negligible" (sformat coinF) stake) threshold
     build (PollUnknownProposal stakeholder proposal) =
         bprint (build%" has voted for unkown proposal "%build)
         stakeholder proposal
+    build (PollUnknownStakes epoch) =
+        bprint ("stake distribution for epoch "%build%" is unknown") epoch
+    build (Poll2ndActiveProposal sv) =
+        bprint ("there is already active proposal for given application, "%
+                "software version is: "%build)
+        sv
+    build (PollWrongSoftwareVersion {..}) =
+        bprint ("proposal "%build%" has wrong software version for app "%
+                build%" (last known is "%stext%", proposal contains "%int%")")
+        pwsvUpId pwsvApp (maybe "unknown" pretty pwsvStored) pwsvGiven
+    build (PollProposalIsDecided {..}) =
+        bprint ("proposal "%build%" is in decided state, but stakeholder "%
+                build%" has voted for it")
+        ppidUpId ppidStakeholder
+    build (PollExtraRevote {..}) =
+        bprint ("stakeholder "%build%" vote "%stext%" proposal "
+                %build%" more than once")
+        perStakeholder (bool "against" "for" perDecision) perUpId
 
 ----------------------------------------------------------------------------
 -- Undo

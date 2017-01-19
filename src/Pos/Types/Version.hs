@@ -58,7 +58,7 @@ instance Hashable ProtocolVersion
 
 newtype ApplicationName = ApplicationName
     { getApplicationName :: Text
-    } deriving (Eq, Ord, Show, Generic, Typeable, ToString, Hashable)
+    } deriving (Eq, Ord, Show, Generic, Typeable, ToString, Hashable, Buildable)
 
 applicationNameMaxLength :: Integral i => i
 applicationNameMaxLength = 10

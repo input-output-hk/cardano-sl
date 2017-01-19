@@ -12,9 +12,8 @@ module Pos.Types.Tx
        , topsortTxs
        ) where
 
-import           Control.Lens         (makeLenses, use, uses, (%=), (.=), (^.))
+import           Control.Lens         (makeLenses, (%=), (.=))
 import           Control.Monad.Except (runExceptT)
-import           Data.Bifunctor       (first)
 import qualified Data.HashMap.Strict  as HM
 import qualified Data.HashSet         as HS
 import           Data.List            (tail, zipWith3)
@@ -259,16 +258,16 @@ topsortTxs toTx input =
   where
     dup a = (a,a)
     txHashes :: HashMap (Hash Tx) a
-    txHashes = HM.fromList $ map (first (whHash . toTx) . dup) input
+    txHashes = HM.fromList $ map (over _1 (whHash . toTx) . dup) input
     initState = TopsortState HS.empty input [] False
     -- Searches next unprocessed vertix and calls dfs2 for it. Wipes
     -- visited vertices.
     dfs1 :: State (TopsortState a) ()
     dfs1 = unlessM (use tsLoop) $ do
-        t <- uses tsUnprocessed head
+        t <- head <$> use tsUnprocessed
         whenJust t $ \a -> do
             let tx = toTx a
-            ifM (uses tsVisited $ HS.member (whHash tx))
+            ifM (HS.member (whHash tx) <$> use tsVisited)
                 (tsUnprocessed %= tail)
                 (dfs2 HS.empty a tx)
             dfs1
@@ -284,7 +283,7 @@ topsortTxs toTx input =
             dependsUnfiltered =
                 mapMaybe (\x -> HM.lookup (txInHash x) txHashes) (txInputs tx)
         depends <- filterM
-            (fmap not . uses tsVisited . HS.member . whHash . toTx)
+            (\x -> not . HS.member (whHash (toTx x)) <$> use tsVisited)
             dependsUnfiltered
         forM_ depends $ \a' -> dfs2 visitedNew a' (toTx a')
         tsResult %= (a:)

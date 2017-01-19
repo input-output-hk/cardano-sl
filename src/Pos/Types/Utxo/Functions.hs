@@ -15,7 +15,6 @@ module Pos.Types.Utxo.Functions
        , utxoToStakes
        ) where
 
-import           Control.Lens         (over, (^.), _1, _3)
 import qualified Data.HashMap.Strict  as HM
 import qualified Data.Map.Strict      as M
 import           Universum

@@ -15,7 +15,6 @@ module Pos.Util.Relay
        ) where
 
 import qualified Data.ByteString.Char8            as BC
-import           Data.List.NonEmpty               (NonEmpty (..))
 import           Data.Proxy                       (Proxy (..))
 import           Formatting                       (build, sformat, stext, (%))
 import           Node                             (NodeId (..), SendActions (..), sendTo)
@@ -234,7 +233,7 @@ handleDataL DataMsg {..} _ sendActions =
                 dmContents dmKey
             tag <- contentsToTag dmContents
             -- [CSL-514] TODO Log long acting sends
-            sendToNeighbors sendActions $ InvMsg tag (dmKey :| [])
+            sendToNeighbors sendActions $ InvMsg tag (one dmKey)
         else do
             logInfo $ sformat
                 ("Adopted data "%build%" for "%

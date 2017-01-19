@@ -12,7 +12,7 @@ module Pos.Wallet.KeyStorage
        ) where
 
 import qualified Control.Concurrent.STM      as STM
-import           Control.Lens                (Lens', iso, lens, use, (%=), (%~), (<>=))
+import           Control.Lens                (iso, lens, (%=), (<>=))
 import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
 import           Control.Monad.Fix           (MonadFix)

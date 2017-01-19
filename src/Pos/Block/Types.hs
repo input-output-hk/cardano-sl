@@ -6,7 +6,6 @@ module Pos.Block.Types
        , Blund
        ) where
 
-import           Control.Lens          (_1)
 import qualified Data.Text.Buildable
 import           Formatting            (bprint, build, (%))
 import           Serokell.Util.Text    (listJson)

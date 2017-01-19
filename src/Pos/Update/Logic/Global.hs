@@ -10,11 +10,9 @@ module Pos.Update.Logic.Global
        , usVerifyBlocks
        ) where
 
-import           Control.Lens         ((^.))
 import           Control.Monad.Except (MonadError, runExceptT)
 import           Data.Default         (Default (def))
 import qualified Data.HashMap.Strict  as HM
-import           Data.List.NonEmpty   (NonEmpty)
 import           System.Wlog          (WithLogger, logError)
 import           Universum
 

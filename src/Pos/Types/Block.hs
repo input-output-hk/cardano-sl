@@ -27,7 +27,7 @@ module Pos.Types.Block
        , verifyHeaders
        ) where
 
-import           Control.Lens          (ix, view, (^.), (^?), _1, _2, _3)
+import           Control.Lens          (ix)
 import           Data.Default          (Default (def))
 import           Data.List             (groupBy)
 import           Data.Tagged           (untag)

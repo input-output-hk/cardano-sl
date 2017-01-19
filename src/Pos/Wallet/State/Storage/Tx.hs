@@ -10,7 +10,7 @@ module Pos.Wallet.State.Storage.Tx
        , getTxHistory
        ) where
 
-import           Control.Lens  (makeClassy, to, view)
+import           Control.Lens  (makeClassy, to)
 import           Data.Default  (Default, def)
 import           Data.List     (last)
 import qualified Data.Map      as M

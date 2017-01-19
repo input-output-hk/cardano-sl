@@ -209,7 +209,7 @@ recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
 generateKeysAndMpc
     :: Threshold
     -> Int
-    -> IO ([KeyPair], NE.NonEmpty VssKeyPair, [Commitment], [Opening])
+    -> IO ([KeyPair], NonEmpty VssKeyPair, [Commitment], [Opening])
 -- genCommitmentAndOpening fails on 0
 generateKeysAndMpc _         0 = panic "generateKeysAndMpc: 0 is passed"
 generateKeysAndMpc threshold n = do
@@ -231,7 +231,7 @@ mkCommitmentsMap keys comms =
 
 getDecryptedShares
     :: MonadRandom m
-    => NE.NonEmpty VssKeyPair -> Commitment -> m [Share]
+    => NonEmpty VssKeyPair -> Commitment -> m [Share]
 getDecryptedShares vssKeys comm =
     forM (fmap (second fromBinary) $ HM.toList (commShares comm)) $
         \(pubKey, encShare) -> do

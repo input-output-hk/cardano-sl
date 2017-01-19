@@ -9,7 +9,7 @@ module Pos.Lrc.FollowTheSatoshi
        ) where
 
 import qualified Data.HashMap.Strict as HM
-import           Data.List.NonEmpty  (NonEmpty, fromList)
+import           Data.List.NonEmpty  (fromList)
 import           Universum
 
 import           Pos.Constants       (epochSlots)

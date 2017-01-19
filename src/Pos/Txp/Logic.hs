@@ -15,10 +15,9 @@ module Pos.Txp.Logic
        , normalizeTxpLD
        ) where
 
-import           Control.Lens           (each, over, view, (<&>), (^.), _1, _3)
+import           Control.Lens           (each)
 import qualified Data.HashMap.Strict    as HM
 import qualified Data.HashSet           as HS
-import           Data.List.NonEmpty     (NonEmpty)
 import qualified Data.List.NonEmpty     as NE
 import           Formatting             (build, sformat, stext, (%))
 import           System.Wlog            (WithLogger, logDebug, logInfo)

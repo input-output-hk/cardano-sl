@@ -30,7 +30,6 @@ module Pos.DB.Functions
 import qualified Data.ByteString       as BS (drop, isPrefixOf)
 import qualified Data.ByteString.Lazy  as BSL
 import           Data.Default          (def)
-import           Data.List.NonEmpty    (NonEmpty)
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB      as Rocks
 import           Formatting            (bprint, sformat, shown, string, (%))
@@ -78,7 +77,7 @@ rocksDecode (ToDecodeKey key) =
 rocksDecode (ToDecodeValue key val) =
     either (onParseError key) pure . decodeFull . BSL.fromStrict $ val
 
-onParseError :: (MonadThrow m) => ByteString -> [Char] -> m a
+onParseError :: (MonadThrow m) => ByteString -> String -> m a
 onParseError rawKey errMsg = throwM $ DBMalformed $ sformat fmt rawKey errMsg
   where
     fmt = "rocksGetBi: stored value is malformed, key = "%shown%", err: "%string
@@ -141,7 +140,7 @@ class RocksBatchOp a where
     toBatchOp :: a -> [Rocks.BatchOp]
 
 instance RocksBatchOp Rocks.BatchOp where
-    toBatchOp = pure
+    toBatchOp = one
 
 data EmptyBatchOp
 

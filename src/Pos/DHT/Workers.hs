@@ -25,7 +25,7 @@ import           Pos.Types.Slotting    (flattenSlotId)
 import           Pos.WorkMode          (WorkMode)
 
 dumpKademliaStateInterval :: Integral a => a
-dumpKademliaStateInterval = epochSlots
+dumpKademliaStateInterval = 4
 
 dhtWorkers :: WorkMode ssc m => [SendActions BiP m -> m ()]
 dhtWorkers = [dumpKademliaStateWorker]

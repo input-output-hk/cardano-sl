@@ -1,59 +1,7 @@
-@import "../../const.css";
+@import "../../global.css";
 
 .explorer-content {
 
-  &__container {
-    width: var(--max-width-desktop);
-  }
-
-}
-
-.explorer-header {
-  background: linear-gradient(to bottom, var(--color1) 0%, var(--color2) 100%);
-
-  &__container {
-    width: var(--max-width-desktop);
-  }
-
-  &__hero {
-    color: var(--color0);
-
-    .headline {
-      text-align: center;
-      font-size: 26px;
-      color: var(--color3);
-      font-family: var(--fontFamily0);
-      padding-bottom: 15px;
-    }
-
-    .subheadline {
-      text-align: center;
-      font-size: 13px;
-      font-family: var(--fontFamily0);
-      color: var(--color3);
-      opacity: 0.5;
-      padding-bottom: 30px;
-    }
-  }
-
-  &__nav {
-    color: var(--color0);
-    font-size: 12px;
-    /*margin: 0 auto;*/
-
-    nav {
-      font-family: var(--fontFamily0);
-    }
-  }
-}
-
-.explorer-footer {
-  background-color: var(--color2);
-
-  &__content{
-    color: var(--color0);
-    max-width: var(--max-width-desktop);
-  }
 }
 
 .label-count {

@@ -1,0 +1,72 @@
+
+/* ---------------------------
+  vars
+------------------------------ */
+
+:root {
+  --color0: #fff;
+	--color1: #082737;
+	--color2: #0c1723;
+	--color3: #fcfcfc;
+
+  --max-width-desktop: 960px;
+
+  --fontFamily0-Light: 'fontFamily0-Light';
+  --fontFamily0-Regular: 'fontFamily0-Regular';
+  --fontFamily0-Bold: 'fontFamily0-Bold';
+}
+
+/* ---------------------------
+  fonts
+------------------------------ */
+
+@font-face {
+  font-family: var(--fontFamily0-Regular);
+  src: url("../static/fonts/Montserrat-Medium.otf") format("opentype");
+}
+
+@font-face {
+  font-family: var(--fontFamily0-Regular);
+  src: url("../static/fonts/montserrat_[allfont.ru].ttf") format("truetype");
+}
+
+@font-face {
+  font-family: var(--fontFamily0-Light);
+  src: url("../static/fonts/Montserrat-Thin.otf") format("opentype");
+}
+
+@font-face {
+  font-family: var(--fontFamily0-Light);
+  src: url("../static/fonts/montserrat-light_[allfont.ru].ttf") format("truetype");
+}
+
+@font-face {
+  font-family: var(--fontFamily0-Bold);
+  src: url("../static/fonts/Montserrat-SemiBold.otf") format("opentype");
+}
+
+@font-face {
+  font-family: var(--fontFamily0-Bold);
+  src: url("../static/fonts/montserrat-bold_[allfont.ru].ttf") format("truetype");
+}
+
+
+
+/* ---------------------------
+  components
+------------------------------ */
+
+@button standard-button {
+  border: none;
+  color: var(--color2);
+  color-hover: color(var(--color2) a(0.5));
+  color-active: var(--color2);
+  background-color: transparent;
+  background-color-hover: transparent;
+  background-color-active: transparent;
+}
+
+/* TODO (jk) remove btn class */
+.btn {
+  button: standard-button;
+}

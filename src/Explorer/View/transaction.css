@@ -1,5 +1,7 @@
-@import "../../const.css";
+@import "../../global.css";
 
-.transaction {
-
+.explorer-transaction {
+  &__container {
+    @neat-outer-container;
+  }
 }

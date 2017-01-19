@@ -1,32 +1,28 @@
-const path = require('path');
+import path from 'path';
 
 const {
   DefinePlugin,
   ProgressPlugin,
-  NoErrorsPlugin,
-  LoaderOptionsPlugin
+  NoEmitOnErrorsPlugin,
+  HotModuleReplacementPlugin
 } = require('webpack');
 
-const HtmlWebpackPlugin = require('html-webpack-plugin');
-const NamedModulesPlugin = require('webpack/lib/NamedModulesPlugin');
-const UglifyJsPlugin = require('webpack/lib/optimize/UglifyJsPlugin');
-const GitRevisionPlugin = require('git-revision-webpack-plugin')
+import HtmlWebpackPlugin from 'html-webpack-plugin';
+import NamedModulesPlugin from 'webpack/lib/NamedModulesPlugin';
+import UglifyJsPlugin from 'webpack/lib/optimize/UglifyJsPlugin';
+import GitRevisionPlugin from'git-revision-webpack-plugin';
+import CopyWebpackPlugin from 'copy-webpack-plugin';
+import ExtractTextPlugin from 'extract-text-webpack-plugin'
 
 const nodeEnv = process.env.NODE_ENV || 'development';
 const isProd = nodeEnv === 'production';
 console.log("production build: ", isProd);
 
-const paths = {
-  src: path.join(__dirname, '/src/'),
-  output: path.join(__dirname, '/dist/'),
-  public: '/'
-}
-
 module.exports = {
-  devtool: isProd ? 'nosources-source-map' : 'cheap-module-eval-source-map',
+  devtool: isProd ? '#hidden-source-map' : '#source-map',
   output: {
-    path: paths.output,
-    publicPath: paths.public,
+    path: path.join(__dirname, '/dist'),
+    publicPath: '/',
     ...(isProd ? {
       filename: '[name]-[hash].min.js',
     } : {
@@ -38,44 +34,31 @@ module.exports = {
   plugins: [
     new ProgressPlugin(),
     new HtmlWebpackPlugin({
-      template: 'src/index.html',
+      template: 'src/index.tpl.html',
       inject: 'body',
-      filename: 'index.html'
+      minify: {
+        collapseWhitespace: isProd
+      }
     }),
     new DefinePlugin({
       'process.env.NODE_ENV': JSON.stringify(nodeEnv),
+      '$PRODUCTION': isProd,
       '$VERSION': JSON.stringify(require('./package.json').version),
       '$COMMIT_HASH': JSON.stringify(new GitRevisionPlugin().commithash()),
-      '$DEBUG': !isProd
     }),
     new NamedModulesPlugin(),
-    new LoaderOptionsPlugin({
-      minimize: isProd,
-      options: {
-        minimize: isProd,
-        debug: !isProd,
-        postcss: [
-          require('postcss-import'),
-          require('postcss-nested'),
-          require('postcss-cssnext')({
-            browsers: [
-              'last 2 versions',
-              'ie >= 10'
-            ]
-          }),
-          require('postcss-custom-properties')
-        ],
-        purs: {
-          psc: 'psa',
-          jsonErrors: true,
-          src: [
-            path.join('src', '**', '*.purs'),
-            path.join('bower_components', 'purescript-*', 'src', '**', '*.purs')],
-        }
-      }
+    new CopyWebpackPlugin([
+      { from: 'static'
+    }],
+    {
+      ignore: ['fonts/**/*']
     }),
+    new HotModuleReplacementPlugin(),
     ...(isProd ? [
-      new NoErrorsPlugin(),
+      new NoEmitOnErrorsPlugin(),
+      new ExtractTextPlugin({
+        filename: `${isProd ? '[name]-[contenthash].min.css' : '[name].css'}`
+      }),
       new UglifyJsPlugin({
         sourceMap: false,
         beautify: false,
@@ -95,25 +78,46 @@ module.exports = {
       {
         test: /\.js$/,
         exclude: /(node_modules|bower_components)/,
-        loader: 'babel-loader'
+        use: 'babel-loader'
       },
       {
         test: /\.purs$/,
         loader: 'purs-loader',
-        exclude: /node_modules/
+        exclude: /node_modules/,
+        query: {
+          psc: 'psa',
+          src: [
+            path.join('src', '**', '*.purs'),
+            path.join('bower_components', 'purescript-*', 'src', '**', '*.purs')],
+        }
+      },
+      {
+        test: /\.(ico|jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2)(\?.*)?$/,
+        use: `file-loader?name=${isProd ? '[hash:8].[ext]' : '[path][name].[ext]?[hash:8]'}&limit: 10000`
       },
       {
         test: /\.css$/,
-        use: [
+        // Different handling of css loaders in dev / prod mode:
+        // 1) Enable HMR w/o using ExtractTextPlugin in dev mode
+        use: isProd ? undefined : [
           'style-loader',
           'css-loader?importLoaders=1',
-          'postcss-loader'
-        ]
+          'postcss-loader?sourceMap'
+        ],
+        // 2) Use ExtractTextPlugin in prod mode, only
+        loader: isProd ? ExtractTextPlugin.extract({
+          fallbackLoader: 'style-loader',
+          loader: [
+            'css-loader?importLoaders=1',
+            'postcss-loader'
+          ]
+        }) : undefined,
       }
     ]
   },
   devServer: {
-    contentBase: paths.src,
+    hot: !isProd,
+    contentBase: path.join(__dirname, 'src'),
     port: 3000,
     host: 'localhost',
     historyApiFallback: true,
@@ -121,8 +125,6 @@ module.exports = {
       aggregateTimeout: 300,
       poll: 1000
     },
-    compress: isProd,
-    inline: true,
     stats: 'minimal',
   }
 };

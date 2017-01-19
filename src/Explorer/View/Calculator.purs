@@ -9,15 +9,14 @@ import Pux.Router (link) as P
 import Explorer.I18n.Lang (translate)
 import Explorer.State (State, Action)
 import Explorer.Routes (Route(Dashboard), toUrl)
+import Explorer.View.Common (placeholderView)
 
 calculatorView :: State -> P.Html Action
 calculatorView state =
-    P.div [ P.className "calculator" ]
-        [ P.h1
-              []
-              [ P.text $ translate _.calculator state.lang ]
-        , P.link
+    P.div [ P.className "explorer-calculator__container" ]
+        [ P.link
               (toUrl Dashboard)
-              [ P.className "btn btn-big btn-outline" ]
+              [ P.className "btn" ]
               [ P.text $ translate _.back state.lang ]
+        , placeholderView $ translate _.calculator state.lang
         ]

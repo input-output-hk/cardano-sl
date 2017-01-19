@@ -1,0 +1,77 @@
+@import "../../global.css";
+
+:root {
+  --height-header-top: 70px;
+}
+
+.explorer-header {
+  background: linear-gradient(to bottom, var(--color1) 0%, var(--color2) 100%);
+
+  &__container {
+    @neat-outer-container;
+  }
+
+  &__top {
+    border-bottom: solid 1px color(var(--color3) a(0.5));
+    font-size: 12px;
+    height: var(--height-header-top);
+    .logo-container {
+    }
+
+    .logo__container {
+      @neat-span-columns 2;
+    }
+
+    .logo__wrapper {
+      height: var(--height-header-top);
+      position: relative;
+    }
+
+    .logo__img {
+      width: 49px;
+      height: 45px;
+      top: center;
+    }
+
+    .nav__container {
+      @neat-span-columns 8;
+      text-align: center;
+    }
+
+    .nav__list {
+
+    }
+
+    .nav__item {
+      height: var(--height-header-top);
+      line-height: var(--height-header-top);
+      font-family: var(--fontFamily0-Light);
+      font-size: 12px;
+      color: var(--color0);
+      padding: 0 20px;
+
+      button: standard-button;
+      button-color: var(--color0) color(var(--color0) a(0.8)) color(var(--color0) a(0.7));
+      button-background: transparent color(var(--color0) a(0.2)) color(var(--color0) a(0.1));
+    }
+
+
+    .currency__container {
+      @neat-span-columns 2;
+      height: var(--height-header-top);
+      text-align: right;
+    }
+
+    .currency__select {
+      height: var(--height-header-top);
+      color: var(--color0);
+      font-family: var(--fontFamily0-Light);
+      font-size: 12px;
+      margin: 0;
+      width: auto;
+      border: none;
+      background: transparent;
+    }
+
+  }
+}

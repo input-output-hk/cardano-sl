@@ -1,0 +1,94 @@
+@import "../../global.css";
+
+:root {
+  --height-footer-bottom: 70px;
+}
+
+.explorer-footer {
+  background-color: var(--color2);
+
+  &__container {
+    @neat-outer-container;
+  }
+
+  &__top {
+    border-bottom: 1px solid color(var(--color3) a(0.5));
+    padding: 50px 0;
+
+    .logo__container {
+      @neat-span-columns 3;
+    }
+
+    .logo__wrapper {
+      height: var(--height-header-top);
+      position: relative;
+    }
+
+    .logo__img {
+      width: 49px;
+      height: 45px;
+      top: center;
+    }
+
+    .nav__container {
+      @neat-span-columns 9;
+    }
+
+    .nav-item {
+
+      &__container {
+        @neat-span-columns 3;
+      }
+
+      &__header {
+        padding-bottom: 12px;
+        color: var(--color0);
+        font-family: var(--fontFamily0-Light);
+        font-size: 12px;
+      }
+
+      &__item {
+        font-family: var(--fontFamily0-Light);
+        font-size: 12px;
+        line-height: 30px;
+        display: block;
+
+        button: standard-button;
+        button-color: color(var(--color3) a(0.5)) color(var(--color3) a(0.3)) color(var(--color3) a(0.3));
+      }
+    }
+  }
+
+
+  &__bottom {
+    color: color(var(--color0) a(0.5));
+
+    .content {
+      @neat-span-columns 6;
+      height: var(--height-footer-bottom);
+      line-height: var(--height-footer-bottom);
+      position: relative;
+
+      &__right {
+        text-align: right;
+      }
+    }
+
+    .copy {
+      font-family: var(--fontFamily0-Light);
+      font-size: 10px;
+    }
+    
+    .lang__select {
+      height: var(--height-footer-bottom);
+      right: 0;
+      font-family: var(--fontFamily0-Light);
+      font-size: 10px;
+      color: color(var(--color0) a(0.5));
+      border: none; /* overridden */
+      background: transparent; /* overridden */
+      margin: 0; /* overridden */
+      width: auto; /* overridden */
+    }
+  }
+}

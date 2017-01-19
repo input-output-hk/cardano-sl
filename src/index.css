@@ -1,12 +1,13 @@
-@import "normalize.css";
-@import "basscss";
-@import "basscss-btn";
-@import "basscss-btn-outline";
-@import "basscss-btn-sizes";
-
-@import "const.css";
+/* cardano-sl explorer*/
+@import "global.css";
 @import "Explorer/View/layout.css";
+@import "Explorer/View/header.css";
+@import "Explorer/View/footer.css";
 @import "Explorer/View/dashboard.css";
 @import "Explorer/View/address.css";
 @import "Explorer/View/calculator.css";
 @import "Explorer/View/transaction.css";
+
+/* normalize */
+@reset-global pc;
+@reset-global mobile;

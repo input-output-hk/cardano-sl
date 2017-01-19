@@ -1,5 +1,7 @@
-@import "../../const.css";
+@import "../../global.css";
 
-.calculator {
-
+.explorer-calculator {
+  &__container {
+    @neat-outer-container;
+  }
 }

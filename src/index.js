@@ -1,18 +1,17 @@
 // styles
-import './main.css';
+import './index.css';
 // app
-const Main = require('./Main.purs');
-const initialState = require('./Explorer/State.purs').initialState;
+import Main from './Main.purs';
+import {initialState} from './Explorer/State.purs';
 
-const isDebug = $DEBUG; // set by webpack
-
+const entry = !$PRODUCTION ? 'debug' : 'main';
 // HMR
 if(module.hot) {
-  var main = Main[isDebug ? 'debug' : 'main'](window.lastState || initialState)();
+  var main = Main[entry](window.lastState || initialState)();
   main.state.subscribe(function (state) {
     window.lastState = state;
   });
   module.hot.accept();
 } else {
-  Main[isDebug ? 'debug' : 'main'](initialState)();
+  Main[entry](initialState)();
 }

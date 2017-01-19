@@ -9,15 +9,14 @@ import Pux.Router (link) as P
 import Explorer.I18n.Lang (translate)
 import Explorer.State (State, Action)
 import Explorer.Routes (Route(Dashboard), toUrl)
+import Explorer.View.Common (placeholderView)
 
 transactionView :: State -> P.Html Action
 transactionView state =
-    P.div [ P.className "transaction" ]
-        [ P.h1
-              []
-              [ P.text $ translate _.transaction state.lang ]
-        , P.link
+    P.div [ P.className "explorer-transaction__container" ]
+        [ P.link
               (toUrl Dashboard)
-              [ P.className "btn btn-big btn-outline" ]
+              [ P.className "btn" ]
               [ P.text $ translate _.back state.lang ]
+        , placeholderView $ translate _.transaction state.lang
         ]

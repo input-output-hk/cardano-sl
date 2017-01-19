@@ -1,15 +1,53 @@
-@import "../../const.css";
+@import "../../global.css";
 
-.app-container {
-  display: flex;
-  min-height: 100vh;
-  flex-direction: column;
-}
+.explorer-dashboard {
 
-.content {
-  flex: 1;
-}
+  &__container {
+    @neat-outer-container;
+  }
 
-.label-count {
-  color: var(--color1);
+  &__content {
+    padding: 20px;
+    padding-bottom: 100px;
+    margin: 20px 0;
+    font-size: 20px;
+    font-family: var(--fontFamily0-Light);
+    color: color(var(--color2) a(0.5));
+    background-color: color(var(--color2) a(0.1));
+  }
+
+  &__hero {
+    color: var(--color0);
+    background-color: var(--color2);
+    padding-top: 40px;
+    padding-bottom: 50px;
+    text-align: center;
+
+    .headline__hero {
+      font-size: 26px;
+      color: var(--color3);
+      font-family: var(--fontFamily0-Light);
+      padding-bottom: 15px;
+    }
+
+    .subheadline__hero {
+      font-size: 13px;
+      font-family: var(--fontFamily0-Light);
+      color: color(var(--color3) a(0.5));
+      opacity: 0.5;
+      padding-bottom: 30px;
+    }
+
+    .input__hero {
+      @neat-span-columns 6;
+      @neat-shift 3;
+      border: 1px solid color(var(--color0) a(0.3));
+      color: color(var(--color0) a(0.3));
+      background: transparent;
+      font-size: 13px;
+      font-family: var(--fontFamily0-Light);
+      padding: 15px 20px;
+    }
+  }
+
 }

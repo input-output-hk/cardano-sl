@@ -14,7 +14,9 @@ foreign import detectLocaleImpl :: forall e. Eff (dom :: DOM | e) String
 detectLocale :: forall e. Eff (dom :: DOM | e) (Maybe Language)
 detectLocale = readLanguage <<< take 2 <$> detectLocaleImpl
 
-translate :: (Translation -> String) -> Language -> String
+type I18nAccessor = (Translation -> String)
+
+translate :: I18nAccessor -> Language -> String
 translate f = f <<< getTranslation
 
 -- | ISO 639-1 https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes

@@ -113,7 +113,6 @@ import           Data.Proxy                    (Proxy (..), asProxyTypeOf)
 import           Data.SafeCopy                 (Contained, SafeCopy (..), base, contain,
                                                 deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Serialize                as Cereal (Get, Put)
-import           Data.String                   (IsString (fromString), String)
 import qualified Data.Text                     as T
 import           Data.Time.Units               (Microsecond, Second, convertUnit)
 import           Formatting                    (sformat, shown, stext, (%))
@@ -463,7 +462,7 @@ instance SafeCopy (AsBinary a) where
 
 class AsBinaryClass a where
   asBinary :: a -> AsBinary a
-  fromBinary :: AsBinary a -> Either [Char] a
+  fromBinary :: AsBinary a -> Either String a
 
 fromBinaryM :: (AsBinaryClass a, MonadFail m) => AsBinary a -> m a
 fromBinaryM = either fail return . fromBinary

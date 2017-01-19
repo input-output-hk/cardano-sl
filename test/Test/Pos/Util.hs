@@ -17,15 +17,15 @@ module Test.Pos.Util
        , showReadTest
        ) where
 
-import           Data.Binary.Get       (isEmpty, runGetIncremental, Decoder (..))
+import           Data.Binary.Get       (Decoder (..), isEmpty, runGetIncremental)
 import qualified Data.Binary.Get       as Bin
 import qualified Data.ByteString       as BS
 import qualified Data.ByteString.Lazy  as LBS
 import           Data.SafeCopy         (SafeCopy, safeGet, safePut)
 import           Data.Serialize        (runGet, runPut)
 import           Data.Typeable         (typeRep)
-import           Test.QuickCheck       (counterexample)
 import           Prelude               (read)
+import           Test.QuickCheck       (counterexample)
 
 import           Pos.Binary            (Bi (..), encode)
 import           Pos.Util              (AsBinaryClass (..))
@@ -95,7 +95,7 @@ serDeserId a =
     either (panic . toText) identity
         (fromBinary $ asBinary @t a) ===  a
 
-typeName :: forall a. Typeable a => [Char]
+typeName :: forall a. Typeable a => String
 typeName = show $ typeRep (Proxy @a)
 
 type IdTestingRequiredClasses f a = (Eq a, Show a, Arbitrary a, Typeable a, f a)

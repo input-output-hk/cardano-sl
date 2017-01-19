@@ -25,7 +25,6 @@ module Pos.Script.Examples
        , goodIntRedeemerWithBlah
        ) where
 
-import           Data.String       (String)
 import           Formatting        (build, sformat, (%))
 import           NeatInterpolation (text)
 import           Universum

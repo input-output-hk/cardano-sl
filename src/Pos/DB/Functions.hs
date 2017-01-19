@@ -78,7 +78,7 @@ rocksDecode (ToDecodeKey key) =
 rocksDecode (ToDecodeValue key val) =
     either (onParseError key) pure . decodeFull . BSL.fromStrict $ val
 
-onParseError :: (MonadThrow m) => ByteString -> [Char] -> m a
+onParseError :: (MonadThrow m) => ByteString -> String -> m a
 onParseError rawKey errMsg = throwM $ DBMalformed $ sformat fmt rawKey errMsg
   where
     fmt = "rocksGetBi: stored value is malformed, key = "%shown%", err: "%string

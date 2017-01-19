@@ -5,7 +5,6 @@ module Command
        , parseCommand
        ) where
 
-import           Data.String      (String)
 import           Prelude          (read, show)
 import           Text.Parsec      (many1, parse, try, (<?>))
 import           Text.Parsec.Char (alphaNum, digit, spaces, string)

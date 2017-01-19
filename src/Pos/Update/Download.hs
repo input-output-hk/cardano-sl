@@ -5,7 +5,6 @@ module Pos.Update.Download
        ) where
 
 import qualified Data.ByteArray          as BA
-import           Data.String             (String)
 import           Formatting              (formatToString, (%))
 import           Network.HTTP.Client     (Manager, newManager)
 import           Network.HTTP.Client.TLS (tlsManagerSettings)

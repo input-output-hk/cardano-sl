@@ -87,12 +87,12 @@ decode = runGet get
 decodeOrFail
     :: Bi a
     => LByteString
-    -> Either (LByteString, ByteOffset, [Char])
+    -> Either (LByteString, ByteOffset, String)
               (LByteString, ByteOffset, a)
 decodeOrFail = runGetOrFail get
 
 -- | Like 'decode', but ensures that the whole input has been consumed.
-decodeFull :: Bi a => LByteString -> Either [Char] a
+decodeFull :: Bi a => LByteString -> Either String a
 decodeFull bs = case (runGetOrFail get) bs of
     Left (_, _, err) -> Left ("decodeFull: " ++ err)
     Right (unconsumed, _, a)

@@ -30,7 +30,7 @@ import           Data.List              (span)
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.Buildable    as Buildable
 import           Formatting             (Format, bprint, build, later, (%))
-import           Prelude                (String, readsPrec, show)
+import           Prelude                (readsPrec, show)
 import           Universum              hiding (show)
 
 import           Pos.Binary.Class       (Bi)

@@ -130,7 +130,7 @@ data CommonArgs = CommonArgs
 #endif
     } deriving Show
 
-commonArgsParser :: [Char] -> Opt.Parser CommonArgs
+commonArgsParser :: String -> Opt.Parser CommonArgs
 commonArgsParser peerHelpMsg = CommonArgs
     <$> explicitInitial
     <*> many (peerOption peerHelpMsg)
@@ -144,7 +144,7 @@ commonArgsParser peerHelpMsg = CommonArgs
     <*> expDistrOption
 #endif
 
-templateParser :: (HasName f, HasMetavar f) => [Char] -> [Char] -> [Char] -> Opt.Mod f a
+templateParser :: (HasName f, HasMetavar f) => String -> String -> String -> Opt.Mod f a
 templateParser long metavar help =
     Opt.long long
     <> Opt.metavar metavar
@@ -157,22 +157,22 @@ explicitInitial =
          Opt.help "Explicitely contact to initial peers as to neighbors (even if they\
                   \ appeared offline once)")
 
-peerOption :: [Char] -> Opt.Parser DHTNode
+peerOption :: String -> Opt.Parser DHTNode
 peerOption peerHelpMsg =
     Opt.option (fromParsec dhtNodeParser) $
         templateParser "peer" "HOST:PORT/HOST_ID" peerHelpMsg
 
-optionalLogConfig :: Opt.Parser (Maybe [Char])
+optionalLogConfig :: Opt.Parser (Maybe String)
 optionalLogConfig =
     Opt.optional $ Opt.strOption $
         templateParser "log-config" "FILEPATH" "Path to logger configuration"
 
-optionalLogPrefix :: Opt.Parser (Maybe [Char])
+optionalLogPrefix :: Opt.Parser (Maybe String)
 optionalLogPrefix =
     optional $ Opt.strOption $
         templateParser "logs-prefix" "FILEPATH" "Prefix to logger output path"
 
-optionalJSONPath :: Opt.Parser (Maybe [Char])
+optionalJSONPath :: Opt.Parser (Maybe String)
 optionalJSONPath =
     Opt.optional $ Opt.strOption $
         templateParser "json-log" "FILEPATH" "Path to json log file"
@@ -235,7 +235,7 @@ timeLordOption =
          Opt.help "Peer is time lord, i.e. one responsible for system start time decision\
                   \ & propagation (used only in development)")
 
-webPortOption :: Word16 -> [Char] -> Opt.Parser Word16
+webPortOption :: Word16 -> String -> Opt.Parser Word16
 webPortOption portNum help =
     Opt.option Opt.auto $
         templateParser "web-port" "PORT" help -- "Port for web server"

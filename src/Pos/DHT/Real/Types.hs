@@ -31,13 +31,13 @@ import           Serokell.Util.Lens        (WrappedM (..))
 import           System.Wlog               (CanLog, HasLoggerName)
 
 import           Pos.Binary.Class          (Bi (..), decodeOrFail, encode)
-import           Pos.DHT.Model.Types    (DHTData, DHTKey, DHTNode (..),
+import           Pos.DHT.Model.Types       (DHTData, DHTKey, DHTNode (..),
                                             DHTNodeType (..))
 
 toBSBinary :: Bi b => b -> BS.ByteString
 toBSBinary = toStrict . encode
 
-fromBSBinary :: Bi b => BS.ByteString -> Either [Char] (b, BS.ByteString)
+fromBSBinary :: Bi b => BS.ByteString -> Either String (b, BS.ByteString)
 fromBSBinary bs =
     case decodeOrFail $ fromStrict bs of
         Left (_, _, errMsg)  -> Left errMsg

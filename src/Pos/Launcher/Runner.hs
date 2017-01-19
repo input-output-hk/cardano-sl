@@ -327,7 +327,7 @@ bracketDHTInstance BaseParams {..} action = bracket acquire release action
         , kdcExplicitInitial = bpDHTExplicitInitial
         }
 
-createTransport :: (MonadIO m, WithLogger m, Mockable Throw m) => [Char] -> Word16 -> m Transport
+createTransport :: (MonadIO m, WithLogger m, Mockable Throw m) => String -> Word16 -> m Transport
 createTransport ip port = do
     transportE <- liftIO $ TCP.createTransport
                              "0.0.0.0"

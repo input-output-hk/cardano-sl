@@ -83,6 +83,11 @@ instance Buildable UpdateProposal where
       bprint (build%" { protocol v"%build%", scripts v"%build%", tags: "%listJson%" }")
         upSoftwareVersion upProtocolVersion upScriptVersion (HM.keys upData)
 
+instance Buildable (UpdateProposal, [UpdateVote]) where
+    build (up, votes) =
+      bprint (build%" with votes: "%listJson)
+             up votes
+
 data UpdateData = UpdateData
     { udAppDiffHash :: !(Hash LByteString)
     , udPkgHash     :: !(Hash LByteString)

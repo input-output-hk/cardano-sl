@@ -21,8 +21,8 @@ instance Buildable ProposalMsgTag where
     build _ = "ProposalMsgTag"
 
 -- | Instance for `UpdateProposal`
-instance NamedMessagePart UpdateProposal where
-    nMessageName _ = "Update proposal"
+instance NamedMessagePart (UpdateProposal, [UpdateVote]) where
+    nMessageName _ = "Update proposal with votes"
 
 -- | Tag for vote messages
 data VoteMsgTag = VoteMsgTag deriving (Eq, Show)

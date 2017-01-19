@@ -7,7 +7,7 @@ module Pos.Update.Logic.Local
        (
          -- * Proposals
          isProposalNeeded
-       , getLocalProposal
+       , getLocalProposalNVotes
        , processProposal
 
          -- * Votes
@@ -66,8 +66,14 @@ isProposalNeeded :: (MonadIO m, MonadUSMem m) => UpId -> m Bool
 isProposalNeeded id = not . HM.member id <$> getLocalProposals
 
 -- | Get update proposal with given id if it is known.
-getLocalProposal :: (MonadIO m, MonadUSMem m) => UpId -> m (Maybe UpdateProposal)
-getLocalProposal id = HM.lookup id <$> getLocalProposals
+getLocalProposalNVotes :: (MonadIO m, MonadUSMem m) => UpId -> m (Maybe (UpdateProposal, [UpdateVote]))
+getLocalProposalNVotes id = do
+    prop <- HM.lookup id <$> getLocalProposals
+    votes <- getLocalVotes
+    pure $
+        case prop of
+            Nothing -> Nothing
+            Just p  -> Just (p, map fst . toList $ HM.lookupDefault mempty id votes)
 
 -- | Process proposal received from network, checking it against
 -- current state (global + local) and adding to local state if it's

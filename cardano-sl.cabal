@@ -107,6 +107,7 @@ library
 
                         -- Utilities/helpers
                         Pos.Util
+                        Pos.Util.BackupPhrase
                         Pos.Util.JsonLog
                         Pos.Util.Relay
                         Pos.Util.UserSecret

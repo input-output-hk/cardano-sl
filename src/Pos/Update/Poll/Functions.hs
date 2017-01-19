@@ -52,6 +52,11 @@ mkTotNegative = TotalNegative . coinToInteger
 mkTotSum :: Coin -> TotalSum
 mkTotSum = TotalSum . coinToInteger
 
+-- Proposal is approved (which corresponds to 'Just True') if total
+-- stake of votes for it is more than half of total stake.
+-- Proposal is rejected (which corresponds to 'Just False') if total
+-- stake of votes against it is more than half of total stake.
+-- Otherwise proposal is undecided ('Nothing').
 isDecided :: TotalPositive -> TotalNegative -> TotalSum -> Maybe Bool
 isDecided (TotalPositive totalPositive) (TotalNegative totalNegative) (TotalSum totalSum)
     | totalPositive * 2 > totalSum = Just True
@@ -69,6 +74,7 @@ voteToUProposalState
     -> m UndecidedProposalState
 voteToUProposalState voter stake decision ups@UndecidedProposalState {..} = do
     let upId = hash upsProposal
+    -- We need to find out new state of vote (it can be a fresh vote or revote).
     let oldVote = upsVotes ^. at voter
     let oldPositive = maybe False isPositiveVote oldVote
     let oldNegative = maybe False (not . isPositiveVote) oldVote
@@ -81,18 +87,22 @@ voteToUProposalState voter stake decision ups@UndecidedProposalState {..} = do
              , perDecision = decision
              })
             combinedMaybe
+    -- We recalculate new stake taking into account that old vote
+    -- could be deactivate.
     let posStakeAfterRemove
             | oldPositive = upsPositiveStake `unsafeSubCoin` stake
             | otherwise = upsPositiveStake
         negStakeAfterRemove
             | oldNegative = upsNegativeStake
             | otherwise = upsNegativeStake `unsafeSubCoin` stake
+    -- Then we recalculate stake adding stake of new vote.
         posStakeFinal
             | decision = posStakeAfterRemove `unsafeAddCoin` stake
             | otherwise = posStakeAfterRemove
         negStakeFinal
             | decision = negStakeAfterRemove
             | otherwise = negStakeAfterRemove `unsafeAddCoin` stake
+    -- We add a new vote with update state to set of votes.
     let newVotes = HM.insert voter combined upsVotes
     return
         ups
@@ -101,6 +111,10 @@ voteToUProposalState voter stake decision ups@UndecidedProposalState {..} = do
         , upsNegativeStake = negStakeFinal
         }
 
+-- Put a new proposal into context of MonadPoll. First argument
+-- determines whether proposal is part of existing block or is taken
+-- from mempool. State of proposal is calculated from votes for it and
+-- their stakes.
 putNewProposal
     :: forall ssc m.
        (MonadPoll m)
@@ -116,6 +130,7 @@ putNewProposal slotOrHeader totalStake votesAndStakes up = addActiveProposal ps
     totalPositive = sumCoins . map snd . filter (uvDecision . fst) $ votesAndStakes
     totalNegative = sumCoins . map snd . filter (not . uvDecision . fst) $ votesAndStakes
     votes = HM.fromList . map convertVote $ votesAndStakes
+    -- New proposal always has a fresh vote (not revote).
     convertVote (UpdateVote {..}, _) = (uvKey, newVoteState uvDecision)
     ups =
         UndecidedProposalState
@@ -125,6 +140,8 @@ putNewProposal slotOrHeader totalStake votesAndStakes up = addActiveProposal ps
         , upsPositiveStake = unsafeIntegerToCoin totalPositive
         , upsNegativeStake = unsafeIntegerToCoin totalNegative
         }
+    -- New proposal can be in decided state immediately if it has a
+    -- lot of positive votes.
     ps
         | Just decision <-
              isDecided
@@ -134,6 +151,7 @@ putNewProposal slotOrHeader totalStake votesAndStakes up = addActiveProposal ps
             PSDecided
                 DecidedProposalState
                 {dpsDecision = decision, dpsUndecided = ups, dpsDifficulty = cd}
+    -- Or it can be in undecided state (more common case).
         | otherwise = PSUndecided ups
 
 ----------------------------------------------------------------------------
@@ -199,7 +217,7 @@ resolveVoteStake epoch totalStake UpdateVote {..} = do
 -- 4. If 'considerThreshold' is true, also check that sum of positive votes
 --    for this proposal is enough (at least 'updateProposalThreshold').
 --
--- [TODO] If all checks pass, proposal is added. It can be in undecided or decided
+-- If all checks pass, proposal is added. It can be in undecided or decided
 -- state (if it has enough voted stake at once).
 verifyAndApplyProposal
     :: (MonadError PollVerFailure m, MonadPoll m)
@@ -211,22 +229,34 @@ verifyAndApplyProposal
 verifyAndApplyProposal considerThreshold slotOrHeader votes up@UpdateProposal {..} = do
     let epoch = slotOrHeader ^. epochIndexL
     let !upId = hash up
+    -- If there is an active proposal for given application name in
+    -- blockchain, new proposal can't be added.
     whenM (hasActiveProposal (svAppName upSoftwareVersion)) $
         throwError $ Poll2ndActiveProposal upSoftwareVersion
+    -- Here we verify consistency with regards to script versions and
+    -- update relevant state.
     verifyAndApplyProposalScript upId up
+    -- We also verify that software version is expected one.
     verifySoftwareVersion upId up
+    -- After that we resolve stakes of all votes.
     totalStake <- note (PollUnknownStakes epoch) =<< getEpochTotalStake epoch
     votesAndStakes <-
         mapM (\v -> (v, ) <$> resolveVoteStake epoch totalStake v) votes
+    -- When necessary, we also check that proposal itself has enough
+    -- positive votes to be included into block.
     when considerThreshold $ verifyProposalStake totalStake votesAndStakes upId
+    -- Finally we put it into context of MonadPoll together with votes for it.
     putNewProposal slotOrHeader totalStake votesAndStakes up
 
+-- Here we check that script version from proposal is the same as
+-- script versions of other proposals with the same protocol version.
+-- We also add new mapping if it is new.
 verifyAndApplyProposalScript
     :: (MonadError PollVerFailure m, MonadPoll m)
     => UpId -> UpdateProposal -> m ()
 verifyAndApplyProposalScript upId UpdateProposal {..} =
     getScriptVersion upProtocolVersion >>= \case
-        -- If there is no know script version for given procol
+        -- If there is no known script version for given procol
         -- version, it's added.
         Nothing -> addScriptVersionDep upProtocolVersion upScriptVersion
         Just sv
@@ -241,6 +271,8 @@ verifyAndApplyProposalScript upId UpdateProposal {..} =
                     , pwsvUpId = upId
                     }
 
+-- Here we check that software version is 1 more than last confirmed
+-- version of given application. Or 0 if it's new application.
 verifySoftwareVersion
     :: (MonadError PollVerFailure m, MonadPollRead m)
     => UpId -> UpdateProposal -> m ()
@@ -290,6 +322,11 @@ verifyProposalStake totalStake votesAndStakes upId = do
             , pspsUpId = upId
             }
 
+-- Here we verify votes for proposal which is already active. Each
+-- vote must have enough stake as per distribution from epoch where
+-- proposal was added.
+-- We also verify that what votes correspond to real proposal in
+-- undecided state.
 -- Votes are assumed to be for the same proposal.
 verifyAndApplyVotesGroup
     :: (MonadError PollVerFailure m, MonadPoll m)
@@ -305,6 +342,7 @@ verifyAndApplyVotesGroup cd votes = do
         PSDecided _     -> throwError $ PollProposalIsDecided upId stakeholderId
         PSUndecided ups -> mapM_ (verifyAndApplyVote cd ups) votes
 
+-- Here we actually apply vote to stored undecided proposal.
 verifyAndApplyVote
     :: (MonadError PollVerFailure m, MonadPoll m)
     => Maybe ChainDifficulty -> UndecidedProposalState -> UpdateVote -> m ()

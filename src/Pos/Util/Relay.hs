@@ -15,7 +15,6 @@ module Pos.Util.Relay
        ) where
 
 import qualified Data.ByteString.Char8            as BC
-import           Data.List.NonEmpty               (NonEmpty (..))
 import           Data.Proxy                       (Proxy (..))
 import           Formatting                       (build, sformat, stext, (%))
 import           Node                             (NodeId (..), SendActions (..), sendTo)

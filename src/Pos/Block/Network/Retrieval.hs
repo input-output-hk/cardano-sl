@@ -12,7 +12,7 @@ module Pos.Block.Network.Retrieval
 
 import           Control.Concurrent.STM.TBQueue (isFullTBQueue, readTBQueue, writeTBQueue)
 import           Control.Monad.Trans.Except     (ExceptT, runExceptT, throwE)
-import           Data.List.NonEmpty             (NonEmpty ((:|)), nonEmpty, (<|))
+import           Data.List.NonEmpty             ((<|))
 import qualified Data.List.NonEmpty             as NE
 import           Formatting                     (build, int, sformat, shown, stext, (%))
 import           Mockable                       (fork, handleAll, throw)
@@ -149,7 +149,7 @@ mkHeadersRequest
     :: WorkMode ssc m
     => Maybe (HeaderHash ssc) -> m (Maybe (MsgGetHeaders ssc))
 mkHeadersRequest upto = do
-    headers <- NE.nonEmpty <$> getHeadersOlderExp Nothing
+    headers <- nonEmpty <$> getHeadersOlderExp Nothing
     pure $ (\h -> MsgGetHeaders h upto) <$> headers
 
 matchRequestedHeaders
@@ -346,7 +346,7 @@ applyWithRollback sendActions toApply lca toRollback = do
   where
     panicBrokenLca = panic "applyWithRollback: nothing after LCA :/"
     toApplyAfterLca =
-        fromMaybe panicBrokenLca $ NE.nonEmpty $
+        fromMaybe panicBrokenLca $ nonEmpty $
         NE.dropWhile ((lca /=) . (^. prevBlockL)) toApply
 
 relayBlock

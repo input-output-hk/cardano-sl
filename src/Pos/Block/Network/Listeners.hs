@@ -8,7 +8,6 @@ module Pos.Block.Network.Listeners
        , blockStubListeners
        ) where
 
-import           Data.List.NonEmpty          (NonEmpty ((:|)))
 import           Data.Proxy                  (Proxy (..))
 import           Formatting                  (sformat, stext, (%))
 import           Node                        (ConversationActions (..),

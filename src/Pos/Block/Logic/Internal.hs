@@ -14,7 +14,6 @@ module Pos.Block.Logic.Internal
 
 import           Control.Arrow        ((&&&))
 import           Control.Monad.Catch  (bracketOnError)
-import           Data.List.NonEmpty   (NonEmpty)
 import qualified Data.List.NonEmpty   as NE
 import           System.Wlog          (logError)
 import           Universum

@@ -297,14 +297,14 @@ generateAndSetNewSecret sk sl@SlotId {..} = do
         logDebug $
             sformat ("generating secret for: " %listJson) $ participantIds
     let participants =
-            NE.nonEmpty . map vcVssKey . toList $
+            nonEmpty . map vcVssKey . toList $
             computeParticipants richmen certs
     maybe (Nothing <$ warnNoPs) generateAndSetNewSecretDo participants
   where
     warnNoPs =
         logWarning "generateAndSetNewSecret: can't generate, no participants"
     reportDeserFail = logError "Wrong participants list: can't deserialize"
-    generateAndSetNewSecretDo :: NE.NonEmpty (AsBinary VssPublicKey)
+    generateAndSetNewSecretDo :: NonEmpty (AsBinary VssPublicKey)
                               -> m (Maybe SignedCommitment)
     generateAndSetNewSecretDo ps = do
         let threshold = vssThreshold $ length ps

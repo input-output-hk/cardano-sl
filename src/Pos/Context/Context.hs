@@ -11,13 +11,12 @@ module Pos.Context.Context
 
 import qualified Control.Concurrent.STM         as STM
 import           Control.Concurrent.STM.TBQueue (TBQueue)
-import           Data.List.NonEmpty             (NonEmpty)
 import           Data.Time.Units                (Microsecond)
 import           Node                           (NodeId)
 import           Universum
 
 import           Pos.Crypto                     (PublicKey, SecretKey, toPublic)
-import           Pos.Security.CLI             (AttackTarget, AttackType)
+import           Pos.Security.CLI               (AttackTarget, AttackType)
 import           Pos.Ssc.Class.Types            (Ssc (SscNodeContext))
 import           Pos.Types                      (Address, BlockHeader, EpochIndex,
                                                  HeaderHash, SlotId, SlotLeaders,

@@ -6,7 +6,6 @@ module Pos.Ssc.GodTossing.Arbitrary
        ( CommitmentOpening (..)
        ) where
 
-import           Data.List.NonEmpty                (NonEmpty ((:|)))
 import           Test.QuickCheck                   (Arbitrary (..), elements, oneof)
 import           Universum
 

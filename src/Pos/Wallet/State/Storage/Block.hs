@@ -22,7 +22,6 @@ import           Control.Monad.Loops       (unfoldrM)
 import           Control.Monad.Trans.Maybe (MaybeT (..))
 import           Data.Default              (Default, def)
 import qualified Data.HashMap.Strict       as HM
-import           Data.List.NonEmpty        (NonEmpty (..))
 import           Data.SafeCopy             (base, deriveSafeCopySimple)
 import           Universum
 

@@ -34,7 +34,7 @@ import           Control.Monad.Except      (ExceptT (ExceptT), runExceptT, throw
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
 import           Data.Default              (Default (def))
 import qualified Data.HashMap.Strict       as HM
-import           Data.List.NonEmpty        (NonEmpty ((:|)), (<|))
+import           Data.List.NonEmpty        ((<|))
 import qualified Data.List.NonEmpty        as NE
 import qualified Data.Text                 as T
 import           Formatting                (build, int, ords, sformat, stext, (%))
@@ -234,7 +234,7 @@ getHeadersFromManyTo checkpoints startM = runMaybeT $ do
         sformat ("getHeadersFromManyTo: "%listJson%", start: "%build)
                 checkpoints startM
     validCheckpoints <- MaybeT $
-        NE.nonEmpty . catMaybes <$>
+        nonEmpty . catMaybes <$>
         mapM DB.getBlockHeader (NE.toList checkpoints)
     tip <- lift GS.getTip
     guard $ all ((/= tip) . view headerHashG) validCheckpoints
@@ -243,21 +243,21 @@ getHeadersFromManyTo checkpoints startM = runMaybeT $ do
             any (\c -> bh ^. prevBlockL == c ^. headerHashG) validCheckpoints
         whileCond bh = not (parentIsCheckpoint bh)
     headers <-
-        MaybeT $ NE.nonEmpty <$>
+        MaybeT $ nonEmpty <$>
         DB.loadHeadersByDepthWhile whileCond recoveryHeadersMessage startFrom
     if parentIsCheckpoint $ headers ^. _neHead
     then pure headers
     else do
         lift $ logDebug $ "getHeadersFromManyTo: giving headers in recovery mode"
         inMainCheckpoints <-
-            MaybeT $ NE.nonEmpty <$>
+            MaybeT $ nonEmpty <$>
             filterM (GS.isBlockInMainChain . headerHash)
                     (NE.toList validCheckpoints)
         let lowestCheckpoint =
                 maximumBy (comparing flattenEpochOrSlot) inMainCheckpoints
             loadUpCond _ h = h < recoveryHeadersMessage
         up <- lift $ GS.loadHeadersUpWhile lowestCheckpoint loadUpCond
-        MaybeT $ pure $ NE.nonEmpty $ reverse up
+        MaybeT $ pure $ nonEmpty $ reverse up
 
 -- | Given a starting point hash (we take tip if it's not in storage)
 -- it returns not more than 'blkSecurityParam' blocks distributed

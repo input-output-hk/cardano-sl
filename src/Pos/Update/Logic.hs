@@ -11,7 +11,7 @@ module Pos.Update.Logic
 
 import           Control.Monad.Except (ExceptT, runExceptT, throwError)
 import           Data.List            (partition)
-import           Data.List.NonEmpty   (NonEmpty, groupWith)
+import           Data.List.NonEmpty   (groupWith)
 import           Formatting           (sformat, (%))
 import           Universum
 

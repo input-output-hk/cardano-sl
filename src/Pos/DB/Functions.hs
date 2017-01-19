@@ -30,7 +30,6 @@ module Pos.DB.Functions
 import qualified Data.ByteString      as BS (drop, isPrefixOf)
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Default         (def)
-import           Data.List.NonEmpty   (NonEmpty)
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB     as Rocks
 import           Formatting           (bprint, sformat, shown, string, (%))

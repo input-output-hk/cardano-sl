@@ -36,7 +36,6 @@ import           Control.Monad.Trans.Except  (runExceptT, throwE)
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
 import           Data.List                   (partition)
-import           Data.List.NonEmpty          (NonEmpty)
 import qualified Data.List.NonEmpty          as NE
 import qualified Data.Text.Buildable         as B
 import           Data.Time.Clock             (UTCTime, addUTCTime, getCurrentTime)

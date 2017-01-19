@@ -41,7 +41,6 @@ import           Data.Containers                (ContainerKey, SetContainer (not
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.HashSet                   as HS
 import           Data.Ix                        (inRange)
-import           Data.List.NonEmpty             (NonEmpty (..))
 import qualified Data.List.NonEmpty             as NE
 import           Serokell.Util                  (VerificationRes, verifyGeneric)
 import           Serokell.Util.Verify           (isVerSuccess)

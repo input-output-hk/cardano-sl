@@ -128,10 +128,11 @@ lrcDo
     => EpochIndex -> [LrcConsumer m] -> HeaderHash ssc -> m (HeaderHash ssc)
 lrcDo epoch consumers tip = tip <$ do
     blundsList <- DB.loadBlundsFromTipWhile whileAfterCrucial
-    when (null blundsList) $ throwM UnknownBlocksForLrc
-    let blunds = NE.fromList blundsList
-    rollbackBlocksUnsafe blunds
-    compute `finally` applyBlocksUnsafe (NE.reverse blunds)
+    case nonEmpty blundsList of
+        Nothing -> throwM UnknownBlocksForLrc
+        Just blunds -> do
+            rollbackBlocksUnsafe blunds
+            compute `finally` applyBlocksUnsafe (NE.reverse blunds)
   where
     whileAfterCrucial b = getEpochOrSlot b > crucial
     crucial = EpochOrSlot $ Right $ crucialSlot epoch

@@ -107,8 +107,6 @@ import           Data.Hashable                 (Hashable)
 import qualified Data.HashMap.Strict           as HM
 import           Data.HashSet                  (fromMap)
 import           Data.List                     (span)
-import           Data.List.NonEmpty            (NonEmpty ((:|)))
-import qualified Data.List.NonEmpty            as NE
 import           Data.Proxy                    (Proxy (..), asProxyTypeOf)
 import           Data.SafeCopy                 (Contained, SafeCopy (..), base, contain,
                                                 deriveSafeCopySimple, safeGet, safePut)
@@ -284,7 +282,7 @@ _neLast f (x :| xs) = (\y -> x :| unsafeInit xs ++ [y]) <$> f (unsafeLast xs)
 instance SafeCopy a => SafeCopy (NonEmpty a) where
     getCopy = contain $ do
         xs <- safeGet
-        case NE.nonEmpty xs of
+        case nonEmpty xs of
             Nothing -> fail "getCopy@NonEmpty: list can't be empty"
             Just xx -> return xx
     putCopy = contain . safePut . toList

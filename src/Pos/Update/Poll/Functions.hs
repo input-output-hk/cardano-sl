@@ -41,16 +41,23 @@ verifyAndApplyUSPayload
     :: (MonadError PollVerFailure m, MonadPoll m)
     => Bool -> EpochIndex -> UpdatePayload -> m USUndo
 verifyAndApplyUSPayload considerPropThreshold epoch UpdatePayload {..} = do
+    -- First of all, we split all votes into groups. One group
+    -- consists of votes for proposal from payload. Each other group
+    -- consists of votes for other proposals.
     let upId = hash <$> upProposal
     let votePredicate vote = maybe False (uvProposalId vote ==) upId
     let (curPropVotes, otherVotes) = partition votePredicate upVotes
+    let otherGroups = NE.groupWith uvProposalId otherVotes
+    -- When there is proposal in payload, it's verified and applied.
     whenJust
         upProposal
         (verifyAndApplyProposal considerPropThreshold epoch curPropVotes)
-    let otherGroups = NE.groupWith uvProposalId otherVotes
+    -- Then we also apply votes from other groups.
     mapM_ verifyAndApplyVotesGroup otherGroups
     return USUndo
 
+-- Get stake of stakeholder who issued given vote as per given epoch.
+-- If stakeholder wasn't richman at that point, PollNotRichman is thrown.
 resolveVoteStake
     :: (MonadError PollVerFailure m, MonadPollRead m)
     => EpochIndex -> Coin -> UpdateVote -> m Coin
@@ -65,6 +72,19 @@ resolveVoteStake epoch totalStake UpdateVote {..} = do
         PollNotRichman
         {pnrStakeholder = id, pnrThreshold = threshold, pnrStake = stake}
 
+-- Do all necessary checks of new proposal and votes for it.
+-- If it's valid, apply. Specifically, these checks are done:
+--
+-- 1. Check that there is no active proposal for given application.
+-- 2. Check script version, it should be consistent with existing
+--    script version dependencies. New dependency can be added.
+-- 3. Check that numeric software version of application is 1 more than
+--    of last confirmed proposal for this application.
+-- 4. If 'considerThreshold' is true, also check that sum of positive votes
+--    for this proposal is enough (at least 'updateProposalThreshold').
+--
+-- [TODO] If all checks pass, proposal is added. It can be in undecided or decided
+-- state (if it has enough voted stake at once).
 verifyAndApplyProposal
     :: (MonadError PollVerFailure m, MonadPoll m)
     => Bool -> EpochIndex -> [UpdateVote] -> UpdateProposal -> m ()
@@ -84,9 +104,13 @@ verifyAndApplyProposalScript
     => UpId -> UpdateProposal -> m ()
 verifyAndApplyProposalScript upId UpdateProposal {..} =
     getScriptVersion upProtocolVersion >>= \case
+        -- If there is no know script version for given procol
+        -- version, it's added.
         Nothing -> addScriptVersionDep upProtocolVersion upScriptVersion
         Just sv
+            -- If script version matches stored version, it's good.
             | sv == upScriptVersion -> pass
+            -- Otherwise verification fails.
             | otherwise ->
                 throwError
                     PollWrongScriptVersion
@@ -100,9 +124,13 @@ verifySoftwareVersion
     => UpId -> UpdateProposal -> m ()
 verifySoftwareVersion upId UpdateProposal {..} =
     getLastConfirmedSV app >>= \case
-        Nothing -> pass
+        -- If there is no confirmed versions for given application,
+        -- We check that version is 0.
+        Nothing -> svNumber sv == 0
+        -- Otherwise we check that version is 1 more than stored
+        -- version.
         Just n
-            | svNumber sv == n -> pass
+            | svNumber sv + 1 == n -> pass
             | otherwise ->
                 throwError
                     PollWrongSoftwareVersion
@@ -115,6 +143,8 @@ verifySoftwareVersion upId UpdateProposal {..} =
     sv = upSoftwareVersion
     app = svAppName sv
 
+-- Here we check that proposal has at least 'updateProposalThreshold'
+-- stake of total stake in all positive votes for it.
 verifyProposalStake
     :: (MonadError PollVerFailure m)
     => Coin -> [(UpdateVote, Coin)] -> UpId -> m ()

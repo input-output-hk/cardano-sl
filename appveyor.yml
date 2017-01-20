@@ -12,6 +12,7 @@ build: off
 environment:
   global:
     STACK_ROOT: "c:\\sr"
+    CSL_SYSTEM_TAG: "win64"
 
 before_test:
 - Echo %APPVEYOR_BUILD_VERSION% > build-id

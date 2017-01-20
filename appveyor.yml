@@ -31,6 +31,8 @@ test_script:
       build -j 1 --test --no-haddock-deps --bench --no-run-benchmarks 
       --flag cardano-sl:with-web 
       --flag cardano-sl:with-wallet 
+      --flag cardano-sl:-asserts
+      --flag cardano-sl:-dev-mode
       --extra-include-dirs="C:\OpenSSL-Win64\include" 
       --extra-lib-dirs="C:\OpenSSL-Win64" 
       --extra-include-dirs="C:\projects\pos-haskell-prototype\rocksdb\include" 

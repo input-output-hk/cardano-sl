@@ -34,8 +34,7 @@ import           Pos.Update.Core       (UpId, UpdatePayload (..), UpdateProposal
                                         UpdateVote (..), combineVotes, isPositiveVote,
                                         newVoteState)
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Types (DecidedProposalState (..),
-                                        PollRollbackFailure (..), PollVerFailure (..),
+import           Pos.Update.Poll.Types (DecidedProposalState (..), PollVerFailure (..),
                                         PrevValue (..), ProposalState (..), USUndo (..),
                                         UndecidedProposalState (..))
 ----------------------------------------------------------------------------
@@ -429,7 +428,7 @@ applyDepthCheck cd
 -- | Rollback application of UpdatePayload in MonadPoll using payload
 -- itself and undo data.
 rollbackUSPayload
-    :: forall m . (MonadError PollRollbackFailure m, MonadPoll m)
+    :: forall m . MonadPoll m
     => ChainDifficulty -> UpdatePayload -> USUndo -> m ()
 rollbackUSPayload _ UpdatePayload{..} USUndo{..} = do
     -- Rollback last confirmed

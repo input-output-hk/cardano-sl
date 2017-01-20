@@ -28,8 +28,8 @@ module Pos.Update.Poll.Types
        , PollVerFailure (..)
 
          -- * Rollback
-       , PollRollbackFailure (..)
        , PrevValue (..)
+       , maybeToPrev
        , USUndo (..)
        , unChangedSVL
        , unChangedPropsL
@@ -209,15 +209,11 @@ instance Buildable PollVerFailure where
 -- Undo
 ----------------------------------------------------------------------------
 
--- To be extended for sure.
--- | PollRollbackFailure represents all possible errors which can
--- appear during UpdatePayload rollback.
-data PollRollbackFailure = PollRollbackFailure
-
-instance Buildable PollRollbackFailure where
-    build = notImplemented
-
 data PrevValue a = PrevValue a | NoExist
+
+maybeToPrev :: Maybe a -> PrevValue a
+maybeToPrev (Just x) = PrevValue x
+maybeToPrev Nothing = NoExist
 
 -- To be extended for sure.
 data USUndo = USUndo

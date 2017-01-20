@@ -29,15 +29,15 @@ import           Pos.Types             (ChainDifficulty, Coin, EpochIndex,
                                         epochIndexL, flattenSlotId, headerSlot, sumCoins,
                                         unflattenSlotId, unsafeAddCoin,
                                         unsafeIntegerToCoin, unsafeSubCoin)
+import           Pos.Types.Version     (ApplicationName, NumSoftwareVersion)
 import           Pos.Update.Core       (UpId, UpdatePayload (..), UpdateProposal (..),
                                         UpdateVote (..), combineVotes, isPositiveVote,
                                         newVoteState)
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Types (DecidedProposalState (..),
                                         PollRollbackFailure (..), PollVerFailure (..),
-                                        ProposalState (..), ProposalUndo (..),
-                                        USUndo (..), UndecidedProposalState (..))
-
+                                        PrevValue (..), ProposalState (..), USUndo (..),
+                                        UndecidedProposalState (..))
 ----------------------------------------------------------------------------
 -- Primitive operations, helpers
 ----------------------------------------------------------------------------
@@ -173,7 +173,7 @@ putNewProposal slotOrHeader totalStake votesAndStakes up = addActiveProposal ps
 -- given header is applied.
 verifyAndApplyUSPayload
     :: (MonadError PollVerFailure m, MonadPoll m)
-    => Bool -> Either SlotId (MainBlockHeader __) -> UpdatePayload -> m USUndo
+    => Bool -> Either SlotId (MainBlockHeader __) -> UpdatePayload -> m ()
 verifyAndApplyUSPayload considerPropThreshold slotOrHeader UpdatePayload {..} = do
     -- First of all, we split all votes into groups. One group
     -- consists of votes for proposal from payload. Each other group
@@ -183,10 +183,9 @@ verifyAndApplyUSPayload considerPropThreshold slotOrHeader UpdatePayload {..} = 
     let (curPropVotes, otherVotes) = partition votePredicate upVotes
     let otherGroups = NE.groupWith uvProposalId otherVotes
     -- When there is proposal in payload, it's verified and applied.
-    unProposalUndo <-
-        maybe (pure Nothing)
-              (fmap Just . verifyAndApplyProposal considerPropThreshold slotOrHeader curPropVotes)
-              upProposal
+    whenJust
+        upProposal
+        (verifyAndApplyProposal considerPropThreshold slotOrHeader curPropVotes)
     -- Then we also apply votes from other groups.
     -- ChainDifficulty is needed, because proposal may become approved
     -- and then we'll need to track whether it becomes confirmed.
@@ -202,7 +201,6 @@ verifyAndApplyUSPayload considerPropThreshold slotOrHeader UpdatePayload {..} = 
                 (mainBlk ^. headerSlot)
                 (mainBlk ^. difficultyL)
             applyDepthCheck (mainBlk ^. difficultyL)
-    return USUndo {..}
 
 -- Get stake of stakeholder who issued given vote as per given epoch.
 -- If stakeholder wasn't richman at that point, PollNotRichman is thrown.
@@ -239,7 +237,7 @@ verifyAndApplyProposal
     -> Either SlotId (MainBlockHeader __)
     -> [UpdateVote]
     -> UpdateProposal
-    -> m ProposalUndo
+    -> m ()
 verifyAndApplyProposal considerThreshold slotOrHeader votes up@UpdateProposal {..} = do
     let epoch = slotOrHeader ^. epochIndexL
     let !upId = hash up
@@ -249,7 +247,7 @@ verifyAndApplyProposal considerThreshold slotOrHeader votes up@UpdateProposal {.
         throwError $ Poll2ndActiveProposal upSoftwareVersion
     -- Here we verify consistency with regards to script versions and
     -- update relevant state.
-    punCreatedNewPV <- verifyAndApplyProposalScript upId up
+    verifyAndApplyProposalScript upId up
     -- We also verify that software version is expected one.
     verifySoftwareVersion upId up
     -- After that we resolve stakes of all votes.
@@ -261,7 +259,6 @@ verifyAndApplyProposal considerThreshold slotOrHeader votes up@UpdateProposal {.
     when considerThreshold $ verifyProposalStake totalStake votesAndStakes upId
     -- Finally we put it into context of MonadPoll together with votes for it.
     putNewProposal slotOrHeader totalStake votesAndStakes up
-    return ProposalUndo {..}
 
 -- Here we check that script version from proposal is the same as
 -- script versions of other proposals with the same protocol version.
@@ -269,15 +266,15 @@ verifyAndApplyProposal considerThreshold slotOrHeader votes up@UpdateProposal {.
 -- Returns True if new script versions deps is created.
 verifyAndApplyProposalScript
     :: (MonadError PollVerFailure m, MonadPoll m)
-    => UpId -> UpdateProposal -> m Bool
+    => UpId -> UpdateProposal -> m ()
 verifyAndApplyProposalScript upId UpdateProposal {..} =
     getScriptVersion upProtocolVersion >>= \case
         -- If there is no known script version for given procol
         -- version, it's added.
-        Nothing -> True <$ addScriptVersionDep upProtocolVersion upScriptVersion
+        Nothing -> addScriptVersionDep upProtocolVersion upScriptVersion
         Just sv
             -- If script version matches stored version, it's good.
-            | sv == upScriptVersion -> pure False
+            | sv == upScriptVersion -> pass
             -- Otherwise verification fails.
             | otherwise ->
                 throwError
@@ -308,7 +305,7 @@ verifySoftwareVersion upId UpdateProposal {..} =
         -- Otherwise we check that version is 1 more than stored
         -- version.
         Just n
-            | svNumber sv + 1 == n -> pass
+            | svNumber sv == n + 1 -> pass
             | otherwise ->
                 throwError
                     PollWrongSoftwareVersion
@@ -422,8 +419,8 @@ applyDepthCheck cd
     applyDepthCheckDo DecidedProposalState {..} = do
         let UndecidedProposalState {..} = dpsUndecided
         let sv = upSoftwareVersion upsProposal
-        setLastConfirmedSV sv
-        deactivateProposal (hash upsProposal) (svAppName sv)
+        when dpsDecision $ setLastConfirmedSV sv
+        deactivateProposal (hash upsProposal)
 
 ----------------------------------------------------------------------------
 -- Rollback
@@ -432,24 +429,26 @@ applyDepthCheck cd
 -- | Rollback application of UpdatePayload in MonadPoll using payload
 -- itself and undo data.
 rollbackUSPayload
-    :: (MonadError PollRollbackFailure m, MonadPoll m)
+    :: forall m . (MonadError PollRollbackFailure m, MonadPoll m)
     => ChainDifficulty -> UpdatePayload -> USUndo -> m ()
-rollbackUSPayload cd UpdatePayload{..} USUndo{..} = do
+rollbackUSPayload _ UpdatePayload{..} USUndo{..} = do
+    -- Rollback last confirmed
+    mapM_ setOrDelLastConfirmedSV (HM.toList unChangedSV)
+    -- Rollback proposals
+    mapM_ setOrDelProposal (HM.toList unChangedProps)
+    -- Rollback protocol version
+    whenJust unLastAdoptedPV setLastAdoptedPV
+    -- Rollback script
+    whenJust unCreatedNewDepsFor delScriptVersionDep
+  where
+    setOrDelLastConfirmedSV :: (ApplicationName, PrevValue NumSoftwareVersion) -> m ()
+    setOrDelLastConfirmedSV (svAppName, PrevValue svNumber) =
+        setLastConfirmedSV SoftwareVersion {..}
+    setOrDelLastConfirmedSV (appName, NoExist) = delConfirmedSV appName
 
-    -- Script Rollback
-    -- TODO should we check that getScriptVersion upProtocolVersion == upScriptVersion?
-    case (upProposal, unProposalUndo) of
-        (Nothing, Nothing)       -> pass -- no script rollback
-        (Just prop, Just unProp) -> rollbackProposalScript prop unProp
-        otherwise ->
-            throwError PollRollbackFailure -- TODO more detailed
-
-rollbackProposalScript
-    :: MonadPoll m
-    => UpdateProposal -> ProposalUndo -> m ()
-rollbackProposalScript UpdateProposal{..} ProposalUndo{..}
-    | punCreatedNewPV = delScriptVersionDep upProtocolVersion
-    | otherwise = pass
+    setOrDelProposal :: (UpId, PrevValue ProposalState) -> m ()
+    setOrDelProposal (upid, NoExist)   = deactivateProposal upid
+    setOrDelProposal (_, PrevValue ps) = addActiveProposal ps
 
 ----------------------------------------------------------------------------
 -- Normalize

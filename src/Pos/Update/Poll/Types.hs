@@ -18,6 +18,7 @@ module Pos.Update.Poll.Types
        , pmDelScriptVersionsL
        , pmLastAdoptedPVL
        , pmNewConfirmedL
+       , pmDelConfirmedL
        , pmNewActivePropsL
        , pmDelActivePropsL
        , pmNewActivePropsIdxL
@@ -28,8 +29,12 @@ module Pos.Update.Poll.Types
 
          -- * Rollback
        , PollRollbackFailure (..)
+       , PrevValue (..)
        , USUndo (..)
-       , ProposalUndo (..)
+       , unChangedSVL
+       , unChangedPropsL
+       , unCreatedNewDepsForL
+       , unLastAdoptedPVL
        ) where
 
 import           Control.Lens        (makeLensesFor)
@@ -113,6 +118,7 @@ data PollModifier = PollModifier
     , pmDelScriptVersions :: !(HashSet ProtocolVersion)
     , pmLastAdoptedPV     :: !(Maybe ProtocolVersion)
     , pmNewConfirmed      :: !(HashMap ApplicationName NumSoftwareVersion)
+    , pmDelConfirmed      :: !(HashSet ApplicationName)
     , pmNewActiveProps    :: !(HashMap UpId ProposalState)
     , pmDelActiveProps    :: !(HashSet UpId)
     , pmNewActivePropsIdx :: !(HashMap ApplicationName UpId)
@@ -123,6 +129,7 @@ makeLensesFor [ ("pmNewScriptVersions", "pmNewScriptVersionsL")
               , ("pmDelScriptVersions", "pmDelScriptVersionsL")
               , ("pmLastAdoptedPV", "pmLastAdoptedPVL")
               , ("pmNewConfirmed", "pmNewConfirmedL")
+              , ("pmDelConfirmed", "pmDelConfirmedL")
               , ("pmNewActiveProps", "pmNewActivePropsL")
               , ("pmDelActiveProps", "pmDelActivePropsL")
               , ("pmNewActivePropsIdx", "pmNewActivePropsIdxL")
@@ -210,17 +217,25 @@ data PollRollbackFailure = PollRollbackFailure
 instance Buildable PollRollbackFailure where
     build = notImplemented
 
+data PrevValue a = PrevValue a | NoExist
+
 -- To be extended for sure.
 data USUndo = USUndo
-    { unProposalUndo :: !(Maybe ProposalUndo)
+    { unCreatedNewDepsFor :: !(Maybe ProtocolVersion)
+    , unLastAdoptedPV     :: !(Maybe ProtocolVersion)
+    , unChangedProps      :: !(HashMap UpId (PrevValue ProposalState))
+    , unChangedSV         :: !(HashMap ApplicationName (PrevValue NumSoftwareVersion))
     }
 
-data ProposalUndo = ProposalUndo
-    { punCreatedNewPV :: !Bool
-    }
+makeLensesFor [ ("unCreatedNewDepsFor", "unCreatedNewDepsForL")
+              , ("unLastAdoptedPV", "unLastAdoptedPVL")
+              , ("unChangedProps", "unChangedPropsL")
+              , ("unChangedSV", "unChangedSVL")
+              ]
+  ''USUndo
 
 instance Buildable USUndo where
     build _ = ""
 
 instance Default USUndo where
-    def = USUndo Nothing
+    def = USUndo Nothing Nothing mempty mempty

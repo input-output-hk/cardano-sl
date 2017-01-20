@@ -49,8 +49,8 @@ import           Pos.Wallet.Context          (ContextHolder, WithWalletContext)
 import           Pos.Wallet.KeyStorage       (KeyStorage, MonadKeys)
 import           Pos.Wallet.State            (WalletDB)
 import qualified Pos.Wallet.State            as WS
-import           Pos.Wallet.Tx.Pure          (deriveAddrHistory, deriveAddrHistoryPartial,
-                                              getRelatedTxs)
+import           Pos.Wallet.Tx.Pure          (TxHistoryEntry, deriveAddrHistory,
+                                              deriveAddrHistoryPartial, getRelatedTxs)
 import           Pos.WorkMode                (MinWorkMode)
 
 -- | A class which have the methods to get state of address' balance
@@ -93,10 +93,10 @@ instance (MonadDB ssc m, MonadMask m) => MonadBalances (Modern.TxpLDHolder ssc m
 
 -- | A class which have methods to get transaction history
 class Monad m => MonadTxHistory m where
-    getTxHistory :: Address -> m [(TxId, Tx, Bool)]
+    getTxHistory :: Address -> m [TxHistoryEntry]
     saveTx :: (TxId, TxAux) -> m ()
 
-    default getTxHistory :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => Address -> m [(TxId, Tx, Bool)]
+    default getTxHistory :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => Address -> m [TxHistoryEntry]
     getTxHistory = lift . getTxHistory
 
     default saveTx :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => (TxId, TxAux) -> m ()

@@ -41,9 +41,10 @@ import           Data.Hashable         (Hashable (..))
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Formatting            (build, sformat)
 import           Pos.Aeson.Types       ()
-import           Pos.Types             (Address (..), Coin, Tx, TxId, decodeTextAddress,
+import           Pos.Types             (Address (..), Coin, TxId, decodeTextAddress,
                                         sumCoins, txOutAddress, txOutValue, txOutputs,
                                         unsafeIntegerToCoin)
+import           Pos.Wallet.Tx.Pure    (TxHistoryEntry (..))
 
 -- Notifications
 data NotifyEvent
@@ -88,8 +89,8 @@ mkCTxId = CTxId . CHash
 txIdToCTxId :: TxId -> CTxId
 txIdToCTxId = mkCTxId . sformat build
 
-mkCTx :: Address -> (TxId, Tx, Bool) -> CTxMeta -> CTx
-mkCTx addr (txId, tx, isOutgoing) = CTx (txIdToCTxId txId) outputCoins . meta
+mkCTx :: Address -> TxHistoryEntry -> CTxMeta -> CTx
+mkCTx addr (THEntry txId tx isOutgoing _) = CTx (txIdToCTxId txId) outputCoins . meta
   where
     outputCoins = unsafeIntegerToCoin . sumCoins . map txOutValue $
         filter (xor isOutgoing . (== addr) . txOutAddress) $ txOutputs tx

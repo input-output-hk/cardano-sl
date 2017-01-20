@@ -14,10 +14,13 @@ module Pos.Update.Poll.Functions
 import           Control.Lens          (at)
 import           Control.Monad.Except  (MonadError, throwError)
 import qualified Data.HashMap.Strict   as HM
+import qualified Data.HashSet          as HS
 import           Data.List             (partition)
 import           Data.List.NonEmpty    (NonEmpty)
 import qualified Data.List.NonEmpty    as NE
 import           Exceptions            (note)
+import           Formatting            (build, sformat, (%))
+import           System.Wlog           (WithLogger, logWarning)
 import           Universum
 
 import           Pos.Constants         (blkSecurityParam, updateImplicitApproval,
@@ -97,8 +100,8 @@ voteToUProposalState voter stake decision ups@UndecidedProposalState {..} = do
             | oldPositive = upsPositiveStake `unsafeSubCoin` stake
             | otherwise = upsPositiveStake
         negStakeAfterRemove
-            | oldNegative = upsNegativeStake
-            | otherwise = upsNegativeStake `unsafeSubCoin` stake
+            | oldNegative = upsNegativeStake `unsafeSubCoin` stake
+            | otherwise = upsNegativeStake
     -- Then we recalculate stake adding stake of new vote.
         posStakeFinal
             | decision = posStakeAfterRemove `unsafeAddCoin` stake
@@ -458,19 +461,48 @@ normalizePoll slot proposals votes =
 normalizeProposals
     :: MonadPoll m
     => SlotId -> UpdateProposals -> m UpdateProposals
-normalizeProposals _ _ = pure $ const mempty notImplemented
+normalizeProposals slotId (toList -> proposals) =
+    HM.fromList . map (\x->(hash x, x)) . map fst . catRights proposals <$>
+    mapM (runExceptT . verifyAndApplyProposal False (Left slotId) []) proposals
+  where
 
 -- Apply votes which can be applied and put them in result.
 -- Disregard other votes.
 normalizeVotes
     :: MonadPoll m
     => LocalVotes -> m LocalVotes
-normalizeVotes _ = pure $ const mempty notImplemented
+normalizeVotes votes = notImplemented
+    -- let otherGroups = NE.groupWith uvProposalId otherVotes
+    -- let cd = either (const Nothing) (Just . view difficultyL) slotOrHeader
+    -- mapM_ (verifyAndApplyVotesGroup cd) otherGroups
 
 -- Leave only those proposals which have enough stake for inclusion
 -- into block according to 'updateProposalThreshold'. Note that this
 -- function is read-only.
 filterProposalsByThd
-    :: MonadPollRead m
-    => UpdateProposals -> m (UpdateProposals, HashSet UpId)
-filterProposalsByThd _ = pure $ const (mempty, mempty) notImplemented
+    :: forall m . (MonadPollRead m, WithLogger m)
+    => EpochIndex -> UpdateProposals -> m (UpdateProposals, HashSet UpId)
+filterProposalsByThd epoch proposalsHM = getEpochTotalStake epoch >>= \case
+    Nothing -> (proposalsHM, mempty) <$
+                logWarning
+                    (sformat ("Couldn't get stake in filterProposalsByTxd for epoch "%build) epoch)
+    Just totalStake -> do
+        let threshold = applyCoinPortion updateProposalThreshold totalStake
+        let proposals = HM.toList proposalsHM
+        filtered <- HM.fromList <$> filterM (hasEnoughtStake threshold . fst) proposals
+        pure (filtered, HS.fromList $ HM.keys $ proposalsHM `HM.difference` filtered)
+  where
+    hasEnoughtStake :: Coin -> UpId -> m Bool
+    hasEnoughtStake threshold id = getProposal id >>= \case
+        Nothing -> pure False
+        Just (PSUndecided UndecidedProposalState {..} ) ->
+            pure $ upsPositiveStake >= threshold
+        Just (PSDecided DecidedProposalState {..} ) ->
+            pure $ upsPositiveStake dpsUndecided >= threshold
+
+catRights :: [a] -> [Either PollVerFailure b] -> [(a, b)]
+catRights a b = catRightsDo $ zip a b
+  where
+    catRightsDo []                = []
+    catRightsDo ((_, Left _):xs)  = catRightsDo xs
+    catRightsDo ((x, Right y):xs) = (x, y):catRightsDo xs

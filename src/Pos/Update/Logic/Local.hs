@@ -33,7 +33,7 @@ import           Universum
 import           Pos.Crypto             (PublicKey)
 import           Pos.DB.Class           (MonadDB)
 import qualified Pos.DB.GState          as DB
-import           Pos.Types              (HeaderHash, SlotId (siEpoch),
+import           Pos.Types              (HeaderHash, SlotId (..),
                                          SoftwareVersion (..), slotIdF)
 import           Pos.Update.Core        (UpId, UpdatePayload (..),
                                          UpdateProposal (upSoftwareVersion),
@@ -203,7 +203,7 @@ processNewSlot slotId = withUSLock $ withCurrentTip $ \ms@MemState{..} -> do
 -- Sometimes payload can't be created. It can happen if we are trying to
 -- create block for slot which has already passed, for example.
 usPreparePayload :: USLocalLogicMode μ m => SlotId -> m (Maybe UpdatePayload)
-usPreparePayload slotId = do
+usPreparePayload slotId@SlotId{..} = do
     -- First of all, we make sure that mem state corresponds to given
     -- slot.  If mem state corresponds to newer slot already, it won't
     -- be updated, but we don't want to create block in this case
@@ -220,7 +220,6 @@ usPreparePayload slotId = do
     withUSLock preparePayloadDo
   where
     preparePayloadDo = do
-        stateVar <- askUSMemState
         -- Normalization is done just in case, as said before
         MemState {..} <- usNormalizeDo Nothing (Just slotId)
         -- If slot doesn't match, we can't provide payload for this slot.
@@ -231,7 +230,7 @@ usPreparePayload slotId = do
                -- positive stake for inclusion into payload.
                let MemPool {..} = msPool
                (filteredProposals, bad) <- runDBPoll . evalPollT msModifier $
-                   filterProposalsByThd mpProposals
+                   filterProposalsByThd siEpoch mpProposals
                fmap Just . runDBPoll . evalPollT msModifier $
                    finishPrepare bad filteredProposals mpLocalVotes
     slotMismatchFmt = "US payload can't be created due to slot mismatch "%

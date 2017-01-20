@@ -14,6 +14,7 @@ module Pos.Update.Core.Types
        , ExtendedUpdateVote
        , UpdateProposals
        , LocalVotes
+       , mkVoteId
 
        , UpdateData (..)
        , SystemTag (getSystemTag)
@@ -118,6 +119,9 @@ instance Buildable VoteId where
     build (upId, pk, dec) =
       bprint ("Vote Id { voter: "%build%", proposal id: "%build%", voter's decision: "%build%" }")
              pk upId dec
+
+mkVoteId :: UpdateVote -> VoteId
+mkVoteId UpdateVote{..} = (uvProposalId, uvKey, uvDecision)
 
 -- | Update System payload. 'Pos.Types.BodyProof' contains 'UpdateProof' = @Hash UpdatePayload@.
 data UpdatePayload = UpdatePayload

@@ -95,6 +95,7 @@ module Pos.Util
        , withWaitLog
 
        , execWithTimeLimit
+       , parseIntegralSafe
 
        , NamedMessagePart (..)
        -- * Instances
@@ -139,6 +140,7 @@ import           Node                          (ConversationActions (..),
                                                 SendActions (..))
 import           Node.Message                  (MessageName (..), Packable, Unpackable,
                                                 messageName, messageName')
+import           Prelude                       (read)
 import           Serokell.Util                 (VerificationRes (..))
 import           System.Console.ANSI           (Color (..), ColorIntensity (Vivid),
                                                 ConsoleLayer (Foreground),
@@ -147,6 +149,8 @@ import           System.Wlog                   (LoggerNameBox (..), WithLogger, 
                                                 logWarning, modifyLoggerName)
 import           Test.QuickCheck               (Arbitrary)
 import           Text.Parsec                   (ParsecT)
+import           Text.Parsec                   (digit, many1)
+import           Text.Parsec.Text              (Parser)
 import           Universum                     hiding (Async, async, bracket, cancel,
                                                 waitAny)
 import           Unsafe                        (unsafeInit, unsafeLast)
@@ -689,3 +693,13 @@ execWithTimeLimit timeout action = do
     (promise, val) <- waitAny promises
     mapM_ cancel $ filter (/= promise) promises
     return val
+
+parseIntegralSafe :: Integral a => Parser a
+parseIntegralSafe = fromIntegerSafe . read =<< many1 digit
+  where
+    fromIntegerSafe :: Integral a => Integer -> Parser a
+    fromIntegerSafe x =
+        let res = fromInteger x
+        in  if fromIntegral res == x
+            then return res
+            else fail ("Number is too large: " ++ show x)

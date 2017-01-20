@@ -1,5 +1,6 @@
 {-# LANGUAGE Rank2Types #-}
--- | Proxy transformer for tracking updates for rollback
+-- | Proxy transformer for tracking updates for
+-- rollback. Single-threaded.
 
 module Pos.Update.Poll.RollTrans
        ( RollT (..)
@@ -33,6 +34,11 @@ whenNothingM mb action = mb >>= \case
     Nothing -> action
     Just _  -> pass
 
+-- | Monad transformer which stores USUndo and implements writable
+-- MonadPoll. Its purpose is to collect data necessary for rollback.
+--
+-- [WARNING] This transformer uses StateT and is intended for
+-- single-threaded usage only.
 instance MonadPoll m => MonadPoll (RollT m) where
     -- only one time can be called
     addScriptVersionDep pv sv = RollT $ do

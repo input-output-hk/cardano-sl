@@ -26,12 +26,14 @@ import           Control.Lens           (at, (%=))
 import           Control.Monad.Except   (runExceptT)
 import           Data.Default           (Default (def))
 import qualified Data.HashMap.Strict    as HM
+import           Formatting             (sformat, (%))
+import           System.Wlog            (WithLogger, logWarning)
 import           Universum
 
 import           Pos.Crypto             (PublicKey)
 import           Pos.DB.Class           (MonadDB)
 import qualified Pos.DB.GState          as DB
-import           Pos.Types              (SlotId (siEpoch), SoftwareVersion (..))
+import           Pos.Types              (SlotId (siEpoch), SoftwareVersion (..), slotIdF)
 import           Pos.Update.Core        (UpId, UpdatePayload (..),
                                          UpdateProposal (upSoftwareVersion),
                                          UpdateVote (..), VoteState, canCombineVotes)
@@ -48,7 +50,7 @@ import           Pos.Update.Poll        (MonadPoll (deactivateProposal),
 import           Pos.Util               (getKeys, zoom')
 
 -- MonadMask is needed because are using Lock. It can be improved later.
-type USLocalLogicMode σ m = (MonadDB σ m, MonadUSMem m, MonadMask m)
+type USLocalLogicMode σ m = (MonadDB σ m, MonadUSMem m, MonadMask m, WithLogger m)
 
 getMemPool :: (MonadUSMem m, MonadIO m) => m MemPool
 getMemPool = msPool <$> (askUSMemState >>= atomically . readTVar)
@@ -226,7 +228,8 @@ usPreparePayload slotId = do
         stateVar <- askUSMemState
         MemState {..} <- atomically $ readTVar stateVar
         -- If slot doesn't match, we can't provide payload for this slot.
-        if | msSlot /= slotId -> return Nothing
+        if | msSlot /= slotId -> Nothing <$
+               logWarning (sformat slotMismatchFmt msSlot slotId)
            | otherwise -> do
                -- Here we basically do two things:
                -- • we remove proposals which don't have enough positive stake
@@ -238,6 +241,8 @@ usPreparePayload slotId = do
                let goodModifier = msModifier <> toGoodModifier
                fmap Just . runDBPoll . evalPollT goodModifier $
                    finishPrepare goodMemPool
+    slotMismatchFmt = "US payload can't be created due to slot mismatch (our payload is for "
+                       %slotIdF%", but requested one is "%slotIdF%")"
 
 -- Here we basically choose only one proposal for inclusion and remove
 -- all votes for other proposals.

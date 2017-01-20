@@ -25,7 +25,11 @@ module Pos.Update.Poll.Types
 
          -- * Verification
        , PollVerFailure (..)
+
+         -- * Rollback
+       , PollRollbackFailure (..)
        , USUndo (..)
+       , ProposalUndo (..)
        ) where
 
 import           Control.Lens        (makeLensesFor)
@@ -199,10 +203,24 @@ instance Buildable PollVerFailure where
 ----------------------------------------------------------------------------
 
 -- To be extended for sure.
+-- | PollRollbackFailure represents all possible errors which can
+-- appear during UpdatePayload rollback.
+data PollRollbackFailure = PollRollbackFailure
+
+instance Buildable PollRollbackFailure where
+    build = notImplemented
+
+-- To be extended for sure.
 data USUndo = USUndo
+    { unProposalUndo :: !(Maybe ProposalUndo)
+    }
+
+data ProposalUndo = ProposalUndo
+    { punCreatedNewPV :: !Bool
+    }
 
 instance Buildable USUndo where
     build _ = ""
 
 instance Default USUndo where
-    def = USUndo
+    def = USUndo Nothing

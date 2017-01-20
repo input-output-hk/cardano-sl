@@ -43,7 +43,7 @@ import           Pos.Update.Poll.Types       (PollModifier (..), pmDelActiveProp
                                               pmDelActivePropsL, pmLastAdoptedPVL,
                                               pmNewActivePropsIdxL, pmNewActivePropsL,
                                               pmNewConfirmedL, pmNewScriptVersionsL,
-                                              psProposal)
+                                              psProposal, pmDelScriptVersionsL)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 ----------------------------------------------------------------------------
@@ -109,6 +109,7 @@ instance MonadPollRead m =>
 instance MonadPollRead m =>
          MonadPoll (PollT m) where
     addScriptVersionDep pv sv = PollT $ pmNewScriptVersionsL . at pv .= Just sv
+    delScriptVersionDep pv = PollT $ pmDelScriptVersionsL . at pv .= Nothing
     setLastAdoptedPV pv = PollT $ pmLastAdoptedPVL .= Just pv
     setLastConfirmedSV SoftwareVersion {..} =
         PollT $ pmNewConfirmedL . at svAppName .= Just svNumber

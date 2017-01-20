@@ -68,11 +68,17 @@ usRollbackBlocks blunds =
   where
     rollbackDo :: (Block ssc, USUndo) -> PollT (DBPoll m) ()
     rollbackDo (Left _, _) = pass
-    rollbackDo (Right blk, undo) =
-        rollbackUSPayload
-            (blk ^. difficultyL)
-            (blk ^. gbBody . mbUpdatePayload)
-            undo
+    rollbackDo (Right blk, undo) = do
+        verdict <-
+            runExceptT $ rollbackUSPayload
+                (blk ^. difficultyL)
+                (blk ^. gbBody . mbUpdatePayload)
+                undo
+        either onFailure (const pass) verdict
+    onFailure failure = do
+        let msg = "usRollbackBlocks failed: " <> pretty failure
+        logError $ colorize Red msg
+        throwM $ USInternalError msg
 
 -- | Verify whether sequence of blocks can be applied to US part of
 -- current GState DB.  This function doesn't make pure checks, they

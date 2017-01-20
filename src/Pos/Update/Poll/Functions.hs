@@ -33,9 +33,10 @@ import           Pos.Update.Core       (UpId, UpdatePayload (..), UpdateProposal
                                         UpdateVote (..), combineVotes, isPositiveVote,
                                         newVoteState)
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Types (DecidedProposalState (..), PollVerFailure (..),
-                                        ProposalState (..), USUndo (..),
-                                        UndecidedProposalState (..))
+import           Pos.Update.Poll.Types (DecidedProposalState (..),
+                                        PollRollbackFailure (..), PollVerFailure (..),
+                                        ProposalState (..), ProposalUndo (..),
+                                        USUndo (..), UndecidedProposalState (..))
 
 ----------------------------------------------------------------------------
 -- Primitive operations, helpers
@@ -182,9 +183,10 @@ verifyAndApplyUSPayload considerPropThreshold slotOrHeader UpdatePayload {..} = 
     let (curPropVotes, otherVotes) = partition votePredicate upVotes
     let otherGroups = NE.groupWith uvProposalId otherVotes
     -- When there is proposal in payload, it's verified and applied.
-    whenJust
-        upProposal
-        (verifyAndApplyProposal considerPropThreshold slotOrHeader curPropVotes)
+    unProposalUndo <-
+        maybe (pure Nothing)
+              (fmap Just . verifyAndApplyProposal considerPropThreshold slotOrHeader curPropVotes)
+              upProposal
     -- Then we also apply votes from other groups.
     -- ChainDifficulty is needed, because proposal may become approved
     -- and then we'll need to track whether it becomes confirmed.
@@ -200,7 +202,7 @@ verifyAndApplyUSPayload considerPropThreshold slotOrHeader UpdatePayload {..} = 
                 (mainBlk ^. headerSlot)
                 (mainBlk ^. difficultyL)
             applyDepthCheck (mainBlk ^. difficultyL)
-    return USUndo
+    return USUndo {..}
 
 -- Get stake of stakeholder who issued given vote as per given epoch.
 -- If stakeholder wasn't richman at that point, PollNotRichman is thrown.
@@ -237,7 +239,7 @@ verifyAndApplyProposal
     -> Either SlotId (MainBlockHeader __)
     -> [UpdateVote]
     -> UpdateProposal
-    -> m ()
+    -> m ProposalUndo
 verifyAndApplyProposal considerThreshold slotOrHeader votes up@UpdateProposal {..} = do
     let epoch = slotOrHeader ^. epochIndexL
     let !upId = hash up
@@ -247,7 +249,7 @@ verifyAndApplyProposal considerThreshold slotOrHeader votes up@UpdateProposal {.
         throwError $ Poll2ndActiveProposal upSoftwareVersion
     -- Here we verify consistency with regards to script versions and
     -- update relevant state.
-    verifyAndApplyProposalScript upId up
+    punCreatedNewPV <- verifyAndApplyProposalScript upId up
     -- We also verify that software version is expected one.
     verifySoftwareVersion upId up
     -- After that we resolve stakes of all votes.
@@ -259,21 +261,23 @@ verifyAndApplyProposal considerThreshold slotOrHeader votes up@UpdateProposal {.
     when considerThreshold $ verifyProposalStake totalStake votesAndStakes upId
     -- Finally we put it into context of MonadPoll together with votes for it.
     putNewProposal slotOrHeader totalStake votesAndStakes up
+    return ProposalUndo {..}
 
 -- Here we check that script version from proposal is the same as
 -- script versions of other proposals with the same protocol version.
 -- We also add new mapping if it is new.
+-- Returns True if new script versions deps is created.
 verifyAndApplyProposalScript
     :: (MonadError PollVerFailure m, MonadPoll m)
-    => UpId -> UpdateProposal -> m ()
+    => UpId -> UpdateProposal -> m Bool
 verifyAndApplyProposalScript upId UpdateProposal {..} =
     getScriptVersion upProtocolVersion >>= \case
         -- If there is no known script version for given procol
         -- version, it's added.
-        Nothing -> addScriptVersionDep upProtocolVersion upScriptVersion
+        Nothing -> True <$ addScriptVersionDep upProtocolVersion upScriptVersion
         Just sv
             -- If script version matches stored version, it's good.
-            | sv == upScriptVersion -> pass
+            | sv == upScriptVersion -> pure False
             -- Otherwise verification fails.
             | otherwise ->
                 throwError
@@ -428,9 +432,24 @@ applyDepthCheck cd
 -- | Rollback application of UpdatePayload in MonadPoll using payload
 -- itself and undo data.
 rollbackUSPayload
-    :: MonadPoll m
+    :: (MonadError PollRollbackFailure m, MonadPoll m)
     => ChainDifficulty -> UpdatePayload -> USUndo -> m ()
-rollbackUSPayload _ _ _ = const pass notImplemented
+rollbackUSPayload cd UpdatePayload{..} USUndo{..} = do
+
+    -- Script Rollback
+    -- TODO should we check that getScriptVersion upProtocolVersion == upScriptVersion?
+    case (upProposal, unProposalUndo) of
+        (Nothing, Nothing)       -> pass -- no script rollback
+        (Just prop, Just unProp) -> rollbackProposalScript prop unProp
+        otherwise ->
+            throwError PollRollbackFailure -- TODO more detailed
+
+rollbackProposalScript
+    :: MonadPoll m
+    => UpdateProposal -> ProposalUndo -> m ()
+rollbackProposalScript UpdateProposal{..} ProposalUndo{..}
+    | punCreatedNewPV = delScriptVersionDep upProtocolVersion
+    | otherwise = pass
 
 ----------------------------------------------------------------------------
 -- Normalize

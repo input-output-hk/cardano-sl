@@ -104,6 +104,8 @@ instance MonadPollRead m => MonadPollRead (ExceptT s m)
 class MonadPollRead m => MonadPoll m where
     addScriptVersionDep :: ProtocolVersion -> ScriptVersion -> m ()
     -- ^ Add functional dependency between protocol version and script version.
+    delScriptVersionDep :: ProtocolVersion -> m ()
+    -- ^ Delete functional dependency between protocol version and script version.
     setLastAdoptedPV :: ProtocolVersion -> m ()
     -- ^ Set last adopted protocol version.
     setLastConfirmedSV :: SoftwareVersion -> m ()

@@ -69,8 +69,10 @@ instance Binary U.VoteState
 instance Bi U.VoteState
 
 instance Bi U.USUndo where
-    get = pure U.USUndo
-    put _ = pass
+    get = notImplemented
+    put = notImplemented
+    -- get = pure U.USUndo
+    -- put _ = pass
 
 instance Bi U.UndecidedProposalState where
     put U.UndecidedProposalState {..} = do

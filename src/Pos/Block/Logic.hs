@@ -85,7 +85,7 @@ import           Pos.Types                 (Block, BlockHeader, EpochIndex,
                                             vhpVerifyConsensus)
 import qualified Pos.Types                 as Types
 import           Pos.Update.Core           (UpdatePayload (..))
-import           Pos.Update.Logic          (usVerifyBlocks)
+import           Pos.Update.Logic          (usPreparePayload, usVerifyBlocks)
 import           Pos.Update.Poll           (PollModifier, PollVerFailure)
 import           Pos.Util                  (NE, NewestFirst (..), OldestFirst (..),
                                             inAssertMode, neZipWith3, spanSafe,
@@ -123,11 +123,16 @@ lcaWithMainChain headers =
 
 -- | Result of single (new) header classification.
 data ClassifyHeaderRes
-    = CHContinues      -- ^ Header continues our main chain.
-    | CHAlternative    -- ^ Header continues alternative chain which
-                       -- is more difficult.
-    | CHUseless !Text  -- ^ Header is useless.
-    | CHInvalid !Text  -- ^ Header is invalid.
+    = CHContinues
+      -- ^ Header is direct continuation of main chain (i.e. its
+      -- parent is our tip).
+    | CHAlternative
+      -- ^ Header continues main or alternative chain, it's more
+      -- difficult than tip.
+    | CHUseless !Text
+      -- ^ Header is useless.
+    | CHInvalid !Text
+      -- ^ Header is invalid.
 
 -- | Make `ClassifyHeaderRes` from list of error messages using
 -- `CHRinvalid` constructor. Intended to be used with `VerificationRes`.
@@ -626,12 +631,13 @@ createMainBlockFinish
     -> ExceptT Text m (MainBlock ssc)
 createMainBlockFinish slotId pSk prevHeader = do
     (localTxs, txUndo) <- getLocalTxsNUndo @ssc
-    sscData <- maybe onNoSsc pure =<< sscGetLocalPayload @ssc slotId
+    sscData <- note onNoSsc =<< sscGetLocalPayload @ssc slotId
+    usPayload <- note onNoUS =<< lift (usPreparePayload slotId)
     (localPSKs, pskUndo) <- lift getProxyMempool
     let convertTx (txId, (tx, _, _)) = WithHash tx txId
     sortedTxs <- maybe onBrokenTopo pure $ topsortTxs convertTx localTxs
     sk <- ncSecretKey <$> getNodeContext
-    let blk = createMainBlockPure prevHeader sortedTxs pSk slotId localPSKs sscData sk
+    let blk = createMainBlockPure prevHeader sortedTxs pSk slotId localPSKs sscData usPayload sk
     let prependToUndo undos tx =
             fromMaybe (panic "Undo for tx not found")
                       (HM.lookup (fst tx) txUndo) : undos
@@ -647,7 +653,8 @@ createMainBlockFinish slotId pSk prevHeader = do
     lift $ blk <$ applyBlocksUnsafe (one (Right blk, blockUndo)) pModifier
   where
     onBrokenTopo = throwError "Topology of local transactions is broken!"
-    onNoSsc = throwError "can't obtain SSC payload to create block"
+    onNoSsc = "can't obtain SSC payload to create block"
+    onNoUS = "can't obtain US payload to create block"
 
 createMainBlockPure
     :: Ssc ssc
@@ -657,11 +664,12 @@ createMainBlockPure
     -> SlotId
     -> [ProxySKSimple]
     -> SscPayload ssc
+    -> UpdatePayload
     -> SecretKey
     -> MainBlock ssc
-createMainBlockPure prevHeader txs pSk sId psks sscData sk =
+createMainBlockPure prevHeader txs pSk sId psks sscData usPayload sk =
     mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
   where
     extraB = MainExtraBodyData (mkAttributes ())
     extraH = MainExtraHeaderData curProtocolVersion curSoftwareVersion (mkAttributes ())
-    body = mkMainBody (fmap snd txs) sscData psks (UpdatePayload Nothing [])
+    body = mkMainBody (fmap snd txs) sscData psks usPayload

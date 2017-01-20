@@ -8,6 +8,7 @@ module Pos.Update.Poll.Functions
        ( verifyAndApplyUSPayload
        , rollbackUSPayload
        , normalizePoll
+       , filterProposalsByThd
        ) where
 
 import           Control.Lens          (at)
@@ -29,7 +30,8 @@ import           Pos.Types             (ChainDifficulty, Coin, EpochIndex,
                                         epochIndexL, flattenSlotId, headerSlot, sumCoins,
                                         unflattenSlotId, unsafeAddCoin,
                                         unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Update.Core       (UpId, UpdatePayload (..), UpdateProposal (..),
+import           Pos.Update.Core       (LocalVotes, UpId, UpdatePayload (..),
+                                        UpdateProposal (..), UpdateProposals,
                                         UpdateVote (..), combineVotes, isPositiveVote,
                                         newVoteState)
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
@@ -343,22 +345,25 @@ verifyProposalStake totalStake votesAndStakes upId = do
 verifyAndApplyVotesGroup
     :: (MonadError PollVerFailure m, MonadPoll m)
     => Maybe ChainDifficulty -> NonEmpty UpdateVote -> m ()
-verifyAndApplyVotesGroup cd votes = do
-    let upId = uvProposalId $ NE.head votes
-        !stakeholderId = addressHash . uvKey $ NE.head votes
-        unknownProposalErr =
-            PollUnknownProposal
-            {pupStakeholder = stakeholderId, pupProposal = upId}
-    ps <- note unknownProposalErr =<< getProposal upId
-    case ps of
-        PSDecided _     -> throwError $ PollProposalIsDecided upId stakeholderId
-        PSUndecided ups -> mapM_ (verifyAndApplyVote cd ups) votes
+verifyAndApplyVotesGroup cd votes = mapM_ verifyAndApplyVote votes
+  where
+    upId = uvProposalId $ NE.head votes
+    verifyAndApplyVote vote = do
+        let
+            !stakeholderId = addressHash . uvKey $ NE.head votes
+            unknownProposalErr =
+                PollUnknownProposal
+                {pupStakeholder = stakeholderId, pupProposal = upId}
+        ps <- note unknownProposalErr =<< getProposal upId
+        case ps of
+            PSDecided _     -> throwError $ PollProposalIsDecided upId stakeholderId
+            PSUndecided ups -> verifyAndApplyVoteDo cd ups vote
 
 -- Here we actually apply vote to stored undecided proposal.
-verifyAndApplyVote
+verifyAndApplyVoteDo
     :: (MonadError PollVerFailure m, MonadPoll m)
     => Maybe ChainDifficulty -> UndecidedProposalState -> UpdateVote -> m ()
-verifyAndApplyVote cd ups v@UpdateVote {..} = do
+verifyAndApplyVoteDo cd ups v@UpdateVote {..} = do
     let e = siEpoch $ upsSlot ups
     totalStake <- note (PollUnknownStakes e) =<< getEpochTotalStake e
     voteStake <- resolveVoteStake e totalStake v
@@ -436,9 +441,36 @@ rollbackUSPayload _ _ _ = const pass notImplemented
 -- Normalize
 ----------------------------------------------------------------------------
 
--- | Remove some data from Poll to make it valid. First argument
--- determines whether 'updateProposalThreshold' should be checked.
+-- | Normalize given proposals and votes with respect to current Poll
+-- state, i. e. remove everything that is invalid. Valid data is
+-- applied.  This function doesn't consider 'updateProposalThreshold'.
 normalizePoll
     :: MonadPoll m
-    => Bool -> m ()
-normalizePoll _ = const pass notImplemented
+    => SlotId
+    -> UpdateProposals
+    -> LocalVotes
+    -> m (UpdateProposals, LocalVotes)
+normalizePoll slot proposals votes =
+    (,) <$> normalizeProposals slot proposals <*> normalizeVotes votes
+
+-- Apply proposals which can be applied and put them in result.
+-- Disregard other proposals.
+normalizeProposals
+    :: MonadPoll m
+    => SlotId -> UpdateProposals -> m UpdateProposals
+normalizeProposals _ _ = pure $ const mempty notImplemented
+
+-- Apply votes which can be applied and put them in result.
+-- Disregard other votes.
+normalizeVotes
+    :: MonadPoll m
+    => LocalVotes -> m LocalVotes
+normalizeVotes _ = pure $ const mempty notImplemented
+
+-- Leave only those proposals which have enough stake for inclusion
+-- into block according to 'updateProposalThreshold'. Note that this
+-- function is read-only.
+filterProposalsByThd
+    :: MonadPollRead m
+    => UpdateProposals -> m (UpdateProposals, HashSet UpId)
+filterProposalsByThd _ = pure $ const (mempty, mempty) notImplemented

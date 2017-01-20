@@ -156,6 +156,7 @@ data PollVerFailure
     | PollExtraRevote { perUpId        :: !UpId
                      ,  perStakeholder :: !StakeholderId
                      ,  perDecision    :: !Bool}
+    | PollInternalError !Text
 
 -- To be implemented for sure.
 instance Buildable PollVerFailure where
@@ -193,6 +194,8 @@ instance Buildable PollVerFailure where
         bprint ("stakeholder "%build%" vote "%stext%" proposal "
                 %build%" more than once")
         perStakeholder (bool "against" "for" perDecision) perUpId
+    build (PollInternalError msg) =
+        bprint ("internal error: "%stext) msg
 
 ----------------------------------------------------------------------------
 -- Undo

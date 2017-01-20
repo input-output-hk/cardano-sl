@@ -123,11 +123,16 @@ lcaWithMainChain headers =
 
 -- | Result of single (new) header classification.
 data ClassifyHeaderRes
-    = CHContinues      -- ^ Header continues our main chain.
-    | CHAlternative    -- ^ Header continues alternative chain which
-                       -- is more difficult.
-    | CHUseless !Text  -- ^ Header is useless.
-    | CHInvalid !Text  -- ^ Header is invalid.
+    = CHContinues
+      -- ^ Header is direct continuation of main chain (i.e. its
+      -- parent is our tip).
+    | CHAlternative
+      -- ^ Header continues main or alternative chain, it's more
+      -- difficult than tip.
+    | CHUseless !Text
+      -- ^ Header is useless.
+    | CHInvalid !Text
+      -- ^ Header is invalid.
 
 -- | Make `ClassifyHeaderRes` from list of error messages using
 -- `CHRinvalid` constructor. Intended to be used with `VerificationRes`.

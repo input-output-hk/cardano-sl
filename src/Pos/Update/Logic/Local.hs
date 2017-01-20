@@ -22,10 +22,10 @@ module Pos.Update.Logic.Local
        ) where
 
 import           Control.Concurrent.STM (modifyTVar', readTVar, writeTVar)
-import           Control.Lens           (at, (%=))
 import           Control.Monad.Except   (runExceptT)
 import           Data.Default           (Default (def))
 import qualified Data.HashMap.Strict    as HM
+import qualified Data.HashSet           as HS
 import           Formatting             (sformat, (%))
 import           System.Wlog            (WithLogger, logWarning)
 import           Universum
@@ -33,7 +33,8 @@ import           Universum
 import           Pos.Crypto             (PublicKey)
 import           Pos.DB.Class           (MonadDB)
 import qualified Pos.DB.GState          as DB
-import           Pos.Types              (SlotId (siEpoch), SoftwareVersion (..), slotIdF)
+import           Pos.Types              (HeaderHash, SlotId (siEpoch),
+                                         SoftwareVersion (..), slotIdF)
 import           Pos.Update.Core        (UpId, UpdatePayload (..),
                                          UpdateProposal (upSoftwareVersion),
                                          UpdateVote (..), VoteState, canCombineVotes)
@@ -41,13 +42,10 @@ import           Pos.Update.MemState    (LocalVotes, MemPool (..), MemState (..)
                                          MonadUSMem, UpdateProposals, askUSMemState,
                                          modifyMemPool, withUSLock)
 import           Pos.Update.Poll        (MonadPoll (deactivateProposal),
-                                         MonadPollRead (getProposal), PollModifier,
-                                         PollVerFailure, ProposalState (..),
-                                         UndecidedProposalState (..), evalPollT,
-                                         execPollT, modifyPollModifier, normalizePoll,
-                                         pmNewActivePropsL, runDBPoll,
-                                         verifyAndApplyUSPayload)
-import           Pos.Util               (getKeys, zoom')
+                                         MonadPollRead (getProposal), PollVerFailure,
+                                         evalPollT, execPollT, filterProposalsByThd,
+                                         modifyPollModifier, normalizePoll, runDBPoll,
+                                         runPollT, verifyAndApplyUSPayload)
 
 -- MonadMask is needed because are using Lock. It can be improved later.
 type USLocalLogicMode σ m = (MonadDB σ m, MonadUSMem m, MonadMask m, WithLogger m)
@@ -166,41 +164,38 @@ usNormalize =
     withUSLock $ do
         tip <- DB.getTip
         stateVar <- askUSMemState
-        ms@MemState {..} <- atomically $ readTVar stateVar
-        normalizingModifier <- runDBPoll . execPollT def $ normalizePoll False
-        let validModifier = modifyPollModifier msModifier normalizingModifier
-        let validPool = modifyMemPool def normalizingModifier msPool
-        let newMS =
-                ms {msModifier = validModifier, msPool = validPool, msTip = tip}
-        atomically $ writeTVar stateVar newMS
+        atomically . writeTVar stateVar =<< usNormalizeDo (Just tip) Nothing
+
+-- Normalization under lock.
+usNormalizeDo
+    :: USLocalLogicMode ς m
+    => Maybe HeaderHash -> Maybe SlotId -> m MemState
+usNormalizeDo tip slot = do
+    stateVar <- askUSMemState
+    ms@MemState {..} <- atomically $ readTVar stateVar
+    let mp@MemPool {..} = msPool
+    ((newProposals, newVotes), newModifier) <-
+        runDBPoll . runPollT def $
+        normalizePoll msSlot mpProposals mpLocalVotes
+    let newTip = fromMaybe msTip tip
+    let newSlot = fromMaybe msSlot slot
+    let newPool = mp {mpProposals = newProposals, mpLocalVotes = newVotes}
+    let newMS =
+            ms
+            { msModifier = newModifier
+            , msPool = newPool
+            , msTip = newTip
+            , msSlot = newSlot
+            }
+    return newMS
 
 -- | Update memory state to make it correct for given slot.
 processNewSlot :: USLocalLogicMode μ m => SlotId -> m ()
 processNewSlot slotId = withUSLock $ withCurrentTip $ \ms@MemState{..} -> do
     if | msSlot >= slotId -> pure ms
+       -- Crucial changes happen only when epoch changes.
        | siEpoch msSlot == siEpoch slotId -> pure $ ms {msSlot = slotId}
-       | otherwise -> processNewSlotDo ms
-  where
-    processNewSlotDo ms@MemState{..} = do
-        let localUpIds = getKeys $ mpProposals msPool
-        let slotModifier = updateSlot slotId localUpIds msModifier
-        normalizingModifier <-
-            runDBPoll . evalPollT slotModifier . execPollT def $
-            normalizePoll False
-        let validModifier = modifyPollModifier msModifier normalizingModifier
-        let validPool = modifyMemPool def normalizingModifier msPool
-        pure $ ms { msModifier = validModifier
-                  , msPool = validPool
-                  , msSlot = slotId}
-
-updateSlot :: SlotId -> HashSet UpId -> PollModifier -> PollModifier
-updateSlot newSlot localIds =
-    execState $ zoom' pmNewActivePropsL $ mapM_ updateSlotSingle localIds
-  where
-    updateSlotSingle upId = at upId %= updateSlotSingleF
-    updateSlotSingleF Nothing                  = Nothing
-    updateSlotSingleF (Just (PSUndecided ups)) = Just $ PSUndecided ups {upsSlot = newSlot}
-    updateSlotSingleF (Just decided)           = Just decided
+       | otherwise -> usNormalizeDo Nothing (Just slotId)
 
 -- | Prepare UpdatePayload for inclusion into new block with given
 -- SlotId.  This function assumes that 'blkSemaphore' is taken and
@@ -226,35 +221,33 @@ usPreparePayload slotId = do
   where
     preparePayloadDo = do
         stateVar <- askUSMemState
-        MemState {..} <- atomically $ readTVar stateVar
+        -- Normalization is done just in case, as said before
+        MemState {..} <- usNormalizeDo Nothing (Just slotId)
         -- If slot doesn't match, we can't provide payload for this slot.
         if | msSlot /= slotId -> Nothing <$
                logWarning (sformat slotMismatchFmt msSlot slotId)
            | otherwise -> do
-               -- Here we basically do two things:
-               -- • we remove proposals which don't have enough positive stake
-               -- for inclusion
-               -- • we ensure that everything else is valid
-               toGoodModifier <- runDBPoll . evalPollT msModifier .
-                   execPollT def $ normalizePoll True
-               let goodMemPool = modifyMemPool def toGoodModifier msPool
-               let goodModifier = msModifier <> toGoodModifier
-               fmap Just . runDBPoll . evalPollT goodModifier $
-                   finishPrepare goodMemPool
-    slotMismatchFmt = "US payload can't be created due to slot mismatch (our payload is for "
-                       %slotIdF%", but requested one is "%slotIdF%")"
+               -- Here we remove proposals which don't have enough
+               -- positive stake for inclusion into payload.
+               let MemPool {..} = msPool
+               (filteredProposals, bad) <- runDBPoll . evalPollT msModifier $
+                   filterProposalsByThd mpProposals
+               fmap Just . runDBPoll . evalPollT msModifier $
+                   finishPrepare bad filteredProposals mpLocalVotes
+    slotMismatchFmt = "US payload can't be created due to slot mismatch "%
+                      "(our payload is for "%
+                       slotIdF%", but requested one is "%slotIdF%")"
 
 -- Here we basically choose only one proposal for inclusion and remove
 -- all votes for other proposals.
 finishPrepare
     :: MonadPoll m
-    => MemPool -> m UpdatePayload
-finishPrepare MemPool {..} = do
-    normalizePoll True
-    proposalPair <- foldM findProposal Nothing $ HM.toList mpProposals
-    mapM_ (deactivate (fst <$> proposalPair)) $ HM.toList mpProposals
+    => HashSet UpId -> UpdateProposals -> LocalVotes -> m UpdatePayload
+finishPrepare badProposals proposals votes = do
+    proposalPair <- foldM findProposal Nothing $ HM.toList proposals
+    mapM_ (deactivate (fst <$> proposalPair)) $ HM.toList proposals
     let allVotes :: [UpdateVote]
-        allVotes = map fst $ concatMap toList $ toList mpLocalVotes
+        allVotes = map fst $ concatMap toList $ toList votes
     goodVotes <- filterM isVoteValid allVotes
     return $
         UpdatePayload {upProposal = snd <$> proposalPair, upVotes = goodVotes}
@@ -266,4 +259,6 @@ finishPrepare MemPool {..} = do
         | chosenUpId == Just upId = pass
         | otherwise =
             deactivateProposal upId (svAppName $ upSoftwareVersion proposal)
-    isVoteValid UpdateVote {..} = isJust <$> getProposal uvProposalId
+    isVoteValid UpdateVote {..} =
+        (not (HS.member uvProposalId badProposals) &&) . isJust <$>
+        getProposal uvProposalId

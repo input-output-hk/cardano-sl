@@ -167,14 +167,8 @@ runProposalMapIterator
 runProposalMapIterator = runDBnMapIterator @PropIter _gStateDB
 
 
--- TODO!
--- I don't like it at all!
--- 1. Idea is to iterate in sorted order and stop early.
--- 2. I suppose this logic should be outside, this module should provide only
--- basic functionality, but it's not convenient currently.
--- 3. Also I am not sure that having all proposals in memory is good idea here.
--- It is definitly not necessary. But we never have time to write good code, so
--- it's the only option now.
+-- TODO: it can be optimized by storing some index sorted by
+-- 'SlotId's, but I don't think it may be crucial.
 -- | Get all proposals which were issued no later than given slot.
 getOldProposals
     :: forall ssc m. MonadDB ssc m

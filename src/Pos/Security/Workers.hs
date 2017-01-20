@@ -88,7 +88,7 @@ checkForReceivedBlocksWorker sendActions = onNewSlot True $ \slotId -> do
             "by ourselves"
         mghM <- mkHeadersRequest Nothing
         whenJust mghM $ \mgh ->
-            converseToNeighbors sendActions (requestHeaders mgh)
+            converseToNeighbors sendActions (requestHeaders mgh Nothing)
 
 checkForIgnoredCommitmentsWorker :: forall m. WorkMode SscGodTossing m => SendActions BiP m -> m ()
 checkForIgnoredCommitmentsWorker __sendActions = do

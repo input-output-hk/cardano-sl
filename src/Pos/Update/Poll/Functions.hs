@@ -343,22 +343,25 @@ verifyProposalStake totalStake votesAndStakes upId = do
 verifyAndApplyVotesGroup
     :: (MonadError PollVerFailure m, MonadPoll m)
     => Maybe ChainDifficulty -> NonEmpty UpdateVote -> m ()
-verifyAndApplyVotesGroup cd votes = do
-    let upId = uvProposalId $ NE.head votes
-        !stakeholderId = addressHash . uvKey $ NE.head votes
-        unknownProposalErr =
-            PollUnknownProposal
-            {pupStakeholder = stakeholderId, pupProposal = upId}
-    ps <- note unknownProposalErr =<< getProposal upId
-    case ps of
-        PSDecided _     -> throwError $ PollProposalIsDecided upId stakeholderId
-        PSUndecided ups -> mapM_ (verifyAndApplyVote cd ups) votes
+verifyAndApplyVotesGroup cd votes = mapM_ verifyAndApplyVote votes
+  where
+    upId = uvProposalId $ NE.head votes
+    verifyAndApplyVote vote = do
+        let
+            !stakeholderId = addressHash . uvKey $ NE.head votes
+            unknownProposalErr =
+                PollUnknownProposal
+                {pupStakeholder = stakeholderId, pupProposal = upId}
+        ps <- note unknownProposalErr =<< getProposal upId
+        case ps of
+            PSDecided _     -> throwError $ PollProposalIsDecided upId stakeholderId
+            PSUndecided ups -> verifyAndApplyVoteDo cd ups vote
 
 -- Here we actually apply vote to stored undecided proposal.
-verifyAndApplyVote
+verifyAndApplyVoteDo
     :: (MonadError PollVerFailure m, MonadPoll m)
     => Maybe ChainDifficulty -> UndecidedProposalState -> UpdateVote -> m ()
-verifyAndApplyVote cd ups v@UpdateVote {..} = do
+verifyAndApplyVoteDo cd ups v@UpdateVote {..} = do
     let e = siEpoch $ upsSlot ups
     totalStake <- note (PollUnknownStakes e) =<< getEpochTotalStake e
     voteStake <- resolveVoteStake e totalStake v

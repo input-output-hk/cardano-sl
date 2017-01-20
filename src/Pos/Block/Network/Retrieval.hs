@@ -67,7 +67,8 @@ retrievalWorker sendActions = handleAll handleWE $ do
            isEmpty <- isEmptyTBQueue queue
            recHeader <- tryReadTMVar recHeaderVar
            pure $ guard isEmpty *> recHeader
-       whenJust needQueryMore $ \(peerId, rHeader) ->
+       whenJust needQueryMore $ \(peerId, rHeader) -> do
+           logDebug "Queue is empty, we're in recovery mode -> querying more"
            whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
                withConnectionTo sendActions peerId $
                    requestHeaders mghNext (Just rHeader) peerId
@@ -127,10 +128,10 @@ retrievalWorker sendActions = handleAll handleWE $ do
                     -- If we've downloaded block that has header
                     -- ncRecoveryHeader, we're not in recovery mode
                     -- anymore.
-                    recHeader <- ncRecoveryHeader <$> getNodeContext
-                    atomically $ whenJustM (tryReadTMVar recHeader) $ \(_,rHeader) ->
+                    recHeaderVar <- ncRecoveryHeader <$> getNodeContext
+                    atomically $ whenJustM (tryReadTMVar recHeaderVar) $ \(_,rHeader) ->
                         when (headerHash rHeader `elem` map headerHash blocks) $
-                            void $ tryTakeTMVar recHeader
+                            void $ tryTakeTMVar recHeaderVar
     retrieveBlocks conv lcaChild endH = do
         blocks <- retrieveBlocks' 0 conv (lcaChild ^. prevBlockL) endH
         let b0 = blocks ^. _Wrapped . _neHead
@@ -202,7 +203,7 @@ matchRequestedHeaders headers MsgGetHeaders{..} =
             | isNothing mghTo = True
             | otherwise =  Just (headerHash newTip) == mghTo
         boolMatch = and [startMatches, mghToMatches, formChain]
-     in case (boolMatch, recoveryMode && isJust mghTo) of
+     in case (boolMatch, recoveryMode) of
         (True, False) -> MRGood
         (True, True)  -> MRRecovery
         (False, _)    -> MRUnexpected
@@ -227,12 +228,13 @@ requestHeaders mgh recoveryHeader peerId conv = do
     whenJust mHeaders $ \(MsgHeaders headers) -> do
         logDebug $ sformat
             ("handleUnsolicitedHeader: withConnection: received "%listJson)
-            headers
+            (map headerHash headers)
         case matchRequestedHeaders headers mgh of
-            MRGood       -> handleRequestedHeaders headers Nothing peerId
+            MRGood       -> do
+                handleRequestedHeaders headers Nothing peerId
             MRUnexpected -> handleUnexpected headers peerId
             MRRecovery   -> do
-                logDebug "Recovery mode wzuh"
+                logDebug "Handling header requests in recovery mode"
                 handleRequestedHeaders headers recoveryHeader peerId
   where
     handleUnexpected hs _ = do
@@ -285,13 +287,15 @@ addToBlockRequestQueue
     -> m ()
 addToBlockRequestQueue headers recoveryTip peerId = do
     queue <- ncBlockRetrievalQueue <$> getNodeContext
-    recHeader <- ncRecoveryHeader <$> getNodeContext
+    recHeaderVar <- ncRecoveryHeader <$> getNodeContext
     let updateQueue = True <$ writeTBQueue queue (peerId, headers)
-        updateRecoveryHeader (Just recTip) =
-            whenJustM (tryReadTMVar recHeader) $ \(_,curHeader) ->
-                when (((>) `on` view difficultyL) recTip curHeader) $ do
-                    void $ tryTakeTMVar recHeader
-                    putTMVar recHeader (peerId, recTip)
+        updateRecoveryHeader (Just recTip) = do
+            let replace = do void $ tryTakeTMVar recHeaderVar
+                             putTMVar recHeaderVar (peerId, recTip)
+            tryReadTMVar recHeaderVar >>= \case
+                Nothing -> replace
+                Just (_,curRecHeader) ->
+                    when (((>) `on` view difficultyL) recTip curRecHeader) replace
         updateRecoveryHeader _ = pass
     added <- atomically $ do
         updateRecoveryHeader recoveryTip
@@ -299,7 +303,7 @@ addToBlockRequestQueue headers recoveryTip peerId = do
     if added
     then logDebug $ sformat ("Added to block request queue: peerId="%shown%
                              ", headers="%listJson)
-                            peerId headers
+                            peerId (fmap headerHash headers)
     else logWarning $ sformat ("Failed to add headers from "%shown%
                                " to block retrieval queue: queue is full")
                               peerId
@@ -352,8 +356,8 @@ applyWithoutRollback
        (WorkMode ssc m, SscWorkersClass ssc)
     => SendActions BiP m -> OldestFirst NE (Block ssc) -> m ()
 applyWithoutRollback sendActions blocks = do
-    logInfo $ sformat ("Trying to apply blocks w/o rollback: "%listJson)
-        (map (view blockHeader) blocks)
+    logInfo $ sformat ("Trying to apply blocks w/o rollback: "%listJson) $
+        fmap (view blockHeader) blocks
     withBlkSemaphore applyWithoutRollbackDo >>= \case
         Left err     -> onFailedVerifyBlocks (getOldestFirst blocks) err
         Right newTip -> do
@@ -420,8 +424,12 @@ relayBlock
        (WorkMode ssc m)
     => SendActions BiP m -> Block ssc -> m ()
 relayBlock _ (Left _)                  = pass
-relayBlock sendActions (Right mainBlk) =
-    void $ fork $ announceBlock sendActions $ mainBlk ^. gbHeader
+relayBlock sendActions (Right mainBlk) = do
+    recHeaderVar <- ncRecoveryHeader <$> getNodeContext
+    isRecovery <- isJust <$> atomically (tryReadTMVar recHeaderVar)
+    -- Why 'ncPropagation' is not considered?
+    when isRecovery $
+        void $ fork $ announceBlock sendActions $ mainBlk ^. gbHeader
 
 ----------------------------------------------------------------------------
 -- Logging formats

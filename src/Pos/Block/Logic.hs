@@ -29,6 +29,7 @@ module Pos.Block.Logic
        , createMainBlock
        ) where
 
+import           Control.Lens              (_Wrapped)
 import           Control.Monad.Catch       (try)
 import           Control.Monad.Except      (ExceptT (ExceptT), runExceptT, throwError,
                                             withExceptT)
@@ -86,7 +87,10 @@ import qualified Pos.Types                 as Types
 import           Pos.Update.Core           (UpdatePayload (..))
 import           Pos.Update.Logic          (usVerifyBlocks)
 import           Pos.Update.Poll           (PollModifier, PollVerFailure)
-import           Pos.Util                  (inAssertMode, neZipWith3, spanSafe, _neHead)
+import           Pos.Util                  (NE, NewestFirst (..), OldestFirst (..),
+                                            inAssertMode, neZipWith3, spanSafe,
+                                            toNewestFirst, toOldestFirst, _neHead,
+                                            _neLast)
 import           Pos.WorkMode              (WorkMode)
 
 ----------------------------------------------------------------------------
@@ -102,16 +106,16 @@ tipMismatchMsg action storedTip attemptedTip =
         action storedTip attemptedTip
 
 
--- | Find lca headers and main chain, including oldest header's parent
--- hash. Headers passed are __newest first__.
+-- | Find lca headers and main chain, including oldest header's parent hash.
 lcaWithMainChain
     :: (WorkMode ssc m)
-    => NonEmpty (BlockHeader ssc) -> m (Maybe HeaderHash)
-lcaWithMainChain headers@(h:|hs) =
+    => NewestFirst NE (BlockHeader ssc) -> m (Maybe HeaderHash)
+lcaWithMainChain headers =
     fmap fst . find snd <$>
         mapM (\hh -> (hh,) <$> GS.isBlockInMainChain hh)
              -- take hash of parent of last BlockHeader and convert all headers to hashes
-             (map (view headerHashG) (h : hs) ++ [NE.last headers ^. prevBlockL])
+             (map headerHash (toList headers) ++
+              [headers ^. _Wrapped . _neLast . prevBlockL])
 
 ----------------------------------------------------------------------------
 -- Headers
@@ -177,8 +181,7 @@ data ClassifyHeadersRes ssc
     | CHsUseless !Text           -- ^ Header is useless.
     | CHsInvalid !Text           -- ^ Header is invalid.
 
--- | Classify headers received in response to 'GetHeaders'
--- message. Should be passed in newest-head order.
+-- | Classify headers received in response to 'GetHeaders' message.
 --
 -- * If there are any errors in chain of headers, CHsInvalid is returned.
 -- * If chain of headers is a valid continuation or alternative branch,
@@ -187,16 +190,18 @@ data ClassifyHeadersRes ssc
 -- is returned, because paper suggests doing so.
 classifyHeaders
     :: WorkMode ssc m
-    => NonEmpty (BlockHeader ssc) -> m (ClassifyHeadersRes ssc)
-classifyHeaders headers@(h:|hs) = do
+    => NewestFirst NE (BlockHeader ssc) -> m (ClassifyHeadersRes ssc)
+classifyHeaders headers = do
+    let newestHash = headers ^. _Wrapped . _neHead . headerHashG
+        oldestHash = headers ^. _Wrapped . _neLast . headerHashG
     tip <- GS.getTip
-    haveLast <- isJust <$> DB.getBlockHeader (headerHash $ NE.last headers)
-    let headersValid = isVerSuccess $ verifyHeaders True $ h : hs
+    haveOldest <- isJust <$> DB.getBlockHeader oldestHash
+    let headersValid = isVerSuccess $ verifyHeaders True (headers & _Wrapped %~ toList)
     if | not headersValid ->
              pure $ CHsInvalid "Header chain is invalid"
-       | not haveLast ->
+       | not haveOldest ->
              pure $ CHsInvalid "Last block of the passed chain wasn't found locally"
-       | h ^. headerHashG == tip ^. headerHashG ->
+       | newestHash == headerHash tip ->
              pure $ CHsUseless "Newest hash is the same as our tip"
        | otherwise -> fromMaybe uselessGeneral <$> processClassify
   where
@@ -205,11 +210,12 @@ classifyHeaders headers@(h:|hs) = do
     processClassify = runMaybeT $ do
         tipHeader <- view blockHeader <$> lift DB.getTipBlock
         lift $ logDebug $
-            sformat ("Classifying headers: "%listJson) $ map (view headerHashG) (h:hs)
+            sformat ("Classifying headers: "%listJson) $ map (view headerHashG) headers
         lcaHash <- MaybeT $ lcaWithMainChain headers
         lca <- MaybeT $ DB.getBlockHeader lcaHash
         let depthDiff = tipHeader ^. difficultyL - lca ^. difficultyL
-        lcaChild <- MaybeT $ pure $ find (\bh -> bh ^. prevBlockL == headerHash lca) (h:hs)
+        lcaChild <- MaybeT $ pure $
+            find (\bh -> bh ^. prevBlockL == headerHash lca) headers
         pure $ if
             | hash lca == hash tipHeader -> CHsValid lcaChild
             | depthDiff < 0 -> panic "classifyHeaders@depthDiff is negative"
@@ -225,30 +231,29 @@ classifyHeaders headers@(h:|hs) = do
 -- and fetch the blocks until one of checkpoints is encountered. In
 -- case we got deeper than 'recoveryHeadersMessage', we return
 -- 'recoveryHeadersMessage' headers starting from the the newest
--- checkpoint that's in our main chain to the newest ones. Returned
--- headers are newest-first.
+-- checkpoint that's in our main chain to the newest ones.
 getHeadersFromManyTo
     :: forall ssc m. (MonadDB ssc m, Ssc ssc, CanLog m, HasLoggerName m)
-    => NonEmpty HeaderHash
+    => NonEmpty HeaderHash  -- ^ Checkpoints; not guaranteed to be
+                            --   in any particular order
     -> Maybe HeaderHash
-    -> m (Maybe (NonEmpty (BlockHeader ssc)))
+    -> m (Maybe (NewestFirst NE (BlockHeader ssc)))
 getHeadersFromManyTo checkpoints startM = runMaybeT $ do
     lift $ logDebug $
         sformat ("getHeadersFromManyTo: "%listJson%", start: "%build)
                 checkpoints startM
     validCheckpoints <- MaybeT $
         nonEmpty . catMaybes <$>
-        mapM DB.getBlockHeader (NE.toList checkpoints)
+        mapM DB.getBlockHeader (toList checkpoints)
     tip <- lift GS.getTip
-    guard $ all ((/= tip) . view headerHashG) validCheckpoints
+    guard $ all ((/= tip) . headerHash) validCheckpoints
     let startFrom = fromMaybe tip startM
         parentIsCheckpoint bh =
             any (\c -> bh ^. prevBlockL == c ^. headerHashG) validCheckpoints
         whileCond bh = not (parentIsCheckpoint bh)
-    headers <-
-        MaybeT $ nonEmpty <$>
+    headers <- MaybeT . fmap (_Wrapped nonEmpty) $
         DB.loadHeadersByDepthWhile whileCond recoveryHeadersMessage startFrom
-    if parentIsCheckpoint $ headers ^. _neHead
+    if parentIsCheckpoint $ headers ^. _Wrapped . _neHead
     then pure headers
     else do
         lift $ logDebug $ "getHeadersFromManyTo: giving headers in recovery mode"
@@ -260,23 +265,24 @@ getHeadersFromManyTo checkpoints startM = runMaybeT $ do
                 maximumBy (comparing flattenEpochOrSlot) inMainCheckpoints
             loadUpCond _ h = h < recoveryHeadersMessage
         up <- lift $ GS.loadHeadersUpWhile lowestCheckpoint loadUpCond
-        MaybeT $ pure $ nonEmpty $ reverse up
+        MaybeT $ pure $ _Wrapped nonEmpty (toNewestFirst up)
 
 -- | Given a starting point hash (we take tip if it's not in storage)
 -- it returns not more than 'blkSecurityParam' blocks distributed
 -- exponentially base 2 relatively to the depth in the blockchain.
 getHeadersOlderExp
     :: (MonadDB ssc m, Ssc ssc)
-    => Maybe HeaderHash -> m [HeaderHash]
+    => Maybe HeaderHash -> m (OldestFirst [] HeaderHash)
 getHeadersOlderExp upto = do
     tip <- GS.getTip
     let upToReal = fromMaybe tip upto
     -- Using 'blkSecurityParam + 1' because fork can happen on k+1th one.
     allHeaders <-
-        reverse <$> DB.loadHeadersByDepth (blkSecurityParam + 1) upToReal
-    pure $ selectIndices
-              (map headerHash allHeaders)
-              (twoPowers $ length allHeaders)
+        toOldestFirst <$> DB.loadHeadersByDepth (blkSecurityParam + 1) upToReal
+    pure $ OldestFirst $
+        selectIndices
+            (getOldestFirst (map headerHash allHeaders))
+            (twoPowers $ length allHeaders)
   where
     -- Powers of 2
     twoPowers n
@@ -285,7 +291,7 @@ getHeadersOlderExp upto = do
     twoPowers 1 = [0]
     twoPowers n = (takeWhile (< (n - 1)) $ 0 : 1 : iterate (* 2) 2) ++ [n - 1]
     -- Effectively do @!i@ for any @i@ from the index list applied to
-    -- source list. Index list should be inreasing.
+    -- source list. Index list should be increasing.
     selectIndices :: [a] -> [Int] -> [a]
     selectIndices elems ixs =
         let selGo _ [] _ = []
@@ -298,16 +304,15 @@ getHeadersOlderExp upto = do
 -- CSL-396 don't load all the blocks into memory at once
 -- | Given @from@ and @to@ headers where @from@ is older (not strict)
 -- than @to@, and valid chain in between can be found, headers in
--- range @[from..to]@ will be found. Header hashes are returned
--- oldest-first.
+-- range @[from..to]@ will be found.
 getHeadersFromToIncl
     :: forall ssc m .
        (MonadDB ssc m, Ssc ssc)
-    => HeaderHash -> HeaderHash -> m (Maybe (NonEmpty HeaderHash))
-getHeadersFromToIncl older newer = runMaybeT $ do
+    => HeaderHash -> HeaderHash -> m (Maybe (OldestFirst NE HeaderHash))
+getHeadersFromToIncl older newer = runMaybeT . fmap OldestFirst $ do
     -- oldest and newest blocks do exist
     start <- MaybeT $ DB.getBlockHeader newer
-    end <- MaybeT $ DB.getBlockHeader older
+    end   <- MaybeT $ DB.getBlockHeader older
     guard $ flattenEpochOrSlot start >= flattenEpochOrSlot end
     let lowerBound = flattenEpochOrSlot end
     if newer == older
@@ -325,6 +330,8 @@ getHeadersFromToIncl older newer = runMaybeT $ do
         | otherwise = do
             nextHeader <- MaybeT $ DB.getBlockHeader nextHash
             guard $ flattenEpochOrSlot nextHeader > lowerBound
+            -- hashes are being prepended so the oldest hash will be the last
+            -- one to be prepended and thus the order is OldestFirst
             loadHeadersDo lowerBound (nextHash <| hashes) (nextHeader ^. prevBlockL)
 
 
@@ -337,25 +344,31 @@ getHeadersFromToIncl older newer = runMaybeT $ do
 -- -- #sscVerifyBlocks
 -- -- #delegationVerifyBlocks
 -- -- #usVerifyBlocks
--- | Verify new blocks. Head is expected to be the oldest block. If
--- parent of head is not our tip, verification fails. This function
--- checks everything from block, including header, transactions,
--- delegation data, SSC data.
+-- | Verify new blocks. If parent of the first block is not our tip,
+-- verification fails. This function checks everything from block, including
+-- header, transactions, delegation data, SSC data.
 verifyBlocksPrefix
     :: WorkMode ssc m
-    => NonEmpty (Block ssc) -> m (Either Text (NonEmpty Undo, PollModifier))
+    => OldestFirst NE (Block ssc)
+    -> m (Either Text (OldestFirst NE Undo, PollModifier))
 verifyBlocksPrefix blocks = runExceptT $ do
     curSlot <- getCurrentSlot
     tipBlk <- DB.getTipBlock
+    when (headerHash tipBlk /= blocks ^. _Wrapped . _neHead . prevBlockL) $
+        throwError "the first block isn't based on the tip"
     verResToMonadError formatAllErrors $
-        Types.verifyBlocks (Just curSlot) (tipBlk <| blocks)
+        Types.verifyBlocks (Just curSlot) (over _Wrapped (tipBlk <|) blocks)
     verResToMonadError formatAllErrors =<< sscVerifyBlocks False blocks
     txUndo <- ExceptT $ txVerifyBlocks blocks
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks
     (pModifier, usUndos) <- withExceptT pretty $ usVerifyBlocks blocks
     when (length txUndo /= length pskUndo) $
-        throwError "Internal error of verifyBlocksPrefix: length of undos don't match"
-    pure $ (neZipWith3 Undo txUndo pskUndo usUndos, pModifier)
+        throwError "Internal error of verifyBlocksPrefix: lengths of undos don't match"
+    pure ( OldestFirst $ neZipWith3 Undo
+               (getOldestFirst txUndo)
+               (getOldestFirst pskUndo)
+               (getOldestFirst usUndos)
+         , pModifier)
 
 -- | Applies blocks if they're valid. Takes one boolean flag
 -- "rollback". Returns header hash of last applied block (new tip) on
@@ -367,89 +380,106 @@ verifyBlocksPrefix blocks = runExceptT $ do
 -- partial application happened.
 verifyAndApplyBlocks
     :: (WorkMode ssc m, SscWorkersClass ssc)
-    => Bool -> NonEmpty (Block ssc) -> m (Either Text HeaderHash)
+    => Bool -> OldestFirst NE (Block ssc) -> m (Either Text HeaderHash)
 verifyAndApplyBlocks rollback = verifyAndApplyBlocksInternal True rollback
 
 -- See the description for verifyAndApplyBlocks. This method also
--- parametrizes lrc calcultion which can be turned on/off using first
+-- parameterizes LRC calculation which can be turned on/off with the first
 -- flag.
 verifyAndApplyBlocksInternal
-    :: (WorkMode ssc m, SscWorkersClass ssc)
-    => Bool -> Bool -> NonEmpty (Block ssc) -> m (Either Text HeaderHash)
+    :: forall ssc m. (WorkMode ssc m, SscWorkersClass ssc)
+    => Bool -> Bool -> OldestFirst NE (Block ssc) -> m (Either Text HeaderHash)
 verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
     tip <- GS.getTip
-    let assumedTip = blocks ^. _neHead . prevBlockL
+    let assumedTip = blocks ^. _Wrapped . _neHead . prevBlockL
     when (tip /= assumedTip) $ throwError $
         tipMismatchMsg "verify and apply" tip assumedTip
     rollingVerifyAndApply [] (spanEpoch blocks)
   where
-    spanEpoch = spanSafe ((==) `on` view epochIndexL)
+    spanEpoch = over _1 OldestFirst . over _2 OldestFirst .  -- wrap both results
+                spanSafe ((==) `on` view epochIndexL) .      -- do work
+                getOldestFirst                               -- unwrap argument
     -- Applies as much blocks from failed prefix as possible. Argument
     -- indicates if at least some progress was done so we should
     -- return tip. Fail otherwise.
-    applyAMAP e [] True            = throwError e
-    applyAMAP _ [] False           = GS.getTip
-    applyAMAP e (x:xs) nothingApplied = do
-        let block = one x
-        lift (verifyBlocksPrefix block) >>= \case
-            Left e' -> applyAMAP e' [] nothingApplied
-            Right (undo,pModifier) -> do
-                lift $ applyBlocksUnsafe (block `NE.zip` undo) pModifier
-                applyAMAP e xs False
+    applyAMAP e (OldestFirst []) True                   = throwError e
+    applyAMAP _ (OldestFirst []) False                  = GS.getTip
+    applyAMAP e (OldestFirst (block:xs)) nothingApplied = do
+        lift (verifyBlocksPrefix (one block)) >>= \case
+            Left e' -> applyAMAP e' (OldestFirst []) nothingApplied
+            Right (OldestFirst (undo :| []), pModifier) -> do
+                lift $ applyBlocksUnsafe (one (block, undo)) pModifier
+                applyAMAP e (OldestFirst xs) False
+            Right _ -> panic "verifyAndApplyBlocksInternal: applyAMAP: \
+                             \verification of one block produced more than one undo"
     -- Rollbacks and returns an error
     failWithRollback e [] = throwError e
     failWithRollback e toRollback = do
         lift $ mapM_ rollbackBlocks toRollback
         throwError e
-    rollingVerifyAndApply blunds (prefix,suffix) = do
+    -- TODO: write what this does
+    -- TODO: also the first list is probably chronologically ordered as well?
+    --       I don't know
+    rollingVerifyAndApply
+        :: [NewestFirst NE (Blund ssc)]
+        -> (OldestFirst NE (Block ssc), OldestFirst [] (Block ssc))
+        -> ExceptT Text m HeaderHash
+    rollingVerifyAndApply blunds (prefix, suffix) = do
         lift (verifyBlocksPrefix prefix) >>= \case
-            Left failure | rollback -> failWithRollback failure blunds
-            Left failure -> applyAMAP failure (NE.toList prefix) $ null blunds
-            Right (undos,pModifier) -> do
-                let newBlunds = prefix `NE.zip` undos
+            Left failure
+                | rollback  -> failWithRollback failure blunds
+                | otherwise -> applyAMAP failure
+                                   (over _Wrapped toList prefix)
+                                   (null blunds)
+            Right (undos, pModifier) -> do
+                let newBlunds = OldestFirst $ getOldestFirst prefix `NE.zip`
+                                              getOldestFirst undos
                 lift $ applyBlocksUnsafe newBlunds pModifier
-                case suffix of
+                case getOldestFirst suffix of
+                    []           -> GS.getTip
                     (genesis:xs) -> do
-                        when lrc $ lift $ lrcSingleShotNoLock $ genesis ^. epochIndexL
-                        rollingVerifyAndApply (NE.reverse newBlunds : blunds) $
-                            spanEpoch $ genesis:|xs
-                    [] -> GS.getTip
-
+                        when lrc $ lift $
+                            lrcSingleShotNoLock (genesis ^. epochIndexL)
+                        rollingVerifyAndApply (toNewestFirst newBlunds : blunds) $
+                            spanEpoch (OldestFirst (genesis:|xs))
 
 -- | Apply definitely valid sequence of blocks. At this point we must
 -- have verified all predicates regarding block (including txs and ssc
--- data checks). We almost must have taken lock on block application
+-- data checks). We also must have taken lock on block application
 -- and ensured that chain is based on our tip. Blocks will be applied
 -- per-epoch, calculating lrc when needed if flag is set.
 applyBlocks
     :: forall ssc m . (WorkMode ssc m, SscWorkersClass ssc)
-    => Bool -> PollModifier -> NonEmpty (Blund ssc) -> m ()
+    => Bool -> PollModifier -> OldestFirst NE (Blund ssc) -> m ()
 applyBlocks calculateLrc pModifier blunds = do
     applyBlocksUnsafe prefix pModifier
-    case suffix of
-        (genesis:xs) -> do
-            when calculateLrc $ lrcSingleShotNoLock $ genesis ^. _1 . epochIndexL
-            applyBlocks calculateLrc pModifier $ genesis:|xs
+    case getOldestFirst suffix of
         [] -> pass
+        (genesis:xs) -> do
+            when calculateLrc $
+                lrcSingleShotNoLock (genesis ^. _1 . epochIndexL)
+            applyBlocks calculateLrc pModifier (OldestFirst (genesis:|xs))
   where
-    (prefix,suffix) = spanSafe ((==) `on` view (_1 . epochIndexL)) blunds
+    (prefix, suffix) =
+        over _1 OldestFirst . over _2 OldestFirst $
+        spanSafe ((==) `on` view (_1 . epochIndexL)) (getOldestFirst blunds)
 
--- | Rollbacks blocks. Head is to be current tip (newest first order).
-rollbackBlocks :: (WorkMode ssc m) => NonEmpty (Blund ssc) -> m (Maybe Text)
+-- | Rollbacks blocks. Head must be the current tip.
+rollbackBlocks
+    :: (WorkMode ssc m)
+    => NewestFirst NE (Blund ssc) -> m (Maybe Text)
 rollbackBlocks blunds = do
     tip <- GS.getTip
-    let firstToRollback = blunds ^. _neHead . _1 . headerHashG
+    let firstToRollback = blunds ^. _Wrapped . _neHead . _1 . headerHashG
     if tip /= firstToRollback
     then pure $ Just $ tipMismatchMsg "rollback" tip firstToRollback
     else rollbackBlocksUnsafe blunds $> Nothing
 
--- | Given a number of blocks to rollback on and apply then, does
--- it. Blocks to rollback are expected tip-first. To apply --
--- oldest-first.
+-- | Rollbacks some blocks and then applies some blocks.
 applyWithRollback
     :: (WorkMode ssc m, SscWorkersClass ssc)
-    => NonEmpty (Blund ssc)
-    -> NonEmpty (Block ssc)
+    => NewestFirst NE (Blund ssc)  -- ^ Blocks to rollbck
+    -> OldestFirst NE (Block ssc)  -- ^ Blocks to apply
     -> m (Either Text HeaderHash)
 applyWithRollback toRollback toApply = runExceptT $ do
     tip <- GS.getTip
@@ -468,15 +498,15 @@ applyWithRollback toRollback toApply = runExceptT $ do
             throwError err
         Right tipHash  -> pure tipHash
   where
-    reApply = NE.reverse toRollback
+    reApply = toOldestFirst toRollback
     applyBackFail (_ :: PollVerFailure) =
         throwM $ DBMalformed "applyWithRollback: can't verify just rollbacked blocks"
     applyBack = do
         verRes <- lift $ runExceptT $ usVerifyBlocks $ map fst reApply
         pModifier <- either applyBackFail (pure . fst) verRes
         lift $ applyBlocks True pModifier reApply
-    expectedTipApply = toApply ^. _neHead . prevBlockL
-    newestToRollback = toRollback ^. _neHead . _1 . headerHashG
+    expectedTipApply = toApply ^. _Wrapped . _neHead . prevBlockL
+    newestToRollback = toRollback ^. _Wrapped . _neHead . _1 . headerHashG
 
 
 ----------------------------------------------------------------------------
@@ -578,7 +608,7 @@ canCreateBlock :: SlotId -> BlockHeader ssc -> Maybe Text
 canCreateBlock sId tipHeader
     | sId > maxSlotId = Just "slot id is too big, we don't know recent block"
     | (EpochOrSlot $ Right sId) < headSlot =
-        Just "slot id is not biger than one from last known block"
+        Just "slot id is not bigger than one from last known block"
     | otherwise = Nothing
   where
     headSlot = getEpochOrSlot tipHeader
@@ -611,8 +641,9 @@ createMainBlockFinish slotId pSk prevHeader = do
     (pModifier,verUndo) <- runExceptT (usVerifyBlocks (one (Right blk))) >>= \case
         Left _ -> throwError "Couldn't get pModifier while creating MainBlock"
         Right o -> pure o
-    let blockUndo =
-            Undo (reverse $ foldl' prependToUndo [] localTxs) pskUndo (NE.head verUndo)
+    let blockUndo = Undo (reverse $ foldl' prependToUndo [] localTxs)
+                         pskUndo
+                         (verUndo ^. _Wrapped . _neHead)
     lift $ blk <$ applyBlocksUnsafe (one (Right blk, blockUndo)) pModifier
   where
     onBrokenTopo = throwError "Topology of local transactions is broken!"

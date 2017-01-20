@@ -15,7 +15,7 @@ module Pos.Txp.Logic
        , normalizeTxpLD
        ) where
 
-import           Control.Lens           (each)
+import           Control.Lens           (each, _Wrapped)
 import qualified Data.HashMap.Strict    as HM
 import qualified Data.HashSet           as HS
 import qualified Data.List.NonEmpty     as NE
@@ -39,7 +39,7 @@ import           Pos.Txp.Types          (BalancesView (..), MemPool (..),
 import           Pos.Txp.Types.Types    (ProcessTxRes (..), mkPTRinvalid)
 import qualified Pos.Txp.Types.UtxoView as UV
 import           Pos.Types              (Block, Coin, MonadUtxo, MonadUtxoRead (utxoGet),
-                                         NEBlocks, SlotId, StakeholderId, Tx (..), TxAux,
+                                         SlotId, StakeholderId, Tx (..), TxAux,
                                          TxDistribution (..), TxId, TxIn (..), TxOutAux,
                                          TxUndo, TxWitness, VTxGlobalContext (..),
                                          VTxLocalContext (..), applyTxToUtxo', blockSlot,
@@ -49,7 +49,8 @@ import           Pos.Types              (Block, Coin, MonadUtxo, MonadUtxoRead (
 import           Pos.Types.Coin         (unsafeAddCoin, unsafeIntegerToCoin,
                                          unsafeSubCoin)
 import           Pos.Types.Utxo         (verifyAndApplyTxs, verifyTxUtxo)
-import           Pos.Util               (inAssertMode, _neHead)
+import           Pos.Util               (NE, NewestFirst (..), OldestFirst (..),
+                                         inAssertMode, _neHead)
 
 type TxpWorkMode ssc m = ( Ssc ssc
                          , WithLogger m
@@ -66,12 +67,15 @@ type MinTxpWorkMode ssc m = ( MonadDB ssc m
 
 -- | Apply chain of /definitely/ valid blocks to state on transactions
 -- processing.
-txApplyBlocks :: TxpWorkMode ssc m => NonEmpty (Blund ssc) -> m (NonEmpty SomePrettyBatchOp)
+txApplyBlocks
+    :: TxpWorkMode ssc m
+    => OldestFirst NE (Blund ssc)
+    -> m (OldestFirst NE SomePrettyBatchOp)
 txApplyBlocks blunds = do
     let blocks = map fst blunds
     tip <- getTip
-    when (tip /= blocks ^. _neHead . prevBlockL) $ throwM $
-        TxpCantApplyBlocks "oldest block in NEBlocks is not based on tip"
+    when (tip /= blocks ^. _Wrapped . _neHead . prevBlockL) $ throwM $
+        TxpCantApplyBlocks "oldest block in 'blunds' is not based on tip"
     inAssertMode $
         do verdict <- txVerifyBlocks blocks
            case verdict of
@@ -119,10 +123,15 @@ txApplyBlock (blk, undo) = do
 txVerifyBlocks
     :: forall ssc m.
        MonadDB ssc m
-    => NEBlocks ssc -> m (Either Text (NonEmpty TxUndo))
+    => OldestFirst NE (Block ssc)
+    -> m (Either Text (OldestFirst NE TxUndo))
 txVerifyBlocks newChain = do
     utxoDB <- getUtxoDB
-    fmap (NE.fromList . reverse) <$>
+    -- NB. foldM prepends undos to the list; since the original list is
+    -- OldestFirst, the last prepended undo will be the newest one, and the
+    -- resulting list will be in NewestFirst order. Since we want
+    -- OldestFirst, we reverse it.
+    fmap (OldestFirst . NE.fromList . reverse) <$>
       runLocalTxpLDHolder
         (foldM verifyDo (Right []) newChainTxs)
         (UV.createFromDB utxoDB)
@@ -130,7 +139,7 @@ txVerifyBlocks newChain = do
     -- Left for genesis blocks, Right for main blocks
     newChainTxs
         :: [Either () (SlotId, [(WithHash Tx, TxWitness, TxDistribution)])]
-    newChainTxs = map f (NE.toList newChain)
+    newChainTxs = map f (toList newChain)
       where
         f (Left _)  = Left ()
         f (Right b) = Right (b ^. blockSlot,
@@ -144,9 +153,9 @@ txVerifyBlocks newChain = do
     verifyDo (Right undos) (Left ()) = pure (Right ([]:undos))
     -- handling a main block
     verifyDo (Right undos) (Right (slotId, txas)) =
-        verifyAndApplyTxs False txas <&> \case
-            Right undo  -> Right (undo:undos)
-            Left errors -> Left (attachSlotId slotId errors)
+        verifyAndApplyTxs False txas >>= \case
+            Right undo  -> return (Right (undo:undos))
+            Left errors -> return (Left (attachSlotId slotId errors))
     attachSlotId sId errors =
         sformat ("[Block's slot = "%slotIdF % "]"%stext) sId errors
 
@@ -210,13 +219,14 @@ processTxDo ld@(uv, mp, undos, tip) resolvedIns utxoDB (id, (tx, txw, txd))
              , newUndos
              , tip))
 
--- | Head of list is the youngest block
-txRollbackBlocks :: (WithLogger m, MonadDB ssc m)
-                 => NonEmpty (Block ssc, Undo) -> m (NonEmpty SomePrettyBatchOp)
+txRollbackBlocks
+    :: (WithLogger m, MonadDB ssc m)
+    => NewestFirst NE (Blund ssc) -> m (NonEmpty SomePrettyBatchOp)
 txRollbackBlocks blunds = do
     total <- getTotalFtsStake
     db <- getUtxoDB
-    evalStateT (mapM txRollbackBlock blunds) (BalancesView mempty total db)
+    getNewestFirst <$>
+        evalStateT (mapM txRollbackBlock blunds) (BalancesView mempty total db)
 
 -- | Rollback block
 txRollbackBlock :: ( WithLogger m,

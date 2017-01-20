@@ -38,7 +38,7 @@ import           Pos.DB.Types             (NodeDBs (..))
 import           Pos.Ssc.Class.Types      (Ssc)
 import           Pos.Types                (Block, BlockHeader, getBlockHeader, headerHash,
                                            mkGenesisBlock)
-import           Pos.Util                 (inAssertMode)
+import           Pos.Util                 (NewestFirst, inAssertMode)
 
 -- | Open all DBs stored on disk.
 openNodeDBs
@@ -88,18 +88,18 @@ getTipBlockHeader
     => m (BlockHeader ssc)
 getTipBlockHeader = getBlockHeader <$> getTipBlock
 
--- | Load blunds from BlockDB starting from tip and while @condition@
--- is true.  The head of returned list is the youngest blund.
+-- | Load blunds from BlockDB starting from tip and while the @condition@ is
+-- true.
 loadBlundsFromTipWhile
     :: (Ssc ssc, MonadDB ssc m)
-    => (Block ssc -> Bool) -> m [Blund ssc]
+    => (Block ssc -> Bool) -> m (NewestFirst [] (Blund ssc))
 loadBlundsFromTipWhile condition = getTip >>= loadBlundsWhile condition
 
--- | Load blunds from BlockDB starting from tip which have depth less than given.
--- The head of returned list is the youngest blund.
+-- | Load blunds from BlockDB starting from tip which have depth less than
+-- given.
 loadBlundsFromTipByDepth
     :: (Ssc ssc, MonadDB ssc m)
-    => Word -> m [Blund ssc]
+    => Word -> m (NewestFirst [] (Blund ssc))
 loadBlundsFromTipByDepth d = getTip >>= loadBlundsByDepth d
 
 sanityCheckDB

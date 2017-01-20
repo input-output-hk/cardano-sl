@@ -14,7 +14,6 @@ import           Control.Concurrent.STM.TVar (TVar, readTVar, writeTVar)
 import           Control.Monad.Catch         (bracketOnError)
 import           Control.Monad.Except        (runExceptT)
 import qualified Data.HashMap.Strict         as HM
-import qualified Data.List.NonEmpty          as NE
 import           Formatting                  (build, sformat, (%))
 import           Mockable                    (fork)
 import           Node                        (SendActions)
@@ -46,7 +45,8 @@ import           Pos.Types                   (EpochIndex, EpochOrSlot (..),
                                               SlotId (..), crucialSlot, getEpochOrSlot,
                                               getEpochOrSlot)
 import           Pos.Update.Logic            (usVerifyBlocks)
-import           Pos.Util                    (logWarningWaitLinear)
+import           Pos.Util                    (NewestFirst (..), logWarningWaitLinear,
+                                              toOldestFirst)
 import           Pos.WorkMode                (WorkMode)
 
 lrcOnNewSlotWorker
@@ -130,12 +130,12 @@ lrcDo
     :: WorkMode ssc m
     => EpochIndex -> [LrcConsumer m] -> HeaderHash -> m HeaderHash
 lrcDo epoch consumers tip = tip <$ do
-    blundsList <- DB.loadBlundsFromTipWhile whileAfterCrucial
+    NewestFirst blundsList <- DB.loadBlundsFromTipWhile whileAfterCrucial
     case nonEmpty blundsList of
         Nothing -> throwM UnknownBlocksForLrc
-        Just blunds -> do
+        Just (NewestFirst -> blunds) -> do
             rollbackBlocksUnsafe blunds
-            compute `finally` applyBack (NE.reverse blunds)
+            compute `finally` applyBack (toOldestFirst blunds)
   where
     applyBackFail _ =
         throwM $ DBMalformed "lrcDo: can't verify just rollbacked blocks"

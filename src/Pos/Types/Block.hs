@@ -49,6 +49,7 @@ import           Pos.Types.Address     (addressHash)
 import           Pos.Types.Tx          (verifyTxAlone)
 import           Pos.Types.Types
 import           Pos.Update.Core       (UpdatePayload)
+import           Pos.Util              (NewestFirst (..))
 
 -- | Difficulty of the BlockHeader. 0 for genesis block, 1 for main block.
 headerDifficulty :: BlockHeader ssc -> ChainDifficulty
@@ -356,14 +357,16 @@ verifyHeader VerifyHeaderParams {..} h =
                   , "block's leader is different from expected one")
                 ]
 
--- | Verifies a set of block headers, where head is the newest one.
+-- | Verifies a set of block headers.
 verifyHeaders
     :: BiSsc ssc
-    => Bool -> [BlockHeader ssc] -> VerificationRes
-verifyHeaders _ [] = mempty
-verifyHeaders checkConsensus headers@(_:xh) = mconcat verified
+    => Bool -> NewestFirst [] (BlockHeader ssc) -> VerificationRes
+verifyHeaders _ (NewestFirst []) = mempty
+verifyHeaders checkConsensus (NewestFirst (headers@(_:xh))) =
+    mconcat verified
   where
-    verified = map (\(cur,prev) -> verifyHeader (toVHP prev) cur) $ headers `zip` xh
+    verified = zipWith (\cur prev -> verifyHeader (toVHP prev) cur)
+                       headers xh
     toVHP p = def { vhpVerifyConsensus = checkConsensus
                   , vhpPrevHeader = Just p }
 

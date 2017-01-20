@@ -30,7 +30,8 @@ import qualified Pos.DB                      as DB
 import           Pos.DB.Error                (DBError (DBMalformed))
 import           Pos.Ssc.Class.Types         (Ssc)
 import           Pos.Types                   (BlockHeader, HasHeaderHash (..))
-import           Pos.Util                    (stubListenerConv, stubListenerOneMsg)
+import           Pos.Util                    (NewestFirst (..), stubListenerConv,
+                                              stubListenerOneMsg)
 import           Pos.WorkMode                (WorkMode)
 
 blockListeners
@@ -95,7 +96,7 @@ handleBlockHeaders = ListenerActionConversation $
         logDebug "handleBlockHeaders: got some unsolicited block header(s)"
         (mHeaders :: Maybe (MsgHeaders ssc)) <- recv conv
         whenJust mHeaders $ \(MsgHeaders headers) ->
-            handleUnsolicitedHeaders headers peerId conv
+            handleUnsolicitedHeaders (getNewestFirst headers) peerId conv
 
 -- Second case of 'handleBlockheaders'
 handleUnsolicitedHeaders

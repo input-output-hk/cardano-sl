@@ -19,17 +19,17 @@ import           Universum
 import qualified Pos.DB               as DB
 import           Pos.DB.GState        (UpdateOp (..))
 import           Pos.Script.Type      (ScriptVersion)
-import           Pos.Types            (ApplicationName, Block, NEBlocks,
-                                       NumSoftwareVersion, ProtocolVersion,
-                                       SoftwareVersion (..), difficultyL, gbBody,
-                                       mbUpdatePayload)
+import           Pos.Types            (ApplicationName, Block, NumSoftwareVersion,
+                                       ProtocolVersion, SoftwareVersion (..), difficultyL,
+                                       gbBody, mbUpdatePayload)
 import           Pos.Update.Core      (UpId)
 import           Pos.Update.Error     (USError (USInternalError))
 import           Pos.Update.Poll      (DBPoll, MonadPoll, PollModifier (..), PollT,
                                        PollVerFailure, ProposalState, USUndo, execPollT,
                                        rollbackUSPayload, runDBPoll, runPollT,
                                        verifyAndApplyUSPayload)
-import           Pos.Util             (Color (Red), colorize, inAssertMode)
+import           Pos.Util             (Color (Red), NE, NewestFirst, OldestFirst,
+                                       colorize, inAssertMode)
 
 type USGlobalApplyMode endless_useless m = (WithLogger m, DB.MonadDB endless_useless m)
 type USGlobalVerifyMode ы m = (DB.MonadDB ы m, MonadError PollVerFailure m)
@@ -38,13 +38,14 @@ type USGlobalVerifyMode ы m = (DB.MonadDB ы m, MonadError PollVerFailure m)
 -- Anyway, it's ok.
 -- TODO: but actually I suppose that such sanity checks should be done at higher
 -- level.
--- | Apply chain of /definitely/ valid blocks to US part of GState DB
--- and to US local data. Head must be the __oldest__ block.  This
--- function assumes that no other thread applies block in parallel. It
--- also assumes that parent of oldest block is current tip.
+-- | Apply chain of /definitely/ valid blocks to US part of GState DB and to
+-- US local data. This function assumes that no other thread applies block in
+-- parallel. It also assumes that parent of oldest block is current tip.
 usApplyBlocks
     :: (MonadThrow m, USGlobalApplyMode ssc m)
-    => NEBlocks ssc -> PollModifier -> m [DB.SomeBatchOp]
+    => OldestFirst NE (Block ssc)
+    -> PollModifier
+    -> m [DB.SomeBatchOp]
 usApplyBlocks blocks _ = do
     inAssertMode $ do
         verdict <- runExceptT $ usVerifyBlocks blocks
@@ -56,13 +57,13 @@ usApplyBlocks blocks _ = do
         logError $ colorize Red msg
         throwM $ USInternalError msg
 
--- | Revert application of given blocks to US part of GState DB
--- and US local data. Head must be the __youngest__ block. Caller must
--- ensure that tip stored in DB is 'headerHash' of head.
+-- | Revert application of given blocks to US part of GState DB and US local
+-- data. The caller must ensure that the tip stored in DB is 'headerHash' of
+-- head.
 usRollbackBlocks
     :: forall ssc m.
        (USGlobalApplyMode ssc m)
-    => NonEmpty (Block ssc, USUndo) -> m [DB.SomeBatchOp]
+    => NewestFirst NE (Block ssc, USUndo) -> m [DB.SomeBatchOp]
 usRollbackBlocks blunds =
     modifierToBatch <$> (runDBPoll . execPollT def $ mapM_ rollbackDo blunds)
   where
@@ -80,7 +81,7 @@ usRollbackBlocks blunds =
 -- construction.
 usVerifyBlocks
     :: (USGlobalVerifyMode ssc m)
-    => NEBlocks ssc -> m (PollModifier, NonEmpty USUndo)
+    => OldestFirst NE (Block ssc) -> m (PollModifier, OldestFirst NE USUndo)
 usVerifyBlocks blocks = swap <$> run (mapM verifyBlock blocks)
   where
     run = runDBPoll . runPollT def

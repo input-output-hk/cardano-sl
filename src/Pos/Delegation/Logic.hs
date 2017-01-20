@@ -34,7 +34,7 @@ module Pos.Delegation.Logic
        ) where
 
 import           Control.Concurrent.STM.TVar (readTVar, writeTVar)
-import           Control.Lens                (makeLenses, (%=), (.=))
+import           Control.Lens                (makeLenses, (%=), (.=), _Wrapped)
 import           Control.Monad.Trans.Except  (runExceptT, throwE)
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
@@ -65,11 +65,12 @@ import           Pos.Delegation.Class        (DelegationWrap, MonadDelegation (.
                                               dwThisEpochPosted)
 import           Pos.Delegation.Types        (SendProxySK (..))
 import           Pos.Ssc.Class               (Ssc)
-import           Pos.Types                   (Block, HeaderHash, NEBlocks, ProxySKEpoch,
+import           Pos.Types                   (Block, HeaderHash, ProxySKEpoch,
                                               ProxySKSimple, ProxySigEpoch, addressHash,
                                               blockProxySKs, epochIndexL, headerHash,
                                               headerHashG, prevBlockL)
-import           Pos.Util                    (_neHead, _neLast)
+import           Pos.Util                    (NE, NewestFirst (..), OldestFirst (..),
+                                              _neHead, _neLast)
 
 
 ----------------------------------------------------------------------------
@@ -214,17 +215,18 @@ data DelVerState = DelVerState
 makeLenses ''DelVerState
 
 -- | Verifies if blocks are correct relatively to the delegation logic
--- an returns non-empty list of proxySKs needed for undoing
+-- and returns a non-empty list of proxySKs needed for undoing
 -- them. Predicate for correctness here is:
 -- * Issuer can post only one cert per epoch
 -- * For every new certificate issuer had enough stake at the
 --   end of prev. epoch
 --
--- Blocks are assumed to be oldest-first. It's assumed blocks are
--- correct from 'Pos.Types.Block#verifyBlocks' point of view.
+-- It's assumed blocks are correct from 'Pos.Types.Block#verifyBlocks'
+-- point of view.
 delegationVerifyBlocks
     :: forall ssc m. (Ssc ssc, MonadDB ssc m, WithNodeContext ssc m)
-    => NEBlocks ssc -> m (Either Text (NonEmpty [ProxySKSimple]))
+    => OldestFirst NE (Block ssc)
+    -> m (Either Text (OldestFirst NE [ProxySKSimple]))
 delegationVerifyBlocks blocks = do
     -- TODO CSL-502 create snapshot
     tip <- GS.getTip
@@ -239,10 +241,9 @@ delegationVerifyBlocks blocks = do
         LrcDB.getRichmenDlg
     when (HS.size _dvCurEpoch /= length fromGenesisPsks) $
         throwM $ DBMalformed "Multiple stakeholders have issued & published psks this epoch"
-    res <- evalStateT (runExceptT $ mapM (verifyBlock richmen) blocks) initState
-    pure $ NE.reverse <$> res
+    evalStateT (runExceptT $ mapM (verifyBlock richmen) blocks) initState
   where
-    headEpoch = view epochIndexL $ NE.head blocks
+    headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
     withMapResolve issuer = do
         isAddedM <- HM.lookup issuer <$> use dvPSKMapAdded
         isRemoved <- HS.member issuer <$> use dvPSKSetRemoved
@@ -288,16 +289,16 @@ delegationVerifyBlocks blocks = do
 -- cross over epoch. So genesis block is either absent or the head.
 delegationApplyBlocks
     :: forall ssc m. (DelegationWorkMode ssc m)
-    => NonEmpty (Block ssc) -> m (NonEmpty SomeBatchOp)
+    => OldestFirst NE (Block ssc) -> m (NonEmpty SomeBatchOp)
 delegationApplyBlocks blocks = do
     tip <- GS.getTip
-    let assumedTip = blocks ^. _neHead . prevBlockL
+    let assumedTip = blocks ^. _Wrapped . _neHead . prevBlockL
     when (tip /= assumedTip) $ throwM $
         DelegationCantApplyBlocks $
         sformat
         ("Oldest block is based on tip "%shortHashF%", but our tip is "%shortHashF)
         assumedTip tip
-    mapM applyBlock blocks
+    getOldestFirst <$> mapM applyBlock blocks
   where
     applyBlock :: Block ssc -> m SomeBatchOp
     applyBlock (Left block)      = do
@@ -330,11 +331,11 @@ delegationRollbackBlocks
        , MonadThrow m
        , MonadDB ssc m
        , WithNodeContext ssc m)
-    => NonEmpty (Blund ssc) -> m (NonEmpty SomeBatchOp)
+    => NewestFirst NE (Blund ssc) -> m (NonEmpty SomeBatchOp)
 delegationRollbackBlocks blunds = do
     tipBlockAfterRollback <-
         maybe (throwM malformedLastParent) pure =<<
-        DB.getBlock (blunds ^. _neLast . _1 . prevBlockL)
+        DB.getBlock (blunds ^. _Wrapped . _neLast . _1 . prevBlockL)
     richmen <-
         HS.fromList . NE.toList <$>
         lrcActionOnEpochReason
@@ -350,11 +351,11 @@ delegationRollbackBlocks blunds = do
                  (addressHash pk) `HS.member` richmen)
         dwThisEpochPosted .= fromGenesisIssuers
         dwEpochId .= tipBlockAfterRollback ^. epochIndexL
-    pure $ map rollbackBlund blunds
+    pure $ getNewestFirst (map rollbackBlund blunds)
   where
     malformedLastParent = DBMalformed $
         "delegationRollbackBlocks: parent of last rollbacked block is not in blocks db"
-    tipAfterRollbackHash = blunds ^. _neLast . _1 . prevBlockL
+    tipAfterRollbackHash = blunds ^. _Wrapped . _neLast . _1 . prevBlockL
     rollbackBlund :: Blund ssc -> SomeBatchOp
     rollbackBlund (Left _, _) = SomeBatchOp ([]::[GS.DelegationOp])
     rollbackBlund (Right block, undo) =

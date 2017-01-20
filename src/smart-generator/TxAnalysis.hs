@@ -6,10 +6,11 @@ module TxAnalysis
        , checkWorker
        ) where
 
+import           Control.Lens          (_Wrapped, _last)
 import qualified Data.HashMap.Strict   as M
 import           Data.IORef            (IORef, modifyIORef', newIORef, readIORef,
                                         writeIORef)
-import           Data.List             (intersect, last)
+import           Data.List             (intersect)
 import           Data.Maybe            (fromJust, maybeToList)
 import           Formatting            (build, sformat, (%))
 import           Mockable              (catchAll, delay)
@@ -57,9 +58,8 @@ appendVerified ts roundNum df logsPrefix = do
 checkTxsInLastBlock :: forall ssc . SscConstraint ssc
                     => TxTimestamps -> FilePath -> ProductionMode ssc ()
 checkTxsInLastBlock TxTimestamps {..} logsPrefix = do
-    let lastSafe [] = Nothing
-        lastSafe xs = Just $ last xs
-    mBlock <- fmap fst . lastSafe <$> loadBlundsFromTipByDepth blkSecurityParam
+    mBlock <- preview (_Wrapped . _last . _1) <$>
+              loadBlundsFromTipByDepth blkSecurityParam
     case mBlock of
         Nothing -> pure ()
         Just (Left _) -> pure ()

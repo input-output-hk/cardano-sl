@@ -3,7 +3,7 @@ image: Visual Studio 2015
 
 build: off
 
-cache:
+#cache:
   # TODO: https://github.com/commercialhaskell/stack/issues/1176#issuecomment-269520803
   #- "c:\\sr"
   #- '.stack-work'
@@ -26,9 +26,9 @@ before_test:
 
 test_script:
   - stack setup --no-reinstall
-  # No parallelization due to https://github.com/haskell/cabal/issues/4005 
-  - stack --no-terminal --local-bin-path installers 
-      build -j 1 --test --no-haddock-deps --bench --no-run-benchmarks 
+  # Retry transient failures due to https://github.com/haskell/cabal/issues/4005 
+  - appveyor-retry call stack --no-terminal --local-bin-path installers 
+      build -j 2 --test --no-haddock-deps --bench --no-run-benchmarks 
       --flag cardano-sl:with-web 
       --flag cardano-sl:with-wallet 
       --flag cardano-sl:-asserts

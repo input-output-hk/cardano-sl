@@ -58,7 +58,6 @@ instance MonadPoll m => MonadPoll (RollT m) where
         insertIfNotExist svAppName unChangedSVL getLastConfirmedSV
         lift $ setLastConfirmedSV sv
 
-    -- wont' called during apply
     delConfirmedSV = lift . delConfirmedSV
 
     addActiveProposal ps = RollT $ do

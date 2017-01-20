@@ -52,6 +52,7 @@ extra-deps:
 - pvss-0.1
 - base58-bytestring-0.1.0
 - log-warper-0.2.3
+- double-conversion-2.0.2.0
 
 resolver: lts-7.9
 

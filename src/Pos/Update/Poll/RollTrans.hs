@@ -18,10 +18,9 @@ import           Pos.Crypto                (hash)
 
 import           Pos.Types.Version         (SoftwareVersion (..))
 import           Pos.Update.Poll.Class     (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Types     (PrevValue, USUndo (..),
-                                            maybeToPrev, psProposal, unChangedPropsL,
-                                            unChangedSVL, unCreatedNewDepsForL,
-                                            unLastAdoptedPVL)
+import           Pos.Update.Poll.Types     (PrevValue, USUndo (..), maybeToPrev,
+                                            psProposal, unChangedPropsL, unChangedSVL,
+                                            unCreatedNewDepsForL, unLastAdoptedPVL)
 
 newtype RollT m a = RollT
     { getRollT :: StateT USUndo m a
@@ -41,7 +40,6 @@ instance MonadPoll m => MonadPoll (RollT m) where
             unCreatedNewDepsForL .= Just pv
         lift $ addScriptVersionDep pv sv
 
-    -- wont' called during apply
     delScriptVersionDep  = lift . delScriptVersionDep
 
     setLastAdoptedPV pv = RollT $ do
@@ -84,4 +82,3 @@ runRollT = flip runStateT def . getRollT
 
 execRollT :: Monad m => RollT m a -> m USUndo
 execRollT = flip execStateT def . getRollT
-

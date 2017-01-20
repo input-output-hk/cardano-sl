@@ -79,7 +79,7 @@ retrievalWorker sendActions = handleAll handleWE $ do
     handle (peerId, headers) = do
         logDebug $ sformat
             ("retrievalWorker: handling peerId="%shown%", headers="%listJson)
-            peerId headers
+            peerId (fmap headerHash headers)
         classificationRes <- classifyHeaders' headers
         let newestHeader = headers ^. _Wrapped . _neHead
             newestHash = headerHash newestHeader

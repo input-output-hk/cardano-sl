@@ -27,7 +27,7 @@ before_test:
 test_script:
   - stack setup --no-reinstall
   # Retry transient failures due to https://github.com/haskell/cabal/issues/4005 
-  - appveyor-retry call stack --no-terminal --local-bin-path installers 
+  - scripts\appveyor-retry call stack --no-terminal --local-bin-path installers 
       build -j 2 --test --no-haddock-deps --bench --no-run-benchmarks 
       --flag cardano-sl:with-web 
       --flag cardano-sl:with-wallet 

@@ -17,7 +17,7 @@ import           System.Wlog                 (logInfo, usingLoggerName)
 import           Universum                   hiding (bracket)
 
 import           Pos.Communication           (BiP (..))
-import           Pos.DHT.Model               (DHTNodeType (..), discoverPeers)
+import           Pos.DHT.Model               (discoverPeers)
 import           Pos.DHT.Real                (runKademliaDHT)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
                                               RealModeResources (..), addDevListeners,
@@ -65,7 +65,7 @@ runWalletReal res wp = runWalletRealMode res wp . runWallet
 runWallet :: WalletMode ssc m => [SendActions BiP m -> m ()] -> SendActions BiP m -> m ()
 runWallet plugins sendActions = do
     logInfo "Wallet is initialized!"
-    peers <- discoverPeers DHTFull
+    peers <- discoverPeers
     logInfo $ sformat ("Known peers: "%build) peers
     mapM_ fork allWorkers
     mapM_ (fork . ($ sendActions)) plugins

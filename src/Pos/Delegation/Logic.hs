@@ -327,8 +327,6 @@ delegationApplyBlocks blocks = do
 delegationRollbackBlocks
     :: ( Ssc ssc
        , MonadDelegation m
-       , MonadIO m
-       , MonadThrow m
        , MonadDB ssc m
        , WithNodeContext ssc m)
     => NewestFirst NE (Blund ssc) -> m (NonEmpty SomeBatchOp)

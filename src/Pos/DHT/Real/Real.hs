@@ -6,8 +6,6 @@ module Pos.DHT.Real.Real
        ( runKademliaDHT
        , startDHTInstance
        , stopDHTInstance
-       -- For Servant-based integration.
-       , getKademliaDHTInstance
        ) where
 
 import           Control.Concurrent.STM (newTVar, readTVar, writeTVar)
@@ -15,12 +13,15 @@ import           Mockable               (Async, Catch, Mockable, MonadMockable, 
                                          Throw, bracket, catchAll, fork, killThread,
                                          throw, waitAnyUnexceptional)
 
+import           Data.Binary           (decode)
+import qualified Data.ByteString.Lazy  as BS
 import qualified Data.HashMap.Strict    as HM
 import           Data.List              (intersect, (\\))
 
 import           Formatting             (build, int, sformat, shown, (%))
 import qualified Network.Kademlia       as K
 import           Prelude                (id)
+import           System.Directory       (doesFileExist)
 import           System.Wlog            (WithLogger, logDebug, logError, logInfo,
                                          logWarning, usingLoggerName)
 import           Universum              hiding (Async, async, bracket, catchAll,
@@ -31,8 +32,7 @@ import           Pos.Binary.DHTModel    ()
 import           Pos.Constants          (enhancedMessageBroadcast)
 import           Pos.Constants          (neighborsSendThreshold)
 import           Pos.DHT.Model.Class    (DHTException (..), MonadDHT (..), withDhtLogger)
-import           Pos.DHT.Model.Types    (DHTData, DHTKey, DHTNode (..), filterByNodeType,
-                                         randomDHTKey)
+import           Pos.DHT.Model.Types    (DHTData, DHTKey, DHTNode (..), randomDHTKey)
 import           Pos.DHT.Model.Util     (joinNetworkNoThrow)
 import           Pos.DHT.Real.Types     (DHTHandle, KademliaDHT (..),
                                          KademliaDHTInstance (..),
@@ -56,10 +56,6 @@ runKademliaDHT inst action = runReaderT (unKademliaDHT action') inst
     action' = bracket spawnR killThread (const action)
     spawnR = fork $ runWithRandomIntervals' (ms 500) (sec 5) rejoinNetwork
 
--- | For webserver Servant integration.
-getKademliaDHTInstance :: Monad m => KademliaDHT m KademliaDHTInstance
-getKademliaDHTInstance = KademliaDHT ask
-
 -- | Stop chosen 'KademliaDHTInstance'.
 stopDHTInstance
     :: MonadIO m
@@ -77,26 +73,32 @@ startDHTInstance
        )
     => KademliaDHTInstanceConfig -> m KademliaDHTInstance
 startDHTInstance KademliaDHTInstanceConfig {..} = do
-    kdiKey <- either pure randomDHTKey kdcKeyOrType
-    kdiHandle <-
-        (liftIO $
-        K.createL
-            (fromInteger . toInteger $ kdcPort)
-            kdiKey
-            kademliaConfig
-            (log' logDebug)
-            (log' logError))
-          `catchAll`
-        (\e ->
-           do logError $ sformat
-                  ("Error launching kademlia at port " % int % ": " % shown) kdcPort e
-              throw e)
+    logInfo "Generating dht key.."
+    kdiKey <- maybe randomDHTKey pure kdcKey
+    logInfo $ sformat ("Generated dht key "%build) kdiKey
+    shouldRestore <- liftIO $ doesFileExist kdcDumpPath
+    kdiHandle <- if shouldRestore
+                 then do logInfo "Restoring DHT Instance from snapshot"
+                         catchErrors $ createKademliaFromSnapshot kdcPort kademliaConfig =<< decode <$> BS.readFile kdcDumpPath
+                 else do logInfo "Creating new DHT instance"
+                         catchErrors $ createKademlia kdcPort kdiKey kademliaConfig
+
+    logInfo "Created DHT instance"
     let kdiInitialPeers = kdcInitialPeers
     let kdiExplicitInitial = kdcExplicitInitial
     kdiKnownPeersCache <- atomically $ newTVar []
     pure $ KademliaDHTInstance {..}
   where
+    catchErrors =
+        (flip catchAll (\e -> do logError $ sformat
+                                    ("Error launching kademlia at port " % int % ": " % shown) kdcPort e
+                                 throw e)) . liftIO
+
     log' logF =  usingLoggerName ("kademlia" <> "messager") . logF . toText
+    createKademlia port key cfg =
+        K.createL (fromInteger . toInteger $ port) key cfg (log' logDebug) (log' logError)
+    createKademliaFromSnapshot port cfg snapshot =
+        K.createLFromSnapshot (fromInteger . toInteger $ port) cfg snapshot (log' logDebug) (log' logError)
 
 rejoinNetwork
     :: ( MonadIO m
@@ -135,10 +137,10 @@ instance ( MonadIO m
       where
         handleRes (Just _) = pure ()
         handleRes _        = throw AllPeersUnavailable
-    discoverPeers type_ = do
+    discoverPeers = do
         inst <- KademliaDHT $ asks kdiHandle
-        _ <- liftIO $ K.lookup inst =<< randomDHTKey type_
-        filterByNodeType type_ <$> getKnownPeers
+        _ <- liftIO $ K.lookup inst =<< randomDHTKey
+        getKnownPeers
     getKnownPeers = do
         myId <- currentNodeKey
         (inst, initialPeers, explicitInitial) <-

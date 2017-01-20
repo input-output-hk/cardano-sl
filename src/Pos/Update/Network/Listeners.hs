@@ -16,7 +16,7 @@ import           Pos.Binary.Relay         ()
 import           Pos.Communication.BiP    (BiP)
 import           Pos.Update.Core          (UpId, UpdateProposal (..), UpdateVote (..),
                                            VoteId)
-import           Pos.Update.Logic.Local   (getLocalProposal, getLocalVote,
+import           Pos.Update.Logic.Local   (getLocalProposalNVotes, getLocalVote,
                                            isProposalNeeded, isVoteNeeded,
                                            processProposal, processVote)
 import           Pos.Update.Network.Types (ProposalMsgTag (..), VoteMsgTag (..))
@@ -47,24 +47,28 @@ handleInvProposal = ListenerActionOneMsg $ \peerId sendActions (i :: InvMsg UpId
     handleInvL i peerId sendActions
 
 handleReqProposal :: WorkMode ssc m => ListenerAction BiP m
-handleReqProposal = ListenerActionOneMsg $ \peerId sendActions (i :: ReqMsg UpId ProposalMsgTag) ->
+handleReqProposal = ListenerActionOneMsg $
+    \peerId sendActions (i :: ReqMsg UpId ProposalMsgTag) ->
     handleReqL i peerId sendActions
 
 handleDataProposal :: WorkMode ssc m => ListenerAction BiP m
-handleDataProposal = ListenerActionOneMsg $ \peerId sendActions (i :: DataMsg UpId UpdateProposal) ->
+handleDataProposal = ListenerActionOneMsg $
+    \peerId sendActions (i :: DataMsg UpId (UpdateProposal, [UpdateVote])) ->
     handleDataL i peerId sendActions
 
 instance WorkMode ssc m =>
-         Relay m ProposalMsgTag UpId UpdateProposal where
+         Relay m ProposalMsgTag UpId (UpdateProposal, [UpdateVote]) where
     contentsToTag _ = pure ProposalMsgTag
 
     verifyInvTag _ = pure VerSuccess
     verifyReqTag _ = pure VerSuccess
-    verifyDataContents UpdateProposal{..} = pure VerSuccess
+    verifyDataContents _ = pure VerSuccess
 
     handleInv _ = isProposalNeeded
-    handleReq _ = getLocalProposal
-    handleData proposal _ = isRight <$> processProposal proposal
+    handleReq _ = getLocalProposalNVotes
+    handleData (proposal, votes) _ = do
+        processed <- isRight <$> processProposal proposal
+        processed <$ when processed (mapM_ processVote votes)
 
 ----------------------------------------------------------------------------
 -- UpdateVote listeners

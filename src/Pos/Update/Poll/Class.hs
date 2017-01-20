@@ -13,11 +13,12 @@ import           Control.Monad.Trans   (MonadTrans)
 import           Universum
 
 import           Pos.Script.Type       (ScriptVersion)
-import           Pos.Types             (ApplicationName, Coin, EpochIndex,
-                                        NumSoftwareVersion, ProtocolVersion, SlotId,
-                                        SoftwareVersion, StakeholderId)
+import           Pos.Types             (ApplicationName, ChainDifficulty, Coin,
+                                        EpochIndex, NumSoftwareVersion, ProtocolVersion,
+                                        SlotId, SoftwareVersion, StakeholderId)
 import           Pos.Update.Core       (UpId)
-import           Pos.Update.Poll.Types (ProposalState, UndecidedProposalState)
+import           Pos.Update.Poll.Types (DecidedProposalState, ProposalState,
+                                        UndecidedProposalState)
 
 ----------------------------------------------------------------------------
 -- Read-only
@@ -44,6 +45,9 @@ class Monad m => MonadPollRead m where
     getOldProposals :: SlotId -> m [UndecidedProposalState]
     -- ^ Get all proposals which are in undecided state and were
     -- included into block with slot less than or equal to given.
+    getDeepProposals :: ChainDifficulty -> m [DecidedProposalState]
+    -- ^ Get all proposals which are in decided state and become
+    -- decided deeper than given 'ChainDifficulty'.
 
     -- | Default implementations for 'MonadTrans'.
     default getScriptVersion
@@ -81,6 +85,11 @@ class Monad m => MonadPollRead m where
         :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
         SlotId -> m [UndecidedProposalState]
     getOldProposals = lift . getOldProposals
+
+    default getDeepProposals
+        :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
+        ChainDifficulty -> m [DecidedProposalState]
+    getDeepProposals = lift . getDeepProposals
 
 instance MonadPollRead m => MonadPollRead (ReaderT s m)
 instance MonadPollRead m => MonadPollRead (StateT s m)

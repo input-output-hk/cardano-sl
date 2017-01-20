@@ -1,5 +1,6 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Part of GState DB which stores data necessary for update system.
 
@@ -19,8 +20,12 @@ module Pos.DB.GState.Update
          -- * Initialization
        , prepareGStateUS
 
-         -- * Iteration
-       -- , getOldProposals
+        -- * Iteration
+       , PropIter
+       , runProposalMapIterator
+       , runProposalIterator
+       , getOldProposals
+       , getDeepProposals
        ) where
 
 import           Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
@@ -32,16 +37,25 @@ import           Pos.Binary.DB             ()
 import           Pos.Crypto                (hash)
 import           Pos.DB.Class              (MonadDB, getUtxoDB)
 import           Pos.DB.Error              (DBError (DBMalformed))
-import           Pos.DB.Functions          (RocksBatchOp (..), rocksWriteBatch)
+import           Pos.DB.Functions          (RocksBatchOp (..), encodeWithKeyPrefix,
+                                            rocksWriteBatch)
 import           Pos.DB.GState.Common      (getBi)
+import           Pos.DB.Iterator           (DBIteratorClass (..), DBnIterator,
+                                            DBnMapIterator, IterType, runDBnIterator,
+                                            runDBnMapIterator)
+import           Pos.DB.Types              (NodeDBs (..))
 import           Pos.Genesis               (genesisProtocolVersion, genesisScriptVersion,
                                             genesisSoftwareVersions)
 import           Pos.Script.Type           (ScriptVersion)
-import           Pos.Types                 (ApplicationName, NumSoftwareVersion,
-                                            ProtocolVersion, SoftwareVersion (..))
+import           Pos.Types                 (ApplicationName, ChainDifficulty,
+                                            NumSoftwareVersion, ProtocolVersion, SlotId,
+                                            SoftwareVersion (..))
 import           Pos.Update.Core           (UpId, UpdateProposal (..))
-import           Pos.Update.Poll.Types     (ProposalState (..), psProposal)
+import           Pos.Update.Poll.Types     (DecidedProposalState (dpsDifficulty),
+                                            ProposalState (..),
+                                            UndecidedProposalState (upsSlot), psProposal)
 import           Pos.Util                  (maybeThrow)
+import           Pos.Util.Iterator         (MonadIterator (..))
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -135,31 +149,53 @@ isInitialized = isJust <$> getLastPVMaybe
 -- Iteration
 ----------------------------------------------------------------------------
 
--- TODO!
--- I don't like it at all!
--- 1. Idea is to iterate in sorted order and stop early.
--- 2. I suppose this logic should be outside, this module should provide only
--- basic functionality, but it's not convenient currently.
--- 3. Also I am not sure that having all proposals in memory is good idea here.
--- It is definitly not necessary. But we never have time to write good code, so
--- it's the only option now.
+data PropIter
+
+instance DBIteratorClass PropIter where
+    type IterKey PropIter = UpId
+    type IterValue PropIter = ProposalState
+    iterKeyPrefix _ = iterationPrefix
+
+runProposalIterator
+    :: forall m ssc a . MonadDB ssc m
+    => DBnIterator ssc PropIter a -> m a
+runProposalIterator = runDBnIterator @PropIter _gStateDB
+
+runProposalMapIterator
+    :: forall v m ssc a . MonadDB ssc m
+    => DBnMapIterator ssc PropIter v a -> (IterType PropIter -> v) -> m a
+runProposalMapIterator = runDBnMapIterator @PropIter _gStateDB
+
+
+-- TODO: it can be optimized by storing some index sorted by
+-- 'SlotId's, but I don't think it may be crucial.
 -- | Get all proposals which were issued no later than given slot.
--- Head is youngest proposal.
--- getOldProposals
---     :: forall ssc m.
---        (MonadDB ssc m, MonadMask m)
---     => SlotId -> m [ProposalState]
--- getOldProposals slotId = do
---     db <- getUtxoDB
---     traverseAllEntries db (pure []) step
---   where
---     msg = "proposal for version associated with slot is not found"
---     step :: [ProposalState] -> SlotId -> SoftwareVersion -> m [ProposalState]
---     step res storedSlotId sw
---         | storedSlotId > slotId = pure res
---         | otherwise = do
---             ps <- maybeThrow (DBMalformed msg) =<< getProposalState sw
---             return $ ps : res
+getOldProposals
+    :: forall ssc m. MonadDB ssc m
+    => SlotId -> m [UndecidedProposalState]
+getOldProposals slotId = runProposalMapIterator (step []) snd
+  where
+    step res = nextItem >>= maybe (pure res) (onItem res)
+    onItem res e
+        | PSUndecided u <- e
+        , upsSlot u <= slotId = step (u:res)
+        | otherwise = step res
+
+-- TODO: eliminate copy-paste here!
+
+-- | Get all decided proposals which were accepted deeper than given
+-- difficulty.
+getDeepProposals
+    :: forall ssc m. MonadDB ssc m
+    => ChainDifficulty -> m [DecidedProposalState]
+getDeepProposals cd = runProposalMapIterator (step []) snd
+  where
+    step res = nextItem >>= maybe (pure res) (onItem res)
+    onItem res e
+        | PSDecided u <- e
+        , Just proposalDifficulty <- dpsDifficulty u
+        , proposalDifficulty <= cd = step (u : res)
+        | otherwise = step res
 
 ----------------------------------------------------------------------------
 -- Keys ('us' prefix stands for Update System)
@@ -172,13 +208,16 @@ scriptVersionKey :: ProtocolVersion -> ByteString
 scriptVersionKey = mappend "us/vs" . encodeStrict
 
 proposalKey :: UpId -> ByteString
-proposalKey = mappend "us/p" . encodeStrict
+proposalKey = encodeWithKeyPrefix @PropIter
 
 proposalAppKey :: ApplicationName -> ByteString
 proposalAppKey = mappend "us/an" . encodeStrict
 
 confirmedVersionKey :: ApplicationName -> ByteString
 confirmedVersionKey = mappend "us/c" . encodeStrict
+
+iterationPrefix :: ByteString
+iterationPrefix = "us/p"
 
 ----------------------------------------------------------------------------
 -- Details

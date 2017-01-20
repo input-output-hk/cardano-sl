@@ -21,7 +21,7 @@ import           Pos.DB.GState        (UpdateOp (..))
 import           Pos.Script.Type      (ScriptVersion)
 import           Pos.Types            (ApplicationName, Block, NumSoftwareVersion,
                                        ProtocolVersion, SoftwareVersion (..), difficultyL,
-                                       gbBody, mbUpdatePayload)
+                                       gbBody, gbHeader, mbUpdatePayload)
 import           Pos.Update.Core      (UpId)
 import           Pos.Update.Error     (USError (USInternalError))
 import           Pos.Update.Poll      (DBPoll, MonadPoll, PollModifier (..), PollT,
@@ -62,7 +62,7 @@ usApplyBlocks blocks _ = do
 -- head.
 usRollbackBlocks
     :: forall ssc m.
-       (USGlobalApplyMode ssc m)
+       USGlobalApplyMode ssc m
     => NewestFirst NE (Block ssc, USUndo) -> m [DB.SomeBatchOp]
 usRollbackBlocks blunds =
     modifierToBatch <$> (runDBPoll . execPollT def $ mapM_ rollbackDo blunds)
@@ -80,7 +80,7 @@ usRollbackBlocks blunds =
 -- are assumed to be done earlier, most likely during objects
 -- construction.
 usVerifyBlocks
-    :: (USGlobalVerifyMode ssc m)
+    :: USGlobalVerifyMode ssc m
     => OldestFirst NE (Block ssc) -> m (PollModifier, OldestFirst NE USUndo)
 usVerifyBlocks blocks = swap <$> run (mapM verifyBlock blocks)
   where
@@ -91,7 +91,10 @@ verifyBlock
     => Block ssc -> m USUndo
 verifyBlock (Left _)    = pure def
 verifyBlock (Right blk) =
-    verifyAndApplyUSPayload True (blk ^. gbBody . mbUpdatePayload)
+    verifyAndApplyUSPayload
+        True
+        (Right $ blk ^. gbHeader)
+        (blk ^. gbBody . mbUpdatePayload)
 
 ----------------------------------------------------------------------------
 -- Conversion to batch

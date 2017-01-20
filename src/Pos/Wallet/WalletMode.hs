@@ -8,6 +8,7 @@
 module Pos.Wallet.WalletMode
        ( MonadBalances (..)
        , MonadTxHistory (..)
+       , MonadBlockchainInfo (..)
        , TxMode
        , WalletMode
        , WalletRealMode
@@ -38,9 +39,10 @@ import           Pos.Txp.Class               (getMemPool, getUtxoView)
 import qualified Pos.Txp.Holder              as Modern
 import           Pos.Txp.Logic               (processTx)
 import           Pos.Txp.Types               (UtxoView (..), localTxs)
-import           Pos.Types                   (Address, Coin, Tx, TxAux, TxId, Utxo,
-                                              evalUtxoStateT, prevBlockL, runUtxoStateT,
-                                              sumCoins, toPair, txOutValue)
+import           Pos.Types                   (Address, ChainDifficulty, Coin, Tx, TxAux,
+                                              TxId, Utxo, difficultyL, evalUtxoStateT,
+                                              prevBlockL, runUtxoStateT, sumCoins, toPair,
+                                              txOutValue)
 import           Pos.Types.Coin              (unsafeIntegerToCoin)
 import           Pos.Types.Utxo.Functions    (belongsTo, filterUtxoByAddr)
 import           Pos.Update                  (USHolder (..))
@@ -125,7 +127,6 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
             deriveAddrHistory addr chain
     saveTx _ = pure ()
 
--- TODO: make a working instance
 instance (Ssc ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
          => MonadTxHistory (Modern.TxpLDHolder ssc m) where
     getTxHistory addr = do
@@ -161,6 +162,43 @@ instance (Ssc ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
 
 --deriving instance MonadTxHistory m => MonadTxHistory (Modern.TxpLDHolder m)
 
+class Monad m => MonadBlockchainInfo m where
+    networkChainDifficulty :: m ChainDifficulty
+    localChainDifficulty :: m ChainDifficulty
+
+    default networkChainDifficulty
+        :: (MonadTrans t, MonadBlockchainInfo m', t m' ~ m) => m ChainDifficulty
+    networkChainDifficulty = lift networkChainDifficulty
+
+    default localChainDifficulty
+        :: (MonadTrans t, MonadBlockchainInfo m', t m' ~ m) => m ChainDifficulty
+    localChainDifficulty = lift localChainDifficulty
+
+instance MonadBlockchainInfo m => MonadBlockchainInfo (ReaderT r m)
+instance MonadBlockchainInfo m => MonadBlockchainInfo (StateT s m)
+instance MonadBlockchainInfo m => MonadBlockchainInfo (KademliaDHT m)
+instance MonadBlockchainInfo m => MonadBlockchainInfo (KeyStorage m)
+instance MonadBlockchainInfo m => MonadBlockchainInfo (PeerStateHolder ssc m)
+
+deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (Modern.TxpLDHolder ssc m)
+deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (SscHolder ssc m)
+deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (DelegationT m)
+deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (USHolder m)
+
+-- | Stub instance for lite-wallet
+instance MonadIO m => MonadBlockchainInfo (WalletDB m) where
+    networkChainDifficulty = notImplemented
+    localChainDifficulty = notImplemented
+
+-- | Instance for full-node's ContextHolder
+instance (Ssc ssc, MonadDB ssc m, MonadThrow m, WithLogger m) =>
+         MonadBlockchainInfo (PC.ContextHolder ssc m) where
+    -- FIXME: add real implementation after @volhovm releases his feature
+    networkChainDifficulty = notImplemented
+    localChainDifficulty = fmap (view difficultyL) $
+                           maybeThrow (DBMalformed "No block with tip hash!") =<<
+                           DB.getBlockHeader =<< GS.getTip
+
 type TxMode ssc m
     = ( MinWorkMode m
       , MonadBalances m
@@ -173,6 +211,7 @@ type TxMode ssc m
 type WalletMode ssc m
     = ( TxMode ssc m
       , MonadKeys m
+      , MonadBlockchainInfo m
       , WithWalletContext m
       , MonadDHT m
       )

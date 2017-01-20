@@ -6,13 +6,16 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Ref (newRef, REF)
 import Control.Promise (Promise, fromAff)
-import Daedalus.Types (mkCAddress, mkCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile)
+import Daedalus.Types (mkCAddress, mkCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile, mkCWalletInit)
 import Daedalus.WS (WSConnection(WSNotConnected), mkWSState, ErrorCb, NotifyCb, openConn)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (encodeJson)
 import Data.Function.Uncurried (Fn2, mkFn2, Fn4, mkFn4, Fn3, mkFn3, Fn6, mkFn6, Fn7, mkFn7)
 import Network.HTTP.Affjax (AJAX)
 import WebSocket (WEBSOCKET)
+import Control.Monad.Error.Class (throwError)
+import Data.Either (either)
+import Daedalus.Crypto as Crypto
 
 getProfile :: forall eff. Eff(ajax :: AJAX | eff) (Promise Json)
 getProfile = fromAff $ map encodeJson B.getProfile
@@ -53,10 +56,13 @@ sendExtended = mkFn6 \addrFrom addrTo amount curr title desc -> fromAff <<< map 
         title
         desc
 
-newWallet :: forall eff. Fn3 String String String
+generateMnemonic :: forall eff. Eff (crypto :: Crypto.CRYPTO | eff) String
+generateMnemonic = Crypto.generateMnemonic
+
+newWallet :: forall eff. Fn4 String String String String
   (Eff(ajax :: AJAX | eff) (Promise Json))
-newWallet = mkFn3 \wType wCurrency wName -> fromAff <<< map encodeJson <<<
-    B.newWallet $ mkCWalletMeta wType wCurrency wName
+newWallet = mkFn4 \wType wCurrency wName wBackupPhrase -> fromAff <<< map encodeJson <<<
+    either throwError B.newWallet $ mkCWalletInit wType wCurrency wName wBackupPhrase
 
 updateWallet :: forall eff. Fn4 String String String String
   (Eff (ajax :: AJAX | eff) (Promise Json))

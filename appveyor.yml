@@ -14,6 +14,7 @@ environment:
     STACK_ROOT: "c:\\sr"
 
 before_test:
+- Echo %APPVEYOR_BUILD_VERSION% > build-id
 # Install stack
 - curl -sSL -o stack.zip --insecure http://www.stackage.org/stack/windows-x86_64
 - 7z x stack.zip stack.exe
@@ -46,6 +47,8 @@ artifacts:
   - path: daedalus/
     name: DaedalusBridge
     type: zip
+  - path: build-id
+    name: build id
 
 notifications:
   - provider: Slack

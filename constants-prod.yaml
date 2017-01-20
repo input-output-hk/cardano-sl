@@ -7,6 +7,7 @@ protocolMagic: 50987833
 enhancedMessageBroadcast: 2
 blockRetrievalQueueSize: 100
 recoveryHeadersMessage: 100 # should be more than k
+kademliaDumpInterval: 4
 
 # Fundamental constants for core protocol
 k: 60

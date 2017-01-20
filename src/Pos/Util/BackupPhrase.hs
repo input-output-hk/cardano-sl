@@ -61,12 +61,6 @@ instance Read BackupPhrase where
                 then fail "Invalid phrase"
                 else over _1 (T.pack w :) <$> takeW (n - 1) rest
 
-instance FromJSON BackupPhrase where
-    parseJSON = fmap (BackupPhrase . T.words) . parseJSON
-
-instance ToJSON BackupPhrase where
-    toJSON = toJSON . show
-
 toSeed :: BackupPhrase -> ByteString
 toSeed bp = encodeStrict $ iterate hash256 (hash256 ph) !! (hashingRoundsNum - 1)
   where ph = T.concat $ bpToList bp

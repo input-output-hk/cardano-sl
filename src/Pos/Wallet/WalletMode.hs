@@ -14,6 +14,7 @@ module Pos.Wallet.WalletMode
        , WalletRealMode
        ) where
 
+import           Control.Concurrent.STM      (readTMVar)
 import           Control.Monad.Loops         (unfoldrM)
 import           Control.Monad.Trans         (MonadTrans)
 import           Control.Monad.Trans.Maybe   (MaybeT (..))
@@ -193,8 +194,10 @@ instance MonadIO m => MonadBlockchainInfo (WalletDB m) where
 -- | Instance for full-node's ContextHolder
 instance (Ssc ssc, MonadDB ssc m, MonadThrow m, WithLogger m) =>
          MonadBlockchainInfo (PC.ContextHolder ssc m) where
-    -- FIXME: add real implementation after @volhovm releases his feature
-    networkChainDifficulty = notImplemented
+    networkChainDifficulty = do
+        tv <- PC.ncRecoveryHeader <$> PC.getNodeContext
+        (_, hh) <- atomically $ readTMVar tv
+        return $ hh ^. difficultyL
     localChainDifficulty = fmap (view difficultyL) $
                            maybeThrow (DBMalformed "No block with tip hash!") =<<
                            DB.getBlockHeader =<< GS.getTip

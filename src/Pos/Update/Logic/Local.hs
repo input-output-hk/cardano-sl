@@ -173,7 +173,9 @@ processNewSlot slotId = withUSLock $ withCurrentTip $ \ms@MemState{..} -> do
             normalizePoll False
         let validModifier = modifyPollModifier msModifier normalizingModifier
         let validPool = modifyMemPool def normalizingModifier msPool
-        pure $ ms {msModifier = validModifier, msPool = validPool}
+        pure $ ms { msModifier = validModifier
+                  , msPool = validPool
+                  , msSlot = slotId}
 
 updateSlot :: SlotId -> HashSet UpId -> PollModifier -> PollModifier
 updateSlot newSlot localIds =

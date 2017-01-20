@@ -49,7 +49,7 @@ import           Pos.Types.Address     (addressHash)
 import           Pos.Types.Tx          (verifyTxAlone)
 import           Pos.Types.Types
 import           Pos.Update.Core       (UpdatePayload)
-import           Pos.Util              (NewestFirst (..))
+import           Pos.Util              (NewestFirst (..), OldestFirst)
 
 -- | Difficulty of the BlockHeader. 0 for genesis block, 1 for main block.
 headerDifficulty :: BlockHeader ssc -> ChainDifficulty
@@ -464,19 +464,19 @@ verifyBlock VerifyBlockParams {..} blk =
 -- Verifies a sequence of blocks.
 -- #verifyBlock
 
--- | Verify sequence of blocks. It is assumed that the leftmost (head) block
--- is the oldest one.
--- foldl' is used here which eliminates laziness of triple.
--- It doesn't affect laziness of 'VerificationRes' which is good
--- because laziness for this data type is crucial.
+-- | Verify a sequence of blocks.
+--
+-- foldl' is used here which eliminates laziness of triple. It doesn't affect
+-- laziness of 'VerificationRes' which is good because laziness for this data
+-- type is crucial.
 verifyBlocks
-    :: forall ssc t.
-       (SscHelpersClass ssc
-       ,BiSsc ssc
-       ,NontrivialContainer t
-       ,Element t ~ Block ssc)
-    => Maybe SlotId -> t -> VerificationRes
-verifyBlocks curSlotId = (view _3) . foldl' step start
+    :: forall ssc f t.
+       ( SscHelpersClass ssc
+       , BiSsc ssc
+       , t ~ OldestFirst f (Block ssc)
+       , NontrivialContainer t)
+    => Maybe SlotId -> OldestFirst f (Block ssc) -> VerificationRes
+verifyBlocks curSlotId = view _3 . foldl' step start
   where
     start :: (Maybe SlotLeaders, Maybe (BlockHeader ssc), VerificationRes)
     start = (Nothing, Nothing, mempty)

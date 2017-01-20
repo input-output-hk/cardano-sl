@@ -58,7 +58,7 @@ retrievalWorker sendActions = handleAll handleWE $
         logError $ sformat ("retrievalWorker: error caught "%shown) e
         throw e
     loop queue = do
-       ph <- liftIO . atomically $ over _2 NewestFirst <$> readTBQueue queue
+       ph <- liftIO . atomically $ readTBQueue queue
        handleAll (handleLE ph) $ handle ph
        loop queue
     handleLE (peerId, headers) e =
@@ -221,7 +221,7 @@ handleRequestedHeaders headers peerId = do
         CHsValid lcaChild -> do
             let lcaChildHash = hash lcaChild
             logDebug $ sformat validFormat lcaChildHash newestHash
-            addToBlockRequestQueue (getNewestFirst headers) peerId
+            addToBlockRequestQueue headers peerId
         CHsUseless reason ->
             logDebug $ sformat uselessFormat oldestHash newestHash reason
         CHsInvalid _ -> pass -- TODO: ban node for sending invalid block.
@@ -235,7 +235,7 @@ handleRequestedHeaders headers peerId = do
 addToBlockRequestQueue
     :: forall ssc m.
        (WorkMode ssc m)
-    => NonEmpty (BlockHeader ssc)
+    => NewestFirst NE (BlockHeader ssc)
     -> NodeId
     -> m ()
 addToBlockRequestQueue headers peerId = do

@@ -21,23 +21,27 @@ module Pos.Update.Logic.Local
        , usPreparePayload
        ) where
 
-import           Control.Concurrent.STM (modifyTVar', readTVar)
+import           Control.Concurrent.STM (modifyTVar', readTVar, writeTVar)
 import           Control.Lens           (at, (%=))
 import           Control.Monad.Except   (runExceptT)
 import           Data.Default           (Default (def))
 import qualified Data.HashMap.Strict    as HM
+import           Formatting             (sformat, (%))
+import           System.Wlog            (WithLogger, logWarning)
 import           Universum
 
 import           Pos.Crypto             (PublicKey)
 import           Pos.DB.Class           (MonadDB)
 import qualified Pos.DB.GState          as DB
-import           Pos.Types              (SlotId (siEpoch))
+import           Pos.Types              (SlotId (siEpoch), slotIdF)
 import           Pos.Update.Core        (UpId, UpdatePayload (..), UpdateProposal,
                                          UpdateVote (..), VoteState, canCombineVotes)
 import           Pos.Update.MemState    (LocalVotes, MemPool (..), MemState (..),
                                          MonadUSMem, UpdateProposals, askUSMemState,
                                          modifyMemPool, withUSLock)
-import           Pos.Update.Poll        (PollModifier, PollVerFailure, ProposalState (..),
+import           Pos.Update.Poll        (MonadPoll (deactivateProposal),
+                                         MonadPollRead (getProposal), PollModifier,
+                                         PollVerFailure, ProposalState (..),
                                          UndecidedProposalState (..), evalPollT,
                                          execPollT, modifyPollModifier, normalizePoll,
                                          pmNewActivePropsL, runDBPoll,
@@ -45,7 +49,7 @@ import           Pos.Update.Poll        (PollModifier, PollVerFailure, ProposalS
 import           Pos.Util               (getKeys, zoom')
 
 -- MonadMask is needed because are using Lock. It can be improved later.
-type USLocalLogicMode σ m = (MonadDB σ m, MonadUSMem m, MonadMask m)
+type USLocalLogicMode σ m = (MonadDB σ m, MonadUSMem m, MonadMask m, WithLogger m)
 
 getMemPool :: (MonadUSMem m, MonadIO m) => m MemPool
 getMemPool = msPool <$> (askUSMemState >>= atomically . readTVar)
@@ -149,14 +153,25 @@ processSkeleton payload = withUSLock $ runExceptT $ withCurrentTip $ \ms@MemStat
     pure $ ms {msModifier = newModifier, msPool = newPool}
 
 ----------------------------------------------------------------------------
--- Normalization
+-- Normalization and related
 ----------------------------------------------------------------------------
 
 -- | Remove local data from memory state to make it consistent with
 -- current GState.  This function assumes that GState is locked. It
--- tries to leave as much data as possible.
+-- tries to leave as much data as possible. It assumes that
+-- 'blkSemaphore' is taken.
 usNormalize :: USLocalLogicMode ς m => m ()
-usNormalize = const pass notImplemented
+usNormalize =
+    withUSLock $ do
+        tip <- DB.getTip
+        stateVar <- askUSMemState
+        ms@MemState {..} <- atomically $ readTVar stateVar
+        normalizingModifier <- runDBPoll . execPollT def $ normalizePoll False
+        let validModifier = modifyPollModifier msModifier normalizingModifier
+        let validPool = modifyMemPool def normalizingModifier msPool
+        let newMS =
+                ms {msModifier = validModifier, msPool = validPool, msTip = tip}
+        atomically $ writeTVar stateVar newMS
 
 -- | Update memory state to make it correct for given slot.
 processNewSlot :: USLocalLogicMode μ m => SlotId -> m ()
@@ -173,7 +188,9 @@ processNewSlot slotId = withUSLock $ withCurrentTip $ \ms@MemState{..} -> do
             normalizePoll False
         let validModifier = modifyPollModifier msModifier normalizingModifier
         let validPool = modifyMemPool def normalizingModifier msPool
-        pure $ ms {msModifier = validModifier, msPool = validPool}
+        pure $ ms { msModifier = validModifier
+                  , msPool = validPool
+                  , msSlot = slotId}
 
 updateSlot :: SlotId -> HashSet UpId -> PollModifier -> PollModifier
 updateSlot newSlot localIds =
@@ -184,6 +201,68 @@ updateSlot newSlot localIds =
     updateSlotSingleF (Just (PSUndecided ups)) = Just $ PSUndecided ups {upsSlot = newSlot}
     updateSlotSingleF (Just decided)           = Just decided
 
--- | Prepare UpdatePayload for inclusion into new block with given SlotId.
-usPreparePayload :: USLocalLogicMode μ m => SlotId -> m UpdatePayload
-usPreparePayload _ = const (pure def) notImplemented
+-- | Prepare UpdatePayload for inclusion into new block with given
+-- SlotId.  This function assumes that 'blkSemaphore' is taken and
+-- nobody can apply/rollback blocks in parallel.
+-- Sometimes payload can't be created. It can happen if we are trying to
+-- create block for slot which has already passed, for example.
+usPreparePayload :: USLocalLogicMode μ m => SlotId -> m (Maybe UpdatePayload)
+usPreparePayload slotId = do
+    -- First of all, we make sure that mem state corresponds to given
+    -- slot.  If mem state corresponds to newer slot already, it won't
+    -- be updated, but we don't want to create block in this case
+    -- anyway.  Here 'processNewSlot' can't fail because of tip
+    -- mismatch, because we are under 'blkSemaphore'.
+    processNewSlot slotId
+    -- After that we normalize payload to be sure it's valid. We try
+    -- to keep it valid anyway, but we decided to have an extra
+    -- precaution. We also do it because here we need to eliminate all
+    -- proposals which don't have enough positive stake for inclusion
+    -- into block. We check that payload corresponds to requested slot
+    -- and return it if it does. We take lock to be sure that noone
+    -- can put anything during normalization.
+    withUSLock preparePayloadDo
+  where
+    preparePayloadDo = do
+        stateVar <- askUSMemState
+        MemState {..} <- atomically $ readTVar stateVar
+        -- If slot doesn't match, we can't provide payload for this slot.
+        if | msSlot /= slotId -> Nothing <$
+               logWarning (sformat slotMismatchFmt msSlot slotId)
+           | otherwise -> do
+               -- Here we basically do two things:
+               -- • we remove proposals which don't have enough positive stake
+               -- for inclusion
+               -- • we ensure that everything else is valid
+               toGoodModifier <- runDBPoll . evalPollT msModifier .
+                   execPollT def $ normalizePoll True
+               let goodMemPool = modifyMemPool def toGoodModifier msPool
+               let goodModifier = msModifier <> toGoodModifier
+               fmap Just . runDBPoll . evalPollT goodModifier $
+                   finishPrepare goodMemPool
+    slotMismatchFmt = "US payload can't be created due to slot mismatch (our payload is for "
+                       %slotIdF%", but requested one is "%slotIdF%")"
+
+-- Here we basically choose only one proposal for inclusion and remove
+-- all votes for other proposals.
+finishPrepare
+    :: MonadPoll m
+    => MemPool -> m UpdatePayload
+finishPrepare MemPool {..} = do
+    normalizePoll True
+    proposalPair <- foldM findProposal Nothing $ HM.toList mpProposals
+    mapM_ (deactivate (fst <$> proposalPair)) $ HM.toList mpProposals
+    let allVotes :: [UpdateVote]
+        allVotes = map fst $ concatMap toList $ toList mpLocalVotes
+    goodVotes <- filterM isVoteValid allVotes
+    return $
+        UpdatePayload {upProposal = snd <$> proposalPair, upVotes = goodVotes}
+  where
+    findProposal (Just x) _ = pure (Just x)
+    findProposal Nothing x@(upId, _) =
+        bool Nothing (Just x) <$> (isJust <$> getProposal upId)
+    deactivate chosenUpId (upId, _)
+        | chosenUpId == Just upId = pass
+        | otherwise =
+            deactivateProposal upId
+    isVoteValid UpdateVote {..} = isJust <$> getProposal uvProposalId

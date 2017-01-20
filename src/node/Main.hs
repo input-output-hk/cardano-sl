@@ -35,6 +35,7 @@ import           Pos.Ssc.GodTossing  (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon  (SscNistBeacon)
 import           Pos.Ssc.SscAlgo     (SscAlgo (..))
 import           Pos.Types           (Timestamp (Timestamp))
+import           Pos.Util            (inAssertMode)
 import           Pos.Util.UserSecret (UserSecret, peekUserSecret, usKeys, usVss,
                                       writeUserSecret)
 #ifdef WITH_WEB
@@ -259,7 +260,17 @@ walletProd _ = []
 walletStats _ = []
 #endif
 
+printFlags :: IO ()
+printFlags = do
+#ifdef DEV_MODE
+    putText "[Attention] We are in DEV mode"
+#else
+    putText "[Attention] We are in PRODUCTION mode"
+#endif
+    inAssertMode $ putText "Asserts are ON"
+
 main :: IO ()
 main = do
+    printFlags
     args <- getNodeOptions
     bracketResources (baseParams "node" args) (action args)

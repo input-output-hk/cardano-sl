@@ -1,10 +1,12 @@
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE DeriveTraversable   #-}
 {-# LANGUAGE GADTs               #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Miscellaneous unclassified utility functions.
 
@@ -25,7 +27,16 @@ module Pos.Util
 
        -- * Lists
        , allDistinct
+
+       -- * NonEmpty
+       , NE
        , neZipWith3
+
+       -- * Chronological sequences
+       , NewestFirst(..)
+       , OldestFirst(..)
+       , toNewestFirst
+       , toOldestFirst
 
        -- * SafeCopy
        , getCopyBinary
@@ -98,17 +109,20 @@ module Pos.Util
        ) where
 
 import           Control.Concurrent.STM.TVar   (TVar, readTVar)
-import           Control.Lens                  (LensLike', Magnified, Zoomed, lensRules,
-                                                magnify, zoom)
+import           Control.Lens                  (Each (..), LensLike', Magnified, Zoomed,
+                                                lensRules, magnify, makeWrapped, zoom,
+                                                _Wrapped)
 import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
 import qualified Control.Monad                 as Monad (fail)
 import           Control.Monad.STM             (retry)
 import           Control.Monad.Trans.Resource  (ResourceT)
+import           Data.Binary                   (Binary)
 import qualified Data.Cache.LRU                as LRU
 import           Data.Hashable                 (Hashable)
 import qualified Data.HashMap.Strict           as HM
 import           Data.HashSet                  (fromMap)
 import           Data.List                     (span, zipWith3)
+import qualified Data.List.NonEmpty            as NE
 import           Data.Proxy                    (Proxy (..), asProxyTypeOf)
 import           Data.SafeCopy                 (Contained, SafeCopy (..), base, contain,
                                                 deriveSafeCopySimple, safeGet, safePut)
@@ -131,6 +145,7 @@ import           System.Console.ANSI           (Color (..), ColorIntensity (Vivi
                                                 SGR (Reset, SetColor), setSGRCode)
 import           System.Wlog                   (LoggerNameBox (..), WithLogger, logDebug,
                                                 logWarning, modifyLoggerName)
+import           Test.QuickCheck               (Arbitrary)
 import           Text.Parsec                   (ParsecT)
 import           Universum                     hiding (Async, async, bracket, cancel,
                                                 waitAny)
@@ -228,8 +243,60 @@ allDistinct xs = and $ zipWith (/=) sorted (drop 1 sorted)
   where
     sorted = sort xs
 
+----------------------------------------------------------------------------
+-- NonEmpty
+----------------------------------------------------------------------------
+
+type NE = NonEmpty
+
 neZipWith3 :: (x -> y -> z -> q) -> NonEmpty x -> NonEmpty y -> NonEmpty z -> NonEmpty q
 neZipWith3 f (x :| xs) (y :| ys) (z :| zs) = f x y z :| zipWith3 f xs ys zs
+
+----------------------------------------------------------------------------
+-- Chronological sequences
+----------------------------------------------------------------------------
+
+newtype NewestFirst f a = NewestFirst {getNewestFirst :: f a}
+  deriving (Eq, Ord, Show,
+            Functor, Foldable, Traversable,
+            Container, NontrivialContainer,
+            Binary, Bi,
+            Arbitrary)
+newtype OldestFirst f a = OldestFirst {getOldestFirst :: f a}
+  deriving (Eq, Ord, Show,
+            Functor, Foldable, Traversable,
+            Container, NontrivialContainer,
+            Binary, Bi,
+            Arbitrary)
+
+makeWrapped ''NewestFirst
+makeWrapped ''OldestFirst
+
+instance Each (f a) (f b) a b =>
+         Each (NewestFirst f a) (NewestFirst f b) a b where
+    each = _Wrapped . each
+instance Each (f a) (f b) a b =>
+         Each (OldestFirst f a) (OldestFirst f b) a b where
+    each = _Wrapped . each
+
+instance One (f a) => One (NewestFirst f a) where
+    type OneItem (NewestFirst f a) = OneItem (f a)
+    one = NewestFirst . one
+instance One (f a) => One (OldestFirst f a) where
+    type OneItem (OldestFirst f a) = OneItem (f a)
+    one = OldestFirst . one
+
+class Chrono f where
+    toNewestFirst :: OldestFirst f a -> NewestFirst f a
+    toOldestFirst :: NewestFirst f a -> OldestFirst f a
+
+instance Chrono [] where
+    toNewestFirst = NewestFirst . reverse . getOldestFirst
+    toOldestFirst = OldestFirst . reverse . getNewestFirst
+
+instance Chrono NonEmpty where
+    toNewestFirst = NewestFirst . NE.reverse . getOldestFirst
+    toOldestFirst = OldestFirst . NE.reverse . getNewestFirst
 
 ----------------------------------------------------------------------------
 -- Lens utils

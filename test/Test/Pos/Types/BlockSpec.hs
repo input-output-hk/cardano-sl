@@ -23,6 +23,7 @@ import           Pos.Ssc.GodTossing    (SscGodTossing)
 import           Pos.Ssc.NistBeacon    (SscNistBeacon)
 import qualified Pos.Types             as T
 import           Pos.Types.Address     (addressHash)
+import           Pos.Util              (NewestFirst (..))
 import           Serokell.Util         (isVerSuccess)
 import           System.Random         (mkStdGen, randomR)
 
@@ -41,8 +42,10 @@ spec = describe "Block properties" $ do
     describe "verifyHeaders" $ do
         prop verifyHeadersDesc (validateGoodHeaderChain @SscNistBeacon)
         prop verifyHeadersDesc (validateGoodHeaderChain @SscGodTossing)
-        emptyHeaderChain ([] :: [T.BlockHeader SscNistBeacon])
-        emptyHeaderChain ([] :: [T.BlockHeader SscGodTossing])
+        emptyHeaderChain (NewestFirst [] ::
+                                 NewestFirst [] (T.BlockHeader SscNistBeacon))
+        emptyHeaderChain (NewestFirst [] ::
+                                 NewestFirst [] (T.BlockHeader SscGodTossing))
           where
     mainHeaderFormationDesc = "Manually generating a main header block and using\
     \ mkMainHeader is the same"
@@ -175,5 +178,5 @@ validateGoodMainHeader
 validateGoodHeaderChain
     :: forall ssc . Ssc ssc
     => Bool -> T.BlockHeaderList ssc -> Bool
-validateGoodHeaderChain b (fst . T.getHeaderList -> l) =
-    isVerSuccess $ T.verifyHeaders b l
+validateGoodHeaderChain b (T.BHL (l, _)) =
+    isVerSuccess $ T.verifyHeaders b (NewestFirst l)

@@ -49,6 +49,7 @@ import           Pos.Types.Address     (addressHash)
 import           Pos.Types.Tx          (verifyTxAlone)
 import           Pos.Types.Types
 import           Pos.Update.Core       (UpdatePayload)
+import           Pos.Util              (NewestFirst (..), OldestFirst)
 
 -- | Difficulty of the BlockHeader. 0 for genesis block, 1 for main block.
 headerDifficulty :: BlockHeader ssc -> ChainDifficulty
@@ -356,14 +357,16 @@ verifyHeader VerifyHeaderParams {..} h =
                   , "block's leader is different from expected one")
                 ]
 
--- | Verifies a set of block headers, where head is the newest one.
+-- | Verifies a set of block headers.
 verifyHeaders
     :: BiSsc ssc
-    => Bool -> [BlockHeader ssc] -> VerificationRes
-verifyHeaders _ [] = mempty
-verifyHeaders checkConsensus headers@(_:xh) = mconcat verified
+    => Bool -> NewestFirst [] (BlockHeader ssc) -> VerificationRes
+verifyHeaders _ (NewestFirst []) = mempty
+verifyHeaders checkConsensus (NewestFirst (headers@(_:xh))) =
+    mconcat verified
   where
-    verified = map (\(cur,prev) -> verifyHeader (toVHP prev) cur) $ headers `zip` xh
+    verified = zipWith (\cur prev -> verifyHeader (toVHP prev) cur)
+                       headers xh
     toVHP p = def { vhpVerifyConsensus = checkConsensus
                   , vhpPrevHeader = Just p }
 
@@ -461,19 +464,19 @@ verifyBlock VerifyBlockParams {..} blk =
 -- Verifies a sequence of blocks.
 -- #verifyBlock
 
--- | Verify sequence of blocks. It is assumed that the leftmost (head) block
--- is the oldest one.
--- foldl' is used here which eliminates laziness of triple.
--- It doesn't affect laziness of 'VerificationRes' which is good
--- because laziness for this data type is crucial.
+-- | Verify a sequence of blocks.
+--
+-- foldl' is used here which eliminates laziness of triple. It doesn't affect
+-- laziness of 'VerificationRes' which is good because laziness for this data
+-- type is crucial.
 verifyBlocks
-    :: forall ssc t.
-       (SscHelpersClass ssc
-       ,BiSsc ssc
-       ,NontrivialContainer t
-       ,Element t ~ Block ssc)
-    => Maybe SlotId -> t -> VerificationRes
-verifyBlocks curSlotId = (view _3) . foldl' step start
+    :: forall ssc f t.
+       ( SscHelpersClass ssc
+       , BiSsc ssc
+       , t ~ OldestFirst f (Block ssc)
+       , NontrivialContainer t)
+    => Maybe SlotId -> OldestFirst f (Block ssc) -> VerificationRes
+verifyBlocks curSlotId = view _3 . foldl' step start
   where
     start :: (Maybe SlotLeaders, Maybe (BlockHeader ssc), VerificationRes)
     start = (Nothing, Nothing, mempty)

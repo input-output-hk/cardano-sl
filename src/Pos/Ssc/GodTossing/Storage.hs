@@ -47,11 +47,12 @@ import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), GtPayload (
 import           Pos.Ssc.GodTossing.Types.Base  (VssCertificate (..))
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types                      (Block, EpochIndex, EpochOrSlot (..),
-                                                 HeaderHash, NEBlocks, SharedSeed,
-                                                 SlotId (..), addressHash, blockMpc,
-                                                 blockSlot, epochIndexL, epochOrSlot,
-                                                 epochOrSlotG, gbHeader)
-import           Pos.Util                       (readerToState)
+                                                 HeaderHash, SharedSeed, SlotId (..),
+                                                 addressHash, blockMpc, blockSlot,
+                                                 epochIndexL, epochOrSlot, epochOrSlotG,
+                                                 gbHeader)
+import           Pos.Util                       (NE, NewestFirst (..), OldestFirst,
+                                                 readerToState)
 
 type GSQuery a  = forall m . (MonadReader GtGlobalState m) => m a
 type GSUpdate a = forall m . (MonadState GtGlobalState m) => m a
@@ -195,7 +196,11 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
 -- TODO:
 --   ★ verification messages should include block hash/slotId
 --   ★ we should stop at first failing block
-mpcVerifyBlocks :: Bool -> Richmen -> NEBlocks SscGodTossing -> GSQuery VerificationRes
+mpcVerifyBlocks
+    :: Bool
+    -> Richmen
+    -> OldestFirst NE (Block SscGodTossing)
+    -> GSQuery VerificationRes
 mpcVerifyBlocks verifyPure richmen blocks = do
     curState <- ask
     return $ flip evalState curState $ do
@@ -208,7 +213,7 @@ mpcVerifyBlocks verifyPure richmen blocks = do
 
 -- | Apply sequence of blocks to state. Sequence must be based on last
 -- applied block and must be valid.
-mpcApplyBlocks :: NEBlocks SscGodTossing -> GSUpdate ()
+mpcApplyBlocks :: OldestFirst NE (Block SscGodTossing) -> GSUpdate ()
 mpcApplyBlocks = mapM_ mpcProcessBlock
 
 mpcProcessBlock
@@ -229,9 +234,8 @@ mpcProcessBlock blk = do
             gsVssCertificates %= VCD.setLastKnownSlot (b ^. blockSlot)
             modify (unionPayload (b ^. blockMpc))
 
--- | Head - youngest
-mpcRollback :: NEBlocks SscGodTossing -> GSUpdate ()
-mpcRollback blocks = do
+mpcRollback :: NewestFirst NE (Block SscGodTossing) -> GSUpdate ()
+mpcRollback (NewestFirst blocks) = do
     let slotMB = prevSlot $ blkSlot $ NE.last blocks
      -- Rollback certs
     case slotMB of
@@ -280,8 +284,9 @@ mpcLoadGlobalState tip = do
     let startEpoch = safeSub endEpoch -- load blocks while >= endEpoch
         whileEpoch b = b ^. epochIndexL >= startEpoch
     blocks <- loadBlocksWhile whileEpoch tip
-    let global' = unionBlocks blocks
-        global = over gsVssCertificates (unionBlksCerts . reverse $ blocks) global'
+    let global' = unionBlocks (getNewestFirst blocks)
+        global = global'
+            & gsVssCertificates %~ unionBlksCerts (reverse (getNewestFirst blocks))
     pure $ if | startEpoch == 0 ->
                    over gsVssCertificates unionGenCerts global
               | otherwise -> global

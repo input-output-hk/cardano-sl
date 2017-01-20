@@ -28,6 +28,7 @@ import           Pos.DB.Functions    (RocksBatchOp (..), rocksGetBi, rocksPutBi)
 import           Pos.Ssc.Class.Types (Ssc)
 import           Pos.Types           (Block, BlockHeader, HasHeaderHash, HeaderHash,
                                       blockHeader, headerHash)
+import           Pos.Util            (OldestFirst (..))
 
 
 ----------------------------------------------------------------------------
@@ -87,8 +88,12 @@ instance RocksBatchOp BlockExtraOp where
 -- Loads something from old to new.
 loadUpWhile
     :: forall a b ssc m . (Ssc ssc, MonadDB ssc m, HasHeaderHash a)
-    => (Blund ssc -> b) -> a -> (b -> Int -> Bool) -> m [b]
-loadUpWhile morph start  condition = loadUpWhileDo (headerHash start) 0
+    => (Blund ssc -> b)
+    -> a
+    -> (b -> Int -> Bool)
+    -> m (OldestFirst [] b)
+loadUpWhile morph start condition =
+    OldestFirst <$> loadUpWhileDo (headerHash start) 0
   where
     loadUpWhileDo :: HeaderHash -> Int -> m [b]
     loadUpWhileDo curH height = getBlockWithUndo curH >>= \case
@@ -101,17 +106,21 @@ loadUpWhile morph start  condition = loadUpWhileDo (headerHash start) 0
                      (curB :) <$> loadUpWhileDo nextLink (succ height)
                | otherwise -> pure [curB]
 
--- | Returns headers loaded up oldest first.
+-- | Returns headers loaded up.
 loadHeadersUpWhile
     :: (Ssc ssc, MonadDB ssc m, HasHeaderHash a)
-    => a -> (BlockHeader ssc -> Int -> Bool) -> m [(BlockHeader ssc)]
+    => a
+    -> (BlockHeader ssc -> Int -> Bool)
+    -> m (OldestFirst [] (BlockHeader ssc))
 loadHeadersUpWhile start condition =
     loadUpWhile (view blockHeader . fst) start condition
 
--- | Returns blocks loaded up oldest first.
+-- | Returns blocks loaded up.
 loadBlocksUpWhile
     :: (Ssc ssc, MonadDB ssc m, HasHeaderHash a)
-    => a -> (Block ssc -> Int -> Bool) -> m [(Block ssc)]
+    => a
+    -> (Block ssc -> Int -> Bool)
+    -> m (OldestFirst [] (Block ssc))
 loadBlocksUpWhile start condition = loadUpWhile fst start condition
 
 ----------------------------------------------------------------------------

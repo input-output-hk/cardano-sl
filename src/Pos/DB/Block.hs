@@ -24,6 +24,7 @@ module Pos.DB.Block
        , loadHeadersByDepthWhile
        ) where
 
+import           Control.Lens              (_Wrapped)
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
 import           Data.ByteArray            (convert)
 import           Data.Default              (Default (def))
@@ -45,7 +46,7 @@ import           Pos.Types                 (Block, BlockHeader, GenesisBlock,
                                             HeaderHash, genesisHash, headerHash,
                                             prevBlockL)
 import qualified Pos.Types                 as T
-import           Pos.Util                  (maybeThrow)
+import           Pos.Util                  (NewestFirst (..), maybeThrow)
 
 -- | Get StoredBlock by hash from Block DB.
 getStoredBlock
@@ -95,8 +96,11 @@ deleteBlock = delete . blockKey
 loadDataWhile
     :: forall m a .
        (Monad m, HasPrevBlock a)
-    => (HeaderHash -> m a) -> (a -> Bool) -> HeaderHash -> m [a]
-loadDataWhile getter predicate start = doIt start
+    => (HeaderHash -> m a)
+    -> (a -> Bool)
+    -> HeaderHash
+    -> m (NewestFirst [] a)
+loadDataWhile getter predicate start = NewestFirst <$> doIt start
   where
     doIt :: HeaderHash -> m [a]
     doIt h
@@ -113,8 +117,12 @@ loadDataWhile getter predicate start = doIt start
 loadDataByDepth
     :: forall m a .
        (Monad m, HasPrevBlock a, HasDifficulty a)
-    => (HeaderHash -> m a) -> (a -> Bool) -> Word -> HeaderHash -> m [a]
-loadDataByDepth _ _ 0 _ = pure []
+    => (HeaderHash -> m a)
+    -> (a -> Bool)
+    -> Word
+    -> HeaderHash
+    -> m (NewestFirst [] a)
+loadDataByDepth _ _ 0 _ = pure (NewestFirst [])
 loadDataByDepth getter extraPredicate depth h = do
     -- First of all, we load data corresponding to h.
     top <- getter h
@@ -131,53 +139,54 @@ loadDataByDepth getter extraPredicate depth h = do
     -- loaded block.  We load them until we find block with target
     -- difficulty. And then we drop last (oldest) block.
     let prev = top ^. prevBlockL
-    (top :) <$>
+    over _Wrapped (top :) <$>
         loadDataWhile
         getter
         (\a -> a ^. difficultyL >= targetDifficulty && extraPredicate a)
         prev
 
 -- | Load blunds starting from block with header hash equal to given hash
--- and while @predicate@ is true.  The head of returned list is the
--- youngest blund.
+-- and while @predicate@ is true.
 loadBlundsWhile
     :: (Ssc ssc, MonadDB ssc m)
-    => (Block ssc -> Bool) -> HeaderHash -> m [Blund ssc]
+    => (Block ssc -> Bool) -> HeaderHash -> m (NewestFirst [] (Blund ssc))
 loadBlundsWhile predicate = loadDataWhile getBlundThrow (predicate . fst)
 
 -- | Load blunds which have depth less than given.
 loadBlundsByDepth
     :: (Ssc ssc, MonadDB ssc m)
-    => Word -> HeaderHash -> m [Blund ssc]
+    => Word -> HeaderHash -> m (NewestFirst [] (Blund ssc))
 loadBlundsByDepth = loadDataByDepth getBlundThrow (const True)
 
--- | Load blocks starting from block with header hash equal to given
--- hash and while @predicate@ is true. The head of returned list is
--- the youngest block.
+-- | Load blocks starting from block with header hash equal to given hash
+-- and while @predicate@ is true.
 loadBlocksWhile
     :: (Ssc ssc, MonadDB ssc m)
-    => (Block ssc -> Bool) -> HeaderHash -> m [Block ssc]
+    => (Block ssc -> Bool) -> HeaderHash -> m (NewestFirst [] (Block ssc))
 loadBlocksWhile = loadDataWhile getBlockThrow
 
--- | Load headers starting from block with header hash equal to given
--- hash and while @predicate@ is true. The head of returned list is
--- the youngest header.
+-- | Load headers starting from block with header hash equal to given hash
+-- and while @predicate@ is true.
 loadHeadersWhile
     :: (Ssc ssc, MonadDB ssc m)
-    => (BlockHeader ssc -> Bool) -> HeaderHash -> m [BlockHeader ssc]
+    => (BlockHeader ssc -> Bool)
+    -> HeaderHash
+    -> m (NewestFirst [] (BlockHeader ssc))
 loadHeadersWhile = loadDataWhile getHeaderThrow
 
 -- | Load headers which have depth less than given.
 loadHeadersByDepth
     :: (Ssc ssc, MonadDB ssc m)
-    => Word -> HeaderHash -> m [BlockHeader ssc]
+    => Word -> HeaderHash -> m (NewestFirst [] (BlockHeader ssc))
 loadHeadersByDepth = loadDataByDepth getHeaderThrow (const True)
 
--- | Load headers which have depth less than given and match some
--- criterion.
+-- | Load headers which have depth less than given and match some criterion.
 loadHeadersByDepthWhile
     :: (Ssc ssc, MonadDB ssc m)
-    => (BlockHeader ssc -> Bool) -> Word -> HeaderHash -> m [BlockHeader ssc]
+    => (BlockHeader ssc -> Bool)
+    -> Word
+    -> HeaderHash
+    -> m (NewestFirst [] (BlockHeader ssc))
 loadHeadersByDepthWhile = loadDataByDepth getHeaderThrow
 
 ----------------------------------------------------------------------------

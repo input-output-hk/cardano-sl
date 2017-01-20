@@ -15,10 +15,12 @@ import           Universum
 import           Node.Message          (Message (..), MessageName (..))
 import           Pos.Ssc.Class.Types   (Ssc (SscPayload))
 import           Pos.Types             (Block, BlockHeader, HeaderHash)
+import           Pos.Util              (NE, NewestFirst)
 
 -- | 'GetHeaders' message (see protocol specification).
 data MsgGetHeaders = MsgGetHeaders
-    { mghFrom :: !(NonEmpty HeaderHash)
+    { -- not guaranteed to be in any particular order
+      mghFrom :: !(NonEmpty HeaderHash)
     , mghTo   :: !(Maybe HeaderHash)
     } deriving (Generic, Show, Eq)
 
@@ -38,7 +40,7 @@ instance Message MsgGetBlocks where
 
 -- | 'Headers' message (see protocol specification).
 newtype MsgHeaders ssc =
-    MsgHeaders (NonEmpty (BlockHeader ssc))
+    MsgHeaders (NewestFirst NE (BlockHeader ssc))
     deriving (Generic, Show, Eq)
 
 instance Message (MsgHeaders ssc) where

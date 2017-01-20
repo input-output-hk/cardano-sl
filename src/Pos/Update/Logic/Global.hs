@@ -10,28 +10,26 @@ module Pos.Update.Logic.Global
        , usVerifyBlocks
        ) where
 
-import           Control.Monad.Except      (MonadError, runExceptT)
-import           Data.Default              (Default (def))
-import qualified Data.HashMap.Strict       as HM
-import           System.Wlog               (WithLogger, logError)
+import           Control.Monad.Except (MonadError, runExceptT)
+import           Data.Default         (Default (def))
+import qualified Data.HashMap.Strict  as HM
+import           System.Wlog          (WithLogger, logError)
 import           Universum
 
-import qualified Pos.DB                    as DB
-import           Pos.DB.GState             (UpdateOp (..))
-import           Pos.Script.Type           (ScriptVersion)
-import           Pos.Types                 (ApplicationName, Block, NumSoftwareVersion,
-                                            ProtocolVersion, SoftwareVersion (..),
-                                            difficultyL, gbBody, gbHeader,
-                                            mbUpdatePayload)
-import           Pos.Update.Core           (UpId)
-import           Pos.Update.Error          (USError (USInternalError))
-import           Pos.Update.Poll           (DBPoll, MonadPoll, PollModifier (..), PollT,
-                                            PollVerFailure, ProposalState, USUndo,
-                                            execPollT, rollbackUSPayload, runDBPoll,
-                                            runPollT, verifyAndApplyUSPayload)
-import           Pos.Update.Poll.RollTrans (execRollT)
-import           Pos.Util                  (Color (Red), NE, NewestFirst, OldestFirst,
-                                            colorize, inAssertMode)
+import qualified Pos.DB               as DB
+import           Pos.DB.GState        (UpdateOp (..))
+import           Pos.Script.Type      (ScriptVersion)
+import           Pos.Types            (ApplicationName, Block, NumSoftwareVersion,
+                                       ProtocolVersion, SoftwareVersion (..), difficultyL,
+                                       gbBody, gbHeader, mbUpdatePayload)
+import           Pos.Update.Core      (UpId)
+import           Pos.Update.Error     (USError (USInternalError))
+import           Pos.Update.Poll      (DBPoll, MonadPoll, PollModifier (..), PollT,
+                                       PollVerFailure, ProposalState, USUndo, execPollT,
+                                       execRollT, rollbackUSPayload, runDBPoll, runPollT,
+                                       verifyAndApplyUSPayload)
+import           Pos.Util             (Color (Red), NE, NewestFirst, OldestFirst,
+                                       colorize, inAssertMode)
 
 type USGlobalApplyMode endless_useless m = (WithLogger m, DB.MonadDB endless_useless m)
 type USGlobalVerifyMode ы m = (DB.MonadDB ы m, MonadError PollVerFailure m)

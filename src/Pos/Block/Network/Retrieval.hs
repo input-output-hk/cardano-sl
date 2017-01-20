@@ -61,7 +61,7 @@ retrievalWorker sendActions = handleAll handleWE $ do
         logError $ sformat ("retrievalWorker: error caught "%shown) e
         throw e
     loop queue recHeaderVar = forever $ do
-       ph <- atomically $ over _2 NewestFirst <$> readTBQueue queue
+       ph <- atomically $ readTBQueue queue
        handleAll (handleLE ph) $ handle ph
        needQueryMore <- atomically $ do
            isEmpty <- isEmptyTBQueue queue
@@ -262,7 +262,7 @@ handleRequestedHeaders headers recoveryTip peerId = do
         CHsValid lcaChild -> do
             let lcaChildHash = hash lcaChild
             logDebug $ sformat validFormat lcaChildHash newestHash
-            addToBlockRequestQueue (getNewestFirst headers) recoveryTip peerId
+            addToBlockRequestQueue headers recoveryTip peerId
         CHsUseless reason ->
             logDebug $ sformat uselessFormat oldestHash newestHash reason
         CHsInvalid _ -> pass -- TODO: ban node for sending invalid block.
@@ -281,7 +281,7 @@ handleRequestedHeaders headers recoveryTip peerId = do
 addToBlockRequestQueue
     :: forall ssc m.
        (WorkMode ssc m)
-    => NonEmpty (BlockHeader ssc)
+    => NewestFirst NE (BlockHeader ssc)
     -> Maybe (BlockHeader ssc)
     -> NodeId
     -> m ()

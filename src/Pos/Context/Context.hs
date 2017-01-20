@@ -21,6 +21,7 @@ import           Pos.Ssc.Class.Types            (Ssc (SscNodeContext))
 import           Pos.Types                      (Address, BlockHeader, EpochIndex,
                                                  HeaderHash, SlotId, SlotLeaders,
                                                  Timestamp (..), Utxo, makePubKeyAddress)
+import           Pos.Util                       (NE, NewestFirst)
 import           Pos.Util.UserSecret            (UserSecret)
 
 ----------------------------------------------------------------------------
@@ -70,7 +71,7 @@ data NodeContext ssc = NodeContext
     -- Second element is time (local time) for which we got margin in last time.
     , ncNtpLastSlot         :: !(STM.TVar SlotId)
     -- ^ Slot which was returned from getCurrentSlot in last time
-    , ncBlockRetrievalQueue :: !(TBQueue (NodeId, NonEmpty (BlockHeader ssc)))
+    , ncBlockRetrievalQueue :: !(TBQueue (NodeId, NewestFirst NE (BlockHeader ssc)))
     -- ^ Concurrent queue that holds block headers that are to be
     -- downloaded.
     , ncRecoveryHeader      :: !(STM.TMVar (NodeId, BlockHeader ssc))

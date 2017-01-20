@@ -20,6 +20,8 @@ import qualified Data.HashMap.Strict    as HM
 import qualified Data.HashSet           as HS
 import qualified Data.List.NonEmpty     as NE
 import           Formatting             (build, sformat, stext, (%))
+import           Serokell.Util          (VerificationRes (VerFailure), formatAllErrors,
+                                         verResFullF)
 import           System.Wlog            (WithLogger, logDebug, logInfo)
 import           Universum
 
@@ -157,7 +159,7 @@ txVerifyBlocks newChain = do
             Right undo  -> return (Right (undo:undos))
             Left errors -> return (Left (attachSlotId slotId errors))
     attachSlotId sId errors =
-        sformat ("[Block's slot = "%slotIdF % "]"%stext) sId errors
+        sformat ("[Block's slot = "%slotIdF%"]"%verResFullF) sId (VerFailure errors)
 
 -- CHECK: @processTx
 -- #processTxDo
@@ -186,7 +188,7 @@ processTxDo ld@(uv, mp, undos, tip) resolvedIns utxoDB (id, (tx, txw, txd))
     | otherwise =
         case verifyRes of
             Right _     -> newState addUtxo' delUtxo' locTxs locTxsSize undos
-            Left errors -> (PTRinvalid errors, ld)
+            Left errors -> (PTRinvalid (formatAllErrors errors), ld)
   where
     verifyRes =
         verifyTxPure True VTxGlobalContext inputResolver (tx, txw, txd)

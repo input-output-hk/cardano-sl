@@ -18,8 +18,7 @@ import qualified Data.HashMap.Strict  as HM
 import qualified Data.HashSet         as HS
 import           Data.List            (tail, zipWith3)
 import           Formatting           (build, int, sformat, (%))
-import           Serokell.Util        (VerificationRes, formatAllErrors,
-                                       verResToMonadError, verifyGeneric)
+import           Serokell.Util        (VerificationRes, verResToMonadError, verifyGeneric)
 import           Universum
 
 import           Pos.Binary.Types     ()
@@ -95,11 +94,11 @@ verifyTx
     -> VTxGlobalContext
     -> (TxIn -> m (Maybe VTxLocalContext))
     -> TxAux
-    -> m (Either Text [TxOutAux])
+    -> m (Either [Text] [TxOutAux])
 verifyTx verifyAlone gContext inputResolver txs@(Tx {..}, _, _) = do
     extendedInputs <- mapM extendInput txInputs
     runExceptT $ do
-        verResToMonadError formatAllErrors $
+        verResToMonadError identity $
             verifyTxDo verifyAlone gContext extendedInputs txs
         return $ map (vtlTxOut . snd) . catMaybes $ extendedInputs
   where
@@ -227,7 +226,7 @@ verifyTxPure :: Bool
              -> VTxGlobalContext
              -> (TxIn -> Maybe VTxLocalContext)
              -> TxAux
-             -> Either Text [TxOutAux]
+             -> Either [Text] [TxOutAux]
 verifyTxPure verifyAlone gContext resolver =
     runIdentity . verifyTx verifyAlone gContext (Identity . resolver)
 

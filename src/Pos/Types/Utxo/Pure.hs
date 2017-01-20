@@ -34,7 +34,7 @@ import           Pos.Types.Types          (Tx, TxAux, TxDistribution, TxId, TxIn
                                            Utxo)
 import           Pos.Types.Utxo.Class     (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Types.Utxo.Functions (applyTxToUtxo, applyTxToUtxo', verifyTxUtxo)
-import           Pos.Util                 (eitherToVerRes)
+
 ----------------------------------------------------------------------------
 -- Reader
 ----------------------------------------------------------------------------
@@ -113,4 +113,7 @@ applyTxToUtxoPure' w = execUtxoState $ applyTxToUtxo' w
 -- | Pure version of verifyTxUtxo.
 verifyTxUtxoPure :: Bool -> Utxo -> TxAux -> VerificationRes
 verifyTxUtxoPure verifyAlone utxo txw =
-    eitherToVerRes $ runUtxoReader (verifyTxUtxo verifyAlone txw) utxo
+    case runUtxoReader (verifyTxUtxo verifyAlone txw) utxo of
+        Right _ -> VerSuccess
+        Left [] -> VerSuccess
+        Left es -> VerFailure es

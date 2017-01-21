@@ -167,6 +167,8 @@ data PollVerFailure
     | PollExtraRevote { perUpId        :: !UpId
                      ,  perStakeholder :: !StakeholderId
                      ,  perDecision    :: !Bool}
+    | PollWrongHeaderProtocolVersion { pwhpvGiven   :: !ProtocolVersion
+                                    ,  pwhpvAdopted :: !ProtocolVersion}
     | PollInternalError !Text
 
 instance Buildable PollVerFailure where
@@ -204,6 +206,10 @@ instance Buildable PollVerFailure where
         bprint ("stakeholder "%build%" vote "%stext%" proposal "
                 %build%" more than once")
         perStakeholder (bool "against" "for" perDecision) perUpId
+    build (PollWrongHeaderProtocolVersion {..}) =
+        bprint ("wrong protocol version has been seen in header: "%
+                build%" (current adopted is "%build%")")
+        pwhpvGiven pwhpvAdopted
     build (PollInternalError msg) =
         bprint ("internal error: "%stext) msg
 

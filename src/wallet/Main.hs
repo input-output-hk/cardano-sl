@@ -20,6 +20,7 @@ import qualified Pos.CLI              as CLI
 import           Pos.Communication    (BiP)
 import           Pos.Constants        (slotDuration)
 import           Pos.Crypto           (SecretKey, createProxySecretKey, toPublic, sign)
+import           Pos.Data.Attributes  (mkAttributes)
 import           Pos.Delegation       (sendProxySKEpoch, sendProxySKSimple)
 import           Pos.DHT.Model        (dhtAddr, discoverPeers)
 import           Pos.Genesis          (genesisPublicKeys, genesisSecretKeys)
@@ -74,6 +75,7 @@ runCmd sendActions (ProposeUpdate idx protocolVer scriptVer softwareVer) = do
             , upScriptVersion   = scriptVer
             , upSoftwareVersion = softwareVer
             , upData            = patakUpdateData
+            , upAttributes      = mkAttributes ()
             }
     if null na
         then putText "Error: no addresses specified"

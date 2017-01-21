@@ -10,15 +10,16 @@ import           Control.Monad.Catch          (MonadMask, bracket_)
 import qualified Data.HashMap.Strict          as HM
 import           Universum
 
-import           Pos.Crypto                   (hash)
-import           Pos.Update.Core.Types        (ExtStakeholderVotes, ExtendedUpdateVote,
-                                               LocalVotes, UpId, UpdatePayload (..),
-                                               UpdateProposal, UpdateVote (..), VoteState)
+import           Pos.Crypto                   (PublicKey, hash)
+import           Pos.Update.Core.Types        (LocalVotes, UpId, UpdatePayload (..),
+                                               UpdateProposal, UpdateVote (..))
 import           Pos.Update.MemState.Class    (MonadUSMem (askUSMemVar))
 import           Pos.Update.MemState.MemState (MemVar (..))
 import           Pos.Update.MemState.Types    (MemPool (..))
 import           Pos.Update.Poll.Types        (PollModifier (..), ProposalState,
                                                psProposal, psVotes)
+
+type UpdateVotes = HashMap PublicKey UpdateVote
 
 withUSLock
     :: (MonadUSMem m, MonadIO m, MonadMask m)
@@ -47,7 +48,7 @@ modifyMemPool UpdatePayload {..} PollModifier{..} =
 
     addModifiers :: MemPool -> MemPool
     addModifiers MemPool{..} =
-        let removeNotPresentedInActiveProps :: UpId -> ExtStakeholderVotes -> ExtStakeholderVotes
+        let removeNotPresentedInActiveProps :: UpId -> UpdateVotes -> UpdateVotes
             removeNotPresentedInActiveProps id stVotes
                 | Just activeProposal <- HM.lookup id pmNewActiveProps =
                     stVotes `HM.intersection` (psVotes activeProposal)
@@ -59,7 +60,7 @@ modifyMemPool UpdatePayload {..} PollModifier{..} =
               (foldr' (uncurry HM.insert) mpProposals
                   (HM.toList $ HM.map psProposal pmNewActiveProps))
         (foldr' forceInsertVote filteredLocalVotes .
-             mapMaybe (\x -> (x,) <$> lookupVS pmNewActiveProps x) $ upVotes)
+             filter (memberVS pmNewActiveProps) $ upVotes)
 
     addProposal :: Maybe UpdateProposal -> MemPool -> MemPool
     addProposal Nothing  mp = mp
@@ -67,16 +68,16 @@ modifyMemPool UpdatePayload {..} PollModifier{..} =
         (HM.insert (hash p) p mpProposals)
         mpLocalVotes
 
-    forceInsertVote :: ExtendedUpdateVote -> LocalVotes -> LocalVotes
-    forceInsertVote e@(UpdateVote{..}, _) = HM.alter (append e) uvProposalId
+    forceInsertVote :: UpdateVote -> LocalVotes -> LocalVotes
+    forceInsertVote e@UpdateVote{..} = HM.alter (append e) uvProposalId
 
-    append :: ExtendedUpdateVote -> Maybe ExtStakeholderVotes -> Maybe ExtStakeholderVotes
-    append e@(UpdateVote{..}, _) Nothing        = Just $ HM.singleton uvKey e
-    append e@(UpdateVote{..}, _) (Just stVotes) = Just $ HM.insert uvKey e stVotes
+    append :: UpdateVote -> Maybe UpdateVotes -> Maybe UpdateVotes
+    append e@UpdateVote{..} Nothing        = Just $ HM.singleton uvKey e
+    append e@UpdateVote{..} (Just stVotes) = Just $ HM.insert uvKey e stVotes
 
-    lookupVS :: HashMap UpId ProposalState -> UpdateVote -> Maybe VoteState
-    lookupVS activeProps UpdateVote{..} =
-        HM.lookup uvProposalId activeProps >>= HM.lookup uvKey . psVotes
+    memberVS :: HashMap UpId ProposalState -> UpdateVote -> Bool
+    memberVS activeProps UpdateVote{..} =
+        maybe False (HM.member uvKey . psVotes) $ HM.lookup uvProposalId activeProps
 
     -- I'll remove it, if it won't be needed.
     -- safeInsertVote :: ExtendedUpdateVote -> LocalVotes -> LocalVotes

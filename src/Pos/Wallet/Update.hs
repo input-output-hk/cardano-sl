@@ -14,7 +14,7 @@ import           Pos.Binary                ()
 import           Pos.Communication.BiP     (BiP)
 import           Pos.Communication.Methods (sendUpdateProposal, sendVote)
 import           Pos.Crypto                (SecretKey, hash, sign, toPublic)
-import           Pos.Update                (UpId, UpdateProposal, UpdateVote (..))
+import           Pos.Update                (UpdateProposal, UpdateVote (..))
 import           Pos.WorkMode              (MinWorkMode)
 
 -- | Send UpdateVote to given addresses

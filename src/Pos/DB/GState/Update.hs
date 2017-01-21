@@ -98,6 +98,7 @@ data UpdateOp
     = PutProposal !ProposalState
     | DeleteProposal !UpId !ApplicationName
     | ConfirmVersion !SoftwareVersion
+    | DelConfirmedVersion !ApplicationName
     | SetLastPV !ProtocolVersion
     | SetScriptVersion !ProtocolVersion !ScriptVersion
     | DelScriptVersion !ProtocolVersion
@@ -115,6 +116,8 @@ instance RocksBatchOp UpdateOp where
         [Rocks.Del (proposalAppKey appName), Rocks.Del (proposalKey upId)]
     toBatchOp (ConfirmVersion sv) =
         [Rocks.Put (confirmedVersionKey $ svAppName sv) (encodeStrict $ svNumber sv)]
+    toBatchOp (DelConfirmedVersion app) =
+        [Rocks.Del (confirmedVersionKey app)]
     toBatchOp (SetLastPV pv) =
         [Rocks.Put lastPVKey (encodeStrict pv)]
     toBatchOp (SetScriptVersion pv sv) =

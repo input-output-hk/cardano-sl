@@ -4,28 +4,29 @@
 -- | This module contains all basic types for @cardano-sl@ update system.
 
 module Pos.Update.Core.Types
-       ( UpdateProposal (..)
+       (
+         -- * UpdateProposal and related
+         UpdateProposal (..)
        , UpId
+       , UpAttributes
+       , UpdateData (..)
+       , SystemTag (getSystemTag)
+       , mkSystemTag
+       , systemTagMaxLength
+       , patakUpdateData
 
+         -- * UpdateVote and related
        , UpdateVote (..)
        , VoteId
        , StakeholderVotes
-       , ExtStakeholderVotes
-       , ExtendedUpdateVote
        , UpdateProposals
        , LocalVotes
        , mkVoteId
 
-       , UpdateData (..)
-       , SystemTag (getSystemTag)
-       , patakUpdateData
-
+         -- * Payload and proof
        , UpdatePayload (..)
        , UpdateProof
        , mkUpdateProof
-
-       , mkSystemTag
-       , systemTagMaxLength
 
        -- * VoteState
        , VoteState (..)
@@ -49,10 +50,14 @@ import           Universum                  hiding (show)
 
 import           Pos.Binary.Class           (Bi)
 import           Pos.Crypto                 (Hash, PublicKey, Signature, hash, unsafeHash)
+import           Pos.Data.Attributes        (Attributes)
 import           Pos.Script.Type            (ScriptVersion)
 import           Pos.Types.Version          (ProtocolVersion, SoftwareVersion)
--- Import instance Safecopy HM.HashMap
-import           Pos.Util                   ()
+import           Pos.Util                   (Raw)
+
+----------------------------------------------------------------------------
+-- UpdateProposal and related
+----------------------------------------------------------------------------
 
 -- | Tag of system for which update data is purposed, e.g. win64, mac32
 newtype SystemTag = SystemTag { getSystemTag :: Text }
@@ -72,17 +77,29 @@ mkSystemTag tag | T.length tag > systemTagMaxLength
 -- | ID of softwaree update proposal
 type UpId = Hash UpdateProposal
 
+type UpAttributes = Attributes ()
+
 -- | Proposal for software update
 data UpdateProposal = UpdateProposal
     { upProtocolVersion :: !ProtocolVersion
     , upScriptVersion   :: !ScriptVersion
     , upSoftwareVersion :: !SoftwareVersion
     , upData            :: !(HM.HashMap SystemTag UpdateData)
+    -- ^ UpdateData for each system which this update affects.
+    -- It must be non-empty.
+    , upAttributes      :: !UpAttributes
+    -- ^ Attributes which are currently empty, but provide
+    -- extensibility.
     } deriving (Eq, Show, Generic, Typeable)
 
 instance Buildable UpdateProposal where
     build UpdateProposal {..} =
-      bprint (build%" { protocol v"%build%", scripts v"%build%", tags: "%listJson%" }")
+      bprint (build%
+              " { protocol v"%build%
+              ", scripts v"%build%
+              ", tags: "%listJson%
+              ", no attributes "%
+              " }")
         upSoftwareVersion upProtocolVersion upScriptVersion (HM.keys upData)
 
 instance Buildable (UpdateProposal, [UpdateVote]) where
@@ -90,17 +107,33 @@ instance Buildable (UpdateProposal, [UpdateVote]) where
       bprint (build%" with votes: "%listJson)
              up votes
 
+-- | Data which describes update. It is specific for each system.
 data UpdateData = UpdateData
-    { udAppDiffHash :: !(Hash LByteString)
-    , udPkgHash     :: !(Hash LByteString)
-    , udUpdaterHash :: !(Hash LByteString)
+    { udAppDiffHash  :: !(Hash Raw)
+    -- ^ Hash of binary diff between two applications. This diff can
+    -- be passed to updater to create new application.
+    , udPkgHash      :: !(Hash Raw)
+    -- ^ Hash of package to install new application. This package can
+    -- be used to install new application from scratch instead of
+    -- updating existing application.
+    , udUpdaterHash  :: !(Hash Raw)
+    -- ^ Hash if update application which can be used to install this
+    -- update (relevant only when updater is used, not package).
+    , udMetadataHash :: !(Hash Raw)
+    -- ^ Hash of metadata relevant to this update.  It is raw hash,
+    -- because metadata can include image or something
+    -- (maybe). Anyway, we can always use `unsafeHash`.
     } deriving (Eq, Show, Generic, Typeable)
 
 patakUpdateData :: HM.HashMap SystemTag UpdateData
 patakUpdateData =
     let b = "bardaq"
         h = unsafeHash b
-    in  HM.fromList [(SystemTag b, UpdateData h h h)]
+    in  HM.fromList [(SystemTag b, UpdateData h h h h)]
+
+----------------------------------------------------------------------------
+-- UpdateVote and related
+----------------------------------------------------------------------------
 
 type VoteId = (UpId, PublicKey, Bool)
 
@@ -129,6 +162,10 @@ instance Buildable VoteId where
 
 mkVoteId :: UpdateVote -> VoteId
 mkVoteId UpdateVote{..} = (uvProposalId, uvKey, uvDecision)
+
+----------------------------------------------------------------------------
+-- Payload and proof
+----------------------------------------------------------------------------
 
 -- | Update System payload. 'Pos.Types.BodyProof' contains 'UpdateProof' = @Hash UpdatePayload@.
 data UpdatePayload = UpdatePayload
@@ -195,14 +232,15 @@ combineVotes decision oldVote =
         (False, Just PositiveVote) -> Just NegativeRevote
         (_, Just _)                -> Nothing
 
-type ExtendedUpdateVote = (UpdateVote, VoteState)
-
-type ExtStakeholderVotes = HashMap PublicKey ExtendedUpdateVote
 -- | Type alias for set of votes from stakeholders
 type StakeholderVotes = HashMap PublicKey VoteState
 
 type UpdateProposals = HashMap UpId UpdateProposal
-type LocalVotes = HashMap UpId ExtStakeholderVotes
+type LocalVotes = HashMap UpId (HashMap PublicKey UpdateVote)
+
+----------------------------------------------------------------------------
+-- SafeCopy :unamused:
+----------------------------------------------------------------------------
 
 deriveSafeCopySimple 0 'base ''SystemTag
 deriveSafeCopySimple 0 'base ''UpdateData

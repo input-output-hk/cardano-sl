@@ -18,6 +18,7 @@ module Pos.Update.Poll.Types
        , pmDelScriptVersionsL
        , pmLastAdoptedPVL
        , pmNewConfirmedL
+       , pmDelConfirmedL
        , pmNewActivePropsL
        , pmDelActivePropsL
        , pmNewActivePropsIdxL
@@ -25,7 +26,15 @@ module Pos.Update.Poll.Types
 
          -- * Verification
        , PollVerFailure (..)
+
+         -- * Rollback
+       , PrevValue (..)
+       , maybeToPrev
        , USUndo (..)
+       , unChangedSVL
+       , unChangedPropsL
+       , unCreatedNewDepsForL
+       , unLastAdoptedPVL
        ) where
 
 import           Control.Lens        (makeLensesFor)
@@ -109,6 +118,7 @@ data PollModifier = PollModifier
     , pmDelScriptVersions :: !(HashSet ProtocolVersion)
     , pmLastAdoptedPV     :: !(Maybe ProtocolVersion)
     , pmNewConfirmed      :: !(HashMap ApplicationName NumSoftwareVersion)
+    , pmDelConfirmed      :: !(HashSet ApplicationName)
     , pmNewActiveProps    :: !(HashMap UpId ProposalState)
     , pmDelActiveProps    :: !(HashSet UpId)
     , pmNewActivePropsIdx :: !(HashMap ApplicationName UpId)
@@ -119,6 +129,7 @@ makeLensesFor [ ("pmNewScriptVersions", "pmNewScriptVersionsL")
               , ("pmDelScriptVersions", "pmDelScriptVersionsL")
               , ("pmLastAdoptedPV", "pmLastAdoptedPVL")
               , ("pmNewConfirmed", "pmNewConfirmedL")
+              , ("pmDelConfirmed", "pmDelConfirmedL")
               , ("pmNewActiveProps", "pmNewActivePropsL")
               , ("pmDelActiveProps", "pmDelActivePropsL")
               , ("pmNewActivePropsIdx", "pmNewActivePropsIdxL")
@@ -156,6 +167,7 @@ data PollVerFailure
     | PollExtraRevote { perUpId        :: !UpId
                      ,  perStakeholder :: !StakeholderId
                      ,  perDecision    :: !Bool}
+    | PollInternalError !Text
 
 -- To be implemented for sure.
 instance Buildable PollVerFailure where
@@ -193,16 +205,36 @@ instance Buildable PollVerFailure where
         bprint ("stakeholder "%build%" vote "%stext%" proposal "
                 %build%" more than once")
         perStakeholder (bool "against" "for" perDecision) perUpId
+    build (PollInternalError msg) =
+        bprint ("internal error: "%stext) msg
 
 ----------------------------------------------------------------------------
 -- Undo
 ----------------------------------------------------------------------------
 
+data PrevValue a = PrevValue a | NoExist
+
+maybeToPrev :: Maybe a -> PrevValue a
+maybeToPrev (Just x) = PrevValue x
+maybeToPrev Nothing = NoExist
+
 -- To be extended for sure.
 data USUndo = USUndo
+    { unCreatedNewDepsFor :: !(Maybe ProtocolVersion)
+    , unLastAdoptedPV     :: !(Maybe ProtocolVersion)
+    , unChangedProps      :: !(HashMap UpId (PrevValue ProposalState))
+    , unChangedSV         :: !(HashMap ApplicationName (PrevValue NumSoftwareVersion))
+    }
+
+makeLensesFor [ ("unCreatedNewDepsFor", "unCreatedNewDepsForL")
+              , ("unLastAdoptedPV", "unLastAdoptedPVL")
+              , ("unChangedProps", "unChangedPropsL")
+              , ("unChangedSV", "unChangedSVL")
+              ]
+  ''USUndo
 
 instance Buildable USUndo where
-    build _ = ""
+    build _ = "BSUndo"
 
 instance Default USUndo where
-    def = USUndo
+    def = USUndo Nothing Nothing mempty mempty

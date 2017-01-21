@@ -205,7 +205,7 @@ instance RichmenComponent RCUs where
     rcToData = identity
     rcTag Proxy = "us"
     rcThreshold Proxy = applyCoinPortion updateVoteThreshold
-    rcConsiderDelegated Proxy = False
+    rcConsiderDelegated Proxy = True
 
 getRichmenUS :: MonadDB ssc m => EpochIndex -> m (Maybe FullRichmenData)
 getRichmenUS epoch = getRichmen @RCUs epoch

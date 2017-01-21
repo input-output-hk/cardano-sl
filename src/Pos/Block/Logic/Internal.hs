@@ -29,7 +29,7 @@ import           Pos.Delegation.Logic (delegationApplyBlocks, delegationRollback
 import           Pos.Ssc.Extra        (sscApplyBlocks, sscApplyGlobalState, sscRollback)
 import           Pos.Txp.Logic        (normalizeTxpLD, txApplyBlocks, txRollbackBlocks)
 import           Pos.Types            (HeaderHash, epochIndexL, headerHashG, prevBlockL)
-import           Pos.Update.Logic     (usApplyBlocks, usRollbackBlocks)
+import           Pos.Update.Logic     (usApplyBlocks, usNormalize, usRollbackBlocks)
 import           Pos.Update.Poll      (PollModifier)
 import           Pos.Util             (Color (Red), NE, NewestFirst (..),
                                        OldestFirst (..), colorize, inAssertMode, spanSafe,
@@ -76,6 +76,7 @@ applyBlocksUnsafe blunds0 pModifier = do
     sscApplyGlobalState richmen
     GS.writeBatchGState [delegateBatch, usBatch, txBatch, forwardLinksBatch, inMainBatch]
     normalizeTxpLD
+    usNormalize
     DB.sanityCheckDB
   where
     -- hehe it's not unsafe yet TODO

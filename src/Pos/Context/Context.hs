@@ -72,6 +72,17 @@ data NodeContext ssc = NodeContext
     , ncNtpLastSlot         :: !(STM.TVar SlotId)
     -- ^ Slot which was returned from getCurrentSlot in last time
     , ncBlockRetrievalQueue :: !(TBQueue (NodeId, NewestFirst NE (BlockHeader ssc)))
+    -- ^ Concurrent queue that holds block headers that are to be
+    -- downloaded.
+    , ncRecoveryHeader      :: !(STM.TMVar (NodeId, BlockHeader ssc))
+    -- ^ In case of recovery mode this variable holds the latest
+    -- header hash we know about so we can do chained block
+    -- requests. Invariant: this mvar is full iff we're more than
+    -- 'recoveryHeadersMessage' blocks deep relatively to some valid
+    -- header and we're downloading blocks. Every time we get block
+    -- that's more difficult than this one, we overwrite. Every time
+    -- we process some blocks and fail or see that we've downloaded
+    -- this header, we clean mvar.
     }
 
 -- | Generate 'PublicKey' from 'SecretKey' of 'NodeContext'.

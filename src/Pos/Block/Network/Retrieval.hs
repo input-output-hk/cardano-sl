@@ -5,70 +5,93 @@
 
 module Pos.Block.Network.Retrieval
        ( retrievalWorker
+       , handleUnsolicitedHeaders
+       , requestTip
        , requestHeaders
        , addToBlockRequestQueue
        , mkHeadersRequest
        ) where
 
-import           Control.Concurrent.STM.TBQueue (isFullTBQueue, readTBQueue, writeTBQueue)
-import           Control.Lens                   (_Wrapped)
-import           Control.Monad.Trans.Except     (ExceptT, runExceptT, throwE)
-import           Data.List.NonEmpty             ((<|))
-import qualified Data.List.NonEmpty             as NE
-import           Formatting                     (build, int, sformat, shown, stext, (%))
-import           Mockable                       (fork, handleAll, throw)
-import           Node                           (ConversationActions (..), NodeId,
-                                                 SendActions (..))
-import           Serokell.Util.Text             (listJson)
-import           Serokell.Util.Verify           (isVerSuccess)
-import           System.Wlog                    (logDebug, logError, logInfo, logWarning)
+import           Control.Concurrent.STM     (isEmptyTBQueue, isFullTBQueue, putTMVar,
+                                             readTBQueue, tryReadTMVar, tryTakeTMVar,
+                                             writeTBQueue)
+import           Control.Lens               (_Wrapped)
+import           Control.Monad.Trans.Except (ExceptT, runExceptT, throwE)
+import           Data.List.NonEmpty         ((<|))
+import qualified Data.List.NonEmpty         as NE
+import           Formatting                 (build, int, sformat, shown, stext, (%))
+import           Mockable                   (fork, handleAll, throw)
+import           Node                       (ConversationActions (..), NodeId,
+                                             SendActions (..))
+import           Serokell.Util.Text         (listJson)
+import           Serokell.Util.Verify       (isVerSuccess)
+import           System.Wlog                (logDebug, logError, logInfo, logWarning)
 import           Universum
 
-import           Pos.Binary.Communication       ()
-import           Pos.Block.Logic                (ClassifyHeaderRes (..),
-                                                 ClassifyHeadersRes (..), classifyHeaders,
-                                                 classifyNewHeader, getHeadersOlderExp,
-                                                 lcaWithMainChain, verifyAndApplyBlocks,
-                                                 withBlkSemaphore)
-import qualified Pos.Block.Logic                as L
-import           Pos.Block.Network.Announce     (announceBlock)
-import           Pos.Block.Network.Types        (MsgBlock (..), MsgGetBlocks (..),
-                                                 MsgGetHeaders (..), MsgHeaders (..))
-import           Pos.Block.Types                (Blund)
-import           Pos.Communication.BiP          (BiP (..))
-import           Pos.Constants                  (blkSecurityParam)
-import           Pos.Context                    (getNodeContext, ncBlockRetrievalQueue)
-import           Pos.Crypto                     (hash, shortHashF)
-import qualified Pos.DB                         as DB
-import           Pos.DHT.Model                  (nodeIdToAddress)
-import           Pos.Ssc.Class                  (Ssc, SscWorkersClass)
-import           Pos.Types                      (Block, BlockHeader, HasHeaderHash (..),
-                                                 HeaderHash, blockHeader, gbHeader,
-                                                 prevBlockL, verifyHeaders)
-import           Pos.Util                       (NE, NewestFirst (..), OldestFirst (..),
-                                                 inAssertMode, toNewestFirst, _neHead,
-                                                 _neLast)
-import           Pos.WorkMode                   (WorkMode)
+import           Pos.Binary.Communication   ()
+import           Pos.Block.Logic            (ClassifyHeaderRes (..),
+                                             ClassifyHeadersRes (..), classifyHeaders,
+                                             classifyNewHeader, getHeadersOlderExp,
+                                             lcaWithMainChain, verifyAndApplyBlocks,
+                                             withBlkSemaphore)
+import qualified Pos.Block.Logic            as L
+import           Pos.Block.Network.Announce (announceBlock)
+import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
+                                             MsgGetHeaders (..), MsgHeaders (..))
+import           Pos.Block.Types            (Blund)
+import           Pos.Communication.BiP      (BiP (..))
+import           Pos.Constants              (blkSecurityParam)
+import           Pos.Context                (NodeContext (..), getNodeContext)
+import           Pos.Crypto                 (hash, shortHashF)
+import qualified Pos.DB                     as DB
+import           Pos.DHT.Model              (nodeIdToAddress)
+import           Pos.Ssc.Class              (Ssc, SscWorkersClass)
+import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (..),
+                                             HeaderHash, blockHeader, difficultyL,
+                                             gbHeader, prevBlockL, verifyHeaders)
+import           Pos.Util                   (NE, NewestFirst (..), OldestFirst (..),
+                                             inAssertMode, toNewestFirst, _neHead,
+                                             _neLast)
+import           Pos.WorkMode               (WorkMode)
 
 retrievalWorker :: (SscWorkersClass ssc, WorkMode ssc m) => SendActions BiP m -> m ()
-retrievalWorker sendActions = handleAll handleWE $
-    ncBlockRetrievalQueue <$> getNodeContext >>= loop
+retrievalWorker sendActions = handleAll handleWE $ do
+    NodeContext{..} <- getNodeContext
+    loop ncBlockRetrievalQueue ncRecoveryHeader
   where
     handleWE e = do
         logError $ sformat ("retrievalWorker: error caught "%shown) e
         throw e
-    loop queue = do
-       ph <- liftIO . atomically $ readTBQueue queue
-       handleAll (handleLE ph) $ handle ph
-       loop queue
-    handleLE (peerId, headers) e =
+    loop queue recHeaderVar = forever $ do
+       ph <- atomically $ readTBQueue queue
+       handleAll (handleLE recHeaderVar ph) $ handle ph
+       needQueryMore <- atomically $ do
+           isEmpty <- isEmptyTBQueue queue
+           recHeader <- tryReadTMVar recHeaderVar
+           pure $ guard isEmpty *> recHeader
+       whenJust needQueryMore $ \(peerId, rHeader) -> do
+           logDebug "Queue is empty, we're in recovery mode -> querying more"
+           whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
+               withConnectionTo sendActions peerId $
+                   requestHeaders mghNext (Just rHeader) peerId
+    dropRecoveryHeader recHeaderVar peerId = do
+        kicked <- atomically $ do
+            let processKick (peer,_) = do
+                    let p = peer == peerId
+                    when p $ void $ tryTakeTMVar recHeaderVar
+                    pure p
+            maybe (pure False) processKick =<< tryReadTMVar recHeaderVar
+        when kicked $ logWarning $
+            sformat ("Recovery mode communication dropped with peer "%shown) peerId
+    handleLE recHeaderVar (peerId, headers) e = do
         logWarning $ sformat
             ("Error handling peerId="%shown%", headers="%listJson%": "%shown)
             peerId headers e
+        dropRecoveryHeader recHeaderVar peerId
     handle (peerId, headers) = do
         logDebug $ sformat
             ("retrievalWorker: handling peerId="%shown%", headers="%listJson)
-            peerId headers
+            peerId (fmap headerHash headers)
         classificationRes <- classifyHeaders' headers
         let newestHeader = headers ^. _Wrapped . _neHead
             newestHash = headerHash newestHeader
@@ -101,27 +124,35 @@ retrievalWorker sendActions = handleAll handleWE $
     handleCHsValid peerId lcaChild newestHash = do
         let lcaChildHash = headerHash lcaChild
         logDebug $ sformat validFormat lcaChildHash newestHash
-        void $ withConnectionTo sendActions peerId $ \conv -> do
+        withConnectionTo sendActions peerId $ \conv -> do
             send conv $ mkBlocksRequest lcaChildHash newestHash
             chainE <- runExceptT (retrieveBlocks conv lcaChild newestHash)
+            recHeaderVar <- ncRecoveryHeader <$> getNodeContext
             case chainE of
-                Left e ->
+                Left e -> do
                     logWarning $ sformat
                         ("Error retrieving blocks from "%shortHashF%" to"%
                                       shortHashF%" from peer "%shown%": "%stext)
                         lcaChildHash newestHash peerId e
+                    dropRecoveryHeader recHeaderVar peerId
                 Right blocks -> do
                     logDebug $ sformat ("retrievalWorker: retrieved blocks "%listJson)
                         $ map (headerHash . view blockHeader) $ toList blocks
                     handleBlocks blocks sendActions
+                    -- If we've downloaded block that has header
+                    -- ncRecoveryHeader, we're not in recovery mode
+                    -- anymore.
+                    atomically $ whenJustM (tryReadTMVar recHeaderVar) $ \(_,rHeader) ->
+                        when (headerHash rHeader `elem` map headerHash blocks)
+                             (void $ tryTakeTMVar recHeaderVar)
     retrieveBlocks conv lcaChild endH = do
         blocks <- retrieveBlocks' 0 conv (lcaChild ^. prevBlockL) endH
         let b0 = blocks ^. _Wrapped . _neHead
         if headerHash b0 == headerHash lcaChild
            then return blocks
            else throwE $ sformat
-                    ("First block of chain "%build
-                        %" instead of expected "%build)
+                    ("First block of chain "%build%
+                     " instead of expected "%build)
                     (b0 ^. blockHeader) lcaChild
     retrieveBlocks'
         :: WorkMode ssc m
@@ -155,47 +186,138 @@ mkHeadersRequest
     => Maybe HeaderHash -> m (Maybe MsgGetHeaders)
 mkHeadersRequest upto = do
     mbHeaders <- nonEmpty . toList <$> getHeadersOlderExp Nothing
-    pure $ (\h -> MsgGetHeaders h upto) <$> mbHeaders
+    pure $ (\h -> MsgGetHeaders (NE.toList h) upto) <$> mbHeaders
+
+-- Second case of 'handleBlockheaders'
+handleUnsolicitedHeaders
+    :: forall ssc m.
+       (WorkMode ssc m)
+    => NonEmpty (BlockHeader ssc)
+    -> NodeId
+    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
+    -> m ()
+handleUnsolicitedHeaders (header :| []) peerId conv =
+    handleUnsolicitedHeader header peerId conv
+-- TODO: ban node for sending more than one unsolicited header.
+handleUnsolicitedHeaders (h:|hs) _ _ = do
+    logWarning "Someone sent us nonzero amount of headers we didn't expect"
+    logWarning $ sformat ("Here they are: "%listJson) (h:hs)
+
+handleUnsolicitedHeader
+    :: forall ssc m.
+       (WorkMode ssc m)
+    => BlockHeader ssc
+    -> NodeId
+    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
+    -> m ()
+handleUnsolicitedHeader header peerId conv = do
+    logDebug $ sformat
+        ("handleUnsolicitedHeader: single header "%shortHashF%" was propagated, processing")
+        hHash
+    classificationRes <- classifyNewHeader header
+    -- TODO: should we set 'To' hash to hash of header or leave it unlimited?
+    case classificationRes of
+        CHContinues -> do
+            logDebug $ sformat continuesFormat hHash
+            addToBlockRequestQueue (one header) Nothing peerId
+        CHAlternative -> do
+            logInfo $ sformat alternativeFormat hHash
+            mghM <- mkHeadersRequest (Just hHash)
+            whenJust mghM $ \mgh ->
+                requestHeaders mgh (Just header) peerId conv
+        CHUseless reason -> logDebug $ sformat uselessFormat hHash reason
+        CHInvalid _ -> do
+            logDebug $ sformat ("handleUnsolicited: header "%shortHashF%" is invalid") hHash
+            pass -- TODO: ban node for sending invalid block.
+  where
+    hHash = headerHash header
+    continuesFormat =
+        "Header " %shortHashF %
+        " is a good continuation of our chain, requesting it"
+    alternativeFormat =
+        "Header " %shortHashF %
+        " potentially represents good alternative chain, requesting more headers"
+    uselessFormat =
+        "Header " %shortHashF % " is useless for the following reason: " %stext
+
+
+-- | Result of 'matchHeadersRequest'
+data MatchReqHeadersRes
+    = MRGood
+      -- ^ Headers were indeed requested and precisely match our
+      -- request
+    | MRUnexpected
+      -- ^ Headers don't represent valid response to our request.
+    | MRRecovery
+      -- ^ Headers are valid, but chain length is too big and last
+      -- element doesn't match expected 'mghTo', so we're in "after
+      -- offline ~ recovery" mode.
+    deriving (Show)
 
 matchRequestedHeaders
     :: (Ssc ssc)
-    => NewestFirst NE (BlockHeader ssc) -> MsgGetHeaders -> Bool
+    => NewestFirst NE (BlockHeader ssc) -> MsgGetHeaders -> MatchReqHeadersRes
 matchRequestedHeaders headers MsgGetHeaders{..} =
     let newTip      = headers ^. _Wrapped . _neHead
         startHeader = headers ^. _Wrapped . _neLast
         startMatches =
             or [ (startHeader ^. headerHashG) `elem` mghFrom
                , (startHeader ^. prevBlockL) `elem` mghFrom]
+        recoveryMode = length headers > blkSecurityParam
         mghToMatches
-            | length headers > blkSecurityParam = True
+            | recoveryMode = True
             | isNothing mghTo = True
             | otherwise =  Just (headerHash newTip) == mghTo
-     in and [ startMatches
-            , mghToMatches
-            , formChain
-            ]
+        boolMatch = and [startMatches, mghToMatches, formChain]
+     in case (boolMatch, recoveryMode) of
+        (True, False) -> MRGood
+        (True, True)  -> MRRecovery
+        (False, _)    -> MRUnexpected
   where
     formChain = isVerSuccess $
         verifyHeaders True (headers & _Wrapped %~ toList)
 
+-- Is used if we're recovering after offline and want to know what's
+-- current blockchain state.
+requestTip
+    :: forall ssc m.
+       (WorkMode ssc m)
+    => NodeId -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m -> m ()
+requestTip peerId conv = do
+    logDebug "Requesting tip..."
+    send conv (MsgGetHeaders [] Nothing)
+    whenJustM (recv conv) handleTip
+  where
+    handleTip (MsgHeaders (NewestFirst (tip:|[]))) = do
+        logDebug $ sformat ("Got tip "%shortHashF%", processing") (headerHash tip)
+        handleUnsolicitedHeader tip peerId conv
+    handleTip _ = pass
+
+-- Second argument is mghTo block header (not hash). Don't pass it
+-- only if you don't know it.
 requestHeaders
     :: forall ssc m.
        (WorkMode ssc m)
     => MsgGetHeaders
+    -> Maybe (BlockHeader ssc)
     -> NodeId
     -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
-requestHeaders mgh peerId conv = do
+requestHeaders mgh recoveryHeader peerId conv = do
     logDebug $ sformat ("handleUnsolicitedHeader: withConnection: sending "%shown) mgh
     send conv mgh
     mHeaders <- recv conv
     whenJust mHeaders $ \(MsgHeaders headers) -> do
         logDebug $ sformat
             ("handleUnsolicitedHeader: withConnection: received "%listJson)
-            headers
-        if matchRequestedHeaders headers mgh
-           then handleRequestedHeaders headers peerId
-           else handleUnexpected headers peerId
+            (map headerHash headers)
+        case matchRequestedHeaders headers mgh of
+            MRGood       -> do
+                handleRequestedHeaders headers Nothing peerId
+            MRUnexpected -> handleUnexpected headers peerId
+            MRRecovery   -> do
+                logDebug "Handling header requests in recovery mode"
+                handleRequestedHeaders headers recoveryHeader peerId
   where
     handleUnexpected hs _ = do
         -- TODO: ban node for sending unsolicited header in conversation
@@ -204,14 +326,16 @@ requestHeaders mgh peerId conv = do
             (nodeIdToAddress peerId)
         logWarning $ sformat ("handleUnsolicitedHeader: unexpected headers: "%listJson) hs
 
+
 -- First case of 'handleBlockheaders'
 handleRequestedHeaders
     :: forall ssc m.
        (WorkMode ssc m)
     => NewestFirst NE (BlockHeader ssc)
+    -> Maybe (BlockHeader ssc)
     -> NodeId
     -> m ()
-handleRequestedHeaders headers peerId = do
+handleRequestedHeaders headers recoveryTip peerId = do
     logDebug "handleRequestedHeaders: headers were requested, will process"
     classificationRes <- classifyHeaders headers
     let newestHeader = headers ^. _Wrapped . _neHead
@@ -221,7 +345,7 @@ handleRequestedHeaders headers peerId = do
         CHsValid lcaChild -> do
             let lcaChildHash = hash lcaChild
             logDebug $ sformat validFormat lcaChildHash newestHash
-            addToBlockRequestQueue headers peerId
+            addToBlockRequestQueue headers recoveryTip peerId
         CHsUseless reason ->
             logDebug $ sformat uselessFormat oldestHash newestHash reason
         CHsInvalid _ -> pass -- TODO: ban node for sending invalid block.
@@ -232,24 +356,40 @@ handleRequestedHeaders headers peerId = do
         "Chain of headers from " %shortHashF % " to " %shortHashF %
         " is useless for the following reason: " %stext
 
+-- | Given nonempty list of valid blockheaders and nodeid, this
+-- function will put them into download queue and they will be
+-- processed later. Second argument is optional recovery mode tip --
+-- after pack of blocks is processed, next pack of headers will be
+-- requested until this header hash is received.
 addToBlockRequestQueue
     :: forall ssc m.
        (WorkMode ssc m)
     => NewestFirst NE (BlockHeader ssc)
+    -> Maybe (BlockHeader ssc)
     -> NodeId
     -> m ()
-addToBlockRequestQueue headers peerId = do
+addToBlockRequestQueue headers recoveryTip peerId = do
     queue <- ncBlockRetrievalQueue <$> getNodeContext
-    added <- liftIO . atomically $
-                ifM (isFullTBQueue queue)
-                    (pure False)
-                    (True <$ writeTBQueue queue (peerId, headers))
+    recHeaderVar <- ncRecoveryHeader <$> getNodeContext
+    let updateQueue = True <$ writeTBQueue queue (peerId, headers)
+        updateRecoveryHeader (Just recTip) = do
+            let replace = do void $ tryTakeTMVar recHeaderVar
+                             putTMVar recHeaderVar (peerId, recTip)
+            tryReadTMVar recHeaderVar >>= \case
+                Nothing -> replace
+                Just (_,curRecHeader) ->
+                    when (((>) `on` view difficultyL) recTip curRecHeader) replace
+        updateRecoveryHeader _ = pass
+    added <- atomically $ do
+        updateRecoveryHeader recoveryTip
+        ifM (isFullTBQueue queue) (pure False) updateQueue
     if added
-      then logDebug $ sformat
-        ("Added to block request queue: peerId="%shown%", headers="%listJson) peerId headers
-      else logWarning $ sformat
-        ("Failed to add headers from "%shown%" to block retrieval queue: queue is full")
-        peerId
+    then logDebug $ sformat ("Added to block request queue: peerId="%shown%
+                             ", headers="%listJson)
+                            peerId (fmap headerHash headers)
+    else logWarning $ sformat ("Failed to add headers from "%shown%
+                               " to block retrieval queue: queue is full")
+                              peerId
 
 -- | Make message which requests chain of blocks which is based on our
 -- tip. LcaChild is the first block after LCA we don't
@@ -299,8 +439,8 @@ applyWithoutRollback
        (WorkMode ssc m, SscWorkersClass ssc)
     => SendActions BiP m -> OldestFirst NE (Block ssc) -> m ()
 applyWithoutRollback sendActions blocks = do
-    logInfo $ sformat ("Trying to apply blocks w/o rollback: "%listJson)
-        (map (view blockHeader) blocks)
+    logInfo $ sformat ("Trying to apply blocks w/o rollback: "%listJson) $
+        fmap (view blockHeader) blocks
     withBlkSemaphore applyWithoutRollbackDo >>= \case
         Left err     -> onFailedVerifyBlocks (getOldestFirst blocks) err
         Right newTip -> do
@@ -367,8 +507,14 @@ relayBlock
        (WorkMode ssc m)
     => SendActions BiP m -> Block ssc -> m ()
 relayBlock _ (Left _)                  = pass
-relayBlock sendActions (Right mainBlk) =
-    void $ fork $ announceBlock sendActions $ mainBlk ^. gbHeader
+relayBlock sendActions (Right mainBlk) = do
+    recHeaderVar <- ncRecoveryHeader <$> getNodeContext
+    isRecovery <- do
+        var <- ncRecoveryHeader <$> getNodeContext
+        isJust <$> atomically (tryReadTMVar var)
+    -- Why 'ncPropagation' is not considered?
+    unless isRecovery $
+        void $ fork $ announceBlock sendActions $ mainBlk ^. gbHeader
 
 ----------------------------------------------------------------------------
 -- Logging formats

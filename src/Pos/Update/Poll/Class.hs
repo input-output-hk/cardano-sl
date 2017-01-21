@@ -104,19 +104,27 @@ instance MonadPollRead m => MonadPollRead (ExceptT s m)
 class MonadPollRead m => MonadPoll m where
     addScriptVersionDep :: ProtocolVersion -> ScriptVersion -> m ()
     -- ^ Add functional dependency between protocol version and script version.
+    delScriptVersionDep :: ProtocolVersion -> m ()
+    -- ^ Delete functional dependency between protocol version and script version.
     setLastAdoptedPV :: ProtocolVersion -> m ()
     -- ^ Set last adopted protocol version.
     setLastConfirmedSV :: SoftwareVersion -> m ()
     -- ^ Set last confirmed version of application.
+    delConfirmedSV :: ApplicationName -> m ()
+    -- ^ Del last confirmed version of application.
     addActiveProposal :: ProposalState -> m ()
     -- ^ Add new active proposal with its state.
-    deactivateProposal :: UpId -> ApplicationName -> m ()
+    deactivateProposal :: UpId -> m ()
     -- ^ Delete active proposal given its name and identifier.
 
     -- | Default implementations for 'MonadTrans'.
     default addScriptVersionDep
         :: (MonadTrans t, MonadPoll m', t m' ~ m) => ProtocolVersion -> ScriptVersion -> m ()
     addScriptVersionDep pv = lift . addScriptVersionDep pv
+
+    default delScriptVersionDep
+        :: (MonadTrans t, MonadPoll m', t m' ~ m) => ProtocolVersion -> m ()
+    delScriptVersionDep = lift . delScriptVersionDep
 
     default setLastAdoptedPV
         :: (MonadTrans t, MonadPoll m', t m' ~ m) => ProtocolVersion -> m ()
@@ -126,13 +134,17 @@ class MonadPollRead m => MonadPoll m where
         :: (MonadTrans t, MonadPoll m', t m' ~ m) => SoftwareVersion -> m ()
     setLastConfirmedSV = lift . setLastConfirmedSV
 
+    default delConfirmedSV
+        :: (MonadTrans t, MonadPoll m', t m' ~ m) => ApplicationName -> m ()
+    delConfirmedSV = lift . delConfirmedSV
+
     default addActiveProposal
         :: (MonadTrans t, MonadPoll m', t m' ~ m) => ProposalState -> m ()
     addActiveProposal = lift . addActiveProposal
 
     default deactivateProposal
-        :: (MonadTrans t, MonadPoll m', t m' ~ m) => UpId -> ApplicationName -> m ()
-    deactivateProposal i = lift . deactivateProposal i
+        :: (MonadTrans t, MonadPoll m', t m' ~ m) => UpId -> m ()
+    deactivateProposal = lift . deactivateProposal
 
 instance MonadPoll m => MonadPoll (ReaderT s m)
 instance MonadPoll m => MonadPoll (StateT s m)

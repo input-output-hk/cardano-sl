@@ -26,7 +26,7 @@ import           Pos.Update.Core      (UpId)
 import           Pos.Update.Error     (USError (USInternalError))
 import           Pos.Update.Poll      (DBPoll, MonadPoll, PollModifier (..), PollT,
                                        PollVerFailure, ProposalState, USUndo, execPollT,
-                                       rollbackUSPayload, runDBPoll, runPollT,
+                                       execRollT, rollbackUSPayload, runDBPoll, runPollT,
                                        verifyAndApplyUSPayload)
 import           Pos.Util             (Color (Red), NE, NewestFirst, OldestFirst,
                                        colorize, inAssertMode)
@@ -90,7 +90,7 @@ verifyBlock
     :: (USGlobalVerifyMode ssc m, MonadPoll m)
     => Block ssc -> m USUndo
 verifyBlock (Left _)    = pure def
-verifyBlock (Right blk) =
+verifyBlock (Right blk) = execRollT $ do
     verifyAndApplyUSPayload
         True
         (Right $ blk ^. gbHeader)
@@ -105,7 +105,7 @@ modifierToBatch PollModifier {..} =
     concat $
     [ scModifierToBatch pmNewScriptVersions pmDelScriptVersions
     , pvModifierToBatch pmLastAdoptedPV
-    , confirmedModifierToBatch pmNewConfirmed
+    , confirmedModifierToBatch pmNewConfirmed pmDelConfirmed
     , upModifierToBatch pmNewActiveProps pmDelActivePropsIdx
     ]
 
@@ -123,9 +123,12 @@ pvModifierToBatch Nothing  = []
 pvModifierToBatch (Just v) = [DB.SomeBatchOp $ SetLastPV v]
 
 confirmedModifierToBatch :: HashMap ApplicationName NumSoftwareVersion
+                         -> HashSet ApplicationName
                          -> [DB.SomeBatchOp]
-confirmedModifierToBatch (HM.toList -> added) =
-    map (DB.SomeBatchOp . ConfirmVersion . uncurry SoftwareVersion) added
+confirmedModifierToBatch (HM.toList -> added) (toList -> deleted) = addOps ++ delOps
+  where
+    addOps = map (DB.SomeBatchOp . ConfirmVersion . uncurry SoftwareVersion) added
+    delOps = map (DB.SomeBatchOp . DelConfirmedVersion) deleted
 
 upModifierToBatch :: HashMap UpId ProposalState
                   -> HashMap ApplicationName UpId

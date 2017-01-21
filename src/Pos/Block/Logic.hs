@@ -85,7 +85,7 @@ import           Pos.Types                 (Block, BlockHeader, EpochIndex,
                                             vhpVerifyConsensus)
 import qualified Pos.Types                 as Types
 import           Pos.Update.Core           (UpdatePayload (..))
-import           Pos.Update.Logic          (usVerifyBlocks)
+import           Pos.Update.Logic          (usPreparePayload, usVerifyBlocks)
 import           Pos.Update.Poll           (PollModifier, PollVerFailure)
 import           Pos.Util                  (NE, NewestFirst (..), OldestFirst (..),
                                             inAssertMode, neZipWith3, spanSafe,
@@ -123,11 +123,16 @@ lcaWithMainChain headers =
 
 -- | Result of single (new) header classification.
 data ClassifyHeaderRes
-    = CHContinues      -- ^ Header continues our main chain.
-    | CHAlternative    -- ^ Header continues alternative chain which
-                       -- is more difficult.
-    | CHUseless !Text  -- ^ Header is useless.
-    | CHInvalid !Text  -- ^ Header is invalid.
+    = CHContinues
+      -- ^ Header is direct continuation of main chain (i.e. its
+      -- parent is our tip).
+    | CHAlternative
+      -- ^ Header continues main or alternative chain, it's more
+      -- difficult than tip.
+    | CHUseless !Text
+      -- ^ Header is useless.
+    | CHInvalid !Text
+      -- ^ Header is invalid.
 
 -- | Make `ClassifyHeaderRes` from list of error messages using
 -- `CHRinvalid` constructor. Intended to be used with `VerificationRes`.
@@ -145,17 +150,27 @@ classifyNewHeader
 classifyNewHeader (Left _) = pure $ CHUseless "genesis header is useless"
 classifyNewHeader (Right header) = do
     curSlot <- getCurrentSlot
+    tipBlock <- DB.getTipBlock
+    let tipFlattenedSlot = flattenEpochOrSlot tipBlock
+    let newHeaderFlattenedSlot = flattenEpochOrSlot header
+    let newHeaderSlot = header ^. headerSlot
+    let tip = headerHash tipBlock
     -- First of all we check whether header is from current slot and
     -- ignore it if it's not.
-    if curSlot == header ^. headerSlot
-        then classifyNewHeaderDo <$> GS.getTip <*> DB.getTipBlock
-        else pure $ CHUseless $ sformat
-                 ("header is not for current slot: our is "%build%", header's is "%build)
-                 curSlot (header ^. headerSlot)
-  where
-    classifyNewHeaderDo tip tipBlock
+    pure $ if
+        -- Checks on slots
+        | newHeaderSlot > curSlot ->
+            CHUseless $ sformat
+               ("header is for future slot: our is "%build%
+                ", header's is "%build)
+               curSlot newHeaderSlot
+        | newHeaderFlattenedSlot <= tipFlattenedSlot ->
+            CHUseless $ sformat
+               ("header's flatslot "%int%
+                " is less or equal then our tip's flatslot "%int)
+               newHeaderFlattenedSlot tipFlattenedSlot
         -- If header's parent is our tip, we verify it against tip's header.
-        | tip == header ^. prevBlockL =
+        | tip == header ^. prevBlockL ->
             let vhp =
                     def
                     { vhpVerifyConsensus = True
@@ -167,13 +182,12 @@ classifyNewHeader (Right header) = do
                    VerFailure errors -> mkCHRinvalid errors
         -- If header's parent is not our tip, we check whether it's
         -- more difficult than our main chain.
-        | tipBlock ^. difficultyL < header ^. difficultyL = CHAlternative
+        | tipBlock ^. difficultyL < header ^. difficultyL -> CHAlternative
         -- If header can't continue main chain and is not more
         -- difficult than main chain, it's useless.
-        | otherwise =
+        | otherwise ->
             CHUseless $
             "header doesn't continue main chain and is not more difficult"
-
 
 -- | Result of multiple headers classification.
 data ClassifyHeadersRes ssc
@@ -233,7 +247,8 @@ classifyHeaders headers = do
 -- 'recoveryHeadersMessage' headers starting from the the newest
 -- checkpoint that's in our main chain to the newest ones.
 getHeadersFromManyTo
-    :: forall ssc m. (MonadDB ssc m, Ssc ssc, CanLog m, HasLoggerName m)
+    :: forall ssc m.
+       (MonadDB ssc m, Ssc ssc, CanLog m, HasLoggerName m)
     => NonEmpty HeaderHash  -- ^ Checkpoints; not guaranteed to be
                             --   in any particular order
     -> Maybe HeaderHash
@@ -261,11 +276,14 @@ getHeadersFromManyTo checkpoints startM = runMaybeT $ do
             MaybeT $ nonEmpty <$>
             filterM (GS.isBlockInMainChain . headerHash)
                     (NE.toList validCheckpoints)
+        lift $ logDebug $ "getHeadersFromManyTo: got checkpoints in main chain"
         let lowestCheckpoint =
                 maximumBy (comparing flattenEpochOrSlot) inMainCheckpoints
             loadUpCond _ h = h < recoveryHeadersMessage
         up <- lift $ GS.loadHeadersUpWhile lowestCheckpoint loadUpCond
-        MaybeT $ pure $ _Wrapped nonEmpty (toNewestFirst up)
+        res <- MaybeT $ pure $ _Wrapped nonEmpty (toNewestFirst up)
+        lift $ logDebug $ "getHeadersFromManyTo: loaded non-empty list of headers, returning"
+        pure res
 
 -- | Given a starting point hash (we take tip if it's not in storage)
 -- it returns not more than 'blkSecurityParam' blocks distributed
@@ -626,12 +644,13 @@ createMainBlockFinish
     -> ExceptT Text m (MainBlock ssc)
 createMainBlockFinish slotId pSk prevHeader = do
     (localTxs, txUndo) <- getLocalTxsNUndo @ssc
-    sscData <- maybe onNoSsc pure =<< sscGetLocalPayload @ssc slotId
+    sscData <- note onNoSsc =<< sscGetLocalPayload @ssc slotId
+    usPayload <- note onNoUS =<< lift (usPreparePayload slotId)
     (localPSKs, pskUndo) <- lift getProxyMempool
     let convertTx (txId, (tx, _, _)) = WithHash tx txId
     sortedTxs <- maybe onBrokenTopo pure $ topsortTxs convertTx localTxs
     sk <- ncSecretKey <$> getNodeContext
-    let blk = createMainBlockPure prevHeader sortedTxs pSk slotId localPSKs sscData sk
+    let blk = createMainBlockPure prevHeader sortedTxs pSk slotId localPSKs sscData usPayload sk
     let prependToUndo undos tx =
             fromMaybe (panic "Undo for tx not found")
                       (HM.lookup (fst tx) txUndo) : undos
@@ -647,7 +666,8 @@ createMainBlockFinish slotId pSk prevHeader = do
     lift $ blk <$ applyBlocksUnsafe (one (Right blk, blockUndo)) pModifier
   where
     onBrokenTopo = throwError "Topology of local transactions is broken!"
-    onNoSsc = throwError "can't obtain SSC payload to create block"
+    onNoSsc = "can't obtain SSC payload to create block"
+    onNoUS = "can't obtain US payload to create block"
 
 createMainBlockPure
     :: Ssc ssc
@@ -657,11 +677,12 @@ createMainBlockPure
     -> SlotId
     -> [ProxySKSimple]
     -> SscPayload ssc
+    -> UpdatePayload
     -> SecretKey
     -> MainBlock ssc
-createMainBlockPure prevHeader txs pSk sId psks sscData sk =
+createMainBlockPure prevHeader txs pSk sId psks sscData usPayload sk =
     mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
   where
     extraB = MainExtraBodyData (mkAttributes ())
     extraH = MainExtraHeaderData curProtocolVersion curSoftwareVersion (mkAttributes ())
-    body = mkMainBody (fmap snd txs) sscData psks (UpdatePayload Nothing [])
+    body = mkMainBody (fmap snd txs) sscData psks usPayload

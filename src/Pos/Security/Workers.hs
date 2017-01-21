@@ -14,7 +14,7 @@ import           Node                              (SendActions)
 import           System.Wlog                       (logError, logWarning)
 import           Universum                         hiding (ask)
 
-import           Pos.Block.Network.Retrieval       (mkHeadersRequest, requestHeaders)
+import           Pos.Block.Network.Retrieval       (requestTip)
 import           Pos.Communication.BiP             (BiP)
 import           Pos.Constants                     (blkSecurityParam,
                                                     mdNoBlocksSlotThreshold,
@@ -83,12 +83,11 @@ checkForReceivedBlocksWorker sendActions = onNewSlot True $ \slotId -> do
     -- eclipsed, we report it and ask neighbors for headers.
     unlessM (notEclipsed =<< getTipBlockHeader) $ do
         logWarning $
-            "We've been eclipsed! There are no blocks younger " <>
+            "Our neighbors are likely trying to carry out an eclipse attack! " <>
+            "There are no blocks younger " <>
             "than 'mdNoBlocksSlotThreshold' that we didn't generate " <>
             "by ourselves"
-        mghM <- mkHeadersRequest Nothing
-        whenJust mghM $ \mgh ->
-            converseToNeighbors sendActions (requestHeaders mgh Nothing)
+        converseToNeighbors sendActions requestTip
 
 checkForIgnoredCommitmentsWorker :: forall m. WorkMode SscGodTossing m => SendActions BiP m -> m ()
 checkForIgnoredCommitmentsWorker __sendActions = do

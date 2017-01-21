@@ -5,6 +5,8 @@
 
 module Pos.Block.Network.Retrieval
        ( retrievalWorker
+       , handleUnsolicitedHeaders
+       , requestTip
        , requestHeaders
        , addToBlockRequestQueue
        , mkHeadersRequest
@@ -62,7 +64,7 @@ retrievalWorker sendActions = handleAll handleWE $ do
         throw e
     loop queue recHeaderVar = forever $ do
        ph <- atomically $ readTBQueue queue
-       handleAll (handleLE ph) $ handle ph
+       handleAll (handleLE recHeaderVar ph) $ handle ph
        needQueryMore <- atomically $ do
            isEmpty <- isEmptyTBQueue queue
            recHeader <- tryReadTMVar recHeaderVar
@@ -72,10 +74,14 @@ retrievalWorker sendActions = handleAll handleWE $ do
            whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
                withConnectionTo sendActions peerId $
                    requestHeaders mghNext (Just rHeader) peerId
-    handleLE (peerId, headers) e =
+    dropRecoveryHeader recHeaderVar peerId =
+        atomically $ whenJustM (tryReadTMVar recHeaderVar) $ \(peer,_) ->
+            when (peer == peerId) (void $ tryTakeTMVar recHeaderVar)
+    handleLE recHeaderVar (peerId, headers) e = do
         logWarning $ sformat
             ("Error handling peerId="%shown%", headers="%listJson%": "%shown)
             peerId headers e
+        dropRecoveryHeader recHeaderVar peerId
     handle (peerId, headers) = do
         logDebug $ sformat
             ("retrievalWorker: handling peerId="%shown%", headers="%listJson)
@@ -115,12 +121,14 @@ retrievalWorker sendActions = handleAll handleWE $ do
         withConnectionTo sendActions peerId $ \conv -> do
             send conv $ mkBlocksRequest lcaChildHash newestHash
             chainE <- runExceptT (retrieveBlocks conv lcaChild newestHash)
+            recHeaderVar <- ncRecoveryHeader <$> getNodeContext
             case chainE of
-                Left e ->
+                Left e -> do
                     logWarning $ sformat
                         ("Error retrieving blocks from "%shortHashF%" to"%
                                       shortHashF%" from peer "%shown%": "%stext)
                         lcaChildHash newestHash peerId e
+                    dropRecoveryHeader recHeaderVar peerId
                 Right blocks -> do
                     logDebug $ sformat ("retrievalWorker: retrieved blocks "%listJson)
                         $ map (headerHash . view blockHeader) $ toList blocks
@@ -128,10 +136,9 @@ retrievalWorker sendActions = handleAll handleWE $ do
                     -- If we've downloaded block that has header
                     -- ncRecoveryHeader, we're not in recovery mode
                     -- anymore.
-                    recHeaderVar <- ncRecoveryHeader <$> getNodeContext
                     atomically $ whenJustM (tryReadTMVar recHeaderVar) $ \(_,rHeader) ->
-                        when (headerHash rHeader `elem` map headerHash blocks) $
-                            void $ tryTakeTMVar recHeaderVar
+                        when (headerHash rHeader `elem` map headerHash blocks)
+                             (void $ tryTakeTMVar recHeaderVar)
     retrieveBlocks conv lcaChild endH = do
         blocks <- retrieveBlocks' 0 conv (lcaChild ^. prevBlockL) endH
         let b0 = blocks ^. _Wrapped . _neHead
@@ -173,7 +180,60 @@ mkHeadersRequest
     => Maybe HeaderHash -> m (Maybe MsgGetHeaders)
 mkHeadersRequest upto = do
     mbHeaders <- nonEmpty . toList <$> getHeadersOlderExp Nothing
-    pure $ (\h -> MsgGetHeaders h upto) <$> mbHeaders
+    pure $ (\h -> MsgGetHeaders (NE.toList h) upto) <$> mbHeaders
+
+-- Second case of 'handleBlockheaders'
+handleUnsolicitedHeaders
+    :: forall ssc m.
+       (WorkMode ssc m)
+    => NonEmpty (BlockHeader ssc)
+    -> NodeId
+    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
+    -> m ()
+handleUnsolicitedHeaders (header :| []) peerId conv =
+    handleUnsolicitedHeader header peerId conv
+-- TODO: ban node for sending more than one unsolicited header.
+handleUnsolicitedHeaders (h:|hs) _ _ = do
+    logWarning "Someone sent us nonzero amount of headers we didn't expect"
+    logWarning $ sformat ("Here they are: "%listJson) (h:hs)
+
+handleUnsolicitedHeader
+    :: forall ssc m.
+       (WorkMode ssc m)
+    => BlockHeader ssc
+    -> NodeId
+    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
+    -> m ()
+handleUnsolicitedHeader header peerId conv = do
+    logDebug $ sformat
+        ("handleUnsolicitedHeader: single header "%shortHashF%" was propagated, processing")
+        hHash
+    classificationRes <- classifyNewHeader header
+    -- TODO: should we set 'To' hash to hash of header or leave it unlimited?
+    case classificationRes of
+        CHContinues -> do
+            logDebug $ sformat continuesFormat hHash
+            addToBlockRequestQueue (one header) Nothing peerId
+        CHAlternative -> do
+            logInfo $ sformat alternativeFormat hHash
+            mghM <- mkHeadersRequest (Just hHash)
+            whenJust mghM $ \mgh ->
+                requestHeaders mgh (Just header) peerId conv
+        CHUseless reason -> logDebug $ sformat uselessFormat hHash reason
+        CHInvalid _ -> do
+            logDebug $ sformat ("handleUnsolicited: header "%shortHashF%" is invalid") hHash
+            pass -- TODO: ban node for sending invalid block.
+  where
+    hHash = headerHash header
+    continuesFormat =
+        "Header " %shortHashF %
+        " is a good continuation of our chain, requesting it"
+    alternativeFormat =
+        "Header " %shortHashF %
+        " potentially represents good alternative chain, requesting more headers"
+    uselessFormat =
+        "Header " %shortHashF % " is useless for the following reason: " %stext
+
 
 -- | Result of 'matchHeadersRequest'
 data MatchReqHeadersRes
@@ -211,6 +271,22 @@ matchRequestedHeaders headers MsgGetHeaders{..} =
     formChain = isVerSuccess $
         verifyHeaders True (headers & _Wrapped %~ toList)
 
+-- Is used if we're recovering after offline and want to know what's
+-- current blockchain state.
+requestTip
+    :: forall ssc m.
+       (WorkMode ssc m)
+    => NodeId -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m -> m ()
+requestTip peerId conv = do
+    logDebug "Requesting tip..."
+    send conv (MsgGetHeaders [] Nothing)
+    whenJustM (recv conv) handleTip
+  where
+    handleTip (MsgHeaders (NewestFirst (tip:|[]))) = do
+        logDebug $ sformat ("Got tip "%shortHashF%", processing") (headerHash tip)
+        handleUnsolicitedHeader tip peerId conv
+    handleTip _ = pass
+
 -- Second argument is mghTo block header (not hash). Don't pass it
 -- only if you don't know it.
 requestHeaders
@@ -243,6 +319,7 @@ requestHeaders mgh recoveryHeader peerId conv = do
             ("handleUnsolicitedHeader: headers received were not requested, address: " % shown)
             (nodeIdToAddress peerId)
         logWarning $ sformat ("handleUnsolicitedHeader: unexpected headers: "%listJson) hs
+
 
 -- First case of 'handleBlockheaders'
 handleRequestedHeaders

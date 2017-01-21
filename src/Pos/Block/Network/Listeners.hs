@@ -9,27 +9,23 @@ module Pos.Block.Network.Listeners
        ) where
 
 import           Data.Proxy                  (Proxy (..))
-import           Formatting                  (sformat, stext, (%))
+import           Formatting                  (sformat, (%))
 import           Node                        (ConversationActions (..),
-                                              ListenerAction (..), NodeId (..))
+                                              ListenerAction (..))
 import           Serokell.Util.Text          (listJson)
-import           System.Wlog                 (WithLogger, logDebug, logInfo, logWarning)
+import           System.Wlog                 (WithLogger, logDebug, logWarning)
 import           Universum
 
 import           Pos.Binary.Communication    ()
-import           Pos.Block.Logic             (ClassifyHeaderRes (..), classifyNewHeader,
-                                              getHeadersFromToIncl)
+import           Pos.Block.Logic             (getHeadersFromToIncl)
 import           Pos.Block.Network.Announce  (handleHeadersCommunication)
-import           Pos.Block.Network.Retrieval (addToBlockRequestQueue, mkHeadersRequest,
-                                              requestHeaders)
+import           Pos.Block.Network.Retrieval (handleUnsolicitedHeaders)
 import           Pos.Block.Network.Types     (MsgBlock (..), MsgGetBlocks (..),
                                               MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.BiP       (BiP (..))
-import           Pos.Crypto                  (shortHashF)
 import qualified Pos.DB                      as DB
 import           Pos.DB.Error                (DBError (DBMalformed))
 import           Pos.Ssc.Class.Types         (Ssc)
-import           Pos.Types                   (BlockHeader, HasHeaderHash (..))
 import           Pos.Util                    (NewestFirst (..), stubListenerConv,
                                               stubListenerOneMsg)
 import           Pos.WorkMode                (WorkMode)
@@ -97,55 +93,3 @@ handleBlockHeaders = ListenerActionConversation $
         (mHeaders :: Maybe (MsgHeaders ssc)) <- recv conv
         whenJust mHeaders $ \(MsgHeaders headers) ->
             handleUnsolicitedHeaders (getNewestFirst headers) peerId conv
-
--- Second case of 'handleBlockheaders'
-handleUnsolicitedHeaders
-    :: forall ssc m.
-       (WorkMode ssc m)
-    => NonEmpty (BlockHeader ssc)
-    -> NodeId
-    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
-    -> m ()
-handleUnsolicitedHeaders (header :| []) peerId conv =
-    handleUnsolicitedHeader header peerId conv
--- TODO: ban node for sending more than one unsolicited header.
-handleUnsolicitedHeaders (h:|hs) _ _ = do
-    logWarning "Someone sent us nonzero amount of headers we didn't expect"
-    logWarning $ sformat ("Here they are: "%listJson) (h:hs)
-
-handleUnsolicitedHeader
-    :: forall ssc m.
-       (WorkMode ssc m)
-    => BlockHeader ssc
-    -> NodeId
-    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
-    -> m ()
-handleUnsolicitedHeader header peerId conv = do
-    logDebug $ sformat
-        ("handleUnsolicitedHeader: single header "%shortHashF%" was propagated, processing")
-        hHash
-    classificationRes <- classifyNewHeader header
-    -- TODO: should we set 'To' hash to hash of header or leave it unlimited?
-    case classificationRes of
-        CHContinues -> do
-            logDebug $ sformat continuesFormat hHash
-            addToBlockRequestQueue (one header) Nothing peerId
-        CHAlternative -> do
-            logInfo $ sformat alternativeFormat hHash
-            mghM <- mkHeadersRequest (Just hHash)
-            whenJust mghM $ \mgh ->
-                requestHeaders mgh (Just header) peerId conv
-        CHUseless reason -> logDebug $ sformat uselessFormat hHash reason
-        CHInvalid _ -> do
-            logDebug $ sformat ("handleUnsolicited: header "%shortHashF%" is invalid") hHash
-            pass -- TODO: ban node for sending invalid block.
-  where
-    hHash = headerHash header
-    continuesFormat =
-        "Header " %shortHashF %
-        " is a good continuation of our chain, requesting it"
-    alternativeFormat =
-        "Header " %shortHashF %
-        " potentially represents good alternative chain, requesting more headers"
-    uselessFormat =
-        "Header " %shortHashF % " is useless for the following reason: " %stext

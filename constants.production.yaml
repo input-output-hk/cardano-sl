@@ -12,6 +12,7 @@ kademliaDumpInterval: 4
 # Fundamental constants for core protocol
 k: 6
 slotDurationSec: 20
+maxBlockSize: 2000000
 
 # Time slave/lord
 sysTimeBroadcastSlots: 6

@@ -18,6 +18,8 @@ data CompileConfig = CompileConfig
       -- ^ Security parameter from paper
     , ccSlotDurationSec               :: !Int
       -- ^ Length of slot in seconds
+    , ccMaxBlockSize                  :: !Word64
+      -- ^ Maximum block size in bytes
     , ccNetworkDiameter               :: !Int
       -- ^ Estimated time for broadcasting messages
     , ccNeighboursSendThreshold       :: !Int

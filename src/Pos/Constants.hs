@@ -27,6 +27,7 @@ module Pos.Constants
          -- * Other constants
        , genesisN
        , maxLocalTxs
+       , maxBlockSize
        , maxBlockProxySKs
        , neighborsSendThreshold
        , networkConnectionTimeout
@@ -153,6 +154,10 @@ genesisN = fromIntegral . ccGenesisN $ compileConfig
 -- Also see 'Pos.CompileConfig.ccMaxLocalTxs'.
 maxLocalTxs :: Integral i => i
 maxLocalTxs = fromIntegral . ccMaxLocalTxs $ compileConfig
+
+-- | Maximum size of a block (in bytes)
+maxBlockSize :: Integral i => i
+maxBlockSize = fromIntegral . ccMaxBlockSize $ compileConfig
 
 -- | Maximum number of PSKs allowed in block
 maxBlockProxySKs :: Integral i => i

@@ -13,6 +13,7 @@ module Pos.Update.Core.Types
        , SystemTag (getSystemTag)
        , mkSystemTag
        , systemTagMaxLength
+       , patakUpdateData
 
          -- * UpdateVote and related
        , UpdateVote (..)
@@ -20,6 +21,7 @@ module Pos.Update.Core.Types
        , StakeholderVotes
        , UpdateProposals
        , LocalVotes
+       , mkVoteId
 
          -- * Payload and proof
        , UpdatePayload (..)
@@ -47,7 +49,7 @@ import           Serokell.Util.Text         (listJson)
 import           Universum                  hiding (show)
 
 import           Pos.Binary.Class           (Bi)
-import           Pos.Crypto                 (Hash, PublicKey, Signature, hash)
+import           Pos.Crypto                 (Hash, PublicKey, Signature, hash, unsafeHash)
 import           Pos.Data.Attributes        (Attributes)
 import           Pos.Script.Type            (ScriptVersion)
 import           Pos.Types.Version          (ProtocolVersion, SoftwareVersion)
@@ -123,6 +125,12 @@ data UpdateData = UpdateData
     -- (maybe). Anyway, we can always use `unsafeHash`.
     } deriving (Eq, Show, Generic, Typeable)
 
+patakUpdateData :: HM.HashMap SystemTag UpdateData
+patakUpdateData =
+    let b = "bardaq"
+        h = unsafeHash b
+    in  HM.fromList [(SystemTag b, UpdateData h h h h)]
+
 ----------------------------------------------------------------------------
 -- UpdateVote and related
 ----------------------------------------------------------------------------
@@ -151,6 +159,9 @@ instance Buildable VoteId where
     build (upId, pk, dec) =
       bprint ("Vote Id { voter: "%build%", proposal id: "%build%", voter's decision: "%build%" }")
              pk upId dec
+
+mkVoteId :: UpdateVote -> VoteId
+mkVoteId UpdateVote{..} = (uvProposalId, uvKey, uvDecision)
 
 ----------------------------------------------------------------------------
 -- Payload and proof

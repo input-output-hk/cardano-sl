@@ -353,6 +353,7 @@ library
                         Pos.Wallet.Context.Class
                         Pos.Wallet.Context.Context
                         Pos.Wallet.Context.Holder
+                        Pos.Wallet.Update
   if (flag(with-wallet) && flag(with-web))
     other-modules:      Pos.Aeson.ClientTypes
                         Pos.Wallet.Web.ClientTypes

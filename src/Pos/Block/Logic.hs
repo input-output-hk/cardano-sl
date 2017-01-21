@@ -77,12 +77,11 @@ import           Pos.Types                 (Block, BlockHeader, EpochIndex,
                                             ProxySKSimple, SlotId (..), SlotLeaders,
                                             TxAux, TxId, VerifyHeaderParams (..),
                                             blockHeader, difficultyL, epochIndexL,
-                                            epochOrSlot, flattenEpochOrSlot, genesisHash,
-                                            getEpochOrSlot, headerHash, headerHashG,
-                                            headerSlot, mkGenesisBlock, mkMainBlock,
-                                            mkMainBody, prevBlockL, topsortTxs,
-                                            verifyHeader, verifyHeaders,
-                                            vhpVerifyConsensus)
+                                            epochOrSlot, genesisHash, getEpochOrSlot,
+                                            headerHash, headerHashG, headerSlot,
+                                            mkGenesisBlock, mkMainBlock, mkMainBody,
+                                            prevBlockL, topsortTxs, verifyHeader,
+                                            verifyHeaders, vhpVerifyConsensus)
 import qualified Pos.Types                 as Types
 import           Pos.Update.Core           (UpdatePayload (..))
 import           Pos.Update.Logic          (usPreparePayload, usVerifyBlocks)
@@ -281,7 +280,7 @@ getHeadersFromManyTo checkpoints startM = runMaybeT $ do
                     (NE.toList validCheckpoints)
         lift $ logDebug $ "getHeadersFromManyTo: got checkpoints in main chain"
         let lowestCheckpoint =
-                maximumBy (comparing flattenEpochOrSlot) inMainCheckpoints
+                maximumBy (comparing getEpochOrSlot) inMainCheckpoints
             loadUpCond _ h = h < recoveryHeadersMessage
         up <- lift $ GS.loadHeadersUpWhile lowestCheckpoint loadUpCond
         res <- MaybeT $ pure $ _Wrapped nonEmpty (toNewestFirst up)
@@ -334,14 +333,14 @@ getHeadersFromToIncl older newer = runMaybeT . fmap OldestFirst $ do
     -- oldest and newest blocks do exist
     start <- MaybeT $ DB.getBlockHeader newer
     end   <- MaybeT $ DB.getBlockHeader older
-    guard $ flattenEpochOrSlot start >= flattenEpochOrSlot end
-    let lowerBound = flattenEpochOrSlot end
+    guard $ getEpochOrSlot start >= getEpochOrSlot end
+    let lowerBound = getEpochOrSlot end
     if newer == older
     then pure $ one newer
     else loadHeadersDo lowerBound (one newer) $ start ^. prevBlockL
   where
     loadHeadersDo
-        :: Word64
+        :: EpochOrSlot
         -> NonEmpty HeaderHash
         -> HeaderHash
         -> MaybeT m (NonEmpty HeaderHash)
@@ -350,7 +349,7 @@ getHeadersFromToIncl older newer = runMaybeT . fmap OldestFirst $ do
         | nextHash == older = pure $ nextHash <| hashes
         | otherwise = do
             nextHeader <- MaybeT $ DB.getBlockHeader nextHash
-            guard $ flattenEpochOrSlot nextHeader > lowerBound
+            guard $ getEpochOrSlot nextHeader > lowerBound
             -- hashes are being prepended so the oldest hash will be the last
             -- one to be prepended and thus the order is OldestFirst
             loadHeadersDo lowerBound (nextHash <| hashes) (nextHeader ^. prevBlockL)

@@ -13,8 +13,6 @@ import           Universum
 
 import           Pos.Types    (ProtocolVersion)
 
---
-
 -- | PeerState type aggregates socket states needed for different
 -- parts of system.
 data PeerState ssc = PeerState

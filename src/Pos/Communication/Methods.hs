@@ -30,4 +30,5 @@ sendTx :: (MinWorkMode m) => SendActions BiP m -> NetworkAddress -> TxAux -> m (
 sendTx sendActions addr (tx,w,d) = handleAll handleE $ do
     sendToNode sendActions addr $ DataMsg (TxMsgContents tx w d) (hash tx)
   where
-    handleE e = logWarning $ sformat ("Error sending tx "%build%" to "%shown%": "%shown) tx addr e
+    handleE e =
+        logWarning $ sformat ("Error sending tx "%build%" to "%shown%": "%shown) tx addr e

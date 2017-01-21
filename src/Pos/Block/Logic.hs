@@ -151,8 +151,8 @@ classifyNewHeader (Left _) = pure $ CHUseless "genesis header is useless"
 classifyNewHeader (Right header) = do
     curSlot <- getCurrentSlot
     tipBlock <- DB.getTipBlock
-    let tipFlattenedSlot = flattenEpochOrSlot tipBlock
-    let newHeaderFlattenedSlot = flattenEpochOrSlot header
+    let tipEoS= getEpochOrSlot tipBlock
+    let newHeaderEoS = getEpochOrSlot header
     let newHeaderSlot = header ^. headerSlot
     let tip = headerHash tipBlock
     -- First of all we check whether header is from current slot and
@@ -164,11 +164,11 @@ classifyNewHeader (Right header) = do
                ("header is for future slot: our is "%build%
                 ", header's is "%build)
                curSlot newHeaderSlot
-        | newHeaderFlattenedSlot <= tipFlattenedSlot ->
+        | newHeaderEoS <= tipEoS ->
             CHUseless $ sformat
-               ("header's flatslot "%int%
-                " is less or equal then our tip's flatslot "%int)
-               newHeaderFlattenedSlot tipFlattenedSlot
+               ("header's slot "%build%
+                " is less or equal then our tip's slot "%build)
+               newHeaderEoS tipEoS
         -- If header's parent is our tip, we verify it against tip's header.
         | tip == header ^. prevBlockL ->
             let vhp =

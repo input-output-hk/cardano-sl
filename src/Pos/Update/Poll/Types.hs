@@ -211,12 +211,14 @@ instance Buildable PollVerFailure where
 -- Undo
 ----------------------------------------------------------------------------
 
+-- | Previous value of something that could be missing.
 data PrevValue a = PrevValue a | NoExist
 
 maybeToPrev :: Maybe a -> PrevValue a
 maybeToPrev (Just x) = PrevValue x
 maybeToPrev Nothing  = NoExist
 
+-- | Data necessary to unapply US data.
 data USUndo = USUndo
     { unCreatedNewDepsFor :: !(Maybe ProtocolVersion)
     , unLastAdoptedPV     :: !(Maybe ProtocolVersion)

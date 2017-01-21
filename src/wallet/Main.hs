@@ -19,7 +19,7 @@ import           Universum
 import qualified Pos.CLI              as CLI
 import           Pos.Communication    (BiP)
 import           Pos.Constants        (slotDuration)
-import           Pos.Crypto           (SecretKey, createProxySecretKey, toPublic, sign)
+import           Pos.Crypto           (SecretKey, createProxySecretKey, sign, toPublic)
 import           Pos.Data.Attributes  (mkAttributes)
 import           Pos.Delegation       (sendProxySKEpoch, sendProxySKSimple)
 import           Pos.DHT.Model        (dhtAddr, discoverPeers)
@@ -30,11 +30,12 @@ import           Pos.Ssc.GodTossing   (SscGodTossing)
 import           Pos.Ssc.NistBeacon   (SscNistBeacon)
 import           Pos.Ssc.SscAlgo      (SscAlgo (..))
 import           Pos.Types            (EpochIndex (..), coinF, makePubKeyAddress, txaF)
-import           Pos.Update           (UpdateVote (..), UpdateProposal (..),
+import           Pos.Update           (UpdateProposal (..), UpdateVote (..),
                                        patakUpdateData)
 import           Pos.Util.TimeWarp    (NetworkAddress)
 import           Pos.Wallet           (WalletMode, WalletParams (..), WalletRealMode,
-                                       getBalance, runWalletReal, submitTx, submitVote, submitUpdateProposal)
+                                       getBalance, runWalletReal, submitTx,
+                                       submitUpdateProposal, submitVote)
 #ifdef WITH_WEB
 import           Pos.Wallet.Web       (walletServeWebLite)
 #endif
@@ -91,7 +92,7 @@ runCmd _ Help = do
             , "                                     from own address #N"
             , "   vote <N> <decision> <upid>     -- send vote with given hash of proposal id and"
             , "                                     decision, from own address #N"
-            , "   propose-update <N> <protocol ver> <script ver> <software ver> <upid>"
+            , "   propose-update <N> <protocol ver> <script ver> <software ver>"
             , "                                  -- propose an update with given versions"
             , "                                     with one positive vote for it, from own address #N"
             , "   listaddr                       -- list own addresses"

@@ -22,4 +22,4 @@ spec = describe "Update system" $ do
         binaryTest @U.SystemTag
         networkBinaryTest @(R.InvMsg U.UpId U.ProposalMsgTag)
         networkBinaryTest @(R.ReqMsg U.UpId U.ProposalMsgTag)
-        networkBinaryTest @(R.DataMsg U.UpId U.UpdateProposal)
+        networkBinaryTest @(R.DataMsg U.UpId (U.UpdateProposal, [U.UpdateVote]))

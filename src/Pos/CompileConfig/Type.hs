@@ -50,6 +50,8 @@ data CompileConfig = CompileConfig
       -- ^ Threshold for heavyweight delegation.
     , ccRecoveryHeadersMessage        :: !Int
       -- ^ Numbers of headers put in message in recovery mode.
+    , ccKademliaDumpInterval          :: !Int
+      -- ^ Interval for dumping Kademlia state in slots
     , ccUpdateServers                 :: ![String]
       -- ^ Servers for downloading application updates
     , ccMaxBlockProxySKs              :: !Int

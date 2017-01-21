@@ -40,6 +40,7 @@ module Pos.Constants
        , enhancedMessageBroadcast
        , delegationThreshold
        , recoveryHeadersMessage
+       , kademliaDumpInterval
 
          -- * Malicious activity detection constants
        , mdNoBlocksSlotThreshold
@@ -234,6 +235,10 @@ delegationThreshold = unsafeCoinPortion $ ccDelegationThreshold compileConfig
 -- 'blkSecurityParam'.
 recoveryHeadersMessage :: (Integral a) => a
 recoveryHeadersMessage = fromIntegral . ccRecoveryHeadersMessage $ compileConfig
+
+-- | Interval for dumping state of Kademlia in slots
+kademliaDumpInterval :: (Integral a) => a
+kademliaDumpInterval = fromIntegral . ccKademliaDumpInterval $ compileConfig
 
 ----------------------------------------------------------------------------
 -- Malicious activity

@@ -16,7 +16,8 @@ module Pos.Util.Relay
 
 import qualified Data.ByteString.Char8            as BC
 import           Data.Proxy                       (Proxy (..))
-import           Formatting                       (build, sformat, stext, (%))
+import qualified Data.Text.Buildable              as B
+import           Formatting                       (bprint, build, sformat, stext, (%))
 import           Node                             (NodeId (..), SendActions (..), sendTo)
 import           Node.Message                     (Message (..), MessageName (..))
 import           Serokell.Util.Text               (listJson)
@@ -117,8 +118,10 @@ data DataMsg key contents = DataMsg
 
 deriving instance (Show key, Show contents) => Show (DataMsg key contents)
 deriving instance (Eq key, Eq contents) => Eq (DataMsg key contents)
-instance (Arbitrary key, Arbitrary contents) => Arbitrary (DataMsg key contents) where
-    arbitrary = DataMsg <$> arbitrary <*> arbitrary
+
+instance (Buildable key, Buildable contents) => Buildable (DataMsg key contents) where
+    build (DataMsg key contents) =
+        bprint ("key = "%build%", contents = "%build) key contents
 
 instance (NamedMessagePart contents) =>
          Message (DataMsg key contents) where

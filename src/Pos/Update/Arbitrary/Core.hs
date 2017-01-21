@@ -18,7 +18,9 @@ import           Pos.Types.Arbitrary          ()
 import           Pos.Update.Arbitrary.Network ()
 import           Pos.Update.Core.Types        (SystemTag, UpdateData (..),
                                                UpdatePayload (..), UpdateProposal (..),
-                                               UpdateVote (..), mkSystemTag)
+                                               UpdateVote (..), VoteId, mkSystemTag,
+                                               mkVoteId)
+import           Pos.Util.Relay               (DataMsg (..))
 
 instance Arbitrary SystemTag where
     arbitrary =
@@ -34,6 +36,11 @@ instance Arbitrary UpdateVote where
         uvDecision <- arbitrary
         let uvSignature = sign sk (uvProposalId, uvDecision)
         return UpdateVote {..}
+
+instance Arbitrary (DataMsg VoteId UpdateVote) where
+    arbitrary = do
+        vote <- arbitrary
+        return $ DataMsg vote (mkVoteId vote)
 
 instance Arbitrary UpdateProposal where
     arbitrary = UpdateProposal

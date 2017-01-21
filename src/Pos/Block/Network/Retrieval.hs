@@ -509,9 +509,11 @@ relayBlock
 relayBlock _ (Left _)                  = pass
 relayBlock sendActions (Right mainBlk) = do
     recHeaderVar <- ncRecoveryHeader <$> getNodeContext
-    isRecovery <- isJust <$> atomically (tryReadTMVar recHeaderVar)
+    isRecovery <- do
+        var <- ncRecoveryHeader <$> getNodeContext
+        isJust <$> atomically (tryReadTMVar var)
     -- Why 'ncPropagation' is not considered?
-    when isRecovery $
+    unless isRecovery $
         void $ fork $ announceBlock sendActions $ mainBlk ^. gbHeader
 
 ----------------------------------------------------------------------------

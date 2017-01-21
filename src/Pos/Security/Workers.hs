@@ -104,7 +104,8 @@ checkForIgnoredCommitmentsWorkerImpl slotId = do
     lastCommitment <- lift $ atomically $ readTVar tvar
     when (siEpoch slotId - lastCommitment > mdNoCommitmentsEpochThreshold) $
         logWarning $ sformat
-            ("We've been eclipsed! Last commitment was at epoch "%int%", "%
+            ("Our neighbors are likely trying to carry out an eclipse attack! "%
+             "Last commitment was at epoch "%int%", "%
              "which is more than 'mdNoCommitmentsEpochThreshold' epochs ago")
             lastCommitment
 

@@ -9,7 +9,7 @@ module Pos.Block.Network.Listeners
        ) where
 
 import           Data.Proxy                  (Proxy (..))
-import           Formatting                  (sformat, (%))
+import           Formatting                  (sformat, shown, (%))
 import           Node                        (ConversationActions (..),
                                               ListenerAction (..))
 import           Serokell.Util.Text          (listJson)
@@ -62,10 +62,9 @@ handleGetBlocks
     :: forall ssc m.
        (Ssc ssc, WorkMode ssc m)
     => ListenerAction BiP m
-handleGetBlocks = ListenerActionConversation $ \__peerId conv -> do
-    (mGB :: Maybe MsgGetBlocks) <- recv conv
-    whenJust mGB $ \MsgGetBlocks{..} -> do
-        logDebug "Got request on handleGetBlocks"
+handleGetBlocks = ListenerActionConversation $ \__peerId conv ->
+    whenJustM (recv conv) $ \mgb@MsgGetBlocks{..} -> do
+        logDebug $ sformat ("Got request on handleGetBlocks: "%shown) mgb
         hashes <- getHeadersFromToIncl mgbFrom mgbTo
         maybe warn (sendBlocks conv) hashes
   where

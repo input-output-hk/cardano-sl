@@ -6,6 +6,7 @@ module Pos.Block.Network.Announce
        , handleHeadersCommunication
        ) where
 
+import           Control.Concurrent.STM   (tryReadTMVar)
 import           Formatting               (build, sformat, shown, (%))
 import           Mockable                 (throw)
 import           Node                     (ConversationActions (..), SendActions (..))
@@ -16,7 +17,8 @@ import           Pos.Binary.Communication ()
 import           Pos.Block.Logic          (getHeadersFromManyTo)
 import           Pos.Block.Network.Types  (MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.BiP    (BiP)
-import           Pos.Context              (getNodeContext, ncAttackTypes)
+import           Pos.Context              (getNodeContext, ncAttackTypes,
+                                           ncRecoveryHeader)
 import           Pos.Crypto               (shortHashF)
 import qualified Pos.DB                   as DB
 import           Pos.DHT.Model            (converseToNeighbors, nodeIdToAddress)
@@ -67,11 +69,19 @@ handleHeadersCommunication conv = do
     (msg :: Maybe MsgGetHeaders) <- recv conv
     whenJust msg $ \mgh@(MsgGetHeaders {..}) -> do
         logDebug $ sformat ("Got request on handleGetHeaders: "%shown) mgh
-        headers <- case (mghFrom,mghTo) of
-            ([], Nothing) -> Just . one <$> DB.getTipBlockHeader
-            ([], Just h)  -> fmap one <$> DB.getBlockHeader h
-            (c1:cxs, _)   -> getHeadersFromManyTo (c1:|cxs) mghTo
-        maybe onNoHeaders (send conv . MsgHeaders) headers
+        isRecovery <- do
+            var <- ncRecoveryHeader <$> getNodeContext
+            isJust <$> atomically (tryReadTMVar var)
+        if isRecovery
+        then onRecovery
+        else do
+            headers <- case (mghFrom,mghTo) of
+                ([], Nothing) -> Just . one <$> DB.getTipBlockHeader
+                ([], Just h)  -> fmap one <$> DB.getBlockHeader h
+                (c1:cxs, _)   -> getHeadersFromManyTo (c1:|cxs) mghTo
+            maybe onNoHeaders (send conv . MsgHeaders) headers
   where
+    onRecovery =
+        logDebug "handleGetHeaders: not responding, we're in recovery mode"
     onNoHeaders =
         logDebug "getheadersFromManyTo returned Nothing, not replying to node"

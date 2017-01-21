@@ -24,7 +24,7 @@ import           System.Wlog           (WithLogger, logWarning)
 import           Universum
 
 import           Pos.Constants         (blkSecurityParam, updateImplicitApproval,
-                                        updateProposalThreshold, updateVoteThreshold)
+                                        updateProposalThreshold, updateVoteThreshold, curSoftwareVersion)
 import           Pos.Crypto            (PublicKey, hash)
 import           Pos.Types             (ChainDifficulty, Coin, EpochIndex,
                                         MainBlockHeader, SlotId (siEpoch),
@@ -428,7 +428,10 @@ applyDepthCheck cd
     applyDepthCheckDo DecidedProposalState {..} = do
         let UndecidedProposalState {..} = dpsUndecided
         let sv = upSoftwareVersion upsProposal
-        when dpsDecision $ setLastConfirmedSV sv
+        when dpsDecision $ do
+            setLastConfirmedSV sv
+            when (svAppName curSoftwareVersion == svAppName sv) $
+                addConfirmedProposal (svNumber sv) upsProposal
         deactivateProposal (hash upsProposal)
 
 ----------------------------------------------------------------------------

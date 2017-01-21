@@ -169,7 +169,6 @@ data PollVerFailure
                      ,  perDecision    :: !Bool}
     | PollInternalError !Text
 
--- To be implemented for sure.
 instance Buildable PollVerFailure where
     build (PollWrongScriptVersion expected found upId) =
         bprint ("wrong script version in proposal "%build%
@@ -216,9 +215,8 @@ data PrevValue a = PrevValue a | NoExist
 
 maybeToPrev :: Maybe a -> PrevValue a
 maybeToPrev (Just x) = PrevValue x
-maybeToPrev Nothing = NoExist
+maybeToPrev Nothing  = NoExist
 
--- To be extended for sure.
 data USUndo = USUndo
     { unCreatedNewDepsFor :: !(Maybe ProtocolVersion)
     , unLastAdoptedPV     :: !(Maybe ProtocolVersion)

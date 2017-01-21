@@ -10,8 +10,6 @@ module Pos.Update.Core.Types
        , UpdateVote (..)
        , VoteId
        , StakeholderVotes
-       , ExtStakeholderVotes
-       , ExtendedUpdateVote
        , UpdateProposals
        , LocalVotes
 
@@ -184,14 +182,11 @@ combineVotes decision oldVote =
         (False, Just PositiveVote) -> Just NegativeRevote
         (_, Just _)                -> Nothing
 
-type ExtendedUpdateVote = (UpdateVote, VoteState)
-
-type ExtStakeholderVotes = HashMap PublicKey ExtendedUpdateVote
 -- | Type alias for set of votes from stakeholders
 type StakeholderVotes = HashMap PublicKey VoteState
 
 type UpdateProposals = HashMap UpId UpdateProposal
-type LocalVotes = HashMap UpId ExtStakeholderVotes
+type LocalVotes = HashMap UpId (HashMap PublicKey UpdateVote)
 
 deriveSafeCopySimple 0 'base ''SystemTag
 deriveSafeCopySimple 0 'base ''UpdateData

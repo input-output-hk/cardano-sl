@@ -33,18 +33,19 @@ import           Universum
 import           Pos.Crypto             (PublicKey)
 import           Pos.DB.Class           (MonadDB)
 import qualified Pos.DB.GState          as DB
-import           Pos.Types              (HeaderHash, SlotId (..),
-                                         SoftwareVersion (..), slotIdF)
+import           Pos.Types              (HeaderHash, SlotId (..), SoftwareVersion (..),
+                                         slotIdF)
 import           Pos.Update.Core        (UpId, UpdatePayload (..),
                                          UpdateProposal (upSoftwareVersion),
-                                         UpdateVote (..), VoteState, canCombineVotes)
+                                         UpdateVote (..), canCombineVotes)
 import           Pos.Update.MemState    (LocalVotes, MemPool (..), MemState (..),
                                          MonadUSMem, UpdateProposals, askUSMemState,
                                          modifyMemPool, withUSLock)
 import           Pos.Update.Poll        (MonadPoll (deactivateProposal),
-                                         MonadPollRead (getProposal), PollVerFailure,
-                                         evalPollT, execPollT, filterProposalsByThd,
-                                         modifyPollModifier, normalizePoll, runDBPoll,
+                                         MonadPollRead (getProposal), PollModifier,
+                                         PollVerFailure, evalPollT, execPollT,
+                                         filterProposalsByThd, modifyPollModifier,
+                                         normalizePoll, psVotes, runDBPoll,
                                          runPollT, verifyAndApplyUSPayload)
 
 -- MonadMask is needed because are using Lock. It can be improved later.
@@ -52,6 +53,9 @@ type USLocalLogicMode σ m = (MonadDB σ m, MonadUSMem m, MonadMask m, WithLogge
 
 getMemPool :: (MonadUSMem m, MonadIO m) => m MemPool
 getMemPool = msPool <$> (askUSMemState >>= atomically . readTVar)
+
+getPollModifier :: (MonadUSMem m, MonadIO m) => m PollModifier
+getPollModifier = msModifier <$> (askUSMemState >>= atomically . readTVar)
 
 getLocalProposals :: (MonadUSMem m, MonadIO m) => m UpdateProposals
 getLocalProposals = mpProposals <$> getMemPool
@@ -76,7 +80,7 @@ getLocalProposalNVotes id = do
     pure $
         case prop of
             Nothing -> Nothing
-            Just p  -> Just (p, map fst . toList $ HM.lookupDefault mempty id votes)
+            Just p  -> Just (p, toList $ HM.lookupDefault mempty id votes)
 
 -- | Process proposal received from network, checking it against
 -- current state (global + local) and adding to local state if it's
@@ -93,17 +97,25 @@ processProposal proposal = processSkeleton $ UpdatePayload (Just proposal) []
 -- Votes
 ----------------------------------------------------------------------------
 
-lookupVote :: UpId -> PublicKey -> LocalVotes -> Maybe (UpdateVote, VoteState)
+lookupVote :: UpId -> PublicKey -> LocalVotes -> Maybe UpdateVote
 lookupVote propId pk locVotes = HM.lookup propId locVotes >>= HM.lookup pk
 
 -- | This function returns true if update vote proposal with given
 -- identifier issued by stakeholder with given PublicKey and with
 -- given decision should be requested.
 isVoteNeeded
-    :: (MonadIO m, MonadUSMem m)
+    :: (MonadDB ssc m, MonadUSMem m)
     => UpId -> PublicKey -> Bool -> m Bool
-isVoteNeeded propId pk decision =
-    canCombineVotes decision . fmap snd . lookupVote propId pk <$> getLocalVotes
+isVoteNeeded propId pk decision = do
+    modifier <- getPollModifier
+    runDBPoll . evalPollT modifier $ do
+        proposal <- getProposal propId
+        case proposal of
+            Nothing -> pure False
+            Just ps  -> pure .
+                canCombineVotes decision .
+                HM.lookup pk .
+                psVotes $ ps
 
 -- | Get update vote for proposal with given id from given issuer and
 -- with given decision if it is known.
@@ -111,7 +123,7 @@ getLocalVote
     :: (MonadIO m, MonadUSMem m)
     => UpId -> PublicKey -> Bool -> m (Maybe UpdateVote)
 getLocalVote propId pk decision = do
-    voteMaybe <- fmap fst . lookupVote propId pk <$> getLocalVotes
+    voteMaybe <- lookupVote propId pk <$> getLocalVotes
     pure $
         case voteMaybe of
             Nothing -> Nothing
@@ -246,7 +258,7 @@ finishPrepare badProposals proposals votes = do
     proposalPair <- foldM findProposal Nothing $ HM.toList proposals
     mapM_ (deactivate (fst <$> proposalPair)) $ HM.toList proposals
     let allVotes :: [UpdateVote]
-        allVotes = map fst $ concatMap toList $ toList votes
+        allVotes = concatMap toList $ toList votes
     goodVotes <- filterM isVoteValid allVotes
     return $
         UpdatePayload {upProposal = snd <$> proposalPair, upVotes = goodVotes}

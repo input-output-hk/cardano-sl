@@ -32,7 +32,8 @@ import           Pos.Script.Examples    (alwaysSuccessValidator, badIntRedeemer,
                                          goodIntRedeemer, goodIntRedeemerWithBlah,
                                          goodStdlibRedeemer, idValidator, intValidator,
                                          intValidatorWithBlah, multisigRedeemer,
-                                         multisigValidator, stdlibValidator)
+                                         multisigValidator, shaStressRedeemer,
+                                         sigStressRedeemer, stdlibValidator)
 import           Pos.Types              (BadSigsTx (..), GoodTx (..), OverflowTx (..),
                                          SmallBadSigsTx (..), SmallGoodTx (..),
                                          SmallOverflowTx (..), Tx (..), TxAux,
@@ -158,7 +159,7 @@ scriptTxSpec = describe "script transactions" $ do
             "input #0 isn't validated by its witness.*\
                 \reason: result of evaluation is 'failure'.*"]
 
-    describe "multisig" $ dom
+    describe "multisig" $ do
         describe "1-of-1" $ do
             let val = multisigValidator 1 [pk1]
             it "good (1 provided)" $ do
@@ -229,6 +230,26 @@ scriptTxSpec = describe "script transactions" $ do
                     (\sd -> ScriptWitness val
                         (multisigRedeemer sd
                          (replicate 20 (Just sk1))))
+            res `errorsShouldMatch` [
+                "input #0 isn't validated by its witness.*\
+                        \reason: Out of petrol.*"]
+        it "1000 rounds of SHA3 is okay" $ do
+            let res = checkScriptTx idValidator
+                      (\_ -> ScriptWitness idValidator (shaStressRedeemer 1000))
+            res `shouldSatisfy` isVerSuccess
+        it "3000 rounds of SHA3 is bad" $ do
+            let res = checkScriptTx idValidator
+                      (\_ -> ScriptWitness idValidator (shaStressRedeemer 3000))
+            res `errorsShouldMatch` [
+                "input #0 isn't validated by its witness.*\
+                        \reason: Out of petrol.*"]
+        it "200 rounds of sigverify is okay" $ do
+            let res = checkScriptTx idValidator
+                      (\_ -> ScriptWitness idValidator (sigStressRedeemer 200))
+            res `shouldSatisfy` isVerSuccess
+        it "500 rounds of sigverify is bad" $ do
+            let res = checkScriptTx idValidator
+                      (\_ -> ScriptWitness idValidator (sigStressRedeemer 500))
             res `errorsShouldMatch` [
                 "input #0 isn't validated by its witness.*\
                         \reason: Out of petrol.*"]

@@ -29,9 +29,10 @@ import           Universum
 import           Pos.Aeson.ClientTypes         ()
 import           Pos.Crypto                    (toPublic)
 import           Pos.DHT.Model                 (dhtAddr, getKnownPeers)
-import           Pos.Types                     (Address, Coin, TxOut (..), addressF,
-                                                coinF, decodeTextAddress,
-                                                makePubKeyAddress, mkCoin)
+import           Pos.Types                     (Address, ChainDifficulty, Coin,
+                                                TxOut (..), addressF, coinF,
+                                                decodeTextAddress, makePubKeyAddress,
+                                                mkCoin)
 import           Pos.Web.Server                (serveImpl)
 
 import           Control.Monad.Catch           (try)
@@ -40,7 +41,8 @@ import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
                                                 newSecretKey)
 import           Pos.Wallet.Tx                 (submitTx)
 import           Pos.Wallet.Tx.Pure            (TxHistoryEntry (..))
-import           Pos.Wallet.WalletMode         (WalletMode, getBalance, getTxHistory)
+import           Pos.Wallet.WalletMode         (WalletMode, getBalance, getTxHistory,
+                                                networkChainDifficulty)
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CProfile,
                                                 CProfile (..), CTx, CTxId, CTxMeta (..),
@@ -268,12 +270,13 @@ addHistoryTx
     -> m CTx
 addHistoryTx cAddr curr title desc wtx@(THEntry txId _ _ _) = do
     -- TODO: this should be removed in production
+    diff <- networkChainDifficulty
     addr <- decodeCAddressOrFail cAddr
     meta <- CTxMeta curr title desc <$> liftIO getPOSIXTime
     let cId = txIdToCTxId txId
     addOnlyNewTxMeta cAddr cId meta
     meta' <- maybe meta identity <$> getTxMeta cAddr cId
-    return $ mkCTx addr wtx meta'
+    return $ mkCTx addr diff wtx meta'
 
 newWallet :: WalletWebMode ssc m => CWalletMeta -> m CWallet
 newWallet wMeta = do

@@ -20,7 +20,7 @@ module Pos.Wallet.Tx.Pure
        , thTxId
        , thTx
        , thIsOutput
-       , thBlock
+       , thDifficulty
        , TxError
        ) where
 
@@ -40,15 +40,15 @@ import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.Script                (Script)
 import           Pos.Script.Examples       (multisigRedeemer, multisigValidator)
 import           Pos.Ssc.Class             (Ssc)
-import           Pos.Types                 (Address, Block, Coin, HeaderHash,
+import           Pos.Types                 (Address, Block, ChainDifficulty, Coin,
                                             MonadUtxoRead (..), Tx (..), TxAux,
                                             TxDistribution (..), TxId, TxIn (..),
                                             TxInWitness (..), TxOut (..), TxOutAux,
                                             TxSigData, TxWitness, Utxo, UtxoStateT (..),
-                                            applyTxToUtxo, blockTxas, filterUtxoByAddr,
-                                            headerHash, makePubKeyAddress,
-                                            makeScriptAddress, mkCoin, sumCoins,
-                                            topsortTxs)
+                                            applyTxToUtxo, blockTxas, difficultyL,
+                                            filterUtxoByAddr, headerHash,
+                                            makePubKeyAddress, makeScriptAddress, mkCoin,
+                                            sumCoins, topsortTxs)
 import           Pos.Types.Coin            (unsafeIntegerToCoin, unsafeSubCoin)
 
 type TxOutIdx = (TxId, Word32)
@@ -162,10 +162,10 @@ hasSender Tx {..} addr = anyM hasCorrespondingOutput txInputs
 
 -- | Datatype for returning info about tx history
 data TxHistoryEntry = THEntry
-    { _thTxId     :: !TxId
-    , _thTx       :: !Tx
-    , _thIsOutput :: !Bool
-    , _thBlock    :: !(Maybe HeaderHash)
+    { _thTxId       :: !TxId
+    , _thTx         :: !Tx
+    , _thIsOutput   :: !Bool
+    , _thDifficulty :: !(Maybe ChainDifficulty)
     } deriving (Show, Eq, Generic)
 
 makeLenses ''TxHistoryEntry
@@ -216,6 +216,6 @@ deriveAddrHistoryPartial hist addr chain =
     updateAll (Right blk) hst = do
         txs <- getRelatedTxs addr $
                    map (over _1 withHash) (blk ^. blockTxas)
-        let hh = headerHash blk
-            txs' = map (thBlock .~ Just hh) txs
+        let difficulty = blk ^. difficultyL
+            txs' = map (thDifficulty .~ Just difficulty) txs
         return $ DL.fromList txs' <> hst

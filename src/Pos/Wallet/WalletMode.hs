@@ -14,17 +14,19 @@ module Pos.Wallet.WalletMode
        , WalletRealMode
        ) where
 
-import           Control.Concurrent.STM      (readTMVar)
+import           Control.Concurrent.STM      (tryReadTMVar)
 import           Control.Monad.Loops         (unfoldrM)
 import           Control.Monad.Trans         (MonadTrans)
 import           Control.Monad.Trans.Maybe   (MaybeT (..))
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.Map                    as M
+import           Mockable                    (CurrentTime, Mockable)
 import           Mockable                    (MonadMockable, Production)
 import           System.Wlog                 (LoggerNameBox, WithLogger)
 import           Universum
 
 import           Pos.Communication.PeerState (PeerStateHolder)
+import           Pos.Constants               (blkSecurityParam)
 import qualified Pos.Context                 as PC
 import           Pos.Crypto                  (WithHash (..))
 import           Pos.DB                      (MonadDB)
@@ -34,16 +36,19 @@ import qualified Pos.DB.GState               as GS
 import           Pos.Delegation              (DelegationT (..))
 import           Pos.DHT.Model               (MonadDHT)
 import           Pos.DHT.Real                (KademliaDHT (..))
+import           Pos.Slotting                (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class.Types         (Ssc)
 import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp.Class               (getMemPool, getUtxoView)
 import qualified Pos.Txp.Holder              as Modern
 import           Pos.Txp.Logic               (processTx)
 import           Pos.Txp.Types               (UtxoView (..), localTxs)
-import           Pos.Types                   (Address, ChainDifficulty, Coin, Tx, TxAux,
-                                              TxId, Utxo, difficultyL, evalUtxoStateT,
-                                              prevBlockL, runUtxoStateT, sumCoins, toPair,
-                                              txOutValue)
+import           Pos.Types                   (Address, BlockHeader, ChainDifficulty, Coin,
+                                              SlotId (..), TxAux, TxId, Utxo, difficultyL,
+                                              epochIndexL, evalUtxoStateT,
+                                              flattenEpochOrSlot, flattenSlotId,
+                                              getEpochOrSlot, headerSlot, prevBlockL,
+                                              runUtxoStateT, sumCoins, toPair, txOutValue)
 import           Pos.Types.Coin              (unsafeIntegerToCoin)
 import           Pos.Types.Utxo.Functions    (belongsTo, filterUtxoByAddr)
 import           Pos.Update                  (USHolder (..))
@@ -191,16 +196,35 @@ instance MonadIO m => MonadBlockchainInfo (WalletDB m) where
     networkChainDifficulty = notImplemented
     localChainDifficulty = notImplemented
 
+-- | Helpers for avoiding copy-paste
+topHeader :: (Ssc ssc, MonadDB ssc m) => m (BlockHeader ssc)
+topHeader = maybeThrow (DBMalformed "No block with tip hash!") =<<
+            DB.getBlockHeader =<< GS.getTip
+
+recoveryHeader
+    :: (Ssc ssc, MonadIO m, PC.WithNodeContext ssc m)
+    => m (Maybe (BlockHeader ssc))
+recoveryHeader = PC.getNodeContext >>=
+                 atomically . tryReadTMVar . PC.ncRecoveryHeader >>=
+                 return . fmap snd
+
 -- | Instance for full-node's ContextHolder
-instance (Ssc ssc, MonadDB ssc m, MonadThrow m, WithLogger m) =>
+instance ( Ssc ssc
+         , Mockable CurrentTime m
+         , MonadDB ssc m
+         , MonadThrow m
+         , WithLogger m) =>
          MonadBlockchainInfo (PC.ContextHolder ssc m) where
-    networkChainDifficulty = do
-        tv <- PC.ncRecoveryHeader <$> PC.getNodeContext
-        (_, hh) <- atomically $ readTMVar tv
-        return $ hh ^. difficultyL
-    localChainDifficulty = fmap (view difficultyL) $
-                           maybeThrow (DBMalformed "No block with tip hash!") =<<
-                           DB.getBlockHeader =<< GS.getTip
+    networkChainDifficulty = recoveryHeader >>= \case
+        Just hh -> return $ hh ^. difficultyL
+        Nothing -> do
+            th <- topHeader
+            cSlot <- flattenSlotId <$> getCurrentSlot
+            let hSlot = flattenEpochOrSlot th
+                blksLeft = fromIntegral $ max 0 $ cSlot - blkSecurityParam - hSlot
+            return $ blksLeft + th ^. difficultyL
+
+    localChainDifficulty = view difficultyL <$> topHeader
 
 type TxMode ssc m
     = ( MinWorkMode m

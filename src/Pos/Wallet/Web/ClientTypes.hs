@@ -41,9 +41,9 @@ import           Data.Hashable         (Hashable (..))
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Formatting            (build, sformat)
 import           Pos.Aeson.Types       ()
-import           Pos.Types             (Address (..), Coin, TxId, decodeTextAddress,
-                                        sumCoins, txOutAddress, txOutValue, txOutputs,
-                                        unsafeIntegerToCoin)
+import           Pos.Types             (Address (..), ChainDifficulty, Coin, TxId,
+                                        decodeTextAddress, sumCoins, txOutAddress,
+                                        txOutValue, txOutputs, unsafeIntegerToCoin)
 import           Pos.Wallet.Tx.Pure    (TxHistoryEntry (..))
 
 -- Notifications
@@ -89,12 +89,21 @@ mkCTxId = CTxId . CHash
 txIdToCTxId :: TxId -> CTxId
 txIdToCTxId = mkCTxId . sformat build
 
-mkCTx :: Address -> TxHistoryEntry -> CTxMeta -> CTx
-mkCTx addr (THEntry txId tx isOutgoing _) = CTx (txIdToCTxId txId) outputCoins . meta
+mkCTx
+    :: Address            -- ^ An address for which transaction info is forming
+    -> ChainDifficulty    -- ^ Current chain difficulty (to get confirmations)
+    -> TxHistoryEntry     -- ^ Tx history entry
+    -> CTxMeta            -- ^ Transaction metadata
+    -> CTx
+mkCTx addr diff THEntry {..} meta = CTx {..}
   where
-    outputCoins = unsafeIntegerToCoin . sumCoins . map txOutValue $
-        filter (xor isOutgoing . (== addr) . txOutAddress) $ txOutputs tx
-    meta = if isOutgoing then CTOut else CTIn
+    ctId = txIdToCTxId _thTxId
+    ctAmount = unsafeIntegerToCoin . sumCoins . map txOutValue $
+        filter (xor _thIsOutput . (== addr) . txOutAddress) $ txOutputs _thTx
+    ctConfirmations = maybe 0 fromIntegral $ (diff -) <$> _thDifficulty
+    ctType = if _thIsOutput
+             then CTOut meta
+             else CTIn meta
 
 ----------------------------------------------------------------------------
 -- wallet
@@ -174,9 +183,10 @@ ctTypeMeta (CTOut meta) = meta
 -- It includes meta data which are not part of Cardano, too
 -- (Flow type: transactionType)
 data CTx = CTx
-    { ctId     :: CTxId
-    , ctAmount :: Coin
-    , ctType   :: CTType -- it includes all "meta data"
+    { ctId            :: CTxId
+    , ctAmount        :: Coin
+    , ctConfirmations :: Word
+    , ctType          :: CTType -- it includes all "meta data"
     } deriving (Show, Generic)
 
 txContainsTitle :: Text -> CTx -> Bool

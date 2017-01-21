@@ -20,7 +20,7 @@ import           Pos.Util              (NE, NewestFirst)
 -- | 'GetHeaders' message (see protocol specification).
 data MsgGetHeaders = MsgGetHeaders
     { -- not guaranteed to be in any particular order
-      mghFrom :: !(NonEmpty HeaderHash)
+      mghFrom :: ![HeaderHash]
     , mghTo   :: !(Maybe HeaderHash)
     } deriving (Generic, Show, Eq)
 

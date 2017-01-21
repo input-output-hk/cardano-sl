@@ -16,7 +16,7 @@ import           Pos.Binary            (Bi)
 import           Pos.Block.Arbitrary   as T
 import           Pos.Constants         (epochSlots)
 import           Pos.Crypto            (ProxySecretKey (pskIssuerPk), SecretKey,
-                                        createProxySecretKey, hash, proxySign, sign,
+                                        createProxySecretKey, proxySign, sign,
                                         toPublic)
 import           Pos.Ssc.Class.Types   (Ssc (..))
 import           Pos.Ssc.GodTossing    (SscGodTossing)

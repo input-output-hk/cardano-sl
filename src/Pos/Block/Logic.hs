@@ -150,17 +150,27 @@ classifyNewHeader
 classifyNewHeader (Left _) = pure $ CHUseless "genesis header is useless"
 classifyNewHeader (Right header) = do
     curSlot <- getCurrentSlot
+    tipBlock <- DB.getTipBlock
+    let tipEoS= getEpochOrSlot tipBlock
+    let newHeaderEoS = getEpochOrSlot header
+    let newHeaderSlot = header ^. headerSlot
+    let tip = headerHash tipBlock
     -- First of all we check whether header is from current slot and
     -- ignore it if it's not.
-    if curSlot == header ^. headerSlot
-        then classifyNewHeaderDo <$> GS.getTip <*> DB.getTipBlock
-        else pure $ CHUseless $ sformat
-                 ("header is not for current slot: our is "%build%", header's is "%build)
-                 curSlot (header ^. headerSlot)
-  where
-    classifyNewHeaderDo tip tipBlock
+    pure $ if
+        -- Checks on slots
+        | newHeaderSlot > curSlot ->
+            CHUseless $ sformat
+               ("header is for future slot: our is "%build%
+                ", header's is "%build)
+               curSlot newHeaderSlot
+        | newHeaderEoS <= tipEoS ->
+            CHUseless $ sformat
+               ("header's slot "%build%
+                " is less or equal then our tip's slot "%build)
+               newHeaderEoS tipEoS
         -- If header's parent is our tip, we verify it against tip's header.
-        | tip == header ^. prevBlockL =
+        | tip == header ^. prevBlockL ->
             let vhp =
                     def
                     { vhpVerifyConsensus = True
@@ -172,13 +182,12 @@ classifyNewHeader (Right header) = do
                    VerFailure errors -> mkCHRinvalid errors
         -- If header's parent is not our tip, we check whether it's
         -- more difficult than our main chain.
-        | tipBlock ^. difficultyL < header ^. difficultyL = CHAlternative
+        | tipBlock ^. difficultyL < header ^. difficultyL -> CHAlternative
         -- If header can't continue main chain and is not more
         -- difficult than main chain, it's useless.
-        | otherwise =
+        | otherwise ->
             CHUseless $
             "header doesn't continue main chain and is not more difficult"
-
 
 -- | Result of multiple headers classification.
 data ClassifyHeadersRes ssc
@@ -197,9 +206,8 @@ classifyHeaders
     :: WorkMode ssc m
     => NewestFirst NE (BlockHeader ssc) -> m (ClassifyHeadersRes ssc)
 classifyHeaders headers = do
-    let newestHash = headers ^. _Wrapped . _neHead . headerHashG
-        oldestHash = headers ^. _Wrapped . _neLast . headerHashG
-    tip <- GS.getTip
+    tipHeader <- DB.getTipBlockHeader
+    let tip = headerHash tipHeader
     haveOldest <- isJust <$> DB.getBlockHeader oldestHash
     let headersValid = isVerSuccess $ verifyHeaders True (headers & _Wrapped %~ toList)
     if | not headersValid ->
@@ -208,16 +216,20 @@ classifyHeaders headers = do
              pure $ CHsInvalid "Last block of the passed chain wasn't found locally"
        | newestHash == headerHash tip ->
              pure $ CHsUseless "Newest hash is the same as our tip"
+       | newestHeader ^. difficultyL <= tipHeader ^. difficultyL ->
+             pure $ CHsUseless "Newest hash difficulty is not greater than our tip's"
        | otherwise -> fromMaybe uselessGeneral <$> processClassify
   where
+    newestHeader = headers ^. _Wrapped . _neHead
+    newestHash = headerHash newestHeader
+    oldestHash = headers ^. _Wrapped . _neLast . headerHashG
     uselessGeneral =
         CHsUseless "Couldn't find lca -- maybe db state updated in the process"
     processClassify = runMaybeT $ do
         tipHeader <- view blockHeader <$> lift DB.getTipBlock
         lift $ logDebug $
             sformat ("Classifying headers: "%listJson) $ map (view headerHashG) headers
-        lcaHash <- MaybeT $ lcaWithMainChain headers
-        lca <- MaybeT $ DB.getBlockHeader lcaHash
+        lca <- MaybeT . DB.getBlockHeader =<< MaybeT (lcaWithMainChain headers)
         let depthDiff = tipHeader ^. difficultyL - lca ^. difficultyL
         lcaChild <- MaybeT $ pure $
             find (\bh -> bh ^. prevBlockL == headerHash lca) headers
@@ -238,7 +250,8 @@ classifyHeaders headers = do
 -- 'recoveryHeadersMessage' headers starting from the the newest
 -- checkpoint that's in our main chain to the newest ones.
 getHeadersFromManyTo
-    :: forall ssc m. (MonadDB ssc m, Ssc ssc, CanLog m, HasLoggerName m)
+    :: forall ssc m.
+       (MonadDB ssc m, Ssc ssc, CanLog m, HasLoggerName m)
     => NonEmpty HeaderHash  -- ^ Checkpoints; not guaranteed to be
                             --   in any particular order
     -> Maybe HeaderHash
@@ -266,11 +279,14 @@ getHeadersFromManyTo checkpoints startM = runMaybeT $ do
             MaybeT $ nonEmpty <$>
             filterM (GS.isBlockInMainChain . headerHash)
                     (NE.toList validCheckpoints)
+        lift $ logDebug $ "getHeadersFromManyTo: got checkpoints in main chain"
         let lowestCheckpoint =
                 maximumBy (comparing flattenEpochOrSlot) inMainCheckpoints
             loadUpCond _ h = h < recoveryHeadersMessage
         up <- lift $ GS.loadHeadersUpWhile lowestCheckpoint loadUpCond
-        MaybeT $ pure $ _Wrapped nonEmpty (toNewestFirst up)
+        res <- MaybeT $ pure $ _Wrapped nonEmpty (toNewestFirst up)
+        lift $ logDebug $ "getHeadersFromManyTo: loaded non-empty list of headers, returning"
+        pure res
 
 -- | Given a starting point hash (we take tip if it's not in storage)
 -- it returns not more than 'blkSecurityParam' blocks distributed

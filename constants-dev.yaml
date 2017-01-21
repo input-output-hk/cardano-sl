@@ -1,12 +1,13 @@
 genesisN: 12
 maxLocalTxs: 10000
 defaultPeers: []
-mdNoBlocksSlotThreshold: 3
+mdNoBlocksSlotThreshold: 3 # should be less then k 
 mdNoCommitmentsEpochThreshold: 3
 protocolMagic: 0
 enhancedMessageBroadcast: 2
 blockRetrievalQueueSize: 100
-recoveryHeadersMessage: 20 # should be more than k
+recoveryHeadersMessage: 20 # should be greater than k
+kademliaDumpInterval: 4
 
 # Fundamental constants for core protocol
 k: 2

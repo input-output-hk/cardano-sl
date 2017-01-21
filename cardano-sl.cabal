@@ -316,8 +316,13 @@ library
                         Pos.Update.Poll
                         Pos.Update.Poll.Class
                         Pos.Update.Poll.DBPoll
-                        Pos.Update.Poll.Functions
+                        Pos.Update.Poll.Logic
+                        Pos.Update.Poll.Logic.Apply
+                        Pos.Update.Poll.Logic.Base
+                        Pos.Update.Poll.Logic.Normalize
+                        Pos.Update.Poll.Logic.Rollback
                         Pos.Update.Poll.Modifier
+                        Pos.Update.Poll.RollTrans
                         Pos.Update.Poll.Trans
                         Pos.Update.Poll.Types
                         Pos.Update.Worker
@@ -352,6 +357,7 @@ library
                         Pos.Wallet.Context.Class
                         Pos.Wallet.Context.Context
                         Pos.Wallet.Context.Holder
+                        Pos.Wallet.Update
   if (flag(with-wallet) && flag(with-web))
     other-modules:      Pos.Aeson.ClientTypes
                         Pos.Wallet.Web.ClientTypes

@@ -25,27 +25,30 @@ module Pos.Crypto.Hashing
        , hash
        , hashRaw
        , unsafeHash
+       , parseHash
 
          -- * Utility
        , CastHash (castHash)
        , HashAlgorithm
        ) where
 
-import           Control.DeepSeq     (force)
-import           Control.Lens        (makeLensesFor)
-import           Crypto.Hash         (Blake2s_224, Digest, HashAlgorithm)
-import qualified Crypto.Hash         as Hash (hash, hashlazy)
-import qualified Data.ByteArray      as ByteArray
-import           Data.Hashable       (Hashable (hashWithSalt), hashPtrWithSalt)
-import           Data.SafeCopy       (SafeCopy (..))
-import qualified Data.Text.Buildable as Buildable
-import           Formatting          (Format, bprint, fitLeft, later, (%.))
-import           System.IO.Unsafe    (unsafeDupablePerformIO)
+import           Control.DeepSeq      (force)
+import           Control.Lens         (makeLensesFor)
+import           Crypto.Hash          (Blake2s_224, Digest, HashAlgorithm,
+                                       digestFromByteString)
+import qualified Crypto.Hash          as Hash (hash, hashlazy)
+import qualified Data.ByteArray       as ByteArray
+import           Data.Hashable        (Hashable (hashWithSalt), hashPtrWithSalt)
+import           Data.SafeCopy        (SafeCopy (..))
+import qualified Data.Text.Buildable  as Buildable
+import           Formatting           (Format, bprint, fitLeft, later, (%.))
+import qualified Serokell.Util.Base64 as B64
+import           System.IO.Unsafe     (unsafeDupablePerformIO)
 import           Universum
 
-import           Pos.Binary.Class    (Bi)
-import qualified Pos.Binary.Class    as Bi
-import           Pos.Util            (Raw, getCopyBinary, putCopyBinary)
+import           Pos.Binary.Class     (Bi)
+import qualified Pos.Binary.Class     as Bi
+import           Pos.Util             (Raw, getCopyBinary, putCopyBinary)
 
 ----------------------------------------------------------------------------
 -- WithHash
@@ -127,6 +130,13 @@ hashHexF = later $ \(AbstractHash x) -> Buildable.build (show x :: Text)
 -- | Smart formatter for 'Hash' to show only first @8@ characters of 'Hash'.
 shortHashF :: Format r (AbstractHash algo a -> r)
 shortHashF = fitLeft 8 %. hashHexF
+
+-- | Parses given hash in base64 form.
+parseHash :: Text -> Either Text (Hash a)
+parseHash = processRes . digestFromByteString <=< B64.decode
+  where
+    processRes (Just x) = Right (AbstractHash x)
+    processRes Nothing  = Left "Invalid hash length"
 
 -- | Type class for unsafe cast between hashes.
 -- You must ensure that types have identical Bi instances.

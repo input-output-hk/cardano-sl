@@ -14,11 +14,14 @@ import           Universum
 import           Pos.Binary.Update            ()
 import           Pos.Crypto                   (sign)
 import           Pos.Crypto.Arbitrary         (KeyPair (..))
+import           Pos.Data.Attributes          (mkAttributes)
 import           Pos.Types.Arbitrary          ()
 import           Pos.Update.Arbitrary.Network ()
 import           Pos.Update.Core.Types        (SystemTag, UpdateData (..),
                                                UpdatePayload (..), UpdateProposal (..),
-                                               UpdateVote (..), mkSystemTag)
+                                               UpdateVote (..), VoteId, mkSystemTag,
+                                               mkVoteId)
+import           Pos.Util.Relay               (DataMsg (..))
 
 instance Arbitrary SystemTag where
     arbitrary =
@@ -35,12 +38,18 @@ instance Arbitrary UpdateVote where
         let uvSignature = sign sk (uvProposalId, uvDecision)
         return UpdateVote {..}
 
+instance Arbitrary (DataMsg VoteId UpdateVote) where
+    arbitrary = do
+        vote <- arbitrary
+        return $ DataMsg vote (mkVoteId vote)
+
 instance Arbitrary UpdateProposal where
     arbitrary = UpdateProposal
         <$> arbitrary
         <*> arbitrary
         <*> arbitrary
         <*> (HM.fromList <$> listOf1 arbitrary)
+        <*> pure (mkAttributes ())
 
 derive makeArbitrary ''UpdateData
 derive makeArbitrary ''UpdatePayload

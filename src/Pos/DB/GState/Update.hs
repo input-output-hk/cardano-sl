@@ -26,6 +26,9 @@ module Pos.DB.GState.Update
        , runProposalIterator
        , getOldProposals
        , getDeepProposals
+
+       , ConfPropIter
+       , getConfirmedProposals
        ) where
 
 import           Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
@@ -98,6 +101,8 @@ data UpdateOp
     = PutProposal !ProposalState
     | DeleteProposal !UpId !ApplicationName
     | ConfirmVersion !SoftwareVersion
+    | DelConfirmedVersion !ApplicationName
+    | AddConfirmedProposal !NumSoftwareVersion !UpdateProposal
     | SetLastPV !ProtocolVersion
     | SetScriptVersion !ProtocolVersion !ScriptVersion
     | DelScriptVersion !ProtocolVersion
@@ -115,6 +120,10 @@ instance RocksBatchOp UpdateOp where
         [Rocks.Del (proposalAppKey appName), Rocks.Del (proposalKey upId)]
     toBatchOp (ConfirmVersion sv) =
         [Rocks.Put (confirmedVersionKey $ svAppName sv) (encodeStrict $ svNumber sv)]
+    toBatchOp (DelConfirmedVersion app) =
+        [Rocks.Del (confirmedVersionKey app)]
+    toBatchOp (AddConfirmedProposal nsv up) =
+        [Rocks.Put (confirmedProposalKey nsv) (encodeStrict up)]
     toBatchOp (SetLastPV pv) =
         [Rocks.Put lastPVKey (encodeStrict pv)]
     toBatchOp (SetScriptVersion pv sv) =
@@ -197,6 +206,22 @@ getDeepProposals cd = runProposalMapIterator (step []) snd
         , proposalDifficulty <= cd = step (u : res)
         | otherwise = step res
 
+-- Iterator by confirmed proposals
+data ConfPropIter
+
+instance DBIteratorClass ConfPropIter where
+    type IterKey ConfPropIter = NumSoftwareVersion
+    type IterValue ConfPropIter = UpdateProposal
+    iterKeyPrefix _ = confirmedIterationPrefix
+
+getConfirmedProposals :: MonadDB ssc m => NumSoftwareVersion -> m [UpdateProposal]
+getConfirmedProposals reqNsv = runDBnIterator @ConfPropIter _gStateDB (step [])
+  where
+    step res = nextItem >>= maybe (pure res) (onItem res)
+    onItem res (nsv, up)
+        | nsv > reqNsv = step (up:res)
+        | otherwise    = step res
+
 ----------------------------------------------------------------------------
 -- Keys ('us' prefix stands for Update System)
 ----------------------------------------------------------------------------
@@ -218,6 +243,12 @@ confirmedVersionKey = mappend "us/c" . encodeStrict
 
 iterationPrefix :: ByteString
 iterationPrefix = "us/p"
+
+confirmedProposalKey :: NumSoftwareVersion -> ByteString
+confirmedProposalKey = encodeWithKeyPrefix @ConfPropIter
+
+confirmedIterationPrefix :: ByteString
+confirmedIterationPrefix = "us/cp"
 
 ----------------------------------------------------------------------------
 -- Details

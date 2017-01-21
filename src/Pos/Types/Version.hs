@@ -5,6 +5,7 @@ module Pos.Types.Version
          -- * Protocol Version
          ProtocolVersion (..)
        , canBeNextPV
+       , parseProtocolVersion
 
          -- * Software Version
        , NumSoftwareVersion
@@ -12,17 +13,24 @@ module Pos.Types.Version
        , ApplicationName (..)
        , mkApplicationName
        , applicationNameMaxLength
+       , parseSoftwareVersion
        ) where
 
-import           Universum           hiding (show)
+import           Universum              hiding (show)
 
-import           Data.Char           (isAscii)
-import           Data.Hashable       (Hashable)
-import           Data.SafeCopy       (base, deriveSafeCopySimple)
-import qualified Data.Text           as T
-import qualified Data.Text.Buildable as Buildable
-import           Formatting          (bprint, int, shown, stext, (%))
-import           Prelude             (show)
+import           Data.Char              (isAscii)
+import           Data.Hashable          (Hashable)
+import           Data.SafeCopy          (base, deriveSafeCopySimple)
+import qualified Data.Text              as T
+import qualified Data.Text.Buildable    as Buildable
+import           Formatting             (bprint, int, shown, stext, (%))
+import           Prelude                (show)
+import           Text.Parsec            (try)
+import           Text.Parsec.Char       (anyChar, char, letter, string)
+import           Text.Parsec.Combinator (manyTill)
+import           Text.Parsec.Text       (Parser)
+
+import           Pos.Util               (parseIntegralSafe)
 
 -- | Communication protocol version.
 data ProtocolVersion = ProtocolVersion
@@ -39,7 +47,7 @@ instance Buildable ProtocolVersion where
     build = bprint shown
 
 -- | This function checks whether protocol version passed as the
--- second argument can be approved after approval of protocol version
+-- second argument can be adopted after adoption of protocol version
 -- passed as the first argument.
 canBeNextPV :: ProtocolVersion -> ProtocolVersion -> Bool
 canBeNextPV ProtocolVersion { pvMajor = oldMajor
@@ -53,6 +61,15 @@ canBeNextPV ProtocolVersion { pvMajor = oldMajor
                      , newMinor == oldMinor + 1 && newAlt == oldAlt
                      , newMinor == oldMinor && newAlt == oldAlt + 1
                      ]
+
+parseProtocolVersion :: Parser ProtocolVersion
+parseProtocolVersion = do
+    pvMajor <- parseIntegralSafe
+    _       <- char '.'
+    pvMinor <- parseIntegralSafe
+    _       <- char '.'
+    pvAlt   <- parseIntegralSafe
+    return ProtocolVersion{..}
 
 instance Hashable ProtocolVersion
 
@@ -89,6 +106,13 @@ instance Show SoftwareVersion where
     show = toString . pretty
 
 instance Hashable SoftwareVersion
+
+parseSoftwareVersion :: Parser SoftwareVersion
+parseSoftwareVersion = do
+    svAppName <- ApplicationName . toText <$>
+        ((:) <$> letter <*> manyTill anyChar (try $ string "-"))
+    svNumber  <- parseIntegralSafe
+    return SoftwareVersion{..}
 
 deriveSafeCopySimple 0 'base ''ApplicationName
 deriveSafeCopySimple 0 'base ''ProtocolVersion

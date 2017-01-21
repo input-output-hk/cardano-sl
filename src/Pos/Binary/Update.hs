@@ -39,14 +39,15 @@ instance Bi U.UpdateVote where
                           *> put uvSignature
 
 instance Bi U.UpdateData where
-    get = label "UpdateData" $ U.UpdateData <$> get <*> get <*> get
+    get = label "UpdateData" $ U.UpdateData <$> get <*> get <*> get <*> get
     put U.UpdateData {..} =  put udAppDiffHash
                           *> put udPkgHash
                           *> put udUpdaterHash
+                          *> put udMetadataHash
 
 instance Bi U.UpdateProposal where
     get = label "UpdateProposal" $
-          U.UpdateProposal <$> get <*> get <*> get <*> getUpData
+          U.UpdateProposal <$> get <*> get <*> get <*> getUpData <*> get
       where getUpData = do   -- Check if proposal data is non-empty
                 pd <- get
                 when (HM.null pd) $
@@ -56,6 +57,7 @@ instance Bi U.UpdateProposal where
                               *> put upScriptVersion
                               *> put upSoftwareVersion
                               *> put upData
+                              *> put upAttributes
 
 instance Bi U.UpdatePayload where
     get = label "UpdatePayload" $ liftA2 U.UpdatePayload get get
@@ -68,9 +70,21 @@ instance Bi U.UpdatePayload where
 instance Binary U.VoteState
 instance Bi U.VoteState
 
+instance Bi a => Bi (U.PrevValue a) where
+    put (U.PrevValue v) = putWord8 2 >> put v
+    put U.NoExist       = putWord8 3
+    get = getWord8 >>= \case
+        2 -> U.PrevValue <$> get
+        3 -> pure U.NoExist
+        x -> fail $ "get@PrevValue: invalid tag: " <> show x
+
 instance Bi U.USUndo where
-    get = pure U.USUndo
-    put _ = pass
+    get = label "USUndo" $ liftM4 U.USUndo get get get get
+    put U.USUndo{..} =
+        put unCreatedNewDepsFor *>
+        put unLastAdoptedPV *>
+        put unChangedProps *>
+        put unChangedSV
 
 instance Bi U.UndecidedProposalState where
     put U.UndecidedProposalState {..} = do

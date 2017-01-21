@@ -5,6 +5,8 @@
 
 module Pos.Communication.Methods
        ( sendTx
+       , sendVote
+       , sendUpdateProposal
        ) where
 
 import           Formatting                  (build, sformat, shown, (%))
@@ -21,6 +23,7 @@ import           Pos.Crypto                  (hash)
 import           Pos.DHT.Model.Neighbors     (sendToNode)
 import           Pos.Txp.Types.Communication (TxMsgContents (..))
 import           Pos.Types                   (TxAux)
+import           Pos.Update                  (UpId, UpdateProposal, UpdateVote, mkVoteId)
 import           Pos.Util.Relay              (DataMsg (..))
 import           Pos.Util.TimeWarp           (NetworkAddress)
 import           Pos.WorkMode                (MinWorkMode)
@@ -30,4 +33,27 @@ sendTx :: (MinWorkMode m) => SendActions BiP m -> NetworkAddress -> TxAux -> m (
 sendTx sendActions addr (tx,w,d) = handleAll handleE $ do
     sendToNode sendActions addr $ DataMsg (TxMsgContents tx w d) (hash tx)
   where
-    handleE e = logWarning $ sformat ("Error sending tx "%build%" to "%shown%": "%shown) tx addr e
+    handleE e =
+      logWarning $ sformat ("Error sending tx "%build%" to "%shown%": "%shown) tx addr e
+
+-- Send UpdateVote to given address.
+sendVote :: (MinWorkMode m) => SendActions BiP m -> NetworkAddress -> UpdateVote -> m ()
+sendVote sendActions addr vote = handleAll handleE $
+    sendToNode sendActions addr $ DataMsg vote (mkVoteId vote)
+  where
+    handleE e = logWarning $ sformat ("Error sending UpdateVote "%build%" to "%shown%": "%shown) vote addr e
+
+-- Send UpdateProposal to given address.
+sendUpdateProposal
+    :: (MinWorkMode m)
+    => SendActions BiP m
+    -> NetworkAddress
+    -> UpId
+    -> UpdateProposal
+    -> [UpdateVote]
+    -> m ()
+sendUpdateProposal sendActions addr upid proposal votes =
+    handleAll handleE $
+        sendToNode sendActions addr $ DataMsg (proposal, votes) upid
+  where
+    handleE e = logWarning $ sformat ("Error sending UpdateProposal "%build%" to "%shown%": "%shown) (proposal, votes) addr e

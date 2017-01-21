@@ -5,10 +5,13 @@
 
 module Pos.Update.Network.Listeners
        ( usListeners
+       , usStubListeners
        ) where
 
+import           Formatting               (build, sformat, (%))
 import           Node                     (ListenerAction (..))
 import           Serokell.Util.Verify     (VerificationRes (..))
+import           System.Wlog              (logDebug)
 import           Universum
 
 import           Pos.Binary.Communication ()
@@ -38,6 +41,10 @@ usListeners =
     , handleDataVote
     ]
 
+usStubListeners
+   :: [ListenerAction BiP m]
+usStubListeners = []  -- TODO: [CSL-513] define
+
 ----------------------------------------------------------------------------
 -- UpdateProposal listeners
 ----------------------------------------------------------------------------
@@ -53,7 +60,8 @@ handleReqProposal = ListenerActionOneMsg $
 
 handleDataProposal :: WorkMode ssc m => ListenerAction BiP m
 handleDataProposal = ListenerActionOneMsg $
-    \peerId sendActions (i :: DataMsg UpId (UpdateProposal, [UpdateVote])) ->
+    \peerId sendActions (i :: DataMsg UpId (UpdateProposal, [UpdateVote])) -> do
+    logDebug $ sformat ("Received update proposal: "%build) i
     handleDataL i peerId sendActions
 
 instance WorkMode ssc m =>
@@ -83,7 +91,8 @@ handleReqVote = ListenerActionOneMsg $ \peerId sendActions (i :: ReqMsg VoteId V
     handleReqL i peerId sendActions
 
 handleDataVote :: WorkMode ssc m => ListenerAction BiP m
-handleDataVote = ListenerActionOneMsg $ \peerId sendActions (i :: DataMsg VoteId UpdateVote) ->
+handleDataVote = ListenerActionOneMsg $ \peerId sendActions (i :: DataMsg VoteId UpdateVote) -> do
+    logDebug $ sformat ("Received vote: "%build) i
     handleDataL i peerId sendActions
 
 instance WorkMode ssc m =>

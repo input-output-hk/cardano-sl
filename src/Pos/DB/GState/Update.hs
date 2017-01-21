@@ -214,6 +214,10 @@ instance DBIteratorClass ConfPropIter where
     type IterValue ConfPropIter = UpdateProposal
     iterKeyPrefix _ = confirmedIterationPrefix
 
+-- | Get confirmed proposals which update our application and have
+-- version bigger than argument. For instance, current software
+-- version can be passed to this function to get all proposals with
+-- bigger version.
 getConfirmedProposals :: MonadDB ssc m => NumSoftwareVersion -> m [UpdateProposal]
 getConfirmedProposals reqNsv = runDBnIterator @ConfPropIter _gStateDB (step [])
   where

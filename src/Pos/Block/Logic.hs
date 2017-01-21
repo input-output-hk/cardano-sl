@@ -206,9 +206,8 @@ classifyHeaders
     :: WorkMode ssc m
     => NewestFirst NE (BlockHeader ssc) -> m (ClassifyHeadersRes ssc)
 classifyHeaders headers = do
-    let newestHash = headers ^. _Wrapped . _neHead . headerHashG
-        oldestHash = headers ^. _Wrapped . _neLast . headerHashG
-    tip <- GS.getTip
+    tipHeader <- DB.getTipBlockHeader
+    let tip = headerHash tipHeader
     haveOldest <- isJust <$> DB.getBlockHeader oldestHash
     let headersValid = isVerSuccess $ verifyHeaders True (headers & _Wrapped %~ toList)
     if | not headersValid ->
@@ -217,16 +216,20 @@ classifyHeaders headers = do
              pure $ CHsInvalid "Last block of the passed chain wasn't found locally"
        | newestHash == headerHash tip ->
              pure $ CHsUseless "Newest hash is the same as our tip"
+       | newestHeader ^. difficultyL <= tipHeader ^. difficultyL ->
+             pure $ CHsUseless "Newest hash difficulty is not greater than our tip's"
        | otherwise -> fromMaybe uselessGeneral <$> processClassify
   where
+    newestHeader = headers ^. _Wrapped . _neHead
+    newestHash = headerHash newestHeader
+    oldestHash = headers ^. _Wrapped . _neLast . headerHashG
     uselessGeneral =
         CHsUseless "Couldn't find lca -- maybe db state updated in the process"
     processClassify = runMaybeT $ do
         tipHeader <- view blockHeader <$> lift DB.getTipBlock
         lift $ logDebug $
             sformat ("Classifying headers: "%listJson) $ map (view headerHashG) headers
-        lcaHash <- MaybeT $ lcaWithMainChain headers
-        lca <- MaybeT $ DB.getBlockHeader lcaHash
+        lca <- MaybeT . DB.getBlockHeader =<< MaybeT (lcaWithMainChain headers)
         let depthDiff = tipHeader ^. difficultyL - lca ^. difficultyL
         lcaChild <- MaybeT $ pure $
             find (\bh -> bh ^. prevBlockL == headerHash lca) headers

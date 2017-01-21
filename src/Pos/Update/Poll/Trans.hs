@@ -40,7 +40,8 @@ import           Pos.Update.Core             (UpdateProposal (..))
 import           Pos.Update.MemState.Class   (MonadUSMem (..))
 import           Pos.Update.Poll.Class       (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Types       (PollModifier (..), pmDelActivePropsIdxL,
-                                              pmDelActivePropsL, pmLastAdoptedPVL,
+                                              pmDelActivePropsL, pmDelConfirmedL,
+                                              pmDelScriptVersionsL, pmLastAdoptedPVL,
                                               pmNewActivePropsIdxL, pmNewActivePropsL,
                                               pmNewConfirmedL, pmNewScriptVersionsL,
                                               psProposal)
@@ -109,9 +110,11 @@ instance MonadPollRead m =>
 instance MonadPollRead m =>
          MonadPoll (PollT m) where
     addScriptVersionDep pv sv = PollT $ pmNewScriptVersionsL . at pv .= Just sv
+    delScriptVersionDep pv = PollT $ pmDelScriptVersionsL . at pv .= Nothing
     setLastAdoptedPV pv = PollT $ pmLastAdoptedPVL .= Just pv
     setLastConfirmedSV SoftwareVersion {..} =
         PollT $ pmNewConfirmedL . at svAppName .= Just svNumber
+    delConfirmedSV appName = PollT $ pmDelConfirmedL . at appName .= Nothing
     addActiveProposal ps =
         PollT $ do
             let up = psProposal ps
@@ -122,11 +125,16 @@ instance MonadPollRead m =>
             pmNewActivePropsIdxL . at appName .= Just upId
             pmDelActivePropsL . at upId .= Nothing
             pmDelActivePropsIdxL . at appName .= Nothing
-    deactivateProposal id appName = PollT $ do
-        pmNewActivePropsL . at id .= Nothing
-        pmNewActivePropsIdxL . at appName .= Nothing
-        pmDelActivePropsL . at id .= Just ()
-        pmDelActivePropsIdxL . at appName .= Just id
+    deactivateProposal id = PollT $ do
+        prop <- getProposal id
+        whenJust prop $ \ps -> do
+            let up = psProposal ps
+                sv = upSoftwareVersion up
+                appName = svAppName sv
+            pmNewActivePropsL . at id .= Nothing
+            pmNewActivePropsIdxL . at appName .= Nothing
+            pmDelActivePropsL . at id .= Just ()
+            pmDelActivePropsIdxL . at appName .= Just id
 
 ----------------------------------------------------------------------------
 -- Common instances used all over the code

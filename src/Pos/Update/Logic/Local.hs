@@ -33,10 +33,8 @@ import           Universum
 import           Pos.Crypto             (PublicKey)
 import           Pos.DB.Class           (MonadDB)
 import qualified Pos.DB.GState          as DB
-import           Pos.Types              (HeaderHash, SlotId (..), SoftwareVersion (..),
-                                         slotIdF)
-import           Pos.Update.Core        (UpId, UpdatePayload (..),
-                                         UpdateProposal (upSoftwareVersion),
+import           Pos.Types              (HeaderHash, SlotId (..), slotIdF)
+import           Pos.Update.Core        (UpId, UpdatePayload (..), UpdateProposal,
                                          UpdateVote (..), canCombineVotes)
 import           Pos.Update.MemState    (LocalVotes, MemPool (..), MemState (..),
                                          MonadUSMem, UpdateProposals, askUSMemState,
@@ -45,8 +43,8 @@ import           Pos.Update.Poll        (MonadPoll (deactivateProposal),
                                          MonadPollRead (getProposal), PollModifier,
                                          PollVerFailure, evalPollT, execPollT,
                                          filterProposalsByThd, modifyPollModifier,
-                                         normalizePoll, psVotes, runDBPoll,
-                                         runPollT, verifyAndApplyUSPayload)
+                                         normalizePoll, psVotes, runDBPoll, runPollT,
+                                         verifyAndApplyUSPayload)
 
 -- MonadMask is needed because are using Lock. It can be improved later.
 type USLocalLogicMode σ m = (MonadDB σ m, MonadUSMem m, MonadMask m, WithLogger m)
@@ -266,10 +264,10 @@ finishPrepare badProposals proposals votes = do
     findProposal (Just x) _ = pure (Just x)
     findProposal Nothing x@(upId, _) =
         bool Nothing (Just x) <$> (isJust <$> getProposal upId)
-    deactivate chosenUpId (upId, proposal)
+    deactivate chosenUpId (upId, _)
         | chosenUpId == Just upId = pass
         | otherwise =
-            deactivateProposal upId (svAppName $ upSoftwareVersion proposal)
+            deactivateProposal upId
     isVoteValid UpdateVote {..} =
         (not (HS.member uvProposalId badProposals) &&) . isJust <$>
         getProposal uvProposalId

@@ -33,13 +33,14 @@ import           Pos.Types             (ChainDifficulty, Coin, EpochIndex,
                                         epochIndexL, flattenSlotId, headerSlot, sumCoins,
                                         unflattenSlotId, unsafeAddCoin,
                                         unsafeIntegerToCoin, unsafeSubCoin)
+import           Pos.Types.Version     (ApplicationName, NumSoftwareVersion)
 import           Pos.Update.Core       (LocalVotes, UpId, UpdatePayload (..),
                                         UpdateProposal (..), UpdateProposals,
                                         UpdateVote (..), combineVotes, isPositiveVote,
                                         newVoteState)
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Types (DecidedProposalState (..), PollVerFailure (..),
-                                        ProposalState (..), USUndo (..),
+                                        PrevValue (..), ProposalState (..), USUndo (..),
                                         UndecidedProposalState (..))
 import           Pos.Util              (getKeys)
 
@@ -178,7 +179,7 @@ putNewProposal slotOrHeader totalStake votesAndStakes up = addActiveProposal ps
 -- given header is applied.
 verifyAndApplyUSPayload
     :: (MonadError PollVerFailure m, MonadPoll m)
-    => Bool -> Either SlotId (MainBlockHeader __) -> UpdatePayload -> m USUndo
+    => Bool -> Either SlotId (MainBlockHeader __) -> UpdatePayload -> m ()
 verifyAndApplyUSPayload considerPropThreshold slotOrHeader UpdatePayload {..} = do
     -- First of all, we split all votes into groups. One group
     -- consists of votes for proposal from payload. Each other group
@@ -206,7 +207,6 @@ verifyAndApplyUSPayload considerPropThreshold slotOrHeader UpdatePayload {..} = 
                 (mainBlk ^. headerSlot)
                 (mainBlk ^. difficultyL)
             applyDepthCheck (mainBlk ^. difficultyL)
-    return USUndo
 
 -- Get stake of stakeholder who issued given vote as per given epoch.
 -- If stakeholder wasn't richman at that point, PollNotRichman is thrown.
@@ -269,6 +269,7 @@ verifyAndApplyProposal considerThreshold slotOrHeader votes up@UpdateProposal {.
 -- Here we check that script version from proposal is the same as
 -- script versions of other proposals with the same protocol version.
 -- We also add new mapping if it is new.
+-- Returns True if new script versions deps is created.
 verifyAndApplyProposalScript
     :: (MonadError PollVerFailure m, MonadPoll m)
     => UpId -> UpdateProposal -> m ()
@@ -310,7 +311,7 @@ verifySoftwareVersion upId UpdateProposal {..} =
         -- Otherwise we check that version is 1 more than stored
         -- version.
         Just n
-            | svNumber sv + 1 == n -> pass
+            | svNumber sv == n + 1 -> pass
             | otherwise ->
                 throwError
                     PollWrongSoftwareVersion
@@ -427,8 +428,8 @@ applyDepthCheck cd
     applyDepthCheckDo DecidedProposalState {..} = do
         let UndecidedProposalState {..} = dpsUndecided
         let sv = upSoftwareVersion upsProposal
-        setLastConfirmedSV sv
-        deactivateProposal (hash upsProposal) (svAppName sv)
+        when dpsDecision $ setLastConfirmedSV sv
+        deactivateProposal (hash upsProposal)
 
 ----------------------------------------------------------------------------
 -- Rollback
@@ -437,9 +438,26 @@ applyDepthCheck cd
 -- | Rollback application of UpdatePayload in MonadPoll using payload
 -- itself and undo data.
 rollbackUSPayload
-    :: MonadPoll m
+    :: forall m . MonadPoll m
     => ChainDifficulty -> UpdatePayload -> USUndo -> m ()
-rollbackUSPayload _ _ _ = const pass notImplemented
+rollbackUSPayload _ UpdatePayload{..} USUndo{..} = do
+    -- Rollback last confirmed
+    mapM_ setOrDelLastConfirmedSV (HM.toList unChangedSV)
+    -- Rollback proposals
+    mapM_ setOrDelProposal (HM.toList unChangedProps)
+    -- Rollback protocol version
+    whenJust unLastAdoptedPV setLastAdoptedPV
+    -- Rollback script
+    whenJust unCreatedNewDepsFor delScriptVersionDep
+  where
+    setOrDelLastConfirmedSV :: (ApplicationName, PrevValue NumSoftwareVersion) -> m ()
+    setOrDelLastConfirmedSV (svAppName, PrevValue svNumber) =
+        setLastConfirmedSV SoftwareVersion {..}
+    setOrDelLastConfirmedSV (appName, NoExist) = delConfirmedSV appName
+
+    setOrDelProposal :: (UpId, PrevValue ProposalState) -> m ()
+    setOrDelProposal (upid, NoExist)   = deactivateProposal upid
+    setOrDelProposal (_, PrevValue ps) = addActiveProposal ps
 
 ----------------------------------------------------------------------------
 -- Normalize

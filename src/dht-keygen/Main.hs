@@ -27,6 +27,7 @@ unHashId (HashId bs) = bs
 randomDHTKey :: IO BS.ByteString
 randomDHTKey = unHashId . hashAddress <$> runSecureRandom genNonce
 
+processArg :: [Char] -> IO ()
 processArg arg = do
     key <- generateKey $ BS.pack arg
     putStrLn . fromMaybe "Invalid nonce length" . fmap encodeUrl $ key

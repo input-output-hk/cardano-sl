@@ -79,8 +79,8 @@ switchConnection var pending = do
 upgradeApplicationWS :: ConnectionsVar -> Application -> Application
 upgradeApplicationWS wsConn = websocketsOr WS.defaultConnectionOptions $ switchConnection wsConn
 
-sendClose :: MonadIO m => ConnectionsVar -> NotifyEvent -> m ()
-sendClose = send WS.sendClose
+-- sendClose :: MonadIO m => ConnectionsVar -> NotifyEvent -> m ()
+-- sendClose = send WS.sendClose
 
 -- Sends notification msg to connected client. If there is no connection, notification msg will be ignored.
 sendWS :: MonadIO m => ConnectionsVar -> NotifyEvent -> m ()

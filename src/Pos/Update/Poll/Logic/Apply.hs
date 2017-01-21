@@ -2,170 +2,40 @@
 {-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
--- | Functions which operate on MonadPoll[Read].
+-- | Logic of application and verification of data in Poll.
 
-module Pos.Update.Poll.Functions
+module Pos.Update.Poll.Logic.Apply
        ( verifyAndApplyUSPayload
-       , rollbackUSPayload
-       , normalizePoll
-       , filterProposalsByThd
+       , verifyAndApplyProposal
+       , verifyAndApplyVoteDo
        ) where
 
-import           Control.Lens          (at)
-import           Control.Monad.Except  (MonadError, throwError)
-import qualified Data.HashMap.Strict   as HM
-import qualified Data.HashSet          as HS
-import           Data.List             (partition)
-import           Data.List.NonEmpty    (NonEmpty)
-import qualified Data.List.NonEmpty    as NE
-import           Exceptions            (note)
-import           Formatting            (build, sformat, (%))
-import           System.Wlog           (WithLogger, logWarning)
+import           Control.Monad.Except       (MonadError, throwError)
+import           Data.List                  (partition)
+import           Data.List.NonEmpty         (NonEmpty)
+import qualified Data.List.NonEmpty         as NE
 import           Universum
 
-import           Pos.Constants         (blkSecurityParam, updateImplicitApproval,
-                                        updateProposalThreshold, updateVoteThreshold, curSoftwareVersion)
-import           Pos.Crypto            (PublicKey, hash)
-import           Pos.Types             (ChainDifficulty, Coin, EpochIndex,
-                                        MainBlockHeader, SlotId (siEpoch),
-                                        SoftwareVersion (..), addressHash,
-                                        applyCoinPortion, coinToInteger, difficultyL,
-                                        epochIndexL, flattenSlotId, gbhExtra, headerSlot,
-                                        mehProtocolVersion, sumCoins, unflattenSlotId,
-                                        unsafeAddCoin, unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Types.Version     (ApplicationName, NumSoftwareVersion)
-import           Pos.Update.Core       (LocalVotes, UpId, UpdatePayload (..),
-                                        UpdateProposal (..), UpdateProposals,
-                                        UpdateVote (..), combineVotes, isPositiveVote,
-                                        newVoteState)
-import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Types (DecidedProposalState (..), PollVerFailure (..),
-                                        PrevValue (..), ProposalState (..), USUndo (..),
-                                        UndecidedProposalState (..))
-import           Pos.Util              (getKeys)
-
-----------------------------------------------------------------------------
--- Primitive operations, helpers
-----------------------------------------------------------------------------
-
-newtype TotalPositive = TotalPositive Integer
-newtype TotalNegative = TotalNegative Integer
-newtype TotalSum = TotalSum Integer
-
-mkTotPositive :: Coin -> TotalPositive
-mkTotPositive = TotalPositive . coinToInteger
-
-mkTotNegative :: Coin -> TotalNegative
-mkTotNegative = TotalNegative . coinToInteger
-
-mkTotSum :: Coin -> TotalSum
-mkTotSum = TotalSum . coinToInteger
-
--- Proposal is approved (which corresponds to 'Just True') if total
--- stake of votes for it is more than half of total stake.
--- Proposal is rejected (which corresponds to 'Just False') if total
--- stake of votes against it is more than half of total stake.
--- Otherwise proposal is undecided ('Nothing').
-isDecided :: TotalPositive -> TotalNegative -> TotalSum -> Maybe Bool
-isDecided (TotalPositive totalPositive) (TotalNegative totalNegative) (TotalSum totalSum)
-    | totalPositive * 2 > totalSum = Just True
-    | totalNegative * 2 > totalSum = Just False
-    | otherwise = Nothing
-
--- | Apply vote to UndecidedProposalState, thus modifing mutable data,
--- i. e. votes and stakes.
-voteToUProposalState
-    :: MonadError PollVerFailure m
-    => PublicKey
-    -> Coin
-    -> Bool
-    -> UndecidedProposalState
-    -> m UndecidedProposalState
-voteToUProposalState voter stake decision ups@UndecidedProposalState {..} = do
-    let upId = hash upsProposal
-    -- We need to find out new state of vote (it can be a fresh vote or revote).
-    let oldVote = upsVotes ^. at voter
-    let oldPositive = maybe False isPositiveVote oldVote
-    let oldNegative = maybe False (not . isPositiveVote) oldVote
-    let combinedMaybe = decision `combineVotes` oldVote
-    combined <-
-        note
-            (PollExtraRevote
-             { perStakeholder = addressHash voter
-             , perUpId = upId
-             , perDecision = decision
-             })
-            combinedMaybe
-    -- We recalculate new stake taking into account that old vote
-    -- could be deactivate.
-    let posStakeAfterRemove
-            | oldPositive = upsPositiveStake `unsafeSubCoin` stake
-            | otherwise = upsPositiveStake
-        negStakeAfterRemove
-            | oldNegative = upsNegativeStake `unsafeSubCoin` stake
-            | otherwise = upsNegativeStake
-    -- Then we recalculate stake adding stake of new vote.
-        posStakeFinal
-            | decision = posStakeAfterRemove `unsafeAddCoin` stake
-            | otherwise = posStakeAfterRemove
-        negStakeFinal
-            | decision = negStakeAfterRemove
-            | otherwise = negStakeAfterRemove `unsafeAddCoin` stake
-    -- We add a new vote with update state to set of votes.
-    let newVotes = HM.insert voter combined upsVotes
-    return
-        ups
-        { upsVotes = newVotes
-        , upsPositiveStake = posStakeFinal
-        , upsNegativeStake = negStakeFinal
-        }
-
--- Put a new proposal into context of MonadPoll. First argument
--- determines whether proposal is part of existing block or is taken
--- from mempool. State of proposal is calculated from votes for it and
--- their stakes.
-putNewProposal
-    :: forall ssc m.
-       (MonadPoll m)
-    => Either SlotId (MainBlockHeader ssc)
-    -> Coin
-    -> [(UpdateVote, Coin)]
-    -> UpdateProposal
-    -> m ()
-putNewProposal slotOrHeader totalStake votesAndStakes up = addActiveProposal ps
-  where
-    slotId = either identity (view headerSlot) slotOrHeader
-    cd = either (const Nothing) (Just . view difficultyL) slotOrHeader
-    totalPositive = sumCoins . map snd . filter (uvDecision . fst) $ votesAndStakes
-    totalNegative = sumCoins . map snd . filter (not . uvDecision . fst) $ votesAndStakes
-    votes = HM.fromList . map convertVote $ votesAndStakes
-    -- New proposal always has a fresh vote (not revote).
-    convertVote (UpdateVote {..}, _) = (uvKey, newVoteState uvDecision)
-    ups =
-        UndecidedProposalState
-        { upsVotes = votes
-        , upsProposal = up
-        , upsSlot = slotId
-        , upsPositiveStake = unsafeIntegerToCoin totalPositive
-        , upsNegativeStake = unsafeIntegerToCoin totalNegative
-        }
-    -- New proposal can be in decided state immediately if it has a
-    -- lot of positive votes.
-    ps
-        | Just decision <-
-             isDecided
-                 (TotalPositive totalPositive)
-                 (TotalNegative totalNegative)
-                 (mkTotSum totalStake) =
-            PSDecided
-                DecidedProposalState
-                {dpsDecision = decision, dpsUndecided = ups, dpsDifficulty = cd}
-    -- Or it can be in undecided state (more common case).
-        | otherwise = PSUndecided ups
-
-----------------------------------------------------------------------------
--- Verify and apply
-----------------------------------------------------------------------------
+import           Pos.Constants              (blkSecurityParam, curSoftwareVersion,
+                                             updateImplicitApproval,
+                                             updateProposalThreshold, updateVoteThreshold)
+import           Pos.Crypto                 (hash)
+import           Pos.Types                  (ChainDifficulty, Coin, EpochIndex,
+                                             MainBlockHeader, SlotId (siEpoch),
+                                             SoftwareVersion (..), addressHash,
+                                             applyCoinPortion, coinToInteger, difficultyL,
+                                             epochIndexL, flattenSlotId, gbhExtra,
+                                             headerSlot, mehProtocolVersion, sumCoins,
+                                             unflattenSlotId, unsafeIntegerToCoin)
+import           Pos.Update.Core            (UpId, UpdatePayload (..),
+                                             UpdateProposal (..), UpdateVote (..))
+import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
+import           Pos.Update.Poll.Logic.Base (isDecided, mkTotNegative, mkTotPositive,
+                                             mkTotSum, putNewProposal,
+                                             voteToUProposalState)
+import           Pos.Update.Poll.Types      (DecidedProposalState (..),
+                                             PollVerFailure (..), ProposalState (..),
+                                             UndecidedProposalState (..))
 
 -- | Verify UpdatePayload with respect to data provided by
 -- MonadPoll. If data is valid it is also applied.  Otherwise
@@ -448,115 +318,3 @@ applyDepthCheck cd
             when (svAppName curSoftwareVersion == svAppName sv) $
                 addConfirmedProposal (svNumber sv) upsProposal
         deactivateProposal (hash upsProposal)
-
-----------------------------------------------------------------------------
--- Rollback
-----------------------------------------------------------------------------
-
--- | Rollback application of UpdatePayload in MonadPoll using payload
--- itself and undo data.
-rollbackUSPayload
-    :: forall m . MonadPoll m
-    => ChainDifficulty -> UpdatePayload -> USUndo -> m ()
-rollbackUSPayload _ UpdatePayload{..} USUndo{..} = do
-    -- Rollback last confirmed
-    mapM_ setOrDelLastConfirmedSV (HM.toList unChangedSV)
-    -- Rollback proposals
-    mapM_ setOrDelProposal (HM.toList unChangedProps)
-    -- Rollback protocol version
-    whenJust unLastAdoptedPV setLastAdoptedPV
-    -- Rollback script
-    whenJust unCreatedNewDepsFor delScriptVersionDep
-  where
-    setOrDelLastConfirmedSV :: (ApplicationName, PrevValue NumSoftwareVersion) -> m ()
-    setOrDelLastConfirmedSV (svAppName, PrevValue svNumber) =
-        setLastConfirmedSV SoftwareVersion {..}
-    setOrDelLastConfirmedSV (appName, NoExist) = delConfirmedSV appName
-
-    setOrDelProposal :: (UpId, PrevValue ProposalState) -> m ()
-    setOrDelProposal (upid, NoExist)   = deactivateProposal upid
-    setOrDelProposal (_, PrevValue ps) = addActiveProposal ps
-
-----------------------------------------------------------------------------
--- Normalize
-----------------------------------------------------------------------------
-
--- | Normalize given proposals and votes with respect to current Poll
--- state, i. e. remove everything that is invalid. Valid data is
--- applied.  This function doesn't consider 'updateProposalThreshold'.
-normalizePoll
-    :: (MonadPoll m, WithLogger m)
-    => SlotId
-    -> UpdateProposals
-    -> LocalVotes
-    -> m (UpdateProposals, LocalVotes)
-normalizePoll slot proposals votes =
-    (,) <$> normalizeProposals slot proposals <*> normalizeVotes votes
-
--- Apply proposals which can be applied and put them in result.
--- Disregard other proposals.
-normalizeProposals
-    :: MonadPoll m
-    => SlotId -> UpdateProposals -> m UpdateProposals
-normalizeProposals slotId (toList -> proposals) =
-    HM.fromList . map (\x->(hash x, x)) . map fst . catRights proposals <$>
-    mapM (runExceptT . verifyAndApplyProposal False (Left slotId) []) proposals
-
--- Apply votes which can be applied and put them in result.
--- Disregard other votes.
-normalizeVotes
-    :: forall m . (MonadPoll m, WithLogger m)
-    => LocalVotes -> m LocalVotes
-normalizeVotes (HM.toList -> votesGroups) =
-    HM.fromList . catMaybes <$> mapM verifyNApplyVotesGroup votesGroups
-  where
-    verifyNApplyVotesGroup :: (UpId, HashMap PublicKey UpdateVote)
-                           -> m (Maybe (UpId, HashMap PublicKey UpdateVote))
-    verifyNApplyVotesGroup (upId, votesGroup) = getProposal upId >>= \case
-        Nothing -> Nothing <$
-                   logWarning (
-                       sformat ("Update Proposal with id "%build%" not found in normalizeVotes") upId)
-        Just ps
-            | PSUndecided ups <- ps -> do
-                let pks = HM.keys votesGroup
-                let uvs = toList votesGroup
-                verifiedPKs <-
-                  catRights pks <$>
-                  mapM (runExceptT . verifyAndApplyVoteDo Nothing ups) uvs
-                if | null verifiedPKs -> pure Nothing
-                   | otherwise  ->
-                       pure $ Just ( upId
-                                   , votesGroup `HM.intersection`
-                                     (HM.fromList verifiedPKs))
-            | otherwise  -> pure Nothing
-
--- Leave only those proposals which have enough stake for inclusion
--- into block according to 'updateProposalThreshold'. Note that this
--- function is read-only.
-filterProposalsByThd
-    :: forall m . (MonadPollRead m, WithLogger m)
-    => EpochIndex -> UpdateProposals -> m (UpdateProposals, HashSet UpId)
-filterProposalsByThd epoch proposalsHM = getEpochTotalStake epoch >>= \case
-    Nothing -> (mempty, getKeys proposalsHM) <$
-                logWarning
-                    (sformat ("Couldn't get stake in filterProposalsByTxd for epoch "%build) epoch)
-    Just totalStake -> do
-        let threshold = applyCoinPortion updateProposalThreshold totalStake
-        let proposals = HM.toList proposalsHM
-        filtered <- HM.fromList <$> filterM (hasEnoughtStake threshold . fst) proposals
-        pure (filtered, HS.fromList $ HM.keys $ proposalsHM `HM.difference` filtered)
-  where
-    hasEnoughtStake :: Coin -> UpId -> m Bool
-    hasEnoughtStake threshold id = getProposal id >>= \case
-        Nothing -> pure False
-        Just (PSUndecided UndecidedProposalState {..} ) ->
-            pure $ upsPositiveStake >= threshold
-        Just (PSDecided DecidedProposalState {..} ) ->
-            pure $ upsPositiveStake dpsUndecided >= threshold
-
-catRights :: [a] -> [Either PollVerFailure b] -> [(a, b)]
-catRights a b = catRightsDo $ zip a b
-  where
-    catRightsDo []                = []
-    catRightsDo ((_, Left _):xs)  = catRightsDo xs
-    catRightsDo ((x, Right y):xs) = (x, y):catRightsDo xs

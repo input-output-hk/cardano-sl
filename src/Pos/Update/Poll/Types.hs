@@ -231,7 +231,7 @@ makeLensesFor [ ("unCreatedNewDepsFor", "unCreatedNewDepsForL")
   ''USUndo
 
 instance Buildable USUndo where
-    build _ = ""
+    build _ = "BSUndo"
 
 instance Default USUndo where
     def = USUndo Nothing Nothing mempty mempty

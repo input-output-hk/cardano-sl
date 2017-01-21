@@ -42,6 +42,8 @@ import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Types (DecidedProposalState (..), PollVerFailure (..),
                                         PrevValue (..), ProposalState (..), USUndo (..),
                                         UndecidedProposalState (..))
+import           Pos.Util              (getKeys)
+
 ----------------------------------------------------------------------------
 -- Primitive operations, helpers
 ----------------------------------------------------------------------------
@@ -517,7 +519,7 @@ filterProposalsByThd
     :: forall m . (MonadPollRead m, WithLogger m)
     => EpochIndex -> UpdateProposals -> m (UpdateProposals, HashSet UpId)
 filterProposalsByThd epoch proposalsHM = getEpochTotalStake epoch >>= \case
-    Nothing -> (proposalsHM, mempty) <$
+    Nothing -> (mempty, getKeys proposalsHM) <$
                 logWarning
                     (sformat ("Couldn't get stake in filterProposalsByTxd for epoch "%build) epoch)
     Just totalStake -> do

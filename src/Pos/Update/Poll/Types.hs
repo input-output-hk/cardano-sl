@@ -172,6 +172,9 @@ data PollVerFailure
                      ,  perDecision    :: !Bool}
     | PollWrongHeaderProtocolVersion { pwhpvGiven   :: !ProtocolVersion
                                     ,  pwhpvAdopted :: !ProtocolVersion}
+    | PollBadProtocolVersion { pbpvUpId    :: !UpId
+                            ,  pbpvGiven   :: !ProtocolVersion
+                            ,  pbpvAdopted :: !ProtocolVersion}
     | PollInternalError !Text
 
 instance Buildable PollVerFailure where
@@ -213,6 +216,10 @@ instance Buildable PollVerFailure where
         bprint ("wrong protocol version has been seen in header: "%
                 build%" (current adopted is "%build%")")
         pwhpvGiven pwhpvAdopted
+    build (PollBadProtocolVersion {..}) =
+        bprint ("proposal "%build%" has bad protocol version: "%
+                build%" (current adopted is "%build%")")
+        pbpvUpId pbpvGiven pbpvAdopted
     build (PollInternalError msg) =
         bprint ("internal error: "%stext) msg
 

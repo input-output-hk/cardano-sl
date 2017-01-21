@@ -21,11 +21,9 @@ import qualified Data.HashMap.Strict   as HM
 import           Universum
 
 import           Pos.Crypto            (PublicKey, hash)
-import           Pos.Types             (Coin, MainBlockHeader, SlotId (siEpoch),
-                                        addressHash, coinToInteger, difficultyL,
-                                        headerSlot, mehProtocolVersion, sumCoins,
-                                        unflattenSlotId, unsafeAddCoin,
-                                        unsafeIntegerToCoin, unsafeSubCoin)
+import           Pos.Types             (Coin, MainBlockHeader, SlotId, addressHash,
+                                        coinToInteger, difficultyL, headerSlot, sumCoins,
+                                        unsafeAddCoin, unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Update.Core       (UpdateProposal (..), UpdateVote (..),
                                         combineVotes, isPositiveVote, newVoteState)
 import           Pos.Update.Poll.Class (MonadPoll (..))

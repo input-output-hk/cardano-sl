@@ -47,7 +47,7 @@ instance Buildable ProtocolVersion where
     build = bprint shown
 
 -- | This function checks whether protocol version passed as the
--- second argument can be approved after approval of protocol version
+-- second argument can be adopted after adoption of protocol version
 -- passed as the first argument.
 canBeNextPV :: ProtocolVersion -> ProtocolVersion -> Bool
 canBeNextPV ProtocolVersion { pvMajor = oldMajor

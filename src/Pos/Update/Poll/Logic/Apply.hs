@@ -23,10 +23,11 @@ import           Pos.Crypto                 (hash)
 import           Pos.Types                  (ChainDifficulty, Coin, EpochIndex,
                                              MainBlockHeader, SlotId (siEpoch),
                                              SoftwareVersion (..), addressHash,
-                                             applyCoinPortion, coinToInteger, difficultyL,
-                                             epochIndexL, flattenSlotId, gbhExtra,
-                                             headerSlot, mehProtocolVersion, sumCoins,
-                                             unflattenSlotId, unsafeIntegerToCoin)
+                                             applyCoinPortion, canBeNextPV, coinToInteger,
+                                             difficultyL, epochIndexL, flattenSlotId,
+                                             gbhExtra, headerSlot, mehProtocolVersion,
+                                             sumCoins, unflattenSlotId,
+                                             unsafeIntegerToCoin)
 import           Pos.Update.Core            (UpId, UpdatePayload (..),
                                              UpdateProposal (..), UpdateVote (..))
 import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
@@ -139,6 +140,8 @@ verifyAndApplyProposal considerThreshold slotOrHeader votes up@UpdateProposal {.
     -- Here we verify consistency with regards to script versions and
     -- update relevant state.
     verifyAndApplyProposalScript upId up
+    -- Then we verify that protocol version from proposal can follow last adopted software version.
+    verifyProtocolVersion upId up
     -- We also verify that software version is expected one.
     verifySoftwareVersion upId up
     -- After that we resolve stakes of all votes.
@@ -208,6 +211,23 @@ verifySoftwareVersion upId UpdateProposal {..} =
   where
     sv = upSoftwareVersion
     app = svAppName sv
+
+-- Here we verify that proposed protocol version is the same as
+-- adopted one or can follow it.
+verifyProtocolVersion
+    :: (MonadError PollVerFailure m, MonadPollRead m)
+    => UpId -> UpdateProposal -> m ()
+verifyProtocolVersion upId UpdateProposal {..} = do
+    lastAdopted <- getLastAdoptedPV
+    unless
+        (lastAdopted == upProtocolVersion ||
+         canBeNextPV lastAdopted upProtocolVersion) $
+        throwError
+            PollBadProtocolVersion
+            { pbpvUpId = upId
+            , pbpvGiven = upProtocolVersion
+            , pbpvAdopted = lastAdopted
+            }
 
 -- Here we check that proposal has at least 'updateProposalThreshold'
 -- stake of total stake in all positive votes for it.

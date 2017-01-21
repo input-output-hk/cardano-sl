@@ -448,7 +448,7 @@ rollbackUSPayload _ _ _ = const pass notImplemented
 -- state, i. e. remove everything that is invalid. Valid data is
 -- applied.  This function doesn't consider 'updateProposalThreshold'.
 normalizePoll
-    :: MonadPoll m
+    :: (MonadPoll m, WithLogger m)
     => SlotId
     -> UpdateProposals
     -> LocalVotes
@@ -464,17 +464,34 @@ normalizeProposals
 normalizeProposals slotId (toList -> proposals) =
     HM.fromList . map (\x->(hash x, x)) . map fst . catRights proposals <$>
     mapM (runExceptT . verifyAndApplyProposal False (Left slotId) []) proposals
-  where
 
 -- Apply votes which can be applied and put them in result.
 -- Disregard other votes.
 normalizeVotes
-    :: MonadPoll m
+    :: forall m . (MonadPoll m, WithLogger m)
     => LocalVotes -> m LocalVotes
-normalizeVotes votes = notImplemented
-    -- let otherGroups = NE.groupWith uvProposalId otherVotes
-    -- let cd = either (const Nothing) (Just . view difficultyL) slotOrHeader
-    -- mapM_ (verifyAndApplyVotesGroup cd) otherGroups
+normalizeVotes (HM.toList -> votesGroups) =
+    HM.fromList . catMaybes <$> mapM verifyNApplyVotesGroup votesGroups
+  where
+    verifyNApplyVotesGroup :: (UpId, HashMap PublicKey UpdateVote)
+                           -> m (Maybe (UpId, HashMap PublicKey UpdateVote))
+    verifyNApplyVotesGroup (upId, votesGroup) = getProposal upId >>= \case
+        Nothing -> Nothing <$
+                   logWarning (
+                       sformat ("Update Proposal with id "%build%" not found in normalizeVotes") upId)
+        Just ps
+            | PSUndecided ups <- ps -> do
+                let pks = HM.keys votesGroup
+                let uvs = toList votesGroup
+                verifiedPKs <-
+                  catRights pks <$>
+                  mapM (runExceptT . verifyAndApplyVoteDo Nothing ups) uvs
+                if | null verifiedPKs -> pure Nothing
+                   | otherwise  ->
+                       pure $ Just ( upId
+                                   , votesGroup `HM.intersection`
+                                     (HM.fromList verifiedPKs))
+            | otherwise  -> pure Nothing
 
 -- Leave only those proposals which have enough stake for inclusion
 -- into block according to 'updateProposalThreshold'. Note that this

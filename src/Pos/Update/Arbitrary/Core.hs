@@ -14,6 +14,7 @@ import           Universum
 import           Pos.Binary.Update            ()
 import           Pos.Crypto                   (sign)
 import           Pos.Crypto.Arbitrary         (KeyPair (..))
+import           Pos.Data.Attributes          (mkAttributes)
 import           Pos.Types.Arbitrary          ()
 import           Pos.Update.Arbitrary.Network ()
 import           Pos.Update.Core.Types        (SystemTag, UpdateData (..),
@@ -41,6 +42,7 @@ instance Arbitrary UpdateProposal where
         <*> arbitrary
         <*> arbitrary
         <*> (HM.fromList <$> listOf1 arbitrary)
+        <*> pure (mkAttributes ())
 
 derive makeArbitrary ''UpdateData
 derive makeArbitrary ''UpdatePayload

@@ -148,7 +148,7 @@ instance (Ssc ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
                 header <- DB.getBlockHeader h >>=
                     maybeThrow (DBMalformed "Best blockchain is non-continuous")
                 let prev = header ^. prevBlockL
-                return $ Just (prev, prev)
+                return $ Just (h, prev)
 
         let blockFetcher h txs = do
                 blk <- lift . lift $ DB.getBlock h >>=

@@ -1,4 +1,4 @@
--- | Functions for operating with transactions
+-- | Functions for operating with messages of update system
 
 module Pos.Wallet.Update
        ( submitVote

@@ -13,6 +13,8 @@ module Pos.DB.GState.Update
        , getAppProposal
        , getProposalStateByApp
        , getConfirmedSV
+       , getSlotDuration
+       , getMaxBlockSize
 
          -- * Operations
        , UpdateOp (..)
@@ -32,11 +34,13 @@ module Pos.DB.GState.Update
        ) where
 
 import           Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
+import           Data.Time.Units           (Microsecond)
 import qualified Database.RocksDB          as Rocks
 import           Universum
 
 import           Pos.Binary.Class          (encodeStrict)
 import           Pos.Binary.DB             ()
+import qualified Pos.Constants             as Const
 import           Pos.Crypto                (hash)
 import           Pos.DB.Class              (MonadDB, getUtxoDB)
 import           Pos.DB.Error              (DBError (DBMalformed))
@@ -92,6 +96,18 @@ getConfirmedSV
     :: MonadDB ssc m
     => ApplicationName -> m (Maybe NumSoftwareVersion)
 getConfirmedSV = getBi . confirmedVersionKey
+
+-- | Get actual slot duration.
+--
+-- TODO: should be stored in the database.
+getSlotDuration :: MonadDB ssc m => m (Maybe Microsecond)
+getSlotDuration = return (Just Const.slotDuration)
+
+-- | Get maximum block size (in bytes).
+--
+-- TODO: should be stored in the database.
+getMaxBlockSize :: MonadDB ssc m => m (Maybe Word64)
+getMaxBlockSize = return (Just Const.maxBlockSize)
 
 ----------------------------------------------------------------------------
 -- Operations

@@ -74,9 +74,15 @@ retrievalWorker sendActions = handleAll handleWE $ do
            whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
                withConnectionTo sendActions peerId $
                    requestHeaders mghNext (Just rHeader) peerId
-    dropRecoveryHeader recHeaderVar peerId =
-        atomically $ whenJustM (tryReadTMVar recHeaderVar) $ \(peer,_) ->
-            when (peer == peerId) (void $ tryTakeTMVar recHeaderVar)
+    dropRecoveryHeader recHeaderVar peerId = do
+        kicked <- atomically $ do
+            let processKick (peer,_) = do
+                    let p = peer == peerId
+                    when p $ void $ tryTakeTMVar recHeaderVar
+                    pure p
+            maybe (pure False) processKick =<< tryReadTMVar recHeaderVar
+        when kicked $ logWarning $
+            sformat ("Recovery mode communication dropped with peer "%shown) peerId
     handleLE recHeaderVar (peerId, headers) e = do
         logWarning $ sformat
             ("Error handling peerId="%shown%", headers="%listJson%": "%shown)

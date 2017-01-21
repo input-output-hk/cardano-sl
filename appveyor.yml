@@ -1,4 +1,4 @@
-version: 1.0.{build}
+version: 0.1.{build}
 image: Visual Studio 2015
 
 build: off
@@ -29,7 +29,7 @@ test_script:
   - stack setup --no-reinstall
   # Retry transient failures due to https://github.com/haskell/cabal/issues/4005 
   - scripts\appveyor-retry call stack --no-terminal --local-bin-path installers 
-      build -j 2 --test --no-haddock-deps --bench --no-run-benchmarks 
+      install -j 2 --test --no-haddock-deps --bench --no-run-benchmarks 
       --flag cardano-sl:with-web 
       --flag cardano-sl:with-wallet 
       --flag cardano-sl:-asserts
@@ -38,7 +38,6 @@ test_script:
       --extra-lib-dirs="C:\OpenSSL-Win64" 
       --extra-include-dirs="C:\projects\pos-haskell-prototype\rocksdb\include" 
       --extra-lib-dirs="C:\projects\pos-haskell-prototype" 
-      --copy-bins
   - stack exec -- cardano-wallet-hs2purs
   - cd daedalus
   - npm install

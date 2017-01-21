@@ -26,6 +26,7 @@ import           Pos.Delegation.Listeners          (delegationListeners,
                                                     delegationStubListeners)
 import           Pos.Ssc.Class.Listeners           (SscListenersClass (..))
 import           Pos.Txp.Listeners                 (txListeners, txStubListeners)
+import           Pos.Update                        (usListeners, usStubListeners)
 import           Pos.Util                          (withWaitLog, withWaitLogConvL)
 import           Pos.WorkMode                      (WorkMode)
 
@@ -42,6 +43,7 @@ allListeners =
         , map (modifyListenerLogger "tx") txListeners
         , map (modifyListenerLogger "delegation") delegationListeners
         , map (modifyListenerLogger "protocol") protocolListeners
+        , map (modifyListenerLogger "update") usListeners
         ]
   where
     addWaitLogging (ListenerActionOneMsg f) =
@@ -59,6 +61,7 @@ allStubListeners p =
         , txStubListeners p
         , delegationStubListeners
         , protocolStubListeners
+        , usStubListeners
         ]
 
 -- | Logger name for server.

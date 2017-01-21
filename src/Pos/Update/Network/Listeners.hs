@@ -5,6 +5,7 @@
 
 module Pos.Update.Network.Listeners
        ( usListeners
+       , usStubListeners
        ) where
 
 import           Formatting               (build, sformat, (%))
@@ -39,6 +40,10 @@ usListeners =
     , handleReqVote
     , handleDataVote
     ]
+
+usStubListeners
+   :: [ListenerAction BiP m]
+usStubListeners = []  -- TODO: [CSL-513] define
 
 ----------------------------------------------------------------------------
 -- UpdateProposal listeners

@@ -18,6 +18,7 @@ module Pos.Update.Core.Types
 
        , UpdateData (..)
        , SystemTag (getSystemTag)
+       , patakUpdateData
 
        , UpdatePayload (..)
        , UpdateProof
@@ -47,7 +48,7 @@ import           Serokell.Util.Text         (listJson)
 import           Universum                  hiding (show)
 
 import           Pos.Binary.Class           (Bi)
-import           Pos.Crypto                 (Hash, PublicKey, Signature, hash)
+import           Pos.Crypto                 (Hash, PublicKey, Signature, hash, unsafeHash)
 import           Pos.Script.Type            (ScriptVersion)
 import           Pos.Types.Version          (ProtocolVersion, SoftwareVersion)
 -- Import instance Safecopy HM.HashMap
@@ -94,6 +95,12 @@ data UpdateData = UpdateData
     , udPkgHash     :: !(Hash LByteString)
     , udUpdaterHash :: !(Hash LByteString)
     } deriving (Eq, Show, Generic, Typeable)
+
+patakUpdateData :: HM.HashMap SystemTag UpdateData
+patakUpdateData =
+    let b = "bardaq"
+        h = unsafeHash b
+    in  HM.fromList [(SystemTag b, UpdateData h h h)]
 
 type VoteId = (UpId, PublicKey, Bool)
 

@@ -6,7 +6,6 @@
 module Main where
 
 import           Control.Monad.Reader (MonadReader (..), ReaderT, ask, asks, runReaderT)
-import qualified Data.HashMap.Strict        as HM
 import           Data.List            ((!!))
 import           Data.Proxy           (Proxy (..))
 import qualified Data.Text            as T
@@ -30,7 +29,8 @@ import           Pos.Ssc.GodTossing   (SscGodTossing)
 import           Pos.Ssc.NistBeacon   (SscNistBeacon)
 import           Pos.Ssc.SscAlgo      (SscAlgo (..))
 import           Pos.Types            (EpochIndex (..), coinF, makePubKeyAddress, txaF)
-import           Pos.Update           (UpdateVote (..), UpdateProposal (..))
+import           Pos.Update           (UpdateVote (..), UpdateProposal (..),
+                                       patakUpdateData)
 import           Pos.Util.TimeWarp    (NetworkAddress)
 import           Pos.Wallet           (WalletMode, WalletParams (..), WalletRealMode,
                                        getBalance, runWalletReal, submitTx, submitVote, submitUpdateProposal)
@@ -73,7 +73,7 @@ runCmd sendActions (ProposeUpdate idx protocolVer scriptVer softwareVer) = do
             { upProtocolVersion = protocolVer
             , upScriptVersion   = scriptVer
             , upSoftwareVersion = softwareVer
-            , upData            = HM.empty
+            , upData            = patakUpdateData
             }
     if null na
         then putText "Error: no addresses specified"

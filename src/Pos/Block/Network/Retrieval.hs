@@ -508,7 +508,6 @@ relayBlock
     => SendActions BiP m -> Block ssc -> m ()
 relayBlock _ (Left _)                  = pass
 relayBlock sendActions (Right mainBlk) = do
-    recHeaderVar <- ncRecoveryHeader <$> getNodeContext
     isRecovery <- do
         var <- ncRecoveryHeader <$> getNodeContext
         isJust <$> atomically (tryReadTMVar var)

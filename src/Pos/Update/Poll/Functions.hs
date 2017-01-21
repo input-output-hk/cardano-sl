@@ -24,15 +24,15 @@ import           System.Wlog           (WithLogger, logWarning)
 import           Universum
 
 import           Pos.Constants         (blkSecurityParam, updateImplicitApproval,
-                                        updateProposalThreshold, updateVoteThreshold)
+                                        updateProposalThreshold, updateVoteThreshold, curSoftwareVersion)
 import           Pos.Crypto            (PublicKey, hash)
 import           Pos.Types             (ChainDifficulty, Coin, EpochIndex,
                                         MainBlockHeader, SlotId (siEpoch),
                                         SoftwareVersion (..), addressHash,
                                         applyCoinPortion, coinToInteger, difficultyL,
-                                        epochIndexL, flattenSlotId, headerSlot, sumCoins,
-                                        unflattenSlotId, unsafeAddCoin,
-                                        unsafeIntegerToCoin, unsafeSubCoin)
+                                        epochIndexL, flattenSlotId, gbhExtra, headerSlot,
+                                        mehProtocolVersion, sumCoins, unflattenSlotId,
+                                        unsafeAddCoin, unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Types.Version     (ApplicationName, NumSoftwareVersion)
 import           Pos.Update.Core       (LocalVotes, UpId, UpdatePayload (..),
                                         UpdateProposal (..), UpdateProposals,
@@ -181,9 +181,11 @@ verifyAndApplyUSPayload
     :: (MonadError PollVerFailure m, MonadPoll m)
     => Bool -> Either SlotId (MainBlockHeader __) -> UpdatePayload -> m ()
 verifyAndApplyUSPayload considerPropThreshold slotOrHeader UpdatePayload {..} = do
-    -- First of all, we split all votes into groups. One group
-    -- consists of votes for proposal from payload. Each other group
-    -- consists of votes for other proposals.
+    -- First of all, we verify data from header.
+    either (const pass) verifyHeader slotOrHeader
+    -- Then we split all votes into groups. One group consists of
+    -- votes for proposal from payload. Each other group consists of
+    -- votes for other proposals.
     let upId = hash <$> upProposal
     let votePredicate vote = maybe False (uvProposalId vote ==) upId
     let (curPropVotes, otherVotes) = partition votePredicate upVotes
@@ -207,6 +209,19 @@ verifyAndApplyUSPayload considerPropThreshold slotOrHeader UpdatePayload {..} = 
                 (mainBlk ^. headerSlot)
                 (mainBlk ^. difficultyL)
             applyDepthCheck (mainBlk ^. difficultyL)
+
+-- Here we verify all US-related data from header.
+verifyHeader
+    :: (MonadError PollVerFailure m, MonadPoll m)
+    => MainBlockHeader __ -> m ()
+verifyHeader header = do
+    -- Protocol version in block must be same as last adopted version.
+    lastAdopted <- getLastAdoptedPV
+    let versionInHeader = header ^. gbhExtra ^. mehProtocolVersion
+    unless (versionInHeader == lastAdopted) $
+        throwError
+            PollWrongHeaderProtocolVersion
+            {pwhpvGiven = versionInHeader, pwhpvAdopted = lastAdopted}
 
 -- Get stake of stakeholder who issued given vote as per given epoch.
 -- If stakeholder wasn't richman at that point, PollNotRichman is thrown.
@@ -428,7 +443,10 @@ applyDepthCheck cd
     applyDepthCheckDo DecidedProposalState {..} = do
         let UndecidedProposalState {..} = dpsUndecided
         let sv = upSoftwareVersion upsProposal
-        when dpsDecision $ setLastConfirmedSV sv
+        when dpsDecision $ do
+            setLastConfirmedSV sv
+            when (svAppName curSoftwareVersion == svAppName sv) $
+                addConfirmedProposal (svNumber sv) upsProposal
         deactivateProposal (hash upsProposal)
 
 ----------------------------------------------------------------------------

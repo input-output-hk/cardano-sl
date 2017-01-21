@@ -22,7 +22,7 @@ import           Pos.Script.Type      (ScriptVersion)
 import           Pos.Types            (ApplicationName, Block, NumSoftwareVersion,
                                        ProtocolVersion, SoftwareVersion (..), difficultyL,
                                        gbBody, gbHeader, mbUpdatePayload)
-import           Pos.Update.Core      (UpId)
+import           Pos.Update.Core      (UpId, UpdateProposal)
 import           Pos.Update.Error     (USError (USInternalError))
 import           Pos.Update.Poll      (DBPoll, MonadPoll, PollModifier (..), PollT,
                                        PollVerFailure, ProposalState, USUndo, execPollT,
@@ -105,7 +105,7 @@ modifierToBatch PollModifier {..} =
     concat $
     [ scModifierToBatch pmNewScriptVersions pmDelScriptVersions
     , pvModifierToBatch pmLastAdoptedPV
-    , confirmedModifierToBatch pmNewConfirmed pmDelConfirmed
+    , confirmedModifierToBatch pmNewConfirmed pmDelConfirmed pmNewConfirmedProps
     , upModifierToBatch pmNewActiveProps pmDelActivePropsIdx
     ]
 
@@ -124,11 +124,16 @@ pvModifierToBatch (Just v) = [DB.SomeBatchOp $ SetLastPV v]
 
 confirmedModifierToBatch :: HashMap ApplicationName NumSoftwareVersion
                          -> HashSet ApplicationName
+                         -> HashMap NumSoftwareVersion UpdateProposal
                          -> [DB.SomeBatchOp]
-confirmedModifierToBatch (HM.toList -> added) (toList -> deleted) = addOps ++ delOps
+confirmedModifierToBatch
+    (HM.toList -> added)
+    (toList -> deleted)
+    (HM.toList -> confAdded) = addOps ++ delOps ++ confAddOps
   where
     addOps = map (DB.SomeBatchOp . ConfirmVersion . uncurry SoftwareVersion) added
     delOps = map (DB.SomeBatchOp . DelConfirmedVersion) deleted
+    confAddOps = map (DB.SomeBatchOp . uncurry AddConfirmedProposal) confAdded
 
 upModifierToBatch :: HashMap UpId ProposalState
                   -> HashMap ApplicationName UpId

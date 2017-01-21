@@ -19,6 +19,7 @@ module Pos.Update.Poll.Types
        , pmLastAdoptedPVL
        , pmNewConfirmedL
        , pmDelConfirmedL
+       , pmNewConfirmedPropsL
        , pmNewActivePropsL
        , pmDelActivePropsL
        , pmNewActivePropsIdxL
@@ -119,6 +120,7 @@ data PollModifier = PollModifier
     , pmLastAdoptedPV     :: !(Maybe ProtocolVersion)
     , pmNewConfirmed      :: !(HashMap ApplicationName NumSoftwareVersion)
     , pmDelConfirmed      :: !(HashSet ApplicationName)
+    , pmNewConfirmedProps :: !(HashMap NumSoftwareVersion UpdateProposal)
     , pmNewActiveProps    :: !(HashMap UpId ProposalState)
     , pmDelActiveProps    :: !(HashSet UpId)
     , pmNewActivePropsIdx :: !(HashMap ApplicationName UpId)
@@ -130,6 +132,7 @@ makeLensesFor [ ("pmNewScriptVersions", "pmNewScriptVersionsL")
               , ("pmLastAdoptedPV", "pmLastAdoptedPVL")
               , ("pmNewConfirmed", "pmNewConfirmedL")
               , ("pmDelConfirmed", "pmDelConfirmedL")
+              , ("pmNewConfirmedProps", "pmNewConfirmedPropsL")
               , ("pmNewActiveProps", "pmNewActivePropsL")
               , ("pmDelActiveProps", "pmDelActivePropsL")
               , ("pmNewActivePropsIdx", "pmNewActivePropsIdxL")
@@ -167,9 +170,10 @@ data PollVerFailure
     | PollExtraRevote { perUpId        :: !UpId
                      ,  perStakeholder :: !StakeholderId
                      ,  perDecision    :: !Bool}
+    | PollWrongHeaderProtocolVersion { pwhpvGiven   :: !ProtocolVersion
+                                    ,  pwhpvAdopted :: !ProtocolVersion}
     | PollInternalError !Text
 
--- To be implemented for sure.
 instance Buildable PollVerFailure where
     build (PollWrongScriptVersion expected found upId) =
         bprint ("wrong script version in proposal "%build%
@@ -205,6 +209,10 @@ instance Buildable PollVerFailure where
         bprint ("stakeholder "%build%" vote "%stext%" proposal "
                 %build%" more than once")
         perStakeholder (bool "against" "for" perDecision) perUpId
+    build (PollWrongHeaderProtocolVersion {..}) =
+        bprint ("wrong protocol version has been seen in header: "%
+                build%" (current adopted is "%build%")")
+        pwhpvGiven pwhpvAdopted
     build (PollInternalError msg) =
         bprint ("internal error: "%stext) msg
 
@@ -212,13 +220,14 @@ instance Buildable PollVerFailure where
 -- Undo
 ----------------------------------------------------------------------------
 
+-- | Previous value of something that could be missing.
 data PrevValue a = PrevValue a | NoExist
 
 maybeToPrev :: Maybe a -> PrevValue a
 maybeToPrev (Just x) = PrevValue x
-maybeToPrev Nothing = NoExist
+maybeToPrev Nothing  = NoExist
 
--- To be extended for sure.
+-- | Data necessary to unapply US data.
 data USUndo = USUndo
     { unCreatedNewDepsFor :: !(Maybe ProtocolVersion)
     , unLastAdoptedPV     :: !(Maybe ProtocolVersion)

@@ -43,8 +43,8 @@ import           Pos.Update.Poll.Types       (PollModifier (..), pmDelActiveProp
                                               pmDelActivePropsL, pmDelConfirmedL,
                                               pmDelScriptVersionsL, pmLastAdoptedPVL,
                                               pmNewActivePropsIdxL, pmNewActivePropsL,
-                                              pmNewConfirmedL, pmNewScriptVersionsL,
-                                              psProposal)
+                                              pmNewConfirmedL, pmNewConfirmedPropsL,
+                                              pmNewScriptVersionsL, psProposal)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 ----------------------------------------------------------------------------
@@ -115,6 +115,7 @@ instance MonadPollRead m =>
     setLastConfirmedSV SoftwareVersion {..} =
         PollT $ pmNewConfirmedL . at svAppName .= Just svNumber
     delConfirmedSV appName = PollT $ pmDelConfirmedL . at appName .= Nothing
+    addConfirmedProposal nsv up = PollT $ pmNewConfirmedPropsL . at nsv .= Just up
     addActiveProposal ps =
         PollT $ do
             let up = psProposal ps

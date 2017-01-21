@@ -219,8 +219,8 @@ instance ( Ssc ssc
         Just hh -> return $ hh ^. difficultyL
         Nothing -> do
             th <- topHeader
-            cSlot <- flattenSlotId <$> getCurrentSlot
-            let hSlot = flattenEpochOrSlot th
+            cSlot <- fromIntegral . flattenSlotId <$> getCurrentSlot
+            let hSlot = fromIntegral $ flattenEpochOrSlot th :: Int
                 blksLeft = fromIntegral $ max 0 $ cSlot - blkSecurityParam - hSlot
             return $ blksLeft + th ^. difficultyL
 

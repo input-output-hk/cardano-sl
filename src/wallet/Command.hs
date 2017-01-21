@@ -24,7 +24,7 @@ data Command
     = Balance Address
     | Send Int [TxOut]
     | Vote Int Bool UpId
-    | ProposeUpdate Int ProtocolVersion ScriptVersion SoftwareVersion UpId
+    | ProposeUpdate Int ProtocolVersion ScriptVersion SoftwareVersion
     | Help
     | ListAddresses
     | DelegateLight !Int !Int
@@ -87,8 +87,7 @@ proposeUpdate =
     num <*>
     lexeme parseProtocolVersion <*>
     lexeme parseIntegralSafe    <*>
-    lexeme parseSoftwareVersion <*>
-    hash
+    lexeme parseSoftwareVersion
 
 command :: Parser Command
 command = try (text "balance") *> balance <|>

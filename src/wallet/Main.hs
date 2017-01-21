@@ -66,8 +66,7 @@ runCmd sendActions (Vote idx decision upid) = do
         else do
             lift $ submitVote sendActions na voteUpd
             putText "Submitted vote"
-runCmd sendActions (ProposeUpdate idx protocolVer scriptVer softwareVer
-        upid) = do
+runCmd sendActions (ProposeUpdate idx protocolVer scriptVer softwareVer) = do
     (skeys, na) <- ask
     let skey = skeys !! idx
     let updateProposal = UpdateProposal
@@ -79,7 +78,7 @@ runCmd sendActions (ProposeUpdate idx protocolVer scriptVer softwareVer
     if null na
         then putText "Error: no addresses specified"
         else do
-            lift $ submitUpdateProposal sendActions skey na upid updateProposal
+            lift $ submitUpdateProposal sendActions skey na updateProposal
             putText "Update proposal submitted"
 runCmd _ Help = do
     putText $

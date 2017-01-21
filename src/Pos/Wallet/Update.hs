@@ -13,7 +13,7 @@ import           Universum
 import           Pos.Binary                ()
 import           Pos.Communication.BiP     (BiP)
 import           Pos.Communication.Methods (sendUpdateProposal, sendVote)
-import           Pos.Crypto                (SecretKey, sign, toPublic)
+import           Pos.Crypto                (SecretKey, sign, toPublic, hash)
 import           Pos.Update                (UpId, UpdateProposal, UpdateVote (..))
 import           Pos.WorkMode              (MinWorkMode)
 
@@ -34,10 +34,10 @@ submitUpdateProposal
     => SendActions BiP m
     -> SecretKey
     -> [NetworkAddress]
-    -> UpId
     -> UpdateProposal
     -> m ()
-submitUpdateProposal sendActions sk na upid updProp = do
+submitUpdateProposal sendActions sk na prop = do
+    let upid = hash prop
     let initUpdVote = UpdateVote
             { uvKey        = toPublic sk
             , uvProposalId = upid
@@ -45,4 +45,4 @@ submitUpdateProposal sendActions sk na upid updProp = do
             , uvSignature  = sign sk (upid, True)
             }
     void $ forConcurrently na $
-        \addr -> sendUpdateProposal sendActions addr upid updProp [initUpdVote]
+        \addr -> sendUpdateProposal sendActions addr upid prop [initUpdVote]

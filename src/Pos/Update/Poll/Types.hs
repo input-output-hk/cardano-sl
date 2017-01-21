@@ -19,6 +19,7 @@ module Pos.Update.Poll.Types
        , pmLastAdoptedPVL
        , pmNewConfirmedL
        , pmDelConfirmedL
+       , pmNewConfirmedPropsL
        , pmNewActivePropsL
        , pmDelActivePropsL
        , pmNewActivePropsIdxL
@@ -119,6 +120,7 @@ data PollModifier = PollModifier
     , pmLastAdoptedPV     :: !(Maybe ProtocolVersion)
     , pmNewConfirmed      :: !(HashMap ApplicationName NumSoftwareVersion)
     , pmDelConfirmed      :: !(HashSet ApplicationName)
+    , pmNewConfirmedProps :: !(HashMap NumSoftwareVersion UpdateProposal)
     , pmNewActiveProps    :: !(HashMap UpId ProposalState)
     , pmDelActiveProps    :: !(HashSet UpId)
     , pmNewActivePropsIdx :: !(HashMap ApplicationName UpId)
@@ -130,6 +132,7 @@ makeLensesFor [ ("pmNewScriptVersions", "pmNewScriptVersionsL")
               , ("pmLastAdoptedPV", "pmLastAdoptedPVL")
               , ("pmNewConfirmed", "pmNewConfirmedL")
               , ("pmDelConfirmed", "pmDelConfirmedL")
+              , ("pmNewConfirmedProps", "pmNewConfirmedPropsL")
               , ("pmNewActiveProps", "pmNewActivePropsL")
               , ("pmDelActiveProps", "pmDelActivePropsL")
               , ("pmNewActivePropsIdx", "pmNewActivePropsIdxL")

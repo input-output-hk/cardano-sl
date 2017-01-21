@@ -16,7 +16,7 @@ import           Pos.Script.Type       (ScriptVersion)
 import           Pos.Types             (ApplicationName, ChainDifficulty, Coin,
                                         EpochIndex, NumSoftwareVersion, ProtocolVersion,
                                         SlotId, SoftwareVersion, StakeholderId)
-import           Pos.Update.Core       (UpId)
+import           Pos.Update.Core       (UpId, UpdateProposal)
 import           Pos.Update.Poll.Types (DecidedProposalState, ProposalState,
                                         UndecidedProposalState)
 
@@ -112,6 +112,8 @@ class MonadPollRead m => MonadPoll m where
     -- ^ Set last confirmed version of application.
     delConfirmedSV :: ApplicationName -> m ()
     -- ^ Del last confirmed version of application.
+    addConfirmedProposal :: NumSoftwareVersion -> UpdateProposal -> m ()
+    -- ^ Add new confirmed update proposal for our application.
     addActiveProposal :: ProposalState -> m ()
     -- ^ Add new active proposal with its state.
     deactivateProposal :: UpId -> m ()
@@ -137,6 +139,10 @@ class MonadPollRead m => MonadPoll m where
     default delConfirmedSV
         :: (MonadTrans t, MonadPoll m', t m' ~ m) => ApplicationName -> m ()
     delConfirmedSV = lift . delConfirmedSV
+
+    default addConfirmedProposal
+        :: (MonadTrans t, MonadPoll m', t m' ~ m) => NumSoftwareVersion -> UpdateProposal -> m ()
+    addConfirmedProposal sv = lift . addConfirmedProposal sv
 
     default addActiveProposal
         :: (MonadTrans t, MonadPoll m', t m' ~ m) => ProposalState -> m ()

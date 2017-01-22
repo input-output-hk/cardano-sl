@@ -31,9 +31,10 @@ import           Pos.Types                  (BlockVersion (..), ChainDifficulty,
 import           Pos.Update.Core            (UpId, UpdatePayload (..),
                                              UpdateProposal (..), UpdateVote (..))
 import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Logic.Base (getBVScript, isConfirmedBV, isDecided,
-                                             mkTotNegative, mkTotPositive, mkTotSum,
-                                             putNewProposal, voteToUProposalState)
+import           Pos.Update.Poll.Logic.Base (confirmBlockVersion, getBVScript,
+                                             isConfirmedBV, isDecided, mkTotNegative,
+                                             mkTotPositive, mkTotSum, putNewProposal,
+                                             voteToUProposalState)
 import           Pos.Update.Poll.Types      (BlockVersionState (..),
                                              DecidedProposalState (..),
                                              PollVerFailure (..), ProposalState (..),
@@ -361,4 +362,5 @@ applyDepthCheck cd
             setLastConfirmedSV sv
             when (svAppName curSoftwareVersion == svAppName sv) $
                 addConfirmedProposal (svNumber sv) upsProposal
+            confirmBlockVersion $ upBlockVersion upsProposal
         deactivateProposal (hash upsProposal)

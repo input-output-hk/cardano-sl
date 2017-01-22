@@ -12,6 +12,8 @@ module Pos.Update.Poll.Logic.Base
 
        , isConfirmedBV
        , getBVScript
+       , confirmBlockVersion
+
        , isDecided
        , voteToUProposalState
        , putNewProposal
@@ -63,6 +65,13 @@ isConfirmedBV = fmap (maybe False bvsIsConfirmed) . getBVState
 -- | Get 'ScriptVersion' associated with given 'BlockVersion' if it is known.
 getBVScript :: MonadPollRead m => BlockVersion -> m (Maybe ScriptVersion)
 getBVScript = fmap (maybe Nothing (Just . bvsScript)) . getBVState
+
+-- | Mark given 'BlockVersion' as confirmed if it is known.
+confirmBlockVersion :: MonadPoll m => BlockVersion -> m ()
+confirmBlockVersion bv =
+    getBVState bv >>= \case
+        Nothing -> pass
+        Just bvs -> putBVState bv bvs {bvsIsConfirmed = True}
 
 -- Proposal is approved (which corresponds to 'Just True') if total
 -- stake of votes for it is more than half of total stake.

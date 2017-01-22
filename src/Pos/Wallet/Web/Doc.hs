@@ -27,8 +27,8 @@ import           Pos.Crypto                 (keyGen)
 import           Pos.Types                  (Coin, makePubKeyAddress, mkCoin)
 import           Pos.Wallet.Web.Api         (walletApi)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile, CTx,
-                                             CTxId, CTxMeta, CWallet, CWalletMeta,
-                                             addressToCAddress)
+                                             CTxId, CTxMeta, CWallet, CWalletInit,
+                                             CWalletMeta, addressToCAddress)
 import           Pos.Wallet.Web.Error       (WalletError)
 
 walletDocs :: API
@@ -157,7 +157,7 @@ instance ToCapture (Capture "currency" CCurrency) where
         }
 
 instance ToSample WalletError where
-    toSamples Proxy = fail "ToSample WalletError: Not Implemented!"
+    toSamples Proxy = notImplemented
 
 instance ToSample Coin where
     toSamples Proxy = singleSample (mkCoin 100500)
@@ -167,15 +167,19 @@ instance ToSample Coin where
 --
 -- FIXME!
 instance ToSample CHash where
-    toSamples Proxy = fail "ToSample CHash: Not Implemented!"
+    toSamples Proxy = notImplemented
 
 -- FIXME!
 instance ToSample CWallet where
-    toSamples Proxy = fail "ToSample CWallet: Not Implemented!"
+    toSamples Proxy = notImplemented
 
 -- FIXME!
 instance ToSample CWalletMeta where
-    toSamples Proxy = fail "ToSample CWalletMeta: Not Implemented!"
+    toSamples Proxy = notImplemented
+
+-- FIXME!
+instance ToSample CWalletInit where
+    toSamples Proxy = notImplemented
 
 instance ToSample CAddress where
     toSamples Proxy = singleSample . addressToCAddress . makePubKeyAddress . fst $
@@ -184,22 +188,22 @@ instance ToSample CAddress where
 -- FIXME: this is required because of Wallet.Web.Api `type Cors...`
 -- I don't really what should be sample for Cors ?
 instance ToSample Text where
-    toSamples Proxy = fail "ToSample CORS: Not Implemented!"
+    toSamples Proxy = notImplemented
 
 instance ToSample () where
     toSamples Proxy = singleSample ()
 
 instance ToSample CTx where
-    toSamples Proxy = fail "ToSample CTx: Not Implemented!"
+    toSamples Proxy = notImplemented
 
 instance ToSample CTxMeta where
-    toSamples Proxy = fail "ToSample CTxMeta: Not Implemented!"
+    toSamples Proxy = notImplemented
 
 instance ToSample CProfile where
-    toSamples Proxy = fail "ToSample CProfile: Not Implemented!"
+    toSamples Proxy = notImplemented
 
 instance ToSample Word where
-    toSamples Proxy = fail "ToSample Word: Not Implemented!"
+    toSamples Proxy = notImplemented
 
 --
 --instance ToSample Tx where

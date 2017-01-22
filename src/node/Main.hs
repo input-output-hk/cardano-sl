@@ -4,55 +4,57 @@
 
 module Main where
 
-import           Control.Lens        (_head)
-import           Data.List           ((!!))
-import           Data.Maybe          (fromJust)
-import           Data.Proxy          (Proxy (..))
-import           Mockable            (Production)
-import           System.Wlog         (LoggerName)
+import           Control.Lens          (_head)
+import           Data.List             ((!!))
+import           Data.Maybe            (fromJust)
+import           Data.Proxy            (Proxy (..))
+import           Mockable              (Production)
+import           System.Wlog           (LoggerName)
 import           Universum
 
-import           Pos.Binary          ()
-import qualified Pos.CLI             as CLI
-import           Pos.Constants       (staticSysStart)
-import           Pos.Crypto          (SecretKey, VssKeyPair, keyGen, vssKeyGen)
-import           Pos.Util.TimeWarp   (sec)
+import           Pos.Binary            ()
+import qualified Pos.CLI               as CLI
+import           Pos.Constants         (staticSysStart)
+import           Pos.Crypto            (SecretKey, VssKeyPair, keyGen, vssKeyGen)
+import           Pos.Util.TimeWarp     (sec)
 #ifdef DEV_MODE
-import           Pos.Genesis         (genesisSecretKeys)
+import           Pos.Genesis           (genesisSecretKeys)
 #else
-import           Pos.Genesis         (genesisStakeDistribution)
+import           Pos.Genesis           (genesisStakeDistribution)
 #endif
-import           Pos.Genesis         (genesisUtxo)
-import           Pos.Launcher        (BaseParams (..), LoggingParams (..),
-                                      NodeParams (..), RealModeResources,
-                                      bracketResources, runNodeProduction, runNodeStats,
-                                      runTimeLordReal, runTimeSlaveReal, stakesDistr)
+import           Pos.Genesis           (genesisUtxo)
+import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
+                                        NodeParams (..), RealModeResources,
+                                        bracketResources, runNodeProduction, runNodeStats,
+                                        runTimeLordReal, runTimeSlaveReal, stakesDistr)
 #ifdef DEV_MODE
-import           Pos.Ssc.GodTossing  (genesisVssKeyPairs)
+import           Pos.Ssc.GodTossing    (genesisVssKeyPairs)
 #endif
-import           Pos.Ssc.Class       (SscListenersClass)
-import           Pos.Ssc.GodTossing  (GtParams (..), SscGodTossing)
-import           Pos.Ssc.NistBeacon  (SscNistBeacon)
-import           Pos.Ssc.SscAlgo     (SscAlgo (..))
-import           Pos.Types           (Timestamp (Timestamp))
-import           Pos.Util            (inAssertMode)
-import           Pos.Util.UserSecret (UserSecret, peekUserSecret, usKeys, usVss,
-                                      writeUserSecret)
+import           Pos.Ssc.Class         (SscListenersClass)
+import           Pos.Ssc.GodTossing    (GtParams (..), SscGodTossing)
+import           Pos.Ssc.NistBeacon    (SscNistBeacon)
+import           Pos.Ssc.SscAlgo       (SscAlgo (..))
+import           Pos.Types             (Timestamp (Timestamp))
+import           Pos.Util              (inAssertMode)
+import           Pos.Util.BackupPhrase (keysFromPhrase)
+import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usKeys, usVss,
+                                        writeUserSecret)
+
 #ifdef WITH_WEB
-import           Pos.Web             (serveWebBase, serveWebGT)
-import           Pos.WorkMode        (WorkMode)
+import           Pos.Web               (serveWebBase, serveWebGT)
+import           Pos.WorkMode          (WorkMode)
 #ifdef WITH_WALLET
-import           Pos.Ssc.Class       (SscConstraint)
-import           Pos.WorkMode        (ProductionMode, RawRealMode, StatsMode)
+import           Pos.Ssc.Class         (SscConstraint)
+import           Pos.WorkMode          (ProductionMode, RawRealMode, StatsMode)
 
-import           Node                (SendActions, hoistSendActions)
-import           Pos.Communication   (BiP)
-import           Pos.Statistics      (getNoStatsT, getStatsMap, runStatsT')
-import           Pos.Wallet.Web      (walletServeWebFull)
+import           Node                  (SendActions, hoistSendActions)
+import           Pos.Communication     (BiP)
+import           Pos.Statistics        (getNoStatsT, getStatsMap, runStatsT')
+import           Pos.Wallet.Web        (walletServeWebFull)
 #endif
 #endif
 
-import           NodeOptions         (Args (..), getNodeOptions)
+import           NodeOptions           (Args (..), getNodeOptions)
 
 getSystemStart
     :: SscListenersClass ssc
@@ -172,6 +174,17 @@ fillUserSecretVSS userSecret = case userSecret ^. usVss of
         let us = userSecret & usVss .~ Just vss
         writeUserSecret us
         return us
+
+processUserSecret
+    :: (MonadIO m, MonadFail m)
+    => Args -> UserSecret -> m (SecretKey, UserSecret)
+processUserSecret args@Args {..} userSecret = case backupPhrase of
+    Nothing -> updateUserSecretVSS args userSecret >>= userSecretWithGenesisKey args
+    Just ph -> do
+        let (sk, vss) = keysFromPhrase ph
+            us = userSecret & usKeys .~ [sk] & usVss .~ Just vss
+        writeUserSecret us
+        return (sk, us)
 
 getNodeParams :: (MonadIO m, MonadFail m) => Args -> Timestamp -> m NodeParams
 getNodeParams args@Args {..} systemStart = do

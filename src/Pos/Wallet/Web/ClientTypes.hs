@@ -22,6 +22,7 @@ module Pos.Wallet.Web.ClientTypes
       , CWallet (..)
       , CWalletType (..)
       , CWalletMeta (..)
+      , CWalletInit (..)
       , NotifyEvent (..)
       , addressToCAddress
       , cAddressToAddress
@@ -44,6 +45,7 @@ import           Pos.Aeson.Types       ()
 import           Pos.Types             (Address (..), ChainDifficulty, Coin, TxId,
                                         decodeTextAddress, sumCoins, txOutAddress,
                                         txOutValue, txOutputs, unsafeIntegerToCoin)
+import           Pos.Util.BackupPhrase (BackupPhrase)
 import           Pos.Wallet.Tx.Pure    (TxHistoryEntry (..))
 
 -- Notifications
@@ -118,9 +120,9 @@ data CWalletType
 -- | Meta data of CWallet
 -- Includes data which are not provided by Cardano
 data CWalletMeta = CWalletMeta
-    { cwType     :: CWalletType
-    , cwCurrency :: CCurrency
-    , cwName     :: Text
+    { cwType     :: !CWalletType
+    , cwCurrency :: !CCurrency
+    , cwName     :: !Text
     } deriving (Show, Generic)
 
 instance Default CWalletMeta where
@@ -129,9 +131,16 @@ instance Default CWalletMeta where
 -- | Client Wallet (CW)
 -- (Flow type: walletType)
 data CWallet = CWallet
-    { cwAddress :: CAddress
-    , cwAmount  :: Coin
-    , cwMeta    :: CWalletMeta
+    { cwAddress :: !CAddress
+    , cwAmount  :: !Coin
+    , cwMeta    :: !CWalletMeta
+    } deriving (Show, Generic)
+
+-- | Query data for wallet creation
+-- (wallet meta + backup phrase)
+data CWalletInit = CWalletInit
+    { cwBackupPhrase :: !BackupPhrase
+    , cwInitMeta     :: !CWalletMeta
     } deriving (Show, Generic)
 
 ----------------------------------------------------------------------------

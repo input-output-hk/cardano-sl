@@ -7,6 +7,7 @@ module Daedalus.Types
        , mkCoin
        , mkCAddress
        , mkCWalletMeta
+       , mkCWalletInit
        , mkCTxMeta
        , mkCTxId
        , mkCCurrency
@@ -23,8 +24,10 @@ import Pos.Types.Types (Coin (..))
 import Pos.Wallet.Web.ClientTypes as CT
 import Pos.Types.Types as C
 import Pos.Wallet.Web.Error as E
+import Pos.Util.BackupPhrase (BackupPhrase (..))
 
-import Data.Either (either)
+import Control.Monad.Eff.Exception (error, Error)
+import Data.Either (either, Either (..))
 import Data.Argonaut.Generic.Aeson (decodeJson)
 import Data.Argonaut.Core (fromString)
 import Data.Generic (gShow)
@@ -32,7 +35,14 @@ import Data.Array.Partial (last)
 import Partial.Unsafe (unsafePartial)
 import Data.String (split)
 
+import Daedalus.Crypto (isValidMnemonic)
 import Data.Types (mkTime)
+
+toBackupPhrase :: String -> Either Error BackupPhrase
+toBackupPhrase mnemonic =
+    if not $ isValidMnemonic mnemonic
+        then Left $ error "Invalid mnemonic"
+        else Right $ BackupPhrase { bpToList: split " " mnemonic }
 
 showCCurrency :: CT.CCurrency -> String
 showCCurrency = dropModuleName <<< gShow
@@ -71,6 +81,13 @@ mkCWalletMeta wType wCurrency wName =
                    , cwCurrency: mkCCurrency wCurrency
                    , cwName: wName
                    }
+
+mkCWalletInit :: String -> String -> String -> String -> Either Error CT.CWalletInit
+mkCWalletInit wType wCurrency wName mnemonic = do
+    bp <- toBackupPhrase mnemonic
+    pure $ CT.CWalletInit { cwBackupPhrase: bp
+                          , cwInitMeta: mkCWalletMeta wType wCurrency wName
+                          }
 
 _ctxIdValue :: CT.CTxId -> String
 _ctxIdValue (CT.CTxId tx) = _hash tx

@@ -415,6 +415,7 @@ library
                       , kademlia
                       , lens
                       , lifted-async
+                      , list-t
                       , log-warper >= 0.1.0
                       , lrucache
                       , memory
@@ -434,6 +435,7 @@ library
                       , pvss
                       , quickcheck-instances
                       , random
+                      , reflection
                       , resourcet
                       , rocksdb >= 0.1.0.1
                       , safecopy
@@ -447,7 +449,6 @@ library
                       , th-lift-instances
                       , time
                       , time-units
-                      , list-t
                       , transformers
                       , transformers-base
                       , universum >= 0.1.11
@@ -1004,15 +1005,16 @@ test-suite cardano-test
                      , hspec
                      , lens
                      , log-warper >= 0.1.0
-                     , node-sketch
                      , memory
                      , mtl
+                     , node-sketch
                      , quickcheck-instances
                      , random
-                     , safecopy
-                     , serokell-util
+                     , reflection
                      , regex-tdfa
                      , regex-tdfa-text
+                     , safecopy
+                     , serokell-util
                      , time-units
                      , universum >= 0.1.11
                      , unordered-containers

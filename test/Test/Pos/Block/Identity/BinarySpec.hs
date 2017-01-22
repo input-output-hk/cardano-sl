@@ -1,19 +1,24 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 -- | This module tests Binary instances for Block types.
 
 module Test.Pos.Block.Identity.BinarySpec
        ( spec
        ) where
 
-import           Test.Hspec          (Spec, describe)
+import           Data.Reflection       (reify)
+import           Test.Hspec            (Spec, describe)
+import           Test.Hspec.QuickCheck (prop)
 import           Universum
 
-import           Pos.Block.Arbitrary ()
-import qualified Pos.Block.Network   as BT
-import           Pos.Ssc.GodTossing  (SscGodTossing)
-import           Pos.Ssc.NistBeacon  (SscNistBeacon)
-import qualified Pos.Types           as BT
+import           Pos.Block.Arbitrary   ()
+import qualified Pos.Block.Network     as BT
+import           Pos.Ssc.GodTossing    (SscGodTossing)
+import           Pos.Ssc.NistBeacon    (SscNistBeacon)
+import qualified Pos.Types             as BT
 
-import           Test.Pos.Util       (binaryTest, networkBinaryTest)
+import           Test.Pos.Util         (binaryTest, networkBinaryEncodeDecode,
+                                        networkBinaryTest)
 
 spec :: Spec
 spec = describe "Block types" $ do
@@ -27,8 +32,13 @@ spec = describe "Block types" $ do
                 networkBinaryTest @(BT.MsgHeaders SscNistBeacon)
                 networkBinaryTest @(BT.MsgHeaders SscGodTossing)
             describe "MsgBlock" $ do
-                networkBinaryTest @(BT.MsgBlock SscNistBeacon)
-                networkBinaryTest @(BT.MsgBlock SscGodTossing)
+              reify (1000000 :: Word64) $ \(_ :: Proxy s0) -> do
+                -- We can't use 'networkBinaryTest' here because 's0'
+                -- isn't guaranteed to be Typeable.
+                prop "MsgBlock SscNistBeacon" $
+                    networkBinaryEncodeDecode @(BT.MsgBlock s0 SscNistBeacon)
+                prop "MsgBlock SscGodTossing" $
+                    networkBinaryEncodeDecode @(BT.MsgBlock s0 SscGodTossing)
         describe "Blockchains and blockheaders" $ do
             describe "GenericBlockHeader" $ do
                 describe "GenesisBlockHeader" $ do

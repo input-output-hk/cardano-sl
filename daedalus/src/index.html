@@ -34,8 +34,14 @@
             .catch(function(reason) {console.log(reason)})
       };
 
-      var newWallet = function(type, currency, name, mnemonics) {
-        Daedalus.ClientApi.newWallet(type, currency, name, mnemonics)()
+      var newWallet = function(type, currency, name) {
+        var confirmFunction = function(mnemonics) {
+            // if this function return successfully that means you guys are saying user is confirming mnemonics
+            console.log(mnemonics)
+            // if you throw an exception that means user didn't confirm so we will cancel the request
+            // throw new Error("Wallet canceled")
+        }
+        Daedalus.ClientApi.newWallet(type, currency, name, confirmFunction)()
             .then(function(result) {console.log(result)})
             .catch(function(reason) {console.log(reason)})
       };

@@ -86,6 +86,9 @@ instance MonadPollRead m =>
     getScriptVersion pv = do
         new <- pmNewScriptVersions <$> PollT get
         maybe (PollT $ getScriptVersion pv) (pure . Just) $ HM.lookup pv new
+    getLastScriptVersion = do
+        lpv <- getLastAdoptedPV
+        maybe (PollT getLastScriptVersion) pure =<< getScriptVersion lpv
     getLastAdoptedPV = do
         new <- pmLastAdoptedPV <$> PollT get
         maybe (PollT getLastAdoptedPV) pure new

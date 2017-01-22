@@ -8,6 +8,7 @@ module Pos.DB.GState.Update
        (
          -- * Getters
          getLastPV
+       , getLastScriptVersion
        , getScriptVersion
        , getProposalState
        , getAppProposal
@@ -70,6 +71,14 @@ getLastPV = maybeThrow (DBMalformed msg) =<< getLastPVMaybe
   where
     msg =
         "Update System part of GState DB is not initialized (last PV is missing)"
+
+getLastScriptVersion :: MonadDB ssc m => m ScriptVersion
+getLastScriptVersion = do
+    lpv <- getLastPV
+    maybeThrow (DBMalformed msg) =<< getScriptVersion lpv
+  where
+    msg =
+        "Update System part of GState DB : Last Script Version is missing"
 
 getScriptVersion :: MonadDB ssc m => ProtocolVersion -> m (Maybe ScriptVersion)
 getScriptVersion = getBi . scriptVersionKey

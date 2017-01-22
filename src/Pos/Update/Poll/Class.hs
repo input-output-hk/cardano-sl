@@ -29,6 +29,8 @@ import           Pos.Update.Poll.Types (DecidedProposalState, ProposalState,
 class Monad m => MonadPollRead m where
     getScriptVersion :: ProtocolVersion -> m (Maybe ScriptVersion)
     -- ^ Retrieve script version for given protocol version
+    getLastScriptVersion :: m ScriptVersion
+    -- ^ Retrieve script version for last adopted protocol version
     getLastAdoptedPV :: m ProtocolVersion
     -- ^ Get last adopted protocol version
     getLastConfirmedSV :: ApplicationName -> m (Maybe NumSoftwareVersion)
@@ -53,6 +55,10 @@ class Monad m => MonadPollRead m where
     default getScriptVersion
         :: (MonadTrans t, MonadPollRead m', t m' ~ m) => ProtocolVersion -> m (Maybe ScriptVersion)
     getScriptVersion = lift . getScriptVersion
+
+    default getLastScriptVersion
+        :: (MonadTrans t, MonadPollRead m', t m' ~ m) => m ScriptVersion
+    getLastScriptVersion = lift getLastScriptVersion
 
     default getLastAdoptedPV
         :: (MonadTrans t, MonadPollRead m', t m' ~ m) => m ProtocolVersion

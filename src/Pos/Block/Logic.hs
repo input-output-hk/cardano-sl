@@ -50,8 +50,8 @@ import           Universum
 import           Pos.Block.Logic.Internal  (applyBlocksUnsafe, rollbackBlocksUnsafe,
                                             withBlkSemaphore, withBlkSemaphore_)
 import           Pos.Block.Types           (Blund, Undo (..))
-import           Pos.Constants             (blkSecurityParam, curProtocolVersion,
-                                            curSoftwareVersion, epochSlots,
+import           Pos.Constants             (blkSecurityParam, curSoftwareVersion,
+                                            epochSlots, lastKnownBlockVersion,
                                             recoveryHeadersMessage, slotSecurityParam)
 import           Pos.Context               (NodeContext (ncSecretKey), getNodeContext,
                                             lrcActionOnEpochReason)
@@ -686,5 +686,9 @@ createMainBlockPure prevHeader txs pSk sId psks sscData usPayload sk =
     mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
   where
     extraB = MainExtraBodyData (mkAttributes ())
-    extraH = MainExtraHeaderData curProtocolVersion curSoftwareVersion (mkAttributes ())
+    extraH =
+        MainExtraHeaderData
+            lastKnownBlockVersion
+            curSoftwareVersion
+            (mkAttributes ())
     body = mkMainBody (fmap snd txs) sscData psks usPayload

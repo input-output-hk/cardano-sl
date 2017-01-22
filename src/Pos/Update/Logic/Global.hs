@@ -19,9 +19,9 @@ import           Universum
 import qualified Pos.DB               as DB
 import           Pos.DB.GState        (UpdateOp (..))
 import           Pos.Script.Type      (ScriptVersion)
-import           Pos.Types            (ApplicationName, Block, NumSoftwareVersion,
-                                       ProtocolVersion, SoftwareVersion (..), difficultyL,
-                                       gbBody, gbHeader, mbUpdatePayload)
+import           Pos.Types            (ApplicationName, Block, BlockVersion,
+                                       NumSoftwareVersion, SoftwareVersion (..),
+                                       difficultyL, gbBody, gbHeader, mbUpdatePayload)
 import           Pos.Update.Core      (UpId, UpdateProposal)
 import           Pos.Update.Error     (USError (USInternalError))
 import           Pos.Update.Poll      (DBPoll, MonadPoll, PollModifier (..), PollT,
@@ -104,23 +104,23 @@ modifierToBatch :: PollModifier -> [DB.SomeBatchOp]
 modifierToBatch PollModifier {..} =
     concat $
     [ scModifierToBatch pmNewScriptVersions pmDelScriptVersions
-    , pvModifierToBatch pmLastAdoptedPV
+    , bvModifierToBatch pmLastAdoptedBV
     , confirmedModifierToBatch pmNewConfirmed pmDelConfirmed pmNewConfirmedProps
     , upModifierToBatch pmNewActiveProps pmDelActivePropsIdx
     ]
 
 scModifierToBatch
-    :: HashMap ProtocolVersion ScriptVersion
-    -> HashSet ProtocolVersion
+    :: HashMap BlockVersion ScriptVersion
+    -> HashSet BlockVersion
     -> [DB.SomeBatchOp]
 scModifierToBatch (HM.toList -> added) (toList -> deleted) = addOps ++ delOps
   where
     addOps = map (DB.SomeBatchOp . uncurry SetScriptVersion) added
     delOps = map (DB.SomeBatchOp . DelScriptVersion) deleted
 
-pvModifierToBatch :: Maybe ProtocolVersion -> [DB.SomeBatchOp]
-pvModifierToBatch Nothing  = []
-pvModifierToBatch (Just v) = [DB.SomeBatchOp $ SetLastPV v]
+bvModifierToBatch :: Maybe BlockVersion -> [DB.SomeBatchOp]
+bvModifierToBatch Nothing  = []
+bvModifierToBatch (Just v) = [DB.SomeBatchOp $ SetLastPV v]
 
 confirmedModifierToBatch :: HashMap ApplicationName NumSoftwareVersion
                          -> HashSet ApplicationName

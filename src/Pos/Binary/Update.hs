@@ -53,7 +53,7 @@ instance Bi U.UpdateProposal where
                 when (HM.null pd) $
                     fail "Pos.Binary.Update: UpdateProposal: empty proposal data"
                 return pd
-    put U.UpdateProposal {..} =  put upProtocolVersion
+    put U.UpdateProposal {..} =  put upBlockVersion
                               *> put upScriptVersion
                               *> put upSoftwareVersion
                               *> put upData
@@ -82,7 +82,7 @@ instance Bi U.USUndo where
     get = label "USUndo" $ liftM4 U.USUndo get get get get
     put U.USUndo{..} =
         put unCreatedNewDepsFor *>
-        put unLastAdoptedPV *>
+        put unLastAdoptedBV *>
         put unChangedProps *>
         put unChangedSV
 

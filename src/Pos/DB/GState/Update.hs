@@ -7,7 +7,7 @@
 module Pos.DB.GState.Update
        (
          -- * Getters
-         getLastPV
+         getLastAdoptedBV
        , getLastScriptVersion
        , getScriptVersion
        , getProposalState
@@ -48,11 +48,11 @@ import           Pos.DB.Iterator           (DBIteratorClass (..), DBnIterator,
                                             DBnMapIterator, IterType, runDBnIterator,
                                             runDBnMapIterator)
 import           Pos.DB.Types              (NodeDBs (..))
-import           Pos.Genesis               (genesisProtocolVersion, genesisScriptVersion,
+import           Pos.Genesis               (genesisBlockVersion, genesisScriptVersion,
                                             genesisSoftwareVersions)
 import           Pos.Script.Type           (ScriptVersion)
-import           Pos.Types                 (ApplicationName, ChainDifficulty,
-                                            NumSoftwareVersion, ProtocolVersion, SlotId,
+import           Pos.Types                 (ApplicationName, BlockVersion,
+                                            ChainDifficulty, NumSoftwareVersion, SlotId,
                                             SoftwareVersion (..))
 import           Pos.Update.Core           (UpId, UpdateProposal (..))
 import           Pos.Update.Poll.Types     (DecidedProposalState (dpsDifficulty),
@@ -65,22 +65,22 @@ import           Pos.Util.Iterator         (MonadIterator (..))
 -- Getters
 ----------------------------------------------------------------------------
 
--- | Get last approved protocol version.
-getLastPV :: MonadDB ssc m => m ProtocolVersion
-getLastPV = maybeThrow (DBMalformed msg) =<< getLastPVMaybe
+-- | Get last adopted block version.
+getLastAdoptedBV :: MonadDB ssc m => m BlockVersion
+getLastAdoptedBV = maybeThrow (DBMalformed msg) =<< getLastAdoptedBVMaybe
   where
     msg =
-        "Update System part of GState DB is not initialized (last PV is missing)"
+        "Update System part of GState DB is not initialized (last adopted BV is missing)"
 
 getLastScriptVersion :: MonadDB ssc m => m ScriptVersion
 getLastScriptVersion = do
-    lpv <- getLastPV
-    maybeThrow (DBMalformed msg) =<< getScriptVersion lpv
+    lbv <- getLastAdoptedBV
+    maybeThrow (DBMalformed msg) =<< getScriptVersion lbv
   where
     msg =
         "Update System part of GState DB : Last Script Version is missing"
 
-getScriptVersion :: MonadDB ssc m => ProtocolVersion -> m (Maybe ScriptVersion)
+getScriptVersion :: MonadDB ssc m => BlockVersion -> m (Maybe ScriptVersion)
 getScriptVersion = getBi . scriptVersionKey
 
 -- | Get state of UpdateProposal for given UpId
@@ -112,9 +112,9 @@ data UpdateOp
     | ConfirmVersion !SoftwareVersion
     | DelConfirmedVersion !ApplicationName
     | AddConfirmedProposal !NumSoftwareVersion !UpdateProposal
-    | SetLastPV !ProtocolVersion
-    | SetScriptVersion !ProtocolVersion !ScriptVersion
-    | DelScriptVersion !ProtocolVersion
+    | SetLastPV !BlockVersion
+    | SetScriptVersion !BlockVersion !ScriptVersion
+    | DelScriptVersion !BlockVersion
 
 instance RocksBatchOp UpdateOp where
     toBatchOp (PutProposal ps) =
@@ -134,7 +134,7 @@ instance RocksBatchOp UpdateOp where
     toBatchOp (AddConfirmedProposal nsv up) =
         [Rocks.Put (confirmedProposalKey nsv) (encodeStrict up)]
     toBatchOp (SetLastPV pv) =
-        [Rocks.Put lastPVKey (encodeStrict pv)]
+        [Rocks.Put lastBVKey (encodeStrict pv)]
     toBatchOp (SetScriptVersion pv sv) =
         [Rocks.Put (scriptVersionKey pv) (encodeStrict sv)]
     toBatchOp (DelScriptVersion pv) =
@@ -156,12 +156,12 @@ prepareGStateUS
 prepareGStateUS = unlessM isInitialized $ do
     db <- getUtxoDB
     flip rocksWriteBatch db $
-        [ SetLastPV genesisProtocolVersion
-        , SetScriptVersion genesisProtocolVersion genesisScriptVersion
+        [ SetLastPV genesisBlockVersion
+        , SetScriptVersion genesisBlockVersion genesisScriptVersion
         ] <> map ConfirmVersion genesisSoftwareVersions
 
 isInitialized :: MonadDB ssc m => m Bool
-isInitialized = isJust <$> getLastPVMaybe
+isInitialized = isJust <$> getLastAdoptedBVMaybe
 
 ----------------------------------------------------------------------------
 -- Iteration
@@ -239,10 +239,10 @@ getConfirmedProposals reqNsv = runDBnIterator @ConfPropIter _gStateDB (step [])
 -- Keys ('us' prefix stands for Update System)
 ----------------------------------------------------------------------------
 
-lastPVKey :: ByteString
-lastPVKey = "us/last-protocol"
+lastBVKey :: ByteString
+lastBVKey = "us/last-adopted-block-v"
 
-scriptVersionKey :: ProtocolVersion -> ByteString
+scriptVersionKey :: BlockVersion -> ByteString
 scriptVersionKey = mappend "us/vs" . encodeStrict
 
 proposalKey :: UpId -> ByteString
@@ -252,7 +252,7 @@ proposalAppKey :: ApplicationName -> ByteString
 proposalAppKey = mappend "us/an" . encodeStrict
 
 confirmedVersionKey :: ApplicationName -> ByteString
-confirmedVersionKey = mappend "us/c" . encodeStrict
+confirmedVersionKey = mappend "us/cv" . encodeStrict
 
 iterationPrefix :: ByteString
 iterationPrefix = "us/p"
@@ -267,18 +267,5 @@ confirmedIterationPrefix = "us/cp"
 -- Details
 ----------------------------------------------------------------------------
 
-getLastPVMaybe :: MonadDB ssc m => m (Maybe ProtocolVersion)
-getLastPVMaybe = getBi lastPVKey
-
--- -- Set last protocol version
--- setLastPV :: MonadDB ssc m => ProtocolVersion -> m ()
--- setLastPV = putBi lastPVKey
-
--- -- Set correspondence between protocol version and script version
--- setScriptVersion :: MonadDB ssc m => ProtocolVersion -> ScriptVersion -> m ()
--- setScriptVersion = putBi . scriptVersionKey
-
--- -- Set confirmed version number for given app
--- setConfirmedSV :: MonadDB ssc m => SoftwareVersion -> m ()
--- setConfirmedSV SoftwareVersion {..}
---     = putBi (confirmedVersionKey svAppName) svNumber
+getLastAdoptedBVMaybe :: MonadDB ssc m => m (Maybe BlockVersion)
+getLastAdoptedBVMaybe = getBi lastBVKey

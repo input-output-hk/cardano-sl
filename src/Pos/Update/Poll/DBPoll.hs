@@ -91,7 +91,7 @@ instance MonadDB patak m =>
          MonadPollRead (DBPoll m) where
     getScriptVersion = GS.getScriptVersion
     getLastScriptVersion = GS.getLastScriptVersion
-    getLastAdoptedPV = GS.getLastPV
+    getLastAdoptedBV = GS.getLastAdoptedBV
     getLastConfirmedSV = GS.getConfirmedSV
     hasActiveProposal = fmap isJust . GS.getAppProposal
     getProposal = GS.getProposalState

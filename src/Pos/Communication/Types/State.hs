@@ -11,13 +11,14 @@ import           Control.Lens (makeClassy)
 import           Data.Default (Default (def))
 import           Universum
 
-import           Pos.Types    (ProtocolVersion)
+import           Pos.Types    (BlockVersion)
 
 -- | PeerState type aggregates socket states needed for different
 -- parts of system.
 data PeerState ssc = PeerState
-    { _peerVersion     :: !(Maybe ProtocolVersion)
+    { _peerVersion     :: !(Maybe BlockVersion)
       -- ^ Version of the protocol peer uses
+      -- FIXME
     }
 
 -- | Classy lenses for PeerState.

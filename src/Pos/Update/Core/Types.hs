@@ -52,7 +52,7 @@ import           Pos.Binary.Class           (Bi)
 import           Pos.Crypto                 (Hash, PublicKey, Signature, hash, unsafeHash)
 import           Pos.Data.Attributes        (Attributes)
 import           Pos.Script.Type            (ScriptVersion)
-import           Pos.Types.Version          (ProtocolVersion, SoftwareVersion)
+import           Pos.Types.Version          (BlockVersion, SoftwareVersion)
 import           Pos.Util                   (Raw)
 
 ----------------------------------------------------------------------------
@@ -81,7 +81,7 @@ type UpAttributes = Attributes ()
 
 -- | Proposal for software update
 data UpdateProposal = UpdateProposal
-    { upProtocolVersion :: !ProtocolVersion
+    { upBlockVersion    :: !BlockVersion
     , upScriptVersion   :: !ScriptVersion
     , upSoftwareVersion :: !SoftwareVersion
     , upData            :: !(HM.HashMap SystemTag UpdateData)
@@ -95,12 +95,12 @@ data UpdateProposal = UpdateProposal
 instance Buildable UpdateProposal where
     build UpdateProposal {..} =
       bprint (build%
-              " { protocol v"%build%
+              " { block v"%build%
               ", scripts v"%build%
               ", tags: "%listJson%
               ", no attributes "%
               " }")
-        upSoftwareVersion upProtocolVersion upScriptVersion (HM.keys upData)
+        upSoftwareVersion upBlockVersion upScriptVersion (HM.keys upData)
 
 instance Buildable (UpdateProposal, [UpdateVote]) where
     build (up, votes) =

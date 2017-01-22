@@ -43,7 +43,7 @@ import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
                                              TxDistribution (..), TxIn (..),
                                              TxInWitness (..), TxOut (..), TxOutAux,
                                              makePubKeyAddress, makeScriptAddress, mkCoin)
-import           Pos.Types.Version          (ApplicationName (..), ProtocolVersion (..),
+import           Pos.Types.Version          (ApplicationName (..), BlockVersion (..),
                                              SoftwareVersion (..),
                                              applicationNameMaxLength)
 import           Pos.Util                   (AsBinary, makeSmall)
@@ -221,7 +221,7 @@ instance Arbitrary ApplicationName where
         map (chr . flip mod 128) .
         take applicationNameMaxLength <$> arbitrary
 
-derive makeArbitrary ''ProtocolVersion
+derive makeArbitrary ''BlockVersion
 derive makeArbitrary ''SoftwareVersion
 
 ----------------------------------------------------------------------------

@@ -143,7 +143,7 @@ module Pos.Types.Types
        , mcdLeaderKey
        , mcdDifficulty
        , mcdSignature
-       , mehProtocolVersion
+       , mehBlockVersion
        , mehSoftwareVersion
        , mehAttributes
        , mebAttributes
@@ -186,7 +186,7 @@ import           Pos.Types.Address      (Address (..), StakeholderId, addressF,
                                          checkPubKeyAddress, checkScriptAddress,
                                          decodeTextAddress, makePubKeyAddress,
                                          makeScriptAddress)
-import           Pos.Types.Version      (ProtocolVersion, SoftwareVersion)
+import           Pos.Types.Version      (BlockVersion, SoftwareVersion)
 import           Pos.Update.Core.Types  (UpdatePayload, UpdateProof, mkUpdateProof)
 import           Pos.Util               (Color (Magenta), colorize)
 
@@ -607,8 +607,8 @@ type BlockHeaderAttributes = Attributes ()
 
 -- | Represents main block header extra data
 data MainExtraHeaderData = MainExtraHeaderData
-    { -- | Version of protocol.
-      _mehProtocolVersion :: !ProtocolVersion
+    { -- | Version of block.
+      _mehBlockVersion    :: !BlockVersion
     , -- | Software version.
       _mehSoftwareVersion :: !SoftwareVersion
     , -- | Header attributes
@@ -618,10 +618,10 @@ data MainExtraHeaderData = MainExtraHeaderData
 
 instance Buildable MainExtraHeaderData where
     build MainExtraHeaderData {..} =
-      bprint ( "    protocol: v"%build%"\n"
+      bprint ( "    block: v"%build%"\n"
              % "    software: "%build%"\n"
              )
-            _mehProtocolVersion
+            _mehBlockVersion
             _mehSoftwareVersion
 
 -- | Represents main block extra data

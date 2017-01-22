@@ -46,9 +46,9 @@ import           Pos.Types                 (Address, Block, ChainDifficulty, Coi
                                             TxInWitness (..), TxOut (..), TxOutAux,
                                             TxSigData, TxWitness, Utxo, UtxoStateT (..),
                                             applyTxToUtxo, blockTxas, difficultyL,
-                                            filterUtxoByAddr, headerHash,
-                                            makePubKeyAddress, makeScriptAddress, mkCoin,
-                                            sumCoins, topsortTxs)
+                                            filterUtxoByAddr, makePubKeyAddress,
+                                            makeScriptAddress, mkCoin, sumCoins,
+                                            topsortTxs)
 import           Pos.Types.Coin            (unsafeIntegerToCoin, unsafeSubCoin)
 
 type TxOutIdx = (TxId, Word32)

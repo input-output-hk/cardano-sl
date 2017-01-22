@@ -100,6 +100,7 @@ module Pos.Util
        , NamedMessagePart (..)
        -- * Instances
        -- ** SafeCopy (NonEmpty a)
+       -- ** SafeCopy Microsecond
        -- ** MonadFail (Either s), assuming IsString s
        -- ** MonadFail ParsecT
        -- ** MonadFail Dialog
@@ -363,6 +364,11 @@ instance SafeCopy a => SafeCopy (NonEmpty a) where
             Just xx -> return xx
     putCopy = contain . safePut . toList
     errorTypeName _ = "NonEmpty"
+
+instance SafeCopy Microsecond where
+    getCopy = contain (fromInteger <$> safeGet)
+    putCopy = contain . safePut . toInteger
+    errorTypeName _ = "Microsecond"
 
 -- | A 'zoom' which works in 'MonadState'.
 --

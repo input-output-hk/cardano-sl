@@ -17,7 +17,6 @@ import           System.Wlog                 (logInfo, usingLoggerName)
 import           Universum                   hiding (bracket)
 
 import           Pos.Communication           (BiP (..))
-import           Pos.Constants               (slotDuration)
 import           Pos.DHT.Model               (discoverPeers)
 import           Pos.DHT.Real                (runKademliaDHT)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
@@ -28,8 +27,8 @@ import           Pos.Types                   (unflattenSlotId)
 import           Pos.Wallet.Context          (WalletContext (..), runContextHolder)
 import           Pos.Wallet.KeyStorage       (runKeyStorage)
 import           Pos.Wallet.Launcher.Param   (WalletParams (..))
-import           Pos.Wallet.State            (closeState, openMemState, openState,
-                                              runWalletDB)
+import           Pos.Wallet.State            (closeState, getSlotDuration, openMemState,
+                                              openState, runWalletDB)
 import           Pos.Wallet.WalletMode       (WalletMode, WalletRealMode)
 
 -- TODO: Move to some `Pos.Wallet.Communication` and provide
@@ -83,6 +82,10 @@ runRawRealWallet res WalletParams {..} listeners action =
     bracket openDB closeDB $ \db -> do
         ntpData <- currentTime >>= liftIO . newTVarIO . (0, )
         lastSlot <- liftIO . newTVarIO $ unflattenSlotId 0
+        slotDuration <- runWalletDB db getSlotDuration >>= \case
+            Just sd -> return sd
+            Nothing -> panic "runRawRealWallet: couldn't get \
+                             \slot duration from the database"
         let walletContext
               = WalletContext
               { wcSystemStart = wpSystemStart

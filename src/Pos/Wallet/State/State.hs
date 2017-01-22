@@ -16,9 +16,13 @@ module Pos.Wallet.State.State
        , getUtxo
        , getOldestUtxo
        , getTxHistory
+
+       , getSlotDuration
+       , getMaxBlockSize
        ) where
 
 import           Data.Acid                (EventResult, EventState, QueryEvent)
+import           Data.Time.Units          (Microsecond)
 import           Universum
 
 import           Pos.Types                (HeaderHash, Tx, Utxo)
@@ -70,3 +74,9 @@ getOldestUtxo = queryDisk A.GetOldestUtxo
 
 getTxHistory :: WalletModeDB m => m [Tx]
 getTxHistory = queryDisk A.GetTxHistory
+
+getSlotDuration :: WalletModeDB m => m (Maybe Microsecond)
+getSlotDuration = queryDisk A.GetSlotDuration
+
+getMaxBlockSize :: WalletModeDB m => m (Maybe Word64)
+getMaxBlockSize = queryDisk A.GetMaxBlockSize

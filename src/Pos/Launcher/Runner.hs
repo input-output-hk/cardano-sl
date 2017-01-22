@@ -70,6 +70,7 @@ import           Pos.Context                 (ContextHolder (..), NodeContext (.
 import           Pos.Crypto                  (createProxySecretKey, toPublic)
 import           Pos.DB                      (MonadDB (..), getTip, initNodeDBs,
                                               openNodeDBs, runDBHolder, _gStateDB)
+import qualified Pos.DB.GState               as GState
 import           Pos.DB.Misc                 (addProxySecretKey)
 import           Pos.Delegation.Holder       (runDelegationT)
 import           Pos.DHT.Model               (MonadDHT (..), converseToNeighbors)
@@ -259,11 +260,14 @@ runCH NodeParams {..} sscNodeContext act = do
     lastSlot <- liftIO $ newTVarIO $ unflattenSlotId 0
     queue <- liftIO $ newTBQueueIO blockRetrievalQueueSize
     recoveryHeaderVar <- liftIO newEmptyTMVarIO
+    slotDuration <- GState.getSlotDuration >>= \case
+        Just sd -> return sd
+        Nothing -> panic "runCH: couldn't get slot duration from the database"
     let ctx =
             NodeContext
             { ncSystemStart = npSystemStart
             , ncSecretKey = npSecretKey
-            , ncSlotDuration = Const.slotDuration
+            , ncSlotDuration = slotDuration
             , ncGenesisUtxo = npCustomUtxo
             , ncGenesisLeaders = genesisLeaders npCustomUtxo
             , ncTimeLord = npTimeLord

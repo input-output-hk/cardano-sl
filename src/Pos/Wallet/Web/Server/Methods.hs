@@ -11,6 +11,7 @@ module Pos.Wallet.Web.Server.Methods
        , walletServeImpl
        ) where
 
+import           Control.Monad.Catch           (try)
 import           Control.Monad.Except          (runExceptT)
 import           Data.Default                  (def)
 import           Data.List                     (elemIndex, (!!))
@@ -29,16 +30,15 @@ import           Universum
 import           Pos.Aeson.ClientTypes         ()
 import           Pos.Crypto                    (toPublic)
 import           Pos.DHT.Model                 (dhtAddr, getKnownPeers)
-import           Pos.Types                     (Address, ChainDifficulty, Coin,
-                                                TxOut (..), addressF, coinF,
-                                                decodeTextAddress, makePubKeyAddress,
-                                                mkCoin)
+import           Pos.Types                     (Address, Coin, TxOut (..), addressF,
+                                                coinF, decodeTextAddress,
+                                                makePubKeyAddress, mkCoin)
+import           Pos.Util.BackupPhrase         (keysFromPhrase)
 import           Pos.Web.Server                (serveImpl)
 
-import           Control.Monad.Catch           (try)
 import           Pos.Communication.BiP         (BiP)
 import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
-                                                newSecretKey)
+                                                addSecretKey)
 import           Pos.Wallet.Tx                 (submitTx)
 import           Pos.Wallet.Tx.Pure            (TxHistoryEntry (..))
 import           Pos.Wallet.WalletMode         (WalletMode, getBalance, getTxHistory,
@@ -46,10 +46,11 @@ import           Pos.Wallet.WalletMode         (WalletMode, getBalance, getTxHis
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CProfile,
                                                 CProfile (..), CTx, CTxId, CTxMeta (..),
-                                                CWallet (..), CWalletMeta (..),
-                                                NotifyEvent (..), addressToCAddress,
-                                                cAddressToAddress, mkCTx, mkCTxId,
-                                                txContainsTitle, txIdToCTxId)
+                                                CWallet (..), CWalletInit (..),
+                                                CWalletMeta (..), NotifyEvent (..),
+                                                addressToCAddress, cAddressToAddress,
+                                                mkCTx, mkCTxId, txContainsTitle,
+                                                txIdToCTxId)
 import           Pos.Wallet.Web.Error          (WalletError (..))
 import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 WalletWebSockets, closeWSConnection,
@@ -278,13 +279,17 @@ addHistoryTx cAddr curr title desc wtx@(THEntry txId _ _ _) = do
     meta' <- maybe meta identity <$> getTxMeta cAddr cId
     return $ mkCTx addr diff wtx meta'
 
-newWallet :: WalletWebMode ssc m => CWalletMeta -> m CWallet
-newWallet wMeta = do
-    cAddr <- newAddress
-    createWallet cAddr wMeta
+newWallet :: WalletWebMode ssc m => CWalletInit -> m CWallet
+newWallet CWalletInit {..} = do
+    cAddr <- genSaveAddress cwBackupPhrase
+    createWallet cAddr cwInitMeta
     getWallet cAddr
   where
-    newAddress = addressToCAddress . makePubKeyAddress . toPublic <$> newSecretKey
+    genSaveAddress ph = addressToCAddress . makePubKeyAddress . toPublic <$> genSaveSK ph
+    genSaveSK ph = do
+        let sk = fst $ keysFromPhrase ph
+        addSecretKey sk
+        return sk
 
 updateWallet :: WalletWebMode ssc m => CAddress -> CWalletMeta -> m CWallet
 updateWallet cAddr wMeta = do

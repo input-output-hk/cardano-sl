@@ -36,7 +36,7 @@ import qualified Pos.DB.GState               as GS
 import           Pos.Delegation              (DelegationT (..))
 import           Pos.DHT.Model               (MonadDHT)
 import           Pos.DHT.Real                (KademliaDHT (..))
-import           Pos.Slotting                (MonadSlots, getCurrentSlot)
+import           Pos.Slotting                (getCurrentSlot)
 import           Pos.Ssc.Class.Types         (Ssc)
 import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp.Class               (getMemPool, getUtxoView)
@@ -44,11 +44,10 @@ import qualified Pos.Txp.Holder              as Modern
 import           Pos.Txp.Logic               (processTx)
 import           Pos.Txp.Types               (UtxoView (..), localTxs)
 import           Pos.Types                   (Address, BlockHeader, ChainDifficulty, Coin,
-                                              SlotId (..), TxAux, TxId, Utxo, difficultyL,
-                                              epochIndexL, evalUtxoStateT,
-                                              flattenEpochOrSlot, flattenSlotId,
-                                              getEpochOrSlot, headerSlot, prevBlockL,
-                                              runUtxoStateT, sumCoins, toPair, txOutValue)
+                                              TxAux, TxId, Utxo, difficultyL,
+                                              evalUtxoStateT, flattenEpochOrSlot,
+                                              flattenSlotId, prevBlockL, runUtxoStateT,
+                                              sumCoins, toPair, txOutValue)
 import           Pos.Types.Coin              (unsafeIntegerToCoin)
 import           Pos.Types.Utxo.Functions    (belongsTo, filterUtxoByAddr)
 import           Pos.Update                  (USHolder (..))

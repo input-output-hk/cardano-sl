@@ -35,7 +35,13 @@
       };
 
       var newWallet = function(type, currency, name) {
-        Daedalus.ClientApi.newWallet(type, currency, name)()
+        var confirmFunction = function(mnemonics) {
+            // if this function return successfully that means you guys are saying user is confirming mnemonics
+            console.log(mnemonics)
+            // if you throw an exception that means user didn't confirm so we will cancel the request
+            // throw new Error("Wallet canceled")
+        }
+        Daedalus.ClientApi.newWallet(type, currency, name, confirmFunction)()
             .then(function(result) {console.log(result)})
             .catch(function(reason) {console.log(reason)})
       };
@@ -75,6 +81,9 @@
             .then(function(result) {console.log(result)})
             .catch(function(reason) {console.log(reason)})
       };
+      var generateMnemonic = function() {
+         console.log(Daedalus.ClientApi.generateMnemonic())
+      };
     </script>
 		<title></title>
 	</head>
@@ -96,6 +105,7 @@
       <li><button onclick="notify()"/>add notify listener</li>
       <li><button onclick="getProfile()"/>get user profile</li>
       <li><button onclick="updateProfile('name', 'email', 'phone', 'password', 1484253370.9182513, 'locale', 'picture')"/>update user profile</li>
+      <li><button onclick="generateMnemonic()"/>generateMnemonic</li>
     </ul>
 	</body>
 </html>

@@ -75,8 +75,8 @@ networkBinaryEncodeDecode a = stage1 $ runGetIncremental get
 
     -- all data consumed, but parser wants more input
     stage3 (Done _ _ _) =
-        failText "Parser tried to check content out of given bytestring\
-            \ - this is not allowed"
+        failText "Parser tried to check, at end of the input, \
+            \whether input ends - this is not allowed"
     stage3 (Fail _ _ why) =
         failText $ "parse error: " ++ why
     stage3 (Partial _) =

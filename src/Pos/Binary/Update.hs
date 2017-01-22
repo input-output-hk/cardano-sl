@@ -81,7 +81,7 @@ instance Bi a => Bi (U.PrevValue a) where
 instance Bi U.USUndo where
     get = label "USUndo" $ liftM4 U.USUndo get get get get
     put U.USUndo{..} =
-        put unCreatedNewDepsFor *>
+        put unCreatedNewBSFor *>
         put unLastAdoptedBV *>
         put unChangedProps *>
         put unChangedSV
@@ -109,3 +109,10 @@ instance Bi U.ProposalState where
         0 -> U.PSUndecided <$> get
         1 -> U.PSDecided <$> get
         x -> fail $ "get@ProposalState: invalid tag: " <> show x
+
+instance Bi U.BlockVersionState where
+    put (U.BlockVersionState {..}) = put bvsScript *> put bvsIsConfirmed
+    get = do
+        bvsScript <- get
+        bvsIsConfirmed <- get
+        return $ U.BlockVersionState {..}

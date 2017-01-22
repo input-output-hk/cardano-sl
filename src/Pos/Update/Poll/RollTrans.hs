@@ -21,7 +21,7 @@ import           Pos.Types.Version         (SoftwareVersion (..))
 import           Pos.Update.Poll.Class     (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Types     (PrevValue, USUndo (..), maybeToPrev,
                                             psProposal, unChangedPropsL, unChangedSVL,
-                                            unCreatedNewDepsForL, unLastAdoptedBVL)
+                                            unCreatedNewBSForL, unLastAdoptedBVL)
 
 newtype RollT m a = RollT
     { getRollT :: StateT USUndo m a
@@ -41,12 +41,12 @@ whenNothingM mb action = mb >>= \case
 -- single-threaded usage only.
 instance MonadPoll m => MonadPoll (RollT m) where
     -- only one time can be called
-    addScriptVersionDep pv sv = RollT $ do
-        whenNothingM (use unCreatedNewDepsForL) $
-            unCreatedNewDepsForL .= Just pv
-        lift $ addScriptVersionDep pv sv
+    putBVState pv sv = RollT $ do
+        whenNothingM (use unCreatedNewBSForL) $
+            unCreatedNewBSForL .= Just pv
+        lift $ putBVState pv sv
 
-    delScriptVersionDep  = lift . delScriptVersionDep
+    delBVState = lift . delBVState
 
     setLastAdoptedBV pv = RollT $ do
         prevBV <- getLastAdoptedBV

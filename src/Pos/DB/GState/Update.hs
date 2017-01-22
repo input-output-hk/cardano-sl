@@ -8,8 +8,8 @@ module Pos.DB.GState.Update
        (
          -- * Getters
          getLastAdoptedBV
-       , getLastScriptVersion
-       , getScriptVersion
+       , getLastBVState
+       , getBVState
        , getProposalState
        , getAppProposal
        , getProposalStateByApp
@@ -50,12 +50,12 @@ import           Pos.DB.Iterator           (DBIteratorClass (..), DBnIterator,
 import           Pos.DB.Types              (NodeDBs (..))
 import           Pos.Genesis               (genesisBlockVersion, genesisScriptVersion,
                                             genesisSoftwareVersions)
-import           Pos.Script.Type           (ScriptVersion)
 import           Pos.Types                 (ApplicationName, BlockVersion,
                                             ChainDifficulty, NumSoftwareVersion, SlotId,
                                             SoftwareVersion (..))
 import           Pos.Update.Core           (UpId, UpdateProposal (..))
-import           Pos.Update.Poll.Types     (DecidedProposalState (dpsDifficulty),
+import           Pos.Update.Poll.Types     (BlockVersionState (..),
+                                            DecidedProposalState (dpsDifficulty),
                                             ProposalState (..),
                                             UndecidedProposalState (upsSlot), psProposal)
 import           Pos.Util                  (maybeThrow)
@@ -72,16 +72,18 @@ getLastAdoptedBV = maybeThrow (DBMalformed msg) =<< getLastAdoptedBVMaybe
     msg =
         "Update System part of GState DB is not initialized (last adopted BV is missing)"
 
-getLastScriptVersion :: MonadDB ssc m => m ScriptVersion
-getLastScriptVersion = do
+-- | Get state of last adopted BlockVersion.
+getLastBVState :: MonadDB ssc m => m BlockVersionState
+getLastBVState = do
     lbv <- getLastAdoptedBV
-    maybeThrow (DBMalformed msg) =<< getScriptVersion lbv
+    maybeThrow (DBMalformed msg) =<< getBVState lbv
   where
     msg =
         "Update System part of GState DB : Last Script Version is missing"
 
-getScriptVersion :: MonadDB ssc m => BlockVersion -> m (Maybe ScriptVersion)
-getScriptVersion = getBi . scriptVersionKey
+-- | Get 'BlockVersionState' associated with given adopted BlockVersion.
+getBVState :: MonadDB ssc m => BlockVersion -> m (Maybe BlockVersionState)
+getBVState = getBi . bvStateKey
 
 -- | Get state of UpdateProposal for given UpId
 getProposalState :: MonadDB ssc m => UpId -> m (Maybe ProposalState)
@@ -112,9 +114,9 @@ data UpdateOp
     | ConfirmVersion !SoftwareVersion
     | DelConfirmedVersion !ApplicationName
     | AddConfirmedProposal !NumSoftwareVersion !UpdateProposal
-    | SetLastPV !BlockVersion
-    | SetScriptVersion !BlockVersion !ScriptVersion
-    | DelScriptVersion !BlockVersion
+    | SetLastAdopted !BlockVersion
+    | SetBVState !BlockVersion !BlockVersionState
+    | DelBV !BlockVersion
 
 instance RocksBatchOp UpdateOp where
     toBatchOp (PutProposal ps) =
@@ -133,17 +135,12 @@ instance RocksBatchOp UpdateOp where
         [Rocks.Del (confirmedVersionKey app)]
     toBatchOp (AddConfirmedProposal nsv up) =
         [Rocks.Put (confirmedProposalKey nsv) (encodeStrict up)]
-    toBatchOp (SetLastPV pv) =
-        [Rocks.Put lastBVKey (encodeStrict pv)]
-    toBatchOp (SetScriptVersion pv sv) =
-        [Rocks.Put (scriptVersionKey pv) (encodeStrict sv)]
-    toBatchOp (DelScriptVersion pv) =
-        [Rocks.Del (scriptVersionKey pv)]
-
--- putUndecidedProposalSlot :: ProposalState -> [Rocks.BatchOp]
--- putUndecidedProposalSlot (PSUndecided ups) =
---     [Rocks.Put (proposalAppKey (upsSlot ups)) (encodeStrict (upsProposal ups))]
--- putUndecidedProposalSlot _ = []
+    toBatchOp (SetLastAdopted bv) =
+        [Rocks.Put lastBVKey (encodeStrict bv)]
+    toBatchOp (SetBVState bv st) =
+        [Rocks.Put (bvStateKey bv) (encodeStrict st)]
+    toBatchOp (DelBV bv) =
+        [Rocks.Del (bvStateKey bv)]
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -156,8 +153,8 @@ prepareGStateUS
 prepareGStateUS = unlessM isInitialized $ do
     db <- getUtxoDB
     flip rocksWriteBatch db $
-        [ SetLastPV genesisBlockVersion
-        , SetScriptVersion genesisBlockVersion genesisScriptVersion
+        [ SetLastAdopted genesisBlockVersion
+        , SetBVState genesisBlockVersion (BlockVersionState genesisScriptVersion True)
         ] <> map ConfirmVersion genesisSoftwareVersions
 
 isInitialized :: MonadDB ssc m => m Bool
@@ -242,8 +239,8 @@ getConfirmedProposals reqNsv = runDBnIterator @ConfPropIter _gStateDB (step [])
 lastBVKey :: ByteString
 lastBVKey = "us/last-adopted-block-v"
 
-scriptVersionKey :: BlockVersion -> ByteString
-scriptVersionKey = mappend "us/vs" . encodeStrict
+bvStateKey :: BlockVersion -> ByteString
+bvStateKey = mappend "us/bvs/" . encodeStrict
 
 proposalKey :: UpId -> ByteString
 proposalKey = encodeWithKeyPrefix @PropIter
@@ -255,7 +252,7 @@ confirmedVersionKey :: ApplicationName -> ByteString
 confirmedVersionKey = mappend "us/cv" . encodeStrict
 
 iterationPrefix :: ByteString
-iterationPrefix = "us/p"
+iterationPrefix = "us/p/"
 
 confirmedProposalKey :: NumSoftwareVersion -> ByteString
 confirmedProposalKey = encodeWithKeyPrefix @ConfPropIter

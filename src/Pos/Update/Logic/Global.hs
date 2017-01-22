@@ -18,15 +18,15 @@ import           Universum
 
 import qualified Pos.DB               as DB
 import           Pos.DB.GState        (UpdateOp (..))
-import           Pos.Script.Type      (ScriptVersion)
 import           Pos.Types            (ApplicationName, Block, BlockVersion,
                                        NumSoftwareVersion, SoftwareVersion (..),
                                        difficultyL, gbBody, gbHeader, mbUpdatePayload)
 import           Pos.Update.Core      (UpId, UpdateProposal)
 import           Pos.Update.Error     (USError (USInternalError))
-import           Pos.Update.Poll      (DBPoll, MonadPoll, PollModifier (..), PollT,
-                                       PollVerFailure, ProposalState, USUndo, execPollT,
-                                       execRollT, rollbackUSPayload, runDBPoll, runPollT,
+import           Pos.Update.Poll      (BlockVersionState, DBPoll, MonadPoll,
+                                       PollModifier (..), PollT, PollVerFailure,
+                                       ProposalState, USUndo, execPollT, execRollT,
+                                       rollbackUSPayload, runDBPoll, runPollT,
                                        verifyAndApplyUSPayload)
 import           Pos.Util             (Color (Red), NE, NewestFirst, OldestFirst,
                                        colorize, inAssertMode)
@@ -103,24 +103,24 @@ verifyBlock (Right blk) = execRollT $ do
 modifierToBatch :: PollModifier -> [DB.SomeBatchOp]
 modifierToBatch PollModifier {..} =
     concat $
-    [ scModifierToBatch pmNewScriptVersions pmDelScriptVersions
-    , bvModifierToBatch pmLastAdoptedBV
+    [ bvsModifierToBatch pmNewBVs pmDelBVs
+    , lastAdoptedModifierToBatch pmLastAdoptedBV
     , confirmedModifierToBatch pmNewConfirmed pmDelConfirmed pmNewConfirmedProps
     , upModifierToBatch pmNewActiveProps pmDelActivePropsIdx
     ]
 
-scModifierToBatch
-    :: HashMap BlockVersion ScriptVersion
+bvsModifierToBatch
+    :: HashMap BlockVersion BlockVersionState
     -> HashSet BlockVersion
     -> [DB.SomeBatchOp]
-scModifierToBatch (HM.toList -> added) (toList -> deleted) = addOps ++ delOps
+bvsModifierToBatch (HM.toList -> added) (toList -> deleted) = addOps ++ delOps
   where
-    addOps = map (DB.SomeBatchOp . uncurry SetScriptVersion) added
-    delOps = map (DB.SomeBatchOp . DelScriptVersion) deleted
+    addOps = map (DB.SomeBatchOp . uncurry SetBVState) added
+    delOps = map (DB.SomeBatchOp . DelBV) deleted
 
-bvModifierToBatch :: Maybe BlockVersion -> [DB.SomeBatchOp]
-bvModifierToBatch Nothing  = []
-bvModifierToBatch (Just v) = [DB.SomeBatchOp $ SetLastPV v]
+lastAdoptedModifierToBatch :: Maybe BlockVersion -> [DB.SomeBatchOp]
+lastAdoptedModifierToBatch Nothing  = []
+lastAdoptedModifierToBatch (Just v) = [DB.SomeBatchOp $ SetLastAdopted v]
 
 confirmedModifierToBatch :: HashMap ApplicationName NumSoftwareVersion
                          -> HashSet ApplicationName

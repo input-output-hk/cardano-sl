@@ -29,7 +29,7 @@ rollbackUSPayload _ UpdatePayload{..} USUndo{..} = do
     -- Rollback protocol version
     whenJust unLastAdoptedBV setLastAdoptedBV
     -- Rollback script
-    whenJust unCreatedNewDepsFor delScriptVersionDep
+    whenJust unCreatedNewBSFor delBVState
   where
     setOrDelLastConfirmedSV :: (ApplicationName, PrevValue NumSoftwareVersion) -> m ()
     setOrDelLastConfirmedSV (svAppName, PrevValue svNumber) =

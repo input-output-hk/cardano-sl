@@ -12,10 +12,13 @@ module Pos.Update.Poll.Types
        , psVotes
        , mkUProposalState
 
+         -- * BlockVersion state
+       , BlockVersionState (..)
+
          -- * Poll modifier
        , PollModifier (..)
-       , pmNewScriptVersionsL
-       , pmDelScriptVersionsL
+       , pmNewBVsL
+       , pmDelBVsL
        , pmLastAdoptedBVL
        , pmNewConfirmedL
        , pmDelConfirmedL
@@ -34,7 +37,7 @@ module Pos.Update.Poll.Types
        , USUndo (..)
        , unChangedSVL
        , unChangedPropsL
-       , unCreatedNewDepsForL
+       , unCreatedNewBSForL
        , unLastAdoptedBVL
        ) where
 
@@ -108,6 +111,18 @@ mkUProposalState upsSlot upsProposal =
     }
 
 ----------------------------------------------------------------------------
+-- BlockVersion state
+----------------------------------------------------------------------------
+
+-- | State of BlockVersion from update proposal.
+data BlockVersionState = BlockVersionState
+    { bvsScript      :: !ScriptVersion
+    -- ^ Script version associated with this block version.
+    , bvsIsConfirmed :: !Bool
+    -- ^ Whether proposal with this block version is confirmed.
+    }
+
+----------------------------------------------------------------------------
 -- Modifier
 ----------------------------------------------------------------------------
 
@@ -115,8 +130,8 @@ mkUProposalState upsSlot upsProposal =
 -- one should apply to global state to obtain result of application of
 -- MemPool or blocks which are verified.
 data PollModifier = PollModifier
-    { pmNewScriptVersions :: !(HashMap BlockVersion ScriptVersion)
-    , pmDelScriptVersions :: !(HashSet BlockVersion)
+    { pmNewBVs            :: !(HashMap BlockVersion BlockVersionState)
+    , pmDelBVs            :: !(HashSet BlockVersion)
     , pmLastAdoptedBV     :: !(Maybe BlockVersion)
     , pmNewConfirmed      :: !(HashMap ApplicationName NumSoftwareVersion)
     , pmDelConfirmed      :: !(HashSet ApplicationName)
@@ -127,8 +142,8 @@ data PollModifier = PollModifier
     , pmDelActivePropsIdx :: !(HashMap ApplicationName UpId)
     }
 
-makeLensesFor [ ("pmNewScriptVersions", "pmNewScriptVersionsL")
-              , ("pmDelScriptVersions", "pmDelScriptVersionsL")
+makeLensesFor [ ("pmNewBVs", "pmNewBVsL")
+              , ("pmDelBVs", "pmDelBVsL")
               , ("pmLastAdoptedBV", "pmLastAdoptedBVL")
               , ("pmNewConfirmed", "pmNewConfirmedL")
               , ("pmDelConfirmed", "pmDelConfirmedL")
@@ -171,8 +186,8 @@ data PollVerFailure
     | PollExtraRevote { perUpId        :: !UpId
                      ,  perStakeholder :: !StakeholderId
                      ,  perDecision    :: !Bool}
-    | PollWrongHeaderBlockVersion { pwhpvGiven      :: !BlockVersion
-                                    ,  pwhpvAdopted :: !BlockVersion}
+    | PollWrongHeaderBlockVersion { pwhpvGiven   :: !BlockVersion
+                                  , pwhpvAdopted :: !BlockVersion}
     | PollBadBlockVersion { pbpvUpId       :: !UpId
                             ,  pbpvGiven   :: !BlockVersion
                             ,  pbpvAdopted :: !BlockVersion}
@@ -217,7 +232,9 @@ instance Buildable PollVerFailure where
         perStakeholder (bool "against" "for" perDecision) perUpId
     build (PollWrongHeaderBlockVersion {..}) =
         bprint ("wrong protocol version has been seen in header: "%
-                build%" (current adopted is "%build%")")
+                build%" (current adopted is "%build%"), "%
+                "this version is smaller than last adopted "%
+                "or is not confirmed")
         pwhpvGiven pwhpvAdopted
     build (PollBadBlockVersion {..}) =
         bprint ("proposal "%build%" has bad protocol version: "%
@@ -239,13 +256,13 @@ maybeToPrev Nothing  = NoExist
 
 -- | Data necessary to unapply US data.
 data USUndo = USUndo
-    { unCreatedNewDepsFor :: !(Maybe BlockVersion)
-    , unLastAdoptedBV     :: !(Maybe BlockVersion)
-    , unChangedProps      :: !(HashMap UpId (PrevValue ProposalState))
-    , unChangedSV         :: !(HashMap ApplicationName (PrevValue NumSoftwareVersion))
+    { unCreatedNewBSFor :: !(Maybe BlockVersion)
+    , unLastAdoptedBV   :: !(Maybe BlockVersion)
+    , unChangedProps    :: !(HashMap UpId (PrevValue ProposalState))
+    , unChangedSV       :: !(HashMap ApplicationName (PrevValue NumSoftwareVersion))
     }
 
-makeLensesFor [ ("unCreatedNewDepsFor", "unCreatedNewDepsForL")
+makeLensesFor [ ("unCreatedNewBSFor", "unCreatedNewBSForL")
               , ("unLastAdoptedBV", "unLastAdoptedBVL")
               , ("unChangedProps", "unChangedPropsL")
               , ("unChangedSV", "unChangedSVL")

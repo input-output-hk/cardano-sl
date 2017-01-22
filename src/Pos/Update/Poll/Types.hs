@@ -151,6 +151,7 @@ data PollVerFailure
     = PollWrongScriptVersion { pwsvExpected :: !ScriptVersion
                             ,  pwsvFound    :: !ScriptVersion
                             ,  pwsvUpId     :: !UpId}
+    | PollNotFoundScriptVersion !ProtocolVersion
     | PollSmallProposalStake { pspsThreshold :: !Coin
                             ,  pspsActual    :: !Coin
                             ,  pspsUpId      :: !UpId}
@@ -182,6 +183,8 @@ instance Buildable PollVerFailure where
         bprint ("wrong script version in proposal "%build%
                 " (expected "%int%", found "%int%")")
         upId expected found
+    build (PollNotFoundScriptVersion pv) =
+        bprint ("not found script version for protocol version "%build) pv
     build (PollSmallProposalStake threshold actual upId) =
         bprint ("proposal "%build%
                 " doesn't have enough stake from positive votes "%

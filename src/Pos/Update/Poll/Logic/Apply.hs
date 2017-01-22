@@ -165,18 +165,28 @@ verifyAndApplyProposalScript upId UpdateProposal {..} =
     getScriptVersion upProtocolVersion >>= \case
         -- If there is no known script version for given procol
         -- version, it's added.
-        Nothing -> addScriptVersionDep upProtocolVersion upScriptVersion
+        Nothing -> do
+            lastPV <- getLastAdoptedPV
+            -- previous adopted protocol version
+            lastScriptVerMB <- getScriptVersion lastPV
+            case lastScriptVerMB of
+                Nothing -> throwError $ PollNotFoundScriptVersion lastPV
+                Just lsv
+                    | lsv + 1 == upScriptVersion ->
+                        addScriptVersionDep upProtocolVersion upScriptVersion
+                    | otherwise -> throwUnexpectedSV $ lsv + 1
         Just sv
             -- If script version matches stored version, it's good.
             | sv == upScriptVersion -> pass
             -- Otherwise verification fails.
-            | otherwise ->
-                throwError
-                    PollWrongScriptVersion
-                    { pwsvExpected = sv
-                    , pwsvFound = upScriptVersion
-                    , pwsvUpId = upId
-                    }
+            | otherwise -> throwUnexpectedSV sv
+  where
+    throwUnexpectedSV exVer = throwError
+        PollWrongScriptVersion
+        { pwsvExpected = exVer
+        , pwsvFound = upScriptVersion
+        , pwsvUpId = upId
+        }
 
 -- Here we check that software version is 1 more than last confirmed
 -- version of given application. Or 0 if it's new application.

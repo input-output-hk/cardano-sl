@@ -13,9 +13,9 @@ import           Control.Monad.Trans   (MonadTrans)
 import           Universum
 
 import           Pos.Script.Type       (ScriptVersion)
-import           Pos.Types             (ApplicationName, ChainDifficulty, Coin,
-                                        EpochIndex, NumSoftwareVersion, ProtocolVersion,
-                                        SlotId, SoftwareVersion, StakeholderId)
+import           Pos.Types             (ApplicationName, BlockVersion, ChainDifficulty,
+                                        Coin, EpochIndex, NumSoftwareVersion, SlotId,
+                                        SoftwareVersion, StakeholderId)
 import           Pos.Update.Core       (UpId, UpdateProposal)
 import           Pos.Update.Poll.Types (DecidedProposalState, ProposalState,
                                         UndecidedProposalState)
@@ -27,10 +27,12 @@ import           Pos.Update.Poll.Types (DecidedProposalState, ProposalState,
 -- | Type class which provides function necessary for read-only
 -- verification of US data.
 class Monad m => MonadPollRead m where
-    getScriptVersion :: ProtocolVersion -> m (Maybe ScriptVersion)
+    getScriptVersion :: BlockVersion -> m (Maybe ScriptVersion)
     -- ^ Retrieve script version for given protocol version
-    getLastAdoptedPV :: m ProtocolVersion
-    -- ^ Get last adopted protocol version
+    getLastScriptVersion :: m ScriptVersion
+    -- ^ Retrieve script version for last adopted protocol version
+    getLastAdoptedBV :: m BlockVersion
+    -- ^ Get last adopted block version
     getLastConfirmedSV :: ApplicationName -> m (Maybe NumSoftwareVersion)
     -- ^ Get number of last confirmed version of application
     hasActiveProposal :: ApplicationName -> m Bool
@@ -51,12 +53,16 @@ class Monad m => MonadPollRead m where
 
     -- | Default implementations for 'MonadTrans'.
     default getScriptVersion
-        :: (MonadTrans t, MonadPollRead m', t m' ~ m) => ProtocolVersion -> m (Maybe ScriptVersion)
+        :: (MonadTrans t, MonadPollRead m', t m' ~ m) => BlockVersion -> m (Maybe ScriptVersion)
     getScriptVersion = lift . getScriptVersion
 
-    default getLastAdoptedPV
-        :: (MonadTrans t, MonadPollRead m', t m' ~ m) => m ProtocolVersion
-    getLastAdoptedPV = lift getLastAdoptedPV
+    default getLastScriptVersion
+        :: (MonadTrans t, MonadPollRead m', t m' ~ m) => m ScriptVersion
+    getLastScriptVersion = lift getLastScriptVersion
+
+    default getLastAdoptedBV
+        :: (MonadTrans t, MonadPollRead m', t m' ~ m) => m BlockVersion
+    getLastAdoptedBV = lift getLastAdoptedBV
 
     default getLastConfirmedSV
         :: (MonadTrans t, MonadPollRead m', t m' ~ m) => ApplicationName -> m (Maybe Word32)
@@ -102,11 +108,11 @@ instance MonadPollRead m => MonadPollRead (ExceptT s m)
 -- | Type class which provides function necessary for verification of
 -- US data with ability to modify state.
 class MonadPollRead m => MonadPoll m where
-    addScriptVersionDep :: ProtocolVersion -> ScriptVersion -> m ()
-    -- ^ Add functional dependency between protocol version and script version.
-    delScriptVersionDep :: ProtocolVersion -> m ()
-    -- ^ Delete functional dependency between protocol version and script version.
-    setLastAdoptedPV :: ProtocolVersion -> m ()
+    addScriptVersionDep :: BlockVersion -> ScriptVersion -> m ()
+    -- ^ Add functional dependency between block version and script version.
+    delScriptVersionDep :: BlockVersion -> m ()
+    -- ^ Delete functional dependency between block version and script version.
+    setLastAdoptedBV :: BlockVersion -> m ()
     -- ^ Set last adopted protocol version.
     setLastConfirmedSV :: SoftwareVersion -> m ()
     -- ^ Set last confirmed version of application.
@@ -121,16 +127,16 @@ class MonadPollRead m => MonadPoll m where
 
     -- | Default implementations for 'MonadTrans'.
     default addScriptVersionDep
-        :: (MonadTrans t, MonadPoll m', t m' ~ m) => ProtocolVersion -> ScriptVersion -> m ()
+        :: (MonadTrans t, MonadPoll m', t m' ~ m) => BlockVersion -> ScriptVersion -> m ()
     addScriptVersionDep pv = lift . addScriptVersionDep pv
 
     default delScriptVersionDep
-        :: (MonadTrans t, MonadPoll m', t m' ~ m) => ProtocolVersion -> m ()
+        :: (MonadTrans t, MonadPoll m', t m' ~ m) => BlockVersion -> m ()
     delScriptVersionDep = lift . delScriptVersionDep
 
-    default setLastAdoptedPV
-        :: (MonadTrans t, MonadPoll m', t m' ~ m) => ProtocolVersion -> m ()
-    setLastAdoptedPV = lift . setLastAdoptedPV
+    default setLastAdoptedBV
+        :: (MonadTrans t, MonadPoll m', t m' ~ m) => BlockVersion -> m ()
+    setLastAdoptedBV = lift . setLastAdoptedBV
 
     default setLastConfirmedSV
         :: (MonadTrans t, MonadPoll m', t m' ~ m) => SoftwareVersion -> m ()

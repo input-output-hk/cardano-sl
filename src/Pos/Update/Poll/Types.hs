@@ -16,7 +16,7 @@ module Pos.Update.Poll.Types
        , PollModifier (..)
        , pmNewScriptVersionsL
        , pmDelScriptVersionsL
-       , pmLastAdoptedPVL
+       , pmLastAdoptedBVL
        , pmNewConfirmedL
        , pmDelConfirmedL
        , pmNewConfirmedPropsL
@@ -35,7 +35,7 @@ module Pos.Update.Poll.Types
        , unChangedSVL
        , unChangedPropsL
        , unCreatedNewDepsForL
-       , unLastAdoptedPVL
+       , unLastAdoptedBVL
        ) where
 
 import           Control.Lens        (makeLensesFor)
@@ -48,8 +48,8 @@ import           Pos.Script.Type     (ScriptVersion)
 import           Pos.Types.Coin      (coinF)
 import           Pos.Types.Types     (ChainDifficulty, Coin, EpochIndex, SlotId,
                                       StakeholderId, mkCoin)
-import           Pos.Types.Version   (ApplicationName, NumSoftwareVersion,
-                                      ProtocolVersion, SoftwareVersion)
+import           Pos.Types.Version   (ApplicationName, BlockVersion, NumSoftwareVersion,
+                                      SoftwareVersion)
 import           Pos.Update.Core     (StakeholderVotes, UpId, UpdateProposal)
 
 ----------------------------------------------------------------------------
@@ -115,9 +115,9 @@ mkUProposalState upsSlot upsProposal =
 -- one should apply to global state to obtain result of application of
 -- MemPool or blocks which are verified.
 data PollModifier = PollModifier
-    { pmNewScriptVersions :: !(HashMap ProtocolVersion ScriptVersion)
-    , pmDelScriptVersions :: !(HashSet ProtocolVersion)
-    , pmLastAdoptedPV     :: !(Maybe ProtocolVersion)
+    { pmNewScriptVersions :: !(HashMap BlockVersion ScriptVersion)
+    , pmDelScriptVersions :: !(HashSet BlockVersion)
+    , pmLastAdoptedBV     :: !(Maybe BlockVersion)
     , pmNewConfirmed      :: !(HashMap ApplicationName NumSoftwareVersion)
     , pmDelConfirmed      :: !(HashSet ApplicationName)
     , pmNewConfirmedProps :: !(HashMap NumSoftwareVersion UpdateProposal)
@@ -129,7 +129,7 @@ data PollModifier = PollModifier
 
 makeLensesFor [ ("pmNewScriptVersions", "pmNewScriptVersionsL")
               , ("pmDelScriptVersions", "pmDelScriptVersionsL")
-              , ("pmLastAdoptedPV", "pmLastAdoptedPVL")
+              , ("pmLastAdoptedBV", "pmLastAdoptedBVL")
               , ("pmNewConfirmed", "pmNewConfirmedL")
               , ("pmDelConfirmed", "pmDelConfirmedL")
               , ("pmNewConfirmedProps", "pmNewConfirmedPropsL")
@@ -151,6 +151,7 @@ data PollVerFailure
     = PollWrongScriptVersion { pwsvExpected :: !ScriptVersion
                             ,  pwsvFound    :: !ScriptVersion
                             ,  pwsvUpId     :: !UpId}
+    | PollNotFoundScriptVersion !BlockVersion
     | PollSmallProposalStake { pspsThreshold :: !Coin
                             ,  pspsActual    :: !Coin
                             ,  pspsUpId      :: !UpId}
@@ -170,11 +171,11 @@ data PollVerFailure
     | PollExtraRevote { perUpId        :: !UpId
                      ,  perStakeholder :: !StakeholderId
                      ,  perDecision    :: !Bool}
-    | PollWrongHeaderProtocolVersion { pwhpvGiven   :: !ProtocolVersion
-                                    ,  pwhpvAdopted :: !ProtocolVersion}
-    | PollBadProtocolVersion { pbpvUpId    :: !UpId
-                            ,  pbpvGiven   :: !ProtocolVersion
-                            ,  pbpvAdopted :: !ProtocolVersion}
+    | PollWrongHeaderBlockVersion { pwhpvGiven      :: !BlockVersion
+                                    ,  pwhpvAdopted :: !BlockVersion}
+    | PollBadBlockVersion { pbpvUpId       :: !UpId
+                            ,  pbpvGiven   :: !BlockVersion
+                            ,  pbpvAdopted :: !BlockVersion}
     | PollInternalError !Text
 
 instance Buildable PollVerFailure where
@@ -182,6 +183,8 @@ instance Buildable PollVerFailure where
         bprint ("wrong script version in proposal "%build%
                 " (expected "%int%", found "%int%")")
         upId expected found
+    build (PollNotFoundScriptVersion pv) =
+        bprint ("not found script version for protocol version "%build) pv
     build (PollSmallProposalStake threshold actual upId) =
         bprint ("proposal "%build%
                 " doesn't have enough stake from positive votes "%
@@ -212,11 +215,11 @@ instance Buildable PollVerFailure where
         bprint ("stakeholder "%build%" vote "%stext%" proposal "
                 %build%" more than once")
         perStakeholder (bool "against" "for" perDecision) perUpId
-    build (PollWrongHeaderProtocolVersion {..}) =
+    build (PollWrongHeaderBlockVersion {..}) =
         bprint ("wrong protocol version has been seen in header: "%
                 build%" (current adopted is "%build%")")
         pwhpvGiven pwhpvAdopted
-    build (PollBadProtocolVersion {..}) =
+    build (PollBadBlockVersion {..}) =
         bprint ("proposal "%build%" has bad protocol version: "%
                 build%" (current adopted is "%build%")")
         pbpvUpId pbpvGiven pbpvAdopted
@@ -236,14 +239,14 @@ maybeToPrev Nothing  = NoExist
 
 -- | Data necessary to unapply US data.
 data USUndo = USUndo
-    { unCreatedNewDepsFor :: !(Maybe ProtocolVersion)
-    , unLastAdoptedPV     :: !(Maybe ProtocolVersion)
+    { unCreatedNewDepsFor :: !(Maybe BlockVersion)
+    , unLastAdoptedBV     :: !(Maybe BlockVersion)
     , unChangedProps      :: !(HashMap UpId (PrevValue ProposalState))
     , unChangedSV         :: !(HashMap ApplicationName (PrevValue NumSoftwareVersion))
     }
 
 makeLensesFor [ ("unCreatedNewDepsFor", "unCreatedNewDepsForL")
-              , ("unLastAdoptedPV", "unLastAdoptedPVL")
+              , ("unLastAdoptedBV", "unLastAdoptedBVL")
               , ("unChangedProps", "unChangedPropsL")
               , ("unChangedSV", "unChangedSVL")
               ]

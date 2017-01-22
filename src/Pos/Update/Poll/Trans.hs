@@ -41,7 +41,7 @@ import           Pos.Update.MemState.Class   (MonadUSMem (..))
 import           Pos.Update.Poll.Class       (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Types       (PollModifier (..), pmDelActivePropsIdxL,
                                               pmDelActivePropsL, pmDelConfirmedL,
-                                              pmDelScriptVersionsL, pmLastAdoptedPVL,
+                                              pmDelScriptVersionsL, pmLastAdoptedBVL,
                                               pmNewActivePropsIdxL, pmNewActivePropsL,
                                               pmNewConfirmedL, pmNewConfirmedPropsL,
                                               pmNewScriptVersionsL, psProposal)
@@ -86,9 +86,12 @@ instance MonadPollRead m =>
     getScriptVersion pv = do
         new <- pmNewScriptVersions <$> PollT get
         maybe (PollT $ getScriptVersion pv) (pure . Just) $ HM.lookup pv new
-    getLastAdoptedPV = do
-        new <- pmLastAdoptedPV <$> PollT get
-        maybe (PollT getLastAdoptedPV) pure new
+    getLastScriptVersion = do
+        lpv <- getLastAdoptedBV
+        maybe (PollT getLastScriptVersion) pure =<< getScriptVersion lpv
+    getLastAdoptedBV = do
+        new <- pmLastAdoptedBV <$> PollT get
+        maybe (PollT getLastAdoptedBV) pure new
     getLastConfirmedSV appName = do
         new <- pmNewConfirmed <$> PollT get
         maybe (PollT $ getLastConfirmedSV appName) (pure . Just) $
@@ -111,7 +114,7 @@ instance MonadPollRead m =>
          MonadPoll (PollT m) where
     addScriptVersionDep pv sv = PollT $ pmNewScriptVersionsL . at pv .= Just sv
     delScriptVersionDep pv = PollT $ pmDelScriptVersionsL . at pv .= Nothing
-    setLastAdoptedPV pv = PollT $ pmLastAdoptedPVL .= Just pv
+    setLastAdoptedBV bv = PollT $ pmLastAdoptedBVL .= Just bv
     setLastConfirmedSV SoftwareVersion {..} =
         PollT $ pmNewConfirmedL . at svAppName .= Just svNumber
     delConfirmedSV appName = PollT $ pmDelConfirmedL . at appName .= Nothing

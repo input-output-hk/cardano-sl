@@ -99,7 +99,7 @@ instance Bi VersionReq where
 
 instance Bi VersionResp where
     put VersionResp{..} =  putInt32be vRespMagic
-                        *> put vRespProtocolVersion
+                        *> put vRespBlockVersion
     get = label "GenericBlockHeader" $ VersionResp <$> getInt32be <*> get
 
 ----------------------------------------------------------------------------

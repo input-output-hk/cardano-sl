@@ -25,7 +25,7 @@ import           Pos.Types                  (ChainDifficulty, Coin, EpochIndex,
                                              SoftwareVersion (..), addressHash,
                                              applyCoinPortion, canBeNextPV, coinToInteger,
                                              difficultyL, epochIndexL, flattenSlotId,
-                                             gbhExtra, headerSlot, mehProtocolVersion,
+                                             gbhExtra, headerSlot, mehBlockVersion,
                                              sumCoins, unflattenSlotId,
                                              unsafeIntegerToCoin)
 import           Pos.Update.Core            (UpId, UpdatePayload (..),
@@ -86,12 +86,13 @@ verifyHeader
     :: (MonadError PollVerFailure m, MonadPoll m)
     => MainBlockHeader __ -> m ()
 verifyHeader header = do
-    -- Protocol version in block must be same as last adopted version.
-    lastAdopted <- getLastAdoptedPV
-    let versionInHeader = header ^. gbhExtra ^. mehProtocolVersion
+    -- FIXME: it's not correct!
+    -- Block version in header must be same as last adopted version.
+    lastAdopted <- getLastAdoptedBV
+    let versionInHeader = header ^. gbhExtra ^. mehBlockVersion
     unless (versionInHeader == lastAdopted) $
         throwError
-            PollWrongHeaderProtocolVersion
+            PollWrongHeaderBlockVersion
             {pwhpvGiven = versionInHeader, pwhpvAdopted = lastAdopted}
 
 -- Get stake of stakeholder who issued given vote as per given epoch.
@@ -141,7 +142,7 @@ verifyAndApplyProposal considerThreshold slotOrHeader votes up@UpdateProposal {.
     -- update relevant state.
     verifyAndApplyProposalScript upId up
     -- Then we verify that protocol version from proposal can follow last adopted software version.
-    verifyProtocolVersion upId up
+    verifyBlockVersion upId up
     -- We also verify that software version is expected one.
     verifySoftwareVersion upId up
     -- After that we resolve stakes of all votes.
@@ -162,21 +163,26 @@ verifyAndApplyProposalScript
     :: (MonadError PollVerFailure m, MonadPoll m)
     => UpId -> UpdateProposal -> m ()
 verifyAndApplyProposalScript upId UpdateProposal {..} =
-    getScriptVersion upProtocolVersion >>= \case
+    getScriptVersion upBlockVersion >>= \case
         -- If there is no known script version for given procol
         -- version, it's added.
-        Nothing -> addScriptVersionDep upProtocolVersion upScriptVersion
+        Nothing -> do
+            lsv <- getLastScriptVersion
+            if | lsv + 1 == upScriptVersion ->
+                        addScriptVersionDep upBlockVersion upScriptVersion
+               | otherwise -> throwUnexpectedSV $ lsv + 1
         Just sv
             -- If script version matches stored version, it's good.
             | sv == upScriptVersion -> pass
             -- Otherwise verification fails.
-            | otherwise ->
-                throwError
-                    PollWrongScriptVersion
-                    { pwsvExpected = sv
-                    , pwsvFound = upScriptVersion
-                    , pwsvUpId = upId
-                    }
+            | otherwise -> throwUnexpectedSV sv
+  where
+    throwUnexpectedSV exVer = throwError
+        PollWrongScriptVersion
+        { pwsvExpected = exVer
+        , pwsvFound = upScriptVersion
+        , pwsvUpId = upId
+        }
 
 -- Here we check that software version is 1 more than last confirmed
 -- version of given application. Or 0 if it's new application.
@@ -214,18 +220,18 @@ verifySoftwareVersion upId UpdateProposal {..} =
 
 -- Here we verify that proposed protocol version is the same as
 -- adopted one or can follow it.
-verifyProtocolVersion
+verifyBlockVersion
     :: (MonadError PollVerFailure m, MonadPollRead m)
     => UpId -> UpdateProposal -> m ()
-verifyProtocolVersion upId UpdateProposal {..} = do
-    lastAdopted <- getLastAdoptedPV
+verifyBlockVersion upId UpdateProposal {..} = do
+    lastAdopted <- getLastAdoptedBV
     unless
-        (lastAdopted == upProtocolVersion ||
-         canBeNextPV lastAdopted upProtocolVersion) $
+        (lastAdopted == upBlockVersion ||
+         canBeNextPV lastAdopted upBlockVersion) $
         throwError
-            PollBadProtocolVersion
+            PollBadBlockVersion
             { pbpvUpId = upId
-            , pbpvGiven = upProtocolVersion
+            , pbpvGiven = upBlockVersion
             , pbpvAdopted = lastAdopted
             }
 

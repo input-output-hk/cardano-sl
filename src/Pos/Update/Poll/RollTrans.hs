@@ -21,7 +21,7 @@ import           Pos.Types.Version         (SoftwareVersion (..))
 import           Pos.Update.Poll.Class     (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Types     (PrevValue, USUndo (..), maybeToPrev,
                                             psProposal, unChangedPropsL, unChangedSVL,
-                                            unCreatedNewDepsForL, unLastAdoptedPVL)
+                                            unCreatedNewDepsForL, unLastAdoptedBVL)
 
 newtype RollT m a = RollT
     { getRollT :: StateT USUndo m a
@@ -48,11 +48,11 @@ instance MonadPoll m => MonadPoll (RollT m) where
 
     delScriptVersionDep  = lift . delScriptVersionDep
 
-    setLastAdoptedPV pv = RollT $ do
-        prevPV <- getLastAdoptedPV
-        whenNothingM (use unLastAdoptedPVL) $
-            unLastAdoptedPVL .= Just prevPV
-        lift $ setLastAdoptedPV pv
+    setLastAdoptedBV pv = RollT $ do
+        prevBV <- getLastAdoptedBV
+        whenNothingM (use unLastAdoptedBVL) $
+            unLastAdoptedBVL .= Just prevBV
+        lift $ setLastAdoptedBV pv
 
     setLastConfirmedSV sv@SoftwareVersion{..} = RollT $ do
         insertIfNotExist svAppName unChangedSVL getLastConfirmedSV

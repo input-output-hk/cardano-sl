@@ -47,19 +47,18 @@ module Pos.Constants
        , mdNoCommitmentsEpochThreshold
 
          -- * Update system constants
-       , curProtocolVersion
+       , lastKnownBlockVersion
        , curSoftwareVersion
        , appSystemTag
        , updateServers
+       , updateProposalThreshold
+       , updateVoteThreshold
+       , updateImplicitApproval
 
        -- * NTP
        , ntpMaxError
        , ntpResponseTimeout
        , ntpPollDelay
-
-       , updateProposalThreshold
-       , updateVoteThreshold
-       , updateImplicitApproval
        ) where
 
 import           Data.Time.Units            (Microsecond)
@@ -78,7 +77,7 @@ import           Pos.CompileConfig          (CompileConfig (..), compileConfig)
 import           Pos.DHT.Model.Types        (DHTNode)
 import           Pos.Types.Timestamp        (Timestamp (..))
 import           Pos.Types.Types            (CoinPortion, unsafeCoinPortion)
-import           Pos.Types.Version          (ApplicationName, ProtocolVersion (..),
+import           Pos.Types.Version          (ApplicationName, BlockVersion (..),
                                              SoftwareVersion (..), mkApplicationName)
 import           Pos.Update.Core            (SystemTag, mkSystemTag)
 import           Pos.Util                   ()
@@ -277,9 +276,9 @@ appSystemTag = $(do
 #endif
         Just tag -> lift =<< mkSystemTag (toText tag))
 
--- | Protocol version application uses
-curProtocolVersion :: ProtocolVersion
-curProtocolVersion = ProtocolVersion 0 0 0
+-- | Last block version application is aware of.
+lastKnownBlockVersion :: BlockVersion
+lastKnownBlockVersion = BlockVersion 0 0 0
 
 -- | Version of application (code running)
 curSoftwareVersion :: SoftwareVersion

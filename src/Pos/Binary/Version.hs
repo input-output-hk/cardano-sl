@@ -21,8 +21,8 @@ instance Bi V.SoftwareVersion where
     put V.SoftwareVersion {..} =  put svAppName
                                *> put svNumber
 
-instance Bi V.ProtocolVersion where
-    get = label "ProtocolVersion" $ V.ProtocolVersion <$> get <*> get <*> get
-    put V.ProtocolVersion {..} =  put pvMajor
-                               *> put pvMinor
-                               *> put pvAlt
+instance Bi V.BlockVersion where
+    get = label "BlockVersion" $ V.BlockVersion <$> get <*> get <*> get
+    put V.BlockVersion {..} =  put bvMajor
+                               *> put bvMinor
+                               *> put bvAlt

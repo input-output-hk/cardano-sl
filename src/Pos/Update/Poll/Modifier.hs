@@ -16,7 +16,7 @@ instance Default PollModifier where
         PollModifier
         { pmNewScriptVersions = mempty
         , pmDelScriptVersions = mempty
-        , pmLastAdoptedPV = Nothing
+        , pmLastAdoptedBV = Nothing
         , pmNewConfirmed = mempty
         , pmDelConfirmed = mempty
         , pmNewActiveProps = mempty
@@ -32,7 +32,7 @@ modifyPollModifier :: PollModifier -> PollModifier -> PollModifier
 modifyPollModifier pmOld pmNew = PollModifier
     (unionHM pmNewScriptVersions `diffMapSet` pmDelScriptVersions pmNew)
     (unionHS pmDelScriptVersions)
-    (pmLastAdoptedPV pmNew <|> pmLastAdoptedPV pmOld)
+    (pmLastAdoptedBV pmNew <|> pmLastAdoptedBV pmOld)
     (unionHM pmNewConfirmed `diffMapSet` pmDelConfirmed pmNew)
     (unionHS pmDelConfirmed)
     (unionHM pmNewConfirmedProps)

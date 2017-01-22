@@ -19,7 +19,7 @@ import           Control.Lens           (each, _Wrapped)
 import qualified Data.HashMap.Strict    as HM
 import qualified Data.HashSet           as HS
 import qualified Data.List.NonEmpty     as NE
-import           Formatting             (build, sformat, stext, (%))
+import           Formatting             (build, sformat, (%))
 import           Serokell.Util          (VerificationRes (VerFailure), formatAllErrors,
                                          verResFullF)
 import           System.Wlog            (WithLogger, logDebug, logInfo)

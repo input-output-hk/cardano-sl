@@ -37,9 +37,9 @@ script:
 - stack exec --nix -- cardano-wallet-hs2purs
 - cd daedalus
 - nix-shell -p nodejs --run "npm install && npm run build:prod"
+- cd ..
 - tar cJf s3/daedalus-bridge.tar.xz daedalus/
 - echo $TRAVIS_BUILD_NUMBER > s3/build-id
-- cd ..
 deploy:
   provider: s3
   access_key_id: AKIAJETSFTAMXGNCGC6Q

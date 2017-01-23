@@ -9,21 +9,21 @@ import Control.Monad.Eff.Var (($=))
 import DOM.Event.Types (Event)
 import DOM.Websocket.Event.Types (MessageEvent)
 import Daedalus.Constants (wsUri)
-import Data.Function.Uncurried (Fn1, runFn1)
 import Data.Maybe (Maybe(Just, Nothing))
 import WebSocket (runMessage, runMessageEvent)
+import Data.Function.Eff (EffFn1, runEffFn1)
 
-type NotifyCb = Fn1 String (forall eff. Eff (| eff) Unit)
-type ErrorCb = Fn1 Event (forall eff. Eff (| eff) Unit)
+type NotifyCb eff = EffFn1 eff String Unit
+type ErrorCb eff = EffFn1 eff Event Unit
 
-newtype WSState = WSState
+newtype WSState eff = WSState
     { url :: WS.URL
     , connection :: Ref WSConnection
-    , notifyCb :: Maybe NotifyCb
-    , errorCb :: Maybe ErrorCb
+    , notifyCb :: Maybe (NotifyCb eff)
+    , errorCb :: Maybe (ErrorCb eff)
     }
 
-mkWSState :: Ref WSConnection -> NotifyCb -> ErrorCb -> WSState
+mkWSState :: forall eff. Ref WSConnection -> NotifyCb eff -> ErrorCb eff -> WSState eff
 mkWSState conn notifyCb errorCb = WSState
     { url: (WS.URL wsUri)
     , notifyCb: Just notifyCb
@@ -36,7 +36,7 @@ data WSConnection
     | WSConnectionRequested
     | WSConnected WS.Connection
 
-closeConn :: forall eff. WSState -> Eff (ref :: REF, ws :: WS.WEBSOCKET
+closeConn :: forall eff. WSState eff -> Eff (ref :: REF, ws :: WS.WEBSOCKET
     , err :: EXCEPTION | eff) Unit
 closeConn (WSState state) = do
     connection <- readRef state.connection
@@ -44,7 +44,7 @@ closeConn (WSState state) = do
         WSConnected (WS.Connection socket) -> socket.close
         _ -> pure unit
 
-openConn :: forall eff. WSState -> Eff (ref :: REF, ws :: WS.WEBSOCKET
+openConn :: forall eff. WSState eff -> Eff (ref :: REF, ws :: WS.WEBSOCKET
     , err :: EXCEPTION | eff) Unit
 openConn (WSState state) = do
     connection <- readRef state.connection
@@ -52,7 +52,7 @@ openConn (WSState state) = do
         WSNotConnected -> mkConn (WSState state)
         _ -> pure unit
 
-mkConn :: forall eff. WSState -> Eff (ref :: REF, ws :: WS.WEBSOCKET
+mkConn :: forall eff. WSState eff -> Eff (ref :: REF, ws :: WS.WEBSOCKET
     , err :: EXCEPTION | eff) Unit
 mkConn (WSState state) = do
     WS.Connection socket <- WS.newWebSocket state.url []
@@ -61,24 +61,22 @@ mkConn (WSState state) = do
     socket.onmessage $= \event -> onMessage (WSState state) event
     socket.onerror $= \event ->
         case state.errorCb of
-            Just cb -> runFn1 cb event
+            Just cb -> runEffFn1 cb event
             Nothing -> pure unit
     socket.onopen $= \_ -> onOpened (WSState state) $ WS.Connection socket
 
-onClose :: forall eff. WSState -> Eff (ref :: REF | eff) Unit
+onClose :: forall eff. WSState eff -> Eff (ref :: REF | eff) Unit
 onClose (WSState state) =
     writeRef state.connection WSNotConnected
 
-onMessage :: forall eff. WSState -> MessageEvent -> Eff eff Unit
+onMessage :: forall eff. WSState eff -> MessageEvent -> Eff eff Unit
 onMessage (WSState state) event = do
     let msg = runMessage $ runMessageEvent event
     case state.notifyCb of
-        Just cb -> runFn1 cb msg
+        Just cb -> runEffFn1 cb msg
         Nothing -> pure unit
 
-onOpened :: forall eff. WSState -> WS.Connection -> Eff (ref :: REF
+onOpened :: forall eff. WSState eff -> WS.Connection -> Eff (ref :: REF
     , ws :: WS.WEBSOCKET, err :: EXCEPTION | eff) Unit
 onOpened (WSState state) (WS.Connection socket) = do
     writeRef state.connection <<< WSConnected $ WS.Connection socket
-    -- TODO (jk) "socket.send" can be removed later on, just a check to get a message
-    socket.send $ WS.Message "Opened 4 Daedalus"

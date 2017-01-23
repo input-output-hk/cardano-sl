@@ -1,18 +1,25 @@
 module Daedalus.ClientApi where
 
 import Prelude
+import Control.Monad.Aff (Aff, liftEff')
 import Daedalus.BackendApi as B
 import Control.Monad.Eff (Eff)
+import Control.Monad.Eff.Unsafe (unsafeInterleaveEff)
+import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Ref (newRef, REF)
 import Control.Promise (Promise, fromAff)
-import Daedalus.Types (mkCAddress, mkCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile)
+import Daedalus.Types (mkCAddress, mkCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile, mkCWalletInit)
 import Daedalus.WS (WSConnection(WSNotConnected), mkWSState, ErrorCb, NotifyCb, openConn)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (encodeJson)
 import Data.Function.Uncurried (Fn2, mkFn2, Fn4, mkFn4, Fn3, mkFn3, Fn6, mkFn6, Fn7, mkFn7)
+import Data.Function.Eff (EffFn1, runEffFn1)
 import Network.HTTP.Affjax (AJAX)
 import WebSocket (WEBSOCKET)
+import Control.Monad.Error.Class (throwError)
+import Data.Either (either)
+import Daedalus.Crypto as Crypto
 
 getProfile :: forall eff. Eff(ajax :: AJAX | eff) (Promise Json)
 getProfile = fromAff $ map encodeJson B.getProfile
@@ -53,10 +60,19 @@ sendExtended = mkFn6 \addrFrom addrTo amount curr title desc -> fromAff <<< map 
         title
         desc
 
-newWallet :: forall eff. Fn3 String String String
-  (Eff(ajax :: AJAX | eff) (Promise Json))
-newWallet = mkFn3 \wType wCurrency wName -> fromAff <<< map encodeJson <<<
-    B.newWallet $ mkCWalletMeta wType wCurrency wName
+generateMnemonic :: forall eff. Eff (crypto :: Crypto.CRYPTO | eff) String
+generateMnemonic = Crypto.generateMnemonic
+
+newWallet :: forall eff . Fn4 String String String (EffFn1 (err :: EXCEPTION | eff) String Unit)
+  (Eff(ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) (Promise Json))
+newWallet = mkFn4 \wType wCurrency wName wConfirmMnemonic -> fromAff $ map encodeJson $ do
+
+    mnemonic <- liftEff Crypto.generateMnemonic
+    -- FIXME: @jens how did we satisfy this with notify? I am having trouble again
+    isConfirmed <- liftEff' $ unsafeInterleaveEff $ runEffFn1 wConfirmMnemonic mnemonic
+    either throwError B.newWallet $ do
+        isConfirmed
+        mkCWalletInit wType wCurrency wName mnemonic
 
 updateWallet :: forall eff. Fn4 String String String String
   (Eff (ajax :: AJAX | eff) (Promise Json))

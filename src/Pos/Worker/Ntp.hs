@@ -6,6 +6,7 @@ module Pos.Worker.Ntp
 import qualified Control.Concurrent.STM as STM
 import           Data.List              ((!!))
 import           Data.Time.Units        (Microsecond)
+import           Formatting             (int, sformat, (%))
 import           NTP.Client             (NtpClientSettings (..), startNtpClient)
 import           NTP.Example            ()
 import           System.Wlog            (WithLogger, logDebug)
@@ -47,7 +48,7 @@ ntpHandlerDo :: (MonadIO m, WithLogger m)
              -> (Microsecond, Microsecond)
              -> m ()
 ntpHandlerDo nc (newMargin, transtimTime) = do
-    logDebug $ "Callback on new margin: " <> show newMargin
+    logDebug $ sformat ("Callback on new margin: "%int%" mcs") newMargin
     let realTime = transtimTime + newMargin
     atomically $ STM.modifyTVar (ncSlottingState nc)
                                 (ssNtpDataL .~ (newMargin, realTime))

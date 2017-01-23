@@ -40,11 +40,11 @@ import           Pos.Update.Core             (UpdateProposal (..))
 import           Pos.Update.MemState.Class   (MonadUSMem (..))
 import           Pos.Update.Poll.Class       (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Types       (PollModifier (..), pmDelActivePropsIdxL,
-                                              pmDelActivePropsL, pmDelConfirmedL,
-                                              pmDelScriptVersionsL, pmLastAdoptedPVL,
+                                              pmDelActivePropsL, pmDelBVsL,
+                                              pmDelConfirmedL, pmLastAdoptedBVL,
                                               pmNewActivePropsIdxL, pmNewActivePropsL,
-                                              pmNewConfirmedL, pmNewConfirmedPropsL,
-                                              pmNewScriptVersionsL, psProposal)
+                                              pmNewBVsL, pmNewConfirmedL,
+                                              pmNewConfirmedPropsL, psProposal)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 ----------------------------------------------------------------------------
@@ -83,12 +83,16 @@ execPollT m = fmap snd . runPollT m
 
 instance MonadPollRead m =>
          MonadPollRead (PollT m) where
-    getScriptVersion pv = do
-        new <- pmNewScriptVersions <$> PollT get
-        maybe (PollT $ getScriptVersion pv) (pure . Just) $ HM.lookup pv new
-    getLastAdoptedPV = do
-        new <- pmLastAdoptedPV <$> PollT get
-        maybe (PollT getLastAdoptedPV) pure new
+    getBVState pv = do
+        new <- pmNewBVs <$> PollT get
+        maybe (PollT $ getBVState pv) (pure . Just) $ HM.lookup pv new
+    getAllConfirmedBV = PollT getAllConfirmedBV
+    getLastBVState = do
+        lpv <- getLastAdoptedBV
+        maybe (PollT getLastBVState) pure =<< getBVState lpv
+    getLastAdoptedBV = do
+        new <- pmLastAdoptedBV <$> PollT get
+        maybe (PollT getLastAdoptedBV) pure new
     getLastConfirmedSV appName = do
         new <- pmNewConfirmed <$> PollT get
         maybe (PollT $ getLastConfirmedSV appName) (pure . Just) $
@@ -109,9 +113,9 @@ instance MonadPollRead m =>
 
 instance MonadPollRead m =>
          MonadPoll (PollT m) where
-    addScriptVersionDep pv sv = PollT $ pmNewScriptVersionsL . at pv .= Just sv
-    delScriptVersionDep pv = PollT $ pmDelScriptVersionsL . at pv .= Nothing
-    setLastAdoptedPV pv = PollT $ pmLastAdoptedPVL .= Just pv
+    putBVState bv st = PollT $ pmNewBVsL . at bv .= Just st
+    delBVState bv = PollT $ pmDelBVsL . at bv .= Nothing
+    setLastAdoptedBV bv = PollT $ pmLastAdoptedBVL .= Just bv
     setLastConfirmedSV SoftwareVersion {..} =
         PollT $ pmNewConfirmedL . at svAppName .= Just svNumber
     delConfirmedSV appName = PollT $ pmDelConfirmedL . at appName .= Nothing

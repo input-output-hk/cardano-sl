@@ -8,10 +8,11 @@ module Pos.Update.Network.Listeners
        , usStubListeners
        ) where
 
+import           Data.Proxy               (Proxy (..))
 import           Formatting               (build, sformat, (%))
 import           Node                     (ListenerAction (..))
 import           Serokell.Util.Verify     (VerificationRes (..))
-import           System.Wlog              (logDebug)
+import           System.Wlog              (WithLogger, logDebug)
 import           Universum
 
 import           Pos.Binary.Communication ()
@@ -23,6 +24,7 @@ import           Pos.Update.Logic.Local   (getLocalProposalNVotes, getLocalVote,
                                            isProposalNeeded, isVoteNeeded,
                                            processProposal, processVote)
 import           Pos.Update.Network.Types (ProposalMsgTag (..), VoteMsgTag (..))
+import           Pos.Util                 (stubListenerOneMsg)
 import           Pos.Util.Relay           (DataMsg, InvMsg, Relay (..), ReqMsg,
                                            handleDataL, handleInvL, handleReqL)
 import           Pos.WorkMode             (WorkMode)
@@ -42,8 +44,18 @@ usListeners =
     ]
 
 usStubListeners
-   :: [ListenerAction BiP m]
-usStubListeners = []  -- TODO: [CSL-513] define
+    :: (WithLogger m)
+    => [ListenerAction BiP m]
+usStubListeners =
+    [ stubListenerOneMsg (Proxy :: Proxy (InvMsg UpId ProposalMsgTag))
+    , stubListenerOneMsg (Proxy :: Proxy (ReqMsg UpId ProposalMsgTag))
+    , stubListenerOneMsg
+        (Proxy :: Proxy (DataMsg UpId (UpdateProposal, [UpdateVote])))
+
+    , stubListenerOneMsg (Proxy :: Proxy (InvMsg VoteId VoteMsgTag))
+    , stubListenerOneMsg (Proxy :: Proxy (ReqMsg VoteId VoteMsgTag))
+    , stubListenerOneMsg (Proxy :: Proxy (DataMsg VoteId UpdateVote))
+    ]
 
 ----------------------------------------------------------------------------
 -- UpdateProposal listeners

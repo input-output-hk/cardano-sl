@@ -89,8 +89,10 @@ instance MonadBaseControl IO m => MonadBaseControl IO (DBPoll m) where
 
 instance MonadDB patak m =>
          MonadPollRead (DBPoll m) where
-    getScriptVersion = GS.getScriptVersion
-    getLastAdoptedPV = GS.getLastPV
+    getBVState = GS.getBVState
+    getAllConfirmedBV = GS.getAllConfirmedBV
+    getLastBVState = GS.getLastBVState
+    getLastAdoptedBV = GS.getLastAdoptedBV
     getLastConfirmedSV = GS.getConfirmedSV
     hasActiveProposal = fmap isJust . GS.getAppProposal
     getProposal = GS.getProposalState

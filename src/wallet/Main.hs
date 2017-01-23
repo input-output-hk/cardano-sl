@@ -68,11 +68,11 @@ runCmd sendActions (Vote idx decision upid) = do
         else do
             lift $ submitVote sendActions na voteUpd
             putText "Submitted vote"
-runCmd sendActions (ProposeUpdate idx protocolVer scriptVer softwareVer) = do
+runCmd sendActions (ProposeUpdate idx blockVer scriptVer softwareVer) = do
     (skeys, na) <- ask
     let skey = skeys !! idx
     let updateProposal = UpdateProposal
-            { upProtocolVersion = protocolVer
+            { upBlockVersion    = blockVer
             , upScriptVersion   = scriptVer
             , upSoftwareVersion = softwareVer
             , upData            = patakUpdateData
@@ -92,7 +92,7 @@ runCmd _ Help = do
             , "                                     from own address #N"
             , "   vote <N> <decision> <upid>     -- send vote with given hash of proposal id and"
             , "                                     decision, from own address #N"
-            , "   propose-update <N> <protocol ver> <script ver> <software ver>"
+            , "   propose-update <N> <block ver> <script ver> <software ver>"
             , "                                  -- propose an update with given versions"
             , "                                     with one positive vote for it, from own address #N"
             , "   listaddr                       -- list own addresses"

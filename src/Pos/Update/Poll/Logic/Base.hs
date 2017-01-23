@@ -10,6 +10,10 @@ module Pos.Update.Poll.Logic.Base
        , mkTotNegative
        , mkTotSum
 
+       , isConfirmedBV
+       , getBVScript
+       , confirmBlockVersion
+
        , isDecided
        , voteToUProposalState
        , putNewProposal
@@ -21,14 +25,17 @@ import qualified Data.HashMap.Strict   as HM
 import           Universum
 
 import           Pos.Crypto            (PublicKey, hash)
-import           Pos.Types             (Coin, MainBlockHeader, SlotId, addressHash,
-                                        coinToInteger, difficultyL, headerSlot, sumCoins,
-                                        unsafeAddCoin, unsafeIntegerToCoin, unsafeSubCoin)
+import           Pos.Script.Type       (ScriptVersion)
+import           Pos.Types             (BlockVersion, Coin, MainBlockHeader, SlotId,
+                                        addressHash, coinToInteger, difficultyL,
+                                        headerSlot, sumCoins, unsafeAddCoin,
+                                        unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Update.Core       (UpdateProposal (..), UpdateVote (..),
                                         combineVotes, isPositiveVote, newVoteState)
-import           Pos.Update.Poll.Class (MonadPoll (..))
-import           Pos.Update.Poll.Types (DecidedProposalState (..), PollVerFailure (..),
-                                        ProposalState (..), UndecidedProposalState (..))
+import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
+import           Pos.Update.Poll.Types (BlockVersionState (..), DecidedProposalState (..),
+                                        PollVerFailure (..), ProposalState (..),
+                                        UndecidedProposalState (..))
 
 ----------------------------------------------------------------------------
 -- Wrappers for type-safety
@@ -50,6 +57,21 @@ mkTotSum = TotalSum . coinToInteger
 ----------------------------------------------------------------------------
 -- Basic operations
 ----------------------------------------------------------------------------
+
+-- | Check whether BlockVersion is confirmed.
+isConfirmedBV :: MonadPollRead m => BlockVersion -> m Bool
+isConfirmedBV = fmap (maybe False bvsIsConfirmed) . getBVState
+
+-- | Get 'ScriptVersion' associated with given 'BlockVersion' if it is known.
+getBVScript :: MonadPollRead m => BlockVersion -> m (Maybe ScriptVersion)
+getBVScript = fmap (maybe Nothing (Just . bvsScript)) . getBVState
+
+-- | Mark given 'BlockVersion' as confirmed if it is known.
+confirmBlockVersion :: MonadPoll m => BlockVersion -> m ()
+confirmBlockVersion bv =
+    getBVState bv >>= \case
+        Nothing -> pass
+        Just bvs -> putBVState bv bvs {bvsIsConfirmed = True}
 
 -- Proposal is approved (which corresponds to 'Just True') if total
 -- stake of votes for it is more than half of total stake.

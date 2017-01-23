@@ -27,9 +27,9 @@ rollbackUSPayload _ UpdatePayload{..} USUndo{..} = do
     -- Rollback proposals
     mapM_ setOrDelProposal (HM.toList unChangedProps)
     -- Rollback protocol version
-    whenJust unLastAdoptedPV setLastAdoptedPV
+    whenJust unLastAdoptedBV setLastAdoptedBV
     -- Rollback script
-    whenJust unCreatedNewDepsFor delScriptVersionDep
+    whenJust unCreatedNewBSFor delBVState
   where
     setOrDelLastConfirmedSV :: (ApplicationName, PrevValue NumSoftwareVersion) -> m ()
     setOrDelLastConfirmedSV (svAppName, PrevValue svNumber) =

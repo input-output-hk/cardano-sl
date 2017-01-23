@@ -14,8 +14,8 @@ import           Universum              hiding (show)
 
 import           Pos.Crypto             (Hash, parseHash)
 import           Pos.Script.Type        (ScriptVersion)
-import           Pos.Types              (Address (..), ProtocolVersion, SoftwareVersion,
-                                         TxOut (..), mkCoin, parseProtocolVersion,
+import           Pos.Types              (Address (..), BlockVersion, SoftwareVersion,
+                                         TxOut (..), mkCoin, parseBlockVersion,
                                          parseSoftwareVersion)
 import           Pos.Update             (UpId)
 import           Pos.Util               (parseIntegralSafe)
@@ -24,7 +24,7 @@ data Command
     = Balance Address
     | Send Int [TxOut]
     | Vote Int Bool UpId
-    | ProposeUpdate Int ProtocolVersion ScriptVersion SoftwareVersion
+    | ProposeUpdate Int BlockVersion ScriptVersion SoftwareVersion
     | Help
     | ListAddresses
     | DelegateLight !Int !Int
@@ -85,7 +85,7 @@ proposeUpdate :: Parser Command
 proposeUpdate =
     ProposeUpdate <$>
     num <*>
-    lexeme parseProtocolVersion <*>
+    lexeme parseBlockVersion <*>
     lexeme parseIntegralSafe    <*>
     lexeme parseSoftwareVersion
 

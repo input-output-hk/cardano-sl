@@ -14,9 +14,9 @@ import           Pos.Update.Poll.Types (PollModifier (..))
 instance Default PollModifier where
     def =
         PollModifier
-        { pmNewScriptVersions = mempty
-        , pmDelScriptVersions = mempty
-        , pmLastAdoptedPV = Nothing
+        { pmNewBVs = mempty
+        , pmDelBVs = mempty
+        , pmLastAdoptedBV = Nothing
         , pmNewConfirmed = mempty
         , pmDelConfirmed = mempty
         , pmNewActiveProps = mempty
@@ -30,9 +30,9 @@ instance Default PollModifier where
 -- there are two confliciting modifications, the second one wins.
 modifyPollModifier :: PollModifier -> PollModifier -> PollModifier
 modifyPollModifier pmOld pmNew = PollModifier
-    (unionHM pmNewScriptVersions `diffMapSet` pmDelScriptVersions pmNew)
-    (unionHS pmDelScriptVersions)
-    (pmLastAdoptedPV pmNew <|> pmLastAdoptedPV pmOld)
+    (unionHM pmNewBVs `diffMapSet` pmDelBVs pmNew)
+    (unionHS pmDelBVs)
+    (pmLastAdoptedBV pmNew <|> pmLastAdoptedBV pmOld)
     (unionHM pmNewConfirmed `diffMapSet` pmDelConfirmed pmNew)
     (unionHS pmDelConfirmed)
     (unionHM pmNewConfirmedProps)

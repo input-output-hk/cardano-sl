@@ -13,6 +13,7 @@ module Pos.Wallet.Web.Server.Methods
 
 import           Control.Monad.Catch           (try)
 import           Control.Monad.Except          (runExceptT)
+import           Control.Monad.Trans.State     (get, put, runStateT)
 import           Data.Default                  (def)
 import           Data.List                     (elemIndex, (!!))
 import           Data.Time.Clock.POSIX         (getPOSIXTime)
@@ -30,9 +31,10 @@ import           Universum
 import           Pos.Aeson.ClientTypes         ()
 import           Pos.Crypto                    (toPublic)
 import           Pos.DHT.Model                 (dhtAddr, getKnownPeers)
-import           Pos.Types                     (Address, Coin, TxOut (..), addressF,
-                                                coinF, decodeTextAddress,
-                                                makePubKeyAddress, mkCoin)
+import           Pos.Types                     (Address, ChainDifficulty (..), Coin,
+                                                TxOut (..), addressF, coinF,
+                                                decodeTextAddress, makePubKeyAddress,
+                                                mkCoin)
 import           Pos.Util.BackupPhrase         (keysFromPhrase)
 import           Pos.Web.Server                (serveImpl)
 
@@ -121,11 +123,17 @@ walletServer sendActions nat = do
         time <- liftIO getPOSIXTime
         pure $ CProfile mempty mempty mempty mempty time mempty mempty
 
+------------------------
+-- Notifier
+------------------------
+
+type NotifierState = StateT ChainDifficulty
+
 -- FIXME: this is really inaficient. Temporary solution
 launchNotifier :: WalletWebMode ssc m => (m :~> Handler) -> m ()
 launchNotifier = void . liftIO . forkForever . notifier
   where
-    notifyPeriod = 10000000 -- microseconds
+    notifyPeriod = 500000 -- microseconds
     forkForever action = forkFinally action $ const $ do
         -- TODO: log error
         -- colldown
@@ -133,20 +141,25 @@ launchNotifier = void . liftIO . forkForever . notifier
         void $ forkForever action
     -- TODO: use Servant.enter here
     -- FIXME: don't ignore errors, send error msg to the socket
-    notifier f = void . runExceptT . unNat f $ forever $ do
+    notifier f = void . runExceptT . unNat f $ flip runStateT (ChainDifficulty 0) $ forever $ do
         liftIO $ threadDelay notifyPeriod
-        sequence_ [dummyHistoryNotifier]
+        logInfo "bok"
+        newDifficulty <- networkChainDifficulty
+        logInfo $ sformat ("New difficulty "%build) newDifficulty
+--        whenM ((newDifficulty /=) <$> get) $
+--            lift $ notify ChainDifficultyChanged
+--        put newDifficulty
     -- NOTE: temp solution, dummy notifier that pings every 10 secs
-    dummyHistoryNotifier = notify NewTransaction
-    historyNotifier :: WalletWebMode ssc m => m ()
-    historyNotifier = do
-        cAddresses <- myCAddresses
-        forM_ cAddresses $ \cAddress -> do
-            -- TODO: is reading from acid RAM only (not reading from disk?)
-            oldHistoryLength <- length . fromMaybe mempty <$> getWalletHistory cAddress
-            newHistoryLength <- length <$> getHistory cAddress
-            when (oldHistoryLength /= newHistoryLength) .
-                notify $ NewWalletTransaction cAddress
+--    dummyHistoryNotifier = notify NewTransaction
+--    historyNotifier :: WalletWebMode ssc m => m ()
+--    historyNotifier = do
+--        cAddresses <- myCAddresses
+--        forM_ cAddresses $ \cAddress -> do
+--            -- TODO: is reading from acid RAM only (not reading from disk?)
+--            oldHistoryLength <- length . fromMaybe mempty <$> getWalletHistory cAddress
+--            newHistoryLength <- length <$> getHistory cAddress
+--            when (oldHistoryLength /= newHistoryLength) .
+--                notify $ NewWalletTransaction cAddress
 
 
 ----------------------------------------------------------------------------

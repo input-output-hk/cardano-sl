@@ -52,6 +52,8 @@ import           Mockable.Concurrent
 import           Mockable.Exception
 import           Mockable.SharedAtomic
 import           Mockable.SharedExclusive
+import           Mockable.CurrentTime
+import qualified Mockable.Metrics           as Metrics
 import qualified Network.Transport.ConnectionBuffers as CB
 import qualified Network.Transport.Abstract as NT
 import           Node.Internal              (ChannelIn, ChannelOut)
@@ -64,7 +66,7 @@ import           System.Wlog                (WithLogger, logError, logDebug)
 data Node m = forall event . Node {
       nodeId         :: LL.NodeId
     , nodeEndPoint   :: NT.EndPoint m event
-    , nodeStatistics :: m LL.Statistics
+    , nodeStatistics :: m (LL.Statistics m)
     }
 
 nodeEndPointAddress :: Node m -> NT.EndPointAddress
@@ -165,6 +167,7 @@ nodeSendActions
        ( Mockable CB.Buffer m, Mockable Throw m, Mockable Catch m
        , Mockable Bracket m, Mockable SharedAtomic m, Mockable SharedExclusive m
        , Mockable Async m, Ord (Promise m ())
+       , Mockable CurrentTime m, Mockable Metrics.Metrics m
        , WithLogger m, MonadFix m
        , Packable packing MessageName )
     => LL.Node m
@@ -246,6 +249,7 @@ node
        , Mockable SharedAtomic m, Mockable Bracket m, Mockable Catch m
        , Mockable Async m, Mockable Concurrently m, Ord (Promise m ())
        , Mockable SharedExclusive m
+       , Mockable CurrentTime m, Mockable Metrics.Metrics m
        , MonadFix m, Serializable packing MessageName, WithLogger m
        )
     => NT.Transport m

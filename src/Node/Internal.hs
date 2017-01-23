@@ -32,8 +32,9 @@ module Node.Internal (
   ) where
 
 import           Control.Exception             hiding (bracket, catch, finally, throw)
-import           Control.Monad                 (forM_)
+import           Control.Monad                 (forM_, when)
 import           Control.Monad.Fix             (MonadFix)
+import           Data.Int                      (Int64)
 import           Data.Binary                   as Bin
 import qualified Data.ByteString               as BS
 import qualified Data.ByteString.Builder       as BS
@@ -48,6 +49,7 @@ import           Data.Set                      (Set)
 import qualified Data.Set                      as Set
 import           Data.Monoid
 import           Data.Typeable
+import           Data.Time.Units               (Microsecond)
 import           Formatting                    (sformat, shown, (%))
 import qualified Mockable.Channel              as Channel
 import           Mockable.Class
@@ -55,6 +57,8 @@ import           Mockable.Concurrent
 import           Mockable.Exception
 import           Mockable.SharedAtomic
 import           Mockable.SharedExclusive
+import           Mockable.CurrentTime          (CurrentTime, currentTime)
+import qualified Mockable.Metrics              as Metrics
 import qualified Network.Transport             as NT (EventErrorCode (EventConnectionLost, EventEndPointFailed, EventTransportFailed))
 import qualified Network.Transport.Abstract    as NT
 import           Network.Transport.ConnectionBuffers
@@ -78,7 +82,7 @@ data NodeState m = NodeState {
     , _noceStateConnectionHandlers :: !(Set (Promise m ()))
       -- ^ A set of handlers for connections (remotely-initiated unidirectional
       --   or bidirectional connections).
-    , _nodeStateStatistics         :: !Statistics
+    , _nodeStateStatistics         :: !(Statistics m)
       -- ^ Statistics about traffic at this node.
       --   Must be kept in mutable state so that handlers can update it when
       --   they finish.
@@ -101,7 +105,7 @@ nodeId = NodeId . NT.address . nodeEndPoint
 nodeEndPointAddress :: NodeId -> NT.EndPointAddress
 nodeEndPointAddress (NodeId addr) = addr
 
-nodeStatistics :: ( Mockable SharedAtomic m ) => Node m -> m Statistics
+nodeStatistics :: ( Mockable SharedAtomic m ) => Node m -> m (Statistics m)
 nodeStatistics Node{..} = modifySharedAtomic nodeState $ \st ->
     return (st, _nodeStateStatistics st)
 
@@ -188,21 +192,20 @@ readChannel packingType closed lost fail done inputChan = case Message.unpackMsg
     leftover bs = if BS.null bs then Nothing else Just (Data (LBS.fromStrict bs))
 
 -- | Statistics concerning traffic at this node.
-data Statistics = Statistics {
+data Statistics m = Statistics {
       -- | How many handlers are running right now in response to a
       --   remotely initiated connection (whether unidirectional or
       --   bidirectional).
       --   NB a handler may run longer or shorter than the duration of a
       --   connection.
-      stRunningHandlersRemote :: !Int
+      stRunningHandlersRemote :: !(Metrics.Gauge m)
       -- | How many handlers are running right now which were initiated
       --   locally, i.e. corresponding to bidirectional connections.
-    , stRunningHandlersLocal :: !Int
+    , stRunningHandlersLocal :: !(Metrics.Gauge m)
       -- | Statistics for each peer.
     , stPeerStatistics :: !(Map NT.EndPointAddress PeerStatistics)
-      -- | Map.size stPeerStatistics
-      --   Cached so we don't have to recompute that one every time.
-    , stPeers :: !Int
+      -- | How many peers are connected.
+    , stPeers :: !(Metrics.Gauge m)
       -- | Average number of remotely-initiated handlers per peer.
       --   Also track the average of the number of handlers squared, so we
       --   can quickly compute the variance.
@@ -211,16 +214,20 @@ data Statistics = Statistics {
       --   Also track the average of the number of handlers squared, so we
       --   can quickly compute the variance.
     , stRunningHandlersLocalAverage :: !(Double, Double)
+      -- | Handlers which finished normally. Distribution is on their
+      --   running time.
+    , stHandlersFinishedNormally :: !(Metrics.Distribution m)
+      -- | Handlers which finished exceptionally. Distribution is on their
+      --   running time.
+    , stHandlersFinishedExceptionally :: !(Metrics.Distribution m)
     }
 
-deriving instance Show Statistics
-
-stRunningHandlersRemoteVariance :: Statistics -> Double
+stRunningHandlersRemoteVariance :: Statistics m -> Double
 stRunningHandlersRemoteVariance statistics = avg2 - (avg ^ 2)
     where
     (avg, avg2) = stRunningHandlersRemoteAverage statistics
 
-stRunningHandlersLocalVariance :: Statistics -> Double
+stRunningHandlersLocalVariance :: Statistics m -> Double
 stRunningHandlersLocalVariance statistics = avg2 - (avg ^ 2)
     where
     (avg, avg2) = stRunningHandlersLocalAverage statistics
@@ -236,21 +243,76 @@ data PeerStatistics = PeerStatistics {
     , pstRunningHandlersLocal :: !Int
     }
 
-deriving instance Show PeerStatistics
-
 pstNull :: PeerStatistics -> Bool
-pstNull PeerStatistics{..} = pstRunningHandlersRemote == 0 && pstRunningHandlersLocal == 0
+pstNull PeerStatistics{..} =
+    let rem = pstRunningHandlersRemote
+        loc = pstRunningHandlersLocal
+    in  rem == 0 && loc == 0
+
+-- | Record a new handler for a given peer. Second component is True if it's the
+--   only handler for that peer.
+pstAddHandler
+    :: HandlerProvenance
+    -> Map NT.EndPointAddress PeerStatistics
+    -> (Map NT.EndPointAddress PeerStatistics, Bool)
+pstAddHandler provenance map = case provenance of
+
+    Local peer -> case Map.lookup peer map of
+        Nothing -> (Map.insert peer (PeerStatistics 0 1) map, True)
+        Just stats -> (Map.insert peer stats' map, False)
+            where
+            stats' = stats { pstRunningHandlersLocal = pstRunningHandlersLocal stats + 1 }
+
+    Remote peer -> case Map.lookup peer map of
+        Nothing -> (Map.insert peer (PeerStatistics 1 0) map, True)
+        Just stats -> (Map.insert peer stats' map, False)
+            where
+            stats' = stats { pstRunningHandlersRemote = pstRunningHandlersRemote stats + 1 }
+
+-- | Remove a handler for a given peer. Second component is True if there
+--   are no more handlers for that peer.
+pstRemoveHandler
+    :: HandlerProvenance
+    -> Map NT.EndPointAddress PeerStatistics
+    -> (Map NT.EndPointAddress PeerStatistics, Bool)
+pstRemoveHandler provenance map = case provenance of
+
+    Local peer -> case Map.updateLookupWithKey updater peer map of
+        (Just stats, map') -> (map', pstNull stats)
+        -- First component is Nothing only if the peer is not in the map.
+        -- That should never happen.
+        _ -> (map, False)
+        where
+        updater _ stats =
+            let stats' = stats { pstRunningHandlersLocal = pstRunningHandlersLocal stats - 1 }
+            in  if pstNull stats' then Nothing else Just stats'
+
+    Remote peer -> case Map.updateLookupWithKey updater peer map of
+        (Just stats, map') -> (map', pstNull stats)
+        _ -> (map, False)
+        where
+        updater _ stats =
+            let stats' = stats { pstRunningHandlersRemote = pstRunningHandlersRemote stats - 1 }
+            in  if pstNull stats' then Nothing else Just stats'
 
 -- | Statistics when a node is launched.
-initialStatistics :: Statistics
-initialStatistics = Statistics {
-      stRunningHandlersRemote = 0
-    , stRunningHandlersLocal = 0
-    , stPeerStatistics = Map.empty
-    , stPeers = 0
-    , stRunningHandlersRemoteAverage = (0, 0)
-    , stRunningHandlersLocalAverage = (0, 0)
-    }
+initialStatistics :: ( Mockable Metrics.Metrics m ) => m (Statistics m)
+initialStatistics = do
+    runningHandlersRemote <- Metrics.newGauge
+    runningHandlersLocal <- Metrics.newGauge
+    peers <- Metrics.newGauge
+    handlersFinishedNormally <- Metrics.newDistribution
+    handlersFinishedExceptionally <- Metrics.newDistribution
+    return $ Statistics {
+          stRunningHandlersRemote = runningHandlersRemote
+        , stRunningHandlersLocal = runningHandlersLocal
+        , stPeerStatistics = Map.empty
+        , stPeers = peers
+        , stRunningHandlersRemoteAverage = (0, 0)
+        , stRunningHandlersLocalAverage = (0, 0)
+        , stHandlersFinishedNormally = handlersFinishedNormally
+        , stHandlersFinishedExceptionally = handlersFinishedExceptionally
+        }
 
 data HandlerProvenance =
       -- | Initiated locally, _to_ this peer.
@@ -260,207 +322,152 @@ data HandlerProvenance =
 
 -- TODO: revise these computations to make them numerically stable (or maybe
 -- use Rational?).
-stAddHandler :: HandlerProvenance -> Statistics -> Statistics
+stAddHandler
+    :: ( Mockable Metrics.Metrics m )
+    => HandlerProvenance
+    -> Statistics m
+    -> m (Statistics m)
 stAddHandler provenance statistics = case provenance of
 
     -- TODO: generalize this computation so we can use the same thing for
     -- both local and remote. It's a copy/paste job right now swapping local
     -- for remote.
-    Local peer -> statistics {
-          stRunningHandlersLocal = runningHandlersLocal
-        , stPeerStatistics = peerStatistics
-        , stPeers = peers
-        , stRunningHandlersLocalAverage = runningHandlersLocalAverage
-        }
-        where
-        runningHandlersLocal = stRunningHandlersLocal statistics + 1
-        (previousPeerStatistics, peerStatistics) =
-            Map.insertLookupWithKey (const peerInsertion) peer (PeerStatistics 0 1) (stPeerStatistics statistics)
-        (avg, avg2) = stRunningHandlersLocalAverage statistics
-        (peers, runningHandlersLocalAverage) = case previousPeerStatistics of
-            -- This is a new peer.
-            Nothing -> (npeers + 1, (avg', avg2'))
-                where
-                npeers :: Int
-                npeers = stPeers statistics
-                dpeers :: Double
-                dpeers = fromIntegral npeers
-                -- Incremental average involves changing the denominator (we
-                -- have one more sample now).
-                avg' :: Double
-                avg' = avg * (dpeers / (dpeers + 1)) + (1 / (dpeers + 1))
-                avg2' :: Double
-                avg2' = avg2 * (dpeers / (dpeers + 1)) + (1 / (dpeers + 1))
-            -- This is a known peer.
-            Just peerStatistics -> (stPeers statistics, (avg', avg2'))
-                where
-                n = fromIntegral (pstRunningHandlersLocal peerStatistics)
-                -- Incremental average.
-                avg' :: Double
-                avg' = avg + (1 / fromIntegral (stPeers statistics))
-                -- Incremental average of the square.
-                avg2' :: Double
-                avg2' = avg2 + ((2 * n + 1) / fromIntegral (stPeers statistics))
+    Local peer -> do
+        when isNewPeer $ Metrics.incGauge (stPeers statistics)
+        Metrics.incGauge (stRunningHandlersLocal statistics)
+        npeers <- Metrics.readGauge (stPeers statistics)
+        nhandlers <- Metrics.readGauge (stRunningHandlersLocal statistics)
+        let runningHandlersLocalAverage =
+                adjustMeans isNewPeer
+                            (fromIntegral npeers)
+                            nhandlers
+                            (stRunningHandlersLocalAverage statistics)
+        return $ statistics {
+              stPeerStatistics = peerStatistics
+            , stRunningHandlersLocalAverage = runningHandlersLocalAverage
+            }
 
-
-    Remote peer -> statistics {
-          stRunningHandlersRemote = runningHandlersRemote
-        , stPeerStatistics = peerStatistics
-        , stPeers = peers
-        , stRunningHandlersRemoteAverage = runningHandlersRemoteAverage
-        }
-        where
-        runningHandlersRemote = stRunningHandlersRemote statistics + 1
-        (previousPeerStatistics, peerStatistics) =
-            Map.insertLookupWithKey (const peerInsertion) peer (PeerStatistics 1 0) (stPeerStatistics statistics)
-        (avg, avg2) = stRunningHandlersRemoteAverage statistics
-        (peers, runningHandlersRemoteAverage) = case previousPeerStatistics of
-            -- This is a new peer.
-            Nothing -> (npeers + 1, (avg', avg2'))
-                where
-                npeers :: Int
-                npeers = stPeers statistics
-                dpeers :: Double
-                dpeers = fromIntegral npeers
-                -- Incremental average involves changing the denominator (we
-                -- have one more sample now).
-                avg' :: Double
-                avg' = avg * (dpeers / (dpeers + 1)) + (1 / (dpeers + 1))
-                avg2' :: Double
-                avg2' = avg2 * (dpeers / (dpeers + 1)) + (1 / (dpeers + 1))
-            -- This is a known peer.
-            Just peerStatistics -> (stPeers statistics, (avg', avg2'))
-                where
-                n = fromIntegral (pstRunningHandlersRemote peerStatistics)
-                -- Incremental average.
-                avg' :: Double
-                avg' = avg + (1 / fromIntegral (stPeers statistics))
-                -- Incremental average of the square.
-                avg2' :: Double
-                avg2' = avg2 + ((2 * n + 1) / fromIntegral (stPeers statistics))
-
-        peerInsertion :: PeerStatistics -> PeerStatistics -> PeerStatistics
-        peerInsertion peerStatistics (PeerStatistics remote' local') =
-            peerStatistics {
-                  pstRunningHandlersRemote = remote' + pstRunningHandlersRemote peerStatistics
-                , pstRunningHandlersLocal = local' + pstRunningHandlersLocal peerStatistics
-                }
+    Remote peer -> do
+        when isNewPeer $ Metrics.incGauge (stPeers statistics)
+        Metrics.incGauge (stRunningHandlersRemote statistics)
+        npeers <- Metrics.readGauge (stPeers statistics)
+        nhandlers <- Metrics.readGauge (stRunningHandlersRemote statistics)
+        let runningHandlersRemoteAverage =
+                adjustMeans isNewPeer
+                            (fromIntegral npeers)
+                            nhandlers
+                            (stRunningHandlersRemoteAverage statistics)
+        return $ statistics {
+              stPeerStatistics = peerStatistics
+            , stRunningHandlersRemoteAverage = runningHandlersRemoteAverage
+            }
 
     where
 
-    peerInsertion :: PeerStatistics -> PeerStatistics -> PeerStatistics
-    peerInsertion peerStatistics (PeerStatistics remote' local') =
-        peerStatistics {
-              pstRunningHandlersRemote = remote' + pstRunningHandlersRemote peerStatistics
-            , pstRunningHandlersLocal = local' + pstRunningHandlersLocal peerStatistics
-            }
+    (peerStatistics, isNewPeer) = pstAddHandler provenance (stPeerStatistics statistics)
 
+    -- Adjust the means. The Bool is true if it's a new peer.
+    -- The Double is the current number of peers (always > 0).
+    -- The Int is the current number of running handlers.
+    adjustMeans :: Bool -> Double -> Int64 -> (Double, Double) -> (Double, Double)
+    adjustMeans isNewPeer npeers nhandlers (avg, avg2) = case isNewPeer of
 
+        True -> (avg', avg2')
+            where
+            avg' = avg * ((npeers - 1) / npeers) + (1 / npeers)
+            avg2' = avg2 * ((npeers - 1) / npeers) + (1 / npeers)
+
+        False -> (avg', avg2')
+            where
+            avg' = avg + (1 / npeers)
+            avg2' = avg + (fromIntegral (2 * nhandlers + 1) / npeers) 
 
 -- TODO: revise these computations to make them numerically stable (or maybe
 -- use Rational?).
-stRemoveHandler :: HandlerProvenance -> Statistics -> Statistics
-stRemoveHandler provenance statistics = case provenance of
+stRemoveHandler
+    :: ( Mockable Metrics.Metrics m )
+    => HandlerProvenance
+    -> Microsecond
+    -> Maybe SomeException
+    -> Statistics m
+    -> m (Statistics m)
+stRemoveHandler provenance elapsed outcome statistics = case provenance of
 
-    Local peer -> statistics {
-          stRunningHandlersLocal = runningHandlersLocal
-        , stPeerStatistics = peerStatistics
-        , stPeers = peers
-        , stRunningHandlersLocalAverage = runningHandlersLocalAverage
-        }
-        where
-        runningHandlersLocal = stRunningHandlersLocal statistics - 1
-        (previousPeerStatistics, peerStatistics) =
-            Map.updateLookupWithKey (const (peerUpdate id (\x -> x - 1))) peer (stPeerStatistics statistics)
-        (avg, avg2) = stRunningHandlersRemoteAverage statistics
-        (peers, runningHandlersLocalAverage) = case previousPeerStatistics of
-            Nothing -> error "Removed handler for a peer who had no handlers"
-            Just peerStatistics -> case pstNull peerStatistics of
-                -- Peer went away.
-                True -> (npeers - 1, (avg', avg2'))
-                    where
-                    npeers :: Int
-                    npeers = stPeers statistics
-                    dpeers :: Double
-                    dpeers = fromIntegral npeers
-                    -- Incremental average involves changing the denominator (we
-                    -- have one fewer sample now).
-                    avg' :: Double
-                    avg' = if npeers == 1
-                           then 0
-                           else avg * (dpeers / (dpeers - 1)) + (1 / (dpeers - 1))
-                    avg2' :: Double
-                    avg2' = if npeers == 1
-                            then 0
-                            else avg2 * (dpeers / (dpeers - 1)) + (1 / (dpeers - 1))
-                -- Peer has remaining handlers.
-                False -> (stPeers statistics, (avg', avg2'))
-                    where
-                    n = fromIntegral (pstRunningHandlersLocal peerStatistics)
-                    -- Incremental average.
-                    avg' :: Double
-                    avg' = avg - (1 / fromIntegral (stPeers statistics))
-                    -- Incremental average of the square.
-                    avg2' :: Double
-                    avg2' = avg2 - ((2 * n + 1) / fromIntegral (stPeers statistics))
+    -- TODO: generalize this computation so we can use the same thing for
+    -- both local and remote. It's a copy/paste job right now swapping local
+    -- for remote.
+    Local peer -> do
+        when isEndedPeer $ Metrics.decGauge (stPeers statistics)
+        Metrics.decGauge (stRunningHandlersLocal statistics)
+        npeers <- Metrics.readGauge (stPeers statistics)
+        nhandlers <- Metrics.readGauge (stRunningHandlersLocal statistics)
+        let runningHandlersLocalAverage =
+                adjustMeans isEndedPeer
+                            npeers
+                            nhandlers
+                            (stRunningHandlersLocalAverage statistics)
+        addSample
+        return $ statistics {
+              stPeerStatistics = peerStatistics
+            , stRunningHandlersLocalAverage = runningHandlersLocalAverage
+            }
 
-
-    Remote peer -> statistics {
-          stRunningHandlersRemote = runningHandlersRemote
-        , stPeerStatistics = peerStatistics
-        , stPeers = peers
-        , stRunningHandlersRemoteAverage = runningHandlersRemoteAverage
-        }
-        where
-        runningHandlersRemote :: Int
-        runningHandlersRemote = stRunningHandlersRemote statistics - 1
-        (previousPeerStatistics, peerStatistics) =
-            Map.updateLookupWithKey (const (peerUpdate (\x -> x - 1) id)) peer (stPeerStatistics statistics)
-        avg :: Double
-        avg2 :: Double
-        (avg, avg2) = stRunningHandlersRemoteAverage statistics
-        (peers, runningHandlersRemoteAverage) = case previousPeerStatistics of
-            Nothing -> error "Removed handler for a peer who had no handlers"
-            Just peerStatistics -> case pstNull peerStatistics of
-                -- Peer went away.
-                True -> (npeers - 1, (avg', avg2'))
-                    where
-                    npeers :: Int
-                    npeers = stPeers statistics
-                    dpeers :: Double
-                    dpeers = fromIntegral npeers
-                    -- Incremental average involves changing the denominator (we
-                    -- have one fewer sample now).
-                    avg' :: Double
-                    avg' = if npeers == 1
-                           then 0
-                           else avg * (dpeers / (dpeers - 1)) + (1 / (dpeers - 1))
-                    avg2' :: Double
-                    avg2' = if npeers == 1
-                            then 0
-                            else avg2 * (dpeers / (dpeers - 1)) + (1 / (dpeers - 1))
-                -- Peer has remaining handlers.
-                False -> (stPeers statistics, (avg', avg2'))
-                    where
-                    n = fromIntegral (pstRunningHandlersRemote peerStatistics)
-                    -- Incremental average.
-                    avg' :: Double
-                    avg' = avg - (1 / fromIntegral (stPeers statistics))
-                    -- Incremental average of the square.
-                    avg2' :: Double
-                    avg2' = avg2 - ((2 * n + 1) / fromIntegral (stPeers statistics))
+    Remote peer -> do
+        when isEndedPeer $ Metrics.decGauge (stPeers statistics)
+        Metrics.decGauge (stRunningHandlersRemote statistics)
+        npeers <- Metrics.readGauge (stPeers statistics)
+        nhandlers <- Metrics.readGauge (stRunningHandlersRemote statistics)
+        let runningHandlersRemoteAverage =
+                adjustMeans isEndedPeer
+                            npeers
+                            nhandlers
+                            (stRunningHandlersRemoteAverage statistics)
+        addSample
+        return $ statistics {
+              stPeerStatistics = peerStatistics
+            , stRunningHandlersRemoteAverage = runningHandlersRemoteAverage
+            }
 
     where
 
-    peerUpdate :: (Int -> Int) -> (Int -> Int) -> PeerStatistics -> Maybe PeerStatistics
-    peerUpdate dremote dlocal peerStatistics =
-        let newStats = peerStatistics {
-                  pstRunningHandlersRemote = dremote (pstRunningHandlersRemote peerStatistics)
-                , pstRunningHandlersLocal = dlocal (pstRunningHandlersLocal peerStatistics)
-                }
-        in  if pstNull newStats
-            then Nothing
-            else Just newStats
+    (peerStatistics, isEndedPeer) = pstRemoveHandler provenance (stPeerStatistics statistics)
+
+    -- Convert the elapsed time to a Double and then add it to the relevant
+    -- distribution.
+    addSample = case outcome of
+        Nothing -> Metrics.addSample (stHandlersFinishedNormally statistics) (fromIntegral (toInteger elapsed))
+        Just _ -> Metrics.addSample (stHandlersFinishedExceptionally statistics) (fromIntegral (toInteger elapsed))
+
+    -- Adjust the means. The Bool is true if it's a stale peer (removed last
+    --   handler).
+    -- The first Int is the current number of peers (could be 0).
+    -- The Int is the current number of running handlers.
+    adjustMeans :: Bool -> Int64 -> Int64 -> (Double, Double) -> (Double, Double)
+    adjustMeans isEndedPeer npeers nhandlers (avg, avg2) = case isEndedPeer of
+
+        True -> if npeers == 0
+                then (0, 0)
+                else (avg', avg2')
+            where
+            avg' = avg * (fromIntegral (npeers - 1) / fromIntegral npeers) + (1 / fromIntegral npeers)
+            avg2' = avg2 * (fromIntegral (npeers - 1) / fromIntegral npeers) + (1 / fromIntegral npeers)
+
+        False -> (avg', avg2')
+            where
+            avg' = avg - (1 / fromIntegral npeers)
+            avg2' = avg - (fromIntegral (2 * nhandlers + 1) / fromIntegral npeers) 
+
+-- |
+-- = Statistics and monitoring
+--
+-- It will be useful to track statistics about a node, for instance the
+-- number of handlers induced by a given peer. A way to monitor these would be
+-- nice as well. EKG comes to mind, and it looks like the 'Distribution' type
+-- from this package will be very useful. However, it's not obvious that it
+-- can do what we want. We must track the number of handlers per-peer, and also
+-- the total number of peers and the total number of handlers. These are all
+-- integral, suitable for gauges.
+--
 
 
 -- | Bring up a 'Node' using a network transport.
@@ -468,6 +475,7 @@ startNode :: ( Mockable SharedAtomic m, Mockable Bracket m
              , Mockable Buffer m, Mockable Throw m, Mockable Catch m
              , Mockable Async m, Mockable Concurrently m, Ord (Promise m ())
              , Mockable Buffer m, Mockable SharedExclusive m
+             , Mockable CurrentTime m, Mockable Metrics.Metrics m
              , MonadFix m, WithLogger m )
           => NT.Transport m
           -> StdGen
@@ -477,6 +485,7 @@ startNode :: ( Mockable SharedAtomic m, Mockable Bracket m
           -- ^ Handle incoming bidirectional connections.
           -> m (Node m)
 startNode transport prng handlerIn handlerOut = do
+    stats <- initialStatistics
     qdisc <- connectionBufferQDisc $ ConnectionBuffersParams {
                    qdiscEventBufferSize = 32
                    -- At most 1024 * 4096 + c bytes in the pipe for a
@@ -488,7 +497,7 @@ startNode transport prng handlerIn handlerOut = do
                        throw ie
                  }
     Right endPoint <- NT.newEndPoint transport qdisc
-    sharedState <- newSharedAtomic (NodeState prng Map.empty Set.empty initialStatistics False)
+    sharedState <- newSharedAtomic (NodeState prng Map.empty Set.empty stats False)
     -- TODO this thread should get exceptions from the dispatcher thread.
     dispatcherThread <- async $
         nodeDispatcher endPoint sharedState handlerIn handlerOut
@@ -499,7 +508,10 @@ startNode transport prng handlerIn handlerOut = do
     }
 
 -- | Stop a 'Node', closing its network transport endpoint.
-stopNode :: ( WithLogger m, Mockable Async m, Mockable SharedAtomic m ) => Node m -> m ()
+stopNode
+    :: ( WithLogger m, Mockable Async m, Mockable SharedAtomic m )
+    => Node m
+    -> m ()
 stopNode Node {..} = do
     modifySharedAtomic nodeState $ \(NodeState prng nonces handlers statistics closed) ->
         if closed
@@ -534,8 +546,8 @@ data ConnectionState m =
 nodeDispatcher :: forall m .
                   ( Mockable SharedAtomic m, Mockable Async m, Mockable Concurrently m
                   , Ord (Promise m ()), Mockable Bracket m, Mockable SharedExclusive m
-                  , Mockable Buffer m, Mockable Throw m
-                  , Mockable Catch m
+                  , Mockable Buffer m, Mockable Throw m, Mockable Catch m
+                  , Mockable CurrentTime m, Mockable Metrics.Metrics m
                   , MonadFix m, WithLogger m )
                => NT.EndPoint m (EndPointEvent m)
                -> SharedAtomicT m (NodeState m)
@@ -735,7 +747,9 @@ nodeDispatcher endpoint nodeState handlerIn handlerInOut = loop
 spawnHandler
     :: forall m t .
        ( Mockable SharedAtomic m, Mockable Throw m, Mockable Catch m
-       , Mockable Async m, Ord (Promise m ()), MonadFix m )
+       , Mockable Async m, Ord (Promise m ())
+       , Mockable Metrics.Metrics m, Mockable CurrentTime m
+       , MonadFix m )
     => SharedAtomicT m (NodeState m)
     -> NT.EndPointAddress
     -> Either NT.ConnectionId (Nonce, SharedExclusiveT m (ConnectionBuffer m))
@@ -744,7 +758,9 @@ spawnHandler
 spawnHandler stateVar peer connidOrNonce action =
     modifySharedAtomic stateVar $ \(NodeState prng locally remotely statistics closed) -> do
         -- Spawn the thread to get a 'SomeHandler'.
-        rec { promise <- async $ normal waitForIt `catch` exceptional waitForIt
+        rec { promise <- async $ do
+                  startTime <- currentTime
+                  normal waitForIt startTime `catch` exceptional waitForIt startTime
             -- A new promise which finishes when the other promise does, but returns
             -- ().
             ; waitForIt <- async $ do
@@ -757,7 +773,7 @@ spawnHandler stateVar peer connidOrNonce action =
         let (locally', remotely') = case connidOrNonce of
                 Left connid -> (locally, Set.insert waitForIt remotely)
                 Right (nonce, var) -> (Map.insert nonce (waitForIt, Just var) locally, remotely)
-        let statistics' = stAddHandler provenance statistics
+        statistics' <- stAddHandler provenance statistics
         return (NodeState prng locally' remotely' statistics' closed, promise)
     where
 
@@ -765,24 +781,27 @@ spawnHandler stateVar peer connidOrNonce action =
         Left connid -> Remote peer
         Right (nonce, _) -> Local peer
 
-    normal :: Promise m () -> m t
-    normal promise = do
+    normal :: Promise m () -> Microsecond -> m t
+    normal promise startTime = do
         t <- action
-        signalFinished promise Nothing
+        signalFinished promise startTime Nothing
         pure t
 
-    exceptional :: Promise m () -> SomeException -> m t
-    exceptional promise e = do
-        signalFinished promise (Just e)
+    exceptional :: Promise m () -> Microsecond -> SomeException -> m t
+    exceptional promise startTime e = do
+        signalFinished promise startTime (Just e)
         throw e
 
-    signalFinished :: Promise m () -> Maybe SomeException -> m ()
-    signalFinished promise outcome = modifySharedAtomic stateVar $ \(NodeState prng locally remotely statistics closed) -> do
-        let (locally', remotely') = case connidOrNonce of
-                Left connid -> (locally, Set.delete promise remotely)
-                Right (nonce, _) -> (Map.delete nonce locally, remotely)
-        let statistics' = stRemoveHandler provenance statistics
-        pure ((NodeState prng locally' remotely' statistics' closed), ())
+    signalFinished :: Promise m () -> Microsecond -> Maybe SomeException -> m ()
+    signalFinished promise startTime outcome = do
+        endTime <- currentTime
+        let elapsed = endTime - startTime
+        modifySharedAtomic stateVar $ \(NodeState prng locally remotely statistics closed) -> do
+            let (locally', remotely') = case connidOrNonce of
+                    Left connid -> (locally, Set.delete promise remotely)
+                    Right (nonce, _) -> (Map.delete nonce locally, remotely)
+            statistics' <- stRemoveHandler provenance elapsed outcome statistics
+            pure ((NodeState prng locally' remotely' statistics' closed), ())
 
 controlHeaderCodeBidirectionalSyn :: Word8
 controlHeaderCodeBidirectionalSyn = fromIntegral (fromEnum 'S')
@@ -815,8 +834,7 @@ fixedSizeBuilder n =
 
 -- | Connect to a peer given by a 'NodeId' bidirectionally.
 connectInOutChannel
-    :: ( Mockable Buffer m, Mockable SharedAtomic m
-       , Mockable Throw m, WithLogger m )
+    :: ( Mockable Buffer m, Mockable Throw m, WithLogger m )
     => Node m
     -> NodeId
     -> Nonce
@@ -848,7 +866,9 @@ withInOutChannel
     :: forall m a .
        ( Mockable Bracket m, Mockable Async m, Ord (Promise m ())
        , Mockable SharedAtomic m, Mockable SharedExclusive m, Mockable Throw m
-       , Mockable Catch m, Mockable Buffer m, MonadFix m, WithLogger m )
+       , Mockable Catch m, Mockable Buffer m
+       , Mockable CurrentTime m, Mockable Metrics.Metrics m
+       , MonadFix m, WithLogger m )
     => Node m
     -> NodeId
     -> (ChannelIn m -> ChannelOut m -> m a)
@@ -860,7 +880,7 @@ withInOutChannel node@Node{nodeState} nodeid@(NodeId peer) action = do
                pure ((NodeState prng' locally remotely statistics closed), nonce)
     let action' :: ChannelOut m -> m a
         action' = action (ChannelLocallyInitiated input)
-    -- connectInOurChannel will update the nonce state to indicate that there's
+    -- connectInOutChannel will update the nonce state to indicate that there's
     -- a handler for it. When the handler is finished (whether normally or
     -- exceptionally) we have to update it to say so.
     rec { promise <- spawnHandler nodeState peer (Right (nonce, input)) $

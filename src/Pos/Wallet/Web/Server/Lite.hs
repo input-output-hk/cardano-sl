@@ -16,8 +16,8 @@ import           Universum
 
 import           Mockable                      (runProduction)
 import           Pos.Communication.BiP         (BiP)
-import           Pos.DHT.Real.Real             (getKademliaDHTInstance, runKademliaDHT)
-import           Pos.DHT.Real.Types            (KademliaDHTInstance (..))
+import           Pos.DHT.Real.Real             (runKademliaDHT)
+import           Pos.DHT.Real.Types            (KademliaDHTInstance (..), getKademliaDHTInstance)
 import           Pos.Wallet.Context            (WalletContext, getWalletContext,
                                                 runContextHolder)
 import           Pos.Wallet.KeyStorage         (KeyData, runKeyStorageRaw)

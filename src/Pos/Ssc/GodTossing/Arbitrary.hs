@@ -6,7 +6,6 @@ module Pos.Ssc.GodTossing.Arbitrary
        ( CommitmentOpening (..)
        ) where
 
-import           Data.List.NonEmpty                (NonEmpty ((:|)))
 import           Test.QuickCheck                   (Arbitrary (..), elements, oneof)
 import           Universum
 
@@ -38,7 +37,7 @@ commitmentsAndOpenings :: [CommitmentOpening]
 commitmentsAndOpenings =
     map (uncurry CommitmentOpening) $
     unsafeMakePool "[generating Commitments and Openings for tests...]" 50 $
-       genCommitmentAndOpening 1 (asBinary vssPk :| [])
+       genCommitmentAndOpening 1 (one (asBinary vssPk))
   where
     vssPk = toVssPublicKey $ deterministicVssKeyGen "aaaaaaaaaaaaaaaaaaaaaassss"
 {-# NOINLINE commitmentsAndOpenings #-}
@@ -94,7 +93,7 @@ instance Bi Commitment => Arbitrary GtGlobalState where
         <*> arbitrary
 
 instance SscBi => Arbitrary GtSecretStorage where
-    arbitrary = GtSecretStorage <$> arbitrary
+    arbitrary = GtSecretStorage <$> arbitrary <*> arbitrary
 
 ------------------------------------------------------------------------------------------
 -- Message types

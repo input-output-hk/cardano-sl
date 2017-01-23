@@ -10,6 +10,7 @@ module Pos.Launcher.Scenario
 
 import           Control.Concurrent.MVar     (putMVar)
 import           Control.Concurrent.STM.TVar (writeTVar)
+import           Data.Default                (def)
 import           Development.GitRev          (gitBranch, gitHash)
 import           Formatting                  (build, int, sformat, (%))
 import           Mockable                    (currentTime, delay, fork, sleepForever)
@@ -18,16 +19,22 @@ import           System.Wlog                 (logError, logInfo)
 import           Universum
 
 import           Pos.Communication           (BiP)
+import           Pos.Constants               (isDevelopment, ntpMaxError,
+                                              ntpResponseTimeout)
 import           Pos.Context                 (NodeContext (..), getNodeContext,
-                                              ncPubKeyAddress, ncPublicKey)
+                                              ncPubKeyAddress, ncPublicKey, readNtpMargin)
 import qualified Pos.DB.GState               as GS
 import qualified Pos.DB.Lrc                  as LrcDB
-import           Pos.DHT.Model               (DHTNodeType (DHTFull), discoverPeers)
+import           Pos.Delegation.Logic        (initDelegation)
+import           Pos.DHT.Model               (discoverPeers)
+import           Pos.Slotting                (getCurrentSlot)
 import           Pos.Ssc.Class               (SscConstraint)
 import           Pos.Types                   (Timestamp (Timestamp), addressHash)
+import           Pos.Update                  (MemState (..), askUSMemVar, mvState)
 import           Pos.Util                    (inAssertMode, waitRandomInterval)
 import           Pos.Util.TimeWarp           (sec)
 import           Pos.Worker                  (runWorkers)
+import           Pos.Worker.Ntp              (ntpWorker)
 import           Pos.WorkMode                (WorkMode)
 
 -- | Run full node in any WorkMode.
@@ -46,8 +53,13 @@ runNode plugins sendActions = do
                        ", address: "%build%
                        ", pk hash: "%build) pk addr pkHash
     () <$ fork waitForPeers
-    initSemaphore
+    initDelegation
     initLrc
+    initUSMemState
+    initSemaphore
+    _ <- fork ntpWorker -- start NTP worker for synchronization time
+    logInfo $ "Waiting response from NTP servers"
+    unless isDevelopment $ delay (ntpResponseTimeout + ntpMaxError)
     waitSystemStart
     runWorkers sendActions
     mapM_ (fork . ($ sendActions)) plugins
@@ -57,16 +69,17 @@ runNode plugins sendActions = do
 -- are not accurately synchronized, for example).
 waitSystemStart :: WorkMode ssc m => m ()
 waitSystemStart = do
+    margin <- readNtpMargin
     Timestamp start <- ncSystemStart <$> getNodeContext
-    cur <- currentTime
+    cur <- (+ margin) <$> currentTime
     let waitPeriod = start - cur
     logInfo $ sformat ("Waiting "%int%" seconds for system start") $
         waitPeriod `div` sec 1
-    when (cur < start) $ delay (start - cur)
+    when (cur < start) $ delay waitPeriod
 
 -- | Try to discover peers repeatedly until at least one live peer is found
 waitForPeers :: WorkMode ssc m => m ()
-waitForPeers = discoverPeers DHTFull >>= \case
+waitForPeers = discoverPeers >>= \case
     ps@(_:_) -> () <$ logInfo (sformat ("Known peers: "%build) ps)
     []       -> logInfo "Couldn't connect to any peer, trying again..." >>
                 waitRandomInterval (sec 3) (sec 10) >>
@@ -85,3 +98,10 @@ initLrc :: WorkMode ssc m => m ()
 initLrc = do
     lrcSync <- ncLrcSync <$> getNodeContext
     atomically . writeTVar lrcSync . (True,) =<< LrcDB.getEpoch
+
+initUSMemState :: WorkMode ssc m => m ()
+initUSMemState = do
+    tip <- GS.getTip
+    tvar <- mvState <$> askUSMemVar
+    slot <- getCurrentSlot
+    atomically $ writeTVar tvar (MemState slot tip def def)

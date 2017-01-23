@@ -16,8 +16,7 @@ module Pos.Ssc.GodTossing.LocalData.LocalData
          -- ** instance SscLocalDataClass SscGodTossing
        ) where
 
-import           Control.Lens                         (Getter, at, use, uses, view, views,
-                                                       (%=), (.=))
+import           Control.Lens                         (Getter, at, (%=), (.=))
 import           Data.Containers                      (ContainerKey,
                                                        SetContainer (notMember))
 import qualified Data.HashMap.Strict                  as HM
@@ -127,14 +126,14 @@ applyGlobal richmen globalData = do
 getLocalPayload :: LocalQuery SscGodTossing (SlotId, GtPayload)
 getLocalPayload = do
     s <- view ldLastProcessedSlot
-    (s, ) <$> (getPayload (siSlot s) <*> views ldCertificates VCD.certs)
+    (s, ) <$> (getPayload (siSlot s) <*> (VCD.certs <$> view ldCertificates))
   where
-    getPayload slotIdx =
-        if | isCommitmentIdx slotIdx ->
-               CommitmentsPayload <$> view ldCommitments
-           | isOpeningIdx slotIdx -> OpeningsPayload <$> view ldOpenings
-           | isSharesIdx slotIdx -> SharesPayload <$> view ldShares
-           | otherwise -> pure CertificatesPayload
+    getPayload slotIdx
+        | isCommitmentIdx slotIdx =
+              CommitmentsPayload <$> view ldCommitments
+        | isOpeningIdx slotIdx = OpeningsPayload <$> view ldOpenings
+        | isSharesIdx slotIdx = SharesPayload <$> view ldShares
+        | otherwise = pure CertificatesPayload
 
 ----------------------------------------------------------------------------
 -- Process New Slot
@@ -189,11 +188,12 @@ sscIsDataUsefulQ SharesMsg =
 sscIsDataUsefulQ VssCertificateMsg = sscIsCertUsefulImpl
   where
     sscIsCertUsefulImpl addr = do
-        loc <- views gtLocalCertificates VCD.certs
+        loc <- VCD.certs <$> view gtLocalCertificates
         glob <- view gtGlobalCertificates
         lpe <- siEpoch <$> view gtLastProcessedSlot
-        if addr `HM.member` loc then pure False
-        else pure $ maybe True (== lpe) (VCD.lookupExpiryEpoch addr glob)
+        return $ if addr `HM.member` loc
+            then False
+            else maybe True (== lpe) (VCD.lookupExpiryEpoch addr glob)
 
 type MapGetter a = Getter GtState (HashMap StakeholderId a)
 type SetGetter set = Getter GtState set
@@ -203,17 +203,15 @@ sscIsDataUsefulImpl :: MapGetter a
                     -> StakeholderId
                     -> LDQuery Bool
 sscIsDataUsefulImpl localG globalG addr =
-    (&&) <$>
-        (notMember addr <$> view globalG) <*>
-        (notMember addr <$> view localG)
+    andM [ notMember addr <$> view globalG
+         , notMember addr <$> view localG ]
 
 sscIsDataUsefulSetImpl
     :: (SetContainer set, ContainerKey set ~ StakeholderId)
     => MapGetter a -> SetGetter set -> StakeholderId -> LDQuery Bool
 sscIsDataUsefulSetImpl localG globalG addr =
-    (&&) <$>
-        (notMember addr <$> view localG) <*>
-        (notMember addr <$> view globalG)
+    andM [ notMember addr <$> view localG
+         , notMember addr <$> view globalG ]
 
 ----------------------------------------------------------------------------
 -- Ssc Process Message
@@ -297,10 +295,10 @@ checkSharesLastVer
     -> StakeholderId
     -> HashMap StakeholderId (AsBinary Share)
     -> LDQuery Bool
-checkSharesLastVer certs addr shares =
-    (\comms openings -> checkShares comms openings certs addr shares) <$>
-    view gtGlobalCommitments <*>
-    view gtGlobalOpenings
+checkSharesLastVer certs addr shares = do
+    comms    <- view gtGlobalCommitments
+    openings <- view gtGlobalOpenings
+    pure (checkShares comms openings certs addr shares)
 
 processVssCertificate :: RichmenSet
                       -> StakeholderId
@@ -308,7 +306,7 @@ processVssCertificate :: RichmenSet
                       -> LDUpdate Bool
 processVssCertificate richmen addr c
     | (addressHash $ vcSigningKey c) `HS.member` richmen = do
-        lpe <- uses gtLastProcessedSlot siEpoch
+        lpe <- siEpoch <$> use gtLastProcessedSlot
         ok <- (checkCertTTL lpe c &&) <$> readerToState (sscIsDataUsefulQ VssCertificateMsg addr)
         ok <$ when ok (gtLocalCertificates %= VCD.insert addr c)
     | otherwise = pure False

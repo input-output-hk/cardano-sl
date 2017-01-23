@@ -9,8 +9,6 @@ module Pos.Lrc.Types
        ) where
 
 import qualified Data.HashMap.Strict as HM
-import           Data.List.NonEmpty  (NonEmpty)
-import qualified Data.List.NonEmpty  as NE
 import           Universum
 
 import           Pos.Types           (Coin, StakeholderId)
@@ -26,7 +24,7 @@ type RichmenStake = HashMap StakeholderId Coin
 
 toRichmen :: RichmenStake -> Richmen
 toRichmen =
-    fromMaybe onNoRichmen . NE.nonEmpty . HM.keys
+    fromMaybe onNoRichmen . nonEmpty . HM.keys
   where
     onNoRichmen = panic "There are no richmen!"
 

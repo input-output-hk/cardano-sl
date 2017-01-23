@@ -11,17 +11,17 @@ module Pos.Context.Context
 
 import qualified Control.Concurrent.STM         as STM
 import           Control.Concurrent.STM.TBQueue (TBQueue)
-import           Data.List.NonEmpty             (NonEmpty)
 import           Data.Time.Units                (Microsecond)
 import           Node                           (NodeId)
 import           Universum
 
 import           Pos.Crypto                     (PublicKey, SecretKey, toPublic)
-import           Pos.Security.CLI             (AttackTarget, AttackType)
+import           Pos.Security.CLI               (AttackTarget, AttackType)
 import           Pos.Ssc.Class.Types            (Ssc (SscNodeContext))
 import           Pos.Types                      (Address, BlockHeader, EpochIndex,
                                                  HeaderHash, SlotId, SlotLeaders,
                                                  Timestamp (..), Utxo, makePubKeyAddress)
+import           Pos.Util                       (NE, NewestFirst)
 import           Pos.Util.UserSecret            (UserSecret)
 
 ----------------------------------------------------------------------------
@@ -55,13 +55,15 @@ data NodeContext ssc = NodeContext
     -- ^ Attack targets used by malicious emulation
     , ncPropagation         :: !Bool
     -- ^ Whether to propagate txs, ssc data, blocks to neighbors
-    , ncBlkSemaphore        :: !(MVar (HeaderHash ssc))
+    , ncBlkSemaphore        :: !(MVar HeaderHash)
     -- ^ Semaphore which manages access to block application.
     -- Stored hash is a hash of last applied block.
     , ncLrcSync             :: !(STM.TVar LrcSyncData)
     -- ^ Primitive for synchronization with LRC.
     , ncUserSecret          :: !(STM.TVar UserSecret)
     -- ^ Secret keys (and path to file) which are used to send transactions
+    , ncKademliaDump        :: !FilePath
+    -- ^ Path to kademlia dump file
     , ncNtpData             :: !(STM.TVar (Microsecond, Microsecond))
     -- ^ Data for NTP Worker.
     -- First element is margin (difference between global time and local time)
@@ -69,7 +71,18 @@ data NodeContext ssc = NodeContext
     -- Second element is time (local time) for which we got margin in last time.
     , ncNtpLastSlot         :: !(STM.TVar SlotId)
     -- ^ Slot which was returned from getCurrentSlot in last time
-    , ncBlockRetrievalQueue :: !(TBQueue (NodeId, NonEmpty (BlockHeader ssc)))
+    , ncBlockRetrievalQueue :: !(TBQueue (NodeId, NewestFirst NE (BlockHeader ssc)))
+    -- ^ Concurrent queue that holds block headers that are to be
+    -- downloaded.
+    , ncRecoveryHeader      :: !(STM.TMVar (NodeId, BlockHeader ssc))
+    -- ^ In case of recovery mode this variable holds the latest
+    -- header hash we know about so we can do chained block
+    -- requests. Invariant: this mvar is full iff we're more than
+    -- 'recoveryHeadersMessage' blocks deep relatively to some valid
+    -- header and we're downloading blocks. Every time we get block
+    -- that's more difficult than this one, we overwrite. Every time
+    -- we process some blocks and fail or see that we've downloaded
+    -- this header, we clean mvar.
     }
 
 -- | Generate 'PublicKey' from 'SecretKey' of 'NodeContext'.

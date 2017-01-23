@@ -1,18 +1,30 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 -- | Pure functions for operations with transactions
 
 module Pos.Wallet.Tx.Pure
-       ( makePubKeyTx
+       (
+       -- * Tx creation
+         makePubKeyTx
        , makeMOfNTx
        , createTx
        , createMOfNTx
+
+       -- * History derivation
        , getRelatedTxs
        , deriveAddrHistory
        , deriveAddrHistoryPartial
+
+       -- * Additional datatypes
+       , TxHistoryEntry (..)
+       , thTxId
+       , thTx
+       , thIsOutput
+       , thDifficulty
        , TxError
        ) where
 
-import           Control.Lens              (over, use, uses, view, (%=), (%=), (^.), _1,
-                                            _2)
+import           Control.Lens              (makeLenses, (%=))
 import           Control.Monad.State       (StateT (..), evalStateT)
 import           Control.Monad.Trans.Maybe (MaybeT (..))
 import qualified Data.DList                as DL
@@ -27,11 +39,13 @@ import           Pos.Crypto                (PublicKey, SecretKey, WithHash (..),
 import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.Script                (Script)
 import           Pos.Script.Examples       (multisigRedeemer, multisigValidator)
-import           Pos.Types                 (Address, Block, Coin, MonadUtxoRead (..),
-                                            Tx (..), TxAux, TxDistribution (..), TxId,
-                                            TxIn (..), TxInWitness (..), TxOut (..),
-                                            TxOutAux, TxSigData, TxWitness, Utxo,
-                                            UtxoStateT (..), applyTxToUtxo, blockTxas,
+import           Pos.Ssc.Class             (Ssc)
+import           Pos.Types                 (Address, Block, ChainDifficulty, Coin,
+                                            MonadUtxoRead (..), Tx (..), TxAux,
+                                            TxDistribution (..), TxId, TxIn (..),
+                                            TxInWitness (..), TxOut (..), TxOutAux,
+                                            TxSigData, TxWitness, Utxo, UtxoStateT (..),
+                                            applyTxToUtxo, blockTxas, difficultyL,
                                             filterUtxoByAddr, makePubKeyAddress,
                                             makeScriptAddress, mkCoin, sumCoins,
                                             topsortTxs)
@@ -105,7 +119,7 @@ prepareInpOuts utxo addr outputs = do
         if moneyLeft == mkCoin 0
             then return inps
             else do
-                mNextOut <- uses _2 head
+                mNextOut <- head <$> use _2
                 case mNextOut of
                     Nothing -> fail "Not enough money to send!"
                     Just inp@(_, (TxOut{..}, _)) -> do
@@ -146,6 +160,17 @@ hasSender Tx {..} addr = anyM hasCorrespondingOutput txInputs
         toBool Nothing  = False
         toBool (Just b) = b
 
+-- | Datatype for returning info about tx history
+data TxHistoryEntry = THEntry
+    { _thTxId       :: !TxId
+    , _thTx         :: !Tx
+    , _thIsOutput   :: !Bool
+    , _thDifficulty :: !(Maybe ChainDifficulty)
+    } deriving (Show, Eq, Generic)
+
+makeLenses ''TxHistoryEntry
+
+-- | Type of monad used to deduce history
 type TxSelectorT m = UtxoStateT (MaybeT m)
 
 -- | Select transactions related to given address. `Bool` indicates
@@ -154,7 +179,7 @@ getRelatedTxs
     :: Monad m
     => Address
     -> [(WithHash Tx, TxWitness, TxDistribution)]
-    -> TxSelectorT m [(TxId, Tx, Bool)]
+    -> TxSelectorT m [TxHistoryEntry]
 getRelatedTxs addr txs = fmap DL.toList $
     lift (MaybeT $ return $ topsortTxs (view _1) txs) >>=
     foldlM step DL.empty
@@ -166,23 +191,24 @@ getRelatedTxs addr txs = fmap DL.toList $
             then do
             applyTxToUtxo (WithHash tx txId) dist
             identity %= filterUtxoByAddr addr
-            return $ ls <> DL.singleton (txId, tx, isOutgoing)
+            return $ ls <> DL.singleton (THEntry txId tx isOutgoing Nothing)
             else return ls
 
 -- | Given a full blockchain, derive address history and Utxo
 -- TODO: Such functionality will still be useful for merging
 -- blockchains when wallet state is ready, but some metadata for
 -- Tx will be required.
-deriveAddrHistory :: Monad m => Address -> [Block ssc] -> TxSelectorT m [(TxId, Tx, Bool)]
+deriveAddrHistory
+    :: (Monad m, Ssc ssc) => Address -> [Block ssc] -> TxSelectorT m [TxHistoryEntry]
 deriveAddrHistory addr chain = identity %= filterUtxoByAddr addr >>
                                deriveAddrHistoryPartial [] addr chain
 
 deriveAddrHistoryPartial
-    :: Monad m
-    => [(TxId, Tx, Bool)]
+    :: (Monad m, Ssc ssc)
+    => [TxHistoryEntry]
     -> Address
     -> [Block ssc]
-    -> TxSelectorT m [(TxId, Tx, Bool)]
+    -> TxSelectorT m [TxHistoryEntry]
 deriveAddrHistoryPartial hist addr chain =
     DL.toList <$> foldrM updateAll (DL.fromList hist) chain
   where
@@ -190,4 +216,6 @@ deriveAddrHistoryPartial hist addr chain =
     updateAll (Right blk) hst = do
         txs <- getRelatedTxs addr $
                    map (over _1 withHash) (blk ^. blockTxas)
-        return $ DL.fromList txs <> hst
+        let difficulty = blk ^. difficultyL
+            txs' = map (thDifficulty .~ Just difficulty) txs
+        return $ DL.fromList txs' <> hst

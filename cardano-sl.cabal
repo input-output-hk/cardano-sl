@@ -57,6 +57,7 @@ library
                         Pos.DHT.Real
                         Pos.DHT.Real.Real
                         Pos.DHT.Real.Types
+                        Pos.DHT.Workers
                         Pos.Genesis
 
                         -- LRC
@@ -99,9 +100,15 @@ library
                         Pos.Types.Types
                         Pos.Types.Utxo
                         Pos.Types.Version
+
+                        -- Update system
                         Pos.Update
-                        Pos.Update.Types
+                        Pos.Update.Arbitrary
+                        Pos.Update.Core
+
+                        -- Utilities/helpers
                         Pos.Util
+                        Pos.Util.BackupPhrase
                         Pos.Util.JsonLog
                         Pos.Util.Relay
                         Pos.Util.UserSecret
@@ -118,10 +125,11 @@ library
 
                         -- Binary serialization
                         Pos.Binary.Address
+                        Pos.Binary.Block
                         Pos.Binary.Class
                         Pos.Binary.Crypto
                         Pos.Binary.Communication
-                        Pos.Binary.DHTModel                        
+                        Pos.Binary.DHTModel
                         Pos.Binary.DB
                         Pos.Binary.Genesis
                         Pos.Binary.Merkle
@@ -141,6 +149,7 @@ library
                         Pos.Block.Network.Types
                         Pos.Block.Network.Listeners
                         Pos.Block.Network.Retrieval
+                        Pos.Block.Types
                         Pos.Block.Worker
 
                         -- Network
@@ -179,11 +188,12 @@ library
 
                         -- Heavy delegation
                         Pos.Delegation.Class
-                        Pos.Delegation.Methods
-                        Pos.Delegation.Types
+                        Pos.Delegation.Holder
                         Pos.Delegation.Listeners
                         Pos.Delegation.Logic
                         Pos.Delegation.Lrc
+                        Pos.Delegation.Methods
+                        Pos.Delegation.Types
 
                         -- Launcher
                         Pos.Launcher.Launcher
@@ -196,7 +206,6 @@ library
                         Pos.DB.Block
                         Pos.DB.Class
                         Pos.DB.DB
-                        Pos.DB.DBIterator
                         Pos.DB.Error
                         Pos.DB.Functions
                         Pos.DB.GState.Balances
@@ -207,6 +216,9 @@ library
                         Pos.DB.GState.BlockExtra
                         Pos.DB.GState.Utxo
                         Pos.DB.Holder
+                        Pos.DB.Iterator
+                        Pos.DB.Iterator.Class
+                        Pos.DB.Iterator.DBIterator
                         Pos.DB.Lrc
                         Pos.DB.Lrc.Common
                         Pos.DB.Lrc.Leaders
@@ -284,20 +296,36 @@ library
                         Pos.Worker.Stats
 
                         -- Update System
+                        Pos.Update.Arbitrary.Core
+                        Pos.Update.Arbitrary.Network
+                        Pos.Update.Core.Types
                         Pos.Update.Download
                         Pos.Update.Error
-                        Pos.Update.Listeners
                         Pos.Update.Logic
+                        Pos.Update.Logic.Global
+                        Pos.Update.Logic.Local
                         Pos.Update.Lrc
                         Pos.Update.MemState
                         Pos.Update.MemState.Class
+                        Pos.Update.MemState.Functions
                         Pos.Update.MemState.Holder
                         Pos.Update.MemState.MemState
                         Pos.Update.MemState.Types
+                        Pos.Update.Network
+                        Pos.Update.Network.Listeners
+                        Pos.Update.Network.Types
                         Pos.Update.Poll
                         Pos.Update.Poll.Class
-                        Pos.Update.Types.Communication
-                        Pos.Update.Types.Types
+                        Pos.Update.Poll.DBPoll
+                        Pos.Update.Poll.Logic
+                        Pos.Update.Poll.Logic.Apply
+                        Pos.Update.Poll.Logic.Base
+                        Pos.Update.Poll.Logic.Normalize
+                        Pos.Update.Poll.Logic.Rollback
+                        Pos.Update.Poll.Modifier
+                        Pos.Update.Poll.RollTrans
+                        Pos.Update.Poll.Trans
+                        Pos.Update.Poll.Types
                         Pos.Update.Worker
 
                         -- Utilities/helpers
@@ -330,6 +358,7 @@ library
                         Pos.Wallet.Context.Class
                         Pos.Wallet.Context.Context
                         Pos.Wallet.Context.Holder
+                        Pos.Wallet.Update
   if (flag(with-wallet) && flag(with-web))
     other-modules:      Pos.Aeson.ClientTypes
                         Pos.Wallet.Web.ClientTypes
@@ -361,6 +390,7 @@ library
                       , binary-orphans
                       , bytestring
                       , cereal
+                      , concurrent-extra
                       , conduit >= 1.2.8
                       , containers
                       , cryptonite >= 0.19 && < 0.21
@@ -744,6 +774,65 @@ executable cardano-smart-generator
   else
     buildable:         False
 
+executable cardano-dht-keygen
+  hs-source-dirs:      src/dht-keygen
+  main-is:             Main.hs
+  build-depends:       QuickCheck
+                     , base
+                     , aeson
+                     , array
+                     , bytestring
+                     , data-default
+                     , cardano-sl
+                     , filepath
+                     , formatting
+                     , kademlia
+                     , lens
+                     , lifted-async
+                     , log-warper >= 0.1.0
+                     , optparse-applicative
+                     , parsec
+                     , random
+                     , random-shuffle
+                     , serokell-util
+                     , stm
+                     , text
+                     , time
+                     , universum >= 0.1.11
+                     , unordered-containers
+                     , vector
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -with-rtsopts=-N
+                       -O2
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
+  if flag(with-wallet)
+    buildable:         True
+  else
+    buildable:         False
+
 executable cardano-web-docs
   hs-source-dirs:      src/web-docs
   main-is:             Main.hs
@@ -890,6 +979,7 @@ test-suite cardano-test
                        Test.Pos.Ssc.GodTossing.Identity.SafeCopySpec
                        Test.Pos.Ssc.GodTossing.SeedSpec
                        Test.Pos.Ssc.GodTossing.Types.BaseSpec
+                       Test.Pos.Ssc.GodTossing.VssCertDataSpec
                        Test.Pos.Types.AddressSpec
                        Test.Pos.Types.BlockSpec
                        Test.Pos.Types.Identity.BinarySpec

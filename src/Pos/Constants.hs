@@ -21,6 +21,10 @@ module Pos.Constants
        , mpcSendInterval
        , mpcThreshold
 
+       -- * Dev/production mode, system start
+       , isDevelopment
+       , staticSysStart
+
          -- * Other constants
        , genesisN
        , maxLocalTxs
@@ -28,9 +32,6 @@ module Pos.Constants
        , neighborsSendThreshold
        , networkConnectionTimeout
        , blockRetrievalQueueSize
-       , RunningMode (..)
-       , runningMode
-       , isDevelopment
        , defaultPeers
        , sysTimeBroadcastSlots
        , vssMaxTTL
@@ -39,28 +40,27 @@ module Pos.Constants
        , enhancedMessageBroadcast
        , delegationThreshold
        , recoveryHeadersMessage
+       , kademliaDumpInterval
 
          -- * Malicious activity detection constants
        , mdNoBlocksSlotThreshold
        , mdNoCommitmentsEpochThreshold
 
          -- * Update system constants
-       , curProtocolVersion
+       , lastKnownBlockVersion
        , curSoftwareVersion
        , appSystemTag
        , updateServers
+       , updateProposalThreshold
+       , updateVoteThreshold
+       , updateImplicitApproval
 
        -- * NTP
        , ntpMaxError
        , ntpResponseTimeout
        , ntpPollDelay
-
-       , updateProposalThreshold
-       , updateVoteThreshold
-       , updateImplicitApproval
        ) where
 
-import           Data.String                (String)
 import           Data.Time.Units            (Microsecond)
 import           Language.Haskell.TH.Syntax (lift, runIO)
 import           Pos.Util.TimeWarp          (ms, sec)
@@ -77,9 +77,9 @@ import           Pos.CompileConfig          (CompileConfig (..), compileConfig)
 import           Pos.DHT.Model.Types        (DHTNode)
 import           Pos.Types.Timestamp        (Timestamp (..))
 import           Pos.Types.Types            (CoinPortion, unsafeCoinPortion)
-import           Pos.Types.Version          (ApplicationName, ProtocolVersion (..),
+import           Pos.Types.Version          (ApplicationName, BlockVersion (..),
                                              SoftwareVersion (..), mkApplicationName)
-import           Pos.Update.Types           (SystemTag, mkSystemTag)
+import           Pos.Update.Core            (SystemTag, mkSystemTag)
 import           Pos.Util                   ()
 import           Pos.Util.TimeWarp          (mcs)
 
@@ -176,17 +176,16 @@ blockRetrievalQueueSize :: Integral a => a
 blockRetrievalQueueSize =
     fromIntegral . ccBlockRetrievalQueueSize $ compileConfig
 
--- | Defines mode of running application: in tested mode or in production.
-data RunningMode
-    = Development
-    | Production { rmSystemStart :: !Timestamp}
+-- | @True@ if current mode is 'Development'.
+isDevelopment :: Bool
+isDevelopment = isNothing staticSysStart
 
--- | Current running mode.
-runningMode :: RunningMode
+-- | System start time embeded into binary.
+staticSysStart :: Maybe Timestamp
 #ifdef DEV_MODE
-runningMode = Development
+staticSysStart = Nothing
 #else
-runningMode = Production . Timestamp . sec $
+staticSysStart = Just $ Timestamp $ sec $
     let st = ccProductionNetworkStartTime compileConfig
     in if st > 0 then st
        else let pause = 30
@@ -199,17 +198,11 @@ runningMode = Production . Timestamp . sec $
                -- they'll have same start time
 #endif
 
--- | @True@ if current mode is 'Development'.
-isDevelopment :: Bool
-isDevelopment = case runningMode of
-                  Development -> True
-                  _           -> False
-
 -- | See 'Pos.CompileConfig.ccDefaultPeers'.
 defaultPeers :: [DHTNode]
 defaultPeers = map parsePeer . ccDefaultPeers $ compileConfig
   where
-    parsePeer :: [Char] -> DHTNode
+    parsePeer :: String -> DHTNode
     parsePeer =
         either (panic . show) identity .
         P.parse dhtNodeParser "Compile time config"
@@ -241,6 +234,10 @@ delegationThreshold = unsafeCoinPortion $ ccDelegationThreshold compileConfig
 -- 'blkSecurityParam'.
 recoveryHeadersMessage :: (Integral a) => a
 recoveryHeadersMessage = fromIntegral . ccRecoveryHeadersMessage $ compileConfig
+
+-- | Interval for dumping state of Kademlia in slots
+kademliaDumpInterval :: (Integral a) => a
+kademliaDumpInterval = fromIntegral . ccKademliaDumpInterval $ compileConfig
 
 ----------------------------------------------------------------------------
 -- Malicious activity
@@ -279,9 +276,9 @@ appSystemTag = $(do
 #endif
         Just tag -> lift =<< mkSystemTag (toText tag))
 
--- | Protocol version application uses
-curProtocolVersion :: ProtocolVersion
-curProtocolVersion = ProtocolVersion 0 0 0
+-- | Last block version application is aware of.
+lastKnownBlockVersion :: BlockVersion
+lastKnownBlockVersion = BlockVersion 0 0 0
 
 -- | Version of application (code running)
 curSoftwareVersion :: SoftwareVersion

@@ -23,8 +23,8 @@ import           Universum
 import           Pos.Context                   (NodeContext, getNodeContext,
                                                 runContextHolder)
 import qualified Pos.DB                        as Modern
-import           Pos.Delegation.Class          (DelegationWrap, askDelegationState,
-                                                runDelegationTFromTVar)
+import           Pos.Delegation.Class          (DelegationWrap, askDelegationState)
+import           Pos.Delegation.Holder         (runDelegationTFromTVar)
 #ifdef DEV_MODE
 import           Pos.Genesis                   (genesisSecretKeys)
 #endif
@@ -38,8 +38,8 @@ import           Pos.Communication.BiP         (BiP)
 import           Pos.Communication.PeerState   (PeerStateSnapshot, WithPeerState (..),
                                                 getAllStates, peerStateFromSnapshot,
                                                 runPeerStateHolder)
-import           Pos.DHT.Real.Real             (getKademliaDHTInstance, runKademliaDHT)
-import           Pos.DHT.Real.Types            (KademliaDHTInstance (..))
+import           Pos.DHT.Real.Real             (runKademliaDHT)
+import           Pos.DHT.Real.Types            (KademliaDHTInstance (..), getKademliaDHTInstance)
 import           Pos.Update.MemState.Holder    (runUSHolder)
 import           Pos.Wallet.KeyStorage         (MonadKeys (..), addSecretKey)
 import           Pos.Wallet.Web.Server.Methods (walletApplication, walletServeImpl,

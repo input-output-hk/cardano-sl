@@ -23,7 +23,8 @@ import           Pos.Context.Class    (WithNodeContext)
 import           Pos.DB.Class         (MonadDB)
 import           Pos.Lrc.Types        (Richmen)
 import           Pos.Ssc.Class.Types  (Ssc (..))
-import           Pos.Types            (EpochIndex, HeaderHash, NEBlocks, SharedSeed)
+import           Pos.Types            (Block, EpochIndex, HeaderHash, SharedSeed)
+import           Pos.Util             (NE, NewestFirst, OldestFirst)
 
 ----------------------------------------------------------------------------
 -- Modern
@@ -37,18 +38,27 @@ type SscImpureQuery ssc a = forall m. ( MonadReader (SscGlobalState ssc) m
                                       , MonadIO m) => m a
 
 class Ssc ssc => SscStorageClass ssc where
-    sscLoadGlobalState :: MonadDB ssc m => HeaderHash ssc -> m (SscGlobalState ssc)
+    sscLoadGlobalState
+        :: MonadDB ssc m
+        => HeaderHash -> m (SscGlobalState ssc)
 
-    sscApplyBlocksM :: NEBlocks ssc -> SscGlobalUpdate ssc ()
+    sscApplyBlocksM
+        :: OldestFirst NE (Block ssc) -> SscGlobalUpdate ssc ()
 
     -- | Rollback application of blocks.
-    sscRollbackM :: NEBlocks ssc -> SscGlobalUpdate ssc ()
+    sscRollbackM
+        :: NewestFirst NE (Block ssc) -> SscGlobalUpdate ssc ()
 
     -- | Verify Ssc-related predicates of block sequence which is
     -- about to be applied. It should check that SSC payload will be
     -- consistent if this blocks are applied (after possible rollback
     -- if first argument isn't zero).
-    sscVerifyBlocksM :: Bool -> Richmen -> NEBlocks ssc -> SscGlobalQuery ssc VerificationRes
+    sscVerifyBlocksM
+        :: Bool
+        -> Richmen
+        -> OldestFirst NE (Block ssc)
+        -> SscGlobalQuery ssc VerificationRes
 
-    sscCalculateSeedM :: EpochIndex ->
-                         SscGlobalQuery ssc (Either (SscSeedError ssc) SharedSeed)
+    sscCalculateSeedM
+        :: EpochIndex
+        -> SscGlobalQuery ssc (Either (SscSeedError ssc) SharedSeed)

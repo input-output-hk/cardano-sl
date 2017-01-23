@@ -11,11 +11,11 @@ module Pos.Wallet.Web.Server.Methods
        , walletServeImpl
        ) where
 
+import           Control.Monad.Catch           (try)
 import           Control.Monad.Except          (runExceptT)
 import           Data.Default                  (def)
 import           Data.List                     (elemIndex, (!!))
 import           Data.Time.Clock.POSIX         (getPOSIXTime)
-import           Data.Time.Units               (Millisecond)
 import           Formatting                    (build, ords, sformat, stext, (%))
 import           Network.Wai                   (Application)
 import           Node                          (SendActions, hoistSendActions)
@@ -30,22 +30,24 @@ import           Universum
 import           Pos.Aeson.ClientTypes         ()
 import           Pos.Crypto                    (toPublic)
 import           Pos.DHT.Model                 (dhtAddr, getKnownPeers)
-import           Pos.Types                     (Address, Coin, Tx, TxId, TxOut (..),
-                                                addressF, coinF, decodeTextAddress,
+import           Pos.Types                     (Address, Coin, TxOut (..), addressF,
+                                                coinF, decodeTextAddress,
                                                 makePubKeyAddress, mkCoin)
+import           Pos.Util.BackupPhrase         (keysFromPhrase)
 import           Pos.Web.Server                (serveImpl)
 
-import           Control.Monad.Catch           (try)
 import           Pos.Communication.BiP         (BiP)
 import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
-                                                newSecretKey)
+                                                addSecretKey)
 import           Pos.Wallet.Tx                 (submitTx)
-import           Pos.Wallet.WalletMode         (WalletMode, getBalance, getTxHistory)
+import           Pos.Wallet.Tx.Pure            (TxHistoryEntry (..))
+import           Pos.Wallet.WalletMode         (WalletMode, getBalance, getTxHistory,
+                                                networkChainDifficulty)
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CProfile,
                                                 CProfile (..), CTx, CTxId, CTxMeta (..),
-                                                CWallet (..), CWalletMeta (..),
-                                                NotifyEvent (NewWalletTransaction),
+                                                CWallet (..), CWalletInit (..),
+                                                CWalletMeta (..), NotifyEvent (..),
                                                 addressToCAddress, cAddressToAddress,
                                                 mkCTx, mkCTxId, txContainsTitle,
                                                 txIdToCTxId)
@@ -123,7 +125,7 @@ walletServer sendActions nat = do
 launchNotifier :: WalletWebMode ssc m => (m :~> Handler) -> m ()
 launchNotifier = void . liftIO . forkForever . notifier
   where
-    notifyPeriod = fromIntegral (10000000 :: Millisecond)
+    notifyPeriod = 10000000 -- microseconds
     forkForever action = forkFinally action $ const $ do
         -- TODO: log error
         -- colldown
@@ -133,11 +135,13 @@ launchNotifier = void . liftIO . forkForever . notifier
     -- FIXME: don't ignore errors, send error msg to the socket
     notifier f = void . runExceptT . unNat f $ forever $ do
         liftIO $ threadDelay notifyPeriod
-        sequence_ [historyNotifier]
+        sequence_ [dummyHistoryNotifier]
     -- NOTE: temp solution, dummy notifier that pings every 10 secs
+    dummyHistoryNotifier = notify NewTransaction
+    historyNotifier :: WalletWebMode ssc m => m ()
     historyNotifier = do
         cAddresses <- myCAddresses
-        forM cAddresses $ \cAddress -> do
+        forM_ cAddresses $ \cAddress -> do
             -- TODO: is reading from acid RAM only (not reading from disk?)
             oldHistoryLength <- length . fromMaybe mempty <$> getWalletHistory cAddress
             newHistoryLength <- length <$> getHistory cAddress
@@ -241,8 +245,8 @@ sendExtended sendActions srcCAddr dstCAddr c curr title desc = do
                 c idx dstAddr
             -- TODO: this should be removed in production
             let txHash = hash tx
-            () <$ addHistoryTx dstCAddr curr title desc (txHash, tx, False)
-            addHistoryTx srcCAddr curr title desc (txHash, tx, True)
+            () <$ addHistoryTx dstCAddr curr title desc (THEntry txHash tx False Nothing)
+            addHistoryTx srcCAddr curr title desc (THEntry txHash tx True Nothing)
 
 getHistory :: WalletWebMode ssc m => CAddress -> m [CTx]
 getHistory cAddr = do
@@ -257,23 +261,35 @@ searchHistory cAddr search limit = do
   where
     filterHistory = take (fromIntegral limit) . filter (txContainsTitle search)
 
-addHistoryTx :: WalletWebMode ssc m => CAddress -> CCurrency -> Text -> Text -> (TxId, Tx, Bool) -> m CTx
-addHistoryTx cAddr curr title desc wtx@(txId, _, _) = do
+addHistoryTx
+    :: WalletWebMode ssc m
+    => CAddress
+    -> CCurrency
+    -> Text
+    -> Text
+    -> TxHistoryEntry
+    -> m CTx
+addHistoryTx cAddr curr title desc wtx@(THEntry txId _ _ _) = do
     -- TODO: this should be removed in production
+    diff <- networkChainDifficulty
     addr <- decodeCAddressOrFail cAddr
     meta <- CTxMeta curr title desc <$> liftIO getPOSIXTime
     let cId = txIdToCTxId txId
     addOnlyNewTxMeta cAddr cId meta
     meta' <- maybe meta identity <$> getTxMeta cAddr cId
-    return $ mkCTx addr wtx meta'
+    return $ mkCTx addr diff wtx meta'
 
-newWallet :: WalletWebMode ssc m => CWalletMeta -> m CWallet
-newWallet wMeta = do
-    cAddr <- newAddress
-    createWallet cAddr wMeta
+newWallet :: WalletWebMode ssc m => CWalletInit -> m CWallet
+newWallet CWalletInit {..} = do
+    cAddr <- genSaveAddress cwBackupPhrase
+    createWallet cAddr cwInitMeta
     getWallet cAddr
   where
-    newAddress = addressToCAddress . makePubKeyAddress . toPublic <$> newSecretKey
+    genSaveAddress ph = addressToCAddress . makePubKeyAddress . toPublic <$> genSaveSK ph
+    genSaveSK ph = do
+        let sk = fst $ keysFromPhrase ph
+        addSecretKey sk
+        return sk
 
 updateWallet :: WalletWebMode ssc m => CAddress -> CWalletMeta -> m CWallet
 updateWallet cAddr wMeta = do

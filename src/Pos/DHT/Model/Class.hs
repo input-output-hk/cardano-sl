@@ -10,7 +10,7 @@ import           Data.Proxy          (Proxy (Proxy))
 import           System.Wlog         (HasLoggerName (modifyLoggerName), LoggerName)
 import           Universum
 
-import           Pos.DHT.Model.Types (DHTKey, DHTNode (..), DHTNodeType (..))
+import           Pos.DHT.Model.Types    (DHTKey, DHTNode (..))
 
 -- | Monad for Distributed Hash Table operations.
 class Monad m => MonadDHT m where
@@ -20,7 +20,7 @@ class Monad m => MonadDHT m where
     -- Processing request, node will discover few other nodes
     -- We return these newly discovered nodes among with already known
     -- (List of known nodes is updated as well)
-    discoverPeers :: DHTNodeType -> m [DHTNode]
+    discoverPeers :: m [DHTNode]
 
     getKnownPeers :: m [DHTNode]
 
@@ -42,7 +42,7 @@ withDhtLogger action = do
     modifyLoggerName (<> subName) action
 instance MonadDHT m => MonadDHT (ReaderT r m) where
     joinNetwork = lift . joinNetwork
-    discoverPeers = lift . discoverPeers
+    discoverPeers = lift discoverPeers
     getKnownPeers = lift getKnownPeers
     currentNodeKey = lift currentNodeKey
     dhtLoggerName  = dhtLoggerName . fromRProxy

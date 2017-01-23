@@ -8,7 +8,7 @@ module Pos.Communication.Server.Protocol
        , protocolStubListeners
        ) where
 
-import           Control.Lens                (view, (.~), (?~))
+import           Control.Lens                ((?~))
 import           Data.Proxy                  (Proxy (..))
 import           Formatting                  (build, sformat, (%))
 import           Pos.Communication.Types     (VersionReq (..), VersionResp (..))
@@ -22,7 +22,7 @@ import           Pos.Binary.Communication    ()
 import           Pos.Communication.BiP       (BiP (..))
 import           Pos.Communication.PeerState (getPeerState)
 import           Pos.Communication.Types     (peerVersion)
-import           Pos.Constants               (curProtocolVersion, protocolMagic)
+import           Pos.Constants               (lastKnownBlockVersion, protocolMagic)
 import           Pos.Util                    (stubListenerOneMsg)
 import           Pos.WorkMode                (WorkMode)
 
@@ -52,7 +52,7 @@ handleVersionReq = ListenerActionOneMsg $
     \peerId sendActions VersionReq -> do
         logDebug "Got a version request"
         -- Retrieve version and respond with it
-        sendTo sendActions peerId $ VersionResp protocolMagic curProtocolVersion
+        sendTo sendActions peerId $ VersionResp protocolMagic lastKnownBlockVersion
         -- Ask for the other side version also
         peerState <- readSharedAtomic =<< getPeerState peerId
         let haveVersion = isJust $ view peerVersion peerState
@@ -79,5 +79,5 @@ handleVersionResp = ListenerActionOneMsg $
                 return ((peerVersion .~ Nothing) st, ())
         else do
             modifySharedAtomic peerState $ \st ->
-                return ((peerVersion ?~ vRespProtocolVersion) st, ())
+                return ((peerVersion ?~ vRespBlockVersion) st, ())
             logDebug "Successfully handled version response"

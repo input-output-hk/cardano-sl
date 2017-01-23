@@ -18,7 +18,7 @@ module Pos.Ssc.Extra.MonadGS
        , sscVerifyBlocks
        ) where
 
-import           Control.Lens          ((^.))
+import           Control.Lens          (_Wrapped)
 import           Control.Monad.Except  (ExceptT)
 import           Control.Monad.Trans   (MonadTrans)
 import           Formatting            (build, sformat, (%))
@@ -31,8 +31,9 @@ import           Pos.DB                (MonadDB)
 import qualified Pos.DB.Lrc            as LrcDB
 import           Pos.Ssc.Class.Storage (SscStorageClass (..))
 import           Pos.Ssc.Class.Types   (Ssc (..))
-import           Pos.Types.Types       (EpochIndex, NEBlocks, SharedSeed, epochIndexL)
-import           Pos.Util              (inAssertMode, _neHead)
+import           Pos.Types.Types       (Block, EpochIndex, SharedSeed, epochIndexL)
+import           Pos.Util              (NE, NewestFirst, OldestFirst, inAssertMode,
+                                        _neHead)
 
 class Monad m => MonadSscGS ssc m | m -> ssc where
     getGlobalState    :: m (SscGlobalState ssc)
@@ -50,6 +51,7 @@ class Monad m => MonadSscGS ssc m | m -> ssc where
     modifyGlobalState = lift . modifyGlobalState
 
 instance MonadSscGS ssc m => MonadSscGS ssc (ReaderT a m) where
+instance MonadSscGS ssc m => MonadSscGS ssc (StateT a m) where
 instance MonadSscGS ssc m => MonadSscGS ssc (ExceptT a m) where
 
 sscRunGlobalQuery
@@ -79,7 +81,7 @@ sscCalculateSeed = sscRunGlobalQuery . sscCalculateSeedM @ssc
 sscApplyBlocks
     :: forall ssc m.
        (MonadSscGS ssc m, SscStorageClass ssc, WithLogger m)
-    => NEBlocks ssc -> m ()
+    => OldestFirst NE (Block ssc) -> m ()
 sscApplyBlocks blocks = do
     sscRunGlobalModify $ sscApplyBlocksM @ssc blocks
     gs <- getGlobalState @ssc
@@ -89,9 +91,10 @@ sscApplyBlocks blocks = do
 sscRollback
     :: forall ssc m.
        (MonadSscGS ssc m, SscStorageClass ssc)
-    => NEBlocks ssc -> m ()
+    => NewestFirst NE (Block ssc) -> m ()
 sscRollback = sscRunGlobalModify . sscRollbackM @ssc
 
+-- | Invariant: all blocks have the same epoch.
 sscVerifyBlocks
     :: forall ssc m.
        ( MonadDB ssc m
@@ -99,9 +102,9 @@ sscVerifyBlocks
        , WithNodeContext ssc m
        , SscStorageClass ssc
        )
-    => Bool -> NEBlocks ssc -> m VerificationRes
+    => Bool -> OldestFirst NE (Block ssc) -> m VerificationRes
 sscVerifyBlocks verPure blocks = do
-    let epoch = blocks ^. _neHead . epochIndexL
+    let epoch = blocks ^. _Wrapped . _neHead . epochIndexL
     richmen <- lrcActionOnEpochReason epoch
                    "couldn't get SSC richmen"
                    LrcDB.getRichmenSsc

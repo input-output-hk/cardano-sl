@@ -8,22 +8,25 @@
 module Pos.Wallet.WalletMode
        ( MonadBalances (..)
        , MonadTxHistory (..)
+       , MonadBlockchainInfo (..)
        , TxMode
        , WalletMode
        , WalletRealMode
        ) where
 
-import           Control.Lens                ((^.))
+import           Control.Concurrent.STM      (tryReadTMVar)
 import           Control.Monad.Loops         (unfoldrM)
 import           Control.Monad.Trans         (MonadTrans)
 import           Control.Monad.Trans.Maybe   (MaybeT (..))
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.Map                    as M
+import           Mockable                    (CurrentTime, Mockable)
 import           Mockable                    (MonadMockable, Production)
 import           System.Wlog                 (LoggerNameBox, WithLogger)
 import           Universum
 
 import           Pos.Communication.PeerState (PeerStateHolder)
+import           Pos.Constants               (blkSecurityParam)
 import qualified Pos.Context                 as PC
 import           Pos.Crypto                  (WithHash (..))
 import           Pos.DB                      (MonadDB)
@@ -33,14 +36,17 @@ import qualified Pos.DB.GState               as GS
 import           Pos.Delegation              (DelegationT (..))
 import           Pos.DHT.Model               (MonadDHT)
 import           Pos.DHT.Real                (KademliaDHT (..))
+import           Pos.Slotting                (getCurrentSlot)
 import           Pos.Ssc.Class.Types         (Ssc)
 import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp.Class               (getMemPool, getUtxoView)
 import qualified Pos.Txp.Holder              as Modern
 import           Pos.Txp.Logic               (processTx)
 import           Pos.Txp.Types               (UtxoView (..), localTxs)
-import           Pos.Types                   (Address, Coin, Tx, TxAux, TxId, Utxo,
-                                              evalUtxoStateT, prevBlockL, runUtxoStateT,
+import           Pos.Types                   (Address, BlockHeader, ChainDifficulty, Coin,
+                                              TxAux, TxId, Utxo, difficultyL,
+                                              evalUtxoStateT, flattenEpochOrSlot,
+                                              flattenSlotId, prevBlockL, runUtxoStateT,
                                               sumCoins, toPair, txOutValue)
 import           Pos.Types.Coin              (unsafeIntegerToCoin)
 import           Pos.Types.Utxo.Functions    (belongsTo, filterUtxoByAddr)
@@ -50,8 +56,8 @@ import           Pos.Wallet.Context          (ContextHolder, WithWalletContext)
 import           Pos.Wallet.KeyStorage       (KeyStorage, MonadKeys)
 import           Pos.Wallet.State            (WalletDB)
 import qualified Pos.Wallet.State            as WS
-import           Pos.Wallet.Tx.Pure          (deriveAddrHistory, deriveAddrHistoryPartial,
-                                              getRelatedTxs)
+import           Pos.Wallet.Tx.Pure          (TxHistoryEntry, deriveAddrHistory,
+                                              deriveAddrHistoryPartial, getRelatedTxs)
 import           Pos.WorkMode                (MinWorkMode)
 
 -- | A class which have the methods to get state of address' balance
@@ -94,10 +100,10 @@ instance (MonadDB ssc m, MonadMask m) => MonadBalances (Modern.TxpLDHolder ssc m
 
 -- | A class which have methods to get transaction history
 class Monad m => MonadTxHistory m where
-    getTxHistory :: Address -> m [(TxId, Tx, Bool)]
+    getTxHistory :: Address -> m [TxHistoryEntry]
     saveTx :: (TxId, TxAux) -> m ()
 
-    default getTxHistory :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => Address -> m [(TxId, Tx, Bool)]
+    default getTxHistory :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => Address -> m [TxHistoryEntry]
     getTxHistory = lift . getTxHistory
 
     default saveTx :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => (TxId, TxAux) -> m ()
@@ -126,7 +132,6 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
             deriveAddrHistory addr chain
     saveTx _ = pure ()
 
--- TODO: make a working instance
 instance (Ssc ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
          => MonadTxHistory (Modern.TxpLDHolder ssc m) where
     getTxHistory addr = do
@@ -142,7 +147,7 @@ instance (Ssc ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
                 header <- DB.getBlockHeader h >>=
                     maybeThrow (DBMalformed "Best blockchain is non-continuous")
                 let prev = header ^. prevBlockL
-                return $ Just (prev, prev)
+                return $ Just (h, prev)
 
         let blockFetcher h txs = do
                 blk <- lift . lift $ DB.getBlock h >>=
@@ -162,6 +167,64 @@ instance (Ssc ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
 
 --deriving instance MonadTxHistory m => MonadTxHistory (Modern.TxpLDHolder m)
 
+class Monad m => MonadBlockchainInfo m where
+    networkChainDifficulty :: m ChainDifficulty
+    localChainDifficulty :: m ChainDifficulty
+
+    default networkChainDifficulty
+        :: (MonadTrans t, MonadBlockchainInfo m', t m' ~ m) => m ChainDifficulty
+    networkChainDifficulty = lift networkChainDifficulty
+
+    default localChainDifficulty
+        :: (MonadTrans t, MonadBlockchainInfo m', t m' ~ m) => m ChainDifficulty
+    localChainDifficulty = lift localChainDifficulty
+
+instance MonadBlockchainInfo m => MonadBlockchainInfo (ReaderT r m)
+instance MonadBlockchainInfo m => MonadBlockchainInfo (StateT s m)
+instance MonadBlockchainInfo m => MonadBlockchainInfo (KademliaDHT m)
+instance MonadBlockchainInfo m => MonadBlockchainInfo (KeyStorage m)
+instance MonadBlockchainInfo m => MonadBlockchainInfo (PeerStateHolder ssc m)
+
+deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (Modern.TxpLDHolder ssc m)
+deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (SscHolder ssc m)
+deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (DelegationT m)
+deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (USHolder m)
+
+-- | Stub instance for lite-wallet
+instance MonadIO m => MonadBlockchainInfo (WalletDB m) where
+    networkChainDifficulty = notImplemented
+    localChainDifficulty = notImplemented
+
+-- | Helpers for avoiding copy-paste
+topHeader :: (Ssc ssc, MonadDB ssc m) => m (BlockHeader ssc)
+topHeader = maybeThrow (DBMalformed "No block with tip hash!") =<<
+            DB.getBlockHeader =<< GS.getTip
+
+recoveryHeader
+    :: (Ssc ssc, MonadIO m, PC.WithNodeContext ssc m)
+    => m (Maybe (BlockHeader ssc))
+recoveryHeader = PC.getNodeContext >>=
+                 atomically . tryReadTMVar . PC.ncRecoveryHeader >>=
+                 return . fmap snd
+
+-- | Instance for full-node's ContextHolder
+instance ( Ssc ssc
+         , Mockable CurrentTime m
+         , MonadDB ssc m
+         , MonadThrow m
+         , WithLogger m) =>
+         MonadBlockchainInfo (PC.ContextHolder ssc m) where
+    networkChainDifficulty = recoveryHeader >>= \case
+        Just hh -> return $ hh ^. difficultyL
+        Nothing -> do
+            th <- topHeader
+            cSlot <- fromIntegral . flattenSlotId <$> getCurrentSlot
+            let hSlot = fromIntegral $ flattenEpochOrSlot th :: Int
+                blksLeft = fromIntegral $ max 0 $ cSlot - blkSecurityParam - hSlot
+            return $ blksLeft + th ^. difficultyL
+
+    localChainDifficulty = view difficultyL <$> topHeader
+
 type TxMode ssc m
     = ( MinWorkMode m
       , MonadBalances m
@@ -174,6 +237,7 @@ type TxMode ssc m
 type WalletMode ssc m
     = ( TxMode ssc m
       , MonadKeys m
+      , MonadBlockchainInfo m
       , WithWalletContext m
       , MonadDHT m
       )

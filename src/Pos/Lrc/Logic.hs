@@ -18,8 +18,7 @@ import           Universum
 import           Pos.Crypto.Signing       (pskDelegatePk)
 import           Pos.DB.Class             (MonadDB)
 import           Pos.DB.GState.Balances   (getFtsStake)
-import           Pos.DB.GState.Delegation (IssuerPublicKey (..), isIssuerByAddressHash,
-                                           iteratePSKs)
+import           Pos.DB.GState.Delegation (isIssuerByAddressHash, runPskMapIterator)
 import           Pos.Lrc.Types            (FullRichmenData, RichmenStake)
 import           Pos.Types                (Coin, StakeholderId, addressHash, mkCoin,
                                            sumCoins, unsafeAddCoin, unsafeIntegerToCoin)
@@ -34,7 +33,7 @@ type SetRichmen = HashSet StakeholderId
 -- 1. Old richmen who delegated own stake and isn't richman more.
 -- 2. Delegates who became richmen.
 findDelegationStakes
-    :: forall m . MonadIterator m (StakeholderId, [StakeholderId])
+    :: forall m . MonadIterator (StakeholderId, [StakeholderId]) m
     => (StakeholderId -> m Bool) -- helper
     -> (StakeholderId -> m (Maybe Coin)) -- helper
     -> Coin
@@ -45,7 +44,7 @@ findDelegationStakes isIssuer stakeResolver t = do
   where
     step :: (SetRichmen, RichmenStake)
          -> m (SetRichmen, RichmenStake)
-    step richmen = nextItem @_ @(StakeholderId, [StakeholderId]) >>=
+    step richmen = nextItem @(StakeholderId, [StakeholderId]) >>=
         maybe (pure richmen) (onItem richmen >=> step)
     onItem (old, new) (delegate, issuers) = do
         sumIssuers <-
@@ -71,7 +70,7 @@ findDelegationStakes isIssuer stakeResolver t = do
 -- | Find delegated richmen using precomputed usual richmen.
 -- Do it using one pass by delegation DB.
 findDelRichUsingPrecomp
-    :: forall ssc m . (MonadDB ssc m, MonadMask m)
+    :: forall ssc m . MonadDB ssc m
     => RichmenStake -> Coin -> m RichmenStake
 findDelRichUsingPrecomp precomputed t = do
     delIssMap <- computeDelIssMap
@@ -84,22 +83,22 @@ findDelRichUsingPrecomp precomputed t = do
   where
     computeDelIssMap :: m (HashMap StakeholderId [StakeholderId])
     computeDelIssMap =
-        iteratePSKs @(StakeholderId, StakeholderId) (step mempty) conv
+        runPskMapIterator (step mempty) conv
     step hm = nextItem >>= maybe (pure hm) (\(iss, del) -> do
         let curList = HM.lookupDefault [] del hm
         step (HM.insert del (iss:curList) hm))
-    conv (IssuerPublicKey id, cert) = (id, addressHash (pskDelegatePk cert))
+    conv (id, cert) = (id, addressHash (pskDelegatePk cert))
 
 -- | Find delegated richmen.
 findDelegatedRichmen
-    :: (MonadDB ssc m, MonadMask m, MonadIterator m (StakeholderId, Coin))
+    :: (MonadDB ssc m, MonadIterator (StakeholderId, Coin) m)
     => Coin -> m RichmenStake
 findDelegatedRichmen t =
     findRichmenStake t >>= flip findDelRichUsingPrecomp t
 
 -- | Find nodes which have at least 'eligibility threshold' coins.
 findRichmenStake
-    :: forall m . MonadIterator m (StakeholderId, Coin)
+    :: forall m . MonadIterator (StakeholderId, Coin) m
     => Coin  -- ^ Eligibility threshold
     -> m RichmenStake
 findRichmenStake t = step mempty
@@ -122,8 +121,8 @@ findRichmenStake t = step mempty
 -- | Function considers all variants of computation
 -- and compute using one pass by stake DB and one pass by delegation DB.
 findAllRichmenMaybe
-    :: forall ssc m . (MonadDB ssc m, MonadMask m
-                      , MonadIterator m (StakeholderId, Coin))
+    :: forall ssc m . ( MonadDB ssc m
+                      , MonadIterator (StakeholderId, Coin) m)
     => Maybe Coin -- ^ Eligibility threshold (optional)
     -> Maybe Coin -- ^ Delegation threshold (optional)
     -> m (RichmenStake, RichmenStake)

@@ -27,7 +27,7 @@ module Pos.Types.Block
        , verifyHeaders
        ) where
 
-import           Control.Lens          (ix, view, (^.), (^?), _1, _2, _3)
+import           Control.Lens          (ix)
 import           Data.Default          (Default (def))
 import           Data.List             (groupBy)
 import           Data.Tagged           (untag)
@@ -35,12 +35,11 @@ import           Formatting            (build, int, sformat, (%))
 import           Serokell.Util.Verify  (VerificationRes (..), verifyGeneric)
 import           Universum
 
-import           Pos.Binary.Class      (Bi (..))
 import           Pos.Binary.Types      ()
+import           Pos.Binary.Update     ()
 import           Pos.Constants         (epochSlots, maxBlockProxySKs)
-import           Pos.Crypto            (Hash, SecretKey, checkSig, hash, proxySign,
-                                        proxyVerify, pskIssuerPk, sign, toPublic,
-                                        unsafeHash)
+import           Pos.Crypto            (Hash, SecretKey, checkSig, proxySign, proxyVerify,
+                                        pskIssuerPk, sign, toPublic, unsafeHash)
 import           Pos.Merkle            (mkMerkleTree)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types   (Ssc (..))
@@ -49,6 +48,8 @@ import           Pos.Types.Address     (addressHash)
 -- See: https://ghc.haskell.org/trac/ghc/ticket/12127
 import           Pos.Types.Tx          (verifyTxAlone)
 import           Pos.Types.Types
+import           Pos.Update.Core       (UpdatePayload)
+import           Pos.Util              (NewestFirst (..), OldestFirst)
 
 -- | Difficulty of the BlockHeader. 0 for genesis block, 1 for main block.
 headerDifficulty :: BlockHeader ssc -> ChainDifficulty
@@ -67,10 +68,13 @@ genesisHash = unsafeHash ("patak" :: Text)
 -- | Smart constructor for 'GenericBlockHeader'.
 mkGenericHeader
     :: forall b.
-       (Bi (BBlockHeader b), Blockchain b)
+       ( HasHeaderHash (BBlockHeader b)
+       , Blockchain b
+       , BHeaderHash b ~ HeaderHash
+       )
     => Maybe (BBlockHeader b)
     -> Body b
-    -> (Hash (BBlockHeader b) -> BodyProof b -> ConsensusData b)
+    -> (BHeaderHash b -> BodyProof b -> ConsensusData b)
     -> ExtraHeaderData b
     -> GenericBlockHeader b
 mkGenericHeader prevHeader body consensus extra =
@@ -81,24 +85,26 @@ mkGenericHeader prevHeader body consensus extra =
     , _gbhExtra = extra
     }
   where
-    h :: Hash (BBlockHeader b)
-    h = maybe genesisHash hash prevHeader
+    h :: HeaderHash
+    h = maybe genesisHash headerHash prevHeader
     proof = mkBodyProof body
 
 -- | Smart constructor for 'GenericBlock'. Uses 'mkGenericBlockHeader'.
 mkGenericBlock
     :: forall b.
-       (Bi (BBlockHeader b), Blockchain b)
+       ( HasHeaderHash (BBlockHeader b)
+       , Blockchain b
+       , BHeaderHash b ~ HeaderHash
+       )
     => Maybe (BBlockHeader b)
     -> Body b
-    -> (Hash (BBlockHeader b) -> BodyProof b -> ConsensusData b)
+    -> (BHeaderHash b -> BodyProof b -> ConsensusData b)
     -> ExtraHeaderData b
     -> ExtraBodyData b
     -> GenericBlock b
-mkGenericBlock prevHeader body consensus extraH extraB =
-    GenericBlock {_gbHeader = header, _gbBody = body, _gbExtra = extraB}
+mkGenericBlock prevHeader _gbBody consensus extraH _gbExtra = GenericBlock{..}
   where
-    header = mkGenericHeader prevHeader body consensus extraH
+    _gbHeader = mkGenericHeader prevHeader _gbBody consensus extraH
 
 -- | Smart constructor for 'MainBlockHeader'.
 mkMainHeader
@@ -180,14 +186,16 @@ mkMainBody
     :: [(Tx, TxWitness, TxDistribution)]
     -> SscPayload ssc
     -> [ProxySKSimple]
+    -> UpdatePayload
     -> Body (MainBlockchain ssc)
-mkMainBody txws mpc proxySKs =
+mkMainBody txws mpc proxySKs updatePayload =
     MainBody
-    { _mbTxs = mkMerkleTree (map (^. _1) txws)
-    , _mbWitnesses = map (^. _2) txws
+    { _mbTxs                 = mkMerkleTree (map (^. _1) txws)
+    , _mbWitnesses           = map (^. _2) txws
     , _mbTxAddrDistributions = map (^. _3) txws
-    , _mbMpc = mpc
-    , _mbProxySKs = proxySKs
+    , _mbMpc                 = mpc
+    , _mbProxySKs            = proxySKs
+    , _mbUpdatePayload       = updatePayload
     }
 
 -- CHECK: @verifyConsensusLocal
@@ -255,7 +263,7 @@ maybeEmpty = maybe mempty
 -- #verifyConsensusLocal
 --
 verifyHeader
-    :: BiSsc ssc
+    :: forall ssc . BiSsc ssc
     => VerifyHeaderParams ssc -> BlockHeader ssc -> VerificationRes
 verifyHeader VerifyHeaderParams {..} h =
    consensusRes <> verifyGeneric checks
@@ -269,6 +277,7 @@ verifyHeader VerifyHeaderParams {..} h =
             , maybeEmpty relatedToCurrentSlot vhpCurrentSlot
             , maybeEmpty relatedToLeaders vhpLeaders
             ]
+    checkHash :: HeaderHash -> HeaderHash -> (Bool, Text)
     checkHash expectedHash actualHash =
         ( expectedHash == actualHash
         , sformat
@@ -306,7 +315,9 @@ verifyHeader VerifyHeaderParams {..} h =
         [ checkDifficulty
               (prevHeader ^. difficultyL + headerDifficulty h)
               (h ^. difficultyL)
-        , checkHash (hash prevHeader) (h ^. prevBlockL)
+        , checkHash
+              (headerHash prevHeader)
+              (h ^. prevBlockL)
         , checkSlot (getEpochOrSlot prevHeader) (getEpochOrSlot h)
         , case h of
               Left  _ -> (True, "") -- check that epochId prevHeader < epochId h performed above
@@ -322,7 +333,7 @@ verifyHeader VerifyHeaderParams {..} h =
         [ checkDifficulty
               (nextHeader ^. difficultyL - headerDifficulty nextHeader)
               (h ^. difficultyL)
-        , checkHash (hash h) (nextHeader ^. prevBlockL)
+        , checkHash (headerHash h) (nextHeader ^. prevBlockL)
         , checkSlot (getEpochOrSlot h) (getEpochOrSlot nextHeader)
         , case nextHeader of
               Left  _ -> (True, "") -- check that epochId h  < epochId nextHeader performed above
@@ -346,14 +357,16 @@ verifyHeader VerifyHeaderParams {..} h =
                   , "block's leader is different from expected one")
                 ]
 
--- | Verifies a set of block headers, where head is the newest one.
+-- | Verifies a set of block headers.
 verifyHeaders
     :: BiSsc ssc
-    => Bool -> [BlockHeader ssc] -> VerificationRes
-verifyHeaders _ [] = mempty
-verifyHeaders checkConsensus headers@(_:xh) = mconcat verified
+    => Bool -> NewestFirst [] (BlockHeader ssc) -> VerificationRes
+verifyHeaders _ (NewestFirst []) = mempty
+verifyHeaders checkConsensus (NewestFirst (headers@(_:xh))) =
+    mconcat verified
   where
-    verified = map (\(cur,prev) -> verifyHeader (toVHP prev) cur) $ headers `zip` xh
+    verified = zipWith (\cur prev -> verifyHeader (toVHP prev) cur)
+                       headers xh
     toVHP p = def { vhpVerifyConsensus = checkConsensus
                   , vhpPrevHeader = Just p }
 
@@ -451,19 +464,19 @@ verifyBlock VerifyBlockParams {..} blk =
 -- Verifies a sequence of blocks.
 -- #verifyBlock
 
--- | Verify sequence of blocks. It is assumed that the leftmost (head) block
--- is the oldest one.
--- foldl' is used here which eliminates laziness of triple.
--- It doesn't affect laziness of 'VerificationRes' which is good
--- because laziness for this data type is crucial.
+-- | Verify a sequence of blocks.
+--
+-- foldl' is used here which eliminates laziness of triple. It doesn't affect
+-- laziness of 'VerificationRes' which is good because laziness for this data
+-- type is crucial.
 verifyBlocks
-    :: forall ssc t.
-       (SscHelpersClass ssc
-       ,BiSsc ssc
-       ,NontrivialContainer t
-       ,Element t ~ Block ssc)
-    => Maybe SlotId -> t -> VerificationRes
-verifyBlocks curSlotId = (view _3) . foldl' step start
+    :: forall ssc f t.
+       ( SscHelpersClass ssc
+       , BiSsc ssc
+       , t ~ OldestFirst f (Block ssc)
+       , NontrivialContainer t)
+    => Maybe SlotId -> OldestFirst f (Block ssc) -> VerificationRes
+verifyBlocks curSlotId = view _3 . foldl' step start
   where
     start :: (Maybe SlotLeaders, Maybe (BlockHeader ssc), VerificationRes)
     start = (Nothing, Nothing, mempty)

@@ -3,22 +3,22 @@
 
 module Pos.Binary.Communication () where
 
-import           Data.Binary.Get         (getInt32be, getWord8, label)
-import           Data.Binary.Put         (putInt32be, putWord8)
-import           Node.Message            (MessageName (..))
+import           Data.Binary.Get          (getInt32be, getWord8, label)
+import           Data.Binary.Put          (putInt32be, putWord8)
+import           Node.Message             (MessageName (..))
 import           Universum
 
-import           Pos.Binary.Class        (Bi (..))
-import           Pos.Block.Network.Types (MsgBlock (..), MsgGetBlocks (..),
-                                          MsgGetHeaders (..), MsgHeaders (..))
-import           Pos.Communication.Types (SysStartRequest (..), SysStartResponse (..),
-                                          VersionReq (..), VersionResp (..))
-import           Pos.Delegation.Types    (CheckProxySKConfirmed (..),
-                                          CheckProxySKConfirmedRes (..),
-                                          ConfirmProxySK (..), SendProxySK (..))
-import           Pos.Ssc.Class.Types     (Ssc (..))
-import           Pos.Txp.Types           (TxMsgTag (..))
-import           Pos.Update.Types        (ProposalMsgTag (..), VoteMsgTag (..))
+import           Pos.Binary.Class         (Bi (..))
+import           Pos.Block.Network.Types  (MsgBlock (..), MsgGetBlocks (..),
+                                           MsgGetHeaders (..), MsgHeaders (..))
+import           Pos.Communication.Types  (SysStartRequest (..), SysStartResponse (..),
+                                           VersionReq (..), VersionResp (..))
+import           Pos.Delegation.Types     (CheckProxySKConfirmed (..),
+                                           CheckProxySKConfirmedRes (..),
+                                           ConfirmProxySK (..), SendProxySK (..))
+import           Pos.Ssc.Class.Types      (Ssc (..))
+import           Pos.Txp.Types            (TxMsgTag (..))
+import           Pos.Update.Network.Types (ProposalMsgTag (..), VoteMsgTag (..))
 
 deriving instance Bi MessageName
 
@@ -41,11 +41,11 @@ instance Bi SysStartResponse where
 -- Blocks
 ----------------------------------------------------------------------------
 
-instance Bi (MsgGetHeaders ssc) where
+instance Bi MsgGetHeaders where
     put (MsgGetHeaders f t) = put f >> put t
     get = MsgGetHeaders <$> get <*> get
 
-instance Bi (MsgGetBlocks ssc) where
+instance Bi MsgGetBlocks where
     put (MsgGetBlocks f t) = put f >> put t
     get = MsgGetBlocks <$> get <*> get
 
@@ -99,7 +99,7 @@ instance Bi VersionReq where
 
 instance Bi VersionResp where
     put VersionResp{..} =  putInt32be vRespMagic
-                        *> put vRespProtocolVersion
+                        *> put vRespBlockVersion
     get = label "GenericBlockHeader" $ VersionResp <$> getInt32be <*> get
 
 ----------------------------------------------------------------------------

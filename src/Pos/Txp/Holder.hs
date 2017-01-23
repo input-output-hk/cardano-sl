@@ -107,7 +107,7 @@ instance (MonadIO m, MonadUtxoRead (TxpLDHolder ssc m))
                   atomically . flip STM.modifyTVar' (UV.delTxIn key)
 
 runTxpLDHolder :: MonadIO m
-               => UtxoView ssc -> HeaderHash ssc -> TxpLDHolder ssc m a -> m a
+               => UtxoView ssc -> HeaderHash -> TxpLDHolder ssc m a -> m a
 runTxpLDHolder uv initTip holder =
     TxpLDWrap <$> liftIO (STM.newTVarIO uv)
               <*> liftIO (STM.newTVarIO def)

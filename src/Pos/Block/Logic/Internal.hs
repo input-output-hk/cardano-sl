@@ -13,13 +13,12 @@ module Pos.Block.Logic.Internal
        ) where
 
 import           Control.Arrow        ((&&&))
-import           Control.Lens         (view, (^.), _1)
+import           Control.Lens         (each, _Wrapped)
 import           Control.Monad.Catch  (bracketOnError)
-import           Data.List.NonEmpty   (NonEmpty)
-import qualified Data.List.NonEmpty   as NE
 import           System.Wlog          (logError)
 import           Universum
 
+import           Pos.Block.Types      (Blund, Undo (undoUS))
 import           Pos.Context          (lrcActionOnEpochReason, putBlkSemaphore,
                                        takeBlkSemaphore)
 import           Pos.DB               (SomeBatchOp (..))
@@ -29,10 +28,12 @@ import qualified Pos.DB.Lrc           as DB
 import           Pos.Delegation.Logic (delegationApplyBlocks, delegationRollbackBlocks)
 import           Pos.Ssc.Extra        (sscApplyBlocks, sscApplyGlobalState, sscRollback)
 import           Pos.Txp.Logic        (normalizeTxpLD, txApplyBlocks, txRollbackBlocks)
-import           Pos.Types            (Blund, HeaderHash, epochIndexL, headerHashG,
-                                       prevBlockL)
-import           Pos.Util             (Color (Red), colorize, inAssertMode, spanSafe,
-                                       _neLast)
+import           Pos.Types            (HeaderHash, epochIndexL, headerHashG, prevBlockL)
+import           Pos.Update.Logic     (usApplyBlocks, usNormalize, usRollbackBlocks)
+import           Pos.Update.Poll      (PollModifier)
+import           Pos.Util             (Color (Red), NE, NewestFirst (..),
+                                       OldestFirst (..), colorize, inAssertMode, spanSafe,
+                                       _neHead, _neLast)
 import           Pos.WorkMode         (WorkMode)
 
 
@@ -40,7 +41,7 @@ import           Pos.WorkMode         (WorkMode)
 -- action is an old tip, result is put as a new tip.
 withBlkSemaphore
     :: WorkMode ssc m
-    => (HeaderHash ssc -> m (a, HeaderHash ssc)) -> m a
+    => (HeaderHash -> m (a, HeaderHash)) -> m a
 withBlkSemaphore action =
     bracketOnError takeBlkSemaphore putBlkSemaphore doAction
   where
@@ -51,57 +52,66 @@ withBlkSemaphore action =
 -- | Version of withBlkSemaphore which doesn't have any result.
 withBlkSemaphore_
     :: WorkMode ssc m
-    => (HeaderHash ssc -> m (HeaderHash ssc)) -> m ()
+    => (HeaderHash -> m HeaderHash) -> m ()
 withBlkSemaphore_ = withBlkSemaphore . (fmap ((), ) .)
 
--- | Applies definitely valid prefix of blocks -- that has the same
--- epoch index. This function is unsafe, use it only if you understand
--- what you're doing. That means you can break system guarantees.
+-- | Applies a definitely valid prefix of blocks. This function is unsafe,
+-- use it only if you understand what you're doing. That means you can break
+-- system guarantees.
+--
+-- Invariant: all blocks have the same epoch.
 applyBlocksUnsafe
-    :: forall ssc m . WorkMode ssc m => NonEmpty (Blund ssc) -> m ()
-applyBlocksUnsafe blunds0 = do
+    :: forall ssc m . WorkMode ssc m
+    => OldestFirst NE (Blund ssc) -> PollModifier -> m ()
+applyBlocksUnsafe blunds0 pModifier = do
     -- Note: it's important to put blocks first
     mapM_ putToDB blunds
+    usBatch <- SomeBatchOp <$> usApplyBlocks blocks pModifier
     delegateBatch <- SomeBatchOp <$> delegationApplyBlocks blocks
-    txBatch <- SomeBatchOp <$> txApplyBlocks blunds
+    txBatch <- SomeBatchOp . getOldestFirst <$> txApplyBlocks blunds
     sscApplyBlocks blocks
-    let epoch = blunds ^. _neLast . _1 . epochIndexL
+    let epoch = blunds ^. _Wrapped . _neHead . _1 . epochIndexL
     richmen <-
         lrcActionOnEpochReason epoch "couldn't get SSC richmen" DB.getRichmenSsc
     sscApplyGlobalState richmen
-    GS.writeBatchGState [delegateBatch, txBatch, forwardLinksBatch, inMainBatch]
+    GS.writeBatchGState [delegateBatch, usBatch, txBatch, forwardLinksBatch, inMainBatch]
     normalizeTxpLD
+    usNormalize
     DB.sanityCheckDB
   where
     -- hehe it's not unsafe yet TODO
-    (blunds,_) = spanSafe ((==) `on` view (_1 . epochIndexL)) blunds0
+    (OldestFirst -> blunds, _) =
+        spanSafe ((==) `on` view (_1 . epochIndexL)) (getOldestFirst blunds0)
     blocks = fmap fst blunds
-    forwardLinks = map (view prevBlockL &&& view headerHashG) $ NE.toList blocks
+    forwardLinks = map (view prevBlockL &&& view headerHashG) $ toList blocks
     forwardLinksBatch = SomeBatchOp $ map (uncurry GS.AddForwardLink) forwardLinks
-    inMainBatch =
-        SomeBatchOp $ fmap (GS.SetInMainChain True . view headerHashG . fst) blunds
+    inMainBatch = SomeBatchOp . getOldestFirst $
+        fmap (GS.SetInMainChain True . view headerHashG . fst) blunds
     putToDB (blk, undo) = DB.putBlock undo blk
 
 -- | Rollback sequence of blocks, head-newest order exepected with
 -- head being current tip. It's also assumed that lock on block db is
 -- taken.  application is taken already.
-rollbackBlocksUnsafe :: (WorkMode ssc m) => NonEmpty (Blund ssc) -> m ()
+rollbackBlocksUnsafe
+    :: (WorkMode ssc m)
+    => NewestFirst NE (Blund ssc) -> m ()
 rollbackBlocksUnsafe toRollback = do
     delRoll <- SomeBatchOp <$> delegationRollbackBlocks toRollback
+    usRoll <- SomeBatchOp <$> usRollbackBlocks (toRollback & each._2 %~ undoUS)
     txRoll <- SomeBatchOp <$> txRollbackBlocks toRollback
     sscRollback $ fmap fst toRollback
-    GS.writeBatchGState [delRoll, txRoll, forwardLinksBatch, inMainBatch]
+    GS.writeBatchGState [delRoll, usRoll, txRoll, forwardLinksBatch, inMainBatch]
     DB.sanityCheckDB
     inAssertMode $
-        when (isGenesis0 $ fst $ NE.last $ toRollback) $
+        when (isGenesis0 (toRollback ^. _Wrapped . _neLast . _1)) $
         logError $
         colorize Red "FATAL: we are TRYING TO ROLLBACK 0-TH GENESIS block"
   where
     inMainBatch =
-        SomeBatchOp $
+        SomeBatchOp . getNewestFirst $
         fmap (GS.SetInMainChain False . view headerHashG . fst) toRollback
     forwardLinksBatch =
-        SomeBatchOp $
-        fmap (GS.RemoveForwardLink . view prevBlockL . fst) (toRollback)
+        SomeBatchOp . getNewestFirst $
+        fmap (GS.RemoveForwardLink . view prevBlockL . fst) toRollback
     isGenesis0 (Left genesisBlk) = genesisBlk ^. epochIndexL == 0
     isGenesis0 (Right _)         = False

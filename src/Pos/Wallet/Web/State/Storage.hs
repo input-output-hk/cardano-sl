@@ -21,8 +21,7 @@ module Pos.Wallet.Web.State.Storage
        , removeWallet
        ) where
 
-import           Control.Lens               (at, ix, makeClassy, preview, view, (%=),
-                                             (.=), _1, _2, _Just)
+import           Control.Lens               (at, ix, makeClassy, (%=), (.=), _Just)
 import           Data.Default               (Default, def)
 import           Data.SafeCopy              (base, deriveSafeCopySimple)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile, CTxId,

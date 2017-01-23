@@ -12,7 +12,8 @@ import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..))
 import           Pos.Txp.Types.Communication      (TxMsgContents (..))
 import           Pos.Types                        (TxId)
 import           Pos.Types.Address                (StakeholderId, addressHash)
-import           Pos.Update.Types                 (UpId, UpdateProposal)
+import           Pos.Update.Core                  (UpId, UpdateProposal, UpdateVote (..),
+                                                   VoteId)
 import           Pos.Util.Relay                   (DataMsg (..), DataMsgGodTossing (..),
                                                    InvMsg (..), ReqMsg (..))
 
@@ -58,6 +59,18 @@ instance Bi (DataMsg TxId TxMsgContents) where
       conts <- TxMsgContents tx <$> get <*> get
       pure $ DataMsg conts (hash tx)
 
-instance Bi (DataMsg UpId UpdateProposal) where
+instance Bi (DataMsg UpId (UpdateProposal, [UpdateVote])) where
     put DataMsg {..} = put dmContents >> put dmKey
-    get = liftM2 DataMsg get get
+    get = do
+        c@(up, votes) <- get
+        key <- get
+        let id = hash up
+        unless (all ((id ==) . uvProposalId) votes) $
+            fail "get@DataMsg@Update: vote's uvProposalId must be equal UpId"
+        pure $ DataMsg c key
+
+instance Bi (DataMsg VoteId UpdateVote) where
+    put (DataMsg uv _) = put uv
+    get = do
+        uv@UpdateVote{..} <- get
+        pure $ DataMsg uv (uvProposalId, uvKey, uvDecision)

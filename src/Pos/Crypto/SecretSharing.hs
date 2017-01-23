@@ -43,14 +43,14 @@ import           Crypto.PVSS         (Commitment, DecryptedShare, DhSecret (..),
                                       ShareId, Threshold)
 import qualified Crypto.PVSS         as Pvss
 import           Crypto.Random       (MonadRandom)
+import           Data.Hashable       (Hashable (hashWithSalt))
 import           Data.List           (genericLength)
-import           Data.List.NonEmpty  (NonEmpty)
 import           Data.Text.Buildable (Buildable)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting          (bprint, (%))
 import           Universum
 
-import           Pos.Binary.Class    (Bi)
+import           Pos.Binary.Class    (Bi, encode)
 import           Pos.Crypto.Hashing  (hash, shortHashF)
 import           Pos.Crypto.Random   (deterministic, runSecureRandom)
 
@@ -112,7 +112,11 @@ data SecretSharingExtra =
 -- | SecretProof may be used to commit Secret without revealing it.
 newtype SecretProof =
     SecretProof Proof
-    deriving (Show, Eq)
+    deriving (Show, Eq, Generic)
+
+instance Bi SecretProof =>
+         Hashable SecretProof where
+    hashWithSalt s = hashWithSalt s . encode
 
 ----------------------------------------------------------------------------
 -- Functions

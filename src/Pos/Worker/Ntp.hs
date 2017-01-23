@@ -6,6 +6,7 @@ module Pos.Worker.Ntp
 import qualified Control.Concurrent.STM as STM
 import           Data.List              ((!!))
 import           Data.Time.Units        (Microsecond)
+import           Formatting             (int, sformat, (%))
 import           NTP.Client             (NtpClientSettings (..), startNtpClient)
 import           NTP.Example            ()
 import           System.Wlog            (WithLogger, logDebug)
@@ -19,10 +20,10 @@ import           Pos.WorkMode           (WorkMode)
 settings :: NodeContext ssc -> NtpClientSettings
 settings nc = NtpClientSettings
         { -- list of servers addresses
-          ntpServers         = [ "ntp5.stratum2.ru"
-                               , "ntp1.stratum1.ru"
+          ntpServers         = [ "pool.ntp.org"
+                               , "time.windows.com"
                                , "clock.isc.org"
-                               ]
+                               , "ntp5.stratum2.ru"]
         -- got time margin callback
         , ntpHandler         = ntpHandlerDo nc
         -- logger name modifier
@@ -46,6 +47,6 @@ ntpHandlerDo :: (MonadIO m, WithLogger m)
              -> (Microsecond, Microsecond)
              -> m ()
 ntpHandlerDo nc (newMargin, transtimTime) = do
-    logDebug $ "Callback on new margin: " <> show newMargin
+    logDebug $ sformat ("Callback on new margin: "%int%" mcs") newMargin
     let realTime = transtimTime + newMargin
     atomically $ STM.writeTVar (ncNtpData nc) (newMargin, realTime)

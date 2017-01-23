@@ -99,8 +99,7 @@ ftsNoStake
     -> StakeAndHolder
     -> Bool
 ftsNoStake fts (getNoStake -> (addrHash, utxo)) =
-    let nonEmpty = followTheSatoshi fts utxo
-    in not (addrHash `elem` nonEmpty)
+    not (addrHash `elem` followTheSatoshi fts utxo)
 
 -- | This test looks useless, but since transactions with zero coins are not
 -- allowed, the Utxo map will never have any addresses with 0 coins to them,

@@ -21,11 +21,11 @@ module Pos.Wallet.State.State
 import           Data.Acid                (EventResult, EventState, QueryEvent)
 import           Universum
 
-import           Pos.Types                (Tx, Utxo)
+import           Pos.Types                (HeaderHash, Tx, Utxo)
 import           Pos.Wallet.State.Acidic  (WalletState, closeState, openMemState,
                                            openState)
 import           Pos.Wallet.State.Acidic  as A
-import           Pos.Wallet.State.Storage (Block', HeaderHash', Storage)
+import           Pos.Wallet.State.Storage (Block', Storage)
 
 import           Pos.DHT.Real.Types       (KademliaDHT (..))
 
@@ -56,7 +56,7 @@ queryDisk e = getWalletState >>= flip A.query e
 --     => event -> m (EventResult event)
 -- updateDisk e = getWalletState >>= flip A.update e
 
-getBlock :: WalletModeDB m => HeaderHash' -> m (Maybe Block')
+getBlock :: WalletModeDB m => HeaderHash -> m (Maybe Block')
 getBlock = queryDisk . A.GetBlock
 
 getBestChain :: WalletModeDB m => m [Block']

@@ -9,7 +9,6 @@ module Pos.Ssc.GodTossing.Shares
          getOurShares
        ) where
 
-import           Control.Lens             (view)
 import           Crypto.Random            (drgNewSeed, seedNew, withDRG)
 import qualified Data.HashMap.Strict      as HM
 import           Formatting               (build, sformat, (%))

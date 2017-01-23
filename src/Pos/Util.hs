@@ -1,10 +1,12 @@
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE DeriveTraversable   #-}
 {-# LANGUAGE GADTs               #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Miscellaneous unclassified utility functions.
 
@@ -25,6 +27,16 @@ module Pos.Util
 
        -- * Lists
        , allDistinct
+
+       -- * NonEmpty
+       , NE
+       , neZipWith3
+
+       -- * Chronological sequences
+       , NewestFirst(..)
+       , OldestFirst(..)
+       , toNewestFirst
+       , toOldestFirst
 
        -- * SafeCopy
        , getCopyBinary
@@ -53,8 +65,8 @@ module Pos.Util
        , runWithRandomIntervals'
        , waitRandomInterval'
        , runWithRandomIntervals
+       , runWithRandomIntervalsNow
        , waitRandomInterval
-       , waitAnyUnexceptional
 
        -- * LRU
        , clearLRU
@@ -82,6 +94,9 @@ module Pos.Util
        , withWaitLogConvL
        , withWaitLog
 
+       , execWithTimeLimit
+       , parseIntegralSafe
+
        , NamedMessagePart (..)
        -- * Instances
        -- ** SafeCopy (NonEmpty a)
@@ -95,43 +110,49 @@ module Pos.Util
        ) where
 
 import           Control.Concurrent.STM.TVar   (TVar, readTVar)
-import           Control.Lens                  (Lens', LensLike', Magnified, Zoomed,
-                                                lensRules, magnify, zoom)
+import           Control.Lens                  (Each (..), LensLike', Magnified, Zoomed,
+                                                lensRules, magnify, makeWrapped, zoom,
+                                                _Wrapped)
 import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
 import qualified Control.Monad                 as Monad (fail)
 import           Control.Monad.STM             (retry)
 import           Control.Monad.Trans.Resource  (ResourceT)
+import           Data.Binary                   (Binary)
 import qualified Data.Cache.LRU                as LRU
 import           Data.Hashable                 (Hashable)
 import qualified Data.HashMap.Strict           as HM
 import           Data.HashSet                  (fromMap)
-import           Data.List                     (span)
-import           Data.List.NonEmpty            (NonEmpty ((:|)))
+import           Data.List                     (span, zipWith3)
 import qualified Data.List.NonEmpty            as NE
 import           Data.Proxy                    (Proxy (..), asProxyTypeOf)
 import           Data.SafeCopy                 (Contained, SafeCopy (..), base, contain,
                                                 deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Serialize                as Cereal (Get, Put)
-import           Data.String                   (IsString (fromString), String)
 import qualified Data.Text                     as T
 import           Data.Time.Units               (Microsecond, Second, convertUnit)
 import           Formatting                    (sformat, shown, stext, (%))
 import           Language.Haskell.TH
-import           Mockable                      (Bracket, Delay, Fork, Mockable, Throw,
-                                                bracket, delay, fork, killThread, throw)
+import           Mockable                      (Async, Bracket, Delay, Fork, Mockable,
+                                                Promise, Throw, async, bracket, cancel,
+                                                delay, fork, killThread, throw, waitAny)
 import           Node                          (ConversationActions (..),
                                                 ListenerAction (..), Message, NodeId,
                                                 SendActions (..))
 import           Node.Message                  (MessageName (..), Packable, Unpackable,
                                                 messageName, messageName')
+import           Prelude                       (read)
 import           Serokell.Util                 (VerificationRes (..))
 import           System.Console.ANSI           (Color (..), ColorIntensity (Vivid),
                                                 ConsoleLayer (Foreground),
                                                 SGR (Reset, SetColor), setSGRCode)
 import           System.Wlog                   (LoggerNameBox (..), WithLogger, logDebug,
                                                 logWarning, modifyLoggerName)
+import           Test.QuickCheck               (Arbitrary)
 import           Text.Parsec                   (ParsecT)
-import           Universum                     hiding (bracket)
+import           Text.Parsec                   (digit, many1)
+import           Text.Parsec.Text              (Parser)
+import           Universum                     hiding (Async, async, bracket, cancel,
+                                                waitAny)
 import           Unsafe                        (unsafeInit, unsafeLast)
 
 -- SafeCopy instance for HashMap
@@ -227,6 +248,61 @@ allDistinct xs = and $ zipWith (/=) sorted (drop 1 sorted)
     sorted = sort xs
 
 ----------------------------------------------------------------------------
+-- NonEmpty
+----------------------------------------------------------------------------
+
+type NE = NonEmpty
+
+neZipWith3 :: (x -> y -> z -> q) -> NonEmpty x -> NonEmpty y -> NonEmpty z -> NonEmpty q
+neZipWith3 f (x :| xs) (y :| ys) (z :| zs) = f x y z :| zipWith3 f xs ys zs
+
+----------------------------------------------------------------------------
+-- Chronological sequences
+----------------------------------------------------------------------------
+
+newtype NewestFirst f a = NewestFirst {getNewestFirst :: f a}
+  deriving (Eq, Ord, Show,
+            Functor, Foldable, Traversable,
+            Container, NontrivialContainer,
+            Binary, Bi,
+            Arbitrary)
+newtype OldestFirst f a = OldestFirst {getOldestFirst :: f a}
+  deriving (Eq, Ord, Show,
+            Functor, Foldable, Traversable,
+            Container, NontrivialContainer,
+            Binary, Bi,
+            Arbitrary)
+
+makeWrapped ''NewestFirst
+makeWrapped ''OldestFirst
+
+instance Each (f a) (f b) a b =>
+         Each (NewestFirst f a) (NewestFirst f b) a b where
+    each = _Wrapped . each
+instance Each (f a) (f b) a b =>
+         Each (OldestFirst f a) (OldestFirst f b) a b where
+    each = _Wrapped . each
+
+instance One (f a) => One (NewestFirst f a) where
+    type OneItem (NewestFirst f a) = OneItem (f a)
+    one = NewestFirst . one
+instance One (f a) => One (OldestFirst f a) where
+    type OneItem (OldestFirst f a) = OneItem (f a)
+    one = OldestFirst . one
+
+class Chrono f where
+    toNewestFirst :: OldestFirst f a -> NewestFirst f a
+    toOldestFirst :: NewestFirst f a -> OldestFirst f a
+
+instance Chrono [] where
+    toNewestFirst = NewestFirst . reverse . getOldestFirst
+    toOldestFirst = OldestFirst . reverse . getNewestFirst
+
+instance Chrono NonEmpty where
+    toNewestFirst = NewestFirst . NE.reverse . getOldestFirst
+    toOldestFirst = OldestFirst . NE.reverse . getNewestFirst
+
+----------------------------------------------------------------------------
 -- Lens utils
 ----------------------------------------------------------------------------
 
@@ -282,7 +358,7 @@ _neLast f (x :| xs) = (\y -> x :| unsafeInit xs ++ [y]) <$> f (unsafeLast xs)
 instance SafeCopy a => SafeCopy (NonEmpty a) where
     getCopy = contain $ do
         xs <- safeGet
-        case NE.nonEmpty xs of
+        case nonEmpty xs of
             Nothing -> fail "getCopy@NonEmpty: list can't be empty"
             Just xx -> return xx
     putCopy = contain . safePut . toList
@@ -402,6 +478,15 @@ runWithRandomIntervals minT maxT action = do
   action
   runWithRandomIntervals minT maxT action
 
+-- | Like `runWithRandomIntervals`, but performs action immidiatelly
+-- at first time.
+runWithRandomIntervalsNow
+    :: (MonadIO m, WithLogger m, Mockable Fork m, Mockable Delay m)
+    => Microsecond -> Microsecond -> m () -> m ()
+runWithRandomIntervalsNow minT maxT action = do
+  action
+  runWithRandomIntervals minT maxT action
+
 -- TODO remove MonadIO in preference to some `Mockable Random`
 -- | Wait random number of 'Microsecond'`s between min and max.
 waitRandomInterval'
@@ -421,20 +506,6 @@ runWithRandomIntervals' minT maxT action = do
   waitRandomInterval' minT maxT
   action
   runWithRandomIntervals' minT maxT action
-
--- [TW-84]: move to serokell-core or time-warp?
-waitAnyUnexceptional
-    :: (MonadIO m, WithLogger m)
-    => [Async a] -> m (Maybe (Async a, a))
-waitAnyUnexceptional asyncs = liftIO (waitAnyCatch asyncs) >>= handleRes
-  where
-    handleRes (async', Right res) = pure $ Just (async', res)
-    handleRes (async', Left e) = do
-      logWarning $ sformat ("waitAnyUnexceptional: caught error " % shown) e
-      if null asyncs'
-         then pure Nothing
-         else waitAnyUnexceptional asyncs'
-      where asyncs' = filter (/= async') asyncs
 
 ----------------------------------------------------------------------------
 -- LRU cache
@@ -466,7 +537,7 @@ getKeys = fromMap . void
 
 newtype AsBinary a = AsBinary
     { getAsBinary :: ByteString
-    } deriving (Show, Eq, Ord)
+    } deriving (Show, Eq, Ord, Hashable)
 
 instance SafeCopy (AsBinary a) where
     getCopy = contain $ AsBinary <$> safeGet
@@ -474,7 +545,7 @@ instance SafeCopy (AsBinary a) where
 
 class AsBinaryClass a where
   asBinary :: a -> AsBinary a
-  fromBinary :: AsBinary a -> Either [Char] a
+  fromBinary :: AsBinary a -> Either String a
 
 fromBinaryM :: (AsBinaryClass a, MonadFail m) => AsBinary a -> m a
 fromBinaryM = either fail return . fromBinary
@@ -562,7 +633,7 @@ stubListenerOneMsg p = ListenerActionOneMsg $ \_ _ m ->
 stubListenerConv
     :: (WithLogger m, Message r, Unpackable p r, Packable p Void)
     => Proxy r -> ListenerAction p m
-stubListenerConv p = ListenerActionConversation $ \__nId __sA convActions ->
+stubListenerConv p = ListenerActionConversation $ \__nId convActions ->
                           let _ = convActions `asProxyTypeOf` __modP p
                               __modP :: Proxy r -> Proxy (ConversationActions Void r m)
                               __modP _ = Proxy
@@ -610,3 +681,25 @@ withWaitLogConvL nodeId conv = conv { send = send', recv = recv' }
           (sformat ("Recv "%shown%" from "%shown%" in conversation") rcvMsg nodeId) $
             recv conv
     MessageName rcvMsg = messageName $ ((\_ -> Proxy) :: ConversationActions snd rcv m -> Proxy rcv) conv
+
+
+
+execWithTimeLimit :: ( Mockable Async m
+                     , Mockable Delay m
+                     , Eq (Promise m (Maybe a))
+                     ) => Microsecond -> m a -> m (Maybe a)
+execWithTimeLimit timeout action = do
+    promises <- mapM async [ Just <$> action, delay timeout $> Nothing ]
+    (promise, val) <- waitAny promises
+    mapM_ cancel $ filter (/= promise) promises
+    return val
+
+parseIntegralSafe :: Integral a => Parser a
+parseIntegralSafe = fromIntegerSafe . read =<< many1 digit
+  where
+    fromIntegerSafe :: Integral a => Integer -> Parser a
+    fromIntegerSafe x =
+        let res = fromInteger x
+        in  if fromIntegral res == x
+            then return res
+            else fail ("Number is too large: " ++ show x)

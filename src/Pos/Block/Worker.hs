@@ -8,7 +8,7 @@ module Pos.Block.Worker
        , blkWorkers
        ) where
 
-import           Control.Lens                (ix, (^.), (^?))
+import           Control.Lens                (ix)
 import           Data.Default                (def)
 import           Formatting                  (bprint, build, sformat, shown, (%))
 import           Mockable                    (delay, fork)

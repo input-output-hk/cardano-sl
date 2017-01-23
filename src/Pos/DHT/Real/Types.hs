@@ -10,10 +10,10 @@ module Pos.DHT.Real.Types
        , KademliaDHTInstance (..)
        , KademliaDHTInstanceConfig (..)
        , DHTHandle
+       , WithKademliaDHTInstance (..)
        ) where
 
-import           Universum                 hiding (async, fromStrict, mapConcurrently,
-                                            toStrict)
+import           Universum                 hiding (async, fromStrict, toStrict)
 
 import           Control.Concurrent.STM    (TVar)
 import           Control.Lens              (iso)
@@ -31,13 +31,12 @@ import           Serokell.Util.Lens        (WrappedM (..))
 import           System.Wlog               (CanLog, HasLoggerName)
 
 import           Pos.Binary.Class          (Bi (..), decodeOrFail, encode)
-import           Pos.DHT.Model.Types    (DHTData, DHTKey, DHTNode (..),
-                                            DHTNodeType (..))
+import           Pos.DHT.Model.Types       (DHTData, DHTKey, DHTNode (..))
 
 toBSBinary :: Bi b => b -> BS.ByteString
 toBSBinary = toStrict . encode
 
-fromBSBinary :: Bi b => BS.ByteString -> Either [Char] (b, BS.ByteString)
+fromBSBinary :: Bi b => BS.ByteString -> Either String (b, BS.ByteString)
 fromBSBinary bs =
     case decodeOrFail $ fromStrict bs of
         Left (_, _, errMsg)  -> Left errMsg
@@ -65,9 +64,10 @@ data KademliaDHTInstance = KademliaDHTInstance
 -- | Instance of part of config.
 data KademliaDHTInstanceConfig = KademliaDHTInstanceConfig
     { kdcPort            :: !Word16
-    , kdcKeyOrType       :: !(Either DHTKey DHTNodeType)
+    , kdcKey             :: !(Maybe DHTKey)
     , kdcInitialPeers    :: ![DHTNode]
     , kdcExplicitInitial :: !Bool
+    , kdcDumpPath        :: !FilePath
     }
 
 -- | Node of /Kademlia DHT/ algorithm with access to 'KademliaDHTContext'.
@@ -75,6 +75,21 @@ newtype KademliaDHT m a = KademliaDHT
     { unKademliaDHT :: ReaderT KademliaDHTInstance m a
     } deriving (Functor, Applicative, Monad, MonadFail, MonadThrow, MonadCatch, MonadIO,
                 MonadMask, CanLog, HasLoggerName, MonadTrans, MonadFix)
+
+-- | Class for getting KademliaDHTInstance from 'KademliaDHT'
+class WithKademliaDHTInstance m where
+    getKademliaDHTInstance :: m KademliaDHTInstance
+
+instance Monad m => WithKademliaDHTInstance (KademliaDHT m) where
+    getKademliaDHTInstance = KademliaDHT ask
+
+instance (Monad m, WithKademliaDHTInstance m) =>
+         WithKademliaDHTInstance (ReaderT a m) where
+    getKademliaDHTInstance = lift getKademliaDHTInstance
+
+instance (Monad m, WithKademliaDHTInstance m) =>
+         WithKademliaDHTInstance (StateT a m) where
+    getKademliaDHTInstance = lift getKademliaDHTInstance
 
 type instance ThreadId (KademliaDHT m) = ThreadId m
 type instance Promise (KademliaDHT m) = Promise m

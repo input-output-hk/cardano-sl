@@ -1,37 +1,54 @@
 module Pos.Ssc.GodTossing.SecretStorage
-       (
-         getSecret
-       , getSecretNEpoch
-       , getSecretNTip
-       , setSecret
+       ( getOurCommitments
+       , getOurOpening
+       , addOurCommitment
+       , ssSetNewEpoch
        ) where
 
+import qualified Data.HashMap.Strict      as HM
 import           Universum
 
-import           Pos.DB                         (MonadDB)
-import           Pos.DB.Misc                    (getSecretStorage, putSecretStorage)
-import           Pos.Ssc.GodTossing.Types.Type  (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Types (GtSecret, GtSecretStorage (..))
-import           Pos.Types                      (EpochIndex, HeaderHash)
+import           Pos.Crypto               (SecretProof)
+import           Pos.DB                   (MonadDB)
+import           Pos.DB.Misc              (getSecretStorage, putSecretStorage)
+import           Pos.Ssc.GodTossing.Types (Commitment (commProof), GtSecretStorage (..),
+                                           Opening, SignedCommitment, SscGodTossing)
+import           Pos.Types                (EpochIndex)
+import           Pos.Util                 (AsBinary)
 
-getSecret :: MonadDB SscGodTossing m => m (Maybe GtSecret)
-getSecret = do
-    mb <- _dsCurrentSecret <$> getSecretStorage
-    pure $ maybe Nothing (\(s, _, _) -> Just s) mb
+getOurCommitments :: MonadDB SscGodTossing m => EpochIndex -> m [SignedCommitment]
+getOurCommitments epoch = do
+    getOurCommitmentsDo <$> getSecretStorage
+  where
+    getOurCommitmentsDo GtSecretStorage {..}
+        | gssEpoch == epoch = map fst . toList $ gssSecrets
+        | otherwise = []
 
-getSecretNEpoch :: MonadDB SscGodTossing m => m (Maybe (GtSecret, EpochIndex))
-getSecretNEpoch = do
-    mb <- _dsCurrentSecret <$> getSecretStorage
-    pure $ maybe Nothing (\(s, e, _) -> Just (s, e)) mb
+getOurOpening
+    :: MonadDB SscGodTossing m
+    => AsBinary SecretProof -> m (Maybe Opening)
+getOurOpening proof = fmap snd . HM.lookup proof . gssSecrets <$> getSecretStorage
 
-getSecretNTip :: MonadDB SscGodTossing m => m (Maybe (GtSecret, HeaderHash SscGodTossing))
-getSecretNTip = do
-    mb <- _dsCurrentSecret <$> getSecretStorage
-    pure $ maybe Nothing (\(s, _, t) -> Just (s, t)) mb
+-- [FIXME] This function doesn't care about concurrency! It should be atomic.
+-- Old code didn't care too, btw.
+addOurCommitment
+    :: MonadDB SscGodTossing m
+    => SignedCommitment -> Opening -> EpochIndex -> m ()
+addOurCommitment comm open epoch = do
+    GtSecretStorage {..} <- getSecretStorage
+    if | epoch /= gssEpoch -> pass
+       | otherwise ->
+           putSecretStorage
+               GtSecretStorage
+               { gssSecrets =
+                     HM.insert (commProof $ comm ^. _2) (comm, open) gssSecrets
+               , ..
+               }
 
-setSecret :: MonadDB SscGodTossing m
-          => GtSecret
-          -> EpochIndex
-          -> HeaderHash SscGodTossing
-          -> m ()
-setSecret secret epoch tip = putSecretStorage . GtSecretStorage . Just $ (secret, epoch, tip)
+ssSetNewEpoch :: MonadDB SscGodTossing m => EpochIndex -> m ()
+ssSetNewEpoch epoch = do
+    GtSecretStorage {..} <- getSecretStorage
+    if | epoch == gssEpoch -> pass
+       | otherwise ->
+           putSecretStorage
+               GtSecretStorage {gssSecrets = mempty, gssEpoch = epoch}

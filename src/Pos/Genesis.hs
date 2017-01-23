@@ -26,12 +26,12 @@ module Pos.Genesis
        , genesisLeaders
 
        -- * Update System
-       , genesisProtocolVersion
+       , genesisBlockVersion
        , genesisSoftwareVersions
        , genesisScriptVersion
        ) where
 
-import           Control.Lens             ((%~), _head)
+import           Control.Lens             (_head)
 import           Data.Default             (Default (..))
 import           Data.List                (genericLength, genericReplicate)
 import qualified Data.Map.Strict          as M
@@ -47,7 +47,7 @@ import           Pos.Genesis.Parser       (compileGenData)
 import           Pos.Genesis.Types        (GenesisData (..), StakeDistribution (..))
 import           Pos.Lrc.FollowTheSatoshi (followTheSatoshi)
 import           Pos.Script.Type          (ScriptVersion)
-import           Pos.Types                (Address (..), Coin, ProtocolVersion (..),
+import           Pos.Types                (Address (..), BlockVersion (..), Coin,
                                            SharedSeed (SharedSeed), SlotLeaders,
                                            StakeholderId, TxOut (..), Utxo,
                                            applyCoinPortion, coinToInteger, divCoin,
@@ -196,13 +196,13 @@ genesisLeaders = followTheSatoshi genesisSeed
 -- Update system
 ----------------------------------------------------------------------------
 
--- | ProtocolVersion used at the very beginning.
-genesisProtocolVersion :: ProtocolVersion
-genesisProtocolVersion =
-    ProtocolVersion
-    { pvMajor = 0
-    , pvMinor = 0
-    , pvAlt = 0
+-- | BlockVersion used at the very beginning.
+genesisBlockVersion :: BlockVersion
+genesisBlockVersion =
+    BlockVersion
+    { bvMajor = 0
+    , bvMinor = 0
+    , bvAlt = 0
     }
 
 -- | Software Versions

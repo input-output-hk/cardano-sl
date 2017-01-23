@@ -21,6 +21,7 @@ import           Data.Default         (Default (..))
 import           Prelude              (show)
 import           System.FileLock      (FileLock, SharedExclusive (..), lockFile,
                                        unlockFile, withFileLock)
+import qualified Turtle as T
 import           Universum            hiding (show)
 
 import           Pos.Binary.Class     (Bi (..), decodeFull, encode)
@@ -69,11 +70,21 @@ instance Bi UserSecret where
         keys <- get
         return $ def & usVss .~ vss & usKeys .~ keys
 
+-- | Create user secret file at the given path, but only when one doesn't
+-- already exist.
+initializeSecret :: (MonadIO m) => FilePath -> m ()
+initializeSecret path = do
+    exists <- T.testfile (fromString path)
+    liftIO (if exists
+            then return ()
+            else T.output (fromString path) empty)
+
 -- | Reads user secret from the given file.
 -- If the file does not exist/is empty, returns empty user secret
 peekUserSecret :: (MonadIO m) => FilePath -> m UserSecret
 peekUserSecret path =
     liftIO $ do
+        initializeSecret path
         econtent <- decodeFull <$> BSL.readFile path
         pure $ either (const def) identity econtent & usPath .~ path
 

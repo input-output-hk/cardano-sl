@@ -61,8 +61,8 @@
       };
       var notify = function() {
         Daedalus.ClientApi.notify(
-           function(msg) { return function() { console.log('msg ', msg) } },
-           function(error) { return function() { console.log('error ', error) } }
+           function(msg) { console.log('msg ', msg) },
+           function(error) { console.log('error ', error) }
          )();
      };
       var getProfile = function() {

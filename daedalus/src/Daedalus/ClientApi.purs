@@ -1,7 +1,7 @@
 module Daedalus.ClientApi where
 
 import Prelude
-import Control.Monad.Aff (Aff, liftEff')
+import Control.Monad.Aff (liftEff')
 import Daedalus.BackendApi as B
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Unsafe (unsafeInterleaveEff)
@@ -122,7 +122,7 @@ deleteWallet = fromAff <<< B.deleteWallet <<< mkCAddress
 isValidAddress :: forall eff. Fn2 String String (Eff(ajax :: AJAX | eff) (Promise Boolean))
 isValidAddress = mkFn2 \currency -> fromAff <<< B.isValidAddress (mkCCurrency currency)
 
-notify :: forall eff. Fn2 NotifyCb ErrorCb (Eff (ref :: REF, ws :: WEBSOCKET, err :: EXCEPTION | eff) Unit)
+notify :: forall eff. Fn2 (NotifyCb eff) (ErrorCb eff) (Eff (ref :: REF, ws :: WEBSOCKET, err :: EXCEPTION | eff) Unit)
 notify = mkFn2 \messageCb errorCb -> do
     -- TODO (akegalj) grab global (mutable) state of  here
     -- instead of creating newRef

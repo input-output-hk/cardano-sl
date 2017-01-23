@@ -84,7 +84,8 @@ import           Pos.Types                 (Block, BlockHeader, EpochIndex,
                                             verifyHeaders, vhpVerifyConsensus)
 import qualified Pos.Types                 as Types
 import           Pos.Update.Core           (UpdatePayload (..))
-import           Pos.Update.Logic          (usPreparePayload, usVerifyBlocks)
+import           Pos.Update.Logic          (usCanCreateBlock, usPreparePayload,
+                                            usVerifyBlocks)
 import           Pos.Update.Poll           (PollModifier, PollVerFailure)
 import           Pos.Util                  (NE, NewestFirst (..), OldestFirst (..),
                                             inAssertMode, neZipWith3, spanSafe,
@@ -617,10 +618,12 @@ createMainBlock sId pSk = withBlkSemaphore createMainBlockDo
     createMainBlockDo tip = do
         tipHeader <- DB.getTipBlockHeader
         logInfo $ sformat msgFmt tipHeader
-        case canCreateBlock sId tipHeader of
-            Nothing  -> convertRes tip <$>
+        canWrtUs <- usCanCreateBlock
+        case (canCreateBlock sId tipHeader, canWrtUs) of
+            (_, False) -> return (Left "this software is obsolete", tip)
+            (Nothing, True)  -> convertRes tip <$>
                 runExceptT (createMainBlockFinish sId pSk tipHeader)
-            Just err -> return (Left err, tip)
+            (Just err, True) -> return (Left err, tip)
     convertRes oldTip (Left e) = (Left e, oldTip)
     convertRes _ (Right blk)   = (Right blk, headerHash blk)
 

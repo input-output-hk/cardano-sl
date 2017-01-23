@@ -9,8 +9,10 @@ module Pos.Update.Poll.Logic
        , rollbackUSPayload
        , normalizePoll
        , filterProposalsByThd
+       , canCreateBlockBV
        ) where
 
 import           Pos.Update.Poll.Logic.Apply
+import           Pos.Update.Poll.Logic.Base
 import           Pos.Update.Poll.Logic.Normalize
 import           Pos.Update.Poll.Logic.Rollback

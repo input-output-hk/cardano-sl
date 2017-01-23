@@ -10,6 +10,7 @@ module Pos.Update.Poll.Logic.Base
        , mkTotNegative
        , mkTotSum
 
+       , canCreateBlockBV
        , isConfirmedBV
        , getBVScript
        , confirmBlockVersion
@@ -26,7 +27,7 @@ import           Universum
 
 import           Pos.Crypto            (PublicKey, hash)
 import           Pos.Script.Type       (ScriptVersion)
-import           Pos.Types             (BlockVersion, Coin, MainBlockHeader, SlotId,
+import           Pos.Types             (BlockVersion (..), Coin, MainBlockHeader, SlotId,
                                         addressHash, coinToInteger, difficultyL,
                                         headerSlot, sumCoins, unsafeAddCoin,
                                         unsafeIntegerToCoin, unsafeSubCoin)
@@ -72,6 +73,23 @@ confirmBlockVersion bv =
     getBVState bv >>= \case
         Nothing -> pass
         Just bvs -> putBVState bv bvs {bvsIsConfirmed = True}
+
+-- | Check whether block with given 'BlockVersion' can be created
+-- according to current Poll.
+--
+-- Specifically, one of the following conditions must be true.
+-- • Given block version is equal to last adopted block version.
+-- • '(major, minor)' from given block version must be greater than
+-- '(major, minor)' if last adopted version and this block version must be
+-- confirmed.
+canCreateBlockBV :: MonadPollRead m => BlockVersion -> m Bool
+canCreateBlockBV bv = do
+    lastAdopted <- getLastAdoptedBV
+    isConfirmed <- isConfirmedBV bv
+    let toMajMin BlockVersion {..} = (bvMajor, bvMinor)
+    return
+        (bv == lastAdopted ||
+         (toMajMin bv > toMajMin lastAdopted && isConfirmed))
 
 -- Proposal is approved (which corresponds to 'Just True') if total
 -- stake of votes for it is more than half of total stake.

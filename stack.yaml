@@ -60,7 +60,7 @@ extra-deps:
 - base58-bytestring-0.1.0
 - time-warp-1.1.1.1
 
-resolver: lts-7.15
+resolver: lts-7.16
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

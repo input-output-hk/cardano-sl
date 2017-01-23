@@ -81,9 +81,6 @@
             .then(function(result) {console.log(result)})
             .catch(function(reason) {console.log(reason)})
       };
-      var generateMnemonic = function() {
-         console.log(Daedalus.ClientApi.generateMnemonic())
-      };
     </script>
 		<title></title>
 	</head>
@@ -105,7 +102,6 @@
       <li><button onclick="notify()"/>add notify listener</li>
       <li><button onclick="getProfile()"/>get user profile</li>
       <li><button onclick="updateProfile('name', 'email', 'phone', 'password', 1484253370.9182513, 'locale', 'picture')"/>update user profile</li>
-      <li><button onclick="generateMnemonic()"/>generateMnemonic</li>
     </ul>
 	</body>
 </html>

@@ -60,9 +60,6 @@ sendExtended = mkFn6 \addrFrom addrTo amount curr title desc -> fromAff <<< map 
         title
         desc
 
-generateMnemonic :: forall eff. Eff (crypto :: Crypto.CRYPTO | eff) String
-generateMnemonic = Crypto.generateMnemonic
-
 newWallet :: forall eff . Fn4 String String String (EffFn1 (err :: EXCEPTION | eff) String Unit)
   (Eff(ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) (Promise Json))
 newWallet = mkFn4 \wType wCurrency wName wConfirmMnemonic -> fromAff $ map encodeJson $ do

@@ -60,9 +60,40 @@ sendExtended = mkFn6 \addrFrom addrTo amount curr title desc -> fromAff <<< map 
         title
         desc
 
-newWallet :: forall eff . Fn4 String String String (EffFn1 (err :: EXCEPTION | eff) String Unit)
+generateMnemonic :: forall eff. Eff (crypto :: Crypto.CRYPTO | eff) String
+generateMnemonic = Crypto.generateMnemonic
+
+newWallet :: forall eff . Fn4 String String String String
   (Eff(ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) (Promise Json))
-newWallet = mkFn4 \wType wCurrency wName wConfirmMnemonic -> fromAff $ map encodeJson $ do
+newWallet = mkFn4 \wType wCurrency wName mnemonic -> fromAff <<< map encodeJson <<<
+    either throwError B.newWallet $ mkCWalletInit wType wCurrency wName mnemonic
+
+-- NOTE: https://issues.serokell.io/issue/DAE-33#comment=96-1798
+-- Daedalus.ClientApi.newWallet(
+--     'CWTPersonal'
+--   , 'ADA'
+--   , 'wallet name'
+--   , function(mnemonics) {
+--     // if this function finishes we will send request for wallet
+--     // creation to the backend. That means user validated and
+--     // stored mnemonics.
+--     // if an exception is thrown new wallet request will be aborted
+--     // and promise should return thrown error
+--     if(userSavedMnemonics) {
+--       // do nothing
+--     } else {
+--       throw new Error("Wallet canceled")
+--     }
+--   }
+--   )()
+--   .then(function(value) {
+--     console.log('SUCCESS', value);
+--   }, function(reason) {
+--     console.log('ERROR', reason);
+--   })
+newWalletDepricated :: forall eff . Fn4 String String String (EffFn1 (err :: EXCEPTION | eff) String Unit)
+  (Eff(ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) (Promise Json))
+newWalletDepricated = mkFn4 \wType wCurrency wName wConfirmMnemonic -> fromAff $ map encodeJson $ do
 
     mnemonic <- liftEff Crypto.generateMnemonic
     -- FIXME: @jens how did we satisfy this with notify? I am having trouble again

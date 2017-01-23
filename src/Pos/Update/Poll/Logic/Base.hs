@@ -11,6 +11,7 @@ module Pos.Update.Poll.Logic.Base
        , mkTotSum
 
        , canCreateBlockBV
+       , canBeProposedBV
        , isConfirmedBV
        , getBVScript
        , confirmBlockVersion
@@ -23,6 +24,7 @@ module Pos.Update.Poll.Logic.Base
 import           Control.Lens          (at)
 import           Control.Monad.Except  (MonadError)
 import qualified Data.HashMap.Strict   as HM
+import qualified Data.Set              as S
 import           Universum
 
 import           Pos.Crypto            (PublicKey, hash)
@@ -39,24 +41,7 @@ import           Pos.Update.Poll.Types (BlockVersionState (..), DecidedProposalS
                                         UndecidedProposalState (..))
 
 ----------------------------------------------------------------------------
--- Wrappers for type-safety
-----------------------------------------------------------------------------
-
-newtype TotalPositive = TotalPositive Integer
-newtype TotalNegative = TotalNegative Integer
-newtype TotalSum = TotalSum Integer
-
-mkTotPositive :: Coin -> TotalPositive
-mkTotPositive = TotalPositive . coinToInteger
-
-mkTotNegative :: Coin -> TotalNegative
-mkTotNegative = TotalNegative . coinToInteger
-
-mkTotSum :: Coin -> TotalSum
-mkTotSum = TotalSum . coinToInteger
-
-----------------------------------------------------------------------------
--- Basic operations
+-- BlockVersion-related simple functions/operations
 ----------------------------------------------------------------------------
 
 -- | Check whether BlockVersion is confirmed.
@@ -90,6 +75,80 @@ canCreateBlockBV bv = do
     return
         (bv == lastAdopted ||
          (toMajMin bv > toMajMin lastAdopted && isConfirmed))
+
+-- | Check whether given 'BlockVersion' can be proposed according to
+-- current Poll.
+--
+-- Specifically, the following rules regarding major and minor versions
+-- take place:
+-- 1. If major version is less than last adopted one, it can't be proposed.
+-- 2. If major version is more than '1' greater than last adopted one,
+-- it can't be proposed as well.
+-- 3. If major version is greater than last adopted one by '1', then minor
+-- version must be '0'.
+-- 4. If major version is equal to the last adopted one, then minor version
+-- can be either same as the last adopted one or greater by '1'.
+-- Rules regarding alternative version are as follows (assuming
+-- checks above pass):
+-- 1. If '(Major, Minor)' of given version is equal to '(Major, Minor)' of
+-- last adopted version, then alternative version must be equal to
+-- alternative version of last adopted version.
+-- 2. Otherwise '(Major, Minor)' of given version is lexicographically greater
+-- than or equal to '(Major, Minor)' of last adopted version and in this case
+-- other proposed block versions with same '(Major, Minor)' are considered
+-- (let's call this set 'X').
+-- If 'X' is empty, given alternative version must be 0.
+-- Otherwise it must be in 'X' or greater than maximum from 'X' by one.
+canBeProposedBV :: MonadPollRead m => BlockVersion -> m Bool
+canBeProposedBV bv =
+    canBeProposedPure bv <$> getLastAdoptedBV <*>
+    (S.fromList <$> getProposedBVs)
+
+canBeProposedPure :: BlockVersion -> BlockVersion -> Set BlockVersion -> Bool
+canBeProposedPure BlockVersion { bvMajor = givenMajor
+                               , bvMinor = givenMinor
+                               , bvAlt = givenAlt
+                               } BlockVersion { bvMajor = adoptedMajor
+                                              , bvMinor = adoptedMinor
+                                              , bvAlt = adoptedAlt
+                                              } proposed
+    | givenMajor < adoptedMajor = False
+    | givenMajor > adoptedMajor + 1 = False
+    | givenMajor == adoptedMajor + 1 && givenMinor /= 0 = False
+    | givenMajor == adoptedMajor &&
+          givenMinor /= adoptedMinor && givenMinor /= adoptedMinor + 1 = False
+    | (givenMajor, givenMinor) == (adoptedMajor, adoptedMinor) =
+        givenAlt == adoptedAlt
+    -- At this point we know that
+    -- '(givenMajor, givenMinor) > (adoptedMajor, adoptedMinor)'
+    | null relevantProposed = givenAlt == 0
+    | otherwise =
+        givenAlt == (S.findMax relevantProposed + 1) ||
+        givenAlt `S.member` relevantProposed
+  where
+    relevantProposed = S.map bvAlt $ S.filter predicate proposed
+    predicate BlockVersion {..} = bvMajor == givenMajor && bvMinor == givenMinor
+
+----------------------------------------------------------------------------
+-- Wrappers for type-safety
+----------------------------------------------------------------------------
+
+newtype TotalPositive = TotalPositive Integer
+newtype TotalNegative = TotalNegative Integer
+newtype TotalSum = TotalSum Integer
+
+mkTotPositive :: Coin -> TotalPositive
+mkTotPositive = TotalPositive . coinToInteger
+
+mkTotNegative :: Coin -> TotalNegative
+mkTotNegative = TotalNegative . coinToInteger
+
+mkTotSum :: Coin -> TotalSum
+mkTotSum = TotalSum . coinToInteger
+
+----------------------------------------------------------------------------
+-- Basic operations
+----------------------------------------------------------------------------
 
 -- Proposal is approved (which corresponds to 'Just True') if total
 -- stake of votes for it is more than half of total stake.

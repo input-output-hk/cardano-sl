@@ -90,7 +90,7 @@ instance MonadBaseControl IO m => MonadBaseControl IO (DBPoll m) where
 instance MonadDB patak m =>
          MonadPollRead (DBPoll m) where
     getBVState = GS.getBVState
-    getAllConfirmedBV = GS.getAllConfirmedBV
+    getProposedBVs = GS.getProposedBVs
     getLastBVState = GS.getLastBVState
     getLastAdoptedBV = GS.getLastAdoptedBV
     getLastConfirmedSV = GS.getConfirmedSV

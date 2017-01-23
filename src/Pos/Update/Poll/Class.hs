@@ -28,7 +28,7 @@ import           Pos.Update.Poll.Types (BlockVersionState, DecidedProposalState,
 class Monad m => MonadPollRead m where
     getBVState :: BlockVersion -> m (Maybe BlockVersionState)
     -- ^ Retrieve state of given block version.
-    getAllConfirmedBV :: m [BlockVersion]
+    getProposedBVs :: m [BlockVersion]
     -- ^ Retrieve all confirmed block version.
     getLastBVState :: m BlockVersionState
     -- ^ Retrieve state of last adopted block version.
@@ -58,9 +58,9 @@ class Monad m => MonadPollRead m where
         BlockVersion -> m (Maybe BlockVersionState)
     getBVState = lift . getBVState
 
-    default getAllConfirmedBV
+    default getProposedBVs
         :: (MonadTrans t, MonadPollRead m', t m' ~ m) => m [BlockVersion]
-    getAllConfirmedBV = lift getAllConfirmedBV
+    getProposedBVs = lift getProposedBVs
 
     default getLastBVState
         :: (MonadTrans t, MonadPollRead m', t m' ~ m) => m BlockVersionState

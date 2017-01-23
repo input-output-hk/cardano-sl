@@ -32,7 +32,7 @@ module Pos.DB.GState.Update
        , getConfirmedProposals
 
        , BVIter
-       , getAllConfirmedBV
+       , getProposedBVs
        ) where
 
 import           Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
@@ -243,13 +243,12 @@ instance DBIteratorClass BVIter where
     type IterValue BVIter = BlockVersionState
     iterKeyPrefix _ = bvStateIterationPrefix
 
-getAllConfirmedBV :: MonadDB ssc m => m [BlockVersion]
-getAllConfirmedBV = runDBnIterator @BVIter _gStateDB (step [])
+-- | Get all proposed 'BlockVersion's.
+getProposedBVs :: MonadDB ssc m => m [BlockVersion]
+getProposedBVs = runDBnIterator @BVIter _gStateDB (step [])
   where
     step res = nextItem >>= maybe (pure res) (onItem res)
-    onItem res (bv, BlockVersionState {..})
-        | bvsIsConfirmed = step (bv : res)
-        | otherwise = step res
+    onItem res (bv, BlockVersionState {..}) = step (bv : res)
 
 ----------------------------------------------------------------------------
 -- Keys ('us' prefix stands for Update System)

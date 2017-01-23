@@ -23,18 +23,17 @@ import           Pos.Crypto                 (hash)
 import           Pos.Types                  (ChainDifficulty, Coin, EpochIndex,
                                              MainBlockHeader, SlotId (siEpoch),
                                              SoftwareVersion (..), addressHash,
-                                             applyCoinPortion, canBeNextPV, coinToInteger,
-                                             difficultyL, epochIndexL, flattenSlotId,
-                                             gbhExtra, headerSlot, mehBlockVersion,
-                                             sumCoins, unflattenSlotId,
-                                             unsafeIntegerToCoin)
+                                             applyCoinPortion, coinToInteger, difficultyL,
+                                             epochIndexL, flattenSlotId, gbhExtra,
+                                             headerSlot, mehBlockVersion, sumCoins,
+                                             unflattenSlotId, unsafeIntegerToCoin)
 import           Pos.Update.Core            (UpId, UpdatePayload (..),
                                              UpdateProposal (..), UpdateVote (..))
 import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Logic.Base (canCreateBlockBV, confirmBlockVersion,
-                                             getBVScript, isDecided, mkTotNegative,
-                                             mkTotPositive, mkTotSum, putNewProposal,
-                                             voteToUProposalState)
+import           Pos.Update.Poll.Logic.Base (canBeProposedBV, canCreateBlockBV,
+                                             confirmBlockVersion, getBVScript, isDecided,
+                                             mkTotNegative, mkTotPositive, mkTotSum,
+                                             putNewProposal, voteToUProposalState)
 import           Pos.Update.Poll.Types      (BlockVersionState (..),
                                              DecidedProposalState (..),
                                              PollVerFailure (..), ProposalState (..),
@@ -228,18 +227,14 @@ verifySoftwareVersion upId UpdateProposal {..} =
     sv = upSoftwareVersion
     app = svAppName sv
 
--- Here we verify that proposed protocol version is the same as
--- adopted one or can follow it.
+-- Here we verify that proposed protocol version could be proposed.
+-- See documentation of 'Logic.Base.canBeProposedBV' for details.
 verifyBlockVersion
     :: (MonadError PollVerFailure m, MonadPollRead m)
     => UpId -> UpdateProposal -> m ()
 verifyBlockVersion upId UpdateProposal {..} = do
     lastAdopted <- getLastAdoptedBV
-    confBV <- getAllConfirmedBV
-    unless
-        (lastAdopted == upBlockVersion ||
-         canBeNextPV lastAdopted upBlockVersion ||
-         any (flip canBeNextPV upBlockVersion) confBV) $ -- TODO is it right?
+    unlessM (canBeProposedBV upBlockVersion) $
         throwError
             PollBadBlockVersion
             { pbpvUpId = upId

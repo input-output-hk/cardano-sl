@@ -323,6 +323,7 @@ library
                         Pos.Update.Poll.Logic.Base
                         Pos.Update.Poll.Logic.Normalize
                         Pos.Update.Poll.Logic.Rollback
+                        Pos.Update.Poll.Logic.Softfork
                         Pos.Update.Poll.Modifier
                         Pos.Update.Poll.RollTrans
                         Pos.Update.Poll.Trans

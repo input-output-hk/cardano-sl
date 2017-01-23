@@ -62,7 +62,7 @@ withBlkSemaphore_ = withBlkSemaphore . (fmap ((), ) .)
 -- Invariant: all blocks have the same epoch.
 applyBlocksUnsafe
     :: forall ssc m . WorkMode ssc m
-    => OldestFirst NE (Blund ssc) -> PollModifier -> m ()
+    => OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
 applyBlocksUnsafe blunds0 pModifier = do
     -- Note: it's important to put blocks first
     mapM_ putToDB blunds

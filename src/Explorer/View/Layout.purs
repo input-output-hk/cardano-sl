@@ -17,18 +17,25 @@ view state =
     P.div
       []
       [
-        headerView state
-        , P.main
-          [ P.className "explorer-content" ]
-          [ case state.route of
-                Dashboard -> dashboardView state
-                Transaction -> transactionView state
-                Address -> addressView state
-                Calculator -> calculatorView state
-                NotFound -> notFoundView
-          ]
-        , footerView state
+        P.div
+          [ P.className "explorer-bg__container"]
+          []
+        , P.div
+              [ P.className "explorer-content__wrapper"]
+              [ P.main
+                    [ P.className "explorer-content" ]
+                    [ case state.route of
+                          Dashboard -> dashboardView state
+                          Transaction -> transactionView state
+                          Address -> addressView state
+                          Calculator -> calculatorView state
+                          NotFound -> notFoundView
+                    ]
+                , footerView state
+                ]
+        , headerView state -- absolute
       ]
+
 
 notFoundView :: P.Html Action
 notFoundView =

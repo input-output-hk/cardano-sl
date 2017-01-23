@@ -1,11 +1,14 @@
 @import "../../global.css";
 
-:root {
-  --height-header-top: 70px;
-}
-
 .explorer-header {
-  background: linear-gradient(to bottom, var(--color1) 0%, var(--color2) 100%);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background-color: var(--color2);
+  background-image: url('../static/images/header.jpg');
+  background-repeat: no-repeat;
+  background-size: 100%;
 
   &__container {
     @neat-outer-container;
@@ -71,6 +74,11 @@
       width: auto;
       border: none;
       background: transparent;
+      appearance: none;
+      background-image: url('../static/images/arrow-bottom.svg');
+      background-repeat: no-repeat;
+      background-position: right center;
+      padding-right: 20px;
     }
 
   }

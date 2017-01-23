@@ -1,6 +1,9 @@
 @import "../../global.css";
 
 .explorer-transaction {
+
+  background-color: var(--color0);
+
   &__container {
     @neat-outer-container;
   }

@@ -1,6 +1,8 @@
 @import "../../global.css";
 
 .explorer-address {
+  background-color: var(--color0);
+
   &__container {
     @neat-outer-container;
   }

@@ -4,7 +4,7 @@ import Prelude
 import Explorer.Assets (logoPath)
 import Explorer.I18n.Lang (Language, I18nAccessor, translate)
 import Explorer.State (State, Action)
-import Pux.Html (Html, div, text, header, nav, a, select, option, img, span) as P
+import Pux.Html (Html, div, text, header, nav, a, select, option, img) as P
 import Pux.Html.Attributes (value)
 import Pux.Html.Attributes (className, href, src) as P
 

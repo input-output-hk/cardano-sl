@@ -13,10 +13,14 @@ import Explorer.View.Common (placeholderView)
 
 addressView :: State -> P.Html Action
 addressView state =
-    P.div [ P.className "explorer-address__container" ]
-        [ P.link
-              (toUrl Dashboard)
-              [ P.className "btn" ]
-              [ P.text $ translate _.back state.lang ]
-        , placeholderView $ translate _.address state.lang
+    P.div
+        [ P.className "explorer-transaction" ]
+        [ P.div
+            [ P.className "explorer-address__container" ]
+            [ P.link
+                  (toUrl Dashboard)
+                  [ P.className "btn" ]
+                  [ P.text $ translate _.back state.lang ]
+            , placeholderView $ translate _.address state.lang
+            ]
         ]

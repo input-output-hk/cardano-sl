@@ -2,6 +2,10 @@
 
 .explorer-dashboard {
 
+  &__wrapper {
+    background-color: var(--color0);
+  }
+
   &__container {
     @neat-outer-container;
   }
@@ -18,7 +22,8 @@
 
   &__hero {
     color: var(--color0);
-    background-color: var(--color2);
+    background-color: transparent;
+
     padding-top: 40px;
     padding-bottom: 50px;
     text-align: center;

@@ -2,6 +2,8 @@
 
 :root {
   --height-footer-bottom: 70px;
+  --logo-footer-width: 49px;
+  --logo-footer-height: 45px;
 }
 
 .explorer-footer {
@@ -20,13 +22,14 @@
     }
 
     .logo__wrapper {
-      height: var(--height-header-top);
+      width: var(--logo-footer-width);
+      height: var(--logo-footer-height);
       position: relative;
     }
 
     .logo__img {
-      width: 49px;
-      height: 45px;
+      width: var(--logo-footer-width);
+      height: var(--logo-footer-height);
       top: center;
     }
 
@@ -78,17 +81,21 @@
       font-family: var(--fontFamily0-Light);
       font-size: 10px;
     }
-    
+
     .lang__select {
       height: var(--height-footer-bottom);
       right: 0;
       font-family: var(--fontFamily0-Light);
       font-size: 10px;
       color: color(var(--color0) a(0.5));
-      border: none; /* overridden */
-      background: transparent; /* overridden */
-      margin: 0; /* overridden */
-      width: auto; /* overridden */
+      border: none;
+      background: transparent;
+      width: auto;
+      appearance: none;
+      background-image: url('../static/images/arrow-up.svg');
+      background-repeat: no-repeat;
+      background-position: right center;
+      padding-right: 20px;
     }
   }
 }

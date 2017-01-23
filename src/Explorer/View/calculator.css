@@ -1,7 +1,10 @@
 @import "../../global.css";
 
 .explorer-calculator {
+  background-color: var(--color0);
+
   &__container {
     @neat-outer-container;
   }
+
 }

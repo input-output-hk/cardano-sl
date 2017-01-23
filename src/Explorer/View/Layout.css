@@ -1,7 +1,26 @@
 @import "../../global.css";
 
-.explorer-content {
+.explorer-bg__container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url('../static/images/header.jpg');
+  background-repeat: no-repeat;
+  background-size: 100%;
+}
 
+.explorer-content__wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.explorer-content {
+  padding-top: var(--height-header-top);
 }
 
 .label-count {

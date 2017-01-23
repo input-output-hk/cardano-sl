@@ -143,12 +143,10 @@ launchNotifier = void . liftIO . forkForever . notifier
     -- FIXME: don't ignore errors, send error msg to the socket
     notifier f = void . runExceptT . unNat f $ flip runStateT (ChainDifficulty 0) $ forever $ do
         liftIO $ threadDelay notifyPeriod
-        logInfo "bok"
         newDifficulty <- networkChainDifficulty
-        logInfo $ sformat ("New difficulty "%build) newDifficulty
---        whenM ((newDifficulty /=) <$> get) $
---            lift $ notify ChainDifficultyChanged
---        put newDifficulty
+        whenM ((newDifficulty /=) <$> get) $ do
+            lift $ notify ChainDifficultyChanged
+            put newDifficulty
     -- NOTE: temp solution, dummy notifier that pings every 10 secs
 --    dummyHistoryNotifier = notify NewTransaction
 --    historyNotifier :: WalletWebMode ssc m => m ()

@@ -129,10 +129,7 @@ retrievalWorker sendActions = handleAll handleWE $ do
     handleCHsValid peerId lcaChild newestHash = do
         let lcaChildHash = headerHash lcaChild
         logDebug $ sformat validFormat lcaChildHash newestHash
-        maxBlockSize <- GState.getMaxBlockSize >>= \case
-            -- TODO: how should it actually be handled?
-            Nothing  -> panic "retrievalWorker: maxBlockSize isn't known"
-            Just mbs -> pure mbs
+        maxBlockSize <- GState.getMaxBlockSize
         -- Yay, reflection magic! Here we indirectly pass 'maxBlockSize' as
         -- a parameter to the 'Bi' instance of 'MsgBlock'.
         reify maxBlockSize $ \(_ :: Proxy s0) ->

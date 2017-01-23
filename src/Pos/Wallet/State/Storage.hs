@@ -47,8 +47,8 @@ data Storage = Storage
       -- Valid delegation certificates
     , _delegations   :: HashMap Address (ProxyCert (EpochIndex, EpochIndex))
       -- “Constants”
-    , _slotDuration  :: Maybe Microsecond
-    , _maxBlockSize  :: Maybe Word64
+    , _slotDuration  :: Microsecond
+    , _maxBlockSize  :: Word64
     }
 
 makeClassy ''Storage
@@ -56,7 +56,7 @@ deriveSafeCopySimple 0 'base ''Storage
 
 instance Default Storage where
     def = Storage def def HM.empty
-                  (Just Const.slotDuration) (Just Const.maxBlockSize)
+                  Const.slotDuration Const.maxBlockSize
 
 instance HasBlockStorage Storage where
     blockStorage = _blockStorage
@@ -67,8 +67,8 @@ instance HasTxStorage Storage where
 type Query a = forall m. (MonadReader Storage m) => m a
 type Update a = forall m. (MonadThrow m, MonadState Storage m) => m a
 
-getSlotDuration :: Query (Maybe Microsecond)
+getSlotDuration :: Query Microsecond
 getSlotDuration = view slotDuration
 
-getMaxBlockSize :: Query (Maybe Word64)
+getMaxBlockSize :: Query Word64
 getMaxBlockSize = view maxBlockSize

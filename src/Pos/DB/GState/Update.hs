@@ -72,8 +72,8 @@ import           Pos.Util.Iterator         (MonadIterator (..))
 getLastPV :: MonadDB ssc m => m ProtocolVersion
 getLastPV = maybeThrow (DBMalformed msg) =<< getLastPVMaybe
   where
-    msg =
-        "Update System part of GState DB is not initialized (last PV is missing)"
+    msg = "Update System part of GState DB is not initialized \
+          \(last PV is missing)"
 
 getScriptVersion :: MonadDB ssc m => ProtocolVersion -> m (Maybe ScriptVersion)
 getScriptVersion = getBi . scriptVersionKey
@@ -100,14 +100,14 @@ getConfirmedSV = getBi . confirmedVersionKey
 -- | Get actual slot duration.
 --
 -- TODO: should be stored in the database.
-getSlotDuration :: MonadDB ssc m => m (Maybe Microsecond)
-getSlotDuration = return (Just Const.slotDuration)
+getSlotDuration :: MonadDB ssc m => m Microsecond
+getSlotDuration = return Const.slotDuration
 
 -- | Get maximum block size (in bytes).
 --
 -- TODO: should be stored in the database.
-getMaxBlockSize :: MonadDB ssc m => m (Maybe Word64)
-getMaxBlockSize = return (Just Const.maxBlockSize)
+getMaxBlockSize :: MonadDB ssc m => m Word64
+getMaxBlockSize = return Const.maxBlockSize
 
 ----------------------------------------------------------------------------
 -- Operations

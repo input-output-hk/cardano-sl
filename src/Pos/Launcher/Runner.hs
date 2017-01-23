@@ -260,9 +260,7 @@ runCH NodeParams {..} sscNodeContext act = do
     lastSlot <- liftIO $ newTVarIO $ unflattenSlotId 0
     queue <- liftIO $ newTBQueueIO blockRetrievalQueueSize
     recoveryHeaderVar <- liftIO newEmptyTMVarIO
-    slotDuration <- GState.getSlotDuration >>= \case
-        Just sd -> return sd
-        Nothing -> panic "runCH: couldn't get slot duration from the database"
+    slotDuration <- GState.getSlotDuration
     let ctx =
             NodeContext
             { ncSystemStart = npSystemStart

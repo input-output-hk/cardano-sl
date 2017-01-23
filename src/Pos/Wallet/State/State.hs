@@ -75,8 +75,8 @@ getOldestUtxo = queryDisk A.GetOldestUtxo
 getTxHistory :: WalletModeDB m => m [Tx]
 getTxHistory = queryDisk A.GetTxHistory
 
-getSlotDuration :: WalletModeDB m => m (Maybe Microsecond)
+getSlotDuration :: WalletModeDB m => m Microsecond
 getSlotDuration = queryDisk A.GetSlotDuration
 
-getMaxBlockSize :: WalletModeDB m => m (Maybe Word64)
+getMaxBlockSize :: WalletModeDB m => m Word64
 getMaxBlockSize = queryDisk A.GetMaxBlockSize

@@ -82,10 +82,7 @@ runRawRealWallet res WalletParams {..} listeners action =
     bracket openDB closeDB $ \db -> do
         ntpData <- currentTime >>= liftIO . newTVarIO . (0, )
         lastSlot <- liftIO . newTVarIO $ unflattenSlotId 0
-        slotDuration <- runWalletDB db getSlotDuration >>= \case
-            Just sd -> return sd
-            Nothing -> panic "runRawRealWallet: couldn't get \
-                             \slot duration from the database"
+        slotDuration <- runWalletDB db getSlotDuration
         let walletContext
               = WalletContext
               { wcSystemStart = wpSystemStart

@@ -111,8 +111,10 @@ instance Bi U.ProposalState where
         x -> fail $ "get@ProposalState: invalid tag: " <> show x
 
 instance Bi U.BlockVersionState where
-    put (U.BlockVersionState {..}) = put bvsScript *> put bvsIsConfirmed
+    put (U.BlockVersionState {..}) =
+        put bvsScript *> put bvsIsConfirmed *> put bvsIssuers
     get = do
         bvsScript <- get
         bvsIsConfirmed <- get
+        bvsIssuers <- get
         return $ U.BlockVersionState {..}

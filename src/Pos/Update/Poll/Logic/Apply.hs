@@ -244,9 +244,11 @@ verifyBlockVersion
     => UpId -> UpdateProposal -> m ()
 verifyBlockVersion upId UpdateProposal {..} = do
     lastAdopted <- getLastAdoptedBV
+    confBV <- getAllConfirmedBV
     unless
         (lastAdopted == upBlockVersion ||
-         canBeNextPV lastAdopted upBlockVersion) $
+         canBeNextPV lastAdopted upBlockVersion ||
+         any (flip canBeNextPV upBlockVersion) confBV) $ -- TODO is it right?
         throwError
             PollBadBlockVersion
             { pbpvUpId = upId

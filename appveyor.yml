@@ -8,14 +8,13 @@ build: off
   #- "c:\\sr"
   #- '.stack-work'
 
-# Avoid long paths on Windows
 environment:
   global:
+    # Avoid long paths on Windows
     STACK_ROOT: "c:\\sr"
     CSL_SYSTEM_TAG: "win64"
 
 before_test:
-- Echo %APPVEYOR_BUILD_VERSION% > build-id
 # Install stack
 - curl -sSL -o stack.zip --insecure http://www.stackage.org/stack/windows-x86_64
 - 7z x stack.zip stack.exe
@@ -28,7 +27,7 @@ before_test:
 test_script:
   - stack setup --no-reinstall
   # Retry transient failures due to https://github.com/haskell/cabal/issues/4005 
-  - scripts\appveyor-retry call stack --no-terminal --local-bin-path installers 
+  - scripts\appveyor-retry call stack --no-terminal --local-bin-path daedalus 
       install -j 2 --test --no-haddock-deps --bench --no-run-benchmarks 
       --flag cardano-sl:with-web 
       --flag cardano-sl:with-wallet 
@@ -39,18 +38,16 @@ test_script:
       --extra-include-dirs="C:\projects\pos-haskell-prototype\rocksdb\include" 
       --extra-lib-dirs="C:\projects\pos-haskell-prototype" 
   - stack exec -- cardano-wallet-hs2purs
+  - copy log-config-prod.yaml daedalus\log-config-prod.yaml
   - cd daedalus
+  - Echo %APPVEYOR_BUILD_VERSION% > build-id
   - npm install
   - npm run build:prod
 
 artifacts:
-  - path: installers/cardano-node.exe
-    name: cardano-node.exe
   - path: daedalus/
-    name: DaedalusBridge
+    name: CardanoSL
     type: zip
-  - path: build-id
-    name: build id
 
 notifications:
   - provider: Slack

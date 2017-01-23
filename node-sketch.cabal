@@ -33,6 +33,7 @@ Library
                         Mockable.SharedAtomic
                         Mockable.SharedExclusive
                         Mockable.BoundedQueue
+                        Mockable.Metrics
 
                         Node.Internal
                         Node.Message
@@ -79,6 +80,8 @@ Library
                       , transformers
                       , unordered-containers
                       , semigroups
+                      , ekg-core
+                      , ekg
 
   hs-source-dirs:       src
   default-language:     Haskell2010

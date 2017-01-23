@@ -35,6 +35,10 @@ module Node (
     , hoistConversationActions
     , LL.NodeId(..)
 
+    , nodeStatistics
+    , LL.Statistics(..)
+    , LL.PeerStatistics(..)
+
     ) where
 
 import           Control.Monad.Fix          (MonadFix)
@@ -58,12 +62,13 @@ import           Formatting                 (sformat, shown, (%))
 import           System.Wlog                (WithLogger, logError, logDebug)
 
 data Node m = forall event . Node {
-      nodeId       :: LL.NodeId
-    , nodeEndPoint :: NT.EndPoint m event
+      nodeId         :: LL.NodeId
+    , nodeEndPoint   :: NT.EndPoint m event
+    , nodeStatistics :: m LL.Statistics
     }
 
 nodeEndPointAddress :: Node m -> NT.EndPointAddress
-nodeEndPointAddress (Node addr _) = LL.nodeEndPointAddress addr
+nodeEndPointAddress (Node addr _ _) = LL.nodeEndPointAddress addr
 
 data Input t = Input t | NoParse | End
 
@@ -252,7 +257,7 @@ node transport prng packing k = do
     rec { llnode <- LL.startNode transport prng (handlerIn listenerIndex sendActions) (handlerInOut llnode listenerIndex)
         ; let nId = LL.nodeId llnode
         ; let endPoint = LL.nodeEndPoint llnode
-        ; let nodeUnit = Node nId endPoint
+        ; let nodeUnit = Node nId endPoint (LL.nodeStatistics llnode)
         ; NodeAction listeners act <- k nodeUnit
           -- Index the listeners by message name, for faster lookup.
           -- TODO: report conflicting names, or statically eliminate them using

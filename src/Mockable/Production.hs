@@ -33,6 +33,7 @@ import           Mockable.BoundedQueue
 import           Network.Transport.ConnectionBuffers (Buffer(..), BufferT(..))
 import           Serokell.Util.Concurrent as Serokell
 import           Universum                (MonadFail (..))
+import qualified Data.Sequence            as Seq
 
 newtype Production t = Production
     { runProduction :: IO t
@@ -132,58 +133,35 @@ instance HasLoggerName Production where
     getLoggerName = return "*production*"
     modifyLoggerName = const id
 
+type instance BufferT Production = BQueue
 
-data TBQueue t = TBQueue {
-      front :: !(TVar.TVar (TBQueueList t))
-    , back :: !(TVar.TVar (TBQueueList t))
-    , bound :: !(TVar.TVar (Maybe Int))
-    , size :: !(TVar.TVar Int)
-    }
-
-data TBQueueList t = TBQNil | TBQCons t !(TVar.TVar (TBQueueList t))
-
-
-type instance BufferT Production = TBQueue
+-- | A very simple mutable bounded queue. Perhaps not so good because reads
+--   always contend with writes.
+newtype BQueue t = BQueue (TVar.TVar (Int, Seq.Seq t))
 
 instance Mockable Buffer Production where
 
     liftMockable (NewBuffer bound) = Production $ do
-        front <- TVar.newTVarIO TBQNil
-        back <- TVar.newTVarIO TBQNil
-        bound <- TVar.newTVarIO (Just bound)
-        size <- TVar.newTVarIO 0
-        return $ TBQueue front back bound size
+        tvar <- TVar.newTVarIO (bound, Seq.empty)
+        return $ BQueue tvar
 
-    liftMockable (ReadBuffer tbq k) = Production . Conc.atomically $ do
-        it <- TVar.readTVar (front tbq)
-        case it of
-            TBQNil -> Conc.retry
-            TBQCons t next -> do
-                let (replace, r) = k t
-                case replace of
-                    Nothing -> do
-                        next' <- TVar.readTVar next
-                        TVar.writeTVar (front tbq) next'
-                    Just s -> TVar.writeTVar (front tbq) (TBQCons s next)
-                TVar.modifyTVar' (size tbq) (\x -> x - 1)
-                return r
+    liftMockable (ReadBuffer (BQueue tvar) k) = Production . Conc.atomically $ do
+        (bound, seq) <- TVar.readTVar tvar
+        case Seq.viewl seq of
+            t Seq.:< rest -> case k t of
+                (Just replace, r) -> do
+                    TVar.writeTVar tvar (bound, replace Seq.<| rest)
+                    return r
+                (Nothing, r) -> do
+                    TVar.writeTVar tvar (bound, rest)
+                    return r
+            _ -> Conc.retry
 
-    liftMockable (WriteBuffer tbq t) = Production . Conc.atomically $ do
-        bound <- TVar.readTVar (bound tbq)
-        cur <- TVar.readTVar (size tbq)
-        if maybe False (\b -> b <= cur) bound
+    liftMockable (WriteBuffer (BQueue tvar) t) = Production . Conc.atomically $ do
+        (bound, seq) <- TVar.readTVar tvar
+        if (Seq.length seq >= bound)
         then Conc.retry
-        else do
-            it <- TVar.readTVar (back tbq)
-            case it of
-                TBQNil -> do
-                    tail <- TVar.newTVar TBQNil
-                    let only = TBQCons t tail
-                    TVar.writeTVar (front tbq) only
-                    TVar.writeTVar (back tbq) only
-                TBQCons _ end -> do
-                    newEnd <- TVar.newTVar TBQNil
-                    let tail = TBQCons t newEnd
-                    TVar.writeTVar end tail
-                    TVar.writeTVar (back tbq) tail
-            TVar.modifyTVar' (size tbq) ((+) 1)
+        else TVar.writeTVar tvar (bound, seq Seq.|> t)
+
+    liftMockable (BoundBuffer (BQueue tvar) f) = Production . Conc.atomically $
+        TVar.modifyTVar' tvar (\(bound, seq) -> (f bound, seq))

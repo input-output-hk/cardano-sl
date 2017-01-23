@@ -53,6 +53,11 @@ data Buffer (m :: * -> *) (t :: *) where
     --   a buffer and you have leftover data.
     ReadBuffer :: BufferT m t -> (t -> (Maybe t, r)) -> Buffer m r
     WriteBuffer :: BufferT m t -> t -> Buffer m ()
+    -- | Impose a new bound on the buffer. No data should be dropped in case
+    --   the new bound is lower than the old bound. That's to say, the buffer
+    --   must maintain that writes are not possible when size >= bound, and
+    --   size > bound is entirely possible.
+    BoundBuffer :: BufferT m t -> (Int -> Int) -> Buffer m ()
 
 newBuffer :: ( Mockable Buffer m ) => Int -> m (BufferT m t)
 newBuffer bound = liftMockable $ NewBuffer bound
@@ -65,6 +70,9 @@ readBuffer buffer f = liftMockable $ ReadBuffer buffer f
 
 readBuffer_ :: ( Mockable Buffer m ) => BufferT m t -> m t
 readBuffer_ buffer = liftMockable $ ReadBuffer buffer (\t -> (Nothing, t))
+
+boundBuffer :: ( Mockable Buffer m ) => BufferT m t -> (Int -> Int) -> m ()
+boundBuffer buffer f = liftMockable $ BoundBuffer buffer f
 
 -- | Try to decode a binary thing from a buffer. Any leftovers will be replaced.
 --   Closed and Lost are always replaced.

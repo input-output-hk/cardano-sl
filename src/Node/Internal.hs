@@ -17,6 +17,9 @@ module Node.Internal (
     Node(..),
     nodeId,
     nodeEndPointAddress,
+    Statistics(..),
+    PeerStatistics(..),
+    nodeStatistics,
     ChannelIn,
     ChannelOut,
     startNode,
@@ -97,6 +100,10 @@ nodeId = NodeId . NT.address . nodeEndPoint
 
 nodeEndPointAddress :: NodeId -> NT.EndPointAddress
 nodeEndPointAddress (NodeId addr) = addr
+
+nodeStatistics :: ( Mockable SharedAtomic m ) => Node m -> m Statistics
+nodeStatistics Node{..} = modifySharedAtomic nodeState $ \st ->
+    return (st, _nodeStateStatistics st)
 
 -- | Used to identify bidirectional connections.
 newtype Nonce = Nonce {
@@ -379,9 +386,13 @@ stRemoveHandler provenance statistics = case provenance of
                     -- Incremental average involves changing the denominator (we
                     -- have one fewer sample now).
                     avg' :: Double
-                    avg' = avg * (dpeers / (dpeers - 1)) + (1 / (dpeers - 1))
+                    avg' = if npeers == 1
+                           then 0
+                           else avg * (dpeers / (dpeers - 1)) + (1 / (dpeers - 1))
                     avg2' :: Double
-                    avg2' = avg2 * (dpeers / (dpeers - 1)) + (1 / (dpeers - 1))
+                    avg2' = if npeers == 1
+                            then 0
+                            else avg2 * (dpeers / (dpeers - 1)) + (1 / (dpeers - 1))
                 -- Peer has remaining handlers.
                 False -> (stPeers statistics, (avg', avg2'))
                     where
@@ -421,9 +432,13 @@ stRemoveHandler provenance statistics = case provenance of
                     -- Incremental average involves changing the denominator (we
                     -- have one fewer sample now).
                     avg' :: Double
-                    avg' = avg * (dpeers / (dpeers - 1)) + (1 / (dpeers - 1))
+                    avg' = if npeers == 1
+                           then 0
+                           else avg * (dpeers / (dpeers - 1)) + (1 / (dpeers - 1))
                     avg2' :: Double
-                    avg2' = avg2 * (dpeers / (dpeers - 1)) + (1 / (dpeers - 1))
+                    avg2' = if npeers == 1
+                            then 0
+                            else avg2 * (dpeers / (dpeers - 1)) + (1 / (dpeers - 1))
                 -- Peer has remaining handlers.
                 False -> (stPeers statistics, (avg', avg2'))
                     where

@@ -221,6 +221,7 @@ library
                         Pos.DB.Iterator.DBIterator
                         Pos.DB.Lrc
                         Pos.DB.Lrc.Common
+                        Pos.DB.Lrc.Issuers
                         Pos.DB.Lrc.Leaders
                         Pos.DB.Lrc.Lrc
                         Pos.DB.Lrc.Richmen

@@ -33,7 +33,7 @@ view state =
                     ]
                 , footerView state
                 ]
-        , headerView state -- absolute
+        , headerView state
       ]
 
 

@@ -16,6 +16,8 @@
   --fontFamily0-Bold: 'fontFamily0-Bold';
 
   --height-header-top: 70px;
+  /* TODO (jk) Use a larger image instead of adding min-height*/
+  --min-height-header-bg-image: 300px;
 }
 
 /* ---------------------------

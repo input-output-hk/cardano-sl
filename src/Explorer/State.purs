@@ -16,7 +16,6 @@ type State =
     { lang :: Language
     , route :: Route
     , count :: Int
-    , scrollPos :: Int
     }
 
 initialState :: State
@@ -24,7 +23,6 @@ initialState =
     { lang: English
     , route: Dashboard
     , count: 0
-    , scrollPos: 0
     }
 
 

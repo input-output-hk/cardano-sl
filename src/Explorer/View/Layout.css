@@ -6,9 +6,10 @@
   left: 0;
   right: 0;
   bottom: 0;
+  background-color: var(--color2);
   background-image: url('../static/images/header.jpg');
   background-repeat: no-repeat;
-  background-size: 100%;
+  background-size: 100% var(--min-height-header-bg-image);
 }
 
 .explorer-content__wrapper {

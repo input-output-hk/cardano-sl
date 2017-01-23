@@ -8,7 +8,7 @@
   background-color: var(--color2);
   background-image: url('../static/images/header.jpg');
   background-repeat: no-repeat;
-  background-size: 100%;
+  background-size: 100% var(--min-height-header-bg-image);
 
   &__container {
     @neat-outer-container;

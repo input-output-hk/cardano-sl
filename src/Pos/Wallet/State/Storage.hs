@@ -26,6 +26,7 @@ import           Data.HashMap.Strict            (HashMap)
 import qualified Data.HashMap.Strict            as HM
 import           Data.SafeCopy                  (base, deriveSafeCopySimple)
 import           Data.Time.Units                (Microsecond)
+import           Serokell.Data.Memory.Units     (Byte)
 import           Universum
 
 import qualified Pos.Constants                  as Const
@@ -48,7 +49,7 @@ data Storage = Storage
     , _delegations   :: HashMap Address (ProxyCert (EpochIndex, EpochIndex))
       -- “Constants”
     , _slotDuration  :: Microsecond
-    , _maxBlockSize  :: Word64
+    , _maxBlockSize  :: Byte
     }
 
 makeClassy ''Storage
@@ -70,5 +71,5 @@ type Update a = forall m. (MonadThrow m, MonadState Storage m) => m a
 getSlotDuration :: Query Microsecond
 getSlotDuration = view slotDuration
 
-getMaxBlockSize :: Query Word64
+getMaxBlockSize :: Query Byte
 getMaxBlockSize = view maxBlockSize

@@ -99,6 +99,9 @@ module Pos.Util
 
        , NamedMessagePart (..)
        -- * Instances
+       -- ** Lift Byte
+       -- ** FromJSON Byte
+       -- ** ToJSON Byte
        -- ** SafeCopy (NonEmpty a)
        -- ** SafeCopy Microsecond
        -- ** MonadFail (Either s), assuming IsString s
@@ -118,6 +121,7 @@ import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
 import qualified Control.Monad                 as Monad (fail)
 import           Control.Monad.STM             (retry)
 import           Control.Monad.Trans.Resource  (ResourceT)
+import           Data.Aeson                    (FromJSON (..), ToJSON (..))
 import           Data.Binary                   (Binary)
 import qualified Data.Cache.LRU                as LRU
 import           Data.Hashable                 (Hashable)
@@ -133,6 +137,8 @@ import qualified Data.Text                     as T
 import           Data.Time.Units               (Microsecond, Second, convertUnit)
 import           Formatting                    (sformat, shown, stext, (%))
 import           Language.Haskell.TH
+import           Language.Haskell.TH.Syntax    (Lift)
+import qualified Language.Haskell.TH.Syntax
 import           Mockable                      (Async, Bracket, Delay, Fork, Mockable,
                                                 Promise, Throw, async, bracket, cancel,
                                                 delay, fork, killThread, throw, waitAny)
@@ -142,6 +148,7 @@ import           Node                          (ConversationActions (..),
 import           Node.Message                  (MessageName (..), Packable, Unpackable,
                                                 messageName, messageName')
 import           Prelude                       (read)
+import           Serokell.Data.Memory.Units    (Byte, fromBytes, toBytes)
 import           Serokell.Util                 (VerificationRes (..))
 import           System.Console.ANSI           (Color (..), ColorIntensity (Vivid),
                                                 ConsoleLayer (Foreground),
@@ -349,6 +356,15 @@ _neTail f (x :| xs) = (x :|) <$> f xs
 _neLast :: Lens' (NonEmpty a) a
 _neLast f (x :| []) = (:| []) <$> f x
 _neLast f (x :| xs) = (\y -> x :| unsafeInit xs ++ [y]) <$> f (unsafeLast xs)
+
+instance Lift Byte where
+    lift x = let b = toBytes x in [|fromBytes b :: Byte|]
+
+instance FromJSON Byte where
+    parseJSON = fmap fromBytes . parseJSON
+
+instance ToJSON Byte where
+    toJSON = toJSON . toBytes
 
 -- [SRK-51]: we should try to get this one into safecopy itself though it's
 -- unlikely that they will choose a different implementation (if they do

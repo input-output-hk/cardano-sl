@@ -10,7 +10,10 @@ module Pos.CompileConfig.Type
        ) where
 
 import           Language.Haskell.TH.Syntax (Lift)
+import           Serokell.Data.Memory.Units (Byte)
 import           Universum
+
+import           Pos.Util                   ()
 
 -- | Compile time configuration. See example in /constants.yaml/ file.
 data CompileConfig = CompileConfig
@@ -18,7 +21,7 @@ data CompileConfig = CompileConfig
       -- ^ Security parameter from paper
     , ccSlotDurationSec               :: !Int
       -- ^ Length of slot in seconds
-    , ccMaxBlockSize                  :: !Word64
+    , ccMaxBlockSize                  :: !Byte
       -- ^ Maximum block size in bytes
     , ccNetworkDiameter               :: !Int
       -- ^ Estimated time for broadcasting messages

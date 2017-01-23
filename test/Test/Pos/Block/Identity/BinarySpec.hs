@@ -6,19 +6,20 @@ module Test.Pos.Block.Identity.BinarySpec
        ( spec
        ) where
 
-import           Data.Reflection       (reify)
-import           Test.Hspec            (Spec, describe)
-import           Test.Hspec.QuickCheck (prop)
+import           Data.Reflection            (reify)
+import           Serokell.Data.Memory.Units (Byte)
+import           Test.Hspec                 (Spec, describe)
+import           Test.Hspec.QuickCheck      (prop)
 import           Universum
 
-import           Pos.Block.Arbitrary   ()
-import qualified Pos.Block.Network     as BT
-import           Pos.Ssc.GodTossing    (SscGodTossing)
-import           Pos.Ssc.NistBeacon    (SscNistBeacon)
-import qualified Pos.Types             as BT
+import           Pos.Block.Arbitrary        ()
+import qualified Pos.Block.Network          as BT
+import           Pos.Ssc.GodTossing         (SscGodTossing)
+import           Pos.Ssc.NistBeacon         (SscNistBeacon)
+import qualified Pos.Types                  as BT
 
-import           Test.Pos.Util         (binaryTest, networkBinaryEncodeDecode,
-                                        networkBinaryTest)
+import           Test.Pos.Util              (binaryTest, networkBinaryEncodeDecode,
+                                             networkBinaryTest)
 
 spec :: Spec
 spec = describe "Block types" $ do
@@ -32,7 +33,7 @@ spec = describe "Block types" $ do
                 networkBinaryTest @(BT.MsgHeaders SscNistBeacon)
                 networkBinaryTest @(BT.MsgHeaders SscGodTossing)
             describe "MsgBlock" $ do
-              reify (1000000 :: Word64) $ \(_ :: Proxy s0) -> do
+              reify (1000000 :: Byte) $ \(_ :: Proxy s0) -> do
                 -- We can't use 'networkBinaryTest' here because 's0'
                 -- isn't guaranteed to be Typeable.
                 prop "MsgBlock SscNistBeacon" $

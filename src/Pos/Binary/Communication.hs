@@ -3,26 +3,27 @@
 
 module Pos.Binary.Communication () where
 
-import           Data.Binary.Get          (getInt32be, getWord8, isolate, label)
-import           Data.Binary.Put          (putInt32be, putLazyByteString, putWord8,
-                                           runPut)
-import qualified Data.ByteString.Lazy     as BSL
-import           Data.Reflection          (Reifies, reflect)
-import           Formatting               (formatToString, int, (%))
-import           Node.Message             (MessageName (..))
+import           Data.Binary.Get            (getInt32be, getWord8, isolate, label)
+import           Data.Binary.Put            (putInt32be, putLazyByteString, putWord8,
+                                             runPut)
+import qualified Data.ByteString.Lazy       as BSL
+import           Data.Reflection            (Reifies, reflect)
+import           Formatting                 (formatToString, int, (%))
+import           Node.Message               (MessageName (..))
+import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
-import           Pos.Binary.Class         (Bi (..))
-import           Pos.Block.Network.Types  (MsgBlock (..), MsgGetBlocks (..),
-                                           MsgGetHeaders (..), MsgHeaders (..))
-import           Pos.Communication.Types  (SysStartRequest (..), SysStartResponse (..),
-                                           VersionReq (..), VersionResp (..))
-import           Pos.Delegation.Types     (CheckProxySKConfirmed (..),
-                                           CheckProxySKConfirmedRes (..),
-                                           ConfirmProxySK (..), SendProxySK (..))
-import           Pos.Ssc.Class.Types      (Ssc (..))
-import           Pos.Txp.Types            (TxMsgTag (..))
-import           Pos.Update.Network.Types (ProposalMsgTag (..), VoteMsgTag (..))
+import           Pos.Binary.Class           (Bi (..))
+import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
+                                             MsgGetHeaders (..), MsgHeaders (..))
+import           Pos.Communication.Types    (SysStartRequest (..), SysStartResponse (..),
+                                             VersionReq (..), VersionResp (..))
+import           Pos.Delegation.Types       (CheckProxySKConfirmed (..),
+                                             CheckProxySKConfirmedRes (..),
+                                             ConfirmProxySK (..), SendProxySK (..))
+import           Pos.Ssc.Class.Types        (Ssc (..))
+import           Pos.Txp.Types              (TxMsgTag (..))
+import           Pos.Update.Network.Types   (ProposalMsgTag (..), VoteMsgTag (..))
 
 deriving instance Bi MessageName
 
@@ -57,7 +58,7 @@ instance Ssc ssc => Bi (MsgHeaders ssc) where
     put (MsgHeaders b) = put b
     get = MsgHeaders <$> get
 
-instance (Ssc ssc, Reifies s Word64) => Bi (MsgBlock s ssc) where
+instance (Ssc ssc, Reifies s Byte) => Bi (MsgBlock s ssc) where
     -- We encode block size and then the block itself so that we'd be able to
     -- reject the block if it's of the wrong size without consuming the whole
     -- block. Unfortunately, @binary@ doesn't provide a method to limit byte

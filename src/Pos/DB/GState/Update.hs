@@ -33,36 +33,37 @@ module Pos.DB.GState.Update
        , getConfirmedProposals
        ) where
 
-import           Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
-import           Data.Time.Units           (Microsecond)
-import qualified Database.RocksDB          as Rocks
+import           Control.Monad.Trans.Maybe  (MaybeT (..), runMaybeT)
+import           Data.Time.Units            (Microsecond)
+import qualified Database.RocksDB           as Rocks
+import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
-import           Pos.Binary.Class          (encodeStrict)
-import           Pos.Binary.DB             ()
-import qualified Pos.Constants             as Const
-import           Pos.Crypto                (hash)
-import           Pos.DB.Class              (MonadDB, getUtxoDB)
-import           Pos.DB.Error              (DBError (DBMalformed))
-import           Pos.DB.Functions          (RocksBatchOp (..), encodeWithKeyPrefix,
-                                            rocksWriteBatch)
-import           Pos.DB.GState.Common      (getBi)
-import           Pos.DB.Iterator           (DBIteratorClass (..), DBnIterator,
-                                            DBnMapIterator, IterType, runDBnIterator,
-                                            runDBnMapIterator)
-import           Pos.DB.Types              (NodeDBs (..))
-import           Pos.Genesis               (genesisProtocolVersion, genesisScriptVersion,
-                                            genesisSoftwareVersions)
-import           Pos.Script.Type           (ScriptVersion)
-import           Pos.Types                 (ApplicationName, ChainDifficulty,
-                                            NumSoftwareVersion, ProtocolVersion, SlotId,
-                                            SoftwareVersion (..))
-import           Pos.Update.Core           (UpId, UpdateProposal (..))
-import           Pos.Update.Poll.Types     (DecidedProposalState (dpsDifficulty),
-                                            ProposalState (..),
-                                            UndecidedProposalState (upsSlot), psProposal)
-import           Pos.Util                  (maybeThrow)
-import           Pos.Util.Iterator         (MonadIterator (..))
+import           Pos.Binary.Class           (encodeStrict)
+import           Pos.Binary.DB              ()
+import qualified Pos.Constants              as Const
+import           Pos.Crypto                 (hash)
+import           Pos.DB.Class               (MonadDB, getUtxoDB)
+import           Pos.DB.Error               (DBError (DBMalformed))
+import           Pos.DB.Functions           (RocksBatchOp (..), encodeWithKeyPrefix,
+                                             rocksWriteBatch)
+import           Pos.DB.GState.Common       (getBi)
+import           Pos.DB.Iterator            (DBIteratorClass (..), DBnIterator,
+                                             DBnMapIterator, IterType, runDBnIterator,
+                                             runDBnMapIterator)
+import           Pos.DB.Types               (NodeDBs (..))
+import           Pos.Genesis                (genesisProtocolVersion, genesisScriptVersion,
+                                             genesisSoftwareVersions)
+import           Pos.Script.Type            (ScriptVersion)
+import           Pos.Types                  (ApplicationName, ChainDifficulty,
+                                             NumSoftwareVersion, ProtocolVersion, SlotId,
+                                             SoftwareVersion (..))
+import           Pos.Update.Core            (UpId, UpdateProposal (..))
+import           Pos.Update.Poll.Types      (DecidedProposalState (dpsDifficulty),
+                                             ProposalState (..),
+                                             UndecidedProposalState (upsSlot), psProposal)
+import           Pos.Util                   (maybeThrow)
+import           Pos.Util.Iterator          (MonadIterator (..))
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -106,7 +107,7 @@ getSlotDuration = return Const.slotDuration
 -- | Get maximum block size (in bytes).
 --
 -- TODO: should be stored in the database.
-getMaxBlockSize :: MonadDB ssc m => m Word64
+getMaxBlockSize :: MonadDB ssc m => m Byte
 getMaxBlockSize = return Const.maxBlockSize
 
 ----------------------------------------------------------------------------

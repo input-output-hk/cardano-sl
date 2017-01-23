@@ -65,6 +65,7 @@ module Pos.Constants
 import           Data.Time.Units            (Microsecond)
 import           Language.Haskell.TH.Syntax (lift, runIO)
 import           Pos.Util.TimeWarp          (ms, sec)
+import           Serokell.Data.Memory.Units (Byte)
 import           System.Environment         (lookupEnv)
 import qualified Text.Parsec                as P
 import           Universum                  hiding (lift)
@@ -156,8 +157,8 @@ maxLocalTxs :: Integral i => i
 maxLocalTxs = fromIntegral . ccMaxLocalTxs $ compileConfig
 
 -- | Maximum size of a block (in bytes)
-maxBlockSize :: Integral i => i
-maxBlockSize = fromIntegral . ccMaxBlockSize $ compileConfig
+maxBlockSize :: Byte
+maxBlockSize = ccMaxBlockSize $ compileConfig
 
 -- | Maximum number of PSKs allowed in block
 maxBlockProxySKs :: Integral i => i

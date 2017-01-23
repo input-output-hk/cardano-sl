@@ -13,6 +13,7 @@ import           Data.Reflection             (reify)
 import           Formatting                  (sformat, shown, (%))
 import           Node                        (ConversationActions (..),
                                               ListenerAction (..))
+import           Serokell.Data.Memory.Units  (Byte)
 import           Serokell.Util.Text          (listJson)
 import           System.Wlog                 (WithLogger, logDebug, logWarning)
 import           Universum
@@ -66,7 +67,7 @@ handleGetBlocks
 handleGetBlocks =
     -- NB #put_checkBlockSize: We can use anything as maxBlockSize
     -- here because 'put' doesn't check block size.
-    reify (0 :: Word64) $ \(_ :: Proxy s0) ->
+    reify (0 :: Byte) $ \(_ :: Proxy s0) ->
     ListenerActionConversation $
         \__peerId (conv :: ConversationActions
                                (MsgBlock s0 ssc)

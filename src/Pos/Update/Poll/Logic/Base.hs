@@ -126,7 +126,11 @@ canBeProposedPure BlockVersion { bvMajor = givenMajor
         givenAlt == (S.findMax relevantProposed + 1) ||
         givenAlt `S.member` relevantProposed
   where
-    relevantProposed = S.map bvAlt $ S.filter predicate proposed
+    -- Here we can use mapMonotonic, even though 'bvAlt' itself is not
+    -- necessary monotonic.
+    -- That's because after filtering all versions have same major and minor
+    -- components.
+    relevantProposed = S.mapMonotonic bvAlt $ S.filter predicate proposed
     predicate BlockVersion {..} = bvMajor == givenMajor && bvMinor == givenMinor
 
 ----------------------------------------------------------------------------

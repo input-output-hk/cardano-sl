@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeFamilies        #-}
 
 -- | Slotting functionality.
@@ -11,8 +12,15 @@ module Pos.Slotting
 
        , onNewSlot
        , onNewSlotWithLogging
+
+       -- * Slotting state
+       , SlottingState (..)
+       , ssSlotDurationL
+       , ssNtpLastSlotL
+       , ssNtpDataL
        ) where
 
+import           Control.Lens             (makeLensesFor)
 import           Control.Monad            (void)
 import           Control.Monad.Catch      (MonadCatch, catch)
 import           Control.Monad.Except     (ExceptT)
@@ -59,6 +67,24 @@ instance MonadSlots m => MonadSlots (ReaderT s m) where
 instance MonadSlots m => MonadSlots (ExceptT s m) where
 instance MonadSlots m => MonadSlots (StateT s m) where
 instance MonadSlots m => MonadSlots (KademliaDHT m) where
+
+-- | Data needed for the slotting algorithm to work.
+data SlottingState = SlottingState
+    {
+    -- | Current slot duration. (It can be changed by update proposals.)
+      ssSlotDuration :: !Microsecond
+    -- | Slot which was returned from getCurrentSlot in last time
+    , ssNtpLastSlot  :: !SlotId
+    -- | Data for the NTP Worker. First element: margin (difference between
+    -- global time and local time) which we got from NTP server in last time.
+    -- Second element: time (local) for which we got margin in last time.
+    , ssNtpData      :: !(Microsecond, Microsecond)
+    }
+
+flip makeLensesFor ''SlottingState [
+    ("ssSlotDuration", "ssSlotDurationL"),
+    ("ssNtpLastSlot", "ssNtpLastSlotL"),
+    ("ssNtpData", "ssNtpDataL") ]
 
 -- | Get flat id of current slot based on MonadSlots.
 getCurrentSlotFlat :: MonadSlots m => m FlatSlotId

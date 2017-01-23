@@ -11,16 +11,16 @@ module Pos.Context.Context
 
 import qualified Control.Concurrent.STM         as STM
 import           Control.Concurrent.STM.TBQueue (TBQueue)
-import           Data.Time.Units                (Microsecond)
 import           Node                           (NodeId)
 import           Universum
 
 import           Pos.Crypto                     (PublicKey, SecretKey, toPublic)
 import           Pos.Security.CLI               (AttackTarget, AttackType)
+import           Pos.Slotting                   (SlottingState)
 import           Pos.Ssc.Class.Types            (Ssc (SscNodeContext))
 import           Pos.Types                      (Address, BlockHeader, EpochIndex,
-                                                 HeaderHash, SlotId, SlotLeaders,
-                                                 Timestamp (..), Utxo, makePubKeyAddress)
+                                                 HeaderHash, SlotLeaders, Timestamp (..),
+                                                 Utxo, makePubKeyAddress)
 import           Pos.Util                       (NE, NewestFirst)
 import           Pos.Util.UserSecret            (UserSecret)
 
@@ -37,14 +37,14 @@ type LrcSyncData = (Bool, EpochIndex)
 data NodeContext ssc = NodeContext
     { ncSystemStart         :: !Timestamp
     -- ^ Time when system started working.
-    , ncSlotDuration        :: !Microsecond
-    -- ^ Length of slot
     , ncSecretKey           :: !SecretKey
     -- ^ Secret key used for blocks creation.
     , ncGenesisUtxo         :: !Utxo
     -- ^ Genesis utxo
     , ncGenesisLeaders      :: !SlotLeaders
     -- ^ Leaders for 0-th epoch
+    , ncSlottingState       :: !(STM.TVar SlottingState)
+    -- ^ Data needed for the slotting algorithm to work
     , ncTimeLord            :: !Bool
     -- ^ Is time lord
     , ncJLFile              :: !(Maybe (MVar FilePath))
@@ -66,13 +66,6 @@ data NodeContext ssc = NodeContext
     -- ^ Secret keys (and path to file) which are used to send transactions
     , ncKademliaDump        :: !FilePath
     -- ^ Path to kademlia dump file
-    , ncNtpData             :: !(STM.TVar (Microsecond, Microsecond))
-    -- ^ Data for NTP Worker.
-    -- First element is margin (difference between global time and local time)
-    -- which we got from NTP server in last tme.
-    -- Second element is time (local time) for which we got margin in last time.
-    , ncNtpLastSlot         :: !(STM.TVar SlotId)
-    -- ^ Slot which was returned from getCurrentSlot in last time
     , ncBlockRetrievalQueue :: !(TBQueue (NodeId, NewestFirst NE (BlockHeader ssc)))
     -- ^ Concurrent queue that holds block headers that are to be
     -- downloaded.

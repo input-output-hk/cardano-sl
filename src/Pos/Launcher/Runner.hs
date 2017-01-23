@@ -81,6 +81,7 @@ import           Pos.DHT.Real                (KademliaDHTInstance,
 import           Pos.Genesis                 (genesisLeaders)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NodeParams (..))
+import           Pos.Slotting                (SlottingState (..))
 import           Pos.Ssc.Class               (SscConstraint, SscNodeContext, SscParams,
                                               sscCreateNodeContext, sscLoadGlobalState)
 import           Pos.Ssc.Class.Listeners     (SscListenersClass)
@@ -255,19 +256,21 @@ runCH NodeParams {..} sscNodeContext act = do
     forM_ ownPSKs addProxySecretKey
 
     userSecretVar <- liftIO . newTVarIO $ npUserSecret
-    ntpData <- currentTime >>= \x -> liftIO (newTVarIO $ (0, x))
-    -- current time isn't quite validly, but it doesn't matter
-    lastSlot <- liftIO $ newTVarIO $ unflattenSlotId 0
     queue <- liftIO $ newTBQueueIO blockRetrievalQueueSize
     recoveryHeaderVar <- liftIO newEmptyTMVarIO
-    slotDuration <- GState.getSlotDuration
+    slottingStateVar <- do
+        ssSlotDuration <- GState.getSlotDuration
+        ssNtpData <- (0,) <$> currentTime
+        -- current time isn't quite validly, but it doesn't matter
+        let ssNtpLastSlot = unflattenSlotId 0
+        liftIO $ newTVarIO SlottingState{..}
     let ctx =
             NodeContext
             { ncSystemStart = npSystemStart
             , ncSecretKey = npSecretKey
-            , ncSlotDuration = slotDuration
             , ncGenesisUtxo = npCustomUtxo
             , ncGenesisLeaders = genesisLeaders npCustomUtxo
+            , ncSlottingState = slottingStateVar
             , ncTimeLord = npTimeLord
             , ncJLFile = jlFile
             , ncDbPath = npDbPathM
@@ -279,8 +282,6 @@ runCH NodeParams {..} sscNodeContext act = do
             , ncLrcSync = lrcSync
             , ncUserSecret = userSecretVar
             , ncKademliaDump = bpKademliaDump npBaseParams
-            , ncNtpData = ntpData
-            , ncNtpLastSlot = lastSlot
             , ncBlockRetrievalQueue = queue
             , ncRecoveryHeader = recoveryHeaderVar
             }

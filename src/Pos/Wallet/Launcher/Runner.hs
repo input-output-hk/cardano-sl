@@ -22,6 +22,7 @@ import           Pos.DHT.Real                (runKademliaDHT)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
                                               RealModeResources (..), addDevListeners,
                                               runServer)
+import           Pos.Slotting                (SlottingState (..))
 
 import           Pos.Types                   (unflattenSlotId)
 import           Pos.Wallet.Context          (WalletContext (..), runContextHolder)
@@ -80,15 +81,15 @@ runRawRealWallet
 runRawRealWallet res WalletParams {..} listeners action =
     usingLoggerName lpRunnerTag .
     bracket openDB closeDB $ \db -> do
-        ntpData <- currentTime >>= liftIO . newTVarIO . (0, )
-        lastSlot <- liftIO . newTVarIO $ unflattenSlotId 0
-        slotDuration <- runWalletDB db getSlotDuration
+        slottingStateVar <- do
+            ssSlotDuration <- runWalletDB db getSlotDuration
+            ssNtpData <- (0,) <$> currentTime
+            let ssNtpLastSlot = unflattenSlotId 0
+            liftIO $ newTVarIO SlottingState{..}
         let walletContext
               = WalletContext
               { wcSystemStart = wpSystemStart
-              , wcSlotDuration = slotDuration
-              , wcNtpData = ntpData
-              , wcNtpLastSlot = lastSlot
+              , wcSlottingState = slottingStateVar
               }
         runContextHolder walletContext .
             runWalletDB db .

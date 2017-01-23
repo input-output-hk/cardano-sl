@@ -31,7 +31,8 @@ import           Universum
 import           Pos.Slotting                (MonadSlots (..), getCurrentSlotUsingNtp)
 import           Pos.Types                   (Timestamp (..))
 import           Pos.Wallet.Context.Class    (WithWalletContext (..), readNtpData,
-                                              readNtpLastSlot, readNtpMargin)
+                                              readNtpLastSlot, readNtpMargin,
+                                              readSlotDuration)
 import           Pos.Wallet.Context.Context  (WalletContext (..))
 
 -- | Wrapper for monadic action which brings 'WalletContext'.
@@ -86,5 +87,4 @@ instance (Mockable CurrentTime m, MonadIO m) =>
         lastSlot <- readNtpLastSlot
         ntpData <- readNtpData
         getCurrentSlotUsingNtp lastSlot ntpData
-    getSlotDuration =
-        ContextHolder $ asks wcSlotDuration
+    getSlotDuration = readSlotDuration

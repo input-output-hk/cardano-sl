@@ -6,17 +6,14 @@ module Pos.Wallet.Context.Context
        ) where
 
 import qualified Control.Concurrent.STM as STM
-import           Data.Time.Units        (Microsecond)
 
 import           Pos.Context            (NodeContext (..))
-import           Pos.Types              (SlotId, Timestamp)
+import           Pos.Slotting           (SlottingState)
+import           Pos.Types              (Timestamp)
 
 data WalletContext = WalletContext
-    { wcSystemStart  :: !Timestamp -- ^ Time when system started working
-    , wcSlotDuration :: !Microsecond
-
-    , wcNtpData      :: !(STM.TVar (Microsecond, Microsecond))
-    , wcNtpLastSlot  :: !(STM.TVar SlotId)
+    { wcSystemStart   :: !Timestamp -- ^ Time when system started working
+    , wcSlottingState :: !(STM.TVar SlottingState)
     }
 
 -- ctxFromParams :: WalletParams -> WalletContext
@@ -27,7 +24,5 @@ data WalletContext = WalletContext
 fromNodeCtx :: NodeContext ssc -> WalletContext
 fromNodeCtx NodeContext {..} = WalletContext
     { wcSystemStart = ncSystemStart
-    , wcSlotDuration = ncSlotDuration
-    , wcNtpData = ncNtpData
-    , wcNtpLastSlot = ncNtpLastSlot
+    , wcSlottingState = ncSlottingState
     }

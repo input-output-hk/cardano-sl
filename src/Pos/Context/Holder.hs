@@ -28,7 +28,8 @@ import           Universum                 hiding (catchAll)
 
 import           Pos.Context.Class         (WithNodeContext (..))
 import           Pos.Context.Context       (NodeContext (..))
-import           Pos.Context.Functions     (readNtpData, readNtpLastSlot, readNtpMargin)
+import           Pos.Context.Functions     (readNtpData, readNtpLastSlot, readNtpMargin,
+                                            readSlotDuration)
 import           Pos.DB.Class              (MonadDB)
 import           Pos.Slotting              (MonadSlots (..), getCurrentSlotUsingNtp)
 import           Pos.Txp.Class             (MonadTxpLD)
@@ -83,8 +84,7 @@ instance (Mockable CurrentTime m, MonadIO m) =>
         ntpData <- readNtpData
         getCurrentSlotUsingNtp lastSlot ntpData
 
-    getSlotDuration =
-        ContextHolder $ asks ncSlotDuration
+    getSlotDuration = readSlotDuration
 
 instance (MonadIO m, Mockable Catch m, WithLogger m) => MonadJL (ContextHolder ssc m) where
     jlLog ev = ContextHolder (asks ncJLFile) >>= maybe (pure ()) doLog

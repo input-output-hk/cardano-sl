@@ -421,6 +421,7 @@ library
                       , list-t
                       , transformers
                       , transformers-base
+                      , turtle
                       , universum >= 0.1.11
                       , unordered-containers
                       , vector

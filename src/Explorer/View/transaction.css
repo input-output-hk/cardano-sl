@@ -2,9 +2,45 @@
 
 .explorer-transaction {
 
-  background-color: var(--color0);
+  &__wrapper {
+    background-color: var(--color4);
+
+    &:nth-child(even) {
+      background-color: var(--color6);
+    }
+  }
 
   &__container {
     @neat-outer-container;
+    padding: 56px 48px 48px 48px;
+  }
+
+  .table-summary {
+
+    font-family: var(--fontFamily0-Regular);
+    font-size: 10px;
+    color: var(--color8);
+    width: 100%;
+
+    tr {
+
+      &:nth-child(odd) {
+        background-color: transparent;
+      }
+
+      &:nth-child(even) {
+        background-color: var(--color7);
+      }
+    }
+
+    td {
+      padding: 10px;
+
+      &:first-child {
+        padding-left: 24px;
+        width: 164px;
+      }
+    }
+
   }
 }

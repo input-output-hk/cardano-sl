@@ -8,6 +8,12 @@
 	--color1: #082737;
 	--color2: #0c1723;
 	--color3: #fcfcfc;
+	--color4: #fafbfc;
+	--color5: #ce851f;
+	--color6: #f3f6f9;
+	--color7: #edf0f3;
+	--color8: #333333;
+
 
   --max-width-desktop: 960px;
 
@@ -73,4 +79,13 @@
 /* TODO (jk) remove btn class */
 .btn {
   button: standard-button;
+}
+
+.headline {
+  font-family: var(--fontFamily0-Regular);
+  color: var(--color5);
+  font-size: 12px;
+  font-weight: normal;
+  text-transform: uppercase;
+  padding: 0 24px 24px 24px;
 }

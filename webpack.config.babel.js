@@ -10,7 +10,7 @@ const {
 import HtmlWebpackPlugin from 'html-webpack-plugin';
 import NamedModulesPlugin from 'webpack/lib/NamedModulesPlugin';
 import UglifyJsPlugin from 'webpack/lib/optimize/UglifyJsPlugin';
-import GitRevisionPlugin from'git-revision-webpack-plugin';
+import GitRevisionPlugin from 'git-revision-webpack-plugin';
 import CopyWebpackPlugin from 'copy-webpack-plugin';
 import ExtractTextPlugin from 'extract-text-webpack-plugin'
 

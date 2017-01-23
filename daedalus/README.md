@@ -73,7 +73,23 @@ Daedalus.ClientApi.getWallet('XXX')()
 _newWallet_
 
 ```javascript
-Daedalus.ClientApi.newWallet('CWTPersonal', 'ADA', '')()
+Daedalus.ClientApi.newWallet(
+    'CWTPersonal'
+  , 'ADA'
+  , 'wallet name'
+  , function(mnemonics) { 
+    // if this function finishes we will send request for wallet
+    // creation to the backend. That means user validated and
+    // stored mnemonics.
+    // if an exception is thrown new wallet request will be aborted
+    // and promise should return thrown error
+    if(userSavedMnemonics) {
+      // do nothing
+    } else {
+      throw new Error("Wallet canceled")
+    }
+  }
+  )()
   .then(function(value) {
     console.log('SUCCESS', value);
   }, function(reason) {

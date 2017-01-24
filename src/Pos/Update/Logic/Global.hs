@@ -20,15 +20,16 @@ import           Universum
 import           Pos.Constants        (lastKnownBlockVersion)
 import qualified Pos.DB               as DB
 import           Pos.DB.GState        (UpdateOp (..))
-import           Pos.Types            (ApplicationName, Block, BlockVersion,
+import           Pos.Types            (ApplicationName, BiSsc, Block, BlockVersion,
                                        NumSoftwareVersion, SoftwareVersion (..),
                                        difficultyL, gbBody, gbHeader, mbUpdatePayload)
-import           Pos.Update.Core      (UpId, UpdateProposal)
+import           Pos.Update.Core      (UpId)
 import           Pos.Update.Error     (USError (USInternalError))
-import           Pos.Update.Poll      (BlockVersionState, DBPoll, MonadPoll,
-                                       PollModifier (..), PollT, PollVerFailure,
-                                       ProposalState, USUndo, canCreateBlockBV, execPollT,
-                                       execRollT, rollbackUSPayload, runDBPoll, runPollT,
+import           Pos.Update.Poll      (BlockVersionState, ConfirmedProposalState, DBPoll,
+                                       MonadPoll, PollModifier (..), PollT,
+                                       PollVerFailure, ProposalState, USUndo,
+                                       canCreateBlockBV, execPollT, execRollT,
+                                       rollbackUSPayload, runDBPoll, runPollT,
                                        verifyAndApplyUSPayload)
 import           Pos.Util             (Color (Red), NE, NewestFirst, OldestFirst,
                                        colorize, inAssertMode)
@@ -44,7 +45,7 @@ type USGlobalVerifyMode ы m = (DB.MonadDB ы m, MonadError PollVerFailure m)
 -- US local data. This function assumes that no other thread applies block in
 -- parallel. It also assumes that parent of oldest block is current tip.
 usApplyBlocks
-    :: (MonadThrow m, USGlobalApplyMode ssc m)
+    :: (MonadThrow m, USGlobalApplyMode ssc m, BiSsc ssc)
     => OldestFirst NE (Block ssc)
     -> PollModifier
     -> m [DB.SomeBatchOp]
@@ -82,14 +83,14 @@ usRollbackBlocks blunds =
 -- are assumed to be done earlier, most likely during objects
 -- construction.
 usVerifyBlocks
-    :: USGlobalVerifyMode ssc m
+    :: (USGlobalVerifyMode ssc m, BiSsc ssc)
     => OldestFirst NE (Block ssc) -> m (PollModifier, OldestFirst NE USUndo)
 usVerifyBlocks blocks = swap <$> run (mapM verifyBlock blocks)
   where
     run = runDBPoll . runPollT def
 
 verifyBlock
-    :: (USGlobalVerifyMode ssc m, MonadPoll m)
+    :: (USGlobalVerifyMode ssc m, MonadPoll m, BiSsc ssc)
     => Block ssc -> m USUndo
 verifyBlock (Left _)    = pure def
 verifyBlock (Right blk) = execRollT $ do
@@ -131,7 +132,7 @@ lastAdoptedModifierToBatch (Just v) = [DB.SomeBatchOp $ SetLastAdopted v]
 
 confirmedModifierToBatch :: HashMap ApplicationName NumSoftwareVersion
                          -> HashSet ApplicationName
-                         -> HashMap NumSoftwareVersion UpdateProposal
+                         -> HashMap NumSoftwareVersion ConfirmedProposalState
                          -> [DB.SomeBatchOp]
 confirmedModifierToBatch
     (HM.toList -> added)

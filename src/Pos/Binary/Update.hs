@@ -86,6 +86,14 @@ instance Bi U.USUndo where
         put unChangedProps *>
         put unChangedSV
 
+instance Bi U.UpsExtra where
+    put U.UpsExtra {..} = put ueProposedBlk
+    get = U.UpsExtra <$> get
+
+instance Bi U.DpsExtra where
+    put U.DpsExtra {..} = put deDecidedBlk *> put deImplicit
+    get = U.DpsExtra <$> get <*> get
+
 instance Bi U.UndecidedProposalState where
     put U.UndecidedProposalState {..} = do
         put upsVotes
@@ -93,14 +101,14 @@ instance Bi U.UndecidedProposalState where
         put upsSlot
         put upsPositiveStake
         put upsNegativeStake
-    get = U.UndecidedProposalState <$> get <*> get <*> get <*> get <*> get
+    get = U.UndecidedProposalState <$> get <*> get <*> get <*> get <*> get <*> get
 
 instance Bi U.DecidedProposalState where
     put U.DecidedProposalState {..} = do
         put dpsDecision
         put dpsUndecided
         put dpsDifficulty
-    get = U.DecidedProposalState <$> get <*> get <*> get
+    get = U.DecidedProposalState <$> get <*> get <*> get <*> get
 
 instance Bi U.ProposalState where
     put (U.PSUndecided us) = putWord8 0 >> put us
@@ -109,6 +117,23 @@ instance Bi U.ProposalState where
         0 -> U.PSUndecided <$> get
         1 -> U.PSDecided <$> get
         x -> fail $ "get@ProposalState: invalid tag: " <> show x
+
+--instance Binary U.ConfirmedProposalState
+instance Bi U.ConfirmedProposalState where
+    put U.ConfirmedProposalState {..} = do
+        put cpsUpdateProposal
+        put cpsImplicit
+        put cpsProposed
+        put cpsDecided
+        put cpsConfirmed
+        put cpsAdopted
+        put cpsVotes
+        put cpsPositiveStake
+        put cpsNegativeStake
+    get = U.ConfirmedProposalState
+          <$> get <*> get <*> get
+          <*> get <*> get <*> get
+          <*> get <*> get <*> get
 
 instance Bi U.BlockVersionState where
     put (U.BlockVersionState {..}) = put bvsScript *> put bvsIsConfirmed

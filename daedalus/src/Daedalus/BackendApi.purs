@@ -114,3 +114,6 @@ deleteWallet addr = postR ["delete_wallet", _address addr]
 
 isValidAddress :: forall eff. CCurrency -> String -> Aff (ajax :: AJAX | eff) Boolean
 isValidAddress cCurrency addr = getR ["valid_address", showCCurrency cCurrency, addr]
+
+blockchainSlotDuration :: forall eff. Aff (ajax :: AJAX | eff) Int
+blockchainSlotDuration = getR ["slot_duration"]

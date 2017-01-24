@@ -2,7 +2,9 @@
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
--- | Module for websockets implementation of Daedalus API
+-- | Module for websockets implementation of Daedalus API.
+-- This implements unidirectional sockets from server to client.
+-- Every message received from client will be ignored.
 
 module Pos.Wallet.Web.Server.Sockets
        ( WalletWebSockets

@@ -13,7 +13,8 @@ module Pos.Wallet.Web.Server.Methods
 
 import           Control.Monad.Catch           (try)
 import           Control.Monad.Except          (runExceptT)
-import           Data.Default                  (def)
+import           Control.Monad.Trans.State     (get, runStateT)
+import           Data.Default                  (Default, def)
 import           Data.List                     (elemIndex, (!!))
 import           Data.Time.Clock.POSIX         (getPOSIXTime)
 import           Formatting                    (build, ords, sformat, stext, (%))
@@ -31,9 +32,10 @@ import           Pos.Aeson.ClientTypes         ()
 import           Pos.Constants                 (slotDuration)
 import           Pos.Crypto                    (toPublic)
 import           Pos.DHT.Model                 (dhtAddr, getKnownPeers)
-import           Pos.Types                     (Address, Coin, TxOut (..), addressF,
-                                                coinF, decodeTextAddress,
-                                                makePubKeyAddress, mkCoin)
+import           Pos.Types                     (Address, ChainDifficulty (..), Coin,
+                                                TxOut (..), addressF, coinF,
+                                                decodeTextAddress, makePubKeyAddress,
+                                                mkCoin)
 import           Pos.Util                      (maybeThrow)
 import           Pos.Util.BackupPhrase         (keysFromPhrase)
 import           Pos.Web.Server                (serveImpl)
@@ -45,6 +47,7 @@ import           Pos.Wallet.Tx                 (submitTx)
 import           Pos.Wallet.Tx.Pure            (TxHistoryEntry (..))
 import           Pos.Wallet.WalletMode         (WalletMode, getBalance, getNextUpdate,
                                                 getTxHistory, getUpdates,
+                                                localChainDifficulty,
                                                 networkChainDifficulty)
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CProfile,
@@ -74,6 +77,12 @@ import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWeb
 ----------------------------------------------------------------------------
 
 type WalletWebHandler m = WalletWebSockets (WalletWebDB m)
+
+type WalletWebMode ssc m
+    = ( WalletMode ssc m
+      , MonadWalletWebDB m
+      , MonadWalletWebSockets m
+      )
 
 walletServeImpl
     :: (MonadIO m, MonadMask m)
@@ -125,15 +134,29 @@ walletServer sendActions nat = do
         time <- liftIO getPOSIXTime
         pure $ CProfile mempty mempty mempty mempty time mempty mempty
 
+------------------------
+-- Notifier
+------------------------
+
+data SyncProgress =
+    SyncProgress { spLocalCD   :: ChainDifficulty
+                 , spNetworkCD :: ChainDifficulty
+                 }
+
+instance Default SyncProgress where
+    def = let chainDef = ChainDifficulty 0 in SyncProgress chainDef chainDef
+
+type SyncState = StateT SyncProgress
+
 -- FIXME: this is really inaficient. Temporary solution
 launchNotifier :: WalletWebMode ssc m => (m :~> Handler) -> m ()
-launchNotifier nat = void . liftIO $ sequence
-    [ dummyHistoryNotifier
+launchNotifier nat = void . liftIO $ mapM startForking
+    [ dificultyNotifier
     , updateNotifier
     ]
   where
-    cooldownPeriod = 5000000        -- 5 sec
-    historyNotifyPeriod = 10000000  -- 10 sec
+    cooldownPeriod = 5000000         -- 5 sec
+    difficultyNotifyPeriod = 500000  -- 0.5 sec
     updateNotifyPeriod = fromIntegral slotDuration
     forkForever action = forkFinally action $ const $ do
         -- TODO: log error
@@ -142,13 +165,22 @@ launchNotifier nat = void . liftIO $ sequence
         void $ forkForever action
     -- TODO: use Servant.enter here
     -- FIXME: don't ignore errors, send error msg to the socket
-    notifier period action = forkForever . void . runExceptT . unNat nat $ forever $ do
+    startForking = forkForever . void . runExceptT . unNat nat
+    notifier period action = forever $ do
         liftIO $ threadDelay period
         action
     -- NOTE: temp solution, dummy notifier that pings every 10 secs
-    dummyHistoryNotifier = notifier historyNotifyPeriod $ do
-        logInfo "TX HISTORY NOTIFICATION"
-        notify NewTransaction
+    dificultyNotifier = flip runStateT def $ notifier difficultyNotifyPeriod $ do
+        networkDifficulty <- networkChainDifficulty
+        -- TODO: use lenses!
+        whenM ((networkDifficulty /=) . spNetworkCD <$> get) $ do
+            lift $ notify $ NetworkDifficultyChanged networkDifficulty
+            modify $ \sp -> sp { spNetworkCD = networkDifficulty }
+
+        localDifficulty <- localChainDifficulty
+        whenM ((localDifficulty /=) . spLocalCD <$> get) $ do
+            lift $ notify $ LocalDifficultyChanged localDifficulty
+            modify $ \sp -> sp { spLocalCD = localDifficulty }
     updateNotifier = notifier updateNotifyPeriod $ do
         updates <- getUpdates
         unless (null updates) $ do
@@ -168,12 +200,6 @@ launchNotifier nat = void . liftIO $ sequence
 ----------------------------------------------------------------------------
 -- Handlers
 ----------------------------------------------------------------------------
-
-type WalletWebMode ssc m
-    = ( WalletMode ssc m
-      , MonadWalletWebDB m
-      , MonadWalletWebSockets m
-      )
 
 servantHandlers :: WalletWebMode ssc m => SendActions BiP m -> ServerT WalletApi m
 servantHandlers sendActions =
@@ -204,6 +230,8 @@ servantHandlers sendActions =
      catchWalletError . updateUserProfile
     :<|>
      catchWalletError nextUpdate
+    :<|>
+     catchWalletError blockchainSlotDuration
   where
     -- TODO: can we with Traversable map catchWalletError over :<|>
     -- TODO: add logging on error
@@ -338,6 +366,9 @@ nextUpdate :: WalletWebMode ssc m => m CUpdateInfo
 nextUpdate = getNextUpdate >>=
              maybeThrow (Internal "No updates available") .
              fmap toCUpdateInfo
+
+blockchainSlotDuration :: WalletWebMode ssc m => m Word
+blockchainSlotDuration = pure $ fromIntegral slotDuration
 
 ----------------------------------------------------------------------------
 -- Helpers

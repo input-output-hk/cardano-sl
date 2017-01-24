@@ -254,7 +254,7 @@ instance MonadIO m => MonadUpdates (WalletDB m) where
 -- | Instance for full node
 instance (Ssc ssc, MonadDB ssc m) => MonadUpdates (PC.ContextHolder ssc m) where
     getUpdates = filter (HM.member appSystemTag . upData . cpsUpdateProposal) <$>
-                 GS.getConfirmedProposals (svNumber curSoftwareVersion)
+                 GS.getConfirmedProposals (Just $ svNumber curSoftwareVersion)
 
 getNextUpdate :: MonadUpdates m => m (Maybe ConfirmedProposalState)
 getNextUpdate = head . sortBy cmpVersions <$> getUpdates

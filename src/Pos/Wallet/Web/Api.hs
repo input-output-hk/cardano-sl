@@ -51,6 +51,8 @@ type WalletApi =
      "api" :> "update_profile" :> ReqBody '[JSON] CProfile :> Post '[JSON] (Either WalletError CProfile)
     :<|>
      "api" :> "next_update" :> Get '[JSON] (Either WalletError CUpdateInfo)
+    :<|>
+     "api" :> "slot_duration" :> Get '[JSON] (Either WalletError Word)
 
 -- | Helper Proxy.
 walletApi :: Proxy WalletApi

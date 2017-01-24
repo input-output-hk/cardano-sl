@@ -59,8 +59,10 @@ import           Pos.Wallet.Tx.Pure    (TxHistoryEntry (..))
 -- Notifications
 data NotifyEvent
     = ConnectionOpened
-    | NewWalletTransaction CAddress
-    | NewTransaction
+    -- | NewWalletTransaction CAddress
+    -- | NewTransaction
+    | NetworkDifficultyChanged ChainDifficulty -- ie new block or fork (rollback)
+    | LocalDifficultyChanged ChainDifficulty -- ie new block or fork (rollback)
     | UpdateAvailable
     | ConnectionClosed
     deriving (Show, Generic)

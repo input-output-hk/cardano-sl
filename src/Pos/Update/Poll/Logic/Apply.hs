@@ -20,7 +20,8 @@ import           Pos.Constants              (blkSecurityParam, curSoftwareVersio
                                              updateImplicitApproval,
                                              updateProposalThreshold, updateVoteThreshold)
 import           Pos.Crypto                 (hash)
-import           Pos.Types                  (BiSsc, ChainDifficulty, Coin, EpochIndex,
+import           Pos.Ssc.Class              (Ssc)
+import           Pos.Types                  (ChainDifficulty, Coin, EpochIndex,
                                              HeaderHash, MainBlockHeader,
                                              SlotId (siEpoch), SoftwareVersion (..),
                                              addressHash, applyCoinPortion, coinToInteger,
@@ -52,7 +53,7 @@ import           Pos.Update.Poll.Types      (BlockVersionState (..),
 -- When it is 'Right header', it means that payload from block with
 -- given header is applied.
 verifyAndApplyUSPayload
-    :: forall ssc m . (MonadError PollVerFailure m, MonadPoll m, BiSsc ssc)
+    :: forall ssc m . (MonadError PollVerFailure m, MonadPoll m, Ssc ssc)
     => Bool -> Either SlotId (MainBlockHeader ssc) -> UpdatePayload -> m ()
 verifyAndApplyUSPayload considerPropThreshold slotOrHeader UpdatePayload {..} = do
     -- First of all, we verify data from header.
@@ -130,7 +131,8 @@ resolveVoteStake epoch totalStake UpdateVote {..} = do
 -- If all checks pass, proposal is added. It can be in undecided or decided
 -- state (if it has enough voted stake at once).
 verifyAndApplyProposal
-    :: forall ssc m . (MonadError PollVerFailure m, MonadPoll m, BiSsc ssc)
+    :: forall ssc m.
+       (MonadError PollVerFailure m, MonadPoll m, Ssc ssc)
     => Bool
     -> Either SlotId (MainBlockHeader ssc)
     -> [UpdateVote]

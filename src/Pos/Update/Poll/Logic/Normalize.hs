@@ -17,7 +17,8 @@ import           Universum
 
 import           Pos.Constants               (updateProposalThreshold)
 import           Pos.Crypto                  (PublicKey, hash)
-import           Pos.Types                   (Coin, EpochIndex, SlotId, applyCoinPortion, BiSsc)
+import           Pos.Ssc.Class               (Ssc)
+import           Pos.Types                   (Coin, EpochIndex, SlotId, applyCoinPortion)
 import           Pos.Update.Core             (LocalVotes, UpId, UpdateProposals,
                                               UpdateVote (..))
 import           Pos.Update.Poll.Class       (MonadPoll (..), MonadPollRead (..))
@@ -32,7 +33,7 @@ import           Pos.Util                    (getKeys)
 -- state, i. e. remove everything that is invalid. Valid data is
 -- applied.  This function doesn't consider 'updateProposalThreshold'.
 normalizePoll
-    :: forall ssc m . (MonadPoll m, WithLogger m, BiSsc ssc)
+    :: forall ssc m . (MonadPoll m, WithLogger m, Ssc ssc)
     => SlotId
     -> UpdateProposals
     -> LocalVotes
@@ -43,7 +44,7 @@ normalizePoll slot proposals votes =
 -- Apply proposals which can be applied and put them in result.
 -- Disregard other proposals.
 normalizeProposals
-    :: forall ssc m . (MonadPoll m, BiSsc ssc)
+    :: forall ssc m . (MonadPoll m, Ssc ssc)
     => SlotId -> UpdateProposals -> m UpdateProposals
 normalizeProposals slotId (toList -> proposals) =
     HM.fromList . map (\x->(hash x, x)) . map fst . catRights proposals <$>

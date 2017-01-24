@@ -20,7 +20,8 @@ import           Universum
 import           Pos.Constants        (lastKnownBlockVersion)
 import qualified Pos.DB               as DB
 import           Pos.DB.GState        (UpdateOp (..))
-import           Pos.Types            (ApplicationName, BiSsc, Block, BlockVersion,
+import           Pos.Ssc.Class        (Ssc)
+import           Pos.Types            (ApplicationName, Block, BlockVersion,
                                        NumSoftwareVersion, SoftwareVersion (..),
                                        difficultyL, gbBody, gbHeader, mbUpdatePayload)
 import           Pos.Update.Core      (UpId)
@@ -34,8 +35,8 @@ import           Pos.Update.Poll      (BlockVersionState, ConfirmedProposalState
 import           Pos.Util             (Color (Red), NE, NewestFirst, OldestFirst,
                                        colorize, inAssertMode)
 
-type USGlobalApplyMode endless_useless m = (WithLogger m, DB.MonadDB endless_useless m)
-type USGlobalVerifyMode ы m = (DB.MonadDB ы m, MonadError PollVerFailure m)
+type USGlobalApplyMode ssc m = (WithLogger m, DB.MonadDB ssc m, Ssc ssc)
+type USGlobalVerifyMode ы m = (DB.MonadDB ы m, MonadError PollVerFailure m, Ssc ы)
 
 -- TODO: I suppose blocks are needed here only for sanity check, but who knows.
 -- Anyway, it's ok.
@@ -45,7 +46,7 @@ type USGlobalVerifyMode ы m = (DB.MonadDB ы m, MonadError PollVerFailure m)
 -- US local data. This function assumes that no other thread applies block in
 -- parallel. It also assumes that parent of oldest block is current tip.
 usApplyBlocks
-    :: (MonadThrow m, USGlobalApplyMode ssc m, BiSsc ssc)
+    :: (MonadThrow m, USGlobalApplyMode ssc m)
     => OldestFirst NE (Block ssc)
     -> PollModifier
     -> m [DB.SomeBatchOp]
@@ -83,14 +84,14 @@ usRollbackBlocks blunds =
 -- are assumed to be done earlier, most likely during objects
 -- construction.
 usVerifyBlocks
-    :: (USGlobalVerifyMode ssc m, BiSsc ssc)
+    :: (USGlobalVerifyMode ssc m)
     => OldestFirst NE (Block ssc) -> m (PollModifier, OldestFirst NE USUndo)
 usVerifyBlocks blocks = swap <$> run (mapM verifyBlock blocks)
   where
     run = runDBPoll . runPollT def
 
 verifyBlock
-    :: (USGlobalVerifyMode ssc m, MonadPoll m, BiSsc ssc)
+    :: (USGlobalVerifyMode ssc m, MonadPoll m)
     => Block ssc -> m USUndo
 verifyBlock (Left _)    = pure def
 verifyBlock (Right blk) = execRollT $ do

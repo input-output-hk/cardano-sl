@@ -29,10 +29,10 @@ import           Universum
 
 import           Pos.Crypto            (PublicKey, hash)
 import           Pos.Script.Type       (ScriptVersion)
-import           Pos.Types             (BiSsc, BlockVersion (..), Coin,
-                                        MainBlockHeader, SlotId, addressHash,
-                                        coinToInteger, difficultyL, headerHashG,
-                                        headerSlot, sumCoins, unsafeAddCoin,
+import           Pos.Ssc.Class         (Ssc)
+import           Pos.Types             (BlockVersion (..), Coin, MainBlockHeader, SlotId,
+                                        addressHash, coinToInteger, difficultyL,
+                                        headerHashG, headerSlot, sumCoins, unsafeAddCoin,
                                         unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Update.Core       (UpdateProposal (..), UpdateVote (..),
                                         combineVotes, isPositiveVote, newVoteState)
@@ -221,7 +221,7 @@ voteToUProposalState voter stake decision ups@UndecidedProposalState {..} = do
 -- their stakes.
 putNewProposal
     :: forall ssc m.
-       (MonadPoll m, BiSsc ssc)
+       (MonadPoll m, Ssc ssc)
     => Either SlotId (MainBlockHeader ssc)
     -> Coin
     -> [(UpdateVote, Coin)]

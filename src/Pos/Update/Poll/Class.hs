@@ -31,6 +31,8 @@ class Monad m => MonadPollRead m where
     -- ^ Retrieve state of given block version.
     getProposedBVs :: m [BlockVersion]
     -- ^ Retrieve all proposed block version.
+    getConfirmedBVStates :: m [(BlockVersion, BlockVersionState)]
+    -- ^ Get all confirmed 'BlockVersion's and their states.
     getLastBVState :: m BlockVersionState
     -- ^ Retrieve state of last adopted block version.
     getLastAdoptedBV :: m BlockVersion
@@ -69,6 +71,11 @@ class Monad m => MonadPollRead m where
     default getProposedBVs
         :: (MonadTrans t, MonadPollRead m', t m' ~ m) => m [BlockVersion]
     getProposedBVs = lift getProposedBVs
+
+    default getConfirmedBVStates
+        :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
+        m [(BlockVersion, BlockVersionState)]
+    getConfirmedBVStates = lift getConfirmedBVStates
 
     default getLastBVState
         :: (MonadTrans t, MonadPollRead m', t m' ~ m) => m BlockVersionState

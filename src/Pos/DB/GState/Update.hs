@@ -33,6 +33,7 @@ module Pos.DB.GState.Update
 
        , BVIter
        , getProposedBVs
+       , getConfirmedBVStates
        ) where
 
 import           Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
@@ -269,6 +270,15 @@ getProposedBVs = runDBnIterator @BVIter _gStateDB (step [])
   where
     step res = nextItem >>= maybe (pure res) (onItem res)
     onItem res (bv, BlockVersionState {..}) = step (bv : res)
+
+-- | Get all confirmed 'BlockVersion's and their states.
+getConfirmedBVStates :: MonadDB ssc m => m [(BlockVersion, BlockVersionState)]
+getConfirmedBVStates = runDBnIterator @BVIter _gStateDB (step [])
+  where
+    step res = nextItem >>= maybe (pure res) (onItem res)
+    onItem res (bv, bvs@BlockVersionState {..})
+        | bvsIsConfirmed = step ((bv, bvs) : res)
+        | otherwise = step res
 
 ----------------------------------------------------------------------------
 -- Keys ('us' prefix stands for Update System)

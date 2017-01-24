@@ -91,6 +91,7 @@ instance MonadDB patak m =>
          MonadPollRead (DBPoll m) where
     getBVState = GS.getBVState
     getProposedBVs = GS.getProposedBVs
+    getConfirmedBVStates = GS.getConfirmedBVStates
     getLastBVState = GS.getLastBVState
     getLastAdoptedBV = GS.getLastAdoptedBV
     getLastConfirmedSV = GS.getConfirmedSV

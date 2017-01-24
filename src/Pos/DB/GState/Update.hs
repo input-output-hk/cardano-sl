@@ -30,6 +30,9 @@ module Pos.DB.GState.Update
 
        , ConfPropIter
        , getConfirmedProposals
+
+       , BVIter
+       , getProposedBVs
        ) where
 
 import           Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
@@ -232,6 +235,21 @@ getConfirmedProposals reqNsv = runDBnIterator @ConfPropIter _gStateDB (step [])
         | nsv > reqNsv = step (up:res)
         | otherwise    = step res
 
+-- Iterator by block versions
+data BVIter
+
+instance DBIteratorClass BVIter where
+    type IterKey BVIter = BlockVersion
+    type IterValue BVIter = BlockVersionState
+    iterKeyPrefix _ = bvStateIterationPrefix
+
+-- | Get all proposed 'BlockVersion's.
+getProposedBVs :: MonadDB ssc m => m [BlockVersion]
+getProposedBVs = runDBnIterator @BVIter _gStateDB (step [])
+  where
+    step res = nextItem >>= maybe (pure res) (onItem res)
+    onItem res (bv, BlockVersionState {..}) = step (bv : res)
+
 ----------------------------------------------------------------------------
 -- Keys ('us' prefix stands for Update System)
 ----------------------------------------------------------------------------
@@ -240,7 +258,10 @@ lastBVKey :: ByteString
 lastBVKey = "us/last-adopted-block-v"
 
 bvStateKey :: BlockVersion -> ByteString
-bvStateKey = mappend "us/bvs/" . encodeStrict
+bvStateKey = encodeWithKeyPrefix @BVIter
+
+bvStateIterationPrefix :: ByteString
+bvStateIterationPrefix = "us/bvs/"
 
 proposalKey :: UpId -> ByteString
 proposalKey = encodeWithKeyPrefix @PropIter

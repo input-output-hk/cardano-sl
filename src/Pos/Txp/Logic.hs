@@ -28,8 +28,8 @@ import           Universum
 import           Pos.Block.Types        (Blund, Undo (undoTx))
 import           Pos.Constants          (maxLocalTxs)
 import           Pos.Crypto             (WithHash (..), hash, withHash)
-import           Pos.DB                 (DB, MonadDB,
-                                         SomePrettyBatchOp (SomePrettyBatchOp), getUtxoDB)
+import           Pos.DB                 (MonadDB, SomePrettyBatchOp (SomePrettyBatchOp),
+                                         getUtxoDB)
 import           Pos.DB.GState          (BalancesOp (..), CommonOp (..), UtxoOp (..),
                                          getTip, getTotalFtsStake)
 import           Pos.Ssc.Class.Types    (Ssc)
@@ -169,41 +169,41 @@ processTx itw@(txId, (tx, _, _)) = do
     resolved <-
       foldM (\s inp -> maybe s (\x -> HM.insert inp x s) <$> utxoGet inp)
             mempty (txInputs tx)
-    db <- getUtxoDB
     pRes <- modifyTxpLD $ \txld@(_, mp, _, tip) ->
         let localSize = localTxsSize mp in
         if tipBefore == tip
         then if localSize < maxLocalTxs
-             then processTxDo txld resolved db itw
+             then processTxDo txld resolved itw
              else (PTRoverwhelmed, txld)
         else (mkPTRinvalid ["Tips aren't same"], txld)
     pRes <$ logDebug (sformat ("Transaction processed: "%build) txId)
 
 -- CHECK: @processTxDo
 -- #verifyTxPure
-processTxDo :: TxpLD ssc -> HM.HashMap TxIn TxOutAux -> DB ssc
-            -> (TxId, TxAux) -> (ProcessTxRes, TxpLD ssc)
-processTxDo ld@(uv, mp, undos, tip) resolvedIns utxoDB (id, (tx, txw, txd))
-    | HM.member id locTxs = (PTRknown, ld)
+processTxDo :: TxpLD ssc
+            -> HM.HashMap TxIn TxOutAux
+            -> (TxId, TxAux)
+            -> (ProcessTxRes, TxpLD ssc)
+processTxDo ld@(UtxoView{..}, MemPool{..}, undos, tip)
+            resolvedIns
+            (id, (tx, txw, txd))
+    | HM.member id localTxs = (PTRknown, ld)
     | otherwise =
         case verifyRes of
-            Right _     -> newState addUtxo' delUtxo' locTxs locTxsSize undos
+            Right _     -> newState addUtxo delUtxo localTxs localTxsSize undos
             Left errors -> (PTRinvalid (formatAllErrors errors), ld)
   where
-    verifyRes =
-        verifyTxPure True VTxGlobalContext inputResolver (tx, txw, txd)
-    locTxs = localTxs mp
-    locTxsSize = localTxsSize mp
-    addUtxo' = addUtxo uv
-    delUtxo' = delUtxo uv
+    verifyRes = verifyTxPure
+        True VTxGlobalContext
+        (fmap VTxLocalContext . inputResolver)
+        (tx, txw, txd)
     inputResolver tin
-        | HS.member tin delUtxo' = Nothing
+        | HS.member tin delUtxo = Nothing
         | otherwise =
-            VTxLocalContext <$>
-            maybe (HM.lookup tin addUtxo') Just (HM.lookup tin resolvedIns)
+            maybe (HM.lookup tin addUtxo) Just (HM.lookup tin resolvedIns)
     prependToUndo undo inp =
-        fromMaybe (panic "Input not resolved")
-                  (HM.lookup inp resolvedIns) : undo
+        fromMaybe (panic "Input isn't resolved")
+                  (inputResolver inp) : undo
     newState nAddUtxo nDelUtxo oldTxs oldSize oldUndos =
         let keys = zipWith TxIn (repeat id) [0 ..]
             zipKeys = zip keys (txOutputs tx `zip` getTxDistribution txd)

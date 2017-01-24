@@ -6,6 +6,7 @@
 
 module Pos.Update.Logic.Global
        ( usApplyBlocks
+       , usCanCreateBlock
        , usRollbackBlocks
        , usVerifyBlocks
        ) where
@@ -16,6 +17,7 @@ import qualified Data.HashMap.Strict  as HM
 import           System.Wlog          (WithLogger, logError)
 import           Universum
 
+import           Pos.Constants        (lastKnownBlockVersion)
 import qualified Pos.DB               as DB
 import           Pos.DB.GState        (UpdateOp (..))
 import           Pos.Types            (ApplicationName, Block, BlockVersion,
@@ -25,8 +27,8 @@ import           Pos.Update.Core      (UpId, UpdateProposal)
 import           Pos.Update.Error     (USError (USInternalError))
 import           Pos.Update.Poll      (BlockVersionState, DBPoll, MonadPoll,
                                        PollModifier (..), PollT, PollVerFailure,
-                                       ProposalState, USUndo, execPollT, execRollT,
-                                       rollbackUSPayload, runDBPoll, runPollT,
+                                       ProposalState, USUndo, canCreateBlockBV, execPollT,
+                                       execRollT, rollbackUSPayload, runDBPoll, runPollT,
                                        verifyAndApplyUSPayload)
 import           Pos.Util             (Color (Red), NE, NewestFirst, OldestFirst,
                                        colorize, inAssertMode)
@@ -95,6 +97,11 @@ verifyBlock (Right blk) = execRollT $ do
         True
         (Right $ blk ^. gbHeader)
         (blk ^. gbBody . mbUpdatePayload)
+
+-- | Checks whether our software can create block according to current
+-- global state.
+usCanCreateBlock :: DB.MonadDB ы m => m Bool
+usCanCreateBlock = runDBPoll $ canCreateBlockBV lastKnownBlockVersion
 
 ----------------------------------------------------------------------------
 -- Conversion to batch

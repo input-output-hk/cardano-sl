@@ -86,6 +86,7 @@ instance MonadPollRead m =>
     getBVState pv = do
         new <- pmNewBVs <$> PollT get
         maybe (PollT $ getBVState pv) (pure . Just) $ HM.lookup pv new
+    getProposedBVs = PollT getProposedBVs
     getLastBVState = do
         lpv <- getLastAdoptedBV
         maybe (PollT getLastBVState) pure =<< getBVState lpv

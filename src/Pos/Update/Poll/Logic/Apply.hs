@@ -20,21 +20,20 @@ import           Pos.Constants              (blkSecurityParam, curSoftwareVersio
                                              updateImplicitApproval,
                                              updateProposalThreshold, updateVoteThreshold)
 import           Pos.Crypto                 (hash)
-import           Pos.Types                  (BlockVersion (..), ChainDifficulty, Coin,
-                                             EpochIndex, MainBlockHeader,
-                                             SlotId (siEpoch), SoftwareVersion (..),
-                                             addressHash, applyCoinPortion, canBeNextPV,
-                                             coinToInteger, difficultyL, epochIndexL,
-                                             flattenSlotId, gbhExtra, headerSlot,
-                                             mehBlockVersion, sumCoins, unflattenSlotId,
-                                             unsafeIntegerToCoin)
+import           Pos.Types                  (ChainDifficulty, Coin, EpochIndex,
+                                             MainBlockHeader, SlotId (siEpoch),
+                                             SoftwareVersion (..), addressHash,
+                                             applyCoinPortion, coinToInteger, difficultyL,
+                                             epochIndexL, flattenSlotId, gbhExtra,
+                                             headerSlot, mehBlockVersion, sumCoins,
+                                             unflattenSlotId, unsafeIntegerToCoin)
 import           Pos.Update.Core            (UpId, UpdatePayload (..),
                                              UpdateProposal (..), UpdateVote (..))
 import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Logic.Base (confirmBlockVersion, getBVScript,
-                                             isConfirmedBV, isDecided, mkTotNegative,
-                                             mkTotPositive, mkTotSum, putNewProposal,
-                                             voteToUProposalState)
+import           Pos.Update.Poll.Logic.Base (canBeProposedBV, canCreateBlockBV,
+                                             confirmBlockVersion, getBVScript, isDecided,
+                                             mkTotNegative, mkTotPositive, mkTotSum,
+                                             putNewProposal, voteToUProposalState)
 import           Pos.Update.Poll.Types      (BlockVersionState (..),
                                              DecidedProposalState (..),
                                              PollVerFailure (..), ProposalState (..),
@@ -89,17 +88,8 @@ verifyHeader
     => MainBlockHeader __ -> m ()
 verifyHeader header = do
     lastAdopted <- getLastAdoptedBV
-    -- Block version in header is valid in two cases:
-    -- • it is equal to last adopted version
-    -- • its (major, minor) is strictly greater than (major, minor) of last
-    -- adopted version and this block version is confirmed
     let versionInHeader = header ^. gbhExtra ^. mehBlockVersion
-    isConfirmed <- isConfirmedBV versionInHeader
-    let toMajMin BlockVersion {..} = (bvMajor, bvMinor)
-    let versionIsValid =
-            versionInHeader == lastAdopted ||
-            (toMajMin versionInHeader > toMajMin lastAdopted && isConfirmed)
-    unless versionIsValid $
+    unlessM (canCreateBlockBV versionInHeader) $
         throwError
             PollWrongHeaderBlockVersion
             {pwhpvGiven = versionInHeader, pwhpvAdopted = lastAdopted}
@@ -237,16 +227,14 @@ verifySoftwareVersion upId UpdateProposal {..} =
     sv = upSoftwareVersion
     app = svAppName sv
 
--- Here we verify that proposed protocol version is the same as
--- adopted one or can follow it.
+-- Here we verify that proposed protocol version could be proposed.
+-- See documentation of 'Logic.Base.canBeProposedBV' for details.
 verifyBlockVersion
     :: (MonadError PollVerFailure m, MonadPollRead m)
     => UpId -> UpdateProposal -> m ()
 verifyBlockVersion upId UpdateProposal {..} = do
     lastAdopted <- getLastAdoptedBV
-    unless
-        (lastAdopted == upBlockVersion ||
-         canBeNextPV lastAdopted upBlockVersion) $
+    unlessM (canBeProposedBV upBlockVersion) $
         throwError
             PollBadBlockVersion
             { pbpvUpId = upId

@@ -47,7 +47,14 @@ instance Bi U.UpdateData where
 
 instance Bi U.UpdateProposal where
     get = label "UpdateProposal" $
-          U.UpdateProposal <$> get <*> get <*> get <*> getUpData <*> get
+          U.UpdateProposal
+            <$> get
+            <*> get
+            <*> get
+            <*> get
+            <*> get
+            <*> getUpData
+            <*> get
       where getUpData = do   -- Check if proposal data is non-empty
                 pd <- get
                 when (HM.null pd) $
@@ -56,6 +63,8 @@ instance Bi U.UpdateProposal where
     put U.UpdateProposal {..} =  put upBlockVersion
                               *> put upScriptVersion
                               *> put upSoftwareVersion
+                              *> put upSlotDuration
+                              *> put upMaxBlockSize
                               *> put upData
                               *> put upAttributes
 
@@ -111,8 +120,14 @@ instance Bi U.ProposalState where
         x -> fail $ "get@ProposalState: invalid tag: " <> show x
 
 instance Bi U.BlockVersionState where
-    put (U.BlockVersionState {..}) = put bvsScript *> put bvsIsConfirmed
+    put (U.BlockVersionState {..}) = do
+        put bvsScriptVersion
+        put bvsIsConfirmed
+        put bvsSlotDuration
+        put bvsMaxBlockSize
     get = do
-        bvsScript <- get
+        bvsScriptVersion <- get
         bvsIsConfirmed <- get
+        bvsSlotDuration <- get
+        bvsMaxBlockSize <- get
         return $ U.BlockVersionState {..}

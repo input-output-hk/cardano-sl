@@ -32,7 +32,7 @@ import           Pos.Ssc.SscAlgo      (SscAlgo (..))
 import           Pos.Types            (EpochIndex (..), coinF, makePubKeyAddress, txaF)
 import           Pos.Update           (UpdateProposal (..), UpdateVote (..),
                                        patakUpdateData)
-import           Pos.Util.TimeWarp    (NetworkAddress)
+import           Pos.Util.TimeWarp    (NetworkAddress, sec)
 import           Pos.Wallet           (WalletMode, WalletParams (..), WalletRealMode,
                                        getBalance, runWalletReal, submitTx,
                                        submitUpdateProposal, submitVote)
@@ -68,13 +68,15 @@ runCmd sendActions (Vote idx decision upid) = do
         else do
             lift $ submitVote sendActions na voteUpd
             putText "Submitted vote"
-runCmd sendActions (ProposeUpdate idx blockVer scriptVer softwareVer) = do
+runCmd sendActions ProposeUpdate{..} = do
     (skeys, na) <- ask
-    let skey = skeys !! idx
+    let skey = skeys !! puIdx
     let updateProposal = UpdateProposal
-            { upBlockVersion    = blockVer
-            , upScriptVersion   = scriptVer
-            , upSoftwareVersion = softwareVer
+            { upBlockVersion    = puBlockVersion
+            , upSoftwareVersion = puSoftwareVersion
+            , upScriptVersion   = puScriptVersion
+            , upSlotDuration    = sec puSlotDurationSec
+            , upMaxBlockSize    = puMaxBlockSize
             , upData            = patakUpdateData
             , upAttributes      = mkAttributes ()
             }

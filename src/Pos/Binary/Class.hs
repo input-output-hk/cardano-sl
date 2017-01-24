@@ -35,11 +35,14 @@ import qualified Data.ByteString.Lazy        as BSL
 import           Data.Hashable               (Hashable (..))
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.Text.Encoding          as T
+import           Data.Time.Units             (Microsecond, fromMicroseconds,
+                                              toMicroseconds)
 import qualified Data.Vector                 as V
 import qualified Data.Vector.Generic         as G
 import qualified Data.Vector.Generic.Mutable as GM
 import           Data.Word                   (Word32)
 import           GHC.TypeLits                (ErrorMessage (..), TypeError)
+import           Serokell.Data.Memory.Units  (Byte, fromBytes, toBytes)
 import           System.IO.Unsafe            (unsafePerformIO)
 import           Universum                   hiding (putByteString)
 
@@ -482,3 +485,15 @@ instance Bi a => Bi (V.Vector a) where
 instance Bi Void where
     put = absurd
     get = mzero
+
+----------------------------------------------------------------------------
+-- Other types
+----------------------------------------------------------------------------
+
+instance Bi Microsecond where
+    put = put . toMicroseconds
+    get = fromMicroseconds <$> get
+
+instance Bi Byte where
+    put = put . toBytes
+    get = fromBytes <$> get

@@ -57,7 +57,7 @@ deriveSafeCopySimple 0 'base ''Storage
 
 instance Default Storage where
     def = Storage def def HM.empty
-                  Const.slotDuration Const.maxBlockSize
+                  Const.genesisSlotDuration Const.genesisMaxBlockSize
 
 instance HasBlockStorage Storage where
     blockStorage = _blockStorage

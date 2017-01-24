@@ -1,4 +1,3 @@
-genesisN: 1000
 maxLocalTxs: 10000
 defaultPeers: []
 mdNoBlocksSlotThreshold: 1
@@ -11,8 +10,11 @@ kademliaDumpInterval: 4
 
 # Fundamental constants for core protocol
 k: 6
-slotDurationSec: 20
-maxBlockSize: 2000000
+
+# Genesis constants
+genesisN: 1000
+genesisMaxBlockSize: 2000000
+genesisSlotDurationSec: 20
 
 # Time slave/lord
 sysTimeBroadcastSlots: 6

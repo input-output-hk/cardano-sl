@@ -8,14 +8,13 @@
 
 module Pos.Constants
        (
-         -- * Constants mentioned in paper
+       -- * Constants mentioned in paper
          blkSecurityParam
        , slotSecurityParam
-       , slotDuration
        , epochSlots
        , networkDiameter
 
-         -- * SSC constants
+       -- * SSC constants
        , sharedSeedLength
        , mpcSendInterval
        , mpcThreshold
@@ -24,10 +23,13 @@ module Pos.Constants
        , isDevelopment
        , staticSysStart
 
-         -- * Other constants
+       -- * Genesis constants
        , genesisN
+       , genesisSlotDuration
+       , genesisMaxBlockSize
+
+       -- * Other constants
        , maxLocalTxs
-       , maxBlockSize
        , maxBlockProxySKs
        , neighborsSendThreshold
        , networkConnectionTimeout
@@ -42,11 +44,11 @@ module Pos.Constants
        , recoveryHeadersMessage
        , kademliaDumpInterval
 
-         -- * Malicious activity detection constants
+       -- * Malicious activity detection constants
        , mdNoBlocksSlotThreshold
        , mdNoCommitmentsEpochThreshold
 
-         -- * Update system constants
+       -- * Update system constants
        , lastKnownBlockVersion
        , curSoftwareVersion
        , appSystemTag
@@ -98,13 +100,6 @@ blkSecurityParam = fromIntegral . ccK $ compileConfig
 slotSecurityParam :: Integral a => a
 slotSecurityParam = 2 * blkSecurityParam
 
--- | Length of slot. Also see 'Pos.CompileConfig.ccSlotDurationSec'.
---
--- Instead of this, use 'ncSlotDuration' from 'NodeContext', or
--- 'getSlotDuration' (a method of 'MonadSlots')
-slotDuration :: Microsecond
-slotDuration = sec . ccSlotDurationSec $ compileConfig
-
 -- | Number of slots inside one epoch.
 epochSlots :: Integral a => a
 epochSlots = 12 * blkSecurityParam
@@ -133,12 +128,24 @@ mpcThreshold :: CoinPortion
 mpcThreshold = unsafeCoinPortion $ ccMpcThreshold compileConfig
 
 ----------------------------------------------------------------------------
--- Other constants
+-- Genesis
 ----------------------------------------------------------------------------
 
 -- | See 'Pos.CompileConfig.ccGenesisN'.
 genesisN :: Integral i => i
 genesisN = fromIntegral . ccGenesisN $ compileConfig
+
+-- | Length of slot.
+genesisSlotDuration :: Microsecond
+genesisSlotDuration = sec . ccGenesisSlotDurationSec $ compileConfig
+
+-- | Maximum size of a block (in bytes)
+genesisMaxBlockSize :: Byte
+genesisMaxBlockSize = ccGenesisMaxBlockSize $ compileConfig
+
+----------------------------------------------------------------------------
+-- Other constants
+----------------------------------------------------------------------------
 
 -- | Maximum amount of transactions we have in storage
 -- (i.e. we can accept without putting them in block).
@@ -154,10 +161,6 @@ genesisN = fromIntegral . ccGenesisN $ compileConfig
 -- Also see 'Pos.CompileConfig.ccMaxLocalTxs'.
 maxLocalTxs :: Integral i => i
 maxLocalTxs = fromIntegral . ccMaxLocalTxs $ compileConfig
-
--- | Maximum size of a block (in bytes)
-maxBlockSize :: Byte
-maxBlockSize = ccMaxBlockSize $ compileConfig
 
 -- | Maximum number of PSKs allowed in block
 maxBlockProxySKs :: Integral i => i

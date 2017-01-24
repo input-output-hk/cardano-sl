@@ -5,26 +5,35 @@ module Command
        , parseCommand
        ) where
 
-import           Prelude                (read, show)
-import           Text.Parsec            (many1, parse, try, (<?>))
-import           Text.Parsec.Char       (alphaNum, anyChar, digit, space, spaces, string)
-import           Text.Parsec.Combinator (eof, manyTill)
-import           Text.Parsec.Text       (Parser)
-import           Universum              hiding (show)
+import           Prelude                    (read, show)
+import           Serokell.Data.Memory.Units (Byte)
+import           Text.Parsec                (many1, parse, try, (<?>))
+import           Text.Parsec.Char           (alphaNum, anyChar, digit, space, spaces,
+                                             string)
+import           Text.Parsec.Combinator     (eof, manyTill)
+import           Text.Parsec.Text           (Parser)
+import           Universum                  hiding (show)
 
-import           Pos.Crypto             (Hash, parseHash)
-import           Pos.Script.Type        (ScriptVersion)
-import           Pos.Types              (Address (..), BlockVersion, SoftwareVersion,
-                                         TxOut (..), mkCoin, parseBlockVersion,
-                                         parseSoftwareVersion)
-import           Pos.Update             (UpId)
-import           Pos.Util               (parseIntegralSafe)
+import           Pos.Crypto                 (Hash, parseHash)
+import           Pos.Script.Type            (ScriptVersion)
+import           Pos.Types                  (Address (..), BlockVersion, SoftwareVersion,
+                                             TxOut (..), mkCoin, parseBlockVersion,
+                                             parseSoftwareVersion)
+import           Pos.Update                 (UpId)
+import           Pos.Util                   (parseIntegralSafe)
 
 data Command
     = Balance Address
     | Send Int [TxOut]
     | Vote Int Bool UpId
-    | ProposeUpdate Int BlockVersion ScriptVersion SoftwareVersion
+    | ProposeUpdate
+          { puIdx             :: Int           -- TODO: what is this? rename
+          , puBlockVersion    :: BlockVersion
+          , puScriptVersion   :: ScriptVersion
+          , puSlotDurationSec :: Int
+          , puMaxBlockSize    :: Byte
+          , puSoftwareVersion :: SoftwareVersion
+          }
     | Help
     | ListAddresses
     | DelegateLight !Int !Int
@@ -86,7 +95,9 @@ proposeUpdate =
     ProposeUpdate <$>
     num <*>
     lexeme parseBlockVersion <*>
-    lexeme parseIntegralSafe    <*>
+    lexeme parseIntegralSafe <*>
+    lexeme parseIntegralSafe <*>
+    lexeme parseIntegralSafe <*>
     lexeme parseSoftwareVersion
 
 command :: Parser Command

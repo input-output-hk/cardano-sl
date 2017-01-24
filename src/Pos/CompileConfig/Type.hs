@@ -19,16 +19,16 @@ import           Pos.Util                   ()
 data CompileConfig = CompileConfig
     { ccK                             :: !Int
       -- ^ Security parameter from paper
-    , ccSlotDurationSec               :: !Int
-      -- ^ Length of slot in seconds
-    , ccMaxBlockSize                  :: !Byte
-      -- ^ Maximum block size in bytes
     , ccNetworkDiameter               :: !Int
       -- ^ Estimated time for broadcasting messages
     , ccNeighboursSendThreshold       :: !Int
       -- ^ Broadcasting threshold
     , ccGenesisN                      :: !Int
       -- ^ Number of pre-generated keys
+    , ccGenesisSlotDurationSec        :: !Int
+      -- ^ Length of slot in seconds
+    , ccGenesisMaxBlockSize           :: !Byte
+      -- ^ Maximum block size in bytes
     , ccMaxLocalTxs                   :: !Word
       -- ^ Max number of transactions in Storage
     , ccDefaultPeers                  :: ![String]

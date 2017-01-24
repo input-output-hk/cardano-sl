@@ -45,7 +45,6 @@ import           Universum
 
 import           Pos.Binary.Class           (encodeStrict)
 import           Pos.Binary.DB              ()
-import qualified Pos.Constants              as Const
 import           Pos.Crypto                 (hash)
 import           Pos.DB.Class               (MonadDB, getUtxoDB)
 import           Pos.DB.Error               (DBError (DBMalformed))
@@ -56,7 +55,8 @@ import           Pos.DB.Iterator            (DBIteratorClass (..), DBnIterator,
                                              DBnMapIterator, IterType, runDBnIterator,
                                              runDBnMapIterator)
 import           Pos.DB.Types               (NodeDBs (..))
-import           Pos.Genesis                (genesisBlockVersion, genesisScriptVersion,
+import           Pos.Genesis                (genesisBlockVersion, genesisMaxBlockSize,
+                                             genesisScriptVersion, genesisSlotDuration,
                                              genesisSoftwareVersions)
 import           Pos.Types                  (ApplicationName, BlockVersion,
                                              ChainDifficulty, NumSoftwareVersion, SlotId,
@@ -113,16 +113,12 @@ getConfirmedSV
 getConfirmedSV = getBi . confirmedVersionKey
 
 -- | Get actual slot duration.
---
--- TODO: should be stored in the database.
 getSlotDuration :: MonadDB ssc m => m Microsecond
-getSlotDuration = return Const.slotDuration
+getSlotDuration = bvsSlotDuration <$> getLastBVState
 
 -- | Get maximum block size (in bytes).
---
--- TODO: should be stored in the database.
 getMaxBlockSize :: MonadDB ssc m => m Byte
-getMaxBlockSize = return Const.maxBlockSize
+getMaxBlockSize = bvsMaxBlockSize <$> getLastBVState
 
 ----------------------------------------------------------------------------
 -- Operations
@@ -174,7 +170,12 @@ prepareGStateUS = unlessM isInitialized $ do
     db <- getUtxoDB
     flip rocksWriteBatch db $
         [ SetLastAdopted genesisBlockVersion
-        , SetBVState genesisBlockVersion (BlockVersionState genesisScriptVersion True)
+        , SetBVState genesisBlockVersion $
+            BlockVersionState
+              genesisScriptVersion
+              True
+              genesisSlotDuration
+              genesisMaxBlockSize
         ] <> map ConfirmVersion genesisSoftwareVersions
 
 isInitialized :: MonadDB ssc m => m Bool

@@ -1,4 +1,3 @@
-genesisN: 12
 maxLocalTxs: 10000
 defaultPeers: []
 mdNoBlocksSlotThreshold: 3 # should be less then k 
@@ -9,10 +8,13 @@ blockRetrievalQueueSize: 100
 recoveryHeadersMessage: 20 # should be greater than k
 kademliaDumpInterval: 4
 
+# Genesis constants
+genesisN: 12
+genesisMaxBlockSize: 2000000
+genesisSlotDurationSec: 7
+
 # Fundamental constants for core protocol
 k: 2
-slotDurationSec: 7
-maxBlockSize: 2000000
 
 # Time slave/lord
 sysTimeBroadcastSlots: 6

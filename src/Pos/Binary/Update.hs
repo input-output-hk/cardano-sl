@@ -138,11 +138,18 @@ instance Bi U.ConfirmedProposalState where
           <*> get <*> get <*> get
 
 instance Bi U.BlockVersionState where
-    put (U.BlockVersionState {..}) =
-        put bvsScript *> put bvsIsConfirmed *> put bvsIssuersStable *> put bvsIssuersUnstable
+    put (U.BlockVersionState {..}) = do
+        put bvsScript
+        put bvsIsConfirmed
+        put bvsIssuersStable
+        put bvsIssuersUnstable
+        put bvsLastBlockStable
+        put bvsLastBlockUnstable
     get = do
         bvsScript <- get
         bvsIsConfirmed <- get
         bvsIssuersStable <- get
         bvsIssuersUnstable <- get
+        bvsLastBlockStable <- get
+        bvsLastBlockUnstable <- get
         return $ U.BlockVersionState {..}

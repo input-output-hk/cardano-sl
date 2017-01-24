@@ -185,6 +185,8 @@ verifyAndApplyProposalBVS upId UpdateProposal {..} =
                                            , bvsIsConfirmed = False
                                            , bvsIssuersStable = mempty
                                            , bvsIssuersUnstable = mempty
+                                           , bvsLastBlockStable = Nothing
+                                           , bvsLastBlockUnstable = Nothing
                                            }
             if | lsv + 1 == upScriptVersion ->
                         putBVState upBlockVersion newBVS

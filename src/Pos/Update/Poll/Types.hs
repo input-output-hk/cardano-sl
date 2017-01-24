@@ -161,19 +161,23 @@ mkUProposalState upsSlot upsProposal =
 
 -- | State of BlockVersion from update proposal.
 data BlockVersionState = BlockVersionState
-    { bvsScript          :: !ScriptVersion
+    { bvsScript            :: !ScriptVersion
     -- ^ Script version associated with this block version.
-    , bvsIsConfirmed     :: !Bool
+    , bvsIsConfirmed       :: !Bool
     -- ^ Whether proposal with this block version is confirmed.
-    , bvsIssuersStable   :: !(HashSet StakeholderId)
+    , bvsIssuersStable     :: !(HashSet StakeholderId)
     -- ^ Identifiers of stakeholders which issued stable blocks with this
     -- 'BlockVersion'. Stability is checked by the same rules as used in LRC.
     -- That is, 'SlotId' is considered. If block is created after crucial slot
     -- of 'i'-th epoch, it is not stable when 'i+1'-th epoch starts.
-    , bvsIssuersUnstable :: !(HashSet StakeholderId)
+    , bvsIssuersUnstable   :: !(HashSet StakeholderId)
     -- ^ Identifiers of stakeholders which issued unstable blocks with
     -- this 'BlockVersion'. See description of 'bvsIssuersStable' for
     -- details.
+    , bvsLastBlockStable   :: !(Maybe HeaderHash)
+    -- ^ Identifier of last block which modified set of 'bvsIssuersStable'.
+    , bvsLastBlockUnstable :: !(Maybe HeaderHash)
+    -- ^ Identifier of last block which modified set of 'bvsIssuersUnstable'.
     }
 
 ----------------------------------------------------------------------------

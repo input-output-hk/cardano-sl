@@ -2,6 +2,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -58,6 +60,16 @@ data Buffer (m :: * -> *) (t :: *) where
     --   must maintain that writes are not possible when size >= bound, and
     --   size > bound is entirely possible.
     BoundBuffer :: BufferT m t -> (Int -> Int) -> Buffer m ()
+
+instance
+    ( BufferT m ~ BufferT n
+    ) => MFunctor' Buffer m n
+    where
+    hoist' _ term = case term of
+        NewBuffer i -> NewBuffer i
+        ReadBuffer buffer k -> ReadBuffer buffer k
+        WriteBuffer buffer t -> WriteBuffer buffer t
+        BoundBuffer buffer b -> BoundBuffer buffer b
 
 newBuffer :: ( Mockable Buffer m ) => Int -> m (BufferT m t)
 newBuffer bound = liftMockable $ NewBuffer bound

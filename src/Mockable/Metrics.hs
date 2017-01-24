@@ -2,6 +2,8 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module Mockable.Metrics (
 
@@ -60,6 +62,28 @@ data Metrics (m :: * -> *) (t :: *) where
     NewDistribution :: Metrics m (Distribution m)
     AddSample :: Distribution m -> Double -> Metrics m ()
     ReadDistribution :: Distribution m -> Metrics m Stats
+
+instance
+    ( Gauge m ~ Gauge n
+    , Counter m ~ Counter n
+    , Distribution m ~ Distribution n
+    ) => MFunctor' Metrics m n
+    where
+    hoist' _ term = case term of
+
+        NewGauge -> NewGauge
+        IncGauge gauge -> IncGauge gauge
+        DecGauge gauge -> DecGauge gauge
+        SetGauge gauge n -> SetGauge gauge n
+        ReadGauge gauge -> ReadGauge gauge
+
+        NewCounter -> NewCounter
+        IncCounter counter -> IncCounter counter
+        ReadCounter counter -> ReadCounter counter
+
+        NewDistribution -> NewDistribution
+        AddSample distr s -> AddSample distr s
+        ReadDistribution distr -> ReadDistribution distr
 
 newGauge :: ( Mockable Metrics m ) => m (Gauge m)
 newGauge = liftMockable NewGauge

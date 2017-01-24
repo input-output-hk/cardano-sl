@@ -10,7 +10,6 @@ import           Control.Monad              (unless)
 
 import           Data.Time.Units            (Second)
 import           GHC.IO.Encoding            (setLocaleEncoding, utf8)
-import qualified Network.Transport.TCP      as TCP
 import           Options.Applicative.Simple (simpleOptions)
 import           Serokell.Util.Concurrent   (threadDelay)
 import           System.Random              (mkStdGen)
@@ -20,7 +19,8 @@ import           Mockable                   (Production (runProduction))
 
 import           Bench.Network.Commons      (MeasureEvent (..), Ping (..), Pong (..),
                                              loadLogConfig, logMeasure)
-import           Network.Transport.Concrete (concrete)
+import qualified Network.Transport.TCP      as TCP
+import qualified Network.Transport.Concrete.TCP as TCP
 import           Node                       (ListenerAction (..), NodeAction (..), node,
                                              sendTo)
 import           Node.Message               (BinaryP (..))
@@ -39,9 +39,9 @@ main = do
     loadLogConfig logsPrefix logConfig
     setLocaleEncoding utf8
 
-    Right transport_ <- TCP.createTransport "0.0.0.0" "127.0.0.1" (show port)
+    Right transport_ <- TCP.createTransportExposeInternals "0.0.0.0" "127.0.0.1" (show port)
         TCP.defaultTCPParameters
-    let transport = concrete transport_
+    let transport = TCP.concrete (runProduction . usingLoggerName "receiver") transport_
 
     let prng = mkStdGen 0
 

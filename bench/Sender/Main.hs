@@ -3,6 +3,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 
 module Main where
 
@@ -19,13 +20,13 @@ import qualified Network.Transport.TCP      as TCP
 import           Options.Applicative.Simple (simpleOptions)
 import           Serokell.Util.Concurrent   (threadDelay)
 import           System.Random              (mkStdGen)
-import           System.Wlog                (usingLoggerName)
+import           System.Wlog                (usingLoggerName, LoggerNameBox)
 
-import           Mockable                   (fork, realTime, runProduction)
+import           Mockable                   (fork, realTime, delay, Production, runProduction)
 import qualified Network.Transport.Abstract as NT
-import           Network.Transport.Concrete (concrete)
+import qualified Network.Transport.Concrete.TCP as TCP
 import           Node                       (ListenerAction (..), NodeAction (..), node,
-                                             nodeEndPoint, sendTo)
+                                             nodeEndPoint, sendTo, Node(..))
 import           Node.Internal              (NodeId (..))
 import           Node.Message               (BinaryP (..))
 
@@ -57,8 +58,8 @@ main = do
     loadLogConfig logsPrefix logConfig
     setLocaleEncoding utf8
 
-    Right transport_ <- TCP.createTransport "0.0.0.0" "127.0.0.1" "3432" TCP.defaultTCPParameters
-    let transport = concrete transport_
+    Right transport_ <- TCP.createTransportExposeInternals "0.0.0.0" "127.0.0.1" "3432" TCP.defaultTCPParameters
+    let transport = TCP.concrete (runProduction . usingLoggerName "sender") transport_
 
     let prngNode = mkStdGen 0
     let prngWork = mkStdGen 1
@@ -66,21 +67,25 @@ main = do
                    | (host, port) <- recipients ]
     let tasksIds = [[tid, tid + threadNum .. msgNum] | tid <- [1..threadNum]]
 
-    runProduction $ usingLoggerName "sender" $ do
-        startTime <- realTime
+    let action :: LoggerNameBox Production ()
+        action = do
+            startTime <- realTime
 
-        -- TODO: is it good idea to start (recipients number * thread number) threads?
-        let pingWorkers = liftA2 (pingSender prngWork payloadBound startTime msgRate)
-                                 tasksIds
-                                 (zip [0, msgNum..] nodeIds)
-        node transport prngNode BinaryP $ \node' ->
-            pure $ NodeAction [pongListener] $ \sactions -> do
-                let endPoint = nodeEndPoint node'
-                drones <- forM nodeIds (startDrone endPoint)
-                _ <- forM pingWorkers (fork . flip ($) sactions)
-                threadDelay (fromIntegral duration :: Second)
-                forM_ drones stopDrone
+            -- TODO: is it good idea to start (recipients number * thread number) threads?
+            let pingWorkers = liftA2 (pingSender prngWork payloadBound startTime msgRate)
+                                     tasksIds
+                                     (zip [0, msgNum..] nodeIds)
+            node transport prngNode BinaryP $ \node' ->
+                pure $ NodeAction [pongListener] $ \sactions -> do
+                    drones <- forM nodeIds (startDrone node')
+                    _ <- forM pingWorkers (fork . flip ($) sactions)
+                    delay (fromIntegral duration :: Second)
+                    forM_ drones stopDrone
+
+    runProduction $ usingLoggerName "sender" $ action
   where
+
+    pongListener :: ListenerAction BinaryP (LoggerNameBox Production)
     pongListener = ListenerActionOneMsg $ \_ _ (Pong mid payload) ->
         logMeasure PongReceived mid payload
 
@@ -107,8 +112,12 @@ main = do
             else
                 currentMessages += 1
 
-    startDrone endPoint (NodeId addr) = do
-        Right conn <- NT.connect endPoint addr NT.ReliableOrdered (NT.ConnectHints Nothing)
+    startDrone
+        :: Node (LoggerNameBox Production)
+        -> NodeId
+        -> LoggerNameBox Production (NT.Connection (LoggerNameBox Production))
+    startDrone (Node _ endPoint _) (NodeId peer) = do
+        Right conn <- NT.connect endPoint peer NT.ReliableOrdered (NT.ConnectHints Nothing)
         pure conn
 
     stopDrone = NT.close

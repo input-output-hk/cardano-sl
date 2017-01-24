@@ -144,8 +144,8 @@ class MonadPollRead m => MonadPoll m where
     -- ^ Set last confirmed version of application.
     delConfirmedSV :: ApplicationName -> m ()
     -- ^ Del last confirmed version of application.
-    addConfirmedProposal :: NumSoftwareVersion -> ConfirmedProposalState -> m ()
-    -- ^ Add new confirmed update proposal for our application.
+    addConfirmedProposal :: ConfirmedProposalState -> m ()
+    -- ^ Add new confirmed update proposal.
     addActiveProposal :: ProposalState -> m ()
     -- ^ Add new active proposal with its state.
     deactivateProposal :: UpId -> m ()
@@ -173,8 +173,8 @@ class MonadPollRead m => MonadPoll m where
     delConfirmedSV = lift . delConfirmedSV
 
     default addConfirmedProposal
-        :: (MonadTrans t, MonadPoll m', t m' ~ m) => NumSoftwareVersion -> ConfirmedProposalState -> m ()
-    addConfirmedProposal sv = lift . addConfirmedProposal sv
+        :: (MonadTrans t, MonadPoll m', t m' ~ m) => ConfirmedProposalState -> m ()
+    addConfirmedProposal = lift . addConfirmedProposal
 
     default addActiveProposal
         :: (MonadTrans t, MonadPoll m', t m' ~ m) => ProposalState -> m ()

@@ -11,6 +11,8 @@ module Pos.Update.Poll.Types
        , UpsExtra (..)
        , DpsExtra (..)
        , ConfirmedProposalState (..)
+       , cpsBlockVersion
+       , cpsSoftwareVersion
        , psProposal
        , psVotes
        , mkUProposalState
@@ -56,7 +58,7 @@ import           Pos.Types.Types     (ChainDifficulty, Coin, EpochIndex, HeaderH
                                       SlotId, StakeholderId, mkCoin)
 import           Pos.Types.Version   (ApplicationName, BlockVersion, NumSoftwareVersion,
                                       SoftwareVersion)
-import           Pos.Update.Core     (StakeholderVotes, UpId, UpdateProposal)
+import           Pos.Update.Core     (StakeholderVotes, UpId, UpdateProposal (..))
 
 ----------------------------------------------------------------------------
 -- Proposal State
@@ -120,6 +122,14 @@ data ConfirmedProposalState = ConfirmedProposalState
     , cpsNegativeStake  :: !Coin
     } deriving (Show, Generic, Eq)
 
+-- | Get 'BlockVersion' from 'ConfirmedProposalState'.
+cpsBlockVersion :: ConfirmedProposalState -> BlockVersion
+cpsBlockVersion = upBlockVersion . cpsUpdateProposal
+
+-- | Get 'SoftwareVersion' from 'ConfirmedProposalState'.
+cpsSoftwareVersion :: ConfirmedProposalState -> SoftwareVersion
+cpsSoftwareVersion = upSoftwareVersion . cpsUpdateProposal
+
 -- | State of UpdateProposal.
 data ProposalState
     = PSUndecided !UndecidedProposalState
@@ -179,7 +189,7 @@ data PollModifier = PollModifier
     , pmLastAdoptedBV     :: !(Maybe BlockVersion)
     , pmNewConfirmed      :: !(HashMap ApplicationName NumSoftwareVersion)
     , pmDelConfirmed      :: !(HashSet ApplicationName)
-    , pmNewConfirmedProps :: !(HashMap NumSoftwareVersion ConfirmedProposalState)
+    , pmNewConfirmedProps :: !(HashMap SoftwareVersion ConfirmedProposalState)
     , pmNewActiveProps    :: !(HashMap UpId ProposalState)
     , pmDelActiveProps    :: !(HashSet UpId)
     , pmNewActivePropsIdx :: !(HashMap ApplicationName UpId)

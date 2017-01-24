@@ -16,8 +16,7 @@ import           Data.List.NonEmpty         (NonEmpty)
 import qualified Data.List.NonEmpty         as NE
 import           Universum
 
-import           Pos.Constants              (blkSecurityParam, curSoftwareVersion,
-                                             updateImplicitApproval,
+import           Pos.Constants              (blkSecurityParam, updateImplicitApproval,
                                              updateProposalThreshold, updateVoteThreshold)
 import           Pos.Crypto                 (hash)
 import           Pos.Ssc.Class              (Ssc)
@@ -364,20 +363,19 @@ applyDepthCheck hh cd
         let sv = upSoftwareVersion upsProposal
         when dpsDecision $ do
             setLastConfirmedSV sv
-            when (svAppName curSoftwareVersion == svAppName sv) $ do
-                let DpsExtra {..} = fromMaybe (panic "Invalid DPS extra") dpsExtra -- TODO fix panic
-                let UpsExtra {..} = fromMaybe (panic "Invalid UPS extra") upsExtra
-                let cps = ConfirmedProposalState
-                        { cpsUpdateProposal = upsProposal
-                        , cpsVotes = upsVotes
-                        , cpsPositiveStake = upsPositiveStake
-                        , cpsNegativeStake = upsNegativeStake
-                        , cpsImplicit = deImplicit
-                        , cpsProposed = ueProposedBlk
-                        , cpsDecided = deDecidedBlk
-                        , cpsConfirmed = hh
-                        , cpsAdopted = Nothing
-                        }
-                addConfirmedProposal (svNumber sv) cps
+            let DpsExtra {..} = fromMaybe (panic "Invalid DPS extra") dpsExtra -- TODO fix panic
+            let UpsExtra {..} = fromMaybe (panic "Invalid UPS extra") upsExtra
+            let cps = ConfirmedProposalState
+                    { cpsUpdateProposal = upsProposal
+                    , cpsVotes = upsVotes
+                    , cpsPositiveStake = upsPositiveStake
+                    , cpsNegativeStake = upsNegativeStake
+                    , cpsImplicit = deImplicit
+                    , cpsProposed = ueProposedBlk
+                    , cpsDecided = deDecidedBlk
+                    , cpsConfirmed = hh
+                    , cpsAdopted = Nothing
+                    }
+            addConfirmedProposal cps
             confirmBlockVersion $ upBlockVersion upsProposal
         deactivateProposal (hash upsProposal)

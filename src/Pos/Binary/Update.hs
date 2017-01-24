@@ -138,8 +138,10 @@ instance Bi U.ConfirmedProposalState where
           <*> get <*> get <*> get
 
 instance Bi U.BlockVersionState where
-    put (U.BlockVersionState {..}) = put bvsScript *> put bvsIsConfirmed
+    put (U.BlockVersionState {..}) =
+        put bvsScript *> put bvsIsConfirmed *> put bvsIssuers
     get = do
         bvsScript <- get
         bvsIsConfirmed <- get
+        bvsIssuers <- get
         return $ U.BlockVersionState {..}

@@ -158,7 +158,7 @@ prepareGStateUS = unlessM isInitialized $ do
     db <- getUtxoDB
     flip rocksWriteBatch db $
         [ SetLastAdopted genesisBlockVersion
-        , SetBVState genesisBlockVersion (BlockVersionState genesisScriptVersion True)
+        , SetBVState genesisBlockVersion (BlockVersionState genesisScriptVersion True mempty)
         ] <> map ConfirmVersion genesisSoftwareVersions
 
 isInitialized :: MonadDB ssc m => m Bool

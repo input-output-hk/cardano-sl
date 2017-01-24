@@ -10,9 +10,14 @@ module Pos.Update.Poll.Logic
        , normalizePoll
        , filterProposalsByThd
        , canCreateBlockBV
+
+       -- * Softfork resolution
+       , processGenesisBlock
+       , recordBlockIssuance
        ) where
 
 import           Pos.Update.Poll.Logic.Apply
 import           Pos.Update.Poll.Logic.Base
 import           Pos.Update.Poll.Logic.Normalize
 import           Pos.Update.Poll.Logic.Rollback
+import           Pos.Update.Poll.Logic.Softfork

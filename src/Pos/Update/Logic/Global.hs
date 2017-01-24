@@ -23,13 +23,15 @@ import           Pos.DB.GState        (UpdateOp (..))
 import           Pos.Ssc.Class        (Ssc)
 import           Pos.Types            (ApplicationName, Block, BlockVersion,
                                        NumSoftwareVersion, SoftwareVersion (..),
-                                       difficultyL, gbBody, gbHeader, mbUpdatePayload)
+                                       difficultyL, epochIndexL, gbBody, gbHeader,
+                                       gbhExtra, mbUpdatePayload, mehBlockVersion)
 import           Pos.Update.Core      (UpId)
 import           Pos.Update.Error     (USError (USInternalError))
 import           Pos.Update.Poll      (BlockVersionState, ConfirmedProposalState, DBPoll,
                                        MonadPoll, PollModifier (..), PollT,
                                        PollVerFailure, ProposalState, USUndo,
                                        canCreateBlockBV, execPollT, execRollT,
+                                       processGenesisBlock, recordBlockIssuance,
                                        rollbackUSPayload, runDBPoll, runPollT,
                                        verifyAndApplyUSPayload)
 import           Pos.Util             (Color (Red), NE, NewestFirst, OldestFirst,
@@ -38,23 +40,29 @@ import           Pos.Util             (Color (Red), NE, NewestFirst, OldestFirst
 type USGlobalApplyMode ssc m = (WithLogger m, DB.MonadDB ssc m, Ssc ssc)
 type USGlobalVerifyMode ы m = (DB.MonadDB ы m, MonadError PollVerFailure m, Ssc ы)
 
--- TODO: I suppose blocks are needed here only for sanity check, but who knows.
--- Anyway, it's ok.
--- TODO: but actually I suppose that such sanity checks should be done at higher
--- level.
--- | Apply chain of /definitely/ valid blocks to US part of GState DB and to
--- US local data. This function assumes that no other thread applies block in
--- parallel. It also assumes that parent of oldest block is current tip.
+-- | Apply chain of /definitely/ valid blocks to US part of GState DB
+-- and to US local data. This function assumes that no other thread
+-- applies block in parallel. It also assumes that parent of oldest
+-- block is current tip.  If verification is done prior to
+-- application, one can pass 'PollModifier' obtained from verification
+-- to this function.
 usApplyBlocks
     :: (MonadThrow m, USGlobalApplyMode ssc m)
     => OldestFirst NE (Block ssc)
-    -> PollModifier
+    -> Maybe PollModifier
     -> m [DB.SomeBatchOp]
-usApplyBlocks blocks _ = do
-    inAssertMode $ do
-        verdict <- runExceptT $ usVerifyBlocks blocks
-        either onFailure (const pass) verdict
-    return []
+usApplyBlocks blocks modifierMaybe =
+    case modifierMaybe of
+        Nothing -> do
+            verdict <- runExceptT $ usVerifyBlocks blocks
+            either onFailure (return . modifierToBatch . fst) verdict
+        Just modifier -> do
+            -- TODO: I suppose such sanity checks should be done at higher
+            -- level.
+            inAssertMode $ do
+                verdict <- runExceptT $ usVerifyBlocks blocks
+                either onFailure (const pass) verdict
+            return $ modifierToBatch modifier
   where
     onFailure failure = do
         let msg = "usVerifyBlocks failed in 'apply': " <> pretty failure
@@ -93,12 +101,17 @@ usVerifyBlocks blocks = swap <$> run (mapM verifyBlock blocks)
 verifyBlock
     :: (USGlobalVerifyMode ssc m, MonadPoll m)
     => Block ssc -> m USUndo
-verifyBlock (Left _)    = pure def
+verifyBlock (Left genBlk) =
+    execRollT $ processGenesisBlock (genBlk ^. epochIndexL)
 verifyBlock (Right blk) = execRollT $ do
     verifyAndApplyUSPayload
         True
         (Right $ blk ^. gbHeader)
         (blk ^. gbBody . mbUpdatePayload)
+    -- Block issuance can't affect verification and application of US payload,
+    -- so it's fine to separate it.
+    -- TODO: pass block issuer id.
+    recordBlockIssuance undefined (blk ^. gbHeader . gbhExtra . mehBlockVersion)
 
 -- | Checks whether our software can create block according to current
 -- global state.

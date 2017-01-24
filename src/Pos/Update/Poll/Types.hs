@@ -155,6 +155,9 @@ data BlockVersionState = BlockVersionState
     -- ^ Script version associated with this block version.
     , bvsIsConfirmed :: !Bool
     -- ^ Whether proposal with this block version is confirmed.
+    , bvsIssuers     :: !(HashSet StakeholderId)
+    -- ^ Identifiers of stakeholders which created block with this
+    -- 'BlockVersion'.
     }
 
 ----------------------------------------------------------------------------

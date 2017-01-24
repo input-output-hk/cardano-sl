@@ -34,7 +34,7 @@ import           Pos.Ssc.Class.Types   (Ssc (..))
 import           Pos.Types.Types       (EpochIndex, NEBlocks, SharedSeed, epochIndexL)
 import           Pos.Util              (inAssertMode, _neHead)
 
-class Monad m => MonadSscGS ssc m | m -> ssc where
+class WithLogger m => MonadSscGS ssc m | m -> ssc where
     getGlobalState    :: m (SscGlobalState ssc)
     setGlobalState    :: SscGlobalState ssc -> m ()
     modifyGlobalState :: (SscGlobalState ssc -> (a, SscGlobalState ssc)) -> m a
@@ -54,21 +54,15 @@ instance MonadSscGS ssc m => MonadSscGS ssc (ExceptT a m) where
 
 sscRunGlobalQuery
     :: forall ssc m a.
-       MonadSscGS ssc m
-    => Reader (SscGlobalState ssc) a -> m a
-sscRunGlobalQuery query = runReader query <$> getGlobalState @ssc
+       (WithLogger m, MonadSscGS ssc m)
+    => ReaderT (SscGlobalState ssc) m a -> m a
+sscRunGlobalQuery query = runReaderT query =<< getGlobalState @ssc
 
 sscRunGlobalModify
     :: forall ssc m a .
-    MonadSscGS ssc m
+    (MonadSscGS ssc m)
     => State (SscGlobalState ssc) a -> m a
 sscRunGlobalModify upd = modifyGlobalState $ runState upd
-
--- sscRunImpureQuery
---     :: forall ssc m a.
---        (MonadSscGS ssc m)
---     => ReaderT (SscGlobalState ssc) m a -> m a
--- sscRunImpureQuery query = runReaderT query =<< getGlobalState @ssc
 
 sscCalculateSeed
     :: forall ssc m.
@@ -78,7 +72,7 @@ sscCalculateSeed = sscRunGlobalQuery . sscCalculateSeedM @ssc
 
 sscApplyBlocks
     :: forall ssc m.
-       (MonadSscGS ssc m, SscStorageClass ssc, WithLogger m)
+       (MonadSscGS ssc m, SscStorageClass ssc)
     => NEBlocks ssc -> m ()
 sscApplyBlocks blocks = do
     sscRunGlobalModify $ sscApplyBlocksM @ssc blocks
@@ -98,6 +92,7 @@ sscVerifyBlocks
        , MonadSscGS ssc m
        , WithNodeContext ssc m
        , SscStorageClass ssc
+       , WithLogger m
        )
     => Bool -> NEBlocks ssc -> m VerificationRes
 sscVerifyBlocks verPure blocks = do

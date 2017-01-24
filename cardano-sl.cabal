@@ -363,7 +363,7 @@ library
                       , cereal
                       , conduit >= 1.2.8
                       , containers
-                      , cryptonite >= 0.19 && < 0.21
+                      , cryptonite >= 0.19 && < 0.22
                       , data-default
                       , deepseq
                       , derive
@@ -421,6 +421,7 @@ library
                       , list-t
                       , transformers
                       , transformers-base
+                      , turtle
                       , universum >= 0.1.11
                       , unordered-containers
                       , vector

@@ -96,6 +96,7 @@ instance MonadDB patak m =>
     getLastConfirmedSV = GS.getConfirmedSV
     hasActiveProposal = fmap isJust . GS.getAppProposal
     getProposal = GS.getProposalState
+    getConfirmedProposals = GS.getConfirmedProposals Nothing
     getEpochTotalStake e = fmap fst <$> getRichmenUS e
     getRichmanStake e id = (findStake =<<) <$> getRichmenUS e
       where

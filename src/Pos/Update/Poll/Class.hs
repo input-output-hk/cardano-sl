@@ -41,6 +41,8 @@ class Monad m => MonadPollRead m where
     -- ^ Check if given application has an active (non-confirmed) proposal
     getProposal :: UpId -> m (Maybe ProposalState)
     -- ^ Get active proposal
+    getConfirmedProposals :: m [ConfirmedProposalState]
+    -- ^ Get all known confirmed proposals.
     getEpochTotalStake :: EpochIndex -> m (Maybe Coin)
     -- ^ Get total stake from distribution corresponding to give epoch
     getRichmanStake :: EpochIndex -> StakeholderId -> m (Maybe Coin)
@@ -90,6 +92,11 @@ class Monad m => MonadPollRead m where
         :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
         UpId -> m (Maybe ProposalState)
     getProposal = lift . getProposal
+
+    default getConfirmedProposals
+        :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
+        m [ConfirmedProposalState]
+    getConfirmedProposals = lift getConfirmedProposals
 
     default getEpochTotalStake
         :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>

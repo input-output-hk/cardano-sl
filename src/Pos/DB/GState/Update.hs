@@ -154,12 +154,16 @@ prepareGStateUS
     :: forall ssc m.
        MonadDB ssc m
     => m ()
-prepareGStateUS = unlessM isInitialized $ do
-    db <- getUtxoDB
-    flip rocksWriteBatch db $
-        [ SetLastAdopted genesisBlockVersion
-        , SetBVState genesisBlockVersion (BlockVersionState genesisScriptVersion True mempty)
-        ] <> map ConfirmVersion genesisSoftwareVersions
+prepareGStateUS =
+    unlessM isInitialized $ do
+        db <- getUtxoDB
+        flip rocksWriteBatch db $
+            [ SetLastAdopted genesisBlockVersion
+            , SetBVState
+                  genesisBlockVersion
+                  (BlockVersionState genesisScriptVersion True mempty mempty)
+            ] <>
+            map ConfirmVersion genesisSoftwareVersions
 
 isInitialized :: MonadDB ssc m => m Bool
 isInitialized = isJust <$> getLastAdoptedBVMaybe

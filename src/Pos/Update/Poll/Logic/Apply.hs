@@ -184,7 +184,8 @@ verifyAndApplyProposalBVS upId UpdateProposal {..} =
             lsv <- bvsScript <$> getLastBVState
             let newBVS = BlockVersionState { bvsScript = upScriptVersion
                                            , bvsIsConfirmed = False
-                                           , bvsIssuers = mempty
+                                           , bvsIssuersStable = mempty
+                                           , bvsIssuersUnstable = mempty
                                            }
             if | lsv + 1 == upScriptVersion ->
                         putBVState upBlockVersion newBVS

@@ -10,6 +10,7 @@ module Pos.Wallet.WalletMode
        , MonadTxHistory (..)
        , MonadBlockchainInfo (..)
        , MonadUpdates (..)
+       , getNextUpdate
        , TxMode
        , WalletMode
        , WalletRealMode
@@ -254,6 +255,10 @@ instance MonadIO m => MonadUpdates (WalletDB m) where
 instance (Ssc ssc, MonadDB ssc m) => MonadUpdates (PC.ContextHolder ssc m) where
     getUpdates = filter (HM.member appSystemTag . upData . cpsUpdateProposal) <$>
                  GS.getConfirmedProposals (svNumber curSoftwareVersion)
+
+getNextUpdate :: MonadUpdates m => m (Maybe ConfirmedProposalState)
+getNextUpdate = head . sortBy cmpVersions <$> getUpdates
+  where cmpVersions = comparing $ svNumber . upSoftwareVersion . cpsUpdateProposal
 
 ---------------------------------------------------------------
 -- Composite restrictions

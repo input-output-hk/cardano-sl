@@ -23,7 +23,7 @@ module Pos.Wallet.Web.ClientTypes
       , CWalletType (..)
       , CWalletMeta (..)
       , CWalletInit (..)
-      , CTUpdateInfo (..)
+      , CUpdateInfo (..)
       , NotifyEvent (..)
       , addressToCAddress
       , cAddressToAddress
@@ -32,6 +32,7 @@ module Pos.Wallet.Web.ClientTypes
       , txIdToCTxId
       , ctTypeMeta
       , txContainsTitle
+      , toCUpdateInfo
       ) where
 
 import           Data.Text             (Text, isInfixOf)
@@ -221,7 +222,7 @@ data CTExMeta = CTExMeta
     } deriving (Show, Generic)
 
 -- | Update system data
-data CTUpdateInfo = CTUpdateInfo
+data CUpdateInfo = CUpdateInfo
     { cuiSoftwareVersion :: !SoftwareVersion
     , cuiBlockVesion     :: !BlockVersion
     , cuiScriptVersion   :: !ScriptVersion
@@ -244,8 +245,8 @@ countVotes = foldl' counter (0, 0)
                               else (n, m + 1)
 
 -- | Creates 'CTUpdateInfo' from 'ConfirmedProposalState'
-toCTUpdateInfo :: ConfirmedProposalState -> CTUpdateInfo
-toCTUpdateInfo ConfirmedProposalState {..} =
+toCUpdateInfo :: ConfirmedProposalState -> CUpdateInfo
+toCUpdateInfo ConfirmedProposalState {..} =
     let UpdateProposal {..} = cpsUpdateProposal
         cuiSoftwareVersion  = upSoftwareVersion
         cuiBlockVesion      = upBlockVersion
@@ -258,4 +259,4 @@ toCTUpdateInfo ConfirmedProposalState {..} =
         (cuiVotesFor, cuiVotesAgainst) = countVotes cpsVotes
         cuiPositiveStake    = cpsPositiveStake
         cuiNegativeStake    = cpsNegativeStake
-    in CTUpdateInfo {..}
+    in CUpdateInfo {..}

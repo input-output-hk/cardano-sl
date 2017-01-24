@@ -34,6 +34,7 @@ import           Pos.DHT.Model                 (dhtAddr, getKnownPeers)
 import           Pos.Types                     (Address, Coin, TxOut (..), addressF,
                                                 coinF, decodeTextAddress,
                                                 makePubKeyAddress, mkCoin)
+import           Pos.Util                      (maybeThrow)
 import           Pos.Util.BackupPhrase         (keysFromPhrase)
 import           Pos.Web.Server                (serveImpl)
 
@@ -42,15 +43,17 @@ import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
                                                 addSecretKey)
 import           Pos.Wallet.Tx                 (submitTx)
 import           Pos.Wallet.Tx.Pure            (TxHistoryEntry (..))
-import           Pos.Wallet.WalletMode         (WalletMode, getBalance, getTxHistory,
-                                                getUpdates, networkChainDifficulty)
+import           Pos.Wallet.WalletMode         (WalletMode, getBalance, getNextUpdate,
+                                                getTxHistory, getUpdates,
+                                                networkChainDifficulty)
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CProfile,
                                                 CProfile (..), CTx, CTxId, CTxMeta (..),
-                                                CWallet (..), CWalletInit (..),
-                                                CWalletMeta (..), NotifyEvent (..),
-                                                addressToCAddress, cAddressToAddress,
-                                                mkCTx, mkCTxId, txContainsTitle,
+                                                CUpdateInfo (..), CWallet (..),
+                                                CWalletInit (..), CWalletMeta (..),
+                                                NotifyEvent (..), addressToCAddress,
+                                                cAddressToAddress, mkCTx, mkCTxId,
+                                                toCUpdateInfo, txContainsTitle,
                                                 txIdToCTxId)
 import           Pos.Wallet.Web.Error          (WalletError (..))
 import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
@@ -199,6 +202,8 @@ servantHandlers sendActions =
      catchWalletError getUserProfile
     :<|>
      catchWalletError . updateUserProfile
+    :<|>
+     catchWalletError nextUpdate
   where
     -- TODO: can we with Traversable map catchWalletError over :<|>
     -- TODO: add logging on error
@@ -327,6 +332,12 @@ deleteWallet cAddr = do
 isValidAddress :: WalletWebMode ssc m => CCurrency -> Text -> m Bool
 isValidAddress ADA sAddr = pure . either (const False) (const True) $ decodeTextAddress sAddr
 isValidAddress _ _       = pure False
+
+-- | Get last update info
+nextUpdate :: WalletWebMode ssc m => m CUpdateInfo
+nextUpdate = getNextUpdate >>=
+             maybeThrow (Internal "No updates available") .
+             fmap toCUpdateInfo
 
 ----------------------------------------------------------------------------
 -- Helpers

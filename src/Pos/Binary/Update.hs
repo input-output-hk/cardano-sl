@@ -101,6 +101,7 @@ instance Bi U.UndecidedProposalState where
         put upsSlot
         put upsPositiveStake
         put upsNegativeStake
+        put upsExtra
     get = U.UndecidedProposalState <$> get <*> get <*> get <*> get <*> get <*> get
 
 instance Bi U.DecidedProposalState where
@@ -108,6 +109,7 @@ instance Bi U.DecidedProposalState where
         put dpsDecision
         put dpsUndecided
         put dpsDifficulty
+        put dpsExtra
     get = U.DecidedProposalState <$> get <*> get <*> get <*> get
 
 instance Bi U.ProposalState where

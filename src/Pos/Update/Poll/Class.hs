@@ -52,6 +52,11 @@ class Monad m => MonadPollRead m where
     getDeepProposals :: ChainDifficulty -> m [DecidedProposalState]
     -- ^ Get all proposals which are in decided state and become
     -- decided deeper than given 'ChainDifficulty'.
+    getBlockIssuerStake :: EpochIndex -> StakeholderId -> m (Maybe Coin)
+    -- ^ Get stake of issuer of one of the blocks created so far using
+    -- stake distribution which is stable in given epoch.
+    -- Only issuer of stable block can be passed to this function, otherwise
+    -- 'Nothing' will be returned.
 
     -- | Default implementations for 'MonadTrans'.
     default getBVState
@@ -105,6 +110,11 @@ class Monad m => MonadPollRead m where
         :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
         ChainDifficulty -> m [DecidedProposalState]
     getDeepProposals = lift . getDeepProposals
+
+    default getBlockIssuerStake
+        :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
+        EpochIndex -> StakeholderId -> m (Maybe Coin)
+    getBlockIssuerStake e = lift . getBlockIssuerStake e
 
 instance MonadPollRead m => MonadPollRead (ReaderT s m)
 instance MonadPollRead m => MonadPollRead (StateT s m)

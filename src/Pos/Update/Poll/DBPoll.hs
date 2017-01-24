@@ -103,3 +103,4 @@ instance MonadDB patak m =>
         findStake = HM.lookup id . snd
     getOldProposals = GS.getOldProposals
     getDeepProposals = GS.getDeepProposals
+    getBlockIssuerStake _ _ = const (pure Nothing) notImplemented

@@ -65,7 +65,7 @@ handleGetHeaders
     :: forall ssc m.
        (WorkMode ssc m)
     => ListenerAction BiP m
-handleGetHeaders = ListenerActionConversation $ \__peerId __sendActions conv -> do
+handleGetHeaders = ListenerActionConversation $ \__peerId conv -> do
     (msg :: Maybe (MsgGetHeaders ssc)) <- recv conv
     whenJust msg $ \(MsgGetHeaders {..}) -> do
         logDebug "Got request on handleGetHeaders"
@@ -79,7 +79,7 @@ handleGetBlocks
     :: forall ssc m.
        (Ssc ssc, WorkMode ssc m)
     => ListenerAction BiP m
-handleGetBlocks = ListenerActionConversation $ \__peerId __sendActions conv -> do
+handleGetBlocks = ListenerActionConversation $ \__peerId conv -> do
     (mGB :: Maybe (MsgGetBlocks ssc)) <- recv conv
     whenJust mGB $ \(MsgGetBlocks {..}) -> do
         logDebug "Got request on handleGetBlocks"

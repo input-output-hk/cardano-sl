@@ -47,7 +47,7 @@ allListeners =
     addWaitLogging (ListenerActionOneMsg f) =
         ListenerActionOneMsg $ \nId sA msg -> f nId (withWaitLog sA) msg
     addWaitLogging (ListenerActionConversation f) =
-        ListenerActionConversation $ \nId sA cA -> f nId (withWaitLog sA) (withWaitLogConvL nId cA)
+        ListenerActionConversation $ \nId cA -> f nId (withWaitLogConvL nId cA)
 
 -- | All listeners running on one node.
 allStubListeners

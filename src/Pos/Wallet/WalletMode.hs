@@ -27,7 +27,8 @@ import           System.Wlog                 (LoggerNameBox, WithLogger)
 import           Universum
 
 import           Pos.Communication.PeerState (PeerStateHolder)
-import           Pos.Constants               (blkSecurityParam, curSoftwareVersion)
+import           Pos.Constants               (appSystemTag, blkSecurityParam,
+                                              curSoftwareVersion)
 import qualified Pos.Context                 as PC
 import           Pos.Crypto                  (WithHash (..))
 import           Pos.DB                      (MonadDB)
@@ -51,8 +52,8 @@ import           Pos.Types                   (Address, BlockHeader, ChainDifficu
                                               sumCoins, svNumber, toPair, txOutValue)
 import           Pos.Types.Coin              (unsafeIntegerToCoin)
 import           Pos.Types.Utxo.Functions    (belongsTo, filterUtxoByAddr)
-import           Pos.Update                  (USHolder (..))
-import           Pos.Update.Poll             (ConfirmedProposalState)
+import           Pos.Update                  (ConfirmedProposalState (..), USHolder (..),
+                                              UpdateProposal (..))
 import           Pos.Util                    (maybeThrow)
 import           Pos.Wallet.Context          (ContextHolder, WithWalletContext)
 import           Pos.Wallet.KeyStorage       (KeyStorage, MonadKeys)
@@ -251,7 +252,8 @@ instance MonadIO m => MonadUpdates (WalletDB m) where
 
 -- | Instance for full node
 instance (Ssc ssc, MonadDB ssc m) => MonadUpdates (PC.ContextHolder ssc m) where
-    getUpdates = GS.getConfirmedProposals $ svNumber curSoftwareVersion
+    getUpdates = filter (HM.member appSystemTag . upData . cpsUpdateProposal) <$>
+                 GS.getConfirmedProposals (svNumber curSoftwareVersion)
 
 ---------------------------------------------------------------
 -- Composite restrictions

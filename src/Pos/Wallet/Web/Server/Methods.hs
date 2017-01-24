@@ -43,7 +43,7 @@ import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
 import           Pos.Wallet.Tx                 (submitTx)
 import           Pos.Wallet.Tx.Pure            (TxHistoryEntry (..))
 import           Pos.Wallet.WalletMode         (WalletMode, getBalance, getTxHistory,
-                                                networkChainDifficulty)
+                                                getUpdates, networkChainDifficulty)
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CProfile,
                                                 CProfile (..), CTx, CTxId, CTxMeta (..),
@@ -147,8 +147,10 @@ launchNotifier nat = void . liftIO $ sequence
         logInfo "TX HISTORY NOTIFICATION"
         notify NewTransaction
     updateNotifier = notifier updateNotifyPeriod $ do
-        logInfo "I'm update notifier and I work!"
-        notify UpdateAvailable
+        updates <- getUpdates
+        unless (null updates) $ do
+            logInfo "SOFTWARE UPDATE NOTIFICATION"
+            notify UpdateAvailable
     -- historyNotifier :: WalletWebMode ssc m => m ()
     -- historyNotifier = do
     --     cAddresses <- myCAddresses

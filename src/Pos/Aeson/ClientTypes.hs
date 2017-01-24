@@ -5,11 +5,12 @@ module Pos.Aeson.ClientTypes
        ) where
 
 import           Data.Aeson.TH              (defaultOptions, deriveJSON, deriveToJSON)
+import           Pos.Types.Version          (BlockVersion (..), SoftwareVersion (..))
 import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile,
-                                             CProfile, CTExMeta, CTType, CTx, CTxId,
-                                             CTxMeta, CWallet, CWalletInit, CWalletMeta,
-                                             CWalletType, NotifyEvent)
+                                             CProfile, CTExMeta, CTType, CTUpdateInfo,
+                                             CTx, CTxId, CTxMeta, CWallet, CWalletInit,
+                                             CWalletMeta, CWalletType, NotifyEvent)
 import           Pos.Wallet.Web.Error       (WalletError)
 
 deriveJSON defaultOptions ''CCurrency
@@ -29,3 +30,6 @@ deriveToJSON defaultOptions ''CWallet
 deriveToJSON defaultOptions ''CTx
 deriveToJSON defaultOptions ''CTType
 deriveToJSON defaultOptions ''CTExMeta
+deriveToJSON defaultOptions ''SoftwareVersion
+deriveToJSON defaultOptions ''BlockVersion
+deriveToJSON defaultOptions ''CTUpdateInfo

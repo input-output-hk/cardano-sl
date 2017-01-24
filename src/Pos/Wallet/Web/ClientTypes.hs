@@ -23,6 +23,7 @@ module Pos.Wallet.Web.ClientTypes
       , CWalletType (..)
       , CWalletMeta (..)
       , CWalletInit (..)
+      , CTUpdateInfo (..)
       , NotifyEvent (..)
       , addressToCAddress
       , cAddressToAddress
@@ -41,10 +42,16 @@ import           Data.Default          (Default, def)
 import           Data.Hashable         (Hashable (..))
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Formatting            (build, sformat)
+
 import           Pos.Aeson.Types       ()
-import           Pos.Types             (Address (..), ChainDifficulty, Coin, TxId,
+import           Pos.Script.Type       (ScriptVersion)
+import           Pos.Types             (Address (..), BlockVersion, ChainDifficulty, Coin,
+                                        HeaderHash, SoftwareVersion, TxId,
                                         decodeTextAddress, sumCoins, txOutAddress,
                                         txOutValue, txOutputs, unsafeIntegerToCoin)
+import           Pos.Update.Core       (StakeholderVotes, UpdateProposal (..),
+                                        isPositiveVote)
+import           Pos.Update.Poll       (ConfirmedProposalState (..))
 import           Pos.Util.BackupPhrase (BackupPhrase)
 import           Pos.Wallet.Tx.Pure    (TxHistoryEntry (..))
 
@@ -212,3 +219,43 @@ data CTExMeta = CTExMeta
     , cexLabel       :: Text -- counter part of client's 'exchange' value
     , cexAddress     :: CAddress
     } deriving (Show, Generic)
+
+-- | Update system data
+data CTUpdateInfo = CTUpdateInfo
+    { cuiSoftwareVersion :: !SoftwareVersion
+    , cuiBlockVesion     :: !BlockVersion
+    , cuiScriptVersion   :: !ScriptVersion
+    , cuiImplicit        :: !Bool
+    , cuiProposed        :: !HeaderHash
+    , cuiDecided         :: !HeaderHash
+    , cuiConfirmed       :: !HeaderHash
+    , cuiAdopted         :: !(Maybe HeaderHash)
+    , cuiVotesFor        :: !Int
+    , cuiVotesAgainst    :: !Int
+    , cuiPositiveStake   :: !Coin
+    , cuiNegativeStake   :: !Coin
+    } deriving (Show, Generic)
+
+-- | Return counts of negative and positive votes
+countVotes :: StakeholderVotes -> (Int, Int)
+countVotes = foldl' counter (0, 0)
+  where counter (n, m) vote = if isPositiveVote vote
+                              then (n + 1, m)
+                              else (n, m + 1)
+
+-- | Creates 'CTUpdateInfo' from 'ConfirmedProposalState'
+toCTUpdateInfo :: ConfirmedProposalState -> CTUpdateInfo
+toCTUpdateInfo ConfirmedProposalState {..} =
+    let UpdateProposal {..} = cpsUpdateProposal
+        cuiSoftwareVersion  = upSoftwareVersion
+        cuiBlockVesion      = upBlockVersion
+        cuiScriptVersion    = upScriptVersion
+        cuiImplicit         = cpsImplicit
+        cuiProposed         = cpsProposed
+        cuiDecided          = cpsDecided
+        cuiConfirmed        = cpsConfirmed
+        cuiAdopted          = cpsAdopted
+        (cuiVotesFor, cuiVotesAgainst) = countVotes cpsVotes
+        cuiPositiveStake    = cpsPositiveStake
+        cuiNegativeStake    = cpsNegativeStake
+    in CTUpdateInfo {..}

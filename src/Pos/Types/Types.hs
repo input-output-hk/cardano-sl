@@ -876,30 +876,38 @@ class HasHeaderHash a where
     headerHashG :: Getter a HeaderHash
     headerHashG = to headerHash
 
+type BiHeader ssc = Bi (BlockHeader ssc)
+
 -- | This function is required because type inference fails in attempts to
 -- hash only @Right@ or @Left@.
-blockHeaderHash :: BiSsc ssc => BlockHeader ssc -> HeaderHash
+blockHeaderHash :: BiHeader ssc => BlockHeader ssc -> HeaderHash
 blockHeaderHash = headerHash
 
 instance HasHeaderHash HeaderHash where
     headerHash = identity
 
-instance BiSsc ssc => HasHeaderHash (MainBlockHeader ssc) where
+instance BiHeader ssc =>
+         HasHeaderHash (MainBlockHeader ssc) where
     headerHash = blockHeaderHash . Right
 
-instance BiSsc ssc => HasHeaderHash (GenesisBlockHeader ssc) where
+instance BiHeader ssc =>
+         HasHeaderHash (GenesisBlockHeader ssc) where
     headerHash = blockHeaderHash . Left
 
-instance BiSsc ssc => HasHeaderHash (BlockHeader ssc) where
+instance BiHeader ssc =>
+         HasHeaderHash (BlockHeader ssc) where
     headerHash = unsafeHash
 
-instance BiSsc ssc => HasHeaderHash (MainBlock ssc) where
+instance BiHeader ssc =>
+         HasHeaderHash (MainBlock ssc) where
     headerHash = blockHeaderHash . Right . _gbHeader
 
-instance BiSsc ssc => HasHeaderHash (GenesisBlock ssc) where
-    headerHash = blockHeaderHash . Left  . _gbHeader
+instance BiHeader ssc =>
+         HasHeaderHash (GenesisBlock ssc) where
+    headerHash = blockHeaderHash . Left . _gbHeader
 
-instance BiSsc ssc => HasHeaderHash (Block ssc) where
+instance BiHeader ssc =>
+         HasHeaderHash (Block ssc) where
     headerHash = blockHeaderHash . getBlockHeader
 
 -- | Specialized formatter for 'HeaderHash'.

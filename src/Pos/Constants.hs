@@ -49,6 +49,7 @@ module Pos.Constants
          -- * Update system constants
        , lastKnownBlockVersion
        , curSoftwareVersion
+       , ourAppName
        , appSystemTag
        , updateServers
        , updateProposalThreshold
@@ -283,6 +284,10 @@ lastKnownBlockVersion = BlockVersion 0 0 0
 -- | Version of application (code running)
 curSoftwareVersion :: SoftwareVersion
 curSoftwareVersion = SoftwareVersion cardanoSlAppName 0
+
+-- | Name of our application.
+ourAppName :: ApplicationName
+ourAppName = cardanoSlAppName
 
 -- | Update servers
 updateServers :: [String]

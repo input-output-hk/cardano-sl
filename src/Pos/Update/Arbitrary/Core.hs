@@ -6,22 +6,19 @@ module Pos.Update.Arbitrary.Core
        (
        ) where
 
-import           Data.DeriveTH                (derive, makeArbitrary)
-import qualified Data.HashMap.Strict          as HM
-import           Test.QuickCheck              (Arbitrary (..), listOf1, oneof)
+import           Data.DeriveTH         (derive, makeArbitrary)
+import qualified Data.HashMap.Strict   as HM
+import           Test.QuickCheck       (Arbitrary (..), listOf1, oneof)
 import           Universum
 
-import           Pos.Binary.Update            ()
-import           Pos.Crypto                   (sign)
-import           Pos.Crypto.Arbitrary         (KeyPair (..))
-import           Pos.Data.Attributes          (mkAttributes)
-import           Pos.Types.Arbitrary          ()
-import           Pos.Update.Arbitrary.Network ()
-import           Pos.Update.Core.Types        (SystemTag, UpdateData (..),
-                                               UpdatePayload (..), UpdateProposal (..),
-                                               UpdateVote (..), VoteId, mkSystemTag,
-                                               mkVoteId)
-import           Pos.Util.Relay               (DataMsg (..))
+import           Pos.Binary.Update     ()
+import           Pos.Crypto            (sign)
+import           Pos.Crypto.Arbitrary  (KeyPair (..))
+import           Pos.Data.Attributes   (mkAttributes)
+import           Pos.Types.Arbitrary   ()
+import           Pos.Update.Core.Types (SystemTag, UpdateData (..), UpdatePayload (..),
+                                        UpdateProposal (..), UpdateVote (..),
+                                        VoteState (..), mkSystemTag)
 
 instance Arbitrary SystemTag where
     arbitrary =
@@ -38,11 +35,6 @@ instance Arbitrary UpdateVote where
         let uvSignature = sign sk (uvProposalId, uvDecision)
         return UpdateVote {..}
 
-instance Arbitrary (DataMsg VoteId UpdateVote) where
-    arbitrary = do
-        vote <- arbitrary
-        return $ DataMsg vote (mkVoteId vote)
-
 instance Arbitrary UpdateProposal where
     arbitrary = UpdateProposal
         <$> arbitrary
@@ -50,6 +42,11 @@ instance Arbitrary UpdateProposal where
         <*> arbitrary
         <*> (HM.fromList <$> listOf1 arbitrary)
         <*> pure (mkAttributes ())
+
+instance Arbitrary VoteState where
+    arbitrary =
+        oneof $
+        map pure [PositiveVote, NegativeVote, PositiveRevote, NegativeRevote]
 
 derive makeArbitrary ''UpdateData
 derive makeArbitrary ''UpdatePayload

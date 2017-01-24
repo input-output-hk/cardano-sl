@@ -61,7 +61,7 @@ instance MonadPoll m => MonadPoll (RollT m) where
     delConfirmedSV = lift . delConfirmedSV
 
     -- can't be rolled back
-    addConfirmedProposal nsv = lift . addConfirmedProposal nsv
+    addConfirmedProposal = lift . addConfirmedProposal
 
     addActiveProposal ps = RollT $ do
         insertIfNotExist (hash $ psProposal $ ps) unChangedPropsL getProposal

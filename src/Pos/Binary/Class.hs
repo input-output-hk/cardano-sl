@@ -34,6 +34,7 @@ import qualified Data.ByteString             as BS
 import qualified Data.ByteString.Lazy        as BSL
 import           Data.Hashable               (Hashable (..))
 import qualified Data.HashMap.Strict         as HM
+import qualified Data.HashSet                as HS
 import qualified Data.Text.Encoding          as T
 import qualified Data.Vector                 as V
 import qualified Data.Vector.Generic         as G
@@ -460,6 +461,10 @@ instance (Bi a) => Bi (Maybe a) where
 instance (Hashable k, Eq k, Bi k, Bi v) => Bi (HM.HashMap k v) where
     get = fmap HM.fromList get
     put = put . HM.toList
+
+instance (Hashable k, Eq k, Bi k) => Bi (HashSet k) where
+    get = fmap HS.fromList get
+    put = put . HS.toList
 
 -- Copy-pasted w/ modifications, license:
 -- https://github.com/bos/vector-binary-instances/blob/master/LICENSE

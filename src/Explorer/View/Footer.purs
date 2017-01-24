@@ -2,12 +2,11 @@ module Explorer.View.Footer (footerView) where
 
 import Prelude
 import Data.String (take)
-import Explorer.Assets (logoPath)
 import Explorer.State (State, Action)
 import Explorer.Util.Version (version, commitHash)
-import Pux.Html (Html, div, text, nav, a, img, select, option, p) as P
+import Pux.Html (Html, div, text, nav, a, select, option, p) as P
 import Pux.Html.Attributes (value)
-import Pux.Html.Attributes (className, src, href) as P
+import Pux.Html.Attributes (className, href) as P
 
 
 footerView :: State -> P.Html Action
@@ -22,8 +21,8 @@ footerView state =
                   [ P.className "logo__container"]
                   [ P.div
                       [ P.className "logo__wrapper"]
-                      [  P.img
-                            [ P.className "logo__img", P.src logoPath ]
+                      [  P.div
+                            [ P.className "logo__img" ]
                             []
                       ]
                   ]
@@ -142,7 +141,7 @@ langItems =
 langView :: State -> P.Html Action
 langView state =
   P.select
-      [ P.className "lang__select" ]
+      [ P.className "lang__select bg-arrow-up" ]
       $ map langItemView langItems
 
 langItemView :: LangItem -> P.Html Action

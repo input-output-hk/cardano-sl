@@ -8,6 +8,8 @@ module.exports = {
     require('postcss-color-function'),
     require('postcss-center'),
     require('postcss-button'),
+    require('postcss-inline-svg'),
+    require('postcss-svgo'),
     require('postcss-neat')({
       neatMaxWidth: '960px'
     }),

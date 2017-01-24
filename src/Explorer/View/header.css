@@ -73,11 +73,10 @@
       margin: 0;
       width: auto;
       border: none;
-      background: transparent;
-      appearance: none;
-      background-image: url('../static/images/arrow-bottom.svg');
+      background-color: transparent;
       background-repeat: no-repeat;
       background-position: right center;
+      appearance: none;
       padding-right: 20px;
     }
 

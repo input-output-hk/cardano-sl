@@ -63,6 +63,29 @@
 
 
 /* ---------------------------
+  embedded svg
+------------------------------ */
+
+@svg-load logo url('../static/images/cardano-logo.svg');
+.bg-logo {
+  background-image: svg-inline(logo);
+  background-size: contain;
+}
+
+@svg-load arrow-up url('../static/images/arrow-up.svg');
+.bg-arrow-up {
+  background-image: svg-inline(arrow-up);
+}
+
+
+@svg-load arrow-down url('../static/images/arrow-bottom.svg');
+.bg-arrow-down {
+  background-image: svg-inline(arrow-down);
+}
+
+
+
+/* ---------------------------
   components
 ------------------------------ */
 

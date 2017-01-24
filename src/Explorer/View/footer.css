@@ -89,10 +89,9 @@
       font-size: 10px;
       color: color(var(--color0) a(0.5));
       border: none;
-      background: transparent;
       width: auto;
       appearance: none;
-      background-image: url('../static/images/arrow-up.svg');
+      background-color: transparent;
       background-repeat: no-repeat;
       background-position: right center;
       padding-right: 20px;

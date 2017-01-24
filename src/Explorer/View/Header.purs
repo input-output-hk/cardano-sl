@@ -1,12 +1,11 @@
 module Explorer.View.Header (headerView) where
 
 import Prelude
-import Explorer.Assets (logoPath)
 import Explorer.I18n.Lang (Language, I18nAccessor, translate)
 import Explorer.State (State, Action)
-import Pux.Html (Html, div, text, header, nav, a, select, option, img) as P
+import Pux.Html (Html, div, text, header, nav, a, select, option) as P
 import Pux.Html.Attributes (value)
-import Pux.Html.Attributes (className, href, src) as P
+import Pux.Html.Attributes (className, href) as P
 
 headerView :: State -> P.Html Action
 headerView state = do
@@ -21,8 +20,8 @@ headerView state = do
                     [ P.className "logo__container"]
                     [ P.div
                         [ P.className "logo__wrapper"]
-                        [ P.img
-                            [ P.className "logo__img", P.src logoPath ]
+                        [ P.div
+                            [ P.className "logo__img" ]
                             []
                         ]
                     ]
@@ -53,7 +52,7 @@ currencyItems =
 currencyView :: State -> P.Html Action
 currencyView state =
   P.select
-      [ P.className "currency__select" ]
+      [ P.className "currency__select bg-arrow-down" ]
       $ map currencyItemView currencyItems
 
 currencyItemView :: CurrencyItem -> P.Html Action

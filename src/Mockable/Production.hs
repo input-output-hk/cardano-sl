@@ -29,7 +29,6 @@ import           Mockable.CurrentTime     (CurrentTime (..), realTime)
 import           Mockable.Exception       (Bracket (..), Catch (..), Throw (..))
 import           Mockable.SharedAtomic    (SharedAtomic (..), SharedAtomicT)
 import           Mockable.SharedExclusive (SharedExclusive (..), SharedExclusiveT)
-import           Mockable.BoundedQueue
 import qualified Mockable.Metrics         as Metrics
 import qualified System.Metrics.Distribution as EKG.Distribution
 import qualified System.Metrics.Gauge     as EKG.Gauge

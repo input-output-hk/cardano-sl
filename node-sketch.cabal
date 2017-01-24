@@ -32,7 +32,6 @@ Library
                         Mockable.Production
                         Mockable.SharedAtomic
                         Mockable.SharedExclusive
-                        Mockable.BoundedQueue
                         Mockable.Metrics
 
                         Node.Internal

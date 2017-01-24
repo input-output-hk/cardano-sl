@@ -457,19 +457,6 @@ stRemoveHandler provenance elapsed outcome statistics = case provenance of
             avg' = avg - (1 / fromIntegral npeers)
             avg2' = avg - (fromIntegral (2 * nhandlers + 1) / fromIntegral npeers) 
 
--- |
--- = Statistics and monitoring
---
--- It will be useful to track statistics about a node, for instance the
--- number of handlers induced by a given peer. A way to monitor these would be
--- nice as well. EKG comes to mind, and it looks like the 'Distribution' type
--- from this package will be very useful. However, it's not obvious that it
--- can do what we want. We must track the number of handlers per-peer, and also
--- the total number of peers and the total number of handlers. These are all
--- integral, suitable for gauges.
---
-
-
 -- | Bring up a 'Node' using a network transport.
 startNode :: ( Mockable SharedAtomic m, Mockable Bracket m
              , Mockable Buffer m, Mockable Throw m, Mockable Catch m

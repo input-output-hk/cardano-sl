@@ -6,8 +6,7 @@ import Explorer.I18n.Lang (translate)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (Action, CCurrency(..), State)
 import Pux.Html (Html, div, text, h3, table, tr, td, a, span, p) as P
-import Pux.Html.Attributes (href) as P
-import Pux.Html.Attributes (className) as P
+import Pux.Html.Attributes (className, href) as P
 import Pux.Router (link) as P
 
 transactionView :: State -> P.Html Action

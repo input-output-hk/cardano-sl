@@ -45,13 +45,14 @@
 
     .amount-container {
       @neat-span-columns 2;
-      position: relative;
       height: 100%;
+      box: horizontal right;
+      padding-right: 12px;
     }
 
     .amount {
-      top: center;
-      right: 12px;
+      box-item: center;
+
       color: var(--color0);
 
       padding: 5px 10px 5px 20px;

@@ -24,13 +24,11 @@
     .logo__wrapper {
       width: var(--logo-footer-width);
       height: var(--logo-footer-height);
-      position: relative;
     }
 
     .logo__img {
       width: var(--logo-footer-width);
       height: var(--logo-footer-height);
-      top: center;
     }
 
     .nav__container {
@@ -69,22 +67,24 @@
     .content {
       @neat-span-columns 6;
       height: var(--height-footer-bottom);
-      line-height: var(--height-footer-bottom);
-      position: relative;
 
       &__right {
-        text-align: right;
+        box: horizontal right;
+      }
+
+      &__left {
+        box: horizontal;
       }
     }
 
     .copy {
       font-family: var(--fontFamily0-Light);
       font-size: 10px;
+      box-item: center;
     }
 
     .lang__select {
       height: var(--height-footer-bottom);
-      right: 0;
       font-family: var(--fontFamily0-Light);
       font-size: 10px;
       color: color(var(--color0) a(0.5));
@@ -95,6 +95,7 @@
       background-repeat: no-repeat;
       background-position: right center;
       padding-right: 20px;
+      box-item: center;
     }
   }
 }

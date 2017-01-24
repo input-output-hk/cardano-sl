@@ -6,7 +6,6 @@ module.exports = {
     require('postcss-extend'),
     require('postcss-nested'),
     require('postcss-color-function'),
-    require('postcss-center'),
     require('postcss-button'),
     require('postcss-inline-svg'),
     require('postcss-svgo'),

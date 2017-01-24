@@ -27,13 +27,13 @@
 
     .logo__wrapper {
       height: var(--height-header-top);
-      position: relative;
+      box: horizontal;
     }
 
     .logo__img {
       width: 49px;
       height: 45px;
-      top: center;
+      box-item: center;
     }
 
     .nav__container {

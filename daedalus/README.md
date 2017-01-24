@@ -81,6 +81,25 @@ Daedalus.ClientApi.newWallet('CWTPersonal', 'ADA', '')()
   })
 ```
 
+_generateMnemonic_
+
+```javascript
+Daedalus.ClientApi.generateMnemonic();
+```
+
+_blockchainSlotDuration_
+
+```javascript
+Daedalus.ClientApi.blockchainSlotDuration()
+  .then(function(value) {
+    console.log('SUCCESS', value);
+  }, function(reason) {
+    console.log('ERROR', reason);
+  })
+
+```
+
+
 
 _deleteWallet_
 

@@ -39,6 +39,7 @@ import           Pos.Util.BackupPhrase         (keysFromPhrase)
 import           Pos.Web.Server                (serveImpl)
 
 import           Pos.Communication.BiP         (BiP)
+import           Pos.Constants                 (slotDuration)
 import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
                                                 addSecretKey)
 import           Pos.Wallet.Tx                 (submitTx)
@@ -212,6 +213,8 @@ servantHandlers sendActions =
      catchWalletError getUserProfile
     :<|>
      catchWalletError . updateUserProfile
+    :<|>
+     catchWalletError blockchainSlotDuration
   where
     -- TODO: can we with Traversable map catchWalletError over :<|>
     -- TODO: add logging on error
@@ -340,6 +343,9 @@ deleteWallet cAddr = do
 isValidAddress :: WalletWebMode ssc m => CCurrency -> Text -> m Bool
 isValidAddress ADA sAddr = pure . either (const False) (const True) $ decodeTextAddress sAddr
 isValidAddress _ _       = pure False
+
+blockchainSlotDuration :: WalletWebMode ssc m => m Word
+blockchainSlotDuration = pure $ fromIntegral slotDuration
 
 ----------------------------------------------------------------------------
 -- Helpers

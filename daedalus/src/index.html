@@ -84,6 +84,14 @@
       var generateMnemonic = function() {
          console.log(Daedalus.ClientApi.generateMnemonic())
       };
+      var blockchainSlotDuration = function() {
+         Daedalus.ClientApi.blockchainSlotDuration()
+         .then(function(value) {
+             console.log('SUCCESS', value);
+         }, function(reason) {
+             console.log('ERROR', reason);
+         })
+      };
     </script>
 		<title></title>
 	</head>
@@ -106,6 +114,7 @@
       <li><button onclick="getProfile()"/>get user profile</li>
       <li><button onclick="updateProfile('name', 'email', 'phone', 'password', 1484253370.9182513, 'locale', 'picture')"/>update user profile</li>
       <li><button onclick="generateMnemonic()"/>generateMnemonic</li>
+      <li><button onclick="blockchainSlotDuration()"/>blockchain slot duration</li>
     </ul>
 	</body>
 </html>

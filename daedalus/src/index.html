@@ -34,14 +34,8 @@
             .catch(function(reason) {console.log(reason)})
       };
 
-      var newWallet = function(type, currency, name) {
-        var confirmFunction = function(mnemonics) {
-            // if this function return successfully that means you guys are saying user is confirming mnemonics
-            console.log(mnemonics)
-            // if you throw an exception that means user didn't confirm so we will cancel the request
-            // throw new Error("Wallet canceled")
-        }
-        Daedalus.ClientApi.newWallet(type, currency, name, confirmFunction)()
+      var newWallet = function(type, currency, name, mnemonic) {
+        Daedalus.ClientApi.newWallet(type, currency, name, mnemonic)()
             .then(function(result) {console.log(result)})
             .catch(function(reason) {console.log(reason)})
       };
@@ -67,8 +61,8 @@
       };
       var notify = function() {
         Daedalus.ClientApi.notify(
-           function(msg) { return function() { console.log('msg ', msg) } },
-           function(error) { return function() { console.log('error ', error) } }
+           function(msg) { console.log('msg ', msg) },
+           function(error) { console.log('error ', error) }
          )();
      };
       var getProfile = function() {
@@ -82,8 +76,8 @@
             .catch(function(reason) {console.log(reason)})
       };
       var generateMnemonic = function() {
-         console.log(Daedalus.ClientApi.generateMnemonic())
-      };
+        console.log(Daedalus.ClientApi.generateMnemonic())
+      }
     </script>
 		<title></title>
 	</head>
@@ -97,7 +91,7 @@
       <li><button onclick="sendExtended('wallet_address1', 'wallet_address2', 1, 'ADA', 'title', 'desc');"/>send from a to b 1 coin, with title and description</li>
       <li><button onclick="getHistory('wallet_address')"/>get wallet history</li>
       <li><button onclick="searchHistory('wallet_address', 'searchItem', 10)"/>search wallet history</li>
-      <li><button onclick="newWallet('CWTPersonal', 'ADA', 'I am rich guy');"/>newWallet</li>
+      <li><button onclick="newWallet('CWTPersonal', 'ADA', 'I am rich guy', 'mnemonic');"/>newWallet</li>
       <li><button onclick="updateWallet('wallet_address', 'CWTPersonal', 'ADA', 'wallet_name');"/>updateWallet</li>
       <li><button onclick="updateTransaction('wallet_address', 'transaction_hash', 'ADA', 'new_transaction_title', 'new_transaction_description', 1484253370.9182513);"/>updateTransaction</li>
       <li><button onclick="deleteWallet('wallet_address');"/>deleteWallet</li>
@@ -105,7 +99,7 @@
       <li><button onclick="notify()"/>add notify listener</li>
       <li><button onclick="getProfile()"/>get user profile</li>
       <li><button onclick="updateProfile('name', 'email', 'phone', 'password', 1484253370.9182513, 'locale', 'picture')"/>update user profile</li>
-      <li><button onclick="generateMnemonic()"/>generateMnemonic</li>
+      <li><button onclick="generateMnemonic()"/>generate mnemonic</li>
     </ul>
 	</body>
 </html>

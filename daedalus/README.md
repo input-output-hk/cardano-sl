@@ -73,12 +73,23 @@ Daedalus.ClientApi.getWallet('XXX')()
 _newWallet_
 
 ```javascript
-Daedalus.ClientApi.newWallet('CWTPersonal', 'ADA', '')()
+Daedalus.ClientApi.newWallet(
+    'CWTPersonal'
+  , 'ADA'
+  , 'wallet name'
+  , 'mnemonic words')()
   .then(function(value) {
     console.log('SUCCESS', value);
   }, function(reason) {
     console.log('ERROR', reason);
   })
+```
+
+
+_generateMnemonic_
+
+```javascript
+Daedalus.ClientApi.generateMnemonic()
 ```
 
 

@@ -34,11 +34,18 @@
     }
 
     td {
-      padding: 10px;
+      padding: 10px 10px 10px 0;
 
       &:first-child {
         padding-left: 24px;
         width: 164px;
+      }
+
+      &.ada {
+        padding-left: 10px;
+        background-repeat: no-repeat;
+        background-position: left center;
+        background-size: 8px 7px;
       }
     }
 

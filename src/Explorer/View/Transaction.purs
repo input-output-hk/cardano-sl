@@ -1,12 +1,11 @@
 module Explorer.View.Transaction (transactionView) where
 
 import Prelude
-
+import Data.Maybe (Maybe(..))
+import Explorer.I18n.Lang (translate)
+import Explorer.State (Action, CCurrency(..), State)
 import Pux.Html (Html, div, text, h3, table, tr, td) as P
 import Pux.Html.Attributes (className) as P
-
-import Explorer.I18n.Lang (translate)
-import Explorer.State (State, Action)
 
 transactionView :: State -> P.Html Action
 transactionView state =
@@ -43,24 +42,29 @@ type SummaryItems = Array SummaryItem
 type SummaryItem =
     { label :: String
     , value :: String
+    , currency :: Maybe CCurrency
     }
 
 summaryItems :: SummaryItems
 summaryItems =
-    [ { label: "#Received time", value: "2016-07-08 11:56:48" }
-    , { label: "#Included In Blocks", value: "419827 (2016-07-08 12:02:52 + 6 minutes)" }
-    , { label: "#Relayed by IP", value: "78.129.167.5 (whois)" }
-    , { label: "#Total Output", value: "3,027,500" }
+    [ { label: "#Received time", value: "2016-07-08 11:56:48", currency: Nothing }
+    , { label: "#Included In Blocks", value: "419827 (2016-07-08 12:02:52 + 6 minutes)", currency: Nothing }
+    , { label: "#Relayed by IP", value: "78.129.167.5 (whois)", currency: Nothing }
+    , { label: "#Total Output", value: "3,027,500", currency: Just ADA }
     ]
 
 summaryRow :: SummaryItem -> P.Html Action
-summaryRow item =
+summaryRow item = do
+    let extraCSSClazz =
+            case item.currency of
+                  Just ADA -> " ada bg-ada-dark"
+                  _ -> ""
     P.tr
         []
         [ P.td
             [ P.className "" ]
             [ P.text item.label ]
         , P.td
-            [ P.className "" ]
+            [ P.className $ "" <> extraCSSClazz  ]
             [ P.text item.value ]
         ]

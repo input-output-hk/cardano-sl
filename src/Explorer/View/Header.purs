@@ -21,7 +21,7 @@ headerView state = do
                     [ P.div
                         [ P.className "logo__wrapper"]
                         [ P.div
-                            [ P.className "logo__img" ]
+                            [ P.className "logo__img bg-logo" ]
                             []
                         ]
                     ]

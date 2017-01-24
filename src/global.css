@@ -13,6 +13,8 @@
 	--color6: #f3f6f9;
 	--color7: #edf0f3;
 	--color8: #333333;
+	--color9: #414141;
+	--color10: #0e2735;
 
 
   --max-width-desktop: 960px;
@@ -85,6 +87,12 @@
   background-image: svg-inline(arrow-down);
 }
 
+@svg-load ada url('../static/images/ada-currency-symbol.svg');
+
+.bg-ada {
+  background-image: svg-inline(ada);
+}
+
 @svg-load ada-dark url('../static/images/ada-currency-symbol-dark.svg');
 
 .bg-ada-dark {
@@ -105,6 +113,16 @@
   background-color: transparent;
   background-color-hover: transparent;
   background-color-active: transparent;
+}
+
+@button primary-button {
+  color: var(--color0);
+  color-hover: var(--color0);
+  color-active: color(var(--color0) a(0.8));
+
+  background-color: var(--color10);
+  background-color-hover: var(--color5);
+  background-color-active: color(var(--color5) a(0.8));
 }
 
 /* TODO (jk) remove btn class */

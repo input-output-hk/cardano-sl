@@ -4,7 +4,8 @@ import Prelude
 import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (translate)
 import Explorer.State (Action, CCurrency(..), State)
-import Pux.Html (Html, div, text, h3, table, tr, td) as P
+import Pux.Html (Html, div, text, h3, table, tr, td, a) as P
+import Pux.Html.Attributes (href)
 import Pux.Html.Attributes (className) as P
 
 transactionView :: State -> P.Html Action
@@ -18,6 +19,8 @@ transactionView state =
                     [ P.h3
                             [ P.className "headline"]
                             [ P.text $ translate _.transaction state.lang ]
+                      , transactionHeader state
+                      , transactionTable state
                     ]
               ]
         ,  P.div
@@ -34,6 +37,33 @@ transactionView state =
                       ]
                 ]
         ]
+
+transactionHeader :: State -> P.Html Action
+transactionHeader state =
+    P.div
+          [ P.className "transaction-header"]
+          [ P.a
+              [ P.className "hash"
+              , href "#" ]
+              [ P.text "SCRs8ojgKbClMEXH9IQO1ClGYs-qwXD0V09lxlcQaAw="]
+          , P.div
+              [ P.className "date"]
+              [ P.text "2016-10-17 18:10:05" ]
+          , P.div
+              [ P.className "amount-container" ]
+              [ P.a
+                  [ P.className "amount bg-ada"
+                  , href "#" ]
+                  [ P.text "3,042,900"]
+              ]
+          ]
+
+transactionTable :: State -> P.Html Action
+transactionTable state =
+    P.table
+          [ P.className "transaction-table"]
+          []
+
 
 -- currency
 

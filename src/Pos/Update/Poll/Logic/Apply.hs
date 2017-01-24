@@ -364,10 +364,10 @@ applyDepthCheck hh cd
         when dpsDecision $ do
             setLastConfirmedSV sv
             DpsExtra {..} <-
-                note (PollInternalError "DPS extra: expected Maybe, but got Nothing")
+                note (PollInternalError "DPS extra: expected Just, but got Nothing")
                       dpsExtra
             UpsExtra {..} <-
-                note (PollInternalError "UPS extra: expected Maybe, but got Nothing")
+                note (PollInternalError "UPS extra: expected Just, but got Nothing")
                       upsExtra
             let cps = ConfirmedProposalState
                     { cpsUpdateProposal = upsProposal

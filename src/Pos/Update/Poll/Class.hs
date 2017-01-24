@@ -36,7 +36,7 @@ class Monad m => MonadPollRead m where
     getLastAdoptedBV :: m BlockVersion
     -- ^ Get last adopted block version.
     getLastConfirmedSV :: ApplicationName -> m (Maybe NumSoftwareVersion)
-    -- ^ Get number of last confirmed version of application
+    -- ^ Get numeric component of last confirmed version of application
     hasActiveProposal :: ApplicationName -> m Bool
     -- ^ Check if given application has an active (non-confirmed) proposal
     getProposal :: UpId -> m (Maybe ProposalState)

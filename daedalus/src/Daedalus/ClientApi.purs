@@ -128,3 +128,6 @@ notify = mkFn2 \messageCb errorCb -> do
     -- instead of creating newRef
     conn <- newRef WSNotConnected
     openConn $ mkWSState conn messageCb errorCb
+
+blockchainSlotDuration :: forall eff. Eff (ajax :: AJAX | eff) (Promise Int)
+blockchainSlotDuration = fromAff B.blockchainSlotDuration

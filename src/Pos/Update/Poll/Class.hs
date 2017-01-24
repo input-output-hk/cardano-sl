@@ -30,7 +30,7 @@ class Monad m => MonadPollRead m where
     getBVState :: BlockVersion -> m (Maybe BlockVersionState)
     -- ^ Retrieve state of given block version.
     getProposedBVs :: m [BlockVersion]
-    -- ^ Retrieve all confirmed block version.
+    -- ^ Retrieve all proposed block version.
     getLastBVState :: m BlockVersionState
     -- ^ Retrieve state of last adopted block version.
     getLastAdoptedBV :: m BlockVersion

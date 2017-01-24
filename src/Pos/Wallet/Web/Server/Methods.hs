@@ -148,6 +148,7 @@ launchNotifier nat = void . liftIO $ sequence
         notify NewTransaction
     updateNotifier = notifier updateNotifyPeriod $ do
         logInfo "I'm update notifier and I work!"
+        notify UpdateAvailable
     -- historyNotifier :: WalletWebMode ssc m => m ()
     -- historyNotifier = do
     --     cAddresses <- myCAddresses

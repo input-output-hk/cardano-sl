@@ -53,6 +53,7 @@ data NotifyEvent
     = ConnectionOpened
     | NewWalletTransaction CAddress
     | NewTransaction
+    | UpdateAvailable
     | ConnectionClosed
     deriving (Show, Generic)
 

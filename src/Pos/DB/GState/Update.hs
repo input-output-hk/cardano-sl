@@ -33,6 +33,7 @@ module Pos.DB.GState.Update
 
        , BVIter
        , getProposedBVs
+       , getProposedBVStates
        ) where
 
 import           Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
@@ -258,10 +259,16 @@ instance DBIteratorClass BVIter where
 
 -- | Get all proposed 'BlockVersion's.
 getProposedBVs :: MonadDB ssc m => m [BlockVersion]
-getProposedBVs = runDBnIterator @BVIter _gStateDB (step [])
+getProposedBVs = runDBnMapIterator @BVIter _gStateDB (step []) fst
   where
     step res = nextItem >>= maybe (pure res) (onItem res)
-    onItem res (bv, BlockVersionState {..}) = step (bv : res)
+    onItem res = step . (: res)
+
+getProposedBVStates :: MonadDB ssc m => m [BlockVersionState]
+getProposedBVStates = runDBnMapIterator @BVIter _gStateDB (step []) snd
+  where
+    step res = nextItem >>= maybe (pure res) (onItem res)
+    onItem res = step . (: res)
 
 ----------------------------------------------------------------------------
 -- Keys ('us' prefix stands for Update System)

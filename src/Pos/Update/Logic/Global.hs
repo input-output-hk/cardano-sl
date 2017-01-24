@@ -18,6 +18,7 @@ import           System.Wlog          (WithLogger, logError)
 import           Universum
 
 import           Pos.Constants        (lastKnownBlockVersion)
+import           Pos.Context          (WithNodeContext)
 import qualified Pos.DB               as DB
 import           Pos.DB.GState        (UpdateOp (..))
 import           Pos.Ssc.Class        (Ssc)
@@ -37,8 +38,14 @@ import           Pos.Update.Poll      (BlockVersionState, ConfirmedProposalState
 import           Pos.Util             (Color (Red), NE, NewestFirst, OldestFirst,
                                        colorize, inAssertMode)
 
-type USGlobalApplyMode ssc m = (WithLogger m, DB.MonadDB ssc m, Ssc ssc)
-type USGlobalVerifyMode ы m = (DB.MonadDB ы m, MonadError PollVerFailure m, Ssc ы)
+type USGlobalApplyMode ssc m = (WithLogger m
+                               , DB.MonadDB ssc m
+                               , Ssc ssc
+                               , WithNodeContext ssc m)
+type USGlobalVerifyMode ssc m = (DB.MonadDB ssc m
+                                , MonadError PollVerFailure m
+                                , Ssc ssc
+                                , WithNodeContext ssc m)
 
 -- | Apply chain of /definitely/ valid blocks to US part of GState DB
 -- and to US local data. This function assumes that no other thread
@@ -115,7 +122,7 @@ verifyBlock (Right blk) = execRollT $ do
 
 -- | Checks whether our software can create block according to current
 -- global state.
-usCanCreateBlock :: DB.MonadDB ы m => m Bool
+usCanCreateBlock :: (WithNodeContext ssc m, DB.MonadDB ssc m) => m Bool
 usCanCreateBlock = runDBPoll $ canCreateBlockBV lastKnownBlockVersion
 
 ----------------------------------------------------------------------------

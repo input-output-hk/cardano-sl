@@ -1,9 +1,9 @@
 -- | Issuers part of LRC DB.
 
 module Pos.DB.Lrc.Issuers
-       (
+       ( IssuersStakes
          -- * Getters
-         getIssuersStakes
+       , getIssuersStakes
 
          -- * Operations
        , putIssuersStakes
@@ -14,36 +14,37 @@ module Pos.DB.Lrc.Issuers
 
 import           Universum
 
+import           Pos.Binary.Class  (encodeStrict)
 import           Pos.DB.Class      (MonadDB)
 import           Pos.DB.Error      (DBError (DBMalformed))
 import           Pos.DB.Lrc.Common (getBi, putBi)
-import           Pos.Types         (Coin, EpochIndex, StakeholderId)
+import           Pos.Types         (Coin, EpochIndex, StakeholderId, EpochIndex (..))
 import           Pos.Util          (maybeThrow)
 
 -- | The first value here is epoch for which this stake distribution is valid.
 -- The second one is total stake corresponding to that epoch.
 -- The third one is map which stores stake belonging to issuer of some block as
 -- per epoch from the first value.
-type IssuersStakes = (EpochIndex, Coin, HashMap StakeholderId Coin)
+type IssuersStakes = HashMap StakeholderId Coin
 
-getIssuersStakes :: MonadDB ssc m => m IssuersStakes
-getIssuersStakes =
+getIssuersStakes :: MonadDB ssc m => EpochIndex -> m IssuersStakes
+getIssuersStakes epoch =
     maybeThrow (DBMalformed "Issuers part of LRC DB is not initialized") =<<
-    getBi issuersKey
+    getBi (issuersKey epoch)
 
-putIssuersStakes :: MonadDB ssc m => IssuersStakes -> m ()
-putIssuersStakes = putBi issuersKey
+putIssuersStakes :: MonadDB ssc m => EpochIndex -> IssuersStakes -> m ()
+putIssuersStakes epoch = putBi (issuersKey epoch)
 
 prepareLrcIssuers :: MonadDB ssc m => Coin -> m ()
-prepareLrcIssuers genesisTotalStake =
-    unlessM (isInitialized) $ putIssuersStakes (0, genesisTotalStake, mempty)
+prepareLrcIssuers _ =
+    unlessM isInitialized $ putIssuersStakes (EpochIndex 0) mempty
 
 isInitialized :: MonadDB ssc m => m Bool
-isInitialized = (isJust @(Maybe IssuersStakes)) <$> getBi issuersKey
+isInitialized = (isJust @(Maybe IssuersStakes)) <$> getBi (issuersKey $ EpochIndex 0)
 
 ----------------------------------------------------------------------------
 -- Keys
 ----------------------------------------------------------------------------
 
-issuersKey :: ByteString
-issuersKey = "i/"
+issuersKey :: EpochIndex -> ByteString
+issuersKey = mappend "i/" . encodeStrict

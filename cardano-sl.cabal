@@ -299,6 +299,7 @@ library
                         -- Update System
                         Pos.Update.Arbitrary.Core
                         Pos.Update.Arbitrary.Network
+                        Pos.Update.Arbitrary.Poll
                         Pos.Update.Core.Types
                         Pos.Update.Download
                         Pos.Update.Error

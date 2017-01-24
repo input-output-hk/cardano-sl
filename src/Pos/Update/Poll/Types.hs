@@ -75,15 +75,15 @@ data UndecidedProposalState = UndecidedProposalState
       -- ^ Total stake of all positive votes.
     , upsNegativeStake :: !Coin
       -- ^ Total stake of all negative votes.
-    , upsExtra :: !(Maybe UpsExtra)
+    , upsExtra         :: !(Maybe UpsExtra)
       -- ^ Extra data
-    } deriving (Generic)
+    } deriving (Show, Generic, Eq)
 
 -- | Extra data required by wallet, stored in UndecidedProposalState
 data UpsExtra = UpsExtra
     { ueProposedBlk :: !HeaderHash
     -- ^ Block in which this update was proposed
-    } deriving (Generic)
+    } deriving (Show, Generic, Eq)
 
 -- | State of UpdateProposal which can be classified as approved or
 -- rejected.
@@ -95,10 +95,9 @@ data DecidedProposalState = DecidedProposalState
     , dpsDifficulty :: !(Maybe ChainDifficulty)
       -- ^ Difficulty at which this proposal became approved/rejected.
       --   Can be Nothing in temporary state.
-    , dpsExtra :: !(Maybe DpsExtra)
+    , dpsExtra      :: !(Maybe DpsExtra)
       -- ^ Extra data
-    } deriving (Generic)
-
+    } deriving (Show, Generic, Eq)
 
 -- | Extra data required by wallet, stored in DecidedProposalState.
 data DpsExtra = DpsExtra
@@ -106,7 +105,7 @@ data DpsExtra = DpsExtra
       -- ^ HeaderHash  of block in which this update was approved/rejected
     , deImplicit   :: !Bool
       -- ^ Which way we approve/reject this update proposal: implicit or explicit
-    } deriving (Generic)
+    } deriving (Show, Generic, Eq)
 
 -- | Information about confirmed proposals stored in DB.
 data ConfirmedProposalState = ConfirmedProposalState
@@ -119,7 +118,7 @@ data ConfirmedProposalState = ConfirmedProposalState
     , cpsVotes          :: !StakeholderVotes
     , cpsPositiveStake  :: !Coin
     , cpsNegativeStake  :: !Coin
-    } deriving (Generic)
+    } deriving (Show, Generic, Eq)
 
 -- | State of UpdateProposal.
 data ProposalState

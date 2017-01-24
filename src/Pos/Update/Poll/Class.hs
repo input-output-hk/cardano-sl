@@ -15,9 +15,10 @@ import           Universum
 import           Pos.Types             (ApplicationName, BlockVersion, ChainDifficulty,
                                         Coin, EpochIndex, NumSoftwareVersion, SlotId,
                                         SoftwareVersion, StakeholderId)
-import           Pos.Update.Core       (UpId, UpdateProposal)
-import           Pos.Update.Poll.Types (BlockVersionState, DecidedProposalState,
-                                        ProposalState, UndecidedProposalState)
+import           Pos.Update.Core       (UpId)
+import           Pos.Update.Poll.Types (BlockVersionState, ConfirmedProposalState,
+                                        DecidedProposalState, ProposalState,
+                                        UndecidedProposalState)
 
 ----------------------------------------------------------------------------
 -- Read-only
@@ -126,7 +127,7 @@ class MonadPollRead m => MonadPoll m where
     -- ^ Set last confirmed version of application.
     delConfirmedSV :: ApplicationName -> m ()
     -- ^ Del last confirmed version of application.
-    addConfirmedProposal :: NumSoftwareVersion -> UpdateProposal -> m ()
+    addConfirmedProposal :: NumSoftwareVersion -> ConfirmedProposalState -> m ()
     -- ^ Add new confirmed update proposal for our application.
     addActiveProposal :: ProposalState -> m ()
     -- ^ Add new active proposal with its state.
@@ -155,7 +156,7 @@ class MonadPollRead m => MonadPoll m where
     delConfirmedSV = lift . delConfirmedSV
 
     default addConfirmedProposal
-        :: (MonadTrans t, MonadPoll m', t m' ~ m) => NumSoftwareVersion -> UpdateProposal -> m ()
+        :: (MonadTrans t, MonadPoll m', t m' ~ m) => NumSoftwareVersion -> ConfirmedProposalState -> m ()
     addConfirmedProposal sv = lift . addConfirmedProposal sv
 
     default addActiveProposal

@@ -20,23 +20,25 @@ import           Universum
 import           Pos.Constants        (lastKnownBlockVersion)
 import qualified Pos.DB               as DB
 import           Pos.DB.GState        (UpdateOp (..))
+import           Pos.Ssc.Class        (Ssc)
 import           Pos.Types            (ApplicationName, Block, BlockVersion,
                                        NumSoftwareVersion, SoftwareVersion (..),
                                        difficultyL, epochIndexL, gbBody, gbHeader,
                                        gbhExtra, mbUpdatePayload, mehBlockVersion)
-import           Pos.Update.Core      (UpId, UpdateProposal)
+import           Pos.Update.Core      (UpId)
 import           Pos.Update.Error     (USError (USInternalError))
-import           Pos.Update.Poll      (BlockVersionState, DBPoll, MonadPoll,
-                                       PollModifier (..), PollT, PollVerFailure,
-                                       ProposalState, USUndo, canCreateBlockBV, execPollT,
-                                       execRollT, processGenesisBlock,
-                                       recordBlockIssuance, rollbackUSPayload, runDBPoll,
-                                       runPollT, verifyAndApplyUSPayload)
+import           Pos.Update.Poll      (BlockVersionState, ConfirmedProposalState, DBPoll,
+                                       MonadPoll, PollModifier (..), PollT,
+                                       PollVerFailure, ProposalState, USUndo,
+                                       canCreateBlockBV, execPollT, execRollT,
+                                       processGenesisBlock, recordBlockIssuance,
+                                       rollbackUSPayload, runDBPoll, runPollT,
+                                       verifyAndApplyUSPayload)
 import           Pos.Util             (Color (Red), NE, NewestFirst, OldestFirst,
                                        colorize, inAssertMode)
 
-type USGlobalApplyMode endless_useless m = (WithLogger m, DB.MonadDB endless_useless m)
-type USGlobalVerifyMode ы m = (DB.MonadDB ы m, MonadError PollVerFailure m)
+type USGlobalApplyMode ssc m = (WithLogger m, DB.MonadDB ssc m, Ssc ssc)
+type USGlobalVerifyMode ы m = (DB.MonadDB ы m, MonadError PollVerFailure m, Ssc ы)
 
 -- | Apply chain of /definitely/ valid blocks to US part of GState DB
 -- and to US local data. This function assumes that no other thread
@@ -90,7 +92,7 @@ usRollbackBlocks blunds =
 -- are assumed to be done earlier, most likely during objects
 -- construction.
 usVerifyBlocks
-    :: USGlobalVerifyMode ssc m
+    :: (USGlobalVerifyMode ssc m)
     => OldestFirst NE (Block ssc) -> m (PollModifier, OldestFirst NE USUndo)
 usVerifyBlocks blocks = swap <$> run (mapM verifyBlock blocks)
   where
@@ -144,7 +146,7 @@ lastAdoptedModifierToBatch (Just v) = [DB.SomeBatchOp $ SetLastAdopted v]
 
 confirmedModifierToBatch :: HashMap ApplicationName NumSoftwareVersion
                          -> HashSet ApplicationName
-                         -> HashMap NumSoftwareVersion UpdateProposal
+                         -> HashMap NumSoftwareVersion ConfirmedProposalState
                          -> [DB.SomeBatchOp]
 confirmedModifierToBatch
     (HM.toList -> added)

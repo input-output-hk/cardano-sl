@@ -58,6 +58,7 @@ import           Pos.Types                 (ApplicationName, BlockVersion,
                                             SoftwareVersion (..))
 import           Pos.Update.Core           (UpId, UpdateProposal (..))
 import           Pos.Update.Poll.Types     (BlockVersionState (..),
+                                            ConfirmedProposalState,
                                             DecidedProposalState (dpsDifficulty),
                                             ProposalState (..),
                                             UndecidedProposalState (upsSlot), psProposal)
@@ -116,7 +117,7 @@ data UpdateOp
     | DeleteProposal !UpId !ApplicationName
     | ConfirmVersion !SoftwareVersion
     | DelConfirmedVersion !ApplicationName
-    | AddConfirmedProposal !NumSoftwareVersion !UpdateProposal
+    | AddConfirmedProposal !NumSoftwareVersion !ConfirmedProposalState
     | SetLastAdopted !BlockVersion
     | SetBVState !BlockVersion !BlockVersionState
     | DelBV !BlockVersion
@@ -136,8 +137,8 @@ instance RocksBatchOp UpdateOp where
         [Rocks.Put (confirmedVersionKey $ svAppName sv) (encodeStrict $ svNumber sv)]
     toBatchOp (DelConfirmedVersion app) =
         [Rocks.Del (confirmedVersionKey app)]
-    toBatchOp (AddConfirmedProposal nsv up) =
-        [Rocks.Put (confirmedProposalKey nsv) (encodeStrict up)]
+    toBatchOp (AddConfirmedProposal nsv cps) =
+        [Rocks.Put (confirmedProposalKey nsv) (encodeStrict cps)]
     toBatchOp (SetLastAdopted bv) =
         [Rocks.Put lastBVKey (encodeStrict bv)]
     toBatchOp (SetBVState bv st) =
@@ -220,14 +221,14 @@ data ConfPropIter
 
 instance DBIteratorClass ConfPropIter where
     type IterKey ConfPropIter = NumSoftwareVersion
-    type IterValue ConfPropIter = UpdateProposal
+    type IterValue ConfPropIter = ConfirmedProposalState
     iterKeyPrefix _ = confirmedIterationPrefix
 
 -- | Get confirmed proposals which update our application and have
 -- version bigger than argument. For instance, current software
 -- version can be passed to this function to get all proposals with
 -- bigger version.
-getConfirmedProposals :: MonadDB ssc m => NumSoftwareVersion -> m [UpdateProposal]
+getConfirmedProposals :: MonadDB ssc m => NumSoftwareVersion -> m [ConfirmedProposalState]
 getConfirmedProposals reqNsv = runDBnIterator @ConfPropIter _gStateDB (step [])
   where
     step res = nextItem >>= maybe (pure res) (onItem res)

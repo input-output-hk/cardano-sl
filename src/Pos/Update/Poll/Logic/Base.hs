@@ -29,16 +29,18 @@ import           Universum
 
 import           Pos.Crypto            (PublicKey, hash)
 import           Pos.Script.Type       (ScriptVersion)
+import           Pos.Ssc.Class         (Ssc)
 import           Pos.Types             (BlockVersion (..), Coin, MainBlockHeader, SlotId,
                                         addressHash, coinToInteger, difficultyL,
-                                        headerSlot, sumCoins, unsafeAddCoin,
+                                        headerHashG, headerSlot, sumCoins, unsafeAddCoin,
                                         unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Update.Core       (UpdateProposal (..), UpdateVote (..),
                                         combineVotes, isPositiveVote, newVoteState)
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Types (BlockVersionState (..), DecidedProposalState (..),
-                                        PollVerFailure (..), ProposalState (..),
-                                        UndecidedProposalState (..))
+                                        DpsExtra (..), PollVerFailure (..),
+                                        ProposalState (..), UndecidedProposalState (..),
+                                        UpsExtra (..))
 
 ----------------------------------------------------------------------------
 -- BlockVersion-related simple functions/operations
@@ -219,7 +221,7 @@ voteToUProposalState voter stake decision ups@UndecidedProposalState {..} = do
 -- their stakes.
 putNewProposal
     :: forall ssc m.
-       (MonadPoll m)
+       (MonadPoll m, Ssc ssc)
     => Either SlotId (MainBlockHeader ssc)
     -> Coin
     -> [(UpdateVote, Coin)]
@@ -231,6 +233,7 @@ putNewProposal slotOrHeader totalStake votesAndStakes up = addActiveProposal ps
     cd = either (const Nothing) (Just . view difficultyL) slotOrHeader
     totalPositive = sumCoins . map snd . filter (uvDecision . fst) $ votesAndStakes
     totalNegative = sumCoins . map snd . filter (not . uvDecision . fst) $ votesAndStakes
+    blkHeaderHash = either (const Nothing) (Just . view headerHashG) slotOrHeader
     votes = HM.fromList . map convertVote $ votesAndStakes
     -- New proposal always has a fresh vote (not revote).
     convertVote (UpdateVote {..}, _) = (uvKey, newVoteState uvDecision)
@@ -241,6 +244,7 @@ putNewProposal slotOrHeader totalStake votesAndStakes up = addActiveProposal ps
         , upsSlot = slotId
         , upsPositiveStake = unsafeIntegerToCoin totalPositive
         , upsNegativeStake = unsafeIntegerToCoin totalNegative
+        , upsExtra = UpsExtra <$> blkHeaderHash
         }
     -- New proposal can be in decided state immediately if it has a
     -- lot of positive votes.
@@ -252,6 +256,10 @@ putNewProposal slotOrHeader totalStake votesAndStakes up = addActiveProposal ps
                  (mkTotSum totalStake) =
             PSDecided
                 DecidedProposalState
-                {dpsDecision = decision, dpsUndecided = ups, dpsDifficulty = cd}
+                { dpsDecision = decision
+                , dpsUndecided = ups
+                , dpsDifficulty = cd
+                , dpsExtra = DpsExtra <$> blkHeaderHash <*> Just False
+                }
     -- Or it can be in undecided state (more common case).
         | otherwise = PSUndecided ups

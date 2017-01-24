@@ -20,13 +20,15 @@ import           Pos.Constants              (blkSecurityParam, curSoftwareVersio
                                              updateImplicitApproval,
                                              updateProposalThreshold, updateVoteThreshold)
 import           Pos.Crypto                 (hash)
+import           Pos.Ssc.Class              (Ssc)
 import           Pos.Types                  (ChainDifficulty, Coin, EpochIndex,
-                                             MainBlockHeader, SlotId (siEpoch),
-                                             SoftwareVersion (..), addressHash,
-                                             applyCoinPortion, coinToInteger, difficultyL,
-                                             epochIndexL, flattenSlotId, gbhExtra,
-                                             headerSlot, mehBlockVersion, sumCoins,
-                                             unflattenSlotId, unsafeIntegerToCoin)
+                                             HeaderHash, MainBlockHeader,
+                                             SlotId (siEpoch), SoftwareVersion (..),
+                                             addressHash, applyCoinPortion, coinToInteger,
+                                             difficultyL, epochIndexL, flattenSlotId,
+                                             gbhExtra, headerHash, headerSlot,
+                                             mehBlockVersion, sumCoins, unflattenSlotId,
+                                             unsafeIntegerToCoin)
 import           Pos.Update.Core            (UpId, UpdatePayload (..),
                                              UpdateProposal (..), UpdateVote (..))
 import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
@@ -35,9 +37,10 @@ import           Pos.Update.Poll.Logic.Base (canBeProposedBV, canCreateBlockBV,
                                              mkTotNegative, mkTotPositive, mkTotSum,
                                              putNewProposal, voteToUProposalState)
 import           Pos.Update.Poll.Types      (BlockVersionState (..),
-                                             DecidedProposalState (..),
+                                             ConfirmedProposalState (..),
+                                             DecidedProposalState (..), DpsExtra (..),
                                              PollVerFailure (..), ProposalState (..),
-                                             UndecidedProposalState (..))
+                                             UndecidedProposalState (..), UpsExtra (..))
 
 -- | Verify UpdatePayload with respect to data provided by
 -- MonadPoll. If data is valid it is also applied.  Otherwise
@@ -50,8 +53,8 @@ import           Pos.Update.Poll.Types      (BlockVersionState (..),
 -- When it is 'Right header', it means that payload from block with
 -- given header is applied.
 verifyAndApplyUSPayload
-    :: (MonadError PollVerFailure m, MonadPoll m)
-    => Bool -> Either SlotId (MainBlockHeader __) -> UpdatePayload -> m ()
+    :: forall ssc m . (MonadError PollVerFailure m, MonadPoll m, Ssc ssc)
+    => Bool -> Either SlotId (MainBlockHeader ssc) -> UpdatePayload -> m ()
 verifyAndApplyUSPayload considerPropThreshold slotOrHeader UpdatePayload {..} = do
     -- First of all, we verify data from header.
     either (const pass) verifyHeader slotOrHeader
@@ -69,7 +72,8 @@ verifyAndApplyUSPayload considerPropThreshold slotOrHeader UpdatePayload {..} = 
     -- Then we also apply votes from other groups.
     -- ChainDifficulty is needed, because proposal may become approved
     -- and then we'll need to track whether it becomes confirmed.
-    let cd = either (const Nothing) (Just . view difficultyL) slotOrHeader
+    let cd = (,) <$> either (const Nothing) (Just . view difficultyL) slotOrHeader
+                 <*> either (const Nothing) (Just . headerHash) slotOrHeader
     mapM_ (verifyAndApplyVotesGroup cd) otherGroups
     -- If we are applying payload from block, we also check implicit
     -- agreement rule and depth of decided proposals (they can become
@@ -80,7 +84,10 @@ verifyAndApplyUSPayload considerPropThreshold slotOrHeader UpdatePayload {..} = 
             applyImplicitAgreement
                 (mainBlk ^. headerSlot)
                 (mainBlk ^. difficultyL)
-            applyDepthCheck (mainBlk ^. difficultyL)
+                (headerHash mainBlk)
+            applyDepthCheck
+                (headerHash mainBlk)
+                (mainBlk ^. difficultyL)
 
 -- Here we verify all US-related data from header.
 verifyHeader
@@ -124,9 +131,10 @@ resolveVoteStake epoch totalStake UpdateVote {..} = do
 -- If all checks pass, proposal is added. It can be in undecided or decided
 -- state (if it has enough voted stake at once).
 verifyAndApplyProposal
-    :: (MonadError PollVerFailure m, MonadPoll m)
+    :: forall ssc m.
+       (MonadError PollVerFailure m, MonadPoll m, Ssc ssc)
     => Bool
-    -> Either SlotId (MainBlockHeader __)
+    -> Either SlotId (MainBlockHeader ssc)
     -> [UpdateVote]
     -> UpdateProposal
     -> m ()
@@ -268,7 +276,7 @@ verifyProposalStake totalStake votesAndStakes upId = do
 -- Votes are assumed to be for the same proposal.
 verifyAndApplyVotesGroup
     :: (MonadError PollVerFailure m, MonadPoll m)
-    => Maybe ChainDifficulty -> NonEmpty UpdateVote -> m ()
+    => Maybe (ChainDifficulty, HeaderHash) -> NonEmpty UpdateVote -> m ()
 verifyAndApplyVotesGroup cd votes = mapM_ verifyAndApplyVote votes
   where
     upId = uvProposalId $ NE.head votes
@@ -286,7 +294,10 @@ verifyAndApplyVotesGroup cd votes = mapM_ verifyAndApplyVote votes
 -- Here we actually apply vote to stored undecided proposal.
 verifyAndApplyVoteDo
     :: (MonadError PollVerFailure m, MonadPoll m)
-    => Maybe ChainDifficulty -> UndecidedProposalState -> UpdateVote -> m ()
+    => Maybe (ChainDifficulty, HeaderHash)
+    -> UndecidedProposalState
+    -> UpdateVote
+    -> m ()
 verifyAndApplyVoteDo cd ups v@UpdateVote {..} = do
     let e = siEpoch $ upsSlot ups
     totalStake <- note (PollUnknownStakes e) =<< getEpochTotalStake e
@@ -303,7 +314,8 @@ verifyAndApplyVoteDo cd ups v@UpdateVote {..} = do
                     DecidedProposalState
                     { dpsUndecided = newUPS
                     , dpsDecision = decision
-                    , dpsDifficulty = cd
+                    , dpsDifficulty = fst <$> cd
+                    , dpsExtra = DpsExtra . snd <$> cd <*> Just False
                     }
             | otherwise = PSUndecided ups
     addActiveProposal newPS
@@ -315,8 +327,8 @@ verifyAndApplyVoteDo cd ups v@UpdateVote {..} = do
 -- approved. Otherwise it's rejected.
 applyImplicitAgreement
     :: MonadPoll m
-    => SlotId -> ChainDifficulty -> m ()
-applyImplicitAgreement (flattenSlotId -> slotId) cd
+    => SlotId -> ChainDifficulty -> HeaderHash -> m ()
+applyImplicitAgreement (flattenSlotId -> slotId) cd hh
     | slotId < updateImplicitApproval = pass
     | otherwise = do
         let oldSlot = unflattenSlotId $ slotId - updateImplicitApproval
@@ -329,6 +341,7 @@ applyImplicitAgreement (flattenSlotId -> slotId) cd
         { dpsUndecided = ups
         , dpsDecision = upsPositiveStake > upsNegativeStake
         , dpsDifficulty = Just cd
+        , dpsExtra = Just $ DpsExtra hh True
         }
 
 -- All decided proposals which became decided more than
@@ -337,8 +350,9 @@ applyImplicitAgreement (flattenSlotId -> slotId) cd
 -- discarded).
 applyDepthCheck
     :: MonadPoll m
-    => ChainDifficulty -> m ()
-applyDepthCheck cd
+    => HeaderHash
+    -> ChainDifficulty -> m ()
+applyDepthCheck hh cd
     | cd <= blkSecurityParam = pass
     | otherwise = do
         deepProposals <- getDeepProposals (cd - blkSecurityParam)
@@ -349,7 +363,20 @@ applyDepthCheck cd
         let sv = upSoftwareVersion upsProposal
         when dpsDecision $ do
             setLastConfirmedSV sv
-            when (svAppName curSoftwareVersion == svAppName sv) $
-                addConfirmedProposal (svNumber sv) upsProposal
+            when (svAppName curSoftwareVersion == svAppName sv) $ do
+                let DpsExtra {..} = fromMaybe (panic "Invalid DPS extra") dpsExtra -- TODO fix panic
+                let UpsExtra {..} = fromMaybe (panic "Invalid UPS extra") upsExtra
+                let cps = ConfirmedProposalState
+                        { cpsUpdateProposal = upsProposal
+                        , cpsVotes = upsVotes
+                        , cpsPositiveStake = upsPositiveStake
+                        , cpsNegativeStake = upsNegativeStake
+                        , cpsImplicit = deImplicit
+                        , cpsProposed = ueProposedBlk
+                        , cpsDecided = deDecidedBlk
+                        , cpsConfirmed = hh
+                        , cpsAdopted = Nothing
+                        }
+                addConfirmedProposal (svNumber sv) cps
             confirmBlockVersion $ upBlockVersion upsProposal
         deactivateProposal (hash upsProposal)

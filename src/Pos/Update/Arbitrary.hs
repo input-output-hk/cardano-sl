@@ -6,3 +6,4 @@ module Pos.Update.Arbitrary
 
 import           Pos.Update.Arbitrary.Core    ()
 import           Pos.Update.Arbitrary.Network ()
+import           Pos.Update.Arbitrary.Poll    ()

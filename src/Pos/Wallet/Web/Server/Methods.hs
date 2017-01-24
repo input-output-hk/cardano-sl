@@ -28,6 +28,7 @@ import           System.Wlog                   (logInfo)
 import           Universum
 
 import           Pos.Aeson.ClientTypes         ()
+import           Pos.Constants                 (slotDuration)
 import           Pos.Crypto                    (toPublic)
 import           Pos.DHT.Model                 (dhtAddr, getKnownPeers)
 import           Pos.Types                     (Address, Coin, TxOut (..), addressF,
@@ -112,7 +113,7 @@ walletServer sendActions nat = do
             (runWalletWebDB ws . runWalletWS socks)
             sendActions
     nat >>= launchNotifier
-    join $ mapM_ insertAddressMeta <$> myCAddresses
+    myCAddresses >>= mapM_ insertAddressMeta
     (`enter` servantHandlers sendActions') <$> nat
   where
     insertAddressMeta cAddr =
@@ -123,30 +124,39 @@ walletServer sendActions nat = do
 
 -- FIXME: this is really inaficient. Temporary solution
 launchNotifier :: WalletWebMode ssc m => (m :~> Handler) -> m ()
-launchNotifier = void . liftIO . forkForever . notifier
+launchNotifier nat = void . liftIO $ sequence
+    [ dummyHistoryNotifier
+    , updateNotifier
+    ]
   where
-    notifyPeriod = 10000000 -- microseconds
+    cooldownPeriod = 5000000        -- 5 sec
+    historyNotifyPeriod = 10000000  -- 10 sec
+    updateNotifyPeriod = fromIntegral slotDuration
     forkForever action = forkFinally action $ const $ do
         -- TODO: log error
         -- colldown
-        threadDelay notifyPeriod
+        threadDelay cooldownPeriod
         void $ forkForever action
     -- TODO: use Servant.enter here
     -- FIXME: don't ignore errors, send error msg to the socket
-    notifier f = void . runExceptT . unNat f $ forever $ do
-        liftIO $ threadDelay notifyPeriod
-        sequence_ [dummyHistoryNotifier]
+    notifier period action = forkForever . void . runExceptT . unNat nat $ forever $ do
+        liftIO $ threadDelay period
+        action
     -- NOTE: temp solution, dummy notifier that pings every 10 secs
-    dummyHistoryNotifier = notify NewTransaction
-    historyNotifier :: WalletWebMode ssc m => m ()
-    historyNotifier = do
-        cAddresses <- myCAddresses
-        forM_ cAddresses $ \cAddress -> do
-            -- TODO: is reading from acid RAM only (not reading from disk?)
-            oldHistoryLength <- length . fromMaybe mempty <$> getWalletHistory cAddress
-            newHistoryLength <- length <$> getHistory cAddress
-            when (oldHistoryLength /= newHistoryLength) .
-                notify $ NewWalletTransaction cAddress
+    dummyHistoryNotifier = notifier historyNotifyPeriod $ do
+        logInfo "TX HISTORY NOTIFICATION"
+        notify NewTransaction
+    updateNotifier = notifier updateNotifyPeriod $ do
+        logInfo "I'm update notifier and I work!"
+    -- historyNotifier :: WalletWebMode ssc m => m ()
+    -- historyNotifier = do
+    --     cAddresses <- myCAddresses
+    --     forM_ cAddresses $ \cAddress -> do
+    --         -- TODO: is reading from acid RAM only (not reading from disk?)
+    --         oldHistoryLength <- length . fromMaybe mempty <$> getWalletHistory cAddress
+    --         newHistoryLength <- length <$> getHistory cAddress
+    --         when (oldHistoryLength /= newHistoryLength) .
+    --             notify $ NewWalletTransaction cAddress
 
 
 ----------------------------------------------------------------------------

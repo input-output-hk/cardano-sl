@@ -11,6 +11,8 @@ module Pos.Update.Poll.Types
        , UpsExtra (..)
        , DpsExtra (..)
        , ConfirmedProposalState (..)
+       , cpsBlockVersion
+       , cpsSoftwareVersion
        , psProposal
        , psVotes
        , mkUProposalState
@@ -56,7 +58,7 @@ import           Pos.Types.Types     (ChainDifficulty, Coin, EpochIndex, HeaderH
                                       SlotId, StakeholderId, mkCoin)
 import           Pos.Types.Version   (ApplicationName, BlockVersion, NumSoftwareVersion,
                                       SoftwareVersion)
-import           Pos.Update.Core     (StakeholderVotes, UpId, UpdateProposal)
+import           Pos.Update.Core     (StakeholderVotes, UpId, UpdateProposal (..))
 
 ----------------------------------------------------------------------------
 -- Proposal State
@@ -120,6 +122,14 @@ data ConfirmedProposalState = ConfirmedProposalState
     , cpsNegativeStake  :: !Coin
     } deriving (Show, Generic, Eq)
 
+-- | Get 'BlockVersion' from 'ConfirmedProposalState'.
+cpsBlockVersion :: ConfirmedProposalState -> BlockVersion
+cpsBlockVersion = upBlockVersion . cpsUpdateProposal
+
+-- | Get 'SoftwareVersion' from 'ConfirmedProposalState'.
+cpsSoftwareVersion :: ConfirmedProposalState -> SoftwareVersion
+cpsSoftwareVersion = upSoftwareVersion . cpsUpdateProposal
+
 -- | State of UpdateProposal.
 data ProposalState
     = PSUndecided !UndecidedProposalState
@@ -151,13 +161,19 @@ mkUProposalState upsSlot upsProposal =
 
 -- | State of BlockVersion from update proposal.
 data BlockVersionState = BlockVersionState
-    { bvsScript      :: !ScriptVersion
+    { bvsScript          :: !ScriptVersion
     -- ^ Script version associated with this block version.
-    , bvsIsConfirmed :: !Bool
+    , bvsIsConfirmed     :: !Bool
     -- ^ Whether proposal with this block version is confirmed.
-    , bvsIssuers     :: !(HashSet StakeholderId)
-    -- ^ Identifiers of stakeholders which created block with this
-    -- 'BlockVersion'.
+    , bvsIssuersStable   :: !(HashSet StakeholderId)
+    -- ^ Identifiers of stakeholders which issued stable blocks with this
+    -- 'BlockVersion'. Stability is checked by the same rules as used in LRC.
+    -- That is, 'SlotId' is considered. If block is created after crucial slot
+    -- of 'i'-th epoch, it is not stable when 'i+1'-th epoch starts.
+    , bvsIssuersUnstable :: !(HashSet StakeholderId)
+    -- ^ Identifiers of stakeholders which issued unstable blocks with
+    -- this 'BlockVersion'. See description of 'bvsIssuersStable' for
+    -- details.
     }
 
 ----------------------------------------------------------------------------
@@ -173,7 +189,7 @@ data PollModifier = PollModifier
     , pmLastAdoptedBV     :: !(Maybe BlockVersion)
     , pmNewConfirmed      :: !(HashMap ApplicationName NumSoftwareVersion)
     , pmDelConfirmed      :: !(HashSet ApplicationName)
-    , pmNewConfirmedProps :: !(HashMap NumSoftwareVersion ConfirmedProposalState)
+    , pmNewConfirmedProps :: !(HashMap SoftwareVersion ConfirmedProposalState)
     , pmNewActiveProps    :: !(HashMap UpId ProposalState)
     , pmDelActiveProps    :: !(HashSet UpId)
     , pmNewActivePropsIdx :: !(HashMap ApplicationName UpId)

@@ -16,8 +16,7 @@ import           Data.List.NonEmpty         (NonEmpty)
 import qualified Data.List.NonEmpty         as NE
 import           Universum
 
-import           Pos.Constants              (blkSecurityParam, curSoftwareVersion,
-                                             updateImplicitApproval,
+import           Pos.Constants              (blkSecurityParam, updateImplicitApproval,
                                              updateProposalThreshold, updateVoteThreshold)
 import           Pos.Crypto                 (hash)
 import           Pos.Ssc.Class              (Ssc)
@@ -184,7 +183,8 @@ verifyAndApplyProposalBVS upId UpdateProposal {..} =
             lsv <- bvsScript <$> getLastBVState
             let newBVS = BlockVersionState { bvsScript = upScriptVersion
                                            , bvsIsConfirmed = False
-                                           , bvsIssuers = mempty
+                                           , bvsIssuersStable = mempty
+                                           , bvsIssuersUnstable = mempty
                                            }
             if | lsv + 1 == upScriptVersion ->
                         putBVState upBlockVersion newBVS
@@ -349,7 +349,7 @@ applyImplicitAgreement (flattenSlotId -> slotId) cd hh
 -- confirmed or discarded (approved become confirmed, rejected become
 -- discarded).
 applyDepthCheck
-    :: MonadPoll m
+    :: (MonadPoll m, MonadError PollVerFailure m)
     => HeaderHash
     -> ChainDifficulty -> m ()
 applyDepthCheck hh cd
@@ -363,20 +363,23 @@ applyDepthCheck hh cd
         let sv = upSoftwareVersion upsProposal
         when dpsDecision $ do
             setLastConfirmedSV sv
-            when (svAppName curSoftwareVersion == svAppName sv) $ do
-                let DpsExtra {..} = fromMaybe (panic "Invalid DPS extra") dpsExtra -- TODO fix panic
-                let UpsExtra {..} = fromMaybe (panic "Invalid UPS extra") upsExtra
-                let cps = ConfirmedProposalState
-                        { cpsUpdateProposal = upsProposal
-                        , cpsVotes = upsVotes
-                        , cpsPositiveStake = upsPositiveStake
-                        , cpsNegativeStake = upsNegativeStake
-                        , cpsImplicit = deImplicit
-                        , cpsProposed = ueProposedBlk
-                        , cpsDecided = deDecidedBlk
-                        , cpsConfirmed = hh
-                        , cpsAdopted = Nothing
-                        }
-                addConfirmedProposal (svNumber sv) cps
+            DpsExtra {..} <-
+                note (PollInternalError "DPS extra: expected Just, but got Nothing")
+                      dpsExtra
+            UpsExtra {..} <-
+                note (PollInternalError "UPS extra: expected Just, but got Nothing")
+                      upsExtra
+            let cps = ConfirmedProposalState
+                    { cpsUpdateProposal = upsProposal
+                    , cpsVotes = upsVotes
+                    , cpsPositiveStake = upsPositiveStake
+                    , cpsNegativeStake = upsNegativeStake
+                    , cpsImplicit = deImplicit
+                    , cpsProposed = ueProposedBlk
+                    , cpsDecided = deDecidedBlk
+                    , cpsConfirmed = hh
+                    , cpsAdopted = Nothing
+                    }
+            addConfirmedProposal cps
             confirmBlockVersion $ upBlockVersion upsProposal
         deactivateProposal (hash upsProposal)

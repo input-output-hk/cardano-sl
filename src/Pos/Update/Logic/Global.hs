@@ -146,16 +146,16 @@ lastAdoptedModifierToBatch (Just v) = [DB.SomeBatchOp $ SetLastAdopted v]
 
 confirmedModifierToBatch :: HashMap ApplicationName NumSoftwareVersion
                          -> HashSet ApplicationName
-                         -> HashMap NumSoftwareVersion ConfirmedProposalState
+                         -> HashMap SoftwareVersion ConfirmedProposalState
                          -> [DB.SomeBatchOp]
 confirmedModifierToBatch
     (HM.toList -> added)
     (toList -> deleted)
-    (HM.toList -> confAdded) = addOps ++ delOps ++ confAddOps
+    (toList -> confAdded) = addOps ++ delOps ++ confAddOps
   where
     addOps = map (DB.SomeBatchOp . ConfirmVersion . uncurry SoftwareVersion) added
     delOps = map (DB.SomeBatchOp . DelConfirmedVersion) deleted
-    confAddOps = map (DB.SomeBatchOp . uncurry AddConfirmedProposal) confAdded
+    confAddOps = map (DB.SomeBatchOp . AddConfirmedProposal) confAdded
 
 upModifierToBatch :: HashMap UpId ProposalState
                   -> HashMap ApplicationName UpId

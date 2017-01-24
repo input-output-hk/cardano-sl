@@ -10,8 +10,9 @@ module Pos.Update.Poll.Logic.Base
        , mkTotNegative
        , mkTotSum
 
-       , canCreateBlockBV
+       , adoptBlockVersion
        , canBeProposedBV
+       , canCreateBlockBV
        , isConfirmedBV
        , getBVScript
        , confirmBlockVersion
@@ -30,17 +31,20 @@ import           Universum
 import           Pos.Crypto            (PublicKey, hash)
 import           Pos.Script.Type       (ScriptVersion)
 import           Pos.Ssc.Class         (Ssc)
-import           Pos.Types             (BlockVersion (..), Coin, MainBlockHeader, SlotId,
-                                        addressHash, coinToInteger, difficultyL,
-                                        headerHashG, headerSlot, sumCoins, unsafeAddCoin,
+import           Pos.Types             (BlockVersion (..), Coin, HeaderHash,
+                                        MainBlockHeader, SlotId, addressHash,
+                                        coinToInteger, difficultyL, headerHashG,
+                                        headerSlot, sumCoins, unsafeAddCoin,
                                         unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Update.Core       (UpdateProposal (..), UpdateVote (..),
                                         combineVotes, isPositiveVote, newVoteState)
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Types (BlockVersionState (..), DecidedProposalState (..),
-                                        DpsExtra (..), PollVerFailure (..),
-                                        ProposalState (..), UndecidedProposalState (..),
-                                        UpsExtra (..))
+import           Pos.Update.Poll.Types (BlockVersionState (..),
+                                        ConfirmedProposalState (..),
+                                        DecidedProposalState (..), DpsExtra (..),
+                                        PollVerFailure (..), ProposalState (..),
+                                        UndecidedProposalState (..), UpsExtra (..),
+                                        cpsBlockVersion)
 
 ----------------------------------------------------------------------------
 -- BlockVersion-related simple functions/operations
@@ -134,6 +138,22 @@ canBeProposedPure BlockVersion { bvMajor = givenMajor
     -- components.
     relevantProposed = S.mapMonotonic bvAlt $ S.filter predicate proposed
     predicate BlockVersion {..} = bvMajor == givenMajor && bvMinor == givenMinor
+
+-- | Adopt given block version. When it happens, last adopted block
+-- version is changed.
+--
+-- Apart from that, 'ConfirmedProposalState' of proposals with this
+-- block version are updated.
+adoptBlockVersion
+    :: MonadPoll m
+    => HeaderHash -> BlockVersion -> m ()
+adoptBlockVersion winningBlk bv = do
+    setLastAdoptedBV bv
+    mapM_ processConfirmed =<< getConfirmedProposals
+  where
+    processConfirmed cps
+        | cpsBlockVersion cps /= bv = pass
+        | otherwise = addConfirmedProposal cps {cpsAdopted = Just winningBlk}
 
 ----------------------------------------------------------------------------
 -- Wrappers for type-safety

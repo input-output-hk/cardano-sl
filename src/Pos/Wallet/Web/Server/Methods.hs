@@ -13,8 +13,8 @@ module Pos.Wallet.Web.Server.Methods
 
 import           Control.Monad.Catch           (try)
 import           Control.Monad.Except          (runExceptT)
-import           Control.Monad.Trans.State     (get, put, runStateT)
-import           Data.Default                  (def)
+import           Control.Monad.Trans.State     (get, runStateT)
+import           Data.Default                  (Default, def)
 import           Data.List                     (elemIndex, (!!))
 import           Data.Time.Clock.POSIX         (getPOSIXTime)
 import           Formatting                    (build, ords, sformat, stext, (%))
@@ -44,6 +44,7 @@ import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
 import           Pos.Wallet.Tx                 (submitTx)
 import           Pos.Wallet.Tx.Pure            (TxHistoryEntry (..))
 import           Pos.Wallet.WalletMode         (WalletMode, getBalance, getTxHistory,
+                                                localChainDifficulty,
                                                 networkChainDifficulty)
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CProfile,
@@ -72,6 +73,12 @@ import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWeb
 ----------------------------------------------------------------------------
 
 type WalletWebHandler m = WalletWebSockets (WalletWebDB m)
+
+type WalletWebMode ssc m
+    = ( WalletMode ssc m
+      , MonadWalletWebDB m
+      , MonadWalletWebSockets m
+      )
 
 walletServeImpl
     :: (MonadIO m, MonadMask m)
@@ -127,7 +134,15 @@ walletServer sendActions nat = do
 -- Notifier
 ------------------------
 
-type NotifierState = StateT ChainDifficulty
+data SyncProgress =
+    SyncProgress { spLocalCD   :: ChainDifficulty
+                 , spNetworkCD :: ChainDifficulty
+                 }
+
+instance Default SyncProgress where
+    def = let chainDef = ChainDifficulty 0 in SyncProgress chainDef chainDef
+
+type NotifierState = StateT SyncProgress
 
 -- FIXME: this is really inaficient. Temporary solution
 launchNotifier :: WalletWebMode ssc m => (m :~> Handler) -> m ()
@@ -141,12 +156,18 @@ launchNotifier = void . liftIO . forkForever . notifier
         void $ forkForever action
     -- TODO: use Servant.enter here
     -- FIXME: don't ignore errors, send error msg to the socket
-    notifier f = void . runExceptT . unNat f $ flip runStateT (ChainDifficulty 0) $ forever $ do
+    notifier f = void . runExceptT . unNat f $ flip runStateT def $ forever $ do
         liftIO $ threadDelay notifyPeriod
-        newDifficulty <- networkChainDifficulty
-        whenM ((newDifficulty /=) <$> get) $ do
-            lift $ notify ChainDifficultyChanged
-            put newDifficulty
+        networkDifficulty <- networkChainDifficulty
+        -- TODO: use lenses!
+        whenM ((networkDifficulty /=) . spNetworkCD <$> get) $ do
+            lift $ notify $ NetworkDifficultyChanged networkDifficulty
+            modify $ \sp -> sp { spNetworkCD = networkDifficulty }
+
+        localDifficulty <- localChainDifficulty
+        whenM ((localDifficulty /=) . spLocalCD <$> get) $ do
+            lift $ notify $ LocalDifficultyChanged localDifficulty
+            modify $ \sp -> sp { spLocalCD = localDifficulty }
     -- NOTE: temp solution, dummy notifier that pings every 10 secs
 --    dummyHistoryNotifier = notify NewTransaction
 --    historyNotifier :: WalletWebMode ssc m => m ()
@@ -163,12 +184,6 @@ launchNotifier = void . liftIO . forkForever . notifier
 ----------------------------------------------------------------------------
 -- Handlers
 ----------------------------------------------------------------------------
-
-type WalletWebMode ssc m
-    = ( WalletMode ssc m
-      , MonadWalletWebDB m
-      , MonadWalletWebSockets m
-      )
 
 servantHandlers :: WalletWebMode ssc m => SendActions BiP m -> ServerT WalletApi m
 servantHandlers sendActions =

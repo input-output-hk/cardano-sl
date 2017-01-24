@@ -53,7 +53,8 @@ data NotifyEvent
     = ConnectionOpened
     -- | NewWalletTransaction CAddress
     -- | NewTransaction
-    | ChainDifficultyChanged -- ie new block or fork (rollback)
+    | NetworkDifficultyChanged ChainDifficulty -- ie new block or fork (rollback)
+    | LocalDifficultyChanged ChainDifficulty -- ie new block or fork (rollback)
     | ConnectionClosed
     deriving (Show, Generic)
 

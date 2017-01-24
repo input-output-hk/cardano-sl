@@ -81,7 +81,7 @@ instance Bi a => Bi (U.PrevValue a) where
 instance Bi U.USUndo where
     get = label "USUndo" $ liftM4 U.USUndo get get get get
     put U.USUndo{..} =
-        put unCreatedNewBSFor *>
+        put unChangedBV *>
         put unLastAdoptedBV *>
         put unChangedProps *>
         put unChangedSV

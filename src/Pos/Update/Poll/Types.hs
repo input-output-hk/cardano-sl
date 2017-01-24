@@ -42,7 +42,7 @@ module Pos.Update.Poll.Types
        , USUndo (..)
        , unChangedSVL
        , unChangedPropsL
-       , unCreatedNewBSForL
+       , unChangedBVL
        , unLastAdoptedBVL
        ) where
 
@@ -314,13 +314,13 @@ maybeToPrev Nothing  = NoExist
 
 -- | Data necessary to unapply US data.
 data USUndo = USUndo
-    { unCreatedNewBSFor :: !(Maybe BlockVersion)
-    , unLastAdoptedBV   :: !(Maybe BlockVersion)
-    , unChangedProps    :: !(HashMap UpId (PrevValue ProposalState))
-    , unChangedSV       :: !(HashMap ApplicationName (PrevValue NumSoftwareVersion))
+    { unChangedBV     :: !(HashMap BlockVersion (PrevValue BlockVersionState))
+    , unLastAdoptedBV :: !(Maybe BlockVersion)
+    , unChangedProps  :: !(HashMap UpId (PrevValue ProposalState))
+    , unChangedSV     :: !(HashMap ApplicationName (PrevValue NumSoftwareVersion))
     }
 
-makeLensesFor [ ("unCreatedNewBSFor", "unCreatedNewBSForL")
+makeLensesFor [ ("unChangedBV", "unChangedBVL")
               , ("unLastAdoptedBV", "unLastAdoptedBVL")
               , ("unChangedProps", "unChangedPropsL")
               , ("unChangedSV", "unChangedSVL")
@@ -331,4 +331,4 @@ instance Buildable USUndo where
     build _ = "BSUndo"
 
 instance Default USUndo where
-    def = USUndo Nothing Nothing mempty mempty
+    def = USUndo mempty Nothing mempty mempty

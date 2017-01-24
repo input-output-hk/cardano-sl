@@ -20,8 +20,8 @@ import           Pos.Crypto                (hash)
 import           Pos.Types.Version         (SoftwareVersion (..))
 import           Pos.Update.Poll.Class     (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Types     (PrevValue, USUndo (..), maybeToPrev,
-                                            psProposal, unChangedPropsL, unChangedSVL,
-                                            unCreatedNewBSForL, unLastAdoptedBVL)
+                                            psProposal, unChangedBVL, unChangedPropsL,
+                                            unChangedSVL, unLastAdoptedBVL)
 
 newtype RollT m a = RollT
     { getRollT :: StateT USUndo m a
@@ -41,23 +41,25 @@ whenNothingM mb action = mb >>= \case
 -- single-threaded usage only.
 instance MonadPoll m => MonadPoll (RollT m) where
     -- only one time can be called
-    putBVState pv sv = RollT $ do
-        whenNothingM (use unCreatedNewBSForL) $
-            unCreatedNewBSForL .= Just pv
-        lift $ putBVState pv sv
+    putBVState bv sv = RollT $ do
+        insertIfNotExist bv unChangedBVL getBVState
+        putBVState bv sv
 
-    delBVState = lift . delBVState
+    delBVState bv = RollT $ do
+        insertIfNotExist bv unChangedBVL getBVState
+        delBVState bv
 
     setLastAdoptedBV pv = RollT $ do
         prevBV <- getLastAdoptedBV
         whenNothingM (use unLastAdoptedBVL) $
             unLastAdoptedBVL .= Just prevBV
-        lift $ setLastAdoptedBV pv
+        setLastAdoptedBV pv
 
     setLastConfirmedSV sv@SoftwareVersion{..} = RollT $ do
         insertIfNotExist svAppName unChangedSVL getLastConfirmedSV
-        lift $ setLastConfirmedSV sv
+        setLastConfirmedSV sv
 
+    -- can't be called by applying
     delConfirmedSV = lift . delConfirmedSV
 
     -- can't be rolled back
@@ -69,7 +71,7 @@ instance MonadPoll m => MonadPoll (RollT m) where
 
     deactivateProposal id = RollT $ do
         insertIfNotExist id unChangedPropsL getProposal
-        lift $ deactivateProposal id
+        deactivateProposal id
 
 insertIfNotExist
     :: (Eq a, Hashable a, MonadState USUndo m)

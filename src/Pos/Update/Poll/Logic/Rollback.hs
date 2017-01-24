@@ -11,10 +11,11 @@ import qualified Data.HashMap.Strict   as HM
 import           Universum
 
 import           Pos.Types             (ChainDifficulty, SoftwareVersion (..))
-import           Pos.Types.Version     (ApplicationName, NumSoftwareVersion)
+import           Pos.Types.Version     (ApplicationName, BlockVersion, NumSoftwareVersion)
 import           Pos.Update.Core       (UpId, UpdatePayload (..))
 import           Pos.Update.Poll.Class (MonadPoll (..))
-import           Pos.Update.Poll.Types (PrevValue (..), ProposalState (..), USUndo (..))
+import           Pos.Update.Poll.Types (BlockVersionState, PrevValue (..),
+                                        ProposalState (..), USUndo (..))
 
 -- | Rollback application of UpdatePayload in MonadPoll using payload
 -- itself and undo data.
@@ -23,13 +24,13 @@ rollbackUSPayload
     => ChainDifficulty -> UpdatePayload -> USUndo -> m ()
 rollbackUSPayload _ UpdatePayload{..} USUndo{..} = do
     -- Rollback last confirmed
-    mapM_ setOrDelLastConfirmedSV (HM.toList unChangedSV)
+    mapM_ setOrDelLastConfirmedSV $ HM.toList unChangedSV
     -- Rollback proposals
-    mapM_ setOrDelProposal (HM.toList unChangedProps)
-    -- Rollback protocol version
+    mapM_ setOrDelProposal $ HM.toList unChangedProps
+    -- Rollback last adopted
     whenJust unLastAdoptedBV setLastAdoptedBV
-    -- Rollback script
-    whenJust unCreatedNewBSFor delBVState
+    -- Rollback block version
+    mapM_ setOrDelBV $ HM.toList unChangedBV
   where
     setOrDelLastConfirmedSV :: (ApplicationName, PrevValue NumSoftwareVersion) -> m ()
     setOrDelLastConfirmedSV (svAppName, PrevValue svNumber) =
@@ -39,3 +40,7 @@ rollbackUSPayload _ UpdatePayload{..} USUndo{..} = do
     setOrDelProposal :: (UpId, PrevValue ProposalState) -> m ()
     setOrDelProposal (upid, NoExist)   = deactivateProposal upid
     setOrDelProposal (_, PrevValue ps) = addActiveProposal ps
+
+    setOrDelBV :: (BlockVersion, PrevValue BlockVersionState) -> m ()
+    setOrDelBV (bv, NoExist)       = delBVState bv
+    setOrDelBV (bv, PrevValue bvs) = putBVState bv bvs

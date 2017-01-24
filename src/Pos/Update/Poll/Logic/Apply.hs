@@ -349,7 +349,7 @@ applyImplicitAgreement (flattenSlotId -> slotId) cd hh
 -- confirmed or discarded (approved become confirmed, rejected become
 -- discarded).
 applyDepthCheck
-    :: MonadPoll m
+    :: (MonadPoll m, MonadError PollVerFailure m)
     => HeaderHash
     -> ChainDifficulty -> m ()
 applyDepthCheck hh cd
@@ -363,8 +363,12 @@ applyDepthCheck hh cd
         let sv = upSoftwareVersion upsProposal
         when dpsDecision $ do
             setLastConfirmedSV sv
-            let DpsExtra {..} = fromMaybe (panic "Invalid DPS extra") dpsExtra -- TODO fix panic
-            let UpsExtra {..} = fromMaybe (panic "Invalid UPS extra") upsExtra
+            DpsExtra {..} <-
+                note (PollInternalError "DPS extra: expected Maybe, but got Nothing")
+                      dpsExtra
+            UpsExtra {..} <-
+                note (PollInternalError "UPS extra: expected Maybe, but got Nothing")
+                      upsExtra
             let cps = ConfirmedProposalState
                     { cpsUpdateProposal = upsProposal
                     , cpsVotes = upsVotes

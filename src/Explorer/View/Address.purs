@@ -14,7 +14,7 @@ import Explorer.View.Common (placeholderView)
 addressView :: State -> P.Html Action
 addressView state =
     P.div
-        [ P.className "explorer-transaction" ]
+        [ P.className "explorer-address" ]
         [ P.div
             [ P.className "explorer-address__container" ]
             [ P.link

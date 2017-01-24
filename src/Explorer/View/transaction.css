@@ -66,40 +66,66 @@
     }
   }
 
-  .table-addresses {
-
+  .transaction-body {
+    @neat-outer-container;
     font-family: var(--fontFamily0-Regular);
     font-size: 10px;
     color: var(--color8);
-    width: 100%;
+    padding: 0 24px;
+    box: horizontal;
 
-    tr {
-
-      &:first-child {
-        background-color: var(--color6);
-      }
-
-      &:nth-child(even) {
-        background-color: var(--color7);
-      }
+    .from-hash-container {
+      @neat-span-columns 4;
+      box-item: center;
     }
 
-    td {
+    .from-hash {
+      button: standard-button;
+      button-color: var(--color8) color(var(--color5) a(0.8)) var(--color5);
+      padding: 18px 0 12px 0;
+    }
 
-      &:nth-child(1) {
-        background-color: blue;
-        width: 275px;
-      }
+    .to-hash-container {
+      @neat-span-columns 4;
 
-      &:nth-child(2) {
-        background-color: yellow;
-        width: 120px;
-      }
+      background-repeat: no-repeat;
+      background-position: left center;
 
-      &:nth-child(4) {
-        background-color: red;
-        width: 100px;
-      }
+      background-size: 15px 15px;
+      padding: 18px 0 0 30px;
+
+      box-item: center;
+    }
+
+    .to-hash {
+      button: standard-button;
+      button-color: var(--color8) color(var(--color5) a(0.8)) var(--color5);
+      display: block;
+      padding-bottom: 12px;
+    }
+
+    .to-alias-container {
+      @neat-span-columns 2;
+      padding: 18px 0 0 0;
+      box-item: center;
+    }
+
+    .to-alias {
+      padding-bottom: 12px;
+    }
+
+    .amount-container {
+      @neat-span-columns 2;
+      text-align: right;
+      box-item: center;
+    }
+
+    .amount {
+      padding: 18px 0;
+      padding-left: 10px;
+      background-repeat: no-repeat;
+      background-position: left center;
+      background-size: 8px 7px;
     }
   }
 

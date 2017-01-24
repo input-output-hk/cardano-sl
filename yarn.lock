@@ -3889,6 +3889,12 @@ postcss-filter-plugins@^2.0.0:
     postcss "^5.0.4"
     uniqid "^4.0.0"
 
+postcss-flexbox@^1.0.2:
+  version "1.0.2"
+  resolved "https://registry.yarnpkg.com/postcss-flexbox/-/postcss-flexbox-1.0.2.tgz#415df264aa7a295b5964bee15b95ce3c63093cf3"
+  dependencies:
+    postcss "^5.0.13"
+
 postcss-font-variant@^2.0.0:
   version "2.0.1"
   resolved "https://registry.yarnpkg.com/postcss-font-variant/-/postcss-font-variant-2.0.1.tgz#7ca29103f59fa02ca3ace2ca22b2f756853d4ef8"

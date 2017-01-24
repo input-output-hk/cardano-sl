@@ -7,6 +7,7 @@ translation =
     , transaction: "Transaction"
     , address: "Address"
     , calculator: "Calculator"
+    , summary: "Summary"
     , nav : { home: "Home"
       , blockchain: "Blockchain"
       , market: "Market"

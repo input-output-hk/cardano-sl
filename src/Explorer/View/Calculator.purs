@@ -14,7 +14,7 @@ import Explorer.View.Common (placeholderView)
 calculatorView :: State -> P.Html Action
 calculatorView state =
     P.div
-        [ P.className "explorer-transaction" ]
+        [ P.className "explorer-calculator" ]
         [ P.div
             [ P.className "explorer-calculator__container" ]
             [ P.link

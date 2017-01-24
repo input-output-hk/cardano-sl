@@ -10,6 +10,7 @@ module.exports = {
     require('postcss-button'),
     require('postcss-inline-svg'),
     require('postcss-svgo'),
+    require('postcss-flexbox'),
     require('postcss-neat')({
       neatMaxWidth: '960px'
     }),

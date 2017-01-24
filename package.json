@@ -50,6 +50,7 @@
     "postcss-cssnext": "^2.9.0",
     "postcss-custom-properties": "^5.0.1",
     "postcss-extend": "^1.0.5",
+    "postcss-flexbox": "^1.0.2",
     "postcss-import": "^9.1.0",
     "postcss-inline-svg": "^2.3.0",
     "postcss-loader": "^1.2.2",

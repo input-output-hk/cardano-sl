@@ -49,6 +49,7 @@ type Translation =
     , address :: String
     , calculator :: String
     , version :: String
+    , summary :: String
     , nav ::
       { home :: String
       , blockchain :: String

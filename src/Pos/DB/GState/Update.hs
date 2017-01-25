@@ -119,7 +119,8 @@ getConfirmedSV = getBi . confirmedVersionKey
 
 -- | Get actual slot duration.
 getSlotDuration :: MonadDB ssc m => m Microsecond
-getSlotDuration = bvsSlotDuration <$> getLastBVState
+getSlotDuration = pure genesisSlotDuration
+-- getSlotDuration = bvsSlotDuration <$> getLastBVState
 
 -- | Get maximum block size (in bytes).
 getMaxBlockSize :: MonadDB ssc m => m Byte

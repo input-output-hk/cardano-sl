@@ -45,6 +45,10 @@ instance Show UserSecret where
         ", _usVss = " ++ show _usVss ++
         ", _usPath = " ++ show _usPath
 
+-- | Path of lock file for the provided path.
+lockFilePath :: FilePath -> FilePath
+lockFilePath = (<> ".lock")
+
 -- | Checks if this user secret instance can be dumped back to
 -- file. If not, using 'writeUserSecret' and 'writeUserSecretRelease'
 -- will result in error.
@@ -83,16 +87,16 @@ initializeSecret path = do
 -- If the file does not exist/is empty, returns empty user secret
 peekUserSecret :: (MonadIO m) => FilePath -> m UserSecret
 peekUserSecret path =
-    liftIO $ do
+    liftIO $ withFileLock (lockFilePath path) Shared $ const $ do
         initializeSecret path
         econtent <- decodeFull <$> BSL.readFile path
         pure $ either (const def) identity econtent & usPath .~ path
 
 -- | Read user secret putting an exclusive lock on it. To unlock, use
--- 'writeUserSecret' or 'writeUserSecretRelease'.
+-- 'writeUserSecretRelease'.
 takeUserSecret :: (MonadIO m) => FilePath -> m UserSecret
 takeUserSecret path = liftIO $ do
-    l <- lockFile path Exclusive
+    l <- lockFile (lockFilePath path) Exclusive
     econtent <- decodeFull <$> BSL.readFile path
     pure $ either (const def) identity econtent
         & usPath .~ path
@@ -102,7 +106,7 @@ takeUserSecret path = liftIO $ do
 writeUserSecret :: (MonadFail m, MonadIO m) => UserSecret -> m ()
 writeUserSecret u
     | canWrite u = fail "writeUserSecret: UserSecret is already locked"
-    | otherwise = liftIO $ writeRaw u
+    | otherwise = liftIO $ withFileLock (lockFilePath $ u ^. usPath) Exclusive $ const $ writeRaw u
 
 -- | Writes user secret and releases the lock. UserSecret can't be
 -- used after this function call anymore.

@@ -86,7 +86,7 @@ import qualified Pos.Types                 as Types
 import           Pos.Update.Core           (UpdatePayload (..))
 import           Pos.Update.Logic          (usCanCreateBlock, usPreparePayload,
                                             usVerifyBlocks)
-import           Pos.Update.Poll           (PollModifier, PollVerFailure)
+import           Pos.Update.Poll           (PollModifier)
 import           Pos.Util                  (NE, NewestFirst (..), OldestFirst (..),
                                             inAssertMode, neZipWith3, spanSafe,
                                             toNewestFirst, toOldestFirst, _neHead,
@@ -429,7 +429,7 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
         lift (verifyBlocksPrefix (one block)) >>= \case
             Left e' -> applyAMAP e' (OldestFirst []) nothingApplied
             Right (OldestFirst (undo :| []), pModifier) -> do
-                lift $ applyBlocksUnsafe (one (block, undo)) pModifier
+                lift $ applyBlocksUnsafe (one (block, undo)) (Just pModifier)
                 applyAMAP e (OldestFirst xs) False
             Right _ -> panic "verifyAndApplyBlocksInternal: applyAMAP: \
                              \verification of one block produced more than one undo"
@@ -455,7 +455,7 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
             Right (undos, pModifier) -> do
                 let newBlunds = OldestFirst $ getOldestFirst prefix `NE.zip`
                                               getOldestFirst undos
-                lift $ applyBlocksUnsafe newBlunds pModifier
+                lift $ applyBlocksUnsafe newBlunds (Just pModifier)
                 case getOldestFirst suffix of
                     []           -> GS.getTip
                     (genesis:xs) -> do
@@ -471,7 +471,7 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
 -- per-epoch, calculating lrc when needed if flag is set.
 applyBlocks
     :: forall ssc m . (WorkMode ssc m, SscWorkersClass ssc)
-    => Bool -> PollModifier -> OldestFirst NE (Blund ssc) -> m ()
+    => Bool -> Maybe PollModifier -> OldestFirst NE (Blund ssc) -> m ()
 applyBlocks calculateLrc pModifier blunds = do
     applyBlocksUnsafe prefix pModifier
     case getOldestFirst suffix of
@@ -520,12 +520,7 @@ applyWithRollback toRollback toApply = runExceptT $ do
         Right tipHash  -> pure tipHash
   where
     reApply = toOldestFirst toRollback
-    applyBackFail (_ :: PollVerFailure) =
-        throwM $ DBMalformed "applyWithRollback: can't verify just rollbacked blocks"
-    applyBack = do
-        verRes <- lift $ runExceptT $ usVerifyBlocks $ map fst reApply
-        pModifier <- either applyBackFail (pure . fst) verRes
-        lift $ applyBlocks True pModifier reApply
+    applyBack = lift $ applyBlocks True Nothing reApply
     expectedTipApply = toApply ^. _Wrapped . _neHead . prevBlockL
     newestToRollback = toRollback ^. _Wrapped . _neHead . _1 . headerHashG
 
@@ -668,7 +663,7 @@ createMainBlockFinish slotId pSk prevHeader = do
     let blockUndo = Undo (reverse $ foldl' prependToUndo [] localTxs)
                          pskUndo
                          (verUndo ^. _Wrapped . _neHead)
-    lift $ blk <$ applyBlocksUnsafe (one (Right blk, blockUndo)) pModifier
+    lift $ blk <$ applyBlocksUnsafe (one (Right blk, blockUndo)) (Just pModifier)
   where
     onBrokenTopo = throwError "Topology of local transactions is broken!"
     onNoSsc = "can't obtain SSC payload to create block"

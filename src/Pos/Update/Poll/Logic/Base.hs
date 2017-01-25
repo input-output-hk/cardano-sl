@@ -10,8 +10,9 @@ module Pos.Update.Poll.Logic.Base
        , mkTotNegative
        , mkTotSum
 
-       , canCreateBlockBV
+       , adoptBlockVersion
        , canBeProposedBV
+       , canCreateBlockBV
        , isConfirmedBV
        , getBVScript
        , confirmBlockVersion
@@ -29,16 +30,21 @@ import           Universum
 
 import           Pos.Crypto            (PublicKey, hash)
 import           Pos.Script.Type       (ScriptVersion)
-import           Pos.Types             (BlockVersion (..), Coin, MainBlockHeader, SlotId,
-                                        addressHash, coinToInteger, difficultyL,
+import           Pos.Ssc.Class         (Ssc)
+import           Pos.Types             (BlockVersion (..), Coin, HeaderHash,
+                                        MainBlockHeader, SlotId, addressHash,
+                                        coinToInteger, difficultyL, headerHashG,
                                         headerSlot, sumCoins, unsafeAddCoin,
                                         unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Update.Core       (UpdateProposal (..), UpdateVote (..),
                                         combineVotes, isPositiveVote, newVoteState)
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Types (BlockVersionState (..), DecidedProposalState (..),
+import           Pos.Update.Poll.Types (BlockVersionState (..),
+                                        ConfirmedProposalState (..),
+                                        DecidedProposalState (..), DpsExtra (..),
                                         PollVerFailure (..), ProposalState (..),
-                                        UndecidedProposalState (..))
+                                        UndecidedProposalState (..), UpsExtra (..),
+                                        cpsBlockVersion)
 
 ----------------------------------------------------------------------------
 -- BlockVersion-related simple functions/operations
@@ -133,6 +139,22 @@ canBeProposedPure BlockVersion { bvMajor = givenMajor
     relevantProposed = S.mapMonotonic bvAlt $ S.filter predicate proposed
     predicate BlockVersion {..} = bvMajor == givenMajor && bvMinor == givenMinor
 
+-- | Adopt given block version. When it happens, last adopted block
+-- version is changed.
+--
+-- Apart from that, 'ConfirmedProposalState' of proposals with this
+-- block version are updated.
+adoptBlockVersion
+    :: MonadPoll m
+    => HeaderHash -> BlockVersion -> m ()
+adoptBlockVersion winningBlk bv = do
+    setLastAdoptedBV bv
+    mapM_ processConfirmed =<< getConfirmedProposals
+  where
+    processConfirmed cps
+        | cpsBlockVersion cps /= bv = pass
+        | otherwise = addConfirmedProposal cps {cpsAdopted = Just winningBlk}
+
 ----------------------------------------------------------------------------
 -- Wrappers for type-safety
 ----------------------------------------------------------------------------
@@ -219,7 +241,7 @@ voteToUProposalState voter stake decision ups@UndecidedProposalState {..} = do
 -- their stakes.
 putNewProposal
     :: forall ssc m.
-       (MonadPoll m)
+       (MonadPoll m, Ssc ssc)
     => Either SlotId (MainBlockHeader ssc)
     -> Coin
     -> [(UpdateVote, Coin)]
@@ -231,6 +253,7 @@ putNewProposal slotOrHeader totalStake votesAndStakes up = addActiveProposal ps
     cd = either (const Nothing) (Just . view difficultyL) slotOrHeader
     totalPositive = sumCoins . map snd . filter (uvDecision . fst) $ votesAndStakes
     totalNegative = sumCoins . map snd . filter (not . uvDecision . fst) $ votesAndStakes
+    blkHeaderHash = either (const Nothing) (Just . view headerHashG) slotOrHeader
     votes = HM.fromList . map convertVote $ votesAndStakes
     -- New proposal always has a fresh vote (not revote).
     convertVote (UpdateVote {..}, _) = (uvKey, newVoteState uvDecision)
@@ -241,6 +264,7 @@ putNewProposal slotOrHeader totalStake votesAndStakes up = addActiveProposal ps
         , upsSlot = slotId
         , upsPositiveStake = unsafeIntegerToCoin totalPositive
         , upsNegativeStake = unsafeIntegerToCoin totalNegative
+        , upsExtra = UpsExtra <$> blkHeaderHash
         }
     -- New proposal can be in decided state immediately if it has a
     -- lot of positive votes.
@@ -252,6 +276,10 @@ putNewProposal slotOrHeader totalStake votesAndStakes up = addActiveProposal ps
                  (mkTotSum totalStake) =
             PSDecided
                 DecidedProposalState
-                {dpsDecision = decision, dpsUndecided = ups, dpsDifficulty = cd}
+                { dpsDecision = decision
+                , dpsUndecided = ups
+                , dpsDifficulty = cd
+                , dpsExtra = DpsExtra <$> blkHeaderHash <*> Just False
+                }
     -- Or it can be in undecided state (more common case).
         | otherwise = PSUndecided ups

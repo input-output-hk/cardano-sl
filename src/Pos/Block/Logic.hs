@@ -63,6 +63,7 @@ import qualified Pos.DB                    as DB
 import qualified Pos.DB.GState             as GS
 import qualified Pos.DB.Lrc                as LrcDB
 import           Pos.Delegation.Logic      (delegationVerifyBlocks, getProxyMempool)
+import           Pos.Exception             (CardanoFatalError (..))
 import           Pos.Lrc.Error             (LrcError (..))
 import           Pos.Lrc.Worker            (lrcSingleShotNoLock)
 import           Pos.Slotting              (getCurrentSlot)
@@ -87,8 +88,9 @@ import           Pos.Update.Core           (UpdatePayload (..))
 import           Pos.Update.Logic          (usCanCreateBlock, usPreparePayload,
                                             usVerifyBlocks)
 import           Pos.Update.Poll           (PollModifier)
-import           Pos.Util                  (NE, NewestFirst (..), OldestFirst (..),
-                                            inAssertMode, neZipWith3, spanSafe,
+import           Pos.Util                  (Color (Red), NE, NewestFirst (..),
+                                            OldestFirst (..), colorize, inAssertMode,
+                                            maybeThrow, neZipWith3, spanSafe,
                                             toNewestFirst, toOldestFirst, _neHead,
                                             _neLast)
 import           Pos.WorkMode              (WorkMode)
@@ -572,18 +574,20 @@ createGenesisBlockDo
 createGenesisBlockDo epoch leaders tip = do
     let noHeaderMsg =
             "There is no header is DB corresponding to tip from semaphore"
-    tipHeader <-
-        maybe (throwM $ DBMalformed noHeaderMsg) pure =<< DB.getBlockHeader tip
+    tipHeader <- maybeThrow (DBMalformed noHeaderMsg) =<< DB.getBlockHeader tip
     logDebug $ sformat msgTryingFmt epoch tipHeader
     createGenesisBlockFinally tipHeader
   where
-    emptyUndo = Undo [] [] def
     createGenesisBlockFinally tipHeader
         | shouldCreateGenesisBlock epoch (getEpochOrSlot tipHeader) = do
             let blk = mkGenesisBlock (Just tipHeader) epoch leaders
             let newTip = headerHash blk
-            applyBlocksUnsafe (one (Left blk, emptyUndo)) def $>
-                (Just blk, newTip)
+            runExceptT (usVerifyBlocks (one (Left blk))) >>= \case
+                Left err -> onVerFail err
+                Right (pModifier, usUndos) -> do
+                    let undo = def {undoUS = usUndos ^. _Wrapped . _neHead}
+                    applyBlocksUnsafe (one (Left blk, undo)) (Just pModifier) $>
+                        (Just blk, newTip)
         | otherwise = (Nothing, tip) <$ logShouldNot
     logShouldNot =
         logDebug
@@ -591,6 +595,10 @@ createGenesisBlockDo epoch leaders tip = do
     msgTryingFmt =
         "We are trying to create genesis block for " %ords %
         " epoch, our tip header is\n" %build
+    onVerFail err = do
+        logError $ colorize Red $
+            sformat ("We failed to verify our genesis block: " %build) err
+        throwM $ CardanoFatalError $ pretty err
 
 ----------------------------------------------------------------------------
 -- MainBlock creation

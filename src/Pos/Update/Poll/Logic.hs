@@ -6,7 +6,7 @@
 
 module Pos.Update.Poll.Logic
        ( verifyAndApplyUSPayload
-       , rollbackUSPayload
+       , rollbackUS
        , normalizePoll
        , filterProposalsByThd
        , canCreateBlockBV

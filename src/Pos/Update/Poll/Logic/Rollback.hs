@@ -4,25 +4,25 @@
 -- | Rollback logic in Poll.
 
 module Pos.Update.Poll.Logic.Rollback
-       ( rollbackUSPayload
+       ( rollbackUS
        ) where
 
 import qualified Data.HashMap.Strict   as HM
 import           Universum
 
-import           Pos.Types             (ChainDifficulty, SoftwareVersion (..))
+import           Pos.Types             (SoftwareVersion (..))
 import           Pos.Types.Version     (ApplicationName, BlockVersion, NumSoftwareVersion)
-import           Pos.Update.Core       (UpId, UpdatePayload (..))
+import           Pos.Update.Core       (UpId)
 import           Pos.Update.Poll.Class (MonadPoll (..))
 import           Pos.Update.Poll.Types (BlockVersionState, PrevValue (..),
                                         ProposalState (..), USUndo (..))
 
 -- | Rollback application of UpdatePayload in MonadPoll using payload
 -- itself and undo data.
-rollbackUSPayload
+rollbackUS
     :: forall m . MonadPoll m
-    => ChainDifficulty -> UpdatePayload -> USUndo -> m ()
-rollbackUSPayload _ UpdatePayload{..} USUndo{..} = do
+    => USUndo -> m ()
+rollbackUS USUndo{..} = do
     -- Rollback last confirmed
     mapM_ setOrDelLastConfirmedSV $ HM.toList unChangedSV
     -- Rollback proposals

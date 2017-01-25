@@ -26,19 +26,17 @@ import           Pos.Ssc.Class        (Ssc)
 import           Pos.Types            (ApplicationName, Block, BlockSignature (..),
                                        BlockVersion, NumSoftwareVersion,
                                        SoftwareVersion (..), addressHash, blockSlot,
-                                       difficultyL, epochIndexL, gbBody, gbHeader,
-                                       gbhConsensus, gbhExtra, headerHash,
-                                       mbUpdatePayload, mcdLeaderKey, mcdSignature,
-                                       mehBlockVersion)
+                                       epochIndexL, gbBody, gbHeader, gbhConsensus,
+                                       gbhExtra, headerHash, mbUpdatePayload,
+                                       mcdLeaderKey, mcdSignature, mehBlockVersion)
 import           Pos.Update.Core      (UpId)
 import           Pos.Update.Error     (USError (USInternalError))
-import           Pos.Update.Poll      (BlockVersionState, ConfirmedProposalState, DBPoll,
-                                       MonadPoll, PollModifier (..), PollT,
-                                       PollVerFailure, ProposalState, USUndo,
-                                       canCreateBlockBV, execPollT, execRollT,
-                                       processGenesisBlock, recordBlockIssuance,
-                                       rollbackUSPayload, runDBPoll, runPollT,
-                                       verifyAndApplyUSPayload)
+import           Pos.Update.Poll      (BlockVersionState, ConfirmedProposalState,
+                                       MonadPoll, PollModifier (..), PollVerFailure,
+                                       ProposalState, USUndo, canCreateBlockBV, execPollT,
+                                       execRollT, processGenesisBlock,
+                                       recordBlockIssuance, rollbackUS, runDBPoll,
+                                       runPollT, verifyAndApplyUSPayload)
 import           Pos.Util             (Color (Red), NE, NewestFirst, OldestFirst,
                                        colorize, inAssertMode)
 
@@ -88,16 +86,8 @@ usRollbackBlocks
        USGlobalApplyMode ssc m
     => NewestFirst NE (Block ssc, USUndo) -> m [DB.SomeBatchOp]
 usRollbackBlocks blunds =
-    modifierToBatch <$> (runDBPoll . execPollT def $ mapM_ rollbackDo blunds)
-  where
-    rollbackDo :: (Block ssc, USUndo) -> PollT (DBPoll m) ()
-    -- FIXME: rollback of genesis block can be non-trivial too!
-    rollbackDo (Left _, _) = pass
-    rollbackDo (Right blk, undo) =
-        rollbackUSPayload
-            (blk ^. difficultyL)
-            (blk ^. gbBody . mbUpdatePayload)
-            undo
+    modifierToBatch <$>
+    (runDBPoll . execPollT def $ mapM_ (rollbackUS . snd) blunds)
 
 -- | Verify whether sequence of blocks can be applied to US part of
 -- current GState DB.  This function doesn't make pure checks, they

@@ -58,6 +58,11 @@ library
                         Pos.DHT.Real.Real
                         Pos.DHT.Real.Types
                         Pos.DHT.Workers
+
+                        -- Exceptions
+                        Pos.Exception
+
+                        -- Genesis data
                         Pos.Genesis
 
                         -- LRC

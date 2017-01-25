@@ -19,6 +19,7 @@ import           Pos.Types                  (BlockVersion, Coin, EpochIndex, Hea
 import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Logic.Base (adoptBlockVersion, canBeProposedBV)
 import           Pos.Update.Poll.Types      (BlockVersionState (..), PollVerFailure (..))
+import           Pos.Util                   (inAssertMode)
 
 -- | Record the fact that main block with given version has been issued by
 -- stakeholder with given id for the given slot.
@@ -69,6 +70,8 @@ processGenesisBlock epoch = do
     -- resolution rule for them.
     confirmed <- getConfirmedBVStates
     toAdoptList <- catMaybes <$> mapM (checkThreshold threshold) confirmed
+    -- We also do sanity check in assert mode just in case.
+    inAssertMode $ sanityCheckConfirmed $ map fst confirmed
     case nonEmpty toAdoptList of
         -- If there is nothing to adopt, we move unstable issuers to stable
         -- and that's all.
@@ -130,3 +133,14 @@ filterBVAfterAdopt :: MonadPoll m => [(BlockVersion)] -> m ()
 filterBVAfterAdopt = mapM_ filterBVAfterAdoptDo
   where
     filterBVAfterAdoptDo bv = unlessM (canBeProposedBV bv) $ delBVState bv
+
+-- Here we check that all confirmed versions satisfy
+sanityCheckConfirmed
+    :: (MonadError PollVerFailure m, MonadPollRead m)
+    => [BlockVersion] -> m ()
+sanityCheckConfirmed = mapM_ sanityCheckConfirmedDo
+  where
+    sanityCheckConfirmedDo bv = unlessM (canBeProposedBV bv) $
+        throwError $ PollInternalError $ sformat fmt bv
+    fmt = "we have confirmed block version which doesn't satisfy "%
+          "'canBeProposedBV' predicate: "%build%" :unamused:"

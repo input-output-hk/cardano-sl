@@ -28,13 +28,15 @@ import           Pos.Types                  (ChainDifficulty, Coin, EpochIndex,
                                              gbhExtra, headerHash, headerSlot,
                                              mehBlockVersion, sumCoins, unflattenSlotId,
                                              unsafeIntegerToCoin)
-import           Pos.Update.Core            (UpId, UpdatePayload (..),
-                                             UpdateProposal (..), UpdateVote (..))
+import           Pos.Update.Core            (BlockVersionData (..), UpId,
+                                             UpdatePayload (..), UpdateProposal (..),
+                                             UpdateVote (..), upMaxBlockSize,
+                                             upScriptVersion, upSlotDuration)
 import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Logic.Base (canBeAdoptedBV, canBeProposedBV,
                                              canCreateBlockBV, confirmBlockVersion,
                                              isDecided, mkTotNegative, mkTotPositive,
-                                             mkTotSum, putNewProposal,
+                                             mkTotSum, putNewProposal, verifyNextBVData,
                                              voteToUProposalState)
 import           Pos.Update.Poll.Types      (BlockVersionState (..),
                                              ConfirmedProposalState (..),
@@ -94,7 +96,7 @@ verifyHeader
     :: (MonadError PollVerFailure m, MonadPoll m)
     => MainBlockHeader __ -> m ()
 verifyHeader header = do
-    lastAdopted <- getLastAdoptedBV
+    lastAdopted <- getAdoptedBV
     let versionInHeader = header ^. gbhExtra ^. mehBlockVersion
     unlessM (canCreateBlockBV versionInHeader) $
         throwError
@@ -177,53 +179,42 @@ verifyAndApplyProposal considerThreshold slotOrHeader votes up@UpdateProposal {.
 verifyAndApplyProposalBVS
     :: (MonadError PollVerFailure m, MonadPoll m)
     => UpId -> UpdateProposal -> m ()
-verifyAndApplyProposalBVS upId UpdateProposal {..} =
-    getBVState upBlockVersion >>= \case
+verifyAndApplyProposalBVS upId up =
+    getBVState (upBlockVersion up) >>= \case
         -- This block version is already known, so we just check that
         -- everything is the same
-        Just BlockVersionState{..}
-            | bvsScriptVersion /= upScriptVersion -> throwError
+        Just BlockVersionState{bvsData = BlockVersionData {..}}
+            | bvdScriptVersion /= upScriptVersion up -> throwError
                   PollWrongScriptVersion
-                      { pwsvExpected = bvsScriptVersion
-                      , pwsvFound    = upScriptVersion
+                      { pwsvExpected = bvdScriptVersion
+                      , pwsvFound    = upScriptVersion up
                       , pwsvUpId     = upId }
-            | bvsSlotDuration /= upSlotDuration -> throwError
+            | bvdSlotDuration /= upSlotDuration up -> throwError
                   PollWrongSlotDuration
-                      { pwsdExpected = bvsSlotDuration
-                      , pwsdFound    = upSlotDuration
+                      { pwsdExpected = bvdSlotDuration
+                      , pwsdFound    = upSlotDuration up
                       , pwsdUpId     = upId }
-            | bvsMaxBlockSize /= upMaxBlockSize -> throwError
+            | bvdMaxBlockSize /= upMaxBlockSize up -> throwError
                   PollWrongMaxBlockSize
-                      { pwmbsExpected = bvsMaxBlockSize
-                      , pwmbsFound    = upMaxBlockSize
+                      { pwmbsExpected = bvdMaxBlockSize
+                      , pwmbsFound    = upMaxBlockSize up
                       , pwmbsUpId     = upId }
             | otherwise -> pass
         -- This block version isn't known, so we can add it after doing
         -- checks against the previous known block version state
         Nothing -> do
-            BlockVersionState{..} <- getLastBVState
+            let bvd = upBlockVersionData up
             let newBVS = BlockVersionState
-                  { bvsScriptVersion = upScriptVersion
+                  { bvsData = bvd
                   , bvsIsConfirmed   = False
-                  , bvsSlotDuration  = upSlotDuration
-                  , bvsMaxBlockSize  = upMaxBlockSize
                   , bvsIssuersStable = mempty
                   , bvsIssuersUnstable = mempty
                   , bvsLastBlockStable = Nothing
                   , bvsLastBlockUnstable = Nothing
                   }
-            if | upScriptVersion /= bvsScriptVersion + 1 ->
-                     throwError PollWrongScriptVersion
-                         { pwsvExpected = bvsScriptVersion + 1
-                         , pwsvFound    = upScriptVersion
-                         , pwsvUpId     = upId }
-               | upMaxBlockSize > bvsMaxBlockSize * 2 ->
-                     throwError PollLargeMaxBlockSize
-                         { plmbsMaxPossible = bvsMaxBlockSize * 2
-                         , plmbsFound       = upMaxBlockSize
-                         , plmbsUpId        = upId }
-               | otherwise ->
-                     putBVState upBlockVersion newBVS
+            oldBVD <- getAdoptedBVData
+            verifyNextBVData upId oldBVD bvd
+            putBVState (upBlockVersion up) newBVS
 
 -- Here we check that software version is 1 more than last confirmed
 -- version of given application. Or 0 if it's new application.
@@ -265,7 +256,7 @@ verifyBlockVersion
     :: (MonadError PollVerFailure m, MonadPollRead m)
     => UpId -> UpdateProposal -> m ()
 verifyBlockVersion upId UpdateProposal {..} = do
-    lastAdopted <- getLastAdoptedBV
+    lastAdopted <- getAdoptedBV
     unlessM (canBeProposedBV upBlockVersion) $
         throwError
             PollBadBlockVersion

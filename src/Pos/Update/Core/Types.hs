@@ -10,10 +10,14 @@ module Pos.Update.Core.Types
        , UpId
        , UpAttributes
        , UpdateData (..)
+       , BlockVersionData (..)
        , SystemTag (getSystemTag)
        , mkSystemTag
        , systemTagMaxLength
        , patakUpdateData
+       , upScriptVersion
+       , upSlotDuration
+       , upMaxBlockSize
 
          -- * UpdateVote and related
        , UpdateVote (..)
@@ -83,15 +87,13 @@ type UpAttributes = Attributes ()
 
 -- | Proposal for software update
 data UpdateProposal = UpdateProposal
-    { upBlockVersion    :: !BlockVersion
-    , upScriptVersion   :: !ScriptVersion
-    , upSoftwareVersion :: !SoftwareVersion
-    , upSlotDuration    :: !Microsecond
-    , upMaxBlockSize    :: !Byte
-    , upData            :: !(HM.HashMap SystemTag UpdateData)
+    { upBlockVersion     :: !BlockVersion
+    , upBlockVersionData :: !BlockVersionData
+    , upSoftwareVersion  :: !SoftwareVersion
+    , upData             :: !(HM.HashMap SystemTag UpdateData)
     -- ^ UpdateData for each system which this update affects.
     -- It must be non-empty.
-    , upAttributes      :: !UpAttributes
+    , upAttributes       :: !UpAttributes
     -- ^ Attributes which are currently empty, but provide
     -- extensibility.
     } deriving (Eq, Show, Generic, Typeable)
@@ -100,23 +102,45 @@ instance Buildable UpdateProposal where
     build UpdateProposal {..} =
       bprint (build%
               " { block v"%build%
-              ", scripts v"%build%
+              ", "%build%
               ", tags: "%listJson%
-              ", slot duration: "%int%" mcs"%
-              ", block size limit: "%int% "bytes"%
               ", no attributes "%
               " }")
         upSoftwareVersion
         upBlockVersion
-        upScriptVersion
+        upBlockVersionData
         (HM.keys upData)
-        upSlotDuration
-        upMaxBlockSize
 
 instance Buildable (UpdateProposal, [UpdateVote]) where
     build (up, votes) =
       bprint (build%" with votes: "%listJson)
              up votes
+
+-- | Data which is associated with 'BlockVersion'.
+data BlockVersionData = BlockVersionData
+    { bvdScriptVersion :: !ScriptVersion
+    , bvdSlotDuration  :: !Microsecond
+    , bvdMaxBlockSize  :: !Byte
+    } deriving (Show, Eq, Generic, Typeable)
+
+instance Buildable BlockVersionData where
+    build BlockVersionData {..} =
+      bprint (" { scripts v"%build%
+              ", slot duration: "%int%" mcs"%
+              ", block size limit: "%int% "bytes"%
+              " }")
+        bvdScriptVersion
+        bvdSlotDuration
+        bvdMaxBlockSize
+
+upScriptVersion :: UpdateProposal -> ScriptVersion
+upScriptVersion = bvdScriptVersion . upBlockVersionData
+
+upSlotDuration :: UpdateProposal -> Microsecond
+upSlotDuration = bvdSlotDuration . upBlockVersionData
+
+upMaxBlockSize :: UpdateProposal -> Byte
+upMaxBlockSize = bvdMaxBlockSize . upBlockVersionData
 
 -- | Data which describes update. It is specific for each system.
 data UpdateData = UpdateData
@@ -255,6 +279,7 @@ type LocalVotes = HashMap UpId (HashMap PublicKey UpdateVote)
 
 deriveSafeCopySimple 0 'base ''SystemTag
 deriveSafeCopySimple 0 'base ''UpdateData
+deriveSafeCopySimple 0 'base ''BlockVersionData
 deriveSafeCopySimple 0 'base ''UpdateProposal
 deriveSafeCopySimple 0 'base ''UpdateVote
 deriveSafeCopySimple 0 'base ''UpdatePayload

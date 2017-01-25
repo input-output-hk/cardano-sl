@@ -19,12 +19,15 @@ module Pos.Update.Poll.Types
 
          -- * BlockVersion state
        , BlockVersionState (..)
+       , bvsScriptVersion
+       , bvsSlotDuration
+       , bvsMaxBlockSize
 
          -- * Poll modifier
        , PollModifier (..)
        , pmNewBVsL
        , pmDelBVsL
-       , pmLastAdoptedBVL
+       , pmAdoptedBVFullL
        , pmNewConfirmedL
        , pmDelConfirmedL
        , pmNewConfirmedPropsL
@@ -62,7 +65,8 @@ import           Pos.Types.Types            (ChainDifficulty, Coin, EpochIndex,
                                              HeaderHash, SlotId, StakeholderId, mkCoin)
 import           Pos.Types.Version          (ApplicationName, BlockVersion,
                                              NumSoftwareVersion, SoftwareVersion)
-import           Pos.Update.Core            (StakeholderVotes, UpId, UpdateProposal (..))
+import           Pos.Update.Core            (BlockVersionData (..), StakeholderVotes,
+                                             UpId, UpdateProposal (..))
 
 ----------------------------------------------------------------------------
 -- Proposal State
@@ -165,12 +169,8 @@ mkUProposalState upsSlot upsProposal =
 
 -- | State of BlockVersion from update proposal.
 data BlockVersionState = BlockVersionState
-    { bvsScriptVersion     :: !ScriptVersion
-    -- ^ Script version associated with this block version.
-    , bvsSlotDuration      :: !Microsecond
-    -- ^ Slot duration proposed with this 'BlockVersion'.
-    , bvsMaxBlockSize      :: !Byte
-    -- ^ Maximal block size proposed with this 'BlockVersion.
+    { bvsData              :: !BlockVersionData
+    -- ^ 'BlockVersioData' associated with this block version.
     , bvsIsConfirmed       :: !Bool
     -- ^ Whether proposal with this block version is confirmed.
     , bvsIssuersStable     :: !(HashSet StakeholderId)
@@ -188,6 +188,15 @@ data BlockVersionState = BlockVersionState
     -- ^ Identifier of last block which modified set of 'bvsIssuersUnstable'.
     }
 
+bvsScriptVersion :: BlockVersionState -> ScriptVersion
+bvsScriptVersion = bvdScriptVersion . bvsData
+
+bvsSlotDuration :: BlockVersionState -> Microsecond
+bvsSlotDuration = bvdSlotDuration . bvsData
+
+bvsMaxBlockSize :: BlockVersionState -> Byte
+bvsMaxBlockSize = bvdMaxBlockSize . bvsData
+
 ----------------------------------------------------------------------------
 -- Modifier
 ----------------------------------------------------------------------------
@@ -198,7 +207,7 @@ data BlockVersionState = BlockVersionState
 data PollModifier = PollModifier
     { pmNewBVs            :: !(HashMap BlockVersion BlockVersionState)
     , pmDelBVs            :: !(HashSet BlockVersion)
-    , pmLastAdoptedBV     :: !(Maybe BlockVersion)
+    , pmAdoptedBVFull     :: !(Maybe (BlockVersion, BlockVersionData))
     , pmNewConfirmed      :: !(HashMap ApplicationName NumSoftwareVersion)
     , pmDelConfirmed      :: !(HashSet ApplicationName)
     , pmNewConfirmedProps :: !(HashMap SoftwareVersion ConfirmedProposalState)
@@ -211,7 +220,7 @@ data PollModifier = PollModifier
 
 makeLensesFor [ ("pmNewBVs", "pmNewBVsL")
               , ("pmDelBVs", "pmDelBVsL")
-              , ("pmLastAdoptedBV", "pmLastAdoptedBVL")
+              , ("pmAdoptedBVFull", "pmAdoptedBVFullL")
               , ("pmNewConfirmed", "pmNewConfirmedL")
               , ("pmDelConfirmed", "pmDelConfirmedL")
               , ("pmNewConfirmedProps", "pmNewConfirmedPropsL")

@@ -15,7 +15,7 @@ import           Universum
 import           Pos.Types             (ApplicationName, BlockVersion, ChainDifficulty,
                                         Coin, EpochIndex, NumSoftwareVersion, SlotId,
                                         SoftwareVersion, StakeholderId)
-import           Pos.Update.Core       (UpId)
+import           Pos.Update.Core       (BlockVersionData, UpId)
 import           Pos.Update.Poll.Types (BlockVersionState, ConfirmedProposalState,
                                         DecidedProposalState, ProposalState,
                                         UndecidedProposalState)
@@ -33,10 +33,8 @@ class Monad m => MonadPollRead m where
     -- ^ Retrieve all proposed block version.
     getConfirmedBVStates :: m [(BlockVersion, BlockVersionState)]
     -- ^ Get all confirmed 'BlockVersion's and their states.
-    getLastBVState :: m BlockVersionState
-    -- ^ Retrieve state of last adopted block version.
-    getLastAdoptedBV :: m BlockVersion
-    -- ^ Get last adopted block version.
+    getAdoptedBVFull :: m (BlockVersion, BlockVersionData)
+    -- ^ Retrieve last adopted block version and its state.
     getLastConfirmedSV :: ApplicationName -> m (Maybe NumSoftwareVersion)
     -- ^ Get numeric component of last confirmed version of application
     hasActiveProposal :: ApplicationName -> m Bool
@@ -62,6 +60,12 @@ class Monad m => MonadPollRead m where
     -- Only issuer of stable block can be passed to this function, otherwise
     -- 'Nothing' will be returned.
 
+    getAdoptedBV :: m BlockVersion
+    getAdoptedBV = fst <$> getAdoptedBVFull
+
+    getAdoptedBVData :: m BlockVersionData
+    getAdoptedBVData = snd <$> getAdoptedBVFull
+
     -- | Default implementations for 'MonadTrans'.
     default getBVState
         :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
@@ -77,13 +81,9 @@ class Monad m => MonadPollRead m where
         m [(BlockVersion, BlockVersionState)]
     getConfirmedBVStates = lift getConfirmedBVStates
 
-    default getLastBVState
-        :: (MonadTrans t, MonadPollRead m', t m' ~ m) => m BlockVersionState
-    getLastBVState = lift getLastBVState
-
-    default getLastAdoptedBV
-        :: (MonadTrans t, MonadPollRead m', t m' ~ m) => m BlockVersion
-    getLastAdoptedBV = lift getLastAdoptedBV
+    default getAdoptedBVFull
+        :: (MonadTrans t, MonadPollRead m', t m' ~ m) => m (BlockVersion, BlockVersionData)
+    getAdoptedBVFull = lift getAdoptedBVFull
 
     default getLastConfirmedSV
         :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
@@ -145,8 +145,8 @@ class MonadPollRead m => MonadPoll m where
     -- ^ Put state of BlockVersion overriding if it exists.
     delBVState :: BlockVersion -> m ()
     -- ^ Delete BlockVersion and associated state.
-    setLastAdoptedBV :: BlockVersion -> m ()
-    -- ^ Set last adopted protocol version.
+    setAdoptedBV :: BlockVersion -> m ()
+    -- ^ Set last adopted block version. State is taken from competing states.
     setLastConfirmedSV :: SoftwareVersion -> m ()
     -- ^ Set last confirmed version of application.
     delConfirmedSV :: ApplicationName -> m ()
@@ -169,9 +169,9 @@ class MonadPollRead m => MonadPoll m where
         :: (MonadTrans t, MonadPoll m', t m' ~ m) => BlockVersion -> m ()
     delBVState = lift . delBVState
 
-    default setLastAdoptedBV
+    default setAdoptedBV
         :: (MonadTrans t, MonadPoll m', t m' ~ m) => BlockVersion -> m ()
-    setLastAdoptedBV = lift . setLastAdoptedBV
+    setAdoptedBV = lift . setAdoptedBV
 
     default setLastConfirmedSV
         :: (MonadTrans t, MonadPoll m', t m' ~ m) => SoftwareVersion -> m ()

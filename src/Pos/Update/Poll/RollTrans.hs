@@ -51,11 +51,11 @@ instance MonadPoll m => MonadPoll (RollT m) where
         insertIfNotExist bv unChangedBVL getBVState
         delBVState bv
 
-    setLastAdoptedBV pv = RollT $ do
-        prevBV <- getLastAdoptedBV
+    setAdoptedBV pv = RollT $ do
+        prevBV <- getAdoptedBV
         whenNothingM (use unLastAdoptedBVL) $
             unLastAdoptedBVL .= Just prevBV
-        setLastAdoptedBV pv
+        setAdoptedBV pv
 
     setLastConfirmedSV sv@SoftwareVersion{..} = RollT $ do
         insertIfNotExist svAppName unChangedSVL getLastConfirmedSV

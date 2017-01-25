@@ -17,6 +17,7 @@ module Pos.Update.Poll.Logic.Base
        , isConfirmedBV
        , getBVScriptVersion
        , confirmBlockVersion
+       , verifyNextBVData
 
        , isDecided
        , voteToUProposalState
@@ -24,7 +25,7 @@ module Pos.Update.Poll.Logic.Base
        ) where
 
 import           Control.Lens          (at)
-import           Control.Monad.Except  (MonadError)
+import           Control.Monad.Except  (MonadError (throwError))
 import qualified Data.HashMap.Strict   as HM
 import qualified Data.Set              as S
 import           Universum
@@ -37,15 +38,16 @@ import           Pos.Types             (BlockVersion (..), Coin, HeaderHash,
                                         coinToInteger, difficultyL, headerHashG,
                                         headerSlot, sumCoins, unsafeAddCoin,
                                         unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Update.Core       (UpdateProposal (..), UpdateVote (..),
-                                        combineVotes, isPositiveVote, newVoteState)
+import           Pos.Update.Core       (BlockVersionData (..), UpId, UpdateProposal (..),
+                                        UpdateVote (..), combineVotes, isPositiveVote,
+                                        newVoteState)
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Types (BlockVersionState (..),
                                         ConfirmedProposalState (..),
                                         DecidedProposalState (..), DpsExtra (..),
                                         PollVerFailure (..), ProposalState (..),
                                         UndecidedProposalState (..), UpsExtra (..),
-                                        cpsBlockVersion)
+                                        bvsScriptVersion, cpsBlockVersion)
 
 ----------------------------------------------------------------------------
 -- BlockVersion-related simple functions/operations
@@ -76,7 +78,7 @@ confirmBlockVersion bv =
 -- confirmed.
 canCreateBlockBV :: MonadPollRead m => BlockVersion -> m Bool
 canCreateBlockBV bv = do
-    lastAdopted <- getLastAdoptedBV
+    lastAdopted <- getAdoptedBV
     isConfirmed <- isConfirmedBV bv
     let toMajMin BlockVersion {..} = (bvMajor, bvMinor)
     return
@@ -108,7 +110,7 @@ canCreateBlockBV bv = do
 -- Otherwise it must be in 'X' or greater than maximum from 'X' by one.
 canBeProposedBV :: MonadPollRead m => BlockVersion -> m Bool
 canBeProposedBV bv =
-    canBeProposedPure bv <$> getLastAdoptedBV <*>
+    canBeProposedPure bv <$> getAdoptedBV <*>
     (S.fromList <$> getProposedBVs)
 
 canBeProposedPure :: BlockVersion -> BlockVersion -> Set BlockVersion -> Bool
@@ -153,7 +155,7 @@ canBeProposedPure BlockVersion { bvMajor = givenMajor
 -- 4. If major version is equal to the last adopted one, then minor version
 -- can be greather than minor component of last adopted version by 1.
 canBeAdoptedBV :: MonadPollRead m => BlockVersion -> m Bool
-canBeAdoptedBV bv = canBeAdoptedPure bv <$> getLastAdoptedBV
+canBeAdoptedBV bv = canBeAdoptedPure bv <$> getAdoptedBV
 
 canBeAdoptedPure :: BlockVersion -> BlockVersion -> Bool
 canBeAdoptedPure BlockVersion { bvMajor = givenMajor
@@ -176,12 +178,41 @@ adoptBlockVersion
     :: MonadPoll m
     => HeaderHash -> BlockVersion -> m ()
 adoptBlockVersion winningBlk bv = do
-    setLastAdoptedBV bv
+    setAdoptedBV bv
     mapM_ processConfirmed =<< getConfirmedProposals
   where
     processConfirmed cps
         | cpsBlockVersion cps /= bv = pass
         | otherwise = addConfirmedProposal cps {cpsAdopted = Just winningBlk}
+
+-- | Verify that 'BlockVersionData' passed as last argument can follow
+-- 'BlockVersionData' passed as second argument. First argument
+-- ('UpId') is used to create error only.
+verifyNextBVData
+    :: MonadError PollVerFailure m
+    => UpId -> BlockVersionData -> BlockVersionData -> m ()
+verifyNextBVData upId
+  BlockVersionData { bvdScriptVersion = oldSV
+                   , bvdMaxBlockSize = oldMBS
+                   }
+  BlockVersionData { bvdScriptVersion = newSV
+                   , bvdMaxBlockSize = newMBS
+                   }
+    | newSV /= oldSV + 1 =
+        throwError
+            PollWrongScriptVersion
+            { pwsvExpected = oldSV + 1
+            , pwsvFound = newSV
+            , pwsvUpId = upId
+            }
+    | newMBS > oldMBS * 2 =
+        throwError
+            PollLargeMaxBlockSize
+            { plmbsMaxPossible = oldMBS * 2
+            , plmbsFound = newMBS
+            , plmbsUpId = upId
+            }
+    | otherwise = pass
 
 ----------------------------------------------------------------------------
 -- Wrappers for type-safety

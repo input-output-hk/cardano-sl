@@ -29,7 +29,7 @@ import           Pos.Types            (ApplicationName, Block, BlockSignature (.
                                        epochIndexL, gbBody, gbHeader, gbhConsensus,
                                        gbhExtra, headerHash, mbUpdatePayload,
                                        mcdLeaderKey, mcdSignature, mehBlockVersion)
-import           Pos.Update.Core      (UpId)
+import           Pos.Update.Core      (BlockVersionData, UpId)
 import           Pos.Update.Error     (USError (USInternalError))
 import           Pos.Update.Poll      (BlockVersionState, ConfirmedProposalState,
                                        MonadPoll, PollModifier (..), PollVerFailure,
@@ -141,7 +141,7 @@ modifierToBatch :: PollModifier -> [DB.SomeBatchOp]
 modifierToBatch PollModifier {..} =
     concat $
     [ bvsModifierToBatch pmNewBVs pmDelBVs
-    , lastAdoptedModifierToBatch pmLastAdoptedBV
+    , lastAdoptedModifierToBatch pmAdoptedBVFull
     , confirmedVerModifierToBatch  pmNewConfirmed pmDelConfirmed
     , confirmedPropModifierToBatch pmNewConfirmedProps pmDelConfirmedProps
     , upModifierToBatch pmNewActiveProps pmDelActivePropsIdx
@@ -156,9 +156,9 @@ bvsModifierToBatch (HM.toList -> added) (toList -> deleted) = addOps ++ delOps
     addOps = map (DB.SomeBatchOp . uncurry SetBVState) added
     delOps = map (DB.SomeBatchOp . DelBV) deleted
 
-lastAdoptedModifierToBatch :: Maybe BlockVersion -> [DB.SomeBatchOp]
-lastAdoptedModifierToBatch Nothing  = []
-lastAdoptedModifierToBatch (Just v) = [DB.SomeBatchOp $ SetLastAdopted v]
+lastAdoptedModifierToBatch :: Maybe (BlockVersion, BlockVersionData) -> [DB.SomeBatchOp]
+lastAdoptedModifierToBatch Nothing          = []
+lastAdoptedModifierToBatch (Just (bv, bvd)) = [DB.SomeBatchOp $ SetAdopted bv bvd]
 
 confirmedVerModifierToBatch
     :: HashMap ApplicationName NumSoftwareVersion

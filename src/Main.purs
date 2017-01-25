@@ -12,7 +12,8 @@ import Pux.Router (sampleUrl)
 import Pux.Devtool (Action, start) as Pux.Devtool
 
 import Explorer.View.Layout (view)
-import Explorer.State (Action(..), State, update) as Ex
+import Explorer.State (update) as Ex
+import Explorer.Types (Action(..), State) as Ex
 import Explorer.Routes (match)
 
 type AppEffects = (dom :: DOM, ajax :: AJAX)

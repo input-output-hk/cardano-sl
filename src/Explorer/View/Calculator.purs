@@ -7,7 +7,7 @@ import Pux.Html.Attributes (className) as P
 import Pux.Router (link) as P
 
 import Explorer.I18n.Lang (translate)
-import Explorer.State (State, Action)
+import Explorer.Types (State, Action)
 import Explorer.Routes (Route(Dashboard), toUrl)
 import Explorer.View.Common (placeholderView)
 

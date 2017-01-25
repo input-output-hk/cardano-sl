@@ -1,13 +1,12 @@
 module Explorer.Util.DOM
-    ( currencyCSSClass
+    ( scrollTop
     ) where
 
+import Prelude
+import Control.Monad.Eff (Eff)
+import DOM (DOM)
 
-import Data.Maybe (Maybe(..))
-import Explorer.State (CCurrency(..))
+foreign import scrollTopImpl :: forall eff. Eff (dom :: DOM | eff) Unit
 
-currencyCSSClass :: Maybe CCurrency -> String
-currencyCSSClass mCurrency =
-  case mCurrency of
-      Just ADA -> " ada bg-ada-dark"
-      _ -> ""
+scrollTop :: forall eff. Eff (dom :: DOM | eff) Unit
+scrollTop = scrollTopImpl

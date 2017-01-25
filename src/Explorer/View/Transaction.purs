@@ -3,8 +3,8 @@ module Explorer.View.Transaction (transactionView) where
 import Prelude
 import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (translate)
-import Explorer.State (Action, CCurrency(..), State)
-import Explorer.Util.DOM (currencyCSSClass)
+import Explorer.Types (Action, CCurrency(..), State)
+import Explorer.View.Common (currencyCSSClass)
 import Explorer.View.Common (transactionHeaderView, transactionBodyView)
 import Pux.Html (Html, div, text, h3, table, tr, td) as P
 import Pux.Html.Attributes (className) as P

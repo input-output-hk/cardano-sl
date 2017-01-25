@@ -2,7 +2,7 @@ module Explorer.View.Footer (footerView) where
 
 import Prelude
 import Data.String (take)
-import Explorer.State (State, Action)
+import Explorer.Types (State, Action)
 import Explorer.Util.Version (version, commitHash)
 import Pux.Html (Html, div, text, nav, a, select, option, p) as P
 import Pux.Html.Attributes (value)

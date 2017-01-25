@@ -3,7 +3,7 @@ module Explorer.View.Dashboard (dashboardView) where
 import Prelude
 import Explorer.I18n.Lang (Language(..), translate)
 import Explorer.Routes (Route(..), toUrl)
-import Explorer.State (State, Action(..))
+import Explorer.Types (State, Action(..))
 import Explorer.Util.String (substitute)
 import Explorer.View.Common (placeholderView)
 import Pux.Html (Html, button, div, h3, text, h1, h2, input) as P

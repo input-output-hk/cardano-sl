@@ -4,7 +4,7 @@ import Pux.Html (Html, div, h1, main, text) as P
 import Pux.Html.Attributes (className) as P
 
 import Explorer.Routes (Route(..))
-import Explorer.State (State, Action)
+import Explorer.Types (State, Action)
 import Explorer.View.Address (addressView)
 import Explorer.View.Header (headerView)
 import Explorer.View.Footer (footerView)

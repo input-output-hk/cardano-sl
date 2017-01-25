@@ -2,10 +2,12 @@ module Explorer.View.Common (
     placeholderView
     , transactionHeaderView
     , transactionBodyView
+    , currencyCSSClass
     ) where
 
+import Data.Maybe (Maybe(..))
 import Explorer.Routes (Route(..), toUrl)
-import Explorer.State (Action, State)
+import Explorer.Types (Action, State, CCurrency(..))
 import Pux.Html (Html, text, div, a, p, span) as P
 import Pux.Html.Attributes (className, href) as P
 import Pux.Router (link) as P
@@ -77,7 +79,13 @@ transactionBodyView state =
               ]
         ]
 
--- misc
+-- helper
+
+currencyCSSClass :: Maybe CCurrency -> String
+currencyCSSClass mCurrency =
+  case mCurrency of
+      Just ADA -> " ada bg-ada-dark"
+      _ -> ""
 
 -- TODO (jk) Remove placeholderView if all views are implemented
 placeholderView :: String -> P.Html Action

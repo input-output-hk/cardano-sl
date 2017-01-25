@@ -2,7 +2,7 @@ module Explorer.View.Header (headerView) where
 
 import Prelude
 import Explorer.I18n.Lang (Language, I18nAccessor, translate)
-import Explorer.State (State, Action)
+import Explorer.Types (State, Action)
 import Pux.Html (Html, div, text, header, nav, a, select, option) as P
 import Pux.Html.Attributes (value)
 import Pux.Html.Attributes (className, href) as P

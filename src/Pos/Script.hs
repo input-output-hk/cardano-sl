@@ -21,7 +21,6 @@ import           Control.Exception          (ArithException (..), ArrayException
                                              ErrorCall (..), Handler (..),
                                              PatternMatchFail (..), SomeException (..),
                                              catches, displayException, throwIO)
-import           Data.String                (String)
 import qualified Interface.Integration      as PL
 import qualified Interface.Prelude          as PL
 import           Language.Haskell.TH.Syntax (Lift (..), runIO)

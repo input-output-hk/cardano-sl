@@ -2,7 +2,9 @@
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
--- | Module for websockets implementation of Daedalus API
+-- | Module for websockets implementation of Daedalus API.
+-- This implements unidirectional sockets from server to client.
+-- Every message received from client will be ignored.
 
 module Pos.Wallet.Web.Server.Sockets
        ( WalletWebSockets
@@ -41,7 +43,8 @@ import qualified Pos.Update                     as US
 import           Pos.Wallet.Context             (WithWalletContext)
 import           Pos.Wallet.KeyStorage          (MonadKeys)
 import           Pos.Wallet.State               (MonadWalletDB)
-import           Pos.Wallet.WalletMode          (MonadBalances, MonadTxHistory)
+import           Pos.Wallet.WalletMode          (MonadBalances, MonadBlockchainInfo,
+                                                 MonadTxHistory, MonadUpdates)
 import           Pos.Wallet.Web.State           (MonadWalletWebDB)
 import           Serokell.Util.Lens             (WrappedM (..))
 import           System.Wlog                    (CanLog, HasLoggerName)
@@ -78,8 +81,8 @@ switchConnection var pending = do
 upgradeApplicationWS :: ConnectionsVar -> Application -> Application
 upgradeApplicationWS wsConn = websocketsOr WS.defaultConnectionOptions $ switchConnection wsConn
 
-sendClose :: MonadIO m => ConnectionsVar -> NotifyEvent -> m ()
-sendClose = send WS.sendClose
+-- sendClose :: MonadIO m => ConnectionsVar -> NotifyEvent -> m ()
+-- sendClose = send WS.sendClose
 
 -- Sends notification msg to connected client. If there is no connection, notification msg will be ignored.
 sendWS :: MonadIO m => ConnectionsVar -> NotifyEvent -> m ()
@@ -103,8 +106,8 @@ newtype WalletWebSockets m a = WalletWebSockets
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
                 MonadWalletDB, WithWalletContext,
                 MonadDHT, MonadSlots,
-                CanLog, MonadKeys, MonadBalances,
-                MonadTxHistory, WithNodeContext ssc,
+                CanLog, MonadKeys, MonadBalances, MonadUpdates,
+                MonadTxHistory, MonadBlockchainInfo, WithNodeContext ssc,
                 Modern.MonadDB ssc, MonadTxpLD ssc, MonadWalletWebDB, MonadDelegation, US.MonadUSMem)
 
 instance Monad m => WrappedM (WalletWebSockets m) where

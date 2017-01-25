@@ -1,18 +1,25 @@
 module Daedalus.ClientApi where
 
 import Prelude
+import Control.Monad.Aff (liftEff')
 import Daedalus.BackendApi as B
 import Control.Monad.Eff (Eff)
+import Control.Monad.Eff.Unsafe (unsafeInterleaveEff)
+import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Ref (newRef, REF)
 import Control.Promise (Promise, fromAff)
-import Daedalus.Types (mkCAddress, mkCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile)
+import Daedalus.Types (mkCAddress, mkCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile, mkCWalletInit)
 import Daedalus.WS (WSConnection(WSNotConnected), mkWSState, ErrorCb, NotifyCb, openConn)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (encodeJson)
 import Data.Function.Uncurried (Fn2, mkFn2, Fn4, mkFn4, Fn3, mkFn3, Fn6, mkFn6, Fn7, mkFn7)
+import Data.Function.Eff (EffFn1, runEffFn1)
 import Network.HTTP.Affjax (AJAX)
 import WebSocket (WEBSOCKET)
+import Control.Monad.Error.Class (throwError)
+import Data.Either (either)
+import Daedalus.Crypto as Crypto
 
 getProfile :: forall eff. Eff(ajax :: AJAX | eff) (Promise Json)
 getProfile = fromAff $ map encodeJson B.getProfile
@@ -53,10 +60,47 @@ sendExtended = mkFn6 \addrFrom addrTo amount curr title desc -> fromAff <<< map 
         title
         desc
 
-newWallet :: forall eff. Fn3 String String String
-  (Eff(ajax :: AJAX | eff) (Promise Json))
-newWallet = mkFn3 \wType wCurrency wName -> fromAff <<< map encodeJson <<<
-    B.newWallet $ mkCWalletMeta wType wCurrency wName
+generateMnemonic :: forall eff. Eff (crypto :: Crypto.CRYPTO | eff) String
+generateMnemonic = Crypto.generateMnemonic
+
+newWallet :: forall eff . Fn4 String String String String
+  (Eff(ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) (Promise Json))
+newWallet = mkFn4 \wType wCurrency wName mnemonic -> fromAff <<< map encodeJson <<<
+    either throwError B.newWallet $ mkCWalletInit wType wCurrency wName mnemonic
+
+-- NOTE: https://issues.serokell.io/issue/DAE-33#comment=96-1798
+-- Daedalus.ClientApi.newWallet(
+--     'CWTPersonal'
+--   , 'ADA'
+--   , 'wallet name'
+--   , function(mnemonics) {
+--     // if this function finishes we will send request for wallet
+--     // creation to the backend. That means user validated and
+--     // stored mnemonics.
+--     // if an exception is thrown new wallet request will be aborted
+--     // and promise should return thrown error
+--     if(userSavedMnemonics) {
+--       // do nothing
+--     } else {
+--       throw new Error("Wallet canceled")
+--     }
+--   }
+--   )()
+--   .then(function(value) {
+--     console.log('SUCCESS', value);
+--   }, function(reason) {
+--     console.log('ERROR', reason);
+--   })
+newWalletDepricated :: forall eff . Fn4 String String String (EffFn1 (err :: EXCEPTION | eff) String Unit)
+  (Eff(ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) (Promise Json))
+newWalletDepricated = mkFn4 \wType wCurrency wName wConfirmMnemonic -> fromAff $ map encodeJson $ do
+
+    mnemonic <- liftEff Crypto.generateMnemonic
+    -- FIXME: @jens how did we satisfy this with notify? I am having trouble again
+    isConfirmed <- liftEff' $ unsafeInterleaveEff $ runEffFn1 wConfirmMnemonic mnemonic
+    either throwError B.newWallet $ do
+        isConfirmed
+        mkCWalletInit wType wCurrency wName mnemonic
 
 updateWallet :: forall eff. Fn4 String String String String
   (Eff (ajax :: AJAX | eff) (Promise Json))
@@ -78,9 +122,12 @@ deleteWallet = fromAff <<< B.deleteWallet <<< mkCAddress
 isValidAddress :: forall eff. Fn2 String String (Eff(ajax :: AJAX | eff) (Promise Boolean))
 isValidAddress = mkFn2 \currency -> fromAff <<< B.isValidAddress (mkCCurrency currency)
 
-notify :: forall eff. Fn2 NotifyCb ErrorCb (Eff (ref :: REF, ws :: WEBSOCKET, err :: EXCEPTION | eff) Unit)
+notify :: forall eff. Fn2 (NotifyCb eff) (ErrorCb eff) (Eff (ref :: REF, ws :: WEBSOCKET, err :: EXCEPTION | eff) Unit)
 notify = mkFn2 \messageCb errorCb -> do
     -- TODO (akegalj) grab global (mutable) state of  here
     -- instead of creating newRef
     conn <- newRef WSNotConnected
     openConn $ mkWSState conn messageCb errorCb
+
+blockchainSlotDuration :: forall eff. Eff (ajax :: AJAX | eff) (Promise Int)
+blockchainSlotDuration = fromAff B.blockchainSlotDuration

@@ -4,12 +4,12 @@ module Test.Pos.Update.Identity.SafeCopySpec
        ( spec
        ) where
 
-import           Test.Hspec       (Spec, describe)
+import           Test.Hspec    (Spec, describe)
 import           Universum
 
-import qualified Pos.Update.Types as U
+import qualified Pos.Update    as U
 
-import           Test.Pos.Util    (safeCopyTest)
+import           Test.Pos.Util (safeCopyTest)
 
 spec :: Spec
 spec = describe "Update system" $ do
@@ -18,4 +18,3 @@ spec = describe "Update system" $ do
         safeCopyTest @U.UpdateVote
         safeCopyTest @U.UpdateData
         safeCopyTest @U.SystemTag
-

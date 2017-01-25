@@ -11,19 +11,19 @@ import           Test.Hspec            (Spec, describe, it)
 import           Test.Hspec.QuickCheck (prop)
 import           Universum
 
-import           Control.Lens          (view, (^.))
 import           Data.List.NonEmpty    (fromList)
-import           Pos.Types.Address     (addressHash)
 import           Pos.Binary            (Bi)
 import           Pos.Block.Arbitrary   as T
 import           Pos.Constants         (epochSlots)
 import           Pos.Crypto            (ProxySecretKey (pskIssuerPk), SecretKey,
-                                        createProxySecretKey, hash, proxySign, sign,
+                                        createProxySecretKey, proxySign, sign,
                                         toPublic)
 import           Pos.Ssc.Class.Types   (Ssc (..))
 import           Pos.Ssc.GodTossing    (SscGodTossing)
 import           Pos.Ssc.NistBeacon    (SscNistBeacon)
 import qualified Pos.Types             as T
+import           Pos.Types.Address     (addressHash)
+import           Pos.Util              (NewestFirst (..))
 import           Serokell.Util         (isVerSuccess)
 import           System.Random         (mkStdGen, randomR)
 
@@ -42,8 +42,10 @@ spec = describe "Block properties" $ do
     describe "verifyHeaders" $ do
         prop verifyHeadersDesc (validateGoodHeaderChain @SscNistBeacon)
         prop verifyHeadersDesc (validateGoodHeaderChain @SscGodTossing)
-        emptyHeaderChain ([] :: [T.BlockHeader SscNistBeacon])
-        emptyHeaderChain ([] :: [T.BlockHeader SscGodTossing])
+        emptyHeaderChain (NewestFirst [] ::
+                                 NewestFirst [] (T.BlockHeader SscNistBeacon))
+        emptyHeaderChain (NewestFirst [] ::
+                                 NewestFirst [] (T.BlockHeader SscGodTossing))
           where
     mainHeaderFormationDesc = "Manually generating a main header block and using\
     \ mkMainHeader is the same"
@@ -82,7 +84,7 @@ genesisHeaderFormation prevHeader epoch body =
         , T._gbhConsensus = consensus h proof
         , T._gbhExtra = ()
         }
-    h = maybe T.genesisHash hash prevHeader
+    h = maybe T.genesisHash T.headerHash prevHeader
     proof = T.mkBodyProof body
     difficulty = maybe 0 (view T.difficultyL) prevHeader
     consensus _ _ =
@@ -107,7 +109,7 @@ mainHeaderFormation prevHeader slotId signer body extra =
         , T._gbhConsensus = consensus h proof
         , T._gbhExtra = extra
         }
-    h = maybe T.genesisHash hash prevHeader
+    h = maybe T.genesisHash T.headerHash prevHeader
     proof = T.mkBodyProof body
 
     (sk, pSk) = either (, Nothing) mkProxySk signer
@@ -176,5 +178,5 @@ validateGoodMainHeader
 validateGoodHeaderChain
     :: forall ssc . Ssc ssc
     => Bool -> T.BlockHeaderList ssc -> Bool
-validateGoodHeaderChain b (fst . T.getHeaderList -> l) =
-    isVerSuccess $ T.verifyHeaders b l
+validateGoodHeaderChain b (T.BHL (l, _)) =
+    isVerSuccess $ T.verifyHeaders b (NewestFirst l)

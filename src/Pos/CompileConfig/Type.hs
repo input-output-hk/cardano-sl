@@ -9,25 +9,29 @@ module Pos.CompileConfig.Type
        ( CompileConfig (..)
        ) where
 
-import           Data.String                (String)
 import           Language.Haskell.TH.Syntax (Lift)
+import           Serokell.Data.Memory.Units (Byte)
 import           Universum
+
+import           Pos.Util                   ()
 
 -- | Compile time configuration. See example in /constants.yaml/ file.
 data CompileConfig = CompileConfig
     { ccK                             :: !Int
       -- ^ Security parameter from paper
-    , ccSlotDurationSec               :: !Int
-      -- ^ Length of slot in seconds
     , ccNetworkDiameter               :: !Int
       -- ^ Estimated time for broadcasting messages
     , ccNeighboursSendThreshold       :: !Int
       -- ^ Broadcasting threshold
     , ccGenesisN                      :: !Int
       -- ^ Number of pre-generated keys
+    , ccGenesisSlotDurationSec        :: !Int
+      -- ^ Length of slot in seconds
+    , ccGenesisMaxBlockSize           :: !Byte
+      -- ^ Maximum block size in bytes
     , ccMaxLocalTxs                   :: !Word
       -- ^ Max number of transactions in Storage
-    , ccDefaultPeers                  :: ![[Char]]
+    , ccDefaultPeers                  :: ![String]
       -- ^ List of default peers
     , ccSysTimeBroadcastSlots         :: !Int
       -- ^ Number of slots to broadcast system time
@@ -51,6 +55,8 @@ data CompileConfig = CompileConfig
       -- ^ Threshold for heavyweight delegation.
     , ccRecoveryHeadersMessage        :: !Int
       -- ^ Numbers of headers put in message in recovery mode.
+    , ccKademliaDumpInterval          :: !Int
+      -- ^ Interval for dumping Kademlia state in slots
     , ccUpdateServers                 :: ![String]
       -- ^ Servers for downloading application updates
     , ccMaxBlockProxySKs              :: !Int
@@ -59,6 +65,15 @@ data CompileConfig = CompileConfig
       -- ^ How often request to NTP server and response collection
     , ccNtpPollDelay                  :: !Int
       -- ^ How often send request to NTP server
+    , ccNetworkConnectionTimeout      :: !Int
+      -- ^ Network connection timeout in milliseconds
+    , ccBlockRetrievalQueueSize       :: !Int
+      -- ^ Block retrieval queue capacity
+    , ccProductionNetworkStartTime    :: !Int
+      -- ^ Start time of network (in `Prodution` running mode).
+      -- If set to zero, then running time is 2 minutes after build.
+
+      -- Update System.
     , ccUpdateProposalThreshold       :: !Double
       -- ^ Portion of total stake such that block containing
       -- UpdateProposal must contain positive votes for this proposal
@@ -68,11 +83,8 @@ data CompileConfig = CompileConfig
     , ccUpdateImplicitApproval        :: !Word
       -- ^ Number of slots after which update is implicitly approved
       -- unless it has more negative votes than positive.
-    , ccNetworkConnectionTimeout      :: !Int
-      -- ^ Network connection timeout in milliseconds
-    , ccBlockRetrievalQueueSize       :: !Int
-      -- ^ Block retrieval queue capacity
-    , ccProductionNetworkStartTime    :: !Int
-      -- ^ Start time of network (in `Prodution` running mode).
-      -- If set to zero, then running time is 2 minutes after build.
+    , ccUsSoftforkThreshold           :: !Double
+      -- ^ Portion of total stake such that if total stake of issuers of blocks
+      -- with some block version is bigger than this portion, this block
+      -- version is adopted.
     } deriving (Show, Lift)

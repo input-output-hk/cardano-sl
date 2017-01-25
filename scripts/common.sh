@@ -24,6 +24,11 @@ function ensure_logs {
   mkdir -p "$logs_dir"
 }
 
+function dump_path {
+    ensure_logs
+    echo -n "$logs_dir/dump/$1"
+}
+
 function logs {
   ensure_logs
 
@@ -36,6 +41,7 @@ function logs {
   local template="$base_common/$template_name"
 
   mkdir -p "$conf_dir"
+  mkdir -p "$logs_dir/dump"
 
   local conf_file="$conf_dir/$log_file.yaml"
   cat "$template" \
@@ -61,7 +67,7 @@ function dht_key {
     i2="0$i"
   fi
 
-  echo "MHdtsP-oPf7UWly"$i2"7QuXnLK5RD="
+  $(find_binary "cardano-dht-keygen") 000000000000$i2 | tr -d '\n'
 }
 
 function peer_config {
@@ -99,6 +105,7 @@ function node_cmd {
   local is_stat=$4
   local stake_distr=$5
   local wallet_args=$6
+  local kademlia_dump_path=$7
   local st=''
   local reb=''
   local ssc_algo=''
@@ -141,6 +148,7 @@ function node_cmd {
   echo -n " $stake_distr $ssc_algo "
   echo -n " $web "
   echo -n " $wallet_args "
+  echo -n " --kademlia-dump-path  $(dump_path $kademlia_dump_path)"
   echo ''
 }
 

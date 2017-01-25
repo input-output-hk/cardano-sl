@@ -23,6 +23,9 @@ module Pos.Context.Functions
        , readNtpLastSlot
        , readNtpMargin
        , readNtpData
+
+       -- * Slotting
+       , readSlotDuration
        ) where
 
 import           Control.Concurrent.MVar (putMVar)
@@ -33,6 +36,7 @@ import           Universum
 import           Pos.Context.Class       (WithNodeContext (..))
 import           Pos.Context.Context     (NodeContext (..))
 import           Pos.Lrc.Error           (LrcError (..))
+import           Pos.Slotting            (SlottingState (..), ssNtpLastSlotL)
 import           Pos.Types               (EpochIndex, HeaderHash, SlotId, SlotLeaders,
                                           Utxo)
 import           Pos.Util                (maybeThrow, readTVarConditional)
@@ -53,17 +57,17 @@ genesisLeadersM = ncGenesisLeaders <$> getNodeContext
 
 takeBlkSemaphore
     :: (MonadIO m, WithNodeContext ssc m)
-    => m (HeaderHash ssc)
+    => m HeaderHash
 takeBlkSemaphore = liftIO . takeMVar . ncBlkSemaphore =<< getNodeContext
 
 putBlkSemaphore
     :: (MonadIO m, WithNodeContext ssc m)
-    => HeaderHash ssc -> m ()
+    => HeaderHash -> m ()
 putBlkSemaphore tip = liftIO . flip putMVar tip . ncBlkSemaphore =<< getNodeContext
 
 readBlkSemaphore
     :: (MonadIO m, WithNodeContext ssc m)
-    => m (HeaderHash ssc)
+    => m HeaderHash
 readBlkSemaphore = liftIO . readMVar . ncBlkSemaphore =<< getNodeContext
 
 ----------------------------------------------------------------------------
@@ -104,13 +108,27 @@ lrcActionOnEpochReason epoch reason actionDependsOnLrc = do
 setNtpLastSlot :: (MonadIO m, WithNodeContext ssc m) => SlotId -> m ()
 setNtpLastSlot slotId = do
     nc <- getNodeContext
-    atomically $ STM.modifyTVar (ncNtpLastSlot nc) (max slotId)
+    atomically $ STM.modifyTVar (ncSlottingState nc)
+                                (ssNtpLastSlotL %~ max slotId)
 
 readNtpLastSlot :: (MonadIO m, WithNodeContext ssc m) => m SlotId
-readNtpLastSlot = getNodeContext >>= atomically . STM.readTVar . ncNtpLastSlot
+readNtpLastSlot = do
+    nc <- getNodeContext
+    atomically $ ssNtpLastSlot <$> STM.readTVar (ncSlottingState nc)
 
 readNtpMargin :: (MonadIO m, WithNodeContext ssc m) => m Microsecond
-readNtpMargin = getNodeContext >>= fmap fst . atomically . STM.readTVar . ncNtpData
+readNtpMargin = do
+    nc <- getNodeContext
+    atomically $ fst . ssNtpData <$> STM.readTVar (ncSlottingState nc)
 
-readNtpData :: (MonadIO m, WithNodeContext ssc m) => m (Microsecond, Microsecond)
-readNtpData = getNodeContext >>= atomically . STM.readTVar . ncNtpData
+readNtpData
+    :: (MonadIO m, WithNodeContext ssc m)
+    => m (Microsecond, Microsecond)
+readNtpData = do
+    nc <- getNodeContext
+    atomically $ ssNtpData <$> STM.readTVar (ncSlottingState nc)
+
+readSlotDuration :: (MonadIO m, WithNodeContext ssc m) => m Microsecond
+readSlotDuration = do
+    nc <- getNodeContext
+    atomically $ ssSlotDuration <$> STM.readTVar (ncSlottingState nc)

@@ -1,16 +1,20 @@
-genesisN: 228
 maxLocalTxs: 10000
 defaultPeers: []
-mdNoBlocksSlotThreshold: 3
+mdNoBlocksSlotThreshold: 3 # should be less then k 
 mdNoCommitmentsEpochThreshold: 3
 protocolMagic: 0
 enhancedMessageBroadcast: 2
 blockRetrievalQueueSize: 100
-recoveryHeadersMessage: 100 # should be more than k, less than blockRetrievalQueueSize
+recoveryHeadersMessage: 20 # should be greater than k
+kademliaDumpInterval: 4
+
+# Genesis constants
+genesisN: 12
+genesisMaxBlockSize: 2000000
+genesisSlotDurationSec: 7
 
 # Fundamental constants for core protocol
 k: 2
-slotDurationSec: 7
 
 # Time slave/lord
 sysTimeBroadcastSlots: 6
@@ -37,6 +41,7 @@ updateServers: []
 updateProposalThreshold: 0.1 # 10% of total stake
 updateVoteThreshold: 0.001 # 0.1% of total stake
 updateImplicitApproval: 40000 # slots
+usSoftforkThreshold: 0.85 # 85% of total stake
 
 # Production start time
 productionNetworkStartTime: 0

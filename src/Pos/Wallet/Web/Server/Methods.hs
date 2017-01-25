@@ -11,8 +11,10 @@ module Pos.Wallet.Web.Server.Methods
        , walletServeImpl
        ) where
 
+import           Control.Monad.Catch           (try)
 import           Control.Monad.Except          (runExceptT)
-import           Data.Default                  (def)
+import           Control.Monad.Trans.State     (get, runStateT)
+import           Data.Default                  (Default, def)
 import           Data.List                     (elemIndex, (!!))
 import           Data.Time.Clock.POSIX         (getPOSIXTime)
 import           Formatting                    (build, ords, sformat, stext, (%))
@@ -27,26 +29,34 @@ import           System.Wlog                   (logInfo)
 import           Universum
 
 import           Pos.Aeson.ClientTypes         ()
+import           Pos.Communication.BiP         (BiP)
 import           Pos.Crypto                    (toPublic)
 import           Pos.DHT.Model                 (dhtAddr, getKnownPeers)
-import           Pos.Types                     (Address, Coin, Tx, TxId, TxOut (..),
-                                                addressF, coinF, decodeTextAddress,
-                                                makePubKeyAddress, mkCoin)
-import           Pos.Web.Server                (serveImpl)
+import           Pos.Slotting                  (getSlotDuration)
+import           Pos.Types                     (Address, ChainDifficulty (..), Coin,
+                                                TxOut (..), addressF, coinF,
+                                                decodeTextAddress, makePubKeyAddress,
+                                                mkCoin)
+import           Pos.Util                      (maybeThrow)
+import           Pos.Util.BackupPhrase         (keysFromPhrase)
 
-import           Control.Monad.Catch           (try)
-import           Pos.Communication.BiP         (BiP)
 import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
-                                                newSecretKey)
+                                                addSecretKey)
 import           Pos.Wallet.Tx                 (submitTx)
-import           Pos.Wallet.WalletMode         (WalletMode, getBalance, getTxHistory)
+import           Pos.Wallet.Tx.Pure            (TxHistoryEntry (..))
+import           Pos.Wallet.WalletMode         (WalletMode, getBalance, getNextUpdate,
+                                                getTxHistory, getUpdates,
+                                                localChainDifficulty,
+                                                networkChainDifficulty)
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CProfile,
                                                 CProfile (..), CTx, CTxId, CTxMeta (..),
-                                                CWallet (..), CWalletMeta (..),
+                                                CUpdateInfo (..), CWallet (..),
+                                                CWalletInit (..), CWalletMeta (..),
                                                 NotifyEvent (..), addressToCAddress,
                                                 cAddressToAddress, mkCTx, mkCTxId,
-                                                txContainsTitle, txIdToCTxId)
+                                                toCUpdateInfo, txContainsTitle,
+                                                txIdToCTxId)
 import           Pos.Wallet.Web.Error          (WalletError (..))
 import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 WalletWebSockets, closeWSConnection,
@@ -56,16 +66,22 @@ import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
                                                 addOnlyNewTxMeta, closeState,
                                                 createWallet, getProfile, getTxMeta,
-                                                getWalletHistory, getWalletMeta,
-                                                getWalletState, openState, removeWallet,
-                                                runWalletWebDB, setProfile, setWalletMeta,
-                                                setWalletTransactionMeta)
+                                                getWalletMeta, getWalletState, openState,
+                                                removeWallet, runWalletWebDB, setProfile,
+                                                setWalletMeta, setWalletTransactionMeta)
+import           Pos.Web.Server                (serveImpl)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
 ----------------------------------------------------------------------------
 
 type WalletWebHandler m = WalletWebSockets (WalletWebDB m)
+
+type WalletWebMode ssc m
+    = ( WalletMode ssc m
+      , MonadWalletWebDB m
+      , MonadWalletWebSockets m
+      )
 
 walletServeImpl
     :: (MonadIO m, MonadMask m)
@@ -108,7 +124,7 @@ walletServer sendActions nat = do
             (runWalletWebDB ws . runWalletWS socks)
             sendActions
     nat >>= launchNotifier
-    join $ mapM_ insertAddressMeta <$> myCAddresses
+    myCAddresses >>= mapM_ insertAddressMeta
     (`enter` servantHandlers sendActions') <$> nat
   where
     insertAddressMeta cAddr =
@@ -117,43 +133,74 @@ walletServer sendActions nat = do
         time <- liftIO getPOSIXTime
         pure $ CProfile mempty mempty mempty mempty time mempty mempty
 
+------------------------
+-- Notifier
+------------------------
+
+data SyncProgress =
+    SyncProgress { spLocalCD   :: ChainDifficulty
+                 , spNetworkCD :: ChainDifficulty
+                 }
+
+instance Default SyncProgress where
+    def = let chainDef = ChainDifficulty 0 in SyncProgress chainDef chainDef
+
+-- type SyncState = StateT SyncProgress
+
 -- FIXME: this is really inaficient. Temporary solution
 launchNotifier :: WalletWebMode ssc m => (m :~> Handler) -> m ()
-launchNotifier = void . liftIO . forkForever . notifier
+launchNotifier nat = void . liftIO $ mapM startForking
+    [ dificultyNotifier
+    , updateNotifier
+    ]
   where
-    notifyPeriod = 10000000 -- microseconds
+    cooldownPeriod = 5000000         -- 5 sec
+    difficultyNotifyPeriod = 500000  -- 0.5 sec
     forkForever action = forkFinally action $ const $ do
         -- TODO: log error
         -- colldown
-        threadDelay notifyPeriod
+        threadDelay cooldownPeriod
         void $ forkForever action
     -- TODO: use Servant.enter here
     -- FIXME: don't ignore errors, send error msg to the socket
-    notifier f = void . runExceptT . unNat f $ forever $ do
-        liftIO $ threadDelay notifyPeriod
-        sequence_ [dummyHistoryNotifier]
+    startForking = forkForever . void . runExceptT . unNat nat
+    notifier period action = forever $ do
+        liftIO $ threadDelay period
+        action
     -- NOTE: temp solution, dummy notifier that pings every 10 secs
-    dummyHistoryNotifier = notify NewTransaction
-    historyNotifier :: WalletWebMode ssc m => m ()
-    historyNotifier = do
-        cAddresses <- myCAddresses
-        forM_ cAddresses $ \cAddress -> do
-            -- TODO: is reading from acid RAM only (not reading from disk?)
-            oldHistoryLength <- length . fromMaybe mempty <$> getWalletHistory cAddress
-            newHistoryLength <- length <$> getHistory cAddress
-            when (oldHistoryLength /= newHistoryLength) .
-                notify $ NewWalletTransaction cAddress
+    dificultyNotifier = flip runStateT def $ notifier difficultyNotifyPeriod $ do
+        networkDifficulty <- networkChainDifficulty
+        -- TODO: use lenses!
+        whenM ((networkDifficulty /=) . spNetworkCD <$> get) $ do
+            lift $ notify $ NetworkDifficultyChanged networkDifficulty
+            modify $ \sp -> sp { spNetworkCD = networkDifficulty }
+
+        localDifficulty <- localChainDifficulty
+        whenM ((localDifficulty /=) . spLocalCD <$> get) $ do
+            lift $ notify $ LocalDifficultyChanged localDifficulty
+            modify $ \sp -> sp { spLocalCD = localDifficulty }
+    updateNotifier = do
+        slotDuration <- getSlotDuration
+        let updateNotifyPeriod = fromIntegral slotDuration
+        notifier updateNotifyPeriod $ do
+            updates <- getUpdates
+            unless (null updates) $ do
+                logInfo "SOFTWARE UPDATE NOTIFICATION"
+                notify UpdateAvailable
+    -- historyNotifier :: WalletWebMode ssc m => m ()
+    -- historyNotifier = do
+    --     cAddresses <- myCAddresses
+    --     forM_ cAddresses $ \cAddress -> do
+    --         -- TODO: is reading from acid RAM only (not reading from disk?)
+    --         oldHistoryLength <- length . fromMaybe mempty <$> getWalletHistory cAddress
+    --         newHistoryLength <- length <$> getHistory cAddress
+    --         when (oldHistoryLength /= newHistoryLength) .
+    --             notify $ NewWalletTransaction cAddress
 
 
 ----------------------------------------------------------------------------
 -- Handlers
 ----------------------------------------------------------------------------
-
-type WalletWebMode ssc m
-    = ( WalletMode ssc m
-      , MonadWalletWebDB m
-      , MonadWalletWebSockets m
-      )
 
 servantHandlers :: WalletWebMode ssc m => SendActions BiP m -> ServerT WalletApi m
 servantHandlers sendActions =
@@ -182,6 +229,10 @@ servantHandlers sendActions =
      catchWalletError getUserProfile
     :<|>
      catchWalletError . updateUserProfile
+    :<|>
+     catchWalletError nextUpdate
+    :<|>
+     catchWalletError blockchainSlotDuration
   where
     -- TODO: can we with Traversable map catchWalletError over :<|>
     -- TODO: add logging on error
@@ -241,8 +292,8 @@ sendExtended sendActions srcCAddr dstCAddr c curr title desc = do
                 c idx dstAddr
             -- TODO: this should be removed in production
             let txHash = hash tx
-            () <$ addHistoryTx dstCAddr curr title desc (txHash, tx, False)
-            addHistoryTx srcCAddr curr title desc (txHash, tx, True)
+            () <$ addHistoryTx dstCAddr curr title desc (THEntry txHash tx False Nothing)
+            addHistoryTx srcCAddr curr title desc (THEntry txHash tx True Nothing)
 
 getHistory :: WalletWebMode ssc m => CAddress -> m [CTx]
 getHistory cAddr = do
@@ -257,23 +308,35 @@ searchHistory cAddr search limit = do
   where
     filterHistory = take (fromIntegral limit) . filter (txContainsTitle search)
 
-addHistoryTx :: WalletWebMode ssc m => CAddress -> CCurrency -> Text -> Text -> (TxId, Tx, Bool) -> m CTx
-addHistoryTx cAddr curr title desc wtx@(txId, _, _) = do
+addHistoryTx
+    :: WalletWebMode ssc m
+    => CAddress
+    -> CCurrency
+    -> Text
+    -> Text
+    -> TxHistoryEntry
+    -> m CTx
+addHistoryTx cAddr curr title desc wtx@(THEntry txId _ _ _) = do
     -- TODO: this should be removed in production
+    diff <- networkChainDifficulty
     addr <- decodeCAddressOrFail cAddr
     meta <- CTxMeta curr title desc <$> liftIO getPOSIXTime
     let cId = txIdToCTxId txId
     addOnlyNewTxMeta cAddr cId meta
     meta' <- maybe meta identity <$> getTxMeta cAddr cId
-    return $ mkCTx addr wtx meta'
+    return $ mkCTx addr diff wtx meta'
 
-newWallet :: WalletWebMode ssc m => CWalletMeta -> m CWallet
-newWallet wMeta = do
-    cAddr <- newAddress
-    createWallet cAddr wMeta
+newWallet :: WalletWebMode ssc m => CWalletInit -> m CWallet
+newWallet CWalletInit {..} = do
+    cAddr <- genSaveAddress cwBackupPhrase
+    createWallet cAddr cwInitMeta
     getWallet cAddr
   where
-    newAddress = addressToCAddress . makePubKeyAddress . toPublic <$> newSecretKey
+    genSaveAddress ph = addressToCAddress . makePubKeyAddress . toPublic <$> genSaveSK ph
+    genSaveSK ph = do
+        let sk = fst $ keysFromPhrase ph
+        addSecretKey sk
+        return sk
 
 updateWallet :: WalletWebMode ssc m => CAddress -> CWalletMeta -> m CWallet
 updateWallet cAddr wMeta = do
@@ -298,6 +361,15 @@ deleteWallet cAddr = do
 isValidAddress :: WalletWebMode ssc m => CCurrency -> Text -> m Bool
 isValidAddress ADA sAddr = pure . either (const False) (const True) $ decodeTextAddress sAddr
 isValidAddress _ _       = pure False
+
+-- | Get last update info
+nextUpdate :: WalletWebMode ssc m => m CUpdateInfo
+nextUpdate = getNextUpdate >>=
+             maybeThrow (Internal "No updates available") .
+             fmap toCUpdateInfo
+
+blockchainSlotDuration :: WalletWebMode ssc m => m Word
+blockchainSlotDuration = fromIntegral <$> getSlotDuration
 
 ----------------------------------------------------------------------------
 -- Helpers

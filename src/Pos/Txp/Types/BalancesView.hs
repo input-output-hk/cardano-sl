@@ -7,14 +7,12 @@ module Pos.Txp.Types.BalancesView
        , BalancesView (..)
        ) where
 
-import           Control.Lens        (makeClassy, over, use, uses, (.=))
-import           Control.Monad.State (modify)
-import qualified Data.HashMap.Strict as HM
+import           Control.Lens  (at, makeClassy, (.=))
 import           Universum
 
-import           Pos.DB              (DB)
-import           Pos.DB.GState       (getFtsStakeFromDB)
-import           Pos.Types           (Coin, StakeholderId)
+import           Pos.DB        (DB)
+import           Pos.DB.GState (getFtsStakeFromDB)
+import           Pos.Types     (Coin, StakeholderId)
 
 data BalancesView ssc = BalancesView
     {
@@ -37,12 +35,12 @@ instance (MonadIO m, MonadThrow m)
        => MonadBalances ssc (BalancesHolder ssc m) where
     getStake id = do
         db <- use balDB
-        res <- uses stakes (HM.lookup id)
+        res <- use (stakes . at id)
         case res of
             Just x  -> pure $ Just x
             Nothing -> lift $ getFtsStakeFromDB id db
 
-    setStake id coin = modify (over stakes (HM.insert id coin))
-    -- at lens ?
+    setStake id coin = (stakes . at id) .= Just coin
+
     getTotalStake = use total
     setTotalStake tot = total .= tot

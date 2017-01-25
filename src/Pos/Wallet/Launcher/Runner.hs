@@ -17,18 +17,19 @@ import           System.Wlog                 (logInfo, usingLoggerName)
 import           Universum                   hiding (bracket)
 
 import           Pos.Communication           (BiP (..))
-import           Pos.DHT.Model               (DHTNodeType (..), discoverPeers)
+import           Pos.DHT.Model               (discoverPeers)
 import           Pos.DHT.Real                (runKademliaDHT)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
                                               RealModeResources (..), addDevListeners,
                                               runServer)
+import           Pos.Slotting                (SlottingState (..))
 
 import           Pos.Types                   (unflattenSlotId)
 import           Pos.Wallet.Context          (WalletContext (..), runContextHolder)
 import           Pos.Wallet.KeyStorage       (runKeyStorage)
 import           Pos.Wallet.Launcher.Param   (WalletParams (..))
-import           Pos.Wallet.State            (closeState, openMemState, openState,
-                                              runWalletDB)
+import           Pos.Wallet.State            (closeState, getSlotDuration, openMemState,
+                                              openState, runWalletDB)
 import           Pos.Wallet.WalletMode       (WalletMode, WalletRealMode)
 
 -- TODO: Move to some `Pos.Wallet.Communication` and provide
@@ -65,7 +66,7 @@ runWalletReal res wp = runWalletRealMode res wp . runWallet
 runWallet :: WalletMode ssc m => [SendActions BiP m -> m ()] -> SendActions BiP m -> m ()
 runWallet plugins sendActions = do
     logInfo "Wallet is initialized!"
-    peers <- discoverPeers DHTFull
+    peers <- discoverPeers
     logInfo $ sformat ("Known peers: "%build) peers
     mapM_ fork allWorkers
     mapM_ (fork . ($ sendActions)) plugins
@@ -80,13 +81,15 @@ runRawRealWallet
 runRawRealWallet res WalletParams {..} listeners action =
     usingLoggerName lpRunnerTag .
     bracket openDB closeDB $ \db -> do
-        ntpData <- currentTime >>= liftIO . newTVarIO . (0, )
-        lastSlot <- liftIO . newTVarIO $ unflattenSlotId 0
+        slottingStateVar <- do
+            ssSlotDuration <- runWalletDB db getSlotDuration
+            ssNtpData <- (0,) <$> currentTime
+            let ssNtpLastSlot = unflattenSlotId 0
+            liftIO $ newTVarIO SlottingState{..}
         let walletContext
               = WalletContext
               { wcSystemStart = wpSystemStart
-              , wcNtpData = ntpData
-              , wcNtpLastSlot = lastSlot
+              , wcSlottingState = slottingStateVar
               }
         runContextHolder walletContext .
             runWalletDB db .

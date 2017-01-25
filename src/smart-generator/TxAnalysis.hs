@@ -6,11 +6,11 @@ module TxAnalysis
        , checkWorker
        ) where
 
-import           Control.Lens          ((^.))
+import           Control.Lens          (_Wrapped, _last)
 import qualified Data.HashMap.Strict   as M
 import           Data.IORef            (IORef, modifyIORef', newIORef, readIORef,
                                         writeIORef)
-import           Data.List             (intersect, last)
+import           Data.List             (intersect)
 import           Data.Maybe            (fromJust, maybeToList)
 import           Formatting            (build, sformat, (%))
 import           Mockable              (catchAll, delay)
@@ -18,10 +18,10 @@ import           System.FilePath.Posix ((</>))
 import           System.Wlog           (logWarning)
 import           Universum             hiding (catchAll)
 
-import           Pos.Constants         (blkSecurityParam, slotDuration)
+import           Pos.Constants         (blkSecurityParam)
 import           Pos.Crypto            (hash)
 import           Pos.DB                (loadBlundsFromTipByDepth)
-import           Pos.Slotting          (getCurrentSlot, getSlotStart)
+import           Pos.Slotting          (getCurrentSlot, getSlotDuration, getSlotStart)
 import           Pos.Ssc.Class         (SscConstraint)
 import           Pos.Types             (SlotId (..), TxId, blockSlot, blockTxs)
 import           Pos.WorkMode          (ProductionMode)
@@ -58,9 +58,8 @@ appendVerified ts roundNum df logsPrefix = do
 checkTxsInLastBlock :: forall ssc . SscConstraint ssc
                     => TxTimestamps -> FilePath -> ProductionMode ssc ()
 checkTxsInLastBlock TxTimestamps {..} logsPrefix = do
-    let lastSafe [] = Nothing
-        lastSafe xs = Just $ last xs
-    mBlock <- fmap fst . lastSafe <$> loadBlundsFromTipByDepth blkSecurityParam
+    mBlock <- preview (_Wrapped . _last . _1) <$>
+              loadBlundsFromTipByDepth blkSecurityParam
     case mBlock of
         Nothing -> pure ()
         Just (Left _) -> pure ()
@@ -97,9 +96,9 @@ checkWorker txts logsPrefix = loop `catchAll` onError
   where
     loop = do
         checkTxsInLastBlock txts logsPrefix
-        delay slotDuration
+        delay =<< getSlotDuration
         loop
     onError e = do
         logWarning (sformat ("Error occured in checkWorker: " %build) e)
-        delay slotDuration
+        delay =<< getSlotDuration
         loop

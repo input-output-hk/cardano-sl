@@ -5,7 +5,6 @@ module Pos.Ssc.GodTossing.SecretStorage
        , ssSetNewEpoch
        ) where
 
-import           Control.Lens             ((^.), _2)
 import qualified Data.HashMap.Strict      as HM
 import           Universum
 

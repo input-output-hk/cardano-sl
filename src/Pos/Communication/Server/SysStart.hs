@@ -12,8 +12,7 @@ module Pos.Communication.Server.SysStart
 import           Control.Concurrent.MVar  (MVar, tryPutMVar)
 import           Formatting               (build, sformat, shown, (%))
 import           Node                     (ConversationActions (..), Listener,
-                                           ListenerAction (..), NodeId,
-                                           SendActions (sendTo))
+                                           ListenerAction (..), NodeId, SendActions)
 import           System.Wlog              (logInfo)
 
 import           Universum
@@ -30,7 +29,7 @@ import           Pos.WorkMode             (MinWorkMode)
 sysStartReqListener
     :: MinWorkMode m => Timestamp -> Listener BiP m
 sysStartReqListener sysStart = ListenerActionConversation $
-    \peerId __sA conv  -> do
+    \peerId conv  -> do
         (mReq :: Maybe SysStartRequest) <- recv conv
         whenJust mReq $ \_ -> do
             logInfo $ sformat

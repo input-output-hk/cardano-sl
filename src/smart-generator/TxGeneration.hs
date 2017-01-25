@@ -12,18 +12,19 @@ module TxGeneration
 import           Control.Concurrent.STM.TArray (TArray)
 import           Control.Concurrent.STM.TVar   (TVar, modifyTVar', newTVar, readTVar,
                                                 writeTVar)
-import           Control.Lens                  (view, _1)
 import           Data.Array.MArray             (newListArray, readArray, writeArray)
 import           Data.List                     (tail, (!!))
+import           Data.Time.Units               (Microsecond)
 import           Universum                     hiding (head)
 
-import           Pos.Constants                 (slotDuration, slotSecurityParam)
+import           Pos.Constants                 (slotSecurityParam)
 import           Pos.Crypto                    (SecretKey, hash, toPublic, unsafeHash)
 import           Pos.DB.GState                 (getTxOut)
 import           Pos.Genesis                   (genesisAddresses, genesisPublicKeys,
                                                 genesisSecretKeys)
 import           Pos.Script                    (Script)
 import           Pos.Script.Examples           (multisigValidator)
+import           Pos.Slotting                  (getSlotDuration)
 import           Pos.Types                     (Tx (..), TxAux, TxId, TxOut (..),
                                                 makePubKeyAddress, makeScriptAddress,
                                                 mkCoin)
@@ -38,8 +39,8 @@ import           GenOptions                    (GenOptions (..))
 --   where addr = genesisAddresses !! i
 
 -- TODO: should it use slotSecurityParam or blkSecurityParam?
-tpsTxBound :: Double -> Int -> Int
-tpsTxBound tps propThreshold =
+tpsTxBound :: Microsecond -> Double -> Int -> Int
+tpsTxBound slotDuration tps propThreshold =
     round $
     tps * fromIntegral (slotSecurityParam + propThreshold) *
     fromIntegral (slotDuration `div` sec 1)
@@ -58,10 +59,10 @@ genMOfNChain val sks txInHash txInIndex =
                      [(TxOut addr (mkCoin 1), [])]
     in (tx, w, d) : genMOfNChain val sks (hash tx) 0
 
-initTransaction :: GenOptions -> Int -> TxAux
-initTransaction GenOptions {..} i =
+initTransaction :: GenOptions -> Microsecond -> Int -> TxAux
+initTransaction GenOptions{..} slotDuration i =
     let maxTps = goInitTps + goTpsIncreaseStep * fromIntegral goRoundNumber
-        n' = tpsTxBound (maxTps / fromIntegral (length goGenesisIdxs)) goPropThreshold
+        n' = tpsTxBound slotDuration (maxTps / fromIntegral (length goGenesisIdxs)) goPropThreshold
         outputsNum = min n' goInitBalance
         inAddr = genesisAddresses !! i
         sk = genesisSecretKeys !! i
@@ -102,9 +103,9 @@ shiftTx BambooPool {..} = atomically $ do
     chain <- readArray bpChains idx
     writeArray bpChains idx $ tail chain
 
-nextBamboo :: BambooPool -> Double -> Int -> IO ()
-nextBamboo BambooPool {..} curTps propThreshold = atomically $ do
-    let bound = tpsTxBound curTps propThreshold
+nextBamboo :: BambooPool -> Microsecond -> Double -> Int -> IO ()
+nextBamboo BambooPool {..} slotDuration curTps propThreshold = atomically $ do
+    let bound = tpsTxBound slotDuration curTps propThreshold
     modifyTVar' bpCurIdx $ \idx ->
         (idx + 1) `mod` bound
 
@@ -134,13 +135,14 @@ nextValidTx
 nextValidTx bp curTps propThreshold = do
     curTx <- liftIO $ curBambooTx bp 1
     isVer <- isTxVerified $ view _1 curTx
+    slotDuration <- getSlotDuration
     liftIO $
         if isVer
         then do
             shiftTx bp
-            nextBamboo bp curTps propThreshold
+            nextBamboo bp slotDuration curTps propThreshold
             return $ Right curTx
         else do
             parentTx <- peekTx bp
-            nextBamboo bp curTps propThreshold
+            nextBamboo bp slotDuration curTps propThreshold
             return $ Left parentTx

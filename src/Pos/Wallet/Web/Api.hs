@@ -12,7 +12,8 @@ import           Data.Proxy                 (Proxy (Proxy))
 
 import           Pos.Types                  (Coin)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CProfile, CTx, CTxId,
-                                             CTxMeta, CWallet, CWalletMeta)
+                                             CTxMeta, CUpdateInfo, CWallet, CWalletInit,
+                                             CWalletMeta)
 import           Pos.Wallet.Web.Error       (WalletError)
 import           Servant.API                ((:<|>), (:>), Capture, Get, JSON, Post,
                                              ReqBody)
@@ -36,7 +37,7 @@ type WalletApi =
     :<|>
      "api" :> "update_transaction" :> Capture "address" CAddress :> Capture "transaction" CTxId :> ReqBody '[JSON] CTxMeta :> Post '[JSON] (Either WalletError ())
     :<|>
-     "api" :> "new_wallet" :> ReqBody '[JSON] CWalletMeta :> Post '[JSON] (Either WalletError CWallet)
+     "api" :> "new_wallet" :> ReqBody '[JSON] CWalletInit :> Post '[JSON] (Either WalletError CWallet)
     :<|>
      "api" :> "update_wallet" :> Capture "address" CAddress :> ReqBody '[JSON] CWalletMeta :> Post '[JSON] (Either WalletError CWallet)
     :<|>
@@ -48,6 +49,10 @@ type WalletApi =
      "api" :> "get_profile" :> Get '[JSON] (Either WalletError CProfile)
     :<|>
      "api" :> "update_profile" :> ReqBody '[JSON] CProfile :> Post '[JSON] (Either WalletError CProfile)
+    :<|>
+     "api" :> "next_update" :> Get '[JSON] (Either WalletError CUpdateInfo)
+    :<|>
+     "api" :> "slot_duration" :> Get '[JSON] (Either WalletError Word)
 
 -- | Helper Proxy.
 walletApi :: Proxy WalletApi

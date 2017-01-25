@@ -15,19 +15,21 @@ module Pos.Txp.Logic
        , normalizeTxpLD
        ) where
 
-import           Control.Lens           (each, over, view, (<&>), (^.), _1, _3)
+import           Control.Lens           (each, _Wrapped)
 import qualified Data.HashMap.Strict    as HM
 import qualified Data.HashSet           as HS
-import           Data.List.NonEmpty     (NonEmpty)
 import qualified Data.List.NonEmpty     as NE
-import           Formatting             (build, sformat, stext, (%))
+import           Formatting             (build, sformat, (%))
+import           Serokell.Util          (VerificationRes (VerFailure), formatAllErrors,
+                                         verResFullF)
 import           System.Wlog            (WithLogger, logDebug, logInfo)
 import           Universum
 
+import           Pos.Block.Types        (Blund, Undo (undoTx))
 import           Pos.Constants          (maxLocalTxs)
 import           Pos.Crypto             (WithHash (..), hash, withHash)
-import           Pos.DB                 (DB, MonadDB,
-                                         SomePrettyBatchOp (SomePrettyBatchOp), getUtxoDB)
+import           Pos.DB                 (MonadDB, SomePrettyBatchOp (SomePrettyBatchOp),
+                                         getUtxoDB)
 import           Pos.DB.GState          (BalancesOp (..), CommonOp (..), UtxoOp (..),
                                          getTip, getTotalFtsStake)
 import           Pos.Ssc.Class.Types    (Ssc)
@@ -38,19 +40,19 @@ import           Pos.Txp.Types          (BalancesView (..), MemPool (..),
                                          MonadBalances (..), UtxoView (..))
 import           Pos.Txp.Types.Types    (ProcessTxRes (..), mkPTRinvalid)
 import qualified Pos.Txp.Types.UtxoView as UV
-import           Pos.Types              (Block, Blund, Coin, MonadUtxo,
-                                         MonadUtxoRead (utxoGet), NEBlocks, SlotId,
-                                         StakeholderId, Tx (..), TxAux,
+import           Pos.Types              (Block, Coin, MonadUtxo, MonadUtxoRead (utxoGet),
+                                         SlotId, StakeholderId, Tx (..), TxAux,
                                          TxDistribution (..), TxId, TxIn (..), TxOutAux,
-                                         TxUndo, TxWitness, Undo, VTxGlobalContext (..),
+                                         TxUndo, TxWitness, VTxGlobalContext (..),
                                          VTxLocalContext (..), applyTxToUtxo', blockSlot,
                                          blockTxas, coinToInteger, headerHash, mkCoin,
                                          prevBlockL, slotIdF, sumCoins, sumCoins,
-                                         topsortTxs, txOutStake, undoTx, verifyTxPure)
+                                         topsortTxs, txOutStake, verifyTxPure)
 import           Pos.Types.Coin         (unsafeAddCoin, unsafeIntegerToCoin,
                                          unsafeSubCoin)
 import           Pos.Types.Utxo         (verifyAndApplyTxs, verifyTxUtxo)
-import           Pos.Util               (inAssertMode, _neHead)
+import           Pos.Util               (NE, NewestFirst (..), OldestFirst (..),
+                                         inAssertMode, _neHead)
 
 type TxpWorkMode ssc m = ( Ssc ssc
                          , WithLogger m
@@ -67,12 +69,15 @@ type MinTxpWorkMode ssc m = ( MonadDB ssc m
 
 -- | Apply chain of /definitely/ valid blocks to state on transactions
 -- processing.
-txApplyBlocks :: TxpWorkMode ssc m => NonEmpty (Blund ssc) -> m (NonEmpty SomePrettyBatchOp)
+txApplyBlocks
+    :: TxpWorkMode ssc m
+    => OldestFirst NE (Blund ssc)
+    -> m (OldestFirst NE SomePrettyBatchOp)
 txApplyBlocks blunds = do
     let blocks = map fst blunds
     tip <- getTip
-    when (tip /= blocks ^. _neHead . prevBlockL) $ throwM $
-        TxpCantApplyBlocks "oldest block in NEBlocks is not based on tip"
+    when (tip /= blocks ^. _Wrapped . _neHead . prevBlockL) $ throwM $
+        TxpCantApplyBlocks "oldest block in 'blunds' is not based on tip"
     inAssertMode $
         do verdict <- txVerifyBlocks blocks
            case verdict of
@@ -120,10 +125,15 @@ txApplyBlock (blk, undo) = do
 txVerifyBlocks
     :: forall ssc m.
        MonadDB ssc m
-    => NEBlocks ssc -> m (Either Text (NonEmpty TxUndo))
+    => OldestFirst NE (Block ssc)
+    -> m (Either Text (OldestFirst NE TxUndo))
 txVerifyBlocks newChain = do
     utxoDB <- getUtxoDB
-    fmap (NE.fromList . reverse) <$>
+    -- NB. foldM prepends undos to the list; since the original list is
+    -- OldestFirst, the last prepended undo will be the newest one, and the
+    -- resulting list will be in NewestFirst order. Since we want
+    -- OldestFirst, we reverse it.
+    fmap (OldestFirst . NE.fromList . reverse) <$>
       runLocalTxpLDHolder
         (foldM verifyDo (Right []) newChainTxs)
         (UV.createFromDB utxoDB)
@@ -131,7 +141,7 @@ txVerifyBlocks newChain = do
     -- Left for genesis blocks, Right for main blocks
     newChainTxs
         :: [Either () (SlotId, [(WithHash Tx, TxWitness, TxDistribution)])]
-    newChainTxs = map f (NE.toList newChain)
+    newChainTxs = map f (toList newChain)
       where
         f (Left _)  = Left ()
         f (Right b) = Right (b ^. blockSlot,
@@ -145,11 +155,11 @@ txVerifyBlocks newChain = do
     verifyDo (Right undos) (Left ()) = pure (Right ([]:undos))
     -- handling a main block
     verifyDo (Right undos) (Right (slotId, txas)) =
-        verifyAndApplyTxs False txas <&> \case
-            Right undo  -> Right (undo:undos)
-            Left errors -> Left (attachSlotId slotId errors)
+        verifyAndApplyTxs False txas >>= \case
+            Right undo  -> return (Right (undo:undos))
+            Left errors -> return (Left (attachSlotId slotId errors))
     attachSlotId sId errors =
-        sformat ("[Block's slot = "%slotIdF % "]"%stext) sId errors
+        sformat ("[Block's slot = "%slotIdF%"]"%verResFullF) sId (VerFailure errors)
 
 -- CHECK: @processTx
 -- #processTxDo
@@ -159,41 +169,41 @@ processTx itw@(txId, (tx, _, _)) = do
     resolved <-
       foldM (\s inp -> maybe s (\x -> HM.insert inp x s) <$> utxoGet inp)
             mempty (txInputs tx)
-    db <- getUtxoDB
     pRes <- modifyTxpLD $ \txld@(_, mp, _, tip) ->
         let localSize = localTxsSize mp in
         if tipBefore == tip
         then if localSize < maxLocalTxs
-             then processTxDo txld resolved db itw
+             then processTxDo txld resolved itw
              else (PTRoverwhelmed, txld)
         else (mkPTRinvalid ["Tips aren't same"], txld)
     pRes <$ logDebug (sformat ("Transaction processed: "%build) txId)
 
 -- CHECK: @processTxDo
 -- #verifyTxPure
-processTxDo :: TxpLD ssc -> HM.HashMap TxIn TxOutAux -> DB ssc
-            -> (TxId, TxAux) -> (ProcessTxRes, TxpLD ssc)
-processTxDo ld@(uv, mp, undos, tip) resolvedIns utxoDB (id, (tx, txw, txd))
-    | HM.member id locTxs = (PTRknown, ld)
+processTxDo :: TxpLD ssc
+            -> HM.HashMap TxIn TxOutAux
+            -> (TxId, TxAux)
+            -> (ProcessTxRes, TxpLD ssc)
+processTxDo ld@(UtxoView{..}, MemPool{..}, undos, tip)
+            resolvedIns
+            (id, (tx, txw, txd))
+    | HM.member id localTxs = (PTRknown, ld)
     | otherwise =
         case verifyRes of
-            Right _     -> newState addUtxo' delUtxo' locTxs locTxsSize undos
-            Left errors -> (PTRinvalid errors, ld)
+            Right _     -> newState addUtxo delUtxo localTxs localTxsSize undos
+            Left errors -> (PTRinvalid (formatAllErrors errors), ld)
   where
-    verifyRes =
-        verifyTxPure True VTxGlobalContext inputResolver (tx, txw, txd)
-    locTxs = localTxs mp
-    locTxsSize = localTxsSize mp
-    addUtxo' = addUtxo uv
-    delUtxo' = delUtxo uv
+    verifyRes = verifyTxPure
+        True VTxGlobalContext
+        (fmap VTxLocalContext . inputResolver)
+        (tx, txw, txd)
     inputResolver tin
-        | HS.member tin delUtxo' = Nothing
+        | HS.member tin delUtxo = Nothing
         | otherwise =
-            VTxLocalContext <$>
-            maybe (HM.lookup tin addUtxo') Just (HM.lookup tin resolvedIns)
+            maybe (HM.lookup tin addUtxo) Just (HM.lookup tin resolvedIns)
     prependToUndo undo inp =
-        fromMaybe (panic "Input not resolved")
-                  (HM.lookup inp resolvedIns) : undo
+        fromMaybe (panic "Input isn't resolved")
+                  (inputResolver inp) : undo
     newState nAddUtxo nDelUtxo oldTxs oldSize oldUndos =
         let keys = zipWith TxIn (repeat id) [0 ..]
             zipKeys = zip keys (txOutputs tx `zip` getTxDistribution txd)
@@ -211,13 +221,14 @@ processTxDo ld@(uv, mp, undos, tip) resolvedIns utxoDB (id, (tx, txw, txd))
              , newUndos
              , tip))
 
--- | Head of list is the youngest block
-txRollbackBlocks :: (WithLogger m, MonadDB ssc m)
-                 => NonEmpty (Block ssc, Undo) -> m (NonEmpty SomePrettyBatchOp)
+txRollbackBlocks
+    :: (WithLogger m, MonadDB ssc m)
+    => NewestFirst NE (Blund ssc) -> m (NonEmpty SomePrettyBatchOp)
 txRollbackBlocks blunds = do
     total <- getTotalFtsStake
     db <- getUtxoDB
-    evalStateT (mapM txRollbackBlock blunds) (BalancesView mempty total db)
+    getNewestFirst <$>
+        evalStateT (mapM txRollbackBlock blunds) (BalancesView mempty total db)
 
 -- | Rollback block
 txRollbackBlock :: ( WithLogger m,

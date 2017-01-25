@@ -23,9 +23,12 @@ module Pos.Script.Examples
          -- * Extra names
        , intValidatorWithBlah
        , goodIntRedeemerWithBlah
+
+         -- * Stress testing
+       , shaStressRedeemer
+       , sigStressRedeemer
        ) where
 
-import           Data.String       (String)
 import           Formatting        (build, sformat, (%))
 import           NeatInterpolation (text)
 import           Universum
@@ -163,3 +166,48 @@ goodIntRedeemerWithBlah = fromE $ parseRedeemer Nothing [text|
     blah : Int -> Int {
       blah x = x }
     |]
+
+----------------------------------------------------------------------------
+-- Stress testing
+----------------------------------------------------------------------------
+
+-- | Does N rounds of SHA3-256. Should be used with 'idValidator'.
+--
+-- Actually it does (N div 10) * 10 rounds. Unrolling the loop is done so
+-- that more petrol would be spent on hashing and less – on substraction and
+-- function calls.
+shaStressRedeemer :: Int -> Script
+shaStressRedeemer n = fromE $ parseRedeemer Nothing [text|
+    shaLoop : Int -> ByteString -> ByteString {
+      shaLoop 0 x = x ;
+      shaLoop i x = shaLoop (!subtractInt i 1)
+        (!sha3_256 (!sha3_256 (!sha3_256 (!sha3_256 (!sha3_256
+        (!sha3_256 (!sha3_256 (!sha3_256 (!sha3_256 (!sha3_256 x)))))))))) }
+
+    redeemer : Comp (Comp Int) {
+      redeemer = case !equalsByteString #00 (shaLoop ${ns} #00) of {
+        True  -> success (failure) ;
+        False -> success (success 1) } }
+    |]
+  where
+    ns = show (n `div` 10)
+
+-- | Checks a signature N times. Should be used with 'idValidator'.
+sigStressRedeemer :: Int -> Script
+sigStressRedeemer n = fromE $ parseRedeemer Nothing [text|
+    sigLoop : Int -> Bool {
+      sigLoop 0 = True ;
+      sigLoop i = case !verifySignature ${key} #00 ${sig} of {
+        True  -> sigLoop (!subtractInt i 1) ;
+        False -> False } }
+
+    redeemer : Comp (Comp Int) {
+      redeemer = case sigLoop ${ns} of {
+        False -> success (failure) ;
+        True  -> success (success 1) } }
+    |]
+  where
+    ns = show n
+    key = "#85a52422d9fcd57a4a866a51897f13826b749f220028c8254da1e73d9a92860e"
+    sig = "#a535e9af40daa552d978a2db4b2f4c7c2950a07dd60149ca3caf2794fb1a5a87\
+           \3f02e1c22dcf2b9fc6c671e6f66080ccc56a2f238cf4733cd818d8b21a0b420e"

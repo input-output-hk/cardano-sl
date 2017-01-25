@@ -4,7 +4,6 @@
 module Main where
 
 import           Control.Concurrent.STM.TVar (modifyTVar', newTVarIO, readTVarIO)
-import           Control.Lens                (view, _1)
 import           Data.Maybe                  (fromMaybe)
 import           Data.Proxy                  (Proxy (..))
 import           Data.Time.Clock.POSIX       (getPOSIXTime)
@@ -17,21 +16,22 @@ import           System.FilePath.Posix       ((</>))
 import           System.Random.Shuffle       (shuffleM)
 import           System.Wlog                 (logInfo)
 import           Test.QuickCheck             (arbitrary, generate)
-import           Universum                   hiding (forConcurrently)
+import           Universum
 
 import qualified Pos.CLI                     as CLI
 import           Pos.Communication           (BiP)
 import           Pos.Constants               (genesisN, neighborsSendThreshold,
-                                              slotDuration, slotSecurityParam)
+                                              slotSecurityParam)
 import           Pos.Crypto                  (KeyPair (..), hash)
-import           Pos.DHT.Model               (DHTNodeType (..), MonadDHT, dhtAddr,
-                                              discoverPeers, getKnownPeers)
+import           Pos.DHT.Model               (MonadDHT, dhtAddr, discoverPeers,
+                                              getKnownPeers)
 import           Pos.Genesis                 (genesisUtxo)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
                                               NodeParams (..), RealModeResources,
                                               bracketResources, initLrc, runNode,
                                               runProductionMode, runTimeSlaveReal,
                                               stakesDistr)
+import           Pos.Slotting                (getSlotDuration)
 import           Pos.Ssc.Class               (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing          (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon          (SscNistBeacon)
@@ -53,7 +53,7 @@ import           TxGeneration                (BambooPool, createBambooPool, curB
 import           Util
 
 
--- | Resend initTx with `slotDuration` period until it's verified
+-- | Resend initTx with 'slotDuration' period until it's verified
 seedInitTx :: forall ssc . SscConstraint ssc
            => SendActions BiP (ProductionMode ssc)
            -> Double
@@ -65,7 +65,7 @@ seedInitTx sendActions recipShare bp initTx = do
     logInfo "Issuing seed transaction"
     submitTxRaw sendActions na initTx
     logInfo "Waiting for 1 slot before resending..."
-    delay slotDuration
+    delay =<< getSlotDuration
     -- If next tx is present in utxo, then everything is all right
     tx <- liftIO $ curBambooTx bp 1
     isVer <- isTxVerified $ view _1 tx
@@ -83,7 +83,7 @@ getPeers share = do
     peers <- fmap dhtAddr <$> do
         ps <- getKnownPeers
         if length ps < neighborsSendThreshold
-           then discoverPeers DHTFull
+           then discoverPeers
            else return ps
     liftIO $ chooseSubset share <$> shuffleM peers
 
@@ -92,8 +92,9 @@ runSmartGen :: forall ssc . SscConstraint ssc
 runSmartGen res np@NodeParams{..} sscnp opts@GenOptions{..} =
   runProductionMode res np sscnp $ \sendActions -> do
     initLrc
+    slotDuration <- getSlotDuration
     let getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
-        initTx = initTransaction opts
+        initTx = initTransaction opts slotDuration
 
     bambooPools <- forM goGenesisIdxs $ \(fromIntegral -> i) ->
         liftIO $ createBambooPool goMOfNParams i $ initTx i
@@ -121,9 +122,12 @@ runSmartGen res np@NodeParams{..} sscnp opts@GenOptions{..} =
     -- Start writing tps file
     liftIO $ writeFile (logsFilePrefix </> tpsCsvFile) tpsCsvHeader
 
-    let phaseDurationMs = fromIntegral (slotSecurityParam + goPropThreshold) * slotDuration
-        roundDurationSec = fromIntegral (goRoundPeriodRate + 1) *
-                           fromIntegral (phaseDurationMs `div` sec 1)
+    let phaseDurationMs =
+            fromIntegral (slotSecurityParam + goPropThreshold) *
+            slotDuration
+        roundDurationSec =
+            fromIntegral (goRoundPeriodRate + 1) *
+            fromIntegral (phaseDurationMs `div` sec 1)
 
     void $ forFold (goInitTps, goTpsIncreaseStep) [1 .. goRoundNumber] $
         \(goTPS', increaseStep) (roundNum :: Int) -> do
@@ -236,8 +240,9 @@ main = do
             { bpLoggingParams      = logParams
             , bpIpPort             = goIpPort
             , bpDHTPeers           = CLI.dhtPeers goCommonArgs
-            , bpDHTKeyOrType       = Right DHTClient
+            , bpDHTKey             = Nothing
             , bpDHTExplicitInitial = CLI.dhtExplicitInitial goCommonArgs
+            , bpKademliaDump       = "kademlia.dump"
             }
 
     bracketResources baseParams $ \res -> do

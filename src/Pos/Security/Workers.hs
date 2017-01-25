@@ -6,7 +6,6 @@ module Pos.Security.Workers
        ) where
 
 import           Control.Concurrent.STM            (TVar, newTVar, readTVar, writeTVar)
-import           Control.Lens                      ((^.))
 import           Control.Monad.Trans.Reader        (ReaderT (..), ask)
 import qualified Data.HashMap.Strict               as HM
 import           Data.Tagged                       (Tagged (..))
@@ -15,7 +14,7 @@ import           Node                              (SendActions)
 import           System.Wlog                       (logError, logWarning)
 import           Universum                         hiding (ask)
 
-import           Pos.Block.Network.Retrieval       (mkHeadersRequest, requestHeaders)
+import           Pos.Block.Network.Retrieval       (requestTip)
 import           Pos.Communication.BiP             (BiP)
 import           Pos.Constants                     (blkSecurityParam,
                                                     mdNoBlocksSlotThreshold,
@@ -84,12 +83,11 @@ checkForReceivedBlocksWorker sendActions = onNewSlot True $ \slotId -> do
     -- eclipsed, we report it and ask neighbors for headers.
     unlessM (notEclipsed =<< getTipBlockHeader) $ do
         logWarning $
-            "We've been eclipsed! There are no blocks younger " <>
+            "Our neighbors are likely trying to carry out an eclipse attack! " <>
+            "There are no blocks younger " <>
             "than 'mdNoBlocksSlotThreshold' that we didn't generate " <>
             "by ourselves"
-        mghM <- mkHeadersRequest Nothing
-        whenJust mghM $ \mgh ->
-            converseToNeighbors sendActions (requestHeaders mgh)
+        converseToNeighbors sendActions requestTip
 
 checkForIgnoredCommitmentsWorker :: forall m. WorkMode SscGodTossing m => SendActions BiP m -> m ()
 checkForIgnoredCommitmentsWorker __sendActions = do
@@ -106,7 +104,8 @@ checkForIgnoredCommitmentsWorkerImpl slotId = do
     lastCommitment <- lift $ atomically $ readTVar tvar
     when (siEpoch slotId - lastCommitment > mdNoCommitmentsEpochThreshold) $
         logWarning $ sformat
-            ("We've been eclipsed! Last commitment was at epoch "%int%", "%
+            ("Our neighbors are likely trying to carry out an eclipse attack! "%
+             "Last commitment was at epoch "%int%", "%
              "which is more than 'mdNoCommitmentsEpochThreshold' epochs ago")
             lastCommitment
 

@@ -4,55 +4,57 @@
 
 module Main where
 
-import           Control.Lens        ((%~), (.~), (^.), (^?), _head)
-import           Data.List           ((!!))
-import           Data.Maybe          (fromJust)
-import           Data.Proxy          (Proxy (..))
-import           Mockable            (Production)
-import           System.Wlog         (LoggerName)
+import           Control.Lens          (_head)
+import           Data.List             ((!!))
+import           Data.Maybe            (fromJust)
+import           Data.Proxy            (Proxy (..))
+import           Mockable              (Production)
+import           System.Wlog           (LoggerName)
 import           Universum
 
-import           Pos.Binary          ()
-import qualified Pos.CLI             as CLI
-import           Pos.Constants       (staticSysStart)
-import           Pos.Crypto          (SecretKey, VssKeyPair, keyGen, vssKeyGen)
-import           Pos.DHT.Model       (DHTKey, DHTNodeType (..), dhtNodeType)
-import           Pos.Util.TimeWarp   (sec)
+import           Pos.Binary            ()
+import qualified Pos.CLI               as CLI
+import           Pos.Constants         (staticSysStart)
+import           Pos.Crypto            (SecretKey, VssKeyPair, keyGen, vssKeyGen)
+import           Pos.Util.TimeWarp     (sec)
 #ifdef DEV_MODE
-import           Pos.Genesis         (genesisSecretKeys)
+import           Pos.Genesis           (genesisSecretKeys)
 #else
-import           Pos.Genesis         (genesisStakeDistribution)
+import           Pos.Genesis           (genesisStakeDistribution)
 #endif
-import           Pos.Genesis         (genesisUtxo)
-import           Pos.Launcher        (BaseParams (..), LoggingParams (..),
-                                      NodeParams (..), RealModeResources,
-                                      bracketResources, runNodeProduction, runNodeStats,
-                                      runTimeLordReal, runTimeSlaveReal, stakesDistr)
+import           Pos.Genesis           (genesisUtxo)
+import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
+                                        NodeParams (..), RealModeResources,
+                                        bracketResources, runNodeProduction, runNodeStats,
+                                        runTimeLordReal, runTimeSlaveReal, stakesDistr)
 #ifdef DEV_MODE
-import           Pos.Ssc.GodTossing  (genesisVssKeyPairs)
+import           Pos.Ssc.GodTossing    (genesisVssKeyPairs)
 #endif
-import           Pos.Ssc.Class       (SscListenersClass)
-import           Pos.Ssc.GodTossing  (GtParams (..), SscGodTossing)
-import           Pos.Ssc.NistBeacon  (SscNistBeacon)
-import           Pos.Ssc.SscAlgo     (SscAlgo (..))
-import           Pos.Types           (Timestamp (Timestamp))
-import           Pos.Util.UserSecret (UserSecret, peekUserSecret, usKeys, usVss,
-                                      writeUserSecret)
+import           Pos.Ssc.Class         (SscListenersClass)
+import           Pos.Ssc.GodTossing    (GtParams (..), SscGodTossing)
+import           Pos.Ssc.NistBeacon    (SscNistBeacon)
+import           Pos.Ssc.SscAlgo       (SscAlgo (..))
+import           Pos.Types             (Timestamp (Timestamp))
+import           Pos.Util              (inAssertMode)
+import           Pos.Util.BackupPhrase (keysFromPhrase)
+import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usKeys, usVss,
+                                        writeUserSecret)
+
 #ifdef WITH_WEB
-import           Pos.Web             (serveWebBase, serveWebGT)
-import           Pos.WorkMode        (WorkMode)
+import           Pos.Ssc.Class         (SscConstraint)
+import           Pos.Web               (serveWebBase, serveWebGT)
+import           Pos.WorkMode          (WorkMode)
 #ifdef WITH_WALLET
-import           Pos.Ssc.Class       (SscConstraint)
-import           Pos.WorkMode        (ProductionMode, RawRealMode, StatsMode)
+import           Pos.WorkMode          (ProductionMode, RawRealMode, StatsMode)
 
-import           Node                (SendActions, hoistSendActions)
-import           Pos.Communication   (BiP)
-import           Pos.Statistics      (getNoStatsT, getStatsMap, runStatsT')
-import           Pos.Wallet.Web      (walletServeWebFull)
+import           Node                  (SendActions, hoistSendActions)
+import           Pos.Communication     (BiP)
+import           Pos.Statistics        (getNoStatsT, getStatsMap, runStatsT')
+import           Pos.Wallet.Web        (walletServeWebFull)
 #endif
 #endif
 
-import           NodeOptions         (Args (..), getNodeOptions)
+import           NodeOptions           (Args (..), getNodeOptions)
 
 getSystemStart
     :: SscListenersClass ssc
@@ -84,62 +86,41 @@ baseParams loggingTag args@Args {..} =
     { bpLoggingParams = loggingParams loggingTag args
     , bpIpPort = ipPort
     , bpDHTPeers = CLI.dhtPeers commonArgs
-    , bpDHTKeyOrType = dhtKeyOrType
+    , bpDHTKey = dhtKey
     , bpDHTExplicitInitial = CLI.dhtExplicitInitial commonArgs
+    , bpKademliaDump = kademliaDumpPath
     }
-  where
-    dhtKeyOrType
-        | supporterNode = maybe (Right DHTSupporter) Left dhtKey
-        | otherwise = maybe (Right DHTFull) Left dhtKey
-
-checkDhtKey :: Bool -> Maybe DHTKey -> Production ()
-checkDhtKey _ Nothing = pass
-checkDhtKey isSupporter (Just (dhtNodeType -> keyType))
-    | keyType == Just expectedType = pass
-    | otherwise =
-        fail $
-        case keyType of
-            Just type_' -> "Id of type " ++ (show type_') ++ " supplied"
-            _           -> "Id of unknown type supplied"
-  where
-    expectedType
-        | isSupporter = DHTSupporter
-        | otherwise = DHTFull
 
 action :: Args -> RealModeResources -> Production ()
 action args@Args {..} res = do
-    checkDhtKey supporterNode dhtKey
-    if supporterNode
-        then fail "Supporter not supported" -- runSupporterReal res (baseParams "supporter" args)
-        else do
-            systemStart <- case CLI.sscAlgo commonArgs of
-                               GodTossingAlgo -> getSystemStart (Proxy :: Proxy SscGodTossing) res args
-                               NistBeaconAlgo -> getSystemStart (Proxy :: Proxy SscNistBeacon) res args
-            currentParams <- getNodeParams args systemStart
-            let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-                gtParams = gtSscParams args vssSK
+    systemStart <- case CLI.sscAlgo commonArgs of
+                       GodTossingAlgo -> getSystemStart (Proxy :: Proxy SscGodTossing) res args
+                       NistBeaconAlgo -> getSystemStart (Proxy :: Proxy SscNistBeacon) res args
+    currentParams <- getNodeParams args systemStart
+    let vssSK = fromJust $ npUserSecret currentParams ^. usVss
+        gtParams = gtSscParams args vssSK
 #ifdef WITH_WEB
-                currentPlugins :: (SscConstraint ssc, WorkMode ssc m) => [m ()]
-                currentPlugins = plugins args
-                currentPluginsGT :: (WorkMode SscGodTossing m) => [m ()]
-                currentPluginsGT = pluginsGT args
+        currentPlugins :: (SscConstraint ssc, WorkMode ssc m) => [m ()]
+        currentPlugins = plugins args
+        currentPluginsGT :: (WorkMode SscGodTossing m) => [m ()]
+        currentPluginsGT = pluginsGT args
 #else
-                currentPlugins :: [a]
-                currentPlugins = []
-                currentPluginsGT :: [a]
-                currentPluginsGT = []
+        currentPlugins :: [a]
+        currentPlugins = []
+        currentPluginsGT :: [a]
+        currentPluginsGT = []
 #endif
-            putText $ "Running using " <> show (CLI.sscAlgo commonArgs)
-            putText $ "If stats is on: " <> show enableStats
-            case (enableStats, CLI.sscAlgo commonArgs) of
-                (True, GodTossingAlgo) ->
-                    runNodeStats @SscGodTossing res (map const currentPluginsGT ++ walletStats args) currentParams gtParams
-                (True, NistBeaconAlgo) ->
-                    runNodeStats @SscNistBeacon res (map const currentPlugins ++  walletStats args) currentParams ()
-                (False, GodTossingAlgo) ->
-                    runNodeProduction @SscGodTossing res (map const currentPluginsGT ++ walletProd args) currentParams gtParams
-                (False, NistBeaconAlgo) ->
-                    runNodeProduction @SscNistBeacon res (map const currentPlugins ++ walletProd args) currentParams ()
+    putText $ "Running using " <> show (CLI.sscAlgo commonArgs)
+    putText $ "If stats is on: " <> show enableStats
+    case (enableStats, CLI.sscAlgo commonArgs) of
+        (True, GodTossingAlgo) ->
+            runNodeStats @SscGodTossing res (map const currentPluginsGT ++ walletStats args) currentParams gtParams
+        (True, NistBeaconAlgo) ->
+            runNodeStats @SscNistBeacon res (map const currentPlugins ++  walletStats args) currentParams ()
+        (False, GodTossingAlgo) ->
+            runNodeProduction @SscGodTossing res (map const currentPluginsGT ++ walletProd args) currentParams gtParams
+        (False, NistBeaconAlgo) ->
+            runNodeProduction @SscNistBeacon res (map const currentPlugins ++ walletProd args) currentParams ()
 
 #ifdef DEV_MODE
 userSecretWithGenesisKey
@@ -193,6 +174,17 @@ fillUserSecretVSS userSecret = case userSecret ^. usVss of
         let us = userSecret & usVss .~ Just vss
         writeUserSecret us
         return us
+
+processUserSecret
+    :: (MonadIO m, MonadFail m)
+    => Args -> UserSecret -> m (SecretKey, UserSecret)
+processUserSecret args@Args {..} userSecret = case backupPhrase of
+    Nothing -> updateUserSecretVSS args userSecret >>= userSecretWithGenesisKey args
+    Just ph -> do
+        let (sk, vss) = keysFromPhrase ph
+            us = userSecret & usKeys .~ [sk] & usVss .~ Just vss
+        writeUserSecret us
+        return (sk, us)
 
 getNodeParams :: (MonadIO m, MonadFail m) => Args -> Timestamp -> m NodeParams
 getNodeParams args@Args {..} systemStart = do
@@ -281,7 +273,17 @@ walletProd _ = []
 walletStats _ = []
 #endif
 
+printFlags :: IO ()
+printFlags = do
+#ifdef DEV_MODE
+    putText "[Attention] We are in DEV mode"
+#else
+    putText "[Attention] We are in PRODUCTION mode"
+#endif
+    inAssertMode $ putText "Asserts are ON"
+
 main :: IO ()
 main = do
+    printFlags
     args <- getNodeOptions
     bracketResources (baseParams "node" args) (action args)

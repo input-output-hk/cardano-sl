@@ -1,12 +1,15 @@
-module Pos.Update.Types.Communication
+-- | Messages used in Update System networking.
+
+module Pos.Update.Network.Types
        ( ProposalMsgTag (..)
        , VoteMsgTag (..)
        ) where
 
-import           Data.Text.Buildable    (Buildable (..))
-import           Pos.Update.Types.Types (UpdateProposal)
-import           Pos.Util               (NamedMessagePart (..))
+import           Data.Text.Buildable (Buildable (..))
 import           Universum
+
+import           Pos.Update.Core     (UpdateProposal, UpdateVote)
+import           Pos.Util            (NamedMessagePart (..))
 
 -- | Tag for proposal messages
 data ProposalMsgTag = ProposalMsgTag deriving (Eq, Show)
@@ -17,6 +20,10 @@ instance NamedMessagePart ProposalMsgTag where
 instance Buildable ProposalMsgTag where
     build _ = "ProposalMsgTag"
 
+-- | Instance for `UpdateProposal`
+instance NamedMessagePart (UpdateProposal, [UpdateVote]) where
+    nMessageName _ = "Update proposal with votes"
+
 -- | Tag for vote messages
 data VoteMsgTag = VoteMsgTag deriving (Eq, Show)
 
@@ -26,6 +33,6 @@ instance NamedMessagePart VoteMsgTag where
 instance Buildable VoteMsgTag where
     build _ = "VoteMsgTag"
 
--- | Instance for `UpdateProposal`
-instance NamedMessagePart UpdateProposal where
-    nMessageName _ = "Update proposal"
+-- | Instance for `UpdateVote`
+instance NamedMessagePart UpdateVote where
+    nMessageName _ = "Update vote"

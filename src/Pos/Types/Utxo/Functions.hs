@@ -15,7 +15,6 @@ module Pos.Types.Utxo.Functions
        , utxoToStakes
        ) where
 
-import           Control.Lens         (over, (^.), _1, _3)
 import qualified Data.HashMap.Strict  as HM
 import qualified Data.Map.Strict      as M
 import           Universum
@@ -40,7 +39,9 @@ deleteTxIn TxIn{..} = M.delete (txInHash, txInIndex)
 
 -- CHECK: @verifyTxUtxo
 -- | Verify single Tx using MonadUtxoRead as TxIn resolver.
-verifyTxUtxo :: MonadUtxoRead m => Bool -> TxAux -> m (Either Text [TxOutAux])
+verifyTxUtxo
+    :: MonadUtxoRead m
+    => Bool -> TxAux -> m (Either [Text] [TxOutAux])
 verifyTxUtxo verifyAlone = verifyTx verifyAlone VTxGlobalContext utxoGet'
   where
     utxoGet' x = fmap VTxLocalContext <$> utxoGet x
@@ -71,12 +72,12 @@ verifyAndApplyTxs
        MonadUtxo m
     => Bool
     -> [(WithHash Tx, TxWitness, TxDistribution)]
-    -> m (Either Text TxUndo)
+    -> m (Either [Text] TxUndo)
 verifyAndApplyTxs verifyAlone txs = fmap reverse <$> foldM applyDo (Right []) txs
   where
-    applyDo :: Either Text TxUndo
+    applyDo :: Either [Text] TxUndo
             -> (WithHash Tx, TxWitness, TxDistribution)
-            -> m (Either Text TxUndo)
+            -> m (Either [Text] TxUndo)
     applyDo failure@(Left _) _ = pure failure
     applyDo txouts txa = do
         verRes <- verifyTxUtxo verifyAlone (over _1 whData txa)

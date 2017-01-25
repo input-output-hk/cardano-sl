@@ -61,23 +61,23 @@ writeBatchGState batch = rocksWriteBatch batch =<< getUtxoDB
 ----------------------------------------------------------------------------
 
 -- | Get current tip from GState DB.
-getTip :: (MonadDB ssc m) => m (HeaderHash ssc)
+getTip :: (MonadDB ssc m) => m HeaderHash
 getTip = maybeThrow (DBMalformed "no tip in GState DB") =<< getTipMaybe
 
 -- | Get the hash of the first genesis block from GState DB.
-getBot :: (MonadDB ssc m) => m (HeaderHash ssc)
+getBot :: (MonadDB ssc m) => m HeaderHash
 getBot = maybeThrow (DBMalformed "no bot in GState DB") =<< getBotMaybe
 
 ----------------------------------------------------------------------------
 -- Common operations
 ----------------------------------------------------------------------------
 
-data CommonOp ssc = PutTip (HeaderHash ssc)
+data CommonOp = PutTip HeaderHash
 
-instance Buildable (CommonOp patak) where
+instance Buildable CommonOp where
     build (PutTip h) = bprint ("PutTip ("%shortHashF%")") h
 
-instance RocksBatchOp (CommonOp ssc) where
+instance RocksBatchOp CommonOp where
     toBatchOp (PutTip h) = [Rocks.Put tipKey (encodeStrict h)]
 
 ----------------------------------------------------------------------------
@@ -88,7 +88,7 @@ instance RocksBatchOp (CommonOp ssc) where
 prepareGStateCommon
     :: forall ssc m.
        MonadDB ssc m
-    => HeaderHash ssc -> m ()
+    => HeaderHash -> m ()
 prepareGStateCommon initialTip = do
     putIfEmpty getTipMaybe putGenesisTip
     putIfEmpty getBotMaybe putGenesisBot
@@ -114,14 +114,14 @@ botKey = "c/bot"
 -- Details
 ----------------------------------------------------------------------------
 
-getTipMaybe :: MonadDB ssc m => m (Maybe (HeaderHash ssc))
+getTipMaybe :: MonadDB ssc m => m (Maybe HeaderHash)
 getTipMaybe = getBi tipKey
 
-getBotMaybe :: MonadDB ssc m => m (Maybe (HeaderHash ssc))
+getBotMaybe :: MonadDB ssc m => m (Maybe HeaderHash)
 getBotMaybe = getBi botKey
 
-putTip :: MonadDB ssc m => HeaderHash ssc -> m ()
+putTip :: MonadDB ssc m => HeaderHash -> m ()
 putTip = putBi tipKey
 
-putBot :: MonadDB ssc m => HeaderHash ssc -> m ()
+putBot :: MonadDB ssc m => HeaderHash -> m ()
 putBot = putBi botKey

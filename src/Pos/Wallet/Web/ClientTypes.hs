@@ -22,6 +22,8 @@ module Pos.Wallet.Web.ClientTypes
       , CWallet (..)
       , CWalletType (..)
       , CWalletMeta (..)
+      , CWalletInit (..)
+      , CUpdateInfo (..)
       , NotifyEvent (..)
       , addressToCAddress
       , cAddressToAddress
@@ -30,6 +32,7 @@ module Pos.Wallet.Web.ClientTypes
       , txIdToCTxId
       , ctTypeMeta
       , txContainsTitle
+      , toCUpdateInfo
       ) where
 
 import           Data.Text             (Text, isInfixOf)
@@ -40,16 +43,27 @@ import           Data.Default          (Default, def)
 import           Data.Hashable         (Hashable (..))
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Formatting            (build, sformat)
+
 import           Pos.Aeson.Types       ()
-import           Pos.Types             (Address (..), Coin, Tx, TxId, decodeTextAddress,
-                                        sumCoins, txOutAddress, txOutValue, txOutputs,
-                                        unsafeIntegerToCoin)
+import           Pos.Script.Type       (ScriptVersion)
+import           Pos.Types             (Address (..), BlockVersion, ChainDifficulty, Coin,
+                                        HeaderHash, SoftwareVersion, TxId,
+                                        decodeTextAddress, sumCoins, txOutAddress,
+                                        txOutValue, txOutputs, unsafeIntegerToCoin)
+import           Pos.Update.Core       (BlockVersionData (..), StakeholderVotes,
+                                        UpdateProposal (..), isPositiveVote)
+import           Pos.Update.Poll       (ConfirmedProposalState (..))
+import           Pos.Util.BackupPhrase (BackupPhrase)
+import           Pos.Wallet.Tx.Pure    (TxHistoryEntry (..))
 
 -- Notifications
 data NotifyEvent
     = ConnectionOpened
-    | NewWalletTransaction CAddress
-    | NewTransaction
+    -- | NewWalletTransaction CAddress
+    -- | NewTransaction
+    | NetworkDifficultyChanged ChainDifficulty -- ie new block or fork (rollback)
+    | LocalDifficultyChanged ChainDifficulty -- ie new block or fork (rollback)
+    | UpdateAvailable
     | ConnectionClosed
     deriving (Show, Generic)
 
@@ -88,12 +102,21 @@ mkCTxId = CTxId . CHash
 txIdToCTxId :: TxId -> CTxId
 txIdToCTxId = mkCTxId . sformat build
 
-mkCTx :: Address -> (TxId, Tx, Bool) -> CTxMeta -> CTx
-mkCTx addr (txId, tx, isOutgoing) = CTx (txIdToCTxId txId) outputCoins . meta
+mkCTx
+    :: Address            -- ^ An address for which transaction info is forming
+    -> ChainDifficulty    -- ^ Current chain difficulty (to get confirmations)
+    -> TxHistoryEntry     -- ^ Tx history entry
+    -> CTxMeta            -- ^ Transaction metadata
+    -> CTx
+mkCTx addr diff THEntry {..} meta = CTx {..}
   where
-    outputCoins = unsafeIntegerToCoin . sumCoins . map txOutValue $
-        filter (xor isOutgoing . (== addr) . txOutAddress) $ txOutputs tx
-    meta = if isOutgoing then CTOut else CTIn
+    ctId = txIdToCTxId _thTxId
+    ctAmount = unsafeIntegerToCoin . sumCoins . map txOutValue $
+        filter (xor _thIsOutput . (== addr) . txOutAddress) $ txOutputs _thTx
+    ctConfirmations = maybe 0 fromIntegral $ (diff -) <$> _thDifficulty
+    ctType = if _thIsOutput
+             then CTOut meta
+             else CTIn meta
 
 ----------------------------------------------------------------------------
 -- wallet
@@ -108,9 +131,9 @@ data CWalletType
 -- | Meta data of CWallet
 -- Includes data which are not provided by Cardano
 data CWalletMeta = CWalletMeta
-    { cwType     :: CWalletType
-    , cwCurrency :: CCurrency
-    , cwName     :: Text
+    { cwType     :: !CWalletType
+    , cwCurrency :: !CCurrency
+    , cwName     :: !Text
     } deriving (Show, Generic)
 
 instance Default CWalletMeta where
@@ -119,9 +142,16 @@ instance Default CWalletMeta where
 -- | Client Wallet (CW)
 -- (Flow type: walletType)
 data CWallet = CWallet
-    { cwAddress :: CAddress
-    , cwAmount  :: Coin
-    , cwMeta    :: CWalletMeta
+    { cwAddress :: !CAddress
+    , cwAmount  :: !Coin
+    , cwMeta    :: !CWalletMeta
+    } deriving (Show, Generic)
+
+-- | Query data for wallet creation
+-- (wallet meta + backup phrase)
+data CWalletInit = CWalletInit
+    { cwBackupPhrase :: !BackupPhrase
+    , cwInitMeta     :: !CWalletMeta
     } deriving (Show, Generic)
 
 ----------------------------------------------------------------------------
@@ -173,9 +203,10 @@ ctTypeMeta (CTOut meta) = meta
 -- It includes meta data which are not part of Cardano, too
 -- (Flow type: transactionType)
 data CTx = CTx
-    { ctId     :: CTxId
-    , ctAmount :: Coin
-    , ctType   :: CTType -- it includes all "meta data"
+    { ctId            :: CTxId
+    , ctAmount        :: Coin
+    , ctConfirmations :: Word
+    , ctType          :: CTType -- it includes all "meta data"
     } deriving (Show, Generic)
 
 txContainsTitle :: Text -> CTx -> Bool
@@ -191,3 +222,43 @@ data CTExMeta = CTExMeta
     , cexLabel       :: Text -- counter part of client's 'exchange' value
     , cexAddress     :: CAddress
     } deriving (Show, Generic)
+
+-- | Update system data
+data CUpdateInfo = CUpdateInfo
+    { cuiSoftwareVersion :: !SoftwareVersion
+    , cuiBlockVesion     :: !BlockVersion
+    , cuiScriptVersion   :: !ScriptVersion
+    , cuiImplicit        :: !Bool
+    , cuiProposed        :: !HeaderHash
+    , cuiDecided         :: !HeaderHash
+    , cuiConfirmed       :: !HeaderHash
+    , cuiAdopted         :: !(Maybe HeaderHash)
+    , cuiVotesFor        :: !Int
+    , cuiVotesAgainst    :: !Int
+    , cuiPositiveStake   :: !Coin
+    , cuiNegativeStake   :: !Coin
+    } deriving (Show, Generic)
+
+-- | Return counts of negative and positive votes
+countVotes :: StakeholderVotes -> (Int, Int)
+countVotes = foldl' counter (0, 0)
+  where counter (n, m) vote = if isPositiveVote vote
+                              then (n + 1, m)
+                              else (n, m + 1)
+
+-- | Creates 'CTUpdateInfo' from 'ConfirmedProposalState'
+toCUpdateInfo :: ConfirmedProposalState -> CUpdateInfo
+toCUpdateInfo ConfirmedProposalState {..} =
+    let UpdateProposal {..} = cpsUpdateProposal
+        cuiSoftwareVersion  = upSoftwareVersion
+        cuiBlockVesion      = upBlockVersion
+        cuiScriptVersion    = bvdScriptVersion upBlockVersionData
+        cuiImplicit         = cpsImplicit
+        cuiProposed         = cpsProposed
+        cuiDecided          = cpsDecided
+        cuiConfirmed        = cpsConfirmed
+        cuiAdopted          = cpsAdopted
+        (cuiVotesFor, cuiVotesAgainst) = countVotes cpsVotes
+        cuiPositiveStake    = cpsPositiveStake
+        cuiNegativeStake    = cpsNegativeStake
+    in CUpdateInfo {..}

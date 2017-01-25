@@ -16,4 +16,4 @@ modifyListenerLogger
 modifyListenerLogger name (ListenerActionOneMsg f) =
     ListenerActionOneMsg $ \nId sA -> modifyLoggerName (<> name) . f nId sA
 modifyListenerLogger name (ListenerActionConversation f) =
-    ListenerActionConversation $ \nId sA -> modifyLoggerName (<> name) . f nId sA
+    ListenerActionConversation $ \nId -> modifyLoggerName (<> name) . f nId

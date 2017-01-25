@@ -27,4 +27,3 @@ spec = describe "Bi" $ do
         describe "FixedSizeInt" $ do
             binaryTest @(B.FixedSizeInt Int)
             binaryTest @(B.FixedSizeInt Int64)
-

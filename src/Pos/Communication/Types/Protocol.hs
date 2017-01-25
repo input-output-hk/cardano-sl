@@ -9,7 +9,7 @@ import           Node.Message          (Message (..), MessageName (..))
 import           Universum
 
 import qualified Data.ByteString.Char8 as BC
-import           Pos.Types             (ProtocolVersion)
+import           Pos.Types             (BlockVersion)
 
 -- | Version request message. 'VersionResp' is expected as response.
 data VersionReq = VersionReq
@@ -21,8 +21,8 @@ instance Message VersionReq where
 
 -- | Version response (on 'VersionReq' response).
 data VersionResp = VersionResp
-    { vRespMagic           :: Int32
-    , vRespProtocolVersion :: ProtocolVersion
+    { vRespMagic        :: Int32
+    , vRespBlockVersion :: BlockVersion
     } deriving (Show,Generic)
 
 instance Message VersionResp where

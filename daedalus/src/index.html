@@ -86,6 +86,14 @@
              console.log('ERROR', reason);
          })
       };
+      var nextUpdate = function() {
+         Daedalus.ClientApi.nextUpdate()
+         .then(function(value) {
+             console.log('SUCCESS', value);
+         }, function(reason) {
+             console.log('ERROR', reason);
+         })
+      };
     </script>
 		<title></title>
 	</head>
@@ -109,6 +117,7 @@
       <li><button onclick="updateProfile('name', 'email', 'phone', 'password', 1484253370.9182513, 'locale', 'picture')"/>update user profile</li>
       <li><button onclick="generateMnemonic()"/>generate mnemonic</li>
       <li><button onclick="blockchainSlotDuration()"/>blockchain slot duration</li>
+      <li><button onclick="nextUpdate()"/>blockchain slot duration</li>
     </ul>
 	</body>
 </html>

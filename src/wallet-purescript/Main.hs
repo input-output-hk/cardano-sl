@@ -35,6 +35,7 @@ main =
       , mkSumType (Proxy @CT.CTxId)
       , mkSumType (Proxy @CT.CTx)
       , mkSumType (Proxy @CT.NotifyEvent)
+      , mkSumType (Proxy @CT.CUpdateInfo)
       , mkSumType (Proxy @PT.Coin)
       , mkSumType (Proxy @PT.ChainDifficulty)
       , mkSumType (Proxy @BP.BackupPhrase)

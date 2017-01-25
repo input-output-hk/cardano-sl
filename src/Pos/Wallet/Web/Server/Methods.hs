@@ -160,7 +160,7 @@ launchNotifier nat = void . liftIO $ mapM startForking
     updateNotifyPeriod = fromIntegral slotDuration
     forkForever action = forkFinally action $ const $ do
         -- TODO: log error
-        -- colldown
+        -- cooldown
         threadDelay cooldownPeriod
         void $ forkForever action
     -- TODO: use Servant.enter here
@@ -169,7 +169,6 @@ launchNotifier nat = void . liftIO $ mapM startForking
     notifier period action = forever $ do
         liftIO $ threadDelay period
         action
-    -- NOTE: temp solution, dummy notifier that pings every 10 secs
     dificultyNotifier = flip runStateT def $ notifier difficultyNotifyPeriod $ do
         networkDifficulty <- networkChainDifficulty
         -- TODO: use lenses!

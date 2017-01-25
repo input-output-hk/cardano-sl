@@ -13,14 +13,16 @@ import           Control.Monad.Except      (MonadError (..))
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Data.Default              (def)
 import qualified Data.HashMap.Strict       as HM
+import qualified Data.List                 as List (find)
 import           Universum
 
 import           Pos.Crypto                (hash)
 
 import           Pos.Types.Version         (SoftwareVersion (..))
 import           Pos.Update.Poll.Class     (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Types     (PrevValue, USUndo (..), maybeToPrev,
-                                            psProposal, unChangedBVL, unChangedPropsL,
+import           Pos.Update.Poll.Types     (PrevValue, USUndo (..), cpsSoftwareVersion,
+                                            maybeToPrev, psProposal, unChangedBVL,
+                                            unChangedConfPropsL, unChangedPropsL,
                                             unChangedSVL, unLastAdoptedBVL)
 
 newtype RollT m a = RollT
@@ -59,11 +61,18 @@ instance MonadPoll m => MonadPoll (RollT m) where
         insertIfNotExist svAppName unChangedSVL getLastConfirmedSV
         setLastConfirmedSV sv
 
-    -- can't be called by applying
+    -- can't be called during apply
     delConfirmedSV = lift . delConfirmedSV
 
-    -- can't be rolled back
-    addConfirmedProposal = lift . addConfirmedProposal
+    addConfirmedProposal cps = RollT $ do
+        confProps <- getConfirmedProposals
+        insertIfNotExist (cpsSoftwareVersion cps) unChangedConfPropsL (getter confProps)
+        addConfirmedProposal cps
+      where
+        getter confs sv = pure $ List.find (\x -> cpsSoftwareVersion x == sv) confs
+
+    -- can't be called during apply
+    delConfirmedProposal = lift . delConfirmedProposal
 
     addActiveProposal ps = RollT $ do
         insertIfNotExist (hash $ psProposal $ ps) unChangedPropsL getProposal

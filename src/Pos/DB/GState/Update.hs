@@ -122,6 +122,7 @@ data UpdateOp
     | ConfirmVersion !SoftwareVersion
     | DelConfirmedVersion !ApplicationName
     | AddConfirmedProposal !ConfirmedProposalState
+    | DelConfirmedProposal !SoftwareVersion
     | SetLastAdopted !BlockVersion
     | SetBVState !BlockVersion !BlockVersionState
     | DelBV !BlockVersion
@@ -143,6 +144,8 @@ instance RocksBatchOp UpdateOp where
         [Rocks.Del (confirmedVersionKey app)]
     toBatchOp (AddConfirmedProposal cps) =
         [Rocks.Put (confirmedProposalKey cps) (encodeStrict cps)]
+    toBatchOp (DelConfirmedProposal sv) =
+        [Rocks.Del (confirmedProposalKeySV sv)]
     toBatchOp (SetLastAdopted bv) =
         [Rocks.Put lastBVKey (encodeStrict bv)]
     toBatchOp (SetBVState bv st) =
@@ -314,6 +317,9 @@ iterationPrefix = "us/p/"
 
 confirmedProposalKey :: ConfirmedProposalState -> ByteString
 confirmedProposalKey = encodeWithKeyPrefix @ConfPropIter . cpsSoftwareVersion
+
+confirmedProposalKeySV :: SoftwareVersion -> ByteString
+confirmedProposalKeySV = encodeWithKeyPrefix @ConfPropIter
 
 confirmedIterationPrefix :: ByteString
 confirmedIterationPrefix = "us/cp"

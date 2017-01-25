@@ -42,10 +42,10 @@ import           Pos.Update.Poll.Class       (MonadPoll (..), MonadPollRead (..)
 import           Pos.Update.Poll.Types       (PollModifier (..), cpsSoftwareVersion,
                                               pmDelActivePropsIdxL, pmDelActivePropsL,
                                               pmDelBVsL, pmDelConfirmedL,
-                                              pmLastAdoptedBVL, pmNewActivePropsIdxL,
-                                              pmNewActivePropsL, pmNewBVsL,
-                                              pmNewConfirmedL, pmNewConfirmedPropsL,
-                                              psProposal)
+                                              pmDelConfirmedPropsL, pmLastAdoptedBVL,
+                                              pmNewActivePropsIdxL, pmNewActivePropsL,
+                                              pmNewBVsL, pmNewConfirmedL,
+                                              pmNewConfirmedPropsL, psProposal)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 ----------------------------------------------------------------------------
@@ -122,6 +122,8 @@ instance MonadPollRead m =>
     delConfirmedSV appName = PollT $ pmDelConfirmedL . at appName .= Nothing
     addConfirmedProposal cps =
         PollT $ pmNewConfirmedPropsL . at (cpsSoftwareVersion cps) .= Just cps
+    delConfirmedProposal sv =
+        PollT $ pmDelConfirmedPropsL . at sv .= Nothing
     addActiveProposal ps =
         PollT $ do
             let up = psProposal ps

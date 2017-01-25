@@ -142,7 +142,8 @@ modifierToBatch PollModifier {..} =
     concat $
     [ bvsModifierToBatch pmNewBVs pmDelBVs
     , lastAdoptedModifierToBatch pmLastAdoptedBV
-    , confirmedModifierToBatch pmNewConfirmed pmDelConfirmed pmNewConfirmedProps
+    , confirmedVerModifierToBatch  pmNewConfirmed pmDelConfirmed
+    , confirmedPropModifierToBatch pmNewConfirmedProps pmDelConfirmedProps
     , upModifierToBatch pmNewActiveProps pmDelActivePropsIdx
     ]
 
@@ -159,18 +160,25 @@ lastAdoptedModifierToBatch :: Maybe BlockVersion -> [DB.SomeBatchOp]
 lastAdoptedModifierToBatch Nothing  = []
 lastAdoptedModifierToBatch (Just v) = [DB.SomeBatchOp $ SetLastAdopted v]
 
-confirmedModifierToBatch :: HashMap ApplicationName NumSoftwareVersion
-                         -> HashSet ApplicationName
-                         -> HashMap SoftwareVersion ConfirmedProposalState
-                         -> [DB.SomeBatchOp]
-confirmedModifierToBatch
-    (HM.toList -> added)
-    (toList -> deleted)
-    (toList -> confAdded) = addOps ++ delOps ++ confAddOps
+confirmedVerModifierToBatch
+    :: HashMap ApplicationName NumSoftwareVersion
+    -> HashSet ApplicationName
+    -> [DB.SomeBatchOp]
+confirmedVerModifierToBatch (HM.toList -> added) (toList -> deleted) =
+    addOps ++ delOps
   where
     addOps = map (DB.SomeBatchOp . ConfirmVersion . uncurry SoftwareVersion) added
     delOps = map (DB.SomeBatchOp . DelConfirmedVersion) deleted
+
+confirmedPropModifierToBatch
+    :: HashMap SoftwareVersion ConfirmedProposalState
+    -> HashSet SoftwareVersion
+    -> [DB.SomeBatchOp]
+confirmedPropModifierToBatch (toList -> confAdded) (toList -> confDeleted) =
+    confAddOps ++ confDelOps
+  where
     confAddOps = map (DB.SomeBatchOp . AddConfirmedProposal) confAdded
+    confDelOps = map (DB.SomeBatchOp . DelConfirmedProposal) confDeleted
 
 upModifierToBatch :: HashMap UpId ProposalState
                   -> HashMap ApplicationName UpId

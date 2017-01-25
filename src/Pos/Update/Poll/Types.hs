@@ -28,6 +28,7 @@ module Pos.Update.Poll.Types
        , pmNewConfirmedL
        , pmDelConfirmedL
        , pmNewConfirmedPropsL
+       , pmDelConfirmedPropsL
        , pmNewActivePropsL
        , pmDelActivePropsL
        , pmNewActivePropsIdxL
@@ -44,6 +45,7 @@ module Pos.Update.Poll.Types
        , unChangedPropsL
        , unChangedBVL
        , unLastAdoptedBVL
+       , unChangedConfPropsL
        ) where
 
 import           Control.Lens               (makeLensesFor)
@@ -200,6 +202,7 @@ data PollModifier = PollModifier
     , pmNewConfirmed      :: !(HashMap ApplicationName NumSoftwareVersion)
     , pmDelConfirmed      :: !(HashSet ApplicationName)
     , pmNewConfirmedProps :: !(HashMap SoftwareVersion ConfirmedProposalState)
+    , pmDelConfirmedProps :: !(HashSet SoftwareVersion)
     , pmNewActiveProps    :: !(HashMap UpId ProposalState)
     , pmDelActiveProps    :: !(HashSet UpId)
     , pmNewActivePropsIdx :: !(HashMap ApplicationName UpId)
@@ -212,6 +215,7 @@ makeLensesFor [ ("pmNewBVs", "pmNewBVsL")
               , ("pmNewConfirmed", "pmNewConfirmedL")
               , ("pmDelConfirmed", "pmDelConfirmedL")
               , ("pmNewConfirmedProps", "pmNewConfirmedPropsL")
+              , ("pmDelConfirmedProps", "pmDelConfirmedPropsL")
               , ("pmNewActiveProps", "pmNewActivePropsL")
               , ("pmDelActiveProps", "pmDelActivePropsL")
               , ("pmNewActivePropsIdx", "pmNewActivePropsIdxL")
@@ -348,16 +352,18 @@ maybeToPrev Nothing  = NoExist
 
 -- | Data necessary to unapply US data.
 data USUndo = USUndo
-    { unChangedBV     :: !(HashMap BlockVersion (PrevValue BlockVersionState))
-    , unLastAdoptedBV :: !(Maybe BlockVersion)
-    , unChangedProps  :: !(HashMap UpId (PrevValue ProposalState))
-    , unChangedSV     :: !(HashMap ApplicationName (PrevValue NumSoftwareVersion))
+    { unChangedBV        :: !(HashMap BlockVersion (PrevValue BlockVersionState))
+    , unLastAdoptedBV    :: !(Maybe BlockVersion)
+    , unChangedProps     :: !(HashMap UpId (PrevValue ProposalState))
+    , unChangedSV        :: !(HashMap ApplicationName (PrevValue NumSoftwareVersion))
+    , unChangedConfProps :: !(HashMap SoftwareVersion (PrevValue ConfirmedProposalState))
     }
 
 makeLensesFor [ ("unChangedBV", "unChangedBVL")
               , ("unLastAdoptedBV", "unLastAdoptedBVL")
               , ("unChangedProps", "unChangedPropsL")
               , ("unChangedSV", "unChangedSVL")
+              , ("unChangedConfProps", "unChangedConfPropsL")
               ]
   ''USUndo
 
@@ -365,4 +371,4 @@ instance Buildable USUndo where
     build _ = "BSUndo"
 
 instance Default USUndo where
-    def = USUndo mempty Nothing mempty mempty
+    def = USUndo mempty Nothing mempty mempty mempty

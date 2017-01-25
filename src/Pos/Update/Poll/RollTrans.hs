@@ -42,7 +42,6 @@ whenNothingM mb action = mb >>= \case
 -- [WARNING] This transformer uses StateT and is intended for
 -- single-threaded usage only.
 instance MonadPoll m => MonadPoll (RollT m) where
-    -- only one time can be called
     putBVState bv sv = RollT $ do
         insertIfNotExist bv unChangedBVL getBVState
         putBVState bv sv

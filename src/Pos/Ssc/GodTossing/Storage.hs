@@ -11,7 +11,7 @@ module Pos.Ssc.GodTossing.Storage
          -- ** instance SscStorageClass SscGodTossing
          getGlobalCerts
        , gtGetGlobalState
-       , getVerifiedCerts
+       , getStableCerts
        ) where
 
 import           Control.Lens                   (over, to, use, view, (%=), (.=), (<>=),
@@ -80,16 +80,16 @@ getGlobalCerts sl =
         VCD.setLastKnownSlot sl <$>
         view (gsVssCertificates)
 
-getVerifiedPure :: EpochIndex -> VCD.VssCertData -> VssCertificatesMap
-getVerifiedPure epoch certs
+getStablePure :: EpochIndex -> VCD.VssCertData -> VssCertificatesMap
+getStablePure epoch certs
     | epoch == 0 = genesisCertificates
     | otherwise =
           VCD.certs $ VCD.setLastKnownSlot (crucialSlot epoch) certs
 
 -- | Verified certs for slotId
-getVerifiedCerts :: MonadSscGS SscGodTossing m => EpochIndex -> m VssCertificatesMap
-getVerifiedCerts epoch =
-    getVerifiedPure epoch <$> sscRunGlobalQuery (view gsVssCertificates)
+getStableCerts :: MonadSscGS SscGodTossing m => EpochIndex -> m VssCertificatesMap
+getStableCerts epoch =
+    getStablePure epoch <$> sscRunGlobalQuery (view gsVssCertificates)
 
 -- | Verify that if one adds given block to the current chain, it will
 -- remain consistent with respect to SSC-related data.
@@ -112,8 +112,9 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
     globalShares      <- view gsShares
     globalVCD         <- view gsVssCertificates
     let globalCerts   = VCD.certs globalVCD
-    let verifiedCerts = getVerifiedPure curEpoch globalVCD
-    let participants  = computeParticipants richmen verifiedCerts
+    let stableCerts   = getStablePure curEpoch globalVCD
+    let participants  = computeParticipants richmen stableCerts
+    let participantsVssKeys = map vcVssKey $ toList participants
 
     let isComm  = (isCommitmentIdx slotId, "slotId doesn't belong commitment phase")
         isOpen  = (isOpeningIdx slotId, "slotId doesn't belong openings phase")
@@ -132,12 +133,10 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
             , (all (not . (`HM.member` globalCommitments))
                    (HM.keys comms),
                    "some nodes have already sent their commitments")
-            , (all (checkCommShares vssPublicKeys) (toList comms),
+            , (all (checkCommShares participantsVssKeys) (toList comms),
                    "some commShares has been generated on wrong participants")
             -- [CSL-206]: check that share IDs are different.
             ]
-          where
-            vssPublicKeys = map vcVssKey $ toList participants
 
     -- For openings, we check that
     --   * the opening isn't present in previous blocks
@@ -162,18 +161,17 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
     -- We don't check whether shares match the openings.
     let shareChecks shares =
             [ isShare
-            , (all (`HS.member` richmenSet) $ HM.keys shares,
-                   "some shares are posted by stakeholders that don't have enough stake")
             -- We intentionally don't check, that nodes which decrypted shares
             -- sent its commitments.
             -- If node decrypted shares correctly, such node is useful for us, despite of
             -- it didn't send its commitment.
+            , (all (`HS.member` richmenSet) $ HM.keys shares,
+                   "some shares are posted by stakeholders that don't have enough stake")
             , (all (`HM.member` globalCommitments)
                    (concatMap HM.keys $ toList shares),
                    "some shares don't have corresponding commitments")
             , (null (shares `HM.intersection` globalShares),
                    "some shares have already been sent")
-              ------------- should we use participants instead of global here? V
             , (all (uncurry (checkShares globalCommitments globalOpenings participants))
                    (HM.toList shares),
                    "some decrypted shares don't match encrypted shares \

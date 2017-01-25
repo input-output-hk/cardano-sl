@@ -220,8 +220,8 @@ sscIsDataUsefulSetImpl localG globalG addr =
 -- Ssc Process Message
 ----------------------------------------------------------------------------
 
-getVerifiedPure :: EpochIndex -> VCD.VssCertData -> VssCertificatesMap
-getVerifiedPure epoch certs
+getStablePure :: EpochIndex -> VCD.VssCertData -> VssCertificatesMap
+getStablePure epoch certs
     | epoch == 0 = genesisCertificates
     | otherwise =
           VCD.certs $ VCD.setLastKnownSlot (crucialSlot epoch) certs
@@ -255,21 +255,21 @@ processCommitment
     -> StakeholderId
     -> SignedCommitment
     -> LDUpdate Bool
-processCommitment richmen addr _ | not (addr `HS.member` richmen) = pure False
-processCommitment richmen addr c = do
+processCommitment richmen id _ | not (id `HS.member` richmen) = pure False
+processCommitment richmen id c = do
     epochIdx <- siEpoch <$> use gtLastProcessedSlot
-    verified <- getVerifiedPure epochIdx <$> use gtGlobalCertificates
-    let participants = verified `HM.intersection` HS.toMap richmen
+    stableCerts <- getStablePure epochIdx <$> use gtGlobalCertificates
+    let participants = stableCerts `HM.intersection` HS.toMap richmen
     let vssPublicKeys = map vcVssKey $ toList participants
-    let checks epochIndex vssCerts =
-            [ not . HM.member addr <$> view gtGlobalCommitments
-            , not . HM.member addr <$> view gtLocalCommitments
-            , pure $ addr `HM.member` vssCerts
-            , pure . isVerSuccess $ verifySignedCommitment addr epochIndex c
+    let checks epochIndex =
+            [ not . HM.member id <$> view gtGlobalCommitments
+            , not . HM.member id <$> view gtLocalCommitments
+            , pure $ id `HM.member` participants
+            , pure . isVerSuccess $ verifySignedCommitment id epochIndex c
             , pure $ checkCommShares vssPublicKeys c
             ]
-    ok <- readerToState $ andM $ checks epochIdx verified
-    ok <$ when ok (gtLocalCommitments %= HM.insert addr c)
+    ok <- readerToState $ andM $ checks epochIdx
+    ok <$ when ok (gtLocalCommitments %= HM.insert id c)
 
 processOpening :: StakeholderId -> Opening -> LDUpdate Bool
 processOpening addr o = do
@@ -291,16 +291,16 @@ processShares richmen id s
     | not (id `HS.member` richmen) = pure False
     | otherwise = do
         epochIdx <- siEpoch <$> use gtLastProcessedSlot
-        verified <- getVerifiedPure epochIdx <$> use gtGlobalCertificates
+        stableCerts <- getStablePure epochIdx <$> use gtGlobalCertificates
         let checks =
               [ not . HM.member id <$> use gtGlobalShares
               , not . HM.member id <$> use gtLocalShares
-              , readerToState $ checkSharesVerified verified id s
+              , readerToState $ checkSharesDo stableCerts id s
               ]
         ok <- andM checks
         ok <$ when ok (gtLocalShares . at id .= Just s)
   where
-    checkSharesVerified certs addr shares =
+    checkSharesDo certs addr shares =
         (\comms openings -> checkShares comms openings certs addr shares) <$>
         view gtGlobalCommitments <*>
         view gtGlobalOpenings

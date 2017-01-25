@@ -21,10 +21,10 @@ packages:
     git: https://github.com/serokell/rocksdb-haskell.git
     commit: 4dfd8d61263d78a91168e86e8005eb9b7069389e
   extra-dep: true
-# https://github.com/thoughtpolice/hs-ed25519/pull/18
 - location:
-    git: https://github.com/domenkozar/hs-ed25519.git
-    commit: 96e5db162d88482bc0e120dc61cadd45c168c275
+    git: https://github.com/thoughtpolice/hs-ed25519
+    # We're waiting on next release
+    commit: 57adb970e198a9b377769ab46e776ec29f19cff6
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
@@ -54,14 +54,10 @@ extra-deps:
 - log-warper-0.2.3
 - double-conversion-2.0.2.0
 
-resolver: lts-7.9
+resolver: lts-7.16
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
 
 
-flags:
-  ed25519:
-    test-doctests: false
-    test-properties: false
-    test-hlint: false
+compiler: ghc-8.0.2

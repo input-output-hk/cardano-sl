@@ -1,56 +1,55 @@
-version: 1.0.{build}
+version: 0.1.{build}
 image: Visual Studio 2015
 
 build: off
 
-cache:
+#cache:
   # TODO: https://github.com/commercialhaskell/stack/issues/1176#issuecomment-269520803
   #- "c:\\sr"
   #- '.stack-work'
-  - 'rocksdb'
 
+# Avoid long paths on Windows
 environment:
   global:
+    # Avoid long paths on Windows
     STACK_ROOT: "c:\\sr"
+    CSL_SYSTEM_TAG: "win64"
 
 before_test:
+- Echo %APPVEYOR_BUILD_VERSION% > build-id
 # Install stack
-#- if %PLATFORM% == Win32 curl -sS -ostack.zip -L --insecure http://www.stackage.org/stack/windows-i386
-- curl -sS -ostack.zip -L --insecure http://www.stackage.org/stack/windows-x86_64
+- curl -sSL -o stack.zip --insecure http://www.stackage.org/stack/windows-x86_64
 - 7z x stack.zip stack.exe
 
 # Install rocksdb
-- git clone https://github.com/facebook/rocksdb.git --branch v4.13.5 || timeout /t 0
-- mkdir rocksdb\build || timeout /t 0
-- cd rocksdb\build
-- cmake -G "Visual Studio 14 2015 Win64" -DOPTDBG=1 -DXPRESS=1 ..
-- msbuild rocksdb.sln /p:Configuration=Release /m
-- cd ..\..
-- xcopy rocksdb\build\Release\rocksdb.dll .
-- xcopy rocksdb\build\Release\rocksdb.dll installers
+- git clone https://github.com/facebook/rocksdb.git --branch v4.13.5
+- ps: Start-FileDownload 'https://ci.appveyor.com/api/buildjobs/kbpteb8j55p6sa2m/artifacts/rocksdb%2Fbuild%2FRocksdb.zip' -FileName rocksdb.zip
+- 7z x rocksdb.zip
 
 test_script:
   - stack setup --no-reinstall
-  # TODO: No parallelization due to https://github.com/haskell/cabal/issues/4005   
-  # TODO: Tests disabled to fit the build in 1h slot
-  - stack --no-terminal --local-bin-path installers 
-      build -j 1 --no-haddock-deps --bench --no-run-benchmarks 
+  # Retry transient failures due to https://github.com/haskell/cabal/issues/4005 
+  - scripts\appveyor-retry call stack --no-terminal --local-bin-path daedalus 
+      install -j 2 --test --no-haddock-deps --bench --no-run-benchmarks 
       --flag cardano-sl:with-web 
       --flag cardano-sl:with-wallet 
+      --flag cardano-sl:-asserts
+      --flag cardano-sl:-dev-mode
       --extra-include-dirs="C:\OpenSSL-Win64\include" 
       --extra-lib-dirs="C:\OpenSSL-Win64" 
-      --extra-lib-dirs="C:\projects\pos-haskell-prototype\rocksdb\build\Release" 
       --extra-include-dirs="C:\projects\pos-haskell-prototype\rocksdb\include" 
-      --copy-bins
-  - xcopy stack.exe installers
-  - cd installers
-  - SET PATH=C:\Program Files\NSIS\;C:\Program Files (x86)\NSIS\;%PATH%
-  - stack --no-terminal build -j 1 --exec windows-installer
-  - cd ..
+      --extra-lib-dirs="C:\projects\pos-haskell-prototype" 
+  - stack exec -- cardano-wallet-hs2purs
+  - copy log-config-prod.yaml daedalus\log-config-prod.yaml
+  - cd daedalus
+  - Echo %APPVEYOR_BUILD_VERSION% > build-id
+  - npm install
+  - npm run build:prod
 
 artifacts:
-  - path: installers/cardano-win64-installer.exe
-    name: CardanoWindows64Installer.exe
+  - path: daedalus/
+    name: CardanoSL
+    type: zip
 
 notifications:
   - provider: Slack

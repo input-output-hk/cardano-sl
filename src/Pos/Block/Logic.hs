@@ -36,7 +36,6 @@ import           Control.Monad.Except      (ExceptT (ExceptT), runExceptT, throw
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
 import           Data.Default              (Default (def))
 import qualified Data.HashMap.Strict       as HM
-import qualified Data.HashSet              as HS
 import           Data.List.NonEmpty        ((<|))
 import qualified Data.List.NonEmpty        as NE
 import qualified Data.Text                 as T
@@ -388,8 +387,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
         LrcDB.getLeaders
     case blocks ^. _Wrapped . _neHead of
         (Left block) ->
-            when (HS.fromList (NE.toList $ block ^. blockLeaders) /=
-                  HS.fromList (NE.toList leaders)) $
+            when (block ^. blockLeaders /= leaders) $
                 throwError "Genesis block leaders don't match with LRC-computed"
         _ -> pass
     verResToMonadError formatAllErrors $

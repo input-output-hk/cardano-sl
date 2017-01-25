@@ -63,6 +63,7 @@ import qualified Pos.DB                    as DB
 import qualified Pos.DB.GState             as GS
 import qualified Pos.DB.Lrc                as LrcDB
 import           Pos.Delegation.Logic      (delegationVerifyBlocks, getProxyMempool)
+import           Pos.Exception             (CardanoFatalError (..))
 import           Pos.Lrc.Error             (LrcError (..))
 import           Pos.Lrc.Worker            (lrcSingleShotNoLock)
 import           Pos.Slotting              (getCurrentSlot)
@@ -84,10 +85,12 @@ import           Pos.Types                 (Block, BlockHeader, EpochIndex,
                                             verifyHeaders, vhpVerifyConsensus)
 import qualified Pos.Types                 as Types
 import           Pos.Update.Core           (UpdatePayload (..))
-import           Pos.Update.Logic          (usPreparePayload, usVerifyBlocks)
-import           Pos.Update.Poll           (PollModifier, PollVerFailure)
-import           Pos.Util                  (NE, NewestFirst (..), OldestFirst (..),
-                                            inAssertMode, neZipWith3, spanSafe,
+import           Pos.Update.Logic          (usCanCreateBlock, usPreparePayload,
+                                            usVerifyBlocks)
+import           Pos.Update.Poll           (PollModifier)
+import           Pos.Util                  (Color (Red), NE, NewestFirst (..),
+                                            OldestFirst (..), colorize, inAssertMode,
+                                            maybeThrow, neZipWith3, spanSafe,
                                             toNewestFirst, toOldestFirst, _neHead,
                                             _neLast)
 import           Pos.WorkMode              (WorkMode)
@@ -428,7 +431,7 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
         lift (verifyBlocksPrefix (one block)) >>= \case
             Left e' -> applyAMAP e' (OldestFirst []) nothingApplied
             Right (OldestFirst (undo :| []), pModifier) -> do
-                lift $ applyBlocksUnsafe (one (block, undo)) pModifier
+                lift $ applyBlocksUnsafe (one (block, undo)) (Just pModifier)
                 applyAMAP e (OldestFirst xs) False
             Right _ -> panic "verifyAndApplyBlocksInternal: applyAMAP: \
                              \verification of one block produced more than one undo"
@@ -454,7 +457,7 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
             Right (undos, pModifier) -> do
                 let newBlunds = OldestFirst $ getOldestFirst prefix `NE.zip`
                                               getOldestFirst undos
-                lift $ applyBlocksUnsafe newBlunds pModifier
+                lift $ applyBlocksUnsafe newBlunds (Just pModifier)
                 case getOldestFirst suffix of
                     []           -> GS.getTip
                     (genesis:xs) -> do
@@ -470,7 +473,7 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
 -- per-epoch, calculating lrc when needed if flag is set.
 applyBlocks
     :: forall ssc m . (WorkMode ssc m, SscWorkersClass ssc)
-    => Bool -> PollModifier -> OldestFirst NE (Blund ssc) -> m ()
+    => Bool -> Maybe PollModifier -> OldestFirst NE (Blund ssc) -> m ()
 applyBlocks calculateLrc pModifier blunds = do
     applyBlocksUnsafe prefix pModifier
     case getOldestFirst suffix of
@@ -519,12 +522,7 @@ applyWithRollback toRollback toApply = runExceptT $ do
         Right tipHash  -> pure tipHash
   where
     reApply = toOldestFirst toRollback
-    applyBackFail (_ :: PollVerFailure) =
-        throwM $ DBMalformed "applyWithRollback: can't verify just rollbacked blocks"
-    applyBack = do
-        verRes <- lift $ runExceptT $ usVerifyBlocks $ map fst reApply
-        pModifier <- either applyBackFail (pure . fst) verRes
-        lift $ applyBlocks True pModifier reApply
+    applyBack = lift $ applyBlocks True Nothing reApply
     expectedTipApply = toApply ^. _Wrapped . _neHead . prevBlockL
     newestToRollback = toRollback ^. _Wrapped . _neHead . _1 . headerHashG
 
@@ -576,18 +574,20 @@ createGenesisBlockDo
 createGenesisBlockDo epoch leaders tip = do
     let noHeaderMsg =
             "There is no header is DB corresponding to tip from semaphore"
-    tipHeader <-
-        maybe (throwM $ DBMalformed noHeaderMsg) pure =<< DB.getBlockHeader tip
+    tipHeader <- maybeThrow (DBMalformed noHeaderMsg) =<< DB.getBlockHeader tip
     logDebug $ sformat msgTryingFmt epoch tipHeader
     createGenesisBlockFinally tipHeader
   where
-    emptyUndo = Undo [] [] def
     createGenesisBlockFinally tipHeader
         | shouldCreateGenesisBlock epoch (getEpochOrSlot tipHeader) = do
             let blk = mkGenesisBlock (Just tipHeader) epoch leaders
             let newTip = headerHash blk
-            applyBlocksUnsafe (one (Left blk, emptyUndo)) def $>
-                (Just blk, newTip)
+            runExceptT (usVerifyBlocks (one (Left blk))) >>= \case
+                Left err -> onVerFail err
+                Right (pModifier, usUndos) -> do
+                    let undo = def {undoUS = usUndos ^. _Wrapped . _neHead}
+                    applyBlocksUnsafe (one (Left blk, undo)) (Just pModifier) $>
+                        (Just blk, newTip)
         | otherwise = (Nothing, tip) <$ logShouldNot
     logShouldNot =
         logDebug
@@ -595,6 +595,10 @@ createGenesisBlockDo epoch leaders tip = do
     msgTryingFmt =
         "We are trying to create genesis block for " %ords %
         " epoch, our tip header is\n" %build
+    onVerFail err = do
+        logError $ colorize Red $
+            sformat ("We failed to verify our genesis block: " %build) err
+        throwM $ CardanoFatalError $ pretty err
 
 ----------------------------------------------------------------------------
 -- MainBlock creation
@@ -617,10 +621,12 @@ createMainBlock sId pSk = withBlkSemaphore createMainBlockDo
     createMainBlockDo tip = do
         tipHeader <- DB.getTipBlockHeader
         logInfo $ sformat msgFmt tipHeader
-        case canCreateBlock sId tipHeader of
-            Nothing  -> convertRes tip <$>
+        canWrtUs <- usCanCreateBlock
+        case (canCreateBlock sId tipHeader, canWrtUs) of
+            (_, False) -> return (Left "this software is obsolete", tip)
+            (Nothing, True)  -> convertRes tip <$>
                 runExceptT (createMainBlockFinish sId pSk tipHeader)
-            Just err -> return (Left err, tip)
+            (Just err, True) -> return (Left err, tip)
     convertRes oldTip (Left e) = (Left e, oldTip)
     convertRes _ (Right blk)   = (Right blk, headerHash blk)
 
@@ -665,7 +671,7 @@ createMainBlockFinish slotId pSk prevHeader = do
     let blockUndo = Undo (reverse $ foldl' prependToUndo [] localTxs)
                          pskUndo
                          (verUndo ^. _Wrapped . _neHead)
-    lift $ blk <$ applyBlocksUnsafe (one (Right blk, blockUndo)) pModifier
+    lift $ blk <$ applyBlocksUnsafe (one (Right blk, blockUndo)) (Just pModifier)
   where
     onBrokenTopo = throwError "Topology of local transactions is broken!"
     onNoSsc = "can't obtain SSC payload to create block"

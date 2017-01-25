@@ -58,6 +58,11 @@ library
                         Pos.DHT.Real.Real
                         Pos.DHT.Real.Types
                         Pos.DHT.Workers
+
+                        -- Exceptions
+                        Pos.Exception
+
+                        -- Genesis data
                         Pos.Genesis
 
                         -- LRC
@@ -221,6 +226,7 @@ library
                         Pos.DB.Iterator.DBIterator
                         Pos.DB.Lrc
                         Pos.DB.Lrc.Common
+                        Pos.DB.Lrc.Issuers
                         Pos.DB.Lrc.Leaders
                         Pos.DB.Lrc.Lrc
                         Pos.DB.Lrc.Richmen
@@ -298,6 +304,7 @@ library
                         -- Update System
                         Pos.Update.Arbitrary.Core
                         Pos.Update.Arbitrary.Network
+                        Pos.Update.Arbitrary.Poll
                         Pos.Update.Core.Types
                         Pos.Update.Download
                         Pos.Update.Error
@@ -322,6 +329,7 @@ library
                         Pos.Update.Poll.Logic.Base
                         Pos.Update.Poll.Logic.Normalize
                         Pos.Update.Poll.Logic.Rollback
+                        Pos.Update.Poll.Logic.Softfork
                         Pos.Update.Poll.Modifier
                         Pos.Update.Poll.RollTrans
                         Pos.Update.Poll.Trans

@@ -41,6 +41,7 @@ updateServers: []
 updateProposalThreshold: 0.1 # 10% of total stake
 updateVoteThreshold: 0.001 # 0.1% of total stake
 updateImplicitApproval: 40000 # slots
+usSoftforkThreshold: 0.85 # 85% of total stake
 
 # Production start time
 productionNetworkStartTime: 0

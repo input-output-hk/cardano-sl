@@ -51,11 +51,13 @@ module Pos.Constants
        -- * Update system constants
        , lastKnownBlockVersion
        , curSoftwareVersion
+       , ourAppName
        , appSystemTag
        , updateServers
        , updateProposalThreshold
        , updateVoteThreshold
        , updateImplicitApproval
+       , usSoftforkThreshold
 
        -- * NTP
        , ntpMaxError
@@ -67,6 +69,7 @@ import           Data.Time.Units            (Microsecond)
 import           Language.Haskell.TH.Syntax (lift, runIO)
 import           Pos.Util.TimeWarp          (ms, sec)
 import           Serokell.Data.Memory.Units (Byte)
+import           Serokell.Util              (staticAssert)
 import           System.Environment         (lookupEnv)
 import qualified Text.Parsec                as P
 import           Universum                  hiding (lift)
@@ -291,6 +294,10 @@ lastKnownBlockVersion = BlockVersion 0 0 0
 curSoftwareVersion :: SoftwareVersion
 curSoftwareVersion = SoftwareVersion cardanoSlAppName 0
 
+-- | Name of our application.
+ourAppName :: ApplicationName
+ourAppName = cardanoSlAppName
+
 -- | Update servers
 updateServers :: [String]
 updateServers = ccUpdateServers compileConfig
@@ -316,29 +323,41 @@ ntpPollDelay = mcs . ccNtpPollDelay $ compileConfig
 updateProposalThreshold :: CoinPortion
 updateProposalThreshold = unsafeCoinPortion $ ccUpdateProposalThreshold compileConfig
 
--- GHC stage restriction
--- staticAssert
---     (getCoinPortion updateProposalThreshold >= 0)
---     "updateProposalThreshold is negative"
+staticAssert
+    (ccUpdateProposalThreshold compileConfig >= 0)
+    "updateProposalThreshold is negative"
 
--- staticAssert
---     (getCoinPortion updateProposalThreshold <= 1)
---     "updateProposalThreshold is more than 1"
+staticAssert
+    (ccUpdateProposalThreshold compileConfig <= 1)
+    "updateProposalThreshold is more than 1"
 
 -- | Portion of total stake necessary to vote for or against update.
 updateVoteThreshold :: CoinPortion
 updateVoteThreshold = unsafeCoinPortion $ ccUpdateVoteThreshold compileConfig
 
--- GHC stage restriction
--- staticAssert
---     (getCoinPortion updateVoteThreshold >= 0)
---     "updateVoteThreshold is negative"
+staticAssert
+    (ccUpdateVoteThreshold compileConfig >= 0)
+    "updateVoteThreshold is negative"
 
--- staticAssert
---     (getCoinPortion updateVoteThreshold <= 1)
---     "updateVoteThreshold is more than 1"
+staticAssert
+    (ccUpdateVoteThreshold compileConfig <= 1)
+    "updateVoteThreshold is more than 1"
 
 -- | Number of slots after which update is implicitly approved
 -- unless it has more negative votes than positive.
 updateImplicitApproval :: Integral i => i
 updateImplicitApproval = fromIntegral $ ccUpdateImplicitApproval compileConfig
+
+-- | Portion of total stake such that if total stake of issuers of blocks
+-- with some block version is bigger than this portion, this block
+-- version is adopted.
+usSoftforkThreshold :: CoinPortion
+usSoftforkThreshold = unsafeCoinPortion $ ccUsSoftforkThreshold compileConfig
+
+staticAssert
+    (ccUsSoftforkThreshold compileConfig >= 0)
+    "usSoftforkThreshold is negative"
+
+staticAssert
+    (ccUsSoftforkThreshold compileConfig <= 1)
+    "usSoftforkThreshold is more than 1"

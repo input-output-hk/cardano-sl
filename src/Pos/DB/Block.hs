@@ -197,7 +197,7 @@ prepareBlockDB
     :: forall ssc m.
        (Ssc ssc, MonadDB ssc m)
     => GenesisBlock ssc -> m ()
-prepareBlockDB = putBlock (Undo [] [] def) . Left
+prepareBlockDB = putBlock def . Left
 
 ----------------------------------------------------------------------------
 -- Keys

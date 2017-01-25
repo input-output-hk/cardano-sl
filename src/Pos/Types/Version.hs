@@ -4,7 +4,6 @@ module Pos.Types.Version
        (
          -- * Protocol Version
          BlockVersion (..)
-       , canBeNextPV
        , parseBlockVersion
 
          -- * Software Version
@@ -18,6 +17,7 @@ module Pos.Types.Version
 
 import           Universum              hiding (show)
 
+import           Data.Aeson             (FromJSON, ToJSON)
 import           Data.Char              (isAscii)
 import           Data.Hashable          (Hashable)
 import           Data.SafeCopy          (base, deriveSafeCopySimple)
@@ -46,22 +46,6 @@ instance Show BlockVersion where
 instance Buildable BlockVersion where
     build = bprint shown
 
--- | This function checks whether block version passed as the
--- second argument can be adopted after adoption of block version
--- passed as the first argument.
-canBeNextPV :: BlockVersion -> BlockVersion -> Bool
-canBeNextPV BlockVersion { bvMajor = oldMajor
-                         , bvMinor = oldMinor
-                         , bvAlt = oldAlt}
-            BlockVersion { bvMajor = newMajor
-                         , bvMinor = newMinor
-                         , bvAlt = newAlt}
-    | oldMajor /= newMajor = and [newMajor == oldMajor + 1, newMinor == 0]
-    | otherwise = or [ newMinor == oldMinor + 1 && newAlt == oldAlt + 1
-                     , newMinor == oldMinor + 1 && newAlt == oldAlt
-                     , newMinor == oldMinor && newAlt == oldAlt + 1
-                     ]
-
 parseBlockVersion :: Parser BlockVersion
 parseBlockVersion = do
     bvMajor <- parseIntegralSafe
@@ -75,7 +59,7 @@ instance Hashable BlockVersion
 
 newtype ApplicationName = ApplicationName
     { getApplicationName :: Text
-    } deriving (Eq, Ord, Show, Generic, Typeable, ToString, Hashable, Buildable)
+    } deriving (Eq, Ord, Show, Generic, Typeable, ToString, Hashable, Buildable, ToJSON, FromJSON)
 
 applicationNameMaxLength :: Integral i => i
 applicationNameMaxLength = 10

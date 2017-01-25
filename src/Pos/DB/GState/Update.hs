@@ -34,7 +34,9 @@ module Pos.DB.GState.Update
        , getConfirmedProposals
 
        , BVIter
-       , getAllConfirmedBV
+       , getProposedBVs
+       , getConfirmedBVStates
+       , getProposedBVStates
        ) where
 
 import           Control.Monad.Trans.Maybe  (MaybeT (..), runMaybeT)
@@ -45,6 +47,7 @@ import           Universum
 
 import           Pos.Binary.Class           (encodeStrict)
 import           Pos.Binary.DB              ()
+import           Pos.Constants              (ourAppName)
 import           Pos.Crypto                 (hash)
 import           Pos.DB.Class               (MonadDB, getUtxoDB)
 import           Pos.DB.Error               (DBError (DBMalformed))
@@ -63,9 +66,11 @@ import           Pos.Types                  (ApplicationName, BlockVersion,
                                              SoftwareVersion (..))
 import           Pos.Update.Core            (UpId, UpdateProposal (..))
 import           Pos.Update.Poll.Types      (BlockVersionState (..),
+                                             ConfirmedProposalState,
                                              DecidedProposalState (dpsDifficulty),
                                              ProposalState (..),
-                                             UndecidedProposalState (upsSlot), psProposal)
+                                             UndecidedProposalState (upsSlot),
+                                             cpsSoftwareVersion, psProposal)
 import           Pos.Util                   (maybeThrow)
 import           Pos.Util.Iterator          (MonadIterator (..))
 
@@ -129,7 +134,7 @@ data UpdateOp
     | DeleteProposal !UpId !ApplicationName
     | ConfirmVersion !SoftwareVersion
     | DelConfirmedVersion !ApplicationName
-    | AddConfirmedProposal !NumSoftwareVersion !UpdateProposal
+    | AddConfirmedProposal !ConfirmedProposalState
     | SetLastAdopted !BlockVersion
     | SetBVState !BlockVersion !BlockVersionState
     | DelBV !BlockVersion
@@ -149,8 +154,8 @@ instance RocksBatchOp UpdateOp where
         [Rocks.Put (confirmedVersionKey $ svAppName sv) (encodeStrict $ svNumber sv)]
     toBatchOp (DelConfirmedVersion app) =
         [Rocks.Del (confirmedVersionKey app)]
-    toBatchOp (AddConfirmedProposal nsv up) =
-        [Rocks.Put (confirmedProposalKey nsv) (encodeStrict up)]
+    toBatchOp (AddConfirmedProposal cps) =
+        [Rocks.Put (confirmedProposalKey cps) (encodeStrict cps)]
     toBatchOp (SetLastAdopted bv) =
         [Rocks.Put lastBVKey (encodeStrict bv)]
     toBatchOp (SetBVState bv st) =
@@ -166,17 +171,25 @@ prepareGStateUS
     :: forall ssc m.
        MonadDB ssc m
     => m ()
-prepareGStateUS = unlessM isInitialized $ do
-    db <- getUtxoDB
-    flip rocksWriteBatch db $
-        [ SetLastAdopted genesisBlockVersion
-        , SetBVState genesisBlockVersion $
-            BlockVersionState
-              genesisScriptVersion
-              True
-              genesisSlotDuration
-              genesisMaxBlockSize
-        ] <> map ConfirmVersion genesisSoftwareVersions
+prepareGStateUS =
+    unlessM isInitialized $ do
+        db <- getUtxoDB
+        flip rocksWriteBatch db $
+            [ SetLastAdopted genesisBlockVersion
+            , SetBVState genesisBlockVersion genesisBVS
+            ] <>
+            map ConfirmVersion genesisSoftwareVersions
+  where
+    genesisBVS =
+        BlockVersionState
+            genesisScriptVersion
+            genesisSlotDuration
+            genesisMaxBlockSize
+            True
+            mempty
+            mempty
+            Nothing
+            Nothing
 
 isInitialized :: MonadDB ssc m => m Bool
 isInitialized = isJust <$> getLastAdoptedBVMaybe
@@ -237,21 +250,27 @@ getDeepProposals cd = runProposalMapIterator (step []) snd
 data ConfPropIter
 
 instance DBIteratorClass ConfPropIter where
-    type IterKey ConfPropIter = NumSoftwareVersion
-    type IterValue ConfPropIter = UpdateProposal
+    type IterKey ConfPropIter = SoftwareVersion
+    type IterValue ConfPropIter = ConfirmedProposalState
     iterKeyPrefix _ = confirmedIterationPrefix
 
 -- | Get confirmed proposals which update our application and have
--- version bigger than argument. For instance, current software
--- version can be passed to this function to get all proposals with
--- bigger version.
-getConfirmedProposals :: MonadDB ssc m => NumSoftwareVersion -> m [UpdateProposal]
+-- version bigger than argument (or all proposals if 'Nothing' is
+-- passed). For instance, current software version can be passed to
+-- this function to get all proposals with bigger version.
+getConfirmedProposals
+    :: MonadDB ssc m
+    => Maybe NumSoftwareVersion -> m [ConfirmedProposalState]
 getConfirmedProposals reqNsv = runDBnIterator @ConfPropIter _gStateDB (step [])
   where
     step res = nextItem >>= maybe (pure res) (onItem res)
-    onItem res (nsv, up)
-        | nsv > reqNsv = step (up:res)
-        | otherwise    = step res
+    onItem res (SoftwareVersion {..}, cps) =
+        step $
+        case reqNsv of
+            Nothing -> cps : res
+            Just v
+                | svAppName == ourAppName && svNumber > v -> cps : res
+                | otherwise -> res
 
 -- Iterator by block versions
 data BVIter
@@ -261,12 +280,26 @@ instance DBIteratorClass BVIter where
     type IterValue BVIter = BlockVersionState
     iterKeyPrefix _ = bvStateIterationPrefix
 
-getAllConfirmedBV :: MonadDB ssc m => m [BlockVersion]
-getAllConfirmedBV = runDBnIterator @BVIter _gStateDB (step [])
+-- | Get all proposed 'BlockVersion's.
+getProposedBVs :: MonadDB ssc m => m [BlockVersion]
+getProposedBVs = runDBnMapIterator @BVIter _gStateDB (step []) fst
   where
     step res = nextItem >>= maybe (pure res) (onItem res)
-    onItem res (bv, BlockVersionState {..})
-        | bvsIsConfirmed = step (bv : res)
+    onItem res = step . (: res)
+
+getProposedBVStates :: MonadDB ssc m => m [BlockVersionState]
+getProposedBVStates = runDBnMapIterator @BVIter _gStateDB (step []) snd
+  where
+    step res = nextItem >>= maybe (pure res) (onItem res)
+    onItem res = step . (: res)
+
+-- | Get all confirmed 'BlockVersion's and their states.
+getConfirmedBVStates :: MonadDB ssc m => m [(BlockVersion, BlockVersionState)]
+getConfirmedBVStates = runDBnIterator @BVIter _gStateDB (step [])
+  where
+    step res = nextItem >>= maybe (pure res) (onItem res)
+    onItem res (bv, bvs@BlockVersionState {..})
+        | bvsIsConfirmed = step ((bv, bvs) : res)
         | otherwise = step res
 
 ----------------------------------------------------------------------------
@@ -294,8 +327,8 @@ confirmedVersionKey = mappend "us/cv" . encodeStrict
 iterationPrefix :: ByteString
 iterationPrefix = "us/p/"
 
-confirmedProposalKey :: NumSoftwareVersion -> ByteString
-confirmedProposalKey = encodeWithKeyPrefix @ConfPropIter
+confirmedProposalKey :: ConfirmedProposalState -> ByteString
+confirmedProposalKey = encodeWithKeyPrefix @ConfPropIter . cpsSoftwareVersion
 
 confirmedIterationPrefix :: ByteString
 confirmedIterationPrefix = "us/cp"

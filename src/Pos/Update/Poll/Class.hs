@@ -15,9 +15,10 @@ import           Universum
 import           Pos.Types             (ApplicationName, BlockVersion, ChainDifficulty,
                                         Coin, EpochIndex, NumSoftwareVersion, SlotId,
                                         SoftwareVersion, StakeholderId)
-import           Pos.Update.Core       (UpId, UpdateProposal)
-import           Pos.Update.Poll.Types (BlockVersionState, DecidedProposalState,
-                                        ProposalState, UndecidedProposalState)
+import           Pos.Update.Core       (UpId)
+import           Pos.Update.Poll.Types (BlockVersionState, ConfirmedProposalState,
+                                        DecidedProposalState, ProposalState,
+                                        UndecidedProposalState)
 
 ----------------------------------------------------------------------------
 -- Read-only
@@ -28,18 +29,22 @@ import           Pos.Update.Poll.Types (BlockVersionState, DecidedProposalState,
 class Monad m => MonadPollRead m where
     getBVState :: BlockVersion -> m (Maybe BlockVersionState)
     -- ^ Retrieve state of given block version.
-    getAllConfirmedBV :: m [BlockVersion]
-    -- ^ Retrieve all confirmed block version.
+    getProposedBVs :: m [BlockVersion]
+    -- ^ Retrieve all proposed block version.
+    getConfirmedBVStates :: m [(BlockVersion, BlockVersionState)]
+    -- ^ Get all confirmed 'BlockVersion's and their states.
     getLastBVState :: m BlockVersionState
     -- ^ Retrieve state of last adopted block version.
     getLastAdoptedBV :: m BlockVersion
     -- ^ Get last adopted block version.
     getLastConfirmedSV :: ApplicationName -> m (Maybe NumSoftwareVersion)
-    -- ^ Get number of last confirmed version of application
+    -- ^ Get numeric component of last confirmed version of application
     hasActiveProposal :: ApplicationName -> m Bool
     -- ^ Check if given application has an active (non-confirmed) proposal
     getProposal :: UpId -> m (Maybe ProposalState)
     -- ^ Get active proposal
+    getConfirmedProposals :: m [ConfirmedProposalState]
+    -- ^ Get all known confirmed proposals.
     getEpochTotalStake :: EpochIndex -> m (Maybe Coin)
     -- ^ Get total stake from distribution corresponding to give epoch
     getRichmanStake :: EpochIndex -> StakeholderId -> m (Maybe Coin)
@@ -51,6 +56,11 @@ class Monad m => MonadPollRead m where
     getDeepProposals :: ChainDifficulty -> m [DecidedProposalState]
     -- ^ Get all proposals which are in decided state and become
     -- decided deeper than given 'ChainDifficulty'.
+    getBlockIssuerStake :: EpochIndex -> StakeholderId -> m (Maybe Coin)
+    -- ^ Get stake of issuer of one of the blocks created so far using
+    -- stake distribution which is stable in given epoch.
+    -- Only issuer of stable block can be passed to this function, otherwise
+    -- 'Nothing' will be returned.
 
     -- | Default implementations for 'MonadTrans'.
     default getBVState
@@ -58,9 +68,14 @@ class Monad m => MonadPollRead m where
         BlockVersion -> m (Maybe BlockVersionState)
     getBVState = lift . getBVState
 
-    default getAllConfirmedBV
+    default getProposedBVs
         :: (MonadTrans t, MonadPollRead m', t m' ~ m) => m [BlockVersion]
-    getAllConfirmedBV = lift getAllConfirmedBV
+    getProposedBVs = lift getProposedBVs
+
+    default getConfirmedBVStates
+        :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
+        m [(BlockVersion, BlockVersionState)]
+    getConfirmedBVStates = lift getConfirmedBVStates
 
     default getLastBVState
         :: (MonadTrans t, MonadPollRead m', t m' ~ m) => m BlockVersionState
@@ -85,6 +100,11 @@ class Monad m => MonadPollRead m where
         UpId -> m (Maybe ProposalState)
     getProposal = lift . getProposal
 
+    default getConfirmedProposals
+        :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
+        m [ConfirmedProposalState]
+    getConfirmedProposals = lift getConfirmedProposals
+
     default getEpochTotalStake
         :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
         EpochIndex -> m (Maybe Coin)
@@ -104,6 +124,11 @@ class Monad m => MonadPollRead m where
         :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
         ChainDifficulty -> m [DecidedProposalState]
     getDeepProposals = lift . getDeepProposals
+
+    default getBlockIssuerStake
+        :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
+        EpochIndex -> StakeholderId -> m (Maybe Coin)
+    getBlockIssuerStake e = lift . getBlockIssuerStake e
 
 instance MonadPollRead m => MonadPollRead (ReaderT s m)
 instance MonadPollRead m => MonadPollRead (StateT s m)
@@ -126,8 +151,8 @@ class MonadPollRead m => MonadPoll m where
     -- ^ Set last confirmed version of application.
     delConfirmedSV :: ApplicationName -> m ()
     -- ^ Del last confirmed version of application.
-    addConfirmedProposal :: NumSoftwareVersion -> UpdateProposal -> m ()
-    -- ^ Add new confirmed update proposal for our application.
+    addConfirmedProposal :: ConfirmedProposalState -> m ()
+    -- ^ Add new confirmed update proposal.
     addActiveProposal :: ProposalState -> m ()
     -- ^ Add new active proposal with its state.
     deactivateProposal :: UpId -> m ()
@@ -155,8 +180,8 @@ class MonadPollRead m => MonadPoll m where
     delConfirmedSV = lift . delConfirmedSV
 
     default addConfirmedProposal
-        :: (MonadTrans t, MonadPoll m', t m' ~ m) => NumSoftwareVersion -> UpdateProposal -> m ()
-    addConfirmedProposal sv = lift . addConfirmedProposal sv
+        :: (MonadTrans t, MonadPoll m', t m' ~ m) => ConfirmedProposalState -> m ()
+    addConfirmedProposal = lift . addConfirmedProposal
 
     default addActiveProposal
         :: (MonadTrans t, MonadPoll m', t m' ~ m) => ProposalState -> m ()

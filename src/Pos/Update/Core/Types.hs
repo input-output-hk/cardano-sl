@@ -211,7 +211,7 @@ data VoteState
     | NegativeVote    -- ^ Stakeholder voted once positively.
     | PositiveRevote  -- ^ Stakeholder voted negatively, then positively.
     | NegativeRevote  -- ^ Stakeholder voted positively, then negatively.
-    deriving (Show, Generic)
+    deriving (Show, Generic, Eq)
 
 -- | Create new VoteState from bool, which is simple vote, not revote.
 newVoteState :: Bool -> VoteState

@@ -39,12 +39,13 @@ import           Pos.Types.Utxo.Class        (MonadUtxo, MonadUtxoRead)
 import           Pos.Update.Core             (UpdateProposal (..))
 import           Pos.Update.MemState.Class   (MonadUSMem (..))
 import           Pos.Update.Poll.Class       (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Types       (PollModifier (..), pmDelActivePropsIdxL,
-                                              pmDelActivePropsL, pmDelBVsL,
-                                              pmDelConfirmedL, pmLastAdoptedBVL,
-                                              pmNewActivePropsIdxL, pmNewActivePropsL,
-                                              pmNewBVsL, pmNewConfirmedL,
-                                              pmNewConfirmedPropsL, psProposal)
+import           Pos.Update.Poll.Types       (PollModifier (..), cpsSoftwareVersion,
+                                              pmDelActivePropsIdxL, pmDelActivePropsL,
+                                              pmDelBVsL, pmDelConfirmedL,
+                                              pmLastAdoptedBVL, pmNewActivePropsIdxL,
+                                              pmNewActivePropsL, pmNewBVsL,
+                                              pmNewConfirmedL, pmNewConfirmedPropsL,
+                                              psProposal)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 ----------------------------------------------------------------------------
@@ -86,7 +87,7 @@ instance MonadPollRead m =>
     getBVState pv = do
         new <- pmNewBVs <$> PollT get
         maybe (PollT $ getBVState pv) (pure . Just) $ HM.lookup pv new
-    getAllConfirmedBV = PollT getAllConfirmedBV
+    getProposedBVs = PollT getProposedBVs
     getLastBVState = do
         lpv <- getLastAdoptedBV
         maybe (PollT getLastBVState) pure =<< getBVState lpv
@@ -119,7 +120,8 @@ instance MonadPollRead m =>
     setLastConfirmedSV SoftwareVersion {..} =
         PollT $ pmNewConfirmedL . at svAppName .= Just svNumber
     delConfirmedSV appName = PollT $ pmDelConfirmedL . at appName .= Nothing
-    addConfirmedProposal nsv up = PollT $ pmNewConfirmedPropsL . at nsv .= Just up
+    addConfirmedProposal cps =
+        PollT $ pmNewConfirmedPropsL . at (cpsSoftwareVersion cps) .= Just cps
     addActiveProposal ps =
         PollT $ do
             let up = psProposal ps
@@ -130,16 +132,17 @@ instance MonadPollRead m =>
             pmNewActivePropsIdxL . at appName .= Just upId
             pmDelActivePropsL . at upId .= Nothing
             pmDelActivePropsIdxL . at appName .= Nothing
-    deactivateProposal id = PollT $ do
-        prop <- getProposal id
-        whenJust prop $ \ps -> do
-            let up = psProposal ps
-                sv = upSoftwareVersion up
-                appName = svAppName sv
-            pmNewActivePropsL . at id .= Nothing
-            pmNewActivePropsIdxL . at appName .= Nothing
-            pmDelActivePropsL . at id .= Just ()
-            pmDelActivePropsIdxL . at appName .= Just id
+    deactivateProposal id =
+        PollT $ do
+            prop <- getProposal id
+            whenJust prop $ \ps -> do
+                let up = psProposal ps
+                    sv = upSoftwareVersion up
+                    appName = svAppName sv
+                pmNewActivePropsL . at id .= Nothing
+                pmNewActivePropsIdxL . at appName .= Nothing
+                pmDelActivePropsL . at id .= Just ()
+                pmDelActivePropsIdxL . at appName .= Just id
 
 ----------------------------------------------------------------------------
 -- Common instances used all over the code

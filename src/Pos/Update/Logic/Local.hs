@@ -1,5 +1,7 @@
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE Rank2Types          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Logic of local data processing in Update System.
 
@@ -30,9 +32,11 @@ import           Formatting             (sformat, (%))
 import           System.Wlog            (WithLogger, logWarning)
 import           Universum
 
+import           Pos.Context            (WithNodeContext)
 import           Pos.Crypto             (PublicKey)
 import           Pos.DB.Class           (MonadDB)
 import qualified Pos.DB.GState          as DB
+import           Pos.Ssc.Class          (Ssc)
 import           Pos.Types              (HeaderHash, SlotId (..), slotIdF)
 import           Pos.Update.Core        (UpId, UpdatePayload (..), UpdateProposal,
                                          UpdateVote (..), canCombineVotes)
@@ -47,7 +51,8 @@ import           Pos.Update.Poll        (MonadPoll (deactivateProposal),
                                          verifyAndApplyUSPayload)
 
 -- MonadMask is needed because are using Lock. It can be improved later.
-type USLocalLogicMode σ m = (MonadDB σ m, MonadUSMem m, MonadMask m, WithLogger m)
+type USLocalLogicMode σ m = (MonadDB σ m, MonadUSMem m, MonadMask m
+                            , WithLogger m, Ssc σ, WithNodeContext σ m)
 
 getMemPool :: (MonadUSMem m, MonadIO m) => m MemPool
 getMemPool = msPool <$> (askUSMemState >>= atomically . readTVar)
@@ -71,7 +76,9 @@ isProposalNeeded :: (MonadIO m, MonadUSMem m) => UpId -> m Bool
 isProposalNeeded id = not . HM.member id <$> getLocalProposals
 
 -- | Get update proposal with given id if it is known.
-getLocalProposalNVotes :: (MonadIO m, MonadUSMem m) => UpId -> m (Maybe (UpdateProposal, [UpdateVote]))
+getLocalProposalNVotes
+    :: (MonadIO m, MonadUSMem m)
+    => UpId -> m (Maybe (UpdateProposal, [UpdateVote]))
 getLocalProposalNVotes id = do
     prop <- HM.lookup id <$> getLocalProposals
     votes <- getLocalVotes
@@ -87,7 +94,7 @@ getLocalProposalNVotes id = do
 -- Otherwise 'Left err' is returned and 'err' lets caller decide whether
 -- sender could be sure that error would happen.
 processProposal
-    :: USLocalLogicMode θ m
+    :: (USLocalLogicMode ssc m)
     => UpdateProposal -> m (Either PollVerFailure ())
 processProposal proposal = processSkeleton $ UpdatePayload (Just proposal) []
 
@@ -102,7 +109,7 @@ lookupVote propId pk locVotes = HM.lookup propId locVotes >>= HM.lookup pk
 -- identifier issued by stakeholder with given PublicKey and with
 -- given decision should be requested.
 isVoteNeeded
-    :: (MonadDB ssc m, MonadUSMem m)
+    :: (MonadDB ssc m, MonadUSMem m, WithNodeContext ssc m)
     => UpId -> PublicKey -> Bool -> m Bool
 isVoteNeeded propId pk decision = do
     modifier <- getPollModifier
@@ -136,7 +143,7 @@ getLocalVote propId pk decision = do
 -- Otherwise 'Left err' is returned and 'err' lets caller decide whether
 -- sender could be sure that error would happen.
 processVote
-    :: USLocalLogicMode ϟ m
+    :: (USLocalLogicMode ssc m)
     => UpdateVote -> m (Either PollVerFailure ())
 processVote vote = processSkeleton $ UpdatePayload Nothing [vote]
 
@@ -151,12 +158,12 @@ withCurrentTip action = do
          | otherwise -> cur
 
 processSkeleton
-    :: USLocalLogicMode ϟ m
+    :: forall ssc m . (USLocalLogicMode ssc m)
     => UpdatePayload -> m (Either PollVerFailure ())
 processSkeleton payload = withUSLock $ runExceptT $ withCurrentTip $ \ms@MemState{..} -> do
     modifier <-
         runDBPoll . evalPollT msModifier . execPollT def $
-        verifyAndApplyUSPayload False (Left msSlot) payload
+        verifyAndApplyUSPayload @ssc False (Left msSlot) payload
     let newModifier = modifyPollModifier msModifier modifier
     let newPool = modifyMemPool payload modifier msPool
     pure $ ms {msModifier = newModifier, msPool = newPool}
@@ -169,7 +176,7 @@ processSkeleton payload = withUSLock $ runExceptT $ withCurrentTip $ \ms@MemStat
 -- current GState.  This function assumes that GState is locked. It
 -- tries to leave as much data as possible. It assumes that
 -- 'blkSemaphore' is taken.
-usNormalize :: USLocalLogicMode ς m => m ()
+usNormalize :: (USLocalLogicMode ssc m) => m ()
 usNormalize =
     withUSLock $ do
         tip <- DB.getTip
@@ -178,7 +185,7 @@ usNormalize =
 
 -- Normalization under lock.
 usNormalizeDo
-    :: USLocalLogicMode ς m
+    :: forall ssc m . (USLocalLogicMode ssc m)
     => Maybe HeaderHash -> Maybe SlotId -> m MemState
 usNormalizeDo tip slot = do
     stateVar <- askUSMemState
@@ -186,7 +193,7 @@ usNormalizeDo tip slot = do
     let mp@MemPool {..} = msPool
     ((newProposals, newVotes), newModifier) <-
         runDBPoll . runPollT def $
-        normalizePoll msSlot mpProposals mpLocalVotes
+        normalizePoll @ssc msSlot mpProposals mpLocalVotes
     let newTip = fromMaybe msTip tip
     let newSlot = fromMaybe msSlot slot
     let newPool = mp {mpProposals = newProposals, mpLocalVotes = newVotes}
@@ -200,7 +207,7 @@ usNormalizeDo tip slot = do
     return newMS
 
 -- | Update memory state to make it correct for given slot.
-processNewSlot :: USLocalLogicMode μ m => SlotId -> m ()
+processNewSlot :: (USLocalLogicMode ssc m) => SlotId -> m ()
 processNewSlot slotId = withUSLock $ withCurrentTip $ \ms@MemState{..} -> do
     if | msSlot >= slotId -> pure ms
        -- Crucial changes happen only when epoch changes.
@@ -212,7 +219,7 @@ processNewSlot slotId = withUSLock $ withCurrentTip $ \ms@MemState{..} -> do
 -- nobody can apply/rollback blocks in parallel.
 -- Sometimes payload can't be created. It can happen if we are trying to
 -- create block for slot which has already passed, for example.
-usPreparePayload :: USLocalLogicMode μ m => SlotId -> m (Maybe UpdatePayload)
+usPreparePayload :: (USLocalLogicMode ssc m) => SlotId -> m (Maybe UpdatePayload)
 usPreparePayload slotId@SlotId{..} = do
     -- First of all, we make sure that mem state corresponds to given
     -- slot.  If mem state corresponds to newer slot already, it won't

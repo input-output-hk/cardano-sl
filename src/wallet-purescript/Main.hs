@@ -36,15 +36,19 @@ main =
       , mkSumType (Proxy @CT.CTx)
       , mkSumType (Proxy @CT.NotifyEvent)
       , mkSumType (Proxy @PT.Coin)
+      , mkSumType (Proxy @PT.ChainDifficulty)
       , mkSumType (Proxy @BP.BackupPhrase)
       ]
   where
       customBridge =
-          defaultBridge <|> posixTimeBridge <|> word8Bridge <|> word32Bridge <|>
+          defaultBridge <|> posixTimeBridge <|> wordBridge <|> word8Bridge <|> word32Bridge <|>
           word64Bridge <|> hashBridge
 
 posixTimeBridge :: BridgePart
 posixTimeBridge = typeName ^== "NominalDiffTime" >> pure psPosixTime
+
+wordBridge :: BridgePart
+wordBridge = typeName ^== "Word" >> pure psInt
 
 word8Bridge :: BridgePart
 word8Bridge = typeName ^== "Word8" >> pure psInt

@@ -17,7 +17,7 @@ import           Pos.Types                  (BlockVersion, Coin, EpochIndex, Hea
                                              SlotId (..), StakeholderId, applyCoinPortion,
                                              crucialSlot, sumCoins, unsafeIntegerToCoin)
 import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Logic.Base (adoptBlockVersion, canBeProposedBV)
+import           Pos.Update.Poll.Logic.Base (adoptBlockVersion, canBeAdoptedBV)
 import           Pos.Update.Poll.Types      (BlockVersionState (..), PollVerFailure (..))
 import           Pos.Util                   (inAssertMode)
 
@@ -132,7 +132,7 @@ chooseToAdopt = NE.head
 filterBVAfterAdopt :: MonadPoll m => [(BlockVersion)] -> m ()
 filterBVAfterAdopt = mapM_ filterBVAfterAdoptDo
   where
-    filterBVAfterAdoptDo bv = unlessM (canBeProposedBV bv) $ delBVState bv
+    filterBVAfterAdoptDo bv = unlessM (canBeAdoptedBV bv) $ delBVState bv
 
 -- Here we check that all confirmed versions satisfy
 sanityCheckConfirmed
@@ -140,7 +140,7 @@ sanityCheckConfirmed
     => [BlockVersion] -> m ()
 sanityCheckConfirmed = mapM_ sanityCheckConfirmedDo
   where
-    sanityCheckConfirmedDo bv = unlessM (canBeProposedBV bv) $
+    sanityCheckConfirmedDo bv = unlessM (canBeAdoptedBV bv) $
         throwError $ PollInternalError $ sformat fmt bv
     fmt = "we have confirmed block version which doesn't satisfy "%
-          "'canBeProposedBV' predicate: "%build%" :unamused:"
+          "'canBeAdoptedBV' predicate: "%build%" :unamused:"

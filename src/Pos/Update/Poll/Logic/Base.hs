@@ -11,6 +11,7 @@ module Pos.Update.Poll.Logic.Base
        , mkTotSum
 
        , adoptBlockVersion
+       , canBeAdoptedBV
        , canBeProposedBV
        , canCreateBlockBV
        , isConfirmedBV
@@ -138,6 +139,35 @@ canBeProposedPure BlockVersion { bvMajor = givenMajor
     -- components.
     relevantProposed = S.mapMonotonic bvAlt $ S.filter predicate proposed
     predicate BlockVersion {..} = bvMajor == givenMajor && bvMinor == givenMinor
+
+-- | Check whether given 'BlockVersion' can be adopted according to
+-- current Poll.
+--
+-- Specifically, the following rules regarding major and minor versions
+-- take place:
+-- 1. If major version is less than last adopted one, it can't be adopted.
+-- 2. If major version is more than '1' greater than last adopted one,
+-- it can't be adopted as well.
+-- 3. If major version is greater than last adopted one by '1', then minor
+-- version must be '0'.
+-- 4. If major version is equal to the last adopted one, then minor version
+-- can be greather than minor component of last adopted version by 1.
+canBeAdoptedBV :: MonadPollRead m => BlockVersion -> m Bool
+canBeAdoptedBV bv = canBeAdoptedPure bv <$> getLastAdoptedBV
+
+canBeAdoptedPure :: BlockVersion -> BlockVersion -> m Bool
+canBeAdoptedPure BlockVersion { bvMajor = givenMajor
+                              , bvMinor = givenMinor
+                              , bvAlt = givenAlt
+                              }
+                 BlockVersion { bvMajor = adoptedMajor
+                              , bvMinor = adoptedMinor
+                              , bvAlt = adoptedAlt
+                              }
+    | givenMajor < adoptedMajor = False
+    | givenMajor > adoptedMajor + 1 = False
+    | givenMajor == adoptedMajor + 1 = givenMinor == 0
+    | givenMajor == adoptedMajor = givenMinor == adoptedMinor + 1
 
 -- | Adopt given block version. When it happens, last adopted block
 -- version is changed.

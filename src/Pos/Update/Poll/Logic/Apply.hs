@@ -31,10 +31,11 @@ import           Pos.Types                  (ChainDifficulty, Coin, EpochIndex,
 import           Pos.Update.Core            (UpId, UpdatePayload (..),
                                              UpdateProposal (..), UpdateVote (..))
 import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Logic.Base (canBeProposedBV, canCreateBlockBV,
-                                             confirmBlockVersion, getBVScript, isDecided,
-                                             mkTotNegative, mkTotPositive, mkTotSum,
-                                             putNewProposal, voteToUProposalState)
+import           Pos.Update.Poll.Logic.Base (canBeAdoptedBV, canBeProposedBV,
+                                             canCreateBlockBV, confirmBlockVersion,
+                                             getBVScript, isDecided, mkTotNegative,
+                                             mkTotPositive, mkTotSum, putNewProposal,
+                                             voteToUProposalState)
 import           Pos.Update.Poll.Types      (BlockVersionState (..),
                                              ConfirmedProposalState (..),
                                              DecidedProposalState (..), DpsExtra (..),
@@ -384,7 +385,7 @@ applyDepthCheck hh cd
                     , cpsAdopted = Nothing
                     }
             addConfirmedProposal cps
-        needConfirmBV <- (dpsDecision &&) <$> canBeProposedBV bv
+        needConfirmBV <- (dpsDecision &&) <$> canBeAdoptedBV bv
         if | needConfirmBV -> confirmBlockVersion bv
            | otherwise -> delBVState bv
         deactivateProposal (hash upsProposal)

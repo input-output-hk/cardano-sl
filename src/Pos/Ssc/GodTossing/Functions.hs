@@ -259,7 +259,7 @@ checkShare globalCommitments globalOpeningsPK globalCertificates (addrTo, addrFr
         (_, comm, _) <- HM.lookup addrFrom globalCommitments
         -- Get pkTo's vss certificate
         vssKey <- vcVssKey <$> HM.lookup addrTo globalCertificates
-        -- Get encrypted share, which sent pkFrom to pkTo on commitment phase
+        -- Get encrypted share, which was sent from pkFrom to pkTo on commitment phase
         encShare <- HM.lookup vssKey (commShares comm)
         return (encShare, vssKey, share)
 

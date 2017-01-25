@@ -148,9 +148,8 @@ lrcDo epoch consumers tip = tip <$ do
 issuersComputationDo :: forall ssc m . WorkMode ssc m => EpochIndex -> m ()
 issuersComputationDo epochId = do
     issuers <- unionHSs .
-               map bvsIssuersUnstable .
-               filter bvsIsConfirmed <$>
-               GS.getProposedBVStates
+               map (bvsIssuersStable . snd) <$>
+               GS.getConfirmedBVStates
     issuersStakes <- foldM putIsStake mempty issuers
     putIssuersStakes epochId issuersStakes
   where

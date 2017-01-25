@@ -113,6 +113,9 @@ verifyBlock (Right blk) =
             (blk ^. gbBody . mbUpdatePayload)
         -- Block issuance can't affect verification and application of US payload,
         -- so it's fine to separate it.
+        -- Note, however, that it's important to do it after
+        -- 'verifyAndApplyUSPayload', because there we assume that block
+        -- version is confirmed.
         let consensusData = blk ^. gbHeader . gbhConsensus
         let issuerPk =
                 case consensusData ^. mcdSignature of

@@ -87,6 +87,7 @@ usRollbackBlocks blunds =
     modifierToBatch <$> (runDBPoll . execPollT def $ mapM_ rollbackDo blunds)
   where
     rollbackDo :: (Block ssc, USUndo) -> PollT (DBPoll m) ()
+    -- FIXME: rollback of genesis block can be non-trivial too!
     rollbackDo (Left _, _) = pass
     rollbackDo (Right blk, undo) =
         rollbackUSPayload

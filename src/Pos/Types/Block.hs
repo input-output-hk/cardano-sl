@@ -474,12 +474,16 @@ verifyBlocks
        ( SscHelpersClass ssc
        , BiSsc ssc
        , t ~ OldestFirst f (Block ssc)
-       , NontrivialContainer t)
-    => Maybe SlotId -> OldestFirst f (Block ssc) -> VerificationRes
-verifyBlocks curSlotId = view _3 . foldl' step start
+       , NontrivialContainer t
+       )
+    => Maybe SlotId
+    -> Maybe SlotLeaders
+    -> OldestFirst f (Block ssc)
+    -> VerificationRes
+verifyBlocks curSlotId initLeaders = view _3 . foldl' step start
   where
     start :: (Maybe SlotLeaders, Maybe (BlockHeader ssc), VerificationRes)
-    start = (Nothing, Nothing, mempty)
+    start = (initLeaders, Nothing, mempty)
     step
         :: (Maybe SlotLeaders, Maybe (BlockHeader ssc), VerificationRes)
         -> Block ssc

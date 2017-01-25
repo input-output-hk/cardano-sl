@@ -36,6 +36,7 @@ import           Control.Monad.Except      (ExceptT (ExceptT), runExceptT, throw
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
 import           Data.Default              (Default (def))
 import qualified Data.HashMap.Strict       as HM
+import qualified Data.HashSet              as HS
 import           Data.List.NonEmpty        ((<|))
 import qualified Data.List.NonEmpty        as NE
 import qualified Data.Text                 as T
@@ -77,12 +78,13 @@ import           Pos.Types                 (Block, BlockHeader, EpochIndex,
                                             MainExtraHeaderData (..), ProxySKEither,
                                             ProxySKSimple, SlotId (..), SlotLeaders,
                                             TxAux, TxId, VerifyHeaderParams (..),
-                                            blockHeader, difficultyL, epochIndexL,
-                                            epochOrSlot, genesisHash, getEpochOrSlot,
-                                            headerHash, headerHashG, headerSlot,
-                                            mkGenesisBlock, mkMainBlock, mkMainBody,
-                                            prevBlockL, topsortTxs, verifyHeader,
-                                            verifyHeaders, vhpVerifyConsensus)
+                                            blockHeader, blockLeaders, difficultyL,
+                                            epochIndexL, epochOrSlot, genesisHash,
+                                            getEpochOrSlot, headerHash, headerHashG,
+                                            headerSlot, mkGenesisBlock, mkMainBlock,
+                                            mkMainBody, prevBlockL, topsortTxs,
+                                            verifyHeader, verifyHeaders,
+                                            vhpVerifyConsensus)
 import qualified Pos.Types                 as Types
 import           Pos.Update.Core           (UpdatePayload (..))
 import           Pos.Update.Logic          (usCanCreateBlock, usPreparePayload,
@@ -379,8 +381,19 @@ verifyBlocksPrefix blocks = runExceptT $ do
     tipBlk <- DB.getTipBlock
     when (headerHash tipBlk /= blocks ^. _Wrapped . _neHead . prevBlockL) $
         throwError "the first block isn't based on the tip"
+    leaders <-
+        lrcActionOnEpochReason
+        headEpoch
+        "Delegation.Logic#verifyBlocksPrefix: there are no leaders for epoch "
+        LrcDB.getLeaders
+    case blocks ^. _Wrapped . _neHead of
+        (Left block) ->
+            when (HS.fromList (NE.toList $ block ^. blockLeaders) /=
+                  HS.fromList (NE.toList leaders)) $
+                throwError "Genesis block leaders don't match with LRC-computed"
+        _ -> pass
     verResToMonadError formatAllErrors $
-        Types.verifyBlocks (Just curSlot) (over _Wrapped (tipBlk <|) blocks)
+        Types.verifyBlocks (Just curSlot) (Just leaders) (over _Wrapped (tipBlk <|) blocks)
     verResToMonadError formatAllErrors =<< sscVerifyBlocks False blocks
     txUndo <- ExceptT $ txVerifyBlocks blocks
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks
@@ -392,6 +405,8 @@ verifyBlocksPrefix blocks = runExceptT $ do
                (getOldestFirst pskUndo)
                (getOldestFirst usUndos)
          , pModifier)
+  where
+    headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
 
 -- | Applies blocks if they're valid. Takes one boolean flag
 -- "rollback". Returns header hash of last applied block (new tip) on

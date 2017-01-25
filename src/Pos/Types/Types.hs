@@ -278,13 +278,15 @@ epochOrSlot :: (EpochIndex -> a) -> (SlotId -> a) -> EpochOrSlot -> a
 epochOrSlot f g = either f g . unEpochOrSlot
 
 instance Ord EpochOrSlot where
-    EpochOrSlot (Left e1) < EpochOrSlot (Left e2) = e1 < e2
-    EpochOrSlot (Right s1) < EpochOrSlot (Right s2) = s1 < s2
-    EpochOrSlot (Right s1) < EpochOrSlot (Left e2) = siEpoch s1 < e2
-    EpochOrSlot (Left e1) < EpochOrSlot (Right s2) = e1 <= siEpoch s2
-    EpochOrSlot (Left e1) <= EpochOrSlot (Left e2) = e1 <= e2
-    EpochOrSlot (Right s1) <= EpochOrSlot (Right s2) = s1 <= s2
-    EpochOrSlot a <= EpochOrSlot b = a < b
+    compare (EpochOrSlot e1) (EpochOrSlot e2) = case (e1,e2) of
+        (Left s1, Left s2)                      -> compare s1 s2
+        (Right s1, Left s2) | (siEpoch s1) < s2 -> LT
+                            | otherwise         -> GT
+        (Left s1, Right s2) | s1 > (siEpoch s2) -> GT
+                            | otherwise         -> LT
+        (Right s1, Right s2)
+            | siEpoch s1 == siEpoch s2 -> siSlot s1 `compare` siSlot s2
+            | otherwise -> siEpoch s1 `compare` siEpoch s2
 
 instance Buildable EpochOrSlot where
     build = either Buildable.build Buildable.build . unEpochOrSlot

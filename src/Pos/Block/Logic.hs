@@ -384,7 +384,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
     leaders <-
         lrcActionOnEpochReason
         headEpoch
-        "Delegation.Logic#verifyBlocksPrefix: there are no leaders for epoch "
+        "Block.Logic#verifyBlocksPrefix: there are no leaders for epoch "
         LrcDB.getLeaders
     case blocks ^. _Wrapped . _neHead of
         (Left block) ->

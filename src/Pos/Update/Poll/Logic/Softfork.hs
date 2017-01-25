@@ -5,26 +5,57 @@ module Pos.Update.Poll.Logic.Softfork
        , processGenesisBlock
        ) where
 
-import           Control.Monad.Except       (MonadError)
+import           Control.Monad.Except       (MonadError, throwError)
+import qualified Data.HashSet               as HS
 import           Data.List.NonEmpty         (NonEmpty, nonEmpty)
 import qualified Data.List.NonEmpty         as NE
 import           Formatting                 (build, sformat, (%))
 import           Universum
 
 import           Pos.Constants              (usSoftforkThreshold)
-import           Pos.Types                  (BlockVersion, Coin, EpochIndex,
-                                             StakeholderId, applyCoinPortion, sumCoins,
-                                             unsafeIntegerToCoin)
+import           Pos.Types                  (BlockVersion, Coin, EpochIndex, HeaderHash,
+                                             SlotId (..), StakeholderId, applyCoinPortion,
+                                             crucialSlot, sumCoins, unsafeIntegerToCoin)
 import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Logic.Base (adoptBlockVersion, canBeProposedBV)
 import           Pos.Update.Poll.Types      (BlockVersionState (..), PollVerFailure (..))
 
--- | Record the fact that block with given version has been issued by
--- stakeholder with given id.
+-- | Record the fact that main block with given version has been issued by
+-- stakeholder with given id for the given slot.
 recordBlockIssuance
-    :: MonadPoll m
-    => StakeholderId -> BlockVersion -> m ()
-recordBlockIssuance _ _ = pass
+    :: (MonadError PollVerFailure m, MonadPoll m)
+    => StakeholderId -> BlockVersion -> SlotId -> HeaderHash -> m ()
+recordBlockIssuance id bv slot h = do
+    let unstable = slot > crucialSlot (siEpoch slot)
+    bvs@BlockVersionState {..} <- note noBVError =<< getBVState bv
+    if | id `HS.member` bvsIssuersStable -> pass
+       | id `HS.member` bvsIssuersUnstable && unstable -> pass
+       | id `HS.member` bvsIssuersUnstable -> throwError unstableNotEmpty
+       | otherwise -> putBVState bv $ newBVS bvs unstable
+  where
+    noBVError =
+        PollInternalError $
+        sformat
+            ("someone issued a block with unconfirmed block version (" %build %
+             ") and we are recording this fact now")
+            bv
+    unstableNotEmpty =
+        PollInternalError $
+        sformat
+            ("bvsIssuersUnstable is not empty while we are processing slot"%
+             " before a crucial one (block is "%
+             build%")") h
+    newBVS bvs@BlockVersionState {..} unstable
+        | unstable =
+            bvs
+            { bvsIssuersUnstable = HS.insert id bvsIssuersUnstable
+            , bvsLastBlockUnstable = Just h
+            }
+        | otherwise =
+            bvs
+            { bvsIssuersStable = HS.insert id bvsIssuersStable
+            , bvsLastBlockStable = Just h
+            }
 
 -- | Process creation of genesis block for given epoch.
 processGenesisBlock
@@ -84,6 +115,8 @@ moveUnstable (bv, bvs@BlockVersionState {..}) =
         bvs
         { bvsIssuersStable = bvsIssuersStable <> bvsIssuersUnstable
         , bvsLastBlockStable = bvsLastBlockUnstable <|> bvsLastBlockStable
+        , bvsIssuersUnstable = mempty
+        , bvsLastBlockUnstable = Nothing
         }
 
 -- This function chooses 'BlockVersion' to adopt when there are

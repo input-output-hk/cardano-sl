@@ -19,13 +19,17 @@ import           Universum
 
 import           Pos.Constants        (lastKnownBlockVersion)
 import           Pos.Context          (WithNodeContext)
+import           Pos.Crypto           (ProxySignature (pdDelegatePk))
 import qualified Pos.DB               as DB
 import           Pos.DB.GState        (UpdateOp (..))
 import           Pos.Ssc.Class        (Ssc)
-import           Pos.Types            (ApplicationName, Block, BlockVersion,
-                                       NumSoftwareVersion, SoftwareVersion (..),
+import           Pos.Types            (ApplicationName, Block, BlockSignature (..),
+                                       BlockVersion, NumSoftwareVersion,
+                                       SoftwareVersion (..), addressHash, blockSlot,
                                        difficultyL, epochIndexL, gbBody, gbHeader,
-                                       gbhExtra, mbUpdatePayload, mehBlockVersion)
+                                       gbhConsensus, gbhExtra, headerHash,
+                                       mbUpdatePayload, mcdLeaderKey, mcdSignature,
+                                       mehBlockVersion)
 import           Pos.Update.Core      (UpId)
 import           Pos.Update.Error     (USError (USInternalError))
 import           Pos.Update.Poll      (BlockVersionState, ConfirmedProposalState, DBPoll,
@@ -111,15 +115,25 @@ verifyBlock
     => Block ssc -> m USUndo
 verifyBlock (Left genBlk) =
     execRollT $ processGenesisBlock (genBlk ^. epochIndexL)
-verifyBlock (Right blk) = execRollT $ do
-    verifyAndApplyUSPayload
-        True
-        (Right $ blk ^. gbHeader)
-        (blk ^. gbBody . mbUpdatePayload)
-    -- Block issuance can't affect verification and application of US payload,
-    -- so it's fine to separate it.
-    -- TODO: pass block issuer id.
-    recordBlockIssuance undefined (blk ^. gbHeader . gbhExtra . mehBlockVersion)
+verifyBlock (Right blk) =
+    execRollT $ do
+        verifyAndApplyUSPayload
+            True
+            (Right $ blk ^. gbHeader)
+            (blk ^. gbBody . mbUpdatePayload)
+        -- Block issuance can't affect verification and application of US payload,
+        -- so it's fine to separate it.
+        let consensusData = blk ^. gbHeader . gbhConsensus
+        let issuerPk =
+                case consensusData ^. mcdSignature of
+                    BlockSignature _         -> consensusData ^. mcdLeaderKey
+                    BlockPSignatureEpoch ps  -> pdDelegatePk ps
+                    BlockPSignatureSimple ps -> pdDelegatePk ps
+        recordBlockIssuance
+            (addressHash issuerPk)
+            (blk ^. gbHeader . gbhExtra . mehBlockVersion)
+            (blk ^. blockSlot)
+            (headerHash blk)
 
 -- | Checks whether our software can create block according to current
 -- global state.

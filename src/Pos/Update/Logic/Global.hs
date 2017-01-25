@@ -25,10 +25,11 @@ import           Pos.DB.GState        (UpdateOp (..))
 import           Pos.Ssc.Class        (Ssc)
 import           Pos.Types            (ApplicationName, Block, BlockSignature (..),
                                        BlockVersion, NumSoftwareVersion,
-                                       SoftwareVersion (..), addressHash, blockSlot,
-                                       epochIndexL, gbBody, gbHeader, gbhConsensus,
-                                       gbhExtra, headerHash, mbUpdatePayload,
-                                       mcdLeaderKey, mcdSignature, mehBlockVersion)
+                                       SoftwareVersion (..), addressHash, blockSize,
+                                       blockSlot, epochIndexL, gbBody, gbHeader,
+                                       gbhConsensus, gbhExtra, headerHash,
+                                       mbUpdatePayload, mcdLeaderKey, mcdSignature,
+                                       mehBlockVersion)
 import           Pos.Update.Core      (BlockVersionData, UpId)
 import           Pos.Update.Error     (USError (USInternalError))
 import           Pos.Update.Poll      (BlockVersionState, ConfirmedProposalState,
@@ -36,7 +37,7 @@ import           Pos.Update.Poll      (BlockVersionState, ConfirmedProposalState
                                        ProposalState, USUndo, canCreateBlockBV, execPollT,
                                        execRollT, processGenesisBlock,
                                        recordBlockIssuance, rollbackUS, runDBPoll,
-                                       runPollT, verifyAndApplyUSPayload)
+                                       runPollT, verifyAndApplyUSPayload, verifyBlockSize)
 import           Pos.Util             (Color (Red), NE, NewestFirst, OldestFirst,
                                        colorize, inAssertMode)
 
@@ -127,6 +128,9 @@ verifyBlock (Right blk) =
             (blk ^. gbHeader . gbhExtra . mehBlockVersion)
             (blk ^. blockSlot)
             (headerHash blk)
+        -- Block size check doesn't interfere with other checks too, so
+        -- it's separated.
+        verifyBlockSize (headerHash blk) (blockSize blk)
 
 -- | Checks whether our software can create block according to current
 -- global state.

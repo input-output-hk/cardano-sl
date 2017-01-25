@@ -283,6 +283,10 @@ data PollVerFailure
     | PollBadBlockVersion { pbpvUpId       :: !UpId
                             ,  pbpvGiven   :: !BlockVersion
                             ,  pbpvAdopted :: !BlockVersion}
+    | PollTooBigBlock { ptbbHash  :: !HeaderHash
+                      , ptbbSize  :: !Byte
+                      , ptbbLimit :: !Byte
+                      }
     | PollInternalError !Text
 
 instance Buildable PollVerFailure where
@@ -345,6 +349,10 @@ instance Buildable PollVerFailure where
         bprint ("proposal "%build%" has bad protocol version: "%
                 build%" (current adopted is "%build%")")
         pbpvUpId pbpvGiven pbpvAdopted
+    build (PollTooBigBlock {..}) =
+        bprint ("block "%build%" is bigger than max block size ("%
+                int%" > "%int%")")
+        ptbbHash ptbbSize ptbbLimit
     build (PollInternalError msg) =
         bprint ("internal error: "%stext) msg
 

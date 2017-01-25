@@ -9,7 +9,10 @@ module Pos.Update.Poll.Logic
        , rollbackUS
        , normalizePoll
        , filterProposalsByThd
+
+       -- * Base
        , canCreateBlockBV
+       , verifyBlockSize
 
        -- * Softfork resolution
        , processGenesisBlock

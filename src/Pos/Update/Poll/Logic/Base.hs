@@ -18,36 +18,38 @@ module Pos.Update.Poll.Logic.Base
        , getBVScriptVersion
        , confirmBlockVersion
        , verifyNextBVData
+       , verifyBlockSize
 
        , isDecided
        , voteToUProposalState
        , putNewProposal
        ) where
 
-import           Control.Lens          (at)
-import           Control.Monad.Except  (MonadError (throwError))
-import qualified Data.HashMap.Strict   as HM
-import qualified Data.Set              as S
+import           Control.Lens               (at)
+import           Control.Monad.Except       (MonadError (throwError))
+import qualified Data.HashMap.Strict        as HM
+import qualified Data.Set                   as S
+import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
-import           Pos.Crypto            (PublicKey, hash)
-import           Pos.Script.Type       (ScriptVersion)
-import           Pos.Ssc.Class         (Ssc)
-import           Pos.Types             (BlockVersion (..), Coin, HeaderHash,
-                                        MainBlockHeader, SlotId, addressHash,
-                                        coinToInteger, difficultyL, headerHashG,
-                                        headerSlot, sumCoins, unsafeAddCoin,
-                                        unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Update.Core       (BlockVersionData (..), UpId, UpdateProposal (..),
-                                        UpdateVote (..), combineVotes, isPositiveVote,
-                                        newVoteState)
-import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Types (BlockVersionState (..),
-                                        ConfirmedProposalState (..),
-                                        DecidedProposalState (..), DpsExtra (..),
-                                        PollVerFailure (..), ProposalState (..),
-                                        UndecidedProposalState (..), UpsExtra (..),
-                                        bvsScriptVersion, cpsBlockVersion)
+import           Pos.Crypto                 (PublicKey, hash)
+import           Pos.Script.Type            (ScriptVersion)
+import           Pos.Ssc.Class              (Ssc)
+import           Pos.Types                  (BlockVersion (..), Coin, HeaderHash,
+                                             MainBlockHeader, SlotId, addressHash,
+                                             coinToInteger, difficultyL, headerHashG,
+                                             headerSlot, sumCoins, unsafeAddCoin,
+                                             unsafeIntegerToCoin, unsafeSubCoin)
+import           Pos.Update.Core            (BlockVersionData (..), UpId,
+                                             UpdateProposal (..), UpdateVote (..),
+                                             combineVotes, isPositiveVote, newVoteState)
+import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
+import           Pos.Update.Poll.Types      (BlockVersionState (..),
+                                             ConfirmedProposalState (..),
+                                             DecidedProposalState (..), DpsExtra (..),
+                                             PollVerFailure (..), ProposalState (..),
+                                             UndecidedProposalState (..), UpsExtra (..),
+                                             bvsScriptVersion, cpsBlockVersion)
 
 ----------------------------------------------------------------------------
 -- BlockVersion-related simple functions/operations
@@ -213,6 +215,16 @@ verifyNextBVData upId
             , plmbsUpId = upId
             }
     | otherwise = pass
+
+-- | Verify that size of block doesn't exceed currently adopted limit.
+verifyBlockSize
+    :: (MonadError PollVerFailure m, MonadPollRead m)
+    => HeaderHash -> Byte -> m ()
+verifyBlockSize h size = do
+    limit <- bvdMaxBlockSize <$> getAdoptedBVData
+    when (size > limit) $
+        throwError
+            PollTooBigBlock {ptbbHash = h, ptbbLimit = limit, ptbbSize = size}
 
 ----------------------------------------------------------------------------
 -- Wrappers for type-safety

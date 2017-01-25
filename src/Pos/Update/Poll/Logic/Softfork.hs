@@ -134,7 +134,7 @@ filterBVAfterAdopt = mapM_ filterBVAfterAdoptDo
   where
     filterBVAfterAdoptDo bv = unlessM (canBeAdoptedBV bv) $ delBVState bv
 
--- Here we check that all confirmed versions satisfy
+-- Here we check that all confirmed versions satisfy 'canBeAdoptedBV' predicate.
 sanityCheckConfirmed
     :: (MonadError PollVerFailure m, MonadPollRead m)
     => [BlockVersion] -> m ()

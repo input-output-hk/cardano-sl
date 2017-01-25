@@ -155,19 +155,17 @@ canBeProposedPure BlockVersion { bvMajor = givenMajor
 canBeAdoptedBV :: MonadPollRead m => BlockVersion -> m Bool
 canBeAdoptedBV bv = canBeAdoptedPure bv <$> getLastAdoptedBV
 
-canBeAdoptedPure :: BlockVersion -> BlockVersion -> m Bool
+canBeAdoptedPure :: BlockVersion -> BlockVersion -> Bool
 canBeAdoptedPure BlockVersion { bvMajor = givenMajor
                               , bvMinor = givenMinor
-                              , bvAlt = givenAlt
                               }
                  BlockVersion { bvMajor = adoptedMajor
                               , bvMinor = adoptedMinor
-                              , bvAlt = adoptedAlt
                               }
     | givenMajor < adoptedMajor = False
     | givenMajor > adoptedMajor + 1 = False
     | givenMajor == adoptedMajor + 1 = givenMinor == 0
-    | givenMajor == adoptedMajor = givenMinor == adoptedMinor + 1
+    | otherwise = givenMinor == adoptedMinor + 1
 
 -- | Adopt given block version. When it happens, last adopted block
 -- version is changed.

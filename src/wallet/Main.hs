@@ -30,8 +30,8 @@ import           Pos.Ssc.GodTossing   (SscGodTossing)
 import           Pos.Ssc.NistBeacon   (SscNistBeacon)
 import           Pos.Ssc.SscAlgo      (SscAlgo (..))
 import           Pos.Types            (EpochIndex (..), coinF, makePubKeyAddress, txaF)
-import           Pos.Update           (UpdateProposal (..), UpdateVote (..),
-                                       patakUpdateData)
+import           Pos.Update           (BlockVersionData (..), UpdateProposal (..),
+                                       UpdateVote (..), patakUpdateData)
 import           Pos.Util.TimeWarp    (NetworkAddress, sec)
 import           Pos.Wallet           (WalletMode, WalletParams (..), WalletRealMode,
                                        getBalance, runWalletReal, submitTx,
@@ -71,14 +71,17 @@ runCmd sendActions (Vote idx decision upid) = do
 runCmd sendActions ProposeUpdate{..} = do
     (skeys, na) <- ask
     let skey = skeys !! puIdx
+    let bvd = BlockVersionData
+            { bvdScriptVersion = puScriptVersion
+            , bvdSlotDuration = sec puSlotDurationSec
+            , bvdMaxBlockSize = puMaxBlockSize
+            }
     let updateProposal = UpdateProposal
-            { upBlockVersion    = puBlockVersion
-            , upSoftwareVersion = puSoftwareVersion
-            , upScriptVersion   = puScriptVersion
-            , upSlotDuration    = sec puSlotDurationSec
-            , upMaxBlockSize    = puMaxBlockSize
-            , upData            = patakUpdateData
-            , upAttributes      = mkAttributes ()
+            { upBlockVersion     = puBlockVersion
+            , upBlockVersionData = bvd
+            , upSoftwareVersion  = puSoftwareVersion
+            , upData             = patakUpdateData
+            , upAttributes       = mkAttributes ()
             }
     if null na
         then putText "Error: no addresses specified"

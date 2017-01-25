@@ -173,7 +173,7 @@ prepareGStateUS =
     genesisBVS =
         BlockVersionState
             genesisScriptVersion
-            True
+            False
             mempty
             mempty
             Nothing

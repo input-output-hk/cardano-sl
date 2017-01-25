@@ -363,6 +363,7 @@ applyDepthCheck hh cd
     applyDepthCheckDo DecidedProposalState {..} = do
         let UndecidedProposalState {..} = dpsUndecided
         let sv = upSoftwareVersion upsProposal
+        let bv = upBlockVersion upsProposal
         when dpsDecision $ do
             setLastConfirmedSV sv
             DpsExtra {..} <-
@@ -383,5 +384,7 @@ applyDepthCheck hh cd
                     , cpsAdopted = Nothing
                     }
             addConfirmedProposal cps
-            confirmBlockVersion $ upBlockVersion upsProposal
+        needConfirmBV <- (dpsDecision &&) <$> canBeProposedBV bv
+        if | needConfirmBV -> confirmBlockVersion bv
+           | otherwise -> delBVState bv
         deactivateProposal (hash upsProposal)

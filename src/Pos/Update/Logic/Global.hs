@@ -41,14 +41,15 @@ import           Pos.Update.Poll      (BlockVersionState, ConfirmedProposalState
 import           Pos.Util             (Color (Red), NE, NewestFirst, OldestFirst,
                                        colorize, inAssertMode)
 
-type USGlobalApplyMode ssc m = (WithLogger m
+type USGlobalApplyMode ssc m = ( WithLogger m
                                , DB.MonadDB ssc m
                                , Ssc ssc
                                , WithNodeContext ssc m)
-type USGlobalVerifyMode ssc m = (DB.MonadDB ssc m
+type USGlobalVerifyMode ssc m = ( DB.MonadDB ssc m
                                 , MonadError PollVerFailure m
                                 , Ssc ssc
-                                , WithNodeContext ssc m)
+                                , WithNodeContext ssc m
+                                , WithLogger m)
 
 -- | Apply chain of /definitely/ valid blocks to US part of GState DB
 -- and to US local data. This function assumes that no other thread

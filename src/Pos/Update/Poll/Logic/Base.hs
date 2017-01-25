@@ -29,7 +29,9 @@ import           Control.Lens               (at)
 import           Control.Monad.Except       (MonadError (throwError))
 import qualified Data.HashMap.Strict        as HM
 import qualified Data.Set                   as S
+import           Formatting                 (build, sformat, (%))
 import           Serokell.Data.Memory.Units (Byte)
+import           System.Wlog                (WithLogger, logDebug)
 import           Universum
 
 import           Pos.Crypto                 (PublicKey, hash)
@@ -261,7 +263,7 @@ isDecided (TotalPositive totalPositive) (TotalNegative totalNegative) (TotalSum 
 -- | Apply vote to UndecidedProposalState, thus modifing mutable data,
 -- i. e. votes and stakes.
 voteToUProposalState
-    :: MonadError PollVerFailure m
+    :: (MonadError PollVerFailure m, WithLogger m)
     => PublicKey
     -> Coin
     -> Bool
@@ -274,6 +276,12 @@ voteToUProposalState voter stake decision ups@UndecidedProposalState {..} = do
     let oldPositive = maybe False isPositiveVote oldVote
     let oldNegative = maybe False (not . isPositiveVote) oldVote
     let combinedMaybe = decision `combineVotes` oldVote
+    logDebug $ sformat (
+        "New vote: upId = "%build%",\
+        \voter = "%build%",\
+        \vote = "%build%",\
+        \voter stake = "%build)
+        upId voter combinedMaybe stake
     combined <-
         note
             (PollExtraRevote
@@ -299,6 +307,11 @@ voteToUProposalState voter stake decision ups@UndecidedProposalState {..} = do
             | otherwise = negStakeAfterRemove `unsafeAddCoin` stake
     -- We add a new vote with update state to set of votes.
     let newVotes = HM.insert voter combined upsVotes
+    logDebug $
+        sformat ("Stakes of proposal "%build%" after vote: \
+                 \positive "%build%",\
+                 \negative: "%build)
+                upId posStakeFinal negStakeFinal
     return
         ups
         { upsVotes = newVotes

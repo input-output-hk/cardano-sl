@@ -237,6 +237,13 @@ data VoteState
     | NegativeRevote  -- ^ Stakeholder voted positively, then negatively.
     deriving (Show, Generic, Eq)
 
+instance Buildable VoteState where
+    --build x = bprint $ show x
+    build PositiveVote = bprint "PositiveVote"
+    build NegativeVote = bprint "NegativeVote"
+    build PositiveRevote = bprint "PositiveRevote"
+    build NegativeRevote = bprint "NegativeRevote"
+
 -- | Create new VoteState from bool, which is simple vote, not revote.
 newVoteState :: Bool -> VoteState
 newVoteState True  = PositiveVote

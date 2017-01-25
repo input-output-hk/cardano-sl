@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns        #-}
+{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -14,6 +15,8 @@ import           Control.Monad.Except       (MonadError, throwError)
 import           Data.List                  (partition)
 import           Data.List.NonEmpty         (NonEmpty)
 import qualified Data.List.NonEmpty         as NE
+import           Formatting                 (build, sformat, (%))
+import           System.Wlog                (WithLogger, logInfo)
 import           Universum
 
 import           Pos.Constants              (blkSecurityParam, updateImplicitApproval,
@@ -44,6 +47,8 @@ import           Pos.Update.Poll.Types      (BlockVersionState (..),
                                              PollVerFailure (..), ProposalState (..),
                                              UndecidedProposalState (..), UpsExtra (..))
 
+type ApplyMode m = (MonadError PollVerFailure m, MonadPoll m, WithLogger m)
+
 -- | Verify UpdatePayload with respect to data provided by
 -- MonadPoll. If data is valid it is also applied.  Otherwise
 -- PollVerificationFailure is thrown using MonadError type class.
@@ -55,7 +60,7 @@ import           Pos.Update.Poll.Types      (BlockVersionState (..),
 -- When it is 'Right header', it means that payload from block with
 -- given header is applied.
 verifyAndApplyUSPayload
-    :: forall ssc m . (MonadError PollVerFailure m, MonadPoll m, Ssc ssc)
+    :: forall ssc m . (ApplyMode m, Ssc ssc)
     => Bool -> Either SlotId (MainBlockHeader ssc) -> UpdatePayload -> m ()
 verifyAndApplyUSPayload considerPropThreshold slotOrHeader UpdatePayload {..} = do
     -- First of all, we verify data from header.
@@ -289,14 +294,13 @@ verifyProposalStake totalStake votesAndStakes upId = do
 -- undecided state.
 -- Votes are assumed to be for the same proposal.
 verifyAndApplyVotesGroup
-    :: (MonadError PollVerFailure m, MonadPoll m)
+    :: ApplyMode m
     => Maybe (ChainDifficulty, HeaderHash) -> NonEmpty UpdateVote -> m ()
 verifyAndApplyVotesGroup cd votes = mapM_ verifyAndApplyVote votes
   where
     upId = uvProposalId $ NE.head votes
     verifyAndApplyVote vote = do
-        let
-            !stakeholderId = addressHash . uvKey $ NE.head votes
+        let !stakeholderId = addressHash . uvKey $ NE.head votes
             unknownProposalErr =
                 PollUnknownProposal
                 {pupStakeholder = stakeholderId, pupProposal = upId}
@@ -307,7 +311,7 @@ verifyAndApplyVotesGroup cd votes = mapM_ verifyAndApplyVote votes
 
 -- Here we actually apply vote to stored undecided proposal.
 verifyAndApplyVoteDo
-    :: (MonadError PollVerFailure m, MonadPoll m)
+    :: ApplyMode m
     => Maybe (ChainDifficulty, HeaderHash)
     -> UndecidedProposalState
     -> UpdateVote
@@ -331,7 +335,7 @@ verifyAndApplyVoteDo cd ups v@UpdateVote {..} = do
                     , dpsDifficulty = fst <$> cd
                     , dpsExtra = DpsExtra . snd <$> cd <*> Just False
                     }
-            | otherwise = PSUndecided ups
+            | otherwise = PSUndecided newUPS
     addActiveProposal newPS
 
 -- According to implicit agreement rule all proposals which were put
@@ -363,9 +367,8 @@ applyImplicitAgreement (flattenSlotId -> slotId) cd hh
 -- confirmed or discarded (approved become confirmed, rejected become
 -- discarded).
 applyDepthCheck
-    :: (MonadPoll m, MonadError PollVerFailure m)
-    => HeaderHash
-    -> ChainDifficulty -> m ()
+    :: ApplyMode m
+    => HeaderHash -> ChainDifficulty -> m ()
 applyDepthCheck hh cd
     | cd <= blkSecurityParam = pass
     | otherwise = do
@@ -395,6 +398,7 @@ applyDepthCheck hh cd
                     , cpsConfirmed = hh
                     , cpsAdopted = Nothing
                     }
+            logInfo $ sformat ("New confirmed proposal "%build) (hash upsProposal)
             addConfirmedProposal cps
         needConfirmBV <- (dpsDecision &&) <$> canBeAdoptedBV bv
         if | needConfirmBV -> confirmBlockVersion bv

@@ -14,6 +14,7 @@ import           Control.Monad.Trans.Class (MonadTrans)
 import           Data.Default              (def)
 import qualified Data.HashMap.Strict       as HM
 import qualified Data.List                 as List (find)
+import           System.Wlog               (HasLoggerName, CanLog)
 import           Universum
 
 import           Pos.Crypto                (hash)
@@ -27,7 +28,9 @@ import           Pos.Update.Poll.Types     (PrevValue, USUndo (..), cpsSoftwareV
 
 newtype RollT m a = RollT
     { getRollT :: StateT USUndo m a
-    } deriving (Functor, Applicative, Monad, MonadThrow, MonadTrans, MonadError e)
+    } deriving ( Functor, Applicative, Monad, MonadThrow
+               , HasLoggerName, CanLog
+               , MonadTrans, MonadError e)
 
 instance MonadPollRead m => MonadPollRead (RollT m)
 

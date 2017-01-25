@@ -11,6 +11,7 @@ import Explorer.View.Footer (footerView)
 import Explorer.View.Calculator (calculatorView)
 import Explorer.View.Dashboard (dashboardView)
 import Explorer.View.Transaction (transactionView)
+import Explorer.View.Block (blockView)
 
 view :: State -> P.Html Action
 view state =
@@ -29,6 +30,7 @@ view state =
                           Transaction -> transactionView state
                           Address -> addressView state
                           Calculator -> calculatorView state
+                          Block -> blockView state
                           NotFound -> notFoundView
                     ]
                 , footerView state

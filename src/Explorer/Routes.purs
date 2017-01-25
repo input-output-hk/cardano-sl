@@ -7,7 +7,13 @@ import Pux.Router (end, router, lit)
 import Control.Alt ((<|>))
 import Control.Apply ((<*))
 
-data Route = Dashboard | Transaction | Address | Calculator | NotFound
+data Route =
+    Dashboard
+    | Transaction
+    | Address
+    | Calculator
+    | Block
+    | NotFound
 
 match :: String -> Route
 match url = fromMaybe NotFound $ router url $
@@ -15,15 +21,18 @@ match url = fromMaybe NotFound $ router url $
   <|>
   Transaction <$ lit transactionLit <* end
   <|>
-  Address <$ lit "address" <* end
+  Address <$ lit addressLit <* end
   <|>
-  Calculator <$ lit "calculator" <* end
+  Calculator <$ lit calculatorLit <* end
+  <|>
+  Block <$ lit "block" <* end
 
 toUrl :: Route -> String
 toUrl Dashboard = dashboardUrl
 toUrl Transaction = transactionUrl
 toUrl Address = addressUrl
 toUrl Calculator = calculatorUrl
+toUrl Block = blockUrl
 toUrl NotFound = dashboardUrl
 
 litUrl :: String -> String
@@ -52,3 +61,9 @@ calculatorLit = "calculator"
 
 calculatorUrl :: String
 calculatorUrl = litUrl calculatorLit
+
+blockLit :: String
+blockLit = "block"
+
+blockUrl :: String
+blockUrl = litUrl blockLit

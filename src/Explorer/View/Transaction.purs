@@ -3,11 +3,11 @@ module Explorer.View.Transaction (transactionView) where
 import Prelude
 import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (translate)
-import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (Action, CCurrency(..), State)
-import Pux.Html (Html, div, text, h3, table, tr, td, a, span, p) as P
-import Pux.Html.Attributes (className, href) as P
-import Pux.Router (link) as P
+import Explorer.Util.DOM (currencyCSSClass)
+import Explorer.View.Common (transactionHeaderView, transactionBodyView)
+import Pux.Html (Html, div, text, h3, table, tr, td) as P
+import Pux.Html.Attributes (className) as P
 
 transactionView :: State -> P.Html Action
 transactionView state =
@@ -18,10 +18,10 @@ transactionView state =
               [ P.div
                     [ P.className "explorer-transaction__container" ]
                     [ P.h3
-                            [ P.className "headline"]
-                            [ P.text $ translate _.transaction state.lang ]
-                      , transactionHeader state
-                      , transactionBody state
+                        [ P.className "headline"]
+                        [ P.text $ translate _.transaction state.lang ]
+                    , transactionHeaderView state
+                    , transactionBodyView state
                     ]
               ]
         ,  P.div
@@ -37,71 +37,6 @@ transactionView state =
 
                       ]
                 ]
-        ]
-
-transactionHeader :: State -> P.Html Action
-transactionHeader state =
-    P.div
-          [ P.className "transaction-header"]
-          [ P.link
-              (toUrl Transaction)
-              [ P.className "hash" ]
-              [ P.text "SCRs8ojgKbClMEXH9IQO1ClGYs-qwXD0V09lxlcQaAw="]
-          , P.div
-              [ P.className "date"]
-              [ P.text "2016-10-17 18:10:05" ]
-          , P.div
-              [ P.className "amount-container" ]
-              [ P.a
-                  [ P.className "amount bg-ada"
-                  , P.href "#" ]
-                  [ P.text "3,042,900"]
-              ]
-          ]
-
-transactionBody :: State -> P.Html Action
-transactionBody state =
-    P.div
-        [ P.className "transaction-body" ]
-        [ P.div
-          [ P.className "from-hash-container" ]
-          [ P.a
-              [ P.className "from-hash", P.href "#" ]
-              [ P.text "zrVjWkH9pgc9Ng13dXD6C4KQVqnZGFTmuZ" ]
-          ]
-        , P.div
-              [ P.className "to-hash-container bg-transaction-arrow" ]
-              [ P.link
-                    (toUrl Address)
-                    [ P.className "to-hash"]
-                    [ P.text "1NPj2Y8yswHLuw8Yr1FDdobKAW6WVkUZy9" ]
-              , P.link
-                    (toUrl Address)
-                    [ P.className "to-hash"]
-                    [ P.text "1NPj2Y8yswHLuw8Yr1FDdobKasdfadsfaf" ]
-              , P.link
-                    (toUrl Address)
-                    [ P.className "to-hash"]
-                    [ P.text "1NPj2Y8yswHLuw8Yr1FDdobKasdfadsfaf" ]
-              ]
-        , P.div
-              [ P.className "to-alias-container" ]
-              [ P.p
-                  [ P.className "to-alias" ]
-                  [ P.text "to red" ]
-              , P.p
-                  [ P.className "to-alias" ]
-                  [ P.text "to blue" ]
-              , P.p
-                  [ P.className "to-alias" ]
-                  [ P.text "to grey" ]
-              ]
-        , P.div
-              [ P.className "amount-container" ]
-              [ P.span
-                  [ P.className "amount bg-ada-dark" ]
-                  [ P.text "131,100"]
-              ]
         ]
 
 
@@ -124,17 +59,13 @@ summaryItems =
     ]
 
 summaryRow :: SummaryItem -> P.Html Action
-summaryRow item = do
-    let extraCSSClazz =
-            case item.currency of
-                  Just ADA -> " ada bg-ada-dark"
-                  _ -> ""
+summaryRow item =
     P.tr
         []
         [ P.td
             [ P.className "" ]
             [ P.text item.label ]
         , P.td
-            [ P.className $ "" <> extraCSSClazz  ]
+            [ P.className $ "" <> currencyCSSClass item.currency  ]
             [ P.text item.value ]
         ]

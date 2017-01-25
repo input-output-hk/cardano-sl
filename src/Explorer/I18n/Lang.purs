@@ -50,6 +50,8 @@ type Translation =
     , calculator :: String
     , version :: String
     , summary :: String
+    , block :: String
+    , hashes :: String
     , nav ::
       { home :: String
       , blockchain :: String

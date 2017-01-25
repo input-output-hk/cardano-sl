@@ -60,4 +60,5 @@ routeEffects Dashboard state = noEffects $ state
 routeEffects Transaction state = noEffects $ state
 routeEffects Address state = noEffects $ state
 routeEffects Calculator state = noEffects $ state
+routeEffects Block state = noEffects $ state
 routeEffects NotFound state = noEffects $ state

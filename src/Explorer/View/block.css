@@ -1,0 +1,76 @@
+@import "../../global.css";
+
+.explorer-block {
+  background-color: var(--color4);
+
+  &__wrapper {
+    background-color: var(--color4);
+
+    &:nth-child(even) {
+      background-color: var(--color6);
+    }
+  }
+
+  &__container {
+    @neat-outer-container;
+    padding: 56px 0 48px 0;
+  }
+
+  .subheadline {
+    font-family: var(--fontFamily0-Bold);
+    color: var(--color8);
+    font-size: 10px;
+    font-weight: bold;
+    padding: 10px 24px;
+  }
+
+  .blocks-wrapper {
+
+  }
+
+  .summary-container {
+    @neat-span-columns 6;
+  }
+
+  .hashes-container {
+    @neat-span-columns 6;
+  }
+
+  .row {
+    @neat-outer-container;
+    background-color: var(--color6);
+    padding: 0 24px;
+    &:nth-child(even) {
+      background-color: transparent;
+    };
+  }
+
+  .row__summary {
+    .ada {
+      padding-left: 10px;
+      background-repeat: no-repeat;
+      background-position: left center;
+      background-size: 8px 7px;
+    }
+  }
+
+  .row__hashes {
+    .column__hash {
+      button: standard-button;
+      button-color: var(--color8) color(var(--color5) a(0.8)) var(--color5);
+    }
+  }
+
+  .column {
+    @neat-span-columns 4;
+    padding: 10px 0;
+    font-family: var(--fontFamily0-Regular);
+    color: var(--color8);
+    font-size: 10px;
+    font-weight: normal;
+
+    &:last-child {
+      @neat-span-columns 8;
+    }
+  }
+}

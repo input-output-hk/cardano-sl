@@ -8,6 +8,8 @@ translation =
     , address: "Address"
     , calculator: "Rechner"
     , summary: "Zusammenfassung"
+    , block: "Block"
+    , hashes: "Hashes"
     , nav : { home: "Home"
       , blockchain: "Blockchain"
       , market: "Markt"

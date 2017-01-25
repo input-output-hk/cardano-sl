@@ -15,7 +15,7 @@ module Pos.Update.Poll.Logic.Base
        , canBeProposedBV
        , canCreateBlockBV
        , isConfirmedBV
-       , getBVScript
+       , getBVScriptVersion
        , confirmBlockVersion
 
        , isDecided
@@ -56,8 +56,8 @@ isConfirmedBV :: MonadPollRead m => BlockVersion -> m Bool
 isConfirmedBV = fmap (maybe False bvsIsConfirmed) . getBVState
 
 -- | Get 'ScriptVersion' associated with given 'BlockVersion' if it is known.
-getBVScript :: MonadPollRead m => BlockVersion -> m (Maybe ScriptVersion)
-getBVScript = fmap (maybe Nothing (Just . bvsScript)) . getBVState
+getBVScriptVersion :: MonadPollRead m => BlockVersion -> m (Maybe ScriptVersion)
+getBVScriptVersion = fmap (fmap bvsScriptVersion) . getBVState
 
 -- | Mark given 'BlockVersion' as confirmed if it is known.
 confirmBlockVersion :: MonadPoll m => BlockVersion -> m ()

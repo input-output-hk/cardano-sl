@@ -43,8 +43,10 @@ import           Data.SafeCopy              (base, deriveSafeCopySimple)
 import qualified Data.Text                  as T
 import           Data.Text.Buildable        (Buildable)
 import qualified Data.Text.Buildable        as Buildable
+import           Data.Time.Units            (Microsecond)
 import           Formatting                 (bprint, build, int, (%))
 import           Language.Haskell.TH.Syntax (Lift)
+import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Text         (listJson)
 import           Universum                  hiding (show)
 
@@ -84,6 +86,8 @@ data UpdateProposal = UpdateProposal
     { upBlockVersion    :: !BlockVersion
     , upScriptVersion   :: !ScriptVersion
     , upSoftwareVersion :: !SoftwareVersion
+    , upSlotDuration    :: !Microsecond
+    , upMaxBlockSize    :: !Byte
     , upData            :: !(HM.HashMap SystemTag UpdateData)
     -- ^ UpdateData for each system which this update affects.
     -- It must be non-empty.
@@ -98,9 +102,16 @@ instance Buildable UpdateProposal where
               " { block v"%build%
               ", scripts v"%build%
               ", tags: "%listJson%
+              ", slot duration: "%int%" mcs"%
+              ", block size limit: "%int% "bytes"%
               ", no attributes "%
               " }")
-        upSoftwareVersion upBlockVersion upScriptVersion (HM.keys upData)
+        upSoftwareVersion
+        upBlockVersion
+        upScriptVersion
+        (HM.keys upData)
+        upSlotDuration
+        upMaxBlockSize
 
 instance Buildable (UpdateProposal, [UpdateVote]) where
     build (up, votes) =

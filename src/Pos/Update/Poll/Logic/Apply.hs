@@ -33,8 +33,8 @@ import           Pos.Update.Core            (UpId, UpdatePayload (..),
 import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Logic.Base (canBeAdoptedBV, canBeProposedBV,
                                              canCreateBlockBV, confirmBlockVersion,
-                                             getBVScript, isDecided, mkTotNegative,
-                                             mkTotPositive, mkTotSum, putNewProposal,
+                                             isDecided, mkTotNegative, mkTotPositive,
+                                             mkTotSum, putNewProposal,
                                              voteToUProposalState)
 import           Pos.Update.Poll.Types      (BlockVersionState (..),
                                              ConfirmedProposalState (..),
@@ -167,43 +167,63 @@ verifyAndApplyProposal considerThreshold slotOrHeader votes up@UpdateProposal {.
 -- version.
 --
 -- The following checks are performed:
--- 1. We check that script version from proposal is the
--- same as script versions of other proposals with the same protocol
--- version.
--- 2. If proposal has a new 'BlockVersion', we check that its
--- `ScriptVersion' is 'lastScriptVersion + 1'.
+--
+-- 1. We check that versions and constants from proposal are the same as
+-- versions and constants from other proposals with the same block version.
+--
+-- 2. But if the proposal has a new 'BlockVersion', we check that
+-- a) its 'ScriptVersion' is @lastScriptVersion + 1@, and
+-- b) its 'maxBlockSize' is at most 2× the previous block size.
 verifyAndApplyProposalBVS
     :: (MonadError PollVerFailure m, MonadPoll m)
     => UpId -> UpdateProposal -> m ()
 verifyAndApplyProposalBVS upId UpdateProposal {..} =
-    getBVScript upBlockVersion >>= \case
-        -- If there is no known script version for given procol
-        -- version, it's added. Added script version must be 1 more
-        -- than last adopted one.
+    getBVState upBlockVersion >>= \case
+        -- This block version is already known, so we just check that
+        -- everything is the same
+        Just BlockVersionState{..}
+            | bvsScriptVersion /= upScriptVersion -> throwError
+                  PollWrongScriptVersion
+                      { pwsvExpected = bvsScriptVersion
+                      , pwsvFound    = upScriptVersion
+                      , pwsvUpId     = upId }
+            | bvsSlotDuration /= upSlotDuration -> throwError
+                  PollWrongSlotDuration
+                      { pwsdExpected = bvsSlotDuration
+                      , pwsdFound    = upSlotDuration
+                      , pwsdUpId     = upId }
+            | bvsMaxBlockSize /= upMaxBlockSize -> throwError
+                  PollWrongMaxBlockSize
+                      { pwmbsExpected = bvsMaxBlockSize
+                      , pwmbsFound    = upMaxBlockSize
+                      , pwmbsUpId     = upId }
+            | otherwise -> pass
+        -- This block version isn't known, so we can add it after doing
+        -- checks against the previous known block version state
         Nothing -> do
-            lsv <- bvsScript <$> getLastBVState
-            let newBVS = BlockVersionState { bvsScript = upScriptVersion
-                                           , bvsIsConfirmed = False
-                                           , bvsIssuersStable = mempty
-                                           , bvsIssuersUnstable = mempty
-                                           , bvsLastBlockStable = Nothing
-                                           , bvsLastBlockUnstable = Nothing
-                                           }
-            if | lsv + 1 == upScriptVersion ->
-                        putBVState upBlockVersion newBVS
-               | otherwise -> throwUnexpectedSV $ lsv + 1
-        Just sv
-            -- If script version matches stored version, it's good.
-            | sv == upScriptVersion -> pass
-            -- Otherwise verification fails.
-            | otherwise -> throwUnexpectedSV sv
-  where
-    throwUnexpectedSV exVer = throwError
-        PollWrongScriptVersion
-        { pwsvExpected = exVer
-        , pwsvFound = upScriptVersion
-        , pwsvUpId = upId
-        }
+            BlockVersionState{..} <- getLastBVState
+            let newBVS = BlockVersionState
+                  { bvsScriptVersion = upScriptVersion
+                  , bvsIsConfirmed   = False
+                  , bvsSlotDuration  = upSlotDuration
+                  , bvsMaxBlockSize  = upMaxBlockSize
+                  , bvsIssuersStable = mempty
+                  , bvsIssuersUnstable = mempty
+                  , bvsLastBlockStable = Nothing
+                  , bvsLastBlockUnstable = Nothing
+                  }
+            if | upScriptVersion /= bvsScriptVersion + 1 ->
+                     throwError PollWrongScriptVersion
+                         { pwsvExpected = bvsScriptVersion + 1
+                         , pwsvFound    = upScriptVersion
+                         , pwsvUpId     = upId }
+               | upMaxBlockSize > bvsMaxBlockSize * 2 ->
+                     throwError PollLargeMaxBlockSize
+                         { plmbsMaxPossible = bvsMaxBlockSize * 2
+                         , plmbsFound       = upMaxBlockSize
+                         , plmbsUpId        = upId }
+               | otherwise ->
+                     putBVState upBlockVersion newBVS
 
 -- Here we check that software version is 1 more than last confirmed
 -- version of given application. Or 0 if it's new application.

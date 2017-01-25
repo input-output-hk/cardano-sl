@@ -40,6 +40,8 @@ instance Arbitrary UpdateProposal where
         <$> arbitrary
         <*> arbitrary
         <*> arbitrary
+        <*> arbitrary
+        <*> arbitrary
         <*> (HM.fromList <$> listOf1 arbitrary)
         <*> pure (mkAttributes ())
 

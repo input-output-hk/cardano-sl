@@ -48,12 +48,16 @@ instance Message (MsgHeaders ssc) where
     formatMessage _ = "BlockHeaders"
 
 -- | 'Block' message (see protocol specification).
-newtype MsgBlock ssc =
+--
+-- The @s@ parameter is used for passing block size limit to deserialization
+-- instances (using "Data.Reflection"). Grep for 'reify' and 'reflect' to see
+-- usage examples.
+newtype MsgBlock s ssc =
     MsgBlock (Block ssc)
     deriving (Generic, Show)
 
-deriving instance (Ssc ssc, Eq (SscPayload ssc)) => Eq (MsgBlock ssc)
+deriving instance (Ssc ssc, Eq (SscPayload ssc)) => Eq (MsgBlock s ssc)
 
-instance Message (MsgBlock ssc) where
+instance Message (MsgBlock s ssc) where
     messageName _ = MessageName $ BC.pack "Block"
     formatMessage _ = "Block"

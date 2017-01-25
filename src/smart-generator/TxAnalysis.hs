@@ -18,10 +18,10 @@ import           System.FilePath.Posix ((</>))
 import           System.Wlog           (logWarning)
 import           Universum             hiding (catchAll)
 
-import           Pos.Constants         (blkSecurityParam, slotDuration)
+import           Pos.Constants         (blkSecurityParam)
 import           Pos.Crypto            (hash)
 import           Pos.DB                (loadBlundsFromTipByDepth)
-import           Pos.Slotting          (getCurrentSlot, getSlotStart)
+import           Pos.Slotting          (getCurrentSlot, getSlotDuration, getSlotStart)
 import           Pos.Ssc.Class         (SscConstraint)
 import           Pos.Types             (SlotId (..), TxId, blockSlot, blockTxs)
 import           Pos.WorkMode          (ProductionMode)
@@ -96,9 +96,9 @@ checkWorker txts logsPrefix = loop `catchAll` onError
   where
     loop = do
         checkTxsInLastBlock txts logsPrefix
-        delay slotDuration
+        delay =<< getSlotDuration
         loop
     onError e = do
         logWarning (sformat ("Error occured in checkWorker: " %build) e)
-        delay slotDuration
+        delay =<< getSlotDuration
         loop

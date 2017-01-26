@@ -11,8 +11,7 @@ import           Universum
 import           Pos.Binary.Class         (Bi (..))
 import           Pos.Block.Network.Types  (MsgBlock (..), MsgGetBlocks (..),
                                            MsgGetHeaders (..), MsgHeaders (..))
-import           Pos.Communication.Types  (SysStartRequest (..), SysStartResponse (..),
-                                           VersionReq (..), VersionResp (..))
+import           Pos.Communication.Types  (SysStartRequest (..), SysStartResponse (..))
 import           Pos.Delegation.Types     (CheckProxySKConfirmed (..),
                                            CheckProxySKConfirmedRes (..),
                                            ConfirmProxySK (..), SendProxySK (..))
@@ -88,19 +87,6 @@ instance Bi CheckProxySKConfirmed where
 instance Bi CheckProxySKConfirmedRes where
     put (CheckProxySKConfirmedRes res) = put res
     get = CheckProxySKConfirmedRes <$> get
-
-----------------------------------------------------------------------------
--- Versioning
-----------------------------------------------------------------------------
-
-instance Bi VersionReq where
-    put VersionReq = pass
-    get = pure VersionReq
-
-instance Bi VersionResp where
-    put VersionResp{..} =  putInt32be vRespMagic
-                        *> put vRespBlockVersion
-    get = label "GenericBlockHeader" $ VersionResp <$> getInt32be <*> get
 
 ----------------------------------------------------------------------------
 -- Update system

@@ -13,12 +13,8 @@ import           Formatting          (bprint, build, (%))
 import           Universum
 
 import           Pos.Types           (Tx, TxDistribution, TxWitness)
-import           Pos.Util            (NamedMessagePart (..))
 
 data TxMsgTag = TxMsgTag
-
-instance NamedMessagePart TxMsgTag where
-    nMessageName _     = "Tx tag"
 
 instance Buildable TxMsgTag where
     build _ = "TxMsgTag"
@@ -29,9 +25,6 @@ data TxMsgContents = TxMsgContents
     , dmWitness      :: !TxWitness
     , dmDistribution :: !TxDistribution
     } deriving (Generic)
-
-instance NamedMessagePart TxMsgContents where
-    nMessageName _     = "Tx contents"
 
 instance Buildable TxMsgContents where
     build TxMsgContents {..} = bprint ("TxMsgContents { tx="%build%", .. }") dmTx

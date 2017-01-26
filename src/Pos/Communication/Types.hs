@@ -13,6 +13,7 @@ module Pos.Communication.Types
        ) where
 
 import           Pos.Communication.Types.Protocol
+import           Pos.Communication.Types.Relay
 import           Pos.Communication.Types.State
 import           Pos.Communication.Types.SysStart
 import           Pos.Txp.Types.Communication

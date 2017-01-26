@@ -18,8 +18,6 @@ import           Universum
 import           Pos.Binary.Communication          ()
 import           Pos.Block.Network.Listeners       (blockListeners, blockStubListeners)
 import           Pos.Communication.BiP             (BiP)
-import           Pos.Communication.Server.Protocol (protocolListeners,
-                                                    protocolStubListeners)
 import           Pos.Communication.Server.SysStart
 import           Pos.Communication.Util            (modifyListenerLogger)
 import           Pos.Delegation.Listeners          (delegationListeners,
@@ -42,7 +40,6 @@ allListeners =
         , map (modifyListenerLogger "ssc") $ untag sscListeners
         , map (modifyListenerLogger "tx") txListeners
         , map (modifyListenerLogger "delegation") delegationListeners
-        , map (modifyListenerLogger "protocol") protocolListeners
         , map (modifyListenerLogger "update") usListeners
         ]
   where
@@ -60,7 +57,6 @@ allStubListeners p =
         , sscStubListeners p
         , txStubListeners p
         , delegationStubListeners
-        , protocolStubListeners
         , usStubListeners
         ]
 

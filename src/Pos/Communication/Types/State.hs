@@ -4,28 +4,20 @@
 
 module Pos.Communication.Types.State
        ( PeerState
-       , peerVersion
        ) where
 
 import           Control.Lens (makeClassy)
 import           Data.Default (Default (def))
 import           Universum
 
-import           Pos.Types    (BlockVersion)
+-- [CSL-666] TODO this insfrastructure is to be used later with difference we use IP, not NodeId to track peers
 
 -- | PeerState type aggregates socket states needed for different
 -- parts of system.
 data PeerState ssc = PeerState
-    { _peerVersion     :: !(Maybe BlockVersion)
-      -- ^ Version of the protocol peer uses
-      -- FIXME
-    }
 
 -- | Classy lenses for PeerState.
 makeClassy ''PeerState
 
 instance Default (PeerState ssc) where
-    def =
-        PeerState
-        { _peerVersion = Nothing
-        }
+    def = PeerState

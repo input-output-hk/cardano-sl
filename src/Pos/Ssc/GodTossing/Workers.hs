@@ -29,6 +29,8 @@ import           Pos.Binary.Class                 (Bi)
 import           Pos.Binary.Relay                 ()
 import           Pos.Binary.Ssc                   ()
 import           Pos.Communication.BiP            (BiP)
+import           Pos.Communication.Message        ()
+import           Pos.Communication.Relay          (DataMsg (..), InvMsg (..))
 import           Pos.Constants                    (mpcSendInterval, slotSecurityParam,
                                                    vssMaxTTL)
 import           Pos.Context                      (getNodeContext, lrcActionOnEpochReason,
@@ -67,7 +69,6 @@ import           Pos.Types                        (EpochIndex, LocalSlotIndex,
                                                    StakeholderId, Timestamp (..),
                                                    addressHash)
 import           Pos.Util                         (AsBinary, asBinary, inAssertMode)
-import           Pos.Util.Relay                   (DataMsg (..), InvMsg (..))
 import           Pos.WorkMode                     (WorkMode)
 
 instance SscWorkersClass SscGodTossing where

@@ -1,23 +1,17 @@
 -- | Protocol/versioning related communication types.
 
 module Pos.Communication.Types.Protocol
-       ( VersionReq (..)
-       , VersionResp (..)
+       (
        ) where
 
-import           Node.Message          (Message (..), MessageName (..))
+import           Node.Message (MessageName)
 import           Universum
 
-import qualified Data.ByteString.Char8 as BC
-import           Pos.Types             (BlockVersion)
+import           Pos.Types    (BlockVersion)
 
 -- | Version request message. 'VersionResp' is expected as response.
 data VersionReq = VersionReq
     deriving (Show,Generic)
-
-instance Message VersionReq where
-    messageName _ = MessageName $ BC.pack "VersionReq"
-    formatMessage _ = "VersionReq"
 
 -- | Version response (on 'VersionReq' response).
 data VersionResp = VersionResp
@@ -25,6 +19,22 @@ data VersionResp = VersionResp
     , vRespBlockVersion :: BlockVersion
     } deriving (Show,Generic)
 
-instance Message VersionResp where
-    messageName _ = MessageName $ BC.pack "VersionResp"
-    formatMessage _ = "VersionResp"
+data HandlerSpec
+  = ConvHandler
+        { hsRecvType :: MessageName
+        , hsSendType :: MessageName
+        }
+  | OneMsgHandler
+        { hsMsgType :: MessageName
+        }
+    deriving (Show, Generic)
+
+data VerInfo = VerInfo
+    { vIMagic        :: Int32
+    , vIBlockVersion :: BlockVersion
+    , vIHandlersIn   :: [HandlerSpec]
+    , vIHandlersOut  :: [HandlerSpec]
+    } deriving (Show, Generic)
+
+data VerAck = VerAck
+    deriving (Show, Generic)

@@ -10,5 +10,6 @@ module Pos.Communication
 import           Pos.Communication.Arbitrary ()
 import           Pos.Communication.BiP
 import           Pos.Communication.Methods
+import           Pos.Communication.Relay
 import           Pos.Communication.Server
 import           Pos.Communication.Types

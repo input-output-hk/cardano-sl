@@ -6,26 +6,27 @@ module Pos.Block.Network.Announce
        , handleHeadersCommunication
        ) where
 
-import           Control.Concurrent.STM   (tryReadTMVar)
-import           Formatting               (build, sformat, shown, (%))
-import           Mockable                 (throw)
-import           Node                     (ConversationActions (..), SendActions (..))
-import           System.Wlog              (logDebug)
+import           Control.Concurrent.STM    (tryReadTMVar)
+import           Formatting                (build, sformat, shown, (%))
+import           Mockable                  (throw)
+import           Node                      (ConversationActions (..), SendActions (..))
+import           System.Wlog               (logDebug)
 import           Universum
 
-import           Pos.Binary.Communication ()
-import           Pos.Block.Logic          (getHeadersFromManyTo)
-import           Pos.Block.Network.Types  (MsgGetHeaders (..), MsgHeaders (..))
-import           Pos.Communication.BiP    (BiP)
-import           Pos.Context              (getNodeContext, ncAttackTypes,
-                                           ncRecoveryHeader)
-import           Pos.Crypto               (shortHashF)
-import qualified Pos.DB                   as DB
-import           Pos.DHT.Model            (converseToNeighbors, nodeIdToAddress)
-import           Pos.Security             (AttackType (..), NodeAttackedError (..),
-                                           shouldIgnoreAddress)
-import           Pos.Types                (MainBlockHeader, headerHash)
-import           Pos.WorkMode             (WorkMode)
+import           Pos.Binary.Communication  ()
+import           Pos.Block.Logic           (getHeadersFromManyTo)
+import           Pos.Block.Network.Types   (MsgGetHeaders (..), MsgHeaders (..))
+import           Pos.Communication.BiP     (BiP)
+import           Pos.Communication.Message ()
+import           Pos.Context               (getNodeContext, ncAttackTypes,
+                                            ncRecoveryHeader)
+import           Pos.Crypto                (shortHashF)
+import qualified Pos.DB                    as DB
+import           Pos.DHT.Model             (converseToNeighbors, nodeIdToAddress)
+import           Pos.Security              (AttackType (..), NodeAttackedError (..),
+                                            shouldIgnoreAddress)
+import           Pos.Types                 (MainBlockHeader, headerHash)
+import           Pos.WorkMode              (WorkMode)
 
 announceBlock
     :: WorkMode ssc m

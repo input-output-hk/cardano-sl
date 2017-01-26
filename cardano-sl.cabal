@@ -115,7 +115,6 @@ library
                         Pos.Util
                         Pos.Util.BackupPhrase
                         Pos.Util.JsonLog
-                        Pos.Util.Relay
                         Pos.Util.UserSecret
                         Pos.Util.TimeWarp
                         Pos.Worker
@@ -160,14 +159,16 @@ library
                         -- Network
                         Pos.Communication.Arbitrary
                         Pos.Communication.BiP
+                        Pos.Communication.Message
                         Pos.Communication.Methods
                         Pos.Communication.PeerState
+                        Pos.Communication.Relay
                         Pos.Communication.Types
                         Pos.Communication.Types.Protocol
+                        Pos.Communication.Types.Relay
                         Pos.Communication.Types.State
                         Pos.Communication.Types.SysStart
                         Pos.Communication.Server
-                        Pos.Communication.Server.Protocol
                         Pos.Communication.Server.SysStart
                         Pos.Communication.Util
 

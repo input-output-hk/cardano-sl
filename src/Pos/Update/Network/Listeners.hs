@@ -8,26 +8,27 @@ module Pos.Update.Network.Listeners
        , usStubListeners
        ) where
 
-import           Data.Proxy               (Proxy (..))
-import           Formatting               (build, sformat, (%))
-import           Node                     (ListenerAction (..))
-import           Serokell.Util.Verify     (VerificationRes (..))
-import           System.Wlog              (WithLogger, logDebug)
+import           Data.Proxy                (Proxy (..))
+import           Formatting                (build, sformat, (%))
+import           Node                      (ListenerAction (..))
+import           Serokell.Util.Verify      (VerificationRes (..))
+import           System.Wlog               (WithLogger, logDebug)
 import           Universum
 
-import           Pos.Binary.Communication ()
-import           Pos.Binary.Relay         ()
-import           Pos.Communication.BiP    (BiP)
-import           Pos.Update.Core          (UpId, UpdateProposal (..), UpdateVote (..),
-                                           VoteId)
-import           Pos.Update.Logic.Local   (getLocalProposalNVotes, getLocalVote,
-                                           isProposalNeeded, isVoteNeeded,
-                                           processProposal, processVote)
-import           Pos.Update.Network.Types (ProposalMsgTag (..), VoteMsgTag (..))
-import           Pos.Util                 (stubListenerOneMsg)
-import           Pos.Util.Relay           (DataMsg, InvMsg, Relay (..), ReqMsg,
-                                           handleDataL, handleInvL, handleReqL)
-import           Pos.WorkMode             (WorkMode)
+import           Pos.Binary.Communication  ()
+import           Pos.Binary.Relay          ()
+import           Pos.Communication.BiP     (BiP)
+import           Pos.Communication.Message ()
+import           Pos.Communication.Relay   (DataMsg, InvMsg, Relay (..), ReqMsg,
+                                            handleDataL, handleInvL, handleReqL)
+import           Pos.Update.Core           (UpId, UpdateProposal (..), UpdateVote (..),
+                                            VoteId)
+import           Pos.Update.Logic.Local    (getLocalProposalNVotes, getLocalVote,
+                                            isProposalNeeded, isVoteNeeded,
+                                            processProposal, processVote)
+import           Pos.Update.Network.Types  (ProposalMsgTag (..), VoteMsgTag (..))
+import           Pos.Util                  (stubListenerOneMsg)
+import           Pos.WorkMode              (WorkMode)
 
 -- | Listeners for requests related to update system
 usListeners

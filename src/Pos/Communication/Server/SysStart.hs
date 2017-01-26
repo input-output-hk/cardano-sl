@@ -9,21 +9,22 @@ module Pos.Communication.Server.SysStart
        , handleSysStartResp
        ) where
 
-import           Control.Concurrent.MVar  (MVar, tryPutMVar)
-import           Formatting               (build, sformat, shown, (%))
-import           Node                     (ConversationActions (..), Listener,
-                                           ListenerAction (..), NodeId, SendActions)
-import           System.Wlog              (logInfo)
+import           Control.Concurrent.MVar   (MVar, tryPutMVar)
+import           Formatting                (build, sformat, shown, (%))
+import           Node                      (ConversationActions (..), Listener,
+                                            ListenerAction (..), NodeId, SendActions)
+import           System.Wlog               (logInfo)
 
 import           Universum
 
-import           Pos.Binary.Communication ()
-import           Pos.Binary.DHTModel      ()
-import           Pos.Communication.BiP    (BiP)
-import           Pos.Communication.Types  (SysStartRequest (..), SysStartResponse (..))
-import           Pos.DHT.Model            (sendToNeighbors)
-import           Pos.Types                (Timestamp)
-import           Pos.WorkMode             (MinWorkMode)
+import           Pos.Binary.Communication  ()
+import           Pos.Binary.DHTModel       ()
+import           Pos.Communication.BiP     (BiP)
+import           Pos.Communication.Message ()
+import           Pos.Communication.Types   (SysStartRequest (..), SysStartResponse (..))
+import           Pos.DHT.Model             (sendToNeighbors)
+import           Pos.Types                 (Timestamp)
+import           Pos.WorkMode              (MinWorkMode)
 
 -- | Listener for 'SysStartRequest' message.
 sysStartReqListener

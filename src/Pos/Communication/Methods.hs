@@ -1,7 +1,7 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
--- | Wrappers on top of communication methods (for Pos.Util.Relay based methods).
+-- | Wrappers on top of communication methods
 
 module Pos.Communication.Methods
        ( sendTx
@@ -19,12 +19,13 @@ import           Pos.Binary.Communication    ()
 import           Pos.Binary.Relay            ()
 import           Pos.Binary.Types            ()
 import           Pos.Communication.BiP       (BiP)
+import           Pos.Communication.Message   ()
+import           Pos.Communication.Relay     (DataMsg (..))
 import           Pos.Crypto                  (hash)
 import           Pos.DHT.Model.Neighbors     (sendToNode)
 import           Pos.Txp.Types.Communication (TxMsgContents (..))
 import           Pos.Types                   (TxAux)
 import           Pos.Update                  (UpId, UpdateProposal, UpdateVote, mkVoteId)
-import           Pos.Util.Relay              (DataMsg (..))
 import           Pos.Util.TimeWarp           (NetworkAddress)
 import           Pos.WorkMode                (MinWorkMode)
 

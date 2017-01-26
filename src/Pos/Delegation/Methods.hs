@@ -6,19 +6,20 @@ module Pos.Delegation.Methods
        , sendProxyConfirmSK
        ) where
 
-import           Formatting               (build, sformat, (%))
-import           Node                     (SendActions)
-import           System.Wlog              (logDebug)
+import           Formatting                (build, sformat, (%))
+import           Node                      (SendActions)
+import           System.Wlog               (logDebug)
 import           Universum
 
-import           Pos.Binary.Communication ()
-import           Pos.Communication.BiP    (BiP)
-import           Pos.Context              (getNodeContext, ncSecretKey)
-import           Pos.Crypto               (proxySign)
-import           Pos.Delegation.Types     (ConfirmProxySK (..), SendProxySK (..))
-import           Pos.DHT.Model         (sendToNeighbors)
-import           Pos.Types                (ProxySKEpoch, ProxySKSimple)
-import           Pos.WorkMode             (MinWorkMode, WorkMode)
+import           Pos.Binary.Communication  ()
+import           Pos.Communication.BiP     (BiP)
+import           Pos.Communication.Message ()
+import           Pos.Context               (getNodeContext, ncSecretKey)
+import           Pos.Crypto                (proxySign)
+import           Pos.Delegation.Types      (ConfirmProxySK (..), SendProxySK (..))
+import           Pos.DHT.Model             (sendToNeighbors)
+import           Pos.Types                 (ProxySKEpoch, ProxySKSimple)
+import           Pos.WorkMode              (MinWorkMode, WorkMode)
 
 -- | Sends epoch psk to neighbours
 sendProxySKEpoch :: (MinWorkMode m) => SendActions BiP m -> ProxySKEpoch -> m ()

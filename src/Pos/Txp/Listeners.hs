@@ -21,6 +21,9 @@ import           Universum
 import           Pos.Binary.Communication    ()
 import           Pos.Binary.Relay            ()
 import           Pos.Communication.BiP       (BiP (..))
+import           Pos.Communication.Message   ()
+import           Pos.Communication.Relay     (DataMsg, InvMsg, Relay (..), ReqMsg,
+                                              handleDataL, handleInvL, handleReqL)
 import           Pos.Crypto                  (hash)
 import           Pos.Statistics              (StatProcessTx (..), statlogCountEvent)
 import           Pos.Txp.Class               (getMemPool)
@@ -29,8 +32,6 @@ import           Pos.Txp.Types.Communication (TxMsgContents (..), TxMsgTag (..))
 import           Pos.Txp.Types.Types         (MemPool (..), ProcessTxRes (..))
 import           Pos.Types                   (TxAux, TxId)
 import           Pos.Util                    (stubListenerOneMsg)
-import           Pos.Util.Relay              (DataMsg, InvMsg, Relay (..), ReqMsg,
-                                              handleDataL, handleInvL, handleReqL)
 import           Pos.WorkMode                (WorkMode)
 
 txListeners

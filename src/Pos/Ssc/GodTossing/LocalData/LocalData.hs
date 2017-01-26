@@ -190,11 +190,8 @@ sscIsDataUsefulQ VssCertificateMsg = sscIsCertUsefulImpl
   where
     sscIsCertUsefulImpl addr = do
         loc <- VCD.certs <$> view gtLocalCertificates
-        glob <- view gtGlobalCertificates
-        lpe <- siEpoch <$> view gtLastProcessedSlot
-        return $ if addr `HM.member` loc
-            then False
-            else maybe True (== lpe) (VCD.lookupExpiryEpoch addr glob)
+        glob <- VCD.certs <$> view gtGlobalCertificates
+        return $ (not $ addr `HM.member` loc) && (not $ addr `HM.member` glob)
 
 type MapGetter a = Getter GtState (HashMap StakeholderId a)
 type SetGetter set = Getter GtState set

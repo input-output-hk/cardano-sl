@@ -188,7 +188,7 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
 
     let certChecks certs =
             [
-              (all (maybe True ((==) curEpoch . vcExpiryEpoch) . (`HM.lookup` globalCerts))
+              (all (not . (`HM.member` globalCerts))
                    (HM.keys certs),
                    "some VSS certificates have been resubmitted \
                    \earlier than expiry epoch")
@@ -200,10 +200,10 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
 
     let ourRes = verifyGeneric $ certChecks blockCerts ++
             case payload of
-                CommitmentsPayload comms _     -> commChecks comms
-                OpeningsPayload        opens _ -> openChecks opens
-                SharesPayload         shares _ -> shareChecks shares
-                CertificatesPayload          _ -> []
+                CommitmentsPayload  comms  _ -> commChecks comms
+                OpeningsPayload     opens  _ -> openChecks opens
+                SharesPayload       shares _ -> shareChecks shares
+                CertificatesPayload        _ -> []
 
     case ourRes of
         VerSuccess -> return ()

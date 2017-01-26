@@ -18,7 +18,8 @@ import           Universum
 
 import qualified Pos.CLI              as CLI
 import           Pos.Communication    (BiP)
-import           Pos.Crypto           (SecretKey, createProxySecretKey, sign, toPublic)
+import           Pos.Crypto           (SecretKey, createProxySecretKey, encodeHash, hash,
+                                       sign, toPublic)
 import           Pos.Data.Attributes  (mkAttributes)
 import           Pos.Delegation       (sendProxySKEpoch, sendProxySKSimple)
 import           Pos.DHT.Model        (dhtAddr, discoverPeers)
@@ -87,7 +88,9 @@ runCmd sendActions ProposeUpdate{..} = do
         then putText "Error: no addresses specified"
         else do
             lift $ submitUpdateProposal sendActions skey na updateProposal
-            putText "Update proposal submitted"
+            let id = hash updateProposal
+            putText $
+              sformat ("Update proposal submitted, upId: "%build%" (base64)") (encodeHash id)
 runCmd _ Help = do
     putText $
         unlines

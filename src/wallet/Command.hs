@@ -14,7 +14,8 @@ import           Text.Parsec.Combinator     (eof, manyTill)
 import           Text.Parsec.Text           (Parser)
 import           Universum                  hiding (show)
 
-import           Pos.Crypto                 (Hash, parseHash)
+import           Pos.Binary                 ()
+import           Pos.Crypto                 (Hash, decodeHash)
 import           Pos.Script.Type            (ScriptVersion)
 import           Pos.Types                  (Address (..), BlockVersion, SoftwareVersion,
                                              TxOut (..), mkCoin, parseBlockVersion,
@@ -52,7 +53,6 @@ anyText = lexeme $ fmap toText $ manyTill anyChar (void (try space) <|> try eof)
 
 address :: Parser Address
 address = lexeme $ read <$> many1 alphaNum
-
 -- pubKey :: Parser PublicKey
 -- pubKey =
 --     fromMaybe (panic "couldn't read pk") . parseFullPublicKey . toText <$>
@@ -65,10 +65,7 @@ txout :: Parser TxOut
 txout = TxOut <$> address <*> (mkCoin <$> num)
 
 hash :: Parser (Hash a)
-hash = handleRes . parseHash =<< anyText
-  where
-    handleRes (Left err) = fail (show err)
-    handleRes (Right x)  = return x
+hash = decodeHash <$> anyText
 
 switch :: Parser Bool
 switch = lexeme $ positive $> True <|>

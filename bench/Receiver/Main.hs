@@ -20,7 +20,7 @@ import           Mockable                   (Production (runProduction))
 import           Bench.Network.Commons      (MeasureEvent (..), Ping (..), Pong (..),
                                              loadLogConfig, logMeasure)
 import qualified Network.Transport.TCP      as TCP
-import qualified Network.Transport.Concrete.TCP as TCP
+import           Network.Transport.Concrete (concrete)
 import           Node                       (ListenerAction (..), NodeAction (..), node,
                                              sendTo)
 import           Node.Message               (BinaryP (..))
@@ -39,21 +39,21 @@ main = do
     loadLogConfig logsPrefix logConfig
     setLocaleEncoding utf8
 
-    Right transport_ <- TCP.createTransportExposeInternals "0.0.0.0" "127.0.0.1" (show port)
+    Right transport_ <- TCP.createTransport "0.0.0.0" "127.0.0.1" (show port)
         TCP.defaultTCPParameters
-    let transport = TCP.concrete (runProduction . usingLoggerName "receiver") transport_
+    let transport = concrete transport_
 
     let prng = mkStdGen 0
 
     runProduction $ usingLoggerName "receiver" $ do
-        node transport prng BinaryP $ \_ ->
+        node transport prng BinaryP () $ \_ ->
             pure $ NodeAction [pingListener noPong] $ \_ -> do
                 threadDelay (fromIntegral duration :: Second)
   where
     pingListener noPong =
         -- TODO: `ListenerActionConversation` is not supported in such context
         -- why? how should it be used?
-        ListenerActionOneMsg $ \peerId sendActions (Ping mid payload) -> do
+        ListenerActionOneMsg $ \_ peerId sendActions (Ping mid payload) -> do
             logMeasure PingReceived mid payload
             unless noPong $ do
                 logMeasure PongSent mid payload

@@ -24,7 +24,7 @@ import           System.Wlog                (usingLoggerName, LoggerNameBox)
 
 import           Mockable                   (fork, realTime, delay, Production, runProduction)
 import qualified Network.Transport.Abstract as NT
-import qualified Network.Transport.Concrete.TCP as TCP
+import           Network.Transport.Concrete (concrete)
 import           Node                       (ListenerAction (..), NodeAction (..), node,
                                              nodeEndPoint, sendTo, Node(..))
 import           Node.Internal              (NodeId (..))
@@ -58,8 +58,8 @@ main = do
     loadLogConfig logsPrefix logConfig
     setLocaleEncoding utf8
 
-    Right transport_ <- TCP.createTransportExposeInternals "0.0.0.0" "127.0.0.1" "3432" TCP.defaultTCPParameters
-    let transport = TCP.concrete (runProduction . usingLoggerName "sender") transport_
+    Right transport_ <- TCP.createTransport "0.0.0.0" "127.0.0.1" "3432" TCP.defaultTCPParameters
+    let transport = concrete transport_
 
     let prngNode = mkStdGen 0
     let prngWork = mkStdGen 1
@@ -75,7 +75,7 @@ main = do
             let pingWorkers = liftA2 (pingSender prngWork payloadBound startTime msgRate)
                                      tasksIds
                                      (zip [0, msgNum..] nodeIds)
-            node transport prngNode BinaryP $ \node' ->
+            node transport prngNode BinaryP () $ \node' ->
                 pure $ NodeAction [pongListener] $ \sactions -> do
                     drones <- forM nodeIds (startDrone node')
                     _ <- forM pingWorkers (fork . flip ($) sactions)
@@ -85,8 +85,8 @@ main = do
     runProduction $ usingLoggerName "sender" $ action
   where
 
-    pongListener :: ListenerAction BinaryP (LoggerNameBox Production)
-    pongListener = ListenerActionOneMsg $ \_ _ (Pong mid payload) ->
+    pongListener :: ListenerAction BinaryP () (LoggerNameBox Production)
+    pongListener = ListenerActionOneMsg $ \_ _ _ (Pong mid payload) ->
         logMeasure PongReceived mid payload
 
     pingSender gen payloadBound startTimeMcs msgRate msgIds (msgStartId, peerId) sendActions =

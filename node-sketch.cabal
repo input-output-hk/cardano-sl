@@ -36,6 +36,8 @@ Library
                         Node.Internal
                         Node.Message
 
+                        Node.Util.Monitor
+
                         NTP.Client
                         NTP.Example
 

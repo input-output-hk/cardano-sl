@@ -166,6 +166,7 @@ patakUpdateData =
         h = unsafeHash b
     in  HM.fromList [(SystemTag b, UpdateData h h h h)]
 
+
 ----------------------------------------------------------------------------
 -- UpdateVote and related
 ----------------------------------------------------------------------------
@@ -239,8 +240,8 @@ data VoteState
 
 instance Buildable VoteState where
     --build x = bprint $ show x
-    build PositiveVote = bprint "PositiveVote"
-    build NegativeVote = bprint "NegativeVote"
+    build PositiveVote   = bprint "PositiveVote"
+    build NegativeVote   = bprint "NegativeVote"
     build PositiveRevote = bprint "PositiveRevote"
     build NegativeRevote = bprint "NegativeRevote"
 

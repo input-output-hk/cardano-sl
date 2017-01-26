@@ -2,22 +2,57 @@
 
 module Pos.Update.Download
        ( downloadHash
+       , downloadUpdate
        ) where
 
 import qualified Data.ByteArray          as BA
-import           Formatting              (formatToString, (%))
+import qualified Data.ByteString.Lazy    as BSL
+import qualified Data.HashMap.Strict     as HM
+import           Formatting              (build, formatToString, sformat, string, (%))
 import           Network.HTTP.Client     (Manager, newManager)
 import           Network.HTTP.Client.TLS (tlsManagerSettings)
 import           Network.HTTP.Simple     (getResponseBody, getResponseStatus,
                                           getResponseStatusCode, httpLBS, parseRequest,
                                           setRequestManager)
+import           Prelude                 (show)
 import qualified Serokell.Util.Base16    as B16
 import           Serokell.Util.Text      (listJsonIndent)
-import           System.FilePath         ((</>))
-import           Universum
+import           System.Directory        (doesFileExist)
+import           System.FilePath         ((<.>), (</>))
+import           System.Wlog             (logInfo, logWarning)
+import           Universum               hiding (show)
 
-import           Pos.Constants           (updateServers)
-import           Pos.Crypto              (Hash, hash)
+import           Pos.Constants           (appSystemTag, pkgUpdatesDir, updateServers)
+import           Pos.Crypto              (Hash, castHash, hash)
+import           Pos.Types.Version       (SoftwareVersion (..))
+import           Pos.Update.Core.Types   (UpdateData (..), UpdateProposal (..))
+import           Pos.Update.Poll.Types   (ConfirmedProposalState (..))
+import           Pos.WorkMode            (WorkMode)
+
+showHash :: Hash a -> FilePath
+showHash = toString . B16.encode . BA.convert
+
+-- | Download and save archive update by given `ConfirmedProposalState`
+downloadUpdate :: WorkMode ssc m => ConfirmedProposalState -> m ()
+downloadUpdate ConfirmedProposalState {..} = do
+    let mupdHash = castHash . udAppDiffHash <$>
+                   HM.lookup appSystemTag (upData cpsUpdateProposal)
+    case mupdHash of
+        Nothing -> logInfo "This update is not for our system"
+        Just updHash -> do
+            let updAppName = svAppName . upSoftwareVersion $ cpsUpdateProposal
+                updPath = pkgUpdatesDir
+                          </> (show updAppName ++ showHash updHash)
+                          <.> "tar"
+                          <.> "gz"
+            unlessM (liftIO $ doesFileExist updPath) $ do
+                efile <- liftIO $ downloadHash updHash
+                case efile of
+                    Left err -> logWarning $
+                        sformat ("Update download (hash "%build%") has failed: "%string)
+                        updHash err
+                    Right file -> do
+                        liftIO $ BSL.writeFile updPath file
 
 -- | Download a file by its hash.
 --
@@ -28,7 +63,7 @@ downloadHash h = do
 
     let -- try all servers in turn until there's a Right
         go errs (serv:rest) = do
-            let uri = serv </> toString (B16.encode (BA.convert h))
+            let uri = serv </> showHash h
             downloadUri manager uri h >>= \case
                 Left e -> go (e:errs) rest
                 Right r -> return (Right r)

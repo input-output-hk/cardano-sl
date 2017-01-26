@@ -22,7 +22,7 @@ import           Universum
 import           Pos.DB.Class         (MonadDB)
 import           Pos.Lrc.Types        (Richmen)
 import           Pos.Ssc.Class.Types  (Ssc (..))
-import           Pos.Types            (Block, EpochIndex, HeaderHash, SharedSeed)
+import           Pos.Types            (Block, EpochIndex, SharedSeed)
 import           Pos.Util             (NE, NewestFirst, OldestFirst)
 
 ----------------------------------------------------------------------------
@@ -35,7 +35,7 @@ type SscGlobalUpdate ssc a = forall m . (MonadState (SscGlobalState ssc) m) => m
 class Ssc ssc => SscStorageClass ssc where
     sscLoadGlobalState
         :: MonadDB ssc m
-        => HeaderHash -> m (SscGlobalState ssc)
+        => m (SscGlobalState ssc)
 
     sscApplyBlocksM
         :: OldestFirst NE (Block ssc) -> SscGlobalUpdate ssc ()

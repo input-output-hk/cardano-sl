@@ -29,8 +29,8 @@ import           Universum
 
 import           Pos.Binary.Ssc                 ()
 import           Pos.Constants                  (epochSlots, vssMaxTTL)
-import           Pos.DB                         (DBError (DBMalformed), MonadDB,
-                                                 getBlockHeader, loadBlocksWhile)
+import           Pos.DB                         (MonadDB, getTipBlockHeader,
+                                                 loadBlundsFromTipWhile)
 import           Pos.Lrc.Types                  (Richmen)
 import           Pos.Ssc.Class.Storage          (SscStorageClass (..))
 import           Pos.Ssc.Class.Types            (Ssc (..))
@@ -51,10 +51,10 @@ import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), GtPayload (
 import           Pos.Ssc.GodTossing.Types.Base  (VssCertificate (..))
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types                      (Block, EpochIndex (..), EpochOrSlot (..),
-                                                 HeaderHash, SharedSeed, SlotId (..),
-                                                 addressHash, blockMpc, blockSlot,
-                                                 crucialSlot, epochIndexL, epochOrSlot,
-                                                 epochOrSlotG, gbHeader)
+                                                 SharedSeed, SlotId (..), addressHash,
+                                                 blockMpc, blockSlot, crucialSlot,
+                                                 epochIndexL, epochOrSlot, epochOrSlotG,
+                                                 gbHeader)
 import           Pos.Util                       (NE, NewestFirst (..), OldestFirst)
 
 type GSQuery a  = forall m . (MonadReader GtGlobalState m, WithLogger m) => m a
@@ -289,16 +289,13 @@ calculateSeedQ _ =
     calculateSeed <$> view gsCommitments <*> view gsOpenings <*>
         view gsShares
 
-mpcLoadGlobalState :: MonadDB SscGodTossing m => HeaderHash -> m GtGlobalState
-mpcLoadGlobalState tip = do
-    bh <- getBlockHeader tip
-    endEpoch <-
-          epochOrSlot identity siEpoch <$>
-            maybe (throwM $ DBMalformed "No block header with tip")
-                  (pure . view epochOrSlotG) bh
+mpcLoadGlobalState :: MonadDB SscGodTossing m => m GtGlobalState
+mpcLoadGlobalState = do
+    tipBlockHeader <- getTipBlockHeader
+    let endEpoch  = epochOrSlot identity siEpoch $ tipBlockHeader ^. epochOrSlotG
     let startEpoch = safeSub endEpoch -- load blocks while >= endEpoch
         whileEpoch b = b ^. epochIndexL >= startEpoch
-    blocks <- loadBlocksWhile whileEpoch tip
+    blocks <- fmap fst <$> loadBlundsFromTipWhile whileEpoch
     let global' = unionBlocks blocks
         global = global'
             & gsVssCertificates %~ unionBlksCerts (reverse (getNewestFirst blocks))

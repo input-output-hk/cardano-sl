@@ -47,8 +47,7 @@ import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), GtPayload (
                                                  gsVssCertificates, vcVssKey,
                                                  _gpCertificates)
 import           Pos.Ssc.GodTossing.Types.Base  (VssCertificate (..))
-import qualified Pos.Ssc.GodTossing.VssCertData as VCD
-import           Pos.Types                      (Block, EpochIndex, EpochOrSlot (..),
+import           Pos.Types                      (Block, EpochIndex (..), EpochOrSlot (..),
                                                  HeaderHash, SharedSeed, SlotId (..),
                                                  addressHash, blockMpc, blockSlot,
                                                  crucialSlot, epochIndexL, epochOrSlot,
@@ -232,10 +231,11 @@ mpcProcessBlock blk = do
         -- “arrive”, we clear global commitments and other globals. Not
         -- certificates, though, because we don't want to make nodes resend
         -- them in each epoch.
+        -- TODO FIX IT
         Left gb -> do
-            let slot = SlotId (gb ^. epochIndexL) 0
             resetGS
-            gsVssCertificates %= (VCD.setLastKnownSlot slot)
+            let epoch = EpochOrSlot $ Left $ gb ^. epochIndexL
+            gsVssCertificates %= VCD.setLastKnownEoS epoch
         -- Main blocks contain commitments, openings, shares, VSS certificates
         Right b -> do
             gsVssCertificates %= VCD.setLastKnownSlot (b ^. blockSlot)
@@ -243,11 +243,9 @@ mpcProcessBlock blk = do
 
 mpcRollback :: NewestFirst NE (Block SscGodTossing) -> GSUpdate ()
 mpcRollback (NewestFirst blocks) = do
-    let slotMB = prevSlot $ blkSlot $ NE.last blocks
-     -- Rollback certs
-    case slotMB of
-        Nothing   -> gsVssCertificates .= unionCerts genesisCertificates
-        Just slot -> gsVssCertificates %= VCD.setLastKnownSlot slot
+    -- Rollback certs
+    let eos = (NE.last blocks) ^. epochOrSlotG
+    rollbackCerts eos
     -- Rollback other payload
     wasGenesis <- foldM foldStep False blocks
     when wasGenesis resetGS
@@ -255,11 +253,17 @@ mpcRollback (NewestFirst blocks) = do
     foldStep wasGen b
         | wasGen = pure wasGen
         | otherwise = differenceBlock b
-    prevSlot si@SlotId {..}
-        | siSlot > 0 = Just $ si {siSlot = siSlot - 1}
-        | siEpoch > 0 = Just $ SlotId {siEpoch = siEpoch - 1, siSlot = epochSlots - 1}
-        -- It means that we are rolling back all main blocks.
-        | otherwise = Nothing
+
+    rollbackCerts :: EpochOrSlot -> GSUpdate ()
+    rollbackCerts (EpochOrSlot (Left (EpochIndex 0))) =
+        gsVssCertificates .= unionCerts genesisCertificates
+    rollbackCerts (EpochOrSlot (Left ei)) =
+        gsVssCertificates %= VCD.setLastKnownSlot (SlotId (ei - 1) (epochSlots - 1))
+    rollbackCerts (EpochOrSlot (Right (SlotId e 0))) =
+        gsVssCertificates %= VCD.setLastKnownEoS (EpochOrSlot $ Left e)
+    rollbackCerts (EpochOrSlot (Right (SlotId e s))) =
+        gsVssCertificates %= VCD.setLastKnownSlot (SlotId e (s - 1))
+
     differenceBlock :: Block SscGodTossing -> GSUpdate Bool
     differenceBlock (Left _) = pure True
     differenceBlock (Right b) = do
@@ -271,8 +275,8 @@ mpcRollback (NewestFirst blocks) = do
             SharesPayload shares _ -> gsShares %= (`HM.difference` shares)
             CertificatesPayload _ -> return ()
         pure False
-    blkSlot :: Block ssc -> SlotId
-    blkSlot = epochOrSlot (flip SlotId 0) identity . (^. epochOrSlotG)
+    -- blkSlot :: Block ssc -> SlotId
+    -- blkSlot = epochOrSlot (flip SlotId 0) identity . (^. epochOrSlotG)
     unionCerts = (foldl' (flip $ uncurry VCD.insert)) VCD.empty . HM.toList
 
 -- | Calculate leaders for the next epoch.

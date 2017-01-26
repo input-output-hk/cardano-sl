@@ -117,20 +117,26 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
     let participants  = computeParticipants richmen stableCerts
     let participantsVssKeys = map vcVssKey $ toList participants
 
+    logDebug $ sformat ("Global certificates: "%listJson
+                        %", stable certificates: "%listJson
+                        %", richmen: "%listJson)
+               globalCerts stableCerts richmen
+
     let isComm  = (isCommitmentIdx slotId, "slotId doesn't belong commitment phase")
         isOpen  = (isOpeningIdx slotId, "slotId doesn't belong openings phase")
         isShare = (isSharesIdx slotId, "slotId doesn't belong share phase")
 
     -- For commitments we
+    --   * check that committing node is participant, i. e. she is richman and
+    --     her VSS certificate is one of stable certificates
     --   * check that the nodes haven't already sent their commitments before
     --     in some different block
-    --   * check that a VSS certificate is present for the committing nodeg
     --   * every commitment owner has enough (mpc+delegated) stake
     let commChecks comms =
             [ isComm
             , (all (`HM.member` participants)
                    (HM.keys comms),
-                   "some committing nodes haven't sent a VSS certificate")
+                   "some committing nodes can't be participants")
             , (all (not . (`HM.member` globalCommitments))
                    (HM.keys comms),
                    "some nodes have already sent their commitments")
@@ -142,7 +148,8 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
     -- For openings, we check that
     --   * the opening isn't present in previous blocks
     --   * corresponding commitment is present
-    --   * the opening matches the commitment
+    --   * the opening matches the commitment (this check implies that previous
+    --     one passes)
     let openChecks opens =
             [ isOpen
             , (all (not . (`HM.member` globalOpenings))
@@ -170,7 +177,7 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
                    "some shares are posted by stakeholders that don't have enough stake")
             , (all (`HM.member` globalCommitments)
                    (concatMap HM.keys $ toList shares),
-                   "some shares don't have corresponding commitments")
+                   "some internal shares don't have corresponding commitments")
             , (null (shares `HM.intersection` globalShares),
                    "some shares have already been sent")
             , (all (uncurry (checkShares globalCommitments globalOpenings participants))

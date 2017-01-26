@@ -21,7 +21,8 @@ module Pos.Ssc.GodTossing.Types.Base
 
 
 import           Data.SafeCopy       (base, deriveSafeCopySimple)
-import           Data.Text.Buildable (Buildable (..))
+import qualified Data.Text.Buildable
+import           Formatting          (bprint, build, int, (%))
 import           Universum
 
 import           Pos.Binary.Types    ()
@@ -95,6 +96,10 @@ instance Ord VssCertificate where
       where
         toTuple VssCertificate {..} =
             (vcExpiryEpoch, vcVssKey, vcSigningKey, vcSignature)
+
+instance Buildable VssCertificate where
+    build VssCertificate {..} = bprint
+        ("vssCert:"%build%":"%int) vcSigningKey vcExpiryEpoch
 
 mkVssCertificate :: SecretKey -> AsBinary VssPublicKey -> EpochIndex -> VssCertificate
 mkVssCertificate sk vk expiry = VssCertificate vk expiry (sign sk (vk, expiry)) $ toPublic sk

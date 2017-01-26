@@ -91,9 +91,9 @@ newWallet = mkFn4 \wType wCurrency wName mnemonic -> fromAff <<< map encodeJson 
 --   }, function(reason) {
 --     console.log('ERROR', reason);
 --   })
-newWalletDepricated :: forall eff . Fn4 String String String (EffFn1 (err :: EXCEPTION | eff) String Unit)
+newWalletDeprecated :: forall eff . Fn4 String String String (EffFn1 (err :: EXCEPTION | eff) String Unit)
   (Eff(ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) (Promise Json))
-newWalletDepricated = mkFn4 \wType wCurrency wName wConfirmMnemonic -> fromAff $ map encodeJson $ do
+newWalletDeprecated = mkFn4 \wType wCurrency wName wConfirmMnemonic -> fromAff $ map encodeJson $ do
 
     mnemonic <- liftEff Crypto.generateMnemonic
     -- FIXME: @jens how did we satisfy this with notify? I am having trouble again

@@ -107,7 +107,7 @@ initialNodeState
     => StdGen
     -> m (SharedAtomicT m (NodeState peerData m))
 initialNodeState prng = do
-    stats <- initialStatistics
+    !stats <- initialStatistics
     let nodeState = NodeState {
               _nodeStateGen = prng
             , _nodeStateOutboundUnidirectional = Set.empty
@@ -249,15 +249,15 @@ pstAddHandler provenance map = case provenance of
 
     Local peer _ -> case Map.lookup peer map of
         Nothing -> (Map.insert peer (PeerStatistics 0 1) map, True)
-        Just stats -> (Map.insert peer stats' map, False)
+        Just !stats -> (Map.insert peer stats' map, False)
             where
-            stats' = stats { pstRunningHandlersLocal = pstRunningHandlersLocal stats + 1 }
+            !stats' = stats { pstRunningHandlersLocal = pstRunningHandlersLocal stats + 1 }
 
     Remote peer _ _ -> case Map.lookup peer map of
         Nothing -> (Map.insert peer (PeerStatistics 1 0) map, True)
-        Just stats -> (Map.insert peer stats' map, False)
+        Just !stats -> (Map.insert peer stats' map, False)
             where
-            stats' = stats { pstRunningHandlersRemote = pstRunningHandlersRemote stats + 1 }
+            !stats' = stats { pstRunningHandlersRemote = pstRunningHandlersRemote stats + 1 }
 
 -- | Remove a handler for a given peer. Second component is True if there
 --   are no more handlers for that peer.
@@ -268,31 +268,31 @@ pstRemoveHandler
 pstRemoveHandler provenance map = case provenance of
 
     Local peer _ -> case Map.updateLookupWithKey updater peer map of
-        (Just stats, map') -> (map', pstNull stats)
+        (Just !stats, map') -> (map', pstNull stats)
         -- First component is Nothing only if the peer is not in the map.
         -- That should never happen.
         _ -> (map, False)
         where
-        updater _ stats =
-            let stats' = stats { pstRunningHandlersLocal = pstRunningHandlersLocal stats - 1 }
+        updater _ !stats =
+            let !stats' = stats { pstRunningHandlersLocal = pstRunningHandlersLocal stats - 1 }
             in  if pstNull stats' then Nothing else Just stats'
 
     Remote peer _ _ -> case Map.updateLookupWithKey updater peer map of
-        (Just stats, map') -> (map', pstNull stats)
+        (Just !stats, map') -> (map', pstNull stats)
         _ -> (map, False)
         where
-        updater _ stats =
-            let stats' = stats { pstRunningHandlersRemote = pstRunningHandlersRemote stats - 1 }
+        updater _ !stats =
+            let !stats' = stats { pstRunningHandlersRemote = pstRunningHandlersRemote stats - 1 }
             in  if pstNull stats' then Nothing else Just stats'
 
 -- | Statistics when a node is launched.
 initialStatistics :: ( Mockable Metrics.Metrics m ) => m (Statistics m)
 initialStatistics = do
-    runningHandlersRemote <- Metrics.newGauge
-    runningHandlersLocal <- Metrics.newGauge
-    peers <- Metrics.newGauge
-    handlersFinishedNormally <- Metrics.newDistribution
-    handlersFinishedExceptionally <- Metrics.newDistribution
+    !runningHandlersRemote <- Metrics.newGauge
+    !runningHandlersLocal <- Metrics.newGauge
+    !peers <- Metrics.newGauge
+    !handlersFinishedNormally <- Metrics.newDistribution
+    !handlersFinishedExceptionally <- Metrics.newDistribution
     return $ Statistics {
           stRunningHandlersRemote = runningHandlersRemote
         , stRunningHandlersLocal = runningHandlersLocal
@@ -318,16 +318,16 @@ stAddHandler
     => HandlerProvenance peerData m t
     -> Statistics m
     -> m (Statistics m)
-stAddHandler provenance statistics = case provenance of
+stAddHandler !provenance !statistics = case provenance of
 
     -- TODO: generalize this computation so we can use the same thing for
     -- both local and remote. It's a copy/paste job right now swapping local
     -- for remote.
-    Local peer _ -> do
+    Local !peer _ -> do
         when isNewPeer $ Metrics.incGauge (stPeers statistics)
         Metrics.incGauge (stRunningHandlersLocal statistics)
-        npeers <- Metrics.readGauge (stPeers statistics)
-        nhandlers <- Metrics.readGauge (stRunningHandlersLocal statistics)
+        !npeers <- Metrics.readGauge (stPeers statistics)
+        !nhandlers <- Metrics.readGauge (stRunningHandlersLocal statistics)
         let runningHandlersLocalAverage =
                 adjustMeans isNewPeer
                             (fromIntegral npeers)
@@ -338,11 +338,11 @@ stAddHandler provenance statistics = case provenance of
             , stRunningHandlersLocalAverage = runningHandlersLocalAverage
             }
 
-    Remote peer _ _ -> do
+    Remote !peer _ _ -> do
         when isNewPeer $ Metrics.incGauge (stPeers statistics)
         Metrics.incGauge (stRunningHandlersRemote statistics)
-        npeers <- Metrics.readGauge (stPeers statistics)
-        nhandlers <- Metrics.readGauge (stRunningHandlersRemote statistics)
+        !npeers <- Metrics.readGauge (stPeers statistics)
+        !nhandlers <- Metrics.readGauge (stRunningHandlersRemote statistics)
         let runningHandlersRemoteAverage =
                 adjustMeans isNewPeer
                             (fromIntegral npeers)
@@ -355,13 +355,13 @@ stAddHandler provenance statistics = case provenance of
 
     where
 
-    (peerStatistics, isNewPeer) = pstAddHandler provenance (stPeerStatistics statistics)
+    (!peerStatistics, !isNewPeer) = pstAddHandler provenance (stPeerStatistics statistics)
 
     -- Adjust the means. The Bool is true if it's a new peer.
     -- The Double is the current number of peers (always > 0).
     -- The Int is the current number of running handlers.
     adjustMeans :: Bool -> Double -> Int64 -> (Double, Double) -> (Double, Double)
-    adjustMeans isNewPeer npeers nhandlers (avg, avg2) = case isNewPeer of
+    adjustMeans !isNewPeer !npeers !nhandlers (!avg, !avg2) = case isNewPeer of
 
         True -> (avg', avg2')
             where
@@ -382,16 +382,16 @@ stRemoveHandler
     -> Maybe SomeException
     -> Statistics m
     -> m (Statistics m)
-stRemoveHandler provenance elapsed outcome statistics = case provenance of
+stRemoveHandler !provenance !elapsed !outcome !statistics = case provenance of
 
     -- TODO: generalize this computation so we can use the same thing for
     -- both local and remote. It's a copy/paste job right now swapping local
     -- for remote.
-    Local peer _ -> do
+    Local !peer _ -> do
         when isEndedPeer $ Metrics.decGauge (stPeers statistics)
         Metrics.decGauge (stRunningHandlersLocal statistics)
-        npeers <- Metrics.readGauge (stPeers statistics)
-        nhandlers <- Metrics.readGauge (stRunningHandlersLocal statistics)
+        !npeers <- Metrics.readGauge (stPeers statistics)
+        !nhandlers <- Metrics.readGauge (stRunningHandlersLocal statistics)
         let runningHandlersLocalAverage =
                 adjustMeans isEndedPeer
                             npeers
@@ -403,11 +403,11 @@ stRemoveHandler provenance elapsed outcome statistics = case provenance of
             , stRunningHandlersLocalAverage = runningHandlersLocalAverage
             }
 
-    Remote peer _ _ -> do
+    Remote !peer _ _ -> do
         when isEndedPeer $ Metrics.decGauge (stPeers statistics)
         Metrics.decGauge (stRunningHandlersRemote statistics)
-        npeers <- Metrics.readGauge (stPeers statistics)
-        nhandlers <- Metrics.readGauge (stRunningHandlersRemote statistics)
+        !npeers <- Metrics.readGauge (stPeers statistics)
+        !nhandlers <- Metrics.readGauge (stRunningHandlersRemote statistics)
         let runningHandlersRemoteAverage =
                 adjustMeans isEndedPeer
                             npeers
@@ -421,7 +421,7 @@ stRemoveHandler provenance elapsed outcome statistics = case provenance of
 
     where
 
-    (peerStatistics, isEndedPeer) = pstRemoveHandler provenance (stPeerStatistics statistics)
+    (!peerStatistics, !isEndedPeer) = pstRemoveHandler provenance (stPeerStatistics statistics)
 
     -- Convert the elapsed time to a Double and then add it to the relevant
     -- distribution.
@@ -434,7 +434,7 @@ stRemoveHandler provenance elapsed outcome statistics = case provenance of
     -- The first Int is the current number of peers (could be 0).
     -- The Int is the current number of running handlers.
     adjustMeans :: Bool -> Int64 -> Int64 -> (Double, Double) -> (Double, Double)
-    adjustMeans isEndedPeer npeers nhandlers (avg, avg2) = case isEndedPeer of
+    adjustMeans !isEndedPeer !npeers !nhandlers (!avg, !avg2) = case isEndedPeer of
 
         True -> if npeers == 0
                 then (0, 0)

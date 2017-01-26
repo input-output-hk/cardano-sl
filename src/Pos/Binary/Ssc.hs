@@ -10,39 +10,10 @@ import           Universum
 
 import           Pos.Binary.Class                 (Bi (..))
 import           Pos.Binary.Crypto                ()
-import           Pos.Ssc.GodTossing.Types.Base    (Commitment (..), Opening (..),
-                                                   VssCertificate (..))
+import           Pos.Binary.Ssc.GodTossing.Base   ()
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtMsgTag (..))
 import           Pos.Ssc.GodTossing.Types.Types   (GtPayload (..), GtProof (..),
                                                    GtSecretStorage (..))
-
-----------------------------------------------------------------------------
--- Types.Base
-----------------------------------------------------------------------------
-
-instance Bi Commitment where
-    put Commitment {..} = do
-        put commShares
-        put commExtra
-        put commProof
-    get = do
-        commShares <- get
-        when (null commShares) $ fail "get@Commitment: no shares"
-        commExtra <- get
-        commProof <- get
-        return Commitment {..}
-
-instance Bi VssCertificate where
-    put VssCertificate{..} = do
-        put vcVssKey
-        put vcExpiryEpoch
-        put vcSignature
-        put vcSigningKey
-    get = liftM4 VssCertificate get get get get
-
-instance Bi Opening where
-    put (Opening secret) = put secret
-    get = Opening <$> get
 
 ----------------------------------------------------------------------------
 -- Types.Types

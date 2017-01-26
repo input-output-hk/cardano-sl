@@ -141,6 +141,7 @@ library
                         Pos.Binary.Relay
                         Pos.Binary.Script
                         Pos.Binary.Ssc
+                        Pos.Binary.Ssc.GodTossing.Base
                         Pos.Binary.Types
                         Pos.Binary.Update
                         Pos.Binary.Util

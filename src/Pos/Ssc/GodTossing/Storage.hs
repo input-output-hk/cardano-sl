@@ -39,8 +39,9 @@ import           Pos.Ssc.GodTossing.Error       (SeedError)
 import           Pos.Ssc.GodTossing.Functions   (checkCommShares,
                                                  checkOpeningMatchesCommitment,
                                                  checkShares, computeParticipants,
-                                                 isCommitmentIdx, isOpeningIdx,
-                                                 isSharesIdx, verifyGtPayload)
+                                                 getStableCertsPure, isCommitmentIdx,
+                                                 isOpeningIdx, isSharesIdx,
+                                                 verifyGtPayload)
 import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
 import           Pos.Ssc.GodTossing.Seed        (calculateSeed)
 import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), GtPayload (..),
@@ -52,9 +53,8 @@ import           Pos.Ssc.GodTossing.Types.Base  (VssCertificate (..))
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types                      (Block, EpochIndex (..), EpochOrSlot (..),
                                                  SharedSeed, SlotId (..), addressHash,
-                                                 blockMpc, blockSlot, crucialSlot,
-                                                 epochIndexL, epochOrSlot, epochOrSlotG,
-                                                 gbHeader)
+                                                 blockMpc, blockSlot, epochIndexL,
+                                                 epochOrSlot, epochOrSlotG, gbHeader)
 import           Pos.Util                       (NE, NewestFirst (..), OldestFirst)
 
 type GSQuery a  = forall m . (MonadReader GtGlobalState m, WithLogger m) => m a
@@ -81,16 +81,10 @@ getGlobalCerts sl =
         VCD.setLastKnownSlot sl <$>
         view (gsVssCertificates)
 
-getStablePure :: EpochIndex -> VCD.VssCertData -> VssCertificatesMap
-getStablePure epoch certs
-    | epoch == 0 = genesisCertificates
-    | otherwise =
-          VCD.certs $ VCD.setLastKnownSlot (crucialSlot epoch) certs
-
--- | Verified certs for slotId
+-- | Get stable VSS certificates for given epoch.
 getStableCerts :: MonadSscGS SscGodTossing m => EpochIndex -> m VssCertificatesMap
 getStableCerts epoch =
-    getStablePure epoch <$> sscRunGlobalQuery (view gsVssCertificates)
+    getStableCertsPure epoch <$> sscRunGlobalQuery (view gsVssCertificates)
 
 -- | Verify that if one adds given block to the current chain, it will
 -- remain consistent with respect to SSC-related data.
@@ -113,7 +107,7 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
     globalShares      <- view gsShares
     globalVCD         <- view gsVssCertificates
     let globalCerts   = VCD.certs globalVCD
-    let stableCerts   = getStablePure curEpoch globalVCD
+    let stableCerts   = getStableCertsPure curEpoch globalVCD
     let participants  = computeParticipants richmen stableCerts
     let participantsVssKeys = map vcVssKey $ toList participants
 

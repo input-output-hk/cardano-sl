@@ -45,8 +45,7 @@ import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
 import           Pos.Ssc.Extra.MonadLD            (sscRunLocalQuery)
 import           Pos.Ssc.GodTossing.Functions     (checkCommShares, computeParticipants,
                                                    genCommitmentAndOpening, hasCommitment,
-                                                   hasOpening, hasShares,
-                                                   hasVssCertificate, isCommitmentIdx,
+                                                   hasOpening, hasShares, isCommitmentIdx,
                                                    isOpeningIdx, isSharesIdx,
                                                    mkSignedCommitment, vssThreshold)
 import           Pos.Ssc.GodTossing.LocalData     (getLocalPayload, localOnNewSlot,
@@ -170,7 +169,7 @@ onNewSlotCommitment sendActions slotId@SlotId {..}
         ourId <- addressHash . ncPublicKey <$> getNodeContext
         shouldSendCommitment <- andM
             [ not . hasCommitment siEpoch ourId <$> gtGetGlobalState
-            , hasVssCertificate ourId <$> gtGetGlobalState]
+            , HM.member ourId <$> getStableCerts siEpoch]
         logDebug $ sformat ("shouldSendCommitment: "%shown) shouldSendCommitment
         when shouldSendCommitment $ do
             richmen <-

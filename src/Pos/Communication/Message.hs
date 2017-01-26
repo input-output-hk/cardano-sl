@@ -4,6 +4,7 @@ import           Data.Proxy                       (Proxy (..))
 import           Node.Message                     (Message (..), MessageName (..))
 import           Universum
 
+import           Pos.Binary.Class                 (UnsignedVarInt (..), encodeStrict)
 import           Pos.Block.Network.Types          (MsgBlock, MsgGetBlocks, MsgGetHeaders,
                                                    MsgHeaders)
 import           Pos.Communication.Types.Relay    (DataMsg, InvMsg, ReqMsg)
@@ -18,78 +19,44 @@ import           Pos.Update.Network.Types         (ProposalMsgTag, VoteMsgTag)
 
 deriving instance Monoid (MessageName)
 
-class MessagePart a where
-    pMessageName :: Proxy a -> MessageName
+varIntMName :: Int -> MessageName
+varIntMName = MessageName . encodeStrict . UnsignedVarInt
 
 instance Message SendProxySK where
-    messageName _ = "SendProxySK"
+    messageName _ = varIntMName 0
     formatMessage _ = "SendProxySK"
 
 instance Message ConfirmProxySK where
-    messageName _ = "ConfirmProxySK"
+    messageName _ = varIntMName 1
     formatMessage _ = "ConfirmProxySK"
 
 instance Message CheckProxySKConfirmed where
-    messageName _ = "CheckProxySKConfirmed"
+    messageName _ = varIntMName 2
     formatMessage _ = "CheckProxySKConfirmed"
 
 instance Message CheckProxySKConfirmedRes where
-    messageName _ = "CheckProxySKConfirmedRes"
+    messageName _ = varIntMName 3
     formatMessage _ = "CheckProxySKConfirmedRes"
 
-instance MessagePart TxMsgTag where
-    pMessageName _     = "Tx tag"
-
-instance MessagePart TxMsgContents where
-    pMessageName _     = "Tx contents"
-
-instance Message SysStartRequest where
-    messageName _ = "SysStartRequest"
-    formatMessage _ = "SysStartRequest"
-
-instance Message SysStartResponse where
-    messageName _ = "SysStartResponse"
-    formatMessage _ = "SysStartResponse"
-
-instance Message (MsgHeaders ssc) where
-    messageName _ = "BlockHeaders"
-    formatMessage _ = "BlockHeaders"
-
 instance Message MsgGetHeaders where
-    messageName _ = "GetHeaders"
+    messageName _ = varIntMName 4
     formatMessage _ = "GetHeaders"
 
+instance Message (MsgHeaders ssc) where
+    messageName _ = varIntMName 5
+    formatMessage _ = "BlockHeaders"
+
 instance Message MsgGetBlocks where
-    messageName _ = "GetBlocks"
+    messageName _ = varIntMName 6
     formatMessage _ = "GetBlocks"
 
 instance Message (MsgBlock s ssc) where
-    messageName _ = "Block"
+    messageName _ = varIntMName 7
     formatMessage _ = "Block"
-
--- | Instance for `UpdateProposal`
-instance MessagePart (UpdateProposal, [UpdateVote]) where
-    pMessageName _ = "Update proposal with votes"
-
-instance MessagePart ProposalMsgTag where
-    pMessageName _ = "Update proposal tag"
-
-instance MessagePart VoteMsgTag where
-    pMessageName _ = "Update vote tag"
-
--- | Instance for `UpdateVote`
-instance MessagePart UpdateVote where
-    pMessageName _ = "Update vote"
-
-instance MessagePart GtMsgTag where
-    pMessageName _     = "Gt tag"
-
-instance MessagePart GtMsgContents where
-    pMessageName _     = "Gt contents"
 
 instance (MessagePart tag) =>
          Message (InvMsg key tag) where
-    messageName p = "Inventory " <> pMessageName (tagM p)
+    messageName p = varIntMName 8 <> pMessageName (tagM p)
       where
         tagM :: Proxy (InvMsg key tag) -> Proxy tag
         tagM _ = Proxy
@@ -97,7 +64,7 @@ instance (MessagePart tag) =>
 
 instance (MessagePart tag) =>
          Message (ReqMsg key tag) where
-    messageName p = "Request " <> pMessageName (tagM p)
+    messageName p = varIntMName 9 <> pMessageName (tagM p)
       where
         tagM :: Proxy (ReqMsg key tag) -> Proxy tag
         tagM _ = Proxy
@@ -105,8 +72,46 @@ instance (MessagePart tag) =>
 
 instance (MessagePart contents) =>
          Message (DataMsg key contents) where
-    messageName p = "Data " <> pMessageName (contentsM p)
+    messageName p = varIntMName 10 <> pMessageName (contentsM p)
       where
         contentsM :: Proxy (DataMsg key contents) -> Proxy contents
         contentsM _ = Proxy
     formatMessage _ = "Data"
+
+class MessagePart a where
+    pMessageName :: Proxy a -> MessageName
+
+instance MessagePart TxMsgTag where
+    pMessageName _ = varIntMName 0
+
+instance MessagePart TxMsgContents where
+    pMessageName _ = varIntMName 0
+
+instance MessagePart ProposalMsgTag where
+    pMessageName _ = varIntMName 1
+
+-- | Instance for `UpdateProposal`
+instance MessagePart (UpdateProposal, [UpdateVote]) where
+    pMessageName _ = varIntMName 1
+
+instance MessagePart VoteMsgTag where
+    pMessageName _ = varIntMName 2
+
+-- | Instance for `UpdateVote`
+instance MessagePart UpdateVote where
+    pMessageName _ = varIntMName 2
+
+instance MessagePart GtMsgTag where
+    pMessageName _ = varIntMName 3
+
+instance MessagePart GtMsgContents where
+    pMessageName _ = varIntMName 3
+
+
+instance Message SysStartRequest where
+    messageName _ = varIntMName 1000
+    formatMessage _ = "SysStartRequest"
+
+instance Message SysStartResponse where
+    messageName _ = varIntMName 1001
+    formatMessage _ = "SysStartResponse"

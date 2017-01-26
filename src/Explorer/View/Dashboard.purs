@@ -12,10 +12,8 @@ dashboardView :: State -> P.Html Action
 dashboardView state =
     P.div
         [ P.className "explorer-dashboard" ]
-        [
-          -- heroView state
-        networkView state
-        -- , networkView state
+        [ heroView state
+        , networkView state
         , blocksView state
         , transactionsView state
         ]

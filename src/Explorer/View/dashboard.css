@@ -3,10 +3,10 @@
 .explorer-dashboard {
 
   &__wrapper {
-    background-color: var(--color4);
+    background-color: var(--color6);
 
     &:nth-child(even) {
-      background-color: var(--color6);
+      background-color: var(--color4);
     }
   }
 

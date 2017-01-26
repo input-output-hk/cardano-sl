@@ -1,7 +1,7 @@
 module Explorer.View.Dashboard (dashboardView) where
 
 import Prelude
-import Explorer.I18n.Lang (translate)
+import Explorer.I18n.Lang (I18nAccessor, translate)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types (State, Action)
 import Pux.Html (Html, div, h3, text, h1, h2, input, h4, p) as P
@@ -13,9 +13,9 @@ dashboardView state =
     P.div
         [ P.className "explorer-dashboard" ]
         [
-          heroView state
-        -- networkView state
-        , networkView state
+          -- heroView state
+        networkView state
+        -- , networkView state
         , blocksView state
         , transactionsView state
         ]
@@ -81,12 +81,12 @@ networkView state =
                 [ P.text "#Network" ]
           , P.div
                 [ P.className "explorer-dashboard__network" ]
-                $ map (networkColumn state) networkItems
+                $ map (networkItem state) networkItems
           ]
         ]
 
-networkColumn :: State -> NetworkItem -> P.Html Action
-networkColumn state item =
+networkItem :: State -> NetworkItem -> P.Html Action
+networkItem state item =
     P.div
         [ P.className "network-item" ]
         [ P.h3
@@ -105,6 +105,27 @@ networkColumn state item =
 
 -- blocks
 
+
+-- FIXME (jk): just for now, will use later `real` ADTs
+type BlockItems = Array BlockItem
+
+-- FIXME (jk): just for now, will use later `real` ADTs
+type BlockItem =
+    { height :: Int
+    , age :: String
+    , transactions :: Int
+    , totalSent :: Int
+    , relayedBy :: String
+    , sizeKb :: Int
+    }
+
+blockItems :: BlockItems
+blockItems =
+    [ { height: 419821, age: "9 minutes", transactions: 358000, totalSent: 58200, relayedBy: "Unknown", sizeKb: 123 }
+    , { height: 419821, age: "7 hours", transactions: 1200, totalSent: 600, relayedBy: "Unknown", sizeKb: 1234 }
+    , { height: 419821, age: "3 days", transactions: 69000, totalSent: 7300, relayedBy: "KNCMiner", sizeKb: 234 }
+    ]
+
 blocksView :: State -> P.Html Action
 blocksView state =
     P.div
@@ -114,8 +135,54 @@ blocksView state =
           [ P.h3
                 [ P.className "headline"]
                 [ P.text "#Last Blocks" ]
+            , blocksHeaderView state
+            , P.div
+              [ P.className "blocks-body" ]
+              $ map (blockRow state) blockItems
           ]
         ]
+
+blockRow :: State -> BlockItem -> P.Html Action
+blockRow state item =
+    P.div
+        [ P.className "blocks-body__row" ]
+        [ blockColumn $ show item.height
+        , blockColumn item.age
+        , blockColumn $ show item.transactions
+        , blockColumn $ show item.totalSent
+        , blockColumn item.relayedBy
+        , blockColumn $ show item.sizeKb
+        ]
+
+blockColumn :: String -> P.Html Action
+blockColumn value =
+    P.div
+        [ P.className "blocks-body__column" ]
+        [ P.text value ]
+
+blocksHeaderView :: State -> P.Html Action
+blocksHeaderView state =
+    P.div
+          [ P.className "blocks-header"]
+          $ map (blockHeaderItemView state) blocksHeaderItems
+
+blockHeaderItemView :: State -> I18nAccessor -> P.Html Action
+blockHeaderItemView state i18nAccessor =
+    P.div
+        [ P.className "blocks-header__item" ]
+        [ P.text $ translate i18nAccessor state.lang ]
+
+blocksHeaderItems :: Array I18nAccessor
+blocksHeaderItems =
+    [ _.height
+    , _.age
+    , _.transactions
+    , _.totalSent
+    , _.relayedBy
+    , _.sizeKB
+    ]
+
+-- transactions
 
 transactionsView :: State -> P.Html Action
 transactionsView state =

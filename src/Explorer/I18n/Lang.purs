@@ -64,4 +64,9 @@ type Translation =
       , charts :: String
       , tools :: String
     }
+    , height :: String
+    , age :: String
+    , totalSent :: String
+    , relayedBy :: String
+    , sizeKB :: String
     }

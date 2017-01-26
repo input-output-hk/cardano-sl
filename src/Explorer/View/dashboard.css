@@ -3,10 +3,10 @@
 .explorer-dashboard {
 
   &__wrapper {
-    background-color: var(--color6);
+    background-color: var(--color4);
 
     &:nth-child(even) {
-      background-color: var(--color4);
+      background-color: var(--color6);
     }
   }
 
@@ -95,4 +95,39 @@
       color: var(--color13);
     }
   }
+
+  .blocks-header {
+    @neat-outer-container;
+    padding: 10px 24px;
+
+    font-size: 10px;
+    font-family: var(--fontFamily0-Bold);
+    font-weight: bold;
+    color: var(--color8);
+
+    &__item {
+      @neat-span-columns 2;
+    }
+  }
+
+  .blocks-body {
+    font-size: 10px;
+    font-family: var(--fontFamily0-Regular);
+    font-weight: normal;
+    color: var(--color8);
+
+    &__row {
+      @neat-outer-container;
+      padding: 10px 24px;
+      &:nth-child(odd) {
+        background-color: var(--color7);
+      }
+    }
+
+    &__column {
+      @neat-span-columns 2;
+    }
+  }
+
+
 }

@@ -8,14 +8,20 @@ translation =
     , transactions: "Transactions"
     , address: "Address"
     , calculator: "Calculator"
+    , version: "version"
     , summary: "Summary"
     , block: "Block"
     , hashes: "Hashes"
-    , nav : { home: "Home"
-      , blockchain: "Blockchain"
-      , market: "Market"
-      , charts: "Charts"
-      , tools: "Tools"
-    }
-    , version: "version"
+    , nav: 
+        { home: "Home"
+        , blockchain: "Blockchain"
+        , market: "Market"
+        , charts: "Charts"
+        , tools: "Tools"
+        }
+    , height: "Height"
+    , age: "Age"
+    , totalSent: "Total Sent"
+    , relayedBy: "Relayed by"
+    , sizeKB: "Size (kB)"
     }

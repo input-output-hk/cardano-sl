@@ -53,3 +53,4 @@ rocks-smartwallet/
 cardano-keys/
 bla/
 testnetStakes/
+node-*.secret.key.lock

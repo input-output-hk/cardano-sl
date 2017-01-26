@@ -17,6 +17,9 @@ import           Data.Foldable (foldrM)
 -- | A set (no duplicates) with at least one element.
 newtype NonEmptySet t = NonEmptySet (t, Set t)
 
+instance Show t => Show (NonEmptySet t) where
+    show = show . toList
+
 -- | Construct a 'NonEmptySet' by giving one element.
 singleton :: t -> NonEmptySet t
 singleton t = NonEmptySet (t, S.empty)

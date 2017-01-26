@@ -20,7 +20,6 @@ import           Mockable.Concurrent        (Promise, ThreadId)
 import           Mockable.SharedAtomic      (SharedAtomicT)
 import           Mockable.SharedExclusive   (SharedExclusiveT)
 import           Mockable.Metrics
-import           Network.Transport.ConnectionBuffers (BufferT)
 
 instance (Mockable d m, MFunctor' d (ReaderT r m) m) => Mockable d (ReaderT r m) where
     liftMockable dmt = ReaderT $ \r -> liftMockable $ hoist' (flip runReaderT r) dmt
@@ -46,9 +45,7 @@ type instance ChannelT (LoggerNameBox m) = ChannelT m
 type instance Gauge (LoggerNameBox m) = Gauge m
 type instance Counter (LoggerNameBox m) = Counter m
 type instance Distribution (LoggerNameBox m) = Distribution m
-type instance BufferT (LoggerNameBox m) = BufferT m
 
-type instance BufferT (ReaderT r m) = BufferT m
 type instance ThreadId (ReaderT r m) = ThreadId m
 type instance Promise (ReaderT r m) = Promise m
 type instance SharedAtomicT (ReaderT r m) = SharedAtomicT m
@@ -57,4 +54,3 @@ type instance ChannelT (ReaderT r m) = ChannelT m
 type instance Gauge (ReaderT r m) = Gauge m
 type instance Counter (ReaderT r m) = Counter m
 type instance Distribution (ReaderT r m) = Distribution m
-type instance BufferT (ReaderT r m) = BufferT m

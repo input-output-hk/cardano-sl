@@ -11,6 +11,7 @@
 import           Control.Monad                        (forM, forM_, when)
 import           Control.Monad.IO.Class               (liftIO)
 import           Data.Binary
+import qualified Data.ByteString                      as BS
 import qualified Data.ByteString.Char8                as B8
 import qualified Data.Set                             as S
 import           Data.Time.Units                      (Microsecond, fromMicroseconds)
@@ -23,7 +24,7 @@ import           Network.Discovery.Abstract
 import qualified Network.Discovery.Transport.Kademlia as K
 import           Network.Transport.Abstract           (Transport (..))
 import           Network.Transport.Concrete           (concrete)
-import           Network.Transport.Concrete.TCP       as TCP (concrete)
+import           Network.Transport.Concrete.TCP       as TCP
 import qualified Network.Transport.TCP                as TCP
 import           Node
 import           Node.Message                         (BinaryP (..))
@@ -37,10 +38,14 @@ instance Binary Pong where
 
 type Packing = BinaryP
 
-worker :: NodeId -> StdGen -> NetworkDiscovery K.KademliaDiscoveryErrorCode Production -> Worker Packing Production
+worker
+    :: NodeId
+    -> StdGen
+    -> NetworkDiscovery K.KademliaDiscoveryErrorCode Production
+    -> Worker Packing BS.ByteString Production
 worker anId generator discovery = pingWorker generator
     where
-    pingWorker :: StdGen -> SendActions Packing Production -> Production ()
+    pingWorker :: StdGen -> SendActions Packing BS.ByteString Production -> Production ()
     pingWorker gen sendActions = loop gen
         where
         loop g = do
@@ -52,19 +57,19 @@ worker anId generator discovery = pingWorker generator
             peerSet <- knownPeers discovery
             liftIO . putStrLn $ show anId ++ " has peer set: " ++ show peerSet
             forM_ (S.toList peerSet) $ \addr -> withConnectionTo sendActions (NodeId addr) $
-                \(cactions :: ConversationActions Void Pong Production) -> do
+                \(cactions :: ConversationActions BS.ByteString Void Pong Production) -> do
                     received <- recv cactions
                     case received of
                         Just Pong -> liftIO . putStrLn $ show anId ++ " heard PONG from " ++ show addr
                         Nothing -> error "Unexpected end of input"
             loop gen'
 
-listeners :: NodeId -> [Listener Packing Production]
+listeners :: NodeId -> [Listener Packing BS.ByteString Production]
 listeners anId = [pongListener]
     where
-    pongListener :: ListenerAction Packing Production
-    pongListener = ListenerActionConversation $ \peerId (cactions :: ConversationActions Pong Void Production) -> do
-        liftIO . putStrLn $ show anId ++  " heard PING from " ++ show peerId
+    pongListener :: ListenerAction Packing BS.ByteString Production
+    pongListener = ListenerActionConversation $ \peerData peerId (cactions :: ConversationActions BS.ByteString Pong Void Production) -> do
+        liftIO . putStrLn $ show anId ++  " heard PING from " ++ show peerId ++ " with peer data " ++ B8.unpack peerData
         send cactions Pong
 
 makeNode :: Transport Production
@@ -84,7 +89,7 @@ makeNode transport i = do
     let prng1 = mkStdGen (2 * i)
     let prng2 = mkStdGen ((2 * i) + 1)
     liftIO . putStrLn $ "Starting node " ++ show i
-    fork $ node transport prng1 BinaryP $ \node' -> do
+    fork $ node transport prng1 BinaryP (B8.pack "my peer data!") $ \node' -> do
         pure $ NodeAction (listeners . nodeId $ node') $ \sactions -> do
             liftIO . putStrLn $ "Making discovery for node " ++ show i
             discovery <- K.kademliaDiscovery kademliaConfig initialPeer (nodeEndPointAddress node')
@@ -102,9 +107,9 @@ main = runProduction $ do
 
     when (number > 99 || number < 1) $ error "Give a number in [1,99]"
 
-    Right (transport_, internals) <- liftIO $
-        TCP.createTransportExposeInternals "0.0.0.0" "127.0.0.1" "10128" TCP.defaultTCPParameters
-    let transport = TCP.concrete runProduction (transport_, internals)
+    Right transport_ <- liftIO $
+        TCP.createTransport "0.0.0.0" "127.0.0.1" "10128" TCP.defaultTCPParameters
+    let transport = concrete transport_
 
     liftIO . putStrLn $ "Spawning " ++ show number ++ " nodes"
     nodeThreads <- forM [0..number] (makeNode transport)

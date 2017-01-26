@@ -17,7 +17,6 @@ Library
                         Network.Transport.Abstract
                         Network.Transport.Concrete
                         Network.Transport.Concrete.TCP
-                        Network.Transport.ConnectionBuffers
 
                         Node
 
@@ -116,6 +115,7 @@ executable ping-pong
   main-is:             PingPong.hs
   build-depends:       base >= 4.8 && < 5
                      , binary
+                     , bytestring
                      , network-transport-inmemory
                      , network-transport-tcp
                      , node-sketch

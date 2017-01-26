@@ -10,7 +10,6 @@ module Mockable.Production
 import qualified Control.Concurrent       as Conc
 import qualified Control.Concurrent.Async as Conc
 import qualified Control.Concurrent.STM   as Conc
-import qualified Control.Concurrent.STM.TVar  as TVar
 import qualified Control.Exception        as Exception
 import           Control.Monad            (forever)
 import           Control.Monad.Catch      (MonadCatch (..), MonadMask (..),
@@ -33,7 +32,6 @@ import qualified Mockable.Metrics         as Metrics
 import qualified System.Metrics.Distribution as EKG.Distribution
 import qualified System.Metrics.Gauge     as EKG.Gauge
 import qualified System.Metrics.Counter   as EKG.Counter
-import           Network.Transport.ConnectionBuffers (Buffer(..), BufferT(..))
 import           Serokell.Util.Concurrent as Serokell
 import           Universum                (MonadFail (..))
 import qualified Data.Sequence            as Seq
@@ -111,6 +109,16 @@ instance Mockable Bracket Production where
     liftMockable (Bracket acquire release act) = Production $
         Exception.bracket (runProduction acquire) (runProduction . release) (runProduction . act)
 
+    -- Base implementation doesn't give such a bracket so we have to do it
+    -- ourselves.
+    liftMockable (BracketWithException acquire release act) = Production $ mask $ \restore -> do
+        a <- runProduction acquire
+        r <- restore (runProduction (act a)) `catch` \e -> do
+                 runProduction (release a (Just e))
+                 Exception.throwIO e
+        _ <- runProduction (release a Nothing)
+        return r
+
 instance Mockable Throw Production where
     liftMockable (Throw e) = Production $ Exception.throwIO e
 
@@ -135,39 +143,6 @@ instance MonadMask Production where
 instance HasLoggerName Production where
     getLoggerName = return "*production*"
     modifyLoggerName = const id
-
-type instance BufferT Production = BQueue
-
--- | A very simple mutable bounded queue. Perhaps not so good because reads
---   always contend with writes.
-newtype BQueue t = BQueue (TVar.TVar (Int, Seq.Seq t))
-
-instance Mockable Buffer Production where
-
-    liftMockable (NewBuffer bound) = Production $ do
-        tvar <- TVar.newTVarIO (bound, Seq.empty)
-        return $ BQueue tvar
-
-    liftMockable (ReadBuffer (BQueue tvar) k) = Production . Conc.atomically $ do
-        (bound, seq) <- TVar.readTVar tvar
-        case Seq.viewl seq of
-            t Seq.:< rest -> case k t of
-                (Just replace, r) -> do
-                    TVar.writeTVar tvar (bound, replace Seq.<| rest)
-                    return r
-                (Nothing, r) -> do
-                    TVar.writeTVar tvar (bound, rest)
-                    return r
-            _ -> Conc.retry
-
-    liftMockable (WriteBuffer (BQueue tvar) t) = Production . Conc.atomically $ do
-        (bound, seq) <- TVar.readTVar tvar
-        if (Seq.length seq >= bound)
-        then Conc.retry
-        else TVar.writeTVar tvar (bound, seq Seq.|> t)
-
-    liftMockable (BoundBuffer (BQueue tvar) f) = Production . Conc.atomically $
-        TVar.modifyTVar' tvar (\(bound, seq) -> (f bound, seq))
 
 type instance Metrics.Counter Production = EKG.Counter.Counter
 type instance Metrics.Gauge Production = EKG.Gauge.Gauge

@@ -7,10 +7,10 @@
 module Network.Transport.Abstract
   ( -- * Types
     Transport(..)
-  , QDisc(..)
   , EndPoint(..)
   , Connection(..)
   , Event(..)
+  , QDisc(..)
   , NT.ConnectionId
   , NT.Reliability(..)
   , NT.EndPointAddress(..)
@@ -36,28 +36,18 @@ import qualified Network.Transport as NT
 -- Main API                                                                   --
 --------------------------------------------------------------------------------
 
--- | Queueing discipline.
---   TODO support output queueing as well.
-data QDisc m t = QDisc {
-    qdiscEnqueue :: Event -> m ()
-  , qdiscDequeue :: m t
-  }
-
 -- | A network transport over some monad.
 data Transport m = Transport {
     -- | Create a new end point (heavyweight operation)
-    newEndPoint
-      :: forall t . 
-         QDisc m t
-      -> m (Either (NT.TransportError NT.NewEndPointErrorCode) (EndPoint m t))
+    newEndPoint :: m (Either (NT.TransportError NT.NewEndPointErrorCode) (EndPoint m))
     -- | Shutdown the transport completely
   , closeTransport :: m ()
   }
 
 -- | Network endpoint over some monad.
-data EndPoint m t = EndPoint {
+data EndPoint m = EndPoint {
     -- | Endpoints have a single shared receive queue.
-    receive :: m t
+    receive :: m Event
     -- | EndPointAddress of the endpoint.
   , address :: NT.EndPointAddress
     -- | Create a new lightweight connection.
@@ -105,7 +95,13 @@ data Event =
 
 instance Binary Event
 
-data EventError = UnsupportedEvent | EventError NT.EventErrorCode
+data EventError = UnsupportedEvent | EventErrorCode NT.EventErrorCode
   deriving (Show, Eq, Generic, Typeable)
 
 instance Binary EventError
+
+-- | A queueing discipline.
+data QDisc m t = QDisc {
+      qdiscDequeue :: m t
+    , qdiscEnqueue :: Event -> t -> m ()
+    }

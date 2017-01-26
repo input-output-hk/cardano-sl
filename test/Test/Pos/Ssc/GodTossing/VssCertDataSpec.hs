@@ -11,11 +11,11 @@ import qualified Data.HashSet          as HS
 import qualified Data.Set              as S
 import           Data.Tuple            (swap)
 
-import           Pos.Constants         (epochSlots)
 import           Pos.Ssc.GodTossing    (VssCertData (..), VssCertificate (..), delete,
-                                        empty, expiryFlatSlot, filter, insert, keys,
-                                        member, setLastKnownSlot)
-import           Pos.Types             (FlatSlotId, SlotId, StakeholderId)
+                                        empty, expiryEoS, filter, insert, keys, member,
+                                        setLastKnownEoS, setLastKnownSlot)
+import           Pos.Types             (EpochIndex (..), EpochOrSlot (..), SlotId,
+                                        SlotId (..), StakeholderId)
 
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
@@ -52,11 +52,11 @@ spec = describe "Ssc.GodTossing.VssCertData" $ do
 -- Utility functions not present in VssCertData
 ----------------------------------------------------------------------------
 
-expiresAfter :: VssCertificate -> FlatSlotId -> Bool
-expiresAfter certificate expirySlot = expiryFlatSlot certificate > expirySlot
+expiresAfter :: VssCertificate -> EpochOrSlot -> Bool
+expiresAfter certificate expirySlot = expiryEoS certificate > expirySlot
 
 canBeIn :: VssCertificate -> VssCertData -> Bool
-canBeIn certificate certData = certificate `expiresAfter` lastKnownSlot certData
+canBeIn certificate certData = certificate `expiresAfter` lastKnownEoS certData
 
 ----------------------------------------------------------------------------
 -- Wrapper around VssCertData which Arbitrary instance should be consistent
@@ -67,10 +67,12 @@ newtype CorrectVssCertData = CorrectVssCertData
     } deriving (Show)
 
 instance Arbitrary CorrectVssCertData where
-    arbitrary = (CorrectVssCertData <$>) $ sized $ \n -> do
+    arbitrary = (CorrectVssCertData <$>) $ do
+        n <- choose (0, 100)
         certificatesToAdd <- choose (0, n)
-        lks               <- choose (0, fromIntegral n)  -- boundaries can be chosen more wisely
-        let notExpiredGen  = arbitrary `suchThat` (`expiresAfter` lks)
+        lkeos               <- EpochOrSlot . Left . EpochIndex <$>
+                             choose (0, fromIntegral n)  -- boundaries can be chosen more wisely
+        let notExpiredGen  = arbitrary `suchThat` (`expiresAfter` lkeos)
         vssCertificates   <- vectorOf @VssCertificate certificatesToAdd notExpiredGen
         stakeholders      <- vectorOf @StakeholderId  certificatesToAdd arbitrary
         let dataUpdaters   = zipWith insert stakeholders vssCertificates
@@ -95,9 +97,9 @@ verifyDeleteVssCertData shid certificate certData =
 isConsistent :: CorrectVssCertData -> Bool
 isConsistent (getVssCertData -> VssCertData{..}) =
        -- (1) all certificates inserted not later than lastknownslot
-       all (<= lastKnownSlot) insertedSlots
+       all (<= lastKnownEoS) insertedSlots
        -- (2) all expiredslots greater than lastKnownSlot
-    && all (>  lastKnownSlot) expiredSlots
+    && all (>  lastKnownEoS) expiredSlots
        -- (3) @certs@ keys and @certsIns@ keys are equal
     && certsStakeholders == certsInsStakeholders
        -- (4) @insSlotset@ equals to hashmap of @certsInts@
@@ -110,7 +112,7 @@ isConsistent (getVssCertData -> VssCertData{..}) =
        -- (6) intersection of expired certificates and not expired is empty
     && null (notExpiredCertificates `S.intersection` expiredCertificates)
        -- (7) all expired certificates are stored for no longer than +epochSlots from lks
-    && all (<= lastKnownSlot + epochSlots) expiredCertificatesSlots
+    && all (<= addEpoch lastKnownEoS) expiredCertificatesSlots
   where
     insSlotSetPairs           = S.toList insSlotSet
     expirySlotSetPairs        = S.toList expirySlotSet
@@ -125,6 +127,12 @@ isConsistent (getVssCertData -> VssCertData{..}) =
     expiredCertificatesData   = S.toList expiredCerts
     expiredCertificatesSlots  = map fst expiredCertificatesData
     expiredCertificates       = S.fromList $ map (view _3 . snd) expiredCertificatesData
+
+    addEpoch :: EpochOrSlot -> EpochOrSlot
+    addEpoch (EpochOrSlot (Left (EpochIndex epoch))) =
+        EpochOrSlot $ Left $ EpochIndex $ epoch + 1
+    addEpoch (EpochOrSlot (Right (SlotId ep sl))) =
+        EpochOrSlot $ Right $ SlotId (ep + 1) sl
 
 verifySetLastKnownSlot :: SlotId -> CorrectVssCertData -> Bool
 verifySetLastKnownSlot newLks (CorrectVssCertData vssCertData) =

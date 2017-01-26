@@ -24,10 +24,10 @@ import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
-import           Pos.Context                 (WithNodeContext)
+import           Pos.Context                 (WithNodeContext, lrcActionOnEpochReason)
 import           Pos.DB.Class                (MonadDB)
 import qualified Pos.DB.GState               as GS
-import           Pos.DB.Lrc                  (getRichmenUS)
+import           Pos.DB.Lrc                  (getIssuersStakes, getRichmenUS)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Lrc.Types               (FullRichmenData)
 import           Pos.Slotting                (MonadSlots (..))
@@ -87,13 +87,16 @@ instance MonadBaseControl IO m => MonadBaseControl IO (DBPoll m) where
 -- MonadPoll
 ----------------------------------------------------------------------------
 
-instance MonadDB patak m =>
+instance (WithNodeContext ssc m, MonadDB ssc m) =>
          MonadPollRead (DBPoll m) where
-    getScriptVersion = GS.getScriptVersion
-    getLastAdoptedPV = GS.getLastPV
+    getBVState = GS.getBVState
+    getProposedBVs = GS.getProposedBVs
+    getConfirmedBVStates = GS.getConfirmedBVStates
+    getAdoptedBVFull = GS.getAdoptedBVFull
     getLastConfirmedSV = GS.getConfirmedSV
     hasActiveProposal = fmap isJust . GS.getAppProposal
     getProposal = GS.getProposalState
+    getConfirmedProposals = GS.getConfirmedProposals Nothing
     getEpochTotalStake e = fmap fst <$> getRichmenUS e
     getRichmanStake e id = (findStake =<<) <$> getRichmenUS e
       where
@@ -101,3 +104,7 @@ instance MonadDB patak m =>
         findStake = HM.lookup id . snd
     getOldProposals = GS.getOldProposals
     getDeepProposals = GS.getDeepProposals
+    getBlockIssuerStake epoch id =
+        lrcActionOnEpochReason epoch
+            "couldn't get issuers's stakes"
+            (fmap (Just . HM.lookup id) . getIssuersStakes)

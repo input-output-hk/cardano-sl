@@ -13,19 +13,24 @@ import           Control.Monad.Except      (MonadError (..))
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Data.Default              (def)
 import qualified Data.HashMap.Strict       as HM
+import qualified Data.List                 as List (find)
+import           System.Wlog               (HasLoggerName, CanLog)
 import           Universum
 
 import           Pos.Crypto                (hash)
 
 import           Pos.Types.Version         (SoftwareVersion (..))
 import           Pos.Update.Poll.Class     (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Types     (PrevValue, USUndo (..), maybeToPrev,
-                                            psProposal, unChangedPropsL, unChangedSVL,
-                                            unCreatedNewDepsForL, unLastAdoptedPVL)
+import           Pos.Update.Poll.Types     (PrevValue, USUndo (..), cpsSoftwareVersion,
+                                            maybeToPrev, psProposal, unChangedBVL,
+                                            unChangedConfPropsL, unChangedPropsL,
+                                            unChangedSVL, unLastAdoptedBVL)
 
 newtype RollT m a = RollT
     { getRollT :: StateT USUndo m a
-    } deriving (Functor, Applicative, Monad, MonadThrow, MonadTrans, MonadError e)
+    } deriving ( Functor, Applicative, Monad, MonadThrow
+               , HasLoggerName, CanLog
+               , MonadTrans, MonadError e)
 
 instance MonadPollRead m => MonadPollRead (RollT m)
 
@@ -40,28 +45,36 @@ whenNothingM mb action = mb >>= \case
 -- [WARNING] This transformer uses StateT and is intended for
 -- single-threaded usage only.
 instance MonadPoll m => MonadPoll (RollT m) where
-    -- only one time can be called
-    addScriptVersionDep pv sv = RollT $ do
-        whenNothingM (use unCreatedNewDepsForL) $
-            unCreatedNewDepsForL .= Just pv
-        lift $ addScriptVersionDep pv sv
+    putBVState bv sv = RollT $ do
+        insertIfNotExist bv unChangedBVL getBVState
+        putBVState bv sv
 
-    delScriptVersionDep  = lift . delScriptVersionDep
+    delBVState bv = RollT $ do
+        insertIfNotExist bv unChangedBVL getBVState
+        delBVState bv
 
-    setLastAdoptedPV pv = RollT $ do
-        prevPV <- getLastAdoptedPV
-        whenNothingM (use unLastAdoptedPVL) $
-            unLastAdoptedPVL .= Just prevPV
-        lift $ setLastAdoptedPV pv
+    setAdoptedBV pv = RollT $ do
+        prevBV <- getAdoptedBV
+        whenNothingM (use unLastAdoptedBVL) $
+            unLastAdoptedBVL .= Just prevBV
+        setAdoptedBV pv
 
     setLastConfirmedSV sv@SoftwareVersion{..} = RollT $ do
         insertIfNotExist svAppName unChangedSVL getLastConfirmedSV
-        lift $ setLastConfirmedSV sv
+        setLastConfirmedSV sv
 
+    -- can't be called during apply
     delConfirmedSV = lift . delConfirmedSV
 
-    -- can't be rolled back
-    addConfirmedProposal nsv = lift . addConfirmedProposal nsv
+    addConfirmedProposal cps = RollT $ do
+        confProps <- getConfirmedProposals
+        insertIfNotExist (cpsSoftwareVersion cps) unChangedConfPropsL (getter confProps)
+        addConfirmedProposal cps
+      where
+        getter confs sv = pure $ List.find (\x -> cpsSoftwareVersion x == sv) confs
+
+    -- can't be called during apply
+    delConfirmedProposal = lift . delConfirmedProposal
 
     addActiveProposal ps = RollT $ do
         insertIfNotExist (hash $ psProposal $ ps) unChangedPropsL getProposal
@@ -69,7 +82,7 @@ instance MonadPoll m => MonadPoll (RollT m) where
 
     deactivateProposal id = RollT $ do
         insertIfNotExist id unChangedPropsL getProposal
-        lift $ deactivateProposal id
+        deactivateProposal id
 
 insertIfNotExist
     :: (Eq a, Hashable a, MonadState USUndo m)

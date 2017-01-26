@@ -25,7 +25,7 @@ import           Mockable                  (ChannelT, MFunctor', Mockable (liftM
                                             Promise, SharedAtomicT, ThreadId,
                                             liftMockableWrappedM)
 import           Serokell.Util.Lens        (WrappedM (..))
-import           System.Wlog               (CanLog, HasLoggerName)
+import           System.Wlog               (CanLog, HasLoggerName, WithLogger)
 import           Universum
 
 import           Pos.Context               (WithNodeContext)
@@ -74,7 +74,7 @@ instance Monad m => WrappedM (SscHolder ssc m) where
     type UnwrappedM (SscHolder ssc m) = ReaderT (SscState ssc) m
     _WrappedM = iso getSscHolder SscHolder
 
-instance MonadIO m => MonadSscGS ssc (SscHolder ssc m) where
+instance (MonadIO m, WithLogger m) => MonadSscGS ssc (SscHolder ssc m) where
     getGlobalState = SscHolder (asks sscGlobal) >>= atomically . STM.readTVar
     modifyGlobalState f = SscHolder ask >>= \sscSt -> atomically $ do
                 g <- STM.readTVar (sscGlobal sscSt)

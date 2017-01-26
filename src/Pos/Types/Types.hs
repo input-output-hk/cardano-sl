@@ -143,7 +143,7 @@ module Pos.Types.Types
        , mcdLeaderKey
        , mcdDifficulty
        , mcdSignature
-       , mehProtocolVersion
+       , mehBlockVersion
        , mehSoftwareVersion
        , mehAttributes
        , mebAttributes
@@ -186,7 +186,7 @@ import           Pos.Types.Address      (Address (..), StakeholderId, addressF,
                                          checkPubKeyAddress, checkScriptAddress,
                                          decodeTextAddress, makePubKeyAddress,
                                          makeScriptAddress)
-import           Pos.Types.Version      (ProtocolVersion, SoftwareVersion)
+import           Pos.Types.Version      (BlockVersion, SoftwareVersion)
 import           Pos.Update.Core.Types  (UpdatePayload, UpdateProof, mkUpdateProof)
 import           Pos.Util               (Color (Magenta), colorize)
 
@@ -278,13 +278,15 @@ epochOrSlot :: (EpochIndex -> a) -> (SlotId -> a) -> EpochOrSlot -> a
 epochOrSlot f g = either f g . unEpochOrSlot
 
 instance Ord EpochOrSlot where
-    EpochOrSlot (Left e1) < EpochOrSlot (Left e2) = e1 < e2
-    EpochOrSlot (Right s1) < EpochOrSlot (Right s2) = s1 < s2
-    EpochOrSlot (Right s1) < EpochOrSlot (Left e2) = siEpoch s1 < e2
-    EpochOrSlot (Left e1) < EpochOrSlot (Right s2) = e1 <= siEpoch s2
-    EpochOrSlot (Left e1) <= EpochOrSlot (Left e2) = e1 <= e2
-    EpochOrSlot (Right s1) <= EpochOrSlot (Right s2) = s1 <= s2
-    EpochOrSlot a <= EpochOrSlot b = a < b
+    compare (EpochOrSlot e1) (EpochOrSlot e2) = case (e1,e2) of
+        (Left s1, Left s2)                      -> compare s1 s2
+        (Right s1, Left s2) | (siEpoch s1) < s2 -> LT
+                            | otherwise         -> GT
+        (Left s1, Right s2) | s1 > (siEpoch s2) -> GT
+                            | otherwise         -> LT
+        (Right s1, Right s2)
+            | siEpoch s1 == siEpoch s2 -> siSlot s1 `compare` siSlot s2
+            | otherwise -> siEpoch s1 `compare` siEpoch s2
 
 instance Buildable EpochOrSlot where
     build = either Buildable.build Buildable.build . unEpochOrSlot
@@ -607,8 +609,8 @@ type BlockHeaderAttributes = Attributes ()
 
 -- | Represents main block header extra data
 data MainExtraHeaderData = MainExtraHeaderData
-    { -- | Version of protocol.
-      _mehProtocolVersion :: !ProtocolVersion
+    { -- | Version of block.
+      _mehBlockVersion    :: !BlockVersion
     , -- | Software version.
       _mehSoftwareVersion :: !SoftwareVersion
     , -- | Header attributes
@@ -618,10 +620,10 @@ data MainExtraHeaderData = MainExtraHeaderData
 
 instance Buildable MainExtraHeaderData where
     build MainExtraHeaderData {..} =
-      bprint ( "    protocol: v"%build%"\n"
+      bprint ( "    block: v"%build%"\n"
              % "    software: "%build%"\n"
              )
-            _mehProtocolVersion
+            _mehBlockVersion
             _mehSoftwareVersion
 
 -- | Represents main block extra data
@@ -876,30 +878,38 @@ class HasHeaderHash a where
     headerHashG :: Getter a HeaderHash
     headerHashG = to headerHash
 
+type BiHeader ssc = Bi (BlockHeader ssc)
+
 -- | This function is required because type inference fails in attempts to
 -- hash only @Right@ or @Left@.
-blockHeaderHash :: BiSsc ssc => BlockHeader ssc -> HeaderHash
+blockHeaderHash :: BiHeader ssc => BlockHeader ssc -> HeaderHash
 blockHeaderHash = headerHash
 
 instance HasHeaderHash HeaderHash where
     headerHash = identity
 
-instance BiSsc ssc => HasHeaderHash (MainBlockHeader ssc) where
+instance BiHeader ssc =>
+         HasHeaderHash (MainBlockHeader ssc) where
     headerHash = blockHeaderHash . Right
 
-instance BiSsc ssc => HasHeaderHash (GenesisBlockHeader ssc) where
+instance BiHeader ssc =>
+         HasHeaderHash (GenesisBlockHeader ssc) where
     headerHash = blockHeaderHash . Left
 
-instance BiSsc ssc => HasHeaderHash (BlockHeader ssc) where
+instance BiHeader ssc =>
+         HasHeaderHash (BlockHeader ssc) where
     headerHash = unsafeHash
 
-instance BiSsc ssc => HasHeaderHash (MainBlock ssc) where
+instance BiHeader ssc =>
+         HasHeaderHash (MainBlock ssc) where
     headerHash = blockHeaderHash . Right . _gbHeader
 
-instance BiSsc ssc => HasHeaderHash (GenesisBlock ssc) where
-    headerHash = blockHeaderHash . Left  . _gbHeader
+instance BiHeader ssc =>
+         HasHeaderHash (GenesisBlock ssc) where
+    headerHash = blockHeaderHash . Left . _gbHeader
 
-instance BiSsc ssc => HasHeaderHash (Block ssc) where
+instance BiHeader ssc =>
+         HasHeaderHash (Block ssc) where
     headerHash = blockHeaderHash . getBlockHeader
 
 -- | Specialized formatter for 'HeaderHash'.
@@ -1143,6 +1153,7 @@ instance (HasEpochOrSlot a, HasEpochOrSlot b) =>
 deriveSafeCopySimple 0 'base ''EpochIndex
 deriveSafeCopySimple 0 'base ''LocalSlotIndex
 deriveSafeCopySimple 0 'base ''SlotId
+deriveSafeCopySimple 0 'base ''EpochOrSlot
 deriveSafeCopySimple 0 'base ''Coin
 deriveSafeCopySimple 0 'base ''Address
 deriveSafeCopySimple 0 'base ''TxInWitness

@@ -6,6 +6,7 @@
 
 module Pos.Update.Logic.Global
        ( usApplyBlocks
+       , usCanCreateBlock
        , usRollbackBlocks
        , usVerifyBlocks
        ) where
@@ -16,41 +17,63 @@ import qualified Data.HashMap.Strict  as HM
 import           System.Wlog          (WithLogger, logError)
 import           Universum
 
+import           Pos.Constants        (lastKnownBlockVersion)
+import           Pos.Context          (WithNodeContext)
+import           Pos.Crypto           (ProxySignature (pdDelegatePk))
 import qualified Pos.DB               as DB
 import           Pos.DB.GState        (UpdateOp (..))
-import           Pos.Script.Type      (ScriptVersion)
-import           Pos.Types            (ApplicationName, Block, NumSoftwareVersion,
-                                       ProtocolVersion, SoftwareVersion (..), difficultyL,
-                                       gbBody, gbHeader, mbUpdatePayload)
-import           Pos.Update.Core      (UpId, UpdateProposal)
+import           Pos.Ssc.Class        (Ssc)
+import           Pos.Types            (ApplicationName, Block, BlockSignature (..),
+                                       BlockVersion, NumSoftwareVersion,
+                                       SoftwareVersion (..), addressHash, blockSize,
+                                       blockSlot, epochIndexL, gbBody, gbHeader,
+                                       gbhConsensus, gbhExtra, headerHash,
+                                       mbUpdatePayload, mcdLeaderKey, mcdSignature,
+                                       mehBlockVersion)
+import           Pos.Update.Core      (BlockVersionData, UpId)
 import           Pos.Update.Error     (USError (USInternalError))
-import           Pos.Update.Poll      (DBPoll, MonadPoll, PollModifier (..), PollT,
-                                       PollVerFailure, ProposalState, USUndo, execPollT,
-                                       execRollT, rollbackUSPayload, runDBPoll, runPollT,
-                                       verifyAndApplyUSPayload)
+import           Pos.Update.Poll      (BlockVersionState, ConfirmedProposalState,
+                                       MonadPoll, PollModifier (..), PollVerFailure,
+                                       ProposalState, USUndo, canCreateBlockBV, execPollT,
+                                       execRollT, processGenesisBlock,
+                                       recordBlockIssuance, rollbackUS, runDBPoll,
+                                       runPollT, verifyAndApplyUSPayload, verifyBlockSize)
 import           Pos.Util             (Color (Red), NE, NewestFirst, OldestFirst,
                                        colorize, inAssertMode)
 
-type USGlobalApplyMode endless_useless m = (WithLogger m, DB.MonadDB endless_useless m)
-type USGlobalVerifyMode ы m = (DB.MonadDB ы m, MonadError PollVerFailure m)
+type USGlobalApplyMode ssc m = ( WithLogger m
+                               , DB.MonadDB ssc m
+                               , Ssc ssc
+                               , WithNodeContext ssc m)
+type USGlobalVerifyMode ssc m = ( DB.MonadDB ssc m
+                                , MonadError PollVerFailure m
+                                , Ssc ssc
+                                , WithNodeContext ssc m
+                                , WithLogger m)
 
--- TODO: I suppose blocks are needed here only for sanity check, but who knows.
--- Anyway, it's ok.
--- TODO: but actually I suppose that such sanity checks should be done at higher
--- level.
--- | Apply chain of /definitely/ valid blocks to US part of GState DB and to
--- US local data. This function assumes that no other thread applies block in
--- parallel. It also assumes that parent of oldest block is current tip.
+-- | Apply chain of /definitely/ valid blocks to US part of GState DB
+-- and to US local data. This function assumes that no other thread
+-- applies block in parallel. It also assumes that parent of oldest
+-- block is current tip.  If verification is done prior to
+-- application, one can pass 'PollModifier' obtained from verification
+-- to this function.
 usApplyBlocks
     :: (MonadThrow m, USGlobalApplyMode ssc m)
     => OldestFirst NE (Block ssc)
-    -> PollModifier
+    -> Maybe PollModifier
     -> m [DB.SomeBatchOp]
-usApplyBlocks blocks _ = do
-    inAssertMode $ do
-        verdict <- runExceptT $ usVerifyBlocks blocks
-        either onFailure (const pass) verdict
-    return []
+usApplyBlocks blocks modifierMaybe =
+    case modifierMaybe of
+        Nothing -> do
+            verdict <- runExceptT $ usVerifyBlocks blocks
+            either onFailure (return . modifierToBatch . fst) verdict
+        Just modifier -> do
+            -- TODO: I suppose such sanity checks should be done at higher
+            -- level.
+            inAssertMode $ do
+                verdict <- runExceptT $ usVerifyBlocks blocks
+                either onFailure (const pass) verdict
+            return $ modifierToBatch modifier
   where
     onFailure failure = do
         let msg = "usVerifyBlocks failed in 'apply': " <> pretty failure
@@ -65,22 +88,15 @@ usRollbackBlocks
        USGlobalApplyMode ssc m
     => NewestFirst NE (Block ssc, USUndo) -> m [DB.SomeBatchOp]
 usRollbackBlocks blunds =
-    modifierToBatch <$> (runDBPoll . execPollT def $ mapM_ rollbackDo blunds)
-  where
-    rollbackDo :: (Block ssc, USUndo) -> PollT (DBPoll m) ()
-    rollbackDo (Left _, _) = pass
-    rollbackDo (Right blk, undo) =
-        rollbackUSPayload
-            (blk ^. difficultyL)
-            (blk ^. gbBody . mbUpdatePayload)
-            undo
+    modifierToBatch <$>
+    (runDBPoll . execPollT def $ mapM_ (rollbackUS . snd) blunds)
 
 -- | Verify whether sequence of blocks can be applied to US part of
 -- current GState DB.  This function doesn't make pure checks, they
 -- are assumed to be done earlier, most likely during objects
 -- construction.
 usVerifyBlocks
-    :: USGlobalVerifyMode ssc m
+    :: (USGlobalVerifyMode ssc m)
     => OldestFirst NE (Block ssc) -> m (PollModifier, OldestFirst NE USUndo)
 usVerifyBlocks blocks = swap <$> run (mapM verifyBlock blocks)
   where
@@ -89,12 +105,38 @@ usVerifyBlocks blocks = swap <$> run (mapM verifyBlock blocks)
 verifyBlock
     :: (USGlobalVerifyMode ssc m, MonadPoll m)
     => Block ssc -> m USUndo
-verifyBlock (Left _)    = pure def
-verifyBlock (Right blk) = execRollT $ do
-    verifyAndApplyUSPayload
-        True
-        (Right $ blk ^. gbHeader)
-        (blk ^. gbBody . mbUpdatePayload)
+verifyBlock (Left genBlk) =
+    execRollT $ processGenesisBlock (genBlk ^. epochIndexL)
+verifyBlock (Right blk) =
+    execRollT $ do
+        verifyAndApplyUSPayload
+            True
+            (Right $ blk ^. gbHeader)
+            (blk ^. gbBody . mbUpdatePayload)
+        -- Block issuance can't affect verification and application of US payload,
+        -- so it's fine to separate it.
+        -- Note, however, that it's important to do it after
+        -- 'verifyAndApplyUSPayload', because there we assume that block
+        -- version is confirmed.
+        let consensusData = blk ^. gbHeader . gbhConsensus
+        let issuerPk =
+                case consensusData ^. mcdSignature of
+                    BlockSignature _         -> consensusData ^. mcdLeaderKey
+                    BlockPSignatureEpoch ps  -> pdDelegatePk ps
+                    BlockPSignatureSimple ps -> pdDelegatePk ps
+        recordBlockIssuance
+            (addressHash issuerPk)
+            (blk ^. gbHeader . gbhExtra . mehBlockVersion)
+            (blk ^. blockSlot)
+            (headerHash blk)
+        -- Block size check doesn't interfere with other checks too, so
+        -- it's separated.
+        verifyBlockSize (headerHash blk) (blockSize blk)
+
+-- | Checks whether our software can create block according to current
+-- global state.
+usCanCreateBlock :: (WithNodeContext ssc m, DB.MonadDB ssc m) => m Bool
+usCanCreateBlock = runDBPoll $ canCreateBlockBV lastKnownBlockVersion
 
 ----------------------------------------------------------------------------
 -- Conversion to batch
@@ -103,37 +145,45 @@ verifyBlock (Right blk) = execRollT $ do
 modifierToBatch :: PollModifier -> [DB.SomeBatchOp]
 modifierToBatch PollModifier {..} =
     concat $
-    [ scModifierToBatch pmNewScriptVersions pmDelScriptVersions
-    , pvModifierToBatch pmLastAdoptedPV
-    , confirmedModifierToBatch pmNewConfirmed pmDelConfirmed pmNewConfirmedProps
+    [ bvsModifierToBatch pmNewBVs pmDelBVs
+    , lastAdoptedModifierToBatch pmAdoptedBVFull
+    , confirmedVerModifierToBatch  pmNewConfirmed pmDelConfirmed
+    , confirmedPropModifierToBatch pmNewConfirmedProps pmDelConfirmedProps
     , upModifierToBatch pmNewActiveProps pmDelActivePropsIdx
     ]
 
-scModifierToBatch
-    :: HashMap ProtocolVersion ScriptVersion
-    -> HashSet ProtocolVersion
+bvsModifierToBatch
+    :: HashMap BlockVersion BlockVersionState
+    -> HashSet BlockVersion
     -> [DB.SomeBatchOp]
-scModifierToBatch (HM.toList -> added) (toList -> deleted) = addOps ++ delOps
+bvsModifierToBatch (HM.toList -> added) (toList -> deleted) = addOps ++ delOps
   where
-    addOps = map (DB.SomeBatchOp . uncurry SetScriptVersion) added
-    delOps = map (DB.SomeBatchOp . DelScriptVersion) deleted
+    addOps = map (DB.SomeBatchOp . uncurry SetBVState) added
+    delOps = map (DB.SomeBatchOp . DelBV) deleted
 
-pvModifierToBatch :: Maybe ProtocolVersion -> [DB.SomeBatchOp]
-pvModifierToBatch Nothing  = []
-pvModifierToBatch (Just v) = [DB.SomeBatchOp $ SetLastPV v]
+lastAdoptedModifierToBatch :: Maybe (BlockVersion, BlockVersionData) -> [DB.SomeBatchOp]
+lastAdoptedModifierToBatch Nothing          = []
+lastAdoptedModifierToBatch (Just (bv, bvd)) = [DB.SomeBatchOp $ SetAdopted bv bvd]
 
-confirmedModifierToBatch :: HashMap ApplicationName NumSoftwareVersion
-                         -> HashSet ApplicationName
-                         -> HashMap NumSoftwareVersion UpdateProposal
-                         -> [DB.SomeBatchOp]
-confirmedModifierToBatch
-    (HM.toList -> added)
-    (toList -> deleted)
-    (HM.toList -> confAdded) = addOps ++ delOps ++ confAddOps
+confirmedVerModifierToBatch
+    :: HashMap ApplicationName NumSoftwareVersion
+    -> HashSet ApplicationName
+    -> [DB.SomeBatchOp]
+confirmedVerModifierToBatch (HM.toList -> added) (toList -> deleted) =
+    addOps ++ delOps
   where
     addOps = map (DB.SomeBatchOp . ConfirmVersion . uncurry SoftwareVersion) added
     delOps = map (DB.SomeBatchOp . DelConfirmedVersion) deleted
-    confAddOps = map (DB.SomeBatchOp . uncurry AddConfirmedProposal) confAdded
+
+confirmedPropModifierToBatch
+    :: HashMap SoftwareVersion ConfirmedProposalState
+    -> HashSet SoftwareVersion
+    -> [DB.SomeBatchOp]
+confirmedPropModifierToBatch (toList -> confAdded) (toList -> confDeleted) =
+    confAddOps ++ confDelOps
+  where
+    confAddOps = map (DB.SomeBatchOp . AddConfirmedProposal) confAdded
+    confDelOps = map (DB.SomeBatchOp . DelConfirmedProposal) confDeleted
 
 upModifierToBatch :: HashMap UpId ProposalState
                   -> HashMap ApplicationName UpId

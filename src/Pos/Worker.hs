@@ -14,15 +14,14 @@ import           Universum
 
 import           Pos.Block.Worker        (blkWorkers)
 import           Pos.Communication       (BiP, SysStartResponse (..))
-import           Pos.Constants           (networkReceiveTimeout, slotDuration,
-                                          sysTimeBroadcastSlots)
+import           Pos.Constants           (networkReceiveTimeout, sysTimeBroadcastSlots)
 import           Pos.Context             (NodeContext (..), getNodeContext,
                                           setNtpLastSlot)
 import           Pos.DHT.Model.Neighbors (sendToNeighbors)
 import           Pos.DHT.Workers         (dhtWorkers)
 import           Pos.Lrc.Worker          (lrcOnNewSlotWorker)
 import           Pos.Security.Workers    (SecurityWorkersClass, securityWorkers)
-import           Pos.Slotting            (onNewSlotWithLogging)
+import           Pos.Slotting            (getSlotDuration, onNewSlotWithLogging)
 import           Pos.Ssc.Class.Workers   (SscWorkersClass, sscWorkers)
 import           Pos.Types               (SlotId, flattenSlotId, slotIdF)
 import           Pos.Update              (usWorkers)
@@ -61,10 +60,10 @@ onNewSlotWorkerImpl sendActions slotId = do
     setNtpLastSlot slotId
     when (flattenSlotId slotId <= sysTimeBroadcastSlots) $
       whenM (ncTimeLord <$> getNodeContext) $ void $ fork $ do
-        let send = ncSystemStart <$> getNodeContext
-                    >>= \sysStart -> do
-                        logInfo "Broadcasting system start"
-                        sendToNeighbors sendActions $ SysStartResponse sysStart
+        let send = do sysStart <- ncSystemStart <$> getNodeContext
+                      logInfo "Broadcasting system start"
+                      sendToNeighbors sendActions $ SysStartResponse sysStart
         send
+        slotDuration <- getSlotDuration
         waitRandomInterval (ms 500) (slotDuration `div` 2)
         send

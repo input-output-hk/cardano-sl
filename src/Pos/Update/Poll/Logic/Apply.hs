@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns        #-}
+{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -14,29 +15,39 @@ import           Control.Monad.Except       (MonadError, throwError)
 import           Data.List                  (partition)
 import           Data.List.NonEmpty         (NonEmpty)
 import qualified Data.List.NonEmpty         as NE
+import           Formatting                 (build, sformat, (%))
+import           System.Wlog                (WithLogger, logInfo)
 import           Universum
 
-import           Pos.Constants              (blkSecurityParam, curSoftwareVersion,
-                                             updateImplicitApproval,
+import           Pos.Constants              (blkSecurityParam, updateImplicitApproval,
                                              updateProposalThreshold, updateVoteThreshold)
 import           Pos.Crypto                 (hash)
+import           Pos.Ssc.Class              (Ssc)
 import           Pos.Types                  (ChainDifficulty, Coin, EpochIndex,
-                                             MainBlockHeader, SlotId (siEpoch),
-                                             SoftwareVersion (..), addressHash,
-                                             applyCoinPortion, canBeNextPV, coinToInteger,
+                                             HeaderHash, MainBlockHeader,
+                                             SlotId (siEpoch), SoftwareVersion (..),
+                                             addressHash, applyCoinPortion, coinToInteger,
                                              difficultyL, epochIndexL, flattenSlotId,
-                                             gbhExtra, headerSlot, mehProtocolVersion,
-                                             sumCoins, unflattenSlotId,
+                                             gbhExtra, headerHash, headerSlot,
+                                             mehBlockVersion, sumCoins, unflattenSlotId,
                                              unsafeIntegerToCoin)
-import           Pos.Update.Core            (UpId, UpdatePayload (..),
-                                             UpdateProposal (..), UpdateVote (..))
+import           Pos.Update.Core            (BlockVersionData (..), UpId,
+                                             UpdatePayload (..), UpdateProposal (..),
+                                             UpdateVote (..), upMaxBlockSize,
+                                             upScriptVersion, upSlotDuration)
 import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Logic.Base (isDecided, mkTotNegative, mkTotPositive,
-                                             mkTotSum, putNewProposal,
+import           Pos.Update.Poll.Logic.Base (canBeAdoptedBV, canBeProposedBV,
+                                             canCreateBlockBV, confirmBlockVersion,
+                                             isDecided, mkTotNegative, mkTotPositive,
+                                             mkTotSum, putNewProposal, verifyNextBVData,
                                              voteToUProposalState)
-import           Pos.Update.Poll.Types      (DecidedProposalState (..),
+import           Pos.Update.Poll.Types      (BlockVersionState (..),
+                                             ConfirmedProposalState (..),
+                                             DecidedProposalState (..), DpsExtra (..),
                                              PollVerFailure (..), ProposalState (..),
-                                             UndecidedProposalState (..))
+                                             UndecidedProposalState (..), UpsExtra (..))
+
+type ApplyMode m = (MonadError PollVerFailure m, MonadPoll m, WithLogger m)
 
 -- | Verify UpdatePayload with respect to data provided by
 -- MonadPoll. If data is valid it is also applied.  Otherwise
@@ -49,8 +60,8 @@ import           Pos.Update.Poll.Types      (DecidedProposalState (..),
 -- When it is 'Right header', it means that payload from block with
 -- given header is applied.
 verifyAndApplyUSPayload
-    :: (MonadError PollVerFailure m, MonadPoll m)
-    => Bool -> Either SlotId (MainBlockHeader __) -> UpdatePayload -> m ()
+    :: forall ssc m . (ApplyMode m, Ssc ssc)
+    => Bool -> Either SlotId (MainBlockHeader ssc) -> UpdatePayload -> m ()
 verifyAndApplyUSPayload considerPropThreshold slotOrHeader UpdatePayload {..} = do
     -- First of all, we verify data from header.
     either (const pass) verifyHeader slotOrHeader
@@ -68,7 +79,8 @@ verifyAndApplyUSPayload considerPropThreshold slotOrHeader UpdatePayload {..} = 
     -- Then we also apply votes from other groups.
     -- ChainDifficulty is needed, because proposal may become approved
     -- and then we'll need to track whether it becomes confirmed.
-    let cd = either (const Nothing) (Just . view difficultyL) slotOrHeader
+    let cd = (,) <$> either (const Nothing) (Just . view difficultyL) slotOrHeader
+                 <*> either (const Nothing) (Just . headerHash) slotOrHeader
     mapM_ (verifyAndApplyVotesGroup cd) otherGroups
     -- If we are applying payload from block, we also check implicit
     -- agreement rule and depth of decided proposals (they can become
@@ -79,19 +91,21 @@ verifyAndApplyUSPayload considerPropThreshold slotOrHeader UpdatePayload {..} = 
             applyImplicitAgreement
                 (mainBlk ^. headerSlot)
                 (mainBlk ^. difficultyL)
-            applyDepthCheck (mainBlk ^. difficultyL)
+                (headerHash mainBlk)
+            applyDepthCheck
+                (headerHash mainBlk)
+                (mainBlk ^. difficultyL)
 
 -- Here we verify all US-related data from header.
 verifyHeader
     :: (MonadError PollVerFailure m, MonadPoll m)
     => MainBlockHeader __ -> m ()
 verifyHeader header = do
-    -- Protocol version in block must be same as last adopted version.
-    lastAdopted <- getLastAdoptedPV
-    let versionInHeader = header ^. gbhExtra ^. mehProtocolVersion
-    unless (versionInHeader == lastAdopted) $
+    lastAdopted <- getAdoptedBV
+    let versionInHeader = header ^. gbhExtra ^. mehBlockVersion
+    unlessM (canCreateBlockBV versionInHeader) $
         throwError
-            PollWrongHeaderProtocolVersion
+            PollWrongHeaderBlockVersion
             {pwhpvGiven = versionInHeader, pwhpvAdopted = lastAdopted}
 
 -- Get stake of stakeholder who issued given vote as per given epoch.
@@ -124,9 +138,10 @@ resolveVoteStake epoch totalStake UpdateVote {..} = do
 -- If all checks pass, proposal is added. It can be in undecided or decided
 -- state (if it has enough voted stake at once).
 verifyAndApplyProposal
-    :: (MonadError PollVerFailure m, MonadPoll m)
+    :: forall ssc m.
+       (MonadError PollVerFailure m, MonadPoll m, Ssc ssc)
     => Bool
-    -> Either SlotId (MainBlockHeader __)
+    -> Either SlotId (MainBlockHeader ssc)
     -> [UpdateVote]
     -> UpdateProposal
     -> m ()
@@ -137,11 +152,11 @@ verifyAndApplyProposal considerThreshold slotOrHeader votes up@UpdateProposal {.
     -- blockchain, new proposal can't be added.
     whenM (hasActiveProposal (svAppName upSoftwareVersion)) $
         throwError $ Poll2ndActiveProposal upSoftwareVersion
-    -- Here we verify consistency with regards to script versions and
-    -- update relevant state.
-    verifyAndApplyProposalScript upId up
+    -- Here we verify consistency with regards to data from 'BlockVersionState'
+    -- and update relevant state if necessary.
+    verifyAndApplyProposalBVS upId up
     -- Then we verify that protocol version from proposal can follow last adopted software version.
-    verifyProtocolVersion upId up
+    verifyBlockVersion upId up
     -- We also verify that software version is expected one.
     verifySoftwareVersion upId up
     -- After that we resolve stakes of all votes.
@@ -154,29 +169,57 @@ verifyAndApplyProposal considerThreshold slotOrHeader votes up@UpdateProposal {.
     -- Finally we put it into context of MonadPoll together with votes for it.
     putNewProposal slotOrHeader totalStake votesAndStakes up
 
--- Here we check that script version from proposal is the same as
--- script versions of other proposals with the same protocol version.
--- We also add new mapping if it is new.
--- Returns True if new script versions deps is created.
-verifyAndApplyProposalScript
+-- Here we add check that block version from proposal is consistent
+-- with current data and add new 'BlockVersionState' if this is a new
+-- version.
+--
+-- The following checks are performed:
+--
+-- 1. We check that versions and constants from proposal are the same as
+-- versions and constants from other proposals with the same block version.
+--
+-- 2. But if the proposal has a new 'BlockVersion', we check that
+-- a) its 'ScriptVersion' is @lastScriptVersion + 1@, and
+-- b) its 'maxBlockSize' is at most 2× the previous block size.
+verifyAndApplyProposalBVS
     :: (MonadError PollVerFailure m, MonadPoll m)
     => UpId -> UpdateProposal -> m ()
-verifyAndApplyProposalScript upId UpdateProposal {..} =
-    getScriptVersion upProtocolVersion >>= \case
-        -- If there is no known script version for given procol
-        -- version, it's added.
-        Nothing -> addScriptVersionDep upProtocolVersion upScriptVersion
-        Just sv
-            -- If script version matches stored version, it's good.
-            | sv == upScriptVersion -> pass
-            -- Otherwise verification fails.
-            | otherwise ->
-                throwError
-                    PollWrongScriptVersion
-                    { pwsvExpected = sv
-                    , pwsvFound = upScriptVersion
-                    , pwsvUpId = upId
-                    }
+verifyAndApplyProposalBVS upId up =
+    getBVState (upBlockVersion up) >>= \case
+        -- This block version is already known, so we just check that
+        -- everything is the same
+        Just BlockVersionState{bvsData = BlockVersionData {..}}
+            | bvdScriptVersion /= upScriptVersion up -> throwError
+                  PollWrongScriptVersion
+                      { pwsvExpected = bvdScriptVersion
+                      , pwsvFound    = upScriptVersion up
+                      , pwsvUpId     = upId }
+            | bvdSlotDuration /= upSlotDuration up -> throwError
+                  PollWrongSlotDuration
+                      { pwsdExpected = bvdSlotDuration
+                      , pwsdFound    = upSlotDuration up
+                      , pwsdUpId     = upId }
+            | bvdMaxBlockSize /= upMaxBlockSize up -> throwError
+                  PollWrongMaxBlockSize
+                      { pwmbsExpected = bvdMaxBlockSize
+                      , pwmbsFound    = upMaxBlockSize up
+                      , pwmbsUpId     = upId }
+            | otherwise -> pass
+        -- This block version isn't known, so we can add it after doing
+        -- checks against the previous known block version state
+        Nothing -> do
+            let bvd = upBlockVersionData up
+            let newBVS = BlockVersionState
+                  { bvsData = bvd
+                  , bvsIsConfirmed   = False
+                  , bvsIssuersStable = mempty
+                  , bvsIssuersUnstable = mempty
+                  , bvsLastBlockStable = Nothing
+                  , bvsLastBlockUnstable = Nothing
+                  }
+            oldBVD <- getAdoptedBVData
+            verifyNextBVData upId oldBVD bvd
+            putBVState (upBlockVersion up) newBVS
 
 -- Here we check that software version is 1 more than last confirmed
 -- version of given application. Or 0 if it's new application.
@@ -212,20 +255,18 @@ verifySoftwareVersion upId UpdateProposal {..} =
     sv = upSoftwareVersion
     app = svAppName sv
 
--- Here we verify that proposed protocol version is the same as
--- adopted one or can follow it.
-verifyProtocolVersion
+-- Here we verify that proposed protocol version could be proposed.
+-- See documentation of 'Logic.Base.canBeProposedBV' for details.
+verifyBlockVersion
     :: (MonadError PollVerFailure m, MonadPollRead m)
     => UpId -> UpdateProposal -> m ()
-verifyProtocolVersion upId UpdateProposal {..} = do
-    lastAdopted <- getLastAdoptedPV
-    unless
-        (lastAdopted == upProtocolVersion ||
-         canBeNextPV lastAdopted upProtocolVersion) $
+verifyBlockVersion upId UpdateProposal {..} = do
+    lastAdopted <- getAdoptedBV
+    unlessM (canBeProposedBV upBlockVersion) $
         throwError
-            PollBadProtocolVersion
+            PollBadBlockVersion
             { pbpvUpId = upId
-            , pbpvGiven = upProtocolVersion
+            , pbpvGiven = upBlockVersion
             , pbpvAdopted = lastAdopted
             }
 
@@ -253,14 +294,13 @@ verifyProposalStake totalStake votesAndStakes upId = do
 -- undecided state.
 -- Votes are assumed to be for the same proposal.
 verifyAndApplyVotesGroup
-    :: (MonadError PollVerFailure m, MonadPoll m)
-    => Maybe ChainDifficulty -> NonEmpty UpdateVote -> m ()
+    :: ApplyMode m
+    => Maybe (ChainDifficulty, HeaderHash) -> NonEmpty UpdateVote -> m ()
 verifyAndApplyVotesGroup cd votes = mapM_ verifyAndApplyVote votes
   where
     upId = uvProposalId $ NE.head votes
     verifyAndApplyVote vote = do
-        let
-            !stakeholderId = addressHash . uvKey $ NE.head votes
+        let !stakeholderId = addressHash . uvKey $ NE.head votes
             unknownProposalErr =
                 PollUnknownProposal
                 {pupStakeholder = stakeholderId, pupProposal = upId}
@@ -271,8 +311,11 @@ verifyAndApplyVotesGroup cd votes = mapM_ verifyAndApplyVote votes
 
 -- Here we actually apply vote to stored undecided proposal.
 verifyAndApplyVoteDo
-    :: (MonadError PollVerFailure m, MonadPoll m)
-    => Maybe ChainDifficulty -> UndecidedProposalState -> UpdateVote -> m ()
+    :: ApplyMode m
+    => Maybe (ChainDifficulty, HeaderHash)
+    -> UndecidedProposalState
+    -> UpdateVote
+    -> m ()
 verifyAndApplyVoteDo cd ups v@UpdateVote {..} = do
     let e = siEpoch $ upsSlot ups
     totalStake <- note (PollUnknownStakes e) =<< getEpochTotalStake e
@@ -289,9 +332,10 @@ verifyAndApplyVoteDo cd ups v@UpdateVote {..} = do
                     DecidedProposalState
                     { dpsUndecided = newUPS
                     , dpsDecision = decision
-                    , dpsDifficulty = cd
+                    , dpsDifficulty = fst <$> cd
+                    , dpsExtra = DpsExtra . snd <$> cd <*> Just False
                     }
-            | otherwise = PSUndecided ups
+            | otherwise = PSUndecided newUPS
     addActiveProposal newPS
 
 -- According to implicit agreement rule all proposals which were put
@@ -301,8 +345,8 @@ verifyAndApplyVoteDo cd ups v@UpdateVote {..} = do
 -- approved. Otherwise it's rejected.
 applyImplicitAgreement
     :: MonadPoll m
-    => SlotId -> ChainDifficulty -> m ()
-applyImplicitAgreement (flattenSlotId -> slotId) cd
+    => SlotId -> ChainDifficulty -> HeaderHash -> m ()
+applyImplicitAgreement (flattenSlotId -> slotId) cd hh
     | slotId < updateImplicitApproval = pass
     | otherwise = do
         let oldSlot = unflattenSlotId $ slotId - updateImplicitApproval
@@ -315,6 +359,7 @@ applyImplicitAgreement (flattenSlotId -> slotId) cd
         { dpsUndecided = ups
         , dpsDecision = upsPositiveStake > upsNegativeStake
         , dpsDifficulty = Just cd
+        , dpsExtra = Just $ DpsExtra hh True
         }
 
 -- All decided proposals which became decided more than
@@ -322,9 +367,9 @@ applyImplicitAgreement (flattenSlotId -> slotId) cd
 -- confirmed or discarded (approved become confirmed, rejected become
 -- discarded).
 applyDepthCheck
-    :: MonadPoll m
-    => ChainDifficulty -> m ()
-applyDepthCheck cd
+    :: ApplyMode m
+    => HeaderHash -> ChainDifficulty -> m ()
+applyDepthCheck hh cd
     | cd <= blkSecurityParam = pass
     | otherwise = do
         deepProposals <- getDeepProposals (cd - blkSecurityParam)
@@ -333,8 +378,29 @@ applyDepthCheck cd
     applyDepthCheckDo DecidedProposalState {..} = do
         let UndecidedProposalState {..} = dpsUndecided
         let sv = upSoftwareVersion upsProposal
+        let bv = upBlockVersion upsProposal
         when dpsDecision $ do
             setLastConfirmedSV sv
-            when (svAppName curSoftwareVersion == svAppName sv) $
-                addConfirmedProposal (svNumber sv) upsProposal
+            DpsExtra {..} <-
+                note (PollInternalError "DPS extra: expected Just, but got Nothing")
+                      dpsExtra
+            UpsExtra {..} <-
+                note (PollInternalError "UPS extra: expected Just, but got Nothing")
+                      upsExtra
+            let cps = ConfirmedProposalState
+                    { cpsUpdateProposal = upsProposal
+                    , cpsVotes = upsVotes
+                    , cpsPositiveStake = upsPositiveStake
+                    , cpsNegativeStake = upsNegativeStake
+                    , cpsImplicit = deImplicit
+                    , cpsProposed = ueProposedBlk
+                    , cpsDecided = deDecidedBlk
+                    , cpsConfirmed = hh
+                    , cpsAdopted = Nothing
+                    }
+            logInfo $ sformat ("New confirmed proposal "%build) (hash upsProposal)
+            addConfirmedProposal cps
+        needConfirmBV <- (dpsDecision &&) <$> canBeAdoptedBV bv
+        if | needConfirmBV -> confirmBlockVersion bv
+           | otherwise -> delBVState bv
         deactivateProposal (hash upsProposal)

@@ -39,16 +39,16 @@ import           Pos.Crypto                (PublicKey, SecretKey, WithHash (..),
 import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.Script                (Script)
 import           Pos.Script.Examples       (multisigRedeemer, multisigValidator)
-import           Pos.Ssc.Class             (Ssc)
+-- import           Pos.Ssc.Class             (Ssc)
 import           Pos.Types                 (Address, Block, ChainDifficulty, Coin,
                                             MonadUtxoRead (..), Tx (..), TxAux,
                                             TxDistribution (..), TxId, TxIn (..),
                                             TxInWitness (..), TxOut (..), TxOutAux,
                                             TxSigData, TxWitness, Utxo, UtxoStateT (..),
                                             applyTxToUtxo, blockTxas, difficultyL,
-                                            filterUtxoByAddr, headerHash,
-                                            makePubKeyAddress, makeScriptAddress, mkCoin,
-                                            sumCoins, topsortTxs)
+                                            filterUtxoByAddr, makePubKeyAddress,
+                                            makeScriptAddress, mkCoin, sumCoins,
+                                            topsortTxs)
 import           Pos.Types.Coin            (unsafeIntegerToCoin, unsafeSubCoin)
 
 type TxOutIdx = (TxId, Word32)
@@ -199,12 +199,14 @@ getRelatedTxs addr txs = fmap DL.toList $
 -- blockchains when wallet state is ready, but some metadata for
 -- Tx will be required.
 deriveAddrHistory
-    :: (Monad m, Ssc ssc) => Address -> [Block ssc] -> TxSelectorT m [TxHistoryEntry]
+    -- :: (Monad m, Ssc ssc) => Address -> [Block ssc] -> TxSelectorT m [TxHistoryEntry]
+    :: (Monad m) => Address -> [Block ssc] -> TxSelectorT m [TxHistoryEntry]
 deriveAddrHistory addr chain = identity %= filterUtxoByAddr addr >>
                                deriveAddrHistoryPartial [] addr chain
 
 deriveAddrHistoryPartial
-    :: (Monad m, Ssc ssc)
+    -- :: (Monad m ssc)
+    :: (Monad m)
     => [TxHistoryEntry]
     -> Address
     -> [Block ssc]

@@ -39,12 +39,14 @@ import           Pos.Types.Utxo.Class        (MonadUtxo, MonadUtxoRead)
 import           Pos.Update.Core             (UpdateProposal (..))
 import           Pos.Update.MemState.Class   (MonadUSMem (..))
 import           Pos.Update.Poll.Class       (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Types       (PollModifier (..), pmDelActivePropsIdxL,
-                                              pmDelActivePropsL, pmDelConfirmedL,
-                                              pmDelScriptVersionsL, pmLastAdoptedPVL,
-                                              pmNewActivePropsIdxL, pmNewActivePropsL,
+import           Pos.Update.Poll.Types       (BlockVersionState (..), PollModifier (..),
+                                              cpsSoftwareVersion, pmAdoptedBVFullL,
+                                              pmDelActivePropsIdxL, pmDelActivePropsL,
+                                              pmDelBVsL, pmDelConfirmedL,
+                                              pmDelConfirmedPropsL, pmNewActivePropsIdxL,
+                                              pmNewActivePropsL, pmNewBVsL,
                                               pmNewConfirmedL, pmNewConfirmedPropsL,
-                                              pmNewScriptVersionsL, psProposal)
+                                              psProposal)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 ----------------------------------------------------------------------------
@@ -83,12 +85,13 @@ execPollT m = fmap snd . runPollT m
 
 instance MonadPollRead m =>
          MonadPollRead (PollT m) where
-    getScriptVersion pv = do
-        new <- pmNewScriptVersions <$> PollT get
-        maybe (PollT $ getScriptVersion pv) (pure . Just) $ HM.lookup pv new
-    getLastAdoptedPV = do
-        new <- pmLastAdoptedPV <$> PollT get
-        maybe (PollT getLastAdoptedPV) pure new
+    getBVState pv = do
+        new <- pmNewBVs <$> PollT get
+        maybe (PollT $ getBVState pv) (pure . Just) $ HM.lookup pv new
+    getProposedBVs = PollT getProposedBVs
+    getAdoptedBVFull = PollT $ do
+        new <- pmAdoptedBVFull <$> get
+        maybe getAdoptedBVFull pure new
     getLastConfirmedSV appName = do
         new <- pmNewConfirmed <$> PollT get
         maybe (PollT $ getLastConfirmedSV appName) (pure . Just) $
@@ -109,13 +112,19 @@ instance MonadPollRead m =>
 
 instance MonadPollRead m =>
          MonadPoll (PollT m) where
-    addScriptVersionDep pv sv = PollT $ pmNewScriptVersionsL . at pv .= Just sv
-    delScriptVersionDep pv = PollT $ pmDelScriptVersionsL . at pv .= Nothing
-    setLastAdoptedPV pv = PollT $ pmLastAdoptedPVL .= Just pv
+    putBVState bv st = PollT $ pmNewBVsL . at bv .= Just st
+    delBVState bv = PollT $ pmDelBVsL . at bv .= Nothing
+    setAdoptedBV bv = do
+        bvs <- getBVState bv
+        case bvs of
+            Nothing               -> pass -- can't happen actually
+            Just (bvsData -> bvd) -> PollT $ pmAdoptedBVFullL .= Just (bv, bvd)
     setLastConfirmedSV SoftwareVersion {..} =
         PollT $ pmNewConfirmedL . at svAppName .= Just svNumber
     delConfirmedSV appName = PollT $ pmDelConfirmedL . at appName .= Nothing
-    addConfirmedProposal nsv up = PollT $ pmNewConfirmedPropsL . at nsv .= Just up
+    addConfirmedProposal cps =
+        PollT $ pmNewConfirmedPropsL . at (cpsSoftwareVersion cps) .= Just cps
+    delConfirmedProposal sv = PollT $ pmDelConfirmedPropsL . at sv .= Nothing
     addActiveProposal ps =
         PollT $ do
             let up = psProposal ps
@@ -126,16 +135,17 @@ instance MonadPollRead m =>
             pmNewActivePropsIdxL . at appName .= Just upId
             pmDelActivePropsL . at upId .= Nothing
             pmDelActivePropsIdxL . at appName .= Nothing
-    deactivateProposal id = PollT $ do
-        prop <- getProposal id
-        whenJust prop $ \ps -> do
-            let up = psProposal ps
-                sv = upSoftwareVersion up
-                appName = svAppName sv
-            pmNewActivePropsL . at id .= Nothing
-            pmNewActivePropsIdxL . at appName .= Nothing
-            pmDelActivePropsL . at id .= Just ()
-            pmDelActivePropsIdxL . at appName .= Just id
+    deactivateProposal id =
+        PollT $ do
+            prop <- getProposal id
+            whenJust prop $ \ps -> do
+                let up = psProposal ps
+                    sv = upSoftwareVersion up
+                    appName = svAppName sv
+                pmNewActivePropsL . at id .= Nothing
+                pmNewActivePropsIdxL . at appName .= Nothing
+                pmDelActivePropsL . at id .= Just ()
+                pmDelActivePropsIdxL . at appName .= Just id
 
 ----------------------------------------------------------------------------
 -- Common instances used all over the code

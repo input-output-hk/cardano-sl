@@ -26,34 +26,38 @@ module Pos.Genesis
        , genesisLeaders
 
        -- * Update System
-       , genesisProtocolVersion
+       , genesisBlockVersion
        , genesisSoftwareVersions
        , genesisScriptVersion
+       , genesisSlotDuration
+       , genesisMaxBlockSize
        ) where
 
-import           Control.Lens             (_head)
-import           Data.Default             (Default (..))
-import           Data.List                (genericLength, genericReplicate)
-import qualified Data.Map.Strict          as M
-import qualified Data.Text                as T
-import           Formatting               (int, sformat, (%))
-import           Serokell.Util            (enumerate)
+import           Control.Lens               (_head)
+import           Data.Default               (Default (..))
+import           Data.List                  (genericLength, genericReplicate)
+import qualified Data.Map.Strict            as M
+import qualified Data.Text                  as T
+import           Data.Time.Units            (Microsecond)
+import           Formatting                 (int, sformat, (%))
+import           Serokell.Data.Memory.Units (Byte)
+import           Serokell.Util              (enumerate)
 import           Universum
 
-import           Pos.Constants            (curSoftwareVersion, genesisN, mpcThreshold)
-import           Pos.Crypto               (PublicKey, SecretKey, deterministicKeyGen,
-                                           unsafeHash)
-import           Pos.Genesis.Parser       (compileGenData)
-import           Pos.Genesis.Types        (GenesisData (..), StakeDistribution (..))
-import           Pos.Lrc.FollowTheSatoshi (followTheSatoshi)
-import           Pos.Script.Type          (ScriptVersion)
-import           Pos.Types                (Address (..), Coin, ProtocolVersion (..),
-                                           SharedSeed (SharedSeed), SlotLeaders,
-                                           StakeholderId, TxOut (..), Utxo,
-                                           applyCoinPortion, coinToInteger, divCoin,
-                                           makePubKeyAddress, mkCoin, unsafeAddCoin,
-                                           unsafeMulCoin)
-import           Pos.Types.Version        (SoftwareVersion (..))
+import qualified Pos.Constants              as Const
+import           Pos.Crypto                 (PublicKey, SecretKey, deterministicKeyGen,
+                                             unsafeHash)
+import           Pos.Genesis.Parser         (compileGenData)
+import           Pos.Genesis.Types          (GenesisData (..), StakeDistribution (..))
+import           Pos.Lrc.FollowTheSatoshi   (followTheSatoshi)
+import           Pos.Script.Type            (ScriptVersion)
+import           Pos.Types                  (Address (..), BlockVersion (..), Coin,
+                                             SharedSeed (SharedSeed), SlotLeaders,
+                                             StakeholderId, TxOut (..), Utxo,
+                                             applyCoinPortion, coinToInteger, divCoin,
+                                             makePubKeyAddress, mkCoin, unsafeAddCoin,
+                                             unsafeMulCoin)
+import           Pos.Types.Version          (SoftwareVersion (..))
 
 ----------------------------------------------------------------------------
 -- Static state
@@ -62,7 +66,7 @@ import           Pos.Types.Version        (SoftwareVersion (..))
 #ifdef DEV_MODE
 -- | List of pairs from 'SecretKey' with corresponding 'PublicKey'.
 genesisKeyPairs :: [(PublicKey, SecretKey)]
-genesisKeyPairs = map gen [0 .. genesisN - 1]
+genesisKeyPairs = map gen [0 .. Const.genesisN - 1]
   where
     gen :: Int -> (PublicKey, SecretKey)
     gen =
@@ -94,8 +98,8 @@ genesisStakeDistribution = gdDistribution compileGenData
 #endif
 
 instance Default StakeDistribution where
-    def = FlatStakes genesisN
-              (mkCoin 10000 `unsafeMulCoin` (genesisN :: Int))
+    def = FlatStakes Const.genesisN
+              (mkCoin 10000 `unsafeMulCoin` (Const.genesisN :: Int))
 
 -- 10000 coins in total. For thresholds testing.
 -- 0.5,0.25,0.125,0.0625,0.0312,0.0156,0.0078,0.0039,0.0019,0.0008,0.0006,0.0004,0.0002,0.0001
@@ -126,7 +130,8 @@ stakeDistribution TestnetStakes {..} =
     -- Total number of poor
     poors = fromIntegral sdPoor
     -- Minimum amount of money to become rich
-    thresholdRich = coinToInteger $ applyCoinPortion mpcThreshold sdTotalStake
+    thresholdRich = coinToInteger $
+        applyCoinPortion Const.mpcThreshold sdTotalStake
     -- Maximal amount of total money which poor stakeholders can hold
     maxPoorStake = (thresholdRich - 1) * poors
     -- Minimum amount of richmen's money to prevent poors becoming richmen
@@ -196,19 +201,27 @@ genesisLeaders = followTheSatoshi genesisSeed
 -- Update system
 ----------------------------------------------------------------------------
 
--- | ProtocolVersion used at the very beginning.
-genesisProtocolVersion :: ProtocolVersion
-genesisProtocolVersion =
-    ProtocolVersion
-    { pvMajor = 0
-    , pvMinor = 0
-    , pvAlt = 0
+-- | BlockVersion used at the very beginning.
+genesisBlockVersion :: BlockVersion
+genesisBlockVersion =
+    BlockVersion
+    { bvMajor = 0
+    , bvMinor = 0
+    , bvAlt = 0
     }
 
 -- | Software Versions
 genesisSoftwareVersions :: [SoftwareVersion]
-genesisSoftwareVersions = [curSoftwareVersion { svNumber = 0 }]
+genesisSoftwareVersions = [Const.curSoftwareVersion { svNumber = 0 }]
 
--- | ScriptVersion used at very beginning
+-- | ScriptVersion used at the very beginning
 genesisScriptVersion :: ScriptVersion
 genesisScriptVersion = 0
+
+-- | Initial slot duration
+genesisSlotDuration :: Microsecond
+genesisSlotDuration = Const.genesisSlotDuration
+
+-- | Initial block size limit
+genesisMaxBlockSize :: Byte
+genesisMaxBlockSize = Const.genesisMaxBlockSize

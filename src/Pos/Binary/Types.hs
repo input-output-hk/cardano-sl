@@ -228,7 +228,7 @@ instance (Ssc ssc, Bi UpdatePayload) => Bi (T.Body (T.MainBlockchain ssc)) where
         return T.MainBody{..}
 
 instance Bi T.MainExtraHeaderData where
-    put T.MainExtraHeaderData {..} =  put _mehProtocolVersion
+    put T.MainExtraHeaderData {..} =  put _mehBlockVersion
                                    *> put _mehSoftwareVersion
                                    *> put _mehAttributes
     get = label "MainExtraHeaderData" $ T.MainExtraHeaderData <$> get <*> get <*> get

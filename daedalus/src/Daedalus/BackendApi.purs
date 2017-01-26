@@ -5,7 +5,7 @@ import Control.Monad.Aff (Aff)
 import Control.Monad.Eff.Exception (error, Error)
 import Control.Monad.Error.Class (throwError)
 import Daedalus.Constants (backendPrefix)
-import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency, WalletError, showCCurrency, CProfile)
+import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency, WalletError, showCCurrency, CProfile, CWalletInit)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (decodeJson, encodeJson)
 import Data.Bifunctor (bimap)
@@ -99,7 +99,7 @@ send addrFrom addrTo amount = postR ["send", _address addrFrom, _address addrTo,
 sendExtended :: forall eff. CAddress -> CAddress -> Coin -> CCurrency -> String -> String -> Aff (ajax :: AJAX | eff) CTx
 sendExtended addrFrom addrTo amount curr title desc = postR ["send", _address addrFrom, _address addrTo, show $ _coin amount, showCCurrency curr, title, desc]
 
-newWallet :: forall eff. CWalletMeta -> Aff (ajax :: AJAX | eff) CWallet
+newWallet :: forall eff. CWalletInit -> Aff (ajax :: AJAX | eff) CWallet
 newWallet = postRBody ["new_wallet"]
 
 updateTransaction :: forall eff. CAddress -> CTxId -> CTxMeta -> Aff (ajax :: AJAX | eff) Unit
@@ -114,3 +114,6 @@ deleteWallet addr = postR ["delete_wallet", _address addr]
 
 isValidAddress :: forall eff. CCurrency -> String -> Aff (ajax :: AJAX | eff) Boolean
 isValidAddress cCurrency addr = getR ["valid_address", showCCurrency cCurrency, addr]
+
+blockchainSlotDuration :: forall eff. Aff (ajax :: AJAX | eff) Int
+blockchainSlotDuration = getR ["slot_duration"]

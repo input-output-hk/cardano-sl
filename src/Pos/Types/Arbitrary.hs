@@ -38,12 +38,13 @@ import           Pos.Types.Arbitrary.Unsafe ()
 import           Pos.Types.Coin             (coinToInteger, unsafeAddCoin, unsafeSubCoin)
 import           Pos.Types.Timestamp        (Timestamp (..))
 import           Pos.Types.Types            (Address (..), ChainDifficulty (..), Coin,
-                                             EpochIndex (..), LocalSlotIndex (..),
-                                             SharedSeed (..), SlotId (..), Tx (..),
+                                             EpochIndex (..), EpochOrSlot (..),
+                                             LocalSlotIndex (..), SharedSeed (..),
+                                             SlotId (..), SlotId (..), Tx (..),
                                              TxDistribution (..), TxIn (..),
                                              TxInWitness (..), TxOut (..), TxOutAux,
                                              makePubKeyAddress, makeScriptAddress, mkCoin)
-import           Pos.Types.Version          (ApplicationName (..), ProtocolVersion (..),
+import           Pos.Types.Version          (ApplicationName (..), BlockVersion (..),
                                              SoftwareVersion (..),
                                              applicationNameMaxLength)
 import           Pos.Util                   (AsBinary, makeSmall)
@@ -63,11 +64,6 @@ instance Arbitrary Address where
 
 deriving instance Arbitrary ChainDifficulty
 
-instance Arbitrary SlotId where
-    arbitrary = SlotId
-        <$> arbitrary
-        <*> choose (0, epochSlots - 1)
-
 derive makeArbitrary ''TxOut
 
 instance Arbitrary Coin where
@@ -85,6 +81,17 @@ deriving instance Random LocalSlotIndex
 
 instance Arbitrary LocalSlotIndex where
     arbitrary = choose (0, epochSlots - 1)
+
+instance Arbitrary SlotId where
+    arbitrary = SlotId
+        <$> arbitrary
+        <*> arbitrary
+
+instance Arbitrary EpochOrSlot where
+    arbitrary = oneof [
+          EpochOrSlot . Left <$> arbitrary
+        , EpochOrSlot . Right <$> arbitrary
+        ]
 
 instance Arbitrary TxInWitness where
     arbitrary = oneof [
@@ -221,7 +228,7 @@ instance Arbitrary ApplicationName where
         map (chr . flip mod 128) .
         take applicationNameMaxLength <$> arbitrary
 
-derive makeArbitrary ''ProtocolVersion
+derive makeArbitrary ''BlockVersion
 derive makeArbitrary ''SoftwareVersion
 
 ----------------------------------------------------------------------------

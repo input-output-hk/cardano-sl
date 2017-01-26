@@ -8,6 +8,7 @@ module Pos.Wallet.Context.Class
        , readNtpLastSlot
        , readNtpMargin
        , readNtpData
+       , readSlotDuration
        ) where
 
 import qualified Control.Concurrent.STM      as STM
@@ -15,11 +16,11 @@ import           Control.Monad.Trans         (MonadTrans)
 import           Data.Time.Units             (Microsecond)
 import           Universum
 
-
 import           Pos.Communication.PeerState (PeerStateHolder)
 import qualified Pos.Context                 as PC
 import           Pos.Delegation.Holder       (DelegationT (..))
 import           Pos.DHT.Real                (KademliaDHT (..))
+import           Pos.Slotting                (SlottingState (..))
 import           Pos.Ssc.Extra               (SscHolder (..))
 import qualified Pos.Txp.Holder              as Modern
 import           Pos.Types                   (SlotId)
@@ -47,10 +48,23 @@ deriving instance (Monad m, WithWalletContext m) => WithWalletContext (USHolder 
 deriving instance (Monad m, WithWalletContext m) => WithWalletContext (KademliaDHT m)
 
 readNtpLastSlot :: (MonadIO m, WithWalletContext m) => m SlotId
-readNtpLastSlot = getWalletContext >>= atomically . STM.readTVar . wcNtpLastSlot
+readNtpLastSlot = do
+    wc <- getWalletContext
+    atomically $ ssNtpLastSlot <$> STM.readTVar (wcSlottingState wc)
 
 readNtpMargin :: (MonadIO m, WithWalletContext m) => m Microsecond
-readNtpMargin = getWalletContext >>= fmap fst . atomically . STM.readTVar . wcNtpData
+readNtpMargin = do
+    wc <- getWalletContext
+    atomically $ fst . ssNtpData <$> STM.readTVar (wcSlottingState wc)
 
-readNtpData :: (MonadIO m, WithWalletContext m) => m (Microsecond, Microsecond)
-readNtpData = getWalletContext >>= atomically . STM.readTVar . wcNtpData
+readNtpData
+    :: (MonadIO m, WithWalletContext m)
+    => m (Microsecond, Microsecond)
+readNtpData = do
+    wc <- getWalletContext
+    atomically $ ssNtpData <$> STM.readTVar (wcSlottingState wc)
+
+readSlotDuration :: (MonadIO m, WithWalletContext m) => m Microsecond
+readSlotDuration = do
+    wc <- getWalletContext
+    atomically $ ssSlotDuration <$> STM.readTVar (wcSlottingState wc)

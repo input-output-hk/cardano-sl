@@ -29,7 +29,7 @@ import           Pos.Wallet.Context         (WithWalletContext)
 import           Pos.Wallet.KeyStorage      (MonadKeys)
 import           Pos.Wallet.State           (MonadWalletDB)
 import           Pos.Wallet.WalletMode      (MonadBalances, MonadBlockchainInfo,
-                                             MonadTxHistory)
+                                             MonadTxHistory, MonadUpdates)
 
 import           Pos.Wallet.Web.State.State (MonadWalletWebDB (..), WalletState)
 
@@ -39,7 +39,7 @@ newtype WalletWebDB m a = WalletWebDB
     } deriving (Functor, Applicative, Monad, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
                 MonadWalletDB, WithWalletContext,
-                MonadDHT, MonadSlots, MonadTrans,
+                MonadDHT, MonadSlots, MonadTrans, MonadUpdates,
                 CanLog, MonadKeys, MonadBalances, MonadBlockchainInfo,
                 MonadTxHistory, WithNodeContext ssc, MonadUSMem, MonadPollRead,
                 MonadTxpLD ssc, MonadDelegation)

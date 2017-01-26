@@ -7,12 +7,16 @@
 module Pos.DB.GState.Update
        (
          -- * Getters
-         getLastPV
-       , getScriptVersion
+         getAdoptedBV
+       , getAdoptedBVData
+       , getAdoptedBVFull
+       , getBVState
        , getProposalState
        , getAppProposal
        , getProposalStateByApp
        , getConfirmedSV
+       , getSlotDuration
+       , getMaxBlockSize
 
          -- * Operations
        , UpdateOp (..)
@@ -29,50 +33,80 @@ module Pos.DB.GState.Update
 
        , ConfPropIter
        , getConfirmedProposals
+
+       , BVIter
+       , getProposedBVs
+       , getConfirmedBVStates
+       , getProposedBVStates
        ) where
 
-import           Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
-import qualified Database.RocksDB          as Rocks
+import           Control.Monad.Trans.Maybe  (MaybeT (..), runMaybeT)
+import           Data.Time.Units            (Microsecond)
+import qualified Database.RocksDB           as Rocks
+import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
-import           Pos.Binary.Class          (encodeStrict)
-import           Pos.Binary.DB             ()
-import           Pos.Crypto                (hash)
-import           Pos.DB.Class              (MonadDB, getUtxoDB)
-import           Pos.DB.Error              (DBError (DBMalformed))
-import           Pos.DB.Functions          (RocksBatchOp (..), encodeWithKeyPrefix,
-                                            rocksWriteBatch)
-import           Pos.DB.GState.Common      (getBi)
-import           Pos.DB.Iterator           (DBIteratorClass (..), DBnIterator,
-                                            DBnMapIterator, IterType, runDBnIterator,
-                                            runDBnMapIterator)
-import           Pos.DB.Types              (NodeDBs (..))
-import           Pos.Genesis               (genesisProtocolVersion, genesisScriptVersion,
-                                            genesisSoftwareVersions)
-import           Pos.Script.Type           (ScriptVersion)
-import           Pos.Types                 (ApplicationName, ChainDifficulty,
-                                            NumSoftwareVersion, ProtocolVersion, SlotId,
-                                            SoftwareVersion (..))
-import           Pos.Update.Core           (UpId, UpdateProposal (..))
-import           Pos.Update.Poll.Types     (DecidedProposalState (dpsDifficulty),
-                                            ProposalState (..),
-                                            UndecidedProposalState (upsSlot), psProposal)
-import           Pos.Util                  (maybeThrow)
-import           Pos.Util.Iterator         (MonadIterator (..))
+import           Pos.Binary.Class           (encodeStrict)
+import           Pos.Binary.DB              ()
+import           Pos.Constants              (ourAppName)
+import           Pos.Crypto                 (hash)
+import           Pos.DB.Class               (MonadDB, getUtxoDB)
+import           Pos.DB.Error               (DBError (DBMalformed))
+import           Pos.DB.Functions           (RocksBatchOp (..), encodeWithKeyPrefix,
+                                             rocksWriteBatch)
+import           Pos.DB.GState.Common       (getBi)
+import           Pos.DB.Iterator            (DBIteratorClass (..), DBnIterator,
+                                             DBnMapIterator, IterType, runDBnIterator,
+                                             runDBnMapIterator)
+import           Pos.DB.Types               (NodeDBs (..))
+import           Pos.Genesis                (genesisBlockVersion, genesisMaxBlockSize,
+                                             genesisScriptVersion, genesisSlotDuration,
+                                             genesisSoftwareVersions)
+import           Pos.Types                  (ApplicationName, BlockVersion,
+                                             ChainDifficulty, NumSoftwareVersion, SlotId,
+                                             SoftwareVersion (..))
+import           Pos.Update.Core            (BlockVersionData (..), UpId,
+                                             UpdateProposal (..))
+import           Pos.Update.Poll.Types      (BlockVersionState (..),
+                                             ConfirmedProposalState,
+                                             DecidedProposalState (dpsDifficulty),
+                                             ProposalState (..),
+                                             UndecidedProposalState (upsSlot),
+                                             cpsSoftwareVersion, psProposal)
+import           Pos.Util                   (maybeThrow)
+import           Pos.Util.Iterator          (MonadIterator (..))
 
 ----------------------------------------------------------------------------
 -- Getters
 ----------------------------------------------------------------------------
 
--- | Get last approved protocol version.
-getLastPV :: MonadDB ssc m => m ProtocolVersion
-getLastPV = maybeThrow (DBMalformed msg) =<< getLastPVMaybe
+-- | Get last adopted block version.
+getAdoptedBV :: MonadDB ssc m => m BlockVersion
+getAdoptedBV = fst <$> getAdoptedBVFull
+
+-- | Get state of last adopted BlockVersion.
+getAdoptedBVData :: MonadDB ssc m => m BlockVersionData
+getAdoptedBVData = snd <$> getAdoptedBVFull
+
+-- | Get last adopted BlockVersion and data associated with it.
+getAdoptedBVFull :: MonadDB ssc m => m (BlockVersion, BlockVersionData)
+getAdoptedBVFull = maybeThrow (DBMalformed msg) =<< getAdoptedBVFullMaybe
   where
     msg =
-        "Update System part of GState DB is not initialized (last PV is missing)"
+        "Update System part of GState DB is not initialized (last adopted BV is missing)"
 
-getScriptVersion :: MonadDB ssc m => ProtocolVersion -> m (Maybe ScriptVersion)
-getScriptVersion = getBi . scriptVersionKey
+-- | Get actual slot duration.
+getSlotDuration :: MonadDB ssc m => m Microsecond
+getSlotDuration = pure genesisSlotDuration
+-- getSlotDuration = bvdSlotDuration <$> getAdoptedBVData
+
+-- | Get maximum block size (in bytes).
+getMaxBlockSize :: MonadDB ssc m => m Byte
+getMaxBlockSize = bvdMaxBlockSize <$> getAdoptedBVData
+
+-- | Get 'BlockVersionState' associated with given BlockVersion.
+getBVState :: MonadDB ssc m => BlockVersion -> m (Maybe BlockVersionState)
+getBVState = getBi . bvStateKey
 
 -- | Get state of UpdateProposal for given UpId
 getProposalState :: MonadDB ssc m => UpId -> m (Maybe ProposalState)
@@ -102,10 +136,11 @@ data UpdateOp
     | DeleteProposal !UpId !ApplicationName
     | ConfirmVersion !SoftwareVersion
     | DelConfirmedVersion !ApplicationName
-    | AddConfirmedProposal !NumSoftwareVersion !UpdateProposal
-    | SetLastPV !ProtocolVersion
-    | SetScriptVersion !ProtocolVersion !ScriptVersion
-    | DelScriptVersion !ProtocolVersion
+    | AddConfirmedProposal !ConfirmedProposalState
+    | DelConfirmedProposal !SoftwareVersion
+    | SetAdopted !BlockVersion BlockVersionData
+    | SetBVState !BlockVersion !BlockVersionState
+    | DelBV !BlockVersion
 
 instance RocksBatchOp UpdateOp where
     toBatchOp (PutProposal ps) =
@@ -122,19 +157,16 @@ instance RocksBatchOp UpdateOp where
         [Rocks.Put (confirmedVersionKey $ svAppName sv) (encodeStrict $ svNumber sv)]
     toBatchOp (DelConfirmedVersion app) =
         [Rocks.Del (confirmedVersionKey app)]
-    toBatchOp (AddConfirmedProposal nsv up) =
-        [Rocks.Put (confirmedProposalKey nsv) (encodeStrict up)]
-    toBatchOp (SetLastPV pv) =
-        [Rocks.Put lastPVKey (encodeStrict pv)]
-    toBatchOp (SetScriptVersion pv sv) =
-        [Rocks.Put (scriptVersionKey pv) (encodeStrict sv)]
-    toBatchOp (DelScriptVersion pv) =
-        [Rocks.Del (scriptVersionKey pv)]
-
--- putUndecidedProposalSlot :: ProposalState -> [Rocks.BatchOp]
--- putUndecidedProposalSlot (PSUndecided ups) =
---     [Rocks.Put (proposalAppKey (upsSlot ups)) (encodeStrict (upsProposal ups))]
--- putUndecidedProposalSlot _ = []
+    toBatchOp (AddConfirmedProposal cps) =
+        [Rocks.Put (confirmedProposalKey cps) (encodeStrict cps)]
+    toBatchOp (DelConfirmedProposal sv) =
+        [Rocks.Del (confirmedProposalKeySV sv)]
+    toBatchOp (SetAdopted bv bvd) =
+        [Rocks.Put adoptedBVKey (encodeStrict (bv, bvd))]
+    toBatchOp (SetBVState bv st) =
+        [Rocks.Put (bvStateKey bv) (encodeStrict st)]
+    toBatchOp (DelBV bv) =
+        [Rocks.Del (bvStateKey bv)]
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -144,15 +176,21 @@ prepareGStateUS
     :: forall ssc m.
        MonadDB ssc m
     => m ()
-prepareGStateUS = unlessM isInitialized $ do
-    db <- getUtxoDB
-    flip rocksWriteBatch db $
-        [ SetLastPV genesisProtocolVersion
-        , SetScriptVersion genesisProtocolVersion genesisScriptVersion
-        ] <> map ConfirmVersion genesisSoftwareVersions
+prepareGStateUS =
+    unlessM isInitialized $ do
+        db <- getUtxoDB
+        flip rocksWriteBatch db $
+            SetAdopted genesisBlockVersion genesisBVData :
+            map ConfirmVersion genesisSoftwareVersions
+  where
+    genesisBVData =
+        BlockVersionData
+            genesisScriptVersion
+            genesisSlotDuration
+            genesisMaxBlockSize
 
 isInitialized :: MonadDB ssc m => m Bool
-isInitialized = isJust <$> getLastPVMaybe
+isInitialized = isJust <$> getAdoptedBVFullMaybe
 
 ----------------------------------------------------------------------------
 -- Iteration
@@ -210,31 +248,70 @@ getDeepProposals cd = runProposalMapIterator (step []) snd
 data ConfPropIter
 
 instance DBIteratorClass ConfPropIter where
-    type IterKey ConfPropIter = NumSoftwareVersion
-    type IterValue ConfPropIter = UpdateProposal
+    type IterKey ConfPropIter = SoftwareVersion
+    type IterValue ConfPropIter = ConfirmedProposalState
     iterKeyPrefix _ = confirmedIterationPrefix
 
 -- | Get confirmed proposals which update our application and have
--- version bigger than argument. For instance, current software
--- version can be passed to this function to get all proposals with
--- bigger version.
-getConfirmedProposals :: MonadDB ssc m => NumSoftwareVersion -> m [UpdateProposal]
+-- version bigger than argument (or all proposals if 'Nothing' is
+-- passed). For instance, current software version can be passed to
+-- this function to get all proposals with bigger version.
+getConfirmedProposals
+    :: MonadDB ssc m
+    => Maybe NumSoftwareVersion -> m [ConfirmedProposalState]
 getConfirmedProposals reqNsv = runDBnIterator @ConfPropIter _gStateDB (step [])
   where
     step res = nextItem >>= maybe (pure res) (onItem res)
-    onItem res (nsv, up)
-        | nsv > reqNsv = step (up:res)
-        | otherwise    = step res
+    onItem res (SoftwareVersion {..}, cps) =
+        step $
+        case reqNsv of
+            Nothing -> cps : res
+            Just v
+                | svAppName == ourAppName && svNumber > v -> cps : res
+                | otherwise -> res
+
+-- Iterator by block versions
+data BVIter
+
+instance DBIteratorClass BVIter where
+    type IterKey BVIter = BlockVersion
+    type IterValue BVIter = BlockVersionState
+    iterKeyPrefix _ = bvStateIterationPrefix
+
+-- | Get all proposed 'BlockVersion's.
+getProposedBVs :: MonadDB ssc m => m [BlockVersion]
+getProposedBVs = runDBnMapIterator @BVIter _gStateDB (step []) fst
+  where
+    step res = nextItem >>= maybe (pure res) (onItem res)
+    onItem res = step . (: res)
+
+getProposedBVStates :: MonadDB ssc m => m [BlockVersionState]
+getProposedBVStates = runDBnMapIterator @BVIter _gStateDB (step []) snd
+  where
+    step res = nextItem >>= maybe (pure res) (onItem res)
+    onItem res = step . (: res)
+
+-- | Get all confirmed 'BlockVersion's and their states.
+getConfirmedBVStates :: MonadDB ssc m => m [(BlockVersion, BlockVersionState)]
+getConfirmedBVStates = runDBnIterator @BVIter _gStateDB (step [])
+  where
+    step res = nextItem >>= maybe (pure res) (onItem res)
+    onItem res (bv, bvs@BlockVersionState {..})
+        | bvsIsConfirmed = step ((bv, bvs) : res)
+        | otherwise = step res
 
 ----------------------------------------------------------------------------
 -- Keys ('us' prefix stands for Update System)
 ----------------------------------------------------------------------------
 
-lastPVKey :: ByteString
-lastPVKey = "us/last-protocol"
+adoptedBVKey :: ByteString
+adoptedBVKey = "us/adopted-block-version/"
 
-scriptVersionKey :: ProtocolVersion -> ByteString
-scriptVersionKey = mappend "us/vs" . encodeStrict
+bvStateKey :: BlockVersion -> ByteString
+bvStateKey = encodeWithKeyPrefix @BVIter
+
+bvStateIterationPrefix :: ByteString
+bvStateIterationPrefix = "us/bvs/"
 
 proposalKey :: UpId -> ByteString
 proposalKey = encodeWithKeyPrefix @PropIter
@@ -243,13 +320,16 @@ proposalAppKey :: ApplicationName -> ByteString
 proposalAppKey = mappend "us/an" . encodeStrict
 
 confirmedVersionKey :: ApplicationName -> ByteString
-confirmedVersionKey = mappend "us/c" . encodeStrict
+confirmedVersionKey = mappend "us/cv" . encodeStrict
 
 iterationPrefix :: ByteString
-iterationPrefix = "us/p"
+iterationPrefix = "us/p/"
 
-confirmedProposalKey :: NumSoftwareVersion -> ByteString
-confirmedProposalKey = encodeWithKeyPrefix @ConfPropIter
+confirmedProposalKey :: ConfirmedProposalState -> ByteString
+confirmedProposalKey = encodeWithKeyPrefix @ConfPropIter . cpsSoftwareVersion
+
+confirmedProposalKeySV :: SoftwareVersion -> ByteString
+confirmedProposalKeySV = encodeWithKeyPrefix @ConfPropIter
 
 confirmedIterationPrefix :: ByteString
 confirmedIterationPrefix = "us/cp"
@@ -258,18 +338,5 @@ confirmedIterationPrefix = "us/cp"
 -- Details
 ----------------------------------------------------------------------------
 
-getLastPVMaybe :: MonadDB ssc m => m (Maybe ProtocolVersion)
-getLastPVMaybe = getBi lastPVKey
-
--- -- Set last protocol version
--- setLastPV :: MonadDB ssc m => ProtocolVersion -> m ()
--- setLastPV = putBi lastPVKey
-
--- -- Set correspondence between protocol version and script version
--- setScriptVersion :: MonadDB ssc m => ProtocolVersion -> ScriptVersion -> m ()
--- setScriptVersion = putBi . scriptVersionKey
-
--- -- Set confirmed version number for given app
--- setConfirmedSV :: MonadDB ssc m => SoftwareVersion -> m ()
--- setConfirmedSV SoftwareVersion {..}
---     = putBi (confirmedVersionKey svAppName) svNumber
+getAdoptedBVFullMaybe :: MonadDB ssc m => m (Maybe (BlockVersion, BlockVersionData))
+getAdoptedBVFullMaybe = getBi adoptedBVKey

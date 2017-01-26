@@ -9,9 +9,11 @@ module Pos.Block.Network.Listeners
        ) where
 
 import           Data.Proxy                  (Proxy (..))
+import           Data.Reflection             (reify)
 import           Formatting                  (sformat, shown, (%))
 import           Node                        (ConversationActions (..),
                                               ListenerAction (..))
+import           Serokell.Data.Memory.Units  (Byte)
 import           Serokell.Util.Text          (listJson)
 import           System.Wlog                 (WithLogger, logDebug, logWarning)
 import           Universum
@@ -62,11 +64,18 @@ handleGetBlocks
     :: forall ssc m.
        (Ssc ssc, WorkMode ssc m)
     => ListenerAction BiP m
-handleGetBlocks = ListenerActionConversation $ \__peerId conv ->
-    whenJustM (recv conv) $ \mgb@MsgGetBlocks{..} -> do
-        logDebug $ sformat ("Got request on handleGetBlocks: "%shown) mgb
-        hashes <- getHeadersFromToIncl mgbFrom mgbTo
-        maybe warn (sendBlocks conv) hashes
+handleGetBlocks =
+    -- NB #put_checkBlockSize: We can use anything as maxBlockSize
+    -- here because 'put' doesn't check block size.
+    reify (0 :: Byte) $ \(_ :: Proxy s0) ->
+    ListenerActionConversation $
+        \__peerId (conv :: ConversationActions
+                               (MsgBlock s0 ssc)
+                               MsgGetBlocks m) ->
+        whenJustM (recv conv) $ \mgb@MsgGetBlocks{..} -> do
+            logDebug $ sformat ("Got request on handleGetBlocks: "%shown) mgb
+            hashes <- getHeadersFromToIncl mgbFrom mgbTo
+            maybe warn (sendBlocks conv) hashes
   where
     warn = logWarning $ "getBlocksByHeaders@retrieveHeaders returned Nothing"
     failMalformed =
@@ -78,13 +87,13 @@ handleGetBlocks = ListenerActionConversation $ \__peerId conv ->
             ("handleGetBlocks: started sending blocks one-by-one: "%listJson) hashes
         forM_ hashes $ \hHash -> do
             block <- maybe failMalformed pure =<< DB.getBlock hHash
-            send conv $ MsgBlock block
+            send conv (MsgBlock block)
         logDebug "handleGetBlocks: blocks sending done"
 
 -- | Handles MsgHeaders request, unsolicited usecase
 handleBlockHeaders
     :: forall ssc m.
-        (WorkMode ssc m)
+       (WorkMode ssc m)
     => ListenerAction BiP m
 handleBlockHeaders = ListenerActionConversation $
     \peerId conv -> do

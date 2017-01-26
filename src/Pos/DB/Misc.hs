@@ -12,6 +12,7 @@ module Pos.DB.Misc
        , removeProxySecretKey
        , dropOldProxySecretKeys
 
+       -- * Secret storage
        , getSecretStorage
        , putSecretStorage
 
@@ -19,7 +20,6 @@ module Pos.DB.Misc
        , checkSecretKeyHash
        ) where
 
-import           Data.Default                   (def)
 import           Data.List                      (nub)
 import           Universum
 
@@ -104,16 +104,12 @@ checkSecretKeyHash h = do
 ----------------------------------------------------------------------------
 -- Ssc Secret Storage
 ----------------------------------------------------------------------------
-getSecretStorage :: MonadDB SscGodTossing m => m GtSecretStorage
-getSecretStorage =
-    getBi @GtSecretStorage secretStorageKey >>=
-    maybe createSecretStorage pure
-  where
-    createSecretStorage =
-        def <$ putBi @GtSecretStorage secretStorageKey def
+
+getSecretStorage :: MonadDB SscGodTossing m => m (Maybe GtSecretStorage)
+getSecretStorage = getBi secretStorageKey
 
 putSecretStorage :: MonadDB SscGodTossing m => GtSecretStorage -> m ()
-putSecretStorage = putBi @GtSecretStorage secretStorageKey
+putSecretStorage = putBi secretStorageKey
 
 secretStorageKey :: ByteString
 secretStorageKey = "gtSecretStorageKey"

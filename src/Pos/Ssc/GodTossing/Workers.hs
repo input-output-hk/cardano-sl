@@ -43,7 +43,7 @@ import           Pos.Slotting                     (getCurrentSlot, getSlotStart,
                                                    onNewSlot)
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
 import           Pos.Ssc.Extra.MonadLD            (sscRunLocalQuery)
-import           Pos.Ssc.GodTossing.Functions     (checkCommShares, computeParticipants,
+import           Pos.Ssc.GodTossing.Functions     (computeParticipants,
                                                    genCommitmentAndOpening, hasCommitment,
                                                    hasOpening, hasShares, isCommitmentIdx,
                                                    isOpeningIdx, isSharesIdx,
@@ -55,9 +55,8 @@ import qualified Pos.Ssc.GodTossing.SecretStorage as SS
 import           Pos.Ssc.GodTossing.Shares        (getOurShares)
 import           Pos.Ssc.GodTossing.Storage       (getGlobalCerts, getStableCerts,
                                                    gtGetGlobalState)
-import           Pos.Ssc.GodTossing.Types         (Commitment (commProof),
-                                                   SignedCommitment, SscGodTossing,
-                                                   VssCertificate (..),
+import           Pos.Ssc.GodTossing.Types         (Commitment, SignedCommitment,
+                                                   SscGodTossing, VssCertificate (..),
                                                    VssCertificatesMap, gsCommitments,
                                                    gtcParticipateSsc, gtcVssKeyPair,
                                                    mkVssCertificate, _gpCertificates)
@@ -86,7 +85,6 @@ onNewSlotSsc sendActions = onNewSlot True $ \slotId -> do
             "couldn't get SSC richmen"
             getRichmenSsc
     localOnNewSlot richmen slotId
-    SS.ssSetNewEpoch $ siEpoch slotId
     participationEnabled <- getNodeContext >>=
         atomically . readTVar . gtcParticipateSsc . ncSscContext
     ourId <- addressHash . ncPublicKey <$> getNodeContext
@@ -172,17 +170,11 @@ onNewSlotCommitment sendActions slotId@SlotId {..}
             , HM.member ourId <$> getStableCerts siEpoch]
         logDebug $ sformat ("shouldSendCommitment: "%shown) shouldSendCommitment
         when shouldSendCommitment $ do
-            richmen <-
-                lrcActionOnEpochReason siEpoch "couldn't get SSC richmen" getRichmenSsc
-            participants <- map vcVssKey . toList . computeParticipants richmen
-                <$> getStableCerts siEpoch
-            ourCommitments <- SS.getOurCommitments siEpoch
-            let goodCommitment = headMay $
-                    filter (checkCommShares participants) ourCommitments
-            let stillValidMsg = "We shouldn't generate secret, because it is still valid"
-            case goodCommitment of
-                Just _  -> logDebug stillValidMsg
-                Nothing -> onNewSlotCommDo ourId
+            ourCommitment <- SS.getOurCommitment siEpoch
+            let stillValidMsg = "We shouldn't generate secret, because we have already generated it"
+            case ourCommitment of
+                Just comm -> logDebug stillValidMsg >> sendOurCommitment comm ourId
+                Nothing   -> onNewSlotCommDo ourId
   where
     onNewSlotCommDo ourId = do
         ourSk <- ncSecretKey <$> getNodeContext
@@ -190,12 +182,13 @@ onNewSlotCommitment sendActions slotId@SlotId {..}
         generated <- generateAndSetNewSecret ourSk slotId
         case generated of
             Nothing -> logWarning "I failed to generate secret for GodTossing"
-            Just _ -> logInfo
-                (sformat ("Generated secret for "%ords%" epoch") siEpoch)
+            Just comm -> do
+              logInfo (sformat ("Generated secret for "%ords%" epoch") siEpoch)
+              sendOurCommitment comm ourId
 
-        whenJust generated $ \comm -> do
-            sscProcessOurMessage siEpoch (MCCommitment comm) ourId
-            sendOurData sendActions CommitmentMsg siEpoch 0 ourId
+    sendOurCommitment comm ourId = do
+        sscProcessOurMessage siEpoch (MCCommitment comm) ourId
+        sendOurData sendActions CommitmentMsg siEpoch 0 ourId
 
 -- Openings-related part of new slot processing
 onNewSlotOpening
@@ -206,20 +199,20 @@ onNewSlotOpening sendActions SlotId {..}
     | otherwise = do
         ourId <- addressHash . ncPublicKey <$> getNodeContext
         globalData <- gtGetGlobalState
-        unless (hasOpening ourId globalData) $ do
-            case globalData ^. gsCommitments ^. at ourId of
-                Nothing   -> logDebug noCommMsg
-                Just comm -> onNewSlotOpeningDo ourId comm
+        unless (hasOpening ourId globalData) $
+            case globalData ^. gsCommitments . at ourId of
+                Nothing -> logDebug noCommMsg
+                Just _  -> onNewSlotOpeningDo ourId
   where
     noCommMsg =
         "We're not sending opening, because there is no commitment from us in global state"
-    onNewSlotOpeningDo ourId (_, comm, _) = do
-        mbOpen <- SS.getOurOpening $ commProof comm
+    onNewSlotOpeningDo ourId = do
+        mbOpen <- SS.getOurOpening siEpoch
         case mbOpen of
             Just open -> do
                 sscProcessOurMessage siEpoch (MCOpening open) ourId
                 sendOurData sendActions OpeningMsg siEpoch 2 ourId
-            Nothing -> logWarning "We don't have opening for our commitment!"
+            Nothing -> logWarning "We don't know our opening, maybe we started recently"
 
 -- Shares-related part of new slot processing
 onNewSlotShares
@@ -269,8 +262,8 @@ sendOurData sendActions msgTag epoch slMultiplier ourId = do
     sendToNeighbors sendActions msg
     logDebug $ sformat ("Sent our " %build%" to neighbors") msgTag
 
--- | Generate new commitment and opening and use them for the current
--- epoch. 'prepareSecretToNewSlot' must be called before doing it.
+-- Generate new commitment and opening and use them for the current
+-- epoch. It is also saved in persistent storage.
 --
 -- Nothing is returned if node is not ready (usually it means that
 -- node doesn't have recent enough blocks and needs to be
@@ -306,7 +299,7 @@ generateAndSetNewSecret sk SlotId {..} = do
         mPair <- runMaybeT (genCommitmentAndOpening threshold ps)
         case mPair of
             Just (mkSignedCommitment sk siEpoch -> comm, op) ->
-                Just comm <$ SS.addOurCommitment comm op siEpoch
+                Just comm <$ SS.putOurSecret comm op siEpoch
             _ -> Nothing <$ reportDeserFail
 
 randomTimeInInterval

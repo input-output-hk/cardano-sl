@@ -79,5 +79,5 @@ instance Bi GtMsgContents where
 -- SecretStorage Type
 ----------------------------------------------------------------------------
 instance Bi GtSecretStorage where
-    put (GtSecretStorage s e) = put s >> put e
-    get = GtSecretStorage <$> get <*> get
+    put (GtSecretStorage c o e) = put c >> put o >> put e
+    get = GtSecretStorage <$> get <*> get <*> get

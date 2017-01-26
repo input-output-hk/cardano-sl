@@ -15,7 +15,8 @@ cache:
   directories:
   - "$HOME/.stack"
   - "$HOME/build/input-output-hk/pos-haskell-prototype/.stack-work"
-  - daedalus/node_modules
+  # TODO: https://github.com/npm/fs-write-stream-atomic/pull/14
+  #- daedalus/node_modules
   - daedalus/bower_components
 
 before_install:

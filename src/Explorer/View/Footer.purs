@@ -23,11 +23,8 @@ footerView state =
               [ P.div
                   [ P.className "logo__container"]
                   [ P.div
-                      [ P.className "logo__wrapper"]
-                      [  P.div
-                            [ P.className "logo__img bg-logo" ]
-                            []
-                      ]
+                      [ P.className "logo__img bg-logo" ]
+                      []
                   ]
               , P.nav
                   [ P.className "nav__container"]

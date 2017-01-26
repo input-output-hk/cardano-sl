@@ -12,14 +12,13 @@
 
   &__container {
     @neat-outer-container;
+    padding: 0 96px;
   }
 
   &__top {
     border-bottom: solid 1px color(var(--color3) a(0.5));
     font-size: 12px;
     height: var(--height-header-top);
-    .logo-container {
-    }
 
     .logo__container {
       @neat-span-columns 2;

@@ -11,6 +11,7 @@
 
   &__container {
     @neat-outer-container;
+    padding: 0 96px;
   }
 
   &__top {
@@ -18,12 +19,7 @@
     padding: 50px 0;
 
     .logo__container {
-      @neat-span-columns 3;
-    }
-
-    .logo__wrapper {
-      width: var(--logo-footer-width);
-      height: var(--logo-footer-height);
+      @neat-span-columns 2;
     }
 
     .logo__img {
@@ -32,7 +28,8 @@
     }
 
     .nav__container {
-      @neat-span-columns 9;
+      @neat-shift 1;
+      @neat-span-columns 8;
     }
 
     .nav-item {

@@ -64,6 +64,4 @@ type Translation =
       , charts :: String
       , tools :: String
     }
-    , count :: String
-    , counted :: String
     }

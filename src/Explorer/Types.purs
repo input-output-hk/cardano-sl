@@ -14,15 +14,13 @@ data CCurrency =
 type State =
     { lang :: Language
     , route :: Route
-    , count :: Int
     }
 
 
 -- Actions
 
 data Action
-    = Count
-    | SetLanguage Language
+    = SetLanguage Language
     | UpdateView Route
     | ScrollTop
     | NoOp

@@ -18,6 +18,4 @@ translation =
       , tools: "Tools"
     }
     , version: "version"
-    , count: "Count"
-    , counted: "{0} x for today"
     }

@@ -43,12 +43,6 @@ dashboardView state = do
                 [ placeholderView "placeholder 1"
                 , placeholderView "placeholder 2"
                 , placeholderView "placeholder 3"
-                , P.h3
-                    [ P.className "label-count" ]
-                    [ P.text <<< flip substitute [show state.count] $ translate _.counted lang ]
-                , P.button
-                    [ P.className "btn", P.onClick (const $ Count) ]
-                    [ P.text $ translate _.count lang ]
                 , P.link (toUrl Transaction)
                     [ P.className "btn" ]
                     [ P.text $ translate _.transaction lang ]

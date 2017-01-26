@@ -18,6 +18,4 @@ translation =
       , tools: "Tools"
     }
     , version: "Version"
-    , count: "Hochzählen"
-    , counted: "Für heute {0} x"
     }

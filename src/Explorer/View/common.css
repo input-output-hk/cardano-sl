@@ -57,7 +57,7 @@
   font-family: var(--fontFamily0-Regular);
   font-size: 10px;
   color: var(--color8);
-  padding: 0 24px;
+  padding: 0 24px 24px 24px;
   box: horizontal;
 
   .from-hash-container {
@@ -98,6 +98,7 @@
 
   .to-alias {
     padding-bottom: 12px;
+    padding-left: 15px;
   }
 
   .amount-container {
@@ -117,7 +118,6 @@
 
 .transaction-pagination {
     text-align: center;
-    padding-top: 24px;
 }
 
 .pagination {
@@ -135,7 +135,7 @@
     width: 16px;
     height: 16px;
     button: primary-button;
-    button-background: var(--color12) color(var(--color12) a(0.8)) var(--color5);
+    button-background: var(--color12) color(var(--color12) a(0.8)) color(var(--color8) a(0.2));
     box-item: center;
     box: horizontal center;
 

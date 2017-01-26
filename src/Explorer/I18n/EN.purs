@@ -5,6 +5,7 @@ translation =
     , subtitle: "most effective way to reasearch crypto currencies network"
     , back: "Back"
     , transaction: "Transaction"
+    , transactions: "Transactions"
     , address: "Address"
     , calculator: "Calculator"
     , summary: "Summary"

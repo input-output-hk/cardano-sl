@@ -1,7 +1,6 @@
 @import "../../global.css";
 
 .explorer-block {
-  background-color: var(--color4);
 
   &__wrapper {
     background-color: var(--color4);
@@ -72,6 +71,10 @@
     &:last-child {
       @neat-span-columns 8;
     }
+  }
+
+  .transaction-header {
+    background-color: var(--color7); /* overridden */
   }
 
 }

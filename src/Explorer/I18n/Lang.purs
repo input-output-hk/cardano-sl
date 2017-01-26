@@ -46,6 +46,7 @@ type Translation =
     , subtitle :: String
     , back :: String
     , transaction :: String
+    , transactions :: String
     , address :: String
     , calculator :: String
     , version :: String

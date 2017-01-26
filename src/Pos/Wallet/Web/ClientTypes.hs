@@ -229,10 +229,10 @@ data CUpdateInfo = CUpdateInfo
     , cuiBlockVesion     :: !BlockVersion
     , cuiScriptVersion   :: !ScriptVersion
     , cuiImplicit        :: !Bool
-    , cuiProposed        :: !HeaderHash
-    , cuiDecided         :: !HeaderHash
-    , cuiConfirmed       :: !HeaderHash
-    , cuiAdopted         :: !(Maybe HeaderHash)
+--    , cuiProposed        :: !HeaderHash
+--    , cuiDecided         :: !HeaderHash
+--    , cuiConfirmed       :: !HeaderHash
+--    , cuiAdopted         :: !(Maybe HeaderHash)
     , cuiVotesFor        :: !Int
     , cuiVotesAgainst    :: !Int
     , cuiPositiveStake   :: !Coin

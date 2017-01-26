@@ -132,5 +132,5 @@ notify = mkFn2 \messageCb errorCb -> do
 blockchainSlotDuration :: forall eff. Eff (ajax :: AJAX | eff) (Promise Int)
 blockchainSlotDuration = fromAff B.blockchainSlotDuration
 
-nextUpdate :: forall eff. Eff (ajax :: AJAX | eff) (Promise CUpdateInfo)
-nextUpdate = fromAff B.nextUpdate
+nextUpdate :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
+nextUpdate = fromAff $ map encodeJson B.nextUpdate

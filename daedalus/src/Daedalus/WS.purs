@@ -12,6 +12,7 @@ import Daedalus.Constants (wsUri)
 import Data.Maybe (Maybe(Just, Nothing))
 import WebSocket (runMessage, runMessageEvent)
 import Data.Function.Eff (EffFn1, runEffFn1)
+import Debug.Trace (traceAnyM)
 
 type NotifyCb eff = EffFn1 eff String Unit
 type ErrorCb eff = EffFn1 eff Event Unit
@@ -66,7 +67,8 @@ mkConn (WSState state) = do
     socket.onopen $= \_ -> onOpened (WSState state) $ WS.Connection socket
 
 onClose :: forall eff. WSState eff -> Eff (ref :: REF | eff) Unit
-onClose (WSState state) =
+onClose (WSState state) = do
+    traceAnyM "wooooo closing"
     writeRef state.connection WSNotConnected
 
 onMessage :: forall eff. WSState eff -> MessageEvent -> Eff eff Unit

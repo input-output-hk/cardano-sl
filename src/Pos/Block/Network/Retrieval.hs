@@ -24,6 +24,7 @@ import           Formatting                 (build, int, sformat, shown, stext, 
 import           Mockable                   (fork, handleAll, throw)
 import           Node                       (ConversationActions (..), NodeId,
                                              SendActions (..))
+import           Serokell.Util.Exceptions   (throwText)
 import           Serokell.Util.Text         (listJson)
 import           Serokell.Util.Verify       (isVerSuccess)
 import           System.Wlog                (logDebug, logError, logInfo, logWarning)
@@ -55,6 +56,9 @@ import           Pos.Util                   (NE, NewestFirst (..), OldestFirst (
                                              inAssertMode, toNewestFirst, _neHead,
                                              _neLast)
 import           Pos.WorkMode               (WorkMode)
+
+data VerifyBlocksException = VerifyBlocksException Text deriving Show
+instance Exception VerifyBlocksException
 
 retrievalWorker
     :: forall ssc m.
@@ -91,7 +95,7 @@ retrievalWorker sendActions = handleAll handleWE $ do
     handleLE recHeaderVar (peerId, headers) e = do
         logWarning $ sformat
             ("Error handling peerId="%shown%", headers="%listJson%": "%shown)
-            peerId headers e
+            peerId (fmap headerHash headers) e
         dropRecoveryHeader recHeaderVar peerId
     handle (peerId, headers) = do
         logDebug $ sformat
@@ -454,7 +458,8 @@ applyWithoutRollback sendActions blocks = do
     logInfo $ sformat ("Trying to apply blocks w/o rollback: "%listJson) $
         fmap (view blockHeader) blocks
     withBlkSemaphore applyWithoutRollbackDo >>= \case
-        Left err     -> onFailedVerifyBlocks (getOldestFirst blocks) err
+        Left err     ->
+            onFailedVerifyBlocks (getOldestFirst blocks) err
         Right newTip -> do
             when (newTip /= newestTip) $
                 logWarning $ sformat
@@ -471,7 +476,6 @@ applyWithoutRollback sendActions blocks = do
                     getOldestFirst prefix <> one (toRelay ^. blockHeader)
             relayBlock sendActions toRelay
             logInfo $ blocksAppliedMsg applied
-    logDebug "Finished applying blocks w/o rollback"
   where
     newestTip = blocks ^. _Wrapped . _neLast . headerHashG
     applyWithoutRollbackDo
@@ -536,9 +540,10 @@ onFailedVerifyBlocks
     :: forall ssc m.
        (WorkMode ssc m)
     => NonEmpty (Block ssc) -> Text -> m ()
-onFailedVerifyBlocks blocks err = logWarning $
-    sformat ("Failed to verify blocks: "%stext%"\n  blocks = "%listJson)
-            err (fmap headerHash blocks)
+onFailedVerifyBlocks blocks err = do
+    logWarning $ sformat ("Failed to verify blocks: "%stext%"\n  blocks = "%listJson)
+        err (fmap headerHash blocks)
+    throwM $ VerifyBlocksException err
 
 blocksAppliedMsg
     :: forall a.

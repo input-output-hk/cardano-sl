@@ -383,7 +383,8 @@ verifyBlocksPrefix blocks = runExceptT $ do
     leaders <-
         lrcActionOnEpochReason
         headEpoch
-        "Block.Logic#verifyBlocksPrefix: there are no leaders for epoch "
+        (sformat
+         ("Block.Logic#verifyBlocksPrefix: there are no leaders for epoch "%build) headEpoch)
         LrcDB.getLeaders
     case blocks ^. _Wrapped . _neHead of
         (Left block) ->
@@ -391,7 +392,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
                 throwError "Genesis block leaders don't match with LRC-computed"
         _ -> pass
     verResToMonadError formatAllErrors $
-        Types.verifyBlocks (Just curSlot) (Just leaders) (over _Wrapped (tipBlk <|) blocks)
+        Types.verifyBlocks (Just curSlot) (Just leaders) blocks
     verResToMonadError formatAllErrors =<< sscVerifyBlocks False blocks
     txUndo <- ExceptT $ txVerifyBlocks blocks
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks
@@ -449,13 +450,19 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
             Right _ -> panic "verifyAndApplyBlocksInternal: applyAMAP: \
                              \verification of one block produced more than one undo"
     -- Rollbacks and returns an error
-    failWithRollback e [] = throwError e
+    failWithRollback
+        :: Text
+        -> [NewestFirst NE (Blund ssc)]
+        -> ExceptT Text m HeaderHash
     failWithRollback e toRollback = do
         lift $ mapM_ rollbackBlocks toRollback
         throwError e
-    -- TODO: write what this does
-    -- TODO: also the first list is probably chronologically ordered as well?
-    --       I don't know
+    -- This function tries to apply a new portion of blocks (prefix
+    -- and suffix). It also has aggregating parameter blunds which is
+    -- collected to rollback blocks if correspondent flag is on. First
+    -- list is packs of blunds -- head of this list represents blund
+    -- to rollback first. This function also tries to apply as much as
+    -- possible if the flag is on.
     rollingVerifyAndApply
         :: [NewestFirst NE (Blund ssc)]
         -> (OldestFirst NE (Block ssc), OldestFirst [] (Block ssc))

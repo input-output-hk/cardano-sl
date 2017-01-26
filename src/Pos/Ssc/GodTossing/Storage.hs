@@ -43,20 +43,19 @@ import           Pos.Ssc.GodTossing.Functions   (checkCommShares,
                                                  isSharesIdx, verifyGtPayload)
 import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
 import           Pos.Ssc.GodTossing.Seed        (calculateSeed)
-import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), GtPayload (..),
                                                  SscGodTossing, VssCertificatesMap,
                                                  gsCommitments, gsOpenings, gsShares,
                                                  gsVssCertificates, vcVssKey,
                                                  _gpCertificates)
 import           Pos.Ssc.GodTossing.Types.Base  (VssCertificate (..))
+import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types                      (Block, EpochIndex (..), EpochOrSlot (..),
                                                  HeaderHash, SharedSeed, SlotId (..),
                                                  addressHash, blockMpc, blockSlot,
                                                  crucialSlot, epochIndexL, epochOrSlot,
                                                  epochOrSlotG, gbHeader)
-import           Pos.Util                       (NE, NewestFirst (..), OldestFirst,
-                                                 readerToState)
+import           Pos.Util                       (NE, NewestFirst (..), OldestFirst)
 
 type GSQuery a  = forall m . (MonadReader GtGlobalState m, WithLogger m) => m a
 type GSUpdate a = forall m . (MonadState GtGlobalState m) => m a
@@ -121,8 +120,6 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
     let isComm  = (isCommitmentIdx slotId, "slotId doesn't belong commitment phase")
         isOpen  = (isOpeningIdx slotId, "slotId doesn't belong openings phase")
         isShare = (isSharesIdx slotId, "slotId doesn't belong share phase")
-        participants = computeParticipants richmen globalCerts
-
 
     -- For commitments we
     --   * check that the nodes haven't already sent their commitments before
@@ -284,8 +281,6 @@ mpcRollback (NewestFirst blocks) = do
             SharesPayload shares _ -> gsShares %= (`HM.difference` shares)
             CertificatesPayload _ -> return ()
         pure False
-    -- blkSlot :: Block ssc -> SlotId
-    -- blkSlot = epochOrSlot (flip SlotId 0) identity . (^. epochOrSlotG)
     unionCerts = (foldl' (flip $ uncurry VCD.insert)) VCD.empty . HM.toList
 
 -- | Calculate leaders for the next epoch.

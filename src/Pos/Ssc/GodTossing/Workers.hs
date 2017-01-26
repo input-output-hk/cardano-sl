@@ -72,13 +72,33 @@ import           Pos.Util.Relay                   (DataMsg (..), InvMsg (..))
 import           Pos.WorkMode                     (WorkMode)
 
 instance SscWorkersClass SscGodTossing where
-    sscWorkers = Tagged [onStart, onNewSlotSsc]
+    sscWorkers = Tagged [onNewSlotSsc]
     sscLrcConsumers = Tagged [gtLrcConsumer]
 
--- CHECK: @onStart
+-- CHECK: @onNewSlotSsc
 -- #checkNSendOurCert
-onStart :: forall m. (WorkMode SscGodTossing m) => SendActions BiP m -> m ()
-onStart = checkNSendOurCert
+onNewSlotSsc
+    :: (WorkMode SscGodTossing m)
+    => SendActions BiP m
+    -> m ()
+onNewSlotSsc sendActions = onNewSlot True $ \slotId -> do
+    richmen <- HS.fromList . NE.toList <$>
+        lrcActionOnEpochReason (siEpoch slotId)
+            "couldn't get SSC richmen"
+            getRichmenSsc
+    localOnNewSlot richmen slotId
+    SS.ssSetNewEpoch $ siEpoch slotId
+    participationEnabled <- getNodeContext >>=
+        atomically . readTVar . gtcParticipateSsc . ncSscContext
+    ourId <- addressHash . ncPublicKey <$> getNodeContext
+    let enoughStake = ourId `HS.member` richmen
+    when (participationEnabled && not enoughStake) $
+        logDebug "Not enough stake to participate in MPC"
+    when (participationEnabled && enoughStake) $ do
+        checkNSendOurCert sendActions
+        onNewSlotCommitment sendActions slotId
+        onNewSlotOpening sendActions slotId
+        onNewSlotShares sendActions slotId
 
 -- CHECK: @checkNSendOurCert
 -- Checks whether 'our' VSS certificate has been announced
@@ -138,31 +158,6 @@ getOurPkAndId = do
 
 getOurVssKeyPair :: WorkMode SscGodTossing m => m VssKeyPair
 getOurVssKeyPair = gtcVssKeyPair . ncSscContext <$> getNodeContext
-
--- CHECK: @onNewSlotSsc
--- #checkNSendOurCert
-onNewSlotSsc
-    :: (WorkMode SscGodTossing m)
-    => SendActions BiP m
-    -> m ()
-onNewSlotSsc sendActions = onNewSlot True $ \slotId -> do
-    richmen <- HS.fromList . NE.toList <$>
-        lrcActionOnEpochReason (siEpoch slotId)
-            "couldn't get SSC richmen"
-            getRichmenSsc
-    localOnNewSlot richmen slotId
-    SS.ssSetNewEpoch $ siEpoch slotId
-    participationEnabled <- getNodeContext >>=
-        atomically . readTVar . gtcParticipateSsc . ncSscContext
-    ourId <- addressHash . ncPublicKey <$> getNodeContext
-    let enoughStake = ourId `HS.member` richmen
-    when (participationEnabled && not enoughStake) $
-        logDebug "Not enough stake to participate in MPC"
-    when (participationEnabled && enoughStake) $ do
-        checkNSendOurCert sendActions
-        onNewSlotCommitment sendActions slotId
-        onNewSlotOpening sendActions slotId
-        onNewSlotShares sendActions slotId
 
 -- Commitments-related part of new slot processing
 onNewSlotCommitment

@@ -44,6 +44,7 @@
     "webpack-dev-server": "^1.16.2"
   },
   "dependencies": {
-    "bip39": "^2.2.0"
+    "bip39": "^2.2.0",
+    "json-loader": "^0.5.4"
   }
 }

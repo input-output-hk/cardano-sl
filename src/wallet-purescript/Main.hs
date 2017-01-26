@@ -10,6 +10,7 @@ import           Language.PureScript.Bridge.PSTypes (psInt)
 import           Universum
 
 import qualified Pos.Types.Types                    as PT
+import qualified Pos.Types.Version                  as PV
 import qualified Pos.Util.BackupPhrase              as BP
 import qualified Pos.Wallet.Web                     as CT
 
@@ -35,13 +36,18 @@ main =
       , mkSumType (Proxy @CT.CTxId)
       , mkSumType (Proxy @CT.CTx)
       , mkSumType (Proxy @CT.NotifyEvent)
+      , mkSumType (Proxy @CT.CUpdateInfo)
       , mkSumType (Proxy @PT.Coin)
       , mkSumType (Proxy @PT.ChainDifficulty)
+      , mkSumType (Proxy @PV.BlockVersion)
+      , mkSumType (Proxy @PV.SoftwareVersion)
+      , mkSumType (Proxy @PV.ApplicationName)
       , mkSumType (Proxy @BP.BackupPhrase)
       ]
   where
       customBridge =
-          defaultBridge <|> posixTimeBridge <|> wordBridge <|> word8Bridge <|> word32Bridge <|>
+          defaultBridge <|> posixTimeBridge <|> wordBridge <|>
+          word8Bridge <|> word16Bridge <|> word32Bridge <|>
           word64Bridge <|> hashBridge
 
 posixTimeBridge :: BridgePart
@@ -52,6 +58,9 @@ wordBridge = typeName ^== "Word" >> pure psInt
 
 word8Bridge :: BridgePart
 word8Bridge = typeName ^== "Word8" >> pure psInt
+
+word16Bridge :: BridgePart
+word16Bridge = typeName ^== "Word16" >> pure psInt
 
 word32Bridge :: BridgePart
 word32Bridge = typeName ^== "Word32" >> pure psInt

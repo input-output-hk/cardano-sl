@@ -17,7 +17,6 @@ module Pos.Types.Version
 
 import           Universum              hiding (show)
 
-import           Data.Aeson             (FromJSON, ToJSON)
 import           Data.Char              (isAscii)
 import           Data.Hashable          (Hashable)
 import           Data.SafeCopy          (base, deriveSafeCopySimple)
@@ -59,7 +58,7 @@ instance Hashable BlockVersion
 
 newtype ApplicationName = ApplicationName
     { getApplicationName :: Text
-    } deriving (Eq, Ord, Show, Generic, Typeable, ToString, Hashable, Buildable, ToJSON, FromJSON)
+    } deriving (Eq, Ord, Show, Generic, Typeable, ToString, Hashable, Buildable)
 
 applicationNameMaxLength :: Integral i => i
 applicationNameMaxLength = 10

@@ -299,7 +299,7 @@ mpcLoadGlobalState tip = do
     let startEpoch = safeSub endEpoch -- load blocks while >= endEpoch
         whileEpoch b = b ^. epochIndexL >= startEpoch
     blocks <- loadBlocksWhile whileEpoch tip
-    let global' = unionBlocks (getNewestFirst blocks)
+    let global' = unionBlocks blocks
         global = global'
             & gsVssCertificates %~ unionBlksCerts (reverse (getNewestFirst blocks))
     pure $ if | startEpoch == 0 ->
@@ -338,7 +338,8 @@ unionPayload payload gs =
 
 -- | Union payloads of blocks until meet genesis block
 -- Invalid restore of VSS certificates
-unionBlocks :: [Block SscGodTossing] -> GtGlobalState
-unionBlocks []            = def
-unionBlocks (Left _:_)    = def
-unionBlocks (Right mb:xs) = unionPayload (mb ^. blockMpc) $ unionBlocks xs
+unionBlocks :: NewestFirst [] (Block SscGodTossing) -> GtGlobalState
+unionBlocks (NewestFirst [])            = def
+unionBlocks (NewestFirst (Left _:_))    = def
+unionBlocks (NewestFirst (Right mb:xs)) =
+    unionPayload (mb ^. blockMpc) $ unionBlocks $ NewestFirst xs

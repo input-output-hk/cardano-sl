@@ -4,8 +4,7 @@ import Prelude
 import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (translate)
 import Explorer.Types (Action, CCurrency(..), State)
-import Explorer.View.Common (currencyCSSClass)
-import Explorer.View.Common (transactionHeaderView, transactionBodyView)
+import Explorer.View.Common (currencyCSSClass, transactionHeaderView, transactionBodyView)
 import Pux.Html (Html, div, text, h3, table, tr, td) as P
 import Pux.Html.Attributes (className) as P
 

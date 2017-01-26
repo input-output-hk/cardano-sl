@@ -15,6 +15,8 @@
 	--color8: #333333;
 	--color9: #414141;
 	--color10: #0e2735;
+	--color11: #cbcbcb;
+	--color12: #e6e6e6;
 
 
   --max-width-desktop: 960px;
@@ -103,6 +105,17 @@
 
 .bg-transaction-arrow {
   background-image: svg-inline(transaction-arrow);
+}
+
+@svg-load arrow-right url('../static/images/arrow-right.svg');
+
+.bg-arrow-right {
+  background-image: svg-inline(arrow-right);
+}
+
+.bg-arrow-left {
+  background-image: svg-inline(arrow-right);
+  transform: rotate(180deg);
 }
 
 

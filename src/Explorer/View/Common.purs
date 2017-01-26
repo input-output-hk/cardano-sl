@@ -3,13 +3,15 @@ module Explorer.View.Common (
     , transactionHeaderView
     , transactionBodyView
     , currencyCSSClass
+    , paginationView
+    , transactionPaginationView
     ) where
 
 import Data.Maybe (Maybe(..))
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types (Action, State, CCurrency(..))
-import Pux.Html (Html, text, div, a, p, span) as P
-import Pux.Html.Attributes (className, href) as P
+import Pux.Html (Html, text, div, a, p, span, input) as P
+import Pux.Html.Attributes (className, href, value, disabled) as P
 import Pux.Router (link) as P
 
 -- transactions
@@ -77,6 +79,49 @@ transactionBodyView state =
                   [ P.className "amount bg-ada-dark" ]
                   [ P.text "131,100"]
               ]
+        ]
+
+transactionPaginationView :: State -> P.Html Action
+transactionPaginationView state =
+    P.div
+        [ P.className "transaction-pagination"]
+        [ paginationView state ]
+
+-- pagination
+
+paginationView :: State -> P.Html Action
+paginationView state =
+    P.div
+        [ P.className "pagination" ]
+        [ P.div
+            [ P.className "pagination__wrapper" ]
+            [ P.div
+                [ P.className "btn-page" ]
+                [ P.div
+                    [ P.className "icon bg-arrow-left" ]
+                    []
+                ]
+            , P.input
+                [ P.className "page-number"
+                , P.value "22"
+                ]
+                []
+            , P.p
+                [ P.className "label" ]
+                [ P.text "#of"]
+            , P.input
+                [ P.className "page-number"
+                , P.disabled true
+                , P.value "9201"
+                ]
+                []
+            , P.div
+                [ P.className "btn-page" ]
+                [ P.div
+                    [ P.className "icon bg-arrow-right" ]
+                    []
+                ]
+            ]
         ]
 
 -- helper

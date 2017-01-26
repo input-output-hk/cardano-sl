@@ -98,7 +98,7 @@ runCmd _ Help = do
             , "   balance <address>              -- check balance on given address (may be any address)"
             , "   send <N> [<address> <coins>]+  -- create and send transaction with given outputs"
             , "                                     from own address #N"
-            , "   vote <N> <decision> <upid>     -- send vote with given hash of proposal id and"
+            , "   vote <N> <decision> <upid>     -- send vote with given hash of proposal id (in base64) and"
             , "                                     decision, from own address #N"
             , "   propose-update <N> <block ver> <script ver> <software ver>"
             , "                                  -- propose an update with given versions"

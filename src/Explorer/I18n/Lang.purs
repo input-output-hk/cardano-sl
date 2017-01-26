@@ -2,9 +2,9 @@
 module Explorer.I18n.Lang where
 
 import Prelude
-import DOM (DOM)
 import Control.Monad.Eff (Eff)
-import Data.Maybe (Maybe (..))
+import DOM (DOM)
+import Data.Maybe (Maybe(..))
 import Data.String (take)
 import Explorer.I18n.DE (translation) as DE
 import Explorer.I18n.EN (translation) as EN
@@ -22,7 +22,9 @@ translate f = f <<< getTranslation
 -- | ISO 639-1 https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
 readLanguage :: String -> Maybe Language
 readLanguage "en" = Just English
+readLanguage "English" = Just English
 readLanguage "de" = Just German
+readLanguage "Deutsch" = Just German
 readLanguage _ = Nothing
 
 getTranslation :: Language -> Translation
@@ -35,6 +37,8 @@ data Language
 
 instance showLanguage :: Show Language where
     show = languageNativeName
+
+derive instance eqLanguage :: Eq Language
 
 -- | ISO 639 https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
 languageNativeName :: Language -> String

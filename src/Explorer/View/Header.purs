@@ -82,11 +82,11 @@ navigationView :: State -> P.Html Action
 navigationView state =
     P.nav
       [ P.className "nav__list"]
-      $ map (\i -> navItemView i state.lang) navItems
+      $ map (navItemView state.lang) navItems
 
 
-navItemView :: NavItem -> Language -> P.Html Action
-navItemView item lang =
+navItemView :: Language -> NavItem -> P.Html Action
+navItemView lang item =
   P.a
       [ P.className "nav__item", P.href item.link ]
       [ P.text $ translate item.i18nAccessor lang ]

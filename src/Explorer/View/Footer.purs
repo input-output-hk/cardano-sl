@@ -1,12 +1,15 @@
 module Explorer.View.Footer (footerView) where
 
 import Prelude
+import Data.Maybe (fromMaybe)
 import Data.String (take)
-import Explorer.Types (State, Action)
+import Explorer.I18n.Lang (Language(..), readLanguage)
+import Explorer.State (initialState)
+import Explorer.Types (Action(..), State)
 import Explorer.Util.Version (version, commitHash)
 import Pux.Html (Html, div, text, nav, a, select, option, p) as P
-import Pux.Html.Attributes (value)
-import Pux.Html.Attributes (className, href) as P
+import Pux.Html.Attributes (value, className, href, selected) as P
+import Pux.Html.Events (onChange) as P
 
 
 footerView :: State -> P.Html Action
@@ -127,25 +130,22 @@ navRowItemView item =
 
 -- currency
 
-type LangItem =
-    { label :: String
-    , value :: String
-    }
-
-langItems :: Array LangItem
+langItems :: Array Language
 langItems =
-    [ { label: "#English", value: "" }
-    , { label: "#Deutsch", value: "" }
+    [ English
+    , German
     ]
 
 langView :: State -> P.Html Action
 langView state =
   P.select
-      [ P.className "lang__select bg-arrow-up" ]
-      $ map langItemView langItems
+      [ P.className "lang__select bg-arrow-up"
+      , P.onChange $ SetLanguage <<< fromMaybe initialState.lang <<< readLanguage <<< _.value <<< _.target]
+      $ map (langItemView state) langItems
 
-langItemView :: LangItem -> P.Html Action
-langItemView item =
+langItemView :: State -> Language -> P.Html Action
+langItemView state lang =
   P.option
-    [ value item.value ]
-    [ P.text item.label ]
+    [ P.value $ show lang
+    , P.selected $ state.lang == lang  ]
+    [ P.text $ show lang ]

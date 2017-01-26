@@ -1,7 +1,7 @@
 module Explorer.View.Dashboard (dashboardView) where
 
 import Prelude
-import Explorer.I18n.Lang (Language(..), translate)
+import Explorer.I18n.Lang (translate)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types (State, Action(..))
 import Explorer.Util.String (substitute)
@@ -58,12 +58,6 @@ dashboardView state = do
                 , P.link (toUrl Calculator)
                     [ P.className "btn" ]
                     [ P.text $ translate _.calculator lang ]
-                , P.button
-                    [ P.className "btn", P.onClick (const $ SetLanguage English)]
-                    [ P.text "EN" ]
-                , P.button
-                    [ P.className "btn", P.onClick (const $ SetLanguage German)]
-                    [ P.text "DE" ]
                 ]
               ]
         ]

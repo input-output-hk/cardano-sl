@@ -1,16 +1,14 @@
 module Explorer.State where
 
 import Prelude
-import Network.HTTP.Affjax (AJAX)
-import DOM (DOM)
-
-import Pux (EffModel, noEffects)
 import Control.Monad.Eff.Class (liftEff)
-
+import DOM (DOM)
+import Explorer.I18n.Lang (Language(..))
 import Explorer.Routes (Route(..))
-import Explorer.I18n.Lang (Language(English))
-import Explorer.Util.DOM (scrollTop)
 import Explorer.Types (State, Action(..))
+import Explorer.Util.DOM (scrollTop)
+import Network.HTTP.Affjax (AJAX)
+import Pux (EffModel, noEffects)
 
 
 initialState :: State

@@ -226,20 +226,16 @@ mpcProcessBlock
     :: (SscPayload ssc ~ GtPayload)
     => Block ssc -> GSUpdate ()
 mpcProcessBlock blk = do
+    let eos = blk ^. epochOrSlotG
+    gsVssCertificates %= VCD.setLastKnownEoS eos
     case blk of
         -- Genesis blocks don't contain anything interesting, but when they
         -- “arrive”, we clear global commitments and other globals. Not
         -- certificates, though, because we don't want to make nodes resend
         -- them in each epoch.
-        -- TODO FIX IT
-        Left gb -> do
-            resetGS
-            let epoch = EpochOrSlot $ Left $ gb ^. epochIndexL
-            gsVssCertificates %= VCD.setLastKnownEoS epoch
+        Left _  -> resetGS
         -- Main blocks contain commitments, openings, shares, VSS certificates
-        Right b -> do
-            gsVssCertificates %= VCD.setLastKnownSlot (b ^. blockSlot)
-            modify (unionPayload (b ^. blockMpc))
+        Right b -> modify (unionPayload (b ^. blockMpc))
 
 mpcRollback :: NewestFirst NE (Block SscGodTossing) -> GSUpdate ()
 mpcRollback (NewestFirst blocks) = do

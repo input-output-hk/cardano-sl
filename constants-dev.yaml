@@ -1,7 +1,7 @@
 genesisN: 12
 maxLocalTxs: 10000
 defaultPeers: []
-mdNoBlocksSlotThreshold: 3 # should be less then k 
+mdNoBlocksSlotThreshold: 3 # should be less then k
 mdNoCommitmentsEpochThreshold: 3
 protocolMagic: 0
 enhancedMessageBroadcast: 2
@@ -20,6 +20,7 @@ sysTimeBroadcastSlots: 6
 neighboursSendThreshold: 2
 networkDiameter: 3
 networkConnectionTimeout: 2000
+networkReceiveTimeout: 5000
 
 # GodTossing
 vssMaxTTL: 10 # epochs

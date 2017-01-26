@@ -20,6 +20,7 @@ sysTimeBroadcastSlots: 6
 neighboursSendThreshold: 3
 networkDiameter: 45
 networkConnectionTimeout: 2000
+networkReceiveTimeout: 5000
 
 # GodTossing
 vssMaxTTL: 10 # epochs

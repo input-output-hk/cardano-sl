@@ -71,6 +71,8 @@ data CompileConfig = CompileConfig
       -- unless it has more negative votes than positive.
     , ccNetworkConnectionTimeout      :: !Int
       -- ^ Network connection timeout in milliseconds
+    , ccNetworkReceiveTimeout         :: !Int
+      -- ^ Network timeout on `recv` in milliseconds
     , ccBlockRetrievalQueueSize       :: !Int
       -- ^ Block retrieval queue capacity
     , ccProductionNetworkStartTime    :: !Int

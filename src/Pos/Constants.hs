@@ -175,7 +175,7 @@ networkConnectionTimeout :: Microsecond
 networkConnectionTimeout = ms . fromIntegral . ccNetworkConnectionTimeout $ compileConfig
 
 networkReceiveTimeout :: Microsecond
-networkReceiveTimeout = ms 5000
+networkReceiveTimeout = ms . fromIntegral . ccNetworkReceiveTimeout $ compileConfig
 
 blockRetrievalQueueSize :: Integral a => a
 blockRetrievalQueueSize =

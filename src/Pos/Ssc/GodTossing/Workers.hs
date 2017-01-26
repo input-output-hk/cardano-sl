@@ -109,16 +109,16 @@ checkNSendOurCert sendActions = do
     certts <- getGlobalCerts sl
     let ourCertMB = HM.lookup ourId certts
     case ourCertMB of
-        Just ourCert ->
-            if vcExpiryEpoch ourCert > siEpoch then
+        Just ourCert
+            | vcExpiryEpoch ourCert >= siEpoch ->
                 logDebug "Our VssCertificate has been already announced."
-            else
-                sendCert siEpoch True ourId
+            | otherwise -> sendCert siEpoch True ourId
         Nothing -> sendCert siEpoch False ourId
   where
     sendCert epoch resend ourId = do
         if resend then
-            logInfo "TTL will expire in the next epoch, we will announce it now."
+            logError "Our VSS certificate is in global state, but it has already expired, \
+                     \apparently it's a bug, but we are announcing it just in case."
         else
             logInfo "Our VssCertificate hasn't been announced yet or TTL has expired, \
                      \we will announce it now."

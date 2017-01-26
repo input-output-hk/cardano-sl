@@ -80,11 +80,11 @@ import           Pos.Types                  (Block, BlockHeader, EpochIndex,
                                              ProxySKSimple, SlotId (..), SlotLeaders,
                                              TxAux, TxId, VerifyHeaderParams (..),
                                              blockHeader, blockLeaders, difficultyL,
-                                             epochIndexL, epochOrSlot, genesisHash,
-                                             getEpochOrSlot, headerHash, headerHashG,
-                                             headerSlot, mkGenesisBlock, mkMainBlock,
-                                             mkMainBody, prevBlockL, topsortTxs,
-                                             verifyHeader, verifyHeaders,
+                                             epochIndexL, epochOrSlot, flattenSlotId,
+                                             genesisHash, getEpochOrSlot, headerHash,
+                                             headerHashG, headerSlot, mkGenesisBlock,
+                                             mkMainBlock, mkMainBody, prevBlockL,
+                                             topsortTxs, verifyHeader, verifyHeaders,
                                              vhpVerifyConsensus)
 import qualified Pos.Types                  as Types
 import           Pos.Update.Core            (UpdatePayload (..))
@@ -718,16 +718,17 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
             musthaveBlock = mkMainBlock (Just prevHeader) sId sk
                                         pSk musthaveBody extraH extraB
         count musthaveBlock
-        -- include delegation certificates
-        psks' <- takeSome psks
-        -- include the update payload, if we can (not very precise because we
-        -- have already counted empty payload but whatever)
-        usPayload' <- do
-            lim <- use identity
-            let len = fromIntegral $ length (Bi.encode usPayload)
-            if len <= lim
-                then (identity -= len) >> return usPayload
-                else return def
+        -- include delegation certificates and US payload
+        let prioritizeUS = even (flattenSlotId sId)
+        (psks', usPayload') <-
+            if prioritizeUS then do
+                usPayload' <- includeUSPayload
+                psks' <- takeSome psks
+                return (psks', usPayload')
+            else do
+                psks' <- takeSome psks
+                usPayload' <- includeUSPayload
+                return (psks', usPayload')
         -- include transactions
         txs' <- takeSome (map snd txs)
         -- return the resulting block
@@ -746,6 +747,15 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
         (lim', pref) <- go <$> use identity <*> pure lst
         identity .= lim'
         return pref
+    -- include UpdatePayload if we have space for it (not very precise
+    -- because we have already counted empty payload but whatever)
+    includeUSPayload = do
+        lim <- use identity
+        let len = fromIntegral $ length (Bi.encode usPayload)
+        if len <= lim
+            then (identity -= len) >> return usPayload
+            else return def
+    -- other stuff
     extraB = MainExtraBodyData (mkAttributes ())
     extraH =
         MainExtraHeaderData

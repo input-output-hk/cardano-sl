@@ -3,21 +3,26 @@
 
 module Pos.Binary.Communication () where
 
-import           Data.Binary.Get          (getInt32be, getWord8, label)
-import           Data.Binary.Put          (putInt32be, putWord8)
-import           Node.Message             (MessageName (..))
+import           Data.Binary.Get            (getInt32be, getWord8, isolate, label)
+import           Data.Binary.Put            (putInt32be, putLazyByteString, putWord8,
+                                             runPut)
+import qualified Data.ByteString.Lazy       as BSL
+import           Data.Reflection            (Reifies, reflect)
+import           Formatting                 (formatToString, int, (%))
+import           Node.Message               (MessageName (..))
+import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
-import           Pos.Binary.Class         (Bi (..))
-import           Pos.Block.Network.Types  (MsgBlock (..), MsgGetBlocks (..),
-                                           MsgGetHeaders (..), MsgHeaders (..))
-import           Pos.Communication.Types  (SysStartRequest (..), SysStartResponse (..))
-import           Pos.Delegation.Types     (CheckProxySKConfirmed (..),
-                                           CheckProxySKConfirmedRes (..),
-                                           ConfirmProxySK (..), SendProxySK (..))
-import           Pos.Ssc.Class.Types      (Ssc (..))
-import           Pos.Txp.Types            (TxMsgTag (..))
-import           Pos.Update.Network.Types (ProposalMsgTag (..), VoteMsgTag (..))
+import           Pos.Binary.Class           (Bi (..))
+import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
+                                             MsgGetHeaders (..), MsgHeaders (..))
+import           Pos.Communication.Types    (SysStartRequest (..), SysStartResponse (..))
+import           Pos.Delegation.Types       (CheckProxySKConfirmed (..),
+                                             CheckProxySKConfirmedRes (..),
+                                             ConfirmProxySK (..), SendProxySK (..))
+import           Pos.Ssc.Class.Types        (Ssc (..))
+import           Pos.Txp.Types              (TxMsgTag (..))
+import           Pos.Update.Network.Types   (ProposalMsgTag (..), VoteMsgTag (..))
 
 deriving instance Bi MessageName
 
@@ -52,9 +57,34 @@ instance Ssc ssc => Bi (MsgHeaders ssc) where
     put (MsgHeaders b) = put b
     get = MsgHeaders <$> get
 
-instance Ssc ssc => Bi (MsgBlock ssc) where
-    put (MsgBlock b) = put b
-    get = MsgBlock <$> get
+instance (Ssc ssc, Reifies s Byte) => Bi (MsgBlock s ssc) where
+    -- We encode block size and then the block itself so that we'd be able to
+    -- reject the block if it's of the wrong size without consuming the whole
+    -- block. Unfortunately, @binary@ doesn't provide a method to limit byte
+    -- consumption – only a method to ensure that the /exact/ number of bytes
+    -- is consumed. Thus we need to know the actual block size in advance.
+    put (MsgBlock b) = do
+        -- NB: When serializing, we don't check that the size of the
+        -- serialized block is smaller than the allowed size. Note that
+        -- we *depend* on this behavior in e.g. 'handleGetBlocks' in
+        -- "Pos.Block.Network.Listeners". Grep for #put_checkBlockSize.
+        let serialized = runPut (put b)
+        put (BSL.length serialized :: Int64)
+        putLazyByteString serialized
+    get = do
+        blockSize :: Int64 <- get
+        let maxBlockSize = reflect (Proxy @s)
+        if fromIntegral blockSize <= maxBlockSize
+            -- TODO: this will fail on 32-bit machines if we have blocks
+            -- bigger than 2 GB, because 'isolate' takes 'Int' and not
+            -- 'Int64'. I don't think we'll have blocks that big any soon
+            -- (famous last words...). Anyway, if you want to fix it, you can
+            -- copy the code of 'isolate' and fix the types there.
+            then isolate (fromIntegral blockSize) (MsgBlock <$> get)
+            else fail $ formatToString
+                     ("get@MsgBlock: block ("%int%" bytes) is bigger "%
+                      "than maxBlockSize ("%int%" bytes)")
+                     blockSize maxBlockSize
 
 ----------------------------------------------------------------------------
 -- Transaction processing

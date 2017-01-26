@@ -25,31 +25,37 @@ module Pos.Types.Block
        -- , verifyGenericHeader
        , verifyHeader
        , verifyHeaders
+
+       , blockSize
        ) where
 
-import           Control.Lens          (ix)
-import           Data.Default          (Default (def))
-import           Data.List             (groupBy)
-import           Data.Tagged           (untag)
-import           Formatting            (build, int, sformat, (%))
-import           Serokell.Util.Verify  (VerificationRes (..), verifyGeneric)
+import           Control.Lens               (ix)
+import qualified Data.ByteString.Lazy       as BSL
+import           Data.Default               (Default (def))
+import           Data.List                  (groupBy)
+import           Data.Tagged                (untag)
+import           Formatting                 (build, int, sformat, (%))
+import           Serokell.Data.Memory.Units (Byte)
+import           Serokell.Util.Verify       (VerificationRes (..), verifyGeneric)
 import           Universum
 
-import           Pos.Binary.Types      ()
-import           Pos.Binary.Update     ()
-import           Pos.Constants         (epochSlots, maxBlockProxySKs)
-import           Pos.Crypto            (Hash, SecretKey, checkSig, proxySign, proxyVerify,
-                                        pskIssuerPk, sign, toPublic, unsafeHash)
-import           Pos.Merkle            (mkMerkleTree)
-import           Pos.Ssc.Class.Helpers (SscHelpersClass (..))
-import           Pos.Ssc.Class.Types   (Ssc (..))
-import           Pos.Types.Address     (addressHash)
+import qualified Pos.Binary.Class           as Bi
+import           Pos.Binary.Types           ()
+import           Pos.Binary.Update          ()
+import           Pos.Constants              (epochSlots, maxBlockProxySKs)
+import           Pos.Crypto                 (Hash, SecretKey, checkSig, proxySign,
+                                             proxyVerify, pskIssuerPk, sign, toPublic,
+                                             unsafeHash)
+import           Pos.Merkle                 (mkMerkleTree)
+import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
+import           Pos.Ssc.Class.Types        (Ssc (..))
+import           Pos.Types.Address          (addressHash)
 -- Unqualified import is used here because of GHC bug (trac 12127).
 -- See: https://ghc.haskell.org/trac/ghc/ticket/12127
-import           Pos.Types.Tx          (verifyTxAlone)
+import           Pos.Types.Tx               (verifyTxAlone)
 import           Pos.Types.Types
-import           Pos.Update.Core       (UpdatePayload)
-import           Pos.Util              (NewestFirst (..), OldestFirst)
+import           Pos.Update.Core            (UpdatePayload)
+import           Pos.Util                   (NewestFirst (..), OldestFirst)
 
 -- | Difficulty of the BlockHeader. 0 for genesis block, 1 for main block.
 headerDifficulty :: BlockHeader ssc -> ChainDifficulty
@@ -474,12 +480,16 @@ verifyBlocks
        ( SscHelpersClass ssc
        , BiSsc ssc
        , t ~ OldestFirst f (Block ssc)
-       , NontrivialContainer t)
-    => Maybe SlotId -> OldestFirst f (Block ssc) -> VerificationRes
-verifyBlocks curSlotId = view _3 . foldl' step start
+       , NontrivialContainer t
+       )
+    => Maybe SlotId
+    -> Maybe SlotLeaders
+    -> OldestFirst f (Block ssc)
+    -> VerificationRes
+verifyBlocks curSlotId initLeaders = view _3 . foldl' step start
   where
     start :: (Maybe SlotLeaders, Maybe (BlockHeader ssc), VerificationRes)
-    start = (Nothing, Nothing, mempty)
+    start = (initLeaders, Nothing, mempty)
     step
         :: (Maybe SlotLeaders, Maybe (BlockHeader ssc), VerificationRes)
         -> Block ssc
@@ -506,3 +516,7 @@ verifyBlocks curSlotId = view _3 . foldl' step start
                 , vbpVerifyProxySKs = True
                 }
         in (newLeaders, Just $ getBlockHeader blk, res <> verifyBlock vbp blk)
+
+-- | Compute size of 'MainBlock' in bytes.
+blockSize :: Ssc ssc => MainBlock ssc -> Byte
+blockSize = fromIntegral . BSL.length . Bi.encode

@@ -7,13 +7,16 @@
 module Pos.DB.GState.Update
        (
          -- * Getters
-         getLastAdoptedBV
-       , getLastBVState
+         getAdoptedBV
+       , getAdoptedBVData
+       , getAdoptedBVFull
        , getBVState
        , getProposalState
        , getAppProposal
        , getProposalStateByApp
        , getConfirmedSV
+       , getSlotDuration
+       , getMaxBlockSize
 
          -- * Operations
        , UpdateOp (..)
@@ -37,59 +40,71 @@ module Pos.DB.GState.Update
        , getProposedBVStates
        ) where
 
-import           Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
-import qualified Database.RocksDB          as Rocks
+import           Control.Monad.Trans.Maybe  (MaybeT (..), runMaybeT)
+import           Data.Time.Units            (Microsecond)
+import qualified Database.RocksDB           as Rocks
+import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
-import           Pos.Binary.Class          (encodeStrict)
-import           Pos.Binary.DB             ()
-import           Pos.Constants             (ourAppName)
-import           Pos.Crypto                (hash)
-import           Pos.DB.Class              (MonadDB, getUtxoDB)
-import           Pos.DB.Error              (DBError (DBMalformed))
-import           Pos.DB.Functions          (RocksBatchOp (..), encodeWithKeyPrefix,
-                                            rocksWriteBatch)
-import           Pos.DB.GState.Common      (getBi)
-import           Pos.DB.Iterator           (DBIteratorClass (..), DBnIterator,
-                                            DBnMapIterator, IterType, runDBnIterator,
-                                            runDBnMapIterator)
-import           Pos.DB.Types              (NodeDBs (..))
-import           Pos.Genesis               (genesisBlockVersion, genesisScriptVersion,
-                                            genesisSoftwareVersions)
-import           Pos.Types                 (ApplicationName, BlockVersion,
-                                            ChainDifficulty, NumSoftwareVersion, SlotId,
-                                            SoftwareVersion (..))
-import           Pos.Update.Core           (UpId, UpdateProposal (..))
-import           Pos.Update.Poll.Types     (BlockVersionState (..),
-                                            ConfirmedProposalState,
-                                            DecidedProposalState (dpsDifficulty),
-                                            ProposalState (..),
-                                            UndecidedProposalState (upsSlot),
-                                            cpsSoftwareVersion, psProposal)
-import           Pos.Util                  (maybeThrow)
-import           Pos.Util.Iterator         (MonadIterator (..))
+import           Pos.Binary.Class           (encodeStrict)
+import           Pos.Binary.DB              ()
+import           Pos.Constants              (ourAppName)
+import           Pos.Crypto                 (hash)
+import           Pos.DB.Class               (MonadDB, getUtxoDB)
+import           Pos.DB.Error               (DBError (DBMalformed))
+import           Pos.DB.Functions           (RocksBatchOp (..), encodeWithKeyPrefix,
+                                             rocksWriteBatch)
+import           Pos.DB.GState.Common       (getBi)
+import           Pos.DB.Iterator            (DBIteratorClass (..), DBnIterator,
+                                             DBnMapIterator, IterType, runDBnIterator,
+                                             runDBnMapIterator)
+import           Pos.DB.Types               (NodeDBs (..))
+import           Pos.Genesis                (genesisBlockVersion, genesisMaxBlockSize,
+                                             genesisScriptVersion, genesisSlotDuration,
+                                             genesisSoftwareVersions)
+import           Pos.Types                  (ApplicationName, BlockVersion,
+                                             ChainDifficulty, NumSoftwareVersion, SlotId,
+                                             SoftwareVersion (..))
+import           Pos.Update.Core            (BlockVersionData (..), UpId,
+                                             UpdateProposal (..))
+import           Pos.Update.Poll.Types      (BlockVersionState (..),
+                                             ConfirmedProposalState,
+                                             DecidedProposalState (dpsDifficulty),
+                                             ProposalState (..),
+                                             UndecidedProposalState (upsSlot),
+                                             cpsSoftwareVersion, psProposal)
+import           Pos.Util                   (maybeThrow)
+import           Pos.Util.Iterator          (MonadIterator (..))
 
 ----------------------------------------------------------------------------
 -- Getters
 ----------------------------------------------------------------------------
 
 -- | Get last adopted block version.
-getLastAdoptedBV :: MonadDB ssc m => m BlockVersion
-getLastAdoptedBV = maybeThrow (DBMalformed msg) =<< getLastAdoptedBVMaybe
+getAdoptedBV :: MonadDB ssc m => m BlockVersion
+getAdoptedBV = fst <$> getAdoptedBVFull
+
+-- | Get state of last adopted BlockVersion.
+getAdoptedBVData :: MonadDB ssc m => m BlockVersionData
+getAdoptedBVData = snd <$> getAdoptedBVFull
+
+-- | Get last adopted BlockVersion and data associated with it.
+getAdoptedBVFull :: MonadDB ssc m => m (BlockVersion, BlockVersionData)
+getAdoptedBVFull = maybeThrow (DBMalformed msg) =<< getAdoptedBVFullMaybe
   where
     msg =
         "Update System part of GState DB is not initialized (last adopted BV is missing)"
 
--- | Get state of last adopted BlockVersion.
-getLastBVState :: MonadDB ssc m => m BlockVersionState
-getLastBVState = do
-    lbv <- getLastAdoptedBV
-    maybeThrow (DBMalformed msg) =<< getBVState lbv
-  where
-    msg =
-        "Update System part of GState DB : Last Script Version is missing"
+-- | Get actual slot duration.
+getSlotDuration :: MonadDB ssc m => m Microsecond
+getSlotDuration = pure genesisSlotDuration
+-- getSlotDuration = bvdSlotDuration <$> getAdoptedBVData
 
--- | Get 'BlockVersionState' associated with given adopted BlockVersion.
+-- | Get maximum block size (in bytes).
+getMaxBlockSize :: MonadDB ssc m => m Byte
+getMaxBlockSize = bvdMaxBlockSize <$> getAdoptedBVData
+
+-- | Get 'BlockVersionState' associated with given BlockVersion.
 getBVState :: MonadDB ssc m => BlockVersion -> m (Maybe BlockVersionState)
 getBVState = getBi . bvStateKey
 
@@ -123,7 +138,7 @@ data UpdateOp
     | DelConfirmedVersion !ApplicationName
     | AddConfirmedProposal !ConfirmedProposalState
     | DelConfirmedProposal !SoftwareVersion
-    | SetLastAdopted !BlockVersion
+    | SetAdopted !BlockVersion BlockVersionData
     | SetBVState !BlockVersion !BlockVersionState
     | DelBV !BlockVersion
 
@@ -146,8 +161,8 @@ instance RocksBatchOp UpdateOp where
         [Rocks.Put (confirmedProposalKey cps) (encodeStrict cps)]
     toBatchOp (DelConfirmedProposal sv) =
         [Rocks.Del (confirmedProposalKeySV sv)]
-    toBatchOp (SetLastAdopted bv) =
-        [Rocks.Put lastBVKey (encodeStrict bv)]
+    toBatchOp (SetAdopted bv bvd) =
+        [Rocks.Put adoptedBVKey (encodeStrict (bv, bvd))]
     toBatchOp (SetBVState bv st) =
         [Rocks.Put (bvStateKey bv) (encodeStrict st)]
     toBatchOp (DelBV bv) =
@@ -165,22 +180,17 @@ prepareGStateUS =
     unlessM isInitialized $ do
         db <- getUtxoDB
         flip rocksWriteBatch db $
-            [ SetLastAdopted genesisBlockVersion
-            , SetBVState genesisBlockVersion genesisBVS
-            ] <>
+            SetAdopted genesisBlockVersion genesisBVData :
             map ConfirmVersion genesisSoftwareVersions
   where
-    genesisBVS =
-        BlockVersionState
+    genesisBVData =
+        BlockVersionData
             genesisScriptVersion
-            False
-            mempty
-            mempty
-            Nothing
-            Nothing
+            genesisSlotDuration
+            genesisMaxBlockSize
 
 isInitialized :: MonadDB ssc m => m Bool
-isInitialized = isJust <$> getLastAdoptedBVMaybe
+isInitialized = isJust <$> getAdoptedBVFullMaybe
 
 ----------------------------------------------------------------------------
 -- Iteration
@@ -294,8 +304,8 @@ getConfirmedBVStates = runDBnIterator @BVIter _gStateDB (step [])
 -- Keys ('us' prefix stands for Update System)
 ----------------------------------------------------------------------------
 
-lastBVKey :: ByteString
-lastBVKey = "us/last-adopted-block-v"
+adoptedBVKey :: ByteString
+adoptedBVKey = "us/adopted-block-version/"
 
 bvStateKey :: BlockVersion -> ByteString
 bvStateKey = encodeWithKeyPrefix @BVIter
@@ -328,5 +338,5 @@ confirmedIterationPrefix = "us/cp"
 -- Details
 ----------------------------------------------------------------------------
 
-getLastAdoptedBVMaybe :: MonadDB ssc m => m (Maybe BlockVersion)
-getLastAdoptedBVMaybe = getBi lastBVKey
+getAdoptedBVFullMaybe :: MonadDB ssc m => m (Maybe (BlockVersion, BlockVersionData))
+getAdoptedBVFullMaybe = getBi adoptedBVKey

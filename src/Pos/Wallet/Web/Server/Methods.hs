@@ -29,18 +29,17 @@ import           System.Wlog                   (logInfo)
 import           Universum
 
 import           Pos.Aeson.ClientTypes         ()
-import           Pos.Constants                 (slotDuration)
+import           Pos.Communication.BiP         (BiP)
 import           Pos.Crypto                    (toPublic)
 import           Pos.DHT.Model                 (dhtAddr, getKnownPeers)
+import           Pos.Slotting                  (getSlotDuration)
 import           Pos.Types                     (Address, ChainDifficulty (..), Coin,
                                                 TxOut (..), addressF, coinF,
                                                 decodeTextAddress, makePubKeyAddress,
                                                 mkCoin)
 import           Pos.Util                      (maybeThrow)
 import           Pos.Util.BackupPhrase         (keysFromPhrase)
-import           Pos.Web.Server                (serveImpl)
 
-import           Pos.Communication.BiP         (BiP)
 import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
                                                 addSecretKey)
 import           Pos.Wallet.Tx                 (submitTx)
@@ -67,10 +66,10 @@ import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
                                                 addOnlyNewTxMeta, closeState,
                                                 createWallet, getProfile, getTxMeta,
-                                                getWalletHistory, getWalletMeta,
-                                                getWalletState, openState, removeWallet,
-                                                runWalletWebDB, setProfile, setWalletMeta,
-                                                setWalletTransactionMeta)
+                                                getWalletMeta, getWalletState, openState,
+                                                removeWallet, runWalletWebDB, setProfile,
+                                                setWalletMeta, setWalletTransactionMeta)
+import           Pos.Web.Server                (serveImpl)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -146,7 +145,7 @@ data SyncProgress =
 instance Default SyncProgress where
     def = let chainDef = ChainDifficulty 0 in SyncProgress chainDef chainDef
 
-type SyncState = StateT SyncProgress
+-- type SyncState = StateT SyncProgress
 
 -- FIXME: this is really inaficient. Temporary solution
 launchNotifier :: WalletWebMode ssc m => (m :~> Handler) -> m ()
@@ -157,7 +156,6 @@ launchNotifier nat = void . liftIO $ mapM startForking
   where
     cooldownPeriod = 5000000         -- 5 sec
     difficultyNotifyPeriod = 500000  -- 0.5 sec
-    updateNotifyPeriod = fromIntegral slotDuration
     forkForever action = forkFinally action $ const $ do
         -- TODO: log error
         -- colldown
@@ -181,11 +179,14 @@ launchNotifier nat = void . liftIO $ mapM startForking
         whenM ((localDifficulty /=) . spLocalCD <$> get) $ do
             lift $ notify $ LocalDifficultyChanged localDifficulty
             modify $ \sp -> sp { spLocalCD = localDifficulty }
-    updateNotifier = notifier updateNotifyPeriod $ do
-        updates <- getUpdates
-        unless (null updates) $ do
-            logInfo "SOFTWARE UPDATE NOTIFICATION"
-            notify UpdateAvailable
+    updateNotifier = do
+        slotDuration <- getSlotDuration
+        let updateNotifyPeriod = fromIntegral slotDuration
+        notifier updateNotifyPeriod $ do
+            updates <- getUpdates
+            unless (null updates) $ do
+                logInfo "SOFTWARE UPDATE NOTIFICATION"
+                notify UpdateAvailable
     -- historyNotifier :: WalletWebMode ssc m => m ()
     -- historyNotifier = do
     --     cAddresses <- myCAddresses
@@ -368,7 +369,7 @@ nextUpdate = getNextUpdate >>=
              fmap toCUpdateInfo
 
 blockchainSlotDuration :: WalletWebMode ssc m => m Word
-blockchainSlotDuration = pure $ fromIntegral slotDuration
+blockchainSlotDuration = fromIntegral <$> getSlotDuration
 
 ----------------------------------------------------------------------------
 -- Helpers

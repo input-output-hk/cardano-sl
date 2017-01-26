@@ -15,6 +15,10 @@ module Pos.Crypto.Hashing
 
          -- * AbstractHash
        , AbstractHash (..)
+       , encodeAbstractHash
+       , decodeAbstractHash
+       , encodeHash
+       , decodeHash
        , abstractHash
        , unsafeAbstractHash
 
@@ -25,7 +29,6 @@ module Pos.Crypto.Hashing
        , hash
        , hashRaw
        , unsafeHash
-       , parseHash
 
          -- * Utility
        , CastHash (castHash)
@@ -34,10 +37,10 @@ module Pos.Crypto.Hashing
 
 import           Control.DeepSeq      (force)
 import           Control.Lens         (makeLensesFor)
-import           Crypto.Hash          (Blake2s_224, Digest, HashAlgorithm,
-                                       digestFromByteString)
+import           Crypto.Hash          (Blake2s_224, Digest, HashAlgorithm)
 import qualified Crypto.Hash          as Hash (hash, hashlazy)
 import qualified Data.ByteArray       as ByteArray
+import qualified Data.ByteString.Lazy as BSL
 import           Data.Hashable        (Hashable (hashWithSalt), hashPtrWithSalt)
 import           Data.SafeCopy        (SafeCopy (..))
 import qualified Data.Text.Buildable  as Buildable
@@ -96,6 +99,25 @@ instance Bi (AbstractHash algo a) =>
 instance Buildable.Buildable (AbstractHash algo a) where
     build = bprint shortHashF
 
+-- | Encode hash from base64 form.
+encodeAbstractHash :: forall algo a . Bi (AbstractHash algo a) => AbstractHash algo a -> Text
+encodeAbstractHash = B64.encode . Bi.encodeStrict
+
+-- | Parses given hash in base64 form.
+decodeAbstractHash :: forall algo a . Bi (AbstractHash algo a) => Text -> AbstractHash algo a
+decodeAbstractHash = Bi.decode . processRes . B64.decode
+  where
+    processRes (Right x) = BSL.fromStrict x
+    processRes (Left e) = panic $ "decode hash error: " <> e
+
+-- | Encode hash from base64 form.
+encodeHash :: Bi (Hash a) => Hash a -> Text
+encodeHash = encodeAbstractHash @Blake2s_224
+
+-- | Parses given hash in base64 form.
+decodeHash :: Bi (Hash a) => Text -> Hash a
+decodeHash = decodeAbstractHash @Blake2s_224
+
 -- | Encode thing as 'Binary' data and then wrap into constructor.
 abstractHash
     :: (HashAlgorithm algo, Bi a)
@@ -131,12 +153,6 @@ hashHexF = later $ \(AbstractHash x) -> Buildable.build (show x :: Text)
 shortHashF :: Format r (AbstractHash algo a -> r)
 shortHashF = fitLeft 8 %. hashHexF
 
--- | Parses given hash in base64 form.
-parseHash :: Text -> Either Text (Hash a)
-parseHash = processRes . digestFromByteString <=< B64.decode
-  where
-    processRes (Just x) = Right (AbstractHash x)
-    processRes Nothing  = Left "Invalid hash length"
 
 -- | Type class for unsafe cast between hashes.
 -- You must ensure that types have identical Bi instances.

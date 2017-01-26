@@ -45,16 +45,26 @@ instance Bi U.UpdateData where
                           *> put udUpdaterHash
                           *> put udMetadataHash
 
+instance Bi U.BlockVersionData where
+    get = label "BlockVersionData" $ U.BlockVersionData <$> get <*> get <*> get
+    put U.BlockVersionData {..} =
+        put bvdScriptVersion *> put bvdSlotDuration *> put bvdMaxBlockSize
+
 instance Bi U.UpdateProposal where
     get = label "UpdateProposal" $
-          U.UpdateProposal <$> get <*> get <*> get <*> getUpData <*> get
+          U.UpdateProposal
+            <$> get
+            <*> get
+            <*> get
+            <*> getUpData
+            <*> get
       where getUpData = do   -- Check if proposal data is non-empty
                 pd <- get
                 when (HM.null pd) $
                     fail "Pos.Binary.Update: UpdateProposal: empty proposal data"
                 return pd
     put U.UpdateProposal {..} =  put upBlockVersion
-                              *> put upScriptVersion
+                              *> put upBlockVersionData
                               *> put upSoftwareVersion
                               *> put upData
                               *> put upAttributes
@@ -168,14 +178,14 @@ instance Bi U.ConfirmedProposalState where
 
 instance Bi U.BlockVersionState where
     put (U.BlockVersionState {..}) = do
-        put bvsScript
+        put bvsData
         put bvsIsConfirmed
         put bvsIssuersStable
         put bvsIssuersUnstable
         put bvsLastBlockStable
         put bvsLastBlockUnstable
     get = do
-        bvsScript <- get
+        bvsData <- get
         bvsIsConfirmed <- get
         bvsIssuersStable <- get
         bvsIssuersUnstable <- get

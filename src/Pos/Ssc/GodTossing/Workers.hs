@@ -56,7 +56,8 @@ import           Pos.Ssc.GodTossing.LocalData     (getLocalPayload, localOnNewSl
 import           Pos.Ssc.GodTossing.Richmen       (gtLrcConsumer)
 import qualified Pos.Ssc.GodTossing.SecretStorage as SS
 import           Pos.Ssc.GodTossing.Shares        (getOurShares)
-import           Pos.Ssc.GodTossing.Storage       (getGlobalCerts, gtGetGlobalState)
+import           Pos.Ssc.GodTossing.Storage       (getGlobalCerts, getStableCerts,
+                                                   gtGetGlobalState)
 import           Pos.Ssc.GodTossing.Types         (Commitment (commProof),
                                                    SignedCommitment, SscGodTossing,
                                                    VssCertificate (..),
@@ -181,7 +182,7 @@ onNewSlotCommitment sendActions slotId@SlotId {..}
             richmen <-
                 lrcActionOnEpochReason siEpoch "couldn't get SSC richmen" getRichmenSsc
             participants <- map vcVssKey . toList . computeParticipants richmen
-                <$> getGlobalCerts slotId
+                <$> getStableCerts siEpoch
             ourCommitments <- SS.getOurCommitments siEpoch
             let goodCommitment = headMay $
                     filter (checkCommShares participants) ourCommitments
@@ -287,10 +288,10 @@ generateAndSetNewSecret
     => SecretKey
     -> SlotId -- ^ Current slot
     -> m (Maybe SignedCommitment)
-generateAndSetNewSecret sk sl@SlotId {..} = do
+generateAndSetNewSecret sk SlotId {..} = do
     richmen <-
         lrcActionOnEpochReason siEpoch "couldn't get SSC richmen" getRichmenSsc
-    certs <- getGlobalCerts sl
+    certs <- getStableCerts siEpoch
     inAssertMode $ do
         let participantIds =
                 map (addressHash . vcSigningKey) $

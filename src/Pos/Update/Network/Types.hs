@@ -8,8 +8,6 @@ module Pos.Update.Network.Types
 import           Data.Text.Buildable (Buildable (..))
 import           Universum
 
-import           Pos.Update.Core     (UpdateProposal, UpdateVote)
-
 -- | Tag for proposal messages
 data ProposalMsgTag = ProposalMsgTag deriving (Eq, Show)
 

@@ -63,7 +63,7 @@ instance Message MsgGetBlocks where
     messageName _ = "GetBlocks"
     formatMessage _ = "GetBlocks"
 
-instance Message (MsgBlock ssc) where
+instance Message (MsgBlock s ssc) where
     messageName _ = "Block"
     formatMessage _ = "Block"
 

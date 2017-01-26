@@ -29,72 +29,74 @@ module Pos.Block.Logic
        , createMainBlock
        ) where
 
-import           Control.Lens              (_Wrapped)
-import           Control.Monad.Catch       (try)
-import           Control.Monad.Except      (ExceptT (ExceptT), runExceptT, throwError,
-                                            withExceptT)
-import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
-import           Data.Default              (Default (def))
-import qualified Data.HashMap.Strict       as HM
-import           Data.List.NonEmpty        ((<|))
-import qualified Data.List.NonEmpty        as NE
-import qualified Data.Text                 as T
-import           Formatting                (build, int, ords, sformat, stext, (%))
-import           Serokell.Util.Text        (listJson)
-import           Serokell.Util.Verify      (VerificationRes (..), formatAllErrors,
-                                            isVerSuccess, verResToMonadError)
-import           System.Wlog               (CanLog, HasLoggerName, logDebug, logError,
-                                            logInfo)
+import           Control.Lens               ((-=), (.=), _Wrapped)
+import           Control.Monad.Catch        (try)
+import           Control.Monad.Except       (ExceptT (ExceptT), runExceptT, throwError,
+                                             withExceptT)
+import           Control.Monad.Trans.Maybe  (MaybeT (MaybeT), runMaybeT)
+import           Data.Default               (Default (def))
+import qualified Data.HashMap.Strict        as HM
+import           Data.List.NonEmpty         ((<|))
+import qualified Data.List.NonEmpty         as NE
+import qualified Data.Text                  as T
+import           Formatting                 (build, int, ords, sformat, stext, (%))
+import           Serokell.Data.Memory.Units (toBytes)
+import           Serokell.Util.Text         (listJson)
+import           Serokell.Util.Verify       (VerificationRes (..), formatAllErrors,
+                                             isVerSuccess, verResToMonadError)
+import           System.Wlog                (CanLog, HasLoggerName, logDebug, logError,
+                                             logInfo)
 import           Universum
 
-import           Pos.Block.Logic.Internal  (applyBlocksUnsafe, rollbackBlocksUnsafe,
-                                            withBlkSemaphore, withBlkSemaphore_)
-import           Pos.Block.Types           (Blund, Undo (..))
-import           Pos.Constants             (blkSecurityParam, curSoftwareVersion,
-                                            epochSlots, lastKnownBlockVersion,
-                                            recoveryHeadersMessage, slotSecurityParam)
-import           Pos.Context               (NodeContext (ncSecretKey), getNodeContext,
-                                            lrcActionOnEpochReason)
-import           Pos.Crypto                (SecretKey, WithHash (WithHash), hash,
-                                            shortHashF)
-import           Pos.Data.Attributes       (mkAttributes)
-import           Pos.DB                    (DBError (..), MonadDB)
-import qualified Pos.DB                    as DB
-import qualified Pos.DB.GState             as GS
-import qualified Pos.DB.Lrc                as LrcDB
-import           Pos.Delegation.Logic      (delegationVerifyBlocks, getProxyMempool)
-import           Pos.Exception             (CardanoFatalError (..))
-import           Pos.Lrc.Error             (LrcError (..))
-import           Pos.Lrc.Worker            (lrcSingleShotNoLock)
-import           Pos.Slotting              (getCurrentSlot)
-import           Pos.Ssc.Class             (Ssc (..), SscWorkersClass (..))
-import           Pos.Ssc.Extra             (sscGetLocalPayload, sscVerifyBlocks)
-import           Pos.Txp.Class             (getLocalTxsNUndo)
-import           Pos.Txp.Logic             (txVerifyBlocks)
-import           Pos.Types                 (Block, BlockHeader, EpochIndex,
-                                            EpochOrSlot (..), GenesisBlock, HeaderHash,
-                                            MainBlock, MainExtraBodyData (..),
-                                            MainExtraHeaderData (..), ProxySKEither,
-                                            ProxySKSimple, SlotId (..), SlotLeaders,
-                                            TxAux, TxId, VerifyHeaderParams (..),
-                                            blockHeader, blockLeaders, difficultyL,
-                                            epochIndexL, epochOrSlot, genesisHash,
-                                            getEpochOrSlot, headerHash, headerHashG,
-                                            headerSlot, mkGenesisBlock, mkMainBlock,
-                                            mkMainBody, prevBlockL, topsortTxs,
-                                            verifyHeader, verifyHeaders,
-                                            vhpVerifyConsensus)
-import qualified Pos.Types                 as Types
-import           Pos.Update.Core           (UpdatePayload (..))
-import           Pos.Update.Logic          (usCanCreateBlock, usPreparePayload,
-                                            usVerifyBlocks)
-import           Pos.Update.Poll           (PollModifier)
-import           Pos.Util                  (Color (Red), NE, NewestFirst (..),
-                                            OldestFirst (..), colorize, inAssertMode,
-                                            maybeThrow, neZipWith3, spanSafe,
-                                            toNewestFirst, toOldestFirst, _neHead,
-                                            _neLast)
-import           Pos.WorkMode              (WorkMode)
+import qualified Pos.Binary.Class           as Bi
+import           Pos.Block.Logic.Internal   (applyBlocksUnsafe, rollbackBlocksUnsafe,
+                                             withBlkSemaphore, withBlkSemaphore_)
+import           Pos.Block.Types            (Blund, Undo (..))
+import           Pos.Constants              (blkSecurityParam, curSoftwareVersion,
+                                             epochSlots, lastKnownBlockVersion,
+                                             recoveryHeadersMessage, slotSecurityParam)
+import           Pos.Context                (NodeContext (ncSecretKey), getNodeContext,
+                                             lrcActionOnEpochReason)
+import           Pos.Crypto                 (SecretKey, WithHash (WithHash), hash,
+                                             shortHashF)
+import           Pos.Data.Attributes        (mkAttributes)
+import           Pos.DB                     (DBError (..), MonadDB)
+import qualified Pos.DB                     as DB
+import qualified Pos.DB.GState              as GS
+import qualified Pos.DB.Lrc                 as LrcDB
+import           Pos.Delegation.Logic       (delegationVerifyBlocks, getProxyMempool)
+import           Pos.Exception              (CardanoFatalError (..))
+import           Pos.Lrc.Error              (LrcError (..))
+import           Pos.Lrc.Worker             (lrcSingleShotNoLock)
+import           Pos.Slotting               (getCurrentSlot)
+import           Pos.Ssc.Class              (Ssc (..), SscWorkersClass (..))
+import           Pos.Ssc.Extra              (sscGetLocalPayload, sscVerifyBlocks)
+import           Pos.Txp.Class              (getLocalTxsNUndo)
+import           Pos.Txp.Logic              (txVerifyBlocks)
+import           Pos.Types                  (Block, BlockHeader, EpochIndex,
+                                             EpochOrSlot (..), GenesisBlock, HeaderHash,
+                                             MainBlock, MainExtraBodyData (..),
+                                             MainExtraHeaderData (..), ProxySKEither,
+                                             ProxySKSimple, SlotId (..), SlotLeaders,
+                                             TxAux, TxId, VerifyHeaderParams (..),
+                                             blockHeader, blockLeaders, difficultyL,
+                                             epochIndexL, epochOrSlot, genesisHash,
+                                             getEpochOrSlot, headerHash, headerHashG,
+                                             headerSlot, mkGenesisBlock, mkMainBlock,
+                                             mkMainBody, prevBlockL, topsortTxs,
+                                             verifyHeader, verifyHeaders,
+                                             vhpVerifyConsensus)
+import qualified Pos.Types                  as Types
+import           Pos.Update.Core            (UpdatePayload (..))
+import           Pos.Update.Logic           (usCanCreateBlock, usPreparePayload,
+                                             usVerifyBlocks)
+import           Pos.Update.Poll            (PollModifier)
+import           Pos.Util                   (Color (Red), NE, NewestFirst (..),
+                                             OldestFirst (..), colorize, inAssertMode,
+                                             maybeThrow, neZipWith3, spanSafe,
+                                             toNewestFirst, toOldestFirst, _neHead,
+                                             _neLast)
+import           Pos.WorkMode               (WorkMode)
 
 ----------------------------------------------------------------------------
 -- Common
@@ -671,7 +673,12 @@ createMainBlockFinish slotId pSk prevHeader = do
     let convertTx (txId, (tx, _, _)) = WithHash tx txId
     sortedTxs <- maybe onBrokenTopo pure $ topsortTxs convertTx localTxs
     sk <- ncSecretKey <$> getNodeContext
-    let blk = createMainBlockPure prevHeader sortedTxs pSk slotId localPSKs sscData usPayload sk
+    -- for now let's be cautious and not generate blocks that are larger than
+    -- maxBlockSize/4
+    sizeLimit <- fromIntegral . toBytes . (`div` 4) <$> GS.getMaxBlockSize
+    let blk = createMainBlockPure
+                  sizeLimit prevHeader sortedTxs pSk
+                  slotId localPSKs sscData usPayload sk
     let prependToUndo undos tx =
             fromMaybe (panic "Undo for tx not found")
                       (HM.lookup (fst tx) txUndo) : undos
@@ -692,7 +699,8 @@ createMainBlockFinish slotId pSk prevHeader = do
 
 createMainBlockPure
     :: Ssc ssc
-    => BlockHeader ssc
+    => Word64                   -- ^ Block size limit (TODO: imprecise)
+    -> BlockHeader ssc
     -> [(TxId, TxAux)]
     -> Maybe ProxySKEither
     -> SlotId
@@ -701,13 +709,46 @@ createMainBlockPure
     -> UpdatePayload
     -> SecretKey
     -> MainBlock ssc
-createMainBlockPure prevHeader txs pSk sId psks sscData usPayload sk =
-    mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
+createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
+    flip evalState limit $ do
+        -- account for block header and serialization overhead, etc; also
+        -- include all SSC data because a) deciding is hard and b) we don't
+        -- yet have a way to strip generic SSC data
+        let musthaveBody = mkMainBody [] sscData [] def
+            musthaveBlock = mkMainBlock (Just prevHeader) sId sk
+                                        pSk musthaveBody extraH extraB
+        count musthaveBlock
+        -- include delegation certificates
+        psks' <- takeSome psks
+        -- include the update payload, if we can (not very precise because we
+        -- have already counted empty payload but whatever)
+        usPayload' <- do
+            lim <- use identity
+            let len = fromIntegral $ length (Bi.encode usPayload)
+            if len <= lim
+                then (identity -= len) >> return usPayload
+                else return def
+        -- include transactions
+        txs' <- takeSome (map snd txs)
+        -- return the resulting block
+        let body = mkMainBody txs' sscData psks' usPayload'
+        return $ mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
   where
+    count x = identity -= fromIntegral (length (Bi.encode x))
+    -- take from a list until the limit is exhausted or the list ends
+    takeSome lst = do
+        let go lim [] = (lim, [])
+            go lim (x:xs) =
+                let len = fromIntegral $ length (Bi.encode x)
+                in if len > lim
+                     then (lim, [])
+                     else over _2 (x:) $ go (lim - len) xs
+        (lim', pref) <- go <$> use identity <*> pure lst
+        identity .= lim'
+        return pref
     extraB = MainExtraBodyData (mkAttributes ())
     extraH =
         MainExtraHeaderData
             lastKnownBlockVersion
             curSoftwareVersion
             (mkAttributes ())
-    body = mkMainBody (fmap snd txs) sscData psks usPayload

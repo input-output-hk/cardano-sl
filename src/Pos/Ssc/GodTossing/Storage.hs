@@ -20,9 +20,11 @@ import           Data.Default                   (def)
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.HashSet                   as HS
 import qualified Data.List.NonEmpty             as NE
-import qualified Pos.Ssc.GodTossing.VssCertData as VCD
+import           Formatting                     (sformat, (%))
+import           Serokell.Util.Text             (listJson)
 import           Serokell.Util.Verify           (VerificationRes (..), isVerSuccess,
                                                  verifyGeneric)
+import           System.Wlog                    (WithLogger, logDebug)
 import           Universum
 
 import           Pos.Binary.Ssc                 ()
@@ -41,6 +43,7 @@ import           Pos.Ssc.GodTossing.Functions   (checkCommShares,
                                                  isSharesIdx, verifyGtPayload)
 import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
 import           Pos.Ssc.GodTossing.Seed        (calculateSeed)
+import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), GtPayload (..),
                                                  SscGodTossing, VssCertificatesMap,
                                                  gsCommitments, gsOpenings, gsShares,
@@ -55,7 +58,7 @@ import           Pos.Types                      (Block, EpochIndex (..), EpochOr
 import           Pos.Util                       (NE, NewestFirst (..), OldestFirst,
                                                  readerToState)
 
-type GSQuery a  = forall m . (MonadReader GtGlobalState m) => m a
+type GSQuery a  = forall m . (MonadReader GtGlobalState m, WithLogger m) => m a
 type GSUpdate a = forall m . (MonadState GtGlobalState m) => m a
 
 instance SscStorageClass SscGodTossing where
@@ -118,6 +121,8 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
     let isComm  = (isCommitmentIdx slotId, "slotId doesn't belong commitment phase")
         isOpen  = (isOpeningIdx slotId, "slotId doesn't belong openings phase")
         isShare = (isSharesIdx slotId, "slotId doesn't belong share phase")
+        participants = computeParticipants richmen globalCerts
+
 
     -- For commitments we
     --   * check that the nodes haven't already sent their commitments before
@@ -188,12 +193,20 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
                    "some VSS certificates' users are not passing stake threshold")
             ]
 
+
     let ourRes = verifyGeneric $ certChecks blockCerts ++
             case payload of
                 CommitmentsPayload comms _     -> commChecks comms
                 OpeningsPayload        opens _ -> openChecks opens
                 SharesPayload         shares _ -> shareChecks shares
                 CertificatesPayload          _ -> []
+
+    case ourRes of
+        VerSuccess -> return ()
+        _          -> logDebug $ sformat
+                        ("Richmen = " % listJson % ", certs = " %listJson% ", GT participants = " %listJson)
+                        richmen (HM.keys globalCerts) (HM.keys participants)
+
     let pureRes = if verifyPure
                   then verifyGtPayload (b ^. gbHeader) payload
                   else mempty
@@ -209,9 +222,9 @@ mpcVerifyBlocks
     -> GSQuery VerificationRes
 mpcVerifyBlocks verifyPure richmen blocks = do
     curState <- ask
-    return $ flip evalState curState $ do
+    flip evalStateT curState $ do
         vs <- forM blocks $ \b -> do
-            v <- readerToState $ mpcVerifyBlock verifyPure richmen b
+            v <- mpcVerifyBlock verifyPure richmen b
             when (isVerSuccess v) $
                 mpcProcessBlock b
             return v

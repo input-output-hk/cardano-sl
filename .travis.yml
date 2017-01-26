@@ -1,33 +1,53 @@
 language: nix
 sudo: true
 matrix:
-    include:
-        - os: osx
-          osx_image: xcode7.3
-        - os: osx
-          osx_image: xcode8
-        - os: osx
-          osx_image: xcode8.2
+  include:
+  - os: osx
+    osx_image: xcode7.3
+  - os: osx
+    osx_image: xcode8
+  - os: osx
+    osx_image: xcode8.2
 env:
-  - NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/addcb0dddf2b7db505dae5c38fceb691c7ed85f9.tar.gz
+- NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/addcb0dddf2b7db505dae5c38fceb691c7ed85f9.tar.gz
+- CSL_SYSTEM_TAG=$TRAVIS_OS_NAME
 cache:
   directories:
   - "$HOME/.stack"
   - "$HOME/build/input-output-hk/pos-haskell-prototype/.stack-work"
+  # TODO: https://github.com/npm/fs-write-stream-atomic/pull/14
+  #- daedalus/node_modules
+  - daedalus/bower_components
 
-# Until https://github.com/NixOS/nixpkgs/issues/21200 is fixed
 before_install:
 - mkdir -p ~/.local/bin
 - export PATH=$HOME/.local/bin:$PATH
 - sudo mount -o remount,exec,size=4G,mode=755 /run/user || true
-- travis_retry curl -L https://www.stackage.org/stack/$TRAVIS_OS_NAME-x86_64 | tar xz --strip-components=1 -C ~/.local/bin
+# TODO: https://github.com/NixOS/nixpkgs/issues/21200
+- travis_retry curl -L https://www.stackage.org/stack/$TRAVIS_OS_NAME-x86_64 | tar
+  xz --strip-components=1 -C ~/.local/bin
 - nix-shell --run ":"
-- stack --nix --no-terminal build --nix --fast --test --no-haddock-deps --ghc-options="-j +RTS -A128m -n2m -RTS" --only-dependencies --jobs=4 --flag cardano-sl:with-web --flag cardano-sl:with-wallet
-
-# --fast and ghc-options greatly improve CI build times
+- mkdir s3
 script:
-- stack --nix --no-terminal build --fast --ghc-options="-j +RTS -A128m -n2m -RTS" --test --no-haddock-deps --bench --jobs=4 --flag cardano-sl:with-web --flag cardano-sl:with-wallet
-
+- stack --nix --no-terminal --local-bin-path s3/ install --fast --ghc-options="-j +RTS -A128m -n2m -RTS"
+  --test --no-haddock-deps --bench --jobs=4
+  --flag cardano-sl:with-web
+  --flag cardano-sl:with-wallet
+  --flag cardano-sl:-asserts
+  --flag cardano-sl:-dev-mode
+- stack exec --nix -- cardano-wallet-hs2purs
+- cd daedalus
+- nix-shell -p nodejs --run "npm install && npm run build:prod"
+- cd ..
+- tar cJf s3/daedalus-bridge.tar.xz daedalus/
+- echo $TRAVIS_BUILD_NUMBER > s3/build-id
+deploy:
+  provider: s3
+  access_key_id: AKIAJETSFTAMXGNCGC6Q
+  secret_access_key:
+    secure: L3T5J71xUkozQ935MJIavcgM3Latp+Zy0Ga1wZovXDLp34kgWyJ7/zRSd/TaVM54Kv8Alm1YxbmYKpQAOzGEzAIG+2VUjXbH7aW8KsCnN2RRZahj8pJlq0qmqYrUC4yDFWvrAuO+bE8GRTHFkrX7eT1hoejAw5bPSPu4lkRbh74ys2d5/eOCmxyLSrle1une0i1AM6WRjBKqYyGWFZ0/zhTdISziw+8excfPuutUUIw13vG2ywhMI4M0oP8csYYPdwg3PMzRpmcucebNXWr3QjJSTNuX/nwIQHyoS1BiIciDHIosdUOPsxVkdQWDUCvk9YXMPgB+XpPFB3O7d5V36EiyrSnQMuYdN6YKZzXmLaLlz8tEMaclRIr+yWVXUL27veYD+IYhjFUWcKzuBnnBa+v+Edl/ewQBMTxznstrBtGAjHhsmPaocXdFjz7fvoSDsr5fafhMnr0O2mKo9+6MKIbGdK/OsBc/Lp1fQK1PuWAjY4+eJ9HSUpD1s120uuV5NkbHnvdB+/PGH0GMHkuf8D7NGhNtTUDjBz+Pvo9SqKGwKyBuCDIeUNLMaCMa3aDY7uRpCVxsZPyjUBUlx/hICy5Ig7d3nKxmZhDot8zooY9a5ANSzDBQsLDWugx1ukKDzJ65wxqjmzaTvALqyk8GIY7ShREuNjFJOrdM8WwZbwU=
+  bucket: cardano-sl-testing
+  local_dir: s3
 notifications:
   email: false
   slack:

@@ -10,10 +10,14 @@ module Pos.Update.Core.Types
        , UpId
        , UpAttributes
        , UpdateData (..)
+       , BlockVersionData (..)
        , SystemTag (getSystemTag)
        , mkSystemTag
        , systemTagMaxLength
        , patakUpdateData
+       , upScriptVersion
+       , upSlotDuration
+       , upMaxBlockSize
 
          -- * UpdateVote and related
        , UpdateVote (..)
@@ -43,8 +47,10 @@ import           Data.SafeCopy              (base, deriveSafeCopySimple)
 import qualified Data.Text                  as T
 import           Data.Text.Buildable        (Buildable)
 import qualified Data.Text.Buildable        as Buildable
+import           Data.Time.Units            (Microsecond)
 import           Formatting                 (bprint, build, int, (%))
 import           Language.Haskell.TH.Syntax (Lift)
+import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Text         (listJson)
 import           Universum                  hiding (show)
 
@@ -81,13 +87,13 @@ type UpAttributes = Attributes ()
 
 -- | Proposal for software update
 data UpdateProposal = UpdateProposal
-    { upBlockVersion    :: !BlockVersion
-    , upScriptVersion   :: !ScriptVersion
-    , upSoftwareVersion :: !SoftwareVersion
-    , upData            :: !(HM.HashMap SystemTag UpdateData)
+    { upBlockVersion     :: !BlockVersion
+    , upBlockVersionData :: !BlockVersionData
+    , upSoftwareVersion  :: !SoftwareVersion
+    , upData             :: !(HM.HashMap SystemTag UpdateData)
     -- ^ UpdateData for each system which this update affects.
     -- It must be non-empty.
-    , upAttributes      :: !UpAttributes
+    , upAttributes       :: !UpAttributes
     -- ^ Attributes which are currently empty, but provide
     -- extensibility.
     } deriving (Eq, Show, Generic, Typeable)
@@ -96,16 +102,45 @@ instance Buildable UpdateProposal where
     build UpdateProposal {..} =
       bprint (build%
               " { block v"%build%
-              ", scripts v"%build%
+              ", "%build%
               ", tags: "%listJson%
               ", no attributes "%
               " }")
-        upSoftwareVersion upBlockVersion upScriptVersion (HM.keys upData)
+        upSoftwareVersion
+        upBlockVersion
+        upBlockVersionData
+        (HM.keys upData)
 
 instance Buildable (UpdateProposal, [UpdateVote]) where
     build (up, votes) =
       bprint (build%" with votes: "%listJson)
              up votes
+
+-- | Data which is associated with 'BlockVersion'.
+data BlockVersionData = BlockVersionData
+    { bvdScriptVersion :: !ScriptVersion
+    , bvdSlotDuration  :: !Microsecond
+    , bvdMaxBlockSize  :: !Byte
+    } deriving (Show, Eq, Generic, Typeable)
+
+instance Buildable BlockVersionData where
+    build BlockVersionData {..} =
+      bprint (" { scripts v"%build%
+              ", slot duration: "%int%" mcs"%
+              ", block size limit: "%int% "bytes"%
+              " }")
+        bvdScriptVersion
+        bvdSlotDuration
+        bvdMaxBlockSize
+
+upScriptVersion :: UpdateProposal -> ScriptVersion
+upScriptVersion = bvdScriptVersion . upBlockVersionData
+
+upSlotDuration :: UpdateProposal -> Microsecond
+upSlotDuration = bvdSlotDuration . upBlockVersionData
+
+upMaxBlockSize :: UpdateProposal -> Byte
+upMaxBlockSize = bvdMaxBlockSize . upBlockVersionData
 
 -- | Data which describes update. It is specific for each system.
 data UpdateData = UpdateData
@@ -202,6 +237,13 @@ data VoteState
     | NegativeRevote  -- ^ Stakeholder voted positively, then negatively.
     deriving (Show, Generic, Eq)
 
+instance Buildable VoteState where
+    --build x = bprint $ show x
+    build PositiveVote = bprint "PositiveVote"
+    build NegativeVote = bprint "NegativeVote"
+    build PositiveRevote = bprint "PositiveRevote"
+    build NegativeRevote = bprint "NegativeRevote"
+
 -- | Create new VoteState from bool, which is simple vote, not revote.
 newVoteState :: Bool -> VoteState
 newVoteState True  = PositiveVote
@@ -244,6 +286,7 @@ type LocalVotes = HashMap UpId (HashMap PublicKey UpdateVote)
 
 deriveSafeCopySimple 0 'base ''SystemTag
 deriveSafeCopySimple 0 'base ''UpdateData
+deriveSafeCopySimple 0 'base ''BlockVersionData
 deriveSafeCopySimple 0 'base ''UpdateProposal
 deriveSafeCopySimple 0 'base ''UpdateVote
 deriveSafeCopySimple 0 'base ''UpdatePayload

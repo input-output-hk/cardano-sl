@@ -12,7 +12,7 @@ import           Data.Proxy               (Proxy (..))
 import           Formatting               (build, sformat, (%))
 import           Node                     (ListenerAction (..))
 import           Serokell.Util.Verify     (VerificationRes (..))
-import           System.Wlog              (WithLogger, logDebug)
+import           System.Wlog              (WithLogger, logDebug, logWarning)
 import           Universum
 
 import           Pos.Binary.Communication ()
@@ -87,8 +87,20 @@ instance WorkMode ssc m =>
     handleInv _ = isProposalNeeded
     handleReq _ = getLocalProposalNVotes
     handleData (proposal, votes) _ = do
-        processed <- isRight <$> processProposal proposal
-        processed <$ when processed (mapM_ processVote votes)
+        res <- processProposal proposal
+        logProp res
+        let processed = isRight res
+        processed <$ when processed (mapM_ processVoteLog votes)
+      where
+        processVoteLog = processVote >=> logVote
+        logVote e@(Left cause) =
+            e <$ logWarning (sformat ("Proposal accepted but vote "%build%" rejected") cause)
+        logVote e@(Right _) =
+            e <$ logDebug "Processing of proposal's vote is successfull"
+
+        logProp (Left cause) =
+            logDebug $ sformat ("Processing of proposal failed: "%build) cause
+        logProp (Right _) = logDebug "Processing of proposal is successfull"
 
 ----------------------------------------------------------------------------
 -- UpdateVote listeners
@@ -117,4 +129,11 @@ instance WorkMode ssc m =>
 
     handleInv _ (id, pk, dec) = isVoteNeeded id pk dec
     handleReq _ (id, pk, dec) = getLocalVote id pk dec
-    handleData uv _ = isRight <$> processVote uv
+    handleData uv _ = do
+        res <- processVote uv
+        logProcess res
+        pure $ isRight res
+      where
+        logProcess (Left cause) =
+          logDebug $ sformat ("Processing of vote failed: "%build) cause
+        logProcess (Right _) = logDebug $ "Processing of vote is successfull"

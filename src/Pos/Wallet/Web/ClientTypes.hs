@@ -50,8 +50,8 @@ import           Pos.Types             (Address (..), BlockVersion, ChainDifficu
                                         HeaderHash, SoftwareVersion, TxId,
                                         decodeTextAddress, sumCoins, txOutAddress,
                                         txOutValue, txOutputs, unsafeIntegerToCoin)
-import           Pos.Update.Core       (StakeholderVotes, UpdateProposal (..),
-                                        isPositiveVote)
+import           Pos.Update.Core       (BlockVersionData (..), StakeholderVotes,
+                                        UpdateProposal (..), isPositiveVote)
 import           Pos.Update.Poll       (ConfirmedProposalState (..))
 import           Pos.Util.BackupPhrase (BackupPhrase)
 import           Pos.Wallet.Tx.Pure    (TxHistoryEntry (..))
@@ -252,7 +252,7 @@ toCUpdateInfo ConfirmedProposalState {..} =
     let UpdateProposal {..} = cpsUpdateProposal
         cuiSoftwareVersion  = upSoftwareVersion
         cuiBlockVesion      = upBlockVersion
-        cuiScriptVersion    = upScriptVersion
+        cuiScriptVersion    = bvdScriptVersion upBlockVersionData
         cuiImplicit         = cpsImplicit
         cuiProposed         = cpsProposed
         cuiDecided          = cpsDecided

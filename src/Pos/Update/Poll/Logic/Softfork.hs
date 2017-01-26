@@ -28,24 +28,24 @@ recordBlockIssuance
     => StakeholderId -> BlockVersion -> SlotId -> HeaderHash -> m ()
 recordBlockIssuance id bv slot h = do
     let unstable = slot > crucialSlot (siEpoch slot)
-    bvs@BlockVersionState {..} <- note noBVError =<< getBVState bv
-    if | id `HS.member` bvsIssuersStable -> pass
-       | id `HS.member` bvsIssuersUnstable && unstable -> pass
-       | id `HS.member` bvsIssuersUnstable -> throwError unstableNotEmpty
-       | otherwise -> putBVState bv $ newBVS bvs unstable
+    getBVState bv >>= \case
+        Nothing -> unlessM ((bv ==) <$> getAdoptedBV) $ throwError noBVError
+        Just bvs@BlockVersionState {..}
+            | id `HS.member` bvsIssuersStable -> pass
+            | id `HS.member` bvsIssuersUnstable && unstable -> pass
+            | id `HS.member` bvsIssuersUnstable -> throwError unstableNotEmpty
+            | otherwise -> putBVState bv $ newBVS bvs unstable
   where
     noBVError =
         PollInternalError $
         sformat
-            ("someone issued a block with unconfirmed block version (" %build %
-             ") and we are recording this fact now")
-            bv
+            ("someone issued a block with unconfirmed and not adopted block version ("
+             %build%") and we are recording this fact now") bv
     unstableNotEmpty =
         PollInternalError $
         sformat
             ("bvsIssuersUnstable is not empty while we are processing slot"%
-             " before a crucial one (block is "%
-             build%")") h
+             " before a crucial one (block is "%build%")") h
     newBVS bvs@BlockVersionState {..} unstable
         | unstable =
             bvs

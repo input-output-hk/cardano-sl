@@ -18,21 +18,22 @@ import           Universum
 
 import qualified Pos.CLI              as CLI
 import           Pos.Communication    (BiP)
-import           Pos.Constants        (slotDuration)
-import           Pos.Crypto           (SecretKey, createProxySecretKey, sign, toPublic)
+import           Pos.Crypto           (SecretKey, createProxySecretKey, encodeHash, hash,
+                                       sign, toPublic)
 import           Pos.Data.Attributes  (mkAttributes)
 import           Pos.Delegation       (sendProxySKEpoch, sendProxySKSimple)
 import           Pos.DHT.Model        (dhtAddr, discoverPeers)
 import           Pos.Genesis          (genesisPublicKeys, genesisSecretKeys)
 import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
                                        bracketResources, runTimeSlaveReal)
+import           Pos.Slotting         (getSlotDuration)
 import           Pos.Ssc.GodTossing   (SscGodTossing)
 import           Pos.Ssc.NistBeacon   (SscNistBeacon)
 import           Pos.Ssc.SscAlgo      (SscAlgo (..))
 import           Pos.Types            (EpochIndex (..), coinF, makePubKeyAddress, txaF)
-import           Pos.Update           (UpdateProposal (..), UpdateVote (..),
-                                       patakUpdateData)
-import           Pos.Util.TimeWarp    (NetworkAddress)
+import           Pos.Update           (BlockVersionData (..), UpdateProposal (..),
+                                       UpdateVote (..), patakUpdateData)
+import           Pos.Util.TimeWarp    (NetworkAddress, sec)
 import           Pos.Wallet           (WalletMode, WalletParams (..), WalletRealMode,
                                        getBalance, runWalletReal, submitTx,
                                        submitUpdateProposal, submitVote)
@@ -68,21 +69,28 @@ runCmd sendActions (Vote idx decision upid) = do
         else do
             lift $ submitVote sendActions na voteUpd
             putText "Submitted vote"
-runCmd sendActions (ProposeUpdate idx blockVer scriptVer softwareVer) = do
+runCmd sendActions ProposeUpdate{..} = do
     (skeys, na) <- ask
-    let skey = skeys !! idx
+    let skey = skeys !! puIdx
+    let bvd = BlockVersionData
+            { bvdScriptVersion = puScriptVersion
+            , bvdSlotDuration = sec puSlotDurationSec
+            , bvdMaxBlockSize = puMaxBlockSize
+            }
     let updateProposal = UpdateProposal
-            { upBlockVersion    = blockVer
-            , upScriptVersion   = scriptVer
-            , upSoftwareVersion = softwareVer
-            , upData            = patakUpdateData
-            , upAttributes      = mkAttributes ()
+            { upBlockVersion     = puBlockVersion
+            , upBlockVersionData = bvd
+            , upSoftwareVersion  = puSoftwareVersion
+            , upData             = patakUpdateData
+            , upAttributes       = mkAttributes ()
             }
     if null na
         then putText "Error: no addresses specified"
         else do
             lift $ submitUpdateProposal sendActions skey na updateProposal
-            putText "Update proposal submitted"
+            let id = hash updateProposal
+            putText $
+              sformat ("Update proposal submitted, upId: "%build%" (base64)") (encodeHash id)
 runCmd _ Help = do
     putText $
         unlines
@@ -90,7 +98,7 @@ runCmd _ Help = do
             , "   balance <address>              -- check balance on given address (may be any address)"
             , "   send <N> [<address> <coins>]+  -- create and send transaction with given outputs"
             , "                                     from own address #N"
-            , "   vote <N> <decision> <upid>     -- send vote with given hash of proposal id and"
+            , "   vote <N> <decision> <upid>     -- send vote with given hash of proposal id (in base64) and"
             , "                                     decision, from own address #N"
             , "   propose-update <N> <block ver> <script ver> <software ver>"
             , "                                  -- propose an update with given versions"
@@ -141,7 +149,8 @@ initialize :: WalletMode ssc m => WalletOptions -> m [NetworkAddress]
 initialize WalletOptions{..} = do
     -- Wait some time to ensure blockchain is fetched
     putText $ sformat ("Started node. Waiting for "%int%" slots...") woInitialPause
-    delay $ fromIntegral woInitialPause * slotDuration
+    slotDuration <- getSlotDuration
+    delay (fromIntegral woInitialPause * slotDuration)
     fmap dhtAddr <$> discoverPeers
 
 runWalletRepl :: WalletMode ssc m => WalletOptions -> SendActions BiP m -> m ()

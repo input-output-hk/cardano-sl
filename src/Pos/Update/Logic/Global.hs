@@ -25,29 +25,31 @@ import           Pos.DB.GState        (UpdateOp (..))
 import           Pos.Ssc.Class        (Ssc)
 import           Pos.Types            (ApplicationName, Block, BlockSignature (..),
                                        BlockVersion, NumSoftwareVersion,
-                                       SoftwareVersion (..), addressHash, blockSlot,
-                                       epochIndexL, gbBody, gbHeader, gbhConsensus,
-                                       gbhExtra, headerHash, mbUpdatePayload,
-                                       mcdLeaderKey, mcdSignature, mehBlockVersion)
-import           Pos.Update.Core      (UpId)
+                                       SoftwareVersion (..), addressHash, blockSize,
+                                       blockSlot, epochIndexL, gbBody, gbHeader,
+                                       gbhConsensus, gbhExtra, headerHash,
+                                       mbUpdatePayload, mcdLeaderKey, mcdSignature,
+                                       mehBlockVersion)
+import           Pos.Update.Core      (BlockVersionData, UpId)
 import           Pos.Update.Error     (USError (USInternalError))
 import           Pos.Update.Poll      (BlockVersionState, ConfirmedProposalState,
                                        MonadPoll, PollModifier (..), PollVerFailure,
                                        ProposalState, USUndo, canCreateBlockBV, execPollT,
                                        execRollT, processGenesisBlock,
                                        recordBlockIssuance, rollbackUS, runDBPoll,
-                                       runPollT, verifyAndApplyUSPayload)
+                                       runPollT, verifyAndApplyUSPayload, verifyBlockSize)
 import           Pos.Util             (Color (Red), NE, NewestFirst, OldestFirst,
                                        colorize, inAssertMode)
 
-type USGlobalApplyMode ssc m = (WithLogger m
+type USGlobalApplyMode ssc m = ( WithLogger m
                                , DB.MonadDB ssc m
                                , Ssc ssc
                                , WithNodeContext ssc m)
-type USGlobalVerifyMode ssc m = (DB.MonadDB ssc m
+type USGlobalVerifyMode ssc m = ( DB.MonadDB ssc m
                                 , MonadError PollVerFailure m
                                 , Ssc ssc
-                                , WithNodeContext ssc m)
+                                , WithNodeContext ssc m
+                                , WithLogger m)
 
 -- | Apply chain of /definitely/ valid blocks to US part of GState DB
 -- and to US local data. This function assumes that no other thread
@@ -127,6 +129,9 @@ verifyBlock (Right blk) =
             (blk ^. gbHeader . gbhExtra . mehBlockVersion)
             (blk ^. blockSlot)
             (headerHash blk)
+        -- Block size check doesn't interfere with other checks too, so
+        -- it's separated.
+        verifyBlockSize (headerHash blk) (blockSize blk)
 
 -- | Checks whether our software can create block according to current
 -- global state.
@@ -141,7 +146,7 @@ modifierToBatch :: PollModifier -> [DB.SomeBatchOp]
 modifierToBatch PollModifier {..} =
     concat $
     [ bvsModifierToBatch pmNewBVs pmDelBVs
-    , lastAdoptedModifierToBatch pmLastAdoptedBV
+    , lastAdoptedModifierToBatch pmAdoptedBVFull
     , confirmedVerModifierToBatch  pmNewConfirmed pmDelConfirmed
     , confirmedPropModifierToBatch pmNewConfirmedProps pmDelConfirmedProps
     , upModifierToBatch pmNewActiveProps pmDelActivePropsIdx
@@ -156,9 +161,9 @@ bvsModifierToBatch (HM.toList -> added) (toList -> deleted) = addOps ++ delOps
     addOps = map (DB.SomeBatchOp . uncurry SetBVState) added
     delOps = map (DB.SomeBatchOp . DelBV) deleted
 
-lastAdoptedModifierToBatch :: Maybe BlockVersion -> [DB.SomeBatchOp]
-lastAdoptedModifierToBatch Nothing  = []
-lastAdoptedModifierToBatch (Just v) = [DB.SomeBatchOp $ SetLastAdopted v]
+lastAdoptedModifierToBatch :: Maybe (BlockVersion, BlockVersionData) -> [DB.SomeBatchOp]
+lastAdoptedModifierToBatch Nothing          = []
+lastAdoptedModifierToBatch (Just (bv, bvd)) = [DB.SomeBatchOp $ SetAdopted bv bvd]
 
 confirmedVerModifierToBatch
     :: HashMap ApplicationName NumSoftwareVersion

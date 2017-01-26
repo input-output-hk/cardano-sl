@@ -27,10 +27,11 @@ rollbackUS USUndo{..} = do
     mapM_ setOrDelLastConfirmedSV $ HM.toList unChangedSV
     -- Rollback proposals
     mapM_ setOrDelProposal $ HM.toList unChangedProps
-    -- Rollback last adopted
-    whenJust unLastAdoptedBV setLastAdoptedBV
-    -- Rollback block version
+    -- Rollback block version. It's important to do it before next step,
+    -- because setAdoptedBV takes state from Poll, not as argument.
     mapM_ setOrDelBV $ HM.toList unChangedBV
+    -- Rollback last adopted
+    whenJust unLastAdoptedBV setAdoptedBV
   where
     setOrDelLastConfirmedSV :: (ApplicationName, PrevValue NumSoftwareVersion) -> m ()
     setOrDelLastConfirmedSV (svAppName, PrevValue svNumber) =

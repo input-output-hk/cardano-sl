@@ -245,7 +245,7 @@ mpcProcessBlock blk = do
         -- them in each epoch.
         Left _  -> resetGS
         -- Main blocks contain commitments, openings, shares, VSS certificates
-        Right b -> modify (unionPayload (b ^. blockMpc))
+        Right b -> identity %= unionPayload True (b ^. blockMpc)
 
 mpcRollback :: NewestFirst NE (Block SscGodTossing) -> GSUpdate ()
 mpcRollback (NewestFirst blocks) = do
@@ -324,19 +324,24 @@ resetGS = do
     gsOpenings    .= mempty
     gsShares      .= mempty
 
-unionPayload :: GtPayload -> GtGlobalState -> GtGlobalState
-unionPayload payload gs =
+unionPayload :: Bool -> GtPayload -> GtGlobalState -> GtGlobalState
+unionPayload considerCertificates payload gs =
     flip execState gs $ do
         case payload of
             CommitmentsPayload comms _ -> gsCommitments <>= comms
             OpeningsPayload opens _    -> gsOpenings <>= opens
             SharesPayload shares _     -> gsShares <>= shares
             CertificatesPayload _      -> pure ()
+        when considerCertificates $
+            gsVssCertificates %=
+                flip
+                    (foldl' (flip $ uncurry VCD.insert))
+                    (HM.toList $ _gpCertificates payload)
 
--- | Union payloads of blocks until meet genesis block
--- Invalid restore of VSS certificates
+-- | Union payloads of blocks until meet genesis block.
+-- Warning: certificates are ignored.
 unionBlocks :: NewestFirst [] (Block SscGodTossing) -> GtGlobalState
 unionBlocks (NewestFirst [])            = def
 unionBlocks (NewestFirst (Left _:_))    = def
 unionBlocks (NewestFirst (Right mb:xs)) =
-    unionPayload (mb ^. blockMpc) $ unionBlocks $ NewestFirst xs
+    unionPayload False (mb ^. blockMpc) $ unionBlocks $ NewestFirst xs

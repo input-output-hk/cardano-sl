@@ -13,9 +13,8 @@ import Daedalus.Types (mkCAddress, mkCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mk
 import Daedalus.WS (WSConnection(WSNotConnected), mkWSState, ErrorCb, NotifyCb, openConn)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (encodeJson)
-import Data.Function.Uncurried (Fn2, mkFn2, Fn4, mkFn4, Fn3, runFn3, mkFn3, Fn6, mkFn6, Fn7, mkFn7)
+import Data.Function.Uncurried (Fn2, mkFn2, Fn4, mkFn4, Fn3, mkFn3, Fn6, mkFn6, Fn7, mkFn7)
 import Data.Function.Eff (EffFn1, runEffFn1)
-import Data.String (null)
 import Network.HTTP.Affjax (AJAX)
 import WebSocket (WEBSOCKET)
 import Control.Monad.Error.Class (throwError)
@@ -42,10 +41,12 @@ getHistory = mkFn3 \addr skip limit -> fromAff <<< map encodeJson $
         limit
 
 searchHistory :: forall eff. Fn4 String String Int Int (Eff(ajax :: AJAX | eff) (Promise Json))
-searchHistory = mkFn4 \addr search skip limit ->
-    if null search
-        then runFn3 getHistory addr skip limit
-        else fromAff <<< map encodeJson $ B.searchHistory (mkCAddress addr) search skip limit
+searchHistory = mkFn4 \addr search skip limit -> fromAff <<< map encodeJson $
+    B.searchHistory
+        (mkCAddress addr)
+        search
+        skip
+        limit
 
 send :: forall eff. Fn3 String String Int (Eff(ajax :: AJAX | eff) (Promise Json))
 send = mkFn3 \addrFrom addrTo amount -> fromAff <<< map encodeJson $

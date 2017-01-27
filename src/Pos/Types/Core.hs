@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 -- | Core types. TODO: we need to have a meeting, come up with project
 -- structure and follow it.
 
@@ -7,10 +9,12 @@ module Pos.Types.Core
          Coin
        , CoinPortion
        , coinF
+       , unsafeGetCoin
        , getCoinPortion
        , mkCoin
-       , unsafeCoinPortion
-       , unsafeGetCoin
+       , coinPortionDenominator
+       , mkCoinPortion
+       , unsafeCoinPortionFromDouble
 
         -- * Slotting
        , EpochIndex (..)
@@ -55,7 +59,8 @@ import           Data.Ix             (Ix)
 import           Data.Text.Buildable (Buildable)
 import qualified Data.Text.Buildable as Buildable
 import           Data.Time.Units     (Microsecond)
-import           Formatting          (Format, bprint, build, int, ords, (%))
+import           Formatting          (Format, bprint, build, formatToString, int, ords,
+                                      (%))
 import           Serokell.AcidState  ()
 import           Universum
 
@@ -89,17 +94,39 @@ unsafeGetCoin :: Coin -> Word64
 unsafeGetCoin = getCoin
 {-# INLINE unsafeGetCoin #-}
 
--- | CoinPortion is some portion of Coin, it must be in [0 .. 1]. Main
--- usage of it is multiplication with Coin. Usually it's needed to
+-- | CoinPortion is some portion of Coin, it must be in [0 .. coinPortionDenominator].
+-- Main usage of it is multiplication with Coin. Usually it's needed to
 -- determine some threshold expressed as portion of total stake.
 newtype CoinPortion = CoinPortion
-    { getCoinPortion :: Double
+    { getCoinPortion :: Word64
     } deriving (Show, Ord, Eq)
 
+-- | Denominator used by 'CoinPortion'.
+coinPortionDenominator :: Word64
+coinPortionDenominator = (10 :: Word64) ^ (15 :: Word64)
+
+-- | Make 'CoinPortion' from 'Word64' checking whether it is not greater
+-- than 'coinPortionDenominator'.
+mkCoinPortion
+    :: MonadFail m
+    => Word64 -> m CoinPortion
+mkCoinPortion x
+    | x <= coinPortionDenominator = pure $ CoinPortion x
+    | otherwise = fail err
+  where
+    err =
+        formatToString
+            ("mkCoinPortion: value is greater than coinPortionDenominator: "
+            %int) x
+
 -- | Make CoinPortion from Double. Caller must ensure that value is in [0 .. 1].
-unsafeCoinPortion :: Double -> CoinPortion
-unsafeCoinPortion x = assert (0 <= x && x <= 1) $ CoinPortion x
-{-# INLINE unsafeCoinPortion #-}
+-- Internally 'CoinPortion' stores 'Word64' which is divided by 'coinPortionDenominator'
+-- to get actual value. So some rounding may take place.
+unsafeCoinPortionFromDouble :: Double -> CoinPortion
+unsafeCoinPortionFromDouble x = assert (0 <= x && x <= 1) $ CoinPortion v
+  where
+    v = round $ realToFrac coinPortionDenominator * x
+{-# INLINE unsafeCoinPortionFromDouble #-}
 
 ----------------------------------------------------------------------------
 -- Slotting

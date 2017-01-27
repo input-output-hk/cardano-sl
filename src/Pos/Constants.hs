@@ -89,7 +89,7 @@ import           System.IO.Unsafe           (unsafePerformIO)
 import           Pos.CLI                    (dhtNodeParser)
 import           Pos.CompileConfig          (CompileConfig (..), compileConfig)
 import           Pos.DHT.Model.Types        (DHTNode)
-import           Pos.Types.Core             (CoinPortion, unsafeCoinPortion)
+import           Pos.Types.Core             (CoinPortion, unsafeCoinPortionFromDouble)
 import           Pos.Types.Timestamp        (Timestamp (..))
 import           Pos.Types.Version          (ApplicationName, BlockVersion (..),
                                              SoftwareVersion (..), mkApplicationName)
@@ -164,7 +164,7 @@ genesisMaxTxSize = ccGenesisMaxTxSize cc
 
 -- | See 'Pos.CompileConfig.ccGenesisMpcThd'.
 genesisMpcThd :: CoinPortion
-genesisMpcThd = unsafeCoinPortion $ ccGenesisMpcThd compileConfig
+genesisMpcThd = unsafeCoinPortionFromDouble $ ccGenesisMpcThd compileConfig
 
 staticAssert
     (ccGenesisMpcThd compileConfig >= 0 && ccGenesisMpcThd compileConfig < 1)
@@ -172,7 +172,7 @@ staticAssert
 
 -- | See 'Pos.CompileConfig.ccGenesisHeavyDelThd'.
 genesisHeavyDelThd :: CoinPortion
-genesisHeavyDelThd = unsafeCoinPortion $ ccGenesisHeavyDelThd cc
+genesisHeavyDelThd = unsafeCoinPortionFromDouble $ ccGenesisHeavyDelThd cc
 
 staticAssert
     (ccGenesisHeavyDelThd compileConfig >= 0 && ccGenesisMpcThd compileConfig < 1)
@@ -180,7 +180,7 @@ staticAssert
 
 -- | See 'Pos.CompileConfig.ccGenesisUpdateVoteThd'.
 genesisUpdateVoteThd :: CoinPortion
-genesisUpdateVoteThd = unsafeCoinPortion $ ccGenesisUpdateVoteThd cc
+genesisUpdateVoteThd = unsafeCoinPortionFromDouble $ ccGenesisUpdateVoteThd cc
 
 staticAssert
     (ccGenesisUpdateVoteThd compileConfig >= 0 && ccGenesisUpdateVoteThd compileConfig < 1)
@@ -188,7 +188,7 @@ staticAssert
 
 -- | See 'Pos.CompileConfig.ccGenesisUpdateProposalThd'.
 genesisUpdateProposalThd :: CoinPortion
-genesisUpdateProposalThd = unsafeCoinPortion $ ccGenesisUpdateProposalThd cc
+genesisUpdateProposalThd = unsafeCoinPortionFromDouble $ ccGenesisUpdateProposalThd cc
 
 staticAssert
     (ccGenesisUpdateProposalThd compileConfig > 0 && ccGenesisUpdateProposalThd compileConfig < 1)
@@ -200,7 +200,7 @@ genesisUpdateImplicit = fromIntegral . ccGenesisUpdateImplicit $ cc
 
 -- | See 'Pos.CompileConfig.ccGenesisUpdateSoftforkThd'.
 genesisUpdateSoftforkThd :: CoinPortion
-genesisUpdateSoftforkThd = unsafeCoinPortion $ ccGenesisUpdateSoftforkThd cc
+genesisUpdateSoftforkThd = unsafeCoinPortionFromDouble $ ccGenesisUpdateSoftforkThd cc
 
 staticAssert
     (ccGenesisUpdateSoftforkThd compileConfig > 0 && ccGenesisUpdateSoftforkThd compileConfig < 1)

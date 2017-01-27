@@ -25,6 +25,7 @@ class (Typeable ssc
       ,Show (SscPayload ssc)
       ,Buildable (SscPayload ssc)
       ,Buildable (SscSeedError ssc)
+      ,Buildable (SscVerifyError ssc)
       ,Buildable (SscGlobalState ssc)
       ,Bi (SscProof ssc)
       ,Bi (SscPayload ssc)
@@ -47,6 +48,8 @@ class (Typeable ssc
     type SscNodeContext ssc
     -- | Needed options for creating SscNodeContext
     type SscParams ssc
+    -- | Type for verification error
+    type SscVerifyError ssc
 
     -- | Create proof (for inclusion into block header) from payload
     mkSscProof :: Tagged ssc (SscPayload ssc -> SscProof ssc)

@@ -24,7 +24,6 @@ import           Formatting                 (build, int, sformat, shown, stext, 
 import           Mockable                   (fork, handleAll, throw)
 import           Node                       (ConversationActions (..), NodeId,
                                              SendActions (..))
-import           Serokell.Util.Exceptions   (throwText)
 import           Serokell.Util.Text         (listJson)
 import           Serokell.Util.Verify       (isVerSuccess)
 import           System.Wlog                (logDebug, logError, logInfo, logWarning)

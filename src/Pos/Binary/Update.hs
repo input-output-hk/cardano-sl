@@ -46,9 +46,29 @@ instance Bi U.UpdateData where
                           *> put udMetadataHash
 
 instance Bi U.BlockVersionData where
-    get = label "BlockVersionData" $ U.BlockVersionData <$> get <*> get <*> get
-    put U.BlockVersionData {..} =
-        put bvdScriptVersion *> put bvdSlotDuration *> put bvdMaxBlockSize
+    get = label "BlockVersionData" $ do
+        bvdScriptVersion     <- get
+        bvdSlotDuration      <- get
+        bvdMaxBlockSize      <- get
+        bvdMaxTxSize         <- get
+        bvdMpcThd            <- get
+        bvdHeavyDelThd       <- get
+        bvdUpdateVoteThd     <- get
+        bvdUpdateProposalThd <- get
+        bvdUpdateImplicit    <- get
+        bvdUpdateSoftforkThd <- get
+        return $ U.BlockVersionData {..}
+    put U.BlockVersionData {..} = do
+        put bvdScriptVersion
+        put bvdSlotDuration
+        put bvdMaxBlockSize
+        put bvdMaxTxSize
+        put bvdMpcThd
+        put bvdHeavyDelThd
+        put bvdUpdateVoteThd
+        put bvdUpdateProposalThd
+        put bvdUpdateImplicit
+        put bvdUpdateSoftforkThd
 
 instance Bi U.UpdateProposal where
     get = label "UpdateProposal" $

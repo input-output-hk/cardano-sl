@@ -33,10 +33,10 @@ import           Pos.Ssc.GodTossing.Functions         (checkCertTTL, checkCommSh
                                                        checkOpeningMatchesCommitment,
                                                        checkShare, checkShares,
                                                        computeParticipants,
+                                                       getStableCertsPure,
                                                        isCommitmentIdx, isOpeningIdx,
                                                        isSharesIdx,
                                                        verifySignedCommitment)
-import           Pos.Ssc.GodTossing.Genesis           (genesisCertificates)
 import           Pos.Ssc.GodTossing.LocalData.Helpers (GtState, gtGlobalCertificates,
                                                        gtGlobalCommitments,
                                                        gtGlobalOpenings, gtGlobalShares,
@@ -53,13 +53,11 @@ import           Pos.Ssc.GodTossing.Types             (GtGlobalState (..), GtPay
                                                        SscGodTossing,
                                                        VssCertificate (vcSigningKey, vcVssKey))
 import           Pos.Ssc.GodTossing.Types.Base        (Commitment, Opening,
-                                                       SignedCommitment,
-                                                       VssCertificatesMap)
+                                                       SignedCommitment)
 import           Pos.Ssc.GodTossing.Types.Message     (GtMsgContents (..), GtMsgTag (..))
 import qualified Pos.Ssc.GodTossing.VssCertData       as VCD
-import           Pos.Types                            (EpochIndex, SlotId (..),
-                                                       StakeholderId, addressHash,
-                                                       crucialSlot)
+import           Pos.Types                            (SlotId (..), StakeholderId,
+                                                       addressHash)
 import           Pos.Util                             (readerToState)
 
 instance SscBi => SscLocalDataClass SscGodTossing where
@@ -190,11 +188,8 @@ sscIsDataUsefulQ VssCertificateMsg = sscIsCertUsefulImpl
   where
     sscIsCertUsefulImpl addr = do
         loc <- VCD.certs <$> view gtLocalCertificates
-        glob <- view gtGlobalCertificates
-        lpe <- siEpoch <$> view gtLastProcessedSlot
-        return $ if addr `HM.member` loc
-            then False
-            else maybe True (== lpe) (VCD.lookupExpiryEpoch addr glob)
+        glob <- VCD.certs <$> view gtGlobalCertificates
+        return $ (not $ addr `HM.member` loc) && (not $ addr `HM.member` glob)
 
 type MapGetter a = Getter GtState (HashMap StakeholderId a)
 type SetGetter set = Getter GtState set
@@ -217,12 +212,6 @@ sscIsDataUsefulSetImpl localG globalG addr =
 ----------------------------------------------------------------------------
 -- Ssc Process Message
 ----------------------------------------------------------------------------
-
-getStablePure :: EpochIndex -> VCD.VssCertData -> VssCertificatesMap
-getStablePure epoch certs
-    | epoch == 0 = genesisCertificates
-    | otherwise =
-          VCD.certs $ VCD.setLastKnownSlot (crucialSlot epoch) certs
 
 -- | Process message and save it if needed. Result is whether message
 -- has been actually added.
@@ -256,7 +245,7 @@ processCommitment
 processCommitment richmen id _ | not (id `HS.member` richmen) = pure False
 processCommitment richmen id c = do
     epochIdx <- siEpoch <$> use gtLastProcessedSlot
-    stableCerts <- getStablePure epochIdx <$> use gtGlobalCertificates
+    stableCerts <- getStableCertsPure epochIdx <$> use gtGlobalCertificates
     let participants = stableCerts `HM.intersection` HS.toMap richmen
     let vssPublicKeys = map vcVssKey $ toList participants
     let checks epochIndex =
@@ -289,7 +278,7 @@ processShares richmen id s
     | not (id `HS.member` richmen) = pure False
     | otherwise = do
         epochIdx <- siEpoch <$> use gtLastProcessedSlot
-        stableCerts <- getStablePure epochIdx <$> use gtGlobalCertificates
+        stableCerts <- getStableCertsPure epochIdx <$> use gtGlobalCertificates
         let checks =
               [ not . HM.member id <$> use gtGlobalShares
               , not . HM.member id <$> use gtLocalShares

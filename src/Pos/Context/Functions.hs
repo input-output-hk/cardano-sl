@@ -30,7 +30,7 @@ module Pos.Context.Functions
 
 import           Control.Concurrent.MVar (putMVar)
 import qualified Control.Concurrent.STM  as STM
-import           Data.Time.Units         (Microsecond)
+import           Data.Time.Units         (Microsecond, Millisecond)
 import           Universum
 
 import           Pos.Context.Class       (WithNodeContext (..))
@@ -128,7 +128,7 @@ readNtpData = do
     nc <- getNodeContext
     atomically $ ssNtpData <$> STM.readTVar (ncSlottingState nc)
 
-readSlotDuration :: (MonadIO m, WithNodeContext ssc m) => m Microsecond
+readSlotDuration :: (MonadIO m, WithNodeContext ssc m) => m Millisecond
 readSlotDuration = do
     nc <- getNodeContext
     atomically $ ssSlotDuration <$> STM.readTVar (ncSlottingState nc)

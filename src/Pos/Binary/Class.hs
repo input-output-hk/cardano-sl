@@ -36,8 +36,7 @@ import           Data.Hashable               (Hashable (..))
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
 import qualified Data.Text.Encoding          as T
-import           Data.Time.Units             (Microsecond, fromMicroseconds,
-                                              toMicroseconds)
+import           Data.Time.Units             (Microsecond, Millisecond)
 import qualified Data.Vector                 as V
 import qualified Data.Vector.Generic         as G
 import qualified Data.Vector.Generic.Mutable as GM
@@ -495,9 +494,13 @@ instance Bi Void where
 -- Other types
 ----------------------------------------------------------------------------
 
+instance Bi Millisecond where
+    put = put . toInteger
+    get = fromInteger <$> get
+
 instance Bi Microsecond where
-    put = put . toMicroseconds
-    get = fromMicroseconds <$> get
+    put = put . toInteger
+    get = fromInteger <$> get
 
 instance Bi Byte where
     put = put . toBytes

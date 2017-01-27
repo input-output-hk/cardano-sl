@@ -14,8 +14,8 @@ import           Universum
 
 import           Pos.Constants       (epochSlots)
 import           Pos.Crypto          (deterministic, randomNumber)
-import           Pos.Types.Coin      (coinToInteger, sumCoins, unsafeAddCoin)
-import           Pos.Types.Types     (Coin, SharedSeed (..), StakeholderId, Utxo, mkCoin)
+import           Pos.Types           (Coin, SharedSeed (..), StakeholderId, Utxo,
+                                      coinToInteger, mkCoin, sumCoins, unsafeAddCoin)
 import           Pos.Types.Utxo      (utxoToStakes)
 import           Pos.Util.Iterator   (MonadIterator (..), runListHolder)
 

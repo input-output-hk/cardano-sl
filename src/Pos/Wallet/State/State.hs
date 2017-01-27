@@ -22,7 +22,7 @@ module Pos.Wallet.State.State
        ) where
 
 import           Data.Acid                  (EventResult, EventState, QueryEvent)
-import           Data.Time.Units            (Microsecond)
+import           Data.Time.Units            (Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
@@ -76,7 +76,7 @@ getOldestUtxo = queryDisk A.GetOldestUtxo
 getTxHistory :: WalletModeDB m => m [Tx]
 getTxHistory = queryDisk A.GetTxHistory
 
-getSlotDuration :: WalletModeDB m => m Microsecond
+getSlotDuration :: WalletModeDB m => m Millisecond
 getSlotDuration = queryDisk A.GetSlotDuration
 
 getMaxBlockSize :: WalletModeDB m => m Byte

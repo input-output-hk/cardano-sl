@@ -20,15 +20,15 @@ module Pos.Ssc.GodTossing.Types.Base
        ) where
 
 
-import           Data.SafeCopy       (base, deriveSafeCopySimple)
-import           Data.Text.Buildable (Buildable (..))
+import qualified Data.Text.Buildable
+import           Formatting          (bprint, build, int, (%))
 import           Universum
 
 import           Pos.Binary.Types    ()
 import           Pos.Crypto          (EncShare, PublicKey, Secret, SecretKey, SecretProof,
                                       SecretSharingExtra, Share, Signature, VssPublicKey,
                                       sign, toPublic)
-import           Pos.Types.Types     (EpochIndex, StakeholderId)
+import           Pos.Types.Core      (EpochIndex, StakeholderId)
 import           Pos.Util            (AsBinary (..))
 
 ----------------------------------------------------------------------------
@@ -96,13 +96,13 @@ instance Ord VssCertificate where
         toTuple VssCertificate {..} =
             (vcExpiryEpoch, vcVssKey, vcSigningKey, vcSignature)
 
+instance Buildable VssCertificate where
+    build VssCertificate {..} = bprint
+        ("vssCert:"%build%":"%int) vcSigningKey vcExpiryEpoch
+
 mkVssCertificate :: SecretKey -> AsBinary VssPublicKey -> EpochIndex -> VssCertificate
 mkVssCertificate sk vk expiry = VssCertificate vk expiry (sign sk (vk, expiry)) $ toPublic sk
 
 -- | VssCertificatesMap contains all valid certificates collected
 -- during some period of time.
 type VssCertificatesMap = HashMap StakeholderId VssCertificate
-
-deriveSafeCopySimple 0 'base ''VssCertificate
-deriveSafeCopySimple 0 'base ''Opening
-deriveSafeCopySimple 0 'base ''Commitment

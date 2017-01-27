@@ -22,7 +22,6 @@ import           Control.Lens          (_Wrapped)
 import           Control.Monad.Except  (ExceptT)
 import           Control.Monad.Trans   (MonadTrans)
 import           Formatting            (build, sformat, (%))
-import           Serokell.Util         (VerificationRes)
 import           System.Wlog           (WithLogger, logDebug)
 import           Universum
 
@@ -31,7 +30,7 @@ import           Pos.DB                (MonadDB)
 import qualified Pos.DB.Lrc            as LrcDB
 import           Pos.Ssc.Class.Storage (SscStorageClass (..))
 import           Pos.Ssc.Class.Types   (Ssc (..))
-import           Pos.Types.Types       (Block, EpochIndex, SharedSeed, epochIndexL)
+import           Pos.Types             (Block, EpochIndex, SharedSeed, epochIndexL)
 import           Pos.Util              (NE, NewestFirst, OldestFirst, inAssertMode,
                                         _neHead)
 
@@ -97,7 +96,7 @@ sscVerifyBlocks
        , SscStorageClass ssc
        , WithLogger m
        )
-    => Bool -> OldestFirst NE (Block ssc) -> m VerificationRes
+    => Bool -> OldestFirst NE (Block ssc) -> m (Either (SscVerifyError ssc) ())
 sscVerifyBlocks verPure blocks = do
     let epoch = blocks ^. _Wrapped . _neHead . epochIndexL
     richmen <- lrcActionOnEpochReason epoch

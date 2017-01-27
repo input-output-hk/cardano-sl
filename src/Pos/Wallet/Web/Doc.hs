@@ -25,6 +25,7 @@ import           Universum
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Crypto                 (keyGen)
 import           Pos.Types                  (Coin, makePubKeyAddress, mkCoin)
+import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web.Api         (walletApi)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile, CTx,
                                              CTxId, CTxMeta, CUpdateInfo, CWallet,
@@ -209,6 +210,8 @@ instance ToSample CProfile where
 instance ToSample Word where
     toSamples Proxy = notImplemented
 
+instance ToSample BackupPhrase where
+    toSamples Proxy = notImplemented
 --
 --instance ToSample Tx where
 --    toSamples Proxy = singleSample $ Tx [TxIn hsh idx] [out]

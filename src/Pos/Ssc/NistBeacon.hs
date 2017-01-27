@@ -22,8 +22,8 @@ import           Data.Text.Buildable     (Buildable (build))
 import           Serokell.Util.Verify    (VerificationRes (..))
 import           Universum
 
-import           Pos.Binary.Relay        ()
 import           Pos.Binary.Class        (encode)
+import           Pos.Binary.Relay        ()
 import           Pos.Slotting            (onNewSlot)
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass (..))
 import           Pos.Ssc.Class.Listeners (SscListenersClass (..), sscStubListeners)
@@ -59,6 +59,7 @@ instance Ssc SscNistBeacon where
     type SscGlobalState SscNistBeacon = ()
     type SscNodeContext SscNistBeacon = ()
     type SscParams      SscNistBeacon = ()
+    type SscVerifyError SscNistBeacon = ()
 
     mkSscProof = Tagged $ const ()
     sscCreateNodeContext _ = return ()
@@ -81,10 +82,10 @@ instance SscLocalDataClass SscNistBeacon where
     sscApplyGlobalStateU _ _ = pure ()
 
 instance SscStorageClass SscNistBeacon where
-    sscLoadGlobalState _ = pure ()
+    sscLoadGlobalState = pure ()
     sscApplyBlocksM _ = pure ()
     sscRollbackM _ = pure ()
-    sscVerifyBlocksM _ _ _ = pure mempty
+    sscVerifyBlocksM _ _ _ = pure $ Right ()
     sscCalculateSeedM =
         pure . Right . coerce . ByteArray.convert @_ @ByteString .
             Hash.hashlazy @SHA256 . encode

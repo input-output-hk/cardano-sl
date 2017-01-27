@@ -24,8 +24,6 @@ deriveJSON defaultOptions ''CTxMeta
 deriveJSON defaultOptions ''CProfile
 deriveJSON defaultOptions ''BackupPhrase
 
-deriving instance ToJSON ApplicationName
-
 deriveToJSON defaultOptions ''NotifyEvent
 deriveToJSON defaultOptions ''WalletError
 deriveToJSON defaultOptions ''CHash

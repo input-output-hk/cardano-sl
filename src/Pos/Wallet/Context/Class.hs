@@ -13,7 +13,7 @@ module Pos.Wallet.Context.Class
 
 import qualified Control.Concurrent.STM      as STM
 import           Control.Monad.Trans         (MonadTrans)
-import           Data.Time.Units             (Microsecond)
+import           Data.Time.Units             (Microsecond, Millisecond)
 import           Universum
 
 import           Pos.Communication.PeerState (PeerStateHolder)
@@ -64,7 +64,7 @@ readNtpData = do
     wc <- getWalletContext
     atomically $ ssNtpData <$> STM.readTVar (wcSlottingState wc)
 
-readSlotDuration :: (MonadIO m, WithWalletContext m) => m Microsecond
+readSlotDuration :: (MonadIO m, WithWalletContext m) => m Millisecond
 readSlotDuration = do
     wc <- getWalletContext
     atomically $ ssSlotDuration <$> STM.readTVar (wcSlottingState wc)

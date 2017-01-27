@@ -26,4 +26,3 @@ spec = describe "Types" $ do
         safeCopyTest @T.Tx
         safeCopyTest @T.SharedSeed
         safeCopyTest @T.ChainDifficulty
-

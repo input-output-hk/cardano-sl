@@ -9,8 +9,7 @@ import           Language.PureScript.Bridge         (BridgePart, buildBridge,
 import           Language.PureScript.Bridge.PSTypes (psInt)
 import           Universum
 
-import qualified Pos.Types.Types                    as PT
-import qualified Pos.Types.Version                  as PV
+import qualified Pos.Types                          as PT
 import qualified Pos.Util.BackupPhrase              as BP
 import qualified Pos.Wallet.Web                     as CT
 
@@ -39,9 +38,9 @@ main =
       , mkSumType (Proxy @CT.CUpdateInfo)
       , mkSumType (Proxy @PT.Coin)
       , mkSumType (Proxy @PT.ChainDifficulty)
-      , mkSumType (Proxy @PV.BlockVersion)
-      , mkSumType (Proxy @PV.SoftwareVersion)
-      , mkSumType (Proxy @PV.ApplicationName)
+      , mkSumType (Proxy @PT.BlockVersion)
+      , mkSumType (Proxy @PT.SoftwareVersion)
+      , mkSumType (Proxy @PT.ApplicationName)
       , mkSumType (Proxy @BP.BackupPhrase)
       ]
   where

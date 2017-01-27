@@ -22,12 +22,15 @@ import           Pos.Communication.Server.Protocol (protocolListeners,
                                                     protocolStubListeners)
 import           Pos.Communication.Server.SysStart
 import           Pos.Communication.Util            (modifyListenerLogger)
+import           Pos.Constants                     (networkReceiveTimeout)
 import           Pos.Delegation.Listeners          (delegationListeners,
                                                     delegationStubListeners)
 import           Pos.Ssc.Class.Listeners           (SscListenersClass (..))
 import           Pos.Txp.Listeners                 (txListeners, txStubListeners)
 import           Pos.Update                        (usListeners, usStubListeners)
-import           Pos.Util                          (withWaitLog, withWaitLogConvL)
+import           Pos.Util                          (convWithTimeLimit,
+                                                    sendActionsWithTimeLimit, withWaitLog,
+                                                    withWaitLogConvL)
 import           Pos.WorkMode                      (WorkMode)
 
 -- | All listeners running on one node.
@@ -36,6 +39,7 @@ allListeners
     => [Listener BiP m]
 allListeners =
     map addWaitLogging $
+    map (addTimeout networkReceiveTimeout) $
     map (modifyListenerLogger serverLoggerName) $
     concat
         [ map (modifyListenerLogger "block") blockListeners
@@ -50,6 +54,13 @@ allListeners =
         ListenerActionOneMsg $ \nId sA msg -> f nId (withWaitLog sA) msg
     addWaitLogging (ListenerActionConversation f) =
         ListenerActionConversation $ \nId cA -> f nId (withWaitLogConvL nId cA)
+
+    addTimeout timeout (ListenerActionOneMsg f) =
+        ListenerActionOneMsg $ \nId sA msg ->
+            f nId (sendActionsWithTimeLimit timeout sA) msg
+    addTimeout timeout (ListenerActionConversation f) =
+        ListenerActionConversation $ \nId cA ->
+            f nId (convWithTimeLimit timeout nId cA)
 
 -- | All listeners running on one node.
 allStubListeners

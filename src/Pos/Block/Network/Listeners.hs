@@ -10,7 +10,7 @@ module Pos.Block.Network.Listeners
 
 import           Data.Proxy                  (Proxy (..))
 import           Data.Reflection             (reify)
-import           Formatting                  (sformat, shown, (%))
+import           Formatting                  (build, sformat, (%))
 import           Node                        (ConversationActions (..),
                                               ListenerAction (..))
 import           Serokell.Data.Memory.Units  (Byte)
@@ -73,7 +73,7 @@ handleGetBlocks =
                                (MsgBlock s0 ssc)
                                MsgGetBlocks m) ->
         whenJustM (recv conv) $ \mgb@MsgGetBlocks{..} -> do
-            logDebug $ sformat ("Got request on handleGetBlocks: "%shown) mgb
+            logDebug $ sformat ("Got request on handleGetBlocks: "%build) mgb
             hashes <- getHeadersFromToIncl mgbFrom mgbTo
             maybe warn (sendBlocks conv) hashes
   where

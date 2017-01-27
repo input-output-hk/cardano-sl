@@ -169,7 +169,7 @@ runRawRealMode res np@NodeParams {..} sscnp listeners action =
        -- FIXME: initialization logic must be in scenario.
        runDBHolder modernDBs . runCH np initNC $ initNodeDBs
        initTip <- runDBHolder modernDBs getTip
-       initGS <- runDBHolder modernDBs (sscLoadGlobalState @ssc initTip)
+       initGS <- runDBHolder modernDBs (sscLoadGlobalState @ssc)
        stateM <- liftIO SM.newIO
        runDBHolder modernDBs .
           runCH np initNC .

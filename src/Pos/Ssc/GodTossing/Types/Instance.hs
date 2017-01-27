@@ -20,7 +20,8 @@ import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData)
 import           Pos.Ssc.GodTossing.Types.Type      (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types     (GtContext, GtGlobalState, GtParams,
                                                      GtPayload, GtProof, SscBi,
-                                                     createGtContext, mkGtProof)
+                                                     TossVerFailure, createGtContext,
+                                                     mkGtProof)
 
 instance SscBi => Ssc SscGodTossing where
     type SscLocalData   SscGodTossing = GtLocalData
@@ -30,6 +31,7 @@ instance SscBi => Ssc SscGodTossing where
     type SscSeedError   SscGodTossing = SeedError
     type SscNodeContext SscGodTossing = GtContext
     type SscParams      SscGodTossing = GtParams
+    type SscVerifyError SscGodTossing = TossVerFailure
     mkSscProof = Tagged mkGtProof
     sscCreateNodeContext = createGtContext
 

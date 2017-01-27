@@ -16,7 +16,7 @@ import           Pos.Binary.Version    ()
 import           Pos.Constants         (epochSlots, protocolMagic)
 import qualified Pos.Data.Attributes   as A
 import           Pos.Ssc.Class.Types   (Ssc (..))
-import qualified Pos.Types.Timestamp   as T
+import qualified Pos.Types.Core        as T
 import qualified Pos.Types.Types       as T
 import           Pos.Update.Core.Types (UpdatePayload)
 
@@ -31,6 +31,10 @@ instance Bi (A.Attributes ()) where
 instance Bi T.Coin where
     put = putWord64be . T.unsafeGetCoin
     get = T.mkCoin <$> getWord64be
+
+instance Bi T.CoinPortion where
+    put = put . T.getCoinPortion
+    get = get >>= T.mkCoinPortion
 
 instance Bi T.Timestamp where
     get = fromInteger <$> get

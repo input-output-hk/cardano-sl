@@ -9,6 +9,7 @@ import           Control.Monad.Reader (MonadReader (..), ReaderT, ask, asks, run
 import           Data.List            ((!!))
 import           Data.Proxy           (Proxy (..))
 import qualified Data.Text            as T
+import           Data.Time.Units      (convertUnit)
 import           Formatting           (build, int, sformat, stext, (%))
 import           Mockable             (delay)
 import           Node                 (SendActions, hoistSendActions)
@@ -23,7 +24,8 @@ import           Pos.Crypto           (SecretKey, createProxySecretKey, encodeHa
 import           Pos.Data.Attributes  (mkAttributes)
 import           Pos.Delegation       (sendProxySKEpoch, sendProxySKSimple)
 import           Pos.DHT.Model        (dhtAddr, discoverPeers)
-import           Pos.Genesis          (genesisPublicKeys, genesisSecretKeys)
+import           Pos.Genesis          (genesisBlockVersionData, genesisPublicKeys,
+                                       genesisSecretKeys)
 import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
                                        bracketResources, runTimeSlaveReal)
 import           Pos.Slotting         (getSlotDuration)
@@ -72,9 +74,9 @@ runCmd sendActions (Vote idx decision upid) = do
 runCmd sendActions ProposeUpdate{..} = do
     (skeys, na) <- ask
     let skey = skeys !! puIdx
-    let bvd = BlockVersionData
+    let bvd = genesisBlockVersionData
             { bvdScriptVersion = puScriptVersion
-            , bvdSlotDuration = sec puSlotDurationSec
+            , bvdSlotDuration = convertUnit (sec puSlotDurationSec)
             , bvdMaxBlockSize = puMaxBlockSize
             }
     let updateProposal = UpdateProposal

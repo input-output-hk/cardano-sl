@@ -27,6 +27,7 @@ module Pos.Wallet.Web.State.Acidic
        , AddOnlyNewTxMeta (..)
        , RemoveWallet (..)
        , AddUpdate (..)
+       , RemoveNextUpdate (..)
        ) where
 
 import           Universum
@@ -82,4 +83,5 @@ makeAcidic ''WalletStorage
     , 'WS.addOnlyNewTxMeta
     , 'WS.removeWallet
     , 'WS.addUpdate
+    , 'WS.removeNextUpdate
     ]

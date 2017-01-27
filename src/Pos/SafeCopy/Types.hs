@@ -12,8 +12,9 @@ import           Data.SafeCopy       (SafeCopy (..), base, contain, deriveSafeCo
 import qualified Data.Serialize      as Cereal (getWord8, putWord8)
 import           Universum
 
--- FIXME
 import           Pos.Ssc.Class.Types (Ssc (..))
+-- FIXME
+import           Pos.Types.Core
 import           Pos.Types.Types
 
 deriveSafeCopySimple 0 'base ''EpochIndex

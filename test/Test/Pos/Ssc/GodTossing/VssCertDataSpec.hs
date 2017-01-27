@@ -19,7 +19,7 @@ import           Pos.Types             (EpochIndex (..), EpochOrSlot (..), SlotI
 
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck       (Arbitrary (..), Property, choose, sized, suchThat,
+import           Test.QuickCheck       (Arbitrary (..), Property, choose, suchThat,
                                         vectorOf, (==>))
 
 spec :: Spec

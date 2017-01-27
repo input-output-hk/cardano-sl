@@ -61,7 +61,7 @@ import           Universum
 
 import           Pos.Script.Type            (ScriptVersion)
 import           Pos.Types.Coin             (coinF)
-import           Pos.Types.Types            (ChainDifficulty, Coin, EpochIndex,
+import           Pos.Types.Core             (ChainDifficulty, Coin, EpochIndex,
                                              HeaderHash, SlotId, StakeholderId, mkCoin)
 import           Pos.Types.Version          (ApplicationName, BlockVersion,
                                              NumSoftwareVersion, SoftwareVersion)

@@ -38,17 +38,7 @@ import qualified Pos.Binary.Class       as Bi
 import           Pos.Binary.Crypto      ()
 import           Pos.Crypto             (AbstractHash (AbstractHash), PublicKey)
 import           Pos.Script.Type        (Script)
-
--- | Address is where you can send coins.
-data Address
-    = PubKeyAddress
-          { addrKeyHash :: !(AddressHash PublicKey) }
-    | ScriptAddress
-          { addrScriptHash :: !(AddressHash Script) }
-    deriving (Eq, Ord, Generic, Typeable)
-
--- | Stakeholder identifier (stakeholders are identified by their public keys)
-type StakeholderId = AddressHash PublicKey
+import           Pos.Types.Core         (Address (..), AddressHash, StakeholderId)
 
 instance Bi Address => Hashable Address where
     hashWithSalt s = hashWithSalt s . Bi.encode
@@ -124,8 +114,6 @@ addressDetailedF = later $ \case
 ----------------------------------------------------------------------------
 -- Hashing
 ----------------------------------------------------------------------------
-
-type AddressHash = AbstractHash Blake2s_224
 
 unsafeAddressHash :: Bi a => a -> AddressHash b
 unsafeAddressHash = AbstractHash . secondHash . firstHash

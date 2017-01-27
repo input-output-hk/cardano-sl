@@ -28,7 +28,7 @@ import           Pos.Binary.Types    ()
 import           Pos.Crypto          (EncShare, PublicKey, Secret, SecretKey, SecretProof,
                                       SecretSharingExtra, Share, Signature, VssPublicKey,
                                       sign, toPublic)
-import           Pos.Types.Types     (EpochIndex, StakeholderId)
+import           Pos.Types.Core      (EpochIndex, StakeholderId)
 import           Pos.Util            (AsBinary (..))
 
 ----------------------------------------------------------------------------

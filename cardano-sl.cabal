@@ -301,13 +301,14 @@ library
                         Pos.Txp.Types.BalancesView
 
                         -- Types
+                        Pos.Types.Core
                         Pos.Types.SharedSeed
                         Pos.Types.Utxo.Class
                         Pos.Types.Utxo.Functions
                         Pos.Types.Utxo.Pure
-                        Pos.Worker.Ntp
 
                         -- Workers
+                        Pos.Worker.Ntp
                         Pos.Worker.Stats
 
                         -- Update System

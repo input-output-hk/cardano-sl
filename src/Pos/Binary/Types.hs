@@ -16,7 +16,7 @@ import           Pos.Binary.Version    ()
 import           Pos.Constants         (epochSlots, protocolMagic)
 import qualified Pos.Data.Attributes   as A
 import           Pos.Ssc.Class.Types   (Ssc (..))
-import qualified Pos.Types.Timestamp   as T
+import qualified Pos.Types.Core        as T
 import qualified Pos.Types.Types       as T
 import           Pos.Update.Core.Types (UpdatePayload)
 

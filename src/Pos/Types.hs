@@ -5,6 +5,7 @@ module Pos.Types
        , module Pos.Types.Address
        , module Pos.Types.Block
        , module Pos.Types.Coin
+       , module Pos.Types.Core
        , module Pos.Types.Slotting
        , module Pos.Types.Timestamp
        , module Pos.Types.Tx
@@ -20,6 +21,7 @@ import           Pos.Types.Address
 import           Pos.Types.Arbitrary
 import           Pos.Types.Block
 import           Pos.Types.Coin
+import           Pos.Types.Core
 import           Pos.Types.SharedSeed ()
 import           Pos.Types.Slotting
 import           Pos.Types.Timestamp

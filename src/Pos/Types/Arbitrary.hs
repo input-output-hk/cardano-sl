@@ -34,16 +34,16 @@ import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.Script                 (Script)
 import           Pos.Script.Examples        (badIntRedeemer, goodIntRedeemer,
                                              intValidator)
+import           Pos.Types.Address          (makePubKeyAddress, makeScriptAddress)
 import           Pos.Types.Arbitrary.Unsafe ()
 import           Pos.Types.Coin             (coinToInteger, unsafeAddCoin, unsafeSubCoin)
-import           Pos.Types.Timestamp        (Timestamp (..))
-import           Pos.Types.Types            (Address (..), ChainDifficulty (..), Coin,
+import           Pos.Types.Core             (Address (..), ChainDifficulty (..), Coin,
                                              EpochIndex (..), EpochOrSlot (..),
-                                             LocalSlotIndex (..), SharedSeed (..),
-                                             SlotId (..), SlotId (..), Tx (..),
+                                             LocalSlotIndex (..), SlotId (..),
+                                             Timestamp (..), mkCoin)
+import           Pos.Types.Types            (SharedSeed (..), Tx (..),
                                              TxDistribution (..), TxIn (..),
-                                             TxInWitness (..), TxOut (..), TxOutAux,
-                                             makePubKeyAddress, makeScriptAddress, mkCoin)
+                                             TxInWitness (..), TxOut (..), TxOutAux)
 import           Pos.Types.Version          (ApplicationName (..), BlockVersion (..),
                                              SoftwareVersion (..),
                                              applicationNameMaxLength)

@@ -10,7 +10,7 @@ module Pos.Wallet.Web.Api
 
 import           Data.Proxy                 (Proxy (Proxy))
 
-import           Pos.Types                  (Coin)
+import           Pos.Types                  (Coin, SoftwareVersion)
 import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CProfile, CTx, CTxId,
                                              CTxMeta, CUpdateInfo, CWallet, CWalletInit,
@@ -58,6 +58,8 @@ type WalletApi =
      "api" :> "apply_update" :> Post '[JSON] (Either WalletError ())
     :<|>
      "api" :> "slot_duration" :> Get '[JSON] (Either WalletError Word)
+    :<|>
+     "api" :> "system_version" :> Get '[JSON] (Either WalletError SoftwareVersion)
 
 -- | Helper Proxy.
 walletApi :: Proxy WalletApi

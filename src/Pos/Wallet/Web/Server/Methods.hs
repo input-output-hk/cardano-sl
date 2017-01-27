@@ -30,6 +30,7 @@ import           Universum
 
 import           Pos.Aeson.ClientTypes         ()
 import           Pos.Communication.BiP         (BiP)
+import           Pos.Constants                 (curSoftwareVersion)
 import           Pos.Crypto                    (toPublic)
 import           Pos.DHT.Model                 (dhtAddr, getKnownPeers)
 import           Pos.Slotting                  (getSlotDuration)
@@ -234,6 +235,8 @@ servantHandlers sendActions =
      catchWalletError applyUpdate
     :<|>
      catchWalletError blockchainSlotDuration
+    :<|>
+     catchWalletError (pure curSoftwareVersion)
   where
     -- TODO: can we with Traversable map catchWalletError over :<|>
     -- TODO: add logging on error

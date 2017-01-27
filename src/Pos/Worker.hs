@@ -15,7 +15,7 @@ import           Universum
 
 import           Pos.Block.Worker        (blkWorkers)
 import           Pos.Communication       (BiP, SysStartResponse (..))
-import           Pos.Constants           (sysTimeBroadcastSlots)
+import           Pos.Constants           (networkReceiveTimeout, sysTimeBroadcastSlots)
 import           Pos.Context             (NodeContext (..), getNodeContext,
                                           setNtpLastSlot)
 import           Pos.DHT.Model.Neighbors (sendToNeighbors)
@@ -26,8 +26,9 @@ import           Pos.Slotting            (getSlotDuration, onNewSlotWithLogging)
 import           Pos.Ssc.Class.Workers   (SscWorkersClass, sscWorkers)
 import           Pos.Types               (SlotId, flattenSlotId, slotIdF)
 import           Pos.Update              (usWorkers)
-import           Pos.Util                (waitRandomInterval, withWaitLog)
-import           Pos.Util.TimeWarp       (ms)
+import           Pos.Util                (sendActionsWithTimeLimit, waitRandomInterval,
+                                          withWaitLog)
+import           Pos.Util.TimeWarp       (ms, sec)
 import           Pos.Worker.Stats        (statsWorkers)
 import           Pos.WorkMode            (WorkMode)
 
@@ -39,7 +40,7 @@ import           Pos.WorkMode            (WorkMode)
 -- order becomes important, update this comment! I don't think you
 -- will read it, but who knows…
 runWorkers :: (SscWorkersClass ssc, SecurityWorkersClass ssc, WorkMode ssc m) => SendActions BiP m -> m ()
-runWorkers sendActions = mapM_ fork $ map ($ withWaitLog sendActions) $ concat
+runWorkers sendActions = mapM_ fork $ map ($ modifySendActions sendActions) $ concat
     [ [ onNewSlotWorker ]
     , dhtWorkers
     , blkWorkers
@@ -48,6 +49,8 @@ runWorkers sendActions = mapM_ fork $ map ($ withWaitLog sendActions) $ concat
     , [lrcOnNewSlotWorker]
     , usWorkers
     ]
+  where modifySendActions = sendActionsWithTimeLimit networkReceiveTimeout
+                          . withWaitLog
 
 onNewSlotWorker :: WorkMode ssc m => SendActions BiP m -> m ()
 onNewSlotWorker sendActions = onNewSlotWithLogging True $ onNewSlotWorkerImpl sendActions

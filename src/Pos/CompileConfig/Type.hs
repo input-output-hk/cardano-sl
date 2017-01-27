@@ -69,6 +69,8 @@ data CompileConfig = CompileConfig
       -- ^ Network connection timeout in milliseconds
     , ccBlockRetrievalQueueSize       :: !Int
       -- ^ Block retrieval queue capacity
+    , ccNetworkReceiveTimeout         :: !Int
+      -- ^ Network timeout on `recv` in milliseconds
     , ccProductionNetworkStartTime    :: !Int
       -- ^ Start time of network (in `Prodution` running mode).
       -- If set to zero, then running time is 2 minutes after build.

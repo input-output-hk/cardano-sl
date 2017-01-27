@@ -33,6 +33,7 @@ module Pos.Constants
        , maxBlockProxySKs
        , neighborsSendThreshold
        , networkConnectionTimeout
+       , networkReceiveTimeout
        , blockRetrievalQueueSize
        , defaultPeers
        , sysTimeBroadcastSlots
@@ -182,6 +183,9 @@ neighborsSendThreshold =
 
 networkConnectionTimeout :: Microsecond
 networkConnectionTimeout = ms . fromIntegral . ccNetworkConnectionTimeout $ compileConfig
+
+networkReceiveTimeout :: Microsecond
+networkReceiveTimeout = ms . fromIntegral . ccNetworkReceiveTimeout $ compileConfig
 
 blockRetrievalQueueSize :: Integral a => a
 blockRetrievalQueueSize =

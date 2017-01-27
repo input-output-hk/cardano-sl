@@ -27,7 +27,7 @@ printHelp = putStrLn $ unlines [
     "If there are any files in one of the dirs that are not contained",
     "in the other dir, genupdate.sh will fail.",
     "",
-    "'bsdiff' and 'tar' have to be present in path."
+    "bsdiff has to be present in path."
     ]
 
 createUpdate :: FilePath -> FilePath -> FilePath -> IO ()

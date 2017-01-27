@@ -7,6 +7,7 @@ module Pos.Update.Worker
 import           Node                   (SendActions)
 import           Universum
 
+import           Mockable               (fork)
 import           Pos.Communication.BiP  (BiP)
 import           Pos.Constants          (curSoftwareVersion)
 import           Pos.DB.GState          (getConfirmedProposals)
@@ -24,7 +25,7 @@ usOnNewSlot :: WorkMode ssc m => m ()
 usOnNewSlot = onNewSlot True onNewSlotAction
 
 onNewSlotAction :: WorkMode ssc m => SlotId -> m ()
-onNewSlotAction sid = processNewSlot sid >> checkForUpdate
+onNewSlotAction sid = processNewSlot sid >> void (fork checkForUpdate)
 
 checkForUpdate :: WorkMode ssc m => m ()
 checkForUpdate =

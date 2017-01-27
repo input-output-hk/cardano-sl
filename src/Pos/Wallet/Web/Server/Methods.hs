@@ -11,6 +11,7 @@ module Pos.Wallet.Web.Server.Methods
        , walletServeImpl
        ) where
 
+import           Control.Concurrent.MVar       (takeMVar)
 import           Control.Monad.Catch           (try)
 import           Control.Monad.Except          (runExceptT)
 import           Control.Monad.Trans.State     (get, runStateT)
@@ -179,13 +180,8 @@ launchNotifier nat = void . liftIO $ mapM startForking
             lift $ notify $ LocalDifficultyChanged localDifficulty
             modify $ \sp -> sp { spLocalCD = localDifficulty }
     updateNotifier = do
-        slotDuration <- getSlotDuration
-        let updateNotifyPeriod = fromIntegral slotDuration
-        notifier updateNotifyPeriod $ do
-            updates <- getUpdates
-            unless (null updates) $ do
-                logInfo "SOFTWARE UPDATE NOTIFICATION"
-                notify UpdateAvailable
+        waitForUpdate
+        notify UpdateAvailable
     -- historyNotifier :: WalletWebMode ssc m => m ()
     -- historyNotifier = do
     --     cAddresses <- myCAddresses

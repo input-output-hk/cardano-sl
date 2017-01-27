@@ -5,6 +5,7 @@ module Pos.Update.Download
        , downloadUpdate
        ) where
 
+import           Control.Concurrent.MVar (putMVar)
 import qualified Data.ByteArray          as BA
 import qualified Data.ByteString.Lazy    as BSL
 import qualified Data.HashMap.Strict     as HM
@@ -23,6 +24,7 @@ import           System.Wlog             (logInfo, logWarning)
 import           Universum               hiding (show)
 
 import           Pos.Constants           (appSystemTag, pkgUpdatesDir, updateServers)
+import           Pos.Context             (getNodeContext, ncUpdateSemaphore)
 import           Pos.Crypto              (Hash, castHash, hash)
 import           Pos.Types.Version       (SoftwareVersion (..))
 import           Pos.Update.Core.Types   (UpdateData (..), UpdateProposal (..))
@@ -34,7 +36,7 @@ showHash = toString . B16.encode . BA.convert
 
 -- | Download and save archive update by given `ConfirmedProposalState`
 downloadUpdate :: WorkMode ssc m => ConfirmedProposalState -> m ()
-downloadUpdate ConfirmedProposalState {..} = do
+downloadUpdate cst@ConfirmedProposalState {..} = do
     let mupdHash = castHash . udAppDiffHash <$>
                    HM.lookup appSystemTag (upData cpsUpdateProposal)
     case mupdHash of
@@ -53,6 +55,8 @@ downloadUpdate ConfirmedProposalState {..} = do
                         updHash err
                     Right file -> do
                         liftIO $ BSL.writeFile updPath file
+                        sm <- ncUpdateSemaphore <$> getNodeContext
+                        liftIO $ putMVar sm cst
 
 -- | Download a file by its hash.
 --

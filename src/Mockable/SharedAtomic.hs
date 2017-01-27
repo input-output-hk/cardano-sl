@@ -12,6 +12,7 @@ module Mockable.SharedAtomic (
     , newSharedAtomic
     , readSharedAtomic
     , modifySharedAtomic
+    , withSharedAtomic
 
     ) where
 
@@ -39,3 +40,12 @@ modifySharedAtomic
     -> (s -> m (s, t))
     -> m t
 modifySharedAtomic sat f = liftMockable $ ModifySharedAtomic sat f
+
+withSharedAtomic
+    :: ( Mockable SharedAtomic m )
+    => SharedAtomicT m s
+    -> (s -> m t)
+    -> m t
+withSharedAtomic sat f = liftMockable $ ModifySharedAtomic sat g
+    where
+    g s = fmap ((,) s) (f s)

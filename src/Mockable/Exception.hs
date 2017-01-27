@@ -9,6 +9,7 @@ module Mockable.Exception (
 
       Bracket(..)
     , bracket
+    , bracketWithException
     , finally
 
     , Throw(..)
@@ -28,13 +29,29 @@ import           Mockable.Class    (MFunctor' (hoist'), Mockable (liftMockable))
 
 data Bracket (m :: * -> *) (t :: *) where
     Bracket :: m r -> (r -> m b) -> (r -> m c) -> Bracket m c
+    BracketWithException
+        :: ( Exception e )
+        => m r
+        -> (r -> Maybe e -> m b)
+        -> (r -> m c)
+        -> Bracket m c
 
 instance MFunctor' Bracket m n where
     hoist' nat (Bracket acq rel act) =
       Bracket (nat acq) (\r -> nat $ rel r) (\r -> nat $ act r)
+    hoist' nat (BracketWithException acq rel act) =
+      BracketWithException (nat acq) (\r e -> nat $ rel r e) (\r -> nat $ act r)
 
 bracket :: ( Mockable Bracket m ) => m r -> (r -> m b) -> (r -> m c) -> m c
 bracket acquire release act = liftMockable $ Bracket acquire release act
+
+bracketWithException
+    :: ( Mockable Bracket m, Exception e )
+    => m r
+    -> (r -> Maybe e -> m b)
+    -> (r -> m c)
+    -> m c
+bracketWithException acquire release act = liftMockable $ BracketWithException acquire release act
 
 finally :: ( Mockable Bracket m ) => m a -> m b -> m a
 finally act end = bracket (return ()) (const end) (const act)

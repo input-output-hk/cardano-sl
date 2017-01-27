@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- | Network Transport
 module Network.Transport.Abstract
@@ -9,6 +10,7 @@ module Network.Transport.Abstract
   , EndPoint(..)
   , Connection(..)
   , Event(..)
+  , QDisc(..)
   , NT.ConnectionId
   , NT.Reliability(..)
   , NT.EndPointAddress(..)
@@ -20,7 +22,8 @@ module Network.Transport.Abstract
   , NT.NewEndPointErrorCode(..)
   , NT.ConnectErrorCode(..)
   , NT.SendErrorCode(..)
-  , EventErrorCode(..)
+  , NT.EventErrorCode(..)
+  , EventError(..)
   ) where
 
 import Data.Typeable
@@ -53,7 +56,11 @@ data EndPoint m = EndPoint {
     -- Transport implementations based on some heavy-weight underlying network
     -- protocol (TCP, ssh), a call to 'connect' should be asynchronous when a
     -- heavyweight connection has already been established.
-  , connect :: NT.EndPointAddress -> NT.Reliability -> NT.ConnectHints -> m (Either (NT.TransportError NT.ConnectErrorCode) (Connection m))
+  , connect
+      :: NT.EndPointAddress
+      -> NT.Reliability
+      -> NT.ConnectHints
+      -> m (Either (NT.TransportError NT.ConnectErrorCode) (Connection m))
     -- | Close the endpoint
   , closeEndPoint :: m ()
   }
@@ -83,12 +90,18 @@ data Event =
     -- | The endpoint got closed (manually, by a call to closeEndPoint or closeTransport)
   | EndPointClosed
     -- | An error occurred
-  | ErrorEvent (NT.TransportError EventErrorCode)
+  | ErrorEvent (NT.TransportError EventError)
   deriving (Show, Eq, Generic)
 
 instance Binary Event
 
-data EventErrorCode = UnsupportedEvent | EventErrorCode NT.EventErrorCode
+data EventError = UnsupportedEvent | EventErrorCode NT.EventErrorCode
   deriving (Show, Eq, Generic, Typeable)
 
-instance Binary EventErrorCode
+instance Binary EventError
+
+-- | A queueing discipline.
+data QDisc m t = QDisc {
+      qdiscDequeue :: m t
+    , qdiscEnqueue :: Event -> t -> m ()
+    }

@@ -177,7 +177,7 @@ instance Show TalkStyle where
 sendAll
     :: ( Binary msg, Message msg, MonadIO m )
     => TalkStyle
-    -> SendActions BinaryP m
+    -> SendActions BinaryP () m
     -> NodeId
     -> [msg]
     -> m ()
@@ -195,14 +195,14 @@ receiveAll
     :: ( Binary msg, Message msg, MonadIO m )
     => TalkStyle
     -> (msg -> m ())
-    -> ListenerAction BinaryP m
+    -> ListenerAction BinaryP () m
 receiveAll SingleMessageStyle handler =
-    ListenerActionOneMsg $ \_ _ -> handler
+    ListenerActionOneMsg $ \_ _ _ -> handler
 -- For conversation style, we send a response for every message received.
 -- The sender awaits a response for each message. This ensures that the
 -- sender doesn't finish before the conversation SYN/ACK completes.
 receiveAll ConversationStyle  handler =
-    ListenerActionConversation @_ @_ @Bool $ \_ cactions ->
+    ListenerActionConversation @_ @_ @_ @Bool $ \_ _ cactions ->
         let loop = do mmsg <- recv cactions
                       case mmsg of
                           Nothing -> pure ()
@@ -216,8 +216,8 @@ receiveAll ConversationStyle  handler =
 -- * Test template
 
 deliveryTest :: TVar TestState
-             -> [NodeId -> Worker BinaryP Production]
-             -> [Listener BinaryP Production]
+             -> [NodeId -> Worker BinaryP () Production]
+             -> [Listener BinaryP () Production]
              -> IO Property
 deliveryTest testState workers listeners = runProduction $ do
     let tcpParams = TCP.defaultTCPParameters {
@@ -231,10 +231,10 @@ deliveryTest testState workers listeners = runProduction $ do
     let prng2 = mkStdGen 1
 
     -- launch nodes
-    node transport prng1 BinaryP $ \serverNode -> do
+    node transport prng1 BinaryP () $ \serverNode -> do
         -- Server EndPoint is up.
         pure $ NodeAction listeners $ \_ -> do
-            node transport prng2 BinaryP $ \_ -> do
+            node transport prng2 BinaryP () $ \_ -> do
                 -- Client EndPoint is up.
                 pure $ NodeAction [] $ \clientSendActions -> do
                     void . forConcurrently workers $ \worker ->

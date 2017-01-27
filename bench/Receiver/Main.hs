@@ -10,7 +10,6 @@ import           Control.Monad              (unless)
 
 import           Data.Time.Units            (Second)
 import           GHC.IO.Encoding            (setLocaleEncoding, utf8)
-import qualified Network.Transport.TCP      as TCP
 import           Options.Applicative.Simple (simpleOptions)
 import           Serokell.Util.Concurrent   (threadDelay)
 import           System.Random              (mkStdGen)
@@ -20,6 +19,7 @@ import           Mockable                   (Production (runProduction))
 
 import           Bench.Network.Commons      (MeasureEvent (..), Ping (..), Pong (..),
                                              loadLogConfig, logMeasure)
+import qualified Network.Transport.TCP      as TCP
 import           Network.Transport.Concrete (concrete)
 import           Node                       (ListenerAction (..), NodeAction (..), node,
                                              sendTo)
@@ -46,14 +46,14 @@ main = do
     let prng = mkStdGen 0
 
     runProduction $ usingLoggerName "receiver" $ do
-        node transport prng BinaryP $ \_ ->
+        node transport prng BinaryP () $ \_ ->
             pure $ NodeAction [pingListener noPong] $ \_ -> do
                 threadDelay (fromIntegral duration :: Second)
   where
     pingListener noPong =
         -- TODO: `ListenerActionConversation` is not supported in such context
         -- why? how should it be used?
-        ListenerActionOneMsg $ \peerId sendActions (Ping mid payload) -> do
+        ListenerActionOneMsg $ \_ peerId sendActions (Ping mid payload) -> do
             logMeasure PingReceived mid payload
             unless noPong $ do
                 logMeasure PongSent mid payload

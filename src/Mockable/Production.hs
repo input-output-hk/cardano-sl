@@ -27,8 +27,14 @@ import           Mockable.Concurrent      (Async (..), Concurrently (..), Delay 
 import           Mockable.CurrentTime     (CurrentTime (..), realTime)
 import           Mockable.Exception       (Bracket (..), Catch (..), Throw (..))
 import           Mockable.SharedAtomic    (SharedAtomic (..), SharedAtomicT)
+import           Mockable.SharedExclusive (SharedExclusive (..), SharedExclusiveT)
+import qualified Mockable.Metrics         as Metrics
+import qualified System.Metrics.Distribution as EKG.Distribution
+import qualified System.Metrics.Gauge     as EKG.Gauge
+import qualified System.Metrics.Counter   as EKG.Counter
 import           Serokell.Util.Concurrent as Serokell
 import           Universum                (MonadFail (..))
+import qualified Data.Sequence            as Seq
 
 newtype Production t = Production
     { runProduction :: IO t
@@ -78,6 +84,18 @@ instance Mockable SharedAtomic Production where
     liftMockable (ModifySharedAtomic atomic f)
         = Production $ Conc.modifyMVar atomic (runProduction . f)
 
+type instance SharedExclusiveT Production = Conc.MVar
+
+instance Mockable SharedExclusive Production where
+    liftMockable (NewSharedExclusive)
+        = Production $ Conc.newEmptyMVar
+    liftMockable (PutSharedExclusive var t)
+        = Production $ Conc.putMVar var t
+    liftMockable (TakeSharedExclusive var)
+        = Production $ Conc.takeMVar var
+    liftMockable (ModifySharedExclusive var f)
+        = Production $ Conc.modifyMVar var (runProduction . f)
+
 type instance ChannelT Production = Conc.TChan
 
 instance Mockable Channel Production where
@@ -90,6 +108,16 @@ instance Mockable Channel Production where
 instance Mockable Bracket Production where
     liftMockable (Bracket acquire release act) = Production $
         Exception.bracket (runProduction acquire) (runProduction . release) (runProduction . act)
+
+    -- Base implementation doesn't give such a bracket so we have to do it
+    -- ourselves.
+    liftMockable (BracketWithException acquire release act) = Production $ mask $ \restore -> do
+        a <- runProduction acquire
+        r <- restore (runProduction (act a)) `catch` \e -> do
+                 runProduction (release a (Just e))
+                 Exception.throwIO e
+        _ <- runProduction (release a Nothing)
+        return r
 
 instance Mockable Throw Production where
     liftMockable (Throw e) = Production $ Exception.throwIO e
@@ -115,3 +143,34 @@ instance MonadMask Production where
 instance HasLoggerName Production where
     getLoggerName = return "*production*"
     modifyLoggerName = const id
+
+type instance Metrics.Counter Production = EKG.Counter.Counter
+type instance Metrics.Gauge Production = EKG.Gauge.Gauge
+type instance Metrics.Distribution Production = EKG.Distribution.Distribution
+
+instance Mockable Metrics.Metrics Production where
+
+    liftMockable term = case term of
+
+        Metrics.NewGauge -> Production $ EKG.Gauge.new
+        Metrics.IncGauge gauge -> Production $ EKG.Gauge.inc gauge
+        Metrics.DecGauge gauge -> Production $ EKG.Gauge.dec gauge
+        Metrics.SetGauge gauge val -> Production $ EKG.Gauge.set gauge val
+        Metrics.ReadGauge gauge -> Production $ EKG.Gauge.read gauge
+
+        Metrics.NewCounter -> Production $ EKG.Counter.new
+        Metrics.IncCounter counter -> Production . EKG.Counter.inc $ counter
+        Metrics.ReadCounter counter -> Production . EKG.Counter.read $ counter
+
+        Metrics.NewDistribution -> Production $ EKG.Distribution.new
+        Metrics.AddSample distr sample -> Production $ EKG.Distribution.add distr sample
+        Metrics.ReadDistribution distr -> Production $ do
+            stats <- EKG.Distribution.read distr
+            return $ Metrics.Stats {
+                  Metrics.mean = EKG.Distribution.mean stats
+                , Metrics.variance = EKG.Distribution.variance stats
+                , Metrics.count = EKG.Distribution.count stats
+                , Metrics.sum = EKG.Distribution.sum stats
+                , Metrics.min = EKG.Distribution.min stats
+                , Metrics.max = EKG.Distribution.max stats
+                }

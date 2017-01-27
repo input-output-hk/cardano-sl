@@ -1,40 +1,65 @@
 -- | Protocol/versioning related communication types.
 
 module Pos.Communication.Types.Protocol
-       (
+       ( HandlerSpec (..)
+       , VerInfo (..)
+       , HandlerSpecs
+       , inSpecs
+       , notInSpecs
+       , WorkerSpec (..)
+       , ListenerSpec (..)
        ) where
 
-import           Node.Message (MessageName)
+import           Data.Hashable         (Hashable)
+import qualified Data.HashMap.Strict   as HM
+import qualified Data.Text.Buildable   as B
+import           Formatting            (bprint, build, (%))
+import           Node                  (Listener, Worker)
+import           Node.Message          (MessageName (..))
+import           Serokell.Util.Base16  (base16F)
 import           Universum
 
-import           Pos.Types    (BlockVersion)
+import           Pos.Communication.BiP (BiP)
+import           Pos.Types             (BlockVersion)
 
--- | Version request message. 'VersionResp' is expected as response.
-data VersionReq = VersionReq
-    deriving (Show,Generic)
-
--- | Version response (on 'VersionReq' response).
-data VersionResp = VersionResp
-    { vRespMagic        :: Int32
-    , vRespBlockVersion :: BlockVersion
-    } deriving (Show,Generic)
+deriving instance Hashable MessageName
 
 data HandlerSpec
-  = ConvHandler
-        { hsRecvType :: MessageName
-        , hsSendType :: MessageName
-        }
+  = ConvHandler { hsReplyType :: MessageName }
   | OneMsgHandler
-        { hsMsgType :: MessageName
-        }
-    deriving (Show, Generic)
+    deriving (Show, Generic, Eq)
+
+instance Buildable HandlerSpec where
+    build OneMsgHandler                         = "OneMsg"
+    build (ConvHandler (MessageName replyType)) = bprint ("Conv "%base16F) replyType
+
+instance Buildable (MessageName, HandlerSpec) where
+    build (MessageName rcvType, h) = bprint (base16F % " -> " % build) rcvType h
+
+type HandlerSpecs = HashMap MessageName HandlerSpec
 
 data VerInfo = VerInfo
     { vIMagic        :: Int32
     , vIBlockVersion :: BlockVersion
-    , vIHandlersIn   :: [HandlerSpec]
-    , vIHandlersOut  :: [HandlerSpec]
+    , vIInHandlers   :: HandlerSpecs
+    , vIOutHandlers  :: HandlerSpecs
     } deriving (Show, Generic)
 
-data VerAck = VerAck
-    deriving (Show, Generic)
+inSpecs :: (MessageName, HandlerSpec) -> HandlerSpecs -> Bool
+inSpecs (name, sp) specs = case name `HM.lookup` specs of
+                              Just sp' -> sp == sp'
+                              _        -> False
+
+notInSpecs :: (MessageName, HandlerSpec) -> HandlerSpecs -> Bool
+notInSpecs sp' = not . inSpecs sp'
+
+data WorkerSpec m = WorkerSpec
+    { wsExecutor :: VerInfo -> Worker BiP m
+    , wsOutSpecs :: HandlerSpecs
+    }
+
+data ListenerSpec m = ListenerSpec
+    { lsHandler  :: VerInfo -> Listener BiP m
+    , lsInSpec   :: HandlerSpec
+    , lsOutSpecs :: HandlerSpecs
+    }

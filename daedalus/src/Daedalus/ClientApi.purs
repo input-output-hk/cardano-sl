@@ -146,5 +146,3 @@ systemVersion = fromAff $ map encodeJson B.systemVersion
 
 redeemADA :: forall eff . EffFn2 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String String (Promise Json)
 redeemADA = mkEffFn2 \seed -> fromAff <<< map encodeJson <<< either throwError (B.redeemADA $ mkSeed seed) <<< mkBackupPhrase
-
-

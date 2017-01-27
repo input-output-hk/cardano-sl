@@ -65,11 +65,12 @@ import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 initWSConnection, notify, runWalletWS,
                                                 upgradeApplicationWS)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
-                                                addOnlyNewTxMeta, closeState,
-                                                createWallet, getProfile, getTxMeta,
-                                                getWalletMeta, getWalletState, openState,
-                                                removeWallet, runWalletWebDB, setProfile,
-                                                setWalletMeta, setWalletTransactionMeta)
+                                                addOnlyNewTxMeta, addUpdate, closeState,
+                                                createWallet, getNextUpdate, getProfile,
+                                                getTxMeta, getWalletMeta, getWalletState,
+                                                openState, removeWallet, runWalletWebDB,
+                                                setProfile, setWalletMeta,
+                                                setWalletTransactionMeta)
 import           Pos.Web.Server                (serveImpl)
 
 ----------------------------------------------------------------------------
@@ -182,7 +183,8 @@ launchNotifier nat = void . liftIO $ mapM startForking
             lift $ notify $ LocalDifficultyChanged localDifficulty
             modify $ \sp -> sp { spLocalCD = localDifficulty }
     updateNotifier = do
-        waitForUpdate
+        cps <- waitForUpdate
+        addUpdate $ toCUpdateInfo cps
         notify UpdateAvailable
     -- historyNotifier :: WalletWebMode ssc m => m ()
     -- historyNotifier = do
@@ -362,8 +364,7 @@ isValidAddress _ _       = pure False
 -- | Get last update info
 nextUpdate :: WalletWebMode ssc m => m CUpdateInfo
 nextUpdate = getNextUpdate >>=
-             maybeThrow (Internal "No updates available") .
-             fmap toCUpdateInfo
+             maybeThrow (Internal "No updates available")
 
 blockchainSlotDuration :: WalletWebMode ssc m => m Word
 blockchainSlotDuration = fromIntegral <$> getSlotDuration
@@ -382,9 +383,6 @@ getAddrIdx :: WalletWebMode ssc m => Address -> m Int
 getAddrIdx addr = elemIndex addr <$> myAddresses >>= maybe notFound pure
   where notFound = throwM . Internal $
             sformat ("Address "%addressF%" is not found in wallet") $ addr
-
-getNextUpdate :: WalletWebMode ssc m => m (Maybe ConfirmedProposalState)
-getNextUpdate = pure Nothing
 
 ----------------------------------------------------------------------------
 -- Orphan instances

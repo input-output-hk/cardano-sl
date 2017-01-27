@@ -257,7 +257,6 @@ deriving instance MonadUpdates m => MonadUpdates (WalletWebDB m)
 -- | Dummy instance for lite-wallet
 instance MonadIO m => MonadUpdates (WalletDB m) where
     waitForUpdate = notImplemented
-    -- getUpdates = pure []
 
 -- | Instance for full node
 instance (Ssc ssc, MonadIO m) =>

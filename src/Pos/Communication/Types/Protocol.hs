@@ -22,8 +22,6 @@ import           Universum
 import           Pos.Communication.BiP (BiP)
 import           Pos.Types             (BlockVersion)
 
-deriving instance Hashable MessageName
-
 data HandlerSpec
   = ConvHandler { hsReplyType :: MessageName }
   | OneMsgHandler
@@ -53,13 +51,13 @@ inSpecs (name, sp) specs = case name `HM.lookup` specs of
 notInSpecs :: (MessageName, HandlerSpec) -> HandlerSpecs -> Bool
 notInSpecs sp' = not . inSpecs sp'
 
-data WorkerSpec m = WorkerSpec
-    { wsExecutor :: VerInfo -> Worker BiP m
+data WorkerSpec d m = WorkerSpec
+    { wsExecutor :: VerInfo -> Worker BiP d m
     , wsOutSpecs :: HandlerSpecs
     }
 
-data ListenerSpec m = ListenerSpec
-    { lsHandler  :: VerInfo -> Listener BiP m
-    , lsInSpec   :: HandlerSpec
+data ListenerSpec d m = ListenerSpec
+    { lsHandler  :: VerInfo -> Listener BiP d m
+    , lsInSpec   :: (MessageName, HandlerSpec)
     , lsOutSpecs :: HandlerSpecs
     }

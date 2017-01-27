@@ -80,14 +80,14 @@ filterSecond :: (b -> Bool) -> [(a,b)] -> [a]
 filterSecond predicate = map fst . filter (predicate . snd)
 
 handleInvL
-    :: forall m key tag contents.
-       ( Bi (ReqMsg key tag)
+    :: ( Bi (ReqMsg key tag)
        , Relay m tag key contents
        , WithLogger m
+       , Bi dat
        )
     => InvMsg key tag
     -> NodeId
-    -> SendActions BiP m
+    -> SendActions BiP dat m
     -> m ()
 handleInvL InvMsg {..} peerId sendActions = processMessage "Inventory" imTag verifyInvTag $ do
     res <- zip (toList imKeys) <$> mapM (handleInv imTag) (toList imKeys)
@@ -102,14 +102,14 @@ handleInvL InvMsg {..} peerId sendActions = processMessage "Inventory" imTag ver
       (a:as) -> sendTo sendActions peerId $ ReqMsg imTag (a :| as)
 
 handleReqL
-    :: forall m key tag contents.
-       ( Bi (DataMsg key contents)
+    :: ( Bi (DataMsg key contents)
        , Relay m tag key contents
        , WithLogger m
+       , Bi dat
        )
     => ReqMsg key tag
     -> NodeId
-    -> SendActions BiP m
+    -> SendActions BiP dat m
     -> m ()
 handleReqL ReqMsg {..} peerId sendActions = processMessage "Request" rmTag verifyReqTag $ do
     res <- zip (toList rmKeys) <$> mapM (handleReq rmTag) (toList rmKeys)
@@ -122,16 +122,16 @@ handleReqL ReqMsg {..} peerId sendActions = processMessage "Request" rmTag verif
     mapM_ ((sendTo sendActions peerId) . uncurry DataMsg) datas
 
 handleDataL
-    :: forall ssc m key tag contents.
-       ( MonadDHT m
+    :: ( MonadDHT m
        , Bi (InvMsg key tag)
        , Relay m tag key contents
        , WithLogger m
        , WorkMode ssc m
+       , Bi dat
        )
     => DataMsg key contents
     -> NodeId
-    -> SendActions BiP m
+    -> SendActions BiP dat m
     -> m ()
 handleDataL DataMsg {..} _ sendActions =
     processMessage "Data" dmContents verifyDataContents $

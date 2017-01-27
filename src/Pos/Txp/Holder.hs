@@ -19,8 +19,10 @@ import           Control.Monad.Fix         (MonadFix)
 import           Control.Monad.Reader      (ReaderT (ReaderT))
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Data.Default              (def)
-import           Mockable                  (ChannelT, MFunctor', Mockable (liftMockable),
-                                            Promise, SharedAtomicT, ThreadId,
+import           Mockable                  (ChannelT, Counter, Distribution, Gauge, Gauge,
+                                            MFunctor', Mockable (liftMockable), Promise,
+                                            SharedAtomicT, SharedExclusiveT,
+                                            SharedExclusiveT, ThreadId,
                                             liftMockableWrappedM)
 import           Serokell.Util.Lens        (WrappedM (..))
 import           System.Wlog               (CanLog, HasLoggerName)
@@ -52,6 +54,10 @@ newtype TxpLDHolder ssc m a = TxpLDHolder
 type instance ThreadId (TxpLDHolder ssc m) = ThreadId m
 type instance Promise (TxpLDHolder ssc m) = Promise m
 type instance SharedAtomicT (TxpLDHolder ssc m) = SharedAtomicT m
+type instance Counter (TxpLDHolder ssc m) = Counter m
+type instance Distribution (TxpLDHolder ssc m) = Distribution m
+type instance SharedExclusiveT (TxpLDHolder ssc m) = SharedExclusiveT m
+type instance Gauge (TxpLDHolder ssc m) = Gauge m
 type instance ChannelT (TxpLDHolder ssc m) = ChannelT m
 
 instance ( Mockable d m

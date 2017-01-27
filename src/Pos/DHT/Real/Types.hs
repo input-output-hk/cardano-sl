@@ -23,8 +23,10 @@ import           Control.Monad.Trans.Class (MonadTrans)
 import qualified Data.ByteString           as BS
 import           Data.ByteString.Lazy      (fromStrict, toStrict)
 
-import           Mockable                  (ChannelT, MFunctor', Mockable (liftMockable),
-                                            Promise, SharedAtomicT, ThreadId,
+import           Mockable                  (ChannelT, Counter, Distribution, Gauge, Gauge,
+                                            MFunctor', Mockable (liftMockable), Promise,
+                                            SharedAtomicT, SharedExclusiveT,
+                                            SharedExclusiveT, ThreadId,
                                             liftMockableWrappedM)
 import qualified Network.Kademlia          as K
 import           Serokell.Util.Lens        (WrappedM (..))
@@ -94,6 +96,10 @@ instance (Monad m, WithKademliaDHTInstance m) =>
 type instance ThreadId (KademliaDHT m) = ThreadId m
 type instance Promise (KademliaDHT m) = Promise m
 type instance SharedAtomicT (KademliaDHT m) = SharedAtomicT m
+type instance Counter (KademliaDHT m) = Counter m
+type instance Distribution (KademliaDHT m) = Distribution m
+type instance SharedExclusiveT (KademliaDHT m) = SharedExclusiveT m
+type instance Gauge (KademliaDHT m) = Gauge m
 type instance ChannelT (KademliaDHT m) = ChannelT m
 
 instance ( Mockable d m

@@ -26,10 +26,10 @@ import           Control.Concurrent.STM.TVar    (TVar, newTVarIO, readTVarIO, wr
 import           Control.Lens                   (iso)
 import           Control.Monad.Trans            (MonadTrans (..))
 import           Data.Aeson                     (encode)
-import           Mockable                       (ChannelT, MFunctor',
-                                                 Mockable (liftMockable), Promise,
-                                                 SharedAtomicT, ThreadId,
-                                                 liftMockableWrappedM)
+import           Mockable                       (ChannelT, Counter, Distribution, Gauge,
+                                                 MFunctor', Mockable (liftMockable),
+                                                 Promise, SharedAtomicT, SharedExclusiveT,
+                                                 ThreadId, liftMockableWrappedM)
 import           Network.Wai                    (Application)
 import           Network.Wai.Handler.WebSockets (websocketsOr)
 import           Pos.Aeson.ClientTypes          ()
@@ -127,6 +127,10 @@ instance Monad m => MonadWalletWebSockets (WalletWebSockets m) where
 type instance ThreadId (WalletWebSockets m) = ThreadId m
 type instance Promise (WalletWebSockets m) = Promise m
 type instance SharedAtomicT (WalletWebSockets m) = SharedAtomicT m
+type instance Counter (WalletWebSockets m) = Counter m
+type instance Distribution (WalletWebSockets m) = Distribution m
+type instance SharedExclusiveT (WalletWebSockets m) = SharedExclusiveT m
+type instance Gauge (WalletWebSockets m) = Gauge m
 type instance ChannelT (WalletWebSockets m) = ChannelT m
 
 instance ( Mockable d m

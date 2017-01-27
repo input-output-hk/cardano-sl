@@ -33,33 +33,33 @@ import           Pos.Communication.Types.Protocol (HandlerSpec (..), HandlerSpec
 --    -> (VerInfo -> Worker BiP m,
 
 listenerConv :: (WithLogger m, Bi snd, Bi rcv, Message snd, Message rcv)
-    => (NodeId -> ConversationActions snd rcv m -> m ())
-    -> (VerInfo -> VerInfo -> Listener BiP m, (MessageName, HandlerSpec))
+    => (NodeId -> ConversationActions VerInfo snd rcv m -> m ())
+    -> (VerInfo -> Listener BiP VerInfo m, (MessageName, HandlerSpec))
 listenerConv handler = (listener, spec)
   where
     spec = (rcvMsgName, ConvHandler sndMsgName)
     convProxy = convProxy' handler
-    convProxy' :: (NodeId -> ConversationActions snd rcv m -> m ()) -> Proxy (ConversationActions snd rcv m)
+    convProxy' :: (a -> b -> c) -> Proxy b
     convProxy' _ = Proxy
     sndMsgName = messageName $ sndProxy convProxy
     rcvMsgName = messageName $ rcvProxy convProxy
     -- TODO specs parameter is to be received within listener
-    listener ourVerInfo peerVerInfo =
-      ListenerActionConversation $ \peerId conv ->
+    listener ourVerInfo =
+      ListenerActionConversation $ \peerVerInfo peerId conv ->
           checkingInSpecs ourVerInfo peerVerInfo spec peerId $
               handler peerId conv
 
 listenerOneMsg :: (WithLogger m, Bi msg, Message msg, Mockable Throw m)
-    => (NodeId -> SendActions BiP m -> msg -> m ())
-    -> (VerInfo -> VerInfo -> Listener BiP m, (MessageName, HandlerSpec))
+    => (NodeId -> SendActions BiP VerInfo m -> msg -> m ())
+    -> (VerInfo -> Listener BiP VerInfo m, (MessageName, HandlerSpec))
 listenerOneMsg handler = (listener, spec)
   where
     spec = (rcvMsgName, OneMsgHandler)
-    msgProxy :: (NodeId -> SendActions BiP m -> msg -> m ()) -> Proxy msg
+    msgProxy :: (a -> b -> msg -> c) -> Proxy msg
     msgProxy _ = Proxy
     rcvMsgName = messageName $ msgProxy handler
-    listener ourVerInfo peerVerInfo =
-      ListenerActionOneMsg $ \peerId sA msg ->
+    listener ourVerInfo =
+      ListenerActionOneMsg $ \peerVerInfo peerId sA msg ->
           checkingInSpecs ourVerInfo peerVerInfo spec peerId $
               handler peerId (modifySend (vIOutHandlers ourVerInfo) sA) msg
 
@@ -74,9 +74,9 @@ checkingInSpecs ourVerInfo peerVerInfo spec peerId action =
                 peerId spec
        | otherwise -> action
 
-rcvProxy :: Proxy (ConversationActions snd rcv m) -> Proxy rcv
+rcvProxy :: Proxy (ConversationActions d snd rcv m) -> Proxy rcv
 rcvProxy _ = Proxy
-sndProxy :: Proxy (ConversationActions snd rcv m) -> Proxy snd
+sndProxy :: Proxy (ConversationActions d snd rcv m) -> Proxy snd
 sndProxy _ = Proxy
 
 data SpecError = OutSpecNotReported MessageName
@@ -86,7 +86,7 @@ data SpecError = OutSpecNotReported MessageName
 instance Exception SpecError
 
 modifySend :: (WithLogger m, Mockable Throw m)
-           => HandlerSpecs -> SendActions BiP m -> SendActions BiP m
+           => HandlerSpecs -> SendActions BiP VerInfo m -> SendActions BiP VerInfo m
 modifySend ourOutSpecs sA = sA
     { sendTo = \peerId msg ->
           let sndMsgName = messageName' msg

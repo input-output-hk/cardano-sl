@@ -18,10 +18,11 @@ import           Control.Monad.Fix         (MonadFix)
 import           Control.Monad.Reader      (ReaderT (ReaderT), ask)
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Formatting                (sformat, shown, (%))
-import           Mockable                  (Catch, ChannelT, CurrentTime, MFunctor',
+import           Mockable                  (Catch, ChannelT, Counter, CurrentTime,
+                                            Distribution, Gauge, MFunctor',
                                             Mockable (liftMockable), Promise,
-                                            SharedAtomicT, ThreadId, catchAll,
-                                            currentTime, liftMockableWrappedM)
+                                            SharedAtomicT, SharedExclusiveT, ThreadId,
+                                            catchAll, currentTime, liftMockableWrappedM)
 import           Serokell.Util.Lens        (WrappedM (..))
 import           System.Wlog               (CanLog, HasLoggerName, WithLogger, logWarning)
 import           Universum                 hiding (catchAll)
@@ -58,6 +59,10 @@ instance MonadBase IO m => MonadBase IO (ContextHolder ssc m) where
 type instance ThreadId (ContextHolder ssc m) = ThreadId m
 type instance Promise (ContextHolder ssc m) = Promise m
 type instance SharedAtomicT (ContextHolder ssc m) = SharedAtomicT m
+type instance Counter (ContextHolder ssc m) = Counter m
+type instance Distribution (ContextHolder ssc m) = Distribution m
+type instance SharedExclusiveT (ContextHolder ssc m) = SharedExclusiveT m
+type instance Gauge (ContextHolder ssc m) = Gauge m
 type instance ChannelT (ContextHolder ssc m) = ChannelT m
 
 deriving instance MonadDB ssc m => MonadDB ssc (ContextHolder ssc m)

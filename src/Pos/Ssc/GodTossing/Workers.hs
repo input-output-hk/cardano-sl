@@ -18,7 +18,7 @@ import           Data.Tagged                      (Tagged (..))
 import           Data.Time.Units                  (Microsecond, Millisecond, convertUnit)
 import           Formatting                       (build, ords, sformat, shown, (%))
 import           Mockable                         (currentTime, delay)
-import           Node                             (SendActions)
+import           Node                             (SendActions, Worker)
 import           Serokell.Util.Exceptions         ()
 import           Serokell.Util.Text               (listJson)
 import           System.Wlog                      (logDebug, logError, logInfo,
@@ -26,11 +26,13 @@ import           System.Wlog                      (logDebug, logError, logInfo,
 import           Universum
 
 import           Pos.Binary.Class                 (Bi)
+import           Pos.Binary.Communication         ()
 import           Pos.Binary.Relay                 ()
 import           Pos.Binary.Ssc                   ()
 import           Pos.Communication.BiP            (BiP)
 import           Pos.Communication.Message        ()
 import           Pos.Communication.Relay          (DataMsg (..), InvMsg (..))
+import           Pos.Communication.Types.Protocol (VerInfo)
 import           Pos.Constants                    (mpcSendInterval, slotSecurityParam,
                                                    vssMaxTTL)
 import           Pos.Context                      (getNodeContext, lrcActionOnEpochReason,
@@ -78,12 +80,12 @@ instance SscWorkersClass SscGodTossing where
 
 -- CHECK: @onStart
 -- #checkNSendOurCert
-onStart :: forall m. (WorkMode SscGodTossing m) => SendActions BiP m -> m ()
+onStart :: forall m. (WorkMode SscGodTossing m) => Worker BiP VerInfo m
 onStart = checkNSendOurCert
 
 -- CHECK: @checkNSendOurCert
 -- Checks whether 'our' VSS certificate has been announced
-checkNSendOurCert :: forall m . (WorkMode SscGodTossing m) => SendActions BiP m -> m ()
+checkNSendOurCert :: forall m . (WorkMode SscGodTossing m) => Worker BiP VerInfo m
 checkNSendOurCert sendActions = do
     (_, ourId) <- getOurPkAndId
     sl@SlotId {..} <- getCurrentSlot
@@ -144,8 +146,7 @@ getOurVssKeyPair = gtcVssKeyPair . ncSscContext <$> getNodeContext
 -- #checkNSendOurCert
 onNewSlotSsc
     :: (WorkMode SscGodTossing m)
-    => SendActions BiP m
-    -> m ()
+    => Worker BiP VerInfo m
 onNewSlotSsc sendActions = onNewSlot True $ \slotId -> do
     richmen <- HS.fromList . NE.toList <$>
         lrcActionOnEpochReason (siEpoch slotId)
@@ -168,8 +169,7 @@ onNewSlotSsc sendActions = onNewSlot True $ \slotId -> do
 -- Commitments-related part of new slot processing
 onNewSlotCommitment
     :: (WorkMode SscGodTossing m)
-    => SendActions BiP m
-    -> SlotId -> m ()
+    => SendActions BiP VerInfo m -> SlotId -> m ()
 onNewSlotCommitment sendActions slotId@SlotId {..}
     | not (isCommitmentIdx siSlot) = pass
     | otherwise = do
@@ -207,7 +207,7 @@ onNewSlotCommitment sendActions slotId@SlotId {..}
 -- Openings-related part of new slot processing
 onNewSlotOpening
     :: WorkMode SscGodTossing m
-    => SendActions BiP m -> SlotId -> m ()
+    => SendActions BiP VerInfo m -> SlotId -> m ()
 onNewSlotOpening sendActions SlotId {..}
     | not $ isOpeningIdx siSlot = pass
     | otherwise = do
@@ -231,7 +231,7 @@ onNewSlotOpening sendActions SlotId {..}
 -- Shares-related part of new slot processing
 onNewSlotShares
     :: (WorkMode SscGodTossing m)
-    => SendActions BiP m -> SlotId -> m ()
+    => SendActions BiP VerInfo m -> SlotId -> m ()
 onNewSlotShares sendActions SlotId {..} = do
     ourId <- addressHash . ncPublicKey <$> getNodeContext
     -- Send decrypted shares that others have sent us
@@ -264,7 +264,7 @@ sscProcessOurMessage epoch msg ourId = do
 
 sendOurData
     :: (WorkMode SscGodTossing m)
-    => SendActions BiP m -> GtMsgTag -> EpochIndex -> LocalSlotIndex -> StakeholderId -> m ()
+    => SendActions BiP VerInfo m -> GtMsgTag -> EpochIndex -> LocalSlotIndex -> StakeholderId -> m ()
 sendOurData sendActions msgTag epoch slMultiplier ourId = do
     -- Note: it's not necessary to create a new thread here, because
     -- in one invocation of onNewSlot we can't process more than one

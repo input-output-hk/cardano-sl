@@ -9,28 +9,31 @@ module Pos.Communication.Server.SysStart
        , handleSysStartResp
        ) where
 
-import           Control.Concurrent.MVar   (MVar, tryPutMVar)
-import           Formatting                (build, sformat, shown, (%))
-import           Node                      (ConversationActions (..), Listener,
-                                            ListenerAction (..), NodeId, SendActions)
-import           System.Wlog               (logInfo)
+import           Control.Concurrent.MVar          (MVar, tryPutMVar)
+import           Formatting                       (build, sformat, shown, (%))
+import           Node                             (ConversationActions (..), Listener,
+                                                   ListenerAction (..), NodeId,
+                                                   SendActions)
+import           System.Wlog                      (logInfo)
 
 import           Universum
 
-import           Pos.Binary.Communication  ()
-import           Pos.Binary.DHTModel       ()
-import           Pos.Communication.BiP     (BiP)
-import           Pos.Communication.Message ()
-import           Pos.Communication.Types   (SysStartRequest (..), SysStartResponse (..))
-import           Pos.DHT.Model             (sendToNeighbors)
-import           Pos.Types                 (Timestamp)
-import           Pos.WorkMode              (MinWorkMode)
+import           Pos.Binary.Communication         ()
+import           Pos.Binary.DHTModel              ()
+import           Pos.Communication.BiP            (BiP)
+import           Pos.Communication.Message        ()
+import           Pos.Communication.Types          (SysStartRequest (..),
+                                                   SysStartResponse (..))
+import           Pos.Communication.Types.Protocol (VerInfo)
+import           Pos.DHT.Model                    (sendToNeighbors)
+import           Pos.Types                        (Timestamp)
+import           Pos.WorkMode                     (MinWorkMode)
 
 -- | Listener for 'SysStartRequest' message.
 sysStartReqListener
-    :: MinWorkMode m => Timestamp -> Listener BiP m
+    :: MinWorkMode m => Timestamp -> Listener BiP VerInfo m
 sysStartReqListener sysStart = ListenerActionConversation $
-    \peerId conv  -> do
+    \_ peerId conv  -> do
         (mReq :: Maybe SysStartRequest) <- recv conv
         whenJust mReq $ \_ -> do
             logInfo $ sformat
@@ -39,11 +42,11 @@ sysStartReqListener sysStart = ListenerActionConversation $
             send conv $ SysStartResponse sysStart
 
 -- | Listener for 'SysStartResponce' message.
-sysStartRespListener :: MinWorkMode m => MVar Timestamp -> Listener BiP m
-sysStartRespListener mvar = ListenerActionOneMsg $ handleSysStartResp mvar
+sysStartRespListener :: MinWorkMode m => MVar Timestamp -> Listener BiP VerInfo m
+sysStartRespListener mvar = ListenerActionOneMsg . const $ handleSysStartResp mvar
 
 handleSysStartResp
-  :: MinWorkMode m => MVar Timestamp -> NodeId -> SendActions BiP m -> SysStartResponse -> m ()
+  :: MinWorkMode m => MVar Timestamp -> NodeId -> SendActions BiP VerInfo m -> SysStartResponse -> m ()
 handleSysStartResp mvar peerId sendActions (SysStartResponse sysStart) = do
         logInfo $ sformat
             ("Received sysStart response from "%shown%", "%build)

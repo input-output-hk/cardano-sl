@@ -16,6 +16,7 @@ import           Universum                         hiding (ask)
 
 import           Pos.Block.Network.Retrieval       (requestTip)
 import           Pos.Communication.BiP             (BiP)
+import           Pos.Communication.Types.Protocol  (VerInfo)
 import           Pos.Constants                     (blkSecurityParam,
                                                     mdNoBlocksSlotThreshold,
                                                     mdNoCommitmentsEpochThreshold)
@@ -45,7 +46,7 @@ instance SecurityWorkersClass SscNistBeacon where
     securityWorkers = Tagged [ checkForReceivedBlocksWorker
                              ]
 
-checkForReceivedBlocksWorker :: WorkMode ssc m => SendActions BiP m -> m ()
+checkForReceivedBlocksWorker :: WorkMode ssc m => SendActions BiP VerInfo m -> m ()
 checkForReceivedBlocksWorker sendActions = onNewSlot True $ \slotId -> do
     ourPk <- ncPublicKey <$> getNodeContext
 
@@ -89,7 +90,7 @@ checkForReceivedBlocksWorker sendActions = onNewSlot True $ \slotId -> do
             "by ourselves"
         converseToNeighbors sendActions requestTip
 
-checkForIgnoredCommitmentsWorker :: forall m. WorkMode SscGodTossing m => SendActions BiP m -> m ()
+checkForIgnoredCommitmentsWorker :: forall m. WorkMode SscGodTossing m => SendActions BiP VerInfo m -> m ()
 checkForIgnoredCommitmentsWorker __sendActions = do
     epochIdx <- atomically (newTVar 0)
     _ <- runReaderT (onNewSlot True checkForIgnoredCommitmentsWorkerImpl) epochIdx

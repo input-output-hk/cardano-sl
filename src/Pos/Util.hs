@@ -144,8 +144,8 @@ import           Mockable                      (Async, Bracket, Delay, Fork, Moc
 import           Node                          (ConversationActions (..),
                                                 ListenerAction (..), Message, NodeId,
                                                 SendActions (..))
-import           Node.Message                  (MessageName (..), Packable, Unpackable,
-                                                messageName, messageName')
+import           Node.Message                  (MessageName (..), Packable, Serializable,
+                                                Unpackable, messageName, messageName')
 import           Prelude                       (read)
 import           Serokell.Data.Memory.Units    (Byte, fromBytes, toBytes)
 import           Serokell.Util                 (VerificationRes (..))
@@ -638,9 +638,9 @@ readUntilEqualTVar
 readUntilEqualTVar f tvar expVal = readTVarConditional ((expVal ==) . f) tvar
 
 stubListenerOneMsg
-    :: (WithLogger m, Message r, Unpackable p r, Packable p r)
-    => Proxy r -> ListenerAction p m
-stubListenerOneMsg p = ListenerActionOneMsg $ \_ _ m ->
+    :: (WithLogger m, Message r, Serializable p r, Serializable p d)
+    => Proxy r -> ListenerAction p d m
+stubListenerOneMsg p = ListenerActionOneMsg $ \_d _ _ m ->
                           let _ = m `asProxyTypeOf` p
                            in modifyLoggerName (<> "stub") $
                                 logDebug $ sformat
@@ -649,17 +649,17 @@ stubListenerOneMsg p = ListenerActionOneMsg $ \_ _ m ->
 
 stubListenerConv
     :: (WithLogger m, Message r, Unpackable p r, Packable p Void)
-    => Proxy r -> ListenerAction p m
-stubListenerConv p = ListenerActionConversation $ \__nId convActions ->
+    => Proxy r -> ListenerAction p d m
+stubListenerConv p = ListenerActionConversation $ \_d __nId convActions ->
                           let _ = convActions `asProxyTypeOf` __modP p
-                              __modP :: Proxy r -> Proxy (ConversationActions Void r m)
+                              __modP :: Proxy r -> Proxy (ConversationActions d Void r m)
                               __modP _ = Proxy
                            in modifyLoggerName (<> "stub") $
                                 logDebug $ sformat
                                     ("Stub listener (conv) for "%shown%": received message")
                                     (messageName p)
 
-withWaitLog :: ( CanLogInParallel m ) => SendActions p m -> SendActions p m
+withWaitLog :: ( CanLogInParallel m, Bi d ) => SendActions p d m -> SendActions p d m
 withWaitLog sendActions = sendActions
     { sendTo = \nodeId msg ->
                   let MessageName mName = messageName' msg
@@ -670,8 +670,8 @@ withWaitLog sendActions = sendActions
     }
 
 withWaitLogConv
-    :: (CanLogInParallel m, Message snd)
-    => NodeId -> ConversationActions snd rcv m -> ConversationActions snd rcv m
+    :: (CanLogInParallel m, Message snd, Bi dat)
+    => NodeId -> ConversationActions dat snd rcv m -> ConversationActions dat snd rcv m
 withWaitLogConv nodeId conv = conv { send = send', recv = recv' }
   where
     send' msg =
@@ -682,11 +682,11 @@ withWaitLogConv nodeId conv = conv { send = send', recv = recv' }
         logWarningWaitLinear 4
           (sformat ("Recv from "%shown%" in conversation") nodeId) $
             recv conv
-    MessageName sndMsg = messageName $ ((\_ -> Proxy) :: ConversationActions snd rcv m -> Proxy snd) conv
+    MessageName sndMsg = messageName $ ((\_ -> Proxy) :: ConversationActions d snd rcv m -> Proxy snd) conv
 
 withWaitLogConvL
-    :: (CanLogInParallel m, Message rcv)
-    => NodeId -> ConversationActions snd rcv m -> ConversationActions snd rcv m
+    :: (CanLogInParallel m, Message rcv, Bi dat)
+    => NodeId -> ConversationActions dat snd rcv m -> ConversationActions dat snd rcv m
 withWaitLogConvL nodeId conv = conv { send = send', recv = recv' }
   where
     send' msg =
@@ -697,7 +697,7 @@ withWaitLogConvL nodeId conv = conv { send = send', recv = recv' }
         logWarningWaitLinear 4
           (sformat ("Recv "%shown%" from "%shown%" in conversation") rcvMsg nodeId) $
             recv conv
-    MessageName rcvMsg = messageName $ ((\_ -> Proxy) :: ConversationActions snd rcv m -> Proxy rcv) conv
+    MessageName rcvMsg = messageName $ ((\_ -> Proxy) :: ConversationActions d snd rcv m -> Proxy rcv) conv
 
 
 

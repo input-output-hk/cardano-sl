@@ -8,46 +8,47 @@ module Pos.Block.Worker
        , blkWorkers
        ) where
 
-import           Control.Lens                (ix)
-import           Data.Default                (def)
-import           Formatting                  (bprint, build, sformat, shown, (%))
-import           Mockable                    (delay, fork)
-import           Node                        (SendActions)
-import           Serokell.Util               (VerificationRes (..), listJson, pairF)
-import           Serokell.Util.Exceptions    ()
-import           System.Wlog                 (WithLogger, logDebug, logError, logInfo,
-                                              logWarning)
+import           Control.Lens                     (ix)
+import           Data.Default                     (def)
+import           Formatting                       (bprint, build, sformat, shown, (%))
+import           Mockable                         (delay, fork)
+import           Node                             (SendActions)
+import           Serokell.Util                    (VerificationRes (..), listJson, pairF)
+import           Serokell.Util.Exceptions         ()
+import           System.Wlog                      (WithLogger, logDebug, logError,
+                                                   logInfo, logWarning)
 import           Universum
 
-import           Pos.Binary.Communication    ()
-import           Pos.Block.Logic             (createGenesisBlock, createMainBlock)
-import           Pos.Block.Network.Announce  (announceBlock)
-import           Pos.Block.Network.Retrieval (retrievalWorker)
-import           Pos.Communication.BiP       (BiP)
-import           Pos.Constants               (networkDiameter)
-import           Pos.Context                 (getNodeContext, ncPublicKey)
-import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
-import           Pos.DB.GState               (getPSKByIssuerAddressHash)
-import           Pos.DB.Lrc                  (getLeaders)
-import           Pos.DB.Misc                 (getProxySecretKeys)
-import           Pos.Slotting                (MonadSlots (getCurrentTime), getSlotStart,
-                                              onNewSlot)
-import           Pos.Ssc.Class               (SscHelpersClass, SscWorkersClass)
-import           Pos.Types                   (MainBlock, ProxySKEither, SlotId (..),
-                                              Timestamp (Timestamp),
-                                              VerifyBlockParams (..), gbHeader, slotIdF,
-                                              verifyBlock)
-import           Pos.Types.Address           (addressHash)
-import           Pos.Util                    (inAssertMode, logWarningWaitLinear)
-import           Pos.Util.JsonLog            (jlCreatedBlock, jlLog)
-import           Pos.WorkMode                (WorkMode)
+import           Pos.Binary.Communication         ()
+import           Pos.Block.Logic                  (createGenesisBlock, createMainBlock)
+import           Pos.Block.Network.Announce       (announceBlock)
+import           Pos.Block.Network.Retrieval      (retrievalWorker)
+import           Pos.Communication.BiP            (BiP)
+import           Pos.Communication.Types.Protocol (VerInfo)
+import           Pos.Constants                    (networkDiameter)
+import           Pos.Context                      (getNodeContext, ncPublicKey)
+import           Pos.Crypto                       (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
+import           Pos.DB.GState                    (getPSKByIssuerAddressHash)
+import           Pos.DB.Lrc                       (getLeaders)
+import           Pos.DB.Misc                      (getProxySecretKeys)
+import           Pos.Slotting                     (MonadSlots (getCurrentTime),
+                                                   getSlotStart, onNewSlot)
+import           Pos.Ssc.Class                    (SscHelpersClass, SscWorkersClass)
+import           Pos.Types                        (MainBlock, ProxySKEither, SlotId (..),
+                                                   Timestamp (Timestamp),
+                                                   VerifyBlockParams (..), gbHeader,
+                                                   slotIdF, verifyBlock)
+import           Pos.Types.Address                (addressHash)
+import           Pos.Util                         (inAssertMode, logWarningWaitLinear)
+import           Pos.Util.JsonLog                 (jlCreatedBlock, jlLog)
+import           Pos.WorkMode                     (WorkMode)
 
 -- | All workers specific to block processing.
-blkWorkers :: (SscWorkersClass ssc, WorkMode ssc m) => [SendActions BiP m -> m ()]
+blkWorkers :: (SscWorkersClass ssc, WorkMode ssc m) => [SendActions BiP VerInfo m -> m ()]
 blkWorkers = [onNewSlot True . blkOnNewSlot, retrievalWorker]
 
 -- Action which should be done when new slot starts.
-blkOnNewSlot :: WorkMode ssc m => SendActions BiP m -> SlotId -> m ()
+blkOnNewSlot :: WorkMode ssc m => SendActions BiP VerInfo m -> SlotId -> m ()
 blkOnNewSlot sendActions slotId@SlotId {..} = do
     -- First of all we create genesis block if necessary.
     mGenBlock <- createGenesisBlock siEpoch
@@ -104,7 +105,7 @@ blkOnNewSlot sendActions slotId@SlotId {..} = do
 
 onNewSlotWhenLeader
     :: WorkMode ssc m
-    => SendActions BiP m
+    => SendActions BiP VerInfo m
     -> SlotId
     -> Maybe ProxySKEither
     -> m ()

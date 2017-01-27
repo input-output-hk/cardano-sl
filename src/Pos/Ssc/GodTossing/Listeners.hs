@@ -18,6 +18,7 @@ import           Serokell.Util.Verify                   (VerificationRes (..))
 import           System.Wlog                            (logDebug)
 import           Universum
 
+import           Pos.Binary.Communication               ()
 import           Pos.Binary.Crypto                      ()
 import           Pos.Binary.Relay                       ()
 import           Pos.Binary.Ssc                         ()
@@ -26,6 +27,7 @@ import           Pos.Communication.Message              ()
 import           Pos.Communication.Relay                (DataMsg, InvMsg, Relay (..),
                                                          ReqMsg, handleDataL, handleInvL,
                                                          handleReqL)
+import           Pos.Communication.Types.Protocol       (VerInfo)
 import           Pos.Context                            (WithNodeContext (getNodeContext))
 import qualified Pos.DB.Lrc                             as LrcDB
 import           Pos.Security                           (shouldIgnorePkAddress)
@@ -62,20 +64,20 @@ instance SscListenersClass SscGodTossing where
 
 handleInvGt
     :: WorkMode SscGodTossing m
-    => ListenerAction BiP m
-handleInvGt = ListenerActionOneMsg $ \peerId sendActions (i :: InvMsg StakeholderId GtMsgTag) ->
+    => ListenerAction BiP VerInfo m
+handleInvGt = ListenerActionOneMsg $ \_ peerId sendActions (i :: InvMsg StakeholderId GtMsgTag) ->
     handleInvL i peerId sendActions
 
 handleReqGt
     :: WorkMode SscGodTossing m
-    => ListenerAction BiP m
-handleReqGt = ListenerActionOneMsg $ \peerId sendActions (r :: ReqMsg StakeholderId GtMsgTag) ->
+    => ListenerAction BiP VerInfo m
+handleReqGt = ListenerActionOneMsg $ \_ peerId sendActions (r :: ReqMsg StakeholderId GtMsgTag) ->
     handleReqL r peerId sendActions
 
 handleDataGt
     :: WorkMode SscGodTossing m
-    => ListenerAction BiP m
-handleDataGt = ListenerActionOneMsg $ \peerId sendActions (d :: DataMsg StakeholderId GtMsgContents) ->
+    => ListenerAction BiP VerInfo m
+handleDataGt = ListenerActionOneMsg $ \_ peerId sendActions (d :: DataMsg StakeholderId GtMsgContents) ->
     handleDataL d peerId sendActions
 
 instance WorkMode SscGodTossing m

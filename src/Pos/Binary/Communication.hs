@@ -3,26 +3,28 @@
 
 module Pos.Binary.Communication () where
 
-import           Data.Binary.Get            (getInt32be, getWord8, isolate, label)
-import           Data.Binary.Put            (putInt32be, putLazyByteString, putWord8,
-                                             runPut)
-import qualified Data.ByteString.Lazy       as BSL
-import           Data.Reflection            (Reifies, reflect)
-import           Formatting                 (formatToString, int, (%))
-import           Node.Message               (MessageName (..))
-import           Serokell.Data.Memory.Units (Byte)
+import           Data.Binary.Get                  (getInt32be, getWord8, isolate, label)
+import           Data.Binary.Put                  (putInt32be, putLazyByteString,
+                                                   putWord8, runPut)
+import qualified Data.ByteString.Lazy             as BSL
+import           Data.Reflection                  (Reifies, reflect)
+import           Formatting                       (formatToString, int, (%))
+import           Node.Message                     (MessageName (..))
+import           Serokell.Data.Memory.Units       (Byte)
 import           Universum
 
-import           Pos.Binary.Class           (Bi (..))
-import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
-                                             MsgGetHeaders (..), MsgHeaders (..))
-import           Pos.Communication.Types    (SysStartRequest (..), SysStartResponse (..))
-import           Pos.Delegation.Types       (CheckProxySKConfirmed (..),
-                                             CheckProxySKConfirmedRes (..),
-                                             ConfirmProxySK (..), SendProxySK (..))
-import           Pos.Ssc.Class.Types        (Ssc (..))
-import           Pos.Txp.Types              (TxMsgTag (..))
-import           Pos.Update.Network.Types   (ProposalMsgTag (..), VoteMsgTag (..))
+import           Pos.Binary.Class                 (Bi (..))
+import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (..),
+                                                   MsgGetHeaders (..), MsgHeaders (..))
+import           Pos.Communication.Types          (SysStartRequest (..),
+                                                   SysStartResponse (..))
+import           Pos.Communication.Types.Protocol (HandlerSpec (..), VerInfo (..))
+import           Pos.Delegation.Types             (CheckProxySKConfirmed (..),
+                                                   CheckProxySKConfirmedRes (..),
+                                                   ConfirmProxySK (..), SendProxySK (..))
+import           Pos.Ssc.Class.Types              (Ssc (..))
+import           Pos.Txp.Types                    (TxMsgTag (..))
+import           Pos.Update.Network.Types         (ProposalMsgTag (..), VoteMsgTag (..))
 
 deriving instance Bi MessageName
 
@@ -129,3 +131,19 @@ instance Bi ProposalMsgTag where
 instance Bi VoteMsgTag where
     put VoteMsgTag = pure ()
     get = pure VoteMsgTag
+
+instance Bi HandlerSpec where
+    put OneMsgHandler   = putWord8 0
+    put (ConvHandler m) = putWord8 1 <> put m
+    get = getWord8 >>= getImpl
+      where
+        getImpl 0 = pure OneMsgHandler
+        getImpl 1 = ConvHandler <$> get
+        getImpl _ = fail "Unknown HandlerSpec type"
+
+instance Bi VerInfo where
+    put VerInfo {..} = put vIMagic
+                    <> put vIBlockVersion
+                    <> put vIInHandlers
+                    <> put vIOutHandlers
+    get = VerInfo <$> get <*> get <*> get <*> get

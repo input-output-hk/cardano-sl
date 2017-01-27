@@ -5,30 +5,31 @@ module Pos.Worker
        , statsWorkers
        ) where
 
-import           Data.Tagged             (untag)
-import           Formatting              (sformat, (%))
-import           Mockable                (fork)
-import           Node                    (SendActions)
-import           System.Wlog             (logInfo, logNotice)
+import           Data.Tagged                      (untag)
+import           Formatting                       (sformat, (%))
+import           Mockable                         (fork)
+import           Node                             (SendActions, Worker)
+import           System.Wlog                      (logInfo, logNotice)
 import           Universum
 
-import           Pos.Block.Worker        (blkWorkers)
-import           Pos.Communication       (BiP, SysStartResponse (..))
-import           Pos.Constants           (sysTimeBroadcastSlots)
-import           Pos.Context             (NodeContext (..), getNodeContext,
-                                          setNtpLastSlot)
-import           Pos.DHT.Model.Neighbors (sendToNeighbors)
-import           Pos.DHT.Workers         (dhtWorkers)
-import           Pos.Lrc.Worker          (lrcOnNewSlotWorker)
-import           Pos.Security.Workers    (SecurityWorkersClass, securityWorkers)
-import           Pos.Slotting            (getSlotDuration, onNewSlotWithLogging)
-import           Pos.Ssc.Class.Workers   (SscWorkersClass, sscWorkers)
-import           Pos.Types               (SlotId, flattenSlotId, slotIdF)
-import           Pos.Update              (usWorkers)
-import           Pos.Util                (waitRandomInterval, withWaitLog)
-import           Pos.Util.TimeWarp       (ms)
-import           Pos.Worker.Stats        (statsWorkers)
-import           Pos.WorkMode            (WorkMode)
+import           Pos.Block.Worker                 (blkWorkers)
+import           Pos.Communication                (BiP, SysStartResponse (..))
+import           Pos.Communication.Types.Protocol (VerInfo)
+import           Pos.Constants                    (sysTimeBroadcastSlots)
+import           Pos.Context                      (NodeContext (..), getNodeContext,
+                                                   setNtpLastSlot)
+import           Pos.DHT.Model.Neighbors          (sendToNeighbors)
+import           Pos.DHT.Workers                  (dhtWorkers)
+import           Pos.Lrc.Worker                   (lrcOnNewSlotWorker)
+import           Pos.Security.Workers             (SecurityWorkersClass, securityWorkers)
+import           Pos.Slotting                     (getSlotDuration, onNewSlotWithLogging)
+import           Pos.Ssc.Class.Workers            (SscWorkersClass, sscWorkers)
+import           Pos.Types                        (SlotId, flattenSlotId, slotIdF)
+import           Pos.Update                       (usWorkers)
+import           Pos.Util                         (waitRandomInterval, withWaitLog)
+import           Pos.Util.TimeWarp                (ms)
+import           Pos.Worker.Stats                 (statsWorkers)
+import           Pos.WorkMode                     (WorkMode)
 
 -- | Run all necessary workers in separate threads. This call doesn't
 -- block.
@@ -37,7 +38,7 @@ import           Pos.WorkMode            (WorkMode)
 -- in parallel and we try to maintain this rule. If at some point
 -- order becomes important, update this comment! I don't think you
 -- will read it, but who knows…
-runWorkers :: (SscWorkersClass ssc, SecurityWorkersClass ssc, WorkMode ssc m) => SendActions BiP m -> m ()
+runWorkers :: (SscWorkersClass ssc, SecurityWorkersClass ssc, WorkMode ssc m) => Worker BiP VerInfo m
 runWorkers sendActions = mapM_ fork $ map ($ withWaitLog sendActions) $ concat
     [ [ onNewSlotWorker ]
     , dhtWorkers
@@ -48,10 +49,10 @@ runWorkers sendActions = mapM_ fork $ map ($ withWaitLog sendActions) $ concat
     , usWorkers
     ]
 
-onNewSlotWorker :: WorkMode ssc m => SendActions BiP m -> m ()
+onNewSlotWorker :: WorkMode ssc m => Worker BiP VerInfo m
 onNewSlotWorker sendActions = onNewSlotWithLogging True $ onNewSlotWorkerImpl sendActions
 
-onNewSlotWorkerImpl :: WorkMode ssc m => SendActions BiP m -> SlotId -> m ()
+onNewSlotWorkerImpl :: WorkMode ssc m =>  SendActions BiP VerInfo m -> SlotId -> m ()
 onNewSlotWorkerImpl sendActions slotId = do
     logNotice $ sformat ("New slot has just started: "%slotIdF) slotId
     setNtpLastSlot slotId

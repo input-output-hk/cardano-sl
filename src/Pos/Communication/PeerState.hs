@@ -20,11 +20,12 @@ import           Control.Monad.Reader          (ReaderT (..))
 import           Control.Monad.Trans.Class     (MonadTrans)
 import           Data.Default                  (Default (def))
 import qualified ListT                         as LT
-import           Mockable                      (ChannelT, MFunctor',
-                                                Mockable (liftMockable), Promise,
-                                                SharedAtomic, SharedAtomicT, ThreadId,
-                                                liftMockableWrappedM, newSharedAtomic,
-                                                readSharedAtomic)
+import           Mockable                      (ChannelT, Counter, Distribution, Gauge,
+                                                Gauge, MFunctor', Mockable (liftMockable),
+                                                Promise, SharedAtomic, SharedAtomicT,
+                                                SharedExclusiveT, SharedExclusiveT,
+                                                ThreadId, liftMockableWrappedM,
+                                                newSharedAtomic, readSharedAtomic)
 import           Node                          (NodeId)
 import           Serokell.Util.Lens            (WrappedM (..))
 import qualified STMContainers.Map             as STM
@@ -82,6 +83,10 @@ instance MonadBase IO m => MonadBase IO (PeerStateHolder ssc m) where
 type instance ThreadId (PeerStateHolder ssc m) = ThreadId m
 type instance Promise (PeerStateHolder ssc m) = Promise m
 type instance SharedAtomicT (PeerStateHolder ssc m) = SharedAtomicT m
+type instance Counter (PeerStateHolder ssc m) = Counter m
+type instance Distribution (PeerStateHolder ssc m) = Distribution m
+type instance SharedExclusiveT (PeerStateHolder ssc m) = SharedExclusiveT m
+type instance Gauge (PeerStateHolder ssc m) = Gauge m
 type instance ChannelT (PeerStateHolder ssc m) = ChannelT m
 
 instance ( Mockable d m

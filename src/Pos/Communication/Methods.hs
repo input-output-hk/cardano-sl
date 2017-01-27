@@ -9,28 +9,30 @@ module Pos.Communication.Methods
        , sendUpdateProposal
        ) where
 
-import           Formatting                  (build, sformat, shown, (%))
-import           Mockable                    (handleAll)
-import           Node                        (SendActions)
-import           System.Wlog                 (logWarning)
+import           Formatting                       (build, sformat, shown, (%))
+import           Mockable                         (handleAll)
+import           Node                             (SendActions)
+import           System.Wlog                      (logWarning)
 import           Universum
 
-import           Pos.Binary.Communication    ()
-import           Pos.Binary.Relay            ()
-import           Pos.Binary.Types            ()
-import           Pos.Communication.BiP       (BiP)
-import           Pos.Communication.Message   ()
-import           Pos.Communication.Relay     (DataMsg (..))
-import           Pos.Crypto                  (hash)
-import           Pos.DHT.Model.Neighbors     (sendToNode)
-import           Pos.Txp.Types.Communication (TxMsgContents (..))
-import           Pos.Types                   (TxAux)
-import           Pos.Update                  (UpId, UpdateProposal, UpdateVote, mkVoteId)
-import           Pos.Util.TimeWarp           (NetworkAddress)
-import           Pos.WorkMode                (MinWorkMode)
+import           Pos.Binary.Communication         ()
+import           Pos.Binary.Relay                 ()
+import           Pos.Binary.Types                 ()
+import           Pos.Communication.BiP            (BiP)
+import           Pos.Communication.Message        ()
+import           Pos.Communication.Relay          (DataMsg (..))
+import           Pos.Communication.Types.Protocol (VerInfo)
+import           Pos.Crypto                       (hash)
+import           Pos.DHT.Model.Neighbors          (sendToNode)
+import           Pos.Txp.Types.Communication      (TxMsgContents (..))
+import           Pos.Types                        (TxAux)
+import           Pos.Update                       (UpId, UpdateProposal, UpdateVote,
+                                                   mkVoteId)
+import           Pos.Util.TimeWarp                (NetworkAddress)
+import           Pos.WorkMode                     (MinWorkMode)
 
 -- | Send Tx to given address.
-sendTx :: (MinWorkMode m) => SendActions BiP m -> NetworkAddress -> TxAux -> m ()
+sendTx :: (MinWorkMode m) => SendActions BiP VerInfo m -> NetworkAddress -> TxAux -> m ()
 sendTx sendActions addr (tx,w,d) = handleAll handleE $ do
     sendToNode sendActions addr $ DataMsg (TxMsgContents tx w d) (hash tx)
   where
@@ -38,7 +40,7 @@ sendTx sendActions addr (tx,w,d) = handleAll handleE $ do
       logWarning $ sformat ("Error sending tx "%build%" to "%shown%": "%shown) tx addr e
 
 -- Send UpdateVote to given address.
-sendVote :: (MinWorkMode m) => SendActions BiP m -> NetworkAddress -> UpdateVote -> m ()
+sendVote :: (MinWorkMode m) => SendActions BiP VerInfo m -> NetworkAddress -> UpdateVote -> m ()
 sendVote sendActions addr vote = handleAll handleE $
     sendToNode sendActions addr $ DataMsg vote (mkVoteId vote)
   where
@@ -47,7 +49,7 @@ sendVote sendActions addr vote = handleAll handleE $
 -- Send UpdateProposal to given address.
 sendUpdateProposal
     :: (MinWorkMode m)
-    => SendActions BiP m
+    => SendActions BiP VerInfo m
     -> NetworkAddress
     -> UpId
     -> UpdateProposal

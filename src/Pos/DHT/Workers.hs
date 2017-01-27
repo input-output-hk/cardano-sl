@@ -7,10 +7,11 @@ import           Data.Binary           (encode)
 import qualified Data.ByteString.Lazy  as BS
 import           Formatting            (sformat, (%))
 import           Network.Kademlia      (takeSnapshot)
-import           Node                  (SendActions)
+import           Node                  (Worker)
 import           System.Wlog           (logNotice)
 import           Universum
 
+import           Pos.Binary.Class      (Bi)
 import           Pos.Binary.DHTModel   ()
 import           Pos.Communication.BiP (BiP)
 import           Pos.Constants         (kademliaDumpInterval)
@@ -22,10 +23,10 @@ import           Pos.Types             (slotIdF)
 import           Pos.Types.Slotting    (flattenSlotId)
 import           Pos.WorkMode          (WorkMode)
 
-dhtWorkers :: WorkMode ssc m => [SendActions BiP m -> m ()]
+dhtWorkers :: (Bi dat, WorkMode ssc m) => [Worker BiP dat m]
 dhtWorkers = [dumpKademliaStateWorker]
 
-dumpKademliaStateWorker :: WorkMode ssc m => SendActions BiP m -> m ()
+dumpKademliaStateWorker :: (Bi dat, WorkMode ssc m) => Worker BiP dat m
 dumpKademliaStateWorker __sendActions = onNewSlot True $ \slotId -> do
     when (flattenSlotId slotId `mod` kademliaDumpInterval == 0) $ do
         dumpFile <- ncKademliaDump <$> getNodeContext

@@ -8,33 +8,34 @@ module Pos.Block.Network.Listeners
        , blockStubListeners
        ) where
 
-import           Data.Proxy                  (Proxy (..))
-import           Data.Reflection             (reify)
-import           Formatting                  (sformat, shown, (%))
-import           Node                        (ConversationActions (..),
-                                              ListenerAction (..))
-import           Serokell.Data.Memory.Units  (Byte)
-import           Serokell.Util.Text          (listJson)
-import           System.Wlog                 (WithLogger, logDebug, logWarning)
+import           Data.Proxy                       (Proxy (..))
+import           Data.Reflection                  (reify)
+import           Formatting                       (sformat, shown, (%))
+import           Node                             (ConversationActions (..),
+                                                   ListenerAction (..))
+import           Serokell.Data.Memory.Units       (Byte)
+import           Serokell.Util.Text               (listJson)
+import           System.Wlog                      (WithLogger, logDebug, logWarning)
 import           Universum
 
-import           Pos.Binary.Communication    ()
-import           Pos.Block.Logic             (getHeadersFromToIncl)
-import           Pos.Block.Network.Announce  (handleHeadersCommunication)
-import           Pos.Block.Network.Retrieval (handleUnsolicitedHeaders)
-import           Pos.Block.Network.Types     (MsgBlock (..), MsgGetBlocks (..),
-                                              MsgGetHeaders (..), MsgHeaders (..))
-import           Pos.Communication.BiP       (BiP (..))
-import qualified Pos.DB                      as DB
-import           Pos.DB.Error                (DBError (DBMalformed))
-import           Pos.Ssc.Class.Types         (Ssc)
-import           Pos.Util                    (NewestFirst (..), stubListenerConv,
-                                              stubListenerOneMsg)
-import           Pos.WorkMode                (WorkMode)
+import           Pos.Binary.Communication         ()
+import           Pos.Block.Logic                  (getHeadersFromToIncl)
+import           Pos.Block.Network.Announce       (handleHeadersCommunication)
+import           Pos.Block.Network.Retrieval      (handleUnsolicitedHeaders)
+import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (..),
+                                                   MsgGetHeaders (..), MsgHeaders (..))
+import           Pos.Communication.BiP            (BiP (..))
+import           Pos.Communication.Types.Protocol (VerInfo)
+import qualified Pos.DB                           as DB
+import           Pos.DB.Error                     (DBError (DBMalformed))
+import           Pos.Ssc.Class.Types              (Ssc)
+import           Pos.Util                         (NewestFirst (..), stubListenerConv,
+                                                   stubListenerOneMsg)
+import           Pos.WorkMode                     (WorkMode)
 
 blockListeners
     :: ( WorkMode ssc m )
-    => [ListenerAction BiP m]
+    => [ListenerAction BiP VerInfo m]
 blockListeners =
     [ handleGetHeaders
     , handleGetBlocks
@@ -43,7 +44,7 @@ blockListeners =
 
 blockStubListeners
     :: ( Ssc ssc, WithLogger m )
-    => Proxy ssc -> [ListenerAction BiP m]
+    => Proxy ssc -> [ListenerAction BiP VerInfo m]
 blockStubListeners p =
     [ stubListenerConv $ (const Proxy :: Proxy ssc -> Proxy MsgGetHeaders) p
     , stubListenerOneMsg $ (const Proxy :: Proxy ssc -> Proxy MsgGetBlocks) p
@@ -56,20 +57,21 @@ blockStubListeners p =
 handleGetHeaders
     :: forall ssc m.
        (WorkMode ssc m)
-    => ListenerAction BiP m
-handleGetHeaders = ListenerActionConversation $ \__peerId conv ->
+    => ListenerAction BiP VerInfo m
+handleGetHeaders = ListenerActionConversation $ \_ __peerId conv ->
     handleHeadersCommunication conv
 
 handleGetBlocks
     :: forall ssc m.
        (Ssc ssc, WorkMode ssc m)
-    => ListenerAction BiP m
+    => ListenerAction BiP VerInfo m
 handleGetBlocks =
     -- NB #put_checkBlockSize: We can use anything as maxBlockSize
     -- here because 'put' doesn't check block size.
     reify (0 :: Byte) $ \(_ :: Proxy s0) ->
     ListenerActionConversation $
-        \__peerId (conv :: ConversationActions
+        \_ __peerId (conv :: ConversationActions
+                               VerInfo
                                (MsgBlock s0 ssc)
                                MsgGetBlocks m) ->
         whenJustM (recv conv) $ \mgb@MsgGetBlocks{..} -> do
@@ -94,9 +96,9 @@ handleGetBlocks =
 handleBlockHeaders
     :: forall ssc m.
        (WorkMode ssc m)
-    => ListenerAction BiP m
+    => ListenerAction BiP VerInfo m
 handleBlockHeaders = ListenerActionConversation $
-    \peerId conv -> do
+    \_ peerId conv -> do
         logDebug "handleBlockHeaders: got some unsolicited block header(s)"
         (mHeaders :: Maybe (MsgHeaders ssc)) <- recv conv
         whenJust mHeaders $ \(MsgHeaders headers) ->

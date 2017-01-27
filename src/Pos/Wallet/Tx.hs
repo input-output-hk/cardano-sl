@@ -9,29 +9,31 @@ module Pos.Wallet.Tx
        , createMOfNTx
        ) where
 
-import           Control.Monad.Except      (ExceptT (..), runExceptT)
-import           Formatting                (build, sformat, (%))
-import           Mockable                  (mapConcurrently)
-import           Node                      (SendActions)
-import           Pos.Util.TimeWarp         (NetworkAddress)
-import           System.Wlog               (logError, logInfo)
+import           Control.Monad.Except             (ExceptT (..), runExceptT)
+import           Formatting                       (build, sformat, (%))
+import           Mockable                         (mapConcurrently)
+import           Node                             (SendActions)
+import           Pos.Util.TimeWarp                (NetworkAddress)
+import           System.Wlog                      (logError, logInfo)
 import           Universum
 
-import           Pos.Binary                ()
-import           Pos.Communication.BiP     (BiP)
-import           Pos.Communication.Methods (sendTx)
-import           Pos.Crypto                (SecretKey, hash, toPublic)
-import           Pos.Types                 (TxAux, TxOutAux, makePubKeyAddress, txaF)
-import           Pos.WorkMode              (MinWorkMode)
+import           Pos.Binary                       ()
+import           Pos.Communication.BiP            (BiP)
+import           Pos.Communication.Methods        (sendTx)
+import           Pos.Crypto                       (SecretKey, hash, toPublic)
+import           Pos.Types                        (TxAux, TxOutAux, makePubKeyAddress,
+                                                   txaF)
+import           Pos.WorkMode                     (MinWorkMode)
 
-import           Pos.Wallet.Tx.Pure        (TxError, createMOfNTx, createTx, makeMOfNTx,
-                                            makePubKeyTx)
-import           Pos.Wallet.WalletMode     (TxMode, getOwnUtxo, saveTx)
+import           Pos.Communication.Types.Protocol (VerInfo)
+import           Pos.Wallet.Tx.Pure               (TxError, createMOfNTx, createTx,
+                                                   makeMOfNTx, makePubKeyTx)
+import           Pos.Wallet.WalletMode            (TxMode, getOwnUtxo, saveTx)
 
 -- | Construct Tx using secret key and given list of desired outputs
 submitTx
     :: TxMode ssc m
-    => SendActions BiP m
+    => SendActions BiP VerInfo m
     -> SecretKey
     -> [NetworkAddress]
     -> [TxOutAux]
@@ -49,7 +51,7 @@ submitTx sendActions sk na outputs = do
         return txw
 
 -- | Send the ready-to-use transaction
-submitTxRaw :: MinWorkMode m => SendActions BiP m -> [NetworkAddress] -> TxAux -> m ()
+submitTxRaw :: MinWorkMode m => SendActions BiP VerInfo m -> [NetworkAddress] -> TxAux -> m ()
 submitTxRaw sa na tx = do
     let txId = hash (tx ^. _1)
     logInfo $ sformat ("Submitting transaction: "%txaF) tx

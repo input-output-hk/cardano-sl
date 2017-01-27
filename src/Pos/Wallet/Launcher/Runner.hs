@@ -8,29 +8,30 @@ module Pos.Wallet.Launcher.Runner
        , runWallet
        ) where
 
-import           Control.Concurrent.STM.TVar (newTVarIO)
-import           Formatting                  (build, sformat, (%))
-import           Mockable                    (Production, bracket, currentTime, fork,
-                                              sleepForever)
-import           Node                        (Listener, SendActions)
-import           System.Wlog                 (logInfo, usingLoggerName)
-import           Universum                   hiding (bracket)
+import           Control.Concurrent.STM.TVar      (newTVarIO)
+import           Formatting                       (build, sformat, (%))
+import           Mockable                         (Production, bracket, currentTime, fork,
+                                                   sleepForever)
+import           Node                             (Listener, SendActions)
+import           System.Wlog                      (logInfo, usingLoggerName)
+import           Universum                        hiding (bracket)
 
-import           Pos.Communication           (BiP (..))
-import           Pos.DHT.Model               (discoverPeers)
-import           Pos.DHT.Real                (runKademliaDHT)
-import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
-                                              RealModeResources (..), addDevListeners,
-                                              runServer)
-import           Pos.Slotting                (SlottingState (..))
+import           Pos.Communication                (BiP (..))
+import           Pos.Communication.Types.Protocol (VerInfo)
+import           Pos.DHT.Model                    (discoverPeers)
+import           Pos.DHT.Real                     (runKademliaDHT)
+import           Pos.Launcher                     (BaseParams (..), LoggingParams (..),
+                                                   RealModeResources (..),
+                                                   addDevListeners, runServer)
+import           Pos.Slotting                     (SlottingState (..))
 
-import           Pos.Types                   (unflattenSlotId)
-import           Pos.Wallet.Context          (WalletContext (..), runContextHolder)
-import           Pos.Wallet.KeyStorage       (runKeyStorage)
-import           Pos.Wallet.Launcher.Param   (WalletParams (..))
-import           Pos.Wallet.State            (closeState, getSlotDuration, openMemState,
-                                              openState, runWalletDB)
-import           Pos.Wallet.WalletMode       (WalletMode, WalletRealMode)
+import           Pos.Types                        (unflattenSlotId)
+import           Pos.Wallet.Context               (WalletContext (..), runContextHolder)
+import           Pos.Wallet.KeyStorage            (runKeyStorage)
+import           Pos.Wallet.Launcher.Param        (WalletParams (..))
+import           Pos.Wallet.State                 (closeState, getSlotDuration,
+                                                   openMemState, openState, runWalletDB)
+import           Pos.Wallet.WalletMode            (WalletMode, WalletRealMode)
 
 -- TODO: Move to some `Pos.Wallet.Communication` and provide
 -- meaningful listeners
@@ -50,7 +51,7 @@ allWorkers = []
 runWalletRealMode
     :: RealModeResources
     -> WalletParams
-    -> (SendActions BiP WalletRealMode -> WalletRealMode a)
+    -> ( SendActions BiP VerInfo WalletRealMode -> WalletRealMode a)
     -> Production a
 runWalletRealMode res wp@WalletParams {..} = runRawRealWallet res wp listeners
   where
@@ -59,11 +60,11 @@ runWalletRealMode res wp@WalletParams {..} = runRawRealWallet res wp listeners
 runWalletReal
     :: RealModeResources
     -> WalletParams
-    -> [SendActions BiP WalletRealMode -> WalletRealMode ()]
+    -> [ SendActions BiP VerInfo WalletRealMode -> WalletRealMode ()]
     -> Production ()
 runWalletReal res wp = runWalletRealMode res wp . runWallet
 
-runWallet :: WalletMode ssc m => [SendActions BiP m -> m ()] -> SendActions BiP m -> m ()
+runWallet :: WalletMode ssc m => [ SendActions BiP VerInfo m -> m ()] ->  SendActions BiP VerInfo m -> m ()
 runWallet plugins sendActions = do
     logInfo "Wallet is initialized!"
     peers <- discoverPeers
@@ -75,8 +76,8 @@ runWallet plugins sendActions = do
 runRawRealWallet
     :: RealModeResources
     -> WalletParams
-    -> [Listener BiP WalletRealMode]
-    -> (SendActions BiP WalletRealMode -> WalletRealMode a)
+    -> [Listener BiP VerInfo WalletRealMode]
+    -> ( SendActions BiP VerInfo WalletRealMode -> WalletRealMode a)
     -> Production a
 runRawRealWallet res WalletParams {..} listeners action =
     usingLoggerName lpRunnerTag .

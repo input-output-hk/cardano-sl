@@ -30,8 +30,8 @@ import           Pos.Util.TimeWarp   (NetworkAddress)
 -- It's a broadcasting to the neighbours without sessions
 -- (i.e. we don't have to wait for reply from the listeners).
 sendToNeighbors
-    :: ( MonadDHT m, MonadMockable m, Serializable packing body, WithLogger m, Message body )
-    => SendActions packing m
+    :: ( MonadDHT m, MonadMockable m, Serializable packing dat, Serializable packing body, WithLogger m, Message body )
+    => SendActions packing dat m
     -> body
     -> m ()
 sendToNeighbors sendActions msg = do
@@ -54,8 +54,8 @@ getNodesWithCheck = do
     return nodes
 
 sendToNode
-    :: ( MonadMockable m, Serializable packing body, Message body )
-    => SendActions packing m
+    :: ( MonadMockable m, Serializable packing body, Serializable packing dat, Message body )
+    => SendActions packing dat m
     -> NetworkAddress
     -> body
     -> m ()
@@ -66,10 +66,10 @@ sendToNode sendActions addr msg =
                   | otherwise     = throw e
 
 converseToNode
-    :: ( MonadMockable m, Unpackable packing rcv, Packable packing snd, Message snd )
-    => SendActions packing m
+    :: ( MonadMockable m, Unpackable packing rcv, Packable packing snd, Message snd, Serializable packing dat )
+    => SendActions packing dat m
     -> NetworkAddress
-    -> (NodeId -> ConversationActions snd rcv m -> m t)
+    -> (NodeId -> ConversationActions dat snd rcv m -> m t)
     -> m t
 converseToNode sendActions addr handler =
     handleAll handleE $ tryConnect 0
@@ -81,9 +81,9 @@ converseToNode sendActions addr handler =
               peerId = addressToNodeId' i addr
 
 converseToNeighbors
-    :: ( MonadDHT m, MonadMockable m, WithLogger m, Unpackable packing rcv, Packable packing snd, Message snd )
-    => SendActions packing m
-    -> (NodeId -> ConversationActions snd rcv m -> m ())
+    :: ( MonadDHT m, MonadMockable m, WithLogger m, Unpackable packing rcv, Packable packing snd, Message snd, Serializable packing dat )
+    => SendActions packing dat m
+    -> (NodeId -> ConversationActions dat snd rcv m -> m ())
     -> m ()
 converseToNeighbors sendActions convHandler = do
     nodes <- getNodesWithCheck

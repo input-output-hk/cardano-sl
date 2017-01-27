@@ -17,9 +17,6 @@ import           Pos.Txp.Types.Communication      (TxMsgContents, TxMsgTag)
 import           Pos.Update.Core.Types            (UpdateProposal, UpdateVote)
 import           Pos.Update.Network.Types         (ProposalMsgTag, VoteMsgTag)
 
--- TODO Move to time-warp-nt
-deriving instance Monoid (MessageName)
-
 varIntMName :: Int -> MessageName
 varIntMName = MessageName . encodeStrict . UnsignedVarInt
 

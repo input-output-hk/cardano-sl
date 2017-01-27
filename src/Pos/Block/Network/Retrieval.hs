@@ -12,50 +12,52 @@ module Pos.Block.Network.Retrieval
        , mkHeadersRequest
        ) where
 
-import           Control.Concurrent.STM     (isEmptyTBQueue, isFullTBQueue, putTMVar,
-                                             readTBQueue, tryReadTMVar, tryTakeTMVar,
-                                             writeTBQueue)
-import           Control.Lens               (_Wrapped)
-import           Control.Monad.Trans.Except (ExceptT, runExceptT, throwE)
-import           Data.List.NonEmpty         ((<|))
-import qualified Data.List.NonEmpty         as NE
-import           Data.Reflection            (reify)
-import           Formatting                 (build, int, sformat, shown, stext, (%))
-import           Mockable                   (fork, handleAll, throw)
-import           Node                       (ConversationActions (..), NodeId,
-                                             SendActions (..))
-import           Serokell.Util.Exceptions   (throwText)
-import           Serokell.Util.Text         (listJson)
-import           Serokell.Util.Verify       (isVerSuccess)
-import           System.Wlog                (logDebug, logError, logInfo, logWarning)
+import           Control.Concurrent.STM           (isEmptyTBQueue, isFullTBQueue,
+                                                   putTMVar, readTBQueue, tryReadTMVar,
+                                                   tryTakeTMVar, writeTBQueue)
+import           Control.Lens                     (_Wrapped)
+import           Control.Monad.Trans.Except       (ExceptT, runExceptT, throwE)
+import           Data.List.NonEmpty               ((<|))
+import qualified Data.List.NonEmpty               as NE
+import           Data.Reflection                  (reify)
+import           Formatting                       (build, int, sformat, shown, stext, (%))
+import           Mockable                         (fork, handleAll, throw)
+import           Node                             (ConversationActions (..), NodeId,
+                                                   SendActions (..))
+import           Serokell.Util.Exceptions         (throwText)
+import           Serokell.Util.Text               (listJson)
+import           Serokell.Util.Verify             (isVerSuccess)
+import           System.Wlog                      (logDebug, logError, logInfo,
+                                                   logWarning)
 import           Universum
 
-import           Pos.Binary.Communication   ()
-import           Pos.Block.Logic            (ClassifyHeaderRes (..),
-                                             ClassifyHeadersRes (..), classifyHeaders,
-                                             classifyNewHeader, getHeadersOlderExp,
-                                             lcaWithMainChain, verifyAndApplyBlocks,
-                                             withBlkSemaphore)
-import qualified Pos.Block.Logic            as L
-import           Pos.Block.Network.Announce (announceBlock)
-import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
-                                             MsgGetHeaders (..), MsgHeaders (..))
-import           Pos.Block.Types            (Blund)
-import           Pos.Communication.BiP      (BiP (..))
-import           Pos.Constants              (blkSecurityParam)
-import           Pos.Context                (NodeContext (..), getNodeContext)
-import           Pos.Crypto                 (hash, shortHashF)
-import qualified Pos.DB                     as DB
-import qualified Pos.DB.GState              as GState
-import           Pos.DHT.Model              (nodeIdToAddress)
-import           Pos.Ssc.Class              (Ssc, SscWorkersClass)
-import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (..),
-                                             HeaderHash, blockHeader, difficultyL,
-                                             gbHeader, prevBlockL, verifyHeaders)
-import           Pos.Util                   (NE, NewestFirst (..), OldestFirst (..),
-                                             inAssertMode, toNewestFirst, _neHead,
-                                             _neLast)
-import           Pos.WorkMode               (WorkMode)
+import           Pos.Binary.Communication         ()
+import           Pos.Block.Logic                  (ClassifyHeaderRes (..),
+                                                   ClassifyHeadersRes (..),
+                                                   classifyHeaders, classifyNewHeader,
+                                                   getHeadersOlderExp, lcaWithMainChain,
+                                                   verifyAndApplyBlocks, withBlkSemaphore)
+import qualified Pos.Block.Logic                  as L
+import           Pos.Block.Network.Announce       (announceBlock)
+import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (..),
+                                                   MsgGetHeaders (..), MsgHeaders (..))
+import           Pos.Block.Types                  (Blund)
+import           Pos.Communication.BiP            (BiP (..))
+import           Pos.Communication.Types.Protocol (VerInfo)
+import           Pos.Constants                    (blkSecurityParam)
+import           Pos.Context                      (NodeContext (..), getNodeContext)
+import           Pos.Crypto                       (hash, shortHashF)
+import qualified Pos.DB                           as DB
+import qualified Pos.DB.GState                    as GState
+import           Pos.DHT.Model                    (nodeIdToAddress)
+import           Pos.Ssc.Class                    (Ssc, SscWorkersClass)
+import           Pos.Types                        (Block, BlockHeader, HasHeaderHash (..),
+                                                   HeaderHash, blockHeader, difficultyL,
+                                                   gbHeader, prevBlockL, verifyHeaders)
+import           Pos.Util                         (NE, NewestFirst (..), OldestFirst (..),
+                                                   inAssertMode, toNewestFirst, _neHead,
+                                                   _neLast)
+import           Pos.WorkMode                     (WorkMode)
 
 data VerifyBlocksException = VerifyBlocksException Text deriving Show
 instance Exception VerifyBlocksException
@@ -63,7 +65,7 @@ instance Exception VerifyBlocksException
 retrievalWorker
     :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
-    => SendActions BiP m -> m ()
+    => SendActions BiP VerInfo m -> m ()
 retrievalWorker sendActions = handleAll handleWE $ do
     NodeContext{..} <- getNodeContext
     loop ncBlockRetrievalQueue ncRecoveryHeader
@@ -138,7 +140,7 @@ retrievalWorker sendActions = handleAll handleWE $ do
         -- a parameter to the 'Bi' instance of 'MsgBlock'.
         reify maxBlockSize $ \(_ :: Proxy s0) ->
           withConnectionTo sendActions peerId $
-          \(conv :: ConversationActions MsgGetBlocks (MsgBlock s0 ssc) m) -> do
+          \(conv :: ConversationActions VerInfo MsgGetBlocks (MsgBlock s0 ssc) m) -> do
             send conv $ mkBlocksRequest lcaChildHash newestHash
             chainE <- runExceptT (retrieveBlocks conv lcaChild newestHash)
             recHeaderVar <- ncRecoveryHeader <$> getNodeContext
@@ -172,7 +174,7 @@ retrievalWorker sendActions = handleAll handleWE $ do
     retrieveBlocks'
         :: forall s.
            Int
-        -> ConversationActions MsgGetBlocks (MsgBlock s ssc) m
+        -> ConversationActions VerInfo MsgGetBlocks (MsgBlock s ssc) m
         -> HeaderHash          -- ^ We're expecting a child of this block
         -> HeaderHash          -- ^ Block at which to stop
         -> ExceptT Text m (OldestFirst NE (Block ssc))
@@ -210,7 +212,7 @@ handleUnsolicitedHeaders
        (WorkMode ssc m)
     => NonEmpty (BlockHeader ssc)
     -> NodeId
-    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
+    -> ConversationActions VerInfo MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
 handleUnsolicitedHeaders (header :| []) peerId conv =
     handleUnsolicitedHeader header peerId conv
@@ -224,7 +226,7 @@ handleUnsolicitedHeader
        (WorkMode ssc m)
     => BlockHeader ssc
     -> NodeId
-    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
+    -> ConversationActions VerInfo MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
 handleUnsolicitedHeader header peerId conv = do
     logDebug $ sformat
@@ -298,7 +300,7 @@ matchRequestedHeaders headers MsgGetHeaders{..} =
 requestTip
     :: forall ssc m.
        (WorkMode ssc m)
-    => NodeId -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m -> m ()
+    => NodeId -> ConversationActions VerInfo MsgGetHeaders (MsgHeaders ssc) m -> m ()
 requestTip peerId conv = do
     logDebug "Requesting tip..."
     send conv (MsgGetHeaders [] Nothing)
@@ -317,7 +319,7 @@ requestHeaders
     => MsgGetHeaders
     -> Maybe (BlockHeader ssc)
     -> NodeId
-    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
+    -> ConversationActions VerInfo MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
 requestHeaders mgh recoveryHeader peerId conv = do
     logDebug $ sformat ("handleUnsolicitedHeader: withConnection: sending "%shown) mgh
@@ -421,7 +423,7 @@ handleBlocks
     :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
     => OldestFirst NE (Block ssc)
-    -> SendActions BiP m
+    -> SendActions BiP VerInfo m
     -> m ()
 handleBlocks blocks sendActions = do
     logDebug "handleBlocks: processing"
@@ -439,7 +441,7 @@ handleBlocks blocks sendActions = do
 
 handleBlocksWithLca :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
-    => SendActions BiP m -> OldestFirst NE (Block ssc) -> HeaderHash -> m ()
+    => SendActions BiP VerInfo m -> OldestFirst NE (Block ssc) -> HeaderHash -> m ()
 handleBlocksWithLca sendActions blocks lcaHash = do
     logDebug $ sformat lcaFmt lcaHash
     -- Head blund in result is the youngest one.
@@ -453,7 +455,7 @@ handleBlocksWithLca sendActions blocks lcaHash = do
 applyWithoutRollback
     :: forall ssc m.
        (WorkMode ssc m, SscWorkersClass ssc)
-    => SendActions BiP m -> OldestFirst NE (Block ssc) -> m ()
+    => SendActions BiP VerInfo m -> OldestFirst NE (Block ssc) -> m ()
 applyWithoutRollback sendActions blocks = do
     logInfo $ sformat ("Trying to apply blocks w/o rollback: "%listJson) $
         fmap (view blockHeader) blocks
@@ -488,7 +490,7 @@ applyWithoutRollback sendActions blocks = do
 applyWithRollback
     :: forall ssc m.
        (WorkMode ssc m, SscWorkersClass ssc)
-    => SendActions BiP m
+    => SendActions BiP VerInfo m
     -> OldestFirst NE (Block ssc)
     -> HeaderHash
     -> NewestFirst NE (Blund ssc)
@@ -521,7 +523,7 @@ applyWithRollback sendActions toApply lca toRollback = do
 relayBlock
     :: forall ssc m.
        (WorkMode ssc m)
-    => SendActions BiP m -> Block ssc -> m ()
+    => SendActions BiP VerInfo m -> Block ssc -> m ()
 relayBlock _ (Left _)                  = pass
 relayBlock sendActions (Right mainBlk) = do
     isRecovery <- do

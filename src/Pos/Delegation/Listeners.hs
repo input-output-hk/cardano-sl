@@ -12,38 +12,45 @@ module Pos.Delegation.Listeners
        , handleCheckProxySKConfirmed
        ) where
 
-import           Data.Proxy               (Proxy (..))
-import           Data.Time.Clock          (getCurrentTime)
-import           Formatting               (build, sformat, shown, (%))
-import           System.Wlog              (WithLogger, logDebug, logInfo)
+import           Data.Proxy                       (Proxy (..))
+import           Data.Time.Clock                  (getCurrentTime)
+import           Formatting                       (build, sformat, shown, (%))
+import           System.Wlog                      (WithLogger, logDebug, logInfo)
 import           Universum
 
-import           Node                     (ListenerAction (..), SendActions (..), sendTo)
+import           Node                             (ListenerAction (..), SendActions (..),
+                                                   sendTo)
 
 
-import           Pos.Binary.Communication ()
-import           Pos.Communication.BiP    (BiP (..))
-import           Pos.Context              (getNodeContext, ncBlkSemaphore, ncPropagation)
-import           Pos.Delegation.Logic     (ConfirmPskEpochVerdict (..),
-                                           PskEpochVerdict (..), PskSimpleVerdict (..),
-                                           invalidateProxyCaches, isProxySKConfirmed,
-                                           processConfirmProxySk, processProxySKEpoch,
-                                           processProxySKSimple, runDelegationStateAction)
-import           Pos.Delegation.Methods   (sendProxyConfirmSK, sendProxySKEpoch,
-                                           sendProxySKSimple)
-import           Pos.Delegation.Types     (CheckProxySKConfirmed (..),
-                                           CheckProxySKConfirmedRes (..),
-                                           ConfirmProxySK (..), SendProxySK (..))
-import           Pos.DHT.Model            (sendToNeighbors)
-import           Pos.Types                (ProxySKEpoch)
-import           Pos.Util                 (stubListenerOneMsg)
-import           Pos.WorkMode             (WorkMode)
+import           Pos.Binary.Communication         ()
+import           Pos.Communication.BiP            (BiP (..))
+import           Pos.Communication.Types.Protocol (VerInfo)
+import           Pos.Context                      (getNodeContext, ncBlkSemaphore,
+                                                   ncPropagation)
+import           Pos.Delegation.Logic             (ConfirmPskEpochVerdict (..),
+                                                   PskEpochVerdict (..),
+                                                   PskSimpleVerdict (..),
+                                                   invalidateProxyCaches,
+                                                   isProxySKConfirmed,
+                                                   processConfirmProxySk,
+                                                   processProxySKEpoch,
+                                                   processProxySKSimple,
+                                                   runDelegationStateAction)
+import           Pos.Delegation.Methods           (sendProxyConfirmSK, sendProxySKEpoch,
+                                                   sendProxySKSimple)
+import           Pos.Delegation.Types             (CheckProxySKConfirmed (..),
+                                                   CheckProxySKConfirmedRes (..),
+                                                   ConfirmProxySK (..), SendProxySK (..))
+import           Pos.DHT.Model                    (sendToNeighbors)
+import           Pos.Types                        (ProxySKEpoch)
+import           Pos.Util                         (stubListenerOneMsg)
+import           Pos.WorkMode                     (WorkMode)
 
 -- | Listeners for requests related to delegation processing.
 delegationListeners
     :: ( WorkMode ssc m
        )
-    => [ListenerAction BiP m]
+    => [ListenerAction BiP VerInfo m]
 delegationListeners =
     [ handleSendProxySK
     , handleConfirmProxySK
@@ -52,7 +59,7 @@ delegationListeners =
 
 delegationStubListeners
     :: WithLogger m
-    => [ListenerAction BiP m]
+    => [ListenerAction BiP VerInfo m]
 delegationStubListeners =
     [ stubListenerOneMsg (Proxy :: Proxy SendProxySK)
     , stubListenerOneMsg (Proxy :: Proxy ConfirmProxySK)
@@ -67,9 +74,9 @@ delegationStubListeners =
 handleSendProxySK
     :: forall ssc m.
        (WorkMode ssc m)
-    => ListenerAction BiP m
+    => ListenerAction BiP VerInfo m
 handleSendProxySK = ListenerActionOneMsg $
-    \_ sendActions (pr :: SendProxySK) -> handleDo sendActions pr
+    \_ _ sendActions (pr :: SendProxySK) -> handleDo sendActions pr
   where
     handleDo sendActions req@(SendProxySKSimple pSk) = do
         logDebug $ sformat ("Got request to handle heavyweight psk: "%build) pSk
@@ -109,7 +116,7 @@ handleSendProxySK = ListenerActionOneMsg $
 -- | Propagates lightweight PSK depending on the 'ProxyEpochVerdict'.
 propagateProxySKEpoch
   :: (WorkMode ssc m)
-  => PskEpochVerdict -> ProxySKEpoch -> SendActions BiP m -> m ()
+  => PskEpochVerdict -> ProxySKEpoch -> SendActions BiP VerInfo m -> m ()
 propagateProxySKEpoch PEUnrelated pSk sendActions =
     whenM (ncPropagation <$> getNodeContext) $ do
         logDebug $ sformat ("Propagating lightweight PSK: "%build) pSk
@@ -124,9 +131,9 @@ propagateProxySKEpoch _ _ _ = pass
 handleConfirmProxySK
     :: forall ssc m.
        (WorkMode ssc m)
-    => ListenerAction BiP m
+    => ListenerAction BiP VerInfo m
 handleConfirmProxySK = ListenerActionOneMsg $
-    \_ sendActions ((o@(ConfirmProxySK pSk proof)) :: ConfirmProxySK) -> do
+    \_ _ sendActions ((o@(ConfirmProxySK pSk proof)) :: ConfirmProxySK) -> do
         logDebug $ sformat ("Got request to handle confirmation for psk: "%build) pSk
         verdict <- processConfirmProxySk pSk proof
         propagateConfirmProxySK verdict o sendActions
@@ -136,7 +143,7 @@ propagateConfirmProxySK
        (WorkMode ssc m)
     => ConfirmPskEpochVerdict
     -> ConfirmProxySK
-    -> SendActions BiP m
+    -> SendActions BiP VerInfo m
     -> m ()
 propagateConfirmProxySK CPValid
                         confPSK@(ConfirmProxySK pSk _)
@@ -149,9 +156,9 @@ propagateConfirmProxySK _ _ _ = pure ()
 handleCheckProxySKConfirmed
     :: forall ssc m.
        (WorkMode ssc m)
-    => ListenerAction BiP m
+    => ListenerAction BiP VerInfo m
 handleCheckProxySKConfirmed = ListenerActionOneMsg $
-    \peerId sendActions (CheckProxySKConfirmed pSk :: CheckProxySKConfirmed) -> do
+    \_ peerId sendActions (CheckProxySKConfirmed pSk :: CheckProxySKConfirmed) -> do
         logDebug $ sformat ("Got request to check if psk: "%build%" was delivered.") pSk
         res <- runDelegationStateAction $ isProxySKConfirmed pSk
         sendTo sendActions peerId $ CheckProxySKConfirmedRes res

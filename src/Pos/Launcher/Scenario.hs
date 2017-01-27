@@ -8,40 +8,42 @@ module Pos.Launcher.Scenario
        , initLrc
        ) where
 
-import           Control.Concurrent.MVar     (putMVar)
-import           Control.Concurrent.STM.TVar (writeTVar)
-import           Data.Default                (def)
-import           Development.GitRev          (gitBranch, gitHash)
-import           Formatting                  (build, int, sformat, (%))
-import           Mockable                    (currentTime, delay, fork, sleepForever)
-import           Node                        (SendActions)
-import           System.Wlog                 (logError, logInfo)
+import           Control.Concurrent.MVar          (putMVar)
+import           Control.Concurrent.STM.TVar      (writeTVar)
+import           Data.Default                     (def)
+import           Development.GitRev               (gitBranch, gitHash)
+import           Formatting                       (build, int, sformat, (%))
+import           Mockable                         (currentTime, delay, fork, sleepForever)
+import           Node                             (SendActions)
+import           System.Wlog                      (logError, logInfo)
 import           Universum
 
-import           Pos.Communication           (BiP)
-import           Pos.Constants               (isDevelopment, ntpMaxError,
-                                              ntpResponseTimeout)
-import           Pos.Context                 (NodeContext (..), getNodeContext,
-                                              ncPubKeyAddress, ncPublicKey, readNtpMargin)
-import qualified Pos.DB.GState               as GS
-import qualified Pos.DB.Lrc                  as LrcDB
-import           Pos.Delegation.Logic        (initDelegation)
-import           Pos.DHT.Model               (discoverPeers)
-import           Pos.Slotting                (getCurrentSlot)
-import           Pos.Ssc.Class               (SscConstraint)
-import           Pos.Types                   (Timestamp (Timestamp), addressHash)
-import           Pos.Update                  (MemState (..), askUSMemVar, mvState)
-import           Pos.Util                    (inAssertMode, waitRandomInterval)
-import           Pos.Util.TimeWarp           (sec)
-import           Pos.Worker                  (runWorkers)
-import           Pos.Worker.Ntp              (ntpWorker)
-import           Pos.WorkMode                (WorkMode)
+import           Pos.Communication                (BiP)
+import           Pos.Communication.Types.Protocol (VerInfo)
+import           Pos.Constants                    (isDevelopment, ntpMaxError,
+                                                   ntpResponseTimeout)
+import           Pos.Context                      (NodeContext (..), getNodeContext,
+                                                   ncPubKeyAddress, ncPublicKey,
+                                                   readNtpMargin)
+import qualified Pos.DB.GState                    as GS
+import qualified Pos.DB.Lrc                       as LrcDB
+import           Pos.Delegation.Logic             (initDelegation)
+import           Pos.DHT.Model                    (discoverPeers)
+import           Pos.Slotting                     (getCurrentSlot)
+import           Pos.Ssc.Class                    (SscConstraint)
+import           Pos.Types                        (Timestamp (Timestamp), addressHash)
+import           Pos.Update                       (MemState (..), askUSMemVar, mvState)
+import           Pos.Util                         (inAssertMode, waitRandomInterval)
+import           Pos.Util.TimeWarp                (sec)
+import           Pos.Worker                       (runWorkers)
+import           Pos.Worker.Ntp                   (ntpWorker)
+import           Pos.WorkMode                     (WorkMode)
 
 -- | Run full node in any WorkMode.
 runNode
     :: (SscConstraint ssc, WorkMode ssc m)
-    => [SendActions BiP m -> m ()]
-    -> SendActions BiP m
+    => [SendActions BiP VerInfo m -> m ()]
+    ->  SendActions BiP VerInfo m
     -> m ()
 runNode plugins sendActions = do
     logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)

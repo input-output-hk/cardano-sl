@@ -11,8 +11,10 @@ import           Universum
 
 import           Control.Lens               (iso)
 import           Control.Monad.Trans        (MonadTrans (..))
-import           Mockable                   (ChannelT, MFunctor', Mockable (liftMockable),
-                                             Promise, SharedAtomicT, ThreadId,
+import           Mockable                   (ChannelT, Counter, Distribution, Gauge,
+                                             Gauge, MFunctor', Mockable (liftMockable),
+                                             Promise, SharedAtomicT, SharedExclusiveT,
+                                             SharedExclusiveT, ThreadId,
                                              liftMockableWrappedM)
 import           Serokell.Util.Lens         (WrappedM (..))
 import           System.Wlog                (CanLog, HasLoggerName)
@@ -52,6 +54,10 @@ instance Monad m => WrappedM (WalletWebDB m) where
 type instance ThreadId (WalletWebDB m) = ThreadId m
 type instance Promise (WalletWebDB m) = Promise m
 type instance SharedAtomicT (WalletWebDB m) = SharedAtomicT m
+type instance Counter (WalletWebDB m) = Counter m
+type instance Distribution (WalletWebDB m) = Distribution m
+type instance SharedExclusiveT (WalletWebDB m) = SharedExclusiveT m
+type instance Gauge (WalletWebDB m) = Gauge m
 type instance ChannelT (WalletWebDB m) = ChannelT m
 
 instance ( Mockable d m

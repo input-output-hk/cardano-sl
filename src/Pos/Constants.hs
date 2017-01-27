@@ -8,15 +8,13 @@
 
 module Pos.Constants
        (
-         -- * Constants mentioned in paper
+       -- * Constants mentioned in paper
          blkSecurityParam
        , slotSecurityParam
-       , slotDuration
        , epochSlots
-       , epochDuration
        , networkDiameter
 
-         -- * SSC constants
+       -- * SSC constants
        , sharedSeedLength
        , mpcSendInterval
        , mpcThreshold
@@ -25,8 +23,12 @@ module Pos.Constants
        , isDevelopment
        , staticSysStart
 
-         -- * Other constants
+       -- * Genesis constants
        , genesisN
+       , genesisSlotDuration
+       , genesisMaxBlockSize
+
+       -- * Other constants
        , maxLocalTxs
        , maxBlockProxySKs
        , neighborsSendThreshold
@@ -42,11 +44,11 @@ module Pos.Constants
        , recoveryHeadersMessage
        , kademliaDumpInterval
 
-         -- * Malicious activity detection constants
+       -- * Malicious activity detection constants
        , mdNoBlocksSlotThreshold
        , mdNoCommitmentsEpochThreshold
 
-         -- * Update system constants
+       -- * Update system constants
        , lastKnownBlockVersion
        , curSoftwareVersion
        , ourAppName
@@ -55,6 +57,7 @@ module Pos.Constants
        , updateProposalThreshold
        , updateVoteThreshold
        , updateImplicitApproval
+       , usSoftforkThreshold
 
        -- * NTP
        , ntpMaxError
@@ -65,6 +68,8 @@ module Pos.Constants
 import           Data.Time.Units            (Microsecond)
 import           Language.Haskell.TH.Syntax (lift, runIO)
 import           Pos.Util.TimeWarp          (ms, sec)
+import           Serokell.Data.Memory.Units (Byte)
+import           Serokell.Util              (staticAssert)
 import           System.Environment         (lookupEnv)
 import qualified Text.Parsec                as P
 import           Universum                  hiding (lift)
@@ -98,17 +103,9 @@ blkSecurityParam = fromIntegral . ccK $ compileConfig
 slotSecurityParam :: Integral a => a
 slotSecurityParam = 2 * blkSecurityParam
 
--- | Length of slot. Also see 'Pos.CompileConfig.ccSlotDurationSec'.
-slotDuration :: Microsecond
-slotDuration = sec . ccSlotDurationSec $ compileConfig
-
 -- | Number of slots inside one epoch.
 epochSlots :: Integral a => a
 epochSlots = 12 * blkSecurityParam
-
--- | Length of one epoch in 'Microsecond's.
-epochDuration :: Microsecond
-epochDuration = epochSlots * slotDuration
 
 -- | Estimated time needed to broadcast message from one node to all
 -- other nodes. Also see 'Pos.CompileConfig.ccNetworkDiameter'.
@@ -134,12 +131,24 @@ mpcThreshold :: CoinPortion
 mpcThreshold = unsafeCoinPortion $ ccMpcThreshold compileConfig
 
 ----------------------------------------------------------------------------
--- Other constants
+-- Genesis
 ----------------------------------------------------------------------------
 
 -- | See 'Pos.CompileConfig.ccGenesisN'.
 genesisN :: Integral i => i
 genesisN = fromIntegral . ccGenesisN $ compileConfig
+
+-- | Length of slot.
+genesisSlotDuration :: Microsecond
+genesisSlotDuration = sec . ccGenesisSlotDurationSec $ compileConfig
+
+-- | Maximum size of a block (in bytes)
+genesisMaxBlockSize :: Byte
+genesisMaxBlockSize = ccGenesisMaxBlockSize $ compileConfig
+
+----------------------------------------------------------------------------
+-- Other constants
+----------------------------------------------------------------------------
 
 -- | Maximum amount of transactions we have in storage
 -- (i.e. we can accept without putting them in block).
@@ -314,29 +323,41 @@ ntpPollDelay = mcs . ccNtpPollDelay $ compileConfig
 updateProposalThreshold :: CoinPortion
 updateProposalThreshold = unsafeCoinPortion $ ccUpdateProposalThreshold compileConfig
 
--- GHC stage restriction
--- staticAssert
---     (getCoinPortion updateProposalThreshold >= 0)
---     "updateProposalThreshold is negative"
+staticAssert
+    (ccUpdateProposalThreshold compileConfig >= 0)
+    "updateProposalThreshold is negative"
 
--- staticAssert
---     (getCoinPortion updateProposalThreshold <= 1)
---     "updateProposalThreshold is more than 1"
+staticAssert
+    (ccUpdateProposalThreshold compileConfig <= 1)
+    "updateProposalThreshold is more than 1"
 
 -- | Portion of total stake necessary to vote for or against update.
 updateVoteThreshold :: CoinPortion
 updateVoteThreshold = unsafeCoinPortion $ ccUpdateVoteThreshold compileConfig
 
--- GHC stage restriction
--- staticAssert
---     (getCoinPortion updateVoteThreshold >= 0)
---     "updateVoteThreshold is negative"
+staticAssert
+    (ccUpdateVoteThreshold compileConfig >= 0)
+    "updateVoteThreshold is negative"
 
--- staticAssert
---     (getCoinPortion updateVoteThreshold <= 1)
---     "updateVoteThreshold is more than 1"
+staticAssert
+    (ccUpdateVoteThreshold compileConfig <= 1)
+    "updateVoteThreshold is more than 1"
 
 -- | Number of slots after which update is implicitly approved
 -- unless it has more negative votes than positive.
 updateImplicitApproval :: Integral i => i
 updateImplicitApproval = fromIntegral $ ccUpdateImplicitApproval compileConfig
+
+-- | Portion of total stake such that if total stake of issuers of blocks
+-- with some block version is bigger than this portion, this block
+-- version is adopted.
+usSoftforkThreshold :: CoinPortion
+usSoftforkThreshold = unsafeCoinPortion $ ccUsSoftforkThreshold compileConfig
+
+staticAssert
+    (ccUsSoftforkThreshold compileConfig >= 0)
+    "usSoftforkThreshold is negative"
+
+staticAssert
+    (ccUsSoftforkThreshold compileConfig <= 1)
+    "usSoftforkThreshold is more than 1"

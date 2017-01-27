@@ -16,11 +16,12 @@ instance Default PollModifier where
         PollModifier
         { pmNewBVs = mempty
         , pmDelBVs = mempty
-        , pmLastAdoptedBV = Nothing
+        , pmAdoptedBVFull = Nothing
         , pmNewConfirmed = mempty
         , pmDelConfirmed = mempty
         , pmNewActiveProps = mempty
         , pmNewConfirmedProps = mempty
+        , pmDelConfirmedProps = mempty
         , pmDelActiveProps = mempty
         , pmNewActivePropsIdx = mempty
         , pmDelActivePropsIdx = mempty
@@ -32,10 +33,11 @@ modifyPollModifier :: PollModifier -> PollModifier -> PollModifier
 modifyPollModifier pmOld pmNew = PollModifier
     (unionHM pmNewBVs `diffMapSet` pmDelBVs pmNew)
     (unionHS pmDelBVs)
-    (pmLastAdoptedBV pmNew <|> pmLastAdoptedBV pmOld)
+    (pmAdoptedBVFull pmNew <|> pmAdoptedBVFull pmOld)
     (unionHM pmNewConfirmed `diffMapSet` pmDelConfirmed pmNew)
     (unionHS pmDelConfirmed)
-    (unionHM pmNewConfirmedProps)
+    (unionHM pmNewConfirmedProps `diffMapSet` pmDelConfirmedProps pmNew)
+    (unionHS pmDelConfirmedProps)
     (unionHM pmNewActiveProps `diffMapSet` pmDelActiveProps pmNew)
     (unionHS pmDelActiveProps)
     (unionHM pmNewActivePropsIdx `HM.difference` pmDelActivePropsIdx pmNew)

@@ -19,15 +19,19 @@ module Pos.Update.Poll.Types
 
          -- * BlockVersion state
        , BlockVersionState (..)
+       , bvsScriptVersion
+       , bvsSlotDuration
+       , bvsMaxBlockSize
 
          -- * Poll modifier
        , PollModifier (..)
        , pmNewBVsL
        , pmDelBVsL
-       , pmLastAdoptedBVL
+       , pmAdoptedBVFullL
        , pmNewConfirmedL
        , pmDelConfirmedL
        , pmNewConfirmedPropsL
+       , pmDelConfirmedPropsL
        , pmNewActivePropsL
        , pmDelActivePropsL
        , pmNewActivePropsIdxL
@@ -42,23 +46,27 @@ module Pos.Update.Poll.Types
        , USUndo (..)
        , unChangedSVL
        , unChangedPropsL
-       , unCreatedNewBSForL
+       , unChangedBVL
        , unLastAdoptedBVL
+       , unChangedConfPropsL
        ) where
 
-import           Control.Lens        (makeLensesFor)
-import           Data.Default        (Default (def))
+import           Control.Lens               (makeLensesFor)
+import           Data.Default               (Default (def))
 import qualified Data.Text.Buildable
-import           Formatting          (bprint, build, int, sformat, stext, (%))
+import           Data.Time.Units            (Microsecond)
+import           Formatting                 (bprint, build, int, sformat, stext, (%))
+import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
-import           Pos.Script.Type     (ScriptVersion)
-import           Pos.Types.Coin      (coinF)
-import           Pos.Types.Types     (ChainDifficulty, Coin, EpochIndex, HeaderHash,
-                                      SlotId, StakeholderId, mkCoin)
-import           Pos.Types.Version   (ApplicationName, BlockVersion, NumSoftwareVersion,
-                                      SoftwareVersion)
-import           Pos.Update.Core     (StakeholderVotes, UpId, UpdateProposal (..))
+import           Pos.Script.Type            (ScriptVersion)
+import           Pos.Types.Coin             (coinF)
+import           Pos.Types.Types            (ChainDifficulty, Coin, EpochIndex,
+                                             HeaderHash, SlotId, StakeholderId, mkCoin)
+import           Pos.Types.Version          (ApplicationName, BlockVersion,
+                                             NumSoftwareVersion, SoftwareVersion)
+import           Pos.Update.Core            (BlockVersionData (..), StakeholderVotes,
+                                             UpId, UpdateProposal (..))
 
 ----------------------------------------------------------------------------
 -- Proposal State
@@ -134,7 +142,7 @@ cpsSoftwareVersion = upSoftwareVersion . cpsUpdateProposal
 data ProposalState
     = PSUndecided !UndecidedProposalState
     | PSDecided !DecidedProposalState
-      deriving (Generic)
+      deriving (Generic, Show)
 
 psProposal :: ProposalState -> UpdateProposal
 psProposal (PSUndecided ups) = upsProposal ups
@@ -161,20 +169,33 @@ mkUProposalState upsSlot upsProposal =
 
 -- | State of BlockVersion from update proposal.
 data BlockVersionState = BlockVersionState
-    { bvsScript          :: !ScriptVersion
-    -- ^ Script version associated with this block version.
-    , bvsIsConfirmed     :: !Bool
+    { bvsData              :: !BlockVersionData
+    -- ^ 'BlockVersioData' associated with this block version.
+    , bvsIsConfirmed       :: !Bool
     -- ^ Whether proposal with this block version is confirmed.
-    , bvsIssuersStable   :: !(HashSet StakeholderId)
+    , bvsIssuersStable     :: !(HashSet StakeholderId)
     -- ^ Identifiers of stakeholders which issued stable blocks with this
     -- 'BlockVersion'. Stability is checked by the same rules as used in LRC.
     -- That is, 'SlotId' is considered. If block is created after crucial slot
     -- of 'i'-th epoch, it is not stable when 'i+1'-th epoch starts.
-    , bvsIssuersUnstable :: !(HashSet StakeholderId)
+    , bvsIssuersUnstable   :: !(HashSet StakeholderId)
     -- ^ Identifiers of stakeholders which issued unstable blocks with
     -- this 'BlockVersion'. See description of 'bvsIssuersStable' for
     -- details.
-    }
+    , bvsLastBlockStable   :: !(Maybe HeaderHash)
+    -- ^ Identifier of last block which modified set of 'bvsIssuersStable'.
+    , bvsLastBlockUnstable :: !(Maybe HeaderHash)
+    -- ^ Identifier of last block which modified set of 'bvsIssuersUnstable'.
+    } deriving (Show)
+
+bvsScriptVersion :: BlockVersionState -> ScriptVersion
+bvsScriptVersion = bvdScriptVersion . bvsData
+
+bvsSlotDuration :: BlockVersionState -> Microsecond
+bvsSlotDuration = bvdSlotDuration . bvsData
+
+bvsMaxBlockSize :: BlockVersionState -> Byte
+bvsMaxBlockSize = bvdMaxBlockSize . bvsData
 
 ----------------------------------------------------------------------------
 -- Modifier
@@ -186,22 +207,24 @@ data BlockVersionState = BlockVersionState
 data PollModifier = PollModifier
     { pmNewBVs            :: !(HashMap BlockVersion BlockVersionState)
     , pmDelBVs            :: !(HashSet BlockVersion)
-    , pmLastAdoptedBV     :: !(Maybe BlockVersion)
+    , pmAdoptedBVFull     :: !(Maybe (BlockVersion, BlockVersionData))
     , pmNewConfirmed      :: !(HashMap ApplicationName NumSoftwareVersion)
     , pmDelConfirmed      :: !(HashSet ApplicationName)
     , pmNewConfirmedProps :: !(HashMap SoftwareVersion ConfirmedProposalState)
+    , pmDelConfirmedProps :: !(HashSet SoftwareVersion)
     , pmNewActiveProps    :: !(HashMap UpId ProposalState)
     , pmDelActiveProps    :: !(HashSet UpId)
     , pmNewActivePropsIdx :: !(HashMap ApplicationName UpId)
     , pmDelActivePropsIdx :: !(HashMap ApplicationName UpId)
-    }
+    } deriving (Show)
 
 makeLensesFor [ ("pmNewBVs", "pmNewBVsL")
               , ("pmDelBVs", "pmDelBVsL")
-              , ("pmLastAdoptedBV", "pmLastAdoptedBVL")
+              , ("pmAdoptedBVFull", "pmAdoptedBVFullL")
               , ("pmNewConfirmed", "pmNewConfirmedL")
               , ("pmDelConfirmed", "pmDelConfirmedL")
               , ("pmNewConfirmedProps", "pmNewConfirmedPropsL")
+              , ("pmDelConfirmedProps", "pmDelConfirmedPropsL")
               , ("pmNewActiveProps", "pmNewActivePropsL")
               , ("pmDelActiveProps", "pmDelActivePropsL")
               , ("pmNewActivePropsIdx", "pmNewActivePropsIdxL")
@@ -218,8 +241,23 @@ makeLensesFor [ ("pmNewBVs", "pmNewBVsL")
 -- appear in Poll data verification.
 data PollVerFailure
     = PollWrongScriptVersion { pwsvExpected :: !ScriptVersion
-                            ,  pwsvFound    :: !ScriptVersion
-                            ,  pwsvUpId     :: !UpId}
+                             , pwsvFound    :: !ScriptVersion
+                             , pwsvUpId     :: !UpId}
+    -- | Slot duration for this block version is already known and the one we
+    -- saw doesn't match it
+    | PollWrongSlotDuration { pwsdExpected :: !Microsecond
+                            , pwsdFound    :: !Microsecond
+                            , pwsdUpId     :: !UpId}
+    -- | Max block size for this block version is already known and the one
+    -- we saw doesn't match it
+    | PollWrongMaxBlockSize { pwmbsExpected :: !Byte
+                            , pwmbsFound    :: !Byte
+                            , pwmbsUpId     :: !UpId}
+    -- | A proposal tried to increase the block size limit more than it was
+    -- allowed to
+    | PollLargeMaxBlockSize { plmbsMaxPossible :: !Byte
+                            , plmbsFound       :: !Byte
+                            , plmbsUpId        :: !UpId}
     | PollNotFoundScriptVersion !BlockVersion
     | PollSmallProposalStake { pspsThreshold :: !Coin
                             ,  pspsActual    :: !Coin
@@ -245,6 +283,10 @@ data PollVerFailure
     | PollBadBlockVersion { pbpvUpId       :: !UpId
                             ,  pbpvGiven   :: !BlockVersion
                             ,  pbpvAdopted :: !BlockVersion}
+    | PollTooBigBlock { ptbbHash  :: !HeaderHash
+                      , ptbbSize  :: !Byte
+                      , ptbbLimit :: !Byte
+                      }
     | PollInternalError !Text
 
 instance Buildable PollVerFailure where
@@ -252,6 +294,19 @@ instance Buildable PollVerFailure where
         bprint ("wrong script version in proposal "%build%
                 " (expected "%int%", found "%int%")")
         upId expected found
+    build (PollWrongSlotDuration expected found upId) =
+        bprint ("wrong slot duration in proposal "%build%
+                " (expected "%int%", found "%int%")")
+        upId expected found
+    build (PollWrongMaxBlockSize expected found upId) =
+        bprint ("wrong max block size in proposal "%build%
+                " (expected "%int%", found "%int%")")
+        upId expected found
+    build (PollLargeMaxBlockSize maxPossible found upId) =
+        bprint ("proposal "%build%" tried to increase max block size"%
+                " beyond what is allowed"%
+                " (expected max. "%int%", found "%int%")")
+        upId maxPossible found
     build (PollNotFoundScriptVersion pv) =
         bprint ("not found script version for protocol version "%build) pv
     build (PollSmallProposalStake threshold actual upId) =
@@ -294,6 +349,10 @@ instance Buildable PollVerFailure where
         bprint ("proposal "%build%" has bad protocol version: "%
                 build%" (current adopted is "%build%")")
         pbpvUpId pbpvGiven pbpvAdopted
+    build (PollTooBigBlock {..}) =
+        bprint ("block "%build%" is bigger than max block size ("%
+                int%" > "%int%")")
+        ptbbHash ptbbSize ptbbLimit
     build (PollInternalError msg) =
         bprint ("internal error: "%stext) msg
 
@@ -310,16 +369,18 @@ maybeToPrev Nothing  = NoExist
 
 -- | Data necessary to unapply US data.
 data USUndo = USUndo
-    { unCreatedNewBSFor :: !(Maybe BlockVersion)
-    , unLastAdoptedBV   :: !(Maybe BlockVersion)
-    , unChangedProps    :: !(HashMap UpId (PrevValue ProposalState))
-    , unChangedSV       :: !(HashMap ApplicationName (PrevValue NumSoftwareVersion))
+    { unChangedBV        :: !(HashMap BlockVersion (PrevValue BlockVersionState))
+    , unLastAdoptedBV    :: !(Maybe BlockVersion)
+    , unChangedProps     :: !(HashMap UpId (PrevValue ProposalState))
+    , unChangedSV        :: !(HashMap ApplicationName (PrevValue NumSoftwareVersion))
+    , unChangedConfProps :: !(HashMap SoftwareVersion (PrevValue ConfirmedProposalState))
     }
 
-makeLensesFor [ ("unCreatedNewBSFor", "unCreatedNewBSForL")
+makeLensesFor [ ("unChangedBV", "unChangedBVL")
               , ("unLastAdoptedBV", "unLastAdoptedBVL")
               , ("unChangedProps", "unChangedPropsL")
               , ("unChangedSV", "unChangedSVL")
+              , ("unChangedConfProps", "unChangedConfPropsL")
               ]
   ''USUndo
 
@@ -327,4 +388,4 @@ instance Buildable USUndo where
     build _ = "BSUndo"
 
 instance Default USUndo where
-    def = USUndo Nothing Nothing mempty mempty
+    def = USUndo mempty Nothing mempty mempty mempty

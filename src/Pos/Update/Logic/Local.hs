@@ -32,6 +32,7 @@ import           Formatting             (sformat, (%))
 import           System.Wlog            (WithLogger, logWarning)
 import           Universum
 
+import           Pos.Context            (WithNodeContext)
 import           Pos.Crypto             (PublicKey)
 import           Pos.DB.Class           (MonadDB)
 import qualified Pos.DB.GState          as DB
@@ -50,7 +51,8 @@ import           Pos.Update.Poll        (MonadPoll (deactivateProposal),
                                          verifyAndApplyUSPayload)
 
 -- MonadMask is needed because are using Lock. It can be improved later.
-type USLocalLogicMode σ m = (MonadDB σ m, MonadUSMem m, MonadMask m, WithLogger m, Ssc σ)
+type USLocalLogicMode σ m = (MonadDB σ m, MonadUSMem m, MonadMask m
+                            , WithLogger m, Ssc σ, WithNodeContext σ m)
 
 getMemPool :: (MonadUSMem m, MonadIO m) => m MemPool
 getMemPool = msPool <$> (askUSMemState >>= atomically . readTVar)
@@ -74,7 +76,9 @@ isProposalNeeded :: (MonadIO m, MonadUSMem m) => UpId -> m Bool
 isProposalNeeded id = not . HM.member id <$> getLocalProposals
 
 -- | Get update proposal with given id if it is known.
-getLocalProposalNVotes :: (MonadIO m, MonadUSMem m) => UpId -> m (Maybe (UpdateProposal, [UpdateVote]))
+getLocalProposalNVotes
+    :: (MonadIO m, MonadUSMem m)
+    => UpId -> m (Maybe (UpdateProposal, [UpdateVote]))
 getLocalProposalNVotes id = do
     prop <- HM.lookup id <$> getLocalProposals
     votes <- getLocalVotes
@@ -105,7 +109,7 @@ lookupVote propId pk locVotes = HM.lookup propId locVotes >>= HM.lookup pk
 -- identifier issued by stakeholder with given PublicKey and with
 -- given decision should be requested.
 isVoteNeeded
-    :: (MonadDB ssc m, MonadUSMem m)
+    :: (MonadDB ssc m, MonadUSMem m, WithNodeContext ssc m)
     => UpId -> PublicKey -> Bool -> m Bool
 isVoteNeeded propId pk decision = do
     modifier <- getPollModifier

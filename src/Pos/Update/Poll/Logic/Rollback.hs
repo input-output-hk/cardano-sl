@@ -4,32 +4,34 @@
 -- | Rollback logic in Poll.
 
 module Pos.Update.Poll.Logic.Rollback
-       ( rollbackUSPayload
+       ( rollbackUS
        ) where
 
 import qualified Data.HashMap.Strict   as HM
 import           Universum
 
-import           Pos.Types             (ChainDifficulty, SoftwareVersion (..))
-import           Pos.Types.Version     (ApplicationName, NumSoftwareVersion)
-import           Pos.Update.Core       (UpId, UpdatePayload (..))
+import           Pos.Types             (SoftwareVersion (..))
+import           Pos.Types.Version     (ApplicationName, BlockVersion, NumSoftwareVersion)
+import           Pos.Update.Core       (UpId)
 import           Pos.Update.Poll.Class (MonadPoll (..))
-import           Pos.Update.Poll.Types (PrevValue (..), ProposalState (..), USUndo (..))
+import           Pos.Update.Poll.Types (BlockVersionState, PrevValue (..),
+                                        ProposalState (..), USUndo (..))
 
 -- | Rollback application of UpdatePayload in MonadPoll using payload
 -- itself and undo data.
-rollbackUSPayload
+rollbackUS
     :: forall m . MonadPoll m
-    => ChainDifficulty -> UpdatePayload -> USUndo -> m ()
-rollbackUSPayload _ UpdatePayload{..} USUndo{..} = do
+    => USUndo -> m ()
+rollbackUS USUndo{..} = do
     -- Rollback last confirmed
-    mapM_ setOrDelLastConfirmedSV (HM.toList unChangedSV)
+    mapM_ setOrDelLastConfirmedSV $ HM.toList unChangedSV
     -- Rollback proposals
-    mapM_ setOrDelProposal (HM.toList unChangedProps)
-    -- Rollback protocol version
-    whenJust unLastAdoptedBV setLastAdoptedBV
-    -- Rollback script
-    whenJust unCreatedNewBSFor delBVState
+    mapM_ setOrDelProposal $ HM.toList unChangedProps
+    -- Rollback block version. It's important to do it before next step,
+    -- because setAdoptedBV takes state from Poll, not as argument.
+    mapM_ setOrDelBV $ HM.toList unChangedBV
+    -- Rollback last adopted
+    whenJust unLastAdoptedBV setAdoptedBV
   where
     setOrDelLastConfirmedSV :: (ApplicationName, PrevValue NumSoftwareVersion) -> m ()
     setOrDelLastConfirmedSV (svAppName, PrevValue svNumber) =
@@ -39,3 +41,7 @@ rollbackUSPayload _ UpdatePayload{..} USUndo{..} = do
     setOrDelProposal :: (UpId, PrevValue ProposalState) -> m ()
     setOrDelProposal (upid, NoExist)   = deactivateProposal upid
     setOrDelProposal (_, PrevValue ps) = addActiveProposal ps
+
+    setOrDelBV :: (BlockVersion, PrevValue BlockVersionState) -> m ()
+    setOrDelBV (bv, NoExist)       = delBVState bv
+    setOrDelBV (bv, PrevValue bvs) = putBVState bv bvs

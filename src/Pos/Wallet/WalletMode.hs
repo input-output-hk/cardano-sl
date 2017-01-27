@@ -9,6 +9,8 @@ module Pos.Wallet.WalletMode
        ( MonadBalances (..)
        , MonadTxHistory (..)
        , MonadBlockchainInfo (..)
+       , MonadUpdates (..)
+       , getNextUpdate
        , TxMode
        , WalletMode
        , WalletRealMode
@@ -26,7 +28,8 @@ import           System.Wlog                 (LoggerNameBox, WithLogger)
 import           Universum
 
 import           Pos.Communication.PeerState (PeerStateHolder)
-import           Pos.Constants               (blkSecurityParam)
+import           Pos.Constants               (appSystemTag, blkSecurityParam,
+                                              curSoftwareVersion)
 import qualified Pos.Context                 as PC
 import           Pos.Crypto                  (WithHash (..))
 import           Pos.DB                      (MonadDB)
@@ -36,7 +39,7 @@ import qualified Pos.DB.GState               as GS
 import           Pos.Delegation              (DelegationT (..))
 import           Pos.DHT.Model               (MonadDHT)
 import           Pos.DHT.Real                (KademliaDHT (..))
-import           Pos.Slotting                (getCurrentSlot)
+import           Pos.Slotting                (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class.Types         (Ssc)
 import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp.Class               (getMemPool, getUtxoView)
@@ -47,10 +50,11 @@ import           Pos.Types                   (Address, BlockHeader, ChainDifficu
                                               TxAux, TxId, Utxo, difficultyL,
                                               evalUtxoStateT, flattenEpochOrSlot,
                                               flattenSlotId, prevBlockL, runUtxoStateT,
-                                              sumCoins, toPair, txOutValue)
+                                              sumCoins, svNumber, toPair, txOutValue)
 import           Pos.Types.Coin              (unsafeIntegerToCoin)
 import           Pos.Types.Utxo.Functions    (belongsTo, filterUtxoByAddr)
-import           Pos.Update                  (USHolder (..))
+import           Pos.Update                  (ConfirmedProposalState (..), USHolder (..),
+                                              UpdateProposal (..))
 import           Pos.Util                    (maybeThrow)
 import           Pos.Wallet.Context          (ContextHolder, WithWalletContext)
 import           Pos.Wallet.KeyStorage       (KeyStorage, MonadKeys)
@@ -225,6 +229,41 @@ instance ( Ssc ssc
 
     localChainDifficulty = view difficultyL <$> topHeader
 
+-- | Abstraction over getting update proposals
+class Monad m => MonadUpdates m where
+    getUpdates :: m [ConfirmedProposalState]
+    default getUpdates :: (MonadTrans t, MonadUpdates m', t m' ~ m)
+                       => m [ConfirmedProposalState]
+    getUpdates = lift getUpdates
+
+instance MonadUpdates m => MonadUpdates (ReaderT r m)
+instance MonadUpdates m => MonadUpdates (StateT s m)
+instance MonadUpdates m => MonadUpdates (KademliaDHT m)
+instance MonadUpdates m => MonadUpdates (KeyStorage m)
+instance MonadUpdates m => MonadUpdates (PeerStateHolder ssc m)
+
+deriving instance MonadUpdates m => MonadUpdates (Modern.TxpLDHolder ssc m)
+deriving instance MonadUpdates m => MonadUpdates (SscHolder ssc m)
+deriving instance MonadUpdates m => MonadUpdates (DelegationT m)
+deriving instance MonadUpdates m => MonadUpdates (USHolder m)
+
+-- | Dummy instance for lite-wallet
+instance MonadIO m => MonadUpdates (WalletDB m) where
+    getUpdates = pure []
+
+-- | Instance for full node
+instance (Ssc ssc, MonadDB ssc m) => MonadUpdates (PC.ContextHolder ssc m) where
+    getUpdates = filter (HM.member appSystemTag . upData . cpsUpdateProposal) <$>
+                 GS.getConfirmedProposals (Just $ svNumber curSoftwareVersion)
+
+getNextUpdate :: MonadUpdates m => m (Maybe ConfirmedProposalState)
+getNextUpdate = head . sortBy cmpVersions <$> getUpdates
+  where cmpVersions = comparing $ svNumber . upSoftwareVersion . cpsUpdateProposal
+
+---------------------------------------------------------------
+-- Composite restrictions
+---------------------------------------------------------------
+
 type TxMode ssc m
     = ( MinWorkMode m
       , MonadBalances m
@@ -238,8 +277,10 @@ type WalletMode ssc m
     = ( TxMode ssc m
       , MonadKeys m
       , MonadBlockchainInfo m
+      , MonadUpdates m
       , WithWalletContext m
       , MonadDHT m
+      , MonadSlots m
       )
 
 ---------------------------------------------------------------

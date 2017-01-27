@@ -13,14 +13,14 @@ module Pos.Lrc.Worker
 import           Control.Concurrent.STM.TVar (TVar, readTVar, writeTVar)
 import           Control.Monad.Catch         (bracketOnError)
 import qualified Data.HashMap.Strict         as HM
+import qualified Data.HashSet                as HS
 import           Formatting                  (build, sformat, (%))
 import           Mockable                    (fork)
 import           Node                        (SendActions)
 import           Serokell.Util.Exceptions    ()
-import           System.Wlog                 (logInfo)
+import           System.Wlog                 (logInfo, logWarning)
 import           Universum
 
-import           Pos.Binary.Communication    ()
 import           Pos.Binary.Communication    ()
 import           Pos.Block.Logic.Internal    (applyBlocksUnsafe, rollbackBlocksUnsafe,
                                               withBlkSemaphore_)
@@ -29,7 +29,8 @@ import           Pos.Constants               (slotSecurityParam)
 import           Pos.Context                 (LrcSyncData, getNodeContext, ncLrcSync)
 import qualified Pos.DB                      as DB
 import qualified Pos.DB.GState               as GS
-import           Pos.DB.Lrc                  (getLeaders, putEpoch, putLeaders)
+import           Pos.DB.Lrc                  (IssuersStakes, getLeaders, putEpoch,
+                                              putIssuersStakes, putLeaders)
 import           Pos.Lrc.Consumer            (LrcConsumer (..))
 import           Pos.Lrc.Consumers           (allLrcConsumers)
 import           Pos.Lrc.Error               (LrcError (..))
@@ -40,8 +41,9 @@ import           Pos.Ssc.Class               (SscWorkersClass)
 import           Pos.Ssc.Extra               (sscCalculateSeed)
 import           Pos.Types                   (EpochIndex, EpochOrSlot (..),
                                               EpochOrSlot (..), HeaderHash, HeaderHash,
-                                              SlotId (..), crucialSlot, getEpochOrSlot,
-                                              getEpochOrSlot)
+                                              SlotId (..), StakeholderId, crucialSlot,
+                                              getEpochOrSlot, getEpochOrSlot)
+import           Pos.Update.Poll.Types       (BlockVersionState (..))
 import           Pos.Util                    (NewestFirst (..), logWarningWaitLinear,
                                               toOldestFirst)
 import           Pos.WorkMode                (WorkMode)
@@ -138,9 +140,25 @@ lrcDo epoch consumers tip = tip <$ do
     whileAfterCrucial b = getEpochOrSlot b > crucial
     crucial = EpochOrSlot $ Right $ crucialSlot epoch
     compute = do
+        issuersComputationDo epoch
         richmenComputationDo epoch consumers
         DB.sanityCheckDB
         leadersComputationDo epoch
+
+issuersComputationDo :: forall ssc m . WorkMode ssc m => EpochIndex -> m ()
+issuersComputationDo epochId = do
+    issuers <- unionHSs .
+               map (bvsIssuersStable . snd) <$>
+               GS.getConfirmedBVStates
+    issuersStakes <- foldM putIsStake mempty issuers
+    putIssuersStakes epochId issuersStakes
+  where
+    unionHSs = foldl' (flip HS.union) mempty
+    putIsStake :: IssuersStakes -> StakeholderId -> m IssuersStakes
+    putIsStake hm id = GS.getFtsStake id >>= \case
+        Nothing ->
+           hm <$ (logWarning $ sformat ("Stake for issuer "%build% " not found") id)
+        Just stake -> pure $ HM.insert id stake hm
 
 leadersComputationDo :: WorkMode ssc m => EpochIndex -> m ()
 leadersComputationDo epochId =

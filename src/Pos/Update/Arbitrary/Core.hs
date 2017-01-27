@@ -16,9 +16,9 @@ import           Pos.Crypto            (sign)
 import           Pos.Crypto.Arbitrary  (KeyPair (..))
 import           Pos.Data.Attributes   (mkAttributes)
 import           Pos.Types.Arbitrary   ()
-import           Pos.Update.Core.Types (SystemTag, UpdateData (..), UpdatePayload (..),
-                                        UpdateProposal (..), UpdateVote (..),
-                                        VoteState (..), mkSystemTag)
+import           Pos.Update.Core.Types (BlockVersionData (..), SystemTag, UpdateData (..),
+                                        UpdatePayload (..), UpdateProposal (..),
+                                        UpdateVote (..), VoteState (..), mkSystemTag)
 
 instance Arbitrary SystemTag where
     arbitrary =
@@ -50,3 +50,4 @@ instance Arbitrary VoteState where
 
 derive makeArbitrary ''UpdateData
 derive makeArbitrary ''UpdatePayload
+derive makeArbitrary ''BlockVersionData

@@ -58,6 +58,11 @@ library
                         Pos.DHT.Real.Real
                         Pos.DHT.Real.Types
                         Pos.DHT.Workers
+
+                        -- Exceptions
+                        Pos.Exception
+
+                        -- Genesis data
                         Pos.Genesis
 
                         -- LRC
@@ -136,6 +141,7 @@ library
                         Pos.Binary.Relay
                         Pos.Binary.Script
                         Pos.Binary.Ssc
+                        Pos.Binary.Ssc.GodTossing.Base
                         Pos.Binary.Types
                         Pos.Binary.Update
                         Pos.Binary.Util
@@ -396,7 +402,7 @@ library
                       , concurrent-extra
                       , conduit >= 1.2.8
                       , containers
-                      , cryptonite >= 0.19 && < 0.21
+                      , cryptonite >= 0.19 && < 0.22
                       , data-default
                       , deepseq
                       , derive
@@ -419,6 +425,7 @@ library
                       , kademlia
                       , lens
                       , lifted-async
+                      , list-t
                       , log-warper >= 0.1.0
                       , lrucache
                       , memory
@@ -438,6 +445,7 @@ library
                       , pvss
                       , quickcheck-instances
                       , random
+                      , reflection
                       , resourcet
                       , rocksdb >= 0.1.0.1
                       , safecopy
@@ -451,9 +459,9 @@ library
                       , th-lift-instances
                       , time
                       , time-units
-                      , list-t
                       , transformers
                       , transformers-base
+                      , turtle
                       , universum >= 0.1.11
                       , unordered-containers
                       , vector
@@ -1008,15 +1016,16 @@ test-suite cardano-test
                      , hspec
                      , lens
                      , log-warper >= 0.1.0
-                     , node-sketch
                      , memory
                      , mtl
+                     , node-sketch
                      , quickcheck-instances
                      , random
-                     , safecopy
-                     , serokell-util
+                     , reflection
                      , regex-tdfa
                      , regex-tdfa-text
+                     , safecopy
+                     , serokell-util
                      , time-units
                      , universum >= 0.1.11
                      , unordered-containers

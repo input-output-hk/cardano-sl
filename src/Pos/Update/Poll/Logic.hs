@@ -6,10 +6,13 @@
 
 module Pos.Update.Poll.Logic
        ( verifyAndApplyUSPayload
-       , rollbackUSPayload
+       , rollbackUS
        , normalizePoll
        , filterProposalsByThd
+
+       -- * Base
        , canCreateBlockBV
+       , verifyBlockSize
 
        -- * Softfork resolution
        , processGenesisBlock

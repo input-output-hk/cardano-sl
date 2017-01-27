@@ -43,13 +43,12 @@ import           Serokell.Util                  (listJson)
 import           Universum
 
 import           Pos.Binary.Class               (Bi)
-import           Pos.Crypto                     (Hash, SecretProof, VssKeyPair, hash)
+import           Pos.Crypto                     (Hash, VssKeyPair, hash)
 import           Pos.Ssc.GodTossing.Types.Base  (Commitment, CommitmentsMap, Opening,
                                                  OpeningsMap, SharesMap, SignedCommitment,
                                                  VssCertificate, VssCertificatesMap)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types                      (EpochIndex)
-import           Pos.Util                       (AsBinary)
 
 ----------------------------------------------------------------------------
 -- SscGlobalState
@@ -239,19 +238,13 @@ createGtContext GtParams {..} =
 ----------------------------------------------------------------------------
 
 data GtSecretStorage = GtSecretStorage
-    {
-      -- | Secrets which we've generated so far.
-      gssSecrets :: !(HashMap (AsBinary SecretProof) (SignedCommitment, Opening))
+    { -- | Our commitment.
+      gssCommitment :: !(SignedCommitment)
+    , -- | Corresponding opening
+      gssOpening    :: !Opening
     , -- | Epoch for which this secret were generated
-      gssEpoch   :: !EpochIndex
+      gssEpoch      :: !EpochIndex
     } deriving (Show, Eq)
-
-instance Default GtSecretStorage where
-    def =
-        GtSecretStorage
-        { gssSecrets = mempty
-        , gssEpoch = 0
-        }
 
 ----------------------------------------------------------------------------
 -- Convinient binary type alias

@@ -45,16 +45,26 @@ instance Bi U.UpdateData where
                           *> put udUpdaterHash
                           *> put udMetadataHash
 
+instance Bi U.BlockVersionData where
+    get = label "BlockVersionData" $ U.BlockVersionData <$> get <*> get <*> get
+    put U.BlockVersionData {..} =
+        put bvdScriptVersion *> put bvdSlotDuration *> put bvdMaxBlockSize
+
 instance Bi U.UpdateProposal where
     get = label "UpdateProposal" $
-          U.UpdateProposal <$> get <*> get <*> get <*> getUpData <*> get
+          U.UpdateProposal
+            <$> get
+            <*> get
+            <*> get
+            <*> getUpData
+            <*> get
       where getUpData = do   -- Check if proposal data is non-empty
                 pd <- get
                 when (HM.null pd) $
                     fail "Pos.Binary.Update: UpdateProposal: empty proposal data"
                 return pd
     put U.UpdateProposal {..} =  put upBlockVersion
-                              *> put upScriptVersion
+                              *> put upBlockVersionData
                               *> put upSoftwareVersion
                               *> put upData
                               *> put upAttributes
@@ -79,12 +89,19 @@ instance Bi a => Bi (U.PrevValue a) where
         x -> fail $ "get@PrevValue: invalid tag: " <> show x
 
 instance Bi U.USUndo where
-    get = label "USUndo" $ liftM4 U.USUndo get get get get
-    put U.USUndo{..} =
-        put unCreatedNewBSFor *>
-        put unLastAdoptedBV *>
-        put unChangedProps *>
+    get = label "USUndo" $ do
+        unChangedBV <- get
+        unLastAdoptedBV <- get
+        unChangedProps <- get
+        unChangedSV <- get
+        unChangedConfProps <- get
+        return $ U.USUndo {..}
+    put U.USUndo{..} = do
+        put unChangedBV
+        put unLastAdoptedBV
+        put unChangedProps
         put unChangedSV
+        put unChangedConfProps
 
 instance Bi U.UpsExtra where
     put U.UpsExtra {..} = put ueProposedBlk
@@ -92,7 +109,10 @@ instance Bi U.UpsExtra where
 
 instance Bi U.DpsExtra where
     put U.DpsExtra {..} = put deDecidedBlk *> put deImplicit
-    get = U.DpsExtra <$> get <*> get
+    get = do
+        deDecidedBlk <- get
+        deImplicit <- get
+        return $ U.DpsExtra {..}
 
 instance Bi U.UndecidedProposalState where
     put U.UndecidedProposalState {..} = do
@@ -102,7 +122,14 @@ instance Bi U.UndecidedProposalState where
         put upsPositiveStake
         put upsNegativeStake
         put upsExtra
-    get = U.UndecidedProposalState <$> get <*> get <*> get <*> get <*> get <*> get
+    get = do
+        upsVotes <- get
+        upsProposal <- get
+        upsSlot <- get
+        upsPositiveStake <- get
+        upsNegativeStake <- get
+        upsExtra <- get
+        return $ U.UndecidedProposalState {..}
 
 instance Bi U.DecidedProposalState where
     put U.DecidedProposalState {..} = do
@@ -110,7 +137,12 @@ instance Bi U.DecidedProposalState where
         put dpsUndecided
         put dpsDifficulty
         put dpsExtra
-    get = U.DecidedProposalState <$> get <*> get <*> get <*> get
+    get = do
+        dpsDecision <- get
+        dpsUndecided <- get
+        dpsDifficulty <- get
+        dpsExtra <- get
+        return $ U.DecidedProposalState {..}
 
 instance Bi U.ProposalState where
     put (U.PSUndecided us) = putWord8 0 >> put us
@@ -132,17 +164,31 @@ instance Bi U.ConfirmedProposalState where
         put cpsVotes
         put cpsPositiveStake
         put cpsNegativeStake
-    get = U.ConfirmedProposalState
-          <$> get <*> get <*> get
-          <*> get <*> get <*> get
-          <*> get <*> get <*> get
+    get = do
+        cpsUpdateProposal <- get
+        cpsImplicit <- get
+        cpsProposed <- get
+        cpsDecided <- get
+        cpsConfirmed <- get
+        cpsAdopted <- get
+        cpsVotes <- get
+        cpsPositiveStake <- get
+        cpsNegativeStake <- get
+        return $ U.ConfirmedProposalState {..}
 
 instance Bi U.BlockVersionState where
-    put (U.BlockVersionState {..}) =
-        put bvsScript *> put bvsIsConfirmed *> put bvsIssuersStable *> put bvsIssuersUnstable
+    put (U.BlockVersionState {..}) = do
+        put bvsData
+        put bvsIsConfirmed
+        put bvsIssuersStable
+        put bvsIssuersUnstable
+        put bvsLastBlockStable
+        put bvsLastBlockUnstable
     get = do
-        bvsScript <- get
+        bvsData <- get
         bvsIsConfirmed <- get
         bvsIssuersStable <- get
         bvsIssuersUnstable <- get
+        bvsLastBlockStable <- get
+        bvsLastBlockUnstable <- get
         return $ U.BlockVersionState {..}

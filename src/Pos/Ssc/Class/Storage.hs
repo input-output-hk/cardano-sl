@@ -12,35 +12,30 @@ module Pos.Ssc.Class.Storage
          -- * Modern
          SscStorageClass (..)
        , SscGlobalQuery
-       , SscImpureQuery
        , SscGlobalUpdate
        ) where
 
 import           Serokell.Util.Verify (VerificationRes)
+import           System.Wlog          (WithLogger)
 import           Universum
 
-import           Pos.Context.Class    (WithNodeContext)
 import           Pos.DB.Class         (MonadDB)
 import           Pos.Lrc.Types        (Richmen)
 import           Pos.Ssc.Class.Types  (Ssc (..))
-import           Pos.Types            (Block, EpochIndex, HeaderHash, SharedSeed)
+import           Pos.Types            (Block, EpochIndex, SharedSeed)
 import           Pos.Util             (NE, NewestFirst, OldestFirst)
 
 ----------------------------------------------------------------------------
 -- Modern
 ----------------------------------------------------------------------------
 
-type SscGlobalQuery ssc a =  forall m . (MonadReader (SscGlobalState ssc) m) => m a
+type SscGlobalQuery ssc a =  forall m . (MonadReader (SscGlobalState ssc) m, WithLogger m) => m a
 type SscGlobalUpdate ssc a = forall m . (MonadState (SscGlobalState ssc) m) => m a
-
-type SscImpureQuery ssc a = forall m. ( MonadReader (SscGlobalState ssc) m
-                                      , WithNodeContext ssc m
-                                      , MonadIO m) => m a
 
 class Ssc ssc => SscStorageClass ssc where
     sscLoadGlobalState
         :: MonadDB ssc m
-        => HeaderHash -> m (SscGlobalState ssc)
+        => m (SscGlobalState ssc)
 
     sscApplyBlocksM
         :: OldestFirst NE (Block ssc) -> SscGlobalUpdate ssc ()

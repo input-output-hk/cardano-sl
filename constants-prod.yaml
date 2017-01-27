@@ -1,4 +1,3 @@
-genesisN: 12014
 maxLocalTxs: 10000
 defaultPeers: []
 mdNoBlocksSlotThreshold: 45 # should be less then k
@@ -11,7 +10,11 @@ kademliaDumpInterval: 4
 
 # Fundamental constants for core protocol
 k: 60
-slotDurationSec: 120
+
+# Genesis constants
+genesisN: 12014
+genesisMaxBlockSize: 2000000
+genesisSlotDurationSec: 120
 
 # Time slave/lord
 sysTimeBroadcastSlots: 6
@@ -38,6 +41,7 @@ updateServers: []
 updateProposalThreshold: 0.1 # 10% of total stake
 updateVoteThreshold: 0.001 # 0.1% of total stake
 updateImplicitApproval: 40000 # slots
+usSoftforkThreshold: 0.85 # 85% of total stake
 
 # Production start time
 productionNetworkStartTime: 1484507400

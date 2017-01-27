@@ -41,10 +41,10 @@ import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usKeys, usVs
                                         writeUserSecret)
 
 #ifdef WITH_WEB
+import           Pos.Ssc.Class         (SscConstraint)
 import           Pos.Web               (serveWebBase, serveWebGT)
 import           Pos.WorkMode          (WorkMode)
 #ifdef WITH_WALLET
-import           Pos.Ssc.Class         (SscConstraint)
 import           Pos.WorkMode          (ProductionMode, RawRealMode, StatsMode)
 
 import           Node                  (SendActions, hoistSendActions)

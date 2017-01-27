@@ -11,40 +11,47 @@ module Pos.Update.Poll.Logic.Base
        , mkTotSum
 
        , adoptBlockVersion
+       , canBeAdoptedBV
        , canBeProposedBV
        , canCreateBlockBV
        , isConfirmedBV
-       , getBVScript
+       , getBVScriptVersion
        , confirmBlockVersion
+       , verifyNextBVData
+       , verifyBlockSize
 
        , isDecided
        , voteToUProposalState
        , putNewProposal
        ) where
 
-import           Control.Lens          (at)
-import           Control.Monad.Except  (MonadError)
-import qualified Data.HashMap.Strict   as HM
-import qualified Data.Set              as S
+import           Control.Lens               (at)
+import           Control.Monad.Except       (MonadError (throwError))
+import qualified Data.HashMap.Strict        as HM
+import qualified Data.Set                   as S
+import           Formatting                 (build, sformat, (%))
+import           Serokell.Data.Memory.Units (Byte)
+import           System.Wlog                (WithLogger, logDebug)
 import           Universum
 
-import           Pos.Crypto            (PublicKey, hash)
-import           Pos.Script.Type       (ScriptVersion)
-import           Pos.Ssc.Class         (Ssc)
-import           Pos.Types             (BlockVersion (..), Coin, HeaderHash,
-                                        MainBlockHeader, SlotId, addressHash,
-                                        coinToInteger, difficultyL, headerHashG,
-                                        headerSlot, sumCoins, unsafeAddCoin,
-                                        unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Update.Core       (UpdateProposal (..), UpdateVote (..),
-                                        combineVotes, isPositiveVote, newVoteState)
-import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Types (BlockVersionState (..),
-                                        ConfirmedProposalState (..),
-                                        DecidedProposalState (..), DpsExtra (..),
-                                        PollVerFailure (..), ProposalState (..),
-                                        UndecidedProposalState (..), UpsExtra (..),
-                                        cpsBlockVersion)
+import           Pos.Crypto                 (PublicKey, hash)
+import           Pos.Script.Type            (ScriptVersion)
+import           Pos.Ssc.Class              (Ssc)
+import           Pos.Types                  (BlockVersion (..), Coin, HeaderHash,
+                                             MainBlockHeader, SlotId, addressHash,
+                                             coinToInteger, difficultyL, headerHashG,
+                                             headerSlot, sumCoins, unsafeAddCoin,
+                                             unsafeIntegerToCoin, unsafeSubCoin)
+import           Pos.Update.Core            (BlockVersionData (..), UpId,
+                                             UpdateProposal (..), UpdateVote (..),
+                                             combineVotes, isPositiveVote, newVoteState)
+import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
+import           Pos.Update.Poll.Types      (BlockVersionState (..),
+                                             ConfirmedProposalState (..),
+                                             DecidedProposalState (..), DpsExtra (..),
+                                             PollVerFailure (..), ProposalState (..),
+                                             UndecidedProposalState (..), UpsExtra (..),
+                                             bvsScriptVersion, cpsBlockVersion)
 
 ----------------------------------------------------------------------------
 -- BlockVersion-related simple functions/operations
@@ -55,8 +62,8 @@ isConfirmedBV :: MonadPollRead m => BlockVersion -> m Bool
 isConfirmedBV = fmap (maybe False bvsIsConfirmed) . getBVState
 
 -- | Get 'ScriptVersion' associated with given 'BlockVersion' if it is known.
-getBVScript :: MonadPollRead m => BlockVersion -> m (Maybe ScriptVersion)
-getBVScript = fmap (maybe Nothing (Just . bvsScript)) . getBVState
+getBVScriptVersion :: MonadPollRead m => BlockVersion -> m (Maybe ScriptVersion)
+getBVScriptVersion = fmap (fmap bvsScriptVersion) . getBVState
 
 -- | Mark given 'BlockVersion' as confirmed if it is known.
 confirmBlockVersion :: MonadPoll m => BlockVersion -> m ()
@@ -75,7 +82,7 @@ confirmBlockVersion bv =
 -- confirmed.
 canCreateBlockBV :: MonadPollRead m => BlockVersion -> m Bool
 canCreateBlockBV bv = do
-    lastAdopted <- getLastAdoptedBV
+    lastAdopted <- getAdoptedBV
     isConfirmed <- isConfirmedBV bv
     let toMajMin BlockVersion {..} = (bvMajor, bvMinor)
     return
@@ -107,7 +114,7 @@ canCreateBlockBV bv = do
 -- Otherwise it must be in 'X' or greater than maximum from 'X' by one.
 canBeProposedBV :: MonadPollRead m => BlockVersion -> m Bool
 canBeProposedBV bv =
-    canBeProposedPure bv <$> getLastAdoptedBV <*>
+    canBeProposedPure bv <$> getAdoptedBV <*>
     (S.fromList <$> getProposedBVs)
 
 canBeProposedPure :: BlockVersion -> BlockVersion -> Set BlockVersion -> Bool
@@ -139,6 +146,33 @@ canBeProposedPure BlockVersion { bvMajor = givenMajor
     relevantProposed = S.mapMonotonic bvAlt $ S.filter predicate proposed
     predicate BlockVersion {..} = bvMajor == givenMajor && bvMinor == givenMinor
 
+-- | Check whether given 'BlockVersion' can be adopted according to
+-- current Poll.
+--
+-- Specifically, the following rules regarding major and minor versions
+-- take place:
+-- 1. If major version is less than last adopted one, it can't be adopted.
+-- 2. If major version is more than '1' greater than last adopted one,
+-- it can't be adopted as well.
+-- 3. If major version is greater than last adopted one by '1', then minor
+-- version must be '0'.
+-- 4. If major version is equal to the last adopted one, then minor version
+-- can be greather than minor component of last adopted version by 1.
+canBeAdoptedBV :: MonadPollRead m => BlockVersion -> m Bool
+canBeAdoptedBV bv = canBeAdoptedPure bv <$> getAdoptedBV
+
+canBeAdoptedPure :: BlockVersion -> BlockVersion -> Bool
+canBeAdoptedPure BlockVersion { bvMajor = givenMajor
+                              , bvMinor = givenMinor
+                              }
+                 BlockVersion { bvMajor = adoptedMajor
+                              , bvMinor = adoptedMinor
+                              }
+    | givenMajor < adoptedMajor = False
+    | givenMajor > adoptedMajor + 1 = False
+    | givenMajor == adoptedMajor + 1 = givenMinor == 0
+    | otherwise = givenMinor == adoptedMinor + 1
+
 -- | Adopt given block version. When it happens, last adopted block
 -- version is changed.
 --
@@ -148,12 +182,51 @@ adoptBlockVersion
     :: MonadPoll m
     => HeaderHash -> BlockVersion -> m ()
 adoptBlockVersion winningBlk bv = do
-    setLastAdoptedBV bv
+    setAdoptedBV bv
     mapM_ processConfirmed =<< getConfirmedProposals
   where
     processConfirmed cps
         | cpsBlockVersion cps /= bv = pass
         | otherwise = addConfirmedProposal cps {cpsAdopted = Just winningBlk}
+
+-- | Verify that 'BlockVersionData' passed as last argument can follow
+-- 'BlockVersionData' passed as second argument. First argument
+-- ('UpId') is used to create error only.
+verifyNextBVData
+    :: MonadError PollVerFailure m
+    => UpId -> BlockVersionData -> BlockVersionData -> m ()
+verifyNextBVData upId
+  BlockVersionData { bvdScriptVersion = oldSV
+                   , bvdMaxBlockSize = oldMBS
+                   }
+  BlockVersionData { bvdScriptVersion = newSV
+                   , bvdMaxBlockSize = newMBS
+                   }
+    | newSV /= oldSV + 1 =
+        throwError
+            PollWrongScriptVersion
+            { pwsvExpected = oldSV + 1
+            , pwsvFound = newSV
+            , pwsvUpId = upId
+            }
+    | newMBS > oldMBS * 2 =
+        throwError
+            PollLargeMaxBlockSize
+            { plmbsMaxPossible = oldMBS * 2
+            , plmbsFound = newMBS
+            , plmbsUpId = upId
+            }
+    | otherwise = pass
+
+-- | Verify that size of block doesn't exceed currently adopted limit.
+verifyBlockSize
+    :: (MonadError PollVerFailure m, MonadPollRead m)
+    => HeaderHash -> Byte -> m ()
+verifyBlockSize h size = do
+    limit <- bvdMaxBlockSize <$> getAdoptedBVData
+    when (size > limit) $
+        throwError
+            PollTooBigBlock {ptbbHash = h, ptbbLimit = limit, ptbbSize = size}
 
 ----------------------------------------------------------------------------
 -- Wrappers for type-safety
@@ -190,7 +263,7 @@ isDecided (TotalPositive totalPositive) (TotalNegative totalNegative) (TotalSum 
 -- | Apply vote to UndecidedProposalState, thus modifing mutable data,
 -- i. e. votes and stakes.
 voteToUProposalState
-    :: MonadError PollVerFailure m
+    :: (MonadError PollVerFailure m, WithLogger m)
     => PublicKey
     -> Coin
     -> Bool
@@ -203,6 +276,12 @@ voteToUProposalState voter stake decision ups@UndecidedProposalState {..} = do
     let oldPositive = maybe False isPositiveVote oldVote
     let oldNegative = maybe False (not . isPositiveVote) oldVote
     let combinedMaybe = decision `combineVotes` oldVote
+    logDebug $ sformat (
+        "New vote: upId = "%build%",\
+        \voter = "%build%",\
+        \vote = "%build%",\
+        \voter stake = "%build)
+        upId voter combinedMaybe stake
     combined <-
         note
             (PollExtraRevote
@@ -228,6 +307,11 @@ voteToUProposalState voter stake decision ups@UndecidedProposalState {..} = do
             | otherwise = negStakeAfterRemove `unsafeAddCoin` stake
     -- We add a new vote with update state to set of votes.
     let newVotes = HM.insert voter combined upsVotes
+    logDebug $
+        sformat ("Stakes of proposal "%build%" after vote: \
+                 \positive "%build%",\
+                 \negative: "%build)
+                upId posStakeFinal negStakeFinal
     return
         ups
         { upsVotes = newVotes

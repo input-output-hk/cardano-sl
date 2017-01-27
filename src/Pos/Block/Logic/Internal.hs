@@ -63,7 +63,21 @@ withBlkSemaphore_ = withBlkSemaphore . (fmap ((), ) .)
 applyBlocksUnsafe
     :: forall ssc m . WorkMode ssc m
     => OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
-applyBlocksUnsafe blunds0 pModifier = do
+applyBlocksUnsafe blunds0 pModifier =
+    case blunds ^. _Wrapped of
+        (b@(Left _,_):|[])     -> app' (b:|[])
+        (b@(Left _,_):|(x:xs)) -> app' (b:|[]) >> app' (x:|xs)
+        _                      -> app blunds
+  where
+    app x = applyBlocksUnsafeDo x pModifier
+    app' = app . OldestFirst
+    (OldestFirst -> blunds, _) =
+        spanSafe ((==) `on` view (_1 . epochIndexL)) $ getOldestFirst blunds0
+
+applyBlocksUnsafeDo
+    :: forall ssc m . WorkMode ssc m
+    => OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
+applyBlocksUnsafeDo blunds pModifier = do
     -- Note: it's important to put blocks first
     mapM_ putToDB blunds
     usBatch <- SomeBatchOp <$> usApplyBlocks blocks pModifier
@@ -80,8 +94,6 @@ applyBlocksUnsafe blunds0 pModifier = do
     DB.sanityCheckDB
   where
     -- hehe it's not unsafe yet TODO
-    (OldestFirst -> blunds, _) =
-        spanSafe ((==) `on` view (_1 . epochIndexL)) (getOldestFirst blunds0)
     blocks = fmap fst blunds
     forwardLinks = map (view prevBlockL &&& view headerHashG) $ toList blocks
     forwardLinksBatch = SomeBatchOp $ map (uncurry GS.AddForwardLink) forwardLinks

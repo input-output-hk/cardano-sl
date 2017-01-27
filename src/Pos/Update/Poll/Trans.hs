@@ -39,10 +39,11 @@ import           Pos.Types.Utxo.Class        (MonadUtxo, MonadUtxoRead)
 import           Pos.Update.Core             (UpdateProposal (..))
 import           Pos.Update.MemState.Class   (MonadUSMem (..))
 import           Pos.Update.Poll.Class       (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Types       (PollModifier (..), cpsSoftwareVersion,
+import           Pos.Update.Poll.Types       (BlockVersionState (..), PollModifier (..),
+                                              cpsSoftwareVersion, pmAdoptedBVFullL,
                                               pmDelActivePropsIdxL, pmDelActivePropsL,
                                               pmDelBVsL, pmDelConfirmedL,
-                                              pmLastAdoptedBVL, pmNewActivePropsIdxL,
+                                              pmDelConfirmedPropsL, pmNewActivePropsIdxL,
                                               pmNewActivePropsL, pmNewBVsL,
                                               pmNewConfirmedL, pmNewConfirmedPropsL,
                                               psProposal)
@@ -88,12 +89,9 @@ instance MonadPollRead m =>
         new <- pmNewBVs <$> PollT get
         maybe (PollT $ getBVState pv) (pure . Just) $ HM.lookup pv new
     getProposedBVs = PollT getProposedBVs
-    getLastBVState = do
-        lpv <- getLastAdoptedBV
-        maybe (PollT getLastBVState) pure =<< getBVState lpv
-    getLastAdoptedBV = do
-        new <- pmLastAdoptedBV <$> PollT get
-        maybe (PollT getLastAdoptedBV) pure new
+    getAdoptedBVFull = PollT $ do
+        new <- pmAdoptedBVFull <$> get
+        maybe getAdoptedBVFull pure new
     getLastConfirmedSV appName = do
         new <- pmNewConfirmed <$> PollT get
         maybe (PollT $ getLastConfirmedSV appName) (pure . Just) $
@@ -116,12 +114,17 @@ instance MonadPollRead m =>
          MonadPoll (PollT m) where
     putBVState bv st = PollT $ pmNewBVsL . at bv .= Just st
     delBVState bv = PollT $ pmDelBVsL . at bv .= Nothing
-    setLastAdoptedBV bv = PollT $ pmLastAdoptedBVL .= Just bv
+    setAdoptedBV bv = do
+        bvs <- getBVState bv
+        case bvs of
+            Nothing               -> pass -- can't happen actually
+            Just (bvsData -> bvd) -> PollT $ pmAdoptedBVFullL .= Just (bv, bvd)
     setLastConfirmedSV SoftwareVersion {..} =
         PollT $ pmNewConfirmedL . at svAppName .= Just svNumber
     delConfirmedSV appName = PollT $ pmDelConfirmedL . at appName .= Nothing
     addConfirmedProposal cps =
         PollT $ pmNewConfirmedPropsL . at (cpsSoftwareVersion cps) .= Just cps
+    delConfirmedProposal sv = PollT $ pmDelConfirmedPropsL . at sv .= Nothing
     addActiveProposal ps =
         PollT $ do
             let up = psProposal ps

@@ -19,10 +19,12 @@ import           Control.Lens               (_Wrapped)
 import           Control.Monad.Trans.Except (ExceptT, runExceptT, throwE)
 import           Data.List.NonEmpty         ((<|))
 import qualified Data.List.NonEmpty         as NE
+import           Data.Reflection            (reify)
 import           Formatting                 (build, int, sformat, shown, stext, (%))
 import           Mockable                   (fork, handleAll, throw)
 import           Node                       (ConversationActions (..), NodeId,
                                              SendActions (..))
+import           Serokell.Util.Exceptions   (throwText)
 import           Serokell.Util.Text         (listJson)
 import           Serokell.Util.Verify       (isVerSuccess)
 import           System.Wlog                (logDebug, logError, logInfo, logWarning)
@@ -44,6 +46,7 @@ import           Pos.Constants              (blkSecurityParam)
 import           Pos.Context                (NodeContext (..), getNodeContext)
 import           Pos.Crypto                 (hash, shortHashF)
 import qualified Pos.DB                     as DB
+import qualified Pos.DB.GState              as GState
 import           Pos.DHT.Model              (nodeIdToAddress)
 import           Pos.Ssc.Class              (Ssc, SscWorkersClass)
 import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (..),
@@ -54,7 +57,13 @@ import           Pos.Util                   (NE, NewestFirst (..), OldestFirst (
                                              _neLast)
 import           Pos.WorkMode               (WorkMode)
 
-retrievalWorker :: (SscWorkersClass ssc, WorkMode ssc m) => SendActions BiP m -> m ()
+data VerifyBlocksException = VerifyBlocksException Text deriving Show
+instance Exception VerifyBlocksException
+
+retrievalWorker
+    :: forall ssc m.
+       (SscWorkersClass ssc, WorkMode ssc m)
+    => SendActions BiP m -> m ()
 retrievalWorker sendActions = handleAll handleWE $ do
     NodeContext{..} <- getNodeContext
     loop ncBlockRetrievalQueue ncRecoveryHeader
@@ -86,7 +95,7 @@ retrievalWorker sendActions = handleAll handleWE $ do
     handleLE recHeaderVar (peerId, headers) e = do
         logWarning $ sformat
             ("Error handling peerId="%shown%", headers="%listJson%": "%shown)
-            peerId headers e
+            peerId (fmap headerHash headers) e
         dropRecoveryHeader recHeaderVar peerId
     handle (peerId, headers) = do
         logDebug $ sformat
@@ -124,20 +133,26 @@ retrievalWorker sendActions = handleAll handleWE $ do
     handleCHsValid peerId lcaChild newestHash = do
         let lcaChildHash = headerHash lcaChild
         logDebug $ sformat validFormat lcaChildHash newestHash
-        withConnectionTo sendActions peerId $ \conv -> do
+        maxBlockSize <- GState.getMaxBlockSize
+        -- Yay, reflection magic! Here we indirectly pass 'maxBlockSize' as
+        -- a parameter to the 'Bi' instance of 'MsgBlock'.
+        reify maxBlockSize $ \(_ :: Proxy s0) ->
+          withConnectionTo sendActions peerId $
+          \(conv :: ConversationActions MsgGetBlocks (MsgBlock s0 ssc) m) -> do
             send conv $ mkBlocksRequest lcaChildHash newestHash
             chainE <- runExceptT (retrieveBlocks conv lcaChild newestHash)
             recHeaderVar <- ncRecoveryHeader <$> getNodeContext
             case chainE of
                 Left e -> do
                     logWarning $ sformat
-                        ("Error retrieving blocks from "%shortHashF%" to"%
-                                      shortHashF%" from peer "%shown%": "%stext)
+                        ("Error retrieving blocks from "%shortHashF%
+                         " to "%shortHashF%" from peer "%shown%": "%stext)
                         lcaChildHash newestHash peerId e
                     dropRecoveryHeader recHeaderVar peerId
                 Right blocks -> do
-                    logDebug $ sformat ("retrievalWorker: retrieved blocks "%listJson)
-                        $ map (headerHash . view blockHeader) $ toList blocks
+                    logDebug $ sformat
+                        ("retrievalWorker: retrieved blocks "%listJson)
+                        (map (headerHash . view blockHeader) blocks)
                     handleBlocks blocks sendActions
                     -- If we've downloaded block that has header
                     -- ncRecoveryHeader, we're not in recovery mode
@@ -151,13 +166,13 @@ retrievalWorker sendActions = handleAll handleWE $ do
         if headerHash b0 == headerHash lcaChild
            then return blocks
            else throwE $ sformat
-                    ("First block of chain "%build%
+                    ("First block of chain is "%build%
                      " instead of expected "%build)
                     (b0 ^. blockHeader) lcaChild
     retrieveBlocks'
-        :: WorkMode ssc m
-        => Int
-        -> ConversationActions MsgGetBlocks (MsgBlock ssc) m
+        :: forall s.
+           Int
+        -> ConversationActions MsgGetBlocks (MsgBlock s ssc) m
         -> HeaderHash          -- ^ We're expecting a child of this block
         -> HeaderHash          -- ^ Block at which to stop
         -> ExceptT Text m (OldestFirst NE (Block ssc))
@@ -170,8 +185,9 @@ retrievalWorker sendActions = handleAll handleWE $ do
                     curH = headerHash block
                 when (prevH' /= prevH) $
                     throwE $ sformat
-                        ("Received block #"%int%" with prev hash "%shortHashF
-                              %" while "%shortHashF%" expected: "%build)
+                        ("Received block #"%int%" with "%
+                         "prev hash "%shortHashF%" while "%
+                         shortHashF%" was expected: "%build)
                         i prevH' prevH (block ^. blockHeader)
                 if curH == endH
                   then return $ one block
@@ -442,7 +458,8 @@ applyWithoutRollback sendActions blocks = do
     logInfo $ sformat ("Trying to apply blocks w/o rollback: "%listJson) $
         fmap (view blockHeader) blocks
     withBlkSemaphore applyWithoutRollbackDo >>= \case
-        Left err     -> onFailedVerifyBlocks (getOldestFirst blocks) err
+        Left err     ->
+            onFailedVerifyBlocks (getOldestFirst blocks) err
         Right newTip -> do
             when (newTip /= newestTip) $
                 logWarning $ sformat
@@ -459,7 +476,6 @@ applyWithoutRollback sendActions blocks = do
                     getOldestFirst prefix <> one (toRelay ^. blockHeader)
             relayBlock sendActions toRelay
             logInfo $ blocksAppliedMsg applied
-    logDebug "Finished applying blocks w/o rollback"
   where
     newestTip = blocks ^. _Wrapped . _neLast . headerHashG
     applyWithoutRollbackDo
@@ -524,9 +540,10 @@ onFailedVerifyBlocks
     :: forall ssc m.
        (WorkMode ssc m)
     => NonEmpty (Block ssc) -> Text -> m ()
-onFailedVerifyBlocks blocks err = logWarning $
-    sformat ("Failed to verify blocks: "%stext%"\n  blocks = "%listJson)
-            err (fmap headerHash blocks)
+onFailedVerifyBlocks blocks err = do
+    logWarning $ sformat ("Failed to verify blocks: "%stext%"\n  blocks = "%listJson)
+        err (fmap headerHash blocks)
+    throwM $ VerifyBlocksException err
 
 blocksAppliedMsg
     :: forall a.

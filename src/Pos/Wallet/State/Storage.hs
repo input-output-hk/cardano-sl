@@ -13,6 +13,9 @@ module Pos.Wallet.State.Storage
        , getOldestUtxo
        , getTxHistory
 
+       , getSlotDuration
+       , getMaxBlockSize
+
        , Update
        , blkSetHead
        ) where
@@ -22,8 +25,11 @@ import           Data.Default                   (Default, def)
 import           Data.HashMap.Strict            (HashMap)
 import qualified Data.HashMap.Strict            as HM
 import           Data.SafeCopy                  (base, deriveSafeCopySimple)
+import           Data.Time.Units                (Microsecond)
+import           Serokell.Data.Memory.Units     (Byte)
 import           Universum
 
+import qualified Pos.Constants                  as Const
 import           Pos.Crypto                     (ProxyCert)
 import           Pos.Types                      (Address, EpochIndex)
 import           Pos.Wallet.State.Storage.Block (Block', BlockStorage,
@@ -41,6 +47,9 @@ data Storage = Storage
     , __txStorage    :: TxStorage
       -- Valid delegation certificates
     , _delegations   :: HashMap Address (ProxyCert (EpochIndex, EpochIndex))
+      -- “Constants”
+    , _slotDuration  :: Microsecond
+    , _maxBlockSize  :: Byte
     }
 
 makeClassy ''Storage
@@ -48,6 +57,7 @@ deriveSafeCopySimple 0 'base ''Storage
 
 instance Default Storage where
     def = Storage def def HM.empty
+                  Const.genesisSlotDuration Const.genesisMaxBlockSize
 
 instance HasBlockStorage Storage where
     blockStorage = _blockStorage
@@ -57,3 +67,9 @@ instance HasTxStorage Storage where
 
 type Query a = forall m. (MonadReader Storage m) => m a
 type Update a = forall m. (MonadThrow m, MonadState Storage m) => m a
+
+getSlotDuration :: Query Microsecond
+getSlotDuration = view slotDuration
+
+getMaxBlockSize :: Query Byte
+getMaxBlockSize = view maxBlockSize

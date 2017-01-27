@@ -16,18 +16,23 @@ module Pos.Wallet.State.State
        , getUtxo
        , getOldestUtxo
        , getTxHistory
+
+       , getSlotDuration
+       , getMaxBlockSize
        ) where
 
-import           Data.Acid                (EventResult, EventState, QueryEvent)
+import           Data.Acid                  (EventResult, EventState, QueryEvent)
+import           Data.Time.Units            (Microsecond)
+import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
-import           Pos.Types                (HeaderHash, Tx, Utxo)
-import           Pos.Wallet.State.Acidic  (WalletState, closeState, openMemState,
-                                           openState)
-import           Pos.Wallet.State.Acidic  as A
-import           Pos.Wallet.State.Storage (Block', Storage)
+import           Pos.Types                  (HeaderHash, Tx, Utxo)
+import           Pos.Wallet.State.Acidic    (WalletState, closeState, openMemState,
+                                             openState)
+import           Pos.Wallet.State.Acidic    as A
+import           Pos.Wallet.State.Storage   (Block', Storage)
 
-import           Pos.DHT.Real.Types       (KademliaDHT (..))
+import           Pos.DHT.Real.Types         (KademliaDHT (..))
 
 -- | MonadWalletDB stands for monad which is able to get web wallet state
 class Monad m => MonadWalletDB m where
@@ -70,3 +75,9 @@ getOldestUtxo = queryDisk A.GetOldestUtxo
 
 getTxHistory :: WalletModeDB m => m [Tx]
 getTxHistory = queryDisk A.GetTxHistory
+
+getSlotDuration :: WalletModeDB m => m Microsecond
+getSlotDuration = queryDisk A.GetSlotDuration
+
+getMaxBlockSize :: WalletModeDB m => m Byte
+getMaxBlockSize = queryDisk A.GetMaxBlockSize

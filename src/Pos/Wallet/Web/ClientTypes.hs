@@ -23,6 +23,7 @@ module Pos.Wallet.Web.ClientTypes
       , CWalletType (..)
       , CWalletMeta (..)
       , CWalletInit (..)
+      , CUpdateInfo (..)
       , NotifyEvent (..)
       , addressToCAddress
       , cAddressToAddress
@@ -31,6 +32,7 @@ module Pos.Wallet.Web.ClientTypes
       , txIdToCTxId
       , ctTypeMeta
       , txContainsTitle
+      , toCUpdateInfo
       ) where
 
 import           Data.Text             (Text, isInfixOf)
@@ -41,10 +43,16 @@ import           Data.Default          (Default, def)
 import           Data.Hashable         (Hashable (..))
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Formatting            (build, sformat)
+
 import           Pos.Aeson.Types       ()
-import           Pos.Types             (Address (..), ChainDifficulty, Coin, TxId,
+import           Pos.Script.Type       (ScriptVersion)
+import           Pos.Types             (Address (..), BlockVersion, ChainDifficulty, Coin,
+                                        HeaderHash, SoftwareVersion, TxId,
                                         decodeTextAddress, sumCoins, txOutAddress,
                                         txOutValue, txOutputs, unsafeIntegerToCoin)
+import           Pos.Update.Core       (BlockVersionData (..), StakeholderVotes,
+                                        UpdateProposal (..), isPositiveVote)
+import           Pos.Update.Poll       (ConfirmedProposalState (..))
 import           Pos.Util.BackupPhrase (BackupPhrase)
 import           Pos.Wallet.Tx.Pure    (TxHistoryEntry (..))
 
@@ -55,6 +63,7 @@ data NotifyEvent
     -- | NewTransaction
     | NetworkDifficultyChanged ChainDifficulty -- ie new block or fork (rollback)
     | LocalDifficultyChanged ChainDifficulty -- ie new block or fork (rollback)
+    | UpdateAvailable
     | ConnectionClosed
     deriving (Show, Generic)
 
@@ -213,3 +222,43 @@ data CTExMeta = CTExMeta
     , cexLabel       :: Text -- counter part of client's 'exchange' value
     , cexAddress     :: CAddress
     } deriving (Show, Generic)
+
+-- | Update system data
+data CUpdateInfo = CUpdateInfo
+    { cuiSoftwareVersion :: !SoftwareVersion
+    , cuiBlockVesion     :: !BlockVersion
+    , cuiScriptVersion   :: !ScriptVersion
+    , cuiImplicit        :: !Bool
+    , cuiProposed        :: !HeaderHash
+    , cuiDecided         :: !HeaderHash
+    , cuiConfirmed       :: !HeaderHash
+    , cuiAdopted         :: !(Maybe HeaderHash)
+    , cuiVotesFor        :: !Int
+    , cuiVotesAgainst    :: !Int
+    , cuiPositiveStake   :: !Coin
+    , cuiNegativeStake   :: !Coin
+    } deriving (Show, Generic)
+
+-- | Return counts of negative and positive votes
+countVotes :: StakeholderVotes -> (Int, Int)
+countVotes = foldl' counter (0, 0)
+  where counter (n, m) vote = if isPositiveVote vote
+                              then (n + 1, m)
+                              else (n, m + 1)
+
+-- | Creates 'CTUpdateInfo' from 'ConfirmedProposalState'
+toCUpdateInfo :: ConfirmedProposalState -> CUpdateInfo
+toCUpdateInfo ConfirmedProposalState {..} =
+    let UpdateProposal {..} = cpsUpdateProposal
+        cuiSoftwareVersion  = upSoftwareVersion
+        cuiBlockVesion      = upBlockVersion
+        cuiScriptVersion    = bvdScriptVersion upBlockVersionData
+        cuiImplicit         = cpsImplicit
+        cuiProposed         = cpsProposed
+        cuiDecided          = cpsDecided
+        cuiConfirmed        = cpsConfirmed
+        cuiAdopted          = cpsAdopted
+        (cuiVotesFor, cuiVotesAgainst) = countVotes cpsVotes
+        cuiPositiveStake    = cpsPositiveStake
+        cuiNegativeStake    = cpsNegativeStake
+    in CUpdateInfo {..}

@@ -6,6 +6,7 @@ module Pos.Block.Types
        , Blund
        ) where
 
+import           Data.Default          (Default (def))
 import qualified Data.Text.Buildable
 import           Formatting            (bprint, build, (%))
 import           Serokell.Util.Text    (listJson)
@@ -21,6 +22,9 @@ data Undo = Undo
     , undoPsk :: ![ProxySKSimple] -- ^ PSKs we've overwritten/deleted
     , undoUS  :: !USUndo
     }
+
+instance Default Undo where
+    def = Undo {undoTx = mempty, undoPsk = mempty, undoUS = def}
 
 -- | Block and its Undo.
 type Blund ssc = (Block ssc, Undo)

@@ -34,6 +34,7 @@ module Pos.Ssc.GodTossing.Functions
        -- * VSS
        , vssThreshold
        , computeParticipants
+       , getStableCertsPure
        ) where
 
 import           Control.Lens                   (at)
@@ -58,6 +59,7 @@ import           Pos.Crypto                     (EncShare, Secret, SecretKey,
                                                  verifyShare)
 import           Pos.Lrc.Types                  (Richmen)
 import           Pos.Ssc.Class.Types            (Ssc (..))
+import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
 import           Pos.Ssc.GodTossing.Types.Base  (Commitment (..), CommitmentsMap,
                                                  InnerSharesMap, Opening (..),
                                                  SignedCommitment, VssCertificate (..),
@@ -66,6 +68,7 @@ import           Pos.Ssc.GodTossing.Types.Types (GtGlobalState (..), GtPayload (
                                                  gsCommitments)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types.Address              (addressHash)
+import           Pos.Types.Slotting             (crucialSlot)
 import           Pos.Types.Types                (EpochIndex (..), LocalSlotIndex,
                                                  MainBlockHeader, SharedSeed (..),
                                                  SlotId (..), StakeholderId, headerSlot)
@@ -259,7 +262,7 @@ checkShare globalCommitments globalOpeningsPK globalCertificates (addrTo, addrFr
         (_, comm, _) <- HM.lookup addrFrom globalCommitments
         -- Get pkTo's vss certificate
         vssKey <- vcVssKey <$> HM.lookup addrTo globalCertificates
-        -- Get encrypted share, which sent pkFrom to pkTo on commitment phase
+        -- Get encrypted share, which was sent from pkFrom to pkTo on commitment phase
         encShare <- HM.lookup vssKey (commShares comm)
         return (encShare, vssKey, share)
 
@@ -379,3 +382,9 @@ vssThreshold len = fromIntegral $ len `div` 2 + len `mod` 2
 computeParticipants :: Richmen -> VssCertificatesMap -> VssCertificatesMap
 computeParticipants (HS.toMap . HS.fromList . NE.toList -> richmen) =
     (`HM.intersection` richmen)
+
+getStableCertsPure :: EpochIndex -> VCD.VssCertData -> VssCertificatesMap
+getStableCertsPure epoch certs
+    | epoch == 0 = genesisCertificates
+    | otherwise =
+          VCD.certs $ VCD.setLastKnownSlot (crucialSlot epoch) certs

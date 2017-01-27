@@ -12,7 +12,8 @@ import           Data.Proxy                 (Proxy (Proxy))
 
 import           Pos.Types                  (Coin)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CProfile, CTx, CTxId,
-                                             CTxMeta, CWallet, CWalletInit, CWalletMeta)
+                                             CTxMeta, CUpdateInfo, CWallet, CWalletInit,
+                                             CWalletMeta)
 import           Pos.Wallet.Web.Error       (WalletError)
 import           Servant.API                ((:<|>), (:>), Capture, Get, JSON, Post,
                                              ReqBody)
@@ -48,6 +49,8 @@ type WalletApi =
      "api" :> "get_profile" :> Get '[JSON] (Either WalletError CProfile)
     :<|>
      "api" :> "update_profile" :> ReqBody '[JSON] CProfile :> Post '[JSON] (Either WalletError CProfile)
+    :<|>
+     "api" :> "next_update" :> Get '[JSON] (Either WalletError CUpdateInfo)
     :<|>
      "api" :> "slot_duration" :> Get '[JSON] (Either WalletError Word)
 

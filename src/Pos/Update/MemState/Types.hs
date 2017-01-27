@@ -44,7 +44,7 @@ import           Pos.Update.Core (LocalVotes, UpdateProposals)
 data MemPool = MemPool
     { mpProposals  :: !UpdateProposals
     , mpLocalVotes :: !LocalVotes
-    }
+    } deriving (Show)
 
 instance Default MemPool where
     def = MemPool mempty mempty

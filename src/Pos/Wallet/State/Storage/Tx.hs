@@ -17,6 +17,7 @@ import qualified Data.Map      as M
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Universum
 
+import           Pos.SafeCopy  ()
 import           Pos.Types     (Tx, Utxo)
 
 data TxStorage = TxStorage

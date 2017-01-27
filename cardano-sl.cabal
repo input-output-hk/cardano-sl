@@ -246,6 +246,14 @@ library
                         Pos.Lrc.Types
                         Pos.Lrc.Worker
 
+                        -- SafeCopy serialization (obsolete, but still needed)
+                        Pos.SafeCopy
+                        Pos.SafeCopy.GodTossing
+                        Pos.SafeCopy.GodTossing.Base
+                        Pos.SafeCopy.GodTossing.Types
+                        Pos.SafeCopy.GodTossing.VssCertData
+                        Pos.SafeCopy.Types
+
                         -- SSC
                         Pos.Ssc.Extra.Holder
                         Pos.Ssc.Extra.MonadGS

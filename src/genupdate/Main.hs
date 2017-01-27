@@ -59,18 +59,24 @@ createUpdate oldDir newDir updPath = sh $ do
            exit (ExitFailure 3)
     -- otherwise, for all files, generate hashes and a diff
     tempDir <- mktempdir (directory updPath) "temp"
-    (manifest, bsdiffs) <- fmap unzip $ forM oldFiles $ \f -> do
-        let fname = filename f
-            oldFile = oldDir </> fname
-            newFile = newDir </> fname
-            diffFile = tempDir </> (fname <.> "bsdiff")
-        oldHash <- hashFile oldFile
-        newHash <- hashFile newFile
-        _ <- proc "bsdiff"
-                 [fpToText oldFile, fpToText newFile, fpToText diffFile]
-                 mempty
-        diffHash <- hashFile diffFile
-        return (T.unwords [oldHash, newHash, diffHash], filename diffFile)
+    (manifest, bsdiffs) <-
+        fmap (unzip . catMaybes) $
+        forM oldFiles $ \f -> do
+            let fname = filename f
+                oldFile = oldDir </> fname
+                newFile = newDir </> fname
+                diffFile = tempDir </> (fname <.> "bsdiff")
+            oldHash <- hashFile oldFile
+            newHash <- hashFile newFile
+            if oldHash == newHash
+                then return Nothing
+                else do
+                    _ <- proc "bsdiff"
+                             (map fpToText [oldFile, newFile, diffFile])
+                             mempty
+                    diffHash <- hashFile diffFile
+                    return (Just (T.unwords [oldHash, newHash, diffHash],
+                                  filename diffFile))
     -- write the MANIFEST file
     liftIO $ writeTextFile (tempDir </> "MANIFEST") (T.unlines manifest)
     -- put diffs and a manifesto into a tar file

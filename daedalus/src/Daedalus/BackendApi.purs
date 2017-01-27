@@ -127,6 +127,6 @@ nextUpdate = getR ["next_update"]
 applyUpdate :: forall eff. Aff (ajax :: AJAX | eff) Unit
 applyUpdate = postR ["apply_update"]
 
-softwareVersion :: forall eff. Aff (ajax :: AJAX | eff) SoftwareVersion
-softwareVersion = postR ["software_version"]
+systemVersion :: forall eff. Aff (ajax :: AJAX | eff) SoftwareVersion
+systemVersion = getR ["system_version"]
 

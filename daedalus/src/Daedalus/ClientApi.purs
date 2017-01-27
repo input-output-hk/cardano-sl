@@ -141,5 +141,5 @@ nextUpdate = fromAff $ map encodeJson B.nextUpdate
 applyUpdate :: forall eff. Eff (ajax :: AJAX | eff) (Promise Unit)
 applyUpdate = fromAff B.applyUpdate
 
-softwareVersion :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
-softwareVersion = fromAff $ map encodeJson B.softwareVersion
+systemVersion :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
+systemVersion = fromAff $ map encodeJson B.systemVersion

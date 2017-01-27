@@ -98,8 +98,8 @@
             .then(console.log)
             .catch(console.log)
       };
-      var applicationVersion = function() {
-         Daedalus.ClientApi.softwareVersion()
+      var systemVersion = function() {
+         Daedalus.ClientApi.systemVersion()
             .then(console.log)
             .catch(console.log)
       };
@@ -130,7 +130,7 @@
       <li><button onclick="blockchainSlotDuration()"/>blockchain slot duration</li>
       <li><button onclick="nextUpdate()"/>next update</li>
       <li><button onclick="applyUpdate()"/>apply update</li>
-      <li><button onclick="softwareVersion()"/>software version</li>
+      <li><button onclick="systemVersion()"/>system version</li>
     </ul>
 	</body>
 </html>

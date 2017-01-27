@@ -5,7 +5,6 @@ module Pos.Aeson.ClientTypes
        (
        ) where
 
-import           Data.Aeson                 (ToJSON (..))
 import           Data.Aeson.TH              (defaultOptions, deriveJSON, deriveToJSON)
 import           Pos.Types.Version          (ApplicationName (..), BlockVersion (..),
                                              SoftwareVersion (..))

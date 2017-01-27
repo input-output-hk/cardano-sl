@@ -76,18 +76,6 @@ allStubListeners p =
         , usStubListeners
         ]
 
-  where
-    addWaitLogging (ListenerActionOneMsg f) =
-        ListenerActionOneMsg $ \nId sA msg -> f nId (withWaitLog sA) msg
-    addWaitLogging (ListenerActionConversation f) =
-        ListenerActionConversation $ \nId cA -> f nId (withWaitLogConvL nId cA)
-
-    addTimeout _       (ListenerActionOneMsg f) = ListenerActionOneMsg f
-    addTimeout timeout (ListenerActionConversation f) =
-        ListenerActionConversation $ \nId cA ->
-            f nId (convWithTimeLimit timeout nId cA)
-
-
 -- | Logger name for server.
 serverLoggerName :: LoggerName
 serverLoggerName = "server"

@@ -14,7 +14,7 @@ module Pos.Ssc.GodTossing.Storage
        , getStableCerts
        ) where
 
-import           Control.Lens                   (to, (%=), (.=), (<>=))
+import           Control.Lens                   ((%=), (.=), (<>=))
 import           Control.Monad.Reader           (ask)
 import           Data.Default                   (def)
 import qualified Data.HashMap.Strict            as HM
@@ -29,7 +29,8 @@ import           Universum
 
 import           Pos.Binary.Ssc                 ()
 import           Pos.Constants                  (epochSlots, vssMaxTTL)
-import           Pos.DB                         (MonadDB, getTipBlockHeader,
+import           Pos.DB                         (DBError (DBMalformed), MonadDB,
+                                                 getTipBlockHeader,
                                                  loadBlundsFromTipWhile)
 import           Pos.Lrc.Types                  (Richmen)
 import           Pos.Ssc.Class.Storage          (SscStorageClass (..))
@@ -55,7 +56,8 @@ import           Pos.Types                      (Block, EpochIndex (..), EpochOr
                                                  SharedSeed, SlotId (..), addressHash,
                                                  blockMpc, blockSlot, epochIndexL,
                                                  epochOrSlot, epochOrSlotG, gbHeader)
-import           Pos.Util                       (NE, NewestFirst (..), OldestFirst)
+import           Pos.Util                       (NE, NewestFirst (..), OldestFirst (..),
+                                                 maybeThrow)
 
 type GSQuery a  = forall m . (MonadReader GtGlobalState m, WithLogger m) => m a
 type GSUpdate a = forall m . (MonadState GtGlobalState m) => m a
@@ -296,24 +298,17 @@ mpcLoadGlobalState = do
     let endEpoch  = epochOrSlot identity siEpoch $ tipBlockHeader ^. epochOrSlotG
     let startEpoch = safeSub endEpoch -- load blocks while >= endEpoch
         whileEpoch b = b ^. epochIndexL >= startEpoch
-    blocks <- fmap fst <$> loadBlundsFromTipWhile whileEpoch
-    let global' = unionBlocks blocks
-        global = global'
-            & gsVssCertificates %~ unionBlksCerts (reverse (getNewestFirst blocks))
-    pure $ if | startEpoch == 0 ->
-                   over gsVssCertificates unionGenCerts global
-              | otherwise -> global
+    nfBlocks <- fmap fst <$> loadBlundsFromTipWhile whileEpoch
+    blocks <- OldestFirst <$>
+                  maybeThrow (DBMalformed "No blocks during mpc load global state")
+                             (NE.nonEmpty $ getNewestFirst nfBlocks)
+    let initGState
+            | startEpoch == 0 =
+                over gsVssCertificates unionGenCerts def
+            | otherwise = def
+    execStateT (mpcApplyBlocks blocks) initGState
   where
-    setLastKnownEoS (EpochOrSlot eos) vcd
-        | Left e <- eos, e == 0 = VCD.empty
-        | Left e <- eos = VCD.setLastKnownSlot (SlotId (e - 1) (epochSlots - 1)) vcd
-        | Right s <- eos = VCD.setLastKnownSlot s vcd
     safeSub epoch = epoch - min epoch vssMaxTTL
-    unionBlckCert vcd block =
-        let blkCert = either (const mempty) (^. blockMpc . to _gpCertificates)
-            res = foldl' (flip $ uncurry VCD.insert) vcd . HM.toList $ (blkCert block) in
-        setLastKnownEoS (block ^. epochOrSlotG) res
-    unionBlksCerts blocks gs = foldl' unionBlckCert gs blocks
     unionGenCerts gs = foldl' (flip $ uncurry VCD.insert) gs . HM.toList $ genesisCertificates
 
 ----------------------------------------------------------------------------
@@ -338,11 +333,3 @@ unionPayload considerCertificates payload gs =
                 flip
                     (foldl' (flip $ uncurry VCD.insert))
                     (HM.toList $ _gpCertificates payload)
-
--- | Union payloads of blocks until meet genesis block.
--- Warning: certificates are ignored.
-unionBlocks :: NewestFirst [] (Block SscGodTossing) -> GtGlobalState
-unionBlocks (NewestFirst [])            = def
-unionBlocks (NewestFirst (Left _:_))    = def
-unionBlocks (NewestFirst (Right mb:xs)) =
-    unionPayload False (mb ^. blockMpc) $ unionBlocks $ NewestFirst xs

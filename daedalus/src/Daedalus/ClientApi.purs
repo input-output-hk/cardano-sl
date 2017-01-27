@@ -137,3 +137,6 @@ restoreWallet = mkEffFn1 $ fromAff <<< map encodeJson <<< either throwError B.re
 
 nextUpdate :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
 nextUpdate = fromAff $ map encodeJson B.nextUpdate
+
+applyUpdate :: forall eff. Eff (ajax :: AJAX | eff) (Promise Unit)
+applyUpdate = fromAff B.applyUpdate

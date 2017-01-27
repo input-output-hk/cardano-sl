@@ -123,3 +123,7 @@ restoreWallet = postRBody ["restore_wallet"]
 
 nextUpdate :: forall eff. Aff (ajax :: AJAX | eff) CUpdateInfo
 nextUpdate = getR ["next_update"]
+
+applyUpdate :: forall eff. Aff (ajax :: AJAX | eff) Unit
+applyUpdate = postR ["apply_update"]
+

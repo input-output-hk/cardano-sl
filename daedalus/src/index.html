@@ -93,6 +93,12 @@
             .then(console.log)
             .catch(console.log)
       };
+      var applyUpdate = function() {
+         Daedalus.ClientApi.applyUpdate()
+            .then(console.log)
+            .catch(console.log)
+      };
+
     </script>
 		<title></title>
 	</head>
@@ -118,6 +124,7 @@
       <li><button onclick="generateMnemonic()"/>generate mnemonic</li>
       <li><button onclick="blockchainSlotDuration()"/>blockchain slot duration</li>
       <li><button onclick="nextUpdate()"/>next update</li>
+      <li><button onclick="applyUpdate()"/>apply update</li>
     </ul>
 	</body>
 </html>

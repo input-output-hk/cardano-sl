@@ -195,14 +195,14 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
         VerFailure errors -> throwError $ VerifyPureFailed errors
         _                 -> pass
   where
-    -- This function needed for convenient.
+    -- This function is needed because gromak zadissil me and I was forced to write it.
     -- It takes list of entries ([(StakeholderId, v)] or [StakeholderId]),
     -- function condition and error tag (fKey and fValue - see below)
-    -- If condition true for every entry - function will pass simply.
-    -- Otherwise it get all entries which doesn't pass condition
-    -- and throwError with [StakeholderId] corresponding these entries.
-    -- fKey needed for getting StakeholderId from entry.
-    -- fValue needed for getting value which must be tested by condition function.
+    -- If condition is true for every entry - function does nothing.
+    -- Otherwise it get all entries which don't pass condition
+    -- and throwError with [StakeholderId] corresponding to these entries.
+    -- fKey is needed for getting StakeholderId from entry.
+    -- fValue is needed for getting value which must be tested by condition function.
 
     exceptGuardFull
         :: (entry -> StakeholderId)

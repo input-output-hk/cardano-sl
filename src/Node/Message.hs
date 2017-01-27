@@ -30,6 +30,7 @@ import qualified Data.ByteString               as BS
 import qualified Data.ByteString.Builder.Extra as BS
 import qualified Data.ByteString.Lazy          as LBS
 import           Data.Data                     (Data, dataTypeName, dataTypeOf)
+import           Data.Hashable                 (Hashable)
 import           Data.Proxy                    (Proxy (..), asProxyTypeOf)
 import           Data.String                   (IsString)
 import           Data.String                   (fromString)
@@ -50,6 +51,8 @@ deriving instance Ord MessageName
 deriving instance Show MessageName
 deriving instance Generic MessageName
 deriving instance IsString MessageName
+deriving instance Hashable MessageName
+deriving instance Monoid MessageName
 instance Bin.Binary MessageName
 
 -- | Defines type with it's own `MessageName`.

@@ -213,12 +213,9 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
 
     exceptGuardEntry = exceptGuardFull fst identity
 
-    maybeThrowError _ Nothing   = pass
+    maybeThrowError _ Nothing    = pass
     maybeThrowError er (Just ne) = throwError $ er ne
 
--- TODO:
---   ★ verification messages should include block hash/slotId
---   ★ we should stop at first failing block
 mpcVerifyBlocks
     :: Bool
     -> Richmen

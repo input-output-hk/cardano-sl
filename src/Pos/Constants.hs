@@ -17,7 +17,6 @@ module Pos.Constants
        -- * SSC constants
        , sharedSeedLength
        , mpcSendInterval
-       , mpcThreshold
 
        -- * Dev/production mode, system start
        , isDevelopment
@@ -37,7 +36,6 @@ module Pos.Constants
 
        -- * Other constants
        , maxLocalTxs
-       , maxBlockProxySKs
        , neighborsSendThreshold
        , networkConnectionTimeout
        , networkReceiveTimeout
@@ -48,7 +46,6 @@ module Pos.Constants
        , vssMinTTL
        , protocolMagic
        , enhancedMessageBroadcast
-       , delegationThreshold
        , recoveryHeadersMessage
        , kademliaDumpInterval
 
@@ -66,6 +63,10 @@ module Pos.Constants
        , updateVoteThreshold
        , updateImplicitApproval
        , usSoftforkThreshold
+
+       -- * Package structure constants
+       , pkgUpdatesDir
+       , pkgExecutablesDir
 
        -- * NTP
        , ntpMaxError
@@ -89,7 +90,7 @@ import           System.IO.Unsafe           (unsafePerformIO)
 import           Pos.CLI                    (dhtNodeParser)
 import           Pos.CompileConfig          (CompileConfig (..), compileConfig)
 import           Pos.DHT.Model.Types        (DHTNode)
-import           Pos.Types.Core             (CoinPortion, unsafeCoinPortion)
+import           Pos.Types.Core             (CoinPortion, unsafeCoinPortionFromDouble)
 import           Pos.Types.Timestamp        (Timestamp (..))
 import           Pos.Types.Version          (ApplicationName, BlockVersion (..),
                                              SoftwareVersion (..), mkApplicationName)
@@ -134,10 +135,6 @@ sharedSeedLength = 32
 mpcSendInterval :: Microsecond
 mpcSendInterval = sec . fromIntegral . ccMpcSendInterval $ compileConfig
 
--- TODO: remove
-mpcThreshold :: CoinPortion
-mpcThreshold = genesisMpcThd
-
 ----------------------------------------------------------------------------
 -- Genesis
 ----------------------------------------------------------------------------
@@ -164,7 +161,7 @@ genesisMaxTxSize = ccGenesisMaxTxSize cc
 
 -- | See 'Pos.CompileConfig.ccGenesisMpcThd'.
 genesisMpcThd :: CoinPortion
-genesisMpcThd = unsafeCoinPortion $ ccGenesisMpcThd compileConfig
+genesisMpcThd = unsafeCoinPortionFromDouble $ ccGenesisMpcThd compileConfig
 
 staticAssert
     (ccGenesisMpcThd compileConfig >= 0 && ccGenesisMpcThd compileConfig < 1)
@@ -172,7 +169,7 @@ staticAssert
 
 -- | See 'Pos.CompileConfig.ccGenesisHeavyDelThd'.
 genesisHeavyDelThd :: CoinPortion
-genesisHeavyDelThd = unsafeCoinPortion $ ccGenesisHeavyDelThd cc
+genesisHeavyDelThd = unsafeCoinPortionFromDouble $ ccGenesisHeavyDelThd cc
 
 staticAssert
     (ccGenesisHeavyDelThd compileConfig >= 0 && ccGenesisMpcThd compileConfig < 1)
@@ -180,7 +177,7 @@ staticAssert
 
 -- | See 'Pos.CompileConfig.ccGenesisUpdateVoteThd'.
 genesisUpdateVoteThd :: CoinPortion
-genesisUpdateVoteThd = unsafeCoinPortion $ ccGenesisUpdateVoteThd cc
+genesisUpdateVoteThd = unsafeCoinPortionFromDouble $ ccGenesisUpdateVoteThd cc
 
 staticAssert
     (ccGenesisUpdateVoteThd compileConfig >= 0 && ccGenesisUpdateVoteThd compileConfig < 1)
@@ -188,7 +185,7 @@ staticAssert
 
 -- | See 'Pos.CompileConfig.ccGenesisUpdateProposalThd'.
 genesisUpdateProposalThd :: CoinPortion
-genesisUpdateProposalThd = unsafeCoinPortion $ ccGenesisUpdateProposalThd cc
+genesisUpdateProposalThd = unsafeCoinPortionFromDouble $ ccGenesisUpdateProposalThd cc
 
 staticAssert
     (ccGenesisUpdateProposalThd compileConfig > 0 && ccGenesisUpdateProposalThd compileConfig < 1)
@@ -200,7 +197,7 @@ genesisUpdateImplicit = fromIntegral . ccGenesisUpdateImplicit $ cc
 
 -- | See 'Pos.CompileConfig.ccGenesisUpdateSoftforkThd'.
 genesisUpdateSoftforkThd :: CoinPortion
-genesisUpdateSoftforkThd = unsafeCoinPortion $ ccGenesisUpdateSoftforkThd cc
+genesisUpdateSoftforkThd = unsafeCoinPortionFromDouble $ ccGenesisUpdateSoftforkThd cc
 
 staticAssert
     (ccGenesisUpdateSoftforkThd compileConfig > 0 && ccGenesisUpdateSoftforkThd compileConfig < 1)
@@ -224,10 +221,6 @@ staticAssert
 -- Also see 'Pos.CompileConfig.ccMaxLocalTxs'.
 maxLocalTxs :: Integral i => i
 maxLocalTxs = fromIntegral . ccMaxLocalTxs $ compileConfig
-
--- | Maximum number of PSKs allowed in block
-maxBlockProxySKs :: Integral i => i
-maxBlockProxySKs = fromIntegral . ccMaxBlockProxySKs $ compileConfig
 
 -- | /Time-lord/ node announces system start time by broadcast. She does it
 -- during first 'Pos.CompileConfig.ccSysTimeBroadcastSlots' slots.
@@ -298,10 +291,6 @@ protocolMagic = fromIntegral . ccProtocolMagic $ compileConfig
 enhancedMessageBroadcast :: Integral a => a
 enhancedMessageBroadcast = fromIntegral $ ccEnhancedMessageBroadcast compileConfig
 
--- TODO: remove
-delegationThreshold :: CoinPortion
-delegationThreshold = genesisHeavyDelThd
-
 -- | Maximum amount of headers node can put into headers message while
 -- in "after offline" or "recovery" mode. Should be more than
 -- 'blkSecurityParam'.
@@ -348,6 +337,34 @@ appSystemTag = $(do
                  \couldn't find env var \"CSL_SYSTEM_TAG\""
 #endif
         Just tag -> lift =<< mkSystemTag (toText tag))
+
+pkgExecutablesDir :: FilePath
+pkgExecutablesDir =
+    $(runIO (lookupEnv "CSL_EXE_DIR") >>=
+      maybe (
+#ifdef DEV_MODE
+         [|panic "'pkgExecutablesDir' can't be used if env var \
+                 \\"CSL_EXE_DIR\" wasn't set during compilation" |]
+#else
+         fail "Failed to init pkgExecutablesDir: \
+              \couldn't find env var \"CSL_EXE_DIR\""
+#endif
+         )
+         lift)
+
+pkgUpdatesDir :: FilePath
+pkgUpdatesDir =
+    $(runIO (lookupEnv "CSL_UPDATE_DIR") >>=
+      maybe (
+#ifdef DEV_MODE
+         [|panic "'pkgUpdatesDir' can't be used if env var \
+                 \\"CSL_UPDATE_DIR\" wasn't set during compilation" |]
+#else
+         fail "Failed to init pkgUpdatesDir: \
+              \couldn't find env var \"CSL_UPDATE_DIR\""
+#endif
+         )
+         lift)
 
 -- | Last block version application is aware of.
 lastKnownBlockVersion :: BlockVersion

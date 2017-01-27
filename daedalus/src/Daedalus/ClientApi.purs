@@ -134,3 +134,6 @@ blockchainSlotDuration = fromAff B.blockchainSlotDuration
 
 restoreWallet :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Json)
 restoreWallet = mkEffFn1 $ fromAff <<< map encodeJson <<< either throwError B.restoreWallet <<< mkBackupPhrase
+
+nextUpdate :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
+nextUpdate = fromAff $ map encodeJson B.nextUpdate

@@ -11,6 +11,7 @@ module Pos.Wallet.Web.Server.Methods
        , walletServeImpl
        ) where
 
+import           Control.Concurrent.MVar       (takeMVar)
 import           Control.Monad.Catch           (try)
 import           Control.Monad.Except          (runExceptT)
 import           Control.Monad.Trans.State     (get, runStateT)
@@ -37,6 +38,7 @@ import           Pos.Types                     (Address, ChainDifficulty (..), C
                                                 TxOut (..), addressF, coinF,
                                                 decodeTextAddress, makePubKeyAddress,
                                                 mkCoin)
+import           Pos.Update                    (ConfirmedProposalState)
 import           Pos.Util                      (maybeThrow)
 import           Pos.Util.BackupPhrase         (BackupPhrase, keysFromPhrase)
 
@@ -44,10 +46,9 @@ import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
                                                 addSecretKey)
 import           Pos.Wallet.Tx                 (submitTx)
 import           Pos.Wallet.Tx.Pure            (TxHistoryEntry (..))
-import           Pos.Wallet.WalletMode         (WalletMode, getBalance, getNextUpdate,
-                                                getTxHistory, getUpdates,
+import           Pos.Wallet.WalletMode         (WalletMode, getBalance, getTxHistory,
                                                 localChainDifficulty,
-                                                networkChainDifficulty)
+                                                networkChainDifficulty, waitForUpdate)
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CProfile,
                                                 CProfile (..), CTx, CTxId, CTxMeta (..),
@@ -64,11 +65,12 @@ import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 initWSConnection, notify, runWalletWS,
                                                 upgradeApplicationWS)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
-                                                addOnlyNewTxMeta, closeState,
-                                                createWallet, getProfile, getTxMeta,
-                                                getWalletMeta, getWalletState, openState,
-                                                removeWallet, runWalletWebDB, setProfile,
-                                                setWalletMeta, setWalletTransactionMeta)
+                                                addOnlyNewTxMeta, addUpdate, closeState,
+                                                createWallet, getNextUpdate, getProfile,
+                                                getTxMeta, getWalletMeta, getWalletState,
+                                                openState, removeWallet, runWalletWebDB,
+                                                setProfile, setWalletMeta,
+                                                setWalletTransactionMeta)
 import           Pos.Web.Server                (serveImpl)
 
 ----------------------------------------------------------------------------
@@ -84,7 +86,9 @@ type WalletWebMode ssc m
       )
 
 walletServeImpl
-    :: (MonadIO m, MonadMask m)
+    :: ( MonadIO m
+       , MonadMask m
+       , WalletWebMode ssc (WalletWebHandler m))
     => WalletWebHandler m Application     -- ^ Application getter
     -> FilePath                        -- ^ Path to wallet acid-state
     -> Bool                            -- ^ Rebuild flag for acid-state
@@ -110,7 +114,7 @@ walletApplication serv = do
     serv >>= return . upgradeApplicationWS wsConn . serve walletApi
 
 walletServer
-    :: WalletMode ssc m
+    :: (Monad m, WalletWebMode ssc (WalletWebHandler m))
     => SendActions BiP m
     -> WalletWebHandler m (WalletWebHandler m :~> Handler)
     -> WalletWebHandler m (Server WalletApi)
@@ -158,7 +162,7 @@ launchNotifier nat = void . liftIO $ mapM startForking
     difficultyNotifyPeriod = 500000  -- 0.5 sec
     forkForever action = forkFinally action $ const $ do
         -- TODO: log error
-        -- colldown
+        -- cooldown
         threadDelay cooldownPeriod
         void $ forkForever action
     -- TODO: use Servant.enter here
@@ -167,8 +171,7 @@ launchNotifier nat = void . liftIO $ mapM startForking
     notifier period action = forever $ do
         liftIO $ threadDelay period
         action
-    -- NOTE: temp solution, dummy notifier that pings every 10 secs
-    dificultyNotifier = flip runStateT def $ notifier difficultyNotifyPeriod $ do
+    dificultyNotifier = void . flip runStateT def $ notifier difficultyNotifyPeriod $ do
         networkDifficulty <- networkChainDifficulty
         -- TODO: use lenses!
         whenM ((networkDifficulty /=) . spNetworkCD <$> get) $ do
@@ -180,13 +183,9 @@ launchNotifier nat = void . liftIO $ mapM startForking
             lift $ notify $ LocalDifficultyChanged localDifficulty
             modify $ \sp -> sp { spLocalCD = localDifficulty }
     updateNotifier = do
-        slotDuration <- getSlotDuration
-        let updateNotifyPeriod = fromIntegral slotDuration
-        notifier updateNotifyPeriod $ do
-            updates <- getUpdates
-            unless (null updates) $ do
-                logInfo "SOFTWARE UPDATE NOTIFICATION"
-                notify UpdateAvailable
+        cps <- waitForUpdate
+        addUpdate $ toCUpdateInfo cps
+        notify UpdateAvailable
     -- historyNotifier :: WalletWebMode ssc m => m ()
     -- historyNotifier = do
     --     cAddresses <- myCAddresses
@@ -366,8 +365,7 @@ isValidAddress _ _       = pure False
 -- | Get last update info
 nextUpdate :: WalletWebMode ssc m => m CUpdateInfo
 nextUpdate = getNextUpdate >>=
-             maybeThrow (Internal "No updates available") .
-             fmap toCUpdateInfo
+             maybeThrow (Internal "No updates available")
 
 blockchainSlotDuration :: WalletWebMode ssc m => m Word
 blockchainSlotDuration = fromIntegral <$> getSlotDuration

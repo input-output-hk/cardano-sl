@@ -5,7 +5,7 @@ import Control.Monad.Aff (Aff)
 import Control.Monad.Eff.Exception (error, Error)
 import Control.Monad.Error.Class (throwError)
 import Daedalus.Constants (backendPrefix)
-import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency, WalletError, showCCurrency, CProfile, CWalletInit, BackupPhrase)
+import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency, WalletError, showCCurrency, CProfile, CWalletInit, BackupPhrase, CUpdateInfo)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (decodeJson, encodeJson)
 import Data.Bifunctor (bimap)
@@ -120,3 +120,6 @@ blockchainSlotDuration = getR ["slot_duration"]
 
 restoreWallet :: forall eff. BackupPhrase -> Aff (ajax :: AJAX | eff) CWallet
 restoreWallet = postRBody ["restore_wallet"]
+
+nextUpdate :: forall eff. Aff (ajax :: AJAX | eff) CUpdateInfo
+nextUpdate = getR ["next_update"]

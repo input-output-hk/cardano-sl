@@ -2,7 +2,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Wallet.Web.State.Holder
-       ( WalletWebDB
+       ( WalletWebDB (..)
        , runWalletWebDB
        , getWalletState
        ) where
@@ -28,9 +28,6 @@ import           Pos.Update                 (MonadPollRead, MonadUSMem)
 import           Pos.Wallet.Context         (WithWalletContext)
 import           Pos.Wallet.KeyStorage      (MonadKeys)
 import           Pos.Wallet.State           (MonadWalletDB)
-import           Pos.Wallet.WalletMode      (MonadBalances, MonadBlockchainInfo,
-                                             MonadTxHistory, MonadUpdates)
-
 import           Pos.Wallet.Web.State.State (MonadWalletWebDB (..), WalletState)
 
 -- | Holder for web wallet data
@@ -38,10 +35,8 @@ newtype WalletWebDB m a = WalletWebDB
     { getWalletWebDB :: ReaderT WalletState m a
     } deriving (Functor, Applicative, Monad, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
-                MonadWalletDB, WithWalletContext,
-                MonadDHT, MonadSlots, MonadTrans, MonadUpdates,
-                CanLog, MonadKeys, MonadBalances, MonadBlockchainInfo,
-                MonadTxHistory, WithNodeContext ssc, MonadUSMem, MonadPollRead,
+                MonadWalletDB, WithWalletContext, MonadDHT, MonadSlots, MonadTrans,
+                CanLog, MonadKeys, WithNodeContext ssc, MonadUSMem, MonadPollRead,
                 MonadTxpLD ssc, MonadDelegation)
 
 deriving instance MonadDB ssc m => MonadDB ssc (WalletWebDB m)

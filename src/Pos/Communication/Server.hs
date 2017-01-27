@@ -31,7 +31,6 @@ import           Pos.Update                        (usListeners, usStubListeners
 import           Pos.Util                          (convWithTimeLimit,
                                                     sendActionsWithTimeLimit, withWaitLog,
                                                     withWaitLogConvL)
-import           Pos.Util.TimeWarp                 (sec)
 import           Pos.WorkMode                      (WorkMode)
 
 -- | All listeners running on one node.

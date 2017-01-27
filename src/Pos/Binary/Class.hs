@@ -380,8 +380,6 @@ instance Bi Word16             -- 2 bytes, big endian
 instance Bi Word32             -- 4 bytes, big endian
 instance Bi Word64             -- 8 bytes, big endian
 
-instance Bi Double
-
 ----------------------------------------------------------------------------
 -- Containers
 ----------------------------------------------------------------------------

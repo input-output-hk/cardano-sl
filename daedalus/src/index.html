@@ -98,6 +98,11 @@
             .then(console.log)
             .catch(console.log)
       };
+      var applicationVersion = function() {
+         Daedalus.ClientApi.softwareVersion()
+            .then(console.log)
+            .catch(console.log)
+      };
 
     </script>
 		<title></title>
@@ -125,6 +130,7 @@
       <li><button onclick="blockchainSlotDuration()"/>blockchain slot duration</li>
       <li><button onclick="nextUpdate()"/>next update</li>
       <li><button onclick="applyUpdate()"/>apply update</li>
+      <li><button onclick="softwareVersion()"/>software version</li>
     </ul>
 	</body>
 </html>

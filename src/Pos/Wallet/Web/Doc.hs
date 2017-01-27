@@ -166,6 +166,13 @@ instance ToCapture (Capture "currency" CCurrency) where
         , _capDesc = "Currency"
         }
 
+instance ToCapture (Capture "seed" Text) where
+    toCapture Proxy =
+        DocCapture
+        { _capSymbol = "seed"
+        , _capDesc = "Seed to redeem the ADA"
+        }
+
 instance ToSample WalletError where
     toSamples Proxy = notImplemented
 

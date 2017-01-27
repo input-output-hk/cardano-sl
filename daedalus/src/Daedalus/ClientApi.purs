@@ -6,7 +6,7 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Ref (newRef, REF)
 import Control.Promise (Promise, fromAff)
-import Daedalus.Types (mkCAddress, mkCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile, mkCWalletInit, mkBackupPhrase)
+import Daedalus.Types (mkCAddress, mkCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile, mkCWalletInit, mkBackupPhrase, mkSeed)
 import Daedalus.WS (WSConnection(WSNotConnected), mkWSState, ErrorCb, NotifyCb, openConn)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (encodeJson)
@@ -143,3 +143,8 @@ applyUpdate = fromAff B.applyUpdate
 
 systemVersion :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
 systemVersion = fromAff $ map encodeJson B.systemVersion
+
+redeemADA :: forall eff . EffFn2 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String String (Promise Json)
+redeemADA = mkEffFn2 \seed -> fromAff <<< map encodeJson <<< either throwError (B.redeemADA $ mkSeed seed) <<< mkBackupPhrase
+
+

@@ -53,6 +53,8 @@ type WalletApi =
     :<|>
      "api" :> "update_profile" :> ReqBody '[JSON] CProfile :> Post '[JSON] (Either WalletError CProfile)
     :<|>
+     "api" :> "redeem_ada" :> Capture "seed" Text :> ReqBody '[JSON] BackupPhrase :> Post '[JSON] (Either WalletError CWallet)
+    :<|>
      "api" :> "next_update" :> Get '[JSON] (Either WalletError CUpdateInfo)
     :<|>
      "api" :> "apply_update" :> Post '[JSON] (Either WalletError ())

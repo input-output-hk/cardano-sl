@@ -53,10 +53,10 @@ import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CProf
                                                 CProfile (..), CTx, CTxId, CTxMeta (..),
                                                 CUpdateInfo (..), CWallet (..),
                                                 CWalletInit (..), CWalletMeta (..),
-                                                NotifyEvent (..), addressToCAddress,
-                                                cAddressToAddress, mkCTx, mkCTxId,
-                                                toCUpdateInfo, txContainsTitle,
-                                                txIdToCTxId)
+                                                CWalletType (..), NotifyEvent (..),
+                                                addressToCAddress, cAddressToAddress,
+                                                mkCTx, mkCTxId, toCUpdateInfo,
+                                                txContainsTitle, txIdToCTxId)
 import           Pos.Wallet.Web.Error          (WalletError (..))
 import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 WalletWebSockets, closeWSConnection,
@@ -230,6 +230,8 @@ servantHandlers sendActions =
     :<|>
      catchWalletError . updateUserProfile
     :<|>
+     (\a -> catchWalletError . redeemADA a)
+    :<|>
      catchWalletError nextUpdate
     :<|>
      catchWalletError applyUpdate
@@ -375,6 +377,15 @@ applyUpdate = removeNextUpdate
 
 blockchainSlotDuration :: WalletWebMode ssc m => m Word
 blockchainSlotDuration = fromIntegral <$> getSlotDuration
+
+-- TODO: @dmitry move this somewhere (probably we have seed type)
+type Seed = Text
+
+redeemADA :: WalletWebMode ssc m => Text -> BackupPhrase -> m CWallet
+redeemADA seed bp = do
+    walletB <- newWallet $ CWalletInit bp $ CWalletMeta CWTPersonal ADA "Redemption wallet"
+    -- send from seedAddress to walletB
+    pure walletB
 
 ----------------------------------------------------------------------------
 -- Helpers

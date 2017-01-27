@@ -16,6 +16,8 @@ module Daedalus.Types
        , _ctxIdValue
        , showCCurrency
        , mkBackupPhrase
+       , Seed
+       , mkSeed
        ) where
 
 import Prelude
@@ -40,6 +42,11 @@ import Data.String (split)
 
 import Daedalus.Crypto (isValidMnemonic)
 import Data.Types (mkTime)
+
+type Seed = String
+
+mkSeed :: String -> Seed
+mkSeed = id
 
 mkBackupPhrase :: String -> Either Error BackupPhrase
 mkBackupPhrase mnemonic =

@@ -18,6 +18,7 @@ import           Pos.Communication       (BiP, SysStartResponse (..))
 import           Pos.Constants           (networkReceiveTimeout, sysTimeBroadcastSlots)
 import           Pos.Context             (NodeContext (..), getNodeContext,
                                           setNtpLastSlot)
+import           Pos.Delegation.Worker   (dlgWorkers)
 import           Pos.DHT.Model.Neighbors (sendToNeighbors)
 import           Pos.DHT.Workers         (dhtWorkers)
 import           Pos.Lrc.Worker          (lrcOnNewSlotWorker)
@@ -28,7 +29,7 @@ import           Pos.Types               (SlotId, flattenSlotId, slotIdF)
 import           Pos.Update              (usWorkers)
 import           Pos.Util                (sendActionsWithTimeLimit, waitRandomInterval,
                                           withWaitLog)
-import           Pos.Util.TimeWarp       (ms, sec)
+import           Pos.Util.TimeWarp       (ms)
 import           Pos.Worker.Stats        (statsWorkers)
 import           Pos.WorkMode            (WorkMode)
 
@@ -44,6 +45,7 @@ runWorkers sendActions = mapM_ fork $ map ($ modifySendActions sendActions) $ co
     [ [ onNewSlotWorker ]
     , dhtWorkers
     , blkWorkers
+    , dlgWorkers
     , untag sscWorkers
     , untag securityWorkers
     , [lrcOnNewSlotWorker]

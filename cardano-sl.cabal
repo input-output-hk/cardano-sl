@@ -200,6 +200,7 @@ library
                         Pos.Delegation.Lrc
                         Pos.Delegation.Methods
                         Pos.Delegation.Types
+                        Pos.Delegation.Worker
 
                         -- Launcher
                         Pos.Launcher.Launcher

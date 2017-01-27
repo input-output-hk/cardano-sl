@@ -94,10 +94,15 @@ data CompileConfig = CompileConfig
       -- ^ VSS certificates min timeout to live (number of epochs)
     , ccProtocolMagic                 :: !Int
       -- ^ Magic constant for separating real/testnet
+    , ccLightDlgConfirmationTimeout   :: !Int
+      -- ^ Timeout for holding light psks confirmations
     , ccEnhancedMessageBroadcast      :: !Word
       -- ^ True if we should enable enhanced bessage broadcast
     , ccRecoveryHeadersMessage        :: !Int
       -- ^ Numbers of headers put in message in recovery mode.
+    , ccMessageCacheTimeout           :: !Int
+      -- ^ Interval we ignore cached messages in components that
+      -- support caching
     , ccKademliaDumpInterval          :: !Int
       -- ^ Interval for dumping Kademlia state in slots
     , ccUpdateServers                 :: ![String]

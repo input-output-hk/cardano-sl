@@ -2,6 +2,7 @@ module Daedalus.Types
        ( module CT
        , module C
        , module E
+       , module BP
        , _address
        , _coin
        , mkCoin
@@ -14,6 +15,7 @@ module Daedalus.Types
        , mkCProfile
        , _ctxIdValue
        , showCCurrency
+       , mkBackupPhrase
        ) where
 
 import Prelude
@@ -25,6 +27,7 @@ import Pos.Wallet.Web.ClientTypes as CT
 import Pos.Types.Core as C
 import Pos.Wallet.Web.Error as E
 import Pos.Util.BackupPhrase (BackupPhrase (..))
+import Pos.Util.BackupPhrase as BP
 
 import Control.Monad.Eff.Exception (error, Error)
 import Data.Either (either, Either (..))
@@ -38,8 +41,8 @@ import Data.String (split)
 import Daedalus.Crypto (isValidMnemonic)
 import Data.Types (mkTime)
 
-toBackupPhrase :: String -> Either Error BackupPhrase
-toBackupPhrase mnemonic =
+mkBackupPhrase :: String -> Either Error BackupPhrase
+mkBackupPhrase mnemonic =
     if not $ isValidMnemonic mnemonic
         then Left $ error "Invalid mnemonic"
         else Right $ BackupPhrase { bpToList: split " " mnemonic }
@@ -84,7 +87,7 @@ mkCWalletMeta wType wCurrency wName =
 
 mkCWalletInit :: String -> String -> String -> String -> Either Error CT.CWalletInit
 mkCWalletInit wType wCurrency wName mnemonic = do
-    bp <- toBackupPhrase mnemonic
+    bp <- mkBackupPhrase mnemonic
     pure $ CT.CWalletInit { cwBackupPhrase: bp
                           , cwInitMeta: mkCWalletMeta wType wCurrency wName
                           }

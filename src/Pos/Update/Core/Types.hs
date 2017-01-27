@@ -174,6 +174,7 @@ patakUpdateData =
         h = unsafeHash b
     in  HM.fromList [(SystemTag b, UpdateData h h h h)]
 
+
 ----------------------------------------------------------------------------
 -- UpdateVote and related
 ----------------------------------------------------------------------------

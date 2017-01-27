@@ -64,6 +64,10 @@ module Pos.Constants
        , updateImplicitApproval
        , usSoftforkThreshold
 
+       -- * Package structure constants
+       , pkgUpdatesDir
+       , pkgExecutablesDir
+
        -- * NTP
        , ntpMaxError
        , ntpResponseTimeout
@@ -333,6 +337,34 @@ appSystemTag = $(do
                  \couldn't find env var \"CSL_SYSTEM_TAG\""
 #endif
         Just tag -> lift =<< mkSystemTag (toText tag))
+
+pkgExecutablesDir :: FilePath
+pkgExecutablesDir =
+    $(runIO (lookupEnv "CSL_EXE_DIR") >>=
+      maybe (
+#ifdef DEV_MODE
+         [|panic "'pkgExecutablesDir' can't be used if env var \
+                 \\"CSL_EXE_DIR\" wasn't set during compilation" |]
+#else
+         fail "Failed to init pkgExecutablesDir: \
+              \couldn't find env var \"CSL_EXE_DIR\""
+#endif
+         )
+         lift)
+
+pkgUpdatesDir :: FilePath
+pkgUpdatesDir =
+    $(runIO (lookupEnv "CSL_UPDATE_DIR") >>=
+      maybe (
+#ifdef DEV_MODE
+         [|panic "'pkgUpdatesDir' can't be used if env var \
+                 \\"CSL_UPDATE_DIR\" wasn't set during compilation" |]
+#else
+         fail "Failed to init pkgUpdatesDir: \
+              \couldn't find env var \"CSL_UPDATE_DIR\""
+#endif
+         )
+         lift)
 
 -- | Last block version application is aware of.
 lastKnownBlockVersion :: BlockVersion

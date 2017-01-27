@@ -35,13 +35,18 @@ main =
       , mkSumType (Proxy @CT.CTxId)
       , mkSumType (Proxy @CT.CTx)
       , mkSumType (Proxy @CT.NotifyEvent)
+      , mkSumType (Proxy @CT.CUpdateInfo)
       , mkSumType (Proxy @PT.Coin)
       , mkSumType (Proxy @PT.ChainDifficulty)
+      , mkSumType (Proxy @PT.BlockVersion)
+      , mkSumType (Proxy @PT.SoftwareVersion)
+      , mkSumType (Proxy @PT.ApplicationName)
       , mkSumType (Proxy @BP.BackupPhrase)
       ]
   where
       customBridge =
-          defaultBridge <|> posixTimeBridge <|> wordBridge <|> word8Bridge <|> word32Bridge <|>
+          defaultBridge <|> posixTimeBridge <|> wordBridge <|>
+          word8Bridge <|> word16Bridge <|> word32Bridge <|>
           word64Bridge <|> hashBridge
 
 posixTimeBridge :: BridgePart
@@ -52,6 +57,9 @@ wordBridge = typeName ^== "Word" >> pure psInt
 
 word8Bridge :: BridgePart
 word8Bridge = typeName ^== "Word8" >> pure psInt
+
+word16Bridge :: BridgePart
+word16Bridge = typeName ^== "Word16" >> pure psInt
 
 word32Bridge :: BridgePart
 word32Bridge = typeName ^== "Word32" >> pure psInt

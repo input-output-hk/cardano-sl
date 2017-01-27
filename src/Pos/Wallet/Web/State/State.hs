@@ -15,6 +15,8 @@ module Pos.Wallet.Web.State.State
        , getWalletMeta
        , getTxMeta
        , getWalletHistory
+       , getUpdates
+       , getNextUpdate
 
        -- * Setters
        , createWallet
@@ -24,6 +26,7 @@ module Pos.Wallet.Web.State.State
        , setWalletHistory
        , addOnlyNewTxMeta
        , removeWallet
+       , addUpdate
        ) where
 
 import           Data.Acid                    (EventResult, EventState, QueryEvent,
@@ -32,7 +35,7 @@ import           Mockable                     (MonadMockable)
 import           Universum
 
 import           Pos.Wallet.Web.ClientTypes   (CAddress, CProfile, CTxId, CTxMeta,
-                                               CWalletMeta)
+                                               CUpdateInfo, CWalletMeta)
 import           Pos.Wallet.Web.State.Acidic  (WalletState, closeState, openMemState,
                                                openState)
 import           Pos.Wallet.Web.State.Acidic  as A
@@ -77,6 +80,12 @@ getTxMeta addr = queryDisk . A.GetTxMeta addr
 getWalletHistory :: WebWalletModeDB m => CAddress -> m (Maybe [CTxMeta])
 getWalletHistory = queryDisk . A.GetWalletHistory
 
+getUpdates :: WebWalletModeDB m => m [CUpdateInfo]
+getUpdates = queryDisk A.GetUpdates
+
+getNextUpdate :: WebWalletModeDB m => m (Maybe CUpdateInfo)
+getNextUpdate = queryDisk A.GetNextUpdate
+
 createWallet :: WebWalletModeDB m => CAddress -> CWalletMeta -> m ()
 createWallet addr = updateDisk . A.CreateWallet addr
 
@@ -97,3 +106,6 @@ addOnlyNewTxMeta addr ctxId = updateDisk . A.AddOnlyNewTxMeta addr ctxId
 
 removeWallet :: WebWalletModeDB m => CAddress -> m ()
 removeWallet = updateDisk . A.RemoveWallet
+
+addUpdate :: WebWalletModeDB m => CUpdateInfo -> m ()
+addUpdate = updateDisk . A.AddUpdate

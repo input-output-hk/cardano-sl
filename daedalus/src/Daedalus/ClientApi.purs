@@ -33,14 +33,19 @@ getWallets = fromAff $ map encodeJson B.getWallets
 getWallet :: forall eff. String -> (Eff(ajax :: AJAX | eff) (Promise Json))
 getWallet = fromAff <<< map encodeJson <<< B.getWallet <<< mkCAddress
 
-getHistory :: forall eff. String -> Eff(ajax :: AJAX | eff) (Promise Json)
-getHistory = fromAff <<< map encodeJson <<< B.getHistory <<< mkCAddress
+getHistory :: forall eff. Fn3 String Int Int (Eff (ajax :: AJAX | eff) (Promise Json))
+getHistory = mkFn3 \addr skip limit -> fromAff <<< map encodeJson $
+    B.getHistory
+        (mkCAddress addr)
+        skip
+        limit
 
-searchHistory :: forall eff. Fn3 String String Int (Eff(ajax :: AJAX | eff) (Promise Json))
-searchHistory = mkFn3 \addr search limit -> fromAff <<< map encodeJson $
+searchHistory :: forall eff. Fn4 String String Int Int (Eff(ajax :: AJAX | eff) (Promise Json))
+searchHistory = mkFn4 \addr search skip limit -> fromAff <<< map encodeJson $
     B.searchHistory
         (mkCAddress addr)
         search
+        skip
         limit
 
 send :: forall eff. Fn3 String String Int (Eff(ajax :: AJAX | eff) (Promise Json))

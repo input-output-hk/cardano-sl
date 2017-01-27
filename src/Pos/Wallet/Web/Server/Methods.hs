@@ -212,9 +212,9 @@ servantHandlers sendActions =
     :<|>
      (\a b c d e -> catchWalletError . sendExtended sendActions a b c d e)
     :<|>
-     catchWalletError . getHistory
+     (\a b -> catchWalletError . getHistory a b )
     :<|>
-     (\a b -> catchWalletError . searchHistory a b)
+     (\a b c -> catchWalletError . searchHistory a b c)
     :<|>
      (\a b -> catchWalletError . updateTransaction a b)
     :<|>
@@ -295,18 +295,17 @@ sendExtended sendActions srcCAddr dstCAddr c curr title desc = do
             () <$ addHistoryTx dstCAddr curr title desc (THEntry txHash tx False Nothing)
             addHistoryTx srcCAddr curr title desc (THEntry txHash tx True Nothing)
 
-getHistory :: WalletWebMode ssc m => CAddress -> m [CTx]
-getHistory cAddr = do
+getHistory :: WalletWebMode ssc m => CAddress -> Word -> Word -> m ([CTx], Word)
+getHistory cAddr skip limit = do
     history <- getTxHistory =<< decodeCAddressOrFail cAddr
-    mapM (addHistoryTx cAddr ADA mempty mempty) history
+    cHistory <- mapM (addHistoryTx cAddr ADA mempty mempty) history
+    pure (paginate cHistory, fromIntegral $ length cHistory)
+  where
+    paginate = take (fromIntegral limit) . drop (fromIntegral skip)
 
 -- FIXME: is Word enough for length here?
-searchHistory :: WalletWebMode ssc m => CAddress -> Text -> Word -> m ([CTx], Word)
-searchHistory cAddr search limit = do
-    history <- getHistory cAddr
-    pure (filterHistory history, fromIntegral $ length history)
-  where
-    filterHistory = take (fromIntegral limit) . filter (txContainsTitle search)
+searchHistory :: WalletWebMode ssc m => CAddress -> Text -> Word -> Word -> m ([CTx], Word)
+searchHistory cAddr search skip limit = first (filter $ txContainsTitle search) <$> getHistory cAddr skip limit
 
 addHistoryTx
     :: WalletWebMode ssc m

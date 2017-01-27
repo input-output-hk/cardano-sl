@@ -31,9 +31,9 @@ type WalletApi =
     -- TODO: for now we only support one2one sending. We should extend this to support many2many
      "api" :> "send" :> Capture "from" CAddress :> Capture "to" CAddress :> Capture "amount" Coin :> Capture "currency" CCurrency :> Capture "title" Text :> Capture "description" Text :> Post '[JSON] (Either WalletError CTx)
     :<|>
-     "api" :> "history" :> Capture "address" CAddress :> Get '[JSON] (Either WalletError [CTx])
+     "api" :> "txhistory" :> Capture "address" CAddress :> Capture "skip" Word :> Capture "limit" Word :> Get '[JSON] (Either WalletError ([CTx], Word))
     :<|>
-     "api" :> "history" :> Capture "address" CAddress :> Capture "search" Text :> Capture "limit" Word :> Get '[JSON] (Either WalletError ([CTx], Word))
+     "api" :> "search_txhistory" :> Capture "address" CAddress :> Capture "search" Text :> Capture "skip" Word :> Capture "limit" Word :> Get '[JSON] (Either WalletError ([CTx], Word))
     :<|>
      "api" :> "update_transaction" :> Capture "address" CAddress :> Capture "transaction" CTxId :> ReqBody '[JSON] CTxMeta :> Post '[JSON] (Either WalletError ())
     :<|>

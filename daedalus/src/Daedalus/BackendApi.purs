@@ -87,11 +87,11 @@ getWallets = getR ["get_wallets"]
 getWallet :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) CWallet
 getWallet addr = getR ["get_wallet", _address addr]
 
-getHistory :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) (Array CTx)
-getHistory addr = getR ["history", _address addr]
+getHistory :: forall eff. CAddress -> Int -> Int -> Aff (ajax :: AJAX | eff) (Tuple (Array CTx) Int)
+getHistory addr skip limit = getR ["txhistory", _address addr, show skip, show limit]
 
-searchHistory :: forall eff. CAddress -> String -> Int -> Aff (ajax :: AJAX | eff) (Tuple (Array CTx) Int)
-searchHistory addr search limit = getR ["history", _address addr, search, show limit]
+searchHistory :: forall eff. CAddress -> String -> Int -> Int -> Aff (ajax :: AJAX | eff) (Tuple (Array CTx) Int)
+searchHistory addr search skip limit = getR ["search_txhistory", _address addr, search, show skip, show limit]
 
 send :: forall eff. CAddress -> CAddress -> Coin -> Aff (ajax :: AJAX | eff) CTx
 send addrFrom addrTo amount = postR ["send", _address addrFrom, _address addrTo, show $ _coin amount]

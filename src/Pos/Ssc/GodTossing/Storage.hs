@@ -54,9 +54,10 @@ import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), GtPayload (
 import           Pos.Ssc.GodTossing.Types.Base  (VssCertificate (..))
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types                      (Block, EpochIndex (..), EpochOrSlot (..),
-                                                 SharedSeed, SlotId (..), addressHash,
-                                                 blockMpc, blockSlot, epochIndexL,
-                                                 epochOrSlot, epochOrSlotG, gbHeader)
+                                                 SharedSeed, SlotId (..), StakeholderId,
+                                                 addressHash, blockMpc, blockSlot,
+                                                 epochIndexL, epochOrSlot, epochOrSlotG,
+                                                 gbHeader)
 import           Pos.Util                       (NE, NewestFirst (..), OldestFirst (..),
                                                  maybeThrow, toOldestFirst)
 
@@ -194,13 +195,22 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
         VerFailure errors -> throwError $ VerifyPureFailed errors
         _                 -> pass
   where
-    -- exceptGuardFull
-    --     :: (entry -> key)
-    --     -> (entry -> val)
-    --     -> TossVerErrorTag
-    --     -> (val -> Bool)
-    --     -> [entry]
-    --     -> m ()
+    -- This function needed for convenient.
+    -- It takes list of entries ([(StakeholderId, v)] or [StakeholderId]),
+    -- function condition and error tag (fKey and fValue - see below)
+    -- If condition true for every entry - function will pass simply.
+    -- Otherwise it get all entries which doesn't pass condition
+    -- and throwError with [StakeholderId] corresponding these entries.
+    -- fKey needed for getting StakeholderId from entry.
+    -- fValue needed for getting value which must be tested by condition function.
+
+    exceptGuardFull
+        :: (entry -> StakeholderId)
+        -> (entry -> val)
+        -> TossVerErrorTag
+        -> (val -> Bool)
+        -> [entry]
+        -> GSVerify ()
     exceptGuardFull fKey fVal tag cond =
         maybeThrowError (TossVerFailure tag) .
         NE.nonEmpty .

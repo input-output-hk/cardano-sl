@@ -104,6 +104,7 @@ module Pos.Util
        -- ** ToJSON Byte
        -- ** SafeCopy (NonEmpty a)
        -- ** SafeCopy Microsecond
+       -- ** SafeCopy Millisecond
        -- ** MonadFail (Either s), assuming IsString s
        -- ** MonadFail ParsecT
        -- ** MonadFail Dialog
@@ -134,7 +135,8 @@ import           Data.SafeCopy                 (Contained, SafeCopy (..), base, 
                                                 deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Serialize                as Cereal (Get, Put)
 import qualified Data.Text                     as T
-import           Data.Time.Units               (Microsecond, Second, convertUnit)
+import           Data.Time.Units               (Microsecond, Millisecond, Second,
+                                                convertUnit)
 import           Formatting                    (sformat, shown, stext, (%))
 import           Language.Haskell.TH
 import           Language.Haskell.TH.Syntax    (Lift)
@@ -380,6 +382,11 @@ instance SafeCopy a => SafeCopy (NonEmpty a) where
             Just xx -> return xx
     putCopy = contain . safePut . toList
     errorTypeName _ = "NonEmpty"
+
+instance SafeCopy Millisecond where
+    getCopy = contain (fromInteger <$> safeGet)
+    putCopy = contain . safePut . toInteger
+    errorTypeName _ = "Millisecond"
 
 instance SafeCopy Microsecond where
     getCopy = contain (fromInteger <$> safeGet)

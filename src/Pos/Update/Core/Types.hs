@@ -47,7 +47,7 @@ import           Data.SafeCopy              (base, deriveSafeCopySimple)
 import qualified Data.Text                  as T
 import           Data.Text.Buildable        (Buildable)
 import qualified Data.Text.Buildable        as Buildable
-import           Data.Time.Units            (Microsecond)
+import           Data.Time.Units            (Millisecond)
 import           Formatting                 (bprint, build, int, (%))
 import           Language.Haskell.TH.Syntax (Lift)
 import           Serokell.Data.Memory.Units (Byte)
@@ -119,7 +119,7 @@ instance Buildable (UpdateProposal, [UpdateVote]) where
 -- | Data which is associated with 'BlockVersion'.
 data BlockVersionData = BlockVersionData
     { bvdScriptVersion :: !ScriptVersion
-    , bvdSlotDuration  :: !Microsecond
+    , bvdSlotDuration  :: !Millisecond
     , bvdMaxBlockSize  :: !Byte
     } deriving (Show, Eq, Generic, Typeable)
 
@@ -136,7 +136,7 @@ instance Buildable BlockVersionData where
 upScriptVersion :: UpdateProposal -> ScriptVersion
 upScriptVersion = bvdScriptVersion . upBlockVersionData
 
-upSlotDuration :: UpdateProposal -> Microsecond
+upSlotDuration :: UpdateProposal -> Millisecond
 upSlotDuration = bvdSlotDuration . upBlockVersionData
 
 upMaxBlockSize :: UpdateProposal -> Byte
@@ -239,8 +239,8 @@ data VoteState
 
 instance Buildable VoteState where
     --build x = bprint $ show x
-    build PositiveVote = bprint "PositiveVote"
-    build NegativeVote = bprint "NegativeVote"
+    build PositiveVote   = bprint "PositiveVote"
+    build NegativeVote   = bprint "NegativeVote"
     build PositiveRevote = bprint "PositiveRevote"
     build NegativeRevote = bprint "NegativeRevote"
 

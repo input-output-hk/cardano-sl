@@ -14,7 +14,7 @@ import           Control.Concurrent.STM.TVar   (TVar, modifyTVar', newTVar, read
                                                 writeTVar)
 import           Data.Array.MArray             (newListArray, readArray, writeArray)
 import           Data.List                     (tail, (!!))
-import           Data.Time.Units               (Microsecond)
+import           Data.Time.Units               (Millisecond, convertUnit)
 import           Universum                     hiding (head)
 
 import           Pos.Constants                 (slotSecurityParam)
@@ -39,11 +39,11 @@ import           GenOptions                    (GenOptions (..))
 --   where addr = genesisAddresses !! i
 
 -- TODO: should it use slotSecurityParam or blkSecurityParam?
-tpsTxBound :: Microsecond -> Double -> Int -> Int
+tpsTxBound :: Millisecond -> Double -> Int -> Int
 tpsTxBound slotDuration tps propThreshold =
     round $
     tps * fromIntegral (slotSecurityParam + propThreshold) *
-    fromIntegral (slotDuration `div` sec 1)
+    fromIntegral (convertUnit slotDuration `div` sec 1)
 
 genChain :: SecretKey -> TxId -> Word32 -> [TxAux]
 genChain sk txInHash txInIndex =
@@ -59,7 +59,7 @@ genMOfNChain val sks txInHash txInIndex =
                      [(TxOut addr (mkCoin 1), [])]
     in (tx, w, d) : genMOfNChain val sks (hash tx) 0
 
-initTransaction :: GenOptions -> Microsecond -> Int -> TxAux
+initTransaction :: GenOptions -> Millisecond -> Int -> TxAux
 initTransaction GenOptions{..} slotDuration i =
     let maxTps = goInitTps + goTpsIncreaseStep * fromIntegral goRoundNumber
         n' = tpsTxBound slotDuration (maxTps / fromIntegral (length goGenesisIdxs)) goPropThreshold
@@ -103,7 +103,7 @@ shiftTx BambooPool {..} = atomically $ do
     chain <- readArray bpChains idx
     writeArray bpChains idx $ tail chain
 
-nextBamboo :: BambooPool -> Microsecond -> Double -> Int -> IO ()
+nextBamboo :: BambooPool -> Millisecond -> Double -> Int -> IO ()
 nextBamboo BambooPool {..} slotDuration curTps propThreshold = atomically $ do
     let bound = tpsTxBound slotDuration curTps propThreshold
     modifyTVar' bpCurIdx $ \idx ->

@@ -9,6 +9,7 @@ import           Control.Monad.Reader (MonadReader (..), ReaderT, ask, asks, run
 import           Data.List            ((!!))
 import           Data.Proxy           (Proxy (..))
 import qualified Data.Text            as T
+import           Data.Time.Units      (convertUnit)
 import           Formatting           (build, int, sformat, stext, (%))
 import           Mockable             (delay)
 import           Node                 (SendActions, hoistSendActions)
@@ -74,7 +75,7 @@ runCmd sendActions ProposeUpdate{..} = do
     let skey = skeys !! puIdx
     let bvd = BlockVersionData
             { bvdScriptVersion = puScriptVersion
-            , bvdSlotDuration = sec puSlotDurationSec
+            , bvdSlotDuration = convertUnit (sec puSlotDurationSec)
             , bvdMaxBlockSize = puMaxBlockSize
             }
     let updateProposal = UpdateProposal

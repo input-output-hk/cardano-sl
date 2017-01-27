@@ -41,7 +41,7 @@ module Pos.DB.GState.Update
        ) where
 
 import           Control.Monad.Trans.Maybe  (MaybeT (..), runMaybeT)
-import           Data.Time.Units            (Microsecond)
+import           Data.Time.Units            (Millisecond)
 import qualified Database.RocksDB           as Rocks
 import           Serokell.Data.Memory.Units (Byte)
 import           Universum
@@ -96,7 +96,7 @@ getAdoptedBVFull = maybeThrow (DBMalformed msg) =<< getAdoptedBVFullMaybe
         "Update System part of GState DB is not initialized (last adopted BV is missing)"
 
 -- | Get actual slot duration.
-getSlotDuration :: MonadDB ssc m => m Microsecond
+getSlotDuration :: MonadDB ssc m => m Millisecond
 getSlotDuration = pure genesisSlotDuration
 -- getSlotDuration = bvdSlotDuration <$> getAdoptedBVData
 

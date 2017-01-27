@@ -25,7 +25,7 @@ import           Control.Monad            (void)
 import           Control.Monad.Catch      (MonadCatch, catch)
 import           Control.Monad.Except     (ExceptT)
 import           Control.Monad.Trans      (MonadTrans)
-import           Data.Time.Units          (Microsecond)
+import           Data.Time.Units          (Microsecond, Millisecond, convertUnit)
 import           Formatting               (build, sformat, shown, (%))
 import           Mockable                 (CurrentTime, Delay, Fork, Mockable,
                                            currentTime, delay, fork)
@@ -45,7 +45,7 @@ class Monad m => MonadSlots m where
     getSystemStartTime :: m Timestamp
     getCurrentTime :: m Timestamp
     getCurrentSlot :: m SlotId
-    getSlotDuration :: m Microsecond
+    getSlotDuration :: m Millisecond
 
     default getSystemStartTime
             :: (MonadTrans t, MonadSlots m', t m' ~ m) => m Timestamp
@@ -60,7 +60,7 @@ class Monad m => MonadSlots m where
     getCurrentSlot = lift getCurrentSlot
 
     default getSlotDuration
-            :: (MonadTrans t, MonadSlots m', t m' ~ m) => m Microsecond
+            :: (MonadTrans t, MonadSlots m', t m' ~ m) => m Millisecond
     getSlotDuration = lift getSlotDuration
 
 instance MonadSlots m => MonadSlots (ReaderT s m) where
@@ -72,7 +72,7 @@ instance MonadSlots m => MonadSlots (KademliaDHT m) where
 data SlottingState = SlottingState
     {
     -- | Current slot duration. (It can be changed by update proposals.)
-      ssSlotDuration :: !Microsecond
+      ssSlotDuration :: !Millisecond
     -- | Slot which was returned from getCurrentSlot in last time
     , ssNtpLastSlot  :: !SlotId
     -- | Data for the NTP Worker. First element: margin (difference between
@@ -95,7 +95,8 @@ getSlotStart :: MonadSlots m => SlotId -> m Timestamp
 getSlotStart (flattenSlotId -> slotId) = do
     slotDuration <- getSlotDuration
     startTime    <- getSystemStartTime
-    return $ startTime + Timestamp (fromIntegral slotId * slotDuration)
+    return $ startTime +
+             Timestamp (fromIntegral slotId * convertUnit slotDuration)
 
 getCurrentSlotUsingNtp :: (MonadSlots m, Mockable CurrentTime m)
                        => SlotId -> (Microsecond, Microsecond) -> m SlotId
@@ -104,7 +105,7 @@ getCurrentSlotUsingNtp lastSlot (margin, measTime) = do
     canTrust <- canWeTrustLocalTime t
     slotDuration <- getSlotDuration
     if canTrust then
-        max lastSlot . f slotDuration <$>
+        max lastSlot . f (convertUnit slotDuration) <$>
             ((t -) . getTimestamp <$> getSystemStartTime)
     else pure lastSlot
   where
@@ -190,6 +191,6 @@ onNewSlotDo withLogging expectedSlotId startImmediately action = do
         unlessM predicate (shortWait >> waitUntilPredicate predicate)
     shortWait = do
         slotDuration <- getSlotDuration
-        delay ((10 :: Microsecond) `max` (slotDuration `div` 10000))
+        delay ((10 :: Microsecond) `max` (convertUnit slotDuration `div` 10000))
     logTTW timeToWait = modifyLoggerName (<> "slotting") $ logDebug $
                  sformat ("Waiting for "%shown%" before new slot") timeToWait

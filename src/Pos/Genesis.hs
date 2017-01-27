@@ -38,7 +38,7 @@ import           Data.Default               (Default (..))
 import           Data.List                  (genericLength, genericReplicate)
 import qualified Data.Map.Strict            as M
 import qualified Data.Text                  as T
-import           Data.Time.Units            (Microsecond)
+import           Data.Time.Units            (Millisecond)
 import           Formatting                 (int, sformat, (%))
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util              (enumerate)
@@ -219,7 +219,7 @@ genesisScriptVersion :: ScriptVersion
 genesisScriptVersion = 0
 
 -- | Initial slot duration
-genesisSlotDuration :: Microsecond
+genesisSlotDuration :: Millisecond
 genesisSlotDuration = Const.genesisSlotDuration
 
 -- | Initial block size limit

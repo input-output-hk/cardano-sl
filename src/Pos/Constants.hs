@@ -65,7 +65,7 @@ module Pos.Constants
        , ntpPollDelay
        ) where
 
-import           Data.Time.Units            (Microsecond)
+import           Data.Time.Units            (Microsecond, Millisecond, convertUnit)
 import           Language.Haskell.TH.Syntax (lift, runIO)
 import           Pos.Util.TimeWarp          (ms, sec)
 import           Serokell.Data.Memory.Units (Byte)
@@ -87,7 +87,7 @@ import           Pos.Types.Version          (ApplicationName, BlockVersion (..),
                                              SoftwareVersion (..), mkApplicationName)
 import           Pos.Update.Core            (SystemTag, mkSystemTag)
 import           Pos.Util                   ()
-import           Pos.Util.TimeWarp          (mcs)
+import           Pos.Util.TimeWarp          (mcs, sec)
 
 ----------------------------------------------------------------------------
 -- Main constants mentioned in paper
@@ -139,8 +139,9 @@ genesisN :: Integral i => i
 genesisN = fromIntegral . ccGenesisN $ compileConfig
 
 -- | Length of slot.
-genesisSlotDuration :: Microsecond
-genesisSlotDuration = sec . ccGenesisSlotDurationSec $ compileConfig
+genesisSlotDuration :: Millisecond
+genesisSlotDuration =
+    convertUnit . sec . ccGenesisSlotDurationSec $ compileConfig
 
 -- | Maximum size of a block (in bytes)
 genesisMaxBlockSize :: Byte
@@ -307,7 +308,7 @@ updateServers = ccUpdateServers compileConfig
 ----------------------------------------------------------------------------
 -- | Inaccuracy in call threadDelay (actually it is error much less than 1 sec)
 ntpMaxError :: Microsecond
-ntpMaxError = 1000000 -- 1 sec
+ntpMaxError = sec 1
 
 -- | How often request to NTP server and response collection
 ntpResponseTimeout :: Microsecond

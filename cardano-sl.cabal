@@ -640,6 +640,7 @@ executable cardano-wallet
                      , serokell-util
                      , text
                      , time
+                     , time-units
                      , universum >= 0.1.11
                      , unordered-containers
   default-language:    Haskell2010

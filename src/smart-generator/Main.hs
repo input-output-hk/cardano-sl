@@ -7,7 +7,7 @@ import           Control.Concurrent.STM.TVar (modifyTVar', newTVarIO, readTVarIO
 import           Data.Maybe                  (fromMaybe)
 import           Data.Proxy                  (Proxy (..))
 import           Data.Time.Clock.POSIX       (getPOSIXTime)
-import           Data.Time.Units             (Microsecond)
+import           Data.Time.Units             (Microsecond, convertUnit)
 import           Formatting                  (float, int, sformat, (%))
 import           Mockable                    (Production, delay, forConcurrently, fork)
 import           Node                        (SendActions)
@@ -122,9 +122,10 @@ runSmartGen res np@NodeParams{..} sscnp opts@GenOptions{..} =
     -- Start writing tps file
     liftIO $ writeFile (logsFilePrefix </> tpsCsvFile) tpsCsvHeader
 
-    let phaseDurationMs =
+    let phaseDurationMs :: Microsecond
+        phaseDurationMs =
             fromIntegral (slotSecurityParam + goPropThreshold) *
-            slotDuration
+            convertUnit slotDuration
         roundDurationSec =
             fromIntegral (goRoundPeriodRate + 1) *
             fromIntegral (phaseDurationMs `div` sec 1)

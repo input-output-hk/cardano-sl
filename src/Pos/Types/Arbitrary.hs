@@ -16,7 +16,7 @@ module Pos.Types.Arbitrary
 import qualified Data.ByteString            as BS (pack)
 import           Data.Char                  (chr)
 import           Data.DeriveTH              (derive, makeArbitrary)
-import           Data.Time.Units            (Microsecond, fromMicroseconds)
+import           Data.Time.Units            (Microsecond, Millisecond, fromMicroseconds)
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (..),
                                              NonZero (..), choose, choose, elements,
@@ -234,6 +234,9 @@ derive makeArbitrary ''SoftwareVersion
 ----------------------------------------------------------------------------
 -- Arbitrary miscellaneous types
 ----------------------------------------------------------------------------
+
+instance Arbitrary Millisecond where
+    arbitrary = fromMicroseconds <$> choose (0, 600 * 1000 * 1000)
 
 instance Arbitrary Microsecond where
     arbitrary = fromMicroseconds <$> choose (0, 600 * 1000 * 1000)

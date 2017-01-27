@@ -6,6 +6,7 @@ module Pos.Worker
        ) where
 
 import           Data.Tagged             (untag)
+import           Data.Time.Units         (convertUnit)
 import           Formatting              (sformat, (%))
 import           Mockable                (fork)
 import           Node                    (SendActions)
@@ -62,5 +63,5 @@ onNewSlotWorkerImpl sendActions slotId = do
                       sendToNeighbors sendActions $ SysStartResponse sysStart
         send
         slotDuration <- getSlotDuration
-        waitRandomInterval (ms 500) (slotDuration `div` 2)
+        waitRandomInterval (ms 500) (convertUnit slotDuration `div` 2)
         send

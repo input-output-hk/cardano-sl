@@ -133,7 +133,7 @@ stakeDistribution TestnetStakes {..} =
     poors = fromIntegral sdPoor
     -- Minimum amount of money to become rich
     thresholdRich = coinToInteger $
-        applyCoinPortion Const.mpcThreshold sdTotalStake
+        applyCoinPortion Const.genesisMpcThd sdTotalStake
     -- Maximal amount of total money which poor stakeholders can hold
     maxPoorStake = (thresholdRich - 1) * poors
     -- Minimum amount of richmen's money to prevent poors becoming richmen

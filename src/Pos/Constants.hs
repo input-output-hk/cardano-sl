@@ -17,7 +17,6 @@ module Pos.Constants
        -- * SSC constants
        , sharedSeedLength
        , mpcSendInterval
-       , mpcThreshold
 
        -- * Dev/production mode, system start
        , isDevelopment
@@ -47,7 +46,6 @@ module Pos.Constants
        , vssMinTTL
        , protocolMagic
        , enhancedMessageBroadcast
-       , delegationThreshold
        , recoveryHeadersMessage
        , kademliaDumpInterval
 
@@ -132,10 +130,6 @@ sharedSeedLength = 32
 -- Also see 'Pos.CompileConfig.ccMpcSendInterval'.
 mpcSendInterval :: Microsecond
 mpcSendInterval = sec . fromIntegral . ccMpcSendInterval $ compileConfig
-
--- TODO: remove
-mpcThreshold :: CoinPortion
-mpcThreshold = genesisMpcThd
 
 ----------------------------------------------------------------------------
 -- Genesis
@@ -292,10 +286,6 @@ protocolMagic = fromIntegral . ccProtocolMagic $ compileConfig
 -- | Setting this to true enables enhanced message broadcast
 enhancedMessageBroadcast :: Integral a => a
 enhancedMessageBroadcast = fromIntegral $ ccEnhancedMessageBroadcast compileConfig
-
--- TODO: remove
-delegationThreshold :: CoinPortion
-delegationThreshold = genesisHeavyDelThd
 
 -- | Maximum amount of headers node can put into headers message while
 -- in "after offline" or "recovery" mode. Should be more than

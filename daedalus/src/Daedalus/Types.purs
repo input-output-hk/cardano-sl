@@ -19,10 +19,10 @@ module Daedalus.Types
 import Prelude
 
 import Pos.Wallet.Web.ClientTypes (CAddress (..), CHash (..))
-import Pos.Types.Types (Coin (..))
+import Pos.Types.Core (Coin (..))
 
 import Pos.Wallet.Web.ClientTypes as CT
-import Pos.Types.Types as C
+import Pos.Types.Core as C
 import Pos.Wallet.Web.Error as E
 import Pos.Util.BackupPhrase (BackupPhrase (..))
 

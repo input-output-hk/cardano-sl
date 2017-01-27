@@ -126,6 +126,7 @@ data BlockVersionData = BlockVersionData
     , bvdMpcThd            :: !CoinPortion
     , bvdHeavyDelThd       :: !CoinPortion
     , bvdUpdateVoteThd     :: !CoinPortion
+    , bvdUpdateProposalThd :: !CoinPortion
     , bvdUpdateImplicit    :: !FlatSlotId
     , bvdUpdateSoftforkThd :: !CoinPortion
     } deriving (Show, Eq, Generic, Typeable)

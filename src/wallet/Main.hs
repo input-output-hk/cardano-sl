@@ -24,15 +24,15 @@ import           Pos.Crypto           (SecretKey, createProxySecretKey, encodeHa
 import           Pos.Data.Attributes  (mkAttributes)
 import           Pos.Delegation       (sendProxySKEpoch, sendProxySKSimple)
 import           Pos.DHT.Model        (dhtAddr, discoverPeers)
-import           Pos.Genesis          (genesisPublicKeys, genesisSecretKeys)
+import           Pos.Genesis          (genesisBlockVersionData, genesisPublicKeys,
+                                       genesisSecretKeys)
 import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
                                        bracketResources, runTimeSlaveReal)
 import           Pos.Slotting         (getSlotDuration)
 import           Pos.Ssc.GodTossing   (SscGodTossing)
 import           Pos.Ssc.NistBeacon   (SscNistBeacon)
 import           Pos.Ssc.SscAlgo      (SscAlgo (..))
-import           Pos.Types            (EpochIndex (..), coinF, makePubKeyAddress, txaF,
-                                       unsafeCoinPortion)
+import           Pos.Types            (EpochIndex (..), coinF, makePubKeyAddress, txaF)
 import           Pos.Update           (BlockVersionData (..), UpdateProposal (..),
                                        UpdateVote (..), patakUpdateData)
 import           Pos.Util.TimeWarp    (NetworkAddress, sec)
@@ -74,16 +74,10 @@ runCmd sendActions (Vote idx decision upid) = do
 runCmd sendActions ProposeUpdate{..} = do
     (skeys, na) <- ask
     let skey = skeys !! puIdx
-    let bvd = BlockVersionData
+    let bvd = genesisBlockVersionData
             { bvdScriptVersion = puScriptVersion
             , bvdSlotDuration = convertUnit (sec puSlotDurationSec)
             , bvdMaxBlockSize = puMaxBlockSize
-            , bvdMaxTxSize = 0
-            , bvdMpcThd = unsafeCoinPortion 0
-            , bvdHeavyDelThd = unsafeCoinPortion 0
-            , bvdUpdateVoteThd = unsafeCoinPortion 0
-            , bvdUpdateImplicit = 0
-            , bvdUpdateSoftforkThd = unsafeCoinPortion 0
             }
     let updateProposal = UpdateProposal
             { upBlockVersion     = puBlockVersion

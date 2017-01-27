@@ -57,7 +57,7 @@ import           Pos.Types                  (Address (..), BlockVersion (..), Co
                                              StakeholderId, TxOut (..), Utxo,
                                              applyCoinPortion, coinToInteger, divCoin,
                                              makePubKeyAddress, mkCoin, unsafeAddCoin,
-                                             unsafeCoinPortion, unsafeMulCoin)
+                                             unsafeMulCoin)
 import           Pos.Types.Version          (SoftwareVersion (..))
 import           Pos.Update.Core.Types      (BlockVersionData (..))
 
@@ -223,12 +223,13 @@ genesisBlockVersionData =
     { bvdScriptVersion = genesisScriptVersion
     , bvdSlotDuration = Const.genesisSlotDuration
     , bvdMaxBlockSize = Const.genesisMaxBlockSize
-    , bvdMaxTxSize = 0
-    , bvdMpcThd = unsafeCoinPortion 0
-    , bvdHeavyDelThd = unsafeCoinPortion 0
-    , bvdUpdateVoteThd = unsafeCoinPortion 0
-    , bvdUpdateImplicit = 0
-    , bvdUpdateSoftforkThd = unsafeCoinPortion 0
+    , bvdMaxTxSize = Const.genesisMaxTxSize
+    , bvdMpcThd = Const.genesisMpcThd
+    , bvdHeavyDelThd = Const.genesisHeavyDelThd
+    , bvdUpdateVoteThd = Const.genesisUpdateVoteThd
+    , bvdUpdateProposalThd = Const.genesisUpdateProposalThd
+    , bvdUpdateImplicit = Const.genesisUpdateImplicit
+    , bvdUpdateSoftforkThd = Const.genesisUpdateSoftforkThd
     }
 
 -- | ScriptVersion used at the very beginning

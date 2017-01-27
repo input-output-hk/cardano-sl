@@ -54,6 +54,7 @@ instance Bi U.BlockVersionData where
         bvdMpcThd            <- get
         bvdHeavyDelThd       <- get
         bvdUpdateVoteThd     <- get
+        bvdUpdateProposalThd <- get
         bvdUpdateImplicit    <- get
         bvdUpdateSoftforkThd <- get
         return $ U.BlockVersionData {..}
@@ -65,6 +66,7 @@ instance Bi U.BlockVersionData where
         put bvdMpcThd
         put bvdHeavyDelThd
         put bvdUpdateVoteThd
+        put bvdUpdateProposalThd
         put bvdUpdateImplicit
         put bvdUpdateSoftforkThd
 

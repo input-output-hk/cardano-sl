@@ -7,12 +7,14 @@ module Mockable.Monad
     ( MonadMockable
     ) where
 
-import           Mockable.Channel      (Channel)
-import           Mockable.Class        (Mockable)
-import           Mockable.Concurrent   (Async, Concurrently, Delay, Fork)
-import           Mockable.CurrentTime  (CurrentTime)
-import           Mockable.Exception    (Bracket, Catch, Throw)
-import           Mockable.SharedAtomic (SharedAtomic)
+import           Mockable.Channel         (Channel)
+import           Mockable.Class           (Mockable)
+import           Mockable.Concurrent      (Async, Concurrently, Delay, Fork, Promise)
+import           Mockable.CurrentTime     (CurrentTime)
+import           Mockable.Exception       (Bracket, Catch, Throw)
+import           Mockable.Metrics         (Metrics)
+import           Mockable.SharedAtomic    (SharedAtomic)
+import           Mockable.SharedExclusive (SharedExclusive)
 
 -- | Bunch of Mockable-constraints.
 type MonadMockable m
@@ -26,4 +28,7 @@ type MonadMockable m
       , Mockable Channel m
       , Mockable Throw m
       , Mockable Catch m
+      , Ord (Promise m ())
+      , Mockable SharedExclusive m
+      , Mockable Metrics m
       )

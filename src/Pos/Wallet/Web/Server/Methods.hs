@@ -38,6 +38,7 @@ import           Pos.Types                     (Address, ChainDifficulty (..), C
                                                 TxOut (..), addressF, coinF,
                                                 decodeTextAddress, makePubKeyAddress,
                                                 mkCoin)
+import           Pos.Update                    (ConfirmedProposalState)
 import           Pos.Util                      (maybeThrow)
 import           Pos.Util.BackupPhrase         (keysFromPhrase)
 
@@ -45,10 +46,9 @@ import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
                                                 addSecretKey)
 import           Pos.Wallet.Tx                 (submitTx)
 import           Pos.Wallet.Tx.Pure            (TxHistoryEntry (..))
-import           Pos.Wallet.WalletMode         (WalletMode, getBalance, getNextUpdate,
-                                                getTxHistory, getUpdates,
+import           Pos.Wallet.WalletMode         (WalletMode, getBalance, getTxHistory,
                                                 localChainDifficulty,
-                                                networkChainDifficulty)
+                                                networkChainDifficulty, waitForUpdate)
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CProfile,
                                                 CProfile (..), CTx, CTxId, CTxMeta (..),
@@ -85,7 +85,9 @@ type WalletWebMode ssc m
       )
 
 walletServeImpl
-    :: (MonadIO m, MonadMask m)
+    :: ( MonadIO m
+       , MonadMask m
+       , WalletWebMode ssc (WalletWebHandler m))
     => WalletWebHandler m Application     -- ^ Application getter
     -> FilePath                        -- ^ Path to wallet acid-state
     -> Bool                            -- ^ Rebuild flag for acid-state
@@ -111,7 +113,7 @@ walletApplication serv = do
     serv >>= return . upgradeApplicationWS wsConn . serve walletApi
 
 walletServer
-    :: WalletMode ssc m
+    :: (Monad m, WalletWebMode ssc (WalletWebHandler m))
     => SendActions BiP m
     -> WalletWebHandler m (WalletWebHandler m :~> Handler)
     -> WalletWebHandler m (Server WalletApi)
@@ -168,7 +170,7 @@ launchNotifier nat = void . liftIO $ mapM startForking
     notifier period action = forever $ do
         liftIO $ threadDelay period
         action
-    dificultyNotifier = flip runStateT def $ notifier difficultyNotifyPeriod $ do
+    dificultyNotifier = void . flip runStateT def $ notifier difficultyNotifyPeriod $ do
         networkDifficulty <- networkChainDifficulty
         -- TODO: use lenses!
         whenM ((networkDifficulty /=) . spNetworkCD <$> get) $ do
@@ -380,6 +382,9 @@ getAddrIdx :: WalletWebMode ssc m => Address -> m Int
 getAddrIdx addr = elemIndex addr <$> myAddresses >>= maybe notFound pure
   where notFound = throwM . Internal $
             sformat ("Address "%addressF%" is not found in wallet") $ addr
+
+getNextUpdate :: WalletWebMode ssc m => m (Maybe ConfirmedProposalState)
+getNextUpdate = pure Nothing
 
 ----------------------------------------------------------------------------
 -- Orphan instances

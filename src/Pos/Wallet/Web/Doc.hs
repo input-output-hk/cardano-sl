@@ -23,8 +23,10 @@ import           System.IO.Unsafe           (unsafePerformIO)
 import           Universum
 
 import           Pos.Aeson.ClientTypes      ()
+import           Pos.Constants              (curSoftwareVersion)
 import           Pos.Crypto                 (keyGen)
-import           Pos.Types                  (Coin, makePubKeyAddress, mkCoin)
+import           Pos.Types                  (Coin, SoftwareVersion, makePubKeyAddress,
+                                             mkCoin)
 import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web.Api         (walletApi)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile, CTx,
@@ -212,6 +214,10 @@ instance ToSample Word where
 
 instance ToSample BackupPhrase where
     toSamples Proxy = notImplemented
+
+instance ToSample SoftwareVersion where
+    toSamples Proxy = singleSample curSoftwareVersion
+
 --
 --instance ToSample Tx where
 --    toSamples Proxy = singleSample $ Tx [TxIn hsh idx] [out]

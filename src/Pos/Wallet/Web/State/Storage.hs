@@ -22,6 +22,7 @@ module Pos.Wallet.Web.State.Storage
        , setWalletTransactionMeta
        , removeWallet
        , addUpdate
+       , removeNextUpdate
        ) where
 
 import           Control.Lens               (at, ix, makeClassy, (%=), (.=), _Just, _head)
@@ -104,6 +105,11 @@ removeWallet cAddr = wsWalletMetas . at cAddr .= Nothing
 
 addUpdate :: CUpdateInfo -> Update ()
 addUpdate ui = wsReadyUpdates %= (++ [ui])
+
+removeNextUpdate :: Update ()
+removeNextUpdate = wsReadyUpdates %= \case
+    [] -> []
+    (_:as) -> as
 
 deriveSafeCopySimple 0 'base ''CProfile
 deriveSafeCopySimple 0 'base ''CHash

@@ -11,7 +11,6 @@ module Pos.Wallet.Web.Server.Methods
        , walletServeImpl
        ) where
 
-import           Control.Concurrent.MVar       (takeMVar)
 import           Control.Monad.Catch           (try)
 import           Control.Monad.Except          (runExceptT)
 import           Control.Monad.Trans.State     (get, runStateT)
@@ -38,7 +37,6 @@ import           Pos.Types                     (Address, ChainDifficulty (..), C
                                                 TxOut (..), addressF, coinF,
                                                 decodeTextAddress, makePubKeyAddress,
                                                 mkCoin)
-import           Pos.Update                    (ConfirmedProposalState)
 import           Pos.Util                      (maybeThrow)
 import           Pos.Util.BackupPhrase         (BackupPhrase, keysFromPhrase)
 
@@ -68,8 +66,8 @@ import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWeb
                                                 addOnlyNewTxMeta, addUpdate, closeState,
                                                 createWallet, getNextUpdate, getProfile,
                                                 getTxMeta, getWalletMeta, getWalletState,
-                                                openState, removeWallet, runWalletWebDB,
-                                                setProfile, setWalletMeta,
+                                                openState, removeNextUpdate, removeWallet,
+                                                runWalletWebDB, setProfile, setWalletMeta,
                                                 setWalletTransactionMeta)
 import           Pos.Web.Server                (serveImpl)
 
@@ -233,6 +231,8 @@ servantHandlers sendActions =
     :<|>
      catchWalletError nextUpdate
     :<|>
+     catchWalletError applyUpdate
+    :<|>
      catchWalletError blockchainSlotDuration
   where
     -- TODO: can we with Traversable map catchWalletError over :<|>
@@ -367,6 +367,9 @@ isValidAddress _ _       = pure False
 nextUpdate :: WalletWebMode ssc m => m CUpdateInfo
 nextUpdate = getNextUpdate >>=
              maybeThrow (Internal "No updates available")
+
+applyUpdate :: WalletWebMode ssc m => m ()
+applyUpdate = removeNextUpdate
 
 blockchainSlotDuration :: WalletWebMode ssc m => m Word
 blockchainSlotDuration = fromIntegral <$> getSlotDuration

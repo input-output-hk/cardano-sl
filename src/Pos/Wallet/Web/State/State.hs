@@ -27,6 +27,7 @@ module Pos.Wallet.Web.State.State
        , addOnlyNewTxMeta
        , removeWallet
        , addUpdate
+       , removeNextUpdate
        ) where
 
 import           Data.Acid                    (EventResult, EventState, QueryEvent,
@@ -109,3 +110,6 @@ removeWallet = updateDisk . A.RemoveWallet
 
 addUpdate :: WebWalletModeDB m => CUpdateInfo -> m ()
 addUpdate = updateDisk . A.AddUpdate
+
+removeNextUpdate :: WebWalletModeDB m => m ()
+removeNextUpdate = updateDisk A.RemoveNextUpdate

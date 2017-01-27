@@ -11,6 +11,7 @@ module Pos.Wallet.Web.Api
 import           Data.Proxy                 (Proxy (Proxy))
 
 import           Pos.Types                  (Coin)
+import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CProfile, CTx, CTxId,
                                              CTxMeta, CUpdateInfo, CWallet, CWalletInit,
                                              CWalletMeta)
@@ -38,6 +39,8 @@ type WalletApi =
      "api" :> "update_transaction" :> Capture "address" CAddress :> Capture "transaction" CTxId :> ReqBody '[JSON] CTxMeta :> Post '[JSON] (Either WalletError ())
     :<|>
      "api" :> "new_wallet" :> ReqBody '[JSON] CWalletInit :> Post '[JSON] (Either WalletError CWallet)
+    :<|>
+     "api" :> "restore_wallet" :> ReqBody '[JSON] BackupPhrase :> Post '[JSON] (Either WalletError CWallet)
     :<|>
      "api" :> "update_wallet" :> Capture "address" CAddress :> ReqBody '[JSON] CWalletMeta :> Post '[JSON] (Either WalletError CWallet)
     :<|>

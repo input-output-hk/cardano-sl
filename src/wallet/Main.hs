@@ -102,8 +102,8 @@ runCmd _ Help = do
             , "                                     from own address #N"
             , "   vote <N> <decision> <upid>     -- send vote with given hash of proposal id (in base64) and"
             , "                                     decision, from own address #N"
-            , "   propose-update <N> <block ver> <script ver> <software ver>"
-            , "                                  -- propose an update with given versions"
+            , "   propose-update <N> <block ver> <script ver> <slot duration> <max block size> <software ver>"
+            , "                                  -- propose an update with given versions and other data"
             , "                                     with one positive vote for it, from own address #N"
             , "   listaddr                       -- list own addresses"
             , "   listaddr                       -- list own addresses"
@@ -114,7 +114,7 @@ runCmd _ Help = do
             ]
 runCmd _ ListAddresses = do
     addrs <- map (makePubKeyAddress . toPublic) <$> asks fst
-    putText "Available addrsses:"
+    putText "Available addresses:"
     forM_ (zip [0 :: Int ..] addrs) $
         putText . uncurry (sformat $ "    #"%int%":   "%build)
 runCmd sendActions (DelegateLight i j) = do

@@ -102,8 +102,6 @@ data CompileConfig = CompileConfig
       -- ^ Interval for dumping Kademlia state in slots
     , ccUpdateServers                 :: ![String]
       -- ^ Servers for downloading application updates
-    , ccMaxBlockProxySKs              :: !Int
-      -- ^ Maximum number of PSKs allowed in block
     , ccNtpResponseTimeout            :: !Int
       -- ^ How often request to NTP server and response collection
     , ccNtpPollDelay                  :: !Int

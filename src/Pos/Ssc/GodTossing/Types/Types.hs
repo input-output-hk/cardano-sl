@@ -14,6 +14,8 @@ module Pos.Ssc.GodTossing.Types.Types
        , GtContext (..)
        , GtParams (..)
        , GtSecretStorage (..)
+       , TossVerFailure (..)
+       , TossVerErrorTag (..)
 
        -- * Lenses
        -- ** GtPayload
@@ -35,9 +37,9 @@ import           Control.Lens                   (makeLenses)
 import           Data.Default                   (Default, def)
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.Text                      as T
-import           Data.Text.Buildable            (Buildable (..))
+import qualified Data.Text.Buildable
 import           Data.Text.Lazy.Builder         (Builder, fromText)
-import           Formatting                     (bprint, sformat, (%))
+import           Formatting                     (bprint, build, sformat, stext, (%))
 import           Serokell.Util                  (listJson)
 import           Universum
 
@@ -47,7 +49,7 @@ import           Pos.Ssc.GodTossing.Types.Base  (Commitment, CommitmentsMap, Ope
                                                  OpeningsMap, SharesMap, SignedCommitment,
                                                  VssCertificate, VssCertificatesMap)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
-import           Pos.Types                      (EpochIndex)
+import           Pos.Types                      (EpochIndex, SlotId, StakeholderId)
 
 ----------------------------------------------------------------------------
 -- SscGlobalState
@@ -239,6 +241,76 @@ data GtSecretStorage = GtSecretStorage
     , -- | Epoch for which this secret were generated
       gssEpoch      :: !EpochIndex
     } deriving (Show, Eq)
+
+----------------------------------------------------------------------------
+-- Verification failure
+----------------------------------------------------------------------------
+data TossVerErrorTag
+    = CommitingNoParticipants
+    | CommitmentAlreadySent
+    | CommSharesOnWrongParticipants
+    | OpeningAlreadySent
+    | OpeningWithoutCommitment
+    | OpeningNotMatchCommitment
+    | SharesNotRichmen
+    | InternalShareWithoutCommitment
+    | SharesAlreadySent
+    | DecryptedSharesNotMatchCommitment
+    | CertificateResubmitedEarly
+    | CertificateNotRichmen
+
+instance Buildable TossVerErrorTag where
+    build CommitingNoParticipants =
+      bprint "some committing nodes can't be participants"
+    build CommitmentAlreadySent =
+      bprint "some committing nodes can't be participants"
+    build CommSharesOnWrongParticipants =
+      bprint "some commShares has been generated on wrong participants"
+    build OpeningAlreadySent =
+      bprint "some nodes have already sent their openings"
+    build OpeningWithoutCommitment =
+      bprint "some openings don't have corresponding commitments"
+    build OpeningNotMatchCommitment =
+      bprint "some openings don't match corresponding commitments"
+    build SharesNotRichmen =
+      bprint "some shares are posted by stakeholders that don't have enough stake"
+    build InternalShareWithoutCommitment =
+      bprint "some internal share don't have corresponding commitments"
+    build SharesAlreadySent =
+      bprint "some shares have already been sent"
+    build DecryptedSharesNotMatchCommitment =
+      bprint "some decrypted shares don't match encrypted shares \
+              \in the corresponding commitment"
+    build CertificateResubmitedEarly =
+      bprint "some VSS certificates have been resubmitted \
+             \earlier than expiry epoch"
+    build CertificateNotRichmen =
+      bprint "some VSS certificates' users are not passing stake threshold"
+
+data TossVerFailure
+    = TossVerFailure
+    { tvfErrorTag     :: !TossVerErrorTag
+    , tvfStakeholders :: !(NonEmpty StakeholderId)
+    }
+    | NotCommitmentPhase !SlotId
+    | NotOpeningPhase !SlotId
+    | NotSharesPhase !SlotId
+    | VerifyPureFailed ![Text]
+    | TossInternallError !Text
+
+instance Buildable TossVerFailure where
+    build (TossVerFailure tag stks) =
+        bprint (build%": "%listJson) tag stks
+    build (NotCommitmentPhase slotId) =
+        bprint (build%" doesn't belong commitment phase") slotId
+    build (NotOpeningPhase slotId) =
+        bprint (build%" doesn't belong openings phase") slotId
+    build (NotSharesPhase slotId) =
+        bprint (build%" doesn't belong share phase") slotId
+    build (VerifyPureFailed errors) =
+        bprint ("verify pure failed: "%stext) (T.intercalate ";" errors)
+    build (TossInternallError msg) =
+        bprint ("internal error: "%stext) msg
 
 ----------------------------------------------------------------------------
 -- Convinient binary type alias

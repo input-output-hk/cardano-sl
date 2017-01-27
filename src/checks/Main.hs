@@ -49,12 +49,12 @@ hsFiles folder = do
         Just "hs" -> return file
         _         -> mzero
 
-filesToMd :: Shell FilePath -> Shell Text
+filesToMd :: Shell FilePath -> Shell Line
 filesToMd files = do
     ms <- sortBy (compare `on` modName) <$> fold (files >>= fileToModule) F.list
-    select $ renderModules ms
+    select . textToLines =<< select (renderModules ms)
 
-pandoc :: Text -> Shell Text -> IO ()
+pandoc :: Text -> Shell Line -> IO ()
 pandoc file markdown = procs
     "pandoc"
     [ "-f"
@@ -67,7 +67,7 @@ pandoc file markdown = procs
     markdown
 
 fileToModule :: FilePath -> Shell Module
-fileToModule file = toModule <$> fold (input file) F.list
+fileToModule file = toModule . map lineToText <$> fold (input file) F.list
 
 renderModules :: [Module] -> [Text]
 renderModules xs =

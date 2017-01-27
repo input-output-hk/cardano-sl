@@ -7,9 +7,13 @@ module Pos.Update.Worker
 import           Node                   (SendActions)
 import           Universum
 
+import           Mockable               (fork)
 import           Pos.Communication.BiP  (BiP)
+import           Pos.Constants          (curSoftwareVersion)
+import           Pos.DB.GState          (getConfirmedProposals)
 import           Pos.Slotting           (onNewSlot)
-import           Pos.Types              (SlotId)
+import           Pos.Types              (SlotId, SoftwareVersion (..))
+import           Pos.Update.Download    (downloadUpdate)
 import           Pos.Update.Logic.Local (processNewSlot)
 import           Pos.WorkMode           (WorkMode)
 
@@ -21,4 +25,10 @@ usOnNewSlot :: WorkMode ssc m => m ()
 usOnNewSlot = onNewSlot True onNewSlotAction
 
 onNewSlotAction :: WorkMode ssc m => SlotId -> m ()
-onNewSlotAction = processNewSlot
+onNewSlotAction sid = processNewSlot sid >> void (fork checkForUpdate)
+
+checkForUpdate :: WorkMode ssc m => m ()
+checkForUpdate =
+    getConfirmedProposals (Just $ svNumber curSoftwareVersion) >>=
+    mapM_ downloadUpdate
+

@@ -7,7 +7,7 @@ module Pos.Binary.Types () where
 import           Data.Binary.Get       (getInt32be, getWord64be, getWord8, label)
 import           Data.Binary.Put       (putInt32be, putWord64be, putWord8)
 import           Data.Ix               (inRange)
-import           Formatting            (float, formatToString, int, sformat, (%))
+import           Formatting            (formatToString, int, sformat, (%))
 import           Universum
 
 import           Pos.Binary.Class      (Bi (..), UnsignedVarInt (..))
@@ -34,14 +34,7 @@ instance Bi T.Coin where
 
 instance Bi T.CoinPortion where
     put = put . T.getCoinPortion
-    get = do
-        x <- get
-        when (x < 0 || x > 1) $
-            fail $
-            formatToString
-                ("get@CoinPortion: value is not in [0, 1] range: "%float)
-                x
-        return $ T.unsafeCoinPortion x
+    get = get >>= T.mkCoinPortion
 
 instance Bi T.Timestamp where
     get = fromInteger <$> get

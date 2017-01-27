@@ -16,6 +16,8 @@ module Pos.Wallet.Web.State.Acidic
        , GetWalletMetas (..)
        , GetWalletMeta (..)
        , GetTxMeta (..)
+       , GetUpdates (..)
+       , GetNextUpdate (..)
        , CreateWallet (..)
        , SetProfile (..)
        , SetWalletMeta (..)
@@ -24,6 +26,7 @@ module Pos.Wallet.Web.State.Acidic
        , GetWalletHistory (..)
        , AddOnlyNewTxMeta (..)
        , RemoveWallet (..)
+       , AddUpdate (..)
        ) where
 
 import           Universum
@@ -68,6 +71,8 @@ makeAcidic ''WalletStorage
     , 'WS.getWalletMetas
     , 'WS.getWalletMeta
     , 'WS.getTxMeta
+    , 'WS.getUpdates
+    , 'WS.getNextUpdate
     , 'WS.createWallet
     , 'WS.setProfile
     , 'WS.setWalletMeta
@@ -76,4 +81,5 @@ makeAcidic ''WalletStorage
     , 'WS.getWalletHistory
     , 'WS.addOnlyNewTxMeta
     , 'WS.removeWallet
+    , 'WS.addUpdate
     ]

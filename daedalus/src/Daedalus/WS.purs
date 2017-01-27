@@ -12,6 +12,7 @@ import Daedalus.Constants (wsUri)
 import Data.Maybe (Maybe(Just, Nothing))
 import WebSocket (runMessage, runMessageEvent)
 import Data.Function.Eff (EffFn1, runEffFn1)
+import Control.Monad.Eff.Unsafe (unsafeInterleaveEff)
 
 type NotifyCb eff = EffFn1 eff String Unit
 type ErrorCb eff = EffFn1 eff Event Unit
@@ -66,7 +67,11 @@ mkConn (WSState state) = do
     socket.onopen $= \_ -> onOpened (WSState state) $ WS.Connection socket
 
 onClose :: forall eff. WSState eff -> Eff (ref :: REF | eff) Unit
-onClose (WSState state) =
+onClose (WSState state) = do
+    -- FIXME: temp solution. Try reconnecting after close
+    case state.notifyCb of
+        Just cb -> unsafeInterleaveEff $ runEffFn1 cb "ConnectionClosed"
+        Nothing -> pure unit
     writeRef state.connection WSNotConnected
 
 onMessage :: forall eff. WSState eff -> MessageEvent -> Eff eff Unit

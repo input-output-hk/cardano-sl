@@ -15,7 +15,6 @@ module Pos.Ssc.Class.Storage
        , SscGlobalUpdate
        ) where
 
-import           Serokell.Util.Verify (VerificationRes)
 import           System.Wlog          (WithLogger)
 import           Universum
 
@@ -52,7 +51,7 @@ class Ssc ssc => SscStorageClass ssc where
         :: Bool
         -> Richmen
         -> OldestFirst NE (Block ssc)
-        -> SscGlobalQuery ssc VerificationRes
+        -> SscGlobalQuery ssc (Either (SscVerifyError ssc) ())
 
     sscCalculateSeedM
         :: EpochIndex

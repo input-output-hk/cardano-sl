@@ -30,9 +30,6 @@ vssMaxTTL: 6 # epochs
 vssMinTTL: 2 # epochs
 mpcSendInterval: 10 # must be less than (2 * k * slotDuration - networkDiameter)
 
-# Delegation
-maxBlockProxySKs: 10000
-
 # Update System
 updateServers: []
 

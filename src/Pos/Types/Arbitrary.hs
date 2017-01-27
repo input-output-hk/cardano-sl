@@ -41,7 +41,7 @@ import           Pos.Types.Core             (Address (..), ChainDifficulty (..),
                                              CoinPortion, EpochIndex (..),
                                              EpochOrSlot (..), LocalSlotIndex (..),
                                              SlotId (..), Timestamp (..), mkCoin,
-                                             unsafeCoinPortion)
+                                             unsafeCoinPortionFromDouble)
 import           Pos.Types.Types            (SharedSeed (..), Tx (..),
                                              TxDistribution (..), TxIn (..),
                                              TxInWitness (..), TxOut (..), TxOutAux)
@@ -71,7 +71,7 @@ instance Arbitrary Coin where
     arbitrary = mkCoin . getNonZero <$> (arbitrary :: Gen (NonZero Word64))
 
 instance Arbitrary CoinPortion where
-    arbitrary = unsafeCoinPortion . (1/) <$> choose (1, 20)
+    arbitrary = unsafeCoinPortionFromDouble . (1/) <$> choose (1, 20)
 
 maxReasonableEpoch :: Integral a => a
 maxReasonableEpoch = 5 * 1000 * 1000 * 1000 * 1000  -- 5 * 10^12, because why not

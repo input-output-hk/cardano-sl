@@ -263,7 +263,7 @@ instance Buildable TossVerErrorTag where
     build CommitingNoParticipants =
       bprint "some committing nodes can't be participants"
     build CommitmentAlreadySent =
-      bprint "some committing nodes can't be participants"
+      bprint "some nodes have already sent their commitments"
     build CommSharesOnWrongParticipants =
       bprint "some commShares has been generated on wrong participants"
     build OpeningAlreadySent =

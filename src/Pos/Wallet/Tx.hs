@@ -25,7 +25,7 @@ import           Pos.Types                        (TxAux, TxOutAux, makePubKeyAd
                                                    txaF)
 import           Pos.WorkMode                     (MinWorkMode)
 
-import           Pos.Communication.Types.Protocol (VerInfo)
+import           Pos.Communication.Types.Protocol (PeerId)
 import           Pos.Wallet.Tx.Pure               (TxError, createMOfNTx, createTx,
                                                    makeMOfNTx, makePubKeyTx)
 import           Pos.Wallet.WalletMode            (TxMode, getOwnUtxo, saveTx)
@@ -33,7 +33,7 @@ import           Pos.Wallet.WalletMode            (TxMode, getOwnUtxo, saveTx)
 -- | Construct Tx using secret key and given list of desired outputs
 submitTx
     :: TxMode ssc m
-    => SendActions BiP VerInfo m
+    => SendActions BiP PeerId m
     -> SecretKey
     -> [NetworkAddress]
     -> [TxOutAux]
@@ -51,7 +51,7 @@ submitTx sendActions sk na outputs = do
         return txw
 
 -- | Send the ready-to-use transaction
-submitTxRaw :: MinWorkMode m => SendActions BiP VerInfo m -> [NetworkAddress] -> TxAux -> m ()
+submitTxRaw :: MinWorkMode m => SendActions BiP PeerId m -> [NetworkAddress] -> TxAux -> m ()
 submitTxRaw sa na tx = do
     let txId = hash (tx ^. _1)
     logInfo $ sformat ("Submitting transaction: "%txaF) tx

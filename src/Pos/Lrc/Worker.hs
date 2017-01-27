@@ -26,7 +26,7 @@ import           Pos.Block.Logic.Internal         (applyBlocksUnsafe,
                                                    rollbackBlocksUnsafe,
                                                    withBlkSemaphore_)
 import           Pos.Communication.BiP            (BiP)
-import           Pos.Communication.Types.Protocol (VerInfo)
+import           Pos.Communication.Types.Protocol (PeerId)
 import           Pos.Constants                    (slotSecurityParam)
 import           Pos.Context                      (LrcSyncData, getNodeContext, ncLrcSync)
 import qualified Pos.DB                           as DB
@@ -53,7 +53,7 @@ import           Pos.WorkMode                     (WorkMode)
 
 lrcOnNewSlotWorker
     :: (SscWorkersClass ssc, WorkMode ssc m)
-    => SendActions BiP VerInfo m -> m ()
+    => SendActions BiP PeerId m -> m ()
 lrcOnNewSlotWorker _ = onNewSlot True $ lrcOnNewSlotImpl
 
 lrcOnNewSlotImpl

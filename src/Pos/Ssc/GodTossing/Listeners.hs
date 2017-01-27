@@ -27,7 +27,7 @@ import           Pos.Communication.Message              ()
 import           Pos.Communication.Relay                (DataMsg, InvMsg, Relay (..),
                                                          ReqMsg, handleDataL, handleInvL,
                                                          handleReqL)
-import           Pos.Communication.Types.Protocol       (VerInfo)
+import           Pos.Communication.Types.Protocol       (PeerId)
 import           Pos.Context                            (WithNodeContext (getNodeContext))
 import qualified Pos.DB.Lrc                             as LrcDB
 import           Pos.Security                           (shouldIgnorePkAddress)
@@ -64,19 +64,19 @@ instance SscListenersClass SscGodTossing where
 
 handleInvGt
     :: WorkMode SscGodTossing m
-    => ListenerAction BiP VerInfo m
+    => ListenerAction BiP PeerId m
 handleInvGt = ListenerActionOneMsg $ \_ peerId sendActions (i :: InvMsg StakeholderId GtMsgTag) ->
     handleInvL i peerId sendActions
 
 handleReqGt
     :: WorkMode SscGodTossing m
-    => ListenerAction BiP VerInfo m
+    => ListenerAction BiP PeerId m
 handleReqGt = ListenerActionOneMsg $ \_ peerId sendActions (r :: ReqMsg StakeholderId GtMsgTag) ->
     handleReqL r peerId sendActions
 
 handleDataGt
     :: WorkMode SscGodTossing m
-    => ListenerAction BiP VerInfo m
+    => ListenerAction BiP PeerId m
 handleDataGt = ListenerActionOneMsg $ \_ peerId sendActions (d :: DataMsg StakeholderId GtMsgContents) ->
     handleDataL d peerId sendActions
 

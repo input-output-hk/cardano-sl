@@ -13,7 +13,7 @@ import           Universum
 import           Pos.Binary                       ()
 import           Pos.Communication.BiP            (BiP)
 import           Pos.Communication.Methods        (sendUpdateProposal, sendVote)
-import           Pos.Communication.Types.Protocol (VerInfo)
+import           Pos.Communication.Types.Protocol (PeerId)
 import           Pos.Crypto                       (SecretKey, hash, sign, toPublic)
 import           Pos.Update                       (UpdateProposal, UpdateVote (..))
 import           Pos.WorkMode                     (MinWorkMode)
@@ -21,7 +21,7 @@ import           Pos.WorkMode                     (MinWorkMode)
 -- | Send UpdateVote to given addresses
 submitVote
     :: MinWorkMode m
-    => SendActions BiP VerInfo m
+    => SendActions BiP PeerId m
     -> [NetworkAddress]
     -> UpdateVote
     -> m ()
@@ -32,7 +32,7 @@ submitVote sendActions na voteUpd = do
 -- | Send UpdateProposal with one positive vote to given addresses
 submitUpdateProposal
     :: MinWorkMode m
-    => SendActions BiP VerInfo m
+    => SendActions BiP PeerId m
     -> SecretKey
     -> [NetworkAddress]
     -> UpdateProposal

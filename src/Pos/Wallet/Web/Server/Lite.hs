@@ -16,7 +16,7 @@ import           Servant.Utils.Enter              ((:~>) (..))
 import           Universum
 
 import           Pos.Communication.BiP            (BiP)
-import           Pos.Communication.Types.Protocol (VerInfo)
+import           Pos.Communication.Types.Protocol (PeerId)
 import           Pos.DHT.Real.Real                (runKademliaDHT)
 import           Pos.DHT.Real.Types               (KademliaDHTInstance (..),
                                                    getKademliaDHTInstance)
@@ -42,7 +42,7 @@ type WebHandler = WalletWebSockets (WalletWebDB WalletRealMode)
 type MainWalletState = WS.WalletState
 
 walletServeWebLite
-    ::  SendActions BiP VerInfo WalletRealMode
+    ::  SendActions BiP PeerId WalletRealMode
     -> FilePath
     -> Bool
     -> Word16

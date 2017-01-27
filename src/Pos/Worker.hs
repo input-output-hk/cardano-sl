@@ -15,7 +15,7 @@ import           Universum
 
 import           Pos.Block.Worker        (blkWorkers)
 import           Pos.Communication       (BiP, SysStartResponse (..))
-import           Pos.Communication.Types (VerInfo)
+import           Pos.Communication.Types (PeerId)
 import           Pos.Constants           (sysTimeBroadcastSlots)
 import           Pos.Context             (NodeContext (..), getNodeContext,
                                           setNtpLastSlot)
@@ -41,7 +41,7 @@ import           Pos.WorkMode            (WorkMode)
 -- will read it, but who knows…
 runWorkers
     :: (SscWorkersClass ssc, SecurityWorkersClass ssc, WorkMode ssc m)
-    => Worker BiP VerInfo m
+    => Worker BiP PeerId m
 runWorkers sendActions = mapM_ fork $ map ($ withWaitLog sendActions) $ concat
     [ [ onNewSlotWorker ]
     , dhtWorkers
@@ -52,10 +52,10 @@ runWorkers sendActions = mapM_ fork $ map ($ withWaitLog sendActions) $ concat
     , usWorkers
     ]
 
-onNewSlotWorker :: WorkMode ssc m => Worker BiP VerInfo m
+onNewSlotWorker :: WorkMode ssc m => Worker BiP PeerId m
 onNewSlotWorker sendActions = onNewSlotWithLogging True $ onNewSlotWorkerImpl sendActions
 
-onNewSlotWorkerImpl :: WorkMode ssc m =>  SendActions BiP VerInfo m -> SlotId -> m ()
+onNewSlotWorkerImpl :: WorkMode ssc m =>  SendActions BiP PeerId m -> SlotId -> m ()
 onNewSlotWorkerImpl sendActions slotId = do
     logNotice $ sformat ("New slot has just started: "%slotIdF) slotId
     setNtpLastSlot slotId

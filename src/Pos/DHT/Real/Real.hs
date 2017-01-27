@@ -13,8 +13,8 @@ import           Mockable               (Async, Catch, Mockable, MonadMockable, 
                                          Throw, bracket, catchAll, fork, killThread,
                                          throw, waitAnyUnexceptional)
 
-import           Data.Binary           (decode)
-import qualified Data.ByteString.Lazy  as BS
+import           Data.Binary            (decode)
+import qualified Data.ByteString.Lazy   as BS
 import qualified Data.HashMap.Strict    as HM
 import           Data.List              (intersect, (\\))
 

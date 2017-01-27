@@ -66,7 +66,7 @@ import           Pos.Communication                (BiP (..), SysStartRequest (..
                                                    sysStartReqListener,
                                                    sysStartRespListener)
 import           Pos.Communication.PeerState      (runPeerStateHolder)
-import           Pos.Communication.Types.Protocol (VerInfo (..))
+import           Pos.Communication.Types.Protocol (PeerId (..))
 import           Pos.Constants                    (lastKnownBlockVersion, protocolMagic)
 import           Pos.Constants                    (blockRetrievalQueueSize,
                                                    networkConnectionTimeout)
@@ -79,7 +79,8 @@ import           Pos.DB                           (MonadDB (..), getTip, initNod
 import qualified Pos.DB.GState                    as GState
 import           Pos.DB.Misc                      (addProxySecretKey)
 import           Pos.Delegation.Holder            (runDelegationT)
-import           Pos.DHT.Model                    (MonadDHT (..), converseToNeighbors)
+import           Pos.DHT.Model                    (MonadDHT (..), converseToNeighbors,
+                                                   getMeaningPart)
 import           Pos.DHT.Real                     (KademliaDHTInstance,
                                                    KademliaDHTInstanceConfig (..),
                                                    runKademliaDHT, startDHTInstance,
@@ -166,8 +167,8 @@ runRawRealMode
     => RealModeResources
     -> NodeParams
     -> SscParams ssc
-    -> [Listener BiP VerInfo (RawRealMode ssc)]
-    -> (SendActions BiP VerInfo (RawRealMode ssc) -> RawRealMode ssc a)
+    -> [Listener BiP PeerId (RawRealMode ssc)]
+    -> (SendActions BiP PeerId (RawRealMode ssc) -> RawRealMode ssc a)
     -> Production a
 runRawRealMode res np@NodeParams {..} sscnp listeners action =
     usingLoggerName lpRunnerTag $ do
@@ -195,8 +196,8 @@ runRawRealMode res np@NodeParams {..} sscnp listeners action =
 runServiceMode
     :: RealModeResources
     -> BaseParams
-    -> [Listener BiP VerInfo ServiceMode]
-    -> ( SendActions BiP VerInfo ServiceMode -> ServiceMode a)
+    -> [Listener BiP PeerId ServiceMode]
+    -> ( SendActions BiP PeerId ServiceMode -> ServiceMode a)
     -> Production a
 runServiceMode res bp@BaseParams{..} listeners action =
     usingLoggerName (lpRunnerTag bpLoggingParams) .
@@ -204,13 +205,12 @@ runServiceMode res bp@BaseParams{..} listeners action =
     runServer (rmTransport res) listeners $
         \sa -> nodeStartMsg bp >> action sa
 
-runServer :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)
-  => Transport -> [Listener BiP VerInfo m] -> (SendActions BiP VerInfo m -> m b) -> m b
+runServer :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m, MonadDHT m)
+  => Transport -> [Listener BiP PeerId m] -> (SendActions BiP PeerId m -> m b) -> m b
 runServer transport listeners action = do
-    -- TODO no mempty
-    let ourVerInfo = VerInfo protocolMagic lastKnownBlockVersion mempty mempty
+    ourPeerId <- PeerId . getMeaningPart <$> currentNodeKey
     stdGen <- liftIO newStdGen
-    node (concrete transport) stdGen BiP ourVerInfo $ \__node ->
+    node (concrete transport) stdGen BiP ourPeerId $ \__node ->
         pure $ NodeAction listeners action
 
 -- | ProductionMode runner.
@@ -220,7 +220,7 @@ runProductionMode
     => RealModeResources
     -> NodeParams
     -> SscParams ssc
-    -> ( SendActions BiP VerInfo (ProductionMode ssc) -> ProductionMode ssc a)
+    -> ( SendActions BiP PeerId (ProductionMode ssc) -> ProductionMode ssc a)
     -> Production a
 runProductionMode res np@NodeParams {..} sscnp action =
     runRawRealMode res np sscnp listeners $
@@ -238,7 +238,7 @@ runStatsMode
     => RealModeResources
     -> NodeParams
     -> SscParams ssc
-    -> ( SendActions BiP VerInfo (StatsMode ssc) -> StatsMode ssc a)
+    -> ( SendActions BiP PeerId (StatsMode ssc) -> StatsMode ssc a)
     -> Production a
 runStatsMode res np@NodeParams {..} sscnp action = do
     statMap <- liftIO SM.newIO
@@ -319,8 +319,8 @@ loggerBracket lp = bracket_ (setupLoggers lp) releaseAllHandlers
 
 addDevListeners
     :: MinWorkMode m => Timestamp
-    -> [Listener BiP VerInfo m]
-    -> [Listener BiP VerInfo m]
+    -> [Listener BiP PeerId m]
+    -> [Listener BiP PeerId m]
 addDevListeners sysStart ls =
     if Const.isDevelopment
     then stubListenerOneMsg (Proxy :: Proxy SysStartResponse) : sysStartReqListener sysStart : ls

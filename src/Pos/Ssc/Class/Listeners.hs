@@ -10,7 +10,7 @@ import           Node                             (Listener)
 import           System.Wlog                      (WithLogger)
 
 import           Pos.Communication.BiP            (BiP)
-import           Pos.Communication.Types.Protocol (VerInfo)
+import           Pos.Communication.Types.Protocol (PeerId)
 import           Pos.Ssc.Class.Types              (Ssc (..))
 import           Pos.WorkMode                     (WorkMode)
 
@@ -19,8 +19,8 @@ import           Pos.WorkMode                     (WorkMode)
 class Ssc ssc => SscListenersClass ssc where
     sscListeners
         :: WorkMode ssc m
-        => Tagged ssc [Listener BiP VerInfo m]
+        => Tagged ssc [Listener BiP PeerId m]
 
     sscStubListeners
         :: WithLogger m
-        => Proxy ssc -> [Listener BiP VerInfo m]
+        => Proxy ssc -> [Listener BiP PeerId m]

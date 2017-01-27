@@ -19,7 +19,7 @@ import           Test.QuickCheck             (arbitrary, generate)
 import           Universum
 
 import qualified Pos.CLI                     as CLI
-import           Pos.Communication           (BiP, VerInfo)
+import           Pos.Communication           (BiP, PeerId)
 import           Pos.Constants               (genesisN, neighborsSendThreshold,
                                               slotSecurityParam)
 import           Pos.Crypto                  (KeyPair (..), hash)
@@ -55,7 +55,7 @@ import           Util
 
 -- | Resend initTx with 'slotDuration' period until it's verified
 seedInitTx :: forall ssc . SscConstraint ssc
-           =>  SendActions BiP VerInfo (ProductionMode ssc)
+           =>  SendActions BiP PeerId (ProductionMode ssc)
            -> Double
            -> BambooPool
            -> TxAux

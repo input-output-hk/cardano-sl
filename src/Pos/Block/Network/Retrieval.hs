@@ -41,7 +41,7 @@ import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
                                              MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Block.Types            (Blund)
 import           Pos.Communication.BiP      (BiP (..))
-import           Pos.Communication.Types    (VerInfo)
+import           Pos.Communication.Types    (PeerId)
 import           Pos.Constants              (blkSecurityParam)
 import           Pos.Context                (NodeContext (..), getNodeContext)
 import           Pos.Crypto                 (hash, shortHashF)
@@ -63,7 +63,7 @@ instance Exception VerifyBlocksException
 retrievalWorker
     :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
-    => SendActions BiP VerInfo m -> m ()
+    => SendActions BiP PeerId m -> m ()
 retrievalWorker sendActions = handleAll handleWE $ do
     NodeContext{..} <- getNodeContext
     loop ncBlockRetrievalQueue ncRecoveryHeader
@@ -138,7 +138,7 @@ retrievalWorker sendActions = handleAll handleWE $ do
         -- a parameter to the 'Bi' instance of 'MsgBlock'.
         reify maxBlockSize $ \(_ :: Proxy s0) ->
           withConnectionTo sendActions peerId $
-          \(conv :: ConversationActions VerInfo MsgGetBlocks (MsgBlock s0 ssc) m) -> do
+          \(conv :: ConversationActions PeerId MsgGetBlocks (MsgBlock s0 ssc) m) -> do
             send conv $ mkBlocksRequest lcaChildHash newestHash
             chainE <- runExceptT (retrieveBlocks conv lcaChild newestHash)
             recHeaderVar <- ncRecoveryHeader <$> getNodeContext
@@ -172,7 +172,7 @@ retrievalWorker sendActions = handleAll handleWE $ do
     retrieveBlocks'
         :: forall s.
            Int
-        -> ConversationActions VerInfo MsgGetBlocks (MsgBlock s ssc) m
+        -> ConversationActions PeerId MsgGetBlocks (MsgBlock s ssc) m
         -> HeaderHash          -- ^ We're expecting a child of this block
         -> HeaderHash          -- ^ Block at which to stop
         -> ExceptT Text m (OldestFirst NE (Block ssc))
@@ -210,7 +210,7 @@ handleUnsolicitedHeaders
        (WorkMode ssc m)
     => NonEmpty (BlockHeader ssc)
     -> NodeId
-    -> ConversationActions VerInfo MsgGetHeaders (MsgHeaders ssc) m
+    -> ConversationActions PeerId MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
 handleUnsolicitedHeaders (header :| []) peerId conv =
     handleUnsolicitedHeader header peerId conv
@@ -224,7 +224,7 @@ handleUnsolicitedHeader
        (WorkMode ssc m)
     => BlockHeader ssc
     -> NodeId
-    -> ConversationActions VerInfo MsgGetHeaders (MsgHeaders ssc) m
+    -> ConversationActions PeerId MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
 handleUnsolicitedHeader header peerId conv = do
     logDebug $ sformat
@@ -298,7 +298,7 @@ matchRequestedHeaders headers MsgGetHeaders{..} =
 requestTip
     :: forall ssc m.
        (WorkMode ssc m)
-    => NodeId -> ConversationActions VerInfo MsgGetHeaders (MsgHeaders ssc) m -> m ()
+    => NodeId -> ConversationActions PeerId MsgGetHeaders (MsgHeaders ssc) m -> m ()
 requestTip peerId conv = do
     logDebug "Requesting tip..."
     send conv (MsgGetHeaders [] Nothing)
@@ -317,7 +317,7 @@ requestHeaders
     => MsgGetHeaders
     -> Maybe (BlockHeader ssc)
     -> NodeId
-    -> ConversationActions VerInfo MsgGetHeaders (MsgHeaders ssc) m
+    -> ConversationActions PeerId MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
 requestHeaders mgh recoveryHeader peerId conv = do
     logDebug $ sformat ("handleUnsolicitedHeader: withConnection: sending "%shown) mgh
@@ -421,7 +421,7 @@ handleBlocks
     :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
     => OldestFirst NE (Block ssc)
-    -> SendActions BiP VerInfo m
+    -> SendActions BiP PeerId m
     -> m ()
 handleBlocks blocks sendActions = do
     logDebug "handleBlocks: processing"
@@ -439,7 +439,7 @@ handleBlocks blocks sendActions = do
 
 handleBlocksWithLca :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
-    => SendActions BiP VerInfo m -> OldestFirst NE (Block ssc) -> HeaderHash -> m ()
+    => SendActions BiP PeerId m -> OldestFirst NE (Block ssc) -> HeaderHash -> m ()
 handleBlocksWithLca sendActions blocks lcaHash = do
     logDebug $ sformat lcaFmt lcaHash
     -- Head blund in result is the youngest one.
@@ -453,7 +453,7 @@ handleBlocksWithLca sendActions blocks lcaHash = do
 applyWithoutRollback
     :: forall ssc m.
        (WorkMode ssc m, SscWorkersClass ssc)
-    => SendActions BiP VerInfo m -> OldestFirst NE (Block ssc) -> m ()
+    => SendActions BiP PeerId m -> OldestFirst NE (Block ssc) -> m ()
 applyWithoutRollback sendActions blocks = do
     logInfo $ sformat ("Trying to apply blocks w/o rollback: "%listJson) $
         fmap (view blockHeader) blocks
@@ -488,7 +488,7 @@ applyWithoutRollback sendActions blocks = do
 applyWithRollback
     :: forall ssc m.
        (WorkMode ssc m, SscWorkersClass ssc)
-    => SendActions BiP VerInfo m
+    => SendActions BiP PeerId m
     -> OldestFirst NE (Block ssc)
     -> HeaderHash
     -> NewestFirst NE (Blund ssc)
@@ -521,7 +521,7 @@ applyWithRollback sendActions toApply lca toRollback = do
 relayBlock
     :: forall ssc m.
        (WorkMode ssc m)
-    => SendActions BiP VerInfo m -> Block ssc -> m ()
+    => SendActions BiP PeerId m -> Block ssc -> m ()
 relayBlock _ (Left _)                  = pass
 relayBlock sendActions (Right mainBlk) = do
     isRecovery <- do

@@ -19,7 +19,7 @@ import           System.Wlog                      (logError, logInfo)
 import           Universum
 
 import           Pos.Communication                (BiP)
-import           Pos.Communication.Types.Protocol (VerInfo)
+import           Pos.Communication.Types.Protocol (PeerId)
 import           Pos.Constants                    (isDevelopment, ntpMaxError,
                                                    ntpResponseTimeout)
 import           Pos.Context                      (NodeContext (..), getNodeContext,
@@ -42,8 +42,8 @@ import           Pos.WorkMode                     (WorkMode)
 -- | Run full node in any WorkMode.
 runNode
     :: (SscConstraint ssc, WorkMode ssc m)
-    => [SendActions BiP VerInfo m -> m ()]
-    ->  SendActions BiP VerInfo m
+    => [SendActions BiP PeerId m -> m ()]
+    ->  SendActions BiP PeerId m
     -> m ()
 runNode plugins sendActions = do
     logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)

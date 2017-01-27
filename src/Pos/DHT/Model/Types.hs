@@ -11,6 +11,8 @@ module Pos.DHT.Model.Types
        , addressToNodeId
        , addressToNodeId'
        , nodeIdToAddress
+       , getMeaningPart
+       , meaningPartLength
        ) where
 
 import qualified Data.ByteString             as BS
@@ -34,11 +36,21 @@ import           Pos.Crypto.Random           (runSecureRandom)
 import           Pos.Util.TimeWarp           (NetworkAddress)
 import           Test.QuickCheck             (Arbitrary (..))
 
+-- TODO export lengths from HashNodeId module
+meaningPartLength :: Int
+meaningPartLength = 14
+
+hashPartLength :: Int
+hashPartLength = 18
+
+getMeaningPart :: DHTKey -> ByteString
+getMeaningPart (DHTKey (HashId bs)) = snd $ BS.splitAt hashPartLength bs
+
 -- | Dummy data for DHT.
 newtype DHTData = DHTData ()
   deriving (Eq, Ord, Show, Generic)
 
--- | DHTKey should be strictly 20-byte long.
+-- | DHT key, 32-byte long (18-byte hash + 14-byte nonce)
 newtype DHTKey = DHTKey { hashNodeId :: HashId }
   deriving (Eq, Ord, Generic)
 

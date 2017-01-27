@@ -39,7 +39,7 @@ import           Pos.Communication.BiP            (BiP)
 import           Pos.Communication.PeerState      (PeerStateSnapshot, WithPeerState (..),
                                                    getAllStates, peerStateFromSnapshot,
                                                    runPeerStateHolder)
-import           Pos.Communication.Types.Protocol (VerInfo)
+import           Pos.Communication.Types.Protocol (PeerId)
 import           Pos.DHT.Real.Real                (runKademliaDHT)
 import           Pos.DHT.Real.Types               (KademliaDHTInstance (..),
                                                    getKademliaDHTInstance)
@@ -55,7 +55,7 @@ import           Pos.Wallet.Web.State             (MonadWalletWebDB (..), Wallet
 
 walletServeWebFull
     :: SscConstraint ssc
-    =>  SendActions BiP VerInfo (RawRealMode ssc)
+    =>  SendActions BiP PeerId (RawRealMode ssc)
     -> Bool               -- whether to include genesis keys
     -> FilePath           -- to Daedalus acid-state
     -> Bool               -- Rebuild flag

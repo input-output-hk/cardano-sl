@@ -24,7 +24,7 @@ import           Pos.Block.Logic                  (createGenesisBlock, createMai
 import           Pos.Block.Network.Announce       (announceBlock)
 import           Pos.Block.Network.Retrieval      (retrievalWorker)
 import           Pos.Communication.BiP            (BiP)
-import           Pos.Communication.Types.Protocol (VerInfo)
+import           Pos.Communication.Types.Protocol (PeerId)
 import           Pos.Constants                    (networkDiameter)
 import           Pos.Context                      (getNodeContext, ncPublicKey)
 import           Pos.Crypto                       (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
@@ -44,11 +44,11 @@ import           Pos.Util.JsonLog                 (jlCreatedBlock, jlLog)
 import           Pos.WorkMode                     (WorkMode)
 
 -- | All workers specific to block processing.
-blkWorkers :: (SscWorkersClass ssc, WorkMode ssc m) => [SendActions BiP VerInfo m -> m ()]
+blkWorkers :: (SscWorkersClass ssc, WorkMode ssc m) => [SendActions BiP PeerId m -> m ()]
 blkWorkers = [onNewSlot True . blkOnNewSlot, retrievalWorker]
 
 -- Action which should be done when new slot starts.
-blkOnNewSlot :: WorkMode ssc m => SendActions BiP VerInfo m -> SlotId -> m ()
+blkOnNewSlot :: WorkMode ssc m => SendActions BiP PeerId m -> SlotId -> m ()
 blkOnNewSlot sendActions slotId@SlotId {..} = do
     -- First of all we create genesis block if necessary.
     mGenBlock <- createGenesisBlock siEpoch
@@ -105,7 +105,7 @@ blkOnNewSlot sendActions slotId@SlotId {..} = do
 
 onNewSlotWhenLeader
     :: WorkMode ssc m
-    => SendActions BiP VerInfo m
+    => SendActions BiP PeerId m
     -> SlotId
     -> Maybe ProxySKEither
     -> m ()

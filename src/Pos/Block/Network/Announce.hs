@@ -19,7 +19,7 @@ import           Pos.Block.Logic                  (getHeadersFromManyTo)
 import           Pos.Block.Network.Types          (MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.BiP            (BiP)
 import           Pos.Communication.Message        ()
-import           Pos.Communication.Types.Protocol (VerInfo)
+import           Pos.Communication.Types.Protocol (PeerId)
 import           Pos.Context                      (getNodeContext, ncAttackTypes,
                                                    ncRecoveryHeader)
 import           Pos.Crypto                       (shortHashF)
@@ -33,7 +33,7 @@ import           Pos.WorkMode                     (WorkMode)
 
 announceBlock
     :: WorkMode ssc m
-    => SendActions BiP VerInfo m -> MainBlockHeader ssc -> m ()
+    => SendActions BiP PeerId m -> MainBlockHeader ssc -> m ()
 announceBlock sendActions header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
     cont <- getNodeContext
@@ -67,7 +67,7 @@ announceBlock sendActions header = do
 
 handleHeadersCommunication
     :: WorkMode ssc m
-    => ConversationActions VerInfo (MsgHeaders ssc) MsgGetHeaders m
+    => ConversationActions PeerId (MsgHeaders ssc) MsgGetHeaders m
     -> m ()
 handleHeadersCommunication conv = do
     (msg :: Maybe MsgGetHeaders) <- recv conv

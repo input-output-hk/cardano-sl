@@ -18,7 +18,7 @@ import           System.IO            (hFlush, stdout)
 import           Universum
 
 import qualified Pos.CLI              as CLI
-import           Pos.Communication    (BiP, VerInfo)
+import           Pos.Communication    (BiP, PeerId)
 import           Pos.Crypto           (SecretKey, createProxySecretKey, encodeHash, hash,
                                        sign, toPublic)
 import           Pos.Data.Attributes  (mkAttributes)
@@ -48,7 +48,7 @@ import           WalletOptions        (WalletAction (..), WalletOptions (..), op
 
 type CmdRunner = ReaderT ([SecretKey], [NetworkAddress])
 
-runCmd :: WalletMode ssc m =>  SendActions BiP VerInfo m -> Command -> CmdRunner m ()
+runCmd :: WalletMode ssc m =>  SendActions BiP PeerId m -> Command -> CmdRunner m ()
 runCmd _ (Balance addr) = lift (getBalance addr) >>=
                          putText . sformat ("Current balance: "%coinF)
 runCmd sendActions (Send idx outputs) = do
@@ -133,11 +133,11 @@ runCmd sendActions (DelegateHeavy i j) = do
     putText "Sent heavyweight cert"
 runCmd _ Quit = pure ()
 
-evalCmd :: WalletMode ssc m =>  SendActions BiP VerInfo m -> Command -> CmdRunner m ()
+evalCmd :: WalletMode ssc m =>  SendActions BiP PeerId m -> Command -> CmdRunner m ()
 evalCmd _ Quit = pure ()
 evalCmd sa cmd = runCmd sa cmd >> evalCommands sa
 
-evalCommands :: WalletMode ssc m =>  SendActions BiP VerInfo m -> CmdRunner m ()
+evalCommands :: WalletMode ssc m =>  SendActions BiP PeerId m -> CmdRunner m ()
 evalCommands sa = do
     putStr @Text "> "
     liftIO $ hFlush stdout
@@ -155,13 +155,13 @@ initialize WalletOptions{..} = do
     delay (fromIntegral woInitialPause * slotDuration)
     fmap dhtAddr <$> discoverPeers
 
-runWalletRepl :: WalletMode ssc m => WalletOptions ->  SendActions BiP VerInfo m -> m ()
+runWalletRepl :: WalletMode ssc m => WalletOptions ->  SendActions BiP PeerId m -> m ()
 runWalletRepl wo sa = do
     na <- initialize wo
     putText "Welcome to Wallet CLI Node"
     runReaderT (evalCmd sa Help) (genesisSecretKeys, na)
 
-runWalletCmd :: WalletMode ssc m => WalletOptions -> Text ->  SendActions BiP VerInfo m -> m ()
+runWalletCmd :: WalletMode ssc m => WalletOptions -> Text ->  SendActions BiP PeerId m -> m ()
 runWalletCmd wo str sa = do
     na <- initialize wo
     let strs = T.splitOn "," str
@@ -211,7 +211,7 @@ main = do
                 , wpBaseParams  = baseParams
                 }
 
-            plugins :: [ SendActions BiP VerInfo WalletRealMode -> WalletRealMode ()]
+            plugins :: [ SendActions BiP PeerId WalletRealMode -> WalletRealMode ()]
             plugins = case woAction of
                 Repl          -> [runWalletRepl opts]
                 Cmd cmd       -> [runWalletCmd opts cmd]

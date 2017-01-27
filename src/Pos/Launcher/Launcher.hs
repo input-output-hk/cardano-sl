@@ -17,7 +17,7 @@ import           Mockable                         (Production)
 import           Node                             (SendActions)
 
 import           Pos.Communication.BiP            (BiP)
-import           Pos.Communication.Types.Protocol (VerInfo)
+import           Pos.Communication.Types.Protocol (PeerId)
 import           Pos.Launcher.Param               (NodeParams (..))
 import           Pos.Launcher.Runner              (RealModeResources, runProductionMode,
                                                    runStatsMode)
@@ -35,7 +35,7 @@ runNodeProduction
     :: forall ssc.
        SscConstraint ssc
     => RealModeResources
-    -> [ SendActions BiP VerInfo (ProductionMode ssc) -> ProductionMode ssc ()]
+    -> [ SendActions BiP PeerId (ProductionMode ssc) -> ProductionMode ssc ()]
     -> NodeParams
     -> SscParams ssc
     -> Production ()
@@ -46,7 +46,7 @@ runNodeStats
     :: forall ssc.
        SscConstraint ssc
     => RealModeResources
-    -> [ SendActions BiP VerInfo (StatsMode ssc) -> StatsMode ssc ()]
+    -> [ SendActions BiP PeerId (StatsMode ssc) -> StatsMode ssc ()]
     -> NodeParams
     -> SscParams ssc
     -> Production ()

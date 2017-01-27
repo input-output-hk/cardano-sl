@@ -32,7 +32,7 @@ import           Pos.Binary.Ssc                   ()
 import           Pos.Communication.BiP            (BiP)
 import           Pos.Communication.Message        ()
 import           Pos.Communication.Relay          (DataMsg (..), InvMsg (..))
-import           Pos.Communication.Types.Protocol (VerInfo)
+import           Pos.Communication.Types.Protocol (PeerId)
 import           Pos.Constants                    (mpcSendInterval, slotSecurityParam,
                                                    vssMaxTTL)
 import           Pos.Context                      (getNodeContext, lrcActionOnEpochReason,
@@ -80,7 +80,7 @@ instance SscWorkersClass SscGodTossing where
 -- #checkNSendOurCert
 onNewSlotSsc
     :: (WorkMode SscGodTossing m)
-    => Worker BiP VerInfo m
+    => Worker BiP PeerId m
 onNewSlotSsc sendActions = onNewSlot True $ \slotId -> do
     richmen <- HS.fromList . NE.toList <$>
         lrcActionOnEpochReason (siEpoch slotId)
@@ -101,7 +101,7 @@ onNewSlotSsc sendActions = onNewSlot True $ \slotId -> do
 
 -- CHECK: @checkNSendOurCert
 -- Checks whether 'our' VSS certificate has been announced
-checkNSendOurCert :: forall m . (WorkMode SscGodTossing m) => Worker BiP VerInfo m
+checkNSendOurCert :: forall m . (WorkMode SscGodTossing m) => Worker BiP PeerId m
 checkNSendOurCert sendActions = do
     (_, ourId) <- getOurPkAndId
     sl@SlotId {..} <- getCurrentSlot
@@ -161,7 +161,7 @@ getOurVssKeyPair = gtcVssKeyPair . ncSscContext <$> getNodeContext
 -- Commitments-related part of new slot processing
 onNewSlotCommitment
     :: (WorkMode SscGodTossing m)
-    => SendActions BiP VerInfo m -> SlotId -> m ()
+    => SendActions BiP PeerId m -> SlotId -> m ()
 onNewSlotCommitment sendActions slotId@SlotId {..}
     | not (isCommitmentIdx siSlot) = pass
     | otherwise = do
@@ -194,7 +194,7 @@ onNewSlotCommitment sendActions slotId@SlotId {..}
 -- Openings-related part of new slot processing
 onNewSlotOpening
     :: WorkMode SscGodTossing m
-    => SendActions BiP VerInfo m -> SlotId -> m ()
+    => SendActions BiP PeerId m -> SlotId -> m ()
 onNewSlotOpening sendActions SlotId {..}
     | not $ isOpeningIdx siSlot = pass
     | otherwise = do
@@ -218,7 +218,7 @@ onNewSlotOpening sendActions SlotId {..}
 -- Shares-related part of new slot processing
 onNewSlotShares
     :: (WorkMode SscGodTossing m)
-    => SendActions BiP VerInfo m -> SlotId -> m ()
+    => SendActions BiP PeerId m -> SlotId -> m ()
 onNewSlotShares sendActions SlotId {..} = do
     ourId <- addressHash . ncPublicKey <$> getNodeContext
     -- Send decrypted shares that others have sent us
@@ -251,7 +251,7 @@ sscProcessOurMessage epoch msg ourId = do
 
 sendOurData
     :: (WorkMode SscGodTossing m)
-    => SendActions BiP VerInfo m -> GtMsgTag -> EpochIndex -> LocalSlotIndex -> StakeholderId -> m ()
+    => SendActions BiP PeerId m -> GtMsgTag -> EpochIndex -> LocalSlotIndex -> StakeholderId -> m ()
 sendOurData sendActions msgTag epoch slMultiplier ourId = do
     -- Note: it's not necessary to create a new thread here, because
     -- in one invocation of onNewSlot we can't process more than one

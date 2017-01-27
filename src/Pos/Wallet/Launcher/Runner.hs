@@ -17,7 +17,7 @@ import           System.Wlog                      (logInfo, usingLoggerName)
 import           Universum                        hiding (bracket)
 
 import           Pos.Communication                (BiP (..))
-import           Pos.Communication.Types.Protocol (VerInfo)
+import           Pos.Communication.Types.Protocol (PeerId)
 import           Pos.DHT.Model                    (discoverPeers)
 import           Pos.DHT.Real                     (runKademliaDHT)
 import           Pos.Launcher                     (BaseParams (..), LoggingParams (..),
@@ -51,7 +51,7 @@ allWorkers = []
 runWalletRealMode
     :: RealModeResources
     -> WalletParams
-    -> ( SendActions BiP VerInfo WalletRealMode -> WalletRealMode a)
+    -> ( SendActions BiP PeerId WalletRealMode -> WalletRealMode a)
     -> Production a
 runWalletRealMode res wp@WalletParams {..} = runRawRealWallet res wp listeners
   where
@@ -60,11 +60,11 @@ runWalletRealMode res wp@WalletParams {..} = runRawRealWallet res wp listeners
 runWalletReal
     :: RealModeResources
     -> WalletParams
-    -> [ SendActions BiP VerInfo WalletRealMode -> WalletRealMode ()]
+    -> [ SendActions BiP PeerId WalletRealMode -> WalletRealMode ()]
     -> Production ()
 runWalletReal res wp = runWalletRealMode res wp . runWallet
 
-runWallet :: WalletMode ssc m => [ SendActions BiP VerInfo m -> m ()] ->  SendActions BiP VerInfo m -> m ()
+runWallet :: WalletMode ssc m => [ SendActions BiP PeerId m -> m ()] ->  SendActions BiP PeerId m -> m ()
 runWallet plugins sendActions = do
     logInfo "Wallet is initialized!"
     peers <- discoverPeers
@@ -76,8 +76,8 @@ runWallet plugins sendActions = do
 runRawRealWallet
     :: RealModeResources
     -> WalletParams
-    -> [Listener BiP VerInfo WalletRealMode]
-    -> ( SendActions BiP VerInfo WalletRealMode -> WalletRealMode a)
+    -> [Listener BiP PeerId WalletRealMode]
+    -> ( SendActions BiP PeerId WalletRealMode -> WalletRealMode a)
     -> Production a
 runRawRealWallet res WalletParams {..} listeners action =
     usingLoggerName lpRunnerTag .

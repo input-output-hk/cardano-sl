@@ -19,7 +19,7 @@ import           Pos.Binary.Communication          ()
 import           Pos.Block.Network.Listeners       (blockListeners, blockStubListeners)
 import           Pos.Communication.BiP             (BiP)
 import           Pos.Communication.Server.SysStart
-import           Pos.Communication.Types.Protocol  (VerInfo)
+import           Pos.Communication.Types.Protocol  (PeerId)
 import           Pos.Communication.Util            (modifyListenerLogger)
 import           Pos.Constants                     (networkReceiveTimeout)
 import           Pos.Delegation.Listeners          (delegationListeners,
@@ -35,7 +35,7 @@ import           Pos.WorkMode                      (WorkMode)
 -- | All listeners running on one node.
 allListeners
     :: (SscListenersClass ssc, WorkMode ssc m)
-    => [Listener BiP VerInfo m]
+    => [Listener BiP PeerId m]
 allListeners =
     map addWaitLogging $
     map (addTimeout networkReceiveTimeout) $
@@ -62,7 +62,7 @@ allListeners =
 
 -- | All listeners running on one node.
 allStubListeners
-    :: (SscListenersClass ssc, WithLogger m) => Proxy ssc -> [Listener BiP VerInfo m]
+    :: (SscListenersClass ssc, WithLogger m) => Proxy ssc -> [Listener BiP PeerId m]
 allStubListeners p =
     concat
         [ blockStubListeners p

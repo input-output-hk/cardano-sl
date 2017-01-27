@@ -25,7 +25,7 @@ import           Pos.Block.Network.Retrieval (handleUnsolicitedHeaders)
 import           Pos.Block.Network.Types     (MsgBlock (..), MsgGetBlocks (..),
                                               MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.BiP       (BiP (..))
-import           Pos.Communication.Types     (VerInfo)
+import           Pos.Communication.Types     (PeerId)
 import qualified Pos.DB                      as DB
 import           Pos.DB.Error                (DBError (DBMalformed))
 import           Pos.Ssc.Class.Types         (Ssc)
@@ -35,7 +35,7 @@ import           Pos.WorkMode                (WorkMode)
 
 blockListeners
     :: ( WorkMode ssc m )
-    => [ListenerAction BiP VerInfo m]
+    => [ListenerAction BiP PeerId m]
 blockListeners =
     [ handleGetHeaders
     , handleGetBlocks
@@ -44,7 +44,7 @@ blockListeners =
 
 blockStubListeners
     :: ( Ssc ssc, WithLogger m )
-    => Proxy ssc -> [ListenerAction BiP VerInfo m]
+    => Proxy ssc -> [ListenerAction BiP PeerId m]
 blockStubListeners p =
     [ stubListenerConv $ (const Proxy :: Proxy ssc -> Proxy MsgGetHeaders) p
     , stubListenerOneMsg $ (const Proxy :: Proxy ssc -> Proxy MsgGetBlocks) p
@@ -57,21 +57,21 @@ blockStubListeners p =
 handleGetHeaders
     :: forall ssc m.
        (WorkMode ssc m)
-    => ListenerAction BiP VerInfo m
+    => ListenerAction BiP PeerId m
 handleGetHeaders = ListenerActionConversation $ \_ __peerId conv ->
     handleHeadersCommunication conv
 
 handleGetBlocks
     :: forall ssc m.
        (Ssc ssc, WorkMode ssc m)
-    => ListenerAction BiP VerInfo m
+    => ListenerAction BiP PeerId m
 handleGetBlocks =
     -- NB #put_checkBlockSize: We can use anything as maxBlockSize
     -- here because 'put' doesn't check block size.
     reify (0 :: Byte) $ \(_ :: Proxy s0) ->
     ListenerActionConversation $
         \_ __peerId (conv :: ConversationActions
-                               VerInfo
+                               PeerId
                                (MsgBlock s0 ssc)
                                MsgGetBlocks m) ->
         whenJustM (recv conv) $ \mgb@MsgGetBlocks{..} -> do
@@ -96,7 +96,7 @@ handleGetBlocks =
 handleBlockHeaders
     :: forall ssc m.
        (WorkMode ssc m)
-    => ListenerAction BiP VerInfo m
+    => ListenerAction BiP PeerId m
 handleBlockHeaders = ListenerActionConversation $
     \_ peerId conv -> do
         logDebug "handleBlockHeaders: got some unsolicited block header(s)"

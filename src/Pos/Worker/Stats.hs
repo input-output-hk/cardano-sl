@@ -14,7 +14,7 @@ import           System.Wlog                      (logWarning)
 import           Universum
 
 import           Pos.Communication.BiP            (BiP)
-import           Pos.Communication.Types.Protocol (VerInfo)
+import           Pos.Communication.Types.Protocol (PeerId)
 import           Pos.Statistics                   (StatProcessTx (..), resetStat)
 import           Pos.WorkMode                     (WorkMode)
 
@@ -22,7 +22,7 @@ txStatsRefreshInterval :: Microsecond
 txStatsRefreshInterval = sec 1
 
 -- | Workers for collecting statistics about transactions in background.
-statsWorkers :: WorkMode ssc m => [Worker BiP VerInfo m]
+statsWorkers :: WorkMode ssc m => [Worker BiP PeerId m]
 statsWorkers = [const txStatsWorker]
 
 txStatsWorker :: WorkMode ssc m => m ()

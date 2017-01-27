@@ -24,14 +24,14 @@ import           Pos.Communication.BiP            (BiP)
 import           Pos.Communication.Message        ()
 import           Pos.Communication.Types          (SysStartRequest (..),
                                                    SysStartResponse (..))
-import           Pos.Communication.Types.Protocol (VerInfo)
+import           Pos.Communication.Types.Protocol (PeerId)
 import           Pos.DHT.Model                    (sendToNeighbors)
 import           Pos.Types                        (Timestamp)
 import           Pos.WorkMode                     (MinWorkMode)
 
 -- | Listener for 'SysStartRequest' message.
 sysStartReqListener
-    :: MinWorkMode m => Timestamp -> Listener BiP VerInfo m
+    :: MinWorkMode m => Timestamp -> Listener BiP PeerId m
 sysStartReqListener sysStart = ListenerActionConversation $
     \_ peerId conv  -> do
         (mReq :: Maybe SysStartRequest) <- recv conv
@@ -42,11 +42,11 @@ sysStartReqListener sysStart = ListenerActionConversation $
             send conv $ SysStartResponse sysStart
 
 -- | Listener for 'SysStartResponce' message.
-sysStartRespListener :: MinWorkMode m => MVar Timestamp -> Listener BiP VerInfo m
+sysStartRespListener :: MinWorkMode m => MVar Timestamp -> Listener BiP PeerId m
 sysStartRespListener mvar = ListenerActionOneMsg . const $ handleSysStartResp mvar
 
 handleSysStartResp
-  :: MinWorkMode m => MVar Timestamp -> NodeId -> SendActions BiP VerInfo m -> SysStartResponse -> m ()
+  :: MinWorkMode m => MVar Timestamp -> NodeId -> SendActions BiP PeerId m -> SysStartResponse -> m ()
 handleSysStartResp mvar peerId sendActions (SysStartResponse sysStart) = do
         logInfo $ sformat
             ("Received sysStart response from "%shown%", "%build)

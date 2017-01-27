@@ -3,24 +3,29 @@
 
 module Pos.Binary.Communication () where
 
-import           Data.Binary.Get                  (getWord8, isolate, label)
-import           Data.Binary.Put                  (putLazyByteString, putWord8, runPut)
+import           Data.Binary.Get                  (getByteString, getWord8, isolate,
+                                                   label)
+import           Data.Binary.Put                  (putByteString, putLazyByteString,
+                                                   putWord8, runPut)
+import qualified Data.ByteString                  as BS
 import qualified Data.ByteString.Lazy             as BSL
 import           Data.Reflection                  (Reifies, reflect)
-import           Formatting                       (formatToString, int, (%))
+import           Formatting                       (formatToString, int, sformat, (%))
 import           Node.Message                     (MessageName (..))
 import           Serokell.Data.Memory.Units       (Byte)
-import           Universum
+import           Universum                        hiding (putByteString)
 
 import           Pos.Binary.Class                 (Bi (..))
 import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (..),
                                                    MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types          (SysStartRequest (..),
                                                    SysStartResponse (..))
-import           Pos.Communication.Types.Protocol (HandlerSpec (..), VerInfo (..))
+import           Pos.Communication.Types.Protocol (HandlerSpec (..), PeerId (..),
+                                                   VerInfo (..))
 import           Pos.Delegation.Types             (CheckProxySKConfirmed (..),
                                                    CheckProxySKConfirmedRes (..),
                                                    ConfirmProxySK (..), SendProxySK (..))
+import           Pos.DHT.Model.Types              (meaningPartLength)
 import           Pos.Ssc.Class.Types              (Ssc (..))
 import           Pos.Txp.Types                    (TxMsgTag (..))
 import           Pos.Update.Network.Types         (ProposalMsgTag (..), VoteMsgTag (..))
@@ -146,3 +151,12 @@ instance Bi VerInfo where
                     <> put vIInHandlers
                     <> put vIOutHandlers
     get = VerInfo <$> get <*> get <*> get <*> get
+
+peerIdLength :: Int
+peerIdLength = meaningPartLength
+
+instance Bi PeerId where
+    put (PeerId b) = if BS.length b /= peerIdLength
+                        then panic $ sformat ("Wrong PeerId length "%int) (BS.length b)
+                        else putByteString b
+    get = PeerId <$> getByteString peerIdLength

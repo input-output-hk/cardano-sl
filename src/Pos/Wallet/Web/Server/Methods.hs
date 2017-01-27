@@ -30,7 +30,7 @@ import           Universum
 
 import           Pos.Aeson.ClientTypes         ()
 import           Pos.Communication.BiP         (BiP)
-import           Pos.Communication.Types       (VerInfo)
+import           Pos.Communication.Types       (PeerId)
 import           Pos.Crypto                    (toPublic)
 import           Pos.DHT.Model                 (dhtAddr, getKnownPeers)
 import           Pos.Slotting                  (getSlotDuration)
@@ -112,7 +112,7 @@ walletApplication serv = do
 
 walletServer
     :: WalletMode ssc m
-    =>  SendActions BiP VerInfo m
+    =>  SendActions BiP PeerId m
     -> WalletWebHandler m (WalletWebHandler m :~> Handler)
     -> WalletWebHandler m (Server WalletApi)
 walletServer sendActions nat = do
@@ -203,7 +203,7 @@ launchNotifier nat = void . liftIO $ mapM startForking
 -- Handlers
 ----------------------------------------------------------------------------
 
-servantHandlers :: WalletWebMode ssc m =>  SendActions BiP VerInfo m -> ServerT WalletApi m
+servantHandlers :: WalletWebMode ssc m =>  SendActions BiP PeerId m -> ServerT WalletApi m
 servantHandlers sendActions =
      (catchWalletError . getWallet)
     :<|>
@@ -274,11 +274,11 @@ decodeCAddressOrFail = either wrongAddress pure . cAddressToAddress
 getWallets :: WalletWebMode ssc m => m [CWallet]
 getWallets = join $ mapM getWallet <$> myCAddresses
 
-send :: WalletWebMode ssc m =>  SendActions BiP VerInfo m -> CAddress -> CAddress -> Coin -> m CTx
+send :: WalletWebMode ssc m =>  SendActions BiP PeerId m -> CAddress -> CAddress -> Coin -> m CTx
 send sendActions srcCAddr dstCAddr c =
     sendExtended sendActions srcCAddr dstCAddr c ADA mempty mempty
 
-sendExtended :: WalletWebMode ssc m =>  SendActions BiP VerInfo m -> CAddress -> CAddress -> Coin -> CCurrency -> Text -> Text -> m CTx
+sendExtended :: WalletWebMode ssc m =>  SendActions BiP PeerId m -> CAddress -> CAddress -> Coin -> CCurrency -> Text -> Text -> m CTx
 sendExtended sendActions srcCAddr dstCAddr c curr title desc = do
     srcAddr <- decodeCAddressOrFail srcCAddr
     dstAddr <- decodeCAddressOrFail dstCAddr

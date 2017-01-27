@@ -7,16 +7,18 @@ module Pos.SafeCopy.Types
        (
        ) where
 
-import           Data.SafeCopy       (SafeCopy (..), base, contain, deriveSafeCopySimple,
-                                      safeGet, safePut)
-import qualified Data.Serialize      as Cereal (getWord8, putWord8)
+import           Data.SafeCopy         (SafeCopy (..), base, contain,
+                                        deriveSafeCopySimple, safeGet, safePut)
+import qualified Data.Serialize        as Cereal (getWord8, putWord8)
 import           Universum
 
-import           Pos.Ssc.Class.Types (Ssc (..))
+import           Pos.Ssc.Class.Types   (Ssc (..))
 -- FIXME
 import           Pos.Types.Core
 import           Pos.Types.Types
+import           Pos.Update.Core.Types
 
+deriveSafeCopySimple 0 'base ''CoinPortion
 deriveSafeCopySimple 0 'base ''EpochIndex
 deriveSafeCopySimple 0 'base ''LocalSlotIndex
 deriveSafeCopySimple 0 'base ''SlotId
@@ -34,6 +36,13 @@ deriveSafeCopySimple 0 'base ''SharedSeed
 
 deriveSafeCopySimple 0 'base ''MainExtraBodyData
 deriveSafeCopySimple 0 'base ''MainExtraHeaderData
+
+deriveSafeCopySimple 0 'base ''SystemTag
+deriveSafeCopySimple 0 'base ''UpdateData
+deriveSafeCopySimple 0 'base ''BlockVersionData
+deriveSafeCopySimple 0 'base ''UpdateProposal
+deriveSafeCopySimple 0 'base ''UpdateVote
+deriveSafeCopySimple 0 'base ''UpdatePayload
 
 -- Manually written instances can't be derived because
 -- 'deriveSafeCopySimple' is not clever enough to add

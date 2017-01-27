@@ -87,7 +87,7 @@ import           Pos.Types.Version          (ApplicationName, BlockVersion (..),
                                              SoftwareVersion (..), mkApplicationName)
 import           Pos.Update.Core            (SystemTag, mkSystemTag)
 import           Pos.Util                   ()
-import           Pos.Util.TimeWarp          (mcs, sec)
+import           Pos.Util.TimeWarp          (mcs)
 
 ----------------------------------------------------------------------------
 -- Main constants mentioned in paper

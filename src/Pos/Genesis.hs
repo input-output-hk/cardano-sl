@@ -27,6 +27,7 @@ module Pos.Genesis
 
        -- * Update System
        , genesisBlockVersion
+       , genesisBlockVersionData
        , genesisSoftwareVersions
        , genesisScriptVersion
        , genesisSlotDuration
@@ -56,8 +57,9 @@ import           Pos.Types                  (Address (..), BlockVersion (..), Co
                                              StakeholderId, TxOut (..), Utxo,
                                              applyCoinPortion, coinToInteger, divCoin,
                                              makePubKeyAddress, mkCoin, unsafeAddCoin,
-                                             unsafeMulCoin)
+                                             unsafeCoinPortion, unsafeMulCoin)
 import           Pos.Types.Version          (SoftwareVersion (..))
+import           Pos.Update.Core.Types      (BlockVersionData (..))
 
 ----------------------------------------------------------------------------
 -- Static state
@@ -213,6 +215,21 @@ genesisBlockVersion =
 -- | Software Versions
 genesisSoftwareVersions :: [SoftwareVersion]
 genesisSoftwareVersions = [Const.curSoftwareVersion { svNumber = 0 }]
+
+-- | 'BlockVersionData' for genesis 'BlockVersion'.
+genesisBlockVersionData :: BlockVersionData
+genesisBlockVersionData =
+    BlockVersionData
+    { bvdScriptVersion = genesisScriptVersion
+    , bvdSlotDuration = Const.genesisSlotDuration
+    , bvdMaxBlockSize = Const.genesisMaxBlockSize
+    , bvdMaxTxSize = 0
+    , bvdMpcThd = unsafeCoinPortion 0
+    , bvdHeavyDelThd = unsafeCoinPortion 0
+    , bvdUpdateVoteThd = unsafeCoinPortion 0
+    , bvdUpdateImplicit = 0
+    , bvdUpdateSoftforkThd = unsafeCoinPortion 0
+    }
 
 -- | ScriptVersion used at the very beginning
 genesisScriptVersion :: ScriptVersion

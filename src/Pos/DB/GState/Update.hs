@@ -59,9 +59,8 @@ import           Pos.DB.Iterator            (DBIteratorClass (..), DBnIterator,
                                              DBnMapIterator, IterType, runDBnIterator,
                                              runDBnMapIterator)
 import           Pos.DB.Types               (NodeDBs (..))
-import           Pos.Genesis                (genesisBlockVersion, genesisMaxBlockSize,
-                                             genesisScriptVersion, genesisSlotDuration,
-                                             genesisSoftwareVersions)
+import           Pos.Genesis                (genesisBlockVersion, genesisBlockVersionData,
+                                             genesisSlotDuration, genesisSoftwareVersions)
 import           Pos.Types                  (ApplicationName, BlockVersion,
                                              ChainDifficulty, NumSoftwareVersion, SlotId,
                                              SoftwareVersion (..))
@@ -180,14 +179,8 @@ prepareGStateUS =
     unlessM isInitialized $ do
         db <- getUtxoDB
         flip rocksWriteBatch db $
-            SetAdopted genesisBlockVersion genesisBVData :
+            SetAdopted genesisBlockVersion genesisBlockVersionData :
             map ConfirmVersion genesisSoftwareVersions
-  where
-    genesisBVData =
-        BlockVersionData
-            genesisScriptVersion
-            genesisSlotDuration
-            genesisMaxBlockSize
 
 isInitialized :: MonadDB ssc m => m Bool
 isInitialized = isJust <$> getAdoptedBVFullMaybe

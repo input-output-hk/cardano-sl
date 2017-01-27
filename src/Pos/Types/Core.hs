@@ -94,7 +94,7 @@ unsafeGetCoin = getCoin
 -- determine some threshold expressed as portion of total stake.
 newtype CoinPortion = CoinPortion
     { getCoinPortion :: Double
-    }
+    } deriving (Show, Ord, Eq)
 
 -- | Make CoinPortion from Double. Caller must ensure that value is in [0 .. 1].
 unsafeCoinPortion :: Double -> CoinPortion

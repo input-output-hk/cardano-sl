@@ -31,7 +31,8 @@ import           Pos.Slotting         (getSlotDuration)
 import           Pos.Ssc.GodTossing   (SscGodTossing)
 import           Pos.Ssc.NistBeacon   (SscNistBeacon)
 import           Pos.Ssc.SscAlgo      (SscAlgo (..))
-import           Pos.Types            (EpochIndex (..), coinF, makePubKeyAddress, txaF)
+import           Pos.Types            (EpochIndex (..), coinF, makePubKeyAddress, txaF,
+                                       unsafeCoinPortion)
 import           Pos.Update           (BlockVersionData (..), UpdateProposal (..),
                                        UpdateVote (..), patakUpdateData)
 import           Pos.Util.TimeWarp    (NetworkAddress, sec)
@@ -77,6 +78,12 @@ runCmd sendActions ProposeUpdate{..} = do
             { bvdScriptVersion = puScriptVersion
             , bvdSlotDuration = convertUnit (sec puSlotDurationSec)
             , bvdMaxBlockSize = puMaxBlockSize
+            , bvdMaxTxSize = 0
+            , bvdMpcThd = unsafeCoinPortion 0
+            , bvdHeavyDelThd = unsafeCoinPortion 0
+            , bvdUpdateVoteThd = unsafeCoinPortion 0
+            , bvdUpdateImplicit = 0
+            , bvdUpdateSoftforkThd = unsafeCoinPortion 0
             }
     let updateProposal = UpdateProposal
             { upBlockVersion     = puBlockVersion

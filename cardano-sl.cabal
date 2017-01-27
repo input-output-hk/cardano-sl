@@ -253,6 +253,7 @@ library
                         Pos.SafeCopy.GodTossing.Types
                         Pos.SafeCopy.GodTossing.VssCertData
                         Pos.SafeCopy.Types
+                        Pos.SafeCopy.Update
 
                         -- SSC
                         Pos.Ssc.Extra.Holder

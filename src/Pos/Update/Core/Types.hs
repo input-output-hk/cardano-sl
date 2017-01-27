@@ -43,9 +43,7 @@ module Pos.Update.Core.Types
 import           Data.Char                  (isAscii)
 import           Data.Default               (Default (def))
 import qualified Data.HashMap.Strict        as HM
-import           Data.SafeCopy              (base, deriveSafeCopySimple)
 import qualified Data.Text                  as T
-import           Data.Text.Buildable        (Buildable)
 import qualified Data.Text.Buildable        as Buildable
 import           Data.Time.Units            (Millisecond)
 import           Formatting                 (bprint, build, int, (%))
@@ -58,7 +56,10 @@ import           Pos.Binary.Class           (Bi)
 import           Pos.Crypto                 (Hash, PublicKey, Signature, hash, unsafeHash)
 import           Pos.Data.Attributes        (Attributes)
 import           Pos.Script.Type            (ScriptVersion)
-import           Pos.Types.Version          (BlockVersion, SoftwareVersion)
+import           Pos.Types.Coin             ()
+import           Pos.Types.Core             (BlockVersion, CoinPortion, FlatSlotId,
+                                             SoftwareVersion)
+import           Pos.Types.Version          ()
 import           Pos.Util                   (Raw)
 
 ----------------------------------------------------------------------------
@@ -118,9 +119,15 @@ instance Buildable (UpdateProposal, [UpdateVote]) where
 
 -- | Data which is associated with 'BlockVersion'.
 data BlockVersionData = BlockVersionData
-    { bvdScriptVersion :: !ScriptVersion
-    , bvdSlotDuration  :: !Millisecond
-    , bvdMaxBlockSize  :: !Byte
+    { bvdScriptVersion     :: !ScriptVersion
+    , bvdSlotDuration      :: !Millisecond
+    , bvdMaxBlockSize      :: !Byte
+    , bvdMaxTxSize         :: !Byte
+    , bvdMpcThd            :: !CoinPortion
+    , bvdHeavyDelThd       :: !CoinPortion
+    , bvdUpdateVoteThd     :: !CoinPortion
+    , bvdUpdateImplicit    :: !FlatSlotId
+    , bvdUpdateSoftforkThd :: !CoinPortion
     } deriving (Show, Eq, Generic, Typeable)
 
 instance Buildable BlockVersionData where
@@ -279,14 +286,3 @@ type StakeholderVotes = HashMap PublicKey VoteState
 
 type UpdateProposals = HashMap UpId UpdateProposal
 type LocalVotes = HashMap UpId (HashMap PublicKey UpdateVote)
-
-----------------------------------------------------------------------------
--- SafeCopy :unamused:
-----------------------------------------------------------------------------
-
-deriveSafeCopySimple 0 'base ''SystemTag
-deriveSafeCopySimple 0 'base ''UpdateData
-deriveSafeCopySimple 0 'base ''BlockVersionData
-deriveSafeCopySimple 0 'base ''UpdateProposal
-deriveSafeCopySimple 0 'base ''UpdateVote
-deriveSafeCopySimple 0 'base ''UpdatePayload

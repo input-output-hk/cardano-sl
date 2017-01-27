@@ -38,9 +38,10 @@ import           Pos.Types.Address          (makePubKeyAddress, makeScriptAddres
 import           Pos.Types.Arbitrary.Unsafe ()
 import           Pos.Types.Coin             (coinToInteger, unsafeAddCoin, unsafeSubCoin)
 import           Pos.Types.Core             (Address (..), ChainDifficulty (..), Coin,
-                                             EpochIndex (..), EpochOrSlot (..),
-                                             LocalSlotIndex (..), SlotId (..),
-                                             Timestamp (..), mkCoin)
+                                             CoinPortion, EpochIndex (..),
+                                             EpochOrSlot (..), LocalSlotIndex (..),
+                                             SlotId (..), Timestamp (..), mkCoin,
+                                             unsafeCoinPortion)
 import           Pos.Types.Types            (SharedSeed (..), Tx (..),
                                              TxDistribution (..), TxIn (..),
                                              TxInWitness (..), TxOut (..), TxOutAux)
@@ -68,6 +69,9 @@ derive makeArbitrary ''TxOut
 
 instance Arbitrary Coin where
     arbitrary = mkCoin . getNonZero <$> (arbitrary :: Gen (NonZero Word64))
+
+instance Arbitrary CoinPortion where
+    arbitrary = unsafeCoinPortion . (1/) <$> choose (1, 20)
 
 maxReasonableEpoch :: Integral a => a
 maxReasonableEpoch = 5 * 1000 * 1000 * 1000 * 1000  -- 5 * 10^12, because why not

@@ -68,7 +68,7 @@ handleHeadersCommunication
 handleHeadersCommunication conv = do
     (msg :: Maybe MsgGetHeaders) <- recv conv
     whenJust msg $ \mgh@(MsgGetHeaders {..}) -> do
-        logDebug $ sformat ("Got request on handleGetHeaders: "%shown) mgh
+        logDebug $ sformat ("Got request on handleGetHeaders: "%build) mgh
         isRecovery <- do
             var <- ncRecoveryHeader <$> getNodeContext
             isJust <$> atomically (tryReadTMVar var)

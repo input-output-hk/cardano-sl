@@ -10,6 +10,9 @@ module Pos.Block.Network.Types
        ) where
 
 import qualified Data.ByteString.Char8 as BC
+import qualified Data.Text.Buildable
+import           Formatting            (bprint, build, (%))
+import           Serokell.Util.Text    (listJson)
 import           Universum
 
 import           Node.Message          (Message (..), MessageName (..))
@@ -28,6 +31,11 @@ instance Message MsgGetHeaders where
     messageName _ = MessageName $ BC.pack "GetHeaders"
     formatMessage _ = "GetHeaders"
 
+instance Buildable MsgGetHeaders where
+    build (MsgGetHeaders mghFrom mghTo) =
+        bprint ("MsgGetHeaders {from = "%listJson%", to = "%build%"}")
+               mghFrom (maybe "<Nothing>" (bprint build) mghTo)
+
 -- | 'GetHeaders' message (see protocol specification).
 data MsgGetBlocks = MsgGetBlocks
     { mgbFrom :: !HeaderHash
@@ -37,6 +45,11 @@ data MsgGetBlocks = MsgGetBlocks
 instance Message MsgGetBlocks where
     messageName _ = MessageName $ BC.pack "GetBlocks"
     formatMessage _ = "GetBlocks"
+
+instance Buildable MsgGetBlocks where
+    build (MsgGetBlocks mgbFrom mgbTo) =
+        bprint ("MsgGetBlocks {from = "%build%", to = "%build%"}")
+               mgbFrom mgbTo
 
 -- | 'Headers' message (see protocol specification).
 newtype MsgHeaders ssc =

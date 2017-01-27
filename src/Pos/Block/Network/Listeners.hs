@@ -8,30 +8,30 @@ module Pos.Block.Network.Listeners
        , blockStubListeners
        ) where
 
-import           Data.Proxy                       (Proxy (..))
-import           Data.Reflection                  (reify)
-import           Formatting                       (sformat, shown, (%))
-import           Node                             (ConversationActions (..),
-                                                   ListenerAction (..))
-import           Serokell.Data.Memory.Units       (Byte)
-import           Serokell.Util.Text               (listJson)
-import           System.Wlog                      (WithLogger, logDebug, logWarning)
+import           Data.Proxy                  (Proxy (..))
+import           Data.Reflection             (reify)
+import           Formatting                  (build, sformat, (%))
+import           Node                        (ConversationActions (..),
+                                              ListenerAction (..))
+import           Serokell.Data.Memory.Units  (Byte)
+import           Serokell.Util.Text          (listJson)
+import           System.Wlog                 (WithLogger, logDebug, logWarning)
 import           Universum
 
-import           Pos.Binary.Communication         ()
-import           Pos.Block.Logic                  (getHeadersFromToIncl)
-import           Pos.Block.Network.Announce       (handleHeadersCommunication)
-import           Pos.Block.Network.Retrieval      (handleUnsolicitedHeaders)
-import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (..),
-                                                   MsgGetHeaders (..), MsgHeaders (..))
-import           Pos.Communication.BiP            (BiP (..))
-import           Pos.Communication.Types.Protocol (VerInfo)
-import qualified Pos.DB                           as DB
-import           Pos.DB.Error                     (DBError (DBMalformed))
-import           Pos.Ssc.Class.Types              (Ssc)
-import           Pos.Util                         (NewestFirst (..), stubListenerConv,
-                                                   stubListenerOneMsg)
-import           Pos.WorkMode                     (WorkMode)
+import           Pos.Binary.Communication    ()
+import           Pos.Block.Logic             (getHeadersFromToIncl)
+import           Pos.Block.Network.Announce  (handleHeadersCommunication)
+import           Pos.Block.Network.Retrieval (handleUnsolicitedHeaders)
+import           Pos.Block.Network.Types     (MsgBlock (..), MsgGetBlocks (..),
+                                              MsgGetHeaders (..), MsgHeaders (..))
+import           Pos.Communication.BiP       (BiP (..))
+import           Pos.Communication.Types     (VerInfo)
+import qualified Pos.DB                      as DB
+import           Pos.DB.Error                (DBError (DBMalformed))
+import           Pos.Ssc.Class.Types         (Ssc)
+import           Pos.Util                    (NewestFirst (..), stubListenerConv,
+                                              stubListenerOneMsg)
+import           Pos.WorkMode                (WorkMode)
 
 blockListeners
     :: ( WorkMode ssc m )
@@ -75,7 +75,7 @@ handleGetBlocks =
                                (MsgBlock s0 ssc)
                                MsgGetBlocks m) ->
         whenJustM (recv conv) $ \mgb@MsgGetBlocks{..} -> do
-            logDebug $ sformat ("Got request on handleGetBlocks: "%shown) mgb
+            logDebug $ sformat ("Got request on handleGetBlocks: "%build) mgb
             hashes <- getHeadersFromToIncl mgbFrom mgbTo
             maybe warn (sendBlocks conv) hashes
   where

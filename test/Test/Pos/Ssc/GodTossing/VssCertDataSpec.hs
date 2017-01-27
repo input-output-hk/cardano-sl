@@ -13,13 +13,13 @@ import           Data.Tuple            (swap)
 
 import           Pos.Ssc.GodTossing    (VssCertData (..), VssCertificate (..), delete,
                                         empty, expiryEoS, filter, insert, keys, member,
-                                        setLastKnownEoS, setLastKnownSlot)
+                                        setLastKnownSlot)
 import           Pos.Types             (EpochIndex (..), EpochOrSlot (..), SlotId,
                                         SlotId (..), StakeholderId)
 
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck       (Arbitrary (..), Property, choose, sized, suchThat,
+import           Test.QuickCheck       (Arbitrary (..), Property, choose, suchThat,
                                         vectorOf, (==>))
 
 spec :: Spec
@@ -103,7 +103,7 @@ isConsistent (getVssCertData -> VssCertData{..}) =
        -- (3) @certs@ keys and @certsIns@ keys are equal
     && certsStakeholders == certsInsStakeholders
        -- (4) @insSlotset@ equals to hashmap of @certsInts@
-    && slotsFromCertsIns == insSlotSet
+    && slotsFromCertsIns == whenInsSet
        -- (5) there is expiry slot for every inserted certificate
     && insSlotSetStakeholders == expirySlotSetStakeholders
        -- (*) every expire slot strictly greater than corresponding inserted slot
@@ -114,13 +114,13 @@ isConsistent (getVssCertData -> VssCertData{..}) =
        -- (7) all expired certificates are stored for no longer than +epochSlots from lks
     && all (<= addEpoch lastKnownEoS) expiredCertificatesSlots
   where
-    insSlotSetPairs           = S.toList insSlotSet
-    expirySlotSetPairs        = S.toList expirySlotSet
+    insSlotSetPairs           = S.toList whenInsSet
+    expirySlotSetPairs        = S.toList whenExpire
     insertedSlots             = map fst insSlotSetPairs
     expiredSlots              = map fst expirySlotSetPairs
     certsStakeholders         = S.fromList $ HM.keys certs
-    certsInsStakeholders      = S.fromList $ HM.keys certsIns
-    slotsFromCertsIns         = S.fromList $ map swap $ HM.toList certsIns
+    certsInsStakeholders      = S.fromList $ HM.keys whenInsMap
+    slotsFromCertsIns         = S.fromList $ map swap $ HM.toList whenInsMap
     insSlotSetStakeholders    = S.fromList $ map snd insSlotSetPairs
     expirySlotSetStakeholders = S.fromList $ map snd expirySlotSetPairs
     notExpiredCertificates    = S.fromList $ HM.elems certs

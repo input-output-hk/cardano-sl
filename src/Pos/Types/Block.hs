@@ -42,7 +42,7 @@ import           Universum
 import qualified Pos.Binary.Class           as Bi
 import           Pos.Binary.Types           ()
 import           Pos.Binary.Update          ()
-import           Pos.Constants              (epochSlots, maxBlockProxySKs)
+import           Pos.Constants              (epochSlots)
 import           Pos.Crypto                 (Hash, SecretKey, checkSig, proxySign,
                                              proxyVerify, pskIssuerPk, sign, toPublic,
                                              unsafeHash)
@@ -50,9 +50,13 @@ import           Pos.Merkle                 (mkMerkleTree)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types        (Ssc (..))
 import           Pos.Types.Address          (addressHash)
+import           Pos.Types.Core             (ChainDifficulty, EpochIndex, EpochOrSlot,
+                                             HasDifficulty (..), HasEpochIndex (..),
+                                             HasEpochOrSlot (..), HasHeaderHash (..),
+                                             HeaderHash, SlotId (..), SlotId)
+import           Pos.Types.Tx               (verifyTxAlone)
 -- Unqualified import is used here because of GHC bug (trac 12127).
 -- See: https://ghc.haskell.org/trac/ghc/ticket/12127
-import           Pos.Types.Tx               (verifyTxAlone)
 import           Pos.Types.Types
 import           Pos.Update.Core            (UpdatePayload)
 import           Pos.Util                   (NewestFirst (..), OldestFirst)
@@ -459,9 +463,7 @@ verifyBlock VerifyBlockParams {..} blk =
             let proxySKs = mainBlk ^. blockProxySKs
                 duplicates = proxySKsDups proxySKs in
             verifyGeneric
-            [ ( length proxySKs <= maxBlockProxySKs
-              , "Number of certificates in blocks is more than 10000")
-            , ( null duplicates
+            [ ( null duplicates
               , "Some of block's PSKs have the same issuer, which is prohibited")
             ]
         | otherwise = mempty

@@ -10,7 +10,6 @@ module Pos.Communication.Types.Protocol
        , ListenerSpec (..)
        ) where
 
-import           Data.Hashable         (Hashable)
 import qualified Data.HashMap.Strict   as HM
 import qualified Data.Text.Buildable   as B
 import           Formatting            (bprint, build, (%))

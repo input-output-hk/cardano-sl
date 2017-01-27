@@ -3,9 +3,8 @@
 
 module Pos.Binary.Communication () where
 
-import           Data.Binary.Get                  (getInt32be, getWord8, isolate, label)
-import           Data.Binary.Put                  (putInt32be, putLazyByteString,
-                                                   putWord8, runPut)
+import           Data.Binary.Get                  (getWord8, isolate, label)
+import           Data.Binary.Put                  (putLazyByteString, putWord8, runPut)
 import qualified Data.ByteString.Lazy             as BSL
 import           Data.Reflection                  (Reifies, reflect)
 import           Formatting                       (formatToString, int, (%))

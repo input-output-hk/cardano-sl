@@ -41,6 +41,7 @@ library
                         Pos.CLI
                         Pos.Context
                         Pos.Communication
+                        Pos.Communication.Relay
                         Pos.CompileConfig
                         Pos.Constants
                         Pos.Crypto
@@ -140,6 +141,7 @@ library
                         Pos.Binary.Relay
                         Pos.Binary.Script
                         Pos.Binary.Ssc
+                        Pos.Binary.Ssc.GodTossing.Base
                         Pos.Binary.Types
                         Pos.Binary.Update
                         Pos.Binary.Util
@@ -163,7 +165,6 @@ library
                         Pos.Communication.Methods
                         Pos.Communication.Protocol
                         Pos.Communication.PeerState
-                        Pos.Communication.Relay
                         Pos.Communication.Types
                         Pos.Communication.Types.Protocol
                         Pos.Communication.Types.Relay
@@ -247,6 +248,15 @@ library
                         Pos.Lrc.Types
                         Pos.Lrc.Worker
 
+                        -- SafeCopy serialization (obsolete, but still needed)
+                        Pos.SafeCopy
+                        Pos.SafeCopy.GodTossing
+                        Pos.SafeCopy.GodTossing.Base
+                        Pos.SafeCopy.GodTossing.Types
+                        Pos.SafeCopy.GodTossing.VssCertData
+                        Pos.SafeCopy.Types
+                        Pos.SafeCopy.Update
+
                         -- SSC
                         Pos.Ssc.Extra.Holder
                         Pos.Ssc.Extra.MonadGS
@@ -294,13 +304,14 @@ library
                         Pos.Txp.Types.BalancesView
 
                         -- Types
+                        Pos.Types.Core
                         Pos.Types.SharedSeed
                         Pos.Types.Utxo.Class
                         Pos.Types.Utxo.Functions
                         Pos.Types.Utxo.Pure
-                        Pos.Worker.Ntp
 
                         -- Workers
+                        Pos.Worker.Ntp
                         Pos.Worker.Stats
 
                         -- Update System
@@ -641,6 +652,7 @@ executable cardano-wallet
                      , serokell-util
                      , text
                      , time
+                     , time-units
                      , universum >= 0.1.11
                      , unordered-containers
   default-language:    Haskell2010
@@ -936,6 +948,25 @@ executable cardano-checks
                        -Wall
                        -O2
   default-extensions:  OverloadedStrings
+
+executable cardano-genupdate
+  hs-source-dirs:      src/genupdate
+  main-is:             Main.hs
+  build-depends:       base
+                     , bytestring
+                     , cryptonite
+                     , foldl
+                     , system-filepath
+                     , tar
+                     , text
+                     , turtle >= 1.3.1
+                     , universum
+  default-language:    Haskell2010
+  ghc-options:         -threaded
+                       -Wall
+                       -O2
+  default-extensions:  OverloadedStrings
+                       NoImplicitPrelude
 
 executable cardano-keygen
   hs-source-dirs:      src/keygen

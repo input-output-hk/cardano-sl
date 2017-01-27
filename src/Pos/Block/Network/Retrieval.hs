@@ -12,52 +12,50 @@ module Pos.Block.Network.Retrieval
        , mkHeadersRequest
        ) where
 
-import           Control.Concurrent.STM           (isEmptyTBQueue, isFullTBQueue,
-                                                   putTMVar, readTBQueue, tryReadTMVar,
-                                                   tryTakeTMVar, writeTBQueue)
-import           Control.Lens                     (_Wrapped)
-import           Control.Monad.Trans.Except       (ExceptT, runExceptT, throwE)
-import           Data.List.NonEmpty               ((<|))
-import qualified Data.List.NonEmpty               as NE
-import           Data.Reflection                  (reify)
-import           Formatting                       (build, int, sformat, shown, stext, (%))
-import           Mockable                         (fork, handleAll, throw)
-import           Node                             (ConversationActions (..), NodeId,
-                                                   SendActions (..))
-import           Serokell.Util.Exceptions         (throwText)
-import           Serokell.Util.Text               (listJson)
-import           Serokell.Util.Verify             (isVerSuccess)
-import           System.Wlog                      (logDebug, logError, logInfo,
-                                                   logWarning)
+import           Control.Concurrent.STM     (isEmptyTBQueue, isFullTBQueue, putTMVar,
+                                             readTBQueue, tryReadTMVar, tryTakeTMVar,
+                                             writeTBQueue)
+import           Control.Lens               (_Wrapped)
+import           Control.Monad.Except       (ExceptT, runExceptT, throwError)
+import           Data.List.NonEmpty         ((<|))
+import qualified Data.List.NonEmpty         as NE
+import           Data.Reflection            (reify)
+import           Formatting                 (build, int, sformat, shown, stext, (%))
+import           Mockable                   (fork, handleAll, throw)
+import           Node                       (ConversationActions (..), NodeId,
+                                             SendActions (..))
+import           Serokell.Util.Text         (listJson)
+import           Serokell.Util.Verify       (isVerSuccess)
+import           System.Wlog                (logDebug, logError, logInfo, logWarning)
 import           Universum
 
-import           Pos.Binary.Communication         ()
-import           Pos.Block.Logic                  (ClassifyHeaderRes (..),
-                                                   ClassifyHeadersRes (..),
-                                                   classifyHeaders, classifyNewHeader,
-                                                   getHeadersOlderExp, lcaWithMainChain,
-                                                   verifyAndApplyBlocks, withBlkSemaphore)
-import qualified Pos.Block.Logic                  as L
-import           Pos.Block.Network.Announce       (announceBlock)
-import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (..),
-                                                   MsgGetHeaders (..), MsgHeaders (..))
-import           Pos.Block.Types                  (Blund)
-import           Pos.Communication.BiP            (BiP (..))
-import           Pos.Communication.Types.Protocol (VerInfo)
-import           Pos.Constants                    (blkSecurityParam)
-import           Pos.Context                      (NodeContext (..), getNodeContext)
-import           Pos.Crypto                       (hash, shortHashF)
-import qualified Pos.DB                           as DB
-import qualified Pos.DB.GState                    as GState
-import           Pos.DHT.Model                    (nodeIdToAddress)
-import           Pos.Ssc.Class                    (Ssc, SscWorkersClass)
-import           Pos.Types                        (Block, BlockHeader, HasHeaderHash (..),
-                                                   HeaderHash, blockHeader, difficultyL,
-                                                   gbHeader, prevBlockL, verifyHeaders)
-import           Pos.Util                         (NE, NewestFirst (..), OldestFirst (..),
-                                                   inAssertMode, toNewestFirst, _neHead,
-                                                   _neLast)
-import           Pos.WorkMode                     (WorkMode)
+import           Pos.Binary.Communication   ()
+import           Pos.Block.Logic            (ClassifyHeaderRes (..),
+                                             ClassifyHeadersRes (..), classifyHeaders,
+                                             classifyNewHeader, getHeadersOlderExp,
+                                             lcaWithMainChain, verifyAndApplyBlocks,
+                                             withBlkSemaphore)
+import qualified Pos.Block.Logic            as L
+import           Pos.Block.Network.Announce (announceBlock)
+import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
+                                             MsgGetHeaders (..), MsgHeaders (..))
+import           Pos.Block.Types            (Blund)
+import           Pos.Communication.BiP      (BiP (..))
+import           Pos.Communication.Types    (VerInfo)
+import           Pos.Constants              (blkSecurityParam)
+import           Pos.Context                (NodeContext (..), getNodeContext)
+import           Pos.Crypto                 (hash, shortHashF)
+import qualified Pos.DB                     as DB
+import qualified Pos.DB.GState              as GState
+import           Pos.DHT.Model              (nodeIdToAddress)
+import           Pos.Ssc.Class              (Ssc, SscWorkersClass)
+import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (..),
+                                             HeaderHash, blockHeader, difficultyL,
+                                             gbHeader, prevBlockL, verifyHeaders)
+import           Pos.Util                   (NE, NewestFirst (..), OldestFirst (..),
+                                             inAssertMode, toNewestFirst, _neHead,
+                                             _neLast)
+import           Pos.WorkMode               (WorkMode)
 
 data VerifyBlocksException = VerifyBlocksException Text deriving Show
 instance Exception VerifyBlocksException
@@ -167,7 +165,7 @@ retrievalWorker sendActions = handleAll handleWE $ do
         let b0 = blocks ^. _Wrapped . _neHead
         if headerHash b0 == headerHash lcaChild
            then return blocks
-           else throwE $ sformat
+           else throwError $ sformat
                     ("First block of chain is "%build%
                      " instead of expected "%build)
                     (b0 ^. blockHeader) lcaChild
@@ -181,12 +179,12 @@ retrievalWorker sendActions = handleAll handleWE $ do
     retrieveBlocks' i conv prevH endH = do
         mBlock <- lift $ recv conv
         case mBlock of
-            Nothing -> throwE $ sformat ("Failed to receive block #"%int) i
+            Nothing -> throwError $ sformat ("Failed to receive block #"%int) i
             Just (MsgBlock block) -> do
                 let prevH' = block ^. prevBlockL
                     curH = headerHash block
                 when (prevH' /= prevH) $
-                    throwE $ sformat
+                    throwError $ sformat
                         ("Received block #"%int%" with "%
                          "prev hash "%shortHashF%" while "%
                          shortHashF%" was expected: "%build)

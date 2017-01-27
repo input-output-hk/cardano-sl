@@ -15,14 +15,13 @@ module Pos.Ssc.Class.Storage
        , SscGlobalUpdate
        ) where
 
-import           Serokell.Util.Verify (VerificationRes)
 import           System.Wlog          (WithLogger)
 import           Universum
 
 import           Pos.DB.Class         (MonadDB)
 import           Pos.Lrc.Types        (Richmen)
 import           Pos.Ssc.Class.Types  (Ssc (..))
-import           Pos.Types            (Block, EpochIndex, HeaderHash, SharedSeed)
+import           Pos.Types            (Block, EpochIndex, SharedSeed)
 import           Pos.Util             (NE, NewestFirst, OldestFirst)
 
 ----------------------------------------------------------------------------
@@ -34,8 +33,8 @@ type SscGlobalUpdate ssc a = forall m . (MonadState (SscGlobalState ssc) m) => m
 
 class Ssc ssc => SscStorageClass ssc where
     sscLoadGlobalState
-        :: MonadDB ssc m
-        => HeaderHash -> m (SscGlobalState ssc)
+        :: (MonadDB ssc m, WithLogger m)
+        => m (SscGlobalState ssc)
 
     sscApplyBlocksM
         :: OldestFirst NE (Block ssc) -> SscGlobalUpdate ssc ()
@@ -52,7 +51,7 @@ class Ssc ssc => SscStorageClass ssc where
         :: Bool
         -> Richmen
         -> OldestFirst NE (Block ssc)
-        -> SscGlobalQuery ssc VerificationRes
+        -> SscGlobalQuery ssc (Either (SscVerifyError ssc) ())
 
     sscCalculateSeedM
         :: EpochIndex

@@ -13,8 +13,6 @@ module Pos.Communication.Relay
        , DataMsg (..)
        ) where
 
-import qualified Data.ByteString.Char8         as BC
-import           Data.Proxy                    (Proxy (..))
 import           Formatting                    (build, sformat, stext, (%))
 import           Node                          (NodeId (..), SendActions (..), sendTo)
 import           Node.Message                  (Message)

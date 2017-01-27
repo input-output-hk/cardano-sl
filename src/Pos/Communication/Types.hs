@@ -7,6 +7,7 @@
 module Pos.Communication.Types
        ( -- * Messages and socket state
          module Pos.Communication.Types.Protocol
+       , module Pos.Communication.Types.Relay
        , module Pos.Communication.Types.State
        , module Pos.Communication.Types.SysStart
        , module Pos.Txp.Types.Communication

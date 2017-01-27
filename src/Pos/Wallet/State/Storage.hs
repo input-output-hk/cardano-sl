@@ -25,7 +25,7 @@ import           Data.Default                   (Default, def)
 import           Data.HashMap.Strict            (HashMap)
 import qualified Data.HashMap.Strict            as HM
 import           Data.SafeCopy                  (base, deriveSafeCopySimple)
-import           Data.Time.Units                (Microsecond)
+import           Data.Time.Units                (Millisecond)
 import           Serokell.Data.Memory.Units     (Byte)
 import           Universum
 
@@ -48,7 +48,7 @@ data Storage = Storage
       -- Valid delegation certificates
     , _delegations   :: HashMap Address (ProxyCert (EpochIndex, EpochIndex))
       -- “Constants”
-    , _slotDuration  :: Microsecond
+    , _slotDuration  :: Millisecond
     , _maxBlockSize  :: Byte
     }
 
@@ -68,7 +68,7 @@ instance HasTxStorage Storage where
 type Query a = forall m. (MonadReader Storage m) => m a
 type Update a = forall m. (MonadThrow m, MonadState Storage m) => m a
 
-getSlotDuration :: Query Microsecond
+getSlotDuration :: Query Millisecond
 getSlotDuration = view slotDuration
 
 getMaxBlockSize :: Query Byte

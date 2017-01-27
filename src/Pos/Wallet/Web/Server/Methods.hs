@@ -11,68 +11,66 @@ module Pos.Wallet.Web.Server.Methods
        , walletServeImpl
        ) where
 
-import           Control.Monad.Catch              (try)
-import           Control.Monad.Except             (runExceptT)
-import           Control.Monad.Trans.State        (get, runStateT)
-import           Data.Default                     (Default, def)
-import           Data.List                        (elemIndex, (!!))
-import           Data.Time.Clock.POSIX            (getPOSIXTime)
-import           Formatting                       (build, ords, sformat, stext, (%))
-import           Network.Wai                      (Application)
-import           Node                             (SendActions, hoistSendActions)
-import           Pos.Crypto                       (hash)
-import           Servant.API                      ((:<|>) ((:<|>)),
-                                                   FromHttpApiData (parseUrlPiece))
-import           Servant.Server                   (Handler, Server, ServerT, serve)
-import           Servant.Utils.Enter              ((:~>) (..), enter)
-import           System.Wlog                      (logInfo)
+import           Control.Monad.Catch           (try)
+import           Control.Monad.Except          (runExceptT)
+import           Control.Monad.Trans.State     (get, runStateT)
+import           Data.Default                  (Default, def)
+import           Data.List                     (elemIndex, (!!))
+import           Data.Time.Clock.POSIX         (getPOSIXTime)
+import           Formatting                    (build, ords, sformat, stext, (%))
+import           Network.Wai                   (Application)
+import           Node                          (SendActions, hoistSendActions)
+import           Pos.Crypto                    (hash)
+import           Servant.API                   ((:<|>) ((:<|>)),
+                                                FromHttpApiData (parseUrlPiece))
+import           Servant.Server                (Handler, Server, ServerT, serve)
+import           Servant.Utils.Enter           ((:~>) (..), enter)
+import           System.Wlog                   (logInfo)
 import           Universum
 
-import           Pos.Aeson.ClientTypes            ()
-import           Pos.Communication.BiP            (BiP)
-import           Pos.Communication.Types.Protocol (VerInfo)
-import           Pos.Crypto                       (toPublic)
-import           Pos.DHT.Model                    (dhtAddr, getKnownPeers)
-import           Pos.Slotting                     (getSlotDuration)
-import           Pos.Types                        (Address, ChainDifficulty (..), Coin,
-                                                   TxOut (..), addressF, coinF,
-                                                   decodeTextAddress, makePubKeyAddress,
-                                                   mkCoin)
-import           Pos.Util                         (maybeThrow)
-import           Pos.Util.BackupPhrase            (keysFromPhrase)
+import           Pos.Aeson.ClientTypes         ()
+import           Pos.Communication.BiP         (BiP)
+import           Pos.Communication.Types       (VerInfo)
+import           Pos.Crypto                    (toPublic)
+import           Pos.DHT.Model                 (dhtAddr, getKnownPeers)
+import           Pos.Slotting                  (getSlotDuration)
+import           Pos.Types                     (Address, ChainDifficulty (..), Coin,
+                                                TxOut (..), addressF, coinF,
+                                                decodeTextAddress, makePubKeyAddress,
+                                                mkCoin)
+import           Pos.Util                      (maybeThrow)
+import           Pos.Util.BackupPhrase         (BackupPhrase, keysFromPhrase)
 
-import           Pos.Wallet.KeyStorage            (KeyError (..), MonadKeys (..),
-                                                   addSecretKey)
-import           Pos.Wallet.Tx                    (submitTx)
-import           Pos.Wallet.Tx.Pure               (TxHistoryEntry (..))
-import           Pos.Wallet.WalletMode            (WalletMode, getBalance, getNextUpdate,
-                                                   getTxHistory, getUpdates,
-                                                   localChainDifficulty,
-                                                   networkChainDifficulty)
-import           Pos.Wallet.Web.Api               (WalletApi, walletApi)
-import           Pos.Wallet.Web.ClientTypes       (CAddress, CCurrency (ADA), CProfile,
-                                                   CProfile (..), CTx, CTxId,
-                                                   CTxMeta (..), CUpdateInfo (..),
-                                                   CWallet (..), CWalletInit (..),
-                                                   CWalletMeta (..), NotifyEvent (..),
-                                                   addressToCAddress, cAddressToAddress,
-                                                   mkCTx, mkCTxId, toCUpdateInfo,
-                                                   txContainsTitle, txIdToCTxId)
-import           Pos.Wallet.Web.Error             (WalletError (..))
-import           Pos.Wallet.Web.Server.Sockets    (MonadWalletWebSockets (..),
-                                                   WalletWebSockets, closeWSConnection,
-                                                   getWalletWebSocketsState,
-                                                   initWSConnection, notify, runWalletWS,
-                                                   upgradeApplicationWS)
-import           Pos.Wallet.Web.State             (MonadWalletWebDB (..), WalletWebDB,
-                                                   addOnlyNewTxMeta, closeState,
-                                                   createWallet, getProfile, getTxMeta,
-                                                   getWalletMeta, getWalletState,
-                                                   openState, removeWallet,
-                                                   runWalletWebDB, setProfile,
-                                                   setWalletMeta,
-                                                   setWalletTransactionMeta)
-import           Pos.Web.Server                   (serveImpl)
+import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
+                                                addSecretKey)
+import           Pos.Wallet.Tx                 (submitTx)
+import           Pos.Wallet.Tx.Pure            (TxHistoryEntry (..))
+import           Pos.Wallet.WalletMode         (WalletMode, getBalance, getNextUpdate,
+                                                getTxHistory, getUpdates,
+                                                localChainDifficulty,
+                                                networkChainDifficulty)
+import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
+import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CProfile,
+                                                CProfile (..), CTx, CTxId, CTxMeta (..),
+                                                CUpdateInfo (..), CWallet (..),
+                                                CWalletInit (..), CWalletMeta (..),
+                                                NotifyEvent (..), addressToCAddress,
+                                                cAddressToAddress, mkCTx, mkCTxId,
+                                                toCUpdateInfo, txContainsTitle,
+                                                txIdToCTxId)
+import           Pos.Wallet.Web.Error          (WalletError (..))
+import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
+                                                WalletWebSockets, closeWSConnection,
+                                                getWalletWebSocketsState,
+                                                initWSConnection, notify, runWalletWS,
+                                                upgradeApplicationWS)
+import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
+                                                addOnlyNewTxMeta, closeState,
+                                                createWallet, getProfile, getTxMeta,
+                                                getWalletMeta, getWalletState, openState,
+                                                removeWallet, runWalletWebDB, setProfile,
+                                                setWalletMeta, setWalletTransactionMeta)
+import           Pos.Web.Server                (serveImpl)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -223,6 +221,8 @@ servantHandlers sendActions =
     :<|>
      catchWalletError . newWallet
     :<|>
+     catchWalletError . restoreWallet
+    :<|>
      (\a -> catchWalletError . updateWallet a)
     :<|>
      catchWalletError . deleteWallet
@@ -334,12 +334,12 @@ newWallet CWalletInit {..} = do
     cAddr <- genSaveAddress cwBackupPhrase
     createWallet cAddr cwInitMeta
     getWallet cAddr
-  where
-    genSaveAddress ph = addressToCAddress . makePubKeyAddress . toPublic <$> genSaveSK ph
-    genSaveSK ph = do
-        let sk = fst $ keysFromPhrase ph
-        addSecretKey sk
-        return sk
+
+restoreWallet :: WalletWebMode ssc m => BackupPhrase -> m CWallet
+restoreWallet ph = do
+    cAddr <- genSaveAddress ph
+    getWalletMeta cAddr >>= maybe (createWallet cAddr def) (const $ pure ())
+    getWallet cAddr
 
 updateWallet :: WalletWebMode ssc m => CAddress -> CWalletMeta -> m CWallet
 updateWallet cAddr wMeta = do
@@ -388,6 +388,15 @@ getAddrIdx :: WalletWebMode ssc m => Address -> m Int
 getAddrIdx addr = elemIndex addr <$> myAddresses >>= maybe notFound pure
   where notFound = throwM . Internal $
             sformat ("Address "%addressF%" is not found in wallet") $ addr
+
+genSaveAddress :: WalletWebMode ssc m => BackupPhrase -> m CAddress
+genSaveAddress ph = addressToCAddress . makePubKeyAddress . toPublic <$> genSaveSK ph
+  where
+    genSaveSK ph' = do
+        let sk = fst $ keysFromPhrase ph'
+        addSecretKey sk
+        return sk
+
 
 ----------------------------------------------------------------------------
 -- Orphan instances

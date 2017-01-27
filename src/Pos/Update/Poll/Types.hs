@@ -54,14 +54,14 @@ module Pos.Update.Poll.Types
 import           Control.Lens               (makeLensesFor)
 import           Data.Default               (Default (def))
 import qualified Data.Text.Buildable
-import           Data.Time.Units            (Microsecond)
+import           Data.Time.Units            (Millisecond)
 import           Formatting                 (bprint, build, int, sformat, stext, (%))
 import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
 import           Pos.Script.Type            (ScriptVersion)
 import           Pos.Types.Coin             (coinF)
-import           Pos.Types.Types            (ChainDifficulty, Coin, EpochIndex,
+import           Pos.Types.Core             (ChainDifficulty, Coin, EpochIndex,
                                              HeaderHash, SlotId, StakeholderId, mkCoin)
 import           Pos.Types.Version          (ApplicationName, BlockVersion,
                                              NumSoftwareVersion, SoftwareVersion)
@@ -191,7 +191,7 @@ data BlockVersionState = BlockVersionState
 bvsScriptVersion :: BlockVersionState -> ScriptVersion
 bvsScriptVersion = bvdScriptVersion . bvsData
 
-bvsSlotDuration :: BlockVersionState -> Microsecond
+bvsSlotDuration :: BlockVersionState -> Millisecond
 bvsSlotDuration = bvdSlotDuration . bvsData
 
 bvsMaxBlockSize :: BlockVersionState -> Byte
@@ -245,8 +245,8 @@ data PollVerFailure
                              , pwsvUpId     :: !UpId}
     -- | Slot duration for this block version is already known and the one we
     -- saw doesn't match it
-    | PollWrongSlotDuration { pwsdExpected :: !Microsecond
-                            , pwsdFound    :: !Microsecond
+    | PollWrongSlotDuration { pwsdExpected :: !Millisecond
+                            , pwsdFound    :: !Millisecond
                             , pwsdUpId     :: !UpId}
     -- | Max block size for this block version is already known and the one
     -- we saw doesn't match it

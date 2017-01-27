@@ -9,7 +9,7 @@ import           Language.PureScript.Bridge         (BridgePart, buildBridge,
 import           Language.PureScript.Bridge.PSTypes (psInt)
 import           Universum
 
-import qualified Pos.Types.Types                    as PT
+import qualified Pos.Types                          as PT
 import qualified Pos.Util.BackupPhrase              as BP
 import qualified Pos.Wallet.Web                     as CT
 

@@ -14,7 +14,7 @@ module Pos.Ssc.GodTossing.Storage
        , getStableCerts
        ) where
 
-import           Control.Lens                   ((%=), (.=), (<>=))
+import           Control.Lens                   ((%=), (.=), (<>=), _Wrapped)
 import           Control.Monad.Reader           (ask)
 import           Data.Default                   (def)
 import qualified Data.HashMap.Strict            as HM
@@ -57,7 +57,7 @@ import           Pos.Types                      (Block, EpochIndex (..), EpochOr
                                                  blockMpc, blockSlot, epochIndexL,
                                                  epochOrSlot, epochOrSlotG, gbHeader)
 import           Pos.Util                       (NE, NewestFirst (..), OldestFirst (..),
-                                                 maybeThrow)
+                                                 maybeThrow, toOldestFirst)
 
 type GSQuery a  = forall m . (MonadReader GtGlobalState m, WithLogger m) => m a
 type GSUpdate a = forall m . (MonadState GtGlobalState m) => m a
@@ -302,9 +302,9 @@ mpcLoadGlobalState = do
         whileEpoch b = b ^. epochIndexL >= startEpoch
     logDebug $ sformat ("mpcLoadGlobalState: start epoch is "%build) startEpoch
     nfBlocks <- fmap fst <$> loadBlundsFromTipWhile whileEpoch
-    blocks <- OldestFirst <$>
+    blocks <- toOldestFirst <$>
                   maybeThrow (DBMalformed "No blocks during mpc load global state")
-                             (NE.nonEmpty $ getNewestFirst nfBlocks)
+                             (_Wrapped NE.nonEmpty nfBlocks)
     let initGState
             | startEpoch == 0 =
                 over gsVssCertificates unionGenCerts def

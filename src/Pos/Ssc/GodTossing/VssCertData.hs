@@ -147,12 +147,12 @@ addInt id cert vcd =
         (S.insert (expiryEoS cert, id) whenExpire)
         expiredCerts
 
--- | Expire certificate with specified id
--- and EoS when it should be removed from expiredCerts.
--- Returns passed VCD if id isn't contains if isContains = False,
--- otherwise - panic.
+-- | Expire certificate with specified id and EoS when it should be
+-- removed from expiredCerts.  If given id isn't found in
+-- 'VssCertData', behavior depends on 'contains' flag.  If it's true,
+-- this function 'panic's, otherwise it returns passed 'VssCertData'.
 expireById :: Bool -> StakeholderId -> EpochOrSlot -> VssCertData -> VssCertData
-expireById isContains id wExp vcd@VssCertData{..}
+expireById contains id wExp vcd@VssCertData{..}
     | Just (ins, expiry) <- lookupEoSes id vcd
     , Just cert <- HM.lookup id certs = VssCertData
         lastKnownEoS
@@ -161,7 +161,7 @@ expireById isContains id wExp vcd@VssCertData{..}
         (S.delete (ins, id) whenInserted)
         (S.delete (expiry, id) whenExpire)
         (S.insert (wExp, (id, ins, cert)) expiredCerts)
-     | isContains =
+     | contains =
         panic $ sformat ("Not found cert with id = "%build%" but expected") id
      | otherwise = vcd
 

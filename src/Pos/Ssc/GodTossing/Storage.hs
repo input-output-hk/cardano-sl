@@ -20,11 +20,11 @@ import           Data.Default                   (def)
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.HashSet                   as HS
 import qualified Data.List.NonEmpty             as NE
-import           Formatting                     (sformat, (%))
+import           Formatting                     (build, sformat, (%))
 import           Serokell.Util.Text             (listJson)
 import           Serokell.Util.Verify           (VerificationRes (..), isVerSuccess,
                                                  verifyGeneric)
-import           System.Wlog                    (WithLogger, logDebug)
+import           System.Wlog                    (WithLogger, logDebug, logInfo)
 import           Universum
 
 import           Pos.Binary.Ssc                 ()
@@ -292,12 +292,15 @@ calculateSeedQ _ =
     calculateSeed <$> view gsCommitments <*> view gsOpenings <*>
         view gsShares
 
-mpcLoadGlobalState :: MonadDB SscGodTossing m => m GtGlobalState
+mpcLoadGlobalState
+    :: (WithLogger m, MonadDB SscGodTossing m)
+    => m GtGlobalState
 mpcLoadGlobalState = do
     tipBlockHeader <- getTipBlockHeader
     let endEpoch  = epochOrSlot identity siEpoch $ tipBlockHeader ^. epochOrSlotG
     let startEpoch = safeSub endEpoch -- load blocks while >= endEpoch
         whileEpoch b = b ^. epochIndexL >= startEpoch
+    logDebug $ sformat ("mpcLoadGlobalState: start epoch is "%build) startEpoch
     nfBlocks <- fmap fst <$> loadBlundsFromTipWhile whileEpoch
     blocks <- OldestFirst <$>
                   maybeThrow (DBMalformed "No blocks during mpc load global state")
@@ -306,7 +309,8 @@ mpcLoadGlobalState = do
             | startEpoch == 0 =
                 over gsVssCertificates unionGenCerts def
             | otherwise = def
-    execStateT (mpcApplyBlocks blocks) initGState
+    res <- execStateT (mpcApplyBlocks blocks) initGState
+    res <$ (logInfo $ sformat ("Loaded GodTossing state: "%build) res)
   where
     safeSub epoch = epoch - min epoch vssMaxTTL
     unionGenCerts gs = foldl' (flip $ uncurry VCD.insert) gs . HM.toList $ genesisCertificates

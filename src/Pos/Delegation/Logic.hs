@@ -48,6 +48,8 @@ import           Universum
 
 import           Pos.Binary.Communication    ()
 import           Pos.Block.Types             (Blund, Undo (undoPsk))
+import           Pos.Constants               (lightDlgConfirmationTimeout,
+                                              messageCacheTimeout)
 import           Pos.Context                 (WithNodeContext (getNodeContext),
                                               lrcActionOnEpochReason, ncSecretKey)
 import           Pos.Crypto                  (ProxySecretKey (..), PublicKey,
@@ -100,8 +102,12 @@ runDelegationStateAction action = do
 -- | Invalidates proxy caches using built-in constants.
 invalidateProxyCaches :: UTCTime -> DelegationStateAction ()
 invalidateProxyCaches curTime = do
-    dwMessageCache %= HM.filter (\t -> addUTCTime 60 t > curTime)
-    dwConfirmationCache %= HM.filter (\t -> addUTCTime 500 t > curTime)
+    dwMessageCache %=
+        HM.filter (\t -> addUTCTime (toDiffTime messageCacheTimeout) t > curTime)
+    dwConfirmationCache %=
+        HM.filter (\t -> addUTCTime (toDiffTime lightDlgConfirmationTimeout) t > curTime)
+  where
+    toDiffTime (t :: Integer) = fromIntegral t
 
 type DelegationWorkMode ssc m = (MonadDelegation m, MonadDB ssc m, WithLogger m)
 

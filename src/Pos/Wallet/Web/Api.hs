@@ -55,6 +55,8 @@ type WalletApi =
     :<|>
      "api" :> "next_update" :> Get '[JSON] (Either WalletError CUpdateInfo)
     :<|>
+     "api" :> "apply_update" :> Post '[JSON] (Either WalletError ())
+    :<|>
      "api" :> "slot_duration" :> Get '[JSON] (Either WalletError Word)
 
 -- | Helper Proxy.

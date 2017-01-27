@@ -199,7 +199,7 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
     -- It takes list of entries ([(StakeholderId, v)] or [StakeholderId]),
     -- function condition and error tag (fKey and fValue - see below)
     -- If condition is true for every entry - function does nothing.
-    -- Otherwise it get all entries which don't pass condition
+    -- Otherwise it gets all entries which don't pass condition
     -- and throwError with [StakeholderId] corresponding to these entries.
     -- fKey is needed for getting StakeholderId from entry.
     -- fValue is needed for getting value which must be tested by condition function.

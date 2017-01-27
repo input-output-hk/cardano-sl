@@ -48,6 +48,10 @@ module Pos.Constants
        , enhancedMessageBroadcast
        , recoveryHeadersMessage
        , kademliaDumpInterval
+       , messageCacheTimeout
+
+       -- * Delegation
+       , lightDlgConfirmationTimeout
 
        -- * Malicious activity detection constants
        , mdNoBlocksSlotThreshold
@@ -300,6 +304,19 @@ recoveryHeadersMessage = fromIntegral . ccRecoveryHeadersMessage $ compileConfig
 -- | Interval for dumping state of Kademlia in slots
 kademliaDumpInterval :: (Integral a) => a
 kademliaDumpInterval = fromIntegral . ccKademliaDumpInterval $ compileConfig
+
+-- | Timeout for caching system. Components that use caching on
+-- messages can use this timeout to invalidate caches.
+messageCacheTimeout :: (Integral a) => a
+messageCacheTimeout = fromIntegral . ccMessageCacheTimeout $ compileConfig
+
+----------------------------------------------------------------------------
+-- Delegation
+----------------------------------------------------------------------------
+
+-- | Amount of time we hold confirmations for light PSKs.
+lightDlgConfirmationTimeout :: (Integral a) => a
+lightDlgConfirmationTimeout = fromIntegral . ccLightDlgConfirmationTimeout $ compileConfig
 
 ----------------------------------------------------------------------------
 -- Malicious activity

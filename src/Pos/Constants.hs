@@ -37,7 +37,6 @@ module Pos.Constants
 
        -- * Other constants
        , maxLocalTxs
-       , maxBlockProxySKs
        , neighborsSendThreshold
        , networkConnectionTimeout
        , networkReceiveTimeout
@@ -224,10 +223,6 @@ staticAssert
 -- Also see 'Pos.CompileConfig.ccMaxLocalTxs'.
 maxLocalTxs :: Integral i => i
 maxLocalTxs = fromIntegral . ccMaxLocalTxs $ compileConfig
-
--- | Maximum number of PSKs allowed in block
-maxBlockProxySKs :: Integral i => i
-maxBlockProxySKs = fromIntegral . ccMaxBlockProxySKs $ compileConfig
 
 -- | /Time-lord/ node announces system start time by broadcast. She does it
 -- during first 'Pos.CompileConfig.ccSysTimeBroadcastSlots' slots.

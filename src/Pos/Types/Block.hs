@@ -42,7 +42,7 @@ import           Universum
 import qualified Pos.Binary.Class           as Bi
 import           Pos.Binary.Types           ()
 import           Pos.Binary.Update          ()
-import           Pos.Constants              (epochSlots, maxBlockProxySKs)
+import           Pos.Constants              (epochSlots)
 import           Pos.Crypto                 (Hash, SecretKey, checkSig, proxySign,
                                              proxyVerify, pskIssuerPk, sign, toPublic,
                                              unsafeHash)
@@ -463,9 +463,7 @@ verifyBlock VerifyBlockParams {..} blk =
             let proxySKs = mainBlk ^. blockProxySKs
                 duplicates = proxySKsDups proxySKs in
             verifyGeneric
-            [ ( length proxySKs <= maxBlockProxySKs
-              , "Number of certificates in blocks is more than 10000")
-            , ( null duplicates
+            [ ( null duplicates
               , "Some of block's PSKs have the same issuer, which is prohibited")
             ]
         | otherwise = mempty

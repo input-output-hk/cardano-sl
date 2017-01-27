@@ -31,7 +31,7 @@ import           Pos.DB                (MonadDB)
 import qualified Pos.DB.Lrc            as LrcDB
 import           Pos.Ssc.Class.Storage (SscStorageClass (..))
 import           Pos.Ssc.Class.Types   (Ssc (..))
-import           Pos.Types.Types       (Block, EpochIndex, SharedSeed, epochIndexL)
+import           Pos.Types             (Block, EpochIndex, SharedSeed, epochIndexL)
 import           Pos.Util              (NE, NewestFirst, OldestFirst, inAssertMode,
                                         _neHead)
 

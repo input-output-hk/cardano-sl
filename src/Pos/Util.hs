@@ -93,6 +93,8 @@ module Pos.Util
        , withWaitLogConv
        , withWaitLogConvL
        , withWaitLog
+       , convWithTimeLimit
+       , sendActionsWithTimeLimit
 
        , execWithTimeLimit
        , parseIntegralSafe
@@ -104,6 +106,7 @@ module Pos.Util
        -- ** ToJSON Byte
        -- ** SafeCopy (NonEmpty a)
        -- ** SafeCopy Microsecond
+       -- ** SafeCopy Millisecond
        -- ** MonadFail (Either s), assuming IsString s
        -- ** MonadFail ParsecT
        -- ** MonadFail Dialog
@@ -134,14 +137,15 @@ import           Data.SafeCopy                 (Contained, SafeCopy (..), base, 
                                                 deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Serialize                as Cereal (Get, Put)
 import qualified Data.Text                     as T
-import           Data.Time.Units               (Microsecond, Second, convertUnit)
+import           Data.Time.Units               (Microsecond, Millisecond, Second,
+                                                convertUnit)
 import           Formatting                    (sformat, shown, stext, (%))
 import           Language.Haskell.TH
 import           Language.Haskell.TH.Syntax    (Lift)
 import qualified Language.Haskell.TH.Syntax
 import           Mockable                      (Async, Bracket, Delay, Fork, Mockable,
-                                                Promise, Throw, async, bracket, cancel,
-                                                delay, fork, killThread, throw, waitAny)
+                                                Throw, async, bracket, cancel, delay,
+                                                finally, fork, killThread, throw, waitAny)
 import           Node                          (ConversationActions (..),
                                                 ListenerAction (..), Message, NodeId,
                                                 SendActions (..))
@@ -160,7 +164,7 @@ import           Text.Parsec                   (ParsecT)
 import           Text.Parsec                   (digit, many1)
 import           Text.Parsec.Text              (Parser)
 import           Universum                     hiding (Async, async, bracket, cancel,
-                                                waitAny)
+                                                finally, waitAny)
 import           Unsafe                        (unsafeInit, unsafeLast)
 
 -- SafeCopy instance for HashMap
@@ -380,6 +384,11 @@ instance SafeCopy a => SafeCopy (NonEmpty a) where
             Just xx -> return xx
     putCopy = contain . safePut . toList
     errorTypeName _ = "NonEmpty"
+
+instance SafeCopy Millisecond where
+    getCopy = contain (fromInteger <$> safeGet)
+    putCopy = contain . safePut . toInteger
+    errorTypeName _ = "Millisecond"
 
 instance SafeCopy Microsecond where
     getCopy = contain (fromInteger <$> safeGet)
@@ -704,16 +713,40 @@ withWaitLogConvL nodeId conv = conv { send = send', recv = recv' }
             recv conv
     MessageName rcvMsg = messageName $ ((\_ -> Proxy) :: ConversationActions snd rcv m -> Proxy rcv) conv
 
+convWithTimeLimit
+    :: (Mockable Async m, Mockable Bracket m, Mockable Delay m, WithLogger m)
+    => Microsecond -> NodeId -> ConversationActions snd rcv m -> ConversationActions snd rcv m
+convWithTimeLimit timeout nodeId conv = conv { recv = recv' }
+      where
+        recv' = do
+            res <- execWithTimeLimit timeout $ recv conv
+            case res of
+                Nothing -> do
+                    logWarning $
+                        sformat ("Recv from "%shown%" in conversation - timeout expired")
+                        nodeId
+                    return Nothing
+                Just r  -> return r
+
+sendActionsWithTimeLimit
+    :: (Mockable Async m, Mockable Bracket m, Mockable Delay m, WithLogger m)
+    => Microsecond -> SendActions p m -> SendActions p m
+sendActionsWithTimeLimit timeout sendActions = sendActions
+    { withConnectionTo = \nodeId action ->
+        withConnectionTo sendActions nodeId $
+            action . convWithTimeLimit timeout nodeId
+    }
 
 
-execWithTimeLimit :: ( Mockable Async m
-                     , Mockable Delay m
-                     , Eq (Promise m (Maybe a))
-                     ) => Microsecond -> m a -> m (Maybe a)
+execWithTimeLimit
+    :: ( Mockable Async m
+       , Mockable Delay m
+       , Mockable Bracket m
+       )
+    => Microsecond -> m a -> m (Maybe a)
 execWithTimeLimit timeout action = do
     promises <- mapM async [ Just <$> action, delay timeout $> Nothing ]
-    (promise, val) <- waitAny promises
-    mapM_ cancel $ filter (/= promise) promises
+    (_, val) <- waitAny promises `finally` mapM_ cancel promises
     return val
 
 parseIntegralSafe :: Integral a => Parser a

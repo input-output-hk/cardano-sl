@@ -132,6 +132,5 @@ powerOfTwo n
        01100000     x .&. (x - 1)
 
        I could've used something like “until (\x -> x*2 > w) (*2) 1”,
-
-    -}
+       but bit tricks are fun. -}
     go w = if w .&. (w - 1) == 0 then w else go (w .&. (w - 1))

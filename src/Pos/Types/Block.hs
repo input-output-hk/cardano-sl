@@ -50,9 +50,13 @@ import           Pos.Merkle                 (mkMerkleTree)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types        (Ssc (..))
 import           Pos.Types.Address          (addressHash)
+import           Pos.Types.Core             (ChainDifficulty, EpochIndex, EpochOrSlot,
+                                             HasDifficulty (..), HasEpochIndex (..),
+                                             HasEpochOrSlot (..), HasHeaderHash (..),
+                                             HeaderHash, SlotId (..), SlotId)
+import           Pos.Types.Tx               (verifyTxAlone)
 -- Unqualified import is used here because of GHC bug (trac 12127).
 -- See: https://ghc.haskell.org/trac/ghc/ticket/12127
-import           Pos.Types.Tx               (verifyTxAlone)
 import           Pos.Types.Types
 import           Pos.Update.Core            (UpdatePayload)
 import           Pos.Util                   (NewestFirst (..), OldestFirst)

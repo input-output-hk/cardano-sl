@@ -21,8 +21,8 @@ module Pos.Types.Coin
 
 import           Universum
 
-import           Pos.Types.Types (Coin, CoinPortion (getCoinPortion), coinF, mkCoin,
-                                  unsafeGetCoin)
+import           Pos.Types.Core (Coin, CoinPortion (getCoinPortion), coinF, mkCoin,
+                                 unsafeGetCoin)
 
 sumCoins :: [Coin] -> Integer
 sumCoins = sum . map coinToInteger

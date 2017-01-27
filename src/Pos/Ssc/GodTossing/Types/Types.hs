@@ -34,7 +34,6 @@ import qualified Control.Concurrent.STM         as STM
 import           Control.Lens                   (makeLenses)
 import           Data.Default                   (Default, def)
 import qualified Data.HashMap.Strict            as HM
-import           Data.SafeCopy                  (base, deriveSafeCopySimple)
 import qualified Data.Text                      as T
 import           Data.Text.Buildable            (Buildable (..))
 import           Data.Text.Lazy.Builder         (Builder, fromText)
@@ -67,7 +66,6 @@ data GtGlobalState = GtGlobalState
     , _gsVssCertificates :: !VCD.VssCertData
     } deriving (Eq, Show, Generic)
 
-deriveSafeCopySimple 0 'base ''GtGlobalState
 makeLenses ''GtGlobalState
 
 instance Default GtGlobalState where
@@ -134,8 +132,6 @@ _gpCertificates (OpeningsPayload _ certs)    = certs
 _gpCertificates (SharesPayload _ certs)      = certs
 _gpCertificates (CertificatesPayload certs)  = certs
 
-deriveSafeCopySimple 0 'base ''GtPayload
-
 isEmptyGtPayload :: GtPayload -> Bool
 isEmptyGtPayload (CommitmentsPayload comms certs) = null comms && null certs
 isEmptyGtPayload (OpeningsPayload opens certs)    = null opens && null certs
@@ -190,8 +186,6 @@ data GtProof
     | SharesProof !(Hash SharesMap) !(Hash VssCertificatesMap)
     | CertificatesProof !(Hash VssCertificatesMap)
     deriving (Show, Eq, Generic)
-
-deriveSafeCopySimple 0 'base ''GtProof
 
 -- | Smart constructor for 'GtProof' from 'GtPayload'.
 mkGtProof

@@ -1,47 +1,55 @@
-maxLocalTxs: 10000
-defaultPeers: []
-mdNoBlocksSlotThreshold: 45 # should be less then k
-mdNoCommitmentsEpochThreshold: 3
-protocolMagic: 50987833
-enhancedMessageBroadcast: 2
-blockRetrievalQueueSize: 100
-recoveryHeadersMessage: 100 # should be greater than k
-kademliaDumpInterval: 4
-
 # Fundamental constants for core protocol
 k: 60
 
 # Genesis constants
 genesisN: 12014
-genesisMaxBlockSize: 2000000
 genesisSlotDurationSec: 120
+genesisMaxBlockSize: 2000000
+genesisMaxTxSize: 4096 # 4 Kb
+genesisMpcThd: 0.05 # 5% of stake
+genesisHeavyDelThd: 0.0003 # 0.03% of stake
+genesisUpdateVoteThd: 0.001 # 0.1% of total stake
+genesisUpdateProposalThd: 0.1 # 10% of total stake
+genesisUpdateImplicit: 10 # slots
+genesisUpdateSoftforkThd: 0.75 # 75% of total stake
+
+# P2P, networking
+defaultPeers: []
+kademliaDumpInterval: 4
+neighboursSendThreshold: 2
+networkDiameter: 45
+networkConnectionTimeout: 2000
+networkReceiveTimeout: 5000
+
+## P2P Security
+mdNoBlocksSlotThreshold: 45 # should be less than 2 * k
+mdNoCommitmentsEpochThreshold: 3
+
+# GodTossing
+vssMaxTTL: 6 # epochs
+vssMinTTL: 2 # epochs
+mpcSendInterval: 100 # must be less than (2 * k * slotDuration - networkDiameter)
+
+# Delegation
+maxBlockProxySKs: 10000
+
+# Update System
+updateServers: []
+
+# Production start time
+productionNetworkStartTime: 1484507400
+
+# NTP
+ntpResponseTimeout: 1000000 # 1 sec
+ntpPollDelay: 15000000 # 15 sec
+
+# Misc
+maxLocalTxs: 1000
+protocolMagic: 50987833
+enhancedMessageBroadcast: 2
+blockRetrievalQueueSize: 100
+recoveryHeadersMessage: 100 # should be greater than k
 
 # Time slave/lord
 sysTimeBroadcastSlots: 6
 
-# Networking
-neighboursSendThreshold: 3
-networkDiameter: 45
-networkConnectionTimeout: 2000
-
-# GodTossing
-vssMaxTTL: 10 # epochs
-vssMinTTL : 2 # epochs
-mpcSendInterval: 100 # must be less than (k * slotDuration - networkDiameter)
-mpcThreshold: 0.05 # 5% of stake
-
-# Delegation
-delegationThreshold: 0.0003 # 0.03% of stake
-maxBlockProxySKs: 10000
-ntpResponseTimeout: 1000000 # 1 sec
-ntpPollDelay: 15000000 # 15 sec
-
-# Update mechanism
-updateServers: []
-updateProposalThreshold: 0.1 # 10% of total stake
-updateVoteThreshold: 0.001 # 0.1% of total stake
-updateImplicitApproval: 40000 # slots
-usSoftforkThreshold: 0.85 # 85% of total stake
-
-# Production start time
-productionNetworkStartTime: 1484507400

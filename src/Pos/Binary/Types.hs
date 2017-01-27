@@ -7,7 +7,7 @@ module Pos.Binary.Types () where
 import           Data.Binary.Get       (getInt32be, getWord64be, getWord8, label)
 import           Data.Binary.Put       (putInt32be, putWord64be, putWord8)
 import           Data.Ix               (inRange)
-import           Formatting            (formatToString, int, sformat, (%))
+import           Formatting            (float, formatToString, int, sformat, (%))
 import           Universum
 
 import           Pos.Binary.Class      (Bi (..), UnsignedVarInt (..))
@@ -16,7 +16,7 @@ import           Pos.Binary.Version    ()
 import           Pos.Constants         (epochSlots, protocolMagic)
 import qualified Pos.Data.Attributes   as A
 import           Pos.Ssc.Class.Types   (Ssc (..))
-import qualified Pos.Types.Timestamp   as T
+import qualified Pos.Types.Core        as T
 import qualified Pos.Types.Types       as T
 import           Pos.Update.Core.Types (UpdatePayload)
 
@@ -31,6 +31,17 @@ instance Bi (A.Attributes ()) where
 instance Bi T.Coin where
     put = putWord64be . T.unsafeGetCoin
     get = T.mkCoin <$> getWord64be
+
+instance Bi T.CoinPortion where
+    put = put . T.getCoinPortion
+    get = do
+        x <- get
+        when (x < 0 || x > 1) $
+            fail $
+            formatToString
+                ("get@CoinPortion: value is not in [0, 1] range: "%float)
+                x
+        return $ T.unsafeCoinPortion x
 
 instance Bi T.Timestamp where
     get = fromInteger <$> get

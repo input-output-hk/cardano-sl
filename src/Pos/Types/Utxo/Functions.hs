@@ -22,11 +22,12 @@ import           Universum
 import           Pos.Binary.Types     ()
 import           Pos.Crypto           (WithHash (..))
 import           Pos.Types.Coin       (unsafeAddCoin)
+import           Pos.Types.Core       (Address, Coin, StakeholderId)
 import           Pos.Types.Tx         (VTxGlobalContext (..), VTxLocalContext (..),
                                        verifyTx)
-import           Pos.Types.Types      (Address, Coin, StakeholderId, Tx (..), TxAux,
-                                       TxDistribution (..), TxId, TxIn (..), TxOut (..),
-                                       TxOutAux, TxUndo, TxWitness, Utxo, txOutStake)
+import           Pos.Types.Types      (Tx (..), TxAux, TxDistribution (..), TxId,
+                                       TxIn (..), TxOut (..), TxOutAux, TxUndo, TxWitness,
+                                       Utxo, txOutStake)
 import           Pos.Types.Utxo.Class (MonadUtxo (..), MonadUtxoRead (utxoGet))
 
 -- | Find transaction input in Utxo assuming it is valid.

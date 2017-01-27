@@ -41,7 +41,7 @@ module Pos.DB.GState.Update
        ) where
 
 import           Control.Monad.Trans.Maybe  (MaybeT (..), runMaybeT)
-import           Data.Time.Units            (Microsecond)
+import           Data.Time.Units            (Millisecond)
 import qualified Database.RocksDB           as Rocks
 import           Serokell.Data.Memory.Units (Byte)
 import           Universum
@@ -59,9 +59,8 @@ import           Pos.DB.Iterator            (DBIteratorClass (..), DBnIterator,
                                              DBnMapIterator, IterType, runDBnIterator,
                                              runDBnMapIterator)
 import           Pos.DB.Types               (NodeDBs (..))
-import           Pos.Genesis                (genesisBlockVersion, genesisMaxBlockSize,
-                                             genesisScriptVersion, genesisSlotDuration,
-                                             genesisSoftwareVersions)
+import           Pos.Genesis                (genesisBlockVersion, genesisBlockVersionData,
+                                             genesisSlotDuration, genesisSoftwareVersions)
 import           Pos.Types                  (ApplicationName, BlockVersion,
                                              ChainDifficulty, NumSoftwareVersion, SlotId,
                                              SoftwareVersion (..))
@@ -96,7 +95,7 @@ getAdoptedBVFull = maybeThrow (DBMalformed msg) =<< getAdoptedBVFullMaybe
         "Update System part of GState DB is not initialized (last adopted BV is missing)"
 
 -- | Get actual slot duration.
-getSlotDuration :: MonadDB ssc m => m Microsecond
+getSlotDuration :: MonadDB ssc m => m Millisecond
 getSlotDuration = pure genesisSlotDuration
 -- getSlotDuration = bvdSlotDuration <$> getAdoptedBVData
 
@@ -180,14 +179,8 @@ prepareGStateUS =
     unlessM isInitialized $ do
         db <- getUtxoDB
         flip rocksWriteBatch db $
-            SetAdopted genesisBlockVersion genesisBVData :
+            SetAdopted genesisBlockVersion genesisBlockVersionData :
             map ConfirmVersion genesisSoftwareVersions
-  where
-    genesisBVData =
-        BlockVersionData
-            genesisScriptVersion
-            genesisSlotDuration
-            genesisMaxBlockSize
 
 isInitialized :: MonadDB ssc m => m Bool
 isInitialized = isJust <$> getAdoptedBVFullMaybe

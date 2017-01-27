@@ -38,7 +38,7 @@ import           Pos.Types                     (Address, ChainDifficulty (..), C
                                                 decodeTextAddress, makePubKeyAddress,
                                                 mkCoin)
 import           Pos.Util                      (maybeThrow)
-import           Pos.Util.BackupPhrase         (keysFromPhrase)
+import           Pos.Util.BackupPhrase         (BackupPhrase, keysFromPhrase)
 
 import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
                                                 addSecretKey)
@@ -220,6 +220,8 @@ servantHandlers sendActions =
     :<|>
      catchWalletError . newWallet
     :<|>
+     catchWalletError . restoreWallet
+    :<|>
      (\a -> catchWalletError . updateWallet a)
     :<|>
      catchWalletError . deleteWallet
@@ -330,12 +332,12 @@ newWallet CWalletInit {..} = do
     cAddr <- genSaveAddress cwBackupPhrase
     createWallet cAddr cwInitMeta
     getWallet cAddr
-  where
-    genSaveAddress ph = addressToCAddress . makePubKeyAddress . toPublic <$> genSaveSK ph
-    genSaveSK ph = do
-        let sk = fst $ keysFromPhrase ph
-        addSecretKey sk
-        return sk
+
+restoreWallet :: WalletWebMode ssc m => BackupPhrase -> m CWallet
+restoreWallet ph = do
+    cAddr <- genSaveAddress ph
+    getWalletMeta cAddr >>= maybe (createWallet cAddr def) (const $ pure ())
+    getWallet cAddr
 
 updateWallet :: WalletWebMode ssc m => CAddress -> CWalletMeta -> m CWallet
 updateWallet cAddr wMeta = do
@@ -384,6 +386,15 @@ getAddrIdx :: WalletWebMode ssc m => Address -> m Int
 getAddrIdx addr = elemIndex addr <$> myAddresses >>= maybe notFound pure
   where notFound = throwM . Internal $
             sformat ("Address "%addressF%" is not found in wallet") $ addr
+
+genSaveAddress :: WalletWebMode ssc m => BackupPhrase -> m CAddress
+genSaveAddress ph = addressToCAddress . makePubKeyAddress . toPublic <$> genSaveSK ph
+  where
+    genSaveSK ph' = do
+        let sk = fst $ keysFromPhrase ph'
+        addSecretKey sk
+        return sk
+
 
 ----------------------------------------------------------------------------
 -- Orphan instances

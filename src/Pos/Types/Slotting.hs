@@ -12,9 +12,9 @@ module Pos.Types.Slotting
 
 import           Universum
 
-import           Pos.Constants   (epochSlots, slotSecurityParam)
-import           Pos.Types.Types (EpochIndex (..), FlatSlotId, HasEpochOrSlot,
-                                  SlotId (..), _getEpochOrSlot)
+import           Pos.Constants  (epochSlots, slotSecurityParam)
+import           Pos.Types.Core (EpochIndex (..), FlatSlotId, HasEpochOrSlot, SlotId (..),
+                                 _getEpochOrSlot)
 
 -- | Flatten 'SlotId' (which is basically pair of integers) into a single number.
 flattenSlotId :: SlotId -> FlatSlotId

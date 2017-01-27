@@ -27,6 +27,7 @@ module Pos.Genesis
 
        -- * Update System
        , genesisBlockVersion
+       , genesisBlockVersionData
        , genesisSoftwareVersions
        , genesisScriptVersion
        , genesisSlotDuration
@@ -38,7 +39,7 @@ import           Data.Default               (Default (..))
 import           Data.List                  (genericLength, genericReplicate)
 import qualified Data.Map.Strict            as M
 import qualified Data.Text                  as T
-import           Data.Time.Units            (Microsecond)
+import           Data.Time.Units            (Millisecond)
 import           Formatting                 (int, sformat, (%))
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util              (enumerate)
@@ -58,6 +59,7 @@ import           Pos.Types                  (Address (..), BlockVersion (..), Co
                                              makePubKeyAddress, mkCoin, unsafeAddCoin,
                                              unsafeMulCoin)
 import           Pos.Types.Version          (SoftwareVersion (..))
+import           Pos.Update.Core.Types      (BlockVersionData (..))
 
 ----------------------------------------------------------------------------
 -- Static state
@@ -214,12 +216,28 @@ genesisBlockVersion =
 genesisSoftwareVersions :: [SoftwareVersion]
 genesisSoftwareVersions = [Const.curSoftwareVersion { svNumber = 0 }]
 
+-- | 'BlockVersionData' for genesis 'BlockVersion'.
+genesisBlockVersionData :: BlockVersionData
+genesisBlockVersionData =
+    BlockVersionData
+    { bvdScriptVersion = genesisScriptVersion
+    , bvdSlotDuration = Const.genesisSlotDuration
+    , bvdMaxBlockSize = Const.genesisMaxBlockSize
+    , bvdMaxTxSize = Const.genesisMaxTxSize
+    , bvdMpcThd = Const.genesisMpcThd
+    , bvdHeavyDelThd = Const.genesisHeavyDelThd
+    , bvdUpdateVoteThd = Const.genesisUpdateVoteThd
+    , bvdUpdateProposalThd = Const.genesisUpdateProposalThd
+    , bvdUpdateImplicit = Const.genesisUpdateImplicit
+    , bvdUpdateSoftforkThd = Const.genesisUpdateSoftforkThd
+    }
+
 -- | ScriptVersion used at the very beginning
 genesisScriptVersion :: ScriptVersion
 genesisScriptVersion = 0
 
 -- | Initial slot duration
-genesisSlotDuration :: Microsecond
+genesisSlotDuration :: Millisecond
 genesisSlotDuration = Const.genesisSlotDuration
 
 -- | Initial block size limit

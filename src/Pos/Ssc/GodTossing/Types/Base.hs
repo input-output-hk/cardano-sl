@@ -20,7 +20,6 @@ module Pos.Ssc.GodTossing.Types.Base
        ) where
 
 
-import           Data.SafeCopy       (base, deriveSafeCopySimple)
 import qualified Data.Text.Buildable
 import           Formatting          (bprint, build, int, (%))
 import           Universum
@@ -29,7 +28,7 @@ import           Pos.Binary.Types    ()
 import           Pos.Crypto          (EncShare, PublicKey, Secret, SecretKey, SecretProof,
                                       SecretSharingExtra, Share, Signature, VssPublicKey,
                                       sign, toPublic)
-import           Pos.Types.Types     (EpochIndex, StakeholderId)
+import           Pos.Types.Core      (EpochIndex, StakeholderId)
 import           Pos.Util            (AsBinary (..))
 
 ----------------------------------------------------------------------------
@@ -107,7 +106,3 @@ mkVssCertificate sk vk expiry = VssCertificate vk expiry (sign sk (vk, expiry)) 
 -- | VssCertificatesMap contains all valid certificates collected
 -- during some period of time.
 type VssCertificatesMap = HashMap StakeholderId VssCertificate
-
-deriveSafeCopySimple 0 'base ''VssCertificate
-deriveSafeCopySimple 0 'base ''Opening
-deriveSafeCopySimple 0 'base ''Commitment

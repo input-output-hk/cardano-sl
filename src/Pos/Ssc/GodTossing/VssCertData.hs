@@ -21,7 +21,6 @@ module Pos.Ssc.GodTossing.VssCertData
 
 import qualified Data.HashMap.Strict           as HM
 import qualified Data.List                     as List
-import           Data.SafeCopy                 (base, deriveSafeCopySimple)
 import qualified Data.Set                      as S
 import           Formatting                    (build, sformat, (%))
 import           Universum                     hiding (empty, filter)
@@ -42,10 +41,10 @@ data VssCertData = VssCertData
     , certs        :: !VssCertificatesMap
       -- | Slot when certs was inserted.
       --   It is needed for deletion from 'insSlotSet' (by 'StakeholderId').
-    , certsIns     :: !(HashMap StakeholderId EpochOrSlot)
+    , whenInsMap   :: !(HashMap StakeholderId EpochOrSlot)
       -- | Set of pairs (insertion slot, address hash)
       -- Every element of insSlotSet <= lastKnownEoS
-    , whenInserted :: !(Set (EpochOrSlot, StakeholderId))
+    , whenInsSet   :: !(Set (EpochOrSlot, StakeholderId))
       -- | Set of pairs (expiry slot, address hash).
       --   Expiry slot is first slot when certificate expires.
       --   Pairs are sorted by expiry slot
@@ -57,8 +56,6 @@ data VssCertData = VssCertData
       -- Set (full expired slot, (id, insertion slot, cert))
     , expiredCerts :: !(Set (EpochOrSlot, (StakeholderId, EpochOrSlot, VssCertificate)))
     } deriving (Show, Eq)
-
-deriveSafeCopySimple 0 'base ''VssCertData
 
 -- | Create empty 'VssCertData'.
 empty :: VssCertData
@@ -88,8 +85,8 @@ delete id mp@VssCertData{..}
     | Just (ins, expiry) <- lookupEoSes id mp = VssCertData
           lastKnownEoS
           (HM.delete id certs)
-          (HM.delete id certsIns)
-          (S.delete (ins, id) whenInserted)
+          (HM.delete id whenInsMap)
+          (S.delete (ins, id) whenInsSet)
           (S.delete (expiry, id) whenExpire)
           expiredCerts
     | otherwise = mp
@@ -142,26 +139,26 @@ addInt id cert vcd =
     insertRaw VssCertData{..} = VssCertData
         lastKnownEoS
         (HM.insert id cert certs)
-        (HM.insert id lastKnownEoS certsIns)
-        (S.insert (lastKnownEoS, id) whenInserted)
+        (HM.insert id lastKnownEoS whenInsMap)
+        (S.insert (lastKnownEoS, id) whenInsSet)
         (S.insert (expiryEoS cert, id) whenExpire)
         expiredCerts
 
--- | Expire certificate with specified id
--- and EoS when it should be removed from expiredCerts.
--- Returns passed VCD if id isn't contains if isContains = False,
--- otherwise - panic.
+-- | Expire certificate with specified id and EoS when it should be
+-- removed from expiredCerts.  If given id isn't found in
+-- 'VssCertData', behavior depends on 'contains' flag.  If it's true,
+-- this function 'panic's, otherwise it returns passed 'VssCertData'.
 expireById :: Bool -> StakeholderId -> EpochOrSlot -> VssCertData -> VssCertData
-expireById isContains id wExp vcd@VssCertData{..}
+expireById contains id wExp vcd@VssCertData{..}
     | Just (ins, expiry) <- lookupEoSes id vcd
     , Just cert <- HM.lookup id certs = VssCertData
         lastKnownEoS
         (HM.delete id certs)
-        (HM.delete id certsIns)
-        (S.delete (ins, id) whenInserted)
+        (HM.delete id whenInsMap)
+        (S.delete (ins, id) whenInsSet)
         (S.delete (expiry, id) whenExpire)
         (S.insert (wExp, (id, ins, cert)) expiredCerts)
-     | isContains =
+     | contains =
         panic $ sformat ("Not found cert with id = "%build%" but expected") id
      | otherwise = vcd
 
@@ -178,11 +175,11 @@ setBiggerLKS lks vcd@VssCertData{..}
 -- | Update 'lastKnownEoS'.
 setSmallerLKS :: EpochOrSlot -> VssCertData -> VssCertData
 setSmallerLKS lks vcd@VssCertData{..}
-    | Just ((sl, id), rest) <- S.maxView whenInserted
+    | Just ((sl, id), rest) <- S.maxView whenInsSet
     , sl > lks = setSmallerLKS lks $ VssCertData
           lastKnownEoS
           (HM.delete id certs)
-          (HM.delete id certsIns)
+          (HM.delete id whenInsMap)
           rest
           (S.delete
              (fromMaybe (panic "No such id in VCD")
@@ -193,8 +190,8 @@ setSmallerLKS lks vcd@VssCertData{..}
     , sl > addEpoch lks = setSmallerLKS lks $ VssCertData
           lastKnownEoS
           (HM.insert id cert certs)
-          (HM.insert id insSlot certsIns)
-          (S.insert (insSlot, id) whenInserted)
+          (HM.insert id insSlot whenInsMap)
+          (S.insert (insSlot, id) whenInsSet)
           (S.insert (expiryEoS cert, id) whenExpire)
           restExp
     | otherwise = vcd { lastKnownEoS = lks }
@@ -214,5 +211,5 @@ expiryEoS = EpochOrSlot . Left . expiryEpoch
 
 lookupEoSes :: StakeholderId -> VssCertData -> Maybe (EpochOrSlot, EpochOrSlot)
 lookupEoSes id VssCertData{..} =
-    (,) <$> HM.lookup id certsIns
+    (,) <$> HM.lookup id whenInsMap
         <*> (expiryEoS <$> HM.lookup id certs)

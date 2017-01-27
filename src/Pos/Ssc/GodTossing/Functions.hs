@@ -68,10 +68,11 @@ import           Pos.Ssc.GodTossing.Types.Types (GtGlobalState (..), GtPayload (
                                                  gsCommitments)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types.Address              (addressHash)
+import           Pos.Types.Core                 (EpochIndex (..), LocalSlotIndex,
+                                                 SlotId (..), StakeholderId)
 import           Pos.Types.Slotting             (crucialSlot)
-import           Pos.Types.Types                (EpochIndex (..), LocalSlotIndex,
-                                                 MainBlockHeader, SharedSeed (..),
-                                                 SlotId (..), StakeholderId, headerSlot)
+import           Pos.Types.Types                (MainBlockHeader, SharedSeed (..),
+                                                 headerSlot)
 import           Pos.Util                       (AsBinary, asBinary, fromBinaryM, getKeys)
 
 ----------------------------------------------------------------------------

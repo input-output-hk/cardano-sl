@@ -246,6 +246,15 @@ library
                         Pos.Lrc.Types
                         Pos.Lrc.Worker
 
+                        -- SafeCopy serialization (obsolete, but still needed)
+                        Pos.SafeCopy
+                        Pos.SafeCopy.GodTossing
+                        Pos.SafeCopy.GodTossing.Base
+                        Pos.SafeCopy.GodTossing.Types
+                        Pos.SafeCopy.GodTossing.VssCertData
+                        Pos.SafeCopy.Types
+                        Pos.SafeCopy.Update
+
                         -- SSC
                         Pos.Ssc.Extra.Holder
                         Pos.Ssc.Extra.MonadGS
@@ -293,13 +302,14 @@ library
                         Pos.Txp.Types.BalancesView
 
                         -- Types
+                        Pos.Types.Core
                         Pos.Types.SharedSeed
                         Pos.Types.Utxo.Class
                         Pos.Types.Utxo.Functions
                         Pos.Types.Utxo.Pure
-                        Pos.Worker.Ntp
 
                         -- Workers
+                        Pos.Worker.Ntp
                         Pos.Worker.Stats
 
                         -- Update System
@@ -640,6 +650,7 @@ executable cardano-wallet
                      , serokell-util
                      , text
                      , time
+                     , time-units
                      , universum >= 0.1.11
                      , unordered-containers
   default-language:    Haskell2010

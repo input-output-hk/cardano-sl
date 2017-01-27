@@ -34,7 +34,7 @@ type SscGlobalUpdate ssc a = forall m . (MonadState (SscGlobalState ssc) m) => m
 
 class Ssc ssc => SscStorageClass ssc where
     sscLoadGlobalState
-        :: MonadDB ssc m
+        :: (MonadDB ssc m, WithLogger m)
         => m (SscGlobalState ssc)
 
     sscApplyBlocksM

@@ -23,7 +23,7 @@ import           Pos.DHT.Real            (KademliaDHT)
 import           Pos.Lrc.Types           (Richmen)
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
-import           Pos.Types.Types         (SlotId)
+import           Pos.Types               (SlotId)
 
 class Monad m => MonadSscLD ssc m | m -> ssc where
     askSscLD :: m (TVar (SscLocalData ssc))

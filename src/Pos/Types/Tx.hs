@@ -24,12 +24,12 @@ import           Universum
 import           Pos.Binary.Types     ()
 import           Pos.Crypto           (Hash, WithHash (..), checkSig, hash)
 import           Pos.Script           (Script (..), isKnownScriptVersion, txScriptCheck)
-import           Pos.Types.Address    (addressDetailedF)
+import           Pos.Types.Address    (addressDetailedF, checkPubKeyAddress,
+                                       checkScriptAddress)
 import           Pos.Types.Coin       (coinToInteger, sumCoins)
-import           Pos.Types.Types      (Address (..), StakeholderId, Tx (..), TxAux,
-                                       TxDistribution (..), TxIn (..), TxInWitness (..),
-                                       TxOut (..), TxOutAux, checkPubKeyAddress,
-                                       checkScriptAddress, coinF, mkCoin)
+import           Pos.Types.Core       (Address (..), StakeholderId, coinF, mkCoin)
+import           Pos.Types.Types      (Tx (..), TxAux, TxDistribution (..), TxIn (..),
+                                       TxInWitness (..), TxOut (..), TxOutAux)
 import           Pos.Util             (allDistinct)
 
 ----------------------------------------------------------------------------

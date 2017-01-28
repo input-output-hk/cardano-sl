@@ -10,6 +10,8 @@ import qualified Data.HashSet               as HS
 import           Data.List.NonEmpty         (NonEmpty, nonEmpty)
 import qualified Data.List.NonEmpty         as NE
 import           Formatting                 (build, sformat, (%))
+import           Serokell.Util.Text         (listJson)
+import           System.Wlog                (logInfo)
 import           Universum
 
 import           Pos.Constants              (usSoftforkThreshold)
@@ -69,7 +71,9 @@ processGenesisBlock epoch = do
     -- Then we take all confirmed BlockVersions and check softfork
     -- resolution rule for them.
     confirmed <- getConfirmedBVStates
+    logConfirmedBVStates confirmed
     toAdoptList <- catMaybes <$> mapM (checkThreshold threshold) confirmed
+    logWhichCanBeAdopted $ map fst toAdoptList
     -- We also do sanity check in assert mode just in case.
     inAssertMode $ sanityCheckConfirmed $ map fst confirmed
     case nonEmpty toAdoptList of
@@ -82,8 +86,8 @@ processGenesisBlock epoch = do
         Just (chooseToAdopt -> toAdopt) -> adoptAndFinish confirmed toAdopt
   where
     checkThreshold thd (bv, bvs) =
-        chechThresholdDo thd (bv, bvs) <$> calculateIssuersStake epoch bvs
-    chechThresholdDo thd (bv, bvs) stake
+        checkThresholdDo thd (bv, bvs) <$> calculateIssuersStake epoch bvs
+    checkThresholdDo thd (bv, bvs) stake
         | stake >= thd = Just (bv, bvs)
         | otherwise = Nothing
     adoptAndFinish allConfirmed (bv, BlockVersionState {..}) = do
@@ -92,6 +96,20 @@ processGenesisBlock epoch = do
         adoptBlockVersion winningBlock bv
         filterBVAfterAdopt (fst <$> allConfirmed)
         mapM_ moveUnstable =<< getConfirmedBVStates
+    logConfirmedBVStates [] =
+        logInfo ("We are processing genesis block, currently we don't have " <>
+                "competing block versions")
+    logConfirmedBVStates versions = do
+        logInfo $ sformat
+                  ("We are processing genesis block, competing block versions are: "%listJson)
+                  (map fst versions)
+        mapM_ logBVIssuers versions
+    logBVIssuers (bv, BlockVersionState {..}) =
+        logInfo $ sformat (build%" has these stable issuers "%listJson%
+                           " and these unstable issuers "%listJson)
+                           bv bvsIssuersStable bvsIssuersUnstable
+    logWhichCanBeAdopted =
+        logInfo . sformat ("These versions can be adopted: "%listJson)
 
 calculateIssuersStake
     :: (MonadError PollVerFailure m, MonadPollRead m)

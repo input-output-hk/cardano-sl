@@ -24,8 +24,8 @@ import           System.Wlog             (logInfo, logWarning)
 import           Universum               hiding (show)
 
 import           Pos.Constants           (appSystemTag, updateServers)
-import           Pos.Context             (getNodeContext, ncUpdateExePath,
-                                          ncUpdateSemaphore)
+import           Pos.Context             (getNodeContext, ncUpdatePath, ncUpdateSemaphore,
+                                          ncUpdateWithPkg)
 import           Pos.Crypto              (Hash, castHash, hash)
 import           Pos.Types.Version       (SoftwareVersion (..))
 import           Pos.Update.Core.Types   (UpdateData (..), UpdateProposal (..))
@@ -38,12 +38,14 @@ showHash = toString . B16.encode . BA.convert
 -- | Download and save archive update by given `ConfirmedProposalState`
 downloadUpdate :: WorkMode ssc m => ConfirmedProposalState -> m ()
 downloadUpdate cst@ConfirmedProposalState {..} = do
-    let mupdHash = castHash . udPkgHash <$>
+    useInstaller <- ncUpdateWithPkg <$> getNodeContext
+    let dataHash = if useInstaller then udPkgHash else udAppDiffHash
+        mupdHash = castHash . dataHash <$>
                    HM.lookup appSystemTag (upData cpsUpdateProposal)
     case mupdHash of
         Nothing -> logInfo "This update is not for our system"
         Just updHash -> do
-            updPath <- ncUpdateExePath <$> getNodeContext
+            updPath <- ncUpdatePath <$> getNodeContext
             let updAppName = svAppName . upSoftwareVersion $ cpsUpdateProposal
             unlessM (liftIO $ doesFileExist updPath) $ do
                 efile <- liftIO $ downloadHash updHash

@@ -286,7 +286,8 @@ runCH NodeParams {..} sscNodeContext act = do
             , ncBlockRetrievalQueue = queue
             , ncRecoveryHeader = recoveryHeaderVar
             , ncUpdateSemaphore = updSemaphore
-            , ncUpdateExePath = npUpdateExePath
+            , ncUpdatePath = npUpdatePath
+            , ncUpdateWithPkg = npUpdateWithPkg
             }
     runContextHolder ctx act
 

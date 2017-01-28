@@ -15,13 +15,13 @@ import           Control.Monad.Except       (MonadError, throwError)
 import           Data.List                  (partition)
 import           Data.List.NonEmpty         (NonEmpty)
 import qualified Data.List.NonEmpty         as NE
-import           Formatting                 (build, sformat, (%))
-import           System.Wlog                (logInfo)
+import           Formatting                 (build, builder, sformat, (%))
+import           System.Wlog                (logInfo, logNotice)
 import           Universum
 
 import           Pos.Constants              (blkSecurityParam, updateImplicitApproval,
                                              updateProposalThreshold, updateVoteThreshold)
-import           Pos.Crypto                 (hash)
+import           Pos.Crypto                 (hash, shortHashF)
 import           Pos.Ssc.Class              (Ssc)
 import           Pos.Types                  (ChainDifficulty, Coin, EpochIndex,
                                              HeaderHash, MainBlockHeader,
@@ -352,8 +352,14 @@ applyImplicitAgreement (flattenSlotId -> slotId) cd hh
         let oldSlot = unflattenSlotId $ slotId - updateImplicitApproval
         mapM_ applyImplicitAgreementDo =<< getOldProposals oldSlot
   where
-    applyImplicitAgreementDo ups =
-        addActiveProposal $ PSDecided $ makeImplicitlyDecided ups
+    applyImplicitAgreementDo ups = do
+        let decided = makeImplicitlyDecided ups
+        addActiveProposal $ PSDecided decided
+        let upId = hash $ upsProposal ups
+            status | dpsDecision decided = "approved"
+                   | otherwise = "rejected"
+        logInfo $ sformat ("Proposal "%build%" is implicitly "%builder)
+            upId status
     makeImplicitlyDecided ups@UndecidedProposalState {..} =
         DecidedProposalState
         { dpsUndecided = ups
@@ -379,6 +385,9 @@ applyDepthCheck hh cd
         let UndecidedProposalState {..} = dpsUndecided
         let sv = upSoftwareVersion upsProposal
         let bv = upBlockVersion upsProposal
+        let upId = hash upsProposal
+        let status | dpsDecision = "confirmed"
+                   | otherwise = "discarded"
         when dpsDecision $ do
             setLastConfirmedSV sv
             DpsExtra {..} <-
@@ -398,9 +407,13 @@ applyDepthCheck hh cd
                     , cpsConfirmed = hh
                     , cpsAdopted = Nothing
                     }
-            logInfo $ sformat ("New confirmed proposal "%build) (hash upsProposal)
             addConfirmedProposal cps
         needConfirmBV <- (dpsDecision &&) <$> canBeAdoptedBV bv
-        if | needConfirmBV -> confirmBlockVersion bv
-           | otherwise -> delBVState bv
+        if | needConfirmBV -> do
+               confirmBlockVersion bv
+               logInfo $ sformat (build%" is competing now") bv
+           | otherwise -> do
+               delBVState bv
+               logInfo $ sformat ("State of "%build%" is deleted") bv
         deactivateProposal (hash upsProposal)
+        logNotice $ sformat ("Proposal "%shortHashF%" is "%builder) upId status

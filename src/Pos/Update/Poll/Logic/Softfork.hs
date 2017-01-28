@@ -29,7 +29,10 @@ recordBlockIssuance
     :: (MonadError PollVerFailure m, MonadPoll m)
     => StakeholderId -> BlockVersion -> SlotId -> HeaderHash -> m ()
 recordBlockIssuance id bv slot h = do
-    let unstable = slot > crucialSlot (siEpoch slot)
+    -- Issuance is stable if it happens before crucial slot for next epoch.
+    -- In other words, processing genesis block for next epoch will
+    -- inevitably encounter this issuer.
+    let unstable = slot > crucialSlot (siEpoch slot + 1)
     getBVState bv >>= \case
         Nothing -> unlessM ((bv ==) <$> getAdoptedBV) $ throwError noBVError
         Just bvs@BlockVersionState {..}

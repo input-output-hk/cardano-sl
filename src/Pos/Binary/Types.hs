@@ -12,6 +12,7 @@ import           Universum
 
 import           Pos.Binary.Class      (Bi (..), UnsignedVarInt (..))
 import           Pos.Binary.Merkle     ()
+import qualified Pos.Binary.Coin       as BinCoin
 import           Pos.Binary.Version    ()
 import           Pos.Constants         (epochSlots, protocolMagic)
 import qualified Pos.Data.Attributes   as A
@@ -29,8 +30,8 @@ instance Bi (A.Attributes ()) where
     put = A.putAttributes (\() -> [])
 
 instance Bi T.Coin where
-    put = putWord64be . T.unsafeGetCoin
-    get = T.mkCoin <$> getWord64be
+    put = mapM_ putWord8 . BinCoin.encode
+    get = BinCoin.decode
 
 instance Bi T.Timestamp where
     get = fromInteger <$> get

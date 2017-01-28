@@ -5,13 +5,13 @@
 
 import           Control.Concurrent.Async hiding (wait)
 import           Data.IORef
-import           Options.Applicative      (Parser, ParserInfo, execParser, fullDesc, help,
-                                           helper, info, long, metavar, progDesc,
-                                           strOption)
+import           Options.Applicative      (Parser, ParserInfo, auto, execParser, fullDesc,
+                                           help, helper, info, long, metavar, option,
+                                           progDesc, strOption)
 import qualified System.IO                as IO
 import qualified System.Process           as Process
 import           System.Process.Internals (translate)
-import           Turtle                   hiding (toText)
+import           Turtle                   hiding (option, toText)
 import           Universum                hiding (FilePath)
 
 import           Control.Exception        (handle, mask_, throwIO)
@@ -19,14 +19,19 @@ import           Foreign.C.Error          (Errno (..), ePIPE)
 import           GHC.IO.Exception         (IOErrorType (..), IOException (..))
 
 data LauncherOptions = LO
-    { loNode          :: Text
-    , loWallet        :: Maybe Text
-    , loUpdater       :: Text
-    , loUpdateArchive :: FilePath
+    { loNode           :: Text
+    , loWallet         :: Maybe Text
+    , loUpdater        :: Text
+    , loUpdateArchive  :: FilePath
+    , loNodeTimeoutSec :: Int
     }
 
 optsParser :: Parser LauncherOptions
-optsParser = LO <$> nodeOpt <*> walletOpt <*> updaterOpt <*> updateArchiveOpt
+optsParser = LO <$> nodeOpt
+                <*> walletOpt
+                <*> updaterOpt
+                <*> updateArchiveOpt
+                <*> nodeTimeoutOpt
   where
     nodeOpt = toText <$>
       strOption (long "node" <>
@@ -44,6 +49,11 @@ optsParser = LO <$> nodeOpt <*> walletOpt <*> updaterOpt <*> updateArchiveOpt
       strOption (long "update-archive" <>
                  metavar "PATH" <>
                  help "Contents of the update")
+    nodeTimeoutOpt =
+      option auto (long "node-timeout" <>
+                   metavar "SEC" <>
+                   help "How much to wait for the node to exit \
+                        \before killing it")
 
 optsInfo :: ParserInfo LauncherOptions
 optsInfo = info (helper <*> optsParser) $
@@ -55,6 +65,7 @@ main = do
     sh $ case loWallet of
         Nothing -> serverScenario loNode (loUpdater, loUpdateArchive)
         Just wp -> clientScenario loNode wp (loUpdater, loUpdateArchive)
+                                  loNodeTimeoutSec
 
 -- | If we are on server, we want the following algorithm:
 --
@@ -79,8 +90,8 @@ serverScenario nodeCmd upd = do
 -- * Update (if we are already up-to-date, nothing will happen).
 -- * Launch the node and the wallet.
 -- * If the wallet exits with code 20, then update and restart, else quit.
-clientScenario :: Text -> Text -> (Text, FilePath) -> Shell ()
-clientScenario nodeCmd walletCmd upd = do
+clientScenario :: Text -> Text -> (Text, FilePath) -> Int -> Shell ()
+clientScenario nodeCmd walletCmd upd nodeTimeout = do
     echo "Running the updater"
     runUpdater upd
     echo "Starting the node"
@@ -98,11 +109,13 @@ clientScenario nodeCmd walletCmd upd = do
              void $ wait walletAsync
        | exitCode == ExitFailure 20 -> do
              echo "The wallet has exited with code 20"
-             echo "Killing the node"
+             printf ("Killing the node in "%d%" seconds") nodeTimeout
+             sleep (fromIntegral nodeTimeout)
+             echo "Killing the node now"
              liftIO $ do
                  Process.terminateProcess =<< readIORef nodeHandleRef
                  cancel nodeAsync
-             clientScenario nodeCmd walletCmd upd
+             clientScenario nodeCmd walletCmd upd nodeTimeout
        | otherwise -> do
              printf ("The wallet has exited with "%s%"\n") (show exitCode)
              echo "Killing the node"

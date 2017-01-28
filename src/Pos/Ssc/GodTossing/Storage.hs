@@ -23,7 +23,6 @@ import qualified Data.HashSet                   as HS
 import qualified Data.List.NonEmpty             as NE
 import           Formatting                     (build, sformat, (%))
 import           Serokell.Util.Text             (listJson)
-import           Serokell.Util.Verify           (VerificationRes (..))
 import           System.Wlog                    (WithLogger, logDebug, logInfo)
 import           Universum
 
@@ -42,7 +41,7 @@ import           Pos.Ssc.GodTossing.Functions   (checkCommShares,
                                                  checkShares, computeParticipants,
                                                  getStableCertsPure, isCommitmentIdx,
                                                  isOpeningIdx, isSharesIdx,
-                                                 verifyGtPayload)
+                                                 verifyEntriesGuard, verifyGtPayload)
 import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
 import           Pos.Ssc.GodTossing.Seed        (calculateSeed)
 import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), GtPayload (..),
@@ -54,10 +53,9 @@ import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), GtPayload (
 import           Pos.Ssc.GodTossing.Types.Base  (VssCertificate (..))
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types                      (Block, EpochIndex (..), EpochOrSlot (..),
-                                                 SharedSeed, SlotId (..), StakeholderId,
-                                                 addressHash, blockMpc, blockSlot,
-                                                 epochIndexL, epochOrSlot, epochOrSlotG,
-                                                 gbHeader)
+                                                 SharedSeed, SlotId (..), addressHash,
+                                                 blockMpc, blockSlot, epochIndexL,
+                                                 epochOrSlot, epochOrSlotG, gbHeader)
 import           Pos.Util                       (NE, NewestFirst (..), OldestFirst (..),
                                                  maybeThrow, toOldestFirst)
 
@@ -174,12 +172,12 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
                 (`HM.member` globalCommitments) (concatMap HM.keys $ toList shares)
             exceptGuard SharesAlreadySent
                 (not . (`HM.member` globalShares)) (HM.keys shares)
-            exceptGuardEntry DecryptedSharesNotMatchCommitment
+            exceptGuardEntry DecrSharesNotMatchCommitment
                 (uncurry (checkShares globalCommitments globalOpenings participants))
                 (HM.toList shares)
 
     let certChecks certs = do
-            exceptGuard CertificateResubmitedEarly
+            exceptGuard CertificateAlreadySent
                 (not . (`HM.member` globalCerts)) (HM.keys certs)
             exceptGuardSnd CertificateNotRichmen
                 ((`HS.member` richmenSet) . addressHash . vcSigningKey) (HM.toList certs)
@@ -192,39 +190,14 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
         CertificatesPayload        _ -> pass
 
     when verifyPure $ case verifyGtPayload (b ^. gbHeader) payload of
-        VerFailure errors -> throwError $ VerifyPureFailed errors
-        _                 -> pass
+        Right _ -> pass
+        Left er -> throwError er
   where
-    -- This function is needed because gromak zadissil me and I was forced to write it.
-    -- It takes list of entries ([(StakeholderId, v)] or [StakeholderId]),
-    -- function condition and error tag (fKey and fValue - see below)
-    -- If condition is true for every entry - function does nothing.
-    -- Otherwise it gets all entries which don't pass condition
-    -- and throwError with [StakeholderId] corresponding to these entries.
-    -- fKey is needed for getting StakeholderId from entry.
-    -- fValue is needed for getting value which must be tested by condition function.
+    exceptGuard = verifyEntriesGuard identity identity . TossVerFailure
 
-    exceptGuardFull
-        :: (entry -> StakeholderId)
-        -> (entry -> val)
-        -> TossVerErrorTag
-        -> (val -> Bool)
-        -> [entry]
-        -> GSVerify ()
-    exceptGuardFull fKey fVal tag cond =
-        maybeThrowError (TossVerFailure tag) .
-        NE.nonEmpty .
-        map fKey .
-        filter (not . cond . fVal)
+    exceptGuardSnd = verifyEntriesGuard fst snd . TossVerFailure
 
-    exceptGuard = exceptGuardFull identity identity
-
-    exceptGuardSnd = exceptGuardFull fst snd
-
-    exceptGuardEntry = exceptGuardFull fst identity
-
-    maybeThrowError _ Nothing    = pass
-    maybeThrowError er (Just ne) = throwError $ er ne
+    exceptGuardEntry = verifyEntriesGuard fst identity . TossVerFailure
 
 mpcVerifyBlocks
     :: Bool

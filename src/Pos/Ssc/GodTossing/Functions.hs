@@ -30,6 +30,8 @@ module Pos.Ssc.GodTossing.Functions
        , checkCommShares
        -- * GtPayload
        , verifyGtPayload
+       -- * Verification helper
+       , verifyEntriesGuard
 
        -- * VSS
        , vssThreshold
@@ -38,11 +40,13 @@ module Pos.Ssc.GodTossing.Functions
        ) where
 
 import           Control.Lens                   (at)
+import           Control.Monad.Except           (MonadError (throwError), runExcept)
 import           Data.Containers                (ContainerKey, SetContainer (notMember))
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.HashSet                   as HS
 import           Data.Ix                        (inRange)
 import qualified Data.List.NonEmpty             as NE
+import           Formatting                     (build, sformat, (%))
 import           Serokell.Util                  (VerificationRes, verifyGeneric)
 import           Serokell.Util.Verify           (isVerSuccess)
 import           Universum
@@ -65,7 +69,8 @@ import           Pos.Ssc.GodTossing.Types.Base  (Commitment (..), CommitmentsMap
                                                  SignedCommitment, VssCertificate (..),
                                                  VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Types.Types (GtGlobalState (..), GtPayload (..),
-                                                 gsCommitments)
+                                                 TossVerErrorTag (..),
+                                                 TossVerFailure (..), gsCommitments)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types.Address              (addressHash)
 import           Pos.Types.Core                 (EpochIndex (..), LocalSlotIndex,
@@ -314,25 +319,33 @@ checkOpeningMatchesCommitment globalCommitments (addr, opening) =
 -- We also do some general sanity checks.
 verifyGtPayload
     :: (SscPayload ssc ~ GtPayload, Bi Commitment)
-    => MainBlockHeader ssc -> SscPayload ssc -> VerificationRes
-verifyGtPayload header payload =
-    verifyGeneric $
-        case payload of
-            CommitmentsPayload comms certs ->   isComm
-                                              : commChecks comms
-                                              : certsChecks certs
-            OpeningsPayload        _ certs -> isOpen : certsChecks certs
-            SharesPayload          _ certs -> isShare : certsChecks certs
-            CertificatesPayload      certs -> isOther : certsChecks certs
+    => MainBlockHeader ssc -> SscPayload ssc -> Either TossVerFailure ()
+verifyGtPayload header payload = case payload of
+    CommitmentsPayload comms certs -> do
+        isComm
+        commChecks comms
+        certsChecks certs
+    OpeningsPayload        _ certs -> do
+        isOpen
+        certsChecks certs
+    SharesPayload          _ certs -> do
+        isShare
+        certsChecks certs
+    CertificatesPayload      certs -> do
+        isOther
+        certsChecks certs
   where
     slotId  = header ^. headerSlot
     epochIndex = siEpoch slotId
     epochId = siEpoch slotId
-    isComm  = (isCommitmentId slotId, "slotId doesn't belong commitment phase")
-    isOpen  = (isOpeningId slotId, "slotId doesn't belong openings phase")
-    isShare = (isSharesId slotId, "slotId doesn't belong share phase")
-    isOther = (all not $ map fst [isComm, isOpen, isShare],
-                  "slotId doesn't belong intermediate phase")
+    isComm  = unless (isCommitmentId slotId) $ Left $ NotCommitmentPhase slotId
+    isOpen  = unless (isOpeningId slotId) $ Left $ NotOpeningPhase slotId
+    isShare = unless (isSharesId slotId) $ Left $ NotSharesPhase slotId
+    isOther = unless (all not $
+                      map ($ slotId) [isCommitmentId, isOpeningId, isSharesId]) $
+                      Left tossIE
+    tossIE =
+        TossInternallError $ sformat (build%" doesn't belong intermediate phase") slotId
 
     -- We *forbid* blocks from having commitments/openings/shares in blocks
     -- with wrong slotId (instead of merely discarding such commitments/etc)
@@ -347,29 +360,60 @@ verifyGtPayload header payload =
     --     commitment has been generated for this particular epoch)
     --
     -- #verifySignedCommitment
-    commChecks commitments =
-        (let checkSignedComm =
+    commChecks commitments = runExcept $ do
+        let checkSignedComm =
                  isVerSuccess .
                  uncurry (flip verifySignedCommitment epochId)
-          in all checkSignedComm (HM.toList commitments),
-            "verifySignedCommitment has failed for some commitments")
+        verifyEntriesGuard fst identity (TossVerFailure CommitmentInvalid)
+                           checkSignedComm
+                           (HM.toList commitments)
         -- [CSL-206]: check that share IDs are different.
 
     -- CHECK: Vss certificates checker
     --
     --   * VSS certificates are signed properly
+    --   * VSS certificates have valid TTLs
     --
     -- #checkCert
-    certsChecks certs = [
-        (all checkCertSign (HM.toList certs),
-            "some VSS certificates aren't signed properly")
-      , (all (checkCertTTL epochIndex) (toList certs),
-            "some VSS certificates have invalid TTL")
-      ]
+    certsChecks certs = runExcept $ do
+        verifyEntriesGuard identity identity CertificateInvalidSign
+                           checkCertSign
+                           (HM.toList certs)
+        verifyEntriesGuard (second vcExpiryEpoch . join (,)) identity CertificateInvalidTTL
+                           (checkCertTTL epochIndex)
+                           (toList certs)
 
 checkCommShares :: [AsBinary VssPublicKey] -> SignedCommitment -> Bool
 checkCommShares vssPublicKeys c =
     HS.fromList vssPublicKeys == (getKeys . commShares $ c ^. _2)
+
+----------------------------------------------------------------------------
+-- Verification helper
+----------------------------------------------------------------------------
+
+-- It takes list of entries ([(StakeholderId, v)] or [StakeholderId]),
+-- function condition and error tag (fKey and fValue - see below)
+-- If condition is true for every entry - function does nothing.
+-- Otherwise it gets all entries which don't pass condition
+-- and throwError with [StakeholderId] corresponding to these entries.
+-- fKey is needed for getting StakeholderId from entry.
+-- fValue is needed for getting value which must be tested by condition function.
+verifyEntriesGuard
+    :: MonadError TossVerFailure m
+    => (entry -> key)
+    -> (entry -> verificationVal)
+    -> (NonEmpty key -> TossVerFailure)
+    -> (verificationVal -> Bool)
+    -> [entry]
+    -> m ()
+verifyEntriesGuard fKey fVal exception cond =
+    maybeThrowError exception .
+    NE.nonEmpty .
+    map fKey .
+    filter (not . cond . fVal)
+  where
+    maybeThrowError _ Nothing    = pass
+    maybeThrowError er (Just ne) = throwError $ er ne
 
 ----------------------------------------------------------------------------
 -- Modern

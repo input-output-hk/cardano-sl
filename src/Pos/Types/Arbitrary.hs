@@ -19,7 +19,7 @@ import           Data.DeriveTH              (derive, makeArbitrary)
 import           Data.Time.Units            (Microsecond, Millisecond, fromMicroseconds)
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (..),
-                                             NonZero (..), choose, choose, elements,
+                                             choose, choose, elements,
                                              oneof)
 import           Test.QuickCheck.Instances  ()
 import           Universum
@@ -43,7 +43,7 @@ import           Pos.Types.Types            (Address (..), ChainDifficulty (..),
                                              SlotId (..), SlotId (..), Tx (..),
                                              TxDistribution (..), TxIn (..),
                                              TxInWitness (..), TxOut (..), TxOutAux,
-                                             makePubKeyAddress, makeScriptAddress, mkCoin)
+                                             makePubKeyAddress, makeScriptAddress, mkCoin, unsafeGetCoin)
 import           Pos.Types.Version          (ApplicationName (..), BlockVersion (..),
                                              SoftwareVersion (..),
                                              applicationNameMaxLength)
@@ -67,7 +67,7 @@ deriving instance Arbitrary ChainDifficulty
 derive makeArbitrary ''TxOut
 
 instance Arbitrary Coin where
-    arbitrary = mkCoin . getNonZero <$> (arbitrary :: Gen (NonZero Word64))
+    arbitrary = mkCoin <$> choose (1, unsafeGetCoin maxBound)
 
 maxReasonableEpoch :: Integral a => a
 maxReasonableEpoch = 5 * 1000 * 1000 * 1000 * 1000  -- 5 * 10^12, because why not

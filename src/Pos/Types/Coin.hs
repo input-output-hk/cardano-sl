@@ -34,7 +34,7 @@ coinToInteger = toInteger . unsafeGetCoin
 -- | Only use if you're sure there'll be no overflow.
 unsafeAddCoin :: Coin -> Coin -> Coin
 unsafeAddCoin (unsafeGetCoin -> a) (unsafeGetCoin -> b)
-    | res >= a && res >= b = mkCoin res
+    | res >= a && res >= b && res <= unsafeGetCoin (maxBound @Coin) = mkCoin res
     | otherwise = panic "unsafeAddCoin: overflow"
   where
     res = a+b

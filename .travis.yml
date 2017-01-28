@@ -7,7 +7,7 @@ matrix:
   - os: osx
     osx_image: xcode8
   - os: osx
-    osx_image: xcode8.2
+    osx_image: xcode6.4
 env:
 - NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/addcb0dddf2b7db505dae5c38fceb691c7ed85f9.tar.gz
 - CSL_SYSTEM_TAG=$TRAVIS_OS_NAME

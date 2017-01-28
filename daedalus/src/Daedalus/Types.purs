@@ -16,8 +16,7 @@ module Daedalus.Types
        , _ctxIdValue
        , showCCurrency
        , mkBackupPhrase
-       , Seed
-       , mkSeed
+       , mkCWalletRedeem
        ) where
 
 import Prelude
@@ -42,11 +41,6 @@ import Data.String (split)
 
 import Daedalus.Crypto (isValidMnemonic)
 import Data.Types (mkTime)
-
-type Seed = String
-
-mkSeed :: String -> Seed
-mkSeed = id
 
 mkBackupPhrase :: String -> Either Error BackupPhrase
 mkBackupPhrase mnemonic =
@@ -98,6 +92,13 @@ mkCWalletInit wType wCurrency wName mnemonic = do
     pure $ CT.CWalletInit { cwBackupPhrase: bp
                           , cwInitMeta: mkCWalletMeta wType wCurrency wName
                           }
+
+mkCWalletRedeem :: String -> String -> Either Error CT.CWalletRedeem
+mkCWalletRedeem seed mnemonic = do
+    bp <- mkBackupPhrase mnemonic
+    pure $ CT.CWalletRedeem { crBackupPhrase: bp
+                            , crSeed: seed
+                            }
 
 _ctxIdValue :: CT.CTxId -> String
 _ctxIdValue (CT.CTxId tx) = _hash tx

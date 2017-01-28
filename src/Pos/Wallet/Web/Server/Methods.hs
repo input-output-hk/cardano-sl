@@ -54,10 +54,11 @@ import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CProf
                                                 CProfile (..), CTx, CTxId, CTxMeta (..),
                                                 CUpdateInfo (..), CWallet (..),
                                                 CWalletInit (..), CWalletMeta (..),
-                                                CWalletType (..), NotifyEvent (..),
-                                                addressToCAddress, cAddressToAddress,
-                                                mkCTx, mkCTxId, toCUpdateInfo,
-                                                txContainsTitle, txIdToCTxId)
+                                                CWalletRedeem (..), CWalletType (..),
+                                                NotifyEvent (..), addressToCAddress,
+                                                cAddressToAddress, mkCTx, mkCTxId,
+                                                toCUpdateInfo, txContainsTitle,
+                                                txIdToCTxId)
 import           Pos.Wallet.Web.Error          (WalletError (..))
 import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 WalletWebSockets, closeWSConnection,
@@ -231,7 +232,7 @@ servantHandlers sendActions =
     :<|>
      catchWalletError . updateUserProfile
     :<|>
-     (\a -> catchWalletError . redeemADA sendActions a)
+     catchWalletError . redeemADA sendActions
     :<|>
      catchWalletError nextUpdate
     :<|>
@@ -379,18 +380,15 @@ applyUpdate = removeNextUpdate
 blockchainSlotDuration :: WalletWebMode ssc m => m Word
 blockchainSlotDuration = fromIntegral <$> getSlotDuration
 
--- TODO: @dmitry move this somewhere (probably we have seed type)
-type Seed = Text
-
-redeemADA :: WalletWebMode ssc m => SendActions BiP m -> Text -> BackupPhrase -> m CWallet
-redeemADA sendActions seed bp = do
+redeemADA :: WalletWebMode ssc m => SendActions BiP m -> CWalletRedeem -> m CWallet
+redeemADA sendActions CWalletRedeem {..} = do
     seedBs <- either
         (\e -> throwM $ Internal ("Seed is invalid base64 string: " <> toText e))
-        pure $ B64.decode (encodeUtf8 seed)
+        pure $ B64.decode (encodeUtf8 crSeed)
     (redeemPK, redeemSK) <- maybeThrow (Internal "Seed is not 32-byte long") $
                             deterministicKeyGen seedBs
     -- new redemption wallet
-    walletB <- newWallet $ CWalletInit bp $
+    walletB <- newWallet $ CWalletInit crBackupPhrase $
                CWalletMeta CWTPersonal ADA "Redemption wallet"
 
     -- send from seedAddress to walletB

@@ -24,6 +24,7 @@ module Pos.Wallet.Web.ClientTypes
       , CWalletMeta (..)
       , CWalletInit (..)
       , CUpdateInfo (..)
+      , CWalletRedeem (..)
       , NotifyEvent (..)
       , addressToCAddress
       , cAddressToAddress
@@ -152,6 +153,12 @@ data CWallet = CWallet
 data CWalletInit = CWalletInit
     { cwBackupPhrase :: !BackupPhrase
     , cwInitMeta     :: !CWalletMeta
+    } deriving (Show, Generic)
+
+-- | Query data for redeem
+data CWalletRedeem = CWalletRedeem
+    { crBackupPhrase :: !BackupPhrase
+    , crSeed         :: !Text -- TODO: newtype!
     } deriving (Show, Generic)
 
 ----------------------------------------------------------------------------

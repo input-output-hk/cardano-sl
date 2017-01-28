@@ -68,7 +68,7 @@ serverScenario nodeCmd upd = do
     -- TODO: somehow signal updater failure if it fails? would be nice to
     -- write it into the log, at least
     echo "Starting the node"
-    exitCode <- wait =<< fork (shell nodeCmd mempty)
+    exitCode <- shell nodeCmd mempty
     printf ("The node has exited with "%s%"\n") (show exitCode)
     case exitCode of
         ExitFailure 20 -> serverScenario nodeCmd upd
@@ -87,12 +87,8 @@ clientScenario nodeCmd walletCmd upd = do
     nodeHandleRef <- liftIO $
         newIORef (panic "nodeHandleRef: node wasn't started")
     -- I don't know why but a process started with turtle just can't be
-    -- killed, so let's do everything manually
+    -- killed, so let's use modified shell' and terminateProcess
     nodeAsync <- fork (shell' nodeHandleRef nodeCmd mempty)
-    --nodeAsync <- fork $ do
-    --    ph <- Process.spawnCommand nodeCmd
-    --    writeIORef nodeHandleRef ph
-    --    waitForProcess ph
     echo "Starting the wallet"
     walletAsync <- fork (shell walletCmd mempty)
     (someAsync, exitCode) <- liftIO $ waitAny [nodeAsync, walletAsync]

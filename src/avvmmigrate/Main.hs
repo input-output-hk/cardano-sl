@@ -4,17 +4,19 @@
 
 module Main where
 
+import qualified Crypto.Sign.Ed25519  as Ed
 import           Data.Aeson           (FromJSON (..), withObject, (.:))
 import qualified Data.Aeson           as A
 import qualified Data.ByteString.Lazy as BSL
 import           Data.HashMap.Strict  (HashMap)
 import qualified Data.HashMap.Strict  as HM
+import           Serokell.Util.Base64 (decodeUrl)
 import           System.Directory     (createDirectoryIfMissing)
 import           System.FilePath      (takeDirectory)
 import           Universum
 
 import qualified Pos.Binary           as Bi
-import           Pos.Crypto           (parseFullPublicKey)
+import           Pos.Crypto           (PublicKey (..))
 import           Pos.Genesis          (GenesisData (..), StakeDistribution (..))
 import           Pos.Types            (Address, Coin, makePubKeyAddress, unsafeAddCoin,
                                        unsafeIntegerToCoin)
@@ -60,8 +62,8 @@ genGenesis avvm = GenesisData
     balances :: HashMap Address Coin
     balances = HM.fromListWith (unsafeAddCoin) $ do
         AvvmEntry{..} <- avvm
-        let pk = case parseFullPublicKey address of
-                Just x  -> x
-                Nothing -> panic ("couldn't decode address " <> address)
+        let pk = case decodeUrl address of
+                Right x -> PublicKey (Ed.PublicKey x)
+                Left _  -> panic ("couldn't decode address " <> address)
         let addr = makePubKeyAddress pk
         return (addr, unsafeIntegerToCoin (coinAmount coin))

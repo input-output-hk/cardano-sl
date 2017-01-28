@@ -975,6 +975,8 @@ executable cardano-avvmmigrate
                      , base
                      , bytestring
                      , directory
+                     , serokell-util
+                     , ed25519
                      , filepath
                      , cardano-sl
                      , text

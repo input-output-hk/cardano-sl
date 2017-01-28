@@ -1,3 +1,4 @@
+{-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 import           Control.Concurrent.Async (async, cancel, wait, waitAny)
@@ -7,7 +8,7 @@ import           Options.Applicative      (Parser, ParserInfo, execParser, fullD
                                            strOption)
 import           Prelude                  hiding (FilePath)
 import           System.Process.Internals (translate)
-import           Turtle
+import           Turtle                   hiding (wait)
 
 data LauncherOptions = LO
     { loNode          :: Text

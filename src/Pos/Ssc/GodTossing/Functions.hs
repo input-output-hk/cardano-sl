@@ -332,6 +332,7 @@ verifyGtPayload header payload = case payload of
         isShare
         certsChecks certs
     CertificatesPayload      certs -> do
+        isOther
         certsChecks certs
   where
     slotId  = header ^. headerSlot
@@ -340,6 +341,9 @@ verifyGtPayload header payload = case payload of
     isComm  = unless (isCommitmentId slotId) $ Left $ NotCommitmentPhase slotId
     isOpen  = unless (isOpeningId slotId) $ Left $ NotOpeningPhase slotId
     isShare = unless (isSharesId slotId) $ Left $ NotSharesPhase slotId
+    isOther = unless (all not $
+                      map ($ slotId) [isCommitmentId, isOpeningId, isSharesId]) $
+                      Left $ NotIntermediatePhase slotId
 
     -- We *forbid* blocks from having commitments/openings/shares in blocks
     -- with wrong slotId (instead of merely discarding such commitments/etc)

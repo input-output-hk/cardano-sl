@@ -25,7 +25,6 @@ import           Data.Containers                      (ContainerKey,
 import qualified Data.HashMap.Strict                  as HM
 import qualified Data.HashSet                         as HS
 import           Data.List.NonEmpty                   (NonEmpty ((:|)))
-import           Formatting                           (build, sformat, stext, (%))
 import           Serokell.Util.Verify                 (isVerSuccess)
 import           Universum
 
@@ -238,14 +237,12 @@ sscProcessMessageU
 sscProcessMessageU (richmenEpoch, richmen) msg id = do
     epochIdx <- siEpoch <$> use gtLastProcessedSlot
     when (epochIdx /= richmenEpoch) $
-           throwError $ TossInternallError $ sformat fmt epochIdx richmenEpoch
+           throwError $ DifferentEpoches richmenEpoch epochIdx
     case msg of
         MCCommitment     comm -> processCommitment richmen id comm
         MCOpening        open -> processOpening id open
         MCShares       shares -> processShares richmen id shares
         MCVssCertificate cert -> processVssCertificate richmen id cert
-  where
-    fmt = "Last processed epoch: "%build%", but richmen epoch:"%build
 
 runChecks :: MonadError TossVerFailure m => [(m Bool, TossVerFailure)] -> m ()
 runChecks checks =

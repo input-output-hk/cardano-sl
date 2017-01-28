@@ -30,7 +30,7 @@ import           Pos.Context               (WithNodeContext)
 import           Pos.DB.Class              (MonadDB)
 import           Pos.DB.Holder             (DBHolder (..))
 import           Pos.Slotting              (MonadSlots (..))
-import           Pos.Ssc.Extra             (MonadSscGS, MonadSscLD, MonadSscRichmen)
+import           Pos.Ssc.Extra             (MonadSscGS, MonadSscLD)
 import           Pos.Txp.Class             (MonadTxpLD (..), TxpLDWrap (..))
 import           Pos.Txp.Types             (UtxoView)
 import qualified Pos.Txp.Types.UtxoView    as UV
@@ -46,7 +46,7 @@ newtype TxpLDHolder ssc m a = TxpLDHolder
     { getTxpLDHolder :: ReaderT (TxpLDWrap ssc) m a
     } deriving (Functor, Applicative, Monad, MonadTrans,
                 MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
-                HasLoggerName, WithNodeContext ssc, MonadJL, MonadSscRichmen,
+                HasLoggerName, WithNodeContext ssc, MonadJL,
                 CanLog, MonadMask, MonadSscLD ssc, MonadSscGS ssc, MonadFix)
 
 type instance ThreadId (TxpLDHolder ssc m) = ThreadId m

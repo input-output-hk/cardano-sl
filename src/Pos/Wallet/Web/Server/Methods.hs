@@ -14,6 +14,7 @@ module Pos.Wallet.Web.Server.Methods
 import           Control.Monad.Catch           (try)
 import           Control.Monad.Except          (runExceptT)
 import           Control.Monad.Trans.State     (get, runStateT)
+import qualified Data.ByteString.Base64        as B64
 import           Data.Default                  (Default, def)
 import           Data.List                     (elemIndex, (!!))
 import           Data.Time.Clock.POSIX         (getPOSIXTime)
@@ -30,7 +31,8 @@ import           Universum
 
 import           Pos.Aeson.ClientTypes         ()
 import           Pos.Communication.BiP         (BiP)
-import           Pos.Crypto                    (toPublic)
+import           Pos.Constants                 (curSoftwareVersion)
+import           Pos.Crypto                    (deterministicKeyGen, toPublic)
 import           Pos.DHT.Model                 (dhtAddr, getKnownPeers)
 import           Pos.Slotting                  (getSlotDuration)
 import           Pos.Types                     (Address, ChainDifficulty (..), Coin,
@@ -38,25 +40,24 @@ import           Pos.Types                     (Address, ChainDifficulty (..), C
                                                 decodeTextAddress, makePubKeyAddress,
                                                 mkCoin)
 import           Pos.Util                      (maybeThrow)
-import           Pos.Util.BackupPhrase         (keysFromPhrase)
+import           Pos.Util.BackupPhrase         (BackupPhrase, keysFromPhrase)
 
 import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
                                                 addSecretKey)
 import           Pos.Wallet.Tx                 (submitTx)
 import           Pos.Wallet.Tx.Pure            (TxHistoryEntry (..))
-import           Pos.Wallet.WalletMode         (WalletMode, getBalance, getNextUpdate,
-                                                getTxHistory, getUpdates,
+import           Pos.Wallet.WalletMode         (WalletMode, getBalance, getTxHistory,
                                                 localChainDifficulty,
-                                                networkChainDifficulty)
+                                                networkChainDifficulty, waitForUpdate)
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CProfile,
                                                 CProfile (..), CTx, CTxId, CTxMeta (..),
                                                 CUpdateInfo (..), CWallet (..),
                                                 CWalletInit (..), CWalletMeta (..),
-                                                NotifyEvent (..), addressToCAddress,
-                                                cAddressToAddress, mkCTx, mkCTxId,
-                                                toCUpdateInfo, txContainsTitle,
-                                                txIdToCTxId)
+                                                CWalletType (..), NotifyEvent (..),
+                                                addressToCAddress, cAddressToAddress,
+                                                mkCTx, mkCTxId, toCUpdateInfo,
+                                                txContainsTitle, txIdToCTxId)
 import           Pos.Wallet.Web.Error          (WalletError (..))
 import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 WalletWebSockets, closeWSConnection,
@@ -64,11 +65,12 @@ import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 initWSConnection, notify, runWalletWS,
                                                 upgradeApplicationWS)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
-                                                addOnlyNewTxMeta, closeState,
-                                                createWallet, getProfile, getTxMeta,
-                                                getWalletMeta, getWalletState, openState,
-                                                removeWallet, runWalletWebDB, setProfile,
-                                                setWalletMeta, setWalletTransactionMeta)
+                                                addOnlyNewTxMeta, addUpdate, closeState,
+                                                createWallet, getNextUpdate, getProfile,
+                                                getTxMeta, getWalletMeta, getWalletState,
+                                                openState, removeNextUpdate, removeWallet,
+                                                runWalletWebDB, setProfile, setWalletMeta,
+                                                setWalletTransactionMeta)
 import           Pos.Web.Server                (serveImpl)
 
 ----------------------------------------------------------------------------
@@ -84,7 +86,9 @@ type WalletWebMode ssc m
       )
 
 walletServeImpl
-    :: (MonadIO m, MonadMask m)
+    :: ( MonadIO m
+       , MonadMask m
+       , WalletWebMode ssc (WalletWebHandler m))
     => WalletWebHandler m Application     -- ^ Application getter
     -> FilePath                        -- ^ Path to wallet acid-state
     -> Bool                            -- ^ Rebuild flag for acid-state
@@ -110,7 +114,7 @@ walletApplication serv = do
     serv >>= return . upgradeApplicationWS wsConn . serve walletApi
 
 walletServer
-    :: WalletMode ssc m
+    :: (Monad m, WalletWebMode ssc (WalletWebHandler m))
     => SendActions BiP m
     -> WalletWebHandler m (WalletWebHandler m :~> Handler)
     -> WalletWebHandler m (Server WalletApi)
@@ -158,7 +162,7 @@ launchNotifier nat = void . liftIO $ mapM startForking
     difficultyNotifyPeriod = 500000  -- 0.5 sec
     forkForever action = forkFinally action $ const $ do
         -- TODO: log error
-        -- colldown
+        -- cooldown
         threadDelay cooldownPeriod
         void $ forkForever action
     -- TODO: use Servant.enter here
@@ -167,8 +171,7 @@ launchNotifier nat = void . liftIO $ mapM startForking
     notifier period action = forever $ do
         liftIO $ threadDelay period
         action
-    -- NOTE: temp solution, dummy notifier that pings every 10 secs
-    dificultyNotifier = flip runStateT def $ notifier difficultyNotifyPeriod $ do
+    dificultyNotifier = void . flip runStateT def $ notifier difficultyNotifyPeriod $ do
         networkDifficulty <- networkChainDifficulty
         -- TODO: use lenses!
         whenM ((networkDifficulty /=) . spNetworkCD <$> get) $ do
@@ -180,13 +183,9 @@ launchNotifier nat = void . liftIO $ mapM startForking
             lift $ notify $ LocalDifficultyChanged localDifficulty
             modify $ \sp -> sp { spLocalCD = localDifficulty }
     updateNotifier = do
-        slotDuration <- getSlotDuration
-        let updateNotifyPeriod = fromIntegral slotDuration
-        notifier updateNotifyPeriod $ do
-            updates <- getUpdates
-            unless (null updates) $ do
-                logInfo "SOFTWARE UPDATE NOTIFICATION"
-                notify UpdateAvailable
+        cps <- waitForUpdate
+        addUpdate $ toCUpdateInfo cps
+        notify UpdateAvailable
     -- historyNotifier :: WalletWebMode ssc m => m ()
     -- historyNotifier = do
     --     cAddresses <- myCAddresses
@@ -212,13 +211,15 @@ servantHandlers sendActions =
     :<|>
      (\a b c d e -> catchWalletError . sendExtended sendActions a b c d e)
     :<|>
-     catchWalletError . getHistory
+     (\a b -> catchWalletError . getHistory a b )
     :<|>
-     (\a b -> catchWalletError . searchHistory a b)
+     (\a b c -> catchWalletError . searchHistory a b c)
     :<|>
      (\a b -> catchWalletError . updateTransaction a b)
     :<|>
      catchWalletError . newWallet
+    :<|>
+     catchWalletError . restoreWallet
     :<|>
      (\a -> catchWalletError . updateWallet a)
     :<|>
@@ -230,9 +231,15 @@ servantHandlers sendActions =
     :<|>
      catchWalletError . updateUserProfile
     :<|>
+     (\a -> catchWalletError . redeemADA sendActions a)
+    :<|>
      catchWalletError nextUpdate
     :<|>
+     catchWalletError applyUpdate
+    :<|>
      catchWalletError blockchainSlotDuration
+    :<|>
+     catchWalletError (pure curSoftwareVersion)
   where
     -- TODO: can we with Traversable map catchWalletError over :<|>
     -- TODO: add logging on error
@@ -295,18 +302,17 @@ sendExtended sendActions srcCAddr dstCAddr c curr title desc = do
             () <$ addHistoryTx dstCAddr curr title desc (THEntry txHash tx False Nothing)
             addHistoryTx srcCAddr curr title desc (THEntry txHash tx True Nothing)
 
-getHistory :: WalletWebMode ssc m => CAddress -> m [CTx]
-getHistory cAddr = do
+getHistory :: WalletWebMode ssc m => CAddress -> Word -> Word -> m ([CTx], Word)
+getHistory cAddr skip limit = do
     history <- getTxHistory =<< decodeCAddressOrFail cAddr
-    mapM (addHistoryTx cAddr ADA mempty mempty) history
+    cHistory <- mapM (addHistoryTx cAddr ADA mempty mempty) history
+    pure (paginate cHistory, fromIntegral $ length cHistory)
+  where
+    paginate = take (fromIntegral limit) . drop (fromIntegral skip)
 
 -- FIXME: is Word enough for length here?
-searchHistory :: WalletWebMode ssc m => CAddress -> Text -> Word -> m ([CTx], Word)
-searchHistory cAddr search limit = do
-    history <- getHistory cAddr
-    pure (filterHistory history, fromIntegral $ length history)
-  where
-    filterHistory = take (fromIntegral limit) . filter (txContainsTitle search)
+searchHistory :: WalletWebMode ssc m => CAddress -> Text -> Word -> Word -> m ([CTx], Word)
+searchHistory cAddr search skip limit = first (filter $ txContainsTitle search) <$> getHistory cAddr skip limit
 
 addHistoryTx
     :: WalletWebMode ssc m
@@ -331,12 +337,12 @@ newWallet CWalletInit {..} = do
     cAddr <- genSaveAddress cwBackupPhrase
     createWallet cAddr cwInitMeta
     getWallet cAddr
-  where
-    genSaveAddress ph = addressToCAddress . makePubKeyAddress . toPublic <$> genSaveSK ph
-    genSaveSK ph = do
-        let sk = fst $ keysFromPhrase ph
-        addSecretKey sk
-        return sk
+
+restoreWallet :: WalletWebMode ssc m => BackupPhrase -> m CWallet
+restoreWallet ph = do
+    cAddr <- genSaveAddress ph
+    getWalletMeta cAddr >>= maybe (createWallet cAddr def) (const $ pure ())
+    getWallet cAddr
 
 updateWallet :: WalletWebMode ssc m => CAddress -> CWalletMeta -> m CWallet
 updateWallet cAddr wMeta = do
@@ -365,11 +371,41 @@ isValidAddress _ _       = pure False
 -- | Get last update info
 nextUpdate :: WalletWebMode ssc m => m CUpdateInfo
 nextUpdate = getNextUpdate >>=
-             maybeThrow (Internal "No updates available") .
-             fmap toCUpdateInfo
+             maybeThrow (Internal "No updates available")
+
+applyUpdate :: WalletWebMode ssc m => m ()
+applyUpdate = removeNextUpdate
 
 blockchainSlotDuration :: WalletWebMode ssc m => m Word
 blockchainSlotDuration = fromIntegral <$> getSlotDuration
+
+-- TODO: @dmitry move this somewhere (probably we have seed type)
+type Seed = Text
+
+redeemADA :: WalletWebMode ssc m => SendActions BiP m -> Text -> BackupPhrase -> m CWallet
+redeemADA sendActions seed bp = do
+    seedBs <- either
+        (\e -> throwM $ Internal ("Seed is invalid base64 string: " <> toText e))
+        pure $ B64.decode (encodeUtf8 seed)
+    (redeemPK, redeemSK) <- maybeThrow (Internal "Seed is not 32-byte long") $
+                            deterministicKeyGen seedBs
+    -- new redemption wallet
+    walletB <- newWallet $ CWalletInit bp $
+               CWalletMeta CWTPersonal ADA "Redemption wallet"
+
+    -- send from seedAddress to walletB
+    let dstCAddr = cwAddress walletB
+    dstAddr <- decodeCAddressOrFail dstCAddr
+    redeemBalance <- getBalance $ makePubKeyAddress redeemPK
+    na <- fmap dhtAddr <$> getKnownPeers
+    etx <- submitTx sendActions redeemSK na [(TxOut dstAddr redeemBalance, [])]
+    case etx of
+        Left err -> throwM . Internal $ "Cannot send redemption transaction: " <> err
+        Right (tx, _, _) -> do
+            -- add redemption transaction to the history of new wallet
+            () <$ addHistoryTx dstCAddr ADA "ADA redemption" ""
+                (THEntry (hash tx) tx False Nothing)
+            pure walletB
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -385,6 +421,15 @@ getAddrIdx :: WalletWebMode ssc m => Address -> m Int
 getAddrIdx addr = elemIndex addr <$> myAddresses >>= maybe notFound pure
   where notFound = throwM . Internal $
             sformat ("Address "%addressF%" is not found in wallet") $ addr
+
+genSaveAddress :: WalletWebMode ssc m => BackupPhrase -> m CAddress
+genSaveAddress ph = addressToCAddress . makePubKeyAddress . toPublic <$> genSaveSK ph
+  where
+    genSaveSK ph' = do
+        let sk = fst $ keysFromPhrase ph'
+        addSecretKey sk
+        return sk
+
 
 ----------------------------------------------------------------------------
 -- Orphan instances

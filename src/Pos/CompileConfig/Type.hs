@@ -17,18 +17,65 @@ import           Pos.Util                   ()
 
 -- | Compile time configuration. See example in /constants.yaml/ file.
 data CompileConfig = CompileConfig
-    { ccK                             :: !Int
+    {
+----------------------------------------------------------------------------
+-- Fundamental constants
+----------------------------------------------------------------------------
+      ccK                             :: !Int
       -- ^ Security parameter from paper
-    , ccNetworkDiameter               :: !Int
-      -- ^ Estimated time for broadcasting messages
-    , ccNeighboursSendThreshold       :: !Int
-      -- ^ Broadcasting threshold
+
+----------------------------------------------------------------------------
+-- Genesis
+----------------------------------------------------------------------------
     , ccGenesisN                      :: !Int
       -- ^ Number of pre-generated keys
     , ccGenesisSlotDurationSec        :: !Int
       -- ^ Length of slot in seconds
     , ccGenesisMaxBlockSize           :: !Byte
       -- ^ Maximum block size in bytes
+
+----------------------------------------------------------------------------
+-- -- Txp
+----------------------------------------------------------------------------
+    , ccGenesisMaxTxSize              :: !Byte
+      -- ^ Maximum tx size in bytes
+
+----------------------------------------------------------------------------
+-- -- SSC
+----------------------------------------------------------------------------
+    , ccGenesisMpcThd                 :: !Double
+      -- ^ Eligibility threshold for MPC
+
+----------------------------------------------------------------------------
+-- -- Delegation
+----------------------------------------------------------------------------
+    , ccGenesisHeavyDelThd            :: !Double
+      -- ^ Threshold for heavyweight delegation
+
+----------------------------------------------------------------------------
+-- -- UpdateSystem
+----------------------------------------------------------------------------
+    , ccGenesisUpdateVoteThd          :: !Double
+      -- ^ Portion of total stake necessary to vote for or against update.
+    , ccGenesisUpdateProposalThd      :: !Double
+      -- ^ Portion of total stake such that block containing
+      -- UpdateProposal must contain positive votes for this proposal
+      -- from stakeholders owning at least this amount of stake.
+    , ccGenesisUpdateImplicit         :: !Word
+      -- ^ Number of slots after which update is implicitly approved
+      -- unless it has more negative votes than positive.
+    , ccGenesisUpdateSoftforkThd      :: !Double
+      -- ^ Portion of total stake such that if total stake of issuers of blocks
+      -- with some block version is bigger than this portion, this block
+      -- version is adopted.
+
+----------------------------------------------------------------------------
+-- Other
+----------------------------------------------------------------------------
+    , ccNetworkDiameter               :: !Int
+      -- ^ Estimated time for broadcasting messages
+    , ccNeighboursSendThreshold       :: !Int
+      -- ^ Broadcasting threshold
     , ccMaxLocalTxs                   :: !Word
       -- ^ Max number of transactions in Storage
     , ccDefaultPeers                  :: ![String]
@@ -37,8 +84,6 @@ data CompileConfig = CompileConfig
       -- ^ Number of slots to broadcast system time
     , ccMpcSendInterval               :: !Word
       -- ^ Length of interval for sending MPC message
-    , ccMpcThreshold                  :: !Double
-      -- ^ Threshold for ssc/mpc participation
     , ccMdNoBlocksSlotThreshold       :: !Int
       -- ^ Threshold of slots for malicious activity detection
     , ccMdNoCommitmentsEpochThreshold :: !Int
@@ -49,18 +94,19 @@ data CompileConfig = CompileConfig
       -- ^ VSS certificates min timeout to live (number of epochs)
     , ccProtocolMagic                 :: !Int
       -- ^ Magic constant for separating real/testnet
+    , ccLightDlgConfirmationTimeout   :: !Int
+      -- ^ Timeout for holding light psks confirmations
     , ccEnhancedMessageBroadcast      :: !Word
       -- ^ True if we should enable enhanced bessage broadcast
-    , ccDelegationThreshold           :: !Double
-      -- ^ Threshold for heavyweight delegation.
     , ccRecoveryHeadersMessage        :: !Int
       -- ^ Numbers of headers put in message in recovery mode.
+    , ccMessageCacheTimeout           :: !Int
+      -- ^ Interval we ignore cached messages in components that
+      -- support caching
     , ccKademliaDumpInterval          :: !Int
       -- ^ Interval for dumping Kademlia state in slots
     , ccUpdateServers                 :: ![String]
       -- ^ Servers for downloading application updates
-    , ccMaxBlockProxySKs              :: !Int
-      -- ^ Maximum number of PSKs allowed in block
     , ccNtpResponseTimeout            :: !Int
       -- ^ How often request to NTP server and response collection
     , ccNtpPollDelay                  :: !Int
@@ -69,22 +115,9 @@ data CompileConfig = CompileConfig
       -- ^ Network connection timeout in milliseconds
     , ccBlockRetrievalQueueSize       :: !Int
       -- ^ Block retrieval queue capacity
+    , ccNetworkReceiveTimeout         :: !Int
+      -- ^ Network timeout on `recv` in milliseconds
     , ccProductionNetworkStartTime    :: !Int
       -- ^ Start time of network (in `Prodution` running mode).
       -- If set to zero, then running time is 2 minutes after build.
-
-      -- Update System.
-    , ccUpdateProposalThreshold       :: !Double
-      -- ^ Portion of total stake such that block containing
-      -- UpdateProposal must contain positive votes for this proposal
-      -- from stakeholders owning at least this amount of stake.
-    , ccUpdateVoteThreshold           :: !Double
-      -- ^ Portion of total stake necessary to vote for or against update.
-    , ccUpdateImplicitApproval        :: !Word
-      -- ^ Number of slots after which update is implicitly approved
-      -- unless it has more negative votes than positive.
-    , ccUsSoftforkThreshold           :: !Double
-      -- ^ Portion of total stake such that if total stake of issuers of blocks
-      -- with some block version is bigger than this portion, this block
-      -- version is adopted.
     } deriving (Show, Lift)

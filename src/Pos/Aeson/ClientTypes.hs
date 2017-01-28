@@ -1,11 +1,13 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell    #-}
 
 module Pos.Aeson.ClientTypes
        (
        ) where
 
 import           Data.Aeson.TH              (defaultOptions, deriveJSON, deriveToJSON)
-import           Pos.Types.Version          (BlockVersion (..), SoftwareVersion (..))
+import           Pos.Types.Version          (ApplicationName (..), BlockVersion (..),
+                                             SoftwareVersion (..))
 import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile,
                                              CProfile, CTExMeta, CTType, CTx, CTxId,

@@ -109,7 +109,7 @@ lookupVote propId pk locVotes = HM.lookup propId locVotes >>= HM.lookup pk
 -- identifier issued by stakeholder with given PublicKey and with
 -- given decision should be requested.
 isVoteNeeded
-    :: (MonadDB ssc m, MonadUSMem m, WithNodeContext ssc m)
+    :: USLocalLogicMode ssc m
     => UpId -> PublicKey -> Bool -> m Bool
 isVoteNeeded propId pk decision = do
     modifier <- getPollModifier

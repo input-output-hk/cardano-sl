@@ -5,86 +5,108 @@
     <script type="text/javascript">
       var getWallets = function() {
         Daedalus.ClientApi.getWallets()
-            .then(function(result) {console.log(result)})
-            .catch(function(reason) {console.log(reason)})
+            .then(console.log)
+            .catch(console.log)
       };
       var getWallet = function(address) {
-        Daedalus.ClientApi.getWallet(address)()
-            .then(function(result) {console.log(result)})
-            .catch(function(reason) {console.log(reason)})
+        Daedalus.ClientApi.getWallet(address)
+            .then(console.log)
+            .catch(console.log)
       };
       var send = function(from, to, amount) {
-        Daedalus.ClientApi.send(from, to, amount)()
-            .then(function() {})
-            .catch(function(reason) {console.log(reason)})
+        Daedalus.ClientApi.send(from, to, amount)
+            .then(console.log)
+            .catch(console.log)
       };
       var sendExtended = function(from, to, amount, currency, title, description) {
-        Daedalus.ClientApi.sendExtended(from, to, amount, currency, title, description)()
-            .then(function() {})
-            .catch(function(reason) {console.log(reason)})
+        Daedalus.ClientApi.sendExtended(from, to, amount, currency, title, description)
+            .then(console.log)
+            .catch(console.log)
       };
-      var getHistory = function(address) {
-        Daedalus.ClientApi.getHistory(address)()
-            .then(function(result) {console.log(result)})
-            .catch(function(reason) {console.log(reason)})
+      var getHistory = function(address, skip, limit) {
+        Daedalus.ClientApi.getHistory(address, skip, limit)
+            .then(console.log)
+            .catch(console.log)
       };
-      var searchHistory = function(address, searchItem, limit) {
-        Daedalus.ClientApi.searchHistory(address, searchItem, limit)()
-            .then(function(result) {console.log(result)})
-            .catch(function(reason) {console.log(reason)})
+      var searchHistory = function(address, searchItem, skip, limit) {
+        Daedalus.ClientApi.searchHistory(address, searchItem, skip, limit)
+            .then(console.log)
+            .catch(console.log)
       };
 
       var newWallet = function(type, currency, name, mnemonic) {
-        Daedalus.ClientApi.newWallet(type, currency, name, mnemonic)()
-            .then(function(result) {console.log(result)})
-            .catch(function(reason) {console.log(reason)})
+        Daedalus.ClientApi.newWallet(type, currency, name, mnemonic)
+            .then(console.log)
+            .catch(console.log)
+      };
+      var restoreWallet = function(mnemonic) {
+        Daedalus.ClientApi.restoreWallet(mnemonic)
+            .then(console.log)
+            .catch(console.log)
       };
       var updateWallet = function(address, type, currency, name) {
-        Daedalus.ClientApi.updateWallet(address, type, currency, name)()
-            .then(function(result) {console.log(result)})
-            .catch(function(reason) {console.log(reason)})
+        Daedalus.ClientApi.updateWallet(address, type, currency, name)
+            .then(console.log)
+            .catch(console.log)
       };
       var updateTransaction = function(address, transactionId, transactionCurrency, transactionTitle, transactionDescription, transactionDate) {
-        Daedalus.ClientApi.updateTransaction(address, transactionId, transactionCurrency, transactionTitle, transactionDescription, transactionDate)()
-            .then(function() {console.log()})
-            .catch(function(reason) {console.log(reason)})
+        Daedalus.ClientApi.updateTransaction(address, transactionId, transactionCurrency, transactionTitle, transactionDescription, transactionDate)
+            .then(console.log)
+            .catch(console.log)
       };
       var deleteWallet = function(wallet) {
-        Daedalus.ClientApi.deleteWallet(wallet)()
-            .then(function() {})
-            .catch(function(reason) {console.log(reason)})
+        Daedalus.ClientApi.deleteWallet(wallet)
+            .then(console.log)
+            .catch(console.log)
       };
       var isValidAddress = function(currency, address) {
-        Daedalus.ClientApi.isValidAddress(currency, address)()
-            .then(function(isValid) {console.log(isValid)})
-            .catch(function(reason) {console.log(reason)})
+        Daedalus.ClientApi.isValidAddress(currency, address)
+            .then(console.log)
+            .catch(console.log)
       };
       var notify = function() {
         Daedalus.ClientApi.notify(
            function(msg) { console.log('msg ', msg) },
            function(error) { console.log('error ', error) }
-         )();
+         );
      };
       var getProfile = function() {
         Daedalus.ClientApi.getProfile()
-            .then(function(result) {console.log(result)})
-            .catch(function(reason) {console.log(reason)})
+            .then(console.log)
+            .catch(console.log)
       };
       var updateProfile = function(name, email, phone, password, time, locale, picture) {
-        Daedalus.ClientApi.updateProfile(name, email, phone, password, time, locale, picture)()
-            .then(function(result) {console.log(result)})
-            .catch(function(reason) {console.log(reason)})
+        Daedalus.ClientApi.updateProfile(name, email, phone, password, time, locale, picture)
+            .then(console.log)
+            .catch(console.log)
       };
       var generateMnemonic = function() {
          console.log(Daedalus.ClientApi.generateMnemonic())
       };
       var blockchainSlotDuration = function() {
          Daedalus.ClientApi.blockchainSlotDuration()
-         .then(function(value) {
-             console.log('SUCCESS', value);
-         }, function(reason) {
-             console.log('ERROR', reason);
-         })
+            .then(console.log)
+            .catch(console.log)
+      };
+      var nextUpdate = function() {
+         Daedalus.ClientApi.nextUpdate()
+            .then(console.log)
+            .catch(console.log)
+      };
+      var applyUpdate = function() {
+         Daedalus.ClientApi.applyUpdate()
+            .then(console.log)
+            .catch(console.log)
+      };
+      var systemVersion = function() {
+         Daedalus.ClientApi.systemVersion()
+            .then(console.log)
+            .catch(console.log)
+      };
+      var redeemADA = function(seed, mnemonic) {
+         Daedalus.ClientApi.redeemADA(seed, mnemonic)
+            .then(console.log)
+            .catch(console.log)
       };
     </script>
 		<title></title>
@@ -97,9 +119,10 @@
       <li><button onclick="getWallet('wallet_address');"/>getWallet</li>
       <li><button onclick="send('wallet_address1', 'wallet_address2', 1);"/>send from a to b 1 coin</li>
       <li><button onclick="sendExtended('wallet_address1', 'wallet_address2', 1, 'ADA', 'title', 'desc');"/>send from a to b 1 coin, with title and description</li>
-      <li><button onclick="getHistory('wallet_address')"/>get wallet history</li>
-      <li><button onclick="searchHistory('wallet_address', 'searchItem', 10)"/>search wallet history</li>
+      <li><button onclick="getHistory('wallet_address', 0, 10)"/>get wallet history</li>
+      <li><button onclick="searchHistory('wallet_address', 'searchItem', 0, 10)"/>search wallet history</li>
       <li><button onclick="newWallet('CWTPersonal', 'ADA', 'I am rich guy', 'mnemonic');"/>newWallet</li>
+      <li><button onclick="restoreWallet('mnemonic');"/>restoreWallet</li>
       <li><button onclick="updateWallet('wallet_address', 'CWTPersonal', 'ADA', 'wallet_name');"/>updateWallet</li>
       <li><button onclick="updateTransaction('wallet_address', 'transaction_hash', 'ADA', 'new_transaction_title', 'new_transaction_description', 1484253370.9182513);"/>updateTransaction</li>
       <li><button onclick="deleteWallet('wallet_address');"/>deleteWallet</li>
@@ -109,6 +132,10 @@
       <li><button onclick="updateProfile('name', 'email', 'phone', 'password', 1484253370.9182513, 'locale', 'picture')"/>update user profile</li>
       <li><button onclick="generateMnemonic()"/>generate mnemonic</li>
       <li><button onclick="blockchainSlotDuration()"/>blockchain slot duration</li>
+      <li><button onclick="nextUpdate()"/>next update</li>
+      <li><button onclick="applyUpdate()"/>apply update</li>
+      <li><button onclick="systemVersion()"/>system version</li>
+      <li><button onclick="redeemADA('seed', 'mnemonic')"/>redeem ada</li>
     </ul>
 	</body>
 </html>

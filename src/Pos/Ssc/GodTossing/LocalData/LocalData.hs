@@ -17,10 +17,14 @@ module Pos.Ssc.GodTossing.LocalData.LocalData
        ) where
 
 import           Control.Lens                         (Getter, at, (%=), (.=))
+import           Control.Monad.Except                 (MonadError (throwError),
+                                                       runExceptT)
+import           Control.Monad.State                  (get)
 import           Data.Containers                      (ContainerKey,
                                                        SetContainer (notMember))
 import qualified Data.HashMap.Strict                  as HM
 import qualified Data.HashSet                         as HS
+import           Data.List.NonEmpty                   (NonEmpty ((:|)))
 import           Serokell.Util.Verify                 (isVerSuccess)
 import           Universum
 
@@ -51,14 +55,15 @@ import           Pos.Ssc.GodTossing.LocalData.Types   (ldCertificates, ldCommitm
 import           Pos.Ssc.GodTossing.Types             (GtGlobalState (..), GtPayload (..),
                                                        InnerSharesMap, SscBi,
                                                        SscGodTossing,
+                                                       TossVerErrorTag (..),
+                                                       TossVerFailure (..),
                                                        VssCertificate (vcSigningKey, vcVssKey))
 import           Pos.Ssc.GodTossing.Types.Base        (Commitment, Opening,
-                                                       SignedCommitment)
+                                                       SignedCommitment, vcExpiryEpoch)
 import           Pos.Ssc.GodTossing.Types.Message     (GtMsgContents (..), GtMsgTag (..))
 import qualified Pos.Ssc.GodTossing.VssCertData       as VCD
-import           Pos.Types                            (SlotId (..), StakeholderId,
-                                                       addressHash)
-import           Pos.Util                             (readerToState)
+import           Pos.Types                            (EpochIndex, SlotId (..),
+                                                       StakeholderId, addressHash)
 
 instance SscBi => SscLocalDataClass SscGodTossing where
     sscGetLocalPayloadQ = getLocalPayload
@@ -66,6 +71,8 @@ instance SscBi => SscLocalDataClass SscGodTossing where
 
 type LDQuery a = forall m .  MonadReader GtState m => m a
 type LDUpdate a = forall m . MonadState GtState m  => m a
+type LDProcess a = forall m . ( MonadError TossVerFailure m
+                              , MonadState GtState m)  => m a
 
 ----------------------------------------------------------------------------
 -- Apply Global State
@@ -217,88 +224,111 @@ sscIsDataUsefulSetImpl localG globalG addr =
 -- has been actually added.
 sscProcessMessage ::
        (MonadSscLD SscGodTossing m, SscBi)
-    => Richmen -> GtMsgContents -> StakeholderId -> m Bool
+    => (EpochIndex, Richmen) -> GtMsgContents -> StakeholderId -> m (Either TossVerFailure ())
 sscProcessMessage richmen msg =
-    gtRunModify . sscProcessMessageU (HS.fromList $ toList richmen) msg
+    gtRunModify . runExceptT . sscProcessMessageU (second (HS.fromList . toList) richmen) msg
 
 sscProcessMessageU
     :: SscBi
-    => RichmenSet
+    => (EpochIndex, RichmenSet)
     -> GtMsgContents
     -> StakeholderId
-    -> LDUpdate Bool
-sscProcessMessageU richmen (MCCommitment comm) addr =
-    processCommitment richmen addr comm
-sscProcessMessageU _ (MCOpening open) addr =
-    processOpening addr open
-sscProcessMessageU richmen (MCShares shares) addr =
-    processShares richmen addr shares
-sscProcessMessageU richmen (MCVssCertificate cert) addr =
-    processVssCertificate richmen addr cert
+    -> LDProcess ()
+sscProcessMessageU (richmenEpoch, richmen) msg id = do
+    epochIdx <- siEpoch <$> use gtLastProcessedSlot
+    when (epochIdx /= richmenEpoch) $
+           throwError $ DifferentEpoches richmenEpoch epochIdx
+    case msg of
+        MCCommitment     comm -> processCommitment richmen id comm
+        MCOpening        open -> processOpening id open
+        MCShares       shares -> processShares richmen id shares
+        MCVssCertificate cert -> processVssCertificate richmen id cert
+
+runChecks :: MonadError TossVerFailure m => [(m Bool, TossVerFailure)] -> m ()
+runChecks checks =
+    whenJustM (findFalseM checks) $ throwError . snd
+  where
+    -- mmm, velosipedik
+    findFalseM []     = pure Nothing
+    findFalseM (x:xs) = ifM (fst x) (findFalseM xs) (pure $ Just x)
+
+-- | Convert (Reader s) to any (MonadState s)
+readerTToState
+    :: MonadState s m
+    => ReaderT s m a -> m a
+readerTToState rdr = get >>= runReaderT rdr
 
 processCommitment
     :: Bi Commitment
     => RichmenSet
     -> StakeholderId
     -> SignedCommitment
-    -> LDUpdate Bool
-processCommitment richmen id _ | not (id `HS.member` richmen) = pure False
+    -> LDProcess ()
 processCommitment richmen id c = do
     epochIdx <- siEpoch <$> use gtLastProcessedSlot
     stableCerts <- getStableCertsPure epochIdx <$> use gtGlobalCertificates
     let participants = stableCerts `HM.intersection` HS.toMap richmen
     let vssPublicKeys = map vcVssKey $ toList participants
     let checks epochIndex =
-            [ not . HM.member id <$> view gtGlobalCommitments
-            , not . HM.member id <$> view gtLocalCommitments
-            , pure $ id `HM.member` participants
-            , pure . isVerSuccess $ verifySignedCommitment id epochIndex c
-            , pure $ checkCommShares vssPublicKeys c
+            [ (not . HM.member id <$> view gtGlobalCommitments, tossEx CommitmentAlreadySent)
+            , (not . HM.member id <$> view gtLocalCommitments, tossEx CommitmentAlreadySent)
+            , (pure $ id `HM.member` participants, tossEx CommitingNoParticipants)
+            , (pure . isVerSuccess $ verifySignedCommitment id epochIndex c, tossEx CommitmentInvalid)
+            , (pure $ checkCommShares vssPublicKeys c, tossEx CommSharesOnWrongParticipants)
             ]
-    ok <- readerToState $ andM $ checks epochIdx
-    ok <$ when ok (gtLocalCommitments %= HM.insert id c)
-
-processOpening :: StakeholderId -> Opening -> LDUpdate Bool
-processOpening addr o = do
-    ok <- readerToState $ andM checks
-    ok <$ when ok (gtLocalOpenings %= HM.insert addr o)
+    readerTToState $ runChecks $ checks epochIdx
+    gtLocalCommitments %= HM.insert id c
   where
-    checkAbsence = sscIsDataUsefulSetImpl gtLocalOpenings gtGlobalOpenings
-    checks = [checkAbsence addr, matchOpening addr o]
+    tossEx = flip TossVerFailure (id:|[])
 
--- Match opening to commitment from globalCommitments
-matchOpening :: StakeholderId -> Opening -> LDQuery Bool
-matchOpening addr opening =
-    flip checkOpeningMatchesCommitment (addr, opening) <$> view gtGlobalCommitments
+processOpening :: StakeholderId -> Opening -> LDProcess ()
+processOpening id o = do
+    readerTToState $ runChecks checks
+    gtLocalOpenings %= HM.insert id o
+  where
+    tossEx = flip TossVerFailure (id:|[])
+    checks = [ (checkAbsence id, tossEx OpeningAlreadySent)
+             , (matchOpening id o, tossEx OpeningNotMatchCommitment)
+             ]
+
+    checkAbsence = sscIsDataUsefulSetImpl gtLocalOpenings gtGlobalOpenings
+    -- Match opening to commitment from globalCommitments
+    matchOpening sid opening =
+        flip checkOpeningMatchesCommitment (sid, opening) <$> view gtGlobalCommitments
 
 -- CHECK: #checkShares
-processShares :: RichmenSet -> StakeholderId -> InnerSharesMap -> LDUpdate Bool
-processShares richmen id s
-    | null s = pure False
-    | not (id `HS.member` richmen) = pure False
-    | otherwise = do
-        epochIdx <- siEpoch <$> use gtLastProcessedSlot
-        stableCerts <- getStableCertsPure epochIdx <$> use gtGlobalCertificates
-        let checks =
-              [ not . HM.member id <$> use gtGlobalShares
-              , not . HM.member id <$> use gtLocalShares
-              , readerToState $ checkSharesDo stableCerts id s
-              ]
-        ok <- andM checks
-        ok <$ when ok (gtLocalShares . at id .= Just s)
+processShares :: RichmenSet -> StakeholderId -> InnerSharesMap -> LDProcess ()
+processShares richmen id s = do
+    epochIdx <- siEpoch <$> use gtLastProcessedSlot
+    stableCerts <- getStableCertsPure epochIdx <$> use gtGlobalCertificates
+    let checks =
+          [ (pure $ not (id `HS.member` richmen), tossEx SharesNotRichmen)
+          , (sscIsDataUsefulQ SharesMsg id, tossEx SharesAlreadySent)
+          , (checkSharesDo stableCerts s, tossEx DecrSharesNotMatchCommitment)
+          ]
+    readerTToState $ runChecks checks
+    gtLocalShares . at id .= Just s
   where
-    checkSharesDo certs addr shares = do
+    tossEx = flip TossVerFailure (id:|[])
+    checkSharesDo certs shares = do
         comms    <- view gtGlobalCommitments
         openings <- view gtGlobalOpenings
-        pure (checkShares comms openings certs addr shares)
+        pure (checkShares comms openings certs id shares)
 
 processVssCertificate :: RichmenSet
                       -> StakeholderId
                       -> VssCertificate
-                      -> LDUpdate Bool
-processVssCertificate richmen addr c
-    | (addressHash $ vcSigningKey c) `HS.member` richmen = do
-        lpe <- siEpoch <$> use gtLastProcessedSlot
-        ok <- (checkCertTTL lpe c &&) <$> readerToState (sscIsDataUsefulQ VssCertificateMsg addr)
-        ok <$ when ok (gtLocalCertificates %= VCD.insert addr c)
-    | otherwise = pure False
+                      -> LDProcess ()
+processVssCertificate richmen id c = do
+    lpe <- siEpoch <$> use gtLastProcessedSlot
+    let checks =
+          [ ( pure $ (addressHash $ vcSigningKey c) `HS.member` richmen,
+              tossEx CertificateNotRichmen)
+          , ( pure $ checkCertTTL lpe c, CertificateInvalidTTL certSingleton)
+          , ( sscIsDataUsefulQ VssCertificateMsg id, tossEx CertificateAlreadySent)
+          ]
+    readerTToState $ runChecks checks
+    gtLocalCertificates %= VCD.insert id c
+  where
+    certSingleton = (c, vcExpiryEpoch c):|[]
+    tossEx = flip TossVerFailure (id:|[])

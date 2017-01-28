@@ -17,7 +17,6 @@ module Pos.Types.Version
 
 import           Universum              hiding (show)
 
-import           Data.Aeson             (FromJSON, ToJSON)
 import           Data.Char              (isAscii)
 import           Data.Hashable          (Hashable)
 import           Data.SafeCopy          (base, deriveSafeCopySimple)
@@ -30,14 +29,9 @@ import           Text.Parsec.Char       (anyChar, char, letter, string)
 import           Text.Parsec.Combinator (manyTill)
 import           Text.Parsec.Text       (Parser)
 
+import           Pos.Types.Core         (ApplicationName (..), BlockVersion (..),
+                                         NumSoftwareVersion, SoftwareVersion (..))
 import           Pos.Util               (parseIntegralSafe)
-
--- | Communication protocol version.
-data BlockVersion = BlockVersion
-    { bvMajor :: !Word16
-    , bvMinor :: !Word16
-    , bvAlt   :: !Word8
-    } deriving (Eq, Generic, Ord, Typeable)
 
 instance Show BlockVersion where
     show BlockVersion {..} =
@@ -57,10 +51,6 @@ parseBlockVersion = do
 
 instance Hashable BlockVersion
 
-newtype ApplicationName = ApplicationName
-    { getApplicationName :: Text
-    } deriving (Eq, Ord, Show, Generic, Typeable, ToString, Hashable, Buildable, ToJSON, FromJSON)
-
 applicationNameMaxLength :: Integral i => i
 applicationNameMaxLength = 10
 
@@ -71,15 +61,6 @@ mkApplicationName appName
     | T.any (not . isAscii) appName =
         fail "ApplicationName: not ascii string passed"
     | otherwise = pure $ ApplicationName appName
-
--- | Numeric software version associated with ApplicationName.
-type NumSoftwareVersion = Word32
-
--- | Software version.
-data SoftwareVersion = SoftwareVersion
-    { svAppName :: !ApplicationName
-    , svNumber  :: !NumSoftwareVersion
-    } deriving (Eq, Generic, Ord, Typeable)
 
 instance Buildable SoftwareVersion where
     build SoftwareVersion {..} =

@@ -44,7 +44,6 @@ import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.DHT.Model               (MonadDHT)
 import           Pos.DHT.Real                (KademliaDHT, WithKademliaDHTInstance)
 import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Ssc.Extra               (MonadSscRichmen)
 import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..))
 import           Pos.Statistics.StatEntry    (StatLabel (..))
 import           Pos.Txp.Class               (MonadTxpLD (..))
@@ -80,9 +79,8 @@ newtype NoStatsT m a = NoStatsT
     } deriving (Functor, Applicative, Monad, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
                 MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState ssc,
-                MonadJL, CanLog,
-                MonadUtxoRead, MonadUtxo,
-                MonadTxpLD ssc, MonadSscGS ssc, MonadSscLD ssc, MonadSscRichmen,
+                MonadJL, CanLog, MonadUtxoRead, MonadUtxo,
+                MonadTxpLD ssc, MonadSscGS ssc, MonadSscLD ssc,
                 WithNodeContext ssc, MonadDelegation, MonadUSMem)
 
 deriving instance MonadDB ssc m => MonadDB ssc (NoStatsT m)
@@ -131,10 +129,9 @@ newtype StatsT m a = StatsT
     } deriving (Functor, Applicative, Monad, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
                 MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState ssc,
-                MonadTrans, MonadJL, CanLog,
-                MonadUtxoRead, MonadUtxo, MonadTxpLD ssc,
-                MonadSscGS ssc, MonadSscLD ssc, WithNodeContext ssc, MonadSscRichmen,
-                MonadDelegation, MonadUSMem)
+                MonadTrans, MonadJL, CanLog, MonadUtxoRead, MonadUtxo,
+                MonadTxpLD ssc, MonadSscGS ssc, MonadSscLD ssc,
+                WithNodeContext ssc, MonadDelegation, MonadUSMem)
 
 deriving instance MonadDB ssc m => MonadDB ssc (StatsT m)
 instance Monad m => WrappedM (StatsT m) where

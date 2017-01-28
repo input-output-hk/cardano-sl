@@ -19,7 +19,6 @@ import           Data.Coerce             (coerce)
 import           Data.Default            (Default (def))
 import           Data.Tagged             (Tagged (..))
 import           Data.Text.Buildable     (Buildable (build))
-import           Serokell.Util.Verify    (VerificationRes (..))
 import           Universum
 
 import           Pos.Binary.Class        (encode)
@@ -59,12 +58,13 @@ instance Ssc SscNistBeacon where
     type SscGlobalState SscNistBeacon = ()
     type SscNodeContext SscNistBeacon = ()
     type SscParams      SscNistBeacon = ()
+    type SscVerifyError SscNistBeacon = ()
 
     mkSscProof = Tagged $ const ()
     sscCreateNodeContext _ = return ()
 
 instance SscHelpersClass SscNistBeacon where
-    sscVerifyPayload = Tagged $ const $ const VerSuccess
+    sscVerifyPayload = Tagged $ const $ const $ Right ()
 
 instance SscWorkersClass SscNistBeacon where
     sscWorkers = Tagged
@@ -84,7 +84,7 @@ instance SscStorageClass SscNistBeacon where
     sscLoadGlobalState = pure ()
     sscApplyBlocksM _ = pure ()
     sscRollbackM _ = pure ()
-    sscVerifyBlocksM _ _ _ = pure mempty
+    sscVerifyBlocksM _ _ _ = pure $ Right ()
     sscCalculateSeedM =
         pure . Right . coerce . ByteArray.convert @_ @ByteString .
             Hash.hashlazy @SHA256 . encode

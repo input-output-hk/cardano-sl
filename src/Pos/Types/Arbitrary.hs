@@ -17,8 +17,7 @@ import           Data.DeriveTH              (derive, makeArbitrary)
 import           Data.Time.Units            (Microsecond, Millisecond, fromMicroseconds)
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (..),
-                                             choose, choose, elements,
-                                             oneof)
+                                             choose, choose, elements, oneof)
 import           Test.QuickCheck.Instances  ()
 import           Universum
 
@@ -32,15 +31,16 @@ import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.Script                 (Script)
 import           Pos.Script.Examples        (badIntRedeemer, goodIntRedeemer,
                                              intValidator)
+import           Pos.Types.Address          (makePubKeyAddress, makeScriptAddress)
 import           Pos.Types.Arbitrary.Unsafe ()
-import           Pos.Types.Timestamp        (Timestamp (..))
-import           Pos.Types.Types            (Address (..), ChainDifficulty (..), Coin,
-                                             EpochIndex (..), EpochOrSlot (..),
-                                             LocalSlotIndex (..), SharedSeed (..),
-                                             SlotId (..), SlotId (..), Tx (..),
+import           Pos.Types.Core             (Address (..), ChainDifficulty (..), Coin,
+                                             CoinPortion, EpochIndex (..),
+                                             EpochOrSlot (..), LocalSlotIndex (..),
+                                             SlotId (..), Timestamp (..), mkCoin,
+                                             unsafeCoinPortionFromDouble, unsafeGetCoin)
+import           Pos.Types.Types            (SharedSeed (..), Tx (..),
                                              TxDistribution (..), TxIn (..),
-                                             TxInWitness (..), TxOut (..), TxOutAux,
-                                             makePubKeyAddress, makeScriptAddress, mkCoin, unsafeGetCoin)
+                                             TxInWitness (..), TxOut (..), TxOutAux)
 import           Pos.Types.Version          (ApplicationName (..), BlockVersion (..),
                                              SoftwareVersion (..),
                                              applicationNameMaxLength)
@@ -65,6 +65,9 @@ derive makeArbitrary ''TxOut
 
 instance Arbitrary Coin where
     arbitrary = mkCoin <$> choose (1, unsafeGetCoin maxBound)
+
+instance Arbitrary CoinPortion where
+    arbitrary = unsafeCoinPortionFromDouble . (1/) <$> choose (1, 20)
 
 maxReasonableEpoch :: Integral a => a
 maxReasonableEpoch = 5 * 1000 * 1000 * 1000 * 1000  -- 5 * 10^12, because why not

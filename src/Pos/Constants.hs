@@ -17,7 +17,6 @@ module Pos.Constants
        -- * SSC constants
        , sharedSeedLength
        , mpcSendInterval
-       , mpcThreshold
 
        -- * Dev/production mode, system start
        , isDevelopment
@@ -27,12 +26,19 @@ module Pos.Constants
        , genesisN
        , genesisSlotDuration
        , genesisMaxBlockSize
+       , genesisMaxTxSize
+       , genesisMpcThd
+       , genesisHeavyDelThd
+       , genesisUpdateVoteThd
+       , genesisUpdateProposalThd
+       , genesisUpdateImplicit
+       , genesisUpdateSoftforkThd
 
        -- * Other constants
        , maxLocalTxs
-       , maxBlockProxySKs
        , neighborsSendThreshold
        , networkConnectionTimeout
+       , networkReceiveTimeout
        , blockRetrievalQueueSize
        , defaultPeers
        , sysTimeBroadcastSlots
@@ -40,9 +46,12 @@ module Pos.Constants
        , vssMinTTL
        , protocolMagic
        , enhancedMessageBroadcast
-       , delegationThreshold
        , recoveryHeadersMessage
        , kademliaDumpInterval
+       , messageCacheTimeout
+
+       -- * Delegation
+       , lightDlgConfirmationTimeout
 
        -- * Malicious activity detection constants
        , mdNoBlocksSlotThreshold
@@ -54,10 +63,6 @@ module Pos.Constants
        , ourAppName
        , appSystemTag
        , updateServers
-       , updateProposalThreshold
-       , updateVoteThreshold
-       , updateImplicitApproval
-       , usSoftforkThreshold
 
        -- * NTP
        , ntpMaxError
@@ -81,13 +86,13 @@ import           System.IO.Unsafe           (unsafePerformIO)
 import           Pos.CLI                    (dhtNodeParser)
 import           Pos.CompileConfig          (CompileConfig (..), compileConfig)
 import           Pos.DHT.Model.Types        (DHTNode)
+import           Pos.Types.Core             (CoinPortion, unsafeCoinPortionFromDouble)
 import           Pos.Types.Timestamp        (Timestamp (..))
-import           Pos.Types.Types            (CoinPortion, unsafeCoinPortion)
 import           Pos.Types.Version          (ApplicationName, BlockVersion (..),
                                              SoftwareVersion (..), mkApplicationName)
 import           Pos.Update.Core            (SystemTag, mkSystemTag)
 import           Pos.Util                   ()
-import           Pos.Util.TimeWarp          (mcs, sec)
+import           Pos.Util.TimeWarp          (mcs)
 
 ----------------------------------------------------------------------------
 -- Main constants mentioned in paper
@@ -105,7 +110,7 @@ slotSecurityParam = 2 * blkSecurityParam
 
 -- | Number of slots inside one epoch.
 epochSlots :: Integral a => a
-epochSlots = 12 * blkSecurityParam
+epochSlots = 10 * blkSecurityParam
 
 -- | Estimated time needed to broadcast message from one node to all
 -- other nodes. Also see 'Pos.CompileConfig.ccNetworkDiameter'.
@@ -126,13 +131,12 @@ sharedSeedLength = 32
 mpcSendInterval :: Microsecond
 mpcSendInterval = sec . fromIntegral . ccMpcSendInterval $ compileConfig
 
--- | Threshold value for mpc participation.
-mpcThreshold :: CoinPortion
-mpcThreshold = unsafeCoinPortion $ ccMpcThreshold compileConfig
-
 ----------------------------------------------------------------------------
 -- Genesis
 ----------------------------------------------------------------------------
+
+cc :: CompileConfig
+cc = compileConfig
 
 -- | See 'Pos.CompileConfig.ccGenesisN'.
 genesisN :: Integral i => i
@@ -146,6 +150,54 @@ genesisSlotDuration =
 -- | Maximum size of a block (in bytes)
 genesisMaxBlockSize :: Byte
 genesisMaxBlockSize = ccGenesisMaxBlockSize $ compileConfig
+
+-- | See 'Pos.CompileConfig.ccGenesisMaxTxSize'.
+genesisMaxTxSize :: Byte
+genesisMaxTxSize = ccGenesisMaxTxSize cc
+
+-- | See 'Pos.CompileConfig.ccGenesisMpcThd'.
+genesisMpcThd :: CoinPortion
+genesisMpcThd = unsafeCoinPortionFromDouble $ ccGenesisMpcThd compileConfig
+
+staticAssert
+    (ccGenesisMpcThd compileConfig >= 0 && ccGenesisMpcThd compileConfig < 1)
+    "genesisMpcThd is not in range [0, 1)"
+
+-- | See 'Pos.CompileConfig.ccGenesisHeavyDelThd'.
+genesisHeavyDelThd :: CoinPortion
+genesisHeavyDelThd = unsafeCoinPortionFromDouble $ ccGenesisHeavyDelThd cc
+
+staticAssert
+    (ccGenesisHeavyDelThd compileConfig >= 0 && ccGenesisMpcThd compileConfig < 1)
+    "genesisHeavyDelThd is not in range [0, 1)"
+
+-- | See 'Pos.CompileConfig.ccGenesisUpdateVoteThd'.
+genesisUpdateVoteThd :: CoinPortion
+genesisUpdateVoteThd = unsafeCoinPortionFromDouble $ ccGenesisUpdateVoteThd cc
+
+staticAssert
+    (ccGenesisUpdateVoteThd compileConfig >= 0 && ccGenesisUpdateVoteThd compileConfig < 1)
+    "genesisUpdateVoteThd is not in range [0, 1)"
+
+-- | See 'Pos.CompileConfig.ccGenesisUpdateProposalThd'.
+genesisUpdateProposalThd :: CoinPortion
+genesisUpdateProposalThd = unsafeCoinPortionFromDouble $ ccGenesisUpdateProposalThd cc
+
+staticAssert
+    (ccGenesisUpdateProposalThd compileConfig > 0 && ccGenesisUpdateProposalThd compileConfig < 1)
+    "genesisUpdateProposalThd is not in range (0, 1)"
+
+-- | See 'Pos.CompileConfig.ccGenesisUpdateImplicit'.
+genesisUpdateImplicit :: Integral i => i
+genesisUpdateImplicit = fromIntegral . ccGenesisUpdateImplicit $ cc
+
+-- | See 'Pos.CompileConfig.ccGenesisUpdateSoftforkThd'.
+genesisUpdateSoftforkThd :: CoinPortion
+genesisUpdateSoftforkThd = unsafeCoinPortionFromDouble $ ccGenesisUpdateSoftforkThd cc
+
+staticAssert
+    (ccGenesisUpdateSoftforkThd compileConfig > 0 && ccGenesisUpdateSoftforkThd compileConfig < 1)
+    "genesisUpdateSoftforkThd is not in range (0, 1)"
 
 ----------------------------------------------------------------------------
 -- Other constants
@@ -166,10 +218,6 @@ genesisMaxBlockSize = ccGenesisMaxBlockSize $ compileConfig
 maxLocalTxs :: Integral i => i
 maxLocalTxs = fromIntegral . ccMaxLocalTxs $ compileConfig
 
--- | Maximum number of PSKs allowed in block
-maxBlockProxySKs :: Integral i => i
-maxBlockProxySKs = fromIntegral . ccMaxBlockProxySKs $ compileConfig
-
 -- | /Time-lord/ node announces system start time by broadcast. She does it
 -- during first 'Pos.CompileConfig.ccSysTimeBroadcastSlots' slots.
 sysTimeBroadcastSlots :: Integral i => i
@@ -182,6 +230,9 @@ neighborsSendThreshold =
 
 networkConnectionTimeout :: Microsecond
 networkConnectionTimeout = ms . fromIntegral . ccNetworkConnectionTimeout $ compileConfig
+
+networkReceiveTimeout :: Microsecond
+networkReceiveTimeout = ms . fromIntegral . ccNetworkReceiveTimeout $ compileConfig
 
 blockRetrievalQueueSize :: Integral a => a
 blockRetrievalQueueSize =
@@ -236,10 +287,6 @@ protocolMagic = fromIntegral . ccProtocolMagic $ compileConfig
 enhancedMessageBroadcast :: Integral a => a
 enhancedMessageBroadcast = fromIntegral $ ccEnhancedMessageBroadcast compileConfig
 
--- | Portion of total stake necessary to vote for or against update.
-delegationThreshold :: CoinPortion
-delegationThreshold = unsafeCoinPortion $ ccDelegationThreshold compileConfig
-
 -- | Maximum amount of headers node can put into headers message while
 -- in "after offline" or "recovery" mode. Should be more than
 -- 'blkSecurityParam'.
@@ -249,6 +296,19 @@ recoveryHeadersMessage = fromIntegral . ccRecoveryHeadersMessage $ compileConfig
 -- | Interval for dumping state of Kademlia in slots
 kademliaDumpInterval :: (Integral a) => a
 kademliaDumpInterval = fromIntegral . ccKademliaDumpInterval $ compileConfig
+
+-- | Timeout for caching system. Components that use caching on
+-- messages can use this timeout to invalidate caches.
+messageCacheTimeout :: (Integral a) => a
+messageCacheTimeout = fromIntegral . ccMessageCacheTimeout $ compileConfig
+
+----------------------------------------------------------------------------
+-- Delegation
+----------------------------------------------------------------------------
+
+-- | Amount of time we hold confirmations for light PSKs.
+lightDlgConfirmationTimeout :: (Integral a) => a
+lightDlgConfirmationTimeout = fromIntegral . ccLightDlgConfirmationTimeout $ compileConfig
 
 ----------------------------------------------------------------------------
 -- Malicious activity
@@ -306,6 +366,7 @@ updateServers = ccUpdateServers compileConfig
 ----------------------------------------------------------------------------
 -- NTP
 ----------------------------------------------------------------------------
+
 -- | Inaccuracy in call threadDelay (actually it is error much less than 1 sec)
 ntpMaxError :: Microsecond
 ntpMaxError = sec 1
@@ -317,48 +378,3 @@ ntpResponseTimeout = mcs . ccNtpResponseTimeout $ compileConfig
 -- | How often send request to NTP server
 ntpPollDelay :: Microsecond
 ntpPollDelay = mcs . ccNtpPollDelay $ compileConfig
-
--- | Portion of total stake such that block containing
--- UpdateProposal must contain positive votes for this proposal
--- from stakeholders owning at least this amount of stake.
-updateProposalThreshold :: CoinPortion
-updateProposalThreshold = unsafeCoinPortion $ ccUpdateProposalThreshold compileConfig
-
-staticAssert
-    (ccUpdateProposalThreshold compileConfig >= 0)
-    "updateProposalThreshold is negative"
-
-staticAssert
-    (ccUpdateProposalThreshold compileConfig <= 1)
-    "updateProposalThreshold is more than 1"
-
--- | Portion of total stake necessary to vote for or against update.
-updateVoteThreshold :: CoinPortion
-updateVoteThreshold = unsafeCoinPortion $ ccUpdateVoteThreshold compileConfig
-
-staticAssert
-    (ccUpdateVoteThreshold compileConfig >= 0)
-    "updateVoteThreshold is negative"
-
-staticAssert
-    (ccUpdateVoteThreshold compileConfig <= 1)
-    "updateVoteThreshold is more than 1"
-
--- | Number of slots after which update is implicitly approved
--- unless it has more negative votes than positive.
-updateImplicitApproval :: Integral i => i
-updateImplicitApproval = fromIntegral $ ccUpdateImplicitApproval compileConfig
-
--- | Portion of total stake such that if total stake of issuers of blocks
--- with some block version is bigger than this portion, this block
--- version is adopted.
-usSoftforkThreshold :: CoinPortion
-usSoftforkThreshold = unsafeCoinPortion $ ccUsSoftforkThreshold compileConfig
-
-staticAssert
-    (ccUsSoftforkThreshold compileConfig >= 0)
-    "usSoftforkThreshold is negative"
-
-staticAssert
-    (ccUsSoftforkThreshold compileConfig <= 1)
-    "usSoftforkThreshold is more than 1"

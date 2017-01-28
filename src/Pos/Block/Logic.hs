@@ -39,7 +39,8 @@ import qualified Data.HashMap.Strict        as HM
 import           Data.List.NonEmpty         ((<|))
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Text                  as T
-import           Formatting                 (build, int, ords, sformat, stext, (%))
+import           Formatting                 (build, int, ords, sformat, stext,
+                                             (%))
 import           Serokell.Data.Memory.Units (toBytes)
 import           Serokell.Util.Text         (listJson)
 import           Serokell.Util.Verify       (VerificationRes (..), formatAllErrors,
@@ -395,7 +396,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
         _ -> pass
     verResToMonadError formatAllErrors $
         Types.verifyBlocks (Just curSlot) (Just leaders) blocks
-    verResToMonadError formatAllErrors =<< sscVerifyBlocks False blocks
+    eitherToError =<< sscVerifyBlocks False blocks
     txUndo <- ExceptT $ txVerifyBlocks blocks
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks
     (pModifier, usUndos) <- withExceptT pretty $ usVerifyBlocks blocks
@@ -407,6 +408,9 @@ verifyBlocksPrefix blocks = runExceptT $ do
                (getOldestFirst usUndos)
          , pModifier)
   where
+    eitherToError (Left e)  = throwError (sformat build e)
+    eitherToError (Right _) = pass
+
     headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
 
 -- | Applies blocks if they're valid. Takes one boolean flag

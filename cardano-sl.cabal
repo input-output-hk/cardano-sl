@@ -201,6 +201,7 @@ library
                         Pos.Delegation.Lrc
                         Pos.Delegation.Methods
                         Pos.Delegation.Types
+                        Pos.Delegation.Worker
 
                         -- Launcher
                         Pos.Launcher.Launcher
@@ -247,11 +248,19 @@ library
                         Pos.Lrc.Types
                         Pos.Lrc.Worker
 
+                        -- SafeCopy serialization (obsolete, but still needed)
+                        Pos.SafeCopy
+                        Pos.SafeCopy.GodTossing
+                        Pos.SafeCopy.GodTossing.Base
+                        Pos.SafeCopy.GodTossing.Types
+                        Pos.SafeCopy.GodTossing.VssCertData
+                        Pos.SafeCopy.Types
+                        Pos.SafeCopy.Update
+
                         -- SSC
                         Pos.Ssc.Extra.Holder
                         Pos.Ssc.Extra.MonadGS
                         Pos.Ssc.Extra.MonadLD
-                        Pos.Ssc.Extra.Richmen
                         Pos.Ssc.GodTossing.Richmen
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Error
@@ -294,13 +303,14 @@ library
                         Pos.Txp.Types.BalancesView
 
                         -- Types
+                        Pos.Types.Core
                         Pos.Types.SharedSeed
                         Pos.Types.Utxo.Class
                         Pos.Types.Utxo.Functions
                         Pos.Types.Utxo.Pure
-                        Pos.Worker.Ntp
 
                         -- Workers
+                        Pos.Worker.Ntp
                         Pos.Worker.Stats
 
                         -- Update System
@@ -395,6 +405,7 @@ library
                       , async
                       , base
                       , base58-bytestring
+                      , base64-bytestring
                       , binary
                       , binary-conduit >= 1.2.4.1
                       , binary-orphans
@@ -841,11 +852,6 @@ executable cardano-dht-keygen
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  if flag(with-wallet)
-    buildable:         True
-  else
-    buildable:         False
-
 executable cardano-web-docs
   hs-source-dirs:      src/web-docs
   main-is:             Main.hs
@@ -938,6 +944,46 @@ executable cardano-checks
                        -O2
   default-extensions:  OverloadedStrings
 
+executable cardano-genupdate
+  hs-source-dirs:      src/genupdate
+  main-is:             Main.hs
+  build-depends:       base
+                     , bytestring
+                     , cryptonite
+                     , foldl
+                     , system-filepath
+                     , tar
+                     , text
+                     , turtle >= 1.3.0
+                     , universum
+  default-language:    Haskell2010
+  ghc-options:         -threaded
+                       -Wall
+                       -O2
+  default-extensions:  OverloadedStrings
+                       NoImplicitPrelude
+
+executable cardano-avvmmigrate
+  hs-source-dirs:      src/avvmmigrate
+  main-is:             Main.hs
+  build-depends:       aeson
+                     , base
+                     , bytestring
+                     , directory
+                     , serokell-util
+                     , ed25519
+                     , filepath
+                     , cardano-sl
+                     , text
+                     , universum
+                     , unordered-containers
+  default-language:    Haskell2010
+  ghc-options:         -threaded
+                       -Wall
+                       -O2
+  default-extensions:  OverloadedStrings
+                       NoImplicitPrelude
+
 executable cardano-keygen
   hs-source-dirs:      src/keygen
   main-is:             Main.hs
@@ -975,6 +1021,23 @@ executable cardano-keygen
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
+
+executable cardano-launcher
+  hs-source-dirs:      src/launcher
+  main-is:             Main.hs
+  build-depends:       async
+                     , base
+                     , optparse-applicative
+                     , process
+                     , text
+                     , turtle
+                     , universum
+  default-language:    Haskell2010
+  ghc-options:         -threaded
+                       -Wall
+                       -O2
+  default-extensions:  OverloadedStrings
+                       RecordWildCards
 
 test-suite cardano-test
   main-is:             Test.hs

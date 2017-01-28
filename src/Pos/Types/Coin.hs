@@ -19,10 +19,12 @@ module Pos.Types.Coin
        , applyCoinPortion
        ) where
 
+import qualified Data.Text.Buildable
+import           Formatting          (bprint, float, int, (%))
 import           Universum
 
-import           Pos.Types.Types (Coin, CoinPortion (getCoinPortion), coinF, mkCoin,
-                                  unsafeGetCoin)
+import           Pos.Types.Core      (Coin, CoinPortion (getCoinPortion), coinF,
+                                      coinPortionDenominator, mkCoin, unsafeGetCoin)
 
 sumCoins :: [Coin] -> Integer
 sumCoins = sum . map coinToInteger
@@ -65,8 +67,25 @@ unsafeIntegerToCoin n
   | otherwise = panic "unsafeIntegerToCoin: overflow"
 {-# INLINE unsafeIntegerToCoin #-}
 
+----------------------------------------------------------------------------
+-- CoinPortion
+----------------------------------------------------------------------------
+
+instance Buildable CoinPortion where
+    build cp@(getCoinPortion -> x) =
+        bprint
+            (int%"/"%int%" (≈ "%float%")")
+            x
+            coinPortionDenominator
+            (coinPortionToDouble cp)
+
+coinPortionToDouble :: CoinPortion -> Double
+coinPortionToDouble (getCoinPortion -> x) =
+    realToFrac @_ @Double x / realToFrac coinPortionDenominator
+{-# INLINE coinPortionToDouble #-}
+
 -- | Apply CoinPortion to Coin. 'applyCoinPortion a b' is basically
 -- 'round (a * b)'.
 applyCoinPortion :: CoinPortion -> Coin -> Coin
-applyCoinPortion (getCoinPortion -> p) (unsafeGetCoin -> c) =
+applyCoinPortion (coinPortionToDouble -> p) (unsafeGetCoin -> c) =
     mkCoin $ round $ (realToFrac c) * p

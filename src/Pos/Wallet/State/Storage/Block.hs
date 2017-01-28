@@ -24,6 +24,7 @@ import           Data.SafeCopy             (base, deriveSafeCopySimple)
 import           Universum
 
 import           Pos.Crypto                (unsafeHash)
+import           Pos.SafeCopy              ()
 import           Pos.Ssc.GodTossing        (SscGodTossing)
 import           Pos.Types                 (Block, HeaderHash, prevBlockL)
 

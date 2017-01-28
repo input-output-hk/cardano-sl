@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP                  #-}
 {-# LANGUAGE ConstraintKinds      #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -10,12 +11,12 @@ module Pos.Wallet.WalletMode
        , MonadTxHistory (..)
        , MonadBlockchainInfo (..)
        , MonadUpdates (..)
-       , getNextUpdate
        , TxMode
        , WalletMode
        , WalletRealMode
        ) where
 
+import           Control.Concurrent.MVar     (takeMVar)
 import           Control.Concurrent.STM      (tryReadTMVar)
 import           Control.Monad.Loops         (unfoldrM)
 import           Control.Monad.Trans         (MonadTrans)
@@ -62,6 +63,7 @@ import           Pos.Wallet.State            (WalletDB)
 import qualified Pos.Wallet.State            as WS
 import           Pos.Wallet.Tx.Pure          (TxHistoryEntry, deriveAddrHistory,
                                               deriveAddrHistoryPartial, getRelatedTxs)
+import           Pos.Wallet.Web.State        (WalletWebDB (..))
 import           Pos.WorkMode                (MinWorkMode)
 
 -- | A class which have the methods to get state of address' balance
@@ -86,6 +88,7 @@ deriving instance MonadBalances m => MonadBalances (PC.ContextHolder ssc m)
 deriving instance MonadBalances m => MonadBalances (SscHolder ssc m)
 deriving instance MonadBalances m => MonadBalances (DelegationT m)
 deriving instance MonadBalances m => MonadBalances (USHolder m)
+deriving instance MonadBalances m => MonadBalances (WalletWebDB m)
 
 -- | Instances of 'MonadBalances' for wallet's and node's DBs
 instance MonadIO m => MonadBalances (WalletDB m) where
@@ -123,6 +126,7 @@ deriving instance MonadTxHistory m => MonadTxHistory (PC.ContextHolder ssc m)
 deriving instance MonadTxHistory m => MonadTxHistory (SscHolder ssc m)
 deriving instance MonadTxHistory m => MonadTxHistory (DelegationT m)
 deriving instance MonadTxHistory m => MonadTxHistory (USHolder m)
+deriving instance MonadTxHistory m => MonadTxHistory (WalletWebDB m)
 
 -- | Instances of 'MonadTxHistory' for wallet's and node's DBs
 
@@ -193,6 +197,7 @@ deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (Modern.TxpLDHold
 deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (SscHolder ssc m)
 deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (DelegationT m)
 deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (USHolder m)
+deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (WalletWebDB m)
 
 -- | Stub instance for lite-wallet
 instance MonadIO m => MonadBlockchainInfo (WalletDB m) where
@@ -231,10 +236,11 @@ instance ( Ssc ssc
 
 -- | Abstraction over getting update proposals
 class Monad m => MonadUpdates m where
-    getUpdates :: m [ConfirmedProposalState]
-    default getUpdates :: (MonadTrans t, MonadUpdates m', t m' ~ m)
-                       => m [ConfirmedProposalState]
-    getUpdates = lift getUpdates
+    waitForUpdate :: m ConfirmedProposalState
+
+    default waitForUpdate :: (MonadTrans t, MonadUpdates m', t m' ~ m)
+                          => m ConfirmedProposalState
+    waitForUpdate = lift waitForUpdate
 
 instance MonadUpdates m => MonadUpdates (ReaderT r m)
 instance MonadUpdates m => MonadUpdates (StateT s m)
@@ -246,19 +252,19 @@ deriving instance MonadUpdates m => MonadUpdates (Modern.TxpLDHolder ssc m)
 deriving instance MonadUpdates m => MonadUpdates (SscHolder ssc m)
 deriving instance MonadUpdates m => MonadUpdates (DelegationT m)
 deriving instance MonadUpdates m => MonadUpdates (USHolder m)
+deriving instance MonadUpdates m => MonadUpdates (WalletWebDB m)
 
 -- | Dummy instance for lite-wallet
 instance MonadIO m => MonadUpdates (WalletDB m) where
-    getUpdates = pure []
+    waitForUpdate = notImplemented
 
 -- | Instance for full node
-instance (Ssc ssc, MonadDB ssc m) => MonadUpdates (PC.ContextHolder ssc m) where
-    getUpdates = filter (HM.member appSystemTag . upData . cpsUpdateProposal) <$>
-                 GS.getConfirmedProposals (Just $ svNumber curSoftwareVersion)
-
-getNextUpdate :: MonadUpdates m => m (Maybe ConfirmedProposalState)
-getNextUpdate = head . sortBy cmpVersions <$> getUpdates
-  where cmpVersions = comparing $ svNumber . upSoftwareVersion . cpsUpdateProposal
+instance (Ssc ssc, MonadIO m) =>
+         MonadUpdates (PC.ContextHolder ssc m) where
+    waitForUpdate = liftIO . takeMVar . PC.ncUpdateSemaphore =<< PC.getNodeContext
+    -- getUpdates = pure []
+    -- getUpdates = filter (HM.member appSystemTag . upData . cpsUpdateProposal) <$>
+    --              GS.getConfirmedProposals (Just $ svNumber curSoftwareVersion)
 
 ---------------------------------------------------------------
 -- Composite restrictions

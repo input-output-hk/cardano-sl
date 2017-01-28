@@ -10,34 +10,7 @@
 
 module Pos.Types.Types
        (
-         -- * Coin
-         Coin
-       , CoinPortion
-       , coinF
-       , getCoinPortion
-       , mkCoin
-       , unsafeCoinPortion
-       , unsafeGetCoin
-
-       , EpochIndex (..)
-       , FlatSlotId
-       , LocalSlotIndex (..)
-       , SlotId (..)
-       , EpochOrSlot (..)
-       , slotIdF
-       , epochOrSlot
-
-       , Address (..)
-       , makePubKeyAddress
-       , makeScriptAddress
-       , checkPubKeyAddress
-       , checkScriptAddress
-       , addressF
-       , decodeTextAddress
-
-       , StakeholderId
-
-       , TxAttributes
+         TxAttributes
        , TxInWitness (..)
        , TxWitness
        , TxDistribution (..)
@@ -87,7 +60,6 @@ module Pos.Types.Types
        , BlockBodyAttributes
        , BiSsc
        , BlockSignature (..)
-       , ChainDifficulty (..)
        , MainToSign
        , MainBlock
 
@@ -98,18 +70,11 @@ module Pos.Types.Types
        , BlockHeader
        , Block
 
-       -- * HeaderHash related types and functions
-       , BlockHeaderStub
-       , HeaderHash
+       -- * HeaderHash related functions
        , blockHeaderHash
-       , headerHashF
 
        -- * Lenses
-       , HasDifficulty (..)
-       , HasEpochIndex (..)
-       , HasHeaderHash (..)
        , HasPrevBlock (..)
-       , HasEpochOrSlot (..)
 
        , blockHeader
        , blockLeaderKey
@@ -149,27 +114,21 @@ module Pos.Types.Types
        , mebAttributes
        ) where
 
-import           Control.Exception      (assert)
 import           Control.Lens           (Getter, choosing, makeLenses, makeLensesFor, to)
-import           Data.Data              (Data)
 import           Data.DeriveTH          (derive, makeNFData)
 import           Data.Hashable          (Hashable)
-import           Data.Ix                (Ix)
 import qualified Data.Map               as M (toList)
-import           Data.SafeCopy          (SafeCopy (..), base, contain,
-                                         deriveSafeCopySimple, safeGet, safePut)
-import qualified Data.Serialize         as Cereal (getWord8, putWord8)
 import           Data.Tagged            (untag)
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.Buildable    as Buildable
 import           Data.Text.Lazy.Builder (Builder)
 import           Data.Vector            (Vector)
-import           Formatting             (Format, bprint, build, int, later, ords, sformat,
+import           Formatting             (Format, bprint, build, int, later, sformat,
                                          stext, (%))
 import           Serokell.AcidState     ()
 import qualified Serokell.Util.Base16   as B16
 import           Serokell.Util.Text     (listBuilderJSON, listJson, listJsonIndent,
-                                         mapBuilderJson, pairBuilder, pairF)
+                                         mapBuilderJson, pairBuilder)
 import           Universum
 
 import           Pos.Binary.Address     ()
@@ -182,123 +141,14 @@ import           Pos.Data.Attributes    (Attributes)
 import           Pos.Merkle             (MerkleRoot, MerkleTree, mtRoot)
 import           Pos.Script.Type        (Script)
 import           Pos.Ssc.Class.Types    (Ssc (..))
-import           Pos.Types.Address      (Address (..), StakeholderId, addressF,
-                                         checkPubKeyAddress, checkScriptAddress,
-                                         decodeTextAddress, makePubKeyAddress,
-                                         makeScriptAddress)
-import           Pos.Types.Version      (BlockVersion, SoftwareVersion)
-import           Pos.Update.Core.Types  (UpdatePayload, UpdateProof, mkUpdateProof)
+import           Pos.Types.Core         (Address (..), BlockVersion, ChainDifficulty,
+                                         Coin, EpochIndex, HasDifficulty (..),
+                                         HasEpochIndex (..), HasEpochOrSlot (..),
+                                         HasHeaderHash (..), HeaderHash, SlotId (..),
+                                         SoftwareVersion, StakeholderId, coinF, slotIdF)
+import           Pos.Update.Core.Types  (UpdatePayload, UpdateProof, UpdateProposal,
+                                         mkUpdateProof)
 import           Pos.Util               (Color (Magenta), colorize)
-
-----------------------------------------------------------------------------
--- Coin
-----------------------------------------------------------------------------
-
--- | Coin is the least possible unit of currency.
-newtype Coin = Coin
-    { getCoin :: Word64
-    } deriving (Show, Ord, Eq, Generic, Hashable, Data, NFData)
-
-instance Buildable Coin where
-    build (Coin n) = bprint (int%" coin(s)") n
-
-instance Bounded Coin where
-    minBound = Coin 0
-    maxBound = Coin maxCoinVal
-
-maxCoinVal :: Word64
-maxCoinVal = 44999999999999999
-
--- | Make Coin from Word64.
-mkCoin :: Word64 -> Coin
-mkCoin n
-    | n > maxCoinVal = panic ("mkCoin: too big: " <> show n)
-    | otherwise      = Coin n
-{-# INLINE mkCoin #-}
-
--- | Coin formatter which restricts type.
-coinF :: Format r (Coin -> r)
-coinF = build
-
--- | Unwraps 'Coin'. It's called “unsafe” so that people wouldn't use it
--- willy-nilly if they want to sum coins or something. It's actually safe.
-unsafeGetCoin :: Coin -> Word64
-unsafeGetCoin = getCoin
-{-# INLINE unsafeGetCoin #-}
-
--- | CoinPortion is some portion of Coin, it must be in [0 .. 1]. Main
--- usage of it is multiplication with Coin. Usually it's needed to
--- determine some threshold expressed as portion of total stake.
-newtype CoinPortion = CoinPortion
-    { getCoinPortion :: Double
-    }
-
--- | Make CoinPortion from Double. Caller must ensure that value is in [0 .. 1].
-unsafeCoinPortion :: Double -> CoinPortion
-unsafeCoinPortion x = assert (0 <= x && x <= 1) $ CoinPortion x
-{-# INLINE unsafeCoinPortion #-}
-
-----------------------------------------------------------------------------
--- Slotting
-----------------------------------------------------------------------------
-
--- | Index of epoch.
-newtype EpochIndex = EpochIndex
-    { getEpochIndex :: Word64
-    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Hashable, Bounded, Typeable)
-
-instance Buildable EpochIndex where
-    build = bprint ("epoch #"%int)
-
-instance Buildable (EpochIndex,EpochIndex) where
-    build = bprint ("epochIndices: "%pairF)
-
--- | Index of slot inside a concrete epoch.
-newtype LocalSlotIndex = LocalSlotIndex
-    { getSlotIndex :: Word16
-    } deriving (Show, Eq, Ord, Num, Enum, Ix, Integral, Real, Generic, Hashable, Buildable, Typeable)
-
--- | Slot is identified by index of epoch and local index of slot in
--- this epoch. This is a global index
-data SlotId = SlotId
-    { siEpoch :: !EpochIndex
-    , siSlot  :: !LocalSlotIndex
-    } deriving (Show, Eq, Ord, Generic, Typeable)
-
-instance Buildable SlotId where
-    build SlotId {..} =
-        bprint (ords%" slot of "%ords%" epoch") siSlot siEpoch
-
--- | Specialized formatter for 'SlotId'.
-slotIdF :: Format r (SlotId -> r)
-slotIdF = build
-
--- | FlatSlotId is a flat version of SlotId
-type FlatSlotId = Word64
-
--- | Represents SlotId or EpochIndex. Useful because genesis blocks
--- have only EpochIndex, while main blocks have SlotId.
-newtype EpochOrSlot = EpochOrSlot
-    { unEpochOrSlot :: Either EpochIndex SlotId
-    } deriving (Show, Eq)
-
--- | Apply one of the function depending on content of EpochOrSlot.
-epochOrSlot :: (EpochIndex -> a) -> (SlotId -> a) -> EpochOrSlot -> a
-epochOrSlot f g = either f g . unEpochOrSlot
-
-instance Ord EpochOrSlot where
-    compare (EpochOrSlot e1) (EpochOrSlot e2) = case (e1,e2) of
-        (Left s1, Left s2)                      -> compare s1 s2
-        (Right s1, Left s2) | (siEpoch s1) < s2 -> LT
-                            | otherwise         -> GT
-        (Left s1, Right s2) | s1 > (siEpoch s2) -> GT
-                            | otherwise         -> LT
-        (Right s1, Right s2)
-            | siEpoch s1 == siEpoch s2 -> siSlot s1 `compare` siSlot s2
-            | otherwise -> siEpoch s1 `compare` siEpoch s2
-
-instance Buildable EpochOrSlot where
-    build = either Buildable.build Buildable.build . unEpochOrSlot
 
 ----------------------------------------------------------------------------
 -- Transaction
@@ -582,12 +432,6 @@ deriving instance ( Eq (BHeaderHash b)
 -- with transactions and MPC messages.
 data MainBlockchain ssc
 
--- | Chain difficulty represents necessary effort to generate a
--- chain. In the simplest case it can be number of blocks in chain.
-newtype ChainDifficulty = ChainDifficulty
-    { getChainDifficulty :: Word64
-    } deriving (Show, Eq, Ord, Num, Enum, Real, Integral, Generic, Buildable, Typeable)
-
 -- | Data to be signed in main block.
 type MainToSign ssc = (HeaderHash, BodyProof (MainBlockchain ssc), SlotId, ChainDifficulty)
 
@@ -758,7 +602,7 @@ instance BiSsc ssc => Buildable (MainBlockHeader ssc) where
 -- main part of our consensus algorithm.
 type MainBlock ssc = GenericBlock (MainBlockchain ssc)
 
-instance BiSsc ssc => Buildable (MainBlock ssc) where
+instance (Bi UpdateProposal, BiSsc ssc) => Buildable (MainBlock ssc) where
     build GenericBlock {..} =
         bprint
             (stext%":\n"%
@@ -767,7 +611,7 @@ instance BiSsc ssc => Buildable (MainBlock ssc) where
              "  certificates ("%int%" items): "%listJson%"\n"%
              build%"\n"%
              "  update payload: "%build%"\n"%
-             build
+             "  "%build
             )
             (colorize Magenta "MainBlock")
             _gbHeader
@@ -876,17 +720,6 @@ blockHeader = to getBlockHeader
 getBlockHeader :: Block ssc -> BlockHeader ssc
 getBlockHeader = bimap _gbHeader _gbHeader
 
--- | 'Hash' of block header. This should be @Hash (BlockHeader ssc)@
--- but we don't want to have @ssc@ in 'HeaderHash' type.
-type HeaderHash = Hash BlockHeaderStub
-data BlockHeaderStub
-
--- | Class for something that has 'HeaderHash'.
-class HasHeaderHash a where
-    headerHash :: a -> HeaderHash
-    headerHashG :: Getter a HeaderHash
-    headerHashG = to headerHash
-
 type BiHeader ssc = Bi (BlockHeader ssc)
 
 -- | This function is required because type inference fails in attempts to
@@ -920,10 +753,6 @@ instance BiHeader ssc =>
 instance BiHeader ssc =>
          HasHeaderHash (Block ssc) where
     headerHash = blockHeaderHash . getBlockHeader
-
--- | Specialized formatter for 'HeaderHash'.
-headerHashF :: Format r (HeaderHash -> r)
-headerHashF = build
 
 -- | Block.
 type Block ssc = Either (GenesisBlock ssc) (MainBlock ssc)
@@ -1021,10 +850,6 @@ headerLeaderKey = gbhConsensus . mcdLeaderKey
 headerSignature :: Lens' (MainBlockHeader ssc) (BlockSignature ssc)
 headerSignature = gbhConsensus . mcdSignature
 
--- | Type class for something that has 'ChainDifficulty'.
-class HasDifficulty a where
-    difficultyL :: Lens' a ChainDifficulty
-
 instance HasDifficulty (ConsensusData (MainBlockchain ssc)) where
     difficultyL = mcdDifficulty
 
@@ -1067,10 +892,6 @@ instance (BHeaderHash b ~ HeaderHash) =>
 instance (HasPrevBlock s, HasPrevBlock s') =>
          HasPrevBlock (Either s s') where
     prevBlockL = choosing prevBlockL prevBlockL
-
--- | Class for something that has 'EpochIndex'.
-class HasEpochIndex a where
-    epochIndexL :: Lens' a EpochIndex
 
 instance HasEpochIndex SlotId where
     epochIndexL f SlotId {..} = (\a -> SlotId {siEpoch = a, ..}) <$> f siEpoch
@@ -1128,14 +949,6 @@ blockProxySKs = gbBody . mbProxySKs
 blockLeaders :: Lens' (GenesisBlock ssc) SlotLeaders
 blockLeaders = gbBody . gbLeaders
 
-
-class HasEpochOrSlot a where
-    _getEpochOrSlot :: a -> Either EpochIndex SlotId
-    getEpochOrSlot :: a -> EpochOrSlot
-    getEpochOrSlot = EpochOrSlot . _getEpochOrSlot
-    epochOrSlotG :: Getter a EpochOrSlot
-    epochOrSlotG = to getEpochOrSlot
-
 instance HasEpochOrSlot (MainBlockHeader ssc) where
     _getEpochOrSlot = Right . _mcdSlot . _gbhConsensus
 
@@ -1151,166 +964,6 @@ instance HasEpochOrSlot (GenesisBlock ssc) where
 instance (HasEpochOrSlot a, HasEpochOrSlot b) =>
          HasEpochOrSlot (Either a b) where
     _getEpochOrSlot = either _getEpochOrSlot _getEpochOrSlot
-
-----------------------------------------------------------------------------
--- SafeCopy instances
-----------------------------------------------------------------------------
-
--- These instances are all gathered at the end because otherwise we'd have to
--- sort types topologically
-
-deriveSafeCopySimple 0 'base ''EpochIndex
-deriveSafeCopySimple 0 'base ''LocalSlotIndex
-deriveSafeCopySimple 0 'base ''SlotId
-deriveSafeCopySimple 0 'base ''EpochOrSlot
-deriveSafeCopySimple 0 'base ''Coin
-deriveSafeCopySimple 0 'base ''Address
-deriveSafeCopySimple 0 'base ''TxInWitness
--- TODO: in many cases TxDistribution would just be lots of empty lists, so
--- its SafeCopy instance could be optimised
-deriveSafeCopySimple 0 'base ''TxDistribution
-deriveSafeCopySimple 0 'base ''TxIn
-deriveSafeCopySimple 0 'base ''TxOut
-deriveSafeCopySimple 0 'base ''Tx
-deriveSafeCopySimple 0 'base ''SharedSeed
-
-deriveSafeCopySimple 0 'base ''MainExtraBodyData
-deriveSafeCopySimple 0 'base ''MainExtraHeaderData
-
--- Manually written instances can't be derived because
--- 'deriveSafeCopySimple' is not clever enough to add
--- “SafeCopy (Whatever a) =>” constaints.
-instance ( SafeCopy (BHeaderHash b)
-         , SafeCopy (BodyProof b)
-         , SafeCopy (ConsensusData b)
-         , SafeCopy (ExtraHeaderData b)
-         ) =>
-         SafeCopy (GenericBlockHeader b) where
-    getCopy =
-        contain $
-        do _gbhPrevBlock <- safeGet
-           _gbhBodyProof <- safeGet
-           _gbhConsensus <- safeGet
-           _gbhExtra <- safeGet
-           return $! GenericBlockHeader {..}
-    putCopy GenericBlockHeader {..} =
-        contain $
-        do safePut _gbhPrevBlock
-           safePut _gbhBodyProof
-           safePut _gbhConsensus
-           safePut _gbhExtra
-
-instance ( SafeCopy (BHeaderHash b)
-         , SafeCopy (BodyProof b)
-         , SafeCopy (ConsensusData b)
-         , SafeCopy (ExtraHeaderData b)
-         , SafeCopy (Body b)
-         , SafeCopy (ExtraBodyData b)
-         ) =>
-         SafeCopy (GenericBlock b) where
-    getCopy =
-        contain $
-        do _gbHeader <- safeGet
-           _gbBody <- safeGet
-           _gbExtra <- safeGet
-           return $! GenericBlock {..}
-    putCopy GenericBlock {..} =
-        contain $
-        do safePut _gbHeader
-           safePut _gbBody
-           safePut _gbExtra
-
-deriveSafeCopySimple 0 'base ''ChainDifficulty
-
-instance (Ssc ssc, SafeCopy (SscProof ssc)) =>
-         SafeCopy (BodyProof (MainBlockchain ssc)) where
-    getCopy = contain $ do
-        mpNumber        <- safeGet
-        mpRoot          <- safeGet
-        mpWitnessesHash <- safeGet
-        mpMpcProof      <- safeGet
-        mpProxySKsProof <- safeGet
-        mpUpdateProof   <- safeGet
-        return $! MainProof{..}
-    putCopy MainProof {..} = contain $ do
-        safePut mpNumber
-        safePut mpRoot
-        safePut mpWitnessesHash
-        safePut mpMpcProof
-        safePut mpProxySKsProof
-        safePut mpUpdateProof
-
-instance SafeCopy (BodyProof (GenesisBlockchain ssc)) where
-    getCopy =
-        contain $
-        do x <- safeGet
-           return $! GenesisProof x
-    putCopy (GenesisProof x) =
-        contain $
-        do safePut x
-
-instance SafeCopy (BlockSignature ssc) where
-    getCopy = contain $ Cereal.getWord8 >>= \case
-        0 -> BlockSignature <$> safeGet
-        1 -> BlockPSignatureEpoch <$> safeGet
-        2 -> BlockPSignatureSimple <$> safeGet
-        t -> fail $ "getCopy@BlockSignature: couldn't read tag: " <> show t
-    putCopy (BlockSignature sig)       = contain $ Cereal.putWord8 0 >> safePut sig
-    putCopy (BlockPSignatureEpoch proxySig) = contain $ Cereal.putWord8 1 >> safePut proxySig
-    putCopy (BlockPSignatureSimple proxySig) = contain $ Cereal.putWord8 2 >> safePut proxySig
-
-instance SafeCopy (ConsensusData (MainBlockchain ssc)) where
-    getCopy =
-        contain $
-        do _mcdSlot <- safeGet
-           _mcdLeaderKey <- safeGet
-           _mcdDifficulty <- safeGet
-           _mcdSignature <- safeGet
-           return $! MainConsensusData {..}
-    putCopy MainConsensusData {..} =
-        contain $
-        do safePut _mcdSlot
-           safePut _mcdLeaderKey
-           safePut _mcdDifficulty
-           safePut _mcdSignature
-
-instance SafeCopy (ConsensusData (GenesisBlockchain ssc)) where
-    getCopy =
-        contain $
-        do _gcdEpoch <- safeGet
-           _gcdDifficulty <- safeGet
-           return $! GenesisConsensusData {..}
-    putCopy GenesisConsensusData {..} =
-        contain $
-        do safePut _gcdEpoch
-           safePut _gcdDifficulty
-
-instance (Ssc ssc, SafeCopy (SscPayload ssc)) =>
-         SafeCopy (Body (MainBlockchain ssc)) where
-    getCopy = contain $ do
-        _mbTxs                 <- safeGet
-        _mbWitnesses           <- safeGet
-        _mbTxAddrDistributions <- safeGet
-        _mbMpc                 <- safeGet
-        _mbProxySKs            <- safeGet
-        _mbUpdatePayload       <- safeGet
-        return $! MainBody{..}
-    putCopy MainBody {..} = contain $ do
-        safePut _mbTxs
-        safePut _mbWitnesses
-        safePut _mbTxAddrDistributions
-        safePut _mbMpc
-        safePut _mbProxySKs
-        safePut _mbUpdatePayload
-
-instance SafeCopy (Body (GenesisBlockchain ssc)) where
-    getCopy =
-        contain $
-        do _gbLeaders <- safeGet
-           return $! GenesisBody {..}
-    putCopy GenesisBody {..} =
-        contain $
-        do safePut _gbLeaders
 
 ----------------------------------------------------------------------------
 -- Other derived instances

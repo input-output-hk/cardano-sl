@@ -41,8 +41,8 @@ import           Universum
 
 import           Pos.Binary.Class      (Bi, encodeStrict)
 import           Pos.Binary.Types      ()
-import           Pos.Constants         (delegationThreshold, mpcThreshold,
-                                        updateVoteThreshold)
+import           Pos.Constants         (genesisHeavyDelThd, genesisMpcThd,
+                                        genesisUpdateVoteThd)
 import           Pos.Context.Class     (WithNodeContext)
 import           Pos.Context.Functions (genesisUtxoM)
 import           Pos.DB.Class          (MonadDB)
@@ -183,7 +183,7 @@ instance RichmenComponent RCSsc where
     type RichmenData RCSsc = Richmen
     rcToData = toRichmen . snd
     rcTag Proxy = "ssc"
-    rcThreshold Proxy = applyCoinPortion mpcThreshold
+    rcThreshold Proxy = applyCoinPortion genesisMpcThd
     rcConsiderDelegated Proxy = True
 
 getRichmenSsc :: MonadDB ssc m => EpochIndex -> m (Maybe Richmen)
@@ -204,7 +204,7 @@ instance RichmenComponent RCUs where
     type RichmenData RCUs = FullRichmenData
     rcToData = identity
     rcTag Proxy = "us"
-    rcThreshold Proxy = applyCoinPortion updateVoteThreshold
+    rcThreshold Proxy = applyCoinPortion genesisUpdateVoteThd
     rcConsiderDelegated Proxy = True
 
 getRichmenUS :: MonadDB ssc m => EpochIndex -> m (Maybe FullRichmenData)
@@ -225,7 +225,7 @@ instance RichmenComponent RCDlg where
     type RichmenData RCDlg = Richmen
     rcToData = toRichmen . snd
     rcTag Proxy = "dlg"
-    rcThreshold Proxy = applyCoinPortion delegationThreshold
+    rcThreshold Proxy = applyCoinPortion genesisHeavyDelThd
     rcConsiderDelegated Proxy = False
 
 getRichmenDlg :: MonadDB ssc m => EpochIndex -> m (Maybe Richmen)

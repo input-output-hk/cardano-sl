@@ -24,7 +24,8 @@ import           Pos.Crypto           (SecretKey, createProxySecretKey, encodeHa
 import           Pos.Data.Attributes  (mkAttributes)
 import           Pos.Delegation       (sendProxySKEpoch, sendProxySKSimple)
 import           Pos.DHT.Model        (dhtAddr, discoverPeers)
-import           Pos.Genesis          (genesisPublicKeys, genesisSecretKeys)
+import           Pos.Genesis          (genesisBlockVersionData, genesisPublicKeys,
+                                       genesisSecretKeys)
 import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
                                        bracketResources, runTimeSlaveReal)
 import           Pos.Slotting         (getSlotDuration)
@@ -73,7 +74,7 @@ runCmd sendActions (Vote idx decision upid) = do
 runCmd sendActions ProposeUpdate{..} = do
     (skeys, na) <- ask
     let skey = skeys !! puIdx
-    let bvd = BlockVersionData
+    let bvd = genesisBlockVersionData
             { bvdScriptVersion = puScriptVersion
             , bvdSlotDuration = convertUnit (sec puSlotDurationSec)
             , bvdMaxBlockSize = puMaxBlockSize
@@ -101,8 +102,8 @@ runCmd _ Help = do
             , "                                     from own address #N"
             , "   vote <N> <decision> <upid>     -- send vote with given hash of proposal id (in base64) and"
             , "                                     decision, from own address #N"
-            , "   propose-update <N> <block ver> <script ver> <software ver>"
-            , "                                  -- propose an update with given versions"
+            , "   propose-update <N> <block ver> <script ver> <slot duration> <max block size> <software ver>"
+            , "                                  -- propose an update with given versions and other data"
             , "                                     with one positive vote for it, from own address #N"
             , "   listaddr                       -- list own addresses"
             , "   listaddr                       -- list own addresses"
@@ -113,7 +114,7 @@ runCmd _ Help = do
             ]
 runCmd _ ListAddresses = do
     addrs <- map (makePubKeyAddress . toPublic) <$> asks fst
-    putText "Available addrsses:"
+    putText "Available addresses:"
     forM_ (zip [0 :: Int ..] addrs) $
         putText . uncurry (sformat $ "    #"%int%":   "%build)
 runCmd sendActions (DelegateLight i j) = do

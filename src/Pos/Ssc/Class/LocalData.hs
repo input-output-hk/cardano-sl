@@ -16,7 +16,7 @@ import           Universum
 
 import           Pos.Lrc.Types       (Richmen)
 import           Pos.Ssc.Class.Types (Ssc (..))
-import           Pos.Types.Types     (SlotId)
+import           Pos.Types           (SlotId)
 
 ----------------------------------------------------------------------------
 -- Modern

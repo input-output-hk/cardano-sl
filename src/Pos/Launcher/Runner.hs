@@ -248,6 +248,7 @@ runCH :: (MonadDB ssc m, Mockable CurrentTime m)
 runCH NodeParams {..} sscNodeContext act = do
     jlFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
     semaphore <- liftIO newEmptyMVar
+    updSemaphore <- liftIO newEmptyMVar
     lrcSync <- liftIO $ newTVarIO (True, 0)
 
     let eternity = (minBound, maxBound)
@@ -284,6 +285,9 @@ runCH NodeParams {..} sscNodeContext act = do
             , ncKademliaDump = bpKademliaDump npBaseParams
             , ncBlockRetrievalQueue = queue
             , ncRecoveryHeader = recoveryHeaderVar
+            , ncUpdateSemaphore = updSemaphore
+            , ncUpdatePath = npUpdatePath
+            , ncUpdateWithPkg = npUpdateWithPkg
             }
     runContextHolder ctx act
 

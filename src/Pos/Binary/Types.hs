@@ -4,20 +4,20 @@
 
 module Pos.Binary.Types () where
 
-import           Data.Binary.Get       (getInt32be, getWord64be, getWord8, label)
-import           Data.Binary.Put       (putInt32be, putWord64be, putWord8)
+import           Data.Binary.Get       (getInt32be, getWord8, label)
+import           Data.Binary.Put       (putInt32be, putWord8)
 import           Data.Ix               (inRange)
 import           Formatting            (formatToString, int, sformat, (%))
 import           Universum
 
 import           Pos.Binary.Class      (Bi (..), UnsignedVarInt (..))
-import           Pos.Binary.Merkle     ()
 import qualified Pos.Binary.Coin       as BinCoin
+import           Pos.Binary.Merkle     ()
 import           Pos.Binary.Version    ()
 import           Pos.Constants         (epochSlots, protocolMagic)
 import qualified Pos.Data.Attributes   as A
 import           Pos.Ssc.Class.Types   (Ssc (..))
-import qualified Pos.Types.Timestamp   as T
+import qualified Pos.Types.Core        as T
 import qualified Pos.Types.Types       as T
 import           Pos.Update.Core.Types (UpdatePayload)
 
@@ -32,6 +32,10 @@ instance Bi (A.Attributes ()) where
 instance Bi T.Coin where
     put = mapM_ putWord8 . BinCoin.encode
     get = BinCoin.decode
+
+instance Bi T.CoinPortion where
+    put = put . T.getCoinPortion
+    get = get >>= T.mkCoinPortion
 
 instance Bi T.Timestamp where
     get = fromInteger <$> get

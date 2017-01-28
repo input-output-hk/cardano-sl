@@ -21,6 +21,7 @@ import           Pos.Ssc.Class.Types            (Ssc (SscNodeContext))
 import           Pos.Types                      (Address, BlockHeader, EpochIndex,
                                                  HeaderHash, SlotLeaders, Timestamp (..),
                                                  Utxo, makePubKeyAddress)
+import           Pos.Update.Poll.Types          (ConfirmedProposalState)
 import           Pos.Util                       (NE, NewestFirst)
 import           Pos.Util.UserSecret            (UserSecret)
 
@@ -78,6 +79,13 @@ data NodeContext ssc = NodeContext
     -- that's more difficult than this one, we overwrite. Every time
     -- we process some blocks and fail or see that we've downloaded
     -- this header, we clean mvar.
+    , ncUpdateSemaphore     :: !(MVar ConfirmedProposalState)
+    -- ^ A semaphore which is unlocked when update data is downloaded
+    -- and ready to apply
+    , ncUpdatePath          :: !FilePath
+    -- ^ Path to update installer executable, downloaded by update system
+    , ncUpdateWithPkg       :: !Bool
+    -- ^ Whether to use installer update mechanism
     }
 
 -- | Generate 'PublicKey' from 'SecretKey' of 'NodeContext'.

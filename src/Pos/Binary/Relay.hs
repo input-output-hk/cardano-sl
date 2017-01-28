@@ -1,3 +1,5 @@
+{-# LANGUAGE BangPatterns #-}
+
 -- | Pos.Util.Relay serialization instances
 
 module Pos.Binary.Relay () where
@@ -25,26 +27,20 @@ instance (Bi tag, Bi key) => Bi (ReqMsg key tag) where
     put ReqMsg {..} = put rmTag >> put rmKeys
     get = liftM2 ReqMsg get get
 
--- Sometimes we want another instances to exist
---instance (Bi tag, Bi contents) => Bi (DataMsg key contents) where
---    put DataMsg {..} = put dmContents >> put dmKey
---    get = liftM2 DataMsg get get
-
 instance Bi (DataMsg StakeholderId GtMsgContents) where
-    put DataMsg {..} = put dmContents >> put dmKey
+    put DataMsg {..} = do
+        put dmContents
+        case dmContents of
+            MCShares _         -> put dmKey
+            MCOpening _        -> put dmKey
+            MCCommitment _     -> pass
+            MCVssCertificate _ -> pass
     get = do
         dmContents <- get
-        dmKey <- get
-        case dmContents of
-            MCCommitment (pk, _, _) ->
-                when (addressHash pk /= dmKey) $
-                fail
-                    "get@DataMsg@GodTossing: stakeholder ID doesn't correspond to public key from commitment"
-            MCVssCertificate VssCertificate {..} ->
-                when (addressHash vcSigningKey /= dmKey) $
-                fail
-                    "get@DataMsg@GodTossing: stakeholder ID doesn't correspond to public key from VSS certificate"
-            _ -> pass
+        dmKey <- case dmContents of
+            MCCommitment (pk, _, _)              -> pure $ addressHash pk
+            MCVssCertificate VssCertificate {..} -> pure $ addressHash vcSigningKey
+            _                                    -> get
         return $ DataMsg {..}
 
 instance Bi DataMsgGodTossing where
@@ -60,14 +56,13 @@ instance Bi (DataMsg TxId TxMsgContents) where
       pure $ DataMsg conts (hash tx)
 
 instance Bi (DataMsg UpId (UpdateProposal, [UpdateVote])) where
-    put DataMsg {..} = put dmContents >> put dmKey
+    put DataMsg {..} = put dmContents
     get = do
         c@(up, votes) <- get
-        key <- get
-        let id = hash up
+        let !id = hash up
         unless (all ((id ==) . uvProposalId) votes) $
             fail "get@DataMsg@Update: vote's uvProposalId must be equal UpId"
-        pure $ DataMsg c key
+        pure $ DataMsg c id
 
 instance Bi (DataMsg VoteId UpdateVote) where
     put (DataMsg uv _) = put uv

@@ -21,7 +21,6 @@ module Pos.Ssc.GodTossing.VssCertData
 
 import qualified Data.HashMap.Strict           as HM
 import qualified Data.List                     as List
-import           Data.SafeCopy                 (base, deriveSafeCopySimple)
 import qualified Data.Set                      as S
 import           Formatting                    (build, sformat, (%))
 import           Universum                     hiding (empty, filter)
@@ -57,8 +56,6 @@ data VssCertData = VssCertData
       -- Set (full expired slot, (id, insertion slot, cert))
     , expiredCerts :: !(Set (EpochOrSlot, (StakeholderId, EpochOrSlot, VssCertificate)))
     } deriving (Show, Eq)
-
-deriveSafeCopySimple 0 'base ''VssCertData
 
 -- | Create empty 'VssCertData'.
 empty :: VssCertData

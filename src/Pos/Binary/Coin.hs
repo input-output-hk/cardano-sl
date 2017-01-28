@@ -1,17 +1,17 @@
-{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE ViewPatterns #-}
 module Pos.Binary.Coin
     ( encode
     , decode
     ) where
 
-import           Data.Word
+import           Control.Monad   (when)
+import           Data.Binary.Get (Get, getWord8)
 import           Data.Bits
---import           Data.Binary
-import           Control.Monad         (when)
-import           Data.Binary.Get       (getWord8, Get)
+import           Data.Word
 import           Universum
-import           Pos.Types.Types       (mkCoin, unsafeGetCoin, Coin)
+
+import           Pos.Types.Core  (Coin, mkCoin, unsafeGetCoin)
 
 -- number of total coins is 45*10^9 * 10^6
 --
@@ -31,7 +31,7 @@ import           Pos.Types.Types       (mkCoin, unsafeGetCoin, Coin)
 -- coin is splitted in mega coin (10^6) and the remaining coin for serialization
 --
 -- 1000999 coin = 1.000999 mega coin
--- 
+--
 -- simple varint encoding with word64 limit. the total length of the sequence is encoded
 -- in the first byte with a variable mask.
 --
@@ -81,7 +81,7 @@ encodeVarint w
     | w <= 0x1FFFFF     = [0xc0 .|. (w .>>. 16), w .>>. 8, fromIntegral w]
     | w <= 0x0FFFFFFF   = [0xe0 .|. (w .>>. 24), w .>>. 16, w .>>. 8, fromIntegral w]
     | w <= 0x0FFFFFFFFF = [0xf0 .|. (w .>>. 32), w .>>. 24, w .>>. 16, w .>>. 8, fromIntegral w]
-    | otherwise         = error "invalid encoding for integral part"
+    | otherwise         = panic "invalid encoding for integral part"
 
 expectedContBytes :: Word64 -> Int
 expectedContBytes w
@@ -90,7 +90,7 @@ expectedContBytes w
     | w <= 0x1FFFFF     = 2
     | w <= 0x0FFFFFFF   = 3
     | w <= 0x0FFFFFFFFF = 4
-    | otherwise         = error "invalid encoding"
+    | otherwise         = panic "invalid encoding"
 
 -- given the header byte, return the number of following byte,
 -- and the initial accumulator
@@ -128,14 +128,14 @@ decode = do
 (.>>.) :: Word64 -> Int -> Word8
 (.>>.) w n = fromIntegral (w `shiftR` n)
 
-(.<<.) :: Word8 -> Int -> Word64
-(.<<.) w n = fromIntegral w `shiftL` n
+-- (.<<.) :: Word8 -> Int -> Word64
+-- (.<<.) w n = fromIntegral w `shiftL` n
 
 isClear :: Word8 -> Int -> Bool
 isClear w bitN = not (testBit w bitN)
 
 toBase10 :: (Integral n, Ord n, Num n) => Int -> n -> [n]
-toBase10 nbDigits n = loop nbDigits n
+toBase10 nbDigits = loop nbDigits
   where
     loop 0 _ = []
     loop i n = r : loop (i-1) b

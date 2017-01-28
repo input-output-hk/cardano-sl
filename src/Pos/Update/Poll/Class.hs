@@ -10,6 +10,7 @@ module Pos.Update.Poll.Class
 
 import           Control.Monad.Except  (ExceptT)
 import           Control.Monad.Trans   (MonadTrans)
+import           System.Wlog           (WithLogger)
 import           Universum
 
 import           Pos.Types             (ApplicationName, BlockVersion, ChainDifficulty,
@@ -26,7 +27,7 @@ import           Pos.Update.Poll.Types (BlockVersionState, ConfirmedProposalStat
 
 -- | Type class which provides function necessary for read-only
 -- verification of US data.
-class Monad m => MonadPollRead m where
+class (Monad m, WithLogger m) => MonadPollRead m where
     getBVState :: BlockVersion -> m (Maybe BlockVersionState)
     -- ^ Retrieve state of given block version.
     getProposedBVs :: m [BlockVersion]

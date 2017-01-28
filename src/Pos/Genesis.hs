@@ -27,6 +27,7 @@ module Pos.Genesis
 
        -- * Update System
        , genesisBlockVersion
+       , genesisBlockVersionData
        , genesisSoftwareVersions
        , genesisScriptVersion
        , genesisSlotDuration
@@ -58,6 +59,7 @@ import           Pos.Types                  (Address (..), BlockVersion (..), Co
                                              makePubKeyAddress, mkCoin, unsafeAddCoin,
                                              unsafeMulCoin)
 import           Pos.Types.Version          (SoftwareVersion (..))
+import           Pos.Update.Core.Types      (BlockVersionData (..))
 
 ----------------------------------------------------------------------------
 -- Static state
@@ -131,7 +133,7 @@ stakeDistribution TestnetStakes {..} =
     poors = fromIntegral sdPoor
     -- Minimum amount of money to become rich
     thresholdRich = coinToInteger $
-        applyCoinPortion Const.mpcThreshold sdTotalStake
+        applyCoinPortion Const.genesisMpcThd sdTotalStake
     -- Maximal amount of total money which poor stakeholders can hold
     maxPoorStake = (thresholdRich - 1) * poors
     -- Minimum amount of richmen's money to prevent poors becoming richmen
@@ -148,6 +150,8 @@ stakeDistribution TestnetStakes {..} =
                   else (poorStake `div` poors, poorStake `mod` poors)
     -- Coin distribution (w/o modulo added)
     basicDist = genericReplicate richs rich ++ genericReplicate poors poor
+stakeDistribution (ExplicitStakes balances) =
+    toList balances
 
 bitcoinDistribution1000Coins :: Word -> [Coin]
 bitcoinDistribution1000Coins stakeholders
@@ -213,6 +217,22 @@ genesisBlockVersion =
 -- | Software Versions
 genesisSoftwareVersions :: [SoftwareVersion]
 genesisSoftwareVersions = [Const.curSoftwareVersion { svNumber = 0 }]
+
+-- | 'BlockVersionData' for genesis 'BlockVersion'.
+genesisBlockVersionData :: BlockVersionData
+genesisBlockVersionData =
+    BlockVersionData
+    { bvdScriptVersion = genesisScriptVersion
+    , bvdSlotDuration = Const.genesisSlotDuration
+    , bvdMaxBlockSize = Const.genesisMaxBlockSize
+    , bvdMaxTxSize = Const.genesisMaxTxSize
+    , bvdMpcThd = Const.genesisMpcThd
+    , bvdHeavyDelThd = Const.genesisHeavyDelThd
+    , bvdUpdateVoteThd = Const.genesisUpdateVoteThd
+    , bvdUpdateProposalThd = Const.genesisUpdateProposalThd
+    , bvdUpdateImplicit = Const.genesisUpdateImplicit
+    , bvdUpdateSoftforkThd = Const.genesisUpdateSoftforkThd
+    }
 
 -- | ScriptVersion used at the very beginning
 genesisScriptVersion :: ScriptVersion

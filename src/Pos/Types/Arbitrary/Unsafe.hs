@@ -1,13 +1,13 @@
--- | 'Arbitrary' unsafe instances for 'SlotId' and 'TxOut'.
+-- | 'Arbitrary' unsafe instances for some types from 'Pos.Types'.
 
 module Pos.Types.Arbitrary.Unsafe () where
 
 import           Universum
 
 import           Pos.Crypto.Arbitrary.Unsafe ()
-import           Pos.Types.Types             (Address (..), Coin, EpochIndex (..),
-                                              LocalSlotIndex (..), SharedSeed (..),
-                                              SlotId (..), TxOut (..), mkCoin)
+import           Pos.Types.Core              (Address (..), Coin, EpochIndex (..),
+                                              LocalSlotIndex (..), SlotId (..), mkCoin)
+import           Pos.Types.Types             (SharedSeed (..), TxOut (..))
 import           Pos.Util.Arbitrary          (ArbitraryUnsafe (..))
 
 deriving instance ArbitraryUnsafe SharedSeed

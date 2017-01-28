@@ -25,6 +25,7 @@ import           Data.Containers                      (ContainerKey,
 import qualified Data.HashMap.Strict                  as HM
 import qualified Data.HashSet                         as HS
 import           Data.List.NonEmpty                   (NonEmpty ((:|)))
+import           Formatting                           (build, sformat, stext, (%))
 import           Serokell.Util.Verify                 (isVerSuccess)
 import           Universum
 
@@ -62,8 +63,8 @@ import           Pos.Ssc.GodTossing.Types.Base        (Commitment, Opening,
                                                        SignedCommitment, vcExpiryEpoch)
 import           Pos.Ssc.GodTossing.Types.Message     (GtMsgContents (..), GtMsgTag (..))
 import qualified Pos.Ssc.GodTossing.VssCertData       as VCD
-import           Pos.Types                            (SlotId (..), StakeholderId,
-                                                       addressHash)
+import           Pos.Types                            (EpochIndex, SlotId (..),
+                                                       StakeholderId, addressHash)
 
 instance SscBi => SscLocalDataClass SscGodTossing where
     sscGetLocalPayloadQ = getLocalPayload
@@ -224,24 +225,27 @@ sscIsDataUsefulSetImpl localG globalG addr =
 -- has been actually added.
 sscProcessMessage ::
        (MonadSscLD SscGodTossing m, SscBi)
-    => Richmen -> GtMsgContents -> StakeholderId -> m (Either TossVerFailure ())
+    => (EpochIndex, Richmen) -> GtMsgContents -> StakeholderId -> m (Either TossVerFailure ())
 sscProcessMessage richmen msg =
-    gtRunModify . runExceptT . sscProcessMessageU (HS.fromList $ toList richmen) msg
+    gtRunModify . runExceptT . sscProcessMessageU (second (HS.fromList . toList) richmen) msg
 
 sscProcessMessageU
     :: SscBi
-    => RichmenSet
+    => (EpochIndex, RichmenSet)
     -> GtMsgContents
     -> StakeholderId
     -> LDProcess ()
-sscProcessMessageU richmen (MCCommitment comm) addr =
-    processCommitment richmen addr comm
-sscProcessMessageU _ (MCOpening open) addr =
-    processOpening addr open
-sscProcessMessageU richmen (MCShares shares) addr =
-    processShares richmen addr shares
-sscProcessMessageU richmen (MCVssCertificate cert) addr =
-    processVssCertificate richmen addr cert
+sscProcessMessageU (richmenEpoch, richmen) msg id = do
+    epochIdx <- siEpoch <$> use gtLastProcessedSlot
+    when (epochIdx /= richmenEpoch) $
+           throwError $ TossInternallError $ sformat fmt epochIdx richmenEpoch
+    case msg of
+        MCCommitment     comm -> processCommitment richmen id comm
+        MCOpening        open -> processOpening id open
+        MCShares       shares -> processShares richmen id shares
+        MCVssCertificate cert -> processVssCertificate richmen id cert
+  where
+    fmt = "Last processed epoch: "%build%", but richmen epoch:"%build
 
 runChecks :: MonadError TossVerFailure m => [(m Bool, TossVerFailure)] -> m ()
 runChecks checks =

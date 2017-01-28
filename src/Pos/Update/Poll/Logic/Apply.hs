@@ -19,8 +19,9 @@ import           Formatting                 (build, builder, sformat, (%))
 import           System.Wlog                (logInfo, logNotice)
 import           Universum
 
-import           Pos.Constants              (blkSecurityParam, updateImplicitApproval,
-                                             updateProposalThreshold, updateVoteThreshold)
+import           Pos.Constants              (blkSecurityParam, genesisUpdateImplicit,
+                                             genesisUpdateProposalThd,
+                                             genesisUpdateVoteThd)
 import           Pos.Crypto                 (hash, shortHashF)
 import           Pos.Ssc.Class              (Ssc)
 import           Pos.Types                  (ChainDifficulty, Coin, EpochIndex,
@@ -53,7 +54,7 @@ type ApplyMode m = (MonadError PollVerFailure m, MonadPoll m)
 -- MonadPoll. If data is valid it is also applied.  Otherwise
 -- PollVerificationFailure is thrown using MonadError type class.
 -- When first flag is true and proposal is present,
--- 'updateProposalThreshold' is checked for it, otherwise it's not
+-- 'genesisUpdateProposalThd' is checked for it, otherwise it's not
 -- checked.
 -- When second argument is 'Left epoch', it means that temporary payload
 -- for given slot is applied.
@@ -119,7 +120,7 @@ resolveVoteStake epoch totalStake UpdateVote {..} = do
     when (stake < threshold) $ throwError $ mkNotRichman id (Just stake)
     return stake
   where
-    threshold = applyCoinPortion updateVoteThreshold totalStake
+    threshold = applyCoinPortion genesisUpdateVoteThd totalStake
     mkNotRichman id stake =
         PollNotRichman
         {pnrStakeholder = id, pnrThreshold = threshold, pnrStake = stake}
@@ -133,7 +134,7 @@ resolveVoteStake epoch totalStake UpdateVote {..} = do
 -- 3. Check that numeric software version of application is 1 more than
 --    of last confirmed proposal for this application.
 -- 4. If 'considerThreshold' is true, also check that sum of positive votes
---    for this proposal is enough (at least 'updateProposalThreshold').
+--    for this proposal is enough (at least 'genesisUpdateProposalThd').
 --
 -- If all checks pass, proposal is added. It can be in undecided or decided
 -- state (if it has enough voted stake at once).
@@ -270,13 +271,13 @@ verifyBlockVersion upId UpdateProposal {..} = do
             , pbpvAdopted = lastAdopted
             }
 
--- Here we check that proposal has at least 'updateProposalThreshold'
+-- Here we check that proposal has at least 'genesisUpdateProposalThd'
 -- stake of total stake in all positive votes for it.
 verifyProposalStake
     :: (MonadError PollVerFailure m)
     => Coin -> [(UpdateVote, Coin)] -> UpId -> m ()
 verifyProposalStake totalStake votesAndStakes upId = do
-    let threshold = applyCoinPortion updateProposalThreshold totalStake
+    let threshold = applyCoinPortion genesisUpdateProposalThd totalStake
     let votesSum =
             sumCoins . map snd . filter (uvDecision . fst) $ votesAndStakes
     when (coinToInteger totalStake < votesSum) $
@@ -339,7 +340,7 @@ verifyAndApplyVoteDo cd ups v@UpdateVote {..} = do
     addActiveProposal newPS
 
 -- According to implicit agreement rule all proposals which were put
--- into blocks earlier than 'updateImplicitApproval' slots before slot
+-- into blocks earlier than 'genesisUpdateImplicit' slots before slot
 -- of current block become implicitly decided (approved or rejected).
 -- If proposal's total positive stake is bigger than negative, it's
 -- approved. Otherwise it's rejected.
@@ -347,9 +348,9 @@ applyImplicitAgreement
     :: MonadPoll m
     => SlotId -> ChainDifficulty -> HeaderHash -> m ()
 applyImplicitAgreement (flattenSlotId -> slotId) cd hh
-    | slotId < updateImplicitApproval = pass
+    | slotId < genesisUpdateImplicit = pass
     | otherwise = do
-        let oldSlot = unflattenSlotId $ slotId - updateImplicitApproval
+        let oldSlot = unflattenSlotId $ slotId - genesisUpdateImplicit
         mapM_ applyImplicitAgreementDo =<< getOldProposals oldSlot
   where
     applyImplicitAgreementDo ups = do

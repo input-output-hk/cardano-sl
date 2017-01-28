@@ -63,10 +63,6 @@ module Pos.Constants
        , ourAppName
        , appSystemTag
        , updateServers
-       , updateProposalThreshold
-       , updateVoteThreshold
-       , updateImplicitApproval
-       , usSoftforkThreshold
 
        -- * Package structure constants
        , pkgUpdatesDir
@@ -402,6 +398,7 @@ updateServers = ccUpdateServers compileConfig
 ----------------------------------------------------------------------------
 -- NTP
 ----------------------------------------------------------------------------
+
 -- | Inaccuracy in call threadDelay (actually it is error much less than 1 sec)
 ntpMaxError :: Microsecond
 ntpMaxError = sec 1
@@ -413,23 +410,3 @@ ntpResponseTimeout = mcs . ccNtpResponseTimeout $ compileConfig
 -- | How often send request to NTP server
 ntpPollDelay :: Microsecond
 ntpPollDelay = mcs . ccNtpPollDelay $ compileConfig
-
-----------------------------------------------------------------------------
--- Update System
-----------------------------------------------------------------------------
-
--- TODO: remove
-updateProposalThreshold :: CoinPortion
-updateProposalThreshold = genesisUpdateProposalThd
-
--- TODO: remove
-updateVoteThreshold :: CoinPortion
-updateVoteThreshold = genesisUpdateVoteThd
-
--- TODO: remove
-updateImplicitApproval :: Integral i => i
-updateImplicitApproval = genesisUpdateImplicit
-
--- TODO: remove
-usSoftforkThreshold :: CoinPortion
-usSoftforkThreshold = genesisUpdateSoftforkThd

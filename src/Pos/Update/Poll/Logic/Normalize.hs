@@ -15,7 +15,7 @@ import           Formatting                  (build, sformat, (%))
 import           System.Wlog                 (logWarning)
 import           Universum
 
-import           Pos.Constants               (updateProposalThreshold)
+import           Pos.Constants               (genesisUpdateProposalThd)
 import           Pos.Crypto                  (PublicKey, hash)
 import           Pos.Ssc.Class               (Ssc)
 import           Pos.Types                   (Coin, EpochIndex, SlotId, applyCoinPortion)
@@ -31,7 +31,7 @@ import           Pos.Util                    (getKeys)
 
 -- | Normalize given proposals and votes with respect to current Poll
 -- state, i. e. remove everything that is invalid. Valid data is
--- applied.  This function doesn't consider 'updateProposalThreshold'.
+-- applied.  This function doesn't consider 'genesisUpdateProposalThd'.
 normalizePoll
     :: forall ssc m . (MonadPoll m, Ssc ssc)
     => SlotId
@@ -48,7 +48,8 @@ normalizeProposals
     => SlotId -> UpdateProposals -> m UpdateProposals
 normalizeProposals slotId (toList -> proposals) =
     HM.fromList . map (\x->(hash x, x)) . map fst . catRights proposals <$>
-    mapM (runExceptT . verifyAndApplyProposal @ssc False (Left slotId) []) proposals
+    forM proposals
+        (runExceptT . verifyAndApplyProposal @ssc False (Left slotId) [])
 
 -- Apply votes which can be applied and put them in result.
 -- Disregard other votes.
@@ -80,20 +81,24 @@ normalizeVotes (HM.toList -> votesGroups) =
             | otherwise  -> pure Nothing
 
 -- Leave only those proposals which have enough stake for inclusion
--- into block according to 'updateProposalThreshold'. Note that this
+-- into block according to 'genesisUpdateProposalThd'. Note that this
 -- function is read-only.
 filterProposalsByThd
     :: forall m . (MonadPollRead m)
     => EpochIndex -> UpdateProposals -> m (UpdateProposals, HashSet UpId)
 filterProposalsByThd epoch proposalsHM = getEpochTotalStake epoch >>= \case
-    Nothing -> (mempty, getKeys proposalsHM) <$
-                logWarning
-                    (sformat ("Couldn't get stake in filterProposalsByTxd for epoch "%build) epoch)
+    Nothing ->
+        (mempty, getKeys proposalsHM) <$
+            logWarning
+                (sformat ("Couldn't get stake in filterProposalsByTxd for epoch "%build)
+                         epoch)
     Just totalStake -> do
-        let threshold = applyCoinPortion updateProposalThreshold totalStake
+        let threshold = applyCoinPortion genesisUpdateProposalThd totalStake
         let proposals = HM.toList proposalsHM
-        filtered <- HM.fromList <$> filterM (hasEnoughtStake threshold . fst) proposals
-        pure (filtered, HS.fromList $ HM.keys $ proposalsHM `HM.difference` filtered)
+        filtered <-
+            HM.fromList <$> filterM (hasEnoughtStake threshold . fst) proposals
+        pure ( filtered
+             , HS.fromList $ HM.keys $ proposalsHM `HM.difference` filtered)
   where
     hasEnoughtStake :: Coin -> UpId -> m Bool
     hasEnoughtStake threshold id = getProposal id >>= \case

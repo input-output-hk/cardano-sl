@@ -8,7 +8,6 @@ import           Test.Hspec    (Spec, describe)
 import           Universum
 
 import qualified Pos.Binary    as B
-import           Pos.Types.Types (Coin)
 
 import           Test.Pos.Util (binaryTest)
 
@@ -28,5 +27,3 @@ spec = describe "Bi" $ do
         describe "FixedSizeInt" $ do
             binaryTest @(B.FixedSizeInt Int)
             binaryTest @(B.FixedSizeInt Int64)
-        describe "Coin" $ do
-            binaryTest @Coin

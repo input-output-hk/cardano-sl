@@ -32,6 +32,7 @@ import           Pos.Context               (WithNodeContext)
 import           Pos.DB                    (MonadDB (..))
 import           Pos.Slotting              (MonadSlots (..))
 import           Pos.Ssc.Class.LocalData   (SscLocalDataClass)
+import           Pos.Ssc.Class.Storage     (SscStorageClass (sscLoadGlobalState))
 import           Pos.Ssc.Class.Types       (Ssc (..))
 import           Pos.Ssc.Extra.MonadGS     (MonadSscGS (..))
 import           Pos.Ssc.Extra.MonadLD     (MonadSscLD (..))
@@ -93,12 +94,16 @@ instance MonadIO m => MonadSscLD ssc (SscHolder ssc m) where
                 return res
     setLocalData !newSt = SscHolder (asks sscLocal) >>= atomically . flip STM.writeTVar newSt
 
-runSscHolder :: forall ssc m a. (SscLocalDataClass ssc, MonadIO m)
-             => SscHolder ssc m a -> SscGlobalState ssc -> m a
-runSscHolder holder glob = SscState
-                       <$> liftIO (STM.newTVarIO glob)
-                       <*> liftIO (STM.newTVarIO def)
-                       >>= runReaderT (getSscHolder holder)
+-- | Run 'SscHolder' reading GState from DB (restoring from blocks)
+-- and using default (uninitialized) local state.
+runSscHolder
+    :: forall ssc m a.
+       (WithLogger m, SscStorageClass ssc, SscLocalDataClass ssc, MonadDB ssc m)
+    => SscHolder ssc m a -> m a
+runSscHolder holder = do
+    gState <- sscLoadGlobalState @ssc
+    sscState <- liftIO $ SscState <$> STM.newTVarIO gState <*> STM.newTVarIO def
+    runReaderT (getSscHolder holder) sscState
 
 runSscHolderRaw :: SscState ssc -> SscHolder ssc m a -> m a
 runSscHolderRaw st holder = runReaderT (getSscHolder holder) st

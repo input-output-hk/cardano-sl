@@ -14,6 +14,7 @@ module Pos.Wallet.Web.Server.Methods
 import           Control.Monad.Catch           (try)
 import           Control.Monad.Except          (runExceptT)
 import           Control.Monad.Trans.State     (get, runStateT)
+import qualified Data.ByteString.Base64        as B64
 import           Data.Default                  (Default, def)
 import           Data.List                     (elemIndex, (!!))
 import           Data.Time.Clock.POSIX         (getPOSIXTime)
@@ -31,7 +32,7 @@ import           Universum
 import           Pos.Aeson.ClientTypes         ()
 import           Pos.Communication.BiP         (BiP)
 import           Pos.Constants                 (curSoftwareVersion)
-import           Pos.Crypto                    (toPublic)
+import           Pos.Crypto                    (deterministicKeyGen, toPublic)
 import           Pos.DHT.Model                 (dhtAddr, getKnownPeers)
 import           Pos.Slotting                  (getSlotDuration)
 import           Pos.Types                     (Address, ChainDifficulty (..), Coin,
@@ -230,7 +231,7 @@ servantHandlers sendActions =
     :<|>
      catchWalletError . updateUserProfile
     :<|>
-     (\a -> catchWalletError . redeemADA a)
+     (\a -> catchWalletError . redeemADA sendActions a)
     :<|>
      catchWalletError nextUpdate
     :<|>
@@ -381,11 +382,30 @@ blockchainSlotDuration = fromIntegral <$> getSlotDuration
 -- TODO: @dmitry move this somewhere (probably we have seed type)
 type Seed = Text
 
-redeemADA :: WalletWebMode ssc m => Text -> BackupPhrase -> m CWallet
-redeemADA seed bp = do
-    walletB <- newWallet $ CWalletInit bp $ CWalletMeta CWTPersonal ADA "Redemption wallet"
+redeemADA :: WalletWebMode ssc m => SendActions BiP m -> Text -> BackupPhrase -> m CWallet
+redeemADA sendActions seed bp = do
+    seedBs <- either
+        (\e -> throwM $ Internal ("Seed is invalid base64 string: " <> toText e))
+        pure $ B64.decode (encodeUtf8 seed)
+    (redeemPK, redeemSK) <- maybeThrow (Internal "Seed is not 32-byte long") $
+                            deterministicKeyGen seedBs
+    -- new redemption wallet
+    walletB <- newWallet $ CWalletInit bp $
+               CWalletMeta CWTPersonal ADA "Redemption wallet"
+
     -- send from seedAddress to walletB
-    pure walletB
+    let dstCAddr = cwAddress walletB
+    dstAddr <- decodeCAddressOrFail dstCAddr
+    redeemBalance <- getBalance $ makePubKeyAddress redeemPK
+    na <- fmap dhtAddr <$> getKnownPeers
+    etx <- submitTx sendActions redeemSK na [(TxOut dstAddr redeemBalance, [])]
+    case etx of
+        Left err -> throwM . Internal $ "Cannot send redemption transaction: " <> err
+        Right (tx, _, _) -> do
+            -- add redemption transaction to the history of new wallet
+            () <$ addHistoryTx dstCAddr ADA "ADA redemption" ""
+                (THEntry (hash tx) tx False Nothing)
+            pure walletB
 
 ----------------------------------------------------------------------------
 -- Helpers

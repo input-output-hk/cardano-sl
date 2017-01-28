@@ -405,6 +405,7 @@ library
                       , async
                       , base
                       , base58-bytestring
+                      , base64-bytestring
                       , binary
                       , binary-conduit >= 1.2.4.1
                       , binary-orphans

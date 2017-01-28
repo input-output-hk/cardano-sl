@@ -28,20 +28,19 @@ instance (Bi tag, Bi key) => Bi (ReqMsg key tag) where
     get = liftM2 ReqMsg get get
 
 instance Bi (DataMsg StakeholderId GtMsgContents) where
-    put DataMsg {..} = put dmContents >> put dmKey
+    put DataMsg {..} = do
+        put dmContents
+        case dmContents of
+            MCShares _         -> put dmKey
+            MCOpening _        -> put dmKey
+            MCCommitment _     -> pass
+            MCVssCertificate _ -> pass
     get = do
         dmContents <- get
-        dmKey <- get
-        case dmContents of
-            MCCommitment (pk, _, _) ->
-                when (addressHash pk /= dmKey) $
-                fail
-                    "get@DataMsg@GodTossing: stakeholder ID doesn't correspond to public key from commitment"
-            MCVssCertificate VssCertificate {..} ->
-                when (addressHash vcSigningKey /= dmKey) $
-                fail
-                    "get@DataMsg@GodTossing: stakeholder ID doesn't correspond to public key from VSS certificate"
-            _ -> pass
+        dmKey <- case dmContents of
+            MCCommitment (pk, _, _)              -> pure $ addressHash pk
+            MCVssCertificate VssCertificate {..} -> pure $ addressHash vcSigningKey
+            _                                    -> get
         return $ DataMsg {..}
 
 instance Bi DataMsgGodTossing where

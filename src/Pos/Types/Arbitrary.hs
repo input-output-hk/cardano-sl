@@ -6,11 +6,9 @@
 module Pos.Types.Arbitrary
        ( BadSigsTx (..)
        , GoodTx (..)
-       , OverflowTx (..)
        , SmallBadSigsTx (..)
        , SmallHashMap (..)
        , SmallGoodTx (..)
-       , SmallOverflowTx (..)
        ) where
 
 import qualified Data.ByteString            as BS (pack)
@@ -35,7 +33,6 @@ import           Pos.Script                 (Script)
 import           Pos.Script.Examples        (badIntRedeemer, goodIntRedeemer,
                                              intValidator)
 import           Pos.Types.Arbitrary.Unsafe ()
-import           Pos.Types.Coin             (coinToInteger, unsafeAddCoin, unsafeSubCoin)
 import           Pos.Types.Timestamp        (Timestamp (..))
 import           Pos.Types.Types            (Address (..), ChainDifficulty (..), Coin,
                                              EpochIndex (..), EpochOrSlot (..),
@@ -174,26 +171,6 @@ instance Arbitrary GoodTx where
 instance Arbitrary SmallGoodTx where
     arbitrary = SmallGoodTx <$> makeSmall arbitrary
 
--- | Ill-formed 'Tx' with overflow.
-newtype OverflowTx = OverflowTx
-    { getOverflowTx :: [((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)]
-    } deriving (Show)
-
-newtype SmallOverflowTx =
-    SmallOverflowTx OverflowTx
-    deriving Show
-
-instance Arbitrary OverflowTx where
-    arbitrary = OverflowTx <$> do
-        txsList <- getNonEmpty <$>
-            (arbitrary :: Gen (NonEmptyList (Tx, SecretKey, SecretKey, Coin)))
-        let halfBound = mkCoin . fromInteger $
-                        coinToInteger (maxBound @Coin) `div` 2
-        buildProperTx txsList (unsafeAddCoin halfBound,
-                               unsafeSubCoin halfBound)
-
-instance Arbitrary SmallOverflowTx where
-    arbitrary = SmallOverflowTx <$> makeSmall arbitrary
 
 -- | Ill-formed 'Tx' with bad signatures.
 newtype BadSigsTx = BadSigsTx

@@ -1,5 +1,6 @@
-{-# LANGUAGE DeriveLift      #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DeriveLift           #-}
+{-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | This module contains all basic types for @cardano-sl@ update system.
 
@@ -18,6 +19,8 @@ module Pos.Update.Core.Types
        , upScriptVersion
        , upSlotDuration
        , upMaxBlockSize
+       , formatVoteShort
+       , shortVoteF
 
          -- * UpdateVote and related
        , UpdateVote (..)
@@ -45,17 +48,21 @@ import           Data.Default               (Default (def))
 import qualified Data.HashMap.Strict        as HM
 import qualified Data.Text                  as T
 import qualified Data.Text.Buildable        as Buildable
+import           Data.Text.Lazy.Builder     (Builder)
 import           Data.Time.Units            (Millisecond)
-import           Formatting                 (bprint, build, int, (%))
+import           Formatting                 (Format, bprint, build, builder, int, later,
+                                             (%))
 import           Language.Haskell.TH.Syntax (Lift)
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Text         (listJson)
 import           Universum                  hiding (show)
 
 import           Pos.Binary.Class           (Bi)
-import           Pos.Crypto                 (Hash, PublicKey, Signature, hash, unsafeHash)
+import           Pos.Crypto                 (Hash, PublicKey, Signature, hash, shortHashF,
+                                             unsafeHash)
 import           Pos.Data.Attributes        (Attributes)
 import           Pos.Script.Type            (ScriptVersion)
+import           Pos.Types.Address          (addressHash)
 import           Pos.Types.Coin             ()
 import           Pos.Types.Core             (BlockVersion, CoinPortion, FlatSlotId,
                                              SoftwareVersion)
@@ -99,23 +106,25 @@ data UpdateProposal = UpdateProposal
     -- extensibility.
     } deriving (Eq, Show, Generic, Typeable)
 
-instance Buildable UpdateProposal where
-    build UpdateProposal {..} =
+instance Bi UpdateProposal => Buildable UpdateProposal where
+    build up@UpdateProposal {..} =
       bprint (build%
               " { block v"%build%
+              ", UpId: "%build%
               ", "%build%
               ", tags: "%listJson%
               ", no attributes "%
               " }")
         upSoftwareVersion
         upBlockVersion
+        (hash up)
         upBlockVersionData
         (HM.keys upData)
 
-instance Buildable (UpdateProposal, [UpdateVote]) where
+instance (Bi UpdateProposal) => Buildable (UpdateProposal, [UpdateVote]) where
     build (up, votes) =
       bprint (build%" with votes: "%listJson)
-             up votes
+             up (map formatVoteShort votes)
 
 -- | Data which is associated with 'BlockVersion'.
 data BlockVersionData = BlockVersionData
@@ -133,9 +142,9 @@ data BlockVersionData = BlockVersionData
 
 instance Buildable BlockVersionData where
     build BlockVersionData {..} =
-      bprint (" { scripts v"%build%
+      bprint ("{ scripts v"%build%
               ", slot duration: "%int%" mcs"%
-              ", block size limit: "%int% "bytes"%
+              ", block size limit: "%int%" bytes"%
               " }")
         bvdScriptVersion
         bvdSlotDuration
@@ -197,7 +206,19 @@ data UpdateVote = UpdateVote
 instance Buildable UpdateVote where
     build UpdateVote {..} =
       bprint ("Update Vote { voter: "%build%", proposal id: "%build%", voter's decision: "%build%" }")
-             uvKey uvProposalId uvDecision
+             (addressHash uvKey) uvProposalId uvDecision
+
+-- | Format 'UpdateVote' compactly.
+formatVoteShort :: UpdateVote -> Builder
+formatVoteShort UpdateVote {..} =
+    bprint ("("%shortHashF%" "%builder%" "%shortHashF%")")
+        (addressHash uvKey)
+        (bool "against" "for" uvDecision)
+        uvProposalId
+
+-- | Formatter for 'UpdateVote' which displays it compactly.
+shortVoteF :: Format r (UpdateVote -> r)
+shortVoteF = later formatVoteShort
 
 instance Buildable VoteId where
     build (upId, pk, dec) =
@@ -217,11 +238,17 @@ data UpdatePayload = UpdatePayload
     , upVotes    :: ![UpdateVote]
     } deriving (Eq, Show, Generic, Typeable)
 
-instance Buildable UpdatePayload where
-    build UpdatePayload{..} =
-      bprint (build%", "%int%" votes")
-             (maybe "no proposal" Buildable.build upProposal)
-             (length upVotes)
+instance Bi UpdateProposal => Buildable UpdatePayload where
+    build UpdatePayload {..}
+        | null upVotes = formatMaybeProposal upProposal <> ", no votes"
+        | otherwise =
+            formatMaybeProposal upProposal <>
+            bprint
+                ("\n    votes: "%listJson)
+                (map formatVoteShort upVotes)
+
+formatMaybeProposal :: Bi UpdateProposal => Maybe UpdateProposal -> Builder
+formatMaybeProposal = maybe "no proposal" Buildable.build
 
 instance Default UpdatePayload where
     def = UpdatePayload Nothing []

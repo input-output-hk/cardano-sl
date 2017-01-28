@@ -146,7 +146,8 @@ import           Pos.Types.Core         (Address (..), BlockVersion, ChainDiffic
                                          HasEpochIndex (..), HasEpochOrSlot (..),
                                          HasHeaderHash (..), HeaderHash, SlotId (..),
                                          SoftwareVersion, StakeholderId, coinF, slotIdF)
-import           Pos.Update.Core.Types  (UpdatePayload, UpdateProof, mkUpdateProof)
+import           Pos.Update.Core.Types  (UpdatePayload, UpdateProof, UpdateProposal,
+                                         mkUpdateProof)
 import           Pos.Util               (Color (Magenta), colorize)
 
 ----------------------------------------------------------------------------
@@ -601,7 +602,7 @@ instance BiSsc ssc => Buildable (MainBlockHeader ssc) where
 -- main part of our consensus algorithm.
 type MainBlock ssc = GenericBlock (MainBlockchain ssc)
 
-instance BiSsc ssc => Buildable (MainBlock ssc) where
+instance (Bi UpdateProposal, BiSsc ssc) => Buildable (MainBlock ssc) where
     build GenericBlock {..} =
         bprint
             (stext%":\n"%
@@ -610,7 +611,7 @@ instance BiSsc ssc => Buildable (MainBlock ssc) where
              "  certificates ("%int%" items): "%listJson%"\n"%
              build%"\n"%
              "  update payload: "%build%"\n"%
-             build
+             "  "%build
             )
             (colorize Magenta "MainBlock")
             _gbHeader

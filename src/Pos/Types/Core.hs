@@ -85,7 +85,7 @@ instance Bounded Coin where
 
 -- | Maximal possible value of 'Coin'.
 maxCoinVal :: Word64
-maxCoinVal = 44999999999999999
+maxCoinVal = 45000000000000000
 
 -- | Make Coin from Word64.
 mkCoin :: Word64 -> Coin

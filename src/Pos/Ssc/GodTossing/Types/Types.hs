@@ -26,7 +26,6 @@ module Pos.Ssc.GodTossing.Types.Types
        , mkGtProof
        , createGtContext
        , _gpCertificates
-       , emptyPayload
 
        , SscBi
        ) where
@@ -125,9 +124,6 @@ data GtPayload
     | CertificatesPayload !VssCertificatesMap
     deriving (Eq, Show, Generic)
 
-emptyPayload :: GtPayload
-emptyPayload = CertificatesPayload mempty
-
 _gpCertificates :: GtPayload -> VssCertificatesMap
 _gpCertificates (CommitmentsPayload _ certs) = certs
 _gpCertificates (OpeningsPayload _ certs)    = certs
@@ -208,9 +204,7 @@ mkGtProof payload =
             constr (hash hm) (hash cert)
 
 data GtParams = GtParams
-    {
-      gtpRebuildDb  :: !Bool
-    , gtpSscEnabled :: !Bool              -- ^ Whether node should participate in SSC
+    { gtpSscEnabled :: !Bool              -- ^ Whether node should participate in SSC
                                           -- in case SSC requires participation.
     , gtpVssKeyPair :: !VssKeyPair        -- ^ Key pair used for secret sharing
     }
@@ -218,16 +212,14 @@ data GtParams = GtParams
 data GtContext = GtContext
     {
       -- | Vss key pair used for MPC.
-      gtcVssKeyPair             :: !VssKeyPair
-    , gtcParticipateSsc         :: !(STM.TVar Bool)
-    , gtcVssCertificateVerified :: !(STM.TVar Bool)
+      gtcVssKeyPair     :: !VssKeyPair
+    , -- | Flag which determines whether we want to participate in SSC.
+      gtcParticipateSsc :: !(STM.TVar Bool)
     }
 
 createGtContext :: MonadIO m => GtParams -> m GtContext
 createGtContext GtParams {..} =
-    GtContext gtpVssKeyPair
-           <$> liftIO (newTVarIO gtpSscEnabled)
-           <*> liftIO (newTVarIO False)
+    GtContext gtpVssKeyPair <$> liftIO (newTVarIO gtpSscEnabled)
 
 ----------------------------------------------------------------------------
 -- Secret storage

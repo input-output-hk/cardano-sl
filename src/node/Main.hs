@@ -220,9 +220,7 @@ getNodeParams args@Args {..} systemStart = do
 gtSscParams :: Args -> VssKeyPair -> GtParams
 gtSscParams Args {..} vssSK =
     GtParams
-    {
-      gtpRebuildDb  = rebuildDB
-    , gtpSscEnabled = True
+    { gtpSscEnabled = True
     , gtpVssKeyPair = vssSK
     }
 

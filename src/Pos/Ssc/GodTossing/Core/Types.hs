@@ -1,11 +1,9 @@
 {-# LANGUAGE TemplateHaskell #-}
 
--- | Base of GodTossing SSC.
+-- | Core types of GodTossing SSC.
 
-module Pos.Ssc.GodTossing.Types.Base
-       (
-         -- * Types
-         Commitment (..)
+module Pos.Ssc.GodTossing.Core.Types
+       ( Commitment (..)
        , CommitmentSignature
        , SignedCommitment
        , CommitmentsMap
@@ -18,7 +16,6 @@ module Pos.Ssc.GodTossing.Types.Base
        , VssCertificatesMap
        , NodeSet
        ) where
-
 
 import qualified Data.Text.Buildable
 import           Formatting          (bprint, build, int, (%))

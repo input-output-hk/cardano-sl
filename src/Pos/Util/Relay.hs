@@ -34,7 +34,7 @@ import           Pos.Context                      (WithNodeContext (getNodeConte
 import           Pos.DHT.Model.Class              (MonadDHT (..))
 import           Pos.DHT.Model.Neighbors          (sendToNeighbors)
 import           Pos.Ssc.GodTossing.Arbitrary     ()
-import           Pos.Ssc.GodTossing.Types.Base    (VssCertificate (..))
+import           Pos.Ssc.GodTossing.Core.Types    (VssCertificate (..))
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..))
 import           Pos.Types.Address                (StakeholderId, addressHash)
 import           Pos.Util                         (NamedMessagePart (..))

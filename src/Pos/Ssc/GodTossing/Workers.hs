@@ -43,11 +43,15 @@ import           Pos.Slotting                     (getCurrentSlot, getSlotStart,
                                                    onNewSlot)
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
 import           Pos.Ssc.Extra.MonadLD            (sscRunLocalQuery)
-import           Pos.Ssc.GodTossing.Functions     (computeParticipants,
-                                                   genCommitmentAndOpening, hasCommitment,
-                                                   hasOpening, hasShares, isCommitmentIdx,
-                                                   isOpeningIdx, isSharesIdx,
-                                                   mkSignedCommitment, vssThreshold)
+import           Pos.Ssc.GodTossing.Core          (Commitment (..), SignedCommitment,
+                                                   VssCertificate (..),
+                                                   VssCertificatesMap,
+                                                   genCommitmentAndOpening,
+                                                   isCommitmentIdx, isOpeningIdx,
+                                                   isSharesIdx, mkSignedCommitment,
+                                                   mkVssCertificate)
+import           Pos.Ssc.GodTossing.Functions     (computeParticipants, hasCommitment,
+                                                   hasOpening, hasShares, vssThreshold)
 import           Pos.Ssc.GodTossing.LocalData     (getLocalPayload, localOnNewSlot,
                                                    sscProcessMessage)
 import           Pos.Ssc.GodTossing.Richmen       (gtLrcConsumer)
@@ -55,11 +59,9 @@ import qualified Pos.Ssc.GodTossing.SecretStorage as SS
 import           Pos.Ssc.GodTossing.Shares        (getOurShares)
 import           Pos.Ssc.GodTossing.Storage       (getGlobalCerts, getStableCerts,
                                                    gtGetGlobalState)
-import           Pos.Ssc.GodTossing.Types         (Commitment, SignedCommitment,
-                                                   SscGodTossing, VssCertificate (..),
-                                                   VssCertificatesMap, gsCommitments,
+import           Pos.Ssc.GodTossing.Types         (SscGodTossing, gsCommitments,
                                                    gtcParticipateSsc, gtcVssKeyPair,
-                                                   mkVssCertificate, _gpCertificates)
+                                                   _gpCertificates)
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtMsgTag (..))
 import           Pos.Types                        (EpochIndex, LocalSlotIndex,
                                                    SlotId (..), StakeholderId,

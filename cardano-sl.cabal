@@ -141,7 +141,7 @@ library
                         Pos.Binary.Relay
                         Pos.Binary.Script
                         Pos.Binary.Ssc
-                        Pos.Binary.Ssc.GodTossing.Base
+                        Pos.Binary.Ssc.GodTossing.Core
                         Pos.Binary.Types
                         Pos.Binary.Update
                         Pos.Binary.Util
@@ -260,8 +260,10 @@ library
                         Pos.Ssc.Extra.Holder
                         Pos.Ssc.Extra.MonadGS
                         Pos.Ssc.Extra.MonadLD
-                        Pos.Ssc.GodTossing.Richmen
                         Pos.Ssc.GodTossing.Arbitrary
+                        Pos.Ssc.GodTossing.Core
+                        Pos.Ssc.GodTossing.Core.Core
+                        Pos.Ssc.GodTossing.Core.Types
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions
                         Pos.Ssc.GodTossing.Genesis
@@ -270,12 +272,12 @@ library
                         Pos.Ssc.GodTossing.LocalData.Helpers
                         Pos.Ssc.GodTossing.LocalData.LocalData
                         Pos.Ssc.GodTossing.LocalData.Types
+                        Pos.Ssc.GodTossing.Richmen
                         Pos.Ssc.GodTossing.SecretStorage
                         Pos.Ssc.GodTossing.Seed
                         Pos.Ssc.GodTossing.Shares
                         Pos.Ssc.GodTossing.Storage
                         Pos.Ssc.GodTossing.Types
-                        Pos.Ssc.GodTossing.Types.Base
                         Pos.Ssc.GodTossing.Types.Instance
                         Pos.Ssc.GodTossing.Types.Message
                         Pos.Ssc.GodTossing.Types.Type

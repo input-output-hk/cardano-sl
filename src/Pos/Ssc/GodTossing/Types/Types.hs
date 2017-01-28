@@ -44,7 +44,7 @@ import           Universum
 
 import           Pos.Binary.Class               (Bi)
 import           Pos.Crypto                     (Hash, VssKeyPair, hash)
-import           Pos.Ssc.GodTossing.Types.Base  (Commitment, CommitmentsMap, Opening,
+import           Pos.Ssc.GodTossing.Core        (Commitment, CommitmentsMap, Opening,
                                                  OpeningsMap, SharesMap, SignedCommitment,
                                                  VssCertificate, VssCertificatesMap)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD

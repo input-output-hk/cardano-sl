@@ -10,7 +10,7 @@ import           Universum
 
 import           Pos.Binary.Class                 (Bi (..))
 import           Pos.Binary.Crypto                ()
-import           Pos.Binary.Ssc.GodTossing.Base   ()
+import           Pos.Binary.Ssc.GodTossing.Core   ()
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtMsgTag (..))
 import           Pos.Ssc.GodTossing.Types.Types   (GtPayload (..), GtProof (..),
                                                    GtSecretStorage (..))

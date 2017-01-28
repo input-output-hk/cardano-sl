@@ -28,20 +28,23 @@ import           Data.List.NonEmpty                   (NonEmpty ((:|)))
 import           Serokell.Util.Verify                 (isVerSuccess)
 import           Universum
 
-import           Pos.Binary.Class                     (Bi)
+import           Pos.Binary.Ssc.GodTossing.Core       ()
 import           Pos.Lrc.Types                        (Richmen, RichmenSet)
 import           Pos.Slotting                         (getCurrentSlot)
 import           Pos.Ssc.Class.LocalData              (LocalQuery, LocalUpdate,
                                                        SscLocalDataClass (..))
 import           Pos.Ssc.Extra.MonadLD                (MonadSscLD)
-import           Pos.Ssc.GodTossing.Functions         (checkCertTTL, checkCommShares,
+import           Pos.Ssc.GodTossing.Core              (InnerSharesMap, Opening,
+                                                       SignedCommitment,
+                                                       VssCertificate (vcSigningKey, vcVssKey),
+                                                       checkCertTTL, checkCommShares,
                                                        checkOpeningMatchesCommitment,
                                                        checkShare, checkShares,
-                                                       computeParticipants,
-                                                       getStableCertsPure,
                                                        isCommitmentIdx, isOpeningIdx,
-                                                       isSharesIdx,
+                                                       isSharesIdx, vcExpiryEpoch,
                                                        verifySignedCommitment)
+import           Pos.Ssc.GodTossing.Functions         (computeParticipants,
+                                                       getStableCertsPure)
 import           Pos.Ssc.GodTossing.LocalData.Helpers (GtState, gtGlobalCertificates,
                                                        gtGlobalCommitments,
                                                        gtGlobalOpenings, gtGlobalShares,
@@ -53,14 +56,12 @@ import           Pos.Ssc.GodTossing.LocalData.Helpers (GtState, gtGlobalCertific
 import           Pos.Ssc.GodTossing.LocalData.Types   (GtLocalData (..), ldCertificates,
                                                        ldCommitments, ldLastProcessedSlot,
                                                        ldOpenings, ldShares)
-import           Pos.Ssc.GodTossing.Types             (GtGlobalState (..), GtPayload (..),
-                                                       InnerSharesMap, SscBi,
-                                                       SscGodTossing,
+import           Pos.Ssc.GodTossing.Types             (GtGlobalState, GtPayload (..),
+                                                       SscBi, SscGodTossing,
                                                        TossVerErrorTag (..),
                                                        TossVerFailure (..),
-                                                       VssCertificate (vcSigningKey, vcVssKey))
-import           Pos.Ssc.GodTossing.Types.Base        (Commitment, Opening,
-                                                       SignedCommitment, vcExpiryEpoch)
+                                                       _gsCommitments, _gsOpenings,
+                                                       _gsShares, _gsVssCertificates)
 import           Pos.Ssc.GodTossing.Types.Message     (GtMsgContents (..), GtMsgTag (..))
 import qualified Pos.Ssc.GodTossing.VssCertData       as VCD
 import           Pos.Types                            (SlotId (..), StakeholderId,
@@ -261,8 +262,7 @@ readerTToState
 readerTToState rdr = get >>= runReaderT rdr
 
 processCommitment
-    :: Bi Commitment
-    => RichmenSet
+    :: RichmenSet
     -> StakeholderId
     -> SignedCommitment
     -> LDProcess ()

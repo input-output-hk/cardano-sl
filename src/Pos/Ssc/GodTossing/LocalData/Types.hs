@@ -15,7 +15,7 @@ module Pos.Ssc.GodTossing.LocalData.Types
 import           Control.Lens                   (makeLenses)
 -- import           Universum
 
-import           Pos.Ssc.GodTossing.Types.Base  (CommitmentsMap, OpeningsMap, SharesMap)
+import           Pos.Ssc.GodTossing.Core        (CommitmentsMap, OpeningsMap, SharesMap)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD (VssCertData)
 import           Pos.Types                      (SlotId)
 

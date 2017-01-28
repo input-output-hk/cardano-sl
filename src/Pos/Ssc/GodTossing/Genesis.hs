@@ -25,7 +25,7 @@ import           Pos.Genesis                    (genesisKeyPairs)
 #else
 import           Pos.Genesis                    (compileGenData, gdVssCertificates)
 #endif
-import           Pos.Ssc.GodTossing.Types.Base  (VssCertificatesMap, mkVssCertificate)
+import           Pos.Ssc.GodTossing.Core.Types  (VssCertificatesMap, mkVssCertificate)
 import           Pos.Ssc.GodTossing.Types.Types (GtPayload (..))
 import           Pos.Types                      (EpochIndex (..))
 import           Pos.Types.Address              (addressHash)

@@ -1,6 +1,6 @@
--- | Serialization of base types from GodTossing SSC.
+-- | Serialization of core types from GodTossing SSC.
 
-module Pos.Binary.Ssc.GodTossing.Base
+module Pos.Binary.Ssc.GodTossing.Core
        (
        ) where
 
@@ -8,7 +8,7 @@ import           Universum
 
 import           Pos.Binary.Class              (Bi (..))
 import           Pos.Binary.Crypto             ()
-import           Pos.Ssc.GodTossing.Types.Base (Commitment (..), Opening (..),
+import           Pos.Ssc.GodTossing.Core.Types (Commitment (..), Opening (..),
                                                 VssCertificate (..))
 
 instance Bi Commitment where

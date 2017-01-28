@@ -10,16 +10,15 @@ module Pos.Ssc.GodTossing.Types.Message
        , msgContentsTag
        ) where
 
-import qualified Data.Text.Buildable           as Buildable
+import qualified Data.Text.Buildable     as Buildable
 import           Universum
 
-import           Pos.Ssc.GodTossing.Functions  (isCommitmentId, isCommitmentIdx,
-                                                isOpeningId, isOpeningIdx, isSharesId,
-                                                isSharesIdx)
-import           Pos.Ssc.GodTossing.Types.Base (InnerSharesMap, Opening, SignedCommitment,
-                                                VssCertificate)
-import           Pos.Types                     (LocalSlotIndex, SlotId)
-import           Pos.Util                      (NamedMessagePart (..))
+import           Pos.Ssc.GodTossing.Core (InnerSharesMap, Opening, SignedCommitment,
+                                          VssCertificate, isCommitmentId, isCommitmentIdx,
+                                          isOpeningId, isOpeningIdx, isSharesId,
+                                          isSharesIdx)
+import           Pos.Types               (LocalSlotIndex, SlotId)
+import           Pos.Util                (NamedMessagePart (..))
 
 -- | Tag associated with message.
 data GtMsgTag

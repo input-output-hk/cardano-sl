@@ -9,7 +9,7 @@ import           Universum
 import           Pos.Binary.Class                 (Bi (..))
 import           Pos.Binary.Crypto                ()
 import           Pos.Crypto                       (hash)
-import           Pos.Ssc.GodTossing.Types.Base    (VssCertificate (..))
+import           Pos.Ssc.GodTossing.Core.Types    (VssCertificate (..))
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..))
 import           Pos.Txp.Types.Communication      (TxMsgContents (..))
 import           Pos.Types                        (TxId)

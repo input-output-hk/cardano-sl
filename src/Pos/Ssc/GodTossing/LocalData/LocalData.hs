@@ -56,9 +56,9 @@ import           Pos.Ssc.GodTossing.LocalData.Helpers (GtState, gtGlobalCertific
 import           Pos.Ssc.GodTossing.LocalData.Types   (GtLocalData (..), ldCertificates,
                                                        ldCommitments, ldLastProcessedSlot,
                                                        ldOpenings, ldShares)
+import           Pos.Ssc.GodTossing.Type              (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types             (GtGlobalState, GtPayload (..),
-                                                       SscBi, SscGodTossing,
-                                                       TossVerErrorTag (..),
+                                                       SscBi, TossVerErrorTag (..),
                                                        TossVerFailure (..),
                                                        _gsCommitments, _gsOpenings,
                                                        _gsShares, _gsVssCertificates)

@@ -17,6 +17,7 @@ module Pos.Ssc.GodTossing
        , module Pos.Ssc.GodTossing.SecretStorage
        , module Pos.Ssc.GodTossing.Seed
        , module Pos.Ssc.GodTossing.Storage
+       , module Pos.Ssc.GodTossing.Type
        , module Pos.Ssc.GodTossing.Types
        , module Pos.Ssc.GodTossing.VssCertData
        ) where
@@ -33,6 +34,7 @@ import           Pos.Ssc.GodTossing.LocalData
 import           Pos.Ssc.GodTossing.SecretStorage
 import           Pos.Ssc.GodTossing.Seed
 import           Pos.Ssc.GodTossing.Storage
+import           Pos.Ssc.GodTossing.Type
 import           Pos.Ssc.GodTossing.Types
 import           Pos.Ssc.GodTossing.VssCertData
 import           Pos.Ssc.GodTossing.Workers       ()

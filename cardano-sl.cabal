@@ -277,10 +277,9 @@ library
                         Pos.Ssc.GodTossing.Seed
                         Pos.Ssc.GodTossing.Shares
                         Pos.Ssc.GodTossing.Storage
+                        Pos.Ssc.GodTossing.Type
                         Pos.Ssc.GodTossing.Types
-                        Pos.Ssc.GodTossing.Types.Instance
                         Pos.Ssc.GodTossing.Types.Message
-                        Pos.Ssc.GodTossing.Types.Type
                         Pos.Ssc.GodTossing.Types.Types
                         Pos.Ssc.GodTossing.Utils
                         Pos.Ssc.GodTossing.VssCertData

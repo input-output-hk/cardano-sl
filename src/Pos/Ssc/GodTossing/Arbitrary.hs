@@ -6,26 +6,25 @@ module Pos.Ssc.GodTossing.Arbitrary
        ( CommitmentOpening (..)
        ) where
 
-import           Test.QuickCheck                   (Arbitrary (..), elements, oneof)
+import           Test.QuickCheck                  (Arbitrary (..), elements, oneof)
 import           Universum
 
-import           Pos.Binary.Class                  (Bi)
-import           Pos.Crypto                        (deterministicVssKeyGen,
-                                                    toVssPublicKey)
-import           Pos.Ssc.GodTossing.Core           (Commitment, Opening,
-                                                    VssCertificate (..),
-                                                    genCommitmentAndOpening,
-                                                    mkVssCertificate)
-import           Pos.Ssc.GodTossing.Types.Instance ()
-import           Pos.Ssc.GodTossing.Types.Message  (GtMsgContents (..), GtMsgTag (..))
-import           Pos.Ssc.GodTossing.Types.Types    (GtGlobalState (..), GtPayload (..),
-                                                    GtProof (..), GtSecretStorage (..),
-                                                    SscBi)
-import           Pos.Ssc.GodTossing.VssCertData    (VssCertData (..))
-import           Pos.Types.Arbitrary.Unsafe        ()
-import           Pos.Util                          (asBinary)
-import           Pos.Util.Arbitrary                (Nonrepeating (..), makeSmall,
-                                                    sublistN, unsafeMakePool)
+import           Pos.Binary.Class                 (Bi)
+import           Pos.Crypto                       (deterministicVssKeyGen, toVssPublicKey)
+import           Pos.Ssc.GodTossing.Core          (Commitment, Opening,
+                                                   VssCertificate (..),
+                                                   genCommitmentAndOpening,
+                                                   mkVssCertificate)
+import           Pos.Ssc.GodTossing.Type          ()
+import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtMsgTag (..))
+import           Pos.Ssc.GodTossing.Types.Types   (GtGlobalState (..), GtPayload (..),
+                                                   GtProof (..), GtSecretStorage (..),
+                                                   SscBi)
+import           Pos.Ssc.GodTossing.VssCertData   (VssCertData (..))
+import           Pos.Types.Arbitrary.Unsafe       ()
+import           Pos.Util                         (asBinary)
+import           Pos.Util.Arbitrary               (Nonrepeating (..), makeSmall, sublistN,
+                                                   unsafeMakePool)
 ----------------------------------------------------------------------------
 -- Core
 ----------------------------------------------------------------------------

@@ -59,9 +59,9 @@ import qualified Pos.Ssc.GodTossing.SecretStorage as SS
 import           Pos.Ssc.GodTossing.Shares        (getOurShares)
 import           Pos.Ssc.GodTossing.Storage       (getGlobalCerts, getStableCerts,
                                                    gtGetGlobalState)
-import           Pos.Ssc.GodTossing.Types         (SscGodTossing, gsCommitments,
-                                                   gtcParticipateSsc, gtcVssKeyPair,
-                                                   _gpCertificates)
+import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
+import           Pos.Ssc.GodTossing.Types         (gsCommitments, gtcParticipateSsc,
+                                                   gtcVssKeyPair, _gpCertificates)
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtMsgTag (..))
 import           Pos.Types                        (EpochIndex, LocalSlotIndex,
                                                    SlotId (..), StakeholderId,

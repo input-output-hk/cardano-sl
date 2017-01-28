@@ -46,8 +46,9 @@ import           Pos.Ssc.GodTossing.Functions   (computeParticipants, getStableC
                                                  verifyEntriesGuard, verifyGtPayload)
 import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
 import           Pos.Ssc.GodTossing.Seed        (calculateSeed)
+import           Pos.Ssc.GodTossing.Type        (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), GtPayload (..),
-                                                 SscGodTossing, TossVerErrorTag (..),
+                                                 TossVerErrorTag (..),
                                                  TossVerFailure (..), gsCommitments,
                                                  gsOpenings, gsShares, gsVssCertificates,
                                                  _gpCertificates)

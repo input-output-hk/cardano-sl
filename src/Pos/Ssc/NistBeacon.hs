@@ -16,14 +16,13 @@ import           Crypto.Hash             (SHA256)
 import qualified Crypto.Hash             as Hash
 import qualified Data.ByteArray          as ByteArray (convert)
 import           Data.Coerce             (coerce)
-import           Data.Default            (Default (def))
 import           Data.Tagged             (Tagged (..))
 import           Data.Text.Buildable     (Buildable (build))
 import           Universum
 
 import           Pos.Binary.Class        (encode)
 import           Pos.Binary.Relay        ()
-import           Pos.Slotting            (onNewSlot)
+import           Pos.Slotting            (getCurrentSlot, onNewSlot)
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass (..))
 import           Pos.Ssc.Class.Listeners (SscListenersClass (..), sscStubListeners)
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..))
@@ -31,7 +30,7 @@ import           Pos.Ssc.Class.Storage   (SscStorageClass (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.Ssc.Class.Workers   (SscWorkersClass (..))
 import           Pos.Ssc.Extra           (sscRunLocalUpdate)
-import           Pos.Types               (SharedSeed (..), SlotId, unflattenSlotId)
+import           Pos.Types               (SharedSeed (..), SlotId)
 
 -- | Data type tag for Nist Beacon implementation of Shared Seed Calculation.
 data SscNistBeacon
@@ -46,9 +45,6 @@ instance Buildable () where
 newtype LocalData = LocalData
     { getLocalData :: SlotId
     }
-
-instance Default LocalData where
-    def = LocalData $ unflattenSlotId 0
 
 instance Ssc SscNistBeacon where
     type SscLocalData   SscNistBeacon = LocalData
@@ -79,6 +75,7 @@ instance SscListenersClass SscNistBeacon where
 instance SscLocalDataClass SscNistBeacon where
     sscGetLocalPayloadQ = (,()) . getLocalData <$> ask
     sscApplyGlobalStateU _ _ = pure ()
+    sscNewLocalData = LocalData <$> getCurrentSlot
 
 instance SscStorageClass SscNistBeacon where
     sscLoadGlobalState = pure ()

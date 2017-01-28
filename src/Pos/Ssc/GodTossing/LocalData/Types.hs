@@ -13,12 +13,11 @@ module Pos.Ssc.GodTossing.LocalData.Types
        ) where
 
 import           Control.Lens                   (makeLenses)
-import           Data.Default                   (Default (def))
-import           Universum
+-- import           Universum
 
 import           Pos.Ssc.GodTossing.Types.Base  (CommitmentsMap, OpeningsMap, SharesMap)
-import qualified Pos.Ssc.GodTossing.VssCertData as VCD (VssCertData, empty)
-import           Pos.Types                      (SlotId, unflattenSlotId)
+import qualified Pos.Ssc.GodTossing.VssCertData as VCD (VssCertData)
+import           Pos.Types                      (SlotId)
 
 data GtLocalData = GtLocalData
     { -- | Local set of 'Commitment's. These are valid commitments which are
@@ -35,14 +34,5 @@ data GtLocalData = GtLocalData
     , -- | Last slot we are aware of.
       _ldLastProcessedSlot :: !SlotId
     }
-makeLenses ''GtLocalData
 
-instance Default GtLocalData where
-    def =
-        GtLocalData
-        { _ldCertificates = VCD.empty
-        , _ldShares = mempty
-        , _ldOpenings = mempty
-        , _ldCommitments = mempty
-        , _ldLastProcessedSlot = unflattenSlotId 0
-        }
+makeLenses ''GtLocalData

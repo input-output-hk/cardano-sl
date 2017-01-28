@@ -30,6 +30,7 @@ import           Universum
 
 import           Pos.Binary.Class                     (Bi)
 import           Pos.Lrc.Types                        (Richmen, RichmenSet)
+import           Pos.Slotting                         (getCurrentSlot)
 import           Pos.Ssc.Class.LocalData              (LocalQuery, LocalUpdate,
                                                        SscLocalDataClass (..))
 import           Pos.Ssc.Extra.MonadLD                (MonadSscLD)
@@ -49,9 +50,9 @@ import           Pos.Ssc.GodTossing.LocalData.Helpers (GtState, gtGlobalCertific
                                                        gtLocalCommitments,
                                                        gtLocalOpenings, gtLocalShares,
                                                        gtRunModify, gtRunRead)
-import           Pos.Ssc.GodTossing.LocalData.Types   (ldCertificates, ldCommitments,
-                                                       ldLastProcessedSlot, ldOpenings,
-                                                       ldShares)
+import           Pos.Ssc.GodTossing.LocalData.Types   (GtLocalData (..), ldCertificates,
+                                                       ldCommitments, ldLastProcessedSlot,
+                                                       ldOpenings, ldShares)
 import           Pos.Ssc.GodTossing.Types             (GtGlobalState (..), GtPayload (..),
                                                        InnerSharesMap, SscBi,
                                                        SscGodTossing,
@@ -68,6 +69,8 @@ import           Pos.Types                            (SlotId (..), StakeholderI
 instance SscBi => SscLocalDataClass SscGodTossing where
     sscGetLocalPayloadQ = getLocalPayload
     sscApplyGlobalStateU = applyGlobal
+    sscNewLocalData =
+        GtLocalData mempty mempty mempty VCD.empty <$> getCurrentSlot
 
 type LDQuery a = forall m .  MonadReader GtState m => m a
 type LDUpdate a = forall m . MonadState GtState m  => m a

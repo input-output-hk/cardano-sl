@@ -20,7 +20,6 @@ import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow)
 import           Control.Monad.Fix         (MonadFix)
 import           Control.Monad.Reader      (ReaderT (ReaderT))
 import           Control.Monad.Trans.Class (MonadTrans)
-import           Data.Default              (Default (def))
 import           Mockable                  (ChannelT, MFunctor', Mockable (liftMockable),
                                             Promise, SharedAtomicT, ThreadId,
                                             liftMockableWrappedM)
@@ -31,7 +30,7 @@ import           Universum
 import           Pos.Context               (WithNodeContext)
 import           Pos.DB                    (MonadDB (..))
 import           Pos.Slotting              (MonadSlots (..))
-import           Pos.Ssc.Class.LocalData   (SscLocalDataClass)
+import           Pos.Ssc.Class.LocalData   (SscLocalDataClass (sscNewLocalData))
 import           Pos.Ssc.Class.Storage     (SscStorageClass (sscLoadGlobalState))
 import           Pos.Ssc.Class.Types       (Ssc (..))
 import           Pos.Ssc.Extra.MonadGS     (MonadSscGS (..))
@@ -98,11 +97,17 @@ instance MonadIO m => MonadSscLD ssc (SscHolder ssc m) where
 -- and using default (uninitialized) local state.
 runSscHolder
     :: forall ssc m a.
-       (WithLogger m, SscStorageClass ssc, SscLocalDataClass ssc, MonadDB ssc m)
+       ( WithLogger m
+       , SscStorageClass ssc
+       , SscLocalDataClass ssc
+       , MonadDB ssc m
+       , MonadSlots m
+       )
     => SscHolder ssc m a -> m a
 runSscHolder holder = do
     gState <- sscLoadGlobalState @ssc
-    sscState <- liftIO $ SscState <$> STM.newTVarIO gState <*> STM.newTVarIO def
+    ld <- sscNewLocalData @ssc
+    sscState <- liftIO $ SscState <$> STM.newTVarIO gState <*> STM.newTVarIO ld
     runReaderT (getSscHolder holder) sscState
 
 runSscHolderRaw :: SscState ssc -> SscHolder ssc m a -> m a

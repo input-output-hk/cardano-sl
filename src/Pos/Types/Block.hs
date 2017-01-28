@@ -376,9 +376,9 @@ verifyHeaders checkConsensus (NewestFirst (headers@(_:xh))) =
     mconcat verified
   where
     verified = zipWith (\cur prev -> verifyHeader (toVHP prev) cur)
-                       headers xh
+                       headers (map Just xh ++ [Nothing])
     toVHP p = def { vhpVerifyConsensus = checkConsensus
-                  , vhpPrevHeader = Just p }
+                  , vhpPrevHeader = p }
 
 -- CHECK: @verifyGenericBlock
 -- | Perform cheap checks of GenericBlock, which can be done using

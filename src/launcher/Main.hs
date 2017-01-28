@@ -1,14 +1,14 @@
 {-# LANGUAGE MultiWayIf        #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-import           Control.Concurrent.Async (async, cancel, wait, waitAny)
-import qualified Data.Text                as T
+import           Control.Concurrent.Async (cancel, waitAny)
 import           Options.Applicative      (Parser, ParserInfo, execParser, fullDesc, help,
                                            helper, info, long, metavar, progDesc,
                                            strOption)
-import           Prelude                  hiding (FilePath)
 import           System.Process.Internals (translate)
-import           Turtle                   hiding (wait)
+import           Turtle                   hiding (toText)
+import           Universum                hiding (FilePath)
 
 data LauncherOptions = LO
     { loNode          :: Text
@@ -20,15 +20,15 @@ data LauncherOptions = LO
 optsParser :: Parser LauncherOptions
 optsParser = LO <$> nodeOpt <*> walletOpt <*> updaterOpt <*> updateArchiveOpt
   where
-    nodeOpt = T.pack <$>
+    nodeOpt = toText <$>
       strOption (long "node" <>
                  metavar "CMD" <>
                  help "Command that starts the node")
-    walletOpt = optional $ T.pack <$>
+    walletOpt = optional $ toText <$>
       strOption (long "wallet" <>
                  metavar "CMD" <>
                  help "Command that starts the wallet")
-    updaterOpt = T.pack <$>
+    updaterOpt = toText <$>
       strOption (long "updater" <>
                  metavar "CMD" <>
                  help "Command that starts the updater")
@@ -44,7 +44,7 @@ optsInfo = info (helper <*> optsParser) $
 main :: IO ()
 main = do
     LO {..} <- execParser optsInfo
-    case loWallet of
+    sh $ case loWallet of
         Nothing -> serverScenario loNode (loUpdater, loUpdateArchive)
         Just wp -> clientScenario loNode wp (loUpdater, loUpdateArchive)
 
@@ -53,12 +53,15 @@ main = do
 -- * Update (if we are already up-to-date, nothing will happen).
 -- * Launch the node.
 -- * If it exits with code 20, then update and restart, else quit.
-serverScenario :: Text -> (Text, FilePath) -> IO ()
+serverScenario :: Text -> (Text, FilePath) -> Shell ()
 serverScenario nodeCmd upd = do
+    echo "Running the updater"
     runUpdater upd
     -- TODO: somehow signal updater failure if it fails? would be nice to
     -- write it into the log, at least
-    exitCode <- wait =<< async (shell nodeCmd mempty)
+    echo "Starting the node"
+    exitCode <- wait =<< fork (shell nodeCmd mempty)
+    printf ("The node has exited with "%s%"\n") (show exitCode)
     case exitCode of
         ExitFailure 20 -> serverScenario nodeCmd upd
         _              -> return ()
@@ -68,31 +71,37 @@ serverScenario nodeCmd upd = do
 -- * Update (if we are already up-to-date, nothing will happen).
 -- * Launch the node and the wallet.
 -- * If the wallet exits with code 20, then update and restart, else quit.
-clientScenario :: Text -> Text -> (Text, FilePath) -> IO ()
+clientScenario :: Text -> Text -> (Text, FilePath) -> Shell ()
 clientScenario nodeCmd walletCmd upd = do
+    echo "Running the updater"
     runUpdater upd
-    nodeAsync   <- async (shell nodeCmd mempty)
-    walletAsync <- async (shell walletCmd mempty)
-    (someAsync, exitCode) <- waitAny [nodeAsync, walletAsync]
-    if | someAsync == nodeAsync ->
-             -- when the node exits, just wait for wallet to die
+    echo "Starting the node"
+    nodeAsync <- fork (shell nodeCmd mempty)
+    echo "Starting the wallet"
+    walletAsync <- fork (shell walletCmd mempty)
+    (someAsync, exitCode) <- liftIO $ waitAny [nodeAsync, walletAsync]
+    if | someAsync == nodeAsync -> do
+             printf ("The node has exited with "%s%"\n") (show exitCode)
+             echo "Waiting for the wallet to die"
              void $ wait walletAsync
        | exitCode == ExitFailure 20 -> do
-             -- when the wallet exits with 20, kill the node and update
-             cancel nodeAsync
+             echo "The wallet has exited with code 20"
+             echo "Killing the node"
+             liftIO $ cancel nodeAsync
              clientScenario nodeCmd walletCmd upd
-       | otherwise ->
-             -- otherwise just kill the node
-             cancel nodeAsync
+       | otherwise -> do
+             printf ("The wallet has exited with "%s%"\n") (show exitCode)
+             liftIO $ cancel nodeAsync
 
 -- | We run the updater and delete the update file if the update was
 -- successful.
-runUpdater :: (Text, FilePath) -> IO ()
+runUpdater :: (Text, FilePath) -> Shell ()
 runUpdater (updaterCmd, updateArchive) = do
     let cmd = updaterCmd <> " " <>
-              T.pack (translate (T.unpack (format fp updateArchive)))
+              toText (translate (toString (format fp updateArchive)))
     exitCode <- shell cmd mempty
-    when (exitCode == ExitSuccess) $
+    printf ("The updater has exited with "%s%"\n") (show exitCode)
+    when (exitCode == ExitSuccess) $ do
         -- this will throw an exception if the file doesn't exist but
         -- hopefully if the updater has succeeded it *does* exist
         rm updateArchive

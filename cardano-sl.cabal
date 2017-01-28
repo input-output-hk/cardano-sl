@@ -1030,12 +1030,13 @@ executable cardano-keygen
 executable cardano-launcher
   hs-source-dirs:      src/launcher
   main-is:             Main.hs
-  build-depends:       base
+  build-depends:       async
+                     , base
+                     , optparse-applicative
                      , process
                      , text
-                     , async
-                     , optparse-applicative
                      , turtle
+                     , universum
   default-language:    Haskell2010
   ghc-options:         -threaded
                        -Wall

@@ -852,11 +852,6 @@ executable cardano-dht-keygen
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  if flag(with-wallet)
-    buildable:         True
-  else
-    buildable:         False
-
 executable cardano-web-docs
   hs-source-dirs:      src/web-docs
   main-is:             Main.hs

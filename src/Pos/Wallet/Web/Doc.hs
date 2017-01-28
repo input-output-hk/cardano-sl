@@ -145,11 +145,18 @@ instance ToCapture (Capture "search" Text) where
         , _capDesc = "Wallet title search pattern"
         }
 
+instance ToCapture (Capture "skip" Word) where
+    toCapture Proxy =
+        DocCapture
+        { _capSymbol = "skip"
+        , _capDesc = "Skip this many transactions"
+        }
+
 instance ToCapture (Capture "limit" Word) where
     toCapture Proxy =
         DocCapture
         { _capSymbol = "limit"
-        , _capDesc = "Max numbers of wallets to return"
+        , _capDesc = "Max numbers of transactions to return"
         }
 
 instance ToCapture (Capture "currency" CCurrency) where
@@ -157,6 +164,13 @@ instance ToCapture (Capture "currency" CCurrency) where
         DocCapture
         { _capSymbol = "currency"
         , _capDesc = "Currency"
+        }
+
+instance ToCapture (Capture "seed" Text) where
+    toCapture Proxy =
+        DocCapture
+        { _capSymbol = "seed"
+        , _capDesc = "Seed to redeem the ADA"
         }
 
 instance ToSample WalletError where

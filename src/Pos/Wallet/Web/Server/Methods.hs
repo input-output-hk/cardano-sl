@@ -14,6 +14,7 @@ module Pos.Wallet.Web.Server.Methods
 import           Control.Monad.Catch           (try)
 import           Control.Monad.Except          (runExceptT)
 import           Control.Monad.Trans.State     (get, runStateT)
+import qualified Data.ByteString.Base64        as B64
 import           Data.Default                  (Default, def)
 import           Data.List                     (elemIndex, (!!))
 import           Data.Time.Clock.POSIX         (getPOSIXTime)
@@ -31,7 +32,7 @@ import           Universum
 import           Pos.Aeson.ClientTypes         ()
 import           Pos.Communication.BiP         (BiP)
 import           Pos.Constants                 (curSoftwareVersion)
-import           Pos.Crypto                    (toPublic)
+import           Pos.Crypto                    (deterministicKeyGen, toPublic)
 import           Pos.DHT.Model                 (dhtAddr, getKnownPeers)
 import           Pos.Slotting                  (getSlotDuration)
 import           Pos.Types                     (Address, ChainDifficulty (..), Coin,
@@ -53,10 +54,10 @@ import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CProf
                                                 CProfile (..), CTx, CTxId, CTxMeta (..),
                                                 CUpdateInfo (..), CWallet (..),
                                                 CWalletInit (..), CWalletMeta (..),
-                                                NotifyEvent (..), addressToCAddress,
-                                                cAddressToAddress, mkCTx, mkCTxId,
-                                                toCUpdateInfo, txContainsTitle,
-                                                txIdToCTxId)
+                                                CWalletType (..), NotifyEvent (..),
+                                                addressToCAddress, cAddressToAddress,
+                                                mkCTx, mkCTxId, toCUpdateInfo,
+                                                txContainsTitle, txIdToCTxId)
 import           Pos.Wallet.Web.Error          (WalletError (..))
 import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 WalletWebSockets, closeWSConnection,
@@ -210,9 +211,9 @@ servantHandlers sendActions =
     :<|>
      (\a b c d e -> catchWalletError . sendExtended sendActions a b c d e)
     :<|>
-     catchWalletError . getHistory
+     (\a b -> catchWalletError . getHistory a b )
     :<|>
-     (\a b -> catchWalletError . searchHistory a b)
+     (\a b c -> catchWalletError . searchHistory a b c)
     :<|>
      (\a b -> catchWalletError . updateTransaction a b)
     :<|>
@@ -229,6 +230,8 @@ servantHandlers sendActions =
      catchWalletError getUserProfile
     :<|>
      catchWalletError . updateUserProfile
+    :<|>
+     (\a -> catchWalletError . redeemADA sendActions a)
     :<|>
      catchWalletError nextUpdate
     :<|>
@@ -299,18 +302,17 @@ sendExtended sendActions srcCAddr dstCAddr c curr title desc = do
             () <$ addHistoryTx dstCAddr curr title desc (THEntry txHash tx False Nothing)
             addHistoryTx srcCAddr curr title desc (THEntry txHash tx True Nothing)
 
-getHistory :: WalletWebMode ssc m => CAddress -> m [CTx]
-getHistory cAddr = do
+getHistory :: WalletWebMode ssc m => CAddress -> Word -> Word -> m ([CTx], Word)
+getHistory cAddr skip limit = do
     history <- getTxHistory =<< decodeCAddressOrFail cAddr
-    mapM (addHistoryTx cAddr ADA mempty mempty) history
+    cHistory <- mapM (addHistoryTx cAddr ADA mempty mempty) history
+    pure (paginate cHistory, fromIntegral $ length cHistory)
+  where
+    paginate = take (fromIntegral limit) . drop (fromIntegral skip)
 
 -- FIXME: is Word enough for length here?
-searchHistory :: WalletWebMode ssc m => CAddress -> Text -> Word -> m ([CTx], Word)
-searchHistory cAddr search limit = do
-    history <- getHistory cAddr
-    pure (filterHistory history, fromIntegral $ length history)
-  where
-    filterHistory = take (fromIntegral limit) . filter (txContainsTitle search)
+searchHistory :: WalletWebMode ssc m => CAddress -> Text -> Word -> Word -> m ([CTx], Word)
+searchHistory cAddr search skip limit = first (filter $ txContainsTitle search) <$> getHistory cAddr skip limit
 
 addHistoryTx
     :: WalletWebMode ssc m
@@ -376,6 +378,34 @@ applyUpdate = removeNextUpdate
 
 blockchainSlotDuration :: WalletWebMode ssc m => m Word
 blockchainSlotDuration = fromIntegral <$> getSlotDuration
+
+-- TODO: @dmitry move this somewhere (probably we have seed type)
+type Seed = Text
+
+redeemADA :: WalletWebMode ssc m => SendActions BiP m -> Text -> BackupPhrase -> m CWallet
+redeemADA sendActions seed bp = do
+    seedBs <- either
+        (\e -> throwM $ Internal ("Seed is invalid base64 string: " <> toText e))
+        pure $ B64.decode (encodeUtf8 seed)
+    (redeemPK, redeemSK) <- maybeThrow (Internal "Seed is not 32-byte long") $
+                            deterministicKeyGen seedBs
+    -- new redemption wallet
+    walletB <- newWallet $ CWalletInit bp $
+               CWalletMeta CWTPersonal ADA "Redemption wallet"
+
+    -- send from seedAddress to walletB
+    let dstCAddr = cwAddress walletB
+    dstAddr <- decodeCAddressOrFail dstCAddr
+    redeemBalance <- getBalance $ makePubKeyAddress redeemPK
+    na <- fmap dhtAddr <$> getKnownPeers
+    etx <- submitTx sendActions redeemSK na [(TxOut dstAddr redeemBalance, [])]
+    case etx of
+        Left err -> throwM . Internal $ "Cannot send redemption transaction: " <> err
+        Right (tx, _, _) -> do
+            -- add redemption transaction to the history of new wallet
+            () <$ addHistoryTx dstCAddr ADA "ADA redemption" ""
+                (THEntry (hash tx) tx False Nothing)
+            pure walletB
 
 ----------------------------------------------------------------------------
 -- Helpers

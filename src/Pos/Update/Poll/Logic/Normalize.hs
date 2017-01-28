@@ -12,7 +12,7 @@ module Pos.Update.Poll.Logic.Normalize
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
 import           Formatting                  (build, sformat, (%))
-import           System.Wlog                 (WithLogger, logWarning)
+import           System.Wlog                 (logWarning)
 import           Universum
 
 import           Pos.Constants               (updateProposalThreshold)
@@ -33,7 +33,7 @@ import           Pos.Util                    (getKeys)
 -- state, i. e. remove everything that is invalid. Valid data is
 -- applied.  This function doesn't consider 'updateProposalThreshold'.
 normalizePoll
-    :: forall ssc m . (MonadPoll m, WithLogger m, Ssc ssc)
+    :: forall ssc m . (MonadPoll m, Ssc ssc)
     => SlotId
     -> UpdateProposals
     -> LocalVotes
@@ -53,7 +53,7 @@ normalizeProposals slotId (toList -> proposals) =
 -- Apply votes which can be applied and put them in result.
 -- Disregard other votes.
 normalizeVotes
-    :: forall m . (MonadPoll m, WithLogger m)
+    :: forall m . (MonadPoll m)
     => LocalVotes -> m LocalVotes
 normalizeVotes (HM.toList -> votesGroups) =
     HM.fromList . catMaybes <$> mapM verifyNApplyVotesGroup votesGroups
@@ -63,7 +63,8 @@ normalizeVotes (HM.toList -> votesGroups) =
     verifyNApplyVotesGroup (upId, votesGroup) = getProposal upId >>= \case
         Nothing -> Nothing <$
                    logWarning (
-                       sformat ("Update Proposal with id "%build%" not found in normalizeVotes") upId)
+                       sformat ("Update Proposal with id "%build%
+                                " not found in normalizeVotes") upId)
         Just ps
             | PSUndecided ups <- ps -> do
                 let pks = HM.keys votesGroup
@@ -82,7 +83,7 @@ normalizeVotes (HM.toList -> votesGroups) =
 -- into block according to 'updateProposalThreshold'. Note that this
 -- function is read-only.
 filterProposalsByThd
-    :: forall m . (MonadPollRead m, WithLogger m)
+    :: forall m . (MonadPollRead m)
     => EpochIndex -> UpdateProposals -> m (UpdateProposals, HashSet UpId)
 filterProposalsByThd epoch proposalsHM = getEpochTotalStake epoch >>= \case
     Nothing -> (mempty, getKeys proposalsHM) <$

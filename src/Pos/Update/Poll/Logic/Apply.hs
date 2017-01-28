@@ -16,7 +16,7 @@ import           Data.List                  (partition)
 import           Data.List.NonEmpty         (NonEmpty)
 import qualified Data.List.NonEmpty         as NE
 import           Formatting                 (build, sformat, (%))
-import           System.Wlog                (WithLogger, logInfo)
+import           System.Wlog                (logInfo)
 import           Universum
 
 import           Pos.Constants              (blkSecurityParam, updateImplicitApproval,
@@ -47,7 +47,7 @@ import           Pos.Update.Poll.Types      (BlockVersionState (..),
                                              PollVerFailure (..), ProposalState (..),
                                              UndecidedProposalState (..), UpsExtra (..))
 
-type ApplyMode m = (MonadError PollVerFailure m, MonadPoll m, WithLogger m)
+type ApplyMode m = (MonadError PollVerFailure m, MonadPoll m)
 
 -- | Verify UpdatePayload with respect to data provided by
 -- MonadPoll. If data is valid it is also applied.  Otherwise

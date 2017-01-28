@@ -135,7 +135,7 @@ verifyBlock (Right blk) =
 
 -- | Checks whether our software can create block according to current
 -- global state.
-usCanCreateBlock :: (WithNodeContext ssc m, DB.MonadDB ssc m) => m Bool
+usCanCreateBlock :: (WithLogger m, WithNodeContext ssc m, DB.MonadDB ssc m) => m Bool
 usCanCreateBlock = runDBPoll $ canCreateBlockBV lastKnownBlockVersion
 
 ----------------------------------------------------------------------------

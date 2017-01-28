@@ -274,6 +274,7 @@ main = do
                 , npAttackTypes   = []
                 , npAttackTargets = []
                 , npPropagation   = not (CLI.disablePropagation goCommonArgs)
+                , npUpdateExePath = "update.exe"
                 }
             gtParams =
                 GtParams

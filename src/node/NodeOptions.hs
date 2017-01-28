@@ -54,6 +54,7 @@ data Args = Args
 #endif
     , commonArgs                :: !CLI.CommonArgs
     , noSystemStart             :: !Int
+    , updateExecutablePath      :: !FilePath
     }
   deriving Show
 
@@ -135,6 +136,11 @@ argsParser =
 #endif
     <*> CLI.commonArgsParser peerHelpMsg
     <*> option auto (long "system-start" <> metavar "TIMESTAMP" <> value (-1))
+    <*> strOption (long "update-installer-path" <>
+                   metavar "FILEPATH" <>
+                   value "update-installer.exe" <>
+                   help "Path to update installer file, which should be downloaded by update system")
+
   where
     peerHelpMsg =
         "Peer to connect to for initial peer discovery. Format\

@@ -214,6 +214,7 @@ getNodeParams args@Args {..} systemStart = do
         , npAttackTypes = maliciousEmulationAttacks
         , npAttackTargets = maliciousEmulationTargets
         , npPropagation = not (CLI.disablePropagation commonArgs)
+        , npUpdateExePath = updateExecutablePath
         }
 
 gtSscParams :: Args -> VssKeyPair -> GtParams

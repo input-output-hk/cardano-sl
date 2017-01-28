@@ -47,4 +47,5 @@ data NodeParams = NodeParams
     , npAttackTypes   :: ![AttackType]      -- ^ List of attack types used by malicious emulation
     , npAttackTargets :: ![AttackTarget]    -- ^ List of targets to attack by malicious emulation
     , npPropagation   :: !Bool              -- ^ Whether to propagate txs, ssc data, blocks to neighbors
+    , npUpdateExePath :: !FilePath          -- ^ Path to update installer executable, downloaded by update system
     } deriving (Show)

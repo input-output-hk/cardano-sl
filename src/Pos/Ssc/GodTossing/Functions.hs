@@ -39,7 +39,6 @@ module Pos.Ssc.GodTossing.Functions
        , getStableCertsPure
        ) where
 
-import           Control.Lens                   (at)
 import           Control.Monad.Except           (MonadError (throwError), runExcept)
 import           Data.Containers                (ContainerKey, SetContainer (notMember))
 import qualified Data.HashMap.Strict            as HM
@@ -70,7 +69,7 @@ import           Pos.Ssc.GodTossing.Types.Base  (Commitment (..), CommitmentsMap
                                                  VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Types.Types (GtGlobalState (..), GtPayload (..),
                                                  TossVerErrorTag (..),
-                                                 TossVerFailure (..), gsCommitments)
+                                                 TossVerFailure (..))
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types.Address              (addressHash)
 import           Pos.Types.Core                 (EpochIndex (..), LocalSlotIndex,
@@ -132,23 +131,17 @@ isOpeningId = isOpeningIdx . siSlot
 isSharesId :: SlotId -> Bool
 isSharesId = isSharesIdx . siSlot
 
--- Not the best solution :(
-hasCommitment
-    :: Bi Commitment
-    => EpochIndex -> StakeholderId -> GtGlobalState -> Bool
-hasCommitment epoch id gs =
-    case gs ^. gsCommitments . at id of
-        Nothing              -> False
-        Just (pk, comm, sig) -> checkSig pk (epoch, comm) sig
+hasCommitment :: StakeholderId -> GtGlobalState -> Bool
+hasCommitment id = HM.member id . _gsCommitments
 
 hasOpening :: StakeholderId -> GtGlobalState -> Bool
-hasOpening addr = HM.member addr . _gsOpenings
+hasOpening id = HM.member id . _gsOpenings
 
 hasShares :: StakeholderId -> GtGlobalState -> Bool
-hasShares addr = HM.member addr . _gsShares
+hasShares id = HM.member id . _gsShares
 
 hasVssCertificate :: StakeholderId -> GtGlobalState -> Bool
-hasVssCertificate addr = VCD.member addr . _gsVssCertificates
+hasVssCertificate id = VCD.member id . _gsVssCertificates
 
 ----------------------------------------------------------------------------
 -- Verifications for GodTossing.Types.Base

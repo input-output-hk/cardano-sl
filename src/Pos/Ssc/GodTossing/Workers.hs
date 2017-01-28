@@ -166,7 +166,7 @@ onNewSlotCommitment sendActions slotId@SlotId {..}
     | otherwise = do
         ourId <- addressHash . ncPublicKey <$> getNodeContext
         shouldSendCommitment <- andM
-            [ not . hasCommitment siEpoch ourId <$> gtGetGlobalState
+            [ not . hasCommitment ourId <$> gtGetGlobalState
             , HM.member ourId <$> getStableCerts siEpoch]
         logDebug $ sformat ("shouldSendCommitment: "%shown) shouldSendCommitment
         when shouldSendCommitment $ do

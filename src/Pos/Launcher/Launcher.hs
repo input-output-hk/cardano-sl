@@ -13,18 +13,18 @@ module Pos.Launcher.Launcher
          -- * Utility launchers.
        ) where
 
-import           Mockable                         (Production)
-import           Node                             (SendActions)
+import           Mockable                   (Production)
 
-import           Pos.Communication.BiP            (BiP)
-import           Pos.Communication.Types.Protocol (PeerId)
-import           Pos.Launcher.Param               (NodeParams (..))
-import           Pos.Launcher.Runner              (RealModeResources, runProductionMode,
-                                                   runStatsMode)
-import           Pos.Launcher.Scenario            (runNode)
-import           Pos.Ssc.Class                    (SscConstraint)
-import           Pos.Ssc.Class.Types              (SscParams)
-import           Pos.WorkMode                     (ProductionMode, StatsMode)
+
+
+import           Pos.Communication.Protocol (Worker)
+import           Pos.Launcher.Param         (NodeParams (..))
+import           Pos.Launcher.Runner        (RealModeResources, runProductionMode,
+                                             runStatsMode)
+import           Pos.Launcher.Scenario      (runNode)
+import           Pos.Ssc.Class              (SscConstraint)
+import           Pos.Ssc.Class.Types        (SscParams)
+import           Pos.WorkMode               (ProductionMode, StatsMode)
 
 -----------------------------------------------------------------------------
 -- Main launchers
@@ -35,7 +35,7 @@ runNodeProduction
     :: forall ssc.
        SscConstraint ssc
     => RealModeResources
-    -> [ SendActions BiP PeerId (ProductionMode ssc) -> ProductionMode ssc ()]
+    -> [Worker (ProductionMode ssc)]
     -> NodeParams
     -> SscParams ssc
     -> Production ()
@@ -46,7 +46,7 @@ runNodeStats
     :: forall ssc.
        SscConstraint ssc
     => RealModeResources
-    -> [ SendActions BiP PeerId (StatsMode ssc) -> StatsMode ssc ()]
+    -> [Worker (StatsMode ssc)]
     -> NodeParams
     -> SscParams ssc
     -> Production ()

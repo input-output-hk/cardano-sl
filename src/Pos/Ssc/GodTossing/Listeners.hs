@@ -13,7 +13,8 @@ import           Data.HashMap.Strict                    (lookup)
 import           Data.Proxy                             (Proxy (..))
 import           Data.Tagged                            (Tagged (..))
 import           Formatting                             (build, sformat, (%))
-import           Node                                   (ListenerAction (..))
+import           Pos.Communication.Protocol             (Listener, listenerConv,
+                                                         listenerOneMsg)
 import           Serokell.Util.Verify                   (VerificationRes (..))
 import           System.Wlog                            (logDebug)
 import           Universum
@@ -22,12 +23,13 @@ import           Pos.Binary.Communication               ()
 import           Pos.Binary.Crypto                      ()
 import           Pos.Binary.Relay                       ()
 import           Pos.Binary.Ssc                         ()
-import           Pos.Communication.BiP                  (BiP (..))
+
 import           Pos.Communication.Message              ()
 import           Pos.Communication.Relay                (DataMsg, InvMsg, Relay (..),
                                                          ReqMsg, handleDataL, handleInvL,
                                                          handleReqL)
-import           Pos.Communication.Types.Protocol       (PeerId)
+
+import           Pos.Communication.Util                 (stubListenerOneMsg)
 import           Pos.Context                            (WithNodeContext (getNodeContext))
 import qualified Pos.DB.Lrc                             as LrcDB
 import           Pos.Security                           (shouldIgnorePkAddress)
@@ -44,7 +46,6 @@ import           Pos.Ssc.GodTossing.Types.Message       (GtMsgContents (..),
 import           Pos.Ssc.GodTossing.Types.Type          (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types         (GtPayload (..), _gpCertificates)
 import           Pos.Types                              (SlotId (..), StakeholderId)
-import           Pos.Util                               (stubListenerOneMsg)
 import           Pos.WorkMode                           (WorkMode)
 
 instance SscListenersClass SscGodTossing where
@@ -64,20 +65,20 @@ instance SscListenersClass SscGodTossing where
 
 handleInvGt
     :: WorkMode SscGodTossing m
-    => ListenerAction BiP PeerId m
-handleInvGt = ListenerActionOneMsg $ \_ peerId sendActions (i :: InvMsg StakeholderId GtMsgTag) ->
+    => Listener m
+handleInvGt = listenerOneMsg $ \_ peerId sendActions (i :: InvMsg StakeholderId GtMsgTag) ->
     handleInvL i peerId sendActions
 
 handleReqGt
     :: WorkMode SscGodTossing m
-    => ListenerAction BiP PeerId m
-handleReqGt = ListenerActionOneMsg $ \_ peerId sendActions (r :: ReqMsg StakeholderId GtMsgTag) ->
+    => Listener m
+handleReqGt = listenerOneMsg $ \_ peerId sendActions (r :: ReqMsg StakeholderId GtMsgTag) ->
     handleReqL r peerId sendActions
 
 handleDataGt
     :: WorkMode SscGodTossing m
-    => ListenerAction BiP PeerId m
-handleDataGt = ListenerActionOneMsg $ \_ peerId sendActions (d :: DataMsg StakeholderId GtMsgContents) ->
+    => Listener m
+handleDataGt = listenerOneMsg $ \_ peerId sendActions (d :: DataMsg StakeholderId GtMsgContents) ->
     handleDataL d peerId sendActions
 
 instance WorkMode SscGodTossing m

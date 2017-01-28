@@ -26,7 +26,7 @@ import           Mockable                      (ChannelT, Counter, Distribution,
                                                 SharedExclusiveT, SharedExclusiveT,
                                                 ThreadId, liftMockableWrappedM,
                                                 newSharedAtomic, readSharedAtomic)
-import           Node                          (NodeId)
+import           Pos.Communication.Protocol    (NodeId)
 import           Serokell.Util.Lens            (WrappedM (..))
 import qualified STMContainers.Map             as STM
 import           System.Wlog                   (CanLog, HasLoggerName)

@@ -10,56 +10,52 @@ module Pos.Lrc.Worker
        , lrcSingleShotNoLock
        ) where
 
-import           Control.Concurrent.STM.TVar      (TVar, readTVar, writeTVar)
-import           Control.Monad.Catch              (bracketOnError)
-import qualified Data.HashMap.Strict              as HM
-import qualified Data.HashSet                     as HS
-import           Formatting                       (build, sformat, (%))
-import           Mockable                         (fork)
-import           Node                             (SendActions)
-import           Serokell.Util.Exceptions         ()
-import           System.Wlog                      (logInfo, logWarning)
+import           Control.Concurrent.STM.TVar (TVar, readTVar, writeTVar)
+import           Control.Monad.Catch         (bracketOnError)
+import qualified Data.HashMap.Strict         as HM
+import qualified Data.HashSet                as HS
+import           Formatting                  (build, sformat, (%))
+import           Mockable                    (fork)
+import           Serokell.Util.Exceptions    ()
+import           System.Wlog                 (logInfo, logWarning)
 import           Universum
 
-import           Pos.Binary.Communication         ()
-import           Pos.Block.Logic.Internal         (applyBlocksUnsafe,
-                                                   rollbackBlocksUnsafe,
-                                                   withBlkSemaphore_)
-import           Pos.Communication.BiP            (BiP)
-import           Pos.Communication.Types.Protocol (PeerId)
-import           Pos.Constants                    (slotSecurityParam)
-import           Pos.Context                      (LrcSyncData, getNodeContext, ncLrcSync)
-import qualified Pos.DB                           as DB
-import qualified Pos.DB.GState                    as GS
-import           Pos.DB.Lrc                       (IssuersStakes, getLeaders, putEpoch,
-                                                   putIssuersStakes, putLeaders)
-import           Pos.Lrc.Consumer                 (LrcConsumer (..))
-import           Pos.Lrc.Consumers                (allLrcConsumers)
-import           Pos.Lrc.Error                    (LrcError (..))
-import           Pos.Lrc.FollowTheSatoshi         (followTheSatoshiM)
-import           Pos.Lrc.Logic                    (findAllRichmenMaybe)
-import           Pos.Slotting                     (onNewSlot)
-import           Pos.Ssc.Class                    (SscWorkersClass)
-import           Pos.Ssc.Extra                    (sscCalculateSeed)
-import           Pos.Types                        (EpochIndex, EpochOrSlot (..),
-                                                   EpochOrSlot (..), HeaderHash,
-                                                   HeaderHash, SlotId (..), StakeholderId,
-                                                   crucialSlot, getEpochOrSlot,
-                                                   getEpochOrSlot)
-import           Pos.Update.Poll.Types            (BlockVersionState (..))
-import           Pos.Util                         (NewestFirst (..), logWarningWaitLinear,
-                                                   toOldestFirst)
-import           Pos.WorkMode                     (WorkMode)
+import           Pos.Binary.Communication    ()
+import           Pos.Block.Logic.Internal    (applyBlocksUnsafe, rollbackBlocksUnsafe,
+                                              withBlkSemaphore_)
+import           Pos.Communication.Protocol  (Worker, worker)
+import           Pos.Constants               (slotSecurityParam)
+import           Pos.Context                 (LrcSyncData, getNodeContext, ncLrcSync)
+import qualified Pos.DB                      as DB
+import qualified Pos.DB.GState               as GS
+import           Pos.DB.Lrc                  (IssuersStakes, getLeaders, putEpoch,
+                                              putIssuersStakes, putLeaders)
+import           Pos.Lrc.Consumer            (LrcConsumer (..))
+import           Pos.Lrc.Consumers           (allLrcConsumers)
+import           Pos.Lrc.Error               (LrcError (..))
+import           Pos.Lrc.FollowTheSatoshi    (followTheSatoshiM)
+import           Pos.Lrc.Logic               (findAllRichmenMaybe)
+import           Pos.Slotting                (onNewSlot)
+import           Pos.Ssc.Class               (SscWorkersClass)
+import           Pos.Ssc.Extra               (sscCalculateSeed)
+import           Pos.Types                   (EpochIndex, EpochOrSlot (..),
+                                              EpochOrSlot (..), HeaderHash, HeaderHash,
+                                              SlotId (..), StakeholderId, crucialSlot,
+                                              getEpochOrSlot, getEpochOrSlot)
+import           Pos.Update.Poll.Types       (BlockVersionState (..))
+import           Pos.Util                    (NewestFirst (..), logWarningWaitLinear,
+                                              toOldestFirst)
+import           Pos.WorkMode                (WorkMode)
 
 lrcOnNewSlotWorker
     :: (SscWorkersClass ssc, WorkMode ssc m)
-    => SendActions BiP PeerId m -> m ()
-lrcOnNewSlotWorker _ = onNewSlot True $ lrcOnNewSlotImpl
+    => Worker m
+lrcOnNewSlotWorker = onNewSlot True $ lrcOnNewSlotImpl
 
 lrcOnNewSlotImpl
     :: (SscWorkersClass ssc, WorkMode ssc m)
-    => SlotId -> m ()
-lrcOnNewSlotImpl SlotId {..} =
+    => SlotId -> Worker m
+lrcOnNewSlotImpl SlotId {..} = worker $ \_ ->
     when (siSlot < slotSecurityParam) $ lrcSingleShot siEpoch `catch` onLrcError
   where
     onLrcError UnknownBlocksForLrc =

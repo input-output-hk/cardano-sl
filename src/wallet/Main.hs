@@ -12,18 +12,17 @@ import qualified Data.Text            as T
 import           Data.Time.Units      (convertUnit)
 import           Formatting           (build, int, sformat, stext, (%))
 import           Mockable             (delay)
-import           Node                 (SendActions, hoistSendActions)
 import           Options.Applicative  (execParser)
 import           System.IO            (hFlush, stdout)
 import           Universum
 
 import qualified Pos.CLI              as CLI
-import           Pos.Communication    (BiP, PeerId)
+import           Pos.Communication    (SendActions, Worker, hoistSendActions, worker)
 import           Pos.Crypto           (SecretKey, createProxySecretKey, encodeHash, hash,
                                        sign, toPublic)
 import           Pos.Data.Attributes  (mkAttributes)
 import           Pos.Delegation       (sendProxySKEpoch, sendProxySKSimple)
-import           Pos.DHT.Model        (dhtAddr, discoverPeers)
+import           Pos.DHT.Model        (DHTNode, discoverPeers)
 import           Pos.Genesis          (genesisBlockVersionData, genesisPublicKeys,
                                        genesisSecretKeys)
 import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
@@ -35,7 +34,7 @@ import           Pos.Ssc.SscAlgo      (SscAlgo (..))
 import           Pos.Types            (EpochIndex (..), coinF, makePubKeyAddress, txaF)
 import           Pos.Update           (BlockVersionData (..), UpdateProposal (..),
                                        UpdateVote (..), patakUpdateData)
-import           Pos.Util.TimeWarp    (NetworkAddress, sec)
+import           Pos.Util.TimeWarp    (sec)
 import           Pos.Wallet           (WalletMode, WalletParams (..), WalletRealMode,
                                        getBalance, runWalletReal, submitTx,
                                        submitUpdateProposal, submitVote)
@@ -46,9 +45,9 @@ import           Pos.Wallet.Web       (walletServeWebLite)
 import           Command              (Command (..), parseCommand)
 import           WalletOptions        (WalletAction (..), WalletOptions (..), optsInfo)
 
-type CmdRunner = ReaderT ([SecretKey], [NetworkAddress])
+type CmdRunner = ReaderT ([SecretKey], [DHTNode])
 
-runCmd :: WalletMode ssc m =>  SendActions BiP PeerId m -> Command -> CmdRunner m ()
+runCmd :: WalletMode ssc m => SendActions m -> Command -> CmdRunner m ()
 runCmd _ (Balance addr) = lift (getBalance addr) >>=
                          putText . sformat ("Current balance: "%coinF)
 runCmd sendActions (Send idx outputs) = do
@@ -133,11 +132,11 @@ runCmd sendActions (DelegateHeavy i j) = do
     putText "Sent heavyweight cert"
 runCmd _ Quit = pure ()
 
-evalCmd :: WalletMode ssc m =>  SendActions BiP PeerId m -> Command -> CmdRunner m ()
+evalCmd :: WalletMode ssc m =>  SendActions m -> Command -> CmdRunner m ()
 evalCmd _ Quit = pure ()
 evalCmd sa cmd = runCmd sa cmd >> evalCommands sa
 
-evalCommands :: WalletMode ssc m =>  SendActions BiP PeerId m -> CmdRunner m ()
+evalCommands :: WalletMode ssc m =>  SendActions m -> CmdRunner m ()
 evalCommands sa = do
     putStr @Text "> "
     liftIO $ hFlush stdout
@@ -147,21 +146,21 @@ evalCommands sa = do
         Left err  -> putStrLn err >> evalCommands sa
         Right cmd -> evalCmd sa cmd
 
-initialize :: WalletMode ssc m => WalletOptions -> m [NetworkAddress]
+initialize :: WalletMode ssc m => WalletOptions -> m [DHTNode]
 initialize WalletOptions{..} = do
     -- Wait some time to ensure blockchain is fetched
     putText $ sformat ("Started node. Waiting for "%int%" slots...") woInitialPause
     slotDuration <- getSlotDuration
     delay (fromIntegral woInitialPause * slotDuration)
-    fmap dhtAddr <$> discoverPeers
+    discoverPeers
 
-runWalletRepl :: WalletMode ssc m => WalletOptions ->  SendActions BiP PeerId m -> m ()
+runWalletRepl :: WalletMode ssc m => WalletOptions ->  SendActions m -> m ()
 runWalletRepl wo sa = do
     na <- initialize wo
     putText "Welcome to Wallet CLI Node"
     runReaderT (evalCmd sa Help) (genesisSecretKeys, na)
 
-runWalletCmd :: WalletMode ssc m => WalletOptions -> Text ->  SendActions BiP PeerId m -> m ()
+runWalletCmd :: WalletMode ssc m => WalletOptions -> Text ->  SendActions m -> m ()
 runWalletCmd wo str sa = do
     na <- initialize wo
     let strs = T.splitOn "," str
@@ -211,12 +210,12 @@ main = do
                 , wpBaseParams  = baseParams
                 }
 
-            plugins :: [ SendActions BiP PeerId WalletRealMode -> WalletRealMode ()]
+            plugins :: [ Worker WalletRealMode ]
             plugins = case woAction of
-                Repl          -> [runWalletRepl opts]
-                Cmd cmd       -> [runWalletCmd opts cmd]
+                Repl          -> [worker $ runWalletRepl opts]
+                Cmd cmd       -> [worker $ runWalletCmd opts cmd]
 #ifdef WITH_WEB
-                Serve webPort webDaedalusDbPath -> [\sendActions ->
+                Serve webPort webDaedalusDbPath -> [worker $ \sendActions ->
                     walletServeWebLite sendActions webDaedalusDbPath False webPort]
 #endif
 

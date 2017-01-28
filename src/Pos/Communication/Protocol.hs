@@ -3,16 +3,25 @@
 -- | Protocol/versioning related communication helpers.
 
 module Pos.Communication.Protocol
-       (
+       ( module Pos.Communication.Types.Protocol
+       , listenerOneMsg
+       , listenerConv
+       , hoistSendActions
+       , mapListener
+       , mapListener'
+       , Message (..)
+       , MessageName (..)
+       , messageName'
+       , worker
+       , toAction
        ) where
 
 import qualified Data.HashMap.Strict              as HM
 import           Data.Proxy                       (Proxy (..))
+import qualified Data.Text.Buildable              as B
 import           Formatting                       (build, sformat, shown, stext, (%))
 import           Mockable                         (Mockable, Throw, throw)
-import           Node                             (ConversationActions (..), Listener,
-                                                   ListenerAction (..), NodeId,
-                                                   SendActions (..), Worker)
+import qualified Node                             as N
 import           Node.Message                     (Message (..), MessageName (..),
                                                    messageName')
 import           Serokell.Util.Base16             (base16F)
@@ -21,20 +30,83 @@ import           Universum
 
 import           Pos.Binary.Class                 (Bi)
 import           Pos.Communication.BiP            (BiP)
-import           Pos.Communication.Types.Protocol (HandlerSpec (..), HandlerSpecs, PeerId,
-                                                   VerInfo (..), WorkerSpecs (..),
-                                                   notInSpecs)
---worker' :: (WithLogger m)
---    => HandlerSpecs
---    -> (PeerId -> Worker BiP PeerId m)
---    -> WorkerSpecs PeerId m
---worker' specs run = WorkerSpecs [run'] specs
---  where
---    run' ourPeerId sA = run ourPeerId (
+import           Pos.Communication.Types.Protocol
+mapListener
+    :: (forall t. m t -> m t) -> Listener m -> Listener m
+mapListener = mapListener' identity $ const identity
+
+mapListener'
+    :: (N.SendActions BiP PeerId m -> N.SendActions BiP PeerId m)
+    -> (forall snd rcv. Message rcv => N.NodeId
+          -> N.ConversationActions PeerId snd rcv m
+          -> N.ConversationActions PeerId snd rcv m)
+    -> (forall t. m t -> m t) -> Listener m -> Listener m
+mapListener' saMapper _ mapper (N.ListenerActionOneMsg f) =
+    N.ListenerActionOneMsg $ \d nId sA -> mapper . f d nId (saMapper sA)
+mapListener' _ caMapper mapper (N.ListenerActionConversation f) =
+    N.ListenerActionConversation $ \d nId -> mapper . f d nId . caMapper nId
+
+hoistConversationActions
+    :: (forall a. n a -> m a)
+    -> ConversationActions body rcv n
+    -> ConversationActions body rcv m
+hoistConversationActions nat ConversationActions {..} =
+    ConversationActions send' recv'
+  where
+    send' = nat . send
+    recv' = nat recv
+
+hoistSendActions
+    :: (forall a. n a -> m a)
+    -> (forall a. m a -> n a)
+    -> SendActions n
+    -> SendActions m
+hoistSendActions nat rnat SendActions {..} = SendActions sendTo' withConnectionTo'
+  where
+    sendTo' nodeId msg = nat $ sendTo nodeId msg
+    withConnectionTo' nodeId convActionsH =
+        nat $ withConnectionTo nodeId $ \convActions -> rnat $ convActionsH $ hoistConversationActions nat convActions
+
+convertCA :: N.ConversationActions PeerId snd rcv m -> ConversationActions snd rcv m
+convertCA cA = ConversationActions
+    { send = N.send cA
+    , recv = N.recv cA
+    }
+
+convertSA :: N.SendActions BiP PeerId m -> SendActions m
+convertSA sA = SendActions
+    { sendTo = \(NodeId (peerId, nNodeId)) -> N.sendTo sA nNodeId
+    , withConnectionTo = \(NodeId (peerId, nNodeId)) h ->
+                              N.withConnectionTo sA nNodeId $ h . convertCA
+    }
+
+listenerOneMsg :: ( Bi msg, Message msg )
+    => (VerInfo -> NodeId -> SendActions m -> msg -> m ())
+    -> N.ListenerAction BiP PeerId m
+listenerOneMsg h =
+    N.ListenerActionOneMsg $ \peerId nNodeId sA ->
+        h undefined (NodeId (peerId, nNodeId)) (convertSA sA)
+
+listenerConv :: ( Bi snd, Bi rcv, Message snd, Message rcv )
+    => (VerInfo -> NodeId -> ConversationActions snd rcv m -> m ())
+    -> N.ListenerAction BiP PeerId m
+listenerConv h =
+    N.ListenerActionConversation $ \peerId nNodeId conv -> h undefined (NodeId (peerId, nNodeId)) (convertCA conv)
+
+toAction :: (SendActions m -> m a) -> Action m a
+toAction h = h . convertSA
+
+worker :: (SendActions m -> m ()) -> Worker m
+worker = toAction
+
+--worker :: (WithLogger m)
+--    => (SendActions m -> m ())
+--    -> WorkerSpecs m
+--worker specs run = WorkerSpecs [const $ toAction run] mempty
 
 -- listenerConv :: (WithLogger m, Bi snd, Bi rcv, Message snd, Message rcv)
 --     => (NodeId -> ConversationActions PeerId snd rcv m -> m ())
---     -> (PeerId -> Listener BiP PeerId m, (MessageName, HandlerSpec))
+--     -> (PeerId -> Listener m, (MessageName, HandlerSpec))
 -- listenerConv handler = (listener, spec)
 --   where
 --     spec = (rcvMsgName, ConvHandler sndMsgName)
@@ -50,8 +122,8 @@ import           Pos.Communication.Types.Protocol (HandlerSpec (..), HandlerSpec
 --               handler peerId conv
 --
 -- listenerOneMsg :: (WithLogger m, Bi msg, Message msg, Mockable Throw m)
---     => (NodeId -> SendActions BiP PeerId m -> msg -> m ())
---     -> (VersionInfo -> Listener BiP PeerId m, (MessageName, HandlerSpec))
+--     => (NodeId -> SendActions m -> msg -> m ())
+--     -> (VersionInfo -> Listener m, (MessageName, HandlerSpec))
 -- listenerOneMsg handler = (listener, spec)
 --   where
 --     spec = (rcvMsgName, OneMsgHandler)
@@ -86,7 +158,7 @@ import           Pos.Communication.Types.Protocol (HandlerSpec (..), HandlerSpec
 -- instance Exception SpecError
 --
 -- modifySend :: (WithLogger m, Mockable Throw m)
---            => HandlerSpecs -> SendActions BiP PeerId m -> SendActions BiP PeerId m
+--            => HandlerSpecs -> SendActions m -> SendActions m
 -- modifySend ourOutSpecs sA = sA
 --     { sendTo = \nodeId msg ->
 --           let sndMsgName = messageName' msg

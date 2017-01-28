@@ -10,7 +10,6 @@ import           Data.Time.Clock.POSIX       (getPOSIXTime)
 import           Data.Time.Units             (Microsecond, convertUnit)
 import           Formatting                  (float, int, sformat, (%))
 import           Mockable                    (Production, delay, forConcurrently, fork)
-import           Node                        (SendActions)
 import           Options.Applicative         (execParser)
 import           System.FilePath.Posix       ((</>))
 import           System.Random.Shuffle       (shuffleM)
@@ -19,11 +18,11 @@ import           Test.QuickCheck             (arbitrary, generate)
 import           Universum
 
 import qualified Pos.CLI                     as CLI
-import           Pos.Communication           (BiP, PeerId)
+import           Pos.Communication           (SendActions, worker)
 import           Pos.Constants               (genesisN, neighborsSendThreshold,
                                               slotSecurityParam)
 import           Pos.Crypto                  (KeyPair (..), hash)
-import           Pos.DHT.Model               (MonadDHT, dhtAddr, discoverPeers,
+import           Pos.DHT.Model               (DHTNode, MonadDHT, discoverPeers,
                                               getKnownPeers)
 import           Pos.Genesis                 (genesisUtxo)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
@@ -38,7 +37,7 @@ import           Pos.Ssc.NistBeacon          (SscNistBeacon)
 import           Pos.Ssc.SscAlgo             (SscAlgo (..))
 import           Pos.Types                   (TxAux)
 import           Pos.Util.JsonLog            ()
-import           Pos.Util.TimeWarp           (NetworkAddress, ms, sec)
+import           Pos.Util.TimeWarp           (ms, sec)
 import           Pos.Util.UserSecret         (simpleUserSecret)
 import           Pos.Wallet                  (submitTxRaw)
 import           Pos.WorkMode                (ProductionMode)
@@ -55,7 +54,7 @@ import           Util
 
 -- | Resend initTx with 'slotDuration' period until it's verified
 seedInitTx :: forall ssc . SscConstraint ssc
-           =>  SendActions BiP PeerId (ProductionMode ssc)
+           => SendActions (ProductionMode ssc)
            -> Double
            -> BambooPool
            -> TxAux
@@ -78,9 +77,9 @@ chooseSubset share ls = take n ls
   where n = max 1 $ round $ share * fromIntegral (length ls)
 
 getPeers :: (MonadDHT m, MonadIO m)
-         => Double -> m [NetworkAddress]
+         => Double -> m [DHTNode]
 getPeers share = do
-    peers <- fmap dhtAddr <$> do
+    peers <- do
         ps <- getKnownPeers
         if length ps < neighborsSendThreshold
            then discoverPeers
@@ -116,8 +115,9 @@ runSmartGen res np@NodeParams{..} sscnp opts@GenOptions{..} =
 
     -- [CSL-220] Write MonadBaseControl instance for KademliaDHT
     -- Seeding init tx
-    _ <- forConcurrently (zip bambooPools goGenesisIdxs) $ \(pool, fromIntegral -> idx) ->
-            seedInitTx sendActions goRecipientShare pool (initTx idx)
+    flip worker sendActions $ \sA ->
+        void $ forConcurrently (zip bambooPools goGenesisIdxs) $ \(pool, fromIntegral -> idx) ->
+            seedInitTx sA goRecipientShare pool (initTx idx)
 
     -- Start writing tps file
     liftIO $ writeFile (logsFilePrefix </> tpsCsvFile) tpsCsvHeader
@@ -130,7 +130,8 @@ runSmartGen res np@NodeParams{..} sscnp opts@GenOptions{..} =
             fromIntegral (goRoundPeriodRate + 1) *
             fromIntegral (phaseDurationMs `div` sec 1)
 
-    void $ forFold (goInitTps, goTpsIncreaseStep) [1 .. goRoundNumber] $
+    flip worker sendActions $ \sA ->
+      void $ forFold (goInitTps, goTpsIncreaseStep) [1 .. goRoundNumber] $
         \(goTPS', increaseStep) (roundNum :: Int) -> do
         -- Start writing verifications file
         liftIO $ writeFile (logsFilePrefix </> verifyCsvFile roundNum) verifyCsvHeader
@@ -168,12 +169,12 @@ runSmartGen res np@NodeParams{..} sscnp opts@GenOptions{..} =
                           Left parent -> do
                               logInfo $ sformat ("Transaction #"%int%" is not verified yet!") idx
                               logInfo "Resend the transaction parent again"
-                              submitTxRaw sendActions na parent
+                              submitTxRaw sA na parent
 
                           Right (transaction, witness, distr) -> do
                               let curTxId = hash transaction
                               logInfo $ sformat ("Sending transaction #"%int) idx
-                              submitTxRaw sendActions na (transaction, witness, distr)
+                              submitTxRaw sA na (transaction, witness, distr)
                               when (startT >= startMeasurementsT) $ liftIO $ do
                                   liftIO $ atomically $ modifyTVar' realTxNum (+1)
                                   -- put timestamp to current txmap

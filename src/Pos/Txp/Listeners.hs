@@ -11,34 +11,33 @@ module Pos.Txp.Listeners
        , processTx
        ) where
 
-import qualified Data.HashMap.Strict              as HM
-import           Formatting                       (build, sformat, stext, (%))
-import           Node                             (ListenerAction (..))
-import           Serokell.Util.Verify             (VerificationRes (..))
-import           System.Wlog                      (WithLogger, logDebug, logInfo,
-                                                   logWarning)
+import qualified Data.HashMap.Strict         as HM
+import           Formatting                  (build, sformat, stext, (%))
+import           Pos.Communication.Protocol  (Listener, listenerConv, listenerOneMsg)
+import           Serokell.Util.Verify        (VerificationRes (..))
+import           System.Wlog                 (WithLogger, logDebug, logInfo, logWarning)
 import           Universum
 
-import           Pos.Binary.Communication         ()
-import           Pos.Binary.Relay                 ()
-import           Pos.Communication.BiP            (BiP (..))
-import           Pos.Communication.Message        ()
-import           Pos.Communication.Relay          (DataMsg, InvMsg, Relay (..), ReqMsg,
-                                                   handleDataL, handleInvL, handleReqL)
-import           Pos.Communication.Types.Protocol (PeerId)
-import           Pos.Crypto                       (hash)
-import           Pos.Statistics                   (StatProcessTx (..), statlogCountEvent)
-import           Pos.Txp.Class                    (getMemPool)
-import           Pos.Txp.Logic                    (processTx)
-import           Pos.Txp.Types.Communication      (TxMsgContents (..), TxMsgTag (..))
-import           Pos.Txp.Types.Types              (MemPool (..), ProcessTxRes (..))
-import           Pos.Types                        (TxAux, TxId)
-import           Pos.Util                         (stubListenerOneMsg)
-import           Pos.WorkMode                     (WorkMode)
+import           Pos.Binary.Communication    ()
+import           Pos.Binary.Relay            ()
+
+import           Pos.Communication.Message   ()
+import           Pos.Communication.Relay     (DataMsg, InvMsg, Relay (..), ReqMsg,
+                                              handleDataL, handleInvL, handleReqL)
+
+import           Pos.Communication.Util      (stubListenerOneMsg)
+import           Pos.Crypto                  (hash)
+import           Pos.Statistics              (StatProcessTx (..), statlogCountEvent)
+import           Pos.Txp.Class               (getMemPool)
+import           Pos.Txp.Logic               (processTx)
+import           Pos.Txp.Types.Communication (TxMsgContents (..), TxMsgTag (..))
+import           Pos.Txp.Types.Types         (MemPool (..), ProcessTxRes (..))
+import           Pos.Types                   (TxAux, TxId)
+import           Pos.WorkMode                (WorkMode)
 
 txListeners
     :: WorkMode ssc m
-    => [ListenerAction BiP PeerId m]
+    => [Listener m]
 txListeners =
     [ handleInvTx
     , handleReqTx
@@ -47,25 +46,25 @@ txListeners =
 
 handleInvTx
     :: WorkMode ssc m
-    => ListenerAction BiP PeerId m
-handleInvTx = ListenerActionOneMsg $ \_ peerId sendActions (i :: InvMsg TxId TxMsgTag) ->
+    => Listener m
+handleInvTx = listenerOneMsg $ \_ peerId sendActions (i :: InvMsg TxId TxMsgTag) ->
     handleInvL i peerId sendActions
 
 handleReqTx
     :: WorkMode ssc m
-    => ListenerAction BiP PeerId m
-handleReqTx = ListenerActionOneMsg $ \_ peerId sendActions (r :: ReqMsg TxId TxMsgTag) ->
+    => Listener m
+handleReqTx = listenerOneMsg $ \_ peerId sendActions (r :: ReqMsg TxId TxMsgTag) ->
     handleReqL r peerId sendActions
 
 handleDataTx
     :: WorkMode ssc m
-    => ListenerAction BiP PeerId m
-handleDataTx = ListenerActionOneMsg $ \_ peerId sendActions (d :: DataMsg TxId TxMsgContents) ->
+    => Listener m
+handleDataTx = listenerOneMsg $ \_ peerId sendActions (d :: DataMsg TxId TxMsgContents) ->
     handleDataL d peerId sendActions
 
 txStubListeners
     :: WithLogger m
-    => Proxy ssc -> [ListenerAction BiP PeerId m]
+    => Proxy ssc -> [Listener m]
 txStubListeners p =
     [ stubListenerOneMsg $ (const Proxy :: Proxy ssc -> Proxy (InvMsg TxId TxMsgTag)) p
     , stubListenerOneMsg $ (const Proxy :: Proxy ssc -> Proxy (ReqMsg TxId TxMsgTag)) p

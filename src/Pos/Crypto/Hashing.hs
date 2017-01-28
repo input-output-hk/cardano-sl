@@ -51,7 +51,7 @@ import           Universum
 
 import           Pos.Binary.Class     (Bi)
 import qualified Pos.Binary.Class     as Bi
-import           Pos.Util             (Raw, getCopyBinary, putCopyBinary)
+import           Pos.Util.Binary      (Raw, getCopyBinary, putCopyBinary)
 
 ----------------------------------------------------------------------------
 -- WithHash
@@ -108,7 +108,7 @@ decodeAbstractHash :: forall algo a . Bi (AbstractHash algo a) => Text -> Abstra
 decodeAbstractHash = Bi.decode . processRes . B64.decode
   where
     processRes (Right x) = BSL.fromStrict x
-    processRes (Left e) = panic $ "decode hash error: " <> e
+    processRes (Left e)  = panic $ "decode hash error: " <> e
 
 -- | Encode hash from base64 form.
 encodeHash :: Bi (Hash a) => Hash a -> Text

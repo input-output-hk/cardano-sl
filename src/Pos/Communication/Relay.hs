@@ -14,8 +14,8 @@ module Pos.Communication.Relay
        ) where
 
 import           Formatting                    (build, sformat, stext, (%))
-import           Node                          (NodeId (..), SendActions (..), sendTo)
 import           Node.Message                  (Message)
+import           Pos.Communication.Protocol    (NodeId (..), SendActions (..), sendTo)
 import           Serokell.Util.Text            (listJson)
 import           Serokell.Util.Verify          (VerificationRes (..))
 import           System.Wlog                   (logDebug, logInfo, logWarning)
@@ -23,7 +23,7 @@ import           System.Wlog                   (WithLogger)
 import           Universum
 
 import           Pos.Binary.Class              (Bi (..))
-import           Pos.Communication.BiP         (BiP (..))
+
 import           Pos.Communication.Types.Relay (DataMsg (..), InvMsg (..), ReqMsg (..))
 import           Pos.Context                   (WithNodeContext (getNodeContext),
                                                 ncPropagation)
@@ -81,11 +81,10 @@ handleInvL
     :: ( Bi (ReqMsg key tag)
        , Relay m tag key contents
        , WithLogger m
-       , Bi dat
        )
     => InvMsg key tag
     -> NodeId
-    -> SendActions BiP dat m
+    -> SendActions m
     -> m ()
 handleInvL InvMsg {..} peerId sendActions = processMessage "Inventory" imTag verifyInvTag $ do
     res <- zip (toList imKeys) <$> mapM (handleInv imTag) (toList imKeys)
@@ -103,11 +102,10 @@ handleReqL
     :: ( Bi (DataMsg key contents)
        , Relay m tag key contents
        , WithLogger m
-       , Bi dat
        )
     => ReqMsg key tag
     -> NodeId
-    -> SendActions BiP dat m
+    -> SendActions m
     -> m ()
 handleReqL ReqMsg {..} peerId sendActions = processMessage "Request" rmTag verifyReqTag $ do
     res <- zip (toList rmKeys) <$> mapM (handleReq rmTag) (toList rmKeys)
@@ -125,11 +123,10 @@ handleDataL
        , Relay m tag key contents
        , WithLogger m
        , WorkMode ssc m
-       , Bi dat
        )
     => DataMsg key contents
     -> NodeId
-    -> SendActions BiP dat m
+    -> SendActions m
     -> m ()
 handleDataL DataMsg {..} _ sendActions =
     processMessage "Data" dmContents verifyDataContents $

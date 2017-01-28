@@ -14,7 +14,6 @@ import           Universum
 
 import           Pos.Binary            ()
 import qualified Pos.CLI               as CLI
-import           Pos.Communication     (PeerId)
 import           Pos.Constants         (staticSysStart)
 import           Pos.Crypto            (SecretKey, VssKeyPair, keyGen, vssKeyGen)
 import           Pos.Util.TimeWarp     (sec)
@@ -46,12 +45,11 @@ import           Pos.Ssc.Class         (SscConstraint)
 import           Pos.Web               (serveWebBase, serveWebGT)
 import           Pos.WorkMode          (WorkMode)
 #ifdef WITH_WALLET
-import           Pos.WorkMode          (ProductionMode, RawRealMode, StatsMode)
-
-import           Node                  (SendActions, hoistSendActions)
-import           Pos.Communication     (BiP)
+import           Node                  (hoistSendActions)
+import           Pos.Communication     (Worker, worker)
 import           Pos.Statistics        (getNoStatsT, getStatsMap, runStatsT')
 import           Pos.Wallet.Web        (walletServeWebFull)
+import           Pos.WorkMode          (ProductionMode, RawRealMode, StatsMode)
 #endif
 #endif
 
@@ -244,17 +242,17 @@ pluginsGT Args {..}
 walletServe
     :: SscConstraint ssc
     => Args
-    -> [ SendActions BiP PeerId (RawRealMode ssc) -> RawRealMode ssc ()]
+    -> [Worker (RawRealMode ssc)]
 walletServe Args {..} =
     if enableWallet
-    then [\sendActions -> walletServeWebFull sendActions walletDebug walletDbPath
+    then [worker $ \sendActions -> walletServeWebFull sendActions walletDebug walletDbPath
         walletRebuildDb walletPort]
     else []
 
 walletProd
     :: SscConstraint ssc
     => Args
-    -> [ SendActions BiP PeerId (ProductionMode ssc) -> ProductionMode ssc ()]
+    -> [Worker (ProductionMode ssc)]
 walletProd = map liftPlugin . walletServe
   where
     liftPlugin = \p sa -> lift . p $ hoistSendActions getNoStatsT lift sa
@@ -262,7 +260,7 @@ walletProd = map liftPlugin . walletServe
 walletStats
     :: SscConstraint ssc
     => Args
-    -> [ SendActions BiP PeerId (StatsMode ssc) -> StatsMode ssc ()]
+    -> [Worker (StatsMode ssc)]
 walletStats = map (liftPlugin) . walletServe
   where
     liftPlugin = \p sa -> do

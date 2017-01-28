@@ -129,8 +129,8 @@ onNewSlot
        , Mockable Fork m
        , Mockable Delay m
        )
-    => Bool -> (SlotId -> m ()) -> m a
-onNewSlot = onNewSlotImpl False
+    => Bool -> (SlotId -> b -> m ()) -> b -> m ()
+onNewSlot startImmediately h b = onNewSlotImpl False startImmediately $ flip h b
 
 -- | Same as onNewSlot, but also logs debug information.
 onNewSlotWithLogging
@@ -141,8 +141,8 @@ onNewSlotWithLogging
        , Mockable Fork m
        , Mockable Delay m
        )
-    => Bool -> (SlotId -> m ()) -> m a
-onNewSlotWithLogging = onNewSlotImpl True
+    => Bool -> (SlotId -> b -> m ()) -> b -> m ()
+onNewSlotWithLogging startImmediately h b = onNewSlotImpl True startImmediately $ flip h b
 
 onNewSlotImpl
     :: ( MonadIO m

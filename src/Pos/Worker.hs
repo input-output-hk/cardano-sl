@@ -9,13 +9,12 @@ import           Data.Tagged             (untag)
 import           Data.Time.Units         (convertUnit)
 import           Formatting              (sformat, (%))
 import           Mockable                (fork)
-import           Node                    (SendActions, Worker)
 import           System.Wlog             (logInfo, logNotice)
 import           Universum
 
 import           Pos.Block.Worker        (blkWorkers)
-import           Pos.Communication       (BiP, SysStartResponse (..))
-import           Pos.Communication.Types (PeerId)
+import           Pos.Communication       (SendActions, SysStartResponse (..), Worker,
+                                          withWaitLog, worker)
 import           Pos.Constants           (sysTimeBroadcastSlots)
 import           Pos.Context             (NodeContext (..), getNodeContext,
                                           setNtpLastSlot)
@@ -27,7 +26,7 @@ import           Pos.Slotting            (getSlotDuration, onNewSlotWithLogging)
 import           Pos.Ssc.Class.Workers   (SscWorkersClass, sscWorkers)
 import           Pos.Types               (SlotId, flattenSlotId, slotIdF)
 import           Pos.Update              (usWorkers)
-import           Pos.Util                (waitRandomInterval, withWaitLog)
+import           Pos.Util                (waitRandomInterval)
 import           Pos.Util.TimeWarp       (ms)
 import           Pos.Worker.Stats        (statsWorkers)
 import           Pos.WorkMode            (WorkMode)
@@ -41,7 +40,7 @@ import           Pos.WorkMode            (WorkMode)
 -- will read it, but who knows…
 runWorkers
     :: (SscWorkersClass ssc, SecurityWorkersClass ssc, WorkMode ssc m)
-    => Worker BiP PeerId m
+    => Worker m
 runWorkers sendActions = mapM_ fork $ map ($ withWaitLog sendActions) $ concat
     [ [ onNewSlotWorker ]
     , dhtWorkers
@@ -52,11 +51,11 @@ runWorkers sendActions = mapM_ fork $ map ($ withWaitLog sendActions) $ concat
     , usWorkers
     ]
 
-onNewSlotWorker :: WorkMode ssc m => Worker BiP PeerId m
-onNewSlotWorker sendActions = onNewSlotWithLogging True $ onNewSlotWorkerImpl sendActions
+onNewSlotWorker :: WorkMode ssc m => Worker m
+onNewSlotWorker = onNewSlotWithLogging True onNewSlotWorkerImpl
 
-onNewSlotWorkerImpl :: WorkMode ssc m =>  SendActions BiP PeerId m -> SlotId -> m ()
-onNewSlotWorkerImpl sendActions slotId = do
+onNewSlotWorkerImpl :: WorkMode ssc m => SlotId -> Worker m
+onNewSlotWorkerImpl slotId = worker $ \sendActions -> do
     logNotice $ sformat ("New slot has just started: "%slotIdF) slotId
     setNtpLastSlot slotId
     when (flattenSlotId slotId <= sysTimeBroadcastSlots) $

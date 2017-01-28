@@ -49,6 +49,7 @@ import           Pos.Security.CLI                     (AttackTarget (..), Attack
 import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
 import           Pos.Types.Address                    (Address (..), AddressHash,
                                                        decodeTextAddress)
+import           Pos.Util                             ()
 import           Pos.Util.TimeWarp                    (NetworkAddress)
 
 -- | Parser for DHT key.

@@ -18,7 +18,6 @@ import           Data.Tagged                      (Tagged (..))
 import           Data.Time.Units                  (Microsecond, Millisecond, convertUnit)
 import           Formatting                       (build, ords, sformat, shown, (%))
 import           Mockable                         (currentTime, delay)
-import           Node                             (SendActions, Worker)
 import           Serokell.Util.Exceptions         ()
 import           Serokell.Util.Text               (listJson)
 import           System.Wlog                      (logDebug, logError, logInfo,
@@ -29,10 +28,10 @@ import           Pos.Binary.Class                 (Bi)
 import           Pos.Binary.Communication         ()
 import           Pos.Binary.Relay                 ()
 import           Pos.Binary.Ssc                   ()
-import           Pos.Communication.BiP            (BiP)
 import           Pos.Communication.Message        ()
+import           Pos.Communication.Protocol       (SendActions, Worker, Worker', worker)
 import           Pos.Communication.Relay          (DataMsg (..), InvMsg (..))
-import           Pos.Communication.Types.Protocol (PeerId)
+
 import           Pos.Constants                    (mpcSendInterval, slotSecurityParam,
                                                    vssMaxTTL)
 import           Pos.Context                      (getNodeContext, lrcActionOnEpochReason,
@@ -73,15 +72,15 @@ import           Pos.Util                         (AsBinary, asBinary, inAssertM
 import           Pos.WorkMode                     (WorkMode)
 
 instance SscWorkersClass SscGodTossing where
-    sscWorkers = Tagged [onNewSlotSsc]
+    sscWorkers = Tagged [onNewSlot True onNewSlotSsc]
     sscLrcConsumers = Tagged [gtLrcConsumer]
 
 -- CHECK: @onNewSlotSsc
 -- #checkNSendOurCert
 onNewSlotSsc
     :: (WorkMode SscGodTossing m)
-    => Worker BiP PeerId m
-onNewSlotSsc sendActions = onNewSlot True $ \slotId -> do
+    => SlotId -> Worker m
+onNewSlotSsc slotId = worker $ \sendActions -> do
     richmen <- HS.fromList . NE.toList <$>
         lrcActionOnEpochReason (siEpoch slotId)
             "couldn't get SSC richmen"
@@ -95,14 +94,30 @@ onNewSlotSsc sendActions = onNewSlot True $ \slotId -> do
         logDebug "Not enough stake to participate in MPC"
     when (participationEnabled && enoughStake) $ do
         checkNSendOurCert sendActions
-        onNewSlotCommitment sendActions slotId
-        onNewSlotOpening sendActions slotId
-        onNewSlotShares sendActions slotId
+        onNewSlotCommitment slotId sendActions
+        onNewSlotOpening slotId sendActions
+        onNewSlotShares slotId sendActions
 
 -- CHECK: @checkNSendOurCert
 -- Checks whether 'our' VSS certificate has been announced
-checkNSendOurCert :: forall m . (WorkMode SscGodTossing m) => Worker BiP PeerId m
+checkNSendOurCert :: forall m . (WorkMode SscGodTossing m) => Worker' m
 checkNSendOurCert sendActions = do
+    let sendCert epoch resend ourId = do
+            if resend then
+                logError "Our VSS certificate is in global state, but it has already expired, \
+                         \apparently it's a bug, but we are announcing it just in case."
+            else
+                logInfo "Our VssCertificate hasn't been announced yet or TTL has expired, \
+                         \we will announce it now."
+            ourVssCertificate <- getOurVssCertificate
+            let contents = MCVssCertificate ourVssCertificate
+            sscProcessOurMessage epoch contents ourId
+            let msg = DataMsg contents ourId
+            -- [CSL-245]: do not catch all, catch something more concrete.
+            (sendToNeighbors sendActions msg >>
+             logDebug "Announced our VssCertificate.")
+            `catchAll` \e ->
+                logError $ sformat ("Error announcing our VssCertificate: " % shown) e
     (_, ourId) <- getOurPkAndId
     sl@SlotId {..} <- getCurrentSlot
     certts <- getGlobalCerts sl
@@ -114,22 +129,6 @@ checkNSendOurCert sendActions = do
             | otherwise -> sendCert siEpoch True ourId
         Nothing -> sendCert siEpoch False ourId
   where
-    sendCert epoch resend ourId = do
-        if resend then
-            logError "Our VSS certificate is in global state, but it has already expired, \
-                     \apparently it's a bug, but we are announcing it just in case."
-        else
-            logInfo "Our VssCertificate hasn't been announced yet or TTL has expired, \
-                     \we will announce it now."
-        ourVssCertificate <- getOurVssCertificate
-        let contents = MCVssCertificate ourVssCertificate
-        sscProcessOurMessage epoch contents ourId
-        let msg = DataMsg contents ourId
-    -- [CSL-245]: do not catch all, catch something more concrete.
-        (sendToNeighbors sendActions msg >>
-         logDebug "Announced our VssCertificate.")
-        `catchAll` \e ->
-            logError $ sformat ("Error announcing our VssCertificate: " % shown) e
     getOurVssCertificate :: m VssCertificate
     getOurVssCertificate = do
         localCerts <- _gpCertificates . snd <$> sscRunLocalQuery getLocalPayload
@@ -161,10 +160,23 @@ getOurVssKeyPair = gtcVssKeyPair . ncSscContext <$> getNodeContext
 -- Commitments-related part of new slot processing
 onNewSlotCommitment
     :: (WorkMode SscGodTossing m)
-    => SendActions BiP PeerId m -> SlotId -> m ()
-onNewSlotCommitment sendActions slotId@SlotId {..}
-    | not (isCommitmentIdx siSlot) = pass
-    | otherwise = do
+    => SlotId -> Worker' m
+onNewSlotCommitment slotId@SlotId {..}
+    | not (isCommitmentIdx siSlot) = const pass
+    | otherwise = \sendActions -> do
+        let onNewSlotCommDo ourId = do
+                ourSk <- ncSecretKey <$> getNodeContext
+                logDebug $ sformat ("Generating secret for "%ords%" epoch") siEpoch
+                generated <- generateAndSetNewSecret ourSk slotId
+                case generated of
+                    Nothing -> logWarning "I failed to generate secret for GodTossing"
+                    Just comm -> do
+                      logInfo (sformat ("Generated secret for "%ords%" epoch") siEpoch)
+                      sendOurCommitment comm ourId
+
+            sendOurCommitment comm ourId = do
+                sscProcessOurMessage siEpoch (MCCommitment comm) ourId
+                sendOurData sendActions CommitmentMsg siEpoch 0 ourId
         ourId <- addressHash . ncPublicKey <$> getNodeContext
         shouldSendCommitment <- andM
             [ not . hasCommitment siEpoch ourId <$> gtGetGlobalState
@@ -176,50 +188,35 @@ onNewSlotCommitment sendActions slotId@SlotId {..}
             case ourCommitment of
                 Just comm -> logDebug stillValidMsg >> sendOurCommitment comm ourId
                 Nothing   -> onNewSlotCommDo ourId
-  where
-    onNewSlotCommDo ourId = do
-        ourSk <- ncSecretKey <$> getNodeContext
-        logDebug $ sformat ("Generating secret for "%ords%" epoch") siEpoch
-        generated <- generateAndSetNewSecret ourSk slotId
-        case generated of
-            Nothing -> logWarning "I failed to generate secret for GodTossing"
-            Just comm -> do
-              logInfo (sformat ("Generated secret for "%ords%" epoch") siEpoch)
-              sendOurCommitment comm ourId
-
-    sendOurCommitment comm ourId = do
-        sscProcessOurMessage siEpoch (MCCommitment comm) ourId
-        sendOurData sendActions CommitmentMsg siEpoch 0 ourId
 
 -- Openings-related part of new slot processing
 onNewSlotOpening
     :: WorkMode SscGodTossing m
-    => SendActions BiP PeerId m -> SlotId -> m ()
-onNewSlotOpening sendActions SlotId {..}
-    | not $ isOpeningIdx siSlot = pass
-    | otherwise = do
+    => SlotId -> Worker' m
+onNewSlotOpening SlotId {..}
+    | not $ isOpeningIdx siSlot = const pass
+    | otherwise = \sendActions -> do
+        let noCommMsg =
+                "We're not sending opening, because there is no commitment from us in global state"
+            onNewSlotOpeningDo ourId = do
+                mbOpen <- SS.getOurOpening siEpoch
+                case mbOpen of
+                    Just open -> do
+                        sscProcessOurMessage siEpoch (MCOpening open) ourId
+                        sendOurData sendActions OpeningMsg siEpoch 2 ourId
+                    Nothing -> logWarning "We don't know our opening, maybe we started recently"
         ourId <- addressHash . ncPublicKey <$> getNodeContext
         globalData <- gtGetGlobalState
         unless (hasOpening ourId globalData) $
             case globalData ^. gsCommitments . at ourId of
                 Nothing -> logDebug noCommMsg
                 Just _  -> onNewSlotOpeningDo ourId
-  where
-    noCommMsg =
-        "We're not sending opening, because there is no commitment from us in global state"
-    onNewSlotOpeningDo ourId = do
-        mbOpen <- SS.getOurOpening siEpoch
-        case mbOpen of
-            Just open -> do
-                sscProcessOurMessage siEpoch (MCOpening open) ourId
-                sendOurData sendActions OpeningMsg siEpoch 2 ourId
-            Nothing -> logWarning "We don't know our opening, maybe we started recently"
 
 -- Shares-related part of new slot processing
 onNewSlotShares
     :: (WorkMode SscGodTossing m)
-    => SendActions BiP PeerId m -> SlotId -> m ()
-onNewSlotShares sendActions SlotId {..} = do
+    => SlotId -> Worker' m
+onNewSlotShares SlotId {..} = \sendActions -> do
     ourId <- addressHash . ncPublicKey <$> getNodeContext
     -- Send decrypted shares that others have sent us
     shouldSendShares <- do
@@ -251,7 +248,7 @@ sscProcessOurMessage epoch msg ourId = do
 
 sendOurData
     :: (WorkMode SscGodTossing m)
-    => SendActions BiP PeerId m -> GtMsgTag -> EpochIndex -> LocalSlotIndex -> StakeholderId -> m ()
+    => SendActions m -> GtMsgTag -> EpochIndex -> LocalSlotIndex -> StakeholderId -> m ()
 sendOurData sendActions msgTag epoch slMultiplier ourId = do
     -- Note: it's not necessary to create a new thread here, because
     -- in one invocation of onNewSlot we can't process more than one

@@ -22,8 +22,6 @@ import qualified Data.List.NonEmpty         as NE
 import           Data.Reflection            (reify)
 import           Formatting                 (build, int, sformat, shown, stext, (%))
 import           Mockable                   (fork, handleAll, throw)
-import           Node                       (ConversationActions (..), NodeId,
-                                             SendActions (..))
 import           Serokell.Util.Text         (listJson)
 import           Serokell.Util.Verify       (isVerSuccess)
 import           System.Wlog                (logDebug, logError, logInfo, logWarning)
@@ -40,14 +38,13 @@ import           Pos.Block.Network.Announce (announceBlock)
 import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
                                              MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Block.Types            (Blund)
-import           Pos.Communication.BiP      (BiP (..))
-import           Pos.Communication.Types    (PeerId)
+import           Pos.Communication.Protocol (ConversationActions (..), NodeId,
+                                             SendActions (..), Worker, worker)
 import           Pos.Constants              (blkSecurityParam)
 import           Pos.Context                (NodeContext (..), getNodeContext)
 import           Pos.Crypto                 (hash, shortHashF)
 import qualified Pos.DB                     as DB
 import qualified Pos.DB.GState              as GState
-import           Pos.DHT.Model              (nodeIdToAddress)
 import           Pos.Ssc.Class              (Ssc, SscWorkersClass)
 import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (..),
                                              HeaderHash, blockHeader, difficultyL,
@@ -63,26 +60,26 @@ instance Exception VerifyBlocksException
 retrievalWorker
     :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
-    => SendActions BiP PeerId m -> m ()
-retrievalWorker sendActions = handleAll handleWE $ do
+    => Worker m
+retrievalWorker = worker $ \sendActions -> handleAll handleWE $ do
     NodeContext{..} <- getNodeContext
+    let loop queue recHeaderVar = forever $ do
+           ph <- atomically $ readTBQueue queue
+           handleAll (handleLE recHeaderVar ph) $ handle sendActions ph
+           needQueryMore <- atomically $ do
+               isEmpty <- isEmptyTBQueue queue
+               recHeader <- tryReadTMVar recHeaderVar
+               pure $ guard isEmpty *> recHeader
+           whenJust needQueryMore $ \(peerId, rHeader) -> do
+               logDebug "Queue is empty, we're in recovery mode -> querying more"
+               whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
+                   withConnectionTo sendActions peerId $
+                       requestHeaders mghNext (Just rHeader) peerId
     loop ncBlockRetrievalQueue ncRecoveryHeader
   where
     handleWE e = do
         logError $ sformat ("retrievalWorker: error caught "%shown) e
         throw e
-    loop queue recHeaderVar = forever $ do
-       ph <- atomically $ readTBQueue queue
-       handleAll (handleLE recHeaderVar ph) $ handle ph
-       needQueryMore <- atomically $ do
-           isEmpty <- isEmptyTBQueue queue
-           recHeader <- tryReadTMVar recHeaderVar
-           pure $ guard isEmpty *> recHeader
-       whenJust needQueryMore $ \(peerId, rHeader) -> do
-           logDebug "Queue is empty, we're in recovery mode -> querying more"
-           whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
-               withConnectionTo sendActions peerId $
-                   requestHeaders mghNext (Just rHeader) peerId
     dropRecoveryHeader recHeaderVar peerId = do
         kicked <- atomically $ do
             let processKick (peer,_) = do
@@ -97,7 +94,7 @@ retrievalWorker sendActions = handleAll handleWE $ do
             ("Error handling peerId="%shown%", headers="%listJson%": "%shown)
             peerId (fmap headerHash headers) e
         dropRecoveryHeader recHeaderVar peerId
-    handle (peerId, headers) = do
+    handle sendActions (peerId, headers) = do
         logDebug $ sformat
             ("retrievalWorker: handling peerId="%shown%", headers="%listJson)
             peerId (fmap headerHash headers)
@@ -107,7 +104,7 @@ retrievalWorker sendActions = handleAll handleWE $ do
             oldestHash = headerHash $ headers ^. _Wrapped . _neLast
         case classificationRes of
             CHsValid lcaChild ->
-                void $ handleCHsValid peerId lcaChild newestHash
+                void $ handleCHsValid sendActions peerId lcaChild newestHash
             CHsUseless reason ->
                 logDebug $ sformat uselessFormat oldestHash newestHash reason
             CHsInvalid reason ->
@@ -130,7 +127,7 @@ retrievalWorker sendActions = handleAll handleWE $ do
     uselessFormat =
         "Chain of headers from " %shortHashF % " to " %shortHashF %
         " is useless for the following reason: " %stext
-    handleCHsValid peerId lcaChild newestHash = do
+    handleCHsValid sendActions peerId lcaChild newestHash = do
         let lcaChildHash = headerHash lcaChild
         logDebug $ sformat validFormat lcaChildHash newestHash
         maxBlockSize <- GState.getMaxBlockSize
@@ -138,7 +135,7 @@ retrievalWorker sendActions = handleAll handleWE $ do
         -- a parameter to the 'Bi' instance of 'MsgBlock'.
         reify maxBlockSize $ \(_ :: Proxy s0) ->
           withConnectionTo sendActions peerId $
-          \(conv :: ConversationActions PeerId MsgGetBlocks (MsgBlock s0 ssc) m) -> do
+          \(conv :: ConversationActions MsgGetBlocks (MsgBlock s0 ssc) m) -> do
             send conv $ mkBlocksRequest lcaChildHash newestHash
             chainE <- runExceptT (retrieveBlocks conv lcaChild newestHash)
             recHeaderVar <- ncRecoveryHeader <$> getNodeContext
@@ -172,7 +169,7 @@ retrievalWorker sendActions = handleAll handleWE $ do
     retrieveBlocks'
         :: forall s.
            Int
-        -> ConversationActions PeerId MsgGetBlocks (MsgBlock s ssc) m
+        -> ConversationActions MsgGetBlocks (MsgBlock s ssc) m
         -> HeaderHash          -- ^ We're expecting a child of this block
         -> HeaderHash          -- ^ Block at which to stop
         -> ExceptT Text m (OldestFirst NE (Block ssc))
@@ -210,7 +207,7 @@ handleUnsolicitedHeaders
        (WorkMode ssc m)
     => NonEmpty (BlockHeader ssc)
     -> NodeId
-    -> ConversationActions PeerId MsgGetHeaders (MsgHeaders ssc) m
+    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
 handleUnsolicitedHeaders (header :| []) peerId conv =
     handleUnsolicitedHeader header peerId conv
@@ -224,7 +221,7 @@ handleUnsolicitedHeader
        (WorkMode ssc m)
     => BlockHeader ssc
     -> NodeId
-    -> ConversationActions PeerId MsgGetHeaders (MsgHeaders ssc) m
+    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
 handleUnsolicitedHeader header peerId conv = do
     logDebug $ sformat
@@ -298,7 +295,7 @@ matchRequestedHeaders headers MsgGetHeaders{..} =
 requestTip
     :: forall ssc m.
        (WorkMode ssc m)
-    => NodeId -> ConversationActions PeerId MsgGetHeaders (MsgHeaders ssc) m -> m ()
+    => NodeId -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m -> m ()
 requestTip peerId conv = do
     logDebug "Requesting tip..."
     send conv (MsgGetHeaders [] Nothing)
@@ -317,7 +314,7 @@ requestHeaders
     => MsgGetHeaders
     -> Maybe (BlockHeader ssc)
     -> NodeId
-    -> ConversationActions PeerId MsgGetHeaders (MsgHeaders ssc) m
+    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
 requestHeaders mgh recoveryHeader peerId conv = do
     logDebug $ sformat ("handleUnsolicitedHeader: withConnection: sending "%shown) mgh
@@ -338,8 +335,8 @@ requestHeaders mgh recoveryHeader peerId conv = do
     handleUnexpected hs _ = do
         -- TODO: ban node for sending unsolicited header in conversation
         logWarning $ sformat
-            ("handleUnsolicitedHeader: headers received were not requested, address: " % shown)
-            (nodeIdToAddress peerId)
+            ("handleUnsolicitedHeader: headers received were not requested, address: " % build)
+            peerId
         logWarning $ sformat ("handleUnsolicitedHeader: unexpected headers: "%listJson) hs
 
 
@@ -421,7 +418,7 @@ handleBlocks
     :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
     => OldestFirst NE (Block ssc)
-    -> SendActions BiP PeerId m
+    -> SendActions m
     -> m ()
 handleBlocks blocks sendActions = do
     logDebug "handleBlocks: processing"
@@ -439,7 +436,7 @@ handleBlocks blocks sendActions = do
 
 handleBlocksWithLca :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
-    => SendActions BiP PeerId m -> OldestFirst NE (Block ssc) -> HeaderHash -> m ()
+    => SendActions m -> OldestFirst NE (Block ssc) -> HeaderHash -> m ()
 handleBlocksWithLca sendActions blocks lcaHash = do
     logDebug $ sformat lcaFmt lcaHash
     -- Head blund in result is the youngest one.
@@ -453,7 +450,7 @@ handleBlocksWithLca sendActions blocks lcaHash = do
 applyWithoutRollback
     :: forall ssc m.
        (WorkMode ssc m, SscWorkersClass ssc)
-    => SendActions BiP PeerId m -> OldestFirst NE (Block ssc) -> m ()
+    => SendActions m -> OldestFirst NE (Block ssc) -> m ()
 applyWithoutRollback sendActions blocks = do
     logInfo $ sformat ("Trying to apply blocks w/o rollback: "%listJson) $
         fmap (view blockHeader) blocks
@@ -488,7 +485,7 @@ applyWithoutRollback sendActions blocks = do
 applyWithRollback
     :: forall ssc m.
        (WorkMode ssc m, SscWorkersClass ssc)
-    => SendActions BiP PeerId m
+    => SendActions m
     -> OldestFirst NE (Block ssc)
     -> HeaderHash
     -> NewestFirst NE (Blund ssc)
@@ -521,7 +518,7 @@ applyWithRollback sendActions toApply lca toRollback = do
 relayBlock
     :: forall ssc m.
        (WorkMode ssc m)
-    => SendActions BiP PeerId m -> Block ssc -> m ()
+    => SendActions m -> Block ssc -> m ()
 relayBlock _ (Left _)                  = pass
 relayBlock sendActions (Right mainBlk) = do
     isRecovery <- do

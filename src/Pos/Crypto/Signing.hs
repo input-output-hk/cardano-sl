@@ -59,7 +59,7 @@ import           Pos.Binary.Class       (Bi)
 import qualified Pos.Binary.Class       as Bi
 import           Pos.Crypto.Hashing     (hash, shortHashF)
 import           Pos.Crypto.Random      (secureRandomBS)
-import           Pos.Util               (Raw)
+import           Pos.Util.Binary        (Raw)
 
 ----------------------------------------------------------------------------
 -- Some orphan instances

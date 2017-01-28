@@ -19,7 +19,7 @@ import           Data.List                     (elemIndex, (!!))
 import           Data.Time.Clock.POSIX         (getPOSIXTime)
 import           Formatting                    (build, ords, sformat, stext, (%))
 import           Network.Wai                   (Application)
-import           Node                          (SendActions, hoistSendActions)
+import           Pos.Communication.Protocol    (SendActions, hoistSendActions)
 import           Pos.Crypto                    (hash)
 import           Servant.API                   ((:<|>) ((:<|>)),
                                                 FromHttpApiData (parseUrlPiece))
@@ -29,7 +29,7 @@ import           System.Wlog                   (logInfo)
 import           Universum
 
 import           Pos.Aeson.ClientTypes         ()
-import           Pos.Communication.BiP         (BiP)
+
 import           Pos.Communication.Types       (PeerId)
 import           Pos.Crypto                    (toPublic)
 import           Pos.DHT.Model                 (dhtAddr, getKnownPeers)
@@ -112,7 +112,7 @@ walletApplication serv = do
 
 walletServer
     :: WalletMode ssc m
-    =>  SendActions BiP PeerId m
+    => SendActions m
     -> WalletWebHandler m (WalletWebHandler m :~> Handler)
     -> WalletWebHandler m (Server WalletApi)
 walletServer sendActions nat = do
@@ -203,7 +203,7 @@ launchNotifier nat = void . liftIO $ mapM startForking
 -- Handlers
 ----------------------------------------------------------------------------
 
-servantHandlers :: WalletWebMode ssc m =>  SendActions BiP PeerId m -> ServerT WalletApi m
+servantHandlers :: WalletWebMode ssc m =>  SendActions m -> ServerT WalletApi m
 servantHandlers sendActions =
      (catchWalletError . getWallet)
     :<|>
@@ -274,18 +274,18 @@ decodeCAddressOrFail = either wrongAddress pure . cAddressToAddress
 getWallets :: WalletWebMode ssc m => m [CWallet]
 getWallets = join $ mapM getWallet <$> myCAddresses
 
-send :: WalletWebMode ssc m =>  SendActions BiP PeerId m -> CAddress -> CAddress -> Coin -> m CTx
+send :: WalletWebMode ssc m =>  SendActions m -> CAddress -> CAddress -> Coin -> m CTx
 send sendActions srcCAddr dstCAddr c =
     sendExtended sendActions srcCAddr dstCAddr c ADA mempty mempty
 
-sendExtended :: WalletWebMode ssc m =>  SendActions BiP PeerId m -> CAddress -> CAddress -> Coin -> CCurrency -> Text -> Text -> m CTx
+sendExtended :: WalletWebMode ssc m => SendActions m -> CAddress -> CAddress -> Coin -> CCurrency -> Text -> Text -> m CTx
 sendExtended sendActions srcCAddr dstCAddr c curr title desc = do
     srcAddr <- decodeCAddressOrFail srcCAddr
     dstAddr <- decodeCAddressOrFail dstCAddr
     idx <- getAddrIdx srcAddr
     sks <- getSecretKeys
     let sk = sks !! idx
-    na <- fmap dhtAddr <$> getKnownPeers
+    na <- getKnownPeers
     etx <- submitTx sendActions sk na [(TxOut dstAddr c, [])]
     case etx of
         Left err -> throwM . Internal $ sformat ("Cannot send transaction: "%stext) err

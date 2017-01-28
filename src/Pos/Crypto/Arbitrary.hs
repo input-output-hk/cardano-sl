@@ -23,8 +23,8 @@ import           Pos.Crypto.Signing          (ProxyCert, ProxySecretKey, ProxySi
                                               PublicKey, SecretKey, Signature, Signed,
                                               createProxyCert, createProxySecretKey,
                                               keyGen, mkSigned, proxySign, sign, toPublic)
-import           Pos.Util                    (AsBinary (..), AsBinaryClass (..))
 import           Pos.Util.Arbitrary          (Nonrepeating (..), sublistN, unsafeMakePool)
+import           Pos.Util.Binary             (AsBinary (..), AsBinaryClass (..))
 
 {- A note on 'Arbitrary' instances
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

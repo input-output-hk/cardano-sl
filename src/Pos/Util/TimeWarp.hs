@@ -12,14 +12,19 @@ module Pos.Util.TimeWarp
        , sec
        , minute
        , hour
+       , addressToNodeId
+       , addressToNodeId'
+       , nodeIdToAddress
        ) where
 
-import           Control.Monad.Trans (MonadIO)
-import           Data.ByteString     (ByteString)
-import           Data.Time.Units     (Microsecond)
-import           Data.Time.Units     (fromMicroseconds)
-import           Data.Word           (Word16)
-import           Mockable            (realTime)
+import qualified Data.ByteString.Char8 as BS8
+import           Data.Char             (isNumber)
+import           Data.Time.Units       (Microsecond)
+import           Data.Time.Units       (fromMicroseconds)
+import           Mockable              (realTime)
+import qualified Network.Transport.TCP as TCP
+import           Node                  (NodeId (..))
+import           Prelude               (read)
 import           Universum
 
 -- | @"127.0.0.1"@.
@@ -40,3 +45,18 @@ ms     = fromMicroseconds . fromIntegral . (*) 1000
 sec    = fromMicroseconds . fromIntegral . (*) 1000000
 minute = fromMicroseconds . fromIntegral . (*) 60000000
 hour   = fromMicroseconds . fromIntegral . (*) 3600000000
+
+-- TODO: What about node index, i.e. last number in '127.0.0.1:3000:0' ?
+addressToNodeId :: NetworkAddress -> NodeId
+addressToNodeId = addressToNodeId' 0
+
+addressToNodeId' :: Word32 -> NetworkAddress -> NodeId
+addressToNodeId' eId (host, port) = NodeId $ TCP.encodeEndPointAddress (BS8.unpack host) (show port) eId
+
+nodeIdToAddress :: NodeId -> Maybe NetworkAddress
+nodeIdToAddress (NodeId ep) = toNA =<< TCP.decodeEndPointAddress ep
+  where
+    toNA (hostName, port', _) = (BS8.pack hostName,) <$> toPort port'
+    toPort :: String -> Maybe Word16
+    toPort port' | all isNumber port' = pure $ read port'
+                 | otherwise          = Nothing

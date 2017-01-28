@@ -17,7 +17,7 @@ import           Pos.Crypto.Hashing       (hash, shortHashF)
 import           Pos.Crypto.SecretSharing (EncShare (..), Secret (..), SecretProof (..),
                                            SecretSharingExtra (..), Share (..),
                                            VssPublicKey (..))
-import           Pos.Util                 (AsBinary (..), AsBinaryClass (..))
+import           Pos.Util.Binary          (AsBinary (..), AsBinaryClass (..))
 
 
 ----------------------------------------------------------------------------

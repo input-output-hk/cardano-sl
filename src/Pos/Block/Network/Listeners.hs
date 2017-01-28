@@ -11,8 +11,8 @@ module Pos.Block.Network.Listeners
 import           Data.Proxy                  (Proxy (..))
 import           Data.Reflection             (reify)
 import           Formatting                  (build, sformat, (%))
-import           Node                        (ConversationActions (..),
-                                              ListenerAction (..))
+import           Pos.Communication.Protocol  (ConversationActions (..), Listener,
+                                              listenerConv)
 import           Serokell.Data.Memory.Units  (Byte)
 import           Serokell.Util.Text          (listJson)
 import           System.Wlog                 (WithLogger, logDebug, logWarning)
@@ -24,18 +24,18 @@ import           Pos.Block.Network.Announce  (handleHeadersCommunication)
 import           Pos.Block.Network.Retrieval (handleUnsolicitedHeaders)
 import           Pos.Block.Network.Types     (MsgBlock (..), MsgGetBlocks (..),
                                               MsgGetHeaders (..), MsgHeaders (..))
-import           Pos.Communication.BiP       (BiP (..))
+
 import           Pos.Communication.Types     (PeerId)
+import           Pos.Communication.Util      (stubListenerConv)
 import qualified Pos.DB                      as DB
 import           Pos.DB.Error                (DBError (DBMalformed))
 import           Pos.Ssc.Class.Types         (Ssc)
-import           Pos.Util                    (NewestFirst (..), stubListenerConv,
-                                              stubListenerOneMsg)
+import           Pos.Util                    (NewestFirst (..))
 import           Pos.WorkMode                (WorkMode)
 
 blockListeners
     :: ( WorkMode ssc m )
-    => [ListenerAction BiP PeerId m]
+    => [Listener m]
 blockListeners =
     [ handleGetHeaders
     , handleGetBlocks
@@ -44,11 +44,11 @@ blockListeners =
 
 blockStubListeners
     :: ( Ssc ssc, WithLogger m )
-    => Proxy ssc -> [ListenerAction BiP PeerId m]
+    => Proxy ssc -> [Listener m]
 blockStubListeners p =
     [ stubListenerConv $ (const Proxy :: Proxy ssc -> Proxy MsgGetHeaders) p
-    , stubListenerOneMsg $ (const Proxy :: Proxy ssc -> Proxy MsgGetBlocks) p
-    , stubListenerOneMsg $ (const Proxy :: Proxy ssc -> Proxy (MsgHeaders ssc)) p
+    , stubListenerConv $ (const Proxy :: Proxy ssc -> Proxy MsgGetBlocks) p
+    , stubListenerConv $ (const Proxy :: Proxy ssc -> Proxy (MsgHeaders ssc)) p
     ]
 
 -- | Handles GetHeaders request which means client wants to get
@@ -57,21 +57,20 @@ blockStubListeners p =
 handleGetHeaders
     :: forall ssc m.
        (WorkMode ssc m)
-    => ListenerAction BiP PeerId m
-handleGetHeaders = ListenerActionConversation $ \_ __peerId conv ->
+    => Listener m
+handleGetHeaders = listenerConv $ \_ __peerId conv ->
     handleHeadersCommunication conv
 
 handleGetBlocks
     :: forall ssc m.
        (Ssc ssc, WorkMode ssc m)
-    => ListenerAction BiP PeerId m
+    => Listener m
 handleGetBlocks =
     -- NB #put_checkBlockSize: We can use anything as maxBlockSize
     -- here because 'put' doesn't check block size.
     reify (0 :: Byte) $ \(_ :: Proxy s0) ->
-    ListenerActionConversation $
+    listenerConv $
         \_ __peerId (conv :: ConversationActions
-                               PeerId
                                (MsgBlock s0 ssc)
                                MsgGetBlocks m) ->
         whenJustM (recv conv) $ \mgb@MsgGetBlocks{..} -> do
@@ -96,8 +95,8 @@ handleGetBlocks =
 handleBlockHeaders
     :: forall ssc m.
        (WorkMode ssc m)
-    => ListenerAction BiP PeerId m
-handleBlockHeaders = ListenerActionConversation $
+    => Listener m
+handleBlockHeaders = listenerConv $
     \_ peerId conv -> do
         logDebug "handleBlockHeaders: got some unsolicited block header(s)"
         (mHeaders :: Maybe (MsgHeaders ssc)) <- recv conv

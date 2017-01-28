@@ -5,24 +5,25 @@ module Pos.Wallet.Update
        , submitUpdateProposal
        ) where
 
-import           Mockable                         (forConcurrently)
-import           Node                             (SendActions)
-import           Pos.Util.TimeWarp                (NetworkAddress)
+import           Mockable                   (forConcurrently)
+import           Pos.Util.TimeWarp          (NetworkAddress)
 import           Universum
 
-import           Pos.Binary                       ()
-import           Pos.Communication.BiP            (BiP)
-import           Pos.Communication.Methods        (sendUpdateProposal, sendVote)
-import           Pos.Communication.Types.Protocol (PeerId)
-import           Pos.Crypto                       (SecretKey, hash, sign, toPublic)
-import           Pos.Update                       (UpdateProposal, UpdateVote (..))
-import           Pos.WorkMode                     (MinWorkMode)
+import           Pos.Binary                 ()
+
+import           Pos.Communication.Methods  (sendUpdateProposal, sendVote)
+import           Pos.Communication.Protocol (SendActions)
+import           Pos.DHT.Model              (DHTNode)
+
+import           Pos.Crypto                 (SecretKey, hash, sign, toPublic)
+import           Pos.Update                 (UpdateProposal, UpdateVote (..))
+import           Pos.WorkMode               (MinWorkMode)
 
 -- | Send UpdateVote to given addresses
 submitVote
     :: MinWorkMode m
-    => SendActions BiP PeerId m
-    -> [NetworkAddress]
+    => SendActions m
+    -> [DHTNode]
     -> UpdateVote
     -> m ()
 submitVote sendActions na voteUpd = do
@@ -32,9 +33,9 @@ submitVote sendActions na voteUpd = do
 -- | Send UpdateProposal with one positive vote to given addresses
 submitUpdateProposal
     :: MinWorkMode m
-    => SendActions BiP PeerId m
+    => SendActions m
     -> SecretKey
-    -> [NetworkAddress]
+    -> [DHTNode]
     -> UpdateProposal
     -> m ()
 submitUpdateProposal sendActions sk na prop = do

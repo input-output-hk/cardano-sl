@@ -150,6 +150,8 @@ stakeDistribution TestnetStakes {..} =
                   else (poorStake `div` poors, poorStake `mod` poors)
     -- Coin distribution (w/o modulo added)
     basicDist = genericReplicate richs rich ++ genericReplicate poors poor
+stakeDistribution (ExplicitStakes balances) =
+    toList balances
 
 bitcoinDistribution1000Coins :: Word -> [Coin]
 bitcoinDistribution1000Coins stakeholders

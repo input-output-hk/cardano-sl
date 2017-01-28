@@ -22,6 +22,7 @@ data StakeDistribution
         , sdPoor       :: !Word
         }
     | ExponentialStakes -- First three nodes get 0.875% of stake.
+    | ExplicitStakes !(HashMap Address Coin)
     deriving (Show, Eq)
 
 -- | Hardcoded genesis data

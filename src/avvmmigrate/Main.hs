@@ -65,23 +65,3 @@ genGenesis avvm = GenesisData
                 Nothing -> panic ("couldn't decode address " <> address)
         let addr = makePubKeyAddress pk
         return (addr, unsafeIntegerToCoin (coinAmount coin))
-
-{-
-
-    let distr = TestnetStakes
-            { sdTotalStake = mkCoin koTotalStake
-            , sdRichmen    = koRichmen
-            , sdPoor       = koStakeholders - koRichmen
-            }
-        genesisAddrs = map (makePubKeyAddress . fst) genesisList
-        genesisVssCerts = HM.fromList
-                          $ map (_1 %~ addressHash)
-                          $ take (fromIntegral koRichmen) genesisList
-        genData = GenesisData
-            { gdAddresses = genesisAddrs
-            , gdDistribution = distr
-            , gdVssCertificates = genesisVssCerts
-            }
-    BSL.writeFile koGenesisFile $ encode genData
-
--}

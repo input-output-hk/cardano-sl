@@ -265,6 +265,7 @@ runCH NodeParams {..} sscNodeContext act = do
         -- current time isn't quite validly, but it doesn't matter
         let ssNtpLastSlot = unflattenSlotId 0
         liftIO $ newTVarIO SlottingState{..}
+    shutdownFlag <- liftIO $ newTVarIO False
     let ctx =
             NodeContext
             { ncSystemStart = npSystemStart
@@ -287,6 +288,7 @@ runCH NodeParams {..} sscNodeContext act = do
             , ncRecoveryHeader = recoveryHeaderVar
             , ncUpdateSemaphore = updSemaphore
             , ncUpdateExePath = npUpdateExePath
+            , ncShutdownFlag = shutdownFlag
             }
     runContextHolder ctx act
 

@@ -16,7 +16,7 @@ import           Universum
 
 import           Pos.Crypto                     (PublicKey, SecretKey, toPublic)
 import           Pos.Security.CLI               (AttackTarget, AttackType)
-import           Pos.Slotting                   (SlottingState)
+import           Pos.Slotting.Types             (SlottingState)
 import           Pos.Ssc.Class.Types            (Ssc (SscNodeContext))
 import           Pos.Types                      (Address, BlockHeader, EpochIndex,
                                                  HeaderHash, SlotLeaders, Timestamp (..),
@@ -84,6 +84,8 @@ data NodeContext ssc = NodeContext
     -- and ready to apply
     , ncUpdateExePath       :: !FilePath
     -- ^ Path to update installer executable, downloaded by update system
+    , ncShutdownFlag        :: !(STM.TVar Bool)
+    -- ^ If this flag is `True`, then workers should stop.
     }
 
 -- | Generate 'PublicKey' from 'SecretKey' of 'NodeContext'.

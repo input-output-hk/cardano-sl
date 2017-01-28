@@ -1,5 +1,5 @@
+{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeFamilies        #-}
 
 -- | Slotting functionality.
@@ -14,30 +14,31 @@ module Pos.Slotting
        , onNewSlotWithLogging
 
        -- * Slotting state
-       , SlottingState (..)
-       , ssSlotDurationL
-       , ssNtpLastSlotL
-       , ssNtpDataL
+       , module Types
        ) where
 
-import           Control.Lens             (makeLensesFor)
-import           Control.Monad            (void)
-import           Control.Monad.Catch      (MonadCatch, catch)
-import           Control.Monad.Except     (ExceptT)
-import           Control.Monad.Trans      (MonadTrans)
-import           Data.Time.Units          (Microsecond, Millisecond, convertUnit)
-import           Formatting               (build, sformat, shown, (%))
-import           Mockable                 (CurrentTime, Delay, Fork, Mockable,
-                                           currentTime, delay, fork)
-import           Serokell.Util.Exceptions ()
-import           System.Wlog              (WithLogger, logDebug, logError,
-                                           modifyLoggerName)
+import           Control.Concurrent.STM.TVar (readTVar)
+import           Control.Monad               (void)
+import           Control.Monad.Catch         (MonadCatch, catch)
+import           Control.Monad.Except        (ExceptT)
+import           Control.Monad.Trans         (MonadTrans)
+import           Data.Time.Units             (Microsecond, Millisecond, convertUnit)
+import           Formatting                  (build, sformat, shown, (%))
+import           Mockable                    (CurrentTime, Delay, Fork, Mockable,
+                                              currentTime, delay, fork)
+import           Serokell.Util.Exceptions    ()
+import           System.Wlog                 (WithLogger, logDebug, logError,
+                                              modifyLoggerName)
 import           Universum
 
-import           Pos.Constants            (ntpMaxError, ntpPollDelay)
-import           Pos.DHT.Real             (KademliaDHT)
-import           Pos.Types                (FlatSlotId, SlotId (..), Timestamp (..),
-                                           flattenSlotId, unflattenSlotId)
+import           Pos.Constants               (ntpMaxError, ntpPollDelay)
+import           Pos.Context.Class           (WithNodeContext, getNodeContext)
+import           Pos.Context.Context         (ncShutdownFlag)
+import           Pos.DHT.Real                (KademliaDHT)
+import           Pos.Types                   (FlatSlotId, SlotId (..), Timestamp (..),
+                                              flattenSlotId, unflattenSlotId)
+
+import           Pos.Slotting.Types          as Types
 
 -- | Type class providing information about time when system started
 -- functioning.
@@ -67,24 +68,6 @@ instance MonadSlots m => MonadSlots (ReaderT s m) where
 instance MonadSlots m => MonadSlots (ExceptT s m) where
 instance MonadSlots m => MonadSlots (StateT s m) where
 instance MonadSlots m => MonadSlots (KademliaDHT m) where
-
--- | Data needed for the slotting algorithm to work.
-data SlottingState = SlottingState
-    {
-    -- | Current slot duration. (It can be changed by update proposals.)
-      ssSlotDuration :: !Millisecond
-    -- | Slot which was returned from getCurrentSlot in last time
-    , ssNtpLastSlot  :: !SlotId
-    -- | Data for the NTP Worker. First element: margin (difference between
-    -- global time and local time) which we got from NTP server in last time.
-    -- Second element: time (local) for which we got margin in last time.
-    , ssNtpData      :: !(Microsecond, Microsecond)
-    }
-
-flip makeLensesFor ''SlottingState [
-    ("ssSlotDuration", "ssSlotDurationL"),
-    ("ssNtpLastSlot", "ssNtpLastSlotL"),
-    ("ssNtpData", "ssNtpDataL") ]
 
 -- | Get flat id of current slot based on MonadSlots.
 getCurrentSlotFlat :: MonadSlots m => m FlatSlotId
@@ -118,41 +101,33 @@ getCurrentSlotUsingNtp lastSlot (margin, measTime) = do
     canWeTrustLocalTime t =
         pure $ t <= measTime + ntpPollDelay + ntpMaxError
 
+type OnNewSlot ssc m =
+    ( MonadIO m
+    , MonadSlots m
+    , MonadCatch m
+    , WithLogger m
+    , Mockable Fork m
+    , Mockable Delay m
+    , WithNodeContext ssc m
+    )
+
 -- | Run given action as soon as new slot starts, passing SlotId to
 -- it.  This function uses Mockable and assumes consistency between
 -- MonadSlots and Mockable implementations.
 onNewSlot
-    :: ( MonadIO m
-       , MonadSlots m
-       , MonadCatch m
-       , WithLogger m
-       , Mockable Fork m
-       , Mockable Delay m
-       )
-    => Bool -> (SlotId -> m ()) -> m a
+    :: OnNewSlot ssc m
+    => Bool -> (SlotId -> m ()) -> m ()
 onNewSlot = onNewSlotImpl False
 
 -- | Same as onNewSlot, but also logs debug information.
 onNewSlotWithLogging
-    :: ( MonadIO m
-       , MonadSlots m
-       , MonadCatch m
-       , WithLogger m
-       , Mockable Fork m
-       , Mockable Delay m
-       )
-    => Bool -> (SlotId -> m ()) -> m a
+    :: OnNewSlot ssc m
+    => Bool -> (SlotId -> m ()) -> m ()
 onNewSlotWithLogging = onNewSlotImpl True
 
 onNewSlotImpl
-    :: ( MonadIO m
-       , MonadSlots m
-       , MonadCatch m
-       , WithLogger m
-       , Mockable Fork m
-       , Mockable Delay m
-       )
-    => Bool -> Bool -> (SlotId -> m ()) -> m a
+    :: OnNewSlot ssc m
+    => Bool -> Bool -> (SlotId -> m ()) -> m ()
 onNewSlotImpl withLogging startImmediately action =
     onNewSlotDo withLogging Nothing startImmediately actionWithCatch
   where
@@ -162,15 +137,9 @@ onNewSlotImpl withLogging startImmediately action =
     handler = logError . sformat ("Error occurred: "%build)
 
 onNewSlotDo
-    :: ( MonadIO m
-       , MonadSlots m
-       , MonadCatch m
-       , WithLogger m
-       , Mockable Fork m
-       , Mockable Delay m
-       )
-    => Bool -> Maybe SlotId -> Bool -> (SlotId -> m ()) -> m a
-onNewSlotDo withLogging expectedSlotId startImmediately action = do
+    :: OnNewSlot ssc m
+    => Bool -> Maybe SlotId -> Bool -> (SlotId -> m ()) -> m ()
+onNewSlotDo withLogging expectedSlotId startImmediately action = unlessM isShutdown $ do
     -- here we wait for short intervals to be sure that expected slot
     -- has really started, taking into account possible inaccuracies
     waitUntilPredicate
@@ -178,14 +147,17 @@ onNewSlotDo withLogging expectedSlotId startImmediately action = do
     curSlot <- getCurrentSlot
     -- fork is necessary because action can take more time than slotDuration
     when startImmediately $ void $ fork $ action curSlot
-    Timestamp curTime <- getCurrentTime
-    let nextSlot = succ curSlot
-    Timestamp nextSlotStart <- getSlotStart nextSlot
-    let timeToWait = nextSlotStart - curTime
-    when (timeToWait > 0) $ do
-        when withLogging $ logTTW timeToWait
-        delay timeToWait
-    onNewSlotDo withLogging (Just nextSlot) True action
+
+    -- check for shutdown flag again to not wait a whole slot
+    unlessM isShutdown $ do
+        Timestamp curTime <- getCurrentTime
+        let nextSlot = succ curSlot
+        Timestamp nextSlotStart <- getSlotStart nextSlot
+        let timeToWait = nextSlotStart - curTime
+        when (timeToWait > 0) $ do
+            when withLogging $ logTTW timeToWait
+            delay timeToWait
+        onNewSlotDo withLogging (Just nextSlot) True action
   where
     waitUntilPredicate predicate =
         unlessM predicate (shortWait >> waitUntilPredicate predicate)
@@ -194,3 +166,4 @@ onNewSlotDo withLogging expectedSlotId startImmediately action = do
         delay ((10 :: Microsecond) `max` (convertUnit slotDuration `div` 10000))
     logTTW timeToWait = modifyLoggerName (<> "slotting") $ logDebug $
                  sformat ("Waiting for "%shown%" before new slot") timeToWait
+    isShutdown = ncShutdownFlag <$> getNodeContext >>= atomically . readTVar

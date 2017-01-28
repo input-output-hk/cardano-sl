@@ -84,6 +84,7 @@ library
                         Pos.Security.Util
                         Pos.Security.Workers
                         Pos.Slotting
+                        Pos.Slotting.Types
                         Pos.Ssc.Class.Types
                         Pos.Ssc.Class.Helpers
                         Pos.Ssc.Class.Storage

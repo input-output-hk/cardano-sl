@@ -114,7 +114,7 @@ sscProcessMessageRichmen :: WorkMode SscGodTossing m
 sscProcessMessageRichmen dat addr = do
     epoch <- siEpoch <$> getCurrentSlot
     richmenMaybe <- LrcDB.getRichmenSsc epoch
-    maybe (pure False) handleRichmen richmenMaybe
+    maybe (pure False) (handleRichmen . (epoch,)) richmenMaybe
   where
     handleRichmen r = do
         res <- sscProcessMessage r dat addr

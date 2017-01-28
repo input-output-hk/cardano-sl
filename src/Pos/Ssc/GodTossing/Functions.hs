@@ -104,9 +104,7 @@ verifyGtPayload header payload = case payload of
     isShare = unless (isSharesId slotId) $ Left $ NotSharesPhase slotId
     isOther = unless (all not $
                       map ($ slotId) [isCommitmentId, isOpeningId, isSharesId]) $
-                      Left tossIE
-    tossIE =
-        TossInternallError $ sformat (build%" doesn't belong intermediate phase") slotId
+                      Left $ NotIntermediatePhase slotId
 
     -- We *forbid* blocks from having commitments/openings/shares in blocks
     -- with wrong slotId (instead of merely discarding such commitments/etc)

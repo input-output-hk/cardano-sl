@@ -110,7 +110,7 @@ slotSecurityParam = 2 * blkSecurityParam
 
 -- | Number of slots inside one epoch.
 epochSlots :: Integral a => a
-epochSlots = 12 * blkSecurityParam
+epochSlots = 10 * blkSecurityParam
 
 -- | Estimated time needed to broadcast message from one node to all
 -- other nodes. Also see 'Pos.CompileConfig.ccNetworkDiameter'.

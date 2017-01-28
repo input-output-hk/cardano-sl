@@ -6,11 +6,9 @@
 module Pos.Types.Arbitrary
        ( BadSigsTx (..)
        , GoodTx (..)
-       , OverflowTx (..)
        , SmallBadSigsTx (..)
        , SmallHashMap (..)
        , SmallGoodTx (..)
-       , SmallOverflowTx (..)
        ) where
 
 import qualified Data.ByteString            as BS (pack)
@@ -19,8 +17,7 @@ import           Data.DeriveTH              (derive, makeArbitrary)
 import           Data.Time.Units            (Microsecond, Millisecond, fromMicroseconds)
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (..),
-                                             NonZero (..), choose, choose, elements,
-                                             oneof)
+                                             choose, choose, elements, oneof)
 import           Test.QuickCheck.Instances  ()
 import           Universum
 
@@ -36,12 +33,11 @@ import           Pos.Script.Examples        (badIntRedeemer, goodIntRedeemer,
                                              intValidator)
 import           Pos.Types.Address          (makePubKeyAddress, makeScriptAddress)
 import           Pos.Types.Arbitrary.Unsafe ()
-import           Pos.Types.Coin             (coinToInteger, unsafeAddCoin, unsafeSubCoin)
 import           Pos.Types.Core             (Address (..), ChainDifficulty (..), Coin,
                                              CoinPortion, EpochIndex (..),
                                              EpochOrSlot (..), LocalSlotIndex (..),
                                              SlotId (..), Timestamp (..), mkCoin,
-                                             unsafeCoinPortionFromDouble)
+                                             unsafeCoinPortionFromDouble, unsafeGetCoin)
 import           Pos.Types.Types            (SharedSeed (..), Tx (..),
                                              TxDistribution (..), TxIn (..),
                                              TxInWitness (..), TxOut (..), TxOutAux)
@@ -68,7 +64,7 @@ deriving instance Arbitrary ChainDifficulty
 derive makeArbitrary ''TxOut
 
 instance Arbitrary Coin where
-    arbitrary = mkCoin . getNonZero <$> (arbitrary :: Gen (NonZero Word64))
+    arbitrary = mkCoin <$> choose (1, unsafeGetCoin maxBound)
 
 instance Arbitrary CoinPortion where
     arbitrary = unsafeCoinPortionFromDouble . (1/) <$> choose (1, 20)
@@ -178,26 +174,6 @@ instance Arbitrary GoodTx where
 instance Arbitrary SmallGoodTx where
     arbitrary = SmallGoodTx <$> makeSmall arbitrary
 
--- | Ill-formed 'Tx' with overflow.
-newtype OverflowTx = OverflowTx
-    { getOverflowTx :: [((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)]
-    } deriving (Show)
-
-newtype SmallOverflowTx =
-    SmallOverflowTx OverflowTx
-    deriving Show
-
-instance Arbitrary OverflowTx where
-    arbitrary = OverflowTx <$> do
-        txsList <- getNonEmpty <$>
-            (arbitrary :: Gen (NonEmptyList (Tx, SecretKey, SecretKey, Coin)))
-        let halfBound = mkCoin . fromInteger $
-                        coinToInteger (maxBound @Coin) `div` 2
-        buildProperTx txsList (unsafeAddCoin halfBound,
-                               unsafeSubCoin halfBound)
-
-instance Arbitrary SmallOverflowTx where
-    arbitrary = SmallOverflowTx <$> makeSmall arbitrary
 
 -- | Ill-formed 'Tx' with bad signatures.
 newtype BadSigsTx = BadSigsTx

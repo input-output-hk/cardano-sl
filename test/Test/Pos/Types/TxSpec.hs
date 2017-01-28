@@ -34,9 +34,8 @@ import           Pos.Script.Examples    (alwaysSuccessValidator, badIntRedeemer,
                                          intValidatorWithBlah, multisigRedeemer,
                                          multisigValidator, shaStressRedeemer,
                                          sigStressRedeemer, stdlibValidator)
-import           Pos.Types              (BadSigsTx (..), GoodTx (..), OverflowTx (..),
-                                         SmallBadSigsTx (..), SmallGoodTx (..),
-                                         SmallOverflowTx (..), Tx (..), TxAux,
+import           Pos.Types              (BadSigsTx (..), GoodTx (..), SmallBadSigsTx (..),
+                                         SmallGoodTx (..), Tx (..), TxAux,
                                          TxDistribution (..), TxIn (..), TxInWitness (..),
                                          TxOut (..), TxOutAux, TxSigData, TxWitness, Utxo,
                                          VTxGlobalContext (..), VTxLocalContext (..),
@@ -53,7 +52,6 @@ spec = describe "Types.Tx" $ do
         prop description_invalidateBadTxAlone invalidateBadTxAlone
     describe "verifyTx" $ do
         prop description_validateGoodTx validateGoodTx
-        prop description_overflowTx overflowTx
         prop description_badSigsTx badSigsTx
     describe "topsortTxs" $ do
         prop "doesn't change the random set of transactions" $
@@ -74,10 +72,8 @@ spec = describe "Types.Tx" $ do
         "invalidates Txs with non-positive coins or empty inputs/outputs"
     description_validateGoodTx =
         "validates a transaction whose inputs and well-formed transaction outputs"
-    description_overflowTx =
-        "a well-formed transaction with input and output sums above maxBound :: Coin \
-        \is validated successfully"
-    description_badSigsTx = "a transaction with inputs improperly signed is never validated"
+    description_badSigsTx =
+        "a transaction with inputs improperly signed is never validated"
 
 scriptTxSpec :: Spec
 scriptTxSpec = describe "script transactions" $ do
@@ -395,18 +391,6 @@ validateGoodTx (SmallGoodTx (getGoodTx -> ls)) =
                 (tx, txWits, dist)
         transactionReallyIsGood = individualTxPropertyVerifier quadruple
     in  transactionIsVerified == transactionReallyIsGood
-
-overflowTx :: SmallOverflowTx -> Bool
-overflowTx (SmallOverflowTx (getOverflowTx -> ls)) =
-    let ((tx@Tx{..}, dist), inpResolver, extendedInputs, txWits) =
-            getTxFromGoodTx ls
-        transactionIsNotVerified = isLeft $
-            verifyTxPure True
-                VTxGlobalContext
-                (fmap VTxLocalContext <$> inpResolver)
-                (tx, txWits, dist)
-        inpSumLessThanOutSum = not $ txChecksum extendedInputs txOutputs
-    in inpSumLessThanOutSum == transactionIsNotVerified
 
 signatureIsValid :: [TxOutAux] -> (Maybe (TxIn, TxOutAux), TxInWitness) -> Bool
 signatureIsValid outs (Just (TxIn{..}, (TxOut{..}, _)), PkWitness{..}) =

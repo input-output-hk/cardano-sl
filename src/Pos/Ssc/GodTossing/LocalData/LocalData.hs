@@ -64,8 +64,8 @@ import           Pos.Ssc.GodTossing.Types             (GtGlobalState, GtPayload 
                                                        _gsShares, _gsVssCertificates)
 import           Pos.Ssc.GodTossing.Types.Message     (GtMsgContents (..), GtMsgTag (..))
 import qualified Pos.Ssc.GodTossing.VssCertData       as VCD
-import           Pos.Types                            (SlotId (..), StakeholderId,
-                                                       addressHash)
+import           Pos.Types                            (EpochIndex, SlotId (..),
+                                                       StakeholderId, addressHash)
 
 instance SscBi => SscLocalDataClass SscGodTossing where
     sscGetLocalPayloadQ = getLocalPayload
@@ -228,24 +228,25 @@ sscIsDataUsefulSetImpl localG globalG addr =
 -- has been actually added.
 sscProcessMessage ::
        (MonadSscLD SscGodTossing m, SscBi)
-    => Richmen -> GtMsgContents -> StakeholderId -> m (Either TossVerFailure ())
+    => (EpochIndex, Richmen) -> GtMsgContents -> StakeholderId -> m (Either TossVerFailure ())
 sscProcessMessage richmen msg =
-    gtRunModify . runExceptT . sscProcessMessageU (HS.fromList $ toList richmen) msg
+    gtRunModify . runExceptT . sscProcessMessageU (second (HS.fromList . toList) richmen) msg
 
 sscProcessMessageU
     :: SscBi
-    => RichmenSet
+    => (EpochIndex, RichmenSet)
     -> GtMsgContents
     -> StakeholderId
     -> LDProcess ()
-sscProcessMessageU richmen (MCCommitment comm) addr =
-    processCommitment richmen addr comm
-sscProcessMessageU _ (MCOpening open) addr =
-    processOpening addr open
-sscProcessMessageU richmen (MCShares shares) addr =
-    processShares richmen addr shares
-sscProcessMessageU richmen (MCVssCertificate cert) addr =
-    processVssCertificate richmen addr cert
+sscProcessMessageU (richmenEpoch, richmen) msg id = do
+    epochIdx <- siEpoch <$> use gtLastProcessedSlot
+    when (epochIdx /= richmenEpoch) $
+           throwError $ DifferentEpoches richmenEpoch epochIdx
+    case msg of
+        MCCommitment     comm -> processCommitment richmen id comm
+        MCOpening        open -> processOpening id open
+        MCShares       shares -> processShares richmen id shares
+        MCVssCertificate cert -> processVssCertificate richmen id cert
 
 runChecks :: MonadError TossVerFailure m => [(m Bool, TossVerFailure)] -> m ()
 runChecks checks =

@@ -19,7 +19,7 @@ import           Prelude                 (show)
 import qualified Serokell.Util.Base16    as B16
 import           Serokell.Util.Text      (listJsonIndent)
 import           System.Directory        (doesFileExist)
-import           System.FilePath         ((<.>), (</>))
+import           System.FilePath         ((</>))
 import           System.Wlog             (logInfo, logWarning)
 import           Universum               hiding (show)
 

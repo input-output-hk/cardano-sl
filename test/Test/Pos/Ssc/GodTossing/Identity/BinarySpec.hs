@@ -24,5 +24,5 @@ spec = describe "GodTossing" $ do
         binaryTest @GT.GtPayload
         binaryTest @(R.InvMsg StakeholderId GT.GtMsgTag)
         binaryTest @(R.ReqMsg StakeholderId GT.GtMsgTag)
-        binaryTest @(R.DataMsg StakeholderId GT.GtMsgContents)
+        binaryTest @(R.DataMsg GT.GtMsgContents)
         binaryTest @GT.GtSecretStorage

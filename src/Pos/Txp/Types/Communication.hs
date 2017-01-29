@@ -15,7 +15,7 @@ import           Universum
 import           Pos.Types           (Tx, TxDistribution, TxWitness)
 import           Pos.Util            (NamedMessagePart (..))
 
-data TxMsgTag = TxMsgTag
+data TxMsgTag = TxMsgTag deriving (Eq, Show)
 
 instance NamedMessagePart TxMsgTag where
     nMessageName _     = "Tx tag"
@@ -28,7 +28,7 @@ data TxMsgContents = TxMsgContents
     { dmTx           :: !Tx
     , dmWitness      :: !TxWitness
     , dmDistribution :: !TxDistribution
-    } deriving (Generic)
+    } deriving (Generic, Show, Eq)
 
 instance NamedMessagePart TxMsgContents where
     nMessageName _     = "Tx contents"

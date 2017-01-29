@@ -17,6 +17,7 @@ spec :: Spec
 spec = describe "GodTossing" $ do
     describe "Bi instances" $ do
         binaryTest @GT.Commitment
+        binaryTest @GT.CommitmentsMap
         binaryTest @GT.Opening
         binaryTest @GT.VssCertificate
         binaryTest @GT.GtProof

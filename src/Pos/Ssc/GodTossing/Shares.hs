@@ -23,7 +23,7 @@ import           Pos.Ssc.Extra.MonadGS    (MonadSscGS, sscRunGlobalQuery)
 import           Pos.Ssc.GodTossing.Core  (Commitment (..))
 import           Pos.Ssc.GodTossing.Type  (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types (gsCommitments, gsOpenings)
-import           Pos.Types                (StakeholderId)
+import           Pos.Types                (StakeholderId, addressHash)
 import           Pos.Util                 (AsBinary, asBinary, fromBinaryM)
 
 type GSQuery a = SscGlobalQuery SscGodTossing a
@@ -60,9 +60,9 @@ decryptOurShares
 decryptOurShares ourPK = do
     comms <- view gsCommitments
     opens <- view gsOpenings
-    return .
-        HM.fromList . catMaybes $
-            flip fmap (HM.toList comms) $ \(theirAddr, (_, Commitment{..}, _)) ->
-                if not $ HM.member theirAddr opens
-                   then (,) theirAddr <$> HM.lookup ourPK commShares
-                   else Nothing -- if we have opening for theirAddr, we shouldn't send shares for it
+    return . HM.fromList . catMaybes $ checkOpen opens <$> toList comms
+  where
+    checkOpen opens (addressHash -> theirId, Commitment {..}, _)
+        | not $ HM.member theirId opens =
+            (,) theirId <$> HM.lookup ourPK commShares
+        | otherwise = Nothing -- if we have opening for theirAddr, we shouldn't send shares for it

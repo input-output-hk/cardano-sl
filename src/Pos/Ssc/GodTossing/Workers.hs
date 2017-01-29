@@ -9,7 +9,7 @@ module Pos.Ssc.GodTossing.Workers
        ) where
 
 import           Control.Concurrent.STM           (readTVar)
-import           Control.Lens                     (at)
+import           Control.Lens                     (at, to)
 import           Control.Monad.Trans.Maybe        (runMaybeT)
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.HashSet                     as HS
@@ -47,9 +47,9 @@ import           Pos.Ssc.GodTossing.Core          (Commitment (..), SignedCommit
                                                    VssCertificate (..),
                                                    VssCertificatesMap,
                                                    genCommitmentAndOpening,
-                                                   isCommitmentIdx, isOpeningIdx,
-                                                   isSharesIdx, mkSignedCommitment,
-                                                   mkVssCertificate)
+                                                   getCommitmentsMap, isCommitmentIdx,
+                                                   isOpeningIdx, isSharesIdx,
+                                                   mkSignedCommitment, mkVssCertificate)
 import           Pos.Ssc.GodTossing.Functions     (computeParticipants, hasCommitment,
                                                    hasOpening, hasShares, vssThreshold)
 import           Pos.Ssc.GodTossing.LocalData     (getLocalPayload, localOnNewSlot,
@@ -202,7 +202,7 @@ onNewSlotOpening sendActions SlotId {..}
         ourId <- addressHash . ncPublicKey <$> getNodeContext
         globalData <- gtGetGlobalState
         unless (hasOpening ourId globalData) $
-            case globalData ^. gsCommitments . at ourId of
+            case globalData ^. gsCommitments . to getCommitmentsMap . at ourId of
                 Nothing -> logDebug noCommMsg
                 Just _  -> onNewSlotOpeningDo ourId
   where

@@ -32,15 +32,18 @@ import           Pos.Binary.Crypto              ()
 import           Pos.Crypto                     (Threshold)
 import           Pos.Lrc.Types                  (Richmen)
 import           Pos.Ssc.Class.Types            (Ssc (..))
-import           Pos.Ssc.GodTossing.Core        (Commitment (..), VssCertificate (..),
-                                                 VssCertificatesMap, checkCertTTL,
-                                                 isCommitmentId, isOpeningId, isSharesId,
+import           Pos.Ssc.GodTossing.Core        (Commitment (..),
+                                                 CommitmentsMap (getCommitmentsMap),
+                                                 VssCertificate (..), VssCertificatesMap,
+                                                 checkCertTTL, isCommitmentId,
+                                                 isOpeningId, isSharesId,
                                                  verifySignedCommitment)
 import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
 import           Pos.Ssc.GodTossing.Types.Types (GtGlobalState (..), GtPayload (..),
                                                  TossVerErrorTag (..),
                                                  TossVerFailure (..))
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
+import           Pos.Types.Address              (addressHash)
 import           Pos.Types.Core                 (EpochIndex (..), SlotId (..),
                                                  StakeholderId)
 import           Pos.Types.Slotting             (crucialSlot)
@@ -50,7 +53,7 @@ import           Pos.Types.Types                (MainBlockHeader, headerSlot)
 -- Simple predicates for GodTossing.Types.Base
 ----------------------------------------------------------------------------
 hasCommitment :: StakeholderId -> GtGlobalState -> Bool
-hasCommitment id = HM.member id . _gsCommitments
+hasCommitment id = HM.member id . getCommitmentsMap . _gsCommitments
 
 hasOpening :: StakeholderId -> GtGlobalState -> Bool
 hasOpening id = HM.member id . _gsOpenings
@@ -124,10 +127,12 @@ verifyGtPayload eoh payload = case payload of
     commChecks commitments = runExcept $ do
         let checkSignedComm =
                  isVerSuccess .
-                 uncurry (flip verifySignedCommitment epochId)
-        verifyEntriesGuard fst identity (TossVerFailure CommitmentInvalid)
+                 (verifySignedCommitment epochId)
+        verifyEntriesGuard (addressHash . view _1)
+                           identity
+                           (TossVerFailure CommitmentInvalid)
                            checkSignedComm
-                           (HM.toList commitments)
+                           (toList commitments)
         -- [CSL-206]: check that share IDs are different.
 
     -- CHECK: Vss certificates checker

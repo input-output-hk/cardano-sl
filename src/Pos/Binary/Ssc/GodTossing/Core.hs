@@ -8,9 +8,9 @@ import           Universum
 
 import           Pos.Binary.Class              (Bi (..))
 import           Pos.Binary.Crypto             ()
-import           Pos.Ssc.GodTossing.Core.Types (Commitment (..), Opening (..),
-                                                VssCertificate (..),
-                                                recreateVssCertificate)
+import           Pos.Ssc.GodTossing.Core.Types (Commitment (..), CommitmentsMap,
+                                                Opening (..), VssCertificate (..),
+                                                mkCommitmentsMap, recreateVssCertificate)
 
 instance Bi Commitment where
     put Commitment {..} = do
@@ -23,6 +23,10 @@ instance Bi Commitment where
         commExtra <- get
         commProof <- get
         return Commitment {..}
+
+instance Bi CommitmentsMap where
+    put = put . toList
+    get = mkCommitmentsMap <$> get
 
 instance Bi VssCertificate where
     put vc = do

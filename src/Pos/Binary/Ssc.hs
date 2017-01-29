@@ -34,14 +34,12 @@ instance Bi GtPayload where
             CertificatesPayload vssMap -> putWord8 3 >> put (toList vssMap)
     get =
         getWord8 >>= \case
-            0 -> liftM2 CommitmentsPayload getCommitments getVssCerts
+            0 -> liftM2 CommitmentsPayload get getVssCerts
             1 -> liftM2 OpeningsPayload get getVssCerts
             2 -> liftM2 SharesPayload get getVssCerts
             3 -> CertificatesPayload <$> getVssCerts
             tag -> fail ("get@GtPayload: invalid tag: " ++ show tag)
           where
-            getCommitments = HM.fromList . map toCommPair <$> get
-            toCommPair signedComm@(pk, _, _) = (addressHash pk, signedComm)
             getVssCerts = HM.fromList . map toCertPair <$> get
             toCertPair vc = (addressHash $ vcSigningKey vc, vc)
 

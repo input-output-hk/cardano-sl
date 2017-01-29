@@ -23,7 +23,6 @@ import           Control.Monad.Except           (MonadError (throwError), runExc
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.HashSet                   as HS
 import qualified Data.List.NonEmpty             as NE
-import           Formatting                     (build, sformat, (%))
 import           Serokell.Util.Verify           (isVerSuccess)
 import           Universum
 
@@ -33,9 +32,8 @@ import           Pos.Crypto                     (Threshold)
 import           Pos.Lrc.Types                  (Richmen)
 import           Pos.Ssc.Class.Types            (Ssc (..))
 import           Pos.Ssc.GodTossing.Core        (Commitment (..), VssCertificate (..),
-                                                 VssCertificatesMap, checkCertSign,
-                                                 checkCertTTL, isCommitmentId,
-                                                 isOpeningId, isSharesId,
+                                                 VssCertificatesMap, checkCertTTL,
+                                                 isCommitmentId, isOpeningId, isSharesId,
                                                  verifySignedCommitment)
 import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
 import           Pos.Ssc.GodTossing.Types.Types (GtGlobalState (..), GtPayload (..),
@@ -135,9 +133,6 @@ verifyGtPayload header payload = case payload of
     --
     -- #checkCert
     certsChecks certs = runExcept $ do
-        verifyEntriesGuard identity identity CertificateInvalidSign
-                           checkCertSign
-                           (HM.toList certs)
         verifyEntriesGuard (second vcExpiryEpoch . join (,)) identity CertificateInvalidTTL
                            (checkCertTTL epochIndex)
                            (toList certs)

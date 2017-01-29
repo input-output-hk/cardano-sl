@@ -256,7 +256,7 @@ runChecks checks =
     findFalseM []     = pure Nothing
     findFalseM (x:xs) = ifM (fst x) (findFalseM xs) (pure $ Just x)
 
--- | Convert (Reader s) to any (MonadState s)
+-- | Convert (ReaderT s) to any (MonadState s)
 readerTToState
     :: MonadState s m
     => ReaderT s m a -> m a

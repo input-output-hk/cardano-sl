@@ -177,8 +177,8 @@ verifyOpening Commitment {..} (Opening secret) = fromMaybe False $
 -- #checkPubKeyAddress
 -- #checkSig
 checkCertSign :: (StakeholderId, VssCertificate) -> Bool
-checkCertSign (addr, VssCertificate {..}) =
-    addressHash vcSigningKey == addr &&
+checkCertSign (id, VssCertificate {..}) = --TODO remove id from here
+    addressHash vcSigningKey == id &&
     checkSig vcSigningKey (vcVssKey, vcExpiryEpoch) vcSignature
 
 -- CHECK: @checkCertTTL

@@ -288,7 +288,6 @@ library
                         Pos.Ssc.GodTossing.Types
                         Pos.Ssc.GodTossing.Types.Message
                         Pos.Ssc.GodTossing.Types.Types
-                        Pos.Ssc.GodTossing.Utils
                         Pos.Ssc.GodTossing.VssCertData
                         Pos.Ssc.GodTossing.Workers
 

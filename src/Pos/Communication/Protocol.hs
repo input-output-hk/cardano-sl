@@ -14,8 +14,11 @@ module Pos.Communication.Protocol
        , messageName'
        , worker
        , toAction
+       , unpackLSpecs
+       , hoistListenerSpec
        ) where
 
+import           Control.Arrow                    ((&&&))
 import qualified Data.HashMap.Strict              as HM
 import           Data.Proxy                       (Proxy (..))
 import qualified Data.Text.Buildable              as B
@@ -31,15 +34,16 @@ import           Universum
 import           Pos.Binary.Class                 (Bi)
 import           Pos.Communication.BiP            (BiP)
 import           Pos.Communication.Types.Protocol
+
 mapListener
     :: (forall t. m t -> m t) -> Listener m -> Listener m
 mapListener = mapListener' identity $ const identity
 
 mapListener'
-    :: (N.SendActions BiP PeerId m -> N.SendActions BiP PeerId m)
+    :: (N.SendActions BiP PeerData m -> N.SendActions BiP PeerData m)
     -> (forall snd rcv. Message rcv => N.NodeId
-          -> N.ConversationActions PeerId snd rcv m
-          -> N.ConversationActions PeerId snd rcv m)
+          -> N.ConversationActions PeerData snd rcv m
+          -> N.ConversationActions PeerData snd rcv m)
     -> (forall t. m t -> m t) -> Listener m -> Listener m
 mapListener' saMapper _ mapper (N.ListenerActionOneMsg f) =
     N.ListenerActionOneMsg $ \d nId sA -> mapper . f d nId (saMapper sA)
@@ -67,31 +71,63 @@ hoistSendActions nat rnat SendActions {..} = SendActions sendTo' withConnectionT
     withConnectionTo' nodeId convActionsH =
         nat $ withConnectionTo nodeId $ \convActions -> rnat $ convActionsH $ hoistConversationActions nat convActions
 
-convertCA :: N.ConversationActions PeerId snd rcv m -> ConversationActions snd rcv m
+hoistListenerSpec :: (forall a. m a -> n a) -> (forall a. n a -> m a) -> ListenerSpec m -> ListenerSpec n
+hoistListenerSpec nat rnat (ListenerSpec h s) =
+    ListenerSpec (\vI -> N.hoistListenerAction nat rnat $ h vI) s
+
+convertCA :: N.ConversationActions PeerData snd rcv m -> ConversationActions snd rcv m
 convertCA cA = ConversationActions
     { send = N.send cA
     , recv = N.recv cA
     }
 
-convertSA :: N.SendActions BiP PeerId m -> SendActions m
+convertSA :: N.SendActions BiP PeerData m -> SendActions m
 convertSA sA = SendActions
     { sendTo = \(NodeId (peerId, nNodeId)) -> N.sendTo sA nNodeId
     , withConnectionTo = \(NodeId (peerId, nNodeId)) h ->
                               N.withConnectionTo sA nNodeId $ h . convertCA
     }
 
-listenerOneMsg :: ( Bi msg, Message msg )
-    => (VerInfo -> NodeId -> SendActions m -> msg -> m ())
-    -> N.ListenerAction BiP PeerId m
-listenerOneMsg h =
-    N.ListenerActionOneMsg $ \peerId nNodeId sA ->
-        h undefined (NodeId (peerId, nNodeId)) (convertSA sA)
+listenerOneMsg :: (Bi msg, Message msg)
+    => OutSpecs
+    -> (VerInfo -> NodeId -> SendActions m -> msg -> m ())
+    -> (ListenerSpec m, OutSpecs)
+listenerOneMsg outSpecs h = (spec, outSpecs)
+  where
+    spec = ListenerSpec
+              (\ourVerInfo -> N.ListenerActionOneMsg $
+                  \(peerId, __peerData) nNodeId sA ->
+                      h ourVerInfo
+                        (NodeId (peerId, nNodeId))
+                        (convertSA sA))
+              (undefined, undefined)
 
-listenerConv :: ( Bi snd, Bi rcv, Message snd, Message rcv )
+listenerConv :: (Bi snd, Bi rcv, Message snd, Message rcv)
     => (VerInfo -> NodeId -> ConversationActions snd rcv m -> m ())
-    -> N.ListenerAction BiP PeerId m
-listenerConv h =
-    N.ListenerActionConversation $ \peerId nNodeId conv -> h undefined (NodeId (peerId, nNodeId)) (convertCA conv)
+    -> (ListenerSpec m, OutSpecs)
+listenerConv h = (spec, mempty)
+  where
+    spec = ListenerSpec
+              (\ourVerInfo -> N.ListenerActionConversation $
+                  \(peerId, __peerData) nNodeId conv ->
+                      h ourVerInfo
+                        (NodeId (peerId, nNodeId))
+                        (convertCA conv))
+              (undefined, undefined)
+
+unpackLSpecs :: ([ListenerSpec m], OutSpecs) -> (VerInfo -> [Listener m], InSpecs, OutSpecs)
+unpackLSpecs =
+    over _1 (\ls verInfo -> map ($ verInfo) ls) .
+    over _2 (InSpecs . HM.fromList) .
+    convert . first (map lsToPair)
+  where
+    lsToPair (ListenerSpec h spec) = (h, spec)
+    convert :: Monoid out => ([(l, i)], out) -> ([l], [i], out)
+    convert = uncurry (uncurry (,,))
+                . first squashPL
+    squashPL :: [(a, b)] -> ([a], [b])
+    squashPL = map fst &&& map snd
+
 
 toAction :: (SendActions m -> m a) -> Action m a
 toAction h = h . convertSA
@@ -105,8 +141,8 @@ worker = toAction
 --worker specs run = WorkerSpecs [const $ toAction run] mempty
 
 -- listenerConv :: (WithLogger m, Bi snd, Bi rcv, Message snd, Message rcv)
---     => (NodeId -> ConversationActions PeerId snd rcv m -> m ())
---     -> (PeerId -> Listener m, (MessageName, HandlerSpec))
+--     => (NodeId -> ConversationActions PeerData snd rcv m -> m ())
+--     -> (VerInfo -> Listener m, (MessageName, HandlerSpec))
 -- listenerConv handler = (listener, spec)
 --   where
 --     spec = (rcvMsgName, ConvHandler sndMsgName)
@@ -116,31 +152,31 @@ worker = toAction
 --     sndMsgName = messageName $ sndProxy convProxy
 --     rcvMsgName = messageName $ rcvProxy convProxy
 --     -- TODO specs parameter is to be received within listener
---     listener ourPeerId =
---       ListenerActionConversation $ \peerPeerId peerId conv ->
---           checkingInSpecs ourPeerId peerPeerId spec peerId $
+--     listener ourVerInfo =
+--       ListenerActionConversation $ \peerVerInfo peerId conv ->
+--           checkingInSpecs ourVerInfo peerVerInfo spec peerId $
 --               handler peerId conv
 --
 -- listenerOneMsg :: (WithLogger m, Bi msg, Message msg, Mockable Throw m)
 --     => (NodeId -> SendActions m -> msg -> m ())
---     -> (VersionInfo -> Listener m, (MessageName, HandlerSpec))
+--     -> (VerInfo -> Listener m, (MessageName, HandlerSpec))
 -- listenerOneMsg handler = (listener, spec)
 --   where
 --     spec = (rcvMsgName, OneMsgHandler)
 --     msgProxy :: (a -> b -> msg -> c) -> Proxy msg
 --     msgProxy _ = Proxy
 --     rcvMsgName = messageName $ msgProxy handler
---     listener ourPeerId =
---       ListenerActionOneMsg $ \peerPeerId peerId sA msg ->
---           checkingInSpecs ourPeerId peerPeerId spec peerId $
---               handler peerId (modifySend (vIOutHandlers ourPeerId) sA) msg
+--     listener ourVerInfo =
+--       ListenerActionOneMsg $ \peerVerInfo peerId sA msg ->
+--           checkingInSpecs ourVerInfo peerVerInfo spec peerId $
+--               handler peerId (modifySend (vIOutHandlers ourVerInfo) sA) msg
 --
--- checkingInSpecs :: WithLogger m => VersionInfo -> VersionInfo -> (MessageName, HandlerSpec) -> PeerId -> m () -> m ()
--- checkingInSpecs ourPeerId peerPeerId spec peerId action =
---     if | spec `notInSpecs` vIInHandlers ourPeerId ->
+-- checkingInSpecs :: WithLogger m => VerInfo -> VerInfo -> (MessageName, HandlerSpec) -> PeerId -> m () -> m ()
+-- checkingInSpecs ourVerInfo peerVerInfo spec peerId action =
+--     if | spec `notInSpecs` vIInHandlers ourVerInfo ->
 --               logWarning $ sformat
 --                 ("Endpoint is served, but not reported " % build) spec
---        | spec `notInSpecs` vIOutHandlers peerPeerId ->
+--        | spec `notInSpecs` vIOutHandlers peerVerInfo ->
 --               logDebug $ sformat
 --                 ("Peer " % shown % " attempting to use endpoint he didn't report to use " % build)
 --                 peerId spec

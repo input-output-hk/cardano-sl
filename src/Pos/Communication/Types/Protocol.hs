@@ -8,10 +8,9 @@ module Pos.Communication.Types.Protocol
        , HandlerSpecs
        , inSpecs
        , notInSpecs
-       , WorkerSpecs (..)
        , ListenerSpec (..)
-       , ListenerSpecs (..)
-       , toLss
+       , InSpecs (..)
+       , OutSpecs (..)
        , PeerId (..)
        , Listener
        , Worker
@@ -22,14 +21,21 @@ module Pos.Communication.Types.Protocol
        , Action'
        , Worker'
        , NSendActions
+       , PeerData
+       , mergeLs
+       , toOutSpecs
+       , oneMsgH
+       , convH
+       , ListenersWithOut
        ) where
 
+import           Control.Arrow         ((&&&))
 import           Data.Hashable         (Hashable)
 import qualified Data.HashMap.Strict   as HM
 import qualified Data.Text.Buildable   as B
 import           Formatting            (bprint, build, sformat, shown, (%))
 import qualified Node                  as N
-import           Node.Message          (Message, MessageName (..))
+import           Node.Message          (Message (..), MessageName (..))
 import           Serokell.Util.Base16  (base16F)
 import           Universum
 
@@ -38,12 +44,14 @@ import           Pos.Communication.BiP (BiP)
 import           Pos.Types.Core        (BlockVersion)
 import           Pos.Util.TimeWarp     (nodeIdToAddress)
 
-type Listener = N.Listener BiP PeerId
+type PeerData = (PeerId, VerInfo)
+
+type Listener = N.Listener BiP PeerData
 type Worker m = Action m ()
 type Action m a = NSendActions m -> m a
 type Action' m a = SendActions m -> m a
 type Worker' m = Action' m ()
-type NSendActions = N.SendActions BiP PeerId
+type NSendActions = N.SendActions BiP PeerData
 
 newtype NodeId = NodeId (PeerId, N.NodeId)
   deriving (Show, Eq, Ord, Hashable)
@@ -90,6 +98,12 @@ data HandlerSpec
   | OneMsgHandler
     deriving (Show, Generic, Eq)
 
+convH :: (Message snd, Message rcv) => Proxy snd -> Proxy rcv -> (MessageName, HandlerSpec)
+convH pSnd pReply = (messageName pSnd, ConvHandler $ messageName pReply)
+
+oneMsgH :: Message snd => Proxy snd -> (MessageName, HandlerSpec)
+oneMsgH pSnd = (messageName pSnd, OneMsgHandler)
+
 instance Buildable HandlerSpec where
     build OneMsgHandler                         = "OneMsg"
     build (ConvHandler (MessageName replyType)) = bprint ("Conv "%base16F) replyType
@@ -104,7 +118,8 @@ data VerInfo = VerInfo
     , vIBlockVersion :: BlockVersion
     , vIInHandlers   :: HandlerSpecs
     , vIOutHandlers  :: HandlerSpecs
-    } deriving (Generic)
+    }
+  deriving (Eq, Generic)
 
 inSpecs :: (MessageName, HandlerSpec) -> HandlerSpecs -> Bool
 inSpecs (name, sp) specs = case name `HM.lookup` specs of
@@ -115,61 +130,43 @@ notInSpecs :: (MessageName, HandlerSpec) -> HandlerSpecs -> Bool
 notInSpecs sp' = not . inSpecs sp'
 
 data ListenerSpec m = ListenerSpec
-    { lsHandler  :: VerInfo -> Listener m
-    , lsInSpec   :: (MessageName, HandlerSpec)
-    , lsOutSpecs :: HandlerSpecs
+    { lsHandler :: VerInfo -> Listener m -- ^ Handler accepts out verInfo and returns listener
+    , lsInSpec  :: (MessageName, HandlerSpec)
     }
 
-data ListenerSpecs m = ListenerSpecs
-    { lssHandlers :: [VerInfo -> Listener m]
-    , lssInSpecs  :: HandlerSpecs
-    , lssOutSpecs :: HandlerSpecs
-    }
+newtype InSpecs = InSpecs HandlerSpecs
+  deriving (Eq, Show, Generic)
 
-lssSingleton :: ListenerSpec m -> ListenerSpecs m
-lssSingleton ListenerSpec {..} = ListenerSpecs
-    { lssHandlers = [lsHandler]
-    , lssInSpecs = HM.fromList [lsInSpec]
-    , lssOutSpecs = lsOutSpecs
-    }
+newtype OutSpecs = OutSpecs HandlerSpecs
+  deriving (Eq, Show, Generic)
 
-toLss :: [ListenerSpec m] -> ListenerSpecs m
-toLss = mconcat . map lssSingleton
+instance Monoid InSpecs where
+    mempty = InSpecs mempty
+    (InSpecs a) `mappend` (InSpecs b) =
+          InSpecs $ HM.unionWithKey merger a b
+      where
+        merger name h1 h2 =
+          panic $ sformat
+              ("Conflicting key in input spec: "%build%" "%build)
+              (name, h1) (name, h2)
 
-hssOutUnion :: HandlerSpecs -> HandlerSpecs -> HandlerSpecs
-hssOutUnion a b = HM.unionWithKey merger a b
-  where
-    merger name h1 h2 =
-      if h1 == h2
-         then h1
-         else panic $ sformat
-                ("Conflicting key output spec: "%build%" "%build)
-                (name, h1) (name, h2)
+instance Monoid OutSpecs where
+    mempty = OutSpecs mempty
+    (OutSpecs a) `mappend` (OutSpecs b) =
+          OutSpecs $ HM.unionWithKey merger a b
+      where
+        merger name h1 h2 =
+          if h1 == h2
+             then h1
+             else panic $ sformat
+                    ("Conflicting key output spec: "%build%" "%build)
+                    (name, h1) (name, h2)
 
-hssInUnion :: HandlerSpecs -> HandlerSpecs -> HandlerSpecs
-hssInUnion a b = HM.unionWithKey merger a b
-  where
-    merger name h1 h2 =
-      panic $ sformat
-          ("Conflicting key in input spec: "%build%" "%build)
-          (name, h1) (name, h2)
+mergeLs :: [(ListenerSpec m, OutSpecs)] -> ([ListenerSpec m], OutSpecs)
+mergeLs = second mconcat . (map fst &&& map snd)
 
-instance Monoid (ListenerSpecs m) where
-    mempty = ListenerSpecs mempty mempty mempty
-    a `mappend` b = ListenerSpecs
-        { lssHandlers = lssHandlers a ++ lssHandlers b
-        , lssInSpecs = hssInUnion (lssInSpecs a) (lssInSpecs b)
-        , lssOutSpecs = hssOutUnion (lssOutSpecs a) (lssOutSpecs b)
-        }
+toOutSpecs :: [(MessageName, HandlerSpec)] -> OutSpecs
+toOutSpecs = OutSpecs . HM.fromList
 
-data WorkerSpecs m = WorkerSpecs
-    { wssExecutors :: [VerInfo -> Worker m]
-    , wssOutSpecs  :: HandlerSpecs
-    }
+type ListenersWithOut m = ([ListenerSpec m], OutSpecs)
 
-instance Monoid (WorkerSpecs m) where
-    mempty = WorkerSpecs mempty mempty
-    a `mappend` b = WorkerSpecs
-        { wssExecutors = wssExecutors a ++ wssExecutors b
-        , wssOutSpecs = hssOutUnion (wssOutSpecs a) (wssOutSpecs b)
-        }

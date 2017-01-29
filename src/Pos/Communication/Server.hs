@@ -10,13 +10,17 @@ module Pos.Communication.Server
        , module Pos.Communication.Server.SysStart
        ) where
 
-import           Data.Tagged                       (untag)
+import           Control.Arrow                     ((&&&))
+import qualified Data.HashMap.Strict               as HM
+import           Data.Tagged                       (Tagged, proxy, unproxy, untag)
 import           System.Wlog                       (LoggerName, WithLogger)
 import           Universum
 
 import           Pos.Binary.Communication          ()
 import           Pos.Block.Network.Listeners       (blockListeners, blockStubListeners)
-import           Pos.Communication.Protocol        (Listener, mapListener')
+import           Pos.Communication.Protocol        (HandlerSpecs, InSpecs (..),
+                                                    Listener (..), ListenerSpec (..),
+                                                    OutSpecs, VerInfo, mapListener')
 import           Pos.Communication.Server.SysStart
 import           Pos.Communication.Util            (convWithTimeLimit,
                                                     modifyListenerLogger,
@@ -28,35 +32,41 @@ import           Pos.Delegation.Listeners          (delegationListeners,
 import           Pos.Ssc.Class.Listeners           (SscListenersClass (..))
 import           Pos.Txp.Listeners                 (txListeners, txStubListeners)
 import           Pos.Update                        (usListeners, usStubListeners)
+import           Pos.Util                          (mconcatPair)
 import           Pos.WorkMode                      (WorkMode)
 
 -- | All listeners running on one node.
 allListeners
     :: (SscListenersClass ssc, WorkMode ssc m)
-    => [Listener m]
-allListeners =
-    map addWaitLogging $
-    map (addTimeout networkReceiveTimeout) $
-    map (modifyListenerLogger serverLoggerName) $
-    concat
-        [ map (modifyListenerLogger "block") blockListeners
-        , map (modifyListenerLogger "ssc") $ untag sscListeners
-        , map (modifyListenerLogger "tx") txListeners
-        , map (modifyListenerLogger "delegation") delegationListeners
-        , map (modifyListenerLogger "update") usListeners
+    => ([ListenerSpec m], OutSpecs)
+allListeners = mconcatPair
+        [ modifier "block" blockListeners
+        , modifier "ssc" $ untag sscListeners
+        , modifier "tx" txListeners
+        , modifier "delegation" delegationListeners
+        , modifier "update" usListeners
         ]
   where
+    modifier lname = over _1 (map pModifier)
+      where
+        pModifier (ListenerSpec h spec) =
+            ListenerSpec (\vI -> lModifier $ h vI) spec
+        lModifier = addWaitLogging .
+                           addTimeout networkReceiveTimeout .
+                           modifyListenerLogger (serverLoggerName <> lname)
     addWaitLogging = mapListener' withWaitLog withWaitLogConvL identity
-    addTimeout timeout = mapListener' (sendActionsWithTimeLimit timeout) (convWithTimeLimit timeout) identity
+    addTimeout timeout = mapListener' (sendActionsWithTimeLimit timeout)
+                                      (convWithTimeLimit timeout) identity
 
 -- | All listeners running on one node.
 allStubListeners
-    :: (SscListenersClass ssc, WithLogger m) => Proxy ssc -> [Listener m]
-allStubListeners p =
-    concat
-        [ blockStubListeners p
-        , sscStubListeners p
-        , txStubListeners p
+    :: (SscListenersClass ssc, WithLogger m)
+    => Tagged ssc ([ListenerSpec m], OutSpecs)
+allStubListeners = unproxy $ \sscProxy ->
+    mconcatPair
+        [ proxy blockStubListeners sscProxy
+        , proxy sscStubListeners sscProxy
+        , txStubListeners
         , delegationStubListeners
         , usStubListeners
         ]

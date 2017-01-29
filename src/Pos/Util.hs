@@ -18,6 +18,8 @@ module Pos.Util
        , module Pos.Util.TimeLimit
 
        -- * Various
+       , mappendPair
+       , mconcatPair
        , readerToState
        , eitherPanic
        , inAssertMode
@@ -83,6 +85,7 @@ module Pos.Util
        -- ** MonadFail LoggerNameBox
        ) where
 
+import           Control.Arrow                    ((***))
 import           Control.Concurrent.STM.TVar      (TVar, readTVar)
 import           Control.Lens                     (Each (..), LensLike', Magnified,
                                                    Zoomed, lensRules, magnify,
@@ -139,6 +142,12 @@ import           Pos.Util.Arbitrary
 import           Pos.Util.Binary
 import           Pos.Util.NotImplemented          ()
 import           Pos.Util.TimeLimit
+
+mappendPair :: (Monoid a, Monoid b) => (a, b) -> (a, b) -> (a, b)
+mappendPair = (uncurry (***)) . (mappend *** mappend)
+
+mconcatPair :: (Monoid a, Monoid b) => [(a, b)] -> (a, b)
+mconcatPair = foldr mappendPair (mempty, mempty)
 
 -- | Convert (Reader s) to any (MonadState s)
 readerToState

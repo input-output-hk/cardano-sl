@@ -29,10 +29,8 @@ import           System.Wlog                   (logInfo)
 import           Universum
 
 import           Pos.Aeson.ClientTypes         ()
-
-import           Pos.Communication.Types       (PeerId)
 import           Pos.Crypto                    (toPublic)
-import           Pos.DHT.Model                 (dhtAddr, getKnownPeers)
+import           Pos.DHT.Model                 (getKnownPeers)
 import           Pos.Slotting                  (getSlotDuration)
 import           Pos.Types                     (Address, ChainDifficulty (..), Coin,
                                                 TxOut (..), addressF, coinF,
@@ -40,7 +38,6 @@ import           Pos.Types                     (Address, ChainDifficulty (..), C
                                                 mkCoin)
 import           Pos.Util                      (maybeThrow)
 import           Pos.Util.BackupPhrase         (BackupPhrase, keysFromPhrase)
-
 import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
                                                 addSecretKey)
 import           Pos.Wallet.Tx                 (submitTx)

@@ -26,9 +26,10 @@ import           Universum                  hiding (Async, async, bracket, cance
 
 import           Pos.Binary.Class           (Bi)
 import           Pos.Communication.BiP      (BiP)
-import           Pos.Communication.Protocol (ConversationActions, Listener, Message (..),
-                                             MessageName (..), PeerId, listenerConv,
-                                             listenerOneMsg, mapListener, messageName')
+import           Pos.Communication.Protocol (ConversationActions, Listener, ListenerSpec,
+                                             Message (..), MessageName (..), OutSpecs,
+                                             PeerData, listenerConv, listenerOneMsg,
+                                             mapListener, messageName')
 import           Pos.Util.TimeLimit         (CanLogInParallel, execWithTimeLimit,
                                              logWarningWaitLinear)
 
@@ -40,8 +41,8 @@ modifyListenerLogger name = mapListener $ modifyLoggerName (<> name)
 
 stubListenerOneMsg
     :: (WithLogger m, Message r, Bi r)
-    => Proxy r -> Listener m
-stubListenerOneMsg p = listenerOneMsg $ \_d _ _ m ->
+    => Proxy r -> (ListenerSpec m, OutSpecs)
+stubListenerOneMsg p = listenerOneMsg mempty $ \_d _ _ m ->
                           let _ = m `asProxyTypeOf` p
                            in modifyLoggerName (<> "stub") $
                                 logDebug $ sformat
@@ -50,7 +51,7 @@ stubListenerOneMsg p = listenerOneMsg $ \_d _ _ m ->
 
 stubListenerConv
     :: (WithLogger m, Message r, Bi r)
-    => Proxy r -> Listener m
+    => Proxy r -> (ListenerSpec m, OutSpecs)
 stubListenerConv p = listenerConv $ \_d __nId convActions ->
                           let _ = convActions `asProxyTypeOf` __modP p
                               __modP :: Proxy r -> Proxy (ConversationActions Void r m)
@@ -59,7 +60,8 @@ stubListenerConv p = listenerConv $ \_d __nId convActions ->
                                 logDebug $ sformat
                                     ("Stub listener (conv) for "%shown%": received message")
                                     (messageName p)
-withWaitLog :: ( CanLogInParallel m ) => N.SendActions BiP PeerId m -> N.SendActions BiP PeerId m
+
+withWaitLog :: ( CanLogInParallel m ) => N.SendActions BiP PeerData m -> N.SendActions BiP PeerData m
 withWaitLog sendActions = sendActions
     { N.sendTo = \nodeId msg ->
                   let MessageName mName = messageName' msg
@@ -71,7 +73,7 @@ withWaitLog sendActions = sendActions
 
 withWaitLogConv
     :: (CanLogInParallel m, Message snd)
-    => N.NodeId -> N.ConversationActions PeerId snd rcv m -> N.ConversationActions PeerId snd rcv m
+    => N.NodeId -> N.ConversationActions PeerData snd rcv m -> N.ConversationActions PeerData snd rcv m
 withWaitLogConv nodeId conv = conv { N.send = send', N.recv = recv' }
   where
     send' msg =
@@ -82,11 +84,11 @@ withWaitLogConv nodeId conv = conv { N.send = send', N.recv = recv' }
         logWarningWaitLinear 4
           (sformat ("Recv from "%shown%" in conversation") nodeId) $
            N.recv conv
-    MessageName sndMsg = messageName $ ((\_ -> Proxy) :: N.ConversationActions PeerId snd rcv m -> Proxy snd) conv
+    MessageName sndMsg = messageName $ ((\_ -> Proxy) :: N.ConversationActions PeerData snd rcv m -> Proxy snd) conv
 
 withWaitLogConvL
     :: (CanLogInParallel m, Message rcv)
-    => N.NodeId -> N.ConversationActions PeerId snd rcv m -> N.ConversationActions PeerId snd rcv m
+    => N.NodeId -> N.ConversationActions PeerData snd rcv m -> N.ConversationActions PeerData snd rcv m
 withWaitLogConvL nodeId conv = conv { N.send = send', N.recv = recv' }
   where
     send' msg =
@@ -97,14 +99,14 @@ withWaitLogConvL nodeId conv = conv { N.send = send', N.recv = recv' }
         logWarningWaitLinear 4
           (sformat ("Recv "%shown%" from "%shown%" in conversation") rcvMsg nodeId) $
             N.recv conv
-    MessageName rcvMsg = messageName $ ((\_ -> Proxy) :: N.ConversationActions PeerId snd rcv m -> Proxy rcv) conv
+    MessageName rcvMsg = messageName $ ((\_ -> Proxy) :: N.ConversationActions PeerData snd rcv m -> Proxy rcv) conv
 
 convWithTimeLimit
     :: (Mockable Async m, Mockable Bracket m, Mockable Delay m, WithLogger m)
     => Microsecond
     -> N.NodeId
-    -> N.ConversationActions PeerId snd rcv m
-    -> N.ConversationActions PeerId snd rcv m
+    -> N.ConversationActions PeerData snd rcv m
+    -> N.ConversationActions PeerData snd rcv m
 convWithTimeLimit timeout nodeId conv = conv { N.recv = recv' }
       where
         recv' = do
@@ -120,8 +122,8 @@ convWithTimeLimit timeout nodeId conv = conv { N.recv = recv' }
 sendActionsWithTimeLimit
     :: (Mockable Async m, Mockable Bracket m, Mockable Delay m, WithLogger m)
     => Microsecond
-    -> N.SendActions BiP PeerId m
-    -> N.SendActions BiP PeerId m
+    -> N.SendActions BiP PeerData m
+    -> N.SendActions BiP PeerData m
 sendActionsWithTimeLimit timeout sendActions = sendActions
     { N.withConnectionTo = \nodeId action ->
         N.withConnectionTo sendActions nodeId $

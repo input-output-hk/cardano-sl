@@ -8,75 +8,52 @@ module Pos.Update.Network.Listeners
        , usStubListeners
        ) where
 
+import           Control.Arrow              ((***))
 import           Data.Proxy                 (Proxy (..))
 import           Formatting                 (build, sformat, (%))
-import           Pos.Communication.Protocol (Listener, listenerConv, listenerOneMsg)
 import           Serokell.Util.Verify       (VerificationRes (..))
 import           System.Wlog                (WithLogger, logDebug, logWarning)
 import           Universum
 
 import           Pos.Binary.Communication   ()
 import           Pos.Binary.Relay           ()
-
 import           Pos.Communication.Message  ()
-import           Pos.Communication.Relay    (DataMsg, InvMsg, Relay (..), ReqMsg,
-                                             handleDataL, handleInvL, handleReqL)
-
-import           Pos.Communication.Util     (stubListenerOneMsg)
+import           Pos.Communication.Protocol (ListenerSpec, OutSpecs)
+import           Pos.Communication.Relay    (DataMsg, InvMsg, Relay (..), RelayProxy (..),
+                                             ReqMsg, relayListeners, relayStubListeners)
 import           Pos.Update.Core            (UpId, UpdateProposal (..), UpdateVote (..),
                                              VoteId)
 import           Pos.Update.Logic.Local     (getLocalProposalNVotes, getLocalVote,
                                              isProposalNeeded, isVoteNeeded,
                                              processProposal, processVote)
 import           Pos.Update.Network.Types   (ProposalMsgTag (..), VoteMsgTag (..))
+import           Pos.Util                   (mappendPair)
 import           Pos.WorkMode               (WorkMode)
+
+proposalProxy :: RelayProxy UpId ProposalMsgTag (UpdateProposal, [UpdateVote])
+proposalProxy = RelayProxy
+
+voteProxy :: RelayProxy VoteId VoteMsgTag UpdateVote
+voteProxy = RelayProxy
 
 -- | Listeners for requests related to update system
 usListeners
     :: (WorkMode ssc m)
-    => [Listener m]
-usListeners =
-    [ handleInvProposal
-    , handleReqProposal
-    , handleDataProposal
-
-    , handleInvVote
-    , handleReqVote
-    , handleDataVote
-    ]
+    => ([ListenerSpec m], OutSpecs)
+usListeners = mappendPair
+                (relayListeners proposalProxy)
+                (relayListeners voteProxy)
 
 usStubListeners
     :: (WithLogger m)
-    => [Listener m]
-usStubListeners =
-    [ stubListenerOneMsg (Proxy :: Proxy (InvMsg UpId ProposalMsgTag))
-    , stubListenerOneMsg (Proxy :: Proxy (ReqMsg UpId ProposalMsgTag))
-    , stubListenerOneMsg
-        (Proxy :: Proxy (DataMsg UpId (UpdateProposal, [UpdateVote])))
-
-    , stubListenerOneMsg (Proxy :: Proxy (InvMsg VoteId VoteMsgTag))
-    , stubListenerOneMsg (Proxy :: Proxy (ReqMsg VoteId VoteMsgTag))
-    , stubListenerOneMsg (Proxy :: Proxy (DataMsg VoteId UpdateVote))
-    ]
+    => ([ListenerSpec m], OutSpecs)
+usStubListeners = mappendPair
+                (relayStubListeners proposalProxy)
+                (relayStubListeners voteProxy)
 
 ----------------------------------------------------------------------------
 -- UpdateProposal listeners
 ----------------------------------------------------------------------------
-
-handleInvProposal :: WorkMode ssc m => Listener m
-handleInvProposal = listenerOneMsg $ \_ peerId sendActions (i :: InvMsg UpId ProposalMsgTag) ->
-    handleInvL i peerId sendActions
-
-handleReqProposal :: WorkMode ssc m => Listener m
-handleReqProposal = listenerOneMsg $
-    \_ peerId sendActions (i :: ReqMsg UpId ProposalMsgTag) ->
-    handleReqL i peerId sendActions
-
-handleDataProposal :: WorkMode ssc m => Listener m
-handleDataProposal = listenerOneMsg $
-    \_ peerId sendActions (i :: DataMsg UpId (UpdateProposal, [UpdateVote])) -> do
-    logDebug $ sformat ("Received update proposal: "%build) i
-    handleDataL i peerId sendActions
 
 instance WorkMode ssc m =>
          Relay m ProposalMsgTag UpId (UpdateProposal, [UpdateVote]) where
@@ -107,19 +84,6 @@ instance WorkMode ssc m =>
 ----------------------------------------------------------------------------
 -- UpdateVote listeners
 ----------------------------------------------------------------------------
-
-handleInvVote :: WorkMode ssc m => Listener m
-handleInvVote = listenerOneMsg $ \_ peerId sendActions (i :: InvMsg VoteId VoteMsgTag) ->
-    handleInvL i peerId sendActions
-
-handleReqVote :: WorkMode ssc m => Listener m
-handleReqVote = listenerOneMsg $ \_ peerId sendActions (i :: ReqMsg VoteId VoteMsgTag) ->
-    handleReqL i peerId sendActions
-
-handleDataVote :: WorkMode ssc m => Listener m
-handleDataVote = listenerOneMsg $ \_ peerId sendActions (i :: DataMsg VoteId UpdateVote) -> do
-    logDebug $ sformat ("Received vote: "%build) i
-    handleDataL i peerId sendActions
 
 instance WorkMode ssc m =>
          Relay m VoteMsgTag VoteId UpdateVote where

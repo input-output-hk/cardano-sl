@@ -10,9 +10,8 @@ module Pos.Block.Network.Listeners
 
 import           Data.Proxy                  (Proxy (..))
 import           Data.Reflection             (reify)
+import           Data.Tagged                 (Tagged, unproxy)
 import           Formatting                  (build, sformat, (%))
-import           Pos.Communication.Protocol  (ConversationActions (..), Listener,
-                                              listenerConv)
 import           Serokell.Data.Memory.Units  (Byte)
 import           Serokell.Util.Text          (listJson)
 import           System.Wlog                 (WithLogger, logDebug, logWarning)
@@ -24,8 +23,9 @@ import           Pos.Block.Network.Announce  (handleHeadersCommunication)
 import           Pos.Block.Network.Retrieval (handleUnsolicitedHeaders)
 import           Pos.Block.Network.Types     (MsgBlock (..), MsgGetBlocks (..),
                                               MsgGetHeaders (..), MsgHeaders (..))
-
-import           Pos.Communication.Types     (PeerId)
+import           Pos.Communication.Protocol  (ConversationActions (..), Listener,
+                                              ListenerSpec, OutSpecs, listenerConv,
+                                              mergeLs, mergeLs)
 import           Pos.Communication.Util      (stubListenerConv)
 import qualified Pos.DB                      as DB
 import           Pos.DB.Error                (DBError (DBMalformed))
@@ -34,9 +34,9 @@ import           Pos.Util                    (NewestFirst (..))
 import           Pos.WorkMode                (WorkMode)
 
 blockListeners
-    :: ( WorkMode ssc m )
-    => [Listener m]
-blockListeners =
+    :: (WorkMode ssc m)
+    => ([ListenerSpec m], OutSpecs)
+blockListeners = mergeLs
     [ handleGetHeaders
     , handleGetBlocks
     , handleBlockHeaders
@@ -44,11 +44,11 @@ blockListeners =
 
 blockStubListeners
     :: ( Ssc ssc, WithLogger m )
-    => Proxy ssc -> [Listener m]
-blockStubListeners p =
-    [ stubListenerConv $ (const Proxy :: Proxy ssc -> Proxy MsgGetHeaders) p
-    , stubListenerConv $ (const Proxy :: Proxy ssc -> Proxy MsgGetBlocks) p
-    , stubListenerConv $ (const Proxy :: Proxy ssc -> Proxy (MsgHeaders ssc)) p
+    => Tagged ssc ([ListenerSpec m], OutSpecs)
+blockStubListeners = unproxy $ \sscProxy -> mergeLs
+    [ stubListenerConv $ (const Proxy :: Proxy ssc -> Proxy MsgGetHeaders) sscProxy
+    , stubListenerConv $ (const Proxy :: Proxy ssc -> Proxy MsgGetBlocks) sscProxy
+    , stubListenerConv $ (const Proxy :: Proxy ssc -> Proxy (MsgHeaders ssc)) sscProxy
     ]
 
 -- | Handles GetHeaders request which means client wants to get
@@ -57,14 +57,14 @@ blockStubListeners p =
 handleGetHeaders
     :: forall ssc m.
        (WorkMode ssc m)
-    => Listener m
+    => (ListenerSpec m, OutSpecs)
 handleGetHeaders = listenerConv $ \_ __peerId conv ->
     handleHeadersCommunication conv
 
 handleGetBlocks
     :: forall ssc m.
        (Ssc ssc, WorkMode ssc m)
-    => Listener m
+    => (ListenerSpec m, OutSpecs)
 handleGetBlocks =
     -- NB #put_checkBlockSize: We can use anything as maxBlockSize
     -- here because 'put' doesn't check block size.
@@ -95,7 +95,7 @@ handleGetBlocks =
 handleBlockHeaders
     :: forall ssc m.
        (WorkMode ssc m)
-    => Listener m
+    => (ListenerSpec m, OutSpecs)
 handleBlockHeaders = listenerConv $
     \_ peerId conv -> do
         logDebug "handleBlockHeaders: got some unsolicited block header(s)"

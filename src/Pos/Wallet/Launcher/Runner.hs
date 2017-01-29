@@ -12,7 +12,7 @@ import           Control.Concurrent.STM.TVar (newTVarIO)
 import           Formatting                  (build, sformat, (%))
 import           Mockable                    (Production, bracket, currentTime, fork,
                                               sleepForever)
-import           Pos.Communication.Protocol  (Action, Listener, Worker)
+import           Pos.Communication.Protocol  (Action, ListenersWithOut, Worker)
 import           System.Wlog                 (logInfo, usingLoggerName)
 import           Universum                   hiding (bracket)
 
@@ -38,8 +38,8 @@ import           Pos.Wallet.WalletMode       (WalletMode, WalletRealMode)
 allListeners
     -- :: (MonadDHTDialog SState m, WalletMode SscGodTossing m)
     -- => [ListenerDHT SState m]
-    :: [a]
-allListeners = []
+    :: Monoid b => ([a], b)
+allListeners = ([], mempty)
 
 -- TODO: Move to some `Pos.Wallet.Worker` and provide
 -- meaningful ones
@@ -76,7 +76,7 @@ runWallet plugins sendActions = do
 runRawRealWallet
     :: RealModeResources
     -> WalletParams
-    -> [Listener WalletRealMode]
+    -> ListenersWithOut WalletRealMode
     -> Action WalletRealMode a
     -> Production a
 runRawRealWallet res WalletParams {..} listeners action =

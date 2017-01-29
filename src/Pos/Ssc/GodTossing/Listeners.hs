@@ -13,8 +13,6 @@ import           Data.HashMap.Strict                    (lookup)
 import           Data.Proxy                             (Proxy (..))
 import           Data.Tagged                            (Tagged (..))
 import           Formatting                             (build, sformat, (%))
-import           Pos.Communication.Protocol             (Listener, listenerConv,
-                                                         listenerOneMsg)
 import           Serokell.Util.Verify                   (VerificationRes (..))
 import           System.Wlog                            (logDebug)
 import           Universum
@@ -23,12 +21,13 @@ import           Pos.Binary.Communication               ()
 import           Pos.Binary.Crypto                      ()
 import           Pos.Binary.Relay                       ()
 import           Pos.Binary.Ssc                         ()
-
 import           Pos.Communication.Message              ()
+import           Pos.Communication.Protocol             (Listener, listenerConv,
+                                                         listenerOneMsg)
 import           Pos.Communication.Relay                (DataMsg, InvMsg, Relay (..),
-                                                         ReqMsg, handleDataL, handleInvL,
-                                                         handleReqL)
-
+                                                         RelayProxy (..), ReqMsg,
+                                                         relayListeners,
+                                                         relayStubListeners)
 import           Pos.Communication.Util                 (stubListenerOneMsg)
 import           Pos.Context                            (WithNodeContext (getNodeContext))
 import qualified Pos.DB.Lrc                             as LrcDB
@@ -50,36 +49,11 @@ import           Pos.WorkMode                           (WorkMode)
 
 instance SscListenersClass SscGodTossing where
     sscListeners =
-        Tagged [ handleInvGt
-               , handleReqGt
-               , handleDataGt
-               ]
-    sscStubListeners p =
-        [ stubListenerOneMsg $
-            (const Proxy :: Proxy ssc -> Proxy (InvMsg StakeholderId GtMsgTag)) p
-        , stubListenerOneMsg $
-            (const Proxy :: Proxy ssc -> Proxy (ReqMsg StakeholderId GtMsgTag)) p
-        , stubListenerOneMsg $
-            (const Proxy :: Proxy ssc -> Proxy (DataMsg StakeholderId GtMsgContents)) p
-        ]
-
-handleInvGt
-    :: WorkMode SscGodTossing m
-    => Listener m
-handleInvGt = listenerOneMsg $ \_ peerId sendActions (i :: InvMsg StakeholderId GtMsgTag) ->
-    handleInvL i peerId sendActions
-
-handleReqGt
-    :: WorkMode SscGodTossing m
-    => Listener m
-handleReqGt = listenerOneMsg $ \_ peerId sendActions (r :: ReqMsg StakeholderId GtMsgTag) ->
-    handleReqL r peerId sendActions
-
-handleDataGt
-    :: WorkMode SscGodTossing m
-    => Listener m
-handleDataGt = listenerOneMsg $ \_ peerId sendActions (d :: DataMsg StakeholderId GtMsgContents) ->
-    handleDataL d peerId sendActions
+        Tagged $ relayListeners
+                    (RelayProxy :: RelayProxy StakeholderId GtMsgTag GtMsgContents)
+    sscStubListeners =
+        Tagged $ relayStubListeners
+                    (RelayProxy :: RelayProxy StakeholderId GtMsgTag GtMsgContents)
 
 instance WorkMode SscGodTossing m
     => Relay m GtMsgTag StakeholderId GtMsgContents where
@@ -106,7 +80,7 @@ instance WorkMode SscGodTossing m
                                Just p  -> toContents tag addr p
 
     handleData dat addr = do
-        -- TODO: Add here malicious emulation for network addresses
+        -- [CSL-685] Add here malicious emulation for network addresses
         -- when TW will support getting peer address properly
         ifM (not <$> flip shouldIgnorePkAddress addr <$> getNodeContext)
             (sscProcessMessageRichmen dat addr) $ True <$

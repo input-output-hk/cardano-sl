@@ -17,7 +17,8 @@ import           System.IO            (hFlush, stdout)
 import           Universum
 
 import qualified Pos.CLI              as CLI
-import           Pos.Communication    (SendActions, Worker, hoistSendActions, worker)
+import           Pos.Communication    (OutSpecs, SendActions, Worker, hoistSendActions,
+                                       worker)
 import           Pos.Crypto           (SecretKey, createProxySecretKey, encodeHash, hash,
                                        sign, toPublic)
 import           Pos.Data.Attributes  (mkAttributes)
@@ -119,18 +120,22 @@ runCmd _ ListAddresses = do
 runCmd sendActions (DelegateLight i j) = do
     let issuerSk = genesisSecretKeys !! i
         delegatePk = genesisPublicKeys !! j
+        psk = createProxySecretKey issuerSk delegatePk (EpochIndex 0, EpochIndex 50)
     r <- ask
-    sendProxySKEpoch (hoistSendActions lift (`runReaderT` r) sendActions) $
-        createProxySecretKey issuerSk delegatePk (EpochIndex 0, EpochIndex 50)
+    lift $ fst sendProxySKEpoch psk sendActions
     putText "Sent lightweight cert"
 runCmd sendActions (DelegateHeavy i j) = do
     let issuerSk = genesisSecretKeys !! i
         delegatePk = genesisPublicKeys !! j
+        psk = createProxySecretKey issuerSk delegatePk ()
     r <- ask
-    sendProxySKSimple (hoistSendActions lift (`runReaderT` r) sendActions) $
-        createProxySecretKey issuerSk delegatePk ()
+    lift $ fst sendProxySKSimple psk sendActions
     putText "Sent heavyweight cert"
 runCmd _ Quit = pure ()
+
+-- TODO use for server
+--sendProxyOuts :: OutSpecs
+--sendProxyOuts = snd sendProxySKEpoch <> snd sendProxySKSimple
 
 evalCmd :: WalletMode ssc m =>  SendActions m -> Command -> CmdRunner m ()
 evalCmd _ Quit = pure ()

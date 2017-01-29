@@ -75,8 +75,8 @@ instance SscWorkersClass SscNistBeacon where
     sscLrcConsumers = Tagged []
 
 instance SscListenersClass SscNistBeacon where
-    sscListeners = Tagged []
-    sscStubListeners _ = []
+    sscListeners = Tagged ([], mempty)
+    sscStubListeners = Tagged ([], mempty)
 
 instance SscLocalDataClass SscNistBeacon where
     sscGetLocalPayloadQ = (,()) . getLocalData <$> ask

@@ -37,6 +37,7 @@ import qualified Data.ByteString.Char8       as BS8
 import           Data.Default                (def)
 import           Data.List                   (nub)
 import           Data.Proxy                  (Proxy (..))
+import           Data.Tagged                 (proxy)
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
 import           Mockable                    (CurrentTime, Mockable, MonadMockable,
@@ -45,8 +46,7 @@ import           Mockable                    (CurrentTime, Mockable, MonadMockab
 import           Network.Transport           (Transport, closeTransport)
 import           Network.Transport.Concrete  (concrete)
 import qualified Network.Transport.TCP       as TCP
-import           Node                        (NodeAction (..), hoistListenerAction,
-                                              hoistSendActions, node)
+import           Node                        (NodeAction (..), hoistSendActions, node)
 import qualified STMContainers.Map           as SM
 import           System.Random               (newStdGen)
 import           System.Wlog                 (WithLogger, logError, logInfo, logWarning,
@@ -57,12 +57,15 @@ import           Universum                   hiding (bracket)
 import           Pos.Binary                  ()
 import           Pos.CLI                     (readLoggerConfig)
 import           Pos.Communication           (Action, BiP (..), ConversationActions (..),
-                                              Listener, PeerId (..), SendActions,
-                                              SysStartRequest (..), SysStartResponse,
+                                              InSpecs (..), ListenerSpec,
+                                              ListenersWithOut, OutSpecs (..),
+                                              PeerId (..), SysStartRequest (..),
+                                              SysStartResponse, VerInfo (..),
                                               allListeners, allStubListeners,
-                                              handleSysStartResp, stubListenerOneMsg,
+                                              handleSysStartResp, hoistListenerSpec,
+                                              mergeLs, stubListenerOneMsg,
                                               sysStartReqListener, sysStartRespListener,
-                                              toAction, worker)
+                                              toAction, unpackLSpecs)
 import           Pos.Communication.PeerState (runPeerStateHolder)
 import           Pos.Constants               (lastKnownBlockVersion, protocolMagic)
 import           Pos.Constants               (blockRetrievalQueueSize,
@@ -96,7 +99,7 @@ import qualified Pos.Txp.Types.UtxoView      as UV
 import           Pos.Types                   (Timestamp (Timestamp), timestampF,
                                               unflattenSlotId)
 import           Pos.Update.MemState         (runUSHolder)
-import           Pos.Util                    (runWithRandomIntervalsNow)
+import           Pos.Util                    (mappendPair, runWithRandomIntervalsNow)
 import           Pos.Util.TimeWarp           (sec)
 import           Pos.Util.UserSecret         (usKeys)
 import           Pos.WorkMode                (MinWorkMode, ProductionMode, RawRealMode,
@@ -127,7 +130,7 @@ runTimeSlaveReal sscProxy res bp = do
                     converseToNeighbors sendActions $ \peerId conv -> do
                         send conv SysStartRequest
                         mResp <- recv conv
-                        whenJust mResp $ handleSysStartResp mvar peerId sendActions
+                        whenJust mResp $ handleSysStartResp' mvar peerId sendActions
                  Just _ -> fail "Close thread"
            t <- liftIO $ takeMVar mvar
            killThread tId
@@ -135,11 +138,15 @@ runTimeSlaveReal sscProxy res bp = do
          False -> logWarning "Time slave launched in Production" $>
            panic "Time slave in production, rly?"
   where
+    (handleSysStartResp', sysStartOuts) = handleSysStartResp
     listeners mvar =
       if Const.isDevelopment
-         then allStubListeners sscProxy ++
-              [stubListenerOneMsg (Proxy :: Proxy SysStartRequest), sysStartRespListener mvar]
-         else allStubListeners sscProxy
+         then second (`mappend` sysStartOuts) $
+                proxy allStubListeners sscProxy `mappendPair`
+                  mergeLs [ stubListenerOneMsg (Proxy :: Proxy SysStartRequest)
+                          , sysStartRespListener mvar
+                          ]
+         else proxy allStubListeners sscProxy
 
 -- | Runs time-lord to acquire system start.
 runTimeLordReal :: LoggingParams -> Production Timestamp
@@ -162,7 +169,7 @@ runRawRealMode
     => RealModeResources
     -> NodeParams
     -> SscParams ssc
-    -> [Listener (RawRealMode ssc)]
+    -> ListenersWithOut (RawRealMode ssc)
     -> Action (RawRealMode ssc) a
     -> Production a
 runRawRealMode res np@NodeParams {..} sscnp listeners action =
@@ -191,7 +198,7 @@ runRawRealMode res np@NodeParams {..} sscnp listeners action =
 runServiceMode
     :: RealModeResources
     -> BaseParams
-    -> [Listener ServiceMode]
+    -> ListenersWithOut ServiceMode
     -> Action ServiceMode a
     -> Production a
 runServiceMode res bp@BaseParams{..} listeners action =
@@ -201,11 +208,14 @@ runServiceMode res bp@BaseParams{..} listeners action =
         \sa -> nodeStartMsg bp >> action sa
 
 runServer :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m, MonadDHT m)
-  => Transport -> [Listener m] -> Action m b -> m b
-runServer transport listeners action = do
+  => Transport -> ListenersWithOut m -> Action m b -> m b
+runServer transport packedLS action = do
     ourPeerId <- PeerId . getMeaningPart <$> currentNodeKey
+    let (listeners', InSpecs ins, OutSpecs outs) = unpackLSpecs packedLS
+        ourVerInfo = VerInfo protocolMagic lastKnownBlockVersion ins outs
+        listeners = listeners' ourVerInfo
     stdGen <- liftIO newStdGen
-    node (concrete transport) stdGen BiP ourPeerId $ \__node ->
+    node (concrete transport) stdGen BiP (ourPeerId, ourVerInfo) $ \__node ->
         pure $ NodeAction listeners action
 
 -- | ProductionMode runner.
@@ -222,7 +232,7 @@ runProductionMode res np@NodeParams {..} sscnp action =
         \sendActions -> getNoStatsT . action $ hoistSendActions lift getNoStatsT sendActions
   where
     listeners = addDevListeners npSystemStart commonListeners
-    commonListeners = hoistListenerAction getNoStatsT lift <$> allListeners
+    commonListeners = first (hoistListenerSpec getNoStatsT lift <$>) allListeners
 
 -- | StatsMode runner.
 -- [CSL-169]: spawn here additional listener, which would accept stat queries
@@ -238,7 +248,7 @@ runStatsMode
 runStatsMode res np@NodeParams {..} sscnp action = do
     statMap <- liftIO SM.newIO
     let listeners = addDevListeners npSystemStart commonListeners
-        commonListeners = hoistListenerAction (runStatsT' statMap) lift <$> allListeners
+        commonListeners = first (hoistListenerSpec (runStatsT' statMap) lift <$>) allListeners
     runRawRealMode res np sscnp listeners $
         \sendActions -> do
             runStatsT' statMap . action $ hoistSendActions lift (runStatsT' statMap) sendActions
@@ -314,11 +324,12 @@ loggerBracket lp = bracket_ (setupLoggers lp) releaseAllHandlers
 
 addDevListeners
     :: MinWorkMode m => Timestamp
-    -> [Listener m]
-    -> [Listener m]
+    -> ListenersWithOut m
+    -> ListenersWithOut m
 addDevListeners sysStart ls =
     if Const.isDevelopment
-    then stubListenerOneMsg (Proxy :: Proxy SysStartResponse) : sysStartReqListener sysStart : ls
+    then mergeLs [ stubListenerOneMsg (Proxy :: Proxy SysStartResponse)
+                 , sysStartReqListener sysStart] `mappendPair` ls
     else ls
 
 bracketDHTInstance

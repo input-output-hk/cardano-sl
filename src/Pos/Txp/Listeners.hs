@@ -13,7 +13,6 @@ module Pos.Txp.Listeners
 
 import qualified Data.HashMap.Strict         as HM
 import           Formatting                  (build, sformat, stext, (%))
-import           Pos.Communication.Protocol  (Listener, listenerConv, listenerOneMsg)
 import           Serokell.Util.Verify        (VerificationRes (..))
 import           System.Wlog                 (WithLogger, logDebug, logInfo, logWarning)
 import           Universum
@@ -22,10 +21,10 @@ import           Pos.Binary.Communication    ()
 import           Pos.Binary.Relay            ()
 
 import           Pos.Communication.Message   ()
-import           Pos.Communication.Relay     (DataMsg, InvMsg, Relay (..), ReqMsg,
-                                              handleDataL, handleInvL, handleReqL)
-
-import           Pos.Communication.Util      (stubListenerOneMsg)
+import           Pos.Communication.Protocol  (ListenerSpec, OutSpecs)
+import           Pos.Communication.Relay     (DataMsg, InvMsg, Relay (..),
+                                              RelayProxy (..), ReqMsg, relayListeners,
+                                              relayStubListeners)
 import           Pos.Crypto                  (hash)
 import           Pos.Statistics              (StatProcessTx (..), statlogCountEvent)
 import           Pos.Txp.Class               (getMemPool)
@@ -35,42 +34,18 @@ import           Pos.Txp.Types.Types         (MemPool (..), ProcessTxRes (..))
 import           Pos.Types                   (TxAux, TxId)
 import           Pos.WorkMode                (WorkMode)
 
+txProxy :: RelayProxy TxId TxMsgTag TxMsgContents
+txProxy = RelayProxy
+
 txListeners
     :: WorkMode ssc m
-    => [Listener m]
-txListeners =
-    [ handleInvTx
-    , handleReqTx
-    , handleDataTx
-    ]
-
-handleInvTx
-    :: WorkMode ssc m
-    => Listener m
-handleInvTx = listenerOneMsg $ \_ peerId sendActions (i :: InvMsg TxId TxMsgTag) ->
-    handleInvL i peerId sendActions
-
-handleReqTx
-    :: WorkMode ssc m
-    => Listener m
-handleReqTx = listenerOneMsg $ \_ peerId sendActions (r :: ReqMsg TxId TxMsgTag) ->
-    handleReqL r peerId sendActions
-
-handleDataTx
-    :: WorkMode ssc m
-    => Listener m
-handleDataTx = listenerOneMsg $ \_ peerId sendActions (d :: DataMsg TxId TxMsgContents) ->
-    handleDataL d peerId sendActions
+    => ([ListenerSpec m], OutSpecs)
+txListeners = relayListeners txProxy
 
 txStubListeners
     :: WithLogger m
-    => Proxy ssc -> [Listener m]
-txStubListeners p =
-    [ stubListenerOneMsg $ (const Proxy :: Proxy ssc -> Proxy (InvMsg TxId TxMsgTag)) p
-    , stubListenerOneMsg $ (const Proxy :: Proxy ssc -> Proxy (ReqMsg TxId TxMsgTag)) p
-    , stubListenerOneMsg $
-        (const Proxy :: Proxy ssc -> Proxy (DataMsg TxId TxMsgContents)) p
-    ]
+    => ([ListenerSpec m], OutSpecs)
+txStubListeners = relayStubListeners txProxy
 
 instance ( WorkMode ssc m
          ) => Relay m TxMsgTag TxId TxMsgContents where

@@ -372,7 +372,7 @@ getHeadersFromToIncl older newer = runMaybeT . fmap OldestFirst $ do
 -- -- #usVerifyBlocks
 -- | Verify new blocks. If parent of the first block is not our tip,
 -- verification fails. This function checks everything from block, including
--- header, transactions, delegation data, SSC data.
+-- header, transactions, delegation data, SSC data, US data.
 verifyBlocksPrefix
     :: WorkMode ssc m
     => OldestFirst NE (Block ssc)
@@ -395,7 +395,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
         _ -> pass
     verResToMonadError formatAllErrors $
         Types.verifyBlocks (Just curSlot) (Just leaders) blocks
-    eitherToError =<< sscVerifyBlocks False blocks
+    withExceptT pretty $ ExceptT $ sscVerifyBlocks False blocks
     txUndo <- ExceptT $ txVerifyBlocks blocks
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks
     (pModifier, usUndos) <- withExceptT pretty $ usVerifyBlocks blocks
@@ -407,9 +407,6 @@ verifyBlocksPrefix blocks = runExceptT $ do
                (getOldestFirst usUndos)
          , pModifier)
   where
-    eitherToError (Left e)  = throwError (sformat build e)
-    eitherToError (Right _) = pass
-
     headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
 
 -- | Applies blocks if they're valid. Takes one boolean flag

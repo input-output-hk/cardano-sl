@@ -1,6 +1,6 @@
--- | Serialization of base types from GodTossing SSC.
+-- | Serialization of core types from GodTossing SSC.
 
-module Pos.Binary.Ssc.GodTossing.Base
+module Pos.Binary.Ssc.GodTossing.Core
        (
        ) where
 
@@ -8,8 +8,9 @@ import           Universum
 
 import           Pos.Binary.Class              (Bi (..))
 import           Pos.Binary.Crypto             ()
-import           Pos.Ssc.GodTossing.Types.Base (Commitment (..), Opening (..),
-                                                VssCertificate (..))
+import           Pos.Ssc.GodTossing.Core.Types (Commitment (..), Opening (..),
+                                                VssCertificate (..),
+                                                recreateVssCertificate)
 
 instance Bi Commitment where
     put Commitment {..} = do
@@ -24,12 +25,12 @@ instance Bi Commitment where
         return Commitment {..}
 
 instance Bi VssCertificate where
-    put VssCertificate{..} = do
-        put vcVssKey
-        put vcExpiryEpoch
-        put vcSignature
-        put vcSigningKey
-    get = liftM4 VssCertificate get get get get
+    put vc = do
+        put $ vcVssKey vc
+        put $ vcExpiryEpoch vc
+        put $ vcSignature vc
+        put $ vcSigningKey vc
+    get = join $ liftM4 recreateVssCertificate get get get get
 
 instance Bi Opening where
     put (Opening secret) = put secret

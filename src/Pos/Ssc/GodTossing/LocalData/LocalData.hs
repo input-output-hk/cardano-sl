@@ -28,19 +28,23 @@ import           Data.List.NonEmpty                   (NonEmpty ((:|)))
 import           Serokell.Util.Verify                 (isVerSuccess)
 import           Universum
 
-import           Pos.Binary.Class                     (Bi)
+import           Pos.Binary.Ssc.GodTossing.Core       ()
 import           Pos.Lrc.Types                        (Richmen, RichmenSet)
+import           Pos.Slotting                         (getCurrentSlot)
 import           Pos.Ssc.Class.LocalData              (LocalQuery, LocalUpdate,
                                                        SscLocalDataClass (..))
 import           Pos.Ssc.Extra.MonadLD                (MonadSscLD)
-import           Pos.Ssc.GodTossing.Functions         (checkCertTTL, checkCommShares,
+import           Pos.Ssc.GodTossing.Core              (InnerSharesMap, Opening,
+                                                       SignedCommitment,
+                                                       VssCertificate (vcSigningKey, vcVssKey),
+                                                       checkCertTTL, checkCommShares,
                                                        checkOpeningMatchesCommitment,
                                                        checkShare, checkShares,
-                                                       computeParticipants,
-                                                       getStableCertsPure,
                                                        isCommitmentIdx, isOpeningIdx,
-                                                       isSharesIdx,
+                                                       isSharesIdx, vcExpiryEpoch,
                                                        verifySignedCommitment)
+import           Pos.Ssc.GodTossing.Functions         (computeParticipants,
+                                                       getStableCertsPure)
 import           Pos.Ssc.GodTossing.LocalData.Helpers (GtState, gtGlobalCertificates,
                                                        gtGlobalCommitments,
                                                        gtGlobalOpenings, gtGlobalShares,
@@ -49,25 +53,25 @@ import           Pos.Ssc.GodTossing.LocalData.Helpers (GtState, gtGlobalCertific
                                                        gtLocalCommitments,
                                                        gtLocalOpenings, gtLocalShares,
                                                        gtRunModify, gtRunRead)
-import           Pos.Ssc.GodTossing.LocalData.Types   (ldCertificates, ldCommitments,
-                                                       ldLastProcessedSlot, ldOpenings,
-                                                       ldShares)
-import           Pos.Ssc.GodTossing.Types             (GtGlobalState (..), GtPayload (..),
-                                                       InnerSharesMap, SscBi,
-                                                       SscGodTossing,
-                                                       TossVerErrorTag (..),
+import           Pos.Ssc.GodTossing.LocalData.Types   (GtLocalData (..), ldCertificates,
+                                                       ldCommitments, ldLastProcessedSlot,
+                                                       ldOpenings, ldShares)
+import           Pos.Ssc.GodTossing.Type              (SscGodTossing)
+import           Pos.Ssc.GodTossing.Types             (GtGlobalState, GtPayload (..),
+                                                       SscBi, TossVerErrorTag (..),
                                                        TossVerFailure (..),
-                                                       VssCertificate (vcSigningKey, vcVssKey))
-import           Pos.Ssc.GodTossing.Types.Base        (Commitment, Opening,
-                                                       SignedCommitment, vcExpiryEpoch)
+                                                       _gsCommitments, _gsOpenings,
+                                                       _gsShares, _gsVssCertificates)
 import           Pos.Ssc.GodTossing.Types.Message     (GtMsgContents (..), GtMsgTag (..))
 import qualified Pos.Ssc.GodTossing.VssCertData       as VCD
-import           Pos.Types                            (SlotId (..), StakeholderId,
-                                                       addressHash)
+import           Pos.Types                            (EpochIndex, SlotId (..),
+                                                       StakeholderId, addressHash)
 
 instance SscBi => SscLocalDataClass SscGodTossing where
     sscGetLocalPayloadQ = getLocalPayload
     sscApplyGlobalStateU = applyGlobal
+    sscNewLocalData =
+        GtLocalData mempty mempty mempty VCD.empty <$> getCurrentSlot
 
 type LDQuery a = forall m .  MonadReader GtState m => m a
 type LDUpdate a = forall m . MonadState GtState m  => m a
@@ -224,24 +228,25 @@ sscIsDataUsefulSetImpl localG globalG addr =
 -- has been actually added.
 sscProcessMessage ::
        (MonadSscLD SscGodTossing m, SscBi)
-    => Richmen -> GtMsgContents -> StakeholderId -> m (Either TossVerFailure ())
+    => (EpochIndex, Richmen) -> GtMsgContents -> StakeholderId -> m (Either TossVerFailure ())
 sscProcessMessage richmen msg =
-    gtRunModify . runExceptT . sscProcessMessageU (HS.fromList $ toList richmen) msg
+    gtRunModify . runExceptT . sscProcessMessageU (second (HS.fromList . toList) richmen) msg
 
 sscProcessMessageU
     :: SscBi
-    => RichmenSet
+    => (EpochIndex, RichmenSet)
     -> GtMsgContents
     -> StakeholderId
     -> LDProcess ()
-sscProcessMessageU richmen (MCCommitment comm) addr =
-    processCommitment richmen addr comm
-sscProcessMessageU _ (MCOpening open) addr =
-    processOpening addr open
-sscProcessMessageU richmen (MCShares shares) addr =
-    processShares richmen addr shares
-sscProcessMessageU richmen (MCVssCertificate cert) addr =
-    processVssCertificate richmen addr cert
+sscProcessMessageU (richmenEpoch, richmen) msg id = do
+    epochIdx <- siEpoch <$> use gtLastProcessedSlot
+    when (epochIdx /= richmenEpoch) $
+           throwError $ DifferentEpoches richmenEpoch epochIdx
+    case msg of
+        MCCommitment     comm -> processCommitment richmen id comm
+        MCOpening        open -> processOpening id open
+        MCShares       shares -> processShares richmen id shares
+        MCVssCertificate cert -> processVssCertificate richmen id cert
 
 runChecks :: MonadError TossVerFailure m => [(m Bool, TossVerFailure)] -> m ()
 runChecks checks =
@@ -251,15 +256,14 @@ runChecks checks =
     findFalseM []     = pure Nothing
     findFalseM (x:xs) = ifM (fst x) (findFalseM xs) (pure $ Just x)
 
--- | Convert (Reader s) to any (MonadState s)
+-- | Convert (ReaderT s) to any (MonadState s)
 readerTToState
     :: MonadState s m
     => ReaderT s m a -> m a
 readerTToState rdr = get >>= runReaderT rdr
 
 processCommitment
-    :: Bi Commitment
-    => RichmenSet
+    :: RichmenSet
     -> StakeholderId
     -> SignedCommitment
     -> LDProcess ()

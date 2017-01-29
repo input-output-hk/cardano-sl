@@ -132,6 +132,7 @@ library
                         Pos.Binary.Address
                         Pos.Binary.Block
                         Pos.Binary.Class
+                        Pos.Binary.Coin
                         Pos.Binary.Crypto
                         Pos.Binary.Communication
                         Pos.Binary.DHTModel
@@ -141,7 +142,7 @@ library
                         Pos.Binary.Relay
                         Pos.Binary.Script
                         Pos.Binary.Ssc
-                        Pos.Binary.Ssc.GodTossing.Base
+                        Pos.Binary.Ssc.GodTossing.Core
                         Pos.Binary.Types
                         Pos.Binary.Update
                         Pos.Binary.Util
@@ -260,9 +261,10 @@ library
                         Pos.Ssc.Extra.Holder
                         Pos.Ssc.Extra.MonadGS
                         Pos.Ssc.Extra.MonadLD
-                        Pos.Ssc.Extra.Richmen
-                        Pos.Ssc.GodTossing.Richmen
                         Pos.Ssc.GodTossing.Arbitrary
+                        Pos.Ssc.GodTossing.Core
+                        Pos.Ssc.GodTossing.Core.Core
+                        Pos.Ssc.GodTossing.Core.Types
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions
                         Pos.Ssc.GodTossing.Genesis
@@ -271,15 +273,14 @@ library
                         Pos.Ssc.GodTossing.LocalData.Helpers
                         Pos.Ssc.GodTossing.LocalData.LocalData
                         Pos.Ssc.GodTossing.LocalData.Types
+                        Pos.Ssc.GodTossing.Richmen
                         Pos.Ssc.GodTossing.SecretStorage
                         Pos.Ssc.GodTossing.Seed
                         Pos.Ssc.GodTossing.Shares
                         Pos.Ssc.GodTossing.Storage
+                        Pos.Ssc.GodTossing.Type
                         Pos.Ssc.GodTossing.Types
-                        Pos.Ssc.GodTossing.Types.Base
-                        Pos.Ssc.GodTossing.Types.Instance
                         Pos.Ssc.GodTossing.Types.Message
-                        Pos.Ssc.GodTossing.Types.Type
                         Pos.Ssc.GodTossing.Types.Types
                         Pos.Ssc.GodTossing.Utils
                         Pos.Ssc.GodTossing.VssCertData
@@ -653,6 +654,7 @@ executable cardano-wallet
                      , text
                      , time
                      , time-units
+                     , transformers
                      , universum >= 0.1.11
                      , unordered-containers
   default-language:    Haskell2010
@@ -852,11 +854,6 @@ executable cardano-dht-keygen
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  if flag(with-wallet)
-    buildable:         True
-  else
-    buildable:         False
-
 executable cardano-web-docs
   hs-source-dirs:      src/web-docs
   main-is:             Main.hs
@@ -959,7 +956,7 @@ executable cardano-genupdate
                      , system-filepath
                      , tar
                      , text
-                     , turtle >= 1.3.1
+                     , turtle >= 1.3.0
                      , universum
   default-language:    Haskell2010
   ghc-options:         -threaded
@@ -1035,6 +1032,7 @@ executable cardano-launcher
                      , optparse-applicative
                      , process
                      , text
+                     , directory
                      , turtle
                      , universum
   default-language:    Haskell2010

@@ -6,31 +6,44 @@ module Pos.Binary.Ssc () where
 
 import           Data.Binary.Get                  (getWord8)
 import           Data.Binary.Put                  (putWord8)
+import qualified Data.HashMap.Strict              as HM
 import           Universum
 
 import           Pos.Binary.Class                 (Bi (..))
 import           Pos.Binary.Crypto                ()
-import           Pos.Binary.Ssc.GodTossing.Base   ()
+import           Pos.Binary.Ssc.GodTossing.Core   ()
+import           Pos.Ssc.GodTossing.Core          (VssCertificate (..))
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtMsgTag (..))
 import           Pos.Ssc.GodTossing.Types.Types   (GtPayload (..), GtProof (..),
                                                    GtSecretStorage (..))
+import           Pos.Types.Address                (addressHash)
 
 ----------------------------------------------------------------------------
 -- Types.Types
 ----------------------------------------------------------------------------
 
 instance Bi GtPayload where
-    put x = case x of
-        CommitmentsPayload comMap vssMap -> putWord8 0 >> put comMap >> put vssMap
-        OpeningsPayload opMap vssMap     -> putWord8 1 >> put opMap >> put vssMap
-        SharesPayload sharesMap vssMap   -> putWord8 2 >> put sharesMap >> put vssMap
-        CertificatesPayload vssMap       -> putWord8 3 >> put vssMap
-    get = getWord8 >>= \case
-        0 -> liftM2 CommitmentsPayload get get
-        1 -> liftM2 OpeningsPayload get get
-        2 -> liftM2 SharesPayload get get
-        3 -> CertificatesPayload <$> get
-        tag -> fail ("get@GtPayload: invalid tag: " ++ show tag)
+    put x =
+        case x of
+            CommitmentsPayload commMap vssMap ->
+                putWord8 0 >> put (toList commMap) >> put (toList vssMap)
+            OpeningsPayload opMap vssMap ->
+                putWord8 1 >> put opMap >> put (toList vssMap)
+            SharesPayload sharesMap vssMap ->
+                putWord8 2 >> put sharesMap >> put (toList vssMap)
+            CertificatesPayload vssMap -> putWord8 3 >> put (toList vssMap)
+    get =
+        getWord8 >>= \case
+            0 -> liftM2 CommitmentsPayload getCommitments getVssCerts
+            1 -> liftM2 OpeningsPayload get getVssCerts
+            2 -> liftM2 SharesPayload get getVssCerts
+            3 -> CertificatesPayload <$> getVssCerts
+            tag -> fail ("get@GtPayload: invalid tag: " ++ show tag)
+          where
+            getCommitments = HM.fromList . map toCommPair <$> get
+            toCommPair signedComm@(pk, _, _) = (addressHash pk, signedComm)
+            getVssCerts = HM.fromList . map toCertPair <$> get
+            toCertPair vc = (addressHash $ vcSigningKey vc, vc)
 
 instance Bi GtProof where
     put x = case x of

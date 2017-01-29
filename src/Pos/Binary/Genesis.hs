@@ -7,7 +7,7 @@ import           Data.Binary.Put                (Put, putWord8)
 import           Universum
 
 import           Pos.Binary.Class               (Bi (..), UnsignedVarInt (..))
-import           Pos.Binary.Ssc.GodTossing.Base ()
+import           Pos.Binary.Ssc.GodTossing.Core ()
 import           Pos.Genesis.Types              (GenesisData (..), StakeDistribution (..))
 
 getUVI :: Get Word

@@ -12,10 +12,11 @@ import           Control.Lens                       (makeClassy)
 import           Universum
 
 import           Pos.Ssc.Extra                      (MonadSscLD (modifyLocalData))
+import           Pos.Ssc.GodTossing.Core            (CommitmentsMap, OpeningsMap,
+                                                     SharesMap)
 import qualified Pos.Ssc.GodTossing.LocalData.Types as LD
-import           Pos.Ssc.GodTossing.Types           (CommitmentsMap, GtGlobalState,
-                                                     OpeningsMap, SharesMap,
-                                                     SscGodTossing, _gsCommitments,
+import           Pos.Ssc.GodTossing.Type            (SscGodTossing)
+import           Pos.Ssc.GodTossing.Types           (GtGlobalState, _gsCommitments,
                                                      _gsOpenings, _gsShares,
                                                      _gsVssCertificates)
 import qualified Pos.Ssc.GodTossing.VssCertData     as VCD

@@ -9,15 +9,14 @@ import           Universum
 import           Pos.Binary.Class                 (Bi (..))
 import           Pos.Binary.Crypto                ()
 import           Pos.Crypto                       (hash)
-import           Pos.Ssc.GodTossing.Types.Base    (VssCertificate (..))
+import           Pos.Ssc.GodTossing.Core.Types    (VssCertificate (..))
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..))
 import           Pos.Txp.Types.Communication      (TxMsgContents (..))
 import           Pos.Types                        (TxId)
 import           Pos.Types.Address                (StakeholderId, addressHash)
 import           Pos.Update.Core                  (UpId, UpdateProposal, UpdateVote (..),
                                                    VoteId)
-import           Pos.Util.Relay                   (DataMsg (..), DataMsgGodTossing (..),
-                                                   InvMsg (..), ReqMsg (..))
+import           Pos.Util.Relay                   (DataMsg (..), InvMsg (..), ReqMsg (..))
 
 instance (Bi tag, Bi key) => Bi (InvMsg key tag) where
     put InvMsg {..} = put imTag >> put imKeys
@@ -37,15 +36,12 @@ instance Bi (DataMsg StakeholderId GtMsgContents) where
             MCVssCertificate _ -> pass
     get = do
         dmContents <- get
-        dmKey <- case dmContents of
-            MCCommitment (pk, _, _)              -> pure $ addressHash pk
-            MCVssCertificate VssCertificate {..} -> pure $ addressHash vcSigningKey
-            _                                    -> get
+        dmKey <-
+            case dmContents of
+                MCCommitment (pk, _, _) -> pure $ addressHash pk
+                MCVssCertificate vc     -> pure $ addressHash $ vcSigningKey vc
+                _                       -> get
         return $ DataMsg {..}
-
-instance Bi DataMsgGodTossing where
-    put = put . getDataMsg
-    get = DataMsgGT <$> get
 
 instance Bi (DataMsg TxId TxMsgContents) where
     put (DataMsg (TxMsgContents dmTx dmWitness dmDistr) _) =

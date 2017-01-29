@@ -30,12 +30,11 @@ import           Pos.Ssc.Class.Listeners                (SscListenersClass (..))
 import           Pos.Ssc.Extra.MonadLD                  (sscGetLocalPayload)
 import           Pos.Ssc.GodTossing.LocalData.LocalData (sscIsDataUseful,
                                                          sscProcessMessage)
-import           Pos.Ssc.GodTossing.Types.Instance      ()
+import           Pos.Ssc.GodTossing.Type                (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Message       (GtMsgContents (..),
                                                          GtMsgTag (..),
                                                          isGoodSlotIdForTag,
                                                          msgContentsTag)
-import           Pos.Ssc.GodTossing.Types.Type          (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types         (GtPayload (..), _gpCertificates)
 import           Pos.Types                              (SlotId (..), StakeholderId)
 import           Pos.Util                               (stubListenerOneMsg)
@@ -115,7 +114,7 @@ sscProcessMessageRichmen :: WorkMode SscGodTossing m
 sscProcessMessageRichmen dat addr = do
     epoch <- siEpoch <$> getCurrentSlot
     richmenMaybe <- LrcDB.getRichmenSsc epoch
-    maybe (pure False) handleRichmen richmenMaybe
+    maybe (pure False) (handleRichmen . (epoch,)) richmenMaybe
   where
     handleRichmen r = do
         res <- sscProcessMessage r dat addr

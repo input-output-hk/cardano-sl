@@ -8,37 +8,32 @@ module Pos.Util.Relay
        , InvMsg (..)
        , ReqMsg (..)
        , DataMsg (..)
-       , DataMsgGodTossing (..)
        , handleInvL
        , handleReqL
        , handleDataL
        ) where
 
-import qualified Data.ByteString.Char8            as BC
-import           Data.Proxy                       (Proxy (..))
-import qualified Data.Text.Buildable              as B
-import           Formatting                       (bprint, build, sformat, shown, stext,
-                                                   (%))
-import           Node                             (NodeId (..), SendActions (..), sendTo)
-import           Node.Message                     (Message (..), MessageName (..))
-import           Serokell.Util.Text               (listJson)
-import           Serokell.Util.Verify             (VerificationRes (..))
-import           System.Wlog                      (logDebug, logInfo, logWarning)
-import           System.Wlog                      (WithLogger)
-import           Test.QuickCheck                  (Arbitrary (..), oneof)
+
+import qualified Data.ByteString.Char8   as BC
+import           Data.Proxy              (Proxy (..))
+import qualified Data.Text.Buildable     as B
+import           Formatting              (bprint, build, sformat, shown, stext, (%))
+import           Node                    (NodeId (..), SendActions (..), sendTo)
+import           Node.Message            (Message (..), MessageName (..))
+import           Serokell.Util.Text      (listJson)
+import           Serokell.Util.Verify    (VerificationRes (..))
+import           System.Wlog             (logDebug, logInfo, logWarning)
+import           System.Wlog             (WithLogger)
+import           Test.QuickCheck         (Arbitrary (..))
 import           Universum
 
-import           Pos.Binary.Class                 (Bi (..))
-import           Pos.Communication.BiP            (BiP (..))
-import           Pos.Context                      (WithNodeContext (getNodeContext),
-                                                   ncPropagation)
-import           Pos.DHT.Model.Class              (MonadDHT (..))
-import           Pos.DHT.Model.Neighbors          (sendToNeighbors)
-import           Pos.Ssc.GodTossing.Arbitrary     ()
-import           Pos.Ssc.GodTossing.Types.Base    (VssCertificate (..))
-import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..))
-import           Pos.Util                         (NamedMessagePart (..))
-import           Pos.WorkMode                     (WorkMode)
+import           Pos.Binary.Class        (Bi (..))
+import           Pos.Communication.BiP   (BiP (..))
+import           Pos.Context             (WithNodeContext (getNodeContext), ncPropagation)
+import           Pos.DHT.Model.Class     (MonadDHT (..))
+import           Pos.DHT.Model.Neighbors (sendToNeighbors)
+import           Pos.Util                (NamedMessagePart (..))
+import           Pos.WorkMode            (WorkMode)
 
 -- | Typeclass for general Inv/Req/Dat framework. It describes monads,
 -- that store data described by tag, where "key" stands for node
@@ -128,25 +123,6 @@ instance (NamedMessagePart contents) =>
         contentsM :: Proxy (DataMsg contents) -> Proxy contents
         contentsM _ = Proxy
     formatMessage _ = "Data"
-
-newtype DataMsgGodTossing = DataMsgGT
-    { getDataMsg :: DataMsg GtMsgContents
-    } deriving (Show,Eq)
-
-instance Arbitrary DataMsgGodTossing where
-    arbitrary = DataMsgGT <$> do
-        pk <- arbitrary
-        dmContents <-
-            oneof [ MCCommitment <$> ((pk,,) <$> arbitrary <*> arbitrary)
-                  , MCOpening <$> arbitrary
-                  , MCShares <$> arbitrary
-                  , MCVssCertificate <$>
-                    (VssCertificate <$> arbitrary
-                                    <*> arbitrary
-                                    <*> arbitrary
-                                    <*> pure pk)
-                  ]
-        return $ DataMsg {..}
 
 processMessage
   :: (Buildable param, WithLogger m)

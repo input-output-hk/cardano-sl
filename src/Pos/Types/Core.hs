@@ -74,10 +74,18 @@ import           Pos.Script.Type     (Script)
 -- | Coin is the least possible unit of currency.
 newtype Coin = Coin
     { getCoin :: Word64
-    } deriving (Show, Ord, Eq, Bounded, Generic, Hashable, Data, NFData)
+    } deriving (Show, Ord, Eq, Generic, Hashable, Data, NFData)
 
 instance Buildable Coin where
     build (Coin n) = bprint (int%" coin(s)") n
+
+instance Bounded Coin where
+    minBound = Coin 0
+    maxBound = Coin maxCoinVal
+
+-- | Maximal possible value of 'Coin'.
+maxCoinVal :: Word64
+maxCoinVal = 45000000000000000
 
 -- | Make Coin from Word64.
 mkCoin :: Word64 -> Coin

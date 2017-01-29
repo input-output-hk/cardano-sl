@@ -214,14 +214,14 @@ getNodeParams args@Args {..} systemStart = do
         , npAttackTypes = maliciousEmulationAttacks
         , npAttackTargets = maliciousEmulationTargets
         , npPropagation = not (CLI.disablePropagation commonArgs)
+        , npUpdatePath = updateLatestPath
+        , npUpdateWithPkg = updateWithPackage
         }
 
 gtSscParams :: Args -> VssKeyPair -> GtParams
 gtSscParams Args {..} vssSK =
     GtParams
-    {
-      gtpRebuildDb  = rebuildDB
-    , gtpSscEnabled = True
+    { gtpSscEnabled = True
     , gtpVssKeyPair = vssSK
     }
 

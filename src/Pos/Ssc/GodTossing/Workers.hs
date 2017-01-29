@@ -43,11 +43,15 @@ import           Pos.Slotting                     (getCurrentSlot, getSlotStart,
                                                    onNewSlot)
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
 import           Pos.Ssc.Extra.MonadLD            (sscRunLocalQuery)
-import           Pos.Ssc.GodTossing.Functions     (computeParticipants,
-                                                   genCommitmentAndOpening, hasCommitment,
-                                                   hasOpening, hasShares, isCommitmentIdx,
-                                                   isOpeningIdx, isSharesIdx,
-                                                   mkSignedCommitment, vssThreshold)
+import           Pos.Ssc.GodTossing.Core          (Commitment (..), SignedCommitment,
+                                                   VssCertificate (..),
+                                                   VssCertificatesMap,
+                                                   genCommitmentAndOpening,
+                                                   isCommitmentIdx, isOpeningIdx,
+                                                   isSharesIdx, mkSignedCommitment,
+                                                   mkVssCertificate)
+import           Pos.Ssc.GodTossing.Functions     (computeParticipants, hasCommitment,
+                                                   hasOpening, hasShares, vssThreshold)
 import           Pos.Ssc.GodTossing.LocalData     (getLocalPayload, localOnNewSlot,
                                                    sscProcessMessage)
 import           Pos.Ssc.GodTossing.Richmen       (gtLrcConsumer)
@@ -55,11 +59,9 @@ import qualified Pos.Ssc.GodTossing.SecretStorage as SS
 import           Pos.Ssc.GodTossing.Shares        (getOurShares)
 import           Pos.Ssc.GodTossing.Storage       (getGlobalCerts, getStableCerts,
                                                    gtGetGlobalState)
-import           Pos.Ssc.GodTossing.Types         (Commitment, SignedCommitment,
-                                                   SscGodTossing, VssCertificate (..),
-                                                   VssCertificatesMap, gsCommitments,
-                                                   gtcParticipateSsc, gtcVssKeyPair,
-                                                   mkVssCertificate, _gpCertificates)
+import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
+import           Pos.Ssc.GodTossing.Types         (gsCommitments, gtcParticipateSsc,
+                                                   gtcVssKeyPair, _gpCertificates)
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtMsgTag (..))
 import           Pos.Types                        (EpochIndex, LocalSlotIndex,
                                                    SlotId (..), StakeholderId,
@@ -166,7 +168,7 @@ onNewSlotCommitment sendActions slotId@SlotId {..}
     | otherwise = do
         ourId <- addressHash . ncPublicKey <$> getNodeContext
         shouldSendCommitment <- andM
-            [ not . hasCommitment siEpoch ourId <$> gtGetGlobalState
+            [ not . hasCommitment ourId <$> gtGetGlobalState
             , HM.member ourId <$> getStableCerts siEpoch]
         logDebug $ sformat ("shouldSendCommitment: "%shown) shouldSendCommitment
         when shouldSendCommitment $ do
@@ -241,7 +243,7 @@ sscProcessOurMessage epoch msg ourId = do
         Nothing ->
             logWarning
                 "We are processing our SSC message and don't know richmen"
-        Just r -> sscProcessMessage r msg ourId >>= logResult
+        Just r -> sscProcessMessage (epoch, r) msg ourId >>= logResult
   where
     logResult (Right _) = logDebug "We have accepted our message"
     logResult (Left er) =

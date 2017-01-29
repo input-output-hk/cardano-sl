@@ -82,6 +82,10 @@ data NodeContext ssc = NodeContext
     , ncUpdateSemaphore     :: !(MVar ConfirmedProposalState)
     -- ^ A semaphore which is unlocked when update data is downloaded
     -- and ready to apply
+    , ncUpdatePath          :: !FilePath
+    -- ^ Path to update installer executable, downloaded by update system
+    , ncUpdateWithPkg       :: !Bool
+    -- ^ Whether to use installer update mechanism
     }
 
 -- | Generate 'PublicKey' from 'SecretKey' of 'NodeContext'.

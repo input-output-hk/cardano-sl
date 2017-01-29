@@ -20,8 +20,9 @@ import           Pos.Crypto               (EncShare, Share, VssKeyPair, VssPubli
                                            decryptShare, toVssPublicKey)
 import           Pos.Ssc.Class.Storage    (SscGlobalQuery)
 import           Pos.Ssc.Extra.MonadGS    (MonadSscGS, sscRunGlobalQuery)
-import           Pos.Ssc.GodTossing.Types (Commitment (..), SscGodTossing, gsCommitments,
-                                           gsOpenings)
+import           Pos.Ssc.GodTossing.Core  (Commitment (..))
+import           Pos.Ssc.GodTossing.Type  (SscGodTossing)
+import           Pos.Ssc.GodTossing.Types (gsCommitments, gsOpenings)
 import           Pos.Types                (StakeholderId)
 import           Pos.Util                 (AsBinary, asBinary, fromBinaryM)
 

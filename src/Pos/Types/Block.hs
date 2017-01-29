@@ -453,7 +453,7 @@ verifyBlock VerifyBlockParams {..} blk =
                 Right mainBlk -> toVerRes $
                     untag
                         sscVerifyPayload
-                        (mainBlk ^. gbHeader)
+                        (Right (mainBlk ^. gbHeader))
                         (mainBlk ^. blockMpc)
         | otherwise = mempty
     proxySKsDups psks =

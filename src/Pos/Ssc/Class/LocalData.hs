@@ -14,7 +14,9 @@ module Pos.Ssc.Class.LocalData
 
 import           Universum
 
+import           Pos.DB.Class        (MonadDB)
 import           Pos.Lrc.Types       (Richmen)
+import           Pos.Slotting        (MonadSlots)
 import           Pos.Ssc.Class.Types (Ssc (..))
 import           Pos.Types           (SlotId)
 
@@ -34,3 +36,7 @@ class Ssc ssc => SscLocalDataClass ssc where
     -- | Update LocalData using global data from blocks (last version
     -- of best known chain).
     sscApplyGlobalStateU :: Richmen -> SscGlobalState ssc -> LocalUpdate ssc ()
+    -- | Create new (empty) local data. We are using this function instead of
+    -- 'Default' class, because it gives more flexibility. For instance, one
+    -- can read something from DB or get current slot.
+    sscNewLocalData :: (MonadSlots m, MonadDB ssc m) => m (SscLocalData ssc)

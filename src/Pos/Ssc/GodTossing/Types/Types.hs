@@ -26,7 +26,6 @@ module Pos.Ssc.GodTossing.Types.Types
        , mkGtProof
        , createGtContext
        , _gpCertificates
-       , emptyPayload
 
        , SscBi
        ) where
@@ -45,7 +44,7 @@ import           Universum
 
 import           Pos.Binary.Class               (Bi)
 import           Pos.Crypto                     (Hash, VssKeyPair, hash)
-import           Pos.Ssc.GodTossing.Types.Base  (Commitment, CommitmentsMap, Opening,
+import           Pos.Ssc.GodTossing.Core        (Commitment, CommitmentsMap, Opening,
                                                  OpeningsMap, SharesMap, SignedCommitment,
                                                  VssCertificate, VssCertificatesMap)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
@@ -124,9 +123,6 @@ data GtPayload
     | SharesPayload       !SharesMap      !VssCertificatesMap
     | CertificatesPayload !VssCertificatesMap
     deriving (Eq, Show, Generic)
-
-emptyPayload :: GtPayload
-emptyPayload = CertificatesPayload mempty
 
 _gpCertificates :: GtPayload -> VssCertificatesMap
 _gpCertificates (CommitmentsPayload _ certs) = certs
@@ -208,9 +204,7 @@ mkGtProof payload =
             constr (hash hm) (hash cert)
 
 data GtParams = GtParams
-    {
-      gtpRebuildDb  :: !Bool
-    , gtpSscEnabled :: !Bool              -- ^ Whether node should participate in SSC
+    { gtpSscEnabled :: !Bool              -- ^ Whether node should participate in SSC
                                           -- in case SSC requires participation.
     , gtpVssKeyPair :: !VssKeyPair        -- ^ Key pair used for secret sharing
     }
@@ -218,16 +212,14 @@ data GtParams = GtParams
 data GtContext = GtContext
     {
       -- | Vss key pair used for MPC.
-      gtcVssKeyPair             :: !VssKeyPair
-    , gtcParticipateSsc         :: !(STM.TVar Bool)
-    , gtcVssCertificateVerified :: !(STM.TVar Bool)
+      gtcVssKeyPair     :: !VssKeyPair
+    , -- | Flag which determines whether we want to participate in SSC.
+      gtcParticipateSsc :: !(STM.TVar Bool)
     }
 
 createGtContext :: MonadIO m => GtParams -> m GtContext
 createGtContext GtParams {..} =
-    GtContext gtpVssKeyPair
-           <$> liftIO (newTVarIO gtpSscEnabled)
-           <*> liftIO (newTVarIO False)
+    GtContext gtpVssKeyPair <$> liftIO (newTVarIO gtpSscEnabled)
 
 ----------------------------------------------------------------------------
 -- Secret storage
@@ -303,6 +295,8 @@ data TossVerFailure
     | NotCommitmentPhase !SlotId
     | NotOpeningPhase !SlotId
     | NotSharesPhase !SlotId
+    | NotIntermediatePhase !SlotId
+    | DifferentEpoches !EpochIndex !EpochIndex
     | CertificateInvalidSign !(NonEmpty (StakeholderId, VssCertificate))
     | CertificateInvalidTTL !(NonEmpty (VssCertificate, EpochIndex))
     | TossInternallError !Text
@@ -316,6 +310,10 @@ instance Buildable TossVerFailure where
         bprint (build%" doesn't belong openings phase") slotId
     build (NotSharesPhase slotId) =
         bprint (build%" doesn't belong share phase") slotId
+    build (NotIntermediatePhase slotId) =
+        bprint (build%" doesn't  belong intermidiate phase") slotId
+    build (DifferentEpoches e g) =
+        bprint ("expected epoch: "%build%", but got: "%build) e g
     build (CertificateInvalidSign certs) =
         bprint ("some VSS certificates aren't signed properly: "%listJson) certs
     build (CertificateInvalidTTL certs) =

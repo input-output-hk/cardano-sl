@@ -35,22 +35,23 @@ import           Pos.Lrc.Types                  (Richmen)
 import           Pos.Ssc.Class.Storage          (SscStorageClass (..))
 import           Pos.Ssc.Class.Types            (Ssc (..))
 import           Pos.Ssc.Extra.MonadGS          (MonadSscGS (..), sscRunGlobalQuery)
-import           Pos.Ssc.GodTossing.Error       (SeedError)
-import           Pos.Ssc.GodTossing.Functions   (checkCommShares,
+import           Pos.Ssc.GodTossing.Core        (checkCommShares,
                                                  checkOpeningMatchesCommitment,
-                                                 checkShares, computeParticipants,
-                                                 getStableCertsPure, isCommitmentIdx,
-                                                 isOpeningIdx, isSharesIdx,
+                                                 checkShares, isCommitmentIdx,
+                                                 isOpeningIdx, isSharesIdx)
+import           Pos.Ssc.GodTossing.Core        (VssCertificatesMap, vcVssKey)
+import           Pos.Ssc.GodTossing.Core        (VssCertificate (..))
+import           Pos.Ssc.GodTossing.Error       (SeedError)
+import           Pos.Ssc.GodTossing.Functions   (computeParticipants, getStableCertsPure,
                                                  verifyEntriesGuard, verifyGtPayload)
 import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
 import           Pos.Ssc.GodTossing.Seed        (calculateSeed)
+import           Pos.Ssc.GodTossing.Type        (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), GtPayload (..),
-                                                 SscGodTossing, TossVerErrorTag (..),
-                                                 TossVerFailure (..), VssCertificatesMap,
-                                                 gsCommitments, gsOpenings, gsShares,
-                                                 gsVssCertificates, vcVssKey,
+                                                 TossVerErrorTag (..),
+                                                 TossVerFailure (..), gsCommitments,
+                                                 gsOpenings, gsShares, gsVssCertificates,
                                                  _gpCertificates)
-import           Pos.Ssc.GodTossing.Types.Base  (VssCertificate (..))
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types                      (Block, EpochIndex (..), EpochOrSlot (..),
                                                  SharedSeed, SlotId (..), addressHash,
@@ -189,7 +190,7 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
         SharesPayload       shares _ -> shareChecks shares
         CertificatesPayload        _ -> pass
 
-    when verifyPure $ case verifyGtPayload (b ^. gbHeader) payload of
+    when verifyPure $ case verifyGtPayload (Right $ b ^. gbHeader) payload of
         Right _ -> pass
         Left er -> throwError er
   where

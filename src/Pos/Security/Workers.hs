@@ -25,6 +25,7 @@ import           Pos.DB                      (getBlockHeader, getTipBlockHeader,
 import           Pos.DHT.Model               (converseToNeighbors)
 import           Pos.Security.Class          (SecurityWorkersClass (..))
 import           Pos.Slotting                (onNewSlot)
+import           Pos.Ssc.GodTossing.Core     (getCommitmentsMap)
 import           Pos.Ssc.GodTossing.Type     (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types    (GtPayload (..))
 import           Pos.Ssc.NistBeacon          (SscNistBeacon)
@@ -126,5 +127,6 @@ checkCommitmentsInBlock slotId block = do
         tvar <- ask
         lift $ atomically $ writeTVar tvar $ siEpoch slotId
   where
-    isCommitmentInPayload addr (CommitmentsPayload commitments _) = HM.member addr commitments
+    isCommitmentInPayload addr (CommitmentsPayload commitments _) =
+        HM.member addr $ getCommitmentsMap commitments
     isCommitmentInPayload _ _ = False

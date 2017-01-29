@@ -16,7 +16,7 @@ module Pos.Ssc.GodTossing.LocalData.LocalData
          -- ** instance SscLocalDataClass SscGodTossing
        ) where
 
-import           Control.Lens                         (Getter, at, (%=), (.=))
+import           Control.Lens                         (Getter, at, to, (%=), (.=))
 import           Control.Monad.Except                 (MonadError (throwError),
                                                        runExceptT)
 import           Control.Monad.State                  (get)
@@ -34,12 +34,16 @@ import           Pos.Slotting                         (getCurrentSlot)
 import           Pos.Ssc.Class.LocalData              (LocalQuery, LocalUpdate,
                                                        SscLocalDataClass (..))
 import           Pos.Ssc.Extra.MonadLD                (MonadSscLD)
-import           Pos.Ssc.GodTossing.Core              (InnerSharesMap, Opening,
+import           Pos.Ssc.GodTossing.Core              (CommitmentsMap (getCommitmentsMap),
+                                                       InnerSharesMap, Opening,
                                                        SignedCommitment,
                                                        VssCertificate (vcSigningKey, vcVssKey),
                                                        checkCertTTL, checkCommShares,
                                                        checkOpeningMatchesCommitment,
                                                        checkShare, checkShares,
+                                                       diffCommMap,
+                                                       insertSignedCommitment,
+                                                       intersectCommMapWith,
                                                        isCommitmentIdx, isOpeningIdx,
                                                        isSharesIdx, vcExpiryEpoch,
                                                        verifySignedCommitment)
@@ -85,25 +89,23 @@ applyGlobal :: Richmen -> GtGlobalState -> LocalUpdate SscGodTossing ()
 applyGlobal richmen globalData = do
     let globalCerts = VCD.certs . _gsVssCertificates $ globalData
         participants = computeParticipants richmen globalCerts
-        vssPublicKeys = map vcVssKey $ toList participants
         globalCommitments = _gsCommitments globalData
+        -- globalComms = getCommitmentsMap globalCommitments
         globalOpenings = _gsOpenings globalData
         globalShares = _gsShares globalData
+        intersectWithPs = intersectCommMapWith identity
     let filterCommitments comms =
             foldl' (&) comms $
             [
             -- Remove commitments which are contained already in global state
-              (`HM.difference` globalCommitments)
+              (`diffCommMap` globalCommitments)
             -- Remove commitments which corresponds to expired certs
-            , (`HM.intersection` participants)
-            -- If set of certificates changes, set of participants can
-            -- change too.  Hence some commitments can become invalid.
-            , (HM.filterWithKey (\_ c -> checkCommShares vssPublicKeys c))
+            , (`intersectWithPs` participants)
             ]
     let filterOpenings opens =
             foldl' (&) opens $
             [ (`HM.difference` globalOpenings)
-            , (`HM.intersection` globalCommitments)
+            , (`HM.intersection` getCommitmentsMap globalCommitments)
             -- Select opening which corresponds its commitment
             , HM.filterWithKey
                   (curry $ checkOpeningMatchesCommitment globalCommitments)
@@ -120,7 +122,7 @@ applyGlobal richmen globalData = do
             [ (`HM.difference` globalShares)
             , (`HM.intersection` participants)
             -- Select shares to nodes which sent commitments
-            , map (`HM.intersection` globalCommitments)
+            , map (`HM.intersection` getCommitmentsMap globalCommitments)
             -- Ensure that share sent from pkFrom to pkTo is valid
             , HM.mapWithKey checkCorrectShares
             ]
@@ -190,7 +192,9 @@ sscIsDataUseful tag = gtRunRead . sscIsDataUsefulQ tag
 -- to local data.
 sscIsDataUsefulQ :: GtMsgTag -> StakeholderId -> LDQuery Bool
 sscIsDataUsefulQ CommitmentMsg =
-    sscIsDataUsefulImpl gtLocalCommitments gtGlobalCommitments
+    sscIsDataUsefulImpl
+        (gtLocalCommitments . to getCommitmentsMap)
+        (gtGlobalCommitments . to getCommitmentsMap)
 sscIsDataUsefulQ OpeningMsg =
     sscIsDataUsefulSetImpl gtLocalOpenings gtGlobalOpenings
 sscIsDataUsefulQ SharesMsg =
@@ -272,14 +276,14 @@ processCommitment richmen id c = do
     let participants = stableCerts `HM.intersection` HS.toMap richmen
     let vssPublicKeys = map vcVssKey $ toList participants
     let checks epochIndex =
-            [ (not . HM.member id <$> view gtGlobalCommitments, tossEx CommitmentAlreadySent)
-            , (not . HM.member id <$> view gtLocalCommitments, tossEx CommitmentAlreadySent)
+            [ (not . HM.member id . getCommitmentsMap <$> view gtGlobalCommitments, tossEx CommitmentAlreadySent)
+            , (not . HM.member id . getCommitmentsMap <$> view gtLocalCommitments, tossEx CommitmentAlreadySent)
             , (pure $ id `HM.member` participants, tossEx CommitingNoParticipants)
-            , (pure . isVerSuccess $ verifySignedCommitment id epochIndex c, tossEx CommitmentInvalid)
+            , (pure . isVerSuccess $ verifySignedCommitment epochIndex c, tossEx CommitmentInvalid)
             , (pure $ checkCommShares vssPublicKeys c, tossEx CommSharesOnWrongParticipants)
             ]
     readerTToState $ runChecks $ checks epochIdx
-    gtLocalCommitments %= HM.insert id c
+    gtLocalCommitments %= insertSignedCommitment c
   where
     tossEx = flip TossVerFailure (id:|[])
 

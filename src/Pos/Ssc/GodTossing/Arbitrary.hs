@@ -13,10 +13,10 @@ import           Universum
 import           Pos.Binary.Ssc                   ()
 import           Pos.Crypto                       (deterministicVssKeyGen, toPublic,
                                                    toVssPublicKey)
-import           Pos.Ssc.GodTossing.Core          (Commitment, Opening,
+import           Pos.Ssc.GodTossing.Core          (Commitment, CommitmentsMap, Opening,
                                                    VssCertificate (..),
                                                    genCommitmentAndOpening,
-                                                   mkVssCertificate)
+                                                   mkCommitmentsMap, mkVssCertificate)
 import           Pos.Ssc.GodTossing.Type          ()
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtMsgTag (..))
 import           Pos.Ssc.GodTossing.Types.Types   (GtGlobalState (..), GtPayload (..),
@@ -59,6 +59,9 @@ instance Nonrepeating CommitmentOpening where
 instance Arbitrary Commitment where
     arbitrary = coCommitment <$> arbitrary
 
+instance Arbitrary CommitmentsMap where
+    arbitrary = mkCommitmentsMap <$> arbitrary
+
 instance Arbitrary Opening where
     arbitrary = coOpening <$> arbitrary
 
@@ -81,14 +84,12 @@ instance Arbitrary GtPayload where
     arbitrary =
         makeSmall $
         oneof
-            [ CommitmentsPayload <$> genCommitments <*> genVssCerts
+            [ CommitmentsPayload <$> arbitrary <*> genVssCerts
             , OpeningsPayload <$> arbitrary <*> genVssCerts
             , SharesPayload <$> arbitrary <*> genVssCerts
             , CertificatesPayload <$> genVssCerts
             ]
       where
-        genCommitments = HM.fromList . map toCommPair <$> arbitrary
-        toCommPair signedComm@(pk, _, _) = (addressHash pk, signedComm)
         genVssCerts = HM.fromList . map toCertPair <$> arbitrary
         toCertPair vc = (addressHash $ vcSigningKey vc, vc)
 

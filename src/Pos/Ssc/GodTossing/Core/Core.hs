@@ -15,6 +15,12 @@ module Pos.Ssc.GodTossing.Core.Core
        , mkSignedCommitment
        , secretToSharedSeed
 
+       -- * CommitmentsMap
+       , insertSignedCommitment
+       , diffCommMap
+       , intersectCommMap
+       , intersectCommMapWith
+
        -- * Verification and Checks
        , checkCertTTL
        , verifyCommitment
@@ -44,11 +50,13 @@ import           Pos.Crypto                    (EncShare, Secret, SecretKey,
                                                 secretToDhSecret, sign, toPublic,
                                                 verifyEncShare, verifySecretProof,
                                                 verifyShare)
-import           Pos.Ssc.GodTossing.Core.Types (Commitment (..), CommitmentsMap,
+import           Pos.Ssc.GodTossing.Core.Types (Commitment (..),
+                                                CommitmentsMap (getCommitmentsMap),
                                                 InnerSharesMap, Opening (..),
                                                 SignedCommitment,
                                                 VssCertificate (vcExpiryEpoch, vcVssKey),
-                                                VssCertificatesMap)
+                                                VssCertificatesMap,
+                                                mkCommitmentsMapUnsafe)
 import           Pos.Types.Address             (addressHash)
 import           Pos.Types.Core                (EpochIndex (..), LocalSlotIndex,
                                                 SlotId (..), StakeholderId)
@@ -102,6 +110,34 @@ isSharesId :: SlotId -> Bool
 isSharesId = isSharesIdx . siSlot
 
 ----------------------------------------------------------------------------
+-- CommitmentsMap
+----------------------------------------------------------------------------
+
+-- | Safely insert 'SignedCommitment' into 'CommitmentsMap'.
+insertSignedCommitment :: SignedCommitment -> CommitmentsMap -> CommitmentsMap
+insertSignedCommitment signedComm (getCommitmentsMap -> m) =
+    mkCommitmentsMapUnsafe $
+    HM.insert (addressHash $ signedComm ^. _1) signedComm m
+
+-- | Compute difference of two 'CommitmentsMap's.
+diffCommMap :: CommitmentsMap -> CommitmentsMap -> CommitmentsMap
+diffCommMap (getCommitmentsMap -> a) (getCommitmentsMap -> b) =
+    mkCommitmentsMapUnsafe $ a `HM.difference` b
+
+-- | Compute intersection of two 'CommitmentsMap's.
+intersectCommMap :: CommitmentsMap -> CommitmentsMap -> CommitmentsMap
+intersectCommMap = intersectCommMapWith getCommitmentsMap
+
+-- | Generalized version of 'intersectCommMap' which makes it possible
+-- to intersect with different maps.
+intersectCommMapWith :: (map -> HashMap StakeholderId x)
+                     -> CommitmentsMap
+                     -> map
+                     -> CommitmentsMap
+intersectCommMapWith f (getCommitmentsMap -> a) (f -> b) =
+    mkCommitmentsMapUnsafe $ a `HM.intersection` b
+
+----------------------------------------------------------------------------
 -- Verifications
 ----------------------------------------------------------------------------
 
@@ -124,13 +160,6 @@ verifyCommitment Commitment {..} = fromMaybe False $ do
     tupleFromBinaryM =
         uncurry (liftA2 (,)) . bimap fromBinaryM fromBinaryM
 
--- CHECK: @verifyCommitmentPK
--- | Verify public key contained in SignedCommitment against given address
---
--- #checkPubKeyAddress
-verifyCommitmentPK :: StakeholderId -> SignedCommitment -> Bool
-verifyCommitmentPK addr (pk, _, _) = addressHash pk == addr
-
 -- CHECK: @verifyCommitmentSignature
 -- | Verify signature in SignedCommitment using epoch index.
 --
@@ -142,20 +171,16 @@ verifyCommitmentSignature epoch (pk, comm, commSig) =
 -- CHECK: @verifySignedCommitment
 -- | Verify SignedCommitment using public key and epoch index.
 --
--- #verifyCommitmentPK
 -- #verifyCommitmentSignature
 -- #verifyCommitment
 verifySignedCommitment
     :: Bi Commitment
-    => StakeholderId
-    -> EpochIndex
+    => EpochIndex
     -> SignedCommitment
     -> VerificationRes
-verifySignedCommitment addr epoch sc@(_, comm, _) =
+verifySignedCommitment epoch sc@(_, comm, _) =
     verifyGeneric
-        [ ( verifyCommitmentPK addr sc
-          , "commitment's signing key does not match given address")
-        , ( verifyCommitmentSignature epoch sc
+        [ ( verifyCommitmentSignature epoch sc
           , "commitment has bad signature (e. g. for wrong epoch)")
         , ( verifyCommitment comm
           , "commitment itself is bad (e. g. bad shares")
@@ -209,7 +234,7 @@ checkShare globalCommitments globalOpeningsPK globalCertificates (addrTo, addrFr
         -- CHECK: Check that addrFrom really didn't send its opening
         guard $ notMember addrFrom globalOpeningsPK
         -- CHECK: Check that addrFrom really sent its commitment
-        (_, comm, _) <- HM.lookup addrFrom globalCommitments
+        (_, comm, _) <- HM.lookup addrFrom $ getCommitmentsMap globalCommitments
         -- Get pkTo's vss certificate
         vssKey <- vcVssKey <$> HM.lookup addrTo globalCertificates
         -- Get encrypted share, which was sent from pkFrom to pkTo on commitment phase
@@ -240,7 +265,7 @@ checkShares globalCommitments globalOpeningsPK globalCertificates addrTo shares 
 -- in the commitment
 checkOpeningMatchesCommitment
     :: CommitmentsMap -> (StakeholderId, Opening) -> Bool
-checkOpeningMatchesCommitment globalCommitments (addr, opening) =
+checkOpeningMatchesCommitment (getCommitmentsMap -> globalCommitments) (addr, opening) =
       case HM.lookup addr globalCommitments of
         Nothing           -> False
         Just (_, comm, _) -> verifyOpening comm opening

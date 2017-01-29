@@ -35,12 +35,12 @@ import           Pos.Lrc.Types                  (Richmen)
 import           Pos.Ssc.Class.Storage          (SscStorageClass (..))
 import           Pos.Ssc.Class.Types            (Ssc (..))
 import           Pos.Ssc.Extra.MonadGS          (MonadSscGS (..), sscRunGlobalQuery)
-import           Pos.Ssc.GodTossing.Core        (checkCommShares,
+import           Pos.Ssc.GodTossing.Core        (VssCertificate (..), VssCertificatesMap,
+                                                 checkCommShares,
                                                  checkOpeningMatchesCommitment,
-                                                 checkShares, isCommitmentIdx,
-                                                 isOpeningIdx, isSharesIdx)
-import           Pos.Ssc.GodTossing.Core        (VssCertificatesMap, vcVssKey)
-import           Pos.Ssc.GodTossing.Core        (VssCertificate (..))
+                                                 checkShares, diffCommMap,
+                                                 getCommitmentsMap, isCommitmentIdx,
+                                                 isOpeningIdx, isSharesIdx, vcVssKey)
 import           Pos.Ssc.GodTossing.Error       (SeedError)
 import           Pos.Ssc.GodTossing.Functions   (computeParticipants, getStableCertsPure,
                                                  verifyEntriesGuard, verifyGtPayload)
@@ -111,6 +111,7 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
     globalOpenings    <- view gsOpenings
     globalShares      <- view gsShares
     globalVCD         <- view gsVssCertificates
+    let globalComms   = getCommitmentsMap globalCommitments
     let globalCerts   = VCD.certs globalVCD
     let stableCerts   = getStableCertsPure curEpoch globalVCD
     let participants  = computeParticipants richmen stableCerts
@@ -131,12 +132,12 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
     --   * check that the nodes haven't already sent their commitments before
     --     in some different block
     --   * every commitment owner has enough (mpc+delegated) stake
-    let commChecks comms = do
+    let commChecks (getCommitmentsMap -> comms) = do
             isComm
             exceptGuard CommitingNoParticipants
                 (`HM.member` participants) (HM.keys comms)
             exceptGuard CommitmentAlreadySent
-                (not . (`HM.member` globalCommitments)) (HM.keys comms)
+                (not . (`HM.member` globalComms)) (HM.keys comms)
             exceptGuardSnd CommSharesOnWrongParticipants
                 (checkCommShares participantsVssKeys) (HM.toList comms)
             -- [CSL-206]: check that share IDs are different.
@@ -151,7 +152,7 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
             exceptGuard OpeningAlreadySent
                 (not . (`HM.member` globalOpenings)) (HM.keys opens)
             exceptGuard OpeningWithoutCommitment
-                (`HM.member` globalCommitments) (HM.keys opens)
+                (`HM.member` globalComms) (HM.keys opens)
             exceptGuardEntry OpeningNotMatchCommitment
                 (checkOpeningMatchesCommitment globalCommitments) (HM.toList opens)
 
@@ -170,7 +171,7 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
             exceptGuard SharesNotRichmen
                 (`HS.member` richmenSet) (HM.keys shares)
             exceptGuard InternalShareWithoutCommitment
-                (`HM.member` globalCommitments) (concatMap HM.keys $ toList shares)
+                (`HM.member` globalComms) (concatMap HM.keys $ toList shares)
             exceptGuard SharesAlreadySent
                 (not . (`HM.member` globalShares)) (HM.keys shares)
             exceptGuardEntry DecrSharesNotMatchCommitment
@@ -261,7 +262,7 @@ mpcRollback (NewestFirst blocks) = do
         let payload = b ^. blockMpc
         case payload of
             CommitmentsPayload comms _ ->
-                gsCommitments %= (`HM.difference` comms)
+                gsCommitments %= (`diffCommMap` comms)
             OpeningsPayload opens _ -> gsOpenings %= (`HM.difference` opens)
             SharesPayload shares _ -> gsShares %= (`HM.difference` shares)
             CertificatesPayload _ -> return ()

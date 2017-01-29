@@ -36,15 +36,17 @@ import qualified Data.HashMap.Strict            as HM
 import qualified Data.Text                      as T
 import qualified Data.Text.Buildable
 import           Data.Text.Lazy.Builder         (Builder, fromText)
-import           Formatting                     (bprint, build, sformat, stext, (%))
+import           Formatting                     (Format, bprint, build, sformat, stext,
+                                                 (%))
 import           Serokell.Util                  (listJson)
 import           Universum
 
 import           Pos.Binary.Class               (Bi)
 import           Pos.Crypto                     (Hash, VssKeyPair, hash)
-import           Pos.Ssc.GodTossing.Core        (Commitment, CommitmentsMap, Opening,
-                                                 OpeningsMap, SharesMap, SignedCommitment,
-                                                 VssCertificate, VssCertificatesMap)
+import           Pos.Ssc.GodTossing.Core        (CommitmentsMap (getCommitmentsMap),
+                                                 Opening, OpeningsMap, SharesMap,
+                                                 SignedCommitment, VssCertificate,
+                                                 VssCertificatesMap)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types                      (EpochIndex, SlotId, StakeholderId)
 
@@ -96,7 +98,7 @@ instance Buildable GtGlobalState where
         formatCommitments =
             formatIfNotNull
                 ("  commitments from: "%listJson%"\n")
-                (HM.keys _gsCommitments)
+                (HM.keys $ getCommitmentsMap _gsCommitments)
         formatOpenings =
             formatIfNotNull
                 ("  openings from: "%listJson%"\n")
@@ -147,13 +149,16 @@ instance Buildable GtPayload where
                     formatTwo formatShares shares certs
                 CertificatesPayload certs -> formatCertificates certs
       where
+        formatIfNotNull
+            :: Container c
+            => Format Builder (c -> Builder) -> c -> Builder
         formatIfNotNull formatter l
             | null l = mempty
             | otherwise = bprint formatter l
         formatCommitments comms =
             formatIfNotNull
                 ("  commitments from: " %listJson % "\n")
-                (HM.keys comms)
+                (HM.keys $ getCommitmentsMap comms)
         formatOpenings openings =
             formatIfNotNull
                 ("  openings from: " %listJson % "\n")
@@ -185,7 +190,7 @@ data GtProof
 
 -- | Smart constructor for 'GtProof' from 'GtPayload'.
 mkGtProof
-    :: (Bi VssCertificate, Bi Commitment, Bi Opening)
+    :: (Bi VssCertificate, Bi Opening, Bi CommitmentsMap)
     => GtPayload -> GtProof
 mkGtProof payload =
     case payload of

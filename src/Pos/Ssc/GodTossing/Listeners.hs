@@ -28,6 +28,7 @@ import           Pos.Security                           (shouldIgnorePkAddress)
 import           Pos.Slotting                           (getCurrentSlot)
 import           Pos.Ssc.Class.Listeners                (SscListenersClass (..))
 import           Pos.Ssc.Extra.MonadLD                  (sscGetLocalPayload)
+import           Pos.Ssc.GodTossing.Core                (getCommitmentsMap)
 import           Pos.Ssc.GodTossing.LocalData.LocalData (sscIsDataUseful,
                                                          sscProcessMessage)
 import           Pos.Ssc.GodTossing.Type                (SscGodTossing)
@@ -124,7 +125,7 @@ sscProcessMessageRichmen dat addr = do
 
 toContents :: GtMsgTag -> StakeholderId -> GtPayload -> Maybe GtMsgContents
 toContents CommitmentMsg addr (CommitmentsPayload comm _) =
-    MCCommitment <$> lookup addr comm
+    MCCommitment <$> lookup addr (getCommitmentsMap comm)
 toContents OpeningMsg addr (OpeningsPayload opens _) =
     MCOpening <$> lookup addr opens
 toContents SharesMsg addr (SharesPayload shares _) =

@@ -1,23 +1,37 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies    #-}
 
 -- | Core types of GodTossing SSC.
 
 module Pos.Ssc.GodTossing.Core.Types
-       ( Commitment (..)
+       (
+         -- * Commitments
+         Commitment (..)
        , CommitmentSignature
        , SignedCommitment
-       , CommitmentsMap
-       , InnerSharesMap
+       , CommitmentsMap (getCommitmentsMap)
+       , mkCommitmentsMap
+       , mkCommitmentsMapUnsafe
+
+         -- * Openings
        , Opening (..)
        , OpeningsMap
+
+         -- * Shares
+       , InnerSharesMap
        , SharesMap
+
+         -- * Vss certificates
        , VssCertificate (vcVssKey, vcExpiryEpoch, vcSignature, vcSigningKey)
        , mkVssCertificate
        , recreateVssCertificate
        , VssCertificatesMap
+
+         -- * Misc
        , NodeSet
        ) where
 
+import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Buildable
 import           Formatting          (bprint, build, int, (%))
 import           Universum
@@ -26,6 +40,7 @@ import           Pos.Binary.Types    ()
 import           Pos.Crypto          (EncShare, PublicKey, Secret, SecretKey, SecretProof,
                                       SecretSharingExtra, Share, Signature, VssPublicKey,
                                       checkSig, sign, toPublic)
+import           Pos.Types.Address   (addressHash)
 import           Pos.Types.Core      (EpochIndex, StakeholderId)
 import           Pos.Util            (AsBinary (..))
 
@@ -50,7 +65,25 @@ type CommitmentSignature = Signature (EpochIndex, Commitment)
 
 type SignedCommitment = (PublicKey, Commitment, CommitmentSignature)
 
-type CommitmentsMap = HashMap StakeholderId SignedCommitment
+-- | 'CommitmentsMap' is a wrapper for 'HashMap StakeholderId SignedCommitment'
+-- which ensures that keys are consistent with values, i. e. 'PublicKey'
+-- from 'SignedCommitment' corresponds to key which is 'StakeholderId'.
+newtype CommitmentsMap = CommitmentsMap
+    { getCommitmentsMap :: HashMap StakeholderId SignedCommitment
+    } deriving (Semigroup, Monoid, Show, Eq, Container)
+
+type instance Element CommitmentsMap = SignedCommitment
+
+-- | Safe constructor of 'CommitmentsMap'.
+mkCommitmentsMap :: [SignedCommitment] -> CommitmentsMap
+mkCommitmentsMap = CommitmentsMap . HM.fromList . map toCommPair
+  where
+    toCommPair signedComm@(pk, _, _) = (addressHash pk, signedComm)
+
+-- | Unsafe straightforward constructor of 'CommitmentsMap'.
+mkCommitmentsMapUnsafe :: HashMap StakeholderId SignedCommitment
+                       -> CommitmentsMap
+mkCommitmentsMapUnsafe = CommitmentsMap
 
 -- | Opening reveals secret.
 newtype Opening = Opening

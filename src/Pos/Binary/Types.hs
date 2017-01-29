@@ -4,13 +4,14 @@
 
 module Pos.Binary.Types () where
 
-import           Data.Binary.Get       (getInt32be, getWord64be, getWord8, label)
-import           Data.Binary.Put       (putInt32be, putWord64be, putWord8)
+import           Data.Binary.Get       (getInt32be, getWord8, label)
+import           Data.Binary.Put       (putInt32be, putWord8)
 import           Data.Ix               (inRange)
 import           Formatting            (formatToString, int, sformat, (%))
 import           Universum
 
 import           Pos.Binary.Class      (Bi (..), UnsignedVarInt (..))
+import qualified Pos.Binary.Coin       as BinCoin
 import           Pos.Binary.Merkle     ()
 import           Pos.Binary.Version    ()
 import           Pos.Constants         (epochSlots, protocolMagic)
@@ -29,8 +30,8 @@ instance Bi (A.Attributes ()) where
     put = A.putAttributes (\() -> [])
 
 instance Bi T.Coin where
-    put = putWord64be . T.unsafeGetCoin
-    get = T.mkCoin <$> getWord64be
+    put = mapM_ putWord8 . BinCoin.encode
+    get = BinCoin.decode
 
 instance Bi T.CoinPortion where
     put = put . T.getCoinPortion

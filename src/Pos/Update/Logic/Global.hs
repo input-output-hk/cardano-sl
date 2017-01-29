@@ -14,7 +14,7 @@ module Pos.Update.Logic.Global
 import           Control.Monad.Except (MonadError, runExceptT)
 import           Data.Default         (Default (def))
 import qualified Data.HashMap.Strict  as HM
-import           System.Wlog          (WithLogger, logError)
+import           System.Wlog          (WithLogger, logError, modifyLoggerName)
 import           Universum
 
 import           Pos.Constants        (lastKnownBlockVersion)
@@ -51,6 +51,9 @@ type USGlobalVerifyMode ssc m = ( DB.MonadDB ssc m
                                 , WithNodeContext ssc m
                                 , WithLogger m)
 
+withUSLogger :: WithLogger m => m a -> m a
+withUSLogger = modifyLoggerName (<> "us")
+
 -- | Apply chain of /definitely/ valid blocks to US part of GState DB
 -- and to US local data. This function assumes that no other thread
 -- applies block in parallel. It also assumes that parent of oldest
@@ -62,7 +65,7 @@ usApplyBlocks
     => OldestFirst NE (Block ssc)
     -> Maybe PollModifier
     -> m [DB.SomeBatchOp]
-usApplyBlocks blocks modifierMaybe =
+usApplyBlocks blocks modifierMaybe = withUSLogger $
     case modifierMaybe of
         Nothing -> do
             verdict <- runExceptT $ usVerifyBlocks blocks
@@ -87,7 +90,7 @@ usRollbackBlocks
     :: forall ssc m.
        USGlobalApplyMode ssc m
     => NewestFirst NE (Block ssc, USUndo) -> m [DB.SomeBatchOp]
-usRollbackBlocks blunds =
+usRollbackBlocks blunds = withUSLogger $
     modifierToBatch <$>
     (runDBPoll . execPollT def $ mapM_ (rollbackUS . snd) blunds)
 
@@ -98,7 +101,7 @@ usRollbackBlocks blunds =
 usVerifyBlocks
     :: (USGlobalVerifyMode ssc m)
     => OldestFirst NE (Block ssc) -> m (PollModifier, OldestFirst NE USUndo)
-usVerifyBlocks blocks = swap <$> run (mapM verifyBlock blocks)
+usVerifyBlocks blocks = withUSLogger $ swap <$> run (mapM verifyBlock blocks)
   where
     run = runDBPoll . runPollT def
 
@@ -135,8 +138,11 @@ verifyBlock (Right blk) =
 
 -- | Checks whether our software can create block according to current
 -- global state.
-usCanCreateBlock :: (WithNodeContext ssc m, DB.MonadDB ssc m) => m Bool
-usCanCreateBlock = runDBPoll $ canCreateBlockBV lastKnownBlockVersion
+usCanCreateBlock
+    :: (WithLogger m, WithNodeContext ssc m, DB.MonadDB ssc m)
+    => m Bool
+usCanCreateBlock =
+    withUSLogger $ runDBPoll $ canCreateBlockBV lastKnownBlockVersion
 
 ----------------------------------------------------------------------------
 -- Conversion to batch

@@ -31,7 +31,7 @@ import qualified Data.HashMap.Strict        as HM
 import qualified Data.Set                   as S
 import           Formatting                 (build, sformat, (%))
 import           Serokell.Data.Memory.Units (Byte)
-import           System.Wlog                (WithLogger, logDebug)
+import           System.Wlog                (WithLogger, logDebug, logNotice)
 import           Universum
 
 import           Pos.Crypto                 (PublicKey, hash)
@@ -183,11 +183,13 @@ adoptBlockVersion
     => HeaderHash -> BlockVersion -> m ()
 adoptBlockVersion winningBlk bv = do
     setAdoptedBV bv
+    logNotice $ sformat logFmt winningBlk bv
     mapM_ processConfirmed =<< getConfirmedProposals
   where
     processConfirmed cps
         | cpsBlockVersion cps /= bv = pass
         | otherwise = addConfirmedProposal cps {cpsAdopted = Just winningBlk}
+    logFmt = "BlockVersion is adopted: "%build%"; winning block was "%build
 
 -- | Verify that 'BlockVersionData' passed as last argument can follow
 -- 'BlockVersionData' passed as second argument. First argument

@@ -27,7 +27,7 @@ printHelp = putStrLn $ unlines [
     "If there are any files in one of the dirs that are not contained",
     "in the other dir, genupdate.sh will fail.",
     "",
-    "'bsdiff' and 'tar' have to be present in path."
+    "bsdiff has to be present in path."
     ]
 
 createUpdate :: FilePath -> FilePath -> FilePath -> IO ()
@@ -40,11 +40,12 @@ createUpdate oldDir newDir updPath = sh $ do
        newNotFiles <- filterM (fmap (not . isRegularFile) . stat) newFiles
        unless (null oldNotFiles && null newNotFiles) $ do
            unless (null oldNotFiles) $ do
-               printf (fp%" contains not-files:") oldDir
-               for_ oldNotFiles $ printf ("  * "%fp)
+               printf (fp%" contains not-files:\n") oldDir
+               for_ oldNotFiles $ printf ("  * "%fp%"\n")
            unless (null newNotFiles) $ do
-               printf (fp%" contains not-files:") newDir
-               for_ newNotFiles $ printf ("  * "%fp)
+               printf (fp%" contains not-files:\n") newDir
+               for_ newNotFiles $ printf ("  * "%fp%"\n")
+           echo "Generation aborted."
            exit (ExitFailure 2)
     -- fail if lists of files are unequal
     do let notInOld = map filename newFiles \\ map filename oldFiles
@@ -52,25 +53,32 @@ createUpdate oldDir newDir updPath = sh $ do
        unless (null notInOld && null notInNew) $ do
            unless (null notInOld) $ do
                echo "these files are in the NEW dir but not in the OLD dir:"
-               for_ notInOld $ printf ("  * "%fp)
+               for_ notInOld $ printf ("  * "%fp%"\n")
            unless (null notInNew) $ do
                echo "these files are in the OLD dir but not in the NEW dir:"
-               for_ notInNew $ printf ("  * "%fp)
+               for_ notInNew $ printf ("  * "%fp%"\n")
+           echo "Generation aborted."
            exit (ExitFailure 3)
     -- otherwise, for all files, generate hashes and a diff
     tempDir <- mktempdir (directory updPath) "temp"
-    (manifest, bsdiffs) <- fmap unzip $ forM oldFiles $ \f -> do
-        let fname = filename f
-            oldFile = oldDir </> fname
-            newFile = newDir </> fname
-            diffFile = tempDir </> (fname <.> "bsdiff")
-        oldHash <- hashFile oldFile
-        newHash <- hashFile newFile
-        _ <- proc "bsdiff"
-                 [fpToText oldFile, fpToText newFile, fpToText diffFile]
-                 mempty
-        diffHash <- hashFile diffFile
-        return (T.unwords [oldHash, newHash, diffHash], filename diffFile)
+    (manifest, bsdiffs) <-
+        fmap (unzip . catMaybes) $
+        forM oldFiles $ \f -> do
+            let fname = filename f
+                oldFile = oldDir </> fname
+                newFile = newDir </> fname
+                diffFile = tempDir </> (fname <.> "bsdiff")
+            oldHash <- hashFile oldFile
+            newHash <- hashFile newFile
+            if oldHash == newHash
+                then return Nothing
+                else do
+                    _ <- proc "bsdiff"
+                             (map fpToText [oldFile, newFile, diffFile])
+                             mempty
+                    diffHash <- hashFile diffFile
+                    return (Just (T.unwords [oldHash, newHash, diffHash],
+                                  filename diffFile))
     -- write the MANIFEST file
     liftIO $ writeTextFile (tempDir </> "MANIFEST") (T.unlines manifest)
     -- put diffs and a manifesto into a tar file

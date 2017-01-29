@@ -1,7 +1,7 @@
 @echo off
 rem initiate the retry number
 set retryNumber=0
-set maxRetries=500
+set maxRetries=5
 
 :RUN
 %*

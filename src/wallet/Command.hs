@@ -34,6 +34,7 @@ data Command
           , puSlotDurationSec :: Int
           , puMaxBlockSize    :: Byte
           , puSoftwareVersion :: SoftwareVersion
+          , puFilePath        :: Maybe FilePath
           }
     | Help
     | ListAddresses
@@ -95,7 +96,8 @@ proposeUpdate =
     lexeme parseIntegralSafe <*>
     lexeme parseIntegralSafe <*>
     lexeme parseIntegralSafe <*>
-    lexeme parseSoftwareVersion
+    lexeme parseSoftwareVersion <*>
+    optional (lexeme (many1 anyChar))
 
 command :: Parser Command
 command = try (text "balance") *> balance <|>

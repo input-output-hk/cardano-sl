@@ -19,7 +19,6 @@ import           Data.Coerce             (coerce)
 import           Data.Default            (Default (def))
 import           Data.Tagged             (Tagged (..))
 import           Data.Text.Buildable     (Buildable (build))
-import           Serokell.Util.Verify    (VerificationRes (..))
 import           Universum
 
 import           Pos.Binary.Class        (encode)
@@ -65,7 +64,7 @@ instance Ssc SscNistBeacon where
     sscCreateNodeContext _ = return ()
 
 instance SscHelpersClass SscNistBeacon where
-    sscVerifyPayload = Tagged $ const $ const VerSuccess
+    sscVerifyPayload = Tagged $ const $ const $ Right ()
 
 instance SscWorkersClass SscNistBeacon where
     sscWorkers = Tagged

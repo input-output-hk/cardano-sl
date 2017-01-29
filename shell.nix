@@ -8,7 +8,7 @@ in
      ghc = hsPkgs.ghc;
      buildInputs = [
        zlib openssh autoreconfHook openssl
-       gmp rocksdb git
+       gmp rocksdb git bsdiff
      # cabal-install and stack pull in lots of dependencies on OSX so skip them
      # See https://github.com/NixOS/nixpkgs/issues/21200
      ] ++ (lib.optionals stdenv.isLinux [ cabal-install stack ]);

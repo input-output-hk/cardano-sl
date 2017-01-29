@@ -63,14 +63,6 @@ module Pos.Constants
        , ourAppName
        , appSystemTag
        , updateServers
-       , updateProposalThreshold
-       , updateVoteThreshold
-       , updateImplicitApproval
-       , usSoftforkThreshold
-
-       -- * Package structure constants
-       , pkgUpdatesDir
-       , pkgExecutablesDir
 
        -- * NTP
        , ntpMaxError
@@ -118,7 +110,7 @@ slotSecurityParam = 2 * blkSecurityParam
 
 -- | Number of slots inside one epoch.
 epochSlots :: Integral a => a
-epochSlots = 12 * blkSecurityParam
+epochSlots = 10 * blkSecurityParam
 
 -- | Estimated time needed to broadcast message from one node to all
 -- other nodes. Also see 'Pos.CompileConfig.ccNetworkDiameter'.
@@ -355,34 +347,6 @@ appSystemTag = $(do
 #endif
         Just tag -> lift =<< mkSystemTag (toText tag))
 
-pkgExecutablesDir :: FilePath
-pkgExecutablesDir =
-    $(runIO (lookupEnv "CSL_EXE_DIR") >>=
-      maybe (
-#ifdef DEV_MODE
-         [|panic "'pkgExecutablesDir' can't be used if env var \
-                 \\"CSL_EXE_DIR\" wasn't set during compilation" |]
-#else
-         fail "Failed to init pkgExecutablesDir: \
-              \couldn't find env var \"CSL_EXE_DIR\""
-#endif
-         )
-         lift)
-
-pkgUpdatesDir :: FilePath
-pkgUpdatesDir =
-    $(runIO (lookupEnv "CSL_UPDATE_DIR") >>=
-      maybe (
-#ifdef DEV_MODE
-         [|panic "'pkgUpdatesDir' can't be used if env var \
-                 \\"CSL_UPDATE_DIR\" wasn't set during compilation" |]
-#else
-         fail "Failed to init pkgUpdatesDir: \
-              \couldn't find env var \"CSL_UPDATE_DIR\""
-#endif
-         )
-         lift)
-
 -- | Last block version application is aware of.
 lastKnownBlockVersion :: BlockVersion
 lastKnownBlockVersion = BlockVersion 0 0 0
@@ -402,6 +366,7 @@ updateServers = ccUpdateServers compileConfig
 ----------------------------------------------------------------------------
 -- NTP
 ----------------------------------------------------------------------------
+
 -- | Inaccuracy in call threadDelay (actually it is error much less than 1 sec)
 ntpMaxError :: Microsecond
 ntpMaxError = sec 1
@@ -413,23 +378,3 @@ ntpResponseTimeout = mcs . ccNtpResponseTimeout $ compileConfig
 -- | How often send request to NTP server
 ntpPollDelay :: Microsecond
 ntpPollDelay = mcs . ccNtpPollDelay $ compileConfig
-
-----------------------------------------------------------------------------
--- Update System
-----------------------------------------------------------------------------
-
--- TODO: remove
-updateProposalThreshold :: CoinPortion
-updateProposalThreshold = genesisUpdateProposalThd
-
--- TODO: remove
-updateVoteThreshold :: CoinPortion
-updateVoteThreshold = genesisUpdateVoteThd
-
--- TODO: remove
-updateImplicitApproval :: Integral i => i
-updateImplicitApproval = genesisUpdateImplicit
-
--- TODO: remove
-usSoftforkThreshold :: CoinPortion
-usSoftforkThreshold = genesisUpdateSoftforkThd

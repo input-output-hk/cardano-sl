@@ -21,7 +21,7 @@ import           Mockable                    (ChannelT, MFunctor',
                                               SharedAtomicT, ThreadId,
                                               liftMockableWrappedM)
 import           Serokell.Util.Lens          (WrappedM (..))
-import           System.Wlog                 (CanLog, HasLoggerName)
+import           System.Wlog                 (CanLog, HasLoggerName, WithLogger)
 import           Universum
 
 import           Pos.Context                 (WithNodeContext, lrcActionOnEpochReason)
@@ -87,7 +87,7 @@ instance MonadBaseControl IO m => MonadBaseControl IO (DBPoll m) where
 -- MonadPoll
 ----------------------------------------------------------------------------
 
-instance (WithNodeContext ssc m, MonadDB ssc m) =>
+instance (WithNodeContext ssc m, MonadDB ssc m, WithLogger m) =>
          MonadPollRead (DBPoll m) where
     getBVState = GS.getBVState
     getProposedBVs = GS.getProposedBVs

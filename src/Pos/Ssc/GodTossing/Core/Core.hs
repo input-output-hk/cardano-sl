@@ -16,7 +16,6 @@ module Pos.Ssc.GodTossing.Core.Core
        , secretToSharedSeed
 
        -- * Verification and Checks
-       , checkCertSign
        , checkCertTTL
        , verifyCommitment
        , verifyCommitmentSignature
@@ -47,7 +46,8 @@ import           Pos.Crypto                    (EncShare, Secret, SecretKey,
                                                 verifyShare)
 import           Pos.Ssc.GodTossing.Core.Types (Commitment (..), CommitmentsMap,
                                                 InnerSharesMap, Opening (..),
-                                                SignedCommitment, VssCertificate (..),
+                                                SignedCommitment,
+                                                VssCertificate (vcExpiryEpoch, vcVssKey),
                                                 VssCertificatesMap)
 import           Pos.Types.Address             (addressHash)
 import           Pos.Types.Core                (EpochIndex (..), LocalSlotIndex,
@@ -172,22 +172,15 @@ verifyOpening Commitment {..} (Opening secret) = fromMaybe False $
       <*> fromBinaryM secret
       <*> fromBinaryM commProof
 
--- CHECK: @checkCertSign
--- | Check that the VSS certificate is signed properly
--- #checkPubKeyAddress
--- #checkSig
-checkCertSign :: (StakeholderId, VssCertificate) -> Bool
-checkCertSign (id, VssCertificate {..}) = --TODO remove id from here
-    addressHash vcSigningKey == id &&
-    checkSig vcSigningKey (vcVssKey, vcExpiryEpoch) vcSignature
-
 -- CHECK: @checkCertTTL
--- | Check that the VSS certificate has valid TTL:
--- more than 0 and less than vssMaxTTL
+-- | Check that the VSS certificate has valid TTL: i. e. it is in
+-- '[vssMinTTL, vssMaxTTL]'.
 checkCertTTL :: EpochIndex -> VssCertificate -> Bool
-checkCertTTL curEpochIndex VssCertificate{..} =
-    vcExpiryEpoch + 1 >= vssMinTTL + curEpochIndex &&
-    getEpochIndex vcExpiryEpoch < vssMaxTTL + getEpochIndex curEpochIndex
+checkCertTTL curEpochIndex vc =
+    expiryEpoch + 1 >= vssMinTTL + curEpochIndex &&
+    expiryEpoch < vssMaxTTL + curEpochIndex
+  where
+    expiryEpoch = vcExpiryEpoch vc
 
 -- CHECK: @checkShare
 -- | Check that the decrypted share matches the encrypted share in the

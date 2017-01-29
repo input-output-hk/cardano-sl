@@ -36,10 +36,11 @@ instance Bi (DataMsg StakeholderId GtMsgContents) where
             MCVssCertificate _ -> pass
     get = do
         dmContents <- get
-        dmKey <- case dmContents of
-            MCCommitment (pk, _, _)              -> pure $ addressHash pk
-            MCVssCertificate VssCertificate {..} -> pure $ addressHash vcSigningKey
-            _                                    -> get
+        dmKey <-
+            case dmContents of
+                MCCommitment (pk, _, _) -> pure $ addressHash pk
+                MCVssCertificate vc     -> pure $ addressHash $ vcSigningKey vc
+                _                       -> get
         return $ DataMsg {..}
 
 instance Bi (DataMsg TxId TxMsgContents) where

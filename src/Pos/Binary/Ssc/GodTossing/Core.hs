@@ -8,10 +8,9 @@ import           Universum
 
 import           Pos.Binary.Class              (Bi (..))
 import           Pos.Binary.Crypto             ()
-import           Pos.Ssc.GodTossing.Core.Core  (checkCertSign)
 import           Pos.Ssc.GodTossing.Core.Types (Commitment (..), Opening (..),
-                                                VssCertificate (..))
-import           Pos.Types.Address             (addressHash)
+                                                VssCertificate (..),
+                                                recreateVssCertificate)
 
 instance Bi Commitment where
     put Commitment {..} = do
@@ -26,16 +25,12 @@ instance Bi Commitment where
         return Commitment {..}
 
 instance Bi VssCertificate where
-    put VssCertificate{..} = do
-        put vcVssKey
-        put vcExpiryEpoch
-        put vcSignature
-        put vcSigningKey
-    get = do
-        cert@VssCertificate{..} <- liftM4 VssCertificate get get get get
-        unless (checkCertSign (addressHash vcSigningKey, cert)) $
-            fail "get@VssCertificate: invalid sign"
-        pure  cert
+    put vc = do
+        put $ vcVssKey vc
+        put $ vcExpiryEpoch vc
+        put $ vcSignature vc
+        put $ vcSigningKey vc
+    get = join $ liftM4 recreateVssCertificate get get get get
 
 instance Bi Opening where
     put (Opening secret) = put secret

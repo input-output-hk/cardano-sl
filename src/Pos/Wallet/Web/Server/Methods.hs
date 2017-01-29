@@ -42,6 +42,7 @@ import           Pos.Types                     (Address, ChainDifficulty (..), C
 import           Pos.Util                      (maybeThrow)
 import           Pos.Util.BackupPhrase         (BackupPhrase, keysFromPhrase)
 
+import           Data.List                     (nub)
 import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
                                                 addSecretKey)
 import           Pos.Wallet.Tx                 (submitTx)
@@ -410,7 +411,7 @@ redeemADA sendActions CWalletRedeem {..} = do
 ----------------------------------------------------------------------------
 
 myAddresses :: MonadKeys m => m [Address]
-myAddresses = map (makePubKeyAddress . toPublic) <$> getSecretKeys
+myAddresses = nub . map (makePubKeyAddress . toPublic) <$> getSecretKeys
 
 myCAddresses :: MonadKeys m => m [CAddress]
 myCAddresses = map addressToCAddress <$> myAddresses

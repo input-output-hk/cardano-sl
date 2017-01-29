@@ -190,7 +190,7 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
         SharesPayload       shares _ -> shareChecks shares
         CertificatesPayload        _ -> pass
 
-    when verifyPure $ case verifyGtPayload (b ^. gbHeader) payload of
+    when verifyPure $ case verifyGtPayload (Right $ b ^. gbHeader) payload of
         Right _ -> pass
         Left er -> throwError er
   where

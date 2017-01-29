@@ -19,6 +19,7 @@ module Pos.Ssc.GodTossing.Functions
        , getStableCertsPure
        ) where
 
+import           Control.Lens                   (to)
 import           Control.Monad.Except           (MonadError (throwError), runExcept)
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.HashSet                   as HS
@@ -78,29 +79,32 @@ hasVssCertificate id = VCD.member id . _gsVssCertificates
 -- We also do some general sanity checks.
 verifyGtPayload
     :: (SscPayload ssc ~ GtPayload, Bi Commitment)
-    => MainBlockHeader ssc -> SscPayload ssc -> Either TossVerFailure ()
-verifyGtPayload header payload = case payload of
+    => Either EpochIndex (MainBlockHeader ssc)
+    -> SscPayload ssc
+    -> Either TossVerFailure ()
+verifyGtPayload eoh payload = case payload of
     CommitmentsPayload comms certs -> do
-        isComm
+        whenMB eoh isComm
         commChecks comms
         certsChecks certs
     OpeningsPayload        _ certs -> do
-        isOpen
+        whenMB eoh isOpen
         certsChecks certs
     SharesPayload          _ certs -> do
-        isShare
+        whenMB eoh isShare
         certsChecks certs
     CertificatesPayload      certs -> do
-        isOther
+        whenMB eoh isOther
         certsChecks certs
   where
-    slotId  = header ^. headerSlot
-    epochIndex = siEpoch slotId
-    epochId = siEpoch slotId
-    isComm  = unless (isCommitmentId slotId) $ Left $ NotCommitmentPhase slotId
-    isOpen  = unless (isOpeningId slotId) $ Left $ NotOpeningPhase slotId
-    isShare = unless (isSharesId slotId) $ Left $ NotSharesPhase slotId
-    isOther = unless (all not $
+    whenMB (Left _) _   = pass
+    whenMB (Right mb) f = f $ mb ^. headerSlot
+
+    epochId  = either identity (view $ headerSlot . to siEpoch) eoh
+    isComm  slotId = unless (isCommitmentId slotId) $ Left $ NotCommitmentPhase slotId
+    isOpen  slotId = unless (isOpeningId slotId) $ Left $ NotOpeningPhase slotId
+    isShare slotId = unless (isSharesId slotId) $ Left $ NotSharesPhase slotId
+    isOther slotId = unless (all not $
                       map ($ slotId) [isCommitmentId, isOpeningId, isSharesId]) $
                       Left $ NotIntermediatePhase slotId
 
@@ -134,7 +138,7 @@ verifyGtPayload header payload = case payload of
     -- #checkCert
     certsChecks certs = runExcept $ do
         verifyEntriesGuard (second vcExpiryEpoch . join (,)) identity CertificateInvalidTTL
-                           (checkCertTTL epochIndex)
+                           (checkCertTTL epochId)
                            (toList certs)
 
 ----------------------------------------------------------------------------

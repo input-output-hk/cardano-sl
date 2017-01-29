@@ -11,7 +11,8 @@ import           Test.QuickCheck                  (Arbitrary (..), elements, one
 import           Universum
 
 import           Pos.Binary.Class                 (Bi)
-import           Pos.Crypto                       (deterministicVssKeyGen, toVssPublicKey)
+import           Pos.Crypto                       (deterministicVssKeyGen, toPublic,
+                                                   toVssPublicKey)
 import           Pos.Ssc.GodTossing.Core          (Commitment, Opening,
                                                    VssCertificate (..),
                                                    genCommitmentAndOpening,
@@ -24,9 +25,11 @@ import           Pos.Ssc.GodTossing.Types.Types   (GtGlobalState (..), GtPayload
 import           Pos.Ssc.GodTossing.VssCertData   (VssCertData (..))
 import           Pos.Types.Address                (addressHash)
 import           Pos.Types.Arbitrary.Unsafe       ()
+import           Pos.Types.Core                   (StakeholderId)
 import           Pos.Util                         (asBinary)
 import           Pos.Util.Arbitrary               (Nonrepeating (..), makeSmall, sublistN,
                                                    unsafeMakePool)
+import           Pos.Util.Relay                   (DataMsg (..))
 ----------------------------------------------------------------------------
 -- Core
 ----------------------------------------------------------------------------
@@ -127,3 +130,18 @@ instance (Bi Commitment) => Arbitrary GtMsgContents where
                       , MCShares <$> arbitrary
                       , MCVssCertificate <$> arbitrary
                       ]
+
+instance Arbitrary (DataMsg StakeholderId GtMsgContents) where
+    arbitrary = do
+        sk <- arbitrary
+        let pk = toPublic sk
+        let dmKey = addressHash pk
+        dmContents <-
+            oneof
+                [ MCCommitment <$> ((pk, , ) <$> arbitrary <*> arbitrary)
+                , MCOpening <$> arbitrary
+                , MCShares <$> arbitrary
+                , MCVssCertificate <$>
+                  (mkVssCertificate sk <$> arbitrary <*> arbitrary)
+                ]
+        return $ DataMsg {..}

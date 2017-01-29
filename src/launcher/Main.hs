@@ -7,8 +7,7 @@
 import           Control.Concurrent.Async hiding (wait)
 import           Options.Applicative      (Parser, ParserInfo, auto, execParser, fullDesc,
                                            help, helper, info, long, metavar, option,
-                                           progDesc, strOption)
-import           System.Directory         (getAppUserDataDirectory)
+                                           progDesc, short, strOption)
 import qualified System.IO                as IO
 import           System.Process           (ProcessHandle)
 import qualified System.Process           as Process
@@ -21,41 +20,52 @@ import           Foreign.C.Error          (Errno (..), ePIPE)
 import           GHC.IO.Exception         (IOErrorType (..), IOException (..))
 
 data LauncherOptions = LO
-    { loNode           :: Maybe Text
-    , loWallet         :: Maybe Text
-    , loUpdater        :: Text
-    , loUpdateArchive  :: FilePath
+    { loNodePath       :: FilePath
+    , loNodeArgs       :: [Text]
+    , loNodeLogPath    :: FilePath
+    , loWalletPath     :: Maybe FilePath
+    , loWalletArgs     :: [Text]
+    , loUpdaterCmd     :: Text
+    , loUpdateArchive  :: Maybe FilePath
     , loNodeTimeoutSec :: Int
     }
 
 optsParser :: Parser LauncherOptions
-optsParser = LO <$> nodeOpt
-                <*> walletOpt
-                <*> updaterOpt
-                <*> updateArchiveOpt
-                <*> nodeTimeoutOpt
-  where
-    nodeOpt = optional $ toText <$>
-      strOption (long "node" <>
-                 metavar "PATH" <>
-                 help "Path to the node executable")
-    walletOpt = optional $ toText <$>
-      strOption (long "wallet" <>
-                 metavar "CMD" <>
-                 help "Command that starts the wallet")
-    updaterOpt = toText <$>
-      strOption (long "updater" <>
-                 metavar "CMD" <>
-                 help "Command that starts the updater")
-    updateArchiveOpt = fromString <$>
-      strOption (long "update-archive" <>
-                 metavar "PATH" <>
-                 help "Contents of the update")
-    nodeTimeoutOpt =
-      option auto (long "node-timeout" <>
-                   metavar "SEC" <>
-                   help "How much to wait for the node to exit \
-                        \before killing it")
+optsParser = LO
+    <$> (fromString <$> strOption (
+             long "node" <>
+             metavar "PATH" <>
+             help "Path to the node executable"))
+    <*> (many $ toText <$> strOption (
+             short 'n' <>
+             metavar "ARG" <>
+             help "An argument to be passed to the node"))
+    <*> (fromString <$> strOption (
+             long "node-log" <>
+             metavar "PATH" <>
+             help "Path to the log where node's output will be dumped"))
+    <*> (optional $ fromString <$> strOption (
+             long "wallet" <>
+             metavar "PATH" <>
+             help "Path to the wallet executable"))
+    <*> (many $ toText <$> strOption (
+             short 'w' <>
+             metavar "ARG" <>
+             help "An argument to be passed to the wallet"))
+    <*> (toText <$> strOption (
+             long "updater" <>
+             metavar "CMD" <>
+             help "Command that starts the updater"))
+    <*> (optional $ fromString <$> strOption (
+             long "update-archive" <>
+             metavar "PATH" <>
+             help "Path to the update archive \
+                  \(will be passed to the updater)"))
+    <*> (option auto (
+             long "node-timeout" <>
+             metavar "SEC" <>
+             help "How much to wait for the node to exit \
+                  \before killing it"))
 
 optsInfo :: ParserInfo LauncherOptions
 optsInfo = info (helper <*> optsParser) $
@@ -64,28 +74,38 @@ optsInfo = info (helper <*> optsParser) $
 main :: IO ()
 main = do
     LO {..} <- execParser optsInfo
-    sh $ case loWallet of
-        Nothing -> serverScenario loNode (loUpdater, loUpdateArchive)
-        Just wp -> clientScenario loNode wp (loUpdater, loUpdateArchive)
-                                  loNodeTimeoutSec
+    sh $ case loWalletPath of
+             Nothing ->
+                 serverScenario
+                     (loNodePath, loNodeArgs, loNodeLogPath)
+                     (loUpdaterCmd, loUpdateArchive)
+             Just wpath ->
+                 clientScenario
+                     (loNodePath, loNodeArgs, loNodeLogPath)
+                     (wpath, loWalletArgs)
+                     (loUpdaterCmd, loUpdateArchive)
+                     loNodeTimeoutSec
 
 -- | If we are on server, we want the following algorithm:
 --
 -- * Update (if we are already up-to-date, nothing will happen).
 -- * Launch the node.
 -- * If it exits with code 20, then update and restart, else quit.
-serverScenario :: Maybe Text -> (Text, FilePath) -> Shell ()
-serverScenario nodePath upd = do
+serverScenario
+    :: (FilePath, [Text], FilePath)  -- ^ Node + its arguments + node log
+    -> (Text, Maybe FilePath)        -- ^ Updater cmd + the update archive
+    -> Shell ()
+serverScenario node updater = do
     echo "Running the updater"
-    runUpdater upd
+    runUpdater updater
     -- TODO: somehow signal updater failure if it fails? would be nice to
     -- write it into the log, at least
     echo "Starting the node"
-    (_, nodeAsync) <- spawnNode nodePath
+    (_, nodeAsync) <- spawnNode node
     exitCode <- wait nodeAsync
     printf ("The node has exited with "%s%"\n") (show exitCode)
     case exitCode of
-        ExitFailure 20 -> serverScenario nodePath upd
+        ExitFailure 20 -> serverScenario node updater
         _              -> return ()
 
 -- | If we are on desktop, we want the following algorithm:
@@ -93,16 +113,22 @@ serverScenario nodePath upd = do
 -- * Update (if we are already up-to-date, nothing will happen).
 -- * Launch the node and the wallet.
 -- * If the wallet exits with code 20, then update and restart, else quit.
-clientScenario :: Maybe Text -> Text -> (Text, FilePath) -> Int -> Shell ()
-clientScenario nodePath walletCmd upd nodeTimeout = do
+--
+clientScenario
+    :: (FilePath, [Text], FilePath)  -- ^ Node + its arguments + node log
+    -> (FilePath, [Text])            -- ^ Wallet + its arguments
+    -> (Text, Maybe FilePath)        -- ^ Updater cmd + the update archive
+    -> Int                           -- ^ Node timeout, in seconds
+    -> Shell ()
+clientScenario node wallet updater nodeTimeout = do
     echo "Running the updater"
-    runUpdater upd
+    runUpdater updater
     echo "Starting the node"
     -- I don't know why but a process started with turtle just can't be
     -- killed, so let's use 'terminateProcess' and modified 'system'
-    (nodeHandle, nodeAsync) <- spawnNode nodePath
+    (nodeHandle, nodeAsync) <- spawnNode node
     echo "Starting the wallet"
-    walletAsync <- fork (shell walletCmd mempty)
+    walletAsync <- fork (runWallet wallet)
     (someAsync, exitCode) <- liftIO $ waitAny [nodeAsync, walletAsync]
     if | someAsync == nodeAsync -> do
              printf ("The node has exited with "%s%"\n") (show exitCode)
@@ -116,7 +142,7 @@ clientScenario nodePath walletCmd upd nodeTimeout = do
              liftIO $ do
                  Process.terminateProcess nodeHandle
                  cancel nodeAsync
-             clientScenario nodePath walletCmd upd nodeTimeout
+             clientScenario node wallet updater nodeTimeout
        | otherwise -> do
              printf ("The wallet has exited with "%s%"\n") (show exitCode)
              echo "Killing the node"
@@ -126,50 +152,28 @@ clientScenario nodePath walletCmd upd nodeTimeout = do
 
 -- | We run the updater and delete the update file if the update was
 -- successful.
-runUpdater :: (Text, FilePath) -> Shell ()
+runUpdater :: (Text, Maybe FilePath) -> Shell ()
 runUpdater (updaterCmd, updateArchive) = do
-    let cmd = updaterCmd <> " " <>
-              toText (translate (toString updateArchive))
+    let cmd = case updateArchive of
+            Nothing -> updaterCmd
+            Just ua -> updaterCmd <> " " <> toText (translate (toString ua))
     exitCode <- shell cmd mempty
     printf ("The updater has exited with "%s%"\n") (show exitCode)
     when (exitCode == ExitSuccess) $ do
         -- this will throw an exception if the file doesn't exist but
         -- hopefully if the updater has succeeded it *does* exist
-        rm updateArchive
+        whenJust updateArchive rm
 
 ----------------------------------------------------------------------------
--- Command generation
+-- Running stuff
 ----------------------------------------------------------------------------
 
-spawnNode :: Maybe Text -> Shell (ProcessHandle, Async ExitCode)
-spawnNode mbNodePath = do
-    appDir <- fromString <$> liftIO (getAppUserDataDirectory "Daedalus")
-    -- TODO: some of code below only on Windows. The original code in Daedalus
-    -- looked like this:
-    --
-    --     const DATA = process.env.APPDATA ||
-    --                  (process.platform == 'darwin'
-    --                      ? process.env.HOME + 'Library/Preferences'
-    --                      : '~/.config')
-    let flags = [
-            "--listen", "0.0.0.0:12100",
-            "--peer", "35.156.182.24:3000/MHdrsP-oPf7UWl0007QuXnLK5RD=",
-            "--peer", "54.183.103.204:3000/MHdrsP-oPf7UWl0077QuXnLK5RD=",
-            "--peer", "52.53.231.169:3000/MHdrsP-oPf7UWl0127QuXnLK5RD=",
-            "--peer", "35.157.41.94:3000/MHdrsP-oPf7UWl0057QuXnLK5RD=",
-            "--log-config", "log-config-prod.yaml",
-            "--keyfile", toString (appDir </> "Secrets" </> "secret.key"),
-            "--logs-prefix", toString (appDir </> "Logs"),
-            "--db-path", toString (appDir </> "DB"),
-            "--wallet-db-path", toString (appDir </> "Wallet"),
-            "--wallet"
-            ]
-
-    let logPath = appDir </> "Logs" </> "cardano-node.log"
+spawnNode
+    :: (FilePath, [Text], FilePath)
+    -> Shell (ProcessHandle, Async ExitCode)
+spawnNode (path, args, logPath) = do
     logHandle <- openFile (toString logPath) AppendMode
-
-    let nodePath = fromMaybe "cardano-node.exe" mbNodePath
-    let cr = (Process.proc (toString nodePath) flags)
+    let cr = (Process.proc (toString path) (map toString args))
                  { Process.std_in  = Process.CreatePipe
                  , Process.std_out = Process.UseHandle logHandle
                  , Process.std_err = Process.UseHandle logHandle
@@ -179,12 +183,18 @@ spawnNode mbNodePath = do
     ph <- liftIO $ takeMVar phvar
     return (ph, asc)
 
+runWallet :: (FilePath, [Text]) -> IO ExitCode
+runWallet (path, args) = proc (toText path) args mempty
+
 ----------------------------------------------------------------------------
 -- Utils
 ----------------------------------------------------------------------------
 
 instance ToString FilePath where
     toString = toString . format fp
+
+instance ToText FilePath where
+    toText = format fp
 
 ----------------------------------------------------------------------------
 -- Turtle internals, modified to give access to process handles

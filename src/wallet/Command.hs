@@ -5,6 +5,7 @@ module Command
        , parseCommand
        ) where
 
+import qualified Data.Text                  as T
 import           Prelude                    (read, show)
 import           Serokell.Data.Memory.Units (Byte)
 import           Text.Parsec                (many1, parse, try, (<?>))
@@ -34,6 +35,7 @@ data Command
           , puSlotDurationSec :: Int
           , puMaxBlockSize    :: Byte
           , puSoftwareVersion :: SoftwareVersion
+          , puFilePath        :: Maybe FilePath
           }
     | Help
     | ListAddresses
@@ -95,7 +97,8 @@ proposeUpdate =
     lexeme parseIntegralSafe <*>
     lexeme parseIntegralSafe <*>
     lexeme parseIntegralSafe <*>
-    lexeme parseSoftwareVersion
+    lexeme parseSoftwareVersion <*>
+    optional (lexeme (many1 anyChar))
 
 command :: Parser Command
 command = try (text "balance") *> balance <|>

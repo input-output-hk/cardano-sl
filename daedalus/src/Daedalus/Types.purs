@@ -93,12 +93,11 @@ mkCWalletInit wType wCurrency wName mnemonic = do
                           , cwInitMeta: mkCWalletMeta wType wCurrency wName
                           }
 
-mkCWalletRedeem :: String -> String -> Either Error CT.CWalletRedeem
-mkCWalletRedeem seed mnemonic = do
-    bp <- mkBackupPhrase mnemonic
-    pure $ CT.CWalletRedeem { crBackupPhrase: bp
-                            , crSeed: seed
-                            }
+mkCWalletRedeem :: String -> String -> CT.CWalletRedeem
+mkCWalletRedeem seed wId = do
+    CT.CWalletRedeem { crWalletId: mkCAddress wId
+                     , crSeed: seed
+                     }
 
 _ctxIdValue :: CT.CTxId -> String
 _ctxIdValue (CT.CTxId tx) = _hash tx

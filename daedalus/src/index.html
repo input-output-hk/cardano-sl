@@ -104,8 +104,8 @@
             .then(console.log)
             .catch(console.log)
       };
-      var redeemADA = function(seed, mnemonic) {
-         Daedalus.ClientApi.redeemADA(seed, mnemonic)
+      var redeemADA = function(seed, address) {
+         Daedalus.ClientApi.redeemADA(seed, address)
             .then(console.log)
             .catch(console.log)
       };
@@ -136,7 +136,7 @@
       <li><button onclick="nextUpdate()"/>next update</li>
       <li><button onclick="applyUpdate()"/>apply update</li>
       <li><button onclick="systemVersion()"/>system version</li>
-      <li><button onclick="redeemADA('seed', 'mnemonic')"/>redeem ada</li>
+      <li><button onclick="redeemADA('seed', 'address to redeem to')"/>redeem ada</li>
     </ul>
 	</body>
 </html>

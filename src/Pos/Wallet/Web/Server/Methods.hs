@@ -55,11 +55,10 @@ import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CProf
                                                 CProfile (..), CTx, CTxId, CTxMeta (..),
                                                 CUpdateInfo (..), CWallet (..),
                                                 CWalletInit (..), CWalletMeta (..),
-                                                CWalletRedeem (..), CWalletType (..),
-                                                NotifyEvent (..), addressToCAddress,
-                                                cAddressToAddress, mkCTx, mkCTxId,
-                                                toCUpdateInfo, txContainsTitle,
-                                                txIdToCTxId)
+                                                CWalletRedeem (..), NotifyEvent (..),
+                                                addressToCAddress, cAddressToAddress,
+                                                mkCTx, mkCTxId, toCUpdateInfo,
+                                                txContainsTitle, txIdToCTxId)
 import           Pos.Wallet.Web.Error          (WalletError (..))
 import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 WalletWebSockets, closeWSConnection,
@@ -389,8 +388,7 @@ redeemADA sendActions CWalletRedeem {..} = do
     (redeemPK, redeemSK) <- maybeThrow (Internal "Seed is not 32-byte long") $
                             deterministicKeyGen seedBs
     -- new redemption wallet
-    walletB <- newWallet $ CWalletInit crBackupPhrase $
-               CWalletMeta CWTPersonal ADA "Redemption wallet"
+    walletB <- getWallet crWalletId
 
     -- send from seedAddress to walletB
     let dstCAddr = cwAddress walletB

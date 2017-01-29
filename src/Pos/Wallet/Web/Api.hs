@@ -11,7 +11,6 @@ module Pos.Wallet.Web.Api
 import           Data.Proxy                 (Proxy (Proxy))
 
 import           Pos.Types                  (Coin, SoftwareVersion)
-import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CProfile, CTx, CTxId,
                                              CTxMeta, CUpdateInfo, CWallet, CWalletInit,
                                              CWalletMeta, CWalletRedeem)

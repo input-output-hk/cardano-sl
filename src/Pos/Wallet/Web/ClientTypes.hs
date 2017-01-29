@@ -157,8 +157,8 @@ data CWalletInit = CWalletInit
 
 -- | Query data for redeem
 data CWalletRedeem = CWalletRedeem
-    { crBackupPhrase :: !BackupPhrase
-    , crSeed         :: !Text -- TODO: newtype!
+    { crWalletId :: !CAddress
+    , crSeed     :: !Text -- TODO: newtype!
     } deriving (Show, Generic)
 
 ----------------------------------------------------------------------------

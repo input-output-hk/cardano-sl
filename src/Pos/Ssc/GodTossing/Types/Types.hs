@@ -26,8 +26,6 @@ module Pos.Ssc.GodTossing.Types.Types
        , mkGtProof
        , createGtContext
        , _gpCertificates
-
-       , SscBi
        ) where
 
 import           Control.Concurrent.STM         (newTVarIO)
@@ -320,14 +318,3 @@ instance Buildable TossVerFailure where
         bprint ("some VSS certificates have invalid TTL: "%listJson) certs
     build (TossInternallError msg) =
         bprint ("internal error: "%stext) msg
-
-----------------------------------------------------------------------------
--- Convinient binary type alias
-----------------------------------------------------------------------------
-
-type SscBi =
-    ( Bi GtProof
-    , Bi GtPayload
-    , Bi Opening
-    , Bi VssCertificate
-    , Bi Commitment)

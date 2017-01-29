@@ -10,7 +10,7 @@ import qualified Data.HashMap.Strict              as HM
 import           Test.QuickCheck                  (Arbitrary (..), elements, oneof)
 import           Universum
 
-import           Pos.Binary.Class                 (Bi)
+import           Pos.Binary.Ssc                   ()
 import           Pos.Crypto                       (deterministicVssKeyGen, toPublic,
                                                    toVssPublicKey)
 import           Pos.Ssc.GodTossing.Core          (Commitment, Opening,
@@ -20,8 +20,7 @@ import           Pos.Ssc.GodTossing.Core          (Commitment, Opening,
 import           Pos.Ssc.GodTossing.Type          ()
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtMsgTag (..))
 import           Pos.Ssc.GodTossing.Types.Types   (GtGlobalState (..), GtPayload (..),
-                                                   GtProof (..), GtSecretStorage (..),
-                                                   SscBi)
+                                                   GtProof (..), GtSecretStorage (..))
 import           Pos.Ssc.GodTossing.VssCertData   (VssCertData (..))
 import           Pos.Types.Address                (addressHash)
 import           Pos.Types.Arbitrary.Unsafe       ()
@@ -70,7 +69,7 @@ instance Arbitrary VssCertificate where
 -- Gt (God Tossing) types
 ------------------------------------------------------------------------------------------
 
-instance (Bi Commitment, Bi Opening, Bi VssCertificate) => Arbitrary GtProof where
+instance Arbitrary GtProof where
     arbitrary = oneof [
                         CommitmentsProof <$> arbitrary <*> arbitrary
                       , OpeningsProof <$> arbitrary <*> arbitrary
@@ -78,8 +77,7 @@ instance (Bi Commitment, Bi Opening, Bi VssCertificate) => Arbitrary GtProof whe
                       , CertificatesProof <$> arbitrary
                       ]
 
-instance Bi Commitment =>
-         Arbitrary GtPayload where
+instance Arbitrary GtPayload where
     arbitrary =
         makeSmall $
         oneof
@@ -103,14 +101,14 @@ instance Arbitrary VssCertData where
         <*> arbitrary
         <*> arbitrary
 
-instance Bi Commitment => Arbitrary GtGlobalState where
+instance Arbitrary GtGlobalState where
     arbitrary = makeSmall $ GtGlobalState
         <$> arbitrary
         <*> arbitrary
         <*> arbitrary
         <*> arbitrary
 
-instance SscBi => Arbitrary GtSecretStorage where
+instance Arbitrary GtSecretStorage where
     arbitrary = GtSecretStorage <$> arbitrary <*> arbitrary <*> arbitrary
 
 ------------------------------------------------------------------------------------------
@@ -124,7 +122,7 @@ instance Arbitrary GtMsgTag where
                       , pure VssCertificateMsg
                       ]
 
-instance (Bi Commitment) => Arbitrary GtMsgContents where
+instance Arbitrary GtMsgContents where
     arbitrary = oneof [ MCCommitment <$> arbitrary
                       , MCOpening <$> arbitrary
                       , MCShares <$> arbitrary

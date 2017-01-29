@@ -5,37 +5,36 @@ module Pos.Security.Workers
        ( SecurityWorkersClass (..)
        ) where
 
-import           Control.Concurrent.STM         (TVar, newTVar, readTVar, writeTVar)
-import           Control.Monad.Trans.Reader     (ReaderT (..), ask)
-import qualified Data.HashMap.Strict            as HM
-import           Data.Tagged                    (Tagged (..))
-import           Formatting                     (build, int, sformat, (%))
-import           Node                           (SendActions)
-import           System.Wlog                    (logError, logWarning)
-import           Universum                      hiding (ask)
+import           Control.Concurrent.STM      (TVar, newTVar, readTVar, writeTVar)
+import           Control.Monad.Trans.Reader  (ReaderT (..), ask)
+import qualified Data.HashMap.Strict         as HM
+import           Data.Tagged                 (Tagged (..))
+import           Formatting                  (build, int, sformat, (%))
+import           Node                        (SendActions)
+import           System.Wlog                 (logError, logWarning)
+import           Universum                   hiding (ask)
 
-import           Pos.Block.Network.Retrieval    (requestTip)
-import           Pos.Communication.BiP          (BiP)
-import           Pos.Constants                  (blkSecurityParam,
-                                                 mdNoBlocksSlotThreshold,
-                                                 mdNoCommitmentsEpochThreshold)
-import           Pos.Context                    (getNodeContext, ncPublicKey)
-import           Pos.DB                         (getBlockHeader, getTipBlockHeader,
-                                                 loadBlundsFromTipByDepth)
-import           Pos.DHT.Model                  (converseToNeighbors)
-import           Pos.Security.Class             (SecurityWorkersClass (..))
-import           Pos.Slotting                   (onNewSlot)
-import           Pos.Ssc.GodTossing.Type        (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Types (GtPayload (..), SscBi)
-import           Pos.Ssc.NistBeacon             (SscNistBeacon)
-import           Pos.Types                      (EpochIndex, MainBlock, SlotId (..),
-                                                 blockMpc, flattenEpochOrSlot,
-                                                 flattenSlotId, genesisHash,
-                                                 headerLeaderKey, prevBlockL)
-import           Pos.Types.Address              (addressHash)
-import           Pos.WorkMode                   (WorkMode)
+import           Pos.Binary.Ssc              ()
+import           Pos.Block.Network.Retrieval (requestTip)
+import           Pos.Communication.BiP       (BiP)
+import           Pos.Constants               (blkSecurityParam, mdNoBlocksSlotThreshold,
+                                              mdNoCommitmentsEpochThreshold)
+import           Pos.Context                 (getNodeContext, ncPublicKey)
+import           Pos.DB                      (getBlockHeader, getTipBlockHeader,
+                                              loadBlundsFromTipByDepth)
+import           Pos.DHT.Model               (converseToNeighbors)
+import           Pos.Security.Class          (SecurityWorkersClass (..))
+import           Pos.Slotting                (onNewSlot)
+import           Pos.Ssc.GodTossing.Type     (SscGodTossing)
+import           Pos.Ssc.GodTossing.Types    (GtPayload (..))
+import           Pos.Ssc.NistBeacon          (SscNistBeacon)
+import           Pos.Types                   (EpochIndex, MainBlock, SlotId (..),
+                                              blockMpc, flattenEpochOrSlot, flattenSlotId,
+                                              genesisHash, headerLeaderKey, prevBlockL)
+import           Pos.Types.Address           (addressHash)
+import           Pos.WorkMode                (WorkMode)
 
-instance SscBi => SecurityWorkersClass SscGodTossing where
+instance SecurityWorkersClass SscGodTossing where
     securityWorkers = Tagged [ checkForReceivedBlocksWorker
                              , checkForIgnoredCommitmentsWorker
                              ]

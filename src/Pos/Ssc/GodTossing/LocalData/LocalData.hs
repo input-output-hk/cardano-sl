@@ -28,7 +28,7 @@ import           Data.List.NonEmpty                   (NonEmpty ((:|)))
 import           Serokell.Util.Verify                 (isVerSuccess)
 import           Universum
 
-import           Pos.Binary.Ssc.GodTossing.Core       ()
+import           Pos.Binary.Ssc                       ()
 import           Pos.Lrc.Types                        (Richmen, RichmenSet)
 import           Pos.Slotting                         (getCurrentSlot)
 import           Pos.Ssc.Class.LocalData              (LocalQuery, LocalUpdate,
@@ -58,7 +58,7 @@ import           Pos.Ssc.GodTossing.LocalData.Types   (GtLocalData (..), ldCerti
                                                        ldOpenings, ldShares)
 import           Pos.Ssc.GodTossing.Type              (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types             (GtGlobalState, GtPayload (..),
-                                                       SscBi, TossVerErrorTag (..),
+                                                       TossVerErrorTag (..),
                                                        TossVerFailure (..),
                                                        _gsCommitments, _gsOpenings,
                                                        _gsShares, _gsVssCertificates)
@@ -67,7 +67,7 @@ import qualified Pos.Ssc.GodTossing.VssCertData       as VCD
 import           Pos.Types                            (EpochIndex, SlotId (..),
                                                        StakeholderId, addressHash)
 
-instance SscBi => SscLocalDataClass SscGodTossing where
+instance SscLocalDataClass SscGodTossing where
     sscGetLocalPayloadQ = getLocalPayload
     sscApplyGlobalStateU = applyGlobal
     sscNewLocalData =
@@ -227,14 +227,13 @@ sscIsDataUsefulSetImpl localG globalG addr =
 -- | Process message and save it if needed. Result is whether message
 -- has been actually added.
 sscProcessMessage ::
-       (MonadSscLD SscGodTossing m, SscBi)
+       (MonadSscLD SscGodTossing m)
     => (EpochIndex, Richmen) -> GtMsgContents -> StakeholderId -> m (Either TossVerFailure ())
 sscProcessMessage richmen msg =
     gtRunModify . runExceptT . sscProcessMessageU (second (HS.fromList . toList) richmen) msg
 
 sscProcessMessageU
-    :: SscBi
-    => (EpochIndex, RichmenSet)
+    :: (EpochIndex, RichmenSet)
     -> GtMsgContents
     -> StakeholderId
     -> LDProcess ()

@@ -111,10 +111,10 @@ checkNSendOurCert sendActions = do
         Just ourCert
             | vcExpiryEpoch ourCert >= siEpoch ->
                 logDebug "Our VssCertificate has been already announced."
-            | otherwise -> sendCert siEpoch True ourId
-        Nothing -> sendCert siEpoch False ourId
+            | otherwise -> sendCert siEpoch True
+        Nothing -> sendCert siEpoch False
   where
-    sendCert epoch resend ourId = do
+    sendCert epoch resend = do
         if resend then
             logError "Our VSS certificate is in global state, but it has already expired, \
                      \apparently it's a bug, but we are announcing it just in case."
@@ -123,8 +123,8 @@ checkNSendOurCert sendActions = do
                      \we will announce it now."
         ourVssCertificate <- getOurVssCertificate
         let contents = MCVssCertificate ourVssCertificate
-        sscProcessOurMessage epoch contents ourId
-        let msg = DataMsg contents ourId
+        sscProcessOurMessage epoch contents
+        let msg = DataMsg contents
     -- [CSL-245]: do not catch all, catch something more concrete.
         (sendToNeighbors sendActions msg >>
          logDebug "Announced our VssCertificate.")
@@ -189,7 +189,7 @@ onNewSlotCommitment sendActions slotId@SlotId {..}
               sendOurCommitment comm ourId
 
     sendOurCommitment comm ourId = do
-        sscProcessOurMessage siEpoch (MCCommitment comm) ourId
+        sscProcessOurMessage siEpoch (MCCommitment comm)
         sendOurData sendActions CommitmentMsg siEpoch 0 ourId
 
 -- Openings-related part of new slot processing
@@ -212,7 +212,7 @@ onNewSlotOpening sendActions SlotId {..}
         mbOpen <- SS.getOurOpening siEpoch
         case mbOpen of
             Just open -> do
-                sscProcessOurMessage siEpoch (MCOpening open) ourId
+                sscProcessOurMessage siEpoch (MCOpening ourId open)
                 sendOurData sendActions OpeningMsg siEpoch 2 ourId
             Nothing -> logWarning "We don't know our opening, maybe we started recently"
 
@@ -231,19 +231,19 @@ onNewSlotShares sendActions SlotId {..} = do
         shares <- getOurShares ourVss
         let lShares = fmap asBinary shares
         unless (HM.null shares) $ do
-            sscProcessOurMessage siEpoch (MCShares lShares) ourId
+            sscProcessOurMessage siEpoch (MCShares ourId lShares)
             sendOurData sendActions SharesMsg siEpoch 4 ourId
 
 sscProcessOurMessage
     :: WorkMode SscGodTossing m
-    => EpochIndex -> GtMsgContents -> StakeholderId -> m ()
-sscProcessOurMessage epoch msg ourId = do
+    => EpochIndex -> GtMsgContents -> m ()
+sscProcessOurMessage epoch msg = do
     richmen <- getRichmenSsc epoch
     case richmen of
         Nothing ->
             logWarning
                 "We are processing our SSC message and don't know richmen"
-        Just r -> sscProcessMessage (epoch, r) msg ourId >>= logResult
+        Just r -> sscProcessMessage (epoch, r) msg >>= logResult
   where
     logResult (Right _) = logDebug "We have accepted our message"
     logResult (Left er) =

@@ -77,14 +77,14 @@ instance Bi GtMsgTag where
 
 instance Bi GtMsgContents where
     put datamsg = case datamsg of
-        MCCommitment signedComm  -> putWord8 0 >>  put signedComm
-        MCOpening opening        -> putWord8 1 >>  put opening
-        MCShares innerMap        -> putWord8 2 >>  put innerMap
-        MCVssCertificate vssCert -> putWord8 3 >>  put vssCert
+        MCCommitment signedComm   -> putWord8 0 >> put signedComm
+        MCOpening stkhdId opening -> putWord8 1 >> put stkhdId >> put opening
+        MCShares stkhdId innerMap -> putWord8 2 >> put stkhdId >> put innerMap
+        MCVssCertificate vssCert  -> putWord8 3 >> put vssCert
     get = getWord8 >>= \case
         0 -> liftM MCCommitment get
-        1 -> liftM MCOpening get
-        2 -> liftM MCShares get
+        1 -> liftM2 MCOpening get get
+        2 -> liftM2 MCShares get get
         3 -> liftM MCVssCertificate get
         tag -> fail ("get@DataMsg: invalid tag: " ++ show tag)
 

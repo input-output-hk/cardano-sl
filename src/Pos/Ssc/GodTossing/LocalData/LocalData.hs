@@ -81,6 +81,7 @@ type LDProcess a = forall m . ( MonadError TossVerFailure m
 ----------------------------------------------------------------------------
 -- Apply Global State
 ----------------------------------------------------------------------------
+
 applyGlobal :: Richmen -> GtGlobalState -> LocalUpdate SscGodTossing ()
 applyGlobal richmen globalData = do
     let globalCerts = VCD.certs . _gsVssCertificates $ globalData
@@ -228,25 +229,24 @@ sscIsDataUsefulSetImpl localG globalG addr =
 -- has been actually added.
 sscProcessMessage ::
        (MonadSscLD SscGodTossing m, SscBi)
-    => (EpochIndex, Richmen) -> GtMsgContents -> StakeholderId -> m (Either TossVerFailure ())
+    => (EpochIndex, Richmen) -> GtMsgContents -> m (Either TossVerFailure ())
 sscProcessMessage richmen msg =
-    gtRunModify . runExceptT . sscProcessMessageU (second (HS.fromList . toList) richmen) msg
+    gtRunModify $ runExceptT $ sscProcessMessageU (second (HS.fromList . toList) richmen) msg
 
 sscProcessMessageU
     :: SscBi
     => (EpochIndex, RichmenSet)
     -> GtMsgContents
-    -> StakeholderId
     -> LDProcess ()
-sscProcessMessageU (richmenEpoch, richmen) msg id = do
+sscProcessMessageU (richmenEpoch, richmen) msg = do
     epochIdx <- siEpoch <$> use gtLastProcessedSlot
     when (epochIdx /= richmenEpoch) $
            throwError $ DifferentEpoches richmenEpoch epochIdx
     case msg of
-        MCCommitment     comm -> processCommitment richmen id comm
-        MCOpening        open -> processOpening id open
-        MCShares       shares -> processShares richmen id shares
-        MCVssCertificate cert -> processVssCertificate richmen id cert
+        MCCommitment     comm -> processCommitment richmen comm
+        MCOpening id open     -> processOpening id open
+        MCShares  id shares   -> processShares richmen id shares
+        MCVssCertificate cert -> processVssCertificate richmen cert
 
 runChecks :: MonadError TossVerFailure m => [(m Bool, TossVerFailure)] -> m ()
 runChecks checks =
@@ -264,10 +264,9 @@ readerTToState rdr = get >>= runReaderT rdr
 
 processCommitment
     :: RichmenSet
-    -> StakeholderId
     -> SignedCommitment
     -> LDProcess ()
-processCommitment richmen id c = do
+processCommitment richmen c = do
     epochIdx <- siEpoch <$> use gtLastProcessedSlot
     stableCerts <- getStableCertsPure epochIdx <$> use gtGlobalCertificates
     let participants = stableCerts `HM.intersection` HS.toMap richmen
@@ -282,6 +281,7 @@ processCommitment richmen id c = do
     readerTToState $ runChecks $ checks epochIdx
     gtLocalCommitments %= HM.insert id c
   where
+    id = addressHash $ view _1 c
     tossEx = flip TossVerFailure (id:|[])
 
 processOpening :: StakeholderId -> Opening -> LDProcess ()
@@ -319,10 +319,9 @@ processShares richmen id s = do
         pure (checkShares comms openings certs id shares)
 
 processVssCertificate :: RichmenSet
-                      -> StakeholderId
                       -> VssCertificate
                       -> LDProcess ()
-processVssCertificate richmen id c = do
+processVssCertificate richmen c = do
     lpe <- siEpoch <$> use gtLastProcessedSlot
     let checks =
           [ ( pure $ (addressHash $ vcSigningKey c) `HS.member` richmen,
@@ -333,5 +332,6 @@ processVssCertificate richmen id c = do
     readerTToState $ runChecks checks
     gtLocalCertificates %= VCD.insert id c
   where
+    id = addressHash $ vcSigningKey c
     certSingleton = (c, vcExpiryEpoch c):|[]
     tossEx = flip TossVerFailure (id:|[])

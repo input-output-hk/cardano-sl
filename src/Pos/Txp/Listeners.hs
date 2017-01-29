@@ -57,7 +57,7 @@ handleReqTx = ListenerActionOneMsg $ \peerId sendActions (r :: ReqMsg TxId TxMsg
 handleDataTx
     :: WorkMode ssc m
     => ListenerAction BiP m
-handleDataTx = ListenerActionOneMsg $ \peerId sendActions (d :: DataMsg TxId TxMsgContents) ->
+handleDataTx = ListenerActionOneMsg $ \peerId sendActions (d :: DataMsg TxMsgContents) ->
     handleDataL d peerId sendActions
 
 txStubListeners
@@ -67,12 +67,13 @@ txStubListeners p =
     [ stubListenerOneMsg $ (const Proxy :: Proxy ssc -> Proxy (InvMsg TxId TxMsgTag)) p
     , stubListenerOneMsg $ (const Proxy :: Proxy ssc -> Proxy (ReqMsg TxId TxMsgTag)) p
     , stubListenerOneMsg $
-        (const Proxy :: Proxy ssc -> Proxy (DataMsg TxId TxMsgContents)) p
+        (const Proxy :: Proxy ssc -> Proxy (DataMsg TxMsgContents)) p
     ]
 
 instance ( WorkMode ssc m
          ) => Relay m TxMsgTag TxId TxMsgContents where
     contentsToTag _ = pure TxMsgTag
+    contentsToKey (TxMsgContents tx _ _) = pure $ hash tx
 
     verifyInvTag _ = pure VerSuccess
     verifyReqTag _ = pure VerSuccess
@@ -84,7 +85,7 @@ instance ( WorkMode ssc m
       where
         toContents (tx, tw, td) = TxMsgContents tx tw td
 
-    handleData (TxMsgContents tx tw td) _ = handleTxDo (hash tx, (tx, tw, td))
+    handleData (TxMsgContents tx tw td) = handleTxDo (hash tx, (tx, tw, td))
 
 -- Real tx processing
 -- CHECK: @handleTxDo

@@ -28,6 +28,7 @@ import           Pos.Security                           (shouldIgnorePkAddress)
 import           Pos.Slotting                           (getCurrentSlot)
 import           Pos.Ssc.Class.Listeners                (SscListenersClass (..))
 import           Pos.Ssc.Extra.MonadLD                  (sscGetLocalPayload)
+import           Pos.Ssc.GodTossing.Core.Types          (vcSigningKey)
 import           Pos.Ssc.GodTossing.LocalData.LocalData (sscIsDataUseful,
                                                          sscProcessMessage)
 import           Pos.Ssc.GodTossing.Type                (SscGodTossing)
@@ -36,7 +37,8 @@ import           Pos.Ssc.GodTossing.Types.Message       (GtMsgContents (..),
                                                          isGoodSlotIdForTag,
                                                          msgContentsTag)
 import           Pos.Ssc.GodTossing.Types.Types         (GtPayload (..), _gpCertificates)
-import           Pos.Types                              (SlotId (..), StakeholderId)
+import           Pos.Types                              (SlotId (..), StakeholderId,
+                                                         addressHash)
 import           Pos.Util                               (stubListenerOneMsg)
 import           Pos.Util.Relay                         (DataMsg, InvMsg, Relay (..),
                                                          ReqMsg, handleDataL, handleInvL,
@@ -55,7 +57,7 @@ instance SscListenersClass SscGodTossing where
         , stubListenerOneMsg $
             (const Proxy :: Proxy ssc -> Proxy (ReqMsg StakeholderId GtMsgTag)) p
         , stubListenerOneMsg $
-            (const Proxy :: Proxy ssc -> Proxy (DataMsg StakeholderId GtMsgContents)) p
+            (const Proxy :: Proxy ssc -> Proxy (DataMsg GtMsgContents)) p
         ]
 
 handleInvGt
@@ -73,13 +75,18 @@ handleReqGt = ListenerActionOneMsg $ \peerId sendActions (r :: ReqMsg Stakeholde
 handleDataGt
     :: WorkMode SscGodTossing m
     => ListenerAction BiP m
-handleDataGt = ListenerActionOneMsg $ \peerId sendActions (d :: DataMsg StakeholderId GtMsgContents) ->
+handleDataGt = ListenerActionOneMsg $ \peerId sendActions (d :: DataMsg GtMsgContents) ->
     handleDataL d peerId sendActions
 
 instance WorkMode SscGodTossing m
     => Relay m GtMsgTag StakeholderId GtMsgContents where
 
     contentsToTag = pure . msgContentsTag
+    contentsToKey x = pure $ case x of
+        MCShares k _          -> k
+        MCOpening k _         -> k
+        MCCommitment (pk,_,_) -> addressHash pk
+        MCVssCertificate vc   -> addressHash $ vcSigningKey vc
 
     verifyInvTag tag =
       ifM (isGoodSlotIdForTag tag <$> getCurrentSlot)
@@ -100,24 +107,25 @@ instance WorkMode SscGodTossing m
       return $ case payload of Nothing -> Nothing
                                Just p  -> toContents tag addr p
 
-    handleData dat addr = do
+    handleData dat = do
+        addr <- contentsToKey dat
         -- TODO: Add here malicious emulation for network addresses
         -- when TW will support getting peer address properly
         ifM (not <$> flip shouldIgnorePkAddress addr <$> getNodeContext)
-            (sscProcessMessageRichmen dat addr) $ True <$
+            (sscProcessMessageRichmen dat) $ True <$
             (logDebug $ sformat
                 ("Malicious emulation: data "%build%" for address "%build%" ignored")
                 dat addr)
 
 sscProcessMessageRichmen :: WorkMode SscGodTossing m
-                          => GtMsgContents -> StakeholderId -> m Bool
-sscProcessMessageRichmen dat addr = do
+                          => GtMsgContents -> m Bool
+sscProcessMessageRichmen dat = do
     epoch <- siEpoch <$> getCurrentSlot
     richmenMaybe <- LrcDB.getRichmenSsc epoch
     maybe (pure False) (handleRichmen . (epoch,)) richmenMaybe
   where
     handleRichmen r = do
-        res <- sscProcessMessage r dat addr
+        res <- sscProcessMessage r dat
         case res of
             Right _ -> pure True
             Left er -> False <$ logDebug (sformat ("Data is rejected, reason: "%build) er)
@@ -126,9 +134,9 @@ toContents :: GtMsgTag -> StakeholderId -> GtPayload -> Maybe GtMsgContents
 toContents CommitmentMsg addr (CommitmentsPayload comm _) =
     MCCommitment <$> lookup addr comm
 toContents OpeningMsg addr (OpeningsPayload opens _) =
-    MCOpening <$> lookup addr opens
+    MCOpening addr <$> lookup addr opens
 toContents SharesMsg addr (SharesPayload shares _) =
-    MCShares <$> lookup addr shares
+    MCShares addr <$> lookup addr shares
 toContents VssCertificateMsg addr payload =
     MCVssCertificate <$> lookup addr (_gpCertificates payload)
 toContents _ _ _ = Nothing

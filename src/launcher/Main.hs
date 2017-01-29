@@ -2,6 +2,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 import           Control.Concurrent.Async hiding (wait)
 import           Options.Applicative      (Parser, ParserInfo, auto, execParser, fullDesc,
@@ -189,6 +190,7 @@ instance ToString FilePath where
 -- Turtle internals, modified to give access to process handles
 ----------------------------------------------------------------------------
 
+{-
 shell'
     :: MonadIO io
     => MVar ProcessHandle
@@ -206,6 +208,7 @@ shell' phvar cmdLine =
             , Process.std_out = Process.Inherit
             , Process.std_err = Process.Inherit
             } )
+-}
 
 system'
     :: MonadIO io

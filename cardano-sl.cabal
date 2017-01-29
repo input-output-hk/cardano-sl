@@ -1030,6 +1030,7 @@ executable cardano-launcher
                      , optparse-applicative
                      , process
                      , text
+                     , directory
                      , turtle
                      , universum
   default-language:    Haskell2010

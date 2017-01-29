@@ -278,6 +278,8 @@ library
                         Pos.Ssc.GodTossing.Seed
                         Pos.Ssc.GodTossing.Shares
                         Pos.Ssc.GodTossing.Storage
+                        Pos.Ssc.GodTossing.Toss
+                        Pos.Ssc.GodTossing.Toss.Class
                         Pos.Ssc.GodTossing.Type
                         Pos.Ssc.GodTossing.Types
                         Pos.Ssc.GodTossing.Types.Message

@@ -29,6 +29,5 @@ onNewSlotAction sid = processNewSlot sid >> void (fork checkForUpdate)
 
 checkForUpdate :: WorkMode ssc m => m ()
 checkForUpdate =
-    getConfirmedProposals (Just $ svNumber curSoftwareVersion) >>=
-    mapM_ downloadUpdate
-
+    mapM_ downloadUpdate =<<
+    getConfirmedProposals (Just $ svNumber curSoftwareVersion)

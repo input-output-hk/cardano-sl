@@ -654,6 +654,7 @@ executable cardano-wallet
                      , text
                      , time
                      , time-units
+                     , transformers
                      , universum >= 0.1.11
                      , unordered-containers
   default-language:    Haskell2010
@@ -1031,6 +1032,7 @@ executable cardano-launcher
                      , optparse-applicative
                      , process
                      , text
+                     , directory
                      , turtle
                      , universum
   default-language:    Haskell2010

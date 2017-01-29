@@ -6,6 +6,7 @@ module Pos.Ssc.GodTossing.Arbitrary
        ( CommitmentOpening (..)
        ) where
 
+import qualified Data.HashMap.Strict              as HM
 import           Test.QuickCheck                  (Arbitrary (..), elements, oneof)
 import           Universum
 
@@ -21,6 +22,7 @@ import           Pos.Ssc.GodTossing.Types.Types   (GtGlobalState (..), GtPayload
                                                    GtProof (..), GtSecretStorage (..),
                                                    SscBi)
 import           Pos.Ssc.GodTossing.VssCertData   (VssCertData (..))
+import           Pos.Types.Address                (addressHash)
 import           Pos.Types.Arbitrary.Unsafe       ()
 import           Pos.Util                         (asBinary)
 import           Pos.Util.Arbitrary               (Nonrepeating (..), makeSmall, sublistN,
@@ -73,12 +75,21 @@ instance (Bi Commitment, Bi Opening, Bi VssCertificate) => Arbitrary GtProof whe
                       , CertificatesProof <$> arbitrary
                       ]
 
-instance Bi Commitment => Arbitrary GtPayload where
-    arbitrary = makeSmall $ oneof [ CommitmentsPayload <$> arbitrary <*> arbitrary
-                                  , OpeningsPayload <$> arbitrary <*> arbitrary
-                                  , SharesPayload <$> arbitrary <*> arbitrary
-                                  , CertificatesPayload <$> arbitrary
-                                  ]
+instance Bi Commitment =>
+         Arbitrary GtPayload where
+    arbitrary =
+        makeSmall $
+        oneof
+            [ CommitmentsPayload <$> genCommitments <*> genVssCerts
+            , OpeningsPayload <$> arbitrary <*> genVssCerts
+            , SharesPayload <$> arbitrary <*> genVssCerts
+            , CertificatesPayload <$> genVssCerts
+            ]
+      where
+        genCommitments = HM.fromList . map toCommPair <$> arbitrary
+        toCommPair signedComm@(pk, _, _) = (addressHash pk, signedComm)
+        genVssCerts = HM.fromList . map toCertPair <$> arbitrary
+        toCertPair vc = (addressHash $ vcSigningKey vc, vc)
 
 instance Arbitrary VssCertData where
     arbitrary = makeSmall $ VssCertData

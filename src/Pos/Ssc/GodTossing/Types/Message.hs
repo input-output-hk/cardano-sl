@@ -17,7 +17,7 @@ import           Pos.Ssc.GodTossing.Core (InnerSharesMap, Opening, SignedCommitm
                                           VssCertificate, isCommitmentId, isCommitmentIdx,
                                           isOpeningId, isOpeningIdx, isSharesId,
                                           isSharesIdx)
-import           Pos.Types               (LocalSlotIndex, SlotId)
+import           Pos.Types               (LocalSlotIndex, SlotId, StakeholderId)
 import           Pos.Util                (NamedMessagePart (..))
 
 -- | Tag associated with message.
@@ -55,8 +55,8 @@ isGoodSlotIdForTag VssCertificateMsg = const True
 -- | Data message. Can be used to send actual data.
 data GtMsgContents
     = MCCommitment !SignedCommitment
-    | MCOpening !Opening
-    | MCShares !InnerSharesMap
+    | MCOpening !StakeholderId !Opening
+    | MCShares !StakeholderId !InnerSharesMap
     | MCVssCertificate !VssCertificate
     deriving (Show, Eq, Generic)
 
@@ -66,6 +66,6 @@ instance Buildable GtMsgContents where
 -- | GtMsgTag appropriate for given DataMsg.
 msgContentsTag :: GtMsgContents -> GtMsgTag
 msgContentsTag (MCCommitment _)     = CommitmentMsg
-msgContentsTag (MCOpening _)        = OpeningMsg
-msgContentsTag (MCShares _)         = SharesMsg
+msgContentsTag (MCOpening _ _)      = OpeningMsg
+msgContentsTag (MCShares _ _)       = SharesMsg
 msgContentsTag (MCVssCertificate _) = VssCertificateMsg

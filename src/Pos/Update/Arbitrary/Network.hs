@@ -15,13 +15,11 @@ import           Pos.Update.Network.Types  (ProposalMsgTag (..), VoteMsgTag (..)
 
 import           Pos.Binary.Update         ()
 import           Pos.Types.Arbitrary       ()
-import           Pos.Update.Core.Types     (UpdateVote (..), VoteId, mkVoteId)
+import           Pos.Update.Core.Types     (UpdateVote (..))
 import           Pos.Util.Relay            (DataMsg (..))
 
 derive makeArbitrary ''ProposalMsgTag
 derive makeArbitrary ''VoteMsgTag
 
-instance Arbitrary (DataMsg VoteId UpdateVote) where
-    arbitrary = do
-        vote <- arbitrary
-        return $ DataMsg vote (mkVoteId vote)
+instance Arbitrary (DataMsg UpdateVote) where
+    arbitrary = DataMsg <$> arbitrary

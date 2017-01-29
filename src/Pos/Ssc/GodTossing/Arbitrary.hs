@@ -24,11 +24,11 @@ import           Pos.Ssc.GodTossing.Types.Types   (GtGlobalState (..), GtPayload
 import           Pos.Ssc.GodTossing.VssCertData   (VssCertData (..))
 import           Pos.Types.Address                (addressHash)
 import           Pos.Types.Arbitrary.Unsafe       ()
-import           Pos.Types.Core                   (StakeholderId)
 import           Pos.Util                         (asBinary)
 import           Pos.Util.Arbitrary               (Nonrepeating (..), makeSmall, sublistN,
                                                    unsafeMakePool)
 import           Pos.Util.Relay                   (DataMsg (..))
+
 ----------------------------------------------------------------------------
 -- Core
 ----------------------------------------------------------------------------
@@ -47,7 +47,7 @@ commitmentsAndOpenings =
     unsafeMakePool "[generating Commitments and Openings for tests...]" 50 $
        genCommitmentAndOpening 1 (one (asBinary vssPk))
   where
-    vssPk = toVssPublicKey $ deterministicVssKeyGen "aaaaaaaaaaaaaaaaaaaaaassss"
+    vssPk = toVssPublicKey $ deterministicVssKeyGen "ababahalamaha"
 {-# NOINLINE commitmentsAndOpenings #-}
 
 instance Arbitrary CommitmentOpening where
@@ -125,21 +125,19 @@ instance Arbitrary GtMsgTag where
 
 instance Arbitrary GtMsgContents where
     arbitrary = oneof [ MCCommitment <$> arbitrary
-                      , MCOpening <$> arbitrary
-                      , MCShares <$> arbitrary
+                      , MCOpening <$> arbitrary <*> arbitrary
+                      , MCShares <$> arbitrary <*> arbitrary
                       , MCVssCertificate <$> arbitrary
                       ]
 
-instance Arbitrary (DataMsg StakeholderId GtMsgContents) where
+instance Arbitrary (DataMsg GtMsgContents) where
     arbitrary = do
         sk <- arbitrary
-        let pk = toPublic sk
-        let dmKey = addressHash pk
         dmContents <-
             oneof
-                [ MCCommitment <$> ((pk, , ) <$> arbitrary <*> arbitrary)
-                , MCOpening <$> arbitrary
-                , MCShares <$> arbitrary
+                [ MCCommitment <$> ((toPublic sk,,) <$> arbitrary <*> arbitrary)
+                , MCOpening <$> arbitrary <*> arbitrary
+                , MCShares <$> arbitrary <*> arbitrary
                 , MCVssCertificate <$>
                   (mkVssCertificate sk <$> arbitrary <*> arbitrary)
                 ]

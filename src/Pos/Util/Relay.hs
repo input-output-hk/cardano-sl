@@ -1,7 +1,7 @@
--- | Framework for Inv/Req/Dat message handling
-
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+
+-- | Framework for Inv/Req/Dat message handling
 
 module Pos.Util.Relay
        ( Relay (..)
@@ -13,10 +13,11 @@ module Pos.Util.Relay
        , handleDataL
        ) where
 
+
 import qualified Data.ByteString.Char8   as BC
 import           Data.Proxy              (Proxy (..))
 import qualified Data.Text.Buildable     as B
-import           Formatting              (bprint, build, sformat, stext, (%))
+import           Formatting              (bprint, build, sformat, shown, stext, (%))
 import           Node                    (NodeId (..), SendActions (..), sendTo)
 import           Node.Message            (Message (..), MessageName (..))
 import           Serokell.Util.Text      (listJson)
@@ -51,6 +52,10 @@ class ( Buildable tag
     -- for only type matching reason (multiparam type classes are tricky)
     contentsToTag :: contents -> m tag
 
+    -- | Same for key. Sometime contents has key inside already, so
+    -- it's redundant to double-pass it everywhere.
+    contentsToKey :: contents -> m key
+
     verifyInvTag :: tag -> m VerificationRes
     verifyReqTag :: tag -> m VerificationRes
     verifyDataContents :: contents -> m VerificationRes
@@ -62,7 +67,7 @@ class ( Buildable tag
     handleReq :: tag -> key -> m (Maybe contents)
 
     -- | Handle data msg and return True if message is to be propagated
-    handleData :: contents -> key -> m Bool
+    handleData :: contents -> m Bool
 
 -- | Inventory message. Can be used to announce the fact that you have
 -- some data.
@@ -105,23 +110,17 @@ instance (NamedMessagePart tag) =>
     formatMessage _ = "Request"
 
 -- | Data message. Can be used to send actual data.
-data DataMsg key contents = DataMsg
-    { dmContents :: !contents
-    , dmKey      :: !key
-    }
+data DataMsg contents = DataMsg { dmContents :: !contents }
+                      deriving (Show, Eq)
 
-deriving instance (Show key, Show contents) => Show (DataMsg key contents)
-deriving instance (Eq key, Eq contents) => Eq (DataMsg key contents)
-
-instance (Buildable key, Buildable contents) => Buildable (DataMsg key contents) where
-    build (DataMsg key contents) =
-        bprint ("key = "%build%", contents = "%build) key contents
+instance (Buildable contents) => Buildable (DataMsg contents) where
+    build (DataMsg contents) = bprint ("contents = "%build) contents
 
 instance (NamedMessagePart contents) =>
-         Message (DataMsg key contents) where
+         Message (DataMsg contents) where
     messageName p = MessageName $ BC.pack "Data " <> encodeUtf8 (nMessageName $ contentsM p)
       where
-        contentsM :: Proxy (DataMsg key contents) -> Proxy contents
+        contentsM :: Proxy (DataMsg contents) -> Proxy contents
         contentsM _ = Proxy
     formatMessage _ = "Data"
 
@@ -164,7 +163,7 @@ handleInvL InvMsg {..} peerId sendActions = processMessage "Inventory" imTag ver
 
 handleReqL
     :: forall m key tag contents.
-       ( Bi (DataMsg key contents)
+       ( Bi (DataMsg contents)
        , Relay m tag key contents
        , WithLogger m
        )
@@ -175,12 +174,12 @@ handleReqL
 handleReqL ReqMsg {..} peerId sendActions = processMessage "Request" rmTag verifyReqTag $ do
     res <- zip (toList rmKeys) <$> mapM (handleReq rmTag) (toList rmKeys)
     let noDataAddrs = filterSecond isNothing res
-        datas = catMaybes $ map (\(addr, m) -> (,addr) <$> m) res
+        datas = catMaybes $ map snd res
     when (not $ null noDataAddrs) $
         logDebug $ sformat
             ("No data "%build%" for addresses "%listJson)
             rmTag noDataAddrs
-    mapM_ ((sendTo sendActions peerId) . uncurry DataMsg) datas
+    mapM_ ((sendTo sendActions peerId) . DataMsg) datas
 
 handleDataL
     :: forall ssc m key tag contents.
@@ -190,30 +189,29 @@ handleDataL
        , WithLogger m
        , WorkMode ssc m
        )
-    => DataMsg key contents
+    => DataMsg contents
     -> NodeId
     -> SendActions BiP m
     -> m ()
-handleDataL DataMsg {..} _ sendActions =
+handleDataL DataMsg {..} peerId sendActions =
     processMessage "Data" dmContents verifyDataContents $
-    ifM (handleData dmContents dmKey)
+    ifM (handleData dmContents)
         handleDataLDo $
         logDebug $ sformat
-            ("Ignoring data "%build%" for address "%build)
-            dmContents dmKey
+            ("Ignoring data "%build%" for peer id "%shown)
+            dmContents peerId
   where
     handleDataLDo = do
         shouldPropagate <- ncPropagation <$> getNodeContext
         if shouldPropagate then do
             logInfo $ sformat
-                ("Adopted data "%build%" "%
-                 "for address "%build%", propagating...")
-                dmContents dmKey
+                ("Adopted data "%build%", propagating...")
+                dmContents
             tag <- contentsToTag dmContents
+            key <- contentsToKey dmContents
             -- [CSL-514] TODO Log long acting sends
-            sendToNeighbors sendActions $ InvMsg tag (one dmKey)
+            sendToNeighbors sendActions $ InvMsg tag (one key)
         else do
             logInfo $ sformat
-                ("Adopted data "%build%" for "%
-                 "address "%build%", no propagation")
-                dmContents dmKey
+                ("Adopted data "%build%", no propagation")
+                dmContents

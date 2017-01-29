@@ -12,13 +12,16 @@ module Pos.Util.Arbitrary
        , unsafeMakePool
        , arbitrarySizedS
        , arbitrarySizedSL
+       , runGen
        ) where
 
-import           Data.ByteString      (pack)
-import qualified Data.ByteString.Lazy as BL (ByteString, pack)
-import           System.IO.Unsafe     (unsafePerformIO)
-import           Test.QuickCheck      (Arbitrary (..), Gen, listOf, scale, shuffle,
-                                       vector)
+import           Data.ByteString        (pack)
+import qualified Data.ByteString.Lazy   as BL (ByteString, pack)
+import           System.IO.Unsafe       (unsafePerformIO)
+import           Test.QuickCheck        (Arbitrary (..), Gen, listOf, scale, shuffle,
+                                         vector)
+import           Test.QuickCheck.Gen    (unGen)
+import           Test.QuickCheck.Random (mkQCGen)
 import           Universum
 
 makeSmall :: Gen a -> Gen a
@@ -69,6 +72,10 @@ arbitrarySizedS n = pack <$> vector n
 -- | Make arbitrary `ByteString.Lazy` of given length.
 arbitrarySizedSL :: Int -> Gen BL.ByteString
 arbitrarySizedSL n = BL.pack <$> vector n
+
+-- | Get something out of a quickcheck 'Gen' without having to do IO
+runGen :: Gen a -> a
+runGen g = unGen g (mkQCGen 31415926) 30
 
 {-| ArbitraryUnsafe class
     ~~~~~~~~~~~~~~~~~~~~~~~~

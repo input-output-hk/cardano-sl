@@ -54,7 +54,8 @@ data Args = Args
 #endif
     , commonArgs                :: !CLI.CommonArgs
     , noSystemStart             :: !Int
-    , updateExecutablePath      :: !FilePath
+    , updateLatestPath          :: !FilePath
+    , updateWithPackage         :: !Bool
     }
   deriving Show
 
@@ -136,10 +137,13 @@ argsParser =
 #endif
     <*> CLI.commonArgsParser peerHelpMsg
     <*> option auto (long "system-start" <> metavar "TIMESTAMP" <> value (-1))
-    <*> strOption (long "update-installer-path" <>
+    <*> strOption (long "update-latest-path" <>
                    metavar "FILEPATH" <>
                    value "update-installer.exe" <>
                    help "Path to update installer file, which should be downloaded by update system")
+    <*> switch (long "update-with-package" <>
+                help "Use updating via installer")
+
 
   where
     peerHelpMsg =

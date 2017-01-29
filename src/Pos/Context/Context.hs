@@ -82,8 +82,10 @@ data NodeContext ssc = NodeContext
     , ncUpdateSemaphore     :: !(MVar ConfirmedProposalState)
     -- ^ A semaphore which is unlocked when update data is downloaded
     -- and ready to apply
-    , ncUpdateExePath       :: !FilePath
+    , ncUpdatePath          :: !FilePath
     -- ^ Path to update installer executable, downloaded by update system
+    , ncUpdateWithPkg       :: !Bool
+    -- ^ Whether to use installer update mechanism
     , ncShutdownFlag        :: !(STM.TVar Bool)
     -- ^ If this flag is `True`, then workers should stop.
     }

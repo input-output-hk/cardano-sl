@@ -288,6 +288,8 @@ runCH NodeParams {..} sscNodeContext act = do
             , ncRecoveryHeader = recoveryHeaderVar
             , ncUpdateSemaphore = updSemaphore
             , ncUpdateExePath = npUpdateExePath
+            , ncUpdatePath = npUpdatePath
+            , ncUpdateWithPkg = npUpdateWithPkg
             , ncShutdownFlag = shutdownFlag
             }
     runContextHolder ctx act

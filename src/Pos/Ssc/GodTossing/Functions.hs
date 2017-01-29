@@ -46,7 +46,6 @@ import qualified Data.HashMap.Strict            as HM
 import qualified Data.HashSet                   as HS
 import           Data.Ix                        (inRange)
 import qualified Data.List.NonEmpty             as NE
-import           Formatting                     (build, sformat, (%))
 import           Serokell.Util                  (VerificationRes, verifyGeneric)
 import           Serokell.Util.Verify           (isVerSuccess)
 import           Universum

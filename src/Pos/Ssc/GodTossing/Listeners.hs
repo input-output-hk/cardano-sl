@@ -9,41 +9,37 @@ module Pos.Ssc.GodTossing.Listeners
          -- ** instance SscListenersClass SscGodTossing
        ) where
 
-import           Data.HashMap.Strict                    (lookup)
-import           Data.Tagged                            (Tagged (..))
-import           Formatting                             (build, sformat, (%))
-import           Serokell.Util.Verify                   (VerificationRes (..))
-import           System.Wlog                            (logDebug)
+import           Data.HashMap.Strict              (lookup)
+import           Data.Tagged                      (Tagged (..))
+import           Formatting                       (build, sformat, (%))
+import           Serokell.Util.Verify             (VerificationRes (..))
+import           System.Wlog                      (logDebug)
 import           Universum
 
-import           Data.Proxy                             (Proxy (..))
-import           Node                                   (ListenerAction (..))
-import           Pos.Binary.Crypto                      ()
-import           Pos.Binary.Relay                       ()
-import           Pos.Binary.Ssc                         ()
-import           Pos.Communication.BiP                  (BiP (..))
-import           Pos.Context                            (WithNodeContext (getNodeContext))
-import qualified Pos.DB.Lrc                             as LrcDB
-import           Pos.Security                           (shouldIgnorePkAddress)
-import           Pos.Slotting                           (getCurrentSlot)
-import           Pos.Ssc.Class.Listeners                (SscListenersClass (..))
-import           Pos.Ssc.Extra.MonadLD                  (sscGetLocalPayload)
-import           Pos.Ssc.GodTossing.Core                (getCommitmentsMap, vcSigningKey)
-import           Pos.Ssc.GodTossing.LocalData.LocalData (sscIsDataUseful,
-                                                         sscProcessMessage)
-import           Pos.Ssc.GodTossing.Type                (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Message       (GtMsgContents (..),
-                                                         GtMsgTag (..),
-                                                         isGoodSlotIdForTag,
-                                                         msgContentsTag)
-import           Pos.Ssc.GodTossing.Types.Types         (GtPayload (..), _gpCertificates)
-import           Pos.Types                              (SlotId (..), StakeholderId,
-                                                         addressHash)
-import           Pos.Util                               (stubListenerOneMsg)
-import           Pos.Util.Relay                         (DataMsg, InvMsg, Relay (..),
-                                                         ReqMsg, handleDataL, handleInvL,
-                                                         handleReqL)
-import           Pos.WorkMode                           (WorkMode)
+import           Data.Proxy                       (Proxy (..))
+import           Node                             (ListenerAction (..))
+import           Pos.Binary.Crypto                ()
+import           Pos.Binary.Relay                 ()
+import           Pos.Binary.Ssc                   ()
+import           Pos.Communication.BiP            (BiP (..))
+import           Pos.Context                      (WithNodeContext (getNodeContext))
+import qualified Pos.DB.Lrc                       as LrcDB
+import           Pos.Security                     (shouldIgnorePkAddress)
+import           Pos.Slotting                     (getCurrentSlot)
+import           Pos.Ssc.Class.Listeners          (SscListenersClass (..))
+import           Pos.Ssc.Extra.MonadLD            (sscGetLocalPayload)
+import           Pos.Ssc.GodTossing.Core          (GtPayload (..), getCommitmentsMap,
+                                                   vcSigningKey, _gpCertificates)
+import           Pos.Ssc.GodTossing.LocalData     (sscIsDataUseful, sscProcessMessage)
+import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
+import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtMsgTag (..),
+                                                   isGoodSlotIdForTag, msgContentsTag)
+import           Pos.Types                        (SlotId (..), StakeholderId,
+                                                   addressHash)
+import           Pos.Util                         (stubListenerOneMsg)
+import           Pos.Util.Relay                   (DataMsg, InvMsg, Relay (..), ReqMsg,
+                                                   handleDataL, handleInvL, handleReqL)
+import           Pos.WorkMode                     (WorkMode)
 
 instance SscListenersClass SscGodTossing where
     sscListeners =

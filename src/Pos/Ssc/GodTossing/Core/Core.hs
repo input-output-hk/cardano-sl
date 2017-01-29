@@ -29,39 +29,47 @@ module Pos.Ssc.GodTossing.Core.Core
        , verifyOpening
        , checkShare
        , checkShares
-       , checkOpeningMatchesCommitment
        , checkCommShares
+
+       -- * Payload and proof
+       , _gpCertificates
+       , mkGtProof
        ) where
 
-import           Data.Containers               (ContainerKey, SetContainer (notMember))
-import qualified Data.HashMap.Strict           as HM
-import qualified Data.HashSet                  as HS
-import           Data.Ix                       (inRange)
-import           Serokell.Util                 (VerificationRes, verifyGeneric)
+import           Data.Containers                (ContainerKey, SetContainer (notMember))
+import qualified Data.HashMap.Strict            as HM
+import qualified Data.HashSet                   as HS
+import           Data.Ix                        (inRange)
+import qualified Data.Text.Buildable
+import           Data.Text.Lazy.Builder         (Builder)
+import           Formatting                     (Format, bprint, (%))
+import           Serokell.Util                  (VerificationRes, listJson, verifyGeneric)
 import           Universum
 
-import           Pos.Binary.Class              (Bi)
-import           Pos.Binary.Crypto             ()
-import           Pos.Constants                 (blkSecurityParam, vssMaxTTL, vssMinTTL)
-import           Pos.Crypto                    (EncShare, Secret, SecretKey,
-                                                SecureRandom (..), Share, Threshold,
-                                                VssPublicKey, checkSig, encShareId,
-                                                genSharedSecret, getDhSecret,
-                                                secretToDhSecret, sign, toPublic,
-                                                verifyEncShare, verifySecretProof,
-                                                verifyShare)
-import           Pos.Ssc.GodTossing.Core.Types (Commitment (..),
-                                                CommitmentsMap (getCommitmentsMap),
-                                                InnerSharesMap, Opening (..),
-                                                SignedCommitment,
-                                                VssCertificate (vcExpiryEpoch, vcVssKey),
-                                                VssCertificatesMap,
-                                                mkCommitmentsMapUnsafe)
-import           Pos.Types.Address             (addressHash)
-import           Pos.Types.Core                (EpochIndex (..), LocalSlotIndex,
-                                                SlotId (..), StakeholderId)
-import           Pos.Types.Types               (SharedSeed (..))
-import           Pos.Util                      (AsBinary, asBinary, fromBinaryM, getKeys)
+import           Pos.Binary.Class               (Bi)
+import           Pos.Binary.Crypto              ()
+import           Pos.Binary.Ssc.GodTossing.Core ()
+import           Pos.Constants                  (blkSecurityParam, vssMaxTTL, vssMinTTL)
+import           Pos.Crypto                     (EncShare, Secret, SecretKey,
+                                                 SecureRandom (..), Share, Threshold,
+                                                 VssPublicKey, checkSig, encShareId,
+                                                 genSharedSecret, getDhSecret, hash,
+                                                 secretToDhSecret, sign, toPublic,
+                                                 verifyEncShare, verifySecretProof,
+                                                 verifyShare)
+import           Pos.Ssc.GodTossing.Core.Types  (Commitment (..),
+                                                 CommitmentsMap (getCommitmentsMap),
+                                                 GtPayload (..), GtProof (..),
+                                                 InnerSharesMap, Opening (..),
+                                                 SignedCommitment,
+                                                 VssCertificate (vcExpiryEpoch, vcVssKey),
+                                                 VssCertificatesMap,
+                                                 mkCommitmentsMapUnsafe)
+import           Pos.Types.Address              (addressHash)
+import           Pos.Types.Core                 (EpochIndex (..), LocalSlotIndex,
+                                                 SlotId (..), StakeholderId)
+import           Pos.Types.Types                (SharedSeed (..))
+import           Pos.Util                       (AsBinary, asBinary, fromBinaryM, getKeys)
 
 -- | Convert Secret to SharedSeed.
 secretToSharedSeed :: Secret -> SharedSeed
@@ -260,16 +268,76 @@ checkShares globalCommitments globalOpeningsPK globalCertificates addrTo shares 
            (checkShare globalCommitments globalOpeningsPK globalCertificates)
            listShares
 
--- CHECK: @checkOpeningMatchesCommitment
--- | Check that the secret revealed in the opening matches the secret proof
--- in the commitment
-checkOpeningMatchesCommitment
-    :: CommitmentsMap -> (StakeholderId, Opening) -> Bool
-checkOpeningMatchesCommitment (getCommitmentsMap -> globalCommitments) (addr, opening) =
-      case HM.lookup addr globalCommitments of
-        Nothing           -> False
-        Just (_, comm, _) -> verifyOpening comm opening
-
 checkCommShares :: [AsBinary VssPublicKey] -> SignedCommitment -> Bool
 checkCommShares vssPublicKeys c =
     HS.fromList vssPublicKeys == (getKeys . commShares $ c ^. _2)
+
+----------------------------------------------------------------------------
+-- Payload and proof
+----------------------------------------------------------------------------
+
+_gpCertificates :: GtPayload -> VssCertificatesMap
+_gpCertificates (CommitmentsPayload _ certs) = certs
+_gpCertificates (OpeningsPayload _ certs)    = certs
+_gpCertificates (SharesPayload _ certs)      = certs
+_gpCertificates (CertificatesPayload certs)  = certs
+
+isEmptyGtPayload :: GtPayload -> Bool
+isEmptyGtPayload (CommitmentsPayload comms certs) = null comms && null certs
+isEmptyGtPayload (OpeningsPayload opens certs)    = null opens && null certs
+isEmptyGtPayload (SharesPayload shares certs)     = null shares && null certs
+isEmptyGtPayload (CertificatesPayload certs)      = null certs
+
+instance Buildable GtPayload where
+    build gp
+        | isEmptyGtPayload gp = "  no GodTossing payload"
+        | otherwise =
+            case gp of
+                CommitmentsPayload comms certs ->
+                    formatTwo formatCommitments comms certs
+                OpeningsPayload openings certs ->
+                    formatTwo formatOpenings openings certs
+                SharesPayload shares certs ->
+                    formatTwo formatShares shares certs
+                CertificatesPayload certs -> formatCertificates certs
+      where
+        formatIfNotNull
+            :: Container c
+            => Format Builder (c -> Builder) -> c -> Builder
+        formatIfNotNull formatter l
+            | null l = mempty
+            | otherwise = bprint formatter l
+        formatCommitments comms =
+            formatIfNotNull
+                ("  commitments from: " %listJson % "\n")
+                (HM.keys $ getCommitmentsMap comms)
+        formatOpenings openings =
+            formatIfNotNull
+                ("  openings from: " %listJson % "\n")
+                (HM.keys openings)
+        formatShares shares =
+            formatIfNotNull
+                ("  shares from: " %listJson % "\n")
+                (HM.keys shares)
+        formatCertificates certs =
+            formatIfNotNull
+                ("  certificates from: " %listJson % "\n")
+                (HM.keys certs)
+        formatTwo formatter hm certs =
+            mconcat [formatter hm, formatCertificates certs]
+
+-- | Construct 'GtProof' from 'GtPayload'.
+mkGtProof :: GtPayload -> GtProof
+mkGtProof payload =
+    case payload of
+        CommitmentsPayload comms certs ->
+            proof CommitmentsProof comms certs
+        OpeningsPayload openings certs ->
+            proof OpeningsProof openings certs
+        SharesPayload shares certs     ->
+            proof SharesProof shares certs
+        CertificatesPayload certs      ->
+            CertificatesProof $ hash certs
+      where
+        proof constr hm cert =
+            constr (hash hm) (hash cert)

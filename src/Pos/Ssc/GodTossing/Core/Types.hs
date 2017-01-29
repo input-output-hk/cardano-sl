@@ -27,6 +27,10 @@ module Pos.Ssc.GodTossing.Core.Types
        , recreateVssCertificate
        , VssCertificatesMap
 
+       -- * Payload
+       , GtPayload (..)
+       , GtProof (..)
+
          -- * Misc
        , NodeSet
        ) where
@@ -37,18 +41,18 @@ import           Formatting          (bprint, build, int, (%))
 import           Universum
 
 import           Pos.Binary.Types    ()
-import           Pos.Crypto          (EncShare, PublicKey, Secret, SecretKey, SecretProof,
-                                      SecretSharingExtra, Share, Signature, VssPublicKey,
-                                      checkSig, sign, toPublic)
+import           Pos.Crypto          (EncShare, Hash, PublicKey, Secret, SecretKey,
+                                      SecretProof, SecretSharingExtra, Share, Signature,
+                                      VssPublicKey, checkSig, sign, toPublic)
 import           Pos.Types.Address   (addressHash)
 import           Pos.Types.Core      (EpochIndex, StakeholderId)
 import           Pos.Util            (AsBinary (..))
 
-----------------------------------------------------------------------------
--- Types, constructors, instances
-----------------------------------------------------------------------------
-
 type NodeSet = HashSet StakeholderId
+
+----------------------------------------------------------------------------
+-- Commitments
+----------------------------------------------------------------------------
 
 -- | Commitment is a message generated during the first stage of
 -- GodTossing. It contains encrypted shares and proof of secret.
@@ -85,6 +89,10 @@ mkCommitmentsMapUnsafe :: HashMap StakeholderId SignedCommitment
                        -> CommitmentsMap
 mkCommitmentsMapUnsafe = CommitmentsMap
 
+----------------------------------------------------------------------------
+-- Openings
+----------------------------------------------------------------------------
+
 -- | Opening reveals secret.
 newtype Opening = Opening
     { getOpening :: (AsBinary Secret)
@@ -99,9 +107,17 @@ type OpeningsMap = HashMap StakeholderId Opening
 -- Specifically, if node identified by 'Address' X has received a share
 -- from node identified by key Y, this share will be at @sharesMap ! X ! Y@.
 
+----------------------------------------------------------------------------
+-- Shares
+----------------------------------------------------------------------------
+
 type InnerSharesMap = HashMap StakeholderId (AsBinary Share)
 
 type SharesMap = HashMap StakeholderId InnerSharesMap
+
+----------------------------------------------------------------------------
+-- Vss certificates
+----------------------------------------------------------------------------
 
 -- | VssCertificate allows VssPublicKey to participate in MPC.
 -- Each stakeholder should create a Vss keypair, sign VSS public key with signing
@@ -171,3 +187,23 @@ checkCertSign VssCertificate {..} =
 -- | VssCertificatesMap contains all valid certificates collected
 -- during some period of time.
 type VssCertificatesMap = HashMap StakeholderId VssCertificate
+
+----------------------------------------------------------------------------
+-- Payload and proof
+----------------------------------------------------------------------------
+
+-- | Payload included into blocks.
+data GtPayload
+    = CommitmentsPayload  !CommitmentsMap !VssCertificatesMap
+    | OpeningsPayload     !OpeningsMap    !VssCertificatesMap
+    | SharesPayload       !SharesMap      !VssCertificatesMap
+    | CertificatesPayload !VssCertificatesMap
+    deriving (Eq, Show, Generic)
+
+-- | Proof of GtPayload.
+data GtProof
+    = CommitmentsProof !(Hash CommitmentsMap) !(Hash VssCertificatesMap)
+    | OpeningsProof !(Hash OpeningsMap) !(Hash VssCertificatesMap)
+    | SharesProof !(Hash SharesMap) !(Hash VssCertificatesMap)
+    | CertificatesProof !(Hash VssCertificatesMap)
+    deriving (Show, Eq, Generic)

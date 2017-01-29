@@ -15,12 +15,13 @@ import           Pos.Binary.Ssc                     ()
 import           Pos.Binary.Types                   ()
 import           Pos.Ssc.Class.Helpers              (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types                (Ssc (..))
+import           Pos.Ssc.GodTossing.Core            (GtPayload, GtProof, mkGtProof)
 import           Pos.Ssc.GodTossing.Error           (SeedError)
 import           Pos.Ssc.GodTossing.Functions       (verifyGtPayload)
 import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData)
+import           Pos.Ssc.GodTossing.Toss.Failure    (TossVerFailure)
 import           Pos.Ssc.GodTossing.Types.Types     (GtContext, GtGlobalState, GtParams,
-                                                     GtPayload, GtProof, TossVerFailure,
-                                                     createGtContext, mkGtProof)
+                                                     createGtContext)
 
 -- | Data type which represents shared seed calculation tag
 -- in -XTypeApplication hacks with type families.

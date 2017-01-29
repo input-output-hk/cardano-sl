@@ -25,9 +25,8 @@ import           Pos.DB                      (getBlockHeader, getTipBlockHeader,
 import           Pos.DHT.Model               (converseToNeighbors)
 import           Pos.Security.Class          (SecurityWorkersClass (..))
 import           Pos.Slotting                (onNewSlot)
-import           Pos.Ssc.GodTossing.Core     (getCommitmentsMap)
+import           Pos.Ssc.GodTossing.Core     (GtPayload (..), getCommitmentsMap)
 import           Pos.Ssc.GodTossing.Type     (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types    (GtPayload (..))
 import           Pos.Ssc.NistBeacon          (SscNistBeacon)
 import           Pos.Types                   (EpochIndex, MainBlock, SlotId (..),
                                               blockMpc, flattenEpochOrSlot, flattenSlotId,

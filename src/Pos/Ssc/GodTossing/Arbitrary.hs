@@ -13,14 +13,15 @@ import           Universum
 import           Pos.Binary.Ssc                   ()
 import           Pos.Crypto                       (deterministicVssKeyGen, toPublic,
                                                    toVssPublicKey)
-import           Pos.Ssc.GodTossing.Core          (Commitment, CommitmentsMap, Opening,
+import           Pos.Ssc.GodTossing.Core          (Commitment, CommitmentsMap,
+                                                   GtPayload (..), GtProof (..), Opening,
                                                    VssCertificate (..),
                                                    genCommitmentAndOpening,
                                                    mkCommitmentsMap, mkVssCertificate)
 import           Pos.Ssc.GodTossing.Type          ()
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtMsgTag (..))
-import           Pos.Ssc.GodTossing.Types.Types   (GtGlobalState (..), GtPayload (..),
-                                                   GtProof (..), GtSecretStorage (..))
+import           Pos.Ssc.GodTossing.Types.Types   (GtGlobalState (..),
+                                                   GtSecretStorage (..))
 import           Pos.Ssc.GodTossing.VssCertData   (VssCertData (..))
 import           Pos.Types.Address                (addressHash)
 import           Pos.Types.Arbitrary.Unsafe       ()

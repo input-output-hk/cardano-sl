@@ -49,7 +49,8 @@ import           Pos.Ssc.GodTossing.Core          (Commitment (..), SignedCommit
                                                    genCommitmentAndOpening,
                                                    getCommitmentsMap, isCommitmentIdx,
                                                    isOpeningIdx, isSharesIdx,
-                                                   mkSignedCommitment, mkVssCertificate)
+                                                   mkSignedCommitment, mkVssCertificate,
+                                                   _gpCertificates)
 import           Pos.Ssc.GodTossing.Functions     (computeParticipants, hasCommitment,
                                                    hasOpening, hasShares, vssThreshold)
 import           Pos.Ssc.GodTossing.LocalData     (getLocalPayload, localOnNewSlot,
@@ -61,7 +62,7 @@ import           Pos.Ssc.GodTossing.Storage       (getGlobalCerts, getStableCert
                                                    gtGetGlobalState)
 import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types         (gsCommitments, gtcParticipateSsc,
-                                                   gtcVssKeyPair, _gpCertificates)
+                                                   gtcVssKeyPair)
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtMsgTag (..))
 import           Pos.Types                        (EpochIndex, LocalSlotIndex,
                                                    SlotId (..), StakeholderId,

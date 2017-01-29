@@ -19,35 +19,35 @@ module Pos.Ssc.GodTossing.Functions
        , getStableCertsPure
        ) where
 
-import           Control.Lens                   (to)
-import           Control.Monad.Except           (MonadError (throwError), runExcept)
-import qualified Data.HashMap.Strict            as HM
-import qualified Data.HashSet                   as HS
-import qualified Data.List.NonEmpty             as NE
-import           Serokell.Util.Verify           (isVerSuccess)
+import           Control.Lens                    (to)
+import           Control.Monad.Except            (MonadError (throwError), runExcept)
+import qualified Data.HashMap.Strict             as HM
+import qualified Data.HashSet                    as HS
+import qualified Data.List.NonEmpty              as NE
+import           Serokell.Util.Verify            (isVerSuccess)
 import           Universum
 
-import           Pos.Binary.Class               (Bi)
-import           Pos.Binary.Crypto              ()
-import           Pos.Crypto                     (Threshold)
-import           Pos.Lrc.Types                  (Richmen)
-import           Pos.Ssc.Class.Types            (Ssc (..))
-import           Pos.Ssc.GodTossing.Core        (Commitment (..),
-                                                 CommitmentsMap (getCommitmentsMap),
-                                                 VssCertificate (..), VssCertificatesMap,
-                                                 checkCertTTL, isCommitmentId,
-                                                 isOpeningId, isSharesId,
-                                                 verifySignedCommitment)
-import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
-import           Pos.Ssc.GodTossing.Types.Types (GtGlobalState (..), GtPayload (..),
-                                                 TossVerErrorTag (..),
-                                                 TossVerFailure (..))
-import qualified Pos.Ssc.GodTossing.VssCertData as VCD
-import           Pos.Types.Address              (addressHash)
-import           Pos.Types.Core                 (EpochIndex (..), SlotId (..),
-                                                 StakeholderId)
-import           Pos.Types.Slotting             (crucialSlot)
-import           Pos.Types.Types                (MainBlockHeader, headerSlot)
+import           Pos.Binary.Class                (Bi)
+import           Pos.Binary.Crypto               ()
+import           Pos.Crypto                      (Threshold)
+import           Pos.Lrc.Types                   (Richmen)
+import           Pos.Ssc.Class.Types             (Ssc (..))
+import           Pos.Ssc.GodTossing.Core         (Commitment (..),
+                                                  CommitmentsMap (getCommitmentsMap),
+                                                  GtPayload (..), VssCertificate (..),
+                                                  VssCertificatesMap, checkCertTTL,
+                                                  isCommitmentId, isOpeningId, isSharesId,
+                                                  verifySignedCommitment)
+import           Pos.Ssc.GodTossing.Genesis      (genesisCertificates)
+import           Pos.Ssc.GodTossing.Toss.Failure (TossVerErrorTag (..),
+                                                  TossVerFailure (..))
+import           Pos.Ssc.GodTossing.Types.Types  (GtGlobalState (..))
+import qualified Pos.Ssc.GodTossing.VssCertData  as VCD
+import           Pos.Types.Address               (addressHash)
+import           Pos.Types.Core                  (EpochIndex (..), SlotId (..),
+                                                  StakeholderId)
+import           Pos.Types.Slotting              (crucialSlot)
+import           Pos.Types.Types                 (MainBlockHeader, headerSlot)
 
 ----------------------------------------------------------------------------
 -- Simple predicates for GodTossing.Types.Base

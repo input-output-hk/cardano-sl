@@ -280,7 +280,10 @@ library
                         Pos.Ssc.GodTossing.Shares
                         Pos.Ssc.GodTossing.Storage
                         Pos.Ssc.GodTossing.Toss
+                        Pos.Ssc.GodTossing.Toss.Base
                         Pos.Ssc.GodTossing.Toss.Class
+                        Pos.Ssc.GodTossing.Toss.Failure
+                        Pos.Ssc.GodTossing.Toss.Logic
                         Pos.Ssc.GodTossing.Type
                         Pos.Ssc.GodTossing.Types
                         Pos.Ssc.GodTossing.Types.Message

@@ -10,26 +10,24 @@ module Pos.Ssc.GodTossing.Genesis
 #endif
        ) where
 
-import           Data.Default                   (Default (..))
-import qualified Data.HashMap.Strict            as HM
-import           Data.List                      (zipWith3)
-import qualified Data.Text                      as T
-import           Formatting                     (int, sformat, (%))
+import qualified Data.HashMap.Strict           as HM
+import           Data.List                     (zipWith3)
+import qualified Data.Text                     as T
+import           Formatting                    (int, sformat, (%))
 import           Universum
 
-import           Pos.Constants                  (genesisN, vssMaxTTL, vssMinTTL)
-import           Pos.Crypto                     (VssKeyPair, VssPublicKey,
-                                                 deterministicVssKeyGen, toVssPublicKey)
+import           Pos.Constants                 (genesisN, vssMaxTTL, vssMinTTL)
+import           Pos.Crypto                    (VssKeyPair, VssPublicKey,
+                                                deterministicVssKeyGen, toVssPublicKey)
 #ifdef DEV_MODE
-import           Pos.Genesis                    (genesisKeyPairs)
+import           Pos.Genesis                   (genesisKeyPairs)
 #else
-import           Pos.Genesis                    (compileGenData, gdVssCertificates)
+import           Pos.Genesis                   (compileGenData, gdVssCertificates)
 #endif
-import           Pos.Ssc.GodTossing.Core.Types  (VssCertificatesMap, mkVssCertificate)
-import           Pos.Ssc.GodTossing.Types.Types (GtPayload (..))
-import           Pos.Types                      (EpochIndex (..))
-import           Pos.Types.Address              (addressHash)
-import           Pos.Util                       (asBinary)
+import           Pos.Ssc.GodTossing.Core.Types (VssCertificatesMap, mkVssCertificate)
+import           Pos.Types                     (EpochIndex (..))
+import           Pos.Types.Address             (addressHash)
+import           Pos.Util                      (asBinary)
 
 #ifdef DEV_MODE
 -- | List of 'VssKeyPair' in genesis.
@@ -68,6 +66,3 @@ genesisCertificates =
 genesisCertificates :: VssCertificatesMap
 genesisCertificates = gdVssCertificates compileGenData
 #endif
-
-instance Default GtPayload where
-    def = CertificatesPayload genesisCertificates

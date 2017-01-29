@@ -35,11 +35,10 @@ import           Pos.Ssc.Class.LocalData              (LocalQuery, LocalUpdate,
                                                        SscLocalDataClass (..))
 import           Pos.Ssc.Extra.MonadLD                (MonadSscLD)
 import           Pos.Ssc.GodTossing.Core              (CommitmentsMap (getCommitmentsMap),
-                                                       InnerSharesMap, Opening,
-                                                       SignedCommitment,
+                                                       GtPayload (..), InnerSharesMap,
+                                                       Opening, SignedCommitment,
                                                        VssCertificate (vcSigningKey, vcVssKey),
                                                        checkCertTTL, checkCommShares,
-                                                       checkOpeningMatchesCommitment,
                                                        checkShare, checkShares,
                                                        diffCommMap,
                                                        insertSignedCommitment,
@@ -60,12 +59,13 @@ import           Pos.Ssc.GodTossing.LocalData.Helpers (GtState, gtGlobalCertific
 import           Pos.Ssc.GodTossing.LocalData.Types   (GtLocalData (..), ldCertificates,
                                                        ldCommitments, ldLastProcessedSlot,
                                                        ldOpenings, ldShares)
-import           Pos.Ssc.GodTossing.Type              (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types             (GtGlobalState, GtPayload (..),
-                                                       TossVerErrorTag (..),
+import           Pos.Ssc.GodTossing.Toss              (TossVerErrorTag (..),
                                                        TossVerFailure (..),
-                                                       _gsCommitments, _gsOpenings,
-                                                       _gsShares, _gsVssCertificates)
+                                                       checkOpeningMatchesCommitment)
+import           Pos.Ssc.GodTossing.Type              (SscGodTossing)
+import           Pos.Ssc.GodTossing.Types             (GtGlobalState, _gsCommitments,
+                                                       _gsOpenings, _gsShares,
+                                                       _gsVssCertificates)
 import           Pos.Ssc.GodTossing.Types.Message     (GtMsgContents (..), GtMsgTag (..))
 import qualified Pos.Ssc.GodTossing.VssCertData       as VCD
 import           Pos.Types                            (EpochIndex, SlotId (..),

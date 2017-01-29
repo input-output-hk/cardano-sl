@@ -653,6 +653,7 @@ executable cardano-wallet
                      , text
                      , time
                      , time-units
+                     , transformers
                      , universum >= 0.1.11
                      , unordered-containers
   default-language:    Haskell2010

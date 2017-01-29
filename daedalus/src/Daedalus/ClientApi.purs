@@ -6,7 +6,7 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Ref (newRef, REF)
 import Control.Promise (Promise, fromAff)
-import Daedalus.Types (mkCAddress, mkCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile, mkCWalletInit, mkBackupPhrase, mkCWalletRedeem)
+import Daedalus.Types (mkCAddress, mkCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile, mkCWalletInit, mkCWalletRedeem)
 import Daedalus.WS (WSConnection(WSNotConnected), mkWSState, ErrorCb, NotifyCb, openConn)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (encodeJson)
@@ -132,8 +132,8 @@ notify = mkEffFn2 \messageCb errorCb -> do
 blockchainSlotDuration :: forall eff. Eff (ajax :: AJAX | eff) (Promise Int)
 blockchainSlotDuration = fromAff B.blockchainSlotDuration
 
-restoreWallet :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Json)
-restoreWallet = mkEffFn1 $ fromAff <<< map encodeJson <<< either throwError B.restoreWallet <<< mkBackupPhrase
+restoreWallet :: forall eff. EffFn4 (ajax :: AJAX | eff) String String String String (Promise Json)
+restoreWallet = mkEffFn4 \wType wCurrency wName -> fromAff <<< map encodeJson <<< either throwError B.restoreWallet <<< mkCWalletInit wType wCurrency wName
 
 nextUpdate :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
 nextUpdate = fromAff $ map encodeJson B.nextUpdate

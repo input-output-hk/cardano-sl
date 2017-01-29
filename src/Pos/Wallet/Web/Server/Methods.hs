@@ -339,10 +339,10 @@ newWallet CWalletInit {..} = do
     createWallet cAddr cwInitMeta
     getWallet cAddr
 
-restoreWallet :: WalletWebMode ssc m => BackupPhrase -> m CWallet
-restoreWallet ph = do
-    cAddr <- genSaveAddress ph
-    getWalletMeta cAddr >>= maybe (createWallet cAddr def) (const $ pure ())
+restoreWallet :: WalletWebMode ssc m => CWalletInit -> m CWallet
+restoreWallet CWalletInit {..} = do
+    cAddr <- genSaveAddress cwBackupPhrase
+    getWalletMeta cAddr >>= maybe (createWallet cAddr cwInitMeta) (const $ pure ())
     getWallet cAddr
 
 updateWallet :: WalletWebMode ssc m => CAddress -> CWalletMeta -> m CWallet

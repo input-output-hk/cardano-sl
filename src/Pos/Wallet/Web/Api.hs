@@ -40,7 +40,7 @@ type WalletApi =
     :<|>
      "api" :> "new_wallet" :> ReqBody '[JSON] CWalletInit :> Post '[JSON] (Either WalletError CWallet)
     :<|>
-     "api" :> "restore_wallet" :> ReqBody '[JSON] BackupPhrase :> Post '[JSON] (Either WalletError CWallet)
+     "api" :> "restore_wallet" :> ReqBody '[JSON] CWalletInit :> Post '[JSON] (Either WalletError CWallet)
     :<|>
      "api" :> "update_wallet" :> Capture "address" CAddress :> ReqBody '[JSON] CWalletMeta :> Post '[JSON] (Either WalletError CWallet)
     :<|>

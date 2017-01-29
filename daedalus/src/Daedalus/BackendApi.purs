@@ -118,7 +118,7 @@ isValidAddress cCurrency addr = getR ["valid_address", showCCurrency cCurrency, 
 blockchainSlotDuration :: forall eff. Aff (ajax :: AJAX | eff) Int
 blockchainSlotDuration = getR ["slot_duration"]
 
-restoreWallet :: forall eff. BackupPhrase -> Aff (ajax :: AJAX | eff) CWallet
+restoreWallet :: forall eff. CWalletInit -> Aff (ajax :: AJAX | eff) CWallet
 restoreWallet = postRBody ["restore_wallet"]
 
 nextUpdate :: forall eff. Aff (ajax :: AJAX | eff) CUpdateInfo

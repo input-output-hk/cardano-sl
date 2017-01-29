@@ -133,6 +133,7 @@ library
                         Pos.Binary.Address
                         Pos.Binary.Block
                         Pos.Binary.Class
+                        Pos.Binary.Coin
                         Pos.Binary.Crypto
                         Pos.Binary.Communication
                         Pos.Binary.DHTModel
@@ -203,6 +204,7 @@ library
                         Pos.Delegation.Lrc
                         Pos.Delegation.Methods
                         Pos.Delegation.Types
+                        Pos.Delegation.Worker
 
                         -- Launcher
                         Pos.Launcher.Launcher
@@ -262,7 +264,6 @@ library
                         Pos.Ssc.Extra.Holder
                         Pos.Ssc.Extra.MonadGS
                         Pos.Ssc.Extra.MonadLD
-                        Pos.Ssc.Extra.Richmen
                         Pos.Ssc.GodTossing.Richmen
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Error
@@ -408,6 +409,7 @@ library
                       , async
                       , base
                       , base58-bytestring
+                      , base64-bytestring
                       , binary
                       , binary-conduit >= 1.2.4.1
                       , binary-orphans
@@ -655,6 +657,7 @@ executable cardano-wallet
                      , text
                      , time
                      , time-units
+                     , transformers
                      , universum >= 0.1.11
                      , unordered-containers
   default-language:    Haskell2010
@@ -854,11 +857,6 @@ executable cardano-dht-keygen
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  if flag(with-wallet)
-    buildable:         True
-  else
-    buildable:         False
-
 executable cardano-web-docs
   hs-source-dirs:      src/web-docs
   main-is:             Main.hs
@@ -961,8 +959,29 @@ executable cardano-genupdate
                      , system-filepath
                      , tar
                      , text
-                     , turtle >= 1.3.1
+                     , turtle >= 1.3.0
                      , universum
+  default-language:    Haskell2010
+  ghc-options:         -threaded
+                       -Wall
+                       -O2
+  default-extensions:  OverloadedStrings
+                       NoImplicitPrelude
+
+executable cardano-avvmmigrate
+  hs-source-dirs:      src/avvmmigrate
+  main-is:             Main.hs
+  build-depends:       aeson
+                     , base
+                     , bytestring
+                     , directory
+                     , serokell-util
+                     , ed25519
+                     , filepath
+                     , cardano-sl
+                     , text
+                     , universum
+                     , unordered-containers
   default-language:    Haskell2010
   ghc-options:         -threaded
                        -Wall
@@ -1007,6 +1026,24 @@ executable cardano-keygen
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
+
+executable cardano-launcher
+  hs-source-dirs:      src/launcher
+  main-is:             Main.hs
+  build-depends:       async
+                     , base
+                     , optparse-applicative
+                     , process
+                     , text
+                     , directory
+                     , turtle
+                     , universum
+  default-language:    Haskell2010
+  ghc-options:         -threaded
+                       -Wall
+                       -O2
+  default-extensions:  OverloadedStrings
+                       RecordWildCards
 
 test-suite cardano-test
   main-is:             Test.hs

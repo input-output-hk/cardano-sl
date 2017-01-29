@@ -33,6 +33,9 @@ mpcSendInterval: 10 # must be less than (2 * k * slotDuration - networkDiameter)
 # Update System
 updateServers: []
 
+# Lightweight delegation
+lightDlgConfirmationTimeout: 500
+
 # Production start time
 productionNetworkStartTime: 0
 
@@ -44,6 +47,7 @@ ntpPollDelay: 300000000 # 300 sec
 maxLocalTxs: 10000
 protocolMagic: 0
 enhancedMessageBroadcast: 2
+messageCacheTimeout: 30
 blockRetrievalQueueSize: 100
 recoveryHeadersMessage: 20 # should be greater than k
 

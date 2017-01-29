@@ -67,6 +67,8 @@ module Pos.Util
        , readUntilEqualMVar
        , readTVarConditional
 
+       , readUntilEqualTVar
+
        , parseIntegralSafe
 
        -- * Instances
@@ -85,62 +87,53 @@ module Pos.Util
        -- ** MonadFail LoggerNameBox
        ) where
 
-import           Control.Arrow                    ((***))
-import           Control.Concurrent.STM.TVar      (TVar, readTVar)
-import           Control.Lens                     (Each (..), LensLike', Magnified,
-                                                   Zoomed, lensRules, magnify,
-                                                   makeWrapped, zoom, _Wrapped)
-import           Control.Lens.Internal.FieldTH    (makeFieldOpticsForDec)
-import qualified Control.Monad                    as Monad (fail)
-import           Control.Monad.STM                (retry)
-import           Control.Monad.Trans.Resource     (ResourceT)
-import           Data.Aeson                       (FromJSON (..), ToJSON (..))
-import           Data.Binary                      (Binary)
-import qualified Data.Cache.LRU                   as LRU
-import           Data.Hashable                    (Hashable)
-import qualified Data.HashMap.Strict              as HM
-import           Data.HashSet                     (fromMap)
-import           Data.List                        (span, zipWith3)
-import qualified Data.List.NonEmpty               as NE
-import           Data.Proxy                       (Proxy (..))
-import           Data.SafeCopy                    (SafeCopy (..), base, contain,
-                                                   deriveSafeCopySimple, safeGet, safePut)
-import qualified Data.Text                        as T
-import           Data.Time.Units                  (Microsecond, Millisecond, Second)
-import           Formatting                       (sformat, shown, stext, (%))
+import           Control.Arrow                 ((***))
+import           Control.Concurrent.STM.TVar   (TVar, readTVar)
+import           Control.Lens                  (Each (..), LensLike', Magnified, Zoomed,
+                                                lensRules, magnify, makeWrapped, zoom,
+                                                _Wrapped)
+import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
+import qualified Control.Monad                 as Monad (fail)
+import           Control.Monad.STM             (retry)
+import           Control.Monad.Trans.Resource  (ResourceT)
+import           Data.Aeson                    (FromJSON (..), ToJSON (..))
+import           Data.Binary                   (Binary)
+import qualified Data.Cache.LRU                as LRU
+import           Data.Hashable                 (Hashable)
+import qualified Data.HashMap.Strict           as HM
+import           Data.HashSet                  (fromMap)
+import           Data.List                     (span, zipWith3)
+import qualified Data.List.NonEmpty            as NE
+import           Data.SafeCopy                 (SafeCopy (..), base, contain,
+                                                deriveSafeCopySimple, safeGet, safePut)
+import qualified Data.Text                     as T
+import           Data.Time.Units               (Microsecond, Millisecond)
+import           Formatting                    (sformat, stext, (%))
 import           Language.Haskell.TH
-import           Language.Haskell.TH.Syntax       (Lift)
+import           Language.Haskell.TH.Syntax    (Lift)
 import qualified Language.Haskell.TH.Syntax
-import           Mockable                         (Async, Bracket, Delay, Fork, Mockable,
-                                                   Throw, async, bracket, cancel, delay,
-                                                   finally, fork, killThread, throw,
-                                                   waitAny)
-import           Node.Message                     (Message, MessageName (..), messageName,
-                                                   messageName')
-import           Prelude                          (read)
-import           Serokell.Data.Memory.Units       (Byte, fromBytes, toBytes)
-import           Serokell.Util                    (VerificationRes (..))
-import           System.Console.ANSI              (Color (..), ColorIntensity (Vivid),
-                                                   ConsoleLayer (Foreground),
-                                                   SGR (Reset, SetColor), setSGRCode)
-import           System.Wlog                      (LoggerNameBox (..), WithLogger,
-                                                   logWarning)
-import           Test.QuickCheck                  (Arbitrary)
-import           Text.Parsec                      (ParsecT)
-import           Text.Parsec                      (digit, many1)
-import           Text.Parsec.Text                 (Parser)
-import           Universum                        hiding (Async, async, bracket, cancel,
-                                                   finally, waitAny)
-import           Unsafe                           (unsafeInit, unsafeLast)
+import           Mockable                      (Mockable, Throw, throw)
+import           Prelude                       (read)
+import           Serokell.Data.Memory.Units    (Byte, fromBytes, toBytes)
+import           Serokell.Util                 (VerificationRes (..))
+import           System.Console.ANSI           (Color (..), ColorIntensity (Vivid),
+                                                ConsoleLayer (Foreground),
+                                                SGR (Reset, SetColor), setSGRCode)
+import           System.Wlog                   (LoggerNameBox (..))
+import           Test.QuickCheck               (Arbitrary)
+import           Text.Parsec                   (ParsecT)
+import           Text.Parsec                   (digit, many1)
+import           Text.Parsec.Text              (Parser)
+import           Universum                     hiding (Async, async, bracket, cancel,
+                                                finally, waitAny)
+import           Unsafe                        (unsafeInit, unsafeLast)
 -- SafeCopy instance for HashMap
-import           Serokell.AcidState.Instances     ()
+import           Serokell.AcidState.Instances  ()
 
-import           Pos.Binary.Class                 (Bi)
-import           Pos.Communication.Types.Protocol (ConversationActions (..), NodeId,
-                                                   SendActions (..))
+import           Pos.Binary.Class              (Bi)
 import           Pos.Util.Arbitrary
 import           Pos.Util.Binary
-import           Pos.Util.NotImplemented          ()
+import           Pos.Util.NotImplemented       ()
 import           Pos.Util.TimeLimit
 
 mappendPair :: (Monoid a, Monoid b) => (a, b) -> (a, b) -> (a, b)

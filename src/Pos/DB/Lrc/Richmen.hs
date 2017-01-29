@@ -42,7 +42,7 @@ import           Universum
 import           Pos.Binary.Class      (Bi, encodeStrict)
 import           Pos.Binary.Types      ()
 import           Pos.Constants         (genesisHeavyDelThd, genesisMpcThd,
-                                        updateVoteThreshold)
+                                        genesisUpdateVoteThd)
 import           Pos.Context.Class     (WithNodeContext)
 import           Pos.Context.Functions (genesisUtxoM)
 import           Pos.DB.Class          (MonadDB)
@@ -204,7 +204,7 @@ instance RichmenComponent RCUs where
     type RichmenData RCUs = FullRichmenData
     rcToData = identity
     rcTag Proxy = "us"
-    rcThreshold Proxy = applyCoinPortion updateVoteThreshold
+    rcThreshold Proxy = applyCoinPortion genesisUpdateVoteThd
     rcConsiderDelegated Proxy = True
 
 getRichmenUS :: MonadDB ssc m => EpochIndex -> m (Maybe FullRichmenData)

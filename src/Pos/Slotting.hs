@@ -156,7 +156,7 @@ onNewSlotImpl
 onNewSlotImpl withLogging startImmediately action =
     onNewSlotDo withLogging Nothing startImmediately actionWithCatch
   where
-    -- [CSL-198]: think about exceptions more carefully.
+    -- TODO [CSL-198]: think about exceptions more carefully.
     actionWithCatch s = action s `catch` handler
     handler :: WithLogger m => SomeException -> m ()
     handler = logError . sformat ("Error occurred: "%build)

@@ -163,5 +163,9 @@ class CastHash a b where
 instance CastHash a a where
     castHash = identity
 
+-- | Instances for `Raw` hashes for ease of casting
+instance CastHash Raw a
+instance CastHash a Raw
+
 -- | Lenses for 'WithHash'
 makeLensesFor [("whData", "_whData"), ("whHash", "_whHash")] ''WithHash

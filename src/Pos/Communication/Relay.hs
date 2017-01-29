@@ -22,9 +22,9 @@ import           System.Wlog                   (WithLogger)
 import           Universum
 
 import           Pos.Binary.Class              (Bi (..))
-import           Pos.Communication.Protocol    (ListenerSpec, NodeId (..), OutSpecs,
-                                                SendActions (..), listenerOneMsg, mergeLs,
-                                                oneMsgH, sendTo, toOutSpecs)
+import           Pos.Communication.Protocol    (ListenerSpec, OutSpecs, SendActions (..),
+                                                listenerOneMsg, mergeLs, oneMsgH, sendTo,
+                                                toOutSpecs)
 import           Pos.Communication.Types.Relay (DataMsg (..), InvMsg (..), ReqMsg (..))
 import           Pos.Communication.Util        (stubListenerOneMsg)
 import           Pos.Context                   (WithNodeContext (getNodeContext),
@@ -138,7 +138,7 @@ handleDataL
     => RelayProxy key tag contents
     -> (ListenerSpec m, OutSpecs)
 handleDataL proxy = listenerOneMsg outSpecs $
-  \_ peerId sendActions msg@(DataMsg {..}) -> do
+  \_ _ sendActions msg@(DataMsg {..}) -> do
       let _ = dataCatchType proxy msg
           handleDataLDo = do
               shouldPropagate <- ncPropagation <$> getNodeContext

@@ -40,8 +40,9 @@ import           Pos.Ssc.Class               (SscWorkersClass)
 import           Pos.Ssc.Extra               (sscCalculateSeed)
 import           Pos.Types                   (EpochIndex, EpochOrSlot (..),
                                               EpochOrSlot (..), HeaderHash, HeaderHash,
-                                              SlotId (..), StakeholderId, crucialSlot,
-                                              getEpochOrSlot, getEpochOrSlot)
+                                              SharedSeed, SlotId (..), StakeholderId,
+                                              crucialSlot, epochIndexL, getEpochOrSlot,
+                                              getEpochOrSlot)
 import           Pos.Update.Poll.Types       (BlockVersionState (..))
 import           Pos.Util                    (NewestFirst (..), logWarningWaitLinear,
                                               toOldestFirst)
@@ -128,21 +129,32 @@ lrcDo
     :: WorkMode ssc m
     => EpochIndex -> [LrcConsumer m] -> HeaderHash -> m HeaderHash
 lrcDo epoch consumers tip = tip <$ do
+    blundsUpToGenesis <- DB.loadBlundsFromTipWhile upToGenesis
+    -- If there are blocks from 'epoch' it means that we somehow accepted them
+    -- before running LRC for 'epoch'. It's very bad.
+    unless (null blundsUpToGenesis) $ throwM LrcAfterGenesis
     NewestFirst blundsList <- DB.loadBlundsFromTipWhile whileAfterCrucial
     case nonEmpty blundsList of
         Nothing -> throwM UnknownBlocksForLrc
         Just (NewestFirst -> blunds) -> do
-            rollbackBlocksUnsafe blunds
-            compute `finally` applyBack (toOldestFirst blunds)
+            mbSeed <- sscCalculateSeed epoch
+            case mbSeed of
+                Left e ->
+                    -- FIXME: don't panic, use previous seed!
+                    panic $ sformat ("SSC couldn't compute seed: " %build) e
+                Right seed -> do
+                    rollbackBlocksUnsafe blunds
+                    compute seed `finally` applyBack (toOldestFirst blunds)
   where
     applyBack blunds = applyBlocksUnsafe blunds Nothing
+    upToGenesis b = b ^. epochIndexL >= epoch
     whileAfterCrucial b = getEpochOrSlot b > crucial
     crucial = EpochOrSlot $ Right $ crucialSlot epoch
-    compute = do
+    compute seed = do
         issuersComputationDo epoch
         richmenComputationDo epoch consumers
         DB.sanityCheckDB
-        leadersComputationDo epoch
+        leadersComputationDo epoch seed
 
 issuersComputationDo :: forall ssc m . WorkMode ssc m => EpochIndex -> m ()
 issuersComputationDo epochId = do
@@ -159,17 +171,11 @@ issuersComputationDo epochId = do
            hm <$ (logWarning $ sformat ("Stake for issuer "%build% " not found") id)
         Just stake -> pure $ HM.insert id stake hm
 
-leadersComputationDo :: WorkMode ssc m => EpochIndex -> m ()
-leadersComputationDo epochId =
+leadersComputationDo :: WorkMode ssc m => EpochIndex -> SharedSeed -> m ()
+leadersComputationDo epochId seed =
     unlessM (isJust <$> getLeaders epochId) $ do
-        mbSeed <- sscCalculateSeed epochId
         totalStake <- GS.getTotalFtsStake
-        leaders <-
-            case mbSeed of
-                Left e ->
-                    panic $ sformat ("SSC couldn't compute seed: " %build) e
-                Right seed ->
-                    GS.runBalanceIterator (followTheSatoshiM seed totalStake)
+        leaders <- GS.runBalanceIterator (followTheSatoshiM seed totalStake)
         putLeaders epochId leaders
 
 richmenComputationDo :: forall ssc m . WorkMode ssc m

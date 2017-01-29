@@ -13,11 +13,12 @@ import           System.Wlog             (logInfo, logNotice)
 import           Universum
 
 import           Pos.Block.Worker        (blkWorkers)
-import           Pos.Communication       (SendActions, SysStartResponse (..), Worker,
-                                          withWaitLog, worker)
+import           Pos.Communication       (SysStartResponse (..), Worker, withWaitLog,
+                                          worker)
 import           Pos.Constants           (sysTimeBroadcastSlots)
 import           Pos.Context             (NodeContext (..), getNodeContext,
                                           setNtpLastSlot)
+import           Pos.Delegation.Worker   (dlgWorkers)
 import           Pos.DHT.Model.Neighbors (sendToNeighbors)
 import           Pos.DHT.Workers         (dhtWorkers)
 import           Pos.Lrc.Worker          (lrcOnNewSlotWorker)
@@ -45,6 +46,7 @@ runWorkers sendActions = mapM_ fork $ map ($ withWaitLog sendActions) $ concat
     [ [ onNewSlotWorker ]
     , dhtWorkers
     , blkWorkers
+    , dlgWorkers
     , untag sscWorkers
     , untag securityWorkers
     , [lrcOnNewSlotWorker]

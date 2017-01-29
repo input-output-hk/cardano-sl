@@ -5,46 +5,53 @@
 
 module Main where
 
-import           Control.Monad.Reader (MonadReader (..), ReaderT, ask, asks, runReaderT)
-import           Data.List            ((!!))
-import           Data.Proxy           (Proxy (..))
-import qualified Data.Text            as T
-import           Data.Time.Units      (convertUnit)
-import           Formatting           (build, int, sformat, stext, (%))
-import           Mockable             (delay)
-import           Options.Applicative  (execParser)
-import           System.IO            (hFlush, stdout)
+import           Control.Monad.Reader      (MonadReader (..), ReaderT, ask, asks,
+                                            runReaderT)
+import           Control.Monad.Trans.Maybe (MaybeT (..))
+import qualified Data.ByteString           as BS
+import           Data.List                 ((!!))
+import           Data.Proxy                (Proxy (..))
+import qualified Data.Text                 as T
+import           Data.Time.Units           (convertUnit)
+import           Formatting                (build, int, sformat, stext, (%))
+import           Mockable                  (delay)
+import           Options.Applicative       (execParser)
+import           System.IO                 (hFlush, stdout)
 import           Universum
 
-import qualified Pos.CLI              as CLI
-import           Pos.Communication    (OutSpecs, SendActions, Worker, hoistSendActions,
-                                       worker)
-import           Pos.Crypto           (SecretKey, createProxySecretKey, encodeHash, hash,
-                                       sign, toPublic)
-import           Pos.Data.Attributes  (mkAttributes)
-import           Pos.Delegation       (sendProxySKEpoch, sendProxySKSimple)
-import           Pos.DHT.Model        (DHTNode, discoverPeers)
-import           Pos.Genesis          (genesisBlockVersionData, genesisPublicKeys,
-                                       genesisSecretKeys)
-import           Pos.Launcher         (BaseParams (..), LoggingParams (..),
-                                       bracketResources, runTimeSlaveReal)
-import           Pos.Slotting         (getSlotDuration)
-import           Pos.Ssc.GodTossing   (SscGodTossing)
-import           Pos.Ssc.NistBeacon   (SscNistBeacon)
-import           Pos.Ssc.SscAlgo      (SscAlgo (..))
-import           Pos.Types            (EpochIndex (..), coinF, makePubKeyAddress, txaF)
-import           Pos.Update           (BlockVersionData (..), UpdateProposal (..),
-                                       UpdateVote (..), patakUpdateData)
-import           Pos.Util.TimeWarp    (sec)
-import           Pos.Wallet           (WalletMode, WalletParams (..), WalletRealMode,
-                                       getBalance, runWalletReal, submitTx,
-                                       submitUpdateProposal, submitVote)
+import qualified Pos.CLI                   as CLI
+import           Pos.Communication         (SendActions, Worker, worker)
+import           Pos.Crypto                (Hash, SecretKey, createProxySecretKey,
+                                            encodeHash, hash, hashHexF, sign, toPublic,
+                                            unsafeHash)
+import           Pos.Data.Attributes       (mkAttributes)
+import           Pos.Delegation            (sendProxySKEpoch, sendProxySKSimple)
+import           Pos.DHT.Model             (DHTNode, discoverPeers)
+import           Pos.Genesis               (genesisBlockVersionData, genesisPublicKeys,
+                                            genesisSecretKeys)
+import           Pos.Launcher              (BaseParams (..), LoggingParams (..),
+                                            bracketResources, runTimeSlaveReal)
+import           Pos.Slotting              (getSlotDuration)
+import           Pos.Ssc.GodTossing        (SscGodTossing)
+import           Pos.Ssc.NistBeacon        (SscNistBeacon)
+import           Pos.Ssc.SscAlgo           (SscAlgo (..))
+import           Pos.Types                 (EpochIndex (..), coinF, makePubKeyAddress,
+                                            txaF)
+import           Pos.Update                (BlockVersionData (..), UpdateProposal (..),
+                                            UpdateVote (..), patakUpdateData,
+                                            skovorodaUpdateData)
+import           Pos.Util                  (Raw)
+import           Pos.Util.TimeWarp         (sec)
+import           Pos.Wallet                (WalletMode, WalletParams (..), WalletRealMode,
+                                            getBalance, runWalletReal, submitTx,
+                                            submitUpdateProposal, submitVote)
 #ifdef WITH_WEB
-import           Pos.Wallet.Web       (walletServeWebLite)
+import           Pos.Wallet.Web            (walletServeWebLite)
 #endif
 
-import           Command              (Command (..), parseCommand)
-import           WalletOptions        (WalletAction (..), WalletOptions (..), optsInfo)
+import           Command                   (Command (..), parseCommand)
+import           WalletOptions             (WalletAction (..), WalletOptions (..),
+                                            optsInfo)
 
 type CmdRunner = ReaderT ([SecretKey], [DHTNode])
 
@@ -73,6 +80,12 @@ runCmd sendActions (Vote idx decision upid) = do
             putText "Submitted vote"
 runCmd sendActions ProposeUpdate{..} = do
     (skeys, na) <- ask
+    (diffFile :: Maybe (Hash Raw)) <- runMaybeT $ do
+        filePath <- MaybeT $ pure puFilePath
+        fileData <- liftIO $ BS.readFile filePath
+        let h = unsafeHash fileData
+        liftIO $ putText $ sformat ("Read file succesfuly, its hash: "%hashHexF) h
+        pure h
     let skey = skeys !! puIdx
     let bvd = genesisBlockVersionData
             { bvdScriptVersion = puScriptVersion
@@ -83,7 +96,10 @@ runCmd sendActions ProposeUpdate{..} = do
             { upBlockVersion     = puBlockVersion
             , upBlockVersionData = bvd
             , upSoftwareVersion  = puSoftwareVersion
-            , upData             = patakUpdateData
+            , upData             =
+                maybe patakUpdateData
+                      skovorodaUpdateData
+                      diffFile
             , upAttributes       = mkAttributes ()
             }
     if null na
@@ -102,8 +118,8 @@ runCmd _ Help = do
             , "                                     from own address #N"
             , "   vote <N> <decision> <upid>     -- send vote with given hash of proposal id (in base64) and"
             , "                                     decision, from own address #N"
-            , "   propose-update <N> <block ver> <script ver> <software ver>"
-            , "                                  -- propose an update with given versions"
+            , "   propose-update <N> <block ver> <script ver> <slot duration> <max block size> <software ver> <propose_file>?"
+            , "                                  -- propose an update with given versions and other data"
             , "                                     with one positive vote for it, from own address #N"
             , "   listaddr                       -- list own addresses"
             , "   listaddr                       -- list own addresses"
@@ -114,7 +130,7 @@ runCmd _ Help = do
             ]
 runCmd _ ListAddresses = do
     addrs <- map (makePubKeyAddress . toPublic) <$> asks fst
-    putText "Available addrsses:"
+    putText "Available addresses:"
     forM_ (zip [0 :: Int ..] addrs) $
         putText . uncurry (sformat $ "    #"%int%":   "%build)
 runCmd sendActions (DelegateLight i j) = do

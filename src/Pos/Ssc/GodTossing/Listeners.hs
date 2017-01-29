@@ -93,7 +93,13 @@ sscProcessMessageRichmen :: WorkMode SscGodTossing m
 sscProcessMessageRichmen dat addr = do
     epoch <- siEpoch <$> getCurrentSlot
     richmenMaybe <- LrcDB.getRichmenSsc epoch
-    maybe (pure False) (\r -> sscProcessMessage r dat addr) richmenMaybe
+    maybe (pure False) (handleRichmen . (epoch,)) richmenMaybe
+  where
+    handleRichmen r = do
+        res <- sscProcessMessage r dat addr
+        case res of
+            Right _ -> pure True
+            Left er -> False <$ logDebug (sformat ("Data is rejected, reason: "%build) er)
 
 toContents :: GtMsgTag -> StakeholderId -> GtPayload -> Maybe GtMsgContents
 toContents CommitmentMsg addr (CommitmentsPayload comm _) =

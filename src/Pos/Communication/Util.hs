@@ -12,8 +12,7 @@ module Pos.Communication.Util
        ) where
 
 import           Data.Proxy                 (Proxy (..), asProxyTypeOf)
-import           Data.Time.Units            (Microsecond, Millisecond, Second,
-                                             convertUnit)
+import           Data.Time.Units            (Microsecond)
 import           Formatting                 (sformat, shown, (%))
 import           Mockable                   (Async, Bracket, Delay, Fork, Mockable, Throw,
                                              async, bracket, cancel, delay, finally, fork,
@@ -129,4 +128,3 @@ sendActionsWithTimeLimit timeout sendActions = sendActions
         N.withConnectionTo sendActions nodeId $
             action . convWithTimeLimit timeout nodeId
     }
-

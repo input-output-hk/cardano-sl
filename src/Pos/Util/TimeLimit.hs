@@ -16,12 +16,11 @@ module Pos.Util.TimeLimit
        , runWithRandomIntervalsNow
        , waitRandomInterval
        ) where
-import           Data.Time.Units   (Microsecond, Millisecond, Second, convertUnit)
+import           Data.Time.Units   (Microsecond, Second, convertUnit)
 import           Formatting        (sformat, shown, stext, (%))
-import           Mockable          (Async, Bracket, Delay, Fork, Mockable, Throw, async,
-                                    bracket, cancel, delay, finally, fork, killThread,
-                                    throw, waitAny)
-import           System.Wlog       (LoggerNameBox (..), WithLogger, logWarning)
+import           Mockable          (Async, Bracket, Delay, Fork, Mockable, async, bracket,
+                                    cancel, delay, finally, fork, killThread, waitAny)
+import           System.Wlog       (WithLogger, logWarning)
 import           Universum         hiding (Async, async, bracket, cancel, finally,
                                     waitAny)
 

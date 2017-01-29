@@ -10,7 +10,7 @@ genesisMpcThd: 0.05 # 5% of stake
 genesisHeavyDelThd: 0.0003 # 0.03% of stake
 genesisUpdateVoteThd: 0.001 # 0.1% of total stake
 genesisUpdateProposalThd: 0.1 # 10% of total stake
-genesisUpdateImplicit: 10 # slots
+genesisUpdateImplicit: 10000 # slots
 genesisUpdateSoftforkThd: 0.75 # 75% of total stake
 
 # P2P, networking
@@ -33,6 +33,9 @@ mpcSendInterval: 100 # must be less than (2 * k * slotDuration - networkDiameter
 # Update System
 updateServers: []
 
+# Lightweight delegation
+lightDlgConfirmationTimeout: 500
+
 # Production start time
 productionNetworkStartTime: 1484507400
 
@@ -44,6 +47,7 @@ ntpPollDelay: 15000000 # 15 sec
 maxLocalTxs: 1000
 protocolMagic: 50987833
 enhancedMessageBroadcast: 2
+messageCacheTimeout: 30
 blockRetrievalQueueSize: 100
 recoveryHeadersMessage: 100 # should be greater than k
 

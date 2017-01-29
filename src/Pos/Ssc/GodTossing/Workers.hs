@@ -239,12 +239,12 @@ sscProcessOurMessage epoch msg ourId = do
         Nothing ->
             logWarning
                 "We are processing our SSC message and don't know richmen"
-        Just r -> sscProcessMessage r msg ourId >>= logResult
+        Just r -> sscProcessMessage (epoch, r) msg ourId >>= logResult
   where
-    logResult True = logDebug "We have accepted our message"
-    logResult False =
-        logWarning
-            "We have rejected our message, probably we already have it in local data"
+    logResult (Right _) = logDebug "We have accepted our message"
+    logResult (Left er) =
+        logWarning $
+            sformat ("We have rejected our message, reason: "%build) er
 
 sendOurData
     :: (WorkMode SscGodTossing m)

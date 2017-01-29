@@ -11,7 +11,6 @@ module Pos.Delegation.Types
        ) where
 
 import           Data.DeriveTH   (derive, makeArbitrary)
-import           Node.Message    (Message (..))
 import           Test.QuickCheck (Arbitrary (..), choose)
 import           Universum
 

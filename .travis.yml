@@ -7,10 +7,9 @@ matrix:
   - os: osx
     osx_image: xcode8
   - os: osx
-    osx_image: xcode8.2
+    osx_image: xcode6.4
 env:
 - NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/addcb0dddf2b7db505dae5c38fceb691c7ed85f9.tar.gz
-- CSL_SYSTEM_TAG=$TRAVIS_OS_NAME
 cache:
   directories:
   - "$HOME/.stack"
@@ -20,6 +19,7 @@ cache:
   - daedalus/bower_components
 
 before_install:
+- export CSL_SYSTEM_TAG=$TRAVIS_OS_NAME
 - mkdir -p ~/.local/bin
 - export PATH=$HOME/.local/bin:$PATH
 - sudo mount -o remount,exec,size=4G,mode=755 /run/user || true
@@ -48,6 +48,7 @@ deploy:
     secure: L3T5J71xUkozQ935MJIavcgM3Latp+Zy0Ga1wZovXDLp34kgWyJ7/zRSd/TaVM54Kv8Alm1YxbmYKpQAOzGEzAIG+2VUjXbH7aW8KsCnN2RRZahj8pJlq0qmqYrUC4yDFWvrAuO+bE8GRTHFkrX7eT1hoejAw5bPSPu4lkRbh74ys2d5/eOCmxyLSrle1une0i1AM6WRjBKqYyGWFZ0/zhTdISziw+8excfPuutUUIw13vG2ywhMI4M0oP8csYYPdwg3PMzRpmcucebNXWr3QjJSTNuX/nwIQHyoS1BiIciDHIosdUOPsxVkdQWDUCvk9YXMPgB+XpPFB3O7d5V36EiyrSnQMuYdN6YKZzXmLaLlz8tEMaclRIr+yWVXUL27veYD+IYhjFUWcKzuBnnBa+v+Edl/ewQBMTxznstrBtGAjHhsmPaocXdFjz7fvoSDsr5fafhMnr0O2mKo9+6MKIbGdK/OsBc/Lp1fQK1PuWAjY4+eJ9HSUpD1s120uuV5NkbHnvdB+/PGH0GMHkuf8D7NGhNtTUDjBz+Pvo9SqKGwKyBuCDIeUNLMaCMa3aDY7uRpCVxsZPyjUBUlx/hICy5Ig7d3nKxmZhDot8zooY9a5ANSzDBQsLDWugx1ukKDzJ65wxqjmzaTvALqyk8GIY7ShREuNjFJOrdM8WwZbwU=
   bucket: cardano-sl-testing
   local_dir: s3
+  skip_cleanup: true
 notifications:
   email: false
   slack:

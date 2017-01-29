@@ -13,24 +13,24 @@ module Pos.Delegation.Listeners
        ) where
 
 import           Data.Proxy                 (Proxy (..))
-import           Data.Time.Clock            (getCurrentTime)
 import           Formatting                 (build, sformat, shown, (%))
+import           Node                       (ListenerAction (..))
+import           Pos.Communication.Util     (stubListenerOneMsg)
 import           System.Wlog                (WithLogger, logDebug, logInfo)
 import           Universum
+
 
 import           Pos.Binary.Communication   ()
 import           Pos.Communication.Protocol (Listener, ListenerSpec, OutSpecs,
                                              SendActions (..), listenerConv,
                                              listenerOneMsg, mergeLs, oneMsgH, sendTo,
                                              toOutSpecs)
-import           Pos.Communication.Util     (stubListenerOneMsg)
 import           Pos.Context                (getNodeContext, ncBlkSemaphore,
                                              ncPropagation)
 import           Pos.Delegation.Logic       (ConfirmPskEpochVerdict (..),
                                              PskEpochVerdict (..), PskSimpleVerdict (..),
-                                             invalidateProxyCaches, isProxySKConfirmed,
-                                             processConfirmProxySk, processProxySKEpoch,
-                                             processProxySKSimple,
+                                             isProxySKConfirmed, processConfirmProxySk,
+                                             processProxySKEpoch, processProxySKSimple,
                                              runDelegationStateAction)
 import           Pos.Delegation.Methods     (sendProxyConfirmSK, sendProxySKEpoch,
                                              sendProxySKSimple)
@@ -91,8 +91,6 @@ handleSendProxySK = listenerOneMsg outSpecs $
         logDebug "Got request on handleGetHeaders"
         logDebug $ sformat ("Got request to handle lightweight psk: "%build) pSk
         -- do it in worker once in ~sometimes instead of on every request
-        curTime <- liftIO getCurrentTime
-        runDelegationStateAction $ invalidateProxyCaches curTime
         verdict <- processProxySKEpoch pSk
         logResult verdict
         propagateProxySKEpoch verdict pSk sendActions

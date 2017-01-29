@@ -376,9 +376,9 @@ verifyHeaders checkConsensus (NewestFirst (headers@(_:xh))) =
     mconcat verified
   where
     verified = zipWith (\cur prev -> verifyHeader (toVHP prev) cur)
-                       headers xh
+                       headers (map Just xh ++ [Nothing])
     toVHP p = def { vhpVerifyConsensus = checkConsensus
-                  , vhpPrevHeader = Just p }
+                  , vhpPrevHeader = p }
 
 -- CHECK: @verifyGenericBlock
 -- | Perform cheap checks of GenericBlock, which can be done using
@@ -434,6 +434,9 @@ verifyBlock VerifyBlockParams {..} blk =
         , verifyProxySKs
         ]
   where
+    toVerRes (Right _) = VerSuccess
+    toVerRes (Left e) = VerFailure [sformat build e]
+
     verifyG
         | vbpVerifyGeneric = either verifyGenericBlock verifyGenericBlock blk
         | otherwise = mempty
@@ -447,7 +450,7 @@ verifyBlock VerifyBlockParams {..} blk =
         | vbpVerifySsc =
             case blk of
                 Left _ -> mempty
-                Right mainBlk ->
+                Right mainBlk -> toVerRes $
                     untag
                         sscVerifyPayload
                         (mainBlk ^. gbHeader)

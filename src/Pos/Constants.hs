@@ -48,6 +48,10 @@ module Pos.Constants
        , enhancedMessageBroadcast
        , recoveryHeadersMessage
        , kademliaDumpInterval
+       , messageCacheTimeout
+
+       -- * Delegation
+       , lightDlgConfirmationTimeout
 
        -- * Malicious activity detection constants
        , mdNoBlocksSlotThreshold
@@ -59,10 +63,6 @@ module Pos.Constants
        , ourAppName
        , appSystemTag
        , updateServers
-       , updateProposalThreshold
-       , updateVoteThreshold
-       , updateImplicitApproval
-       , usSoftforkThreshold
 
        -- * NTP
        , ntpMaxError
@@ -110,7 +110,7 @@ slotSecurityParam = 2 * blkSecurityParam
 
 -- | Number of slots inside one epoch.
 epochSlots :: Integral a => a
-epochSlots = 12 * blkSecurityParam
+epochSlots = 10 * blkSecurityParam
 
 -- | Estimated time needed to broadcast message from one node to all
 -- other nodes. Also see 'Pos.CompileConfig.ccNetworkDiameter'.
@@ -297,6 +297,19 @@ recoveryHeadersMessage = fromIntegral . ccRecoveryHeadersMessage $ compileConfig
 kademliaDumpInterval :: (Integral a) => a
 kademliaDumpInterval = fromIntegral . ccKademliaDumpInterval $ compileConfig
 
+-- | Timeout for caching system. Components that use caching on
+-- messages can use this timeout to invalidate caches.
+messageCacheTimeout :: (Integral a) => a
+messageCacheTimeout = fromIntegral . ccMessageCacheTimeout $ compileConfig
+
+----------------------------------------------------------------------------
+-- Delegation
+----------------------------------------------------------------------------
+
+-- | Amount of time we hold confirmations for light PSKs.
+lightDlgConfirmationTimeout :: (Integral a) => a
+lightDlgConfirmationTimeout = fromIntegral . ccLightDlgConfirmationTimeout $ compileConfig
+
 ----------------------------------------------------------------------------
 -- Malicious activity
 ----------------------------------------------------------------------------
@@ -353,6 +366,7 @@ updateServers = ccUpdateServers compileConfig
 ----------------------------------------------------------------------------
 -- NTP
 ----------------------------------------------------------------------------
+
 -- | Inaccuracy in call threadDelay (actually it is error much less than 1 sec)
 ntpMaxError :: Microsecond
 ntpMaxError = sec 1
@@ -364,23 +378,3 @@ ntpResponseTimeout = mcs . ccNtpResponseTimeout $ compileConfig
 -- | How often send request to NTP server
 ntpPollDelay :: Microsecond
 ntpPollDelay = mcs . ccNtpPollDelay $ compileConfig
-
-----------------------------------------------------------------------------
--- Update System
-----------------------------------------------------------------------------
-
--- TODO: remove
-updateProposalThreshold :: CoinPortion
-updateProposalThreshold = genesisUpdateProposalThd
-
--- TODO: remove
-updateVoteThreshold :: CoinPortion
-updateVoteThreshold = genesisUpdateVoteThd
-
--- TODO: remove
-updateImplicitApproval :: Integral i => i
-updateImplicitApproval = genesisUpdateImplicit
-
--- TODO: remove
-usSoftforkThreshold :: CoinPortion
-usSoftforkThreshold = genesisUpdateSoftforkThd

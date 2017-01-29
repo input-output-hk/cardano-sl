@@ -23,8 +23,10 @@ import           System.IO.Unsafe           (unsafePerformIO)
 import           Universum
 
 import           Pos.Aeson.ClientTypes      ()
+import           Pos.Constants              (curSoftwareVersion)
 import           Pos.Crypto                 (keyGen)
-import           Pos.Types                  (Coin, makePubKeyAddress, mkCoin)
+import           Pos.Types                  (Coin, SoftwareVersion, makePubKeyAddress,
+                                             mkCoin)
 import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web.Api         (walletApi)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile, CTx,
@@ -143,11 +145,18 @@ instance ToCapture (Capture "search" Text) where
         , _capDesc = "Wallet title search pattern"
         }
 
+instance ToCapture (Capture "skip" Word) where
+    toCapture Proxy =
+        DocCapture
+        { _capSymbol = "skip"
+        , _capDesc = "Skip this many transactions"
+        }
+
 instance ToCapture (Capture "limit" Word) where
     toCapture Proxy =
         DocCapture
         { _capSymbol = "limit"
-        , _capDesc = "Max numbers of wallets to return"
+        , _capDesc = "Max numbers of transactions to return"
         }
 
 instance ToCapture (Capture "currency" CCurrency) where
@@ -155,6 +164,13 @@ instance ToCapture (Capture "currency" CCurrency) where
         DocCapture
         { _capSymbol = "currency"
         , _capDesc = "Currency"
+        }
+
+instance ToCapture (Capture "seed" Text) where
+    toCapture Proxy =
+        DocCapture
+        { _capSymbol = "seed"
+        , _capDesc = "Seed to redeem the ADA"
         }
 
 instance ToSample WalletError where
@@ -212,6 +228,10 @@ instance ToSample Word where
 
 instance ToSample BackupPhrase where
     toSamples Proxy = notImplemented
+
+instance ToSample SoftwareVersion where
+    toSamples Proxy = singleSample curSoftwareVersion
+
 --
 --instance ToSample Tx where
 --    toSamples Proxy = singleSample $ Tx [TxIn hsh idx] [out]

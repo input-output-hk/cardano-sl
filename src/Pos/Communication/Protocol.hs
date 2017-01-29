@@ -20,15 +20,9 @@ module Pos.Communication.Protocol
 
 import           Control.Arrow                    ((&&&))
 import qualified Data.HashMap.Strict              as HM
-import           Data.Proxy                       (Proxy (..))
-import qualified Data.Text.Buildable              as B
-import           Formatting                       (build, sformat, shown, stext, (%))
-import           Mockable                         (Mockable, Throw, throw)
 import qualified Node                             as N
 import           Node.Message                     (Message (..), MessageName (..),
                                                    messageName')
-import           Serokell.Util.Base16             (base16F)
-import           System.Wlog                      (WithLogger, logDebug, logWarning)
 import           Universum
 
 import           Pos.Binary.Class                 (Bi)

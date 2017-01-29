@@ -11,18 +11,16 @@ module Pos.Communication.Methods
 
 import           Formatting                  (build, sformat, shown, (%))
 import           Mockable                    (handleAll)
-import           Pos.Communication.Protocol  (SendActions)
-import           System.Wlog                 (logWarning)
+import           System.Wlog                 (logInfo, logWarning)
 import           Universum
 
 import           Pos.Binary.Communication    ()
 import           Pos.Binary.Relay            ()
 import           Pos.Binary.Types            ()
-
 import           Pos.Communication.Message   ()
+import           Pos.Communication.Protocol  (SendActions)
 import           Pos.Communication.Relay     (DataMsg (..))
-
-import           Pos.Crypto                  (hash)
+import           Pos.Crypto                  (encodeHash, hash)
 import           Pos.DHT.Model               (DHTNode, sendToNode)
 import           Pos.Txp.Types.Communication (TxMsgContents (..))
 import           Pos.Types                   (TxAux)
@@ -53,7 +51,10 @@ sendUpdateProposal
     -> UpdateProposal
     -> [UpdateVote]
     -> m ()
-sendUpdateProposal sendActions addr upid proposal votes =
+sendUpdateProposal sendActions addr upid proposal votes = do
+    logInfo $ sformat ("Announcing proposal with id "%build%
+                        " (base64 is "%build%")")
+        upid (encodeHash upid)
     handleAll handleE $
         sendToNode sendActions addr $ DataMsg (proposal, votes) upid
   where

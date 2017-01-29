@@ -10,7 +10,7 @@ module Pos.Wallet.Web.Api
 
 import           Data.Proxy                 (Proxy (Proxy))
 
-import           Pos.Types                  (Coin)
+import           Pos.Types                  (Coin, SoftwareVersion)
 import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CProfile, CTx, CTxId,
                                              CTxMeta, CUpdateInfo, CWallet, CWalletInit,
@@ -32,9 +32,9 @@ type WalletApi =
     -- TODO: for now we only support one2one sending. We should extend this to support many2many
      "api" :> "send" :> Capture "from" CAddress :> Capture "to" CAddress :> Capture "amount" Coin :> Capture "currency" CCurrency :> Capture "title" Text :> Capture "description" Text :> Post '[JSON] (Either WalletError CTx)
     :<|>
-     "api" :> "history" :> Capture "address" CAddress :> Get '[JSON] (Either WalletError [CTx])
+     "api" :> "txhistory" :> Capture "address" CAddress :> Capture "skip" Word :> Capture "limit" Word :> Get '[JSON] (Either WalletError ([CTx], Word))
     :<|>
-     "api" :> "history" :> Capture "address" CAddress :> Capture "search" Text :> Capture "limit" Word :> Get '[JSON] (Either WalletError ([CTx], Word))
+     "api" :> "search_txhistory" :> Capture "address" CAddress :> Capture "search" Text :> Capture "skip" Word :> Capture "limit" Word :> Get '[JSON] (Either WalletError ([CTx], Word))
     :<|>
      "api" :> "update_transaction" :> Capture "address" CAddress :> Capture "transaction" CTxId :> ReqBody '[JSON] CTxMeta :> Post '[JSON] (Either WalletError ())
     :<|>
@@ -53,9 +53,15 @@ type WalletApi =
     :<|>
      "api" :> "update_profile" :> ReqBody '[JSON] CProfile :> Post '[JSON] (Either WalletError CProfile)
     :<|>
+     "api" :> "redeem_ada" :> Capture "seed" Text :> ReqBody '[JSON] BackupPhrase :> Post '[JSON] (Either WalletError CWallet)
+    :<|>
      "api" :> "next_update" :> Get '[JSON] (Either WalletError CUpdateInfo)
     :<|>
+     "api" :> "apply_update" :> Post '[JSON] (Either WalletError ())
+    :<|>
      "api" :> "slot_duration" :> Get '[JSON] (Either WalletError Word)
+    :<|>
+     "api" :> "system_version" :> Get '[JSON] (Either WalletError SoftwareVersion)
 
 -- | Helper Proxy.
 walletApi :: Proxy WalletApi

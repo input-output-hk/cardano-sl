@@ -39,8 +39,7 @@ import qualified Data.HashMap.Strict        as HM
 import           Data.List.NonEmpty         ((<|))
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Text                  as T
-import           Formatting                 (build, int, ords, sformat, stext,
-                                             (%))
+import           Formatting                 (build, int, ords, sformat, stext, (%))
 import           Serokell.Data.Memory.Units (toBytes)
 import           Serokell.Util.Text         (listJson)
 import           Serokell.Util.Verify       (VerificationRes (..), formatAllErrors,
@@ -80,13 +79,13 @@ import           Pos.Types                  (Block, BlockHeader, EpochIndex,
                                              MainExtraHeaderData (..), ProxySKEither,
                                              ProxySKSimple, SlotId (..), SlotLeaders,
                                              TxAux, TxId, VerifyHeaderParams (..),
-                                             blockHeader, blockLeaders, difficultyL,
-                                             epochIndexL, epochOrSlot, flattenSlotId,
-                                             genesisHash, getEpochOrSlot, headerHash,
-                                             headerHashG, headerSlot, mkGenesisBlock,
-                                             mkMainBlock, mkMainBody, prevBlockL,
-                                             topsortTxs, verifyHeader, verifyHeaders,
-                                             vhpVerifyConsensus)
+                                             blockHeader, blockLeaders, blockSlot,
+                                             difficultyL, epochIndexL, epochOrSlot,
+                                             flattenSlotId, genesisHash, getEpochOrSlot,
+                                             headerHash, headerHashG, headerSlot,
+                                             mkGenesisBlock, mkMainBlock, mkMainBody,
+                                             prevBlockL, topsortTxs, verifyHeader,
+                                             verifyHeaders, vhpVerifyConsensus)
 import qualified Pos.Types                  as Types
 import           Pos.Update.Core            (UpdatePayload (..))
 import           Pos.Update.Logic           (usCanCreateBlock, usPreparePayload,
@@ -448,13 +447,14 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
     applyAMAP e (OldestFirst []) True                   = throwError e
     applyAMAP _ (OldestFirst []) False                  = GS.getTip
     applyAMAP e (OldestFirst (block:xs)) nothingApplied = do
-        lift (verifyBlocksPrefix (one block)) >>= \case
+        res <- lift (verifyBlocksPrefix (one block)) >>= \case
             Left e' -> applyAMAP e' (OldestFirst []) nothingApplied
             Right (OldestFirst (undo :| []), pModifier) -> do
                 lift $ applyBlocksUnsafe (one (block, undo)) (Just pModifier)
                 applyAMAP e (OldestFirst xs) False
             Right _ -> panic "verifyAndApplyBlocksInternal: applyAMAP: \
                              \verification of one block produced more than one undo"
+        pure res
     -- Rollbacks and returns an error
     failWithRollback
         :: Text
@@ -463,6 +463,12 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
     failWithRollback e toRollback = do
         lift $ mapM_ rollbackBlocks toRollback
         throwError e
+    -- Calculates LRC if it's needed (no lock)
+    calculateLrc epochIx =
+        when lrc $ lift $ lrcSingleShotNoLock epochIx
+    -- Checks if given block is last in epoch
+    isLastEpochBlock (Left _)  = False
+    isLastEpochBlock (Right b) = siSlot (b ^. blockSlot) == epochSlots - 1
     -- This function tries to apply a new portion of blocks (prefix
     -- and suffix). It also has aggregating parameter blunds which is
     -- collected to rollback blocks if correspondent flag is on. First
@@ -473,7 +479,7 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
         :: [NewestFirst NE (Blund ssc)]
         -> (OldestFirst NE (Block ssc), OldestFirst [] (Block ssc))
         -> ExceptT Text m HeaderHash
-    rollingVerifyAndApply blunds (prefix, suffix) = do
+    rollingVerifyAndApply blunds (prefix, suffix) =
         lift (verifyBlocksPrefix prefix) >>= \case
             Left failure
                 | rollback  -> failWithRollback failure blunds
@@ -484,11 +490,14 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
                 let newBlunds = OldestFirst $ getOldestFirst prefix `NE.zip`
                                               getOldestFirst undos
                 lift $ applyBlocksUnsafe newBlunds (Just pModifier)
+                let lastBlock = prefix ^. _Wrapped . _neLast
                 case getOldestFirst suffix of
-                    []           -> GS.getTip
+                    [] | isLastEpochBlock lastBlock -> do
+                         calculateLrc (lastBlock ^. epochIndexL + 1)
+                         GS.getTip
+                    [] -> GS.getTip
                     (genesis:xs) -> do
-                        when lrc $ lift $
-                            lrcSingleShotNoLock (genesis ^. epochIndexL)
+                        calculateLrc (genesis ^. epochIndexL)
                         rollingVerifyAndApply (toNewestFirst newBlunds : blunds) $
                             spanEpoch (OldestFirst (genesis:|xs))
 
@@ -503,12 +512,20 @@ applyBlocks
 applyBlocks calculateLrc pModifier blunds = do
     applyBlocksUnsafe prefix pModifier
     case getOldestFirst suffix of
-        [] -> pass
+        [] | isLastEpochBlock ->
+               when calculateLrc $
+               lrcSingleShotNoLock (lastBlock ^. epochIndexL + 1)
+           | otherwise -> pass
         (genesis:xs) -> do
             when calculateLrc $
                 lrcSingleShotNoLock (genesis ^. _1 . epochIndexL)
             applyBlocks calculateLrc pModifier (OldestFirst (genesis:|xs))
   where
+    isLastEpochBlock =
+        either (const False)
+               (\b -> siSlot (b ^. blockSlot) == epochSlots - 1)
+               lastBlock
+    lastBlock = prefix ^. _Wrapped . _neLast . _1
     (prefix, suffix) =
         over _1 OldestFirst . over _2 OldestFirst $
         spanSafe ((==) `on` view (_1 . epochIndexL)) (getOldestFirst blunds)

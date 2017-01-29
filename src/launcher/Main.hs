@@ -12,6 +12,7 @@ import qualified System.IO                as IO
 import           System.Process           (ProcessHandle)
 import qualified System.Process           as Process
 import           System.Process.Internals (translate)
+import           System.Timeout           (timeout)
 import           Turtle                   hiding (option, toText)
 import           Universum                hiding (FilePath)
 
@@ -22,7 +23,7 @@ import           GHC.IO.Exception         (IOErrorType (..), IOException (..))
 data LauncherOptions = LO
     { loNodePath       :: FilePath
     , loNodeArgs       :: [Text]
-    , loNodeLogPath    :: FilePath
+    , loNodeLogPath    :: Maybe FilePath
     , loWalletPath     :: Maybe FilePath
     , loWalletArgs     :: [Text]
     , loUpdaterCmd     :: Text
@@ -40,7 +41,7 @@ optsParser = LO
              short 'n' <>
              metavar "ARG" <>
              help "An argument to be passed to the node"))
-    <*> (fromString <$> strOption (
+    <*> (optional $ fromString <$> strOption (
              long "node-log" <>
              metavar "PATH" <>
              help "Path to the log where node's output will be dumped"))
@@ -92,8 +93,8 @@ main = do
 -- * Launch the node.
 -- * If it exits with code 20, then update and restart, else quit.
 serverScenario
-    :: (FilePath, [Text], FilePath)  -- ^ Node + its arguments + node log
-    -> (Text, Maybe FilePath)        -- ^ Updater cmd + the update archive
+    :: (FilePath, [Text], Maybe FilePath)  -- ^ Node + its arguments + node log
+    -> (Text, Maybe FilePath)              -- ^ Updater cmd + the update .tar
     -> Shell ()
 serverScenario node updater = do
     echo "Running the updater"
@@ -115,10 +116,10 @@ serverScenario node updater = do
 -- * If the wallet exits with code 20, then update and restart, else quit.
 --
 clientScenario
-    :: (FilePath, [Text], FilePath)  -- ^ Node + its arguments + node log
-    -> (FilePath, [Text])            -- ^ Wallet + its arguments
-    -> (Text, Maybe FilePath)        -- ^ Updater cmd + the update archive
-    -> Int                           -- ^ Node timeout, in seconds
+    :: (FilePath, [Text], Maybe FilePath)  -- ^ Node + its arguments + node log
+    -> (FilePath, [Text])                  -- ^ Wallet + its arguments
+    -> (Text, Maybe FilePath)              -- ^ Updater cmd + the update .tar
+    -> Int                                 -- ^ Node timeout, in seconds
     -> Shell ()
 clientScenario node wallet updater nodeTimeout = do
     echo "Running the updater"
@@ -136,7 +137,7 @@ clientScenario node wallet updater nodeTimeout = do
              void $ wait walletAsync
        | exitCode == ExitFailure 20 -> do
              echo "The wallet has exited with code 20"
-             printf ("Killing the node in "%d%" seconds") nodeTimeout
+             printf ("Killing the node in "%d%" seconds\n") nodeTimeout
              sleep (fromIntegral nodeTimeout)
              echo "Killing the node now"
              liftIO $ do
@@ -169,19 +170,25 @@ runUpdater (updaterCmd, updateArchive) = do
 ----------------------------------------------------------------------------
 
 spawnNode
-    :: (FilePath, [Text], FilePath)
+    :: (FilePath, [Text], Maybe FilePath)
     -> Shell (ProcessHandle, Async ExitCode)
 spawnNode (path, args, logPath) = do
-    logHandle <- openFile (toString logPath) AppendMode
+    logOut <- case logPath of
+        Nothing -> return Process.Inherit
+        Just lp -> do logHandle <- openFile (toString lp) AppendMode
+                      liftIO $ IO.hSetBuffering logHandle IO.LineBuffering
+                      return (Process.UseHandle logHandle)
     let cr = (Process.proc (toString path) (map toString args))
                  { Process.std_in  = Process.CreatePipe
-                 , Process.std_out = Process.UseHandle logHandle
-                 , Process.std_err = Process.UseHandle logHandle
+                 , Process.std_out = logOut
+                 , Process.std_err = logOut
                  }
     phvar <- liftIO newEmptyMVar
     asc <- fork (system' phvar cr mempty)
-    ph <- liftIO $ takeMVar phvar
-    return (ph, asc)
+    mbPh <- liftIO $ timeout 5000000 (takeMVar phvar)
+    case mbPh of
+        Nothing -> panic "couldn't run the node (it didn't start after 5s)"
+        Just ph -> return (ph, asc)
 
 runWallet :: (FilePath, [Text]) -> IO ExitCode
 runWallet (path, args) = proc (toText path) args mempty
@@ -232,7 +239,7 @@ system'
     -- ^ Exit code
 system' phvar p sl = liftIO (do
     let open = do
-            (m, Nothing, Nothing, ph) <- Process.createProcess p
+            (m, _, _, ph) <- Process.createProcess p
             putMVar phvar ph
             case m of
                 Just hIn -> IO.hSetBuffering hIn IO.LineBuffering

@@ -17,6 +17,7 @@ module Pos.Ssc.GodTossing.Storage
 import           Control.Lens                   ((%=), (.=), (<>=), _Wrapped)
 import           Control.Monad.Except           (MonadError (throwError), runExceptT)
 import           Control.Monad.Reader           (ask)
+import           Control.Monad.State            (get)
 import           Data.Default                   (def)
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.HashSet                   as HS
@@ -199,6 +200,12 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
 
     exceptGuardEntry = verifyEntriesGuard fst identity . TossVerFailure
 
+-- [CSL-680] TODO: get rid of copy-paste.
+readerTToState
+    :: MonadState s m
+    => ReaderT s m a -> m a
+readerTToState rdr = get >>= runReaderT rdr
+
 mpcVerifyBlocks
     :: Bool
     -> Richmen
@@ -208,7 +215,7 @@ mpcVerifyBlocks verifyPure richmen blocks = do
     curState <- ask
     flip evalStateT curState $ do
         forM_ blocks $ \b -> do
-            mpcVerifyBlock verifyPure richmen b
+            readerTToState $ mpcVerifyBlock verifyPure richmen b
             mpcProcessBlock b
 
 -- | Apply sequence of blocks to state. Sequence must be based on last

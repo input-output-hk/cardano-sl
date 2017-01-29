@@ -970,14 +970,15 @@ executable cardano-genupdate
 executable cardano-avvmmigrate
   hs-source-dirs:      src/avvmmigrate
   main-is:             Main.hs
-  build-depends:       aeson
+  build-depends:       QuickCheck
+                     , aeson
                      , base
                      , bytestring
+                     , cardano-sl
                      , directory
-                     , serokell-util
                      , ed25519
                      , filepath
-                     , cardano-sl
+                     , serokell-util
                      , text
                      , universum
                      , unordered-containers

@@ -217,7 +217,7 @@ system'
     -- ^ Lines of standard input
     -> io ExitCode
     -- ^ Exit code
-system' phvar p s = liftIO (do
+system' phvar p sl = liftIO (do
     let open = do
             (m, Nothing, Nothing, ph) <- Process.createProcess p
             putMVar phvar ph
@@ -228,9 +228,9 @@ system' phvar p s = liftIO (do
 
     -- Prevent double close
     mvar <- newMVar False
-    let close handle = do
+    let close hdl = do
             modifyMVar_ mvar (\finalized -> do
-                unless finalized (ignoreSIGPIPE (IO.hClose handle))
+                unless finalized (ignoreSIGPIPE (IO.hClose hdl))
                 return True )
     let close' (Just hIn, ph) = do
             close hIn
@@ -238,28 +238,28 @@ system' phvar p s = liftIO (do
         close' (Nothing , ph) = do
             Process.terminateProcess ph
 
-    let handle (Just hIn, ph) = do
+    let handle_ (Just hIn, ph) = do
             let feedIn :: (forall a. IO a -> IO a) -> IO ()
                 feedIn restore =
-                    restore (ignoreSIGPIPE (outhandle hIn s)) `finally` close hIn
+                    restore (ignoreSIGPIPE (outhandle hIn sl)) `finally` close hIn
             mask_ (withAsyncWithUnmask feedIn (\a -> Process.waitForProcess ph <* halt a) )
-        handle (Nothing , ph) = do
+        handle_ (Nothing , ph) = do
             Process.waitForProcess ph
 
-    bracket open close' handle )
+    bracket open close' handle_ )
 
 halt :: Async a -> IO ()
 halt a = do
     m <- poll a
     case m of
-        Nothing        -> cancel a
-        Just (Left  e) -> throwIO e
-        Just (Right _) -> return ()
+        Nothing          -> cancel a
+        Just (Left  msg) -> throwIO msg
+        Just (Right _)   -> return ()
 
 ignoreSIGPIPE :: IO () -> IO ()
-ignoreSIGPIPE = handle (\e -> case e of
+ignoreSIGPIPE = handle (\ex -> case ex of
     IOError
         { ioe_type = ResourceVanished
         , ioe_errno = Just ioe }
         | Errno ioe == ePIPE -> return ()
-    _ -> throwIO e )
+    _ -> throwIO ex )

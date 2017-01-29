@@ -438,7 +438,9 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
         tipMismatchMsg "verify and apply" tip assumedTip
     rollingVerifyAndApply [] (spanEpoch blocks)
   where
-    spanEpoch = over _1 OldestFirst . over _2 OldestFirst .  -- wrap both results
+    spanEpoch (OldestFirst (b@(Left _):|xs)) = (OldestFirst $ b:|[], OldestFirst xs)
+    spanEpoch x                              = spanTail x
+    spanTail = over _1 OldestFirst . over _2 OldestFirst .  -- wrap both results
                 spanSafe ((==) `on` view epochIndexL) .      -- do work
                 getOldestFirst                               -- unwrap argument
     -- Applies as much blocks from failed prefix as possible. Argument
@@ -446,15 +448,16 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
     -- return tip. Fail otherwise.
     applyAMAP e (OldestFirst []) True                   = throwError e
     applyAMAP _ (OldestFirst []) False                  = GS.getTip
-    applyAMAP e (OldestFirst (block:xs)) nothingApplied = do
-        res <- lift (verifyBlocksPrefix (one block)) >>= \case
+    applyAMAP e (OldestFirst (block:xs)) nothingApplied =
+        lift (verifyBlocksPrefix (one block)) >>= \case
             Left e' -> applyAMAP e' (OldestFirst []) nothingApplied
             Right (OldestFirst (undo :| []), pModifier) -> do
                 lift $ applyBlocksUnsafe (one (block, undo)) (Just pModifier)
+                when (isLastEpochBlock block) $
+                    calculateLrc (block ^. epochIndexL + 1)
                 applyAMAP e (OldestFirst xs) False
             Right _ -> panic "verifyAndApplyBlocksInternal: applyAMAP: \
                              \verification of one block produced more than one undo"
-        pure res
     -- Rollbacks and returns an error
     failWithRollback
         :: Text
@@ -479,11 +482,12 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
         :: [NewestFirst NE (Blund ssc)]
         -> (OldestFirst NE (Block ssc), OldestFirst [] (Block ssc))
         -> ExceptT Text m HeaderHash
-    rollingVerifyAndApply blunds (prefix, suffix) =
+    rollingVerifyAndApply blunds (prefix, suffix) = do
         lift (verifyBlocksPrefix prefix) >>= \case
             Left failure
                 | rollback  -> failWithRollback failure blunds
-                | otherwise -> applyAMAP failure
+                | otherwise ->
+                      applyAMAP failure
                                    (over _Wrapped toList prefix)
                                    (null blunds)
             Right (undos, pModifier) -> do
@@ -526,9 +530,14 @@ applyBlocks calculateLrc pModifier blunds = do
                (\b -> siSlot (b ^. blockSlot) == epochSlots - 1)
                lastBlock
     lastBlock = prefix ^. _Wrapped . _neLast . _1
-    (prefix, suffix) =
-        over _1 OldestFirst . over _2 OldestFirst $
-        spanSafe ((==) `on` view (_1 . epochIndexL)) (getOldestFirst blunds)
+    (prefix, suffix) = spanEpoch blunds
+    -- this version is different from one in verifyAndApply subtly,
+    -- but they can be merged with some struggle.
+    spanEpoch (OldestFirst (b@((Left _),_):|xs)) = (OldestFirst $ b:|[], OldestFirst xs)
+    spanEpoch x                                  = spanTail x
+    spanTail = over _1 OldestFirst . over _2 OldestFirst .
+               spanSafe ((==) `on` view (_1 . epochIndexL)) .
+               getOldestFirst
 
 -- | Rollbacks blocks. Head must be the current tip.
 rollbackBlocks

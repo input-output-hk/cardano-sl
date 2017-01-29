@@ -5,7 +5,6 @@ module Command
        , parseCommand
        ) where
 
-import qualified Data.Text                  as T
 import           Prelude                    (read, show)
 import           Serokell.Data.Memory.Units (Byte)
 import           Text.Parsec                (many1, parse, try, (<?>))

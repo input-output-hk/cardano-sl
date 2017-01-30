@@ -86,12 +86,12 @@
     }
   }
 
-  &__network {
+  &__teaser {
     @neat-outer-container;
     padding: 0 24px;
   }
 
-  .network-item {
+  .teaser-item {
     @neat-span-columns 3;
     @neat-omega 4n;
 
@@ -113,10 +113,12 @@
 
     &__subheadline {
       font-size: 12px;
-      padding-bottom: 5px;
+      padding-top: 5px;
+      line-height: normal;
     }
 
     &__description {
+      padding-top: 5px;
       font-size: 10px;
       color: var(--color13);
     }

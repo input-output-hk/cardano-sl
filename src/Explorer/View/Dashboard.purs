@@ -16,9 +16,10 @@ dashboardView state =
         [ P.className "explorer-dashboard" ]
         [
         -- heroView state
-        -- , networkView state
-         blocksView state
-        , transactionsView state
+         networkView state
+        -- , blocksView state
+        -- , transactionsView state
+        , offerView state
         ]
 
 -- header view
@@ -113,7 +114,7 @@ networkView state =
                 [ P.className "headline"]
                 [ P.text "#Network" ]
           , P.div
-                [ P.className "explorer-dashboard__network" ]
+                [ P.className "explorer-dashboard__teaser" ]
                 $ map (networkItem state) networkItems
           ]
         ]
@@ -121,18 +122,18 @@ networkView state =
 networkItem :: State -> NetworkItem -> P.Html Action
 networkItem state item =
     P.div
-        [ P.className "network-item" ]
+        [ P.className "teaser-item" ]
         [ P.h3
-            [ P.className "network-item__headline" ]
+            [ P.className "teaser-item__headline" ]
             [ P.text item.headline ]
         , P.div
-              [ P.className $ "network-item__border" ]
+              [ P.className $ "teaser-item__border" ]
               []
         , P.h4
-              [ P.className $ "network-item__subheadline" ]
+              [ P.className $ "teaser-item__subheadline" ]
               [ P.text item.subheadline ]
         , P.p
-              [ P.className $ "network-item__description" ]
+              [ P.className $ "teaser-item__description" ]
               [ P.text item.description ]
         ]
 
@@ -334,3 +335,59 @@ transactionColumn value clazzName =
     P.div
         [ P.className $ "transactions__column " <> clazzName ]
         [ P.text value ]
+
+
+-- offer
+
+
+-- FIXME (jk): just for now, will use later `real` ADTs
+type OfferItems = Array OfferItem
+
+-- FIXME (jk): just for now, will use later `real` ADTs
+type OfferItem =
+    { headline :: String
+    , description :: String
+    }
+
+offerItems :: OfferItems
+offerItems =
+    [ { headline: "Block Search"
+      , description: "Block is a box where transactions are stored." }
+    , { headline: "Address Search"
+      , description: "Address is similar to what an account in ordinary bank is." }
+    , { headline: "Transactions Search"
+      , description: "Transaction is transfer of coins from user A to user B." }
+    , { headline: "API"
+      , description: "Our robust API is available in a variety of languages & SDKs." }
+    ]
+
+
+offerView :: State -> P.Html Action
+offerView state =
+    P.div
+        [ P.className "explorer-dashboard__wrapper" ]
+        [ P.div
+          [ P.className "explorer-dashboard__container" ]
+          [ P.h3
+                [ P.className "headline"]
+                [ P.text "#WHAT DO WE OFFER ON OUR BLOCK EXPLORER" ]
+          , P.div
+                [ P.className "explorer-dashboard__teaser" ]
+                $ map (offerItem state) offerItems
+          ]
+        ]
+
+offerItem :: State -> OfferItem -> P.Html Action
+offerItem state item =
+    P.div
+        [ P.className "teaser-item" ]
+        [ P.h3
+            [ P.className "teaser-item__headline" ]
+            [ P.text item.headline ]
+        , P.div
+              [ P.className $ "teaser-item__border" ]
+              []
+        , P.p
+              [ P.className $ "teaser-item__description" ]
+              [ P.text item.description ]
+        ]

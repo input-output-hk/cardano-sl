@@ -32,11 +32,11 @@ import           Control.Concurrent.STM  (readTVar, writeTVar)
 import           Control.Lens            (_Wrapped)
 import           Control.Monad.Except    (MonadError, runExceptT)
 import           Control.Monad.State     (put)
-import           Formatting              (build, sformat, (%))
+import           Formatting              (build, int, sformat, (%))
 import           Serokell.Util           (listJson)
 import           System.Wlog             (LogEvent, LoggerName, LoggerNameBox, PureLogger,
                                           WithLogger, dispatchEvents, getLoggerName,
-                                          logDebug, runPureLog, usingLoggerName)
+                                          logDebug, logError, runPureLog, usingLoggerName)
 import           Universum
 
 import           Pos.Context             (WithNodeContext, lrcActionOnEpochReason)
@@ -51,12 +51,14 @@ import           Pos.Ssc.Extra.Types     (SscState (sscGlobal, sscLocal))
 import           Pos.Types               (Block, EpochIndex, HeaderHash, SharedSeed,
                                           SlotId, epochIndexL, headerHash)
 import           Pos.Util                (NE, NewestFirst, OldestFirst, inAssertMode,
-                                          _neHead)
+                                          _neHead, _neLast)
 
 ----------------------------------------------------------------------------
 -- Utilities
 ----------------------------------------------------------------------------
 
+-- | Run something that reads 'SscLocalData' in 'MonadSscMem'.
+-- 'MonadIO' is also needed to use stm.
 sscRunLocalQuery
     :: forall ssc m a.
        (MonadSscMem ssc m, MonadIO m)
@@ -66,6 +68,8 @@ sscRunLocalQuery action = do
     ld <- atomically $ readTVar localVar
     runReaderT action ld
 
+-- | Run something that reads 'SscGlobalState' in 'MonadSscMem'.
+-- 'MonadIO' is also needed to use stm.
 sscRunGlobalQuery
     :: forall ssc m a.
        (MonadSscMem ssc m, MonadIO m)
@@ -79,6 +83,7 @@ sscRunGlobalQuery action = do
 -- Seed calculation
 ----------------------------------------------------------------------------
 
+-- | Calculate 'SharedSeed' for given epoch.
 sscCalculateSeed
     :: forall ssc m.
        (MonadSscMem ssc m, SscGStateClass ssc, MonadIO m, WithLogger m)
@@ -113,6 +118,7 @@ sscNormalizeRichmen = notImplemented
 ----------------------------------------------------------------------------
 
 -- 'MonadIO' (part of 'MonadDB')  is needed only for 'TVar'.
+-- 'MonadThrow' (part of 'MonadDB') is needed only in 'ApplyMode'.
 -- 'MonadDB' is needed only to get richmen.
 -- We can try to eliminate these constraints later.
 type SscGlobalApplyMode ssc m =
@@ -150,6 +156,9 @@ sscRunGlobalUpdate action = do
                 sscRunGlobalUpdatePure @ssc loggerName oldState action
         (res, events) <$ writeTVar globalVar newState
 
+-- | Apply sequence of definitely valid blocks. Global state which is
+-- result of application of these blocks can be optionally passed as
+-- argument (it can be calculated in advance using 'sscVerifyBlocks').
 sscApplyBlocks
     :: forall ssc m.
        SscGlobalApplyMode ssc m
@@ -196,18 +205,33 @@ onUnexpectedVerify hashes = reportFatalError msg
         " returned unexpected state"
     msg = sformat fmt hashes
 
+-- | Rollback application of given sequence of blocks. Bad things can
+-- happen if these blocks haven't been applied before.
 sscRollbackBlocks
     :: forall ssc m.
        SscGlobalApplyMode ssc m
     => NewestFirst NE (Block ssc) -> m ()
 sscRollbackBlocks = sscRunGlobalUpdate . sscRollbackU
 
+-- | Verify sequence of blocks and return global state which
+-- corresponds to application of given blocks. If blocks are invalid,
+-- this function will return it using 'MonadError' type class.
+-- All blocks must be from the same epoch.
 sscVerifyBlocks
     :: forall ssc m.
        SscGlobalVerifyMode ssc m
     => OldestFirst NE (Block ssc) -> m (SscGlobalState ssc)
 sscVerifyBlocks blocks = do
     let epoch = blocks ^. _Wrapped . _neHead . epochIndexL
+    let lastEpoch = blocks ^. _Wrapped . _neLast . epochIndexL
+    let differentEpochsMsg =
+            sformat
+                ("sscVerifyBlocks: different epochs ("%int%", "%int%")")
+                epoch
+                lastEpoch
+    inAssertMode $ unless (epoch == lastEpoch) $ do
+        logError differentEpochsMsg
+        panic differentEpochsMsg
     richmenSet <-
         lrcActionOnEpochReason
             epoch

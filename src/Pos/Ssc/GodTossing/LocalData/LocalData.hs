@@ -25,7 +25,9 @@ import           Data.Containers                      (ContainerKey,
 import qualified Data.HashMap.Strict                  as HM
 import qualified Data.HashSet                         as HS
 import           Data.List.NonEmpty                   (NonEmpty ((:|)))
+import           Formatting                           (int, sformat, (%))
 import           Serokell.Util.Verify                 (isVerSuccess)
+import           System.Wlog                          (logWarning)
 import           Universum
 
 import           Pos.Binary.Ssc                       ()
@@ -48,17 +50,17 @@ import           Pos.Ssc.GodTossing.Core              (CommitmentsMap (getCommit
                                                        verifySignedCommitment)
 import           Pos.Ssc.GodTossing.Functions         (computeParticipants,
                                                        getStableCertsPure)
-import           Pos.Ssc.GodTossing.LocalData.Helpers (GtState, gtGlobalCertificates,
+import           Pos.Ssc.GodTossing.LocalData.Helpers (GtState, gtEpoch,
+                                                       gtGlobalCertificates,
                                                        gtGlobalCommitments,
                                                        gtGlobalOpenings, gtGlobalShares,
-                                                       gtLastProcessedSlot,
                                                        gtLocalCertificates,
                                                        gtLocalCommitments,
                                                        gtLocalOpenings, gtLocalShares,
                                                        gtRunModify, gtRunRead)
 import           Pos.Ssc.GodTossing.LocalData.Types   (GtLocalData (..), ldCertificates,
-                                                       ldCommitments, ldLastProcessedSlot,
-                                                       ldOpenings, ldShares)
+                                                       ldCommitments, ldEpoch, ldOpenings,
+                                                       ldShares)
 import           Pos.Ssc.GodTossing.Toss              (TossVerErrorTag (..),
                                                        TossVerFailure (..),
                                                        checkOpeningMatchesCommitment)
@@ -75,7 +77,7 @@ instance SscLocalDataClass SscGodTossing where
     sscGetLocalPayloadQ = getLocalPayload
     sscApplyGlobalStateU = applyGlobal
     sscNewLocalData =
-        GtLocalData mempty mempty mempty VCD.empty <$> getCurrentSlot
+        GtLocalData mempty mempty mempty VCD.empty . siEpoch <$> getCurrentSlot
 
 type LDQuery a = forall m .  MonadReader GtState m => m a
 type LDUpdate a = forall m . MonadState GtState m  => m a
@@ -136,17 +138,31 @@ applyGlobal richmenSet globalData = do
 -- Get Local Payload
 ----------------------------------------------------------------------------
 
-getLocalPayload :: LocalQuery SscGodTossing (SlotId, GtPayload)
-getLocalPayload = do
-    s <- view ldLastProcessedSlot
-    (s, ) <$> (getPayload (siSlot s) <*> (VCD.certs <$> view ldCertificates))
+getLocalPayload :: SlotId -> LocalQuery SscGodTossing GtPayload
+getLocalPayload SlotId {..} = do
+    expectedEpoch <- view ldEpoch
+    let warningFmt = "getLocalPayload: unexpected epoch ("%int%
+                     ", stored one is "%int%")"
+    let warningMsg = sformat warningFmt siEpoch expectedEpoch
+    isExpected <-
+        if | expectedEpoch == siEpoch -> return True
+           | otherwise -> False <$ logWarning warningMsg
+    getPayload isExpected <*> (VCD.certs <$> view ldCertificates)
   where
-    getPayload slotIdx
-        | isCommitmentIdx slotIdx =
-              CommitmentsPayload <$> view ldCommitments
-        | isOpeningIdx slotIdx = OpeningsPayload <$> view ldOpenings
-        | isSharesIdx slotIdx = SharesPayload <$> view ldShares
+    getPayload isExpected
+        | isCommitmentIdx siSlot =
+            CommitmentsPayload <$> getPayloadDo isExpected ldCommitments
+        | isOpeningIdx siSlot =
+            OpeningsPayload <$> getPayloadDo isExpected ldOpenings
+        | isSharesIdx siSlot =
+            SharesPayload <$> getPayloadDo isExpected ldShares
         | otherwise = pure CertificatesPayload
+    getPayloadDo
+        :: Monoid a
+        => Bool -> Getter GtLocalData a -> LocalQuery SscGodTossing a
+    getPayloadDo isExpected getter
+        | isExpected = view getter
+        | otherwise = pure mempty
 
 ----------------------------------------------------------------------------
 -- Process New Slot
@@ -160,8 +176,8 @@ localOnNewSlot richmen = gtRunModify . localOnNewSlotU richmen
 
 localOnNewSlotU :: RichmenSet -> SlotId -> LDUpdate ()
 localOnNewSlotU richmen si@SlotId {siSlot = slotIdx, siEpoch = epochIdx} = do
-    lastSlot <- use gtLastProcessedSlot
-    if siEpoch lastSlot /= epochIdx
+    storedEpoch <- use gtEpoch
+    if storedEpoch /= epochIdx
       then do
         gtLocalCommitments .= mempty
         gtLocalOpenings .= mempty
@@ -172,7 +188,7 @@ localOnNewSlotU richmen si@SlotId {siSlot = slotIdx, siEpoch = epochIdx} = do
         unless (isSharesIdx slotIdx) $ gtLocalShares .= mempty
     gtLocalCertificates %= VCD.setLastKnownSlot si
     gtLocalCertificates %= VCD.filter (`HS.member` richmen)
-    gtLastProcessedSlot .= si
+    gtEpoch .= epochIdx
 
 ----------------------------------------------------------------------------
 -- Check knowledge of data
@@ -243,7 +259,7 @@ sscProcessMessageU
     -> GtMsgContents
     -> LDProcess ()
 sscProcessMessageU (richmenEpoch, richmen) msg = do
-    epochIdx <- siEpoch <$> use gtLastProcessedSlot
+    epochIdx <- use gtEpoch
     when (epochIdx /= richmenEpoch) $
            throwError $ DifferentEpoches richmenEpoch epochIdx
     case msg of
@@ -271,7 +287,7 @@ processCommitment
     -> SignedCommitment
     -> LDProcess ()
 processCommitment richmen c = do
-    epochIdx <- siEpoch <$> use gtLastProcessedSlot
+    epochIdx <- use gtEpoch
     stableCerts <- getStableCertsPure epochIdx <$> use gtGlobalCertificates
     let participants = stableCerts `HM.intersection` HS.toMap richmen
     let vssPublicKeys = map vcVssKey $ toList participants
@@ -311,7 +327,7 @@ processOpening id o = do
 -- CHECK: #checkShares
 processShares :: RichmenSet -> StakeholderId -> InnerSharesMap -> LDProcess ()
 processShares richmen id s = do
-    epochIdx <- siEpoch <$> use gtLastProcessedSlot
+    epochIdx <- use gtEpoch
     stableCerts <- getStableCertsPure epochIdx <$> use gtGlobalCertificates
     let checks =
           [ (pure $ not (id `HS.member` richmen), tossEx SharesNotRichmen)
@@ -331,7 +347,7 @@ processVssCertificate :: RichmenSet
                       -> VssCertificate
                       -> LDProcess ()
 processVssCertificate richmen c = do
-    lpe <- siEpoch <$> use gtLastProcessedSlot
+    lpe <- use gtEpoch
     let checks =
           [ ( pure $ (addressHash $ vcSigningKey c) `HS.member` richmen,
               tossEx CertificateNotRichmen)

@@ -688,7 +688,7 @@ createMainBlockFinish
     -> ExceptT Text m (MainBlock ssc)
 createMainBlockFinish slotId pSk prevHeader = do
     (localTxs, txUndo) <- getLocalTxsNUndo @ssc
-    sscData <- note onNoSsc =<< sscGetLocalPayload @ssc slotId
+    sscData <- sscGetLocalPayload @ssc slotId
     usPayload <- note onNoUS =<< lift (usPreparePayload slotId)
     (localPSKs, pskUndo) <- lift getProxyMempool
     let convertTx (txId, (tx, _, _)) = WithHash tx txId
@@ -715,7 +715,6 @@ createMainBlockFinish slotId pSk prevHeader = do
     lift $ blk <$ applyBlocksUnsafe (one (Right blk, blockUndo)) (Just pModifier)
   where
     onBrokenTopo = throwError "Topology of local transactions is broken!"
-    onNoSsc = "can't obtain SSC payload to create block"
     onNoUS = "can't obtain US payload to create block"
 
 createMainBlockPure

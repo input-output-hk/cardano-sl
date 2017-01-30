@@ -48,11 +48,10 @@ import           Pos.Ssc.GodTossing.Core          (Commitment (..), SignedCommit
                                                    genCommitmentAndOpening,
                                                    getCommitmentsMap, isCommitmentIdx,
                                                    isOpeningIdx, isSharesIdx,
-                                                   mkSignedCommitment, mkVssCertificate,
-                                                   _gpCertificates)
+                                                   mkSignedCommitment, mkVssCertificate)
 import           Pos.Ssc.GodTossing.Functions     (computeParticipants, hasCommitment,
                                                    hasOpening, hasShares, vssThreshold)
-import           Pos.Ssc.GodTossing.LocalData     (getLocalPayload, localOnNewSlot,
+import           Pos.Ssc.GodTossing.LocalData     (ldCertificates, localOnNewSlot,
                                                    sscProcessMessage)
 import           Pos.Ssc.GodTossing.Richmen       (gtLrcConsumer)
 import qualified Pos.Ssc.GodTossing.SecretStorage as SS
@@ -63,6 +62,7 @@ import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types         (gsCommitments, gtcParticipateSsc,
                                                    gtcVssKeyPair)
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtMsgTag (..))
+import qualified Pos.Ssc.GodTossing.VssCertData   as VCD
 import           Pos.Types                        (EpochIndex, LocalSlotIndex,
                                                    SlotId (..), StakeholderId,
                                                    StakeholderId, Timestamp (..),
@@ -131,7 +131,7 @@ checkNSendOurCert sendActions = do
             logError $ sformat ("Error announcing our VssCertificate: " % shown) e
     getOurVssCertificate :: m VssCertificate
     getOurVssCertificate = do
-        localCerts <- _gpCertificates . snd <$> sscRunLocalQuery getLocalPayload
+        localCerts <- VCD.certs <$> sscRunLocalQuery (view ldCertificates)
         getOurVssCertificateDo localCerts
     getOurVssCertificateDo :: VssCertificatesMap -> m VssCertificate
     getOurVssCertificateDo certs = do

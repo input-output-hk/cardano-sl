@@ -98,10 +98,8 @@ instance WorkMode SscGodTossing m
 
     handleInv = sscIsDataUseful
 
-    handleReq tag addr = do
-      payload <- getCurrentSlot >>= sscGetLocalPayload
-      return $ case payload of Nothing -> Nothing
-                               Just p  -> toContents tag addr p
+    handleReq tag addr =
+        toContents tag addr <$> (getCurrentSlot >>= sscGetLocalPayload)
 
     handleData dat = do
         addr <- contentsToKey dat

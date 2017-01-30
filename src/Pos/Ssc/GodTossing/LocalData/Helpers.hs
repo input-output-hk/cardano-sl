@@ -20,7 +20,7 @@ import           Pos.Ssc.GodTossing.Types           (GtGlobalState, _gsCommitmen
                                                      _gsOpenings, _gsShares,
                                                      _gsVssCertificates)
 import qualified Pos.Ssc.GodTossing.VssCertData     as VCD
-import           Pos.Types                          (SlotId)
+import           Pos.Types                          (EpochIndex, SlotId)
 
 -- | This wrapper using for pass local and global state to
 -- | functions which works with state using lens.
@@ -51,7 +51,7 @@ data GtState = GtState
     , -- | Local set of VSS certificates
       _gtLocalCertificates  :: !VCD.VssCertData
     , -- | Last slot we are aware of.
-      _gtLastProcessedSlot  :: !SlotId
+      _gtEpoch              :: !EpochIndex
     } deriving Show
 
 makeClassy ''GtState
@@ -86,16 +86,16 @@ toGtState g l =
     , _gtLocalOpenings      = LD._ldOpenings l
     , _gtLocalShares        = LD._ldShares l
     , _gtLocalCertificates  = LD._ldCertificates l
-    , _gtLastProcessedSlot  = LD._ldLastProcessedSlot l
+    , _gtEpoch              = LD._ldEpoch l
     }
 
 fromGtState :: GtState -> LD.GtLocalData
 fromGtState st =
     LD.GtLocalData
     {
-      _ldCommitments       = _gtLocalCommitments st
-    , _ldOpenings          = _gtLocalOpenings st
-    , _ldShares            = _gtLocalShares st
-    , _ldCertificates      = _gtLocalCertificates st
-    , _ldLastProcessedSlot = _gtLastProcessedSlot st
+      _ldCommitments  = _gtLocalCommitments st
+    , _ldOpenings     = _gtLocalOpenings st
+    , _ldShares       = _gtLocalShares st
+    , _ldCertificates = _gtLocalCertificates st
+    , _ldEpoch        = _gtEpoch st
     }

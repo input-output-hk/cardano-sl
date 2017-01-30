@@ -94,11 +94,12 @@ sscCalculateSeed = sscRunGlobalQuery . sscCalculateSeedQ @ssc
 -- Local Data
 ----------------------------------------------------------------------------
 
+-- | Get 'SscPayload' for inclusion into main block with given 'SlotId'.
 sscGetLocalPayload
     :: forall ssc m.
-       (MonadIO m, MonadSscMem ssc m, SscLocalDataClass ssc)
-    => SlotId -> m (Maybe (SscPayload ssc))
-sscGetLocalPayload neededSlot = notImplemented
+       (MonadIO m, MonadSscMem ssc m, SscLocalDataClass ssc, WithLogger m)
+    => SlotId -> m (SscPayload ssc)
+sscGetLocalPayload = sscRunLocalQuery . sscGetLocalPayloadQ @ssc
 
 sscNormalize
     :: forall ssc m.

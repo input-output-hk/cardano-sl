@@ -342,8 +342,10 @@ newWallet CWalletInit {..} = do
 restoreWallet :: WalletWebMode ssc m => CWalletInit -> m CWallet
 restoreWallet CWalletInit {..} = do
     cAddr <- genSaveAddress cwBackupPhrase
-    getWalletMeta cAddr >>= maybe (createWallet cAddr cwInitMeta) (const $ pure ())
+    getWalletMeta cAddr >>= maybe (createWallet cAddr cwInitMeta) (const walletExistsError)
     getWallet cAddr
+  where
+    walletExistsError = throwM $ Internal "Wallet with that mnemonics already exists"
 
 updateWallet :: WalletWebMode ssc m => CAddress -> CWalletMeta -> m CWallet
 updateWallet cAddr wMeta = do

@@ -59,7 +59,7 @@ instance Exception CardanoFatalError where
 -- | Print red message about fatal error and throw exception.
 reportFatalError
     :: (WithLogger m, MonadThrow m)
-    => Text -> m ()
+    => Text -> m a
 reportFatalError msg = do
     logError $ colorize Red msg
     throwM $ CardanoFatalError msg

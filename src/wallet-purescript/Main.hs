@@ -36,6 +36,7 @@ main =
       , mkSumType (Proxy @CT.CTx)
       , mkSumType (Proxy @CT.NotifyEvent)
       , mkSumType (Proxy @CT.CUpdateInfo)
+      , mkSumType (Proxy @CT.CWalletRedeem)
       , mkSumType (Proxy @PT.Coin)
       , mkSumType (Proxy @PT.ChainDifficulty)
       , mkSumType (Proxy @PT.BlockVersion)

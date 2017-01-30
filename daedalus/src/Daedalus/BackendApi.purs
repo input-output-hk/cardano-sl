@@ -5,7 +5,7 @@ import Control.Monad.Aff (Aff)
 import Control.Monad.Eff.Exception (error, Error)
 import Control.Monad.Error.Class (throwError)
 import Daedalus.Constants (backendPrefix)
-import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency, WalletError, showCCurrency, CProfile, CWalletInit, BackupPhrase, CUpdateInfo, SoftwareVersion, Seed)
+import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency, WalletError, showCCurrency, CProfile, CWalletInit, BackupPhrase, CUpdateInfo, SoftwareVersion, CWalletRedeem)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (decodeJson, encodeJson)
 import Data.Bifunctor (bimap)
@@ -118,7 +118,7 @@ isValidAddress cCurrency addr = getR ["valid_address", showCCurrency cCurrency, 
 blockchainSlotDuration :: forall eff. Aff (ajax :: AJAX | eff) Int
 blockchainSlotDuration = getR ["slot_duration"]
 
-restoreWallet :: forall eff. BackupPhrase -> Aff (ajax :: AJAX | eff) CWallet
+restoreWallet :: forall eff. CWalletInit -> Aff (ajax :: AJAX | eff) CWallet
 restoreWallet = postRBody ["restore_wallet"]
 
 nextUpdate :: forall eff. Aff (ajax :: AJAX | eff) CUpdateInfo
@@ -130,6 +130,6 @@ applyUpdate = postR ["apply_update"]
 systemVersion :: forall eff. Aff (ajax :: AJAX | eff) SoftwareVersion
 systemVersion = getR ["system_version"]
 
-redeemADA :: forall eff. Seed -> BackupPhrase -> Aff (ajax :: AJAX | eff) CWallet
-redeemADA seed = postRBody ["redeem_ada", seed]
+redeemADA :: forall eff. CWalletRedeem -> Aff (ajax :: AJAX | eff) CWallet
+redeemADA = postRBody ["redeem_ada"]
 

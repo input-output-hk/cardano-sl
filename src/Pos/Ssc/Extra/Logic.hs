@@ -68,9 +68,9 @@ sscRunGlobalQuery = notImplemented
 
 sscCalculateSeed
     :: forall ssc m.
-       (MonadSscMem ssc m, SscStorageClass ssc, MonadIO m)
+       (MonadSscMem ssc m, SscStorageClass ssc, MonadIO m, WithLogger m)
     => EpochIndex -> m (Either (SscSeedError ssc) SharedSeed)
-sscCalculateSeed = notImplemented
+sscCalculateSeed = sscRunGlobalQuery . sscCalculateSeedQ @ssc
 
 ----------------------------------------------------------------------------
 -- Local Data

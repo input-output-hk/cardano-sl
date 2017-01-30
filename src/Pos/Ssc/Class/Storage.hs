@@ -15,14 +15,14 @@ module Pos.Ssc.Class.Storage
        , SscGlobalUpdate
        ) where
 
-import           System.Wlog          (WithLogger)
+import           System.Wlog         (WithLogger)
 import           Universum
 
-import           Pos.DB.Class         (MonadDB)
-import           Pos.Lrc.Types        (Richmen)
-import           Pos.Ssc.Class.Types  (Ssc (..))
-import           Pos.Types            (Block, EpochIndex, SharedSeed)
-import           Pos.Util             (NE, NewestFirst, OldestFirst)
+import           Pos.DB.Class        (MonadDB)
+import           Pos.Lrc.Types       (Richmen)
+import           Pos.Ssc.Class.Types (Ssc (..))
+import           Pos.Types           (Block, EpochIndex, SharedSeed)
+import           Pos.Util            (NE, NewestFirst, OldestFirst)
 
 ----------------------------------------------------------------------------
 -- Modern
@@ -53,6 +53,6 @@ class Ssc ssc => SscStorageClass ssc where
         -> OldestFirst NE (Block ssc)
         -> SscGlobalQuery ssc (Either (SscVerifyError ssc) ())
 
-    sscCalculateSeedM
+    sscCalculateSeedQ
         :: EpochIndex
         -> SscGlobalQuery ssc (Either (SscSeedError ssc) SharedSeed)

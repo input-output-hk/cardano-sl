@@ -42,7 +42,6 @@ import           Pos.Ssc.GodTossing.Core        (GtPayload (..), VssCertificate 
                                                  getCommitmentsMap, isCommitmentIdx,
                                                  isOpeningIdx, isSharesIdx, vcVssKey,
                                                  _gpCertificates)
-import           Pos.Ssc.GodTossing.Error       (SeedError)
 import           Pos.Ssc.GodTossing.Functions   (computeParticipants, getStableCertsPure,
                                                  verifyEntriesGuard, verifyGtPayload)
 import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
@@ -55,15 +54,14 @@ import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), gsCommitmen
                                                  gsOpenings, gsShares, gsVssCertificates)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types                      (Block, EpochIndex (..), EpochOrSlot (..),
-                                                 SharedSeed, SlotId (..), addressHash,
-                                                 blockMpc, blockSlot, epochIndexL,
-                                                 epochOrSlot, epochOrSlotG, gbHeader)
+                                                 SlotId (..), addressHash, blockMpc,
+                                                 blockSlot, epochIndexL, epochOrSlot,
+                                                 epochOrSlotG, gbHeader)
 import           Pos.Util                       (NE, NewestFirst (..), OldestFirst (..),
                                                  maybeThrow, toOldestFirst)
 
 type GSVerify a = forall m . ( MonadReader GtGlobalState m, WithLogger m
                              , MonadError TossVerFailure m) => m a
-type GSQuery a  = forall m . (MonadReader GtGlobalState m, WithLogger m) => m a
 type GSUpdate a = forall m . (MonadState GtGlobalState m) => m a
 
 instance SscStorageClass SscGodTossing where
@@ -71,7 +69,9 @@ instance SscStorageClass SscGodTossing where
     sscApplyBlocksM = mpcApplyBlocks
     sscRollbackM = mpcRollback
     sscVerifyBlocksM pureVer rich = runExceptT . mpcVerifyBlocks pureVer rich
-    sscCalculateSeedM = calculateSeedQ
+    sscCalculateSeedQ _ =
+        calculateSeed <$> view gsCommitments <*> view gsOpenings <*>
+        view gsShares
 
 gtGetGlobalState
     :: (MonadSscMem SscGodTossing m)
@@ -275,12 +275,6 @@ mpcRollback (NewestFirst blocks) = do
             CertificatesPayload _ -> return ()
         pure False
     unionGenCerts = foldr' VCD.insert VCD.empty $ toList genesisCertificates
-
--- | Calculate leaders for the next epoch.
-calculateSeedQ :: EpochIndex -> GSQuery (Either SeedError SharedSeed)
-calculateSeedQ _ =
-    calculateSeed <$> view gsCommitments <*> view gsOpenings <*>
-        view gsShares
 
 mpcLoadGlobalState
     :: (WithLogger m, MonadDB SscGodTossing m)

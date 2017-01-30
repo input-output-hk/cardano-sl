@@ -6,6 +6,7 @@ translation =
     , back: "Zurück"
     , transaction: "Transaktion"
     , transactions: "Transaktionen"
+    , transactionFeed: "Transaktionen Feed"
     , address: "Address"
     , calculator: "Rechner"
     , version: "Version"

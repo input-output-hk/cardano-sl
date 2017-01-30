@@ -38,6 +38,11 @@ update (DashboardExpandBlocks toggled) state = noEffects $ state {
             dashboard = state.viewStates.dashboard { blocksExpanded = toggled }
         }
     }
+update (DashboardExpandTransactions toggled) state = noEffects $ state {
+        viewStates = state.viewStates {
+            dashboard = state.viewStates.dashboard { transactionsExpanded = toggled }
+        }
+    }
 update NoOp state = noEffects state
 
 

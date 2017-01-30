@@ -19,7 +19,7 @@ calculatorView state =
             [ P.className "explorer-calculator__container" ]
             [ P.link
                   (toUrl Dashboard)
-                  [ P.className "btn" ]
+                  [ P.className "" ]
                   [ P.text $ translate _.back state.lang ]
             , placeholderView $ translate _.calculator state.lang
             ]

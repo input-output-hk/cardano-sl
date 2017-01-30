@@ -7,6 +7,7 @@ import Explorer.Routes (Route)
 data CCurrency =
       ADA
     | BTC
+    | USD
 
 
 -- State
@@ -32,4 +33,5 @@ data Action
     | UpdateView Route
     | ScrollTop
     | DashboardExpandBlocks Boolean
+    | DashboardExpandTransactions Boolean
     | NoOp

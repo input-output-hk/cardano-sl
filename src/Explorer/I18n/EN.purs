@@ -6,13 +6,14 @@ translation =
     , back: "Back"
     , transaction: "Transaction"
     , transactions: "Transactions"
+    , transactionFeed: "Transactions Feed"
     , address: "Address"
     , calculator: "Calculator"
     , version: "version"
     , summary: "Summary"
     , block: "Block"
     , hashes: "Hashes"
-    , nav: 
+    , nav:
         { home: "Home"
         , blockchain: "Blockchain"
         , market: "Market"

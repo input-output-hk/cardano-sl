@@ -51,6 +51,7 @@ type Translation =
     , back :: String
     , transaction :: String
     , transactions :: String
+    , transactionFeed :: String
     , address :: String
     , calculator :: String
     , version :: String

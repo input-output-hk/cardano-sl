@@ -2,22 +2,22 @@ module Explorer.View.Dashboard (dashboardView) where
 
 import Prelude
 import Data.Array (slice)
+import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (I18nAccessor, translate)
-import Explorer.Routes (Route(..), toUrl)
-import Explorer.Types (Action(..), State)
-import Explorer.View.Common (paginationView)
+import Explorer.Types (Action(..), CCurrency(..), State)
+import Explorer.View.Common (currencyCSSClass, paginationView)
 import Pux.Html (Html, div, h3, text, h1, h2, input, h4, p) as P
 import Pux.Html.Attributes (className, type_, placeholder) as P
 import Pux.Html.Events (onClick) as P
-import Pux.Router (link) as P
 
 dashboardView :: State -> P.Html Action
 dashboardView state =
     P.div
         [ P.className "explorer-dashboard" ]
-        [ heroView state
-        , networkView state
-        , blocksView state
+        [
+        -- heroView state
+        -- , networkView state
+         blocksView state
         , transactionsView state
         ]
 
@@ -140,7 +140,7 @@ blocksView state =
             , blocksHeaderView state
             , P.div
               [ P.className "blocks-body" ]
-              $ map (blockRow state) $ blockItems'
+              $ map (blockRow state) blockItems'
             , P.div
               [ P.className "blocks-footer" ]
               [ blocksFooterView ]
@@ -148,8 +148,13 @@ blocksView state =
         ]
       where
         expanded = state.viewStates.dashboard.blocksExpanded
+
         blockItems' :: BlockItems
-        blockItems' = if expanded then slice 0 maxBlockRows blockItems else slice 0 minBlockRows blockItems
+        blockItems' = if expanded
+            then slice 0 maxBlockRows blockItems
+            else slice 0 minBlockRows blockItems
+
+        blocksFooterView :: P.Html Action
         blocksFooterView = if expanded then
             paginationView state
             else
@@ -157,6 +162,7 @@ blocksView state =
               [ P.className "btn-expand"
               , P.onClick <<< const $ DashboardExpandBlocks true ]
               [ P.text "#expand"]
+
 
 maxBlockRows :: Int
 maxBlockRows = 10
@@ -206,6 +212,46 @@ blocksHeaderItems =
 
 -- transactions
 
+-- FIXME (jk): just for now, will use later `real` ADTs
+type TransactionItems = Array TransactionItem
+
+-- FIXME (jk): just for now, will use later `real` ADTs
+type TransactionItem =
+    { hash :: String
+    , age :: String
+    , amount :: Int
+    , amountCurrency :: Maybe CCurrency
+    , exchange :: Number
+    , exchangeCurrency :: Maybe CCurrency
+    }
+
+transactionItem :: TransactionItem
+transactionItem =
+    { hash: "46087134cd072aec7d36c15a6726bfc07ea78884b352d16f333433bb224f7f6"
+        , age: "< 1 minute", amount: 123383, amountCurrency: Just ADA
+        , exchange: 12.98, exchangeCurrency: Just USD }
+
+transactionItems :: TransactionItems
+transactionItems =
+    [ transactionItem
+    , transactionItem
+    , transactionItem
+    , transactionItem
+    , transactionItem
+    , transactionItem
+    , transactionItem
+    , transactionItem
+    , transactionItem
+    , transactionItem
+    , transactionItem
+    ]
+
+maxTransactionRows :: Int
+maxTransactionRows = 10
+
+minTransactionRows :: Int
+minTransactionRows = 5
+
 transactionsView :: State -> P.Html Action
 transactionsView state =
     P.div
@@ -213,16 +259,40 @@ transactionsView state =
         [ P.div
           [ P.className "explorer-dashboard__container" ]
           [ P.h3
-                [ P.className "headline"]
-                [ P.text $ translate _.transactions state.lang ]
-          , P.link (toUrl Transaction)
-              [ P.className "btn" ]
-              [ P.text $ translate _.transaction state.lang ]
-          , P.link (toUrl Address)
-              [ P.className "btn" ]
-              [ P.text $ translate _.address state.lang ]
-          , P.link (toUrl Calculator)
-              [ P.className "btn" ]
-              [ P.text $ translate _.calculator state.lang ]
+              [ P.className "headline"]
+              [ P.text $ translate _.transactionFeed state.lang ]
+          , P.div
+              [ P.className "transactions__container" ]
+              $ map (transactionRow state) $ transactionItems'
+          , P.div
+            [ P.className "transactions__footer" ]
+            [ P.div
+                [ P.className "btn-expand"
+                , P.onClick <<< const <<< DashboardExpandTransactions $ not expanded ]
+                [ P.text expandLabel]
+            ]
           ]
         ]
+    where
+      expanded = state.viewStates.dashboard.transactionsExpanded
+      expandLabel = if expanded then "#collapse" else "#expand"
+      transactionItems' :: TransactionItems
+      transactionItems' = if expanded
+          then slice 0 maxTransactionRows transactionItems
+          else slice 0 minTransactionRows transactionItems
+
+transactionRow :: State -> TransactionItem -> P.Html Action
+transactionRow state item =
+    P.div
+        [ P.className "transactions__row" ]
+        [ transactionColumn item.hash "hash"
+        , transactionColumn item.age ""
+        , transactionColumn (show item.amount) $ currencyCSSClass item.amountCurrency
+        , transactionColumn (show item.exchange) $ currencyCSSClass item.exchangeCurrency
+        ]
+
+transactionColumn :: String -> String -> P.Html Action
+transactionColumn value clazzName =
+    P.div
+        [ P.className $ "transactions__column " <> clazzName ]
+        [ P.text value ]

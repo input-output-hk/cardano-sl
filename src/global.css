@@ -102,6 +102,12 @@
   background-image: svg-inline(ada-dark);
 }
 
+@svg-load usd-dark url('../static/images/usd-currency-symbol-dark.svg');
+
+.bg-usd-dark {
+  background-image: svg-inline(usd-dark);
+}
+
 @svg-load transaction-arrow url('../static/images/transaction-arrow-blue.svg');
 
 .bg-transaction-arrow {
@@ -158,11 +164,6 @@
   border-color: var(--color9);
   border-color-hover: color(var(--color9) a(0.8));
   border-color-active: var(--color9);
-}
-
-/* TODO (jk) remove btn class */
-.btn {
-  button: standard-button;
 }
 
 .headline {

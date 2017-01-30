@@ -25,7 +25,7 @@ module Node (
     , messageName'
 
     , SendActions(sendTo, withConnectionTo)
-    , ConversationActions(send, recv)
+    , ConversationActions(send, recv, peerData)
     , Worker
     , Listener
     , ListenerAction(..)
@@ -41,30 +41,30 @@ module Node (
 
     ) where
 
+import           Control.Exception          (SomeException)
 import           Control.Monad              (unless)
 import           Control.Monad.Fix          (MonadFix)
-import           Control.Exception          (SomeException)
 import qualified Data.Binary.Get            as Bin
 import qualified Data.ByteString            as BS
 import qualified Data.ByteString.Lazy       as LBS
 import           Data.Map.Strict            (Map)
 import qualified Data.Map.Strict            as M
 import           Data.Proxy                 (Proxy (..))
+import           Formatting                 (sformat, shown, (%))
+import qualified Mockable.Channel           as Channel
 import           Mockable.Class
 import           Mockable.Concurrent
+import           Mockable.CurrentTime
 import           Mockable.Exception
+import qualified Mockable.Metrics           as Metrics
 import           Mockable.SharedAtomic
 import           Mockable.SharedExclusive
-import qualified Mockable.Channel           as Channel
-import           Mockable.CurrentTime
-import qualified Mockable.Metrics           as Metrics
 import qualified Network.Transport.Abstract as NT
 import           Node.Internal              (ChannelIn, ChannelOut)
 import qualified Node.Internal              as LL
 import           Node.Message
 import           System.Random              (StdGen)
-import           Formatting                 (sformat, shown, (%))
-import           System.Wlog                (WithLogger, logError, logDebug)
+import           System.Wlog                (WithLogger, logDebug, logError)
 
 data Node m = forall event . Node {
       nodeId         :: LL.NodeId
@@ -134,11 +134,11 @@ data SendActions packing peerData m = SendActions {
 
 data ConversationActions peerData body rcv m = ConversationActions {
        -- | Send a message within the context of this conversation
-       send :: body -> m ()
+       send     :: body -> m ()
 
        -- | Receive a message within the context of this conversation.
        --   'Nothing' means end of input (peer ended conversation).
-     , recv :: m (Maybe rcv)
+     , recv     :: m (Maybe rcv)
 
        -- | The data associated with that peer (reported by the peer).
        --   It's in m because trying to take it may block (it may not be

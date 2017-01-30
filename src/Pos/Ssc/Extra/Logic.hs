@@ -20,6 +20,7 @@ module Pos.Ssc.Extra.Logic
          -- * Local Data
        , sscGetLocalPayload
        , sscNormalize
+       , sscResetLocal
 
          -- * GState
        , sscApplyBlocks
@@ -42,6 +43,7 @@ import           Pos.Context             (WithNodeContext, lrcActionOnEpochReaso
 import           Pos.DB                  (MonadDB, getTipBlockHeader)
 import qualified Pos.DB.Lrc              as LrcDB
 import           Pos.Exception           (reportFatalError)
+import           Pos.Slotting            (MonadSlots)
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..))
 import           Pos.Ssc.Class.Storage   (SscGStateClass (..))
@@ -128,6 +130,18 @@ sscNormalize = do
     atomically $
         modifyTVar' localVar $
         execState $ sscNormalizeU @ssc tipEpoch richmenSet gs
+
+-- | Reset local data to empty state.  This function can be used when
+-- we detect that something is really bad. In this case it makes sense
+-- to remove all local data to be sure it's valid.
+sscResetLocal
+    :: forall ssc m.
+       (MonadDB ssc m, MonadSscMem ssc m, SscLocalDataClass ssc, MonadSlots m)
+    => m ()
+sscResetLocal = do
+    emptyLD <- sscNewLocalData
+    localVar <- sscLocal <$> askSscMem
+    atomically $ writeTVar localVar emptyLD
 
 ----------------------------------------------------------------------------
 -- GState

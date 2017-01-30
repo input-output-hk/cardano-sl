@@ -24,6 +24,7 @@ module Pos.Util
        , getKeys
        , maybeThrow
        , maybeThrow'
+       , parseIntegralSafe
 
        -- * Lists
        , allDistinct
@@ -79,14 +80,17 @@ module Pos.Util
        , spanSafe
        , eitherToVerRes
 
-       -- * MVar
+       -- * Concurrency
        , clearMVar
        , forcePutMVar
        , readMVarConditional
        , readUntilEqualMVar
        , readTVarConditional
        , readUntilEqualTVar
+       , withReadLifted
+       , withWriteLifted
 
+       -- * Conversation and networking
        , stubListenerOneMsg
        , stubListenerConv
 
@@ -97,7 +101,6 @@ module Pos.Util
        , sendActionsWithTimeLimit
 
        , execWithTimeLimit
-       , parseIntegralSafe
 
        , NamedMessagePart (..)
        -- * Instances
@@ -116,65 +119,70 @@ module Pos.Util
        -- ** MonadFail LoggerNameBox
        ) where
 
-import           Control.Concurrent.STM.TVar   (TVar, readTVar)
-import           Control.Lens                  (Each (..), LensLike', Magnified, Zoomed,
-                                                lensRules, magnify, makeWrapped, zoom,
-                                                _Wrapped)
-import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
-import qualified Control.Monad                 as Monad (fail)
-import           Control.Monad.STM             (retry)
-import           Control.Monad.Trans.Resource  (ResourceT)
-import           Data.Aeson                    (FromJSON (..), ToJSON (..))
-import           Data.Binary                   (Binary)
-import qualified Data.Cache.LRU                as LRU
-import           Data.Hashable                 (Hashable)
-import qualified Data.HashMap.Strict           as HM
-import           Data.HashSet                  (fromMap)
-import           Data.List                     (span, zipWith3)
-import qualified Data.List.NonEmpty            as NE
-import           Data.Proxy                    (Proxy (..), asProxyTypeOf)
-import           Data.SafeCopy                 (Contained, SafeCopy (..), base, contain,
-                                                deriveSafeCopySimple, safeGet, safePut)
-import qualified Data.Serialize                as Cereal (Get, Put)
-import qualified Data.Text                     as T
-import           Data.Time.Units               (Microsecond, Millisecond, Second,
-                                                convertUnit)
-import           Formatting                    (sformat, shown, stext, (%))
+import           Control.Concurrent.ReadWriteLock (RWLock, acquireRead, acquireWrite,
+                                                   releaseRead, releaseWrite)
+import           Control.Concurrent.STM.TVar      (TVar, readTVar)
+import           Control.Lens                     (Each (..), LensLike', Magnified,
+                                                   Zoomed, lensRules, magnify,
+                                                   makeWrapped, zoom, _Wrapped)
+import           Control.Lens.Internal.FieldTH    (makeFieldOpticsForDec)
+import qualified Control.Monad                    as Monad (fail)
+import           Control.Monad.Catch              (bracket_)
+import           Control.Monad.STM                (retry)
+import           Control.Monad.Trans.Resource     (ResourceT)
+import           Data.Aeson                       (FromJSON (..), ToJSON (..))
+import           Data.Binary                      (Binary)
+import qualified Data.Cache.LRU                   as LRU
+import           Data.Hashable                    (Hashable)
+import qualified Data.HashMap.Strict              as HM
+import           Data.HashSet                     (fromMap)
+import           Data.List                        (span, zipWith3)
+import qualified Data.List.NonEmpty               as NE
+import           Data.Proxy                       (Proxy (..), asProxyTypeOf)
+import           Data.SafeCopy                    (Contained, SafeCopy (..), base,
+                                                   contain, deriveSafeCopySimple, safeGet,
+                                                   safePut)
+import qualified Data.Serialize                   as Cereal (Get, Put)
+import qualified Data.Text                        as T
+import           Data.Time.Units                  (Microsecond, Millisecond, Second,
+                                                   convertUnit)
+import           Formatting                       (sformat, shown, stext, (%))
 import           Language.Haskell.TH
-import           Language.Haskell.TH.Syntax    (Lift)
+import           Language.Haskell.TH.Syntax       (Lift)
 import qualified Language.Haskell.TH.Syntax
-import           Mockable                      (Async, Bracket, Delay, Fork, Mockable,
-                                                Throw, async, bracket, cancel, delay,
-                                                finally, fork, killThread, throw, waitAny)
-import           Node                          (ConversationActions (..),
-                                                ListenerAction (..), Message, NodeId,
-                                                SendActions (..))
-import           Node.Message                  (MessageName (..), Packable, Unpackable,
-                                                messageName, messageName')
-import           Prelude                       (read)
-import           Serokell.Data.Memory.Units    (Byte, fromBytes, toBytes)
-import           Serokell.Util                 (VerificationRes (..))
-import           System.Console.ANSI           (Color (..), ColorIntensity (Vivid),
-                                                ConsoleLayer (Foreground),
-                                                SGR (Reset, SetColor), setSGRCode)
-import           System.Wlog                   (LoggerNameBox (..), WithLogger, logDebug,
-                                                logWarning, modifyLoggerName)
-import           Test.QuickCheck               (Arbitrary)
-import           Text.Parsec                   (ParsecT)
-import           Text.Parsec                   (digit, many1)
-import           Text.Parsec.Text              (Parser)
-import           Universum                     hiding (Async, async, bracket, cancel,
-                                                finally, waitAny)
-import           Unsafe                        (unsafeInit, unsafeLast)
+import           Mockable                         (Async, Bracket, Delay, Fork, Mockable,
+                                                   Throw, async, bracket, cancel, delay,
+                                                   finally, fork, killThread, throw,
+                                                   waitAny)
+import           Node                             (ConversationActions (..),
+                                                   ListenerAction (..), Message, NodeId,
+                                                   SendActions (..))
+import           Node.Message                     (MessageName (..), Packable, Unpackable,
+                                                   messageName, messageName')
+import           Prelude                          (read)
+import           Serokell.Data.Memory.Units       (Byte, fromBytes, toBytes)
+import           Serokell.Util                    (VerificationRes (..))
+import           System.Console.ANSI              (Color (..), ColorIntensity (Vivid),
+                                                   ConsoleLayer (Foreground),
+                                                   SGR (Reset, SetColor), setSGRCode)
+import           System.Wlog                      (LoggerNameBox (..), WithLogger,
+                                                   logDebug, logWarning, modifyLoggerName)
+import           Test.QuickCheck                  (Arbitrary)
+import           Text.Parsec                      (ParsecT)
+import           Text.Parsec                      (digit, many1)
+import           Text.Parsec.Text                 (Parser)
+import           Universum                        hiding (Async, async, bracket, cancel,
+                                                   finally, waitAny)
+import           Unsafe                           (unsafeInit, unsafeLast)
 
 -- SafeCopy instance for HashMap
-import           Serokell.AcidState.Instances  ()
+import           Serokell.AcidState.Instances     ()
 
-import           Pos.Binary.Class              (Bi)
-import qualified Pos.Binary.Class              as Bi
-import           Pos.Crypto.Random             (randomNumber)
+import           Pos.Binary.Class                 (Bi)
+import qualified Pos.Binary.Class                 as Bi
+import           Pos.Crypto.Random                (randomNumber)
 import           Pos.Util.Arbitrary
-import           Pos.Util.NotImplemented       ()
+import           Pos.Util.NotImplemented          ()
 
 -- | Helper class used for Pos.Util.Relay
 class NamedMessagePart a where
@@ -206,6 +214,16 @@ readerToState
 readerToState = gets . runReader
 
 deriveSafeCopySimple 0 'base ''VerificationRes
+
+parseIntegralSafe :: Integral a => Parser a
+parseIntegralSafe = fromIntegerSafe . read =<< many1 digit
+  where
+    fromIntegerSafe :: Integral a => Integer -> Parser a
+    fromIntegerSafe x =
+        let res = fromInteger x
+        in  if fromIntegral res == x
+            then return res
+            else fail ("Number is too large: " ++ show x)
 
 -- | A helper for simple error handling in executables
 eitherPanic :: Show a => Text -> Either a b -> b
@@ -267,6 +285,12 @@ type NE = NonEmpty
 
 neZipWith3 :: (x -> y -> z -> q) -> NonEmpty x -> NonEmpty y -> NonEmpty z -> NonEmpty q
 neZipWith3 f (x :| xs) (y :| ys) (z :| zs) = f x y z :| zipWith3 f xs ys zs
+
+-- | Makes a span on the list, considering tail only. Predicate has
+-- list head as first argument. Used to take non-null prefix that
+-- depends on the first element.
+spanSafe :: (a -> a -> Bool) -> NonEmpty a -> (NonEmpty a, [a])
+spanSafe p (x:|xs) = let (a,b) = span (p x) xs in (x:|a,b)
 
 ----------------------------------------------------------------------------
 -- Chronological sequences
@@ -586,11 +610,6 @@ eitherToVerRes (Left errors) = if T.null errors then VerFailure []
                                else VerFailure $ T.split (==';') errors
 eitherToVerRes (Right _ )    = VerSuccess
 
--- | Makes a span on the list, considering tail only. Predicate has
--- list head as first argument. Used to take non-null prefix that
--- depends on the first element.
-spanSafe :: (a -> a -> Bool) -> NonEmpty a -> (NonEmpty a, [a])
-spanSafe p (x:|xs) = let (a,b) = span (p x) xs in (x:|a,b)
 
 instance IsString s => MonadFail (Either s) where
     fail = Left . fromString
@@ -604,7 +623,7 @@ instance MonadFail m => MonadFail (ResourceT m) where
     fail = lift . fail
 
 ----------------------------------------------------------------------------
--- MVar utilities
+-- Concurrency utilites (MVar/TVar/RWLock..)
 ----------------------------------------------------------------------------
 
 clearMVar :: MonadIO m => MVar a -> m ()
@@ -651,36 +670,49 @@ readUntilEqualTVar
     => (x -> a) -> TVar x -> a -> m x
 readUntilEqualTVar f tvar expVal = readTVarConditional ((expVal ==) . f) tvar
 
+withReadLifted :: (MonadIO m, MonadMask m) => RWLock -> m a -> m a
+withReadLifted l = bracket_ (liftIO $ acquireRead l) (liftIO $ releaseRead l)
+
+withWriteLifted :: (MonadIO m, MonadMask m) => RWLock -> m a -> m a
+withWriteLifted l = bracket_ (liftIO $ acquireWrite l) (liftIO $ releaseWrite l)
+
+----------------------------------------------------------------------------
+-- Proxy and listeners
+----------------------------------------------------------------------------
+
 stubListenerOneMsg
     :: (WithLogger m, Message r, Unpackable p r, Packable p r)
     => Proxy r -> ListenerAction p m
-stubListenerOneMsg p = ListenerActionOneMsg $ \_ _ m ->
-                          let _ = m `asProxyTypeOf` p
-                           in modifyLoggerName (<> "stub") $
-                                logDebug $ sformat
-                                    ("Stub listener (one msg) for "%shown%": received message")
-                                    (messageName p)
+stubListenerOneMsg p =
+    ListenerActionOneMsg $ \_ _ m ->
+        let _ = m `asProxyTypeOf` p
+        in modifyLoggerName (<> "stub") $
+             logDebug $ sformat
+                 ("Stub listener (one msg) for "%shown%": received message")
+                 (messageName p)
 
 stubListenerConv
     :: (WithLogger m, Message r, Unpackable p r, Packable p Void)
     => Proxy r -> ListenerAction p m
-stubListenerConv p = ListenerActionConversation $ \__nId convActions ->
-                          let _ = convActions `asProxyTypeOf` __modP p
-                              __modP :: Proxy r -> Proxy (ConversationActions Void r m)
-                              __modP _ = Proxy
-                           in modifyLoggerName (<> "stub") $
-                                logDebug $ sformat
-                                    ("Stub listener (conv) for "%shown%": received message")
-                                    (messageName p)
+stubListenerConv p =
+    ListenerActionConversation $ \__nId convActions ->
+        let _ = convActions `asProxyTypeOf` __modP p
+            __modP :: Proxy r -> Proxy (ConversationActions Void r m)
+            __modP _ = Proxy
+         in modifyLoggerName (<> "stub") $
+              logDebug $ sformat
+                  ("Stub listener (conv) for "%shown%": received message")
+                  (messageName p)
 
 withWaitLog :: ( CanLogInParallel m ) => SendActions p m -> SendActions p m
 withWaitLog sendActions = sendActions
     { sendTo = \nodeId msg ->
-                  let MessageName mName = messageName' msg
-                   in logWarningWaitLinear 4
-                        (sformat ("Send "%shown%" to "%shown) mName nodeId) $
-                          sendTo sendActions nodeId msg
-    , withConnectionTo = \nodeId action -> withConnectionTo sendActions nodeId $ action . withWaitLogConv nodeId
+          let MessageName mName = messageName' msg
+          in logWarningWaitLinear 4
+                 (sformat ("Send "%shown%" to "%shown) mName nodeId) $
+                 sendTo sendActions nodeId msg
+    , withConnectionTo = \nodeId action ->
+            withConnectionTo sendActions nodeId $ action . withWaitLogConv nodeId
     }
 
 withWaitLogConv
@@ -696,7 +728,8 @@ withWaitLogConv nodeId conv = conv { send = send', recv = recv' }
         logWarningWaitLinear 4
           (sformat ("Recv from "%shown%" in conversation") nodeId) $
             recv conv
-    MessageName sndMsg = messageName $ ((\_ -> Proxy) :: ConversationActions snd rcv m -> Proxy snd) conv
+    MessageName sndMsg =
+        messageName $ ((\_ -> Proxy) :: ConversationActions snd rcv m -> Proxy snd) conv
 
 withWaitLogConvL
     :: (CanLogInParallel m, Message rcv)
@@ -711,22 +744,21 @@ withWaitLogConvL nodeId conv = conv { send = send', recv = recv' }
         logWarningWaitLinear 4
           (sformat ("Recv "%shown%" from "%shown%" in conversation") rcvMsg nodeId) $
             recv conv
-    MessageName rcvMsg = messageName $ ((\_ -> Proxy) :: ConversationActions snd rcv m -> Proxy rcv) conv
+    MessageName rcvMsg =
+        messageName $ ((\_ -> Proxy) :: ConversationActions snd rcv m -> Proxy rcv) conv
 
 convWithTimeLimit
     :: (Mockable Async m, Mockable Bracket m, Mockable Delay m, WithLogger m)
     => Microsecond -> NodeId -> ConversationActions snd rcv m -> ConversationActions snd rcv m
 convWithTimeLimit timeout nodeId conv = conv { recv = recv' }
-      where
-        recv' = do
-            res <- execWithTimeLimit timeout $ recv conv
-            case res of
-                Nothing -> do
-                    logWarning $
-                        sformat ("Recv from "%shown%" in conversation - timeout expired")
-                        nodeId
-                    return Nothing
-                Just r  -> return r
+  where
+    recv' = execWithTimeLimit timeout (recv conv) >>= \case
+        Nothing -> do
+            logWarning $
+                sformat ("Recv from "%shown%" in conversation - timeout expired")
+                nodeId
+            return Nothing
+        Just r  -> pure r
 
 sendActionsWithTimeLimit
     :: (Mockable Async m, Mockable Bracket m, Mockable Delay m, WithLogger m)
@@ -736,7 +768,6 @@ sendActionsWithTimeLimit timeout sendActions = sendActions
         withConnectionTo sendActions nodeId $
             action . convWithTimeLimit timeout nodeId
     }
-
 
 execWithTimeLimit
     :: ( Mockable Async m
@@ -748,13 +779,3 @@ execWithTimeLimit timeout action = do
     promises <- mapM async [ Just <$> action, delay timeout $> Nothing ]
     (_, val) <- waitAny promises `finally` mapM_ cancel promises
     return val
-
-parseIntegralSafe :: Integral a => Parser a
-parseIntegralSafe = fromIntegerSafe . read =<< many1 digit
-  where
-    fromIntegerSafe :: Integral a => Integer -> Parser a
-    fromIntegerSafe x =
-        let res = fromInteger x
-        in  if fromIntegral res == x
-            then return res
-            else fail ("Number is too large: " ++ show x)

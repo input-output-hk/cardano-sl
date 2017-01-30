@@ -72,7 +72,8 @@ import           Pos.Types                   (Block, HeaderHash, ProxySKEpoch,
                                               blockProxySKs, epochIndexL, headerHash,
                                               headerHashG, prevBlockL)
 import           Pos.Util                    (NE, NewestFirst (..), OldestFirst (..),
-                                              _neHead, _neLast)
+                                              withReadLifted, withWriteLifted, _neHead,
+                                              _neLast)
 
 
 ----------------------------------------------------------------------------
@@ -388,19 +389,19 @@ data PskEpochVerdict
     | PEAdded
     deriving (Show,Eq)
 
--- TODO Calls to DB are not synchronized for now, because storage is
+-- TODO CSL-687 Calls to DB are not synchronized for now, because storage is
 -- append-only, so nothing bad should happen. But it may be a problem
 -- later.
 -- | Processes proxy secret key (understands do we need it,
 -- adds/caches on decision, returns this decision).
 processProxySKEpoch
-    :: (MonadDelegation m, WithNodeContext ssc m, MonadDB ssc m)
+    :: (MonadDelegation m, WithNodeContext ssc m, MonadDB ssc m, MonadMask m)
     => ProxySKEpoch -> m PskEpochVerdict
 processProxySKEpoch psk = do
     sk <- ncSecretKey <$> getNodeContext
     curTime <- liftIO getCurrentTime
-    -- (1) We're reading from DB
-    psks <- Misc.getProxySecretKeys
+    miscLock <- view DB.miscLock <$> DB.getNodeDBs
+    psks <- withReadLifted miscLock Misc.getProxySecretKeys
     res <- runDelegationStateAction $ do
         let related = toPublic sk == pskDelegatePk psk
             exists = psk `elem` psks
@@ -416,8 +417,10 @@ processProxySKEpoch psk = do
                   | not related -> PEUnrelated
                   | otherwise -> PEAdded
     -- (2) We're writing to DB
-    when (res == PEAdded) $ Misc.addProxySecretKey psk
-    when (res == PERemoved) $ Misc.removeProxySecretKey $ pskIssuerPk psk
+    when (res == PEAdded) $ withWriteLifted miscLock $
+        Misc.addProxySecretKey psk
+    when (res == PERemoved) $ withWriteLifted miscLock $
+        Misc.removeProxySecretKey $ pskIssuerPk psk
     pure res
 
 ----------------------------------------------------------------------------

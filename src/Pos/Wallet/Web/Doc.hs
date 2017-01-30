@@ -29,10 +29,9 @@ import           Pos.Types                  (Coin, SoftwareVersion, makePubKeyAd
                                              mkCoin)
 import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web.Api         (walletApi)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile,
-                                             CRedemptionData, CTx, CTxId, CTxMeta,
-                                             CUpdateInfo, CWallet, CWalletInit,
-                                             CWalletMeta, addressToCAddress)
+import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile, CTx,
+                                             CTxId, CTxMeta, CUpdateInfo, CWallet,
+                                             CWalletInit, CWalletMeta, addressToCAddress)
 import           Pos.Wallet.Web.Error       (WalletError)
 
 walletDocs :: API
@@ -232,9 +231,6 @@ instance ToSample BackupPhrase where
 
 instance ToSample SoftwareVersion where
     toSamples Proxy = singleSample curSoftwareVersion
-
-instance ToSample CRedemptionData where
-    toSamples Proxy = notImplemented
 
 --
 --instance ToSample Tx where

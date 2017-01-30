@@ -23,7 +23,6 @@ module Pos.Wallet.Web.ClientTypes
       , CWalletType (..)
       , CWalletMeta (..)
       , CWalletInit (..)
-      , CRedemptionData (..)
       , CUpdateInfo (..)
       , NotifyEvent (..)
       , addressToCAddress
@@ -153,13 +152,6 @@ data CWallet = CWallet
 data CWalletInit = CWalletInit
     { cwBackupPhrase :: !BackupPhrase
     , cwInitMeta     :: !CWalletMeta
-    } deriving (Show, Generic)
-
--- | Query data for ada repemtion
--- (base64 seed + backup phrase)
-data CRedemptionData = CRedemptionData
-    { crBackupPhrase :: !BackupPhrase
-    , crSeed         :: !Text
     } deriving (Show, Generic)
 
 ----------------------------------------------------------------------------

@@ -78,13 +78,13 @@ import           Pos.Types                  (Block, BlockHeader, EpochIndex,
                                              MainExtraHeaderData (..), ProxySKEither,
                                              ProxySKSimple, SlotId (..), SlotLeaders,
                                              TxAux, TxId, VerifyHeaderParams (..),
-                                             blockHeader, blockLeaders, blockSlot,
-                                             difficultyL, epochIndexL, epochOrSlot,
-                                             flattenSlotId, genesisHash, getEpochOrSlot,
-                                             headerHash, headerHashG, headerSlot,
-                                             mkGenesisBlock, mkMainBlock, mkMainBody,
-                                             prevBlockL, topsortTxs, verifyHeader,
-                                             verifyHeaders, vhpVerifyConsensus)
+                                             blockHeader, blockLeaders, difficultyL,
+                                             epochIndexL, epochOrSlot, flattenSlotId,
+                                             genesisHash, getEpochOrSlot, headerHash,
+                                             headerHashG, headerSlot, mkGenesisBlock,
+                                             mkMainBlock, mkMainBody, prevBlockL,
+                                             topsortTxs, verifyHeader, verifyHeaders,
+                                             vhpVerifyConsensus)
 import qualified Pos.Types                  as Types
 import           Pos.Update.Core            (UpdatePayload (..))
 import           Pos.Update.Logic           (usCanCreateBlock, usPreparePayload,

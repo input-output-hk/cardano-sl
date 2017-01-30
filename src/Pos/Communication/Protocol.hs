@@ -27,13 +27,11 @@ module Pos.Communication.Protocol
 import           Control.Arrow                    ((&&&))
 import qualified Data.HashMap.Strict              as HM
 import           Data.Proxy                       (Proxy)
-import           Formatting                       (build, sformat, shown, stext, (%))
-import           Mockable                         (Delay, Fork, Mockable, Throw, throw)
+import           Mockable                         (Delay, Fork, Mockable)
 import qualified Node                             as N
 import           Node.Message                     (Message (..), MessageName (..),
                                                    messageName')
-import           Serokell.Util.Base16             (base16F)
-import           System.Wlog                      (WithLogger, logDebug, logWarning)
+import           System.Wlog                      (WithLogger)
 import           Universum
 
 import           Pos.Binary.Class                 (Bi)
@@ -90,8 +88,8 @@ convertCA cA = ConversationActions
 
 convertSendActions :: VerInfo -> N.SendActions BiP PeerData m -> SendActions m
 convertSendActions __ourVerInfo sA = SendActions
-    { sendTo = \(NodeId (peerId, nNodeId)) -> N.sendTo sA nNodeId
-    , withConnectionTo = \(NodeId (peerId, nNodeId)) h ->
+    { sendTo = \(NodeId (_peerId, nNodeId)) -> N.sendTo sA nNodeId
+    , withConnectionTo = \(NodeId (_peerId, nNodeId)) h ->
                               N.withConnectionTo sA nNodeId $ h . convertCA
     }
 
@@ -201,41 +199,42 @@ localOnNewSlotWorker b h = onNewSlotWorker b mempty $ const . h
 localWorker :: m () -> (WorkerSpec m, OutSpecs)
 localWorker = worker mempty . const
 
---worker :: (WithLogger m)
---    => (SendActions m -> m ())
---    -> WorkerSpecs m
---worker specs run = WorkerSpecs [const $ toAction run] mempty
+{-
+worker :: (WithLogger m)
+    => (SendActions m -> m ())
+    -> WorkerSpecs m
+worker specs run = WorkerSpecs [const $ toAction run] mempty
 
--- listenerConv :: (WithLogger m, Bi snd, Bi rcv, Message snd, Message rcv)
---     => (NodeId -> ConversationActions PeerData snd rcv m -> m ())
---     -> (VerInfo -> Listener m, (MessageName, HandlerSpec))
--- listenerConv handler = (listener, spec)
---   where
---     spec = (rcvMsgName, ConvHandler sndMsgName)
---     convProxy = convProxy' handler
---     convProxy' :: (a -> b -> c) -> Proxy b
---     convProxy' _ = Proxy
---     sndMsgName = messageName $ sndProxy convProxy
---     rcvMsgName = messageName $ rcvProxy convProxy
---     -- TODO specs parameter is to be received within listener
---     listener ourVerInfo =
---       ListenerActionConversation $ \peerVerInfo peerId conv ->
---           checkingInSpecs ourVerInfo peerVerInfo spec peerId $
---               handler peerId conv
---
--- listenerOneMsg :: (WithLogger m, Bi msg, Message msg, Mockable Throw m)
---     => (NodeId -> SendActions m -> msg -> m ())
---     -> (VerInfo -> Listener m, (MessageName, HandlerSpec))
--- listenerOneMsg handler = (listener, spec)
---   where
---     spec = (rcvMsgName, OneMsgHandler)
---     msgProxy :: (a -> b -> msg -> c) -> Proxy msg
---     msgProxy _ = Proxy
---     rcvMsgName = messageName $ msgProxy handler
---     listener ourVerInfo =
---       ListenerActionOneMsg $ \peerVerInfo peerId sA msg ->
---           checkingInSpecs ourVerInfo peerVerInfo spec peerId $
---               handler peerId (modifySend (vIOutHandlers ourVerInfo) sA) msg
+listenerConv :: (WithLogger m, Bi snd, Bi rcv, Message snd, Message rcv)
+    => (NodeId -> ConversationActions PeerData snd rcv m -> m ())
+    -> (VerInfo -> Listener m, (MessageName, HandlerSpec))
+listenerConv handler = (listener, spec)
+  where
+    spec = (rcvMsgName, ConvHandler sndMsgName)
+    convProxy = convProxy' handler
+    convProxy' :: (a -> b -> c) -> Proxy b
+    convProxy' _ = Proxy
+    sndMsgName = messageName $ sndProxy convProxy
+    rcvMsgName = messageName $ rcvProxy convProxy
+    -- TODO specs parameter is to be received within listener
+    listener ourVerInfo =
+      ListenerActionConversation $ \peerVerInfo peerId conv ->
+          checkingInSpecs ourVerInfo peerVerInfo spec peerId $
+              handler peerId conv
+
+listenerOneMsg :: (WithLogger m, Bi msg, Message msg, Mockable Throw m)
+    => (NodeId -> SendActions m -> msg -> m ())
+    -> (VerInfo -> Listener m, (MessageName, HandlerSpec))
+listenerOneMsg handler = (listener, spec)
+  where
+    spec = (rcvMsgName, OneMsgHandler)
+    msgProxy :: (a -> b -> msg -> c) -> Proxy msg
+    msgProxy _ = Proxy
+    rcvMsgName = messageName $ msgProxy handler
+    listener ourVerInfo =
+      ListenerActionOneMsg $ \peerVerInfo peerId sA msg ->
+          checkingInSpecs ourVerInfo peerVerInfo spec peerId $
+              handler peerId (modifySend (vIOutHandlers ourVerInfo) sA) msg
 
 checkingInSpecs :: WithLogger m => VerInfo -> VerInfo -> (MessageName, HandlerSpec) -> PeerId -> m () -> m ()
 checkingInSpecs ourVerInfo peerVerInfo spec peerId action =
@@ -250,6 +249,7 @@ checkingInSpecs ourVerInfo peerVerInfo spec peerId action =
 
 rcvProxy :: Proxy (ConversationActions snd rcv m) -> Proxy rcv
 rcvProxy _ = Proxy
+
 sndProxy :: Proxy (ConversationActions snd rcv m) -> Proxy snd
 sndProxy _ = Proxy
 
@@ -298,3 +298,5 @@ modifySend ourOutSpecs sA = sA
         throw' constr = throw . constr . either identity identity
         fS (Left m)                = sformat build (m, OneMsgHandler)
         fS (Right (MessageName m)) = sformat ("("%base16F%", Conv _)") m
+
+-}

@@ -18,8 +18,8 @@ import           Mockable                    (currentTime, delay, fork, sleepFor
 import           System.Wlog                 (logError, logInfo)
 import           Universum
 
-import           Pos.Communication           (ActionSpec (..), OutSpecs, Worker,
-                                              WorkerSpec, withWaitLog)
+import           Pos.Communication           (ActionSpec (..), OutSpecs, WorkerSpec,
+                                              withWaitLog)
 import           Pos.Constants               (isDevelopment, ntpMaxError,
                                               ntpResponseTimeout)
 import           Pos.Context                 (NodeContext (..), getNodeContext,

@@ -10,7 +10,6 @@ module Pos.Ssc.GodTossing.Listeners
        ) where
 
 import           Data.HashMap.Strict                    (lookup)
-import           Data.Proxy                             (Proxy (..))
 import           Data.Tagged                            (Tagged (..))
 import           Formatting                             (build, sformat, (%))
 import           Serokell.Util.Verify                   (VerificationRes (..))
@@ -22,13 +21,9 @@ import           Pos.Binary.Crypto                      ()
 import           Pos.Binary.Relay                       ()
 import           Pos.Binary.Ssc                         ()
 import           Pos.Communication.Message              ()
-import           Pos.Communication.Protocol             (Listener, listenerConv,
-                                                         listenerOneMsg)
-import           Pos.Communication.Relay                (DataMsg, InvMsg, Relay (..),
-                                                         RelayProxy (..), ReqMsg,
+import           Pos.Communication.Relay                (Relay (..), RelayProxy (..),
                                                          relayListeners,
                                                          relayStubListeners)
-import           Pos.Communication.Util                 (stubListenerOneMsg)
 import           Pos.Context                            (WithNodeContext (getNodeContext))
 import qualified Pos.DB.Lrc                             as LrcDB
 import           Pos.Security                           (shouldIgnorePkAddress)

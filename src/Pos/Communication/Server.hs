@@ -10,17 +10,14 @@ module Pos.Communication.Server
        , module Pos.Communication.Server.SysStart
        ) where
 
-import           Control.Arrow                     ((&&&))
-import qualified Data.HashMap.Strict               as HM
 import           Data.Tagged                       (Tagged, proxy, unproxy, untag)
 import           System.Wlog                       (LoggerName, WithLogger)
 import           Universum
 
 import           Pos.Binary.Communication          ()
 import           Pos.Block.Network.Listeners       (blockListeners, blockStubListeners)
-import           Pos.Communication.Protocol        (HandlerSpecs, InSpecs (..),
-                                                    Listener (..), ListenerSpec (..),
-                                                    OutSpecs, VerInfo, mapListener')
+import           Pos.Communication.Protocol        (ListenerSpec (..), OutSpecs,
+                                                    mapListener')
 import           Pos.Communication.Server.SysStart
 import           Pos.Communication.Util            (convWithTimeLimit,
                                                     modifyListenerLogger,

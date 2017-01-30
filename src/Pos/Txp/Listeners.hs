@@ -22,8 +22,7 @@ import           Pos.Binary.Relay            ()
 
 import           Pos.Communication.Message   ()
 import           Pos.Communication.Protocol  (ListenerSpec, OutSpecs)
-import           Pos.Communication.Relay     (DataMsg, InvMsg, Relay (..),
-                                              RelayProxy (..), ReqMsg, relayListeners,
+import           Pos.Communication.Relay     (Relay (..), RelayProxy (..), relayListeners,
                                               relayStubListeners)
 import           Pos.Crypto                  (hash)
 import           Pos.Statistics              (StatProcessTx (..), statlogCountEvent)

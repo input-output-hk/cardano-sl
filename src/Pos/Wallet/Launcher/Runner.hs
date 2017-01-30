@@ -15,8 +15,8 @@ import           Mockable                    (Production, bracket, currentTime, 
 import           System.Wlog                 (logInfo, usingLoggerName)
 import           Universum                   hiding (bracket)
 
-import           Pos.Communication           (Action, ActionSpec (..), ListenersWithOut,
-                                              OutSpecs, WorkerSpec)
+import           Pos.Communication           (ActionSpec (..), ListenersWithOut, OutSpecs,
+                                              WorkerSpec)
 import           Pos.DHT.Model               (discoverPeers)
 import           Pos.DHT.Real                (runKademliaDHT)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),

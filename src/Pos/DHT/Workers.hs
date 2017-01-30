@@ -16,7 +16,7 @@ import           Pos.Constants              (kademliaDumpInterval)
 import           Pos.Context                (getNodeContext, ncKademliaDump)
 import           Pos.DHT.Real.Types         (KademliaDHTInstance (..),
                                              WithKademliaDHTInstance (..))
-import           Pos.Types                  (SlotId, flattenSlotId, slotIdF)
+import           Pos.Types                  (flattenSlotId, slotIdF)
 import           Pos.WorkMode               (WorkMode)
 
 dhtWorkers :: (WorkMode ssc m) => ([WorkerSpec m], OutSpecs)

@@ -8,7 +8,6 @@ module Pos.Wallet.Update
        ) where
 
 import           Mockable                   (forConcurrently)
-import           Pos.Util.TimeWarp          (NetworkAddress)
 import           Universum
 
 import           Pos.Binary                 ()

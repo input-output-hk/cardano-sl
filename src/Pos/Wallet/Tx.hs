@@ -13,7 +13,7 @@ module Pos.Wallet.Tx
 import           Control.Monad.Except       (ExceptT (..), runExceptT)
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (mapConcurrently)
-import           System.Wlog                (logError, logInfo)
+import           System.Wlog                (logInfo)
 import           Universum
 
 import           Pos.Binary                 ()

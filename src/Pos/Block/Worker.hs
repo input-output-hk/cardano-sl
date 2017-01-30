@@ -22,7 +22,7 @@ import           Pos.Binary.Communication    ()
 import           Pos.Block.Logic             (createGenesisBlock, createMainBlock)
 import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
-import           Pos.Communication.Protocol  (OutSpecs, SendActions, WorkerSpec, Worker',
+import           Pos.Communication.Protocol  (OutSpecs, Worker', WorkerSpec,
                                               onNewSlotWorker)
 import           Pos.Constants               (networkDiameter)
 import           Pos.Context                 (getNodeContext, ncPublicKey)
@@ -54,7 +54,7 @@ blkOnNewSlot = onNewSlotWorker True announceBlockOuts $ \(slotId@SlotId {..}) se
     let onNoLeader =
             logWarning "Couldn't find a leader for current slot among known ones"
         logLeadersF = if siSlot == 0 then logInfo else logDebug
-        onKnownLeader sendActions leaders leader = do
+        onKnownLeader leaders leader = do
             ourPk <- ncPublicKey <$> getNodeContext
             let ourPkHash = addressHash ourPk
             proxyCerts <- getProxySecretKeys
@@ -100,7 +100,7 @@ blkOnNewSlot = onNewSlotWorker True announceBlockOuts $ \(slotId@SlotId {..}) se
         -- have suitable PSK.
         Just leaders ->
             maybe onNoLeader
-                  (onKnownLeader sendActions leaders)
+                  (onKnownLeader leaders)
                   (leaders ^? ix (fromIntegral siSlot))
 
 onNewSlotWhenLeader

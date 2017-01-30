@@ -35,12 +35,11 @@ import           Pos.Block.Logic            (ClassifyHeaderRes (..),
                                              lcaWithMainChain, verifyAndApplyBlocks,
                                              withBlkSemaphore)
 import qualified Pos.Block.Logic            as L
-import           Pos.Block.Network.Announce (announceBlock, announceBlockOuts)
+import           Pos.Block.Network.Announce (announceBlock)
 import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
                                              MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Block.Types            (Blund)
-import           Pos.Communication.Protocol (ConversationActions (..),
-                                             HandlerSpec (ConvHandler), NodeId, OutSpecs,
+import           Pos.Communication.Protocol (ConversationActions (..), NodeId, OutSpecs,
                                              SendActions (..), WorkerSpec, convH,
                                              toOutSpecs, worker)
 import           Pos.Constants              (blkSecurityParam)

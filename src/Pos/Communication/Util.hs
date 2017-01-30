@@ -14,9 +14,7 @@ module Pos.Communication.Util
 import           Data.Proxy                 (Proxy (..), asProxyTypeOf)
 import           Data.Time.Units            (Microsecond)
 import           Formatting                 (sformat, shown, (%))
-import           Mockable                   (Async, Bracket, Delay, Fork, Mockable, Throw,
-                                             async, bracket, cancel, delay, finally, fork,
-                                             killThread, throw, waitAny)
+import           Mockable                   (Async, Bracket, Delay, Mockable)
 import qualified Node                       as N
 import           System.Wlog                (HasLoggerName, LoggerName, WithLogger,
                                              logDebug, logWarning, modifyLoggerName)

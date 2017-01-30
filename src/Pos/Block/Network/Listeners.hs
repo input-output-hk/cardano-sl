@@ -23,9 +23,8 @@ import           Pos.Block.Network.Announce  (handleHeadersCommunication)
 import           Pos.Block.Network.Retrieval (handleUnsolicitedHeaders)
 import           Pos.Block.Network.Types     (MsgBlock (..), MsgGetBlocks (..),
                                               MsgGetHeaders (..), MsgHeaders (..))
-import           Pos.Communication.Protocol  (ConversationActions (..), Listener,
-                                              ListenerSpec, OutSpecs, listenerConv,
-                                              mergeLs, mergeLs)
+import           Pos.Communication.Protocol  (ConversationActions (..), ListenerSpec,
+                                              OutSpecs, listenerConv, mergeLs, mergeLs)
 import           Pos.Communication.Util      (stubListenerConv)
 import qualified Pos.DB                      as DB
 import           Pos.DB.Error                (DBError (DBMalformed))

@@ -8,8 +8,6 @@ module Pos.Update.Network.Listeners
        , usStubListeners
        ) where
 
-import           Control.Arrow              ((***))
-import           Data.Proxy                 (Proxy (..))
 import           Formatting                 (build, sformat, (%))
 import           Serokell.Util.Verify       (VerificationRes (..))
 import           System.Wlog                (WithLogger, logDebug, logWarning)

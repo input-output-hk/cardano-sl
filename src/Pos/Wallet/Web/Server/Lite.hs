@@ -5,6 +5,7 @@
 
 module Pos.Wallet.Web.Server.Lite
        ( walletServeWebLite
+       , walletServerOuts
        ) where
 
 import qualified Control.Monad.Catch           as Catch
@@ -27,7 +28,7 @@ import           Pos.Wallet.State              (getWalletState, runWalletDB)
 import qualified Pos.Wallet.State              as WS
 import           Pos.Wallet.WalletMode         (WalletRealMode)
 import           Pos.Wallet.Web.Server.Methods (walletApplication, walletServeImpl,
-                                                walletServer)
+                                                walletServer, walletServerOuts)
 import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar,
                                                 MonadWalletWebSockets (..),
                                                 WalletWebSockets, runWalletWS)
@@ -42,7 +43,7 @@ type WebHandler = WalletWebSockets (WalletWebDB WalletRealMode)
 type MainWalletState = WS.WalletState
 
 walletServeWebLite
-    ::  SendActions WalletRealMode
+    :: SendActions WalletRealMode
     -> FilePath
     -> Bool
     -> Word16

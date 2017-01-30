@@ -17,7 +17,7 @@ import           Mockable                   (Production)
 
 
 
-import           Pos.Communication.Protocol (Worker)
+import           Pos.Communication.Protocol (OutSpecs, Worker)
 import           Pos.Launcher.Param         (NodeParams (..))
 import           Pos.Launcher.Runner        (RealModeResources, runProductionMode,
                                              runStatsMode)
@@ -35,7 +35,7 @@ runNodeProduction
     :: forall ssc.
        SscConstraint ssc
     => RealModeResources
-    -> [Worker (ProductionMode ssc)]
+    -> ([Worker (ProductionMode ssc)], OutSpecs)
     -> NodeParams
     -> SscParams ssc
     -> Production ()
@@ -46,7 +46,7 @@ runNodeStats
     :: forall ssc.
        SscConstraint ssc
     => RealModeResources
-    -> [Worker (StatsMode ssc)]
+    -> ([Worker (StatsMode ssc)], OutSpecs)
     -> NodeParams
     -> SscParams ssc
     -> Production ()

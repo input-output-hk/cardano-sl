@@ -23,7 +23,7 @@ import           Universum
 import           Pos.Binary.Communication    ()
 import           Pos.Block.Logic.Internal    (applyBlocksUnsafe, rollbackBlocksUnsafe,
                                               withBlkSemaphore_)
-import           Pos.Communication.Protocol  (Worker, worker)
+import           Pos.Communication.Protocol  (OutSpecs, Worker, localOnNewSlotWorker)
 import           Pos.Constants               (slotSecurityParam)
 import           Pos.Context                 (LrcSyncData, getNodeContext, ncLrcSync)
 import qualified Pos.DB                      as DB
@@ -35,7 +35,6 @@ import           Pos.Lrc.Consumers           (allLrcConsumers)
 import           Pos.Lrc.Error               (LrcError (..))
 import           Pos.Lrc.FollowTheSatoshi    (followTheSatoshiM)
 import           Pos.Lrc.Logic               (findAllRichmenMaybe)
-import           Pos.Slotting                (onNewSlot)
 import           Pos.Ssc.Class               (SscWorkersClass)
 import           Pos.Ssc.Extra               (sscCalculateSeed)
 import           Pos.Types                   (EpochIndex, EpochOrSlot (..),
@@ -50,13 +49,8 @@ import           Pos.WorkMode                (WorkMode)
 
 lrcOnNewSlotWorker
     :: (SscWorkersClass ssc, WorkMode ssc m)
-    => Worker m
-lrcOnNewSlotWorker = onNewSlot True $ lrcOnNewSlotImpl
-
-lrcOnNewSlotImpl
-    :: (SscWorkersClass ssc, WorkMode ssc m)
-    => SlotId -> Worker m
-lrcOnNewSlotImpl SlotId {..} = worker $ \_ ->
+    => (Worker m, OutSpecs)
+lrcOnNewSlotWorker = localOnNewSlotWorker True $ \SlotId {..} ->
     when (siSlot < slotSecurityParam) $ lrcSingleShot siEpoch `catch` onLrcError
   where
     onLrcError UnknownBlocksForLrc =

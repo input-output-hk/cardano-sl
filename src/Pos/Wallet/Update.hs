@@ -3,6 +3,8 @@
 module Pos.Wallet.Update
        ( submitVote
        , submitUpdateProposal
+       , sendVoteOuts
+       , sendProposalOuts
        ) where
 
 import           Mockable                   (forConcurrently)
@@ -11,7 +13,8 @@ import           Universum
 
 import           Pos.Binary                 ()
 
-import           Pos.Communication.Methods  (sendUpdateProposal, sendVote)
+import           Pos.Communication.Methods  (sendProposalOuts, sendUpdateProposal,
+                                             sendVote, sendVoteOuts)
 import           Pos.Communication.Protocol (SendActions)
 import           Pos.DHT.Model              (DHTNode)
 

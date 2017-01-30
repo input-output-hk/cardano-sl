@@ -7,6 +7,7 @@ module Pos.Wallet.Tx
        , submitTxRaw
        , createTx
        , createMOfNTx
+       , sendTxOuts
        ) where
 
 import           Control.Monad.Except       (ExceptT (..), runExceptT)
@@ -16,7 +17,7 @@ import           System.Wlog                (logError, logInfo)
 import           Universum
 
 import           Pos.Binary                 ()
-import           Pos.Communication.Methods  (sendTx)
+import           Pos.Communication.Methods  (sendTx, sendTxOuts)
 import           Pos.Communication.Protocol (SendActions)
 import           Pos.Crypto                 (SecretKey, hash, toPublic)
 import           Pos.DHT.Model              (DHTNode)

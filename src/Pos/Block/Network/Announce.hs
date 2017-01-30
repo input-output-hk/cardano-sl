@@ -3,6 +3,7 @@
 
 module Pos.Block.Network.Announce
        ( announceBlock
+       , announceBlockOuts
        , handleHeadersCommunication
        ) where
 
@@ -18,8 +19,8 @@ import           Pos.Block.Network.Types    (MsgGetHeaders (..), MsgHeaders (..)
 
 import           Pos.Communication.Message  ()
 import           Pos.Communication.Protocol (ConversationActions (..), NodeId (..),
-                                             SendActions (..))
-
+                                             OutSpecs, SendActions (..), convH,
+                                             toOutSpecs)
 import           Pos.Context                (getNodeContext, ncAttackTypes,
                                              ncRecoveryHeader)
 import           Pos.Crypto                 (shortHashF)
@@ -30,6 +31,11 @@ import           Pos.Security               (AttackType (..), NodeAttackedError 
 import           Pos.Types                  (MainBlockHeader, headerHash)
 import           Pos.Util.TimeWarp          (nodeIdToAddress)
 import           Pos.WorkMode               (WorkMode)
+
+announceBlockOuts :: OutSpecs
+announceBlockOuts = toOutSpecs [convH (Proxy :: Proxy (MsgHeaders ssc))
+                                      (Proxy :: Proxy MsgGetHeaders)
+                               ]
 
 announceBlock
     :: WorkMode ssc m

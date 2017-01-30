@@ -14,15 +14,13 @@ module Pos.Delegation.Listeners
 
 import           Data.Proxy                 (Proxy (..))
 import           Formatting                 (build, sformat, shown, (%))
-import           Node                       (ListenerAction (..))
 import           Pos.Communication.Util     (stubListenerOneMsg)
 import           System.Wlog                (WithLogger, logDebug, logInfo)
 import           Universum
 
 
 import           Pos.Binary.Communication   ()
-import           Pos.Communication.Protocol (Listener, ListenerSpec, OutSpecs,
-                                             SendActions (..), listenerConv,
+import           Pos.Communication.Protocol (ListenerSpec, OutSpecs, SendActions (..),
                                              listenerOneMsg, mergeLs, oneMsgH, sendTo,
                                              toOutSpecs)
 import           Pos.Context                (getNodeContext, ncBlkSemaphore,
@@ -32,8 +30,9 @@ import           Pos.Delegation.Logic       (ConfirmPskEpochVerdict (..),
                                              isProxySKConfirmed, processConfirmProxySk,
                                              processProxySKEpoch, processProxySKSimple,
                                              runDelegationStateAction)
-import           Pos.Delegation.Methods     (sendProxyConfirmSK, sendProxySKEpoch,
-                                             sendProxySKSimple)
+import           Pos.Delegation.Methods     (sendProxyConfirmSK, sendProxyConfirmSKOuts,
+                                             sendProxySKEpoch, sendProxySKEpochOuts,
+                                             sendProxySKSimple, sendProxySKSimpleOuts)
 import           Pos.Delegation.Types       (CheckProxySKConfirmed (..),
                                              CheckProxySKConfirmedRes (..),
                                              ConfirmProxySK (..), SendProxySK (..))
@@ -85,7 +84,7 @@ handleSendProxySK = listenerOneMsg outSpecs $
                handleDo sendActions req
            | verdict == PSAdded && doPropagate -> do
                logDebug $ sformat ("Propagating heavyweight PSK: "%build) pSk
-               sendProxySKSimple' pSk sendActions
+               sendProxySKSimple pSk sendActions
            | otherwise -> pass
     handleDo sendActions (SendProxySKEpoch pSk) = do
         logDebug "Got request on handleGetHeaders"
@@ -105,11 +104,10 @@ handleSendProxySK = listenerOneMsg outSpecs $
             logDebug $
             sformat ("Got proxy signature that wasn't accepted. Reason: "%shown) verdict
 
-    outSpecs = spec1 <> spec2 <> spec3
-
-    (sendProxySKSimple', spec1) = sendProxySKSimple
-    (sendProxySKEpoch', spec2) = sendProxySKEpoch
-    (sendProxyConfirmSK', spec3) = sendProxyConfirmSK
+    outSpecs = mconcat [ sendProxySKSimpleOuts
+                       , sendProxySKEpochOuts
+                       , sendProxyConfirmSKOuts
+                       ]
 
     -- | Propagates lightweight PSK depending on the 'ProxyEpochVerdict'.
     propagateProxySKEpoch
@@ -118,8 +116,8 @@ handleSendProxySK = listenerOneMsg outSpecs $
     propagateProxySKEpoch PEUnrelated pSk sendActions =
         whenM (ncPropagation <$> getNodeContext) $ do
             logDebug $ sformat ("Propagating lightweight PSK: "%build) pSk
-            sendProxySKEpoch' pSk sendActions
-    propagateProxySKEpoch PEAdded pSk sendActions = sendProxyConfirmSK' pSk sendActions
+            sendProxySKEpoch pSk sendActions
+    propagateProxySKEpoch PEAdded pSk sendActions = sendProxyConfirmSK pSk sendActions
     propagateProxySKEpoch _ _ _ = pass
 
 ----------------------------------------------------------------------------
@@ -139,11 +137,11 @@ handleConfirmProxySK = listenerOneMsg outSpecs $
     outSpecs = toOutSpecs [oneMsgH (Proxy :: Proxy ConfirmProxySK)]
 
     propagateConfirmProxySK
-        :: forall ssc m. (WorkMode ssc m)
+        :: forall ssc1 m1. (WorkMode ssc1 m1)
         => ConfirmPskEpochVerdict
         -> ConfirmProxySK
-        -> SendActions m
-        -> m ()
+        -> SendActions m1
+        -> m1 ()
     propagateConfirmProxySK CPValid
                             confPSK@(ConfirmProxySK pSk _)
                             sendActions = do

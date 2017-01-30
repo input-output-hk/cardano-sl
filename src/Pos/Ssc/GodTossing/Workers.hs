@@ -29,9 +29,9 @@ import           Pos.Binary.Communication         ()
 import           Pos.Binary.Relay                 ()
 import           Pos.Binary.Ssc                   ()
 import           Pos.Communication.Message        ()
-import           Pos.Communication.Protocol       (SendActions, Worker, Worker', worker)
+import           Pos.Communication.Protocol       (OutSpecs, SendActions, Worker, Worker',
+                                                   onNewSlotWorker, oneMsgH, toOutSpecs)
 import           Pos.Communication.Relay          (DataMsg (..), InvMsg (..))
-
 import           Pos.Constants                    (mpcSendInterval, slotSecurityParam,
                                                    vssMaxTTL)
 import           Pos.Context                      (getNodeContext, lrcActionOnEpochReason,
@@ -42,8 +42,7 @@ import           Pos.Crypto.SecretSharing         (toVssPublicKey)
 import           Pos.Crypto.Signing               (PublicKey)
 import           Pos.DB.Lrc                       (getRichmenSsc)
 import           Pos.DHT.Model                    (sendToNeighbors)
-import           Pos.Slotting                     (getCurrentSlot, getSlotStart,
-                                                   onNewSlot)
+import           Pos.Slotting                     (getCurrentSlot, getSlotStart)
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
 import           Pos.Ssc.Extra.MonadLD            (sscRunLocalQuery)
 import           Pos.Ssc.GodTossing.Functions     (computeParticipants,
@@ -72,15 +71,15 @@ import           Pos.Util                         (AsBinary, asBinary, inAssertM
 import           Pos.WorkMode                     (WorkMode)
 
 instance SscWorkersClass SscGodTossing where
-    sscWorkers = Tagged [onNewSlot True onNewSlotSsc]
+    sscWorkers = Tagged $ first pure onNewSlotSsc
     sscLrcConsumers = Tagged [gtLrcConsumer]
 
 -- CHECK: @onNewSlotSsc
 -- #checkNSendOurCert
 onNewSlotSsc
     :: (WorkMode SscGodTossing m)
-    => SlotId -> Worker m
-onNewSlotSsc slotId = worker $ \sendActions -> do
+    => (Worker m, OutSpecs)
+onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions -> do
     richmen <- HS.fromList . NE.toList <$>
         lrcActionOnEpochReason (siEpoch slotId)
             "couldn't get SSC richmen"
@@ -97,6 +96,10 @@ onNewSlotSsc slotId = worker $ \sendActions -> do
         onNewSlotCommitment slotId sendActions
         onNewSlotOpening slotId sendActions
         onNewSlotShares slotId sendActions
+  where
+    outs = toOutSpecs [ oneMsgH (Proxy :: Proxy (DataMsg StakeholderId GtMsgContents))
+                      , oneMsgH (Proxy :: Proxy (InvMsg StakeholderId GtMsgContents))
+                      ]
 
 -- CHECK: @checkNSendOurCert
 -- Checks whether 'our' VSS certificate has been announced
@@ -256,7 +259,6 @@ sendOurData sendActions msgTag epoch slMultiplier ourId = do
     waitUntilSend msgTag epoch slMultiplier
     logInfo $ sformat ("Announcing our "%build) msgTag
     let msg = InvMsg {imTag = msgTag, imKeys = one ourId}
-    -- [CSL-514] TODO Log long acting sends
     sendToNeighbors sendActions msg
     logDebug $ sformat ("Sent our " %build%" to neighbors") msgTag
 

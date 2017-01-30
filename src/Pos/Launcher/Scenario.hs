@@ -6,6 +6,7 @@ module Pos.Launcher.Scenario
        ( runNode
        , initSemaphore
        , initLrc
+       , runNode'
        ) where
 
 import           Control.Concurrent.MVar     (putMVar)
@@ -17,7 +18,7 @@ import           Mockable                    (currentTime, delay, fork, sleepFor
 import           System.Wlog                 (logError, logInfo)
 import           Universum
 
-import           Pos.Communication           (NSendActions, Worker)
+import           Pos.Communication           (OutSpecs, Worker, withWaitLog)
 import           Pos.Constants               (isDevelopment, ntpMaxError,
                                               ntpResponseTimeout)
 import           Pos.Context                 (NodeContext (..), getNodeContext,
@@ -32,17 +33,16 @@ import           Pos.Types                   (Timestamp (Timestamp), addressHash
 import           Pos.Update                  (MemState (..), askUSMemVar, mvState)
 import           Pos.Util                    (inAssertMode, waitRandomInterval)
 import           Pos.Util.TimeWarp           (sec)
-import           Pos.Worker                  (runWorkers)
+import           Pos.Worker                  (allWorkers)
 import           Pos.Worker.Ntp              (ntpWorker)
 import           Pos.WorkMode                (WorkMode)
 
 -- | Run full node in any WorkMode.
-runNode
+runNode'
     :: (SscConstraint ssc, WorkMode ssc m)
     => [Worker m]
-    -> NSendActions m
-    -> m ()
-runNode plugins sendActions = do
+    -> Worker m
+runNode' plugins' = \sendActions -> do
     logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)
     inAssertMode $ logInfo "Assert mode on"
     pk <- ncPublicKey <$> getNodeContext
@@ -60,9 +60,18 @@ runNode plugins sendActions = do
     logInfo $ "Waiting response from NTP servers"
     unless isDevelopment $ delay (ntpResponseTimeout + ntpMaxError)
     waitSystemStart
-    runWorkers sendActions
-    mapM_ (fork . ($ sendActions)) plugins
+    mapM_ (fork . ($ withWaitLog sendActions)) $
+        plugins'
     sleepForever
+
+-- | Run full node in any WorkMode.
+runNode
+    :: (SscConstraint ssc, WorkMode ssc m)
+    => ([Worker m], OutSpecs)
+    -> (Worker m, OutSpecs)
+runNode (plugins', plOuts) = (,plOuts <> wOuts) $ runNode' $ workers' ++ plugins'
+  where
+    (workers', wOuts) = allWorkers
 
 -- Sanity check in case start time is in future (may happen if clocks
 -- are not accurately synchronized, for example).

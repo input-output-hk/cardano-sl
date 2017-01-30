@@ -35,7 +35,7 @@ import           Pos.Ssc.GodTossing    (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon    (SscNistBeacon)
 import           Pos.Ssc.SscAlgo       (SscAlgo (..))
 import           Pos.Types             (Timestamp (Timestamp))
-import           Pos.Util              (inAssertMode)
+import           Pos.Util              (inAssertMode, mappendPair)
 import           Pos.Util.BackupPhrase (keysFromPhrase)
 import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usKeys, usVss,
                                         writeUserSecret)
@@ -46,9 +46,9 @@ import           Pos.Web               (serveWebBase, serveWebGT)
 import           Pos.WorkMode          (WorkMode)
 #ifdef WITH_WALLET
 import           Node                  (hoistSendActions)
-import           Pos.Communication     (Worker, worker)
+import           Pos.Communication     (OutSpecs, Worker, worker)
 import           Pos.Statistics        (getNoStatsT, getStatsMap, runStatsT')
-import           Pos.Wallet.Web        (walletServeWebFull)
+import           Pos.Wallet.Web        (walletServeWebFull, walletServerOuts)
 import           Pos.WorkMode          (ProductionMode, RawRealMode, StatsMode)
 #endif
 #endif
@@ -113,13 +113,15 @@ action args@Args {..} res = do
     putText $ "If stats is on: " <> show enableStats
     case (enableStats, CLI.sscAlgo commonArgs) of
         (True, GodTossingAlgo) ->
-            runNodeStats @SscGodTossing res (map const currentPluginsGT ++ walletStats args) currentParams gtParams
+            runNodeStats @SscGodTossing res (convPlugins currentPluginsGT `mappendPair` walletStats args) currentParams gtParams
         (True, NistBeaconAlgo) ->
-            runNodeStats @SscNistBeacon res (map const currentPlugins ++  walletStats args) currentParams ()
+            runNodeStats @SscNistBeacon res (convPlugins currentPlugins `mappendPair`  walletStats args) currentParams ()
         (False, GodTossingAlgo) ->
-            runNodeProduction @SscGodTossing res (map const currentPluginsGT ++ walletProd args) currentParams gtParams
+            runNodeProduction @SscGodTossing res (convPlugins currentPluginsGT `mappendPair` walletProd args) currentParams gtParams
         (False, NistBeaconAlgo) ->
-            runNodeProduction @SscNistBeacon res (map const currentPlugins ++ walletProd args) currentParams ()
+            runNodeProduction @SscNistBeacon res (convPlugins currentPlugins `mappendPair` walletProd args) currentParams ()
+  where
+    convPlugins = (,mempty) . map const
 
 #ifdef DEV_MODE
 userSecretWithGenesisKey
@@ -244,26 +246,27 @@ pluginsGT Args {..}
 walletServe
     :: SscConstraint ssc
     => Args
-    -> [Worker (RawRealMode ssc)]
+    -> ([Worker (RawRealMode ssc)], OutSpecs)
 walletServe Args {..} =
     if enableWallet
-    then [worker $ \sendActions -> walletServeWebFull sendActions walletDebug walletDbPath
-        walletRebuildDb walletPort]
-    else []
+    then first pure $ worker walletServerOuts $ \sendActions ->
+            walletServeWebFull sendActions walletDebug walletDbPath
+                                           walletRebuildDb walletPort
+    else ([], mempty)
 
 walletProd
     :: SscConstraint ssc
     => Args
-    -> [Worker (ProductionMode ssc)]
-walletProd = map liftPlugin . walletServe
+    -> ([Worker (ProductionMode ssc)], OutSpecs)
+walletProd = first (map liftPlugin) . walletServe
   where
     liftPlugin = \p sa -> lift . p $ hoistSendActions getNoStatsT lift sa
 
 walletStats
     :: SscConstraint ssc
     => Args
-    -> [Worker (StatsMode ssc)]
-walletStats = map (liftPlugin) . walletServe
+    -> ([Worker (StatsMode ssc)], OutSpecs)
+walletStats = first (map liftPlugin) . walletServe
   where
     liftPlugin = \p sa -> do
         s <- getStatsMap

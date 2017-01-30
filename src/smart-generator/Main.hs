@@ -18,7 +18,7 @@ import           Test.QuickCheck             (arbitrary, generate)
 import           Universum
 
 import qualified Pos.CLI                     as CLI
-import           Pos.Communication           (SendActions, worker)
+import           Pos.Communication           (SendActions, convertSendActions, worker)
 import           Pos.Constants               (genesisN, neighborsSendThreshold,
                                               slotSecurityParam)
 import           Pos.Crypto                  (KeyPair (..), hash)
@@ -27,7 +27,7 @@ import           Pos.DHT.Model               (DHTNode, MonadDHT, discoverPeers,
 import           Pos.Genesis                 (genesisUtxo)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
                                               NodeParams (..), RealModeResources,
-                                              bracketResources, initLrc, runNode,
+                                              bracketResources, initLrc, runNode',
                                               runProductionMode, runTimeSlaveReal,
                                               stakesDistr)
 import           Pos.Slotting                (getSlotDuration)
@@ -39,7 +39,8 @@ import           Pos.Types                   (TxAux)
 import           Pos.Util.JsonLog            ()
 import           Pos.Util.TimeWarp           (ms, sec)
 import           Pos.Util.UserSecret         (simpleUserSecret)
-import           Pos.Wallet                  (submitTxRaw)
+import           Pos.Wallet                  (sendTxOuts, submitTxRaw)
+import           Pos.Worker                  (allWorkers)
 import           Pos.WorkMode                (ProductionMode)
 
 import           GenOptions                  (GenOptions (..), optsInfo)
@@ -89,7 +90,7 @@ getPeers share = do
 runSmartGen :: forall ssc . SscConstraint ssc
             => RealModeResources -> NodeParams -> SscParams ssc -> GenOptions -> Production ()
 runSmartGen res np@NodeParams{..} sscnp opts@GenOptions{..} =
-  runProductionMode res np sscnp $ \sendActions -> do
+  runProductionMode res np sscnp $ (,sendTxOuts <> wOuts) $ \sendActions -> do
     initLrc
     slotDuration <- getSlotDuration
     let getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
@@ -102,7 +103,7 @@ runSmartGen res np@NodeParams{..} sscnp opts@GenOptions{..} =
 
     -- | Run all the usual node workers in order to get
     -- access to blockchain
-    void $ fork $ runNode @ssc [] sendActions
+    void $ fork $ runNode' @ssc workers' sendActions
 
     let logsFilePrefix = fromMaybe "." (CLI.logPrefix goCommonArgs)
     -- | Run the special worker to check new blocks and
@@ -112,12 +113,12 @@ runSmartGen res np@NodeParams{..} sscnp opts@GenOptions{..} =
     logInfo "STARTING TXGEN"
 
     let forFold init ls act = foldM act init ls
+        sA = convertSendActions sendActions
 
     -- [CSL-220] Write MonadBaseControl instance for KademliaDHT
     -- Seeding init tx
-    flip worker sendActions $ \sA ->
-        void $ forConcurrently (zip bambooPools goGenesisIdxs) $ \(pool, fromIntegral -> idx) ->
-            seedInitTx sA goRecipientShare pool (initTx idx)
+    void $ forConcurrently (zip bambooPools goGenesisIdxs) $ \(pool, fromIntegral -> idx) ->
+         seedInitTx sA goRecipientShare pool (initTx idx)
 
     -- Start writing tps file
     liftIO $ writeFile (logsFilePrefix </> tpsCsvFile) tpsCsvHeader
@@ -130,89 +131,90 @@ runSmartGen res np@NodeParams{..} sscnp opts@GenOptions{..} =
             fromIntegral (goRoundPeriodRate + 1) *
             fromIntegral (phaseDurationMs `div` sec 1)
 
-    flip worker sendActions $ \sA ->
-      void $ forFold (goInitTps, goTpsIncreaseStep) [1 .. goRoundNumber] $
-        \(goTPS', increaseStep) (roundNum :: Int) -> do
-        -- Start writing verifications file
-        liftIO $ writeFile (logsFilePrefix </> verifyCsvFile roundNum) verifyCsvHeader
+    void $ forFold (goInitTps, goTpsIncreaseStep) [1 .. goRoundNumber] $
+      \(goTPS', increaseStep) (roundNum :: Int) -> do
+      -- Start writing verifications file
+      liftIO $ writeFile (logsFilePrefix </> verifyCsvFile roundNum) verifyCsvHeader
 
 
-        let goTPS = goTPS' / fromIntegral (length bambooPools)
-            tpsDelta = round $ 1000 / goTPS
-            txNum = round $ roundDurationSec * goTPS
+      let goTPS = goTPS' / fromIntegral (length bambooPools)
+          tpsDelta = round $ 1000 / goTPS
+          txNum = round $ roundDurationSec * goTPS
 
-        logInfo $ sformat ("Round "%int%" from "%int%": TPS "%float)
-            roundNum goRoundNumber goTPS
+      logInfo $ sformat ("Round "%int%" from "%int%": TPS "%float)
+          roundNum goRoundNumber goTPS
 
-        realTxNum <- liftIO $ newTVarIO (0 :: Int)
+      realTxNum <- liftIO $ newTVarIO (0 :: Int)
 
-        -- Make a pause between rounds
-        delay (round $ goRoundPause * fromIntegral (sec 1) :: Microsecond)
+      -- Make a pause between rounds
+      delay (round $ goRoundPause * fromIntegral (sec 1) :: Microsecond)
 
-        beginT <- getPosixMs
-        let startMeasurementsT =
-                beginT + fromIntegral (phaseDurationMs `div` ms 1)
+      beginT <- getPosixMs
+      let startMeasurementsT =
+              beginT + fromIntegral (phaseDurationMs `div` ms 1)
 
-        let sendThread bambooPool = do
-              logInfo $ sformat ("CURRENT TXNUM: "%int) txNum
-              forM_ [0 .. txNum - 1] $ \(idx :: Int) -> do
-                  preStartT <- getPosixMs
-                  -- prevent periods longer than we expected
-                  unless (preStartT - beginT > round (roundDurationSec * 1000)) $ do
-                      startT <- getPosixMs
+      let sendThread bambooPool = do
+            logInfo $ sformat ("CURRENT TXNUM: "%int) txNum
+            forM_ [0 .. txNum - 1] $ \(idx :: Int) -> do
+                preStartT <- getPosixMs
+                -- prevent periods longer than we expected
+                unless (preStartT - beginT > round (roundDurationSec * 1000)) $ do
+                    startT <- getPosixMs
 
-                      -- Get a random subset of neighbours to send tx
-                      na <- getPeers goRecipientShare
+                    -- Get a random subset of neighbours to send tx
+                    na <- getPeers goRecipientShare
 
-                      eTx <- nextValidTx bambooPool goTPS goPropThreshold
-                      case eTx of
-                          Left parent -> do
-                              logInfo $ sformat ("Transaction #"%int%" is not verified yet!") idx
-                              logInfo "Resend the transaction parent again"
-                              submitTxRaw sA na parent
+                    eTx <- nextValidTx bambooPool goTPS goPropThreshold
+                    case eTx of
+                        Left parent -> do
+                            logInfo $ sformat ("Transaction #"%int%" is not verified yet!") idx
+                            logInfo "Resend the transaction parent again"
+                            submitTxRaw sA na parent
 
-                          Right (transaction, witness, distr) -> do
-                              let curTxId = hash transaction
-                              logInfo $ sformat ("Sending transaction #"%int) idx
-                              submitTxRaw sA na (transaction, witness, distr)
-                              when (startT >= startMeasurementsT) $ liftIO $ do
-                                  liftIO $ atomically $ modifyTVar' realTxNum (+1)
-                                  -- put timestamp to current txmap
-                                  registerSentTx txTimestamps curTxId roundNum $ fromIntegral startT * 1000
+                        Right (transaction, witness, distr) -> do
+                            let curTxId = hash transaction
+                            logInfo $ sformat ("Sending transaction #"%int) idx
+                            submitTxRaw sA na (transaction, witness, distr)
+                            when (startT >= startMeasurementsT) $ liftIO $ do
+                                liftIO $ atomically $ modifyTVar' realTxNum (+1)
+                                -- put timestamp to current txmap
+                                registerSentTx txTimestamps curTxId roundNum $ fromIntegral startT * 1000
 
-                      endT <- getPosixMs
-                      let runDelta = endT - startT
-                      delay $ ms (max 0 $ tpsDelta - runDelta)
-              liftIO $ resetBamboo bambooPool
+                    endT <- getPosixMs
+                    let runDelta = endT - startT
+                    delay $ ms (max 0 $ tpsDelta - runDelta)
+            liftIO $ resetBamboo bambooPool
 
-        -- [CSL-220] Write MonadBaseControl instance for KademliaDHT
-        _ <- forConcurrently bambooPools sendThread
-        finishT <- getPosixMs
+      -- [CSL-220] Write MonadBaseControl instance for KademliaDHT
+      _ <- forConcurrently bambooPools sendThread
+      finishT <- getPosixMs
 
-        realTxNumVal <- liftIO $ readTVarIO realTxNum
+      realTxNumVal <- liftIO $ readTVarIO realTxNum
 
-        let globalTime, realTPS :: Double
-            globalTime = (fromIntegral (finishT - startMeasurementsT)) / 1000
-            realTPS = (fromIntegral realTxNumVal) / globalTime
-            (newTPS, newStep) = if realTPS >= goTPS' - 5
-                                then (goTPS' + increaseStep, increaseStep)
-                                else if realTPS >= goTPS' * 0.8
-                                     then (goTPS', increaseStep)
-                                     else (realTPS, increaseStep / 2)
+      let globalTime, realTPS :: Double
+          globalTime = (fromIntegral (finishT - startMeasurementsT)) / 1000
+          realTPS = (fromIntegral realTxNumVal) / globalTime
+          (newTPS, newStep) = if realTPS >= goTPS' - 5
+                              then (goTPS' + increaseStep, increaseStep)
+                              else if realTPS >= goTPS' * 0.8
+                                   then (goTPS', increaseStep)
+                                   else (realTPS, increaseStep / 2)
 
-        putText "----------------------------------------"
-        putText $ "Sending transactions took (s): " <> show globalTime
-        putText $ "So real tps was: " <> show realTPS
+      putText "----------------------------------------"
+      putText $ "Sending transactions took (s): " <> show globalTime
+      putText $ "So real tps was: " <> show realTPS
 
-        -- We collect tables of really generated tps
-        liftIO $ appendFile (logsFilePrefix </> tpsCsvFile) $
-            tpsCsvFormat (globalTime, (goTPS, length bambooPools), realTPS)
+      -- We collect tables of really generated tps
+      liftIO $ appendFile (logsFilePrefix </> tpsCsvFile) $
+          tpsCsvFormat (globalTime, (goTPS, length bambooPools), realTPS)
 
-        -- Wait for 1 phase (to get all the last sent transactions)
-        logInfo "Pausing transaction spawning for 1 phase"
-        delay phaseDurationMs
+      -- Wait for 1 phase (to get all the last sent transactions)
+      logInfo "Pausing transaction spawning for 1 phase"
+      delay phaseDurationMs
 
-        return (newTPS, newStep)
+      return (newTPS, newStep)
+  where
+    (workers', wOuts) = allWorkers
 
 -----------------------------------------------------------------------------
 -- Main

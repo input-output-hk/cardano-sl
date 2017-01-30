@@ -57,15 +57,15 @@ import           Universum                   hiding (bracket)
 import           Pos.Binary                  ()
 import           Pos.CLI                     (readLoggerConfig)
 import           Pos.Communication           (Action, BiP (..), ConversationActions (..),
-                                              InSpecs (..), ListenerSpec,
-                                              ListenersWithOut, OutSpecs (..),
-                                              PeerId (..), SysStartRequest (..),
-                                              SysStartResponse, VerInfo (..),
-                                              allListeners, allStubListeners,
-                                              handleSysStartResp, hoistListenerSpec,
-                                              mergeLs, stubListenerOneMsg,
-                                              sysStartReqListener, sysStartRespListener,
-                                              toAction, unpackLSpecs)
+                                              InSpecs (..), ListenersWithOut,
+                                              OutSpecs (..), PeerId (..),
+                                              SysStartRequest (..), SysStartResponse,
+                                              VerInfo (..), allListeners,
+                                              allStubListeners, handleSysStartResp,
+                                              hoistListenerSpec, mergeLs,
+                                              stubListenerOneMsg, sysStartReqListener,
+                                              sysStartRespListener, toAction,
+                                              unpackLSpecs)
 import           Pos.Communication.PeerState (runPeerStateHolder)
 import           Pos.Constants               (lastKnownBlockVersion, protocolMagic)
 import           Pos.Constants               (blockRetrievalQueueSize,
@@ -119,7 +119,7 @@ runTimeSlaveReal
     => Proxy ssc -> RealModeResources -> BaseParams -> Production Timestamp
 runTimeSlaveReal sscProxy res bp = do
     mvar <- liftIO newEmptyMVar
-    runServiceMode res bp (listeners mvar) . toAction $ \sendActions ->
+    runServiceMode res bp (listeners mvar) sysStartOuts . toAction $ \sendActions ->
       case Const.isDevelopment of
          True -> do
            tId <- fork $ do
@@ -170,9 +170,10 @@ runRawRealMode
     -> NodeParams
     -> SscParams ssc
     -> ListenersWithOut (RawRealMode ssc)
+    -> OutSpecs
     -> Action (RawRealMode ssc) a
     -> Production a
-runRawRealMode res np@NodeParams {..} sscnp listeners action =
+runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs action =
     usingLoggerName lpRunnerTag $ do
        initNC <- sscCreateNodeContext @ssc sscnp
        modernDBs <- openNodeDBs npRebuildDb npDbPathM
@@ -189,7 +190,7 @@ runRawRealMode res np@NodeParams {..} sscnp listeners action =
           runUSHolder .
           runKademliaDHT (rmDHT res) .
           runPeerStateHolder stateM .
-          runServer (rmTransport res) listeners $
+          runServer (rmTransport res) listeners outSpecs $
               \sa -> nodeStartMsg npBaseParams >> action sa
   where
     LoggingParams {..} = bpLoggingParams npBaseParams
@@ -199,20 +200,25 @@ runServiceMode
     :: RealModeResources
     -> BaseParams
     -> ListenersWithOut ServiceMode
+    -> OutSpecs
     -> Action ServiceMode a
     -> Production a
-runServiceMode res bp@BaseParams{..} listeners action =
+runServiceMode res bp@BaseParams{..} listeners outSpecs action =
     usingLoggerName (lpRunnerTag bpLoggingParams) .
     runKademliaDHT (rmDHT res) .
-    runServer (rmTransport res) listeners $
+    runServer (rmTransport res) listeners outSpecs $
         \sa -> nodeStartMsg bp >> action sa
 
 runServer :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m, MonadDHT m)
-  => Transport -> ListenersWithOut m -> Action m b -> m b
-runServer transport packedLS action = do
+  => Transport
+  -> ListenersWithOut m
+  -> OutSpecs
+  -> Action m b
+  -> m b
+runServer transport packedLS (OutSpecs wouts) action = do
     ourPeerId <- PeerId . getMeaningPart <$> currentNodeKey
     let (listeners', InSpecs ins, OutSpecs outs) = unpackLSpecs packedLS
-        ourVerInfo = VerInfo protocolMagic lastKnownBlockVersion ins outs
+        ourVerInfo = VerInfo protocolMagic lastKnownBlockVersion ins $ outs <> wouts
         listeners = listeners' ourVerInfo
     stdGen <- liftIO newStdGen
     node (concrete transport) stdGen BiP (ourPeerId, ourVerInfo) $ \__node ->
@@ -225,10 +231,10 @@ runProductionMode
     => RealModeResources
     -> NodeParams
     -> SscParams ssc
-    -> Action (ProductionMode ssc) a
+    -> (Action (ProductionMode ssc) a, OutSpecs)
     -> Production a
-runProductionMode res np@NodeParams {..} sscnp action =
-    runRawRealMode res np sscnp listeners $
+runProductionMode res np@NodeParams {..} sscnp (action, outSpecs) =
+    runRawRealMode res np sscnp listeners outSpecs $
         \sendActions -> getNoStatsT . action $ hoistSendActions lift getNoStatsT sendActions
   where
     listeners = addDevListeners npSystemStart commonListeners
@@ -243,13 +249,13 @@ runStatsMode
     => RealModeResources
     -> NodeParams
     -> SscParams ssc
-    -> Action (StatsMode ssc) a
+    -> (Action (StatsMode ssc) a, OutSpecs)
     -> Production a
-runStatsMode res np@NodeParams {..} sscnp action = do
+runStatsMode res np@NodeParams {..} sscnp (action, outSpecs) = do
     statMap <- liftIO SM.newIO
     let listeners = addDevListeners npSystemStart commonListeners
         commonListeners = first (hoistListenerSpec (runStatsT' statMap) lift <$>) allListeners
-    runRawRealMode res np sscnp listeners $
+    runRawRealMode res np sscnp listeners outSpecs $
         \sendActions -> do
             runStatsT' statMap . action $ hoistSendActions lift (runStatsT' statMap) sendActions
 

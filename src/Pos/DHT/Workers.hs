@@ -11,20 +11,19 @@ import           System.Wlog                (logNotice)
 import           Universum
 
 import           Pos.Binary.DHTModel        ()
-import           Pos.Communication.Protocol (Worker, worker)
+import           Pos.Communication.Protocol (OutSpecs, Worker, localOnNewSlotWorker)
 import           Pos.Constants              (kademliaDumpInterval)
 import           Pos.Context                (getNodeContext, ncKademliaDump)
 import           Pos.DHT.Real.Types         (KademliaDHTInstance (..),
                                              WithKademliaDHTInstance (..))
-import           Pos.Slotting               (onNewSlot)
 import           Pos.Types                  (SlotId, flattenSlotId, slotIdF)
 import           Pos.WorkMode               (WorkMode)
 
-dhtWorkers :: (WorkMode ssc m) => [Worker m]
-dhtWorkers = [onNewSlot True $ dumpKademliaStateWorker]
+dhtWorkers :: (WorkMode ssc m) => ([Worker m], OutSpecs)
+dhtWorkers = first pure dumpKademliaStateWorker
 
-dumpKademliaStateWorker :: WorkMode ssc m => SlotId -> Worker m
-dumpKademliaStateWorker slotId = worker . const $ do
+dumpKademliaStateWorker :: WorkMode ssc m => (Worker m, OutSpecs)
+dumpKademliaStateWorker = localOnNewSlotWorker True $ \slotId -> do
     when (flattenSlotId slotId `mod` kademliaDumpInterval == 0) $ do
         dumpFile <- ncKademliaDump <$> getNodeContext
         logNotice $ sformat ("Dumping kademlia snapshot on slot: "%slotIdF) slotId

@@ -9,6 +9,7 @@ module Pos.Wallet.Web.Server.Methods
        ( walletApplication
        , walletServer
        , walletServeImpl
+       , walletServerOuts
        ) where
 
 import           Control.Monad.Catch           (try)
@@ -28,7 +29,7 @@ import           System.Wlog                   (logInfo)
 import           Universum
 
 import           Pos.Aeson.ClientTypes         ()
-import           Pos.Communication.Protocol    (SendActions, hoistSendActions)
+import           Pos.Communication.Protocol    (OutSpecs, SendActions, hoistSendActions)
 import           Pos.Constants                 (curSoftwareVersion)
 import           Pos.Crypto                    (hash)
 import           Pos.Crypto                    (deterministicKeyGen, toPublic)
@@ -42,7 +43,7 @@ import           Pos.Util                      (maybeThrow)
 import           Pos.Util.BackupPhrase         (BackupPhrase, keysFromPhrase)
 import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
                                                 addSecretKey)
-import           Pos.Wallet.Tx                 (submitTx)
+import           Pos.Wallet.Tx                 (sendTxOuts, submitTx)
 import           Pos.Wallet.Tx.Pure            (TxHistoryEntry (..))
 import           Pos.Wallet.WalletMode         (WalletMode, getBalance, getTxHistory,
                                                 localChainDifficulty,
@@ -194,6 +195,8 @@ launchNotifier nat = void . liftIO $ mapM startForking
     --         when (oldHistoryLength /= newHistoryLength) .
     --             notify $ NewWalletTransaction cAddress
 
+walletServerOuts :: OutSpecs
+walletServerOuts = sendTxOuts
 
 ----------------------------------------------------------------------------
 -- Handlers

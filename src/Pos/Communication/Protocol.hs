@@ -13,21 +13,33 @@ module Pos.Communication.Protocol
        , MessageName (..)
        , messageName'
        , worker
+       , worker'
+       , localWorker
+       , localWorker'
        , toAction
        , unpackLSpecs
        , hoistListenerSpec
+       , onNewSlotWorker
+       , localOnNewSlotWorker
+       , onNewSlotWithLoggingWorker
+       , convertSendActions
        ) where
 
 import           Control.Arrow                    ((&&&))
 import qualified Data.HashMap.Strict              as HM
+import           Mockable                         (Delay, Fork, Mockable)
 import qualified Node                             as N
 import           Node.Message                     (Message (..), MessageName (..),
                                                    messageName')
+import           System.Wlog                      (WithLogger)
 import           Universum
 
 import           Pos.Binary.Class                 (Bi)
 import           Pos.Communication.BiP            (BiP)
 import           Pos.Communication.Types.Protocol
+import           Pos.Slotting                     (MonadSlots, onNewSlot',
+                                                   onNewSlotWithLogging')
+import           Pos.Types                        (SlotId)
 
 mapListener
     :: (forall t. m t -> m t) -> Listener m -> Listener m
@@ -75,8 +87,8 @@ convertCA cA = ConversationActions
     , recv = N.recv cA
     }
 
-convertSA :: N.SendActions BiP PeerData m -> SendActions m
-convertSA sA = SendActions
+convertSendActions :: N.SendActions BiP PeerData m -> SendActions m
+convertSendActions sA = SendActions
     { sendTo = \(NodeId (peerId, nNodeId)) -> N.sendTo sA nNodeId
     , withConnectionTo = \(NodeId (peerId, nNodeId)) h ->
                               N.withConnectionTo sA nNodeId $ h . convertCA
@@ -93,7 +105,7 @@ listenerOneMsg outSpecs h = (spec, outSpecs)
                   \(peerId, __peerData) nNodeId sA ->
                       h ourVerInfo
                         (NodeId (peerId, nNodeId))
-                        (convertSA sA))
+                        (convertSendActions sA))
               (undefined, undefined)
 
 listenerConv :: (Bi snd, Bi rcv, Message snd, Message rcv)
@@ -124,10 +136,49 @@ unpackLSpecs =
 
 
 toAction :: (SendActions m -> m a) -> Action m a
-toAction h = h . convertSA
+toAction h = h . convertSendActions
 
-worker :: (SendActions m -> m ()) -> Worker m
-worker = toAction
+worker :: OutSpecs -> Worker' m -> (Worker m, OutSpecs)
+worker outSpecs = (,outSpecs) . toAction
+
+worker' :: OutSpecs -> (arg -> Worker' m) -> (arg -> Worker m, OutSpecs)
+worker' outSpecs h = (,outSpecs) $ toAction . h
+
+onNewSlotWorker
+    :: ( MonadIO m
+       , MonadSlots m
+       , MonadCatch m
+       , WithLogger m
+       , Mockable Fork m
+       , Mockable Delay m
+       ) => Bool -> OutSpecs -> (SlotId -> Worker' m) -> (Worker m, OutSpecs)
+onNewSlotWorker b outs = onNewSlot' b . worker' outs
+
+onNewSlotWithLoggingWorker
+    :: ( MonadIO m
+       , MonadSlots m
+       , MonadCatch m
+       , WithLogger m
+       , Mockable Fork m
+       , Mockable Delay m
+       ) => Bool -> OutSpecs -> (SlotId -> Worker' m) -> (Worker m, OutSpecs)
+onNewSlotWithLoggingWorker b outs = onNewSlotWithLogging' b . worker' outs
+
+localOnNewSlotWorker
+    :: ( MonadIO m
+       , MonadSlots m
+       , MonadCatch m
+       , WithLogger m
+       , Mockable Fork m
+       , Mockable Delay m
+       ) =>  Bool -> (SlotId -> m ()) -> (Worker m, OutSpecs)
+localOnNewSlotWorker b h = onNewSlotWorker b mempty $ const . h
+
+localWorker :: m () -> (Worker m, OutSpecs)
+localWorker = worker mempty . const
+
+localWorker' :: (arg -> m ()) -> (arg -> Worker m, OutSpecs)
+localWorker' h = worker' mempty $ const . h
 
 --worker :: (WithLogger m)
 --    => (SendActions m -> m ())

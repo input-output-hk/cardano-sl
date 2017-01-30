@@ -10,6 +10,7 @@ module Pos.Block.Network.Retrieval
        , requestHeaders
        , addToBlockRequestQueue
        , mkHeadersRequest
+       , requestTipOuts
        ) where
 
 import           Control.Concurrent.STM     (isEmptyTBQueue, isFullTBQueue, putTMVar,
@@ -34,12 +35,14 @@ import           Pos.Block.Logic            (ClassifyHeaderRes (..),
                                              lcaWithMainChain, verifyAndApplyBlocks,
                                              withBlkSemaphore)
 import qualified Pos.Block.Logic            as L
-import           Pos.Block.Network.Announce (announceBlock)
+import           Pos.Block.Network.Announce (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
                                              MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Block.Types            (Blund)
-import           Pos.Communication.Protocol (ConversationActions (..), NodeId,
-                                             SendActions (..), Worker, worker)
+import           Pos.Communication.Protocol (ConversationActions (..),
+                                             HandlerSpec (ConvHandler), NodeId, OutSpecs,
+                                             SendActions (..), Worker, convH, toOutSpecs,
+                                             worker)
 import           Pos.Constants              (blkSecurityParam)
 import           Pos.Context                (NodeContext (..), getNodeContext)
 import           Pos.Crypto                 (hash, shortHashF)
@@ -60,8 +63,8 @@ instance Exception VerifyBlocksException
 retrievalWorker
     :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
-    => Worker m
-retrievalWorker = worker $ \sendActions -> handleAll handleWE $ do
+    => (Worker m, OutSpecs)
+retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
     NodeContext{..} <- getNodeContext
     let loop queue recHeaderVar = forever $ do
            ph <- atomically $ readTBQueue queue
@@ -77,6 +80,11 @@ retrievalWorker = worker $ \sendActions -> handleAll handleWE $ do
                        requestHeaders mghNext (Just rHeader) peerId
     loop ncBlockRetrievalQueue ncRecoveryHeader
   where
+    announceBlockOuts = mempty
+    outs = announceBlockOuts
+              <> toOutSpecs [convH (Proxy :: Proxy MsgGetBlocks)
+                                   (Proxy :: Proxy (MsgBlock s0 ssc))
+                            ]
     handleWE e = do
         logError $ sformat ("retrievalWorker: error caught "%shown) e
         throw e
@@ -289,6 +297,11 @@ matchRequestedHeaders headers MsgGetHeaders{..} =
   where
     formChain = isVerSuccess $
         verifyHeaders True (headers & _Wrapped %~ toList)
+
+requestTipOuts :: OutSpecs
+requestTipOuts = toOutSpecs [ convH (Proxy :: Proxy MsgGetHeaders)
+                                    (Proxy :: Proxy (MsgHeaders ssc))
+                            ]
 
 -- Is used if we're recovering after offline and want to know what's
 -- current blockchain state.

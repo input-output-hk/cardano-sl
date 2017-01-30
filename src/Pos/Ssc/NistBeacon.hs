@@ -23,8 +23,7 @@ import           Universum
 
 import           Pos.Binary.Class           (encode)
 import           Pos.Binary.Relay           ()
-import           Pos.Communication.Protocol (worker)
-import           Pos.Slotting               (onNewSlot)
+import           Pos.Communication.Protocol (localOnNewSlotWorker)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
 import           Pos.Ssc.Class.Listeners    (SscListenersClass (..), sscStubListeners)
 import           Pos.Ssc.Class.LocalData    (SscLocalDataClass (..))
@@ -68,9 +67,10 @@ instance SscHelpersClass SscNistBeacon where
     sscVerifyPayload = Tagged $ const $ const $ Right ()
 
 instance SscWorkersClass SscNistBeacon where
-    sscWorkers = Tagged
-        [ onNewSlot True $ \s -> worker . const $ sscRunLocalUpdate (put $ LocalData s)
-        ]
+    sscWorkers = Tagged $
+       first pure . localOnNewSlotWorker True $
+          \s -> sscRunLocalUpdate (put $ LocalData s)
+
     sscLrcConsumers = Tagged []
 
 instance SscListenersClass SscNistBeacon where

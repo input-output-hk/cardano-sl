@@ -4,6 +4,9 @@ module Pos.Delegation.Methods
        ( sendProxySKEpoch
        , sendProxySKSimple
        , sendProxyConfirmSK
+       , sendProxySKEpochOuts
+       , sendProxySKSimpleOuts
+       , sendProxyConfirmSKOuts
        ) where
 
 import           Data.Proxy                 (Proxy (..))
@@ -23,31 +26,34 @@ import           Pos.WorkMode               (MinWorkMode, WorkMode)
 
 -- | Sends epoch psk to neighbours
 sendProxySKEpoch :: (MinWorkMode m)
-                 => (ProxySKEpoch -> Action' m (), OutSpecs)
-sendProxySKEpoch = (,outSpecs) $ \psk sendActions -> do
+                 => ProxySKEpoch -> Action' m ()
+sendProxySKEpoch = \psk sendActions -> do
     logDebug $ sformat ("Sending lightweight psk to neigbours:\n"%build) psk
     sendToNeighbors sendActions $ SendProxySKEpoch psk
-  where
-    outSpecs = toOutSpecs [oneMsgH (Proxy :: Proxy SendProxySK)]
+
+sendProxySKEpochOuts :: OutSpecs
+sendProxySKEpochOuts = toOutSpecs [oneMsgH (Proxy :: Proxy SendProxySK)]
 
 -- | Sends simple psk to neighbours
 sendProxySKSimple :: (MinWorkMode m)
-                  => (ProxySKSimple -> Action' m (), OutSpecs)
-sendProxySKSimple = (,outSpecs) $ \psk sendActions -> do
+                  => ProxySKSimple -> Action' m ()
+sendProxySKSimple = \psk sendActions -> do
     logDebug $ sformat ("Sending heavyweight psk to neigbours:\n"%build) psk
     sendToNeighbors sendActions $ SendProxySKSimple psk
-  where
-    outSpecs = toOutSpecs [oneMsgH (Proxy :: Proxy SendProxySK)]
+
+sendProxySKSimpleOuts :: OutSpecs
+sendProxySKSimpleOuts = toOutSpecs [oneMsgH (Proxy :: Proxy SendProxySK)]
 
 -- | Generates a proof of being a delegate for psk and sends it to
 -- neighbors.
 sendProxyConfirmSK :: (WorkMode ssc m)
-                   => (ProxySKEpoch -> Action' m (), OutSpecs)
-sendProxyConfirmSK = (,outSpecs) $ \psk sendActions -> do
+                   => ProxySKEpoch -> Action' m ()
+sendProxyConfirmSK = \psk sendActions -> do
     logDebug $
         sformat ("Generating delivery proof and propagating it to neighbors: "%build) psk
     sk <- ncSecretKey <$> getNodeContext
     let proof = proxySign sk psk psk -- but still proving is nothing but fear
     sendToNeighbors sendActions $ ConfirmProxySK psk proof
-  where
-    outSpecs = toOutSpecs [oneMsgH (Proxy :: Proxy ConfirmProxySK)]
+
+sendProxyConfirmSKOuts :: OutSpecs
+sendProxyConfirmSKOuts = toOutSpecs [oneMsgH (Proxy :: Proxy ConfirmProxySK)]

@@ -15,7 +15,7 @@ import qualified Data.ByteString                      as BS
 import qualified Data.ByteString.Char8                as B8
 import qualified Data.Set                             as S
 import           Data.Time.Units                      (Microsecond, fromMicroseconds)
-import           Data.Void                            (Void)
+import           Data.Void                            (Void, absurd)
 import           GHC.Generics                         (Generic)
 import           Mockable.Concurrent                  (ThreadId, delay, fork, killThread)
 import           Mockable.Exception                   (finally)
@@ -37,6 +37,9 @@ deriving instance Show Pong
 instance Binary Pong where
 
 type Packing = BinaryP
+
+instance Message Void where
+    formatMessage = absurd
 
 worker
     :: NodeId

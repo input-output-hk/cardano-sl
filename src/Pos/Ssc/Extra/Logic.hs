@@ -138,7 +138,7 @@ sscRunGlobalUpdatePure loggerName st =
   where
     convertRes :: ((a, [LogEvent]), SscGlobalState ssc)
                -> (a, SscGlobalState ssc, [LogEvent])
-    convertRes ((res, events), st) = (res, st, events)
+    convertRes ((res, events), newSt) = (res, newSt, events)
 
 sscRunGlobalUpdate
     :: forall ssc m a.
@@ -195,7 +195,7 @@ onVerifyFailedInApply hashes e = reportFatalError msg
     msg = sformat fmt hashes e
 
 onUnexpectedVerify
-    :: forall ssc m a.
+    :: forall m a.
        (WithLogger m, MonadThrow m)
     => OldestFirst NE HeaderHash -> m a
 onUnexpectedVerify hashes = reportFatalError msg

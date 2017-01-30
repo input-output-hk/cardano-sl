@@ -43,7 +43,7 @@ mkBackupPhrase ls
     | otherwise = panic "Invalid number of words in backup phrase!"
 
 instance Show BackupPhrase where
-    show = show . T.unwords . bpToList
+    show = T.unpack . T.unwords . bpToList
 
 instance Buildable BackupPhrase where
     build = build . T.unwords . bpToList

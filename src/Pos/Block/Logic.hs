@@ -21,10 +21,9 @@ module Pos.Block.Logic
        , getHeadersFromToIncl
 
          -- * Blocks
-       , applyBlocks
+       , verifyAndApplyBlocks
        , applyWithRollback
        , rollbackBlocks
-       , verifyAndApplyBlocks
        , createGenesisBlock
        , createMainBlock
        ) where
@@ -79,13 +78,13 @@ import           Pos.Types                  (Block, BlockHeader, EpochIndex,
                                              MainExtraHeaderData (..), ProxySKEither,
                                              ProxySKSimple, SlotId (..), SlotLeaders,
                                              TxAux, TxId, VerifyHeaderParams (..),
-                                             blockHeader, blockLeaders, blockSlot,
-                                             difficultyL, epochIndexL, epochOrSlot,
-                                             flattenSlotId, genesisHash, getEpochOrSlot,
-                                             headerHash, headerHashG, headerSlot,
-                                             mkGenesisBlock, mkMainBlock, mkMainBody,
-                                             prevBlockL, topsortTxs, verifyHeader,
-                                             verifyHeaders, vhpVerifyConsensus)
+                                             blockHeader, blockLeaders, difficultyL,
+                                             epochIndexL, epochOrSlot, flattenSlotId,
+                                             genesisHash, getEpochOrSlot, headerHash,
+                                             headerHashG, headerSlot, mkGenesisBlock,
+                                             mkMainBlock, mkMainBody, prevBlockL,
+                                             topsortTxs, verifyHeader, verifyHeaders,
+                                             vhpVerifyConsensus)
 import qualified Pos.Types                  as Types
 import           Pos.Update.Core            (UpdatePayload (..))
 import           Pos.Update.Logic           (usCanCreateBlock, usPreparePayload,
@@ -372,7 +371,7 @@ getHeadersFromToIncl older newer = runMaybeT . fmap OldestFirst $ do
 -- -- #usVerifyBlocks
 -- | Verify new blocks. If parent of the first block is not our tip,
 -- verification fails. This function checks everything from block, including
--- header, transactions, delegation data, SSC data.
+-- header, transactions, delegation data, SSC data, US data.
 verifyBlocksPrefix
     :: WorkMode ssc m
     => OldestFirst NE (Block ssc)
@@ -395,7 +394,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
         _ -> pass
     verResToMonadError formatAllErrors $
         Types.verifyBlocks (Just curSlot) (Just leaders) blocks
-    eitherToError =<< sscVerifyBlocks False blocks
+    withExceptT pretty $ ExceptT $ sscVerifyBlocks False blocks
     txUndo <- ExceptT $ txVerifyBlocks blocks
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks
     (pModifier, usUndos) <- withExceptT pretty $ usVerifyBlocks blocks
@@ -407,9 +406,6 @@ verifyBlocksPrefix blocks = runExceptT $ do
                (getOldestFirst usUndos)
          , pModifier)
   where
-    eitherToError (Left e)  = throwError (sformat build e)
-    eitherToError (Right _) = pass
-
     headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
 
 -- | Applies blocks if they're valid. Takes one boolean flag
@@ -453,8 +449,6 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
             Left e' -> applyAMAP e' (OldestFirst []) nothingApplied
             Right (OldestFirst (undo :| []), pModifier) -> do
                 lift $ applyBlocksUnsafe (one (block, undo)) (Just pModifier)
-                when (isLastEpochBlock block) $
-                    calculateLrc (block ^. epochIndexL + 1)
                 applyAMAP e (OldestFirst xs) False
             Right _ -> panic "verifyAndApplyBlocksInternal: applyAMAP: \
                              \verification of one block produced more than one undo"
@@ -469,9 +463,6 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
     -- Calculates LRC if it's needed (no lock)
     calculateLrc epochIx =
         when lrc $ lift $ lrcSingleShotNoLock epochIx
-    -- Checks if given block is last in epoch
-    isLastEpochBlock (Left _)  = False
-    isLastEpochBlock (Right b) = siSlot (b ^. blockSlot) == epochSlots - 1
     -- This function tries to apply a new portion of blocks (prefix
     -- and suffix). It also has aggregating parameter blunds which is
     -- collected to rollback blocks if correspondent flag is on. First
@@ -483,6 +474,8 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
         -> (OldestFirst NE (Block ssc), OldestFirst [] (Block ssc))
         -> ExceptT Text m HeaderHash
     rollingVerifyAndApply blunds (prefix, suffix) = do
+        let prefixHead = prefix ^. _Wrapped . _neHead
+        when (isLeft prefixHead) $ calculateLrc (prefixHead ^. epochIndexL)
         lift (verifyBlocksPrefix prefix) >>= \case
             Left failure
                 | rollback  -> failWithRollback failure blunds
@@ -494,14 +487,9 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
                 let newBlunds = OldestFirst $ getOldestFirst prefix `NE.zip`
                                               getOldestFirst undos
                 lift $ applyBlocksUnsafe newBlunds (Just pModifier)
-                let lastBlock = prefix ^. _Wrapped . _neLast
                 case getOldestFirst suffix of
-                    [] | isLastEpochBlock lastBlock -> do
-                         calculateLrc (lastBlock ^. epochIndexL + 1)
-                         GS.getTip
                     [] -> GS.getTip
                     (genesis:xs) -> do
-                        calculateLrc (genesis ^. epochIndexL)
                         rollingVerifyAndApply (toNewestFirst newBlunds : blunds) $
                             spanEpoch (OldestFirst (genesis:|xs))
 
@@ -514,22 +502,17 @@ applyBlocks
     :: forall ssc m . (WorkMode ssc m, SscWorkersClass ssc)
     => Bool -> Maybe PollModifier -> OldestFirst NE (Blund ssc) -> m ()
 applyBlocks calculateLrc pModifier blunds = do
+    when (isLeft prefixHead && calculateLrc) $
+        -- Hopefully this lrc check is never triggered -- because
+        -- caller most definitely should have computed lrc to verify
+        -- the sequence beforehand.
+        lrcSingleShotNoLock (prefixHead ^. epochIndexL)
     applyBlocksUnsafe prefix pModifier
     case getOldestFirst suffix of
-        [] | isLastEpochBlock ->
-               when calculateLrc $
-               lrcSingleShotNoLock (lastBlock ^. epochIndexL + 1)
-           | otherwise -> pass
-        (genesis:xs) -> do
-            when calculateLrc $
-                lrcSingleShotNoLock (genesis ^. _1 . epochIndexL)
-            applyBlocks calculateLrc pModifier (OldestFirst (genesis:|xs))
+        []           -> pass
+        (genesis:xs) -> applyBlocks calculateLrc pModifier (OldestFirst (genesis:|xs))
   where
-    isLastEpochBlock =
-        either (const False)
-               (\b -> siSlot (b ^. blockSlot) == epochSlots - 1)
-               lastBlock
-    lastBlock = prefix ^. _Wrapped . _neLast . _1
+    prefixHead = prefix ^. _Wrapped . _neHead . _1
     (prefix, suffix) = spanEpoch blunds
     -- this version is different from one in verifyAndApply subtly,
     -- but they can be merged with some struggle.

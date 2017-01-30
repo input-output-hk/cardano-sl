@@ -11,6 +11,7 @@ module Pos.DB.Types
        , gStateDB
        , lrcDB
        , miscDB
+       , miscLock
 
        -- * Snapshot
        , Snapshot (..)
@@ -26,12 +27,13 @@ module Pos.DB.Types
         -- * Update System related types.
        ) where
 
-import           Control.Lens     (makeLenses)
-import qualified Database.RocksDB as Rocks
+import           Control.Concurrent.ReadWriteLock (RWLock)
+import           Control.Lens                     (makeLenses)
+import qualified Database.RocksDB                 as Rocks
 import           Universum
 
-import           Pos.Lrc.Types    (RichmenStake)
-import           Pos.Types        (Block, EpochIndex, SlotLeaders)
+import           Pos.Lrc.Types                    (RichmenStake)
+import           Pos.Types                        (Block, EpochIndex, SlotLeaders)
 
 ----------------------------------------------------------------------------
 -- General
@@ -50,6 +52,7 @@ data NodeDBs ssc = NodeDBs
     , _gStateDB :: !(DB ssc) -- ^ Global state corresponding to some tip.
     , _lrcDB    :: !(DB ssc) -- ^ Data computed by LRC.
     , _miscDB   :: !(DB ssc) -- ^ Everything small and insignificant
+    , _miscLock :: !RWLock   -- ^ Lock on misc db
     }
 
 makeLenses ''NodeDBs

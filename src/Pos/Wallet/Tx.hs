@@ -14,7 +14,7 @@ import           Formatting                (build, sformat, (%))
 import           Mockable                  (mapConcurrently)
 import           Node                      (SendActions)
 import           Pos.Util.TimeWarp         (NetworkAddress)
-import           System.Wlog               (logError, logInfo)
+import           System.Wlog               (logInfo)
 import           Universum
 
 import           Pos.Binary                ()
@@ -36,9 +36,6 @@ submitTx
     -> [NetworkAddress]
     -> [TxOutAux]
     -> m (Either TxError TxAux)
-submitTx _ _ [] _ = do
-    logError "No addresses to send"
-    return (Left "submitTx failed")
 submitTx sendActions sk na outputs = do
     utxo <- getOwnUtxo $ makePubKeyAddress $ toPublic sk
     runExceptT $ do

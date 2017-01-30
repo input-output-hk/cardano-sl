@@ -13,26 +13,44 @@ import qualified Data.HashMap.Strict  as HM
 import           Serokell.Util.Base64 (decodeUrl)
 import           System.Directory     (createDirectoryIfMissing)
 import           System.FilePath      (takeDirectory)
+import           Test.QuickCheck      (arbitrary)
 import           Universum
 
 import qualified Pos.Binary           as Bi
 import           Pos.Crypto           (PublicKey (..))
 import           Pos.Genesis          (GenesisData (..), StakeDistribution (..))
-import           Pos.Types            (Address, Coin, makePubKeyAddress, unsafeAddCoin,
-                                       unsafeIntegerToCoin)
+import           Pos.Ssc.GodTossing   (vcSigningKey)
+import           Pos.Types            (Address, Coin, addressHash, makePubKeyAddress,
+                                       unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Util             (runGen)
 
 main :: IO ()
 main = do
-    [fpath, outpath] <- getArgs
-    jsonfile <- BSL.readFile fpath
-    case A.eitherDecode jsonfile of
-        Left err       -> panic (toText err)
-        Right avvmData -> do
-            let genesis = genGenesis avvmData
-            createDirectoryIfMissing True (takeDirectory outpath)
-            BSL.writeFile outpath (Bi.encode genesis)
+    args <- getArgs
+    -- TODO: use optparse-applicative (or not if it's a throwaway tool)
+    case args of
+        [fpath, outpath, mbcerts] -> do
+            jsonfile <- BSL.readFile fpath
+            case A.eitherDecode jsonfile of
+                Left err       -> panic (toText err)
+                Right avvmData -> do
+                    let genesis = genGenesis avvmData (mbcerts == "randcerts")
+                    createDirectoryIfMissing True (takeDirectory outpath)
+                    BSL.writeFile outpath (Bi.encode genesis)
+        _ -> do
+            putStrLn $ unlines [
+                "cardano-avvmmigrate",
+                "",
+                "Usage: ",
+                "  cardano-avvmmigrate <path to JSON> <.bin output file> (nocerts|randcerts)"
+                ]
+            exitFailure
 
-type AvvmData = [AvvmEntry]
+data AvvmData = AvvmData {
+    utxo :: [AvvmEntry] }
+    deriving (Show, Generic)
+
+instance FromJSON AvvmData
 
 data AvvmCoin = AvvmCoin {
     coinAmount :: Integer,
@@ -52,16 +70,21 @@ data AvvmEntry = AvvmEntry {
 
 instance FromJSON AvvmEntry
 
-genGenesis :: AvvmData -> GenesisData
-genGenesis avvm = GenesisData
+genGenesis
+    :: AvvmData
+    -> Bool              -- ^ Whether to generate random certificates
+    -> GenesisData
+genGenesis avvm genCerts = GenesisData
     { gdAddresses = HM.keys balances
     , gdDistribution = ExplicitStakes balances
-    , gdVssCertificates = mempty
+    , gdVssCertificates = if genCerts then randCerts else mempty
     }
   where
+    randCerts = HM.fromList [(addressHash (vcSigningKey c), c)
+                            | c <- runGen (replicateM 10 arbitrary)]
     balances :: HashMap Address Coin
-    balances = HM.fromListWith (unsafeAddCoin) $ do
-        AvvmEntry{..} <- avvm
+    balances = HM.fromListWith unsafeAddCoin $ do
+        AvvmEntry{..} <- utxo avvm
         let pk = case decodeUrl address of
                 Right x -> PublicKey (Ed.PublicKey x)
                 Left _  -> panic ("couldn't decode address " <> address)

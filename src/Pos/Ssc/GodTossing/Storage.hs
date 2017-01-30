@@ -74,12 +74,12 @@ instance SscStorageClass SscGodTossing where
         view gsShares
 
 gtGetGlobalState
-    :: (MonadSscMem SscGodTossing m)
+    :: (MonadSscMem SscGodTossing m, MonadIO m)
     => m GtGlobalState
 gtGetGlobalState = sscRunGlobalQuery ask
 
 getGlobalCerts
-    :: (MonadSscMem SscGodTossing m)
+    :: (MonadSscMem SscGodTossing m, MonadIO m)
     => SlotId -> m VssCertificatesMap
 getGlobalCerts sl =
     sscRunGlobalQuery $
@@ -88,7 +88,9 @@ getGlobalCerts sl =
         view (gsVssCertificates)
 
 -- | Get stable VSS certificates for given epoch.
-getStableCerts :: MonadSscMem SscGodTossing m => EpochIndex -> m VssCertificatesMap
+getStableCerts
+    :: (MonadSscMem SscGodTossing m, MonadIO m)
+    => EpochIndex -> m VssCertificatesMap
 getStableCerts epoch =
     getStableCertsPure epoch <$> sscRunGlobalQuery (view gsVssCertificates)
 

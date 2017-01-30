@@ -27,6 +27,7 @@ module Pos.Ssc.Extra.Logic
        , sscVerifyBlocks
        ) where
 
+import           Control.Concurrent.STM  (readTVar)
 import           Control.Lens            (_Wrapped)
 import           Control.Monad.Except    (MonadError)
 import           Control.Monad.Trans     (MonadTrans)
@@ -40,7 +41,8 @@ import qualified Pos.DB.Lrc              as LrcDB
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..))
 import           Pos.Ssc.Class.Storage   (SscStorageClass (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
-import           Pos.Ssc.Extra.Class     (MonadSscMem)
+import           Pos.Ssc.Extra.Class     (MonadSscMem (askSscMem))
+import           Pos.Ssc.Extra.Types     (SscState (sscGlobal, sscLocal))
 import           Pos.Types               (Block, EpochIndex, SharedSeed, SlotId,
                                           epochIndexL)
 import           Pos.Util                (NE, NewestFirst, OldestFirst, inAssertMode,
@@ -52,15 +54,21 @@ import           Pos.Util                (NE, NewestFirst, OldestFirst, inAssert
 
 sscRunLocalQuery
     :: forall ssc m a.
-       MonadSscMem ssc m
-    => Reader (SscLocalData ssc) a -> m a
-sscRunLocalQuery = notImplemented
+       (MonadSscMem ssc m, MonadIO m)
+    => ReaderT (SscLocalData ssc) m a -> m a
+sscRunLocalQuery action = do
+  localVar <- sscLocal <$> askSscMem
+  ld <- atomically $ readTVar localVar
+  runReaderT action ld
 
 sscRunGlobalQuery
     :: forall ssc m a.
-       (MonadSscMem ssc m)
+       (MonadSscMem ssc m, MonadIO m)
     => ReaderT (SscGlobalState ssc) m a -> m a
-sscRunGlobalQuery = notImplemented
+sscRunGlobalQuery action = do
+  globalVar <- sscGlobal <$> askSscMem
+  gs <- atomically $ readTVar globalVar
+  runReaderT action gs
 
 ----------------------------------------------------------------------------
 -- Seed calculation

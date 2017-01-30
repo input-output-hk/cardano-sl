@@ -98,7 +98,7 @@ paginationView state =
             [ P.div
                 [ P.className "btn-page" ]
                 [ P.div
-                    [ P.className "icon bg-arrow-left" ]
+                    [ P.className "icon bg-triangle-left" ]
                     []
                 ]
             , P.input
@@ -118,7 +118,7 @@ paginationView state =
             , P.div
                 [ P.className "btn-page" ]
                 [ P.div
-                    [ P.className "icon bg-arrow-right" ]
+                    [ P.className "icon bg-triangle-right" ]
                     []
                 ]
             ]

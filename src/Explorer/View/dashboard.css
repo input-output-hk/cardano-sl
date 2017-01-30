@@ -15,14 +15,40 @@
     padding: 56px 48px 48px 48px;
   }
 
-  &__content {
-    padding: 20px;
-    padding-bottom: 100px;
-    margin: 20px 0;
-    font-size: 20px;
-    font-family: var(--fontFamily0-Light);
-    color: color(var(--color2) a(0.5));
-    background-color: color(var(--color2) a(0.1));
+  &__header {
+    @neat-outer-container;
+
+    .headline {
+      @neat-span-columns 6;
+    }
+
+    .more {
+
+      &__container {
+        @neat-span-columns 6;
+        text-align: right;
+        padding-right: 24px;
+      }
+
+      &__link {
+        button: standard-button;
+        padding-right: 20px;
+        background-repeat: no-repeat;
+        background-position: right center;
+        background-size: 13px 13px;
+
+        font-family: var(--fontFamily0-Regular);
+        color: var(--color5);
+        font-size: 12px;
+        font-weight: normal;
+        line-height: 2;
+
+        &:hover {
+          background-image: svg-inline(arrow-right-hover);
+        }
+      }
+
+    }
   }
 
   &__hero {

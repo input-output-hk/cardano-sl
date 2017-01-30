@@ -21,6 +21,37 @@ dashboardView state =
         , transactionsView state
         ]
 
+-- header view
+
+newtype HeaderOptions = HeaderOptions
+    { headline :: String
+    , link :: Maybe HeaderLink
+    }
+
+newtype HeaderLink = HeaderLink
+    { label :: String
+    , action :: Action
+    }
+
+headerView :: State -> HeaderOptions -> P.Html Action
+headerView state (HeaderOptions options) =
+    P.div
+        [ P.className "explorer-dashboard__header" ]
+        [ P.h3
+            [ P.className "headline"]
+            [ P.text options.headline ]
+        , P.div
+            [ P.className "more__container"]
+            [ linkView options.link ]
+        ]
+    where
+      linkView link = case link of
+          Just (HeaderLink link') ->
+              P.div
+                  [ P.className "more__link bg-arrow-right" ]
+                  [ P.text link'.label ]
+          Nothing -> P.div [] []
+
 -- hero
 
 heroView :: State -> P.Html Action
@@ -42,6 +73,7 @@ heroView state =
                     []
               ]
         ]
+
 
 -- network
 
@@ -104,6 +136,8 @@ networkItem state item =
               [ P.text item.description ]
         ]
 
+
+
 -- blocks
 
 
@@ -134,9 +168,7 @@ blocksView state =
         [ P.className "explorer-dashboard__wrapper" ]
         [ P.div
           [ P.className "explorer-dashboard__container" ]
-          [ P.h3
-                [ P.className "headline"]
-                [ P.text "#Last Blocks" ]
+          [ headerView state headerOptions
             , blocksHeaderView state
             , P.div
               [ P.className "blocks-body" ]
@@ -147,6 +179,10 @@ blocksView state =
           ]
         ]
       where
+        headerOptions = HeaderOptions
+            { headline: "#Last Blocks"
+            , link: Just $ HeaderLink { label: "#Explore blocks", action: NoOp }
+            }
         expanded = state.viewStates.dashboard.blocksExpanded
 
         blockItems' :: BlockItems
@@ -258,9 +294,7 @@ transactionsView state =
         [ P.className "explorer-dashboard__wrapper" ]
         [ P.div
           [ P.className "explorer-dashboard__container" ]
-          [ P.h3
-              [ P.className "headline"]
-              [ P.text $ translate _.transactionFeed state.lang ]
+          [ headerView state headerOptions
           , P.div
               [ P.className "transactions__container" ]
               $ map (transactionRow state) $ transactionItems'
@@ -276,6 +310,10 @@ transactionsView state =
     where
       expanded = state.viewStates.dashboard.transactionsExpanded
       expandLabel = if expanded then "#collapse" else "#expand"
+      headerOptions = HeaderOptions
+          { headline: translate _.transactionFeed state.lang
+          , link: Just $ HeaderLink { label: "#Explore transactions", action: NoOp }
+          }
       transactionItems' :: TransactionItems
       transactionItems' = if expanded
           then slice 0 maxTransactionRows transactionItems

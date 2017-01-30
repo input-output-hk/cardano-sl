@@ -114,18 +114,35 @@
   background-image: svg-inline(transaction-arrow);
 }
 
+@svg-load triangle-right url('../static/images/triangle-right.svg');
+
+.bg-triangle-right {
+  background-image: svg-inline(triangle-right);
+}
+
+.bg-triangle-left {
+  background-image: svg-inline(triangle-right);
+  transform: rotate(180deg);
+}
+
 @svg-load arrow-right url('../static/images/arrow-right.svg');
+
+@svg-load arrow-right-hover url('../static/images/arrow-right.svg') {
+  g:nth-child(1) {
+      fill: var(--color2);
+      fill-opacity: 0.5;
+  }
+};
+
+@svg-load arrow-right-black url('../static/images/arrow-right.svg') {
+  g:nth-child(1) {
+      fill: #000;
+  }
+};
 
 .bg-arrow-right {
   background-image: svg-inline(arrow-right);
 }
-
-.bg-arrow-left {
-  background-image: svg-inline(arrow-right);
-  transform: rotate(180deg);
-}
-
-
 
 /* ---------------------------
   components

@@ -1,1 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 13 26"><polygon points="0 0 13 13 0 26 0 0" style="fill:#333"/></svg>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="15px" height="26px" viewBox="0 0 15 26" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: sketchtool 41.2 (35397) - http://www.bohemiancoding.com/sketch -->
+    <title>D24AA757-5AC3-4619-9AF4-64325DA94D1E</title>
+    <desc>Created with sketchtool.</desc>
+    <defs></defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="CardanoBE" transform="translate(-1761.000000, -2032.000000)" fill="#CE851F">
+            <g id="Group">
+                <g id="transactions_feed" transform="translate(96.000000, 2030.000000)">
+                    <g id="transactions_feed_title" transform="translate(48.000000, 0.000000)">
+                        <g id="explore-blocks" transform="translate(1338.000000, 0.000000)">
+                            <g id="arrow-right" transform="translate(268.000000, 2.000000)">
+                                <path d="M21,22 L22,22 L22,4 L20,4 L20,20 L4,20 L4,22 L21,22 Z" id="Combined-Shape" transform="translate(13.000000, 13.000000) rotate(-45.000000) translate(-13.000000, -13.000000) "></path>
+                            </g>
+                        </g>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

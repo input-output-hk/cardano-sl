@@ -145,6 +145,21 @@
   background-color-active: color(var(--color5) a(0.8));
 }
 
+@button outline-button {
+  color: var(--color9);
+  color-hover: color(var(--color9) a(0.5));
+  color-active: var(--color9);
+
+  background-color: transparent;
+  background-color-hover: transparent;
+  background-color-active: transparent;
+
+  border-width: 1px;
+  border-color: var(--color9);
+  border-color-hover: color(var(--color9) a(0.8));
+  border-color-active: var(--color9);
+}
+
 /* TODO (jk) remove btn class */
 .btn {
   button: standard-button;

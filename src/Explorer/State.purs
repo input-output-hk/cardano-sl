@@ -15,6 +15,12 @@ initialState :: State
 initialState =
     { lang: English
     , route: Dashboard
+    , viewStates: {
+        dashboard:
+        { blocksExpanded: false
+        ,  transactionsExpanded: false
+        }
+      }
     }
 
 
@@ -27,6 +33,11 @@ update ScrollTop state = { state: state, effects: [ do
     _ <- liftEff $ scrollTop
     pure NoOp
   ]}
+update (DashboardExpandBlocks toggled) state = noEffects $ state {
+        viewStates = state.viewStates {
+            dashboard = state.viewStates.dashboard { blocksExpanded = toggled }
+        }
+    }
 update NoOp state = noEffects state
 
 

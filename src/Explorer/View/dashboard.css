@@ -116,6 +116,8 @@
     font-weight: normal;
     color: var(--color8);
 
+    padding-bottom: 24px;
+
     &__row {
       @neat-outer-container;
       padding: 10px 24px;
@@ -127,6 +129,28 @@
     &__column {
       @neat-span-columns 2;
     }
+  }
+
+  .blocks-footer {
+
+      /*box: horizontal center;*/
+      text-align: center;
+
+      &__expanded {
+
+      }
+
+      &__not-expanded {
+
+      }
+  }
+
+  .btn-expand {
+      button: outline-button;
+      padding: 9px 18px;
+      border-radius: 4px;
+      button-color: color(var(--color9) a(0.2)) color(var(--color9) a(0.3)) color(var(--color9) a(0.4));
+      button-border: 1px color(var(--color9) a(0.2)) color(var(--color9) a(0.3)) color(var(--color9) a(0.4));
   }
 
 

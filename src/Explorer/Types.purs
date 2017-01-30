@@ -14,13 +14,22 @@ data CCurrency =
 type State =
     { lang :: Language
     , route :: Route
+    , viewStates :: ViewStates
     }
 
+type ViewStates =
+    { dashboard :: DashBoardViewState
+    }
 
+type DashBoardViewState =
+    { blocksExpanded :: Boolean
+    ,  transactionsExpanded :: Boolean
+    }
 -- Actions
 
 data Action
     = SetLanguage Language
     | UpdateView Route
     | ScrollTop
+    | DashboardExpandBlocks Boolean
     | NoOp

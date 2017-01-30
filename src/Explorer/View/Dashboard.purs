@@ -1,11 +1,14 @@
 module Explorer.View.Dashboard (dashboardView) where
 
 import Prelude
+import Data.Array (slice)
 import Explorer.I18n.Lang (I18nAccessor, translate)
 import Explorer.Routes (Route(..), toUrl)
-import Explorer.Types (State, Action)
+import Explorer.Types (Action(..), State)
+import Explorer.View.Common (paginationView)
 import Pux.Html (Html, div, h3, text, h1, h2, input, h4, p) as P
 import Pux.Html.Attributes (className, type_, placeholder) as P
+import Pux.Html.Events (onClick) as P
 import Pux.Router (link) as P
 
 dashboardView :: State -> P.Html Action
@@ -122,6 +125,7 @@ blockItems =
     [ { height: 419821, age: "9 minutes", transactions: 358000, totalSent: 58200, relayedBy: "Unknown", sizeKb: 123 }
     , { height: 419821, age: "7 hours", transactions: 1200, totalSent: 600, relayedBy: "Unknown", sizeKb: 1234 }
     , { height: 419821, age: "3 days", transactions: 69000, totalSent: 7300, relayedBy: "KNCMiner", sizeKb: 234 }
+    , { height: 419821, age: "2 days", transactions: 67000, totalSent: 7700, relayedBy: "Unknown", sizeKb: 134 }
     ]
 
 blocksView :: State -> P.Html Action
@@ -136,9 +140,29 @@ blocksView state =
             , blocksHeaderView state
             , P.div
               [ P.className "blocks-body" ]
-              $ map (blockRow state) blockItems
+              $ map (blockRow state) $ blockItems'
+            , P.div
+              [ P.className "blocks-footer" ]
+              [ blocksFooterView ]
           ]
         ]
+      where
+        expanded = state.viewStates.dashboard.blocksExpanded
+        blockItems' :: BlockItems
+        blockItems' = if expanded then slice 0 maxBlockRows blockItems else slice 0 minBlockRows blockItems
+        blocksFooterView = if expanded then
+            paginationView state
+            else
+            P.div
+              [ P.className "btn-expand"
+              , P.onClick <<< const $ DashboardExpandBlocks true ]
+              [ P.text "#expand"]
+
+maxBlockRows :: Int
+maxBlockRows = 10
+
+minBlockRows :: Int
+minBlockRows = 3
 
 blockRow :: State -> BlockItem -> P.Html Action
 blockRow state item =

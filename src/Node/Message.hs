@@ -35,9 +35,12 @@ import           Data.Proxy                    (Proxy (..), asProxyTypeOf)
 import           Data.String                   (IsString)
 import           Data.String                   (fromString)
 import qualified Data.Text                     as T
-import           Data.Void                     (Void, absurd)
+import           Data.Text.Buildable           (Buildable)
+import qualified Data.Text.Buildable           as B
 import qualified Formatting                    as F
 import           GHC.Generics                  (Generic)
+import           Serokell.Util.Base16          (base16F)
+
 import           Mockable.Channel              (Channel, ChannelT, readChannel,
                                                 unGetChannel)
 import           Mockable.Class                (Mockable)
@@ -55,6 +58,9 @@ deriving instance Hashable MessageName
 deriving instance Monoid MessageName
 instance Bin.Binary MessageName
 
+instance Buildable MessageName where
+    build (MessageName mn) = F.bprint base16F mn
+
 -- | Defines type with it's own `MessageName`.
 class Message m where
     -- | Uniquely identifies this type
@@ -68,12 +74,6 @@ class Message m where
     formatMessage :: m -> T.Text
     default formatMessage :: F.Buildable m => m -> T.Text
     formatMessage = F.sformat F.build
-
--- | Common instances
-
-instance Message Void where
-    formatMessage = absurd
-
 
 -- | As `messageName`, but accepts message itself, may be more convinient is most cases.
 messageName' :: Message m => m -> MessageName

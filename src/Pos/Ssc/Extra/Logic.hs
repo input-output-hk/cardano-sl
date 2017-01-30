@@ -116,10 +116,10 @@ sscNormalizeRichmen = notImplemented
 -- 'MonadDB' is needed only to get richmen.
 -- We can try to eliminate these constraints later.
 type SscGlobalApplyMode ssc m =
-    (MonadSscMem ssc m, SscGStateClass ssc, WithLogger m, MonadDB ssc m)
+    (MonadSscMem ssc m, SscGStateClass ssc, WithLogger m, MonadDB ssc m, WithNodeContext ssc m)
 type SscGlobalVerifyMode ssc m =
     (MonadSscMem ssc m, SscGStateClass ssc, WithLogger m,
-     MonadDB ssc m, MonadError (SscVerifyError ssc) m)
+     MonadDB ssc m, MonadError (SscVerifyError ssc) m, WithNodeContext ssc m)
 
 sscRunGlobalUpdatePure
     :: forall ssc a.
@@ -206,4 +206,13 @@ sscVerifyBlocks
     :: forall ssc m.
        SscGlobalVerifyMode ssc m
     => OldestFirst NE (Block ssc) -> m (SscGlobalState ssc)
-sscVerifyBlocks = notImplemented
+sscVerifyBlocks blocks = do
+    let epoch = blocks ^. _Wrapped . _neHead . epochIndexL
+    richmenSet <-
+        lrcActionOnEpochReason
+            epoch
+            "couldn't get SSC richmen"
+            LrcDB.getRichmenSsc
+    globalVar <- sscGlobal <$> askSscMem
+    gs <- atomically $ readTVar globalVar
+    execStateT (sscVerifyAndApplyBlocks richmenSet blocks) gs

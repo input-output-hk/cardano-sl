@@ -22,7 +22,7 @@ import           Pos.Binary.Communication    ()
 import           Pos.Block.Logic             (createGenesisBlock, createMainBlock)
 import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
-import           Pos.Communication.Protocol  (OutSpecs, SendActions, Worker, Worker',
+import           Pos.Communication.Protocol  (OutSpecs, SendActions, WorkerSpec, Worker',
                                               onNewSlotWorker)
 import           Pos.Constants               (networkDiameter)
 import           Pos.Context                 (getNodeContext, ncPublicKey)
@@ -43,13 +43,13 @@ import           Pos.Util.JsonLog            (jlCreatedBlock, jlLog)
 import           Pos.WorkMode                (WorkMode)
 
 -- | All workers specific to block processing.
-blkWorkers :: (SscWorkersClass ssc, WorkMode ssc m) => ([Worker m], OutSpecs)
+blkWorkers :: (SscWorkersClass ssc, WorkMode ssc m) => ([WorkerSpec m], OutSpecs)
 blkWorkers = merge [blkOnNewSlot, retrievalWorker]
   where
     merge = mconcatPair . map (first pure)
 
 -- Action which should be done when new slot starts.
-blkOnNewSlot :: WorkMode ssc m => (Worker m, OutSpecs)
+blkOnNewSlot :: WorkMode ssc m => (WorkerSpec m, OutSpecs)
 blkOnNewSlot = onNewSlotWorker True announceBlockOuts $ \(slotId@SlotId {..}) sendActions -> do
     let onNoLeader =
             logWarning "Couldn't find a leader for current slot among known ones"

@@ -27,21 +27,24 @@ module Pos.Communication.Types.Protocol
        , oneMsgH
        , convH
        , ListenersWithOut
+       , WorkerSpec
+       , ActionSpec (..)
        ) where
 
 import           Control.Arrow         ((&&&))
 import           Data.Hashable         (Hashable)
 import qualified Data.HashMap.Strict   as HM
 import qualified Data.Text.Buildable   as B
-import           Formatting            (bprint, build, sformat, shown, (%))
+import           Formatting            (bprint, build, hex, sformat, shown, (%))
 import qualified Node                  as N
 import           Node.Message          (Message (..), MessageName (..))
 import           Serokell.Util.Base16  (base16F)
+import           Serokell.Util.Text    (mapJson)
 import           Universum
 
 import           Pos.Binary.Class      (Bi)
 import           Pos.Communication.BiP (BiP)
-import           Pos.Types.Core        (BlockVersion)
+import           Pos.Types             (BlockVersion)
 import           Pos.Util.TimeWarp     (nodeIdToAddress)
 
 type PeerData = (PeerId, VerInfo)
@@ -52,6 +55,8 @@ type Action m a = NSendActions m -> m a
 type Action' m a = SendActions m -> m a
 type Worker' m = Action' m ()
 type NSendActions = N.SendActions BiP PeerData
+newtype ActionSpec m a = ActionSpec (VerInfo -> Action m a)
+type WorkerSpec m = ActionSpec m ()
 
 newtype NodeId = NodeId (PeerId, N.NodeId)
   deriving (Show, Eq, Ord, Hashable)
@@ -119,7 +124,20 @@ data VerInfo = VerInfo
     , vIInHandlers   :: HandlerSpecs
     , vIOutHandlers  :: HandlerSpecs
     }
-  deriving (Eq, Generic)
+  deriving (Eq, Generic, Show)
+
+-- TODO move to time-warp-nt
+instance Buildable MessageName where
+    build (MessageName mn) = bprint base16F mn
+
+instance Buildable VerInfo where
+    build VerInfo {..} = bprint ("VerInfo { magic="%hex%", blockVersion="
+                                %build%", inSpecs="%mapJson%", outSpecs="
+                                %mapJson%"}")
+                                vIMagic
+                                vIBlockVersion
+                                (HM.toList vIInHandlers)
+                                (HM.toList vIOutHandlers)
 
 inSpecs :: (MessageName, HandlerSpec) -> HandlerSpecs -> Bool
 inSpecs (name, sp) specs = case name `HM.lookup` specs of

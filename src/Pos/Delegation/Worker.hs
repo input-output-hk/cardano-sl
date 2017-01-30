@@ -11,7 +11,7 @@ import           Mockable                   (Delay, Mockable, delay)
 import           System.Wlog                (WithLogger, logError)
 import           Universum
 
-import           Pos.Communication.Protocol (OutSpecs, Worker, localWorker)
+import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localWorker)
 import           Pos.Delegation.Class       (MonadDelegation)
 import           Pos.Delegation.Logic       (invalidateProxyCaches,
                                              runDelegationStateAction)
@@ -19,7 +19,7 @@ import           Pos.Util.TimeWarp          (sec)
 import           Pos.WorkMode               (WorkMode)
 
 -- | All workers specific to proxy sertificates processing.
-dlgWorkers :: (WorkMode ssc m) => ([Worker m], OutSpecs)
+dlgWorkers :: (WorkMode ssc m) => ([WorkerSpec m], OutSpecs)
 dlgWorkers = first pure $ localWorker dlgInvalidateCaches
 
 -- | Runs proxy caches invalidating action every second.

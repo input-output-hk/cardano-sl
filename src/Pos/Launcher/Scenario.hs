@@ -18,7 +18,8 @@ import           Mockable                    (currentTime, delay, fork, sleepFor
 import           System.Wlog                 (logError, logInfo)
 import           Universum
 
-import           Pos.Communication           (OutSpecs, Worker, withWaitLog)
+import           Pos.Communication           (ActionSpec (..), OutSpecs, Worker,
+                                              WorkerSpec, withWaitLog)
 import           Pos.Constants               (isDevelopment, ntpMaxError,
                                               ntpResponseTimeout)
 import           Pos.Context                 (NodeContext (..), getNodeContext,
@@ -40,9 +41,9 @@ import           Pos.WorkMode                (WorkMode)
 -- | Run full node in any WorkMode.
 runNode'
     :: (SscConstraint ssc, WorkMode ssc m)
-    => [Worker m]
-    -> Worker m
-runNode' plugins' = \sendActions -> do
+    => [WorkerSpec m]
+    -> WorkerSpec m
+runNode' plugins' = ActionSpec $ \vI sendActions -> do
     logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)
     inAssertMode $ logInfo "Assert mode on"
     pk <- ncPublicKey <$> getNodeContext
@@ -60,15 +61,16 @@ runNode' plugins' = \sendActions -> do
     logInfo $ "Waiting response from NTP servers"
     unless isDevelopment $ delay (ntpResponseTimeout + ntpMaxError)
     waitSystemStart
-    mapM_ (fork . ($ withWaitLog sendActions)) $
+    let unpackPlugin (ActionSpec action) = action vI
+    mapM_ (fork . ($ withWaitLog sendActions) . unpackPlugin) $
         plugins'
     sleepForever
 
 -- | Run full node in any WorkMode.
 runNode
     :: (SscConstraint ssc, WorkMode ssc m)
-    => ([Worker m], OutSpecs)
-    -> (Worker m, OutSpecs)
+    => ([WorkerSpec m], OutSpecs)
+    -> (WorkerSpec m, OutSpecs)
 runNode (plugins', plOuts) = (,plOuts <> wOuts) $ runNode' $ workers' ++ plugins'
   where
     (workers', wOuts) = allWorkers

@@ -29,7 +29,7 @@ import           Pos.Binary.Communication         ()
 import           Pos.Binary.Relay                 ()
 import           Pos.Binary.Ssc                   ()
 import           Pos.Communication.Message        ()
-import           Pos.Communication.Protocol       (OutSpecs, SendActions, Worker, Worker',
+import           Pos.Communication.Protocol       (OutSpecs, SendActions, WorkerSpec, Worker',
                                                    onNewSlotWorker, oneMsgH, toOutSpecs)
 import           Pos.Communication.Relay          (DataMsg (..), InvMsg (..))
 import           Pos.Constants                    (mpcSendInterval, slotSecurityParam,
@@ -78,7 +78,7 @@ instance SscWorkersClass SscGodTossing where
 -- #checkNSendOurCert
 onNewSlotSsc
     :: (WorkMode SscGodTossing m)
-    => (Worker m, OutSpecs)
+    => (WorkerSpec m, OutSpecs)
 onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions -> do
     richmen <- HS.fromList . NE.toList <$>
         lrcActionOnEpochReason (siEpoch slotId)

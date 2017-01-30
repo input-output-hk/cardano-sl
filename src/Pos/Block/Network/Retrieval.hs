@@ -41,8 +41,8 @@ import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
 import           Pos.Block.Types            (Blund)
 import           Pos.Communication.Protocol (ConversationActions (..),
                                              HandlerSpec (ConvHandler), NodeId, OutSpecs,
-                                             SendActions (..), Worker, convH, toOutSpecs,
-                                             worker)
+                                             SendActions (..), WorkerSpec, convH,
+                                             toOutSpecs, worker)
 import           Pos.Constants              (blkSecurityParam)
 import           Pos.Context                (NodeContext (..), getNodeContext)
 import           Pos.Crypto                 (hash, shortHashF)
@@ -63,7 +63,7 @@ instance Exception VerifyBlocksException
 retrievalWorker
     :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
-    => (Worker m, OutSpecs)
+    => (WorkerSpec m, OutSpecs)
 retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
     NodeContext{..} <- getNodeContext
     let loop queue recHeaderVar = forever $ do
@@ -96,15 +96,15 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
                     pure p
             maybe (pure False) processKick =<< tryReadTMVar recHeaderVar
         when kicked $ logWarning $
-            sformat ("Recovery mode communication dropped with peer "%shown) peerId
+            sformat ("Recovery mode communication dropped with peer "%build) peerId
     handleLE recHeaderVar (peerId, headers) e = do
         logWarning $ sformat
-            ("Error handling peerId="%shown%", headers="%listJson%": "%shown)
+            ("Error handling peerId="%build%", headers="%listJson%": "%shown)
             peerId (fmap headerHash headers) e
         dropRecoveryHeader recHeaderVar peerId
     handle sendActions (peerId, headers) = do
         logDebug $ sformat
-            ("retrievalWorker: handling peerId="%shown%", headers="%listJson)
+            ("retrievalWorker: handling peerId="%build%", headers="%listJson)
             peerId (fmap headerHash headers)
         classificationRes <- classifyHeaders' headers
         let newestHeader = headers ^. _Wrapped . _neHead
@@ -151,7 +151,7 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
                 Left e -> do
                     logWarning $ sformat
                         ("Error retrieving blocks from "%shortHashF%
-                         " to "%shortHashF%" from peer "%shown%": "%stext)
+                         " to "%shortHashF%" from peer "%build%": "%stext)
                         lcaChildHash newestHash peerId e
                     dropRecoveryHeader recHeaderVar peerId
                 Right blocks -> do
@@ -330,7 +330,7 @@ requestHeaders
     -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
 requestHeaders mgh recoveryHeader peerId conv = do
-    logDebug $ sformat ("handleUnsolicitedHeader: withConnection: sending "%shown) mgh
+    logDebug $ sformat ("handleUnsolicitedHeader: withConnection: sending "%build) mgh
     send conv mgh
     mHeaders <- recv conv
     whenJust mHeaders $ \(MsgHeaders headers) -> do
@@ -410,10 +410,10 @@ addToBlockRequestQueue headers recoveryTip peerId = do
         updateRecoveryHeader recoveryTip
         ifM (isFullTBQueue queue) (pure False) updateQueue
     if added
-    then logDebug $ sformat ("Added to block request queue: peerId="%shown%
+    then logDebug $ sformat ("Added to block request queue: peerId="%build%
                              ", headers="%listJson)
                             peerId (fmap headerHash headers)
-    else logWarning $ sformat ("Failed to add headers from "%shown%
+    else logWarning $ sformat ("Failed to add headers from "%build%
                                " to block retrieval queue: queue is full")
                               peerId
 

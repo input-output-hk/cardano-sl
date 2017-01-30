@@ -8,7 +8,7 @@ module Pos.Block.Network.Announce
        ) where
 
 import           Control.Concurrent.STM     (tryReadTMVar)
-import           Formatting                 (build, sformat, shown, (%))
+import           Formatting                 (build, sformat, (%))
 import           Mockable                   (throw)
 import           System.Wlog                (logDebug)
 import           Universum
@@ -65,7 +65,7 @@ announceBlock sendActions header = do
     announceBlockDo nodeId conv = do
         logDebug $
             sformat
-                ("Announcing block "%shortHashF%" to "%shown)
+                ("Announcing block "%shortHashF%" to "%build)
                 (headerHash header)
                 nodeId
         send conv $ MsgHeaders (one (Right header))

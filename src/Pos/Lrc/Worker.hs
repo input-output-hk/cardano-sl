@@ -23,7 +23,7 @@ import           Universum
 import           Pos.Binary.Communication    ()
 import           Pos.Block.Logic.Internal    (applyBlocksUnsafe, rollbackBlocksUnsafe,
                                               withBlkSemaphore_)
-import           Pos.Communication.Protocol  (OutSpecs, Worker, localOnNewSlotWorker)
+import           Pos.Communication.Protocol  (OutSpecs, WorkerSpec, localOnNewSlotWorker)
 import           Pos.Constants               (slotSecurityParam)
 import           Pos.Context                 (LrcSyncData, getNodeContext, ncLrcSync)
 import qualified Pos.DB                      as DB
@@ -49,7 +49,7 @@ import           Pos.WorkMode                (WorkMode)
 
 lrcOnNewSlotWorker
     :: (SscWorkersClass ssc, WorkMode ssc m)
-    => (Worker m, OutSpecs)
+    => (WorkerSpec m, OutSpecs)
 lrcOnNewSlotWorker = localOnNewSlotWorker True $ \SlotId {..} ->
     when (siSlot < slotSecurityParam) $ lrcSingleShot siEpoch `catch` onLrcError
   where

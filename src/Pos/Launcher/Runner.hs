@@ -56,16 +56,16 @@ import           Universum                   hiding (bracket)
 
 import           Pos.Binary                  ()
 import           Pos.CLI                     (readLoggerConfig)
-import           Pos.Communication           (Action, BiP (..), ConversationActions (..),
-                                              InSpecs (..), ListenersWithOut,
-                                              OutSpecs (..), PeerId (..),
-                                              SysStartRequest (..), SysStartResponse,
-                                              VerInfo (..), allListeners,
-                                              allStubListeners, handleSysStartResp,
-                                              hoistListenerSpec, mergeLs,
-                                              stubListenerOneMsg, sysStartReqListener,
-                                              sysStartRespListener, toAction,
-                                              unpackLSpecs)
+import           Pos.Communication           (ActionSpec (..), BiP (..),
+                                              ConversationActions (..), InSpecs (..),
+                                              ListenersWithOut, OutSpecs (..),
+                                              PeerId (..), SysStartRequest (..),
+                                              SysStartResponse, VerInfo (..),
+                                              allListeners, allStubListeners,
+                                              handleSysStartResp, hoistListenerSpec,
+                                              mergeLs, stubListenerOneMsg,
+                                              sysStartReqListener, sysStartRespListener,
+                                              toAction, unpackLSpecs)
 import           Pos.Communication.PeerState (runPeerStateHolder)
 import           Pos.Constants               (lastKnownBlockVersion, protocolMagic)
 import           Pos.Constants               (blockRetrievalQueueSize,
@@ -171,9 +171,9 @@ runRawRealMode
     -> SscParams ssc
     -> ListenersWithOut (RawRealMode ssc)
     -> OutSpecs
-    -> Action (RawRealMode ssc) a
+    -> ActionSpec (RawRealMode ssc) a
     -> Production a
-runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs action =
+runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec action) =
     usingLoggerName lpRunnerTag $ do
        initNC <- sscCreateNodeContext @ssc sscnp
        modernDBs <- openNodeDBs npRebuildDb npDbPathM
@@ -190,8 +190,8 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs action =
           runUSHolder .
           runKademliaDHT (rmDHT res) .
           runPeerStateHolder stateM .
-          runServer (rmTransport res) listeners outSpecs $
-              \sa -> nodeStartMsg npBaseParams >> action sa
+          runServer (rmTransport res) listeners outSpecs . ActionSpec $
+              \vI sa -> nodeStartMsg npBaseParams >> action vI sa
   where
     LoggingParams {..} = bpLoggingParams npBaseParams
 
@@ -201,28 +201,28 @@ runServiceMode
     -> BaseParams
     -> ListenersWithOut ServiceMode
     -> OutSpecs
-    -> Action ServiceMode a
+    -> ActionSpec ServiceMode a
     -> Production a
-runServiceMode res bp@BaseParams{..} listeners outSpecs action =
+runServiceMode res bp@BaseParams{..} listeners outSpecs (ActionSpec action) =
     usingLoggerName (lpRunnerTag bpLoggingParams) .
     runKademliaDHT (rmDHT res) .
-    runServer (rmTransport res) listeners outSpecs $
-        \sa -> nodeStartMsg bp >> action sa
+    runServer (rmTransport res) listeners outSpecs . ActionSpec $
+        \vI sa -> nodeStartMsg bp >> action vI sa
 
 runServer :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m, MonadDHT m)
   => Transport
   -> ListenersWithOut m
   -> OutSpecs
-  -> Action m b
+  -> ActionSpec m b
   -> m b
-runServer transport packedLS (OutSpecs wouts) action = do
+runServer transport packedLS (OutSpecs wouts) (ActionSpec action) = do
     ourPeerId <- PeerId . getMeaningPart <$> currentNodeKey
     let (listeners', InSpecs ins, OutSpecs outs) = unpackLSpecs packedLS
         ourVerInfo = VerInfo protocolMagic lastKnownBlockVersion ins $ outs <> wouts
         listeners = listeners' ourVerInfo
     stdGen <- liftIO newStdGen
     node (concrete transport) stdGen BiP (ourPeerId, ourVerInfo) $ \__node ->
-        pure $ NodeAction listeners action
+        pure $ NodeAction listeners (action ourVerInfo)
 
 -- | ProductionMode runner.
 runProductionMode
@@ -231,11 +231,11 @@ runProductionMode
     => RealModeResources
     -> NodeParams
     -> SscParams ssc
-    -> (Action (ProductionMode ssc) a, OutSpecs)
+    -> (ActionSpec (ProductionMode ssc) a, OutSpecs)
     -> Production a
-runProductionMode res np@NodeParams {..} sscnp (action, outSpecs) =
-    runRawRealMode res np sscnp listeners outSpecs $
-        \sendActions -> getNoStatsT . action $ hoistSendActions lift getNoStatsT sendActions
+runProductionMode res np@NodeParams {..} sscnp (ActionSpec action, outSpecs) =
+    runRawRealMode res np sscnp listeners outSpecs . ActionSpec $
+        \vI sendActions -> getNoStatsT . action vI $ hoistSendActions lift getNoStatsT sendActions
   where
     listeners = addDevListeners npSystemStart commonListeners
     commonListeners = first (hoistListenerSpec getNoStatsT lift <$>) allListeners
@@ -249,15 +249,15 @@ runStatsMode
     => RealModeResources
     -> NodeParams
     -> SscParams ssc
-    -> (Action (StatsMode ssc) a, OutSpecs)
+    -> (ActionSpec (StatsMode ssc) a, OutSpecs)
     -> Production a
-runStatsMode res np@NodeParams {..} sscnp (action, outSpecs) = do
+runStatsMode res np@NodeParams {..} sscnp (ActionSpec action, outSpecs) = do
     statMap <- liftIO SM.newIO
     let listeners = addDevListeners npSystemStart commonListeners
         commonListeners = first (hoistListenerSpec (runStatsT' statMap) lift <$>) allListeners
-    runRawRealMode res np sscnp listeners outSpecs $
-        \sendActions -> do
-            runStatsT' statMap . action $ hoistSendActions lift (runStatsT' statMap) sendActions
+    runRawRealMode res np sscnp listeners outSpecs . ActionSpec $
+        \vI sendActions -> do
+            runStatsT' statMap . action vI $ hoistSendActions lift (runStatsT' statMap) sendActions
 
 ----------------------------------------------------------------------------
 -- Lower level runners

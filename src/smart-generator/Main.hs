@@ -18,7 +18,8 @@ import           Test.QuickCheck             (arbitrary, generate)
 import           Universum
 
 import qualified Pos.CLI                     as CLI
-import           Pos.Communication           (SendActions, convertSendActions, worker)
+import           Pos.Communication           (ActionSpec (..), SendActions,
+                                              convertSendActions)
 import           Pos.Constants               (genesisN, neighborsSendThreshold,
                                               slotSecurityParam)
 import           Pos.Crypto                  (KeyPair (..), hash)
@@ -90,7 +91,7 @@ getPeers share = do
 runSmartGen :: forall ssc . SscConstraint ssc
             => RealModeResources -> NodeParams -> SscParams ssc -> GenOptions -> Production ()
 runSmartGen res np@NodeParams{..} sscnp opts@GenOptions{..} =
-  runProductionMode res np sscnp $ (,sendTxOuts <> wOuts) $ \sendActions -> do
+  runProductionMode res np sscnp $ (,sendTxOuts <> wOuts) . ActionSpec $ \vI sendActions -> do
     initLrc
     slotDuration <- getSlotDuration
     let getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
@@ -101,9 +102,11 @@ runSmartGen res np@NodeParams{..} sscnp opts@GenOptions{..} =
 
     txTimestamps <- liftIO createTxTimestamps
 
+    let ActionSpec nodeAction = runNode' @ssc workers'
+
     -- | Run all the usual node workers in order to get
     -- access to blockchain
-    void $ fork $ runNode' @ssc workers' sendActions
+    void $ fork $ nodeAction vI sendActions
 
     let logsFilePrefix = fromMaybe "." (CLI.logPrefix goCommonArgs)
     -- | Run the special worker to check new blocks and
@@ -113,7 +116,7 @@ runSmartGen res np@NodeParams{..} sscnp opts@GenOptions{..} =
     logInfo "STARTING TXGEN"
 
     let forFold init ls act = foldM act init ls
-        sA = convertSendActions sendActions
+        sA = convertSendActions vI sendActions
 
     -- [CSL-220] Write MonadBaseControl instance for KademliaDHT
     -- Seeding init tx

@@ -46,7 +46,7 @@ import           Pos.Web               (serveWebBase, serveWebGT)
 import           Pos.WorkMode          (WorkMode)
 #ifdef WITH_WALLET
 import           Node                  (hoistSendActions)
-import           Pos.Communication     (OutSpecs, Worker, worker)
+import           Pos.Communication     (ActionSpec (..), OutSpecs, WorkerSpec, worker)
 import           Pos.Statistics        (getNoStatsT, getStatsMap, runStatsT')
 import           Pos.Wallet.Web        (walletServeWebFull, walletServerOuts)
 import           Pos.WorkMode          (ProductionMode, RawRealMode, StatsMode)
@@ -121,7 +121,7 @@ action args@Args {..} res = do
         (False, NistBeaconAlgo) ->
             runNodeProduction @SscNistBeacon res (convPlugins currentPlugins `mappendPair` walletProd args) currentParams ()
   where
-    convPlugins = (,mempty) . map const
+    convPlugins = (,mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
 
 #ifdef DEV_MODE
 userSecretWithGenesisKey
@@ -246,7 +246,7 @@ pluginsGT Args {..}
 walletServe
     :: SscConstraint ssc
     => Args
-    -> ([Worker (RawRealMode ssc)], OutSpecs)
+    -> ([WorkerSpec (RawRealMode ssc)], OutSpecs)
 walletServe Args {..} =
     if enableWallet
     then first pure $ worker walletServerOuts $ \sendActions ->
@@ -257,20 +257,21 @@ walletServe Args {..} =
 walletProd
     :: SscConstraint ssc
     => Args
-    -> ([Worker (ProductionMode ssc)], OutSpecs)
+    -> ([WorkerSpec (ProductionMode ssc)], OutSpecs)
 walletProd = first (map liftPlugin) . walletServe
   where
-    liftPlugin = \p sa -> lift . p $ hoistSendActions getNoStatsT lift sa
+    liftPlugin (ActionSpec p) = ActionSpec $ \vI sa ->
+        lift . p vI $ hoistSendActions getNoStatsT lift sa
 
 walletStats
     :: SscConstraint ssc
     => Args
-    -> ([Worker (StatsMode ssc)], OutSpecs)
+    -> ([WorkerSpec (StatsMode ssc)], OutSpecs)
 walletStats = first (map liftPlugin) . walletServe
   where
-    liftPlugin = \p sa -> do
+    liftPlugin (ActionSpec p) = ActionSpec $ \vI sa -> do
         s <- getStatsMap
-        lift . p $ hoistSendActions (runStatsT' s) lift sa
+        lift . p vI $ hoistSendActions (runStatsT' s) lift sa
 #else
 walletProd, walletStats :: Args -> [a]
 walletProd _ = []

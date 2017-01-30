@@ -11,8 +11,7 @@ module Pos.Slotting
        , getCurrentSlotUsingNtp
 
        , onNewSlot
-       , onNewSlotWithLogging'
-       , onNewSlot'
+       , onNewSlotImpl
 
        -- * Slotting state
        , SlottingState (..)
@@ -122,21 +121,6 @@ getCurrentSlotUsingNtp lastSlot (margin, measTime) = do
 -- | Run given action as soon as new slot starts, passing SlotId to
 -- it.  This function uses Mockable and assumes consistency between
 -- MonadSlots and Mockable implementations.
-onNewSlot'
-    :: ( MonadIO m
-       , MonadSlots m
-       , MonadCatch m
-       , WithLogger m
-       , Mockable Fork m
-       , Mockable Delay m
-       )
-    => Bool -> (SlotId -> b -> m (), outSpecs) -> (b -> m (), outSpecs)
-onNewSlot' startImmediately (h, outs) = (,outs) $
-    onNewSlotImpl False startImmediately . flip h
-
--- | Run given action as soon as new slot starts, passing SlotId to
--- it.  This function uses Mockable and assumes consistency between
--- MonadSlots and Mockable implementations.
 onNewSlot
     :: ( MonadIO m
        , MonadSlots m
@@ -147,19 +131,6 @@ onNewSlot
        )
     => Bool -> (SlotId -> m ()) -> m ()
 onNewSlot = onNewSlotImpl False
-
--- | Same as onNewSlot, but also logs debug information.
-onNewSlotWithLogging'
-    :: ( MonadIO m
-       , MonadSlots m
-       , MonadCatch m
-       , WithLogger m
-       , Mockable Fork m
-       , Mockable Delay m
-       )
-    => Bool -> (SlotId -> b -> m (), outSpecs) -> (b -> m (), outSpecs)
-onNewSlotWithLogging' startImmediately (h, outs) = (,outs) $
-    onNewSlotImpl True startImmediately . flip h
 
 onNewSlotImpl
     :: ( MonadIO m

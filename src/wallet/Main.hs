@@ -20,7 +20,7 @@ import           System.IO                 (hFlush, stdout)
 import           Universum
 
 import qualified Pos.CLI                   as CLI
-import           Pos.Communication         (OutSpecs, SendActions, Worker, Worker',
+import           Pos.Communication         (OutSpecs, SendActions, Worker', WorkerSpec,
                                             worker)
 import           Pos.Crypto                (Hash, SecretKey, createProxySecretKey,
                                             encodeHash, hash, hashHexF, sign, toPublic,
@@ -140,14 +140,12 @@ runCmd sendActions (DelegateLight i j) = do
     let issuerSk = genesisSecretKeys !! i
         delegatePk = genesisPublicKeys !! j
         psk = createProxySecretKey issuerSk delegatePk (EpochIndex 0, EpochIndex 50)
-    r <- ask
     lift $ sendProxySKEpoch psk sendActions
     putText "Sent lightweight cert"
 runCmd sendActions (DelegateHeavy i j) = do
     let issuerSk = genesisSecretKeys !! i
         delegatePk = genesisPublicKeys !! j
         psk = createProxySecretKey issuerSk delegatePk ()
-    r <- ask
     lift $ sendProxySKSimple psk sendActions
     putText "Sent heavyweight cert"
 runCmd _ Quit = pure ()
@@ -238,7 +236,7 @@ main = do
                 , wpBaseParams  = baseParams
                 }
 
-            plugins :: ([ Worker WalletRealMode ], OutSpecs)
+            plugins :: ([ WorkerSpec WalletRealMode ], OutSpecs)
             plugins = first pure $ case woAction of
                 Repl          -> worker runCmdOuts $ runWalletRepl opts
                 Cmd cmd       -> worker runCmdOuts $ runWalletCmd opts cmd

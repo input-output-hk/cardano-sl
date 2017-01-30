@@ -8,14 +8,15 @@ module Pos.Worker
 import           Data.Proxy              (Proxy (..))
 import           Data.Tagged             (untag)
 import           Data.Time.Units         (convertUnit)
-import           Formatting              (sformat, (%))
+import           Formatting              (build, sformat, (%))
 import           Mockable                (fork)
 import           System.Wlog             (logInfo, logNotice)
 import           Universum
 
 import           Pos.Block.Worker        (blkWorkers)
-import           Pos.Communication       (OutSpecs, SysStartResponse (..), Worker,
-                                          onNewSlotWithLoggingWorker, oneMsgH, toOutSpecs)
+import           Pos.Communication       (OutSpecs, SysStartResponse (..), WorkerSpec,
+                                          onNewSlotWithLoggingWorker, oneMsgH, toOutSpecs,
+                                          worker')
 import           Pos.Constants           (isDevelopment, sysTimeBroadcastSlots)
 import           Pos.Context             (NodeContext (..), getNodeContext,
                                           setNtpLastSlot)
@@ -42,9 +43,10 @@ import           Pos.WorkMode            (WorkMode)
 -- will read it, but who knows…
 allWorkers
     :: (SscWorkersClass ssc, SecurityWorkersClass ssc, WorkMode ssc m)
-    => ([Worker m], OutSpecs)
+    => ([WorkerSpec m], OutSpecs)
 allWorkers = mconcatPair
     [ first pure onNewSlotWorker
+    , first pure onStartWorker
     , dhtWorkers
     , blkWorkers
     , dlgWorkers
@@ -54,7 +56,11 @@ allWorkers = mconcatPair
     , usWorkers
     ]
 
-onNewSlotWorker :: WorkMode ssc m => (Worker m, OutSpecs)
+onStartWorker :: WorkMode ssc m => (WorkerSpec m, OutSpecs)
+onStartWorker = worker' mempty $ \ourVerInfo _ -> do
+    logNotice $ sformat ("Our verInfo "%build) ourVerInfo
+
+onNewSlotWorker :: WorkMode ssc m => (WorkerSpec m, OutSpecs)
 onNewSlotWorker = onNewSlotWithLoggingWorker True outs $ \slotId sendActions -> do
     logNotice $ sformat ("New slot has just started: "%slotIdF) slotId
     setNtpLastSlot slotId

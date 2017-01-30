@@ -14,7 +14,7 @@ import           System.Wlog                       (logError, logWarning)
 import           Universum                         hiding (ask)
 
 import           Pos.Block.Network.Retrieval       (requestTip, requestTipOuts)
-import           Pos.Communication.Protocol        (OutSpecs, Worker, localWorker,
+import           Pos.Communication.Protocol        (OutSpecs, WorkerSpec, localWorker,
                                                     onNewSlotWorker)
 import           Pos.Constants                     (blkSecurityParam,
                                                     mdNoBlocksSlotThreshold,
@@ -49,7 +49,7 @@ instance SscBi => SecurityWorkersClass SscGodTossing where
 instance SecurityWorkersClass SscNistBeacon where
     securityWorkers = Tagged $ first pure checkForReceivedBlocksWorker
 
-checkForReceivedBlocksWorker :: WorkMode ssc m => (Worker m, OutSpecs)
+checkForReceivedBlocksWorker :: WorkMode ssc m => (WorkerSpec m, OutSpecs)
 checkForReceivedBlocksWorker = onNewSlotWorker True requestTipOuts $ \slotId sendActions -> do
     ourPk <- ncPublicKey <$> getNodeContext
 
@@ -93,7 +93,7 @@ checkForReceivedBlocksWorker = onNewSlotWorker True requestTipOuts $ \slotId sen
             "by ourselves"
         converseToNeighbors sendActions requestTip
 
-checkForIgnoredCommitmentsWorker :: forall m. WorkMode SscGodTossing m => (Worker m, OutSpecs)
+checkForIgnoredCommitmentsWorker :: forall m. WorkMode SscGodTossing m => (WorkerSpec m, OutSpecs)
 checkForIgnoredCommitmentsWorker = localWorker $ do
     epochIdx <- atomically (newTVar 0)
     _ <- runReaderT (onNewSlot True checkForIgnoredCommitmentsWorkerImpl) epochIdx

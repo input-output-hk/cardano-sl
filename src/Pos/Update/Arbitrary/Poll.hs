@@ -8,6 +8,7 @@ import           Data.DeriveTH             (derive, makeArbitrary)
 import           Test.QuickCheck           (Arbitrary (..))
 import           Universum
 
+import           Pos.Binary.Block          ()
 import           Pos.Binary.Update         ()
 import           Pos.Types.Arbitrary       ()
 import           Pos.Update.Arbitrary.Core ()

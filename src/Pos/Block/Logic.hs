@@ -68,7 +68,8 @@ import           Pos.Exception              (CardanoFatalError (..))
 import           Pos.Lrc.Error              (LrcError (..))
 import           Pos.Lrc.Worker             (lrcSingleShotNoLock)
 import           Pos.Slotting               (getCurrentSlot)
-import           Pos.Ssc.Class              (Ssc (..), SscWorkersClass (..))
+import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass,
+                                             SscWorkersClass (..))
 import           Pos.Ssc.Extra              (sscGetLocalPayload, sscVerifyBlocks)
 import           Pos.Txp.Class              (getLocalTxsNUndo)
 import           Pos.Txp.Logic              (txVerifyBlocks)
@@ -78,13 +79,13 @@ import           Pos.Types                  (Block, BlockHeader, EpochIndex,
                                              MainExtraHeaderData (..), ProxySKEither,
                                              ProxySKSimple, SlotId (..), SlotLeaders,
                                              TxAux, TxId, VerifyHeaderParams (..),
-                                             blockHeader, blockLeaders, blockSlot,
-                                             difficultyL, epochIndexL, epochOrSlot,
-                                             flattenSlotId, genesisHash, getEpochOrSlot,
-                                             headerHash, headerHashG, headerSlot,
-                                             mkGenesisBlock, mkMainBlock, mkMainBody,
-                                             prevBlockL, topsortTxs, verifyHeader,
-                                             verifyHeaders, vhpVerifyConsensus)
+                                             blockHeader, blockLeaders, difficultyL,
+                                             epochIndexL, epochOrSlot, flattenSlotId,
+                                             genesisHash, getEpochOrSlot, headerHash,
+                                             headerHashG, headerSlot, mkGenesisBlock,
+                                             mkMainBlock, mkMainBody, prevBlockL,
+                                             topsortTxs, verifyHeader, verifyHeaders,
+                                             vhpVerifyConsensus)
 import qualified Pos.Types                  as Types
 import           Pos.Update.Core            (UpdatePayload (..))
 import           Pos.Update.Logic           (usCanCreateBlock, usPreparePayload,
@@ -255,7 +256,7 @@ classifyHeaders headers = do
 -- checkpoint that's in our main chain to the newest ones.
 getHeadersFromManyTo
     :: forall ssc m.
-       (MonadDB ssc m, Ssc ssc, CanLog m, HasLoggerName m)
+       (MonadDB ssc m, SscHelpersClass ssc, CanLog m, HasLoggerName m)
     => NonEmpty HeaderHash  -- ^ Checkpoints; not guaranteed to be
                             --   in any particular order
     -> Maybe HeaderHash
@@ -296,7 +297,7 @@ getHeadersFromManyTo checkpoints startM = runMaybeT $ do
 -- it returns not more than 'blkSecurityParam' blocks distributed
 -- exponentially base 2 relatively to the depth in the blockchain.
 getHeadersOlderExp
-    :: (MonadDB ssc m, Ssc ssc)
+    :: (MonadDB ssc m, SscHelpersClass ssc)
     => Maybe HeaderHash -> m (OldestFirst [] HeaderHash)
 getHeadersOlderExp upto = do
     tip <- GS.getTip
@@ -332,7 +333,7 @@ getHeadersOlderExp upto = do
 -- range @[from..to]@ will be found.
 getHeadersFromToIncl
     :: forall ssc m .
-       (MonadDB ssc m, Ssc ssc)
+       (MonadDB ssc m, SscHelpersClass ssc)
     => HeaderHash -> HeaderHash -> m (Maybe (OldestFirst NE HeaderHash))
 getHeadersFromToIncl older newer = runMaybeT . fmap OldestFirst $ do
     -- oldest and newest blocks do exist
@@ -718,7 +719,7 @@ createMainBlockFinish slotId pSk prevHeader = do
     onNoUS = "can't obtain US payload to create block"
 
 createMainBlockPure
-    :: Ssc ssc
+    :: SscHelpersClass ssc
     => Word64                   -- ^ Block size limit (TODO: imprecise)
     -> BlockHeader ssc
     -> [(TxId, TxAux)]

@@ -99,6 +99,10 @@ library
                         Pos.Types.Arbitrary
                         Pos.Types.Arbitrary.Unsafe
                         Pos.Types.Block
+                        Pos.Types.Block.Class
+                        Pos.Types.Block.Types
+                        Pos.Types.Block.Functions
+                        Pos.Types.Block.Instances
                         Pos.Types.Coin
                         Pos.Types.Slotting
                         Pos.Types.Timestamp
@@ -132,6 +136,8 @@ library
                         -- Binary serialization
                         Pos.Binary.Address
                         Pos.Binary.Block
+                        Pos.Binary.Block.Types
+                        Pos.Binary.Block.Block
                         Pos.Binary.Class
                         Pos.Binary.Coin
                         Pos.Binary.Crypto

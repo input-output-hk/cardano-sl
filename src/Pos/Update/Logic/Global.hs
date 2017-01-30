@@ -22,7 +22,7 @@ import           Pos.Context          (WithNodeContext)
 import           Pos.Crypto           (ProxySignature (pdDelegatePk))
 import qualified Pos.DB               as DB
 import           Pos.DB.GState        (UpdateOp (..))
-import           Pos.Ssc.Class        (Ssc)
+import           Pos.Ssc.Class        (SscHelpersClass)
 import           Pos.Types            (ApplicationName, Block, BlockSignature (..),
                                        BlockVersion, NumSoftwareVersion,
                                        SoftwareVersion (..), addressHash, blockSize,
@@ -43,11 +43,11 @@ import           Pos.Util             (Color (Red), NE, NewestFirst, OldestFirst
 
 type USGlobalApplyMode ssc m = ( WithLogger m
                                , DB.MonadDB ssc m
-                               , Ssc ssc
+                               , SscHelpersClass ssc
                                , WithNodeContext ssc m)
 type USGlobalVerifyMode ssc m = ( DB.MonadDB ssc m
                                 , MonadError PollVerFailure m
-                                , Ssc ssc
+                                , SscHelpersClass ssc
                                 , WithNodeContext ssc m
                                 , WithLogger m)
 

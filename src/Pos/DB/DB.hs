@@ -35,7 +35,7 @@ import           Pos.DB.GState.GState     (prepareGStateDB, sanityCheckGStateDB)
 import           Pos.DB.Lrc               (prepareLrcDB)
 import           Pos.DB.Misc              (prepareMiscDB)
 import           Pos.DB.Types             (NodeDBs (..))
-import           Pos.Ssc.Class.Types      (Ssc)
+import           Pos.Ssc.Class.Helpers    (SscHelpersClass)
 import           Pos.Types                (Block, BlockHeader, getBlockHeader, headerHash,
                                            mkGenesisBlock)
 import           Pos.Util                 (NewestFirst, inAssertMode)
@@ -62,7 +62,7 @@ openNodeDBs recreate fp = do
 -- | Initialize DBs if necessary.
 initNodeDBs
     :: forall ssc m.
-       (Ssc ssc, WithNodeContext ssc m, MonadDB ssc m)
+       (SscHelpersClass ssc, WithNodeContext ssc m, MonadDB ssc m)
     => m ()
 initNodeDBs = do
     leaders0 <- genesisLeadersM
@@ -76,7 +76,7 @@ initNodeDBs = do
 
 -- | Get block corresponding to tip.
 getTipBlock
-    :: (Ssc ssc, MonadDB ssc m)
+    :: (SscHelpersClass ssc, MonadDB ssc m)
     => m (Block ssc)
 getTipBlock = maybe onFailure pure =<< getBlock =<< getTip
   where
@@ -84,21 +84,21 @@ getTipBlock = maybe onFailure pure =<< getBlock =<< getTip
 
 -- | Get BlockHeader corresponding to tip.
 getTipBlockHeader
-    :: (Ssc ssc, MonadDB ssc m)
+    :: (SscHelpersClass ssc, MonadDB ssc m)
     => m (BlockHeader ssc)
 getTipBlockHeader = getBlockHeader <$> getTipBlock
 
 -- | Load blunds from BlockDB starting from tip and while the @condition@ is
 -- true.
 loadBlundsFromTipWhile
-    :: (Ssc ssc, MonadDB ssc m)
+    :: (SscHelpersClass ssc, MonadDB ssc m)
     => (Block ssc -> Bool) -> m (NewestFirst [] (Blund ssc))
 loadBlundsFromTipWhile condition = getTip >>= loadBlundsWhile condition
 
 -- | Load blunds from BlockDB starting from tip which have depth less than
 -- given.
 loadBlundsFromTipByDepth
-    :: (Ssc ssc, MonadDB ssc m)
+    :: (SscHelpersClass ssc, MonadDB ssc m)
     => Word -> m (NewestFirst [] (Blund ssc))
 loadBlundsFromTipByDepth d = getTip >>= loadBlundsByDepth d
 

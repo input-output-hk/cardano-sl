@@ -21,6 +21,7 @@ import           Pos.Communication.Types    (SysStartRequest (..), SysStartRespo
 import           Pos.Delegation.Types       (CheckProxySKConfirmed (..),
                                              CheckProxySKConfirmedRes (..),
                                              ConfirmProxySK (..), SendProxySK (..))
+import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
 import           Pos.Ssc.Class.Types        (Ssc (..))
 import           Pos.Txp.Types              (TxMsgTag (..))
 import           Pos.Update.Network.Types   (ProposalMsgTag (..), VoteMsgTag (..))
@@ -58,7 +59,7 @@ instance Ssc ssc => Bi (MsgHeaders ssc) where
     put (MsgHeaders b) = put b
     get = MsgHeaders <$> get
 
-instance (Ssc ssc, Reifies s Byte) => Bi (MsgBlock s ssc) where
+instance (SscHelpersClass ssc, Reifies s Byte) => Bi (MsgBlock s ssc) where
     -- We encode block size and then the block itself so that we'd be able to
     -- reject the block if it's of the wrong size without consuming the whole
     -- block. Unfortunately, @binary@ doesn't provide a method to limit byte

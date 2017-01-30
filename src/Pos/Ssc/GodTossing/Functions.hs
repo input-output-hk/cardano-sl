@@ -32,6 +32,7 @@ import           Pos.Binary.Crypto               ()
 import           Pos.Crypto                      (Threshold)
 import           Pos.Lrc.Types                   (Richmen)
 import           Pos.Ssc.Class.Types             (Ssc (..))
+
 import           Pos.Ssc.GodTossing.Core         (Commitment (..),
                                                   CommitmentsMap (getCommitmentsMap),
                                                   GtPayload (..), VssCertificate (..),
@@ -44,10 +45,10 @@ import           Pos.Ssc.GodTossing.Toss.Failure (TossVerErrorTag (..),
 import           Pos.Ssc.GodTossing.Types.Types  (GtGlobalState (..))
 import qualified Pos.Ssc.GodTossing.VssCertData  as VCD
 import           Pos.Types.Address               (addressHash)
+import           Pos.Types.Block                 (MainBlockHeader, headerSlot)
 import           Pos.Types.Core                  (EpochIndex (..), SlotId (..),
                                                   StakeholderId)
 import           Pos.Types.Slotting              (crucialSlot)
-import           Pos.Types.Types                 (MainBlockHeader, headerSlot)
 
 ----------------------------------------------------------------------------
 -- Simple predicates for GodTossing.Types.Base

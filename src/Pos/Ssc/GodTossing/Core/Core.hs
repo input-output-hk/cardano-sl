@@ -17,6 +17,7 @@ module Pos.Ssc.GodTossing.Core.Core
 
        -- * CommitmentsMap
        , insertSignedCommitment
+       , deleteSignedCommitment
        , diffCommMap
        , intersectCommMap
        , intersectCommMapWith
@@ -126,6 +127,10 @@ insertSignedCommitment :: SignedCommitment -> CommitmentsMap -> CommitmentsMap
 insertSignedCommitment signedComm (getCommitmentsMap -> m) =
     mkCommitmentsMapUnsafe $
     HM.insert (addressHash $ signedComm ^. _1) signedComm m
+
+-- | Safely delete 'SignedCommitment' from 'CommitmentsMap'.
+deleteSignedCommitment :: StakeholderId -> CommitmentsMap -> CommitmentsMap
+deleteSignedCommitment id = mkCommitmentsMapUnsafe . HM.delete id . getCommitmentsMap
 
 -- | Compute difference of two 'CommitmentsMap's.
 diffCommMap :: CommitmentsMap -> CommitmentsMap -> CommitmentsMap

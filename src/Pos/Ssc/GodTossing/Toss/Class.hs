@@ -14,9 +14,8 @@ import           System.Wlog             (WithLogger)
 import           Universum
 
 import           Pos.Lrc.Types           (RichmenSet)
-import           Pos.Ssc.GodTossing.Core (Commitment, Opening, SharesMap,
-                                          SignedCommitment, VssCertificate,
-                                          VssCertificatesMap)
+import           Pos.Ssc.GodTossing.Core (InnerSharesMap, Opening, SignedCommitment,
+                                          VssCertificate, VssCertificatesMap)
 import           Pos.Types               (EpochIndex, EpochOrSlot, StakeholderId)
 
 ----------------------------------------------------------------------------
@@ -82,14 +81,14 @@ instance MonadTossRead m => MonadTossRead (ExceptT s m)
 -- GodTossing data with ability to modify state.
 class MonadTossRead m =>
       MonadToss m where
-    -- | Put 'Commitment' into state.
-    putCommitment :: Commitment -> m ()
+    -- | Put 'SignedCommitment' into state.
+    putCommitment :: SignedCommitment -> m ()
 
     -- | Put 'Opening' from given stakeholder into state.
     putOpening :: StakeholderId -> Opening -> m ()
 
-    -- | Put 'Shares' from given stakeholder into state.
-    putShares :: StakeholderId -> SharesMap -> m ()
+    -- | Put 'InnerShares' from given stakeholder into state.
+    putShares :: StakeholderId -> InnerSharesMap -> m ()
 
     -- | Put 'VssCertificate' into state.
     putCertificate :: VssCertificate -> m ()
@@ -108,7 +107,7 @@ class MonadTossRead m =>
 
     -- | Default implementations for 'MonadTrans'.
     default putCommitment :: (MonadTrans t, MonadToss m', t m' ~ m) =>
-        Commitment -> m ()
+        SignedCommitment -> m ()
     putCommitment = lift . putCommitment
 
     default putOpening :: (MonadTrans t, MonadToss m', t m' ~ m) =>
@@ -116,7 +115,7 @@ class MonadTossRead m =>
     putOpening id = lift . putOpening id
 
     default putShares :: (MonadTrans t, MonadToss m', t m' ~ m) =>
-        StakeholderId -> SharesMap -> m ()
+        StakeholderId -> InnerSharesMap -> m ()
     putShares id = lift . putShares id
 
     default putCertificate :: (MonadTrans t, MonadToss m', t m' ~ m) =>

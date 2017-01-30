@@ -12,10 +12,10 @@ import qualified Data.Set              as S
 import           Data.Tuple            (swap)
 
 import           Pos.Ssc.GodTossing    (VssCertData (..), VssCertificate (..), delete,
-                                        empty, expiryEoS, filter, insert, keys, member,
-                                        setLastKnownSlot)
+                                        empty, expiryEoS, filter, getCertId, insert, keys,
+                                        member, setLastKnownSlot)
 import           Pos.Types             (EpochIndex (..), EpochOrSlot (..), SlotId,
-                                        SlotId (..), StakeholderId)
+                                        SlotId (..))
 
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
@@ -74,21 +74,23 @@ instance Arbitrary CorrectVssCertData where
                              choose (0, fromIntegral n)  -- boundaries can be chosen more wisely
         let notExpiredGen  = arbitrary `suchThat` (`expiresAfter` lkeos)
         vssCertificates   <- vectorOf @VssCertificate certificatesToAdd notExpiredGen
-        stakeholders      <- vectorOf @StakeholderId  certificatesToAdd arbitrary
-        let dataUpdaters   = zipWith insert stakeholders vssCertificates
+        let dataUpdaters   = map insert vssCertificates
         pure $ foldl' (&) empty dataUpdaters
 
 ----------------------------------------------------------------------------
 -- Properties for VssCertData
 ----------------------------------------------------------------------------
 
-verifyInsertVssCertData :: StakeholderId -> VssCertificate -> VssCertData -> Property
-verifyInsertVssCertData shid certificate certData =
-    certificate `canBeIn` certData ==> member shid (insert shid certificate certData)
+verifyInsertVssCertData :: VssCertificate -> VssCertData -> Property
+verifyInsertVssCertData certificate certData =
+    certificate `canBeIn` certData ==> member shid (insert certificate certData)
+  where
+    shid = getCertId certificate
 
-verifyDeleteVssCertData :: StakeholderId -> VssCertificate -> VssCertData -> Bool
-verifyDeleteVssCertData shid certificate certData =
-    let certWithShid    = insert shid certificate certData
+verifyDeleteVssCertData :: VssCertificate -> VssCertData -> Bool
+verifyDeleteVssCertData certificate certData =
+    let shid = getCertId certificate
+        certWithShid    = insert certificate certData
         certWithoutShid = delete shid certWithShid
     in not $ member shid certWithoutShid
 

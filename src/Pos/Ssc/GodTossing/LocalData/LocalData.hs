@@ -40,7 +40,7 @@ import           Pos.Ssc.GodTossing.Core              (CommitmentsMap (getCommit
                                                        VssCertificate (vcSigningKey, vcVssKey),
                                                        checkCertTTL, checkCommShares,
                                                        checkShare, checkShares,
-                                                       diffCommMap,
+                                                       diffCommMap, getCertId,
                                                        insertSignedCommitment,
                                                        intersectCommMapWith,
                                                        isCommitmentIdx, isOpeningIdx,
@@ -339,8 +339,8 @@ processVssCertificate richmen c = do
           , ( sscIsDataUsefulQ VssCertificateMsg id, tossEx CertificateAlreadySent)
           ]
     readerTToState $ runChecks checks
-    gtLocalCertificates %= VCD.insert id c
+    gtLocalCertificates %= VCD.insert c
   where
-    id = addressHash $ vcSigningKey c
+    id = getCertId c
     certSingleton = (c, vcExpiryEpoch c):|[]
     tossEx = flip TossVerFailure (id:|[])

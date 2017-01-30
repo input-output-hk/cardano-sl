@@ -5,7 +5,7 @@ module Pos.Ssc.GodTossing.Toss.Pure
        , runPureToss
        ) where
 
-import           Control.Lens                   (at, to, (%=))
+import           Control.Lens                   (at, to, (%=), (.=))
 import           Control.Monad.RWS.Strict       (RWS, runRWS)
 import           System.Wlog                    (CanLog, HasLoggerName, LogEvent,
                                                  LoggerName, LoggerNameBox, PureLogger,
@@ -14,6 +14,7 @@ import           Universum
 
 import           Pos.Lrc.Types                  (RichmenSet)
 import           Pos.Ssc.GodTossing.Core        (SignedCommitment, VssCertificatesMap,
+                                                 deleteSignedCommitment,
                                                  getCommitmentsMap,
                                                  insertSignedCommitment)
 import           Pos.Ssc.GodTossing.Toss.Class  (MonadToss (..), MonadTossRead (..))
@@ -40,9 +41,18 @@ instance MonadTossRead PureToss where
             | e == epoch = Just r
             | otherwise = Nothing
 
--- instance MonadToss PureToss where
---     putCommitment signedComm =
---         PureToss $ gsCommitments %= insertSignedCommitment signedComm
+instance MonadToss PureToss where
+    putCommitment signedComm =
+        PureToss $ gsCommitments %= insertSignedCommitment signedComm
+    putOpening id op = PureToss $ gsOpenings . at id .= Just op
+    putShares id sh = PureToss $ gsShares . at id .= Just sh
+    putCertificate cert =
+        PureToss $ gsVssCertificates %= VCD.insert cert
+    delCommitment id =
+        PureToss $ gsCommitments %= deleteSignedCommitment id
+    delOpening id = PureToss $ gsOpenings . at id .= Nothing
+    delShares id = PureToss $ gsOpenings . at id .= Nothing
+    setEpochOrSlot eos = PureToss $ gsVssCertificates %= VCD.setLastKnownEoS eos
 
 runPureToss
     :: LoggerName

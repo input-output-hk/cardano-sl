@@ -255,7 +255,7 @@ mpcRollback (NewestFirst blocks) = do
 
     rollbackCerts :: EpochOrSlot -> GSUpdate ()
     rollbackCerts (EpochOrSlot (Left (EpochIndex 0))) =
-        gsVssCertificates .= unionCerts genesisCertificates
+        gsVssCertificates .= unionGenCerts
     rollbackCerts (EpochOrSlot (Left ei)) =
         gsVssCertificates %= VCD.setLastKnownSlot (SlotId (ei - 1) (epochSlots - 1))
     rollbackCerts (EpochOrSlot (Right (SlotId e 0))) =
@@ -274,7 +274,7 @@ mpcRollback (NewestFirst blocks) = do
             SharesPayload shares _ -> gsShares %= (`HM.difference` shares)
             CertificatesPayload _ -> return ()
         pure False
-    unionCerts = (foldl' (flip $ uncurry VCD.insert)) VCD.empty . HM.toList
+    unionGenCerts = foldr' VCD.insert VCD.empty $ toList genesisCertificates
 
 -- | Calculate leaders for the next epoch.
 calculateSeedQ :: EpochIndex -> GSQuery (Either SeedError SharedSeed)
@@ -303,7 +303,7 @@ mpcLoadGlobalState = do
     res <$ (logInfo $ sformat ("Loaded GodTossing state: "%build) res)
   where
     safeSub epoch = epoch - min epoch vssMaxTTL
-    unionGenCerts gs = foldl' (flip $ uncurry VCD.insert) gs . HM.toList $ genesisCertificates
+    unionGenCerts gs = foldr' VCD.insert gs . toList $ genesisCertificates
 
 ----------------------------------------------------------------------------
 -- Utilities
@@ -324,6 +324,5 @@ unionPayload considerCertificates payload gs =
             CertificatesPayload _      -> pure ()
         when considerCertificates $
             gsVssCertificates %=
-                flip
-                    (foldl' (flip $ uncurry VCD.insert))
-                    (HM.toList $ _gpCertificates payload)
+                flip (foldr' VCD.insert)
+                     (toList $ _gpCertificates payload)

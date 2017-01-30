@@ -25,6 +25,7 @@ module Pos.Ssc.GodTossing.Core.Types
        , VssCertificate (vcVssKey, vcExpiryEpoch, vcSignature, vcSigningKey)
        , mkVssCertificate
        , recreateVssCertificate
+       , getCertId
        , VssCertificatesMap
 
        -- * Payload
@@ -183,6 +184,9 @@ recreateVssCertificate vssKey epoch sig pk =
 checkCertSign :: VssCertificate -> Bool
 checkCertSign VssCertificate {..} =
     checkSig vcSigningKey (vcVssKey, vcExpiryEpoch) vcSignature
+
+getCertId :: VssCertificate -> StakeholderId
+getCertId = addressHash . vcSigningKey
 
 -- | VssCertificatesMap contains all valid certificates collected
 -- during some period of time.

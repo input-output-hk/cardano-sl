@@ -42,8 +42,8 @@ class (Monad m, WithLogger m) =>
     -- | Retrieve all stable 'VssCertificate's for given epoch.
     getStableCertificates :: EpochIndex -> m VssCertificatesMap
 
-    -- | Retrieve richmen for given epoch, blocking if they are not available.
-    getRichmen :: EpochIndex -> m RichmenSet
+    -- | Retrieve richmen for given epoch if they are known.
+    getRichmen :: EpochIndex -> m (Maybe RichmenSet)
 
     -- | Default implementations for 'MonadTrans'.
     default getCommitment :: (MonadTrans t, MonadTossRead m', t m' ~ m) =>
@@ -67,7 +67,7 @@ class (Monad m, WithLogger m) =>
     getStableCertificates = lift . getStableCertificates
 
     default getRichmen :: (MonadTrans t, MonadTossRead m', t m' ~ m) =>
-        EpochIndex -> m RichmenSet
+        EpochIndex -> m (Maybe RichmenSet)
     getRichmen = lift . getRichmen
 
 instance MonadTossRead m => MonadTossRead (ReaderT s m)
@@ -83,7 +83,7 @@ instance MonadTossRead m => MonadTossRead (ExceptT s m)
 class MonadTossRead m =>
       MonadToss m where
     -- | Put 'Commitment' into state.
-    putCommitment :: Commitment -> m()
+    putCommitment :: Commitment -> m ()
 
     -- | Put 'Opening' from given stakeholder into state.
     putOpening :: StakeholderId -> Opening -> m ()

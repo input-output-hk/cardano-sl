@@ -4,18 +4,18 @@
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeFamilies        #-}
 
--- | Instance of SscStorageClass.
+-- | Instance of SscGStateClass.
 
 module Pos.Ssc.GodTossing.Storage
        ( -- * Instances
-         -- ** instance SscStorageClass SscGodTossing
+         -- ** instance SscGStateClass SscGodTossing
          getGlobalCerts
        , gtGetGlobalState
        , getStableCerts
        ) where
 
 import           Control.Lens                   ((%=), (.=), (<>=), _Wrapped)
-import           Control.Monad.Except           (MonadError (throwError), runExceptT)
+import           Control.Monad.Except           (MonadError (throwError))
 import           Control.Monad.Reader           (ask)
 import           Control.Monad.State            (get)
 import           Data.Default                   (def)
@@ -32,8 +32,8 @@ import           Pos.Constants                  (epochSlots, vssMaxTTL)
 import           Pos.DB                         (DBError (DBMalformed), MonadDB,
                                                  getTipBlockHeader,
                                                  loadBlundsFromTipWhile)
-import           Pos.Lrc.Types                  (Richmen)
-import           Pos.Ssc.Class.Storage          (SscStorageClass (..))
+import           Pos.Lrc.Types                  (RichmenSet)
+import           Pos.Ssc.Class.Storage          (SscGStateClass (..), SscVerifier)
 import           Pos.Ssc.Class.Types            (Ssc (..))
 import           Pos.Ssc.Extra                  (MonadSscMem, sscRunGlobalQuery)
 import           Pos.Ssc.GodTossing.Core        (GtPayload (..), VssCertificate (..),
@@ -43,7 +43,7 @@ import           Pos.Ssc.GodTossing.Core        (GtPayload (..), VssCertificate 
                                                  isOpeningIdx, isSharesIdx, vcVssKey,
                                                  _gpCertificates)
 import           Pos.Ssc.GodTossing.Functions   (computeParticipants, getStableCertsPure,
-                                                 verifyEntriesGuard, verifyGtPayload)
+                                                 verifyEntriesGuard)
 import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
 import           Pos.Ssc.GodTossing.Seed        (calculateSeed)
 import           Pos.Ssc.GodTossing.Toss        (TossVerErrorTag (..),
@@ -56,7 +56,7 @@ import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types                      (Block, EpochIndex (..), EpochOrSlot (..),
                                                  SlotId (..), addressHash, blockMpc,
                                                  blockSlot, epochIndexL, epochOrSlot,
-                                                 epochOrSlotG, gbHeader)
+                                                 epochOrSlotG)
 import           Pos.Util                       (NE, NewestFirst (..), OldestFirst (..),
                                                  maybeThrow, toOldestFirst)
 
@@ -64,11 +64,10 @@ type GSVerify a = forall m . ( MonadReader GtGlobalState m, WithLogger m
                              , MonadError TossVerFailure m) => m a
 type GSUpdate a = forall m . (MonadState GtGlobalState m) => m a
 
-instance SscStorageClass SscGodTossing where
+instance SscGStateClass SscGodTossing where
     sscLoadGlobalState = mpcLoadGlobalState
-    sscApplyBlocksM = mpcApplyBlocks
     sscRollbackU = mpcRollback
-    sscVerifyBlocksM pureVer rich = runExceptT . mpcVerifyBlocks pureVer rich
+    sscVerifyAndApplyBlocks = gtVerifyAndApplyBlocks
     sscCalculateSeedQ _ =
         calculateSeed <$> view gsCommitments <*> view gsOpenings <*>
         view gsShares
@@ -96,19 +95,18 @@ getStableCerts epoch =
 
 -- | Verify that if one adds given block to the current chain, it will
 -- remain consistent with respect to SSC-related data.
-mpcVerifyBlock :: Bool -> Richmen -> Block SscGodTossing -> GSVerify ()
+gtVerifyBlock :: RichmenSet -> Block SscGodTossing -> GSVerify ()
 -- Genesis blocks don't have any SSC data.
-mpcVerifyBlock _ _ (Left _) = pass
+gtVerifyBlock _ (Left _) = pass
 -- Main blocks have commitments, openings, shares and VSS
 -- certificates.  We optionally (depending on verifyPure argument) use
 -- verifyGtPayload to make the most general checks and also use global
 -- data to make more checks using this data.
-mpcVerifyBlock verifyPure richmen (Right b) = do
+gtVerifyBlock richmenSet (Right b) = do
     let slot@SlotId{siSlot = slotId} = b ^. blockSlot
         payload      = b ^. blockMpc
         curEpoch = siEpoch $ b ^. blockSlot
         blockCerts = _gpCertificates payload
-        richmenSet = HS.fromList $ NE.toList richmen
 
     globalCommitments <- view gsCommitments
     globalOpenings    <- view gsOpenings
@@ -117,13 +115,13 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
     let globalComms   = getCommitmentsMap globalCommitments
     let globalCerts   = VCD.certs globalVCD
     let stableCerts   = getStableCertsPure curEpoch globalVCD
-    let participants  = computeParticipants richmen stableCerts
+    let participants  = computeParticipants richmenSet stableCerts
     let participantsVssKeys = map vcVssKey $ toList participants
 
     logDebug $ sformat ("Global certificates: "%listJson
                         %", stable certificates: "%listJson
                         %", richmen: "%listJson)
-               globalCerts stableCerts richmen
+               globalCerts stableCerts richmenSet
 
     let isComm  = unless (isCommitmentIdx slotId) $ throwError $ NotCommitmentPhase slot
         isOpen  = unless (isOpeningIdx slotId) $ throwError $ NotOpeningPhase slot
@@ -193,10 +191,6 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
         OpeningsPayload     opens  _ -> openChecks opens
         SharesPayload       shares _ -> shareChecks shares
         CertificatesPayload        _ -> pass
-
-    when verifyPure $ case verifyGtPayload (Right $ b ^. gbHeader) payload of
-        Right _ -> pass
-        Left er -> throwError er
   where
     exceptGuard = verifyEntriesGuard identity identity . TossVerFailure
 
@@ -204,33 +198,25 @@ mpcVerifyBlock verifyPure richmen (Right b) = do
 
     exceptGuardEntry = verifyEntriesGuard fst identity . TossVerFailure
 
--- [CSL-680] TODO: get rid of copy-paste.
-readerTToState
-    :: MonadState s m
-    => ReaderT s m a -> m a
-readerTToState rdr = get >>= runReaderT rdr
-
-mpcVerifyBlocks
-    :: Bool
-    -> Richmen
+gtVerifyAndApplyBlocks
+    :: RichmenSet
     -> OldestFirst NE (Block SscGodTossing)
-    -> GSVerify ()
-mpcVerifyBlocks verifyPure richmen blocks = do
-    curState <- ask
-    flip evalStateT curState $ do
-        forM_ blocks $ \b -> do
-            readerTToState $ mpcVerifyBlock verifyPure richmen b
-            mpcProcessBlock b
+    -> SscVerifier SscGodTossing ()
+gtVerifyAndApplyBlocks richmen blocks =
+    forM_ blocks $ \b -> do
+        readerTToState $ gtVerifyBlock richmen b
+        gtApplyBlock b
+  where
+    -- TODO: get rid of it
+    readerTToState
+        :: MonadState s m
+        => ReaderT s m a -> m a
+    readerTToState rdr = get >>= runReaderT rdr
 
--- | Apply sequence of blocks to state. Sequence must be based on last
--- applied block and must be valid.
-mpcApplyBlocks :: OldestFirst NE (Block SscGodTossing) -> GSUpdate ()
-mpcApplyBlocks = mapM_ mpcProcessBlock
-
-mpcProcessBlock
+gtApplyBlock
     :: (SscPayload ssc ~ GtPayload)
     => Block ssc -> GSUpdate ()
-mpcProcessBlock blk = do
+gtApplyBlock blk = do
     let eos = blk ^. epochOrSlotG
     gsVssCertificates %= VCD.setLastKnownEoS eos
     case blk of
@@ -295,7 +281,7 @@ mpcLoadGlobalState = do
             | startEpoch == 0 =
                 over gsVssCertificates unionGenCerts def
             | otherwise = def
-    res <- execStateT (mpcApplyBlocks blocks) initGState
+    res <- execStateT (mapM_ gtApplyBlock blocks) initGState
     res <$ (logInfo $ sformat ("Loaded GodTossing state: "%build) res)
   where
     safeSub epoch = epoch - min epoch vssMaxTTL

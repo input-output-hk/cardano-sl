@@ -29,7 +29,7 @@ import           Serokell.Util.Verify                 (isVerSuccess)
 import           Universum
 
 import           Pos.Binary.Ssc                       ()
-import           Pos.Lrc.Types                        (Richmen, RichmenSet)
+import           Pos.Lrc.Types                        (RichmenSet)
 import           Pos.Slotting                         (getCurrentSlot)
 import           Pos.Ssc.Class.LocalData              (LocalQuery, LocalUpdate,
                                                        SscLocalDataClass (..))
@@ -86,10 +86,10 @@ type LDProcess a = forall m . ( MonadError TossVerFailure m
 -- Apply Global State
 ----------------------------------------------------------------------------
 
-applyGlobal :: Richmen -> GtGlobalState -> LocalUpdate SscGodTossing ()
-applyGlobal richmen globalData = do
+applyGlobal :: RichmenSet -> GtGlobalState -> LocalUpdate SscGodTossing ()
+applyGlobal richmenSet globalData = do
     let globalCerts = VCD.certs . _gsVssCertificates $ globalData
-        participants = computeParticipants richmen globalCerts
+        participants = computeParticipants richmenSet globalCerts
         globalCommitments = _gsCommitments globalData
         -- globalComms = getCommitmentsMap globalCommitments
         globalOpenings = _gsOpenings globalData
@@ -233,10 +233,10 @@ sscIsDataUsefulSetImpl localG globalG addr =
 -- has been actually added.
 sscProcessMessage ::
        (MonadSscMem SscGodTossing m)
-    => (EpochIndex, Richmen) -> GtMsgContents -> m (Either TossVerFailure ())
+    => (EpochIndex, RichmenSet) -> GtMsgContents -> m (Either TossVerFailure ())
 sscProcessMessage richmen msg =
     gtRunModify $ runExceptT $
-    sscProcessMessageU (second (HS.fromList . toList) richmen) msg
+    sscProcessMessageU richmen msg
 
 sscProcessMessageU
     :: (EpochIndex, RichmenSet)

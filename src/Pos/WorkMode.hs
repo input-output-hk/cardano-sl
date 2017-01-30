@@ -38,7 +38,7 @@ import           Pos.DHT.Real                (KademliaDHT (..), WithKademliaDHTI
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
 import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
-import           Pos.Ssc.Class.Storage       (SscStorageClass)
+import           Pos.Ssc.Class.Storage       (SscGStateClass)
 import           Pos.Ssc.Extra               (MonadSscMem, SscHolder)
 import           Pos.Statistics.MonadStats   (MonadStats, NoStatsT, StatsT)
 import           Pos.Txp.Class               (MonadTxpLD (..))
@@ -57,7 +57,7 @@ type WorkMode ssc m
       , MonadDelegation m
       , MonadUtxo m
       , MonadSscMem ssc m
-      , SscStorageClass ssc
+      , SscGStateClass ssc
       , SscLocalDataClass ssc
       , SscHelpersClass ssc
       , WithNodeContext ssc m

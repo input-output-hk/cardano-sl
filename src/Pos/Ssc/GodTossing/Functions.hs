@@ -30,7 +30,7 @@ import           Universum
 import           Pos.Binary.Class                (Bi)
 import           Pos.Binary.Crypto               ()
 import           Pos.Crypto                      (Threshold)
-import           Pos.Lrc.Types                   (Richmen)
+import           Pos.Lrc.Types                   (RichmenSet)
 import           Pos.Ssc.Class.Types             (Ssc (..))
 
 import           Pos.Ssc.GodTossing.Core         (Commitment (..),
@@ -184,8 +184,8 @@ verifyEntriesGuard fKey fVal exception cond =
 vssThreshold :: Integral a => a -> Threshold
 vssThreshold len = fromIntegral $ len `div` 2 + len `mod` 2
 
-computeParticipants :: Richmen -> VssCertificatesMap -> VssCertificatesMap
-computeParticipants (HS.toMap . HS.fromList . NE.toList -> richmen) =
+computeParticipants :: RichmenSet -> VssCertificatesMap -> VssCertificatesMap
+computeParticipants (HS.toMap -> richmen) =
     (`HM.intersection` richmen)
 
 getStableCertsPure :: EpochIndex -> VCD.VssCertData -> VssCertificatesMap

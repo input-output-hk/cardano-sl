@@ -24,7 +24,7 @@ import           Pos.Binary.Relay        ()
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass (..))
 import           Pos.Ssc.Class.Listeners (SscListenersClass (..), sscStubListeners)
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..))
-import           Pos.Ssc.Class.Storage   (SscStorageClass (..))
+import           Pos.Ssc.Class.Storage   (SscGStateClass (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.Ssc.Class.Workers   (SscWorkersClass (..))
 import           Pos.Types               (SharedSeed (..))
@@ -68,11 +68,10 @@ instance SscLocalDataClass SscNistBeacon where
     sscApplyGlobalStateU _ _ = pure ()
     sscNewLocalData = pure ()
 
-instance SscStorageClass SscNistBeacon where
+instance SscGStateClass SscNistBeacon where
     sscLoadGlobalState = pure ()
-    sscApplyBlocksM _ = pure ()
     sscRollbackU _ = pure ()
-    sscVerifyBlocksM _ _ _ = pure $ Right ()
+    sscVerifyAndApplyBlocks _ _ = pass
     sscCalculateSeedQ =
         pure . Right . coerce . ByteArray.convert @_ @ByteString .
             Hash.hashlazy @SHA256 . encode

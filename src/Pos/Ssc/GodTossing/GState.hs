@@ -23,7 +23,7 @@ import           Pos.DB                         (DBError (DBMalformed), MonadDB,
                                                  getTipBlockHeader,
                                                  loadBlundsFromTipWhile)
 import           Pos.Lrc.Types                  (Richmen)
-import           Pos.Ssc.Class.Storage          (SscStorageClass (..))
+import           Pos.Ssc.Class.Storage          (SscGStateClass (..))
 import           Pos.Ssc.Class.Types            (Ssc (..))
 import           Pos.Ssc.Extra.MonadGS          (MonadSscGS (..), sscRunGlobalQuery)
 import           Pos.Ssc.GodTossing.Core        (GtPayload (..), VssCertificate (..),
@@ -51,7 +51,7 @@ import           Pos.Types                      (Block, EpochIndex (..), EpochOr
 import           Pos.Util                       (NE, NewestFirst (..), OldestFirst (..),
                                                  maybeThrow, toOldestFirst)
 
-instance SscStorageClass SscGodTossing where
+instance SscGStateClass SscGodTossing where
     sscLoadGlobalState = mpcLoadGlobalState
     sscApplyBlocksM = mpcApplyBlocks
     sscRollbackM = mpcRollback

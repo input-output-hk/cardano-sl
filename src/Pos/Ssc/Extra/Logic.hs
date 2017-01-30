@@ -44,7 +44,7 @@ import           Pos.DB                  (MonadDB)
 import qualified Pos.DB.Lrc              as LrcDB
 import           Pos.Exception           (reportFatalError)
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..))
-import           Pos.Ssc.Class.Storage   (SscStorageClass (..))
+import           Pos.Ssc.Class.Storage   (SscGStateClass (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.Ssc.Extra.Class     (MonadSscMem (askSscMem))
 import           Pos.Ssc.Extra.Types     (SscState (sscGlobal, sscLocal))
@@ -81,7 +81,7 @@ sscRunGlobalQuery action = do
 
 sscCalculateSeed
     :: forall ssc m.
-       (MonadSscMem ssc m, SscStorageClass ssc, MonadIO m, WithLogger m)
+       (MonadSscMem ssc m, SscGStateClass ssc, MonadIO m, WithLogger m)
     => EpochIndex -> m (Either (SscSeedError ssc) SharedSeed)
 sscCalculateSeed = sscRunGlobalQuery . sscCalculateSeedQ @ssc
 
@@ -116,9 +116,9 @@ sscNormalizeRichmen = notImplemented
 -- 'MonadDB' is needed only to get richmen.
 -- We can try to eliminate these constraints later.
 type SscGlobalApplyMode ssc m =
-    (MonadSscMem ssc m, SscStorageClass ssc, WithLogger m, MonadDB ssc m)
+    (MonadSscMem ssc m, SscGStateClass ssc, WithLogger m, MonadDB ssc m)
 type SscGlobalVerifyMode ssc m =
-    (MonadSscMem ssc m, SscStorageClass ssc, WithLogger m,
+    (MonadSscMem ssc m, SscGStateClass ssc, WithLogger m,
      MonadDB ssc m, MonadError (SscVerifyError ssc) m)
 
 sscRunGlobalUpdatePure

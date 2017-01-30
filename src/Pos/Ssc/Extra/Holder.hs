@@ -29,7 +29,7 @@ import           Pos.Context               (WithNodeContext)
 import           Pos.DB                    (MonadDB (..))
 import           Pos.Slotting              (MonadSlots (..))
 import           Pos.Ssc.Class.LocalData   (SscLocalDataClass (sscNewLocalData))
-import           Pos.Ssc.Class.Storage     (SscStorageClass (sscLoadGlobalState))
+import           Pos.Ssc.Class.Storage     (SscGStateClass (sscLoadGlobalState))
 import           Pos.Ssc.Extra.Class       (MonadSscMem (..))
 import           Pos.Ssc.Extra.Types       (SscState (..))
 import           Pos.Util.JsonLog          (MonadJL (..))
@@ -83,7 +83,7 @@ instance Monad m => MonadSscMem ssc (SscHolder ssc m) where
 runSscHolder
     :: forall ssc m a.
        ( WithLogger m
-       , SscStorageClass ssc
+       , SscGStateClass ssc
        , SscLocalDataClass ssc
        , MonadDB ssc m
        , MonadSlots m

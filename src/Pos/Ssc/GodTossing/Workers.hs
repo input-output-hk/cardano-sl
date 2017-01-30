@@ -13,7 +13,6 @@ import           Control.Lens                     (at, to)
 import           Control.Monad.Trans.Maybe        (runMaybeT)
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.HashSet                     as HS
-import qualified Data.List.NonEmpty               as NE
 import           Data.Tagged                      (Tagged (..))
 import           Data.Time.Units                  (Microsecond, Millisecond, convertUnit)
 import           Formatting                       (build, ords, sformat, shown, (%))
@@ -83,10 +82,9 @@ onNewSlotSsc
     => SendActions BiP m
     -> m ()
 onNewSlotSsc sendActions = onNewSlot True $ \slotId -> do
-    richmen <- HS.fromList . NE.toList <$>
-        lrcActionOnEpochReason (siEpoch slotId)
-            "couldn't get SSC richmen"
-            getRichmenSsc
+    richmen <- lrcActionOnEpochReason (siEpoch slotId)
+        "couldn't get SSC richmen"
+        getRichmenSsc
     localOnNewSlot richmen slotId
     participationEnabled <- getNodeContext >>=
         atomically . readTVar . gtcParticipateSsc . ncSscContext

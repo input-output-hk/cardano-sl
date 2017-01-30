@@ -12,14 +12,14 @@ module Pos.Ssc.GodTossing.Shares
 import           Crypto.Random            (drgNewSeed, seedNew, withDRG)
 import qualified Data.HashMap.Strict      as HM
 import           Formatting               (build, sformat, (%))
-import           System.Wlog              (HasLoggerName, dispatchEvents, getLoggerName,
+import           System.Wlog              (WithLogger, dispatchEvents, getLoggerName,
                                            logWarning, runPureLog, usingLoggerName)
 import           Universum
 
 import           Pos.Crypto               (EncShare, Share, VssKeyPair, VssPublicKey,
                                            decryptShare, toVssPublicKey)
 import           Pos.Ssc.Class.Storage    (SscGlobalQuery)
-import           Pos.Ssc.Extra.MonadGS    (MonadSscGS, sscRunGlobalQuery)
+import           Pos.Ssc.Extra            (MonadSscMem, sscRunGlobalQuery)
 import           Pos.Ssc.GodTossing.Core  (Commitment (..))
 import           Pos.Ssc.GodTossing.Type  (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types (gsCommitments, gsOpenings)
@@ -30,9 +30,9 @@ type GSQuery a = SscGlobalQuery SscGodTossing a
 
 -- | Decrypt shares (in commitments) that are intended for us and that we can
 -- decrypt.
-getOurShares :: ( MonadSscGS SscGodTossing m
-                , MonadIO m, HasLoggerName m)
-             => VssKeyPair -> m (HashMap StakeholderId Share)
+getOurShares
+    :: (MonadSscMem SscGodTossing m, MonadIO m, WithLogger m)
+    => VssKeyPair -> m (HashMap StakeholderId Share)
 getOurShares ourKey = do
     randSeed <- liftIO seedNew
     let ourPK = asBinary $ toVssPublicKey ourKey

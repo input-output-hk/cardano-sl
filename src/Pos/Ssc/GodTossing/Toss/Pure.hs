@@ -34,7 +34,7 @@ instance MonadTossRead PureToss where
     hasShares id = PureToss $ use $ gsShares . at id . to isJust
     hasCertificate id =
         PureToss $ use $ gsVssCertificates . to VCD.certs . at id . to isJust
-    getStableCertificates epoch = notImplemented
+    getStableCertificates _ = notImplemented
     getRichmen epoch = PureToss $ getRichmenDo <$> ask
       where
         getRichmenDo (e, r)

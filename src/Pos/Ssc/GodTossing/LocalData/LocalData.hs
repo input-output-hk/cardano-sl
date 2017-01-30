@@ -33,7 +33,7 @@ import           Pos.Lrc.Types                        (Richmen, RichmenSet)
 import           Pos.Slotting                         (getCurrentSlot)
 import           Pos.Ssc.Class.LocalData              (LocalQuery, LocalUpdate,
                                                        SscLocalDataClass (..))
-import           Pos.Ssc.Extra.MonadLD                (MonadSscLD)
+import           Pos.Ssc.Extra                        (MonadSscMem)
 import           Pos.Ssc.GodTossing.Core              (CommitmentsMap (getCommitmentsMap),
                                                        GtPayload (..), InnerSharesMap,
                                                        Opening, SignedCommitment,
@@ -154,7 +154,7 @@ getLocalPayload = do
 
 -- | Clean-up some data when new slot starts.
 localOnNewSlot
-    :: MonadSscLD SscGodTossing m
+    :: MonadSscMem SscGodTossing m
     => RichmenSet -> SlotId -> m ()
 localOnNewSlot richmen = gtRunModify . localOnNewSlotU richmen
 
@@ -184,7 +184,7 @@ localOnNewSlotU richmen si@SlotId {siSlot = slotIdx, siEpoch = epochIdx} = do
 -- | Check whether SSC data with given tag and public key can be added
 -- to local data.
 sscIsDataUseful
-    :: MonadSscLD SscGodTossing m
+    :: MonadSscMem SscGodTossing m
     => GtMsgTag -> StakeholderId -> m Bool
 sscIsDataUseful tag = gtRunRead . sscIsDataUsefulQ tag
 
@@ -232,7 +232,7 @@ sscIsDataUsefulSetImpl localG globalG addr =
 -- | Process message and save it if needed. Result is whether message
 -- has been actually added.
 sscProcessMessage ::
-       (MonadSscLD SscGodTossing m)
+       (MonadSscMem SscGodTossing m)
     => (EpochIndex, Richmen) -> GtMsgContents -> m (Either TossVerFailure ())
 sscProcessMessage richmen msg =
     gtRunModify $ runExceptT $

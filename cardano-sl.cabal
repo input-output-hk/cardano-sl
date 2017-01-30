@@ -69,13 +69,12 @@ library
                         Pos.Lrc
                         Pos.Lrc.FollowTheSatoshi
 
+                        -- Scripting
                         Pos.Script
                         Pos.Script.Examples
                         Pos.Script.Type
-                        Pos.Ssc.Class
-                        Pos.Ssc.GodTossing
-                        Pos.Ssc.NistBeacon
-                        Pos.Ssc.SscAlgo
+
+                        -- Something
                         Pos.Launcher
                         Pos.Merkle
                         Pos.Security
@@ -84,13 +83,15 @@ library
                         Pos.Security.Util
                         Pos.Security.Workers
                         Pos.Slotting
-                        Pos.Ssc.Class.Types
-                        Pos.Ssc.Class.Helpers
-                        Pos.Ssc.Class.Storage
-                        Pos.Ssc.Class.Workers
-                        Pos.Ssc.Class.Listeners
-                        Pos.Ssc.Class.LocalData
+
+                        -- SSC
+                        Pos.Ssc.Class
+                        Pos.Ssc.GodTossing
+                        Pos.Ssc.NistBeacon
+                        Pos.Ssc.SscAlgo
                         Pos.Ssc.Extra
+
+                        -- Something
                         Pos.Statistics
                         Pos.Txp
                         Pos.Txp.Listeners
@@ -265,9 +266,18 @@ library
                         Pos.SafeCopy.Update
 
                         -- SSC
+                        Pos.Ssc.Class.Types
+                        Pos.Ssc.Class.Helpers
+                        Pos.Ssc.Class.Storage
+                        Pos.Ssc.Class.Workers
+                        Pos.Ssc.Class.Listeners
+                        Pos.Ssc.Class.LocalData
+
+                        Pos.Ssc.Extra.Class
                         Pos.Ssc.Extra.Holder
-                        Pos.Ssc.Extra.MonadGS
-                        Pos.Ssc.Extra.MonadLD
+                        Pos.Ssc.Extra.Logic
+                        Pos.Ssc.Extra.Types
+
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Core
                         Pos.Ssc.GodTossing.Core.Core

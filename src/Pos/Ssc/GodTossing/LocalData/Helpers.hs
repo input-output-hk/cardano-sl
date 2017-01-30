@@ -11,7 +11,7 @@ module Pos.Ssc.GodTossing.LocalData.Helpers
 import           Control.Lens                       (makeClassy)
 import           Universum
 
-import           Pos.Ssc.Extra                      (MonadSscLD (modifyLocalData))
+import           Pos.Ssc.Extra                      (MonadSscMem)
 import           Pos.Ssc.GodTossing.Core            (CommitmentsMap, OpeningsMap,
                                                      SharesMap)
 import qualified Pos.Ssc.GodTossing.LocalData.Types as LD
@@ -57,24 +57,22 @@ data GtState = GtState
 makeClassy ''GtState
 
 gtRunModify
-    :: MonadSscLD SscGodTossing m
+    :: MonadSscMem SscGodTossing m
     => State GtState a -> m a
-gtRunModify upd =
-    modifyLocalData (
-        \(g, l) ->
-          let (res, newState) = runState upd (toGtState g l) in
-          (res, fromGtState newState))
+gtRunModify upd = notImplemented
+    -- modifyLocalData (
+    --     \(g, l) ->
+    --       let (res, newState) = runState upd (toGtState g l) in
+    --       (res, fromGtState newState))
 
- -- TODO maybe should we add readLocalData :: ((SscGlobalState, SscLolalData) ->
- --                                           (a, SscLolalData)) -> m a
 gtRunRead
-    :: MonadSscLD SscGodTossing m
+    :: MonadSscMem SscGodTossing m
     => Reader GtState a -> m a
-gtRunRead rd =
-    modifyLocalData (
-        \(g, l) ->
-          let res = runReader rd (toGtState g l) in
-          (res, l))
+gtRunRead rd = notImplemented
+    -- modifyLocalData (
+    --     \(g, l) ->
+    --       let res = runReader rd (toGtState g l) in
+    --       (res, l))
 
 toGtState :: GtGlobalState -> LD.GtLocalData -> GtState
 toGtState g l =

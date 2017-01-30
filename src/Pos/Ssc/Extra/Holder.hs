@@ -1,4 +1,3 @@
-{-# LANGUAGE BangPatterns         #-}
 {-# LANGUAGE RankNTypes           #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeFamilies         #-}
@@ -8,7 +7,6 @@
 
 module Pos.Ssc.Extra.Holder
        ( SscHolder (..)
-       , SscState
        , runSscHolder
        , runSscHolderRaw
        ) where
@@ -32,24 +30,28 @@ import           Pos.DB                    (MonadDB (..))
 import           Pos.Slotting              (MonadSlots (..))
 import           Pos.Ssc.Class.LocalData   (SscLocalDataClass (sscNewLocalData))
 import           Pos.Ssc.Class.Storage     (SscStorageClass (sscLoadGlobalState))
-import           Pos.Ssc.Class.Types       (Ssc (..))
-import           Pos.Ssc.Extra.MonadGS     (MonadSscGS (..))
-import           Pos.Ssc.Extra.MonadLD     (MonadSscLD (..))
+import           Pos.Ssc.Extra.Class       (MonadSscMem (..))
+import           Pos.Ssc.Extra.Types       (SscState (..))
 import           Pos.Util.JsonLog          (MonadJL (..))
 
-data SscState ssc =
-    SscState
-    { sscGlobal :: !(STM.TVar (SscGlobalState ssc))
-    , sscLocal  :: !(STM.TVar (SscLocalData ssc))
-    }
-
-newtype SscHolder ssc m a =
-    SscHolder
+newtype SscHolder ssc m a = SscHolder
     { getSscHolder :: ReaderT (SscState ssc) m a
-    } deriving (Functor, Applicative, Monad, MonadTrans,
-                MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
-                HasLoggerName, WithNodeContext ssc,
-                MonadJL, CanLog, MonadMask, MonadFix)
+    } deriving ( Functor
+               , Applicative
+               , Monad
+               , MonadTrans
+               , MonadThrow
+               , MonadSlots
+               , MonadCatch
+               , MonadIO
+               , MonadFail
+               , HasLoggerName
+               , WithNodeContext ssc
+               , MonadJL
+               , CanLog
+               , MonadMask
+               , MonadFix
+               )
 
 type instance ThreadId (SscHolder ssc m) = ThreadId m
 
@@ -73,25 +75,8 @@ instance Monad m => WrappedM (SscHolder ssc m) where
     type UnwrappedM (SscHolder ssc m) = ReaderT (SscState ssc) m
     _WrappedM = iso getSscHolder SscHolder
 
-instance (MonadIO m, WithLogger m) => MonadSscGS ssc (SscHolder ssc m) where
-    getGlobalState = SscHolder (asks sscGlobal) >>= atomically . STM.readTVar
-    modifyGlobalState f = SscHolder ask >>= \sscSt -> atomically $ do
-                g <- STM.readTVar (sscGlobal sscSt)
-                let (res, !ng) = f g
-                STM.writeTVar (sscGlobal sscSt) ng
-                return res
-    setGlobalState !newSt = SscHolder (asks sscGlobal) >>= atomically . flip STM.writeTVar newSt
-
-instance MonadIO m => MonadSscLD ssc (SscHolder ssc m) where
-    askSscLD = SscHolder $ asks sscLocal
-    getLocalData = SscHolder (asks sscLocal) >>= atomically . STM.readTVar
-    modifyLocalData f = SscHolder ask >>= \sscSt -> atomically $ do
-                g <- STM.readTVar (sscGlobal sscSt)
-                l <- STM.readTVar (sscLocal sscSt)
-                let (res, !nl) = f (g, l)
-                STM.writeTVar (sscLocal sscSt) nl
-                return res
-    setLocalData !newSt = SscHolder (asks sscLocal) >>= atomically . flip STM.writeTVar newSt
+instance Monad m => MonadSscMem ssc (SscHolder ssc m) where
+    askSscMem = SscHolder ask
 
 -- | Run 'SscHolder' reading GState from DB (restoring from blocks)
 -- and using default (uninitialized) local state.

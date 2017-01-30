@@ -27,7 +27,7 @@ import qualified Pos.DB.Lrc                       as LrcDB
 import           Pos.Security                     (shouldIgnorePkAddress)
 import           Pos.Slotting                     (getCurrentSlot)
 import           Pos.Ssc.Class.Listeners          (SscListenersClass (..))
-import           Pos.Ssc.Extra.MonadLD            (sscGetLocalPayload)
+import           Pos.Ssc.Extra                    (sscGetLocalPayload)
 import           Pos.Ssc.GodTossing.Core          (GtPayload (..), getCommitmentsMap,
                                                    vcSigningKey, _gpCertificates)
 import           Pos.Ssc.GodTossing.LocalData     (sscIsDataUseful, sscProcessMessage)

@@ -35,7 +35,7 @@ import           Pos.DB                         (DBError (DBMalformed), MonadDB,
 import           Pos.Lrc.Types                  (Richmen)
 import           Pos.Ssc.Class.Storage          (SscStorageClass (..))
 import           Pos.Ssc.Class.Types            (Ssc (..))
-import           Pos.Ssc.Extra.MonadGS          (MonadSscGS (..), sscRunGlobalQuery)
+import           Pos.Ssc.Extra                  (MonadSscMem, sscRunGlobalQuery)
 import           Pos.Ssc.GodTossing.Core        (GtPayload (..), VssCertificate (..),
                                                  VssCertificatesMap, checkCommShares,
                                                  checkShares, diffCommMap,
@@ -74,12 +74,12 @@ instance SscStorageClass SscGodTossing where
     sscCalculateSeedM = calculateSeedQ
 
 gtGetGlobalState
-    :: (MonadSscGS SscGodTossing m)
+    :: (MonadSscMem SscGodTossing m)
     => m GtGlobalState
 gtGetGlobalState = sscRunGlobalQuery ask
 
 getGlobalCerts
-    :: (MonadSscGS SscGodTossing m)
+    :: (MonadSscMem SscGodTossing m)
     => SlotId -> m VssCertificatesMap
 getGlobalCerts sl =
     sscRunGlobalQuery $
@@ -88,7 +88,7 @@ getGlobalCerts sl =
         view (gsVssCertificates)
 
 -- | Get stable VSS certificates for given epoch.
-getStableCerts :: MonadSscGS SscGodTossing m => EpochIndex -> m VssCertificatesMap
+getStableCerts :: MonadSscMem SscGodTossing m => EpochIndex -> m VssCertificatesMap
 getStableCerts epoch =
     getStableCertsPure epoch <$> sscRunGlobalQuery (view gsVssCertificates)
 

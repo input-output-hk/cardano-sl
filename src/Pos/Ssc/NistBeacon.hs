@@ -11,7 +11,6 @@ module Pos.Ssc.NistBeacon
        ( SscNistBeacon
        ) where
 
-import           Control.Monad.State     (put)
 import           Crypto.Hash             (SHA256)
 import qualified Crypto.Hash             as Hash
 import qualified Data.ByteArray          as ByteArray (convert)
@@ -22,15 +21,13 @@ import           Universum
 
 import           Pos.Binary.Class        (encode)
 import           Pos.Binary.Relay        ()
-import           Pos.Slotting            (getCurrentSlot, onNewSlot)
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass (..))
 import           Pos.Ssc.Class.Listeners (SscListenersClass (..), sscStubListeners)
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..))
 import           Pos.Ssc.Class.Storage   (SscStorageClass (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.Ssc.Class.Workers   (SscWorkersClass (..))
-import           Pos.Ssc.Extra           (sscRunLocalUpdate)
-import           Pos.Types               (SharedSeed (..), SlotId)
+import           Pos.Types               (SharedSeed (..))
 
 -- | Data type tag for Nist Beacon implementation of Shared Seed Calculation.
 data SscNistBeacon
@@ -42,12 +39,8 @@ deriving instance Eq SscNistBeacon
 instance Buildable () where
     build _ = "()"
 
-newtype LocalData = LocalData
-    { getLocalData :: SlotId
-    }
-
 instance Ssc SscNistBeacon where
-    type SscLocalData   SscNistBeacon = LocalData
+    type SscLocalData   SscNistBeacon = ()
     type SscPayload     SscNistBeacon = ()
     type SscProof       SscNistBeacon = ()
     type SscSeedError   SscNistBeacon = ()
@@ -63,9 +56,7 @@ instance SscHelpersClass SscNistBeacon where
     sscVerifyPayload = Tagged $ const $ const $ Right ()
 
 instance SscWorkersClass SscNistBeacon where
-    sscWorkers = Tagged
-        [ \_ -> onNewSlot True $ \s -> sscRunLocalUpdate (put $ LocalData s)
-        ]
+    sscWorkers = Tagged []
     sscLrcConsumers = Tagged []
 
 instance SscListenersClass SscNistBeacon where
@@ -73,9 +64,9 @@ instance SscListenersClass SscNistBeacon where
     sscStubListeners _ = []
 
 instance SscLocalDataClass SscNistBeacon where
-    sscGetLocalPayloadQ = (,()) . getLocalData <$> ask
+    sscGetLocalPayloadQ = notImplemented
     sscApplyGlobalStateU _ _ = pure ()
-    sscNewLocalData = LocalData <$> getCurrentSlot
+    sscNewLocalData = pure ()
 
 instance SscStorageClass SscNistBeacon where
     sscLoadGlobalState = pure ()

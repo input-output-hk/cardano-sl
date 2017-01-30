@@ -42,7 +42,7 @@ import           Pos.DHT.Model                    (sendToNeighbors)
 import           Pos.Slotting                     (getCurrentSlot, getSlotStart,
                                                    onNewSlot)
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
-import           Pos.Ssc.Extra.MonadLD            (sscRunLocalQuery)
+import           Pos.Ssc.Extra                    (sscRunLocalQuery)
 import           Pos.Ssc.GodTossing.Core          (Commitment (..), SignedCommitment,
                                                    VssCertificate (..),
                                                    VssCertificatesMap,

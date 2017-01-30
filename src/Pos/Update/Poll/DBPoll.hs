@@ -31,7 +31,7 @@ import           Pos.DB.Lrc                  (getIssuersStakes, getRichmenUS)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Lrc.Types               (FullRichmenData)
 import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..))
+import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Txp.Class               (MonadTxpLD (..))
 import           Pos.Types                   (Coin)
 import           Pos.Types.Utxo.Class        (MonadUtxo, MonadUtxoRead)
@@ -48,7 +48,7 @@ newtype DBPoll m a = DBPoll
     } deriving (Functor, Applicative, Monad, MonadThrow, MonadSlots,
                 MonadCatch, MonadIO, MonadFail, HasLoggerName, MonadError e,
                 WithNodeContext ssc, MonadJL, CanLog, MonadMask, MonadUSMem,
-                MonadSscLD kek, MonadSscGS ssc, MonadUtxoRead, MonadUtxo,
+                MonadSscMem peka, MonadUtxoRead, MonadUtxo,
                 MonadTxpLD ssc, MonadBase io, MonadDelegation, MonadFix)
 
 ----------------------------------------------------------------------------

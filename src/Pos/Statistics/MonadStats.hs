@@ -44,7 +44,7 @@ import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.DHT.Model               (MonadDHT)
 import           Pos.DHT.Real                (KademliaDHT, WithKademliaDHTInstance)
 import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..))
+import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Statistics.StatEntry    (StatLabel (..))
 import           Pos.Txp.Class               (MonadTxpLD (..))
 import           Pos.Types                   (MonadUtxo, MonadUtxoRead)
@@ -80,7 +80,7 @@ newtype NoStatsT m a = NoStatsT
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
                 MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState ssc,
                 MonadJL, CanLog, MonadUtxoRead, MonadUtxo,
-                MonadTxpLD ssc, MonadSscGS ssc, MonadSscLD ssc,
+                MonadTxpLD ssc, MonadSscMem ssc,
                 WithNodeContext ssc, MonadDelegation, MonadUSMem)
 
 deriving instance MonadDB ssc m => MonadDB ssc (NoStatsT m)
@@ -130,7 +130,7 @@ newtype StatsT m a = StatsT
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
                 MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState ssc,
                 MonadTrans, MonadJL, CanLog, MonadUtxoRead, MonadUtxo,
-                MonadTxpLD ssc, MonadSscGS ssc, MonadSscLD ssc,
+                MonadTxpLD ssc, MonadSscMem ssc,
                 WithNodeContext ssc, MonadDelegation, MonadUSMem)
 
 deriving instance MonadDB ssc m => MonadDB ssc (StatsT m)

@@ -10,7 +10,7 @@ module Pos.Block.Network.Listeners
 
 import           Data.Proxy                  (Proxy (..))
 import           Data.Reflection             (reify)
-import           Data.Tagged                 (Tagged, unproxy)
+import           Data.Tagged                 (Tagged, proxy, unproxy)
 import           Formatting                  (build, sformat, (%))
 import           Serokell.Data.Memory.Units  (Byte)
 import           Serokell.Util.Text          (listJson)
@@ -24,7 +24,8 @@ import           Pos.Block.Network.Retrieval (handleUnsolicitedHeaders)
 import           Pos.Block.Network.Types     (MsgBlock (..), MsgGetBlocks (..),
                                               MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Protocol  (ConversationActions (..), ListenerSpec,
-                                              OutSpecs, listenerConv, mergeLs, mergeLs)
+                                              OutSpecs, listenerConv, mergeLs,
+                                              messageName)
 import           Pos.Communication.Util      (stubListenerConv)
 import qualified Pos.DB                      as DB
 import           Pos.DB.Error                (DBError (DBMalformed))
@@ -45,10 +46,24 @@ blockStubListeners
     :: ( Ssc ssc, WithLogger m )
     => Tagged ssc ([ListenerSpec m], OutSpecs)
 blockStubListeners = unproxy $ \sscProxy -> mergeLs
-    [ stubListenerConv $ (const Proxy :: Proxy ssc -> Proxy MsgGetHeaders) sscProxy
-    , stubListenerConv $ (const Proxy :: Proxy ssc -> Proxy MsgGetBlocks) sscProxy
-    , stubListenerConv $ (const Proxy :: Proxy ssc -> Proxy (MsgHeaders ssc)) sscProxy
+    [ stubListenerConv $ (const Proxy :: Proxy ssc -> Proxy (MsgGetHeaders, MsgHeaders ssc)) sscProxy
+    , proxy stubListenerConv' sscProxy
+    , stubListenerConv $ (const Proxy :: Proxy ssc -> Proxy (MsgHeaders ssc, MsgGetHeaders)) sscProxy
     ]
+
+stubListenerConv'
+    :: (Ssc ssc, WithLogger m)
+    => Tagged ssc (ListenerSpec m, OutSpecs)
+stubListenerConv' = unproxy $ \(sscProxy :: Proxy ssc) ->
+    reify (0 :: Byte) $ \(_ :: Proxy s0) ->
+    listenerConv $ \_d __nId (conv :: ConversationActions
+                               (MsgBlock s0 ssc)
+                               MsgGetBlocks m) ->
+            logDebug $ sformat
+                ("Stub listener ("%build%", Conv "%build%"): received message")
+                (messageName (Proxy :: Proxy MsgGetBlocks))
+                (messageName (Proxy :: Proxy (MsgBlock a b)))
+
 
 -- | Handles GetHeaders request which means client wants to get
 -- headers from some checkpoints that are older than optional @to@

@@ -22,9 +22,7 @@ import           Pos.Communication.Types          (SysStartRequest (..),
                                                    SysStartResponse (..))
 import           Pos.Communication.Types.Protocol (HandlerSpec (..), PeerId (..),
                                                    VerInfo (..))
-import           Pos.Delegation.Types             (CheckProxySKConfirmed (..),
-                                                   CheckProxySKConfirmedRes (..),
-                                                   ConfirmProxySK (..), SendProxySK (..))
+import           Pos.Delegation.Types             (ConfirmProxySK (..), SendProxySK (..))
 import           Pos.DHT.Model.Types              (meaningPartLength)
 import           Pos.Ssc.Class.Types              (Ssc (..))
 import           Pos.Txp.Types                    (TxMsgTag (..))
@@ -116,14 +114,14 @@ instance Bi ConfirmProxySK where
     put (ConfirmProxySK pSk proof) = put pSk >> put proof
     get = liftA2 ConfirmProxySK get get
 
-instance Bi CheckProxySKConfirmed where
-    put (CheckProxySKConfirmed pSk) = put pSk
-    get = CheckProxySKConfirmed <$> get
-
-instance Bi CheckProxySKConfirmedRes where
-    put (CheckProxySKConfirmedRes res) = put res
-    get = CheckProxySKConfirmedRes <$> get
-
+--instance Bi CheckProxySKConfirmed where
+--    put (CheckProxySKConfirmed pSk) = put pSk
+--    get = CheckProxySKConfirmed <$> get
+--
+--instance Bi CheckProxySKConfirmedRes where
+--    put (CheckProxySKConfirmedRes res) = put res
+--    get = CheckProxySKConfirmedRes <$> get
+--
 ----------------------------------------------------------------------------
 -- Update system
 ----------------------------------------------------------------------------

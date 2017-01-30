@@ -79,7 +79,6 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
                        requestHeaders mghNext (Just rHeader) peerId
     loop ncBlockRetrievalQueue ncRecoveryHeader
   where
-    announceBlockOuts = mempty
     outs = announceBlockOuts
               <> toOutSpecs [convH (Proxy :: Proxy MsgGetBlocks)
                                    (Proxy :: Proxy (MsgBlock s0 ssc))

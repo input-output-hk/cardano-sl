@@ -120,7 +120,7 @@ listenerConv h = (spec, mempty)
                       h ourVerInfo
                         (NodeId (peerId, nNodeId))
                         (convertCA conv))
-              (messageName $ sndProxy' h, ConvHandler $ messageName $ rcvProxy' h)
+              (messageName $ rcvProxy' h, ConvHandler $ messageName $ sndProxy' h)
     sndProxy' :: (a -> b -> ConversationActions snd rcv m -> m ()) -> Proxy snd
     sndProxy' _ = Proxy
     rcvProxy' :: (a -> b -> ConversationActions snd rcv m -> m ()) -> Proxy rcv

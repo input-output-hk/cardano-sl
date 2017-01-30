@@ -126,10 +126,6 @@ data VerInfo = VerInfo
     }
   deriving (Eq, Generic, Show)
 
--- TODO move to time-warp-nt
-instance Buildable MessageName where
-    build (MessageName mn) = bprint base16F mn
-
 instance Buildable VerInfo where
     build VerInfo {..} = bprint ("VerInfo { magic="%hex%", blockVersion="
                                 %build%", inSpecs="%mapJson%", outSpecs="

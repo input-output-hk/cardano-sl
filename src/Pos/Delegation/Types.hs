@@ -6,8 +6,8 @@
 module Pos.Delegation.Types
        ( SendProxySK (..)
        , ConfirmProxySK (..)
-       , CheckProxySKConfirmed (..)
-       , CheckProxySKConfirmedRes (..)
+       --, CheckProxySKConfirmed (..)
+       --, CheckProxySKConfirmedRes (..)
        ) where
 
 import           Data.DeriveTH   (derive, makeArbitrary)
@@ -43,15 +43,15 @@ data ConfirmProxySK =
     ConfirmProxySK !ProxySKEpoch !(ProxySigEpoch ProxySKEpoch)
     deriving (Show, Eq, Generic)
 
--- | Request to check if a node has any info about PSK delivery.
-data CheckProxySKConfirmed =
-    CheckProxySKConfirmed !ProxySKEpoch
-    deriving (Show, Eq, Generic)
-
--- | Response to the @CheckProxySKConfirmed@ call.
-data CheckProxySKConfirmedRes =
-    CheckProxySKConfirmedRes !Bool
-    deriving (Show, Eq, Generic)
+---- | Request to check if a node has any info about PSK delivery.
+--data CheckProxySKConfirmed =
+--    CheckProxySKConfirmed !ProxySKEpoch
+--    deriving (Show, Eq, Generic)
+--
+---- | Response to the @CheckProxySKConfirmed@ call.
+--data CheckProxySKConfirmedRes =
+--    CheckProxySKConfirmedRes !Bool
+--    deriving (Show, Eq, Generic)
 
 ----------------------------------------------------------------------------
 -- Arbitrary instances
@@ -59,5 +59,5 @@ data CheckProxySKConfirmedRes =
 
 derive makeArbitrary ''SendProxySK
 derive makeArbitrary ''ConfirmProxySK
-derive makeArbitrary ''CheckProxySKConfirmed
-derive makeArbitrary ''CheckProxySKConfirmedRes
+--derive makeArbitrary ''CheckProxySKConfirmed
+--derive makeArbitrary ''CheckProxySKConfirmedRes

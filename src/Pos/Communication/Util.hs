@@ -13,7 +13,7 @@ module Pos.Communication.Util
 
 import           Data.Proxy                 (Proxy (..), asProxyTypeOf)
 import           Data.Time.Units            (Microsecond)
-import           Formatting                 (sformat, shown, (%))
+import           Formatting                 (build, sformat, shown, (%))
 import           Mockable                   (Async, Bracket, Delay, Mockable)
 import qualified Node                       as N
 import           System.Wlog                (HasLoggerName, LoggerName, WithLogger,
@@ -48,17 +48,22 @@ stubListenerOneMsg p = listenerOneMsg mempty $
                   (messageName p)
 
 stubListenerConv
-    :: (WithLogger m, Message r, Bi r)
-    => Proxy r -> (ListenerSpec m, OutSpecs)
+    :: (WithLogger m, Message snd, Message rcv, Bi rcv, Bi snd)
+    => Proxy (rcv, snd) -> (ListenerSpec m, OutSpecs)
 stubListenerConv p = listenerConv $
   \_d __nId convActions ->
       let _ = convActions `asProxyTypeOf` __modP p
-          __modP :: Proxy r -> Proxy (ConversationActions Void r m)
+          __modP :: Proxy (rcv, snd) -> Proxy (ConversationActions snd rcv m)
           __modP _ = Proxy
+          sndProxy :: Proxy (rcv, snd) -> Proxy snd
+          sndProxy _ = Proxy
+          rcvProxy :: Proxy (rcv, snd) -> Proxy rcv
+          rcvProxy _ = Proxy
        in modifyLoggerName (<> "stub") $
             logDebug $ sformat
-                ("Stub listener (conv) for "%shown%": received message")
-                (messageName p)
+                ("Stub listener ("%build%", Conv "%build%"): received message")
+                (messageName $ rcvProxy p)
+                (messageName $ sndProxy p)
 
 withWaitLog :: ( CanLogInParallel m )
             => N.SendActions BiP PeerData m

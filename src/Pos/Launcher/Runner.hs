@@ -61,11 +61,12 @@ import           Pos.Communication           (ActionSpec (..), BiP (..),
                                               ListenersWithOut, OutSpecs (..),
                                               PeerId (..), SysStartRequest (..),
                                               SysStartResponse, VerInfo (..),
-                                              allListeners, allStubListeners,
+                                              allListeners, allStubListeners, convH,
                                               handleSysStartResp, hoistListenerSpec,
-                                              mergeLs, stubListenerOneMsg,
-                                              sysStartReqListener, sysStartRespListener,
-                                              toAction, unpackLSpecs)
+                                              mergeLs, stubListenerConv,
+                                              stubListenerOneMsg, sysStartReqListener,
+                                              sysStartRespListener, toAction, toOutSpecs,
+                                              unpackLSpecs)
 import           Pos.Communication.PeerState (runPeerStateHolder)
 import           Pos.Constants               (lastKnownBlockVersion, protocolMagic)
 import           Pos.Constants               (blockRetrievalQueueSize,
@@ -119,7 +120,7 @@ runTimeSlaveReal
     => Proxy ssc -> RealModeResources -> BaseParams -> Production Timestamp
 runTimeSlaveReal sscProxy res bp = do
     mvar <- liftIO newEmptyMVar
-    runServiceMode res bp (listeners mvar) sysStartOuts . toAction $ \sendActions ->
+    runServiceMode res bp (listeners mvar) outs . toAction $ \sendActions ->
       case Const.isDevelopment of
          True -> do
            tId <- fork $ do
@@ -138,12 +139,15 @@ runTimeSlaveReal sscProxy res bp = do
          False -> logWarning "Time slave launched in Production" $>
            panic "Time slave in production, rly?"
   where
+    outs = sysStartOuts
+              <> toOutSpecs [ convH (Proxy :: Proxy SysStartRequest)
+                                    (Proxy :: Proxy SysStartResponse)]
     (handleSysStartResp', sysStartOuts) = handleSysStartResp
     listeners mvar =
       if Const.isDevelopment
          then second (`mappend` sysStartOuts) $
                 proxy allStubListeners sscProxy `mappendPair`
-                  mergeLs [ stubListenerOneMsg (Proxy :: Proxy SysStartRequest)
+                  mergeLs [ stubListenerConv (Proxy :: Proxy (SysStartRequest, SysStartResponse))
                           , sysStartRespListener mvar
                           ]
          else proxy allStubListeners sscProxy
@@ -221,6 +225,7 @@ runServer transport packedLS (OutSpecs wouts) (ActionSpec action) = do
         ourVerInfo = VerInfo protocolMagic lastKnownBlockVersion ins $ outs <> wouts
         listeners = listeners' ourVerInfo
     stdGen <- liftIO newStdGen
+    putStrLn $ sformat ("Our verInfo "%build) ourVerInfo
     node (concrete transport) stdGen BiP (ourPeerId, ourVerInfo) $ \__node ->
         pure $ NodeAction listeners (action ourVerInfo)
 

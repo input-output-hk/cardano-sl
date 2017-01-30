@@ -15,8 +15,7 @@ import           Universum
 
 import           Pos.Block.Worker        (blkWorkers)
 import           Pos.Communication       (OutSpecs, SysStartResponse (..), WorkerSpec,
-                                          onNewSlotWithLoggingWorker, oneMsgH, toOutSpecs,
-                                          worker')
+                                          onNewSlotWithLoggingWorker, oneMsgH, toOutSpecs)
 import           Pos.Constants           (isDevelopment, sysTimeBroadcastSlots)
 import           Pos.Context             (NodeContext (..), getNodeContext,
                                           setNtpLastSlot)
@@ -46,7 +45,6 @@ allWorkers
     => ([WorkerSpec m], OutSpecs)
 allWorkers = mconcatPair
     [ first pure onNewSlotWorker
-    , first pure onStartWorker
     , dhtWorkers
     , blkWorkers
     , dlgWorkers
@@ -55,10 +53,6 @@ allWorkers = mconcatPair
     , first pure lrcOnNewSlotWorker
     , usWorkers
     ]
-
-onStartWorker :: WorkMode ssc m => (WorkerSpec m, OutSpecs)
-onStartWorker = worker' mempty $ \ourVerInfo _ -> do
-    logNotice $ sformat ("Our verInfo "%build) ourVerInfo
 
 onNewSlotWorker :: WorkMode ssc m => (WorkerSpec m, OutSpecs)
 onNewSlotWorker = onNewSlotWithLoggingWorker True outs $ \slotId sendActions -> do

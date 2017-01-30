@@ -9,7 +9,7 @@ module Pos.Delegation.Listeners
 
        , handleSendProxySK
        , handleConfirmProxySK
-       , handleCheckProxySKConfirmed
+       --, handleCheckProxySKConfirmed
        ) where
 
 import           Data.Proxy                 (Proxy (..))
@@ -33,9 +33,7 @@ import           Pos.Delegation.Logic       (ConfirmPskEpochVerdict (..),
 import           Pos.Delegation.Methods     (sendProxyConfirmSK, sendProxyConfirmSKOuts,
                                              sendProxySKEpoch, sendProxySKEpochOuts,
                                              sendProxySKSimple, sendProxySKSimpleOuts)
-import           Pos.Delegation.Types       (CheckProxySKConfirmed (..),
-                                             CheckProxySKConfirmedRes (..),
-                                             ConfirmProxySK (..), SendProxySK (..))
+import           Pos.Delegation.Types       (ConfirmProxySK (..), SendProxySK (..))
 import           Pos.DHT.Model              (sendToNeighbors)
 import           Pos.Types                  (ProxySKEpoch)
 import           Pos.WorkMode               (WorkMode)
@@ -47,7 +45,7 @@ delegationListeners
 delegationListeners = mergeLs
     [ handleSendProxySK
     , handleConfirmProxySK
-    , handleCheckProxySKConfirmed
+    --, handleCheckProxySKConfirmed
     ]
 
 delegationStubListeners
@@ -56,7 +54,7 @@ delegationStubListeners
 delegationStubListeners = mergeLs
     [ stubListenerOneMsg (Proxy :: Proxy SendProxySK)
     , stubListenerOneMsg (Proxy :: Proxy ConfirmProxySK)
-    , stubListenerOneMsg (Proxy :: Proxy CheckProxySKConfirmed)
+    --, stubListenerOneMsg (Proxy :: Proxy CheckProxySKConfirmed)
     ]
 
 ----------------------------------------------------------------------------
@@ -149,15 +147,15 @@ handleConfirmProxySK = listenerOneMsg outSpecs $
             logDebug $ sformat ("Propagating psk confirmation for psk: "%build) pSk
             sendToNeighbors sendActions confPSK
     propagateConfirmProxySK _ _ _ = pure ()
-
-handleCheckProxySKConfirmed
-    :: forall ssc m.
-       (WorkMode ssc m)
-    => (ListenerSpec m, OutSpecs)
-handleCheckProxySKConfirmed = listenerOneMsg outSpecs $
-    \_ peerId sendActions (CheckProxySKConfirmed pSk :: CheckProxySKConfirmed) -> do
-        logDebug $ sformat ("Got request to check if psk: "%build%" was delivered.") pSk
-        res <- runDelegationStateAction $ isProxySKConfirmed pSk
-        sendTo sendActions peerId $ CheckProxySKConfirmedRes res
-  where
-    outSpecs = toOutSpecs [oneMsgH (Proxy :: Proxy CheckProxySKConfirmedRes)]
+--
+--handleCheckProxySKConfirmed
+--    :: forall ssc m.
+--       (WorkMode ssc m)
+--    => (ListenerSpec m, OutSpecs)
+--handleCheckProxySKConfirmed = listenerOneMsg outSpecs $
+--    \_ peerId sendActions (CheckProxySKConfirmed pSk :: CheckProxySKConfirmed) -> do
+--        logDebug $ sformat ("Got request to check if psk: "%build%" was delivered.") pSk
+--        res <- runDelegationStateAction $ isProxySKConfirmed pSk
+--        sendTo sendActions peerId $ CheckProxySKConfirmedRes res
+--  where
+--    outSpecs = toOutSpecs [oneMsgH (Proxy :: Proxy CheckProxySKConfirmedRes)]

@@ -9,9 +9,7 @@ import           Pos.Block.Network.Types          (MsgBlock, MsgGetBlocks, MsgGe
                                                    MsgHeaders)
 import           Pos.Communication.Types.Relay    (DataMsg, InvMsg, ReqMsg)
 import           Pos.Communication.Types.SysStart (SysStartRequest, SysStartResponse)
-import           Pos.Delegation.Types             (CheckProxySKConfirmed,
-                                                   CheckProxySKConfirmedRes,
-                                                   ConfirmProxySK, SendProxySK)
+import           Pos.Delegation.Types             (ConfirmProxySK, SendProxySK)
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents, GtMsgTag)
 import           Pos.Txp.Types.Communication      (TxMsgContents, TxMsgTag)
 import           Pos.Update.Core.Types            (UpdateProposal, UpdateVote)
@@ -28,13 +26,13 @@ instance Message ConfirmProxySK where
     messageName _ = varIntMName 1
     formatMessage _ = "ConfirmProxySK"
 
-instance Message CheckProxySKConfirmed where
-    messageName _ = varIntMName 2
-    formatMessage _ = "CheckProxySKConfirmed"
-
-instance Message CheckProxySKConfirmedRes where
-    messageName _ = varIntMName 3
-    formatMessage _ = "CheckProxySKConfirmedRes"
+--instance Message CheckProxySKConfirmed where
+--    messageName _ = varIntMName 2
+--    formatMessage _ = "CheckProxySKConfirmed"
+--
+--instance Message CheckProxySKConfirmedRes where
+--    messageName _ = varIntMName 3
+--    formatMessage _ = "CheckProxySKConfirmedRes"
 
 instance Message MsgGetHeaders where
     messageName _ = varIntMName 4
@@ -104,7 +102,6 @@ instance MessagePart GtMsgTag where
 
 instance MessagePart GtMsgContents where
     pMessageName _ = varIntMName 3
-
 
 instance Message SysStartRequest where
     messageName _ = varIntMName 1000

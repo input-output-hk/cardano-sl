@@ -20,8 +20,8 @@ import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (
                                                    MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types          (SysStartRequest (..),
                                                    SysStartResponse (..))
-import           Pos.Communication.Types.Protocol (HandlerSpec (..), NOP, PeerId (..),
-                                                   VerInfo (..))
+import           Pos.Communication.Types.Protocol (HandlerSpec (..), NOP (..),
+                                                   PeerId (..), VerInfo (..))
 import           Pos.Delegation.Types             (ConfirmProxySK (..), SendProxySK (..))
 import           Pos.DHT.Model.Types              (meaningPartLength)
 import           Pos.Ssc.Class.Types              (Ssc (..))
@@ -31,19 +31,22 @@ import           Pos.Update.Network.Types         (ProposalMsgTag (..), VoteMsgT
 deriving instance Bi MessageName
 
 instance Bi NOP where
-    put _ = panic "NOP not to be serialized"
-    get = panic "NOP not to be deserialized"
+    put _ = put (0 :: Word8)
+    get = NOP <$ do
+              (i :: Word8) <- get
+              when (i /= 0) $
+                 fail "NOP: 0 expected"
 
 ----------------------------------------------------------------------------
 -- System start
 ----------------------------------------------------------------------------
 
 instance Bi SysStartRequest where
-    put _ = put (0 :: Word8)
+    put _ = put (1 :: Word8)
     get = SysStartRequest <$ do
               (i :: Word8) <- get
-              when (i /= 0) $
-                 fail "SysStartRequest: 0 expected"
+              when (i /= 1) $
+                 fail "SysStartRequest: 1 expected"
 
 instance Bi SysStartResponse where
     put (SysStartResponse t) = put t

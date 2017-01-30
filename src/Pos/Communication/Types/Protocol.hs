@@ -29,7 +29,7 @@ module Pos.Communication.Types.Protocol
        , ListenersWithOut
        , WorkerSpec
        , ActionSpec (..)
-       , NOP
+       , NOP (..)
        ) where
 
 import           Control.Arrow         ((&&&))

@@ -48,7 +48,7 @@ stubListenerOneMsg p = (ListenerSpec listener (rcvName, OneMsgHandler), mempty)
         let _ = m `asProxyTypeOf` p
          in modifyLoggerName (<> "stub") $
               logDebug $ sformat
-                  ("Stub listener (one msg) for "%shown%": received message")
+                  ("Stub listener (one msg) for "%build%": received message")
                   rcvName
 
 stubListenerConv

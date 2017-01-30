@@ -227,7 +227,7 @@ runServer transport packedLS (OutSpecs wouts) (ActionSpec action) = do
         ourVerInfo = VerInfo protocolMagic lastKnownBlockVersion ins $ outs <> wouts
         listeners = listeners' ourVerInfo ++ protocolListeners
     stdGen <- liftIO newStdGen
-    putStrLn $ sformat ("Our verInfo "%build) ourVerInfo
+    logInfo $ sformat ("Our verInfo "%build) ourVerInfo
     node (concrete transport) stdGen BiP (ourPeerId, ourVerInfo) $ \__node ->
         pure $ NodeAction listeners (action ourVerInfo)
 

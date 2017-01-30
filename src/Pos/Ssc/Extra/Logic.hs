@@ -169,9 +169,18 @@ sscApplyBlocks blocks (Just newState) = do
         expectedState <- sscVerifyValidBlocks blocks
         if | newState == expectedState -> pass
            | otherwise -> onUnexpectedVerify hashes
-    sscRunGlobalUpdate $ put newState
+    sscApplyBlocksFinish newState
 sscApplyBlocks blocks Nothing =
-    sscRunGlobalUpdate . put =<< sscVerifyValidBlocks blocks
+    sscApplyBlocksFinish =<< sscVerifyValidBlocks blocks
+
+sscApplyBlocksFinish
+    :: SscGlobalApplyMode ssc m
+    => SscGlobalState ssc -> m ()
+sscApplyBlocksFinish gs = do
+    sscRunGlobalUpdate (put gs)
+    inAssertMode $
+        logDebug $
+        sformat ("After applying blocks SSC global state is:\n"%build) gs
 
 sscVerifyValidBlocks
     :: forall ssc m.

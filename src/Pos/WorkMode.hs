@@ -49,10 +49,7 @@ import           Pos.Util.JsonLog            (MonadJL (..))
 
 -- | Bunch of constraints to perform work for real world distributed system.
 type WorkMode ssc m
-    = ( WithLogger m
-      , MonadIO m
-      , MonadMockable m
-      , MonadDHT m
+    = ( MinWorkMode m
       , MonadMask m
       , MonadSlots m
       , MonadDB ssc m
@@ -68,7 +65,6 @@ type WorkMode ssc m
       , MonadStats m
       , MonadJL m
       , WithKademliaDHTInstance m
-      , MonadFail m
       , WithPeerState ssc m
       , MonadUSMem m
       )
@@ -79,7 +75,6 @@ type MinWorkMode m
       , MonadMockable m
       , MonadDHT m
       , MonadIO m
-      , MonadFail m
       )
 
 ----------------------------------------------------------------------------

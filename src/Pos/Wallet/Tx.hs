@@ -14,7 +14,7 @@ import           Formatting                (build, sformat, (%))
 import           Mockable                  (mapConcurrently)
 import           Node                      (SendActions)
 import           Pos.Util.TimeWarp         (NetworkAddress)
-import           System.Wlog               (logError, logInfo)
+import           System.Wlog               (logInfo)
 import           Universum
 
 import           Pos.Binary                ()

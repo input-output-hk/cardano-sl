@@ -42,6 +42,7 @@ import           Pos.Types                     (Address, ChainDifficulty (..), C
 import           Pos.Util                      (maybeThrow)
 import           Pos.Util.BackupPhrase         (BackupPhrase, keysFromPhrase)
 
+import           Data.List                     (nub)
 import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
                                                 addSecretKey)
 import           Pos.Wallet.Tx                 (submitTx)
@@ -54,7 +55,7 @@ import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CProf
                                                 CProfile (..), CTx, CTxId, CTxMeta (..),
                                                 CUpdateInfo (..), CWallet (..),
                                                 CWalletInit (..), CWalletMeta (..),
-                                                CWalletType (..), NotifyEvent (..),
+                                                CWalletRedeem (..), NotifyEvent (..),
                                                 addressToCAddress, cAddressToAddress,
                                                 mkCTx, mkCTxId, toCUpdateInfo,
                                                 txContainsTitle, txIdToCTxId)
@@ -231,7 +232,7 @@ servantHandlers sendActions =
     :<|>
      catchWalletError . updateUserProfile
     :<|>
-     (\a -> catchWalletError . redeemADA sendActions a)
+     catchWalletError . redeemADA sendActions
     :<|>
      catchWalletError nextUpdate
     :<|>
@@ -338,11 +339,13 @@ newWallet CWalletInit {..} = do
     createWallet cAddr cwInitMeta
     getWallet cAddr
 
-restoreWallet :: WalletWebMode ssc m => BackupPhrase -> m CWallet
-restoreWallet ph = do
-    cAddr <- genSaveAddress ph
-    getWalletMeta cAddr >>= maybe (createWallet cAddr def) (const $ pure ())
+restoreWallet :: WalletWebMode ssc m => CWalletInit -> m CWallet
+restoreWallet CWalletInit {..} = do
+    cAddr <- genSaveAddress cwBackupPhrase
+    getWalletMeta cAddr >>= maybe (createWallet cAddr cwInitMeta) (const walletExistsError)
     getWallet cAddr
+  where
+    walletExistsError = throwM $ Internal "Wallet with that mnemonics already exists"
 
 updateWallet :: WalletWebMode ssc m => CAddress -> CWalletMeta -> m CWallet
 updateWallet cAddr wMeta = do
@@ -379,19 +382,15 @@ applyUpdate = removeNextUpdate
 blockchainSlotDuration :: WalletWebMode ssc m => m Word
 blockchainSlotDuration = fromIntegral <$> getSlotDuration
 
--- TODO: @dmitry move this somewhere (probably we have seed type)
-type Seed = Text
-
-redeemADA :: WalletWebMode ssc m => SendActions BiP m -> Text -> BackupPhrase -> m CWallet
-redeemADA sendActions seed bp = do
+redeemADA :: WalletWebMode ssc m => SendActions BiP m -> CWalletRedeem -> m CWallet
+redeemADA sendActions CWalletRedeem {..} = do
     seedBs <- either
         (\e -> throwM $ Internal ("Seed is invalid base64 string: " <> toText e))
-        pure $ B64.decode (encodeUtf8 seed)
+        pure $ B64.decode (encodeUtf8 crSeed)
     (redeemPK, redeemSK) <- maybeThrow (Internal "Seed is not 32-byte long") $
                             deterministicKeyGen seedBs
     -- new redemption wallet
-    walletB <- newWallet $ CWalletInit bp $
-               CWalletMeta CWTPersonal ADA "Redemption wallet"
+    walletB <- getWallet crWalletId
 
     -- send from seedAddress to walletB
     let dstCAddr = cwAddress walletB
@@ -412,7 +411,7 @@ redeemADA sendActions seed bp = do
 ----------------------------------------------------------------------------
 
 myAddresses :: MonadKeys m => m [Address]
-myAddresses = map (makePubKeyAddress . toPublic) <$> getSecretKeys
+myAddresses = nub . map (makePubKeyAddress . toPublic) <$> getSecretKeys
 
 myCAddresses :: MonadKeys m => m [CAddress]
 myCAddresses = map addressToCAddress <$> myAddresses

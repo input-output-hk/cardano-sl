@@ -20,7 +20,6 @@ module Pos.Ssc.Extra.Logic
          -- * Local Data
        , sscGetLocalPayload
        , sscNormalize
-       , sscNormalizeRichmen
 
          -- * GState
        , sscApplyBlocks
@@ -28,7 +27,7 @@ module Pos.Ssc.Extra.Logic
        , sscVerifyBlocks
        ) where
 
-import           Control.Concurrent.STM  (readTVar, writeTVar)
+import           Control.Concurrent.STM  (modifyTVar', readTVar, writeTVar)
 import           Control.Lens            (_Wrapped)
 import           Control.Monad.Except    (MonadError, runExceptT)
 import           Control.Monad.State     (put)
@@ -40,9 +39,10 @@ import           System.Wlog             (LogEvent, LoggerName, LoggerNameBox, P
 import           Universum
 
 import           Pos.Context             (WithNodeContext, lrcActionOnEpochReason)
-import           Pos.DB                  (MonadDB)
+import           Pos.DB                  (MonadDB, getTipBlockHeader)
 import qualified Pos.DB.Lrc              as LrcDB
 import           Pos.Exception           (reportFatalError)
+import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..))
 import           Pos.Ssc.Class.Storage   (SscGStateClass (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
@@ -101,18 +101,33 @@ sscGetLocalPayload
     => SlotId -> m (SscPayload ssc)
 sscGetLocalPayload = sscRunLocalQuery . sscGetLocalPayloadQ @ssc
 
+-- 'MonadDB' is needed to get richmen and tip header.
+-- Node context is needed to get richmen.
+-- | Update local data to be valid for current global state.  This
+-- function is assumed to be called after applying block and before
+-- releasing lock on block application.
 sscNormalize
     :: forall ssc m.
-       (MonadIO m, MonadSscMem ssc m, SscLocalDataClass ssc)
+       ( MonadDB ssc m
+       , MonadSscMem ssc m
+       , SscLocalDataClass ssc
+       , WithNodeContext ssc m
+       , SscHelpersClass ssc
+       )
     => m ()
-sscNormalize = notImplemented
-
--- MonadDB is needed to get richmen.
-sscNormalizeRichmen
-    :: forall ssc m.
-       (MonadDB ssc m, MonadSscMem ssc m, SscLocalDataClass ssc)
-    => EpochIndex -> m ()
-sscNormalizeRichmen = notImplemented
+sscNormalize = do
+    tipEpoch <- view epochIndexL <$> getTipBlockHeader
+    richmenSet <-
+        lrcActionOnEpochReason
+            tipEpoch
+            "sscNormalize: couldn't get SSC richmen"
+            LrcDB.getRichmenSsc
+    globalVar <- sscGlobal <$> askSscMem
+    localVar <- sscLocal <$> askSscMem
+    gs <- atomically $ readTVar globalVar
+    atomically $
+        modifyTVar' localVar $
+        execState $ sscNormalizeU @ssc tipEpoch richmenSet gs
 
 ----------------------------------------------------------------------------
 -- GState

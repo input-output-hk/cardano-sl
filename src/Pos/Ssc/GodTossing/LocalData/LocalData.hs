@@ -75,7 +75,7 @@ import           Pos.Types                            (EpochIndex, SlotId (..),
 
 instance SscLocalDataClass SscGodTossing where
     sscGetLocalPayloadQ = getLocalPayload
-    sscApplyGlobalStateU = applyGlobal
+    sscNormalizeU = applyGlobal
     sscNewLocalData =
         GtLocalData mempty mempty mempty VCD.empty . siEpoch <$> getCurrentSlot
 
@@ -88,8 +88,8 @@ type LDProcess a = forall m . ( MonadError TossVerFailure m
 -- Apply Global State
 ----------------------------------------------------------------------------
 
-applyGlobal :: RichmenSet -> GtGlobalState -> LocalUpdate SscGodTossing ()
-applyGlobal richmenSet globalData = do
+applyGlobal :: EpochIndex -> RichmenSet -> GtGlobalState -> LocalUpdate SscGodTossing ()
+applyGlobal newEpoch richmenSet globalData = do
     let globalCerts = VCD.certs . _gsVssCertificates $ globalData
         participants = computeParticipants richmenSet globalCerts
         globalCommitments = _gsCommitments globalData
@@ -133,6 +133,7 @@ applyGlobal richmenSet globalData = do
     ldOpenings  %= filterOpenings
     ldShares  %= filterShares
     ldCertificates  %= (`VCD.difference` globalCerts)
+    ldEpoch .= newEpoch
 
 ----------------------------------------------------------------------------
 -- Get Local Payload

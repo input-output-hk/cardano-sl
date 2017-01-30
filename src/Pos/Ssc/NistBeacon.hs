@@ -65,7 +65,7 @@ instance SscListenersClass SscNistBeacon where
 
 instance SscLocalDataClass SscNistBeacon where
     sscGetLocalPayloadQ _ = pure ()
-    sscApplyGlobalStateU _ _ = pure ()
+    sscNormalizeU _ _ _ = pass
     sscNewLocalData = pure ()
 
 instance SscGStateClass SscNistBeacon where

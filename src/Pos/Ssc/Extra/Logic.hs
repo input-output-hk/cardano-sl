@@ -62,18 +62,18 @@ sscRunLocalQuery
        (MonadSscMem ssc m, MonadIO m)
     => ReaderT (SscLocalData ssc) m a -> m a
 sscRunLocalQuery action = do
-  localVar <- sscLocal <$> askSscMem
-  ld <- atomically $ readTVar localVar
-  runReaderT action ld
+    localVar <- sscLocal <$> askSscMem
+    ld <- atomically $ readTVar localVar
+    runReaderT action ld
 
 sscRunGlobalQuery
     :: forall ssc m a.
        (MonadSscMem ssc m, MonadIO m)
     => ReaderT (SscGlobalState ssc) m a -> m a
 sscRunGlobalQuery action = do
-  globalVar <- sscGlobal <$> askSscMem
-  gs <- atomically $ readTVar globalVar
-  runReaderT action gs
+    globalVar <- sscGlobal <$> askSscMem
+    gs <- atomically $ readTVar globalVar
+    runReaderT action gs
 
 ----------------------------------------------------------------------------
 -- Seed calculation

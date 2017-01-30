@@ -20,6 +20,7 @@ class (Typeable ssc
       ,Typeable (SscProof ssc)
       ,Typeable (SscSeedError ssc)
       ,Eq (SscProof ssc)
+      ,Eq (SscGlobalState ssc)
       ,Show (SscProof ssc)
       ,Show (SscPayload ssc)
       ,Buildable (SscPayload ssc)

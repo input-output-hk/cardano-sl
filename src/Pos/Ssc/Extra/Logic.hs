@@ -30,8 +30,10 @@ module Pos.Ssc.Extra.Logic
 
 import           Control.Concurrent.STM  (readTVar, writeTVar)
 import           Control.Lens            (_Wrapped)
-import           Control.Monad.Except    (MonadError)
+import           Control.Monad.Except    (MonadError, runExceptT)
+import           Control.Monad.State     (put)
 import           Formatting              (build, sformat, (%))
+import           Serokell.Util           (listJson)
 import           System.Wlog             (LogEvent, LoggerName, LoggerNameBox, PureLogger,
                                           WithLogger, dispatchEvents, getLoggerName,
                                           logDebug, runPureLog, usingLoggerName)
@@ -40,13 +42,14 @@ import           Universum
 import           Pos.Context             (WithNodeContext, lrcActionOnEpochReason)
 import           Pos.DB                  (MonadDB)
 import qualified Pos.DB.Lrc              as LrcDB
+import           Pos.Exception           (reportFatalError)
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..))
 import           Pos.Ssc.Class.Storage   (SscStorageClass (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.Ssc.Extra.Class     (MonadSscMem (askSscMem))
 import           Pos.Ssc.Extra.Types     (SscState (sscGlobal, sscLocal))
-import           Pos.Types               (Block, EpochIndex, SharedSeed, SlotId,
-                                          epochIndexL)
+import           Pos.Types               (Block, EpochIndex, HeaderHash, SharedSeed,
+                                          SlotId, epochIndexL, headerHash)
 import           Pos.Util                (NE, NewestFirst, OldestFirst, inAssertMode,
                                           _neHead)
 
@@ -151,7 +154,47 @@ sscApplyBlocks
     :: forall ssc m.
        SscGlobalApplyMode ssc m
     => OldestFirst NE (Block ssc) -> Maybe (SscGlobalState ssc) -> m ()
-sscApplyBlocks = notImplemented
+sscApplyBlocks blocks (Just newState) = do
+    inAssertMode $ do
+        let hashes = headerHash <$> blocks
+        expectedState <- sscVerifyValidBlocks blocks
+        if | newState == expectedState -> pass
+           | otherwise -> onUnexpectedVerify hashes
+    sscRunGlobalUpdate $ put newState
+sscApplyBlocks blocks Nothing =
+    sscRunGlobalUpdate . put =<< sscVerifyValidBlocks blocks
+
+sscVerifyValidBlocks
+    :: forall ssc m.
+       SscGlobalApplyMode ssc m
+    => OldestFirst NE (Block ssc) -> m (SscGlobalState ssc)
+sscVerifyValidBlocks blocks =
+    runExceptT (sscVerifyBlocks @ssc blocks) >>= \case
+        Left e -> onVerifyFailedInApply @ssc hashes e
+        Right newState -> return newState
+  where
+    hashes = headerHash <$> blocks
+
+onVerifyFailedInApply
+    :: forall ssc m a.
+       (Ssc ssc, WithLogger m, MonadThrow m)
+    => OldestFirst NE HeaderHash -> SscVerifyError ssc -> m a
+onVerifyFailedInApply hashes e = reportFatalError msg
+  where
+    fmt =
+        "sscApplyBlocks: verification of blocks "%listJson%" failed: "%build
+    msg = sformat fmt hashes e
+
+onUnexpectedVerify
+    :: forall ssc m a.
+       (WithLogger m, MonadThrow m)
+    => OldestFirst NE HeaderHash -> m a
+onUnexpectedVerify hashes = reportFatalError msg
+  where
+    fmt =
+        "sscApplyBlocks: verfication of blocks "%listJson%
+        " returned unexpected state"
+    msg = sformat fmt hashes
 
 sscRollbackBlocks
     :: forall ssc m.

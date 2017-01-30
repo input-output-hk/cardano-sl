@@ -69,7 +69,7 @@ type WorkMode ssc m
       , MonadJL m
       , WithKademliaDHTInstance m
       , MonadFail m
-      , WithPeerState ssc m
+      , WithPeerState m
       , MonadUSMem m
       )
 
@@ -80,6 +80,7 @@ type MinWorkMode m
       , MonadDHT m
       , MonadIO m
       , MonadFail m
+      , WithPeerState m
       )
 
 ----------------------------------------------------------------------------
@@ -102,23 +103,23 @@ deriving instance MonadSscGS ssc m => MonadSscGS ssc (KademliaDHT m)
 deriving instance MonadDelegation m => MonadDelegation (KademliaDHT m)
 deriving instance MonadUSMem m => MonadUSMem (KademliaDHT m)
 
-deriving instance MonadSscLD ssc m => MonadSscLD ssc (PeerStateHolder ssc m)
-deriving instance MonadUtxoRead m => MonadUtxoRead (PeerStateHolder ssc m)
-deriving instance MonadUtxo m => MonadUtxo (PeerStateHolder ssc m)
-deriving instance (Monad m, WithNodeContext ssc m) => WithNodeContext ssc (PeerStateHolder ssc m)
-deriving instance MonadDB ssc m => MonadDB ssc (PeerStateHolder ssc m)
-deriving instance MonadSlots m => MonadSlots (PeerStateHolder ssc m)
-deriving instance MonadDHT m => MonadDHT (PeerStateHolder ssc m)
-deriving instance MonadSscGS ssc m => MonadSscGS ssc (PeerStateHolder ssc m)
-deriving instance MonadDelegation m => MonadDelegation (PeerStateHolder ssc m)
-deriving instance MonadTxpLD ssc m => MonadTxpLD ssc (PeerStateHolder ssc m)
-deriving instance MonadJL m => MonadJL (PeerStateHolder ssc m)
-deriving instance MonadUSMem m => MonadUSMem (PeerStateHolder ssc m)
-deriving instance (Monad m, WithKademliaDHTInstance m) => WithKademliaDHTInstance (PeerStateHolder ssc m)
+deriving instance MonadSscLD ssc m => MonadSscLD ssc (PeerStateHolder m)
+deriving instance MonadUtxoRead m => MonadUtxoRead (PeerStateHolder m)
+deriving instance MonadUtxo m => MonadUtxo (PeerStateHolder m)
+deriving instance (Monad m, WithNodeContext ssc m) => WithNodeContext ssc (PeerStateHolder m)
+deriving instance MonadDB ssc m => MonadDB ssc (PeerStateHolder m)
+deriving instance MonadSlots m => MonadSlots (PeerStateHolder m)
+deriving instance MonadDHT m => MonadDHT (PeerStateHolder m)
+deriving instance MonadSscGS ssc m => MonadSscGS ssc (PeerStateHolder m)
+deriving instance MonadDelegation m => MonadDelegation (PeerStateHolder m)
+deriving instance MonadTxpLD ssc m => MonadTxpLD ssc (PeerStateHolder m)
+deriving instance MonadJL m => MonadJL (PeerStateHolder m)
+deriving instance MonadUSMem m => MonadUSMem (PeerStateHolder m)
+deriving instance (Monad m, WithKademliaDHTInstance m) => WithKademliaDHTInstance (PeerStateHolder m)
 
 -- | RawRealMode is a basis for `WorkMode`s used to really run system.
 type RawRealMode ssc =
-    PeerStateHolder ssc (
+    PeerStateHolder (
     KademliaDHT (
     USHolder (
     DelegationT (
@@ -137,4 +138,4 @@ type ProductionMode ssc = NoStatsT (RawRealMode ssc)
 type StatsMode ssc = StatsT (RawRealMode ssc)
 
 -- | ServiceMode is the mode in which support nodes work.
-type ServiceMode = KademliaDHT (LoggerNameBox Production)
+type ServiceMode = PeerStateHolder (KademliaDHT (LoggerNameBox Production))

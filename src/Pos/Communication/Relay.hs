@@ -22,16 +22,16 @@ import           System.Wlog                   (WithLogger)
 import           Universum
 
 import           Pos.Binary.Class              (Bi (..))
-import           Pos.Communication.Protocol    (ListenerSpec, OutSpecs, SendActions (..),
-                                                listenerOneMsg, mergeLs, oneMsgH, sendTo,
-                                                toOutSpecs)
+import           Pos.Communication.Protocol    (ListenerSpec, NOP, OutSpecs,
+                                                SendActions (..), listenerOneMsg, mergeLs,
+                                                oneMsgH, sendTo, toOutSpecs)
 import           Pos.Communication.Types.Relay (DataMsg (..), InvMsg (..), ReqMsg (..))
 import           Pos.Communication.Util        (stubListenerOneMsg)
 import           Pos.Context                   (WithNodeContext (getNodeContext),
                                                 ncPropagation)
 import           Pos.DHT.Model.Class           (MonadDHT (..))
 import           Pos.DHT.Model.Neighbors       (sendToNeighbors)
-import           Pos.WorkMode                  (WorkMode)
+import           Pos.WorkMode                  (MinWorkMode, WorkMode)
 
 -- | Typeclass for general Inv/Req/Dat framework. It describes monads,
 -- that store data described by tag, where "key" stands for node
@@ -83,7 +83,10 @@ handleInvL
     :: ( Bi (InvMsg key tag)
        , Bi (ReqMsg key tag)
        , Relay m tag key contents
-       , WithLogger m
+       , MinWorkMode m
+       -- [CSL-659] remove after rewriting to conv
+       , Bi NOP
+       , Message NOP
        )
     => RelayProxy key tag contents
     -> (ListenerSpec m, OutSpecs)
@@ -108,7 +111,10 @@ handleReqL
     :: ( Bi (ReqMsg key tag)
        , Bi (DataMsg key contents)
        , Relay m tag key contents
-       , WithLogger m
+       , MinWorkMode m
+       -- [CSL-659] remove after rewriting to conv
+       , Bi NOP
+       , Message NOP
        )
     => RelayProxy key tag contents
     -> (ListenerSpec m, OutSpecs)
@@ -132,8 +138,10 @@ handleDataL
        , Bi (InvMsg key tag)
        , MonadDHT m
        , Relay m tag key contents
-       , WithLogger m
        , WorkMode ssc m
+       -- [CSL-659] remove after rewriting to conv
+       , Bi NOP
+       , Message NOP
        )
     => RelayProxy key tag contents
     -> (ListenerSpec m, OutSpecs)
@@ -180,7 +188,6 @@ dataCatchType _ _ = ()
 dataMsgProxy :: RelayProxy key tag contents -> Proxy (DataMsg key contents)
 dataMsgProxy _ = Proxy
 
-
 relayListeners
   :: ( MonadDHT m
      , Bi (InvMsg key tag)
@@ -189,10 +196,12 @@ relayListeners
      , Relay m tag key contents
      , WithLogger m
      , WorkMode ssc m
+       -- [CSL-659] remove after rewriting to conv
+     , Bi NOP
+     , Message NOP
      )
   => RelayProxy key tag contents -> ([ListenerSpec m], OutSpecs)
 relayListeners proxy = mergeLs $ map ($ proxy) [handleInvL, handleReqL, handleDataL]
-
 
 relayStubListeners
     :: ( WithLogger m

@@ -75,7 +75,7 @@ instance MonadKeys m => MonadKeys (StateT s m)
 
 -- | Instances for ancestor in the monadic stack
 instance MonadKeys m => MonadKeys (KademliaDHT m)
-instance MonadKeys m => MonadKeys (PeerStateHolder ssc m)
+instance MonadKeys m => MonadKeys (PeerStateHolder m)
 
 -- | Helper for generating a new secret key
 newSecretKey :: (MonadIO m, MonadKeys m) => m SecretKey

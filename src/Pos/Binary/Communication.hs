@@ -20,7 +20,7 @@ import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (
                                                    MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types          (SysStartRequest (..),
                                                    SysStartResponse (..))
-import           Pos.Communication.Types.Protocol (HandlerSpec (..), PeerId (..),
+import           Pos.Communication.Types.Protocol (HandlerSpec (..), NOP, PeerId (..),
                                                    VerInfo (..))
 import           Pos.Delegation.Types             (ConfirmProxySK (..), SendProxySK (..))
 import           Pos.DHT.Model.Types              (meaningPartLength)
@@ -29,6 +29,10 @@ import           Pos.Txp.Types                    (TxMsgTag (..))
 import           Pos.Update.Network.Types         (ProposalMsgTag (..), VoteMsgTag (..))
 
 deriving instance Bi MessageName
+
+instance Bi NOP where
+    put _ = panic "NOP not to be serialized"
+    get = panic "NOP not to be deserialized"
 
 ----------------------------------------------------------------------------
 -- System start

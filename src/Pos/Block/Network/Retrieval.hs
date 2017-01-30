@@ -35,7 +35,7 @@ import           Pos.Block.Logic            (ClassifyHeaderRes (..),
                                              lcaWithMainChain, verifyAndApplyBlocks,
                                              withBlkSemaphore)
 import qualified Pos.Block.Logic            as L
-import           Pos.Block.Network.Announce (announceBlock)
+import           Pos.Block.Network.Announce (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
                                              MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Block.Types            (Blund)

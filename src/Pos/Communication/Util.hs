@@ -23,10 +23,11 @@ import           Universum                  hiding (Async, async, bracket, cance
 
 import           Pos.Binary.Class           (Bi)
 import           Pos.Communication.BiP      (BiP)
-import           Pos.Communication.Protocol (ConversationActions, Listener, ListenerSpec,
-                                             Message (..), MessageName (..), OutSpecs,
-                                             PeerData, listenerConv, listenerOneMsg,
-                                             mapListener, messageName')
+import           Pos.Communication.Protocol (ConversationActions, HandlerSpec (..),
+                                             Listener, ListenerSpec (..), Message (..),
+                                             MessageName (..), OutSpecs, PeerData,
+                                             listenerConv, listenerOneMsg, mapListener,
+                                             messageName')
 import           Pos.Util.TimeLimit         (CanLogInParallel, execWithTimeLimit,
                                              logWarningWaitLinear)
 
@@ -39,31 +40,38 @@ modifyListenerLogger name = mapListener $ modifyLoggerName (<> name)
 stubListenerOneMsg
     :: (WithLogger m, Message r, Bi r)
     => Proxy r -> (ListenerSpec m, OutSpecs)
-stubListenerOneMsg p = listenerOneMsg mempty $
-    \_d _ _ m ->
+stubListenerOneMsg p = (ListenerSpec listener (rcvName, OneMsgHandler), mempty)
+  where
+    rcvName = messageName p
+    listener _ = N.ListenerActionOneMsg $
+      \_d __nId __sA m ->
         let _ = m `asProxyTypeOf` p
          in modifyLoggerName (<> "stub") $
               logDebug $ sformat
                   ("Stub listener (one msg) for "%shown%": received message")
-                  (messageName p)
+                  rcvName
 
 stubListenerConv
     :: (WithLogger m, Message snd, Message rcv, Bi rcv, Bi snd)
     => Proxy (rcv, snd) -> (ListenerSpec m, OutSpecs)
-stubListenerConv p = listenerConv $
-  \_d __nId convActions ->
-      let _ = convActions `asProxyTypeOf` __modP p
-          __modP :: Proxy (rcv, snd) -> Proxy (ConversationActions snd rcv m)
-          __modP _ = Proxy
-          sndProxy :: Proxy (rcv, snd) -> Proxy snd
-          sndProxy _ = Proxy
-          rcvProxy :: Proxy (rcv, snd) -> Proxy rcv
-          rcvProxy _ = Proxy
-       in modifyLoggerName (<> "stub") $
-            logDebug $ sformat
-                ("Stub listener ("%build%", Conv "%build%"): received message")
-                (messageName $ rcvProxy p)
-                (messageName $ sndProxy p)
+stubListenerConv p = (ListenerSpec listener (rcvName, ConvHandler sndName), mempty)
+  where
+    modP :: Proxy (rcv, snd) -> Proxy (N.ConversationActions PeerData snd rcv m)
+    modP _ = Proxy
+    sndProxy :: Proxy (rcv, snd) -> Proxy snd
+    sndProxy _ = Proxy
+    rcvProxy :: Proxy (rcv, snd) -> Proxy rcv
+    rcvProxy _ = Proxy
+    rcvName = messageName $ rcvProxy p
+    sndName = messageName $ sndProxy p
+    listener _ = N.ListenerActionConversation $
+      \_d __nId convActions ->
+          let _ = convActions `asProxyTypeOf` modP p
+           in modifyLoggerName (<> "stub") $
+                logDebug $ sformat
+                    ("Stub listener ("%build%", Conv "%build%"): received message")
+                    rcvName
+                    sndName
 
 withWaitLog :: ( CanLogInParallel m )
             => N.SendActions BiP PeerData m

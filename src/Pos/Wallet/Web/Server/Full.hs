@@ -89,7 +89,7 @@ convertHandler
     -> SscState ssc
     -> WalletState
     -> (TVar DelegationWrap)
-    -> PeerStateSnapshot ssc
+    -> PeerStateSnapshot
     -> ConnectionsVar
     -> WebHandler ssc a
     -> Handler a

@@ -14,10 +14,12 @@ import           Mockable                      (runProduction)
 import           Pos.Communication.Protocol    (SendActions)
 import           Servant.Server                (Handler)
 import           Servant.Utils.Enter           ((:~>) (..))
+import qualified STMContainers.Map             as SM
 import           Universum
 
 
 
+import           Pos.Communication.PeerState   (runPeerStateHolder)
 import           Pos.DHT.Real.Real             (runKademliaDHT)
 import           Pos.DHT.Real.Types            (KademliaDHTInstance (..),
                                                 getKademliaDHTInstance)
@@ -55,7 +57,7 @@ nat :: WebHandler (WebHandler :~> Handler)
 nat = do
     wsConn <- getWalletWebSockets
     ws    <- getWalletWebState
-    kd    <- lift . lift . lift $ ask
+    kd    <- lift . lift . lift . lift $ ask
     kinst <- lift . lift $ getKademliaDHTInstance
     wc    <- getWalletContext
     mws   <- getWalletState
@@ -71,13 +73,15 @@ convertHandler
     -> ConnectionsVar
     -> WebHandler a
     -> Handler a
-convertHandler kinst wc mws kd ws wsConn handler =
+convertHandler kinst wc mws kd ws wsConn handler = do
+    stateM <- liftIO SM.newIO
     liftIO ( runProduction
            . usingLoggerName "wallet-lite-api"
            . runContextHolder wc
            . runWalletDB mws
            . flip runKeyStorageRaw kd
            . runKademliaDHT kinst
+           . runPeerStateHolder stateM
            . runWalletWebDB ws
            . runWalletWS wsConn
            $ handler

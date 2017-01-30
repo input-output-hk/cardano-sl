@@ -29,6 +29,7 @@ module Pos.Communication.Types.Protocol
        , ListenersWithOut
        , WorkerSpec
        , ActionSpec (..)
+       , NOP
        ) where
 
 import           Control.Arrow         ((&&&))
@@ -58,6 +59,8 @@ type NSendActions = N.SendActions BiP PeerData
 newtype ActionSpec m a = ActionSpec (VerInfo -> Action m a)
 type WorkerSpec m = ActionSpec m ()
 
+data NOP = NOP
+
 newtype NodeId = NodeId (PeerId, N.NodeId)
   deriving (Show, Eq, Ord, Hashable)
 
@@ -85,11 +88,16 @@ data SendActions m = SendActions {
 
 data ConversationActions body rcv m = ConversationActions {
        -- | Send a message within the context of this conversation
-       send :: body -> m ()
+       send     :: body -> m ()
 
        -- | Receive a message within the context of this conversation.
        --   'Nothing' means end of input (peer ended conversation).
-     , recv :: m (Maybe rcv)
+     , recv     :: m (Maybe rcv)
+
+     -- | The data associated with that peer (reported by the peer).
+     --        --   It's in m because trying to take it may block (it may not be
+     --               --   known yet!).
+     , peerData :: m PeerData
 }
 
 newtype PeerId = PeerId ByteString

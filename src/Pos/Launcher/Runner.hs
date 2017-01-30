@@ -63,10 +63,10 @@ import           Pos.Communication           (ActionSpec (..), BiP (..),
                                               SysStartResponse, VerInfo (..),
                                               allListeners, allStubListeners, convH,
                                               handleSysStartResp, hoistListenerSpec,
-                                              mergeLs, stubListenerConv,
-                                              stubListenerOneMsg, sysStartReqListener,
-                                              sysStartRespListener, toAction, toOutSpecs,
-                                              unpackLSpecs)
+                                              mergeLs, protocolListeners,
+                                              stubListenerConv, stubListenerOneMsg,
+                                              sysStartReqListener, sysStartRespListener,
+                                              toAction, toOutSpecs, unpackLSpecs)
 import           Pos.Communication.PeerState (runPeerStateHolder)
 import           Pos.Constants               (lastKnownBlockVersion, protocolMagic)
 import           Pos.Constants               (blockRetrievalQueueSize,
@@ -207,11 +207,13 @@ runServiceMode
     -> OutSpecs
     -> ActionSpec ServiceMode a
     -> Production a
-runServiceMode res bp@BaseParams{..} listeners outSpecs (ActionSpec action) =
+runServiceMode res bp@BaseParams{..} listeners outSpecs (ActionSpec action) = do
+    stateM <- liftIO SM.newIO
     usingLoggerName (lpRunnerTag bpLoggingParams) .
-    runKademliaDHT (rmDHT res) .
-    runServer (rmTransport res) listeners outSpecs . ActionSpec $
-        \vI sa -> nodeStartMsg bp >> action vI sa
+      runKademliaDHT (rmDHT res) .
+      runPeerStateHolder stateM .
+      runServer (rmTransport res) listeners outSpecs . ActionSpec $
+          \vI sa -> nodeStartMsg bp >> action vI sa
 
 runServer :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m, MonadDHT m)
   => Transport
@@ -223,7 +225,7 @@ runServer transport packedLS (OutSpecs wouts) (ActionSpec action) = do
     ourPeerId <- PeerId . getMeaningPart <$> currentNodeKey
     let (listeners', InSpecs ins, OutSpecs outs) = unpackLSpecs packedLS
         ourVerInfo = VerInfo protocolMagic lastKnownBlockVersion ins $ outs <> wouts
-        listeners = listeners' ourVerInfo
+        listeners = listeners' ourVerInfo ++ protocolListeners
     stdGen <- liftIO newStdGen
     putStrLn $ sformat ("Our verInfo "%build) ourVerInfo
     node (concrete transport) stdGen BiP (ourPeerId, ourVerInfo) $ \__node ->

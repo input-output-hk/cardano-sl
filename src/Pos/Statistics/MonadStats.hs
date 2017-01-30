@@ -78,7 +78,7 @@ newtype NoStatsT m a = NoStatsT
     { getNoStatsT :: m a  -- ^ action inside wrapper without collecting statistics
     } deriving (Functor, Applicative, Monad, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
-                MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState ssc,
+                MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState,
                 MonadJL, CanLog, MonadUtxoRead, MonadUtxo,
                 MonadTxpLD ssc, MonadSscGS ssc, MonadSscLD ssc,
                 WithNodeContext ssc, MonadDelegation, MonadUSMem)
@@ -132,7 +132,7 @@ newtype StatsT m a = StatsT
     { getStatsT :: ReaderT StatsMap m a  -- ^ action inside wrapper with collected statistics
     } deriving (Functor, Applicative, Monad, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
-                MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState ssc,
+                MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState,
                 MonadTrans, MonadJL, CanLog, MonadUtxoRead, MonadUtxo,
                 MonadTxpLD ssc, MonadSscGS ssc, MonadSscLD ssc,
                 WithNodeContext ssc, MonadDelegation, MonadUSMem)

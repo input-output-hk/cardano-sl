@@ -12,9 +12,11 @@ import           Data.Proxy                  (Proxy (..))
 import           Data.Reflection             (reify)
 import           Data.Tagged                 (Tagged, proxy, unproxy)
 import           Formatting                  (build, sformat, (%))
+import qualified Node                        as N
 import           Serokell.Data.Memory.Units  (Byte)
 import           Serokell.Util.Text          (listJson)
-import           System.Wlog                 (WithLogger, logDebug, logWarning)
+import           System.Wlog                 (WithLogger, logDebug, logWarning,
+                                              modifyLoggerName)
 import           Universum
 
 import           Pos.Binary.Communication    ()
@@ -23,9 +25,9 @@ import           Pos.Block.Network.Announce  (handleHeadersCommunication)
 import           Pos.Block.Network.Retrieval (handleUnsolicitedHeaders)
 import           Pos.Block.Network.Types     (MsgBlock (..), MsgGetBlocks (..),
                                               MsgGetHeaders (..), MsgHeaders (..))
-import           Pos.Communication.Protocol  (ConversationActions (..), ListenerSpec,
-                                              OutSpecs, listenerConv, mergeLs,
-                                              messageName)
+import           Pos.Communication.Protocol  (ConversationActions (..), HandlerSpec (..),
+                                              ListenerSpec (..), OutSpecs, PeerData,
+                                              listenerConv, mergeLs, messageName)
 import           Pos.Communication.Util      (stubListenerConv)
 import qualified Pos.DB                      as DB
 import           Pos.DB.Error                (DBError (DBMalformed))
@@ -56,14 +58,19 @@ stubListenerConv'
     => Tagged ssc (ListenerSpec m, OutSpecs)
 stubListenerConv' = unproxy $ \(sscProxy :: Proxy ssc) ->
     reify (0 :: Byte) $ \(_ :: Proxy s0) ->
-    listenerConv $ \_d __nId (conv :: ConversationActions
-                               (MsgBlock s0 ssc)
-                               MsgGetBlocks m) ->
-            logDebug $ sformat
-                ("Stub listener ("%build%", Conv "%build%"): received message")
-                (messageName (Proxy :: Proxy MsgGetBlocks))
-                (messageName (Proxy :: Proxy (MsgBlock a b)))
-
+        let rcvName = messageName (Proxy :: Proxy MsgGetBlocks)
+            sndName = messageName (Proxy :: Proxy (MsgBlock a b))
+            listener _ = N.ListenerActionConversation $
+              \_d __nId (convActions :: N.ConversationActions
+                                           PeerData
+                                           (MsgBlock s0 ssc)
+                                           MsgGetBlocks m) ->
+                  modifyLoggerName (<> "stub") $
+                        logDebug $ sformat
+                            ("Stub listener ("%build%", Conv "%build%"): received message")
+                            rcvName
+                            sndName
+         in (ListenerSpec listener (rcvName, ConvHandler sndName), mempty)
 
 -- | Handles GetHeaders request which means client wants to get
 -- headers from some checkpoints that are older than optional @to@

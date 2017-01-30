@@ -12,11 +12,13 @@ import           Control.Concurrent.STM.TVar (newTVarIO)
 import           Formatting                  (build, sformat, (%))
 import           Mockable                    (Production, bracket, currentTime, fork,
                                               sleepForever)
+import qualified STMContainers.Map           as SM
 import           System.Wlog                 (logInfo, usingLoggerName)
 import           Universum                   hiding (bracket)
 
 import           Pos.Communication           (ActionSpec (..), ListenersWithOut, OutSpecs,
                                               WorkerSpec)
+import           Pos.Communication.PeerState (runPeerStateHolder)
 import           Pos.DHT.Model               (discoverPeers)
 import           Pos.DHT.Real                (runKademliaDHT)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
@@ -93,10 +95,12 @@ runRawRealWallet res WalletParams {..} listeners (ActionSpec action, outs) =
               { wcSystemStart = wpSystemStart
               , wcSlottingState = slottingStateVar
               }
+        stateM <- liftIO SM.newIO
         runContextHolder walletContext .
             runWalletDB db .
             runKeyStorage wpKeyFilePath .
             runKademliaDHT (rmDHT res) .
+            runPeerStateHolder stateM .
             runServer (rmTransport res) listeners outs . ActionSpec $
                 \vI sa -> logInfo "Started wallet, joining network" >> action vI sa
   where

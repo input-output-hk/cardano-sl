@@ -7,6 +7,7 @@ import           Universum
 import           Pos.Binary.Class                 (UnsignedVarInt (..), encodeStrict)
 import           Pos.Block.Network.Types          (MsgBlock, MsgGetBlocks, MsgGetHeaders,
                                                    MsgHeaders)
+import           Pos.Communication.Types.Protocol (NOP)
 import           Pos.Communication.Types.Relay    (DataMsg, InvMsg, ReqMsg)
 import           Pos.Communication.Types.SysStart (SysStartRequest, SysStartResponse)
 import           Pos.Delegation.Types             (ConfirmProxySK, SendProxySK)
@@ -18,20 +19,24 @@ import           Pos.Update.Network.Types         (ProposalMsgTag, VoteMsgTag)
 varIntMName :: Int -> MessageName
 varIntMName = MessageName . encodeStrict . UnsignedVarInt
 
-instance Message SendProxySK where
+instance Message NOP where
     messageName _ = varIntMName 0
+    formatMessage _ = "NOP"
+
+instance Message SendProxySK where
+    messageName _ = varIntMName 2
     formatMessage _ = "SendProxySK"
 
 instance Message ConfirmProxySK where
-    messageName _ = varIntMName 1
+    messageName _ = varIntMName 3
     formatMessage _ = "ConfirmProxySK"
 
 --instance Message CheckProxySKConfirmed where
---    messageName _ = varIntMName 2
+--    messageName _ = varIntMName _
 --    formatMessage _ = "CheckProxySKConfirmed"
 --
 --instance Message CheckProxySKConfirmedRes where
---    messageName _ = varIntMName 3
+--    messageName _ = varIntMName _
 --    formatMessage _ = "CheckProxySKConfirmedRes"
 
 instance Message MsgGetHeaders where
@@ -104,9 +109,9 @@ instance MessagePart GtMsgContents where
     pMessageName _ = varIntMName 3
 
 instance Message SysStartRequest where
-    messageName _ = varIntMName 1000
+    messageName _ = varIntMName 1001
     formatMessage _ = "SysStartRequest"
 
 instance Message SysStartResponse where
-    messageName _ = varIntMName 1001
+    messageName _ = varIntMName 1002
     formatMessage _ = "SysStartResponse"

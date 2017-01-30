@@ -1,4 +1,5 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Protocol/versioning related communication helpers.
 
@@ -22,23 +23,30 @@ module Pos.Communication.Protocol
        , localOnNewSlotWorker
        , onNewSlotWithLoggingWorker
        , convertSendActions
+       , protocolListeners
        ) where
 
 import           Control.Arrow                    ((&&&))
 import qualified Data.HashMap.Strict              as HM
 import           Data.Proxy                       (Proxy)
-import           Mockable                         (Delay, Fork, Mockable)
+import           Formatting                       (build, sformat, shown, (%))
+import           Mockable                         (Delay, Fork, Mockable, SharedAtomic,
+                                                   Throw, modifySharedAtomic, throw)
 import qualified Node                             as N
 import           Node.Message                     (Message (..), MessageName (..),
                                                    messageName')
-import           System.Wlog                      (WithLogger)
+import           System.Wlog                      (WithLogger, logDebug, logWarning)
 import           Universum
 
 import           Pos.Binary.Class                 (Bi)
 import           Pos.Communication.BiP            (BiP)
+import           Pos.Communication.PeerState      (WithPeerState (..), peerVerInfo)
 import           Pos.Communication.Types.Protocol
 import           Pos.Slotting                     (MonadSlots, onNewSlotImpl)
 import           Pos.Types                        (SlotId)
+
+protocolListeners :: (Bi NOP, Message NOP, Monad m) => [Listener m]
+protocolListeners = [N.ListenerActionConversation $ \_ _ (_ :: N.ConversationActions PeerData NOP NOP m) -> return ()]
 
 mapListener
     :: (forall t. m t -> m t) -> Listener m -> Listener m
@@ -60,10 +68,7 @@ hoistConversationActions
     -> ConversationActions body rcv n
     -> ConversationActions body rcv m
 hoistConversationActions nat ConversationActions {..} =
-    ConversationActions send' recv'
-  where
-    send' = nat . send
-    recv' = nat recv
+    ConversationActions (nat . send) (nat recv) (nat peerData)
 
 hoistSendActions
     :: (forall a. n a -> m a)
@@ -86,45 +91,83 @@ convertCA cA = ConversationActions
     , recv = N.recv cA
     }
 
-convertSendActions :: VerInfo -> N.SendActions BiP PeerData m -> SendActions m
-convertSendActions __ourVerInfo sA = SendActions
-    { sendTo = \(NodeId (_peerId, nNodeId)) -> N.sendTo sA nNodeId
-    , withConnectionTo = \(NodeId (_peerId, nNodeId)) h ->
-                              N.withConnectionTo sA nNodeId $ h . convertCA
-    }
+convertSendActions
+    :: ( WithLogger m
+       , Mockable Throw m
+       , WithPeerState m
+       , Mockable SharedAtomic m
+       , Bi NOP
+       , Message NOP
+       )
+    => VerInfo -> N.SendActions BiP PeerData m -> SendActions m
+convertSendActions ourVerInfo sA = modifySend (vIOutHandlers ourVerInfo) $
+  SendActions
+      { sendTo = \(NodeId (_peerId, nNodeId)) -> N.sendTo sA nNodeId
+      , withConnectionTo = \(NodeId (_peerId, nNodeId)) h ->
+                                N.withConnectionTo sA nNodeId $ h . convertCA
+      }
 
-listenerOneMsg :: (Bi msg, Message msg)
+listenerOneMsg
+    :: ( Bi msg
+       , Message msg
+       , WithLogger m
+       , Mockable Throw m
+       , WithPeerState m
+       , Mockable SharedAtomic m
+       , Bi NOP
+       , Message NOP
+       )
     => OutSpecs
     -> (VerInfo -> NodeId -> SendActions m -> msg -> m ())
     -> (ListenerSpec m, OutSpecs)
-listenerOneMsg outSpecs h = (spec, outSpecs)
+listenerOneMsg outSpecs h = (lspec, outSpecs)
   where
-    spec = ListenerSpec
-              (\ourVerInfo -> N.ListenerActionOneMsg $
-                  \(peerId, __peerData) nNodeId sA ->
-                      h ourVerInfo
-                        (NodeId (peerId, nNodeId))
-                        (convertSendActions ourVerInfo sA))
-              (messageName $ msgProxy h, OneMsgHandler)
-    msgProxy :: (a -> b -> c -> d -> e) -> Proxy d
+    lspec = flip ListenerSpec spec $
+              \ourVerInfo -> N.ListenerActionOneMsg $
+                  \(peerId, peerVerInfo) nNodeId sA msg -> do
+                      setPeerVerInfo peerId peerVerInfo
+                      checkingInSpecs ourVerInfo peerVerInfo spec peerId $
+                          h ourVerInfo
+                            (NodeId (peerId, nNodeId))
+                            (convertSendActions ourVerInfo sA)
+                            msg
+    msgProxy :: (a -> b -> d -> msg -> c) -> Proxy msg
     msgProxy _ = Proxy
+    spec = (rcvMsgName, OneMsgHandler)
+    rcvMsgName = messageName $ msgProxy h
 
-listenerConv :: (Bi snd, Bi rcv, Message snd, Message rcv)
+listenerConv
+    :: ( Bi snd
+       , Bi rcv
+       , Message snd
+       , Message rcv
+       , WithLogger m
+       , WithPeerState m
+       , Mockable SharedAtomic m
+       )
     => (VerInfo -> NodeId -> ConversationActions snd rcv m -> m ())
     -> (ListenerSpec m, OutSpecs)
-listenerConv h = (spec, mempty)
+listenerConv h = (lspec, mempty)
   where
-    spec = ListenerSpec
-              (\ourVerInfo -> N.ListenerActionConversation $
-                  \(peerId, __peerData) nNodeId conv ->
-                      h ourVerInfo
-                        (NodeId (peerId, nNodeId))
-                        (convertCA conv))
-              (messageName $ rcvProxy' h, ConvHandler $ messageName $ sndProxy' h)
-    sndProxy' :: (a -> b -> ConversationActions snd rcv m -> m ()) -> Proxy snd
-    sndProxy' _ = Proxy
-    rcvProxy' :: (a -> b -> ConversationActions snd rcv m -> m ()) -> Proxy rcv
-    rcvProxy' _ = Proxy
+    spec = (rcvMsgName, ConvHandler sndMsgName)
+    lspec = flip ListenerSpec spec $
+              \ourVerInfo -> N.ListenerActionConversation $
+                \(peerId, peerVerInfo) nNodeId conv -> do
+                    setPeerVerInfo peerId peerVerInfo
+                    checkingInSpecs ourVerInfo peerVerInfo spec peerId $
+                        h ourVerInfo
+                          (NodeId (peerId, nNodeId))
+                          (convertCA conv)
+    convProxy = convProxy' h
+    convProxy' :: (a -> b -> c -> d) -> Proxy c
+    convProxy' _ = Proxy
+    sndMsgName = messageName $ sndProxy convProxy
+    rcvMsgName = messageName $ rcvProxy convProxy
+
+setPeerVerInfo :: (WithPeerState m, Mockable SharedAtomic m) => PeerId -> VerInfo -> m ()
+setPeerVerInfo peerId verInfo = do
+    stV <- getPeerState peerId
+    modifySharedAtomic stV $ \st -> return (set peerVerInfo (Just verInfo) st, ())
 
 unpackLSpecs :: ([ListenerSpec m], OutSpecs) -> (VerInfo -> [Listener m], InSpecs, OutSpecs)
 unpackLSpecs =
@@ -139,19 +182,46 @@ unpackLSpecs =
     squashPL :: [(a, b)] -> ([a], [b])
     squashPL = map fst &&& map snd
 
-toAction :: (SendActions m -> m a) -> ActionSpec m a
+toAction
+    :: ( WithLogger m
+       , Mockable Throw m
+       , WithPeerState m
+       , Mockable SharedAtomic m
+       , Bi NOP
+       , Message NOP
+       ) => (SendActions m -> m a) -> ActionSpec m a
 toAction h = ActionSpec $ \vI -> h . convertSendActions vI
 
-worker :: OutSpecs -> Worker' m -> (WorkerSpec m, OutSpecs)
+worker
+    :: ( WithLogger m
+       , Mockable Throw m
+       , WithPeerState m
+       , Mockable SharedAtomic m
+       , Bi NOP
+       , Message NOP
+       ) => OutSpecs -> Worker' m -> (WorkerSpec m, OutSpecs)
 worker outSpecs = (,outSpecs) . toAction
 
-workerHelper :: OutSpecs -> (arg -> Worker' m) -> (arg -> WorkerSpec m, OutSpecs)
+workerHelper
+    :: ( WithLogger m
+       , Mockable Throw m
+       , WithPeerState m
+       , Mockable SharedAtomic m
+       , Bi NOP
+       , Message NOP
+       ) => OutSpecs -> (arg -> Worker' m) -> (arg -> WorkerSpec m, OutSpecs)
 workerHelper outSpecs h = (,outSpecs) $ toAction . h
 
-worker' :: OutSpecs -> (VerInfo -> Worker' m) -> (WorkerSpec m, OutSpecs)
+worker'
+    :: ( WithLogger m
+       , Mockable Throw m
+       , WithPeerState m
+       , Mockable SharedAtomic m
+       , Bi NOP
+       , Message NOP
+       ) => OutSpecs -> (VerInfo -> Worker' m) -> (WorkerSpec m, OutSpecs)
 worker' outSpecs h = (,outSpecs) $ ActionSpec $ \vI -> h vI . convertSendActions vI
 
--- | Same as onNewSlot, but also logs debug information.
 onNewSlot'
     :: ( MonadIO m
        , MonadSlots m
@@ -159,6 +229,11 @@ onNewSlot'
        , WithLogger m
        , Mockable Fork m
        , Mockable Delay m
+       , Mockable Throw m
+       , WithPeerState m
+       , Mockable SharedAtomic m
+       , Bi NOP
+       , Message NOP
        )
     => Bool -> Bool -> (SlotId -> WorkerSpec m, outSpecs) -> (WorkerSpec m, outSpecs)
 onNewSlot' withLog startImmediately (h, outs) =
@@ -173,6 +248,11 @@ onNewSlotWorker
        , WithLogger m
        , Mockable Fork m
        , Mockable Delay m
+       , Mockable Throw m
+       , WithPeerState m
+       , Mockable SharedAtomic m
+       , Bi NOP
+       , Message NOP
        ) => Bool -> OutSpecs -> (SlotId -> Worker' m) -> (WorkerSpec m, OutSpecs)
 onNewSlotWorker b outs = onNewSlot' False b . workerHelper outs
 
@@ -183,6 +263,11 @@ onNewSlotWithLoggingWorker
        , WithLogger m
        , Mockable Fork m
        , Mockable Delay m
+       , Mockable Throw m
+       , WithPeerState m
+       , Mockable SharedAtomic m
+       , Bi NOP
+       , Message NOP
        ) => Bool -> OutSpecs -> (SlotId -> Worker' m) -> (WorkerSpec m, OutSpecs)
 onNewSlotWithLoggingWorker b outs = onNewSlot' True b . workerHelper outs
 
@@ -193,48 +278,11 @@ localOnNewSlotWorker
        , WithLogger m
        , Mockable Fork m
        , Mockable Delay m
-       ) =>  Bool -> (SlotId -> m ()) -> (WorkerSpec m, OutSpecs)
-localOnNewSlotWorker b h = onNewSlotWorker b mempty $ const . h
+       ) => Bool -> (SlotId -> m ()) -> (WorkerSpec m, OutSpecs)
+localOnNewSlotWorker b h = (ActionSpec $ \__vI __sA -> onNewSlotImpl False b h, mempty)
 
 localWorker :: m () -> (WorkerSpec m, OutSpecs)
-localWorker = worker mempty . const
-
-{-
-worker :: (WithLogger m)
-    => (SendActions m -> m ())
-    -> WorkerSpecs m
-worker specs run = WorkerSpecs [const $ toAction run] mempty
-
-listenerConv :: (WithLogger m, Bi snd, Bi rcv, Message snd, Message rcv)
-    => (NodeId -> ConversationActions PeerData snd rcv m -> m ())
-    -> (VerInfo -> Listener m, (MessageName, HandlerSpec))
-listenerConv handler = (listener, spec)
-  where
-    spec = (rcvMsgName, ConvHandler sndMsgName)
-    convProxy = convProxy' handler
-    convProxy' :: (a -> b -> c) -> Proxy b
-    convProxy' _ = Proxy
-    sndMsgName = messageName $ sndProxy convProxy
-    rcvMsgName = messageName $ rcvProxy convProxy
-    -- TODO specs parameter is to be received within listener
-    listener ourVerInfo =
-      ListenerActionConversation $ \peerVerInfo peerId conv ->
-          checkingInSpecs ourVerInfo peerVerInfo spec peerId $
-              handler peerId conv
-
-listenerOneMsg :: (WithLogger m, Bi msg, Message msg, Mockable Throw m)
-    => (NodeId -> SendActions m -> msg -> m ())
-    -> (VerInfo -> Listener m, (MessageName, HandlerSpec))
-listenerOneMsg handler = (listener, spec)
-  where
-    spec = (rcvMsgName, OneMsgHandler)
-    msgProxy :: (a -> b -> msg -> c) -> Proxy msg
-    msgProxy _ = Proxy
-    rcvMsgName = messageName $ msgProxy handler
-    listener ourVerInfo =
-      ListenerActionOneMsg $ \peerVerInfo peerId sA msg ->
-          checkingInSpecs ourVerInfo peerVerInfo spec peerId $
-              handler peerId (modifySend (vIOutHandlers ourVerInfo) sA) msg
+localWorker h = (ActionSpec $ \__vI __sA -> h, mempty)
 
 checkingInSpecs :: WithLogger m => VerInfo -> VerInfo -> (MessageName, HandlerSpec) -> PeerId -> m () -> m ()
 checkingInSpecs ourVerInfo peerVerInfo spec peerId action =
@@ -253,50 +301,52 @@ rcvProxy _ = Proxy
 sndProxy :: Proxy (ConversationActions snd rcv m) -> Proxy snd
 sndProxy _ = Proxy
 
-data SpecError = OutSpecNotReported MessageName
-               | PeerInSpecNotReported MessageName
+data SpecError = OutSpecNotReported (MessageName, HandlerSpec)
+               | PeerInSpecNotReported (MessageName, HandlerSpec)
   deriving (Generic, Show)
 
 instance Exception SpecError
 
-modifySend :: (WithLogger m, Mockable Throw m)
+modifySend :: ( WithLogger m, Mockable Throw m
+              , WithPeerState m
+              , Mockable SharedAtomic m
+              , Bi NOP
+              , Message NOP
+              )
            => HandlerSpecs -> SendActions m -> SendActions m
 modifySend ourOutSpecs sA = sA
-    { sendTo = \nodeId@(NodeId (peerId, _)) msg ->
+    { sendTo = \nodeId msg -> do
+          pVI <- acquirePVI sA nodeId
           let sndMsgName = messageName' msg
-           in checkingSpecs (Left sndMsgName) peerId $
-                  sendTo sA nodeId msg
-    , withConnectionTo = \nodeId@(NodeId (peerId, _)) convAction ->
-          let sndMsgName = messageName . sndProxy $ fstArgProxy convAction
-           in checkingSpecs (Right sndMsgName) peerId $
-                  withConnectionTo sA nodeId convAction
+          checkingOutSpecs (sndMsgName, OneMsgHandler)
+              nodeId (vIInHandlers pVI) $ sendTo sA nodeId msg
+    , withConnectionTo = \nodeId conv -> do
+          pVI <- acquirePVI sA nodeId
+          let sndMsgName = messageName . sndProxy $ fstArgProxy conv
+              rcvMsgName = messageName . rcvProxy $ fstArgProxy conv
+          checkingOutSpecs (sndMsgName, ConvHandler rcvMsgName)
+              nodeId (vIInHandlers pVI) $ withConnectionTo sA nodeId conv
     }
   where
-    -- TODO update code
-    peerInSpecs = ourOutSpecs
-
+    requestPVI sA nodeId = withConnectionTo sA nodeId $
+      \(conv :: ConversationActions NOP NOP m) -> snd <$> peerData conv
+    acquirePVI sA nodeId@(NodeId (peerId, _)) = do
+        st <- getPeerState peerId
+        modifySharedAtomic st $ \peerState -> do
+            (vi :: VerInfo) <- maybe (requestPVI sA nodeId) pure $ peerState ^. peerVerInfo
+            return (set peerVerInfo (Just vi) peerState, vi)
     fstArgProxy :: (a -> b) -> Proxy a
     fstArgProxy _ = Proxy
 
-    notInSpecs' (Left name) specs = (name, OneMsgHandler) `notInSpecs` specs
-    notInSpecs' (Right name) specs = case name `HM.lookup` specs of
-                                        Just (ConvHandler _) -> True
-                                        _                    -> False
-    checkingSpecs spec peerId action =
-        if | spec `notInSpecs'` ourOutSpecs -> do
+    checkingOutSpecs spec (NodeId (peerId, _)) peerInSpecs action =
+        if | spec `notInSpecs` ourOutSpecs -> do
                   logWarning $ sformat
-                     ("Sending "%stext%": endpoint not reported")
-                     (fS spec)
-                  throw' OutSpecNotReported spec
-           | spec `notInSpecs'` peerInSpecs -> do
+                     ("Sending "%build%": endpoint not reported")
+                     spec
+                  throw $ OutSpecNotReported spec
+           | spec `notInSpecs` peerInSpecs -> do
                   logDebug $ sformat
-                     ("Attempting to send to "%stext%": endpoint unsupported by peer "%shown)
-                     (fS spec) peerId
-                  throw' PeerInSpecNotReported spec
+                     ("Attempting to send to "%build%": endpoint unsupported by peer "%shown)
+                     spec peerId
+                  throw $ PeerInSpecNotReported spec
            | otherwise -> action
-      where
-        throw' constr = throw . constr . either identity identity
-        fS (Left m)                = sformat build (m, OneMsgHandler)
-        fS (Right (MessageName m)) = sformat ("("%base16F%", Conv _)") m
-
--}

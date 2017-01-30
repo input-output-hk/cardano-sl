@@ -29,7 +29,7 @@ import           Pos.Util            (NE, NewestFirst, OldestFirst)
 ----------------------------------------------------------------------------
 
 type SscGlobalQuery ssc a =  forall m . (MonadReader (SscGlobalState ssc) m, WithLogger m) => m a
-type SscGlobalUpdate ssc a = forall m . (MonadState (SscGlobalState ssc) m) => m a
+type SscGlobalUpdate ssc a = forall m . (MonadState (SscGlobalState ssc) m, WithLogger m) => m a
 
 class Ssc ssc => SscStorageClass ssc where
     sscLoadGlobalState
@@ -40,7 +40,7 @@ class Ssc ssc => SscStorageClass ssc where
         :: OldestFirst NE (Block ssc) -> SscGlobalUpdate ssc ()
 
     -- | Rollback application of blocks.
-    sscRollbackM
+    sscRollbackU
         :: NewestFirst NE (Block ssc) -> SscGlobalUpdate ssc ()
 
     -- | Verify Ssc-related predicates of block sequence which is

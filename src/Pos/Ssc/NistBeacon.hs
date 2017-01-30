@@ -71,7 +71,7 @@ instance SscLocalDataClass SscNistBeacon where
 instance SscStorageClass SscNistBeacon where
     sscLoadGlobalState = pure ()
     sscApplyBlocksM _ = pure ()
-    sscRollbackM _ = pure ()
+    sscRollbackU _ = pure ()
     sscVerifyBlocksM _ _ _ = pure $ Right ()
     sscCalculateSeedQ =
         pure . Right . coerce . ByteArray.convert @_ @ByteString .

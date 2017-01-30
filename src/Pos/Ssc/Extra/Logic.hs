@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes  #-}
+{-# LANGUAGE BangPatterns         #-}
 {-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE RankNTypes           #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
@@ -27,12 +28,13 @@ module Pos.Ssc.Extra.Logic
        , sscVerifyBlocks
        ) where
 
-import           Control.Concurrent.STM  (readTVar)
+import           Control.Concurrent.STM  (readTVar, writeTVar)
 import           Control.Lens            (_Wrapped)
 import           Control.Monad.Except    (MonadError)
-import           Control.Monad.Trans     (MonadTrans)
 import           Formatting              (build, sformat, (%))
-import           System.Wlog             (WithLogger, logDebug)
+import           System.Wlog             (LogEvent, LoggerName, LoggerNameBox, PureLogger,
+                                          WithLogger, dispatchEvents, getLoggerName,
+                                          logDebug, runPureLog, usingLoggerName)
 import           Universum
 
 import           Pos.Context             (WithNodeContext, lrcActionOnEpochReason)
@@ -116,6 +118,35 @@ type SscGlobalVerifyMode ssc m =
     (MonadSscMem ssc m, SscStorageClass ssc, WithLogger m,
      MonadDB ssc m, MonadError (SscVerifyError ssc) m)
 
+sscRunGlobalUpdatePure
+    :: forall ssc a.
+       LoggerName
+    -> SscGlobalState ssc
+    -> LoggerNameBox (PureLogger (State (SscGlobalState ssc))) a
+    -> (a, SscGlobalState ssc, [LogEvent])
+sscRunGlobalUpdatePure loggerName st =
+    convertRes . flip runState st . runPureLog . usingLoggerName loggerName
+  where
+    convertRes :: ((a, [LogEvent]), SscGlobalState ssc)
+               -> (a, SscGlobalState ssc, [LogEvent])
+    convertRes ((res, events), st) = (res, st, events)
+
+sscRunGlobalUpdate
+    :: forall ssc m a.
+       SscGlobalApplyMode ssc m
+    => LoggerNameBox (PureLogger (State (SscGlobalState ssc))) a -> m a
+sscRunGlobalUpdate action = do
+    loggerName <- getLoggerName
+    globalVar <- sscGlobal <$> askSscMem
+    (res, events) <- atomically $ sscRunGlobalUpdateDo loggerName globalVar
+    res <$ dispatchEvents events
+  where
+    sscRunGlobalUpdateDo loggerName globalVar = do
+        oldState <- readTVar globalVar
+        let (res, !newState, events) =
+                sscRunGlobalUpdatePure @ssc loggerName oldState action
+        (res, events) <$ writeTVar globalVar newState
+
 sscApplyBlocks
     :: forall ssc m.
        SscGlobalApplyMode ssc m
@@ -126,7 +157,7 @@ sscRollbackBlocks
     :: forall ssc m.
        SscGlobalApplyMode ssc m
     => NewestFirst NE (Block ssc) -> m ()
-sscRollbackBlocks = notImplemented
+sscRollbackBlocks = sscRunGlobalUpdate . sscRollbackU
 
 sscVerifyBlocks
     :: forall ssc m.

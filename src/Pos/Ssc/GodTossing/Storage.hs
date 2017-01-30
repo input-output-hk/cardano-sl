@@ -67,7 +67,7 @@ type GSUpdate a = forall m . (MonadState GtGlobalState m) => m a
 instance SscStorageClass SscGodTossing where
     sscLoadGlobalState = mpcLoadGlobalState
     sscApplyBlocksM = mpcApplyBlocks
-    sscRollbackM = mpcRollback
+    sscRollbackU = mpcRollback
     sscVerifyBlocksM pureVer rich = runExceptT . mpcVerifyBlocks pureVer rich
     sscCalculateSeedQ _ =
         calculateSeed <$> view gsCommitments <*> view gsOpenings <*>

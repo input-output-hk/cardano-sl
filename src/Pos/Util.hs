@@ -27,6 +27,7 @@ module Pos.Util
        , getKeys
        , maybeThrow
        , maybeThrow'
+       , parseIntegralSafe
 
        -- * Lists
        , allDistinct
@@ -60,16 +61,15 @@ module Pos.Util
        , spanSafe
        , eitherToVerRes
 
-       -- * MVar
+       -- * Concurrency
        , clearMVar
        , forcePutMVar
        , readMVarConditional
        , readUntilEqualMVar
        , readTVarConditional
-
        , readUntilEqualTVar
-
-       , parseIntegralSafe
+       , withReadLifted
+       , withWriteLifted
 
        -- * Instances
        -- ** Lift Byte
@@ -87,53 +87,55 @@ module Pos.Util
        -- ** MonadFail LoggerNameBox
        ) where
 
-import           Control.Arrow                 ((***))
-import           Control.Concurrent.STM.TVar   (TVar, readTVar)
-import           Control.Lens                  (Each (..), LensLike', Magnified, Zoomed,
-                                                lensRules, magnify, makeWrapped, zoom,
-                                                _Wrapped)
-import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
-import qualified Control.Monad                 as Monad (fail)
-import           Control.Monad.STM             (retry)
-import           Control.Monad.Trans.Resource  (ResourceT)
-import           Data.Aeson                    (FromJSON (..), ToJSON (..))
-import           Data.Binary                   (Binary)
-import qualified Data.Cache.LRU                as LRU
-import           Data.Hashable                 (Hashable)
-import qualified Data.HashMap.Strict           as HM
-import           Data.HashSet                  (fromMap)
-import           Data.List                     (span, zipWith3)
-import qualified Data.List.NonEmpty            as NE
-import           Data.SafeCopy                 (SafeCopy (..), base, contain,
-                                                deriveSafeCopySimple, safeGet, safePut)
-import qualified Data.Text                     as T
-import           Data.Time.Units               (Microsecond, Millisecond)
-import           Formatting                    (sformat, stext, (%))
+import           Control.Arrow                    ((***))
+import           Control.Concurrent.ReadWriteLock (RWLock, acquireRead, acquireWrite,
+                                                   releaseRead, releaseWrite)
+import           Control.Concurrent.STM.TVar      (TVar, readTVar)
+import           Control.Lens                     (Each (..), LensLike', Magnified,
+                                                   Zoomed, lensRules, magnify,
+                                                   makeWrapped, zoom, _Wrapped)
+import           Control.Lens.Internal.FieldTH    (makeFieldOpticsForDec)
+import qualified Control.Monad                    as Monad (fail)
+import           Control.Monad.STM                (retry)
+import           Control.Monad.Trans.Resource     (ResourceT)
+import           Data.Aeson                       (FromJSON (..), ToJSON (..))
+import           Data.Binary                      (Binary)
+import qualified Data.Cache.LRU                   as LRU
+import           Data.Hashable                    (Hashable)
+import qualified Data.HashMap.Strict              as HM
+import           Data.HashSet                     (fromMap)
+import           Data.List                        (span, zipWith3)
+import qualified Data.List.NonEmpty               as NE
+import           Data.SafeCopy                    (SafeCopy (..), base, contain,
+                                                   deriveSafeCopySimple, safeGet, safePut)
+import qualified Data.Text                        as T
+import           Data.Time.Units                  (Microsecond, Millisecond)
+import           Formatting                       (sformat, stext, (%))
 import           Language.Haskell.TH
-import           Language.Haskell.TH.Syntax    (Lift)
+import           Language.Haskell.TH.Syntax       (Lift)
 import qualified Language.Haskell.TH.Syntax
-import           Mockable                      (Mockable, Throw, throw)
-import           Prelude                       (read)
-import           Serokell.Data.Memory.Units    (Byte, fromBytes, toBytes)
-import           Serokell.Util                 (VerificationRes (..))
-import           System.Console.ANSI           (Color (..), ColorIntensity (Vivid),
-                                                ConsoleLayer (Foreground),
-                                                SGR (Reset, SetColor), setSGRCode)
-import           System.Wlog                   (LoggerNameBox (..))
-import           Test.QuickCheck               (Arbitrary)
-import           Text.Parsec                   (ParsecT)
-import           Text.Parsec                   (digit, many1)
-import           Text.Parsec.Text              (Parser)
-import           Universum                     hiding (Async, async, bracket, cancel,
-                                                finally, waitAny)
-import           Unsafe                        (unsafeInit, unsafeLast)
+import           Mockable                         (Mockable, Throw, throw)
+import           Prelude                          (read)
+import           Serokell.Data.Memory.Units       (Byte, fromBytes, toBytes)
+import           Serokell.Util                    (VerificationRes (..))
+import           System.Console.ANSI              (Color (..), ColorIntensity (Vivid),
+                                                   ConsoleLayer (Foreground),
+                                                   SGR (Reset, SetColor), setSGRCode)
+import           System.Wlog                      (LoggerNameBox (..))
+import           Test.QuickCheck                  (Arbitrary)
+import           Text.Parsec                      (ParsecT)
+import           Text.Parsec                      (digit, many1)
+import           Text.Parsec.Text                 (Parser)
+import           Universum                        hiding (Async, async, bracket, cancel,
+                                                   finally, waitAny)
+import           Unsafe                           (unsafeInit, unsafeLast)
 -- SafeCopy instance for HashMap
-import           Serokell.AcidState.Instances  ()
+import           Serokell.AcidState.Instances     ()
 
-import           Pos.Binary.Class              (Bi)
+import           Pos.Binary.Class                 (Bi)
 import           Pos.Util.Arbitrary
 import           Pos.Util.Binary
-import           Pos.Util.NotImplemented       ()
+import           Pos.Util.NotImplemented          ()
 import           Pos.Util.TimeLimit
 
 mappendPair :: (Monoid a, Monoid b) => (a, b) -> (a, b) -> (a, b)
@@ -149,6 +151,16 @@ readerToState
 readerToState = gets . runReader
 
 deriveSafeCopySimple 0 'base ''VerificationRes
+
+parseIntegralSafe :: Integral a => Parser a
+parseIntegralSafe = fromIntegerSafe . read =<< many1 digit
+  where
+    fromIntegerSafe :: Integral a => Integer -> Parser a
+    fromIntegerSafe x =
+        let res = fromInteger x
+        in  if fromIntegral res == x
+            then return res
+            else fail ("Number is too large: " ++ show x)
 
 -- | A helper for simple error handling in executables
 eitherPanic :: Show a => Text -> Either a b -> b
@@ -210,6 +222,12 @@ type NE = NonEmpty
 
 neZipWith3 :: (x -> y -> z -> q) -> NonEmpty x -> NonEmpty y -> NonEmpty z -> NonEmpty q
 neZipWith3 f (x :| xs) (y :| ys) (z :| zs) = f x y z :| zipWith3 f xs ys zs
+
+-- | Makes a span on the list, considering tail only. Predicate has
+-- list head as first argument. Used to take non-null prefix that
+-- depends on the first element.
+spanSafe :: (a -> a -> Bool) -> NonEmpty a -> (NonEmpty a, [a])
+spanSafe p (x:|xs) = let (a,b) = span (p x) xs in (x:|a,b)
 
 ----------------------------------------------------------------------------
 -- Chronological sequences
@@ -409,11 +427,6 @@ eitherToVerRes (Left errors) = if T.null errors then VerFailure []
                                else VerFailure $ T.split (==';') errors
 eitherToVerRes (Right _ )    = VerSuccess
 
--- | Makes a span on the list, considering tail only. Predicate has
--- list head as first argument. Used to take non-null prefix that
--- depends on the first element.
-spanSafe :: (a -> a -> Bool) -> NonEmpty a -> (NonEmpty a, [a])
-spanSafe p (x:|xs) = let (a,b) = span (p x) xs in (x:|a,b)
 
 instance IsString s => MonadFail (Either s) where
     fail = Left . fromString
@@ -427,7 +440,7 @@ instance MonadFail m => MonadFail (ResourceT m) where
     fail = lift . fail
 
 ----------------------------------------------------------------------------
--- MVar utilities
+-- Concurrency utilites (MVar/TVar/RWLock..)
 ----------------------------------------------------------------------------
 
 clearMVar :: MonadIO m => MVar a -> m ()
@@ -474,12 +487,8 @@ readUntilEqualTVar
     => (x -> a) -> TVar x -> a -> m x
 readUntilEqualTVar f tvar expVal = readTVarConditional ((expVal ==) . f) tvar
 
-parseIntegralSafe :: Integral a => Parser a
-parseIntegralSafe = fromIntegerSafe . read =<< many1 digit
-  where
-    fromIntegerSafe :: Integral a => Integer -> Parser a
-    fromIntegerSafe x =
-        let res = fromInteger x
-        in  if fromIntegral res == x
-            then return res
-            else fail ("Number is too large: " ++ show x)
+withReadLifted :: (MonadIO m, MonadMask m) => RWLock -> m a -> m a
+withReadLifted l = bracket_ (liftIO $ acquireRead l) (liftIO $ releaseRead l)
+
+withWriteLifted :: (MonadIO m, MonadMask m) => RWLock -> m a -> m a
+withWriteLifted l = bracket_ (liftIO $ acquireWrite l) (liftIO $ releaseWrite l)

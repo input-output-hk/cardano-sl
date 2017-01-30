@@ -12,8 +12,9 @@ import           Data.Proxy                 (Proxy (Proxy))
 
 import           Pos.Types                  (Coin, SoftwareVersion)
 import           Pos.Util.BackupPhrase      (BackupPhrase)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CProfile, CTx, CTxId,
-                                             CTxMeta, CUpdateInfo, CWallet, CWalletInit,
+import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CProfile,
+                                             CRedemptionData, CTx, CTxId, CTxMeta,
+                                             CUpdateInfo, CWallet, CWalletInit,
                                              CWalletMeta)
 import           Pos.Wallet.Web.Error       (WalletError)
 import           Servant.API                ((:<|>), (:>), Capture, Get, JSON, Post,
@@ -53,7 +54,7 @@ type WalletApi =
     :<|>
      "api" :> "update_profile" :> ReqBody '[JSON] CProfile :> Post '[JSON] (Either WalletError CProfile)
     :<|>
-     "api" :> "redeem_ada" :> Capture "seed" Text :> ReqBody '[JSON] BackupPhrase :> Post '[JSON] (Either WalletError CWallet)
+     "api" :> "redeem_ada" :> ReqBody '[JSON] CRedemptionData :> Post '[JSON] (Either WalletError CWallet)
     :<|>
      "api" :> "next_update" :> Get '[JSON] (Either WalletError CUpdateInfo)
     :<|>

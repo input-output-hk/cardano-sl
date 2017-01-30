@@ -21,10 +21,9 @@ module Pos.Block.Logic
        , getHeadersFromToIncl
 
          -- * Blocks
-       , applyBlocks
+       , verifyAndApplyBlocks
        , applyWithRollback
        , rollbackBlocks
-       , verifyAndApplyBlocks
        , createGenesisBlock
        , createMainBlock
        ) where
@@ -504,6 +503,9 @@ applyBlocks
     => Bool -> Maybe PollModifier -> OldestFirst NE (Blund ssc) -> m ()
 applyBlocks calculateLrc pModifier blunds = do
     when (isLeft prefixHead && calculateLrc) $
+        -- Hopefully this lrc check is never triggered -- because
+        -- caller most definitely should have computed lrc to verify
+        -- the sequence beforehand.
         lrcSingleShotNoLock (prefixHead ^. epochIndexL)
     applyBlocksUnsafe prefix pModifier
     case getOldestFirst suffix of

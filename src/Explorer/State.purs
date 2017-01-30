@@ -5,7 +5,7 @@ import Control.Monad.Eff.Class (liftEff)
 import DOM (DOM)
 import Explorer.I18n.Lang (Language(..))
 import Explorer.Routes (Route(..))
-import Explorer.Types (State, Action(..))
+import Explorer.Types (Action(..), DashboardAPICode(..), State)
 import Explorer.Util.DOM (scrollTop)
 import Network.HTTP.Affjax (AJAX)
 import Pux (EffModel, noEffects)
@@ -18,7 +18,8 @@ initialState =
     , viewStates: {
         dashboard:
         { blocksExpanded: false
-        ,  transactionsExpanded: false
+        , transactionsExpanded: false
+        , selectedApiCode: Curl
         }
       }
     }
@@ -41,6 +42,11 @@ update (DashboardExpandBlocks toggled) state = noEffects $ state {
 update (DashboardExpandTransactions toggled) state = noEffects $ state {
         viewStates = state.viewStates {
             dashboard = state.viewStates.dashboard { transactionsExpanded = toggled }
+        }
+    }
+update (DashboardShowAPICode code) state = noEffects $ state {
+        viewStates = state.viewStates {
+            dashboard = state.viewStates.dashboard { selectedApiCode = code }
         }
     }
 update NoOp state = noEffects state

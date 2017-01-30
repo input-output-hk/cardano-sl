@@ -2,11 +2,13 @@ module Explorer.View.Dashboard (dashboardView) where
 
 import Prelude
 import Data.Array (slice)
-import Data.Maybe (Maybe(..))
+import Data.Map (Map, fromFoldable, lookup, toAscUnfoldable) as M
+import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Tuple (Tuple(..))
 import Explorer.I18n.Lang (I18nAccessor, translate)
-import Explorer.Types (Action(..), CCurrency(..), State)
+import Explorer.Types (Action(..), CCurrency(..), DashboardAPICode(..), State)
 import Explorer.View.Common (currencyCSSClass, paginationView)
-import Pux.Html (Html, div, h3, text, h1, h2, input, h4, p) as P
+import Pux.Html (Html, div, h3, text, h1, h2, input, h4, p, code) as P
 import Pux.Html.Attributes (className, type_, placeholder) as P
 import Pux.Html.Events (onClick) as P
 
@@ -14,12 +16,12 @@ dashboardView :: State -> P.Html Action
 dashboardView state =
     P.div
         [ P.className "explorer-dashboard" ]
-        [
-        -- heroView state
-         networkView state
-        -- , blocksView state
-        -- , transactionsView state
+        [ heroView state
+        , networkView state
+        , blocksView state
+        , transactionsView state
         , offerView state
+        , apiView state
         ]
 
 -- header view
@@ -390,4 +392,105 @@ offerItem state item =
         , P.p
               [ P.className $ "teaser-item__description" ]
               [ P.text item.description ]
+        ]
+
+
+-- API
+
+type ApiTabLabel = String
+
+type ApiCode =
+    { getAddress :: String
+    , response :: String
+    }
+
+emptyApiCode :: ApiCode
+emptyApiCode = { getAddress: "", response: ""}
+
+apiCodes :: M.Map DashboardAPICode ApiCode
+apiCodes =
+  M.fromFoldable([
+    Tuple Curl { getAddress: "Curl getAddress", response: "{\n\t\"hash\": }"}
+    , Tuple Node { getAddress: "Node getAddress", response: "Node response ..."}
+    , Tuple JQuery { getAddress: "jQuery getAddress", response: "jQuery response ..."}
+    ])
+
+apiView :: State -> P.Html Action
+apiView state =
+    P.div
+        [ P.className "explorer-dashboard__wrapper" ]
+        [ P.div
+          [ P.className "explorer-dashboard__container" ]
+          [ headerView state headerOptions
+          , P.div
+            [ P.className "api-content" ]
+            [ P.div
+                [ P.className "api-content__container api-code"]
+                [ P.div
+                  [ P.className "api-code__tabs" ]
+                  $ map (apiCodeTabView state) $ M.toAscUnfoldable apiTabs
+                , apiCodeSnippetView "#Get Address" addressSnippet
+                , apiCodeSnippetView "#Get Response" responseSnippet
+                ]
+            , P.div
+                [ P.className "api-content__container api-about"]
+                [ P.h3
+                    [ P.className "api-about__headline" ]
+                    [ P.text "#About Blockchain" ]
+                , P.p
+                    [ P.className "api-about__description" ]
+                    [ P.text "#Blockchain API makes it easy yo build cryptocurrensies applications and features. We are focused on ... \n\n This API is free and unlimited while we are in beta. We are just getting started, and will be rolling out more ..."
+                    ]
+                , P.div
+                  [ P.className "api-about__button" ]
+                  [ P.text "#Get API Key"]
+                ]
+            ]
+          ]
+        ]
+    where
+      selectedCode = state.viewStates.dashboard.selectedApiCode
+      apiCode :: ApiCode
+      apiCode = fromMaybe emptyApiCode (M.lookup selectedCode apiCodes)
+      addressSnippet = _.getAddress $ apiCode
+      responseSnippet = _.response $ apiCode
+      headerOptions = HeaderOptions
+          { headline: "#API"
+          , link: Just $ HeaderLink { label: "#See more examples", action: NoOp }
+          }
+
+apiTabs :: M.Map DashboardAPICode ApiTabLabel
+apiTabs =
+    M.fromFoldable(
+        [ Tuple Curl "#Curl"
+        , Tuple Node "#Node"
+        , Tuple JQuery "#jQuery"
+        ])
+
+
+apiCodeTabView :: State -> Tuple DashboardAPICode ApiTabLabel -> P.Html Action
+apiCodeTabView state (Tuple code label) =
+    P.div
+      [ P.className $ "api-code__tab " <> selectedClazz
+      , P.onClick <<< const $ DashboardShowAPICode code ]
+      [ P.text label ]
+    where
+      selectedCode = state.viewStates.dashboard.selectedApiCode
+      selectedClazz = if selectedCode == code then "selected" else ""
+
+
+apiCodeSnippetView :: String -> String -> P.Html Action
+apiCodeSnippetView headline snippet =
+    P.div
+        [ P.className "api-snippet" ]
+        [ P.h3
+            [ P.className "api-snippet__headline" ]
+            [ P.text headline ]
+        ,  P.div
+              [ P.className "api-snippet__border" ]
+              []
+        , P.code
+            [ P.className "api-snippet__code" ]
+            [ P.text snippet ]
+
         ]

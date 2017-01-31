@@ -435,7 +435,13 @@ library
                       , base
                       , base58-bytestring
                       , base64-bytestring
-                      , binary
+                      -- This constraint on 'binary' is so strict because
+                      -- we're relying on the internal representation of
+                      -- 'Get' in Pos.Util.Binary. So, if you need to bump
+                      -- this constraint, first check that all code in
+                      -- Pos.Util.Binary that has been ripped from 'binary'
+                      -- hasn't changed upstream.
+                      , binary == 0.8.3.*
                       , binary-conduit >= 1.2.4.1
                       , binary-orphans
                       , bytestring

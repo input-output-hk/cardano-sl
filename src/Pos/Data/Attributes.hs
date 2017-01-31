@@ -13,18 +13,21 @@ module Pos.Data.Attributes
        , mkAttributes
        ) where
 
-import qualified Base                as Base
-import           Data.Binary.Get     (Get, getByteString, getWord32be, getWord8)
-import qualified Data.Binary.Get     as G
-import           Data.Binary.Put     (Put, putByteString, putWord32be, putWord8)
-import qualified Data.ByteString     as BS
-import           Data.DeriveTH       (derive, makeNFData)
-import qualified Data.Map            as M
-import           Data.SafeCopy       (SafeCopy (..), contain, safeGet, safePut)
-import           Data.Text.Buildable (Buildable)
-import qualified Data.Text.Buildable as Buildable
-import           Formatting          (bprint, build, int, (%))
-import           Universum           hiding (putByteString)
+import qualified Base                 as Base
+import           Data.Binary.Get      (Get, getWord8)
+import qualified Data.Binary.Get      as G
+import           Data.Binary.Put      (Put, putByteString, putWord8)
+import qualified Data.ByteString      as BS
+import qualified Data.ByteString.Lazy as BSL
+import           Data.DeriveTH        (derive, makeNFData)
+import qualified Data.Map             as M
+import           Data.SafeCopy        (SafeCopy (..), contain, safeGet, safePut)
+import           Data.Text.Buildable  (Buildable)
+import qualified Data.Text.Buildable  as Buildable
+import           Formatting           (bprint, build, int, (%))
+import           Universum            hiding (putByteString)
+
+import           Pos.Util.Binary      (getWithLengthLimited, putWithLength)
 
 mkAttributes :: h -> Attributes h
 mkAttributes dat = Attributes dat BS.empty
@@ -71,43 +74,26 @@ getAttributes :: (Word8 -> h -> Maybe (Get h))
               -> Word32
               -> h
               -> Get (Attributes h)
-getAttributes keyGetMapper (fromIntegral -> maxLen) initData = do
-    -- CSL-594 TODO use varint
-    totalLen <- fromIntegral <$> getWord32be
-    when (maxLen > 0 && totalLen > maxLen) $
-       fail $ "Attributes: wrong totalLen " ++ show totalLen
-                   ++ " (maxLen=" ++ show maxLen ++ ")"
-    read1 <- G.bytesRead
-    let cond = orM [ (\r -> r - read1 >= totalLen) <$> G.bytesRead
-                   , G.isEmpty]
-        readWhileKnown dat = ifM cond (return dat) $ do
-            key <- G.lookAhead getWord8
-            case keyGetMapper key dat of
-                Nothing -> return dat
-                Just gh -> getWord8 >> gh >>= readWhileKnown
-    attrData <- readWhileKnown initData
-    read <- flip (-) read1 <$> G.bytesRead
-    when (read > totalLen) $
-       fail $ "Attributes: wrong total length field value, deserialized "
-                   ++ show read ++ " bytes, totalLen=" ++ show totalLen
-    attrRemain <- getByteString $ fromIntegral $ totalLen - read
-    return $ Attributes {..}
+getAttributes keyGetMapper maxLen initData =
+    getWithLengthLimited (fromIntegral maxLen) $ do
+        let readWhileKnown dat = ifM G.isEmpty (return dat) $ do
+                key <- G.lookAhead getWord8
+                case keyGetMapper key dat of
+                    Nothing -> return dat
+                    Just gh -> getWord8 >> gh >>= readWhileKnown
+        attrData <- readWhileKnown initData
+        attrRemain <- BSL.toStrict <$> G.getRemainingLazyByteString
+        return $ Attributes {..}
 
 -- | Generate 'Put' given the way to serialize inner attribute value
 -- into set of keys and values.
 putAttributes :: (h -> [(Word8, ByteString)]) -> Attributes h -> Put
-putAttributes putMapper Attributes {..} = do
-    -- CSL-594 TODO use varint
-    putWord32be totalLen
-    mapM_ putAttr kvs
-    putByteString attrRemain
+putAttributes putMapper Attributes {..} =
+    putWithLength $ do
+        mapM_ putAttr kvs
+        putByteString attrRemain
   where
     putAttr (k, v) = putWord8 k *> putByteString v
     kvs = M.toAscList $ M.fromList $ putMapper attrData
-    totalLen :: Word32
-    totalLen =
-        fromIntegral $
-        BS.length attrRemain +
-        (foldr' (\(_, bs) s -> s + BS.length bs + 1) 0 kvs)
 
 derive makeNFData ''Attributes

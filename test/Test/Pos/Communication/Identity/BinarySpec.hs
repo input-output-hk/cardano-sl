@@ -17,6 +17,8 @@ spec = describe "Communication" $ do
     describe "Bi instances" $ do
         networkBinaryTest @C.SysStartRequest
         networkBinaryTest @C.SysStartResponse
+        networkBinaryTest @C.HandlerSpec
+        networkBinaryTest @C.VerInfo
         networkBinaryTest @D.SendProxySK
         networkBinaryTest @D.ConfirmProxySK
         --binaryTest @D.CheckProxySKConfirmed

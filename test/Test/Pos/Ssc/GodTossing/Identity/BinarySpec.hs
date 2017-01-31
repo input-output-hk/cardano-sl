@@ -22,7 +22,7 @@ spec = describe "GodTossing" $ do
         binaryTest @GT.VssCertificate
         binaryTest @GT.GtProof
         binaryTest @GT.GtPayload
-        binaryTest @(R.InvMsg StakeholderId GT.GtMsgTag)
-        binaryTest @(R.ReqMsg StakeholderId GT.GtMsgTag)
+        binaryTest @(R.InvMsg StakeholderId GT.GtTag)
+        binaryTest @(R.ReqMsg StakeholderId GT.GtTag)
         binaryTest @(R.DataMsg GT.GtMsgContents)
         binaryTest @GT.GtSecretStorage

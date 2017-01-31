@@ -11,14 +11,14 @@ import           Universum
 import           Pos.Binary.Class                 (Bi (..))
 import           Pos.Binary.Crypto                ()
 import           Pos.Binary.Ssc.GodTossing.Core   ()
-import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtMsgTag (..))
+import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtTag (..))
 import           Pos.Ssc.GodTossing.Types.Types   (GtSecretStorage (..))
 
 ----------------------------------------------------------------------------
 -- Types.Message
 ----------------------------------------------------------------------------
 
-instance Bi GtMsgTag where
+instance Bi GtTag where
     put msgtag = case msgtag of
         CommitmentMsg     -> putWord8 0
         OpeningMsg        -> putWord8 1

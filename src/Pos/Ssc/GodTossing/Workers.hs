@@ -65,7 +65,7 @@ import           Pos.Ssc.GodTossing.Storage       (getGlobalCerts, getStableCert
 import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types         (gsCommitments, gtcParticipateSsc,
                                                    gtcVssKeyPair)
-import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtMsgTag (..))
+import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtTag (..))
 import           Pos.Types                        (EpochIndex, LocalSlotIndex,
                                                    SlotId (..), StakeholderId,
                                                    StakeholderId, Timestamp (..),
@@ -254,7 +254,7 @@ sscProcessOurMessage msg = runExceptT (sscProcessOurMessageDo msg) >>= logResult
 
 sendOurData
     :: (WorkMode SscGodTossing m)
-    => SendActions m -> GtMsgTag -> EpochIndex -> LocalSlotIndex -> StakeholderId -> m ()
+    => SendActions m -> GtTag -> EpochIndex -> LocalSlotIndex -> StakeholderId -> m ()
 sendOurData sendActions msgTag epoch slMultiplier ourId = do
     -- Note: it's not necessary to create a new thread here, because
     -- in one invocation of onNewSlot we can't process more than one
@@ -317,7 +317,7 @@ randomTimeInInterval interval =
 
 waitUntilSend
     :: WorkMode SscGodTossing m
-    => GtMsgTag -> EpochIndex -> LocalSlotIndex -> m ()
+    => GtTag -> EpochIndex -> LocalSlotIndex -> m ()
 waitUntilSend msgTag epoch slMultiplier = do
     Timestamp beginning <-
         getSlotStart $

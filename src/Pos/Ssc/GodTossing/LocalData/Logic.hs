@@ -48,7 +48,7 @@ import           Pos.Ssc.GodTossing.Core            (GtPayload (..), InnerShares
                                                      mkVssCertificatesMap)
 import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData (..), ldEpoch,
                                                      ldModifier)
-import           Pos.Ssc.GodTossing.Toss            (GtMsgTag (..), MonadTossRead (..),
+import           Pos.Ssc.GodTossing.Toss            (GtTag (..), MonadTossRead (..),
                                                      PureToss, TossModifier, TossT,
                                                      TossVerFailure (..),
                                                      evalPureTossWithLogger, evalTossT,
@@ -135,7 +135,7 @@ sscIsDataUseful
        , MonadSlots m
        , MonadSscMem SscGodTossing m
        )
-    => GtMsgTag -> StakeholderId -> m Bool
+    => GtTag -> StakeholderId -> m Bool
 sscIsDataUseful tag id =
     ifM
         (isGoodSlotForTag tag . siSlot <$> getCurrentSlot)

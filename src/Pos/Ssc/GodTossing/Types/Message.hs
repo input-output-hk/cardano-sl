@@ -3,7 +3,7 @@
 -- | Messages used for communication in GodTossing SSC.
 
 module Pos.Ssc.GodTossing.Types.Message
-       ( GtMsgTag (..)
+       ( GtTag (..)
        , GtMsgContents (..)
        , msgContentsTag
        ) where
@@ -13,7 +13,7 @@ import           Universum
 
 import           Pos.Ssc.GodTossing.Core       (InnerSharesMap, Opening, SignedCommitment,
                                                 VssCertificate)
-import           Pos.Ssc.GodTossing.Toss.Types (GtMsgTag (..))
+import           Pos.Ssc.GodTossing.Toss.Types (GtTag (..))
 import           Pos.Types                     (StakeholderId)
 
 -- | Data message. Can be used to send actual data.
@@ -27,8 +27,8 @@ data GtMsgContents
 instance Buildable GtMsgContents where
     build (msgContentsTag -> tag) = Buildable.build tag <> " contents"
 
--- | GtMsgTag appropriate for given DataMsg.
-msgContentsTag :: GtMsgContents -> GtMsgTag
+-- | GtTag appropriate for given DataMsg.
+msgContentsTag :: GtMsgContents -> GtTag
 msgContentsTag (MCCommitment _)     = CommitmentMsg
 msgContentsTag (MCOpening _ _)      = OpeningMsg
 msgContentsTag (MCShares _ _)       = SharesMsg

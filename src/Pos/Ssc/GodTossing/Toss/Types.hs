@@ -3,7 +3,7 @@
 -- | Types related to Toss.
 
 module Pos.Ssc.GodTossing.Toss.Types
-       ( GtMsgTag (..)
+       ( GtTag (..)
        , isGoodSlotForTag
        , isGoodSlotIdForTag
 
@@ -25,26 +25,26 @@ import           Pos.Ssc.GodTossing.Core (CommitmentsMap, OpeningsMap, SharesMap
 import           Pos.Types               (LocalSlotIndex, SlotId)
 
 -- | Tag corresponding to GodTossing data.
-data GtMsgTag
+data GtTag
     = CommitmentMsg
     | OpeningMsg
     | SharesMsg
     | VssCertificateMsg
     deriving (Show, Eq, Generic)
 
-instance Buildable GtMsgTag where
+instance Buildable GtTag where
     build CommitmentMsg     = "commitment"
     build OpeningMsg        = "opening"
     build SharesMsg         = "shares"
     build VssCertificateMsg = "VSS certificate"
 
-isGoodSlotForTag :: GtMsgTag -> LocalSlotIndex -> Bool
+isGoodSlotForTag :: GtTag -> LocalSlotIndex -> Bool
 isGoodSlotForTag CommitmentMsg     = isCommitmentIdx
 isGoodSlotForTag OpeningMsg        = isOpeningIdx
 isGoodSlotForTag SharesMsg         = isSharesIdx
 isGoodSlotForTag VssCertificateMsg = const True
 
-isGoodSlotIdForTag :: GtMsgTag -> SlotId -> Bool
+isGoodSlotIdForTag :: GtTag -> SlotId -> Bool
 isGoodSlotIdForTag CommitmentMsg     = isCommitmentId
 isGoodSlotIdForTag OpeningMsg        = isOpeningId
 isGoodSlotIdForTag SharesMsg         = isSharesId

@@ -24,76 +24,75 @@ import           Pos.Communication.Message        ()
 import           Pos.Communication.Relay          (Relay (..), RelayProxy (..),
                                                    relayListeners, relayStubListeners)
 import           Pos.Context                      (WithNodeContext (getNodeContext))
-import qualified Pos.DB.Lrc                       as LrcDB
 import           Pos.Security                     (shouldIgnorePkAddress)
 import           Pos.Slotting                     (getCurrentSlot)
 import           Pos.Ssc.Class.Listeners          (SscListenersClass (..))
 import           Pos.Ssc.Extra                    (sscGetLocalPayload)
 import           Pos.Ssc.GodTossing.Core          (GtPayload (..), getCertId,
-                                                   getCommitmentsMap, vcSigningKey,
-                                                   _gpCertificates)
-import           Pos.Ssc.GodTossing.LocalData     (sscIsDataUseful)
-import           Pos.Ssc.GodTossing.Toss.Types    (GtMsgTag (..), isGoodSlotIdForTag)
+                                                   getCommitmentsMap, _gpCertificates)
+import           Pos.Ssc.GodTossing.LocalData     (sscIsDataUseful, sscProcessCertificate,
+                                                   sscProcessCommitment,
+                                                   sscProcessOpening, sscProcessShares)
+import           Pos.Ssc.GodTossing.Toss.Types    (GtTag (..))
 import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), msgContentsTag)
-import           Pos.Types                        (SlotId (..), StakeholderId,
-                                                   addressHash)
+import           Pos.Types                        (StakeholderId, addressHash)
 import           Pos.WorkMode                     (WorkMode)
 
 instance SscListenersClass SscGodTossing where
     sscListeners =
         Tagged $ relayListeners
-                    (RelayProxy :: RelayProxy StakeholderId GtMsgTag GtMsgContents)
+                    (RelayProxy :: RelayProxy StakeholderId GtTag GtMsgContents)
     sscStubListeners =
         Tagged $ relayStubListeners
-                    (RelayProxy :: RelayProxy StakeholderId GtMsgTag GtMsgContents)
+                    (RelayProxy :: RelayProxy StakeholderId GtTag GtMsgContents)
 
-instance WorkMode SscGodTossing m
-    => Relay m GtMsgTag StakeholderId GtMsgContents where
-
+instance WorkMode SscGodTossing m =>
+         Relay m GtTag StakeholderId GtMsgContents where
     contentsToTag = pure . msgContentsTag
-    contentsToKey x = pure $ case x of
-        MCShares k _          -> k
-        MCOpening k _         -> k
-        MCCommitment (pk,_,_) -> addressHash pk
-        MCVssCertificate vc   -> getCertId vc
+    contentsToKey x =
+        pure $
+        case x of
+            MCShares k _            -> k
+            MCOpening k _           -> k
+            MCCommitment (pk, _, _) -> addressHash pk
+            MCVssCertificate vc     -> getCertId vc
 
     verifyInvTag _ = pure VerSuccess
-
     verifyReqTag _ = pure VerSuccess
-
     verifyDataContents _ = pure VerSuccess
 
     handleInv = sscIsDataUseful
-
     handleReq tag addr =
         toContents tag addr <$> (getCurrentSlot >>= sscGetLocalPayload)
-
     handleData dat = do
         addr <- contentsToKey dat
         -- [CSL-685] TODO: Add here malicious emulation for network addresses
         -- when TW will support getting peer address properly
-        notImplemented
-        -- ifM (not <$> flip shouldIgnorePkAddress addr <$> getNodeContext)
-        --     (sscProcessMessageRichmen dat) $ True <$
-        --     (logDebug $ sformat
-        --         ("Malicious emulation: data "%build%" for address "%build%" ignored")
-        --         dat addr)
+        handleDataDo addr =<< flip shouldIgnorePkAddress addr <$> getNodeContext
+      where
+        ignoreFmt =
+            "Malicious emulation: data " %build % " for id " %build %
+            " is ignored"
+        handleDataDo id shouldIgnore
+            | shouldIgnore = False <$ logDebug (sformat ignoreFmt id dat)
+            | otherwise = sscProcessMessage dat
 
--- sscProcessMessageRichmen :: WorkMode SscGodTossing m
---                           => GtMsgContents -> m Bool
--- sscProcessMessageRichmen dat = do
---     epoch <- siEpoch <$> getCurrentSlot
---     richmenMaybe <- LrcDB.getRichmenSsc epoch
---     maybe (pure False) (handleRichmen . (epoch,)) richmenMaybe
---   where
---     handleRichmen r = do
---         res <- sscProcessMessage r dat
---         case res of
---             Right _ -> pure True
---             Left er -> False <$ logDebug (sformat ("Data is rejected, reason: "%build) er)
+sscProcessMessage
+    :: WorkMode SscGodTossing m
+    => GtMsgContents -> m Bool
+sscProcessMessage dat =
+    runExceptT (sscProcessMessageDo dat) >>= \case
+        Left err ->
+            False <$ logDebug (sformat ("Data is rejected, reason: " %build) err)
+        Right () -> return True
+  where
+    sscProcessMessageDo (MCCommitment comm)     = sscProcessCommitment comm
+    sscProcessMessageDo (MCOpening id open)     = sscProcessOpening id open
+    sscProcessMessageDo (MCShares id shares)    = sscProcessShares id shares
+    sscProcessMessageDo (MCVssCertificate cert) = sscProcessCertificate cert
 
-toContents :: GtMsgTag -> StakeholderId -> GtPayload -> Maybe GtMsgContents
+toContents :: GtTag -> StakeholderId -> GtPayload -> Maybe GtMsgContents
 toContents CommitmentMsg addr (CommitmentsPayload comm _) =
     MCCommitment <$> lookup addr (getCommitmentsMap comm)
 toContents OpeningMsg addr (OpeningsPayload opens _) =

@@ -20,7 +20,7 @@ import           Pos.Ssc.GodTossing.Core          (Commitment, CommitmentsMap,
                                                    genCommitmentAndOpening,
                                                    mkCommitmentsMap, mkVssCertificate)
 import           Pos.Ssc.GodTossing.Type          ()
-import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtMsgTag (..))
+import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtTag (..))
 import           Pos.Ssc.GodTossing.Types.Types   (GtGlobalState (..),
                                                    GtSecretStorage (..))
 import           Pos.Ssc.GodTossing.VssCertData   (VssCertData (..))
@@ -117,7 +117,7 @@ instance Arbitrary GtSecretStorage where
 -- Message types
 ------------------------------------------------------------------------------------------
 
-instance Arbitrary GtMsgTag where
+instance Arbitrary GtTag where
     arbitrary = oneof [ pure CommitmentMsg
                       , pure OpeningMsg
                       , pure SharesMsg

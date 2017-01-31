@@ -26,6 +26,7 @@ library
   exposed-modules:      
   other-modules:        
   build-depends:        base
+                      , cardano-sl
   hs-source-dirs:       src
   default-language:     Haskell2010
   ghc-options:         -Wall
@@ -62,6 +63,14 @@ executable cardano-explorer
   main-is:             Main.hs
   other-modules:       ExplorerOptions
   build-depends:       base
+                     , cardano-sl
+                     , cardano-sl-explorer
+                     , optparse-simple
+                     , universum
+                     , serokell-util
+                     , log-warper
+                     , node-sketch
+                     , lens
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall

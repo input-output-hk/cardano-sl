@@ -36,7 +36,7 @@ module Pos.Wallet.Web.ClientTypes
       , toCUpdateInfo
       ) where
 
-import           Data.Text             (Text, isInfixOf)
+import           Data.Text             (Text, isInfixOf, toLower)
 import           GHC.Generics          (Generic)
 import           Universum
 
@@ -217,7 +217,7 @@ data CTx = CTx
     } deriving (Show, Generic)
 
 txContainsTitle :: Text -> CTx -> Bool
-txContainsTitle search = isInfixOf search . ctmTitle . ctTypeMeta . ctType
+txContainsTitle search = isInfixOf (toLower search) . toLower . ctmTitle . ctTypeMeta . ctType
 
 -- | meta data of exchanges
 data CTExMeta = CTExMeta

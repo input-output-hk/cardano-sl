@@ -180,7 +180,8 @@ sscProcessCommitment
        GtDataProcessingMode m
     => SignedCommitment -> m ()
 sscProcessCommitment comm =
-    sscProcessData $ CommitmentsPayload (mkCommitmentsMap [comm]) mempty
+    sscProcessData CommitmentMsg $
+    CommitmentsPayload (mkCommitmentsMap [comm]) mempty
 
 -- | Process 'Opening' received from network, checking it against
 -- current state (global + local) and adding to local state if it's valid.
@@ -188,7 +189,8 @@ sscProcessOpening
     :: GtDataProcessingMode m
     => StakeholderId -> Opening -> m ()
 sscProcessOpening id opening =
-    sscProcessData $ OpeningsPayload (HM.fromList [(id, opening)]) mempty
+    sscProcessData OpeningMsg $
+    OpeningsPayload (HM.fromList [(id, opening)]) mempty
 
 -- | Process 'InnerSharesMap' received from network, checking it against
 -- current state (global + local) and adding to local state if it's valid.
@@ -196,7 +198,7 @@ sscProcessShares
     :: GtDataProcessingMode m
     => StakeholderId -> InnerSharesMap -> m ()
 sscProcessShares id shares =
-    sscProcessData $ SharesPayload (HM.fromList [(id, shares)]) mempty
+    sscProcessData SharesMsg $ SharesPayload (HM.fromList [(id, shares)]) mempty
 
 -- | Process 'VssCertificate' received from network, checking it against
 -- current state (global + local) and adding to local state if it's valid.
@@ -204,14 +206,16 @@ sscProcessCertificate
     :: GtDataProcessingMode m
     => VssCertificate -> m ()
 sscProcessCertificate cert =
-    sscProcessData $ CertificatesPayload (mkVssCertificatesMap [cert])
+    sscProcessData VssCertificateMsg $
+    CertificatesPayload (mkVssCertificatesMap [cert])
 
 sscProcessData
     :: forall m.
        GtDataProcessingMode m
-    => GtPayload -> m ()
-sscProcessData payload =
+    => GtTag -> GtPayload -> m ()
+sscProcessData tag payload =
     generalizeExceptT $ do
+        getCurrentSlot >>= checkSlot
         ld <- sscRunLocalQuery ask
         let epoch = ld ^. ldEpoch
         LrcDB.getRichmenSsc epoch >>= \case
@@ -223,6 +227,12 @@ sscProcessData payload =
                     sscProcessDataDo (epoch, richmen) gs payload
   where
     generalizeExceptT action = either throwError pure =<< runExceptT action
+    checkSlot si@SlotId {..}
+        | isGoodSlotForTag tag siSlot = pass
+        | CommitmentMsg <- tag = throwError $ NotCommitmentPhase si
+        | OpeningMsg <- tag = throwError $ NotOpeningPhase si
+        | SharesMsg <- tag = throwError $ NotSharesPhase si
+        | otherwise = pass
 
 sscProcessDataDo
     :: (MonadState GtLocalData m, WithLogger m)

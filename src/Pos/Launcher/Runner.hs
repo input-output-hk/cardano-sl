@@ -49,9 +49,9 @@ import qualified Network.Transport.TCP       as TCP
 import           Node                        (NodeAction (..), hoistSendActions, node)
 import qualified STMContainers.Map           as SM
 import           System.Random               (newStdGen)
-import           System.Wlog                 (WithLogger, logError, logInfo, logWarning,
-                                              releaseAllHandlers, traverseLoggerConfig,
-                                              usingLoggerName)
+import           System.Wlog                 (LoggerConfig (..), WithLogger, logError,
+                                              logInfo, logWarning, releaseAllHandlers,
+                                              traverseLoggerConfig, usingLoggerName)
 import           Universum                   hiding (bracket)
 
 import           Pos.Binary                  ()
@@ -329,8 +329,8 @@ nodeStartMsg BaseParams {..} = logInfo msg
 
 setupLoggers :: MonadIO m => LoggingParams -> m ()
 setupLoggers LoggingParams{..} = do
-    lpLoggerConfig <- readLoggerConfig lpConfigPath
-    traverseLoggerConfig dhtMapper lpLoggerConfig lpHandlerPrefix
+    LoggerConfig{..} <- readLoggerConfig lpConfigPath
+    traverseLoggerConfig dhtMapper lcRotation lcTree lpHandlerPrefix
   where
     dhtMapper  name | name == "dht"  = dhtLoggerName (Proxy :: Proxy (RawRealMode ssc))
                     | otherwise      = name

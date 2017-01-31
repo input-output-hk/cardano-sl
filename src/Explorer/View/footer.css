@@ -91,7 +91,8 @@
       background-color: transparent;
       background-repeat: no-repeat;
       background-position: right center;
-      padding-right: 20px;
+      background-size: 8px 8px;
+      padding-right: 10px;
       box-item: center;
     }
   }

@@ -75,8 +75,9 @@
       background-color: transparent;
       background-repeat: no-repeat;
       background-position: right center;
+      background-size: 8px 8px;
       appearance: none;
-      padding-right: 20px;
+      padding-right: 15px;
     }
 
   }

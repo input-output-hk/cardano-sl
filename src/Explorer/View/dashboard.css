@@ -303,13 +303,16 @@
   }
 
   .btn-expand {
+      font-family: var(--fontFamily0-Regular);
+      font-weight: normal;
+      font-size: 10px;
+
       button: outline-button;
-      padding: 9px 18px;
+      padding: 9px 15px;
       border-radius: 4px;
-      button-color: color(var(--color9) a(0.2)) color(var(--color9) a(0.8)) color(var(--color9) a(0.8));
-      button-border: 1px color(var(--color9) a(0.2)) transparent transparent;
+      button-color: color(var(--color9) a(0.5)) color(var(--color9) a(0.5)) var(--color9);
+      button-border: 1px color(var(--color9) a(0.2)) color(var(--color9) a(0.2)) var(--color9);
       button-background: transparent var(--color7) var(--color7);
   }
-
 
 }

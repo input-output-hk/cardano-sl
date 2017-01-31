@@ -5,13 +5,12 @@ module Pos.Binary.Communication () where
 
 import           Data.Binary.Get                  (getByteString,
                                                    getRemainingLazyByteString, getWord8,
-                                                   isolate, label)
-import           Data.Binary.Put                  (putByteString, putLazyByteString,
-                                                   putWord8, runPut)
+                                                   label)
+import           Data.Binary.Put                  (putByteString, putWord8)
 import qualified Data.ByteString                  as BS
 import qualified Data.ByteString.Lazy             as BSL
 import           Data.Reflection                  (Reifies, reflect)
-import           Formatting                       (formatToString, int, sformat, (%))
+import           Formatting                       (int, sformat, (%))
 import           Node.Message                     (MessageName (..))
 import           Serokell.Data.Memory.Units       (Byte)
 import           Universum                        hiding (putByteString)

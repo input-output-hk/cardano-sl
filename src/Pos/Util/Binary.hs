@@ -87,7 +87,8 @@ putWithLength act = do
     putLazyByteString serialized
     return res
 
--- | An inverse to 'putWithLength'.
+-- | Read length in bytes and then parse something (which has to have exactly
+-- that length).
 getWithLength :: Get a -> Get a
 getWithLength act = do
     -- We limit the int to 20 bytes because an UnsignedVarInt Int64 takes at
@@ -95,6 +96,8 @@ getWithLength act = do
     Bi.UnsignedVarInt (len :: Int64) <- limitGet 20 Bi.get
     isolate64 len act
 
+-- | Read length in bytes, check that it's not bigger than the limit, and
+-- then parse something (which has to have exactly parsed length).
 getWithLengthLimited :: Int64 -> Get a -> Get a
 getWithLengthLimited lim act = do
     Bi.UnsignedVarInt (len :: Int64) <- limitGet 20 Bi.get

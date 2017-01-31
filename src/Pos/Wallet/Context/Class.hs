@@ -36,7 +36,7 @@ class Monad m => WithWalletContext m where
 
 instance (Monad m, WithWalletContext m) => WithWalletContext (ReaderT a m)
 instance (Monad m, WithWalletContext m) => WithWalletContext (StateT a m)
-instance (Monad m, WithWalletContext m) => WithWalletContext (PeerStateHolder s m)
+instance (Monad m, WithWalletContext m) => WithWalletContext (PeerStateHolder m)
 
 instance Monad m => WithWalletContext (PC.ContextHolder ssc m) where
     getWalletContext = fromNodeCtx <$> PC.getNodeContext

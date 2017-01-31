@@ -26,7 +26,6 @@ import           Pos.Constants           (appSystemTag, updateServers)
 import           Pos.Context             (getNodeContext, ncUpdatePath, ncUpdateSemaphore,
                                           ncUpdateWithPkg)
 import           Pos.Crypto              (Hash, castHash, hash)
-import           Pos.Types.Version       (SoftwareVersion (..))
 import           Pos.Update.Core.Types   (UpdateData (..), UpdateProposal (..))
 import           Pos.Update.Poll.Types   (ConfirmedProposalState (..))
 import           Pos.WorkMode            (WorkMode)
@@ -46,7 +45,8 @@ downloadUpdate cst@ConfirmedProposalState {..} = do
         Nothing -> logInfo "This update is not for our system"
         Just updHash -> do
             updPath <- ncUpdatePath <$> getNodeContext
-            let updAppName = svAppName . upSoftwareVersion $ cpsUpdateProposal
+            -- let updAppName = svAppName . upSoftwareVersion $
+            --                  cpsUpdateProposal
             unlessM (liftIO $ doesFileExist updPath) $ do
                 efile <- liftIO $ downloadHash updHash
                 case efile of

@@ -9,6 +9,7 @@ module Pos.Wallet.Web.Server.Methods
        ( walletApplication
        , walletServer
        , walletServeImpl
+       , walletServerOuts
        ) where
 
 import           Control.Monad.Catch           (try)
@@ -16,12 +17,10 @@ import           Control.Monad.Except          (runExceptT)
 import           Control.Monad.Trans.State     (get, runStateT)
 import qualified Data.ByteString.Base64        as B64
 import           Data.Default                  (Default, def)
-import           Data.List                     (elemIndex, (!!))
+import           Data.List                     (elemIndex, nub, (!!))
 import           Data.Time.Clock.POSIX         (getPOSIXTime)
 import           Formatting                    (build, ords, sformat, stext, (%))
 import           Network.Wai                   (Application)
-import           Node                          (SendActions, hoistSendActions)
-import           Pos.Crypto                    (hash)
 import           Servant.API                   ((:<|>) ((:<|>)),
                                                 FromHttpApiData (parseUrlPiece))
 import           Servant.Server                (Handler, Server, ServerT, serve)
@@ -30,10 +29,11 @@ import           System.Wlog                   (logInfo)
 import           Universum
 
 import           Pos.Aeson.ClientTypes         ()
-import           Pos.Communication.BiP         (BiP)
+import           Pos.Communication.Protocol    (OutSpecs, SendActions, hoistSendActions)
 import           Pos.Constants                 (curSoftwareVersion)
+import           Pos.Crypto                    (hash)
 import           Pos.Crypto                    (deterministicKeyGen, toPublic)
-import           Pos.DHT.Model                 (dhtAddr, getKnownPeers)
+import           Pos.DHT.Model                 (getKnownPeers)
 import           Pos.Slotting                  (getSlotDuration)
 import           Pos.Types                     (Address, ChainDifficulty (..), Coin,
                                                 TxOut (..), addressF, coinF,
@@ -41,11 +41,9 @@ import           Pos.Types                     (Address, ChainDifficulty (..), C
                                                 mkCoin)
 import           Pos.Util                      (maybeThrow)
 import           Pos.Util.BackupPhrase         (BackupPhrase, keysFromPhrase)
-
-import           Data.List                     (nub)
 import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
                                                 addSecretKey)
-import           Pos.Wallet.Tx                 (submitTx)
+import           Pos.Wallet.Tx                 (sendTxOuts, submitTx)
 import           Pos.Wallet.Tx.Pure            (TxHistoryEntry (..))
 import           Pos.Wallet.WalletMode         (WalletMode, getBalance, getTxHistory,
                                                 localChainDifficulty,
@@ -116,7 +114,7 @@ walletApplication serv = do
 
 walletServer
     :: (Monad m, WalletWebMode ssc (WalletWebHandler m))
-    => SendActions BiP m
+    => SendActions m
     -> WalletWebHandler m (WalletWebHandler m :~> Handler)
     -> WalletWebHandler m (Server WalletApi)
 walletServer sendActions nat = do
@@ -197,12 +195,14 @@ launchNotifier nat = void . liftIO $ mapM startForking
     --         when (oldHistoryLength /= newHistoryLength) .
     --             notify $ NewWalletTransaction cAddress
 
+walletServerOuts :: OutSpecs
+walletServerOuts = sendTxOuts
 
 ----------------------------------------------------------------------------
 -- Handlers
 ----------------------------------------------------------------------------
 
-servantHandlers :: WalletWebMode ssc m => SendActions BiP m -> ServerT WalletApi m
+servantHandlers :: WalletWebMode ssc m =>  SendActions m -> ServerT WalletApi m
 servantHandlers sendActions =
      (catchWalletError . getWallet)
     :<|>
@@ -279,18 +279,18 @@ decodeCAddressOrFail = either wrongAddress pure . cAddressToAddress
 getWallets :: WalletWebMode ssc m => m [CWallet]
 getWallets = join $ mapM getWallet <$> myCAddresses
 
-send :: WalletWebMode ssc m => SendActions BiP m -> CAddress -> CAddress -> Coin -> m CTx
+send :: WalletWebMode ssc m =>  SendActions m -> CAddress -> CAddress -> Coin -> m CTx
 send sendActions srcCAddr dstCAddr c =
     sendExtended sendActions srcCAddr dstCAddr c ADA mempty mempty
 
-sendExtended :: WalletWebMode ssc m => SendActions BiP m -> CAddress -> CAddress -> Coin -> CCurrency -> Text -> Text -> m CTx
+sendExtended :: WalletWebMode ssc m => SendActions m -> CAddress -> CAddress -> Coin -> CCurrency -> Text -> Text -> m CTx
 sendExtended sendActions srcCAddr dstCAddr c curr title desc = do
     srcAddr <- decodeCAddressOrFail srcCAddr
     dstAddr <- decodeCAddressOrFail dstCAddr
     idx <- getAddrIdx srcAddr
     sks <- getSecretKeys
     let sk = sks !! idx
-    na <- fmap dhtAddr <$> getKnownPeers
+    na <- getKnownPeers
     etx <- submitTx sendActions sk na [(TxOut dstAddr c, [])]
     case etx of
         Left err -> throwM . Internal $ sformat ("Cannot send transaction: "%stext) err
@@ -382,7 +382,7 @@ applyUpdate = removeNextUpdate
 blockchainSlotDuration :: WalletWebMode ssc m => m Word
 blockchainSlotDuration = fromIntegral <$> getSlotDuration
 
-redeemADA :: WalletWebMode ssc m => SendActions BiP m -> CWalletRedeem -> m CWallet
+redeemADA :: WalletWebMode ssc m => SendActions m -> CWalletRedeem -> m CWallet
 redeemADA sendActions CWalletRedeem {..} = do
     seedBs <- either
         (\e -> throwM $ Internal ("Seed is invalid base64 string: " <> toText e))
@@ -396,7 +396,7 @@ redeemADA sendActions CWalletRedeem {..} = do
     let dstCAddr = cwAddress walletB
     dstAddr <- decodeCAddressOrFail dstCAddr
     redeemBalance <- getBalance $ makePubKeyAddress redeemPK
-    na <- fmap dhtAddr <$> getKnownPeers
+    na <- getKnownPeers
     etx <- submitTx sendActions redeemSK na [(TxOut dstAddr redeemBalance, [])]
     case etx of
         Left err -> throwM . Internal $ "Cannot send redemption transaction: " <> err

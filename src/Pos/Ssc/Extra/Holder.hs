@@ -21,8 +21,10 @@ import           Control.Monad.Fix         (MonadFix)
 import           Control.Monad.Reader      (ReaderT (ReaderT))
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Data.Default              (Default (def))
-import           Mockable                  (ChannelT, MFunctor', Mockable (liftMockable),
-                                            Promise, SharedAtomicT, ThreadId,
+import           Mockable                  (ChannelT, Counter, Distribution, Gauge, Gauge,
+                                            MFunctor', Mockable (liftMockable), Promise,
+                                            SharedAtomicT, SharedExclusiveT,
+                                            SharedExclusiveT, ThreadId,
                                             liftMockableWrappedM)
 import           Serokell.Util.Lens        (WrappedM (..))
 import           System.Wlog               (CanLog, HasLoggerName, WithLogger)
@@ -59,6 +61,10 @@ instance MonadBase IO m => MonadBase IO (SscHolder ssc m) where
 type instance ThreadId (SscHolder ssc m) = ThreadId m
 type instance Promise (SscHolder ssc m) = Promise m
 type instance SharedAtomicT (SscHolder ssc m) = SharedAtomicT m
+type instance Counter (SscHolder ssc m) = Counter m
+type instance Distribution (SscHolder ssc m) = Distribution m
+type instance SharedExclusiveT (SscHolder ssc m) = SharedExclusiveT m
+type instance Gauge (SscHolder ssc m) = Gauge m
 type instance ChannelT (SscHolder ssc m) = ChannelT m
 
 instance ( Mockable d m

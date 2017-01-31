@@ -1,4 +1,4 @@
-severity: Info
+severity: Debug
 smart-wallet:
     severity: Error
 node:
@@ -18,4 +18,6 @@ node:
         block:
             file: server-block-{{file}}
 smart-gen:
+    severity: Info
+dht:
     severity: Info

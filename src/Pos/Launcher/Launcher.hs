@@ -13,17 +13,18 @@ module Pos.Launcher.Launcher
          -- * Utility launchers.
        ) where
 
-import           Node                  (SendActions)
-import           Mockable              (Production)
+import           Mockable                   (Production)
 
-import           Pos.Communication.BiP (BiP)
-import           Pos.Launcher.Param    (NodeParams (..))
-import           Pos.Launcher.Runner   (RealModeResources, runProductionMode,
-                                        runStatsMode)
-import           Pos.Launcher.Scenario (runNode)
-import           Pos.Ssc.Class         (SscConstraint)
-import           Pos.Ssc.Class.Types   (SscParams)
-import           Pos.WorkMode          (ProductionMode, StatsMode)
+
+
+import           Pos.Communication.Protocol (OutSpecs, WorkerSpec)
+import           Pos.Launcher.Param         (NodeParams (..))
+import           Pos.Launcher.Runner        (RealModeResources, runProductionMode,
+                                             runStatsMode)
+import           Pos.Launcher.Scenario      (runNode)
+import           Pos.Ssc.Class              (SscConstraint)
+import           Pos.Ssc.Class.Types        (SscParams)
+import           Pos.WorkMode               (ProductionMode, StatsMode)
 
 -----------------------------------------------------------------------------
 -- Main launchers
@@ -34,7 +35,7 @@ runNodeProduction
     :: forall ssc.
        SscConstraint ssc
     => RealModeResources
-    -> [SendActions BiP (ProductionMode ssc) -> ProductionMode ssc ()]
+    -> ([WorkerSpec (ProductionMode ssc)], OutSpecs)
     -> NodeParams
     -> SscParams ssc
     -> Production ()
@@ -45,7 +46,7 @@ runNodeStats
     :: forall ssc.
        SscConstraint ssc
     => RealModeResources
-    -> [SendActions BiP (StatsMode ssc) -> StatsMode ssc ()]
+    -> ([WorkerSpec (StatsMode ssc)], OutSpecs)
     -> NodeParams
     -> SscParams ssc
     -> Production ()

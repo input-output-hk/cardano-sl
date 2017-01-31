@@ -6,12 +6,11 @@
 module Pos.Delegation.Types
        ( SendProxySK (..)
        , ConfirmProxySK (..)
-       , CheckProxySKConfirmed (..)
-       , CheckProxySKConfirmedRes (..)
+       --, CheckProxySKConfirmed (..)
+       --, CheckProxySKConfirmedRes (..)
        ) where
 
 import           Data.DeriveTH   (derive, makeArbitrary)
-import           Node.Message    (Message (..))
 import           Test.QuickCheck (Arbitrary (..), choose)
 import           Universum
 
@@ -30,10 +29,6 @@ data SendProxySK
 
 instance Hashable SendProxySK
 
-instance Message SendProxySK where
-    messageName _ = "SendProxySK"
-    formatMessage _ = "SendProxySK"
-
 ----------------------------------------------------------------------------
 -- Lightweight PSKs confirmation mechanism
 ----------------------------------------------------------------------------
@@ -48,27 +43,15 @@ data ConfirmProxySK =
     ConfirmProxySK !ProxySKEpoch !(ProxySigEpoch ProxySKEpoch)
     deriving (Show, Eq, Generic)
 
-instance Message ConfirmProxySK where
-    messageName _ = "ConfirmProxySK"
-    formatMessage _ = "ConfirmProxySK"
-
--- | Request to check if a node has any info about PSK delivery.
-data CheckProxySKConfirmed =
-    CheckProxySKConfirmed !ProxySKEpoch
-    deriving (Show, Eq, Generic)
-
-instance Message CheckProxySKConfirmed where
-    messageName _ = "CheckProxySKConfirmed"
-    formatMessage _ = "CheckProxySKConfirmed"
-
--- | Response to the @CheckProxySKConfirmed@ call.
-data CheckProxySKConfirmedRes =
-    CheckProxySKConfirmedRes !Bool
-    deriving (Show, Eq, Generic)
-
-instance Message CheckProxySKConfirmedRes where
-    messageName _ = "CheckProxySKConfirmedRes"
-    formatMessage _ = "CheckProxySKConfirmedRes"
+---- | Request to check if a node has any info about PSK delivery.
+--data CheckProxySKConfirmed =
+--    CheckProxySKConfirmed !ProxySKEpoch
+--    deriving (Show, Eq, Generic)
+--
+---- | Response to the @CheckProxySKConfirmed@ call.
+--data CheckProxySKConfirmedRes =
+--    CheckProxySKConfirmedRes !Bool
+--    deriving (Show, Eq, Generic)
 
 ----------------------------------------------------------------------------
 -- Arbitrary instances
@@ -76,5 +59,5 @@ instance Message CheckProxySKConfirmedRes where
 
 derive makeArbitrary ''SendProxySK
 derive makeArbitrary ''ConfirmProxySK
-derive makeArbitrary ''CheckProxySKConfirmed
-derive makeArbitrary ''CheckProxySKConfirmedRes
+--derive makeArbitrary ''CheckProxySKConfirmed
+--derive makeArbitrary ''CheckProxySKConfirmedRes

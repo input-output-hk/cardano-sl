@@ -12,18 +12,19 @@ import           Control.Concurrent.STM.TVar (newTVarIO)
 import           Formatting                  (build, sformat, (%))
 import           Mockable                    (Production, bracket, currentTime, fork,
                                               sleepForever)
-import           Node                        (Listener, SendActions)
+import qualified STMContainers.Map           as SM
 import           System.Wlog                 (logInfo, usingLoggerName)
 import           Universum                   hiding (bracket)
 
-import           Pos.Communication           (BiP (..))
+import           Pos.Communication           (ActionSpec (..), ListenersWithOut, OutSpecs,
+                                              WorkerSpec)
+import           Pos.Communication.PeerState (runPeerStateHolder)
 import           Pos.DHT.Model               (discoverPeers)
 import           Pos.DHT.Real                (runKademliaDHT)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
                                               RealModeResources (..), addDevListeners,
                                               runServer)
 import           Pos.Slotting                (SlottingState (..))
-
 import           Pos.Types                   (unflattenSlotId)
 import           Pos.Wallet.Context          (WalletContext (..), runContextHolder)
 import           Pos.Wallet.KeyStorage       (runKeyStorage)
@@ -37,20 +38,20 @@ import           Pos.Wallet.WalletMode       (WalletMode, WalletRealMode)
 allListeners
     -- :: (MonadDHTDialog SState m, WalletMode SscGodTossing m)
     -- => [ListenerDHT SState m]
-    :: [a]
-allListeners = []
+    :: Monoid b => ([a], b)
+allListeners = ([], mempty)
 
 -- TODO: Move to some `Pos.Wallet.Worker` and provide
 -- meaningful ones
 -- allWorkers :: WalletMode ssc m => [m ()]
-allWorkers :: [a]
-allWorkers = []
+allWorkers :: Monoid b => ([a], b)
+allWorkers = ([], mempty)
 
 -- | WalletMode runner
 runWalletRealMode
     :: RealModeResources
     -> WalletParams
-    -> (SendActions BiP WalletRealMode -> WalletRealMode a)
+    -> (ActionSpec WalletRealMode a, OutSpecs)
     -> Production a
 runWalletRealMode res wp@WalletParams {..} = runRawRealWallet res wp listeners
   where
@@ -59,26 +60,29 @@ runWalletRealMode res wp@WalletParams {..} = runRawRealWallet res wp listeners
 runWalletReal
     :: RealModeResources
     -> WalletParams
-    -> [SendActions BiP WalletRealMode -> WalletRealMode ()]
+    -> ([WorkerSpec WalletRealMode], OutSpecs)
     -> Production ()
 runWalletReal res wp = runWalletRealMode res wp . runWallet
 
-runWallet :: WalletMode ssc m => [SendActions BiP m -> m ()] -> SendActions BiP m -> m ()
-runWallet plugins sendActions = do
+runWallet :: WalletMode ssc m => ([WorkerSpec m], OutSpecs) -> (WorkerSpec m, OutSpecs)
+runWallet (plugins', pouts) = (,outs) . ActionSpec $ \vI sendActions -> do
     logInfo "Wallet is initialized!"
     peers <- discoverPeers
     logInfo $ sformat ("Known peers: "%build) peers
-    mapM_ fork allWorkers
-    mapM_ (fork . ($ sendActions)) plugins
+    let unpackPlugin (ActionSpec action) = action vI
+    mapM_ (fork . ($ sendActions) . unpackPlugin) $ plugins' ++ workers'
     sleepForever
+  where
+    (workers', wouts) = allWorkers
+    outs = wouts <> pouts
 
 runRawRealWallet
     :: RealModeResources
     -> WalletParams
-    -> [Listener BiP WalletRealMode]
-    -> (SendActions BiP WalletRealMode -> WalletRealMode a)
+    -> ListenersWithOut WalletRealMode
+    -> (ActionSpec WalletRealMode a, OutSpecs)
     -> Production a
-runRawRealWallet res WalletParams {..} listeners action =
+runRawRealWallet res WalletParams {..} listeners (ActionSpec action, outs) =
     usingLoggerName lpRunnerTag .
     bracket openDB closeDB $ \db -> do
         slottingStateVar <- do
@@ -91,12 +95,14 @@ runRawRealWallet res WalletParams {..} listeners action =
               { wcSystemStart = wpSystemStart
               , wcSlottingState = slottingStateVar
               }
+        stateM <- liftIO SM.newIO
         runContextHolder walletContext .
             runWalletDB db .
             runKeyStorage wpKeyFilePath .
             runKademliaDHT (rmDHT res) .
-            runServer (rmTransport res) listeners $
-                \sa -> logInfo "Started wallet, joining network" >> action sa
+            runPeerStateHolder stateM .
+            runServer (rmTransport res) listeners outs . ActionSpec $
+                \vI sa -> logInfo "Started wallet, joining network" >> action vI sa
   where
     LoggingParams {..} = bpLoggingParams wpBaseParams
     openDB = maybe openMemState (openState wpRebuildDb) wpDbPath

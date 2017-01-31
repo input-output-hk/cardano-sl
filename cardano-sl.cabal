@@ -41,6 +41,7 @@ library
                         Pos.CLI
                         Pos.Context
                         Pos.Communication
+                        Pos.Communication.Relay
                         Pos.CompileConfig
                         Pos.Constants
                         Pos.Crypto
@@ -115,8 +116,8 @@ library
                         Pos.Util
                         Pos.Util.BackupPhrase
                         Pos.Util.JsonLog
-                        Pos.Util.Relay
                         Pos.Util.UserSecret
+                        Pos.Util.TimeLimit
                         Pos.Util.TimeWarp
                         Pos.Worker
                         Pos.WorkMode
@@ -162,14 +163,16 @@ library
                         -- Network
                         Pos.Communication.Arbitrary
                         Pos.Communication.BiP
+                        Pos.Communication.Message
                         Pos.Communication.Methods
+                        Pos.Communication.Protocol
                         Pos.Communication.PeerState
                         Pos.Communication.Types
                         Pos.Communication.Types.Protocol
+                        Pos.Communication.Types.Relay
                         Pos.Communication.Types.State
                         Pos.Communication.Types.SysStart
                         Pos.Communication.Server
-                        Pos.Communication.Server.Protocol
                         Pos.Communication.Server.SysStart
                         Pos.Communication.Util
 
@@ -350,6 +353,7 @@ library
 
                         -- Utilities/helpers
                         Pos.Util.Arbitrary
+                        Pos.Util.Binary
                         Pos.Util.Iterator
                         Pos.Util.NotImplemented
   if flag(with-web)

@@ -16,7 +16,7 @@ import           Pos.Update.Network.Types  (ProposalMsgTag (..), VoteMsgTag (..)
 import           Pos.Binary.Update         ()
 import           Pos.Types.Arbitrary       ()
 import           Pos.Update.Core.Types     (UpdateVote (..), VoteId, mkVoteId)
-import           Pos.Util.Relay            (DataMsg (..))
+import           Pos.Communication.Relay            (DataMsg (..))
 
 derive makeArbitrary ''ProposalMsgTag
 derive makeArbitrary ''VoteMsgTag

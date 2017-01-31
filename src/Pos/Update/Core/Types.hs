@@ -68,7 +68,7 @@ import           Pos.Types.Coin             ()
 import           Pos.Types.Core             (BlockVersion, CoinPortion, FlatSlotId,
                                              SoftwareVersion)
 import           Pos.Types.Version          ()
-import           Pos.Util                   (Raw)
+import           Pos.Util.Binary            (Raw)
 
 ----------------------------------------------------------------------------
 -- UpdateProposal and related

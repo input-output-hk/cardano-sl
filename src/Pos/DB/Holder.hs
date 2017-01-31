@@ -14,10 +14,10 @@ import           Control.Monad.Base           (MonadBase (..))
 import           Control.Monad.Fix            (MonadFix)
 import           Control.Monad.Trans          (MonadTrans)
 import           Control.Monad.Trans.Resource (MonadResource)
-import           Mockable                     (ChannelT, MFunctor',
-                                               Mockable (liftMockable), Promise,
-                                               SharedAtomicT, ThreadId,
-                                               liftMockableWrappedM)
+import           Mockable                     (ChannelT, Counter, Distribution, Gauge,
+                                               MFunctor', Mockable (liftMockable),
+                                               Promise, SharedAtomicT, SharedExclusiveT,
+                                               ThreadId, liftMockableWrappedM)
 import           Serokell.Util.Lens           (WrappedM (..))
 import           System.Wlog                  (CanLog, HasLoggerName)
 import           Universum
@@ -52,6 +52,10 @@ instance (MonadIO m, MonadThrow m) =>
 type instance ThreadId (DBHolder ssc m) = ThreadId m
 type instance Promise (DBHolder ssc m) = Promise m
 type instance SharedAtomicT (DBHolder ssc m) = SharedAtomicT m
+type instance Counter (DBHolder ssc m) = Counter m
+type instance Distribution (DBHolder ssc m) = Distribution m
+type instance SharedExclusiveT (DBHolder ssc m) = SharedExclusiveT m
+type instance Gauge (DBHolder ssc m) = Gauge m
 type instance ChannelT (DBHolder ssc m) = ChannelT m
 
 instance ( Mockable d m

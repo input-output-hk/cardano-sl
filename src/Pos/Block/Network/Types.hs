@@ -9,16 +9,14 @@ module Pos.Block.Network.Types
        , MsgBlock (..)
        ) where
 
-import qualified Data.ByteString.Char8 as BC
 import qualified Data.Text.Buildable
-import           Formatting            (bprint, build, (%))
-import           Serokell.Util.Text    (listJson)
+import           Formatting          (bprint, build, (%))
+import           Serokell.Util.Text  (listJson)
 import           Universum
 
-import           Node.Message          (Message (..), MessageName (..))
-import           Pos.Ssc.Class.Types   (Ssc (SscPayload))
-import           Pos.Types             (Block, BlockHeader, HeaderHash)
-import           Pos.Util              (NE, NewestFirst)
+import           Pos.Ssc.Class.Types (Ssc (SscPayload))
+import           Pos.Types           (Block, BlockHeader, HeaderHash)
+import           Pos.Util            (NE, NewestFirst)
 
 -- | 'GetHeaders' message (see protocol specification).
 data MsgGetHeaders = MsgGetHeaders
@@ -26,10 +24,6 @@ data MsgGetHeaders = MsgGetHeaders
       mghFrom :: ![HeaderHash]
     , mghTo   :: !(Maybe HeaderHash)
     } deriving (Generic, Show, Eq)
-
-instance Message MsgGetHeaders where
-    messageName _ = MessageName $ BC.pack "GetHeaders"
-    formatMessage _ = "GetHeaders"
 
 instance Buildable MsgGetHeaders where
     build (MsgGetHeaders mghFrom mghTo) =
@@ -42,10 +36,6 @@ data MsgGetBlocks = MsgGetBlocks
     , mgbTo   :: !HeaderHash
     } deriving (Generic, Show, Eq)
 
-instance Message MsgGetBlocks where
-    messageName _ = MessageName $ BC.pack "GetBlocks"
-    formatMessage _ = "GetBlocks"
-
 instance Buildable MsgGetBlocks where
     build (MsgGetBlocks mgbFrom mgbTo) =
         bprint ("MsgGetBlocks {from = "%build%", to = "%build%"}")
@@ -55,10 +45,6 @@ instance Buildable MsgGetBlocks where
 newtype MsgHeaders ssc =
     MsgHeaders (NewestFirst NE (BlockHeader ssc))
     deriving (Generic, Show, Eq)
-
-instance Message (MsgHeaders ssc) where
-    messageName _ = MessageName $ BC.pack "BlockHeaders"
-    formatMessage _ = "BlockHeaders"
 
 -- | 'Block' message (see protocol specification).
 --
@@ -70,7 +56,3 @@ newtype MsgBlock s ssc =
     deriving (Generic, Show)
 
 deriving instance (Ssc ssc, Eq (SscPayload ssc)) => Eq (MsgBlock s ssc)
-
-instance Message (MsgBlock s ssc) where
-    messageName _ = MessageName $ BC.pack "Block"
-    formatMessage _ = "Block"

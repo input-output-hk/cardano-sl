@@ -19,20 +19,23 @@ module Pos.Wallet.Web.Server.Sockets
        , getWalletWebSocketsState
        ) where
 
-import qualified Network.WebSockets             as WS
-import           Pos.Wallet.Web.ClientTypes     (NotifyEvent (ConnectionClosed, ConnectionOpened))
-
 import           Control.Concurrent.STM.TVar    (TVar, newTVarIO, readTVarIO, writeTVar)
 import           Control.Lens                   (iso)
 import           Control.Monad.Trans            (MonadTrans (..))
 import           Data.Aeson                     (encode)
-import           Mockable                       (ChannelT, MFunctor',
-                                                 Mockable (liftMockable), Promise,
-                                                 SharedAtomicT, ThreadId,
-                                                 liftMockableWrappedM)
+import           Mockable                       (ChannelT, Counter, Distribution, Gauge,
+                                                 MFunctor', Mockable (liftMockable),
+                                                 Promise, SharedAtomicT, SharedExclusiveT,
+                                                 ThreadId, liftMockableWrappedM)
 import           Network.Wai                    (Application)
 import           Network.Wai.Handler.WebSockets (websocketsOr)
+import qualified Network.WebSockets             as WS
+import           Serokell.Util.Lens             (WrappedM (..))
+import           System.Wlog                    (CanLog, HasLoggerName)
+import           Universum
+
 import           Pos.Aeson.ClientTypes          ()
+import           Pos.Communication.PeerState    (WithPeerState)
 import           Pos.Context                    (WithNodeContext)
 import qualified Pos.DB                         as Modern
 import           Pos.Delegation.Class           (MonadDelegation)
@@ -45,10 +48,8 @@ import           Pos.Wallet.KeyStorage          (MonadKeys)
 import           Pos.Wallet.State               (MonadWalletDB)
 import           Pos.Wallet.WalletMode          (MonadBalances, MonadBlockchainInfo,
                                                  MonadTxHistory, MonadUpdates)
+import           Pos.Wallet.Web.ClientTypes     (NotifyEvent (ConnectionClosed, ConnectionOpened))
 import           Pos.Wallet.Web.State           (MonadWalletWebDB)
-import           Serokell.Util.Lens             (WrappedM (..))
-import           System.Wlog                    (CanLog, HasLoggerName)
-import           Universum
 
 -- NODE: for now we are assuming only one client will be used. If there will be need for multiple clients we should extend and hold multiple connections here.
 -- We might add multiple clients when we add user profiles but I am not sure if we are planning on supporting more at all.
@@ -107,7 +108,7 @@ newtype WalletWebSockets m a = WalletWebSockets
                 MonadWalletDB, WithWalletContext,
                 MonadDHT, MonadSlots,
                 CanLog, MonadKeys, MonadBalances, MonadUpdates,
-                MonadTxHistory, MonadBlockchainInfo, WithNodeContext ssc,
+                MonadTxHistory, MonadBlockchainInfo, WithNodeContext ssc, WithPeerState,
                 Modern.MonadDB ssc, MonadTxpLD ssc, MonadWalletWebDB, MonadDelegation, US.MonadUSMem)
 
 instance Monad m => WrappedM (WalletWebSockets m) where
@@ -127,6 +128,10 @@ instance Monad m => MonadWalletWebSockets (WalletWebSockets m) where
 type instance ThreadId (WalletWebSockets m) = ThreadId m
 type instance Promise (WalletWebSockets m) = Promise m
 type instance SharedAtomicT (WalletWebSockets m) = SharedAtomicT m
+type instance Counter (WalletWebSockets m) = Counter m
+type instance Distribution (WalletWebSockets m) = Distribution m
+type instance SharedExclusiveT (WalletWebSockets m) = SharedExclusiveT m
+type instance Gauge (WalletWebSockets m) = Gauge m
 type instance ChannelT (WalletWebSockets m) = ChannelT m
 
 instance ( Mockable d m

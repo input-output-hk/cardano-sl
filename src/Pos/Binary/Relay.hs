@@ -1,6 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 
--- | Pos.Util.Relay serialization instances
+-- | Pos.Communication.Relay serialization instances
 
 module Pos.Binary.Relay () where
 
@@ -8,6 +8,8 @@ import           Universum
 
 import           Pos.Binary.Class                 (Bi (..))
 import           Pos.Binary.Crypto                ()
+import           Pos.Binary.Ssc                   ()
+import           Pos.Communication.Types.Relay    (DataMsg (..), InvMsg (..), ReqMsg (..))
 import           Pos.Crypto                       (hash)
 import           Pos.Ssc.GodTossing.Types.Base    (VssCertificate (..))
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..))
@@ -16,8 +18,6 @@ import           Pos.Types                        (TxId)
 import           Pos.Types.Address                (StakeholderId, addressHash)
 import           Pos.Update.Core                  (UpId, UpdateProposal, UpdateVote (..),
                                                    VoteId)
-import           Pos.Util.Relay                   (DataMsg (..), DataMsgGodTossing (..),
-                                                   InvMsg (..), ReqMsg (..))
 
 instance (Bi tag, Bi key) => Bi (InvMsg key tag) where
     put InvMsg {..} = put imTag >> put imKeys
@@ -42,10 +42,6 @@ instance Bi (DataMsg StakeholderId GtMsgContents) where
             MCVssCertificate VssCertificate {..} -> pure $ addressHash vcSigningKey
             _                                    -> get
         return $ DataMsg {..}
-
-instance Bi DataMsgGodTossing where
-    put = put . getDataMsg
-    get = DataMsgGT <$> get
 
 instance Bi (DataMsg TxId TxMsgContents) where
     put (DataMsg (TxMsgContents dmTx dmWitness dmDistr) _) =

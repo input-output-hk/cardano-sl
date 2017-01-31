@@ -7,8 +7,7 @@ module Pos.Communication.Types.SysStart
 
 import           Universum
 
-import           Node.Message (Message (..))
-import           Pos.Types    (Timestamp)
+import           Pos.Types (Timestamp)
 
 -- | Communication request for system start.
 data SysStartRequest = SysStartRequest
@@ -17,11 +16,3 @@ data SysStartRequest = SysStartRequest
 -- | Response to 'SysStartRequest'.
 data SysStartResponse = SysStartResponse !Timestamp
     deriving (Show, Eq, Generic)
-
-instance Message SysStartRequest where
-    messageName _ = "SysStartRequest"
-    formatMessage _ = "SysStartRequest"
-
-instance Message SysStartResponse where
-    messageName _ = "SysStartResponse"
-    formatMessage _ = "SysStartResponse"

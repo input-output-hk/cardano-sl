@@ -28,9 +28,9 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
 import qualified Data.Binary                 as Binary
 import           Data.Maybe                  (fromMaybe)
 import           Focus                       (Decision (Remove), alterM)
-import           Mockable                    (ChannelT, MFunctor',
-                                              Mockable (liftMockable), Promise,
-                                              SharedAtomicT, ThreadId,
+import           Mockable                    (ChannelT, Counter, Distribution, Gauge,
+                                              MFunctor', Mockable (liftMockable), Promise,
+                                              SharedAtomicT, SharedExclusiveT, ThreadId,
                                               liftMockableWrappedM)
 import           Serokell.Util               (WrappedM (..), show')
 import qualified STMContainers.Map           as SM
@@ -78,7 +78,7 @@ newtype NoStatsT m a = NoStatsT
     { getNoStatsT :: m a  -- ^ action inside wrapper without collecting statistics
     } deriving (Functor, Applicative, Monad, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
-                MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState ssc,
+                MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState,
                 MonadJL, CanLog, MonadUtxoRead, MonadUtxo,
                 MonadTxpLD ssc, MonadSscGS ssc, MonadSscLD ssc,
                 WithNodeContext ssc, MonadDelegation, MonadUSMem)
@@ -115,6 +115,10 @@ type StatsMap = SM.Map Text LByteString
 type instance ThreadId (NoStatsT m) = ThreadId m
 type instance Promise (NoStatsT m) = Promise m
 type instance SharedAtomicT (NoStatsT m) = SharedAtomicT m
+type instance Counter (NoStatsT m) = Counter m
+type instance Distribution (NoStatsT m) = Distribution m
+type instance SharedExclusiveT (NoStatsT m) = SharedExclusiveT m
+type instance Gauge (NoStatsT m) = Gauge m
 type instance ChannelT (NoStatsT m) = ChannelT m
 
 instance ( Mockable d m
@@ -128,7 +132,7 @@ newtype StatsT m a = StatsT
     { getStatsT :: ReaderT StatsMap m a  -- ^ action inside wrapper with collected statistics
     } deriving (Functor, Applicative, Monad, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
-                MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState ssc,
+                MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState,
                 MonadTrans, MonadJL, CanLog, MonadUtxoRead, MonadUtxo,
                 MonadTxpLD ssc, MonadSscGS ssc, MonadSscLD ssc,
                 WithNodeContext ssc, MonadDelegation, MonadUSMem)
@@ -154,6 +158,10 @@ instance MonadBase IO m => MonadBase IO (StatsT m) where
 type instance ThreadId (StatsT m) = ThreadId m
 type instance Promise (StatsT m) = Promise m
 type instance SharedAtomicT (StatsT m) = SharedAtomicT m
+type instance Counter (StatsT m) = Counter m
+type instance Distribution (StatsT m) = Distribution m
+type instance SharedExclusiveT (StatsT m) = SharedExclusiveT m
+type instance Gauge (StatsT m) = Gauge m
 type instance ChannelT (StatsT m) = ChannelT m
 
 instance ( Mockable d m

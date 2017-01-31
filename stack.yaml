@@ -28,11 +28,11 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 7b44e90d9831de861ca6f563929630407c6294b4
+    commit: 94568cc274ee66dc6b523ade0eece331228e7dc5
   extra-dep: true
 - location:
     git: https://github.com/serokell/network-transport-tcp.git
-    commit: 586c9bf830252476522cab6274ef8ddc32615686
+    commit: 6cef5a6120d1aa7b87c270a95149bc69403c1376
   extra-dep: true
 
 nix:

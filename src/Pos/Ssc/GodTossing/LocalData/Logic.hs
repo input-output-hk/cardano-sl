@@ -107,7 +107,7 @@ normalize :: EpochIndex
           -> LocalUpdate SscGodTossing ()
 normalize epoch richmenSet gs = do
     oldModifier <- use ldModifier
-    let richmenData = (epoch, richmenSet)
+    let richmenData = HM.fromList [(epoch, richmenSet)]
     newModifier <-
         evalPureTossWithLogger richmenData gs $
         execTossT mempty $ normalizeToss epoch oldModifier
@@ -154,7 +154,7 @@ sscIsDataUseful tag id =
         ld <- sscRunLocalQuery ask
         let modifier = ld ^. ldModifier
         -- Richmen are irrelevant here.
-        evalPureTossWithLogger (0, mempty) gs $ evalTossT modifier action
+        evalPureTossWithLogger mempty gs $ evalTossT modifier action
 
 ----------------------------------------------------------------------------
 ---- Data processing
@@ -240,12 +240,13 @@ sscProcessDataDo richmenData gs payload =
     runExceptT $ do
         storedEpoch <- use ldEpoch
         let givenEpoch = fst richmenData
+        let multiRichmen = HM.fromList [richmenData]
         unless (storedEpoch == givenEpoch) $
             throwError $ DifferentEpoches storedEpoch givenEpoch
         oldTM <- use ldModifier
         newTM <-
             ExceptT $
-            evalPureTossWithLogger richmenData gs $
+            evalPureTossWithLogger multiRichmen gs $
             runExceptT $
             execTossT oldTM $ verifyAndApplyGtPayload (Left storedEpoch) payload
         ldModifier .= newTM

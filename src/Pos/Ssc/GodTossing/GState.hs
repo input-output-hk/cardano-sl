@@ -17,6 +17,7 @@ module Pos.Ssc.GodTossing.GState
 import           Control.Lens                   ((.=), _Wrapped)
 import           Control.Monad.Except           (runExceptT, throwError)
 import           Data.Default                   (def)
+import qualified Data.HashMap.Strict            as HM
 import qualified Data.List.NonEmpty             as NE
 import           Formatting                     (build, sformat, (%))
 import           System.Wlog                    (WithLogger, logDebug, logInfo)
@@ -34,9 +35,9 @@ import           Pos.Ssc.GodTossing.Core        (VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Functions   (getStableCertsPure)
 import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
 import           Pos.Ssc.GodTossing.Seed        (calculateSeed)
-import           Pos.Ssc.GodTossing.Toss        (PureToss, TossVerFailure (..),
-                                                 applyGenesisBlock, rollbackGT,
-                                                 runPureTossWithLogger,
+import           Pos.Ssc.GodTossing.Toss        (MultiRichmenSet, PureToss,
+                                                 TossVerFailure (..), applyGenesisBlock,
+                                                 rollbackGT, runPureTossWithLogger,
                                                  verifyAndApplyGtPayload)
 import           Pos.Ssc.GodTossing.Type        (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), gsCommitments,
@@ -114,11 +115,10 @@ type GSUpdate a = forall m . (MonadState GtGlobalState m, WithLogger m) => m a
 rollbackBlocks :: NewestFirst NE (Block SscGodTossing) -> GSUpdate ()
 rollbackBlocks = mapM_ rollbackDo
   where
-    dummyRichmen = (0, mempty) -- richmen shouldn't matter here
     rollbackDo :: Block SscGodTossing -> GSUpdate ()
     rollbackDo (Left _) = pass
     rollbackDo (Right (view blockMpc -> payload)) =
-        tossToUpdate dummyRichmen $ rollbackGT payload
+        tossToUpdate mempty $ rollbackGT payload
 
 verifyAndApply
     :: RichmenSet
@@ -127,21 +127,21 @@ verifyAndApply
 verifyAndApply richmenSet blocks = mapM_ verifyAndApplyDo blocks
   where
     epoch = blocks ^. _Wrapped . _neHead . epochIndexL
-    richmenData = (epoch, richmenSet)
+    richmenData = HM.fromList [(epoch, richmenSet)]
     verifyAndApplyDo (Left _) =
         tossToVerifier richmenData $ applyGenesisBlock epoch
     verifyAndApplyDo (Right blk) =
         tossToVerifier richmenData $
         verifyAndApplyGtPayload (Right $ blk ^. gbHeader) (blk ^. blockMpc)
 
-tossToUpdate :: (EpochIndex, RichmenSet) -> PureToss a -> GSUpdate a
+tossToUpdate :: MultiRichmenSet -> PureToss a -> GSUpdate a
 tossToUpdate richmenData action = do
     oldState <- use identity
     (res, newState) <- runPureTossWithLogger richmenData oldState action
     (identity .= newState) $> res
 
 tossToVerifier
-    :: (EpochIndex, RichmenSet)
+    :: MultiRichmenSet
     -> ExceptT TossVerFailure PureToss a
     -> SscVerifier SscGodTossing a
 tossToVerifier richmenData action = do

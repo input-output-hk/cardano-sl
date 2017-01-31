@@ -2,6 +2,7 @@
 
 module Pos.Ssc.GodTossing.Toss.Pure
        ( PureToss (..)
+       , MultiRichmenSet
        , runPureToss
        , runPureTossWithLogger
        , evalPureTossWithLogger
@@ -10,6 +11,7 @@ module Pos.Ssc.GodTossing.Toss.Pure
 
 import           Control.Lens                   (at, to, (%=), (.=))
 import           Control.Monad.RWS.Strict       (RWS, runRWS)
+import qualified Data.HashMap.Strict            as HM
 import           System.Wlog                    (CanLog, HasLoggerName (getLoggerName),
                                                  LogEvent, LoggerName, LoggerNameBox,
                                                  PureLogger, WithLogger, dispatchEvents,
@@ -27,8 +29,10 @@ import           Pos.Ssc.GodTossing.Types       (GtGlobalState, gsCommitments, g
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types                      (EpochIndex, crucialSlot)
 
+type MultiRichmenSet = HashMap EpochIndex RichmenSet
+
 newtype PureToss a = PureToss
-    { getPureToss :: LoggerNameBox (PureLogger (RWS (EpochIndex, RichmenSet) () GtGlobalState)) a
+    { getPureToss :: LoggerNameBox (PureLogger (RWS MultiRichmenSet () GtGlobalState)) a
     } deriving (Functor, Applicative, Monad, CanLog, HasLoggerName)
 
 instance MonadTossRead PureToss where
@@ -44,11 +48,7 @@ instance MonadTossRead PureToss where
             PureToss $
             VCD.certs . VCD.setLastKnownSlot (crucialSlot epoch) <$>
             use gsVssCertificates
-    getRichmen epoch = PureToss $ getRichmenDo <$> ask
-      where
-        getRichmenDo (e, r)
-            | e == epoch = Just r
-            | otherwise = Nothing
+    getRichmen epoch = PureToss $ HM.lookup epoch <$> ask
 
 instance MonadToss PureToss where
     putCommitment signedComm =
@@ -65,7 +65,7 @@ instance MonadToss PureToss where
 
 runPureToss
     :: LoggerName
-    -> (EpochIndex, RichmenSet)
+    -> MultiRichmenSet
     -> GtGlobalState
     -> PureToss a
     -> (a, GtGlobalState, [LogEvent])
@@ -80,7 +80,7 @@ runPureToss loggerName richmenData gs =
 
 runPureTossWithLogger
     :: WithLogger m
-    => (EpochIndex, RichmenSet)
+    => MultiRichmenSet
     -> GtGlobalState
     -> PureToss a
     -> m (a, GtGlobalState)
@@ -91,10 +91,10 @@ runPureTossWithLogger richmenData gs action = do
 
 evalPureTossWithLogger
     :: WithLogger m
-    => (EpochIndex, RichmenSet) -> GtGlobalState -> PureToss a -> m a
+    => MultiRichmenSet -> GtGlobalState -> PureToss a -> m a
 evalPureTossWithLogger r g = fmap fst . runPureTossWithLogger r g
 
 execPureTossWithLogger
     :: WithLogger m
-    => (EpochIndex, RichmenSet) -> GtGlobalState -> PureToss a -> m GtGlobalState
+    => MultiRichmenSet -> GtGlobalState -> PureToss a -> m GtGlobalState
 execPureTossWithLogger r g = fmap snd . runPureTossWithLogger r g

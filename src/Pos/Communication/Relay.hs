@@ -11,6 +11,7 @@ module Pos.Communication.Relay
        , relayListeners
        , relayStubListeners
        , RelayProxy (..)
+       , InvOrData
        ) where
 
 import qualified Data.List.NonEmpty            as NE
@@ -26,7 +27,7 @@ import           Universum
 import           Pos.Binary.Class              (Bi (..))
 import           Pos.Communication.Protocol    (ConversationActions (..), ListenerSpec,
                                                 NOP, OutSpecs, listenerConv, mergeLs)
-import           Pos.Communication.Types.Relay (DataMsg (..), InvMsg (..), ReqMsg (..))
+import           Pos.Communication.Types.Relay (DataMsg (..), InvMsg (..), ReqMsg (..), InvOrData)
 import           Pos.Communication.Util        (stubListenerConv)
 import           Pos.Context                   (WithNodeContext (getNodeContext),
                                                 ncPropagation)
@@ -43,7 +44,7 @@ class ( Buildable tag
       , Typeable tag
       , Typeable contents
       , Typeable key
-      , Message (Either (InvMsg key tag) (DataMsg key contents))
+      , Message (InvOrData tag key contents)
       , Message (ReqMsg key tag)
       ) => Relay m tag key contents
       | tag -> contents, contents -> tag, contents -> key, tag -> key where
@@ -123,8 +124,7 @@ handleReqL proxy = listenerConv $
                   rmTag noDataAddrs
           mapM_ (send . constructDataMsg) datas
   where
-    constructDataMsg :: (contents, key)
-                     -> Either (InvMsg key tag) (DataMsg key contents)
+    constructDataMsg :: (contents, key) -> InvOrData tag key contents
     constructDataMsg = Right . uncurry DataMsg
 
 -- Returns True if we should propagate.
@@ -195,8 +195,9 @@ relayListeners proxy = mergeLs [handleReqL proxy, invDataListener]
     invDataListener = listenerConv $ \_ __peerId
         (ConversationActions{..}::(ConversationActions
                                      (ReqMsg key tag)
-                                     (Either (InvMsg key tag) (DataMsg key contents))
-                                     m)) ->
+                                     (InvOrData tag key contents)
+                                     m)
+        ) ->
             whenJustM recv $ expectLeft $ \inv@InvMsg{..} -> do
                 useful <- handleInvL proxy inv
                 whenJust (NE.nonEmpty useful) $ \ne -> do
@@ -217,7 +218,7 @@ relayStubListeners
        , Bi (InvMsg key tag)
        , Bi (ReqMsg key tag)
        , Bi (DataMsg key contents)
-       , Message (Either (InvMsg key tag) (DataMsg key contents))
+       , Message (InvOrData tag key contents)
        , Message (ReqMsg key tag)
        )
     => RelayProxy key tag contents -> ([ListenerSpec m], OutSpecs)
@@ -236,12 +237,12 @@ invCatchType _ _ = ()
 reqCatchType :: RelayProxy key tag contents -> ReqMsg key tag -> ()
 reqCatchType _ _ = ()
 reqMsgProxy :: RelayProxy key tag contents
-            -> Proxy (ReqMsg key tag, Either (InvMsg key tag) (DataMsg key contents))
+            -> Proxy (InvOrData tag key contents, ReqMsg key tag)
 reqMsgProxy _ = Proxy
 
 dataCatchType :: RelayProxy key tag contents -> DataMsg key contents -> ()
 dataCatchType _ _ = ()
 
 invDataMsgProxy :: RelayProxy key tag contents
-                -> Proxy (Either (InvMsg key tag) (DataMsg key contents), ReqMsg key tag)
+                -> Proxy (ReqMsg key tag, InvOrData tag key contents)
 invDataMsgProxy _ = Proxy

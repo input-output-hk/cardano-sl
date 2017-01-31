@@ -33,7 +33,8 @@ import           Pos.Communication.Protocol       (ConversationActions (..), Nod
                                                    OutSpecs, SendActions, Worker',
                                                    WorkerSpec, convH, onNewSlotWorker,
                                                    toOutSpecs)
-import           Pos.Communication.Relay          (DataMsg (..), InvMsg (..), ReqMsg)
+import           Pos.Communication.Relay          (DataMsg (..), InvMsg (..), InvOrData,
+                                                   ReqMsg)
 import           Pos.Constants                    (mpcSendInterval, slotSecurityParam,
                                                    vssMaxTTL)
 import           Pos.Context                      (getNodeContext, lrcActionOnEpochReason,
@@ -99,8 +100,7 @@ onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions -> do
         onNewSlotOpening slotId sendActions
         onNewSlotShares slotId sendActions
   where
-    outs = toOutSpecs [ convH (Proxy :: Proxy (Either (InvMsg StakeholderId GtMsgTag)
-                                                      (DataMsg StakeholderId GtMsgContents)))
+    outs = toOutSpecs [ convH (Proxy :: Proxy (InvOrData GtMsgTag StakeholderId GtMsgContents))
                               (Proxy :: Proxy (ReqMsg StakeholderId GtMsgTag))
                       ]
 
@@ -268,11 +268,11 @@ sendOurData sendActions msgTag epoch slMultiplier ourId = do
 sendInv :: InvMsg StakeholderId GtMsgTag
         -> NodeId
         -> ConversationActions
-               (Either (InvMsg StakeholderId GtMsgTag) (DataMsg StakeholderId GtMsgContents))
+               (InvOrData GtMsgTag StakeholderId GtMsgContents)
                (ReqMsg StakeholderId GtMsgTag)
                m
         -> m ()
-sendInv msg __perId ConversationActions{..} = send $ Left msg
+sendInv msg __peerId ConversationActions{..} = send $ Left msg
 
 -- Generate new commitment and opening and use them for the current
 -- epoch. It is also saved in persistent storage.

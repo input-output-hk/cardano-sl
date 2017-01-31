@@ -8,7 +8,7 @@ import           Pos.Binary.Class                 (UnsignedVarInt (..), encodeSt
 import           Pos.Block.Network.Types          (MsgBlock, MsgGetBlocks, MsgGetHeaders,
                                                    MsgHeaders)
 import           Pos.Communication.Types.Protocol (NOP)
-import           Pos.Communication.Types.Relay    (DataMsg, InvMsg, ReqMsg)
+import           Pos.Communication.Types.Relay    (DataMsg, InvMsg, InvOrData, ReqMsg)
 import           Pos.Communication.Types.SysStart (SysStartRequest, SysStartResponse)
 import           Pos.Delegation.Types             (ConfirmProxySK, SendProxySK)
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents, GtMsgTag)
@@ -56,16 +56,16 @@ instance Message (MsgBlock s ssc) where
     formatMessage _ = "Block"
 
 instance (MessagePart tag, MessagePart contents) =>
-         Message (Either (InvMsg key tag) (DataMsg key contents)) where
+         Message (InvOrData tag key contents) where
     messageName p = varIntMName 8 <>
                     pMessageName (tagM p) <>
                     pMessageName (contentsM p)
       where
-        tagM :: Proxy (Either (InvMsg key tag) (DataMsg key contents))
+        tagM :: Proxy (InvOrData tag key contents)
              -> Proxy tag
         tagM _ = Proxy
 
-        contentsM :: Proxy (Either (InvMsg key tag) (DataMsg key contents))
+        contentsM :: Proxy (InvOrData tag keys contents)
                   -> Proxy contents
         contentsM _ = Proxy
     formatMessage _ = "Inventory/Data"

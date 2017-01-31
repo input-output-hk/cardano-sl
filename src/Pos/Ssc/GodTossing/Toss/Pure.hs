@@ -5,6 +5,7 @@ module Pos.Ssc.GodTossing.Toss.Pure
        , runPureToss
        , runPureTossWithLogger
        , evalPureTossWithLogger
+       , execPureTossWithLogger
        ) where
 
 import           Control.Lens                   (at, to, (%=), (.=))
@@ -92,3 +93,8 @@ evalPureTossWithLogger
     :: WithLogger m
     => (EpochIndex, RichmenSet) -> GtGlobalState -> PureToss a -> m a
 evalPureTossWithLogger r g = fmap fst . runPureTossWithLogger r g
+
+execPureTossWithLogger
+    :: WithLogger m
+    => (EpochIndex, RichmenSet) -> GtGlobalState -> PureToss a -> m GtGlobalState
+execPureTossWithLogger r g = fmap snd . runPureTossWithLogger r g

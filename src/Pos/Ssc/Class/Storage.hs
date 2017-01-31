@@ -51,6 +51,7 @@ class Ssc ssc =>
     sscRollbackU :: NewestFirst NE (Block ssc) -> SscGlobalUpdate ssc ()
     -- | Verify SSC-related part of given blocks with respect to
     -- current GState and apply them on success.
+    -- Blocks must be from the same epoch.
     sscVerifyAndApplyBlocks :: RichmenSet
                             -> OldestFirst NE (Block ssc)
                             -> SscVerifier ssc ()

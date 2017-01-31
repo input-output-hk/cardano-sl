@@ -55,13 +55,20 @@ instance Message (MsgBlock s ssc) where
     messageName _ = varIntMName 7
     formatMessage _ = "Block"
 
-instance (MessagePart tag) =>
-         Message (InvMsg key tag) where
-    messageName p = varIntMName 8 <> pMessageName (tagM p)
+instance (MessagePart tag, MessagePart contents) =>
+         Message (Either (InvMsg key tag) (DataMsg key contents)) where
+    messageName p = varIntMName 8 <>
+                    pMessageName (tagM p) <>
+                    pMessageName (contentsM p)
       where
-        tagM :: Proxy (InvMsg key tag) -> Proxy tag
+        tagM :: Proxy (Either (InvMsg key tag) (DataMsg key contents))
+             -> Proxy tag
         tagM _ = Proxy
-    formatMessage _ = "Inventory"
+
+        contentsM :: Proxy (Either (InvMsg key tag) (DataMsg key contents))
+                  -> Proxy contents
+        contentsM _ = Proxy
+    formatMessage _ = "Inventory/Data"
 
 instance (MessagePart tag) =>
          Message (ReqMsg key tag) where

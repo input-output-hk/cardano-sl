@@ -445,7 +445,8 @@ instance (Bi a, Bi b) => Bi (Either a b) where
         w <- getWord8
         case w of
             0 -> liftM Left  get
-            _ -> liftM Right get
+            1 -> liftM Right get
+            _ -> fail "unexpected Either tag"
 
 instance Bi a => Bi (NonEmpty a) where
     get = maybe (fail "Empty list") pure . nonEmpty =<< get

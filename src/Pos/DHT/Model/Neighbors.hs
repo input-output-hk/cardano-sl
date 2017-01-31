@@ -6,11 +6,11 @@
 {-# LANGUAGE UndecidableInstances      #-}
 
 module Pos.DHT.Model.Neighbors
-  ( sendToNeighbors
-  , sendToNode
-  , converseToNeighbors
-  , converseToNode
-  ) where
+       ( sendToNeighbors
+       , sendToNode
+       , converseToNeighbors
+       , converseToNode
+       ) where
 
 
 import           Formatting                 (int, sformat, shown, (%))
@@ -97,6 +97,8 @@ converseToNeighbors
     -> m ()
 converseToNeighbors sendActions convHandler = do
     nodes <- getNodesWithCheck
-    void $ forConcurrently nodes $ \node -> handleAll (logErr node) $ converseToNode sendActions node convHandler
+    void $ forConcurrently nodes $
+        \node -> handleAll (logErr node) $
+            converseToNode sendActions node convHandler
   where
     logErr node e = logWarning $ sformat ("Error in conversation to "%shown%": "%shown) node e

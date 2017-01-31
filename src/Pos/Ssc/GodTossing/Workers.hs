@@ -29,9 +29,11 @@ import           Pos.Binary.Communication         ()
 import           Pos.Binary.Relay                 ()
 import           Pos.Binary.Ssc                   ()
 import           Pos.Communication.Message        ()
-import           Pos.Communication.Protocol       (OutSpecs, SendActions, WorkerSpec, Worker',
-                                                   onNewSlotWorker, oneMsgH, toOutSpecs)
-import           Pos.Communication.Relay          (DataMsg (..), InvMsg (..))
+import           Pos.Communication.Protocol       (ConversationActions (..), NodeId,
+                                                   OutSpecs, SendActions, Worker',
+                                                   WorkerSpec, convH, onNewSlotWorker,
+                                                   toOutSpecs)
+import           Pos.Communication.Relay          (DataMsg (..), InvMsg (..), ReqMsg)
 import           Pos.Constants                    (mpcSendInterval, slotSecurityParam,
                                                    vssMaxTTL)
 import           Pos.Context                      (getNodeContext, lrcActionOnEpochReason,
@@ -41,7 +43,7 @@ import           Pos.Crypto                       (SecretKey, VssKeyPair, VssPub
 import           Pos.Crypto.SecretSharing         (toVssPublicKey)
 import           Pos.Crypto.Signing               (PublicKey)
 import           Pos.DB.Lrc                       (getRichmenSsc)
-import           Pos.DHT.Model                    (sendToNeighbors)
+import           Pos.DHT.Model                    (converseToNeighbors)
 import           Pos.Slotting                     (getCurrentSlot, getSlotStart)
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
 import           Pos.Ssc.Extra.MonadLD            (sscRunLocalQuery)
@@ -97,8 +99,9 @@ onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions -> do
         onNewSlotOpening slotId sendActions
         onNewSlotShares slotId sendActions
   where
-    outs = toOutSpecs [ oneMsgH (Proxy :: Proxy (DataMsg StakeholderId GtMsgContents))
-                      , oneMsgH (Proxy :: Proxy (InvMsg StakeholderId GtMsgContents))
+    outs = toOutSpecs [ convH (Proxy :: Proxy (Either (InvMsg StakeholderId GtMsgTag)
+                                                      (DataMsg StakeholderId GtMsgContents)))
+                              (Proxy :: Proxy (ReqMsg StakeholderId GtMsgTag))
                       ]
 
 -- CHECK: @checkNSendOurCert
@@ -115,9 +118,9 @@ checkNSendOurCert sendActions = do
             ourVssCertificate <- getOurVssCertificate
             let contents = MCVssCertificate ourVssCertificate
             sscProcessOurMessage epoch contents ourId
-            let msg = DataMsg contents ourId
+            let msg = InvMsg VssCertificateMsg (one ourId)
             -- [CSL-245]: do not catch all, catch something more concrete.
-            (sendToNeighbors sendActions msg >>
+            (converseToNeighbors sendActions (sendInv msg) >>
              logDebug "Announced our VssCertificate.")
             `catchAll` \e ->
                 logError $ sformat ("Error announcing our VssCertificate: " % shown) e
@@ -259,8 +262,17 @@ sendOurData sendActions msgTag epoch slMultiplier ourId = do
     waitUntilSend msgTag epoch slMultiplier
     logInfo $ sformat ("Announcing our "%build) msgTag
     let msg = InvMsg {imTag = msgTag, imKeys = one ourId}
-    sendToNeighbors sendActions msg
+    converseToNeighbors sendActions (sendInv msg)
     logDebug $ sformat ("Sent our " %build%" to neighbors") msgTag
+
+sendInv :: InvMsg StakeholderId GtMsgTag
+        -> NodeId
+        -> ConversationActions
+               (Either (InvMsg StakeholderId GtMsgTag) (DataMsg StakeholderId GtMsgContents))
+               (ReqMsg StakeholderId GtMsgTag)
+               m
+        -> m ()
+sendInv msg __perId ConversationActions{..} = send $ Left msg
 
 -- Generate new commitment and opening and use them for the current
 -- epoch. It is also saved in persistent storage.

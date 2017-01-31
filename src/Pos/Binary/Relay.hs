@@ -4,6 +4,8 @@
 
 module Pos.Binary.Relay () where
 
+import           Data.Binary.Get                  (getWord8)
+import           Data.Binary.Put                  (putWord8)
 import           Universum
 
 import           Pos.Binary.Class                 (Bi (..))

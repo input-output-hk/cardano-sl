@@ -30,6 +30,7 @@ import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
 #ifdef DEV_MODE
 import           Pos.Ssc.GodTossing    (genesisVssKeyPairs)
 #endif
+import           Pos.Communication     (ActionSpec (..))
 import           Pos.Ssc.Class         (SscListenersClass)
 import           Pos.Ssc.GodTossing    (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon    (SscNistBeacon)
@@ -39,7 +40,6 @@ import           Pos.Util              (inAssertMode, mappendPair)
 import           Pos.Util.BackupPhrase (keysFromPhrase)
 import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usKeys, usVss,
                                         writeUserSecret)
-
 #ifdef WITH_WEB
 import           Pos.Ssc.Class         (SscConstraint)
 import           Pos.Web               (serveWebBase, serveWebGT)
@@ -113,13 +113,23 @@ action args@Args {..} res = do
     putText $ "If stats is on: " <> show enableStats
     case (enableStats, CLI.sscAlgo commonArgs) of
         (True, GodTossingAlgo) ->
-            runNodeStats @SscGodTossing res (convPlugins currentPluginsGT `mappendPair` walletStats args) currentParams gtParams
+            runNodeStats @SscGodTossing res
+                         (convPlugins currentPluginsGT `mappendPair` walletStats args)
+                         currentParams gtParams
         (True, NistBeaconAlgo) ->
-            runNodeStats @SscNistBeacon res (convPlugins currentPlugins `mappendPair`  walletStats args) currentParams ()
+            runNodeStats @SscNistBeacon res
+                         (convPlugins currentPlugins `mappendPair`  walletStats args)
+                         currentParams ()
         (False, GodTossingAlgo) ->
-            runNodeProduction @SscGodTossing res (convPlugins currentPluginsGT `mappendPair` walletProd args) currentParams gtParams
+            runNodeProduction @SscGodTossing res
+                              (convPlugins currentPluginsGT `mappendPair` walletProd args)
+                              currentParams
+                              gtParams
         (False, NistBeaconAlgo) ->
-            runNodeProduction @SscNistBeacon res (convPlugins currentPlugins `mappendPair` walletProd args) currentParams ()
+            runNodeProduction @SscNistBeacon res
+                              (convPlugins currentPlugins `mappendPair` walletProd args)
+                              currentParams
+                              ()
   where
     convPlugins = (,mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
 
@@ -273,9 +283,9 @@ walletStats = first (map liftPlugin) . walletServe
         s <- getStatsMap
         lift . p vI $ hoistSendActions (runStatsT' s) lift sa
 #else
-walletProd, walletStats :: Args -> [a]
-walletProd _ = []
-walletStats _ = []
+walletProd, walletStats :: Monoid b => Args -> ([a], b)
+walletProd _ = ([], mempty)
+walletStats _ = ([], mempty)
 #endif
 
 printFlags :: IO ()

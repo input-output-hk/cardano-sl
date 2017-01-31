@@ -40,6 +40,7 @@ import           Formatting            (bprint, build, hex, sformat, shown, (%))
 import qualified Node                  as N
 import           Node.Message          (Message (..), MessageName (..))
 import           Serokell.Util.Base16  (base16F)
+import           Serokell.Util.Text    (listJson)
 import           Serokell.Util.Text    (mapJson)
 import           Universum
 
@@ -125,6 +126,9 @@ instance Buildable (MessageName, HandlerSpec) where
     build (MessageName rcvType, h) = bprint (base16F % " -> " % build) rcvType h
 
 type HandlerSpecs = HashMap MessageName HandlerSpec
+
+instance Buildable HandlerSpecs where
+    build x = bprint ("HandlerSpecs: "%listJson) (HM.toList x)
 
 data VerInfo = VerInfo
     { vIMagic        :: Int32

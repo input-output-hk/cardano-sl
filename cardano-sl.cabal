@@ -301,6 +301,8 @@ library
                         Pos.Ssc.GodTossing.Toss.Failure
                         Pos.Ssc.GodTossing.Toss.Logic
                         Pos.Ssc.GodTossing.Toss.Pure
+                        Pos.Ssc.GodTossing.Toss.Trans
+                        Pos.Ssc.GodTossing.Toss.Types
                         Pos.Ssc.GodTossing.Type
                         Pos.Ssc.GodTossing.Types
                         Pos.Ssc.GodTossing.Types.Message

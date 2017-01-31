@@ -54,7 +54,7 @@ mkBackupPhrase mnemonic =
     mnemonicCleaned = cleanMnemonic mnemonic
 
 cleanMnemonic :: String -> String
-cleanMnemonic = joinWith " " <<< filter null <<< split " " <<< trim
+cleanMnemonic = joinWith " " <<< filter (not <<< null) <<< split " " <<< trim
 
 mkBackupPhraseIgnoreChecksum :: String -> Either Error BackupPhrase
 mkBackupPhraseIgnoreChecksum mnemonic =

@@ -109,6 +109,7 @@ instance Buildable PeerId where
 data HandlerSpec
   = ConvHandler { hsReplyType :: MessageName }
   | OneMsgHandler
+  | UnknownHandler Word8 ByteString
     deriving (Show, Generic, Eq)
 
 convH :: (Message snd, Message rcv) => Proxy snd -> Proxy rcv -> (MessageName, HandlerSpec)
@@ -118,8 +119,12 @@ oneMsgH :: Message snd => Proxy snd -> (MessageName, HandlerSpec)
 oneMsgH pSnd = (messageName pSnd, OneMsgHandler)
 
 instance Buildable HandlerSpec where
-    build OneMsgHandler                         = "OneMsg"
-    build (ConvHandler (MessageName replyType)) = bprint ("Conv "%base16F) replyType
+    build OneMsgHandler =
+        "OneMsg"
+    build (ConvHandler (MessageName replyType)) =
+        bprint ("Conv "%base16F) replyType
+    build (UnknownHandler htype hcontent) =
+        bprint ("UnknownHandler "%hex%" "%base16F) htype hcontent
 
 instance Buildable (MessageName, HandlerSpec) where
     build (MessageName rcvType, h) = bprint (base16F % " -> " % build) rcvType h

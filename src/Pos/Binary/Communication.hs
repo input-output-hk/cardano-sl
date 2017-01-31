@@ -3,8 +3,9 @@
 
 module Pos.Binary.Communication () where
 
-import           Data.Binary.Get                  (getByteString, getWord8, isolate,
-                                                   label)
+import           Data.Binary.Get                  (getByteString,
+                                                   getRemainingLazyByteString, getWord8,
+                                                   isolate, label)
 import           Data.Binary.Put                  (putByteString, putLazyByteString,
                                                    putWord8, runPut)
 import qualified Data.ByteString                  as BS
@@ -27,7 +28,8 @@ import           Pos.DHT.Model.Types              (meaningPartLength)
 import           Pos.Ssc.Class.Types              (Ssc (..))
 import           Pos.Txp.Types                    (TxMsgTag (..))
 import           Pos.Update.Network.Types         (ProposalMsgTag (..), VoteMsgTag (..))
-import           Pos.Util.Binary                  (getWithLengthLimited, putWithLength)
+import           Pos.Util.Binary                  (getWithLength, getWithLengthLimited,
+                                                   putWithLength)
 
 deriving instance Bi MessageName
 
@@ -128,13 +130,20 @@ instance Bi VoteMsgTag where
     get = pure VoteMsgTag
 
 instance Bi HandlerSpec where
-    put OneMsgHandler   = putWord8 0
-    put (ConvHandler m) = putWord8 1 <> put m
-    get = getWord8 >>= getImpl
-      where
-        getImpl 0 = pure OneMsgHandler
-        getImpl 1 = ConvHandler <$> get
-        getImpl _ = fail "Unknown HandlerSpec type"
+    put OneMsgHandler =
+        putWord8 0 <>
+        putWithLength (return ())
+    put (ConvHandler m) =
+        putWord8 1 <>
+        putWithLength (put m)
+    put (UnknownHandler t b) =
+        putWord8 t <>
+        putWithLength (putByteString b)
+    get = getWord8 >>= \case
+        0 -> getWithLength (pure OneMsgHandler)
+        1 -> getWithLength (ConvHandler <$> get)
+        t -> getWithLength (UnknownHandler t <$>
+                            (BSL.toStrict <$> getRemainingLazyByteString))
 
 instance Bi VerInfo where
     put VerInfo {..} = put vIMagic

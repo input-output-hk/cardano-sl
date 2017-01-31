@@ -60,7 +60,7 @@ instance MonadToss PureToss where
     delCommitment id =
         PureToss $ gsCommitments %= deleteSignedCommitment id
     delOpening id = PureToss $ gsOpenings . at id .= Nothing
-    delShares id = PureToss $ gsOpenings . at id .= Nothing
+    delShares id = PureToss $ gsShares . at id .= Nothing
     resetCOS = PureToss $ do
         gsCommitments .= mempty
         gsOpenings .= mempty

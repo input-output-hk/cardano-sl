@@ -27,6 +27,7 @@ module Pos.Ssc.GodTossing.Core.Types
        , recreateVssCertificate
        , getCertId
        , VssCertificatesMap
+       , mkVssCertificatesMap
 
        -- * Payload
        , GtPayload (..)
@@ -191,6 +192,12 @@ getCertId = addressHash . vcSigningKey
 -- | VssCertificatesMap contains all valid certificates collected
 -- during some period of time.
 type VssCertificatesMap = HashMap StakeholderId VssCertificate
+
+-- | Safe constructor of 'VssCertificatesMap'. TODO: wrap into newtype.
+mkVssCertificatesMap :: [VssCertificate] -> VssCertificatesMap
+mkVssCertificatesMap = HM.fromList . map toCertPair
+  where
+    toCertPair vc = (getCertId vc, vc)
 
 ----------------------------------------------------------------------------
 -- Payload and proof

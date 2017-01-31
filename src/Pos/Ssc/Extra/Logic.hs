@@ -12,6 +12,7 @@ module Pos.Ssc.Extra.Logic
        (
          -- * Utilities
          sscRunLocalQuery
+       , sscRunLocalSTM
        , sscRunGlobalQuery
 
          -- * Seed calculation
@@ -69,6 +70,23 @@ sscRunLocalQuery action = do
     localVar <- sscLocal <$> askSscMem
     ld <- atomically $ readTVar localVar
     runReaderT action ld
+
+-- | Run STM transaction which modifies 'SscLocalData' and also can log.
+sscRunLocalSTM
+    :: forall ssc m a.
+       (MonadSscMem ssc m, MonadIO m, WithLogger m)
+    => (LoggerNameBox (PureLogger (StateT (SscLocalData ssc) STM)) a) -> m a
+sscRunLocalSTM action = do
+    loggerName <- getLoggerName
+    localVar <- sscLocal <$> askSscMem
+    (res, events) <-
+        atomically $ do
+            oldLD <- readTVar localVar
+            ((res, events), !newLD) <-
+                flip runStateT oldLD . runPureLog . usingLoggerName loggerName $
+                action
+            (res, events) <$ writeTVar localVar newLD
+    res <$ dispatchEvents events
 
 -- | Run something that reads 'SscGlobalState' in 'MonadSscMem'.
 -- 'MonadIO' is also needed to use stm.

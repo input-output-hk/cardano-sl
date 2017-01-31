@@ -6,7 +6,7 @@ module Pos.Ssc.GodTossing.Toss.Failure
        ) where
 
 import qualified Data.Text.Buildable
-import           Formatting              (bprint, build, stext, (%))
+import           Formatting              (bprint, build, ords, stext, (%))
 import           Serokell.Util           (listJson)
 import           Universum
 
@@ -75,6 +75,7 @@ data TossVerFailure
     | DifferentEpoches !EpochIndex !EpochIndex
     | CertificateInvalidSign !(NonEmpty (StakeholderId, VssCertificate))
     | CertificateInvalidTTL !(NonEmpty (VssCertificate, EpochIndex))
+    | TossUnknownRichmen !EpochIndex
     | TossInternallError !Text
 
 instance Buildable TossVerFailure where
@@ -94,5 +95,7 @@ instance Buildable TossVerFailure where
         bprint ("some VSS certificates aren't signed properly: "%listJson) certs
     build (CertificateInvalidTTL certs) =
         bprint ("some VSS certificates have invalid TTL: "%listJson) certs
+    build (TossUnknownRichmen epoch) =
+        bprint ("richmen aren't know for "%ords%" epoch") epoch
     build (TossInternallError msg) =
         bprint ("internal error: "%stext) msg

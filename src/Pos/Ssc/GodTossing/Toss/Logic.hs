@@ -11,10 +11,11 @@ import           Control.Monad.Except            (MonadError)
 import           Universum
 
 import           Pos.Ssc.GodTossing.Core         (GtPayload)
-import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss)
+import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..))
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
 import           Pos.Ssc.GodTossing.Toss.Types   (TossModifier)
-import           Pos.Types                       (EpochIndex, MainBlockHeader)
+import           Pos.Types                       (EpochIndex, MainBlockHeader,
+                                                  getEpochOrSlot)
 
 -- | Verify 'GtPayload' with respect to data provided by
 -- MonadToss. If data is valid it is also applied.  Otherwise
@@ -25,8 +26,10 @@ verifyAndApplyGtPayload
 verifyAndApplyGtPayload _ _ = const pass notImplemented
 
 -- | Apply genesis block for given epoch to 'Toss' state.
-applyGenesisBlock :: (MonadToss m) => EpochIndex -> m ()
-applyGenesisBlock _ = const pass notImplemented
+applyGenesisBlock :: MonadToss m => EpochIndex -> m ()
+applyGenesisBlock epoch = do
+    setEpochOrSlot $ getEpochOrSlot epoch
+    resetCOS
 
 -- | Rollback application of 'GtPayload' in 'Toss'.
 rollbackGT :: MonadToss m => GtPayload -> m ()

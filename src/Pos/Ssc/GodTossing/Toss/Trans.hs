@@ -104,6 +104,7 @@ instance MonadToss m =>
     delCommitment = notImplemented
     delOpening = notImplemented
     delShares = notImplemented
+    resetCOS = TossT resetCOS
     setEpochOrSlot = TossT . setEpochOrSlot
 
 ----------------------------------------------------------------------------

@@ -29,7 +29,7 @@ module Pos.Ssc.Extra.Logic
        , sscVerifyBlocks
        ) where
 
-import           Control.Concurrent.STM  (modifyTVar', readTVar, writeTVar)
+import           Control.Concurrent.STM  (readTVar, writeTVar)
 import           Control.Lens            (_Wrapped)
 import           Control.Monad.Except    (MonadError, runExceptT)
 import           Control.Monad.State     (put)
@@ -133,6 +133,7 @@ sscNormalize
        , SscLocalDataClass ssc
        , WithNodeContext ssc m
        , SscHelpersClass ssc
+       , WithLogger m
        )
     => m ()
 sscNormalize = do
@@ -145,9 +146,17 @@ sscNormalize = do
     globalVar <- sscGlobal <$> askSscMem
     localVar <- sscLocal <$> askSscMem
     gs <- atomically $ readTVar globalVar
-    atomically $
-        modifyTVar' localVar $
-        execState $ sscNormalizeU @ssc tipEpoch richmenSet gs
+    loggerName <- getLoggerName
+    let sscNormalizeDo :: STM [LogEvent]
+        sscNormalizeDo = do
+            oldLD <- readTVar localVar
+            let (((), logEvents), !newLD) =
+                    flip runState oldLD .
+                    runPureLog . usingLoggerName loggerName $
+                    sscNormalizeU @ssc tipEpoch richmenSet gs
+            logEvents <$ writeTVar localVar newLD
+    logEvents <- atomically sscNormalizeDo
+    dispatchEvents logEvents
 
 -- | Reset local data to empty state.  This function can be used when
 -- we detect that something is really bad. In this case it makes sense

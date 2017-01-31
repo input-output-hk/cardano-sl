@@ -29,8 +29,9 @@ import           Pos.Security                     (shouldIgnorePkAddress)
 import           Pos.Slotting                     (getCurrentSlot)
 import           Pos.Ssc.Class.Listeners          (SscListenersClass (..))
 import           Pos.Ssc.Extra                    (sscGetLocalPayload)
-import           Pos.Ssc.GodTossing.Core          (GtPayload (..), getCommitmentsMap,
-                                                   vcSigningKey, _gpCertificates)
+import           Pos.Ssc.GodTossing.Core          (GtPayload (..), getCertId,
+                                                   getCommitmentsMap, vcSigningKey,
+                                                   _gpCertificates)
 import           Pos.Ssc.GodTossing.LocalData     (sscIsDataUseful)
 import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtMsgTag (..),
@@ -55,19 +56,13 @@ instance WorkMode SscGodTossing m
         MCShares k _          -> k
         MCOpening k _         -> k
         MCCommitment (pk,_,_) -> addressHash pk
-        MCVssCertificate vc   -> addressHash $ vcSigningKey vc
+        MCVssCertificate vc   -> getCertId vc
 
-    verifyInvTag tag =
-      ifM (isGoodSlotIdForTag tag <$> getCurrentSlot)
-          (pure VerSuccess)
-          (pure $ VerFailure ["slot is not appropriate"])
+    verifyInvTag _ = pure VerSuccess
 
     verifyReqTag _ = pure VerSuccess
 
-    verifyDataContents dat =
-      ifM (isGoodSlotIdForTag (msgContentsTag dat) <$> getCurrentSlot)
-          (pure VerSuccess)
-          (pure $ VerFailure ["slot is not appropriate"])
+    verifyDataContents _ = pure VerSuccess
 
     handleInv = sscIsDataUseful
 

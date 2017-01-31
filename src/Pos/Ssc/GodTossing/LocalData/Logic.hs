@@ -40,26 +40,21 @@ import           Pos.Ssc.Class.LocalData            (LocalQuery, LocalUpdate,
                                                      SscLocalDataClass (..))
 import           Pos.Ssc.Extra                      (MonadSscMem, sscRunGlobalQuery,
                                                      sscRunLocalQuery, sscRunLocalSTM)
-import           Pos.Ssc.GodTossing.Core            (CommitmentsMap (getCommitmentsMap),
-                                                     GtPayload (..), InnerSharesMap,
+import           Pos.Ssc.GodTossing.Core            (GtPayload (..), InnerSharesMap,
                                                      Opening, SignedCommitment,
-                                                     VssCertificate (vcSigningKey, vcVssKey),
-                                                     checkCertTTL, checkCommShares,
-                                                     checkShare, checkShares, getCertId,
-                                                     insertSignedCommitment,
-                                                     intersectCommMapWith,
-                                                     isCommitmentIdx, isOpeningIdx,
-                                                     isSharesIdx, mkCommitmentsMap,
-                                                     mkVssCertificatesMap, vcExpiryEpoch,
-                                                     verifySignedCommitment)
+                                                     VssCertificate, isCommitmentIdx,
+                                                     isOpeningIdx, isSharesIdx,
+                                                     mkCommitmentsMap,
+                                                     mkVssCertificatesMap)
 import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData (..), ldEpoch,
                                                      ldModifier)
 import           Pos.Ssc.GodTossing.Toss            (MonadTossRead (..), PureToss,
                                                      TossModifier, TossT,
                                                      TossVerFailure (..),
                                                      evalPureTossWithLogger, evalTossT,
-                                                     execTossT, tmCertificates,
-                                                     tmCommitments, tmOpenings, tmShares,
+                                                     execTossT, normalizeToss,
+                                                     tmCertificates, tmCommitments,
+                                                     tmOpenings, tmShares,
                                                      verifyAndApplyGtPayload)
 import           Pos.Ssc.GodTossing.Type            (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types           (GtGlobalState, isGoodSlotForTag)
@@ -107,11 +102,18 @@ getLocalPayload SlotId {..} = do
         | isExpected = view tmCertificates
         | otherwise = pure mempty
 
-normalize :: EpochIndex -> RichmenSet -> GtGlobalState -> LocalUpdate SscGodTossing ()
-normalize = notImplemented
-    -- gtLocalCertificates %= VCD.setLastKnownSlot si
-    -- gtLocalCertificates %= VCD.filter (`HS.member` richmen)
-    -- gtEpoch .= epochIdx
+normalize :: EpochIndex
+          -> RichmenSet
+          -> GtGlobalState
+          -> LocalUpdate SscGodTossing ()
+normalize epoch richmenSet gs = do
+    oldModifier <- use ldModifier
+    let richmenData = (epoch, richmenSet)
+    newModifier <-
+        evalPureTossWithLogger richmenData gs $
+        execTossT mempty $ normalizeToss epoch oldModifier
+    ldModifier .= newModifier
+    ldEpoch .= epoch
 
 ----------------------------------------------------------------------------
 -- Data processing/retrieval
@@ -120,19 +122,6 @@ normalize = notImplemented
 ----------------------------------------------------------------------------
 ---- Helpers
 ----------------------------------------------------------------------------
-
-evalTossInMem
-    :: ( WithLogger m
-       , MonadDB SscGodTossing m
-       , WithNodeContext kek m
-       , MonadSscMem SscGodTossing m
-       )
-    => TossT PureToss a -> m a
-evalTossInMem action = do
-    gs <- sscRunGlobalQuery ask
-    ld <- sscRunLocalQuery ask
-    let modifier = ld ^. ldModifier
-    evalPureTossWithLogger undefined gs $ evalTossT modifier action
 
 ----------------------------------------------------------------------------
 ---- Inv processing
@@ -158,12 +147,19 @@ sscIsDataUseful tag id =
     sscIsDataUsefulDo OpeningMsg        = not <$> hasOpening id
     sscIsDataUsefulDo SharesMsg         = not <$> hasShares id
     sscIsDataUsefulDo VssCertificateMsg = not <$> hasCertificate id
-
-----------------------------------------------------------------------------
----- Req processing
-----------------------------------------------------------------------------
-
--- TODO: move logic from 'Listeners' here.
+    evalTossInMem
+        :: ( WithLogger m
+           , MonadDB SscGodTossing m
+           , WithNodeContext kek m
+           , MonadSscMem SscGodTossing m
+           )
+        => TossT PureToss a -> m a
+    evalTossInMem action = do
+        gs <- sscRunGlobalQuery ask
+        ld <- sscRunLocalQuery ask
+        let modifier = ld ^. ldModifier
+        -- Richmen are irrelevant here.
+        evalPureTossWithLogger (0, mempty) gs $ evalTossT modifier action
 
 ----------------------------------------------------------------------------
 ---- Data processing
@@ -256,69 +252,11 @@ sscProcessDataDo richmenData gs payload =
 -- | Clean-up some data when new slot starts.
 -- This function is only needed for garbage collection, it doesn't affect
 -- validity of local data.
+-- Currently it does nothing, but maybe later we'll decide to do clean-up.
 localOnNewSlot
     :: MonadSscMem SscGodTossing m
     => SlotId -> m ()
-localOnNewSlot _ = const pass notImplemented
--- localOnNewSlotU si@SlotId {siSlot = slotIdx, siEpoch = epochIdx} = do
---     storedEpoch <- use gtEpoch
---     if storedEpoch /= epochIdx
---         then do
---             gtLocalCommitments .= mempty
---             gtLocalOpenings .= mempty
---             gtLocalShares .= mempty
---         else do
---             unless (isCommitmentIdx slotIdx) $ gtLocalCommitments .= mempty
---             unless (isOpeningIdx slotIdx) $ gtLocalOpenings .= mempty
---             unless (isSharesIdx slotIdx) $ gtLocalShares .= mempty
-
-----------------------------------------------------------------------------
--- Obsolete
-----------------------------------------------------------------------------
-
--- applyGlobal :: EpochIndex -> RichmenSet -> GtGlobalState -> LocalUpdate SscGodTossing ()
--- applyGlobal newEpoch richmenSet globalData = do
---     let globalCerts = VCD.certs . _gsVssCertificates $ globalData
---         participants = computeParticipants richmenSet globalCerts
---         globalCommitments = _gsCommitments globalData
---         -- globalComms = getCommitmentsMap globalCommitments
---         globalOpenings = _gsOpenings globalData
---         globalShares = _gsShares globalData
---         intersectWithPs = intersectCommMapWith identity
---     let filterCommitments comms =
---             foldl' (&) comms $
---             [
---             -- Remove commitments which are contained already in global state
---               (`diffCommMap` globalCommitments)
---             -- Remove commitments which corresponds to expired certs
---             , (`intersectWithPs` participants)
---             ]
---     let filterOpenings opens =
---             foldl' (&) opens $
---             [ (`HM.difference` globalOpenings)
---             , (`HM.intersection` getCommitmentsMap globalCommitments)
---             -- Select opening which corresponds its commitment
---             , HM.filterWithKey
---                   (curry $ checkOpeningMatchesCommitment globalCommitments)
---             ]
---     let checkCorrectShares pkTo shares = HM.filterWithKey
---             (\pkFrom share ->
---                  checkShare
---                      globalCommitments
---                      globalOpenings
---                      globalCerts
---                      (pkTo, pkFrom, share)) shares
---     let filterShares shares =
---             foldl' (&) shares $
---             [ (`HM.difference` globalShares)
---             , (`HM.intersection` participants)
---             -- Select shares to nodes which sent commitments
---             , map (`HM.intersection` getCommitmentsMap globalCommitments)
---             -- Ensure that share sent from pkFrom to pkTo is valid
---             , HM.mapWithKey checkCorrectShares
---             ]
---     ldCommitments  %= filterCommitments
---     ldOpenings  %= filterOpenings
---     ldShares  %= filterShares
---     ldCertificates  %= (`VCD.difference` globalCerts)
---     ldEpoch .= newEpoch
+localOnNewSlot _ = pass
+-- unless (isCommitmentIdx slotIdx) $ gtLocalCommitments .= mempty
+-- unless (isOpeningIdx slotIdx) $ gtLocalOpenings .= mempty
+-- unless (isSharesIdx slotIdx) $ gtLocalShares .= mempty

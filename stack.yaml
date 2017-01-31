@@ -1,0 +1,66 @@
+flags: {}
+
+extra-package-dbs: []
+
+packages:
+- '.'
+
+  # - location:
+  #     git: https://github.com/serokell/acid-state.git
+  #     commit: 95fce1dbada62020a0b2d6aa2dd7e88eadd7214b
+  #   extra-dep: true
+  # - location:
+  #     git: https://github.com/serokell/kademlia.git
+  #     commit: bf65ac0cd50d2ccd7ef6507f0d71786c4bd10ae1
+  #   extra-dep: true
+  # - location:
+  #     git: https://github.com/input-output-hk/plutus-prototype
+  #     commit: 4e3f6a268c3b13af78516f78ac71cd6215f5b0bf
+  #   extra-dep: true
+  # - location:
+  #     git: https://github.com/serokell/rocksdb-haskell.git
+  #     commit: 4dfd8d61263d78a91168e86e8005eb9b7069389e
+  #   extra-dep: true
+  # - location:
+  #     git: https://github.com/thoughtpolice/hs-ed25519
+  #     # We're waiting on next release
+  #     commit: 57adb970e198a9b377769ab46e776ec29f19cff6
+  #   extra-dep: true
+  # - location:
+  #     git: https://github.com/serokell/time-warp-nt.git
+  #     commit: 7b44e90d9831de861ca6f563929630407c6294b4
+  #   extra-dep: true
+  # - location:
+  #     git: https://github.com/serokell/network-transport-tcp.git
+  #     commit: 586c9bf830252476522cab6274ef8ddc32615686
+  #   extra-dep: true
+
+  # nix:
+  #   shell-file: shell.nix
+
+  # extra-deps:
+    # - universum-0.2
+    # - pqueue-1.3.2
+    # - data-msgpack-0.0.8
+    # - time-units-1.0.0
+    # - aeson-extra-0.4.0.0
+    # - recursion-schemes-5
+    # - QuickCheck-2.9.2
+    # - cryptonite-openssl-0.3
+    # - UtilityTM-0.0.4
+    # - serokell-util-0.1.3.2
+    # - pvss-0.1
+    # - base58-bytestring-0.1.0
+    # - log-warper-0.2.3
+    # - turtle-1.3.1                    # earlier versions don't have 'stat'
+    # - optparse-applicative-0.13.0.0   # needed for turtle
+    # - criterion-1.1.4.0               # older criterion doesn't like optparse-0.13
+    # - code-page-0.1.1                 # needed for criterion
+
+resolver: lts-7.16
+
+# This is for CI to pass --fast to all dependencies
+apply-ghc-options: everything
+
+
+compiler: ghc-8.0.2

@@ -17,8 +17,8 @@ import           Pos.Binary.Communication   ()
 import           Pos.Binary.Relay           ()
 import           Pos.Communication.Message  ()
 import           Pos.Communication.Protocol (ListenerSpec, OutSpecs)
-import           Pos.Communication.Relay    (DataMsg, InvMsg, Relay (..), RelayProxy (..),
-                                             ReqMsg, relayListeners, relayStubListeners)
+import           Pos.Communication.Relay    (Relay (..), RelayProxy (..), relayListeners,
+                                             relayStubListeners)
 import           Pos.Update.Core            (UpId, UpdateProposal (..), UpdateVote (..),
                                              VoteId)
 import           Pos.Update.Logic.Local     (getLocalProposalNVotes, getLocalVote,

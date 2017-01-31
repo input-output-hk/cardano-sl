@@ -20,16 +20,14 @@ import           Universum
 
 
 import           Pos.Binary.Communication   ()
-import           Pos.Communication.Protocol (ListenerSpec, OutSpecs, SendActions (..),
-                                             listenerOneMsg, mergeLs, oneMsgH, sendTo,
-                                             toOutSpecs)
+import           Pos.Communication.Protocol (ListenerSpec, OutSpecs, SendActions,
+                                             listenerOneMsg, mergeLs, oneMsgH, toOutSpecs)
 import           Pos.Context                (getNodeContext, ncBlkSemaphore,
                                              ncPropagation)
 import           Pos.Delegation.Logic       (ConfirmPskEpochVerdict (..),
                                              PskEpochVerdict (..), PskSimpleVerdict (..),
-                                             isProxySKConfirmed, processConfirmProxySk,
-                                             processProxySKEpoch, processProxySKSimple,
-                                             runDelegationStateAction)
+                                             processConfirmProxySk, processProxySKEpoch,
+                                             processProxySKSimple)
 import           Pos.Delegation.Methods     (sendProxyConfirmSK, sendProxyConfirmSKOuts,
                                              sendProxySKEpoch, sendProxySKEpochOuts,
                                              sendProxySKSimple, sendProxySKSimpleOuts)

@@ -287,8 +287,7 @@ library
                         Pos.Ssc.GodTossing.Genesis
                         Pos.Ssc.GodTossing.Listeners
                         Pos.Ssc.GodTossing.LocalData
-                        Pos.Ssc.GodTossing.LocalData.Helpers
-                        Pos.Ssc.GodTossing.LocalData.LocalData
+                        Pos.Ssc.GodTossing.LocalData.Logic
                         Pos.Ssc.GodTossing.LocalData.Types
                         Pos.Ssc.GodTossing.Richmen
                         Pos.Ssc.GodTossing.SecretStorage

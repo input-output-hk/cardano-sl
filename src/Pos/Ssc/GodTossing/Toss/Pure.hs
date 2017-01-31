@@ -3,12 +3,15 @@
 module Pos.Ssc.GodTossing.Toss.Pure
        ( PureToss (..)
        , runPureToss
+       , runPureTossWithLogger
+       , evalPureTossWithLogger
        ) where
 
 import           Control.Lens                   (at, to, (%=), (.=))
 import           Control.Monad.RWS.Strict       (RWS, runRWS)
-import           System.Wlog                    (CanLog, HasLoggerName, LogEvent,
-                                                 LoggerName, LoggerNameBox, PureLogger,
+import           System.Wlog                    (CanLog, HasLoggerName (getLoggerName),
+                                                 LogEvent, LoggerName, LoggerNameBox,
+                                                 PureLogger, WithLogger, dispatchEvents,
                                                  runPureLog, usingLoggerName)
 import           Universum
 
@@ -68,3 +71,19 @@ runPureToss loggerName richmenData gs =
     convertRes :: ((a, [LogEvent]), GtGlobalState, ())
                -> (a, GtGlobalState, [LogEvent])
     convertRes ((res, logEvents), newGs, ()) = (res, newGs, logEvents)
+
+runPureTossWithLogger
+    :: WithLogger m
+    => (EpochIndex, RichmenSet)
+    -> GtGlobalState
+    -> PureToss a
+    -> m (a, GtGlobalState)
+runPureTossWithLogger richmenData gs action = do
+    loggerName <- getLoggerName
+    let (res, newGS, events) = runPureToss loggerName richmenData gs action
+    (res, newGS) <$ dispatchEvents events
+
+evalPureTossWithLogger
+    :: WithLogger m
+    => (EpochIndex, RichmenSet) -> GtGlobalState -> PureToss a -> m a
+evalPureTossWithLogger r g = fmap fst . runPureTossWithLogger r g

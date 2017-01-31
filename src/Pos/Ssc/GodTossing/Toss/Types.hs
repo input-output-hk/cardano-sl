@@ -10,8 +10,8 @@ module Pos.Ssc.GodTossing.Toss.Types
        , tmCertificates
        ) where
 
--- import           Universum
 import           Control.Lens            (makeLenses)
+import           Universum
 
 import           Pos.Ssc.GodTossing.Core (CommitmentsMap, OpeningsMap, SharesMap,
                                           VssCertificatesMap)
@@ -24,3 +24,16 @@ data TossModifier = TossModifier
     }
 
 makeLenses ''TossModifier
+
+instance Monoid TossModifier where
+    mempty = TossModifier mempty mempty mempty mempty
+    mappend (TossModifier leftComms leftOpens leftShares leftCerts)
+            (TossModifier rightComms rightOpens rightShares rightCerts) =
+        TossModifier
+        { _tmCommitments = rightComms <> leftComms
+        , _tmOpenings = rightOpens <> leftOpens
+        , _tmShares = rightShares <> leftShares
+        , _tmCertificates = rightCerts <> leftCerts
+        }
+
+instance Semigroup TossModifier

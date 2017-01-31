@@ -86,11 +86,25 @@ execTossT m = fmap snd . runTossT m
 -- MonadToss
 ----------------------------------------------------------------------------
 
--- instance MonadTossRead m =>
---          MonadTossRead (TossT m) where
+instance MonadTossRead m =>
+         MonadTossRead (TossT m) where
+    getCommitment = notImplemented
+    hasOpening = notImplemented
+    hasShares = notImplemented
+    hasCertificate = notImplemented
+    getStableCertificates = notImplemented
+    getRichmen = notImplemented
 
--- instance MonadTossRead m =>
---          MonadToss (TossT m) where
+instance MonadToss m =>
+         MonadToss (TossT m) where
+    putCommitment = notImplemented
+    putOpening = notImplemented
+    putShares = notImplemented
+    putCertificate = notImplemented
+    delCommitment = notImplemented
+    delOpening = notImplemented
+    delShares = notImplemented
+    setEpochOrSlot = TossT . setEpochOrSlot
 
 ----------------------------------------------------------------------------
 -- Common instances used all over the code

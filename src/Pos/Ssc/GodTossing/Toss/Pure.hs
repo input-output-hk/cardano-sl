@@ -16,15 +16,15 @@ import           System.Wlog                    (CanLog, HasLoggerName (getLogge
 import           Universum
 
 import           Pos.Lrc.Types                  (RichmenSet)
-import           Pos.Ssc.GodTossing.Core        (SignedCommitment, VssCertificatesMap,
-                                                 deleteSignedCommitment,
+import           Pos.Ssc.GodTossing.Core        (deleteSignedCommitment,
                                                  getCommitmentsMap,
                                                  insertSignedCommitment)
+import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
 import           Pos.Ssc.GodTossing.Toss.Class  (MonadToss (..), MonadTossRead (..))
 import           Pos.Ssc.GodTossing.Types       (GtGlobalState, gsCommitments, gsOpenings,
                                                  gsShares, gsVssCertificates)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
-import           Pos.Types                      (EpochIndex, StakeholderId)
+import           Pos.Types                      (EpochIndex, crucialSlot)
 
 newtype PureToss a = PureToss
     { getPureToss :: LoggerNameBox (PureLogger (RWS (EpochIndex, RichmenSet) () GtGlobalState)) a
@@ -37,7 +37,12 @@ instance MonadTossRead PureToss where
     hasShares id = PureToss $ use $ gsShares . at id . to isJust
     hasCertificate id =
         PureToss $ use $ gsVssCertificates . to VCD.certs . at id . to isJust
-    getStableCertificates _ = notImplemented
+    getStableCertificates epoch
+        | epoch == 0 = pure genesisCertificates
+        | otherwise =
+            PureToss $
+            VCD.certs . VCD.setLastKnownSlot (crucialSlot epoch) <$>
+            use gsVssCertificates
     getRichmen epoch = PureToss $ getRichmenDo <$> ask
       where
         getRichmenDo (e, r)

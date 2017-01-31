@@ -288,6 +288,7 @@ library
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions
                         Pos.Ssc.GodTossing.Genesis
+                        Pos.Ssc.GodTossing.GState
                         Pos.Ssc.GodTossing.Listeners
                         Pos.Ssc.GodTossing.LocalData
                         Pos.Ssc.GodTossing.LocalData.Logic
@@ -296,7 +297,6 @@ library
                         Pos.Ssc.GodTossing.SecretStorage
                         Pos.Ssc.GodTossing.Seed
                         Pos.Ssc.GodTossing.Shares
-                        Pos.Ssc.GodTossing.Storage
                         Pos.Ssc.GodTossing.Toss
                         Pos.Ssc.GodTossing.Toss.Base
                         Pos.Ssc.GodTossing.Toss.Class

@@ -60,7 +60,7 @@ import           Pos.Ssc.GodTossing.LocalData     (localOnNewSlot, sscProcessCer
 import           Pos.Ssc.GodTossing.Richmen       (gtLrcConsumer)
 import qualified Pos.Ssc.GodTossing.SecretStorage as SS
 import           Pos.Ssc.GodTossing.Shares        (getOurShares)
-import           Pos.Ssc.GodTossing.Storage       (getGlobalCerts, getStableCerts,
+import           Pos.Ssc.GodTossing.GState       (getGlobalCerts, getStableCerts,
                                                    gtGetGlobalState)
 import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types         (gsCommitments, gtcParticipateSsc,

@@ -45,6 +45,12 @@
             .then(console.log)
             .catch(console.log)
       };
+      var restoreWalletIgnoreChecksum = function(type, currency, name, mnemonic) {
+        Daedalus.ClientApi.restoreWalletIgnoreChecksum(type, currency, name, mnemonic)
+            .then(console.log)
+            .catch(console.log)
+      };
+
       var updateWallet = function(address, type, currency, name) {
         Daedalus.ClientApi.updateWallet(address, type, currency, name)
             .then(console.log)
@@ -124,6 +130,7 @@
       <li><button onclick="searchHistory('wallet_address', 'searchItem', 0, 10)"/>search wallet history</li>
       <li><button onclick="newWallet('CWTPersonal', 'ADA', 'I am rich guy', 'mnemonic');"/>newWallet</li>
       <li><button onclick="restoreWallet('CWTPersonal', 'ADA', 'I am rich guy', 'mnemonic');"/>restore wallet</li>
+      <li><button onclick="restoreWalletIgnoreChecksum('CWTPersonal', 'ADA', 'I am rich guy', 'mnemonic');"/>restore wallet ignore checksum</li>
       <li><button onclick="updateWallet('wallet_address', 'CWTPersonal', 'ADA', 'wallet_name');"/>updateWallet</li>
       <li><button onclick="updateTransaction('wallet_address', 'transaction_hash', 'ADA', 'new_transaction_title', 'new_transaction_description', 1484253370.9182513);"/>updateTransaction</li>
       <li><button onclick="deleteWallet('wallet_address');"/>deleteWallet</li>

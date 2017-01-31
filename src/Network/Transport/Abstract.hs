@@ -105,5 +105,5 @@ instance Binary EventError
 -- | A queueing discipline.
 data QDisc m t = QDisc {
       qdiscDequeue :: m t
-    , qdiscEnqueue :: Event -> t -> m ()
+    , qdiscEnqueue :: NT.EndPointAddress -> Event -> t -> m ()
     }

@@ -1,18 +1,11 @@
-resolver: lts-7.13
+resolver: lts-7.16
+compiler: ghc-8.0.2
 
 packages:
   - '.'
   - location:
       git: https://github.com/serokell/kademlia.git
       commit: 278171b8ab104c78aa95bcdd9b63c8ced4fb1ed2
-    extra-dep: true
-  - location:
-      git: https://github.com/serokell/log-warper.git
-      commit: 14d0d2f391e2ebb6a9679f1dd117c325aff53637
-    extra-dep: true
-  - location:
-      git: https://github.com/serokell/universum
-      commit: db3cd301545e5da000e53ca2cdf274e0386192bf
     extra-dep: true
   - location:
       git: https://github.com/avieth/network-transport-tcp
@@ -27,12 +20,14 @@ nix:
   packages: []
 
 extra-deps:
-  - serokell-util-0.1.2.3
+  - serokell-util-0.1.3.2
   - time-units-1.0.0
   - pqueue-1.3.2
   - aeson-extra-0.4.0.0
   - data-msgpack-0.0.8
   - recursion-schemes-5.0.1
+  - log-warper-0.3.1
+  - universum-0.2
 
 flags: {}
 extra-package-dbs: []

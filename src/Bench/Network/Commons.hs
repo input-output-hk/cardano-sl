@@ -41,8 +41,9 @@ import           Data.Time.Units      (toMicroseconds)
 import qualified Formatting           as F
 import           GHC.Generics         (Generic)
 import           Prelude              hiding (takeWhile)
-import           System.Wlog          (LoggerConfig (..), Severity (..), WithLogger,
-                                       logInfo, parseLoggerConfig, traverseLoggerConfig)
+import           System.Wlog          (LoggerConfig (..), LoggerTree (..), Severity (..),
+                                       WithLogger, logInfo, parseLoggerConfig,
+                                       traverseLoggerConfig)
 
 import           Mockable.CurrentTime (realTime)
 import           Node                 (Message (..))
@@ -82,33 +83,35 @@ logMeasure miEvent miId miPayload = do
 
 defaultLogConfig :: LoggerConfig
 defaultLogConfig = def
-    { lcSeverity   = Just Warning
-    , lcSubloggers = M.fromList
-        [ withName "sender" def
-            { lcSeverity = Just Info
-            , lcSubloggers = M.fromList
-                [ withName "comm" def
-                    { lcSeverity = Just Error
-                    }
-                ]
-            }
-        , withName "receiver" def
-            { lcSeverity = Just Info
-            , lcSubloggers = M.fromList
-                [ withName "comm" def
-                    { lcSeverity = Just Error
-                    }
-                ]
-            }
-        ]
+    { lcTree = def
+        { ltSeverity   = Just Warning
+        , ltSubloggers = M.fromList
+            [ withName "sender" def
+                { ltSeverity = Just Info
+                , ltSubloggers = M.fromList
+                    [ withName "comm" def
+                        { ltSeverity = Just Error
+                        }
+                    ]
+                }
+            , withName "receiver" def
+                { ltSeverity = Just Info
+                , ltSubloggers = M.fromList
+                    [ withName "comm" def
+                        { ltSeverity = Just Error
+                        }
+                    ]
+                }
+            ]
+        }
     }
   where
     withName = (,)
 
 loadLogConfig :: MonadIO m => Maybe FilePath -> Maybe FilePath -> m ()
 loadLogConfig logsPrefix configFile = do
-    loggerConfig <- maybe (return defaultLogConfig) parseLoggerConfig configFile
-    traverseLoggerConfig id loggerConfig logsPrefix
+    LoggerConfig{..} <- maybe (return defaultLogConfig) parseLoggerConfig configFile
+    traverseLoggerConfig id lcRotation lcTree logsPrefix
 
 
 -- * Logging & parsing

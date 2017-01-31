@@ -88,10 +88,57 @@ until your OS kills the server. Now try that again, replacing `unbounded` with
 control, as the client's TCP send buffers fill up and sending slows down.
 These results were gathered on an Intel i5 with 4 cores at 2.50GHz, 8Gb RAM.
 
+## How to use this right now
+
+### Get the right network-transport-tcp branch
+
+The `QDisc` feature has not yet been merged into network-transport-tcp, so
+use this branch (`stack.yaml` format)
+
+```yaml
+- location:
+    git: https://github.com/avieth/network-transport-tcp
+    commit: 53f7e303d22c1c771cad213ec8c9552112eae549
+  extra-dep: true
+```
+
+Note: this branch also includes a commit from George Agapov to allow
+specification of a bind address not necessarily equal to the end point address.
+This was needed for AWS deployment, where apparently `0.0.0.0:0` must be chosen
+as the bind address.
+
+### Supply a QDisc to `createTransport`
+
+The default `QDisc` is an unbounded queue. To choose the one-place variant,
+create the transport like this:
+
+```Haskell
+let parameters = TCP.defaultTCPParameters {
+          TCP.tcpQDisc = TCP.simpleOnePlaceQDisc
+        }
+in  TCP.createTransport bindAddress address port parameters
+```
+
 ## Future work
 
 The `simpleOnePlaceQDisc` is effective but indeed *simple*. Moving forward,
 we'll want a more sophisticated `QDisc` capable of prioritizing traffic
 according to various metrics. One idea is to deprioritize traffic from peers
 which have an inordinate amount of in-flight data, effectively limiting the
-amount of in-flight data per-peer.
+amount of in-flight data per-peer. Such a `QDisc` will be deployed in the
+same way: give it as a parameter to `createTransport`, and then give that
+`Transport` to `node`. If the `QDisc` is controlled by mutable state, then
+that state will be available, along with node- and application-specific metrics.
+
+```Haskell
+(qdisc, qdiscControls) <- someSohpisticatedQDisc ...
+let parameters = TCP.defaultTCPParameters {
+          TCP.tcpQDisc = qdisc
+        }
+Right transport <- TCP.createTransport bind address port parameters
+node transport prng BinaryP peerData $ \node -> do
+    ...
+    pure $ NodeAction listeners $ \saction -> do
+        ...
+        enforceQOS qdiscControls (nodeStatistics node) ...
+```

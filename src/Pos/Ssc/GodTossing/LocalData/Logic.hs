@@ -48,17 +48,16 @@ import           Pos.Ssc.GodTossing.Core            (GtPayload (..), InnerShares
                                                      mkVssCertificatesMap)
 import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData (..), ldEpoch,
                                                      ldModifier)
-import           Pos.Ssc.GodTossing.Toss            (MonadTossRead (..), PureToss,
-                                                     TossModifier, TossT,
+import           Pos.Ssc.GodTossing.Toss            (GtMsgTag (..), MonadTossRead (..),
+                                                     PureToss, TossModifier, TossT,
                                                      TossVerFailure (..),
                                                      evalPureTossWithLogger, evalTossT,
-                                                     execTossT, normalizeToss,
-                                                     tmCertificates, tmCommitments,
-                                                     tmOpenings, tmShares,
+                                                     execTossT, isGoodSlotForTag,
+                                                     normalizeToss, tmCertificates,
+                                                     tmCommitments, tmOpenings, tmShares,
                                                      verifyAndApplyGtPayload)
 import           Pos.Ssc.GodTossing.Type            (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types           (GtGlobalState, isGoodSlotForTag)
-import           Pos.Ssc.GodTossing.Types.Message   (GtMsgTag (..))
+import           Pos.Ssc.GodTossing.Types           (GtGlobalState)
 import           Pos.Types                          (EpochIndex, SlotId (..),
                                                      StakeholderId)
 import           Pos.Util                           (magnify')

@@ -33,9 +33,9 @@ import           Pos.Ssc.GodTossing.Core          (GtPayload (..), getCertId,
                                                    getCommitmentsMap, vcSigningKey,
                                                    _gpCertificates)
 import           Pos.Ssc.GodTossing.LocalData     (sscIsDataUseful)
+import           Pos.Ssc.GodTossing.Toss.Types    (GtMsgTag (..), isGoodSlotIdForTag)
 import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtMsgTag (..),
-                                                   isGoodSlotIdForTag, msgContentsTag)
+import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), msgContentsTag)
 import           Pos.Types                        (SlotId (..), StakeholderId,
                                                    addressHash)
 import           Pos.WorkMode                     (WorkMode)

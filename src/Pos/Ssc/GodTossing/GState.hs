@@ -14,7 +14,7 @@ module Pos.Ssc.GodTossing.GState
        , getStableCerts
        ) where
 
-import           Control.Lens                   ((.=), _Wrapped)
+import           Control.Lens                   (at, (.=), _Wrapped)
 import           Control.Monad.Except           (runExceptT, throwError)
 import           Data.Default                   (def)
 import qualified Data.HashMap.Strict            as HM
@@ -25,9 +25,11 @@ import           Universum
 
 import           Pos.Binary.Ssc                 ()
 import           Pos.Constants                  (vssMaxTTL)
+import           Pos.Context                    (WithNodeContext, lrcActionOnEpoch)
 import           Pos.DB                         (DBError (DBMalformed), MonadDB,
                                                  getTipBlockHeader,
                                                  loadBlundsFromTipWhile)
+import qualified Pos.DB.Lrc                     as LrcDB
 import           Pos.Lrc.Types                  (RichmenSet)
 import           Pos.Ssc.Class.Storage          (SscGStateClass (..), SscVerifier)
 import           Pos.Ssc.Extra                  (MonadSscMem, sscRunGlobalQuery)
@@ -44,8 +46,7 @@ import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), gsCommitmen
                                                  gsOpenings, gsShares, gsVssCertificates)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types                      (Block, EpochIndex (..), SlotId (..),
-                                                 blockMpc, epochIndexL, epochOrSlot,
-                                                 epochOrSlotG, gbHeader)
+                                                 blockMpc, epochIndexL, gbHeader)
 import           Pos.Util                       (NE, NewestFirst (..), OldestFirst (..),
                                                  maybeThrow, toOldestFirst, _neHead)
 
@@ -87,28 +88,36 @@ instance SscGStateClass SscGodTossing where
         view gsShares
 
 loadGlobalState
-    :: (WithLogger m, MonadDB SscGodTossing m)
+    :: (WithNodeContext kek m, WithLogger m, MonadDB SscGodTossing m)
     => m GtGlobalState
 loadGlobalState = do
-    tipBlockHeader <- getTipBlockHeader
-    let endEpoch  = epochOrSlot identity siEpoch $ tipBlockHeader ^. epochOrSlotG
+    endEpoch <- view epochIndexL <$> getTipBlockHeader
     let startEpoch = safeSub endEpoch -- load blocks while >= endEpoch
         whileEpoch b = b ^. epochIndexL >= startEpoch
-    logDebug $ sformat ("mpcLoadGlobalState: start epoch is "%build) startEpoch
+    logDebug $ sformat ("mpcLoadGlobalState: start epoch is " %build) startEpoch
     nfBlocks <- fmap fst <$> loadBlundsFromTipWhile whileEpoch
-    blocks <- toOldestFirst <$>
-                  maybeThrow (DBMalformed "No blocks during mpc load global state")
-                             (_Wrapped NE.nonEmpty nfBlocks)
+    blocks <-
+        toOldestFirst <$>
+        maybeThrow
+            (DBMalformed "No blocks during mpc load global state")
+            (_Wrapped NE.nonEmpty nfBlocks)
     let initGState
-            | startEpoch == 0 =
-                over gsVssCertificates unionGenCerts def
+            | startEpoch == 0 = over gsVssCertificates unionGenCerts def
             | otherwise = def
-    -- res <- execStateT (mapM_ gtApplyBlock blocks) initGState
-    res <- undefined
-    res <$ (logInfo $ sformat ("Loaded GodTossing state: "%build) res)
+    multiRichmen <- foldM loadRichmenStep mempty [startEpoch .. endEpoch]
+    let action = verifyAndApplyMultiRichmen multiRichmen blocks
+    let errMsg e = "invalid blocks, can't load GodTossing state: " <> pretty e
+    runExceptT (execStateT action initGState) >>= \case
+        Left e -> throwM $ DBMalformed $ errMsg e
+        Right res ->
+            res <$ (logInfo $ sformat ("Loaded GodTossing state: " %build) res)
   where
     safeSub epoch = epoch - min epoch vssMaxTTL
     unionGenCerts gs = foldr' VCD.insert gs . toList $ genesisCertificates
+    loadRichmenStep resMap epoch =
+        loadRichmenStepDo resMap epoch <$>
+        lrcActionOnEpoch epoch LrcDB.getRichmenSsc
+    loadRichmenStepDo resMap epoch richmen = resMap & at epoch .~ Just richmen
 
 type GSUpdate a = forall m . (MonadState GtGlobalState m, WithLogger m) => m a
 
@@ -124,12 +133,19 @@ verifyAndApply
     :: RichmenSet
     -> OldestFirst NE (Block SscGodTossing)
     -> SscVerifier SscGodTossing ()
-verifyAndApply richmenSet blocks = mapM_ verifyAndApplyDo blocks
+verifyAndApply richmenSet blocks = verifyAndApplyMultiRichmen richmenData blocks
   where
     epoch = blocks ^. _Wrapped . _neHead . epochIndexL
     richmenData = HM.fromList [(epoch, richmenSet)]
-    verifyAndApplyDo (Left _) =
-        tossToVerifier richmenData $ applyGenesisBlock epoch
+
+verifyAndApplyMultiRichmen
+    :: MultiRichmenSet
+    -> OldestFirst NE (Block SscGodTossing)
+    -> SscVerifier SscGodTossing ()
+verifyAndApplyMultiRichmen richmenData = mapM_ verifyAndApplyDo
+  where
+    verifyAndApplyDo (Left blk) =
+        tossToVerifier richmenData $ applyGenesisBlock $ blk ^. epochIndexL
     verifyAndApplyDo (Right blk) =
         tossToVerifier richmenData $
         verifyAndApplyGtPayload (Right $ blk ^. gbHeader) (blk ^. blockMpc)

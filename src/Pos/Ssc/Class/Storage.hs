@@ -20,6 +20,7 @@ import           Control.Monad.Except (MonadError)
 import           System.Wlog          (WithLogger)
 import           Universum
 
+import           Pos.Context.Class    (WithNodeContext)
 import           Pos.DB.Class         (MonadDB)
 import           Pos.Lrc.Types        (RichmenSet)
 import           Pos.Ssc.Class.Types  (Ssc (..))
@@ -45,7 +46,7 @@ class Ssc ssc =>
       SscGStateClass ssc where
     -- | Load global state from DB by recreating it from recent blocks.
     sscLoadGlobalState
-        :: (MonadDB ssc m, WithLogger m)
+        :: (WithNodeContext ssc m, MonadDB ssc m, WithLogger m)
         => m (SscGlobalState ssc)
     -- | Rollback application of blocks.
     sscRollbackU :: NewestFirst NE (Block ssc) -> SscGlobalUpdate ssc ()

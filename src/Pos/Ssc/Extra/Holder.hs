@@ -89,6 +89,7 @@ instance Monad m => MonadSscMem ssc (SscHolder ssc m) where
 runSscHolder
     :: forall ssc m a.
        ( WithLogger m
+       , WithNodeContext ssc m
        , SscGStateClass ssc
        , SscLocalDataClass ssc
        , MonadDB ssc m

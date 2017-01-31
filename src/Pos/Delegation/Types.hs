@@ -6,6 +6,8 @@
 module Pos.Delegation.Types
        ( SendProxySK (..)
        , ConfirmProxySK (..)
+       -- if you uncomment these, also uncomment tests
+       -- in Test.Pos.Communication.Identity.BinarySpec
        --, CheckProxySKConfirmed (..)
        --, CheckProxySKConfirmedRes (..)
        ) where

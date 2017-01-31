@@ -10,7 +10,7 @@ import           Universum
 import qualified Pos.Communication as C
 import qualified Pos.Delegation    as D
 
-import           Test.Pos.Util     (binaryTest, networkBinaryTest)
+import           Test.Pos.Util     (networkBinaryTest)
 
 spec :: Spec
 spec = describe "Communication" $ do
@@ -19,5 +19,5 @@ spec = describe "Communication" $ do
         networkBinaryTest @C.SysStartResponse
         networkBinaryTest @D.SendProxySK
         networkBinaryTest @D.ConfirmProxySK
-        binaryTest @D.CheckProxySKConfirmed
-        binaryTest @D.CheckProxySKConfirmedRes
+        --binaryTest @D.CheckProxySKConfirmed
+        --binaryTest @D.CheckProxySKConfirmedRes

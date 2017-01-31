@@ -2,7 +2,7 @@ module Explorer.View.Address where
 
 import Prelude
 import Data.Maybe (Maybe(..))
-import Explorer.I18n.Lang (Language, translateL)
+import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (address, transactions) as I18nL
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action)
@@ -23,7 +23,7 @@ addressView state =
                   [ P.className "explorer-address__container" ]
                   [ P.h3
                           [ P.className "headline"]
-                          [ P.text $ translateL I18nL.address state.lang ]
+                          [ P.text $ translate I18nL.address state.lang ]
                   , P.div
                       [ P.className "address-wrapper" ]
                       [ P.div
@@ -56,7 +56,7 @@ addressView state =
                   [ P.className "explorer-address__container" ]
                   [ P.h3
                           [ P.className "headline"]
-                          [ P.text $ translateL I18nL.transactions state.lang ]
+                          [ P.text $ translate I18nL.transactions state.lang ]
                     , transactionHeaderView state
                     , transactionBodyView state
                     , transactionHeaderView state
@@ -81,8 +81,8 @@ type AddressItems = Array AddressRowItem
 -- FIXME (jk): just for now, will use later `real` ADTs
 addressItems :: Language -> AddressItems
 addressItems lang =
-    [ { label: translateL I18nL.address lang, amount: "1NPj2Y8yswHLuw8Yr1FDdobKAW6WVkUZy9", currency: Nothing, link: true }
-    , { label: translateL I18nL.transactions lang, amount: "177", currency: Nothing, link: false }
+    [ { label: translate I18nL.address lang, amount: "1NPj2Y8yswHLuw8Yr1FDdobKAW6WVkUZy9", currency: Nothing, link: true }
+    , { label: translate I18nL.transactions lang, amount: "177", currency: Nothing, link: false }
     , { label: "#Final Balance", amount: "243,583", currency: Just ADA, link: false }
     ]
 

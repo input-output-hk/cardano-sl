@@ -1,7 +1,7 @@
 module Explorer.View.Block (blockView) where
 
 import Data.Maybe (Maybe(..))
-import Explorer.I18n.Lang (translateL)
+import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (block, summary, hashes) as I18nL
 import Explorer.Types.Actions (Action)
 import Explorer.Types.Generated (CCurrency(..))
@@ -24,7 +24,7 @@ blockView state =
                     [ P.className "explorer-block__container" ]
                     [ P.h3
                             [ P.className "headline"]
-                            [ P.text $ translateL I18nL.block state.lang ]
+                            [ P.text $ translate I18nL.block state.lang ]
                       , P.div
                           [ P.className "blocks-wrapper" ]
                           [ P.div
@@ -32,7 +32,7 @@ blockView state =
                               [ P.className "summary-container" ]
                               [ P.h3
                                   [ P.className "subheadline" ]
-                                  [ P.text $ translateL I18nL.summary state.lang ]
+                                  [ P.text $ translate I18nL.summary state.lang ]
                                 , P.div
                                     []
                                     $ map summaryRow summaryItems
@@ -42,7 +42,7 @@ blockView state =
                               [ P.className "hashes-container" ]
                               [ P.h3
                                   [ P.className "subheadline" ]
-                                  [ P.text $ translateL I18nL.hashes state.lang ]
+                                  [ P.text $ translate I18nL.hashes state.lang ]
                               , P.div
                                   []
                                   $ map hashesRow hashItems
@@ -57,7 +57,7 @@ blockView state =
                     [ P.className "explorer-block__container" ]
                     [ P.h3
                         [ P.className "headline"]
-                        [ P.text $ translateL I18nL.summary state.lang ]
+                        [ P.text $ translate I18nL.summary state.lang ]
                     , transactionHeaderView state
                     , transactionBodyView state
                     , transactionPaginationView state

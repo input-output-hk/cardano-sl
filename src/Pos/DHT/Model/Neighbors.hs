@@ -13,30 +13,32 @@ module Pos.DHT.Model.Neighbors
   ) where
 
 
-import           Formatting          (int, sformat, shown, (%))
-import           Mockable            (MonadMockable, forConcurrently, handleAll, throw)
-import           Node                (ConversationActions, NodeId, SendActions (..))
-import           Node.Message        (Message, Packable, Serializable, Unpackable)
-import           System.Wlog         (WithLogger, logWarning)
-import           Universum           hiding (catchAll)
+import           Formatting                 (int, sformat, shown, (%))
+import           Mockable                   (MonadMockable, forConcurrently, handleAll,
+                                             throw)
+import           System.Wlog                (WithLogger, logWarning)
+import           Universum                  hiding (catchAll)
 
-import           Pos.Constants       (neighborsSendThreshold)
-import           Pos.Constants       (isDevelopment)
-import           Pos.DHT.Model.Class (MonadDHT (..))
-import           Pos.DHT.Model.Types (DHTNode (..), addressToNodeId')
-import           Pos.Util.TimeWarp   (NetworkAddress)
+import           Pos.Binary.Class           (Bi)
+import           Pos.Communication.Protocol (ConversationActions, Message, NodeId (..),
+                                             PeerId (..), SendActions (..))
+import           Pos.Constants              (neighborsSendThreshold)
+import           Pos.Constants              (isDevelopment)
+import           Pos.DHT.Model.Class        (MonadDHT (..))
+import           Pos.DHT.Model.Types        (DHTNode (..), getMeaningPart)
+import           Pos.Util.TimeWarp          (addressToNodeId')
 
 -- | Send default message to neighbours in parallel.
 -- It's a broadcasting to the neighbours without sessions
 -- (i.e. we don't have to wait for reply from the listeners).
 sendToNeighbors
-    :: ( MonadDHT m, MonadMockable m, Serializable packing body, WithLogger m, Message body )
-    => SendActions packing m
+    :: ( MonadDHT m, MonadMockable m, Bi body, WithLogger m, Message body )
+    => SendActions m
     -> body
     -> m ()
 sendToNeighbors sendActions msg = do
     nodes <- getNodesWithCheck
-    void $ forConcurrently nodes $ \node -> handleAll (logSendErr node) $ sendToNode sendActions (dhtAddr node) msg
+    void $ forConcurrently nodes $ \node -> handleAll (logSendErr node) $ sendToNode sendActions node msg
   where
     logSendErr node e = logWarning $ sformat ("Error sending to "%shown%": "%shown) node e
 
@@ -54,39 +56,47 @@ getNodesWithCheck = do
     return nodes
 
 sendToNode
-    :: ( MonadMockable m, Serializable packing body, Message body )
-    => SendActions packing m
-    -> NetworkAddress
+    :: ( MonadMockable m, Bi body, Message body )
+    => SendActions m
+    -> DHTNode
     -> body
     -> m ()
-sendToNode sendActions addr msg =
-    handleAll handleE $ sendTo sendActions (addressToNodeId' 0 addr) msg
+sendToNode sendActions node msg =
+    handleAll handleE $ trySend 0
       where
-        handleE e | isDevelopment = sendTo sendActions (addressToNodeId' 1 addr) msg
+        handleE e | isDevelopment = trySend 1
                   | otherwise     = throw e
+        trySend i = sendTo sendActions (toNodeId i node) msg
 
 converseToNode
-    :: ( MonadMockable m, Unpackable packing rcv, Packable packing snd, Message snd )
-    => SendActions packing m
-    -> NetworkAddress
+    :: ( MonadMockable m, Bi rcv, Bi snd, Message snd, Message rcv )
+    => SendActions m
+    -> DHTNode
     -> (NodeId -> ConversationActions snd rcv m -> m t)
     -> m t
-converseToNode sendActions addr handler =
+converseToNode sendActions node handler =
     handleAll handleE $ tryConnect 0
       where
         handleE e | isDevelopment = tryConnect 1
                   | otherwise     = throw e
-        tryConnect i = withConnectionTo sendActions peerId $ handler peerId
-            where
-              peerId = addressToNodeId' i addr
+        tryConnect i = withConnectionTo sendActions nodeId $ handler nodeId
+          where
+            nodeId = toNodeId i node
+
+
+toNodeId :: Word32 -> DHTNode -> NodeId
+toNodeId i DHTNode {..} = NodeId $ (peerId, addressToNodeId' i dhtAddr)
+  where
+    peerId = PeerId $ getMeaningPart dhtNodeId
+
 
 converseToNeighbors
-    :: ( MonadDHT m, MonadMockable m, WithLogger m, Unpackable packing rcv, Packable packing snd, Message snd )
-    => SendActions packing m
+    :: ( MonadDHT m, MonadMockable m, WithLogger m, Bi rcv, Bi snd, Message snd, Message rcv )
+    => SendActions m
     -> (NodeId -> ConversationActions snd rcv m -> m ())
     -> m ()
 converseToNeighbors sendActions convHandler = do
     nodes <- getNodesWithCheck
-    void $ forConcurrently nodes $ \node -> handleAll (logErr node) $ converseToNode sendActions (dhtAddr node) convHandler
+    void $ forConcurrently nodes $ \node -> handleAll (logErr node) $ converseToNode sendActions node convHandler
   where
     logErr node e = logWarning $ sformat ("Error in conversation to "%shown%": "%shown) node e

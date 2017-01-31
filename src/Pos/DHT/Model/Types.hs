@@ -8,14 +8,11 @@ module Pos.DHT.Model.Types
        , DHTNode (..)
        , bytesToDHTKey
        , randomDHTKey
-       , addressToNodeId
-       , addressToNodeId'
-       , nodeIdToAddress
+       , getMeaningPart
+       , meaningPartLength
        ) where
 
 import qualified Data.ByteString             as BS
-import qualified Data.ByteString.Char8       as BS8
-import           Data.Char                   (isNumber)
 import           Data.Hashable               (Hashable)
 import           Data.Hashable               (Hashable (..))
 import           Data.Text.Buildable         (Buildable (..))
@@ -23,22 +20,30 @@ import           Formatting                  (bprint, (%))
 import qualified Formatting                  as F
 import           Network.Kademlia            (fromBS)
 import           Network.Kademlia.HashNodeId (HashId (..), genNonce, hashAddress)
-import qualified Network.Transport.TCP       as TCP
-import           Node                        (NodeId (..))
-import           Prelude                     (read, show)
+import qualified Prelude                     as Prelude
 import qualified Serokell.Util.Base64        as B64
 import           Serokell.Util.Text          (listBuilderJSON)
-import           Universum                   hiding (show)
+import           Universum
 
 import           Pos.Crypto.Random           (runSecureRandom)
 import           Pos.Util.TimeWarp           (NetworkAddress)
 import           Test.QuickCheck             (Arbitrary (..))
 
+-- TODO export lengths from HashNodeId module
+meaningPartLength :: Int
+meaningPartLength = 14
+
+hashPartLength :: Int
+hashPartLength = 18
+
+getMeaningPart :: DHTKey -> ByteString
+getMeaningPart (DHTKey (HashId bs)) = snd $ BS.splitAt hashPartLength bs
+
 -- | Dummy data for DHT.
 newtype DHTData = DHTData ()
   deriving (Eq, Ord, Show, Generic)
 
--- | DHTKey should be strictly 20-byte long.
+-- | DHT key, 32-byte long (18-byte hash + 14-byte nonce)
 newtype DHTKey = DHTKey { hashNodeId :: HashId }
   deriving (Eq, Ord, Generic)
 
@@ -79,18 +84,3 @@ bytesToDHTKey bs = either (Left . fromString) (Right . DHTKey . fst) $ fromBS bs
 -- | Generate random 'DHTKey'.
 randomDHTKey :: MonadIO m => m DHTKey
 randomDHTKey = DHTKey . hashAddress <$> liftIO (runSecureRandom genNonce)
-
--- TODO: What about node index, i.e. last number in '127.0.0.1:3000:0' ?
-addressToNodeId :: NetworkAddress -> NodeId
-addressToNodeId = addressToNodeId' 0
-
-addressToNodeId' :: Word32 -> NetworkAddress -> NodeId
-addressToNodeId' eId (host, port) = NodeId $ TCP.encodeEndPointAddress (BS8.unpack host) (show port) eId
-
-nodeIdToAddress :: NodeId -> Maybe NetworkAddress
-nodeIdToAddress (NodeId ep) = toNA =<< TCP.decodeEndPointAddress ep
-  where
-    toNA (hostName, port', _) = (BS8.pack hostName,) <$> toPort port'
-    toPort :: String -> Maybe Word16
-    toPort port' | all isNumber port' = pure $ read port'
-                 | otherwise          = Nothing

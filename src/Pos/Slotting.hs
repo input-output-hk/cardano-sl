@@ -11,7 +11,7 @@ module Pos.Slotting
        , getCurrentSlotUsingNtp
 
        , onNewSlot
-       , onNewSlotWithLogging
+       , onNewSlotImpl
 
        -- * Slotting state
        , SlottingState (..)
@@ -129,20 +129,8 @@ onNewSlot
        , Mockable Fork m
        , Mockable Delay m
        )
-    => Bool -> (SlotId -> m ()) -> m a
+    => Bool -> (SlotId -> m ()) -> m ()
 onNewSlot = onNewSlotImpl False
-
--- | Same as onNewSlot, but also logs debug information.
-onNewSlotWithLogging
-    :: ( MonadIO m
-       , MonadSlots m
-       , MonadCatch m
-       , WithLogger m
-       , Mockable Fork m
-       , Mockable Delay m
-       )
-    => Bool -> (SlotId -> m ()) -> m a
-onNewSlotWithLogging = onNewSlotImpl True
 
 onNewSlotImpl
     :: ( MonadIO m

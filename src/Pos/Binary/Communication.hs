@@ -3,41 +3,51 @@
 
 module Pos.Binary.Communication () where
 
-import           Data.Binary.Get            (getInt32be, getWord8, isolate, label)
-import           Data.Binary.Put            (putInt32be, putLazyByteString, putWord8,
-                                             runPut)
-import qualified Data.ByteString.Lazy       as BSL
-import           Data.Reflection            (Reifies, reflect)
-import           Formatting                 (formatToString, int, (%))
-import           Node.Message               (MessageName (..))
-import           Serokell.Data.Memory.Units (Byte)
-import           Universum
+import           Data.Binary.Get                  (getByteString, getWord8, isolate,
+                                                   label)
+import           Data.Binary.Put                  (putByteString, putLazyByteString,
+                                                   putWord8, runPut)
+import qualified Data.ByteString                  as BS
+import qualified Data.ByteString.Lazy             as BSL
+import           Data.Reflection                  (Reifies, reflect)
+import           Formatting                       (formatToString, int, sformat, (%))
+import           Node.Message                     (MessageName (..))
+import           Serokell.Data.Memory.Units       (Byte)
+import           Universum                        hiding (putByteString)
 
-import           Pos.Binary.Class           (Bi (..))
-import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
-                                             MsgGetHeaders (..), MsgHeaders (..))
-import           Pos.Communication.Types    (SysStartRequest (..), SysStartResponse (..),
-                                             VersionReq (..), VersionResp (..))
-import           Pos.Delegation.Types       (CheckProxySKConfirmed (..),
-                                             CheckProxySKConfirmedRes (..),
-                                             ConfirmProxySK (..), SendProxySK (..))
-import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
-import           Pos.Ssc.Class.Types        (Ssc (..))
-import           Pos.Txp.Types              (TxMsgTag (..))
-import           Pos.Update.Network.Types   (ProposalMsgTag (..), VoteMsgTag (..))
+import           Pos.Binary.Class                 (Bi (..))
+import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (..),
+                                                   MsgGetHeaders (..), MsgHeaders (..))
+import           Pos.Communication.Types          (SysStartRequest (..),
+                                                   SysStartResponse (..))
+import           Pos.Communication.Types.Protocol (HandlerSpec (..), NOP (..),
+                                                   PeerId (..), VerInfo (..))
+import           Pos.Delegation.Types             (ConfirmProxySK (..), SendProxySK (..))
+import           Pos.DHT.Model.Types              (meaningPartLength)
+import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
+import           Pos.Ssc.Class.Types              (Ssc (..))
+import           Pos.Txp.Types                    (TxMsgTag (..))
+import           Pos.Update.Network.Types         (ProposalMsgTag (..), VoteMsgTag (..))
 
 deriving instance Bi MessageName
+
+instance Bi NOP where
+    put _ = put (0 :: Word8)
+    get = NOP <$ do
+              (i :: Word8) <- get
+              when (i /= 0) $
+                 fail "NOP: 0 expected"
 
 ----------------------------------------------------------------------------
 -- System start
 ----------------------------------------------------------------------------
 
 instance Bi SysStartRequest where
-    put _ = put (0 :: Word8)
+    put _ = put (1 :: Word8)
     get = SysStartRequest <$ do
               (i :: Word8) <- get
-              when (i /= 0) $
-                 fail "SysStartRequest: 0 expected"
+              when (i /= 1) $
+                 fail "SysStartRequest: 1 expected"
 
 instance Bi SysStartResponse where
     put (SysStartResponse t) = put t
@@ -112,27 +122,14 @@ instance Bi ConfirmProxySK where
     put (ConfirmProxySK pSk proof) = put pSk >> put proof
     get = liftA2 ConfirmProxySK get get
 
-instance Bi CheckProxySKConfirmed where
-    put (CheckProxySKConfirmed pSk) = put pSk
-    get = CheckProxySKConfirmed <$> get
-
-instance Bi CheckProxySKConfirmedRes where
-    put (CheckProxySKConfirmedRes res) = put res
-    get = CheckProxySKConfirmedRes <$> get
-
-----------------------------------------------------------------------------
--- Versioning
-----------------------------------------------------------------------------
-
-instance Bi VersionReq where
-    put VersionReq = pass
-    get = pure VersionReq
-
-instance Bi VersionResp where
-    put VersionResp{..} =  putInt32be vRespMagic
-                        *> put vRespBlockVersion
-    get = label "GenericBlockHeader" $ VersionResp <$> getInt32be <*> get
-
+--instance Bi CheckProxySKConfirmed where
+--    put (CheckProxySKConfirmed pSk) = put pSk
+--    get = CheckProxySKConfirmed <$> get
+--
+--instance Bi CheckProxySKConfirmedRes where
+--    put (CheckProxySKConfirmedRes res) = put res
+--    get = CheckProxySKConfirmedRes <$> get
+--
 ----------------------------------------------------------------------------
 -- Update system
 ----------------------------------------------------------------------------
@@ -144,3 +141,28 @@ instance Bi ProposalMsgTag where
 instance Bi VoteMsgTag where
     put VoteMsgTag = pure ()
     get = pure VoteMsgTag
+
+instance Bi HandlerSpec where
+    put OneMsgHandler   = putWord8 0
+    put (ConvHandler m) = putWord8 1 <> put m
+    get = getWord8 >>= getImpl
+      where
+        getImpl 0 = pure OneMsgHandler
+        getImpl 1 = ConvHandler <$> get
+        getImpl _ = fail "Unknown HandlerSpec type"
+
+instance Bi VerInfo where
+    put VerInfo {..} = put vIMagic
+                    <> put vIBlockVersion
+                    <> put vIInHandlers
+                    <> put vIOutHandlers
+    get = VerInfo <$> get <*> get <*> get <*> get
+
+peerIdLength :: Int
+peerIdLength = meaningPartLength
+
+instance Bi PeerId where
+    put (PeerId b) = if BS.length b /= peerIdLength
+                        then panic $ sformat ("Wrong PeerId length "%int) (BS.length b)
+                        else putByteString b
+    get = PeerId <$> getByteString peerIdLength

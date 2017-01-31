@@ -4,16 +4,17 @@ module Pos.Ssc.Class.Workers
        ( SscWorkersClass(..)
        ) where
 
-import           Data.Tagged           (Tagged)
-import           Node                  (SendActions)
+import           Data.Tagged                (Tagged)
+import           Pos.Communication.Protocol (OutSpecs, WorkerSpec)
 
-import           Pos.Communication.BiP (BiP)
-import           Pos.Lrc.Consumer      (LrcConsumer)
-import           Pos.Ssc.Class.Types   (Ssc (..))
-import           Pos.WorkMode          (WorkMode)
+
+
+import           Pos.Lrc.Consumer           (LrcConsumer)
+import           Pos.Ssc.Class.Types        (Ssc (..))
+import           Pos.WorkMode               (WorkMode)
 
 -- | Class for @SSC@ workers.
 class Ssc ssc => SscWorkersClass ssc where
     -- | All workers specific to SSC.
-    sscWorkers :: WorkMode ssc m => Tagged ssc [SendActions BiP m -> m ()]
+    sscWorkers :: WorkMode ssc m => Tagged ssc ([WorkerSpec m], OutSpecs)
     sscLrcConsumers :: WorkMode ssc m => Tagged ssc [LrcConsumer m]

@@ -56,12 +56,12 @@ instance SscHelpersClass SscNistBeacon where
     sscVerifyPayload = Tagged $ const $ const $ Right ()
 
 instance SscWorkersClass SscNistBeacon where
-    sscWorkers = Tagged []
+    sscWorkers = Tagged ([], mempty)
     sscLrcConsumers = Tagged []
 
 instance SscListenersClass SscNistBeacon where
-    sscListeners = Tagged []
-    sscStubListeners _ = []
+    sscListeners = Tagged ([], mempty)
+    sscStubListeners = Tagged ([], mempty)
 
 instance SscLocalDataClass SscNistBeacon where
     sscGetLocalPayloadQ _ = pure ()

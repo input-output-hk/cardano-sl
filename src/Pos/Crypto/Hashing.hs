@@ -51,7 +51,7 @@ import           Universum
 
 import           Pos.Binary.Class     (Bi)
 import qualified Pos.Binary.Class     as Bi
-import           Pos.Util             (Raw, getCopyBinary, putCopyBinary)
+import           Pos.Util.Binary      (Raw, getCopyBinary, putCopyBinary)
 
 ----------------------------------------------------------------------------
 -- WithHash

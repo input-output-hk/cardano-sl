@@ -20,10 +20,11 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,
                                               defaultLiftBaseWith, defaultLiftWith,
                                               defaultRestoreM, defaultRestoreT)
-import           Mockable                    (ChannelT, CurrentTime, MFunctor',
+import           Mockable                    (ChannelT, Counter, CurrentTime,
+                                              Distribution, Gauge, MFunctor',
                                               Mockable (liftMockable), Promise,
-                                              SharedAtomicT, ThreadId, currentTime,
-                                              liftMockableWrappedM)
+                                              SharedAtomicT, SharedExclusiveT, ThreadId,
+                                              currentTime, liftMockableWrappedM)
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
@@ -66,6 +67,10 @@ instance MonadBaseControl IO m => MonadBaseControl IO (ContextHolder m) where
 type instance ThreadId (ContextHolder m) = ThreadId m
 type instance Promise (ContextHolder m) = Promise m
 type instance SharedAtomicT (ContextHolder m) = SharedAtomicT m
+type instance Counter (ContextHolder m) = Counter m
+type instance Distribution (ContextHolder m) = Distribution m
+type instance SharedExclusiveT (ContextHolder m) = SharedExclusiveT m
+type instance Gauge (ContextHolder m) = Gauge m
 type instance ChannelT (ContextHolder m) = ChannelT m
 
 instance ( Mockable d m

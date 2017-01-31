@@ -18,7 +18,6 @@ import           Pos.Ssc.GodTossing.Core (InnerSharesMap, Opening, SignedCommitm
                                           isOpeningId, isOpeningIdx, isSharesId,
                                           isSharesIdx)
 import           Pos.Types               (LocalSlotIndex, SlotId, StakeholderId)
-import           Pos.Util                (NamedMessagePart (..))
 
 -- | Tag associated with message.
 data GtMsgTag
@@ -27,13 +26,6 @@ data GtMsgTag
     | SharesMsg
     | VssCertificateMsg
     deriving (Show, Eq, Generic)
-
-instance NamedMessagePart GtMsgTag where
-    nMessageName _     = "Gt tag"
-
-instance NamedMessagePart GtMsgContents where
-    nMessageName _     = "Gt contents"
-
 instance Buildable GtMsgTag where
     build CommitmentMsg     = "commitment"
     build OpeningMsg        = "opening"

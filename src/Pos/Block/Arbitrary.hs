@@ -22,7 +22,8 @@ import           Pos.Merkle           (MerkleRoot (..), MerkleTree, mkMerkleTree
 import           Pos.Ssc.Class        (Ssc (..), SscHelpersClass)
 import qualified Pos.Types            as T
 import           Pos.Update.Arbitrary ()
-import           Pos.Util             (Raw, makeSmall)
+import           Pos.Util.Arbitrary   (makeSmall)
+import           Pos.Util.Binary      (Raw)
 import qualified Prelude
 
 ------------------------------------------------------------------------------------------

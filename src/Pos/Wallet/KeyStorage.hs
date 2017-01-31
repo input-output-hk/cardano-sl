@@ -23,9 +23,9 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,
                                               defaultLiftBaseWith, defaultLiftWith,
                                               defaultRestoreM, defaultRestoreT)
-import           Mockable                    (ChannelT, MFunctor',
-                                              Mockable (liftMockable), Promise,
-                                              SharedAtomicT, ThreadId,
+import           Mockable                    (ChannelT, Counter, Distribution, Gauge,
+                                              MFunctor', Mockable (liftMockable), Promise,
+                                              SharedAtomicT, SharedExclusiveT, ThreadId,
                                               liftMockableWrappedM)
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
@@ -75,7 +75,7 @@ instance MonadKeys m => MonadKeys (StateT s m)
 
 -- | Instances for ancestor in the monadic stack
 instance MonadKeys m => MonadKeys (KademliaDHT m)
-instance MonadKeys m => MonadKeys (PeerStateHolder ssc m)
+instance MonadKeys m => MonadKeys (PeerStateHolder m)
 
 -- | Helper for generating a new secret key
 newSecretKey :: (MonadIO m, MonadKeys m) => m SecretKey
@@ -137,6 +137,10 @@ instance MonadBaseControl IO m => MonadBaseControl IO (KeyStorage m) where
 type instance ThreadId (KeyStorage m) = ThreadId m
 type instance Promise (KeyStorage m) = Promise m
 type instance SharedAtomicT (KeyStorage m) = SharedAtomicT m
+type instance Counter (KeyStorage m) = Counter m
+type instance Distribution (KeyStorage m) = Distribution m
+type instance SharedExclusiveT (KeyStorage m) = SharedExclusiveT m
+type instance Gauge (KeyStorage m) = Gauge m
 type instance ChannelT (KeyStorage m) = ChannelT m
 
 instance ( Mockable d m

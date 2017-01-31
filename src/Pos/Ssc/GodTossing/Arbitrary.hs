@@ -11,6 +11,7 @@ import           Test.QuickCheck                  (Arbitrary (..), elements, one
 import           Universum
 
 import           Pos.Binary.Ssc                   ()
+import           Pos.Communication.Types.Relay    (DataMsg (..))
 import           Pos.Crypto                       (deterministicVssKeyGen, toPublic,
                                                    toVssPublicKey)
 import           Pos.Ssc.GodTossing.Core          (Commitment, CommitmentsMap,
@@ -28,7 +29,6 @@ import           Pos.Types.Arbitrary.Unsafe       ()
 import           Pos.Util                         (asBinary)
 import           Pos.Util.Arbitrary               (Nonrepeating (..), makeSmall, sublistN,
                                                    unsafeMakePool)
-import           Pos.Util.Relay                   (DataMsg (..))
 
 ----------------------------------------------------------------------------
 -- Core

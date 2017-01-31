@@ -15,19 +15,20 @@ import qualified Data.Text                 as T
 import           Data.Time.Units           (convertUnit)
 import           Formatting                (build, int, sformat, stext, (%))
 import           Mockable                  (delay)
-import           Node                      (SendActions, hoistSendActions)
 import           Options.Applicative       (execParser)
 import           System.IO                 (hFlush, stdout)
 import           Universum
 
 import qualified Pos.CLI                   as CLI
-import           Pos.Communication         (BiP)
+import           Pos.Communication         (OutSpecs, SendActions, Worker', WorkerSpec,
+                                            worker)
 import           Pos.Crypto                (Hash, SecretKey, createProxySecretKey,
                                             encodeHash, hash, hashHexF, sign, toPublic,
                                             unsafeHash)
 import           Pos.Data.Attributes       (mkAttributes)
-import           Pos.Delegation            (sendProxySKEpoch, sendProxySKSimple)
-import           Pos.DHT.Model             (dhtAddr, discoverPeers)
+import           Pos.Delegation            (sendProxySKEpoch, sendProxySKEpochOuts,
+                                            sendProxySKSimple, sendProxySKSimpleOuts)
+import           Pos.DHT.Model             (DHTNode, discoverPeers)
 import           Pos.Genesis               (genesisBlockVersionData, genesisPublicKeys,
                                             genesisSecretKeys)
 import           Pos.Launcher              (BaseParams (..), LoggingParams (..),
@@ -42,21 +43,22 @@ import           Pos.Update                (BlockVersionData (..), UpdateProposa
                                             UpdateVote (..), patakUpdateData,
                                             skovorodaUpdateData)
 import           Pos.Util                  (Raw)
-import           Pos.Util.TimeWarp         (NetworkAddress, sec)
+import           Pos.Util.TimeWarp         (sec)
 import           Pos.Wallet                (WalletMode, WalletParams (..), WalletRealMode,
-                                            getBalance, runWalletReal, submitTx,
+                                            getBalance, runWalletReal, sendProposalOuts,
+                                            sendTxOuts, sendVoteOuts, submitTx,
                                             submitUpdateProposal, submitVote)
 #ifdef WITH_WEB
-import           Pos.Wallet.Web            (walletServeWebLite)
+import           Pos.Wallet.Web            (walletServeWebLite, walletServerOuts)
 #endif
 
 import           Command                   (Command (..), parseCommand)
 import           WalletOptions             (WalletAction (..), WalletOptions (..),
                                             optsInfo)
 
-type CmdRunner = ReaderT ([SecretKey], [NetworkAddress])
+type CmdRunner = ReaderT ([SecretKey], [DHTNode])
 
-runCmd :: WalletMode ssc m => SendActions BiP m -> Command -> CmdRunner m ()
+runCmd :: WalletMode ssc m => SendActions m -> Command -> CmdRunner m ()
 runCmd _ (Balance addr) = lift (getBalance addr) >>=
                          putText . sformat ("Current balance: "%coinF)
 runCmd sendActions (Send idx outputs) = do
@@ -137,24 +139,30 @@ runCmd _ ListAddresses = do
 runCmd sendActions (DelegateLight i j) = do
     let issuerSk = genesisSecretKeys !! i
         delegatePk = genesisPublicKeys !! j
-    r <- ask
-    sendProxySKEpoch (hoistSendActions lift (`runReaderT` r) sendActions) $
-        createProxySecretKey issuerSk delegatePk (EpochIndex 0, EpochIndex 50)
+        psk = createProxySecretKey issuerSk delegatePk (EpochIndex 0, EpochIndex 50)
+    lift $ sendProxySKEpoch psk sendActions
     putText "Sent lightweight cert"
 runCmd sendActions (DelegateHeavy i j) = do
     let issuerSk = genesisSecretKeys !! i
         delegatePk = genesisPublicKeys !! j
-    r <- ask
-    sendProxySKSimple (hoistSendActions lift (`runReaderT` r) sendActions) $
-        createProxySecretKey issuerSk delegatePk ()
+        psk = createProxySecretKey issuerSk delegatePk ()
+    lift $ sendProxySKSimple psk sendActions
     putText "Sent heavyweight cert"
 runCmd _ Quit = pure ()
 
-evalCmd :: WalletMode ssc m => SendActions BiP m -> Command -> CmdRunner m ()
+runCmdOuts :: OutSpecs
+runCmdOuts = mconcat [ sendProxySKEpochOuts
+                     , sendProxySKSimpleOuts
+                     , sendTxOuts
+                     , sendVoteOuts
+                     , sendProposalOuts
+                     ]
+
+evalCmd :: WalletMode ssc m => SendActions m -> Command -> CmdRunner m ()
 evalCmd _ Quit = pure ()
 evalCmd sa cmd = runCmd sa cmd >> evalCommands sa
 
-evalCommands :: WalletMode ssc m => SendActions BiP m -> CmdRunner m ()
+evalCommands :: WalletMode ssc m => SendActions m -> CmdRunner m ()
 evalCommands sa = do
     putStr @Text "> "
     liftIO $ hFlush stdout
@@ -164,21 +172,21 @@ evalCommands sa = do
         Left err  -> putStrLn err >> evalCommands sa
         Right cmd -> evalCmd sa cmd
 
-initialize :: WalletMode ssc m => WalletOptions -> m [NetworkAddress]
+initialize :: WalletMode ssc m => WalletOptions -> m [DHTNode]
 initialize WalletOptions{..} = do
     -- Wait some time to ensure blockchain is fetched
     putText $ sformat ("Started node. Waiting for "%int%" slots...") woInitialPause
     slotDuration <- getSlotDuration
     delay (fromIntegral woInitialPause * slotDuration)
-    fmap dhtAddr <$> discoverPeers
+    discoverPeers
 
-runWalletRepl :: WalletMode ssc m => WalletOptions -> SendActions BiP m -> m ()
+runWalletRepl :: WalletMode ssc m => WalletOptions -> Worker' m
 runWalletRepl wo sa = do
     na <- initialize wo
     putText "Welcome to Wallet CLI Node"
     runReaderT (evalCmd sa Help) (genesisSecretKeys, na)
 
-runWalletCmd :: WalletMode ssc m => WalletOptions -> Text -> SendActions BiP m -> m ()
+runWalletCmd :: WalletMode ssc m => WalletOptions -> Text -> Worker' m
 runWalletCmd wo str sa = do
     na <- initialize wo
     let strs = T.splitOn "," str
@@ -228,13 +236,13 @@ main = do
                 , wpBaseParams  = baseParams
                 }
 
-            plugins :: [SendActions BiP WalletRealMode -> WalletRealMode ()]
-            plugins = case woAction of
-                Repl          -> [runWalletRepl opts]
-                Cmd cmd       -> [runWalletCmd opts cmd]
+            plugins :: ([ WorkerSpec WalletRealMode ], OutSpecs)
+            plugins = first pure $ case woAction of
+                Repl          -> worker runCmdOuts $ runWalletRepl opts
+                Cmd cmd       -> worker runCmdOuts $ runWalletCmd opts cmd
 #ifdef WITH_WEB
-                Serve webPort webDaedalusDbPath -> [\sendActions ->
-                    walletServeWebLite sendActions webDaedalusDbPath False webPort]
+                Serve webPort webDaedalusDbPath -> worker walletServerOuts $ \sendActions ->
+                    walletServeWebLite sendActions webDaedalusDbPath False webPort
 #endif
 
         case CLI.sscAlgo woCommonArgs of

@@ -9,6 +9,7 @@ module Daedalus.Types
        , mkCAddress
        , mkCWalletMeta
        , mkCWalletInit
+       , mkCWalletInitIgnoreChecksum
        , mkCTxMeta
        , mkCTxId
        , mkCCurrency
@@ -31,22 +32,38 @@ import Pos.Util.BackupPhrase (BackupPhrase (..))
 import Pos.Util.BackupPhrase as BP
 
 import Control.Monad.Eff.Exception (error, Error)
+import Control.Apply ((<$>))
 import Data.Either (either, Either (..))
 import Data.Argonaut.Generic.Aeson (decodeJson)
 import Data.Argonaut.Core (fromString)
 import Data.Generic (gShow)
 import Data.Array.Partial (last)
+import Data.Array (length, filter)
 import Partial.Unsafe (unsafePartial)
-import Data.String (split)
+import Data.String (split, null, trim, joinWith)
 
 import Daedalus.Crypto (isValidMnemonic)
 import Data.Types (mkTime)
 
 mkBackupPhrase :: String -> Either Error BackupPhrase
 mkBackupPhrase mnemonic =
-    if not $ isValidMnemonic mnemonic
-        then Left $ error "Invalid mnemonic"
-        else Right $ BackupPhrase { bpToList: split " " mnemonic }
+    if not $ isValidMnemonic mnemonicCleaned
+        then Left $ error "Invalid mnemonic: checksum missmatch"
+        else Right $ BackupPhrase { bpToList: split " " mnemonicCleaned }
+  where
+    mnemonicCleaned = cleanMnemonic mnemonic
+
+cleanMnemonic :: String -> String
+cleanMnemonic = joinWith " " <<< filter (not <<< null) <<< split " " <<< trim
+
+mkBackupPhraseIgnoreChecksum :: String -> Either Error BackupPhrase
+mkBackupPhraseIgnoreChecksum mnemonic =
+    if not $ hasAtLeast12words mnemonicCleaned
+        then Left $ error "Invalid mnemonic: mnemonic should have at least 12 words"
+        else Right $ BackupPhrase { bpToList: split " " mnemonicCleaned }
+  where
+    hasAtLeast12words = (<=) 12 <<< length <<< split " "
+    mnemonicCleaned = cleanMnemonic mnemonic
 
 showCCurrency :: CT.CCurrency -> String
 showCCurrency = dropModuleName <<< gShow
@@ -87,11 +104,18 @@ mkCWalletMeta wType wCurrency wName =
                    }
 
 mkCWalletInit :: String -> String -> String -> String -> Either Error CT.CWalletInit
-mkCWalletInit wType wCurrency wName mnemonic = do
-    bp <- mkBackupPhrase mnemonic
-    pure $ CT.CWalletInit { cwBackupPhrase: bp
-                          , cwInitMeta: mkCWalletMeta wType wCurrency wName
-                          }
+mkCWalletInit wType wCurrency wName mnemonic =
+    mkCWalletInit' wType wCurrency wName <$> mkBackupPhrase mnemonic
+
+mkCWalletInitIgnoreChecksum :: String -> String -> String -> String -> Either Error CT.CWalletInit
+mkCWalletInitIgnoreChecksum wType wCurrency wName mnemonic= do
+    mkCWalletInit' wType wCurrency wName <$> mkBackupPhraseIgnoreChecksum mnemonic
+
+mkCWalletInit' :: String -> String -> String -> BackupPhrase -> CT.CWalletInit
+mkCWalletInit' wType wCurrency wName bp =
+    CT.CWalletInit { cwBackupPhrase: bp
+                   , cwInitMeta: mkCWalletMeta wType wCurrency wName
+                   }
 
 mkCWalletRedeem :: String -> String -> CT.CWalletRedeem
 mkCWalletRedeem seed wId = do

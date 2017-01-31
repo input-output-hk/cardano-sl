@@ -16,7 +16,6 @@ import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
 import           Formatting                  (build, sformat, (%))
 import           Mockable                    (fork)
-import           Node                        (SendActions)
 import           Serokell.Util.Exceptions    ()
 import           System.Wlog                 (logInfo, logWarning)
 import           Universum
@@ -24,7 +23,7 @@ import           Universum
 import           Pos.Binary.Communication    ()
 import           Pos.Block.Logic.Internal    (applyBlocksUnsafe, rollbackBlocksUnsafe,
                                               withBlkSemaphore_)
-import           Pos.Communication.BiP       (BiP)
+import           Pos.Communication.Protocol  (OutSpecs, WorkerSpec, localOnNewSlotWorker)
 import           Pos.Constants               (slotSecurityParam)
 import           Pos.Context                 (LrcSyncData, getNodeContext, ncLrcSync)
 import qualified Pos.DB                      as DB
@@ -36,7 +35,6 @@ import           Pos.Lrc.Consumers           (allLrcConsumers)
 import           Pos.Lrc.Error               (LrcError (..))
 import           Pos.Lrc.FollowTheSatoshi    (followTheSatoshiM)
 import           Pos.Lrc.Logic               (findAllRichmenMaybe)
-import           Pos.Slotting                (onNewSlot)
 import           Pos.Ssc.Class               (SscWorkersClass)
 import           Pos.Ssc.Extra               (sscCalculateSeed)
 import           Pos.Types                   (EpochIndex, EpochOrSlot (..),
@@ -51,13 +49,8 @@ import           Pos.WorkMode                (WorkMode)
 
 lrcOnNewSlotWorker
     :: (SscWorkersClass ssc, WorkMode ssc m)
-    => SendActions BiP m -> m ()
-lrcOnNewSlotWorker _ = onNewSlot True $ lrcOnNewSlotImpl
-
-lrcOnNewSlotImpl
-    :: (SscWorkersClass ssc, WorkMode ssc m)
-    => SlotId -> m ()
-lrcOnNewSlotImpl SlotId {..} =
+    => (WorkerSpec m, OutSpecs)
+lrcOnNewSlotWorker = localOnNewSlotWorker True $ \SlotId {..} ->
     when (siSlot < slotSecurityParam) $ lrcSingleShot siEpoch `catch` onLrcError
   where
     onLrcError UnknownBlocksForLrc =

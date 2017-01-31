@@ -15,9 +15,9 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,
                                               defaultLiftBaseWith, defaultLiftWith,
                                               defaultRestoreM, defaultRestoreT)
-import           Mockable                    (ChannelT, MFunctor',
-                                              Mockable (liftMockable), Promise,
-                                              SharedAtomicT, ThreadId,
+import           Mockable                    (ChannelT, Counter, Distribution, Gauge,
+                                              MFunctor', Mockable (liftMockable), Promise,
+                                              SharedAtomicT, SharedExclusiveT, ThreadId,
                                               liftMockableWrappedM)
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
@@ -51,6 +51,10 @@ instance Monad m => WrappedM (WalletDB m) where
 type instance ThreadId (WalletDB m) = ThreadId m
 type instance Promise (WalletDB m) = Promise m
 type instance SharedAtomicT (WalletDB m) = SharedAtomicT m
+type instance Counter (WalletDB m) = Counter m
+type instance Distribution (WalletDB m) = Distribution m
+type instance SharedExclusiveT (WalletDB m) = SharedExclusiveT m
+type instance Gauge (WalletDB m) = Gauge m
 type instance ChannelT (WalletDB m) = ChannelT m
 
 instance ( Mockable d m

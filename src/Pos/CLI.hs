@@ -35,7 +35,7 @@ import qualified Options.Applicative.Simple           as Opt (Mod, Parser, auto,
                                                               strOption, switch, value)
 import           Serokell.Util.OptParse               (fromParsec)
 import qualified Serokell.Util.Parse                  as P
-import           System.Wlog                          (LoggerConfig (..),
+import           System.Wlog                          (LoggerConfig (..), LoggerTree (..),
                                                        Severity (Info, Warning),
                                                        parseLoggerConfig)
 import           Text.ParserCombinators.Parsec        (many1, try)
@@ -49,6 +49,7 @@ import           Pos.Security.CLI                     (AttackTarget (..), Attack
 import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
 import           Pos.Types.Address                    (Address (..), AddressHash,
                                                        decodeTextAddress)
+import           Pos.Util                             ()
 import           Pos.Util.TimeWarp                    (NetworkAddress)
 
 -- | Parser for DHT key.
@@ -95,18 +96,20 @@ attackTargetParser = (PubKeyAddressTarget <$> try base58AddrParser) <|>
 -- >     severity: Warning
 --
 defaultLoggerConfig :: LoggerConfig
-defaultLoggerConfig = def { lcSubloggers = defSubloggers }
+defaultLoggerConfig = def { lcTree = defSubloggers }
   where
-    defSubloggers = [ ( "node"
-                      , def
-                        { lcSeverity = Just Info
-                        , lcSubloggers = [ ( "comm"
-                                           , def { lcSeverity = Just Warning }
-                                           )
-                                         ]
-                        }
-                      )
-                    ]
+    defSubloggers = def
+        { ltSubloggers = [ ( "node"
+                           , def
+                             { ltSeverity = Just Info
+                             , ltSubloggers = [ ( "comm"
+                                                , def { ltSeverity = Just Warning }
+                                                )
+                                              ]
+                             }
+                           )
+                         ]
+        }
 
 -- | Reads logger config from given path. By default return 'defaultLoggerConfig'.
 readLoggerConfig :: MonadIO m => Maybe FilePath -> m LoggerConfig

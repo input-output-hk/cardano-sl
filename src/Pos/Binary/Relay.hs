@@ -1,6 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 
--- | Pos.Util.Relay serialization instances
+-- | Pos.Communication.Relay serialization instances
 
 module Pos.Binary.Relay () where
 
@@ -8,11 +8,12 @@ import           Universum
 
 import           Pos.Binary.Class                 (Bi (..))
 import           Pos.Binary.Crypto                ()
+import           Pos.Binary.Ssc                   ()
+import           Pos.Communication.Types.Relay    (DataMsg (..), InvMsg (..), ReqMsg (..))
 import           Pos.Crypto                       (hash)
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..))
 import           Pos.Txp.Types.Communication      (TxMsgContents (..))
 import           Pos.Update.Core                  (UpdateProposal, UpdateVote (..))
-import           Pos.Util.Relay                   (DataMsg (..), InvMsg (..), ReqMsg (..))
 
 instance (Bi tag, Bi key) => Bi (InvMsg key tag) where
     put InvMsg {..} = put imTag >> put imKeys
@@ -29,9 +30,7 @@ instance Bi (DataMsg GtMsgContents) where
 instance Bi (DataMsg TxMsgContents) where
     put (DataMsg (TxMsgContents dmTx dmWitness dmDistr)) =
         put dmTx >> put dmWitness >> put dmDistr
-    get = do
-      conts <- TxMsgContents <$> get <*> get <*> get
-      pure $ DataMsg conts
+    get = DataMsg <$> (TxMsgContents <$> get <*> get <*> get)
 
 instance Bi (DataMsg (UpdateProposal, [UpdateVote])) where
     put (DataMsg dmContents) = put dmContents

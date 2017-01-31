@@ -18,10 +18,10 @@ import           Control.Monad.Trans.Control  (ComposeSt, MonadBaseControl (..),
                                                MonadTransControl (..), StM,
                                                defaultLiftBaseWith, defaultLiftWith,
                                                defaultRestoreM, defaultRestoreT)
-import           Mockable                     (ChannelT, MFunctor',
-                                               Mockable (liftMockable), Promise,
-                                               SharedAtomicT, ThreadId,
-                                               liftMockableWrappedM)
+import           Mockable                     (ChannelT, Counter, Distribution, Gauge,
+                                               MFunctor', Mockable (liftMockable),
+                                               Promise, SharedAtomicT, SharedExclusiveT,
+                                               ThreadId, liftMockableWrappedM)
 import           Serokell.Util.Lens           (WrappedM (..))
 import           System.Wlog                  (CanLog, HasLoggerName)
 import           Universum
@@ -75,6 +75,10 @@ deriving instance MonadDB ssc m => MonadDB ssc (USHolder m)
 type instance ThreadId (USHolder m) = ThreadId m
 type instance Promise (USHolder m) = Promise m
 type instance SharedAtomicT (USHolder m) = SharedAtomicT m
+type instance Counter (USHolder m) = Counter m
+type instance Distribution (USHolder m) = Distribution m
+type instance SharedExclusiveT (USHolder m) = SharedExclusiveT m
+type instance Gauge (USHolder m) = Gauge m
 type instance ChannelT (USHolder m) = ChannelT m
 
 instance ( Mockable d m

@@ -4,14 +4,14 @@ module Test.Pos.Update.Identity.BinarySpec
        ( spec
        ) where
 
-import           Test.Hspec     (Spec, describe)
+import           Test.Hspec              (Spec, describe)
 import           Universum
 
-import           Pos.Binary     ()
-import qualified Pos.Update     as U
-import           Pos.Util.Relay as R
+import           Pos.Binary              ()
+import           Pos.Communication.Relay as R
+import qualified Pos.Update              as U
 
-import           Test.Pos.Util  (binaryTest, networkBinaryTest)
+import           Test.Pos.Util           (binaryTest, networkBinaryTest)
 
 spec :: Spec
 spec =

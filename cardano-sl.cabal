@@ -41,6 +41,7 @@ library
                         Pos.CLI
                         Pos.Context
                         Pos.Communication
+                        Pos.Communication.Relay
                         Pos.CompileConfig
                         Pos.Constants
                         Pos.Crypto
@@ -121,8 +122,8 @@ library
                         Pos.Util
                         Pos.Util.BackupPhrase
                         Pos.Util.JsonLog
-                        Pos.Util.Relay
                         Pos.Util.UserSecret
+                        Pos.Util.TimeLimit
                         Pos.Util.TimeWarp
                         Pos.Worker
                         Pos.WorkMode
@@ -170,14 +171,16 @@ library
                         -- Network
                         Pos.Communication.Arbitrary
                         Pos.Communication.BiP
+                        Pos.Communication.Message
                         Pos.Communication.Methods
+                        Pos.Communication.Protocol
                         Pos.Communication.PeerState
                         Pos.Communication.Types
                         Pos.Communication.Types.Protocol
+                        Pos.Communication.Types.Relay
                         Pos.Communication.Types.State
                         Pos.Communication.Types.SysStart
                         Pos.Communication.Server
-                        Pos.Communication.Server.Protocol
                         Pos.Communication.Server.SysStart
                         Pos.Communication.Util
 
@@ -375,6 +378,7 @@ library
 
                         -- Utilities/helpers
                         Pos.Util.Arbitrary
+                        Pos.Util.Binary
                         Pos.Util.Iterator
                         Pos.Util.NotImplemented
   if flag(with-web)
@@ -463,7 +467,7 @@ library
                       , lens
                       , lifted-async
                       , list-t
-                      , log-warper >= 0.1.0
+                      , log-warper
                       , lrucache
                       , memory
                       , mmorph
@@ -562,7 +566,7 @@ executable cardano-node
                      , filepath
                      , formatting
                      , lens
-                     , log-warper >= 0.1.0
+                     , log-warper
                      , network-transport
                      , node-sketch
                      , optparse-simple
@@ -613,7 +617,7 @@ executable cardano-analyzer
                      , bytestring
                      , cardano-sl
                      , formatting
-                     , log-warper >= 0.1.0
+                     , log-warper
                      , optparse-simple
                      , serokell-util
                      , text
@@ -668,7 +672,7 @@ executable cardano-wallet
                      , formatting
                      , lens
                      , lifted-async
-                     , log-warper >= 0.1.0
+                     , log-warper
                      , mtl
                      , network-transport
                      , node-sketch
@@ -778,7 +782,7 @@ executable cardano-smart-generator
                      , formatting
                      , lens
                      , lifted-async
-                     , log-warper >= 0.1.0
+                     , log-warper
                      , node-sketch
                      , optparse-applicative
                      , parsec
@@ -839,7 +843,7 @@ executable cardano-dht-keygen
                      , kademlia
                      , lens
                      , lifted-async
-                     , log-warper >= 0.1.0
+                     , log-warper
                      , optparse-applicative
                      , parsec
                      , random
@@ -1108,7 +1112,7 @@ test-suite cardano-test
                      , formatting
                      , hspec
                      , lens
-                     , log-warper >= 0.1.0
+                     , log-warper
                      , memory
                      , mtl
                      , node-sketch
@@ -1168,7 +1172,7 @@ benchmark cardano-bench-criterion
                      , formatting
                      , hashtables
                      , lens
-                     , log-warper >= 0.1.0
+                     , log-warper
                      , serokell-util
                      , text-format
                      , universum >= 0.1.11

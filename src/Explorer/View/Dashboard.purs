@@ -2,10 +2,12 @@ module Explorer.View.Dashboard (dashboardView) where
 
 import Prelude
 import Data.Array (slice)
+import Data.Lens ((^.))
 import Data.Map (Map, fromFoldable, lookup, toAscUnfoldable) as M
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Tuple (Tuple(..))
 import Explorer.I18n.Lang (I18nAccessor, translate)
+import Explorer.State (dashboardBlocksExpanded, dashboardSelectedApiCode)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.Generated (CCurrency(..))
 import Explorer.Types.State (DashboardAPICode(..), State)
@@ -188,7 +190,7 @@ blocksView state =
             { headline: "#Last Blocks"
             , link: Just $ HeaderLink { label: "#Explore blocks", action: NoOp }
             }
-        expanded = state.viewStates.dashboard.blocksExpanded
+        expanded = state ^. dashboardBlocksExpanded
 
         blockItems' :: BlockItems
         blockItems' = if expanded
@@ -313,7 +315,7 @@ transactionsView state =
           ]
         ]
     where
-      expanded = state.viewStates.dashboard.transactionsExpanded
+      expanded = state ^. dashboardBlocksExpanded
       expandLabel = if expanded then "#collapse" else "#expand"
       headerOptions = HeaderOptions
           { headline: translate _.transactionFeed state.lang
@@ -451,9 +453,8 @@ apiView state =
           ]
         ]
     where
-      selectedCode = state.viewStates.dashboard.selectedApiCode
       apiCode :: ApiCode
-      apiCode = fromMaybe emptyApiCode (M.lookup selectedCode apiCodes)
+      apiCode = fromMaybe emptyApiCode $ M.lookup (state ^. dashboardSelectedApiCode) apiCodes
       addressSnippet = _.getAddress $ apiCode
       responseSnippet = _.response $ apiCode
       headerOptions = HeaderOptions
@@ -477,8 +478,7 @@ apiCodeTabView state (Tuple code label) =
       , P.onClick <<< const $ DashboardShowAPICode code ]
       [ P.text label ]
     where
-      selectedCode = state.viewStates.dashboard.selectedApiCode
-      selectedClazz = if selectedCode == code then "selected" else ""
+      selectedClazz = if state ^. dashboardSelectedApiCode == code then "selected" else ""
 
 
 apiCodeSnippetView :: String -> String -> P.Html Action

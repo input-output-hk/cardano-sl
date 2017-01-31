@@ -33,8 +33,7 @@ import           Pos.Communication.Protocol       (ConversationActions (..), Nod
                                                    OutSpecs, SendActions, Worker',
                                                    WorkerSpec, convH, onNewSlotWorker,
                                                    toOutSpecs)
-import           Pos.Communication.Relay          (DataMsg (..), InvMsg (..), InvOrData,
-                                                   ReqMsg)
+import           Pos.Communication.Relay          (InvMsg (..), InvOrData, ReqMsg)
 import           Pos.Constants                    (mpcSendInterval, slotSecurityParam,
                                                    vssMaxTTL)
 import           Pos.Context                      (getNodeContext, lrcActionOnEpochReason,

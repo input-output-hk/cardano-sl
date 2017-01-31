@@ -10,5 +10,6 @@ import           Pos.Communication.Methods   as M
 import           Pos.Communication.Protocol  as M
 import           Pos.Communication.Relay     as M
 import           Pos.Communication.Server    as M
+import           Pos.Communication.Specs     as M
 import           Pos.Communication.Types     as M
 import           Pos.Communication.Util      as M

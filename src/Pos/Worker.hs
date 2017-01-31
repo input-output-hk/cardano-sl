@@ -16,6 +16,7 @@ import           Universum
 import           Pos.Block.Worker        (blkWorkers)
 import           Pos.Communication       (OutSpecs, SysStartResponse (..), WorkerSpec,
                                           onNewSlotWithLoggingWorker, oneMsgH, toOutSpecs)
+import           Pos.Communication.Relay (relayWorkers)
 import           Pos.Constants           (isDevelopment, sysTimeBroadcastSlots)
 import           Pos.Context             (NodeContext (..), getNodeContext,
                                           setNtpLastSlot)
@@ -52,6 +53,7 @@ allWorkers = mconcatPair
     , untag securityWorkers
     , first pure lrcOnNewSlotWorker
     , usWorkers
+    , relayWorkers
     ]
 
 onNewSlotWorker :: WorkMode ssc m => (WorkerSpec m, OutSpecs)

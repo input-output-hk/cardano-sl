@@ -70,7 +70,8 @@ import           Pos.Communication           (ActionSpec (..), BiP (..),
 import           Pos.Communication.PeerState (runPeerStateHolder)
 import           Pos.Constants               (lastKnownBlockVersion, protocolMagic)
 import           Pos.Constants               (blockRetrievalQueueSize,
-                                              networkConnectionTimeout)
+                                              networkConnectionTimeout,
+                                              propagationQueueSize)
 import qualified Pos.Constants               as Const
 import           Pos.Context                 (ContextHolder (..), NodeContext (..),
                                               runContextHolder)
@@ -285,6 +286,7 @@ runCH NodeParams {..} sscNodeContext act = do
 
     userSecretVar <- liftIO . newTVarIO $ npUserSecret
     queue <- liftIO $ newTBQueueIO blockRetrievalQueueSize
+    propQueue <- liftIO $ newTBQueueIO propagationQueueSize
     recoveryHeaderVar <- liftIO newEmptyTMVarIO
     slottingStateVar <- do
         ssSlotDuration <- GState.getSlotDuration
@@ -311,6 +313,7 @@ runCH NodeParams {..} sscNodeContext act = do
             , ncUserSecret = userSecretVar
             , ncKademliaDump = bpKademliaDump npBaseParams
             , ncBlockRetrievalQueue = queue
+            , ncInvPropagationQueue = propQueue
             , ncRecoveryHeader = recoveryHeaderVar
             , ncUpdateSemaphore = updSemaphore
             , ncUpdatePath = npUpdatePath

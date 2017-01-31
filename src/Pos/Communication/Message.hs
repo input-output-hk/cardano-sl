@@ -1,4 +1,6 @@
-module Pos.Communication.Message () where
+module Pos.Communication.Message
+       ( MessagePart (..)
+       ) where
 
 import           Data.Proxy                       (Proxy (..))
 import           Node.Message                     (Message (..), MessageName (..))
@@ -8,7 +10,7 @@ import           Pos.Binary.Class                 (UnsignedVarInt (..), encodeSt
 import           Pos.Block.Network.Types          (MsgBlock, MsgGetBlocks, MsgGetHeaders,
                                                    MsgHeaders)
 import           Pos.Communication.Types.Protocol (NOP)
-import           Pos.Communication.Types.Relay    (DataMsg, InvMsg, InvOrData, ReqMsg)
+import           Pos.Communication.Types.Relay    (DataMsg, InvOrData, ReqMsg)
 import           Pos.Communication.Types.SysStart (SysStartRequest, SysStartResponse)
 import           Pos.Delegation.Types             (ConfirmProxySK, SendProxySK)
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents, GtMsgTag)

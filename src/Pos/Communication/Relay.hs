@@ -1,6 +1,6 @@
 -- | Framework for Inv/Req/Dat message handling
 
-{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Communication.Relay
@@ -10,29 +10,39 @@ module Pos.Communication.Relay
        , DataMsg (..)
        , relayListeners
        , relayStubListeners
+       , relayWorkers
        , RelayProxy (..)
        , InvOrData
+
+       , invReqDataFlow
        ) where
 
+import           Control.Concurrent.STM        (isFullTBQueue, readTBQueue, writeTBQueue)
 import qualified Data.List.NonEmpty            as NE
-import           Formatting                    (build, sformat, stext, (%))
-import           Mockable                      (Mockable, Throw, throw)
+import           Formatting                    (build, sformat, shown, stext, (%))
+import           Mockable                      (Mockable, Throw, handleAll, throw, throw)
 import           Node.Message                  (Message)
 import           Serokell.Util.Text            (listJson)
 import           Serokell.Util.Verify          (VerificationRes (..))
-import           System.Wlog                   (logDebug, logInfo, logWarning)
-import           System.Wlog                   (WithLogger)
+import           System.Wlog                   (WithLogger, logDebug, logError, logInfo,
+                                                logWarning)
 import           Universum
 
 import           Pos.Binary.Class              (Bi (..))
+import           Pos.Communication.Message     (MessagePart)
 import           Pos.Communication.Protocol    (ConversationActions (..), ListenerSpec,
-                                                NOP, OutSpecs, listenerConv, mergeLs)
-import           Pos.Communication.Types.Relay (DataMsg (..), InvMsg (..), ReqMsg (..), InvOrData)
+                                                NOP, OutSpecs, SendActions (..),
+                                                WorkerSpec, listenerConv, mergeLs, worker)
+import           Pos.Communication.Specs       (allOutSpecs)
+import           Pos.Communication.Types.Relay (DataMsg (..), InvMsg (..), InvOrData,
+                                                ReqMsg (..))
 import           Pos.Communication.Util        (stubListenerConv)
-import           Pos.Context                   (WithNodeContext (getNodeContext),
+import           Pos.Context                   (NodeContext (..), SomeInvMsg (..),
+                                                WithNodeContext (getNodeContext),
                                                 ncPropagation)
+import           Pos.DHT.Model                 (DHTNode)
 import           Pos.DHT.Model.Class           (MonadDHT (..))
-import           Pos.DHT.Model.Neighbors       (sendToNeighbors)
+import           Pos.DHT.Model.Neighbors       (converseToNeighbors, converseToNode)
 import           Pos.WorkMode                  (MinWorkMode, WorkMode)
 
 -- | Typeclass for general Inv/Req/Dat framework. It describes monads,
@@ -69,9 +79,11 @@ data RelayProxy key tag contents = RelayProxy
 
 data RelayError = UnexpectedInv
                 | UnexpectedData
+                | InvalidPropagationElement
   deriving (Generic, Show)
 
 instance Exception RelayError
+
 -- Returns useful keys.
 handleInvL
     :: ( Bi (InvMsg key tag)
@@ -100,8 +112,7 @@ handleInvL proxy msg@(InvMsg{..}) =
 handleReqL
     :: forall key tag contents m .
        ( Bi (ReqMsg key tag)
-       , Bi (DataMsg key contents)
-       , Bi (InvMsg key tag)
+       , Bi (InvOrData tag key contents)
        , Relay m tag key contents
        , MinWorkMode m
        -- [CSL-659] remove after rewriting to conv
@@ -129,39 +140,46 @@ handleReqL proxy = listenerConv $
 
 -- Returns True if we should propagate.
 handleDataL
-    :: ( Bi (DataMsg key contents)
-       , Bi (InvMsg key tag)
-       , MonadDHT m
-       , Relay m tag key contents
-       , WorkMode ssc m
-       -- [CSL-659] remove after rewriting to conv
-       , Bi NOP
-       , Message NOP
-       )
+      :: forall tag key contents ssc m .
+      ( Bi (InvMsg key tag)
+      , Bi (ReqMsg key tag)
+      , Bi (DataMsg key contents)
+      , MonadDHT m
+      , MessagePart tag
+      , MessagePart contents
+      , Relay m tag key contents
+      , WorkMode ssc m
+      -- [CSL-659] remove after rewriting to conv
+      , Bi NOP
+      , Message NOP
+      )
     => RelayProxy key tag contents
     -> DataMsg key contents
-    -> m Bool
+    -> m ()
 handleDataL proxy msg@(DataMsg {..}) =
-    processMessage False "Data" dmContents verifyDataContents $ do
+    processMessage () "Data" dmContents verifyDataContents $ do
         let _ = dataCatchType proxy msg
         ifM (handleData dmContents dmKey)
             handleDataLDo $
-                False <$ logDebug (sformat
-                    ("Ignoring data "%build%" for key "%build) dmContents dmKey)
+                logDebug $ sformat
+                    ("Ignoring data "%build%" for key "%build) dmContents dmKey
   where
     handleDataLDo = do
         shouldPropagate <- ncPropagation <$> getNodeContext
-        if shouldPropagate then
+        if shouldPropagate then do
+            tag <- contentsToTag dmContents
+            let inv :: InvOrData tag key contents
+                inv = Left $ InvMsg tag (one dmKey)
+            addToRelayQueue inv
             logInfo $ sformat
                 ("Adopted data "%build%" "%
-                  "for key "%build%", propagating...")
+                  "for key "%build%", data has been pushed to propagation queue...")
                 dmContents dmKey
         else
             logInfo $ sformat
                 ("Adopted data "%build%" for "%
                   "key "%build%", no propagation")
                 dmContents dmKey
-        pure shouldPropagate
 
 processMessage
   :: (Buildable param, WithLogger m)
@@ -181,8 +199,11 @@ relayListeners
      , Bi (InvMsg key tag)
      , Bi (ReqMsg key tag)
      , Bi (DataMsg key contents)
-     , Mockable Throw m
+     , Bi (InvOrData tag key contents)
+     , MessagePart contents
+     , MessagePart tag
      , Relay m tag key contents
+     , Mockable Throw m
      , WithLogger m
      , WorkMode ssc m
        -- [CSL-659] remove after rewriting to conv
@@ -202,9 +223,7 @@ relayListeners proxy = mergeLs [handleReqL proxy, invDataListener]
                 useful <- handleInvL proxy inv
                 whenJust (NE.nonEmpty useful) $ \ne -> do
                     send $ ReqMsg imTag ne
-                    whenJustM recv $ expectRight $ \dt@DataMsg{..} -> do
-                        prop <- handleDataL proxy dt
-                        when prop $ pass
+                    whenJustM recv $ expectRight $ \dt@DataMsg{..} -> handleDataL proxy dt
 
     expectLeft call (Left msg) = call msg
     expectLeft _ (Right _)     = throw UnexpectedData
@@ -246,3 +265,69 @@ dataCatchType _ _ = ()
 invDataMsgProxy :: RelayProxy key tag contents
                 -> Proxy (ReqMsg key tag, InvOrData tag key contents)
 invDataMsgProxy _ = Proxy
+
+
+addToRelayQueue :: forall tag key contents ssc m .
+                ( Bi (InvOrData tag key contents)
+                , Bi (ReqMsg key tag)
+                , Message (InvOrData tag key contents)
+                , Message (ReqMsg key tag)
+                , Buildable tag, Buildable key
+                , WorkMode ssc m, Bi NOP, Message NOP)
+                => InvOrData tag key contents -> m ()
+addToRelayQueue inv = do
+    queue <- ncInvPropagationQueue <$> getNodeContext
+    isFull <- atomically $ isFullTBQueue queue
+    if isFull then
+        logWarning $ "Propagation queue is full, no propagation"
+    else
+        atomically $ writeTBQueue queue (SomeInvMsg inv)
+
+relayWorkers :: forall ssc m .
+             ( Mockable Throw m
+             , WorkMode ssc m
+             , Bi NOP, Message NOP)
+             => ([WorkerSpec m], OutSpecs)
+relayWorkers = first (:[]) $ worker allOutSpecs $
+  \sendActions -> handleAll handleWE $ do
+    queue <- ncInvPropagationQueue <$> getNodeContext
+    forever $ do
+        inv <- atomically $ readTBQueue queue
+        case inv of
+            SomeInvMsg (i@(Left (InvMsg{..}))) -> do
+                logDebug $
+                    sformat ("Propagation data with keys: "%listJson%" and tag: "%build) imKeys imTag
+                converseToNeighbors sendActions (convHandler i)
+            SomeInvMsg (Right _) -> throw InvalidPropagationElement
+  where
+    convHandler inv __peerId
+        (ConversationActions{..}::
+        (ConversationActions (InvOrData tag1 key1 contents1) (ReqMsg key1 tag1) m)) = send inv
+    handleWE e = do
+        logError $ sformat ("relayWorker: error caught "%shown) e
+        throw e
+
+----------------------------------------------------------------------------
+-- Helpers for Communication.Methods
+----------------------------------------------------------------------------
+
+invReqDataFlow :: ( Message (InvOrData tag id contents)
+                  , Message (ReqMsg id tag)
+                  , Buildable id
+                  , MinWorkMode m
+                  , Bi tag, Bi id
+                  , Bi (InvOrData tag id contents)
+                  , Bi (ReqMsg id tag))
+               => Text -> SendActions m -> DHTNode -> tag -> id -> contents -> m ()
+invReqDataFlow what sendActions addr tag id dt = handleAll handleE $
+    converseToNode sendActions addr convHandler
+  where
+    convHandler _
+      ca@(ConversationActions{..}::(ConversationActions (InvOrData tag id contents) (ReqMsg id tag)) m) = do
+        send $ Left $ InvMsg tag (one id)
+        recv >>= maybe (handleE ("node didn't reply by ReqMsg"::Text)) (replyByData ca)
+    replyByData ca (ReqMsg _ _) = do
+      send ca $ Right $ DataMsg dt id
+    handleE e =
+      logWarning $
+        sformat ("Error sending"%stext%", id = "%build%" to "%shown%": "%shown) what id addr e

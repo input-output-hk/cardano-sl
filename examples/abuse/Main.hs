@@ -16,16 +16,13 @@ import qualified Network.Transport.TCP as TCP
 import qualified Network.Transport.Concrete.TCP as TCP
 import           Node
 import           Node.Message
+import           Node.Util.Monitor (setupMonitor)
 import           System.Environment (getArgs)
 import           System.Random (mkStdGen)
 import           Data.Time.Units
 import           Mockable.Concurrent (delay, async, wait, cancel)
 import           Mockable.SharedAtomic
-import qualified Mockable.Metrics as Metrics
 import           Mockable.Production
-import qualified System.Remote.Monitoring as Monitoring
-import qualified System.Metrics as Monitoring
-import qualified System.Metrics.Distribution as Monitoring.Distribution
 
 -- |
 -- = Abuse demonstration number 1.
@@ -104,48 +101,37 @@ main = do
 
     case choice of
         "server" -> case rest of
-            [serverPort] -> runProduction $ server serverPort
-            _ -> error "Second argument for a server must be a port"
+            [serverPort, "unbounded"] -> runProduction $ server serverPort Unbounded
+            [serverPort, "one_place"] -> runProduction $ server serverPort OnePlace
+            _ -> error "Second argument for a server must be a port, third must be 'unbounded' or 'one_place'"
         "client" -> case rest of
             [serverPort, clientPort] -> runProduction $ client serverPort clientPort
             _ -> error "Arguments for a client must be the server port followed by client port"
         _ -> error "First argument must be server or client"
 
-setupMonitor :: Node Production -> Production Monitoring.Server
-setupMonitor node = do
-    store <- liftIO Monitoring.newStore
-    liftIO $ flip (Monitoring.registerGauge "Remotely-initated handlers") store $ runProduction $ do
-        stats <- nodeStatistics node
-        Metrics.readGauge (stRunningHandlersRemote stats)
-    liftIO $ flip (Monitoring.registerGauge "Locally-initated handlers") store $ runProduction $ do
-        stats <- nodeStatistics node
-        Metrics.readGauge (stRunningHandlersLocal stats)
-    liftIO $ flip (Monitoring.registerDistribution "Handler elapsed time (normal)") store $ runProduction $ do
-        stats <- nodeStatistics node
-        liftIO $ Monitoring.Distribution.read (stHandlersFinishedNormally stats)
-    liftIO $ flip (Monitoring.registerDistribution "Handler elapsed time (exceptional)") store $ runProduction $ do
-        stats <- nodeStatistics node
-        liftIO $ Monitoring.Distribution.read (stHandlersFinishedExceptionally stats)
-    liftIO $ Monitoring.registerGcMetrics store
-    server <- liftIO $ Monitoring.forkServerWith store "127.0.0.1" 8000
-    liftIO $ putStrLn "Forked EKG server on port 8000"
-    return server
+data QDiscChoice = OnePlace | Unbounded
 
-server :: String -> Production ()
-server port = do
+makeQDisc :: QDiscChoice -> IO (TCP.QDisc t)
+makeQDisc choice = case choice of
+    OnePlace -> TCP.simpleOnePlaceQDisc
+    Unbounded -> TCP.simpleUnboundedQDisc
 
-    Right (transport_, internals) <-
-        liftIO $ TCP.createTransportExposeInternals "0.0.0.0" "127.0.0.1" port TCP.defaultTCPParameters
-    let transport = TCP.concrete runProduction (transport_, internals)
-    --let transport = concrete transport_
+server :: String -> QDiscChoice -> Production ()
+server port qdiscChoice = do
+
+    let qdisc = makeQDisc qdiscChoice
+
+    Right transport_ <-
+        liftIO $ TCP.createTransport "0.0.0.0" "127.0.0.1" port (TCP.defaultTCPParameters { TCP.tcpQDisc = qdisc })
+    let transport = concrete transport_
     let prng = mkStdGen 0
     totalBytes <- newSharedAtomic 0
 
     liftIO . putStrLn $ "Starting server on port " ++ show port
 
-    node transport prng BinaryP $ \node -> do
+    node transport prng BinaryP () $ \node -> do
         -- Set up the EKG monitor.
-        setupMonitor node
+        setupMonitor 8000 runProduction node
         pure $ NodeAction [listener totalBytes] $ \saction -> do
             -- Just wait for user interrupt
             liftIO . putStrLn $ "Server running. Press any key to stop."
@@ -160,8 +146,8 @@ server port = do
     where
 
     -- The server listener just forces the whole bytestring then discards.
-    listener :: SharedAtomicT Production Integer -> ListenerAction BinaryP Production
-    listener totalBytes = ListenerActionOneMsg $ \peer sactions (Ping body) -> do
+    listener :: SharedAtomicT Production Integer -> ListenerAction BinaryP () Production
+    listener totalBytes = ListenerActionOneMsg $ \() peer sactions (Ping body) -> do
         -- Retain the body for a few seconds.
         delay (5000000 :: Microsecond)
         let len = BS.length body
@@ -173,9 +159,9 @@ server port = do
 client :: String -> String -> Production ()
 client serverPort clientPort = do
 
-    Right (transport_, internals) <-
-        liftIO $ TCP.createTransportExposeInternals "0.0.0.0" "127.0.0.1" clientPort TCP.defaultTCPParameters
-    let transport = TCP.concrete runProduction (transport_, internals)
+    Right transport_ <-
+        liftIO $ TCP.createTransport "0.0.0.0" "127.0.0.1" clientPort TCP.defaultTCPParameters
+    let transport = concrete transport_
     --let transport = concrete transport_
     let prng = mkStdGen 1
     -- Assume the server's end point identifier is 0. It always will be.
@@ -183,7 +169,7 @@ client serverPort clientPort = do
 
     liftIO . putStrLn $ "Starting client on port " ++ show clientPort
 
-    totalBytes <- node transport prng BinaryP $ \node ->
+    totalBytes <- node transport prng BinaryP () $ \node ->
         pure $ NodeAction [] $ \saction -> do
             -- Track total bytes sent, and a bool indicating whether we should
             -- stop, so that we don't have to resort to cancelling the threads
@@ -203,13 +189,17 @@ client serverPort clientPort = do
             wait spammer2
             wait spammer3
             wait spammer4
-            modifySharedAtomic totalBytes $ \total -> return (total, total)
+            modifySharedAtomic totalBytes $ \total -> return (total, fst total)
             
     closeTransport transport
 
     liftIO . putStrLn $ "Client sent " ++ show totalBytes ++ " bytes"
 
-spamServer :: NodeId -> SharedAtomicT Production (Integer, Bool) -> SendActions BinaryP Production -> Production ()
+spamServer
+    :: NodeId
+    -> SharedAtomicT Production (Integer, Bool)
+    -> SendActions BinaryP () Production
+    -> Production ()
 spamServer server totalBytes sactions = do
     sendTo sactions server (Ping payload)
     stop <- modifySharedAtomic totalBytes $ \(total, stop) ->

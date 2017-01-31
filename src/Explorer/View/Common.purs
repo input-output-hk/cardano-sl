@@ -9,7 +9,9 @@ module Explorer.View.Common (
 
 import Data.Maybe (Maybe(..))
 import Explorer.Routes (Route(..), toUrl)
-import Explorer.Types (Action, CCurrency(..), State)
+import Explorer.Types.Actions (Action)
+import Explorer.Types.Generated (CCurrency(..))
+import Explorer.Types.State (State)
 import Pux.Html (Html, text, div, a, p, span, input) as P
 import Pux.Html.Attributes (className, href, value, disabled) as P
 import Pux.Router (link) as P

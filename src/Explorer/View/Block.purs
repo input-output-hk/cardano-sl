@@ -2,7 +2,9 @@ module Explorer.View.Block (blockView) where
 
 import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (translate)
-import Explorer.Types (Action, CCurrency(..), State)
+import Explorer.Types.Actions (Action)
+import Explorer.Types.Generated (CCurrency(..))
+import Explorer.Types.State (State)
 import Explorer.View.Common (currencyCSSClass, transactionPaginationView
     , transactionHeaderView, transactionBodyView)
 import Prelude ((<>), ($), map)

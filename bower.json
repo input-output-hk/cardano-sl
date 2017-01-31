@@ -19,7 +19,8 @@
     "purescript-maybe": "^2.0.1",
     "purescript-pux-devtool": "https://github.com/sectore/pux-devtool.git#feature/add-options",
     "purescript-affjax": "^3.0.2",
-    "purescript-maps": "^2.1.1"
+    "purescript-maps": "^2.1.1",
+    "purescript-profunctor-lenses": "^2.6.0"
   },
   "devDependencies": {
     "purescript-debug": "^2.0.0",

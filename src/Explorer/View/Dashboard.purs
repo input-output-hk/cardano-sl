@@ -6,7 +6,9 @@ import Data.Map (Map, fromFoldable, lookup, toAscUnfoldable) as M
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Tuple (Tuple(..))
 import Explorer.I18n.Lang (I18nAccessor, translate)
-import Explorer.Types (Action(..), CCurrency(..), DashboardAPICode(..), State)
+import Explorer.Types.Actions (Action(..))
+import Explorer.Types.Generated (CCurrency(..))
+import Explorer.Types.State (DashboardAPICode(..), State)
 import Explorer.View.Common (currencyCSSClass, paginationView)
 import Pux.Html (Html, div, h3, text, h1, h2, input, h4, p, code) as P
 import Pux.Html.Attributes (className, type_, placeholder) as P

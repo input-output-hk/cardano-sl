@@ -5,7 +5,8 @@ import Data.Maybe (fromMaybe)
 import Data.String (take)
 import Explorer.I18n.Lang (Language(..), readLanguage)
 import Explorer.State (initialState)
-import Explorer.Types (Action(..), State)
+import Explorer.Types.Actions (Action(..))
+import Explorer.Types.State (State)
 import Explorer.Util.Version (version, commitHash)
 import Pux.Html (Html, div, text, nav, a, select, option, p) as P
 import Pux.Html.Attributes (value, className, href, selected) as P

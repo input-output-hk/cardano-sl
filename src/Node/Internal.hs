@@ -485,7 +485,7 @@ startNode packingType peerData transport prng handlerIn handlerOut = do
                           , nodePeerData         = peerData
                           }
                 ; dispatcherThread <- async $
-                      nodeDispatcher node sharedState handlerIn handlerOut
+                      nodeDispatcher node handlerIn handlerOut
                 }
             return node
 
@@ -568,6 +568,24 @@ deriving instance Show (DispatcherState peerData m)
 initialDispatcherState :: DispatcherState peerData m
 initialDispatcherState = DispatcherState Map.empty Map.empty
 
+-- | Wait for every running handler in a node's state to finish.
+waitForRunningHandlers
+    :: forall m packingType peerData .
+       ( Mockable SharedAtomic m
+       , Mockable Async m
+       )
+    => Node packingType peerData m
+    -> m ()
+waitForRunningHandlers node = do
+    -- Gather the promises for all handlers.
+    promises <- withSharedAtomic (nodeState node) $ \st ->
+        let outbound_uni = Set.toList (_nodeStateOutboundUnidirectional st)
+            outbound_bi = (\(x,_,_,_) -> x) <$> Map.elems (_nodeStateOutboundBidirectional st)
+            inbound = Set.toList (_nodeStateInbound st)
+            all = outbound_uni ++ outbound_bi ++ inbound
+        in  return all
+    forM_ promises wait
+
 -- | The one thread that handles /all/ incoming messages and dispatches them
 -- to various handlers.
 nodeDispatcher
@@ -579,19 +597,16 @@ nodeDispatcher
        , Message.Serializable packingType peerData
        , MonadFix m, WithLogger m )
     => Node packingType peerData m
-    -> SharedAtomicT m (NodeState peerData m)
-    -- ^ Nonce states and a StdGen to generate nonces. It's in a
-    --   shared atomic because other threads must be able to alter
-    --   it when they start a conversation.
-    --   The third element of the triple will be updated by handler
-    --   threads when they finish.
     -> (peerData -> NodeId -> ChannelIn m -> m ())
     -> (peerData -> NodeId -> ChannelIn m -> ChannelOut m -> m ())
     -> m ()
-nodeDispatcher node nodeState handlerIn handlerInOut =
+nodeDispatcher node handlerIn handlerInOut =
     loop initialDispatcherState
 
     where
+
+    nstate :: SharedAtomicT m (NodeState peerData m)
+    nstate = nodeState node
 
     endpoint = nodeEndPoint node
 
@@ -609,7 +624,7 @@ nodeDispatcher node nodeState handlerIn handlerInOut =
           NT.ConnectionClosed connid -> connectionClosed state connid >>= loop
 
           -- When the end point closes, we're done.
-          NT.EndPointClosed -> return ()
+          NT.EndPointClosed -> waitForRunningHandlers node
 
           -- When a heavyweight connection is lost we must close up all of the
           -- lightweight connections which it carried.
@@ -791,7 +806,7 @@ nodeDispatcher node nodeState handlerIn handlerInOut =
                           Channel.writeChannel channel (Just ws)
                           let provenance = Remote peer connid (ChannelIn channel)
                           let handler = handlerIn peerData (NodeId peer) (ChannelIn channel)
-                          _ <- spawnHandler nodeState provenance handler
+                          _ <- spawnHandler nstate provenance handler
                           return $ state {
                                 csConnections = Map.insert connid (peer, FeedingApplicationHandler (ChannelIn channel)) (csConnections state)
                               }
@@ -819,7 +834,7 @@ nodeDispatcher node nodeState handlerIn handlerInOut =
                                           `finally`
                                           disconnectFromPeer node (NodeId peer) conn
                           -- Establish the other direction in a separate thread.
-                          _ <- spawnHandler nodeState provenance handler
+                          _ <- spawnHandler nstate provenance handler
                           return $ state {
                                 csConnections = Map.insert connid (peer, FeedingApplicationHandler (ChannelIn channel)) (csConnections state)
                               }
@@ -828,7 +843,7 @@ nodeDispatcher node nodeState handlerIn handlerInOut =
                     -- we actually sent it.
                     | w == controlHeaderCodeBidirectionalAck
                     , Right (ws', _, nonce) <- decodeOrFail (LBS.fromStrict ws) -> do
-                          outcome <- modifySharedAtomic nodeState $ \st ->
+                          outcome <- modifySharedAtomic nstate $ \st ->
                               case Map.lookup nonce (_nodeStateOutboundBidirectional st) of
                                   Nothing -> return (st, Nothing)
                                   Just (_, _, _, True) -> return (st, Just Nothing)

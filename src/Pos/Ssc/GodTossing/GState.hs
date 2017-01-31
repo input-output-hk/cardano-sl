@@ -46,9 +46,11 @@ import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), gsCommitmen
                                                  gsOpenings, gsShares, gsVssCertificates)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types                      (Block, EpochIndex (..), SlotId (..),
-                                                 blockMpc, epochIndexL, gbHeader)
+                                                 blockMpc, epochIndexL, epochOrSlotG,
+                                                 gbHeader)
 import           Pos.Util                       (NE, NewestFirst (..), OldestFirst (..),
-                                                 maybeThrow, toOldestFirst, _neHead)
+                                                 maybeThrow, toOldestFirst, _neHead,
+                                                 _neLast)
 
 ----------------------------------------------------------------------------
 -- Utilities
@@ -122,12 +124,12 @@ loadGlobalState = do
 type GSUpdate a = forall m . (MonadState GtGlobalState m, WithLogger m) => m a
 
 rollbackBlocks :: NewestFirst NE (Block SscGodTossing) -> GSUpdate ()
-rollbackBlocks = mapM_ rollbackDo
+rollbackBlocks blocks = tossToUpdate mempty $ rollbackGT oldestEOS payloads
   where
-    rollbackDo :: Block SscGodTossing -> GSUpdate ()
-    rollbackDo (Left _) = pass
-    rollbackDo (Right (view blockMpc -> payload)) =
-        tossToUpdate mempty $ rollbackGT payload
+    oldestEOS = blocks ^. _Wrapped . _neLast . epochOrSlotG
+    payloads =
+        NewestFirst . map (view blockMpc) . catMaybes . map hush . toList $
+        blocks
 
 verifyAndApply
     :: RichmenSet

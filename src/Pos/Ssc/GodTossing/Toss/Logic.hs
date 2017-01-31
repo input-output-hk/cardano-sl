@@ -8,14 +8,17 @@ module Pos.Ssc.GodTossing.Toss.Logic
        ) where
 
 import           Control.Monad.Except            (MonadError)
+import qualified Data.HashMap.Strict             as HM
+import           System.Wlog                     (logError)
 import           Universum
 
-import           Pos.Ssc.GodTossing.Core         (GtPayload)
+import           Pos.Ssc.GodTossing.Core         (GtPayload (..), getCommitmentsMap)
 import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..))
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
 import           Pos.Ssc.GodTossing.Toss.Types   (TossModifier)
-import           Pos.Types                       (EpochIndex, MainBlockHeader,
-                                                  getEpochOrSlot)
+import           Pos.Types                       (EpochIndex, EpochOrSlot,
+                                                  MainBlockHeader, getEpochOrSlot)
+import           Pos.Util                        (NewestFirst (..))
 
 -- | Verify 'GtPayload' with respect to data provided by
 -- MonadToss. If data is valid it is also applied.  Otherwise
@@ -31,18 +34,29 @@ applyGenesisBlock epoch = do
     setEpochOrSlot $ getEpochOrSlot epoch
     resetCOS
 
--- | Rollback application of 'GtPayload' in 'Toss'.
-rollbackGT :: MonadToss m => GtPayload -> m ()
-rollbackGT _ = const pass notImplemented
+-- | Rollback application of 'GtPayload's in 'Toss'. First argument is
+-- 'EpochOrSlot' of oldest block which is subject to rollback.
+rollbackGT :: MonadToss m => EpochOrSlot -> NewestFirst [] GtPayload -> m ()
+rollbackGT oldestEOS (NewestFirst payloads)
+    | oldestEOS == toEnum 0 = do
+        logError "rollbackGT: most genesis block is passed to rollback"
+        setEpochOrSlot oldestEOS
+        resetCOS
+    | otherwise = do
+        setEpochOrSlot (pred oldestEOS)
+        mapM_ rollbackGTDo payloads
+  where
+    rollbackGTDo (CommitmentsPayload comms _) =
+        mapM_ delCommitment $ HM.keys $ getCommitmentsMap comms
+    rollbackGTDo (OpeningsPayload opens _) = mapM_ delOpening $ HM.keys opens
+    rollbackGTDo (SharesPayload shares _) = mapM_ delShares $ HM.keys shares
+    rollbackGTDo (CertificatesPayload _) = pass
 
 -- | Apply as much data from given 'TossModifier' as possible.
 normalizeToss
     :: MonadToss m
     => EpochIndex -> TossModifier -> m ()
 normalizeToss _ _ = const pass notImplemented
-
--- type GSVerify a = forall m . ( MonadReader GtGlobalState m, WithLogger m
---                              , MonadError TossVerFailure m) => m a
 
 -- -- | Verify that if one adds given block to the current chain, it will
 -- -- remain consistent with respect to SSC-related data.
@@ -179,50 +193,9 @@ normalizeToss _ _ = const pass notImplemented
 --         -- Main blocks contain commitments, openings, shares, VSS certificates
 --         Right b -> identity %= unionPayload True (b ^. blockMpc)
 
--- mpcRollback :: NewestFirst NE (Block SscGodTossing) -> GSUpdate ()
--- mpcRollback (NewestFirst blocks) = do
---     -- Rollback certs
---     let eos = (NE.last blocks) ^. epochOrSlotG
---     rollbackCerts eos
---     -- Rollback other payload
---     wasGenesis <- foldM foldStep False blocks
---     when wasGenesis resetGS
---   where
---     foldStep wasGen b
---         | wasGen = pure wasGen
---         | otherwise = differenceBlock b
-
---     rollbackCerts :: EpochOrSlot -> GSUpdate ()
---     rollbackCerts (EpochOrSlot (Left (EpochIndex 0))) =
---         gsVssCertificates .= unionGenCerts
---     rollbackCerts (EpochOrSlot (Left ei)) =
---         gsVssCertificates %= VCD.setLastKnownSlot (SlotId (ei - 1) (epochSlots - 1))
---     rollbackCerts (EpochOrSlot (Right (SlotId e 0))) =
---         gsVssCertificates %= VCD.setLastKnownEoS (EpochOrSlot $ Left e)
---     rollbackCerts (EpochOrSlot (Right (SlotId e s))) =
---         gsVssCertificates %= VCD.setLastKnownSlot (SlotId e (s - 1))
-
---     differenceBlock :: Block SscGodTossing -> GSUpdate Bool
---     differenceBlock (Left _) = pure True
---     differenceBlock (Right b) = do
---         let payload = b ^. blockMpc
---         case payload of
---             CommitmentsPayload comms _ ->
---                 gsCommitments %= (`diffCommMap` comms)
---             OpeningsPayload opens _ -> gsOpenings %= (`HM.difference` opens)
---             SharesPayload shares _ -> gsShares %= (`HM.difference` shares)
---             CertificatesPayload _ -> return ()
---         pure False
---     unionGenCerts = foldr' VCD.insert VCD.empty $ toList genesisCertificates
-
 -- ----------------------------------------------------------------------------
 -- -- Utilities
 -- ----------------------------------------------------------------------------
--- resetGS :: GSUpdate ()
--- resetGS = do
---     gsCommitments .= mempty
---     gsOpenings    .= mempty
---     gsShares      .= mempty
 
 -- unionPayload :: Bool -> GtPayload -> GtGlobalState -> GtGlobalState
 -- unionPayload considerCertificates payload gs =

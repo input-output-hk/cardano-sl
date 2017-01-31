@@ -6,7 +6,8 @@ import Pux.Html (Html, div, text) as P
 import Pux.Html.Attributes (className) as P
 import Pux.Router (link) as P
 
-import Explorer.I18n.Lang (translate)
+import Explorer.I18n.Lang (translateL)
+import Explorer.I18n.Lenses (back, calculator) as I18nL
 import Explorer.Types.State (State)
 import Explorer.Types.Actions (Action)
 import Explorer.Routes (Route(Dashboard), toUrl)
@@ -21,7 +22,7 @@ calculatorView state =
             [ P.link
                   (toUrl Dashboard)
                   [ P.className "" ]
-                  [ P.text $ translate _.back state.lang ]
-            , placeholderView $ translate _.calculator state.lang
+                  [ P.text $ translateL I18nL.back state.lang ]
+            , placeholderView $ translateL I18nL.calculator state.lang
             ]
         ]

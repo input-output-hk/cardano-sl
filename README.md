@@ -32,7 +32,8 @@ which purescript-derive-lenses
 /Users/{your-user-name}/.local/bin/purescript-derive-lenses
 ```
 
-Generate lenses anytime if sources of `src/Explorer/Types/State` have been changed as follow
+Generate lenses anytime if any content of `src/Explorer/Types/State.purs` or
+`src/Explorer/I18n/Types.purs` are changed as follow:
 
 ```bash
 ./scripts/generate-lenses.sh

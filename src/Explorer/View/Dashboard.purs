@@ -6,7 +6,9 @@ import Data.Lens ((^.))
 import Data.Map (Map, fromFoldable, lookup, toAscUnfoldable) as M
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Tuple (Tuple(..))
-import Explorer.I18n.Lang (I18nAccessor, translate)
+import Explorer.I18n.Lang (Language, translateL)
+import Explorer.I18n.Lenses (age, height, relayedBy, sizeKB, totalSent
+      , transactions, title, subtitle, transactionFeed) as I18nL
 import Explorer.State (dashboardBlocksExpanded, dashboardSelectedApiCode)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.Generated (CCurrency(..))
@@ -69,10 +71,10 @@ heroView state =
               [ P.className "explorer-dashboard__container" ]
               [ P.h1
                     [ P.className "headline__hero"]
-                    [ P.text $ translate _.title state.lang ]
+                    [ P.text $ translateL I18nL.title state.lang ]
                 , P.h2
                     [ P.className "subheadline__hero"]
-                    [ P.text $ translate _.subtitle state.lang ]
+                    [ P.text $ translateL I18nL.subtitle state.lang ]
                 , P.input
                     [ P.className "input__hero"
                       , P.type_ "text"
@@ -235,22 +237,22 @@ blocksHeaderView :: State -> P.Html Action
 blocksHeaderView state =
     P.div
           [ P.className "blocks-header"]
-          $ map (blockHeaderItemView state) blocksHeaderItems
+          $ map (blockHeaderItemView state) $ blocksHeaderItems state.lang
 
-blockHeaderItemView :: State -> I18nAccessor -> P.Html Action
-blockHeaderItemView state i18nAccessor =
+blockHeaderItemView :: State -> String -> P.Html Action
+blockHeaderItemView state label =
     P.div
         [ P.className "blocks-header__item" ]
-        [ P.text $ translate i18nAccessor state.lang ]
+        [ P.text label ]
 
-blocksHeaderItems :: Array I18nAccessor
-blocksHeaderItems =
-    [ _.height
-    , _.age
-    , _.transactions
-    , _.totalSent
-    , _.relayedBy
-    , _.sizeKB
+blocksHeaderItems :: Language -> Array String
+blocksHeaderItems lang =
+    [ translateL I18nL.height lang
+    , translateL I18nL.age lang
+    , translateL I18nL.transactions lang
+    , translateL I18nL.totalSent lang
+    , translateL I18nL.relayedBy lang
+    , translateL I18nL.sizeKB lang
     ]
 
 -- transactions
@@ -318,7 +320,7 @@ transactionsView state =
       expanded = state ^. dashboardBlocksExpanded
       expandLabel = if expanded then "#collapse" else "#expand"
       headerOptions = HeaderOptions
-          { headline: translate _.transactionFeed state.lang
+          { headline: translateL I18nL.transactionFeed state.lang
           , link: Just $ HeaderLink { label: "#Explore transactions", action: NoOp }
           }
       transactionItems' :: TransactionItems

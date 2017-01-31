@@ -5,7 +5,7 @@ import Data.Lens (Lens')
 import Explorer.I18n.Lang (Language(..))
 import Explorer.Lenses.State (blocksExpanded, dashboard, selectedApiCode, viewStates)
 import Explorer.Routes (Route(..))
-import Explorer.Types.State (DashboardAPICode(..), State, DashBoardViewState)
+import Explorer.Types.State (DashboardAPICode(..), State, DashboardViewState)
 
 
 initialState :: State
@@ -23,7 +23,7 @@ initialState =
 
 -- dashboard lenses
 
-dashboardViewState :: Lens' State DashBoardViewState
+dashboardViewState :: Lens' State DashboardViewState
 dashboardViewState = viewStates <<< dashboard
 
 dashboardBlocksExpanded :: Lens' State Boolean

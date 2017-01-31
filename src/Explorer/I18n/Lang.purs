@@ -4,10 +4,13 @@ module Explorer.I18n.Lang where
 import Prelude
 import Control.Monad.Eff (Eff)
 import DOM (DOM)
+import Data.Lens (Lens', view, (^.))
 import Data.Maybe (Maybe(..))
 import Data.String (take)
 import Explorer.I18n.DE (translation) as DE
 import Explorer.I18n.EN (translation) as EN
+import Explorer.I18n.Lenses (nav, home)
+import Explorer.I18n.Types (Translation)
 
 foreign import detectLocaleImpl :: forall e. Eff (dom :: DOM | e) String
 
@@ -16,8 +19,21 @@ detectLocale = readLanguage <<< take 2 <$> detectLocaleImpl
 
 type I18nAccessor = (Translation -> String)
 
+trans :: Translation -> String
+trans t =
+    t ^. nav <<< home
+
+type I18nLens = Lens' Translation String
+
+transb :: Lens' Translation String
+transb =
+    nav <<< home
+
 translate :: I18nAccessor -> Language -> String
 translate f = f <<< getTranslation
+
+translateL :: I18nLens -> Language -> String
+translateL lens = view lens <<< getTranslation 
 
 -- | ISO 639-1 https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
 readLanguage :: String -> Maybe Language
@@ -44,30 +60,3 @@ derive instance eqLanguage :: Eq Language
 languageNativeName :: Language -> String
 languageNativeName English = "English"
 languageNativeName German = "Deutsch"
-
-type Translation =
-    { title :: String
-    , subtitle :: String
-    , back :: String
-    , transaction :: String
-    , transactions :: String
-    , transactionFeed :: String
-    , address :: String
-    , calculator :: String
-    , version :: String
-    , summary :: String
-    , block :: String
-    , hashes :: String
-    , nav ::
-      { home :: String
-      , blockchain :: String
-      , market :: String
-      , charts :: String
-      , tools :: String
-    }
-    , height :: String
-    , age :: String
-    , totalSent :: String
-    , relayedBy :: String
-    , sizeKB :: String
-    }

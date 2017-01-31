@@ -2,7 +2,8 @@ module Explorer.View.Transaction (transactionView) where
 
 import Prelude
 import Data.Maybe (Maybe(..))
-import Explorer.I18n.Lang (translate)
+import Explorer.I18n.Lang (translateL)
+import Explorer.I18n.Lenses (transaction, summary) as I18nL
 import Explorer.Types.Actions (Action)
 import Explorer.Types.Generated (CCurrency(..))
 import Explorer.Types.State (State)
@@ -20,7 +21,7 @@ transactionView state =
                     [ P.className "explorer-transaction__container" ]
                     [ P.h3
                         [ P.className "headline"]
-                        [ P.text $ translate _.transaction state.lang ]
+                        [ P.text $ translateL I18nL.transaction state.lang ]
                     , transactionHeaderView state
                     , transactionBodyView state
                     ]
@@ -31,7 +32,7 @@ transactionView state =
                       [ P.className "explorer-transaction__container" ]
                       [ P.h3
                               [ P.className "headline"]
-                              [ P.text $ translate _.summary state.lang ]
+                              [ P.text $ translateL I18nL.summary state.lang ]
                         , P.table
                               [ P.className "table-summary" ]
                               $ map summaryRow summaryItems

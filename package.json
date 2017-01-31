@@ -40,7 +40,7 @@
     "css-loader": "^0.26.1",
     "cssnano": "^3.10.0",
     "extract-text-webpack-plugin": "^2.0.0-beta.5",
-    "file-loader": "^0.9.0",
+    "file-loader": "^0.10.0",
     "git-revision-webpack-plugin": "^2.4.1",
     "html-webpack-plugin": "^2.26.0",
     "postcss-button": "^0.1.16",

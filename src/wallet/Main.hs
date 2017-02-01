@@ -175,9 +175,10 @@ evalCommands sa = do
 initialize :: WalletMode ssc m => WalletOptions -> m [DHTNode]
 initialize WalletOptions{..} = do
     -- Wait some time to ensure blockchain is fetched
-    putText $ sformat ("Started node. Waiting for "%int%" slots...") woInitialPause
-    slotDuration <- getSlotDuration
-    delay (fromIntegral woInitialPause * slotDuration)
+    unless (woInitialPause == 0) $ do
+        putText $ sformat ("Started node. Waiting for "%int%" slots...") woInitialPause
+        slotDuration <- getSlotDuration
+        delay (fromIntegral woInitialPause * slotDuration)
     discoverPeers
 
 runWalletRepl :: WalletMode ssc m => WalletOptions -> Worker' m

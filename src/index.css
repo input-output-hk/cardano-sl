@@ -1,14 +1,14 @@
 /* cardano-sl explorer*/
 @import "global.css";
-@import "Explorer/View/common.css";
-@import "Explorer/View/layout.css";
-@import "Explorer/View/header.css";
-@import "Explorer/View/footer.css";
-@import "Explorer/View/dashboard.css";
-@import "Explorer/View/address.css";
-@import "Explorer/View/calculator.css";
-@import "Explorer/View/transaction.css";
-@import "Explorer/View/block.css";
+@import "./Explorer/View/common.css";
+@import "./Explorer/View/layout.css";
+@import "./Explorer/View/header.css";
+@import "./Explorer/View/footer.css";
+@import "./Explorer/View/dashboard.css";
+@import "./Explorer/View/address.css";
+@import "./Explorer/View/calculator.css";
+@import "./Explorer/View/transaction.css";
+@import "./Explorer/View/block.css";
 
 /* normalize */
 @reset-global pc;

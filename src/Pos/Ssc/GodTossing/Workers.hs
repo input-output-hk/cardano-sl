@@ -119,11 +119,8 @@ checkNSendOurCert sendActions = do
             let contents = MCVssCertificate ourVssCertificate
             sscProcessOurMessage contents
             let msg = DataMsg contents
-            -- [CSL-245]: do not catch all, catch something more concrete.
-            (sendToNeighbors sendActions msg >>
-             logDebug "Announced our VssCertificate.")
-            `catchAll` \e ->
-                logError $ sformat ("Error announcing our VssCertificate: " % shown) e
+            sendToNeighbors sendActions msg
+            logDebug "Announced our VssCertificate."
     (_, ourId) <- getOurPkAndId
     sl@SlotId {..} <- getCurrentSlot
     certts <- getGlobalCerts sl

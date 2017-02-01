@@ -102,7 +102,6 @@ setLastKnownEoS nlks mp@VssCertData{..}
     | nlks < lastKnownEoS = setSmallerLKS nlks mp
     | otherwise           = mp
 
-
 setLastKnownSlot :: SlotId -> VssCertData -> VssCertData
 setLastKnownSlot = setLastKnownEoS . EpochOrSlot . Right
 

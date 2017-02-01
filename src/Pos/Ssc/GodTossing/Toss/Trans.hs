@@ -10,10 +10,9 @@ module Pos.Ssc.GodTossing.Toss.Trans
        , execTossT
        ) where
 
-import           Control.Lens                  (at, iso, (.=))
+import           Control.Lens                  (at, iso, to, (%=), (.=))
 import           Control.Monad.Base            (MonadBase (..))
 import           Control.Monad.Except          (MonadError)
-import           Control.Monad.Fix             (MonadFix)
 import           Control.Monad.State           (MonadState (..))
 import           Control.Monad.Trans.Class     (MonadTrans)
 import           Control.Monad.Trans.Control   (ComposeSt, MonadBaseControl (..),
@@ -21,7 +20,6 @@ import           Control.Monad.Trans.Control   (ComposeSt, MonadBaseControl (..)
                                                 defaultLiftBaseWith, defaultLiftWith,
                                                 defaultRestoreM, defaultRestoreT)
 import qualified Data.HashMap.Strict           as HM
-import qualified Data.HashSet                  as HS
 import           Mockable                      (ChannelT, Promise, SharedAtomicT,
                                                 ThreadId)
 import           Serokell.Util.Lens            (WrappedM (..))
@@ -29,15 +27,14 @@ import           System.Wlog                   (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Context                   (WithNodeContext)
-import           Pos.Crypto                    (hash)
 import           Pos.DB.Class                  (MonadDB)
-import           Pos.Delegation.Class          (MonadDelegation)
 import           Pos.Slotting                  (MonadSlots (..))
 import           Pos.Ssc.Extra                 (MonadSscMem)
+import           Pos.Ssc.GodTossing.Core       (deleteSignedCommitment, getCertId,
+                                                getCommitmentsMap, insertSignedCommitment)
 import           Pos.Ssc.GodTossing.Toss.Class (MonadToss (..), MonadTossRead (..))
 import           Pos.Ssc.GodTossing.Toss.Types (TossModifier (..), tmCertificates,
                                                 tmCommitments, tmOpenings, tmShares)
-import           Pos.Types                     (SoftwareVersion (..))
 import           Pos.Util.JsonLog              (MonadJL (..))
 
 ----------------------------------------------------------------------------
@@ -88,22 +85,38 @@ execTossT m = fmap snd . runTossT m
 
 instance MonadTossRead m =>
          MonadTossRead (TossT m) where
-    getCommitment = notImplemented
-    hasOpening = notImplemented
-    hasShares = notImplemented
-    hasCertificate = notImplemented
-    getStableCertificates = notImplemented
-    getRichmen = notImplemented
+    getCommitment id = liftM2 (<|>)
+        (TossT $ use $ tmCommitments . to getCommitmentsMap . at id)
+        (TossT $ getCommitment id)
+    hasOpening id = liftM2 (||)
+        (TossT $ use $ tmOpenings . to (HM.member id))
+        (TossT $ hasOpening id)
+    hasShares id = liftM2 (||)
+        (TossT $ use $ tmShares . to (HM.member id))
+        (TossT $ hasShares id)
+    hasCertificate id = liftM2 (||)
+        (TossT $ use $ tmCertificates . to (HM.member id))
+        (TossT $ hasCertificate id)
+    getStableCertificates epoch =
+        TossT $ getStableCertificates epoch
+    getRichmen = lift . getRichmen
 
 instance MonadToss m =>
          MonadToss (TossT m) where
-    putCommitment = notImplemented
-    putOpening = notImplemented
-    putShares = notImplemented
-    putCertificate = notImplemented
-    delCommitment = notImplemented
-    delOpening = notImplemented
-    delShares = notImplemented
+    putCommitment signedComm =
+        TossT $ tmCommitments %= insertSignedCommitment signedComm
+    putOpening id op =
+        TossT $ tmOpenings . at id .= Just op
+    putShares id sh =
+        TossT $ tmShares . at id .= Just sh
+    putCertificate cert =
+        TossT $ tmCertificates %= HM.insert (getCertId cert) cert
+    delCommitment id =
+        TossT $ tmCommitments %= deleteSignedCommitment id
+    delOpening id =
+        TossT $ tmOpenings . at id .= Nothing
+    delShares id =
+        TossT $ tmShares . at id .= Nothing
     resetCOS = TossT resetCOS
     setEpochOrSlot = TossT . setEpochOrSlot
 

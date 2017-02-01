@@ -50,6 +50,9 @@ verifyAndApplyGtPayload eoh payload = do
     checkPayload curEpoch payload
 
     -- Apply
+    case eoh of
+        Left _       -> pass
+        Right header -> setEpochOrSlot $ getEpochOrSlot header
     mapM_ putCertificate blockCerts
     case payload of
         CommitmentsPayload  comms  _ ->

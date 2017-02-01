@@ -1,4 +1,3 @@
-{-# LANGUAGE BangPatterns        #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -361,8 +360,6 @@ modifySend ourOutSpecs sA = sA
     fstArgProxy _ = Proxy
 
     checkingOutSpecs spec (NodeId (peerId, _)) peerInSpecs action = do
-        !() <- traceM $ "SPEC = " <> pretty spec
-        !() <- traceM $ "IN SPECS = " <> pretty peerInSpecs
         if | spec `notInSpecs` ourOutSpecs -> do
                   logWarning $ sformat
                      ("Sending "%build%": endpoint not reported")

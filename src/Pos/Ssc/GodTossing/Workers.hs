@@ -193,6 +193,7 @@ onNewSlotCommitment slotId@SlotId {..}
             case ourCommitment of
                 Just comm -> logDebug stillValidMsg >> sendOurCommitment comm ourId
                 Nothing   -> onNewSlotCommDo ourId
+        pure ()
 
 -- Openings-related part of new slot processing
 onNewSlotOpening

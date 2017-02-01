@@ -46,7 +46,7 @@ import           Pos.Web               (serveWebBase, serveWebGT)
 import           Pos.WorkMode          (WorkMode)
 #ifdef WITH_WALLET
 import           Node                  (hoistSendActions)
-import           Pos.Communication     (ActionSpec (..), OutSpecs, WorkerSpec, worker)
+import           Pos.Communication     (OutSpecs, WorkerSpec, worker)
 import           Pos.Statistics        (getNoStatsT, getStatsMap, runStatsT')
 import           Pos.Wallet.Web        (walletServeWebFull, walletServerOuts)
 import           Pos.WorkMode          (ProductionMode, RawRealMode, StatsMode)

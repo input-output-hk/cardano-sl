@@ -11,7 +11,7 @@ module Pos.Explorer.Web.ClientTypes
 import           Universum
 
 import           Data.Time.Clock.POSIX (POSIXTime)
-import           Pos.Types             (Block (..), Coin (..), MainBlock (..))
+import           Pos.Types             (Coin)
 
 -- | Client hash
 newtype CHash = CHash Text deriving (Show, Eq, Generic, Buildable, Hashable)
@@ -29,7 +29,7 @@ data CBlockEntry = CBlockEntry
     , cbeTxNum      :: !Word
     , cbeTotalSent  :: !Coin
     , cbeSize       :: !Word64
-    , cbeRelayedBy  :: !Text
+    , cbeRelayedBy  :: !(Maybe Text)
     } deriving (Show, Generic)
 
 -- | List of tx entries is returned from "get latest N transactions" endpoint

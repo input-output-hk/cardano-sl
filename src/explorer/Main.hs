@@ -5,7 +5,6 @@
 module Main where
 
 import           Control.Lens        (_head)
-import           Data.List           ((!!))
 import           Data.Maybe          (fromJust)
 import           Data.Proxy          (Proxy (..))
 import           Mockable            (Production)
@@ -14,27 +13,25 @@ import           Universum
 
 import           Pos.Binary          ()
 import qualified Pos.CLI             as CLI
+import           Pos.Communication   (ActionSpec (..))
 import           Pos.Constants       (staticSysStart)
 import           Pos.Crypto          (SecretKey, VssKeyPair, keyGen, vssKeyGen)
-import           Pos.Util.TimeWarp   (sec)
-#ifdef DEV_MODE
-import           Pos.Genesis         (genesisSecretKeys)
-#else
+#ifndef DEV_MODE
 import           Pos.Genesis         (genesisStakeDistribution)
 #endif
-import           Pos.Communication   (ActionSpec (..))
 import           Pos.Genesis         (genesisUtxo)
 import           Pos.Launcher        (BaseParams (..), LoggingParams (..),
                                       NodeParams (..), RealModeResources,
-                                      bracketResources, runNodeProduction, runNodeStats,
+                                      bracketResources, runNodeProduction,
                                       runTimeLordReal, runTimeSlaveReal, stakesDistr)
-import           Pos.Ssc.Class       (SscConstraint, SscListenersClass)
+import           Pos.Ssc.Class       (SscListenersClass)
 import           Pos.Ssc.GodTossing  (GtParams (..), SscGodTossing)
 import           Pos.Types           (Timestamp (Timestamp))
 import           Pos.Util            (inAssertMode)
+import           Pos.Util.TimeWarp   (sec)
 import           Pos.Util.UserSecret (UserSecret, peekUserSecret, usKeys, usVss,
                                       writeUserSecret)
-import           Pos.Web             (serveWebBase, serveWebGT)
+import           Pos.Web             (serveWebGT)
 import           Pos.WorkMode        (ProductionMode, WorkMode)
 
 import           ExplorerOptions     (Args (..), getExplorerOptions)

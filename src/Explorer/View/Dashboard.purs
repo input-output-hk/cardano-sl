@@ -66,21 +66,28 @@ headerView state (HeaderOptions options) =
 heroView :: State -> P.Html Action
 heroView state =
     P.div
-        [ P.className "explorer-dashboard__hero"]
+        [ P.className "explorer-dashboard__hero" ]
         [ P.div
-              [ P.className "explorer-dashboard__container" ]
-              [ P.h1
-                    [ P.className "headline__hero"]
-                    [ P.text $ translate I18nL.title state.lang ]
-                , P.h2
-                    [ P.className "subheadline__hero"]
-                    [ P.text $ translate I18nL.subtitle state.lang ]
-                , P.input
-                    [ P.className "input__hero"
+            [ P.className "hero-container" ]
+            [ P.h1
+                [ P.className "hero-headline" ]
+                [ P.text $ translate I18nL.title state.lang ]
+            , P.h2
+                [ P.className "hero-subheadline"]
+                [ P.text $ translate I18nL.subtitle state.lang ]
+            , P.div
+                [ P.className "hero-search-container" ]
+                [ P.input
+                    [ P.className "hero-input"
                       , P.type_ "text"
-                      , P.placeholder "# Search for address, block, token"]
+                      , P.placeholder "# Search for address, block, token" ]
                     []
-              ]
+                , P.div
+                    [ P.className "hero-search-btn bg-icon-search"
+                    , P.onClick $ const Search ]
+                    []
+                ]
+            ]
         ]
 
 

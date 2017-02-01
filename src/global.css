@@ -27,7 +27,7 @@
   --fontFamily0-Bold: 'fontFamily0-Bold';
 
   --height-header-top: 70px;
-  --min-height-header-bg-image: 500px;
+  --min-height-header-bg-image: 450px;
 }
 
 /* ---------------------------
@@ -133,16 +133,27 @@
   }
 };
 
-@svg-load arrow-right-black url('../static/images/arrow-right.svg') {
-  g:nth-child(1) {
-      fill: #000;
-  }
-};
-
 .bg-arrow-right {
   background-image: svg-inline(arrow-right);
+  &:hover {
+    background-image: svg-inline(arrow-right-hover);
+  }
 }
 
+@svg-load icon-search url('../static/images/search-ic.svg') {
+  g:nth-child(1) {
+      fill: var(--color0);
+      fill-opacity: 0.7;
+  }
+};
+@svg-load icon-search-hover url('../static/images/search-ic.svg');
+
+.bg-icon-search {
+  background-image: svg-inline(icon-search);
+  &:hover {
+    background-image: svg-inline(icon-search-hover);
+  }
+}
 /* ---------------------------
   components
 ------------------------------ */

@@ -19,6 +19,7 @@ import Pux (EffModel, noEffects)
 update :: forall eff. Action -> State -> EffModel State Action (dom :: DOM, ajax :: AJAX | eff)
 update (SetLanguage lang) state = noEffects $ state { lang = lang }
 update (UpdateView route) state = routeEffects route (state { route = route })
+update Search state = noEffects state
 update ScrollTop state = { state: state, effects: [ do
     _ <- liftEff $ scrollTop
     pure NoOp

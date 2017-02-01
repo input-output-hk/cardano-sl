@@ -8,6 +8,7 @@ data Action
     = SetLanguage Language
     | UpdateView Route
     | ScrollTop
+    | Search
     | DashboardExpandBlocks Boolean
     | DashboardExpandTransactions Boolean
     | DashboardShowAPICode DashboardAPICode

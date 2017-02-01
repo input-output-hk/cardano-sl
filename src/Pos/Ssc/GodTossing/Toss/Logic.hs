@@ -20,8 +20,11 @@ import           Pos.Ssc.GodTossing.Core         (GtPayload (..), getCommitments
                                                   isCommitmentIdx, isOpeningIdx,
                                                   isSharesIdx, vcSigningKey,
                                                   _gpCertificates)
-import           Pos.Ssc.GodTossing.Functions    (computeParticipants,
-                                                  verifyEntriesGuardM, verifyGtPayload)
+import           Pos.Ssc.GodTossing.Functions    (verifyEntriesGuardM, verifyGtPayload)
+import           Pos.Ssc.GodTossing.Toss.Base    (checkCommitmentShares, checkShares,
+                                                  computeParticipants, getCommitment,
+                                                  hasCertificate, hasOpening, hasShares,
+                                                  matchCommitment)
 import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..), MonadTossRead (..))
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerErrorTag (..),
                                                   TossVerFailure (..))

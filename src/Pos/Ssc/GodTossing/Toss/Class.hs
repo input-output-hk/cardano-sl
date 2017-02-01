@@ -14,7 +14,8 @@ import           System.Wlog             (WithLogger)
 import           Universum
 
 import           Pos.Lrc.Types           (RichmenSet)
-import           Pos.Ssc.GodTossing.Core (InnerSharesMap, Opening, SignedCommitment,
+import           Pos.Ssc.GodTossing.Core (CommitmentsMap, InnerSharesMap, Opening,
+                                          OpeningsMap, SharesMap, SignedCommitment,
                                           VssCertificate, VssCertificatesMap)
 import           Pos.Types               (EpochIndex, EpochOrSlot, StakeholderId)
 
@@ -26,17 +27,17 @@ import           Pos.Types               (EpochIndex, EpochOrSlot, StakeholderId
 -- verification of GodTossing data.
 class (Monad m, WithLogger m) =>
       MonadTossRead m where
-    -- | Retrieve 'SignedCommitment' of given stakeholder if it's known.
-    getCommitment :: StakeholderId -> m (Maybe SignedCommitment)
+    -- | Get 'CommitmentsMap' with all commitments.
+    getCommitments :: m CommitmentsMap
 
-    -- | Check whether there is an 'Opening' from given stakeholder.
-    hasOpening :: StakeholderId -> m Bool
+    -- | Get 'OpeningsMap' with all openings.
+    getOpenings :: m OpeningsMap
 
-    -- | Check whether there are 'Shares' from given stakeholder.
-    hasShares :: StakeholderId -> m Bool
+    -- | Get 'SharesMap' with all shares.
+    getShares :: m SharesMap
 
-    -- | Check whether there is 'VssCertificate' from given stakeholder.
-    hasCertificate :: StakeholderId -> m Bool
+    -- | Get 'VssCertificatesMap' with all VSS certificates.
+    getVssCertificates :: m VssCertificatesMap
 
     -- | Retrieve all stable 'VssCertificate's for given epoch.
     getStableCertificates :: EpochIndex -> m VssCertificatesMap
@@ -44,28 +45,22 @@ class (Monad m, WithLogger m) =>
     -- | Retrieve richmen for given epoch if they are known.
     getRichmen :: EpochIndex -> m (Maybe RichmenSet)
 
-    checkCommitmentShares :: EpochIndex -> SignedCommitment -> m Bool
-
-    matchCommitment :: (StakeholderId, Opening) -> m Bool
-
-    checkShares :: EpochIndex -> (StakeholderId, InnerSharesMap) -> m Bool
-
     -- | Default implementations for 'MonadTrans'.
-    default getCommitment :: (MonadTrans t, MonadTossRead m', t m' ~ m) =>
-        StakeholderId -> m (Maybe SignedCommitment)
-    getCommitment = lift . getCommitment
+    default getCommitments :: (MonadTrans t, MonadTossRead m', t m' ~ m) =>
+        m CommitmentsMap
+    getCommitments = lift getCommitments
 
-    default hasOpening :: (MonadTrans t, MonadTossRead m', t m' ~ m) =>
-        StakeholderId -> m Bool
-    hasOpening = lift . hasOpening
+    default getOpenings :: (MonadTrans t, MonadTossRead m', t m' ~ m) =>
+        m OpeningsMap
+    getOpenings = lift getOpenings
 
-    default hasShares :: (MonadTrans t, MonadTossRead m', t m' ~ m) =>
-        StakeholderId -> m Bool
-    hasShares = lift . hasShares
+    default getShares :: (MonadTrans t, MonadTossRead m', t m' ~ m) =>
+        m SharesMap
+    getShares = lift getShares
 
-    default hasCertificate :: (MonadTrans t, MonadTossRead m', t m' ~ m) =>
-        StakeholderId -> m Bool
-    hasCertificate = lift . hasCertificate
+    default getVssCertificates :: (MonadTrans t, MonadTossRead m', t m' ~ m) =>
+        m VssCertificatesMap
+    getVssCertificates = lift getVssCertificates
 
     default getStableCertificates :: (MonadTrans t, MonadTossRead m', t m' ~ m) =>
         EpochIndex -> m VssCertificatesMap
@@ -74,18 +69,6 @@ class (Monad m, WithLogger m) =>
     default getRichmen :: (MonadTrans t, MonadTossRead m', t m' ~ m) =>
         EpochIndex -> m (Maybe RichmenSet)
     getRichmen = lift . getRichmen
-
-    default checkCommitmentShares :: (MonadTrans t, MonadTossRead m', t m' ~ m) =>
-        EpochIndex -> SignedCommitment -> m Bool
-    checkCommitmentShares epoch = lift . checkCommitmentShares epoch
-
-    default matchCommitment :: (MonadTrans t, MonadTossRead m', t m' ~ m) =>
-       (StakeholderId, Opening) -> m Bool
-    matchCommitment = lift . matchCommitment
-
-    default checkShares :: (MonadTrans t, MonadTossRead m', t m' ~ m) =>
-       EpochIndex -> (StakeholderId, InnerSharesMap) -> m Bool
-    checkShares epoch = lift . checkShares epoch
 
 instance MonadTossRead m => MonadTossRead (ReaderT s m)
 instance MonadTossRead m => MonadTossRead (StateT s m)

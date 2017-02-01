@@ -52,16 +52,17 @@ import           Pos.Ssc.GodTossing.Core          (Commitment (..), SignedCommit
                                                    getCommitmentsMap, isCommitmentIdx,
                                                    isOpeningIdx, isSharesIdx,
                                                    mkSignedCommitment, mkVssCertificate)
-import           Pos.Ssc.GodTossing.Functions     (computeParticipants, hasCommitment,
-                                                   hasOpening, hasShares, vssThreshold)
+import           Pos.Ssc.GodTossing.Functions     (hasCommitment, hasOpening, hasShares,
+                                                   vssThreshold)
+import           Pos.Ssc.GodTossing.GState        (getGlobalCerts, getStableCerts,
+                                                   gtGetGlobalState)
 import           Pos.Ssc.GodTossing.LocalData     (localOnNewSlot, sscProcessCertificate,
                                                    sscProcessCommitment,
                                                    sscProcessOpening, sscProcessShares)
 import           Pos.Ssc.GodTossing.Richmen       (gtLrcConsumer)
 import qualified Pos.Ssc.GodTossing.SecretStorage as SS
 import           Pos.Ssc.GodTossing.Shares        (getOurShares)
-import           Pos.Ssc.GodTossing.GState       (getGlobalCerts, getStableCerts,
-                                                   gtGetGlobalState)
+import           Pos.Ssc.GodTossing.Toss          (computeParticipants)
 import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types         (gsCommitments, gtcParticipateSsc,
                                                    gtcVssKeyPair)

@@ -48,13 +48,14 @@ import           Pos.Ssc.GodTossing.Core            (GtPayload (..), InnerShares
                                                      mkVssCertificatesMap)
 import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData (..), ldEpoch,
                                                      ldModifier)
-import           Pos.Ssc.GodTossing.Toss            (GtTag (..), MonadTossRead (..),
-                                                     PureToss, TossModifier, TossT,
-                                                     TossVerFailure (..),
+import           Pos.Ssc.GodTossing.Toss            (GtTag (..), PureToss, TossModifier,
+                                                     TossT, TossVerFailure (..),
                                                      evalPureTossWithLogger, evalTossT,
-                                                     execTossT, isGoodSlotForTag,
-                                                     normalizeToss, tmCertificates,
-                                                     tmCommitments, tmOpenings, tmShares,
+                                                     execTossT, hasCertificate,
+                                                     hasCommitment, hasOpening, hasShares,
+                                                     isGoodSlotForTag, normalizeToss,
+                                                     tmCertificates, tmCommitments,
+                                                     tmOpenings, tmShares,
                                                      verifyAndApplyGtPayload)
 import           Pos.Ssc.GodTossing.Type            (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types           (GtGlobalState)
@@ -138,7 +139,7 @@ sscIsDataUseful tag id =
         (evalTossInMem $ sscIsDataUsefulDo tag)
         (pure False)
   where
-    sscIsDataUsefulDo CommitmentMsg     = isNothing <$> getCommitment id
+    sscIsDataUsefulDo CommitmentMsg     = not <$> hasCommitment id
     sscIsDataUsefulDo OpeningMsg        = not <$> hasOpening id
     sscIsDataUsefulDo SharesMsg         = not <$> hasShares id
     sscIsDataUsefulDo VssCertificateMsg = not <$> hasCertificate id

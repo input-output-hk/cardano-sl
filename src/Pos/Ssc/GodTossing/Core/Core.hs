@@ -28,16 +28,12 @@ module Pos.Ssc.GodTossing.Core.Core
        , verifyCommitmentSignature
        , verifySignedCommitment
        , verifyOpening
-       , checkShare
-       , checkSharesPure
-       , checkCommShares
 
        -- * Payload and proof
        , _gpCertificates
        , mkGtProof
        ) where
 
-import           Data.Containers                (ContainerKey, SetContainer (notMember))
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.HashSet                   as HS
 import           Data.Ix                        (inRange)
@@ -52,25 +48,23 @@ import           Pos.Binary.Crypto              ()
 import           Pos.Binary.Ssc.GodTossing.Core ()
 import           Pos.Constants                  (blkSecurityParam, vssMaxTTL, vssMinTTL)
 import           Pos.Crypto                     (EncShare, Secret, SecretKey,
-                                                 SecureRandom (..), Share, Threshold,
+                                                 SecureRandom (..), Threshold,
                                                  VssPublicKey, checkSig, encShareId,
                                                  genSharedSecret, getDhSecret, hash,
                                                  secretToDhSecret, sign, toPublic,
-                                                 verifyEncShare, verifySecretProof,
-                                                 verifyShare)
+                                                 verifyEncShare, verifySecretProof)
 import           Pos.Ssc.GodTossing.Core.Types  (Commitment (..),
                                                  CommitmentsMap (getCommitmentsMap),
                                                  GtPayload (..), GtProof (..),
-                                                 InnerSharesMap, Opening (..),
-                                                 SignedCommitment,
-                                                 VssCertificate (vcExpiryEpoch, vcVssKey),
+                                                 Opening (..), SignedCommitment,
+                                                 VssCertificate (vcExpiryEpoch),
                                                  VssCertificatesMap,
                                                  mkCommitmentsMapUnsafe)
 import           Pos.Types.Address              (addressHash)
 import           Pos.Types.Core                 (EpochIndex (..), LocalSlotIndex,
                                                  SlotId (..), StakeholderId)
 import           Pos.Types.Types                (SharedSeed (..))
-import           Pos.Util                       (AsBinary, asBinary, fromBinaryM, getKeys)
+import           Pos.Util                       (AsBinary, asBinary, fromBinaryM)
 
 -- | Convert Secret to SharedSeed.
 secretToSharedSeed :: Secret -> SharedSeed
@@ -219,64 +213,6 @@ checkCertTTL curEpochIndex vc =
     expiryEpoch < vssMaxTTL + curEpochIndex
   where
     expiryEpoch = vcExpiryEpoch vc
-
--- CHECK: @checkShare
--- | Check that the decrypted share matches the encrypted share in the
--- commitment
---
--- #verifyShare
-checkShare :: (SetContainer set, ContainerKey set ~ StakeholderId)
-           => CommitmentsMap
-           -> set --set of opening's addresses
-           -> VssCertificatesMap
-           -> (StakeholderId, StakeholderId, AsBinary Share)
-           -> Bool
-checkShare globalCommitments globalOpeningsPK globalCertificates (addrTo, addrFrom, share) =
-    fromMaybe False $ case tuple of
-      Just (eS, pk, s) -> verifyShare
-                            <$> fromBinaryM eS
-                            <*> fromBinaryM pk
-                            <*> fromBinaryM s
-      _ -> return False
-  where
-    tuple = do
-        -- addrFrom sent its decrypted share to addrTo on commitment phase.
-        -- addrTo must decrypt share from addrFrom on shares phase,
-        -- if addrFrom didn't send its opening
-
-        -- CHECK: Check that addrFrom really didn't send its opening
-        guard $ notMember addrFrom globalOpeningsPK
-        -- CHECK: Check that addrFrom really sent its commitment
-        (_, comm, _) <- HM.lookup addrFrom $ getCommitmentsMap globalCommitments
-        -- Get pkTo's vss certificate
-        vssKey <- vcVssKey <$> HM.lookup addrTo globalCertificates
-        -- Get encrypted share, which was sent from pkFrom to pkTo on commitment phase
-        encShare <- HM.lookup vssKey (commShares comm)
-        return (encShare, vssKey, share)
-
--- CHECK: @checkShares
--- Apply checkShare to all shares in map.
---
--- #checkShare
-checkSharesPure
-    :: (SetContainer set, ContainerKey set ~ StakeholderId)
-    => CommitmentsMap
-    -> set --set of opening's PK. TODO Should we add phantom type for more typesafety?
-    -> VssCertificatesMap
-    -> StakeholderId
-    -> InnerSharesMap
-    -> Bool
-checkSharesPure globalCommitments globalOpeningsPK globalCertificates addrTo shares =
-    let listShares :: [(StakeholderId, StakeholderId, AsBinary Share)]
-        listShares = map convert $ HM.toList shares
-        convert (addrFrom, share) = (addrTo, addrFrom, share)
-    in all
-           (checkShare globalCommitments globalOpeningsPK globalCertificates)
-           listShares
-
-checkCommShares :: [AsBinary VssPublicKey] -> SignedCommitment -> Bool
-checkCommShares vssPublicKeys c =
-    HS.fromList vssPublicKeys == (getKeys . commShares $ c ^. _2)
 
 ----------------------------------------------------------------------------
 -- Payload and proof

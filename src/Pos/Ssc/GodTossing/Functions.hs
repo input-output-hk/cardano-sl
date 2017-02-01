@@ -15,14 +15,12 @@ module Pos.Ssc.GodTossing.Functions
 
        -- * VSS
        , vssThreshold
-       , computeParticipants
        , getStableCertsPure
        ) where
 
 import           Control.Lens                    (to)
 import           Control.Monad.Except            (MonadError (throwError))
 import qualified Data.HashMap.Strict             as HM
-import qualified Data.HashSet                    as HS
 import qualified Data.List.NonEmpty              as NE
 import           Serokell.Util.Verify            (isVerSuccess)
 import           Universum
@@ -30,7 +28,6 @@ import           Universum
 import           Pos.Binary.Crypto               ()
 import           Pos.Binary.Ssc.GodTossing.Core  ()
 import           Pos.Crypto                      (Threshold)
-import           Pos.Lrc.Types                   (RichmenSet)
 import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (getCommitmentsMap),
                                                   GtPayload (..), VssCertificate (..),
                                                   VssCertificatesMap, checkCertTTL,
@@ -180,10 +177,6 @@ verifyEntriesGuardM fKey fVal exception cond lst =
 -- to recover each node's secret) using number of participants.
 vssThreshold :: Integral a => a -> Threshold
 vssThreshold len = fromIntegral $ len `div` 2 + len `mod` 2
-
-computeParticipants :: RichmenSet -> VssCertificatesMap -> VssCertificatesMap
-computeParticipants (HS.toMap -> richmen) =
-    (`HM.intersection` richmen)
 
 getStableCertsPure :: EpochIndex -> VCD.VssCertData -> VssCertificatesMap
 getStableCertsPure epoch certs

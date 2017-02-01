@@ -10,10 +10,9 @@ module Pos.Ssc.GodTossing.Toss.Trans
        , execTossT
        ) where
 
-import           Control.Lens                  (at, iso, to, (%=), (.=))
+import           Control.Lens                  (at, iso, (%=), (.=))
 import           Control.Monad.Base            (MonadBase (..))
 import           Control.Monad.Except          (MonadError)
-import           Control.Monad.State           (MonadState (..))
 import           Control.Monad.Trans.Class     (MonadTrans)
 import           Control.Monad.Trans.Control   (ComposeSt, MonadBaseControl (..),
                                                 MonadTransControl (..), StM,
@@ -31,7 +30,7 @@ import           Pos.DB.Class                  (MonadDB)
 import           Pos.Slotting                  (MonadSlots (..))
 import           Pos.Ssc.Extra                 (MonadSscMem)
 import           Pos.Ssc.GodTossing.Core       (deleteSignedCommitment, getCertId,
-                                                getCommitmentsMap, insertSignedCommitment)
+                                                insertSignedCommitment)
 import           Pos.Ssc.GodTossing.Toss.Class (MonadToss (..), MonadTossRead (..))
 import           Pos.Ssc.GodTossing.Toss.Types (TossModifier (..), tmCertificates,
                                                 tmCommitments, tmOpenings, tmShares)
@@ -85,25 +84,13 @@ execTossT m = fmap snd . runTossT m
 
 instance MonadTossRead m =>
          MonadTossRead (TossT m) where
-    getCommitment id = liftM2 (<|>)
-        (TossT $ use $ tmCommitments . to getCommitmentsMap . at id)
-        (TossT $ getCommitment id)
-    hasOpening id = liftM2 (||)
-        (TossT $ use $ tmOpenings . to (HM.member id))
-        (TossT $ hasOpening id)
-    hasShares id = liftM2 (||)
-        (TossT $ use $ tmShares . to (HM.member id))
-        (TossT $ hasShares id)
-    hasCertificate id = liftM2 (||)
-        (TossT $ use $ tmCertificates . to (HM.member id))
-        (TossT $ hasCertificate id)
-    getStableCertificates =
-        TossT . getStableCertificates
+    getCommitments = TossT $ (<>) <$> use tmCommitments <*> getCommitments
+    getOpenings = TossT $ (<>) <$> use tmOpenings <*> getOpenings
+    getShares = TossT $ (<>) <$> use tmShares <*> getShares
+    getVssCertificates =
+        TossT $ (<>) <$> use tmCertificates <*> lift getVssCertificates
+    getStableCertificates = TossT . getStableCertificates
     getRichmen = TossT . getRichmen
-
-    checkCommitmentShares epoch = TossT . checkCommitmentShares epoch
-    matchCommitment = TossT . matchCommitment
-    checkShares epoch = TossT . checkShares epoch
 
 instance MonadToss m =>
          MonadToss (TossT m) where

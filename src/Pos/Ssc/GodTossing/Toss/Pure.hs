@@ -15,17 +15,13 @@ import qualified Data.HashMap.Strict            as HM
 import           System.Wlog                    (CanLog, HasLoggerName (getLoggerName),
                                                  LogEvent, LoggerName, LoggerNameBox,
                                                  PureLogger, WithLogger, dispatchEvents,
-                                                 logWarning, runPureLog, usingLoggerName)
+                                                 runPureLog, usingLoggerName)
 import           Universum
 
 import           Pos.Lrc.Types                  (RichmenSet)
-import           Pos.Ssc.GodTossing.Core        (checkCommShares, checkSharesPure,
-                                                 deleteSignedCommitment,
-                                                 getCommitmentsMap,
-                                                 insertSignedCommitment, vcVssKey)
-import           Pos.Ssc.GodTossing.Functions   (computeParticipants)
+import           Pos.Ssc.GodTossing.Core        (deleteSignedCommitment,
+                                                 insertSignedCommitment)
 import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
-import           Pos.Ssc.GodTossing.Toss.Base   (checkOpeningMatchesCommitment)
 import           Pos.Ssc.GodTossing.Toss.Class  (MonadToss (..), MonadTossRead (..))
 import           Pos.Ssc.GodTossing.Types       (GtGlobalState, gsCommitments, gsOpenings,
                                                  gsShares, gsVssCertificates)
@@ -39,12 +35,10 @@ newtype PureToss a = PureToss
     } deriving (Functor, Applicative, Monad, CanLog, HasLoggerName)
 
 instance MonadTossRead PureToss where
-    getCommitment id =
-        PureToss $ use $ gsCommitments . to getCommitmentsMap . at id
-    hasOpening id = PureToss $ use $ gsOpenings . at id . to isJust
-    hasShares id = PureToss $ use $ gsShares . at id . to isJust
-    hasCertificate id =
-        PureToss $ use $ gsVssCertificates . to VCD.certs . at id . to isJust
+    getCommitments = PureToss $ use gsCommitments
+    getOpenings = PureToss $ use gsOpenings
+    getShares = PureToss $ use gsShares
+    getVssCertificates = PureToss $ use $ gsVssCertificates . to VCD.certs
     getStableCertificates epoch
         | epoch == 0 = pure genesisCertificates
         | otherwise =
@@ -52,25 +46,6 @@ instance MonadTossRead PureToss where
             VCD.certs . VCD.setLastKnownSlot (crucialSlot epoch) <$>
             use gsVssCertificates
     getRichmen epoch = PureToss $ asks (HM.lookup epoch)
-
-    checkCommitmentShares epoch comm = do
-        certs <- getStableCertificates epoch
-        richmen <- maybe (mempty <$ logWarning "checkShares: no richmen") pure
-                         =<< getRichmen epoch
-        let parts = map vcVssKey $ toList $ computeParticipants richmen certs
-        pure $ checkCommShares parts comm
-
-    matchCommitment op =
-        PureToss $ flip checkOpeningMatchesCommitment op <$> use gsCommitments
-
-    checkShares epoch (id, sh) = do
-        certs <- getStableCertificates epoch
-        richmen <- maybe (mempty <$ logWarning "checkShares: no richmen") pure
-                         =<< getRichmen epoch
-        let parts = computeParticipants richmen certs
-        coms <- PureToss $ use gsCommitments
-        ops <- PureToss $ use gsOpenings
-        pure $ checkSharesPure coms ops parts id sh
 
 instance MonadToss PureToss where
     putCommitment signedComm =

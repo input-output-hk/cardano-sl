@@ -23,8 +23,8 @@ import           Pos.Update.Poll.Logic.Base (adoptBlockVersion, canBeAdoptedBV)
 import           Pos.Update.Poll.Types      (BlockVersionState (..), PollVerFailure (..))
 import           Pos.Util                   (inAssertMode)
 
--- | Record the fact that main block with given version has been issued by
--- stakeholder with given id for the given slot.
+-- | Record the fact that main block with given version and leader has
+-- been issued by for the given slot.
 recordBlockIssuance
     :: (MonadError PollVerFailure m, MonadPoll m)
     => StakeholderId -> BlockVersion -> SlotId -> HeaderHash -> m ()

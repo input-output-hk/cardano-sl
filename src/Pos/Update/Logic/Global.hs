@@ -19,16 +19,14 @@ import           Universum
 
 import           Pos.Constants        (lastKnownBlockVersion)
 import           Pos.Context          (WithNodeContext)
-import           Pos.Crypto           (ProxySignature (pdDelegatePk))
 import qualified Pos.DB               as DB
 import           Pos.DB.GState        (UpdateOp (..))
 import           Pos.Ssc.Class        (SscHelpersClass)
-import           Pos.Types            (ApplicationName, Block, BlockSignature (..),
-                                       BlockVersion, NumSoftwareVersion,
-                                       SoftwareVersion (..), addressHash, blockSize,
-                                       blockSlot, epochIndexL, gbBody, gbHeader,
-                                       gbhConsensus, gbhExtra, headerHash,
-                                       mbUpdatePayload, mcdLeaderKey, mcdSignature,
+import           Pos.Types            (ApplicationName, Block, BlockVersion,
+                                       NumSoftwareVersion, SoftwareVersion (..),
+                                       addressHash, blockSize, blockSlot, epochIndexL,
+                                       gbBody, gbHeader, gbhConsensus, gbhExtra,
+                                       headerHash, mbUpdatePayload, mcdLeaderKey,
                                        mehBlockVersion)
 import           Pos.Update.Core      (BlockVersionData, UpId)
 import           Pos.Update.Error     (USError (USInternalError))
@@ -121,14 +119,9 @@ verifyBlock (Right blk) =
         -- Note, however, that it's important to do it after
         -- 'verifyAndApplyUSPayload', because there we assume that block
         -- version is confirmed.
-        let consensusData = blk ^. gbHeader . gbhConsensus
-        let issuerPk =
-                case consensusData ^. mcdSignature of
-                    BlockSignature _         -> consensusData ^. mcdLeaderKey
-                    BlockPSignatureEpoch ps  -> pdDelegatePk ps
-                    BlockPSignatureSimple ps -> pdDelegatePk ps
+        let leaderPk = blk ^. gbHeader . gbhConsensus . mcdLeaderKey
         recordBlockIssuance
-            (addressHash issuerPk)
+            (addressHash leaderPk)
             (blk ^. gbHeader . gbhExtra . mehBlockVersion)
             (blk ^. blockSlot)
             (headerHash blk)

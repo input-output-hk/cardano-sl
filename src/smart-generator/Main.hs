@@ -285,8 +285,7 @@ main = do
                 }
             gtParams =
                 GtParams
-                { gtpRebuildDb  = True
-                , gtpSscEnabled = False
+                { gtpSscEnabled = False
                 , gtpVssKeyPair = vssKeyPair
                 }
 

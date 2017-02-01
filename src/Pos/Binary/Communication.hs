@@ -24,6 +24,7 @@ import           Pos.Communication.Types.Protocol (HandlerSpec (..), NOP (..),
                                                    PeerId (..), VerInfo (..))
 import           Pos.Delegation.Types             (ConfirmProxySK (..), SendProxySK (..))
 import           Pos.DHT.Model.Types              (meaningPartLength)
+import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 import           Pos.Ssc.Class.Types              (Ssc (..))
 import           Pos.Txp.Types                    (TxMsgTag (..))
 import           Pos.Update.Network.Types         (ProposalMsgTag (..), VoteMsgTag (..))
@@ -70,7 +71,7 @@ instance Ssc ssc => Bi (MsgHeaders ssc) where
     put (MsgHeaders b) = put b
     get = MsgHeaders <$> get
 
-instance (Ssc ssc, Reifies s Byte) => Bi (MsgBlock s ssc) where
+instance (SscHelpersClass ssc, Reifies s Byte) => Bi (MsgBlock s ssc) where
     -- We encode block size and then the block itself so that we'd be able to
     -- reject the block if it's of the wrong size without consuming the whole
     -- block.

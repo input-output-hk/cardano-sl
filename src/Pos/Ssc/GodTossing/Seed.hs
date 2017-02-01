@@ -5,19 +5,20 @@ module Pos.Ssc.GodTossing.Seed
        ) where
 
 
-import qualified Data.HashMap.Strict           as HM (fromList, lookup, mapMaybe, toList,
-                                                      traverseWithKey, (!))
-import qualified Data.HashSet                  as HS (difference)
+import qualified Data.HashMap.Strict          as HM (fromList, lookup, mapMaybe,
+                                                     traverseWithKey, (!))
+import qualified Data.HashSet                 as HS (difference)
 import           Universum
 
-import           Pos.Crypto                    (Secret, Share, unsafeRecoverSecret)
-import           Pos.Ssc.GodTossing.Error      (SeedError (..))
-import           Pos.Ssc.GodTossing.Functions  (secretToSharedSeed, verifyOpening,
-                                                vssThreshold)
-import           Pos.Ssc.GodTossing.Types.Base (CommitmentsMap, OpeningsMap, SharesMap,
-                                                commShares, getOpening)
-import           Pos.Types                     (SharedSeed, StakeholderId)
-import           Pos.Util                      (fromBinaryM, getKeys)
+import           Pos.Crypto                   (Secret, Share, unsafeRecoverSecret)
+import           Pos.Ssc.GodTossing.Core      (Commitment (commShares),
+                                               CommitmentsMap (getCommitmentsMap),
+                                               OpeningsMap, SharesMap, getOpening,
+                                               secretToSharedSeed, verifyOpening)
+import           Pos.Ssc.GodTossing.Error     (SeedError (..))
+import           Pos.Ssc.GodTossing.Functions (vssThreshold)
+import           Pos.Types                    (SharedSeed, StakeholderId, addressHash)
+import           Pos.Util                     (fromBinaryM, getKeys)
 
 
 -- | Calculate SharedSeed. SharedSeed is a random bytestring that all
@@ -29,7 +30,7 @@ calculateSeed ::
     -> OpeningsMap
     -> SharesMap             -- ^ Decrypted shares
     -> Either SeedError SharedSeed
-calculateSeed commitments openings lShares = do
+calculateSeed (getCommitmentsMap -> commitments) openings lShares = do
     let participants = getKeys commitments
 
     -- First let's do some sanity checks.
@@ -50,10 +51,11 @@ calculateSeed commitments openings lShares = do
         Left (ExtraneousShares extraShares)
 
     -- And let's check openings.
-    for_ (HM.toList commitments) $ \(key, view _2 -> commitment) -> do
-        whenJust (HM.lookup key openings) $ \opening ->
+    for_ (toList commitments) $ \(pk, commitment, _) -> do
+        let id = addressHash pk
+        whenJust (HM.lookup id openings) $ \opening ->
             unless (verifyOpening commitment opening) $
-                Left (BrokenCommitment key)
+                Left (BrokenCommitment id)
 
     -- Then we can start calculating seed, but first we have to recover some
     -- secrets (if corresponding openings weren't posted)

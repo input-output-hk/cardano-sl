@@ -44,12 +44,16 @@ class ( Buildable tag
       , Typeable key
       , Message (InvMsg key tag)
       , Message (ReqMsg key tag)
-      , Message (DataMsg key contents)
+      , Message (DataMsg contents)
       ) => Relay m tag key contents
       | tag -> contents, contents -> tag, contents -> key, tag -> key where
     -- | Converts data to tag. Tag returned in monad `m`
     -- for only type matching reason (multiparam type classes are tricky)
     contentsToTag :: contents -> m tag
+
+    -- | Same for key. Sometime contents has key inside already, so
+    -- it's redundant to double-pass it everywhere.
+    contentsToKey :: contents -> m key
 
     verifyInvTag :: tag -> m VerificationRes
     verifyReqTag :: tag -> m VerificationRes
@@ -62,7 +66,7 @@ class ( Buildable tag
     handleReq :: tag -> key -> m (Maybe contents)
 
     -- | Handle data msg and return True if message is to be propagated
-    handleData :: contents -> key -> m Bool
+    handleData :: contents -> m Bool
 
 processMessage
   :: (Buildable param, WithLogger m)
@@ -109,7 +113,7 @@ handleInvL proxy = listenerOneMsg outSpecs $
 
 handleReqL
     :: ( Bi (ReqMsg key tag)
-       , Bi (DataMsg key contents)
+       , Bi (DataMsg contents)
        , Relay m tag key contents
        , MinWorkMode m
        -- [CSL-659] remove after rewriting to conv
@@ -124,17 +128,17 @@ handleReqL proxy = listenerOneMsg outSpecs $
       processMessage "Request" rmTag verifyReqTag $ do
           res <- zip (toList rmKeys) <$> mapM (handleReq rmTag) (toList rmKeys)
           let noDataAddrs = filterSecond isNothing res
-              datas = catMaybes $ map (\(addr, m) -> (,addr) <$> m) res
+              datas = catMaybes $ map snd res
           when (not $ null noDataAddrs) $
               logDebug $ sformat
                   ("No data "%build%" for keys "%listJson)
                   rmTag noDataAddrs
-          mapM_ ((sendTo sendActions peerId) . uncurry DataMsg) datas
+          mapM_ ((sendTo sendActions peerId) . DataMsg) datas
   where
     outSpecs = toOutSpecs [ oneMsgH (dataMsgProxy proxy) ]
 
 handleDataL
-    :: ( Bi (DataMsg key contents)
+    :: ( Bi (DataMsg contents)
        , Bi (InvMsg key tag)
        , MonadDHT m
        , Relay m tag key contents
@@ -147,6 +151,7 @@ handleDataL
     -> (ListenerSpec m, OutSpecs)
 handleDataL proxy = listenerOneMsg outSpecs $
   \_ _ sendActions msg@(DataMsg {..}) -> do
+      key <- contentsToKey dmContents
       let _ = dataCatchType proxy msg
           handleDataLDo = do
               shouldPropagate <- ncPropagation <$> getNodeContext
@@ -154,20 +159,20 @@ handleDataL proxy = listenerOneMsg outSpecs $
                   logInfo $ sformat
                       ("Adopted data "%build%" "%
                        "for key "%build%", propagating...")
-                      dmContents dmKey
+                      dmContents key
                   tag <- contentsToTag dmContents
-                  sendToNeighbors sendActions $ InvMsg tag (one dmKey)
+                  sendToNeighbors sendActions $ InvMsg tag (one key)
               else do
                   logInfo $ sformat
                       ("Adopted data "%build%" for "%
                        "key "%build%", no propagation")
-                      dmContents dmKey
+                      dmContents key
       processMessage "Data" dmContents verifyDataContents $
-          ifM (handleData dmContents dmKey)
+          ifM (handleData dmContents)
               handleDataLDo $
               logDebug $ sformat
                   ("Ignoring data "%build%" for key "%build)
-                  dmContents dmKey
+                  dmContents key
   where
     outSpecs = toOutSpecs [ oneMsgH (invMsgProxy proxy) ]
 
@@ -183,16 +188,16 @@ reqCatchType _ _ = ()
 reqMsgProxy :: RelayProxy key tag contents -> Proxy (ReqMsg key tag)
 reqMsgProxy _ = Proxy
 
-dataCatchType :: RelayProxy key tag contents -> DataMsg key contents -> ()
+dataCatchType :: RelayProxy key tag contents -> DataMsg contents -> ()
 dataCatchType _ _ = ()
-dataMsgProxy :: RelayProxy key tag contents -> Proxy (DataMsg key contents)
+dataMsgProxy :: RelayProxy key tag contents -> Proxy (DataMsg contents)
 dataMsgProxy _ = Proxy
 
 relayListeners
   :: ( MonadDHT m
      , Bi (InvMsg key tag)
      , Bi (ReqMsg key tag)
-     , Bi (DataMsg key contents)
+     , Bi (DataMsg contents)
      , Relay m tag key contents
      , WithLogger m
      , WorkMode ssc m
@@ -207,10 +212,10 @@ relayStubListeners
     :: ( WithLogger m
        , Bi (InvMsg key tag)
        , Bi (ReqMsg key tag)
-       , Bi (DataMsg key contents)
+       , Bi (DataMsg contents)
        , Message (InvMsg key tag)
        , Message (ReqMsg key tag)
-       , Message (DataMsg key contents)
+       , Message (DataMsg contents)
        )
     => RelayProxy key tag contents -> ([ListenerSpec m], OutSpecs)
 relayStubListeners p = mergeLs

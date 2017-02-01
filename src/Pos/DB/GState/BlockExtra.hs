@@ -15,20 +15,20 @@ module Pos.DB.GState.BlockExtra
        ) where
 
 import qualified Data.Text.Buildable
-import qualified Database.RocksDB    as Rocks
-import           Formatting          (bprint, build, (%))
+import qualified Database.RocksDB      as Rocks
+import           Formatting            (bprint, build, (%))
 import           Universum
 
-import           Pos.Binary.Class    (encodeStrict)
-import           Pos.Block.Types     (Blund)
-import           Pos.Crypto          (shortHashF)
-import           Pos.DB.Block        (getBlockWithUndo)
-import           Pos.DB.Class        (MonadDB, getUtxoDB)
-import           Pos.DB.Functions    (RocksBatchOp (..), rocksGetBi, rocksPutBi)
-import           Pos.Ssc.Class.Types (Ssc)
-import           Pos.Types           (Block, BlockHeader, HasHeaderHash, HeaderHash,
-                                      blockHeader, headerHash)
-import           Pos.Util            (OldestFirst (..))
+import           Pos.Binary.Class      (encodeStrict)
+import           Pos.Block.Types       (Blund)
+import           Pos.Crypto            (shortHashF)
+import           Pos.DB.Block          (getBlockWithUndo)
+import           Pos.DB.Class          (MonadDB, getUtxoDB)
+import           Pos.DB.Functions      (RocksBatchOp (..), rocksGetBi, rocksPutBi)
+import           Pos.Ssc.Class.Helpers (SscHelpersClass)
+import           Pos.Types             (Block, BlockHeader, HasHeaderHash, HeaderHash,
+                                        blockHeader, headerHash)
+import           Pos.Util              (OldestFirst (..))
 
 
 ----------------------------------------------------------------------------
@@ -87,7 +87,7 @@ instance RocksBatchOp BlockExtraOp where
 
 -- Loads something from old to new.
 loadUpWhile
-    :: forall a b ssc m . (Ssc ssc, MonadDB ssc m, HasHeaderHash a)
+    :: forall a b ssc m . (SscHelpersClass ssc, MonadDB ssc m, HasHeaderHash a)
     => (Blund ssc -> b)
     -> a
     -> (b -> Int -> Bool)
@@ -108,7 +108,7 @@ loadUpWhile morph start condition =
 
 -- | Returns headers loaded up.
 loadHeadersUpWhile
-    :: (Ssc ssc, MonadDB ssc m, HasHeaderHash a)
+    :: (SscHelpersClass ssc, MonadDB ssc m, HasHeaderHash a)
     => a
     -> (BlockHeader ssc -> Int -> Bool)
     -> m (OldestFirst [] (BlockHeader ssc))
@@ -117,7 +117,7 @@ loadHeadersUpWhile start condition =
 
 -- | Returns blocks loaded up.
 loadBlocksUpWhile
-    :: (Ssc ssc, MonadDB ssc m, HasHeaderHash a)
+    :: (SscHelpersClass ssc, MonadDB ssc m, HasHeaderHash a)
     => a
     -> (Block ssc -> Int -> Bool)
     -> m (OldestFirst [] (Block ssc))

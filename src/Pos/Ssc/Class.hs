@@ -34,7 +34,7 @@ type SscConstraint ssc =
     , SscListenersClass ssc
     , SscLocalDataClass ssc
     , SscHelpersClass ssc
-    , SscStorageClass ssc
+    , SscGStateClass ssc
     , SscWorkersClass ssc
     , SecurityWorkersClass ssc
     )

@@ -30,7 +30,7 @@ import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
 #ifdef DEV_MODE
 import           Pos.Ssc.GodTossing    (genesisVssKeyPairs)
 #endif
-import           Pos.Ssc.Class         (SscListenersClass)
+import           Pos.Ssc.Class         (SscConstraint)
 import           Pos.Ssc.GodTossing    (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon    (SscNistBeacon)
 import           Pos.Ssc.SscAlgo       (SscAlgo (..))
@@ -41,7 +41,6 @@ import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usKeys, usVs
                                         writeUserSecret)
 
 #ifdef WITH_WEB
-import           Pos.Ssc.Class         (SscConstraint)
 import           Pos.Web               (serveWebBase, serveWebGT)
 import           Pos.WorkMode          (WorkMode)
 #ifdef WITH_WALLET
@@ -56,7 +55,7 @@ import           Pos.WorkMode          (ProductionMode, RawRealMode, StatsMode)
 import           NodeOptions           (Args (..), getNodeOptions)
 
 getSystemStart
-    :: SscListenersClass ssc
+    :: SscConstraint ssc
     => Proxy ssc -> RealModeResources -> Args -> Production Timestamp
 getSystemStart sscProxy inst args
     | noSystemStart args > 0 = pure $ Timestamp $ sec $ noSystemStart args
@@ -222,9 +221,7 @@ getNodeParams args@Args {..} systemStart = do
 gtSscParams :: Args -> VssKeyPair -> GtParams
 gtSscParams Args {..} vssSK =
     GtParams
-    {
-      gtpRebuildDb  = rebuildDB
-    , gtpSscEnabled = True
+    { gtpSscEnabled = True
     , gtpVssKeyPair = vssSK
     }
 

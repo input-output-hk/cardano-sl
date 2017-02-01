@@ -49,6 +49,7 @@ txStubListeners = relayStubListeners txProxy
 instance ( WorkMode ssc m
          ) => Relay m TxMsgTag TxId TxMsgContents where
     contentsToTag _ = pure TxMsgTag
+    contentsToKey (TxMsgContents tx _ _) = pure $ hash tx
 
     verifyInvTag _ = pure VerSuccess
     verifyReqTag _ = pure VerSuccess
@@ -60,7 +61,7 @@ instance ( WorkMode ssc m
       where
         toContents (tx, tw, td) = TxMsgContents tx tw td
 
-    handleData (TxMsgContents tx tw td) _ = handleTxDo (hash tx, (tx, tw, td))
+    handleData (TxMsgContents tx tw td) = handleTxDo (hash tx, (tx, tw, td))
 
 -- Real tx processing
 -- CHECK: @handleTxDo

@@ -19,7 +19,7 @@ import           Pos.Crypto           (Hash, ProxySecretKey, PublicKey, SecretKe
                                        createProxySecretKey, toPublic)
 import           Pos.Data.Attributes  (Attributes (..), mkAttributes)
 import           Pos.Merkle           (MerkleRoot (..), MerkleTree, mkMerkleTree)
-import           Pos.Ssc.Class.Types  (Ssc (..))
+import           Pos.Ssc.Class        (Ssc (..), SscHelpersClass)
 import qualified Pos.Types            as T
 import           Pos.Update.Arbitrary ()
 import           Pos.Util.Arbitrary   (makeSmall)
@@ -153,7 +153,7 @@ instance Arbitrary (SscPayload ssc) => Arbitrary (T.Body (T.MainBlockchain ssc))
         mpcUpload   <- arbitrary
         return $ T.MainBody (mkMerkleTree txList) txDists txInW mpcData mpcProxySKs mpcUpload
 
-instance (Arbitrary (SscProof ssc), Arbitrary (SscPayload ssc), Ssc ssc) =>
+instance (Arbitrary (SscProof ssc), Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
     Arbitrary (T.GenericBlock (T.MainBlockchain ssc)) where
     arbitrary = properBlock
 
@@ -174,7 +174,7 @@ instance Arbitrary T.MsgGetBlocks where
 instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) => Arbitrary (T.MsgHeaders ssc) where
     arbitrary = T.MsgHeaders <$> arbitrary
 
-instance (Arbitrary (SscProof ssc), Arbitrary (SscPayload ssc), Ssc ssc) =>
+instance (Arbitrary (SscProof ssc), Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
     Arbitrary (T.MsgBlock s ssc) where
     arbitrary = T.MsgBlock <$> arbitrary
 
@@ -222,7 +222,7 @@ maxEpochs = 0
 
 
 recursiveHeaderGen
-    :: (Arbitrary (SscPayload ssc), Ssc ssc, Integral a)
+    :: (Arbitrary (SscPayload ssc), SscHelpersClass ssc, Integral a)
     => [Either SecretKey (SecretKey, SecretKey, Bool)]
     -> [(a, a)]
     -> [T.BlockHeader ssc]
@@ -283,7 +283,7 @@ recursiveHeaderGen _ _ _  = return []
 -- Note that a leader is generated for each slot.
 -- (Not exactly a leader - see previous comment)
 
-instance (Arbitrary (SscPayload ssc), Ssc ssc) => Arbitrary (BlockHeaderList ssc) where
+instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) => Arbitrary (BlockHeaderList ssc) where
     arbitrary = BHL <$> do
         fullEpochs <- choose (startingEpoch, maxEpochs)
         incompleteEpochSize <- T.LocalSlotIndex <$> choose (1, epochSlots - 1)

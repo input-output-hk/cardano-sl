@@ -25,7 +25,7 @@ import           Universum
 
 import           Pos.Context                 (WithNodeContext)
 import           Pos.Slotting                (MonadSlots)
-import           Pos.Ssc.Extra.MonadLD       (MonadSscLD)
+import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Statistics              (MonadStats)
 import           Pos.Util.JsonLog            (MonadJL)
 
@@ -40,7 +40,7 @@ newtype WalletDB m a = WalletDB
     } deriving (Functor, Applicative, Monad, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
                 WithNodeContext ssc,
-                MonadSlots, MonadSscLD ssc, MonadFix,
+                MonadSlots, MonadSscMem ssc, MonadFix,
                 MonadJL, CanLog, MonadStats,
                 MonadKeys, WithWalletContext, MonadTrans)
 

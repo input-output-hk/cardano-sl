@@ -209,6 +209,12 @@ class HasEpochOrSlot a where
     epochOrSlotG :: Getter a EpochOrSlot
     epochOrSlotG = to getEpochOrSlot
 
+instance HasEpochOrSlot EpochIndex where
+    _getEpochOrSlot = Left
+
+instance HasEpochOrSlot SlotId where
+    _getEpochOrSlot = Right
+
 -- | Timestamp is a number which represents some point in time. It is
 -- used in MonadSlots and its meaning is up to implementation of this
 -- type class. The only necessary knowledge is that difference between

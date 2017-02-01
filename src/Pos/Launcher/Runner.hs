@@ -90,9 +90,9 @@ import           Pos.Genesis                 (genesisLeaders)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NodeParams (..))
 import           Pos.Slotting                (SlottingState (..))
-import           Pos.Ssc.Class               (SscConstraint, SscNodeContext, SscParams,
-                                              sscCreateNodeContext, sscLoadGlobalState)
-import           Pos.Ssc.Class.Listeners     (SscListenersClass)
+import           Pos.Ssc.Class               (SscConstraint, SscHelpersClass,
+                                              SscListenersClass, SscNodeContext,
+                                              SscParams, sscCreateNodeContext)
 import           Pos.Ssc.Extra               (runSscHolder)
 import           Pos.Statistics              (getNoStatsT, runStatsT')
 import           Pos.Txp.Holder              (runTxpLDHolder)
@@ -116,7 +116,7 @@ data RealModeResources = RealModeResources
 
 -- | Runs node as time-slave inside IO monad.
 runTimeSlaveReal
-    :: SscListenersClass ssc
+    :: (SscListenersClass ssc, SscHelpersClass ssc)
     => Proxy ssc -> RealModeResources -> BaseParams -> Production Timestamp
 runTimeSlaveReal sscProxy res bp = do
     mvar <- liftIO newEmptyMVar
@@ -184,11 +184,10 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
        -- FIXME: initialization logic must be in scenario.
        runDBHolder modernDBs . runCH np initNC $ initNodeDBs
        initTip <- runDBHolder modernDBs getTip
-       initGS <- runDBHolder modernDBs (sscLoadGlobalState @ssc)
        stateM <- liftIO SM.newIO
        runDBHolder modernDBs .
           runCH np initNC .
-          flip runSscHolder initGS .
+          runSscHolder .
           runTxpLDHolder (UV.createFromDB . _gStateDB $ modernDBs) initTip .
           runDelegationT def .
           runUSHolder .

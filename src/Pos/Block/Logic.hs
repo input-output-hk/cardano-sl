@@ -68,7 +68,8 @@ import           Pos.Exception              (CardanoFatalError (..))
 import           Pos.Lrc.Error              (LrcError (..))
 import           Pos.Lrc.Worker             (lrcSingleShotNoLock)
 import           Pos.Slotting               (getCurrentSlot)
-import           Pos.Ssc.Class              (Ssc (..), SscWorkersClass (..))
+import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass,
+                                             SscWorkersClass (..))
 import           Pos.Ssc.Extra              (sscGetLocalPayload, sscVerifyBlocks)
 import           Pos.Txp.Class              (getLocalTxsNUndo)
 import           Pos.Txp.Logic              (txVerifyBlocks)
@@ -255,7 +256,7 @@ classifyHeaders headers = do
 -- checkpoint that's in our main chain to the newest ones.
 getHeadersFromManyTo
     :: forall ssc m.
-       (MonadDB ssc m, Ssc ssc, CanLog m, HasLoggerName m)
+       (MonadDB ssc m, SscHelpersClass ssc, CanLog m, HasLoggerName m)
     => NonEmpty HeaderHash  -- ^ Checkpoints; not guaranteed to be
                             --   in any particular order
     -> Maybe HeaderHash
@@ -296,7 +297,7 @@ getHeadersFromManyTo checkpoints startM = runMaybeT $ do
 -- it returns not more than 'blkSecurityParam' blocks distributed
 -- exponentially base 2 relatively to the depth in the blockchain.
 getHeadersOlderExp
-    :: (MonadDB ssc m, Ssc ssc)
+    :: (MonadDB ssc m, SscHelpersClass ssc)
     => Maybe HeaderHash -> m (OldestFirst [] HeaderHash)
 getHeadersOlderExp upto = do
     tip <- GS.getTip
@@ -332,7 +333,7 @@ getHeadersOlderExp upto = do
 -- range @[from..to]@ will be found.
 getHeadersFromToIncl
     :: forall ssc m .
-       (MonadDB ssc m, Ssc ssc)
+       (MonadDB ssc m, SscHelpersClass ssc)
     => HeaderHash -> HeaderHash -> m (Maybe (OldestFirst NE HeaderHash))
 getHeadersFromToIncl older newer = runMaybeT . fmap OldestFirst $ do
     -- oldest and newest blocks do exist
@@ -394,7 +395,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
         _ -> pass
     verResToMonadError formatAllErrors $
         Types.verifyBlocks (Just curSlot) (Just leaders) blocks
-    withExceptT pretty $ ExceptT $ sscVerifyBlocks False blocks
+    _ <- withExceptT pretty $ sscVerifyBlocks blocks
     txUndo <- ExceptT $ txVerifyBlocks blocks
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks
     (pModifier, usUndos) <- withExceptT pretty $ usVerifyBlocks blocks
@@ -687,7 +688,7 @@ createMainBlockFinish
     -> ExceptT Text m (MainBlock ssc)
 createMainBlockFinish slotId pSk prevHeader = do
     (localTxs, txUndo) <- getLocalTxsNUndo @ssc
-    sscData <- note onNoSsc =<< sscGetLocalPayload @ssc slotId
+    sscData <- sscGetLocalPayload @ssc slotId
     usPayload <- note onNoUS =<< lift (usPreparePayload slotId)
     (localPSKs, pskUndo) <- lift getProxyMempool
     let convertTx (txId, (tx, _, _)) = WithHash tx txId
@@ -714,11 +715,10 @@ createMainBlockFinish slotId pSk prevHeader = do
     lift $ blk <$ applyBlocksUnsafe (one (Right blk, blockUndo)) (Just pModifier)
   where
     onBrokenTopo = throwError "Topology of local transactions is broken!"
-    onNoSsc = "can't obtain SSC payload to create block"
     onNoUS = "can't obtain US payload to create block"
 
 createMainBlockPure
-    :: Ssc ssc
+    :: SscHelpersClass ssc
     => Word64                   -- ^ Block size limit (TODO: imprecise)
     -> BlockHeader ssc
     -> [(TxId, TxAux)]
@@ -735,8 +735,9 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
         -- include all SSC data because a) deciding is hard and b) we don't
         -- yet have a way to strip generic SSC data
         let musthaveBody = mkMainBody [] sscData [] def
-            musthaveBlock = mkMainBlock (Just prevHeader) sId sk
-                                        pSk musthaveBody extraH extraB
+            musthaveBlock = maybe (panic "Couldn't create block") identity $
+                              mkMainBlock (Just prevHeader) sId sk
+                                          pSk musthaveBody extraH extraB
         count musthaveBlock
         -- include delegation certificates and US payload
         let prioritizeUS = even (flattenSlotId sId)
@@ -753,7 +754,8 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
         txs' <- takeSome (map snd txs)
         -- return the resulting block
         let body = mkMainBody txs' sscData psks' usPayload'
-        return $ mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
+        maybe (panic "Coudln't create block") return $
+              mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
   where
     count x = identity -= fromIntegral (length (Bi.encode x))
     -- take from a list until the limit is exhausted or the list ends

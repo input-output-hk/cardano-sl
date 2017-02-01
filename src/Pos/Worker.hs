@@ -8,7 +8,7 @@ module Pos.Worker
 import           Data.Proxy              (Proxy (..))
 import           Data.Tagged             (untag)
 import           Data.Time.Units         (convertUnit)
-import           Formatting              (build, sformat, (%))
+import           Formatting              (sformat, (%))
 import           Mockable                (fork)
 import           System.Wlog             (logInfo, logNotice)
 import           Universum

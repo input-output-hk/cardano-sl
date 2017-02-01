@@ -30,7 +30,7 @@ import           Pos.Context                  (WithNodeContext)
 import           Pos.DB.Class                 (MonadDB)
 import           Pos.Delegation.Class         (MonadDelegation)
 import           Pos.Slotting                 (MonadSlots (..))
-import           Pos.Ssc.Extra                (MonadSscGS (..), MonadSscLD (..))
+import           Pos.Ssc.Extra                (MonadSscMem)
 import           Pos.Txp.Class                (MonadTxpLD (..))
 import           Pos.Types.Utxo.Class         (MonadUtxo, MonadUtxoRead)
 import           Pos.Update.MemState.Class    (MonadUSMem (..))
@@ -44,12 +44,28 @@ import           Pos.Util.JsonLog             (MonadJL (..))
 -- | Trivial monad transformer based on @ReaderT (MemVar)@.
 newtype USHolder m a = USHolder
     { getUSHolder :: ReaderT MemVar m a
-    } deriving (Functor, Applicative, Monad, MonadTrans,
-                MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
-                HasLoggerName, WithNodeContext ssc, MonadJL,
-                CanLog, MonadMask, MonadSscLD kek, MonadSscGS ssc,
-                MonadUtxoRead, MonadUtxo, MonadTxpLD ssc, MonadBase io,
-                MonadDelegation, MonadFix)
+    } deriving ( Functor
+               , Applicative
+               , Monad
+               , MonadTrans
+               , MonadFail
+               , MonadThrow
+               , MonadSlots
+               , MonadCatch
+               , MonadIO
+               , HasLoggerName
+               , WithNodeContext ssc
+               , MonadJL
+               , CanLog
+               , MonadMask
+               , MonadSscMem ssc
+               , MonadUtxoRead
+               , MonadUtxo
+               , MonadTxpLD ssc
+               , MonadBase io
+               , MonadDelegation
+               , MonadFix
+               )
 
 ----------------------------------------------------------------------------
 -- Common instances used all over the code

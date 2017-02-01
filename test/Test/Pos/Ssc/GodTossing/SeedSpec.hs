@@ -22,7 +22,8 @@ import           Pos.Crypto               (KeyPair (..), PublicKey, Share, Thres
                                            VssKeyPair, decryptShare, sign, toVssPublicKey)
 import           Pos.Ssc.GodTossing       (Commitment (..), CommitmentsMap, Opening (..),
                                            SeedError (..), calculateSeed,
-                                           genCommitmentAndOpening, secretToSharedSeed)
+                                           genCommitmentAndOpening, mkCommitmentsMap,
+                                           secretToSharedSeed)
 import           Pos.Types                (SharedSeed (..))
 import           Pos.Types.Address        (AddressHash, addressHash)
 import           Pos.Util                 (AsBinaryClass (..), nonrepeating, sublistN)
@@ -139,7 +140,7 @@ recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
     haveSentShares <- generate $
         (haveSentBoth ++) <$>
         sublistN (n_shares - n_overlap) (keys \\ haveSentOpening)
-    let commitmentsMap = mkCommitmentsMap keys comms
+    let commitmentsMap = mkCommitmentsMap' keys comms
     let openingsMap = HM.fromList
             [(getPubAddr k, o)
               | (k, o) <- zip keys opens
@@ -221,13 +222,13 @@ generateKeysAndMpc threshold n = do
             replicateM n (genCommitmentAndOpening threshold lvssPubKeys)
     return (keys, NE.fromList vssKeys, comms, opens)
 
-mkCommitmentsMap :: [KeyPair] -> [Commitment] -> CommitmentsMap
-mkCommitmentsMap keys comms =
-    HM.fromList $ do
+mkCommitmentsMap' :: [KeyPair] -> [Commitment] -> CommitmentsMap
+mkCommitmentsMap' keys comms =
+    mkCommitmentsMap $ do
         (KeyPair pk sk, comm) <- zip keys comms
         let epochIdx = 0  -- we don't care here
         let sig = sign sk (epochIdx, comm)
-        return (addressHash pk, (pk, comm, sig))
+        return (pk, comm, sig)
 
 getDecryptedShares
     :: MonadRandom m

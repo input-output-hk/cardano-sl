@@ -38,8 +38,8 @@ import           Pos.DHT.Real                (KademliaDHT (..), WithKademliaDHTI
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
 import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
-import           Pos.Ssc.Class.Storage       (SscStorageClass)
-import           Pos.Ssc.Extra               (MonadSscGS, MonadSscLD, SscHolder)
+import           Pos.Ssc.Class.Storage       (SscGStateClass)
+import           Pos.Ssc.Extra               (MonadSscMem, SscHolder)
 import           Pos.Statistics.MonadStats   (MonadStats, NoStatsT, StatsT)
 import           Pos.Txp.Class               (MonadTxpLD (..))
 import           Pos.Txp.Holder              (TxpLDHolder)
@@ -56,11 +56,10 @@ type WorkMode ssc m
       , MonadTxpLD ssc m
       , MonadDelegation m
       , MonadUtxo m
-      , MonadSscGS ssc m
-      , SscStorageClass ssc
+      , MonadSscMem ssc m
+      , SscGStateClass ssc
       , SscLocalDataClass ssc
       , SscHelpersClass ssc
-      , MonadSscLD ssc m
       , WithNodeContext ssc m
       , MonadStats m
       , MonadJL m
@@ -94,18 +93,16 @@ deriving instance MonadUtxoRead m => MonadUtxoRead (KademliaDHT m)
 deriving instance MonadUtxo m => MonadUtxo (KademliaDHT m)
 deriving instance (Monad m, WithNodeContext ssc m) => WithNodeContext ssc (KademliaDHT m)
 deriving instance MonadDB ssc m => MonadDB ssc (KademliaDHT m)
-deriving instance MonadSscGS ssc m => MonadSscGS ssc (KademliaDHT m)
 deriving instance MonadDelegation m => MonadDelegation (KademliaDHT m)
 deriving instance MonadUSMem m => MonadUSMem (KademliaDHT m)
 
-deriving instance MonadSscLD ssc m => MonadSscLD ssc (PeerStateHolder m)
 deriving instance MonadUtxoRead m => MonadUtxoRead (PeerStateHolder m)
 deriving instance MonadUtxo m => MonadUtxo (PeerStateHolder m)
 deriving instance (Monad m, WithNodeContext ssc m) => WithNodeContext ssc (PeerStateHolder m)
 deriving instance MonadDB ssc m => MonadDB ssc (PeerStateHolder m)
 deriving instance MonadSlots m => MonadSlots (PeerStateHolder m)
 deriving instance MonadDHT m => MonadDHT (PeerStateHolder m)
-deriving instance MonadSscGS ssc m => MonadSscGS ssc (PeerStateHolder m)
+deriving instance MonadSscMem ssc m => MonadSscMem ssc (PeerStateHolder m)
 deriving instance MonadDelegation m => MonadDelegation (PeerStateHolder m)
 deriving instance MonadTxpLD ssc m => MonadTxpLD ssc (PeerStateHolder m)
 deriving instance MonadJL m => MonadJL (PeerStateHolder m)

@@ -13,9 +13,11 @@ import           System.Wlog                     (logError)
 import           Universum
 
 import           Pos.Ssc.GodTossing.Core         (GtPayload (..), getCommitmentsMap)
+import           Pos.Ssc.GodTossing.Functions    (verifyGtPayload)
 import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..))
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
 import           Pos.Ssc.GodTossing.Toss.Types   (TossModifier)
+import           Pos.Ssc.GodTossing.Type         ()
 import           Pos.Types                       (EpochIndex, EpochOrSlot,
                                                   MainBlockHeader, getEpochOrSlot)
 import           Pos.Util                        (NewestFirst (..))
@@ -26,7 +28,10 @@ import           Pos.Util                        (NewestFirst (..))
 verifyAndApplyGtPayload
     :: (MonadToss m, MonadError TossVerFailure m)
     => Either EpochIndex (MainBlockHeader ssc) -> GtPayload -> m ()
-verifyAndApplyGtPayload _ _ = const pass notImplemented
+verifyAndApplyGtPayload eoh payload = do
+    verifyGtPayload eoh payload  -- not necessary for blocks, but just in case
+    -- TODO: more
+    notImplemented
 
 -- | Apply genesis block for given epoch to 'Toss' state.
 applyGenesisBlock :: MonadToss m => EpochIndex -> m ()

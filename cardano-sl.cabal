@@ -35,7 +35,8 @@ Flag with-wallet
   description: Build with wallet.
 
 library
-  exposed-modules:      Pos.Binary
+  exposed-modules:      Pos.Aeson
+                        Pos.Binary
                         Pos.Block.Arbitrary
                         Pos.Block.Network
                         Pos.CLI

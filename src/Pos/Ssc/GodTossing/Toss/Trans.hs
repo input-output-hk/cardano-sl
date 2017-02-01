@@ -97,13 +97,13 @@ instance MonadTossRead m =>
     hasCertificate id = liftM2 (||)
         (TossT $ use $ tmCertificates . to (HM.member id))
         (TossT $ hasCertificate id)
-    getStableCertificates epoch =
-        TossT $ getStableCertificates epoch
-    getRichmen = lift . getRichmen
+    getStableCertificates =
+        TossT . getStableCertificates
+    getRichmen = TossT . getRichmen
 
-    checkCommitmentShares = notImplemented
-    matchCommitment = notImplemented
-    checkShares  = notImplemented
+    checkCommitmentShares epoch = TossT . checkCommitmentShares epoch
+    matchCommitment = TossT . matchCommitment
+    checkShares epoch = TossT . checkShares epoch
 
 instance MonadToss m =>
          MonadToss (TossT m) where

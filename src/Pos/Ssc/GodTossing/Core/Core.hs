@@ -29,7 +29,7 @@ module Pos.Ssc.GodTossing.Core.Core
        , verifySignedCommitment
        , verifyOpening
        , checkShare
-       , checkShares
+       , checkSharesPure
        , checkCommShares
 
        -- * Payload and proof
@@ -258,14 +258,15 @@ checkShare globalCommitments globalOpeningsPK globalCertificates (addrTo, addrFr
 -- Apply checkShare to all shares in map.
 --
 -- #checkShare
-checkShares :: (SetContainer set, ContainerKey set ~ StakeholderId)
-            => CommitmentsMap
-            -> set --set of opening's PK. TODO Should we add phantom type for more typesafety?
-            -> VssCertificatesMap
-            -> StakeholderId
-            -> InnerSharesMap
-            -> Bool
-checkShares globalCommitments globalOpeningsPK globalCertificates addrTo shares =
+checkSharesPure
+    :: (SetContainer set, ContainerKey set ~ StakeholderId)
+    => CommitmentsMap
+    -> set --set of opening's PK. TODO Should we add phantom type for more typesafety?
+    -> VssCertificatesMap
+    -> StakeholderId
+    -> InnerSharesMap
+    -> Bool
+checkSharesPure globalCommitments globalOpeningsPK globalCertificates addrTo shares =
     let listShares :: [(StakeholderId, StakeholderId, AsBinary Share)]
         listShares = map convert $ HM.toList shares
         convert (addrFrom, share) = (addrTo, addrFrom, share)

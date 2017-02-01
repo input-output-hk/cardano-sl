@@ -19,7 +19,6 @@ import           Universum                  hiding (show)
 import           Paths_cardano_sl_explorer  (version)
 import qualified Pos.CLI                    as CLI
 import           Pos.DHT.Model              (DHTKey)
-import           Pos.Security.CLI           (AttackTarget, AttackType)
 import           Pos.Util.BackupPhrase      (BackupPhrase, backupPhraseWordsNum)
 import           Pos.Util.TimeWarp          (NetworkAddress)
 

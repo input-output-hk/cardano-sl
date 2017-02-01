@@ -50,6 +50,10 @@ instance MonadTossRead PureToss where
             use gsVssCertificates
     getRichmen epoch = PureToss $ HM.lookup epoch <$> ask
 
+    checkCommitmentShares = notImplemented
+    matchCommitment = notImplemented
+    checkShares  = notImplemented
+
 instance MonadToss PureToss where
     putCommitment signedComm =
         PureToss $ gsCommitments %= insertSignedCommitment signedComm

@@ -101,6 +101,10 @@ instance MonadTossRead m =>
         TossT $ getStableCertificates epoch
     getRichmen = lift . getRichmen
 
+    checkCommitmentShares = notImplemented
+    matchCommitment = notImplemented
+    checkShares  = notImplemented
+
 instance MonadToss m =>
          MonadToss (TossT m) where
     putCommitment signedComm =

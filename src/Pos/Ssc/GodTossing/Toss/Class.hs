@@ -44,6 +44,12 @@ class (Monad m, WithLogger m) =>
     -- | Retrieve richmen for given epoch if they are known.
     getRichmen :: EpochIndex -> m (Maybe RichmenSet)
 
+    checkCommitmentShares :: SignedCommitment -> m Bool
+
+    matchCommitment :: (StakeholderId, Opening) -> m Bool
+
+    checkShares :: (StakeholderId, InnerSharesMap) -> m Bool
+
     -- | Default implementations for 'MonadTrans'.
     default getCommitment :: (MonadTrans t, MonadTossRead m', t m' ~ m) =>
         StakeholderId -> m (Maybe SignedCommitment)
@@ -68,6 +74,18 @@ class (Monad m, WithLogger m) =>
     default getRichmen :: (MonadTrans t, MonadTossRead m', t m' ~ m) =>
         EpochIndex -> m (Maybe RichmenSet)
     getRichmen = lift . getRichmen
+
+    default checkCommitmentShares :: (MonadTrans t, MonadTossRead m', t m' ~ m) =>
+        SignedCommitment -> m Bool
+    checkCommitmentShares = lift . checkCommitmentShares
+
+    default matchCommitment :: (MonadTrans t, MonadTossRead m', t m' ~ m) =>
+       (StakeholderId, Opening) -> m Bool
+    matchCommitment = lift . matchCommitment
+
+    default checkShares :: (MonadTrans t, MonadTossRead m', t m' ~ m) =>
+       (StakeholderId, InnerSharesMap) -> m Bool
+    checkShares = lift . checkShares
 
 instance MonadTossRead m => MonadTossRead (ReaderT s m)
 instance MonadTossRead m => MonadTossRead (StateT s m)

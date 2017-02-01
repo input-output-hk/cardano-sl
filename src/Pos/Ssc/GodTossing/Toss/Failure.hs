@@ -76,6 +76,7 @@ data TossVerFailure
     | CertificateInvalidSign !(NonEmpty (StakeholderId, VssCertificate))
     | CertificateInvalidTTL !(NonEmpty (VssCertificate, EpochIndex))
     | TossUnknownRichmen !EpochIndex
+    | NoRichmen !EpochIndex
     | TossInternallError !Text
 
 instance Buildable TossVerFailure where
@@ -97,5 +98,7 @@ instance Buildable TossVerFailure where
         bprint ("some VSS certificates have invalid TTL: "%listJson) certs
     build (TossUnknownRichmen epoch) =
         bprint ("richmen aren't know for "%ords%" epoch") epoch
+    build (NoRichmen epoch) =
+        bprint ("no richmen for epoch"%build) epoch
     build (TossInternallError msg) =
         bprint ("internal error: "%stext) msg

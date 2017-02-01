@@ -11,7 +11,7 @@ module Pos.Ssc.GodTossing.Functions
        , verifyGtPayload
 
        -- * Verification helper
-       , verifyEntriesGuard
+       , verifyEntriesGuardM
 
        -- * VSS
        , vssThreshold
@@ -124,11 +124,11 @@ verifyGtPayload eoh payload = case payload of
         let checkSignedComm =
                  isVerSuccess .
                  (verifySignedCommitment epochId)
-        verifyEntriesGuard (addressHash . view _1)
-                           identity
-                           (TossVerFailure CommitmentInvalid)
-                           checkSignedComm
-                           (toList commitments)
+        verifyEntriesGuardM (addressHash . view _1)
+                            identity
+                            (TossVerFailure CommitmentInvalid)
+                            (pure . checkSignedComm)
+                            (toList commitments)
         -- [CSL-206]: check that share IDs are different.
 
     -- CHECK: Vss certificates checker
@@ -138,9 +138,9 @@ verifyGtPayload eoh payload = case payload of
     --
     -- #checkCert
     certsChecks certs =
-        verifyEntriesGuard (second vcExpiryEpoch . join (,)) identity CertificateInvalidTTL
-                           (checkCertTTL epochId)
-                           (toList certs)
+        verifyEntriesGuardM (second vcExpiryEpoch . join (,)) identity CertificateInvalidTTL
+                            (pure . checkCertTTL epochId)
+                            (toList certs)
 
 ----------------------------------------------------------------------------
 -- Verification helper
@@ -153,20 +153,22 @@ verifyGtPayload eoh payload = case payload of
 -- and throwError with [StakeholderId] corresponding to these entries.
 -- fKey is needed for getting StakeholderId from entry.
 -- fValue is needed for getting value which must be tested by condition function.
-verifyEntriesGuard
+verifyEntriesGuardM
     :: MonadError TossVerFailure m
     => (entry -> key)
     -> (entry -> verificationVal)
     -> (NonEmpty key -> TossVerFailure)
-    -> (verificationVal -> Bool)
+    -> (verificationVal -> m Bool)
     -> [entry]
     -> m ()
-verifyEntriesGuard fKey fVal exception cond =
-    maybeThrowError exception .
-    NE.nonEmpty .
-    map fKey .
-    filter (not . cond . fVal)
+verifyEntriesGuardM fKey fVal exception cond lst =
+    maybeThrowError exception =<<
+    NE.nonEmpty <$>
+    map fKey <$>
+    filterM f lst
   where
+    f x = not <$> cond (fVal x)
+
     maybeThrowError _ Nothing    = pass
     maybeThrowError er (Just ne) = throwError $ er ne
 

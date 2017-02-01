@@ -9,17 +9,27 @@ module Pos.Ssc.GodTossing.Toss.Logic
 
 import           Control.Monad.Except            (MonadError)
 import qualified Data.HashMap.Strict             as HM
-import           System.Wlog                     (logError)
+import qualified Data.HashSet                    as HS
+import           Formatting                      (sformat, (%))
+import           Serokell.Util.Text              (listJson)
+import           System.Wlog                     (logDebug, logError)
 import           Universum
 
-import           Pos.Ssc.GodTossing.Core         (GtPayload (..), getCommitmentsMap)
-import           Pos.Ssc.GodTossing.Functions    (verifyGtPayload)
-import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..))
-import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
+import           Control.Monad.Except            (MonadError (throwError))
+import           Pos.Ssc.GodTossing.Core         (GtPayload (..), getCommitmentsMap,
+                                                  isCommitmentIdx, isOpeningIdx,
+                                                  isSharesIdx, vcSigningKey,
+                                                  _gpCertificates)
+import           Pos.Ssc.GodTossing.Functions    (computeParticipants,
+                                                  verifyEntriesGuardM, verifyGtPayload)
+import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..), MonadTossRead (..))
+import           Pos.Ssc.GodTossing.Toss.Failure (TossVerErrorTag (..),
+                                                  TossVerFailure (..))
 import           Pos.Ssc.GodTossing.Toss.Types   (TossModifier)
 import           Pos.Ssc.GodTossing.Type         ()
-import           Pos.Types                       (EpochIndex, EpochOrSlot,
-                                                  MainBlockHeader, getEpochOrSlot)
+import           Pos.Types                       (EpochIndex, EpochOrSlot (..),
+                                                  MainBlockHeader, SlotId (..),
+                                                  addressHash, getEpochOrSlot, headerSlot)
 import           Pos.Util                        (NewestFirst (..))
 
 -- | Verify 'GtPayload' with respect to data provided by
@@ -30,8 +40,108 @@ verifyAndApplyGtPayload
     => Either EpochIndex (MainBlockHeader ssc) -> GtPayload -> m ()
 verifyAndApplyGtPayload eoh payload = do
     verifyGtPayload eoh payload  -- not necessary for blocks, but just in case
-    -- TODO: more
-    notImplemented
+    let blockCerts = _gpCertificates payload
+    let curEpoch = either identity (siEpoch . (^. headerSlot)) eoh
+    richmenSet <- maybe (throwError $ NoRichmen curEpoch) pure =<< getRichmen curEpoch
+    let certChecks certs = do
+            exceptGuardM CertificateAlreadySent
+                (notM hasCertificate) (HM.keys certs)
+            exceptGuardSnd CertificateNotRichmen
+                ((`HS.member` richmenSet) . addressHash . vcSigningKey)
+                (HM.toList certs)
+
+    whenRight eoh $ \mbh -> do
+        let hasCommitment = (pure . isJust) <=< getCommitment
+        let slot@SlotId{siSlot = slotId} = mbh ^. headerSlot
+        stableCerts <- getStableCertificates curEpoch
+        let participants = computeParticipants richmenSet stableCerts
+        logDebug $ sformat (" Stable certificates: "%listJson
+                            %", richmen: "%listJson)
+                   stableCerts richmenSet
+
+        let isComm  = unless (isCommitmentIdx slotId) $ throwError $ NotCommitmentPhase slot
+        let isOpen  = unless (isOpeningIdx slotId) $ throwError $ NotOpeningPhase slot
+        let isShare = unless (isSharesIdx slotId) $ throwError $ NotSharesPhase slot
+
+        -- For commitments we
+        --   * check that committing node is participant, i. e. she is richman and
+        --     her VSS certificate is one of stable certificates
+        --   * check that the nodes haven't already sent their commitments before
+        --     in some different block
+        --   * every commitment owner has enough (mpc+delegated) stake
+        let commChecks (getCommitmentsMap -> comms) = do
+                isComm
+                exceptGuard CommitingNoParticipants
+                    (`HM.member` participants) (HM.keys comms)
+                exceptGuardM CommitmentAlreadySent
+                    (notM hasCommitment) (HM.keys comms)
+                exceptGuardSndM CommSharesOnWrongParticipants
+                    checkCommitmentShares (HM.toList comms)
+                    --(checkCommShares participantsVssKeys) (HM.toList comms)
+                -- [CSL-206]: check that share IDs are different.
+
+        -- For openings, we check that
+        --   * the opening isn't present in previous blocks
+        --   * corresponding commitment is present
+        --   * the opening matches the commitment (this check implies that previous
+        --     one passes)
+        let openChecks opens = do
+                isOpen
+                exceptGuardM OpeningAlreadySent
+                    (notM hasOpening) (HM.keys opens)
+                exceptGuardM OpeningWithoutCommitment
+                    hasCommitment (HM.keys opens)
+                exceptGuardEntryM OpeningNotMatchCommitment
+--                    (checkOpeningMatchesCommitment globalCommitments) (HM.toList opens)
+                    matchCommitment (HM.toList opens)
+
+        -- For shares, we check that
+        --   * shares have corresponding commitments
+        --   * these shares weren't sent before
+        --   * if encrypted shares (in commitments) are decrypted, they match
+        --     decrypted shares
+        -- We don't check whether shares match the openings.
+        let shareChecks shares = do
+                isShare
+                -- We intentionally don't check, that nodes which decrypted shares
+                -- sent its commitments.
+                -- If node decrypted shares correctly, such node is useful for us, despite of
+                -- it didn't send its commitment.
+                exceptGuard SharesNotRichmen
+                    (`HS.member` richmenSet) (HM.keys shares)
+                exceptGuardM InternalShareWithoutCommitment
+                    hasCommitment (concatMap HM.keys $ toList shares)
+                exceptGuardM SharesAlreadySent
+                    (notM hasShares) (HM.keys shares)
+                exceptGuardEntryM DecrSharesNotMatchCommitment
+                    --(uncurry (checkShares globalCommitments globalOpenings participants))
+                    checkShares (HM.toList shares)
+
+        case payload of
+            CommitmentsPayload  comms  _ -> commChecks comms
+            OpeningsPayload     opens  _ -> openChecks opens
+            SharesPayload       shares _ -> shareChecks shares
+            CertificatesPayload        _ -> pass
+    certChecks blockCerts
+  where
+    -- mmm, after Serokell I'd like to work on bicycle factory...
+    whenRight (Left _) _       = pass
+    whenRight (Right r) action = action r
+
+    --notM :: (a -> m False) -> a -> m Bool
+    notM f = (pure . not) <=< f
+
+    exceptGuard tag f =
+        verifyEntriesGuardM identity identity (TossVerFailure tag) (pure . f)
+
+    exceptGuardM =
+        verifyEntriesGuardM identity identity . TossVerFailure
+
+    exceptGuardSndM = verifyEntriesGuardM fst snd . TossVerFailure
+    exceptGuardSnd tag f =
+        verifyEntriesGuardM fst snd (TossVerFailure tag) (pure . f)
+
+    exceptGuardEntryM = verifyEntriesGuardM fst identity . TossVerFailure
 
 -- | Apply genesis block for given epoch to 'Toss' state.
 applyGenesisBlock :: MonadToss m => EpochIndex -> m ()

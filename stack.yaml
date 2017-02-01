@@ -6,7 +6,7 @@ packages:
 - '.'
 - location:
     git: https://github.com/input-output-hk/cardano-sl
-    commit: c2ee7f1806f52569121efc5223d569791308e472
+    commit: 04917d1c5720e3b1128db5ce9233d3f19fbffd0a
   extra-dep: true
 - location:
     git: https://github.com/serokell/acid-state.git

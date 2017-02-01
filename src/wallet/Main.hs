@@ -15,7 +15,6 @@ import qualified Data.Text                 as T
 import           Data.Time.Units           (convertUnit)
 import           Formatting                (build, int, sformat, stext, (%))
 import           Mockable                  (delay)
-
 import           Options.Applicative       (execParser)
 import           System.IO                 (hFlush, stdout)
 import           Universum
@@ -87,6 +86,7 @@ runCmd sendActions (Vote idx decision upid) = do
             lift $ submitVote sendActions na voteUpd
             putText "Submitted vote"
 runCmd sendActions ProposeUpdate{..} = do
+    putText "Proposing update..."
     (skeys, na) <- ask
     (diffFile :: Maybe (Hash Raw)) <- runMaybeT $ do
         filePath <- MaybeT $ pure puFilePath
@@ -184,7 +184,10 @@ initialize WalletOptions{..} = do
         putText $ sformat ("Started node. Waiting for "%int%" slots...") woInitialPause
         slotDuration <- getSlotDuration
         delay (fromIntegral woInitialPause * slotDuration)
-    discoverPeers
+    putText "Discovering peers"
+    peers <- discoverPeers
+    putText "Peer discovery completed"
+    pure peers
 
 runWalletRepl :: WalletMode ssc m => WalletOptions -> Worker' m
 runWalletRepl wo sa = do
@@ -204,6 +207,7 @@ runWalletCmd wo str sa = do
     putText "Command execution finished"
     putText " " -- for exit by SIGPIPE
 #if !(defined(mingw32_HOST_OS) && defined(__MINGW32__))
+    delay $ sec 5
     liftIO $ exitImmediately ExitSuccess
 #endif
 

@@ -10,6 +10,7 @@ module Pos.Types.Block.Functions
        , mkGenericBlock
        , mkGenericHeader
        , mkMainBlock
+       , recreateMainBlock
        , mkMainBody
        , mkMainHeader
        , mkGenesisHeader
@@ -22,7 +23,6 @@ module Pos.Types.Block.Functions
        , verifyBlock
        , verifyBlocks
        , verifyGenericBlock
-       -- , verifyGenericHeader
        , verifyHeader
        , verifyHeaders
 
@@ -34,6 +34,7 @@ import qualified Data.ByteString.Lazy       as BSL
 import           Data.Default               (Default (def))
 import           Data.List                  (groupBy)
 import           Data.Tagged                (untag)
+import qualified Data.Text                  as Text
 import           Formatting                 (build, int, sformat, (%))
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Verify       (VerificationRes (..), verifyGeneric)
@@ -156,10 +157,9 @@ mkMainHeader prevHeader slotId sk pSk body extra =
         , _mcdDifficulty = difficulty
         , _mcdSignature = signature prevHash proof
         }
-
 -- | Smart constructor for 'MainBlock'. Uses 'mkMainHeader'.
 mkMainBlock
-    :: (BiSsc ssc, SscHelpersClass ssc)
+    :: (BiSsc ssc, SscHelpersClass ssc, MonadFail m)
     => Maybe (BlockHeader ssc)
     -> SlotId
     -> SecretKey
@@ -167,13 +167,25 @@ mkMainBlock
     -> Body (MainBlockchain ssc)
     -> MainExtraHeaderData
     -> MainExtraBodyData
-    -> MainBlock ssc
+    -> m (MainBlock ssc)
 mkMainBlock prevHeader slotId sk proxyInfo body extraH extraB =
-    GenericBlock
-    { _gbHeader = mkMainHeader prevHeader slotId sk proxyInfo body extraH
-    , _gbBody = body
-    , _gbExtra = extraB
-    }
+    recreateMainBlock
+        (mkMainHeader prevHeader slotId sk proxyInfo body extraH)
+        body
+        extraB
+
+recreateMainBlock
+    :: (BiSsc ssc, SscHelpersClass ssc, MonadFail m)
+    => MainBlockHeader ssc
+    -> Body (MainBlockchain ssc)
+    -> MainExtraBodyData
+    -> m (MainBlock ssc)
+recreateMainBlock _gbHeader _gbBody _gbExtra = do
+    let gb = GenericBlock{..}
+    case verifyBBlock gb of
+        Right _  -> pass
+        Left err -> fail $ Text.unpack err
+    pure gb
 
 -- | Smart constructor for 'GenesisBlockHeader'. Uses 'mkGenericHeader'.
 mkGenesisHeader

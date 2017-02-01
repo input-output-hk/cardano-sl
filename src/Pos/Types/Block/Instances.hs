@@ -144,7 +144,7 @@ instance (SscHelpersClass ssc, Bi TxWitness, Bi UpdatePayload) =>
         , mpUpdateProof = mkUpdateProof _mbUpdatePayload
         }
     verifyBBlock GenericBlock{..} =
-        isRight $ untag sscVerifyPayload (Right _gbHeader) (_mbMpc _gbBody)
+        first pretty $ untag sscVerifyPayload (Right _gbHeader) (_mbMpc _gbBody)
 
 --deriving instance Ssc ssc => Show (SscProof ssc)
 --deriving instance Ssc ssc => Eq (SscProof ssc)
@@ -178,6 +178,7 @@ instance Blockchain (GenesisBlockchain ssc) where
     type BBlock (GenesisBlockchain ssc) = Block ssc
 
     mkBodyProof = GenesisProof . hash . _gbLeaders
+    verifyBBlock _ = pure ()
 
 ----------------------------------------------------------------------------
 -- Lenses. Move it from here

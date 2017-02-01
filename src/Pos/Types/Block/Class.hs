@@ -63,12 +63,7 @@ class Blockchain p where
     default checkBodyProof :: Eq (BodyProof p) => Body p -> BodyProof p -> Bool
     checkBodyProof body proof = mkBodyProof body == proof
 
-    -- I suppose uncomment and implement it
-    -- for MainBlockchain ssc via SscHelpers.sscVerifyPayload,
-    -- after we'll refactor Pos.Types :peka:
-    verifyBBlock :: GenericBlock p -> Bool
-    default verifyBBlock :: GenericBlock p-> Bool
-    verifyBBlock = const True
+    verifyBBlock :: GenericBlock p -> Either Text ()
 
 -- | Header of block contains some kind of summary. There are various
 -- benefits which people get by separating header from other data.

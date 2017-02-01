@@ -735,8 +735,9 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
         -- include all SSC data because a) deciding is hard and b) we don't
         -- yet have a way to strip generic SSC data
         let musthaveBody = mkMainBody [] sscData [] def
-            musthaveBlock = mkMainBlock (Just prevHeader) sId sk
-                                        pSk musthaveBody extraH extraB
+            musthaveBlock = maybe (panic "Couldn't create block") identity $
+                              mkMainBlock (Just prevHeader) sId sk
+                                          pSk musthaveBody extraH extraB
         count musthaveBlock
         -- include delegation certificates and US payload
         let prioritizeUS = even (flattenSlotId sId)
@@ -753,7 +754,8 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
         txs' <- takeSome (map snd txs)
         -- return the resulting block
         let body = mkMainBody txs' sscData psks' usPayload'
-        return $ mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
+        maybe (panic "Coudln't create block") return $
+              mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
   where
     count x = identity -= fromIntegral (length (Bi.encode x))
     -- take from a list until the limit is exhausted or the list ends

@@ -6,6 +6,7 @@ module Pos.Binary.Block.Types
 
 import           Data.Binary.Get           (getInt32be, getWord8, label)
 import           Data.Binary.Put           (putInt32be, putWord8)
+import qualified Data.Text                 as Text
 import           Formatting                (int, sformat, (%))
 import           Universum
 
@@ -70,8 +71,9 @@ instance ( Bi (T.BHeaderHash b)
             unless (T.checkBodyProof _gbBody (T._gbhBodyProof _gbHeader)) $
                 fail "get@GenericBlock: incorrect proof of body"
             let gb = T.GenericBlock {..}
-            unless (T.verifyBBlock gb) $
-                fail "get@GenericBlock: block verification is failed"
+            case T.verifyBBlock gb of
+                Left err -> fail $ Text.unpack $ "get@GenericBlock failed: " <> err
+                Right _ -> pass
             return gb
 
 ----------------------------------------------------------------------------

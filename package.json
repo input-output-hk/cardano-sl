@@ -45,7 +45,7 @@
     "git-revision-webpack-plugin": "^2.4.1",
     "html-webpack-plugin": "^2.26.0",
     "postcss-button": "^0.1.16",
-    "postcss-color-function": "^2.0.1",
+    "postcss-color-function": "^3.0.0",
     "postcss-css-reset": "^1.0.2",
     "postcss-cssnext": "^2.9.0",
     "postcss-custom-properties": "^5.0.1",

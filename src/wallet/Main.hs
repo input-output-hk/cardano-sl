@@ -15,9 +15,14 @@ import qualified Data.Text                 as T
 import           Data.Time.Units           (convertUnit)
 import           Formatting                (build, int, sformat, stext, (%))
 import           Mockable                  (delay)
+
 import           Options.Applicative       (execParser)
 import           System.IO                 (hFlush, stdout)
 import           Universum
+#if !(defined(mingw32_HOST_OS) && defined(__MINGW32__))
+import           System.Exit               (ExitCode (ExitSuccess))
+import           System.Posix.Process      (exitImmediately)
+#endif
 
 import qualified Pos.CLI                   as CLI
 import           Pos.Communication         (OutSpecs, SendActions, Worker', WorkerSpec,
@@ -198,6 +203,9 @@ runWalletCmd wo str sa = do
             Right cmd' -> runCmd sa cmd'
     putText "Command execution finished"
     putText " " -- for exit by SIGPIPE
+#if !(defined(mingw32_HOST_OS) && defined(__MINGW32__))
+    liftIO $ exitImmediately ExitSuccess
+#endif
 
 main :: IO ()
 main = do

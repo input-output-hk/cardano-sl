@@ -727,6 +727,8 @@ executable cardano-wallet
   if flag(with-web)
     cpp-options: -DWITH_WEB
 
+  if !os(windows)
+    build-depends: unix
 
 executable cardano-wallet-hs2purs
   hs-source-dirs:      src/wallet-purescript

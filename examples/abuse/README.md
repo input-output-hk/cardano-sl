@@ -44,10 +44,10 @@ simpleOnePlaceQDisc = do
 `qdiscDequeue` will be used by `receive` to get the next `Event`, whereas
 `qdiscEnqueue` will be used by the thread which processes a socket to put
 its `Event` into the queue. Crucially: if `qdiscEnqueue` blocks, then
-socket reads stop until it unblocks. The unbounded `QDisc` never blocks on
-enqueue, and so socket reading never stops, whereas the bounded `QDisc` *will*
-block and hold up the socket in case the program is not dequeueing the `Event`s
-at a sufficiently high rate.
+socket reads _from that peer_ stop until it unblocks. The unbounded `QDisc`
+never blocks on enqueue, and so socket reading never stops, whereas the bounded
+`QDisc` *will* block and hold up the socket in case the program is not
+dequeueing the `Event`s at a sufficiently high rate.
 
 By choosing a `QDisc` which intelligently blocks on `qdiscEnqueue`, perhaps in
 response to shared mutable state informed by various application-specific
@@ -142,3 +142,36 @@ node transport prng BinaryP peerData $ \node -> do
         ...
         enforceQOS qdiscControls (nodeStatistics node) ...
 ```
+
+### Metrics and statistics
+
+Currently the following metrics are gathered by a node (see the
+`Statistics` type in `src/Node/Internal.hs`):
+
+  - The number of connected peers.
+  - The distribution of handler running time (mean, std. dev., number of samples).
+    Separate metrics for those which finished normally, and those which
+    finished exceptionally.
+  - The number of running handlers induced by a peer.
+  - The mean and variance of the number of running handlers induced by a peer.
+  - The number of running handlers induced locally (bidirectional connections).
+  - The mean and variance of the number of running handlers induced locally.
+
+With plans to also track
+
+  - For each peer, the total number of bytes read from that peer but not yet
+    consumed by a handler (in-flight data).
+  - Others? Please offer suggestions.
+
+These are all made available to an application through
+
+`nodeStatistics :: Node m -> m (Statistics m)`
+
+as shown in the example above. Application-specific metrics can of course
+be gathered by the application itself, and combined with these
+application-agnostic metrics in order to inform a `QDisc` by way of some
+shared mutable state.
+
+Many, but not all, of the metrics described above are exported to the EKG
+monitoring system. Those which are not exported simply do not fit the model
+of EKG (they are _gauges_ but they are not integral).

@@ -10,9 +10,6 @@ module Pos.Ssc.GodTossing.Functions
        -- * GtPayload
        , verifyGtPayload
 
-       -- * Verification helper
-       , verifyEntriesGuardM
-
        -- * VSS
        , vssThreshold
        , getStableCertsPure
@@ -21,7 +18,6 @@ module Pos.Ssc.GodTossing.Functions
 import           Control.Lens                    (to)
 import           Control.Monad.Except            (MonadError (throwError))
 import qualified Data.HashMap.Strict             as HM
-import qualified Data.List.NonEmpty              as NE
 import           Serokell.Util.Verify            (isVerSuccess)
 import           Universum
 
@@ -34,6 +30,7 @@ import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (getCommitments
                                                   isCommitmentId, isOpeningId, isSharesId,
                                                   verifySignedCommitment)
 import           Pos.Ssc.GodTossing.Genesis      (genesisCertificates)
+import           Pos.Ssc.GodTossing.Toss.Base    (verifyEntriesGuardM)
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerErrorTag (..),
                                                   TossVerFailure (..))
 import           Pos.Ssc.GodTossing.Types.Types  (GtGlobalState (..))
@@ -138,36 +135,6 @@ verifyGtPayload eoh payload = case payload of
         verifyEntriesGuardM (second vcExpiryEpoch . join (,)) identity CertificateInvalidTTL
                             (pure . checkCertTTL epochId)
                             (toList certs)
-
-----------------------------------------------------------------------------
--- Verification helper
-----------------------------------------------------------------------------
-
--- It takes list of entries ([(StakeholderId, v)] or [StakeholderId]),
--- function condition and error tag (fKey and fValue - see below)
--- If condition is true for every entry - function does nothing.
--- Otherwise it gets all entries which don't pass condition
--- and throwError with [StakeholderId] corresponding to these entries.
--- fKey is needed for getting StakeholderId from entry.
--- fValue is needed for getting value which must be tested by condition function.
-verifyEntriesGuardM
-    :: MonadError TossVerFailure m
-    => (entry -> key)
-    -> (entry -> verificationVal)
-    -> (NonEmpty key -> TossVerFailure)
-    -> (verificationVal -> m Bool)
-    -> [entry]
-    -> m ()
-verifyEntriesGuardM fKey fVal exception cond lst =
-    maybeThrowError exception =<<
-    NE.nonEmpty <$>
-    map fKey <$>
-    filterM f lst
-  where
-    f x = not <$> cond (fVal x)
-
-    maybeThrowError _ Nothing    = pass
-    maybeThrowError er (Just ne) = throwError $ er ne
 
 ----------------------------------------------------------------------------
 -- Modern

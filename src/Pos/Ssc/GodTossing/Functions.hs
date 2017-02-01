@@ -20,21 +20,18 @@ module Pos.Ssc.GodTossing.Functions
        ) where
 
 import           Control.Lens                    (to)
-import           Control.Monad.Except            (MonadError (throwError), runExcept)
+import           Control.Monad.Except            (MonadError (throwError))
 import qualified Data.HashMap.Strict             as HM
 import qualified Data.HashSet                    as HS
 import qualified Data.List.NonEmpty              as NE
 import           Serokell.Util.Verify            (isVerSuccess)
 import           Universum
 
-import           Pos.Binary.Class                (Bi)
 import           Pos.Binary.Crypto               ()
+import           Pos.Binary.Ssc.GodTossing.Core  ()
 import           Pos.Crypto                      (Threshold)
 import           Pos.Lrc.Types                   (RichmenSet)
-import           Pos.Ssc.Class.Types             (Ssc (..))
-
-import           Pos.Ssc.GodTossing.Core         (Commitment (..),
-                                                  CommitmentsMap (getCommitmentsMap),
+import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (getCommitmentsMap),
                                                   GtPayload (..), VssCertificate (..),
                                                   VssCertificatesMap, checkCertTTL,
                                                   isCommitmentId, isOpeningId, isSharesId,
@@ -82,10 +79,8 @@ hasVssCertificate id = VCD.member id . _gsVssCertificates
 --
 -- We also do some general sanity checks.
 verifyGtPayload
-    :: (SscPayload ssc ~ GtPayload, Bi Commitment)
-    => Either EpochIndex (MainBlockHeader ssc)
-    -> SscPayload ssc
-    -> Either TossVerFailure ()
+    :: MonadError TossVerFailure m
+    => Either EpochIndex (MainBlockHeader ssc) -> GtPayload -> m ()
 verifyGtPayload eoh payload = case payload of
     CommitmentsPayload comms certs -> do
         whenMB eoh isComm
@@ -105,12 +100,12 @@ verifyGtPayload eoh payload = case payload of
     whenMB (Right mb) f = f $ mb ^. headerSlot
 
     epochId  = either identity (view $ headerSlot . to siEpoch) eoh
-    isComm  slotId = unless (isCommitmentId slotId) $ Left $ NotCommitmentPhase slotId
-    isOpen  slotId = unless (isOpeningId slotId) $ Left $ NotOpeningPhase slotId
-    isShare slotId = unless (isSharesId slotId) $ Left $ NotSharesPhase slotId
+    isComm  slotId = unless (isCommitmentId slotId) $ throwError $ NotCommitmentPhase slotId
+    isOpen  slotId = unless (isOpeningId slotId) $ throwError $ NotOpeningPhase slotId
+    isShare slotId = unless (isSharesId slotId) $ throwError $ NotSharesPhase slotId
     isOther slotId = unless (all not $
                       map ($ slotId) [isCommitmentId, isOpeningId, isSharesId]) $
-                      Left $ NotIntermediatePhase slotId
+                      throwError $ NotIntermediatePhase slotId
 
     -- We *forbid* blocks from having commitments/openings/shares in blocks
     -- with wrong slotId (instead of merely discarding such commitments/etc)
@@ -125,7 +120,7 @@ verifyGtPayload eoh payload = case payload of
     --     commitment has been generated for this particular epoch)
     --
     -- #verifySignedCommitment
-    commChecks commitments = runExcept $ do
+    commChecks commitments = do
         let checkSignedComm =
                  isVerSuccess .
                  (verifySignedCommitment epochId)
@@ -142,7 +137,7 @@ verifyGtPayload eoh payload = case payload of
     --   * VSS certificates have valid TTLs
     --
     -- #checkCert
-    certsChecks certs = runExcept $ do
+    certsChecks certs =
         verifyEntriesGuard (second vcExpiryEpoch . join (,)) identity CertificateInvalidTTL
                            (checkCertTTL epochId)
                            (toList certs)

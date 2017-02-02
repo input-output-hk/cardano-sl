@@ -1079,6 +1079,7 @@ executable cardano-launcher
                      , text
                      , turtle
                      , universum
+                     , wreq
   default-language:    Haskell2010
   ghc-options:         -threaded
                        -Wall

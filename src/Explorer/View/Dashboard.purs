@@ -7,9 +7,8 @@ import Data.Map (Map, fromFoldable, lookup, toAscUnfoldable) as M
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Tuple (Tuple(..))
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (age, height, relayedBy, sizeKB, totalSent
-      , transactions, title, subtitle, transactionFeed) as I18nL
-import Explorer.State (dashboardBlocksExpanded, dashboardSelectedApiCode)
+import Explorer.I18n.Lenses (age, height, relayedBy, sizeKB, totalSent, transactions, title, subtitle, transactionFeed) as I18nL
+import Explorer.State (dashboardBlocksExpanded, dashboardSelectedApiCode, dashboardTransactionsExpanded)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.Generated (CCurrency(..))
 import Explorer.Types.State (DashboardAPICode(..), State)
@@ -324,7 +323,7 @@ transactionsView state =
           ]
         ]
     where
-      expanded = state ^. dashboardBlocksExpanded
+      expanded = state ^. dashboardTransactionsExpanded
       expandLabel = if expanded then "#collapse" else "#expand"
       headerOptions = HeaderOptions
           { headline: translate I18nL.transactionFeed state.lang

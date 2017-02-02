@@ -14,6 +14,7 @@ import           Control.Monad.Except             (runExceptT)
 import           Control.Monad.Trans.Maybe        (runMaybeT)
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.HashSet                     as HS
+import qualified Data.List.NonEmpty               as NE
 import           Data.Tagged                      (Tagged (..))
 import           Data.Time.Units                  (Microsecond, Millisecond, convertUnit)
 import           Formatting                       (build, ords, sformat, shown, (%))
@@ -45,16 +46,17 @@ import           Pos.DB.Lrc                       (getRichmenSsc)
 import           Pos.DHT.Model                    (sendToNeighbors)
 import           Pos.Slotting                     (getCurrentSlot, getSlotStart)
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
-import           Pos.Ssc.GodTossing.Core          (Commitment (..), SignedCommitment,
+import           Pos.Ssc.GodTossing.Core          (Commitment (..), MultiCommitment,
                                                    VssCertificate (..),
                                                    VssCertificatesMap,
-                                                   genCommitmentAndOpening,
+                                                   genMultiCommitmentAndMultiOpening,
                                                    getCommitmentsMap, isCommitmentIdx,
                                                    isOpeningIdx, isSharesIdx,
-                                                   mkSignedCommitment, mkVssCertificate)
+                                                   mkVssCertificate)
 import           Pos.Ssc.GodTossing.Functions     (hasCommitment, hasOpening, hasShares,
                                                    vssThreshold)
-import           Pos.Ssc.GodTossing.GState        (getGlobalCerts, getStableCerts,
+import           Pos.Ssc.GodTossing.GState        (computeCommitmentDistrById,
+                                                   getGlobalCerts, getStableCerts,
                                                    gtGetGlobalState)
 import           Pos.Ssc.GodTossing.LocalData     (localOnNewSlot, sscProcessCertificate,
                                                    sscProcessCommitment,
@@ -231,7 +233,7 @@ onNewSlotShares SlotId {..} sendActions = do
     when shouldSendShares $ do
         ourVss <- gtcVssKeyPair . ncSscContext <$> getNodeContext
         shares <- getOurShares ourVss
-        let lShares = fmap asBinary shares
+        let lShares = fmap (NE.map asBinary) shares
         unless (HM.null shares) $ do
             sscProcessOurMessage (MCShares ourId lShares)
             sendOurData sendActions SharesMsg siEpoch 4 ourId
@@ -274,7 +276,7 @@ generateAndSetNewSecret
        (WorkMode SscGodTossing m, Bi Commitment)
     => SecretKey
     -> SlotId -- ^ Current slot
-    -> m (Maybe SignedCommitment)
+    -> m (Maybe MultiCommitment)
 generateAndSetNewSecret sk SlotId {..} = do
     richmen <-
         lrcActionOnEpochReason siEpoch "couldn't get SSC richmen" getRichmenSsc
@@ -294,14 +296,16 @@ generateAndSetNewSecret sk SlotId {..} = do
         logWarning "generateAndSetNewSecret: can't generate, no participants"
     reportDeserFail = logError "Wrong participants list: can't deserialize"
     generateAndSetNewSecretDo :: NonEmpty (AsBinary VssPublicKey)
-                              -> m (Maybe SignedCommitment)
+                              -> m (Maybe MultiCommitment)
     generateAndSetNewSecretDo ps = do
         let threshold = vssThreshold $ length ps
-        mPair <- runMaybeT (genCommitmentAndOpening threshold ps)
+        ourId <- addressHash . ncPublicKey <$> getNodeContext
+        nums <- computeCommitmentDistrById siEpoch ourId
+        mPair <- runMaybeT (genMultiCommitmentAndMultiOpening threshold ps sk nums siEpoch)
         case mPair of
-            Just (mkSignedCommitment sk siEpoch -> comm, op) ->
-                Just comm <$ SS.putOurSecret comm op siEpoch
-            _ -> Nothing <$ reportDeserFail
+            Just (multiComm, multiOpen) ->
+                Just multiComm <$ SS.putOurSecret multiComm multiOpen siEpoch
+            Nothing -> Nothing <$ reportDeserFail
 
 randomTimeInInterval
     :: WorkMode SscGodTossing m

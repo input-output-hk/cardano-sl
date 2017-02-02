@@ -4,27 +4,28 @@ module Pos.Ssc.GodTossing.Error
        ( SeedError (..)
        ) where
 
-import           Data.Text.Buildable (Buildable (..))
-import           Serokell.Util       (listBuilderJSON)
+import           Data.Text.Buildable     (Buildable (..))
+import           Serokell.Util           (listBuilderJSON)
 import           Universum
 
-import           Pos.Types.Address   (StakeholderId)
+import           Pos.Ssc.GodTossing.Core (GtDataId)
+import           Pos.Types.Address       (StakeholderId)
 
 -- | Data type for error during seed calculation.
 data SeedError
     -- | Some nodes in the 'OpeningsMap' aren't in the set of participants
-    = ExtraneousOpenings (HashSet StakeholderId)
+    = ExtraneousOpenings !(HashSet GtDataId)
     -- | Some nodes in the 'SharesMap' aren't in the set of participants
-    | ExtraneousShares (HashSet StakeholderId)
+    | ExtraneousShares !(HashSet GtDataId)
     -- | There were no participants so a random string couldn't be generated
     | NoParticipants
     -- | Commitment can't be deserialized or didn't match secret (either recovered or in openings)
-    | BrokenCommitment StakeholderId
+    | BrokenCommitment GtDataId
     -- | Secret couldn't be recovered, or wasn't found in either
     -- 'OpeningsMap' or 'SharesMap'
     | NoSecretFound StakeholderId
     -- | Secret can't be deserialized
-    | BrokenSecret StakeholderId
+    | BrokenSecret GtDataId
     -- | Share can't be deserialized
     | BrokenShare StakeholderId
     deriving (Eq, Show)

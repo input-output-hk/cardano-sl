@@ -1,19 +1,23 @@
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Core types of GodTossing SSC.
 
 module Pos.Ssc.GodTossing.Core.Types
-       (
+       ( GtDataId
          -- * Commitments
-         Commitment (..)
+       , Commitment (..)
        , CommitmentSignature
+       , MultiCommitment (..)
        , SignedCommitment
+       , CommitmentsDistribution
        , CommitmentsMap (getCommitmentsMap)
        , mkCommitmentsMap
        , mkCommitmentsMapUnsafe
 
          -- * Openings
+       --, Opening (..)
+       , MultiOpening (..)
        , Opening (..)
        , OpeningsMap
 
@@ -40,6 +44,7 @@ module Pos.Ssc.GodTossing.Core.Types
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Buildable
 import           Formatting          (bprint, build, int, (%))
+import           Serokell.Util.Text  (listJson)
 import           Universum
 
 import           Pos.Binary.Types    ()
@@ -71,23 +76,36 @@ type CommitmentSignature = Signature (EpochIndex, Commitment)
 
 type SignedCommitment = (PublicKey, Commitment, CommitmentSignature)
 
+data MultiCommitment = MultiCommitment
+    { mcPK          :: !PublicKey
+    , mcCommitments :: !(NonEmpty (Commitment, CommitmentSignature))
+    } deriving (Eq, Show)
+
+-- | This type identifies commitment, corresponding opening and commitment's shares.
+type GtDataId = (StakeholderId, Word16)
+
+instance Buildable GtDataId where
+    build (id, nm) = bprint ("("%build%","%build%")") id nm
+
+type CommitmentsDistribution = HashMap StakeholderId Word16
+
 -- | 'CommitmentsMap' is a wrapper for 'HashMap StakeholderId SignedCommitment'
 -- which ensures that keys are consistent with values, i. e. 'PublicKey'
 -- from 'SignedCommitment' corresponds to key which is 'StakeholderId'.
 newtype CommitmentsMap = CommitmentsMap
-    { getCommitmentsMap :: HashMap StakeholderId SignedCommitment
+    { getCommitmentsMap :: HashMap StakeholderId MultiCommitment
     } deriving (Semigroup, Monoid, Show, Eq, Container)
 
-type instance Element CommitmentsMap = SignedCommitment
+type instance Element CommitmentsMap = MultiCommitment
 
 -- | Safe constructor of 'CommitmentsMap'.
-mkCommitmentsMap :: [SignedCommitment] -> CommitmentsMap
+mkCommitmentsMap :: [MultiCommitment] -> CommitmentsMap
 mkCommitmentsMap = CommitmentsMap . HM.fromList . map toCommPair
   where
-    toCommPair signedComm@(pk, _, _) = (addressHash pk, signedComm)
+    toCommPair mc@(MultiCommitment pk _) = (addressHash pk, mc)
 
 -- | Unsafe straightforward constructor of 'CommitmentsMap'.
-mkCommitmentsMapUnsafe :: HashMap StakeholderId SignedCommitment
+mkCommitmentsMapUnsafe :: HashMap StakeholderId MultiCommitment
                        -> CommitmentsMap
 mkCommitmentsMapUnsafe = CommitmentsMap
 
@@ -97,10 +115,18 @@ mkCommitmentsMapUnsafe = CommitmentsMap
 
 -- | Opening reveals secret.
 newtype Opening = Opening
-    { getOpening :: (AsBinary Secret)
+    { getOpening :: AsBinary Secret
     } deriving (Show, Eq, Generic, Buildable)
 
-type OpeningsMap = HashMap StakeholderId Opening
+newtype MultiOpening = MultiOpening
+    { moOpenings :: NonEmpty Opening
+    } deriving (Show, Eq, Generic)
+
+instance Buildable MultiOpening where
+    build (MultiOpening opens) =
+        bprint ("MultiOpening: "%listJson) opens
+
+type OpeningsMap = HashMap StakeholderId MultiOpening
 
 -- | Each node generates a 'SharedSeed', breaks it into 'Share's, and sends
 -- those encrypted shares to other nodes. In a 'SharesMap', for each node we
@@ -113,7 +139,7 @@ type OpeningsMap = HashMap StakeholderId Opening
 -- Shares
 ----------------------------------------------------------------------------
 
-type InnerSharesMap = HashMap StakeholderId (AsBinary Share)
+type InnerSharesMap = HashMap StakeholderId (NonEmpty (AsBinary Share))
 
 type SharesMap = HashMap StakeholderId InnerSharesMap
 

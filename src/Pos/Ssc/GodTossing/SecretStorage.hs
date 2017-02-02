@@ -8,7 +8,7 @@ import           Universum
 
 import           Pos.DB                   (MonadDB)
 import           Pos.DB.Misc              (getSecretStorage, putSecretStorage)
-import           Pos.Ssc.GodTossing.Core  (Opening, SignedCommitment)
+import           Pos.Ssc.GodTossing.Core  (MultiCommitment, MultiOpening)
 import           Pos.Ssc.GodTossing.Type  (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types (GtSecretStorage (..))
 import           Pos.Types                (EpochIndex)
@@ -16,7 +16,7 @@ import           Pos.Types                (EpochIndex)
 -- | Get our commitment for given epoch if it's known.
 getOurCommitment
     :: MonadDB SscGodTossing m
-    => EpochIndex -> m (Maybe SignedCommitment)
+    => EpochIndex -> m (Maybe MultiCommitment)
 getOurCommitment epoch =
     getSecretStorage <&> \case
         Nothing -> Nothing
@@ -27,7 +27,7 @@ getOurCommitment epoch =
 -- | Get our opening corresponding for given epoch if it's known.
 getOurOpening
     :: MonadDB SscGodTossing m
-    => EpochIndex -> m (Maybe Opening)
+    => EpochIndex -> m (Maybe MultiOpening)
 getOurOpening epoch =
     getSecretStorage <&> \case
         Nothing -> Nothing
@@ -40,7 +40,7 @@ getOurOpening epoch =
 -- | Put our secret for given epoch.
 putOurSecret
     :: MonadDB SscGodTossing m
-    => SignedCommitment -> Opening -> EpochIndex -> m ()
+    => MultiCommitment -> MultiOpening -> EpochIndex -> m ()
 putOurSecret comm open epoch =
     putSecretStorage $
     GtSecretStorage {gssCommitment = comm, gssOpening = open, gssEpoch = epoch}

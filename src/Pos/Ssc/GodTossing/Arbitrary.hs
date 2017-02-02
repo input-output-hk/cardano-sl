@@ -7,21 +7,23 @@ module Pos.Ssc.GodTossing.Arbitrary
        ) where
 
 import qualified Data.HashMap.Strict              as HM
-import           Test.QuickCheck                  (Arbitrary (..), elements, oneof)
+import           Test.QuickCheck                  (Arbitrary (..), Gen, elements, oneof)
 import           Universum
 
 import           Pos.Binary.Ssc                   ()
 import           Pos.Communication.Types.Relay    (DataMsg (..))
-import           Pos.Crypto                       (deterministicVssKeyGen, toPublic,
+import           Pos.Crypto                       (SecretKey, deterministicVssKeyGen,
                                                    toVssPublicKey)
 import           Pos.Ssc.Arbitrary                (SscPayloadDependsOnSlot (..))
 import           Pos.Ssc.GodTossing.Core          (Commitment, CommitmentsMap,
-                                                   GtPayload (..), GtProof (..), Opening,
+                                                   GtPayload (..), GtProof (..),
+                                                   MultiCommitment (..),
+                                                   MultiOpening (..), Opening,
                                                    VssCertificate (..),
                                                    genCommitmentAndOpening,
                                                    isCommitmentId, isOpeningId,
                                                    isSharesId, mkCommitmentsMap,
-                                                   mkCommitmentsMap, mkSignedCommitment,
+                                                   mkCommitmentsMap, mkMultiCommitment,
                                                    mkVssCertificate)
 import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtTag (..))
@@ -65,8 +67,21 @@ instance Nonrepeating CommitmentOpening where
 instance Arbitrary Commitment where
     arbitrary = coCommitment <$> arbitrary
 
+instance Arbitrary MultiCommitment where
+    arbitrary = do
+        sk <- arbitrary
+        multiCommFromSK sk
+
+multiCommFromSK :: SecretKey -> Gen MultiCommitment
+multiCommFromSK sk = do
+    epoch <- arbitrary
+    mkMultiCommitment sk epoch <$> arbitrary
+
 instance Arbitrary CommitmentsMap where
     arbitrary = mkCommitmentsMap <$> arbitrary
+
+instance Arbitrary MultiOpening where
+    arbitrary = MultiOpening <$> arbitrary
 
 instance Arbitrary Opening where
     arbitrary = coOpening <$> arbitrary
@@ -112,10 +127,9 @@ instance Arbitrary (SscPayloadDependsOnSlot SscGodTossing) where
             | otherwise =
                 makeSmall $ CertificatesPayload <$> (genVssCerts slot)
         genCommitments slot =
-            mkCommitmentsMap .
-            map (genValidComm slot) <$>
-            arbitrary
-        genValidComm SlotId{..} (sk, c) = mkSignedCommitment sk siEpoch c
+            mkCommitmentsMap <$>
+            (arbitrary >>= mapM (genValidMultiComm slot))
+        genValidMultiComm SlotId{..} sk = mkMultiCommitment sk siEpoch <$> arbitrary
 
         genVssCerts slot = HM.fromList . map (toCertPair . genValidCert slot) <$> arbitrary
         toCertPair vc = (addressHash $ vcSigningKey vc, vc)
@@ -163,7 +177,7 @@ instance Arbitrary (DataMsg GtMsgContents) where
         sk <- arbitrary
         dmContents <-
             oneof
-                [ MCCommitment <$> ((toPublic sk,,) <$> arbitrary <*> arbitrary)
+                [ MCCommitment <$> multiCommFromSK sk
                 , MCOpening <$> arbitrary <*> arbitrary
                 , MCShares <$> arbitrary <*> arbitrary
                 , MCVssCertificate <$>

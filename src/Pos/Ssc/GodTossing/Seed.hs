@@ -4,20 +4,23 @@ module Pos.Ssc.GodTossing.Seed
        ( calculateSeed
        ) where
 
-
-import qualified Data.HashMap.Strict          as HM (fromList, lookup, mapMaybe,
-                                                     traverseWithKey, (!))
+import qualified Data.HashMap.Strict          as HM (fromList, lookup, map, mapMaybe,
+                                                     mapWithKey, toList, traverseWithKey,
+                                                     (!))
 import qualified Data.HashSet                 as HS (difference)
+import qualified Data.List.NonEmpty           as NE
 import           Universum
 
 import           Pos.Crypto                   (Secret, Share, unsafeRecoverSecret)
 import           Pos.Ssc.GodTossing.Core      (Commitment (commShares),
                                                CommitmentsMap (getCommitmentsMap),
+                                               GtDataId, MultiOpening (moOpenings),
                                                OpeningsMap, SharesMap, getOpening,
-                                               secretToSharedSeed, verifyOpening)
+                                               secretToSharedSeed, toSignedCommitments,
+                                               verifyOpening)
 import           Pos.Ssc.GodTossing.Error     (SeedError (..))
 import           Pos.Ssc.GodTossing.Functions (vssThreshold)
-import           Pos.Types                    (SharedSeed, StakeholderId, addressHash)
+import           Pos.Types                    (SharedSeed)
 import           Pos.Util                     (fromBinaryM, getKeys)
 
 
@@ -30,12 +33,20 @@ calculateSeed ::
     -> OpeningsMap
     -> SharesMap             -- ^ Decrypted shares
     -> Either SeedError SharedSeed
-calculateSeed (getCommitmentsMap -> commitments) openings lShares = do
+calculateSeed (getCommitmentsMap -> multiCommitments) multiOpenings multiLShares = do
+    --let toGtList ::
+    let toGtData ex id md = toList $ NE.zipWith (\nm c -> ((id, nm), c)) (0 NE.:| [1..]) (ex md)
+    --let toGtMap ::
+    let toGtMap ex hm = HM.fromList $ concat $ toList $ HM.mapWithKey (toGtData ex) hm
+
+    let commitments = toGtMap toSignedCommitments multiCommitments
+    let openings = toGtMap moOpenings multiOpenings
+    let lShares = HM.map (toGtMap identity) multiLShares
     let participants = getKeys commitments
 
     -- First let's do some sanity checks.
-    let extraOpenings, extraShares :: HashSet StakeholderId
-        extraOpenings = HS.difference (getKeys openings) participants
+    let extraOpenings, extraShares :: HashSet GtDataId
+        extraOpenings = (getKeys openings) `HS.difference` participants
         --We check that nodes which sent its encrypted shares to restore its opening
         --as well send their commitment. (e.g HM.member pkFrom participants)
         --We intentionally don't check, that nodes which decrypted shares
@@ -51,8 +62,7 @@ calculateSeed (getCommitmentsMap -> commitments) openings lShares = do
         Left (ExtraneousShares extraShares)
 
     -- And let's check openings.
-    for_ (toList commitments) $ \(pk, commitment, _) -> do
-        let id = addressHash pk
+    for_ (HM.toList commitments) $ \(id, (_, commitment, _)) -> do
         whenJust (HM.lookup id openings) $ \opening ->
             unless (verifyOpening commitment opening) $
                 Left (BrokenCommitment id)
@@ -61,14 +71,14 @@ calculateSeed (getCommitmentsMap -> commitments) openings lShares = do
     -- secrets (if corresponding openings weren't posted)
 
     -- Participants for whom we have to recover the secret
-    let mustBeRecovered :: HashSet StakeholderId
+    let mustBeRecovered :: HashSet GtDataId
         mustBeRecovered = HS.difference participants (getKeys openings)
 
     shares <- mapHelper BrokenShare (traverse fromBinaryM) lShares
 
     -- Secrets recovered from actual share lists (but only those we need –
     -- i.e. ones which are in mustBeRecovered)
-    let recovered :: HashMap StakeholderId (Maybe Secret)
+    let recovered :: HashMap GtDataId (Maybe Secret)
         recovered = HM.fromList $ do
             -- We are now trying to recover a secret for key 'k'
             id <- toList mustBeRecovered
@@ -90,7 +100,7 @@ calculateSeed (getCommitmentsMap -> commitments) openings lShares = do
     secrets0 <- mapHelper BrokenSecret fromBinaryM $ getOpening <$> openings
 
     -- All secrets, both recovered and from openings
-    let secrets :: HashMap StakeholderId Secret
+    let secrets :: HashMap GtDataId Secret
         secrets = secrets0 <>
                   HM.mapMaybe identity recovered
 
@@ -114,8 +124,9 @@ calculateSeed (getCommitmentsMap -> commitments) openings lShares = do
                          mconcat $ map secretToSharedSeed (toList secrets)
 
 mapHelper
-    :: (StakeholderId -> c)
+    :: (id -> c)
     -> (b -> Maybe a)
-    -> HashMap StakeholderId b
-    -> Either c (HashMap StakeholderId a)
-mapHelper errMapper mapper = HM.traverseWithKey (\pk v -> maybe (Left $ errMapper pk) Right $ mapper v)
+    -> HashMap id b
+    -> Either c (HashMap id a)
+mapHelper errMapper mapper =
+    HM.traverseWithKey (\id v -> maybe (Left $ errMapper id) Right $ mapper v)

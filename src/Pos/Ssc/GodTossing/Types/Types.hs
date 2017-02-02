@@ -36,8 +36,8 @@ import           Universum
 
 import           Pos.Crypto                     (VssKeyPair)
 import           Pos.Ssc.GodTossing.Core        (CommitmentsMap (getCommitmentsMap),
-                                                 Opening, OpeningsMap, SharesMap,
-                                                 SignedCommitment)
+                                                 MultiCommitment, MultiOpening,
+                                                 OpeningsMap, SharesMap)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types                      (EpochIndex)
 
@@ -127,9 +127,9 @@ createGtContext GtParams {..} =
 
 data GtSecretStorage = GtSecretStorage
     { -- | Our commitment.
-      gssCommitment :: !(SignedCommitment)
+      gssCommitment :: !MultiCommitment
     , -- | Corresponding opening
-      gssOpening    :: !Opening
+      gssOpening    :: !MultiOpening
     , -- | Epoch for which this secret were generated
       gssEpoch      :: !EpochIndex
     } deriving (Show, Eq)

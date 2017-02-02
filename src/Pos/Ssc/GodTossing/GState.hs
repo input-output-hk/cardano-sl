@@ -12,6 +12,8 @@ module Pos.Ssc.GodTossing.GState
          getGlobalCerts
        , gtGetGlobalState
        , getStableCerts
+
+       , computeCommitmentDistrById
        ) where
 
 import           Control.Lens                   (at, (.=), _Wrapped)
@@ -46,8 +48,8 @@ import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), gsCommitmen
                                                  gsOpenings, gsShares, gsVssCertificates)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types                      (Block, EpochIndex (..), SlotId (..),
-                                                 blockMpc, epochIndexL, epochOrSlotG,
-                                                 gbHeader)
+                                                 StakeholderId, blockMpc, epochIndexL,
+                                                 epochOrSlotG, gbHeader)
 import           Pos.Util                       (NE, NewestFirst (..), OldestFirst (..),
                                                  maybeThrow, toOldestFirst, _neHead,
                                                  _neLast)
@@ -76,6 +78,13 @@ getStableCerts
     => EpochIndex -> m VssCertificatesMap
 getStableCerts epoch =
     getStableCertsPure epoch <$> sscRunGlobalQuery (view gsVssCertificates)
+
+computeCommitmentDistrById
+    :: (MonadSscMem SscGodTossing m, MonadThrow m)
+    => EpochIndex
+    -> StakeholderId
+    -> m Word16
+computeCommitmentDistrById = notImplemented
 
 ----------------------------------------------------------------------------
 -- Methods from class

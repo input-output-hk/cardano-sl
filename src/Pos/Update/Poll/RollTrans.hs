@@ -34,11 +34,6 @@ newtype RollT m a = RollT
 
 instance MonadPollRead m => MonadPollRead (RollT m)
 
-whenNothingM :: Monad m => m (Maybe a) -> m () -> m () -- dratuti
-whenNothingM mb action = mb >>= \case
-    Nothing -> action
-    Just _  -> pass
-
 -- | Monad transformer which stores USUndo and implements writable
 -- MonadPoll. Its purpose is to collect data necessary for rollback.
 --
@@ -55,7 +50,7 @@ instance MonadPoll m => MonadPoll (RollT m) where
 
     setAdoptedBV pv = RollT $ do
         prevBV <- getAdoptedBV
-        whenNothingM (use unLastAdoptedBVL) $
+        whenNothingM_ (use unLastAdoptedBVL) $
             unLastAdoptedBVL .= Just prevBV
         setAdoptedBV pv
 

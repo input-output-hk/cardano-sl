@@ -50,8 +50,9 @@ import           Node                        (NodeAction (..), hoistSendActions,
 import qualified STMContainers.Map           as SM
 import           System.Random               (newStdGen)
 import           System.Wlog                 (LoggerConfig (..), WithLogger, logError,
-                                              logInfo, logWarning, releaseAllHandlers,
-                                              traverseLoggerConfig, usingLoggerName)
+                                              logInfo, logWarning, mapperB, productionB,
+                                              releaseAllHandlers, setupLogging,
+                                              usingLoggerName)
 import           Universum                   hiding (bracket)
 
 import           Pos.Binary                  ()
@@ -328,11 +329,15 @@ nodeStartMsg BaseParams {..} = logInfo msg
 
 setupLoggers :: MonadIO m => LoggingParams -> m ()
 setupLoggers LoggingParams{..} = do
-    LoggerConfig{..} <- readLoggerConfig lpConfigPath
-    traverseLoggerConfig dhtMapper lcRotation lcTree lpHandlerPrefix
+    -- TODO: introduce Maybe FilePath builder for filePrefix
+    let cfgBuilder = productionB <>
+                     mapperB dhtMapper <>
+                     (mempty { _lcFilePrefix = lpHandlerPrefix })
+    cfg <- readLoggerConfig lpConfigPath
+    setupLogging (cfg <> cfgBuilder)
   where
-    dhtMapper  name | name == "dht"  = dhtLoggerName (Proxy :: Proxy (RawRealMode ssc))
-                    | otherwise      = name
+    dhtMapper name | name == "dht" = dhtLoggerName (Proxy :: Proxy (RawRealMode ssc))
+                   | otherwise     = name
 
 -- | RAII for node starter.
 loggerBracket :: LoggingParams -> IO a -> IO a

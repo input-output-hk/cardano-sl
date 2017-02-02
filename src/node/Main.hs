@@ -30,6 +30,7 @@ import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
 #ifdef DEV_MODE
 import           Pos.Ssc.GodTossing    (genesisVssKeyPairs)
 #endif
+import           Pos.Communication     (ActionSpec (..))
 import           Pos.Ssc.Class         (SscConstraint)
 import           Pos.Ssc.GodTossing    (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon    (SscNistBeacon)
@@ -45,7 +46,7 @@ import           Pos.Web               (serveWebBase, serveWebGT)
 import           Pos.WorkMode          (WorkMode)
 #ifdef WITH_WALLET
 import           Node                  (hoistSendActions)
-import           Pos.Communication     (ActionSpec (..), OutSpecs, WorkerSpec, worker)
+import           Pos.Communication     (OutSpecs, WorkerSpec, worker)
 import           Pos.Statistics        (getNoStatsT, getStatsMap, runStatsT')
 import           Pos.Wallet.Web        (walletServeWebFull, walletServerOuts)
 import           Pos.WorkMode          (ProductionMode, RawRealMode, StatsMode)
@@ -270,9 +271,9 @@ walletStats = first (map liftPlugin) . walletServe
         s <- getStatsMap
         lift . p vI $ hoistSendActions (runStatsT' s) lift sa
 #else
-walletProd, walletStats :: Args -> [a]
-walletProd _ = []
-walletStats _ = []
+walletProd, walletStats :: Monoid b => Args -> ([a], b)
+walletProd _ = ([], mempty)
+walletStats _ = ([], mempty)
 #endif
 
 printFlags :: IO ()

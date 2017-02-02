@@ -14,16 +14,21 @@ import           Pos.Binary.Ssc                   ()
 import           Pos.Communication.Types.Relay    (DataMsg (..))
 import           Pos.Crypto                       (deterministicVssKeyGen, toPublic,
                                                    toVssPublicKey)
+import           Pos.Ssc.Arbitrary                (SscPayloadDependsOnSlot (..))
 import           Pos.Ssc.GodTossing.Core          (Commitment, CommitmentsMap,
                                                    GtPayload (..), GtProof (..), Opening,
                                                    VssCertificate (..),
                                                    genCommitmentAndOpening,
-                                                   mkCommitmentsMap, mkVssCertificate)
-import           Pos.Ssc.GodTossing.Type          ()
+                                                   isCommitmentId, isOpeningId,
+                                                   isSharesId, mkCommitmentsMap,
+                                                   mkCommitmentsMap, mkSignedCommitment,
+                                                   mkVssCertificate)
+import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtTag (..))
 import           Pos.Ssc.GodTossing.Types.Types   (GtGlobalState (..),
                                                    GtSecretStorage (..))
 import           Pos.Ssc.GodTossing.VssCertData   (VssCertData (..))
+import           Pos.Types                        (SlotId (..))
 import           Pos.Types.Address                (addressHash)
 import           Pos.Types.Arbitrary.Unsafe       ()
 import           Pos.Util                         (asBinary)
@@ -93,6 +98,28 @@ instance Arbitrary GtPayload where
       where
         genVssCerts = HM.fromList . map toCertPair <$> arbitrary
         toCertPair vc = (addressHash $ vcSigningKey vc, vc)
+
+instance Arbitrary (SscPayloadDependsOnSlot SscGodTossing) where
+    arbitrary = pure $ SscPayloadDependsOnSlot payloadGen
+      where
+        payloadGen slot
+            | isCommitmentId slot =
+                makeSmall $ CommitmentsPayload <$> (genCommitments slot) <*> (genVssCerts slot)
+            | isOpeningId slot =
+                makeSmall $ OpeningsPayload <$> arbitrary <*> (genVssCerts slot)
+            | isSharesId slot =
+                makeSmall $ SharesPayload <$> arbitrary <*> (genVssCerts slot)
+            | otherwise =
+                makeSmall $ CertificatesPayload <$> (genVssCerts slot)
+        genCommitments slot =
+            mkCommitmentsMap .
+            map (genValidComm slot) <$>
+            arbitrary
+        genValidComm SlotId{..} (sk, c) = mkSignedCommitment sk siEpoch c
+
+        genVssCerts slot = HM.fromList . map (toCertPair . genValidCert slot) <$> arbitrary
+        toCertPair vc = (addressHash $ vcSigningKey vc, vc)
+        genValidCert SlotId{..} (sk, pk) = mkVssCertificate sk pk $ siEpoch + 5
 
 instance Arbitrary VssCertData where
     arbitrary = makeSmall $ VssCertData

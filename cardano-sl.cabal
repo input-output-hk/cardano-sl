@@ -87,6 +87,7 @@ library
                         Pos.Slotting
 
                         -- SSC
+                        Pos.Ssc.Arbitrary
                         Pos.Ssc.Class
                         Pos.Ssc.GodTossing
                         Pos.Ssc.NistBeacon

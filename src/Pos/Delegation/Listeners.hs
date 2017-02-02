@@ -26,9 +26,8 @@ import           Pos.Context                (getNodeContext, ncBlkSemaphore,
                                              ncPropagation)
 import           Pos.Delegation.Logic       (ConfirmPskEpochVerdict (..),
                                              PskEpochVerdict (..), PskSimpleVerdict (..),
-                                             isProxySKConfirmed, processConfirmProxySk,
-                                             processProxySKEpoch, processProxySKSimple,
-                                             runDelegationStateAction)
+                                             processConfirmProxySk, processProxySKEpoch,
+                                             processProxySKSimple)
 import           Pos.Delegation.Methods     (sendProxyConfirmSK, sendProxyConfirmSKOuts,
                                              sendProxySKEpoch, sendProxySKEpochOuts,
                                              sendProxySKSimple, sendProxySKSimpleOuts)

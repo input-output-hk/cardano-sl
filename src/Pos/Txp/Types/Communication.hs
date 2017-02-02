@@ -14,7 +14,7 @@ import           Universum
 
 import           Pos.Types           (Tx, TxDistribution, TxWitness)
 
-data TxMsgTag = TxMsgTag
+data TxMsgTag = TxMsgTag deriving (Eq, Show)
 
 instance Buildable TxMsgTag where
     build _ = "TxMsgTag"
@@ -24,7 +24,7 @@ data TxMsgContents = TxMsgContents
     { dmTx           :: !Tx
     , dmWitness      :: !TxWitness
     , dmDistribution :: !TxDistribution
-    } deriving (Generic)
+    } deriving (Generic, Show, Eq)
 
 instance Buildable TxMsgContents where
     build TxMsgContents {..} = bprint ("TxMsgContents { tx="%build%", .. }") dmTx

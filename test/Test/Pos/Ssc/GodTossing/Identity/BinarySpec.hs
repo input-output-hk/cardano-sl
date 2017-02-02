@@ -17,12 +17,12 @@ spec :: Spec
 spec = describe "GodTossing" $ do
     describe "Bi instances" $ do
         binaryTest @GT.Commitment
+        binaryTest @GT.CommitmentsMap
         binaryTest @GT.Opening
         binaryTest @GT.VssCertificate
         binaryTest @GT.GtProof
         binaryTest @GT.GtPayload
-        binaryTest @(R.InvMsg StakeholderId GT.GtMsgTag)
-        binaryTest @(R.ReqMsg StakeholderId GT.GtMsgTag)
-        -- FIXME: add test
-        -- binaryTest @R.DataMsgGodTossing
+        binaryTest @(R.InvMsg StakeholderId GT.GtTag)
+        binaryTest @(R.ReqMsg StakeholderId GT.GtTag)
+        binaryTest @(R.DataMsg GT.GtMsgContents)
         binaryTest @GT.GtSecretStorage

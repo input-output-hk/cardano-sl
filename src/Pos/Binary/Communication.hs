@@ -3,14 +3,14 @@
 
 module Pos.Binary.Communication () where
 
-import           Data.Binary.Get                  (getByteString, getWord8, isolate,
+import           Data.Binary.Get                  (getByteString,
+                                                   getRemainingLazyByteString, getWord8,
                                                    label)
-import           Data.Binary.Put                  (putByteString, putLazyByteString,
-                                                   putWord8, runPut)
+import           Data.Binary.Put                  (putByteString, putWord8)
 import qualified Data.ByteString                  as BS
 import qualified Data.ByteString.Lazy             as BSL
 import           Data.Reflection                  (Reifies, reflect)
-import           Formatting                       (formatToString, int, sformat, (%))
+import           Formatting                       (int, sformat, (%))
 import           Node.Message                     (MessageName (..))
 import           Serokell.Data.Memory.Units       (Byte)
 import           Universum                        hiding (putByteString)
@@ -24,9 +24,12 @@ import           Pos.Communication.Types.Protocol (HandlerSpec (..), NOP (..),
                                                    PeerId (..), VerInfo (..))
 import           Pos.Delegation.Types             (ConfirmProxySK (..), SendProxySK (..))
 import           Pos.DHT.Model.Types              (meaningPartLength)
+import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 import           Pos.Ssc.Class.Types              (Ssc (..))
 import           Pos.Txp.Types                    (TxMsgTag (..))
 import           Pos.Update.Network.Types         (ProposalMsgTag (..), VoteMsgTag (..))
+import           Pos.Util.Binary                  (getWithLength, getWithLengthLimited,
+                                                   putWithLength)
 
 deriving instance Bi MessageName
 
@@ -68,34 +71,19 @@ instance Ssc ssc => Bi (MsgHeaders ssc) where
     put (MsgHeaders b) = put b
     get = MsgHeaders <$> get
 
-instance (Ssc ssc, Reifies s Byte) => Bi (MsgBlock s ssc) where
+instance (SscHelpersClass ssc, Reifies s Byte) => Bi (MsgBlock s ssc) where
     -- We encode block size and then the block itself so that we'd be able to
     -- reject the block if it's of the wrong size without consuming the whole
-    -- block. Unfortunately, @binary@ doesn't provide a method to limit byte
-    -- consumption – only a method to ensure that the /exact/ number of bytes
-    -- is consumed. Thus we need to know the actual block size in advance.
-    put (MsgBlock b) = do
+    -- block.
+    put (MsgBlock b) =
         -- NB: When serializing, we don't check that the size of the
         -- serialized block is smaller than the allowed size. Note that
         -- we *depend* on this behavior in e.g. 'handleGetBlocks' in
         -- "Pos.Block.Network.Listeners". Grep for #put_checkBlockSize.
-        let serialized = runPut (put b)
-        put (BSL.length serialized :: Int64)
-        putLazyByteString serialized
+        putWithLength (put b)
     get = do
-        blockSize :: Int64 <- get
         let maxBlockSize = reflect (Proxy @s)
-        if fromIntegral blockSize <= maxBlockSize
-            -- TODO: this will fail on 32-bit machines if we have blocks
-            -- bigger than 2 GB, because 'isolate' takes 'Int' and not
-            -- 'Int64'. I don't think we'll have blocks that big any soon
-            -- (famous last words...). Anyway, if you want to fix it, you can
-            -- copy the code of 'isolate' and fix the types there.
-            then isolate (fromIntegral blockSize) (MsgBlock <$> get)
-            else fail $ formatToString
-                     ("get@MsgBlock: block ("%int%" bytes) is bigger "%
-                      "than maxBlockSize ("%int%" bytes)")
-                     blockSize maxBlockSize
+        getWithLengthLimited (fromIntegral maxBlockSize) (MsgBlock <$> get)
 
 ----------------------------------------------------------------------------
 -- Transaction processing
@@ -142,13 +130,20 @@ instance Bi VoteMsgTag where
     get = pure VoteMsgTag
 
 instance Bi HandlerSpec where
-    put OneMsgHandler   = putWord8 0
-    put (ConvHandler m) = putWord8 1 <> put m
-    get = getWord8 >>= getImpl
-      where
-        getImpl 0 = pure OneMsgHandler
-        getImpl 1 = ConvHandler <$> get
-        getImpl _ = fail "Unknown HandlerSpec type"
+    put OneMsgHandler =
+        putWord8 0 <>
+        putWithLength (return ())
+    put (ConvHandler m) =
+        putWord8 1 <>
+        putWithLength (put m)
+    put (UnknownHandler t b) =
+        putWord8 t <>
+        putWithLength (putByteString b)
+    get = getWord8 >>= \case
+        0 -> getWithLength (pure OneMsgHandler)
+        1 -> getWithLength (ConvHandler <$> get)
+        t -> getWithLength (UnknownHandler t <$>
+                            (BSL.toStrict <$> getRemainingLazyByteString))
 
 instance Bi VerInfo where
     put VerInfo {..} = put vIMagic

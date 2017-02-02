@@ -44,7 +44,7 @@ data Command
     deriving Show
 
 lexeme :: Parser a -> Parser a
-lexeme p = spaces *> p
+lexeme p = spaces *> p >>= \x -> spaces $> x
 
 text :: String -> Parser Text
 text = lexeme . fmap toText . string

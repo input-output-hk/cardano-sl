@@ -130,9 +130,9 @@ listenerOneMsg outSpecs h = (lspec, outSpecs)
   where
     lspec = flip ListenerSpec spec $
               \ourVerInfo -> N.ListenerActionOneMsg $
-                  \(peerId, peerVerInfo) nNodeId sA msg -> do
-                      setPeerVerInfo peerId peerVerInfo
-                      checkingInSpecs ourVerInfo peerVerInfo spec peerId $
+                  \(peerId, peerVerInfo') nNodeId sA msg -> do
+                      setPeerVerInfo peerId peerVerInfo'
+                      checkingInSpecs ourVerInfo peerVerInfo' spec peerId $
                           h ourVerInfo
                             (NodeId (peerId, nNodeId))
                             (convertSendActions ourVerInfo sA)
@@ -158,9 +158,9 @@ listenerConv h = (lspec, mempty)
     spec = (rcvMsgName, ConvHandler sndMsgName)
     lspec = flip ListenerSpec spec $
               \ourVerInfo -> N.ListenerActionConversation $
-                \(peerId, peerVerInfo) nNodeId conv -> do
-                    setPeerVerInfo peerId peerVerInfo
-                    checkingInSpecs ourVerInfo peerVerInfo spec peerId $
+                \(peerId, peerVerInfo') nNodeId conv -> do
+                    setPeerVerInfo peerId peerVerInfo'
+                    checkingInSpecs ourVerInfo peerVerInfo' spec peerId $
                         h ourVerInfo
                           (NodeId (peerId, nNodeId))
                           (convertCA conv)
@@ -291,11 +291,11 @@ localWorker :: m () -> (WorkerSpec m, OutSpecs)
 localWorker h = (ActionSpec $ \__vI __sA -> h, mempty)
 
 checkingInSpecs :: WithLogger m => VerInfo -> VerInfo -> (MessageName, HandlerSpec) -> PeerId -> m () -> m ()
-checkingInSpecs ourVerInfo peerVerInfo spec peerId action =
+checkingInSpecs ourVerInfo peerVerInfo' spec peerId action =
     if | spec `notInSpecs` vIInHandlers ourVerInfo ->
               logWarning $ sformat
                 ("Endpoint is served, but not reported " % build) spec
-       | spec `notInSpecs` vIOutHandlers peerVerInfo ->
+       | spec `notInSpecs` vIOutHandlers peerVerInfo' ->
               logDebug $ sformat
                 ("Peer " % build % " attempting to use endpoint he didn't report to use " % build)
                 peerId spec

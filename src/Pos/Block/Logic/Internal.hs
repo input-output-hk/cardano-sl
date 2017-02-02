@@ -19,21 +19,19 @@ import           System.Wlog          (logError)
 import           Universum
 
 import           Pos.Block.Types      (Blund, Undo (undoUS))
-import           Pos.Context          (lrcActionOnEpochReason, putBlkSemaphore,
-                                       takeBlkSemaphore)
+import           Pos.Context          (putBlkSemaphore, takeBlkSemaphore)
 import           Pos.DB               (SomeBatchOp (..))
 import qualified Pos.DB               as DB
 import qualified Pos.DB.GState        as GS
-import qualified Pos.DB.Lrc           as DB
 import           Pos.Delegation.Logic (delegationApplyBlocks, delegationRollbackBlocks)
-import           Pos.Ssc.Extra        (sscApplyBlocks, sscApplyGlobalState, sscRollback)
+import           Pos.Ssc.Extra        (sscApplyBlocks, sscNormalize, sscRollbackBlocks)
 import           Pos.Txp.Logic        (normalizeTxpLD, txApplyBlocks, txRollbackBlocks)
 import           Pos.Types            (HeaderHash, epochIndexL, headerHashG, prevBlockL)
 import           Pos.Update.Logic     (usApplyBlocks, usNormalize, usRollbackBlocks)
 import           Pos.Update.Poll      (PollModifier)
 import           Pos.Util             (Color (Red), NE, NewestFirst (..),
                                        OldestFirst (..), colorize, inAssertMode, spanSafe,
-                                       _neHead, _neLast)
+                                       _neLast)
 import           Pos.WorkMode         (WorkMode)
 
 
@@ -83,12 +81,9 @@ applyBlocksUnsafeDo blunds pModifier = do
     usBatch <- SomeBatchOp <$> usApplyBlocks blocks pModifier
     delegateBatch <- SomeBatchOp <$> delegationApplyBlocks blocks
     txBatch <- SomeBatchOp . getOldestFirst <$> txApplyBlocks blunds
-    sscApplyBlocks blocks
-    let epoch = blunds ^. _Wrapped . _neHead . _1 . epochIndexL
-    richmen <-
-        lrcActionOnEpochReason epoch "couldn't get SSC richmen" DB.getRichmenSsc
-    sscApplyGlobalState richmen
+    sscApplyBlocks blocks Nothing -- TODO: pass not only 'Nothing'
     GS.writeBatchGState [delegateBatch, usBatch, txBatch, forwardLinksBatch, inMainBatch]
+    sscNormalize
     normalizeTxpLD
     usNormalize
     DB.sanityCheckDB
@@ -111,7 +106,7 @@ rollbackBlocksUnsafe toRollback = do
     delRoll <- SomeBatchOp <$> delegationRollbackBlocks toRollback
     usRoll <- SomeBatchOp <$> usRollbackBlocks (toRollback & each._2 %~ undoUS)
     txRoll <- SomeBatchOp <$> txRollbackBlocks toRollback
-    sscRollback $ fmap fst toRollback
+    sscRollbackBlocks $ fmap fst toRollback
     GS.writeBatchGState [delRoll, usRoll, txRoll, forwardLinksBatch, inMainBatch]
     DB.sanityCheckDB
     inAssertMode $

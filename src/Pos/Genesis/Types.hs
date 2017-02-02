@@ -5,7 +5,7 @@ module Pos.Genesis.Types
 
 import           Universum
 
-import           Pos.Ssc.GodTossing.Types.Base (VssCertificatesMap)
+import           Pos.Ssc.GodTossing.Core.Types (VssCertificatesMap)
 import           Pos.Types.Core                (Address, Coin)
 
 -- | Stake distribution in genesis block.

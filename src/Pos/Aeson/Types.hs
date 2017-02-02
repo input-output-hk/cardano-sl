@@ -20,9 +20,13 @@ instance ToJSON SharedSeed where
 instance ToJSON a => ToJSON (Attributes a) where
     toJSON = toJSON . attrData
 
-deriving instance ToJSON ApplicationName
-deriving instance FromJSON ApplicationName
+-- NOTE: some of these types are used on frontend (PureScript).
+-- We are automatically deriving instances there and they are
+-- compitable now with `deriveToJSON defaultOptions ''Y`.
+-- If datatype is used on frontend, please use this instead of
+-- any other way of deriving if possible.
 
+deriveToJSON defaultOptions ''ApplicationName
 deriveToJSON defaultOptions ''ChainDifficulty
 deriveToJSON defaultOptions ''Address
 deriveToJSON defaultOptions ''SlotId

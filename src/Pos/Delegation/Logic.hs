@@ -66,7 +66,7 @@ import           Pos.Delegation.Class        (DelegationWrap, MonadDelegation (.
                                               dwMessageCache, dwProxySKPool,
                                               dwThisEpochPosted)
 import           Pos.Delegation.Types        (SendProxySK (..))
-import           Pos.Ssc.Class               (Ssc)
+import           Pos.Ssc.Class.Helpers       (SscHelpersClass)
 import           Pos.Types                   (Block, HeaderHash, ProxySKEpoch,
                                               ProxySKSimple, ProxySigEpoch, addressHash,
                                               blockProxySKs, epochIndexL, headerHash,
@@ -134,7 +134,7 @@ instance B.Buildable DelegationError where
 -- | Initializes delegation in-memory storage.
 --   * Sets `_dwEpochId` to epoch of tip.
 --   * Loads `_dwThisEpochPosted` from database
-initDelegation :: (Ssc ssc, MonadDB ssc m, MonadDelegation m) => m ()
+initDelegation :: (SscHelpersClass ssc, MonadDB ssc m, MonadDelegation m) => m ()
 initDelegation = do
     tip <- DB.getTipBlockHeader
     let tipEpoch = tip ^. epochIndexL
@@ -151,7 +151,7 @@ initDelegation = do
 
 -- Retrieves psk certificated that have been accumulated before given
 -- block. The block itself should be in DB.
-getPSKsFromThisEpoch :: (Ssc ssc, MonadDB ssc m) => HeaderHash -> m [ProxySKSimple]
+getPSKsFromThisEpoch :: (SscHelpersClass ssc, MonadDB ssc m) => HeaderHash -> m [ProxySKSimple]
 getPSKsFromThisEpoch tip = do
     concatMap (either (const []) (view blockProxySKs)) <$>
         DB.loadBlocksWhile isRight tip
@@ -180,7 +180,7 @@ data PskSimpleVerdict
 -- depending on issuer's stake, overrides if exists, checks
 -- validity and cachemsg state.
 processProxySKSimple
-    :: (Ssc ssc, MonadDB ssc m, MonadDelegation m, WithNodeContext ssc m)
+    :: (SscHelpersClass ssc, MonadDB ssc m, MonadDelegation m, WithNodeContext ssc m)
     => ProxySKSimple -> m PskSimpleVerdict
 processProxySKSimple psk = do
     curTime <- liftIO getCurrentTime
@@ -231,7 +231,7 @@ makeLenses ''DelVerState
 -- It's assumed blocks are correct from 'Pos.Types.Block#verifyBlocks'
 -- point of view.
 delegationVerifyBlocks
-    :: forall ssc m. (Ssc ssc, MonadDB ssc m, WithNodeContext ssc m)
+    :: forall ssc m. (SscHelpersClass ssc, MonadDB ssc m, WithNodeContext ssc m)
     => OldestFirst NE (Block ssc)
     -> m (Either Text (OldestFirst NE [ProxySKSimple]))
 delegationVerifyBlocks blocks = do
@@ -332,7 +332,7 @@ delegationApplyBlocks blocks = do
 -- restore them after the rollback (see Txp#normalizeTxpLD). You can
 -- rollback arbitrary number of blocks.
 delegationRollbackBlocks
-    :: ( Ssc ssc
+    :: ( SscHelpersClass ssc
        , MonadDelegation m
        , MonadDB ssc m
        , WithNodeContext ssc m)

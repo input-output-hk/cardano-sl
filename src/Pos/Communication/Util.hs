@@ -23,11 +23,10 @@ import           Universum                  hiding (Async, async, bracket, cance
 
 import           Pos.Binary.Class           (Bi)
 import           Pos.Communication.BiP      (BiP)
-import           Pos.Communication.Protocol (ConversationActions, HandlerSpec (..),
-                                             Listener, ListenerSpec (..), Message (..),
+import           Pos.Communication.Protocol (HandlerSpec (..), Listener,
+                                             ListenerSpec (..), Message (..),
                                              MessageName (..), OutSpecs, PeerData,
-                                             listenerConv, listenerOneMsg, mapListener,
-                                             messageName')
+                                             mapListener, messageName')
 import           Pos.Util.TimeLimit         (CanLogInParallel, execWithTimeLimit,
                                              logWarningWaitLinear)
 

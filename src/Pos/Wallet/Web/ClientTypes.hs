@@ -23,8 +23,8 @@ module Pos.Wallet.Web.ClientTypes
       , CWalletType (..)
       , CWalletMeta (..)
       , CWalletInit (..)
-      , CRedemptionData (..)
       , CUpdateInfo (..)
+      , CWalletRedeem (..)
       , NotifyEvent (..)
       , addressToCAddress
       , cAddressToAddress
@@ -36,7 +36,7 @@ module Pos.Wallet.Web.ClientTypes
       , toCUpdateInfo
       ) where
 
-import           Data.Text             (Text, isInfixOf)
+import           Data.Text             (Text, isInfixOf, toLower)
 import           GHC.Generics          (Generic)
 import           Universum
 
@@ -155,11 +155,10 @@ data CWalletInit = CWalletInit
     , cwInitMeta     :: !CWalletMeta
     } deriving (Show, Generic)
 
--- | Query data for ada repemtion
--- (base64 seed + backup phrase)
-data CRedemptionData = CRedemptionData
-    { crBackupPhrase :: !BackupPhrase
-    , crSeed         :: !Text
+-- | Query data for redeem
+data CWalletRedeem = CWalletRedeem
+    { crWalletId :: !CAddress
+    , crSeed     :: !Text -- TODO: newtype!
     } deriving (Show, Generic)
 
 ----------------------------------------------------------------------------
@@ -218,7 +217,7 @@ data CTx = CTx
     } deriving (Show, Generic)
 
 txContainsTitle :: Text -> CTx -> Bool
-txContainsTitle search = isInfixOf search . ctmTitle . ctTypeMeta . ctType
+txContainsTitle search = isInfixOf (toLower search) . toLower . ctmTitle . ctTypeMeta . ctType
 
 -- | meta data of exchanges
 data CTExMeta = CTExMeta

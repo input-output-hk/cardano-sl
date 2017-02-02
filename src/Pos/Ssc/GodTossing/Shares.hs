@@ -12,26 +12,27 @@ module Pos.Ssc.GodTossing.Shares
 import           Crypto.Random            (drgNewSeed, seedNew, withDRG)
 import qualified Data.HashMap.Strict      as HM
 import           Formatting               (build, sformat, (%))
-import           System.Wlog              (HasLoggerName, dispatchEvents, getLoggerName,
+import           System.Wlog              (WithLogger, dispatchEvents, getLoggerName,
                                            logWarning, runPureLog, usingLoggerName)
 import           Universum
 
 import           Pos.Crypto               (EncShare, Share, VssKeyPair, VssPublicKey,
                                            decryptShare, toVssPublicKey)
 import           Pos.Ssc.Class.Storage    (SscGlobalQuery)
-import           Pos.Ssc.Extra.MonadGS    (MonadSscGS, sscRunGlobalQuery)
-import           Pos.Ssc.GodTossing.Types (Commitment (..), SscGodTossing, gsCommitments,
-                                           gsOpenings)
-import           Pos.Types                (StakeholderId)
+import           Pos.Ssc.Extra            (MonadSscMem, sscRunGlobalQuery)
+import           Pos.Ssc.GodTossing.Core  (Commitment (..))
+import           Pos.Ssc.GodTossing.Type  (SscGodTossing)
+import           Pos.Ssc.GodTossing.Types (gsCommitments, gsOpenings)
+import           Pos.Types                (StakeholderId, addressHash)
 import           Pos.Util                 (AsBinary, asBinary, fromBinaryM)
 
 type GSQuery a = SscGlobalQuery SscGodTossing a
 
 -- | Decrypt shares (in commitments) that are intended for us and that we can
 -- decrypt.
-getOurShares :: ( MonadSscGS SscGodTossing m
-                , MonadIO m, HasLoggerName m)
-             => VssKeyPair -> m (HashMap StakeholderId Share)
+getOurShares
+    :: (MonadSscMem SscGodTossing m, MonadIO m, WithLogger m)
+    => VssKeyPair -> m (HashMap StakeholderId Share)
 getOurShares ourKey = do
     randSeed <- liftIO seedNew
     let ourPK = asBinary $ toVssPublicKey ourKey
@@ -59,9 +60,9 @@ decryptOurShares
 decryptOurShares ourPK = do
     comms <- view gsCommitments
     opens <- view gsOpenings
-    return .
-        HM.fromList . catMaybes $
-            flip fmap (HM.toList comms) $ \(theirAddr, (_, Commitment{..}, _)) ->
-                if not $ HM.member theirAddr opens
-                   then (,) theirAddr <$> HM.lookup ourPK commShares
-                   else Nothing -- if we have opening for theirAddr, we shouldn't send shares for it
+    return . HM.fromList . catMaybes $ checkOpen opens <$> toList comms
+  where
+    checkOpen opens (addressHash -> theirId, Commitment {..}, _)
+        | not $ HM.member theirId opens =
+            (,) theirId <$> HM.lookup ourPK commShares
+        | otherwise = Nothing -- if we have opening for theirAddr, we shouldn't send shares for it

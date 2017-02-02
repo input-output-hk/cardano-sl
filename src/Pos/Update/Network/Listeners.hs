@@ -19,6 +19,7 @@ import           Pos.Communication.Message  ()
 import           Pos.Communication.Protocol (ListenerSpec, OutSpecs)
 import           Pos.Communication.Relay    (Relay (..), RelayProxy (..), relayListeners,
                                              relayStubListeners)
+import           Pos.Crypto                 (hash)
 import           Pos.Update.Core            (UpId, UpdateProposal (..), UpdateVote (..),
                                              VoteId)
 import           Pos.Update.Logic.Local     (getLocalProposalNVotes, getLocalVote,
@@ -56,6 +57,7 @@ usStubListeners = mappendPair
 instance WorkMode ssc m =>
          Relay m ProposalMsgTag UpId (UpdateProposal, [UpdateVote]) where
     contentsToTag _ = pure ProposalMsgTag
+    contentsToKey (up,_) = pure $ hash up
 
     verifyInvTag _ = pure VerSuccess
     verifyReqTag _ = pure VerSuccess
@@ -63,7 +65,7 @@ instance WorkMode ssc m =>
 
     handleInv _ = isProposalNeeded
     handleReq _ = getLocalProposalNVotes
-    handleData (proposal, votes) _ = do
+    handleData (proposal, votes) = do
         res <- processProposal proposal
         logProp res
         let processed = isRight res
@@ -86,6 +88,7 @@ instance WorkMode ssc m =>
 instance WorkMode ssc m =>
          Relay m VoteMsgTag VoteId UpdateVote where
     contentsToTag _ = pure VoteMsgTag
+    contentsToKey UpdateVote{..} = pure (uvProposalId, uvKey, uvDecision)
 
     verifyInvTag _ = pure VerSuccess
     verifyReqTag _ = pure VerSuccess
@@ -93,7 +96,7 @@ instance WorkMode ssc m =>
 
     handleInv _ (id, pk, dec) = isVoteNeeded id pk dec
     handleReq _ (id, pk, dec) = getLocalVote id pk dec
-    handleData uv _ = do
+    handleData uv = do
         res <- processVote uv
         logProcess res
         pure $ isRight res

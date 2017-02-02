@@ -26,6 +26,7 @@ import           Pos.Communication.Util            (convWithTimeLimit,
 import           Pos.Constants                     (networkReceiveTimeout)
 import           Pos.Delegation.Listeners          (delegationListeners,
                                                     delegationStubListeners)
+import           Pos.Ssc.Class.Helpers             (SscHelpersClass (..))
 import           Pos.Ssc.Class.Listeners           (SscListenersClass (..))
 import           Pos.Txp.Listeners                 (txListeners, txStubListeners)
 import           Pos.Update                        (usListeners, usStubListeners)
@@ -57,7 +58,7 @@ allListeners = mconcatPair
 
 -- | All listeners running on one node.
 allStubListeners
-    :: (SscListenersClass ssc, WithLogger m)
+    :: (SscListenersClass ssc, WithLogger m, SscHelpersClass ssc)
     => Tagged ssc ([ListenerSpec m], OutSpecs)
 allStubListeners = unproxy $ \sscProxy ->
     mconcatPair

@@ -12,8 +12,9 @@ import           Formatting            (bprint, build, (%))
 import           Serokell.Util.Text    (listJson)
 import           Universum
 
+import           Pos.Types.Block       (BiSsc, Block)
 import           Pos.Types.Core        (HasDifficulty (..), HasHeaderHash (..))
-import           Pos.Types.Types       (BiSsc, Block, ProxySKSimple, TxUndo)
+import           Pos.Types.Types       (ProxySKSimple, TxUndo)
 import           Pos.Update.Poll.Types (USUndo)
 
 -- | Structure for undo block during rollback

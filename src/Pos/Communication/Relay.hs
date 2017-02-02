@@ -62,6 +62,10 @@ class ( Buildable tag
     -- for only type matching reason (multiparam type classes are tricky)
     contentsToTag :: contents -> m tag
 
+    -- | Same for key. Sometime contents has key inside already, so
+    -- it's redundant to double-pass it everywhere.
+    contentsToKey :: contents -> m key
+
     verifyInvTag :: tag -> m VerificationRes
     verifyReqTag :: tag -> m VerificationRes
     verifyDataContents :: contents -> m VerificationRes
@@ -73,7 +77,7 @@ class ( Buildable tag
     handleReq :: tag -> key -> m (Maybe contents)
 
     -- | Handle data msg and return True if message is to be propagated
-    handleData :: contents -> key -> m Bool
+    handleData :: contents -> m Bool
 
 data RelayProxy key tag contents = RelayProxy
 
@@ -100,14 +104,19 @@ handleInvL
 handleInvL proxy msg@(InvMsg{..}) =
     processMessage [] "Inventory" imTag verifyInvTag $ do
         let _ = invCatchType proxy msg
-        res <- zip (toList imKeys) <$> mapM (handleInv imTag) (toList imKeys)
-        let useful = filterSecond identity res
-            useless = filterSecond not res
-        when (not $ null useless) $
-            logDebug $ sformat
-              ("Ignoring inv "%build%" for keys "%listJson%", because they're useless")
-              imTag useless
-        pure useful
+         -- TODO remove this msg when InvMsg datatype will contain only one key
+        when (NE.length imKeys /= 1) $
+            logWarning $ "InvMsg constains more than one key, we'll handle only first"
+        let imKey = imKeys NE.!! 0
+        invRes <- handleInv imTag imKey
+        if invRes then
+            [imKey] <$ logDebug (sformat
+              ("We'll request data "%build%" for key "%build%", because it's useful")
+              imTag imKey)
+        else
+            [] <$ logDebug (sformat
+              ("Ignoring inv "%build%" for key "%build%", because it's useless")
+              imTag imKey)
 
 handleReqL
     :: forall key tag contents m .
@@ -126,24 +135,27 @@ handleReqL proxy = listenerConv $
     whenJustM recv $ \msg@(ReqMsg {..}) -> do
       let _ = reqCatchType proxy msg
       processMessage () "Request" rmTag verifyReqTag $ do
-          res <- zip (toList rmKeys) <$> mapM (handleReq rmTag) (toList rmKeys)
-          let noDataAddrs = filterSecond isNothing res
-              datas = catMaybes $ map (\(addr, m) -> (,addr) <$> m) res
-          when (not $ null noDataAddrs) $
-              logDebug $ sformat
-                  ("No data "%build%" for keys "%listJson)
-                  rmTag noDataAddrs
-          mapM_ (send . constructDataMsg) datas
+          -- TODO remove this msg when InvMsg datatype will contain only one key
+          when (NE.length rmKeys /= 1) $
+              logWarning $ "ReqMsg constains more than one key, we'll handle only first"
+          let rmKey = rmKeys NE.!! 0
+          dtMB <- handleReq rmTag rmKey
+          case dtMB of
+              Nothing ->
+                  logDebug $ sformat ("We don't have data "%build%" for key "%build) rmTag rmKey
+              Just dt -> do
+                  logDebug $ sformat ("We have data "%build%" for key "%build) rmTag rmKey
+                  send $ constructDataMsg dt
   where
-    constructDataMsg :: (contents, key) -> InvOrData tag key contents
-    constructDataMsg = Right . uncurry DataMsg
+    constructDataMsg :: contents -> InvOrData tag key contents
+    constructDataMsg = Right . DataMsg
 
 -- Returns True if we should propagate.
 handleDataL
       :: forall tag key contents ssc m .
       ( Bi (InvMsg key tag)
       , Bi (ReqMsg key tag)
-      , Bi (DataMsg key contents)
+      , Bi (DataMsg contents)
       , MonadDHT m
       , MessagePart tag
       , MessagePart contents
@@ -154,17 +166,18 @@ handleDataL
       , Message NOP
       )
     => RelayProxy key tag contents
-    -> DataMsg key contents
+    -> DataMsg contents
     -> m ()
 handleDataL proxy msg@(DataMsg {..}) =
     processMessage () "Data" dmContents verifyDataContents $ do
         let _ = dataCatchType proxy msg
-        ifM (handleData dmContents dmKey)
-            handleDataLDo $
+        dmKey <- contentsToKey dmContents
+        ifM (handleData dmContents)
+            (handleDataLDo dmKey) $
                 logDebug $ sformat
                     ("Ignoring data "%build%" for key "%build) dmContents dmKey
   where
-    handleDataLDo = do
+    handleDataLDo dmKey = do
         shouldPropagate <- ncPropagation <$> getNodeContext
         if shouldPropagate then do
             tag <- contentsToTag dmContents
@@ -198,7 +211,7 @@ relayListeners
   :: ( MonadDHT m
      , Bi (InvMsg key tag)
      , Bi (ReqMsg key tag)
-     , Bi (DataMsg key contents)
+     , Bi (DataMsg contents)
      , Bi (InvOrData tag key contents)
      , MessagePart contents
      , MessagePart tag
@@ -223,7 +236,8 @@ relayListeners proxy = mergeLs [handleReqL proxy, invDataListener]
                 useful <- handleInvL proxy inv
                 whenJust (NE.nonEmpty useful) $ \ne -> do
                     send $ ReqMsg imTag ne
-                    whenJustM recv $ expectRight $ \dt@DataMsg{..} -> handleDataL proxy dt
+                    whenJustM recv $ expectRight $
+                        \dt@DataMsg{..} -> handleDataL proxy dt
 
     expectLeft call (Left msg) = call msg
     expectLeft _ (Right _)     = throw UnexpectedData
@@ -236,7 +250,7 @@ relayStubListeners
     :: ( WithLogger m
        , Bi (InvMsg key tag)
        , Bi (ReqMsg key tag)
-       , Bi (DataMsg key contents)
+       , Bi (DataMsg contents)
        , Message (InvOrData tag key contents)
        , Message (ReqMsg key tag)
        )
@@ -245,10 +259,6 @@ relayStubListeners p = mergeLs
     [ stubListenerConv $ invDataMsgProxy p
     , stubListenerConv $ reqMsgProxy p
     ]
-
-filterSecond :: (b -> Bool) -> [(a,b)] -> [a]
-filterSecond predicate = map fst . filter (predicate . snd)
-
 
 invCatchType :: RelayProxy key tag contents -> InvMsg key tag -> ()
 invCatchType _ _ = ()
@@ -259,7 +269,7 @@ reqMsgProxy :: RelayProxy key tag contents
             -> Proxy (InvOrData tag key contents, ReqMsg key tag)
 reqMsgProxy _ = Proxy
 
-dataCatchType :: RelayProxy key tag contents -> DataMsg key contents -> ()
+dataCatchType :: RelayProxy key tag contents -> DataMsg ontents -> ()
 dataCatchType _ _ = ()
 
 invDataMsgProxy :: RelayProxy key tag contents
@@ -327,7 +337,7 @@ invReqDataFlow what sendActions addr tag id dt = handleAll handleE $
         send $ Left $ InvMsg tag (one id)
         recv >>= maybe (handleE ("node didn't reply by ReqMsg"::Text)) (replyByData ca)
     replyByData ca (ReqMsg _ _) = do
-      send ca $ Right $ DataMsg dt id
+      send ca $ Right $ DataMsg dt
     handleE e =
       logWarning $
         sformat ("Error sending"%stext%", id = "%build%" to "%shown%": "%shown) what id addr e

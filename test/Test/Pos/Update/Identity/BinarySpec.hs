@@ -34,7 +34,7 @@ spec =
       describe "Network" $ do
         networkBinaryTest @(R.InvMsg U.VoteId U.VoteMsgTag)
         networkBinaryTest @(R.ReqMsg U.VoteId U.VoteMsgTag)
-        networkBinaryTest @(R.DataMsg U.VoteId U.UpdateVote)
+        networkBinaryTest @(R.DataMsg U.UpdateVote)
         networkBinaryTest @(R.InvMsg U.UpId U.ProposalMsgTag)
         networkBinaryTest @(R.ReqMsg U.UpId U.ProposalMsgTag)
-        -- networkBinaryTest @(R.DataMsg U.UpId (U.UpdateProposal, [U.UpdateVote]))
+        networkBinaryTest @(R.DataMsg (U.UpdateProposal, [U.UpdateVote]))

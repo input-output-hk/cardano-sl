@@ -29,10 +29,10 @@ import           Pos.Types                  (Coin, SoftwareVersion, makePubKeyAd
                                              mkCoin)
 import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web.Api         (walletApi)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile,
-                                             CRedemptionData, CTx, CTxId, CTxMeta,
-                                             CUpdateInfo, CWallet, CWalletInit,
-                                             CWalletMeta, addressToCAddress)
+import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile, CTx,
+                                             CTxId, CTxMeta, CUpdateInfo, CWallet,
+                                             CWalletInit, CWalletMeta, CWalletRedeem (..),
+                                             addressToCAddress)
 import           Pos.Wallet.Web.Error       (WalletError)
 
 walletDocs :: API
@@ -167,14 +167,10 @@ instance ToCapture (Capture "currency" CCurrency) where
         , _capDesc = "Currency"
         }
 
-instance ToCapture (Capture "seed" Text) where
-    toCapture Proxy =
-        DocCapture
-        { _capSymbol = "seed"
-        , _capDesc = "Seed to redeem the ADA"
-        }
-
 instance ToSample WalletError where
+    toSamples Proxy = notImplemented
+
+instance ToSample CWalletRedeem where
     toSamples Proxy = notImplemented
 
 instance ToSample Coin where
@@ -232,9 +228,6 @@ instance ToSample BackupPhrase where
 
 instance ToSample SoftwareVersion where
     toSamples Proxy = singleSample curSoftwareVersion
-
-instance ToSample CRedemptionData where
-    toSamples Proxy = notImplemented
 
 --
 --instance ToSample Tx where

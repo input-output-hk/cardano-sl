@@ -15,7 +15,7 @@ import           Universum
 import           Pos.Communication.Message     ()
 import           Pos.Communication.Protocol    (OutSpecs, convH, toOutSpecs)
 import           Pos.Communication.Types.Relay (InvOrData, ReqMsg)
-import           Pos.Ssc.GodTossing.Types      (GtMsgContents (..), GtMsgTag (..))
+import           Pos.Ssc.GodTossing.Types      (GtMsgContents (..), GtTag (..))
 import           Pos.Txp.Types.Communication   (TxMsgContents (..), TxMsgTag (..))
 import           Pos.Types                     (StakeholderId, TxId)
 import           Pos.Update.Core.Types         (UpId, UpdateProposal, UpdateVote, VoteId)
@@ -45,5 +45,5 @@ allOutSpecs = mconcat [
       sendTxOuts
     , sendVoteOuts
     , sendProposalOuts
-    , createOutSpecs (Proxy :: Proxy (InvOrData GtMsgTag StakeholderId GtMsgContents))
+    , createOutSpecs (Proxy :: Proxy (InvOrData GtTag StakeholderId GtMsgContents))
     ]

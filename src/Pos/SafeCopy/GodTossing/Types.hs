@@ -6,10 +6,9 @@ module Pos.SafeCopy.GodTossing.Types
        (
        ) where
 
-import           Data.SafeCopy                  (base, deriveSafeCopySimple)
+-- import           Data.SafeCopy                  (base, deriveSafeCopySimple)
 
-import           Pos.SafeCopy.GodTossing.Base   ()
-import           Pos.Ssc.GodTossing.Types.Types (GtPayload (..), GtProof (..))
+-- import           Pos.SafeCopy.GodTossing.Base   ()
+-- import           Pos.Ssc.GodTossing.Types.Types (GtPayload (..), GtProof (..))
 
-deriveSafeCopySimple 0 'base ''GtProof
-deriveSafeCopySimple 0 'base ''GtPayload
+-- deriveSafeCopySimple 0 'base ''GtProof

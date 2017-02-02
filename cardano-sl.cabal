@@ -35,7 +35,8 @@ Flag with-wallet
   description: Build with wallet.
 
 library
-  exposed-modules:      Pos.Binary
+  exposed-modules:      Pos.Aeson
+                        Pos.Binary
                         Pos.Block.Arbitrary
                         Pos.Block.Network
                         Pos.CLI
@@ -70,13 +71,12 @@ library
                         Pos.Lrc
                         Pos.Lrc.FollowTheSatoshi
 
+                        -- Scripting
                         Pos.Script
                         Pos.Script.Examples
                         Pos.Script.Type
-                        Pos.Ssc.Class
-                        Pos.Ssc.GodTossing
-                        Pos.Ssc.NistBeacon
-                        Pos.Ssc.SscAlgo
+
+                        -- Something
                         Pos.Launcher
                         Pos.Merkle
                         Pos.Security
@@ -85,20 +85,28 @@ library
                         Pos.Security.Util
                         Pos.Security.Workers
                         Pos.Slotting
-                        Pos.Ssc.Class.Types
-                        Pos.Ssc.Class.Helpers
-                        Pos.Ssc.Class.Storage
-                        Pos.Ssc.Class.Workers
-                        Pos.Ssc.Class.Listeners
-                        Pos.Ssc.Class.LocalData
+
+                        -- SSC
+                        Pos.Ssc.Arbitrary
+                        Pos.Ssc.Class
+                        Pos.Ssc.GodTossing
+                        Pos.Ssc.NistBeacon
+                        Pos.Ssc.SscAlgo
                         Pos.Ssc.Extra
+
+                        -- Something
                         Pos.Statistics
+                        Pos.Txp
                         Pos.Txp.Listeners
                         Pos.Types
                         Pos.Types.Address
                         Pos.Types.Arbitrary
                         Pos.Types.Arbitrary.Unsafe
                         Pos.Types.Block
+                        Pos.Types.Block.Class
+                        Pos.Types.Block.Types
+                        Pos.Types.Block.Functions
+                        Pos.Types.Block.Instances
                         Pos.Types.Coin
                         Pos.Types.Slotting
                         Pos.Types.Timestamp
@@ -132,6 +140,8 @@ library
                         -- Binary serialization
                         Pos.Binary.Address
                         Pos.Binary.Block
+                        Pos.Binary.Block.Types
+                        Pos.Binary.Block.Block
                         Pos.Binary.Class
                         Pos.Binary.Coin
                         Pos.Binary.Crypto
@@ -143,7 +153,7 @@ library
                         Pos.Binary.Relay
                         Pos.Binary.Script
                         Pos.Binary.Ssc
-                        Pos.Binary.Ssc.GodTossing.Base
+                        Pos.Binary.Ssc.GodTossing.Core
                         Pos.Binary.Types
                         Pos.Binary.Update
                         Pos.Binary.Util
@@ -262,30 +272,46 @@ library
                         Pos.SafeCopy.Update
 
                         -- SSC
+                        Pos.Ssc.Class.Types
+                        Pos.Ssc.Class.Helpers
+                        Pos.Ssc.Class.Storage
+                        Pos.Ssc.Class.Workers
+                        Pos.Ssc.Class.Listeners
+                        Pos.Ssc.Class.LocalData
+
+                        Pos.Ssc.Extra.Class
                         Pos.Ssc.Extra.Holder
-                        Pos.Ssc.Extra.MonadGS
-                        Pos.Ssc.Extra.MonadLD
-                        Pos.Ssc.GodTossing.Richmen
+                        Pos.Ssc.Extra.Logic
+                        Pos.Ssc.Extra.Types
+
                         Pos.Ssc.GodTossing.Arbitrary
+                        Pos.Ssc.GodTossing.Core
+                        Pos.Ssc.GodTossing.Core.Core
+                        Pos.Ssc.GodTossing.Core.Types
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions
                         Pos.Ssc.GodTossing.Genesis
+                        Pos.Ssc.GodTossing.GState
                         Pos.Ssc.GodTossing.Listeners
                         Pos.Ssc.GodTossing.LocalData
-                        Pos.Ssc.GodTossing.LocalData.Helpers
-                        Pos.Ssc.GodTossing.LocalData.LocalData
+                        Pos.Ssc.GodTossing.LocalData.Logic
                         Pos.Ssc.GodTossing.LocalData.Types
+                        Pos.Ssc.GodTossing.Richmen
                         Pos.Ssc.GodTossing.SecretStorage
                         Pos.Ssc.GodTossing.Seed
                         Pos.Ssc.GodTossing.Shares
-                        Pos.Ssc.GodTossing.Storage
+                        Pos.Ssc.GodTossing.Toss
+                        Pos.Ssc.GodTossing.Toss.Base
+                        Pos.Ssc.GodTossing.Toss.Class
+                        Pos.Ssc.GodTossing.Toss.Failure
+                        Pos.Ssc.GodTossing.Toss.Logic
+                        Pos.Ssc.GodTossing.Toss.Pure
+                        Pos.Ssc.GodTossing.Toss.Trans
+                        Pos.Ssc.GodTossing.Toss.Types
+                        Pos.Ssc.GodTossing.Type
                         Pos.Ssc.GodTossing.Types
-                        Pos.Ssc.GodTossing.Types.Base
-                        Pos.Ssc.GodTossing.Types.Instance
                         Pos.Ssc.GodTossing.Types.Message
-                        Pos.Ssc.GodTossing.Types.Type
                         Pos.Ssc.GodTossing.Types.Types
-                        Pos.Ssc.GodTossing.Utils
                         Pos.Ssc.GodTossing.VssCertData
                         Pos.Ssc.GodTossing.Workers
 
@@ -296,6 +322,7 @@ library
                         Pos.Statistics.Tx
 
                         -- Txp
+                        Pos.Txp.Arbitrary
                         Pos.Txp.Class
                         Pos.Txp.Error
                         Pos.Txp.Holder
@@ -411,7 +438,13 @@ library
                       , base
                       , base58-bytestring
                       , base64-bytestring
-                      , binary
+                      -- This constraint on 'binary' is so strict because
+                      -- we're relying on the internal representation of
+                      -- 'Get' in Pos.Util.Binary. So, if you need to bump
+                      -- this constraint, first check that all code in
+                      -- Pos.Util.Binary that has been ripped from 'binary'
+                      -- hasn't changed upstream.
+                      , binary == 0.8.3.*
                       , binary-conduit >= 1.2.4.1
                       , binary-orphans
                       , bytestring
@@ -443,7 +476,7 @@ library
                       , lens
                       , lifted-async
                       , list-t
-                      , log-warper >= 0.1.0
+                      , log-warper
                       , lrucache
                       , memory
                       , mmorph
@@ -542,7 +575,7 @@ executable cardano-node
                      , filepath
                      , formatting
                      , lens
-                     , log-warper >= 0.1.0
+                     , log-warper
                      , network-transport
                      , node-sketch
                      , optparse-simple
@@ -593,7 +626,7 @@ executable cardano-analyzer
                      , bytestring
                      , cardano-sl
                      , formatting
-                     , log-warper >= 0.1.0
+                     , log-warper
                      , optparse-simple
                      , serokell-util
                      , text
@@ -648,7 +681,7 @@ executable cardano-wallet
                      , formatting
                      , lens
                      , lifted-async
-                     , log-warper >= 0.1.0
+                     , log-warper
                      , mtl
                      , network-transport
                      , node-sketch
@@ -696,6 +729,8 @@ executable cardano-wallet
   if flag(with-web)
     cpp-options: -DWITH_WEB
 
+  if !os(windows)
+    build-depends: unix
 
 executable cardano-wallet-hs2purs
   hs-source-dirs:      src/wallet-purescript
@@ -758,7 +793,7 @@ executable cardano-smart-generator
                      , formatting
                      , lens
                      , lifted-async
-                     , log-warper >= 0.1.0
+                     , log-warper
                      , node-sketch
                      , optparse-applicative
                      , parsec
@@ -819,7 +854,7 @@ executable cardano-dht-keygen
                      , kademlia
                      , lens
                      , lifted-async
-                     , log-warper >= 0.1.0
+                     , log-warper
                      , optparse-applicative
                      , parsec
                      , random
@@ -1063,6 +1098,7 @@ test-suite cardano-test
                        Test.Pos.Ssc.GodTossing.SeedSpec
                        Test.Pos.Ssc.GodTossing.Types.BaseSpec
                        Test.Pos.Ssc.GodTossing.VssCertDataSpec
+                       Test.Pos.Txp.Identity.BinarySpec
                        Test.Pos.Types.AddressSpec
                        Test.Pos.Types.BlockSpec
                        Test.Pos.Types.Identity.BinarySpec
@@ -1087,7 +1123,7 @@ test-suite cardano-test
                      , formatting
                      , hspec
                      , lens
-                     , log-warper >= 0.1.0
+                     , log-warper
                      , memory
                      , mtl
                      , node-sketch
@@ -1147,7 +1183,7 @@ benchmark cardano-bench-criterion
                      , formatting
                      , hashtables
                      , lens
-                     , log-warper >= 0.1.0
+                     , log-warper
                      , serokell-util
                      , text-format
                      , universum >= 0.1.11

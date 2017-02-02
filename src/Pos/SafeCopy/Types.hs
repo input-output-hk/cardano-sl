@@ -14,6 +14,7 @@ import           Universum
 
 import           Pos.Ssc.Class.Types   (Ssc (..))
 -- FIXME
+import           Pos.Types.Block
 import           Pos.Types.Core
 import           Pos.Types.Types
 import           Pos.Update.Core.Types

@@ -40,7 +40,7 @@ import           Pos.Delegation              (DelegationT (..))
 import           Pos.DHT.Model               (MonadDHT)
 import           Pos.DHT.Real                (KademliaDHT (..))
 import           Pos.Slotting                (MonadSlots, getCurrentSlot)
-import           Pos.Ssc.Class.Types         (Ssc)
+import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
 import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp.Class               (getMemPool, getUtxoView)
 import qualified Pos.Txp.Holder              as Modern
@@ -138,7 +138,7 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
             deriveAddrHistory addr chain
     saveTx _ = pure ()
 
-instance (Ssc ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
+instance (SscHelpersClass ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
          => MonadTxHistory (Modern.TxpLDHolder ssc m) where
     getTxHistory addr = do
         bot <- GS.getBot
@@ -203,7 +203,7 @@ instance MonadIO m => MonadBlockchainInfo (WalletDB m) where
     localChainDifficulty = notImplemented
 
 -- | Helpers for avoiding copy-paste
-topHeader :: (Ssc ssc, MonadDB ssc m) => m (BlockHeader ssc)
+topHeader :: (SscHelpersClass ssc, MonadDB ssc m) => m (BlockHeader ssc)
 topHeader = maybeThrow (DBMalformed "No block with tip hash!") =<<
             DB.getBlockHeader =<< GS.getTip
 
@@ -215,7 +215,7 @@ recoveryHeader = PC.getNodeContext >>=
                  return . fmap snd
 
 -- | Instance for full-node's ContextHolder
-instance ( Ssc ssc
+instance ( SscHelpersClass ssc
          , Mockable CurrentTime m
          , MonadDB ssc m
          , MonadThrow m

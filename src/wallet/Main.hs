@@ -18,6 +18,10 @@ import           Mockable                  (delay)
 import           Options.Applicative       (execParser)
 import           System.IO                 (hFlush, stdout)
 import           Universum
+#if !(defined(mingw32_HOST_OS) && defined(__MINGW32__))
+import           System.Exit               (ExitCode (ExitSuccess))
+import           System.Posix.Process      (exitImmediately)
+#endif
 
 import qualified Pos.CLI                   as CLI
 import           Pos.Communication         (OutSpecs, SendActions, Worker', WorkerSpec,
@@ -82,6 +86,7 @@ runCmd sendActions (Vote idx decision upid) = do
             lift $ submitVote sendActions na voteUpd
             putText "Submitted vote"
 runCmd sendActions ProposeUpdate{..} = do
+    putText "Proposing update..."
     (skeys, na) <- ask
     (diffFile :: Maybe (Hash Raw)) <- runMaybeT $ do
         filePath <- MaybeT $ pure puFilePath
@@ -175,10 +180,14 @@ evalCommands sa = do
 initialize :: WalletMode ssc m => WalletOptions -> m [DHTNode]
 initialize WalletOptions{..} = do
     -- Wait some time to ensure blockchain is fetched
-    putText $ sformat ("Started node. Waiting for "%int%" slots...") woInitialPause
-    slotDuration <- getSlotDuration
-    delay (fromIntegral woInitialPause * slotDuration)
-    discoverPeers
+    unless (woInitialPause == 0) $ do
+        putText $ sformat ("Started node. Waiting for "%int%" slots...") woInitialPause
+        slotDuration <- getSlotDuration
+        delay (fromIntegral woInitialPause * slotDuration)
+    putText "Discovering peers"
+    peers <- discoverPeers
+    putText "Peer discovery completed"
+    pure peers
 
 runWalletRepl :: WalletMode ssc m => WalletOptions -> Worker' m
 runWalletRepl wo sa = do
@@ -197,6 +206,10 @@ runWalletCmd wo str sa = do
             Right cmd' -> runCmd sa cmd'
     putText "Command execution finished"
     putText " " -- for exit by SIGPIPE
+#if !(defined(mingw32_HOST_OS) && defined(__MINGW32__))
+    delay $ sec 5
+    liftIO $ exitImmediately ExitSuccess
+#endif
 
 main :: IO ()
 main = do

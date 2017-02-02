@@ -13,7 +13,7 @@ import           Pos.Communication.Types.Protocol (NOP)
 import           Pos.Communication.Types.Relay    (DataMsg, InvOrData, ReqMsg)
 import           Pos.Communication.Types.SysStart (SysStartRequest, SysStartResponse)
 import           Pos.Delegation.Types             (ConfirmProxySK, SendProxySK)
-import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents, GtMsgTag)
+import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents, GtTag)
 import           Pos.Txp.Types.Communication      (TxMsgContents, TxMsgTag)
 import           Pos.Update.Core.Types            (UpdateProposal, UpdateVote)
 import           Pos.Update.Network.Types         (ProposalMsgTag, VoteMsgTag)
@@ -81,10 +81,10 @@ instance (MessagePart tag) =>
     formatMessage _ = "Request"
 
 instance (MessagePart contents) =>
-         Message (DataMsg key contents) where
+         Message (DataMsg contents) where
     messageName p = varIntMName 10 <> pMessageName (contentsM p)
       where
-        contentsM :: Proxy (DataMsg key contents) -> Proxy contents
+        contentsM :: Proxy (DataMsg contents) -> Proxy contents
         contentsM _ = Proxy
     formatMessage _ = "Data"
 
@@ -111,7 +111,7 @@ instance MessagePart VoteMsgTag where
 instance MessagePart UpdateVote where
     pMessageName _ = varIntMName 2
 
-instance MessagePart GtMsgTag where
+instance MessagePart GtTag where
     pMessageName _ = varIntMName 3
 
 instance MessagePart GtMsgContents where

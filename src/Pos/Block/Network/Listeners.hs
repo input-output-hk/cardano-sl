@@ -31,7 +31,7 @@ import           Pos.Communication.Protocol  (ConversationActions (..), HandlerS
 import           Pos.Communication.Util      (stubListenerConv)
 import qualified Pos.DB                      as DB
 import           Pos.DB.Error                (DBError (DBMalformed))
-import           Pos.Ssc.Class.Types         (Ssc)
+import           Pos.Ssc.Class.Helpers       (SscHelpersClass)
 import           Pos.Util                    (NewestFirst (..))
 import           Pos.WorkMode                (WorkMode)
 
@@ -45,7 +45,7 @@ blockListeners = mergeLs
     ]
 
 blockStubListeners
-    :: ( Ssc ssc, WithLogger m )
+    :: ( SscHelpersClass ssc, WithLogger m )
     => Tagged ssc ([ListenerSpec m], OutSpecs)
 blockStubListeners = unproxy $ \sscProxy -> mergeLs
     [ stubListenerConv $ (const Proxy :: Proxy ssc -> Proxy (MsgGetHeaders, MsgHeaders ssc)) sscProxy
@@ -54,17 +54,17 @@ blockStubListeners = unproxy $ \sscProxy -> mergeLs
     ]
 
 stubListenerConv'
-    :: (Ssc ssc, WithLogger m)
+    :: (SscHelpersClass ssc, WithLogger m)
     => Tagged ssc (ListenerSpec m, OutSpecs)
-stubListenerConv' = unproxy $ \(sscProxy :: Proxy ssc) ->
+stubListenerConv' = unproxy $ \(_ :: Proxy ssc) ->
     reify (0 :: Byte) $ \(_ :: Proxy s0) ->
         let rcvName = messageName (Proxy :: Proxy MsgGetBlocks)
             sndName = messageName (Proxy :: Proxy (MsgBlock a b))
             listener _ = N.ListenerActionConversation $
-              \_d __nId (convActions :: N.ConversationActions
-                                           PeerData
-                                           (MsgBlock s0 ssc)
-                                           MsgGetBlocks m) ->
+              \_d __nId (_convActions :: N.ConversationActions
+                                             PeerData
+                                             (MsgBlock s0 ssc)
+                                             MsgGetBlocks m) ->
                   modifyLoggerName (<> "stub") $
                         logDebug $ sformat
                             ("Stub listener ("%build%", Conv "%build%"): received message")
@@ -84,7 +84,7 @@ handleGetHeaders = listenerConv $ \_ __peerId conv ->
 
 handleGetBlocks
     :: forall ssc m.
-       (Ssc ssc, WorkMode ssc m)
+       (WorkMode ssc m)
     => (ListenerSpec m, OutSpecs)
 handleGetBlocks =
     -- NB #put_checkBlockSize: We can use anything as maxBlockSize

@@ -35,16 +35,12 @@ instance (Arbitrary key, Arbitrary tag) => Arbitrary (ReqMsg key tag) where
     arbitrary = ReqMsg <$> arbitrary <*> arbitrary
 
 -- | Data message. Can be used to send actual data.
-data DataMsg key contents = DataMsg
+data DataMsg contents = DataMsg
     { dmContents :: !contents
-    , dmKey      :: !key
-    }
+    } deriving (Show, Eq)
 
-type InvOrData tag key contents = Either (InvMsg key tag) (DataMsg key contents)
+type InvOrData tag key contents = Either (InvMsg key tag) (DataMsg contents)
 
-deriving instance (Show key, Show contents) => Show (DataMsg key contents)
-deriving instance (Eq key, Eq contents) => Eq (DataMsg key contents)
-
-instance (Buildable key, Buildable contents) => Buildable (DataMsg key contents) where
-    build (DataMsg key contents) =
-        bprint ("key = "%build%", contents = "%build) key contents
+instance (Buildable contents) =>
+         Buildable (DataMsg contents) where
+    build (DataMsg contents) = bprint ("Data {" %build % "}") contents

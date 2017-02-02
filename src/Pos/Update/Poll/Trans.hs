@@ -35,7 +35,7 @@ import           Pos.Crypto                  (hash)
 import           Pos.DB.Class                (MonadDB)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..))
+import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Txp.Class               (MonadTxpLD (..))
 import           Pos.Types                   (SoftwareVersion (..))
 import           Pos.Types.Utxo.Class        (MonadUtxo, MonadUtxoRead)
@@ -66,7 +66,7 @@ newtype PollT m a = PollT
     } deriving (Functor, Applicative, Monad, MonadThrow, MonadSlots,
                 MonadCatch, MonadIO, HasLoggerName, MonadTrans, MonadError e,
                 WithNodeContext ssc, MonadJL, CanLog, MonadMask, MonadUSMem,
-                MonadSscLD kek, MonadSscGS ssc, MonadUtxoRead, MonadUtxo,
+                MonadSscMem mem, MonadUtxoRead, MonadUtxo,
                 MonadTxpLD ssc, MonadBase io, MonadDelegation, MonadFix)
 
 ----------------------------------------------------------------------------

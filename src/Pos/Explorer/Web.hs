@@ -5,3 +5,4 @@ module Pos.Explorer.Web
        ) where
 
 import           Pos.Explorer.Web.Server
+import           Pos.Explorer.Web.Transform

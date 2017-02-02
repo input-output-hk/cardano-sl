@@ -1,20 +1,24 @@
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE TypeOperators   #-}
 
 -- API server logic
 
-module Pos.Explorer.Web.Server where
+module Pos.Explorer.Web.Server
+       ( explorerServeImpl
+       , explorerApp
+       , explorerHandlers
+       ) where
 
 import           Control.Monad.Catch            (try)
 import           Network.Wai                    (Application)
 import           Servant.API                    ((:<|>) ((:<|>)))
 import           Servant.Server                 (Handler, Server, ServerT, serve)
-import           Servant.Utils.Enter            ((:~>) (..), enter)
 import           Universum
 
 import           Pos.Communication              (SendActions)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
 import           Pos.Web                        (serveImpl)
-import           Pos.WorkMode                   (ProductionMode (..), WorkMode)
+import           Pos.WorkMode                   (WorkMode)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
@@ -22,7 +26,7 @@ import           Pos.Explorer.Web.ClientTypes   (CBlockEntry (..), CTxEntry (..)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 
 ----------------------------------------------------------------
--- Top level
+-- Top level functionality
 ----------------------------------------------------------------
 
 type ExplorerMode m = WorkMode SscGodTossing m

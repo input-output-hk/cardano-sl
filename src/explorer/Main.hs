@@ -24,7 +24,7 @@ import           Pos.Launcher        (BaseParams (..), LoggingParams (..),
                                       NodeParams (..), RealModeResources,
                                       bracketResources, runNodeProduction,
                                       runTimeLordReal, runTimeSlaveReal, stakesDistr)
-import           Pos.Ssc.Class       (SscListenersClass)
+import           Pos.Ssc.Class       (SscConstraint)
 import           Pos.Ssc.GodTossing  (GtParams (..), SscGodTossing)
 import           Pos.Types           (Timestamp (Timestamp))
 import           Pos.Util            (inAssertMode)
@@ -37,7 +37,7 @@ import           Pos.WorkMode        (ProductionMode, WorkMode)
 import           ExplorerOptions     (Args (..), getExplorerOptions)
 
 getSystemStart
-    :: SscListenersClass ssc
+    :: SscConstraint ssc
     => Proxy ssc -> RealModeResources -> Args -> Production Timestamp
 getSystemStart sscProxy inst args
     | noSystemStart args > 0 = pure $ Timestamp $ sec $ noSystemStart args
@@ -151,9 +151,7 @@ getNodeParams args@Args {..} systemStart = do
 gtSscParams :: Args -> VssKeyPair -> GtParams
 gtSscParams Args {..} vssSK =
     GtParams
-    {
-      gtpRebuildDb  = rebuildDB
-    , gtpSscEnabled = True
+    { gtpSscEnabled = True
     , gtpVssKeyPair = vssSK
     }
 

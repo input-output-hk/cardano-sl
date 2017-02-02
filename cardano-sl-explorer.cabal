@@ -27,6 +27,7 @@ library
                         Pos.Explorer.Web.ClientTypes
   other-modules:        Pos.Explorer.Aeson.ClientTypes
                         Pos.Explorer.Web.Server
+                        Pos.Explorer.Web.Transform
                         Pos.Explorer.Web.Api
                         Pos.Explorer.Web.Error
   build-depends:        base
@@ -34,11 +35,15 @@ library
                       , cardano-sl
                       , exceptions
                       , formatting
-                      , text-format
-                      , universum
+                      , log-warper
+                      , mtl
+                      , node-sketch
                       , servant
                       , servant-server
+                      , stm
+                      , text-format
                       , time
+                      , universum
                       , wai
   hs-source-dirs:       src
   default-language:     Haskell2010

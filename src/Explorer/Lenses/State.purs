@@ -27,6 +27,9 @@ transactionsExpanded = Lens.lens _."transactionsExpanded" (_ { "transactionsExpa
 selectedApiCode :: forall a b r. Lens.Lens { "selectedApiCode" :: a | r } { "selectedApiCode" :: b | r } a b
 selectedApiCode = Lens.lens _."selectedApiCode" (_ { "selectedApiCode" = _ })
 
+searchInput :: forall a b r. Lens.Lens { "searchInput" :: a | r } { "searchInput" :: b | r } a b
+searchInput = Lens.lens _."searchInput" (_ { "searchInput" = _ })
+
 _Curl :: Lens.Prism' DashboardAPICode Prelude.Unit
 _Curl = Lens.prism (Prelude.const Curl) unwrap
   where

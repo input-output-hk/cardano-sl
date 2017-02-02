@@ -4,12 +4,11 @@ import Prelude
 import Control.Monad.Eff.Class (liftEff)
 import DOM (DOM)
 import Data.Lens (set)
+import Explorer.Lenses.State (blocksExpanded, dashboard, searchInput, selectedApiCode, transactionsExpanded, viewStates)
 import Explorer.Routes (Route(..))
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State)
 import Explorer.Util.DOM (scrollTop)
-import Explorer.Lenses.State (viewStates, dashboard, transactionsExpanded
-  , blocksExpanded, selectedApiCode)
 import Network.HTTP.Affjax (AJAX)
 import Pux (EffModel, noEffects)
 
@@ -30,6 +29,8 @@ update (DashboardExpandTransactions toggled) state = noEffects $
     set (viewStates <<< dashboard <<< transactionsExpanded) toggled state
 update (DashboardShowAPICode code) state = noEffects $
     set (viewStates <<< dashboard <<< selectedApiCode) code state
+update (DashboardFocusSearchInput value) state = noEffects $
+    set (viewStates <<< dashboard <<< searchInput) value state
 update NoOp state = noEffects state
 
 

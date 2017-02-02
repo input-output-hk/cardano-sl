@@ -81,6 +81,10 @@
       @neat-span-columns 8;
       @neat-shift 2;
       box: horizontal;
+
+      &.focused {
+        border: 1px solid var(--color0);
+      }
     }
 
     &-input {
@@ -92,6 +96,10 @@
 
       box-item: stretch;
       background-color: transparent;
+
+      &.focused {
+        color: var(--color0);
+      }
 
     }
 

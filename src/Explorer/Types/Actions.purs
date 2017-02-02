@@ -12,4 +12,5 @@ data Action
     | DashboardExpandBlocks Boolean
     | DashboardExpandTransactions Boolean
     | DashboardShowAPICode DashboardAPICode
+    | DashboardFocusSearchInput Boolean
     | NoOp

@@ -2,20 +2,20 @@ module Explorer.View.Dashboard (dashboardView) where
 
 import Prelude
 import Data.Array (slice)
-import Data.Lens ((^.))
+import Data.Lens (Lens', (^.))
 import Data.Map (Map, fromFoldable, lookup, toAscUnfoldable) as M
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Tuple (Tuple(..))
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (age, height, relayedBy, sizeKB, totalSent, transactions, title, subtitle, transactionFeed) as I18nL
-import Explorer.State (dashboardBlocksExpanded, dashboardSelectedApiCode, dashboardTransactionsExpanded)
+import Explorer.Lenses.State (blocksExpanded, dashboard, searchInput, selectedApiCode, transactionsExpanded, viewStates)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.Generated (CCurrency(..))
-import Explorer.Types.State (DashboardAPICode(..), State)
+import Explorer.Types.State (DashboardAPICode(..), State, DashboardViewState)
 import Explorer.View.Common (currencyCSSClass, paginationView)
 import Pux.Html (Html, div, h3, text, h1, h2, input, h4, p, code) as P
 import Pux.Html.Attributes (className, type_, placeholder) as P
-import Pux.Html.Events (onClick) as P
+import Pux.Html.Events (onClick, onFocus, onBlur) as P
 
 dashboardView :: State -> P.Html Action
 dashboardView state =
@@ -64,6 +64,11 @@ headerView state (HeaderOptions options) =
 
 heroView :: State -> P.Html Action
 heroView state =
+    let
+        searchInputFocused = state ^. (dashboardViewState <<< searchInput)
+        focusedClazz = if searchInputFocused then " focused" else ""
+        searchIconClazz = if searchInputFocused then " bg-icon-search-hover" else " bg-icon-search"
+    in
     P.div
         [ P.className "explorer-dashboard__hero" ]
         [ P.div
@@ -75,14 +80,18 @@ heroView state =
                 [ P.className "hero-subheadline"]
                 [ P.text $ translate I18nL.subtitle state.lang ]
             , P.div
-                [ P.className "hero-search-container" ]
+                [ P.className $ "hero-search-container" <> focusedClazz ]
                 [ P.input
-                    [ P.className "hero-input"
+                    [ P.className $ "hero-input" <> focusedClazz
                       , P.type_ "text"
-                      , P.placeholder "# Search for address, block, token" ]
+                      , P.placeholder $ if searchInputFocused
+                                        then ""
+                                        else "# Search for address, block, token"
+                      , P.onFocus <<< const $ DashboardFocusSearchInput true
+                      , P.onBlur <<< const $ DashboardFocusSearchInput false ]
                     []
                 , P.div
-                    [ P.className "hero-search-btn bg-icon-search"
+                    [ P.className $ "hero-search-btn" <> searchIconClazz <> focusedClazz
                     , P.onClick $ const Search ]
                     []
                 ]
@@ -198,7 +207,8 @@ blocksView state =
             { headline: "#Last Blocks"
             , link: Just $ HeaderLink { label: "#Explore blocks", action: NoOp }
             }
-        expanded = state ^. dashboardBlocksExpanded
+        -- expanded = state ^. dashboardBlocksExpanded
+        expanded = state ^. (viewStates <<< dashboard <<< searchInput)
 
         blockItems' :: BlockItems
         blockItems' = if expanded
@@ -504,3 +514,18 @@ apiCodeSnippetView headline snippet =
             [ P.text snippet ]
 
         ]
+
+
+-- lenses
+
+dashboardViewState :: Lens' State DashboardViewState
+dashboardViewState = viewStates <<< dashboard
+
+dashboardBlocksExpanded :: Lens' State Boolean
+dashboardBlocksExpanded = dashboardViewState <<< blocksExpanded
+
+dashboardTransactionsExpanded :: Lens' State Boolean
+dashboardTransactionsExpanded = dashboardViewState <<< transactionsExpanded
+
+dashboardSelectedApiCode :: Lens' State DashboardAPICode
+dashboardSelectedApiCode = dashboardViewState <<< selectedApiCode

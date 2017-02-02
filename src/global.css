@@ -128,8 +128,8 @@
 
 @svg-load arrow-right-hover url('../static/images/arrow-right.svg') {
   g:nth-child(1) {
-      fill: var(--color2);
-      fill-opacity: 0.5;
+    fill: var(--color2);
+    fill-opacity: 0.5;
   }
 };
 
@@ -142,17 +142,24 @@
 
 @svg-load icon-search url('../static/images/search-ic.svg') {
   g:nth-child(1) {
-      fill: var(--color0);
-      fill-opacity: 0.7;
+    fill: var(--color0);
+    fill-opacity: 0.5;
   }
 };
-@svg-load icon-search-hover url('../static/images/search-ic.svg');
 
 .bg-icon-search {
   background-image: svg-inline(icon-search);
-  &:hover {
-    background-image: svg-inline(icon-search-hover);
+}
+
+@svg-load icon-search-hover url('../static/images/search-ic.svg') {
+  g:nth-child(1) {
+    fill: var(--color0);
+    fill-opacity: 1;
   }
+};
+
+.bg-icon-search-hover {
+  background-image: svg-inline(icon-search-hover);
 }
 /* ---------------------------
   components

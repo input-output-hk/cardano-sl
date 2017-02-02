@@ -20,6 +20,7 @@ type DashboardViewState =
     { blocksExpanded :: Boolean
     , transactionsExpanded :: Boolean
     , selectedApiCode :: DashboardAPICode
+    , searchInput :: Boolean
     }
 
 data DashboardAPICode = Curl | Node | JQuery

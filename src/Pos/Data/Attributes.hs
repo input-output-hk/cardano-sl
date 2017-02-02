@@ -82,7 +82,7 @@ getAttributes keyGetMapper maxLen initData =
                     Nothing -> return dat
                     Just gh -> getWord8 >> gh >>= readWhileKnown
         attrData <- readWhileKnown initData
-        attrRemain <- BSL.toStrict <$> G.getRemainingLazyByteString
+        attrRemain <- getRemainingByteString
         return $ Attributes {..}
 
 -- | Generate 'Put' given the way to serialize inner attribute value

@@ -25,9 +25,13 @@ module Pos.Util.Binary
        -- * Limiting serialization
        , limitGet
        , isolate64
+
+       -- * Other binary utils
+       , getRemainingByteString
        ) where
 
 import           Formatting               ((%), formatToString, int)
+import           Data.Binary.Get          (getRemainingLazyByteString)
 import           Data.Binary.Get.Internal (Decoder (..), Get, runCont)
 import           Data.Binary.Put          (PutM, putLazyByteString, runPutM)
 import qualified Data.ByteString          as BS
@@ -177,6 +181,13 @@ isolate64 n0 act
   go _ (Fail bs err) = pushFront bs >> fail err
   go n (BytesRead r resume) =
     go n (resume $! n0 - n - r)
+
+----------------------------------------------------------------------------
+-- Other binary utils
+----------------------------------------------------------------------------
+
+getRemainingByteString :: Get ByteString
+getRemainingByteString = BSL.toStrict <$> getRemainingLazyByteString
 
 ----------------------------------------------------------------------------
 -- Guts of 'binary'

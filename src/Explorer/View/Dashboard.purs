@@ -207,8 +207,7 @@ blocksView state =
             { headline: "#Last Blocks"
             , link: Just $ HeaderLink { label: "#Explore blocks", action: NoOp }
             }
-        -- expanded = state ^. dashboardBlocksExpanded
-        expanded = state ^. (viewStates <<< dashboard <<< searchInput)
+        expanded = state ^. dashboardBlocksExpanded
 
         blockItems' :: BlockItems
         blockItems' = if expanded

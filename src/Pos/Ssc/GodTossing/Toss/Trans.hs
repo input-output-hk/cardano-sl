@@ -108,7 +108,12 @@ instance MonadToss m =>
         TossT $ tmOpenings . at id .= Nothing
     delShares id =
         TossT $ tmShares . at id .= Nothing
-    resetCOS = TossT resetCOS
+    resetCOS = TossT $ do
+        tmCommitments .= mempty
+        tmOpenings .= mempty
+        tmShares .= mempty
+        tmCertificates .= mempty
+        resetCOS
     setEpochOrSlot = TossT . setEpochOrSlot
 
 ----------------------------------------------------------------------------

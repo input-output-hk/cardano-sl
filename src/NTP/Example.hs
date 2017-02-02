@@ -14,7 +14,7 @@ module NTP.Example
     ) where
 
 import           Data.Default        (def)
-import           System.Wlog         (Severity (..), initLogging, usingLoggerName)
+import           System.Wlog         (Severity (..), initTerminalLogging, usingLoggerName)
 
 import           Mockable.Instances  ()
 import           Mockable.Production (runProduction)
@@ -23,5 +23,5 @@ import           NTP.Client          (NtpClientSettings (..), NtpStopButton (..)
 
 runNtpClientIO :: NtpClientSettings -> IO NtpStopButton
 runNtpClientIO settings = do
-    initLogging Info
+    initTerminalLogging True (Just Info)
     runProduction $ usingLoggerName "ntp-example" $ startNtpClient settings

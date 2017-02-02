@@ -26,8 +26,8 @@ extra-deps:
   - aeson-extra-0.4.0.0
   - data-msgpack-0.0.8
   - recursion-schemes-5.0.1
-  - log-warper-0.3.1
-  - universum-0.2
+  - log-warper-0.4.1
+  - universum-0.2.1
 
 flags: {}
 extra-package-dbs: []

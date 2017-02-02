@@ -22,6 +22,7 @@ module Bench.Network.Commons
        ) where
 
 import           Control.Applicative  ((<|>))
+import           Control.Lens         (zoom, (?=))
 import           Control.Monad        (join)
 import           Control.Monad.Trans  (MonadIO (..))
 
@@ -30,9 +31,7 @@ import           Data.Binary          (Binary)
 import           Data.Binary          (Binary (..))
 import qualified Data.ByteString.Lazy as BL
 import           Data.Data            (Data)
-import           Data.Default         (def)
 import           Data.Functor         (($>))
-import qualified Data.HashMap.Strict  as M
 import           Data.Int             (Int64)
 import           Data.Monoid          ((<>))
 import           Data.Text.Buildable  (Buildable (build))
@@ -41,9 +40,10 @@ import           Data.Time.Units      (toMicroseconds)
 import qualified Formatting           as F
 import           GHC.Generics         (Generic)
 import           Prelude              hiding (takeWhile)
-import           System.Wlog          (LoggerConfig (..), LoggerTree (..), Severity (..),
-                                       WithLogger, logInfo, parseLoggerConfig,
-                                       traverseLoggerConfig)
+import           System.Wlog          (LoggerConfig (..), Severity (..), WithLogger,
+                                       fromScratch, lcTree, logInfo, ltSeverity,
+                                       parseLoggerConfig, productionB, setupLogging,
+                                       zoomLogger)
 
 import           Mockable.CurrentTime (realTime)
 import           Node                 (Message (..))
@@ -82,36 +82,22 @@ logMeasure miEvent miId miPayload = do
     logInfo $ F.sformat F.build $ LogMessage MeasureInfo{..}
 
 defaultLogConfig :: LoggerConfig
-defaultLogConfig = def
-    { lcTree = def
-        { ltSeverity   = Just Warning
-        , ltSubloggers = M.fromList
-            [ withName "sender" def
-                { ltSeverity = Just Info
-                , ltSubloggers = M.fromList
-                    [ withName "comm" def
-                        { ltSeverity = Just Error
-                        }
-                    ]
-                }
-            , withName "receiver" def
-                { ltSeverity = Just Info
-                , ltSubloggers = M.fromList
-                    [ withName "comm" def
-                        { ltSeverity = Just Error
-                        }
-                    ]
-                }
-            ]
-        }
-    }
+defaultLogConfig = fromScratch $ zoom lcTree $ do
+    ltSeverity ?= Warning
+    zoomLogger "sender" $ do
+        ltSeverity ?= Info
+        commLogger
+    zoomLogger "receiver" $ do
+        ltSeverity ?= Info
+        commLogger
   where
-    withName = (,)
+    commLogger = zoomLogger "comm" $ ltSeverity ?= Error
 
 loadLogConfig :: MonadIO m => Maybe FilePath -> Maybe FilePath -> m ()
 loadLogConfig logsPrefix configFile = do
-    LoggerConfig{..} <- maybe (return defaultLogConfig) parseLoggerConfig configFile
-    traverseLoggerConfig id lcRotation lcTree logsPrefix
+    let cfgBuilder = productionB <> (mempty { _lcFilePrefix = logsPrefix })
+    loggerConfig <- maybe (return defaultLogConfig) parseLoggerConfig configFile
+    setupLogging $ loggerConfig <> cfgBuilder
 
 
 -- * Logging & parsing

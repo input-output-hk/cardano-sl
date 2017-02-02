@@ -14,7 +14,7 @@ import           Control.Monad.Trans.Class (MonadTrans)
 import           Data.Default              (def)
 import qualified Data.HashMap.Strict       as HM
 import qualified Data.List                 as List (find)
-import           System.Wlog               (HasLoggerName, CanLog)
+import           System.Wlog               (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Crypto                (hash)

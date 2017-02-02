@@ -26,7 +26,7 @@ module Pos.CLI
 
 import           Universum
 
-import           Data.Default                         (def)
+import           Control.Lens                         (zoom, (?=))
 import           Data.Either                          (either)
 import           Options.Applicative.Builder.Internal (HasMetavar, HasName)
 import qualified Options.Applicative.Simple           as Opt (Mod, Parser, auto, help,
@@ -35,9 +35,10 @@ import qualified Options.Applicative.Simple           as Opt (Mod, Parser, auto,
                                                               strOption, switch, value)
 import           Serokell.Util.OptParse               (fromParsec)
 import qualified Serokell.Util.Parse                  as P
-import           System.Wlog                          (LoggerConfig (..), LoggerTree (..),
+import           System.Wlog                          (LoggerConfig (..),
                                                        Severity (Info, Warning),
-                                                       parseLoggerConfig)
+                                                       fromScratch, lcTree, ltSeverity,
+                                                       parseLoggerConfig, zoomLogger)
 import           Text.ParserCombinators.Parsec        (many1, try)
 import qualified Text.ParserCombinators.Parsec.Char   as P
 
@@ -96,20 +97,9 @@ attackTargetParser = (PubKeyAddressTarget <$> try base58AddrParser) <|>
 -- >     severity: Warning
 --
 defaultLoggerConfig :: LoggerConfig
-defaultLoggerConfig = def { lcTree = defSubloggers }
-  where
-    defSubloggers = def
-        { ltSubloggers = [ ( "node"
-                           , def
-                             { ltSeverity = Just Info
-                             , ltSubloggers = [ ( "comm"
-                                                , def { ltSeverity = Just Warning }
-                                                )
-                                              ]
-                             }
-                           )
-                         ]
-        }
+defaultLoggerConfig = fromScratch $ zoom lcTree $ zoomLogger "node" $ do
+    ltSeverity ?= Info
+    zoomLogger "comm" $ ltSeverity ?= Warning
 
 -- | Reads logger config from given path. By default return 'defaultLoggerConfig'.
 readLoggerConfig :: MonadIO m => Maybe FilePath -> m LoggerConfig

@@ -7,10 +7,11 @@
 
 module Pos.Util.Binary
        (
+         Raw
+
        -- * SafeCopy
-         getCopyBinary
+       , getCopyBinary
        , putCopyBinary
-       , Raw
 
        -- * Binary serialization
        , AsBinary (..)
@@ -21,8 +22,10 @@ module Pos.Util.Binary
        , putWithLength
        , getWithLength
        , getWithLengthLimited
+       , putSmallWithLength
+       , getSmallWithLength
 
-       -- * Limiting serialization
+       -- * Primitives for limiting serialization
        , limitGet
        , isolate64
 
@@ -45,10 +48,15 @@ import           Unsafe.Coerce            (unsafeCoerce)
 import           Pos.Binary.Class         (Bi)
 import qualified Pos.Binary.Class         as Bi
 
+
 -- | A wrapper over 'ByteString' for adding type safety to
 -- 'Pos.Crypto.Pki.encryptRaw' and friends.
 newtype Raw = Raw ByteString
     deriving (Bi, Eq, Ord, Show, Typeable)
+
+----------------------------------------------------------------------------
+-- SafeCopy
+----------------------------------------------------------------------------
 
 -- | A helper for "Data.SafeCopy" that creates 'putCopy' given a 'Binary'
 -- instance.
@@ -63,9 +71,12 @@ getCopyBinary typeName = contain $ do
     case Bi.decodeFull bs of
         Left err -> fail ("getCopy@" ++ typeName ++ ": " ++ err)
         Right x  -> return x
-        --
--- | See `Pos.Crypto.SerTypes` for details on this types
 
+----------------------------------------------------------------------------
+-- Binary serialization
+----------------------------------------------------------------------------
+
+-- | See `Pos.Crypto.SerTypes` for details on this types
 newtype AsBinary a = AsBinary
     { getAsBinary :: ByteString
     } deriving (Show, Eq, Ord, Hashable)
@@ -80,6 +91,10 @@ class AsBinaryClass a where
 
 fromBinaryM :: (AsBinaryClass a, MonadFail m) => AsBinary a -> m a
 fromBinaryM = either fail return . fromBinary
+
+----------------------------------------------------------------------------
+-- Serialization with length
+----------------------------------------------------------------------------
 
 -- | Serialize something together with its length in bytes. The length comes
 -- first.
@@ -111,6 +126,32 @@ getWithLengthLimited lim act = do
                       ("getWithLengthLimited: data ("%int%" bytes) is "%
                        "bigger than the limit ("%int%" bytes)")
                       len lim
+
+-- | Like 'putWithLength', but should only be used for things that take less
+-- than @2^14@ bytes.
+--
+-- Uses 'TinyVarInt' for storing length, thus guaranteeing that it won't take
+-- more than 2 bytes and won't be ambiguous.
+putSmallWithLength :: PutM a -> PutM a
+putSmallWithLength act = do
+    let (res, serialized) = runPutM act
+    let len :: Int64 = BSL.length serialized
+    if len >= 2^(14::Int)
+        then panic ("putSmallWithLength: length is " <> show len <>
+                    ", but maximum allowed is 16383 (2^14-1)")
+        else do Bi.put (Bi.TinyVarInt (fromIntegral len))
+                putLazyByteString serialized
+                return res
+
+-- | Like 'getWithLength' but for 'putSmallWithLength'.
+getSmallWithLength :: Get a -> Get a
+getSmallWithLength act = do
+    Bi.TinyVarInt len <- Bi.get
+    isolate64 (fromIntegral len) act
+
+----------------------------------------------------------------------------
+-- Primitives for limiting serialization
+----------------------------------------------------------------------------
 
 -- | Like 'isolate', but allows consuming less bytes than expected (just not
 -- more).

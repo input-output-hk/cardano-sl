@@ -233,6 +233,7 @@ data Address
           { addrKeyHash :: !(AddressHash PublicKey) }
     | ScriptAddress
           { addrScriptHash :: !(AddressHash Script) }
+    | UnknownAddressType !Word8 !ByteString
     deriving (Eq, Ord, Generic, Typeable)
 
 -- | Stakeholder identifier (stakeholders are identified by their public keys)

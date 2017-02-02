@@ -25,7 +25,7 @@ import           Pos.Binary.Types     ()
 import           Pos.Crypto           (Hash, WithHash (..), checkSig, hash)
 import           Pos.Script           (Script (..), isKnownScriptVersion, txScriptCheck)
 import           Pos.Types.Address    (addressDetailedF, checkPubKeyAddress,
-                                       checkScriptAddress)
+                                       checkScriptAddress, checkUnknownAddressType)
 import           Pos.Types.Coin       (coinToInteger, sumCoins)
 import           Pos.Types.Core       (Address (..), StakeholderId, coinF, mkCoin)
 import           Pos.Types.Types      (Tx (..), TxAux, TxDistribution (..), TxIn (..),
@@ -143,7 +143,8 @@ verifyTxDo verifyAlone _gContext extendedInputs (tx@Tx{..}, witnesses, distrs) =
                          , sformat ("output #"%int%" with pubkey address "%
                                     "has non-empty distribution") i)
                        ]
-                   ScriptAddress _ ->
+                   -- ScriptAddress & UnknownAddressType
+                   _ ->
                        let sumDist = sumCoins (map snd d)
                        in [ (sumDist <= coinToInteger txOutValue,
                              sformat ("output #"%int%" has distribution "%
@@ -205,8 +206,10 @@ verifyTxDo verifyAlone _gContext extendedInputs (tx@Tx{..}, witnesses, distrs) =
                   i err txIn txOut witness)
         ]
 
-    checkAddrHash addr PkWitness{..}     = checkPubKeyAddress twKey addr
-    checkAddrHash addr ScriptWitness{..} = checkScriptAddress twValidator addr
+    checkAddrHash addr wit = case wit of
+        PkWitness{..}          -> checkPubKeyAddress twKey addr
+        ScriptWitness{..}      -> checkScriptAddress twValidator addr
+        UnknownWitnessType t _ -> checkUnknownAddressType t addr
 
     validateTxIn _i TxIn{..} _ PkWitness{..} =
         if checkSig twKey (txInHash, txInIndex, txOutHash, distrsHash) twSig
@@ -221,6 +224,7 @@ verifyTxDo verifyAlone _gContext extendedInputs (tx@Tx{..}, witnesses, distrs) =
         | otherwise =
               let txSigData = (txInHash, txInIndex, txOutHash, distrsHash)
               in txScriptCheck txSigData twValidator twRedeemer
+    validateTxIn _ _ _ UnknownWitnessType{} = Right ()
 
 verifyTxPure :: Bool
              -> VTxGlobalContext

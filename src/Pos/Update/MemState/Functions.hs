@@ -5,19 +5,18 @@ module Pos.Update.MemState.Functions
        , modifyMemPool
        ) where
 
-import qualified Control.Concurrent.Lock      as Lock
-import           Control.Monad.Catch          (MonadMask, bracket_)
-import qualified Data.HashMap.Strict          as HM
+import qualified Control.Concurrent.Lock   as Lock
+import           Control.Monad.Catch       (MonadMask, bracket_)
+import qualified Data.HashMap.Strict       as HM
 import           Universum
 
-import           Pos.Crypto                   (PublicKey, hash)
-import           Pos.Update.Core.Types        (LocalVotes, UpId, UpdatePayload (..),
-                                               UpdateProposal, UpdateVote (..))
-import           Pos.Update.MemState.Class    (MonadUSMem (askUSMemVar))
-import           Pos.Update.MemState.MemState (MemVar (..))
-import           Pos.Update.MemState.Types    (MemPool (..))
-import           Pos.Update.Poll.Types        (PollModifier (..), ProposalState,
-                                               psProposal, psVotes)
+import           Pos.Crypto                (PublicKey, hash)
+import           Pos.Update.Core.Types     (LocalVotes, UpId, UpdatePayload (..),
+                                            UpdateProposal, UpdateVote (..))
+import           Pos.Update.MemState.Class (MonadUSMem (askUSMemVar))
+import           Pos.Update.MemState.Types (MemPool (..), MemVar (..))
+import           Pos.Update.Poll.Types     (PollModifier (..), ProposalState, psProposal,
+                                            psVotes)
 
 type UpdateVotes = HashMap PublicKey UpdateVote
 

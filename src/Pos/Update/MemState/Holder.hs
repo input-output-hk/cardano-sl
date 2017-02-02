@@ -10,32 +10,32 @@ module Pos.Update.MemState.Holder
        , runUSHolderFromVar
        ) where
 
-import           Control.Lens                 (iso)
-import           Control.Monad.Base           (MonadBase (..))
-import           Control.Monad.Fix            (MonadFix)
-import           Control.Monad.Trans.Class    (MonadTrans)
-import           Control.Monad.Trans.Control  (ComposeSt, MonadBaseControl (..),
-                                               MonadTransControl (..), StM,
-                                               defaultLiftBaseWith, defaultLiftWith,
-                                               defaultRestoreM, defaultRestoreT)
-import           Mockable                     (ChannelT, Counter, Distribution, Gauge,
-                                               MFunctor', Mockable (liftMockable),
-                                               Promise, SharedAtomicT, SharedExclusiveT,
-                                               ThreadId, liftMockableWrappedM)
-import           Serokell.Util.Lens           (WrappedM (..))
-import           System.Wlog                  (CanLog, HasLoggerName)
+import           Control.Lens                (iso)
+import           Control.Monad.Base          (MonadBase (..))
+import           Control.Monad.Fix           (MonadFix)
+import           Control.Monad.Trans.Class   (MonadTrans)
+import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
+                                              MonadTransControl (..), StM,
+                                              defaultLiftBaseWith, defaultLiftWith,
+                                              defaultRestoreM, defaultRestoreT)
+import           Mockable                    (ChannelT, Counter, Distribution, Gauge,
+                                              MFunctor', Mockable (liftMockable), Promise,
+                                              SharedAtomicT, SharedExclusiveT, ThreadId,
+                                              liftMockableWrappedM)
+import           Serokell.Util.Lens          (WrappedM (..))
+import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
-import           Pos.Context                  (WithNodeContext)
-import           Pos.DB.Class                 (MonadDB)
-import           Pos.Delegation.Class         (MonadDelegation)
-import           Pos.Slotting                 (MonadSlots (..))
-import           Pos.Ssc.Extra                (MonadSscMem)
-import           Pos.Txp.Class                (MonadTxpLD (..))
-import           Pos.Types.Utxo.Class         (MonadUtxo, MonadUtxoRead)
-import           Pos.Update.MemState.Class    (MonadUSMem (..))
-import           Pos.Update.MemState.MemState (MemVar, newMemVar)
-import           Pos.Util.JsonLog             (MonadJL (..))
+import           Pos.Context                 (WithNodeContext)
+import           Pos.DB.Class                (MonadDB)
+import           Pos.Delegation.Class        (MonadDelegation)
+import           Pos.Slotting                (MonadSlots (..))
+import           Pos.Ssc.Extra               (MonadSscMem)
+import           Pos.Txp.Class               (MonadTxpLD (..))
+import           Pos.Types.Utxo.Class        (MonadUtxo, MonadUtxoRead)
+import           Pos.Update.MemState.Class   (MonadUSMem (..))
+import           Pos.Update.MemState.Types   (MemVar, newMemVar)
+import           Pos.Util.JsonLog            (MonadJL (..))
 
 ----------------------------------------------------------------------------
 -- Transformer

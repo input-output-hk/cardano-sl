@@ -358,7 +358,6 @@ library
                         Pos.Update.MemState.Class
                         Pos.Update.MemState.Functions
                         Pos.Update.MemState.Holder
-                        Pos.Update.MemState.MemState
                         Pos.Update.MemState.Types
                         Pos.Update.Network
                         Pos.Update.Network.Listeners

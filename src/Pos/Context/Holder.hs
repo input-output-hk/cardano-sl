@@ -27,10 +27,10 @@ import           Serokell.Util.Lens        (WrappedM (..))
 import           System.Wlog               (CanLog, HasLoggerName, WithLogger, logWarning)
 import           Universum                 hiding (catchAll)
 
+import           Pos.Constants             (genesisSlotDuration)
 import           Pos.Context.Class         (WithNodeContext (..))
 import           Pos.Context.Context       (NodeContext (..))
-import           Pos.Context.Functions     (readNtpData, readNtpLastSlot, readNtpMargin,
-                                            readSlotDuration)
+import           Pos.Context.Functions     (readNtpData, readNtpLastSlot, readNtpMargin)
 import           Pos.DB.Class              (MonadDB)
 import           Pos.Slotting              (MonadSlots (..), getCurrentSlotUsingNtp)
 import           Pos.Txp.Class             (MonadTxpLD)
@@ -89,7 +89,7 @@ instance (Mockable CurrentTime m, MonadIO m) =>
         ntpData <- readNtpData
         getCurrentSlotUsingNtp lastSlot ntpData
 
-    getSlotDuration = readSlotDuration
+    getSlotDuration = pure genesisSlotDuration
 
 instance (MonadIO m, Mockable Catch m, WithLogger m) => MonadJL (ContextHolder ssc m) where
     jlLog ev = ContextHolder (asks ncJLFile) >>= maybe (pure ()) doLog

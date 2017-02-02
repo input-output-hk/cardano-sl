@@ -8,19 +8,18 @@ module Pos.Wallet.Context.Class
        , readNtpLastSlot
        , readNtpMargin
        , readNtpData
-       , readSlotDuration
        ) where
 
 import qualified Control.Concurrent.STM      as STM
 import           Control.Monad.Trans         (MonadTrans)
-import           Data.Time.Units             (Microsecond, Millisecond)
+import           Data.Time.Units             (Microsecond)
 import           Universum
 
 import           Pos.Communication.PeerState (PeerStateHolder)
 import qualified Pos.Context                 as PC
 import           Pos.Delegation.Holder       (DelegationT (..))
 import           Pos.DHT.Real                (KademliaDHT (..))
-import           Pos.Slotting                (SlottingState (..))
+import           Pos.Slotting                (ssNtpData, ssNtpLastSlot)
 import           Pos.Ssc.Extra               (SscHolder (..))
 import qualified Pos.Txp.Holder              as Modern
 import           Pos.Types                   (SlotId)
@@ -50,21 +49,16 @@ deriving instance (Monad m, WithWalletContext m) => WithWalletContext (KademliaD
 readNtpLastSlot :: (MonadIO m, WithWalletContext m) => m SlotId
 readNtpLastSlot = do
     wc <- getWalletContext
-    atomically $ ssNtpLastSlot <$> STM.readTVar (wcSlottingState wc)
+    atomically $ view ssNtpLastSlot <$> STM.readTVar (wcSlottingState wc)
 
 readNtpMargin :: (MonadIO m, WithWalletContext m) => m Microsecond
 readNtpMargin = do
     wc <- getWalletContext
-    atomically $ fst . ssNtpData <$> STM.readTVar (wcSlottingState wc)
+    atomically $ fst . view ssNtpData <$> STM.readTVar (wcSlottingState wc)
 
 readNtpData
     :: (MonadIO m, WithWalletContext m)
     => m (Microsecond, Microsecond)
 readNtpData = do
     wc <- getWalletContext
-    atomically $ ssNtpData <$> STM.readTVar (wcSlottingState wc)
-
-readSlotDuration :: (MonadIO m, WithWalletContext m) => m Millisecond
-readSlotDuration = do
-    wc <- getWalletContext
-    atomically $ ssSlotDuration <$> STM.readTVar (wcSlottingState wc)
+    atomically $ view ssNtpData <$> STM.readTVar (wcSlottingState wc)

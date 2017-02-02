@@ -127,6 +127,8 @@ library
                         Pos.Util.UserSecret
                         Pos.Util.TimeLimit
                         Pos.Util.TimeWarp
+
+                        -- Worker, work mode
                         Pos.Worker
                         Pos.WorkMode
   if flag(with-web)
@@ -269,6 +271,11 @@ library
                         Pos.SafeCopy.GodTossing.VssCertData
                         Pos.SafeCopy.Types
                         Pos.SafeCopy.Update
+
+                        -- Slotting
+                        Pos.Slotting.Class
+                        Pos.Slotting.Logic
+                        Pos.Slotting.Types
 
                         -- SSC
                         Pos.Ssc.Class.Types

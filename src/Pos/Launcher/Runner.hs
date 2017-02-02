@@ -78,7 +78,6 @@ import           Pos.Context                 (ContextHolder (..), NodeContext (.
 import           Pos.Crypto                  (createProxySecretKey, toPublic)
 import           Pos.DB                      (MonadDB (..), getTip, initNodeDBs,
                                               openNodeDBs, runDBHolder, _gStateDB)
-import qualified Pos.DB.GState               as GState
 import           Pos.DB.Misc                 (addProxySecretKey)
 import           Pos.Delegation.Holder       (runDelegationT)
 import           Pos.DHT.Model               (MonadDHT (..), converseToNeighbors,
@@ -287,10 +286,9 @@ runCH NodeParams {..} sscNodeContext act = do
     queue <- liftIO $ newTBQueueIO blockRetrievalQueueSize
     recoveryHeaderVar <- liftIO newEmptyTMVarIO
     slottingStateVar <- do
-        ssSlotDuration <- GState.getSlotDuration
-        ssNtpData <- (0,) <$> currentTime
+        _ssNtpData <- (0,) <$> currentTime
         -- current time isn't quite validly, but it doesn't matter
-        let ssNtpLastSlot = unflattenSlotId 0
+        let _ssNtpLastSlot = unflattenSlotId 0
         liftIO $ newTVarIO SlottingState{..}
     let ctx =
             NodeContext

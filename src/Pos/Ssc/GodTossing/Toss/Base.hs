@@ -3,28 +3,32 @@
 -- | Basic functionality from Toss.
 
 module Pos.Ssc.GodTossing.Toss.Base
-       ( getCommitment
+       (
+         -- * Trivial functions
+         getCommitment
        , hasCommitment
        , hasOpening
        , hasShares
        , hasCertificate
-       , getParticipants
 
-       , checkCommitmentShares
+       -- * Basic logic
+       , getParticipants
        , matchCommitment
        , checkShares
-
        , computeParticipants
-       , checkCommitmentSharesPure
+       , checkCommitmentShares
        , matchCommitmentPure
        , checkSharesPure
 
-       , verifyEntriesGuardM
+       -- * Payload processing
        , checkCommitmentsPayload
        , checkOpeningsPayload
        , checkSharesPayload
        , checkCertificatesPayload
        , checkPayload
+
+       -- * Helpers
+       , verifyEntriesGuardM
        ) where
 
 import           Data.Containers                 (ContainerKey, SetContainer (notMember))
@@ -76,31 +80,23 @@ hasShares id = HM.member id <$> getShares
 hasCertificate :: MonadTossRead m => StakeholderId -> m Bool
 hasCertificate id = HM.member id <$> getVssCertificates
 
+----------------------------------------------------------------------------
+-- Non-trivial getters
+----------------------------------------------------------------------------
+
+-- | Get 'VssCertificatesMap' containing 'StakeholderId's and
+-- 'VssPublicKey's of participating nodes for given epoch.
 getParticipants :: (MonadError TossVerFailure m, MonadToss m)
                 => EpochIndex
                 -> m VssCertificatesMap
 getParticipants epoch = do
     stableCerts <- getStableCertificates epoch
-    richmenSet <- maybe (throwError $ NoRichmen epoch) pure =<< getRichmen epoch
+    richmenSet <- note (NoRichmen epoch) =<< getRichmen epoch
     pure $ computeParticipants richmenSet stableCerts
-----------------------------------------------------------------------------
--- Simple checks is 'MonadTossPure'
-----------------------------------------------------------------------------
 
--- | Check that commitment is generated for correct set of
--- participants for given epoch.
-checkCommitmentShares
-    :: MonadTossRead m
-    => EpochIndex -> SignedCommitment -> m Bool
-checkCommitmentShares epoch comm = do
-    certs <- getStableCertificates epoch
-    let warnFmt = ("checkCommitmentShares: no richmen for "%ords%" epoch")
-    getRichmen epoch >>= \case
-        Nothing -> False <$ logWarning (sformat warnFmt epoch)
-        Just richmen -> do
-            let parts =
-                    map vcVssKey $ toList $ computeParticipants richmen certs
-            pure $ checkCommitmentSharesPure parts comm
+----------------------------------------------------------------------------
+-- Simple checks in 'MonadTossRead'
+----------------------------------------------------------------------------
 
 -- | Check that the secret revealed in the opening matches the secret proof
 -- in the commitment.
@@ -176,10 +172,10 @@ checkSharePure globalCommitments globalOpeningsPK globalCertificates (addrTo, ad
         encShare <- HM.lookup vssKey (commShares comm)
         return (encShare, vssKey, share)
 
--- CHECK: @checkShares
+-- CHECK: @checkSharesPure
 -- Apply checkShare to all shares in map.
 --
--- #checkShare
+-- #checkSharePure
 checkSharesPure
     :: (SetContainer set, ContainerKey set ~ StakeholderId)
     => CommitmentsMap
@@ -197,16 +193,20 @@ checkSharesPure globalCommitments globalOpeningsPK globalCertificates addrTo sha
            listShares
 
 -- | Check that commitment is generated for proper set of participants.
-checkCommitmentSharesPure :: [AsBinary VssPublicKey] -> SignedCommitment -> Bool
-checkCommitmentSharesPure vssPublicKeys c =
+checkCommitmentShares :: [AsBinary VssPublicKey] -> SignedCommitment -> Bool
+checkCommitmentShares vssPublicKeys c =
     HS.fromList vssPublicKeys == (getKeys . commShares $ c ^. _2)
 
--- For commitments we
---   * check that committing node is participant, i. e. she is richman and
+----------------------------------------------------------------------------
+-- Payload processing
+----------------------------------------------------------------------------
+
+-- For commitments we check that
+--   * committing node is participant, i. e. she is rich and
 --     her VSS certificate is one of stable certificates
---   * check that the nodes haven't already sent their commitments before
+--   * the nodes haven't already sent their commitments before
 --     in some different block
---   * every commitment owner has enough (mpc+delegated) stake
+--   * commitment is generated exactly for all participants
 checkCommitmentsPayload
     :: (MonadToss m, MonadError TossVerFailure m)
     => EpochIndex
@@ -218,8 +218,9 @@ checkCommitmentsPayload epoch (getCommitmentsMap -> comms) = do
         (`HM.member` participants) (HM.keys comms)
     exceptGuardM CommitmentAlreadySent
         (notM hasCommitment) (HM.keys comms)
-    exceptGuardSndM CommSharesOnWrongParticipants
-        (checkCommitmentShares epoch) (HM.toList comms)
+    let participantKeys = map vcVssKey $ toList participants
+    exceptGuardSnd CommSharesOnWrongParticipants
+        (checkCommitmentShares participantKeys) (HM.toList comms)
     -- [CSL-206]: check that share IDs are different.
 
 -- For openings, we check that
@@ -240,11 +241,11 @@ checkOpeningsPayload opens = do
         matchCommitment (HM.toList opens)
 
 -- For shares, we check that
---   * shares have corresponding commitments
---   * these shares weren't sent before
+--   * 'InnerSharesMap's are sent only by participants
+--   * these 'InnerSharesMap's weren't sent before
+--   * shares have corresponding commitments which don't have openings
 --   * if encrypted shares (in commitments) are decrypted, they match
 --     decrypted shares
--- We don't check whether shares match the openings.
 checkSharesPayload
     :: (MonadToss m, MonadError TossVerFailure m)
     => EpochIndex
@@ -265,6 +266,9 @@ checkSharesPayload epoch shares = do
     exceptGuardEntryM DecrSharesNotMatchCommitment
         (checkShares epoch) (HM.toList shares)
 
+-- For certificates we check that
+--   * certificate hasn't been sent already
+--   * certificate is generated by richman
 checkCertificatesPayload
     :: (MonadToss m, MonadError TossVerFailure m)
     => EpochIndex
@@ -335,10 +339,6 @@ exceptGuardM
     :: MonadError TossVerFailure m => TossVerErrorTag -> (StakeholderId -> m Bool) -> [StakeholderId] -> m ()
 exceptGuardM =
     verifyEntriesGuardM identity identity . TossVerFailure
-
-exceptGuardSndM
-    :: MonadError TossVerFailure m => TossVerErrorTag -> (val -> m Bool) -> [(StakeholderId, val)] -> m ()
-exceptGuardSndM = verifyEntriesGuardM fst snd . TossVerFailure
 
 exceptGuardSnd
     :: MonadError TossVerFailure m => TossVerErrorTag -> (val -> Bool) -> [(StakeholderId, val)] -> m ()

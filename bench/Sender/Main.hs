@@ -76,7 +76,7 @@ main = do
                                      tasksIds
                                      (zip [0, msgNum..] nodeIds)
             node transport prngNode BinaryP () $ \node' ->
-                pure $ NodeAction [pongListener] $ \sactions -> do
+                NodeAction [pongListener] $ \sactions -> do
                     drones <- forM nodeIds (startDrone node')
                     _ <- forM pingWorkers (fork . flip ($) sactions)
                     delay (fromIntegral duration :: Second)

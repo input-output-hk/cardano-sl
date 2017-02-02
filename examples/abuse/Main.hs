@@ -91,8 +91,8 @@ server port qdiscChoice = do
 
     node transport prng BinaryP () $ \node -> do
         -- Set up the EKG monitor.
-        setupMonitor 8000 runProduction node
-        pure $ NodeAction [listener totalBytes] $ \saction -> do
+        NodeAction [listener totalBytes] $ \saction -> do
+            setupMonitor 8000 runProduction node
             -- Just wait for user interrupt
             liftIO . putStrLn $ "Server running. Press any key to stop."
             liftIO getChar
@@ -129,7 +129,7 @@ client serverPort clientPort = do
     liftIO . putStrLn $ "Starting client on port " ++ show clientPort
 
     totalBytes <- node transport prng BinaryP () $ \node ->
-        pure $ NodeAction [] $ \saction -> do
+        NodeAction [] $ \saction -> do
             -- Track total bytes sent, and a bool indicating whether we should
             -- stop, so that we don't have to resort to cancelling the threads
             -- (which may leave some bytes missing from the total).

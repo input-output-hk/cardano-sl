@@ -231,12 +231,12 @@ deliveryTest testState workers listeners = runProduction $ do
     let prng2 = mkStdGen 1
 
     -- launch nodes
-    node transport prng1 BinaryP () $ \serverNode -> do
+    node transport prng1 BinaryP () $ \serverNode ->
         -- Server EndPoint is up.
-        pure $ NodeAction listeners $ \_ -> do
-            node transport prng2 BinaryP () $ \_ -> do
+        NodeAction listeners $ \_ -> do
+            node transport prng2 BinaryP () $ \_ ->
                 -- Client EndPoint is up.
-                pure $ NodeAction [] $ \clientSendActions -> do
+                NodeAction [] $ \clientSendActions -> do
                     void . forConcurrently workers $ \worker ->
                         worker (nodeId serverNode) clientSendActions
                     -- Client EndPoint closes here

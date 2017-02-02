@@ -4,6 +4,9 @@
 {-# LANGUAGE RecursiveDo           #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE DeriveDataTypeable    #-}
+{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
 
@@ -85,12 +88,12 @@ main = runProduction $ do
     let prng4 = mkStdGen 3
 
     liftIO . putStrLn $ "Starting nodes"
-    node transport prng1 BinaryP (B8.pack "I am node 1") $ \node1 -> do
-        setupMonitor 8000 runProduction node1
-        pure $ NodeAction (listeners . nodeId $ node1) $ \sactions1 ->
-            node transport prng2 BinaryP (B8.pack "I am node 2") $ \node2 -> do
-                setupMonitor 8001 runProduction node2
-                pure $ NodeAction (listeners . nodeId $ node2) $ \sactions2 -> do
+    node transport prng1 BinaryP (B8.pack "I am node 1") $ \node1 ->
+        NodeAction (listeners . nodeId $ node1) $ \sactions1 -> do
+            setupMonitor 8000 runProduction node1
+            node transport prng2 BinaryP (B8.pack "I am node 2") $ \node2 ->
+                NodeAction (listeners . nodeId $ node2) $ \sactions2 -> do
+                    setupMonitor 8001 runProduction node2
                     tid1 <- fork $ worker (nodeId node1) prng3 [nodeId node2] sactions1
                     tid2 <- fork $ worker (nodeId node2) prng4 [nodeId node1] sactions2
                     liftIO . putStrLn $ "Hit return to stop"

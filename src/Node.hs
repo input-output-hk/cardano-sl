@@ -261,9 +261,17 @@ data NodeAction packing peerData m t = NodeAction [Listener packing peerData m] 
 
 -- | Spin up a node. You must give a function to create listeners given the
 --   'NodeId', and an action to do given the 'NodeId' and sending actions.
+--
+--   The 'NodeAction' must be lazy in the components of the 'Node' passed to
+--   it. Its 'NodeId', for instance, may be useful for the listeners, but is
+--   not defined until after the node's end point is created, which cannot
+--   happen until the listeners are defined--as soon as the end point is brought
+--   up, traffic may come in and cause a listener to run, so they must be
+--   defined first.
+--
 --   The node will stop and clean up once that action has completed. If at
 --   this time there are any listeners running, they will be allowed to
---   finished.
+--   finish.
 node
     :: forall packing peerData m t .
        ( Mockable Fork m, Mockable Throw m, Mockable Channel.Channel m
@@ -278,19 +286,25 @@ node
     -> StdGen
     -> packing
     -> peerData
-    -> (Node m -> m (NodeAction packing peerData m t))
+    -> (Node m -> NodeAction packing peerData m t)
     -> m t
 node transport prng packing peerData k = do
-    rec { llnode <- LL.startNode packing peerData transport prng (handlerIn listenerIndex sendActions) (handlerInOut llnode listenerIndex)
-        ; let nId = LL.nodeId llnode
+    rec { let nId = LL.nodeId llnode
         ; let endPoint = LL.nodeEndPoint llnode
         ; let nodeUnit = Node nId endPoint (LL.nodeStatistics llnode)
-        ; NodeAction listeners act <- k nodeUnit
+        ; let NodeAction listeners act = k nodeUnit
           -- Index the listeners by message name, for faster lookup.
           -- TODO: report conflicting names, or statically eliminate them using
           -- DataKinds and TypeFamilies.
         ; let listenerIndex :: ListenerIndex packing peerData m
               (listenerIndex, _conflictingNames) = makeListenerIndex listeners
+        ; llnode <- LL.startNode
+              packing
+              peerData
+              transport
+              prng
+              (handlerIn listenerIndex sendActions)
+              (handlerInOut llnode listenerIndex)
         ; let sendActions = nodeSendActions llnode packing
         }
     act sendActions `catch` logException

@@ -2,8 +2,7 @@
 
 import           Control.Applicative          (empty, (<|>))
 import           Control.Exception            (Exception)
-import           Control.Lens                 (at, (%=), (^.), _2,
-                                               _Just)
+import           Control.Lens                 (at, (%=), (^.), _2, _Just)
 import           Control.Monad                (forM_)
 import           Control.Monad.Catch          (handle)
 import           Control.Monad.State          (StateT (..), evalStateT, execStateT, get,
@@ -33,7 +32,7 @@ import           Bench.Network.Commons        (LogMessage (..), MeasureEvent (..
                                                measureInfoParser)
 import           LogReaderOptions             (Args (..), argsParser)
 import           System.Wlog                  (LoggerNameBox, Severity (Info),
-                                               initLogging, logError, logWarning,
+                                               initTerminalLogging, logError, logWarning,
                                                usingLoggerName, usingLoggerName)
 
 
@@ -128,7 +127,7 @@ getOptions = (\(a, ()) -> a) <$> simpleOptions
 
 main :: IO ()
 main = usingLoggerName mempty $ do
-    initLogging Info
+    initTerminalLogging True (Just Info)
     Args{..} <- liftIO getOptions
     measures <- flip execStateT M.empty $
         forM_ inputFiles analyze

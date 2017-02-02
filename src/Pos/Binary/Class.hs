@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP                  #-}
 {-# LANGUAGE DataKinds            #-}
+{-# LANGUAGE DeriveFunctor        #-}
 {-# LANGUAGE TypeOperators        #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -172,11 +173,11 @@ instance ZZEncode Int Word where
 ----------------------------------------------------------------------------
 
 newtype UnsignedVarInt a = UnsignedVarInt {getUnsignedVarInt :: a}
-    deriving (Eq, Ord, Show, Generic, NFData)
+    deriving (Eq, Ord, Show, Generic, NFData, Functor)
 newtype SignedVarInt a = SignedVarInt {getSignedVarInt :: a}
     deriving (Eq, Ord, Show, Generic, NFData)
 newtype FixedSizeInt a = FixedSizeInt {getFixedSizeInt :: a}
-    deriving (Eq, Ord, Show, Generic, NFData)
+    deriving (Eq, Ord, Show, Generic, NFData, Functor)
 
 instance TypeError
     ('Text "Do not encode 'Int' directly. Instead, use one of newtype wrappers:" ':$$:
@@ -202,9 +203,9 @@ instance TypeError
 -- Int
 
 instance Bi (UnsignedVarInt Int) where
-    put (UnsignedVarInt a) = putUnsignedVarInt (fromIntegral a :: Word)
+    put (UnsignedVarInt a) = put (UnsignedVarInt (fromIntegral a :: Int64))
     {-# INLINE put #-}
-    get = UnsignedVarInt . (fromIntegral :: Word -> Int) <$> getUnsignedVarInt'
+    get = fmap (fromIntegral :: Int64 -> Int) <$> get
     {-# INLINE get #-}
 
 instance Bi (SignedVarInt Int) where

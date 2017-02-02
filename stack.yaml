@@ -42,7 +42,6 @@ nix:
    shell-file: shell.nix
 
 extra-deps:
-- purescript-bridge-0.9.0.0
 - universum-0.2.1
 - pqueue-1.3.2
 - data-msgpack-0.0.8

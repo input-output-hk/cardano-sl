@@ -1,16 +1,37 @@
-# Frontend of `cardano-sl` explorer
+# Frontend of `cardano-sl-explorer`
 
 ## Installation
 
-Note: [yarn](https://yarnpkg.com/) and [Bower](https://bower.io/) are required to build app.
+Note: [npm](https://www.npmjs.com/) is required.
 
 ```bash
-yarn install
-yarn start
+npm install
+```
+
+## Run server locally
+
+In `development` mode (w/o minified files, but with source-map etc.):
+
+```bash
+npm start # alias of `npm run server:dev`
+```
+
+Or in `production` mode (minified files etc.)
+
+```bash
+npm run server:prod
 ```
 
 Open http://localhost:3000/
 
+
+## Build to ship (`production` mode)
+
+```bash
+npm run build:prod
+```
+
+All generated files will be in `dist/`
 
 
 ## Generate lenses

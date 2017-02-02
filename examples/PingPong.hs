@@ -56,8 +56,8 @@ worker anId generator peerIds = pingWorker generator
             let (i, gen') = randomR (0,1000000) g
                 us = fromMicroseconds i :: Microsecond
             delay us
-            let pong :: NodeId -> ConversationActions BS.ByteString Ping Pong Production -> Production ()
-                pong peerId cactions = do
+            let pong :: NodeId -> Production BS.ByteString -> ConversationActions Ping Pong Production -> Production ()
+                pong peerId peerData cactions = do
                     liftIO . putStrLn $ show anId ++ " sent PING to " ++ show peerId
                     received <- recv cactions
                     case received of
@@ -70,7 +70,7 @@ listeners :: NodeId -> [Listener Packing BS.ByteString Production]
 listeners anId = [pongListener]
     where
     pongListener :: ListenerAction Packing BS.ByteString Production
-    pongListener = ListenerActionConversation $ \peerData peerId (cactions :: ConversationActions BS.ByteString Pong Ping Production) -> do
+    pongListener = ListenerActionConversation $ \peerData peerId (cactions :: ConversationActions Pong Ping Production) -> do
         liftIO . putStrLn $ show anId ++  " heard PING from " ++ show peerId ++ " with peer data " ++ B8.unpack peerData
         send cactions Pong
         liftIO . putStrLn $ show anId ++ " sent PONG to " ++ show peerId

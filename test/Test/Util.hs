@@ -185,7 +185,7 @@ sendAll SingleMessageStyle sendActions peerId msgs =
     forM_ msgs $ sendTo sendActions peerId
 
 sendAll ConversationStyle sendActions peerId msgs =
-    void . withConnectionTo sendActions @_ @Bool peerId $ \cactions -> forM_ msgs $
+    void . withConnectionTo sendActions @_ @Bool peerId $ \peerData cactions -> forM_ msgs $
     \msg -> do
         send cactions msg
         _ <- recv cactions

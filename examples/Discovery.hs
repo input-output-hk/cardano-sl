@@ -60,7 +60,7 @@ worker anId generator discovery = pingWorker generator
             peerSet <- knownPeers discovery
             liftIO . putStrLn $ show anId ++ " has peer set: " ++ show peerSet
             forM_ (S.toList peerSet) $ \addr -> withConnectionTo sendActions (NodeId addr) $
-                \(cactions :: ConversationActions BS.ByteString Void Pong Production) -> do
+                \peerData (cactions :: ConversationActions Void Pong Production) -> do
                     received <- recv cactions
                     case received of
                         Just Pong -> liftIO . putStrLn $ show anId ++ " heard PONG from " ++ show addr
@@ -71,7 +71,7 @@ listeners :: NodeId -> [Listener Packing BS.ByteString Production]
 listeners anId = [pongListener]
     where
     pongListener :: ListenerAction Packing BS.ByteString Production
-    pongListener = ListenerActionConversation $ \peerData peerId (cactions :: ConversationActions BS.ByteString Pong Void Production) -> do
+    pongListener = ListenerActionConversation $ \peerData peerId (cactions :: ConversationActions Pong Void Production) -> do
         liftIO . putStrLn $ show anId ++  " heard PING from " ++ show peerId ++ " with peer data " ++ B8.unpack peerData
         send cactions Pong
 

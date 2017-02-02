@@ -7,6 +7,7 @@ module Pos.Communication
 import           Pos.Communication.Arbitrary ()
 import           Pos.Communication.BiP       as M
 import           Pos.Communication.Methods   as M
+import           Pos.Communication.PeerState as M
 import           Pos.Communication.Protocol  as M
 import           Pos.Communication.Relay     as M
 import           Pos.Communication.Server    as M

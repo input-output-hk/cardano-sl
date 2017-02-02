@@ -39,7 +39,8 @@ import           Pos.DB                      (MonadDB)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Delegation.Holder       (DelegationT (..))
 import           Pos.DHT.Real                (KademliaDHT)
-import           Pos.Slotting                (MonadSlots)
+import           Pos.Slotting                (DBSlotsData, MonadSlots, MonadSlotsData,
+                                              NtpSlotting)
 import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp.Holder              (TxpLDHolder (..))
 import           Pos.Update.MemState         (USHolder (..))
@@ -76,6 +77,8 @@ instance MonadKeys m => MonadKeys (StateT s m)
 -- | Instances for ancestor in the monadic stack
 instance MonadKeys m => MonadKeys (KademliaDHT m)
 instance MonadKeys m => MonadKeys (PeerStateHolder m)
+instance MonadKeys m => MonadKeys (NtpSlotting m)
+instance MonadKeys m => MonadKeys (DBSlotsData m)
 
 -- | Helper for generating a new secret key
 newSecretKey :: (MonadIO m, MonadKeys m) => m SecretKey
@@ -94,7 +97,7 @@ getSecret
 getSecret = ask >>= atomically . STM.readTVar
 
 putSecret
-    :: (MonadIO m, MonadFail m, MonadReader KeyData m)
+    :: (MonadIO m, MonadReader KeyData m)
     => UserSecret -> m ()
 putSecret s = ask >>= atomically . flip STM.writeTVar s >> writeUserSecret s
 
@@ -107,7 +110,7 @@ deleteAt j ls = let (l, r) = splitAt j ls in l ++ drop 1 r
 
 newtype KeyStorage m a = KeyStorage
     { getKeyStorage :: ReaderT KeyData m a
-    } deriving (Functor, Applicative, Monad,
+    } deriving (Functor, Applicative, Monad, MonadSlotsData,
                 MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
                 HasLoggerName, CanLog, MonadMask,
                 MonadReader KeyData,
@@ -120,7 +123,7 @@ instance Monad m => WrappedM (KeyStorage m) where
     type UnwrappedM (KeyStorage m) = ReaderT KeyData m
     _WrappedM = iso getKeyStorage KeyStorage
 
-instance (MonadIO m, MonadFail m) => MonadState UserSecret (KeyStorage m) where
+instance (MonadIO m) => MonadState UserSecret (KeyStorage m) where
     get = KeyStorage getSecret
     put = KeyStorage . putSecret
 
@@ -156,7 +159,7 @@ runKeyStorage fp ks =
 runKeyStorageRaw :: KeyStorage m a -> KeyData -> m a
 runKeyStorageRaw = runReaderT . getKeyStorage
 
-instance (MonadIO m, MonadFail m) => MonadKeys (KeyStorage m) where
+instance (MonadIO m) => MonadKeys (KeyStorage m) where
     getSecretKeys = use usKeys
     addSecretKey sk = usKeys <>= [sk]
     deleteSecretKey (fromIntegral -> i) = usKeys %= deleteAt i
@@ -178,12 +181,12 @@ instance Monad m => MonadReader KeyData (ContextHolder ssc m) where
     ask = ncUserSecret <$> getNodeContext
     local f = ContextHolder . local (usLens %~ f) . getContextHolder
 
-instance (MonadIO m, MonadFail m) =>
+instance (MonadIO m) =>
          MonadState UserSecret (ContextHolder ssc m) where
     get = getSecret
     put = putSecret
 
-instance (MonadIO m, MonadFail m, MonadThrow m) =>
+instance (MonadIO m, MonadThrow m) =>
          MonadKeys (ContextHolder ssc m) where
     getSecretKeys = use usKeys
     addSecretKey sk = usKeys <>= [sk]

@@ -17,14 +17,13 @@ import           Data.List                     (tail, (!!))
 import           Data.Time.Units               (Millisecond, convertUnit)
 import           Universum                     hiding (head)
 
-import           Pos.Constants                 (slotSecurityParam)
+import           Pos.Constants                 (genesisSlotDuration, slotSecurityParam)
 import           Pos.Crypto                    (SecretKey, hash, toPublic, unsafeHash)
 import           Pos.DB.GState                 (getTxOut)
 import           Pos.Genesis                   (genesisAddresses, genesisPublicKeys,
                                                 genesisSecretKeys)
 import           Pos.Script                    (Script)
 import           Pos.Script.Examples           (multisigValidator)
-import           Pos.Slotting                  (getSlotDuration)
 import           Pos.Types                     (Tx (..), TxAux, TxId, TxOut (..),
                                                 makePubKeyAddress, makeScriptAddress,
                                                 mkCoin)
@@ -135,7 +134,8 @@ nextValidTx
 nextValidTx bp curTps propThreshold = do
     curTx <- liftIO $ curBambooTx bp 1
     isVer <- isTxVerified $ view _1 curTx
-    slotDuration <- getSlotDuration
+    let slotDuration = genesisSlotDuration
+    undefined
     liftIO $
         if isVer
         then do

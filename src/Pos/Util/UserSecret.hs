@@ -21,7 +21,7 @@ import           Data.Default         (Default (..))
 import           Prelude              (show)
 import           System.FileLock      (FileLock, SharedExclusive (..), lockFile,
                                        unlockFile, withFileLock)
-import qualified Turtle as T
+import qualified Turtle               as T
 import           Universum            hiding (show)
 
 import           Pos.Binary.Class     (Bi (..), decodeFull, encode)
@@ -103,9 +103,9 @@ takeUserSecret path = liftIO $ do
         & usLock .~ Just l
 
 -- | Writes user secret .
-writeUserSecret :: (MonadFail m, MonadIO m) => UserSecret -> m ()
+writeUserSecret :: (MonadIO m) => UserSecret -> m ()
 writeUserSecret u
-    | canWrite u = fail "writeUserSecret: UserSecret is already locked"
+    | canWrite u = liftIO $ fail "writeUserSecret: UserSecret is already locked"
     | otherwise = liftIO $ withFileLock (lockFilePath $ u ^. usPath) Exclusive $ const $ writeRaw u
 
 -- | Writes user secret and releases the lock. UserSecret can't be

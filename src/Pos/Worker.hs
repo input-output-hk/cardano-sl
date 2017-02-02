@@ -13,7 +13,7 @@ import           Pos.Delegation.Worker (dlgWorkers)
 import           Pos.DHT.Workers       (dhtWorkers)
 import           Pos.Lrc.Worker        (lrcOnNewSlotWorker)
 import           Pos.Security.Workers  (SecurityWorkersClass, securityWorkers)
-import           Pos.Slotting          (slottingWorker)
+-- import           Pos.Slotting          (slottingWorker)
 import           Pos.Ssc.Class.Workers (SscWorkersClass, sscWorkers)
 import           Pos.Update            (usWorkers)
 import           Pos.Util              (mconcatPair)
@@ -32,7 +32,7 @@ allWorkers = mconcatPair
     , untag securityWorkers
     , first pure lrcOnNewSlotWorker
     , usWorkers
-    , first pure slottingWorker
+    , undefined -- first pure slottingWorker
     , first pure sysStartWorker
     -- I don't know, guys, I don't know :(
     -- , const ([], mempty) statsWorkers

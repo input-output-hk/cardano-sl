@@ -89,7 +89,7 @@ import           Pos.DHT.Real                (KademliaDHTInstance,
 import           Pos.Genesis                 (genesisLeaders)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NodeParams (..))
-import           Pos.Slotting                (SlottingState (..))
+import           Pos.Slotting                (runDBSlotsData, runNtpSlotting)
 import           Pos.Ssc.Class               (SscConstraint, SscHelpersClass,
                                               SscListenersClass, SscNodeContext,
                                               SscParams, sscCreateNodeContext)
@@ -97,14 +97,14 @@ import           Pos.Ssc.Extra               (runSscHolder)
 import           Pos.Statistics              (getNoStatsT, runStatsT')
 import           Pos.Txp.Holder              (runTxpLDHolder)
 import qualified Pos.Txp.Types.UtxoView      as UV
-import           Pos.Types                   (Timestamp (Timestamp), timestampF,
-                                              unflattenSlotId)
+import           Pos.Types                   (Timestamp (Timestamp), timestampF)
 import           Pos.Update.MemState         (runUSHolder)
 import           Pos.Util                    (mappendPair, runWithRandomIntervalsNow)
 import           Pos.Util.TimeWarp           (sec)
 import           Pos.Util.UserSecret         (usKeys)
 import           Pos.WorkMode                (MinWorkMode, ProductionMode, RawRealMode,
                                               ServiceMode, StatsMode)
+
 data RealModeResources = RealModeResources
     { rmTransport :: Transport
     , rmDHT       :: KademliaDHTInstance
@@ -187,6 +187,8 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
        stateM <- liftIO SM.newIO
        runDBHolder modernDBs .
           runCH np initNC .
+          runDBSlotsData .
+          runNtpSlotting .
           runSscHolder .
           runTxpLDHolder (UV.createFromDB . _gStateDB $ modernDBs) initTip .
           runDelegationT def .
@@ -285,18 +287,12 @@ runCH NodeParams {..} sscNodeContext act = do
     userSecretVar <- liftIO . newTVarIO $ npUserSecret
     queue <- liftIO $ newTBQueueIO blockRetrievalQueueSize
     recoveryHeaderVar <- liftIO newEmptyTMVarIO
-    slottingStateVar <- do
-        _ssNtpData <- (0,) <$> currentTime
-        -- current time isn't quite validly, but it doesn't matter
-        let _ssNtpLastSlot = unflattenSlotId 0
-        liftIO $ newTVarIO SlottingState{..}
     let ctx =
             NodeContext
             { ncSystemStart = npSystemStart
             , ncSecretKey = npSecretKey
             , ncGenesisUtxo = npCustomUtxo
             , ncGenesisLeaders = genesisLeaders npCustomUtxo
-            , ncSlottingState = slottingStateVar
             , ncTimeLord = npTimeLord
             , ncJLFile = jlFile
             , ncDbPath = npDbPathM

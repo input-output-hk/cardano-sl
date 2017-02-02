@@ -37,7 +37,6 @@ import           Pos.Genesis               (genesisBlockVersionData, genesisPubl
                                             genesisSecretKeys)
 import           Pos.Launcher              (BaseParams (..), LoggingParams (..),
                                             bracketResources, runTimeSlaveReal)
-import           Pos.Slotting              (getSlotDuration)
 import           Pos.Ssc.GodTossing        (SscGodTossing)
 import           Pos.Ssc.NistBeacon        (SscNistBeacon)
 import           Pos.Ssc.SscAlgo           (SscAlgo (..))
@@ -182,8 +181,9 @@ initialize WalletOptions{..} = do
     -- Wait some time to ensure blockchain is fetched
     unless (woInitialPause == 0) $ do
         putText $ sformat ("Started node. Waiting for "%int%" slots...") woInitialPause
-        slotDuration <- getSlotDuration
-        delay (fromIntegral woInitialPause * slotDuration)
+        undefined
+        -- slotDuration <- getSlotDuration
+        -- delay (fromIntegral woInitialPause * slotDuration)
     putText "Discovering peers"
     peers <- discoverPeers
     putText "Peer discovery completed"

@@ -16,7 +16,6 @@ import           Pos.Communication       (OutSpecs, SysStartResponse (..), Worke
 import           Pos.Constants           (isDevelopment, sysTimeBroadcastSlots)
 import           Pos.Context             (NodeContext (..), getNodeContext)
 import           Pos.DHT.Model.Neighbors (sendToNeighbors)
-import           Pos.Slotting            (getSlotDuration)
 import           Pos.Types               (flattenSlotId)
 import           Pos.Util                (waitRandomInterval)
 import           Pos.Util.TimeWarp       (ms)
@@ -39,10 +38,11 @@ sysStartWorker
                             sendToNeighbors sendActions $
                                 SysStartResponse sysStart
                     send
-                    slotDuration <- getSlotDuration
+                    -- slotDuration <- getSlotDuration
                     waitRandomInterval
                         (ms 500)
-                        (convertUnit slotDuration `div` 2)
+                        -- (convertUnit slotDuration `div` 2)
+                        undefined
                     send
   where
     outs = toOutSpecs [oneMsgH (Proxy :: Proxy SysStartResponse)]

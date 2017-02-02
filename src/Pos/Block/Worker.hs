@@ -30,7 +30,7 @@ import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, psk
 import           Pos.DB.GState               (getPSKByIssuerAddressHash)
 import           Pos.DB.Lrc                  (getLeaders)
 import           Pos.DB.Misc                 (getProxySecretKeys)
-import           Pos.Slotting                (MonadSlots (getCurrentTime), getSlotStart)
+import           Pos.Slotting                (getSlotStart)
 import           Pos.Ssc.Class               (SscHelpersClass, SscWorkersClass)
 import           Pos.Types                   (MainBlock, ProxySKEither, SlotId (..),
                                               Timestamp (Timestamp),
@@ -119,7 +119,7 @@ onNewSlotWhenLeader slotId pSk sendActions = do
             sformat ("using heavyweight proxy signature key "%build%", will do it soon") psk
     logInfo $ logReason <> maybe logLeader logCert pSk
     nextSlotStart <- getSlotStart (succ slotId)
-    currentTime <- getCurrentTime
+    currentTime <- notImplemented
     let timeToCreate =
             max currentTime (nextSlotStart - Timestamp networkDiameter)
         Timestamp timeToWait = timeToCreate - currentTime

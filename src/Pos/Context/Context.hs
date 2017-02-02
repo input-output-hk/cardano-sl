@@ -16,11 +16,10 @@ import           Universum
 
 import           Pos.Crypto                     (PublicKey, SecretKey, toPublic)
 import           Pos.Security.CLI               (AttackTarget, AttackType)
-import           Pos.Slotting.Types             (SlottingState)
 import           Pos.Ssc.Class.Types            (Ssc (SscNodeContext))
 import           Pos.Types                      (Address, BlockHeader, EpochIndex,
-                                                 HeaderHash, SlotLeaders, Timestamp (..),
-                                                 Utxo, makePubKeyAddress)
+                                                 HeaderHash, SlotLeaders, Timestamp, Utxo,
+                                                 makePubKeyAddress)
 import           Pos.Update.Poll.Types          (ConfirmedProposalState)
 import           Pos.Util                       (NE, NewestFirst)
 import           Pos.Util.UserSecret            (UserSecret)
@@ -44,8 +43,6 @@ data NodeContext ssc = NodeContext
     -- ^ Genesis utxo
     , ncGenesisLeaders      :: !SlotLeaders
     -- ^ Leaders for 0-th epoch
-    , ncSlottingState       :: !(STM.TVar SlottingState)
-    -- ^ Data needed for the slotting algorithm to work
     , ncTimeLord            :: !Bool
     -- ^ Is time lord
     , ncJLFile              :: !(Maybe (MVar FilePath))

@@ -20,8 +20,8 @@ import           Universum
 import qualified Pos.CLI                     as CLI
 import           Pos.Communication           (ActionSpec (..), SendActions,
                                               convertSendActions)
-import           Pos.Constants               (genesisN, neighborsSendThreshold,
-                                              slotSecurityParam)
+import           Pos.Constants               (genesisN, genesisSlotDuration,
+                                              neighborsSendThreshold, slotSecurityParam)
 import           Pos.Crypto                  (KeyPair (..), hash)
 import           Pos.DHT.Model               (DHTNode, MonadDHT, discoverPeers,
                                               getKnownPeers)
@@ -31,7 +31,6 @@ import           Pos.Launcher                (BaseParams (..), LoggingParams (..
                                               bracketResources, initLrc, runNode',
                                               runProductionMode, runTimeSlaveReal,
                                               stakesDistr)
-import           Pos.Slotting                (getSlotDuration)
 import           Pos.Ssc.Class               (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing          (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon          (SscNistBeacon)
@@ -66,7 +65,8 @@ seedInitTx sendActions recipShare bp initTx = do
     logInfo "Issuing seed transaction"
     submitTxRaw sendActions na initTx
     logInfo "Waiting for 1 slot before resending..."
-    delay =<< getSlotDuration
+    delay genesisSlotDuration
+    undefined
     -- If next tx is present in utxo, then everything is all right
     tx <- liftIO $ curBambooTx bp 1
     isVer <- isTxVerified $ view _1 tx
@@ -93,7 +93,8 @@ runSmartGen :: forall ssc . SscConstraint ssc
 runSmartGen res np@NodeParams{..} sscnp opts@GenOptions{..} =
   runProductionMode res np sscnp $ (,sendTxOuts <> wOuts) . ActionSpec $ \vI sendActions -> do
     initLrc
-    slotDuration <- getSlotDuration
+    let slotDuration = genesisSlotDuration
+    undefined
     let getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
         initTx = initTransaction opts slotDuration
 

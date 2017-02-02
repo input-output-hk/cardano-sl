@@ -60,7 +60,7 @@ nat = do
     kd    <- lift . lift . lift . lift $ ask
     kinst <- lift . lift $ getKademliaDHTInstance
     wc    <- getWalletContext
-    mws   <- getWalletState
+    mws   <- undefined -- getWalletState
     return $ Nat (convertHandler kinst wc mws kd ws wsConn)
 
 convertHandler
@@ -75,17 +75,18 @@ convertHandler
     -> Handler a
 convertHandler kinst wc mws kd ws wsConn handler = do
     stateM <- liftIO SM.newIO
-    liftIO ( runProduction
-           . usingLoggerName "wallet-lite-api"
-           . runContextHolder wc
-           . runWalletDB mws
-           . flip runKeyStorageRaw kd
-           . runKademliaDHT kinst
-           . runPeerStateHolder stateM
-           . runWalletWebDB ws
-           . runWalletWS wsConn
-           $ handler
-           ) `Catch.catches` excHandlers
-  where
-    excHandlers = [Catch.Handler catchServant]
-    catchServant = throwError
+    undefined
+  --   liftIO ( runProduction
+  --          . usingLoggerName "wallet-lite-api"
+  --          . runContextHolder wc
+  --          . runWalletDB mws
+  --          . flip runKeyStorageRaw kd
+  --          . runKademliaDHT kinst
+  --          . runPeerStateHolder stateM
+  --          . runWalletWebDB ws
+  --          . runWalletWS wsConn
+  --          $ handler
+  --          ) `Catch.catches` excHandlers
+  -- where
+  --   excHandlers = [Catch.Handler catchServant]
+  --   catchServant = throwError

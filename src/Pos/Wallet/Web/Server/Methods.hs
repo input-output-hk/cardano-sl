@@ -6,7 +6,8 @@
 -- | Wallet web server.
 
 module Pos.Wallet.Web.Server.Methods
-       ( walletApplication
+       ( WalletWebHandler
+       , walletApplication
        , walletServer
        , walletServeImpl
        , walletServerOuts
@@ -34,7 +35,6 @@ import           Pos.Constants                 (curSoftwareVersion)
 import           Pos.Crypto                    (hash)
 import           Pos.Crypto                    (deterministicKeyGen, toPublic)
 import           Pos.DHT.Model                 (getKnownPeers)
-import           Pos.Slotting                  (getSlotDuration)
 import           Pos.Types                     (Address, ChainDifficulty (..), Coin,
                                                 TxOut (..), addressF, coinF,
                                                 decodeTextAddress, makePubKeyAddress,
@@ -380,7 +380,7 @@ applyUpdate :: WalletWebMode ssc m => m ()
 applyUpdate = removeNextUpdate
 
 blockchainSlotDuration :: WalletWebMode ssc m => m Word
-blockchainSlotDuration = fromIntegral <$> getSlotDuration
+blockchainSlotDuration = notImplemented
 
 redeemADA :: WalletWebMode ssc m => SendActions m -> CWalletRedeem -> m CWallet
 redeemADA sendActions CWalletRedeem {..} = do

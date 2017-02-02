@@ -1,29 +1,16 @@
-{-# LANGUAGE TemplateHaskell #-}
-
--- | Types used in Slotting.
+-- | Core types used in 'Slotting'.
 
 module Pos.Slotting.Types
-       ( SlottingState (..)
-       , ssNtpLastSlot
-       , ssNtpData
+       ( SlottingData (..)
        ) where
 
-import           Control.Lens    (makeLenses)
-import           Data.Time.Units (Microsecond)
+import           Data.Time.Units (Millisecond)
 -- import           Universum
 
-import           Pos.Types       (SlotId)
+import           Pos.Types       (EpochIndex)
 
--- | Data needed for the slotting algorithm to work.
-data SlottingState = SlottingState
-    {
-    -- | Slot which was returned from getCurrentSlot in last time
-      _ssNtpLastSlot :: !SlotId
-    -- | Data for the NTP Worker. First element: margin (difference
-    -- between global time and local time) which we got from NTP
-    -- server in last time.  Second element: time (local) for which we
-    -- got margin in last time.
-    , _ssNtpData     :: !(Microsecond, Microsecond)
+data SlottingData = SlottingData
+    { sdEpoch        :: !EpochIndex
+    , sdSlotDuration :: !Millisecond
+    , sdEpochStart   :: !EpochIndex
     }
-
-makeLenses ''SlottingState

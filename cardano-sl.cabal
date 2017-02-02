@@ -274,9 +274,10 @@ library
 
                         -- Slotting
                         Pos.Slotting.Class
-                        Pos.Slotting.Logic
+                        Pos.Slotting.DB
+                        Pos.Slotting.Ntp
                         Pos.Slotting.Types
-                        Pos.Slotting.Worker
+                        Pos.Slotting.Util
 
                         -- SSC
                         Pos.Ssc.Class.Types
@@ -348,7 +349,6 @@ library
                         Pos.Types.Utxo.Pure
 
                         -- Workers
-                        Pos.Worker.Ntp
                         Pos.Worker.Stats
                         Pos.Worker.SysStart
 
@@ -406,6 +406,7 @@ library
                         Pos.Wallet.Launcher.Runner
                         Pos.Wallet.Launcher.Param
                         Pos.Wallet.KeyStorage
+                        Pos.Wallet.Slotting
                         Pos.Wallet.State
                         Pos.Wallet.State.Acidic
                         Pos.Wallet.State.Holder

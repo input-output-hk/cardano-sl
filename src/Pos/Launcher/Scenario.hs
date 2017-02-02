@@ -20,10 +20,8 @@ import           Universum
 
 import           Pos.Communication           (ActionSpec (..), OutSpecs, WorkerSpec,
                                               withWaitLog)
-import           Pos.Constants               (isDevelopment, ntpMaxError,
-                                              ntpResponseTimeout)
 import           Pos.Context                 (NodeContext (..), getNodeContext,
-                                              ncPubKeyAddress, ncPublicKey, readNtpMargin)
+                                              ncPubKeyAddress, ncPublicKey)
 import qualified Pos.DB.GState               as GS
 import qualified Pos.DB.Lrc                  as LrcDB
 import           Pos.Delegation.Logic        (initDelegation)
@@ -35,7 +33,6 @@ import           Pos.Update                  (MemState (..), askUSMemVar, mvStat
 import           Pos.Util                    (inAssertMode, waitRandomInterval)
 import           Pos.Util.TimeWarp           (sec)
 import           Pos.Worker                  (allWorkers)
-import           Pos.Worker.Ntp              (ntpWorker)
 import           Pos.WorkMode                (WorkMode)
 
 -- | Run full node in any WorkMode.
@@ -57,10 +54,11 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
     initLrc
     initUSMemState
     initSemaphore
-    _ <- fork ntpWorker -- start NTP worker for synchronization time
+    notImplemented
+    -- _ <- fork ntpWorker -- start NTP worker for synchronization time
     logInfo $ "Waiting response from NTP servers"
-    unless isDevelopment $ delay (ntpResponseTimeout + ntpMaxError)
-    waitSystemStart
+    notImplemented
+    -- waitSystemStart
     let unpackPlugin (ActionSpec action) = action vI
     mapM_ (fork . ($ withWaitLog sendActions) . unpackPlugin) $
         plugins'
@@ -74,18 +72,6 @@ runNode
 runNode (plugins', plOuts) = (,plOuts <> wOuts) $ runNode' $ workers' ++ plugins'
   where
     (workers', wOuts) = allWorkers
-
--- Sanity check in case start time is in future (may happen if clocks
--- are not accurately synchronized, for example).
-waitSystemStart :: WorkMode ssc m => m ()
-waitSystemStart = do
-    margin <- readNtpMargin
-    Timestamp start <- ncSystemStart <$> getNodeContext
-    cur <- (+ margin) <$> currentTime
-    let waitPeriod = start - cur
-    logInfo $ sformat ("Waiting "%int%" seconds for system start") $
-        waitPeriod `div` sec 1
-    when (cur < start) $ delay waitPeriod
 
 -- | Try to discover peers repeatedly until at least one live peer is found
 waitForPeers :: WorkMode ssc m => m ()

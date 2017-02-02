@@ -33,7 +33,7 @@ import           Universum
 import           Pos.Context.Class       (WithNodeContext (..))
 import           Pos.Context.Context     (NodeContext (..))
 import           Pos.Lrc.Error           (LrcError (..))
-import           Pos.Slotting            (ssNtpData, ssNtpLastSlot)
+import           Pos.Slotting.Types      (ssNtpData, ssNtpLastSlot)
 import           Pos.Types               (EpochIndex, HeaderHash, SlotId, SlotLeaders,
                                           Utxo)
 import           Pos.Util                (maybeThrow, readTVarConditional)

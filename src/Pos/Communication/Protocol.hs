@@ -43,7 +43,8 @@ import           Pos.Binary.Class                 (Bi)
 import           Pos.Communication.BiP            (BiP)
 import           Pos.Communication.PeerState      (WithPeerState (..), peerVerInfo)
 import           Pos.Communication.Types.Protocol
-import           Pos.Slotting                     (MonadSlots, onNewSlotImpl)
+import           Pos.Slotting.Class               (MonadSlots)
+import           Pos.Slotting.Logic               (onNewSlotImpl)
 import           Pos.Types                        (SlotId)
 
 protocolListeners :: (Bi NOP, Message NOP, WithLogger m) => [Listener m]

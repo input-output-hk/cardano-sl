@@ -276,6 +276,7 @@ library
                         Pos.Slotting.Class
                         Pos.Slotting.Logic
                         Pos.Slotting.Types
+                        Pos.Slotting.Worker
 
                         -- SSC
                         Pos.Ssc.Class.Types
@@ -349,6 +350,7 @@ library
                         -- Workers
                         Pos.Worker.Ntp
                         Pos.Worker.Stats
+                        Pos.Worker.SysStart
 
                         -- Update System
                         Pos.Update.Arbitrary.Core

@@ -16,7 +16,7 @@ import           Universum
 
 import           Pos.Crypto                     (PublicKey, SecretKey, toPublic)
 import           Pos.Security.CLI               (AttackTarget, AttackType)
-import           Pos.Slotting                   (SlottingState)
+import           Pos.Slotting.Types             (SlottingState)
 import           Pos.Ssc.Class.Types            (Ssc (SscNodeContext))
 import           Pos.Types                      (Address, BlockHeader, EpochIndex,
                                                  HeaderHash, SlotLeaders, Timestamp (..),

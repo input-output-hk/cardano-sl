@@ -29,7 +29,7 @@ import           Universum
 import           Pos.Context                 (WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
 import           Pos.Delegation.Class        (MonadDelegation)
-import           Pos.Slotting                (MonadSlots (..))
+import           Pos.Slotting.Class          (MonadSlots)
 import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Txp.Class               (MonadTxpLD (..))
 import           Pos.Types.Utxo.Class        (MonadUtxo, MonadUtxoRead)

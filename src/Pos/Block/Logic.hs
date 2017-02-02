@@ -67,7 +67,7 @@ import           Pos.Delegation.Logic       (delegationVerifyBlocks, getProxyMem
 import           Pos.Exception              (CardanoFatalError (..))
 import           Pos.Lrc.Error              (LrcError (..))
 import           Pos.Lrc.Worker             (lrcSingleShotNoLock)
-import           Pos.Slotting               (getCurrentSlot)
+import           Pos.Slotting.Class         (getCurrentSlot)
 import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass,
                                              SscWorkersClass (..))
 import           Pos.Ssc.Extra              (sscGetLocalPayload, sscVerifyBlocks)

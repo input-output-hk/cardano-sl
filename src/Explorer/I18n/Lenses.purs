@@ -6,6 +6,7 @@ import Data.Either as Either
 import Explorer.I18n.Types
 
 
+
 title :: forall a b r. Lens.Lens { "title" :: a | r } { "title" :: b | r } a b
 title = Lens.lens _."title" (_ { "title" = _ })
 

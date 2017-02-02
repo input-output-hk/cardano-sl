@@ -6,3 +6,4 @@ output
 typings
 npm-debug.log
 .psc-ide-port
+src/Generated/*

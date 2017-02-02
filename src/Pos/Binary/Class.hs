@@ -1,3 +1,4 @@
+{-# LANGUAGE BinaryLiterals       #-}
 {-# LANGUAGE CPP                  #-}
 {-# LANGUAGE DataKinds            #-}
 {-# LANGUAGE DeriveFunctor        #-}
@@ -21,6 +22,7 @@ module Pos.Binary.Class
        -- * Different sizes for ints
        , UnsignedVarInt(..)
        , SignedVarInt(..)
+       , TinyVarInt(..)
        , FixedSizeInt(..)
        ) where
 
@@ -132,10 +134,34 @@ getSignedVarInt' :: (ZZEncode a b, Num b, Bits b) => Get a
 getSignedVarInt' = zzDecode <$> getUnsignedVarInt'
 {-# INLINE getSignedVarInt' #-}
 
--- | Turn a signed number into an unsigned one.
+putTinyVarInt :: Word16 -> Put
+putTinyVarInt n
+    | n <= 0b1111111 =
+          putWord8 (fromIntegral n)
+    | n <= 0b11111111111111 =
+          putWord8 (setBit (fromIntegral n) 7) <>
+          putWord8 (fromIntegral (shiftR n 7))
+    | otherwise =
+          panic "putTinyVarInt: the number is bigger than 2^14-1"
+
+getTinyVarInt' :: Get Word16
+getTinyVarInt' = do
+    a <- getWord8
+    if testBit a 7
+        then do
+            b <- getWord8
+            if | testBit b 7 -> fail "getTinyVarInt': more than 2 bytes"
+               | b == 0      -> fail "getTinyVarInt': second byte is 0"
+               | otherwise   -> pure $ shiftL (fromIntegral b) 7 .|.
+                                       clearBit (fromIntegral a) 7
+        else pure (fromIntegral a)
+
+-- | Turn a signed number into an unsigned one, and back.
 --
--- >>> (zzEncode (-3), zzEncode 3)
--- (5, 6)
+-- >>> map zzEncode [-3, 3]
+-- [5, 6]
+-- >>> map zzDecode [5, 6]
+-- [-3, 3]
 class ZZEncode a b | a -> b, b -> a where
     zzEncode :: a -> b
     zzDecode :: b -> a
@@ -172,10 +198,37 @@ instance ZZEncode Int Word where
 -- Int/Word encoding
 ----------------------------------------------------------------------------
 
+-- | A newtype wrapper for non-negative varints. During serialization its
+-- contents will be encoded as a variable-sized integer.
+--
+-- Despite its name, e.g. @UnsignedVarInt (-50 :: Int)@ will be serialized
+-- and deserialized correctly; however, 'UnsignedVarInt' is optimized for
+-- non-negative numbers, and will always take maximum space (e.g. 10 bytes in
+-- case of 'Int64'). Specifically, @Int@ is simply coerced into its @Word@
+-- representation before being serialized.
 newtype UnsignedVarInt a = UnsignedVarInt {getUnsignedVarInt :: a}
     deriving (Eq, Ord, Show, Generic, NFData, Functor)
+
+-- | A newtype wrapper for varints. Uses zig-zag encoding to serialize
+-- negative integers – e.g. @-3@ is turned into 5, @-4@ is turned into 7,
+-- etc; thus it's fair but less optimal for positive integers.
 newtype SignedVarInt a = SignedVarInt {getSignedVarInt :: a}
+    deriving (Eq, Ord, Show, Generic, NFData, Functor)
+
+-- | A newtype wrapper for non-negative integers less than @2^14@. Use it if
+-- you want to be extra careful. Compared to 'SignedVarInt' and
+-- 'UnsignedVarInt', it provides two benefits:
+--
+-- * It is guaranteed to take either 1 or 2 bytes (the standard decoder for
+--   varints can consume an unlimited amount of bytes).
+--
+-- * It is unambiguous (e.g. @0@ can be encoded in only one way instead of
+--   two).
+newtype TinyVarInt = TinyVarInt {getTinyVarInt :: Word16}
     deriving (Eq, Ord, Show, Generic, NFData)
+
+-- | A newtype wrapper for signifying that an integer should be serialized
+-- using a fixed amount of bytes.
 newtype FixedSizeInt a = FixedSizeInt {getFixedSizeInt :: a}
     deriving (Eq, Ord, Show, Generic, NFData, Functor)
 
@@ -276,6 +329,14 @@ instance Bi (UnsignedVarInt Word64) where
     put (UnsignedVarInt a) = putUnsignedVarInt a
     {-# INLINE put #-}
     get = UnsignedVarInt <$> getUnsignedVarInt'
+    {-# INLINE get #-}
+
+-- TinyVarInt
+
+instance Bi TinyVarInt where
+    put (TinyVarInt a) = putTinyVarInt a
+    {-# INLINE put #-}
+    get = TinyVarInt <$> getTinyVarInt'
     {-# INLINE get #-}
 
 ----------------------------------------------------------------------------

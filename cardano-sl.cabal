@@ -207,6 +207,7 @@ library
                         Pos.Crypto.Random
                         Pos.Crypto.SecretSharing
                         Pos.Crypto.Signing
+                        Pos.Crypto.KeyDerivation
 
                         -- Heavy delegation
                         Pos.Delegation.Class

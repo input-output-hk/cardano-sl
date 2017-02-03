@@ -54,6 +54,7 @@ import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (
 import           Pos.Util                   (NE, NewestFirst (..), OldestFirst (..),
                                              inAssertMode, toNewestFirst, _neHead,
                                              _neLast)
+import           Pos.Util.Shutdown          (ifNotShutdown)
 import           Pos.WorkMode               (WorkMode)
 
 data VerifyBlocksException = VerifyBlocksException Text deriving Show
@@ -65,7 +66,7 @@ retrievalWorker
     => (WorkerSpec m, OutSpecs)
 retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
     NodeContext{..} <- getNodeContext
-    let loop queue recHeaderVar = forever $ do
+    let loop queue recHeaderVar = ifNotShutdown $ do
            ph <- atomically $ readTBQueue queue
            handleAll (handleLE recHeaderVar ph) $ handle sendActions ph
            needQueryMore <- atomically $ do
@@ -77,6 +78,8 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
                whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
                    withConnectionTo sendActions peerId $
                        requestHeaders mghNext (Just rHeader) peerId
+           loop queue recHeaderVar
+
     loop ncBlockRetrievalQueue ncRecoveryHeader
   where
     outs = announceBlockOuts

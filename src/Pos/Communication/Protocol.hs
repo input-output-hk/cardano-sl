@@ -43,6 +43,7 @@ import           Pos.Binary.Class                 (Bi)
 import           Pos.Communication.BiP            (BiP)
 import           Pos.Communication.PeerState      (WithPeerState (..), peerVerInfo)
 import           Pos.Communication.Types.Protocol
+import           Pos.Context.Class                (WithNodeContext)
 import           Pos.Slotting.Class               (MonadSlots)
 import           Pos.Slotting.Logic               (onNewSlotImpl)
 import           Pos.Types                        (SlotId)
@@ -241,6 +242,7 @@ onNewSlot'
        , Mockable SharedAtomic m
        , Bi NOP
        , Message NOP
+       , WithNodeContext ssc m
        )
     => Bool -> Bool -> (SlotId -> WorkerSpec m, outSpecs) -> (WorkerSpec m, outSpecs)
 onNewSlot' withLog startImmediately (h, outs) =
@@ -260,6 +262,7 @@ onNewSlotWorker
        , Mockable SharedAtomic m
        , Bi NOP
        , Message NOP
+       , WithNodeContext ssc m
        ) => Bool -> OutSpecs -> (SlotId -> Worker' m) -> (WorkerSpec m, OutSpecs)
 onNewSlotWorker b outs = onNewSlot' False b . workerHelper outs
 
@@ -275,6 +278,7 @@ onNewSlotWithLoggingWorker
        , Mockable SharedAtomic m
        , Bi NOP
        , Message NOP
+       , WithNodeContext ssc m
        ) => Bool -> OutSpecs -> (SlotId -> Worker' m) -> (WorkerSpec m, OutSpecs)
 onNewSlotWithLoggingWorker b outs = onNewSlot' True b . workerHelper outs
 
@@ -285,6 +289,7 @@ localOnNewSlotWorker
        , WithLogger m
        , Mockable Fork m
        , Mockable Delay m
+       , WithNodeContext ssc m
        ) => Bool -> (SlotId -> m ()) -> (WorkerSpec m, OutSpecs)
 localOnNewSlotWorker b h = (ActionSpec $ \__vI __sA -> onNewSlotImpl False b h, mempty)
 

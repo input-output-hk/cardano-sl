@@ -55,6 +55,7 @@ import           Pos.Types.Coin              (unsafeIntegerToCoin)
 import           Pos.Types.Utxo.Functions    (belongsTo, filterUtxoByAddr)
 import           Pos.Update                  (ConfirmedProposalState (..), USHolder (..))
 import           Pos.Util                    (maybeThrow)
+import           Pos.Util.Shutdown           (triggerShutdown)
 import           Pos.Wallet.Context          (ContextHolder, WithWalletContext)
 import           Pos.Wallet.KeyStorage       (KeyStorage, MonadKeys)
 import           Pos.Wallet.State            (WalletDB)
@@ -235,10 +236,15 @@ instance ( SscHelpersClass ssc
 -- | Abstraction over getting update proposals
 class Monad m => MonadUpdates m where
     waitForUpdate :: m ConfirmedProposalState
+    applyLastUpdate :: m ()
 
     default waitForUpdate :: (MonadTrans t, MonadUpdates m', t m' ~ m)
                           => m ConfirmedProposalState
     waitForUpdate = lift waitForUpdate
+
+    default applyLastUpdate :: (MonadTrans t, MonadUpdates m', t m' ~ m)
+                            => m ()
+    applyLastUpdate = lift applyLastUpdate
 
 instance MonadUpdates m => MonadUpdates (ReaderT r m)
 instance MonadUpdates m => MonadUpdates (StateT s m)
@@ -255,14 +261,13 @@ deriving instance MonadUpdates m => MonadUpdates (WalletWebDB m)
 -- | Dummy instance for lite-wallet
 instance MonadIO m => MonadUpdates (WalletDB m) where
     waitForUpdate = notImplemented
+    applyLastUpdate = pure ()
 
 -- | Instance for full node
-instance (Ssc ssc, MonadIO m) =>
+instance (Ssc ssc, MonadIO m, WithLogger m) =>
          MonadUpdates (PC.ContextHolder ssc m) where
     waitForUpdate = liftIO . takeMVar . PC.ncUpdateSemaphore =<< PC.getNodeContext
-    -- getUpdates = pure []
-    -- getUpdates = filter (HM.member appSystemTag . upData . cpsUpdateProposal) <$>
-    --              GS.getConfirmedProposals (Just $ svNumber curSoftwareVersion)
+    applyLastUpdate = triggerShutdown
 
 ---------------------------------------------------------------
 -- Composite restrictions

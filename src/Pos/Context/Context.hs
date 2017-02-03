@@ -9,21 +9,22 @@ module Pos.Context.Context
        , ncPubKeyAddress
        ) where
 
-import qualified Control.Concurrent.STM         as STM
-import           Control.Concurrent.STM.TBQueue (TBQueue)
-import           Pos.Communication.Protocol     (NodeId)
+import qualified Control.Concurrent.STM           as STM
+import           Control.Concurrent.STM.TBQueue   (TBQueue)
+import           Pos.Communication.Types.Protocol (NodeId)
 import           Universum
 
-import           Pos.Crypto                     (PublicKey, SecretKey, toPublic)
-import           Pos.Security.CLI               (AttackTarget, AttackType)
-import           Pos.Slotting.Types             (SlottingState)
-import           Pos.Ssc.Class.Types            (Ssc (SscNodeContext))
-import           Pos.Types                      (Address, BlockHeader, EpochIndex,
-                                                 HeaderHash, SlotLeaders, Timestamp (..),
-                                                 Utxo, makePubKeyAddress)
-import           Pos.Update.Poll.Types          (ConfirmedProposalState)
-import           Pos.Util                       (NE, NewestFirst)
-import           Pos.Util.UserSecret            (UserSecret)
+import           Pos.Crypto                       (PublicKey, SecretKey, toPublic)
+import           Pos.Security.CLI                 (AttackTarget, AttackType)
+import           Pos.Slotting.Types               (SlottingState)
+import           Pos.Ssc.Class.Types              (Ssc (SscNodeContext))
+import           Pos.Types                        (Address, BlockHeader, EpochIndex,
+                                                   HeaderHash, SlotLeaders,
+                                                   Timestamp (..), Utxo,
+                                                   makePubKeyAddress)
+import           Pos.Update.Poll.Types            (ConfirmedProposalState)
+import           Pos.Util                         (NE, NewestFirst)
+import           Pos.Util.UserSecret              (UserSecret)
 
 ----------------------------------------------------------------------------
 -- NodeContext
@@ -86,6 +87,11 @@ data NodeContext ssc = NodeContext
     -- ^ Path to update installer executable, downloaded by update system
     , ncUpdateWithPkg       :: !Bool
     -- ^ Whether to use installer update mechanism
+    , ncShutdownFlag        :: !(STM.TVar Bool)
+    -- ^ If this flag is `True`, then workers should stop.
+    , ncShutdownNotifyQueue :: !(TBQueue ())
+    -- ^ A queue which is used to count how many workers have successfully
+    -- terminated
     }
 
 -- | Generate 'PublicKey' from 'SecretKey' of 'NodeContext'.

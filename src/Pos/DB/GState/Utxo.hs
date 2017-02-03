@@ -181,7 +181,7 @@ txInKey :: TxIn -> ByteString
 txInKey = encodeWithKeyPrefix @UtxoIter
 
 iterationPrefix :: ByteString
-iterationPrefix = "ut/t"
+iterationPrefix = "ut/t/"
 
 ----------------------------------------------------------------------------
 -- Details

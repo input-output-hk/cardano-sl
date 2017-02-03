@@ -31,18 +31,21 @@ module Pos.Util.Binary
 
        -- * Other binary utils
        , getRemainingByteString
+       , getAsciiString1b
+       , putAsciiString1b
        ) where
 
 import           Formatting               ((%), formatToString, int)
-import           Data.Binary.Get          (getRemainingLazyByteString)
+import           Data.Binary.Get          (getRemainingLazyByteString, getWord8, getByteString)
 import           Data.Binary.Get.Internal (Decoder (..), Get, runCont)
-import           Data.Binary.Put          (PutM, putLazyByteString, runPutM)
+import           Data.Binary.Put          (Put, PutM, putLazyByteString, runPutM, putWord8, putByteString)
 import qualified Data.ByteString          as BS
 import qualified Data.ByteString.Lazy     as BSL
+import           Data.Char                (isAscii)
 import           Data.SafeCopy            (Contained, SafeCopy (..), contain, safeGet,
                                            safePut)
 import qualified Data.Serialize           as Cereal (Get, Put)
-import           Universum
+import           Universum                hiding (putByteString)
 import           Unsafe.Coerce            (unsafeCoerce)
 
 import           Pos.Binary.Class         (Bi)
@@ -229,6 +232,22 @@ isolate64 n0 act
 
 getRemainingByteString :: Get ByteString
 getRemainingByteString = BSL.toStrict <$> getRemainingLazyByteString
+
+getAsciiString1b :: String -> Word8 -> Get String
+getAsciiString1b typeName limit = getWord8 >>= \sz -> do
+            if sz > limit
+               then fail $ typeName ++ " shouldn't be more than "
+                                    ++ show limit ++ " bytes long"
+               else traverse checkAscii =<< BS.unpack <$> getByteString (fromIntegral sz)
+  where
+    checkAscii (chr . fromIntegral -> c) =
+        if isAscii c
+           then return c
+           else fail $ "Not an ascii symbol in " ++ typeName ++ " " ++ show c
+
+putAsciiString1b :: String -> Put
+putAsciiString1b str =  putWord8 (fromIntegral $ length str)
+                     >> putByteString (BS.pack $ map (fromIntegral . ord) str)
 
 ----------------------------------------------------------------------------
 -- Guts of 'binary'

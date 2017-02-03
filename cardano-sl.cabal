@@ -158,7 +158,6 @@ library
                         Pos.Binary.Ssc.GodTossing.Core
                         Pos.Binary.Types
                         Pos.Binary.Update
-                        Pos.Binary.Util
                         Pos.Binary.Version
 
                         -- Block processing

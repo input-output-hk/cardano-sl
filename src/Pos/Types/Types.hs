@@ -70,7 +70,6 @@ import           Pos.Data.Attributes    (Attributes)
 import           Pos.Script.Type        (Script)
 import           Pos.Types.Core         (Address (..), Coin, EpochIndex, StakeholderId,
                                          coinF)
-import           Pos.Util.Binary        (getWithLength, putWithLength)
 
 ----------------------------------------------------------------------------
 -- Transaction

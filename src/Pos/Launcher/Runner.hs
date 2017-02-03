@@ -272,6 +272,7 @@ runStatsMode res np@NodeParams {..} sscnp (ActionSpec action, outSpecs) = do
 runCH :: (MonadDB ssc m, Mockable CurrentTime m)
       => NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
 runCH NodeParams {..} sscNodeContext act = do
+    logCfg <- readLoggerConfig lpConfigPath
     jlFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
     semaphore <- liftIO newEmptyMVar
     updSemaphore <- liftIO newEmptyMVar
@@ -315,6 +316,7 @@ runCH NodeParams {..} sscNodeContext act = do
             , ncUpdateWithPkg = npUpdateWithPkg
             , ncUpdateServers = npUpdateServers
             , ncReportServers = npReportServers
+            , ncLoggerConfig = logCfg
             }
     runContextHolder ctx act
 

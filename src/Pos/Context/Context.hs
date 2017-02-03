@@ -12,6 +12,7 @@ module Pos.Context.Context
 import qualified Control.Concurrent.STM         as STM
 import           Control.Concurrent.STM.TBQueue (TBQueue)
 import           Pos.Communication.Protocol     (NodeId)
+import           System.Wlog                    (LoggerConfig)
 import           Universum
 
 import           Pos.Crypto                     (PublicKey, SecretKey, toPublic)
@@ -90,6 +91,8 @@ data NodeContext ssc = NodeContext
     -- ^ Update servers to download updates from
     , ncReportServers       :: ![Text]
     -- ^ Reporting servers' URLs
+    , ncLoggerConfig        :: !LoggerConfig
+    -- ^ Logger config, as taken/read from CLI
     }
 
 -- | Generate 'PublicKey' from 'SecretKey' of 'NodeContext'.

@@ -2,6 +2,7 @@
 
 module Pos.Worker
        ( allWorkers
+       , allWorkersCount
        ) where
 
 import           Data.Tagged           (untag)
@@ -15,10 +16,11 @@ import           Pos.Lrc.Worker        (lrcOnNewSlotWorker)
 import           Pos.Security.Workers  (SecurityWorkersClass, securityWorkers)
 import           Pos.Slotting          (slottingWorker)
 import           Pos.Ssc.Class.Workers (SscWorkersClass, sscWorkers)
+import           Pos.Ssc.GodTossing    (SscGodTossing)
 import           Pos.Update            (usWorkers)
 import           Pos.Util              (mconcatPair)
 import           Pos.Worker.SysStart   (sysStartWorker)
-import           Pos.WorkMode          (WorkMode)
+import           Pos.WorkMode          (ProductionMode, WorkMode)
 
 -- | All, but in reality not all, workers used by full node.
 allWorkers
@@ -37,3 +39,6 @@ allWorkers = mconcatPair
     -- I don't know, guys, I don't know :(
     -- , const ([], mempty) statsWorkers
     ]
+
+allWorkersCount :: Int
+allWorkersCount = length $ fst (allWorkers @SscGodTossing @(ProductionMode SscGodTossing))

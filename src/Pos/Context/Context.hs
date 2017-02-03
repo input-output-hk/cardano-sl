@@ -89,6 +89,9 @@ data NodeContext ssc = NodeContext
     -- ^ Whether to use installer update mechanism
     , ncShutdownFlag        :: !(STM.TVar Bool)
     -- ^ If this flag is `True`, then workers should stop.
+    , ncShutdownNotifyQueue :: !(TBQueue ())
+    -- ^ A queue which is used to count how many workers have successfully
+    -- terminated
     }
 
 -- | Generate 'PublicKey' from 'SecretKey' of 'NodeContext'.

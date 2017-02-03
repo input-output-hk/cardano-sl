@@ -11,7 +11,6 @@ module Pos.Slotting.Logic
        , onNewSlotImpl
        ) where
 
-import           Control.Concurrent.STM   (readTVar)
 import           Control.Monad.Catch      (MonadCatch, catch)
 import           Data.Time.Units          (Microsecond, convertUnit)
 import           Formatting               (build, sformat, shown, (%))
@@ -23,11 +22,11 @@ import           System.Wlog              (WithLogger, logDebug, logError,
 import           Universum
 
 import           Pos.Constants            (ntpMaxError, ntpPollDelay)
-import           Pos.Context.Class        (WithNodeContext, getNodeContext)
-import           Pos.Context.Context      (ncShutdownFlag)
+import           Pos.Context.Class        (WithNodeContext)
 import           Pos.Slotting.Class       (MonadSlots (..))
 import           Pos.Types                (FlatSlotId, SlotId (..), Timestamp (..),
                                            flattenSlotId, unflattenSlotId)
+import           Pos.Util.Shutdown        (ifNotShutdown)
 
 -- | Get flat id of current slot based on MonadSlots.
 getCurrentSlotFlat :: MonadSlots m => m FlatSlotId
@@ -100,7 +99,7 @@ onNewSlotImpl withLogging startImmediately action =
 onNewSlotDo
     :: OnNewSlot ssc m
     => Bool -> Maybe SlotId -> Bool -> (SlotId -> m ()) -> m ()
-onNewSlotDo withLogging expectedSlotId startImmediately action = unlessM isShutdown $ do
+onNewSlotDo withLogging expectedSlotId startImmediately action = ifNotShutdown $ do
     -- here we wait for short intervals to be sure that expected slot
     -- has really started, taking into account possible inaccuracies
     waitUntilPredicate
@@ -110,7 +109,7 @@ onNewSlotDo withLogging expectedSlotId startImmediately action = unlessM isShutd
     when startImmediately $ void $ fork $ action curSlot
 
     -- check for shutdown flag again to not wait a whole slot
-    unlessM isShutdown $ do
+    ifNotShutdown $ do
         Timestamp curTime <- getCurrentTime
         let nextSlot = succ curSlot
         Timestamp nextSlotStart <- getSlotStart nextSlot
@@ -127,4 +126,3 @@ onNewSlotDo withLogging expectedSlotId startImmediately action = unlessM isShutd
         delay ((10 :: Microsecond) `max` (convertUnit slotDuration `div` 10000))
     logTTW timeToWait = modifyLoggerName (<> "slotting") $ logDebug $
                  sformat ("Waiting for "%shown%" before new slot") timeToWait
-    isShutdown = ncShutdownFlag <$> getNodeContext >>= atomically . readTVar

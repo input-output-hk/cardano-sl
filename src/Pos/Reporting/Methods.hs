@@ -9,27 +9,25 @@ module Pos.Reporting.Methods
        , retrieveLogs
        ) where
 
-import           Control.Exception                     (SomeException)
-import           Control.Monad.Catch                   (try)
-import           Data.Aeson                            (encode)
-import qualified Data.Text                             as T
-import           Data.Time.Clock                       (getCurrentTime)
-import           Data.Version                          (Version (..))
-import           Network.HTTP.Client.MultipartFormData (Part, partFileRequestBodyM)
-import           Network.Wreq                          (defaults, param, partFile,
-                                                        partLBS, partText, post, postWith)
-import           Pos.ReportServer.Report               (ReportInfo (..), ReportType (..))
-import           System.Directory                      (doesFileExist)
-import           System.FilePath                       (takeFileName)
-import           System.Info                           (arch, os)
-import           System.Wlog                           (LoggerConfig)
+import           Control.Exception        (SomeException)
+import           Control.Monad.Catch      (try)
+import           Data.Aeson               (encode)
+import qualified Data.Text                as T
+import           Data.Time.Clock          (getCurrentTime)
+import           Data.Version             (Version (..))
+import           Network.Wreq             (partFile, partLBS, post)
+import           Pos.ReportServer.Report  (ReportInfo (..), ReportType (..))
+import           System.Directory         (doesFileExist)
+import           System.FilePath          (takeFileName)
+import           System.Info              (arch, os)
+import           System.Wlog              (LoggerConfig)
 import           Universum
 
-import           Pos.Constants                         (curSoftwareVersion, ourAppName)
-import           Pos.Context                           (WithNodeContext, getNodeContext,
-                                                        ncLoggerConfig, ncReportServers)
-import           Pos.Reporting.Exceptions              (ReportingError (..))
-import           Pos.Types                             (svNumber)
+import           Pos.Constants            (curSoftwareVersion, ourAppName)
+import           Pos.Context              (WithNodeContext, getNodeContext,
+                                           ncLoggerConfig, ncReportServers)
+import           Pos.Reporting.Exceptions (ReportingError (..))
+import           Pos.Types                (svNumber)
 
 sendReportNode
     :: (MonadIO m, MonadCatch m, WithNodeContext її m)
@@ -54,7 +52,7 @@ sendReport logFiles reportType reportServerUri = do
     e <- try $ liftIO $ post reportServerUri $
         partLBS "payload" (encode $ reportInfo curTime existingFiles) :
         map (\fp -> partFile (toFileName fp) fp) existingFiles
-    whenLeft e $ \(e :: SomeException) -> throwM $ SendingError (show e)
+    whenLeft e $ \(e' :: SomeException) -> throwM $ SendingError (show e')
   where
     toFileName = T.pack . takeFileName
     reportInfo curTime files =

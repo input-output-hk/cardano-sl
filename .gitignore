@@ -18,3 +18,7 @@ cabal.sandbox.config
 .stack-work/
 cabal.project.local
 .dir-locals.el
+node-db/*
+*.key
+*.lock
+*.dump

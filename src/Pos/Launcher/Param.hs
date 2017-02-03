@@ -18,18 +18,18 @@ import           Pos.Util.UserSecret (UserSecret)
 
 -- | Contains all parameters required for hierarchical logger initialization.
 data LoggingParams = LoggingParams
-    { lpRunnerTag     :: !LoggerName        -- ^ prefix for logger, like "time-slave"
-    , lpHandlerPrefix :: !(Maybe FilePath)  -- ^ prefix of path for all logs
-    , lpConfigPath    :: !(Maybe FilePath)  -- ^ path to logger configuration
+    { lpRunnerTag     :: !LoggerName        -- ^ Prefix for logger, like "time-slave"
+    , lpHandlerPrefix :: !(Maybe FilePath)  -- ^ Prefix of path for all logs
+    , lpConfigPath    :: !(Maybe FilePath)  -- ^ Path to logger configuration
     } deriving (Show)
 
 -- | Contains basic & networking parameters for running node.
 data BaseParams = BaseParams
-    { bpIpPort             :: !NetworkAddress         -- ^ port to run on
-    , bpDHTPeers           :: ![DHTNode]      -- ^ peers passed from CLI
+    { bpIpPort             :: !NetworkAddress -- ^ Port to run on
+    , bpDHTPeers           :: ![DHTNode]      -- ^ Peers passed from CLI
     , bpDHTKey             :: !(Maybe DHTKey)
     , bpDHTExplicitInitial :: !Bool
-    , bpLoggingParams      :: !LoggingParams  -- ^ logger parameters
+    , bpLoggingParams      :: !LoggingParams  -- ^ Logger parameters
     , bpKademliaDump       :: !FilePath       -- ^ Path to kademlia dump file
     } deriving (Show)
 
@@ -49,4 +49,6 @@ data NodeParams = NodeParams
     , npPropagation   :: !Bool              -- ^ Whether to propagate txs, ssc data, blocks to neighbors
     , npUpdatePath    :: !FilePath          -- ^ Path to update installer executable, downloaded by update system
     , npUpdateWithPkg :: !Bool              -- ^ If `True` then use installer update mechanism
+    , npUpdateServers :: ![Text]            -- ^ List of update server URLs
+    , npReportServers :: ![Text]            -- ^ List of report server URLs
     } deriving (Show)

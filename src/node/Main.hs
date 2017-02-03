@@ -217,6 +217,8 @@ getNodeParams args@Args {..} systemStart = do
         , npPropagation = not (CLI.disablePropagation commonArgs)
         , npUpdatePath = updateLatestPath
         , npUpdateWithPkg = updateWithPackage
+        , npUpdateServers = CLI.updateServers commonArgs
+        , npReportServers = CLI.reportServers commonArgs
         }
 
 gtSscParams :: Args -> VssKeyPair -> GtParams

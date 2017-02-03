@@ -282,6 +282,8 @@ main = do
                 , npPropagation   = not (CLI.disablePropagation goCommonArgs)
                 , npUpdatePath    = "update.exe"
                 , npUpdateWithPkg = True
+                , npUpdateServers = []
+                , npReportServers = []
                 }
             gtParams =
                 GtParams

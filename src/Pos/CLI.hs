@@ -119,6 +119,7 @@ data CommonArgs = CommonArgs
     , sscAlgo            :: !SscAlgo
     , disablePropagation :: !Bool
     , reportServers      :: ![Text]
+    , updateServers      :: ![Text]
 #ifdef DEV_MODE
     , flatDistr          :: !(Maybe (Int, Int))
     , bitcoinDistr       :: !(Maybe (Int, Int))
@@ -135,6 +136,7 @@ commonArgsParser peerHelpMsg = CommonArgs
     <*> sscAlgoOption
     <*> disablePropagationOption
     <*> reportServersOption
+    <*> updateServersOption
 #ifdef DEV_MODE
     <*> flatDistrOptional
     <*> btcDistrOptional
@@ -207,6 +209,13 @@ reportServersOption =
              "report-server"
              "URI"
              "Reporting server to send crash/error logs on")
+
+updateServersOption :: Opt.Parser [Text]
+updateServersOption =
+    many $
+    T.pack <$>
+    Opt.strOption
+        (templateParser "update-server" "URI" "Server to download updates from")
 
 #ifdef DEV_MODE
 flatDistrOptional :: Opt.Parser (Maybe (Int, Int))

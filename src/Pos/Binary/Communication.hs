@@ -6,7 +6,6 @@ module Pos.Binary.Communication () where
 import           Data.Binary.Get                  (getByteString, getWord8, label)
 import           Data.Binary.Put                  (putByteString, putWord8)
 import qualified Data.ByteString                  as BS
-import qualified Data.ByteString.Lazy             as BSL
 import           Data.Reflection                  (Reifies, reflect)
 import           Formatting                       (int, sformat, (%))
 import           Node.Message                     (MessageName (..))

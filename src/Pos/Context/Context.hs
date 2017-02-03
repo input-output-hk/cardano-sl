@@ -86,6 +86,10 @@ data NodeContext ssc = NodeContext
     -- ^ Path to update installer executable, downloaded by update system
     , ncUpdateWithPkg       :: !Bool
     -- ^ Whether to use installer update mechanism
+    , ncUpdateServers       :: ![Text]
+    -- ^ Update servers to download updates from
+    , ncReportServers       :: ![Text]
+    -- ^ Reporting servers' URLs
     }
 
 -- | Generate 'PublicKey' from 'SecretKey' of 'NodeContext'.

@@ -313,6 +313,8 @@ runCH NodeParams {..} sscNodeContext act = do
             , ncUpdateSemaphore = updSemaphore
             , ncUpdatePath = npUpdatePath
             , ncUpdateWithPkg = npUpdateWithPkg
+            , ncUpdateServers = npUpdateServers
+            , ncReportServers = npReportServers
             }
     runContextHolder ctx act
 

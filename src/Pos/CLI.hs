@@ -28,6 +28,7 @@ import           Universum
 
 import           Control.Lens                         (zoom, (?=))
 import           Data.Either                          (either)
+import qualified Data.Text                            as T
 import           Options.Applicative.Builder.Internal (HasMetavar, HasName)
 import qualified Options.Applicative.Simple           as Opt (Mod, Parser, auto, help,
                                                               long, metavar, option,
@@ -88,8 +89,8 @@ attackTargetParser :: P.Parser AttackTarget
 attackTargetParser = (PubKeyAddressTarget <$> try base58AddrParser) <|>
                      (NetworkAddressTarget <$> addrParser)
 
--- | Default logger config. Will be used if `--log-config` argument is not passed.
--- Corresponds to next logger config:
+-- | Default logger config. Will be used if `--log-config` argument is
+-- not passed. Corresponds to next logger config:
 --
 -- > node:
 -- >   severity: Info
@@ -101,13 +102,14 @@ defaultLoggerConfig = fromScratch $ zoom lcTree $ zoomLogger "node" $ do
     ltSeverity ?= Info
     zoomLogger "comm" $ ltSeverity ?= Warning
 
--- | Reads logger config from given path. By default return 'defaultLoggerConfig'.
+-- | Reads logger config from given path. By default return
+-- 'defaultLoggerConfig'.
 readLoggerConfig :: MonadIO m => Maybe FilePath -> m LoggerConfig
 readLoggerConfig = maybe (return defaultLoggerConfig) parseLoggerConfig
 
-------------------------------------------------------------------------------------------
--- CLI Options
-------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------
+-- ClI Options
+----------------------------------------------------------------------------
 
 data CommonArgs = CommonArgs
     { dhtExplicitInitial :: !Bool
@@ -116,6 +118,7 @@ data CommonArgs = CommonArgs
     , logPrefix          :: !(Maybe FilePath)
     , sscAlgo            :: !SscAlgo
     , disablePropagation :: !Bool
+    , reportServers      :: ![Text]
 #ifdef DEV_MODE
     , flatDistr          :: !(Maybe (Int, Int))
     , bitcoinDistr       :: !(Maybe (Int, Int))
@@ -131,6 +134,7 @@ commonArgsParser peerHelpMsg = CommonArgs
     <*> optionalLogPrefix
     <*> sscAlgoOption
     <*> disablePropagationOption
+    <*> reportServersOption
 #ifdef DEV_MODE
     <*> flatDistrOptional
     <*> btcDistrOptional
@@ -193,6 +197,16 @@ disablePropagationOption =
          Opt.help "Disable network propagation (transactions, SSC data, blocks). I.e.\
                   \ all data is to be sent only by entity who creates data and entity is\
                   \ yosend it to all peers on his own")
+
+reportServersOption :: Opt.Parser [Text]
+reportServersOption =
+    many $
+    T.pack <$>
+    Opt.strOption
+        (templateParser
+             "report-server"
+             "URI"
+             "Reporting server to send crash/error logs on")
 
 #ifdef DEV_MODE
 flatDistrOptional :: Opt.Parser (Maybe (Int, Int))

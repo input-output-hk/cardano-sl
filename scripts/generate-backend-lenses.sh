@@ -6,18 +6,12 @@ DIR_GENERATED_WEB=src/Generated/Pos/Explorer/Web
 
 mkdir -p $DIR_GENERATED_WEB/Lenses
 
-IMPORTS_ClientTypes="\
-import Data.Maybe\
-|\
-import Data.Types\
-|\
-import Pos.Types.Core\
-"
-
 purescript-derive-lenses \
     < $DIR_GENERATED_WEB/ClientTypes.purs \
     --moduleName Pos.Explorer.Web.Lenses.ClientTypes \
-    --moduleImports "$IMPORTS_ClientTypes" \
+    --moduleImports "import Data.Maybe" \
+    --moduleImports "import Data.Types" \
+    --moduleImports "import Pos.Types.Core" \
     > $DIR_GENERATED_WEB/Lenses/ClientTypes.purs
 
 

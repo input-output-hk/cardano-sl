@@ -6,12 +6,14 @@ module Pos.Reporting.Methods
        ( sendReportNode
        , sendReport
        , retrieveLogFiles
-       , retrieveLogs
+       , chooseLogFiles
        ) where
 
 import           Control.Exception        (SomeException)
+import           Control.Lens             (to)
 import           Control.Monad.Catch      (try)
 import           Data.Aeson               (encode)
+import qualified Data.HashMap.Strict      as HM
 import qualified Data.Text                as T
 import           Data.Time.Clock          (getCurrentTime)
 import           Data.Version             (Version (..))
@@ -20,7 +22,7 @@ import           Pos.ReportServer.Report  (ReportInfo (..), ReportType (..))
 import           System.Directory         (doesFileExist)
 import           System.FilePath          (takeFileName)
 import           System.Info              (arch, os)
-import           System.Wlog              (LoggerConfig)
+import           System.Wlog              (LoggerTree, lcTree, ltFile, ltSubloggers)
 import           Universum
 
 import           Pos.Constants            (curSoftwareVersion, ourAppName)
@@ -35,7 +37,7 @@ sendReportNode
 sendReportNode reportType = do
     servers <- ncReportServers <$> getNodeContext
     logConfig <- ncLoggerConfig <$> getNodeContext
-    let logFileNames = map snd $ retrieveLogFiles logConfig
+    let logFileNames = map snd $ retrieveLogFiles $ logConfig ^. lcTree
     -- put filter here, we don't want to send all logs
     let logFiles = filter (const True) logFileNames
     forM_ servers $ sendReport logFiles reportType . T.unpack
@@ -68,9 +70,18 @@ sendReport logFiles reportType reportServerUri = do
 
 -- | Given logger config, retrieves all (logger name, filepath) for
 -- every logger that has file handle.
-retrieveLogFiles :: LoggerConfig -> [([Text], FilePath)]
-retrieveLogFiles = undefined
+retrieveLogFiles :: LoggerTree -> [([Text], FilePath)]
+retrieveLogFiles lt =
+    curElem ++ concatMap addFoo (lt ^. ltSubloggers . to HM.toList)
+  where
+    curElem =
+        case lt ^. ltFile of
+            Just filepath -> [([], filepath)]
+            Nothing       -> []
+    addFoo (part, node) = map (first (part :)) $ retrieveLogFiles node
 
--- | Reads log file
-retrieveLogs :: (MonadIO m) => FilePath -> m (Maybe ByteString)
-retrieveLogs = undefined
+-- | Retrieves real filepathes of logs given filepathes from log
+-- description. Example: there's @component.log@ in config, but this
+-- function will return @[component.log.122, component.log.123]@.
+chooseLogFiles :: (MonadIO m) => FilePath -> m [FilePath]
+chooseLogFiles = undefined

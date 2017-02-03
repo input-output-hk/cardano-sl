@@ -265,6 +265,7 @@ library
 
                         -- Reporting
                         Pos.Reporting.Methods
+                        Pos.Reporting.Exceptions
 
                         -- SafeCopy serialization (obsolete, but still needed)
                         Pos.SafeCopy

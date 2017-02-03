@@ -92,11 +92,11 @@ type TxSig = Signature TxSigData
 
 -- | A witness for a single input.
 data TxInWitness
-    = PkWitness { twKey :: PublicKey
-                , twSig :: TxSig}
-    | ScriptWitness { twValidator :: Script
-                    , twRedeemer  :: Script}
-    | UnknownWitnessType Word8 ByteString
+    = PkWitness { twKey :: !PublicKey
+                , twSig :: !TxSig }
+    | ScriptWitness { twValidator :: !Script
+                    , twRedeemer  :: !Script }
+    | UnknownWitnessType !Word8 !ByteString
     deriving (Eq, Show, Generic, Typeable)
 
 instance Hashable TxInWitness

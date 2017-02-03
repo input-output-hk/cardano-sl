@@ -20,19 +20,20 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,
                                               defaultLiftBaseWith, defaultLiftWith,
                                               defaultRestoreM, defaultRestoreT)
-import           Mockable                    (ChannelT, CurrentTime, MFunctor',
+import           Mockable                    (ChannelT, Counter, CurrentTime,
+                                              Distribution, Gauge, MFunctor',
                                               Mockable (liftMockable), Promise,
-                                              SharedAtomicT, ThreadId, currentTime,
-                                              liftMockableWrappedM)
+                                              SharedAtomicT, SharedExclusiveT, ThreadId,
+                                              currentTime, liftMockableWrappedM)
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
+import           Pos.Constants               (genesisSlotDuration)
 import           Pos.Slotting                (MonadSlots (..), getCurrentSlotUsingNtp)
 import           Pos.Types                   (Timestamp (..))
 import           Pos.Wallet.Context.Class    (WithWalletContext (..), readNtpData,
-                                              readNtpLastSlot, readNtpMargin,
-                                              readSlotDuration)
+                                              readNtpLastSlot, readNtpMargin)
 import           Pos.Wallet.Context.Context  (WalletContext (..))
 
 -- | Wrapper for monadic action which brings 'WalletContext'.
@@ -66,6 +67,10 @@ instance MonadBaseControl IO m => MonadBaseControl IO (ContextHolder m) where
 type instance ThreadId (ContextHolder m) = ThreadId m
 type instance Promise (ContextHolder m) = Promise m
 type instance SharedAtomicT (ContextHolder m) = SharedAtomicT m
+type instance Counter (ContextHolder m) = Counter m
+type instance Distribution (ContextHolder m) = Distribution m
+type instance SharedExclusiveT (ContextHolder m) = SharedExclusiveT m
+type instance Gauge (ContextHolder m) = Gauge m
 type instance ChannelT (ContextHolder m) = ChannelT m
 
 instance ( Mockable d m
@@ -87,4 +92,4 @@ instance (Mockable CurrentTime m, MonadIO m) =>
         lastSlot <- readNtpLastSlot
         ntpData <- readNtpData
         getCurrentSlotUsingNtp lastSlot ntpData
-    getSlotDuration = readSlotDuration
+    getSlotDuration = pure genesisSlotDuration

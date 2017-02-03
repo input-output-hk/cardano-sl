@@ -29,7 +29,7 @@ import           Pos.Crypto                     (Hash, PublicKey, SecretKey, psk
                                                  pskOmega)
 import           Pos.DB.Class                   (MonadDB, getMiscDB)
 import           Pos.DB.Functions               (rocksGetBi, rocksPutBi)
-import           Pos.Ssc.GodTossing.Types.Type  (SscGodTossing)
+import           Pos.Ssc.GodTossing.Type        (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types (GtSecretStorage)
 import           Pos.Types                      (EpochIndex, ProxySKEpoch)
 

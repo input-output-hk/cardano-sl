@@ -30,34 +30,33 @@ import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
 #ifdef DEV_MODE
 import           Pos.Ssc.GodTossing    (genesisVssKeyPairs)
 #endif
-import           Pos.Ssc.Class         (SscListenersClass)
+import           Pos.Communication     (ActionSpec (..))
+import           Pos.Ssc.Class         (SscConstraint)
 import           Pos.Ssc.GodTossing    (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon    (SscNistBeacon)
 import           Pos.Ssc.SscAlgo       (SscAlgo (..))
 import           Pos.Types             (Timestamp (Timestamp))
-import           Pos.Util              (inAssertMode)
+import           Pos.Util              (inAssertMode, mappendPair)
 import           Pos.Util.BackupPhrase (keysFromPhrase)
 import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usKeys, usVss,
                                         writeUserSecret)
 
 #ifdef WITH_WEB
-import           Pos.Ssc.Class         (SscConstraint)
 import           Pos.Web               (serveWebBase, serveWebGT)
 import           Pos.WorkMode          (WorkMode)
 #ifdef WITH_WALLET
-import           Pos.WorkMode          (ProductionMode, RawRealMode, StatsMode)
-
-import           Node                  (SendActions, hoistSendActions)
-import           Pos.Communication     (BiP)
+import           Node                  (hoistSendActions)
+import           Pos.Communication     (OutSpecs, WorkerSpec, worker)
 import           Pos.Statistics        (getNoStatsT, getStatsMap, runStatsT')
-import           Pos.Wallet.Web        (walletServeWebFull)
+import           Pos.Wallet.Web        (walletServeWebFull, walletServerOuts)
+import           Pos.WorkMode          (ProductionMode, RawRealMode, StatsMode)
 #endif
 #endif
 
 import           NodeOptions           (Args (..), getNodeOptions)
 
 getSystemStart
-    :: SscListenersClass ssc
+    :: SscConstraint ssc
     => Proxy ssc -> RealModeResources -> Args -> Production Timestamp
 getSystemStart sscProxy inst args
     | noSystemStart args > 0 = pure $ Timestamp $ sec $ noSystemStart args
@@ -114,13 +113,15 @@ action args@Args {..} res = do
     putText $ "If stats is on: " <> show enableStats
     case (enableStats, CLI.sscAlgo commonArgs) of
         (True, GodTossingAlgo) ->
-            runNodeStats @SscGodTossing res (map const currentPluginsGT ++ walletStats args) currentParams gtParams
+            runNodeStats @SscGodTossing res (convPlugins currentPluginsGT `mappendPair` walletStats args) currentParams gtParams
         (True, NistBeaconAlgo) ->
-            runNodeStats @SscNistBeacon res (map const currentPlugins ++  walletStats args) currentParams ()
+            runNodeStats @SscNistBeacon res (convPlugins currentPlugins `mappendPair`  walletStats args) currentParams ()
         (False, GodTossingAlgo) ->
-            runNodeProduction @SscGodTossing res (map const currentPluginsGT ++ walletProd args) currentParams gtParams
+            runNodeProduction @SscGodTossing res (convPlugins currentPluginsGT `mappendPair` walletProd args) currentParams gtParams
         (False, NistBeaconAlgo) ->
-            runNodeProduction @SscNistBeacon res (map const currentPlugins ++ walletProd args) currentParams ()
+            runNodeProduction @SscNistBeacon res (convPlugins currentPlugins `mappendPair` walletProd args) currentParams ()
+  where
+    convPlugins = (,mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
 
 #ifdef DEV_MODE
 userSecretWithGenesisKey
@@ -221,9 +222,7 @@ getNodeParams args@Args {..} systemStart = do
 gtSscParams :: Args -> VssKeyPair -> GtParams
 gtSscParams Args {..} vssSK =
     GtParams
-    {
-      gtpRebuildDb  = rebuildDB
-    , gtpSscEnabled = True
+    { gtpSscEnabled = True
     , gtpVssKeyPair = vssSK
     }
 
@@ -245,34 +244,36 @@ pluginsGT Args {..}
 walletServe
     :: SscConstraint ssc
     => Args
-    -> [SendActions BiP (RawRealMode ssc) -> RawRealMode ssc ()]
+    -> ([WorkerSpec (RawRealMode ssc)], OutSpecs)
 walletServe Args {..} =
     if enableWallet
-    then [\sendActions -> walletServeWebFull sendActions walletDebug walletDbPath
-        walletRebuildDb walletPort]
-    else []
+    then first pure $ worker walletServerOuts $ \sendActions ->
+            walletServeWebFull sendActions walletDebug walletDbPath
+                                           walletRebuildDb walletPort
+    else ([], mempty)
 
 walletProd
     :: SscConstraint ssc
     => Args
-    -> [SendActions BiP (ProductionMode ssc) -> ProductionMode ssc ()]
-walletProd = map liftPlugin . walletServe
+    -> ([WorkerSpec (ProductionMode ssc)], OutSpecs)
+walletProd = first (map liftPlugin) . walletServe
   where
-    liftPlugin = \p sa -> lift . p $ hoistSendActions getNoStatsT lift sa
+    liftPlugin (ActionSpec p) = ActionSpec $ \vI sa ->
+        lift . p vI $ hoistSendActions getNoStatsT lift sa
 
 walletStats
     :: SscConstraint ssc
     => Args
-    -> [SendActions BiP (StatsMode ssc) -> StatsMode ssc ()]
-walletStats = map (liftPlugin) . walletServe
+    -> ([WorkerSpec (StatsMode ssc)], OutSpecs)
+walletStats = first (map liftPlugin) . walletServe
   where
-    liftPlugin = \p sa -> do
+    liftPlugin (ActionSpec p) = ActionSpec $ \vI sa -> do
         s <- getStatsMap
-        lift . p $ hoistSendActions (runStatsT' s) lift sa
+        lift . p vI $ hoistSendActions (runStatsT' s) lift sa
 #else
-walletProd, walletStats :: Args -> [a]
-walletProd _ = []
-walletStats _ = []
+walletProd, walletStats :: Monoid b => Args -> ([a], b)
+walletProd _ = ([], mempty)
+walletStats _ = ([], mempty)
 #endif
 
 printFlags :: IO ()

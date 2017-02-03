@@ -5,48 +5,50 @@ module Pos.Security.Workers
        ( SecurityWorkersClass (..)
        ) where
 
-import           Control.Concurrent.STM            (TVar, newTVar, readTVar, writeTVar)
-import           Control.Monad.Trans.Reader        (ReaderT (..), ask)
-import qualified Data.HashMap.Strict               as HM
-import           Data.Tagged                       (Tagged (..))
-import           Formatting                        (build, int, sformat, (%))
-import           Node                              (SendActions)
-import           System.Wlog                       (logError, logWarning)
-import           Universum                         hiding (ask)
+import           Control.Concurrent.STM      (TVar, newTVar, readTVar, writeTVar)
+import           Control.Monad.Trans.Reader  (ReaderT (..), ask)
+import qualified Data.HashMap.Strict         as HM
+import           Data.Tagged                 (Tagged (..))
+import           Formatting                  (build, int, sformat, (%))
+import           System.Wlog                 (logError, logWarning)
+import           Universum                   hiding (ask)
 
-import           Pos.Block.Network.Retrieval       (requestTip)
-import           Pos.Communication.BiP             (BiP)
-import           Pos.Constants                     (blkSecurityParam,
-                                                    mdNoBlocksSlotThreshold,
-                                                    mdNoCommitmentsEpochThreshold)
-import           Pos.Context                       (getNodeContext, ncPublicKey)
-import           Pos.DB                            (getBlockHeader, getTipBlockHeader,
-                                                    loadBlundsFromTipByDepth)
-import           Pos.DHT.Model                     (converseToNeighbors)
-import           Pos.Security.Class                (SecurityWorkersClass (..))
-import           Pos.Slotting                      (onNewSlot)
-import           Pos.Ssc.GodTossing.Types.Instance ()
-import           Pos.Ssc.GodTossing.Types.Type     (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Types    (GtPayload (..), SscBi)
-import           Pos.Ssc.NistBeacon                (SscNistBeacon)
-import           Pos.Types                         (EpochIndex, MainBlock, SlotId (..),
-                                                    blockMpc, flattenEpochOrSlot,
-                                                    flattenSlotId, genesisHash,
-                                                    headerLeaderKey, prevBlockL)
-import           Pos.Types.Address                 (addressHash)
-import           Pos.WorkMode                      (WorkMode)
+import           Pos.Binary.Ssc              ()
+import           Pos.Block.Network.Retrieval (requestTip, requestTipOuts)
+import           Pos.Communication.Protocol  (OutSpecs, WorkerSpec, localWorker,
+                                              onNewSlotWorker)
+import           Pos.Constants               (blkSecurityParam, mdNoBlocksSlotThreshold,
+                                              mdNoCommitmentsEpochThreshold)
+import           Pos.Context                 (getNodeContext, ncPublicKey)
+import           Pos.DB                      (getBlockHeader, getTipBlockHeader,
+                                              loadBlundsFromTipByDepth)
+import           Pos.DHT.Model               (converseToNeighbors)
+import           Pos.Security.Class          (SecurityWorkersClass (..))
+import           Pos.Slotting                (onNewSlot)
+import           Pos.Ssc.GodTossing          (GtPayload (..), SscGodTossing,
+                                              getCommitmentsMap)
+import           Pos.Ssc.NistBeacon          (SscNistBeacon)
+import           Pos.Types                   (EpochIndex, MainBlock, SlotId (..),
+                                              blockMpc, flattenEpochOrSlot, flattenSlotId,
+                                              genesisHash, headerLeaderKey, prevBlockL)
+import           Pos.Types.Address           (addressHash)
+import           Pos.Util                    (mconcatPair)
+import           Pos.WorkMode                (WorkMode)
 
-instance SscBi => SecurityWorkersClass SscGodTossing where
-    securityWorkers = Tagged [ checkForReceivedBlocksWorker
+
+instance SecurityWorkersClass SscGodTossing where
+    securityWorkers = Tagged $ merge
+                             [ checkForReceivedBlocksWorker
                              , checkForIgnoredCommitmentsWorker
                              ]
+      where
+        merge = mconcatPair . map (first pure)
 
 instance SecurityWorkersClass SscNistBeacon where
-    securityWorkers = Tagged [ checkForReceivedBlocksWorker
-                             ]
+    securityWorkers = Tagged $ first pure checkForReceivedBlocksWorker
 
-checkForReceivedBlocksWorker :: WorkMode ssc m => SendActions BiP m -> m ()
-checkForReceivedBlocksWorker sendActions = onNewSlot True $ \slotId -> do
+checkForReceivedBlocksWorker :: WorkMode ssc m => (WorkerSpec m, OutSpecs)
+checkForReceivedBlocksWorker = onNewSlotWorker True requestTipOuts $ \slotId sendActions -> do
     ourPk <- ncPublicKey <$> getNodeContext
 
     -- If there are no main blocks generated by someone else in the past
@@ -89,8 +91,8 @@ checkForReceivedBlocksWorker sendActions = onNewSlot True $ \slotId -> do
             "by ourselves"
         converseToNeighbors sendActions requestTip
 
-checkForIgnoredCommitmentsWorker :: forall m. WorkMode SscGodTossing m => SendActions BiP m -> m ()
-checkForIgnoredCommitmentsWorker __sendActions = do
+checkForIgnoredCommitmentsWorker :: forall m. WorkMode SscGodTossing m => (WorkerSpec m, OutSpecs)
+checkForIgnoredCommitmentsWorker = localWorker $ do
     epochIdx <- atomically (newTVar 0)
     _ <- runReaderT (onNewSlot True checkForIgnoredCommitmentsWorkerImpl) epochIdx
     return ()
@@ -128,5 +130,6 @@ checkCommitmentsInBlock slotId block = do
         tvar <- ask
         lift $ atomically $ writeTVar tvar $ siEpoch slotId
   where
-    isCommitmentInPayload addr (CommitmentsPayload commitments _) = HM.member addr commitments
+    isCommitmentInPayload addr (CommitmentsPayload commitments _) =
+        HM.member addr $ getCommitmentsMap commitments
     isCommitmentInPayload _ _ = False

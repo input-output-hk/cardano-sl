@@ -15,9 +15,9 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,
                                               defaultLiftBaseWith, defaultLiftWith,
                                               defaultRestoreM, defaultRestoreT)
-import           Mockable                    (ChannelT, MFunctor',
-                                              Mockable (liftMockable), Promise,
-                                              SharedAtomicT, ThreadId,
+import           Mockable                    (ChannelT, Counter, Distribution, Gauge,
+                                              MFunctor', Mockable (liftMockable), Promise,
+                                              SharedAtomicT, SharedExclusiveT, ThreadId,
                                               liftMockableWrappedM)
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
@@ -25,7 +25,7 @@ import           Universum
 
 import           Pos.Context                 (WithNodeContext)
 import           Pos.Slotting                (MonadSlots)
-import           Pos.Ssc.Extra.MonadLD       (MonadSscLD)
+import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Statistics              (MonadStats)
 import           Pos.Util.JsonLog            (MonadJL)
 
@@ -40,7 +40,7 @@ newtype WalletDB m a = WalletDB
     } deriving (Functor, Applicative, Monad, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
                 WithNodeContext ssc,
-                MonadSlots, MonadSscLD ssc, MonadFix,
+                MonadSlots, MonadSscMem ssc, MonadFix,
                 MonadJL, CanLog, MonadStats,
                 MonadKeys, WithWalletContext, MonadTrans)
 
@@ -51,6 +51,10 @@ instance Monad m => WrappedM (WalletDB m) where
 type instance ThreadId (WalletDB m) = ThreadId m
 type instance Promise (WalletDB m) = Promise m
 type instance SharedAtomicT (WalletDB m) = SharedAtomicT m
+type instance Counter (WalletDB m) = Counter m
+type instance Distribution (WalletDB m) = Distribution m
+type instance SharedExclusiveT (WalletDB m) = SharedExclusiveT m
+type instance Gauge (WalletDB m) = Gauge m
 type instance ChannelT (WalletDB m) = ChannelT m
 
 instance ( Mockable d m

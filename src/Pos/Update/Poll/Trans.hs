@@ -22,7 +22,10 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               defaultRestoreM, defaultRestoreT)
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
-import           Mockable                    (ChannelT, Promise, SharedAtomicT, ThreadId)
+import           Mockable                    (ChannelT, Counter, Distribution, Gauge,
+                                              Gauge, Promise, SharedAtomicT,
+                                              SharedExclusiveT, SharedExclusiveT,
+                                              ThreadId)
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
@@ -31,8 +34,8 @@ import           Pos.Context                 (WithNodeContext)
 import           Pos.Crypto                  (hash)
 import           Pos.DB.Class                (MonadDB)
 import           Pos.Delegation.Class        (MonadDelegation)
-import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..))
+import           Pos.Slotting.Class          (MonadSlots)
+import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Txp.Class               (MonadTxpLD (..))
 import           Pos.Types                   (SoftwareVersion (..))
 import           Pos.Types.Utxo.Class        (MonadUtxo, MonadUtxoRead)
@@ -63,7 +66,7 @@ newtype PollT m a = PollT
     } deriving (Functor, Applicative, Monad, MonadThrow, MonadSlots,
                 MonadCatch, MonadIO, HasLoggerName, MonadTrans, MonadError e,
                 WithNodeContext ssc, MonadJL, CanLog, MonadMask, MonadUSMem,
-                MonadSscLD kek, MonadSscGS ssc, MonadUtxoRead, MonadUtxo,
+                MonadSscMem mem, MonadUtxoRead, MonadUtxo,
                 MonadTxpLD ssc, MonadBase io, MonadDelegation, MonadFix)
 
 ----------------------------------------------------------------------------
@@ -155,6 +158,10 @@ deriving instance MonadDB ssc m => MonadDB ssc (PollT m)
 type instance ThreadId (PollT m) = ThreadId m
 type instance Promise (PollT m) = Promise m
 type instance SharedAtomicT (PollT m) = SharedAtomicT m
+type instance Counter (PollT m) = Counter m
+type instance Distribution (PollT m) = Distribution m
+type instance SharedExclusiveT (PollT m) = SharedExclusiveT m
+type instance Gauge (PollT m) = Gauge m
 type instance ChannelT (PollT m) = ChannelT m
 
 -- instance ( Mockable d m

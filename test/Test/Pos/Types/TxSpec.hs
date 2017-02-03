@@ -4,46 +4,44 @@ module Test.Pos.Types.TxSpec
        ( spec
        ) where
 
-import qualified Data.HashMap.Strict    as HM
-import           Data.List              (elemIndex, lookup, zipWith3, (\\))
-import qualified Data.Map               as M (singleton)
-import qualified Data.Vector            as V (fromList, singleton, toList)
-import           Formatting             (build, int, sformat, shown, (%))
-import           Serokell.Util.Text     (listJsonIndent)
-import           Serokell.Util.Verify   (VerificationRes (..), isVerFailure, isVerSuccess)
-import           Test.Hspec             (Expectation, Spec, describe, expectationFailure,
-                                         it, shouldSatisfy)
-import           Test.Hspec.QuickCheck  (prop)
-import           Test.QuickCheck        (NonNegative (..), Positive (..), Property,
-                                         arbitrary, forAll, resize, shuffle, vectorOf,
-                                         (.&.), (===))
-import           Test.QuickCheck.Gen    (Gen, unGen)
-import           Test.QuickCheck.Random (mkQCGen)
-import qualified Text.Regex.TDFA        as TDFA
-import qualified Text.Regex.TDFA.Text   as TDFA
-import           Universum              hiding ((.&.))
-import           Unsafe                 (unsafeHead)
+import qualified Data.HashMap.Strict   as HM
+import           Data.List             (elemIndex, lookup, zipWith3, (\\))
+import qualified Data.Map              as M (singleton)
+import qualified Data.Vector           as V (fromList, singleton, toList)
+import           Formatting            (build, int, sformat, shown, (%))
+import           Serokell.Util.Text    (listJsonIndent)
+import           Serokell.Util.Verify  (VerificationRes (..), isVerFailure, isVerSuccess)
+import           Test.Hspec            (Expectation, Spec, describe, expectationFailure,
+                                        it, shouldSatisfy)
+import           Test.Hspec.QuickCheck (prop)
+import           Test.QuickCheck       (NonNegative (..), Positive (..), Property,
+                                        arbitrary, forAll, resize, shuffle, vectorOf,
+                                        (.&.), (===))
+import           Test.QuickCheck.Gen   (Gen)
+import qualified Text.Regex.TDFA       as TDFA
+import qualified Text.Regex.TDFA.Text  as TDFA
+import           Universum             hiding ((.&.))
+import           Unsafe                (unsafeHead)
 
-import           Pos.Crypto             (KeyPair (..), checkSig, hash, unsafeHash, whData,
-                                         withHash)
-import           Pos.Data.Attributes    (mkAttributes)
-import           Pos.Script             (Script)
-import           Pos.Script.Examples    (alwaysSuccessValidator, badIntRedeemer,
-                                         goodIntRedeemer, goodIntRedeemerWithBlah,
-                                         goodStdlibRedeemer, idValidator, intValidator,
-                                         intValidatorWithBlah, multisigRedeemer,
-                                         multisigValidator, shaStressRedeemer,
-                                         sigStressRedeemer, stdlibValidator)
-import           Pos.Types              (BadSigsTx (..), GoodTx (..), OverflowTx (..),
-                                         SmallBadSigsTx (..), SmallGoodTx (..),
-                                         SmallOverflowTx (..), Tx (..), TxAux,
-                                         TxDistribution (..), TxIn (..), TxInWitness (..),
-                                         TxOut (..), TxOutAux, TxSigData, TxWitness, Utxo,
-                                         VTxGlobalContext (..), VTxLocalContext (..),
-                                         checkPubKeyAddress, makePubKeyAddress,
-                                         makeScriptAddress, mkCoin, sumCoins, topsortTxs,
-                                         verifyTxAlone, verifyTxPure, verifyTxUtxoPure)
-import           Pos.Util               (nonrepeating, sublistN)
+import           Pos.Crypto            (KeyPair (..), checkSig, hash, unsafeHash, whData,
+                                        withHash)
+import           Pos.Data.Attributes   (mkAttributes)
+import           Pos.Script            (Script)
+import           Pos.Script.Examples   (alwaysSuccessValidator, badIntRedeemer,
+                                        goodIntRedeemer, goodIntRedeemerWithBlah,
+                                        goodStdlibRedeemer, idValidator, intValidator,
+                                        intValidatorWithBlah, multisigRedeemer,
+                                        multisigValidator, shaStressRedeemer,
+                                        sigStressRedeemer, stdlibValidator)
+import           Pos.Types             (BadSigsTx (..), GoodTx (..), SmallBadSigsTx (..),
+                                        SmallGoodTx (..), Tx (..), TxAux,
+                                        TxDistribution (..), TxIn (..), TxInWitness (..),
+                                        TxOut (..), TxOutAux, TxSigData, TxWitness, Utxo,
+                                        VTxGlobalContext (..), VTxLocalContext (..),
+                                        checkPubKeyAddress, makePubKeyAddress,
+                                        makeScriptAddress, mkCoin, sumCoins, topsortTxs,
+                                        verifyTxAlone, verifyTxPure, verifyTxUtxoPure)
+import           Pos.Util              (nonrepeating, runGen, sublistN)
 
 
 spec :: Spec
@@ -53,7 +51,6 @@ spec = describe "Types.Tx" $ do
         prop description_invalidateBadTxAlone invalidateBadTxAlone
     describe "verifyTx" $ do
         prop description_validateGoodTx validateGoodTx
-        prop description_overflowTx overflowTx
         prop description_badSigsTx badSigsTx
     describe "topsortTxs" $ do
         prop "doesn't change the random set of transactions" $
@@ -74,10 +71,8 @@ spec = describe "Types.Tx" $ do
         "invalidates Txs with non-positive coins or empty inputs/outputs"
     description_validateGoodTx =
         "validates a transaction whose inputs and well-formed transaction outputs"
-    description_overflowTx =
-        "a well-formed transaction with input and output sums above maxBound :: Coin \
-        \is validated successfully"
-    description_badSigsTx = "a transaction with inputs improperly signed is never validated"
+    description_badSigsTx =
+        "a transaction with inputs improperly signed is never validated"
 
 scriptTxSpec :: Spec
 scriptTxSpec = describe "script transactions" $ do
@@ -315,10 +310,6 @@ errorsShouldMatch (VerFailure xs) ys = do
                  build)
                 i y x
 
--- | Get something out of a Gen without IO
-runGen :: Gen a -> a
-runGen g = unGen g (mkQCGen 31415926) 30
-
 validateGoodTxAlone :: Tx -> Bool
 validateGoodTxAlone tx = isVerSuccess $ verifyTxAlone tx
 
@@ -395,18 +386,6 @@ validateGoodTx (SmallGoodTx (getGoodTx -> ls)) =
                 (tx, txWits, dist)
         transactionReallyIsGood = individualTxPropertyVerifier quadruple
     in  transactionIsVerified == transactionReallyIsGood
-
-overflowTx :: SmallOverflowTx -> Bool
-overflowTx (SmallOverflowTx (getOverflowTx -> ls)) =
-    let ((tx@Tx{..}, dist), inpResolver, extendedInputs, txWits) =
-            getTxFromGoodTx ls
-        transactionIsNotVerified = isLeft $
-            verifyTxPure True
-                VTxGlobalContext
-                (fmap VTxLocalContext <$> inpResolver)
-                (tx, txWits, dist)
-        inpSumLessThanOutSum = not $ txChecksum extendedInputs txOutputs
-    in inpSumLessThanOutSum == transactionIsNotVerified
 
 signatureIsValid :: [TxOutAux] -> (Maybe (TxIn, TxOutAux), TxInWitness) -> Bool
 signatureIsValid outs (Just (TxIn{..}, (TxOut{..}, _)), PkWitness{..}) =

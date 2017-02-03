@@ -27,7 +27,7 @@ import           Pos.Crypto.SecretSharing (EncShare (..), Secret (..), SecretPro
 import           Pos.Crypto.Signing       (ProxyCert (..), ProxySecretKey (..),
                                            ProxySignature (..), PublicKey (..),
                                            SecretKey (..), Signature (..), Signed (..))
-import           Pos.Util                 (AsBinary (..), getCopyBinary, putCopyBinary)
+import           Pos.Util.Binary          (AsBinary (..), getCopyBinary, putCopyBinary)
 
 instance Bi a => Bi (WithHash a) where
     put = put . whData

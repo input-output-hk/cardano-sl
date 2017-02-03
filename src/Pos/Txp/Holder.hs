@@ -19,8 +19,10 @@ import           Control.Monad.Fix         (MonadFix)
 import           Control.Monad.Reader      (ReaderT (ReaderT))
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Data.Default              (def)
-import           Mockable                  (ChannelT, MFunctor', Mockable (liftMockable),
-                                            Promise, SharedAtomicT, ThreadId,
+import           Mockable                  (ChannelT, Counter, Distribution, Gauge, Gauge,
+                                            MFunctor', Mockable (liftMockable), Promise,
+                                            SharedAtomicT, SharedExclusiveT,
+                                            SharedExclusiveT, ThreadId,
                                             liftMockableWrappedM)
 import           Serokell.Util.Lens        (WrappedM (..))
 import           System.Wlog               (CanLog, HasLoggerName)
@@ -29,8 +31,8 @@ import           Universum
 import           Pos.Context               (WithNodeContext)
 import           Pos.DB.Class              (MonadDB)
 import           Pos.DB.Holder             (DBHolder (..))
-import           Pos.Slotting              (MonadSlots (..))
-import           Pos.Ssc.Extra             (MonadSscGS, MonadSscLD)
+import           Pos.Slotting.Class        (MonadSlots)
+import           Pos.Ssc.Extra             (MonadSscMem)
 import           Pos.Txp.Class             (MonadTxpLD (..), TxpLDWrap (..))
 import           Pos.Txp.Types             (UtxoView)
 import qualified Pos.Txp.Types.UtxoView    as UV
@@ -47,11 +49,15 @@ newtype TxpLDHolder ssc m a = TxpLDHolder
     } deriving (Functor, Applicative, Monad, MonadTrans,
                 MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
                 HasLoggerName, WithNodeContext ssc, MonadJL,
-                CanLog, MonadMask, MonadSscLD ssc, MonadSscGS ssc, MonadFix)
+                CanLog, MonadMask, MonadSscMem ssc, MonadFix)
 
 type instance ThreadId (TxpLDHolder ssc m) = ThreadId m
 type instance Promise (TxpLDHolder ssc m) = Promise m
 type instance SharedAtomicT (TxpLDHolder ssc m) = SharedAtomicT m
+type instance Counter (TxpLDHolder ssc m) = Counter m
+type instance Distribution (TxpLDHolder ssc m) = Distribution m
+type instance SharedExclusiveT (TxpLDHolder ssc m) = SharedExclusiveT m
+type instance Gauge (TxpLDHolder ssc m) = Gauge m
 type instance ChannelT (TxpLDHolder ssc m) = ChannelT m
 
 instance ( Mockable d m

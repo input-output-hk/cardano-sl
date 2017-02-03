@@ -66,13 +66,14 @@ import           Pos.Delegation.Class        (DelegationWrap, MonadDelegation (.
                                               dwMessageCache, dwProxySKPool,
                                               dwThisEpochPosted)
 import           Pos.Delegation.Types        (SendProxySK (..))
-import           Pos.Ssc.Class               (Ssc)
+import           Pos.Ssc.Class.Helpers       (SscHelpersClass)
 import           Pos.Types                   (Block, HeaderHash, ProxySKEpoch,
                                               ProxySKSimple, ProxySigEpoch, addressHash,
                                               blockProxySKs, epochIndexL, headerHash,
                                               headerHashG, prevBlockL)
 import           Pos.Util                    (NE, NewestFirst (..), OldestFirst (..),
-                                              _neHead, _neLast)
+                                              withReadLifted, withWriteLifted, _neHead,
+                                              _neLast)
 
 
 ----------------------------------------------------------------------------
@@ -133,7 +134,7 @@ instance B.Buildable DelegationError where
 -- | Initializes delegation in-memory storage.
 --   * Sets `_dwEpochId` to epoch of tip.
 --   * Loads `_dwThisEpochPosted` from database
-initDelegation :: (Ssc ssc, MonadDB ssc m, MonadDelegation m) => m ()
+initDelegation :: (SscHelpersClass ssc, MonadDB ssc m, MonadDelegation m) => m ()
 initDelegation = do
     tip <- DB.getTipBlockHeader
     let tipEpoch = tip ^. epochIndexL
@@ -150,7 +151,7 @@ initDelegation = do
 
 -- Retrieves psk certificated that have been accumulated before given
 -- block. The block itself should be in DB.
-getPSKsFromThisEpoch :: (Ssc ssc, MonadDB ssc m) => HeaderHash -> m [ProxySKSimple]
+getPSKsFromThisEpoch :: (SscHelpersClass ssc, MonadDB ssc m) => HeaderHash -> m [ProxySKSimple]
 getPSKsFromThisEpoch tip = do
     concatMap (either (const []) (view blockProxySKs)) <$>
         DB.loadBlocksWhile isRight tip
@@ -179,7 +180,7 @@ data PskSimpleVerdict
 -- depending on issuer's stake, overrides if exists, checks
 -- validity and cachemsg state.
 processProxySKSimple
-    :: (Ssc ssc, MonadDB ssc m, MonadDelegation m, WithNodeContext ssc m)
+    :: (SscHelpersClass ssc, MonadDB ssc m, MonadDelegation m, WithNodeContext ssc m)
     => ProxySKSimple -> m PskSimpleVerdict
 processProxySKSimple psk = do
     curTime <- liftIO getCurrentTime
@@ -230,7 +231,7 @@ makeLenses ''DelVerState
 -- It's assumed blocks are correct from 'Pos.Types.Block#verifyBlocks'
 -- point of view.
 delegationVerifyBlocks
-    :: forall ssc m. (Ssc ssc, MonadDB ssc m, WithNodeContext ssc m)
+    :: forall ssc m. (SscHelpersClass ssc, MonadDB ssc m, WithNodeContext ssc m)
     => OldestFirst NE (Block ssc)
     -> m (Either Text (OldestFirst NE [ProxySKSimple]))
 delegationVerifyBlocks blocks = do
@@ -331,7 +332,7 @@ delegationApplyBlocks blocks = do
 -- restore them after the rollback (see Txp#normalizeTxpLD). You can
 -- rollback arbitrary number of blocks.
 delegationRollbackBlocks
-    :: ( Ssc ssc
+    :: ( SscHelpersClass ssc
        , MonadDelegation m
        , MonadDB ssc m
        , WithNodeContext ssc m)
@@ -388,19 +389,19 @@ data PskEpochVerdict
     | PEAdded
     deriving (Show,Eq)
 
--- TODO Calls to DB are not synchronized for now, because storage is
+-- TODO CSL-687 Calls to DB are not synchronized for now, because storage is
 -- append-only, so nothing bad should happen. But it may be a problem
 -- later.
 -- | Processes proxy secret key (understands do we need it,
 -- adds/caches on decision, returns this decision).
 processProxySKEpoch
-    :: (MonadDelegation m, WithNodeContext ssc m, MonadDB ssc m)
+    :: (MonadDelegation m, WithNodeContext ssc m, MonadDB ssc m, MonadMask m)
     => ProxySKEpoch -> m PskEpochVerdict
 processProxySKEpoch psk = do
     sk <- ncSecretKey <$> getNodeContext
     curTime <- liftIO getCurrentTime
-    -- (1) We're reading from DB
-    psks <- Misc.getProxySecretKeys
+    miscLock <- view DB.miscLock <$> DB.getNodeDBs
+    psks <- withReadLifted miscLock Misc.getProxySecretKeys
     res <- runDelegationStateAction $ do
         let related = toPublic sk == pskDelegatePk psk
             exists = psk `elem` psks
@@ -416,8 +417,10 @@ processProxySKEpoch psk = do
                   | not related -> PEUnrelated
                   | otherwise -> PEAdded
     -- (2) We're writing to DB
-    when (res == PEAdded) $ Misc.addProxySecretKey psk
-    when (res == PERemoved) $ Misc.removeProxySecretKey $ pskIssuerPk psk
+    when (res == PEAdded) $ withWriteLifted miscLock $
+        Misc.addProxySecretKey psk
+    when (res == PERemoved) $ withWriteLifted miscLock $
+        Misc.removeProxySecretKey $ pskIssuerPk psk
     pure res
 
 ----------------------------------------------------------------------------

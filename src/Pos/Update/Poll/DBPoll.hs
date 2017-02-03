@@ -16,9 +16,9 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,
                                               defaultLiftBaseWith, defaultRestoreM)
 import qualified Data.HashMap.Strict         as HM
-import           Mockable                    (ChannelT, MFunctor',
-                                              Mockable (liftMockable), Promise,
-                                              SharedAtomicT, ThreadId,
+import           Mockable                    (ChannelT, Counter, Distribution, Gauge,
+                                              MFunctor', Mockable (liftMockable), Promise,
+                                              SharedAtomicT, SharedExclusiveT, ThreadId,
                                               liftMockableWrappedM)
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName, WithLogger)
@@ -30,8 +30,8 @@ import qualified Pos.DB.GState               as GS
 import           Pos.DB.Lrc                  (getIssuersStakes, getRichmenUS)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Lrc.Types               (FullRichmenData)
-import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..))
+import           Pos.Slotting.Class          (MonadSlots)
+import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Txp.Class               (MonadTxpLD (..))
 import           Pos.Types                   (Coin)
 import           Pos.Types.Utxo.Class        (MonadUtxo, MonadUtxoRead)
@@ -48,7 +48,7 @@ newtype DBPoll m a = DBPoll
     } deriving (Functor, Applicative, Monad, MonadThrow, MonadSlots,
                 MonadCatch, MonadIO, MonadFail, HasLoggerName, MonadError e,
                 WithNodeContext ssc, MonadJL, CanLog, MonadMask, MonadUSMem,
-                MonadSscLD kek, MonadSscGS ssc, MonadUtxoRead, MonadUtxo,
+                MonadSscMem peka, MonadUtxoRead, MonadUtxo,
                 MonadTxpLD ssc, MonadBase io, MonadDelegation, MonadFix)
 
 ----------------------------------------------------------------------------
@@ -59,6 +59,10 @@ deriving instance MonadDB ssc m => MonadDB ssc (DBPoll m)
 type instance ThreadId (DBPoll m) = ThreadId m
 type instance Promise (DBPoll m) = Promise m
 type instance SharedAtomicT (DBPoll m) = SharedAtomicT m
+type instance Counter (DBPoll m) = Counter m
+type instance Distribution (DBPoll m) = Distribution m
+type instance SharedExclusiveT (DBPoll m) = SharedExclusiveT m
+type instance Gauge (DBPoll m) = Gauge m
 type instance ChannelT (DBPoll m) = ChannelT m
 
 instance MonadTrans DBPoll where

@@ -29,7 +29,7 @@ import qualified Utils.Names                as Names
 import qualified Utils.Vars                 as Vars
 
 import           Pos.Binary.Class           (Bi)
-import           Pos.Util                   (getCopyBinary, putCopyBinary)
+import           Pos.Util.Binary            (getCopyBinary, putCopyBinary)
 
 -- | Version of script
 type ScriptVersion = Word16

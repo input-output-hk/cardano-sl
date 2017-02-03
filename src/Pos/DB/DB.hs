@@ -14,31 +14,33 @@ module Pos.DB.DB
        , sanityCheckDB
        ) where
 
-import           Control.Monad.Catch      (MonadMask)
-import           System.Directory         (createDirectoryIfMissing, doesDirectoryExist,
-                                           removeDirectoryRecursive)
-import           System.FilePath          ((</>))
-import           System.Wlog              (WithLogger)
+import qualified Control.Concurrent.ReadWriteLock as RWL
+import           Control.Monad.Catch              (MonadMask)
+import           System.Directory                 (createDirectoryIfMissing,
+                                                   doesDirectoryExist,
+                                                   removeDirectoryRecursive)
+import           System.FilePath                  ((</>))
+import           System.Wlog                      (WithLogger)
 import           Universum
 
-import           Pos.Block.Types          (Blund)
-import           Pos.Context.Class        (WithNodeContext)
-import           Pos.Context.Functions    (genesisLeadersM)
-import           Pos.DB.Block             (getBlock, loadBlundsByDepth, loadBlundsWhile,
-                                           prepareBlockDB)
-import           Pos.DB.Class             (MonadDB)
-import           Pos.DB.Error             (DBError (DBMalformed))
-import           Pos.DB.Functions         (openDB)
-import           Pos.DB.GState.BlockExtra (prepareGStateBlockExtra)
-import           Pos.DB.GState.Common     (getTip)
-import           Pos.DB.GState.GState     (prepareGStateDB, sanityCheckGStateDB)
-import           Pos.DB.Lrc               (prepareLrcDB)
-import           Pos.DB.Misc              (prepareMiscDB)
-import           Pos.DB.Types             (NodeDBs (..))
-import           Pos.Ssc.Class.Types      (Ssc)
-import           Pos.Types                (Block, BlockHeader, getBlockHeader, headerHash,
-                                           mkGenesisBlock)
-import           Pos.Util                 (NewestFirst, inAssertMode)
+import           Pos.Block.Types                  (Blund)
+import           Pos.Context.Class                (WithNodeContext)
+import           Pos.Context.Functions            (genesisLeadersM)
+import           Pos.DB.Block                     (getBlock, loadBlundsByDepth,
+                                                   loadBlundsWhile, prepareBlockDB)
+import           Pos.DB.Class                     (MonadDB)
+import           Pos.DB.Error                     (DBError (DBMalformed))
+import           Pos.DB.Functions                 (openDB)
+import           Pos.DB.GState.BlockExtra         (prepareGStateBlockExtra)
+import           Pos.DB.GState.Common             (getTip)
+import           Pos.DB.GState.GState             (prepareGStateDB, sanityCheckGStateDB)
+import           Pos.DB.Lrc                       (prepareLrcDB)
+import           Pos.DB.Misc                      (prepareMiscDB)
+import           Pos.DB.Types                     (NodeDBs (..))
+import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
+import           Pos.Types                        (Block, BlockHeader, getBlockHeader,
+                                                   headerHash, mkGenesisBlock)
+import           Pos.Util                         (NewestFirst, inAssertMode)
 
 -- | Open all DBs stored on disk.
 openNodeDBs
@@ -57,12 +59,13 @@ openNodeDBs recreate fp = do
     _gStateDB <- openDB gStatePath
     _lrcDB <- openDB lrcPath
     _miscDB <- openDB miscPath
-    return NodeDBs {..}
+    _miscLock <- liftIO RWL.new
+    pure NodeDBs {..}
 
 -- | Initialize DBs if necessary.
 initNodeDBs
     :: forall ssc m.
-       (Ssc ssc, WithNodeContext ssc m, MonadDB ssc m)
+       (SscHelpersClass ssc, WithNodeContext ssc m, MonadDB ssc m)
     => m ()
 initNodeDBs = do
     leaders0 <- genesisLeadersM
@@ -76,7 +79,7 @@ initNodeDBs = do
 
 -- | Get block corresponding to tip.
 getTipBlock
-    :: (Ssc ssc, MonadDB ssc m)
+    :: (SscHelpersClass ssc, MonadDB ssc m)
     => m (Block ssc)
 getTipBlock = maybe onFailure pure =<< getBlock =<< getTip
   where
@@ -84,21 +87,21 @@ getTipBlock = maybe onFailure pure =<< getBlock =<< getTip
 
 -- | Get BlockHeader corresponding to tip.
 getTipBlockHeader
-    :: (Ssc ssc, MonadDB ssc m)
+    :: (SscHelpersClass ssc, MonadDB ssc m)
     => m (BlockHeader ssc)
 getTipBlockHeader = getBlockHeader <$> getTipBlock
 
 -- | Load blunds from BlockDB starting from tip and while the @condition@ is
 -- true.
 loadBlundsFromTipWhile
-    :: (Ssc ssc, MonadDB ssc m)
+    :: (SscHelpersClass ssc, MonadDB ssc m)
     => (Block ssc -> Bool) -> m (NewestFirst [] (Blund ssc))
 loadBlundsFromTipWhile condition = getTip >>= loadBlundsWhile condition
 
 -- | Load blunds from BlockDB starting from tip which have depth less than
 -- given.
 loadBlundsFromTipByDepth
-    :: (Ssc ssc, MonadDB ssc m)
+    :: (SscHelpersClass ssc, MonadDB ssc m)
     => Word -> m (NewestFirst [] (Blund ssc))
 loadBlundsFromTipByDepth d = getTip >>= loadBlundsByDepth d
 

@@ -28,7 +28,7 @@ import           Data.ByteArray       (ByteArrayAccess, convert)
 import           Pos.Binary.Class     (Bi, encode)
 import           Pos.Binary.Crypto    ()
 import           Pos.Crypto           (Hash, hashRaw)
-import           Pos.Util             (Raw)
+import           Pos.Util.Binary      (Raw)
 
 -- | Data type for root of merkle tree.
 newtype MerkleRoot a = MerkleRoot

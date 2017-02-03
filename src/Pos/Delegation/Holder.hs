@@ -15,9 +15,9 @@ import           Control.Concurrent.STM.TVar (TVar, newTVarIO)
 import           Control.Lens                (iso)
 import           Control.Monad.Fix           (MonadFix)
 import           Control.Monad.Trans.Class   (MonadTrans)
-import           Mockable                    (ChannelT, MFunctor',
-                                              Mockable (liftMockable), Promise,
-                                              SharedAtomicT, ThreadId,
+import           Mockable                    (ChannelT, Counter, Distribution, Gauge,
+                                              MFunctor', Mockable (liftMockable), Promise,
+                                              SharedAtomicT, SharedExclusiveT, ThreadId,
                                               liftMockableWrappedM)
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
@@ -26,8 +26,8 @@ import           Universum
 import           Pos.Context                 (WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
 import           Pos.Delegation.Class        (DelegationWrap (..), MonadDelegation (..))
-import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Ssc.Extra               (MonadSscGS (..), MonadSscLD (..))
+import           Pos.Slotting.Class          (MonadSlots)
+import           Pos.Ssc.Extra               (MonadSscMem (..))
 import           Pos.Txp.Class               (MonadTxpLD (..))
 import           Pos.Types.Utxo.Class        (MonadUtxo, MonadUtxoRead)
 import           Pos.Util.JsonLog            (MonadJL (..))
@@ -41,7 +41,7 @@ newtype DelegationT m a = DelegationT
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadFix,
                 MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
                 HasLoggerName, WithNodeContext ssc, MonadJL,
-                CanLog, MonadMask, MonadSscLD ssc, MonadSscGS ssc,
+                CanLog, MonadMask, MonadSscMem kek,
                 MonadUtxoRead, MonadUtxo, MonadTxpLD ssc)
 
 deriving instance MonadDB ssc m => MonadDB ssc (DelegationT m)
@@ -56,6 +56,10 @@ instance Monad m => WrappedM (DelegationT m) where
 type instance ThreadId (DelegationT m) = ThreadId m
 type instance Promise (DelegationT m) = Promise m
 type instance SharedAtomicT (DelegationT m) = SharedAtomicT m
+type instance Counter (DelegationT m) = Counter m
+type instance Distribution (DelegationT m) = Distribution m
+type instance SharedExclusiveT (DelegationT m) = SharedExclusiveT m
+type instance Gauge (DelegationT m) = Gauge m
 type instance ChannelT (DelegationT m) = ChannelT m
 
 instance ( Mockable d m

@@ -3,37 +3,47 @@
 
 module Pos.Block.Network.Announce
        ( announceBlock
+       , announceBlockOuts
        , handleHeadersCommunication
        ) where
 
-import           Control.Concurrent.STM   (tryReadTMVar)
-import           Formatting               (build, sformat, shown, (%))
-import           Mockable                 (throw)
-import           Node                     (ConversationActions (..), SendActions (..))
-import           System.Wlog              (logDebug)
+import           Control.Concurrent.STM     (tryReadTMVar)
+import           Formatting                 (build, sformat, (%))
+import           Mockable                   (throw)
+import           System.Wlog                (logDebug)
 import           Universum
 
-import           Pos.Binary.Communication ()
-import           Pos.Block.Logic          (getHeadersFromManyTo)
-import           Pos.Block.Network.Types  (MsgGetHeaders (..), MsgHeaders (..))
-import           Pos.Communication.BiP    (BiP)
-import           Pos.Context              (getNodeContext, ncAttackTypes,
-                                           ncRecoveryHeader)
-import           Pos.Crypto               (shortHashF)
-import qualified Pos.DB                   as DB
-import           Pos.DHT.Model            (converseToNeighbors, nodeIdToAddress)
-import           Pos.Security             (AttackType (..), NodeAttackedError (..),
-                                           shouldIgnoreAddress)
-import           Pos.Types                (MainBlockHeader, headerHash)
-import           Pos.WorkMode             (WorkMode)
+import           Pos.Binary.Communication   ()
+import           Pos.Block.Logic            (getHeadersFromManyTo)
+import           Pos.Block.Network.Types    (MsgGetHeaders (..), MsgHeaders (..))
+
+import           Pos.Communication.Message  ()
+import           Pos.Communication.Protocol (ConversationActions (..), NodeId (..),
+                                             OutSpecs, SendActions (..), convH,
+                                             toOutSpecs)
+import           Pos.Context                (getNodeContext, ncAttackTypes,
+                                             ncRecoveryHeader)
+import           Pos.Crypto                 (shortHashF)
+import qualified Pos.DB                     as DB
+import           Pos.DHT.Model              (converseToNeighbors)
+import           Pos.Security               (AttackType (..), NodeAttackedError (..),
+                                             shouldIgnoreAddress)
+import           Pos.Types                  (MainBlockHeader, headerHash)
+import           Pos.Util.TimeWarp          (nodeIdToAddress)
+import           Pos.WorkMode               (WorkMode)
+
+announceBlockOuts :: OutSpecs
+announceBlockOuts = toOutSpecs [convH (Proxy :: Proxy (MsgHeaders ssc))
+                                      (Proxy :: Proxy MsgGetHeaders)
+                               ]
 
 announceBlock
     :: WorkMode ssc m
-    => SendActions BiP m -> MainBlockHeader ssc -> m ()
+    => SendActions m -> MainBlockHeader ssc -> m ()
 announceBlock sendActions header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
     cont <- getNodeContext
-    let throwOnIgnored nId =
+    let throwOnIgnored (NodeId (_, nId)) =
             whenJust (nodeIdToAddress nId) $ \addr ->
                 when (shouldIgnoreAddress cont addr) $
                 throw AttackNoBlocksTriggered
@@ -55,7 +65,7 @@ announceBlock sendActions header = do
     announceBlockDo nodeId conv = do
         logDebug $
             sformat
-                ("Announcing block "%shortHashF%" to "%shown)
+                ("Announcing block "%shortHashF%" to "%build)
                 (headerHash header)
                 nodeId
         send conv $ MsgHeaders (one (Right header))
@@ -79,8 +89,10 @@ handleHeadersCommunication conv = do
                 ([], Nothing) -> Just . one <$> DB.getTipBlockHeader
                 ([], Just h)  -> fmap one <$> DB.getBlockHeader h
                 (c1:cxs, _)   -> getHeadersFromManyTo (c1:|cxs) mghTo
-            maybe onNoHeaders (send conv . MsgHeaders) headers
+            maybe onNoHeaders (\h -> onSuccess >> send conv (MsgHeaders h)) headers
   where
+    onSuccess =
+        logDebug "handleGetHeaders: responded successfully"
     onRecovery =
         logDebug "handleGetHeaders: not responding, we're in recovery mode"
     onNoHeaders =

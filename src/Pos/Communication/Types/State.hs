@@ -4,28 +4,22 @@
 
 module Pos.Communication.Types.State
        ( PeerState
-       , peerVersion
+       , peerVerInfo
        ) where
 
-import           Control.Lens (makeClassy)
-import           Data.Default (Default (def))
+import           Control.Lens                     (makeClassy)
+import           Data.Default                     (Default (def))
+import           Pos.Communication.Types.Protocol (VerInfo)
 import           Universum
-
-import           Pos.Types    (BlockVersion)
 
 -- | PeerState type aggregates socket states needed for different
 -- parts of system.
-data PeerState ssc = PeerState
-    { _peerVersion     :: !(Maybe BlockVersion)
-      -- ^ Version of the protocol peer uses
-      -- FIXME
+data PeerState = PeerState
+    { _peerVerInfo :: !(Maybe VerInfo)
     }
 
 -- | Classy lenses for PeerState.
 makeClassy ''PeerState
 
-instance Default (PeerState ssc) where
-    def =
-        PeerState
-        { _peerVersion = Nothing
-        }
+instance Default PeerState where
+    def = PeerState Nothing

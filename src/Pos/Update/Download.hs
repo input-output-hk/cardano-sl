@@ -9,25 +9,23 @@ import           Control.Concurrent.MVar (putMVar)
 import qualified Data.ByteArray          as BA
 import qualified Data.ByteString.Lazy    as BSL
 import qualified Data.HashMap.Strict     as HM
-import           Formatting              (build, formatToString, sformat, string, (%))
+import           Formatting              (build, sformat, stext, (%))
 import           Network.HTTP.Client     (Manager, newManager)
 import           Network.HTTP.Client.TLS (tlsManagerSettings)
 import           Network.HTTP.Simple     (getResponseBody, getResponseStatus,
                                           getResponseStatusCode, httpLBS, parseRequest,
                                           setRequestManager)
-import           Prelude                 (show)
 import qualified Serokell.Util.Base16    as B16
 import           Serokell.Util.Text      (listJsonIndent)
 import           System.Directory        (doesFileExist)
 import           System.FilePath         ((</>))
-import           System.Wlog             (logInfo, logWarning)
-import           Universum               hiding (show)
+import           System.Wlog             (logDebug, logInfo, logWarning)
+import           Universum
 
 import           Pos.Constants           (appSystemTag, updateServers)
 import           Pos.Context             (getNodeContext, ncUpdatePath, ncUpdateSemaphore,
                                           ncUpdateWithPkg)
 import           Pos.Crypto              (Hash, castHash, hash)
-import           Pos.Types.Version       (SoftwareVersion (..))
 import           Pos.Update.Core.Types   (UpdateData (..), UpdateProposal (..))
 import           Pos.Update.Poll.Types   (ConfirmedProposalState (..))
 import           Pos.WorkMode            (WorkMode)
@@ -38,6 +36,7 @@ showHash = toString . B16.encode . BA.convert
 -- | Download and save archive update by given `ConfirmedProposalState`
 downloadUpdate :: WorkMode ssc m => ConfirmedProposalState -> m ()
 downloadUpdate cst@ConfirmedProposalState {..} = do
+    logDebug "Downloading update"
     useInstaller <- ncUpdateWithPkg <$> getNodeContext
     let dataHash = if useInstaller then udPkgHash else udAppDiffHash
         mupdHash = castHash . dataHash <$>
@@ -46,12 +45,13 @@ downloadUpdate cst@ConfirmedProposalState {..} = do
         Nothing -> logInfo "This update is not for our system"
         Just updHash -> do
             updPath <- ncUpdatePath <$> getNodeContext
-            let updAppName = svAppName . upSoftwareVersion $ cpsUpdateProposal
+            -- let updAppName = svAppName . upSoftwareVersion $
+            --                  cpsUpdateProposal
             unlessM (liftIO $ doesFileExist updPath) $ do
                 efile <- liftIO $ downloadHash updHash
                 case efile of
                     Left err -> logWarning $
-                        sformat ("Update download (hash "%build%") has failed: "%string)
+                        sformat ("Update download (hash "%build%") has failed: "%stext)
                         updHash err
                     Right file -> do
                         liftIO $ BSL.writeFile updPath file
@@ -61,7 +61,7 @@ downloadUpdate cst@ConfirmedProposalState {..} = do
 -- | Download a file by its hash.
 --
 -- Tries all servers in turn, fails if none of them work.
-downloadHash :: Hash LByteString -> IO (Either String LByteString)
+downloadHash :: Hash LByteString -> IO (Either Text LByteString)
 downloadHash h = do
     manager <- newManager tlsManagerSettings
 
@@ -77,8 +77,8 @@ downloadHash h = do
 
         -- if we've tried all servers already, fail
         go errs [] = return . Left $
-            formatToString ("all update servers failed: "%listJsonIndent 2)
-                           (reverse errs)
+            sformat ("all update servers failed: "%listJsonIndent 2)
+                    (reverse errs)
 
     go [] updateServers
 
@@ -86,13 +86,13 @@ downloadHash h = do
 downloadUri :: Manager
             -> String
             -> Hash LByteString
-            -> IO (Either String LByteString)
+            -> IO (Either Text LByteString)
 downloadUri manager uri h = do
     request <- setRequestManager manager <$> parseRequest uri
     resp <- httpLBS request
     let (st, stc) = (getResponseStatus resp, getResponseStatusCode resp)
         h' = hash (getResponseBody resp)
-    return $ if | stc /= 200 -> Left ("error, " ++ show st)
+    return $ if | stc /= 200 -> Left ("error, " <> show st)
                 | h /= h'    -> Left "hash mismatch"
                 | otherwise  -> Right (getResponseBody resp)
 

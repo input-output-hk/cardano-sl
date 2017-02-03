@@ -21,18 +21,19 @@ module Pos.Wallet.State.State
        , getMaxBlockSize
        ) where
 
-import           Data.Acid                  (EventResult, EventState, QueryEvent)
-import           Data.Time.Units            (Millisecond)
-import           Serokell.Data.Memory.Units (Byte)
+import           Data.Acid                   (EventResult, EventState, QueryEvent)
+import           Data.Time.Units             (Millisecond)
+import           Pos.Communication.PeerState (PeerStateHolder)
+import           Serokell.Data.Memory.Units  (Byte)
 import           Universum
 
-import           Pos.Types                  (HeaderHash, Tx, Utxo)
-import           Pos.Wallet.State.Acidic    (WalletState, closeState, openMemState,
-                                             openState)
-import           Pos.Wallet.State.Acidic    as A
-import           Pos.Wallet.State.Storage   (Block', Storage)
+import           Pos.Types                   (HeaderHash, Tx, Utxo)
+import           Pos.Wallet.State.Acidic     (WalletState, closeState, openMemState,
+                                              openState)
+import           Pos.Wallet.State.Acidic     as A
+import           Pos.Wallet.State.Storage    (Block', Storage)
 
-import           Pos.DHT.Real.Types         (KademliaDHT (..))
+import           Pos.DHT.Real.Types          (KademliaDHT (..))
 
 -- | MonadWalletDB stands for monad which is able to get web wallet state
 class Monad m => MonadWalletDB m where
@@ -43,6 +44,9 @@ instance MonadWalletDB m => MonadWalletDB (ReaderT r m) where
     getWalletState = lift getWalletState
 
 instance MonadWalletDB m => MonadWalletDB (StateT s m) where
+    getWalletState = lift getWalletState
+
+instance MonadWalletDB m => MonadWalletDB (PeerStateHolder m) where
     getWalletState = lift getWalletState
 
 instance MonadWalletDB m => MonadWalletDB (KademliaDHT m) where

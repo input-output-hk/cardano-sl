@@ -8,13 +8,14 @@
 
 module Pos.Wallet.Web.Server.Full
        ( walletServeWebFull
+       , walletServerOuts
        ) where
 
 import           Control.Concurrent.STM        (TVar)
 import qualified Control.Monad.Catch           as Catch
 import           Control.Monad.Except          (MonadError (throwError))
 import           Mockable                      (runProduction)
-import           Node                          (SendActions)
+import           Pos.Communication.Protocol    (SendActions)
 import           Servant.Server                (Handler)
 import           Servant.Utils.Enter           ((:~>) (..))
 import           System.Wlog                   (logInfo, usingLoggerName)
@@ -28,31 +29,30 @@ import           Pos.Delegation.Holder         (runDelegationTFromTVar)
 #ifdef DEV_MODE
 import           Pos.Genesis                   (genesisSecretKeys)
 #endif
-import           Pos.Ssc.Class                 (SscConstraint)
-import           Pos.Ssc.Extra                 (SscHolder (..), SscState, runSscHolderRaw)
-import           Pos.Txp.Class                 (getTxpLDWrap)
-import qualified Pos.Txp.Holder                as Modern
-import           Pos.WorkMode                  (RawRealMode)
-
-import           Pos.Communication.BiP         (BiP)
 import           Pos.Communication.PeerState   (PeerStateSnapshot, WithPeerState (..),
                                                 getAllStates, peerStateFromSnapshot,
                                                 runPeerStateHolder)
 import           Pos.DHT.Real.Real             (runKademliaDHT)
-import           Pos.DHT.Real.Types            (KademliaDHTInstance (..), getKademliaDHTInstance)
+import           Pos.DHT.Real.Types            (KademliaDHTInstance (..),
+                                                getKademliaDHTInstance)
+import           Pos.Ssc.Class                 (SscConstraint)
+import           Pos.Ssc.Extra                 (SscHolder (..), SscState, runSscHolderRaw)
+import           Pos.Txp.Class                 (getTxpLDWrap)
+import qualified Pos.Txp.Holder                as Modern
 import           Pos.Update.MemState.Holder    (runUSHolder)
 import           Pos.Wallet.KeyStorage         (MonadKeys (..), addSecretKey)
 import           Pos.Wallet.Web.Server.Methods (walletApplication, walletServeImpl,
-                                                walletServer)
+                                                walletServer, walletServerOuts)
 import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar,
                                                 MonadWalletWebSockets (..),
                                                 WalletWebSockets, runWalletWS)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletState,
                                                 WalletWebDB, runWalletWebDB)
+import           Pos.WorkMode                  (RawRealMode)
 
 walletServeWebFull
     :: SscConstraint ssc
-    => SendActions BiP (RawRealMode ssc)
+    => SendActions (RawRealMode ssc)
     -> Bool               -- whether to include genesis keys
     -> FilePath           -- to Daedalus acid-state
     -> Bool               -- Rebuild flag
@@ -89,7 +89,7 @@ convertHandler
     -> SscState ssc
     -> WalletState
     -> (TVar DelegationWrap)
-    -> PeerStateSnapshot ssc
+    -> PeerStateSnapshot
     -> ConnectionsVar
     -> WebHandler ssc a
     -> Handler a

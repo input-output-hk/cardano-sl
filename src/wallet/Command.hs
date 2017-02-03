@@ -34,6 +34,7 @@ data Command
           , puSlotDurationSec :: Int
           , puMaxBlockSize    :: Byte
           , puSoftwareVersion :: SoftwareVersion
+          , puFilePath        :: Maybe FilePath
           }
     | Help
     | ListAddresses
@@ -43,7 +44,7 @@ data Command
     deriving Show
 
 lexeme :: Parser a -> Parser a
-lexeme p = spaces *> p
+lexeme p = spaces *> p >>= \x -> spaces $> x
 
 text :: String -> Parser Text
 text = lexeme . fmap toText . string
@@ -95,7 +96,8 @@ proposeUpdate =
     lexeme parseIntegralSafe <*>
     lexeme parseIntegralSafe <*>
     lexeme parseIntegralSafe <*>
-    lexeme parseSoftwareVersion
+    lexeme parseSoftwareVersion <*>
+    optional (lexeme (many1 anyChar))
 
 command :: Parser Command
 command = try (text "balance") *> balance <|>

@@ -16,7 +16,6 @@ import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
 import           Formatting                  (build, sformat, (%))
 import           Mockable                    (fork)
-import           Node                        (SendActions)
 import           Serokell.Util.Exceptions    ()
 import           System.Wlog                 (logInfo, logWarning)
 import           Universum
@@ -24,7 +23,7 @@ import           Universum
 import           Pos.Binary.Communication    ()
 import           Pos.Block.Logic.Internal    (applyBlocksUnsafe, rollbackBlocksUnsafe,
                                               withBlkSemaphore_)
-import           Pos.Communication.BiP       (BiP)
+import           Pos.Communication.Protocol  (OutSpecs, WorkerSpec, localOnNewSlotWorker)
 import           Pos.Constants               (slotSecurityParam)
 import           Pos.Context                 (LrcSyncData, getNodeContext, ncLrcSync)
 import qualified Pos.DB                      as DB
@@ -36,13 +35,13 @@ import           Pos.Lrc.Consumers           (allLrcConsumers)
 import           Pos.Lrc.Error               (LrcError (..))
 import           Pos.Lrc.FollowTheSatoshi    (followTheSatoshiM)
 import           Pos.Lrc.Logic               (findAllRichmenMaybe)
-import           Pos.Slotting                (onNewSlot)
 import           Pos.Ssc.Class               (SscWorkersClass)
 import           Pos.Ssc.Extra               (sscCalculateSeed)
 import           Pos.Types                   (EpochIndex, EpochOrSlot (..),
                                               EpochOrSlot (..), HeaderHash, HeaderHash,
-                                              SlotId (..), StakeholderId, crucialSlot,
-                                              getEpochOrSlot, getEpochOrSlot)
+                                              SharedSeed, SlotId (..), StakeholderId,
+                                              crucialSlot, epochIndexL, getEpochOrSlot,
+                                              getEpochOrSlot)
 import           Pos.Update.Poll.Types       (BlockVersionState (..))
 import           Pos.Util                    (NewestFirst (..), logWarningWaitLinear,
                                               toOldestFirst)
@@ -50,13 +49,8 @@ import           Pos.WorkMode                (WorkMode)
 
 lrcOnNewSlotWorker
     :: (SscWorkersClass ssc, WorkMode ssc m)
-    => SendActions BiP m -> m ()
-lrcOnNewSlotWorker _ = onNewSlot True $ lrcOnNewSlotImpl
-
-lrcOnNewSlotImpl
-    :: (SscWorkersClass ssc, WorkMode ssc m)
-    => SlotId -> m ()
-lrcOnNewSlotImpl SlotId {..} =
+    => (WorkerSpec m, OutSpecs)
+lrcOnNewSlotWorker = localOnNewSlotWorker True $ \SlotId {..} ->
     when (siSlot < slotSecurityParam) $ lrcSingleShot siEpoch `catch` onLrcError
   where
     onLrcError UnknownBlocksForLrc =
@@ -129,21 +123,32 @@ lrcDo
     :: WorkMode ssc m
     => EpochIndex -> [LrcConsumer m] -> HeaderHash -> m HeaderHash
 lrcDo epoch consumers tip = tip <$ do
+    blundsUpToGenesis <- DB.loadBlundsFromTipWhile upToGenesis
+    -- If there are blocks from 'epoch' it means that we somehow accepted them
+    -- before running LRC for 'epoch'. It's very bad.
+    unless (null blundsUpToGenesis) $ throwM LrcAfterGenesis
     NewestFirst blundsList <- DB.loadBlundsFromTipWhile whileAfterCrucial
     case nonEmpty blundsList of
         Nothing -> throwM UnknownBlocksForLrc
         Just (NewestFirst -> blunds) -> do
-            rollbackBlocksUnsafe blunds
-            compute `finally` applyBack (toOldestFirst blunds)
+            mbSeed <- sscCalculateSeed epoch
+            case mbSeed of
+                Left e ->
+                    -- FIXME: don't panic, use previous seed!
+                    panic $ sformat ("SSC couldn't compute seed: " %build) e
+                Right seed -> do
+                    rollbackBlocksUnsafe blunds
+                    compute seed `finally` applyBack (toOldestFirst blunds)
   where
     applyBack blunds = applyBlocksUnsafe blunds Nothing
+    upToGenesis b = b ^. epochIndexL >= epoch
     whileAfterCrucial b = getEpochOrSlot b > crucial
     crucial = EpochOrSlot $ Right $ crucialSlot epoch
-    compute = do
+    compute seed = do
         issuersComputationDo epoch
         richmenComputationDo epoch consumers
         DB.sanityCheckDB
-        leadersComputationDo epoch
+        leadersComputationDo epoch seed
 
 issuersComputationDo :: forall ssc m . WorkMode ssc m => EpochIndex -> m ()
 issuersComputationDo epochId = do
@@ -160,17 +165,11 @@ issuersComputationDo epochId = do
            hm <$ (logWarning $ sformat ("Stake for issuer "%build% " not found") id)
         Just stake -> pure $ HM.insert id stake hm
 
-leadersComputationDo :: WorkMode ssc m => EpochIndex -> m ()
-leadersComputationDo epochId =
+leadersComputationDo :: WorkMode ssc m => EpochIndex -> SharedSeed -> m ()
+leadersComputationDo epochId seed =
     unlessM (isJust <$> getLeaders epochId) $ do
-        mbSeed <- sscCalculateSeed epochId
         totalStake <- GS.getTotalFtsStake
-        leaders <-
-            case mbSeed of
-                Left e ->
-                    panic $ sformat ("SSC couldn't compute seed: " %build) e
-                Right seed ->
-                    GS.runBalanceIterator (followTheSatoshiM seed totalStake)
+        leaders <- GS.runBalanceIterator (followTheSatoshiM seed totalStake)
         putLeaders epochId leaders
 
 richmenComputationDo :: forall ssc m . WorkMode ssc m

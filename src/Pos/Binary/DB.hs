@@ -6,12 +6,12 @@ module Pos.Binary.DB
 
 import           Universum
 
-import           Pos.Binary.Class    (Bi (..))
-import           Pos.DB.Types        (GtRichmenStorage (..), LeadersStorage (..),
-                                      StoredBlock (..))
-import           Pos.Ssc.Class.Types (Ssc)
+import           Pos.Binary.Class      (Bi (..))
+import           Pos.DB.Types          (GtRichmenStorage (..), LeadersStorage (..),
+                                        StoredBlock (..))
+import           Pos.Ssc.Class.Helpers (SscHelpersClass)
 
-instance Ssc ssc =>
+instance SscHelpersClass ssc =>
          Bi (StoredBlock ssc) where
     put StoredBlock {..} = put sbBlock
     get = StoredBlock <$> get

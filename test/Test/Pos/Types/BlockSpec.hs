@@ -16,9 +16,8 @@ import           Pos.Binary            (Bi)
 import           Pos.Block.Arbitrary   as T
 import           Pos.Constants         (epochSlots)
 import           Pos.Crypto            (ProxySecretKey (pskIssuerPk), SecretKey,
-                                        createProxySecretKey, proxySign, sign,
-                                        toPublic)
-import           Pos.Ssc.Class.Types   (Ssc (..))
+                                        createProxySecretKey, proxySign, sign, toPublic)
+import           Pos.Ssc.Class         (Ssc (..), SscHelpersClass)
 import           Pos.Ssc.GodTossing    (SscGodTossing)
 import           Pos.Ssc.NistBeacon    (SscNistBeacon)
 import qualified Pos.Types             as T
@@ -91,7 +90,7 @@ genesisHeaderFormation prevHeader epoch body =
         T.GenesisConsensusData {T._gcdEpoch = epoch, T._gcdDifficulty = difficulty}
 
 mainHeaderFormation
-    :: Ssc ssc
+    :: SscHelpersClass ssc
     => Maybe (T.BlockHeader ssc)
     -> T.SlotId
     -> Either SecretKey (SecretKey, SecretKey, Bool)

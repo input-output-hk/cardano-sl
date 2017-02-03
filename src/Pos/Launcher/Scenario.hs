@@ -6,6 +6,7 @@ module Pos.Launcher.Scenario
        ( runNode
        , initSemaphore
        , initLrc
+       , runNode'
        ) where
 
 import           Control.Concurrent.MVar     (putMVar)
@@ -14,11 +15,11 @@ import           Data.Default                (def)
 import           Development.GitRev          (gitBranch, gitHash)
 import           Formatting                  (build, int, sformat, (%))
 import           Mockable                    (currentTime, delay, fork, sleepForever)
-import           Node                        (SendActions)
 import           System.Wlog                 (logError, logInfo)
 import           Universum
 
-import           Pos.Communication           (BiP)
+import           Pos.Communication           (ActionSpec (..), OutSpecs, WorkerSpec,
+                                              withWaitLog)
 import           Pos.Constants               (isDevelopment, ntpMaxError,
                                               ntpResponseTimeout)
 import           Pos.Context                 (NodeContext (..), getNodeContext,
@@ -33,17 +34,16 @@ import           Pos.Types                   (Timestamp (Timestamp), addressHash
 import           Pos.Update                  (MemState (..), askUSMemVar, mvState)
 import           Pos.Util                    (inAssertMode, waitRandomInterval)
 import           Pos.Util.TimeWarp           (sec)
-import           Pos.Worker                  (runWorkers)
+import           Pos.Worker                  (allWorkers)
 import           Pos.Worker.Ntp              (ntpWorker)
 import           Pos.WorkMode                (WorkMode)
 
 -- | Run full node in any WorkMode.
-runNode
+runNode'
     :: (SscConstraint ssc, WorkMode ssc m)
-    => [SendActions BiP m -> m ()]
-    -> SendActions BiP m
-    -> m ()
-runNode plugins sendActions = do
+    => [WorkerSpec m]
+    -> WorkerSpec m
+runNode' plugins' = ActionSpec $ \vI sendActions -> do
     logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)
     inAssertMode $ logInfo "Assert mode on"
     pk <- ncPublicKey <$> getNodeContext
@@ -61,9 +61,19 @@ runNode plugins sendActions = do
     logInfo $ "Waiting response from NTP servers"
     unless isDevelopment $ delay (ntpResponseTimeout + ntpMaxError)
     waitSystemStart
-    runWorkers sendActions
-    mapM_ (fork . ($ sendActions)) plugins
+    let unpackPlugin (ActionSpec action) = action vI
+    mapM_ (fork . ($ withWaitLog sendActions) . unpackPlugin) $
+        plugins'
     sleepForever
+
+-- | Run full node in any WorkMode.
+runNode
+    :: (SscConstraint ssc, WorkMode ssc m)
+    => ([WorkerSpec m], OutSpecs)
+    -> (WorkerSpec m, OutSpecs)
+runNode (plugins', plOuts) = (,plOuts <> wOuts) $ runNode' $ workers' ++ plugins'
+  where
+    (workers', wOuts) = allWorkers
 
 -- Sanity check in case start time is in future (may happen if clocks
 -- are not accurately synchronized, for example).

@@ -8,12 +8,12 @@ module Pos.Update.MemState.Class
        , askUSMemState
        ) where
 
-import           Control.Concurrent.STM       (TVar)
-import           Control.Monad.Except         (ExceptT)
-import           Control.Monad.Trans          (MonadTrans)
+import           Control.Concurrent.STM    (TVar)
+import           Control.Monad.Except      (ExceptT)
+import           Control.Monad.Trans       (MonadTrans)
 import           Universum
 
-import           Pos.Update.MemState.MemState (MemState, MemVar (mvState))
+import           Pos.Update.MemState.Types (MemState, MemVar (mvState))
 
 -- | Reduced equivalent of @MonadReader MemVar m@.
 class Monad m => MonadUSMem m where

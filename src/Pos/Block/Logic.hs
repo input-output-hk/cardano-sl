@@ -21,10 +21,9 @@ module Pos.Block.Logic
        , getHeadersFromToIncl
 
          -- * Blocks
-       , applyBlocks
+       , verifyAndApplyBlocks
        , applyWithRollback
        , rollbackBlocks
-       , verifyAndApplyBlocks
        , createGenesisBlock
        , createMainBlock
        ) where
@@ -39,8 +38,7 @@ import qualified Data.HashMap.Strict        as HM
 import           Data.List.NonEmpty         ((<|))
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Text                  as T
-import           Formatting                 (build, int, ords, sformat, stext,
-                                             (%))
+import           Formatting                 (build, int, ords, sformat, stext, (%))
 import           Serokell.Data.Memory.Units (toBytes)
 import           Serokell.Util.Text         (listJson)
 import           Serokell.Util.Verify       (VerificationRes (..), formatAllErrors,
@@ -69,8 +67,9 @@ import           Pos.Delegation.Logic       (delegationVerifyBlocks, getProxyMem
 import           Pos.Exception              (CardanoFatalError (..))
 import           Pos.Lrc.Error              (LrcError (..))
 import           Pos.Lrc.Worker             (lrcSingleShotNoLock)
-import           Pos.Slotting               (getCurrentSlot)
-import           Pos.Ssc.Class              (Ssc (..), SscWorkersClass (..))
+import           Pos.Slotting.Class         (getCurrentSlot)
+import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass,
+                                             SscWorkersClass (..))
 import           Pos.Ssc.Extra              (sscGetLocalPayload, sscVerifyBlocks)
 import           Pos.Txp.Class              (getLocalTxsNUndo)
 import           Pos.Txp.Logic              (txVerifyBlocks)
@@ -257,7 +256,7 @@ classifyHeaders headers = do
 -- checkpoint that's in our main chain to the newest ones.
 getHeadersFromManyTo
     :: forall ssc m.
-       (MonadDB ssc m, Ssc ssc, CanLog m, HasLoggerName m)
+       (MonadDB ssc m, SscHelpersClass ssc, CanLog m, HasLoggerName m)
     => NonEmpty HeaderHash  -- ^ Checkpoints; not guaranteed to be
                             --   in any particular order
     -> Maybe HeaderHash
@@ -290,7 +289,7 @@ getHeadersFromManyTo checkpoints startM = runMaybeT $ do
                 maximumBy (comparing getEpochOrSlot) inMainCheckpoints
             loadUpCond _ h = h < recoveryHeadersMessage
         up <- lift $ GS.loadHeadersUpWhile lowestCheckpoint loadUpCond
-        res <- MaybeT $ pure $ _Wrapped nonEmpty (toNewestFirst up)
+        res <- MaybeT $ pure $ _Wrapped nonEmpty (toNewestFirst $ over _Wrapped (drop 1) up)
         lift $ logDebug $ "getHeadersFromManyTo: loaded non-empty list of headers, returning"
         pure res
 
@@ -298,7 +297,7 @@ getHeadersFromManyTo checkpoints startM = runMaybeT $ do
 -- it returns not more than 'blkSecurityParam' blocks distributed
 -- exponentially base 2 relatively to the depth in the blockchain.
 getHeadersOlderExp
-    :: (MonadDB ssc m, Ssc ssc)
+    :: (MonadDB ssc m, SscHelpersClass ssc)
     => Maybe HeaderHash -> m (OldestFirst [] HeaderHash)
 getHeadersOlderExp upto = do
     tip <- GS.getTip
@@ -334,7 +333,7 @@ getHeadersOlderExp upto = do
 -- range @[from..to]@ will be found.
 getHeadersFromToIncl
     :: forall ssc m .
-       (MonadDB ssc m, Ssc ssc)
+       (MonadDB ssc m, SscHelpersClass ssc)
     => HeaderHash -> HeaderHash -> m (Maybe (OldestFirst NE HeaderHash))
 getHeadersFromToIncl older newer = runMaybeT . fmap OldestFirst $ do
     -- oldest and newest blocks do exist
@@ -373,7 +372,7 @@ getHeadersFromToIncl older newer = runMaybeT . fmap OldestFirst $ do
 -- -- #usVerifyBlocks
 -- | Verify new blocks. If parent of the first block is not our tip,
 -- verification fails. This function checks everything from block, including
--- header, transactions, delegation data, SSC data.
+-- header, transactions, delegation data, SSC data, US data.
 verifyBlocksPrefix
     :: WorkMode ssc m
     => OldestFirst NE (Block ssc)
@@ -396,7 +395,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
         _ -> pass
     verResToMonadError formatAllErrors $
         Types.verifyBlocks (Just curSlot) (Just leaders) blocks
-    eitherToError =<< sscVerifyBlocks False blocks
+    _ <- withExceptT pretty $ sscVerifyBlocks blocks
     txUndo <- ExceptT $ txVerifyBlocks blocks
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks
     (pModifier, usUndos) <- withExceptT pretty $ usVerifyBlocks blocks
@@ -408,9 +407,6 @@ verifyBlocksPrefix blocks = runExceptT $ do
                (getOldestFirst usUndos)
          , pModifier)
   where
-    eitherToError (Left e)  = throwError (sformat build e)
-    eitherToError (Right _) = pass
-
     headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
 
 -- | Applies blocks if they're valid. Takes one boolean flag
@@ -439,7 +435,9 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
         tipMismatchMsg "verify and apply" tip assumedTip
     rollingVerifyAndApply [] (spanEpoch blocks)
   where
-    spanEpoch = over _1 OldestFirst . over _2 OldestFirst .  -- wrap both results
+    spanEpoch (OldestFirst (b@(Left _):|xs)) = (OldestFirst $ b:|[], OldestFirst xs)
+    spanEpoch x                              = spanTail x
+    spanTail = over _1 OldestFirst . over _2 OldestFirst .  -- wrap both results
                 spanSafe ((==) `on` view epochIndexL) .      -- do work
                 getOldestFirst                               -- unwrap argument
     -- Applies as much blocks from failed prefix as possible. Argument
@@ -447,7 +445,7 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
     -- return tip. Fail otherwise.
     applyAMAP e (OldestFirst []) True                   = throwError e
     applyAMAP _ (OldestFirst []) False                  = GS.getTip
-    applyAMAP e (OldestFirst (block:xs)) nothingApplied = do
+    applyAMAP e (OldestFirst (block:xs)) nothingApplied =
         lift (verifyBlocksPrefix (one block)) >>= \case
             Left e' -> applyAMAP e' (OldestFirst []) nothingApplied
             Right (OldestFirst (undo :| []), pModifier) -> do
@@ -463,6 +461,9 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
     failWithRollback e toRollback = do
         lift $ mapM_ rollbackBlocks toRollback
         throwError e
+    -- Calculates LRC if it's needed (no lock)
+    calculateLrc epochIx =
+        when lrc $ lift $ lrcSingleShotNoLock epochIx
     -- This function tries to apply a new portion of blocks (prefix
     -- and suffix). It also has aggregating parameter blunds which is
     -- collected to rollback blocks if correspondent flag is on. First
@@ -474,10 +475,13 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
         -> (OldestFirst NE (Block ssc), OldestFirst [] (Block ssc))
         -> ExceptT Text m HeaderHash
     rollingVerifyAndApply blunds (prefix, suffix) = do
+        let prefixHead = prefix ^. _Wrapped . _neHead
+        when (isLeft prefixHead) $ calculateLrc (prefixHead ^. epochIndexL)
         lift (verifyBlocksPrefix prefix) >>= \case
             Left failure
                 | rollback  -> failWithRollback failure blunds
-                | otherwise -> applyAMAP failure
+                | otherwise ->
+                      applyAMAP failure
                                    (over _Wrapped toList prefix)
                                    (null blunds)
             Right (undos, pModifier) -> do
@@ -485,10 +489,8 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
                                               getOldestFirst undos
                 lift $ applyBlocksUnsafe newBlunds (Just pModifier)
                 case getOldestFirst suffix of
-                    []           -> GS.getTip
+                    [] -> GS.getTip
                     (genesis:xs) -> do
-                        when lrc $ lift $
-                            lrcSingleShotNoLock (genesis ^. epochIndexL)
                         rollingVerifyAndApply (toNewestFirst newBlunds : blunds) $
                             spanEpoch (OldestFirst (genesis:|xs))
 
@@ -501,17 +503,25 @@ applyBlocks
     :: forall ssc m . (WorkMode ssc m, SscWorkersClass ssc)
     => Bool -> Maybe PollModifier -> OldestFirst NE (Blund ssc) -> m ()
 applyBlocks calculateLrc pModifier blunds = do
+    when (isLeft prefixHead && calculateLrc) $
+        -- Hopefully this lrc check is never triggered -- because
+        -- caller most definitely should have computed lrc to verify
+        -- the sequence beforehand.
+        lrcSingleShotNoLock (prefixHead ^. epochIndexL)
     applyBlocksUnsafe prefix pModifier
     case getOldestFirst suffix of
-        [] -> pass
-        (genesis:xs) -> do
-            when calculateLrc $
-                lrcSingleShotNoLock (genesis ^. _1 . epochIndexL)
-            applyBlocks calculateLrc pModifier (OldestFirst (genesis:|xs))
+        []           -> pass
+        (genesis:xs) -> applyBlocks calculateLrc pModifier (OldestFirst (genesis:|xs))
   where
-    (prefix, suffix) =
-        over _1 OldestFirst . over _2 OldestFirst $
-        spanSafe ((==) `on` view (_1 . epochIndexL)) (getOldestFirst blunds)
+    prefixHead = prefix ^. _Wrapped . _neHead . _1
+    (prefix, suffix) = spanEpoch blunds
+    -- this version is different from one in verifyAndApply subtly,
+    -- but they can be merged with some struggle.
+    spanEpoch (OldestFirst (b@((Left _),_):|xs)) = (OldestFirst $ b:|[], OldestFirst xs)
+    spanEpoch x                                  = spanTail x
+    spanTail = over _1 OldestFirst . over _2 OldestFirst .
+               spanSafe ((==) `on` view (_1 . epochIndexL)) .
+               getOldestFirst
 
 -- | Rollbacks blocks. Head must be the current tip.
 rollbackBlocks
@@ -678,7 +688,7 @@ createMainBlockFinish
     -> ExceptT Text m (MainBlock ssc)
 createMainBlockFinish slotId pSk prevHeader = do
     (localTxs, txUndo) <- getLocalTxsNUndo @ssc
-    sscData <- note onNoSsc =<< sscGetLocalPayload @ssc slotId
+    sscData <- sscGetLocalPayload @ssc slotId
     usPayload <- note onNoUS =<< lift (usPreparePayload slotId)
     (localPSKs, pskUndo) <- lift getProxyMempool
     let convertTx (txId, (tx, _, _)) = WithHash tx txId
@@ -705,11 +715,10 @@ createMainBlockFinish slotId pSk prevHeader = do
     lift $ blk <$ applyBlocksUnsafe (one (Right blk, blockUndo)) (Just pModifier)
   where
     onBrokenTopo = throwError "Topology of local transactions is broken!"
-    onNoSsc = "can't obtain SSC payload to create block"
     onNoUS = "can't obtain US payload to create block"
 
 createMainBlockPure
-    :: Ssc ssc
+    :: SscHelpersClass ssc
     => Word64                   -- ^ Block size limit (TODO: imprecise)
     -> BlockHeader ssc
     -> [(TxId, TxAux)]
@@ -726,8 +735,9 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
         -- include all SSC data because a) deciding is hard and b) we don't
         -- yet have a way to strip generic SSC data
         let musthaveBody = mkMainBody [] sscData [] def
-            musthaveBlock = mkMainBlock (Just prevHeader) sId sk
-                                        pSk musthaveBody extraH extraB
+            musthaveBlock = maybe (panic "Couldn't create block") identity $
+                              mkMainBlock (Just prevHeader) sId sk
+                                          pSk musthaveBody extraH extraB
         count musthaveBlock
         -- include delegation certificates and US payload
         let prioritizeUS = even (flattenSlotId sId)
@@ -744,7 +754,8 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
         txs' <- takeSome (map snd txs)
         -- return the resulting block
         let body = mkMainBody txs' sscData psks' usPayload'
-        return $ mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
+        maybe (panic "Coudln't create block") return $
+              mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
   where
     count x = identity -= fromIntegral (length (Bi.encode x))
     -- take from a list until the limit is exhausted or the list ends

@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Block.Arbitrary
@@ -19,12 +20,17 @@ import           Pos.Crypto           (Hash, ProxySecretKey, PublicKey, SecretKe
                                        createProxySecretKey, toPublic)
 import           Pos.Data.Attributes  (Attributes (..), mkAttributes)
 import           Pos.Merkle           (MerkleRoot (..), MerkleTree, mkMerkleTree)
-import           Pos.Ssc.Class.Types  (Ssc (..))
+import           Pos.Ssc.Arbitrary    (SscPayloadDependsOnSlot (..))
+import           Pos.Ssc.Class        (Ssc (..), SscHelpersClass)
 import qualified Pos.Types            as T
 import           Pos.Update.Arbitrary ()
-import           Pos.Util             (Raw, makeSmall)
+import           Pos.Util.Arbitrary   (makeSmall)
+import           Pos.Util.Binary      (Raw)
 import qualified Prelude
 
+newtype BodyDependsOnConsensus b = BodyDependsOnConsensus
+    { genBodyDepsOnConsensus :: T.ConsensusData b -> Gen (T.Body b)
+    }
 ------------------------------------------------------------------------------------------
 -- Arbitrary instances for Blockchain related types
 ------------------------------------------------------------------------------------------
@@ -38,15 +44,16 @@ instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) =>
 
 properBlock
     :: ( Arbitrary (T.BHeaderHash b)
-       , Arbitrary (T.Body b)
+       , Arbitrary (BodyDependsOnConsensus b)
        , Arbitrary (T.ConsensusData b)
        , Arbitrary (T.ExtraBodyData b)
        , Arbitrary (T.ExtraHeaderData b)
        , T.Blockchain b)
     => Gen (T.GenericBlock b)
 properBlock = do
-    body <- arbitrary
     (prevBlock, consensus, extra) <- arbitrary
+    BodyDependsOnConsensus{..} <- arbitrary
+    body <- genBodyDepsOnConsensus consensus
     let proof = T.mkBodyProof body
         header = T.GenericBlockHeader prevBlock proof consensus extra
     T.GenericBlock <$> pure header <*> pure body <*> arbitrary
@@ -69,6 +76,9 @@ instance Arbitrary (T.ConsensusData (T.GenesisBlockchain ssc)) where
     arbitrary = T.GenesisConsensusData
         <$> arbitrary
         <*> arbitrary
+
+instance Arbitrary (BodyDependsOnConsensus (T.GenesisBlockchain ssc)) where
+    arbitrary = pure $ BodyDependsOnConsensus $ \_ -> arbitrary
 
 instance Arbitrary (T.Body (T.GenesisBlockchain ssc)) where
     arbitrary = T.GenesisBody <$> arbitrary
@@ -144,6 +154,16 @@ txOutDistGen = listOf $ do
     (txOuts, txDist) <- second T.TxDistribution . unzip <$> arbitrary
     return $ (T.Tx txIns txOuts $ mkAttributes (), txDist, txInW)
 
+instance Arbitrary (SscPayloadDependsOnSlot ssc) =>
+         Arbitrary (BodyDependsOnConsensus (T.MainBlockchain ssc)) where
+    arbitrary = pure $ BodyDependsOnConsensus $ \T.MainConsensusData{..} -> makeSmall $ do
+        (txList, txDists, txInW) <- unzip3 <$> txOutDistGen
+        generator <- genPayloadDependsOnSlot @ssc <$> arbitrary
+        mpcData <- generator _mcdSlot
+        mpcProxySKs <- arbitrary
+        mpcUpload   <- arbitrary
+        return $ T.MainBody (mkMerkleTree txList) txDists txInW mpcData mpcProxySKs mpcUpload
+
 instance Arbitrary (SscPayload ssc) => Arbitrary (T.Body (T.MainBlockchain ssc)) where
     arbitrary = makeSmall $ do
         (txList, txDists, txInW) <- unzip3 <$> txOutDistGen
@@ -152,7 +172,7 @@ instance Arbitrary (SscPayload ssc) => Arbitrary (T.Body (T.MainBlockchain ssc))
         mpcUpload   <- arbitrary
         return $ T.MainBody (mkMerkleTree txList) txDists txInW mpcData mpcProxySKs mpcUpload
 
-instance (Arbitrary (SscProof ssc), Arbitrary (SscPayload ssc), Ssc ssc) =>
+instance (Arbitrary (SscProof ssc), Arbitrary (SscPayloadDependsOnSlot ssc), SscHelpersClass ssc) =>
     Arbitrary (T.GenericBlock (T.MainBlockchain ssc)) where
     arbitrary = properBlock
 
@@ -173,7 +193,7 @@ instance Arbitrary T.MsgGetBlocks where
 instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) => Arbitrary (T.MsgHeaders ssc) where
     arbitrary = T.MsgHeaders <$> arbitrary
 
-instance (Arbitrary (SscProof ssc), Arbitrary (SscPayload ssc), Ssc ssc) =>
+instance (Arbitrary (SscProof ssc), Arbitrary (SscPayloadDependsOnSlot ssc), SscHelpersClass ssc) =>
     Arbitrary (T.MsgBlock s ssc) where
     arbitrary = T.MsgBlock <$> arbitrary
 
@@ -221,7 +241,7 @@ maxEpochs = 0
 
 
 recursiveHeaderGen
-    :: (Arbitrary (SscPayload ssc), Ssc ssc, Integral a)
+    :: (Arbitrary (SscPayload ssc), SscHelpersClass ssc, Integral a)
     => [Either SecretKey (SecretKey, SecretKey, Bool)]
     -> [(a, a)]
     -> [T.BlockHeader ssc]
@@ -282,7 +302,7 @@ recursiveHeaderGen _ _ _  = return []
 -- Note that a leader is generated for each slot.
 -- (Not exactly a leader - see previous comment)
 
-instance (Arbitrary (SscPayload ssc), Ssc ssc) => Arbitrary (BlockHeaderList ssc) where
+instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) => Arbitrary (BlockHeaderList ssc) where
     arbitrary = BHL <$> do
         fullEpochs <- choose (startingEpoch, maxEpochs)
         incompleteEpochSize <- T.LocalSlotIndex <$> choose (1, epochSlots - 1)

@@ -19,15 +19,15 @@ module Pos.Ssc.GodTossing.VssCertData
        , filter
        ) where
 
-import qualified Data.HashMap.Strict           as HM
-import qualified Data.List                     as List
-import qualified Data.Set                      as S
-import           Formatting                    (build, sformat, (%))
-import           Universum                     hiding (empty, filter)
+import qualified Data.HashMap.Strict     as HM
+import qualified Data.List               as List
+import qualified Data.Set                as S
+import           Formatting              (build, sformat, (%))
+import           Universum               hiding (empty, filter)
 
-import           Pos.Ssc.GodTossing.Types.Base (VssCertificate (..), VssCertificatesMap)
-import           Pos.Types                     (EpochIndex (..), EpochOrSlot (..),
-                                                SlotId (..), StakeholderId)
+import           Pos.Ssc.GodTossing.Core (VssCertificate (..), VssCertificatesMap, getCertId)
+import           Pos.Types               (EpochIndex (..), EpochOrSlot (..), SlotId (..),
+                                          StakeholderId)
 
 -- | Wrapper around 'VssCertificate' with TTL.
 -- Every 'VssCertificate' has own TTL.
@@ -63,8 +63,8 @@ empty = VssCertData (EpochOrSlot $ Left $ EpochIndex 0) mempty mempty mempty mem
 
 -- | Remove old certificate corresponding to the specified 'StakeholderId'
 -- and insert new certificate.
-insert :: StakeholderId -> VssCertificate -> VssCertData -> VssCertData
-insert id cert mp@VssCertData{..}
+insert :: VssCertificate -> VssCertData -> VssCertData
+insert (first getCertId . join (,) -> (id, cert)) mp@VssCertData{..}
     | expiryEoS cert <= lastKnownEoS = mp
     | otherwise                      = addInt id cert mp
 
@@ -101,7 +101,6 @@ setLastKnownEoS nlks mp@VssCertData{..}
     | nlks > lastKnownEoS = setBiggerLKS nlks mp
     | nlks < lastKnownEoS = setSmallerLKS nlks mp
     | otherwise           = mp
-
 
 setLastKnownSlot :: SlotId -> VssCertData -> VssCertData
 setLastKnownSlot = setLastKnownEoS . EpochOrSlot . Right

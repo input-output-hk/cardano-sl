@@ -9,27 +9,42 @@ module Pos.Block.Network.Types
        , MsgBlock (..)
        ) where
 
-import qualified Data.ByteString.Char8 as BC
 import qualified Data.Text.Buildable
-import           Formatting            (bprint, build, (%))
-import           Serokell.Util.Text    (listJson)
+import           Formatting          (bprint, build, (%))
+import           Serokell.Util.Text  (listJson)
 import           Universum
 
-import           Node.Message          (Message (..), MessageName (..))
-import           Pos.Ssc.Class.Types   (Ssc (SscPayload))
-import           Pos.Types             (Block, BlockHeader, HeaderHash)
-import           Pos.Util              (NE, NewestFirst)
+import           Pos.Ssc.Class.Types (Ssc (SscPayload))
+import           Pos.Types           (Block, BlockHeader, HeaderHash)
+import           Pos.Util            (NE, NewestFirst)
 
--- | 'GetHeaders' message (see protocol specification).
+-- | 'GetHeaders' message. Behaviour of the response depends on
+-- particular combination of 'mghFrom' and 'mghTo'.
+--
+-- * 'mghTo' resolves to some header (let's call it @top@ for
+-- convenience) -- node's tip if it's @Nothing@, header with hash in
+-- @Just@ if it's @Just@.
+--
+-- * If 'mghFrom' is empty, then semantics is "request to return
+-- header of block @top@".
+--
+-- * Otherwise (if 'mghFrom' isn't empty) it represents the set of
+-- checkpoints. Responding node will try to iterate headers from @top@
+-- to older until it reaches any checkpoint. If it finds checkpoint
+-- @c@, it returns all headers in range @[c.next..top]@. If it doesn't
+-- find any checkpoint or depth of searching exceeds
+-- 'recoveryHeadersMessage', it will try to find the newest checkpoint
+-- @cc@ from 'mghFrom' that's in main chain of responding node and
+-- then return at most 'recoveryHeadersMessage' headers starting with
+-- @cc@ as the oldest one, returning headers in range @l2 =
+-- [cc.next..x]@ where @x@ is either @top@ (in case @length l2 <
+-- recoveryHeadersMessage@) or some arbitrary header (and length is
+-- precisely 'recoveryHeadersMessage').
 data MsgGetHeaders = MsgGetHeaders
     { -- not guaranteed to be in any particular order
       mghFrom :: ![HeaderHash]
     , mghTo   :: !(Maybe HeaderHash)
     } deriving (Generic, Show, Eq)
-
-instance Message MsgGetHeaders where
-    messageName _ = MessageName $ BC.pack "GetHeaders"
-    formatMessage _ = "GetHeaders"
 
 instance Buildable MsgGetHeaders where
     build (MsgGetHeaders mghFrom mghTo) =
@@ -42,10 +57,6 @@ data MsgGetBlocks = MsgGetBlocks
     , mgbTo   :: !HeaderHash
     } deriving (Generic, Show, Eq)
 
-instance Message MsgGetBlocks where
-    messageName _ = MessageName $ BC.pack "GetBlocks"
-    formatMessage _ = "GetBlocks"
-
 instance Buildable MsgGetBlocks where
     build (MsgGetBlocks mgbFrom mgbTo) =
         bprint ("MsgGetBlocks {from = "%build%", to = "%build%"}")
@@ -55,10 +66,6 @@ instance Buildable MsgGetBlocks where
 newtype MsgHeaders ssc =
     MsgHeaders (NewestFirst NE (BlockHeader ssc))
     deriving (Generic, Show, Eq)
-
-instance Message (MsgHeaders ssc) where
-    messageName _ = MessageName $ BC.pack "BlockHeaders"
-    formatMessage _ = "BlockHeaders"
 
 -- | 'Block' message (see protocol specification).
 --
@@ -70,7 +77,3 @@ newtype MsgBlock s ssc =
     deriving (Generic, Show)
 
 deriving instance (Ssc ssc, Eq (SscPayload ssc)) => Eq (MsgBlock s ssc)
-
-instance Message (MsgBlock s ssc) where
-    messageName _ = MessageName $ BC.pack "Block"
-    formatMessage _ = "Block"

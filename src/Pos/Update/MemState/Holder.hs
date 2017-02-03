@@ -10,32 +10,32 @@ module Pos.Update.MemState.Holder
        , runUSHolderFromVar
        ) where
 
-import           Control.Lens                 (iso)
-import           Control.Monad.Base           (MonadBase (..))
-import           Control.Monad.Fix            (MonadFix)
-import           Control.Monad.Trans.Class    (MonadTrans)
-import           Control.Monad.Trans.Control  (ComposeSt, MonadBaseControl (..),
-                                               MonadTransControl (..), StM,
-                                               defaultLiftBaseWith, defaultLiftWith,
-                                               defaultRestoreM, defaultRestoreT)
-import           Mockable                     (ChannelT, MFunctor',
-                                               Mockable (liftMockable), Promise,
-                                               SharedAtomicT, ThreadId,
-                                               liftMockableWrappedM)
-import           Serokell.Util.Lens           (WrappedM (..))
-import           System.Wlog                  (CanLog, HasLoggerName)
+import           Control.Lens                (iso)
+import           Control.Monad.Base          (MonadBase (..))
+import           Control.Monad.Fix           (MonadFix)
+import           Control.Monad.Trans.Class   (MonadTrans)
+import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
+                                              MonadTransControl (..), StM,
+                                              defaultLiftBaseWith, defaultLiftWith,
+                                              defaultRestoreM, defaultRestoreT)
+import           Mockable                    (ChannelT, Counter, Distribution, Gauge,
+                                              MFunctor', Mockable (liftMockable), Promise,
+                                              SharedAtomicT, SharedExclusiveT, ThreadId,
+                                              liftMockableWrappedM)
+import           Serokell.Util.Lens          (WrappedM (..))
+import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
-import           Pos.Context                  (WithNodeContext)
-import           Pos.DB.Class                 (MonadDB)
-import           Pos.Delegation.Class         (MonadDelegation)
-import           Pos.Slotting                 (MonadSlots (..))
-import           Pos.Ssc.Extra                (MonadSscGS (..), MonadSscLD (..))
-import           Pos.Txp.Class                (MonadTxpLD (..))
-import           Pos.Types.Utxo.Class         (MonadUtxo, MonadUtxoRead)
-import           Pos.Update.MemState.Class    (MonadUSMem (..))
-import           Pos.Update.MemState.MemState (MemVar, newMemVar)
-import           Pos.Util.JsonLog             (MonadJL (..))
+import           Pos.Context                 (WithNodeContext)
+import           Pos.DB.Class                (MonadDB)
+import           Pos.Delegation.Class        (MonadDelegation)
+import           Pos.Slotting.Class          (MonadSlots)
+import           Pos.Ssc.Extra               (MonadSscMem)
+import           Pos.Txp.Class               (MonadTxpLD (..))
+import           Pos.Types.Utxo.Class        (MonadUtxo, MonadUtxoRead)
+import           Pos.Update.MemState.Class   (MonadUSMem (..))
+import           Pos.Update.MemState.Types   (MemVar, newMemVar)
+import           Pos.Util.JsonLog            (MonadJL (..))
 
 ----------------------------------------------------------------------------
 -- Transformer
@@ -44,12 +44,28 @@ import           Pos.Util.JsonLog             (MonadJL (..))
 -- | Trivial monad transformer based on @ReaderT (MemVar)@.
 newtype USHolder m a = USHolder
     { getUSHolder :: ReaderT MemVar m a
-    } deriving (Functor, Applicative, Monad, MonadTrans,
-                MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
-                HasLoggerName, WithNodeContext ssc, MonadJL,
-                CanLog, MonadMask, MonadSscLD kek, MonadSscGS ssc,
-                MonadUtxoRead, MonadUtxo, MonadTxpLD ssc, MonadBase io,
-                MonadDelegation, MonadFix)
+    } deriving ( Functor
+               , Applicative
+               , Monad
+               , MonadTrans
+               , MonadFail
+               , MonadThrow
+               , MonadSlots
+               , MonadCatch
+               , MonadIO
+               , HasLoggerName
+               , WithNodeContext ssc
+               , MonadJL
+               , CanLog
+               , MonadMask
+               , MonadSscMem ssc
+               , MonadUtxoRead
+               , MonadUtxo
+               , MonadTxpLD ssc
+               , MonadBase io
+               , MonadDelegation
+               , MonadFix
+               )
 
 ----------------------------------------------------------------------------
 -- Common instances used all over the code
@@ -59,6 +75,10 @@ deriving instance MonadDB ssc m => MonadDB ssc (USHolder m)
 type instance ThreadId (USHolder m) = ThreadId m
 type instance Promise (USHolder m) = Promise m
 type instance SharedAtomicT (USHolder m) = SharedAtomicT m
+type instance Counter (USHolder m) = Counter m
+type instance Distribution (USHolder m) = Distribution m
+type instance SharedExclusiveT (USHolder m) = SharedExclusiveT m
+type instance Gauge (USHolder m) = Gauge m
 type instance ChannelT (USHolder m) = ChannelT m
 
 instance ( Mockable d m

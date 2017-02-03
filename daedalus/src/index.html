@@ -39,11 +39,18 @@
             .then(console.log)
             .catch(console.log)
       };
-      var restoreWallet = function(mnemonic) {
-        Daedalus.ClientApi.restoreWallet(mnemonic)
+
+      var restoreWallet = function(type, currency, name, mnemonic) {
+        Daedalus.ClientApi.restoreWallet(type, currency, name, mnemonic)
             .then(console.log)
             .catch(console.log)
       };
+      var restoreWalletIgnoreChecksum = function(type, currency, name, mnemonic) {
+        Daedalus.ClientApi.restoreWalletIgnoreChecksum(type, currency, name, mnemonic)
+            .then(console.log)
+            .catch(console.log)
+      };
+
       var updateWallet = function(address, type, currency, name) {
         Daedalus.ClientApi.updateWallet(address, type, currency, name)
             .then(console.log)
@@ -103,8 +110,8 @@
             .then(console.log)
             .catch(console.log)
       };
-      var redeemADA = function(seed, mnemonic) {
-         Daedalus.ClientApi.redeemADA(seed, mnemonic)
+      var redeemADA = function(seed, address) {
+         Daedalus.ClientApi.redeemADA(seed, address)
             .then(console.log)
             .catch(console.log)
       };
@@ -122,7 +129,8 @@
       <li><button onclick="getHistory('wallet_address', 0, 10)"/>get wallet history</li>
       <li><button onclick="searchHistory('wallet_address', 'searchItem', 0, 10)"/>search wallet history</li>
       <li><button onclick="newWallet('CWTPersonal', 'ADA', 'I am rich guy', 'mnemonic');"/>newWallet</li>
-      <li><button onclick="restoreWallet('mnemonic');"/>restoreWallet</li>
+      <li><button onclick="restoreWallet('CWTPersonal', 'ADA', 'I am rich guy', 'mnemonic');"/>restore wallet</li>
+      <li><button onclick="restoreWalletIgnoreChecksum('CWTPersonal', 'ADA', 'I am rich guy', 'mnemonic');"/>restore wallet ignore checksum</li>
       <li><button onclick="updateWallet('wallet_address', 'CWTPersonal', 'ADA', 'wallet_name');"/>updateWallet</li>
       <li><button onclick="updateTransaction('wallet_address', 'transaction_hash', 'ADA', 'new_transaction_title', 'new_transaction_description', 1484253370.9182513);"/>updateTransaction</li>
       <li><button onclick="deleteWallet('wallet_address');"/>deleteWallet</li>
@@ -135,7 +143,7 @@
       <li><button onclick="nextUpdate()"/>next update</li>
       <li><button onclick="applyUpdate()"/>apply update</li>
       <li><button onclick="systemVersion()"/>system version</li>
-      <li><button onclick="redeemADA('seed', 'mnemonic')"/>redeem ada</li>
+      <li><button onclick="redeemADA('seed', 'address to redeem to')"/>redeem ada</li>
     </ul>
 	</body>
 </html>

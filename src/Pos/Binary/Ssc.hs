@@ -10,46 +10,15 @@ import           Universum
 
 import           Pos.Binary.Class                 (Bi (..))
 import           Pos.Binary.Crypto                ()
-import           Pos.Binary.Ssc.GodTossing.Base   ()
-import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtMsgTag (..))
-import           Pos.Ssc.GodTossing.Types.Types   (GtPayload (..), GtProof (..),
-                                                   GtSecretStorage (..))
-
-----------------------------------------------------------------------------
--- Types.Types
-----------------------------------------------------------------------------
-
-instance Bi GtPayload where
-    put x = case x of
-        CommitmentsPayload comMap vssMap -> putWord8 0 >> put comMap >> put vssMap
-        OpeningsPayload opMap vssMap     -> putWord8 1 >> put opMap >> put vssMap
-        SharesPayload sharesMap vssMap   -> putWord8 2 >> put sharesMap >> put vssMap
-        CertificatesPayload vssMap       -> putWord8 3 >> put vssMap
-    get = getWord8 >>= \case
-        0 -> liftM2 CommitmentsPayload get get
-        1 -> liftM2 OpeningsPayload get get
-        2 -> liftM2 SharesPayload get get
-        3 -> CertificatesPayload <$> get
-        tag -> fail ("get@GtPayload: invalid tag: " ++ show tag)
-
-instance Bi GtProof where
-    put x = case x of
-        CommitmentsProof a b -> putWord8 0 >> put a >> put b
-        OpeningsProof a b    -> putWord8 1 >> put a >> put b
-        SharesProof a b      -> putWord8 2 >> put a >> put b
-        CertificatesProof a  -> putWord8 3 >> put a
-    get = getWord8 >>= \case
-        0 -> liftM2 CommitmentsProof get get
-        1 -> liftM2 OpeningsProof get get
-        2 -> liftM2 SharesProof get get
-        3 -> CertificatesProof <$> get
-        tag -> fail ("get@GtProof: invalid tag: " ++ show tag)
+import           Pos.Binary.Ssc.GodTossing.Core   ()
+import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtTag (..))
+import           Pos.Ssc.GodTossing.Types.Types   (GtSecretStorage (..))
 
 ----------------------------------------------------------------------------
 -- Types.Message
 ----------------------------------------------------------------------------
 
-instance Bi GtMsgTag where
+instance Bi GtTag where
     put msgtag = case msgtag of
         CommitmentMsg     -> putWord8 0
         OpeningMsg        -> putWord8 1
@@ -64,14 +33,14 @@ instance Bi GtMsgTag where
 
 instance Bi GtMsgContents where
     put datamsg = case datamsg of
-        MCCommitment signedComm  -> putWord8 0 >>  put signedComm
-        MCOpening opening        -> putWord8 1 >>  put opening
-        MCShares innerMap        -> putWord8 2 >>  put innerMap
-        MCVssCertificate vssCert -> putWord8 3 >>  put vssCert
+        MCCommitment signedComm   -> putWord8 0 >> put signedComm
+        MCOpening stkhdId opening -> putWord8 1 >> put stkhdId >> put opening
+        MCShares stkhdId innerMap -> putWord8 2 >> put stkhdId >> put innerMap
+        MCVssCertificate vssCert  -> putWord8 3 >> put vssCert
     get = getWord8 >>= \case
         0 -> liftM MCCommitment get
-        1 -> liftM MCOpening get
-        2 -> liftM MCShares get
+        1 -> liftM2 MCOpening get get
+        2 -> liftM2 MCShares get get
         3 -> liftM MCVssCertificate get
         tag -> fail ("get@DataMsg: invalid tag: " ++ show tag)
 

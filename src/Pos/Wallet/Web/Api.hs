@@ -11,10 +11,9 @@ module Pos.Wallet.Web.Api
 import           Data.Proxy                 (Proxy (Proxy))
 
 import           Pos.Types                  (Coin, SoftwareVersion)
-import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CProfile, CTx, CTxId,
                                              CTxMeta, CUpdateInfo, CWallet, CWalletInit,
-                                             CWalletMeta)
+                                             CWalletMeta, CWalletRedeem)
 import           Pos.Wallet.Web.Error       (WalletError)
 import           Servant.API                ((:<|>), (:>), Capture, Get, JSON, Post,
                                              ReqBody)
@@ -40,7 +39,7 @@ type WalletApi =
     :<|>
      "api" :> "new_wallet" :> ReqBody '[JSON] CWalletInit :> Post '[JSON] (Either WalletError CWallet)
     :<|>
-     "api" :> "restore_wallet" :> ReqBody '[JSON] BackupPhrase :> Post '[JSON] (Either WalletError CWallet)
+     "api" :> "restore_wallet" :> ReqBody '[JSON] CWalletInit :> Post '[JSON] (Either WalletError CWallet)
     :<|>
      "api" :> "update_wallet" :> Capture "address" CAddress :> ReqBody '[JSON] CWalletMeta :> Post '[JSON] (Either WalletError CWallet)
     :<|>
@@ -53,7 +52,7 @@ type WalletApi =
     :<|>
      "api" :> "update_profile" :> ReqBody '[JSON] CProfile :> Post '[JSON] (Either WalletError CProfile)
     :<|>
-     "api" :> "redeem_ada" :> Capture "seed" Text :> ReqBody '[JSON] BackupPhrase :> Post '[JSON] (Either WalletError CWallet)
+     "api" :> "redeem_ada" :> ReqBody '[JSON] CWalletRedeem :> Post '[JSON] (Either WalletError CWallet)
     :<|>
      "api" :> "next_update" :> Get '[JSON] (Either WalletError CUpdateInfo)
     :<|>

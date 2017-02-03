@@ -24,6 +24,7 @@ module Pos.Wallet.Web.ClientTypes
       , CWalletMeta (..)
       , CWalletInit (..)
       , CUpdateInfo (..)
+      , CWalletRedeem (..)
       , NotifyEvent (..)
       , addressToCAddress
       , cAddressToAddress
@@ -35,7 +36,7 @@ module Pos.Wallet.Web.ClientTypes
       , toCUpdateInfo
       ) where
 
-import           Data.Text             (Text, isInfixOf)
+import           Data.Text             (Text, isInfixOf, toLower)
 import           GHC.Generics          (Generic)
 import           Universum
 
@@ -47,9 +48,9 @@ import           Formatting            (build, sformat)
 import           Pos.Aeson.Types       ()
 import           Pos.Script.Type       (ScriptVersion)
 import           Pos.Types             (Address (..), BlockVersion, ChainDifficulty, Coin,
-                                        HeaderHash, SoftwareVersion, TxId,
-                                        decodeTextAddress, sumCoins, txOutAddress,
-                                        txOutValue, txOutputs, unsafeIntegerToCoin)
+                                        SoftwareVersion, TxId, decodeTextAddress,
+                                        sumCoins, txOutAddress, txOutValue, txOutputs,
+                                        unsafeIntegerToCoin)
 import           Pos.Update.Core       (BlockVersionData (..), StakeholderVotes,
                                         UpdateProposal (..), isPositiveVote)
 import           Pos.Update.Poll       (ConfirmedProposalState (..))
@@ -154,6 +155,12 @@ data CWalletInit = CWalletInit
     , cwInitMeta     :: !CWalletMeta
     } deriving (Show, Generic)
 
+-- | Query data for redeem
+data CWalletRedeem = CWalletRedeem
+    { crWalletId :: !CAddress
+    , crSeed     :: !Text -- TODO: newtype!
+    } deriving (Show, Generic)
+
 ----------------------------------------------------------------------------
 -- profile
 ----------------------------------------------------------------------------
@@ -210,7 +217,7 @@ data CTx = CTx
     } deriving (Show, Generic)
 
 txContainsTitle :: Text -> CTx -> Bool
-txContainsTitle search = isInfixOf search . ctmTitle . ctTypeMeta . ctType
+txContainsTitle search = isInfixOf (toLower search) . toLower . ctmTitle . ctTypeMeta . ctType
 
 -- | meta data of exchanges
 data CTExMeta = CTExMeta
@@ -254,10 +261,10 @@ toCUpdateInfo ConfirmedProposalState {..} =
         cuiBlockVesion      = upBlockVersion
         cuiScriptVersion    = bvdScriptVersion upBlockVersionData
         cuiImplicit         = cpsImplicit
-        cuiProposed         = cpsProposed
-        cuiDecided          = cpsDecided
-        cuiConfirmed        = cpsConfirmed
-        cuiAdopted          = cpsAdopted
+--        cuiProposed         = cpsProposed
+--        cuiDecided          = cpsDecided
+--        cuiConfirmed        = cpsConfirmed
+--        cuiAdopted          = cpsAdopted
         (cuiVotesFor, cuiVotesAgainst) = countVotes cpsVotes
         cuiPositiveStake    = cpsPositiveStake
         cuiNegativeStake    = cpsNegativeStake

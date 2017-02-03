@@ -4,14 +4,14 @@ module Test.Pos.Update.Identity.BinarySpec
        ( spec
        ) where
 
-import           Test.Hspec     (Spec, describe)
+import           Test.Hspec              (Spec, describe)
 import           Universum
 
-import qualified Pos.Update     as U
-import           Pos.Util.Relay as R
+import           Pos.Binary              ()
+import           Pos.Communication.Relay as R
+import qualified Pos.Update              as U
 
-import           Pos.Binary     ()
-import           Test.Pos.Util  (binaryTest, networkBinaryTest)
+import           Test.Pos.Util           (binaryTest, networkBinaryTest)
 
 spec :: Spec
 spec =
@@ -34,7 +34,7 @@ spec =
       describe "Network" $ do
         networkBinaryTest @(R.InvMsg U.VoteId U.VoteMsgTag)
         networkBinaryTest @(R.ReqMsg U.VoteId U.VoteMsgTag)
-        networkBinaryTest @(R.DataMsg U.VoteId U.UpdateVote)
+        networkBinaryTest @(R.DataMsg U.UpdateVote)
         networkBinaryTest @(R.InvMsg U.UpId U.ProposalMsgTag)
         networkBinaryTest @(R.ReqMsg U.UpId U.ProposalMsgTag)
-        -- networkBinaryTest @(R.DataMsg U.UpId (U.UpdateProposal, [U.UpdateVote]))
+        networkBinaryTest @(R.DataMsg (U.UpdateProposal, [U.UpdateVote]))

@@ -16,6 +16,7 @@ module Pos.Update.Core.Types
        , mkSystemTag
        , systemTagMaxLength
        , patakUpdateData
+       , skovorodaUpdateData
        , upScriptVersion
        , upSlotDuration
        , upMaxBlockSize
@@ -67,7 +68,7 @@ import           Pos.Types.Coin             ()
 import           Pos.Types.Core             (BlockVersion, CoinPortion, FlatSlotId,
                                              SoftwareVersion)
 import           Pos.Types.Version          ()
-import           Pos.Util                   (Raw)
+import           Pos.Util.Binary            (Raw)
 
 ----------------------------------------------------------------------------
 -- UpdateProposal and related
@@ -181,6 +182,11 @@ patakUpdateData :: HM.HashMap SystemTag UpdateData
 patakUpdateData =
     let b = "bardaq"
         h = unsafeHash b
+    in  HM.fromList [(SystemTag b, UpdateData h h h h)]
+
+skovorodaUpdateData :: Hash Raw -> HM.HashMap SystemTag UpdateData
+skovorodaUpdateData h =
+    let b = "linux64"
     in  HM.fromList [(SystemTag b, UpdateData h h h h)]
 
 

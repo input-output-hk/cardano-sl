@@ -49,9 +49,10 @@ import           Pos.DB.Class          (MonadDB)
 import           Pos.DB.Lrc.Common     (getBi, putBi)
 import           Pos.Genesis           (genesisDelegation)
 import           Pos.Lrc.Logic         (RichmenType (..), findRichmenPure)
-import           Pos.Lrc.Types         (FullRichmenData, Richmen, toRichmen)
+import           Pos.Lrc.Types         (FullRichmenData, Richmen, RichmenSet, toRichmen)
 import           Pos.Types             (Coin, EpochIndex, StakeholderId, applyCoinPortion,
                                         txOutStake)
+import           Pos.Util              (getKeys)
 
 ----------------------------------------------------------------------------
 -- Class
@@ -180,13 +181,13 @@ components = [ someRichmenComponent @RCSsc
 data RCSsc
 
 instance RichmenComponent RCSsc where
-    type RichmenData RCSsc = Richmen
-    rcToData = toRichmen . snd
+    type RichmenData RCSsc = RichmenSet
+    rcToData = getKeys . snd
     rcTag Proxy = "ssc"
     rcThreshold Proxy = applyCoinPortion genesisMpcThd
     rcConsiderDelegated Proxy = True
 
-getRichmenSsc :: MonadDB ssc m => EpochIndex -> m (Maybe Richmen)
+getRichmenSsc :: MonadDB ssc m => EpochIndex -> m (Maybe RichmenSet)
 getRichmenSsc epoch = getRichmen @RCSsc epoch
 
 putRichmenSsc

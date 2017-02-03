@@ -31,10 +31,12 @@ import           Pos.Util            (inAssertMode)
 import           Pos.Util.TimeWarp   (sec)
 import           Pos.Util.UserSecret (UserSecret, peekUserSecret, usKeys, usVss,
                                       writeUserSecret)
-import           Pos.Web             (serveWebGT)
 import           Pos.WorkMode        (ProductionMode, WorkMode)
 
+import           Pos.Explorer.Web    (explorerPlugin)
+
 import           ExplorerOptions     (Args (..), getExplorerOptions)
+
 
 getSystemStart
     :: SscConstraint ssc
@@ -78,12 +80,9 @@ action args@Args {..} res = do
 
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
         gtParams = gtSscParams args vssSK
-        convPlugins = (,mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
-        currentPluginsGT :: [ProductionMode SscGodTossing ()]
-        currentPluginsGT = pluginsGT args
 
     putText "Running using GodTossing"
-    runNodeProduction @SscGodTossing res (convPlugins currentPluginsGT) currentParams gtParams
+    runNodeProduction @SscGodTossing res (explorerPlugin webPort) currentParams gtParams
 
 userSecretWithGenesisKey
     :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m (SecretKey, UserSecret)
@@ -154,9 +153,6 @@ gtSscParams Args {..} vssSK =
     { gtpSscEnabled = True
     , gtpVssKeyPair = vssSK
     }
-
-pluginsGT :: (WorkMode SscGodTossing m) => Args -> [m ()]
-pluginsGT Args {..} = [serveWebGT webPort]
 
 printFlags :: IO ()
 printFlags = do

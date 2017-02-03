@@ -2,6 +2,7 @@
 
 module Pos.Explorer.Web.Transform
        ( explorerServeWebReal
+       , explorerPlugin
        ) where
 
 import           Control.Concurrent.STM  (TVar)
@@ -13,10 +14,10 @@ import           Servant.Utils.Enter     ((:~>) (..), enter)
 import           System.Wlog             (usingLoggerName)
 import           Universum
 
-import           Pos.Communication       (PeerStateSnapshot, SendActions,
-                                          WithPeerState (..), getAllStates,
-                                          hoistSendActions, peerStateFromSnapshot,
-                                          runPeerStateHolder)
+import           Pos.Communication       (OutSpecs, PeerStateSnapshot, SendActions,
+                                          WithPeerState (..), WorkerSpec, getAllStates,
+                                          peerStateFromSnapshot, runPeerStateHolder,
+                                          worker)
 import           Pos.Context             (NodeContext, getNodeContext, runContextHolder)
 import           Pos.DB                  (NodeDBs, getNodeDBs, runDBHolder)
 import           Pos.Delegation          (DelegationWrap, askDelegationState,
@@ -24,7 +25,6 @@ import           Pos.Delegation          (DelegationWrap, askDelegationState,
 import           Pos.DHT.Real.Real       (runKademliaDHT)
 import           Pos.DHT.Real.Types      (KademliaDHTInstance (..),
                                           getKademliaDHTInstance)
-import           Pos.Ssc.Class           (SscConstraint)
 import           Pos.Ssc.Extra           (SscHolder (..), SscState, runSscHolderRaw)
 import           Pos.Ssc.GodTossing      (SscGodTossing)
 import           Pos.Statistics          (getNoStatsT)
@@ -40,6 +40,9 @@ import           Pos.Explorer.Web.Server (explorerApp, explorerHandlers,
 -----------------------------------------------------------------
 
 type ExplorerProd = ProductionMode SscGodTossing
+
+explorerPlugin :: Word16 -> ([WorkerSpec ExplorerProd], OutSpecs)
+explorerPlugin = first pure . worker mempty . flip explorerServeWebReal
 
 explorerServeWebReal :: SendActions ExplorerProd -> Word16 -> ExplorerProd ()
 explorerServeWebReal sendActions = explorerServeImpl . explorerApp $

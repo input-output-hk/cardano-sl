@@ -68,7 +68,7 @@ argsParser =
     strOption
         (long "kademlia-dump-path" <> metavar "FILEPATH" <> showDefault <>
         help "Path to kademlia dump file" <> value "kademlia.dump")
-    <*> CLI.webPortOption 8080 "Port for Explorer API"
+    <*> CLI.webPortOption 8100 "Port for Explorer API"
     <*> CLI.commonArgsParser peerHelpMsg
     <*> option auto (long "system-start" <> metavar "TIMESTAMP" <> value (-1))
 

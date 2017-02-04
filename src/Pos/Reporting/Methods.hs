@@ -18,19 +18,18 @@ import qualified Data.Text                as T
 import           Data.Time.Clock          (getCurrentTime)
 import           Data.Version             (Version (..))
 import           Network.Wreq             (partFile, partLBS, post)
+import           Paths_cardano_sl         (version)
 import           Pos.ReportServer.Report  (ReportInfo (..), ReportType (..))
 import           System.Directory         (doesFileExist, listDirectory)
 import           System.FilePath          (dropExtension, takeDirectory, takeExtension,
                                            takeFileName, (<.>), (</>))
 import           System.Info              (arch, os)
-import           System.Wlog              (LoggerTree, lcTree, ltFile, ltSubloggers)
+import           System.Wlog              (LoggerTree (..), lcTree, ltFile, ltSubloggers)
 import           Universum
 
-import           Pos.Constants            (curSoftwareVersion, ourAppName)
 import           Pos.Context              (WithNodeContext, getNodeContext,
                                            ncLoggerConfig, ncReportServers)
 import           Pos.Reporting.Exceptions (ReportingError (..))
-import           Pos.Types                (svNumber)
 
 -- | Sends node's logs, taking 'LoggerConfig' from 'NodeContext',
 -- retrieving all logger files from it. List of servers is also taken
@@ -44,18 +43,20 @@ sendReportNode reportType = do
     let logFileNames = map snd $ retrieveLogFiles $ logConfig ^. lcTree
     -- put filter here, we don't want to send all logs
     let logFiles = filter (const True) logFileNames
-    forM_ servers $ sendReport logFiles reportType . T.unpack
+    forM_ servers $
+        sendReport logFiles reportType "cardano-node" version . T.unpack
 
 -- | Given logs files list and report type, sends reports to URI
--- asked. All files _must_ exist.
+-- asked. All files _must_ exist. Report server URI should be in form
+-- like "http(s)://host:port/" without specified endpoint.
 sendReport
     :: (MonadIO m, MonadCatch m)
-    => [FilePath] -> ReportType -> String -> m ()
-sendReport logFiles reportType reportServerUri = do
+    => [FilePath] -> ReportType -> Text -> Version -> String -> m ()
+sendReport logFiles reportType appName appVersion reportServerUri = do
     curTime <- liftIO getCurrentTime
     existingFiles <- filterM (liftIO . doesFileExist) logFiles
     when (null existingFiles) $ throwM $ CantRetrieveLogs logFiles
-    e <- try $ liftIO $ post reportServerUri $
+    e <- try $ liftIO $ post (reportServerUri </> "report") $
         partLBS "payload" (encode $ reportInfo curTime existingFiles) :
         map (\fp -> partFile (toFileName fp) fp) existingFiles
     whenLeft e $ \(e' :: SomeException) -> throwM $ SendingError (show e')
@@ -63,8 +64,8 @@ sendReport logFiles reportType reportServerUri = do
     toFileName = T.pack . takeFileName
     reportInfo curTime files =
         ReportInfo
-        { rApplication = pretty ourAppName
-        , rVersion = Version [fromIntegral $ svNumber curSoftwareVersion] []
+        { rApplication = appName
+        , rVersion = appVersion
         , rBuild = 0 -- what should be put here?
         , rOS = T.pack (os <> "-" <> arch)
         , rLogs = map toFileName files

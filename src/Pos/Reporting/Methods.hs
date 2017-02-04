@@ -19,8 +19,9 @@ import           Data.Time.Clock          (getCurrentTime)
 import           Data.Version             (Version (..))
 import           Network.Wreq             (partFile, partLBS, post)
 import           Pos.ReportServer.Report  (ReportInfo (..), ReportType (..))
-import           System.Directory         (doesFileExist)
-import           System.FilePath          (takeFileName)
+import           System.Directory         (doesFileExist, listDirectory)
+import           System.FilePath          (dropExtension, takeDirectory, takeExtension,
+                                           takeFileName, (<.>), (</>))
 import           System.Info              (arch, os)
 import           System.Wlog              (LoggerTree, lcTree, ltFile, ltSubloggers)
 import           Universum
@@ -31,6 +32,9 @@ import           Pos.Context              (WithNodeContext, getNodeContext,
 import           Pos.Reporting.Exceptions (ReportingError (..))
 import           Pos.Types                (svNumber)
 
+-- | Sends node's logs, taking 'LoggerConfig' from 'NodeContext',
+-- retrieving all logger files from it. List of servers is also taken
+-- from node's configuration.
 sendReportNode
     :: (MonadIO m, MonadCatch m, WithNodeContext її m)
     => ReportType -> m ()
@@ -84,4 +88,24 @@ retrieveLogFiles lt =
 -- description. Example: there's @component.log@ in config, but this
 -- function will return @[component.log.122, component.log.123]@.
 chooseLogFiles :: (MonadIO m) => FilePath -> m [FilePath]
-chooseLogFiles = undefined
+chooseLogFiles filePath = liftIO $ do
+    dirContents <- map (dir </>) <$> listDirectory dir
+    print dirContents
+    dirFiles <- filterM doesFileExist dirContents
+    let fileMatches = fileName `elem` map takeFileName dirFiles
+    let samePrefix = filter (isPrefixOf fileName . takeFileName) dirFiles
+    let rotationLogs :: [(FilePath, Int)]
+        rotationLogs = flip mapMaybe samePrefix $ \candidate -> do
+            let fname = takeFileName candidate
+            let basename = dropExtension fname
+            let ext = drop 1 $ takeExtension fname
+            guard $ basename == fileName
+            guard $ fname == basename <.> ext
+            (candidate,) <$> readMaybe ext
+    pure $ if | not (null rotationLogs) ->
+                take 2 $ map fst $ reverse $ sortOn snd rotationLogs
+              | fileMatches -> [filePath]
+              | otherwise -> [] -- haven't found any logs
+  where
+    fileName = takeFileName filePath
+    dir = takeDirectory filePath

@@ -27,6 +27,7 @@ module Pos.Ssc.GodTossing.Toss.Base
        , verifyEntriesGuardM
        ) where
 
+import           Control.Monad.State             (get, put)
 import           Data.Containers                 (ContainerKey, SetContainer (notMember))
 import qualified Data.HashMap.Strict             as HM
 import qualified Data.HashSet                    as HS
@@ -50,7 +51,8 @@ import           Pos.Ssc.GodTossing.Core         (CommitmentsDistribution,
                                                   _gpCertificates)
 import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..), MonadTossRead (..))
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
-import           Pos.Types                       (EpochIndex, StakeholderId, addressHash)
+import           Pos.Types                       (EpochIndex, StakeholderId, addressHash,
+                                                  unsafeGetCoin)
 import           Pos.Util                        (AsBinary, fromBinaryM, getKeys)
 
 ----------------------------------------------------------------------------
@@ -88,8 +90,8 @@ getParticipants :: (MonadError TossVerFailure m, MonadToss m)
                 -> m VssCertificatesMap
 getParticipants epoch = do
     stableCerts <- getStableCertificates epoch
-    richmenSet <- note (NoRichmen epoch) =<< getRichmen epoch
-    pure $ computeParticipants richmenSet stableCerts
+    richmen <- note (NoRichmen epoch) =<< getRichmen epoch
+    pure $ computeParticipants (getKeys richmen) stableCerts
 
 ----------------------------------------------------------------------------
 -- Simple checks in 'MonadTossRead'
@@ -111,7 +113,7 @@ checkMultiShares epoch (id, sh) = do
     getRichmen epoch >>= \case
         Nothing -> False <$ logWarning (sformat warnFmt epoch)
         Just richmen -> do
-            let parts = computeParticipants richmen certs
+            let parts = computeParticipants (getKeys richmen) certs
             coms <- getCommitments
             ops <- getOpenings
             pure $ checkMultiSharesPure coms ops parts id sh
@@ -126,10 +128,55 @@ computeParticipants :: RichmenSet -> VssCertificatesMap -> VssCertificatesMap
 computeParticipants (HS.toMap -> richmen) = flip HM.intersection richmen
 
 computeCommitmentDistr
-    :: (MonadError TossVerFailure m, MonadToss m)
+    :: (MonadError TossVerFailure m, MonadTossRead m)
     => EpochIndex
     -> m CommitmentsDistribution
-computeCommitmentDistr = notImplemented
+computeCommitmentDistr epoch = do
+    richmen <- note (NoRichmen epoch) =<< getRichmen epoch
+    let total :: Word64
+        total = sum $ map unsafeGetCoin $ toList richmen
+    when (total == 0) $ throwError $ NoRichmen epoch
+    -- Max error between real portion of node and portion of result
+    let portionError = toRational (1::Int) / toRational (20::Int) -- 0.05
+    -- Max multiplier (see below more)
+    let maxMult = 100
+
+    let keys = map fst $ HM.toList richmen
+    let portions = map ((`divRat` total) . unsafeGetCoin . snd) $ HM.toList richmen
+    (_, res) <-
+            execStateT (compute maxMult portions portionError)
+                       (maxMult * 10, multPortions portions maxMult)
+    pure $ HM.fromList $ zip keys res
+  where
+    -- We multiply all portions by mult and divide on total sum - we get commitment distribution
+    -- next divide them on their gcd,
+    -- next check that their real portion and portion for current mult
+    --   different less than 'portionError',
+    -- select minimal sum of commitment distribution by 1 <= mult <= 100
+    compute maxMult portions maxError = do
+        forM_ [1..maxMult] $ \mult -> do
+            let curDistr = multPortions portions mult
+            let curTotal = sum curDistr
+            let curPortions = map (`divRat` curTotal) curDistr
+            when (curTotal /= 0 &&
+                  all (compareDiff maxError) (zip portions curPortions) && -- different < 0.05
+                  all (> 0) curDistr) $ do -- all portions are positive
+                let g = listGCD curDistr
+                let dividedDistr = map (`div` g) curDistr
+                let curSum = sum dividedDistr
+                ans <- fst <$> get
+                when (curSum < ans) $ put (mult, dividedDistr)
+
+    multPortions :: [Rational] -> Word16 -> [Word16]
+    multPortions p (toRational -> mult) = map (truncate . (* mult)) p
+
+    divRat :: (Real a, Real b) => a -> b -> Rational
+    divRat x y = toRational x / toRational y
+
+    listGCD (x:xs) = foldl' gcd x xs
+    listGCD [] = 1
+
+    compareDiff maxError (x, y) = abs (x - y) < maxError
 
 -- CHECK: @matchCommitmentPure
 -- | Check that the secret revealed in the opening matches the secret proof
@@ -287,8 +334,7 @@ checkCertificatesPayload
     -> VssCertificatesMap
     -> m ()
 checkCertificatesPayload epoch certs = do
-    richmenSet <- maybe (throwError $ NoRichmen epoch) pure
-                        =<< getRichmen epoch
+    richmenSet <- getKeys <$> (note (NoRichmen epoch) =<< getRichmen epoch)
     exceptGuardM CertificateAlreadySent
         (notM hasCertificate) (HM.keys certs)
     exceptGuardSnd CertificateNotRichmen

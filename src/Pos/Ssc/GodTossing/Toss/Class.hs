@@ -13,7 +13,7 @@ import           Control.Monad.Trans     (MonadTrans)
 import           System.Wlog             (WithLogger)
 import           Universum
 
-import           Pos.Lrc.Types           (RichmenSet)
+import           Pos.Lrc.Types           (RichmenStake)
 import           Pos.Ssc.GodTossing.Core (CommitmentsMap, InnerSharesMap, MultiCommitment,
                                           MultiOpening, OpeningsMap, SharesMap,
                                           VssCertificate, VssCertificatesMap)
@@ -43,7 +43,7 @@ class (Monad m, WithLogger m) =>
     getStableCertificates :: EpochIndex -> m VssCertificatesMap
 
     -- | Retrieve richmen for given epoch if they are known.
-    getRichmen :: EpochIndex -> m (Maybe RichmenSet)
+    getRichmen :: EpochIndex -> m (Maybe RichmenStake)
 
     -- | Default implementations for 'MonadTrans'.
     default getCommitments :: (MonadTrans t, MonadTossRead m', t m' ~ m) =>
@@ -67,7 +67,7 @@ class (Monad m, WithLogger m) =>
     getStableCertificates = lift . getStableCertificates
 
     default getRichmen :: (MonadTrans t, MonadTossRead m', t m' ~ m) =>
-        EpochIndex -> m (Maybe RichmenSet)
+        EpochIndex -> m (Maybe RichmenStake)
     getRichmen = lift . getRichmen
 
 instance MonadTossRead m => MonadTossRead (ReaderT s m)

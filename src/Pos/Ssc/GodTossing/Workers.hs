@@ -13,7 +13,6 @@ import           Control.Lens                     (at, to)
 import           Control.Monad.Except             (runExceptT)
 import           Control.Monad.Trans.Maybe        (runMaybeT)
 import qualified Data.HashMap.Strict              as HM
-import qualified Data.HashSet                     as HS
 import qualified Data.List.NonEmpty               as NE
 import           Data.Tagged                      (Tagged (..))
 import           Data.Time.Units                  (Microsecond, Millisecond, convertUnit)
@@ -73,7 +72,8 @@ import           Pos.Types                        (EpochIndex, LocalSlotIndex,
                                                    SlotId (..), StakeholderId,
                                                    StakeholderId, Timestamp (..),
                                                    addressHash)
-import           Pos.Util                         (AsBinary, asBinary, inAssertMode)
+import           Pos.Util                         (AsBinary, asBinary, getKeys,
+                                                   inAssertMode)
 import           Pos.WorkMode                     (WorkMode)
 
 instance SscWorkersClass SscGodTossing where
@@ -93,7 +93,7 @@ onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions -> do
     participationEnabled <- getNodeContext >>=
         atomically . readTVar . gtcParticipateSsc . ncSscContext
     ourId <- addressHash . ncPublicKey <$> getNodeContext
-    let enoughStake = ourId `HS.member` richmen
+    let enoughStake = ourId `HM.member` richmen
     when (participationEnabled && not enoughStake) $
         logDebug "Not enough stake to participate in MPC"
     when (participationEnabled && enoughStake) $ do
@@ -284,12 +284,12 @@ generateAndSetNewSecret sk SlotId {..} = do
     inAssertMode $ do
         let participantIds =
                 map (addressHash . vcSigningKey) $
-                computeParticipants richmen certs
+                computeParticipants (getKeys richmen) certs
         logDebug $
             sformat ("generating secret for: " %listJson) $ participantIds
     let participants =
             nonEmpty . map vcVssKey . toList $
-            computeParticipants richmen certs
+            computeParticipants (getKeys richmen) certs
     maybe (Nothing <$ warnNoPs) generateAndSetNewSecretDo participants
   where
     warnNoPs =

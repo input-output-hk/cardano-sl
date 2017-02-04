@@ -31,8 +31,8 @@ instance Bi Commitment where
         return Commitment {..}
 
 instance Bi MultiCommitment where
-    put = notImplemented
-    get = notImplemented
+    put (MultiCommitment pk mc) = put pk >> put mc
+    get = MultiCommitment <$> get <*> get
 
 instance Bi CommitmentsMap where
     put = put . toList
@@ -51,8 +51,8 @@ instance Bi Opening where
     get = Opening <$> get
 
 instance Bi MultiOpening where
-    put = notImplemented
-    get = notImplemented
+    put (MultiOpening mo) = put mo
+    get = MultiOpening <$> get
 
 instance Bi GtPayload where
     put x =

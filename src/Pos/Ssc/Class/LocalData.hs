@@ -16,7 +16,7 @@ import           System.Wlog         (WithLogger)
 import           Universum
 
 import           Pos.DB.Class        (MonadDB)
-import           Pos.Lrc.Types       (RichmenSet)
+import           Pos.Lrc.Types       (RichmenStake)
 import           Pos.Slotting        (MonadSlots)
 import           Pos.Ssc.Class.Types (Ssc (..))
 import           Pos.Types           (EpochIndex, SlotId)
@@ -38,7 +38,7 @@ class Ssc ssc => SscLocalDataClass ssc where
     -- | Make 'SscLocalData' valid for given epoch, richmen and global state.
     -- of best known chain).
     sscNormalizeU :: EpochIndex
-                  -> RichmenSet
+                  -> RichmenStake
                   -> SscGlobalState ssc
                   -> LocalUpdate ssc ()
     -- | Create new (empty) local data. We are using this function instead of

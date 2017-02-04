@@ -138,7 +138,7 @@ sscNormalize
     => m ()
 sscNormalize = do
     tipEpoch <- view epochIndexL <$> getTipBlockHeader
-    richmenSet <-
+    richmenData <-
         lrcActionOnEpochReason
             tipEpoch
             "sscNormalize: couldn't get SSC richmen"
@@ -153,7 +153,7 @@ sscNormalize = do
             let (((), logEvents), !newLD) =
                     flip runState oldLD .
                     runPureLog . usingLoggerName loggerName $
-                    sscNormalizeU @ssc tipEpoch richmenSet gs
+                    sscNormalizeU @ssc tipEpoch richmenData gs
             logEvents <$ writeTVar localVar newLD
     logEvents <- atomically sscNormalizeDo
     dispatchEvents logEvents

@@ -22,7 +22,7 @@ import           Universum
 
 import           Pos.Context.Class    (WithNodeContext)
 import           Pos.DB.Class         (MonadDB)
-import           Pos.Lrc.Types        (RichmenSet)
+import           Pos.Lrc.Types        (RichmenStake)
 import           Pos.Ssc.Class.Types  (Ssc (..))
 import           Pos.Types            (Block, EpochIndex, SharedSeed)
 import           Pos.Util             (NE, NewestFirst, OldestFirst)
@@ -53,7 +53,7 @@ class Ssc ssc =>
     -- | Verify SSC-related part of given blocks with respect to
     -- current GState and apply them on success.
     -- Blocks must be from the same epoch.
-    sscVerifyAndApplyBlocks :: RichmenSet
+    sscVerifyAndApplyBlocks :: RichmenStake
                             -> OldestFirst NE (Block ssc)
                             -> SscVerifier ssc ()
     -- | Calculate 'SharedSeed' for given epoch using 'SscGlobalState'.

@@ -62,7 +62,6 @@ module Pos.Constants
        , curSoftwareVersion
        , ourAppName
        , appSystemTag
-       , updateServers
 
        -- * NTP
        , ntpMaxError
@@ -358,10 +357,6 @@ curSoftwareVersion = SoftwareVersion cardanoSlAppName 0
 -- | Name of our application.
 ourAppName :: ApplicationName
 ourAppName = cardanoSlAppName
-
--- | Update servers
-updateServers :: [String]
-updateServers = ccUpdateServers compileConfig
 
 ----------------------------------------------------------------------------
 -- NTP

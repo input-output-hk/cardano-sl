@@ -34,6 +34,10 @@ packages:
     git: https://github.com/serokell/network-transport-tcp.git
     commit: 6cef5a6120d1aa7b87c270a95149bc69403c1376
   extra-dep: true
+- location:
+    git: https://github.com/input-output-hk/cardano-report-server.git
+    commit: eebc90e21486705c41352bd975e3e4ddebd21be9
+  extra-dep: true
 
 nix:
   shell-file: shell.nix

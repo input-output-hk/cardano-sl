@@ -264,6 +264,10 @@ library
                         Pos.Lrc.Types
                         Pos.Lrc.Worker
 
+                        -- Reporting
+                        Pos.Reporting.Methods
+                        Pos.Reporting.Exceptions
+
                         -- SafeCopy serialization (obsolete, but still needed)
                         Pos.SafeCopy
                         Pos.SafeCopy.GodTossing
@@ -456,6 +460,7 @@ library
                       , binary-conduit >= 1.2.4.1
                       , binary-orphans
                       , bytestring
+                      , cardano-report-server >= 0.0.1
                       , cereal
                       , concurrent-extra
                       , conduit >= 1.2.8
@@ -523,6 +528,7 @@ library
                       , universum >= 0.1.11
                       , unordered-containers
                       , vector
+                      , wreq
                       , yaml
 
   if flag(with-web)

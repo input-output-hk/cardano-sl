@@ -12,6 +12,7 @@ module Pos.Context.Context
 import qualified Control.Concurrent.STM           as STM
 import           Control.Concurrent.STM.TBQueue   (TBQueue)
 import           Pos.Communication.Types.Protocol (NodeId)
+import           System.Wlog                      (LoggerConfig)
 import           Universum
 
 import           Pos.Crypto                       (PublicKey, SecretKey, toPublic)
@@ -87,6 +88,12 @@ data NodeContext ssc = NodeContext
     -- ^ Path to update installer executable, downloaded by update system
     , ncUpdateWithPkg       :: !Bool
     -- ^ Whether to use installer update mechanism
+    , ncUpdateServers       :: ![Text]
+    -- ^ Update servers to download updates from
+    , ncReportServers       :: ![Text]
+    -- ^ Reporting servers' URLs
+    , ncLoggerConfig        :: !LoggerConfig
+    -- ^ Logger config, as taken/read from CLI
     , ncShutdownFlag        :: !(STM.TVar Bool)
     -- ^ If this flag is `True`, then workers should stop.
     , ncShutdownNotifyQueue :: !(TBQueue ())

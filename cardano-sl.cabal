@@ -124,6 +124,7 @@ library
                         Pos.Util
                         Pos.Util.BackupPhrase
                         Pos.Util.JsonLog
+                        Pos.Util.Shutdown
                         Pos.Util.UserSecret
                         Pos.Util.TimeLimit
                         Pos.Util.TimeWarp

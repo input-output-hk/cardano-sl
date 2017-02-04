@@ -12,9 +12,11 @@ import           System.Wlog                (WithLogger, logError)
 import           Universum
 
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localWorker)
+import           Pos.Context.Class          (WithNodeContext)
 import           Pos.Delegation.Class       (MonadDelegation)
 import           Pos.Delegation.Logic       (invalidateProxyCaches,
                                              runDelegationStateAction)
+import           Pos.Util.Shutdown          (ifNotShutdown)
 import           Pos.Util.TimeWarp          (sec)
 import           Pos.WorkMode               (WorkMode)
 
@@ -29,9 +31,10 @@ dlgInvalidateCaches
        , MonadCatch m
        , WithLogger m
        , Mockable Delay m
+       , WithNodeContext ssc m
        )
     => m ()
-dlgInvalidateCaches = do
+dlgInvalidateCaches = ifNotShutdown $ do
     invalidate `catch` handler
     delay (sec 1)
     dlgInvalidateCaches

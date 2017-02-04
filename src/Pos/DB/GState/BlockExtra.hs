@@ -136,7 +136,7 @@ prepareGStateBlockExtra firstGenesisHash =
 ----------------------------------------------------------------------------
 
 forwardLinkKey :: HeaderHash -> ByteString
-forwardLinkKey h = "e/fl" <> encodeStrict h
+forwardLinkKey h = "e/fl/" <> encodeStrict h
 
 mainChainKey :: HeaderHash -> ByteString
-mainChainKey h = "e/mc" <> encodeStrict h
+mainChainKey h = "e/mc/" <> encodeStrict h

@@ -289,7 +289,7 @@ getHeadersFromManyTo checkpoints startM = runMaybeT $ do
                 maximumBy (comparing getEpochOrSlot) inMainCheckpoints
             loadUpCond _ h = h < recoveryHeadersMessage
         up <- lift $ GS.loadHeadersUpWhile lowestCheckpoint loadUpCond
-        res <- MaybeT $ pure $ _Wrapped nonEmpty (toNewestFirst up)
+        res <- MaybeT $ pure $ _Wrapped nonEmpty (toNewestFirst $ over _Wrapped (drop 1) up)
         lift $ logDebug $ "getHeadersFromManyTo: loaded non-empty list of headers, returning"
         pure res
 

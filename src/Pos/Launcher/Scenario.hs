@@ -33,8 +33,9 @@ import           Pos.Ssc.Class               (SscConstraint)
 import           Pos.Types                   (Timestamp (Timestamp), addressHash)
 import           Pos.Update                  (MemState (..), askUSMemVar, mvState)
 import           Pos.Util                    (inAssertMode, waitRandomInterval)
+import           Pos.Util.Shutdown           (waitForWorkers)
 import           Pos.Util.TimeWarp           (sec)
-import           Pos.Worker                  (allWorkers)
+import           Pos.Worker                  (allWorkers, allWorkersCount)
 import           Pos.Worker.Ntp              (ntpWorker)
 import           Pos.WorkMode                (WorkMode)
 
@@ -64,7 +65,9 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
     let unpackPlugin (ActionSpec action) = action vI
     mapM_ (fork . ($ withWaitLog sendActions) . unpackPlugin) $
         plugins'
-    sleepForever
+
+    -- Instead of sleeping forever, we wait until graceful shutdown
+    waitForWorkers allWorkersCount
 
 -- | Run full node in any WorkMode.
 runNode

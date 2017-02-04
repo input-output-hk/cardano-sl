@@ -103,6 +103,7 @@ import           Pos.Update.MemState         (runUSHolder)
 import           Pos.Util                    (mappendPair, runWithRandomIntervalsNow)
 import           Pos.Util.TimeWarp           (sec)
 import           Pos.Util.UserSecret         (usKeys)
+import           Pos.Worker                  (allWorkersCount)
 import           Pos.WorkMode                (MinWorkMode, ProductionMode, RawRealMode,
                                               ServiceMode, StatsMode)
 data RealModeResources = RealModeResources
@@ -269,7 +270,7 @@ runStatsMode res np@NodeParams {..} sscnp (ActionSpec action, outSpecs) = do
 -- Lower level runners
 ----------------------------------------------------------------------------
 
-runCH :: (MonadDB ssc m, Mockable CurrentTime m)
+runCH :: forall ssc m a . (SscConstraint ssc, MonadDB ssc m, Mockable CurrentTime m)
       => NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
 runCH NodeParams {..} sscNodeContext act = do
     logCfg <- readLoggerConfig $ lpConfigPath $ bpLoggingParams $ npBaseParams
@@ -291,6 +292,8 @@ runCH NodeParams {..} sscNodeContext act = do
         -- current time isn't quite validly, but it doesn't matter
         let _ssNtpLastSlot = unflattenSlotId 0
         liftIO $ newTVarIO SlottingState{..}
+    shutdownFlag <- liftIO $ newTVarIO False
+    shutdownQueue <- liftIO $ newTBQueueIO allWorkersCount
     let ctx =
             NodeContext
             { ncSystemStart = npSystemStart
@@ -317,6 +320,8 @@ runCH NodeParams {..} sscNodeContext act = do
             , ncUpdateServers = npUpdateServers
             , ncReportServers = npReportServers
             , ncLoggerConfig = logCfg
+            , ncShutdownFlag = shutdownFlag
+            , ncShutdownNotifyQueue = shutdownQueue
             }
     runContextHolder ctx act
 

@@ -373,19 +373,24 @@ bracketDHTInstance BaseParams {..} action = bracket acquire release action
 
 createTransport :: (MonadIO m, WithLogger m, Mockable Throw m) => String -> Word16 -> m Transport
 createTransport ip port = do
-    transportE <- liftIO $ TCP.createTransport
-                             "0.0.0.0"
-                             ip
-                             (show port)
-                             (TCP.defaultTCPParameters { TCP.transportConnectTimeout = Just $ fromIntegral networkConnectionTimeout })
+    let tcpParams =
+            (TCP.defaultTCPParameters
+             { TCP.transportConnectTimeout =
+                   Just $ fromIntegral networkConnectionTimeout
+             })
+    transportE <-
+        liftIO $ TCP.createTransport "0.0.0.0" ip (show port) tcpParams
     case transportE of
-      Left e -> do
-          logError $ sformat ("Error creating TCP transport: " % shown) e
-          throw e
-      Right transport -> return transport
+        Left e -> do
+            logError $ sformat ("Error creating TCP transport: " % shown) e
+            throw e
+        Right transport -> return transport
 
 bracketTransport :: BaseParams -> (Transport -> Production a) -> Production a
-bracketTransport BaseParams{..} = bracket (withLog $ createTransport (BS8.unpack $ fst bpIpPort) (snd bpIpPort)) (liftIO . closeTransport)
+bracketTransport BaseParams {..} =
+    bracket
+        (withLog $ createTransport (BS8.unpack $ fst bpIpPort) (snd bpIpPort))
+        (liftIO . closeTransport)
   where
     withLog = usingLoggerName $ lpRunnerTag bpLoggingParams
 

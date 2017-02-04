@@ -49,6 +49,7 @@ import           Pos.Crypto                 (Hash, SecretKey, checkSig, proxySig
                                              proxyVerify, pskIssuerPk, sign, toPublic,
                                              unsafeHash)
 import           Pos.Merkle                 (mkMerkleTree)
+import           Pos.Script                 (isKnownScriptVersion, scrVersion)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types        (Ssc (..))
 import           Pos.Types.Address          (Address (..), addressHash)
@@ -513,6 +514,8 @@ verifyBlock VerifyBlockParams {..} blk =
             checkNoUnknownVersions mainBlk
         _ -> mempty
 
+-- | Check that the block contains no 'UnknownAddressType' and
+-- 'UnknownWitnessType' and that all script versions are known.
 checkNoUnknownVersions :: MainBlock ssc -> VerificationRes
 checkNoUnknownVersions blk = mconcat $ map toVerRes $ concat [
     iconcatMap checkTx (blk ^.. blockTxs . folded),
@@ -537,6 +540,15 @@ checkNoUnknownVersions blk = mconcat $ map toVerRes $ concat [
         UnknownWitnessType t _ -> Left $
             sformat ("Witness #"%int%" of tx #"%int%
                      " has UnknownWitnessType "%int) witI txI t
+        ScriptWitness{..}
+            | not (isKnownScriptVersion (scrVersion twValidator)) -> Left $
+              sformat ("Validator of witness #"%int%" of tx #"%int%
+                       " has unknown script version "%int)
+                      witI txI (scrVersion twValidator)
+            | not (isKnownScriptVersion (scrVersion twRedeemer)) -> Left $
+              sformat ("Redeemer of witness #"%int%" of tx #"%int%
+                       " has unknown script version "%int)
+                      witI txI (scrVersion twRedeemer)
         _ -> Right ()
 
 -- CHECK: @verifyBlocks

@@ -54,8 +54,8 @@ import           Pos.Block.Types            (Blund, Undo (..))
 import           Pos.Constants              (blkSecurityParam, curSoftwareVersion,
                                              epochSlots, lastKnownBlockVersion,
                                              recoveryHeadersMessage, slotSecurityParam)
-import           Pos.Context                (NodeContext (ncSecretKey), getNodeContext,
-                                             lrcActionOnEpochReason)
+import           Pos.Context                (NodeContext (ncNodeParams), getNodeContext,
+                                             lrcActionOnEpochReason, npSecretKey)
 import           Pos.Crypto                 (SecretKey, WithHash (WithHash), hash,
                                              shortHashF)
 import           Pos.Data.Attributes        (mkAttributes)
@@ -693,7 +693,7 @@ createMainBlockFinish slotId pSk prevHeader = do
     (localPSKs, pskUndo) <- lift getProxyMempool
     let convertTx (txId, (tx, _, _)) = WithHash tx txId
     sortedTxs <- maybe onBrokenTopo pure $ topsortTxs convertTx localTxs
-    sk <- ncSecretKey <$> getNodeContext
+    sk <- npSecretKey . ncNodeParams <$> getNodeContext
     -- for now let's be cautious and not generate blocks that are larger than
     -- maxBlockSize/4
     sizeLimit <- fromIntegral . toBytes . (`div` 4) <$> GS.getMaxBlockSize

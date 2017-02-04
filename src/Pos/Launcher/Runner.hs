@@ -86,7 +86,6 @@ import           Pos.DHT.Real                (KademliaDHTInstance,
                                               KademliaDHTInstanceConfig (..),
                                               runKademliaDHT, startDHTInstance,
                                               stopDHTInstance)
-import           Pos.Genesis                 (genesisLeaders)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NodeParams (..))
 import           Pos.Slotting                (SlottingState (..))
@@ -272,7 +271,7 @@ runStatsMode res np@NodeParams {..} sscnp (ActionSpec action, outSpecs) = do
 
 runCH :: forall ssc m a . (SscConstraint ssc, MonadDB ssc m, Mockable CurrentTime m)
       => NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
-runCH NodeParams {..} sscNodeContext act = do
+runCH params@NodeParams {..} sscNodeContext act = do
     logCfg <- readLoggerConfig $ lpConfigPath $ bpLoggingParams $ npBaseParams
     jlFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
     semaphore <- liftIO newEmptyMVar
@@ -296,32 +295,19 @@ runCH NodeParams {..} sscNodeContext act = do
     shutdownQueue <- liftIO $ newTBQueueIO allWorkersCount
     let ctx =
             NodeContext
-            { ncSystemStart = npSystemStart
-            , ncSecretKey = npSecretKey
-            , ncGenesisUtxo = npCustomUtxo
-            , ncGenesisLeaders = genesisLeaders npCustomUtxo
-            , ncSlottingState = slottingStateVar
-            , ncTimeLord = npTimeLord
+            { ncSlottingState = slottingStateVar
             , ncJLFile = jlFile
-            , ncDbPath = npDbPathM
             , ncSscContext = sscNodeContext
-            , ncAttackTypes = npAttackTypes
-            , ncAttackTargets = npAttackTargets
-            , ncPropagation = npPropagation
             , ncBlkSemaphore = semaphore
             , ncLrcSync = lrcSync
             , ncUserSecret = userSecretVar
-            , ncKademliaDump = bpKademliaDump npBaseParams
             , ncBlockRetrievalQueue = queue
             , ncRecoveryHeader = recoveryHeaderVar
             , ncUpdateSemaphore = updSemaphore
-            , ncUpdatePath = npUpdatePath
-            , ncUpdateWithPkg = npUpdateWithPkg
-            , ncUpdateServers = npUpdateServers
-            , ncReportServers = npReportServers
-            , ncLoggerConfig = logCfg
             , ncShutdownFlag = shutdownFlag
             , ncShutdownNotifyQueue = shutdownQueue
+            , ncNodeParams = params
+            , ncLoggerConfig = logCfg
             }
     runContextHolder ctx act
 

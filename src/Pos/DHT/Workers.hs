@@ -13,7 +13,8 @@ import           Universum
 import           Pos.Binary.DHTModel        ()
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
 import           Pos.Constants              (kademliaDumpInterval)
-import           Pos.Context                (getNodeContext, ncKademliaDump)
+import           Pos.Context                (bpKademliaDump, getNodeContext, ncNodeParams,
+                                             npBaseParams)
 import           Pos.DHT.Real.Types         (KademliaDHTInstance (..),
                                              WithKademliaDHTInstance (..))
 import           Pos.Types                  (flattenSlotId, slotIdF)
@@ -23,9 +24,9 @@ dhtWorkers :: (WorkMode ssc m) => ([WorkerSpec m], OutSpecs)
 dhtWorkers = first pure dumpKademliaStateWorker
 
 dumpKademliaStateWorker :: WorkMode ssc m => (WorkerSpec m, OutSpecs)
-dumpKademliaStateWorker = localOnNewSlotWorker True $ \slotId -> do
+dumpKademliaStateWorker = localOnNewSlotWorker True $ \slotId ->
     when (flattenSlotId slotId `mod` kademliaDumpInterval == 0) $ do
-        dumpFile <- ncKademliaDump <$> getNodeContext
+        dumpFile <- bpKademliaDump . npBaseParams . ncNodeParams <$> getNodeContext
         logNotice $ sformat ("Dumping kademlia snapshot on slot: "%slotIdF) slotId
         inst <- kdiHandle <$> getKademliaDHTInstance
         snapshot <- liftIO $ takeSnapshot inst

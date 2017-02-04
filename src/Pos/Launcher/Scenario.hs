@@ -23,7 +23,8 @@ import           Pos.Communication           (ActionSpec (..), OutSpecs, WorkerS
 import           Pos.Constants               (isDevelopment, ntpMaxError,
                                               ntpResponseTimeout)
 import           Pos.Context                 (NodeContext (..), getNodeContext,
-                                              ncPubKeyAddress, ncPublicKey, readNtpMargin)
+                                              ncPubKeyAddress, ncPublicKey, npSystemStart,
+                                              readNtpMargin)
 import qualified Pos.DB.GState               as GS
 import qualified Pos.DB.Lrc                  as LrcDB
 import           Pos.Delegation.Logic        (initDelegation)
@@ -83,7 +84,7 @@ runNode (plugins', plOuts) = (,plOuts <> wOuts) $ runNode' $ workers' ++ plugins
 waitSystemStart :: WorkMode ssc m => m ()
 waitSystemStart = do
     margin <- readNtpMargin
-    Timestamp start <- ncSystemStart <$> getNodeContext
+    Timestamp start <- npSystemStart . ncNodeParams <$> getNodeContext
     cur <- (+ margin) <$> currentTime
     let waitPeriod = start - cur
     logInfo $ sformat ("Waiting "%int%" seconds for system start") $

@@ -14,7 +14,8 @@ import           Pos.Communication       (OutSpecs, SysStartResponse (..), Worke
                                           localWorker, onNewSlotWithLoggingWorker,
                                           oneMsgH, toOutSpecs)
 import           Pos.Constants           (isDevelopment, sysTimeBroadcastSlots)
-import           Pos.Context             (NodeContext (..), getNodeContext)
+import           Pos.Context             (NodeContext (..), getNodeContext, npSystemStart,
+                                          npTimeLord)
 import           Pos.DHT.Model.Neighbors (sendToNeighbors)
 import           Pos.Slotting            (getSlotDuration)
 import           Pos.Types               (flattenSlotId)
@@ -30,11 +31,11 @@ sysStartWorker
     | otherwise =
         onNewSlotWithLoggingWorker True outs $ \slotId sendActions -> do
             when (flattenSlotId slotId <= sysTimeBroadcastSlots) $
-                whenM (ncTimeLord <$> getNodeContext) $
+                whenM (npTimeLord . ncNodeParams <$> getNodeContext) $
                 void $
                 fork $ do
                     let send = do
-                            sysStart <- ncSystemStart <$> getNodeContext
+                            sysStart <- npSystemStart . ncNodeParams <$> getNodeContext
                             logInfo "Broadcasting system start"
                             sendToNeighbors sendActions $
                                 SysStartResponse sysStart

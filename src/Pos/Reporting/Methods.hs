@@ -28,7 +28,7 @@ import           System.Wlog              (LoggerTree (..), lcTree, ltFile, ltSu
 import           Universum
 
 import           Pos.Context              (WithNodeContext, getNodeContext,
-                                           ncLoggerConfig, ncReportServers)
+                                           ncLoggerConfig, ncNodeParams, npReportServers)
 import           Pos.Reporting.Exceptions (ReportingError (..))
 
 -- | Sends node's logs, taking 'LoggerConfig' from 'NodeContext',
@@ -38,7 +38,7 @@ sendReportNode
     :: (MonadIO m, MonadCatch m, WithNodeContext її m)
     => ReportType -> m ()
 sendReportNode reportType = do
-    servers <- ncReportServers <$> getNodeContext
+    servers <- npReportServers . ncNodeParams <$> getNodeContext
     logConfig <- ncLoggerConfig <$> getNodeContext
     let logFileNames = map snd $ retrieveLogFiles $ logConfig ^. lcTree
     -- put filter here, we don't want to send all logs

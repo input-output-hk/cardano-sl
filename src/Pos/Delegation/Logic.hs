@@ -51,7 +51,8 @@ import           Pos.Block.Types             (Blund, Undo (undoPsk))
 import           Pos.Constants               (lightDlgConfirmationTimeout,
                                               messageCacheTimeout)
 import           Pos.Context                 (WithNodeContext (getNodeContext),
-                                              lrcActionOnEpochReason, ncSecretKey)
+                                              lrcActionOnEpochReason, ncNodeParams,
+                                              npSecretKey)
 import           Pos.Crypto                  (ProxySecretKey (..), PublicKey,
                                               pdDelegatePk, proxyVerify, shortHashF,
                                               toPublic, verifyProxySecretKey)
@@ -398,7 +399,7 @@ processProxySKEpoch
     :: (MonadDelegation m, WithNodeContext ssc m, MonadDB ssc m, MonadMask m)
     => ProxySKEpoch -> m PskEpochVerdict
 processProxySKEpoch psk = do
-    sk <- ncSecretKey <$> getNodeContext
+    sk <- npSecretKey . ncNodeParams <$> getNodeContext
     curTime <- liftIO getCurrentTime
     miscLock <- view DB.miscLock <$> DB.getNodeDBs
     psks <- withReadLifted miscLock Misc.getProxySecretKeys

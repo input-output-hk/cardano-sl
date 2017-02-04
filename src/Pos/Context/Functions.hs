@@ -31,7 +31,8 @@ import           Data.Time.Units         (Microsecond)
 import           Universum
 
 import           Pos.Context.Class       (WithNodeContext (..))
-import           Pos.Context.Context     (NodeContext (..))
+import           Pos.Context.Context     (NodeContext (..), ncGenesisLeaders,
+                                          ncGenesisUtxo)
 import           Pos.Lrc.Error           (LrcError (..))
 import           Pos.Slotting.Types      (ssNtpData, ssNtpLastSlot)
 import           Pos.Types               (EpochIndex, HeaderHash, SlotId, SlotLeaders,
@@ -102,6 +103,7 @@ lrcActionOnEpochReason epoch reason actionDependsOnLrc = do
 ----------------------------------------------------------------------------
 -- NTP data
 ----------------------------------------------------------------------------
+
 setNtpLastSlot :: (MonadIO m, WithNodeContext ssc m) => SlotId -> m ()
 setNtpLastSlot slotId = do
     nc <- getNodeContext

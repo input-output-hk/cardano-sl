@@ -11,7 +11,7 @@ import           System.Wlog         (LoggerName)
 import           Universum
 
 import           Pos.Crypto          (SecretKey)
-import           Pos.DHT.Model       (DHTKey, DHTNode)
+import           Pos.DHT.Model.Types (DHTKey, DHTNode)
 import           Pos.Security.CLI    (AttackTarget, AttackType)
 import           Pos.Types           (Timestamp, Utxo)
 import           Pos.Util.UserSecret (UserSecret)
@@ -35,7 +35,7 @@ data BaseParams = BaseParams
 
 -- | Contains algorithm specific & storage parameters for Node.
 data NodeParams = NodeParams
-    { npDbPathM       :: !FilePath          -- ^ Modern path to node's data-base.
+    { npDbPathM       :: !FilePath          -- ^ Path to node's database.
     , npRebuildDb     :: !Bool              -- ^ @True@ if data-base should be rebuilt
     , npSystemStart   :: !Timestamp         -- ^ System start
     , npSecretKey     :: !SecretKey         -- ^ Primary secret key of node

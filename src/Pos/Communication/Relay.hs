@@ -28,7 +28,7 @@ import           Pos.Communication.Protocol    (ListenerSpec, NOP, OutSpecs,
 import           Pos.Communication.Types.Relay (DataMsg (..), InvMsg (..), ReqMsg (..))
 import           Pos.Communication.Util        (stubListenerOneMsg)
 import           Pos.Context                   (WithNodeContext (getNodeContext),
-                                                ncPropagation)
+                                                ncNodeParams, npPropagation)
 import           Pos.DHT.Model.Class           (MonadDHT (..))
 import           Pos.DHT.Model.Neighbors       (sendToNeighbors)
 import           Pos.WorkMode                  (MinWorkMode, WorkMode)
@@ -154,7 +154,8 @@ handleDataL proxy = listenerOneMsg outSpecs $
       key <- contentsToKey dmContents
       let _ = dataCatchType proxy msg
           handleDataLDo = do
-              shouldPropagate <- ncPropagation <$> getNodeContext
+              shouldPropagate <-
+                  npPropagation . ncNodeParams <$> getNodeContext
               if shouldPropagate then do
                   logInfo $ sformat
                       ("Adopted data "%build%" "%

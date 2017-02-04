@@ -29,7 +29,7 @@ module Pos.Types.Block.Functions
        , blockSize
        ) where
 
-import           Control.Lens               (ix)
+import           Control.Lens               (folded, iconcatMap, imap, ix)
 import qualified Data.ByteString.Lazy       as BSL
 import           Data.Default               (Default (def))
 import           Data.List                  (groupBy)
@@ -51,24 +51,27 @@ import           Pos.Crypto                 (Hash, SecretKey, checkSig, proxySig
 import           Pos.Merkle                 (mkMerkleTree)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types        (Ssc (..))
-import           Pos.Types.Address          (addressHash)
+import           Pos.Types.Address          (Address (..), addressHash)
 import           Pos.Types.Block.Class      (Blockchain (..), GenericBlock (..),
                                              GenericBlockHeader (..), gbBody, gbBodyProof,
-                                             gbHeader, prevBlockL)
+                                             gbHeader, gbhExtra, prevBlockL)
 import           Pos.Types.Block.Instances  (Body (..), ConsensusData (..), blockLeaders,
                                              blockMpc, blockProxySKs, blockTxs,
                                              getBlockHeader, getBlockHeader,
-                                             headerLeaderKey, headerSlot, mcdDifficulty,
-                                             mcdLeaderKey, mcdSignature, mcdSlot)
+                                             headerLeaderKey, headerSlot, mbWitnesses,
+                                             mcdDifficulty, mcdLeaderKey, mcdSignature,
+                                             mcdSlot)
 import           Pos.Types.Block.Types      (BiSsc, Block, BlockHeader,
                                              BlockSignature (..), GenesisBlock,
                                              GenesisBlockHeader, GenesisBlockchain,
                                              MainBlock, MainBlockHeader, MainBlockchain,
-                                             MainExtraBodyData (..), MainExtraHeaderData)
-import           Pos.Types.Core             (ChainDifficulty, EpochIndex, EpochOrSlot,
-                                             HasDifficulty (..), HasEpochIndex (..),
-                                             HasEpochOrSlot (..), HasHeaderHash (..),
-                                             HeaderHash, SlotId (..), SlotId)
+                                             MainExtraBodyData (..), MainExtraHeaderData,
+                                             mehBlockVersion)
+import           Pos.Types.Core             (BlockVersion, ChainDifficulty, EpochIndex,
+                                             EpochOrSlot, HasDifficulty (..),
+                                             HasEpochIndex (..), HasEpochOrSlot (..),
+                                             HasHeaderHash (..), HeaderHash, SlotId (..),
+                                             SlotId)
 import           Pos.Types.Tx               (verifyTxAlone)
 -- Unqualified import is used here because of GHC bug (trac 12127).
 -- See: https://ghc.haskell.org/trac/ghc/ticket/12127
@@ -431,6 +434,13 @@ data VerifyBlockParams ssc = VerifyBlockParams
       -- ^ Verifies ssc payload with 'sscVerifyPayload'.
     , vbpVerifyProxySKs :: !Bool
       -- ^ Check that's number of sks is limited (1000 for now).
+    , vbpVerifyVersions :: !(Maybe BlockVersion)
+      -- ^ Verify that there are no unknown script, address or witness
+      -- versions anywhere in the block. The check is only done if
+      -- 'vbpVerifyVersions' is 'Just' and the current adopted BlockVersion
+      -- (passed in the 'Just') is higher (or equal) than the version of the
+      -- block we're checking, because in this case there really shouldn't be
+      -- anything unparseable in the block.
     }
 
 -- | By default nothing is checked.
@@ -442,6 +452,7 @@ instance Default (VerifyBlockParams ssc) where
         , vbpVerifyTxs = False
         , vbpVerifySsc = False
         , vbpVerifyProxySKs = False
+        , vbpVerifyVersions = Nothing
         }
 
 -- CHECK: @verifyBlock
@@ -458,6 +469,7 @@ verifyBlock VerifyBlockParams {..} blk =
         , verifyTxs
         , verifySsc
         , verifyProxySKs
+        , maybeEmpty verifyVersions vbpVerifyVersions
         ]
   where
     toVerRes (Right _) = VerSuccess
@@ -496,6 +508,36 @@ verifyBlock VerifyBlockParams {..} blk =
               , "Some of block's PSKs have the same issuer, which is prohibited")
             ]
         | otherwise = mempty
+    verifyVersions bv = case blk of
+        Right mainBlk | bv >= mainBlk ^. gbHeader . gbhExtra . mehBlockVersion ->
+            checkNoUnknownVersions mainBlk
+        _ -> mempty
+
+checkNoUnknownVersions :: MainBlock ssc -> VerificationRes
+checkNoUnknownVersions blk = mconcat $ map toVerRes $ concat [
+    iconcatMap checkTx (blk ^.. blockTxs . folded),
+    iconcatMap checkWitness (blk ^. gbBody . mbWitnesses) ]
+  where
+    toVerRes (Right _) = VerSuccess
+    toVerRes (Left e)  = VerFailure [sformat build e]
+
+    -- Check a transaction
+    checkTx txI Tx{..} = imap (checkOutput txI) txOutputs
+    -- Check an output
+    checkOutput txI outI TxOut{..} = case txOutAddress of
+        UnknownAddressType t _ -> Left $
+            sformat ("Output #"%int%" of tx #"%int%
+                     " has UnknownAddressType "%int) outI txI t
+        _ -> Right ()
+
+    -- Check an array of witnesses
+    checkWitness txI wit = imap (checkSingleWitness txI) (toList wit)
+    -- Check a single witness
+    checkSingleWitness txI witI wit = case wit of
+        UnknownWitnessType t _ -> Left $
+            sformat ("Witness #"%int%" of tx #"%int%
+                     " has UnknownWitnessType "%int) witI txI t
+        _ -> Right ()
 
 -- CHECK: @verifyBlocks
 -- Verifies a sequence of blocks.
@@ -515,9 +557,10 @@ verifyBlocks
        )
     => Maybe SlotId
     -> Maybe SlotLeaders
+    -> Maybe BlockVersion          -- ^ “Effective block version”
     -> OldestFirst f (Block ssc)
     -> VerificationRes
-verifyBlocks curSlotId initLeaders = view _3 . foldl' step start
+verifyBlocks curSlotId initLeaders mbBV = view _3 . foldl' step start
   where
     start :: (Maybe SlotLeaders, Maybe (BlockHeader ssc), VerificationRes)
     start = (initLeaders, Nothing, mempty)
@@ -545,6 +588,7 @@ verifyBlocks curSlotId initLeaders = view _3 . foldl' step start
                 , vbpVerifyTxs = True
                 , vbpVerifySsc = True
                 , vbpVerifyProxySKs = True
+                , vbpVerifyVersions = mbBV
                 }
         in (newLeaders, Just $ getBlockHeader blk, res <> verifyBlock vbp blk)
 

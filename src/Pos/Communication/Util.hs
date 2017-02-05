@@ -1,40 +1,34 @@
 -- | Communication-specific utility functions.
 
 module Pos.Communication.Util
-       ( modifyListenerLogger
-       , stubListenerOneMsg
+       ( stubListenerOneMsg
        , stubListenerConv
-       , withWaitLogConv
-       , withWaitLogConvL
-       , withWaitLog
-       , convWithTimeLimit
-       , sendActionsWithTimeLimit
+       , wrapListener
+       , wrapActionSpec
+       , wrapSendActions
        ) where
 
 import           Data.Proxy                 (Proxy (..), asProxyTypeOf)
 import           Data.Time.Units            (Microsecond)
 import           Formatting                 (build, sformat, shown, (%))
-import           Mockable                   (Async, Bracket, Delay, Mockable)
+import           Mockable                   (Async, Bracket, Delay, Mockable, bracket)
 import qualified Node                       as N
 import           System.Wlog                (HasLoggerName, LoggerName, WithLogger,
                                              logDebug, logWarning, modifyLoggerName)
 import           Universum                  hiding (Async, async, bracket, cancel,
-                                             finally)
+                                             finally, withMVar)
 
 import           Pos.Binary.Class           (Bi)
 import           Pos.Communication.BiP      (BiP)
-import           Pos.Communication.Protocol (HandlerSpec (..), Listener,
+import           Pos.Communication.Protocol (ActionSpec (..), HandlerSpec (..), Listener,
                                              ListenerSpec (..), Message (..),
                                              MessageName (..), OutSpecs, PeerData,
-                                             mapListener, messageName')
+                                             mapActionSpec, mapListener, mapListener',
+                                             messageName')
+import           Pos.Constants              (networkReceiveTimeout)
+import           Pos.Context                (WithNodeContext (getNodeContext), ncSendLock)
 import           Pos.Util.TimeLimit         (CanLogInParallel, execWithTimeLimit,
                                              logWarningWaitLinear)
-
--- | Append given logger name to the name used by listener.
-modifyListenerLogger
-    :: (HasLoggerName m)
-    => LoggerName -> Listener m -> Listener m
-modifyListenerLogger name = mapListener $ modifyLoggerName (<> name)
 
 stubListenerOneMsg
     :: (WithLogger m, Message r, Bi r)
@@ -72,10 +66,10 @@ stubListenerConv p = (ListenerSpec listener (rcvName, ConvHandler sndName), memp
                     rcvName
                     sndName
 
-withWaitLog :: ( CanLogInParallel m )
+sendActionsWithWaitLog :: ( CanLogInParallel m )
             => N.SendActions BiP PeerData m
             -> N.SendActions BiP PeerData m
-withWaitLog sendActions = sendActions
+sendActionsWithWaitLog sendActions = sendActions
     { N.sendTo = \nodeId msg ->
                   let MessageName mName = messageName' msg
                    in logWarningWaitLinear 4
@@ -84,15 +78,15 @@ withWaitLog sendActions = sendActions
     , N.withConnectionTo =
         \nodeId action ->
           N.withConnectionTo sendActions nodeId $
-              action . withWaitLogConv nodeId
+              action . convWithWaitLog nodeId
     }
 
-withWaitLogConv
+convWithWaitLog
     :: (CanLogInParallel m, Message snd)
     => N.NodeId
     -> N.ConversationActions PeerData snd rcv m
     -> N.ConversationActions PeerData snd rcv m
-withWaitLogConv nodeId conv = conv { N.send = send', N.recv = recv' }
+convWithWaitLog nodeId conv = conv { N.send = send', N.recv = recv' }
   where
     send' msg =
         logWarningWaitLinear 4
@@ -105,12 +99,12 @@ withWaitLogConv nodeId conv = conv { N.send = send', N.recv = recv' }
     MessageName sndMsg = messageName $
         ((\_ -> Proxy) :: N.ConversationActions PeerData snd rcv m -> Proxy snd) conv
 
-withWaitLogConvL
+convWithWaitLogL
     :: (CanLogInParallel m, Message rcv)
     => N.NodeId
     -> N.ConversationActions PeerData snd rcv m
     -> N.ConversationActions PeerData snd rcv m
-withWaitLogConvL nodeId conv = conv { N.send = send', N.recv = recv' }
+convWithWaitLogL nodeId conv = conv { N.send = send', N.recv = recv' }
   where
     send' msg =
         logWarningWaitLinear 4
@@ -151,3 +145,101 @@ sendActionsWithTimeLimit timeout sendActions = sendActions
         N.withConnectionTo sendActions nodeId $
             action . convWithTimeLimit timeout nodeId
     }
+
+withMVar
+    :: (MonadIO m, Mockable Bracket m)
+    => MVar () -> m a -> m a
+withMVar lock action =
+    bracket (liftIO $ putMVar lock ())
+            (const $ liftIO $ takeMVar lock)
+            (const action)
+
+withSendLock
+    :: (MonadIO m, WithNodeContext ssc m, Mockable Bracket m)
+    => m a -> m a
+withSendLock action = do
+    mLock <- ncSendLock <$> getNodeContext
+    case mLock of
+        Just lock -> withMVar lock action
+        _         -> action
+
+convWithExclusiveSend
+    :: (MonadIO m, WithNodeContext ssc m, Mockable Bracket m)
+    => N.ConversationActions PeerData snd rcv m
+    -> N.ConversationActions PeerData snd rcv m
+convWithExclusiveSend conv = conv { N.send = send' }
+  where
+    send' msg = withSendLock $ N.send conv msg
+
+sendActionsWithExclusiveSend
+    :: (MonadIO m, WithNodeContext ssc m, Mockable Bracket m)
+    => N.SendActions BiP PeerData m
+    -> N.SendActions BiP PeerData m
+sendActionsWithExclusiveSend sA =
+    sA { N.sendTo = \nodeId msg -> withSendLock $
+                        N.sendTo sA nodeId msg
+       , N.withConnectionTo = \nodeId action ->
+            N.withConnectionTo sA nodeId $
+                action . convWithExclusiveSend
+       }
+
+wrapListener
+  :: ( CanLogInParallel m
+     , Mockable Async m
+     , Mockable Bracket m
+     , Mockable Delay m
+     , MonadIO m
+     , WithLogger m
+     , WithNodeContext ssc m
+     )
+  => LoggerName -> Listener m -> Listener m
+wrapListener lname =
+    addWaitLogging .
+    addExclusiveSend .
+    addTimeout networkReceiveTimeout .
+    modifyLogger lname
+  where
+    addWaitLogging = mapListener' sendActionsWithWaitLog convWithWaitLogL identity
+    addTimeout timeout = mapListener' (sendActionsWithTimeLimit timeout)
+                                      (convWithTimeLimit timeout) identity
+    modifyLogger name = mapListener $ modifyLoggerName (<> lname)
+    addExclusiveSend = mapListener' sendActionsWithExclusiveSend
+                                    (const convWithExclusiveSend) identity
+
+wrapActionSpec
+  :: ( CanLogInParallel m
+     , Mockable Async m
+     , Mockable Bracket m
+     , Mockable Delay m
+     , MonadIO m
+     , WithLogger m
+     , WithNodeContext ssc m
+     )
+  => LoggerName -> ActionSpec m a -> ActionSpec m a
+wrapActionSpec lname =
+    addWaitLogging .
+    addExclusiveSend .
+    addTimeout networkReceiveTimeout .
+    modifyLogger lname
+  where
+    addWaitLogging = mapActionSpec sendActionsWithWaitLog identity
+    addTimeout timeout = mapActionSpec (sendActionsWithTimeLimit timeout) identity
+    modifyLogger name = mapActionSpec identity $ modifyLoggerName
+                                    (<> lname)
+    addExclusiveSend = mapActionSpec sendActionsWithExclusiveSend identity
+
+wrapSendActions
+  :: ( CanLogInParallel m
+     , Mockable Async m
+     , Mockable Bracket m
+     , Mockable Delay m
+     , MonadIO m
+     , WithLogger m
+     , WithNodeContext ssc m
+     )
+  => N.SendActions BiP PeerData m
+  -> N.SendActions BiP PeerData m
+wrapSendActions =
+    sendActionsWithWaitLog .
+    sendActionsWithExclusiveSend .
+    sendActionsWithTimeLimit networkReceiveTimeout

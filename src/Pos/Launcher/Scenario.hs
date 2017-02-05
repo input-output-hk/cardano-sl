@@ -19,7 +19,7 @@ import           System.Wlog                 (logError, logInfo)
 import           Universum
 
 import           Pos.Communication           (ActionSpec (..), OutSpecs, WorkerSpec,
-                                              withWaitLog)
+                                              wrapActionSpec)
 import           Pos.Constants               (isDevelopment, ntpMaxError,
                                               ntpResponseTimeout)
 import           Pos.Context                 (NodeContext (..), getNodeContext,
@@ -63,8 +63,8 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
     logInfo $ "Waiting response from NTP servers"
     unless isDevelopment $ delay (ntpResponseTimeout + ntpMaxError)
     waitSystemStart
-    let unpackPlugin (ActionSpec action) = action vI
-    mapM_ (fork . ($ withWaitLog sendActions) . unpackPlugin) $
+    let unpackPlugin (ActionSpec action) = action vI sendActions
+    mapM_ (fork . unpackPlugin) $
         plugins'
 
     -- Instead of sleeping forever, we wait until graceful shutdown
@@ -75,9 +75,10 @@ runNode
     :: (SscConstraint ssc, WorkMode ssc m)
     => ([WorkerSpec m], OutSpecs)
     -> (WorkerSpec m, OutSpecs)
-runNode (plugins', plOuts) = (,plOuts <> wOuts) $ runNode' $ workers' ++ plugins'
+runNode (plugins', plOuts) = (,plOuts <> wOuts) $ runNode' $ workers' ++ plugins''
   where
     (workers', wOuts) = allWorkers
+    plugins'' = map (wrapActionSpec "plugin") plugins'
 
 -- Sanity check in case start time is in future (may happen if clocks
 -- are not accurately synchronized, for example).

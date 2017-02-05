@@ -293,6 +293,7 @@ runCH params@NodeParams {..} sscNodeContext act = do
         liftIO $ newTVarIO SlottingState{..}
     shutdownFlag <- liftIO $ newTVarIO False
     shutdownQueue <- liftIO $ newTBQueueIO allWorkersCount
+    sendLock <- liftIO newEmptyMVar
     let ctx =
             NodeContext
             { ncSlottingState = slottingStateVar
@@ -308,6 +309,7 @@ runCH params@NodeParams {..} sscNodeContext act = do
             , ncShutdownNotifyQueue = shutdownQueue
             , ncNodeParams = params
             , ncLoggerConfig = logCfg
+            , ncSendLock = Just sendLock
             }
     runContextHolder ctx act
 

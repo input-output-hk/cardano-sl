@@ -10,6 +10,7 @@ module Pos.Communication.Protocol
        , hoistSendActions
        , mapListener
        , mapListener'
+       , mapActionSpec
        , Message (..)
        , MessageName (..)
        , messageName'
@@ -69,6 +70,12 @@ mapListener' saMapper _ mapper (N.ListenerActionOneMsg f) =
     N.ListenerActionOneMsg $ \d nId sA -> mapper . f d nId (saMapper sA)
 mapListener' _ caMapper mapper (N.ListenerActionConversation f) =
     N.ListenerActionConversation $ \d nId -> mapper . f d nId . caMapper nId
+
+mapActionSpec
+    :: (N.SendActions BiP PeerData m -> N.SendActions BiP PeerData m)
+    -> (forall t. m t -> m t) -> ActionSpec m a -> ActionSpec m a
+mapActionSpec saMapper aMapper (ActionSpec f) =
+    ActionSpec $ \vI sA -> aMapper $ f vI (saMapper sA)
 
 hoistConversationActions
     :: (forall a. n a -> m a)

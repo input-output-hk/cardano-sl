@@ -9,7 +9,7 @@ import           Data.Tagged           (untag)
 import           Universum
 
 import           Pos.Block.Worker      (blkWorkers)
-import           Pos.Communication     (OutSpecs, WorkerSpec)
+import           Pos.Communication     (OutSpecs, WorkerSpec, wrapActionSpec)
 import           Pos.Delegation.Worker (dlgWorkers)
 import           Pos.DHT.Workers       (dhtWorkers)
 import           Pos.Lrc.Worker        (lrcOnNewSlotWorker)
@@ -27,18 +27,20 @@ allWorkers
     :: (SscWorkersClass ssc, SecurityWorkersClass ssc, WorkMode ssc m)
     => ([WorkerSpec m], OutSpecs)
 allWorkers = mconcatPair
-    [ dhtWorkers
-    , blkWorkers
-    , dlgWorkers
-    , untag sscWorkers
-    , untag securityWorkers
-    , first pure lrcOnNewSlotWorker
-    , usWorkers
-    , first pure slottingWorker
-    , first pure sysStartWorker
+    [ wrap' "dht"        $ dhtWorkers
+    , wrap' "block"      $ blkWorkers
+    , wrap' "delegation" $ dlgWorkers
+    , wrap' "ssc"        $ untag sscWorkers
+    , wrap' "security"   $ untag securityWorkers
+    , wrap' "lrc"        $ first pure lrcOnNewSlotWorker
+    , wrap' "us"         $ usWorkers
+    , wrap' "slotting"   $ first pure slottingWorker
+    , wrap' "sysStart"   $ first pure sysStartWorker
     -- I don't know, guys, I don't know :(
     -- , const ([], mempty) statsWorkers
     ]
+  where
+    wrap' lname = first (map $ wrapActionSpec $ "worker" <> lname)
 
 allWorkersCount :: Int
 allWorkersCount = length $ fst (allWorkers @SscGodTossing @(ProductionMode SscGodTossing))

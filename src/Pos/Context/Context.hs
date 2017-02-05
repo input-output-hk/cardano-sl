@@ -77,6 +77,9 @@ data NodeContext ssc = NodeContext
     , ncShutdownNotifyQueue :: !(TBQueue ())
     -- ^ A queue which is used to count how many workers have successfully
     -- terminated
+    , ncSendLock            :: !(Maybe (MVar ()))
+    -- ^ Exclusive lock for sending messages to other nodes
+    -- (if Nothing, no lock used)
     }
 
 ----------------------------------------------------------------------------

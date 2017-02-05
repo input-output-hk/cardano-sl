@@ -69,8 +69,8 @@ runWallet (plugins', pouts) = (,outs) . ActionSpec $ \vI sendActions -> do
     logInfo "Wallet is initialized!"
     peers <- discoverPeers
     logInfo $ sformat ("Known peers: "%build) peers
-    let unpackPlugin (ActionSpec action) = action vI
-    mapM_ (fork . ($ sendActions) . unpackPlugin) $ plugins' ++ workers'
+    let unpackPlugin (ActionSpec action) = action vI sendActions
+    mapM_ (fork . unpackPlugin) $ plugins' ++ workers'
     sleepForever
   where
     (workers', wouts) = allWorkers

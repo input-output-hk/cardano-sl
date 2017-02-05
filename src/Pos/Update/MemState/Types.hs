@@ -5,38 +5,22 @@ module Pos.Update.MemState.Types
        , UpdateProposals
        , LocalVotes
 
-       -- , LocalProposalState (..)
-       -- , fixLocalState
+       , MemState (..)
+       , MemVar (..)
+       , mkMemState
+       , newMemVar
        ) where
 
-import           Data.Default    (Default (def))
+import           Control.Concurrent.Lock  (Lock, new)
+import           Control.Concurrent.STM   (TVar, newTVarIO)
+import           Data.Default             (Default (def))
 import           Universum
 
-import           Pos.Update.Core (LocalVotes, UpdateProposals)
-
--- I suppose it's not needed nowadays.
-
--- -- | Local state of proposal
--- data LocalProposalState = LocalProposalState
---     { lpsVotes         :: !StakeholderVotes
---       -- ^ Votes given for this proposal.
---     , lpsProposal      :: !UpdateProposal
---       -- ^ Proposal itself.
---     , lpsPositiveStake :: !Coin
---       -- ^ Total stake of all positive votes.
---     , lpsNegativeStake :: !Coin
---       -- ^ Total stake of all negative votes.
---     }
-
--- -- | Function for saving local state of proposal into blockchain
--- fixLocalState :: LocalProposalState -> SlotId -> UndecidedProposalState
--- fixLocalState LocalProposalState{..} upsSlot = UndecidedProposalState
---     { upsVotes = lpsVotes
---     , upsProposal = lpsProposal
---     , upsPositiveStake = lpsPositiveStake
---     , upsNegativeStake = lpsNegativeStake
---     , ..
---     }
+import           Pos.Crypto               (unsafeHash)
+import           Pos.Types                (HeaderHash, SlotId (..))
+import           Pos.Update.Core          (LocalVotes, UpdateProposals)
+import           Pos.Update.Poll.Modifier ()
+import           Pos.Update.Poll.Types    (PollModifier)
 
 -- | MemPool is data maintained by node to be included into block and
 -- relayed to other nodes.
@@ -48,3 +32,36 @@ data MemPool = MemPool
 
 instance Default MemPool where
     def = MemPool mempty mempty
+
+-- | MemState contains all in-memory data necesary for Update System.
+data MemState = MemState
+    { msSlot     :: !SlotId
+    -- ^ Slot for which data is valid.
+    -- In reality EpochIndex should be enough, but we sometimes
+    -- overgeneralize things.
+    , msTip      :: !HeaderHash
+    -- ^ Tip for which data is valid.
+    , msPool     :: !MemPool
+    -- ^ Pool of data to be included into block.
+    , msModifier :: !PollModifier
+    -- ^ Modifier of GState corresponding to 'msPool'.
+    }
+
+mkMemState :: MemState
+mkMemState = MemState
+    { msSlot = SlotId 0 0
+    , msTip = unsafeHash ("dratuti" :: Text)
+    , msPool = def
+    , msModifier = def
+    }
+
+-- | MemVar uses concurrency primitives and stores MemState.
+data MemVar = MemVar
+    { mvState :: !(TVar MemState)  -- ^ MemState itself.
+    , mvLock  :: !Lock             -- ^ Lock for modifting MemState.
+    }
+
+newMemVar
+    :: MonadIO m
+    => m MemVar
+newMemVar = liftIO $ MemVar <$> newTVarIO mkMemState <*> new

@@ -23,11 +23,11 @@ import           Network.Kademlia.HashNodeId (HashId (..), genNonce, hashAddress
 import qualified Prelude                     as Prelude
 import qualified Serokell.Util.Base64        as B64
 import           Serokell.Util.Text          (listBuilderJSON)
+import           Test.QuickCheck             (Arbitrary (..))
 import           Universum
 
 import           Pos.Crypto.Random           (runSecureRandom)
 import           Pos.Util.TimeWarp           (NetworkAddress)
-import           Test.QuickCheck             (Arbitrary (..))
 
 -- TODO export lengths from HashNodeId module
 meaningPartLength :: Int

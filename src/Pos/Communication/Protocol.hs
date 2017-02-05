@@ -10,6 +10,7 @@ module Pos.Communication.Protocol
        , hoistSendActions
        , mapListener
        , mapListener'
+       , mapActionSpec
        , Message (..)
        , MessageName (..)
        , messageName'
@@ -43,7 +44,9 @@ import           Pos.Binary.Class                 (Bi)
 import           Pos.Communication.BiP            (BiP)
 import           Pos.Communication.PeerState      (WithPeerState (..), peerVerInfo)
 import           Pos.Communication.Types.Protocol
-import           Pos.Slotting                     (MonadSlots, onNewSlotImpl)
+import           Pos.Context.Class                (WithNodeContext)
+import           Pos.Slotting.Class               (MonadSlots)
+import           Pos.Slotting.Logic               (onNewSlotImpl)
 import           Pos.Types                        (SlotId)
 
 protocolListeners :: (Bi NOP, Message NOP, WithLogger m) => [Listener m]
@@ -67,6 +70,12 @@ mapListener' saMapper _ mapper (N.ListenerActionOneMsg f) =
     N.ListenerActionOneMsg $ \d nId sA -> mapper . f d nId (saMapper sA)
 mapListener' _ caMapper mapper (N.ListenerActionConversation f) =
     N.ListenerActionConversation $ \d nId -> mapper . f d nId . caMapper nId
+
+mapActionSpec
+    :: (N.SendActions BiP PeerData m -> N.SendActions BiP PeerData m)
+    -> (forall t. m t -> m t) -> ActionSpec m a -> ActionSpec m a
+mapActionSpec saMapper aMapper (ActionSpec f) =
+    ActionSpec $ \vI sA -> aMapper $ f vI (saMapper sA)
 
 hoistConversationActions
     :: (forall a. n a -> m a)
@@ -240,6 +249,7 @@ onNewSlot'
        , Mockable SharedAtomic m
        , Bi NOP
        , Message NOP
+       , WithNodeContext ssc m
        )
     => Bool -> Bool -> (SlotId -> WorkerSpec m, outSpecs) -> (WorkerSpec m, outSpecs)
 onNewSlot' withLog startImmediately (h, outs) =
@@ -259,6 +269,7 @@ onNewSlotWorker
        , Mockable SharedAtomic m
        , Bi NOP
        , Message NOP
+       , WithNodeContext ssc m
        ) => Bool -> OutSpecs -> (SlotId -> Worker' m) -> (WorkerSpec m, OutSpecs)
 onNewSlotWorker b outs = onNewSlot' False b . workerHelper outs
 
@@ -274,6 +285,7 @@ onNewSlotWithLoggingWorker
        , Mockable SharedAtomic m
        , Bi NOP
        , Message NOP
+       , WithNodeContext ssc m
        ) => Bool -> OutSpecs -> (SlotId -> Worker' m) -> (WorkerSpec m, OutSpecs)
 onNewSlotWithLoggingWorker b outs = onNewSlot' True b . workerHelper outs
 
@@ -284,6 +296,7 @@ localOnNewSlotWorker
        , WithLogger m
        , Mockable Fork m
        , Mockable Delay m
+       , WithNodeContext ssc m
        ) => Bool -> (SlotId -> m ()) -> (WorkerSpec m, OutSpecs)
 localOnNewSlotWorker b h = (ActionSpec $ \__vI __sA -> onNewSlotImpl False b h, mempty)
 

@@ -29,11 +29,11 @@ import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
+import           Pos.Constants               (genesisSlotDuration)
 import           Pos.Slotting                (MonadSlots (..), getCurrentSlotUsingNtp)
 import           Pos.Types                   (Timestamp (..))
 import           Pos.Wallet.Context.Class    (WithWalletContext (..), readNtpData,
-                                              readNtpLastSlot, readNtpMargin,
-                                              readSlotDuration)
+                                              readNtpLastSlot, readNtpMargin)
 import           Pos.Wallet.Context.Context  (WalletContext (..))
 
 -- | Wrapper for monadic action which brings 'WalletContext'.
@@ -92,4 +92,4 @@ instance (Mockable CurrentTime m, MonadIO m) =>
         lastSlot <- readNtpLastSlot
         ntpData <- readNtpData
         getCurrentSlotUsingNtp lastSlot ntpData
-    getSlotDuration = readSlotDuration
+    getSlotDuration = pure genesisSlotDuration

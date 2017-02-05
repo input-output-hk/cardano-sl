@@ -14,7 +14,7 @@ import           Universum
 
 import qualified Pos.Constants          as C
 import           Pos.Context            (NodeContext (..), getNodeContext)
-import           Pos.Slotting           (ssNtpDataL)
+import           Pos.Slotting           (ssNtpData)
 import           Pos.WorkMode           (WorkMode)
 
 
@@ -51,4 +51,4 @@ ntpHandlerDo nc (newMargin, transtimTime) = do
     logDebug $ sformat ("Callback on new margin: "%int%" mcs") newMargin
     let realTime = transtimTime + newMargin
     atomically $ STM.modifyTVar (ncSlottingState nc)
-                                (ssNtpDataL .~ (newMargin, realTime))
+                                (ssNtpData .~ (newMargin, realTime))

@@ -310,10 +310,10 @@ proposalKey :: UpId -> ByteString
 proposalKey = encodeWithKeyPrefix @PropIter
 
 proposalAppKey :: ApplicationName -> ByteString
-proposalAppKey = mappend "us/an" . encodeStrict
+proposalAppKey = mappend "us/an/" . encodeStrict
 
 confirmedVersionKey :: ApplicationName -> ByteString
-confirmedVersionKey = mappend "us/cv" . encodeStrict
+confirmedVersionKey = mappend "us/cv/" . encodeStrict
 
 iterationPrefix :: ByteString
 iterationPrefix = "us/p/"
@@ -325,7 +325,7 @@ confirmedProposalKeySV :: SoftwareVersion -> ByteString
 confirmedProposalKeySV = encodeWithKeyPrefix @ConfPropIter
 
 confirmedIterationPrefix :: ByteString
-confirmedIterationPrefix = "us/cp"
+confirmedIterationPrefix = "us/cp/"
 
 ----------------------------------------------------------------------------
 -- Details

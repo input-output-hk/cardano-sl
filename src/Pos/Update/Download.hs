@@ -1,14 +1,15 @@
 -- | Logic related to downloading update.
 
 module Pos.Update.Download
-       ( downloadHash
-       , downloadUpdate
+       ( downloadUpdate
+       , downloadHash
        ) where
 
 import           Control.Concurrent.MVar (putMVar)
 import qualified Data.ByteArray          as BA
 import qualified Data.ByteString.Lazy    as BSL
 import qualified Data.HashMap.Strict     as HM
+import qualified Data.Text               as T
 import           Formatting              (build, sformat, stext, (%))
 import           Network.HTTP.Client     (Manager, newManager)
 import           Network.HTTP.Client.TLS (tlsManagerSettings)
@@ -22,9 +23,9 @@ import           System.FilePath         ((</>))
 import           System.Wlog             (logDebug, logInfo, logWarning)
 import           Universum
 
-import           Pos.Constants           (appSystemTag, updateServers)
-import           Pos.Context             (getNodeContext, ncUpdatePath, ncUpdateSemaphore,
-                                          ncUpdateWithPkg)
+import           Pos.Constants           (appSystemTag)
+import           Pos.Context             (getNodeContext, ncNodeParams, ncUpdateSemaphore,
+                                          npUpdatePath, npUpdateServers, npUpdateWithPkg)
 import           Pos.Crypto              (Hash, castHash, hash)
 import           Pos.Update.Core.Types   (UpdateData (..), UpdateProposal (..))
 import           Pos.Update.Poll.Types   (ConfirmedProposalState (..))
@@ -37,18 +38,19 @@ showHash = toString . B16.encode . BA.convert
 downloadUpdate :: WorkMode ssc m => ConfirmedProposalState -> m ()
 downloadUpdate cst@ConfirmedProposalState {..} = do
     logDebug "Downloading update"
-    useInstaller <- ncUpdateWithPkg <$> getNodeContext
+    useInstaller <- npUpdateWithPkg . ncNodeParams <$> getNodeContext
+    updateServers <- npUpdateServers . ncNodeParams <$> getNodeContext
     let dataHash = if useInstaller then udPkgHash else udAppDiffHash
         mupdHash = castHash . dataHash <$>
                    HM.lookup appSystemTag (upData cpsUpdateProposal)
     case mupdHash of
         Nothing -> logInfo "This update is not for our system"
         Just updHash -> do
-            updPath <- ncUpdatePath <$> getNodeContext
+            updPath <- npUpdatePath . ncNodeParams <$> getNodeContext
             -- let updAppName = svAppName . upSoftwareVersion $
             --                  cpsUpdateProposal
             unlessM (liftIO $ doesFileExist updPath) $ do
-                efile <- liftIO $ downloadHash updHash
+                efile <- liftIO $ downloadHash updateServers updHash
                 case efile of
                     Left err -> logWarning $
                         sformat ("Update download (hash "%build%") has failed: "%stext)
@@ -61,13 +63,13 @@ downloadUpdate cst@ConfirmedProposalState {..} = do
 -- | Download a file by its hash.
 --
 -- Tries all servers in turn, fails if none of them work.
-downloadHash :: Hash LByteString -> IO (Either Text LByteString)
-downloadHash h = do
+downloadHash :: [Text] -> Hash LByteString -> IO (Either Text LByteString)
+downloadHash updateServers h = do
     manager <- newManager tlsManagerSettings
 
     let -- try all servers in turn until there's a Right
         go errs (serv:rest) = do
-            let uri = serv </> showHash h
+            let uri = T.unpack serv </> showHash h
             downloadUri manager uri h >>= \case
                 Left e -> go (e:errs) rest
                 Right r -> return (Right r)
@@ -82,7 +84,7 @@ downloadHash h = do
 
     go [] updateServers
 
--- | Download a file and check its hash.
+-- Download a file and check its hash.
 downloadUri :: Manager
             -> String
             -> Hash LByteString

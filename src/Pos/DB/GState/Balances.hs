@@ -165,7 +165,7 @@ ftsSumKey :: ByteString
 ftsSumKey = "b/ftssum"
 
 iterationPrefix :: ByteString
-iterationPrefix = "b/s"
+iterationPrefix = "b/s/"
 
 ----------------------------------------------------------------------------
 -- Details

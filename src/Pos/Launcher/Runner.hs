@@ -79,7 +79,6 @@ import           Pos.Context                 (ContextHolder (..), NodeContext (.
 import           Pos.Crypto                  (createProxySecretKey, toPublic)
 import           Pos.DB                      (MonadDB (..), getTip, initNodeDBs,
                                               openNodeDBs, runDBHolder, _gStateDB)
-import qualified Pos.DB.GState               as GState
 import           Pos.DB.Misc                 (addProxySecretKey)
 import           Pos.Delegation.Holder       (runDelegationT)
 import           Pos.DHT.Model               (MonadDHT (..), converseToNeighbors,
@@ -88,7 +87,6 @@ import           Pos.DHT.Real                (KademliaDHTInstance,
                                               KademliaDHTInstanceConfig (..),
                                               runKademliaDHT, startDHTInstance,
                                               stopDHTInstance)
-import           Pos.Genesis                 (genesisLeaders)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NodeParams (..))
 import           Pos.Slotting                (SlottingState (..))
@@ -105,6 +103,7 @@ import           Pos.Update.MemState         (runUSHolder)
 import           Pos.Util                    (mappendPair, runWithRandomIntervalsNow)
 import           Pos.Util.TimeWarp           (sec)
 import           Pos.Util.UserSecret         (usKeys)
+import           Pos.Worker                  (allWorkersCount)
 import           Pos.WorkMode                (MinWorkMode, ProductionMode, RawRealMode,
                                               ServiceMode, StatsMode)
 data RealModeResources = RealModeResources
@@ -271,9 +270,10 @@ runStatsMode res np@NodeParams {..} sscnp (ActionSpec action, outSpecs) = do
 -- Lower level runners
 ----------------------------------------------------------------------------
 
-runCH :: (MonadDB ssc m, Mockable CurrentTime m)
+runCH :: forall ssc m a . (SscConstraint ssc, MonadDB ssc m, Mockable CurrentTime m)
       => NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
-runCH NodeParams {..} sscNodeContext act = do
+runCH params@NodeParams {..} sscNodeContext act = do
+    logCfg <- readLoggerConfig $ lpConfigPath $ bpLoggingParams $ npBaseParams
     jlFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
     semaphore <- liftIO newEmptyMVar
     updSemaphore <- liftIO newEmptyMVar
@@ -289,35 +289,30 @@ runCH NodeParams {..} sscNodeContext act = do
     propQueue <- liftIO $ newTBQueueIO propagationQueueSize
     recoveryHeaderVar <- liftIO newEmptyTMVarIO
     slottingStateVar <- do
-        ssSlotDuration <- GState.getSlotDuration
-        ssNtpData <- (0,) <$> currentTime
+        _ssNtpData <- (0,) <$> currentTime
         -- current time isn't quite validly, but it doesn't matter
-        let ssNtpLastSlot = unflattenSlotId 0
+        let _ssNtpLastSlot = unflattenSlotId 0
         liftIO $ newTVarIO SlottingState{..}
+    shutdownFlag <- liftIO $ newTVarIO False
+    shutdownQueue <- liftIO $ newTBQueueIO allWorkersCount
+    sendLock <- liftIO newEmptyMVar
     let ctx =
             NodeContext
-            { ncSystemStart = npSystemStart
-            , ncSecretKey = npSecretKey
-            , ncGenesisUtxo = npCustomUtxo
-            , ncGenesisLeaders = genesisLeaders npCustomUtxo
-            , ncSlottingState = slottingStateVar
-            , ncTimeLord = npTimeLord
+            { ncSlottingState = slottingStateVar
             , ncJLFile = jlFile
-            , ncDbPath = npDbPathM
             , ncSscContext = sscNodeContext
-            , ncAttackTypes = npAttackTypes
-            , ncAttackTargets = npAttackTargets
-            , ncPropagation = npPropagation
             , ncBlkSemaphore = semaphore
             , ncLrcSync = lrcSync
             , ncUserSecret = userSecretVar
-            , ncKademliaDump = bpKademliaDump npBaseParams
             , ncBlockRetrievalQueue = queue
             , ncInvPropagationQueue = propQueue
             , ncRecoveryHeader = recoveryHeaderVar
             , ncUpdateSemaphore = updSemaphore
-            , ncUpdatePath = npUpdatePath
-            , ncUpdateWithPkg = npUpdateWithPkg
+            , ncShutdownFlag = shutdownFlag
+            , ncShutdownNotifyQueue = shutdownQueue
+            , ncNodeParams = params
+            , ncLoggerConfig = logCfg
+            , ncSendLock = Just sendLock
             }
     runContextHolder ctx act
 
@@ -374,19 +369,24 @@ bracketDHTInstance BaseParams {..} action = bracket acquire release action
 
 createTransport :: (MonadIO m, WithLogger m, Mockable Throw m) => String -> Word16 -> m Transport
 createTransport ip port = do
-    transportE <- liftIO $ TCP.createTransport
-                             "0.0.0.0"
-                             ip
-                             (show port)
-                             (TCP.defaultTCPParameters { TCP.transportConnectTimeout = Just $ fromIntegral networkConnectionTimeout })
+    let tcpParams =
+            (TCP.defaultTCPParameters
+             { TCP.transportConnectTimeout =
+                   Just $ fromIntegral networkConnectionTimeout
+             })
+    transportE <-
+        liftIO $ TCP.createTransport "0.0.0.0" ip (show port) tcpParams
     case transportE of
-      Left e -> do
-          logError $ sformat ("Error creating TCP transport: " % shown) e
-          throw e
-      Right transport -> return transport
+        Left e -> do
+            logError $ sformat ("Error creating TCP transport: " % shown) e
+            throw e
+        Right transport -> return transport
 
 bracketTransport :: BaseParams -> (Transport -> Production a) -> Production a
-bracketTransport BaseParams{..} = bracket (withLog $ createTransport (BS8.unpack $ fst bpIpPort) (snd bpIpPort)) (liftIO . closeTransport)
+bracketTransport BaseParams {..} =
+    bracket
+        (withLog $ createTransport (BS8.unpack $ fst bpIpPort) (snd bpIpPort))
+        (liftIO . closeTransport)
   where
     withLog = usingLoggerName $ lpRunnerTag bpLoggingParams
 

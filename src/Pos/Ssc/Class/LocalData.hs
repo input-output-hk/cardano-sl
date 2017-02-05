@@ -17,7 +17,7 @@ import           Universum
 
 import           Pos.DB.Class        (MonadDB)
 import           Pos.Lrc.Types       (RichmenSet)
-import           Pos.Slotting        (MonadSlots)
+import           Pos.Slotting.Class  (MonadSlots)
 import           Pos.Ssc.Class.Types (Ssc (..))
 import           Pos.Types           (EpochIndex, SlotId)
 

@@ -124,9 +124,12 @@ library
                         Pos.Util
                         Pos.Util.BackupPhrase
                         Pos.Util.JsonLog
+                        Pos.Util.Shutdown
                         Pos.Util.UserSecret
                         Pos.Util.TimeLimit
                         Pos.Util.TimeWarp
+
+                        -- Worker, work mode
                         Pos.Worker
                         Pos.WorkMode
   if flag(with-web)
@@ -262,6 +265,10 @@ library
                         Pos.Lrc.Types
                         Pos.Lrc.Worker
 
+                        -- Reporting
+                        Pos.Reporting.Methods
+                        Pos.Reporting.Exceptions
+
                         -- SafeCopy serialization (obsolete, but still needed)
                         Pos.SafeCopy
                         Pos.SafeCopy.GodTossing
@@ -270,6 +277,12 @@ library
                         Pos.SafeCopy.GodTossing.VssCertData
                         Pos.SafeCopy.Types
                         Pos.SafeCopy.Update
+
+                        -- Slotting
+                        Pos.Slotting.Class
+                        Pos.Slotting.Logic
+                        Pos.Slotting.Types
+                        Pos.Slotting.Worker
 
                         -- SSC
                         Pos.Ssc.Class.Types
@@ -343,6 +356,7 @@ library
                         -- Workers
                         Pos.Worker.Ntp
                         Pos.Worker.Stats
+                        Pos.Worker.SysStart
 
                         -- Update System
                         Pos.Update.Arbitrary.Core
@@ -359,7 +373,6 @@ library
                         Pos.Update.MemState.Class
                         Pos.Update.MemState.Functions
                         Pos.Update.MemState.Holder
-                        Pos.Update.MemState.MemState
                         Pos.Update.MemState.Types
                         Pos.Update.Network
                         Pos.Update.Network.Listeners
@@ -448,6 +461,7 @@ library
                       , binary-conduit >= 1.2.4.1
                       , binary-orphans
                       , bytestring
+                      , cardano-report-server >= 0.0.1
                       , cereal
                       , concurrent-extra
                       , conduit >= 1.2.8
@@ -515,6 +529,7 @@ library
                       , universum >= 0.1.11
                       , unordered-containers
                       , vector
+                      , wreq
                       , yaml
 
   if flag(with-web)
@@ -1074,6 +1089,8 @@ executable cardano-launcher
                      , text
                      , turtle
                      , universum
+                     , wreq
+                     , lens
   default-language:    Haskell2010
   ghc-options:         -threaded
                        -Wall

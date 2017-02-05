@@ -30,7 +30,7 @@ import qualified Pos.DB.GState               as GS
 import           Pos.DB.Lrc                  (getIssuersStakes, getRichmenUS)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Lrc.Types               (FullRichmenData)
-import           Pos.Slotting                (MonadSlots (..))
+import           Pos.Slotting.Class          (MonadSlots)
 import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Txp.Class               (MonadTxpLD (..))
 import           Pos.Types                   (Coin)

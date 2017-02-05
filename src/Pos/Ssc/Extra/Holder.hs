@@ -29,7 +29,7 @@ import           Universum
 
 import           Pos.Context               (WithNodeContext)
 import           Pos.DB                    (MonadDB (..))
-import           Pos.Slotting              (MonadSlots (..))
+import           Pos.Slotting.Class        (MonadSlots)
 import           Pos.Ssc.Class.LocalData   (SscLocalDataClass (sscNewLocalData))
 import           Pos.Ssc.Class.Storage     (SscGStateClass (sscLoadGlobalState))
 import           Pos.Ssc.Extra.Class       (MonadSscMem (..))

@@ -29,8 +29,8 @@ import           Pos.Types                   (unflattenSlotId)
 import           Pos.Wallet.Context          (WalletContext (..), runContextHolder)
 import           Pos.Wallet.KeyStorage       (runKeyStorage)
 import           Pos.Wallet.Launcher.Param   (WalletParams (..))
-import           Pos.Wallet.State            (closeState, getSlotDuration, openMemState,
-                                              openState, runWalletDB)
+import           Pos.Wallet.State            (closeState, openMemState, openState,
+                                              runWalletDB)
 import           Pos.Wallet.WalletMode       (WalletMode, WalletRealMode)
 
 -- TODO: Move to some `Pos.Wallet.Communication` and provide
@@ -69,8 +69,8 @@ runWallet (plugins', pouts) = (,outs) . ActionSpec $ \vI sendActions -> do
     logInfo "Wallet is initialized!"
     peers <- discoverPeers
     logInfo $ sformat ("Known peers: "%build) peers
-    let unpackPlugin (ActionSpec action) = action vI
-    mapM_ (fork . ($ sendActions) . unpackPlugin) $ plugins' ++ workers'
+    let unpackPlugin (ActionSpec action) = action vI sendActions
+    mapM_ (fork . unpackPlugin) $ plugins' ++ workers'
     sleepForever
   where
     (workers', wouts) = allWorkers
@@ -86,9 +86,8 @@ runRawRealWallet res WalletParams {..} listeners (ActionSpec action, outs) =
     usingLoggerName lpRunnerTag .
     bracket openDB closeDB $ \db -> do
         slottingStateVar <- do
-            ssSlotDuration <- runWalletDB db getSlotDuration
-            ssNtpData <- (0,) <$> currentTime
-            let ssNtpLastSlot = unflattenSlotId 0
+            _ssNtpData <- (0,) <$> currentTime
+            let _ssNtpLastSlot = unflattenSlotId 0
             liftIO $ newTVarIO SlottingState{..}
         let walletContext
               = WalletContext

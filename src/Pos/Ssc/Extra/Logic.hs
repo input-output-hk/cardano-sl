@@ -44,7 +44,7 @@ import           Pos.Context             (WithNodeContext, lrcActionOnEpochReaso
 import           Pos.DB                  (MonadDB, getTipBlockHeader)
 import qualified Pos.DB.Lrc              as LrcDB
 import           Pos.Exception           (reportFatalError)
-import           Pos.Slotting            (MonadSlots)
+import           Pos.Slotting.Class      (MonadSlots)
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..))
 import           Pos.Ssc.Class.Storage   (SscGStateClass (..))

@@ -23,20 +23,18 @@ module Pos.Context.Functions
        , readNtpLastSlot
        , readNtpMargin
        , readNtpData
-
-       -- * Slotting
-       , readSlotDuration
        ) where
 
 import           Control.Concurrent.MVar (putMVar)
 import qualified Control.Concurrent.STM  as STM
-import           Data.Time.Units         (Microsecond, Millisecond)
+import           Data.Time.Units         (Microsecond)
 import           Universum
 
 import           Pos.Context.Class       (WithNodeContext (..))
-import           Pos.Context.Context     (NodeContext (..))
+import           Pos.Context.Context     (NodeContext (..), ncGenesisLeaders,
+                                          ncGenesisUtxo)
 import           Pos.Lrc.Error           (LrcError (..))
-import           Pos.Slotting            (SlottingState (..), ssNtpLastSlotL)
+import           Pos.Slotting.Types      (ssNtpData, ssNtpLastSlot)
 import           Pos.Types               (EpochIndex, HeaderHash, SlotId, SlotLeaders,
                                           Utxo)
 import           Pos.Util                (maybeThrow, readTVarConditional)
@@ -105,30 +103,26 @@ lrcActionOnEpochReason epoch reason actionDependsOnLrc = do
 ----------------------------------------------------------------------------
 -- NTP data
 ----------------------------------------------------------------------------
+
 setNtpLastSlot :: (MonadIO m, WithNodeContext ssc m) => SlotId -> m ()
 setNtpLastSlot slotId = do
     nc <- getNodeContext
     atomically $ STM.modifyTVar (ncSlottingState nc)
-                                (ssNtpLastSlotL %~ max slotId)
+                                (ssNtpLastSlot %~ max slotId)
 
 readNtpLastSlot :: (MonadIO m, WithNodeContext ssc m) => m SlotId
 readNtpLastSlot = do
     nc <- getNodeContext
-    atomically $ ssNtpLastSlot <$> STM.readTVar (ncSlottingState nc)
+    atomically $ view ssNtpLastSlot <$> STM.readTVar (ncSlottingState nc)
 
 readNtpMargin :: (MonadIO m, WithNodeContext ssc m) => m Microsecond
 readNtpMargin = do
     nc <- getNodeContext
-    atomically $ fst . ssNtpData <$> STM.readTVar (ncSlottingState nc)
+    atomically $ fst . view ssNtpData <$> STM.readTVar (ncSlottingState nc)
 
 readNtpData
     :: (MonadIO m, WithNodeContext ssc m)
     => m (Microsecond, Microsecond)
 readNtpData = do
     nc <- getNodeContext
-    atomically $ ssNtpData <$> STM.readTVar (ncSlottingState nc)
-
-readSlotDuration :: (MonadIO m, WithNodeContext ssc m) => m Millisecond
-readSlotDuration = do
-    nc <- getNodeContext
-    atomically $ ssSlotDuration <$> STM.readTVar (ncSlottingState nc)
+    atomically $ view ssNtpData <$> STM.readTVar (ncSlottingState nc)

@@ -5,17 +5,18 @@ module Pos.Security.Util
 
 import           Universum
 
-import           Pos.Context       (NodeContext, ncAttackTargets, ncAttackTypes)
+import           Pos.Context       (NodeContext, ncNodeParams, npAttackTargets,
+                                    npAttackTypes)
 import           Pos.Security.CLI  (AttackTarget (..), AttackType (..))
 import           Pos.Types         (StakeholderId)
 import           Pos.Util.TimeWarp (NetworkAddress)
 
 shouldIgnoreAddress :: NodeContext ssc -> NetworkAddress -> Bool
 shouldIgnoreAddress cont addr = and [
-    elem AttackNoBlocks $ ncAttackTypes cont,
-    elem (NetworkAddressTarget addr) $ ncAttackTargets cont ]
+    elem AttackNoBlocks $ npAttackTypes $ ncNodeParams cont,
+    elem (NetworkAddressTarget addr) $ npAttackTargets $ ncNodeParams cont ]
 
 shouldIgnorePkAddress :: NodeContext ssc -> StakeholderId -> Bool
 shouldIgnorePkAddress cont addr = and [
-    elem AttackNoCommitments $ ncAttackTypes cont,
-    elem (PubKeyAddressTarget addr) $ ncAttackTargets cont ]
+    elem AttackNoCommitments $ npAttackTypes $ ncNodeParams cont,
+    elem (PubKeyAddressTarget addr) $ npAttackTargets $ ncNodeParams cont ]

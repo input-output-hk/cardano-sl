@@ -39,10 +39,9 @@ import           Pos.Communication.Types.Relay (DataMsg (..), InvMsg (..), InvOr
 import           Pos.Communication.Util        (stubListenerConv)
 import           Pos.Context                   (NodeContext (..), SomeInvMsg (..),
                                                 WithNodeContext (getNodeContext),
-                                                ncPropagation)
-import           Pos.DHT.Model                 (DHTNode)
-import           Pos.DHT.Model.Class           (MonadDHT (..))
-import           Pos.DHT.Model.Neighbors       (converseToNeighbors, converseToNode)
+                                                ncNodeParams, npPropagation)
+import           Pos.DHT.Model                 (DHTNode, MonadDHT (..),
+                                                converseToNeighbors, converseToNode)
 import           Pos.WorkMode                  (MinWorkMode, WorkMode)
 
 -- | Typeclass for general Inv/Req/Dat framework. It describes monads,
@@ -178,7 +177,7 @@ handleDataL proxy msg@(DataMsg {..}) =
                     ("Ignoring data "%build%" for key "%build) dmContents dmKey
   where
     handleDataLDo dmKey = do
-        shouldPropagate <- ncPropagation <$> getNodeContext
+        shouldPropagate <- npPropagation . ncNodeParams <$> getNodeContext
         if shouldPropagate then do
             tag <- contentsToTag dmContents
             let inv :: InvOrData tag key contents

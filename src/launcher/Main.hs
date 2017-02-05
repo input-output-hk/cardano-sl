@@ -1,13 +1,17 @@
+{-# LANGUAGE ApplicativeDo     #-}
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
+
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 import           Control.Concurrent.Async hiding (wait)
-import           Options.Applicative      (Parser, ParserInfo, auto, execParser, fullDesc,
-                                           help, helper, info, long, metavar, option,
-                                           progDesc, short, strOption)
+import           Control.Lens             ((?~))
+import qualified Network.Wreq             as Wreq
+import           Options.Applicative      (Mod, OptionFields, Parser, ParserInfo, auto,
+                                           execParser, fullDesc, help, helper, info, long,
+                                           metavar, option, progDesc, short, strOption)
 import qualified System.IO                as IO
 import           System.Process           (ProcessHandle)
 import qualified System.Process           as Process
@@ -20,61 +24,76 @@ import           Foreign.C.Error          (Errno (..), ePIPE)
 import           GHC.IO.Exception         (IOErrorType (..), IOException (..))
 
 data LauncherOptions = LO
-    { loNodePath       :: FilePath
-    , loNodeArgs       :: [Text]
-    , loNodeLogPath    :: Maybe FilePath
-    , loWalletPath     :: Maybe FilePath
-    , loWalletArgs     :: [Text]
-    , loUpdaterPath    :: FilePath
-    , loUpdaterArgs    :: [Text]
-    , loUpdateArchive  :: Maybe FilePath
-    , loNodeTimeoutSec :: Int
+    { loNodePath       :: !FilePath
+    , loNodeArgs       :: ![Text]
+    , loNodeLogPath    :: !(Maybe FilePath)
+    , loWalletPath     :: !(Maybe FilePath)
+    , loWalletArgs     :: ![Text]
+    , loUpdaterPath    :: !FilePath
+    , loUpdaterArgs    :: ![Text]
+    , loUpdateArchive  :: !(Maybe FilePath)
+    , loNodeTimeoutSec :: !Int
+    , loReportServer   :: !(Maybe String)
     }
 
 optsParser :: Parser LauncherOptions
-optsParser = LO
-    <$> (fromString <$> strOption (
-             long "node" <>
-             metavar "PATH" <>
-             help "Path to the node executable"))
-    <*> (many $ toText <$> strOption (
-             short 'n' <>
-             metavar "ARG" <>
-             help "An argument to be passed to the node"))
-    <*> (optional $ fromString <$> strOption (
-             long "node-log" <>
-             metavar "PATH" <>
-             help "Path to the log where node's output will be dumped"))
-    <*> (optional $ fromString <$> strOption (
-             long "wallet" <>
-             metavar "PATH" <>
-             help "Path to the wallet executable"))
-    <*> (many $ toText <$> strOption (
-             short 'w' <>
-             metavar "ARG" <>
-             help "An argument to be passed to the wallet"))
-    <*> (fromString <$> strOption (
-             long "updater" <>
-             metavar "PATH" <>
-             help "Path to the updater executable"))
-    <*> (many $ toText <$> strOption (
-             short 'u' <>
-             metavar "ARG" <>
-             help "An argument to be passed to the updater"))
-    <*> (optional $ fromString <$> strOption (
-             long "update-archive" <>
-             metavar "PATH" <>
-             help "Path to the update archive \
-                  \(will be passed to the updater)"))
-    <*> (option auto (
-             long "node-timeout" <>
-             metavar "SEC" <>
-             help "How much to wait for the node to exit \
-                  \before killing it"))
+optsParser = do
+    let textOption :: IsString a => Mod OptionFields String -> Parser a
+        textOption = fmap fromString . strOption
+
+    -- Node-related args
+    loNodePath <- textOption $
+        long    "node" <>
+        help    "Path to the node executable" <>
+        metavar "PATH"
+    loNodeArgs <- many $ textOption $
+        short   'n' <>
+        help    "An argument to be passed to the node" <>
+        metavar "ARG"
+    loNodeLogPath <- optional $ textOption $
+        long    "node-log" <>
+        help    "Path to the log where node's output will be dumped" <>
+        metavar "PATH"
+
+    -- Wallet-related args
+    loWalletPath <- optional $ textOption $
+        long    "wallet" <>
+        help    "Path to the wallet executable" <>
+        metavar "PATH"
+    loWalletArgs <- many $ textOption $
+        short   'w' <>
+        help    "An argument to be passed to the wallet" <>
+        metavar "ARG"
+
+    -- Update-related args
+    loUpdaterPath <- textOption $
+        long    "updater" <>
+        help    "Path to the updater executable" <>
+        metavar "PATH"
+    loUpdaterArgs <- many $ textOption $
+        short   'u' <>
+        help    "An argument to be passed to the updater" <>
+        metavar "ARG"
+    loUpdateArchive <- optional $ textOption $
+        long    "update-archive" <>
+        help    "Path to the update archive (will be passed to the updater)" <>
+        metavar "PATH"
+
+    -- Other args
+    loNodeTimeoutSec <- option auto $
+        long    "node-timeout" <>
+        help    "How much to wait for the node to exit before killing it" <>
+        metavar "SEC"
+    loReportServer <- optional $ strOption $
+        long    "report-server" <>
+        help    "Where to send logs in case of failure" <>
+        metavar "URL"
+
+    pure LO{..}
 
 optsInfo :: ParserInfo LauncherOptions
 optsInfo = info (helper <*> optsParser) $
-    fullDesc `mappend` progDesc "Tool to launch Cardano SL"
+    fullDesc <> progDesc "Tool to launch Cardano SL"
 
 main :: IO ()
 main = do
@@ -84,12 +103,14 @@ main = do
                  serverScenario
                      (loNodePath, loNodeArgs, loNodeLogPath)
                      (loUpdaterPath, loUpdaterArgs, loUpdateArchive)
+                     loReportServer
              Just wpath ->
                  clientScenario
                      (loNodePath, loNodeArgs, loNodeLogPath)
                      (wpath, loWalletArgs)
                      (loUpdaterPath, loUpdaterArgs, loUpdateArchive)
                      loNodeTimeoutSec
+                     loReportServer
 
 -- | If we are on server, we want the following algorithm:
 --
@@ -99,17 +120,19 @@ main = do
 serverScenario
     :: (FilePath, [Text], Maybe FilePath)  -- ^ Node, its args, node log
     -> (FilePath, [Text], Maybe FilePath)  -- ^ Updater, args, the update .tar
+    -> Maybe String                        -- ^ Report server
     -> Shell ()
-serverScenario node updater = do
+serverScenario node updater report = do
     runUpdater updater
-    -- TODO: somehow signal updater failure if it fails? would be nice to
-    -- write it into the log, at least
+    -- TODO: the updater, too, should create a log if it fails
     (_, nodeAsync) <- spawnNode node
     exitCode <- wait nodeAsync
     printf ("The node has exited with "%s%"\n") (show exitCode)
-    case exitCode of
-        ExitFailure 20 -> serverScenario node updater
-        _              -> return ()
+    if exitCode == ExitFailure 20
+        then serverScenario node updater report
+        else case (report, node ^. _3) of
+                (Just repServ, Just logPath) -> sendLogs repServ [logPath]
+                _                            -> return ()
 
 -- | If we are on desktop, we want the following algorithm:
 --
@@ -122,8 +145,9 @@ clientScenario
     -> (FilePath, [Text])                  -- ^ Wallet, args
     -> (FilePath, [Text], Maybe FilePath)  -- ^ Updater, args, the update .tar
     -> Int                                 -- ^ Node timeout, in seconds
+    -> Maybe String                        -- ^ Report server
     -> Shell ()
-clientScenario node wallet updater nodeTimeout = do
+clientScenario node wallet updater nodeTimeout report = do
     runUpdater updater
     -- I don't know why but a process started with turtle just can't be
     -- killed, so let's use 'terminateProcess' and modified 'system'
@@ -132,6 +156,9 @@ clientScenario node wallet updater nodeTimeout = do
     (someAsync, exitCode) <- liftIO $ waitAny [nodeAsync, walletAsync]
     if | someAsync == nodeAsync -> do
              printf ("The node has exited with "%s%"\n") (show exitCode)
+             case (report, node ^. _3) of
+                (Just repServ, Just logPath) -> sendLogs repServ [logPath]
+                _                            -> return ()
              echo "Waiting for the wallet to die"
              void $ wait walletAsync
        | exitCode == ExitFailure 20 -> do
@@ -142,9 +169,10 @@ clientScenario node wallet updater nodeTimeout = do
              liftIO $ do
                  Process.terminateProcess nodeHandle
                  cancel nodeAsync
-             clientScenario node wallet updater nodeTimeout
+             clientScenario node wallet updater nodeTimeout report
        | otherwise -> do
              printf ("The wallet has exited with "%s%"\n") (show exitCode)
+             -- TODO: does the wallet have some kind of log?
              echo "Killing the node"
              liftIO $ do
                  Process.terminateProcess nodeHandle
@@ -198,6 +226,24 @@ runWallet :: (FilePath, [Text]) -> IO ExitCode
 runWallet (path, args) = do
     echo "Starting the wallet"
     proc (toText path) args mempty
+
+----------------------------------------------------------------------------
+-- Working with the report server
+----------------------------------------------------------------------------
+
+-- | Asynchronously send logs to the report server. If a log doesn't exist,
+-- it will be skipped.
+sendLogs
+    :: String         -- ^ URL of the server
+    -> [FilePath]     -- ^ Logs
+    -> Shell ()
+sendLogs reportServer logs = void $ fork $ do
+    existingLogs <- filterM testfile logs
+    Wreq.post reportServer $
+        Wreq.partText "payload" "hi Misha" :
+        [Wreq.partFileSource fname (toString fpath)
+           & Wreq.partFileName ?~ toString fname
+         | fpath <- existingLogs, let fname = toText (filename fpath)]
 
 ----------------------------------------------------------------------------
 -- Utils

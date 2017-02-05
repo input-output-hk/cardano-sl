@@ -31,7 +31,7 @@ import           Universum
 import           Pos.Context               (WithNodeContext)
 import           Pos.DB.Class              (MonadDB)
 import           Pos.DB.Holder             (DBHolder (..))
-import           Pos.Slotting              (MonadSlots (..))
+import           Pos.Slotting.Class        (MonadSlots)
 import           Pos.Ssc.Extra             (MonadSscMem)
 import           Pos.Txp.Class             (MonadTxpLD (..), TxpLDWrap (..))
 import           Pos.Txp.Types             (UtxoView)

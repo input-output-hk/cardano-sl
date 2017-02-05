@@ -16,10 +16,8 @@ npm install
 First you have to create an executable of `purescript-derive-lenses`. This step has to be done only once.
 
 ```bash
-# Please use following fork of `purescript-derive-lenses` (branch `feature/add-imports`) - but not the original library
-git clone -b feature/add-imports git@github.com:sectore/purescript-derive-lenses.git /to/any/folder/on/your/machine/
+git clone git@github.com:paf31/purescript-derive-lenses.git /to/any/folder/on/your/machine/
 cd {/path/to/purescript-derive-lenses}
-git checkout feature/add-imports
 stack build
 stack install install purescript-derive-lenses
 ```

@@ -17,7 +17,7 @@ module Pos.Ssc.GodTossing.GState
        ) where
 
 import           Control.Lens                   (at, (.=), _Wrapped)
-import           Control.Monad.Except           (runExceptT, throwError)
+import           Control.Monad.Except           (MonadError, runExceptT, throwError)
 import           Data.Default                   (def)
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.List.NonEmpty             as NE
@@ -41,7 +41,8 @@ import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
 import           Pos.Ssc.GodTossing.Seed        (calculateSeed)
 import           Pos.Ssc.GodTossing.Toss        (MultiRichmenStake, PureToss,
                                                  TossVerFailure (..), applyGenesisBlock,
-                                                 rollbackGT, runPureTossWithLogger,
+                                                 computeCommitmentDistr, rollbackGT,
+                                                 runPureTossWithLogger,
                                                  verifyAndApplyGtPayload)
 import           Pos.Ssc.GodTossing.Type        (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), gsCommitments,
@@ -80,12 +81,14 @@ getStableCerts epoch =
     getStableCertsPure epoch <$> sscRunGlobalQuery (view gsVssCertificates)
 
 computeCommitmentDistrById
-    :: (MonadSscMem SscGodTossing m, MonadThrow m)
+    :: (MonadError TossVerFailure m, MonadIO m,
+        MonadDB SscGodTossing m, WithNodeContext SscGodTossing m)
     => EpochIndex
     -> StakeholderId
     -> m Word16
-computeCommitmentDistrById = notImplemented
-
+computeCommitmentDistrById epoch id = do
+    richmen <- lrcActionOnEpoch epoch LrcDB.getRichmenSsc
+    HM.lookupDefault 0 id <$> computeCommitmentDistr richmen
 ----------------------------------------------------------------------------
 -- Methods from class
 ----------------------------------------------------------------------------

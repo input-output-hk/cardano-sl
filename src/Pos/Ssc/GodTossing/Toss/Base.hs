@@ -39,7 +39,7 @@ import           Universum
 
 import           Control.Monad.Except            (MonadError (throwError))
 import           Pos.Crypto                      (Share, VssPublicKey, verifyShare)
-import           Pos.Lrc.Types                   (RichmenSet)
+import           Pos.Lrc.Types                   (RichmenSet, RichmenStake)
 import           Pos.Ssc.GodTossing.Core         (CommitmentsDistribution,
                                                   CommitmentsMap (getCommitmentsMap),
                                                   GtPayload (..), InnerSharesMap,
@@ -128,14 +128,11 @@ computeParticipants :: RichmenSet -> VssCertificatesMap -> VssCertificatesMap
 computeParticipants (HS.toMap -> richmen) = flip HM.intersection richmen
 
 computeCommitmentDistr
-    :: (MonadError TossVerFailure m, MonadTossRead m)
-    => EpochIndex
-    -> m CommitmentsDistribution
-computeCommitmentDistr epoch = do
-    richmen <- note (NoRichmen epoch) =<< getRichmen epoch
+    :: MonadError TossVerFailure m
+    => RichmenStake -> m CommitmentsDistribution
+computeCommitmentDistr richmen = do
     let total :: Word64
         total = sum $ map unsafeGetCoin $ toList richmen
-    when (total == 0) $ throwError $ NoRichmen epoch
     -- Max error between real portion of node and portion of result
     let portionError = toRational (1::Int) / toRational (20::Int) -- 0.05
     -- Max multiplier (see below more)
@@ -174,7 +171,7 @@ computeCommitmentDistr epoch = do
     divRat x y = toRational x / toRational y
 
     listGCD (x:xs) = foldl' gcd x xs
-    listGCD [] = 1
+    listGCD []     = 1
 
     compareDiff maxError (x, y) = abs (x - y) < maxError
 
@@ -265,9 +262,10 @@ checkCommitmentsPayload
     -> CommitmentsMap
     -> m ()
 checkCommitmentsPayload epoch (getCommitmentsMap -> comms) = do
+    richmen <- note (NoRichmen epoch) =<< getRichmen epoch
     participants <- getParticipants epoch
     let participantKeys = map vcVssKey $ toList participants
-    distr <- computeCommitmentDistr epoch
+    distr <- computeCommitmentDistr richmen
     exceptGuard CommitingNoParticipants
         (`HM.member` participants) (HM.keys comms)
     exceptGuardM CommitmentAlreadySent

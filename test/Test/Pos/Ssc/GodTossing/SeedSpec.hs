@@ -20,8 +20,9 @@ import           Unsafe                   ()
 
 import           Pos.Crypto               (KeyPair (..), PublicKey, Share, Threshold,
                                            VssKeyPair, decryptShare, sign, toVssPublicKey)
-import           Pos.Ssc.GodTossing       (Commitment (..), CommitmentsMap, Opening (..),
-                                           SeedError (..), calculateSeed,
+import           Pos.Ssc.GodTossing       (Commitment (..), CommitmentsMap,
+                                           MultiCommitment (..), MultiOpening (..),
+                                           Opening (..), SeedError (..), calculateSeed,
                                            genCommitmentAndOpening, mkCommitmentsMap,
                                            secretToSharedSeed)
 import           Pos.Types                (SharedSeed (..))
@@ -142,7 +143,7 @@ recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
         sublistN (n_shares - n_overlap) (keys \\ haveSentOpening)
     let commitmentsMap = mkCommitmentsMap' keys comms
     let openingsMap = HM.fromList
-            [(getPubAddr k, o)
+            [(getPubAddr k, MultiOpening $ one o)
               | (k, o) <- zip keys opens
               , k `elem` haveSentOpening]
     -- @generatedShares ! X@ = shares that X generated and sent to others
@@ -163,7 +164,7 @@ recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
                      case HM.lookup addr senderShares of
                          Nothing -> []
                          Just s  -> return (sender, ser s)
-             return (addr, receivedShares)
+             return (addr, fmap one receivedShares)
 
     let shouldSucceed = n_openings + n_shares - n_overlap >= n
     let result = calculateSeed commitmentsMap openingsMap sharesMap
@@ -228,7 +229,7 @@ mkCommitmentsMap' keys comms =
         (KeyPair pk sk, comm) <- zip keys comms
         let epochIdx = 0  -- we don't care here
         let sig = sign sk (epochIdx, comm)
-        return (pk, comm, sig)
+        pure $ MultiCommitment pk $ one (comm, sig)
 
 getDecryptedShares
     :: MonadRandom m

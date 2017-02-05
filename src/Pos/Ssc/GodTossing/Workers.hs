@@ -300,12 +300,16 @@ generateAndSetNewSecret sk SlotId {..} = do
     generateAndSetNewSecretDo ps = do
         let threshold = vssThreshold $ length ps
         ourId <- addressHash . ncPublicKey <$> getNodeContext
-        nums <- computeCommitmentDistrById siEpoch ourId
-        mPair <- runMaybeT (genMultiCommitmentAndMultiOpening threshold ps sk nums siEpoch)
-        case mPair of
-            Just (multiComm, multiOpen) ->
-                Just multiComm <$ SS.putOurSecret multiComm multiOpen siEpoch
-            Nothing -> Nothing <$ reportDeserFail
+        numsEI <- runExceptT $ computeCommitmentDistrById siEpoch ourId
+        case numsEI of
+            Left er ->
+                Nothing <$ logWarning (sformat ("Couldn't compute commitment distribution, reason: "%build) er)
+            Right nums -> do
+                mPair <- runMaybeT (genMultiCommitmentAndMultiOpening threshold ps sk nums siEpoch)
+                case mPair of
+                    Just (multiComm, multiOpen) ->
+                        Just multiComm <$ SS.putOurSecret multiComm multiOpen siEpoch
+                    Nothing -> Nothing <$ reportDeserFail
 
 randomTimeInInterval
     :: WorkMode SscGodTossing m

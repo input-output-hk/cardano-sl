@@ -2,7 +2,7 @@
 
 for f in node*.log; do
      grep -n 'Created a new block' $f \
-	     | sed -r 's/^([0-9]+):\S*\s.....(\S*)\s(\S*)\s\S*.\s.*$/\2_\3 \1/' \
+	     | sed -r 's/^([0-9]+):\S*\s\S*\s.....(\S*)\s(\S*)\s\S*.\s.*$/\2_\3 \1/' \
 	| while read l; do
      	    echo "$l $f"	
      done

@@ -82,7 +82,6 @@ data RelayProxy key tag contents = RelayProxy
 
 data RelayError = UnexpectedInv
                 | UnexpectedData
-                | InvalidPropagationElement
   deriving (Generic, Show)
 
 instance Exception RelayError
@@ -93,9 +92,6 @@ handleInvL
        , Bi (ReqMsg key tag)
        , Relay m tag key contents
        , MinWorkMode m
-       -- [CSL-659] remove after rewriting to conv
-       , Bi NOP
-       , Message NOP
        )
     => RelayProxy key tag contents
     -> InvMsg key tag
@@ -123,9 +119,6 @@ handleReqL
        , Bi (InvOrData tag key contents)
        , Relay m tag key contents
        , MinWorkMode m
-       -- [CSL-659] remove after rewriting to conv
-       , Bi NOP
-       , Message NOP
        )
     => RelayProxy key tag contents
     -> (ListenerSpec m, OutSpecs)
@@ -160,9 +153,6 @@ handleDataL
       , MessagePart contents
       , Relay m tag key contents
       , WorkMode ssc m
-      -- [CSL-659] remove after rewriting to conv
-      , Bi NOP
-      , Message NOP
       )
     => RelayProxy key tag contents
     -> DataMsg contents
@@ -218,9 +208,6 @@ relayListeners
      , Mockable Throw m
      , WithLogger m
      , WorkMode ssc m
-       -- [CSL-659] remove after rewriting to conv
-     , Bi NOP
-     , Message NOP
      )
   => RelayProxy key tag contents -> ([ListenerSpec m], OutSpecs)
 relayListeners proxy = mergeLs [handleReqL proxy, invDataListener]
@@ -282,7 +269,7 @@ addToRelayQueue :: forall tag key contents ssc m .
                 , Message (InvOrData tag key contents)
                 , Message (ReqMsg key tag)
                 , Buildable tag, Buildable key
-                , WorkMode ssc m, Bi NOP, Message NOP)
+                , WorkMode ssc m)
                 => InvOrData tag key contents -> m ()
 addToRelayQueue inv = do
     queue <- ncInvPropagationQueue <$> getNodeContext
@@ -295,7 +282,8 @@ addToRelayQueue inv = do
 relayWorkers :: forall ssc m .
              ( Mockable Throw m
              , WorkMode ssc m
-             , Bi NOP, Message NOP)
+             , Bi NOP, Message NOP
+             )
              => ([WorkerSpec m], OutSpecs)
 relayWorkers = first (:[]) $ worker allOutSpecs $
   \sendActions -> handleAll handleWE $ do
@@ -307,7 +295,8 @@ relayWorkers = first (:[]) $ worker allOutSpecs $
                 logDebug $
                     sformat ("Propagation data with keys: "%listJson%" and tag: "%build) imKeys imTag
                 converseToNeighbors sendActions (convHandler i)
-            SomeInvMsg (Right _) -> throw InvalidPropagationElement
+            SomeInvMsg (Right _) ->
+                logWarning $ "DataMsg is contains in inv propagation queue"
   where
     convHandler inv __peerId
         (ConversationActions{..}::

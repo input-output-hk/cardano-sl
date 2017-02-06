@@ -22,8 +22,8 @@ import           Universum
 import           Pos.Binary.Communication   ()
 import           Pos.Communication.Protocol (ListenerSpec, OutSpecs, SendActions,
                                              listenerOneMsg, mergeLs, oneMsgH, toOutSpecs)
-import           Pos.Context                (getNodeContext, ncBlkSemaphore,
-                                             ncPropagation)
+import           Pos.Context                (getNodeContext, ncBlkSemaphore, ncNodeParams,
+                                             npPropagation)
 import           Pos.Delegation.Logic       (ConfirmPskEpochVerdict (..),
                                              PskEpochVerdict (..), PskSimpleVerdict (..),
                                              processConfirmProxySk, processProxySKEpoch,
@@ -71,7 +71,7 @@ handleSendProxySK = listenerOneMsg outSpecs $
         logDebug $ sformat ("Got request to handle heavyweight psk: "%build) pSk
         verdict <- processProxySKSimple pSk
         logDebug $ sformat ("The verdict for cert "%build%" is: "%shown) pSk verdict
-        doPropagate <- ncPropagation <$> getNodeContext
+        doPropagate <- npPropagation . ncNodeParams <$> getNodeContext
         if | verdict == PSIncoherent -> do
                -- We're probably updating state over epoch, so leaders
                -- can be calculated incorrectly.
@@ -110,7 +110,7 @@ handleSendProxySK = listenerOneMsg outSpecs $
       :: (WorkMode ssc m)
       => PskEpochVerdict -> ProxySKEpoch -> SendActions m -> m ()
     propagateProxySKEpoch PEUnrelated pSk sendActions =
-        whenM (ncPropagation <$> getNodeContext) $ do
+        whenM (npPropagation . ncNodeParams <$> getNodeContext) $ do
             logDebug $ sformat ("Propagating lightweight PSK: "%build) pSk
             sendProxySKEpoch pSk sendActions
     propagateProxySKEpoch PEAdded pSk sendActions = sendProxyConfirmSK pSk sendActions
@@ -141,7 +141,7 @@ handleConfirmProxySK = listenerOneMsg outSpecs $
     propagateConfirmProxySK CPValid
                             confPSK@(ConfirmProxySK pSk _)
                             sendActions = do
-        whenM (ncPropagation <$> getNodeContext) $ do
+        whenM (npPropagation . ncNodeParams <$> getNodeContext) $ do
             logDebug $ sformat ("Propagating psk confirmation for psk: "%build) pSk
             sendToNeighbors sendActions confPSK
     propagateConfirmProxySK _ _ _ = pure ()

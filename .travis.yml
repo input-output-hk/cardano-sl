@@ -41,14 +41,15 @@ script:
 - cd ..
 - tar cJf s3/daedalus-bridge.tar.xz daedalus/
 - echo $TRAVIS_BUILD_NUMBER > s3/build-id
-deploy:
-  provider: s3
-  access_key_id: AKIAJETSFTAMXGNCGC6Q
-  secret_access_key:
-    secure: L3T5J71xUkozQ935MJIavcgM3Latp+Zy0Ga1wZovXDLp34kgWyJ7/zRSd/TaVM54Kv8Alm1YxbmYKpQAOzGEzAIG+2VUjXbH7aW8KsCnN2RRZahj8pJlq0qmqYrUC4yDFWvrAuO+bE8GRTHFkrX7eT1hoejAw5bPSPu4lkRbh74ys2d5/eOCmxyLSrle1une0i1AM6WRjBKqYyGWFZ0/zhTdISziw+8excfPuutUUIw13vG2ywhMI4M0oP8csYYPdwg3PMzRpmcucebNXWr3QjJSTNuX/nwIQHyoS1BiIciDHIosdUOPsxVkdQWDUCvk9YXMPgB+XpPFB3O7d5V36EiyrSnQMuYdN6YKZzXmLaLlz8tEMaclRIr+yWVXUL27veYD+IYhjFUWcKzuBnnBa+v+Edl/ewQBMTxznstrBtGAjHhsmPaocXdFjz7fvoSDsr5fafhMnr0O2mKo9+6MKIbGdK/OsBc/Lp1fQK1PuWAjY4+eJ9HSUpD1s120uuV5NkbHnvdB+/PGH0GMHkuf8D7NGhNtTUDjBz+Pvo9SqKGwKyBuCDIeUNLMaCMa3aDY7uRpCVxsZPyjUBUlx/hICy5Ig7d3nKxmZhDot8zooY9a5ANSzDBQsLDWugx1ukKDzJ65wxqjmzaTvALqyk8GIY7ShREuNjFJOrdM8WwZbwU=
-  bucket: cardano-sl-testing
-  local_dir: s3
-  skip_cleanup: true
+#deploy:
+#  provider: s3
+#  access_key_id: AKIAJETSFTAMXGNCGC6Q
+#  secret_access_key:
+#    secure: L3T5J71xUkozQ935MJIavcgM3Latp+Zy0Ga1wZovXDLp34kgWyJ7/zRSd/TaVM54Kv8Alm1YxbmYKpQAOzGEzAIG+2VUjXbH7aW8KsCnN2RRZahj8pJlq0qmqYrUC4yDFWvrAuO+bE8GRTHFkrX7eT1hoejAw5bPSPu4lkRbh74ys2d5/eOCmxyLSrle1une0i1AM6WRjBKqYyGWFZ0/zhTdISziw+8excfPuutUUIw13vG2ywhMI4M0oP8csYYPdwg3PMzRpmcucebNXWr3QjJSTNuX/nwIQHyoS1BiIciDHIosdUOPsxVkdQWDUCvk9YXMPgB+XpPFB3O7d5V36EiyrSnQMuYdN6YKZzXmLaLlz8tEMaclRIr+yWVXUL27veYD+IYhjFUWcKzuBnnBa+v+Edl/ewQBMTxznstrBtGAjHhsmPaocXdFjz7fvoSDsr5fafhMnr0O2mKo9+6MKIbGdK/OsBc/Lp1fQK1PuWAjY4+eJ9HSUpD1s120uuV5NkbHnvdB+/PGH0GMHkuf8D7NGhNtTUDjBz+Pvo9SqKGwKyBuCDIeUNLMaCMa3aDY7uRpCVxsZPyjUBUlx/hICy5Ig7d3nKxmZhDot8zooY9a5ANSzDBQsLDWugx1ukKDzJ65wxqjmzaTvALqyk8GIY7ShREuNjFJOrdM8WwZbwU=
+#  bucket: cardano-sl-testing
+#  region: eu-central-1
+#  local_dir: s3
+#  skip_cleanup: true
 notifications:
   email: false
   slack:

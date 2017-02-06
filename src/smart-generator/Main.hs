@@ -19,7 +19,7 @@ import           Universum
 
 import qualified Pos.CLI                     as CLI
 import           Pos.Communication           (ActionSpec (..), SendActions,
-                                              convertSendActions)
+                                              convertSendActions, wrapSendActions)
 import           Pos.Constants               (genesisN, neighborsSendThreshold,
                                               slotSecurityParam)
 import           Pos.Crypto                  (KeyPair (..), hash)
@@ -50,7 +50,6 @@ import           TxAnalysis                  (checkWorker, createTxTimestamps,
 import           TxGeneration                (BambooPool, createBambooPool, curBambooTx,
                                               initTransaction, isTxVerified, nextValidTx,
                                               resetBamboo)
-
 import           Util
 
 
@@ -116,7 +115,7 @@ runSmartGen res np@NodeParams{..} sscnp opts@GenOptions{..} =
     logInfo "STARTING TXGEN"
 
     let forFold init ls act = foldM act init ls
-        sA = convertSendActions vI sendActions
+        sA = convertSendActions vI $ wrapSendActions sendActions
 
     -- [CSL-220] Write MonadBaseControl instance for KademliaDHT
     -- Seeding init tx
@@ -282,6 +281,8 @@ main = do
                 , npPropagation   = not (CLI.disablePropagation goCommonArgs)
                 , npUpdatePath    = "update.exe"
                 , npUpdateWithPkg = True
+                , npUpdateServers = []
+                , npReportServers = []
                 }
             gtParams =
                 GtParams

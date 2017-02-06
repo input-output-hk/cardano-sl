@@ -40,6 +40,8 @@ library
                       , node-sketch
                       , servant
                       , servant-server
+                      , socket-io
+                      , engine-io-wai
                       , stm
                       , text-format
                       , time

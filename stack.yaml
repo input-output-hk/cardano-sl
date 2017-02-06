@@ -37,6 +37,14 @@ packages:
     git: https://github.com/serokell/network-transport-tcp.git
     commit: 6cef5a6120d1aa7b87c270a95149bc69403c1376
   extra-dep: true
+- location:
+    git: https://github.com/serokell/engine.io.git
+    commit: f8b2ae4af83f4f5220bb6c8f50adda82c3a1e9f3
+  extra-dep: true
+  subdirs:
+    - socket-io
+    - engine-io
+    - engine-io-wai
 
 nix:
    shell-file: shell.nix

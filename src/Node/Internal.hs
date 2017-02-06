@@ -830,7 +830,6 @@ nodeDispatcher node handlerIn handlerInOut =
         -- Waiting for a handshake. Try to get a control header and then
         -- move on.
         Just (peer, WaitingForHandshake peerData partial) -> do
-            -- TODO the handshake.
             let bytes = BS.append partial (BS.concat chunks)
             case BS.uncons bytes of
 
@@ -854,7 +853,9 @@ nodeDispatcher node handlerIn handlerInOut =
                     -- nonce.
                     | w == controlHeaderCodeBidirectionalSyn ||
                       w == controlHeaderCodeBidirectionalAck
-                    , BS.length ws < 8 -> return state
+                    , BS.length ws < 8 -> return $ state {
+                            csConnections = Map.insert connid (peer, WaitingForHandshake peerData bytes) (csConnections state)
+                          }
 
                     -- Got a SYN. Spawn a thread to connect to the peer using
                     -- the nonce provided and then run the bidirectional handler.

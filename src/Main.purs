@@ -1,45 +1,57 @@
 module Main where
 
-import Prelude (bind, pure, (<<<))
-import Control.Monad.Eff (Eff)
-import Network.HTTP.Affjax (AJAX)
-import DOM (DOM)
+import Prelude (($), (<<<), bind, pure)
 import Control.Bind ((=<<))
-import Signal ((~>))
-
-import Pux (App, Config, CoreEffects, Update, renderToDOM, start)
-import Pux.Router (sampleUrl)
-import Pux.Devtool (Action, start) as Pux.Devtool
-
-import Explorer.View.Layout (view)
-import Explorer.Update (update) as Ex
+import Control.Monad.Eff (Eff)
+import Control.SocketIO.Client (SocketIO, connect, on)
+import DOM (DOM)
+import Explorer.Routes (match)
+import Explorer.Socket (connectEvent, closeEvent, connectHandler, closeHandler) as Ex
+import Explorer.State (hostname) as Ex
 import Explorer.Types.Actions (Action(..)) as Ex
 import Explorer.Types.State (State) as Ex
-import Explorer.Routes (match)
+import Explorer.Update (update) as Ex
+import Explorer.View.Layout (view)
+import Network.HTTP.Affjax (AJAX)
+import Pux (App, Config, CoreEffects, Update, renderToDOM, start)
+import Pux.Devtool (Action, start) as Pux.Devtool
+import Pux.Router (sampleUrl)
+import Signal (Signal, (~>))
+import Signal.Channel (channel, subscribe)
 
-type AppEffects = (dom :: DOM, ajax :: AJAX)
+type AppEffects = (dom :: DOM, ajax :: AJAX, socket :: SocketIO)
 
-config :: forall eff. Ex.State -> Eff (dom :: DOM, ajax :: AJAX | eff)
-    (Config Ex.State Ex.Action AppEffects)
+config :: Ex.State -> Eff (CoreEffects AppEffects) (Config Ex.State Ex.Action AppEffects)
 config state = do
+  -- routing
   urlSignal <- sampleUrl
   let routeSignal = urlSignal ~> Ex.UpdateView <<< match
+  -- socket
+  actionChannel <- channel $ Ex.SocketConnected false
+  let socketSignal = subscribe actionChannel :: Signal Ex.Action
+  socket <- connect Ex.hostname
+  on socket Ex.connectEvent $ Ex.connectHandler actionChannel
+  on socket Ex.closeEvent $ Ex.closeHandler actionChannel
+
   pure
     { initialState: state
     , update: Ex.update :: Update Ex.State Ex.Action AppEffects
     , view: view
-    , inputs: [routeSignal]
+    , inputs: [routeSignal, socketSignal]
     }
+
+appSelector :: String
+appSelector = "#explorer"
 
 main :: Ex.State -> Eff (CoreEffects AppEffects) (App Ex.State Ex.Action)
 main state = do
   app <- start =<< config state
-  renderToDOM "#explorer" app.html
+  renderToDOM appSelector app.html
   pure app
 
 debug :: Ex.State -> Eff (CoreEffects AppEffects) (App Ex.State (Pux.Devtool.Action Ex.Action))
 debug state = do
   appConfig <- config state
   app <- Pux.Devtool.start appConfig {opened: false}
-  renderToDOM "#explorer" app.html
+  renderToDOM appSelector app.html
   pure app

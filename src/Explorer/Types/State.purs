@@ -9,7 +9,12 @@ import Prelude (class Eq, class Ord)
 type State =
     { lang :: Language
     , route :: Route
+    , socket :: SocketState
     , viewStates :: ViewStates
+    }
+
+type SocketState =
+    { connected :: Boolean
     }
 
 type ViewStates =

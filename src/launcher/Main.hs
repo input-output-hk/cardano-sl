@@ -108,13 +108,15 @@ main = do
             Nothing -> loNodeArgs
             Just lc -> loNodeArgs ++ ["--log-config", toText lc]
     sh $ case loWalletPath of
-             Nothing ->
+             Nothing -> do
+                 echo "Running in the server scenario"
                  serverScenario
                      loNodeLogConfig
                      (loNodePath, realNodeArgs)
                      (loUpdaterPath, loUpdaterArgs, loUpdateArchive)
                      loReportServer
-             Just wpath ->
+             Just wpath -> do
+                 echo "Running in the client scenario"
                  clientScenario
                      loNodeLogConfig
                      (loNodePath, realNodeArgs)
@@ -142,7 +144,8 @@ serverScenario logConf node updater report = do
     printf ("The node has exited with "%s%"\n") (show exitCode)
     if exitCode == ExitFailure 20
         then serverScenario logConf node updater report
-        else whenJust report $ \repServ ->
+        else whenJust report $ \repServ -> do
+                 printf ("Sending logs to "%s%"\n") (toText repServ)
                  reportNodeCrash exitCode logConf repServ nodeLog
 
 -- | If we are on desktop, we want the following algorithm:
@@ -168,7 +171,8 @@ clientScenario logConf node wallet updater nodeTimeout report = do
     (someAsync, exitCode) <- liftIO $ waitAny [nodeAsync, walletAsync]
     if | someAsync == nodeAsync -> do
              printf ("The node has exited with "%s%"\n") (show exitCode)
-             whenJust report $ \repServ ->
+             whenJust report $ \repServ -> do
+                 printf ("Sending logs to "%s%"\n") (toText repServ)
                  reportNodeCrash exitCode logConf repServ nodeLog
              echo "Waiting for the wallet to die"
              void $ wait walletAsync

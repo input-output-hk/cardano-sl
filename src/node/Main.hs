@@ -77,6 +77,7 @@ loggingParams tag Args{..} =
     { lpHandlerPrefix = CLI.logPrefix commonArgs
     , lpConfigPath    = CLI.logConfig commonArgs
     , lpRunnerTag = tag
+    , lpEkgPort = monitorPort
     }
 
 baseParams :: LoggerName -> Args -> BaseParams

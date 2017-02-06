@@ -28,11 +28,15 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 47821127b615e60b8f2e67f7e8b8f7a3aa116d2b
+    commit: ee16762f4eab94cbcc7d10935ee870b6038c4a40
   extra-dep: true
 - location:
-    git: https://github.com/serokell/network-transport-tcp.git
-    commit: 6cef5a6120d1aa7b87c270a95149bc69403c1376
+    git: https://github.com/avieth/network-transport-tcp
+    commit: 705b3c0d44cb1f4eea904b54431cd467e62dda35
+  extra-dep: true
+- location:
+    git: https://github.com/avieth/network-transport
+    commit: e7a5f44d0d98370d16df103c9dc61ef7bf15aee8
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-report-server.git

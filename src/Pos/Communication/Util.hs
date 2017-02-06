@@ -123,15 +123,20 @@ convWithTimeLimit
     -> N.NodeId
     -> N.ConversationActions PeerData snd rcv m
     -> N.ConversationActions PeerData snd rcv m
-convWithTimeLimit timeout nodeId conv = conv { N.recv = recv' }
+convWithTimeLimit timeout nodeId conv = conv { N.recv = recv', N.send = send' }
       where
+        send' msg = do
+            res <- execWithTimeLimit timeout $ N.send conv msg
+            whenNothing res . logWarning $
+                sformat ("Send to "%shown%" in conversation - timeout expired")
+                    nodeId
         recv' = do
             res <- execWithTimeLimit timeout $ N.recv conv
             case res of
                 Nothing -> do
                     logWarning $
                         sformat ("Recv from "%shown%" in conversation - timeout expired")
-                        nodeId
+                            nodeId
                     return Nothing
                 Just r  -> return r
 
@@ -144,6 +149,11 @@ sendActionsWithTimeLimit timeout sendActions = sendActions
     { N.withConnectionTo = \nodeId action ->
         N.withConnectionTo sendActions nodeId $
             action . convWithTimeLimit timeout nodeId
+    , N.sendTo = \nodeId msg -> do
+                    res <- execWithTimeLimit timeout $ N.sendTo sendActions nodeId msg
+                    whenNothing res . logWarning $
+                        sformat ("Send to "%shown%" (one msg) - timeout expired")
+                            nodeId
     }
 
 withMVar

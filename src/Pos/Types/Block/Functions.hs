@@ -510,9 +510,14 @@ verifyBlock VerifyBlockParams {..} blk =
             ]
         | otherwise = mempty
     verifyVersions bv = case blk of
-        Right mainBlk | bv >= mainBlk ^. gbHeader . gbhExtra . mehBlockVersion ->
-            checkNoUnknownVersions mainBlk
-        _ -> mempty
+        Left _        -> mempty
+        Right mainBlk ->
+            let effectiveBlockVersion =
+                    lastAdoptedBV `min`
+                    (mainBlk ^. gbHeader . gbhExtra . mehBlockVersion)
+            in if lastKnownBlockVersion >= effectiveBlockVersion
+                   then checkNoUnknownVersions mainBlk
+                   else mempty
 
 -- | Check that the block contains no 'UnknownAddressType' and
 -- 'UnknownWitnessType' and that all script versions are known.
@@ -569,7 +574,9 @@ verifyBlocks
        )
     => Maybe SlotId
     -> Maybe SlotLeaders
-    -> Maybe BlockVersion          -- ^ “Effective block version”
+    -> Maybe BlockVersion           -- ^ @Just <$> getAdoptedBV@ if it's
+                                    --   an incoming sequence of blocks
+                                    --   (see issue #25 on Github)
     -> OldestFirst f (Block ssc)
     -> VerificationRes
 verifyBlocks curSlotId initLeaders mbBV = view _3 . foldl' step start

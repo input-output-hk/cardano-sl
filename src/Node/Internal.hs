@@ -31,7 +31,7 @@ module Node.Internal (
   ) where
 
 import           Control.Exception             hiding (bracket, catch, finally, throw)
-import           Control.Monad                 (forM_, when)
+import           Control.Monad                 (forM_, forM, when)
 import           Control.Monad.Fix             (MonadFix)
 import           Data.Int                      (Int64)
 import           Data.Binary                   as Bin
@@ -78,9 +78,9 @@ newtype NodeId = NodeId NT.EndPointAddress
 data NodeState peerData m = NodeState {
       _nodeStateGen                    :: !StdGen
       -- ^ To generate nonces.
-    , _nodeStateOutboundUnidirectional :: !(Set (Promise m ()))
+    , _nodeStateOutboundUnidirectional :: !(Map NT.EndPointAddress (Promise m ()))
       -- ^ Handlers for each locally-initiated unidirectional connection.
-    , _nodeStateOutboundBidirectional  :: !(Map Nonce (Promise m (), ChannelIn m, SharedExclusiveT m peerData, Bool))
+    , _nodeStateOutboundBidirectional  :: !(Map NT.EndPointAddress (Map Nonce (Promise m (), ChannelIn m, SharedExclusiveT m peerData, NT.ConnectionBundle, Bool)))
       -- ^ Handlers for each nonce which we generated (locally-initiated
       --   bidirectional connections).
       --   The bool indicates whether we have received an ACK for this.
@@ -110,7 +110,7 @@ initialNodeState prng = do
     !stats <- initialStatistics
     let nodeState = NodeState {
               _nodeStateGen = prng
-            , _nodeStateOutboundUnidirectional = Set.empty
+            , _nodeStateOutboundUnidirectional = Map.empty
             , _nodeStateOutboundBidirectional = Map.empty
             , _nodeStateInbound = Set.empty
             , _nodeStateConnectedTo = Map.empty
@@ -307,9 +307,18 @@ initialStatistics = do
 data HandlerProvenance peerData m t =
       -- | Initiated locally, _to_ this peer. The Nonce is present if and only
       --   if it's a bidirectional connection.
-      Local !NT.EndPointAddress (Maybe (Nonce, SharedExclusiveT m peerData, t))
+      Local !NT.EndPointAddress (Maybe (Nonce, SharedExclusiveT m peerData, NT.ConnectionBundle, t))
       -- | Initiated remotely, _by_ or _from_ this peer.
     | Remote !NT.EndPointAddress !NT.ConnectionId t
+
+instance Show (HandlerProvenance peerData m t) where
+    show prov = case prov of
+        Local addr mdata -> concat [
+              "Local "
+            , show addr
+            , show (fmap (\(x,_,_,_) -> x) mdata)
+            ]
+        Remote addr connid _ -> concat ["Remote ", show addr, show connid]
 
 -- TODO: revise these computations to make them numerically stable (or maybe
 -- use Rational?).
@@ -568,23 +577,33 @@ deriving instance Show (DispatcherState peerData m)
 initialDispatcherState :: DispatcherState peerData m
 initialDispatcherState = DispatcherState Map.empty Map.empty
 
--- | Wait for every running handler in a node's state to finish.
+-- | Wait for every running handler in a node's state to finish. Exceptions are
+--   caught and gathered, not re-thrown.
 waitForRunningHandlers
     :: forall m packingType peerData .
        ( Mockable SharedAtomic m
        , Mockable Async m
+       , Mockable Catch m
        )
     => Node packingType peerData m
-    -> m ()
+    -> m [Maybe SomeException]
 waitForRunningHandlers node = do
     -- Gather the promises for all handlers.
     promises <- withSharedAtomic (nodeState node) $ \st ->
-        let outbound_uni = Set.toList (_nodeStateOutboundUnidirectional st)
-            outbound_bi = (\(x,_,_,_) -> x) <$> Map.elems (_nodeStateOutboundBidirectional st)
+        let outbound_uni = Map.elems (_nodeStateOutboundUnidirectional st)
+            -- List monad computation: grab the values of the map (ignoring
+            -- peer keys), then for each of those maps grab its values (ignoring
+            -- nonce keys) and then return the promise.
+            outbound_bi = do
+                map <- Map.elems (_nodeStateOutboundBidirectional st)
+                (x, _, _, _, _) <- Map.elems map
+                return x
             inbound = Set.toList (_nodeStateInbound st)
             all = outbound_uni ++ outbound_bi ++ inbound
         in  return all
-    forM_ promises wait
+    let waitAndCatch promise =
+            (Nothing <$ wait promise) `catch` (\(e :: SomeException) -> return (Just e))
+    forM promises waitAndCatch
 
 -- | The one thread that handles /all/ incoming messages and dispatches them
 -- to various handlers.
@@ -627,8 +646,8 @@ nodeDispatcher node handlerIn handlerInOut =
 
           -- When a heavyweight connection is lost we must close up all of the
           -- lightweight connections which it carried.
-          NT.ErrorEvent (NT.TransportError (NT.EventErrorCode (NT.EventConnectionLost peer)) msg) ->
-              connectionLost state peer >>= loop
+          NT.ErrorEvent (NT.TransportError (NT.EventErrorCode (NT.EventConnectionLost peer bundle)) msg) ->
+              connectionLost state peer bundle >>= loop
 
           -- Unsupported event is recoverable. Just log and carry on.
           NT.ErrorEvent err@(NT.TransportError NT.UnsupportedEvent _) -> do
@@ -651,12 +670,18 @@ nodeDispatcher node handlerIn handlerInOut =
         :: DispatcherState peerData m
         -> m ()
     endPointClosed state = do
-        forM_ (Map.toList (csConnections state)) $ \(_, st) -> case st of
-            (_, FeedingApplicationHandler (ChannelIn channel)) -> do
-                Channel.writeChannel channel Nothing
-            _ -> return ()
-        waitForRunningHandlers node
-
+        let connections = Map.toList (csConnections state)
+        -- This is a network-transport error (ConnectionClosed should have
+        -- been posted for all open connections), but we're defensive and
+        -- plug the channels.
+        when (length connections > 0) $ do
+            logError $ sformat ("end point closed with " % shown % " open connection(s)") (length connections)
+            forM_ connections $ \(_, st) -> case st of
+                (_, FeedingApplicationHandler (ChannelIn channel)) -> do
+                    Channel.writeChannel channel Nothing
+                _ -> return ()
+        _ <- waitForRunningHandlers node
+        return ()
 
     connectionOpened
         :: DispatcherState peerData m
@@ -868,15 +893,21 @@ nodeDispatcher node handlerIn handlerInOut =
                     -- we actually sent it.
                     | w == controlHeaderCodeBidirectionalAck
                     , Right (ws', _, nonce) <- decodeOrFail (LBS.fromStrict ws) -> do
-                          outcome <- modifySharedAtomic nstate $ \st ->
-                              case Map.lookup nonce (_nodeStateOutboundBidirectional st) of
+                          outcome <- modifySharedAtomic nstate $ \st -> do
+                              -- Lookup the nonce map for the peer, then check
+                              -- that nonce map at the supplied nonce.
+                              let nonces = Map.lookup peer (_nodeStateOutboundBidirectional st)
+                              let thisNonce = nonces >>= Map.lookup nonce
+                              case thisNonce of
                                   Nothing -> return (st, Nothing)
-                                  Just (_, _, _, True) -> return (st, Just Nothing)
-                                  Just (promise, channel, peerDataVar, False) -> return
-                                      ( st { _nodeStateOutboundBidirectional = Map.insert nonce (promise, channel, peerDataVar, True) (_nodeStateOutboundBidirectional st)
+                                  Just (_, _, _, _, True) -> return (st, Just Nothing)
+                                  Just (promise, channel, peerDataVar, connBundle, False) -> return
+                                      ( st { _nodeStateOutboundBidirectional = Map.update updater peer (_nodeStateOutboundBidirectional st)
                                            }
                                       , Just (Just (channel, peerDataVar))
                                       )
+                                      where
+                                      updater map = Just $ Map.insert nonce (promise, channel, peerDataVar, connBundle, True) map
                           case outcome of
                               -- We don't know about the nonce. Could be that
                               -- we never sent the SYN for it (protocol error)
@@ -884,6 +915,7 @@ nodeDispatcher node handlerIn handlerInOut =
                               -- In any case, say the handshake failed so that
                               -- subsequent data is ignored.
                               Nothing -> do
+                                  logDebug $ sformat ("got unknown nonce " % shown) nonce
                                   return $ state {
                                         csConnections = Map.insert connid (peer, HandshakeFailure) (csConnections state)
                                       }
@@ -906,7 +938,7 @@ nodeDispatcher node handlerIn handlerInOut =
 
                     -- Handshake failure. Subsequent receives will be ignored.
                     | otherwise -> do
-                          logWarning $ sformat ("unexpected control header from " % shown) peer
+                          logWarning $ sformat ("unexpected control header from " % shown % " : " % shown) peer w
                           return $ state {
                                 csConnections = Map.insert connid (peer, HandshakeFailure) (csConnections state)
                               }
@@ -958,28 +990,24 @@ nodeDispatcher node handlerIn handlerInOut =
                     }
             return state'
 
-    -- When a connection is lost, we purge all of the connection identifiers
-    -- for that peer from the dispatcher state, and plug all of their input
-    -- channels with 'Nothing'.
     connectionLost
         :: DispatcherState peerData m
         -> NT.EndPointAddress
+        -> NT.ConnectionBundle
         -> m (DispatcherState peerData m)
-    connectionLost state peer = do
-        logWarning $ sformat ("lost connection to " % shown) peer
-        case Map.lookup peer (csPeers state) of
-
-            Nothing -> do
-                -- TBD: is this notable? Is it possible that a connection lost
-                -- event is delivered even if there are no open lightweight
-                -- connections?
-                logWarning $ sformat ("lost connection to peer but had no connections " % shown) peer
-                return state
-
+    connectionLost state peer bundle = do
+        -- There must always be 0 connections from the peer, for
+        -- network-transport must have posted the ConnectionClosed events for
+        -- every inbound connection before posting EventConnectionLost.
+        logWarning $ sformat ("lost connection bundle " % shown % " to " % shown) bundle peer
+        state' <- case Map.lookup peer (csPeers state) of
             Just it -> do
+                -- This is a network-transport bug, but we're defensive: will
+                -- clean up the state and plug the input channels anyway.
                 let connids = case it of
                         GotPeerData _ neset -> NESet.toList neset
                         ExpectingPeerData neset _ -> NESet.toList neset
+                logError $ sformat ("still have " % shown % " connections") (length connids)
                 -- For every connection to that peer we'll plug the channel with
                 -- Nothing and remove it from the map.
                 let folder :: Map NT.ConnectionId (NT.EndPointAddress, ConnectionState peerData m)
@@ -998,6 +1026,37 @@ nodeDispatcher node handlerIn handlerInOut =
                       csConnections = channels'
                     , csPeers = Map.delete peer (csPeers state)
                     }
+            Nothing -> return state
+
+        -- Every outbound bidirectional connection which is carried by this
+        -- bundle, and which has not yet received an ACK, must have its
+        -- channel plugged.
+        --
+        -- Outbound unidirectional connections need no attention: they will
+        -- fail if they try to 'send', but since they expect no data in
+        -- return, we don't have to take care of them here.
+        channels <- modifySharedAtomic nstate $ \st -> do
+            let nonces = Map.lookup peer (_nodeStateOutboundBidirectional st)
+            case nonces of
+                -- Perfectly normal: lost the connection but we had no 
+                -- outbound bidirectional connections to it.
+                Nothing -> return (st, [])
+                Just map -> do
+                    -- Remove every element from the map which is carried by
+                    -- this bundle, and then remove the map itself if it's
+                    -- empty.
+                    let folder (_, channelIn, _, bundle', acked) channels
+                            | bundle' == bundle && not acked = channelIn : channels
+                            | otherwise = channels
+
+                    let channels = Map.foldr folder [] map
+                    return (st, channels)
+
+        logWarning $ sformat ("closing " % shown % " channels on bundle " % shown % " to " % shown) (length channels) bundle peer
+
+        forM_ channels $ \(ChannelIn chan) -> Channel.writeChannel chan Nothing
+
+        return state'
 
 -- | Spawn a thread and track it in shared state, taking care to remove it from
 --   shared state when it's finished and updating statistics appropriately.
@@ -1008,6 +1067,7 @@ spawnHandler
        ( Mockable SharedAtomic m, Mockable Throw m, Mockable Catch m
        , Mockable Async m, Ord (Promise m ())
        , Mockable Metrics.Metrics m, Mockable CurrentTime m
+       , WithLogger m
        , MonadFix m )
     => SharedAtomicT m (NodeState peerData m)
     -> HandlerProvenance peerData m (ChannelIn m)
@@ -1032,15 +1092,19 @@ spawnHandler stateVar provenance action =
                 Remote _ _ _ -> nodeState {
                       _nodeStateInbound = Set.insert waitForIt (_nodeStateInbound nodeState)
                     }
-                Local _ (Just (nonce, peerDataVar, channelIn)) -> nodeState {
-                      _nodeStateOutboundBidirectional = Map.insert nonce (waitForIt, channelIn, peerDataVar, False) (_nodeStateOutboundBidirectional nodeState)
+                Local peer (Just (nonce, peerDataVar, connBundle, channelIn)) -> nodeState {
+                      _nodeStateOutboundBidirectional = Map.alter alteration peer (_nodeStateOutboundBidirectional nodeState)
                     }
-                Local _ Nothing -> nodeState {
-                      _nodeStateOutboundUnidirectional = Set.insert waitForIt (_nodeStateOutboundUnidirectional nodeState)
+                    where
+                    alteration Nothing = Just $ Map.singleton nonce (waitForIt, channelIn, peerDataVar, connBundle, False)
+                    alteration (Just map) = Just $ Map.insert nonce (waitForIt, channelIn, peerDataVar, connBundle, False) map
+                Local peer Nothing -> nodeState {
+                      _nodeStateOutboundUnidirectional = Map.insert peer waitForIt (_nodeStateOutboundUnidirectional nodeState)
                     }
 
         statistics' <- stAddHandler provenance (_nodeStateStatistics nodeState)
         return (nodeState' { _nodeStateStatistics = statistics' }, promise)
+
     where
 
     normal :: Promise m () -> Microsecond -> m t
@@ -1058,16 +1122,23 @@ spawnHandler stateVar provenance action =
     signalFinished promise startTime outcome = do
         endTime <- currentTime
         let elapsed = endTime - startTime
+        logDebug $ sformat ("handler finished " % shown) provenance
         modifySharedAtomic stateVar $ \nodeState -> do
             let nodeState' = case provenance of
                     Remote _ _ _ -> nodeState {
                           _nodeStateInbound = Set.delete promise (_nodeStateInbound nodeState)
                         }
-                    Local _ (Just (nonce, _, _)) -> nodeState {
-                          _nodeStateOutboundBidirectional = Map.delete nonce (_nodeStateOutboundBidirectional nodeState)
+                    -- Remove the nonce for this peer, and remove the whole map
+                    -- if this was the only nonce for that peer.
+                    Local peer (Just (nonce, _, _, _)) -> nodeState {
+                          _nodeStateOutboundBidirectional = Map.update updater peer (_nodeStateOutboundBidirectional nodeState)
                         }
-                    Local _ Nothing -> nodeState {
-                          _nodeStateOutboundUnidirectional = Set.delete promise (_nodeStateOutboundUnidirectional nodeState)
+                        where
+                        updater map =
+                            let map' = Map.delete nonce map
+                            in  if Map.null map' then Nothing else Just map'
+                    Local peer Nothing -> nodeState {
+                          _nodeStateOutboundUnidirectional = Map.delete peer (_nodeStateOutboundUnidirectional nodeState)
                         }
             statistics' <- stRemoveHandler provenance elapsed outcome (_nodeStateStatistics nodeState)
             return (nodeState' { _nodeStateStatistics = statistics' }, ())
@@ -1126,17 +1197,20 @@ withInOutChannel node@Node{nodeState} nodeid@(NodeId peer) action = do
     -- peer never responds? All we can do is time-out I suppose.
     -- Indeed, the peer may never even ACK.
     peerDataVar <- newSharedExclusive
-    let provenance = Local peer (Just (nonce, peerDataVar, channel))
-    let action' :: ChannelOut m -> m a
-        action' = action peerDataVar channel
-    -- connectInOutChannel will update the nonce state to indicate that there's
-    -- a handler for it. When the handler is finished (whether normally or
-    -- exceptionally) we have to update it to say so.
-    promise <- spawnHandler nodeState provenance $
-        bracket (connectInOutChannel node nodeid nonce)
-                (\(ChannelOut conn) -> disconnectFromPeer node nodeid conn)
-                (action')
-    wait promise
+    -- When the connection is up, we can register a handler using the bundle
+    -- identifier.
+    -- An exception may be thrown after the connection is established but
+    -- before we register, but that's OK, as disconnectFromPeer is forgiving
+    -- about this.
+    let action' (ChannelOut conn) = do
+            let provenance = Local peer (Just (nonce, peerDataVar, NT.bundle conn, channel))
+            let action' :: ChannelOut m -> m a
+                action' = action peerDataVar channel
+            promise <- spawnHandler nodeState provenance (action peerDataVar channel (ChannelOut conn))
+            wait promise
+    bracket (connectInOutChannel node nodeid nonce)
+            (\(ChannelOut conn) -> disconnectFromPeer node nodeid conn)
+            action'
 
 -- | Create, use, and tear down a unidirectional channel to a peer identified
 --   by 'NodeId'.
@@ -1163,7 +1237,9 @@ withOutChannel node@Node{nodeState} nodeid@(NodeId peer) action = do
 disconnectFromPeer
     :: ( Mockable SharedExclusive m
        , Mockable SharedAtomic m
-       , Mockable Bracket m )
+       , Mockable Bracket m
+       , WithLogger m
+       )
     => Node packingType peerData m
     -> NodeId
     -> NT.Connection m
@@ -1176,7 +1252,10 @@ disconnectFromPeer Node{nodeState} nodeid@(NodeId peer) conn =
     cleanup = modifySharedAtomic nodeState $ \nodeState -> case Map.lookup peer (_nodeStateConnectedTo nodeState) of
 
         Nothing -> do
-            -- logWarning $ sformat ("disconnectFromPeer inconsistent state")
+            -- Not necessarily an error: an exception could have been thrown
+            -- after connecting but before spawning a handler for the
+            -- connection.
+            logDebug $ sformat ("disconnectFromPeer disconnected with no handlers")
             return (nodeState, ())
 
         Just (Left excl) -> do

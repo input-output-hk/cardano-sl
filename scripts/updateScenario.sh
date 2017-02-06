@@ -28,10 +28,6 @@ updater=$(find ../cardano-updater/.stack-work/install/ -name "cardano-updater" -
 
 serverPort=8100 # Port for webfsd
 
-# Replacing server address in constants-dev
-sedline="s/updateServers:.*/updateServers: \[ \"http:\/\/localhost:${serverPort}\/\" \]/"
-sed -i.backup -E "$sedline" constants-dev.yaml
-
 echo "Building cardano-sl"
 stack build --fast
 

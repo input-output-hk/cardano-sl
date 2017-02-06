@@ -1084,6 +1084,8 @@ executable cardano-launcher
   build-depends:       async
                      , base
                      , optparse-applicative
+                     , cardano-report-server >= 0.0.1
+                     , directory
                      , process
                      , text
                      , turtle

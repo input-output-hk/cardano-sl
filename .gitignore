@@ -6,4 +6,9 @@ output
 typings
 npm-debug.log
 .psc-ide-port
+# generated backend types + lenses
 src/Generated/*
+# generated lenses
+src/Data/Time/Lenses/*
+src/Explorer/I18n/Lenses.purs
+src/Explorer/Lenses/*

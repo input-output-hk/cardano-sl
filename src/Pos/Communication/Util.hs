@@ -13,8 +13,8 @@ import           Data.Time.Units            (Microsecond)
 import           Formatting                 (build, sformat, shown, (%))
 import           Mockable                   (Async, Bracket, Delay, Mockable, bracket)
 import qualified Node                       as N
-import           System.Wlog                (HasLoggerName, LoggerName, WithLogger,
-                                             logDebug, logWarning, modifyLoggerName)
+import           System.Wlog                (LoggerName, WithLogger, logDebug, logWarning,
+                                             modifyLoggerName)
 import           Universum                  hiding (Async, async, bracket, cancel,
                                              finally, withMVar)
 
@@ -202,7 +202,7 @@ wrapListener lname =
     addWaitLogging = mapListener' sendActionsWithWaitLog convWithWaitLogL identity
     addTimeout timeout = mapListener' (sendActionsWithTimeLimit timeout)
                                       (convWithTimeLimit timeout) identity
-    modifyLogger name = mapListener $ modifyLoggerName (<> lname)
+    modifyLogger _name = mapListener $ modifyLoggerName (<> lname)
     addExclusiveSend = mapListener' sendActionsWithExclusiveSend
                                     (const convWithExclusiveSend) identity
 
@@ -224,7 +224,7 @@ wrapActionSpec lname =
   where
     addWaitLogging = mapActionSpec sendActionsWithWaitLog identity
     addTimeout timeout = mapActionSpec (sendActionsWithTimeLimit timeout) identity
-    modifyLogger name = mapActionSpec identity $ modifyLoggerName
+    modifyLogger _name = mapActionSpec identity $ modifyLoggerName
                                     (<> lname)
     addExclusiveSend = mapActionSpec sendActionsWithExclusiveSend identity
 

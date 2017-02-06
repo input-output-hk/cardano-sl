@@ -1,4 +1,4 @@
-module Data.Types
+module Data.Time.NominalDiffTime
        ( NominalDiffTime (..)
        , mkTime
        ) where

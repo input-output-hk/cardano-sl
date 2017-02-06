@@ -44,7 +44,7 @@ import           Pos.Binary.Block.Types     ()
 import qualified Pos.Binary.Class           as Bi
 import           Pos.Binary.Types           ()
 import           Pos.Binary.Update          ()
-import           Pos.Constants              (epochSlots)
+import           Pos.Constants              (epochSlots, lastKnownBlockVersion)
 import           Pos.Crypto                 (Hash, SecretKey, checkSig, proxySign,
                                              proxyVerify, pskIssuerPk, sign, toPublic,
                                              unsafeHash)
@@ -513,7 +513,7 @@ verifyBlock VerifyBlockParams {..} blk =
         Left _        -> mempty
         Right mainBlk ->
             let effectiveBlockVersion =
-                    lastAdoptedBV `min`
+                    bv `min`
                     (mainBlk ^. gbHeader . gbhExtra . mehBlockVersion)
             in if lastKnownBlockVersion >= effectiveBlockVersion
                    then checkNoUnknownVersions mainBlk

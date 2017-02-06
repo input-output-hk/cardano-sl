@@ -6,7 +6,7 @@ import DOM (DOM)
 import Data.Array ((:))
 import Data.Either (Either(..))
 import Data.Lens (over, set)
-import Explorer.Lenses.State (blocksExpanded, connected, errors, dashboard, latestBlocks, searchInput, selectedApiCode, socket, transactionsExpanded, viewStates)
+import Explorer.Lenses.State (blocksExpanded, connected, errors, dashboard, latestBlocks, latestTransactions, searchInput, selectedApiCode, socket, transactionsExpanded, viewStates)
 import Explorer.Routes (Route(..))
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State)
@@ -24,8 +24,14 @@ update (SocketConnected status) state = noEffects $
   set (socket <<< connected) status state
 update (SocketLatestBlocks (Right blocks)) state = noEffects $
     -- add incoming blocks ahead of previous blocks
-     over latestBlocks (\latestBlocks' -> blocks <> latestBlocks') state
+     over latestBlocks (\b -> blocks <> b) state
 update (SocketLatestBlocks (Left error)) state = noEffects $
+    -- add incoming errors ahead of previous errors
+    over errors (\errors' -> (show error) : errors') state
+update (SocketLatestTransactions (Right transactions)) state = noEffects $
+    -- add incoming transactions ahead of previous transactions
+     over latestTransactions (\t -> transactions <> t) state
+update (SocketLatestTransactions (Left error)) state = noEffects $
     -- add incoming errors ahead of previous errors
     over errors (\errors' -> (show error) : errors') state
 update Search state = noEffects state

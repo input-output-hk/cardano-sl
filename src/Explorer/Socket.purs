@@ -26,6 +26,9 @@ closeEvent = "close"
 lastestBlocksEvent :: Event
 lastestBlocksEvent = "latestBlocks"
 
+lastestTransactionsEvent :: Event
+lastestTransactionsEvent = "latestTransactions"
+
 
 -- event handler
 
@@ -44,3 +47,9 @@ latestBlocksHandler :: forall eff. ActionChannel -> Json
 latestBlocksHandler channel json = do
     let result = decodeJson json
     send channel $ SocketLatestBlocks result
+
+latestTransactionsHandler :: forall eff. ActionChannel -> Json
+    -> Eff (channel :: CHANNEL | eff) Unit
+latestTransactionsHandler channel json = do
+    let result = decodeJson json
+    send channel $ SocketLatestTransactions result

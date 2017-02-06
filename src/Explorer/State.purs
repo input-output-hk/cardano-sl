@@ -21,5 +21,6 @@ initialState =
             }
         }
     , latestBlocks: []
+    , latestTransactions: []
     , errors: []
     }

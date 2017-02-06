@@ -393,8 +393,9 @@ verifyBlocksPrefix blocks = runExceptT $ do
             when (block ^. blockLeaders /= leaders) $
                 throwError "Genesis block leaders don't match with LRC-computed"
         _ -> pass
+    bv <- GS.getAdoptedBV
     verResToMonadError formatAllErrors $
-        Types.verifyBlocks (Just curSlot) (Just leaders) blocks
+        Types.verifyBlocks (Just curSlot) (Just leaders) (Just bv) blocks
     _ <- withExceptT pretty $ sscVerifyBlocks blocks
     txUndo <- ExceptT $ txVerifyBlocks blocks
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks

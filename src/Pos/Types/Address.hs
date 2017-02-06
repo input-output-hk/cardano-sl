@@ -6,6 +6,7 @@ module Pos.Types.Address
        , addressDetailedF
        , checkPubKeyAddress
        , checkScriptAddress
+       , checkUnknownAddressType
        , makePubKeyAddress
        , makeScriptAddress
        , decodeTextAddress
@@ -31,6 +32,7 @@ import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.Buildable    as Buildable
 import           Formatting             (Format, bprint, build, later, (%))
 import           Prelude                (readsPrec, show)
+import           Serokell.Util.Base16   (base16F)
 import           Universum              hiding (show)
 
 import           Pos.Binary.Class       (Bi)
@@ -99,6 +101,13 @@ checkScriptAddress :: Bi Script => Script -> Address -> Bool
 checkScriptAddress scr (ScriptAddress h) = addressHash scr == h
 checkScriptAddress _ _                   = False
 
+-- | Check if given 'Address' has given type
+checkUnknownAddressType :: Word8 -> Address -> Bool
+checkUnknownAddressType t addr = case addr of
+    PubKeyAddress{}        -> t == 0
+    ScriptAddress{}        -> t == 1
+    UnknownAddressType p _ -> t == p
+
 -- | Specialized formatter for 'Address'.
 addressF :: Bi Address => Format r (Address -> r)
 addressF = build
@@ -110,6 +119,8 @@ addressDetailedF = later $ \case
         bprint ("PubKeyAddress "%build) x
     ScriptAddress x ->
         bprint ("ScriptAddress "%build) x
+    UnknownAddressType t bs ->
+        bprint ("UnknownAddressType "%build%" "%base16F) t bs
 
 ----------------------------------------------------------------------------
 -- Hashing

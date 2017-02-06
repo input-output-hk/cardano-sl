@@ -30,7 +30,7 @@ import           Universum                  hiding (lift)
 
 import           Pos.Binary.Class           (Bi)
 import qualified Pos.Binary.Class           as Bi
-import           Pos.Script.Type            (Script (..), Script_v0)
+import           Pos.Script.Type            (Script (..), ScriptVersion, Script_v0)
 import           Pos.Types.Types            (TxSigData)
 
 {- NOTE
@@ -43,7 +43,7 @@ Here's what would lead to script version increment:
   * adding anything to the stdlib
 -}
 
-isKnownScriptVersion :: Word16 -> Bool
+isKnownScriptVersion :: ScriptVersion -> Bool
 isKnownScriptVersion v = v == 0
 
 -- | Parse a script intended to serve as a validator (or “lock”) in a

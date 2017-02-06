@@ -6,9 +6,8 @@ module PSOptions
        ) where
 
 import           Data.Version               (showVersion)
-import           Options.Applicative.Simple (Parser, auto, help, long, metavar, option,
-                                             showDefault, simpleOptions, strOption,
-                                             switch, value)
+import           Options.Applicative.Simple (Parser, help, long, metavar, simpleOptions,
+                                             strOption, value)
 import           Prelude                    (show)
 import           Universum                  hiding (show)
 

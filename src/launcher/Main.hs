@@ -26,7 +26,7 @@ import           GHC.IO.Exception         (IOErrorType (..), IOException (..))
 
 import           Paths_cardano_sl         (version)
 import           Pos.CLI                  (readLoggerConfig)
-import           Pos.Reporting.Methods    (retrieveLogFiles, sendReport)
+import           Pos.Reporting.Methods    (chooseLogFiles, retrieveLogFiles, sendReport)
 import           Pos.ReportServer.Report  (ReportType (..))
 
 data LauncherOptions = LO
@@ -250,6 +250,9 @@ runWallet (path, args) = do
 -- TODO: logs should be sent asynchronously. This would probably require some
 -- changes in the logging mechanism itself (e.g. to ensure that the logs
 -- aren't deleted before we have sent them).
+--
+-- ...Or maybe we don't care because we don't restart anything after sending
+-- logs (and so the user never actually sees the process or waits for it).
 reportNodeCrash
     :: MonadIO m
     => ExitCode        -- ^ Exit code of the node
@@ -262,7 +265,9 @@ reportNodeCrash exitCode logConfPath reportServ logPath = liftIO $ do
     let logFileNames = map snd $ retrieveLogFiles $ logConfig ^. lcTree
     -- TODO: we don't want to send all logs;
     -- see Pos.Reporting.Methods.sendReportNode
-    let logFiles = toString logPath : filter (const True) logFileNames
+    logFiles <-
+        (toString logPath :) <$>
+        concatMapM chooseLogFiles (filter (const True) logFileNames)
     let ec = case exitCode of
             ExitSuccess   -> 0
             ExitFailure n -> n

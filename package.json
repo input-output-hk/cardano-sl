@@ -26,10 +26,10 @@
   "homepage": "https://github.com/input-output-hk/cardano-sl-explorer-frontend#readme",
   "dependencies": {
     "react": "^15.4.2",
-    "react-dom": "^15.4.2"
+    "react-dom": "^15.4.2",
+    "socket.io-client": "^1.7.2"
   },
   "devDependencies": {
-    "bower": "^1.8.0",
     "autoprefixer": "^6.7.0",
     "babel-core": "^6.22.1",
     "babel-loader": "^6.2.10",
@@ -37,6 +37,7 @@
     "babel-preset-es2015": "^6.22.0",
     "babel-preset-react": "^6.22.0",
     "babel-preset-stage-2": "^6.22.0",
+    "bower": "^1.8.0",
     "copy-webpack-plugin": "^4.0.1",
     "css-loader": "^0.26.1",
     "cssnano": "^3.10.0",

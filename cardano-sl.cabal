@@ -86,6 +86,10 @@ library
                         Pos.Security.Workers
                         Pos.Slotting
 
+                        -- Reporting
+                        Pos.Reporting.Methods
+                        Pos.Reporting.Exceptions
+
                         -- SSC
                         Pos.Ssc.Arbitrary
                         Pos.Ssc.Class
@@ -138,7 +142,9 @@ library
     exposed-modules:    Pos.Wallet
   if flag(with-wallet) && flag(with-web)
     exposed-modules:    Pos.Wallet.Web
-  other-modules:        Pos.Aeson.CompileConfig
+  other-modules:        Paths_cardano_sl
+
+                        Pos.Aeson.CompileConfig
 
                         -- Binary serialization
                         Pos.Binary.Address
@@ -263,10 +269,6 @@ library
                         Pos.Lrc.Logic
                         Pos.Lrc.Types
                         Pos.Lrc.Worker
-
-                        -- Reporting
-                        Pos.Reporting.Methods
-                        Pos.Reporting.Exceptions
 
                         -- SafeCopy serialization (obsolete, but still needed)
                         Pos.SafeCopy
@@ -1085,6 +1087,8 @@ executable cardano-launcher
                      , base
                      , optparse-applicative
                      , cardano-report-server >= 0.0.1
+                     , log-warper
+                     , cardano-sl
                      , directory
                      , process
                      , text

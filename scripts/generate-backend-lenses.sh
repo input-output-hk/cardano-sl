@@ -10,8 +10,8 @@ purescript-derive-lenses \
     < $DIR_GENERATED_WEB/ClientTypes.purs \
     --moduleName Pos.Explorer.Web.Lenses.ClientTypes \
     --moduleImports "import Data.Maybe" \
-    --moduleImports "import Data.Types" \
-    --moduleImports "import Pos.Types.Core" \
+    --moduleImports "import Data.Time.NominalDiffTime (NominalDiffTime(..))" \
+    --moduleImports "import Pos.Types.Core (Coin)" \
     > $DIR_GENERATED_WEB/Lenses/ClientTypes.purs
 
 

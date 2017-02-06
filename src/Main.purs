@@ -6,8 +6,7 @@ import Control.Monad.Eff (Eff)
 import Control.SocketIO.Client (SocketIO, connect, on)
 import DOM (DOM)
 import Explorer.Routes (match)
-import Explorer.Socket (connectEvent, closeEvent, connectHandler, closeHandler) as Ex
-import Explorer.State (hostname) as Ex
+import Explorer.Socket (socketHost, connectEvent, closeEvent, connectHandler, closeHandler, lastestBlocksEvent, latestBlocksHandler) as Ex
 import Explorer.Types.Actions (Action(..)) as Ex
 import Explorer.Types.State (State) as Ex
 import Explorer.Update (update) as Ex
@@ -29,9 +28,10 @@ config state = do
   -- socket
   actionChannel <- channel $ Ex.SocketConnected false
   let socketSignal = subscribe actionChannel :: Signal Ex.Action
-  socket <- connect Ex.hostname
+  socket <- connect Ex.socketHost
   on socket Ex.connectEvent $ Ex.connectHandler actionChannel
   on socket Ex.closeEvent $ Ex.closeHandler actionChannel
+  on socket Ex.lastestBlocksEvent $ Ex.latestBlocksHandler actionChannel
 
   pure
     { initialState: state

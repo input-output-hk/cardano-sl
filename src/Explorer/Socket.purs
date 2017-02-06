@@ -1,11 +1,19 @@
 module Explorer.Socket where
 
-import Prelude (($), Unit)
 import Control.Monad.Eff (Eff)
-import Control.SocketIO.Client (Event)
+import Control.SocketIO.Client (Event, Host)
+import Data.Argonaut.Core (Json)
+import Data.Argonaut.Generic.Argonaut(decodeJson)
 import Data.Foreign (Foreign)
 import Explorer.Types.Actions (Action(..), ActionChannel)
+import Prelude (($), Unit)
 import Signal.Channel (CHANNEL, send)
+
+
+-- host
+
+socketHost :: Host
+socketHost = "http://localhost:9999"
 
 -- events
 
@@ -14,6 +22,9 @@ connectEvent = "connect"
 
 closeEvent :: Event
 closeEvent = "close"
+
+lastestBlocksEvent :: Event
+lastestBlocksEvent = "latestBlocks"
 
 
 -- event handler
@@ -27,3 +38,9 @@ closeHandler :: forall eff. ActionChannel -> Foreign
     -> Eff (channel :: CHANNEL | eff) Unit
 closeHandler channel _ =
     send channel $ SocketConnected false
+
+latestBlocksHandler :: forall eff. ActionChannel -> Json
+    -> Eff (channel :: CHANNEL | eff) Unit
+latestBlocksHandler channel json = do
+    let result = decodeJson json
+    send channel $ SocketLatestBlocks result

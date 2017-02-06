@@ -1,6 +1,5 @@
 module Explorer.State where
 
-import Control.SocketIO.Client (Host)
 import Explorer.I18n.Lang (Language(..))
 import Explorer.Routes (Route(..))
 import Explorer.Types.State (DashboardAPICode(..), State)
@@ -21,7 +20,6 @@ initialState =
             , searchInput: false
             }
         }
+    , latestBlocks: []
+    , errors: []
     }
-
-hostname :: Host
-hostname = "http://localhost:9999"

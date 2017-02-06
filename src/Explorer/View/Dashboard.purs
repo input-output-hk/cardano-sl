@@ -8,11 +8,14 @@ import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Tuple (Tuple(..))
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (age, height, relayedBy, sizeKB, totalSent, transactions, title, subtitle, transactionFeed) as I18nL
-import Explorer.Lenses.State (blocksExpanded, dashboard, searchInput, selectedApiCode, transactionsExpanded, viewStates)
+import Explorer.Lenses.State (blocksExpanded, dashboard, latestBlocks, searchInput, selectedApiCode, transactionsExpanded, viewStates)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.Generated (CCurrency(..))
-import Explorer.Types.State (DashboardAPICode(..), State, DashboardViewState)
+import Explorer.Types.State (DashboardAPICode(..), DashboardViewState, State, CBlockEntries)
 import Explorer.View.Common (currencyCSSClass, paginationView)
+import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
+import Pos.Explorer.Web.Lenses.ClientTypes (cbeRelayedBy, cbeSize, cbeTotalSent, cbeTxNum)
+import Pos.Types.Lenses.Core (_Coin, getCoin)
 import Pux.Html (Html, div, h3, text, h1, h2, input, h4, p, code) as P
 import Pux.Html.Attributes (className, type_, placeholder) as P
 import Pux.Html.Events (onClick, onFocus, onBlur) as P
@@ -164,28 +167,6 @@ networkItem state item =
 
 -- blocks
 
-
--- FIXME (jk): just for now, will use later `real` ADTs
-type BlockItems = Array BlockItem
-
--- FIXME (jk): just for now, will use later `real` ADTs
-type BlockItem =
-    { height :: Int
-    , age :: String
-    , transactions :: Int
-    , totalSent :: Int
-    , relayedBy :: String
-    , sizeKb :: Int
-    }
-
-blockItems :: BlockItems
-blockItems =
-    [ { height: 419821, age: "9 minutes", transactions: 358000, totalSent: 58200, relayedBy: "Unknown", sizeKb: 123 }
-    , { height: 419821, age: "7 hours", transactions: 1200, totalSent: 600, relayedBy: "Unknown", sizeKb: 1234 }
-    , { height: 419821, age: "3 days", transactions: 69000, totalSent: 7300, relayedBy: "KNCMiner", sizeKb: 234 }
-    , { height: 419821, age: "2 days", transactions: 67000, totalSent: 7700, relayedBy: "Unknown", sizeKb: 134 }
-    ]
-
 blocksView :: State -> P.Html Action
 blocksView state =
     P.div
@@ -196,7 +177,7 @@ blocksView state =
             , blocksHeaderView state
             , P.div
               [ P.className "blocks-body" ]
-              $ map (blockRow state) blockItems'
+              $ map (blockRow state) latestBlocks'
             , P.div
               [ P.className "blocks-footer" ]
               [ blocksFooterView ]
@@ -208,11 +189,13 @@ blocksView state =
             , link: Just $ HeaderLink { label: "#Explore blocks", action: NoOp }
             }
         expanded = state ^. dashboardBlocksExpanded
+        blocks = state ^. latestBlocks
+        -- TODO (jk) use pagination
+        latestBlocks' :: CBlockEntries
+        latestBlocks' = if expanded
+            then slice 0 maxBlockRows blocks
+            else slice 0 minBlockRows blocks
 
-        blockItems' :: BlockItems
-        blockItems' = if expanded
-            then slice 0 maxBlockRows blockItems
-            else slice 0 minBlockRows blockItems
 
         blocksFooterView :: P.Html Action
         blocksFooterView = if expanded then
@@ -230,16 +213,16 @@ maxBlockRows = 10
 minBlockRows :: Int
 minBlockRows = 3
 
-blockRow :: State -> BlockItem -> P.Html Action
-blockRow state item =
+blockRow :: State -> CBlockEntry -> P.Html Action
+blockRow state (CBlockEntry entry) =
     P.div
         [ P.className "blocks-body__row" ]
-        [ blockColumn $ show item.height
-        , blockColumn item.age
-        , blockColumn $ show item.transactions
-        , blockColumn $ show item.totalSent
-        , blockColumn item.relayedBy
-        , blockColumn $ show item.sizeKb
+        [ blockColumn $ show entry.cbeHeight
+        -- , blockColumn show $ cbeTimeIssued entry
+        , blockColumn <<< show $ entry ^. cbeTxNum
+        , blockColumn <<< show $ entry ^. (cbeTotalSent <<< _Coin <<< getCoin)
+        , blockColumn <<< fromMaybe "" $ entry ^. cbeRelayedBy
+        , blockColumn <<< show $ entry ^. cbeSize
         ]
 
 blockColumn :: String -> P.Html Action

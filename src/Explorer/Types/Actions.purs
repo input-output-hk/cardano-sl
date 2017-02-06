@@ -1,8 +1,9 @@
 module Explorer.Types.Actions where
 
+import Data.Either (Either)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
-import Explorer.Types.State (DashboardAPICode)
+import Explorer.Types.State (DashboardAPICode, CBlockEntries)
 import Signal.Channel (Channel)
 
 data Action
@@ -10,6 +11,7 @@ data Action
     | UpdateView Route
     | ScrollTop
     | SocketConnected Boolean
+    | SocketLatestBlocks (Either String CBlockEntries)
     | Search
     | DashboardExpandBlocks Boolean
     | DashboardExpandTransactions Boolean

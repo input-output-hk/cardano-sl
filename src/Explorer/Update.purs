@@ -3,8 +3,10 @@ module Explorer.Update where
 import Prelude
 import Control.Monad.Eff.Class (liftEff)
 import DOM (DOM)
-import Data.Lens (set)
-import Explorer.Lenses.State (blocksExpanded, connected, dashboard, searchInput, selectedApiCode, socket, transactionsExpanded, viewStates)
+import Data.Array ((:))
+import Data.Either (Either(..))
+import Data.Lens (over, set)
+import Explorer.Lenses.State (blocksExpanded, connected, errors, dashboard, latestBlocks, searchInput, selectedApiCode, socket, transactionsExpanded, viewStates)
 import Explorer.Routes (Route(..))
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State)
@@ -20,6 +22,12 @@ update (SetLanguage lang) state = noEffects $ state { lang = lang }
 update (UpdateView route) state = routeEffects route (state { route = route })
 update (SocketConnected status) state = noEffects $
   set (socket <<< connected) status state
+update (SocketLatestBlocks (Right blocks)) state = noEffects $
+    -- add incoming blocks ahead of previous blocks
+     over latestBlocks (\latestBlocks' -> blocks <> latestBlocks') state
+update (SocketLatestBlocks (Left error)) state = noEffects $
+    -- add incoming errors ahead of previous errors
+    over errors (\errors' -> (show error) : errors') state
 update Search state = noEffects state
 update ScrollTop state = { state: state, effects: [
     liftEff scrollTop >>= \_ -> pure NoOp

@@ -38,6 +38,7 @@ import           System.Wlog                     (logWarning)
 import           Universum
 
 import           Control.Monad.Except            (MonadError (throwError))
+import           Pos.Constants                   (genesisMpcThd)
 import           Pos.Crypto                      (Share, VssPublicKey, verifyShare)
 import           Pos.Lrc.Types                   (RichmenSet, RichmenStake)
 import           Pos.Ssc.GodTossing.Core         (CommitmentsDistribution,
@@ -53,6 +54,7 @@ import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..), MonadTossRead 
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
 import           Pos.Types                       (EpochIndex, StakeholderId, addressHash,
                                                   unsafeGetCoin)
+import           Pos.Types.Core                  (coinPortionDenominator, getCoinPortion)
 import           Pos.Util                        (AsBinary, fromBinaryM, getKeys)
 
 ----------------------------------------------------------------------------
@@ -133,36 +135,68 @@ computeCommitmentDistr
 computeCommitmentDistr richmen = do
     let total :: Word64
         total = sum $ map unsafeGetCoin $ toList richmen
-    -- Max error between real portion of node and portion of result
-    let portionError = toRational (1::Int) / toRational (20::Int) -- 0.05
-    -- Max multiplier (see below more)
-    let maxMult = 100
+    when (total == 0) $
+        throwError $ TossInternallError "Richmen total stake equals zero"
+    let epsilon = toRational (0.05::Double)
+    -- We accept error in computation = 0.05,
+    -- so stakeholders must have at least 55% of stake (for reveal secret) in the worst case
+    let mpcThreshold = toRational (getCoinPortion genesisMpcThd) / toRational coinPortionDenominator
+    let fromX = 1
+    let toX = truncate $ toRational (3::Int) / mpcThreshold
 
     let keys = map fst $ HM.toList richmen
     let portions = map ((`divRat` total) . unsafeGetCoin . snd) $ HM.toList richmen
-    (_, res) <-
-            execStateT (compute maxMult portions portionError)
-                       (maxMult * 10, multPortions portions maxMult)
+    unless (all (>= mpcThreshold) portions) $
+        throwError $ TossInternallError "Richmen stakes less than threshsold"
+
+    let init = normalize $ multPortions portions toX
+    let initS = sum init
+    let initDelta = calcSumError (map (`divRat` initS) init) portions
+    (_, _, res) <-
+            execStateT (compute fromX toX epsilon portions) (initDelta, initS, init)
     pure $ HM.fromList $ zip keys res
   where
-    -- We multiply all portions by mult and divide on total sum - we get commitment distribution
-    -- next divide them on their gcd,
-    -- next check that their real portion and portion for current mult
-    --   different less than 'portionError',
-    -- select minimal sum of commitment distribution by 1 <= mult <= 100
-    compute maxMult portions maxError = do
-        forM_ [1..maxMult] $ \mult -> do
-            let curDistr = multPortions portions mult
-            let curTotal = sum curDistr
-            let curPortions = map (`divRat` curTotal) curDistr
-            when (curTotal /= 0 &&
-                  all (compareDiff maxError) (zip portions curPortions) && -- different < 0.05
-                  all (> 0) curDistr) $ do -- all portions are positive
-                let g = listGCD curDistr
-                let dividedDistr = map (`div` g) curDistr
-                let curSum = sum dividedDistr
-                ans <- fst <$> get
-                when (curSum < ans) $ put (mult, dividedDistr)
+    -- We multiply all portions by mult and divide them on their gcd
+    --     we get commitment distribution
+    -- compute sum difference between real portions and current portions
+    -- select optimum using next strategy:
+    --   * if sum error < epsilon - we try minimize sum of commitments
+    --   * otherwise we try minimize sum error
+    compute fromX toX epsilon portions = do
+        forM_ [fromX..toX] $ \x -> do
+            let curDistr = normalize $ multPortions portions x
+            when (all (> 0) curDistr) $ do
+                let s = sum curDistr
+                let curPortions = map (`divRat` s) curDistr
+                let delta = calcSumError curPortions portions
+                (optDelta, optS, _) <- get
+                -- if delta less than epsilon then we try minimize sum of commitments
+                when (delta <= epsilon && s < optS ||
+                     -- otherwise we try minimize sum error of rounding
+                      delta <= optDelta && delta > epsilon) $
+                      put (delta, s, curDistr)
+
+    calcSumError:: [Rational] -> [Rational] -> Rational
+    calcSumError pNew p = runIdentity $ do
+        let negDiff = zip p pNew
+        let sortedNeg = sortOn (\(a, b) -> b - a) negDiff
+
+        let posDiff = zip p pNew
+        let sortedPos = sortOn (\(a, b) -> a - b) posDiff
+        pure $ max (computeError1 0 0 sortedNeg) (computeError2 0 0 sortedPos)
+
+    half = toRational (0.5::Double)
+    -- Error when real stake more than 0.5 but our new stake less
+    computeError1 _ new [] = max 0 (half - new)
+    computeError1 real new (x:xs)
+        | real > half = max 0 (half - new)
+        | otherwise = computeError1 (real + fst x) (new + snd x) xs
+
+    -- Error when real stake less than 0.5 but our new stake more
+    computeError2 _ new [] = max 0 (new - half)
+    computeError2 real new (x:xs)
+        | real + fst x > half = max 0 (new - half)
+        | otherwise = computeError2 (real + fst x) (new + snd x) xs
 
     multPortions :: [Rational] -> Word16 -> [Word16]
     multPortions p (toRational -> mult) = map (truncate . (* mult)) p
@@ -170,10 +204,11 @@ computeCommitmentDistr richmen = do
     divRat :: (Real a, Real b) => a -> b -> Rational
     divRat x y = toRational x / toRational y
 
+    normalize :: [Word16] -> [Word16]
+    normalize x = let g = listGCD x in map (`div` g) x
+
     listGCD (x:xs) = foldl' gcd x xs
     listGCD []     = 1
-
-    compareDiff maxError (x, y) = abs (x - y) < maxError
 
 -- CHECK: @matchCommitmentPure
 -- | Check that the secret revealed in the opening matches the secret proof
@@ -256,6 +291,8 @@ checkCommitmentShares vssPublicKeys MultiCommitment{..} = all checkComm mcCommit
 --   * the nodes haven't already sent their commitments before
 --     in some different block
 --   * commitment is generated exactly for all participants
+--   * every multicommitment contains number of commitments
+--     proportional to stake of stakeholder
 checkCommitmentsPayload
     :: (MonadToss m, MonadError TossVerFailure m)
     => EpochIndex
@@ -273,11 +310,10 @@ checkCommitmentsPayload epoch (getCommitmentsMap -> comms) = do
     exceptGuardSnd CommSharesOnWrongParticipants
         (checkCommitmentShares participantKeys) (HM.toList comms)
     exceptGuardEntryM InvalidNumCommitments
-        (pure . lessDistr distr) (HM.toList comms)
+        (pure . eqDistr distr) (HM.toList comms)
   where
-    lessDistr distr (id, MultiCommitment{..}) =
-        (fromIntegral (NE.length mcCommitments) <= HM.lookupDefault 0 id distr) &&
-        (1 <= NE.length mcCommitments)
+    eqDistr distr (id, MultiCommitment{..}) =
+        (fromIntegral (NE.length mcCommitments) == HM.lookupDefault 0 id distr)
     -- [CSL-206]: check that share IDs are different.
 
 -- For openings, we check that

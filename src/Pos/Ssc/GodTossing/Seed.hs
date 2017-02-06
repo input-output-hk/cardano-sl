@@ -5,21 +5,19 @@ module Pos.Ssc.GodTossing.Seed
        ) where
 
 import qualified Data.HashMap.Strict          as HM (fromList, lookup, map, mapMaybe,
-                                                     mapWithKey, toList, traverseWithKey,
-                                                     (!))
+                                                     mapWithKey, toList, traverseWithKey)
 import qualified Data.HashSet                 as HS (difference)
 import qualified Data.List.NonEmpty           as NE
 import           Universum
 
-import           Pos.Crypto                   (Secret, Share, unsafeRecoverSecret)
-import           Pos.Ssc.GodTossing.Core      (Commitment (commShares),
-                                               CommitmentsMap (getCommitmentsMap),
+import           Pos.Crypto                   (Secret, Share, Threshold,
+                                               unsafeRecoverSecret)
+import           Pos.Ssc.GodTossing.Core      (CommitmentsMap (getCommitmentsMap),
                                                GtDataId, MultiOpening (moOpenings),
                                                OpeningsMap, SharesMap, getOpening,
                                                secretToSharedSeed, toSignedCommitments,
                                                verifyOpening)
 import           Pos.Ssc.GodTossing.Error     (SeedError (..))
-import           Pos.Ssc.GodTossing.Functions (vssThreshold)
 import           Pos.Types                    (SharedSeed)
 import           Pos.Util                     (fromBinaryM, getKeys)
 
@@ -29,14 +27,13 @@ import           Pos.Util                     (fromBinaryM, getKeys)
 --
 -- TODO: do we need to check secrets' lengths? Probably not.
 calculateSeed ::
-       CommitmentsMap        -- ^ All participating nodes
+       Threshold
+    -> CommitmentsMap        -- ^ All participating nodes
     -> OpeningsMap
     -> SharesMap             -- ^ Decrypted shares
     -> Either SeedError SharedSeed
-calculateSeed (getCommitmentsMap -> multiCommitments) multiOpenings multiLShares = do
-    --let toGtList ::
+calculateSeed (fromIntegral -> t) (getCommitmentsMap -> multiCommitments) multiOpenings multiLShares = do
     let toGtData ex id md = toList $ NE.zipWith (\nm c -> ((id, nm), c)) (0 NE.:| [1..]) (ex md)
-    --let toGtMap ::
     let toGtMap ex hm = HM.fromList $ concat $ toList $ HM.mapWithKey (toGtData ex) hm
 
     let commitments = toGtMap toSignedCommitments multiCommitments
@@ -90,8 +87,6 @@ calculateSeed (getCommitmentsMap -> multiCommitments) multiOpenings multiLShares
             -- shares? maybe it'd be better to 'assert' it.
             let secrets :: [Share]
                 secrets = mapMaybe (HM.lookup id) (toList shares)
-            let t = fromIntegral . vssThreshold . length . commShares $
-                        (commitments HM.! id) ^. _2
             -- Then we recover the secret
             return (id, if length secrets < t
                          then Nothing

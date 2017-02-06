@@ -55,8 +55,13 @@ instance Buildable TossVerFailure where
         bprint (build%" doesn't belong share phase") slotId
     build (NotIntermediatePhase slotId) =
         bprint (build%" doesn't  belong intermidiate phase") slotId
+
     build (DifferentEpoches e g) =
         bprint ("expected epoch: "%build%", but got: "%build) e g
+    build (NoRichmen epoch) =
+        bprint ("no richmen for epoch"%build) epoch
+    build (TossUnknownRichmen epoch) =
+        bprint ("richmen aren't know for "%ords%" epoch") epoch
 
     build (CommitmentInvalid ids) =
         bprint ("verifySignedCommitment has failed for some commitments: "%listJson) ids
@@ -83,10 +88,6 @@ instance Buildable TossVerFailure where
         bprint ("some VSS certificates aren't signed properly: "%listJson) certs
     build (CertificateInvalidTTL certs) =
         bprint ("some VSS certificates have invalid TTL: "%listJson) certs
-    build (TossUnknownRichmen epoch) =
-        bprint ("richmen aren't know for "%ords%" epoch") epoch
-    build (NoRichmen epoch) =
-        bprint ("no richmen for epoch"%build) epoch
     build (SharesAlreadySent stks) =
         bprint ("some shares have already been sent: "%listJson) stks
     build (DecrSharesNotMatchCommitment stks) =

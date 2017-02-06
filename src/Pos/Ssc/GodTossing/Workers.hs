@@ -54,7 +54,7 @@ import           Pos.Ssc.GodTossing.Core          (Commitment (..), MultiCommitm
                                                    mkVssCertificate)
 import           Pos.Ssc.GodTossing.Functions     (hasCommitment, hasOpening, hasShares,
                                                    vssThreshold)
-import           Pos.Ssc.GodTossing.GState        (computeCommitmentDistrById,
+import           Pos.Ssc.GodTossing.GState        (computeCommitmentDistrById, computeSumCommitments,
                                                    getGlobalCerts, getStableCerts,
                                                    gtGetGlobalState)
 import           Pos.Ssc.GodTossing.LocalData     (localOnNewSlot, sscProcessCertificate,
@@ -298,13 +298,15 @@ generateAndSetNewSecret sk SlotId {..} = do
     generateAndSetNewSecretDo :: NonEmpty (AsBinary VssPublicKey)
                               -> m (Maybe MultiCommitment)
     generateAndSetNewSecretDo ps = do
-        let threshold = vssThreshold $ length ps
         ourId <- addressHash . ncPublicKey <$> getNodeContext
         numsEI <- runExceptT $ computeCommitmentDistrById siEpoch ourId
-        case numsEI of
-            Left er ->
+        thresholdEI <- runExceptT $ vssThreshold <$> computeSumCommitments siEpoch
+        case (thresholdEI, numsEI) of
+            (Left er, _) ->
+                Nothing <$ logWarning (sformat ("Couldn't compute threshold, reason: "%build) er)
+            (_, Left er) ->
                 Nothing <$ logWarning (sformat ("Couldn't compute commitment distribution, reason: "%build) er)
-            Right nums -> do
+            (Right threshold, Right nums) -> do
                 mPair <- runMaybeT (genMultiCommitmentAndMultiOpening threshold ps sk nums siEpoch)
                 case mPair of
                     Just (multiComm, multiOpen) ->

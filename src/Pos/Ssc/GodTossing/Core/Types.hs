@@ -89,9 +89,9 @@ instance Buildable GtDataId where
 
 type CommitmentsDistribution = HashMap StakeholderId Word16
 
--- | 'CommitmentsMap' is a wrapper for 'HashMap StakeholderId SignedCommitment'
+-- | 'CommitmentsMap' is a wrapper for 'HashMap StakeholderId MultiCommitment'
 -- which ensures that keys are consistent with values, i. e. 'PublicKey'
--- from 'SignedCommitment' corresponds to key which is 'StakeholderId'.
+-- from 'MultiCommitment' corresponds to key which is 'StakeholderId'.
 newtype CommitmentsMap = CommitmentsMap
     { getCommitmentsMap :: HashMap StakeholderId MultiCommitment
     } deriving (Semigroup, Monoid, Show, Eq, Container)
@@ -128,12 +128,15 @@ instance Buildable MultiOpening where
 
 type OpeningsMap = HashMap StakeholderId MultiOpening
 
--- | Each node generates a 'SharedSeed', breaks it into 'Share's, and sends
--- those encrypted shares to other nodes. In a 'SharesMap', for each node we
--- collect shares which said node has received and decrypted.
+-- | Each node generates several 'SharedSeed's, breaks every 'SharedSeed' into 'Share's,
+-- and sends those encrypted shares to other nodes
+-- (for i-th commitment at i-th element of NonEmpty list)
+-- In a 'SharesMap', for each node we collect shares which said node has
+-- received and decrypted.
 --
--- Specifically, if node identified by 'Address' X has received a share
--- from node identified by key Y, this share will be at @sharesMap ! X ! Y@.
+-- Specifically, if node identified by 'Address' X has received NonEmpty list of shares
+-- from node identified by key Y,
+-- this NonEmpty list will be at @sharesMap ! X ! Y@.
 
 ----------------------------------------------------------------------------
 -- Shares

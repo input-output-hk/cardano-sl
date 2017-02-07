@@ -8,6 +8,7 @@ module Pos.Slotting.Logic
        , getCurrentSlotUsingNtp
 
        , onNewSlot
+       , onNewSlotWithLogging
        , onNewSlotImpl
        ) where
 

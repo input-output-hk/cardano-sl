@@ -14,7 +14,7 @@ import           Control.Concurrent.STM.TVar (writeTVar)
 import           Data.Default                (def)
 import           Development.GitRev          (gitBranch, gitHash)
 import           Formatting                  (build, int, sformat, (%))
-import           Mockable                    (currentTime, delay, fork, sleepForever)
+import           Mockable                    (currentTime, delay, fork)
 import           System.Wlog                 (logError, logInfo)
 import           Universum
 

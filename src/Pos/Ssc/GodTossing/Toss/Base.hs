@@ -137,7 +137,7 @@ computeCommitmentDistr richmen = do
         total = sum $ map unsafeGetCoin $ toList richmen
     when (total == 0) $
         throwError $ TossInternallError "Richmen total stake equals zero"
-    let epsilon = toRational (0.05::Double)
+    let epsilon = 0.05::Rational
     -- We accept error in computation = 0.05,
     -- so stakeholders must have at least 55% of stake (for reveal secret) in the worst case
     let mpcThreshold = toRational (getCoinPortion genesisMpcThd) / toRational coinPortionDenominator
@@ -185,7 +185,7 @@ computeCommitmentDistr richmen = do
         let sortedPos = sortOn (\(a, b) -> a - b) posDiff
         pure $ max (computeError1 0 0 sortedNeg) (computeError2 0 0 sortedPos)
 
-    half = toRational (0.5::Double)
+    half = 0.5::Rational
     -- Error when real stake more than 0.5 but our new stake less
     computeError1 _ new [] = max 0 (half - new)
     computeError1 real new (x:xs)

@@ -6,8 +6,7 @@ import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (address, transactions) as I18nL
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action)
-import Explorer.Types.Generated (CCurrency(..))
-import Explorer.Types.State (State)
+import Explorer.Types.State (CCurrency(..), State)
 import Explorer.View.Common (currencyCSSClass, transactionBodyView, transactionHeaderView, transactionPaginationView)
 import Pux.Html (Html, div, text, h3, p, img) as P
 import Pux.Html.Attributes (className, src) as P

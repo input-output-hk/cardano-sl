@@ -5,8 +5,7 @@ import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (transaction, summary) as I18nL
 import Explorer.Types.Actions (Action)
-import Explorer.Types.Generated (CCurrency(..))
-import Explorer.Types.State (State)
+import Explorer.Types.State (CCurrency(..), State)
 import Explorer.View.Common (currencyCSSClass, transactionHeaderView, transactionBodyView)
 import Pux.Html (Html, div, text, h3, table, tr, td) as P
 import Pux.Html.Attributes (className) as P

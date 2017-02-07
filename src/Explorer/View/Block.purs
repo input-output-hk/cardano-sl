@@ -4,8 +4,7 @@ import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (block, summary, hashes) as I18nL
 import Explorer.Types.Actions (Action)
-import Explorer.Types.Generated (CCurrency(..))
-import Explorer.Types.State (State)
+import Explorer.Types.State (CCurrency(..), State)
 import Explorer.View.Common (currencyCSSClass, transactionPaginationView
     , transactionHeaderView, transactionBodyView)
 import Prelude ((<>), ($), map)

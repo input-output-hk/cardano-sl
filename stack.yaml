@@ -30,8 +30,12 @@ packages:
     commit: 57adb970e198a9b377769ab46e776ec29f19cff6
   extra-dep: true
 - location:
+    git: https://github.com/input-output-hk/cardano-report-server.git
+    commit: 344f0e6e1b69b512cbfb04caf42bbe285cc7727a
+  extra-dep: true
+- location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 46c8b3c97ceb8df523f8e634657429284336eaa8 # not master, switch to master once it's stable
+    commit: d0cdbf5a5f1d985a9776ba745ea6f6fb915c6e3d
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
@@ -41,10 +45,6 @@ packages:
 - location:
     git: https://github.com/avieth/network-transport
     commit: e7a5f44d0d98370d16df103c9dc61ef7bf15aee8
-  extra-dep: true
-- location:
-    git: https://github.com/input-output-hk/cardano-report-server.git
-    commit: 344f0e6e1b69b512cbfb04caf42bbe285cc7727a
   extra-dep: true
 
 nix:

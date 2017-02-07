@@ -678,6 +678,15 @@ nodeDispatcher node handlerIn handlerInOut =
                 (_, FeedingApplicationHandler (ChannelIn channel)) -> do
                     Channel.writeChannel channel Nothing
                 _ -> return ()
+
+        -- Must plug input channels for all un-acked outbound connections.
+        channels <- modifySharedAtomic nstate $ \st -> do
+            let nonceMaps = Map.elems (_nodeStateOutboundBidirectional st)
+            let outbounds = nonceMaps >>= Map.elems
+            forM_ outbounds $ \(_, ChannelIn chan, _, _, acked) -> do
+                when (not acked) (Channel.writeChannel chan Nothing)
+            return (st, ())
+
         _ <- waitForRunningHandlers node
         return ()
 

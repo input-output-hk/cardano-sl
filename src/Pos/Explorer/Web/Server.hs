@@ -1,5 +1,6 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeOperators   #-}
+{-# LANGUAGE ViewPatterns    #-}
 
 -- API server logic
 
@@ -19,10 +20,14 @@ import           Servant.Server                 (Handler, Server, ServerT, serve
 import           Universum
 
 import           Pos.Communication              (SendActions)
+import           Pos.Crypto                     (WithHash (..), withHash)
 import qualified Pos.DB                         as DB
 import qualified Pos.DB.GState                  as GS
+import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
-import           Pos.Types                      (prevBlockL)
+import           Pos.Txp                        (getLocalTxs)
+import           Pos.Types                      (Tx, blockTxs, gbHeader, gbhConsensus,
+                                                 mcdSlot, prevBlockL, topsortTxs)
 import           Pos.Util                       (maybeThrow)
 import           Pos.Web                        (serveImpl)
 import           Pos.WorkMode                   (WorkMode)
@@ -30,7 +35,7 @@ import           Pos.WorkMode                   (WorkMode)
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
 import           Pos.Explorer.Web.ClientTypes   (CBlockEntry (..), CTxEntry (..),
-                                                 toBlockEntry)
+                                                 toBlockEntry, toTxEntry)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 
 ----------------------------------------------------------------
@@ -84,5 +89,44 @@ getLastBlocks lim off = do
                             pure (n - 1, mb ^. prevBlockL)
     flip unfoldrM (lim, start) $ \(n, h) -> runMaybeT $ unfolder n h
 
+topsortTxsOrFail :: MonadThrow m => (a -> WithHash Tx) -> [a] -> m [a]
+topsortTxsOrFail f =
+    maybeThrow (Internal "Dependency loop in txs set") .
+    topsortTxs f
+
 getLastTxs :: ExplorerMode m => Word -> Word -> m [CTxEntry]
-getLastTxs _ _ = return []
+getLastTxs (fromIntegral -> lim) (fromIntegral -> off) = do
+    let mkWhTx (txid, (tx, _, _)) = WithHash tx txid
+    localTxs <- fmap reverse $ topsortTxsOrFail mkWhTx =<< getLocalTxs
+    ts <- getCurrentTime
+
+    let neededLocalTxs = take lim $ drop off localTxs
+        localTxEntries = map (toTxEntry ts . view (_2 . _1)) neededLocalTxs
+        lenTxs = length localTxs
+        offLeft = off - lenTxs
+        nLeft = offLeft + lim
+
+    tip <- GS.getTip
+    let unfolder off lim h = do
+            when (lim <= 0) $
+                fail "Finished"
+            MaybeT (DB.getBlock h) >>= \case
+                Left gb -> unfolder off lim (gb ^. prevBlockL)
+                Right mb -> do
+                    let mTxs = mb ^. blockTxs
+                    if off >= length mTxs
+                        then return ([], (off - length mTxs, lim, mb ^. prevBlockL))
+                        else do
+                        txs <- topsortTxsOrFail identity $ map withHash $ toList mTxs
+                        blkSlotStart <- lift $ getSlotStart $
+                                        mb ^. gbHeader . gbhConsensus . mcdSlot
+                        let neededTxs = take lim $ drop off $ reverse txs
+                            blkTxEntries = map (toTxEntry blkSlotStart . whData) neededTxs
+                            offLeft = off - length mTxs
+                            nLeft = offLeft + lim
+                        return (blkTxEntries, (offLeft, nLeft, mb ^. prevBlockL))
+
+    blockTxEntries <- fmap concat $ flip unfoldrM (offLeft, nLeft, tip) $
+        \(o, l, h) -> runMaybeT $ unfolder o l h
+
+    return $ localTxEntries ++ blockTxEntries

@@ -36,6 +36,7 @@ library
                       , cardano-sl
                       , exceptions
                       , formatting
+                      , lens
                       , log-warper
                       , mtl
                       , monad-loops

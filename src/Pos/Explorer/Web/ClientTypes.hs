@@ -85,8 +85,10 @@ totalTxMoney :: Tx -> Coin
 totalTxMoney = unsafeIntegerToCoin . sumCoins .
                map txOutValue . txOutputs
 
-toTxEntry :: POSIXTime -> Tx -> CTxEntry
-toTxEntry cteTimeIssued tx = CTxEntry {..}
+toTxEntry :: Timestamp -> Tx -> CTxEntry
+toTxEntry ts tx = CTxEntry {..}
   where cteId = toCTxId $ hash tx
+        cteTimeIssued = toPosixTime ts
         cteAmount = totalTxMoney tx
+
 

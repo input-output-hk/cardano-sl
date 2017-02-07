@@ -77,9 +77,9 @@ confirmBlockVersion bv =
 --
 -- Specifically, one of the following conditions must be true.
 -- • Given block version is equal to last adopted block version.
--- • '(major, minor)' from given block version must be greater than
--- '(major, minor)' if last adopted version and this block version must be
--- confirmed.
+-- • '(major, minor)' of given block version is greater than
+-- '(major, minor)' of adopted block version and this block version
+-- is confirmed.
 canCreateBlockBV :: MonadPollRead m => BlockVersion -> m Bool
 canCreateBlockBV bv = do
     lastAdopted <- getAdoptedBV

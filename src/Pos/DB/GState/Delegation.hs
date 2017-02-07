@@ -92,4 +92,4 @@ pskKey :: StakeholderId -> ByteString
 pskKey = encodeWithKeyPrefix @PskIter
 
 iterationPrefix :: ByteString
-iterationPrefix = "d/p"
+iterationPrefix = "d/p/"

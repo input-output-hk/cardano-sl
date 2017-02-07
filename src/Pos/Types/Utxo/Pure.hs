@@ -111,9 +111,9 @@ applyTxToUtxoPure' w = execUtxoState $ applyTxToUtxo' w
 -- #verifyTxUtxo
 
 -- | Pure version of verifyTxUtxo.
-verifyTxUtxoPure :: Bool -> Utxo -> TxAux -> VerificationRes
-verifyTxUtxoPure verifyAlone utxo txw =
-    case runUtxoReader (verifyTxUtxo verifyAlone txw) utxo of
+verifyTxUtxoPure :: Bool -> Bool -> Utxo -> TxAux -> VerificationRes
+verifyTxUtxoPure verifyAlone verifyVersions utxo txw =
+    case runUtxoReader (verifyTxUtxo verifyAlone verifyVersions txw) utxo of
         Right _ -> VerSuccess
         Left [] -> VerSuccess
         Left es -> VerFailure es

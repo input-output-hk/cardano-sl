@@ -19,9 +19,11 @@ import           System.Wlog                 (logError, logInfo)
 import           Universum
 
 import           Pos.Communication           (ActionSpec (..), OutSpecs, WorkerSpec,
-                                              withWaitLog)
+                                              wrapActionSpec)
+import           Pos.Constants               (isDevelopment, ntpMaxError,
+                                              ntpResponseTimeout)
 import           Pos.Context                 (NodeContext (..), getNodeContext,
-                                              ncPubKeyAddress, ncPublicKey)
+                                              ncPubKeyAddress, ncPublicKey, npSystemStart)
 import qualified Pos.DB.GState               as GS
 import qualified Pos.DB.Lrc                  as LrcDB
 import           Pos.Delegation.Logic        (initDelegation)
@@ -31,8 +33,9 @@ import           Pos.Ssc.Class               (SscConstraint)
 import           Pos.Types                   (Timestamp (Timestamp), addressHash)
 import           Pos.Update                  (MemState (..), askUSMemVar, mvState)
 import           Pos.Util                    (inAssertMode, waitRandomInterval)
+import           Pos.Util.Shutdown           (waitForWorkers)
 import           Pos.Util.TimeWarp           (sec)
-import           Pos.Worker                  (allWorkers)
+import           Pos.Worker                  (allWorkers, allWorkersCount)
 import           Pos.WorkMode                (WorkMode)
 
 -- | Run full node in any WorkMode.
@@ -59,19 +62,22 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
     logInfo $ "Waiting response from NTP servers"
     notImplemented
     -- waitSystemStart
-    let unpackPlugin (ActionSpec action) = action vI
-    mapM_ (fork . ($ withWaitLog sendActions) . unpackPlugin) $
+    let unpackPlugin (ActionSpec action) = action vI sendActions
+    mapM_ (fork . unpackPlugin) $
         plugins'
-    sleepForever
+
+    -- Instead of sleeping forever, we wait until graceful shutdown
+    waitForWorkers allWorkersCount
 
 -- | Run full node in any WorkMode.
 runNode
     :: (SscConstraint ssc, WorkMode ssc m)
     => ([WorkerSpec m], OutSpecs)
     -> (WorkerSpec m, OutSpecs)
-runNode (plugins', plOuts) = (,plOuts <> wOuts) $ runNode' $ workers' ++ plugins'
+runNode (plugins', plOuts) = (,plOuts <> wOuts) $ runNode' $ workers' ++ plugins''
   where
     (workers', wOuts) = allWorkers
+    plugins'' = map (wrapActionSpec "plugin") plugins'
 
 -- | Try to discover peers repeatedly until at least one live peer is found
 waitForPeers :: WorkMode ssc m => m ()

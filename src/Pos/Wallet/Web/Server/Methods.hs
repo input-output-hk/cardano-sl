@@ -45,8 +45,8 @@ import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
                                                 addSecretKey)
 import           Pos.Wallet.Tx                 (sendTxOuts, submitTx)
 import           Pos.Wallet.Tx.Pure            (TxHistoryEntry (..))
-import           Pos.Wallet.WalletMode         (WalletMode, getBalance, getTxHistory,
-                                                localChainDifficulty,
+import           Pos.Wallet.WalletMode         (WalletMode, applyLastUpdate, getBalance,
+                                                getTxHistory, localChainDifficulty,
                                                 networkChainDifficulty, waitForUpdate)
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CProfile,
@@ -377,7 +377,7 @@ nextUpdate = getNextUpdate >>=
              maybeThrow (Internal "No updates available")
 
 applyUpdate :: WalletWebMode ssc m => m ()
-applyUpdate = removeNextUpdate
+applyUpdate = removeNextUpdate >> applyLastUpdate
 
 blockchainSlotDuration :: WalletWebMode ssc m => m Word
 blockchainSlotDuration = notImplemented

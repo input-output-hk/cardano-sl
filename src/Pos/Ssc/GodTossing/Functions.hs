@@ -123,7 +123,6 @@ verifyGtPayload eoh payload = case payload of
                             (TossVerFailure CommitmentInvalid)
                             (pure . checkSignedComm)
                             (toList commitments)
-        -- [CSL-206]: check that share IDs are different.
 
     -- CHECK: Vss certificates checker
     --

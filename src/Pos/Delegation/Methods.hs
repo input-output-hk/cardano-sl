@@ -17,7 +17,7 @@ import           Universum
 import           Pos.Binary.Communication   ()
 import           Pos.Communication.Message  ()
 import           Pos.Communication.Protocol (Action', OutSpecs, oneMsgH, toOutSpecs)
-import           Pos.Context                (getNodeContext, ncSecretKey)
+import           Pos.Context                (getNodeContext, ncNodeParams, npSecretKey)
 import           Pos.Crypto                 (proxySign)
 import           Pos.Delegation.Types       (ConfirmProxySK (..), SendProxySK (..))
 import           Pos.DHT.Model              (sendToNeighbors)
@@ -51,7 +51,7 @@ sendProxyConfirmSK :: (WorkMode ssc m)
 sendProxyConfirmSK = \psk sendActions -> do
     logDebug $
         sformat ("Generating delivery proof and propagating it to neighbors: "%build) psk
-    sk <- ncSecretKey <$> getNodeContext
+    sk <- npSecretKey . ncNodeParams <$> getNodeContext
     let proof = proxySign sk psk psk -- but still proving is nothing but fear
     sendToNeighbors sendActions $ ConfirmProxySK psk proof
 

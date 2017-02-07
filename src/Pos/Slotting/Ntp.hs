@@ -276,7 +276,7 @@ slottingWorker = notImplemented
 -- waitSystemStart = do
 --     unless isDevelopment $ delay (ntpResponseTimeout + ntpMaxError)
 --     margin <- readNtpMargin
---     Timestamp start <- ncSystemStart <$> getNodeContext
+--     Timestamp start <- ncSystemStart . ncNodeParams <$> getNodeContext
 --     cur <- (+ margin) <$> currentTime
 --     let waitPeriod = start - cur
 --     logInfo $ sformat ("Waiting "%int%" seconds for system start") $

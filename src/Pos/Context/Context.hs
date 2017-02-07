@@ -7,22 +7,28 @@ module Pos.Context.Context
        , NodeContext (..)
        , ncPublicKey
        , ncPubKeyAddress
+       , ncGenesisLeaders
+       , ncGenesisUtxo
+       , NodeParams(..)
+       , BaseParams(..)
        ) where
 
-import qualified Control.Concurrent.STM         as STM
-import           Control.Concurrent.STM.TBQueue (TBQueue)
-import           Pos.Communication.Protocol     (NodeId)
+import qualified Control.Concurrent.STM           as STM
+import           Control.Concurrent.STM.TBQueue   (TBQueue)
+import           Pos.Communication.Types.Protocol (NodeId)
+import           System.Wlog                      (LoggerConfig)
 import           Universum
 
-import           Pos.Crypto                     (PublicKey, SecretKey, toPublic)
-import           Pos.Security.CLI               (AttackTarget, AttackType)
-import           Pos.Ssc.Class.Types            (Ssc (SscNodeContext))
-import           Pos.Types                      (Address, BlockHeader, EpochIndex,
-                                                 HeaderHash, SlotLeaders, Timestamp, Utxo,
-                                                 makePubKeyAddress)
-import           Pos.Update.Poll.Types          (ConfirmedProposalState)
-import           Pos.Util                       (NE, NewestFirst)
-import           Pos.Util.UserSecret            (UserSecret)
+import           Pos.Crypto                       (PublicKey, toPublic)
+import           Pos.Genesis                      (genesisLeaders)
+import           Pos.Launcher.Param               (BaseParams (..), NodeParams (..))
+import           Pos.Ssc.Class.Types              (Ssc (SscNodeContext))
+import           Pos.Types                        (Address, BlockHeader, EpochIndex,
+                                                   HeaderHash, SlotLeaders, Utxo,
+                                                   makePubKeyAddress)
+import           Pos.Update.Poll.Types            (ConfirmedProposalState)
+import           Pos.Util                         (NE, NewestFirst)
+import           Pos.Util.UserSecret              (UserSecret)
 
 ----------------------------------------------------------------------------
 -- NodeContext
@@ -35,26 +41,8 @@ type LrcSyncData = (Bool, EpochIndex)
 
 -- | NodeContext contains runtime context of node.
 data NodeContext ssc = NodeContext
-    { ncSystemStart         :: !Timestamp
-    -- ^ Time when system started working.
-    , ncSecretKey           :: !SecretKey
-    -- ^ Secret key used for blocks creation.
-    , ncGenesisUtxo         :: !Utxo
-    -- ^ Genesis utxo
-    , ncGenesisLeaders      :: !SlotLeaders
-    -- ^ Leaders for 0-th epoch
-    , ncTimeLord            :: !Bool
-    -- ^ Is time lord
-    , ncJLFile              :: !(Maybe (MVar FilePath))
-    , ncDbPath              :: !FilePath
-    -- ^ Path to the database
+    { ncJLFile              :: !(Maybe (MVar FilePath))
     , ncSscContext          :: !(SscNodeContext ssc)
-    , ncAttackTypes         :: ![AttackType]
-    -- ^ Attack types used by malicious emulation
-    , ncAttackTargets       :: ![AttackTarget]
-    -- ^ Attack targets used by malicious emulation
-    , ncPropagation         :: !Bool
-    -- ^ Whether to propagate txs, ssc data, blocks to neighbors
     , ncBlkSemaphore        :: !(MVar HeaderHash)
     -- ^ Semaphore which manages access to block application.
     -- Stored hash is a hash of last applied block.
@@ -62,8 +50,6 @@ data NodeContext ssc = NodeContext
     -- ^ Primitive for synchronization with LRC.
     , ncUserSecret          :: !(STM.TVar UserSecret)
     -- ^ Secret keys (and path to file) which are used to send transactions
-    , ncKademliaDump        :: !FilePath
-    -- ^ Path to kademlia dump file
     , ncBlockRetrievalQueue :: !(TBQueue (NodeId, NewestFirst NE (BlockHeader ssc)))
     -- ^ Concurrent queue that holds block headers that are to be
     -- downloaded.
@@ -79,16 +65,34 @@ data NodeContext ssc = NodeContext
     , ncUpdateSemaphore     :: !(MVar ConfirmedProposalState)
     -- ^ A semaphore which is unlocked when update data is downloaded
     -- and ready to apply
-    , ncUpdatePath          :: !FilePath
-    -- ^ Path to update installer executable, downloaded by update system
-    , ncUpdateWithPkg       :: !Bool
-    -- ^ Whether to use installer update mechanism
+    , ncLoggerConfig        :: !LoggerConfig
+    -- ^ Logger config, as taken/read from CLI
+    , ncNodeParams          :: !NodeParams
+    -- ^ Params node is launched with
+    , ncShutdownFlag        :: !(STM.TVar Bool)
+    -- ^ If this flag is `True`, then workers should stop.
+    , ncShutdownNotifyQueue :: !(TBQueue ())
+    -- ^ A queue which is used to count how many workers have successfully
+    -- terminated
+    , ncSendLock            :: !(Maybe (MVar ()))
+    -- ^ Exclusive lock for sending messages to other nodes
+    -- (if Nothing, no lock used)
     }
+
+----------------------------------------------------------------------------
+-- Helper functions
+----------------------------------------------------------------------------
 
 -- | Generate 'PublicKey' from 'SecretKey' of 'NodeContext'.
 ncPublicKey :: NodeContext ssc -> PublicKey
-ncPublicKey = toPublic . ncSecretKey
+ncPublicKey = toPublic . npSecretKey . ncNodeParams
 
 -- | Generate 'Address' from 'SecretKey' of 'NodeContext'
 ncPubKeyAddress :: NodeContext ssc -> Address
 ncPubKeyAddress = makePubKeyAddress . ncPublicKey
+
+ncGenesisUtxo :: NodeContext ssc -> Utxo
+ncGenesisUtxo = npCustomUtxo . ncNodeParams
+
+ncGenesisLeaders :: NodeContext ssc -> SlotLeaders
+ncGenesisLeaders = genesisLeaders . ncGenesisUtxo

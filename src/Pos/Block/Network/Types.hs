@@ -18,7 +18,28 @@ import           Pos.Ssc.Class.Types (Ssc (SscPayload))
 import           Pos.Types           (Block, BlockHeader, HeaderHash)
 import           Pos.Util            (NE, NewestFirst)
 
--- | 'GetHeaders' message (see protocol specification).
+-- | 'GetHeaders' message. Behaviour of the response depends on
+-- particular combination of 'mghFrom' and 'mghTo'.
+--
+-- * 'mghTo' resolves to some header (let's call it @top@ for
+-- convenience) -- node's tip if it's @Nothing@, header with hash in
+-- @Just@ if it's @Just@.
+--
+-- * If 'mghFrom' is empty, then semantics is "request to return
+-- header of block @top@".
+--
+-- * Otherwise (if 'mghFrom' isn't empty) it represents the set of
+-- checkpoints. Responding node will try to iterate headers from @top@
+-- to older until it reaches any checkpoint. If it finds checkpoint
+-- @c@, it returns all headers in range @[c.next..top]@. If it doesn't
+-- find any checkpoint or depth of searching exceeds
+-- 'recoveryHeadersMessage', it will try to find the newest checkpoint
+-- @cc@ from 'mghFrom' that's in main chain of responding node and
+-- then return at most 'recoveryHeadersMessage' headers starting with
+-- @cc@ as the oldest one, returning headers in range @l2 =
+-- [cc.next..x]@ where @x@ is either @top@ (in case @length l2 <
+-- recoveryHeadersMessage@) or some arbitrary header (and length is
+-- precisely 'recoveryHeadersMessage').
 data MsgGetHeaders = MsgGetHeaders
     { -- not guaranteed to be in any particular order
       mghFrom :: ![HeaderHash]

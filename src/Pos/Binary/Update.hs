@@ -12,11 +12,11 @@ import           Universum
 
 import           Pos.Binary.Class      (Bi (..))
 import           Pos.Binary.Types      ()
-import           Pos.Binary.Util       (getAsciiString1b, putAsciiString1b)
 import           Pos.Binary.Version    ()
 import           Pos.Crypto            (checkSig)
 import qualified Pos.Update.Core.Types as U
 import qualified Pos.Update.Poll.Types as U
+import           Pos.Util.Binary       (getAsciiString1b, putAsciiString1b)
 
 instance Bi U.SystemTag where
     get =

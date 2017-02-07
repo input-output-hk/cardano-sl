@@ -23,7 +23,7 @@ import           Pos.DHT.Model               (discoverPeers)
 import           Pos.DHT.Real                (runKademliaDHT)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
                                               RealModeResources (..), addDevListeners,
-                                              runServer)
+                                              runServer_)
 import           Pos.Slotting                (runNtpSlotting)
 import           Pos.Types                   (unflattenSlotId)
 import           Pos.Wallet.Context          (WalletContext (..), runContextHolder)
@@ -70,8 +70,8 @@ runWallet (plugins', pouts) = (,outs) . ActionSpec $ \vI sendActions -> do
     logInfo "Wallet is initialized!"
     peers <- discoverPeers
     logInfo $ sformat ("Known peers: "%build) peers
-    let unpackPlugin (ActionSpec action) = action vI
-    mapM_ (fork . ($ sendActions) . unpackPlugin) $ plugins' ++ workers'
+    let unpackPlugin (ActionSpec action) = action vI sendActions
+    mapM_ (fork . unpackPlugin) $ plugins' ++ workers'
     sleepForever
   where
     (workers', wouts) = allWorkers
@@ -98,7 +98,7 @@ runRawRealWallet res WalletParams {..} listeners (ActionSpec action, outs) =
             runKeyStorage wpKeyFilePath .
             runKademliaDHT (rmDHT res) .
             runPeerStateHolder stateM .
-            runServer (rmTransport res) listeners outs . ActionSpec $
+            runServer_ (rmTransport res) listeners outs . ActionSpec $
                 \vI sa -> logInfo "Started wallet, joining network" >> action vI sa
   where
     LoggingParams {..} = bpLoggingParams wpBaseParams

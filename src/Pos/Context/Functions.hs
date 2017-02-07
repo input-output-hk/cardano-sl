@@ -23,7 +23,8 @@ import           Control.Concurrent.MVar (putMVar)
 import           Universum
 
 import           Pos.Context.Class       (WithNodeContext (..))
-import           Pos.Context.Context     (NodeContext (..))
+import           Pos.Context.Context     (NodeContext (..), ncGenesisLeaders,
+                                          ncGenesisUtxo)
 import           Pos.Lrc.Error           (LrcError (..))
 import           Pos.Types               (EpochIndex, HeaderHash, SlotLeaders, Utxo)
 import           Pos.Util                (maybeThrow, readTVarConditional)

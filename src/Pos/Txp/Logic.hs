@@ -155,7 +155,7 @@ txVerifyBlocks newChain = do
     verifyDo (Right undos) (Left ()) = pure (Right ([]:undos))
     -- handling a main block
     verifyDo (Right undos) (Right (slotId, txas)) =
-        verifyAndApplyTxs False txas >>= \case
+        verifyAndApplyTxs False False txas >>= \case
             Right undo  -> return (Right (undo:undos))
             Left errors -> return (Left (attachSlotId slotId errors))
     attachSlotId sId errors =
@@ -194,7 +194,7 @@ processTxDo ld@(UtxoView{..}, MemPool{..}, undos, tip)
             Left errors -> (PTRinvalid (formatAllErrors errors), ld)
   where
     verifyRes = verifyTxPure
-        True VTxGlobalContext
+        True True VTxGlobalContext
         (fmap VTxLocalContext . inputResolver)
         (tx, txw, txd)
     inputResolver tin
@@ -353,7 +353,7 @@ normalizeTxpLD = do
     canApply xs itxa@(_, txa) = do
         -- Pure checks are not done here, because they are done
         -- earlier, when we accept transaction.
-        verifyRes <- verifyTxUtxo False txa
+        verifyRes <- verifyTxUtxo False False txa
         case verifyRes of
             Right _ -> do
                 applyTxToUtxo' itxa

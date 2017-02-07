@@ -5,7 +5,7 @@ module Pos.Wallet.Context.Context
        , fromNodeCtx
        ) where
 
-import           Pos.Context (NodeContext (..))
+import           Pos.Context (NodeContext)
 
 data WalletContext = WalletContext
     { wcUnit   :: !() -- ^ There is exactly one value of this type.

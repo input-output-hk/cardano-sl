@@ -7,27 +7,41 @@ module Pos.Explorer.Web.ClientTypes
        , CBlockEntry (..)
        , toBlockEntry
        , CTxEntry (..)
+       , toTxEntry
        ) where
-
-import           Universum
 
 import qualified Data.ByteString.Lazy  as BSL
 import           Data.Time.Clock.POSIX (POSIXTime)
+import           Formatting            (build, sformat)
+import           Universum
+
 import           Pos.Binary            (encode)
+import           Pos.Crypto            (Hash, hash)
 import           Pos.Slotting          (MonadSlots (..), getSlotStart)
-import           Pos.Types             (Coin, MainBlock (..), Tx (..), TxOut (..),
-                                        blockTxs, difficultyL, gbHeader, gbhConsensus,
-                                        mcdSlot, mkCoin, sumCoins, unsafeAddCoin,
-                                        unsafeIntegerToCoin)
+import           Pos.Ssc.Class         (SscHelpersClass)
+import           Pos.Types             (Address, Coin, MainBlock (..), Timestamp, Tx (..),
+                                        TxId, TxOut (..), addressF, blockTxs, difficultyL,
+                                        gbHeader, gbhConsensus, mcdSlot, mkCoin, sumCoins,
+                                        unsafeAddCoin, unsafeIntegerToCoin)
 
 -- | Client hash
 newtype CHash = CHash Text deriving (Show, Eq, Generic, Buildable, Hashable)
 
 -- | Client address
-newtype CAddress = CAddress CHash deriving (Show, Eq, Generic, Hashable, Buildable)
+newtype CAddress = CAddress Text deriving (Show, Eq, Generic, Hashable, Buildable)
 
 -- | Client transaction id
 newtype CTxId = CTxId CHash deriving (Show, Eq, Generic, Hashable)
+
+-- | Transformation of core hash-types to client representations
+toCHash :: Hash a -> CHash
+toCHash = CHash . sformat build
+
+toCAddress :: Address -> CAddress
+toCAddress = CAddress . sformat addressF
+
+toCTxId :: TxId -> CTxId
+toCTxId = CTxId . toCHash
 
 -- | List of block entries is returned from "get latest N blocks" endpoint
 data CBlockEntry = CBlockEntry
@@ -39,21 +53,24 @@ data CBlockEntry = CBlockEntry
     , cbeRelayedBy  :: !(Maybe Text)
     } deriving (Show, Generic)
 
-toBlockEntry :: MonadSlots m => MainBlock ssc -> m CBlockEntry
+toPosixTime :: Timestamp -> POSIXTime
+toPosixTime = (/ 1e6) . fromIntegral
+
+toBlockEntry
+    :: (SscHelpersClass ssc, MonadSlots m)
+    => MainBlock ssc
+    -> m CBlockEntry
 toBlockEntry blk = do
     blkSlotStart <- getSlotStart $
                     blk ^. gbHeader . gbhConsensus . mcdSlot
     let cbeHeight = fromIntegral $ blk ^. difficultyL
-        cbeTimeIssued = (/ 1e6) . fromIntegral $ blkSlotStart
+        cbeTimeIssued = toPosixTime blkSlotStart
         txs = blk ^. blockTxs
         cbeTxNum = fromIntegral $ length txs
-        addCoins c Tx {..} = unsafeAddCoin c $
-            unsafeIntegerToCoin . sumCoins $
-            map txOutValue txOutputs
+        addCoins c = unsafeAddCoin c . totalTxMoney
         cbeTotalSent = foldl' addCoins (mkCoin 0) txs
         -- TODO: is there a way to get it more efficiently?
-        -- cbeSize = fromIntegral . BSL.length $ encode blk
-        cbeSize = 0
+        cbeSize = fromIntegral . BSL.length $ encode blk
         cbeRelayedBy = Nothing
     return CBlockEntry {..}
 
@@ -63,3 +80,13 @@ data CTxEntry = CTxEntry
     , cteTimeIssued :: !POSIXTime
     , cteAmount     :: !Coin
     } deriving (Show, Generic)
+
+totalTxMoney :: Tx -> Coin
+totalTxMoney = unsafeIntegerToCoin . sumCoins .
+               map txOutValue . txOutputs
+
+toTxEntry :: POSIXTime -> Tx -> CTxEntry
+toTxEntry cteTimeIssued tx = CTxEntry {..}
+  where cteId = toCTxId $ hash tx
+        cteAmount = totalTxMoney tx
+

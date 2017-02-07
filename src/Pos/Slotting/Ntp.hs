@@ -1,3 +1,5 @@
+{-# LANGUAGE ConstraintKinds      #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -24,11 +26,11 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               defaultRestoreM, defaultRestoreT)
 import           Data.Time.Units             (Microsecond)
 import           Formatting                  (sformat, (%))
-import           Mockable                    (ChannelT, Counter, CurrentTime,
-                                              Distribution, Gauge, MFunctor',
+import           Mockable                    (Catch, ChannelT, Counter, CurrentTime,
+                                              Distribution, Fork, Gauge, MFunctor',
                                               Mockable (liftMockable), Promise,
                                               SharedAtomicT, SharedExclusiveT, ThreadId,
-                                              liftMockableWrappedM)
+                                              Throw, liftMockableWrappedM)
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           System.Wlog                 (logNotice, modifyLoggerName)
@@ -59,13 +61,13 @@ import           Pos.Context                 (NodeContext (..), getNodeContext)
 -- | Data needed for the slotting algorithm to work.
 data NtpSlottingState = NtpSlottingState
     {
-    -- | Slot which was returned from getCurrentSlot in last time
-      _nssNtpLastSlot :: !SlotId
-    -- | Data for the NTP Worker. First element: margin (difference
-    -- between global time and local time) which we got from NTP
-    -- server in last time.  Second element: time (local) for which we
-    -- got margin in last time.
-    , _nssNtpData     :: !(Microsecond, Microsecond)
+    -- | Slot which was returned from getCurrentSlot last time.
+      _nssLastSlot      :: !SlotId
+    -- | Margin (difference between global time and local time) which
+    -- we got from NTP server last time.
+    , _nssLastMargin    :: !Microsecond
+    -- | Time (local) for which we got margin in last time.
+    , _nssLastLocalTime :: !Microsecond
     }
 
 type NtpSlottingVar = TVar NtpSlottingState
@@ -138,9 +140,18 @@ instance MonadBaseControl IO m => MonadBaseControl IO (NtpSlotting m) where
 -- MonadSlots implementation
 ----------------------------------------------------------------------------
 
-instance MonadSlotsData m => MonadSlots (NtpSlotting m) where
+type SlottingConstraint m =
+    ( MonadIO m
+    , WithLogger m
+    , MonadSlotsData m
+    , Mockable Fork m
+    , Mockable Throw m
+    , Mockable Catch m
+    )
+
+instance SlottingConstraint m => MonadSlots (NtpSlotting m) where
     getCurrentSlot = notImplemented
-    slottingWorkers = []
+    slottingWorkers = [ntpWorker]
 
 -- instance (Mockable CurrentTime m, MonadIO m) =>
 --          MonadSlots (ContextHolder ssc m) where
@@ -220,7 +231,7 @@ setNtpLastSlot slotId = pass
 --     atomically $ view ssNtpData <$> STM.readTVar (ncSlottingState nc)
 
 ----------------------------------------------------------------------------
--- Worker
+-- Workers
 ----------------------------------------------------------------------------
 
 -- This worker is necessary for Slotting to work.
@@ -233,40 +244,41 @@ slottingWorker = notImplemented
     --         logNotice $ sformat ("New slot has just started: " %slotIdF) slotId
     --     setNtpLastSlot slotId
 
--- settings :: NodeContext ssc -> NtpClientSettings
--- settings nc = NtpClientSettings
---         { -- list of servers addresses
---           ntpServers         = [ "pool.ntp.org"
---                                , "time.windows.com"
---                                , "clock.isc.org"
---                                , "ntp5.stratum2.ru"]
---         -- got time margin callback
---         , ntpHandler         = ntpHandlerDo nc
---         -- logger name modifier
---         , ntpLogName         = "ntp"
---         -- delay between making requests and response collection;
---         -- it also means that handler will be invoked with this lag
---         , ntpResponseTimeout = C.ntpResponseTimeout
---         -- how often to send responses to server
---         , ntpPollDelay       = C.ntpPollDelay
---         -- way to sumarize results received from different servers.
---         , ntpMeanSelection   = \l -> let len = length l in sort l !! ((len - 1) `div` 2)
---         }
+-- Worker for synchronization of local time and global time.
+ntpWorker
+    :: SlottingConstraint m
+    => NtpSlotting m ()
+ntpWorker = NtpSlotting ask >>= void . startNtpClient . ntpSettings
 
--- -- | Worker for synchronization of local time and global time
--- ntpWorker :: WorkMode ssc m => m ()
--- ntpWorker = getNodeContext >>=
---     void . startNtpClient . settings
+ntpHandlerDo
+    :: (MonadIO m, WithLogger m)
+    => NtpSlottingVar -> (Microsecond, Microsecond) -> m ()
+ntpHandlerDo var (newMargin, transmitTime) = do
+    logDebug $ sformat ("Callback on new margin: "%int% " mcs") newMargin
+    let realTime = transmitTime + newMargin
+    atomically $ STM.modifyTVar var ( set nssLastMargin newMargin
+                                    . set nssLastLocalTime realTime)
 
--- ntpHandlerDo :: (MonadIO m, WithLogger m)
---              => NodeContext ssc
---              -> (Microsecond, Microsecond)
---              -> m ()
--- ntpHandlerDo nc (newMargin, transtimTime) = do
---     logDebug $ sformat ("Callback on new margin: "%int%" mcs") newMargin
---     let realTime = transtimTime + newMargin
---     atomically $ STM.modifyTVar (ncSlottingState nc)
---                                 (ssNtpData .~ (newMargin, realTime))
+ntpSettings :: NtpSlottingVar -> NtpClientSettings
+ntpSettings var = NtpClientSettings
+        { -- list of servers addresses
+          ntpServers         = [ "pool.ntp.org"
+                               , "time.windows.com"
+                               , "clock.isc.org"
+                               , "ntp5.stratum2.ru"]
+        -- got time margin callback
+        , ntpHandler         = ntpHandlerDo var
+        -- logger name modifier
+        , ntpLogName         = "ntp"
+        -- delay between making requests and response collection;
+        -- it also means that handler will be invoked with this lag
+        , ntpResponseTimeout = C.ntpResponseTimeout
+        -- how often to send responses to server
+        , ntpPollDelay       = C.ntpPollDelay
+        -- way to sumarize results received from different servers.
+        , ntpMeanSelection   = \l -> let len = length l in sort l !! ((len - 1) `div` 2)
+        }
+
 
 ----------------------------------------------------------------------------
 -- Something else

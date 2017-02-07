@@ -168,6 +168,14 @@
     }
   }
 
+  .blocks-waiting {
+    padding: 10px 24px;
+
+    font-size: 10px;
+    font-family: var(--fontFamily0-Regular);
+    color: var(--color13);
+  }
+
   .blocks-body {
     font-size: 10px;
     font-family: var(--fontFamily0-Regular);
@@ -197,6 +205,14 @@
 
     &__container {
       padding-bottom: 24px;
+    }
+
+    &__waiting {
+      padding: 10px 24px;
+
+      font-size: 10px;
+      font-family: var(--fontFamily0-Regular);
+      color: var(--color13);
     }
 
     &__row {

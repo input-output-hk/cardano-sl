@@ -1,10 +1,11 @@
 module Explorer.View.Dashboard (dashboardView) where
 
 import Prelude
-import Data.Array (slice)
+import Data.Array (null, slice)
 import Data.Lens (Lens', (^.))
 import Data.Map (Map, fromFoldable, lookup, toAscUnfoldable) as M
 import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Time.NominalDiffTime.Lenses (_NominalDiffTime)
 import Data.Tuple (Tuple(..))
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (age, height, relayedBy, sizeKB, totalSent, transactions, title, subtitle, transactionFeed) as I18nL
@@ -15,7 +16,6 @@ import Explorer.View.Common (currencyCSSClass, paginationView)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..), CTxEntry(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (cbeRelayedBy, cbeSize, cbeTotalSent, cbeTxNum, cteId, cteAmount, _CTxId, _CHash, cteTimeIssued)
 import Pos.Types.Lenses.Core (_Coin, getCoin)
-import Data.Time.NominalDiffTime.Lenses (_NominalDiffTime)
 import Pux.Html (Html, div, h3, text, h1, h2, input, h4, p, code) as P
 import Pux.Html.Attributes (className, type_, placeholder) as P
 import Pux.Html.Events (onClick, onFocus, onBlur) as P
@@ -172,16 +172,19 @@ blocksView state =
     P.div
         [ P.className "explorer-dashboard__wrapper" ]
         [ P.div
-          [ P.className "explorer-dashboard__container" ]
-          [ headerView state headerOptions
+            [ P.className "explorer-dashboard__container" ]
+            [ headerView state headerOptions
             , blocksHeaderView state
             , P.div
-              [ P.className "blocks-body" ]
-              $ map (blockRow state) latestBlocks'
+                [ P.className $ "blocks-waiting" <> visibleWaitingClazz ]
+                [ P.text "#Loading last blocks ...."]
             , P.div
-              [ P.className "blocks-footer" ]
-              [ blocksFooterView ]
-          ]
+                [ P.className $ "blocks-body" <> visibleBlockClazz ]
+                $ map (blockRow state) latestBlocks'
+            , P.div
+                [ P.className $ "blocks-footer" <> visibleBlockClazz ]
+                [ blocksFooterView ]
+            ]
         ]
       where
         headerOptions = HeaderOptions
@@ -190,6 +193,9 @@ blocksView state =
             }
         expanded = state ^. dashboardBlocksExpanded
         blocks = state ^. latestBlocks
+        noBlocks = null blocks
+        visibleBlockClazz = if noBlocks then " invisible" else ""
+        visibleWaitingClazz = if not noBlocks then " invisible" else ""
         -- TODO (jk) use pagination
         latestBlocks' :: CBlockEntries
         latestBlocks' = if expanded
@@ -234,7 +240,7 @@ blockColumn value =
 blocksHeaderView :: State -> P.Html Action
 blocksHeaderView state =
     P.div
-          [ P.className "blocks-header"]
+          [ P.className $ "blocks-header" <> if null $ state ^. latestBlocks then " invisible" else "" ]
           $ map (blockHeaderItemView state) $ mkBlocksHeaderItems state.lang
 
 blockHeaderItemView :: State -> String -> P.Html Action
@@ -269,10 +275,13 @@ transactionsView state =
           [ P.className "explorer-dashboard__container" ]
           [ headerView state headerOptions
           , P.div
-              [ P.className "transactions__container" ]
-              $ map (transactionRow state) $ transactionItems'
+              [ P.className $ "transactions__waiting" <> visibleWaitingClazz ]
+              [ P.text "#Loading transactions ...."]
           , P.div
-            [ P.className "transactions__footer" ]
+              [ P.className $ "transactions__container" <> visibleTxClazz ]
+              $ map (transactionRow state) $ transactions'
+          , P.div
+            [ P.className $ "transactions__footer" <> visibleTxClazz ]
             [ P.div
                 [ P.className "btn-expand"
                 , P.onClick <<< const <<< DashboardExpandTransactions $ not expanded ]
@@ -287,11 +296,14 @@ transactionsView state =
           { headline: translate I18nL.transactionFeed state.lang
           , link: Just $ HeaderLink { label: "#Explore transactions", action: NoOp }
           }
-      transactionItems = state ^. latestTransactions
-      transactionItems' :: CTxEntries
-      transactionItems' = if expanded
-          then slice 0 maxTransactionRows transactionItems
-          else slice 0 minTransactionRows transactionItems
+      transactions = state ^. latestTransactions
+      noTransactions = null transactions
+      visibleTxClazz = if noTransactions then " invisible" else ""
+      visibleWaitingClazz = if not noTransactions then " invisible" else ""
+      transactions' :: CTxEntries
+      transactions' = if expanded
+          then slice 0 maxTransactionRows transactions
+          else slice 0 minTransactionRows transactions
 
 transactionRow :: State -> CTxEntry -> P.Html Action
 transactionRow state (CTxEntry entry) =

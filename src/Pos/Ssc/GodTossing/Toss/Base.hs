@@ -221,7 +221,6 @@ checkCommitmentsPayload epoch (getCommitmentsMap -> comms) = do
     let participantKeys = map vcVssKey $ toList participants
     exceptGuardSnd CommSharesOnWrongParticipants
         (checkCommitmentShares participantKeys) (HM.toList comms)
-    -- [CSL-206]: check that share IDs are different.
 
 -- For openings, we check that
 --   * the opening isn't present in previous blocks
@@ -252,10 +251,9 @@ checkSharesPayload
     -> SharesMap
     -> m ()
 checkSharesPayload epoch shares = do
-    -- We intentionally don't check, that nodes which decrypted shares
-    -- sent its commitments.
-    -- If node decrypted shares correctly, such node is useful for us, despite of
-    -- it didn't send its commitment.
+    -- We intentionally don't check that nodes which decrypted shares sent
+    -- its commitments. If a node decrypted shares correctly, such node is
+    -- useful for us, despite that it didn't send its commitment.
     part <- getParticipants epoch
     exceptGuard SharesNotRichmen
         (`HM.member` part) (HM.keys shares)

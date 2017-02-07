@@ -40,4 +40,4 @@ purescript-derive-lenses \
     < $DIR_TIME/NominalDiffTime.purs \
     --moduleName Data.Time.NominalDiffTime.Lenses \
     --moduleImports "import Data.Time.Duration  (Seconds (..))" \
-    > $DIR_TIME_LENSES/NorminalDiffTime.purs
+    > $DIR_TIME_LENSES/NominalDiffTime.purs

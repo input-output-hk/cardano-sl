@@ -10,6 +10,7 @@ module Pos.Slotting.Util
 
          -- * Worker which ticks when slot starts
        , onNewSlot
+       , onNewSlotWithLogging
        , onNewSlotImpl
        ) where
 

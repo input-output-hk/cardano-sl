@@ -51,7 +51,7 @@ walletServeWebLite
     -> Word16
     -> WalletRealMode ()
 walletServeWebLite sendActions =
-    walletServeImpl $ walletApplication $ walletServer sendActions nat
+    undefined -- walletServeImpl $ walletApplication $ walletServer sendActions nat
 
 nat :: WebHandler (WebHandler :~> Handler)
 nat = do

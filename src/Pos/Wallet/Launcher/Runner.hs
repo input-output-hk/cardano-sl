@@ -63,7 +63,7 @@ runWalletReal
     -> WalletParams
     -> ([WorkerSpec WalletRealMode], OutSpecs)
     -> Production ()
-runWalletReal res wp = runWalletRealMode res wp . runWallet
+runWalletReal res wp = undefined -- runWalletRealMode res wp . runWallet
 
 runWallet :: WalletMode ssc m => ([WorkerSpec m], OutSpecs) -> (WorkerSpec m, OutSpecs)
 runWallet (plugins', pouts) = (,outs) . ActionSpec $ \vI sendActions -> do

@@ -252,11 +252,11 @@ main = do
 
             plugins :: ([ WorkerSpec WalletRealMode ], OutSpecs)
             plugins = first pure $ case woAction of
-                Repl          -> worker runCmdOuts $ runWalletRepl opts
-                Cmd cmd       -> worker runCmdOuts $ runWalletCmd opts cmd
+                Repl                            -> undefined -- worker runCmdOuts $ runWalletRepl opts
+                Cmd cmd                         -> undefined -- worker runCmdOuts $ runWalletCmd opts cmd
 #ifdef WITH_WEB
-                Serve webPort webDaedalusDbPath -> worker walletServerOuts $ \sendActions ->
-                    walletServeWebLite sendActions webDaedalusDbPath False webPort
+                Serve webPort webDaedalusDbPath -> undefined -- worker walletServerOuts $ \sendActions ->
+                    -- walletServeWebLite sendActions webDaedalusDbPath False webPort
 #endif
 
         case CLI.sscAlgo woCommonArgs of

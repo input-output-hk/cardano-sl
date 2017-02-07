@@ -16,6 +16,7 @@ module Pos.Slotting.Ntp
        ) where
 
 import           Control.Concurrent.STM      (TVar)
+import qualified Control.Concurrent.STM      as STM
 import           Control.Lens                (iso, makeLenses)
 import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Fix           (MonadFix)
@@ -24,35 +25,31 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,
                                               defaultLiftBaseWith, defaultLiftWith,
                                               defaultRestoreM, defaultRestoreT)
-import           Data.Time.Units             (Microsecond)
-import           Formatting                  (sformat, (%))
-import           Mockable                    (Catch, ChannelT, Counter, CurrentTime,
-                                              Distribution, Fork, Gauge, MFunctor',
-                                              Mockable (liftMockable), Promise,
-                                              SharedAtomicT, SharedExclusiveT, ThreadId,
-                                              Throw, liftMockableWrappedM)
-import           Serokell.Util.Lens          (WrappedM (..))
-import           System.Wlog                 (CanLog, HasLoggerName)
-import           System.Wlog                 (logNotice, modifyLoggerName)
-import           Universum
-
-import           Pos.Context.Class           (WithNodeContext)
-import           Pos.DB.Class                (MonadDB)
-import           Pos.Slotting.Class          (MonadSlots (..), MonadSlotsData (..))
-import           Pos.Types                   (SlotId, slotIdF)
-import           Pos.Util.JsonLog            (MonadJL)
-
-import qualified Control.Concurrent.STM      as STM
 import           Data.List                   ((!!))
 import           Data.Time.Units             (Microsecond)
 import           Formatting                  (int, sformat, (%))
+import           Mockable                    (Catch, ChannelT, Counter, CurrentTime,
+                                              Delay, Distribution, Fork, Gauge, MFunctor',
+                                              Mockable (liftMockable), Promise,
+                                              SharedAtomicT, SharedExclusiveT, ThreadId,
+                                              Throw, liftMockableWrappedM)
 import           NTP.Client                  (NtpClientSettings (..), startNtpClient)
 import           NTP.Example                 ()
+import           Serokell.Util.Lens          (WrappedM (..))
+import           System.Wlog                 (CanLog, HasLoggerName)
+import           System.Wlog                 (logNotice, modifyLoggerName)
 import           System.Wlog                 (WithLogger, logDebug)
 import           Universum
 
+
 import qualified Pos.Constants               as C
 import           Pos.Context                 (NodeContext (..), getNodeContext)
+import           Pos.Context.Class           (WithNodeContext)
+import           Pos.DB.Class                (MonadDB)
+import           Pos.Slotting.Class          (MonadSlots (..), MonadSlotsData (..))
+import           Pos.Slotting.Util           (onNewSlotWithLogging)
+import           Pos.Types                   (SlotId, slotIdF)
+import           Pos.Util.JsonLog            (MonadJL)
 
 ----------------------------------------------------------------------------
 -- State
@@ -140,18 +137,22 @@ instance MonadBaseControl IO m => MonadBaseControl IO (NtpSlotting m) where
 -- MonadSlots implementation
 ----------------------------------------------------------------------------
 
-type SlottingConstraint m =
+type SlottingConstraint ssc m =
     ( MonadIO m
     , WithLogger m
     , MonadSlotsData m
     , Mockable Fork m
     , Mockable Throw m
     , Mockable Catch m
+    , MonadCatch m
+    , Mockable Delay m
+    , WithNodeContext ssc m
     )
 
-instance SlottingConstraint m => MonadSlots (NtpSlotting m) where
+instance SlottingConstraint ssc m =>
+         MonadSlots (NtpSlotting m) where
     getCurrentSlot = notImplemented
-    slottingWorkers = [ntpWorker]
+    slottingWorkers = [ntpSyncWorker, newSlotWorker]
 
 -- instance (Mockable CurrentTime m, MonadIO m) =>
 --          MonadSlots (ContextHolder ssc m) where
@@ -207,12 +208,6 @@ runNtpSlottingFromVar var = usingReaderT var . getNtpSlotting
 -- Something
 ----------------------------------------------------------------------------
 
-setNtpLastSlot :: (MonadIO m) => SlotId -> m ()
-setNtpLastSlot slotId = pass
-    -- nc <- getNodeContext
-    -- atomically $ STM.modifyTVar (ncSlottingState nc)
-    --                             (ssNtpLastSlot %~ max slotId)
-
 -- readNtpLastSlot :: (MonadIO m, WithNodeContext ssc m) => m SlotId
 -- readNtpLastSlot = do
 --     nc <- getNodeContext
@@ -234,21 +229,25 @@ setNtpLastSlot slotId = pass
 -- Workers
 ----------------------------------------------------------------------------
 
--- This worker is necessary for Slotting to work.
-slottingWorker
-    :: MonadSlots m
-    => m ()
-slottingWorker = notImplemented
-    -- onNewSlotWithLoggingWorker True mempty $ \slotId _ -> do
-    --     modifyLoggerName (<> "slotting") $
-    --         logNotice $ sformat ("New slot has just started: " %slotIdF) slotId
-    --     setNtpLastSlot slotId
+-- This worker updates last slot (WTF).
+newSlotWorker
+    :: SlottingConstraint ssc m
+    => NtpSlotting m ()
+newSlotWorker =
+    onNewSlotWithLogging True $ \slotId -> do
+        modifyLoggerName (<> "slotting") $
+            logNotice $ sformat ("New slot has just started: " %slotIdF) slotId
+        setNtpLastSlot slotId
+  where
+    setNtpLastSlot slotId = do
+        var <- NtpSlotting ask
+        atomically $ STM.modifyTVar (var) (nssLastSlot %~ max slotId)
 
 -- Worker for synchronization of local time and global time.
-ntpWorker
-    :: SlottingConstraint m
+ntpSyncWorker
+    :: SlottingConstraint ssc m
     => NtpSlotting m ()
-ntpWorker = NtpSlotting ask >>= void . startNtpClient . ntpSettings
+ntpSyncWorker = NtpSlotting ask >>= void . startNtpClient . ntpSettings
 
 ntpHandlerDo
     :: (MonadIO m, WithLogger m)

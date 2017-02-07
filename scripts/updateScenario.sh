@@ -2,6 +2,8 @@
 
 set -e
 csldir=$(pwd)
+serverPort=8100 # Port for webfsd
+updatetar="binaries_000_010.tar"
 
 # Sanity checks
 which stack > /dev/null
@@ -26,7 +28,6 @@ cd $csldir
 
 updater=$(find ../cardano-updater/.stack-work/install/ -name "cardano-updater" -exec readlink -f {} \; | head -n 1)
 
-serverPort=8100 # Port for webfsd
 
 echo "Building cardano-sl"
 stack build --fast
@@ -47,9 +48,8 @@ cp -v $csl_bin/* binaries_v010/
 # Restoring version and binaries
 echo "Restoring binaries"
 mv -v src/Pos/Constants.hs.backup src/Pos/Constants.hs
-cp binaries_v010/* $csl_bin/
+cp binaries_v000/* $csl_bin/
 
-updatetar="binaries_000_010.tar"
 rm -rf $updatetar
 echo "Creating diff tar $updatetar (might take a while)"
 stack exec cardano-genupdate -- binaries_v000 binaries_v010 $updatetar
@@ -70,7 +70,7 @@ pkill cardano-wallet
 echo "Running: '$walletcmd'"
 
 walletOutputLog='walletOutput.log'
-until $(./scripts/wallet.sh cmd --commands "$walletcmd" -p 0 > $walletOutputLog)
+until $(./scripts/wallet.sh cmd --commands "$walletcmd" -p 0 &> $walletOutputLog)
 do 
     echo "Wallet exited with non-zero code $?, retrying" 
 done
@@ -91,7 +91,7 @@ rm -rfv $walletOutputLog
 # Voting for hash
 echo "Running wallet 2"
 pkill cardano-wallet
-until $(./scripts/wallet.sh cmd --commands 'vote 1 y $proposalHash' -p 0 > /dev/tty)
+until $(./scripts/wallet.sh cmd --commands 'vote 1 y $proposalHash' -p 0 &> /dev/tty)
 do 
   echo "Wallet 2 exited with non-zero code $?, retrying"
 done
@@ -103,10 +103,14 @@ set -e
 echo "Launching webfs server"
 rm -rf webfsfolder && mkdir webfsfolder
 cp -v $updatetar webfsfolder/$updateVersion
-pkill webfsd
-webfsd -p $serverPort -r webfsfolder
+pkill webfsd || true
+webfsd -p $serverPort -r webfsfolder 
 echo "Launched webfs server"
 
-# Do your launcher stuff here
+# Launcher launching
+
+echo "Launching launcher"
+sleep 1
+stack exec cardano-launcher -- --node binaries_v000/cardano-node --node-log-config scripts/update-log-config.yaml -n "--update-server"  -n "http://localhost:$serverPort" -n "--update-latest-path" -n "updateDownloaded.tar" -n "--listen" -n "0.0.0.0:3004" --updater $updater --node-timeout 5 --report-server http://localhost:8555/ --update-archive updateDownloaded.tar
 
 notify-send "updater scenario: ready"

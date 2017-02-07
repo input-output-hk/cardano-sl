@@ -8,14 +8,15 @@ import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Tuple (Tuple(..))
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (age, height, relayedBy, sizeKB, totalSent, transactions, title, subtitle, transactionFeed) as I18nL
-import Explorer.Lenses.State (blocksExpanded, dashboard, latestBlocks, searchInput, selectedApiCode, transactionsExpanded, viewStates)
+import Explorer.Lenses.State (blocksExpanded, dashboard, latestBlocks, latestTransactions, searchInput, selectedApiCode, transactionsExpanded, viewStates)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.Generated (CCurrency(..))
-import Explorer.Types.State (DashboardAPICode(..), DashboardViewState, State, CBlockEntries)
+import Explorer.Types.State (DashboardAPICode(..), DashboardViewState, State, CBlockEntries, CTxEntries)
 import Explorer.View.Common (currencyCSSClass, paginationView)
-import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (cbeRelayedBy, cbeSize, cbeTotalSent, cbeTxNum)
+import Pos.Explorer.Web.ClientTypes (CBlockEntry(..), CTxEntry(..))
+import Pos.Explorer.Web.Lenses.ClientTypes (cbeRelayedBy, cbeSize, cbeTotalSent, cbeTxNum, cteId, cteAmount, _CTxId, _CHash, cteTimeIssued)
 import Pos.Types.Lenses.Core (_Coin, getCoin)
+import Data.Time.NominalDiffTime.Lenses (_NominalDiffTime)
 import Pux.Html (Html, div, h3, text, h1, h2, input, h4, p, code) as P
 import Pux.Html.Attributes (className, type_, placeholder) as P
 import Pux.Html.Events (onClick, onFocus, onBlur) as P
@@ -255,40 +256,6 @@ mkBlocksHeaderItems lang =
 
 -- transactions
 
--- FIXME (jk): just for now, will use later `real` ADTs
-type TransactionItems = Array TransactionItem
-
--- FIXME (jk): just for now, will use later `real` ADTs
-type TransactionItem =
-    { hash :: String
-    , age :: String
-    , amount :: Int
-    , amountCurrency :: Maybe CCurrency
-    , exchange :: Number
-    , exchangeCurrency :: Maybe CCurrency
-    }
-
-transactionItem :: TransactionItem
-transactionItem =
-    { hash: "46087134cd072aec7d36c15a6726bfc07ea78884b352d16f333433bb224f7f6"
-        , age: "< 1 minute", amount: 123383, amountCurrency: Just ADA
-        , exchange: 12.98, exchangeCurrency: Just USD }
-
-transactionItems :: TransactionItems
-transactionItems =
-    [ transactionItem
-    , transactionItem
-    , transactionItem
-    , transactionItem
-    , transactionItem
-    , transactionItem
-    , transactionItem
-    , transactionItem
-    , transactionItem
-    , transactionItem
-    , transactionItem
-    ]
-
 maxTransactionRows :: Int
 maxTransactionRows = 10
 
@@ -321,19 +288,19 @@ transactionsView state =
           { headline: translate I18nL.transactionFeed state.lang
           , link: Just $ HeaderLink { label: "#Explore transactions", action: NoOp }
           }
-      transactionItems' :: TransactionItems
+      transactionItems = state ^. latestTransactions
+      transactionItems' :: CTxEntries
       transactionItems' = if expanded
           then slice 0 maxTransactionRows transactionItems
           else slice 0 minTransactionRows transactionItems
 
-transactionRow :: State -> TransactionItem -> P.Html Action
-transactionRow state item =
+transactionRow :: State -> CTxEntry -> P.Html Action
+transactionRow state (CTxEntry entry) =
     P.div
         [ P.className "transactions__row" ]
-        [ transactionColumn item.hash "hash"
-        , transactionColumn item.age ""
-        , transactionColumn (show item.amount) $ currencyCSSClass item.amountCurrency
-        , transactionColumn (show item.exchange) $ currencyCSSClass item.exchangeCurrency
+        [ transactionColumn (entry ^. (cteId <<< _CTxId <<< _CHash)) "hash"
+        , transactionColumn (show $ entry ^. (cteTimeIssued <<< _NominalDiffTime)) ""
+        , transactionColumn (show $ entry ^. (cteAmount <<< _Coin <<< getCoin)) <<< currencyCSSClass $ Just ADA
         ]
 
 transactionColumn :: String -> String -> P.Html Action

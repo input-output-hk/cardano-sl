@@ -216,7 +216,7 @@
       @neat-span-columns 2;
 
       &.hash {
-        @neat-span-columns 6;
+        @neat-span-columns 8;
       }
 
       &.ada,

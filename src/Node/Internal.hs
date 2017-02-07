@@ -67,8 +67,6 @@ import           System.Random                 (Random, StdGen, random)
 import           System.Wlog                   (WithLogger, logDebug, logError, logWarning)
 import qualified Node.Message                  as Message
 
-import Debug.Trace
-
 -- | A 'NodeId' wraps a network-transport endpoint address
 newtype NodeId = NodeId NT.EndPointAddress
   deriving (Eq, Ord, Show, Hashable)
@@ -87,7 +85,7 @@ data NodeState peerData m = NodeState {
     , _nodeStateInbound                :: !(Set (Promise m ()))
       -- ^ Handlers for inbound connections (remotely-initiated unidirectional
       --   _or_ bidirectional connections).
-    , _nodeStateConnectedTo        :: !(Map NT.EndPointAddress (Either (SharedExclusiveT m (Maybe SomeException)) Int))
+    , _nodeStateConnectedTo        :: !(Map NT.EndPointAddress (OutboundConnectionState m))
       -- ^ For each peer that we have at least one open connection to, the
       --   number of connections; or an MVar in case there's some thread
       --   sending the initial data (it just opened the first connection to that
@@ -1234,49 +1232,128 @@ withOutChannel node@Node{nodeState} nodeid@(NodeId peer) action = do
                 action
     wait promise
 
+data OutboundConnectionState m =
+      -- | A stable outbound connection has some positive number of established
+      --   connections.
+      Stable !(Maybe (ComingUp m)) !Int !(Maybe (GoingDown m)) !(PeerDataTransmission m)
+      -- | Every connection is being brought down.
+    | AllGoingDown !(GoingDown m)
+      -- | Every connection is being brought up.
+    | AllComingUp !(ComingUp m)
+
+-- | The SharedExclusiveT will be filled when the last connection goes down.
+data GoingDown m = GoingDown !Int !(SharedExclusiveT m ())
+
+-- | The SharedExclusiveT will be filled when the first connection comes up.
+data ComingUp m = ComingUp !Int !(SharedExclusiveT m ())
+
+data PeerDataTransmission m =
+      PeerDataToBeTransmitted
+    | PeerDataInFlight !(SharedExclusiveT m (Maybe SomeException))
+    | PeerDataTransmitted
+
 disconnectFromPeer
     :: ( Mockable SharedExclusive m
        , Mockable SharedAtomic m
        , Mockable Bracket m
+       , Mockable Throw m
        , WithLogger m
        )
     => Node packingType peerData m
     -> NodeId
     -> NT.Connection m
     -> m ()
-disconnectFromPeer Node{nodeState} nodeid@(NodeId peer) conn =
-    NT.close conn `finally` cleanup
+disconnectFromPeer Node{nodeState} nodeid@(NodeId peer) conn = do
+    bracketWithException startClosing finishClosing (const (NT.close conn))
 
     where
 
-    cleanup = modifySharedAtomic nodeState $ \nodeState -> case Map.lookup peer (_nodeStateConnectedTo nodeState) of
+    -- Update the OutboundConnectionState at this peer to no longer show
+    -- this connection as going down, and fill the shared exclusive if it's
+    -- the last to go down.
+    finishClosing _ (_ :: Maybe SomeException) = do
+        modifySharedAtomic nodeState $ \nodeState -> do
+            let map = _nodeStateConnectedTo nodeState
+            choice <- case Map.lookup peer map of
 
-        Nothing -> do
-            -- Not necessarily an error: an exception could have been thrown
-            -- after connecting but before spawning a handler for the
-            -- connection.
-            logDebug $ sformat ("disconnectFromPeer disconnected with no handlers")
-            return (nodeState, ())
+                Just (Stable comingUp established goingDown transmission)
 
-        Just (Left excl) -> do
-            -- Put an early-disconnect exception.
-            -- TODO should have a third option for early disconnect, so that
-            -- other guys can know to try again.
-            putSharedExclusive excl (Just (error "early disconnect"))
+                    | Just (GoingDown n excl) <- goingDown
+                    , n == 1 -> do
+                          putSharedExclusive excl ()
+                          return . Just $ Stable comingUp established Nothing transmission
+
+                    | Just (GoingDown n excl) <- goingDown
+                    , n > 1 -> do
+                          return . Just $ Stable comingUp established (Just (GoingDown (n - 1) excl)) transmission
+
+                Just (AllGoingDown (GoingDown n excl))
+
+                    | n == 1 -> do
+                          putSharedExclusive excl ()
+                          return Nothing
+
+                    | otherwise -> do
+                          return $ Just (AllGoingDown (GoingDown (n - 1) excl))
+
+                _ -> throw (InternalError "finishClosing : impossible")
+
             let nodeState' = nodeState {
-                      _nodeStateConnectedTo = Map.delete peer (_nodeStateConnectedTo nodeState)
+                      _nodeStateConnectedTo = Map.update (const choice) peer map
                     }
             return (nodeState', ())
 
-        Just (Right n) -> case n of
-            1 -> do let nodeState' = nodeState {
-                              _nodeStateConnectedTo = Map.delete peer (_nodeStateConnectedTo nodeState)
-                            }
-                    return (nodeState', ())
-            n -> let nodeState' = nodeState {
-                           _nodeStateConnectedTo = Map.insert peer (Right (n - 1)) (_nodeStateConnectedTo nodeState)
-                         }
-                 in  return (nodeState', ())
+    -- Update the OutboundConnectionState at this peer to show this connection
+    -- as going down.
+    startClosing = do
+        canClose <- modifySharedAtomic nodeState $ \nodeState -> do
+            let map = _nodeStateConnectedTo nodeState
+            choice <- case Map.lookup peer map of
+                Just (Stable comingUp established goingDown transmission)
+
+                    | established > 1
+                    , Just (GoingDown !n excl) <- goingDown ->
+                          return . Right $ Stable comingUp (established - 1) (Just (GoingDown (n + 1) excl)) transmission
+
+                    | established > 1
+                    , Nothing <- goingDown -> do
+                          excl <- newSharedExclusive
+                          return . Right $ Stable comingUp (established - 1) (Just (GoingDown 1 excl)) transmission
+
+                    | established == 1
+                    , Nothing <- comingUp
+                    , Just (GoingDown !n excl) <- goingDown ->
+                          return . Right $ AllGoingDown (GoingDown (n + 1) excl)
+
+                    | established == 1
+                    , Nothing <- comingUp
+                    , Nothing <- goingDown -> do
+                          excl <- newSharedExclusive
+                          return . Right $ AllGoingDown (GoingDown 1 excl)
+
+                    | established == 1
+                    , Just (ComingUp !m excl) <- comingUp ->
+                          return . Left $ excl
+
+                    | otherwise -> throw (InternalError "startClosing : impossible")
+
+                Nothing -> throw (InternalError "startClosing : impossible")
+                Just (AllGoingDown _) -> throw (InternalError "startClosing : impossible")
+                Just (AllComingUp _) -> throw (InternalError "startClosing : impossible")
+
+            case choice of
+                Left excl -> return (nodeState, Left excl)
+                Right ocs -> return (nodeState', Right ())
+                    where
+                    nodeState' = nodeState {
+                          _nodeStateConnectedTo = Map.insert peer ocs map
+                        }
+
+        case canClose of
+            Left excl -> do
+                readSharedExclusive excl
+                startClosing
+            Right () -> return ()
 
 -- | Connect to a peer, taking care to send the peer-data in case there are no
 --   other connections to that peer. Subsequent connections to that peer
@@ -1297,49 +1374,89 @@ connectToPeer
     => Node packingType peerData m
     -> NodeId
     -> m (NT.Connection m)
-connectToPeer Node{nodeEndPoint, nodeState, nodePackingType, nodePeerData} nodeid@(NodeId peer) =
-    bracketWithException getResponsibility cleanup fulfillResponsibility
+connectToPeer Node{nodeEndPoint, nodeState, nodePackingType, nodePeerData} nodeid@(NodeId peer) = do
+    conn <- establish
+    sendPeerDataIfNecessary conn
+    return conn
 
     where
 
-    -- Use the shared node state to determine the responsibility of this
-    -- connection: do we have to send the peer data? This must be found
-    -- *before* we attempt to connect. If we attempted to connect first, then
-    -- between connection time and our lock on the shared state to determine
-    -- responsibility, all of our outbound connections to the peer could close,
-    -- and we'd think we're the first, when in fact the peer still has the
-    -- connection we just made and so does not think we're the first, then
-    -- we'll commit a protocol error by sending the peer data.
-    getResponsibility = modifySharedAtomic nodeState $ \nodeState -> case Map.lookup peer (_nodeStateConnectedTo nodeState) of
-        -- Nothing here. We'll send the peer data.
-        Nothing -> do
-            excl <- newSharedExclusive
-            let nodeState' = nodeState {
-                      _nodeStateConnectedTo = Map.insert peer (Left excl) (_nodeStateConnectedTo nodeState)
-                    }
-            return (nodeState', Just (Left excl))
-        -- Another connection is currently sending the peer data.
-        Just (Left excl) -> return (nodeState, Just (Right excl))
-        -- Peer data has already been sent.
-        Just (Right !n) -> do
-            let nodeState' = nodeState {
-                      _nodeStateConnectedTo = Map.insert peer (Right (n + 1)) (_nodeStateConnectedTo nodeState)
-                    }
-            return (nodeState', Nothing)
+    sendPeerDataIfNecessary conn =
+        bracketWithException getPeerDataResponsibility
+                             dischargePeerDataResponsibility
+                             (maybeSendPeerData conn)
 
-    -- If the responsibility was to send the peer data, then we always fill the
-    -- shared exclusive, indicating whether there was a problem.
-    -- Any other responsibility can do nothing, for we assume that this
-    -- 'connectToPeer' is always bracketed against a 'disconnectFromPeer',
-    -- which will make the node state consistent.
-    cleanup responsibility (exception :: Maybe SomeException) = case (responsibility, exception) of
-        (Just (Left excl), Just e) -> do
-            putSharedExclusive excl (Just e)
-            logError $ sformat ("error connecting to peer " % shown % shown) peer e
-        _ -> return ()
+    maybeSendPeerData conn responsibility = case responsibility of
+        -- Somebody else sent it, so we can proceed.
+        False -> return ()
+        -- We are responsible for sending it.
+        True -> sendPeerData conn
 
-    fulfillResponsibility responsibility = do
-        -- No matter what the responsibility, we always make a connection
+    sendPeerData conn = do
+        let serializedPeerData = Message.packMsg nodePackingType nodePeerData
+        outcome <- NT.send conn (LBS.toChunks serializedPeerData)
+        case outcome of
+            Left err -> do
+                throw err
+            Right () -> do
+                return ()
+
+    getPeerDataResponsibility = do
+        responsibility <- modifySharedAtomic nodeState $ \nodeState -> do
+            let map = _nodeStateConnectedTo nodeState
+            (ocs, responsibility) <- case Map.lookup peer map of
+                Just it@(Stable comingUp established goingDown transmission)
+                    | PeerDataToBeTransmitted <- transmission -> do
+                          excl <- newSharedExclusive
+                          return (Stable comingUp established goingDown (PeerDataInFlight excl), Just (Right excl))
+
+                    | PeerDataInFlight excl <- transmission ->
+                          return (it, Just (Left excl))
+
+                    | PeerDataTransmitted <- transmission ->
+                          return (it, Nothing)
+
+                    | otherwise -> throw (InternalError "impossible")
+
+            let nodeState' = nodeState {
+                      _nodeStateConnectedTo = Map.insert peer ocs map
+                    }
+            return (nodeState', responsibility)
+        case responsibility of
+            Just (Left excl) -> do
+                readSharedExclusive excl
+                getPeerDataResponsibility
+            Just (Right _) -> do
+                return True
+            Nothing -> do
+                return False
+
+    dischargePeerDataResponsibility responsibility (merr :: Maybe SomeException) = do
+        modifySharedAtomic nodeState $ \nodeState -> do
+            let map = _nodeStateConnectedTo nodeState
+            ocs <- case Map.lookup peer map of
+                Just it@(Stable comingUp established goingDown transmission)
+                    -- We were responsible for sending it and we succeeded.
+                    | True <- responsibility
+                    , Nothing <- merr
+                    , PeerDataInFlight excl <- transmission -> do
+                          putSharedExclusive excl Nothing
+                          return $ Stable comingUp established goingDown PeerDataTransmitted
+                    | True <- responsibility
+                    , Just _ <- merr
+                    , PeerDataInFlight excl <- transmission -> do
+                          putSharedExclusive excl merr
+                          return $ Stable comingUp established goingDown PeerDataToBeTransmitted
+
+                    | False <- responsibility -> return it
+            let nodeState' = nodeState {
+                      _nodeStateConnectedTo = Map.insert peer ocs map
+                    }
+            return (nodeState', ())
+
+    establish = bracketWithException startConnecting finishConnecting doConnection
+
+    doConnection _ = do
         mconn <- NT.connect nodeEndPoint
                            peer
                            NT.ReliableOrdered
@@ -1347,50 +1464,98 @@ connectToPeer Node{nodeEndPoint, nodeState, nodePackingType, nodePeerData} nodei
                            -- the transport level.
                            NT.ConnectHints{ connectTimeout = Nothing }
 
-        conn <- case mconn of
+        case mconn of
             -- Throwing the error will induce the bracket resource releaser
             Left err -> throw err
             Right conn -> return conn
 
-        case responsibility of
+    -- Update the OutboundConnectionState at this peer to no longer show
+    -- this connection as coming up, and fill the shared exclusive if it's
+    -- the first to come up.
+    finishConnecting _ (merr :: Maybe SomeException) = do
+        modifySharedAtomic nodeState $ \nodeState -> do
+            let map = _nodeStateConnectedTo nodeState
+            choice <- case Map.lookup peer map of
 
-            -- No responsibility; somebody else has already sent the peer data.
-            Nothing -> return ()
+                Just (AllComingUp (ComingUp n excl))
+                    | Nothing <- merr -> do
+                          let comingUp = case n of
+                                  1 -> Nothing
+                                  _ -> Just (ComingUp (n - 1) excl)
+                          return . Just $ Stable comingUp 1 Nothing PeerDataToBeTransmitted
 
-            -- We're waiting for somebody else to send the peer data.
-            Just (Right excl) -> do
-                outcome <- readSharedExclusive excl
-                case outcome of
-                    -- If the first one to connect threw an exception,
-                    -- throw it here too.
-                    Just exception -> throw exception
-                    _ -> return ()
-                modifySharedAtomic nodeState $ \nodeState ->
-                    let nodeState' = nodeState {
-                              _nodeStateConnectedTo = Map.update (Just . fmap (+ 1)) peer (_nodeStateConnectedTo nodeState)
-                            }
-                    in  return (nodeState', ())
+                    | Just _ <- merr
+                    , n == 1 ->
+                          return Nothing
 
-            -- We're responsible for transmitting the peer data.
-            Just (Left excl) -> do
-                let serializedPeerData = Message.packMsg nodePackingType nodePeerData
-                outcome <- NT.send conn (LBS.toChunks serializedPeerData)
-                case outcome of
-                    -- Throwing here will cause the bracketed
-                    -- onException to run, filling the shared exclusive
-                    -- with this exception.
-                    Left err -> do
-                        logError $ sformat ("failed to send peer data to " % shown) peer
-                        throw err
-                    Right () -> do
-                        modifySharedAtomic nodeState $ \nodeState ->
-                            let nodeState' = nodeState {
-                                      _nodeStateConnectedTo = Map.insert peer (Right 1) (_nodeStateConnectedTo nodeState)
-                                    }
-                            in  return (nodeState', ())
-                        putSharedExclusive excl Nothing
+                    | Just _ <- merr
+                    , n > 1 ->
+                          return . Just $ AllComingUp (ComingUp (n - 1) excl)
+                          
 
-        return conn
+                Just (Stable comingUp established goingDown transmission)
+                    | Just (ComingUp n excl) <- comingUp -> do
+                          putSharedExclusive excl ()
+                          comingUp' <- case n of
+                              1 -> return Nothing
+                              _ -> do
+                                  excl' <- newSharedExclusive
+                                  return $ Just (ComingUp (n - 1) excl')
+                          let established' = case merr of
+                                  Nothing -> established + 1
+                                  Just _ -> established
+                          return . Just $ Stable comingUp' established' goingDown transmission
+
+                _ -> throw (InternalError "finishConnecting : impossible")
+
+            let nodeState' = nodeState {
+                      _nodeStateConnectedTo = Map.update (const choice) peer map
+                    }
+            return (nodeState', ())
+
+
+    -- Update the OutboundConnectionState at this peer to show this connection
+    -- as going up.
+    startConnecting = do
+        canOpen <- modifySharedAtomic nodeState $ \nodeState -> do
+            let map = _nodeStateConnectedTo nodeState
+            choice <- case Map.lookup peer map of
+
+                -- First to connect.
+                Nothing -> do
+                    excl <- newSharedExclusive
+                    return . Right $ AllComingUp (ComingUp 1 excl)
+
+                -- Stable connection. There's at least one that isn't currently
+                -- going down.
+                Just (Stable comingUp established goingDown transmission)
+
+                    | Just (ComingUp n excl) <- comingUp ->
+                          return . Right $ Stable (Just (ComingUp (n + 1) excl)) established goingDown transmission
+
+                    | Nothing <- comingUp -> do
+                          excl <- newSharedExclusive
+                          return . Right $ Stable (Just (ComingUp 1 excl)) established goingDown transmission
+
+                Just (AllGoingDown (GoingDown _ excl)) ->
+                    return . Left $ excl
+
+                Just (AllComingUp (ComingUp n excl)) ->
+                    return . Right $ AllComingUp (ComingUp (n + 1) excl)
+
+            case choice of
+                Left excl -> return (nodeState, Left excl)
+                Right ocs -> return (nodeState', Right ())
+                    where
+                    nodeState' = nodeState {
+                          _nodeStateConnectedTo = Map.insert peer ocs map
+                        }
+
+        case canOpen of
+            Left excl -> do
+                readSharedExclusive excl
+                startConnecting
+            Right () -> return ()
 
 -- | Connect to a peer given by a 'NodeId' bidirectionally.
 connectInOutChannel

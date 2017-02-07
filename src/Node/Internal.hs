@@ -1123,7 +1123,6 @@ spawnHandler stateVar provenance action =
     signalFinished promise startTime outcome = do
         endTime <- currentTime
         let elapsed = endTime - startTime
-        logDebug $ sformat ("handler finished " % shown) provenance
         modifySharedAtomic stateVar $ \nodeState -> do
             let nodeState' = case provenance of
                     Remote _ _ _ -> nodeState {
@@ -1270,10 +1269,10 @@ disconnectFromPeer Node{nodeState} nodeid@(NodeId peer) conn =
             return (nodeState', ())
 
         Just (Right n) -> case n of
-            1 -> let nodeState' = nodeState {
-                           _nodeStateConnectedTo = Map.delete peer (_nodeStateConnectedTo nodeState)
-                         }
-                 in  return (nodeState', ())
+            1 -> do let nodeState' = nodeState {
+                              _nodeStateConnectedTo = Map.delete peer (_nodeStateConnectedTo nodeState)
+                            }
+                    return (nodeState', ())
             n -> let nodeState' = nodeState {
                            _nodeStateConnectedTo = Map.insert peer (Right (n - 1)) (_nodeStateConnectedTo nodeState)
                          }
@@ -1283,6 +1282,10 @@ disconnectFromPeer Node{nodeState} nodeid@(NodeId peer) conn =
 --   other connections to that peer. Subsequent connections to that peer
 --   will block until the peer-data is sent; it must be the first thing to
 --   arrive when the first lightweight connection to a peer is opened.
+--
+--   A use of `connectToPeer` must be followed by `disconnectFromPeer`, in order
+--   to keep the node state consistent. Please use safe exceptional handling
+--   functions like `bracket` to make this guarantee.
 connectToPeer
     :: ( Mockable Throw m
        , Mockable Bracket m
@@ -1294,80 +1297,100 @@ connectToPeer
     => Node packingType peerData m
     -> NodeId
     -> m (NT.Connection m)
-connectToPeer Node{nodeEndPoint, nodeState, nodePackingType, nodePeerData} nodeid@(NodeId peer) = do
-    mconn <- NT.connect nodeEndPoint
-                        peer
-                        NT.ReliableOrdered
-                        -- TODO give a timeout. Can't rely on it being set at
-                        -- the transport level.
-                        NT.ConnectHints{ connectTimeout = Nothing }
-    case mconn of
+connectToPeer Node{nodeEndPoint, nodeState, nodePackingType, nodePeerData} nodeid@(NodeId peer) =
+    bracketWithException getResponsibility cleanup fulfillResponsibility
 
-        Left err -> throw err
+    where
 
-        Right conn -> do
+    -- Use the shared node state to determine the responsibility of this
+    -- connection: do we have to send the peer data? This must be found
+    -- *before* we attempt to connect. If we attempted to connect first, then
+    -- between connection time and our lock on the shared state to determine
+    -- responsibility, all of our outbound connections to the peer could close,
+    -- and we'd think we're the first, when in fact the peer still has the
+    -- connection we just made and so does not think we're the first, then
+    -- we'll commit a protocol error by sending the peer data.
+    getResponsibility = modifySharedAtomic nodeState $ \nodeState -> case Map.lookup peer (_nodeStateConnectedTo nodeState) of
+        -- Nothing here. We'll send the peer data.
+        Nothing -> do
+            excl <- newSharedExclusive
+            let nodeState' = nodeState {
+                      _nodeStateConnectedTo = Map.insert peer (Left excl) (_nodeStateConnectedTo nodeState)
+                    }
+            return (nodeState', Just (Left excl))
+        -- Another connection is currently sending the peer data.
+        Just (Left excl) -> return (nodeState, Just (Right excl))
+        -- Peer data has already been sent.
+        Just (Right !n) -> do
+            let nodeState' = nodeState {
+                      _nodeStateConnectedTo = Map.insert peer (Right (n + 1)) (_nodeStateConnectedTo nodeState)
+                    }
+            return (nodeState', Nothing)
 
-            -- Check the shared state and, in case this is the first connection to
-            -- that peer, send the peer data.
-            let getResponsibility = modifySharedAtomic nodeState $ \nodeState -> case Map.lookup peer (_nodeStateConnectedTo nodeState) of
-                    -- Nothing here. We'll send the peer data.
-                    Nothing -> do
-                        excl <- newSharedExclusive
-                        let nodeState' = nodeState {
-                                  _nodeStateConnectedTo = Map.insert peer (Left excl) (_nodeStateConnectedTo nodeState)
-                                }
-                        return (nodeState', Just (Left excl))
-                    Just (Left excl) -> return (nodeState, Just (Right excl))
-                    Just (Right !n) -> do
-                        let nodeState' = nodeState {
-                                  _nodeStateConnectedTo = Map.insert peer (Right (n + 1)) (_nodeStateConnectedTo nodeState)
-                                }
-                        return (nodeState', Nothing)
+    -- If the responsibility was to send the peer data, then we always fill the
+    -- shared exclusive, indicating whether there was a problem.
+    -- Any other responsibility can do nothing, for we assume that this
+    -- 'connectToPeer' is always bracketed against a 'disconnectFromPeer',
+    -- which will make the node state consistent.
+    cleanup responsibility (exception :: Maybe SomeException) = case (responsibility, exception) of
+        (Just (Left excl), Just e) -> do
+            putSharedExclusive excl (Just e)
+            logError $ sformat ("error connecting to peer " % shown % shown) peer e
+        _ -> return ()
 
-            let fulfillResponsibility responsibility = case responsibility of
+    fulfillResponsibility responsibility = do
+        -- No matter what the responsibility, we always make a connection
+        mconn <- NT.connect nodeEndPoint
+                           peer
+                           NT.ReliableOrdered
+                           -- TODO give a timeout. Can't rely on it being set at
+                           -- the transport level.
+                           NT.ConnectHints{ connectTimeout = Nothing }
 
-                    Nothing -> return conn
+        conn <- case mconn of
+            -- Throwing the error will induce the bracket resource releaser
+            Left err -> throw err
+            Right conn -> return conn
 
-                    Just (Left excl) -> do
-                        let serializedPeerData = Message.packMsg nodePackingType nodePeerData
-                        outcome <- NT.send conn (LBS.toChunks serializedPeerData)
-                        case outcome of
-                            -- Throwing here will cause the bracketed
-                            -- onException to run, filling the shared exclusive
-                            -- with this exception.
-                            Left err -> throw err
-                            Right () -> do
-                                modifySharedAtomic nodeState $ \nodeState ->
-                                    let nodeState' = nodeState {
-                                              _nodeStateConnectedTo = Map.insert peer (Right 1) (_nodeStateConnectedTo nodeState)
-                                            }
-                                    in  return (nodeState', ())
-                                putSharedExclusive excl Nothing
-                                return conn
+        case responsibility of
 
-                    Just (Right excl) -> do
-                        outcome <- readSharedExclusive excl
-                        case outcome of
-                            -- If the first one to connect threw an exception,
-                            -- throw it here too.
-                            Just exception -> throw exception
-                            _ -> return ()
+            -- No responsibility; somebody else has already sent the peer data.
+            Nothing -> return ()
+
+            -- We're waiting for somebody else to send the peer data.
+            Just (Right excl) -> do
+                outcome <- readSharedExclusive excl
+                case outcome of
+                    -- If the first one to connect threw an exception,
+                    -- throw it here too.
+                    Just exception -> throw exception
+                    _ -> return ()
+                modifySharedAtomic nodeState $ \nodeState ->
+                    let nodeState' = nodeState {
+                              _nodeStateConnectedTo = Map.update (Just . fmap (+ 1)) peer (_nodeStateConnectedTo nodeState)
+                            }
+                    in  return (nodeState', ())
+
+            -- We're responsible for transmitting the peer data.
+            Just (Left excl) -> do
+                let serializedPeerData = Message.packMsg nodePackingType nodePeerData
+                outcome <- NT.send conn (LBS.toChunks serializedPeerData)
+                case outcome of
+                    -- Throwing here will cause the bracketed
+                    -- onException to run, filling the shared exclusive
+                    -- with this exception.
+                    Left err -> do
+                        logError $ sformat ("failed to send peer data to " % shown) peer
+                        throw err
+                    Right () -> do
                         modifySharedAtomic nodeState $ \nodeState ->
                             let nodeState' = nodeState {
-                                      _nodeStateConnectedTo = Map.update (Just . fmap (+ 1)) peer (_nodeStateConnectedTo nodeState)
+                                      _nodeStateConnectedTo = Map.insert peer (Right 1) (_nodeStateConnectedTo nodeState)
                                     }
                             in  return (nodeState', ())
-                        return conn
+                        putSharedExclusive excl Nothing
 
-            let cleanup responsibility (exception :: Maybe SomeException) = case (responsibility, exception) of
-                    (Just (Left excl), Just e) -> do
-                        putSharedExclusive excl (Just e)
-                        logError $ sformat ("error connecting to peer " % shown % shown) peer e
-                    _ -> return ()
-
-            bracketWithException getResponsibility
-                                 cleanup
-                                 fulfillResponsibility
+        return conn
 
 -- | Connect to a peer given by a 'NodeId' bidirectionally.
 connectInOutChannel

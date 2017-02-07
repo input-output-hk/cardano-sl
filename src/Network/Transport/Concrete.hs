@@ -58,4 +58,5 @@ concreteConnection :: ( MonadIO m ) => NT.Connection -> Connection m
 concreteConnection ntConnection = Connection {
       send = liftIO . NT.send ntConnection
     , close = liftIO $ NT.close ntConnection
+    , bundle = NT.bundle ntConnection
     }

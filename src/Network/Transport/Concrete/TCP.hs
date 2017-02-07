@@ -18,5 +18,5 @@ concreteQDisc
     -> TCP.QDisc t
 concreteQDisc lowerIO qdisc = TCP.QDisc {
       TCP.qdiscDequeue = lowerIO $ qdiscDequeue qdisc
-    , TCP.qdiscEnqueue = \event -> lowerIO . qdiscEnqueue qdisc (C.concreteEvent event)
+    , TCP.qdiscEnqueue = \addr event -> lowerIO . qdiscEnqueue qdisc (C.concreteEvent event)
     }

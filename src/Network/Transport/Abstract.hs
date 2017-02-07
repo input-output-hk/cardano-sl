@@ -12,6 +12,7 @@ module Network.Transport.Abstract
   , Event(..)
   , QDisc(..)
   , NT.ConnectionId
+  , NT.ConnectionBundle
   , NT.Reliability(..)
   , NT.EndPointAddress(..)
     -- * Hints
@@ -76,6 +77,7 @@ data Connection m = Connection {
     send :: [ByteString] -> m (Either (NT.TransportError NT.SendErrorCode) ())
     -- | Close the connection.
   , close :: m ()
+  , bundle :: NT.ConnectionBundle
   }
 
 -- | Event on an endpoint.

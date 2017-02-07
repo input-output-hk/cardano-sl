@@ -293,11 +293,17 @@ node transport prng packing peerData k = do
               (listenerIndex, _conflictingNames) = makeListenerIndex listeners
         ; let sendActions = nodeSendActions llnode packing
         }
-    act sendActions `finally` LL.stopNode llnode `catch` logException
+    act sendActions `catch` logException
+                    `finally` LL.stopNode llnode
+                    `catch` logNodeException
   where
     logException :: SomeException -> m t
     logException e = do
         logError (sformat ("node stopped with exception " % shown) e)
+        throw e
+    logNodeException :: SomeException -> m t
+    logNodeException e = do
+        logError (sformat ("exception while stopping node " % shown) e)
         throw e
     -- Handle incoming data from unidirectional connections: try to read the
     -- message name, use it to determine a listener, parse the body, then

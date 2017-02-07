@@ -185,9 +185,10 @@ initialize WalletOptions{..} = do
         slotDuration <- getSlotDuration
         delay (fromIntegral woInitialPause * slotDuration)
     putText "Discovering peers"
-    peers <- discoverPeers
-    putText "Peer discovery completed"
-    pure peers
+    let getPeersUntilSome = do
+            peers <- discoverPeers
+            if null peers then getPeersUntilSome else pure peers
+    getPeersUntilSome
 
 runWalletRepl :: WalletMode ssc m => WalletOptions -> Worker' m
 runWalletRepl wo sa = do

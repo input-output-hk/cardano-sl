@@ -11,7 +11,7 @@ module Pos.Communication.Util
 import           Data.Proxy                 (Proxy (..), asProxyTypeOf)
 import           Data.Time.Units            (Microsecond)
 import           Formatting                 (build, sformat, shown, (%))
-import           Mockable                   (Async, Bracket, Delay, Mockable, bracket)
+import           Mockable                   (Async, Bracket, Delay, Mockable)
 import qualified Node                       as N
 import           System.Wlog                (LoggerName, WithLogger, logDebug, logWarning,
                                              modifyLoggerName)
@@ -26,7 +26,7 @@ import           Pos.Communication.Protocol (ActionSpec (..), HandlerSpec (..), 
                                              mapActionSpec, mapListener, mapListener',
                                              messageName')
 import           Pos.Constants              (networkReceiveTimeout)
-import           Pos.Context                (WithNodeContext (getNodeContext), ncSendLock)
+import           Pos.Context                (WithNodeContext)
 import           Pos.Util.TimeLimit         (CanLogInParallel, execWithTimeLimit,
                                              logWarningWaitLinear)
 
@@ -156,43 +156,6 @@ sendActionsWithTimeLimit timeout sendActions = sendActions
                             nodeId
     }
 
-withMVar
-    :: (MonadIO m, Mockable Bracket m)
-    => MVar () -> m a -> m a
-withMVar lock action =
-    bracket (liftIO $ putMVar lock ())
-            (const $ liftIO $ takeMVar lock)
-            (const action)
-
-withSendLock
-    :: (MonadIO m, WithNodeContext ssc m, Mockable Bracket m)
-    => m a -> m a
-withSendLock action = do
-    mLock <- ncSendLock <$> getNodeContext
-    case mLock of
-        Just lock -> withMVar lock action
-        _         -> action
-
-convWithExclusiveSend
-    :: (MonadIO m, WithNodeContext ssc m, Mockable Bracket m)
-    => N.ConversationActions PeerData snd rcv m
-    -> N.ConversationActions PeerData snd rcv m
-convWithExclusiveSend conv = conv { N.send = send' }
-  where
-    send' msg = withSendLock $ N.send conv msg
-
-sendActionsWithExclusiveSend
-    :: (MonadIO m, WithNodeContext ssc m, Mockable Bracket m)
-    => N.SendActions BiP PeerData m
-    -> N.SendActions BiP PeerData m
-sendActionsWithExclusiveSend sA =
-    sA { N.sendTo = \nodeId msg -> withSendLock $
-                        N.sendTo sA nodeId msg
-       , N.withConnectionTo = \nodeId action ->
-            N.withConnectionTo sA nodeId $
-                action . convWithExclusiveSend
-       }
-
 wrapListener
   :: ( CanLogInParallel m
      , Mockable Async m
@@ -205,7 +168,6 @@ wrapListener
   => LoggerName -> Listener m -> Listener m
 wrapListener lname =
     addWaitLogging .
-    addExclusiveSend .
     addTimeout networkReceiveTimeout .
     modifyLogger lname
   where
@@ -213,8 +175,6 @@ wrapListener lname =
     addTimeout timeout = mapListener' (sendActionsWithTimeLimit timeout)
                                       (convWithTimeLimit timeout) identity
     modifyLogger _name = mapListener $ modifyLoggerName (<> lname)
-    addExclusiveSend = mapListener' sendActionsWithExclusiveSend
-                                    (const convWithExclusiveSend) identity
 
 wrapActionSpec
   :: ( CanLogInParallel m
@@ -228,7 +188,6 @@ wrapActionSpec
   => LoggerName -> ActionSpec m a -> ActionSpec m a
 wrapActionSpec lname =
     addWaitLogging .
-    addExclusiveSend .
     addTimeout networkReceiveTimeout .
     modifyLogger lname
   where
@@ -236,7 +195,6 @@ wrapActionSpec lname =
     addTimeout timeout = mapActionSpec (sendActionsWithTimeLimit timeout) identity
     modifyLogger _name = mapActionSpec identity $ modifyLoggerName
                                     (<> lname)
-    addExclusiveSend = mapActionSpec sendActionsWithExclusiveSend identity
 
 wrapSendActions
   :: ( CanLogInParallel m
@@ -251,5 +209,4 @@ wrapSendActions
   -> N.SendActions BiP PeerData m
 wrapSendActions =
     sendActionsWithWaitLog .
-    sendActionsWithExclusiveSend .
     sendActionsWithTimeLimit networkReceiveTimeout

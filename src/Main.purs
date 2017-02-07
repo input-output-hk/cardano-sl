@@ -38,7 +38,7 @@ config state = do
     { initialState: state
     , update: Ex.update :: Update Ex.State Ex.Action AppEffects
     , view: view
-    , inputs: [routeSignal, socketSignal]
+    , inputs: [socketSignal, routeSignal]
     }
 
 appSelector :: String

@@ -102,20 +102,19 @@ newtype Opening = Opening
 
 type OpeningsMap = HashMap StakeholderId Opening
 
+----------------------------------------------------------------------------
+-- Shares
+----------------------------------------------------------------------------
+
 -- | Each node generates a 'SharedSeed', breaks it into 'Share's, and sends
 -- those encrypted shares to other nodes. In a 'SharesMap', for each node we
 -- collect shares which said node has received and decrypted.
 --
 -- Specifically, if node identified by 'Address' X has received a share
 -- from node identified by key Y, this share will be at @sharesMap ! X ! Y@.
-
-----------------------------------------------------------------------------
--- Shares
-----------------------------------------------------------------------------
+type SharesMap = HashMap StakeholderId InnerSharesMap
 
 type InnerSharesMap = HashMap StakeholderId (AsBinary Share)
-
-type SharesMap = HashMap StakeholderId InnerSharesMap
 
 ----------------------------------------------------------------------------
 -- Vss certificates

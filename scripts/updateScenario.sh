@@ -67,25 +67,40 @@ set +e
 # Sometimes node hangs, so here's a timeout
 walletcmd="propose-update 0 0.1.0 1 20 10000000 cardano-1 ${updatetar}"
 pkill cardano-wallet
-echo "$walletcmd"
-walletoutput=$(./scripts/wallet.sh cmd --commands "$walletcmd" -p 0)
-echo "$walletoutput"
+echo "Running: '$walletcmd'"
 
-proposalHash=$(echo "$walletoutput" | grep -i "Update proposal submitted" | cut -d' ' -f 5)
+walletOutputLog='walletOutput.log'
+until $(./scripts/wallet.sh cmd --commands "$walletcmd" -p 0 > $walletOutputLog)
+do 
+    echo "Wallet exited with non-zero code $?, retrying" 
+done
+echo "Exit code of wallet: $?"
+
+cat $walletOutputLog
+
+proposalHash=$(cat $walletOutputLog | grep -i "Update proposal submitted" | cut -d' ' -f 5)
 test -z "$proposalHash" && echo "Didn't manage to retrieve proposal hash, aborting"  && exit
-echo "Proposal hash is $proposalHash"
+echo "Proposal hash is '$proposalHash'"
 
-updateVersion=$(echo "$walletoutput" | grep -i "Read file succesfuly, its hash:" | cut -d' ' -f 6)
-test -z "$proposalHash" && echo "Didn't manage to retrieve update version, aborting" && exit
-echo "Update version is $updateVersion"
+updateVersion=$(cat $walletOutputLog | grep -i "Read file succesfuly, its hash:" | cut -d' ' -f 6)
+test -z "$updateVersion" && echo "Didn't manage to retrieve update version, aborting" && exit
+echo "Update version is '$updateVersion'"
+
+rm -rfv $walletOutputLog
 
 # Voting for hash
+echo "Running wallet 2"
 pkill cardano-wallet
-./scripts/wallet.sh cmd --commands "vote 1 y $proposalHash" -p 0 
+until $(./scripts/wallet.sh cmd --commands 'vote 1 y $proposalHash' -p 0 > /dev/tty)
+do 
+  echo "Wallet 2 exited with non-zero code $?, retrying"
+done
+
 pkill cardano-wallet
 set -e
 
 # Sharing in webfs
+echo "Launching webfs server"
 rm -rf webfsfolder && mkdir webfsfolder
 cp -v $updatetar webfsfolder/$updateVersion
 pkill webfsd

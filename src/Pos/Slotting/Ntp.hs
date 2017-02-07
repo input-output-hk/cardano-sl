@@ -14,8 +14,7 @@ module Pos.Slotting.Ntp
        ) where
 
 import           Control.Concurrent.STM      (TVar)
-import           Control.Lens                (iso)
-import           Control.Lens                (makeLenses)
+import           Control.Lens                (iso, makeLenses)
 import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Fix           (MonadFix)
 import           Control.Monad.Trans.Class   (MonadTrans)
@@ -141,6 +140,7 @@ instance MonadBaseControl IO m => MonadBaseControl IO (NtpSlotting m) where
 
 instance MonadSlotsData m => MonadSlots (NtpSlotting m) where
     getCurrentSlot = notImplemented
+    slottingWorkers = []
 
 -- instance (Mockable CurrentTime m, MonadIO m) =>
 --          MonadSlots (ContextHolder ssc m) where

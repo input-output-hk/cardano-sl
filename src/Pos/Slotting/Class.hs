@@ -37,9 +37,15 @@ class MonadSlotsData m =>
 
     getCurrentSlot :: m SlotId
 
+    slottingWorkers :: [m ()]
+
     default getCurrentSlot :: (MonadTrans t, MonadSlots m', t m' ~ m) =>
         m SlotId
     getCurrentSlot = lift getCurrentSlot
+
+    default slottingWorkers :: (MonadTrans t, MonadSlots m', t m' ~ m) =>
+        [m ()]
+    slottingWorkers = map lift slottingWorkers
 
 instance MonadSlots m => MonadSlots (ReaderT s m) where
 instance MonadSlots m => MonadSlots (ExceptT s m) where

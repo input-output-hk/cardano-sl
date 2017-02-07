@@ -9,12 +9,12 @@ import           Data.Tagged           (untag)
 import           Universum
 
 import           Pos.Block.Worker      (blkWorkers)
-import           Pos.Communication     (OutSpecs, WorkerSpec, wrapActionSpec)
+import           Pos.Communication     (OutSpecs, WorkerSpec, localWorker, wrapActionSpec)
 import           Pos.Delegation.Worker (dlgWorkers)
 import           Pos.DHT.Workers       (dhtWorkers)
 import           Pos.Lrc.Worker        (lrcOnNewSlotWorker)
 import           Pos.Security.Workers  (SecurityWorkersClass, securityWorkers)
--- import           Pos.Slotting          (slottingWorker)
+import           Pos.Slotting.Class    (MonadSlots (slottingWorkers))
 import           Pos.Ssc.Class.Workers (SscWorkersClass, sscWorkers)
 import           Pos.Ssc.GodTossing    (SscGodTossing)
 import           Pos.Update            (usWorkers)
@@ -34,7 +34,7 @@ allWorkers = mconcatPair
     , wrap' "security"   $ untag securityWorkers
     , wrap' "lrc"        $ first pure lrcOnNewSlotWorker
     , wrap' "us"         $ usWorkers
-    , undefined -- wrap' "slotting" $ first pure slottingWorker
+    , wrap' "slotting"   $ (map (fst . localWorker) slottingWorkers, mempty)
     , wrap' "sysStart"   $ first pure sysStartWorker
     -- I don't know, guys, I don't know :(
     -- , const ([], mempty) statsWorkers

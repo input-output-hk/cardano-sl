@@ -36,7 +36,7 @@ import           Pos.DHT.Real.Real             (runKademliaDHT)
 import           Pos.DHT.Real.Types            (KademliaDHTInstance (..),
                                                 getKademliaDHTInstance)
 import           Pos.Ssc.Class                 (SscConstraint)
-import           Pos.Ssc.Extra                 (SscHolder (..), SscState, runSscHolderRaw)
+import           Pos.Ssc.Extra                 (SscHolder (..), SscState, runSscHolder)
 import           Pos.Txp.Class                 (getTxpLDWrap)
 import qualified Pos.Txp.Holder                as Modern
 import           Pos.Update.MemState.Holder    (runUSHolder)
@@ -98,7 +98,7 @@ convertHandler kinst nc modernDBs tlw ssc ws delWrap psCtx conn handler = do
            . usingLoggerName "wallet-api"
            . Modern.runDBHolder modernDBs
            . runContextHolder nc
-           . runSscHolderRaw ssc
+           . runSscHolder ssc
            . Modern.runTxpLDHolderReader tlw
            . runDelegationTFromTVar delWrap
            . runUSHolder

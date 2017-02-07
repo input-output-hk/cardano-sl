@@ -4,7 +4,7 @@
 
 ```bash
 curl https://nixos.org/nix/install | sh
-./build.sh
+./scripts/build.sh
 ```
 
 All generated files will be in `dist/`

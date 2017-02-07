@@ -206,8 +206,10 @@ runWalletCmd wo str sa = do
             Right cmd' -> runCmd sa cmd'
     putText "Command execution finished"
     putText " " -- for exit by SIGPIPE
+    liftIO $ hFlush stdout
+    liftIO $ hFlush stderr
 #if !(defined(mingw32_HOST_OS) && defined(__MINGW32__))
-    delay $ sec 5
+    delay $ sec 3
     liftIO $ exitImmediately ExitSuccess
 #endif
 

@@ -5,24 +5,37 @@ module Pos.Explorer.Web.ClientTypes
        , CAddress (..)
        , CTxId (..)
        , CBlockEntry (..)
-       , toBlockEntry
        , CTxEntry (..)
+       , CBlockSummary (..)
+       , toCHash
+       , fromCHash
+       , toCAddress
+       , toCTxId
+       , toBlockEntry
        , toTxEntry
+       , toBlockSummary
        ) where
 
-import qualified Data.ByteString.Lazy  as BSL
-import           Data.Time.Clock.POSIX (POSIXTime)
-import           Formatting            (build, sformat)
+import qualified Data.ByteString        as BS
+import qualified Data.ByteString.Base16 as B16
+import qualified Data.ByteString.Lazy   as BSL
+import           Data.Time.Clock.POSIX  (POSIXTime)
+import           Formatting             (build, sformat)
+import           Servant.API            (FromHttpApiData (..))
 import           Universum
 
-import           Pos.Binary            (encode)
-import           Pos.Crypto            (Hash, hash)
-import           Pos.Slotting          (MonadSlots (..), getSlotStart)
-import           Pos.Ssc.Class         (SscHelpersClass)
-import           Pos.Types             (Address, Coin, MainBlock (..), Timestamp, Tx (..),
-                                        TxId, TxOut (..), addressF, blockTxs, difficultyL,
-                                        gbHeader, gbhConsensus, mcdSlot, mkCoin, sumCoins,
-                                        unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Binary             (encode)
+import           Pos.Crypto             (Hash, decodeHash, encodeHash, hash)
+import           Pos.DB                 (MonadDB (..))
+import qualified Pos.DB.GState          as GS
+import           Pos.Merkle             (getMerkleRoot, mtRoot)
+import           Pos.Slotting           (MonadSlots (..), getSlotStart)
+import           Pos.Ssc.Class          (SscHelpersClass)
+import           Pos.Types              (Address, Coin, MainBlock (..), Timestamp,
+                                         Tx (..), TxId, TxOut (..), addressF, blockTxs,
+                                         difficultyL, gbHeader, gbhConsensus, headerHash,
+                                         mcdSlot, mkCoin, prevBlockL, sumCoins,
+                                         unsafeAddCoin, unsafeIntegerToCoin)
 
 -- | Client hash
 newtype CHash = CHash Text deriving (Show, Eq, Generic, Buildable, Hashable)
@@ -33,9 +46,12 @@ newtype CAddress = CAddress Text deriving (Show, Eq, Generic, Hashable, Buildabl
 -- | Client transaction id
 newtype CTxId = CTxId CHash deriving (Show, Eq, Generic, Hashable)
 
--- | Transformation of core hash-types to client representations
+-- | Transformation of core hash-types to client representations and vice versa
 toCHash :: Hash a -> CHash
-toCHash = CHash . sformat build
+toCHash = CHash . encodeHash
+
+fromCHash :: CHash -> Hash a
+fromCHash (CHash h) = decodeHash h
 
 toCAddress :: Address -> CAddress
 toCAddress = CAddress . sformat addressF
@@ -91,4 +107,30 @@ toTxEntry ts tx = CTxEntry {..}
         cteTimeIssued = toPosixTime ts
         cteAmount = totalTxMoney tx
 
+-- | Data displayed on block summary page
+data CBlockSummary = CBlockSummary
+    { cbsEntry      :: !CBlockEntry
+    , cbsBlkHash    :: !CHash
+    , cbsPrevHash   :: !CHash
+    , cbsNextHash   :: !(Maybe CHash)
+    , cbsMerkleRoot :: !CHash
+    } deriving (Show, Generic)
 
+toBlockSummary
+    :: (SscHelpersClass ssc, MonadSlots m, MonadDB ssc m)
+    => MainBlock ssc
+    -> m CBlockSummary
+toBlockSummary blk = do
+    cbsEntry <- toBlockEntry blk
+    cbsNextHash <- fmap toCHash <$> GS.resolveForwardLink blk
+    let cbsBlkHash = toCHash $ headerHash blk
+        cbsPrevHash = toCHash $ blk ^. prevBlockL
+        cbsMerkleRoot = toCHash . getMerkleRoot . mtRoot $ blk ^. blockTxs
+    return CBlockSummary {..}
+
+-------------------------------------------------------------------------------------
+-- FromHttpApiData instances
+-------------------------------------------------------------------------------------
+
+instance FromHttpApiData CHash where
+    parseUrlPiece = pure . CHash

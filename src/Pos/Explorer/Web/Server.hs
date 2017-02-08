@@ -34,8 +34,9 @@ import           Pos.WorkMode                   (WorkMode)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
-import           Pos.Explorer.Web.ClientTypes   (CBlockEntry (..), CTxEntry (..),
-                                                 toBlockEntry, toTxEntry)
+import           Pos.Explorer.Web.ClientTypes   (CBlockEntry (..), CBlockSummary (..),
+                                                 CHash, CTxEntry (..), fromCHash,
+                                                 toBlockEntry, toBlockSummary, toTxEntry)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 
 ----------------------------------------------------------------
@@ -59,6 +60,8 @@ explorerHandlers sendActions =
     catchExplorerError ... defaultLimit 10 getLastBlocks
     :<|>
     catchExplorerError ... defaultLimit 10 getLastTxs
+    :<|>
+    catchExplorerError . getBlockSummary
   where
     catchExplorerError = try
     f ... g = (f .) . g
@@ -130,3 +133,10 @@ getLastTxs (fromIntegral -> lim) (fromIntegral -> off) = do
         \(o, l, h) -> runMaybeT $ unfolder o l h
 
     return $ localTxEntries ++ blockTxEntries
+
+getBlockSummary :: ExplorerMode m => CHash -> m CBlockSummary
+getBlockSummary (fromCHash -> h) = do
+    blk <- maybeThrow (Internal "No block found") =<< DB.getBlock h
+    case blk of
+        Left db  -> throwM (Internal "Block is genesis block")
+        Right mb -> toBlockSummary mb

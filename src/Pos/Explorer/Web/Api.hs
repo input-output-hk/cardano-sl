@@ -10,7 +10,8 @@ module Pos.Explorer.Web.Api
 
 import           Data.Proxy                   (Proxy (Proxy))
 
-import           Pos.Explorer.Web.ClientTypes (CAddress, CBlockEntry, CTxEntry, CTxId)
+import           Pos.Explorer.Web.ClientTypes (CAddress, CBlockEntry, CBlockSummary,
+                                               CHash, CTxEntry, CTxId)
 import           Pos.Explorer.Web.Error       (ExplorerError)
 import           Pos.Types                    (Coin, SoftwareVersion)
 import           Servant.API                  ((:<|>), (:>), Capture, Get, JSON, Post,
@@ -22,6 +23,8 @@ type ExplorerApi =
     "last_blocks" :> QueryParam "limit" Word :> QueryParam "offset" Word :> Get '[JSON] (Either ExplorerError [CBlockEntry])
     :<|>
     "last_txs" :> QueryParam "limit" Word :> QueryParam "offset" Word :> Get '[JSON] (Either ExplorerError [CTxEntry])
+    :<|>
+    "block_summary" :> Capture "hash" CHash :> Get '[JSON] (Either ExplorerError CBlockSummary)
 
 -- | Helper Proxy
 explorerApi :: Proxy ExplorerApi

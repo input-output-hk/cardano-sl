@@ -34,7 +34,7 @@ import           Pos.Binary.Ssc                     ()
 import           Pos.Context                        (WithNodeContext)
 import           Pos.DB                             (MonadDB)
 import qualified Pos.DB.Lrc                         as LrcDB
-import           Pos.Lrc.Types                      (RichmenSet)
+import           Pos.Lrc.Types                      (RichmenStake)
 import           Pos.Slotting                       (MonadSlots (getCurrentSlot))
 import           Pos.Ssc.Class.LocalData            (LocalQuery, LocalUpdate,
                                                      SscLocalDataClass (..))
@@ -106,12 +106,12 @@ getLocalPayload SlotId {..} = do
         | otherwise = pure mempty
 
 normalize :: EpochIndex
-          -> RichmenSet
+          -> RichmenStake
           -> GtGlobalState
           -> LocalUpdate SscGodTossing ()
-normalize epoch richmenSet gs = do
+normalize epoch richmen gs = do
     oldModifier <- use ldModifier
-    let richmenData = HM.fromList [(epoch, richmenSet)]
+    let richmenData = HM.fromList [(epoch, richmen)]
     newModifier <-
         evalPureTossWithLogger richmenData gs $
         execTossT mempty $ normalizeToss epoch oldModifier
@@ -237,7 +237,7 @@ sscProcessData tag payload =
 
 sscProcessDataDo
     :: (MonadState GtLocalData m, WithLogger m)
-    => (EpochIndex, RichmenSet)
+    => (EpochIndex, RichmenStake)
     -> GtGlobalState
     -> GtPayload
     -> m (Either TossVerFailure ())

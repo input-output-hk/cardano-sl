@@ -127,7 +127,7 @@ createGtContext GtParams {..} =
 
 data GtSecretStorage = GtSecretStorage
     { -- | Our commitment.
-      gssCommitment :: !(SignedCommitment)
+      gssCommitment :: !SignedCommitment
     , -- | Corresponding opening
       gssOpening    :: !Opening
     , -- | Epoch for which this secret were generated

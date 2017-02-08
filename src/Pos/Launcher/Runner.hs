@@ -100,8 +100,7 @@ import           Pos.Slotting                (mkNtpSlottingVar, runDBSlotsData,
 import           Pos.Ssc.Class               (SscConstraint, SscHelpersClass,
                                               SscListenersClass, SscNodeContext,
                                               SscParams, sscCreateNodeContext)
-import           Pos.Ssc.Extra               (ignoreSscHolder, mkSscHolderState,
-                                              mkStateAndRunSscHolder, runSscHolder)
+import           Pos.Ssc.Extra               (ignoreSscHolder, mkStateAndRunSscHolder)
 import           Pos.Statistics              (getNoStatsT, runStatsT')
 import           Pos.Txp.Holder              (runTxpLDHolder)
 import qualified Pos.Txp.Types.UtxoView      as UV
@@ -171,9 +170,9 @@ runTimeLordReal LoggingParams{..} = do
         realTime <- liftIO Time.getZonedTime
         logInfo (sformat ("[Time lord] System start: " %timestampF%", i. e.: "%shown) t realTime)
 
-------------------------------------------------------------------------------
----- High level runners
-------------------------------------------------------------------------------
+----------------------------------------------------------------------------
+-- High level runners
+----------------------------------------------------------------------------
 
 -- | RawRealMode runner.
 runRawRealMode
@@ -212,9 +211,9 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
                        runKademliaDHT (rmDHT res) .
                        runPeerStateHolder stateM_
 
-       let startMonitoring node = case lpEkgPort of
+       let startMonitoring node' = case lpEkgPort of
                Nothing   -> return Nothing
-               Just port -> Just <$> setupMonitor port runIO node
+               Just port -> Just <$> setupMonitor port runIO node'
 
        let stopMonitoring it = case it of
                Nothing        -> return ()
@@ -243,46 +242,46 @@ runServiceMode
     -> OutSpecs
     -> ActionSpec ServiceMode a
     -> Production a
-runServiceMode res bp@BaseParams{..} listeners outSpecs (ActionSpec action) = do
+runServiceMode res bp@BaseParams {..} listeners outSpecs (ActionSpec action) = do
     stateM <- liftIO SM.newIO
     usingLoggerName (lpRunnerTag bpLoggingParams) .
-      runKademliaDHT (rmDHT res) .
-      runPeerStateHolder stateM .
-      runServer_ (rmTransport res) listeners outSpecs . ActionSpec $
-          \vI sa -> nodeStartMsg bp >> action vI sa
+        runKademliaDHT (rmDHT res) .
+        runPeerStateHolder stateM .
+        runServer_ (rmTransport res) listeners outSpecs . ActionSpec $ \vI sa ->
+        nodeStartMsg bp >> action vI sa
 
-runServer :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m, MonadDHT m)
-  => Transport
-  -> ListenersWithOut m
-  -> OutSpecs
-  -> (Node m -> m t)
-  -> (t -> m ())
-  -> ActionSpec m b
-  -> m b
+runServer
+    :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m, MonadDHT m)
+    => Transport
+    -> ListenersWithOut m
+    -> OutSpecs
+    -> (Node m -> m t)
+    -> (t -> m ())
+    -> ActionSpec m b
+    -> m b
 runServer transport packedLS (OutSpecs wouts) withNode afterNode (ActionSpec action) = do
     ourPeerId <- PeerId . getMeaningPart <$> currentNodeKey
     let (listeners', InSpecs ins, OutSpecs outs) = unpackLSpecs packedLS
-        ourVerInfo = VerInfo protocolMagic lastKnownBlockVersion ins $ outs <> wouts
+        ourVerInfo =
+            VerInfo protocolMagic lastKnownBlockVersion ins $ outs <> wouts
         listeners = listeners' ourVerInfo ++ protocolListeners
     stdGen <- liftIO newStdGen
     logInfo $ sformat ("Our verInfo "%build) ourVerInfo
     node (concrete transport) stdGen BiP (ourPeerId, ourVerInfo) $ \__node ->
-        pure $ NodeAction listeners $ \sendActions -> do
+        pure $
+        NodeAction listeners $ \sendActions -> do
             t <- withNode __node
             a <- action ourVerInfo sendActions `finally` afterNode t
             return a
 
-runServer_ :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m, MonadDHT m)
-  => Transport
-  -> ListenersWithOut m
-  -> OutSpecs
-  -> ActionSpec m b
-  -> m b
+runServer_
+    :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m, MonadDHT m)
+    => Transport -> ListenersWithOut m -> OutSpecs -> ActionSpec m b -> m b
 runServer_ transport packedLS outSpecs =
     runServer transport packedLS outSpecs acquire release
-    where
-    acquire = const (pure ())
-    release = const (pure ())
+  where
+    acquire = const pass
+    release = const pass
 
 -- | ProductionMode runner.
 runProductionMode
@@ -342,7 +341,6 @@ runCH params@NodeParams {..} sscNodeContext act = do
     recoveryHeaderVar <- liftIO newEmptyTMVarIO
     shutdownFlag <- liftIO $ newTVarIO False
     shutdownQueue <- liftIO $ newTBQueueIO allWorkersCount
-    sendLock <- liftIO newEmptyMVar
     let ctx =
             NodeContext
             { ncJLFile = jlFile

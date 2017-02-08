@@ -5,6 +5,7 @@ module Pos.Ssc.GodTossing.Error
        ) where
 
 import           Data.Text.Buildable (Buildable (..))
+import           Formatting          (bprint, stext)
 import           Serokell.Util       (listBuilderJSON)
 import           Universum
 
@@ -13,9 +14,9 @@ import           Pos.Types.Address   (StakeholderId)
 -- | Data type for error during seed calculation.
 data SeedError
     -- | Some nodes in the 'OpeningsMap' aren't in the set of participants
-    = ExtraneousOpenings (HashSet StakeholderId)
+    = ExtraneousOpenings !(HashSet StakeholderId)
     -- | Some nodes in the 'SharesMap' aren't in the set of participants
-    | ExtraneousShares (HashSet StakeholderId)
+    | ExtraneousShares !(HashSet StakeholderId)
     -- | There were no participants so a random string couldn't be generated
     | NoParticipants
     -- | Commitment can't be deserialized or didn't match secret (either recovered or in openings)
@@ -27,6 +28,8 @@ data SeedError
     | BrokenSecret StakeholderId
     -- | Share can't be deserialized
     | BrokenShare StakeholderId
+    -- | Some errors during computation of commitment distribution
+    | CommitmentDistrError !Text
     deriving (Eq, Show)
 
 instance Buildable SeedError where
@@ -44,3 +47,5 @@ instance Buildable SeedError where
         "BrokenSecret " <> build k
     build (BrokenShare k) =
         "BrokenShare " <> build k
+    build (CommitmentDistrError reason) =
+        bprint stext ("CommitmentDistrError " <> reason)

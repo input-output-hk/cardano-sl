@@ -2,6 +2,7 @@
 
 module Pos.Ssc.GodTossing.Toss.Pure
        ( PureToss (..)
+       , MultiRichmenStake
        , MultiRichmenSet
        , runPureToss
        , runPureTossWithLogger
@@ -18,7 +19,7 @@ import           System.Wlog                    (CanLog, HasLoggerName (getLogge
                                                  runPureLog, usingLoggerName)
 import           Universum
 
-import           Pos.Lrc.Types                  (RichmenSet)
+import           Pos.Lrc.Types                  (RichmenSet, RichmenStake)
 import           Pos.Ssc.GodTossing.Core        (deleteSignedCommitment,
                                                  insertSignedCommitment)
 import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
@@ -28,10 +29,11 @@ import           Pos.Ssc.GodTossing.Types       (GtGlobalState, gsCommitments, g
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types                      (EpochIndex, crucialSlot)
 
+type MultiRichmenStake = HashMap EpochIndex RichmenStake
 type MultiRichmenSet = HashMap EpochIndex RichmenSet
 
 newtype PureToss a = PureToss
-    { getPureToss :: LoggerNameBox (PureLogger (RWS MultiRichmenSet () GtGlobalState)) a
+    { getPureToss :: LoggerNameBox (PureLogger (RWS MultiRichmenStake () GtGlobalState)) a
     } deriving (Functor, Applicative, Monad, CanLog, HasLoggerName)
 
 instance MonadTossRead PureToss where
@@ -66,7 +68,7 @@ instance MonadToss PureToss where
 
 runPureToss
     :: LoggerName
-    -> MultiRichmenSet
+    -> MultiRichmenStake
     -> GtGlobalState
     -> PureToss a
     -> (a, GtGlobalState, [LogEvent])
@@ -81,7 +83,7 @@ runPureToss loggerName richmenData gs =
 
 runPureTossWithLogger
     :: WithLogger m
-    => MultiRichmenSet
+    => MultiRichmenStake
     -> GtGlobalState
     -> PureToss a
     -> m (a, GtGlobalState)
@@ -92,10 +94,10 @@ runPureTossWithLogger richmenData gs action = do
 
 evalPureTossWithLogger
     :: WithLogger m
-    => MultiRichmenSet -> GtGlobalState -> PureToss a -> m a
+    => MultiRichmenStake -> GtGlobalState -> PureToss a -> m a
 evalPureTossWithLogger r g = fmap fst . runPureTossWithLogger r g
 
 execPureTossWithLogger
     :: WithLogger m
-    => MultiRichmenSet -> GtGlobalState -> PureToss a -> m GtGlobalState
+    => MultiRichmenStake -> GtGlobalState -> PureToss a -> m GtGlobalState
 execPureTossWithLogger r g = fmap snd . runPureTossWithLogger r g

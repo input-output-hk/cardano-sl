@@ -30,7 +30,8 @@ updater=$(find ../cardano-updater/.stack-work/install/ -name "cardano-updater" -
 
 
 echo "Building cardano-sl"
-stack build --fast
+stack clean cardano-sl
+stack build --fast 
 
 # Copying artefacts for v0.0.0
 echo "Preparing binaries with 0.0.0"
@@ -72,7 +73,7 @@ pkill cardano-wallet
 echo "Running: '$walletcmd'"
 
 walletOutputLog='walletOutput.log'
-until $(timeout 60 ./scripts/wallet.sh cmd --commands "$walletcmd" -p 0 &> $walletOutputLog)
+until $(timeout 60 ./scripts/wallet.sh cmd --commands "$walletcmd" -p 0 > $walletOutputLog)
 do 
     echo "Wallet exited with non-zero code $?, retrying" 
 done
@@ -113,6 +114,7 @@ echo "Launched webfs server"
 
 echo "Launching launcher"
 sleep 1
-stack exec cardano-launcher -- --node binaries_v000/cardano-node --node-log-config scripts/update-log-config.yaml -n "--update-server"  -n "http://localhost:$serverPort" -n "--update-latest-path" -n "updateDownloaded.tar" -n "--listen" -n "0.0.0.0:3004" -n "--peer" -n "127.0.0.1:3000/a_P8zb6fNP7I2H54FtGuhqxaMDAwMDAwMDAwMDAwMDA=" --updater $updater --node-timeout 5 --report-server http://localhost:8555/ --update-archive updateDownloaded.tar
+rm -rf update-node-tmp.log
+stack exec cardano-launcher -- --node binaries_v000/cardano-node --node-log-config scripts/update-log-config.yaml -n "--update-server"  -n "http://localhost:$serverPort" -n "--update-latest-path" -n "updateDownloaded.tar" -n "--listen" -n "127.0.0.1:3004" -n "--peer" -n "127.0.0.1:3000/a_P8zb6fNP7I2H54FtGuhqxaMDAwMDAwMDAwMDAwMDA=" -n "--flat-distr" -n "(3,100000)" -n "--rebuild-db" --updater $updater --node-timeout 5 --report-server http://localhost:8555/ --update-archive updateDownloaded.tar
 
 notify-send "updater scenario: ready"

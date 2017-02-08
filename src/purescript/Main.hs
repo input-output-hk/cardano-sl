@@ -27,6 +27,7 @@ main = do
       , mkSumType (Proxy @CT.CBlockEntry)
       , mkSumType (Proxy @CT.CTxEntry)
       , mkSumType (Proxy @PT.Coin)
+      , mkSumType (Proxy @PT.ChainDifficulty)
       ]
   where
       customBridge =

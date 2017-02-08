@@ -19,10 +19,11 @@ import           Pos.Binary            (encode)
 import           Pos.Crypto            (Hash, hash)
 import           Pos.Slotting          (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.Class         (SscHelpersClass)
-import           Pos.Types             (Address, Coin, MainBlock (..), Timestamp, Tx (..),
-                                        TxId, TxOut (..), addressF, blockTxs, difficultyL,
-                                        gbHeader, gbhConsensus, mcdSlot, mkCoin, sumCoins,
-                                        unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Types             (Address, ChainDifficulty, Coin, MainBlock (..),
+                                        Timestamp, Tx (..), TxId, TxOut (..), addressF,
+                                        blockTxs, difficultyL, gbHeader, gbhConsensus,
+                                        mcdSlot, mkCoin, sumCoins, unsafeAddCoin,
+                                        unsafeIntegerToCoin)
 
 -- | Client hash
 newtype CHash = CHash Text deriving (Show, Eq, Generic, Buildable, Hashable)
@@ -45,7 +46,7 @@ toCTxId = CTxId . toCHash
 
 -- | List of block entries is returned from "get latest N blocks" endpoint
 data CBlockEntry = CBlockEntry
-    { cbeHeight     :: !Word
+    { cbeHeight     :: !ChainDifficulty
     , cbeTimeIssued :: !POSIXTime
     , cbeTxNum      :: !Word
     , cbeTotalSent  :: !Coin
@@ -63,7 +64,7 @@ toBlockEntry
 toBlockEntry blk = do
     blkSlotStart <- getSlotStart $
                     blk ^. gbHeader . gbhConsensus . mcdSlot
-    let cbeHeight = fromIntegral $ blk ^. difficultyL
+    let cbeHeight = blk ^. difficultyL
         cbeTimeIssued = toPosixTime blkSlotStart
         txs = blk ^. blockTxs
         cbeTxNum = fromIntegral $ length txs

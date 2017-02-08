@@ -79,6 +79,7 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
                        requestHeaders mghNext (Just rHeader) peerId
            loop queue recHeaderVar
 
+    logDebug "Starting retrievalWorker loop"
     loop ncBlockRetrievalQueue ncRecoveryHeader
   where
     outs = announceBlockOuts

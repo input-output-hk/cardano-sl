@@ -119,6 +119,7 @@ checkShares epoch (id, sh) = do
             coms <- getCommitments
             ops <- getOpenings
             pure $ checkSharesPure coms ops parts id sh
+
 ----------------------------------------------------------------------------
 -- Pure functions
 ----------------------------------------------------------------------------
@@ -295,9 +296,8 @@ checkCommitmentShares distr participants  (_, Commitment{..}, _) =
 --     her VSS certificate is one of stable certificates
 --   * the nodes haven't already sent their commitments before
 --     in some different block
---   * commitment is generated exactly for all participants
---   * every multicommitment contains number of commitments
---     proportional to stake of stakeholder
+--   * commitment is generated exactly for all participants with correct
+--     proportions (according to 'computeSharesDistr')
 checkCommitmentsPayload
     :: (MonadToss m, MonadError TossVerFailure m)
     => EpochIndex

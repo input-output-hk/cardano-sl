@@ -35,6 +35,7 @@ data Args = Args
     , webPort          :: !Word16
     , commonArgs       :: !CLI.CommonArgs
     , noSystemStart    :: !Int
+    , monitorPort      :: !(Maybe Int)
     }
   deriving Show
 
@@ -71,7 +72,11 @@ argsParser =
     <*> CLI.webPortOption 8100 "Port for Explorer API"
     <*> CLI.commonArgsParser peerHelpMsg
     <*> option auto (long "system-start" <> metavar "TIMESTAMP" <> value (-1))
-
+    <*> optional
+            (option
+                 auto
+                 (long "monitor-port" <> metavar "INT" <>
+                  help "Run web monitor on this port"))
   where
     peerHelpMsg =
         "Peer to connect to for initial peer discovery. Format\

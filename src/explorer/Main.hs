@@ -59,7 +59,8 @@ loggingParams tag Args{..} =
     LoggingParams
     { lpHandlerPrefix = CLI.logPrefix commonArgs
     , lpConfigPath    = CLI.logConfig commonArgs
-    , lpRunnerTag = tag
+    , lpRunnerTag     = tag
+    , lpEkgPort       = monitorPort
     }
 
 baseParams :: LoggerName -> Args -> BaseParams
@@ -145,6 +146,8 @@ getNodeParams args@Args {..} systemStart = do
         , npPropagation = not (CLI.disablePropagation commonArgs)
         , npUpdatePath = "explorer-update"
         , npUpdateWithPkg = True
+        , npUpdateServers = CLI.updateServers commonArgs
+        , npReportServers = CLI.reportServers commonArgs
         }
 
 gtSscParams :: Args -> VssKeyPair -> GtParams

@@ -1,10 +1,10 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE GADTs               #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE GADTs               #-}
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE RankNTypes          #-}
 
 -- | Runners in various modes.
 
@@ -45,13 +45,14 @@ import           Data.Tagged                 (proxy)
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
 import           Mockable                    (CurrentTime, Mockable, MonadMockable,
-                                              Production (..), Throw, bracket, finally,
-                                              currentTime, delay, fork, killThread, throw)
+                                              Production (..), Throw, bracket,
+                                              currentTime, delay, finally, fork,
+                                              killThread, throw)
 import           Network.Transport           (Transport, closeTransport)
 import           Network.Transport.Concrete  (concrete)
 import qualified Network.Transport.TCP       as TCP
-import           Node                        (NodeAction (..), hoistSendActions,
-                                              Node, node)
+import           Node                        (Node, NodeAction (..), hoistSendActions,
+                                              node)
 import           Node.Util.Monitor           (setupMonitor, stopMonitor)
 import qualified STMContainers.Map           as SM
 import           System.Random               (newStdGen)
@@ -98,7 +99,7 @@ import           Pos.Slotting                (SlottingState (..))
 import           Pos.Ssc.Class               (SscConstraint, SscHelpersClass,
                                               SscListenersClass, SscNodeContext,
                                               SscParams, sscCreateNodeContext)
-import           Pos.Ssc.Extra               (mkSscHolderState, runSscHolder, ignoreSscHolder, mkStateAndRunSscHolder)
+import           Pos.Ssc.Extra               (ignoreSscHolder, mkStateAndRunSscHolder)
 import           Pos.Statistics              (getNoStatsT, runStatsT')
 import           Pos.Txp.Holder              (runTxpLDHolder)
 import qualified Pos.Txp.Types.UtxoView      as UV
@@ -207,12 +208,12 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
                        runKademliaDHT (rmDHT res) .
                        runPeerStateHolder stateM_
 
-       let startMonitoring node = case lpEkgPort of
-               Nothing -> return Nothing
-               Just port -> Just <$> setupMonitor port runIO node
+       let startMonitoring node' = case lpEkgPort of
+               Nothing   -> return Nothing
+               Just port -> Just <$> setupMonitor port runIO node'
 
        let stopMonitoring it = case it of
-               Nothing -> return ()
+               Nothing        -> return ()
                Just ekgServer -> stopMonitor ekgServer
 
        runDBHolder modernDBs .
@@ -340,7 +341,6 @@ runCH params@NodeParams {..} sscNodeContext act = do
         liftIO $ newTVarIO SlottingState{..}
     shutdownFlag <- liftIO $ newTVarIO False
     shutdownQueue <- liftIO $ newTBQueueIO allWorkersCount
-    sendLock <- liftIO newEmptyMVar
     let ctx =
             NodeContext
             { ncSlottingState = slottingStateVar

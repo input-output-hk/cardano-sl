@@ -44,7 +44,7 @@ import           Pos.Communication.Protocol (ConversationActions (..), NodeId, O
                                              toOutSpecs, worker)
 import           Pos.Constants              (blkSecurityParam)
 import           Pos.Context                (NodeContext (..), getNodeContext)
-import           Pos.Crypto                 (hash, shortHashF)
+import           Pos.Crypto                 (shortHashF)
 import qualified Pos.DB                     as DB
 import qualified Pos.DB.GState              as GState
 import           Pos.Ssc.Class              (Ssc, SscWorkersClass)
@@ -52,8 +52,7 @@ import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (
                                              HeaderHash, blockHeader, difficultyL,
                                              gbHeader, prevBlockL, verifyHeaders)
 import           Pos.Util                   (NE, NewestFirst (..), OldestFirst (..),
-                                             inAssertMode, toNewestFirst, _neHead,
-                                             _neLast)
+                                             inAssertMode, _neHead, _neLast)
 import           Pos.Util.Shutdown          (ifNotShutdown)
 import           Pos.WorkMode               (WorkMode)
 

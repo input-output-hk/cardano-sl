@@ -32,11 +32,14 @@ library
                         Pos.Explorer.Web.Error
   build-depends:        base
                       , aeson
+                      , bytestring
                       , cardano-sl
                       , exceptions
                       , formatting
+                      , lens
                       , log-warper
                       , mtl
+                      , monad-loops
                       , node-sketch
                       , servant
                       , servant-server
@@ -45,6 +48,7 @@ library
                       , stm
                       , text-format
                       , time
+                      , transformers
                       , universum
                       , wai
   hs-source-dirs:       src

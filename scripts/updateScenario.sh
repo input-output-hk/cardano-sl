@@ -37,6 +37,7 @@ echo "Preparing binaries with 0.0.0"
 csl_bin=$(find .stack-work/install/ -iname "bin")
 rm -rf binaries_v000 && mkdir binaries_v000
 cp -v $csl_bin/* binaries_v000/
+md5sum binaries_v000/cardano-node
 
 # Updating version in csl sources to v0.1.0
 sed -i.backup "s/BlockVersion 0 0 0/BlockVersion 0 1 0/" src/Pos/Constants.hs
@@ -44,6 +45,7 @@ echo "Building cardano-sl with version 0.1.0"
 stack build --fast
 rm -rf binaries_v010 && mkdir binaries_v010
 cp -v $csl_bin/* binaries_v010/
+md5sum binaries_v010/cardano-node
 
 # Restoring version and binaries
 echo "Restoring binaries"
@@ -70,7 +72,7 @@ pkill cardano-wallet
 echo "Running: '$walletcmd'"
 
 walletOutputLog='walletOutput.log'
-until $(./scripts/wallet.sh cmd --commands "$walletcmd" -p 0 &> $walletOutputLog)
+until $(timeout 60 ./scripts/wallet.sh cmd --commands "$walletcmd" -p 0 &> $walletOutputLog)
 do 
     echo "Wallet exited with non-zero code $?, retrying" 
 done
@@ -91,7 +93,7 @@ rm -rfv $walletOutputLog
 # Voting for hash
 echo "Running wallet 2"
 pkill cardano-wallet
-until $(./scripts/wallet.sh cmd --commands 'vote 1 y $proposalHash' -p 0 &> /dev/tty)
+until $(timeout 60 ./scripts/wallet.sh cmd --commands 'vote 1 y $proposalHash' -p 0 &> /dev/tty)
 do 
   echo "Wallet 2 exited with non-zero code $?, retrying"
 done
@@ -111,6 +113,6 @@ echo "Launched webfs server"
 
 echo "Launching launcher"
 sleep 1
-stack exec cardano-launcher -- --node binaries_v000/cardano-node --node-log-config scripts/update-log-config.yaml -n "--update-server"  -n "http://localhost:$serverPort" -n "--update-latest-path" -n "updateDownloaded.tar" -n "--listen" -n "0.0.0.0:3004" --updater $updater --node-timeout 5 --report-server http://localhost:8555/ --update-archive updateDownloaded.tar
+stack exec cardano-launcher -- --node binaries_v000/cardano-node --node-log-config scripts/update-log-config.yaml -n "--update-server"  -n "http://localhost:$serverPort" -n "--update-latest-path" -n "updateDownloaded.tar" -n "--listen" -n "0.0.0.0:3004" -n "--peer" -n "127.0.0.1:3000/a_P8zb6fNP7I2H54FtGuhqxaMDAwMDAwMDAwMDAwMDA=" --updater $updater --node-timeout 5 --report-server http://localhost:8555/ --update-archive updateDownloaded.tar
 
 notify-send "updater scenario: ready"

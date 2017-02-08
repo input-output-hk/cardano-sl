@@ -79,7 +79,8 @@ handleGetHeaders
     :: forall ssc m.
        (WorkMode ssc m)
     => (ListenerSpec m, OutSpecs)
-handleGetHeaders = listenerConv $ \_ __peerId conv ->
+handleGetHeaders = listenerConv $ \_ peerId conv -> do
+    logDebug $ "handleGetHeaders: request from " <> show peerId
     handleHeadersCommunication conv
 
 handleGetBlocks

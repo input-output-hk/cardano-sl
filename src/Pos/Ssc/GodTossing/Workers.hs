@@ -36,7 +36,8 @@ import           Pos.Communication.Relay          (DataMsg (..), InvMsg (..))
 import           Pos.Constants                    (mpcSendInterval, slotSecurityParam,
                                                    vssMaxTTL)
 import           Pos.Context                      (getNodeContext, lrcActionOnEpochReason,
-                                                   ncPublicKey, ncSecretKey, ncSscContext)
+                                                   ncNodeParams, ncPublicKey,
+                                                   ncSscContext, npSecretKey)
 import           Pos.Crypto                       (SecretKey, VssKeyPair, VssPublicKey,
                                                    randomNumber, runSecureRandom)
 import           Pos.Crypto.SecretSharing         (toVssPublicKey)
@@ -146,7 +147,7 @@ checkNSendOurCert sendActions = do
         case HM.lookup ourId certs of
             Just c -> return c
             Nothing -> do
-                ourSk <- ncSecretKey <$> getNodeContext
+                ourSk <- npSecretKey . ncNodeParams <$> getNodeContext
                 ourVssKeyPair <- getOurVssKeyPair
                 let vssKey = asBinary $ toVssPublicKey ourVssKeyPair
                     createOurCert =
@@ -184,7 +185,7 @@ onNewSlotCommitment slotId@SlotId {..} sendActions
                 Nothing   -> onNewSlotCommDo ourId
   where
     onNewSlotCommDo ourId = do
-        ourSk <- ncSecretKey <$> getNodeContext
+        ourSk <- npSecretKey . ncNodeParams <$> getNodeContext
         logDebug $ sformat ("Generating secret for "%ords%" epoch") siEpoch
         generated <- generateAndSetNewSecret ourSk slotId
         case generated of

@@ -3,12 +3,9 @@
 
 module Pos.Binary.Communication () where
 
-import           Data.Binary.Get                  (getByteString,
-                                                   getRemainingLazyByteString, getWord8,
-                                                   label)
+import           Data.Binary.Get                  (getByteString, getWord8, label)
 import           Data.Binary.Put                  (putByteString, putWord8)
 import qualified Data.ByteString                  as BS
-import qualified Data.ByteString.Lazy             as BSL
 import           Data.Reflection                  (Reifies, reflect)
 import           Formatting                       (int, sformat, (%))
 import           Node.Message                     (MessageName (..))
@@ -28,8 +25,8 @@ import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 import           Pos.Ssc.Class.Types              (Ssc (..))
 import           Pos.Txp.Types                    (TxMsgTag (..))
 import           Pos.Update.Network.Types         (ProposalMsgTag (..), VoteMsgTag (..))
-import           Pos.Util.Binary                  (getWithLength, getWithLengthLimited,
-                                                   putWithLength)
+import           Pos.Util.Binary                  (getRemainingByteString, getWithLength,
+                                                   getWithLengthLimited, putWithLength)
 
 deriving instance Bi MessageName
 
@@ -142,8 +139,7 @@ instance Bi HandlerSpec where
     get = getWord8 >>= \case
         0 -> getWithLength (pure OneMsgHandler)
         1 -> getWithLength (ConvHandler <$> get)
-        t -> getWithLength (UnknownHandler t <$>
-                            (BSL.toStrict <$> getRemainingLazyByteString))
+        t -> getWithLength (UnknownHandler t <$> getRemainingByteString)
 
 instance Bi VerInfo where
     put VerInfo {..} = put vIMagic

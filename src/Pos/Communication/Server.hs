@@ -16,14 +16,9 @@ import           Universum
 
 import           Pos.Binary.Communication          ()
 import           Pos.Block.Network.Listeners       (blockListeners, blockStubListeners)
-import           Pos.Communication.Protocol        (ListenerSpec (..), OutSpecs,
-                                                    mapListener')
+import           Pos.Communication.Protocol        (ListenerSpec (..), OutSpecs)
 import           Pos.Communication.Server.SysStart
-import           Pos.Communication.Util            (convWithTimeLimit,
-                                                    modifyListenerLogger,
-                                                    sendActionsWithTimeLimit, withWaitLog,
-                                                    withWaitLogConvL)
-import           Pos.Constants                     (networkReceiveTimeout)
+import           Pos.Communication.Util            (wrapListener)
 import           Pos.Delegation.Listeners          (delegationListeners,
                                                     delegationStubListeners)
 import           Pos.Ssc.Class.Helpers             (SscHelpersClass (..))
@@ -38,23 +33,17 @@ allListeners
     :: (SscListenersClass ssc, WorkMode ssc m)
     => ([ListenerSpec m], OutSpecs)
 allListeners = mconcatPair
-        [ modifier "block" blockListeners
-        , modifier "ssc" $ untag sscListeners
-        , modifier "tx" txListeners
-        , modifier "delegation" delegationListeners
-        , modifier "update" usListeners
+        [ modifier "block"      $ blockListeners
+        , modifier "ssc"        $ untag sscListeners
+        , modifier "tx"         $ txListeners
+        , modifier "delegation" $ delegationListeners
+        , modifier "update"     $ usListeners
         ]
   where
     modifier lname = over _1 (map pModifier)
       where
         pModifier (ListenerSpec h spec) =
-            ListenerSpec (\vI -> lModifier $ h vI) spec
-        lModifier = addWaitLogging .
-                           addTimeout networkReceiveTimeout .
-                           modifyListenerLogger (serverLoggerName <> lname)
-    addWaitLogging = mapListener' withWaitLog withWaitLogConvL identity
-    addTimeout timeout = mapListener' (sendActionsWithTimeLimit timeout)
-                                      (convWithTimeLimit timeout) identity
+            ListenerSpec (\vI -> wrapListener (serverLoggerName <> lname) $ h vI) spec
 
 -- | All listeners running on one node.
 allStubListeners

@@ -128,6 +128,7 @@ instance Buildable (StakeholderId, Word16) where
 
 -- | This type identifies commitment, corresponding opening and commitment's shares.
 type GtDataId = (StakeholderId, Word16)
+
 ----------------------------------------------------------------------------
 -- Vss certificates
 ----------------------------------------------------------------------------

@@ -105,8 +105,6 @@ data CompileConfig = CompileConfig
       -- support caching
     , ccKademliaDumpInterval          :: !Int
       -- ^ Interval for dumping Kademlia state in slots
-    , ccUpdateServers                 :: ![String]
-      -- ^ Servers for downloading application updates
     , ccNtpResponseTimeout            :: !Int
       -- ^ How often request to NTP server and response collection
     , ccNtpPollDelay                  :: !Int

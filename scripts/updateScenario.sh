@@ -2,6 +2,8 @@
 
 set -e
 csldir=$(pwd)
+serverPort=8100 # Port for webfsd
+updatetar="binaries_000_010.tar"
 
 # Sanity checks
 which stack > /dev/null
@@ -26,11 +28,6 @@ cd $csldir
 
 updater=$(find ../cardano-updater/.stack-work/install/ -name "cardano-updater" -exec readlink -f {} \; | head -n 1)
 
-serverPort=8100 # Port for webfsd
-
-# Replacing server address in constants-dev
-sedline="s/updateServers:.*/updateServers: \[ \"http:\/\/localhost:${serverPort}\/\" \]/"
-sed -i.backup -E "$sedline" constants-dev.yaml
 
 echo "Building cardano-sl"
 stack build --fast
@@ -40,6 +37,7 @@ echo "Preparing binaries with 0.0.0"
 csl_bin=$(find .stack-work/install/ -iname "bin")
 rm -rf binaries_v000 && mkdir binaries_v000
 cp -v $csl_bin/* binaries_v000/
+md5sum binaries_v000/cardano-node
 
 # Updating version in csl sources to v0.1.0
 sed -i.backup "s/BlockVersion 0 0 0/BlockVersion 0 1 0/" src/Pos/Constants.hs
@@ -47,13 +45,13 @@ echo "Building cardano-sl with version 0.1.0"
 stack build --fast
 rm -rf binaries_v010 && mkdir binaries_v010
 cp -v $csl_bin/* binaries_v010/
+md5sum binaries_v010/cardano-node
 
 # Restoring version and binaries
 echo "Restoring binaries"
 mv -v src/Pos/Constants.hs.backup src/Pos/Constants.hs
-cp binaries_v010/* $csl_bin/
+cp binaries_v000/* $csl_bin/
 
-updatetar="binaries_000_010.tar"
 rm -rf $updatetar
 echo "Creating diff tar $updatetar (might take a while)"
 stack exec cardano-genupdate -- binaries_v000 binaries_v010 $updatetar
@@ -71,31 +69,50 @@ set +e
 # Sometimes node hangs, so here's a timeout
 walletcmd="propose-update 0 0.1.0 1 20 10000000 cardano-1 ${updatetar}"
 pkill cardano-wallet
-echo "$walletcmd"
-walletoutput=$(./scripts/wallet.sh cmd --commands "$walletcmd" -p 0)
-echo "$walletoutput"
+echo "Running: '$walletcmd'"
 
-proposalHash=$(echo "$walletoutput" | grep -i "Update proposal submitted" | cut -d' ' -f 5)
+walletOutputLog='walletOutput.log'
+until $(timeout 60 ./scripts/wallet.sh cmd --commands "$walletcmd" -p 0 &> $walletOutputLog)
+do 
+    echo "Wallet exited with non-zero code $?, retrying" 
+done
+echo "Exit code of wallet: $?"
+
+cat $walletOutputLog
+
+proposalHash=$(cat $walletOutputLog | grep -i "Update proposal submitted" | cut -d' ' -f 5)
 test -z "$proposalHash" && echo "Didn't manage to retrieve proposal hash, aborting"  && exit
-echo "Proposal hash is $proposalHash"
+echo "Proposal hash is '$proposalHash'"
 
-updateVersion=$(echo "$walletoutput" | grep -i "Read file succesfuly, its hash:" | cut -d' ' -f 6)
-test -z "$proposalHash" && echo "Didn't manage to retrieve update version, aborting" && exit
-echo "Update version is $updateVersion"
+updateVersion=$(cat $walletOutputLog | grep -i "Read file succesfuly, its hash:" | cut -d' ' -f 6)
+test -z "$updateVersion" && echo "Didn't manage to retrieve update version, aborting" && exit
+echo "Update version is '$updateVersion'"
+
+rm -rfv $walletOutputLog
 
 # Voting for hash
+echo "Running wallet 2"
 pkill cardano-wallet
-./scripts/wallet.sh cmd --commands "vote 1 y $proposalHash" -p 0 
+until $(timeout 60 ./scripts/wallet.sh cmd --commands 'vote 1 y $proposalHash' -p 0 &> /dev/tty)
+do 
+  echo "Wallet 2 exited with non-zero code $?, retrying"
+done
+
 pkill cardano-wallet
 set -e
 
 # Sharing in webfs
+echo "Launching webfs server"
 rm -rf webfsfolder && mkdir webfsfolder
 cp -v $updatetar webfsfolder/$updateVersion
-pkill webfsd
-webfsd -p $serverPort -r webfsfolder
+pkill webfsd || true
+webfsd -p $serverPort -r webfsfolder 
 echo "Launched webfs server"
 
-# Do your launcher stuff here
+# Launcher launching
+
+echo "Launching launcher"
+sleep 1
+stack exec cardano-launcher -- --node binaries_v000/cardano-node --node-log-config scripts/update-log-config.yaml -n "--update-server"  -n "http://localhost:$serverPort" -n "--update-latest-path" -n "updateDownloaded.tar" -n "--listen" -n "0.0.0.0:3004" -n "--peer" -n "127.0.0.1:3000/a_P8zb6fNP7I2H54FtGuhqxaMDAwMDAwMDAwMDAwMDA=" --updater $updater --node-timeout 5 --report-server http://localhost:8555/ --update-archive updateDownloaded.tar
 
 notify-send "updater scenario: ready"

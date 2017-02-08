@@ -7,7 +7,7 @@ module Pos.Wallet.Context.Context
 
 import qualified Control.Concurrent.STM as STM
 
-import           Pos.Context            (NodeContext (..))
+import           Pos.Context            (NodeContext (..), npSystemStart)
 import           Pos.Slotting           (SlottingState)
 import           Pos.Types              (Timestamp)
 
@@ -23,6 +23,6 @@ data WalletContext = WalletContext
 
 fromNodeCtx :: NodeContext ssc -> WalletContext
 fromNodeCtx NodeContext {..} = WalletContext
-    { wcSystemStart = ncSystemStart
+    { wcSystemStart = npSystemStart ncNodeParams
     , wcSlottingState = ncSlottingState
     }

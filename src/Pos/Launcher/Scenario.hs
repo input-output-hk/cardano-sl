@@ -14,16 +14,17 @@ import           Control.Concurrent.STM.TVar (writeTVar)
 import           Data.Default                (def)
 import           Development.GitRev          (gitBranch, gitHash)
 import           Formatting                  (build, int, sformat, (%))
-import           Mockable                    (currentTime, delay, fork, sleepForever)
+import           Mockable                    (currentTime, delay, fork)
 import           System.Wlog                 (logError, logInfo)
 import           Universum
 
 import           Pos.Communication           (ActionSpec (..), OutSpecs, WorkerSpec,
-                                              withWaitLog)
+                                              wrapActionSpec)
 import           Pos.Constants               (isDevelopment, ntpMaxError,
                                               ntpResponseTimeout)
 import           Pos.Context                 (NodeContext (..), getNodeContext,
-                                              ncPubKeyAddress, ncPublicKey, readNtpMargin)
+                                              ncPubKeyAddress, ncPublicKey, npSystemStart,
+                                              readNtpMargin)
 import qualified Pos.DB.GState               as GS
 import qualified Pos.DB.Lrc                  as LrcDB
 import           Pos.Delegation.Logic        (initDelegation)
@@ -33,8 +34,9 @@ import           Pos.Ssc.Class               (SscConstraint)
 import           Pos.Types                   (Timestamp (Timestamp), addressHash)
 import           Pos.Update                  (MemState (..), askUSMemVar, mvState)
 import           Pos.Util                    (inAssertMode, waitRandomInterval)
+import           Pos.Util.Shutdown           (waitForWorkers)
 import           Pos.Util.TimeWarp           (sec)
-import           Pos.Worker                  (allWorkers)
+import           Pos.Worker                  (allWorkers, allWorkersCount)
 import           Pos.Worker.Ntp              (ntpWorker)
 import           Pos.WorkMode                (WorkMode)
 
@@ -61,26 +63,29 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
     logInfo $ "Waiting response from NTP servers"
     unless isDevelopment $ delay (ntpResponseTimeout + ntpMaxError)
     waitSystemStart
-    let unpackPlugin (ActionSpec action) = action vI
-    mapM_ (fork . ($ withWaitLog sendActions) . unpackPlugin) $
+    let unpackPlugin (ActionSpec action) = action vI sendActions
+    mapM_ (fork . unpackPlugin) $
         plugins'
-    sleepForever
+
+    -- Instead of sleeping forever, we wait until graceful shutdown
+    waitForWorkers allWorkersCount
 
 -- | Run full node in any WorkMode.
 runNode
     :: (SscConstraint ssc, WorkMode ssc m)
     => ([WorkerSpec m], OutSpecs)
     -> (WorkerSpec m, OutSpecs)
-runNode (plugins', plOuts) = (,plOuts <> wOuts) $ runNode' $ workers' ++ plugins'
+runNode (plugins', plOuts) = (,plOuts <> wOuts) $ runNode' $ workers' ++ plugins''
   where
     (workers', wOuts) = allWorkers
+    plugins'' = map (wrapActionSpec "plugin") plugins'
 
 -- Sanity check in case start time is in future (may happen if clocks
 -- are not accurately synchronized, for example).
 waitSystemStart :: WorkMode ssc m => m ()
 waitSystemStart = do
     margin <- readNtpMargin
-    Timestamp start <- ncSystemStart <$> getNodeContext
+    Timestamp start <- npSystemStart . ncNodeParams <$> getNodeContext
     cur <- (+ margin) <$> currentTime
     let waitPeriod = start - cur
     logInfo $ sformat ("Waiting "%int%" seconds for system start") $

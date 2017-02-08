@@ -77,6 +77,7 @@ loggingParams tag Args{..} =
     { lpHandlerPrefix = CLI.logPrefix commonArgs
     , lpConfigPath    = CLI.logConfig commonArgs
     , lpRunnerTag = tag
+    , lpEkgPort = monitorPort
     }
 
 baseParams :: LoggerName -> Args -> BaseParams
@@ -217,6 +218,8 @@ getNodeParams args@Args {..} systemStart = do
         , npPropagation = not (CLI.disablePropagation commonArgs)
         , npUpdatePath = updateLatestPath
         , npUpdateWithPkg = updateWithPackage
+        , npUpdateServers = CLI.updateServers commonArgs
+        , npReportServers = CLI.reportServers commonArgs
         }
 
 gtSscParams :: Args -> VssKeyPair -> GtParams

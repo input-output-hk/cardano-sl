@@ -21,8 +21,8 @@ import           Pos.Communication.Message  ()
 import           Pos.Communication.Protocol (ConversationActions (..), NodeId (..),
                                              OutSpecs, SendActions (..), convH,
                                              toOutSpecs)
-import           Pos.Context                (getNodeContext, ncAttackTypes,
-                                             ncRecoveryHeader)
+import           Pos.Context                (getNodeContext, ncNodeParams,
+                                             ncRecoveryHeader, npAttackTypes)
 import           Pos.Crypto                 (shortHashF)
 import qualified Pos.DB                     as DB
 import           Pos.DHT.Model              (converseToNeighbors)
@@ -48,7 +48,7 @@ announceBlock sendActions header = do
                 when (shouldIgnoreAddress cont addr) $
                 throw AttackNoBlocksTriggered
         sendActions' =
-            if AttackNoBlocks `elem` ncAttackTypes cont
+            if AttackNoBlocks `elem` npAttackTypes (ncNodeParams cont)
                 then sendActions
                      { sendTo =
                            \nId msg -> do

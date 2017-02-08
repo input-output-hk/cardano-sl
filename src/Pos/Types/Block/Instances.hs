@@ -395,6 +395,7 @@ instance BiSsc ssc => Buildable (BlockHeader ssc) where
 ----------------------------------------------------------------------------
 -- HasEpochIndex
 ----------------------------------------------------------------------------
+
 instance HasEpochIndex SlotId where
     epochIndexL f SlotId {..} = (\a -> SlotId {siEpoch = a, ..}) <$> f siEpoch
 
@@ -417,6 +418,7 @@ instance (HasEpochIndex a, HasEpochIndex b) =>
 ----------------------------------------------------------------------------
 -- HasEpochOrSlot
 ----------------------------------------------------------------------------
+
 instance HasEpochOrSlot (MainBlockHeader ssc) where
     _getEpochOrSlot = Right . _mcdSlot . _gbhConsensus
 
@@ -436,6 +438,7 @@ instance (HasEpochOrSlot a, HasEpochOrSlot b) =>
 ----------------------------------------------------------------------------
 -- HasHeaderHash
 ----------------------------------------------------------------------------
+
 instance HasHeaderHash HeaderHash where
     headerHash = identity
 

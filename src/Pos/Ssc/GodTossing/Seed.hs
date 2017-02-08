@@ -72,20 +72,26 @@ calculateSeed (getCommitmentsMap -> commitments) openings lShares = do
         recovered = HM.fromList $ do
             -- We are now trying to recover a secret for key 'k'
             id <- toList mustBeRecovered
-            -- We collect all secrets that 'k' has sent to other nodes (and
-            -- remove shares with equal IDs; when [CSL-206] is done, I assume
-            -- we won't have to do this).
-            --
-            -- TODO: can we be sure that here different IDs mean different
-            -- shares? maybe it'd be better to 'assert' it.
-            let secrets :: [Share]
-                secrets = concatMap toList $ mapMaybe (HM.lookup id) (toList shares)
+            -- We collect all shares that 'k' has sent to other nodes
+            let decryptedShares :: [Share]
+                decryptedShares = concatMap toList $ mapMaybe (HM.lookup id) (toList shares)
             let t = fromIntegral . vssThreshold . sum .
                     (HM.map NE.length) . commShares $ (commitments HM.! id) ^. _2
-            -- Then we recover the secret
-            return (id, if length secrets < t
-                         then Nothing
-                         else Just $ unsafeRecoverSecret (take t secrets))
+            -- Then we recover the secret.
+            --   * All encrypted shares in commitments are valid, because we
+            --     have checked them with 'verifyEncShare'. (I'm not sure how
+            --     much 'verifyEncShare' actually checks, though.)
+            --   * All decrypted shares match the shares in the commitments,
+            --     because we have checked them with 'verifyShare'.
+            --   * All shares have been encrypted for different nodes (and
+            --     hence have different IDs), because if the block creator
+            --     tries to lie that X's share sent to A was actually sent
+            --     to B, we would notice that the share sent “to B” doesn't
+            --     match the encrypted share in X's commitment.
+            return (id, if length decryptedShares < t
+                          then Nothing
+                          else Just $ unsafeRecoverSecret
+                                      (take t decryptedShares))
 
     secrets0 <- mapHelper BrokenSecret fromBinaryM $ getOpening <$> openings
 

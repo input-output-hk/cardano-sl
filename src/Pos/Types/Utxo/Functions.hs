@@ -42,8 +42,12 @@ deleteTxIn TxIn{..} = M.delete (txInHash, txInIndex)
 -- | Verify single Tx using MonadUtxoRead as TxIn resolver.
 verifyTxUtxo
     :: MonadUtxoRead m
-    => Bool -> TxAux -> m (Either [Text] [TxOutAux])
-verifyTxUtxo verifyAlone = verifyTx verifyAlone VTxGlobalContext utxoGet'
+    => Bool
+    -> Bool
+    -> TxAux
+    -> m (Either [Text] [TxOutAux])
+verifyTxUtxo verifyAlone verifyVersions =
+    verifyTx verifyAlone verifyVersions VTxGlobalContext utxoGet'
   where
     utxoGet' x = fmap VTxLocalContext <$> utxoGet x
 
@@ -72,16 +76,18 @@ verifyAndApplyTxs
     :: forall m.
        MonadUtxo m
     => Bool
+    -> Bool
     -> [(WithHash Tx, TxWitness, TxDistribution)]
     -> m (Either [Text] TxUndo)
-verifyAndApplyTxs verifyAlone txs = fmap reverse <$> foldM applyDo (Right []) txs
+verifyAndApplyTxs verifyAlone verifyVersions txs
+    = fmap reverse <$> foldM applyDo (Right []) txs
   where
     applyDo :: Either [Text] TxUndo
             -> (WithHash Tx, TxWitness, TxDistribution)
             -> m (Either [Text] TxUndo)
     applyDo failure@(Left _) _ = pure failure
     applyDo txouts txa = do
-        verRes <- verifyTxUtxo verifyAlone (over _1 whData txa)
+        verRes <- verifyTxUtxo verifyAlone verifyVersions (over _1 whData txa)
         ((:) <$> verRes <*> txouts) <$ applyTxToUtxo (txa ^. _1) (txa ^. _3)
 
 -- TODO change types of normalizeTxs and related

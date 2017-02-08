@@ -13,21 +13,21 @@ module Pos.Data.Attributes
        , mkAttributes
        ) where
 
-import qualified Base                 as Base
-import           Data.Binary.Get      (Get, getWord8)
-import qualified Data.Binary.Get      as G
-import           Data.Binary.Put      (Put, putByteString, putWord8)
-import qualified Data.ByteString      as BS
-import qualified Data.ByteString.Lazy as BSL
-import           Data.DeriveTH        (derive, makeNFData)
-import qualified Data.Map             as M
-import           Data.SafeCopy        (SafeCopy (..), contain, safeGet, safePut)
-import           Data.Text.Buildable  (Buildable)
-import qualified Data.Text.Buildable  as Buildable
-import           Formatting           (bprint, build, int, (%))
-import           Universum            hiding (putByteString)
+import qualified Base                as Base
+import           Data.Binary.Get     (Get, getWord8)
+import qualified Data.Binary.Get     as G
+import           Data.Binary.Put     (Put, putByteString, putWord8)
+import qualified Data.ByteString     as BS
+import           Data.DeriveTH       (derive, makeNFData)
+import qualified Data.Map            as M
+import           Data.SafeCopy       (SafeCopy (..), contain, safeGet, safePut)
+import           Data.Text.Buildable (Buildable)
+import qualified Data.Text.Buildable as Buildable
+import           Formatting          (bprint, build, int, (%))
+import           Universum           hiding (putByteString)
 
-import           Pos.Util.Binary      (getWithLengthLimited, putWithLength)
+import           Pos.Util.Binary     (getRemainingByteString, getWithLengthLimited,
+                                      putWithLength)
 
 mkAttributes :: h -> Attributes h
 mkAttributes dat = Attributes dat BS.empty
@@ -82,7 +82,7 @@ getAttributes keyGetMapper maxLen initData =
                     Nothing -> return dat
                     Just gh -> getWord8 >> gh >>= readWhileKnown
         attrData <- readWhileKnown initData
-        attrRemain <- BSL.toStrict <$> G.getRemainingLazyByteString
+        attrRemain <- getRemainingByteString
         return $ Attributes {..}
 
 -- | Generate 'Put' given the way to serialize inner attribute value

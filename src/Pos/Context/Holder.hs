@@ -32,7 +32,9 @@ import           Pos.Context.Class         (WithNodeContext (..))
 import           Pos.Context.Context       (NodeContext (..))
 import           Pos.Context.Functions     (readNtpData, readNtpLastSlot, readNtpMargin)
 import           Pos.DB.Class              (MonadDB)
-import           Pos.Slotting              (MonadSlots (..), getCurrentSlotUsingNtp)
+import           Pos.Launcher.Param        (npSystemStart)
+import           Pos.Slotting.Class        (MonadSlots (..))
+import           Pos.Slotting.Logic        (getCurrentSlotUsingNtp)
 import           Pos.Txp.Class             (MonadTxpLD)
 import           Pos.Types                 (Timestamp (..))
 import           Pos.Util.JsonLog          (MonadJL (..), appendJL)
@@ -78,7 +80,7 @@ instance Monad m => WithNodeContext ssc (ContextHolder ssc m) where
 
 instance (Mockable CurrentTime m, MonadIO m) =>
          MonadSlots (ContextHolder ssc m) where
-    getSystemStartTime = ContextHolder $ asks ncSystemStart
+    getSystemStartTime = ContextHolder $ asks $ npSystemStart . ncNodeParams
 
     getCurrentTime = do
         lastMargin <- readNtpMargin

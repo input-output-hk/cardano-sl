@@ -44,7 +44,7 @@ import           Pos.Communication.Protocol (ConversationActions (..), NodeId, O
                                              toOutSpecs, worker)
 import           Pos.Constants              (blkSecurityParam)
 import           Pos.Context                (NodeContext (..), getNodeContext)
-import           Pos.Crypto                 (hash, shortHashF)
+import           Pos.Crypto                 (shortHashF)
 import qualified Pos.DB                     as DB
 import qualified Pos.DB.GState              as GState
 import           Pos.Ssc.Class              (Ssc, SscWorkersClass)
@@ -52,8 +52,8 @@ import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (
                                              HeaderHash, blockHeader, difficultyL,
                                              gbHeader, prevBlockL, verifyHeaders)
 import           Pos.Util                   (NE, NewestFirst (..), OldestFirst (..),
-                                             inAssertMode, toNewestFirst, _neHead,
-                                             _neLast)
+                                             inAssertMode, _neHead, _neLast)
+import           Pos.Util.Shutdown          (ifNotShutdown)
 import           Pos.WorkMode               (WorkMode)
 
 data VerifyBlocksException = VerifyBlocksException Text deriving Show
@@ -65,7 +65,7 @@ retrievalWorker
     => (WorkerSpec m, OutSpecs)
 retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
     NodeContext{..} <- getNodeContext
-    let loop queue recHeaderVar = forever $ do
+    let loop queue recHeaderVar = ifNotShutdown $ do
            ph <- atomically $ readTBQueue queue
            handleAll (handleLE recHeaderVar ph) $ handle sendActions ph
            needQueryMore <- atomically $ do
@@ -77,6 +77,8 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
                whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
                    withConnectionTo sendActions peerId $
                        requestHeaders mghNext (Just rHeader) peerId
+           loop queue recHeaderVar
+
     loop ncBlockRetrievalQueue ncRecoveryHeader
   where
     outs = announceBlockOuts
@@ -367,18 +369,29 @@ handleRequestedHeaders headers recoveryTip peerId = do
         oldestHash = headerHash $ headers ^. _Wrapped . _neLast
     case classificationRes of
         CHsValid lcaChild -> do
-            let lcaChildHash = hash lcaChild
-            logDebug $ sformat validFormat lcaChildHash newestHash
-            addToBlockRequestQueue headers recoveryTip peerId
+            let lcaHash = lcaChild ^. prevBlockL
+            let headers' = NE.takeWhile ((/= lcaHash) . headerHash)
+                                        (getNewestFirst headers)
+            logDebug $ sformat validFormat (headerHash lcaChild)newestHash
+            case NE.nonEmpty headers' of
+                Nothing -> logWarning $
+                    "handleRequestedHeaders: couldn't find LCA child " <>
+                    "within headers returned, most probably classifyHeaders is broken"
+                Just headersPostfix ->
+                    addToBlockRequestQueue (NewestFirst headersPostfix) recoveryTip peerId
         CHsUseless reason ->
             logDebug $ sformat uselessFormat oldestHash newestHash reason
-        CHsInvalid _ -> pass -- TODO: ban node for sending invalid block.
+        CHsInvalid reason ->
+             -- TODO: ban node for sending invalid block.
+            logDebug $ sformat invalidFormat oldestHash newestHash reason
   where
     validFormat =
         "Received valid headers, can request blocks from " %shortHashF % " to " %shortHashF
-    uselessFormat =
+    genericFormat what =
         "Chain of headers from " %shortHashF % " to " %shortHashF %
-        " is useless for the following reason: " %stext
+        " is "%what%" for the following reason: " %stext
+    uselessFormat = genericFormat "useless"
+    invalidFormat = genericFormat "invalid"
 
 -- | Given nonempty list of valid blockheaders and nodeid, this
 -- function will put them into download queue and they will be
@@ -438,7 +451,7 @@ handleBlocks blocks sendActions = do
             sformat ("Processing sequence of blocks: " %listJson % "…") $
                     fmap headerHash blocks
     maybe onNoLca (handleBlocksWithLca sendActions blocks) =<<
-        lcaWithMainChain (map (view blockHeader) (toNewestFirst blocks))
+        lcaWithMainChain (map (view blockHeader) blocks)
     inAssertMode $ logDebug $ "Finished processing sequence of blocks"
   where
     onNoLca = logWarning $

@@ -118,7 +118,6 @@ verifyGtPayload eoh payload = case payload of
         verifyEntriesGuardM fst snd CommitmentInvalid
                             (pure . checkComm)
                             (HM.toList . getCommitmentsMap $ commitments)
-        -- [CSL-206]: check that share IDs are different.
 
     -- CHECK: Vss certificates checker
     --

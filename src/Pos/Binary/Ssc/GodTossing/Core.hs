@@ -13,6 +13,7 @@ import           Pos.Binary.Class              (Bi (..))
 import           Pos.Binary.Crypto             ()
 import           Pos.Ssc.GodTossing.Core.Types (Commitment (..), CommitmentsMap,
                                                 GtPayload (..), GtProof (..),
+                                                Commitment (..),
                                                 Opening (..), VssCertificate (..),
                                                 mkCommitmentsMap, recreateVssCertificate)
 import           Pos.Types.Address             (addressHash)

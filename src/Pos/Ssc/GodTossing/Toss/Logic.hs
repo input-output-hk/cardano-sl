@@ -93,15 +93,13 @@ normalizeToss
     :: forall m . MonadToss m
     => EpochIndex -> TossModifier -> m ()
 normalizeToss epoch TossModifier{..} = do
-    putsUseful $ map (flip CommitmentsPayload mempty . mkCommitmentsMapUnsafe . hm) $
+    putsUseful $ map (flip CommitmentsPayload mempty . mkCommitmentsMapUnsafe . one) $
                  HM.toList $
                  getCommitmentsMap _tmCommitments
-    putsUseful $ map (flip OpeningsPayload mempty . hm) $ HM.toList _tmOpenings
-    putsUseful $ map (flip SharesPayload mempty . hm) $ HM.toList _tmShares
-    putsUseful $ map (CertificatesPayload . hm) $ HM.toList _tmCertificates
+    putsUseful $ map (flip OpeningsPayload mempty . one) $ HM.toList _tmOpenings
+    putsUseful $ map (flip SharesPayload mempty . one) $ HM.toList _tmShares
+    putsUseful $ map (CertificatesPayload . one) $ HM.toList _tmCertificates
   where
-    hm = uncurry HM.singleton
-
     putsUseful :: [GtPayload] -> m ()
     putsUseful entries = do
         let verifyAndApply = runExceptT . verifyAndApplyGtPayload (Left epoch)

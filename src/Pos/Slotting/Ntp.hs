@@ -46,7 +46,6 @@ import qualified Pos.Constants               as C
 import           Pos.Context.Class           (WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
 import           Pos.Slotting.Class          (MonadSlots (..), MonadSlotsData (..))
-import           Pos.Slotting.Util           (onNewSlotWithLogging)
 import           Pos.Types                   (SlotId, slotIdF, unflattenSlotId)
 import           Pos.Util.JsonLog            (MonadJL)
 
@@ -151,7 +150,7 @@ type SlottingConstraint ssc m =
 instance SlottingConstraint ssc m =>
          MonadSlots (NtpSlotting m) where
     getCurrentSlot = notImplemented
-    slottingWorkers = [ntpSyncWorker, newSlotWorker]
+    slottingWorkers = [ntpSyncWorker]
 
 -- instance (Mockable CurrentTime m, MonadIO m) =>
 --          MonadSlots (ContextHolder ssc m) where
@@ -187,6 +186,12 @@ instance SlottingConstraint ssc m =>
 --     -- time for which we got margin (in last time) + NTP delay (+ some eps, for safety)
 --     canWeTrustLocalTime t =
 --         pure $ t <= measTime + ntpPollDelay + ntpMaxError
+
+  --       setNtpLastSlot slotId
+  -- where
+  --   setNtpLastSlot slotId = do
+  --       var <- NtpSlotting ask
+  --       atomically $ STM.modifyTVar var (nssLastSlot %~ max slotId)
 
 ----------------------------------------------------------------------------
 -- Running
@@ -229,20 +234,6 @@ runNtpSlotting var = usingReaderT var . getNtpSlotting
 ----------------------------------------------------------------------------
 -- Workers
 ----------------------------------------------------------------------------
-
--- This worker updates last slot (WTF).
-newSlotWorker
-    :: SlottingConstraint ssc m
-    => NtpSlotting m ()
-newSlotWorker =
-    onNewSlotWithLogging True $ \slotId -> do
-        modifyLoggerName (<> "slotting") $
-            logNotice $ sformat ("New slot has just started: " %slotIdF) slotId
-        setNtpLastSlot slotId
-  where
-    setNtpLastSlot slotId = do
-        var <- NtpSlotting ask
-        atomically $ STM.modifyTVar (var) (nssLastSlot %~ max slotId)
 
 -- Worker for synchronization of local time and global time.
 ntpSyncWorker

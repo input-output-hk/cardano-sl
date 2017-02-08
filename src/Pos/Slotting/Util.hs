@@ -10,8 +10,10 @@ module Pos.Slotting.Util
 
          -- * Worker which ticks when slot starts
        , onNewSlot
-       , onNewSlotWithLogging
        , onNewSlotImpl
+
+         -- * Worker which logs beginning of new slot
+       , logNewSlotWorker
        ) where
 
 import           Control.Monad.Catch      (MonadCatch, catch)
@@ -20,7 +22,7 @@ import           Formatting               (build, sformat, shown, (%))
 import           Mockable                 (CurrentTime, Delay, Fork, Mockable,
                                            currentTime, delay, fork)
 import           Serokell.Util.Exceptions ()
-import           System.Wlog              (WithLogger, logDebug, logError,
+import           System.Wlog              (WithLogger, logDebug, logError, logNotice,
                                            modifyLoggerName)
 import           Universum
 
@@ -28,7 +30,7 @@ import           Pos.Constants            (ntpMaxError, ntpPollDelay)
 import           Pos.Context.Class        (WithNodeContext)
 import           Pos.Slotting.Class       (MonadSlots (..))
 import           Pos.Types                (FlatSlotId, SlotId (..), Timestamp (..),
-                                           flattenSlotId, unflattenSlotId)
+                                           flattenSlotId, slotIdF, unflattenSlotId)
 import           Pos.Util.Shutdown        (ifNotShutdown)
 
 -- | Get flat id of current slot based on MonadSlots.
@@ -63,7 +65,6 @@ onNewSlot
     => Bool -> (SlotId -> m ()) -> m ()
 onNewSlot = onNewSlotImpl False
 
--- | Same as onNewSlot, but also logs debug information.
 onNewSlotWithLogging
     :: OnNewSlot ssc m
     => Bool -> (SlotId -> m ()) -> m ()
@@ -112,3 +113,11 @@ onNewSlotDo withLogging expectedSlotId startImmediately action = ifNotShutdown $
 --         delay (10 :: Microsecond)
 --     logTTW timeToWait = modifyLoggerName (<> "slotting") $ logDebug $
 --                  sformat ("Waiting for "%shown%" before new slot") timeToWait
+
+logNewSlotWorker
+    :: OnNewSlot ssc m
+    => m ()
+logNewSlotWorker =
+    onNewSlotWithLogging True $ \slotId -> do
+        modifyLoggerName (<> "slotting") $
+            logNotice $ sformat ("New slot has just started: " %slotIdF) slotId

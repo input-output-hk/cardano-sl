@@ -15,6 +15,7 @@ import           Pos.DHT.Workers       (dhtWorkers)
 import           Pos.Lrc.Worker        (lrcOnNewSlotWorker)
 import           Pos.Security.Workers  (SecurityWorkersClass, securityWorkers)
 import           Pos.Slotting.Class    (MonadSlots (slottingWorkers))
+import           Pos.Slotting.Util     (logNewSlotWorker)
 import           Pos.Ssc.Class.Workers (SscWorkersClass, sscWorkers)
 import           Pos.Ssc.GodTossing    (SscGodTossing)
 import           Pos.Update            (usWorkers)
@@ -34,12 +35,14 @@ allWorkers = mconcatPair
     , wrap' "security"   $ untag securityWorkers
     , wrap' "lrc"        $ first pure lrcOnNewSlotWorker
     , wrap' "us"         $ usWorkers
-    , wrap' "slotting"   $ (map (fst . localWorker) slottingWorkers, mempty)
+    , wrap' "slotting"   $ (properSlottingWorkers, mempty)
     , wrap' "sysStart"   $ first pure sysStartWorker
     -- I don't know, guys, I don't know :(
     -- , const ([], mempty) statsWorkers
     ]
   where
+    properSlottingWorkers =
+        map (fst . localWorker) (logNewSlotWorker:slottingWorkers)
     wrap' lname = first (map $ wrapActionSpec $ "worker" <> lname)
 
 allWorkersCount :: Int

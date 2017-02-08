@@ -91,5 +91,3 @@ toTxEntry ts tx = CTxEntry {..}
   where cteId = toCTxId $ hash tx
         cteTimeIssued = toPosixTime ts
         cteAmount = totalTxMoney tx
-
-

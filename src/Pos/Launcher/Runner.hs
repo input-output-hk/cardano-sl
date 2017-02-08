@@ -170,9 +170,9 @@ runTimeLordReal LoggingParams{..} = do
         realTime <- liftIO Time.getZonedTime
         logInfo (sformat ("[Time lord] System start: " %timestampF%", i. e.: "%shown) t realTime)
 
-------------------------------------------------------------------------------
----- High level runners
-------------------------------------------------------------------------------
+----------------------------------------------------------------------------
+-- High level runners
+----------------------------------------------------------------------------
 
 -- | RawRealMode runner.
 runRawRealMode
@@ -237,46 +237,46 @@ runServiceMode
     -> OutSpecs
     -> ActionSpec ServiceMode a
     -> Production a
-runServiceMode res bp@BaseParams{..} listeners outSpecs (ActionSpec action) = do
+runServiceMode res bp@BaseParams {..} listeners outSpecs (ActionSpec action) = do
     stateM <- liftIO SM.newIO
     usingLoggerName (lpRunnerTag bpLoggingParams) .
-      runKademliaDHT (rmDHT res) .
-      runPeerStateHolder stateM .
-      runServer_ (rmTransport res) listeners outSpecs . ActionSpec $
-          \vI sa -> nodeStartMsg bp >> action vI sa
+        runKademliaDHT (rmDHT res) .
+        runPeerStateHolder stateM .
+        runServer_ (rmTransport res) listeners outSpecs . ActionSpec $ \vI sa ->
+        nodeStartMsg bp >> action vI sa
 
-runServer :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m, MonadDHT m)
-  => Transport
-  -> ListenersWithOut m
-  -> OutSpecs
-  -> (Node m -> m t)
-  -> (t -> m ())
-  -> ActionSpec m b
-  -> m b
+runServer
+    :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m, MonadDHT m)
+    => Transport
+    -> ListenersWithOut m
+    -> OutSpecs
+    -> (Node m -> m t)
+    -> (t -> m ())
+    -> ActionSpec m b
+    -> m b
 runServer transport packedLS (OutSpecs wouts) withNode afterNode (ActionSpec action) = do
     ourPeerId <- PeerId . getMeaningPart <$> currentNodeKey
     let (listeners', InSpecs ins, OutSpecs outs) = unpackLSpecs packedLS
-        ourVerInfo = VerInfo protocolMagic lastKnownBlockVersion ins $ outs <> wouts
+        ourVerInfo =
+            VerInfo protocolMagic lastKnownBlockVersion ins $ outs <> wouts
         listeners = listeners' ourVerInfo ++ protocolListeners
     stdGen <- liftIO newStdGen
     logInfo $ sformat ("Our verInfo "%build) ourVerInfo
     node (concrete transport) stdGen BiP (ourPeerId, ourVerInfo) $ \__node ->
-        pure $ NodeAction listeners $ \sendActions -> do
+        pure $
+        NodeAction listeners $ \sendActions -> do
             t <- withNode __node
             a <- action ourVerInfo sendActions `finally` afterNode t
             return a
 
-runServer_ :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m, MonadDHT m)
-  => Transport
-  -> ListenersWithOut m
-  -> OutSpecs
-  -> ActionSpec m b
-  -> m b
+runServer_
+    :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m, MonadDHT m)
+    => Transport -> ListenersWithOut m -> OutSpecs -> ActionSpec m b -> m b
 runServer_ transport packedLS outSpecs =
     runServer transport packedLS outSpecs acquire release
-    where
-    acquire = const (pure ())
-    release = const (pure ())
+  where
+    acquire = const pass
+    release = const pass
 
 -- | ProductionMode runner.
 runProductionMode

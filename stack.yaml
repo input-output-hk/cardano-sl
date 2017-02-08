@@ -1,3 +1,6 @@
+resolver: lts-7.16
+compiler: ghc-8.0.2
+
 flags: {}
 
 extra-package-dbs: []
@@ -27,9 +30,14 @@ packages:
     commit: 57adb970e198a9b377769ab46e776ec29f19cff6
   extra-dep: true
 - location:
-    git: https://github.com/serokell/time-warp-nt.git
-    commit: 40cd15dfc180cdc8e8c50be9ca17062202f95734
+    git: https://github.com/input-output-hk/cardano-report-server.git
+    commit: 344f0e6e1b69b512cbfb04caf42bbe285cc7727a
   extra-dep: true
+- location:
+    git: https://github.com/serokell/time-warp-nt.git
+    commit: d0cdbf5a5f1d985a9776ba745ea6f6fb915c6e3d
+  extra-dep: true
+# These two are needed for time-warp-nt
 - location:
     git: https://github.com/avieth/network-transport-tcp
     commit: 705b3c0d44cb1f4eea904b54431cd467e62dda35
@@ -37,10 +45,6 @@ packages:
 - location:
     git: https://github.com/avieth/network-transport
     commit: e7a5f44d0d98370d16df103c9dc61ef7bf15aee8
-  extra-dep: true
-- location:
-    git: https://github.com/input-output-hk/cardano-report-server.git
-    commit: 344f0e6e1b69b512cbfb04caf42bbe285cc7727a
   extra-dep: true
 
 nix:
@@ -65,10 +69,8 @@ extra-deps:
 - criterion-1.1.4.0               # older criterion doesn't like optparse-0.13
 - code-page-0.1.1                 # needed for criterion
 
-resolver: lts-7.16
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
 
 
-compiler: ghc-8.0.2

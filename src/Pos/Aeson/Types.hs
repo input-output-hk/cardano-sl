@@ -4,7 +4,7 @@ module Pos.Aeson.Types
        (
        ) where
 
-import           Data.Aeson           (FromJSON, ToJSON (toJSON), object, (.=))
+import           Data.Aeson           (ToJSON (toJSON), object, (.=))
 import           Data.Aeson.TH        (defaultOptions, deriveToJSON)
 import           Formatting           (sformat)
 import           Serokell.Util.Base16 (base16F)

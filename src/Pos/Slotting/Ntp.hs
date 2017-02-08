@@ -11,11 +11,11 @@ module Pos.Slotting.Ntp
        , NtpSlottingVar
 
        , NtpSlotting (..)
+       , mkNtpSlottingVar
        , runNtpSlotting
-       , runNtpSlottingFromVar
        ) where
 
-import           Control.Concurrent.STM      (TVar)
+import           Control.Concurrent.STM      (TVar, newTVarIO)
 import qualified Control.Concurrent.STM      as STM
 import           Control.Lens                (iso, makeLenses)
 import           Control.Monad.Base          (MonadBase (..))
@@ -32,7 +32,7 @@ import           Mockable                    (Catch, ChannelT, Counter, CurrentT
                                               Delay, Distribution, Fork, Gauge, MFunctor',
                                               Mockable (liftMockable), Promise,
                                               SharedAtomicT, SharedExclusiveT, ThreadId,
-                                              Throw, liftMockableWrappedM)
+                                              Throw, currentTime, liftMockableWrappedM)
 import           NTP.Client                  (NtpClientSettings (..), startNtpClient)
 import           NTP.Example                 ()
 import           Serokell.Util.Lens          (WrappedM (..))
@@ -43,12 +43,11 @@ import           Universum
 
 
 import qualified Pos.Constants               as C
-import           Pos.Context                 (NodeContext (..), getNodeContext)
 import           Pos.Context.Class           (WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
 import           Pos.Slotting.Class          (MonadSlots (..), MonadSlotsData (..))
 import           Pos.Slotting.Util           (onNewSlotWithLogging)
-import           Pos.Types                   (SlotId, slotIdF)
+import           Pos.Types                   (SlotId, slotIdF, unflattenSlotId)
 import           Pos.Util.JsonLog            (MonadJL)
 
 ----------------------------------------------------------------------------
@@ -193,16 +192,18 @@ instance SlottingConstraint ssc m =>
 -- Running
 ----------------------------------------------------------------------------
 
-runNtpSlotting :: (Mockable CurrentTime m) => NtpSlotting m a -> m a
-runNtpSlotting = notImplemented
-    -- slottingStateVar <- do
-    --     _ssNtpData <- (0,) <$> currentTime
-    --     -- current time isn't quite validly, but it doesn't matter
-    --     let _ssNtpLastSlot = unflattenSlotId 0
-    --     liftIO $ newTVarIO SlottingState{..}
+mkNtpSlottingVar
+    :: (MonadIO m, Mockable CurrentTime m)
+    => m NtpSlottingVar
+mkNtpSlottingVar = do
+    let _nssLastMargin = 0
+    _nssLastLocalTime <- currentTime
+    -- current time isn't quite valid value, but it doesn't matter (@pva701)
+    let _nssLastSlot = unflattenSlotId 0
+    liftIO $ newTVarIO NtpSlottingState {..}
 
-runNtpSlottingFromVar :: NtpSlottingVar -> NtpSlotting m a -> m a
-runNtpSlottingFromVar var = usingReaderT var . getNtpSlotting
+runNtpSlotting :: NtpSlottingVar -> NtpSlotting m a -> m a
+runNtpSlotting var = usingReaderT var . getNtpSlotting
 
 ----------------------------------------------------------------------------
 -- Something

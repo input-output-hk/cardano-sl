@@ -24,7 +24,7 @@ import           Pos.DHT.Real                (runKademliaDHT)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
                                               RealModeResources (..), addDevListeners,
                                               runServer_)
-import           Pos.Slotting                (runNtpSlotting)
+import           Pos.Slotting                (mkNtpSlottingVar, runNtpSlotting)
 import           Pos.Types                   (unflattenSlotId)
 import           Pos.Wallet.Context          (WalletContext (..), runContextHolder)
 import           Pos.Wallet.KeyStorage       (runKeyStorage)
@@ -91,10 +91,11 @@ runRawRealWallet res WalletParams {..} listeners (ActionSpec action, outs) =
               { wcUnit = mempty
               }
         stateM <- liftIO SM.newIO
+        ntpSlottingVar <- mkNtpSlottingVar
         runContextHolder walletContext .
             runWalletDB db .
             runWalletDBSlotsData .
-            runNtpSlotting .
+            runNtpSlotting ntpSlottingVar .
             runKeyStorage wpKeyFilePath .
             runKademliaDHT (rmDHT res) .
             runPeerStateHolder stateM .

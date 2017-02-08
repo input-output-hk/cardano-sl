@@ -37,7 +37,7 @@ import           Pos.DHT.Real.Real             (runKademliaDHT)
 import           Pos.DHT.Real.Types            (KademliaDHTInstance (..),
                                                 getKademliaDHTInstance)
 import           Pos.Slotting                  (NtpSlotting (..), NtpSlottingVar,
-                                                runDBSlotsData, runNtpSlottingFromVar)
+                                                runDBSlotsData, runNtpSlotting)
 import           Pos.Ssc.Class                 (SscConstraint)
 import           Pos.Ssc.Extra                 (SscHolder (..), SscState, runSscHolder)
 import           Pos.Txp.Class                 (getTxpLDWrap)
@@ -113,7 +113,7 @@ convertHandler kinst nc modernDBs tlw ssc ws delWrap psCtx conn slotVar handler 
            . Modern.runDBHolder modernDBs
            . runContextHolder nc
            . runDBSlotsData
-           . runNtpSlottingFromVar slotVar
+           . runNtpSlotting slotVar
            . runSscHolder ssc
            . Modern.runTxpLDHolderReader tlw
            . runDelegationTFromTVar delWrap

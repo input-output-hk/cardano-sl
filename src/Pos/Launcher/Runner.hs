@@ -95,7 +95,8 @@ import           Pos.DHT.Real                (KademliaDHTInstance,
                                               stopDHTInstance)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NodeParams (..))
-import           Pos.Slotting                (runDBSlotsData, runNtpSlotting)
+import           Pos.Slotting                (mkNtpSlottingVar, runDBSlotsData,
+                                              runNtpSlotting)
 import           Pos.Ssc.Class               (SscConstraint, SscHelpersClass,
                                               SscListenersClass, SscNodeContext,
                                               SscParams, sscCreateNodeContext)
@@ -194,6 +195,7 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
        initTip <- runDBHolder modernDBs getTip
        stateM <- liftIO SM.newIO
        stateM_ <- liftIO SM.newIO
+       ntpSlottingVar <- mkNtpSlottingVar
 
        -- TODO need an effect-free way of running this into IO.
        let runIO :: forall t . RawRealMode ssc t -> IO t
@@ -202,7 +204,7 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
                        runDBHolder modernDBs .
                        runCH np initNC .
                        runDBSlotsData .
-                       runNtpSlotting .
+                       runNtpSlotting ntpSlottingVar .
                        ignoreSscHolder .
                        runTxpLDHolder (UV.createFromDB . _gStateDB $ modernDBs) initTip .
                        runDelegationT def .
@@ -221,7 +223,7 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
        runDBHolder modernDBs .
           runCH np initNC .
           runDBSlotsData .
-          runNtpSlotting .
+          runNtpSlotting ntpSlottingVar .
           (mkStateAndRunSscHolder @ssc) .
           runTxpLDHolder (UV.createFromDB . _gStateDB $ modernDBs) initTip .
           runDelegationT def .

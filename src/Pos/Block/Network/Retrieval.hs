@@ -370,18 +370,29 @@ handleRequestedHeaders headers recoveryTip peerId = do
         oldestHash = headerHash $ headers ^. _Wrapped . _neLast
     case classificationRes of
         CHsValid lcaChild -> do
-            let lcaChildHash = hash lcaChild
-            logDebug $ sformat validFormat lcaChildHash newestHash
-            addToBlockRequestQueue headers recoveryTip peerId
+            let lcaHash = lcaChild ^. prevBlockL
+            let headers' = NE.takeWhile ((/= lcaHash) . headerHash)
+                                        (getNewestFirst headers)
+            logDebug $ sformat validFormat (headerHash lcaChild)newestHash
+            case NE.nonEmpty headers' of
+                Nothing -> logWarning $
+                    "handleRequestedHeaders: couldn't find LCA child " <>
+                    "within headers returned, most probably classifyHeaders is broken"
+                Just headersPostfix ->
+                    addToBlockRequestQueue (NewestFirst headersPostfix) recoveryTip peerId
         CHsUseless reason ->
             logDebug $ sformat uselessFormat oldestHash newestHash reason
-        CHsInvalid _ -> pass -- TODO: ban node for sending invalid block.
+        CHsInvalid reason ->
+             -- TODO: ban node for sending invalid block.
+            logDebug $ sformat invalidFormat oldestHash newestHash reason
   where
     validFormat =
         "Received valid headers, can request blocks from " %shortHashF % " to " %shortHashF
-    uselessFormat =
+    genericFormat what =
         "Chain of headers from " %shortHashF % " to " %shortHashF %
-        " is useless for the following reason: " %stext
+        " is "%what%" for the following reason: " %stext
+    uselessFormat = genericFormat "useless"
+    invalidFormat = genericFormat "invalid"
 
 -- | Given nonempty list of valid blockheaders and nodeid, this
 -- function will put them into download queue and they will be
@@ -441,7 +452,7 @@ handleBlocks blocks sendActions = do
             sformat ("Processing sequence of blocks: " %listJson % "…") $
                     fmap headerHash blocks
     maybe onNoLca (handleBlocksWithLca sendActions blocks) =<<
-        lcaWithMainChain (map (view blockHeader) (toNewestFirst blocks))
+        lcaWithMainChain (map (view blockHeader) blocks)
     inAssertMode $ logDebug $ "Finished processing sequence of blocks"
   where
     onNoLca = logWarning $

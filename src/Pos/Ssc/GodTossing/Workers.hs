@@ -109,37 +109,42 @@ onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions -> do
 -- Checks whether 'our' VSS certificate has been announced
 checkNSendOurCert :: forall m . (WorkMode SscGodTossing m) => Worker' m
 checkNSendOurCert sendActions = do
-    let sendCert resend = do
-            if resend then
-                logError "Our VSS certificate is in global state, but it has already expired, \
+    let sendCert resend slot = do
+            if resend
+                then logError
+                         "Our VSS certificate is in global state, but it has already expired, \
                          \apparently it's a bug, but we are announcing it just in case."
-            else
-                logInfo "Our VssCertificate hasn't been announced yet or TTL has expired, \
+                else logInfo
+                         "Our VssCertificate hasn't been announced yet or TTL has expired, \
                          \we will announce it now."
-            ourVssCertificate <- getOurVssCertificate
+            ourVssCertificate <- getOurVssCertificate slot
             let contents = MCVssCertificate ourVssCertificate
             sscProcessOurMessage contents
             let msg = DataMsg contents
             sendToNeighbors sendActions msg
             logDebug "Announced our VssCertificate."
     (_, ourId) <- getOurPkAndId
-    sl@SlotId {..} <- getCurrentSlot
-    certts <- getGlobalCerts sl
-    let ourCertMB = HM.lookup ourId certts
-    case ourCertMB of
-        Just ourCert
-            | vcExpiryEpoch ourCert >= siEpoch ->
-                logDebug "Our VssCertificate has been already announced."
-            | otherwise -> sendCert True
-        Nothing -> sendCert False
+    slMaybe <- getCurrentSlot
+    case slMaybe of
+        Nothing -> pass
+        Just sl -> do
+            globalCerts <- getGlobalCerts sl
+            let ourCertMB = HM.lookup ourId globalCerts
+            case ourCertMB of
+                Just ourCert
+                    | vcExpiryEpoch ourCert >= siEpoch sl ->
+                        logDebug
+                            "Our VssCertificate has been already announced."
+                    | otherwise -> sendCert True sl
+                Nothing -> sendCert False sl
   where
-    getOurVssCertificate :: m VssCertificate
-    getOurVssCertificate = do
+    getOurVssCertificate :: SlotId -> m VssCertificate
+    getOurVssCertificate slot =
         -- TODO: do this optimization
         -- localCerts <- VCD.certs <$> sscRunLocalQuery (view ldCertificates)
-        getOurVssCertificateDo mempty
-    getOurVssCertificateDo :: VssCertificatesMap -> m VssCertificate
-    getOurVssCertificateDo certs = do
+        getOurVssCertificateDo slot mempty
+    getOurVssCertificateDo :: SlotId -> VssCertificatesMap -> m VssCertificate
+    getOurVssCertificateDo slot certs = do
         (_, ourId) <- getOurPkAndId
         case HM.lookup ourId certs of
             Just c -> return c
@@ -149,8 +154,8 @@ checkNSendOurCert sendActions = do
                 let vssKey = asBinary $ toVssPublicKey ourVssKeyPair
                     createOurCert =
                         mkVssCertificate ourSk vssKey .
-                        (+) (vssMaxTTL - 1) . siEpoch -- TODO fix max ttl on random
-                createOurCert <$> getCurrentSlot
+                        (+) (vssMaxTTL - 1) . siEpoch
+                return $ createOurCert slot
 
 getOurPkAndId
     :: WorkMode SscGodTossing m

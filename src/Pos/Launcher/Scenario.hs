@@ -30,7 +30,8 @@ import           Pos.Delegation.Logic        (initDelegation)
 import           Pos.DHT.Model               (discoverPeers)
 import           Pos.Slotting                (getCurrentSlot)
 import           Pos.Ssc.Class               (SscConstraint)
-import           Pos.Types                   (Timestamp (Timestamp), addressHash)
+import           Pos.Types                   (SlotId (..), Timestamp (Timestamp),
+                                              addressHash)
 import           Pos.Update                  (MemState (..), askUSMemVar, mvState)
 import           Pos.Util                    (inAssertMode, waitRandomInterval)
 import           Pos.Util.Shutdown           (waitForWorkers)
@@ -105,5 +106,5 @@ initUSMemState :: WorkMode ssc m => m ()
 initUSMemState = do
     tip <- GS.getTip
     tvar <- mvState <$> askUSMemVar
-    slot <- getCurrentSlot
+    slot <- fromMaybe (SlotId 0 0) <$> getCurrentSlot
     atomically $ writeTVar tvar (MemState slot tip def def)

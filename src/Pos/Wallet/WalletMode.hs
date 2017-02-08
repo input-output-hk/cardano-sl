@@ -239,7 +239,8 @@ instance ( SscHelpersClass ssc
         Just hh -> return $ hh ^. difficultyL
         Nothing -> do
             th <- topHeader
-            cSlot <- fromIntegral . flattenSlotId <$> getCurrentSlot
+            -- cSlot <- fromIntegral . flattenSlotId <$> getCurrentSlot
+            cSlot <- undefined
             let hSlot = fromIntegral $ flattenEpochOrSlot th :: Int
                 blksLeft = fromIntegral $ max 0 $ cSlot - blkSecurityParam - hSlot
             return $ blksLeft + th ^. difficultyL

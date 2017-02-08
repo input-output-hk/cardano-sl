@@ -32,8 +32,8 @@ import           Pos.Types                (FlatSlotId, SlotId (..), Timestamp (.
 import           Pos.Util.Shutdown        (ifNotShutdown)
 
 -- | Get flat id of current slot based on MonadSlots.
-getCurrentSlotFlat :: MonadSlots m => m FlatSlotId
-getCurrentSlotFlat = flattenSlotId <$> getCurrentSlot
+getCurrentSlotFlat :: MonadSlots m => m (Maybe FlatSlotId)
+getCurrentSlotFlat = fmap flattenSlotId <$> getCurrentSlot
 
 -- | Get timestamp when given slot starts.
 getSlotStart :: MonadSlots m => SlotId -> m Timestamp
@@ -83,31 +83,32 @@ onNewSlotImpl withLogging startImmediately action =
 onNewSlotDo
     :: OnNewSlot ssc m
     => Bool -> Maybe SlotId -> Bool -> (SlotId -> m ()) -> m ()
-onNewSlotDo withLogging expectedSlotId startImmediately action = ifNotShutdown $ do
-    -- here we wait for short intervals to be sure that expected slot
-    -- has really started, taking into account possible inaccuracies
-    waitUntilPredicate
-        (maybe (const True) (<=) expectedSlotId <$> getCurrentSlot)
-    curSlot <- getCurrentSlot
-    -- fork is necessary because action can take more time than slotDuration
-    when startImmediately $ void $ fork $ action curSlot
+onNewSlotDo withLogging expectedSlotId startImmediately action = ifNotShutdown $ notImplemented
+-- onNewSlotDo withLogging expectedSlotId startImmediately action = ifNotShutdown $ do
+--     -- here we wait for short intervals to be sure that expected slot
+--     -- has really started, taking into account possible inaccuracies
+--     waitUntilPredicate
+--         (maybe (const True) (<=) expectedSlotId <$> getCurrentSlot)
+--     curSlot <- getCurrentSlot
+--     -- fork is necessary because action can take more time than slotDuration
+--     when startImmediately $ void $ fork $ action curSlot
 
-    -- check for shutdown flag again to not wait a whole slot
-    ifNotShutdown $ do
-        Timestamp curTime <- undefined -- getCurrentTime
-        let nextSlot = succ curSlot
-        Timestamp nextSlotStart <- getSlotStart nextSlot
-        let timeToWait = nextSlotStart - curTime
-        when (timeToWait > 0) $ do
-            when withLogging $ logTTW timeToWait
-            delay timeToWait
-        onNewSlotDo withLogging (Just nextSlot) True action
-  where
-    waitUntilPredicate predicate =
-        unlessM predicate (shortWait >> waitUntilPredicate predicate)
-    shortWait = do
-        -- slotDuration <- getSlotDuration
-        -- delay ((10 :: Microsecond) `max` (convertUnit slotDuration `div` 10000))
-        delay (10 :: Microsecond)
-    logTTW timeToWait = modifyLoggerName (<> "slotting") $ logDebug $
-                 sformat ("Waiting for "%shown%" before new slot") timeToWait
+--     -- check for shutdown flag again to not wait a whole slot
+--     ifNotShutdown $ do
+--         Timestamp curTime <- undefined -- getCurrentTime
+--         let nextSlot = succ curSlot
+--         Timestamp nextSlotStart <- getSlotStart nextSlot
+--         let timeToWait = nextSlotStart - curTime
+--         when (timeToWait > 0) $ do
+--             when withLogging $ logTTW timeToWait
+--             delay timeToWait
+--         onNewSlotDo withLogging (Just nextSlot) True action
+--   where
+--     waitUntilPredicate predicate =
+--         unlessM predicate (shortWait >> waitUntilPredicate predicate)
+--     shortWait = do
+--         -- slotDuration <- getSlotDuration
+--         -- delay ((10 :: Microsecond) `max` (convertUnit slotDuration `div` 10000))
+--         delay (10 :: Microsecond)
+--     logTTW timeToWait = modifyLoggerName (<> "slotting") $ logDebug $
+--                  sformat ("Waiting for "%shown%" before new slot") timeToWait

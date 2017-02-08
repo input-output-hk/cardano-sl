@@ -20,8 +20,7 @@ import           Universum
 
 import           Pos.Crypto         (PublicKey)
 import           Pos.Ssc.GodTossing (SscGodTossing)
-import           Pos.Types          (EpochIndex, HeaderHash, SlotId, SlotLeaders)
-import           Pos.Web.Types      (GodTossingStage)
+import           Pos.Types          (EpochIndex, HeaderHash, SlotLeaders)
 
 -- | Servant API which provides access to full node internals.
 type BaseNodeApi ssc =

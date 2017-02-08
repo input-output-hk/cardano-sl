@@ -80,7 +80,8 @@ checkTxsInLastBlock TxTimestamps {..} logsPrefix = do
                 -- We don't know exact time when checked block has been created/adopted,
                 -- but we do know that it was not at `blkSecurityParam` depth a slot ago,
                 -- so we just take a beginning of current slot
-                slStart <- getSlotStart =<< getCurrentSlot
+                slStart <- undefined
+                -- slStart <- getSlotStart =<< getCurrentSlot
                 liftIO $ writeIORef lastSlot curSlot
 
                 let verifiedSentData = map (fromJust . flip M.lookup st) verified

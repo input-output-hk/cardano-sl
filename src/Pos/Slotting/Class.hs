@@ -35,12 +35,12 @@ instance MonadSlotsData m => MonadSlotsData (PeerStateHolder m) where
 class MonadSlotsData m =>
       MonadSlots m where
 
-    getCurrentSlot :: m SlotId
+    getCurrentSlot :: m (Maybe SlotId)
 
     slottingWorkers :: [m ()]
 
     default getCurrentSlot :: (MonadTrans t, MonadSlots m', t m' ~ m) =>
-        m SlotId
+        m (Maybe SlotId)
     getCurrentSlot = lift getCurrentSlot
 
     default slottingWorkers :: (MonadTrans t, MonadSlots m', t m' ~ m) =>

@@ -28,7 +28,7 @@ import           Pos.Security                     (shouldIgnorePkAddress)
 import           Pos.Slotting                     (getCurrentSlot)
 import           Pos.Ssc.Class.Listeners          (SscListenersClass (..))
 import           Pos.Ssc.Extra                    (sscGetLocalPayload)
-import           Pos.Ssc.GodTossing.Core          (GtPayload (..), getCertId, MultiCommitment (mcPK),
+import           Pos.Ssc.GodTossing.Core          (GtPayload (..), getCertId,
                                                    getCommitmentsMap, _gpCertificates)
 import           Pos.Ssc.GodTossing.LocalData     (sscIsDataUseful, sscProcessCertificate,
                                                    sscProcessCommitment,
@@ -55,7 +55,7 @@ instance WorkMode SscGodTossing m =>
         case x of
             MCShares k _            -> k
             MCOpening k _           -> k
-            MCCommitment mc -> addressHash $ mcPK mc
+            MCCommitment (pk, _, _) -> addressHash pk
             MCVssCertificate vc     -> getCertId vc
 
     verifyInvTag _ = pure VerSuccess
@@ -87,8 +87,8 @@ sscProcessMessage dat =
             False <$ logDebug (sformat ("Data is rejected, reason: " %build) err)
         Right () -> return True
   where
-    sscProcessMessageDo (MCCommitment numNcomm) = sscProcessCommitment numNcomm
-    sscProcessMessageDo (MCOpening dataId open) = sscProcessOpening dataId open
+    sscProcessMessageDo (MCCommitment comm)     = sscProcessCommitment comm
+    sscProcessMessageDo (MCOpening id open)     = sscProcessOpening id open
     sscProcessMessageDo (MCShares id shares)    = sscProcessShares id shares
     sscProcessMessageDo (MCVssCertificate cert) = sscProcessCertificate cert
 

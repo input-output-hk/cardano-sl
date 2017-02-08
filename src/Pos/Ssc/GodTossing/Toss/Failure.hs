@@ -31,7 +31,6 @@ data TossVerFailure
     | CommitingNoParticipants !NEStIds
     | CommitmentAlreadySent !NEStIds
     | CommSharesOnWrongParticipants !NEStIds
-    | InvalidNumCommitments !NEStIds
     | OpeningAlreadySent !NEStIds
     | OpeningWithoutCommitment !NEStIds
     | OpeningNotMatchCommitment !NEStIds
@@ -81,8 +80,6 @@ instance Buildable TossVerFailure where
         bprint ("some shares are posted by stakeholders that don't have enough stake: "%listJson) ids
     build (InternalShareWithoutCommitment ids) =
         bprint ("some internal share don't have corresponding commitments: "%listJson) ids
-    build (InvalidNumCommitments ids) =
-        bprint ("some committing nodes generated zero or too many commitments: "%listJson) ids
 
     build (CertificateInvalidSign certs) =
         bprint ("some VSS certificates aren't signed properly: "%listJson) certs

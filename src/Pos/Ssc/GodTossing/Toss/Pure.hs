@@ -19,9 +19,9 @@ import           System.Wlog                    (CanLog, HasLoggerName (getLogge
                                                  runPureLog, usingLoggerName)
 import           Universum
 
-import           Pos.Lrc.Types                  (RichmenStake, RichmenSet)
-import           Pos.Ssc.GodTossing.Core        (deleteMultiCommitment,
-                                                 insertMultiCommitment)
+import           Pos.Lrc.Types                  (RichmenSet, RichmenStake)
+import           Pos.Ssc.GodTossing.Core        (deleteSignedCommitment,
+                                                 insertSignedCommitment)
 import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
 import           Pos.Ssc.GodTossing.Toss.Class  (MonadToss (..), MonadTossRead (..))
 import           Pos.Ssc.GodTossing.Types       (GtGlobalState, gsCommitments, gsOpenings,
@@ -51,13 +51,13 @@ instance MonadTossRead PureToss where
 
 instance MonadToss PureToss where
     putCommitment signedComm =
-        PureToss $ gsCommitments %= insertMultiCommitment signedComm
+        PureToss $ gsCommitments %= insertSignedCommitment signedComm
     putOpening id op = PureToss $ gsOpenings . at id .= Just op
     putShares id sh = PureToss $ gsShares . at id .= Just sh
     putCertificate cert =
         PureToss $ gsVssCertificates %= VCD.insert cert
     delCommitment id =
-        PureToss $ gsCommitments %= deleteMultiCommitment id
+        PureToss $ gsCommitments %= deleteSignedCommitment id
     delOpening id = PureToss $ gsOpenings . at id .= Nothing
     delShares id = PureToss $ gsShares . at id .= Nothing
     resetCOS = PureToss $ do

@@ -72,6 +72,6 @@ instance SscGStateClass SscNistBeacon where
     sscLoadGlobalState = pure ()
     sscRollbackU _ = pure ()
     sscVerifyAndApplyBlocks _ _ = pass
-    sscCalculateSeedQ epoch _ =
+    sscCalculateSeedQ =
         pure . Right . coerce . ByteArray.convert @_ @ByteString .
-            Hash.hashlazy @SHA256 . encode $ epoch
+            Hash.hashlazy @SHA256 . encode

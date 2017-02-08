@@ -14,8 +14,8 @@ import           System.Wlog             (WithLogger)
 import           Universum
 
 import           Pos.Lrc.Types           (RichmenStake)
-import           Pos.Ssc.GodTossing.Core (CommitmentsMap, InnerSharesMap, MultiCommitment,
-                                          MultiOpening, OpeningsMap, SharesMap,
+import           Pos.Ssc.GodTossing.Core (CommitmentsMap, InnerSharesMap, Opening,
+                                          OpeningsMap, SharesMap, SignedCommitment,
                                           VssCertificate, VssCertificatesMap)
 import           Pos.Types               (EpochIndex, EpochOrSlot, StakeholderId)
 
@@ -83,10 +83,10 @@ instance MonadTossRead m => MonadTossRead (ExceptT s m)
 class MonadTossRead m =>
       MonadToss m where
     -- | Put 'SignedCommitment' into state.
-    putCommitment :: MultiCommitment -> m ()
+    putCommitment :: SignedCommitment -> m ()
 
     -- | Put 'Opening' from given stakeholder into state.
-    putOpening :: StakeholderId -> MultiOpening  -> m ()
+    putOpening :: StakeholderId -> Opening  -> m ()
 
     -- | Put 'InnerShares' from given stakeholder into state.
     putShares :: StakeholderId -> InnerSharesMap -> m ()
@@ -111,11 +111,11 @@ class MonadTossRead m =>
 
     -- | Default implementations for 'MonadTrans'.
     default putCommitment :: (MonadTrans t, MonadToss m', t m' ~ m) =>
-        MultiCommitment -> m ()
+        SignedCommitment -> m ()
     putCommitment = lift . putCommitment
 
     default putOpening :: (MonadTrans t, MonadToss m', t m' ~ m) =>
-        StakeholderId -> MultiOpening -> m ()
+        StakeholderId -> Opening -> m ()
     putOpening id = lift . putOpening id
 
     default putShares :: (MonadTrans t, MonadToss m', t m' ~ m) =>

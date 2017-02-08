@@ -11,15 +11,15 @@ module Pos.Ssc.GodTossing.Types.Message
 import qualified Data.Text.Buildable           as Buildable
 import           Universum
 
-import           Pos.Ssc.GodTossing.Core       (InnerSharesMap, MultiCommitment,
-                                                MultiOpening, VssCertificate)
+import           Pos.Ssc.GodTossing.Core       (InnerSharesMap, Opening, SignedCommitment,
+                                                VssCertificate)
 import           Pos.Ssc.GodTossing.Toss.Types (GtTag (..))
 import           Pos.Types                     (StakeholderId)
 
 -- | Data message. Can be used to send actual data.
 data GtMsgContents
-    = MCCommitment !MultiCommitment
-    | MCOpening !StakeholderId !MultiOpening
+    = MCCommitment !SignedCommitment
+    | MCOpening !StakeholderId !Opening
     | MCShares !StakeholderId !InnerSharesMap
     | MCVssCertificate !VssCertificate
     deriving (Show, Eq, Generic)

@@ -41,7 +41,7 @@ import           Pos.Ssc.Class.LocalData            (LocalQuery, LocalUpdate,
 import           Pos.Ssc.Extra                      (MonadSscMem, sscRunGlobalQuery,
                                                      sscRunLocalQuery, sscRunLocalSTM)
 import           Pos.Ssc.GodTossing.Core            (GtPayload (..), InnerSharesMap,
-                                                     MultiCommitment, MultiOpening,
+                                                     Opening, SignedCommitment,
                                                      VssCertificate, isCommitmentIdx,
                                                      isOpeningIdx, isSharesIdx,
                                                      mkCommitmentsMap,
@@ -175,7 +175,7 @@ type GtDataProcessingMode m =
 sscProcessCommitment
     :: forall m.
        GtDataProcessingMode m
-    => MultiCommitment -> m ()
+    => SignedCommitment -> m ()
 sscProcessCommitment comm =
     sscProcessData CommitmentMsg $
     CommitmentsPayload (mkCommitmentsMap [comm]) mempty
@@ -184,7 +184,7 @@ sscProcessCommitment comm =
 -- current state (global + local) and adding to local state if it's valid.
 sscProcessOpening
     :: GtDataProcessingMode m
-    => StakeholderId -> MultiOpening -> m ()
+    => StakeholderId -> Opening -> m ()
 sscProcessOpening id opening =
     sscProcessData OpeningMsg $
     OpeningsPayload (HM.fromList [(id, opening)]) mempty

@@ -44,7 +44,6 @@ import           Pos.Context             (WithNodeContext, lrcActionOnEpochReaso
 import           Pos.DB                  (MonadDB, getTipBlockHeader)
 import qualified Pos.DB.Lrc              as LrcDB
 import           Pos.Exception           (reportFatalError)
-import           Pos.Lrc.Types           (RichmenStake)
 import           Pos.Slotting            (MonadSlots)
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..))
@@ -108,8 +107,8 @@ sscRunGlobalQuery action = do
 sscCalculateSeed
     :: forall ssc m.
        (MonadSscMem ssc m, SscGStateClass ssc, MonadIO m, WithLogger m)
-    => EpochIndex -> RichmenStake -> m (Either (SscSeedError ssc) SharedSeed)
-sscCalculateSeed e = sscRunGlobalQuery . sscCalculateSeedQ @ssc e
+    => EpochIndex ->  m (Either (SscSeedError ssc) SharedSeed)
+sscCalculateSeed = sscRunGlobalQuery . sscCalculateSeedQ @ssc
 
 ----------------------------------------------------------------------------
 -- Local Data

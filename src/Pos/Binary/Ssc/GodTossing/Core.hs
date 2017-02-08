@@ -13,7 +13,7 @@ import           Pos.Binary.Class              (Bi (..))
 import           Pos.Binary.Crypto             ()
 import           Pos.Ssc.GodTossing.Core.Types (Commitment (..), CommitmentsMap,
                                                 GtPayload (..), GtProof (..),
-                                                MultiCommitment (..), MultiOpening (..),
+                                                Commitment (..),
                                                 Opening (..), VssCertificate (..),
                                                 mkCommitmentsMap, recreateVssCertificate)
 import           Pos.Types.Address             (addressHash)
@@ -30,10 +30,6 @@ instance Bi Commitment where
         commProof <- get
         return Commitment {..}
 
-instance Bi MultiCommitment where
-    put (MultiCommitment pk mc) = put pk >> put mc
-    get = MultiCommitment <$> get <*> get
-
 instance Bi CommitmentsMap where
     put = put . toList
     get = mkCommitmentsMap <$> get
@@ -49,10 +45,6 @@ instance Bi VssCertificate where
 instance Bi Opening where
     put (Opening secret) = put secret
     get = Opening <$> get
-
-instance Bi MultiOpening where
-    put (MultiOpening mo) = put mo
-    get = MultiOpening <$> get
 
 instance Bi GtPayload where
     put x =

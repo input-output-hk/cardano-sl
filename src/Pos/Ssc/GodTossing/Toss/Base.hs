@@ -14,7 +14,7 @@ module Pos.Ssc.GodTossing.Toss.Base
        -- * Basic logic
        , getParticipants
        , computeParticipants
-       , computeCommitmentDistr
+       , computeSharesDistr
 
        -- * Payload processing
        , checkCommitmentsPayload
@@ -39,17 +39,17 @@ import           Universum
 
 import           Control.Monad.Except            (MonadError (throwError))
 import           Pos.Constants                   (genesisMpcThd)
-import           Pos.Crypto                      (Share, VssPublicKey, verifyShare)
+import           Pos.Crypto                      (Share, verifyShare)
 import           Pos.Lrc.Types                   (RichmenSet, RichmenStake)
-import           Pos.Ssc.GodTossing.Core         (CommitmentsDistribution,
+import           Pos.Ssc.GodTossing.Core         (Commitment (..),
                                                   CommitmentsMap (getCommitmentsMap),
                                                   GtPayload (..), InnerSharesMap,
-                                                  MultiCommitment (..), MultiOpening (..),
-                                                  OpeningsMap, SharesMap,
-                                                  VssCertificatesMap, VssCertificatesMap,
-                                                  commShares, vcSigningKey, vcVssKey,
-                                                  verifyOpening, verifyOpening,
-                                                  _gpCertificates)
+                                                  Opening (..), OpeningsMap,
+                                                  SharesDistribution, SharesMap,
+                                                  SignedCommitment, VssCertificatesMap,
+                                                  VssCertificatesMap, commShares,
+                                                  vcSigningKey, vcVssKey, verifyOpening,
+                                                  verifyOpening, _gpCertificates)
 import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..), MonadTossRead (..))
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
 import           Pos.Types                       (EpochIndex, StakeholderId, addressHash,
@@ -62,7 +62,7 @@ import           Pos.Util                        (AsBinary, fromBinaryM, getKeys
 ----------------------------------------------------------------------------
 
 -- | Retrieve 'SignedCommitment' of given stakeholder if it's known.
-getCommitment :: MonadTossRead m => StakeholderId -> m (Maybe MultiCommitment)
+getCommitment :: MonadTossRead m => StakeholderId -> m (Maybe SignedCommitment)
 getCommitment id = HM.lookup id . getCommitmentsMap <$> getCommitments
 
 -- | Check whether there is a 'SignedCommitment' from given stakeholder.
@@ -101,15 +101,15 @@ getParticipants epoch = do
 
 -- | Check that the secret revealed in the opening matches the secret proof
 -- in the commitment.
-matchMultiCommitment
+matchCommitment
     :: MonadTossRead m
-    => (StakeholderId, MultiOpening) -> m Bool
-matchMultiCommitment op = flip matchMultiCommitmentPure op <$> getCommitments
+    => (StakeholderId, Opening) -> m Bool
+matchCommitment op = flip matchCommitmentPure op <$> getCommitments
 
-checkMultiShares
+checkShares
     :: MonadTossRead m
     => EpochIndex -> (StakeholderId, InnerSharesMap) -> m Bool
-checkMultiShares epoch (id, sh) = do
+checkShares epoch (id, sh) = do
     certs <- getStableCertificates epoch
     let warnFmt = ("checkShares: no richmen for "%ords%" epoch")
     getRichmen epoch >>= \case
@@ -118,8 +118,7 @@ checkMultiShares epoch (id, sh) = do
             let parts = computeParticipants (getKeys richmen) certs
             coms <- getCommitments
             ops <- getOpenings
-            pure $ checkMultiSharesPure coms ops parts id sh
-
+            pure $ checkSharesPure coms ops parts id sh
 ----------------------------------------------------------------------------
 -- Pure functions
 ----------------------------------------------------------------------------
@@ -129,10 +128,10 @@ checkMultiShares epoch (id, sh) = do
 computeParticipants :: RichmenSet -> VssCertificatesMap -> VssCertificatesMap
 computeParticipants (HS.toMap -> richmen) = flip HM.intersection richmen
 
-computeCommitmentDistr
+computeSharesDistr
     :: MonadError TossVerFailure m
-    => RichmenStake -> m CommitmentsDistribution
-computeCommitmentDistr richmen = do
+    => RichmenStake -> m SharesDistribution
+computeSharesDistr richmen = do
     let total :: Word64
         total = sum $ map unsafeGetCoin $ toList richmen
     when (total == 0) $
@@ -164,8 +163,9 @@ computeCommitmentDistr richmen = do
     --   * otherwise we try minimize sum error
     compute fromX toX epsilon portions = do
         forM_ [fromX..toX] $ \x -> do
-            let curDistr = normalize $ multPortions portions x
-            when (all (> 0) curDistr) $ do
+            let curDistrN = multPortions portions x
+            when (all (> 0) curDistrN) $ do
+                let curDistr = normalize curDistrN
                 let s = sum curDistr
                 let curPortions = map (`divRat` s) curDistr
                 let delta = calcSumError curPortions portions
@@ -213,44 +213,43 @@ computeCommitmentDistr richmen = do
 -- CHECK: @matchCommitmentPure
 -- | Check that the secret revealed in the opening matches the secret proof
 -- in the commitment.
-matchMultiCommitmentPure
-    :: CommitmentsMap -> (StakeholderId, MultiOpening) -> Bool
-matchMultiCommitmentPure (getCommitmentsMap -> globalCommitments) (id, MultiOpening{..}) =
+matchCommitmentPure
+    :: CommitmentsMap -> (StakeholderId, Opening) -> Bool
+matchCommitmentPure (getCommitmentsMap -> globalCommitments) (id, op) =
     case HM.lookup id globalCommitments of
-        Nothing                    -> False
-        Just (MultiCommitment{..}) ->
-            NE.length mcCommitments == NE.length moOpenings &&
-            (all identity $ NE.zipWith (verifyOpening . fst) mcCommitments moOpenings)
+        Nothing           -> False
+        Just (_, comm, _) -> verifyOpening comm op
 
 -- CHECK: @checkShare
 -- | Check that the decrypted share matches the encrypted share in the
 -- commitment
 --
 -- #verifyShare
-checkMultiSharePure :: (SetContainer set, ContainerKey set ~ StakeholderId)
+checkSharePure :: (SetContainer set, ContainerKey set ~ StakeholderId)
            => CommitmentsMap
            -> set --set of opening's addresses
            -> VssCertificatesMap
            -> (StakeholderId, StakeholderId, NonEmpty (AsBinary Share))
            -> Bool
-checkMultiSharePure globalCommitments globalOpeningsPK globalCertificates (addrTo, addrFrom, multiShare) =
+checkSharePure globalCommitments globalOpeningsPK globalCertificates (addrTo, addrFrom, multiShare) =
     fromMaybe False checks
   where
     -- addrFrom sent its encrypted share to addrTo on commitment phase
     -- addrTo must decrypt share from addrFrom on shares phase,
+
     checks = do
         -- CHECK: Check that addrFrom really sent its commitment
-        MultiCommitment{..} <- HM.lookup addrFrom $ getCommitmentsMap globalCommitments
-        -- CHECK: Check that multicommitment and multishare have same length
-        guard $ NE.length multiShare == NE.length mcCommitments
-        -- CHECK: Check that addrFrom really didn't send its opening
-        guard $ notMember addrFrom globalOpeningsPK
+        (_, Commitment{..}, _) <- HM.lookup addrFrom $ getCommitmentsMap globalCommitments
         -- Get pkTo's vss certificate
         vssKey <- vcVssKey <$> HM.lookup addrTo globalCertificates
-        pure $ all (checkShare vssKey) $ NE.zip mcCommitments multiShare
-    checkShare vssKey ((comm, _), share) = fromMaybe False $ do
+        addrToCommShares <- HM.lookup vssKey commShares
+        -- CHECK: Check that multicommitment and multishare have same length
+        guard $ NE.length multiShare == NE.length addrToCommShares
+        -- CHECK: Check that addrFrom really didn't send its opening
+        guard $ notMember addrFrom globalOpeningsPK
         -- Get encrypted share, which was sent from pkFrom to pkTo on commitment phase
-        encShare <- HM.lookup vssKey (commShares comm)
+        pure $ all (checkShare vssKey) $ NE.zip addrToCommShares multiShare
+    checkShare vssKey (encShare, share) = fromMaybe False $
         verifyShare <$> fromBinaryM encShare
                     <*> fromBinaryM vssKey
                     <*> fromBinaryM share
@@ -259,7 +258,7 @@ checkMultiSharePure globalCommitments globalOpeningsPK globalCertificates (addrT
 -- Apply checkShare to all shares in map.
 --
 -- #checkSharePure
-checkMultiSharesPure
+checkSharesPure
     :: (SetContainer set, ContainerKey set ~ StakeholderId)
     => CommitmentsMap
     -> set --set of opening's PK. TODO Should we add phantom type for more typesafety?
@@ -267,19 +266,25 @@ checkMultiSharesPure
     -> StakeholderId
     -> InnerSharesMap
     -> Bool
-checkMultiSharesPure globalCommitments globalOpeningsPK globalCertificates addrTo shares =
+checkSharesPure globalCommitments globalOpeningsPK globalCertificates addrTo shares =
     let listShares :: [(StakeholderId, StakeholderId, NonEmpty (AsBinary Share))]
         listShares = map convert $ HM.toList shares
         convert (addrFrom, share) = (addrTo, addrFrom, share)
     in all
-           (checkMultiSharePure globalCommitments globalOpeningsPK globalCertificates)
+           (checkSharePure globalCommitments globalOpeningsPK globalCertificates)
            listShares
 
 -- | Check that commitment is generated for proper set of participants.
-checkCommitmentShares :: [AsBinary VssPublicKey] -> MultiCommitment -> Bool
-checkCommitmentShares vssPublicKeys MultiCommitment{..} = all checkComm mcCommitments
+checkCommitmentShares :: SharesDistribution -> VssCertificatesMap -> SignedCommitment -> Bool
+checkCommitmentShares distr participants  (_, Commitment{..}, _) =
+    let vssPublicKeys = map vcVssKey $ toList participants
+        idVss = map (second vcVssKey) $ HM.toList participants in
+    (HS.fromList vssPublicKeys == getKeys commShares) && (all checkPK idVss)
   where
-    checkComm c = HS.fromList vssPublicKeys == (getKeys . commShares . fst $ c)
+    checkPK (id, pk) = case HM.lookup pk commShares of
+        Nothing -> False
+        Just ne ->
+            NE.length ne == fromIntegral (HM.lookupDefault 0 id distr)
 
 ----------------------------------------------------------------------------
 -- Payload processing
@@ -301,19 +306,13 @@ checkCommitmentsPayload
 checkCommitmentsPayload epoch (getCommitmentsMap -> comms) = do
     richmen <- note (NoRichmen epoch) =<< getRichmen epoch
     participants <- getParticipants epoch
-    let participantKeys = map vcVssKey $ toList participants
-    distr <- computeCommitmentDistr richmen
+    distr <- computeSharesDistr richmen
     exceptGuard CommitingNoParticipants
         (`HM.member` participants) (HM.keys comms)
     exceptGuardM CommitmentAlreadySent
         (notM hasCommitment) (HM.keys comms)
     exceptGuardSnd CommSharesOnWrongParticipants
-        (checkCommitmentShares participantKeys) (HM.toList comms)
-    exceptGuardEntryM InvalidNumCommitments
-        (pure . eqDistr distr) (HM.toList comms)
-  where
-    eqDistr distr (id, MultiCommitment{..}) =
-        (fromIntegral (NE.length mcCommitments) == HM.lookupDefault 0 id distr)
+        (checkCommitmentShares distr participants) (HM.toList comms)
     -- [CSL-206]: check that share IDs are different.
 
 -- For openings, we check that
@@ -331,7 +330,7 @@ checkOpeningsPayload opens = do
     exceptGuardM OpeningWithoutCommitment
         hasCommitment (HM.keys opens)
     exceptGuardEntryM OpeningNotMatchCommitment
-        matchMultiCommitment (HM.toList opens)
+        matchCommitment (HM.toList opens)
 
 -- For shares, we check that
 --   * 'InnerSharesMap's are sent only by participants
@@ -357,7 +356,7 @@ checkSharesPayload epoch shares = do
     exceptGuardM SharesAlreadySent
         (notM hasShares) (HM.keys shares)
     exceptGuardEntryM DecrSharesNotMatchCommitment
-        (checkMultiShares epoch) (HM.toList shares)
+        (checkShares epoch) (HM.toList shares)
 
 -- For certificates we check that
 --   * certificate hasn't been sent already

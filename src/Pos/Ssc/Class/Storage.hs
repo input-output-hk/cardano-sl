@@ -58,5 +58,4 @@ class Ssc ssc =>
                             -> SscVerifier ssc ()
     -- | Calculate 'SharedSeed' for given epoch using 'SscGlobalState'.
     sscCalculateSeedQ :: EpochIndex
-                      -> RichmenStake
                       -> SscGlobalQuery ssc (Either (SscSeedError ssc) SharedSeed)

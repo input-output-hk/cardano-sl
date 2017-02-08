@@ -29,7 +29,7 @@ import           Pos.Context                 (LrcSyncData, getNodeContext, ncLrc
 import qualified Pos.DB                      as DB
 import qualified Pos.DB.GState               as GS
 import           Pos.DB.Lrc                  (IssuersStakes, getLeaders, putEpoch,
-                                              putIssuersStakes, putLeaders, getRichmenSsc)
+                                              putIssuersStakes, putLeaders)
 import           Pos.Lrc.Consumer            (LrcConsumer (..))
 import           Pos.Lrc.Consumers           (allLrcConsumers)
 import           Pos.Lrc.Error               (LrcError (..))
@@ -131,11 +131,7 @@ lrcDo epoch consumers tip = tip <$ do
     case nonEmpty blundsList of
         Nothing -> throwM UnknownBlocksForLrc
         Just (NewestFirst -> blunds) -> do
-            -- TODO is it guaranteed that richmen for previous epoch are presented?
-            richmen <- getRichmenSsc (epoch - 1) >>= \case
-                    Nothing -> throwM $ NoRichmen $ epoch - 1
-                    Just r -> pure r
-            mbSeed <- sscCalculateSeed epoch richmen
+            mbSeed <- sscCalculateSeed epoch
             case mbSeed of
                 Left e ->
                     -- FIXME: don't panic, use previous seed!

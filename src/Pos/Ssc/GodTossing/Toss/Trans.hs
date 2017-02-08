@@ -29,8 +29,8 @@ import           Pos.Context                   (WithNodeContext)
 import           Pos.DB.Class                  (MonadDB)
 import           Pos.Slotting                  (MonadSlots (..))
 import           Pos.Ssc.Extra                 (MonadSscMem)
-import           Pos.Ssc.GodTossing.Core       (deleteMultiCommitment, getCertId,
-                                                insertMultiCommitment)
+import           Pos.Ssc.GodTossing.Core       (deleteSignedCommitment, getCertId,
+                                                insertSignedCommitment)
 import           Pos.Ssc.GodTossing.Toss.Class (MonadToss (..), MonadTossRead (..))
 import           Pos.Ssc.GodTossing.Toss.Types (TossModifier (..), tmCertificates,
                                                 tmCommitments, tmOpenings, tmShares)
@@ -95,7 +95,7 @@ instance MonadTossRead m =>
 instance MonadToss m =>
          MonadToss (TossT m) where
     putCommitment signedComm =
-        TossT $ tmCommitments %= insertMultiCommitment signedComm
+        TossT $ tmCommitments %= insertSignedCommitment signedComm
     putOpening id op =
         TossT $ tmOpenings . at id .= Just op
     putShares id sh =
@@ -103,7 +103,7 @@ instance MonadToss m =>
     putCertificate cert =
         TossT $ tmCertificates %= HM.insert (getCertId cert) cert
     delCommitment id =
-        TossT $ tmCommitments %= deleteMultiCommitment id
+        TossT $ tmCommitments %= deleteSignedCommitment id
     delOpening id =
         TossT $ tmOpenings . at id .= Nothing
     delShares id =

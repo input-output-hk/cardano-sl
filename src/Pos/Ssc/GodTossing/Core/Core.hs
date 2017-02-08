@@ -6,7 +6,6 @@ module Pos.Ssc.GodTossing.Core.Core
        (
          -- * Helpers
          genCommitmentAndOpening
-       , genMultiCommitmentAndMultiOpening
        , isCommitmentId
        , isCommitmentIdx
        , isOpeningId
@@ -14,23 +13,20 @@ module Pos.Ssc.GodTossing.Core.Core
        , isSharesId
        , isSharesIdx
        , mkSignedCommitment
-       , mkMultiCommitment
        , secretToSharedSeed
 
        -- * CommitmentsMap
-       , insertMultiCommitment
-       , deleteMultiCommitment
-       , toSignedCommitments
+       , insertSignedCommitment
+       , deleteSignedCommitment
        , diffCommMap
        , intersectCommMap
        , intersectCommMapWith
 
        -- * Verification and Checks
        , checkCertTTL
-       , verifyCommitment
        , verifyCommitmentSignature
        , verifySignedCommitment
-       , verifyMultiCommitment
+       , verifyCommitment
        , verifyOpening
 
        -- * Payload and proof
@@ -61,7 +57,6 @@ import           Pos.Crypto                     (EncShare, Secret, SecretKey,
 import           Pos.Ssc.GodTossing.Core.Types  (Commitment (..),
                                                  CommitmentsMap (getCommitmentsMap),
                                                  GtPayload (..), GtProof (..),
-                                                 MultiCommitment (..), MultiOpening (..),
                                                  Opening (..), SignedCommitment,
                                                  VssCertificate (vcExpiryEpoch),
                                                  VssCertificatesMap,
@@ -84,44 +79,22 @@ genCommitmentAndOpening n pks
     | n <= 0 = fail "genCommitmentAndOpening: threshold must be positive"
     | otherwise = do
         pks' <- traverse fromBinaryM pks
-        liftIO . runSecureRandom . fmap convertRes . genSharedSecret n $ pks'
+        liftIO . runSecureRandom . fmap (convertRes pks) . genSharedSecret n $ pks'
   where
-    convertRes (extra, secret, proof, shares) =
+    convertRes (toList -> ps) (extra, secret, proof, shares) =
         ( Commitment
           { commExtra = asBinary extra
           , commProof = asBinary proof
-          , commShares = HM.fromList $ zip (toList pks) $ map asBinary shares
+          , commShares = HM.fromList $ map toPair $ NE.groupWith fst $ zip ps shares
           }
         , Opening $ asBinary secret)
-
-genMultiCommitmentAndMultiOpening
-    :: (MonadFail m, MonadIO m)
-    => Threshold
-    -> NonEmpty (AsBinary VssPublicKey)
-    -> SecretKey
-    -> Word16
-    -> EpochIndex
-    -> m (MultiCommitment, MultiOpening)
-genMultiCommitmentAndMultiOpening n pks sk nums epoch = do
-    coMB <- NE.nonEmpty <$> replicateM (fromIntegral nums) (genCommitmentAndOpening n pks)
-    case coMB of
-        Nothing -> fail "genMultiCommitmentAndMultiOpening: number of commitments equals zero"
-        Just co ->
-            pure ( mkMultiCommitment sk epoch (NE.map fst co)
-                 , MultiOpening (NE.map snd co))
+    toPair ne@(x:|_) = (fst x, NE.map (asBinary . snd) ne)
 
 -- | Make signed commitment from commitment and epoch index using secret key.
 mkSignedCommitment
     :: Bi Commitment
     => SecretKey -> EpochIndex -> Commitment -> SignedCommitment
 mkSignedCommitment sk i c = (toPublic sk, c, sign sk (i, c))
-
-mkMultiCommitment
-    :: Bi Commitment
-    => SecretKey -> EpochIndex -> NonEmpty Commitment -> MultiCommitment
-mkMultiCommitment sk epoch =
-    MultiCommitment (toPublic sk) .
-    NE.map ((\(_,c, s) -> (c, s)) . mkSignedCommitment sk epoch)
 
 isCommitmentIdx :: LocalSlotIndex -> Bool
 isCommitmentIdx = inRange (0, 2 * blkSecurityParam - 1)
@@ -145,20 +118,15 @@ isSharesId = isSharesIdx . siSlot
 -- CommitmentsMap
 ----------------------------------------------------------------------------
 
-toSignedCommitments :: MultiCommitment -> NonEmpty (SignedCommitment)
-toSignedCommitments MultiCommitment{..} = NE.map toSignComm $ mcCommitments
-  where
-    toSignComm (comm, s) = (mcPK, comm, s)
-
 -- | Safely insert 'SignedCommitment' into 'CommitmentsMap'.
-insertMultiCommitment :: MultiCommitment -> CommitmentsMap -> CommitmentsMap
-insertMultiCommitment multiComm@MultiCommitment{..} (getCommitmentsMap -> m) =
+insertSignedCommitment :: SignedCommitment -> CommitmentsMap -> CommitmentsMap
+insertSignedCommitment signedComm (getCommitmentsMap -> m) =
     mkCommitmentsMapUnsafe $
-    HM.insert (addressHash mcPK) multiComm m
+    HM.insert (addressHash $ signedComm ^. _1) signedComm m
 
 -- | Safely delete 'SignedCommitment' from 'CommitmentsMap'.
-deleteMultiCommitment :: StakeholderId -> CommitmentsMap -> CommitmentsMap
-deleteMultiCommitment id = mkCommitmentsMapUnsafe . HM.delete id . getCommitmentsMap
+deleteSignedCommitment :: StakeholderId -> CommitmentsMap -> CommitmentsMap
+deleteSignedCommitment id = mkCommitmentsMapUnsafe . HM.delete id . getCommitmentsMap
 
 -- | Compute difference of two 'CommitmentsMap's.
 diffCommMap :: CommitmentsMap -> CommitmentsMap -> CommitmentsMap
@@ -190,16 +158,16 @@ verifyCommitment :: Commitment -> Bool
 verifyCommitment Commitment {..} = fromMaybe False $ do
     extra <- fromBinaryM commExtra
     comms <- traverse tupleFromBinaryM (HM.toList commShares)
-    let encShares = map (encShareId . snd) comms
+    let encShares = concatMap (map encShareId . toList . snd) comms
     return $ all (verifyCommitmentDo extra) comms &&
         (length encShares) == (HS.size $ HS.fromList encShares)
   where
-    verifyCommitmentDo extra = uncurry (verifyEncShare extra)
+    verifyCommitmentDo extra (pk, ne) = all (verifyEncShare extra pk) ne
     tupleFromBinaryM
-        :: (AsBinary VssPublicKey, AsBinary EncShare)
-        -> Maybe (VssPublicKey, EncShare)
+        :: (AsBinary VssPublicKey, NonEmpty (AsBinary EncShare))
+        -> Maybe (VssPublicKey, NonEmpty EncShare)
     tupleFromBinaryM =
-        uncurry (liftA2 (,)) . bimap fromBinaryM fromBinaryM
+        uncurry (liftA2 (,)) . bimap fromBinaryM (traverse fromBinaryM)
 
 -- CHECK: @verifyCommitmentSignature
 -- | Verify signature in SignedCommitment using epoch index.
@@ -226,18 +194,6 @@ verifySignedCommitment epoch sc@(_, comm, _) =
         , ( verifyCommitment comm
           , "commitment itself is bad (e. g. bad shares")
         ]
-
--- CHECK: @verifyMultiCommitment
--- | Verify MultiCommitment using public key and epoch index.
---
--- #verifySignedCommitment
-verifyMultiCommitment
-    :: Bi Commitment
-    => EpochIndex
-    -> MultiCommitment
-    -> VerificationRes
-verifyMultiCommitment epoch =
-    mconcat . NE.toList . map (verifySignedCommitment epoch) . toSignedCommitments
 
 -- CHECK: @verifyOpening
 -- | Verify that Secret provided with Opening corresponds to given commitment.

@@ -19,12 +19,11 @@ import           Universum
 import           Unsafe                   ()
 
 import           Pos.Crypto               (KeyPair (..), PublicKey, Share, Threshold,
-                                           VssKeyPair, decryptShare, toVssPublicKey)
-import           Pos.Ssc.GodTossing       (Commitment (..), MultiCommitment (..),
-                                           MultiOpening (..), Opening (..),
+                                           VssKeyPair, decryptShare, sign, toVssPublicKey)
+import           Pos.Ssc.GodTossing       (Commitment (..), CommitmentsMap, Opening (..),
                                            SeedError (..), calculateSeed,
-                                           genMultiCommitmentAndMultiOpening,
-                                           mkCommitmentsMap, secretToSharedSeed)
+                                           genCommitmentAndOpening, mkCommitmentsMap,
+                                           secretToSharedSeed)
 import           Pos.Types                (SharedSeed (..))
 import           Pos.Types.Address        (AddressHash, addressHash)
 import           Pos.Util                 (AsBinaryClass (..), nonrepeating, sublistN)
@@ -130,8 +129,7 @@ recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
     (keys, vssKeys, comms, opens) <- generateKeysAndMpc threshold n
     let des = fromBinary
         seeds :: [SharedSeed]
-        seeds = rights $ map (fmap secretToSharedSeed . des . getOpening)
-                             (concatMap (toList . moOpenings) opens)
+        seeds = rights $ map (fmap secretToSharedSeed . des . getOpening) opens
     let expectedSharedSeed :: SharedSeed
         expectedSharedSeed = mconcat seeds
     haveSentBoth <- generate $
@@ -142,7 +140,7 @@ recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
     haveSentShares <- generate $
         (haveSentBoth ++) <$>
         sublistN (n_shares - n_overlap) (keys \\ haveSentOpening)
-    let commitmentsMap = mkCommitmentsMap comms
+    let commitmentsMap = mkCommitmentsMap' keys comms
     let openingsMap = HM.fromList
             [(getPubAddr k, o)
               | (k, o) <- zip keys opens
@@ -154,7 +152,7 @@ recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
         fmap HM.fromList $ forM (filter sentShares (zip keys comms)) $
             \(kp, comm) -> do
                 let addr = getPubAddr kp
-                decShares <- getDecryptedShares vssKeys comm
+                decShares <- concat <$> getDecryptedShares vssKeys comm
                 return (addr, HM.fromList (zip (map getPubAddr keys) decShares))
     -- @sharesMap ! X@ = shares that X received from others
     let sharesMap = HM.fromList $ do
@@ -164,8 +162,8 @@ recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
                      (sender, senderShares) <- HM.toList generatedShares
                      case HM.lookup addr senderShares of
                          Nothing -> []
-                         Just s  -> return (sender, ser s)
-             return (addr, fmap one receivedShares)
+                         Just s  -> return (sender, one $ ser s)
+             return (addr, receivedShares)
 
     let shouldSucceed = n_openings + n_shares - n_overlap >= n
     let result = calculateSeed commitmentsMap openingsMap sharesMap
@@ -212,25 +210,31 @@ recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
 generateKeysAndMpc
     :: Threshold
     -> Int
-    -> IO ([KeyPair], NonEmpty VssKeyPair, [MultiCommitment], [MultiOpening])
+    -> IO ([KeyPair], NonEmpty VssKeyPair, [Commitment], [Opening])
 -- genCommitmentAndOpening fails on 0
 generateKeysAndMpc _         0 = panic "generateKeysAndMpc: 0 is passed"
 generateKeysAndMpc threshold n = do
     keys           <- generate $ nonrepeating n
     vssKeys        <- generate $ nonrepeating n
     let lvssPubKeys = NE.fromList $ map (asBinary . toVssPublicKey) vssKeys
-    let secrets = map getSec keys
-    let epochIdx = 0  -- we don't care here
     (comms, opens) <-
         unzip <$>
-            mapM (\sk -> genMultiCommitmentAndMultiOpening threshold lvssPubKeys sk 1 epochIdx) secrets
+            replicateM n (genCommitmentAndOpening threshold lvssPubKeys)
     return (keys, NE.fromList vssKeys, comms, opens)
+
+mkCommitmentsMap' :: [KeyPair] -> [Commitment] -> CommitmentsMap
+mkCommitmentsMap' keys comms =
+    mkCommitmentsMap $ do
+        (KeyPair pk sk, comm) <- zip keys comms
+        let epochIdx = 0  -- we don't care here
+        let sig = sign sk (epochIdx, comm)
+        return (pk, comm, sig)
 
 getDecryptedShares
     :: MonadRandom m
-    => NonEmpty VssKeyPair -> MultiCommitment -> m [Share]
-getDecryptedShares vssKeys MultiCommitment{..} =
-    forM (fmap (second fromBinary) $ concatMap (HM.toList . commShares . fst) mcCommitments) $
+    => NonEmpty VssKeyPair -> Commitment -> m [[Share]]
+getDecryptedShares vssKeys comm =
+    forM (fmap (second $ traverse fromBinary) $ HM.toList (commShares comm)) $
         \(pubKey, encShare) -> do
             let secKey = case find ((== pubKey) . asBinary . toVssPublicKey) vssKeys of
                     Just k  -> k
@@ -241,7 +245,7 @@ getDecryptedShares vssKeys MultiCommitment{..} =
                     Right encS -> encS
                     _          -> panic $
                         "@getDecryptedShares: could not deserialize LEncShare"
-            decryptShare secKey encShare'
+            toList <$> mapM (decryptShare secKey) encShare'
 
 pickThreshold :: Int -> Threshold
 pickThreshold n = fromIntegral (n `div` 2 + n `mod` 2)

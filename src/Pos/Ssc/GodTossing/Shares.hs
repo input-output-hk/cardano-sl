@@ -19,10 +19,10 @@ import           Pos.Crypto               (EncShare, Share, VssKeyPair, VssPubli
                                            decryptShare, toVssPublicKey)
 import           Pos.Ssc.Class.Storage    (SscGlobalQuery)
 import           Pos.Ssc.Extra            (MonadSscMem, sscRunGlobalQuery)
-import           Pos.Ssc.GodTossing.Core  (Commitment (..), MultiCommitment (..),
-                                           getCommitmentsMap)
+import           Pos.Ssc.GodTossing.Core  (Commitment (..), getCommitmentsMap)
 import           Pos.Ssc.GodTossing.Type  (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types (gsCommitments, gsOpenings)
+import           Pos.Types.Address        (addressHash)
 import           Pos.Types.Core           (StakeholderId)
 import           Pos.Util                 (AsBinary, asBinary, fromBinaryM)
 
@@ -60,9 +60,9 @@ decryptOurShares
 decryptOurShares ourPK = do
     comms <- getCommitmentsMap <$> view gsCommitments
     opens <- view gsOpenings
-    return . HM.fromList . catMaybes $ checkOpen opens <$> HM.toList comms
+    return . HM.fromList . catMaybes $ checkOpen opens <$> toList comms
   where
-    checkOpen opens (theirId, MultiCommitment{..})
+    checkOpen opens (addressHash -> theirId, Commitment {..}, _)
         | not $ HM.member theirId opens =
-            (theirId,) <$> (traverse (HM.lookup ourPK . commShares . fst) mcCommitments)
+            (theirId,) <$> HM.lookup ourPK commShares
         | otherwise = Nothing -- if we have opening for theirAddr, we shouldn't send shares for it

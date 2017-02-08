@@ -27,7 +27,7 @@ import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (getCommitments
                                                   GtPayload (..), VssCertificatesMap,
                                                   checkCertTTL, isCommitmentId,
                                                   isOpeningId, isSharesId,
-                                                  verifyMultiCommitment)
+                                                  verifySignedCommitment)
 import           Pos.Ssc.GodTossing.Genesis      (genesisCertificates)
 import           Pos.Ssc.GodTossing.Toss.Base    (verifyEntriesGuardM)
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
@@ -112,11 +112,11 @@ verifyGtPayload eoh payload = case payload of
     --
     -- #verifySignedCommitment
     commChecks commitments = do
-        let checkMultiComm =
+        let checkComm =
                  isVerSuccess .
-                 (verifyMultiCommitment epochId)
+                 (verifySignedCommitment epochId)
         verifyEntriesGuardM fst snd CommitmentInvalid
-                            (pure . checkMultiComm)
+                            (pure . checkComm)
                             (HM.toList . getCommitmentsMap $ commitments)
         -- [CSL-206]: check that share IDs are different.
 

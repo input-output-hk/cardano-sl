@@ -43,19 +43,19 @@ import           Pos.Crypto.SecretSharing         (toVssPublicKey)
 import           Pos.Crypto.Signing               (PublicKey)
 import           Pos.DB.Lrc                       (getRichmenSsc)
 import           Pos.DHT.Model                    (sendToNeighbors)
+import           Pos.Lrc.Types                    (RichmenStake)
 import           Pos.Slotting                     (getCurrentSlot, getSlotStart)
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
-import           Pos.Ssc.GodTossing.Core          (Commitment (..), MultiCommitment,
+import           Pos.Ssc.GodTossing.Core          (Commitment (..), SignedCommitment,
                                                    VssCertificate (..),
                                                    VssCertificatesMap,
-                                                   genMultiCommitmentAndMultiOpening,
+                                                   genCommitmentAndOpening,
                                                    getCommitmentsMap, isCommitmentIdx,
                                                    isOpeningIdx, isSharesIdx,
-                                                   mkVssCertificate)
+                                                   mkSignedCommitment, mkVssCertificate)
 import           Pos.Ssc.GodTossing.Functions     (hasCommitment, hasOpening, hasShares,
                                                    vssThreshold)
-import           Pos.Ssc.GodTossing.GState        (computeCommitmentDistrById, computeSumCommitments,
-                                                   getGlobalCerts, getStableCerts,
+import           Pos.Ssc.GodTossing.GState        (getGlobalCerts, getStableCerts,
                                                    gtGetGlobalState)
 import           Pos.Ssc.GodTossing.LocalData     (localOnNewSlot, sscProcessCertificate,
                                                    sscProcessCommitment,
@@ -63,7 +63,8 @@ import           Pos.Ssc.GodTossing.LocalData     (localOnNewSlot, sscProcessCer
 import           Pos.Ssc.GodTossing.Richmen       (gtLrcConsumer)
 import qualified Pos.Ssc.GodTossing.SecretStorage as SS
 import           Pos.Ssc.GodTossing.Shares        (getOurShares)
-import           Pos.Ssc.GodTossing.Toss          (computeParticipants)
+import           Pos.Ssc.GodTossing.Toss          (computeParticipants,
+                                                   computeSharesDistr)
 import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types         (gsCommitments, gtcParticipateSsc,
                                                    gtcVssKeyPair)
@@ -276,7 +277,7 @@ generateAndSetNewSecret
        (WorkMode SscGodTossing m, Bi Commitment)
     => SecretKey
     -> SlotId -- ^ Current slot
-    -> m (Maybe MultiCommitment)
+    -> m (Maybe SignedCommitment)
 generateAndSetNewSecret sk SlotId {..} = do
     richmen <-
         lrcActionOnEpochReason siEpoch "couldn't get SSC richmen" getRichmenSsc
@@ -287,32 +288,38 @@ generateAndSetNewSecret sk SlotId {..} = do
                 computeParticipants (getKeys richmen) certs
         logDebug $
             sformat ("generating secret for: " %listJson) $ participantIds
-    let participants =
-            nonEmpty . map vcVssKey . toList $
-            computeParticipants (getKeys richmen) certs
-    maybe (Nothing <$ warnNoPs) generateAndSetNewSecretDo participants
+    let participants = nonEmpty $
+                       map (second vcVssKey) $
+                       HM.toList $
+                       computeParticipants (getKeys richmen) certs
+    maybe (Nothing <$ warnNoPs) (generateAndSetNewSecretDo richmen) participants
   where
     warnNoPs =
         logWarning "generateAndSetNewSecret: can't generate, no participants"
     reportDeserFail = logError "Wrong participants list: can't deserialize"
-    generateAndSetNewSecretDo :: NonEmpty (AsBinary VssPublicKey)
-                              -> m (Maybe MultiCommitment)
-    generateAndSetNewSecretDo ps = do
-        ourId <- addressHash . ncPublicKey <$> getNodeContext
-        numsEI <- runExceptT $ computeCommitmentDistrById siEpoch ourId
-        thresholdEI <- runExceptT $ vssThreshold <$> computeSumCommitments siEpoch
-        case (thresholdEI, numsEI) of
-            (Left er, _) ->
-                Nothing <$ logWarning (sformat ("Couldn't compute threshold, reason: "%build) er)
-            (_, Left er) ->
-                Nothing <$ logWarning (sformat ("Couldn't compute commitment distribution, reason: "%build) er)
-            (Right threshold, Right nums) -> do
-                mPair <- runMaybeT (genMultiCommitmentAndMultiOpening threshold ps sk nums siEpoch)
-                case mPair of
-                    Just (multiComm, multiOpen) ->
-                        Just multiComm <$ SS.putOurSecret multiComm multiOpen siEpoch
-                    Nothing -> Nothing <$ reportDeserFail
-
+    generateAndSetNewSecretDo :: RichmenStake
+                              -> NonEmpty (StakeholderId, AsBinary VssPublicKey)
+                              -> m (Maybe SignedCommitment)
+    generateAndSetNewSecretDo richmen ps = do
+        distrEI <- runExceptT $ computeSharesDistr richmen
+        -- Gromak it's for you <3 |>
+        case distrEI of
+            Left er ->
+                Nothing <$ logWarning (sformat ("Couldn't compute shares distribution, reason: "%build) er)
+            Right distr -> do
+                logDebug $ sformat ("Computed shares distribution: "%listJson) (HM.toList distr)
+                let threshold = vssThreshold $ sum $ toList distr
+                let multiPSmb = nonEmpty $
+                                concatMap (\(c, x) -> replicate (fromIntegral c) x) $
+                                NE.map (first $ flip (HM.lookupDefault 0) distr) ps
+                case multiPSmb of
+                    Nothing -> Nothing <$ logWarning "Couldn't compute participant's vss"
+                    Just multiPS -> do
+                        mPair <- runMaybeT (genCommitmentAndOpening threshold multiPS)
+                        case mPair of
+                            Just (mkSignedCommitment sk siEpoch -> comm, open) ->
+                                Just comm <$ SS.putOurSecret comm open siEpoch
+                            Nothing -> Nothing <$ reportDeserFail
 randomTimeInInterval
     :: WorkMode SscGodTossing m
     => Microsecond -> m Microsecond

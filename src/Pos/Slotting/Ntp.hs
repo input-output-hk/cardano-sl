@@ -46,7 +46,7 @@ import qualified Pos.Constants               as C
 import           Pos.Context.Class           (WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
 import           Pos.Slotting.Class          (MonadSlots (..), MonadSlotsData (..))
-import           Pos.Types                   (SlotId, slotIdF, unflattenSlotId)
+import           Pos.Types                   (SlotId, unflattenSlotId)
 import           Pos.Util.JsonLog            (MonadJL)
 
 ----------------------------------------------------------------------------
@@ -144,7 +144,6 @@ type SlottingConstraint ssc m =
     , Mockable Catch m
     , MonadCatch m
     , Mockable Delay m
-    , WithNodeContext ssc m
     )
 
 instance SlottingConstraint ssc m =>

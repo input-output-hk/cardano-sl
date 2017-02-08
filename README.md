@@ -26,3 +26,12 @@ npm run server:prod
 ```
 
 Open http://localhost:3000/
+
+
+## Mocking socket data
+
+```bash
+cd debug/socket
+npm install
+npm start
+```

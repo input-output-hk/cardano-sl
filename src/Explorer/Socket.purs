@@ -1,5 +1,6 @@
 module Explorer.Socket where
 
+import Prelude
 import Control.Monad.Eff (Eff)
 import Control.SocketIO.Client (Event, Host)
 import Data.Argonaut.Core (Json)
@@ -8,6 +9,7 @@ import Data.Foreign (Foreign)
 import Explorer.Types.Actions (Action(..), ActionChannel)
 import Prelude (($), Unit)
 import Signal.Channel (CHANNEL, send)
+import Debug.Trace
 
 
 -- host
@@ -45,11 +47,14 @@ closeHandler channel _ =
 latestBlocksHandler :: forall eff. ActionChannel -> Json
     -> Eff (channel :: CHANNEL | eff) Unit
 latestBlocksHandler channel json = do
+    traceAnyM "latestBlocksHandler ..........."
+    traceAnyM json
     let result = decodeJson json
+    traceAnyM result
     send channel $ SocketLatestBlocks result
 
 latestTransactionsHandler :: forall eff. ActionChannel -> Json
     -> Eff (channel :: CHANNEL | eff) Unit
-latestTransactionsHandler channel json = do
-    let result = decodeJson json
+latestTransactionsHandler channel json =
+    let result = decodeJson json in
     send channel $ SocketLatestTransactions result

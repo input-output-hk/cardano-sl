@@ -1,12 +1,12 @@
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeFamilies    #-}
 
 -- | Core types of GodTossing SSC.
 
 module Pos.Ssc.GodTossing.Core.Types
-       ( GtDataId
+       (
          -- * Commitments
-       , Commitment (..)
+         Commitment (..)
        , CommitmentSignature
        , SignedCommitment
        , CommitmentsMap (getCommitmentsMap)
@@ -125,9 +125,6 @@ type SharesDistribution = HashMap StakeholderId Word16
 
 instance Buildable (StakeholderId, Word16) where
     build (id, c) = bprint ("("%build%": "%build%" shares)") id c
-
--- | This type identifies commitment, corresponding opening and commitment's shares.
-type GtDataId = (StakeholderId, Word16)
 
 ----------------------------------------------------------------------------
 -- Vss certificates

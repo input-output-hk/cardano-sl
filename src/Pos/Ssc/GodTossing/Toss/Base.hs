@@ -228,28 +228,29 @@ matchCommitmentPure (getCommitmentsMap -> globalCommitments) (id, op) =
 -- #verifyShare
 checkSharePure :: (SetContainer set, ContainerKey set ~ StakeholderId)
            => CommitmentsMap
-           -> set --set of opening's addresses
+           -> set --set of opening's identifiers
            -> VssCertificatesMap
            -> (StakeholderId, StakeholderId, NonEmpty (AsBinary Share))
            -> Bool
-checkSharePure globalCommitments globalOpeningsPK globalCertificates (addrTo, addrFrom, multiShare) =
+checkSharePure globalCommitments globalOpeningsPK globalCertificates (idTo, idFrom, multiShare) =
     fromMaybe False checks
   where
-    -- addrFrom sent its encrypted share to addrTo on commitment phase
-    -- addrTo must decrypt share from addrFrom on shares phase,
+    -- idFrom sent its encrypted share to idTo on commitment phase
+    -- idTo must decrypt share from idFrom on shares phase,
 
     checks = do
-        -- CHECK: Check that addrFrom really sent its commitment
-        (_, Commitment{..}, _) <- HM.lookup addrFrom $ getCommitmentsMap globalCommitments
-        -- Get pkTo's vss certificate
-        vssKey <- vcVssKey <$> HM.lookup addrTo globalCertificates
-        addrToCommShares <- HM.lookup vssKey commShares
-        -- CHECK: Check that multicommitment and multishare have same length
-        guard $ NE.length multiShare == NE.length addrToCommShares
-        -- CHECK: Check that addrFrom really didn't send its opening
-        guard $ notMember addrFrom globalOpeningsPK
-        -- Get encrypted share, which was sent from pkFrom to pkTo on commitment phase
-        pure $ all (checkShare vssKey) $ NE.zip addrToCommShares multiShare
+        -- CHECK: Check that idFrom really sent its commitment
+        (_, Commitment{..}, _) <- HM.lookup idFrom $ getCommitmentsMap globalCommitments
+        -- Get idTo's vss certificate
+        vssKey <- vcVssKey <$> HM.lookup idTo globalCertificates
+        idToCommShares <- HM.lookup vssKey commShares
+        -- CHECK: Check that commitment's shares and multishare have same length
+        guard $ NE.length multiShare == NE.length idToCommShares
+        -- CHECK: Check that idFrom really didn't send its opening
+        guard $ notMember idFrom globalOpeningsPK
+        -- Get encrypted share, which was sent from idFrom to idTo in
+        -- commitment phase
+        pure $ all (checkShare vssKey) $ NE.zip idToCommShares multiShare
     checkShare vssKey (encShare, share) = fromMaybe False $
         verifyShare <$> fromBinaryM encShare
                     <*> fromBinaryM vssKey

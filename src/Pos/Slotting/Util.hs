@@ -121,3 +121,5 @@ logNewSlotWorker =
     onNewSlotWithLogging True $ \slotId -> do
         modifyLoggerName (<> "slotting") $
             logNotice $ sformat ("New slot has just started: " %slotIdF) slotId
+
+-- getSlotDuration = pure genesisSlotDuration

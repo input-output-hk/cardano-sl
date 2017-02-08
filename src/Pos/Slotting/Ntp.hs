@@ -37,7 +37,6 @@ import           NTP.Client                  (NtpClientSettings (..), startNtpCl
 import           NTP.Example                 ()
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
-import           System.Wlog                 (logNotice, modifyLoggerName)
 import           System.Wlog                 (WithLogger, logDebug)
 import           Universum
 
@@ -135,7 +134,7 @@ instance MonadBaseControl IO m => MonadBaseControl IO (NtpSlotting m) where
 -- MonadSlots implementation
 ----------------------------------------------------------------------------
 
-type SlottingConstraint ssc m =
+type SlottingConstraint m =
     ( MonadIO m
     , WithLogger m
     , MonadSlotsData m
@@ -144,11 +143,12 @@ type SlottingConstraint ssc m =
     , Mockable Catch m
     , MonadCatch m
     , Mockable Delay m
+    , Mockable CurrentTime m
     )
 
-instance SlottingConstraint ssc m =>
+instance SlottingConstraint m =>
          MonadSlots (NtpSlotting m) where
-    getCurrentSlot = notImplemented
+    getCurrentSlot = ntpGetCurrentSlot
     slottingWorkers = [ntpSyncWorker]
 
 -- instance (Mockable CurrentTime m, MonadIO m) =>
@@ -164,33 +164,39 @@ instance SlottingConstraint ssc m =>
 --         ntpData <- readNtpData
 --         getCurrentSlotUsingNtp lastSlot ntpData
 
-    -- getSlotDuration = pure genesisSlotDuration
+----------------------------------------------------------------------------
+-- Getting current slot
+----------------------------------------------------------------------------
 
--- getCurrentSlotUsingNtp :: (MonadSlots m, Mockable CurrentTime m)
---                        => SlotId -> (Microsecond, Microsecond) -> m SlotId
--- getCurrentSlotUsingNtp lastSlot (margin, measTime) = do
---     t <- (+ margin) <$> currentTime
---     canTrust <- canWeTrustLocalTime t
---     slotDuration <- getSlotDuration
---     if canTrust then
---         max lastSlot . f (convertUnit slotDuration) <$>
---             ((t -) . getTimestamp <$> getSystemStartTime)
---     else pure lastSlot
---   where
---     f :: Microsecond -> Microsecond -> SlotId
---     f slotDuration diff
---         | diff < 0 = SlotId 0 0
---         | otherwise = unflattenSlotId (fromIntegral $ diff `div` slotDuration)
---     -- We can trust getCurrentTime if it isn't bigger than:
---     -- time for which we got margin (in last time) + NTP delay (+ some eps, for safety)
---     canWeTrustLocalTime t =
---         pure $ t <= measTime + ntpPollDelay + ntpMaxError
+ntpGetCurrentSlot :: SlottingConstraint m => NtpSlotting m (Maybe SlotId)
+ntpGetCurrentSlot = do
+    var <- NtpSlotting ask
+    NtpSlottingState {..} <- atomically $ STM.readTVar var
+    t <- (+ _nssLastMargin) <$> currentTime
+    if | canWeTrustLocalTime _nssLastLocalTime t ->
+           do res <- ntpGetCurrentSlotDo
+              let setLastSlot s =
+                      atomically $ STM.modifyTVar' var (nssLastSlot %~ max s)
+              res <$ whenJust res setLastSlot
+       | otherwise -> pure $ Just _nssLastSlot
+  where
+    -- We can trust getCurrentTime if it isn't bigger than:
+    -- time for which we got margin (in last time) + NTP delay (+ some eps, for safety)
+    canWeTrustLocalTime :: Microsecond -> Microsecond -> Bool
+    canWeTrustLocalTime lastLocalTime t =
+        t <= lastLocalTime + C.ntpPollDelay + C.ntpMaxError
 
-  --       setNtpLastSlot slotId
+ntpGetCurrentSlotDo :: SlottingConstraint m => NtpSlotting m (Maybe SlotId)
+ntpGetCurrentSlotDo = undefined
+    -- slotDuration <- getSlotDuration
+    -- max lastSlot . f (convertUnit slotDuration) <$>
+    --     ((t -) . getTimestamp <$> getSystemStartTime)
   -- where
-  --   setNtpLastSlot slotId = do
-  --       var <- NtpSlotting ask
-  --       atomically $ STM.modifyTVar var (nssLastSlot %~ max slotId)
+  --   f :: Microsecond -> Microsecond -> SlotId
+  --   f slotDuration diff
+  --       | diff < 0 = SlotId 0 0
+  --       | otherwise = unflattenSlotId (fromIntegral $ diff `div` slotDuration)
+
 
 ----------------------------------------------------------------------------
 -- Running
@@ -210,33 +216,12 @@ runNtpSlotting :: NtpSlottingVar -> NtpSlotting m a -> m a
 runNtpSlotting var = usingReaderT var . getNtpSlotting
 
 ----------------------------------------------------------------------------
--- Something
-----------------------------------------------------------------------------
-
--- readNtpLastSlot :: (MonadIO m, WithNodeContext ssc m) => m SlotId
--- readNtpLastSlot = do
---     nc <- getNodeContext
---     atomically $ view ssNtpLastSlot <$> STM.readTVar (ncSlottingState nc)
-
--- readNtpMargin :: (MonadIO m, WithNodeContext ssc m) => m Microsecond
--- readNtpMargin = do
---     nc <- getNodeContext
---     atomically $ fst . view ssNtpData <$> STM.readTVar (ncSlottingState nc)
-
--- readNtpData
---     :: (MonadIO m, WithNodeContext ssc m)
---     => m (Microsecond, Microsecond)
--- readNtpData = do
---     nc <- getNodeContext
---     atomically $ view ssNtpData <$> STM.readTVar (ncSlottingState nc)
-
-----------------------------------------------------------------------------
 -- Workers
 ----------------------------------------------------------------------------
 
 -- Worker for synchronization of local time and global time.
 ntpSyncWorker
-    :: SlottingConstraint ssc m
+    :: SlottingConstraint m
     => NtpSlotting m ()
 ntpSyncWorker = NtpSlotting ask >>= void . startNtpClient . ntpSettings
 
@@ -268,7 +253,6 @@ ntpSettings var = NtpClientSettings
         -- way to sumarize results received from different servers.
         , ntpMeanSelection   = \l -> let len = length l in sort l !! ((len - 1) `div` 2)
         }
-
 
 ----------------------------------------------------------------------------
 -- Something else

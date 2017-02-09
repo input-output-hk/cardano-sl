@@ -13,7 +13,7 @@ import           Universum
 import           Pos.Communication.PeerState (PeerStateHolder)
 import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Slotting.Types          (SlottingData)
-import           Pos.Types                   (SlotId (..))
+import           Pos.Types                   (SlotId (..), Timestamp)
 
 -- | 'MonadSlotsData' provides access to data necessary for slotting to work.
 class Monad m =>
@@ -37,11 +37,17 @@ class MonadSlotsData m =>
 
     getCurrentSlot :: m (Maybe SlotId)
 
+    currentTimeSlotting :: m Timestamp
+
     slottingWorkers :: [m ()]
 
     default getCurrentSlot :: (MonadTrans t, MonadSlots m', t m' ~ m) =>
         m (Maybe SlotId)
     getCurrentSlot = lift getCurrentSlot
+
+    default currentTimeSlotting :: (MonadTrans t, MonadSlots m', t m' ~ m) =>
+        m Timestamp
+    currentTimeSlotting = lift currentTimeSlotting
 
     default slottingWorkers :: (MonadTrans t, MonadSlots m', t m' ~ m) =>
         [m ()]

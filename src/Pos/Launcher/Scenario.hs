@@ -13,25 +13,22 @@ import           Control.Concurrent.MVar     (putMVar)
 import           Control.Concurrent.STM.TVar (writeTVar)
 import           Data.Default                (def)
 import           Development.GitRev          (gitBranch, gitHash)
-import           Formatting                  (build, int, sformat, (%))
-import           Mockable                    (currentTime, delay, fork)
+import           Formatting                  (build, sformat, (%))
+import           Mockable                    (fork)
 import           System.Wlog                 (logError, logInfo)
 import           Universum
 
 import           Pos.Communication           (ActionSpec (..), OutSpecs, WorkerSpec,
                                               wrapActionSpec)
-import           Pos.Constants               (isDevelopment, ntpMaxError,
-                                              ntpResponseTimeout)
 import           Pos.Context                 (NodeContext (..), getNodeContext,
-                                              ncPubKeyAddress, ncPublicKey, npSystemStart)
+                                              ncPubKeyAddress, ncPublicKey)
 import qualified Pos.DB.GState               as GS
 import qualified Pos.DB.Lrc                  as LrcDB
 import           Pos.Delegation.Logic        (initDelegation)
 import           Pos.DHT.Model               (discoverPeers)
-import           Pos.Slotting                (getCurrentSlot)
+import           Pos.Slotting                (getCurrentSlot, waitSystemStart)
 import           Pos.Ssc.Class               (SscConstraint)
-import           Pos.Types                   (SlotId (..), Timestamp (Timestamp),
-                                              addressHash)
+import           Pos.Types                   (SlotId (..), addressHash)
 import           Pos.Update                  (MemState (..), askUSMemVar, mvState)
 import           Pos.Util                    (inAssertMode, waitRandomInterval)
 import           Pos.Util.Shutdown           (waitForWorkers)
@@ -58,11 +55,7 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
     initLrc
     initUSMemState
     initSemaphore
-    notImplemented
-    -- _ <- fork ntpWorker -- start NTP worker for synchronization time
-    logInfo $ "Waiting response from NTP servers"
-    notImplemented
-    -- waitSystemStart
+    waitSystemStart
     let unpackPlugin (ActionSpec action) = action vI sendActions
     mapM_ (fork . unpackPlugin) $
         plugins'

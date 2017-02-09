@@ -9,6 +9,7 @@ module Pos.Context.Context
        , ncPubKeyAddress
        , ncGenesisLeaders
        , ncGenesisUtxo
+       , ncSystemStart
        , NodeParams(..)
        , BaseParams(..)
        ) where
@@ -24,8 +25,8 @@ import           Pos.Genesis                      (genesisLeaders)
 import           Pos.Launcher.Param               (BaseParams (..), NodeParams (..))
 import           Pos.Ssc.Class.Types              (Ssc (SscNodeContext))
 import           Pos.Types                        (Address, BlockHeader, EpochIndex,
-                                                   HeaderHash, SlotLeaders, Utxo,
-                                                   makePubKeyAddress)
+                                                   HeaderHash, SlotLeaders, Timestamp,
+                                                   Utxo, makePubKeyAddress)
 import           Pos.Update.Poll.Types            (ConfirmedProposalState)
 import           Pos.Util                         (NE, NewestFirst)
 import           Pos.Util.UserSecret              (UserSecret)
@@ -96,3 +97,6 @@ ncGenesisUtxo = npCustomUtxo . ncNodeParams
 
 ncGenesisLeaders :: NodeContext ssc -> SlotLeaders
 ncGenesisLeaders = genesisLeaders . ncGenesisUtxo
+
+ncSystemStart :: NodeContext __ -> Timestamp
+ncSystemStart = npSystemStart . ncNodeParams

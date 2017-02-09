@@ -14,24 +14,27 @@ module Pos.Slotting.Util
 
          -- * Worker which logs beginning of new slot
        , logNewSlotWorker
+
+         -- * Waiting for system start
+       , waitSystemStart
        ) where
 
 import           Control.Monad.Catch      (MonadCatch, catch)
-import           Data.Time.Units          (Microsecond)
-import           Formatting               (build, sformat, shown, (%))
-import           Mockable                 (CurrentTime, Delay, Fork, Mockable,
-                                           currentTime, delay, fork)
+import           Formatting               (build, int, sformat, (%))
+import           Mockable                 (Delay, Fork, Mockable, delay, fork)
 import           Serokell.Util.Exceptions ()
-import           System.Wlog              (WithLogger, logDebug, logError, logNotice,
-                                           modifyLoggerName)
+import           System.Wlog              (WithLogger, logDebug, logError, logInfo,
+                                           logNotice, modifyLoggerName)
 import           Universum
 
 import           Pos.Constants            (ntpMaxError, ntpPollDelay)
-import           Pos.Context.Class        (WithNodeContext)
+import           Pos.Context              (WithNodeContext (getNodeContext),
+                                           ncSystemStart)
 import           Pos.Slotting.Class       (MonadSlots (..))
 import           Pos.Types                (FlatSlotId, SlotId (..), Timestamp (..),
                                            flattenSlotId, slotIdF, unflattenSlotId)
 import           Pos.Util.Shutdown        (ifNotShutdown)
+import           Pos.Util.TimeWarp        (sec)
 
 -- | Get flat id of current slot based on MonadSlots.
 getCurrentSlotFlat :: MonadSlots m => m (Maybe FlatSlotId)
@@ -123,3 +126,17 @@ logNewSlotWorker =
             logNotice $ sformat ("New slot has just started: " %slotIdF) slotId
 
 -- getSlotDuration = pure genesisSlotDuration
+
+-- | Wait until system starts. This function is useful if node is
+-- launched before 0-th epoch starts.
+waitSystemStart
+    :: (WithNodeContext ssc m, Mockable Delay m, WithLogger m, MonadSlots m)
+    => m ()
+waitSystemStart = do
+    start <- ncSystemStart <$> getNodeContext
+    cur <- currentTimeSlotting
+    let Timestamp waitPeriod = start - cur
+    when (cur < start) $ do
+        logInfo $ sformat ("Waiting "%int%" seconds for system start") $
+            waitPeriod `div` sec 1
+        delay waitPeriod

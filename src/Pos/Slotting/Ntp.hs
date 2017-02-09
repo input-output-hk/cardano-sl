@@ -32,12 +32,14 @@ import           Mockable                    (Catch, ChannelT, Counter, CurrentT
                                               Delay, Distribution, Fork, Gauge, MFunctor',
                                               Mockable (liftMockable), Promise,
                                               SharedAtomicT, SharedExclusiveT, ThreadId,
-                                              Throw, currentTime, liftMockableWrappedM)
-import           NTP.Client                  (NtpClientSettings (..), startNtpClient)
+                                              Throw, currentTime, delay,
+                                              liftMockableWrappedM)
+import           NTP.Client                  (NtpClientSettings (..), ntpSingleShot,
+                                              startNtpClient)
 import           NTP.Example                 ()
 import           Serokell.Util.Lens          (WrappedM (..))
-import           System.Wlog                 (CanLog, HasLoggerName)
-import           System.Wlog                 (WithLogger, logDebug)
+import           System.Wlog                 (CanLog, HasLoggerName, WithLogger, logDebug,
+                                              logInfo)
 import           Universum
 
 
@@ -151,20 +153,8 @@ type SlottingConstraint m =
 instance SlottingConstraint m =>
          MonadSlots (NtpSlotting m) where
     getCurrentSlot = ntpGetCurrentSlot
+    currentTimeSlotting = ntpCurrentTime
     slottingWorkers = [ntpSyncWorker]
-
--- instance (Mockable CurrentTime m, MonadIO m) =>
---          MonadSlots (ContextHolder ssc m) where
---     getSystemStartTime = ContextHolder $ asks ncSystemStart
-
---     getCurrentTime = do
---         lastMargin <- readNtpMargin
---         Timestamp . (+ lastMargin) <$> currentTime
-
---     getCurrentSlot = do
---         lastSlot <- readNtpLastSlot
---         ntpData <- readNtpData
---         getCurrentSlotUsingNtp lastSlot ntpData
 
 ----------------------------------------------------------------------------
 -- Getting current slot
@@ -215,19 +205,41 @@ ntpGetCurrentSlotTryEpoch (Timestamp curTime) epoch EpochSlottingData {..}
     duration = convertUnit esdSlotDuration
     start = getTimestamp esdStart
 
+ntpCurrentTime
+    :: SlottingConstraint m
+    => NtpSlotting m Timestamp
+ntpCurrentTime = do
+    var <- NtpSlotting ask
+    lastMargin <- view nssLastMargin <$> atomically (STM.readTVar var)
+    Timestamp . (+ lastMargin) <$> currentTime
+
 ----------------------------------------------------------------------------
 -- Running
 ----------------------------------------------------------------------------
 
 mkNtpSlottingVar
-    :: (MonadIO m, Mockable CurrentTime m)
+    :: ( MonadIO m
+       , Mockable CurrentTime m
+       , WithLogger m
+       , Mockable Delay m
+       , Mockable Fork m
+       , Mockable Throw m
+       , Mockable Catch m
+       )
     => m NtpSlottingVar
 mkNtpSlottingVar = do
     let _nssLastMargin = 0
     _nssLastLocalTime <- Timestamp <$> currentTime
     -- current time isn't quite valid value, but it doesn't matter (@pva701)
     let _nssLastSlot = unflattenSlotId 0
-    liftIO $ newTVarIO NtpSlottingState {..}
+    res <- liftIO $ newTVarIO NtpSlottingState {..}
+    let settings = ntpSettings res
+    res <$ singleShot settings
+  where
+    singleShot settings = unless C.isDevelopment $ do
+        logInfo $ "Waiting for response from NTP servers"
+        ntpSingleShot settings
+        delay C.ntpMaxError
 
 runNtpSlotting :: NtpSlottingVar -> NtpSlotting m a -> m a
 runNtpSlotting var = usingReaderT var . getNtpSlotting
@@ -270,18 +282,3 @@ ntpSettings var = NtpClientSettings
         -- way to sumarize results received from different servers.
         , ntpMeanSelection   = \l -> let len = length l in sort l !! ((len - 1) `div` 2)
         }
-
-----------------------------------------------------------------------------
--- Something else
-----------------------------------------------------------------------------
-
--- waitSystemStart :: WorkMode ssc m => m ()
--- waitSystemStart = do
---     unless isDevelopment $ delay (ntpResponseTimeout + ntpMaxError)
---     margin <- readNtpMargin
---     Timestamp start <- ncSystemStart . ncNodeParams <$> getNodeContext
---     cur <- (+ margin) <$> currentTime
---     let waitPeriod = start - cur
---     logInfo $ sformat ("Waiting "%int%" seconds for system start") $
---         waitPeriod `div` sec 1
---     when (cur < start) $ delay waitPeriod

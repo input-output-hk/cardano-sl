@@ -24,8 +24,10 @@ module Mockable.Concurrent (
   , Promise
   , Async(..)
   , async
+  , withAsync
   , wait
   , cancel
+  , asyncThreadId
   , waitAny
   , waitAnyNonFail
   , waitAnyUnexceptional
@@ -94,12 +96,17 @@ type family Promise (m :: * -> *) :: * -> *
 
 data Async m t where
     Async :: m t -> Async m (Promise m t)
+    WithAsync :: m t -> (Promise m t -> m r) -> Async m r
     Wait :: Promise m t -> Async m t
     WaitAny :: [Promise m t] -> Async m (Promise m t, t)
     Cancel :: Promise m t -> Async m ()
+    AsyncThreadId :: Promise m t -> Async m (ThreadId m)
 
 async :: ( Mockable Async m ) => m t -> m (Promise m t)
 async m = liftMockable $ Async m
+
+withAsync :: ( Mockable Async m ) => m t -> (Promise m t -> m r) -> m r
+withAsync mterm k = liftMockable $ WithAsync mterm k
 
 wait :: ( Mockable Async m ) => Promise m t -> m t
 wait promise = liftMockable $ Wait promise
@@ -110,11 +117,16 @@ waitAny promises = liftMockable $ WaitAny promises
 cancel :: ( Mockable Async m ) => Promise m t -> m ()
 cancel promise = liftMockable $ Cancel promise
 
-instance (Promise n ~ Promise m) => MFunctor' Async m n where
-    hoist' nat (Async act) = Async $ nat act
-    hoist' _ (Wait p)      = Wait p
-    hoist' _ (WaitAny p)   = WaitAny p
-    hoist' _ (Cancel p)    = Cancel p
+asyncThreadId :: ( Mockable Async m ) => Promise m t -> m (ThreadId m)
+asyncThreadId promise = liftMockable $ AsyncThreadId promise
+
+instance (Promise n ~ Promise m, ThreadId n ~ ThreadId m) => MFunctor' Async m n where
+    hoist' nat (Async act)     = Async $ nat act
+    hoist' nat (WithAsync m k) = WithAsync (nat m) (nat . k)
+    hoist' _ (Wait p)          = Wait p
+    hoist' _ (WaitAny p)       = WaitAny p
+    hoist' _ (Cancel p)        = Cancel p
+    hoist' _ (AsyncThreadId p) = AsyncThreadId p
 
 data Concurrently m t where
     Concurrently :: m a -> m b -> Concurrently m (a, b)

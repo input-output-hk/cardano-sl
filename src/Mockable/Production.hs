@@ -68,9 +68,11 @@ type instance Promise Production = Conc.Async
 
 instance Mockable Async Production where
     liftMockable (Async m)          = Production $ Conc.async (runProduction m)
+    liftMockable (WithAsync m k)    = Production $ Conc.withAsync (runProduction m) (runProduction . k)
     liftMockable (Wait promise)     = Production $ Conc.wait promise
     liftMockable (WaitAny promises) = Production $ Conc.waitAny promises
     liftMockable (Cancel promise)   = Production $ Conc.cancel promise
+    liftMockable (AsyncThreadId p)  = Production $ return (Conc.asyncThreadId p)
 
 instance Mockable Concurrently Production where
     liftMockable (Concurrently a b) = Production $

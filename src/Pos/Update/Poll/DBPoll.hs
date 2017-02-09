@@ -131,3 +131,4 @@ instance (WithNodeContext ssc m, MonadDB ssc m, WithLogger m) =>
         lrcActionOnEpochReason epoch
             "couldn't get issuers's stakes"
             (fmap (Just . HM.lookup id) . getIssuersStakes)
+    getSlottingData = GS.getSlottingData

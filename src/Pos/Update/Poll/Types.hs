@@ -36,6 +36,7 @@ module Pos.Update.Poll.Types
        , pmDelActivePropsL
        , pmNewActivePropsIdxL
        , pmDelActivePropsIdxL
+       , pmSlottingDataL
 
          -- * Verification
        , PollVerFailure (..)
@@ -60,6 +61,7 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
 import           Pos.Script.Type            (ScriptVersion)
+import           Pos.Slotting.Types         (SlottingData)
 import           Pos.Types.Coin             (coinF)
 import           Pos.Types.Core             (ChainDifficulty, Coin, EpochIndex,
                                              HeaderHash, SlotId, StakeholderId, mkCoin)
@@ -216,6 +218,7 @@ data PollModifier = PollModifier
     , pmDelActiveProps    :: !(HashSet UpId)
     , pmNewActivePropsIdx :: !(HashMap ApplicationName UpId)
     , pmDelActivePropsIdx :: !(HashMap ApplicationName UpId)
+    , pmSlottingData      :: !(Maybe SlottingData)
     } deriving (Show)
 
 makeLensesFor [ ("pmNewBVs", "pmNewBVsL")
@@ -229,6 +232,7 @@ makeLensesFor [ ("pmNewBVs", "pmNewBVsL")
               , ("pmDelActiveProps", "pmDelActivePropsL")
               , ("pmNewActivePropsIdx", "pmNewActivePropsIdxL")
               , ("pmDelActivePropsIdx", "pmDelActivePropsIdxL")
+              , ("pmSlottingData", "pmSlottingDataL")
               ]
   ''PollModifier
 

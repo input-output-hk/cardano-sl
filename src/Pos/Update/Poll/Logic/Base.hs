@@ -185,6 +185,7 @@ adoptBlockVersion winningBlk bv = do
     setAdoptedBV bv
     logNotice $ sformat logFmt winningBlk bv
     mapM_ processConfirmed =<< getConfirmedProposals
+    undefined  -- update slotting data
   where
     processConfirmed cps
         | cpsBlockVersion cps /= bv = pass

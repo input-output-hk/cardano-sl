@@ -149,6 +149,7 @@ modifierToBatch PollModifier {..} =
     , confirmedVerModifierToBatch  pmNewConfirmed pmDelConfirmed
     , confirmedPropModifierToBatch pmNewConfirmedProps pmDelConfirmedProps
     , upModifierToBatch pmNewActiveProps pmDelActivePropsIdx
+    , undefined -- set slotting data here
     ]
 
 bvsModifierToBatch

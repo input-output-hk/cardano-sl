@@ -7,6 +7,7 @@ module Pos.Binary.Slotting
 import           Universum
 
 import           Pos.Binary.Class   (Bi (..))
+import           Pos.Binary.Types   ()
 import           Pos.Slotting.Types (EpochSlottingData (..), SlottingData (..))
 
 instance Bi EpochSlottingData where

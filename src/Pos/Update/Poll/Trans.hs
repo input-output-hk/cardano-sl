@@ -49,7 +49,7 @@ import           Pos.Update.Poll.Types       (BlockVersionState (..), PollModifi
                                               pmDelConfirmedPropsL, pmNewActivePropsIdxL,
                                               pmNewActivePropsL, pmNewBVsL,
                                               pmNewConfirmedL, pmNewConfirmedPropsL,
-                                              psProposal)
+                                              pmSlottingDataL, psProposal)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 ----------------------------------------------------------------------------
@@ -111,7 +111,9 @@ instance MonadPollRead m =>
         if | upId `HS.member` del -> return Nothing
            | Just res <- HM.lookup upId new -> return (Just res)
            | otherwise -> PollT $ getProposal upId
-
+    getSlottingData = PollT $ do
+        new <- pmSlottingData <$> get
+        maybe getSlottingData pure new
 
 instance MonadPollRead m =>
          MonadPoll (PollT m) where
@@ -149,6 +151,7 @@ instance MonadPollRead m =>
                 pmNewActivePropsIdxL . at appName .= Nothing
                 pmDelActivePropsL . at id .= Just ()
                 pmDelActivePropsIdxL . at appName .= Just id
+    setSlottingData sd = PollT $ pmSlottingDataL .= Just sd
 
 ----------------------------------------------------------------------------
 -- Common instances used all over the code

@@ -95,6 +95,8 @@ instance Mockable SharedExclusive Production where
         = Production $ Conc.takeMVar var
     liftMockable (ModifySharedExclusive var f)
         = Production $ Conc.modifyMVar var (runProduction . f)
+    liftMockable (TryPutSharedExclusive var t)
+        = Production $ Conc.tryPutMVar var t
 
 type instance ChannelT Production = Conc.TChan
 

@@ -3,8 +3,8 @@
 -- | Common things used in `Pos.Crypto.Arbitrary` and `Pos.Util.Arbitrary`
 
 module Pos.Util.Arbitrary
-       (
-         Nonrepeating (..)
+       ( Limited (..)
+       , Nonrepeating (..)
        , ArbitraryUnsafe (..)
        , makeSmall
        , sublistN
@@ -107,3 +107,9 @@ instance ArbitraryUnsafe a => ArbitraryUnsafe [a] where
 
 instance (ArbitraryUnsafe a, ArbitraryUnsafe b) => ArbitraryUnsafe (a, b) where
     arbitraryUnsafe = (,) <$> arbitraryUnsafe <*> arbitraryUnsafe
+
+-- | Modifies `Arbitrary` instance to generate messages,
+-- which fit into message size limit and would likely used in real launch.
+newtype Limited a = Limited
+    { getLimited :: a
+    } deriving (Eq, Show)

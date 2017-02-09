@@ -2,12 +2,15 @@ module Pos.Communication.Types.Relay
        ( InvMsg (..)
        , ReqMsg (..)
        , DataMsg (..)
+       , Limited (..)
        ) where
 
 import qualified Data.Text.Buildable as B
 import           Formatting          (bprint, build, (%))
 import           Test.QuickCheck     (Arbitrary (..))
 import           Universum
+
+import           Pos.Util.Arbitrary  (Limited (..))
 
 -- | Inventory message. Can be used to announce the fact that you have
 -- some data.
@@ -21,6 +24,9 @@ deriving instance (Eq key, Eq tag) => Eq (InvMsg key tag)
 instance (Arbitrary key, Arbitrary tag) => Arbitrary (InvMsg key tag) where
     arbitrary = InvMsg <$> arbitrary <*> arbitrary
 
+instance (Arbitrary key, Arbitrary tag) => Arbitrary (Limited (InvMsg key tag)) where
+    arbitrary = Limited <$> (InvMsg <$> arbitrary <*> (pure <$> arbitrary))
+
 -- | Request message. Can be used to request data (ideally data which
 -- was previously announced by inventory message).
 data ReqMsg key tag = ReqMsg
@@ -32,6 +38,9 @@ deriving instance (Show key, Show tag) => Show (ReqMsg key tag)
 deriving instance (Eq key, Eq tag) => Eq (ReqMsg key tag)
 instance (Arbitrary key, Arbitrary tag) => Arbitrary (ReqMsg key tag) where
     arbitrary = ReqMsg <$> arbitrary <*> arbitrary
+
+instance (Arbitrary key, Arbitrary tag) => Arbitrary (Limited (ReqMsg key tag)) where
+    arbitrary = Limited <$> (ReqMsg <$> arbitrary <*> (pure <$> arbitrary))
 
 -- | Data message. Can be used to send actual data.
 data DataMsg contents = DataMsg

@@ -25,10 +25,12 @@ import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 import           Pos.Ssc.Class.Types              (Ssc (..))
 import           Pos.Txp.Types                    (TxMsgTag (..))
 import           Pos.Update.Network.Types         (ProposalMsgTag (..), VoteMsgTag (..))
+import           Pos.Util.Arbitrary               (Limited (..))
 import           Pos.Util.Binary                  (getRemainingByteString, getWithLength,
                                                    getWithLengthLimited, putWithLength)
 
 deriving instance Bi MessageName
+deriving instance Bi a => Bi (Limited a)
 
 instance Bi NOP where
     put _ = put (0 :: Word8)
@@ -36,6 +38,7 @@ instance Bi NOP where
               (i :: Word8) <- get
               when (i /= 0) $
                  fail "NOP: 0 expected"
+
 
 ----------------------------------------------------------------------------
 -- System start

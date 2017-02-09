@@ -9,6 +9,7 @@ module Test.Pos.Util
        , networkBinaryEncodeDecode
        , binaryTest
        , networkBinaryTest
+       , msgLenLimitedTest
        , safeCopyEncodeDecode
        , safeCopyTest
        , serDeserId
@@ -17,22 +18,24 @@ module Test.Pos.Util
        , showReadTest
        ) where
 
-import           Data.Binary.Get       (Decoder (..), isEmpty, runGetIncremental)
-import qualified Data.Binary.Get       as Bin
-import qualified Data.ByteString       as BS
-import qualified Data.ByteString.Lazy  as LBS
-import           Data.SafeCopy         (SafeCopy, safeGet, safePut)
-import           Data.Serialize        (runGet, runPut)
-import           Data.Typeable         (typeRep)
-import           Prelude               (read)
-import           Test.QuickCheck       (counterexample)
+import           Data.Binary.Get            (Decoder (..), isEmpty, runGetIncremental)
+import qualified Data.Binary.Get            as Bin
+import qualified Data.ByteString            as BS
+import qualified Data.ByteString.Lazy       as LBS
+import           Data.SafeCopy              (SafeCopy, safeGet, safePut)
+import           Data.Serialize             (runGet, runPut)
+import           Data.Typeable              (typeRep)
+import           Formatting                 ((%), int, formatToString)
+import           Prelude                    (read)
+import           Serokell.Data.Memory.Units (Byte)
+import           Test.QuickCheck            (counterexample, property)
 
-import           Pos.Binary            (Bi (..), encode)
-import           Pos.Util              (AsBinaryClass (..))
+import           Pos.Binary                 (Bi (..), encode)
+import           Pos.Util                   (AsBinaryClass (..))
 
-import           Test.Hspec            (Spec)
-import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck       (Arbitrary, Property, (===))
+import           Test.Hspec                 (Spec)
+import           Test.Hspec.QuickCheck      (modifyMaxSuccess, prop)
+import           Test.QuickCheck            (Arbitrary, Property, (===))
 import           Universum
 
 binaryEncodeDecode :: (Show a, Eq a, Bi a) => a -> Property
@@ -82,6 +85,15 @@ networkBinaryEncodeDecode a = stage1 $ runGetIncremental get
     stage3 (Partial _) =
         failText "Parser required extra input"
 
+msgLenLimitedCheck :: (Show a, Bi a) => Byte -> a -> Property
+msgLenLimitedCheck limit msg =
+        let size = LBS.length (encode msg)
+        in if size <= fromIntegral limit * 3
+            then property True
+            else flip counterexample False $
+                formatToString ("Limit ("%int%") should be at least 3 times \
+                \more than any message length, but got length "%int) limit size
+
 safeCopyEncodeDecode :: (Show a, Eq a, SafeCopy a) => a -> Property
 safeCopyEncodeDecode a =
     either (panic . toText) identity
@@ -108,6 +120,12 @@ binaryTest = identityTest @Bi @a binaryEncodeDecode
 
 networkBinaryTest :: forall a. IdTestingRequiredClasses Bi a => Spec
 networkBinaryTest = identityTest @Bi @a networkBinaryEncodeDecode
+
+msgLenLimitedTest :: forall a. IdTestingRequiredClasses Bi a => Byte -> Spec
+msgLenLimitedTest limit =
+    -- increase amount of tests e.g. in case of small keys in `ReqMsg`
+    modifyMaxSuccess (* 100) $
+        identityTest @Bi @a $ msgLenLimitedCheck limit
 
 safeCopyTest :: forall a. IdTestingRequiredClasses SafeCopy a => Spec
 safeCopyTest = identityTest @SafeCopy @a safeCopyEncodeDecode

@@ -4,7 +4,7 @@ import Prelude
 import Control.Monad.Eff (Eff)
 import Control.SocketIO.Client (Event, Host)
 import Data.Argonaut.Core (Json)
-import Data.Argonaut.Generic.Argonaut(decodeJson)
+import Explorer.Util.Api(decodeJson)
 import Data.Foreign (Foreign)
 import Explorer.Types.Actions (Action(..), ActionChannel)
 import Prelude (($), Unit)

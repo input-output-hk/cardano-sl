@@ -32,7 +32,7 @@ io.on('connection', function (socket) {
       // if(sendBlockCount>100) {
       //   clearInterval(sendBlocksId);
       // }
-    }, 1000);
+    }, 250);
   }
 
   firstRun = false;
@@ -43,12 +43,12 @@ io.on('connection', function (socket) {
 // --------------------------
 var blockId = 0;
 var randomBlock = function() {
-  return  { cbeHeight: randomNumber(0, 50000)
-          , cbeRelayedBy: randomStringFromList(["", "KNCMiner", "BMinor", "CMinor"])
-          , cbeSize: randomNumber(0, 10000)
+  return  { cbeHeight: randomNumber(1, 50000)
+          , cbeRelayedBy: randomStringFromList([null, "KNCMiner", "BMinor", "CMinor"])
+          , cbeSize: randomNumber(1, 10000)
           , cbeTimeIssued: blockId++
-          , cbeTxNum: randomNumber(0, 10000)
-          , cbeTotalSent: { getCoin: randomNumber(0, 1000000) }
+          , cbeTxNum: randomNumber(1, 10000)
+          , cbeTotalSent: { getCoin: randomNumber(1, 1000000) }
           }
 }
 

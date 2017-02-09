@@ -21,11 +21,11 @@
     "purescript-affjax": "^3.0.2",
     "purescript-maps": "^2.1.1",
     "purescript-profunctor-lenses": "^2.6.0",
-    "purescript-argonaut": "^2.0.0",
     "purescript-argonaut-generic-codecs": "^4.0.0"
   },
   "devDependencies": {
     "purescript-debug": "^2.0.0",
-    "purescript-console": "^2.0.0"
+    "purescript-console": "^2.0.0",
+    "purescript-psci-support": "^2.0.0"
   }
 }

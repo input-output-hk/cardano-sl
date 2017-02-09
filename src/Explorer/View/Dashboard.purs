@@ -14,11 +14,12 @@ import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), DashboardAPICode(..), DashboardViewState, State, CBlockEntries, CTxEntries)
 import Explorer.View.Common (currencyCSSClass, paginationView)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..), CTxEntry(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (cbeRelayedBy, cbeSize, cbeTotalSent, cbeTxNum, cteId, cteAmount, _CTxId, _CHash, cteTimeIssued)
+import Pos.Explorer.Web.Lenses.ClientTypes (cbeRelayedBy, cbeSize, cbeTimeIssued, cbeTotalSent, cbeTxNum, cteId, cteAmount, cteTimeIssued, _CTxId, _CHash)
 import Pos.Types.Lenses.Core (_Coin, getCoin)
 import Pux.Html (Html, div, h3, text, h1, h2, input, h4, p, code) as P
 import Pux.Html.Attributes (className, type_, placeholder) as P
 import Pux.Html.Events (onClick, onFocus, onBlur) as P
+import Data.Newtype(unwrap)
 
 dashboardView :: State -> P.Html Action
 dashboardView state =
@@ -224,10 +225,10 @@ blockRow state (CBlockEntry entry) =
     P.div
         [ P.className "blocks-body__row" ]
         [ blockColumn $ show entry.cbeHeight
-        -- , blockColumn show $ cbeTimeIssued entry
+        , blockColumn <<< show <<< unwrap $ entry ^. (cbeTimeIssued <<< _NominalDiffTime)
         , blockColumn <<< show $ entry ^. cbeTxNum
         , blockColumn <<< show $ entry ^. (cbeTotalSent <<< _Coin <<< getCoin)
-        , blockColumn <<< fromMaybe "" $ entry ^. cbeRelayedBy
+        , blockColumn <<< fromMaybe "Unknown" $ entry ^. cbeRelayedBy
         , blockColumn <<< show $ entry ^. cbeSize
         ]
 

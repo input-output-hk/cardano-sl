@@ -28,17 +28,20 @@ cd $csldir
 
 updater=$(find ../cardano-updater/.stack-work/install/ -name "cardano-updater" -exec readlink -f {} \; | head -n 1)
 
-
 echo "Building cardano-sl"
 stack clean cardano-sl
+grep src/Pos/Constants.hs "BlockVersion 0 0 0" # fails if not found
 stack build --fast 
+csl_bin=$(find .stack-work/install/ -iname "bin")
+
+originalMd5=$(md5sum $csl_bin/cardano-node)
 
 # Copying artefacts for v0.0.0
 echo "Preparing binaries with 0.0.0"
-csl_bin=$(find .stack-work/install/ -iname "bin")
 rm -rf binaries_v000 && mkdir binaries_v000
 cp -v $csl_bin/* binaries_v000/
-md5sum binaries_v000/cardano-node
+beforeBumpMd5=$(md5sum binaries_v000/cardano-node)
+echo "$beforeBumpMd5"
 
 # Updating version in csl sources to v0.1.0
 sed -i.backup "s/BlockVersion 0 0 0/BlockVersion 0 1 0/" src/Pos/Constants.hs
@@ -46,12 +49,21 @@ echo "Building cardano-sl with version 0.1.0"
 stack build --fast
 rm -rf binaries_v010 && mkdir binaries_v010
 cp -v $csl_bin/* binaries_v010/
-md5sum binaries_v010/cardano-node
+afterBumpMd5=$(md5sum binaries_v010/cardano-node)
+echo "$afterBumpMd5"
+if [ "$beforeBumpMd5" == "$afterBumpMd5" ]; then
+    echo "md5 before bump '$beforeBumpMd5' matches '$afterBumpMd5' after bump but should not"
+fi
 
 # Restoring version and binaries
 echo "Restoring binaries"
 mv -v src/Pos/Constants.hs.backup src/Pos/Constants.hs
 cp binaries_v000/* $csl_bin/
+#stack build --fast
+afterRestoreMd5=$(md5sum $csl_bin/cardano-node)
+if [ "$originalMd5" /= "$afterRestoreMd5" ]; then
+    echo "md5 '$originalMd5' doesn't match '$afterRestoreMd5'"
+fi
 
 rm -rf $updatetar
 echo "Creating diff tar $updatetar (might take a while)"
@@ -59,23 +71,28 @@ stack exec cardano-genupdate -- binaries_v000 binaries_v010 $updatetar
 
 
 echo "Launching 3 nodes in 5 secs"
+pkill cardano-node || true
 sleep 5
 ./scripts/launch.sh 3
-sleep 10
+sleep 20
 tmux select-window -t 0
 
 echo "Launching wallet"
 set +e
 
 # Sometimes node hangs, so here's a timeout
-walletcmd="propose-update 0 0.1.0 1 20 10000000 cardano-1 ${updatetar}"
+walletcmd="propose-update 0 0.1.0 1 20 200000 cardano-1 ${updatetar}"
 pkill cardano-wallet
+sleep 1
 echo "Running: '$walletcmd'"
 
 walletOutputLog='walletOutput.log'
-until $(timeout 60 ./scripts/wallet.sh cmd --commands "$walletcmd" -p 0 > $walletOutputLog)
+until $(timeout 90 ./scripts/wallet.sh cmd --commands "$walletcmd" -p 0 > $walletOutputLog)
 do 
     echo "Wallet exited with non-zero code $?, retrying" 
+    cat $walletOutputLog
+    pkill cardano-wallet
+    sleep 1
 done
 echo "Exit code of wallet: $?"
 
@@ -94,9 +111,12 @@ rm -rfv $walletOutputLog
 # Voting for hash
 echo "Running wallet 2"
 pkill cardano-wallet
+sleep 10
 until $(timeout 60 ./scripts/wallet.sh cmd --commands 'vote 1 y $proposalHash' -p 0 &> /dev/tty)
 do 
   echo "Wallet 2 exited with non-zero code $?, retrying"
+  pkill cardano-wallet
+  sleep 1
 done
 
 pkill cardano-wallet
@@ -112,9 +132,9 @@ echo "Launched webfs server"
 
 # Launcher launching
 
-echo "Launching launcher"
-sleep 1
-rm -rf update-node-tmp.log
-stack exec cardano-launcher -- --node binaries_v000/cardano-node --node-log-config scripts/update-log-config.yaml -n "--update-server"  -n "http://localhost:$serverPort" -n "--update-latest-path" -n "updateDownloaded.tar" -n "--listen" -n "127.0.0.1:3004" -n "--peer" -n "127.0.0.1:3000/a_P8zb6fNP7I2H54FtGuhqxaMDAwMDAwMDAwMDAwMDA=" -n "--flat-distr" -n "(3,100000)" -n "--rebuild-db" --updater $updater --node-timeout 5 --report-server http://localhost:8555/ --update-archive updateDownloaded.tar
+#echo "Launching launcher"
+#sleep 1
+#rm -rf update-node-tmp.log
+#stack exec cardano-launcher -- --node binaries_v000/cardano-node --node-log-config scripts/update-log-config.yaml -n "--update-server"  -n "http://localhost:$serverPort" -n "--update-latest-path" -n "updateDownloaded.tar" -n "--listen" -n "127.0.0.1:3004" -n "--peer" -n "127.0.0.1:3000/a_P8zb6fNP7I2H54FtGuhqxaMDAwMDAwMDAwMDAwMDA=" -n "--flat-distr" -n "(3,100000)" -n "--rebuild-db" --updater $updater -u "dir" -u "binaries_v000" --node-timeout 5 --report-server http://localhost:8555/ --update-archive updateDownloaded.tar
 
 notify-send "updater scenario: ready"

@@ -7,35 +7,37 @@ module Pos.Explorer.Web.ClientTypes
        , CBlockEntry (..)
        , CTxEntry (..)
        , CBlockSummary (..)
+       , CAddressSummary (..)
        , toCHash
        , fromCHash
        , toCAddress
+       , fromCAddress
        , toCTxId
        , toBlockEntry
        , toTxEntry
        , toBlockSummary
        ) where
 
-import qualified Data.ByteString        as BS
-import qualified Data.ByteString.Base16 as B16
-import qualified Data.ByteString.Lazy   as BSL
-import           Data.Time.Clock.POSIX  (POSIXTime)
-import           Formatting             (build, sformat)
-import           Servant.API            (FromHttpApiData (..))
+import qualified Data.ByteString       as BS
+import qualified Data.ByteString.Lazy  as BSL
+import           Data.Time.Clock.POSIX (POSIXTime)
+import           Formatting            (build, sformat)
+import           Servant.API           (FromHttpApiData (..))
 import           Universum
 
-import           Pos.Binary             (encode)
-import           Pos.Crypto             (Hash, decodeHash, encodeHash, hash)
-import           Pos.DB                 (MonadDB (..))
-import qualified Pos.DB.GState          as GS
-import           Pos.Merkle             (getMerkleRoot, mtRoot)
-import           Pos.Slotting           (MonadSlots (..), getSlotStart)
-import           Pos.Ssc.Class          (SscHelpersClass)
-import           Pos.Types              (Address, Coin, MainBlock (..), Timestamp,
-                                         Tx (..), TxId, TxOut (..), addressF, blockTxs,
-                                         difficultyL, gbHeader, gbhConsensus, headerHash,
-                                         mcdSlot, mkCoin, prevBlockL, sumCoins,
-                                         unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Binary            (encode)
+import           Pos.Crypto            (Hash, decodeHash, encodeHash, hash)
+import           Pos.DB                (MonadDB (..))
+import qualified Pos.DB.GState         as GS
+import           Pos.Merkle            (getMerkleRoot, mtRoot)
+import           Pos.Slotting          (MonadSlots (..), getSlotStart)
+import           Pos.Ssc.Class         (SscHelpersClass)
+import           Pos.Types             (Address, Coin, MainBlock (..), Timestamp, Tx (..),
+                                        TxId, TxOut (..), addressF, blockTxs,
+                                        decodeTextAddress, difficultyL, gbHeader,
+                                        gbhConsensus, headerHash, mcdSlot, mkCoin,
+                                        prevBlockL, sumCoins, unsafeAddCoin,
+                                        unsafeIntegerToCoin)
 
 -- | Client hash
 newtype CHash = CHash Text deriving (Show, Eq, Generic, Buildable, Hashable)
@@ -55,6 +57,9 @@ fromCHash (CHash h) = decodeHash h
 
 toCAddress :: Address -> CAddress
 toCAddress = CAddress . sformat addressF
+
+fromCAddress :: CAddress -> Either Text Address
+fromCAddress (CAddress addr) = decodeTextAddress addr
 
 toCTxId :: TxId -> CTxId
 toCTxId = CTxId . toCHash
@@ -128,9 +133,18 @@ toBlockSummary blk = do
         cbsMerkleRoot = toCHash . getMerkleRoot . mtRoot $ blk ^. blockTxs
     return CBlockSummary {..}
 
+data CAddressSummary = CAddressSummary
+    { caAddress :: !CAddress
+    , caTxNum   :: !Word
+    , caBalance :: !Coin
+    } deriving (Show, Generic)
+
 -------------------------------------------------------------------------------------
 -- FromHttpApiData instances
 -------------------------------------------------------------------------------------
 
 instance FromHttpApiData CHash where
     parseUrlPiece = pure . CHash
+
+instance FromHttpApiData CAddress where
+    parseUrlPiece = fmap toCAddress . decodeTextAddress

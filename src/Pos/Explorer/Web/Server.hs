@@ -26,17 +26,20 @@ import qualified Pos.DB.GState                  as GS
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
 import           Pos.Txp                        (getLocalTxs)
-import           Pos.Types                      (Tx, blockTxs, gbHeader, gbhConsensus,
-                                                 mcdSlot, prevBlockL, topsortTxs)
+import           Pos.Types                      (Address (..), Tx, blockTxs, gbHeader,
+                                                 gbhConsensus, mcdSlot, mkCoin,
+                                                 prevBlockL, topsortTxs)
 import           Pos.Util                       (maybeThrow)
 import           Pos.Web                        (serveImpl)
 import           Pos.WorkMode                   (WorkMode)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
-import           Pos.Explorer.Web.ClientTypes   (CBlockEntry (..), CBlockSummary (..),
-                                                 CHash, CTxEntry (..), fromCHash,
-                                                 toBlockEntry, toBlockSummary, toTxEntry)
+import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
+                                                 CBlockEntry (..), CBlockSummary (..),
+                                                 CHash, CTxEntry (..), fromCAddress,
+                                                 fromCHash, toBlockEntry, toBlockSummary,
+                                                 toTxEntry)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 
 ----------------------------------------------------------------
@@ -62,6 +65,8 @@ explorerHandlers sendActions =
     catchExplorerError ... defaultLimit 10 getLastTxs
     :<|>
     catchExplorerError . getBlockSummary
+    :<|>
+    catchExplorerError . getAddressSummary
   where
     catchExplorerError = try
     f ... g = (f .) . g
@@ -140,3 +145,21 @@ getBlockSummary (fromCHash -> h) = do
     case blk of
         Left db  -> throwM (Internal "Block is genesis block")
         Right mb -> toBlockSummary mb
+
+getAddressSummary :: ExplorerMode m => CAddress -> m CAddressSummary
+getAddressSummary cAddr = cAddrToAddr cAddr >>= \case
+    PubKeyAddress sid -> do
+        balance <- fromMaybe (mkCoin 0) <$> GS.getFtsStake sid
+        -- TODO: add number of coins when it's implemented
+        return $ CAddressSummary cAddr 0 balance
+    _ -> throwM $
+         Internal "Non-P2PKH addresses are not supported in Explorer yet"
+
+--------------------------------------------------------------------------------
+-- Helpers
+--------------------------------------------------------------------------------
+
+cAddrToAddr :: MonadThrow m => CAddress -> m Address
+cAddrToAddr cAddr =
+    fromCAddress cAddr &
+    either (\_ -> throwM $ Internal "Invalid address!") pure

@@ -189,11 +189,17 @@ launchNotifier nat = void . liftIO $ mapM startForking
     updateNotifier = do
         cps <- waitForUpdate
         addUpdate $ toCUpdateInfo cps
+        -- FIXME: a light race condition might happen here.
+        -- Probability of hapening is really low and when it happens user might
+        -- get notified one more time about an update. Nothing critical.
+        whenNothingM_ getPostponeUpdateUntil $
+            liftIO getPOSIXTime >>= setPostponeUpdateUntil
     updateNotifierUnPostpone = notifier cooldownPostponePeriod $ do
         mPostpone <- getPostponeUpdateUntil
         time <- liftIO getPOSIXTime
         when (((<) <$> mPostpone <*> pure time) == Just True) $ do
-            notify UpdateAvailable
+            whenJustM getNextUpdate $
+                const $ notify UpdateAvailable
             removePostponeUpdateUntil
 
     -- historyNotifier :: WalletWebMode ssc m => m ()

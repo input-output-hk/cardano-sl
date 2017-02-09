@@ -16,6 +16,7 @@ import Data.Maybe (Maybe(Just))
 import Data.MediaType.Common (applicationJSON)
 import Data.String (joinWith)
 import Data.Tuple (Tuple)
+import Data.Int (ceil)
 import Network.HTTP.Affjax (AffjaxResponse, affjax, defaultRequest, AJAX, URL, AffjaxRequest)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Network.HTTP.RequestHeader (RequestHeader(ContentType))
@@ -134,4 +135,4 @@ redeemADA :: forall eff. CWalletRedeem -> Aff (ajax :: AJAX | eff) CWallet
 redeemADA = postRBody ["redeem_ada"]
 
 postponeUpdatesUntil :: forall eff. NominalDiffTime -> Aff (ajax :: AJAX | eff) Unit
-postponeUpdatesUntil dt = postR ["postpone_update", show $ getSeconds dt]
+postponeUpdatesUntil dt = postR ["postpone_update", show $ ceil $ getSeconds dt]

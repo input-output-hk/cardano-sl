@@ -1,6 +1,7 @@
 module Data.Types
        ( NominalDiffTime (..)
        , mkTime
+       , getSeconds
        ) where
 
 import Prelude
@@ -13,6 +14,9 @@ newtype NominalDiffTime = NominalDiffTime Seconds
 
 mkTime :: Number -> NominalDiffTime
 mkTime = NominalDiffTime <<< Seconds
+
+getSeconds :: NominalDiffTime -> Number
+getSeconds (NominalDiffTime (Seconds s)) = s
 
 derive instance genericNominalDiffTime :: Generic NominalDiffTime
 derive instance eqNominalDiffTime :: Eq NominalDiffTime

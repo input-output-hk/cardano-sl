@@ -94,7 +94,7 @@ class MonadTossRead m =>
     -- | Put 'VssCertificate' into state.
     putCertificate :: VssCertificate -> m ()
 
-    -- | Reset Commitments|Openings|Shares.
+    -- | Reset Commitments and Openings.
     resetCO :: m ()
 
     -- | Reset Shares.

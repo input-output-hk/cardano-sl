@@ -14,7 +14,8 @@ import qualified Database.RocksDB       as Rocks
 import           System.Wlog            (WithLogger)
 import           Universum
 
-import           Pos.Context.Class      (WithNodeContext)
+import           Pos.Context.Class      (WithNodeContext (getNodeContext))
+import           Pos.Context.Context    (ncSystemStart)
 import           Pos.Context.Functions  (genesisUtxoM)
 import           Pos.DB.Class           (MonadDB (getNodeDBs, usingReadOptions))
 import           Pos.DB.GState.Balances (getTotalFtsStake, prepareGStateBalances,
@@ -36,7 +37,8 @@ prepareGStateDB initialTip = do
     genesisUtxo <- genesisUtxoM
     prepareGStateUtxo genesisUtxo
     prepareGStateBalances genesisUtxo
-    prepareGStateUS
+    systemStart <- ncSystemStart <$> getNodeContext
+    prepareGStateUS systemStart
 
 -- | Check that GState DB is consistent.
 sanityCheckGStateDB

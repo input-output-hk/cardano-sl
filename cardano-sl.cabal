@@ -161,6 +161,7 @@ library
                         Pos.Binary.Merkle
                         Pos.Binary.Relay
                         Pos.Binary.Script
+                        Pos.Binary.Slotting
                         Pos.Binary.Ssc
                         Pos.Binary.Ssc.GodTossing.Core
                         Pos.Binary.Types

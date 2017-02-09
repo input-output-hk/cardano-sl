@@ -139,7 +139,7 @@ handleCollectedResponses cli = do
         Just []        -> log cli Warning "No servers responded"
         Just responses -> handleE `handleAll` do
             let time = selection responses
-            log cli Notice $ sformat ("Evaluated clock offset "%shown%
+            log cli Info $ sformat ("Evaluated clock offset "%shown%
                 " mcs for request at "%shown%" mcs")
                 (toMicroseconds $ fst time)
                 (toMicroseconds $ snd time)
@@ -163,13 +163,13 @@ startSend addrs cli = do
     let poll    = ntpPollDelay (ncSettings cli)
     closed <- liftIO $ readTVarIO (ncClosed cli)
     unless closed $ do
-        log cli Info "Sending requests"
+        log cli Debug "Sending requests"
         liftIO . atomically . modifyTVarS (ncState cli) $ id .= Just []
         forM_ addrs $
             \addr -> fork $ doSend addr cli
         liftIO $ threadDelay timeout
 
-        log cli Info "Collecting responses"
+        log cli Debug "Collecting responses"
         handleCollectedResponses cli
         liftIO . atomically . modifyTVarS (ncState cli) $ id .= Nothing
         liftIO $ threadDelay (poll - timeout)
@@ -204,7 +204,7 @@ handleNtpPacket cli packet = do
 
     clockOffset <- evalClockOffset packet
 
-    log cli Info $ sformat ("Received time delta "%shown%" mcs")
+    log cli Debug $ sformat ("Received time delta "%shown%" mcs")
         (toMicroseconds clockOffset)
 
     late <- liftIO . atomically . modifyTVarS (ncState cli) $ do
@@ -245,7 +245,7 @@ startReceive cli = do
 
 stopNtpClient :: NtpMonad m => NtpClient m -> m ()
 stopNtpClient cli = do
-    log cli Notice "Stopped"
+    log cli Info "Stopped"
     sock <- liftIO . atomically $ do
         writeTVar (ncClosed cli) True
         readTVar  (ncSocket cli)
@@ -263,7 +263,7 @@ startNtpClient settings = do
     addrs <- mapM resolveHost $ ntpServers settings
     void . fork $ startSend addrs cli
 
-    log cli Notice "Launched"
+    log cli Info "Launched"
 
     return $ NtpStopButton $ stopNtpClient cli
   where

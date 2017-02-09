@@ -53,6 +53,7 @@ import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (
                                              gbHeader, prevBlockL, verifyHeaders)
 import           Pos.Util                   (NE, NewestFirst (..), OldestFirst (..),
                                              inAssertMode, _neHead, _neLast)
+import           Pos.Util.Binary            (WithLengthLimited, withLengthLimited)
 import           Pos.Util.Shutdown          (ifNotShutdown)
 import           Pos.WorkMode               (WorkMode)
 
@@ -83,7 +84,7 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
   where
     outs = announceBlockOuts
               <> toOutSpecs [convH (Proxy :: Proxy MsgGetBlocks)
-                                   (Proxy :: Proxy (MsgBlock s0 ssc))
+                                   (Proxy :: Proxy (MsgBlock ssc))
                             ]
     handleWE e = do
         logError $ sformat ("retrievalWorker: error caught "%shown) e
@@ -143,7 +144,8 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
         -- a parameter to the 'Bi' instance of 'MsgBlock'.
         reify maxBlockSize $ \(_ :: Proxy s0) ->
           withConnectionTo sendActions peerId $
-          \(conv :: ConversationActions MsgGetBlocks (MsgBlock s0 ssc) m) -> do
+          \(conv :: ConversationActions MsgGetBlocks
+                (WithLengthLimited s0 (MsgBlock ssc)) m) -> do
             send conv $ mkBlocksRequest lcaChildHash newestHash
             chainE <- runExceptT (retrieveBlocks conv lcaChild newestHash)
             recHeaderVar <- ncRecoveryHeader <$> getNodeContext
@@ -177,12 +179,12 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
     retrieveBlocks'
         :: forall s.
            Int
-        -> ConversationActions MsgGetBlocks (MsgBlock s ssc) m
+        -> ConversationActions MsgGetBlocks (WithLengthLimited s (MsgBlock ssc)) m
         -> HeaderHash          -- ^ We're expecting a child of this block
         -> HeaderHash          -- ^ Block at which to stop
         -> ExceptT Text m (OldestFirst NE (Block ssc))
     retrieveBlocks' i conv prevH endH = do
-        mBlock <- lift $ recv conv
+        mBlock <- lift $ fmap withLengthLimited <$> recv conv
         case mBlock of
             Nothing -> throwError $ sformat ("Failed to receive block #"%int) i
             Just (MsgBlock block) -> do

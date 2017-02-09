@@ -71,7 +71,7 @@ instance Ssc ssc => Bi (MsgHeaders ssc) where
     put (MsgHeaders b) = put b
     get = MsgHeaders <$> get
 
-instance (SscHelpersClass ssc, Reifies s Byte) => Bi (MsgBlock s ssc) where
+instance SscHelpersClass ssc => Bi (MsgBlock ssc) where
     -- We encode block size and then the block itself so that we'd be able to
     -- reject the block if it's of the wrong size without consuming the whole
     -- block.
@@ -81,9 +81,7 @@ instance (SscHelpersClass ssc, Reifies s Byte) => Bi (MsgBlock s ssc) where
         -- we *depend* on this behavior in e.g. 'handleGetBlocks' in
         -- "Pos.Block.Network.Listeners". Grep for #put_checkBlockSize.
         putWithLength (put b)
-    get = do
-        let maxBlockSize = reflect (Proxy @s)
-        getWithLengthLimited (fromIntegral maxBlockSize) (MsgBlock <$> get)
+    get = MsgBlock <$> get
 
 ----------------------------------------------------------------------------
 -- Transaction processing

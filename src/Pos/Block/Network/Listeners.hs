@@ -33,6 +33,7 @@ import qualified Pos.DB                      as DB
 import           Pos.DB.Error                (DBError (DBMalformed))
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass)
 import           Pos.Util                    (NewestFirst (..))
+import           Pos.Util.Binary             (WithLengthLimited (..))
 import           Pos.WorkMode                (WorkMode)
 
 blockListeners
@@ -59,11 +60,11 @@ stubListenerConv'
 stubListenerConv' = unproxy $ \(_ :: Proxy ssc) ->
     reify (0 :: Byte) $ \(_ :: Proxy s0) ->
         let rcvName = messageName (Proxy :: Proxy MsgGetBlocks)
-            sndName = messageName (Proxy :: Proxy (MsgBlock a b))
+            sndName = messageName (Proxy :: Proxy (MsgBlock b))
             listener _ = N.ListenerActionConversation $
               \_d __nId (_convActions :: N.ConversationActions
                                              PeerData
-                                             (MsgBlock s0 ssc)
+                                             (MsgBlock ssc)
                                              MsgGetBlocks m) ->
                   modifyLoggerName (<> "stub") $
                         logDebug $ sformat
@@ -93,9 +94,10 @@ handleGetBlocks =
     reify (0 :: Byte) $ \(_ :: Proxy s0) ->
     listenerConv $
         \_ __peerId (conv :: ConversationActions
-                               (MsgBlock s0 ssc)
-                               MsgGetBlocks m) ->
-        whenJustM (recv conv) $ \mgb@MsgGetBlocks{..} -> do
+                               (MsgBlock ssc)
+                               (WithLengthLimited s0 MsgGetBlocks) m) -> do
+        mBlock <- fmap withLengthLimited <$> recv conv
+        whenJust mBlock $ \mgb@MsgGetBlocks{..} -> do
             logDebug $ sformat ("Got request on handleGetBlocks: "%build) mgb
             hashes <- getHeadersFromToIncl mgbFrom mgbTo
             maybe warn (sendBlocks conv) hashes

@@ -24,27 +24,33 @@ module Pos.Util.Binary
        , putSmallWithLength
        , getSmallWithLength
 
+       -- * Deserialisation with limited length
+       , WithLengthLimited (..)
+
        -- * Other binary utils
        , getRemainingByteString
        , getAsciiString1b
        , putAsciiString1b
        ) where
 
-import           Data.Binary.Get      (Get, getByteString, getRemainingLazyByteString,
-                                       getWord8)
-import           Data.Binary.Put      (Put, PutM, putByteString, putLazyByteString,
-                                       putWord8, runPutM)
-import qualified Data.ByteString      as BS
-import qualified Data.ByteString.Lazy as BSL
-import           Data.Char            (isAscii)
-import           Data.SafeCopy        (Contained, SafeCopy (..), contain, safeGet,
-                                       safePut)
-import qualified Data.Serialize       as Cereal (Get, Put)
-import           Formatting           (formatToString, int, (%))
-import           Universum            hiding (putByteString)
+import           Data.Binary.Get            (Get, getByteString,
+                                            getRemainingLazyByteString, getWord8)
+import           Data.Binary.Put            (Put, PutM, putByteString, putLazyByteString,
+                                            putWord8, runPutM)
+import qualified Data.ByteString            as BS
+import qualified Data.ByteString.Lazy       as BSL
+import           Data.Char                  (isAscii)
+import           Data.Reflection            (Reifies, reflect)
+import           Data.SafeCopy              (Contained, SafeCopy (..), contain, safeGet,
+                                            safePut)
+import qualified Data.Serialize             as Cereal (Get, Put)
+import           Formatting                 (formatToString, int, (%))
+import           Node.Message               (Message (..))
+import           Serokell.Data.Memory.Units (Byte)
+import           Universum                  hiding (putByteString)
 
-import           Pos.Binary.Class     (Bi)
-import qualified Pos.Binary.Class     as Bi
+import           Pos.Binary.Class           (Bi (..))
+import qualified Pos.Binary.Class           as Bi
 
 
 -- | A wrapper over 'ByteString' for adding type safety to
@@ -146,6 +152,26 @@ getSmallWithLength :: Get a -> Get a
 getSmallWithLength act = do
     Bi.TinyVarInt len <- Bi.get
     Bi.isolate64 (fromIntegral len) act
+
+----------------------------------------------------------------------------
+-- Deserialisation with limited length
+----------------------------------------------------------------------------
+
+-- | Sets size limit to deserialization instances via @s@ parameter
+-- (using "Data.Reflection"). Grep for 'reify' and 'reflect' to see
+-- usage examples.
+newtype WithLengthLimited s a = WithLengthLimited
+    { withLengthLimited :: a
+    } deriving (Eq, Ord, Show)
+
+instance (Bi a, Reifies s Byte) => Bi (WithLengthLimited s a) where
+    put (WithLengthLimited a) = put a
+    get = do
+        let maxBlockSize = reflect (Proxy @s)
+        getWithLengthLimited (fromIntegral maxBlockSize) $
+            WithLengthLimited <$> get
+
+deriving instance Message a => Message (WithLengthLimited s a)
 
 ----------------------------------------------------------------------------
 -- Other binary utils

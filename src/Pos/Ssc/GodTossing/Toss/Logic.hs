@@ -10,14 +10,14 @@ module Pos.Ssc.GodTossing.Toss.Logic
        , normalizeToss
        ) where
 
-import           Control.Monad.Except            (MonadError, runExceptT)
+import           Control.Monad.Except            (MonadError (throwError), runExceptT)
 import qualified Data.HashMap.Strict             as HM
 import           Formatting                      (sformat, (%))
 import           Serokell.Util.Text              (listJson)
 import           System.Wlog                     (logDebug, logError)
 import           Universum
 
-import           Control.Monad.Except            (MonadError (throwError))
+import           Pos.Constants                   (slotSecurityParam)
 import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (..), GtPayload (..),
                                                   getCommitmentsMap,
                                                   mkCommitmentsMapUnsafe, _gpCertificates)
@@ -28,7 +28,9 @@ import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
 import           Pos.Ssc.GodTossing.Toss.Types   (TossModifier (..))
 import           Pos.Ssc.GodTossing.Type         ()
 import           Pos.Types                       (EpochIndex, EpochOrSlot (..),
-                                                  MainBlockHeader, epochIndexL,
+                                                  LocalSlotIndex (getSlotIndex),
+                                                  MainBlockHeader, SlotId (siSlot),
+                                                  epochIndexL, epochOrSlot,
                                                   getEpochOrSlot)
 import           Pos.Util                        (NewestFirst (..))
 
@@ -52,7 +54,11 @@ verifyAndApplyGtPayload eoh payload = do
     -- Apply
     case eoh of
         Left _       -> pass
-        Right header -> setEpochOrSlot $ getEpochOrSlot header
+        Right header -> do
+            let eos = getEpochOrSlot header
+            setEpochOrSlot eos
+            let slot = epochOrSlot (const 0) (getSlotIndex . siSlot) eos
+            when (slot >= slotSecurityParam && slot < 2 * slotSecurityParam) resetShares
     mapM_ putCertificate blockCerts
     case payload of
         CommitmentsPayload  comms  _ ->
@@ -68,7 +74,7 @@ verifyAndApplyGtPayload eoh payload = do
 applyGenesisBlock :: MonadToss m => EpochIndex -> m ()
 applyGenesisBlock epoch = do
     setEpochOrSlot $ getEpochOrSlot epoch
-    resetCOS
+    resetCO
 
 -- | Rollback application of 'GtPayload's in 'Toss'. First argument is
 -- 'EpochOrSlot' of oldest block which is subject to rollback.
@@ -77,7 +83,8 @@ rollbackGT oldestEOS (NewestFirst payloads)
     | oldestEOS == toEnum 0 = do
         logError "rollbackGT: most genesis block is passed to rollback"
         setEpochOrSlot oldestEOS
-        resetCOS
+        resetCO
+        resetShares
     | otherwise = do
         setEpochOrSlot (pred oldestEOS)
         mapM_ rollbackGTDo payloads

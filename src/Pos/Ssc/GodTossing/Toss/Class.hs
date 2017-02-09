@@ -95,7 +95,10 @@ class MonadTossRead m =>
     putCertificate :: VssCertificate -> m ()
 
     -- | Reset Commitments|Openings|Shares.
-    resetCOS :: m ()
+    resetCO :: m ()
+
+    -- | Reset Shares.
+    resetShares :: m ()
 
     -- | Delete commitment of given stakeholder.
     delCommitment :: StakeholderId -> m ()
@@ -126,9 +129,13 @@ class MonadTossRead m =>
         VssCertificate -> m ()
     putCertificate = lift . putCertificate
 
-    default resetCOS :: (MonadTrans t, MonadToss m', t m' ~ m) =>
+    default resetCO :: (MonadTrans t, MonadToss m', t m' ~ m) =>
         m ()
-    resetCOS = lift resetCOS
+    resetCO = lift resetCO
+
+    default resetShares :: (MonadTrans t, MonadToss m', t m' ~ m) =>
+        m ()
+    resetShares = lift resetShares
 
     default delCommitment :: (MonadTrans t, MonadToss m', t m' ~ m) =>
         StakeholderId -> m ()

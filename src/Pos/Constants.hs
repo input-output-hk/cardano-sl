@@ -366,7 +366,7 @@ ourAppName = cardanoSlAppName
 ntpMaxError :: Microsecond
 ntpMaxError = sec 1
 
--- | How often request to NTP server and response collection
+-- | After making request to NTP servers, how long to wait for their response
 ntpResponseTimeout :: Microsecond
 ntpResponseTimeout = mcs . ccNtpResponseTimeout $ compileConfig
 

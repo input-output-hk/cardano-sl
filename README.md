@@ -57,7 +57,7 @@ To build lenses from it run
 ```bash
 cd {/path/to/cardano-sl-explorer-frontend}
 ./scripts/generate-backend-lenses.sh
-
+```
 
 
 ## Run server locally
@@ -86,6 +86,36 @@ cd debug/socket
 npm install
 npm start
 ```
+
+## CSS
+
+CSS is transformed by [`postCSS`](http://postcss.org/).
+
+The transformation of `postCSS` will be performed by building the application as described in ["Run server locally"](#run-server-locally) or ["Build to ship"](#build-to-ship-production-mode).
+
+All [`postCSS plugins`](http://postcss.parts/) we are using are defined in [`postcss.config.js`](./postcss.config.js).
+
+These are:
+
+* [`postcss-import`](https://github.com/postcss/postcss-import) - Inlines `@import` rules content.
+* [`postcss-css-reset`](https://github.com/baiyaaaaa/postcss-css-reset) - Resets css.
+* [`postcss-custom-properties`](https://github.com/postcss/postcss-custom-properties) - Minimize the number of repeat selectors and rules.
+* [`postcss-nested`](https://github.com/postcss/postcss-nested) - Unwraps nested rules.
+* [`postcss-color-function`](https://github.com/postcss/postcss-color-function) - Transforms W3C CSS color function.
+* [`postcss-button`](https://github.com/francoisromain/postcss-button) - Creates buttons.
+* [`postcss-inline-svg`](https://github.com/TrySound/postcss-inline-svg) - Inlines SVG and customize its styles.
+* [`postcss-svgo`](https://github.com/ben-eb/postcss-svgo) - Optimizes inline SVG.
+* [`postcss-flexbox`](https://github.com/archana-s/postcss-flexbox) - Easy to use CSS3 Flexbox layouts.
+* [`postcss-neat`](http://jo-asakura.github.io/postcss-neat/) - Grid framework.
+* [`postcss-cssnext`](http://cssnext.io/) - Using tomorrow’s CSS syntax.
+* [`cssnano`](http://cssnext.io/) - Compresses your css.
+
+The entry point of all CSS is [`index.css`](src/index.css). This file includes all `@import`s to all other CSS files. There are also definitions of `@reset-global` (needed by `postcss-css-reset`).
+
+Global styles are defined in [`global.css`](src/global.css). There you will find all definitions of global `vars`, `fonts`, `inline SVGs`, `buttons` and `selectors`.
+
+All other CSS files are located side by side with its PureScript "UI" modules. For example: Styles of [`Dashboard.purs`](src/Explorer/View/Dashboard.purs) are defined in [`dashboard.css`](src/Explorer/View/dashboard.css). Both files are located in the same folder [`src/Explorer/View/`](src/Explorer/View/).
+
 
 
 ## Build to ship (production mode)

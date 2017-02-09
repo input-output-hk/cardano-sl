@@ -228,7 +228,7 @@ blockRow state (CBlockEntry entry) =
         , blockColumn <<< show <<< unwrap $ entry ^. (cbeTimeIssued <<< _NominalDiffTime)
         , blockColumn <<< show $ entry ^. cbeTxNum
         , blockColumn <<< show $ entry ^. (cbeTotalSent <<< _Coin <<< getCoin)
-        , blockColumn <<< fromMaybe "Unknown" $ entry ^. cbeRelayedBy
+        , blockColumn <<< fromMaybe "#Unknown" $ entry ^. cbeRelayedBy
         , blockColumn <<< show $ entry ^. cbeSize
         ]
 
@@ -311,7 +311,7 @@ transactionRow state (CTxEntry entry) =
     P.div
         [ P.className "transactions__row" ]
         [ transactionColumn (entry ^. (cteId <<< _CTxId <<< _CHash)) "hash"
-        , transactionColumn (show $ entry ^. (cteTimeIssued <<< _NominalDiffTime)) ""
+        , transactionColumn (show <<< unwrap $ entry ^. (cteTimeIssued <<< _NominalDiffTime)) ""
         , transactionColumn (show $ entry ^. (cteAmount <<< _Coin <<< getCoin)) <<< currencyCSSClass $ Just ADA
         ]
 

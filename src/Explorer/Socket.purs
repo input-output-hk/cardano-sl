@@ -46,11 +46,8 @@ closeHandler channel _ =
 
 latestBlocksHandler :: forall eff. ActionChannel -> Json
     -> Eff (channel :: CHANNEL | eff) Unit
-latestBlocksHandler channel json = do
-    traceAnyM "latestBlocksHandler ..........."
-    traceAnyM json
-    let result = decodeJson json
-    traceAnyM result
+latestBlocksHandler channel json =
+    let result = decodeJson json in
     send channel $ SocketLatestBlocks result
 
 latestTransactionsHandler :: forall eff. ActionChannel -> Json

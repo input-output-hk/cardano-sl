@@ -4,6 +4,7 @@ var app = express();
 var server = require('http').createServer(app);
 var io = require('socket.io')(server);
 var port = process.env.PORT || 9999;
+var randomstring = require("randomstring");
 
 // --------------------------
 // express
@@ -23,26 +24,37 @@ io.on('connection', function (socket) {
 
   if(firstRun) {
 
-    var sendBlockCount = 0;
+    // push blocks
+    var blocksCount = 0;
     var sendBlocksId = setInterval(function() {
-      var blocks = randomBlocks(3);
-      sendBlockCount++;
-      console.log("broadcast blocks", blocks);
+      var blocks = randomBlocks(5);
+      blocksCount++;
       socket.broadcast.emit('latestBlocks', blocks);
-      // if(sendBlockCount>100) {
+      // if(blocksCount>100) {
       //   clearInterval(sendBlocksId);
       // }
-    }, 250);
+    }, randomNumber(450, 1000));
+
+    // push transactions
+    var txCount = 0;
+    var sendTxId = setInterval(function() {
+      var txs = randomTxs(5);
+      txCount++;
+      socket.broadcast.emit('latestTransactions', txs);
+    }, randomNumber(750, 1200));
   }
 
   firstRun = false;
 });
 
 // --------------------------
-// mock of blocks
+// mock blocks
 // --------------------------
+
 var blockId = 0;
 var randomBlock = function() {
+  // Encoded CBlockEntry
+  // @see src/Generated/Pos/Explorer/Web/ClientTypes.purs
   return  { cbeHeight: randomNumber(1, 50000)
           , cbeRelayedBy: randomStringFromList([null, "KNCMiner", "BMinor", "CMinor"])
           , cbeSize: randomNumber(1, 10000)
@@ -54,14 +66,39 @@ var randomBlock = function() {
 
 
 var randomBlocks = function (max) {
-  var maxRandom = randomNumber(1, max);
-  var i = 0;
-  var blocks = [];
+  var maxRandom = randomNumber(1, max)
+      , i = 0
+      , blocks = [];
   for(i; i < maxRandom; i++ ) {
     blocks[i] = randomBlock();
   }
   return blocks;
 }
+
+// --------------------------
+// mock transactions
+// --------------------------
+
+var txId = 0;
+var randomTx = function() {
+  // Encoded CTxEntry
+  // @see src/Generated/Pos/Explorer/Web/ClientTypes.purs
+  return  { cteId: randomstring.generate(63)
+          , cteTimeIssued: txId++
+          , cteAmount: { getCoin: randomNumber(1, 1000000) }
+          }
+}
+
+var randomTxs = function (max) {
+  var maxR = randomNumber(1, max)
+      , i = 0
+      , txs = [];
+  for(i; i < maxR; i++ ) {
+    txs[i] = randomTx();
+  }
+  return txs;
+}
+
 
 // --------------------------
 // helper

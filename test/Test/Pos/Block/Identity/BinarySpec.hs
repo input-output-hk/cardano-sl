@@ -37,9 +37,9 @@ spec = describe "Block types" $ do
                 -- We can't use 'networkBinaryTest' here because 's0'
                 -- isn't guaranteed to be Typeable.
                 prop "MsgBlock SscNistBeacon" $
-                    networkBinaryEncodeDecode @(BT.MsgBlock s0 SscNistBeacon)
+                    networkBinaryEncodeDecode @(BT.MsgBlock SscNistBeacon)
                 prop "MsgBlock SscGodTossing" $
-                    networkBinaryEncodeDecode @(BT.MsgBlock s0 SscGodTossing)
+                    networkBinaryEncodeDecode @(BT.MsgBlock SscGodTossing)
         describe "Blockchains and blockheaders" $ do
             describe "GenericBlockHeader" $ do
                 describe "GenesisBlockHeader" $ do

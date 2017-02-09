@@ -6,10 +6,8 @@ module Pos.Binary.Communication () where
 import           Data.Binary.Get                  (getByteString, getWord8, label)
 import           Data.Binary.Put                  (putByteString, putWord8)
 import qualified Data.ByteString                  as BS
-import           Data.Reflection                  (Reifies, reflect)
 import           Formatting                       (int, sformat, (%))
 import           Node.Message                     (MessageName (..))
-import           Serokell.Data.Memory.Units       (Byte)
 import           Universum                        hiding (putByteString)
 
 import           Pos.Binary.Class                 (Bi (..))
@@ -25,12 +23,10 @@ import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 import           Pos.Ssc.Class.Types              (Ssc (..))
 import           Pos.Txp.Types                    (TxMsgTag (..))
 import           Pos.Update.Network.Types         (ProposalMsgTag (..), VoteMsgTag (..))
-import           Pos.Util.Arbitrary               (Limited (..))
 import           Pos.Util.Binary                  (getRemainingByteString, getWithLength,
-                                                   getWithLengthLimited, putWithLength)
+                                                   putWithLength)
 
 deriving instance Bi MessageName
-deriving instance Bi a => Bi (Limited a)
 
 instance Bi NOP where
     put _ = put (0 :: Word8)
@@ -81,7 +77,7 @@ instance SscHelpersClass ssc => Bi (MsgBlock ssc) where
         -- we *depend* on this behavior in e.g. 'handleGetBlocks' in
         -- "Pos.Block.Network.Listeners". Grep for #put_checkBlockSize.
         putWithLength (put b)
-    get = MsgBlock <$> get
+    get = getWithLength $ MsgBlock <$> get
 
 ----------------------------------------------------------------------------
 -- Transaction processing

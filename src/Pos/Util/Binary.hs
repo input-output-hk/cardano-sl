@@ -45,7 +45,6 @@ import           Data.SafeCopy              (Contained, SafeCopy (..), contain, 
                                             safePut)
 import qualified Data.Serialize             as Cereal (Get, Put)
 import           Formatting                 (formatToString, int, (%))
-import           Node.Message               (Message (..))
 import           Serokell.Data.Memory.Units (Byte)
 import           Universum                  hiding (putByteString)
 
@@ -171,7 +170,6 @@ instance (Bi a, Reifies s Byte) => Bi (WithLengthLimited s a) where
         getWithLengthLimited (fromIntegral maxBlockSize) $
             WithLengthLimited <$> get
 
-deriving instance Message a => Message (WithLengthLimited s a)
 
 ----------------------------------------------------------------------------
 -- Other binary utils

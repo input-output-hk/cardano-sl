@@ -12,7 +12,6 @@ import qualified Pos.Communication.Relay as R
 import qualified Pos.DB.GState           as GState
 import qualified Pos.Ssc.GodTossing      as GT
 import           Pos.Types.Address       (StakeholderId)
-import           Pos.Util                (Limited)
 
 import           Test.Pos.Util           (binaryTest, msgLenLimitedTest)
 
@@ -31,6 +30,6 @@ spec = describe "GodTossing" $ do
         binaryTest @GT.GtSecretStorage
     describe "Message length limit" $ do
         msgLenLimitedTest
-            @(Limited (R.InvMsg StakeholderId GT.GtTag)) GState.getMaxInvSize
+            @(R.InvMsg StakeholderId GT.GtTag) GState.getMaxInvSize
         msgLenLimitedTest
-            @(Limited (R.ReqMsg StakeholderId GT.GtTag)) GState.getMaxReqSize
+            @(R.ReqMsg StakeholderId GT.GtTag) GState.getMaxReqSize

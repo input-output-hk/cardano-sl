@@ -31,9 +31,7 @@ import           Data.List              (span)
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.Buildable    as Buildable
 import           Formatting             (Format, bprint, build, later, (%))
-import           Prelude                (readsPrec, show)
 import           Serokell.Util.Base16   (base16F)
-import           Universum              hiding (show)
 
 import           Pos.Binary.Class       (Bi)
 import qualified Pos.Binary.Class       as Bi
@@ -53,22 +51,8 @@ addrAlphabet = bitcoinAlphabet
 addrToBase58 :: Bi Address => Address -> ByteString
 addrToBase58 = encodeBase58 addrAlphabet . BSL.toStrict . Bi.encode
 
-instance Bi Address => Show Address where
-    show = BSC.unpack . addrToBase58
-
 instance Bi Address => Buildable Address where
     build = Buildable.build . decodeUtf8 @Text . addrToBase58
-
-instance NFData Address
-
-instance Bi Address => Read Address where
-    readsPrec _ str =
-        let trimmedStr = dropWhile isSpace str
-            (addrStr, rest) = span (`BSC.elem` unAlphabet addrAlphabet) trimmedStr
-            eAddr = decodeAddress $ encodeUtf8 addrStr
-        in case eAddr of
-               Left _     -> []
-               Right addr -> [(addr, rest)]
 
 -- | A function which decodes base58 address from given ByteString
 decodeAddress :: Bi Address => ByteString -> Either String Address

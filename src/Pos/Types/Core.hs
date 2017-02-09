@@ -234,7 +234,9 @@ data Address
     | ScriptAddress
           { addrScriptHash :: !(AddressHash Script) }
     | UnknownAddressType !Word8 !ByteString
-    deriving (Eq, Ord, Generic, Typeable)
+    deriving (Eq, Ord, Generic, Typeable, Show)
+
+instance NFData Address
 
 -- | Stakeholder identifier (stakeholders are identified by their public keys)
 type StakeholderId = AddressHash PublicKey

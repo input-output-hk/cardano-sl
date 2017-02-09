@@ -216,7 +216,7 @@ type Utxo = Map (TxId, Word32) TxOutAux
 formatUtxo :: Utxo -> Builder
 formatUtxo =
     mapBuilderJson .
-    map (first pairBuilder . second (show @_ @Text)) .
+    map (first pairBuilder) .
     M.toList
 
 -- | Specialized formatter for 'Utxo'.

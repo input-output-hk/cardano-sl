@@ -161,8 +161,17 @@ instance SlottingConstraint m =>
 -- Getting current slot
 ----------------------------------------------------------------------------
 
+data SlotStatus = CantTrust | OutdatedSlottingData | CurrentSlot SlotId
+
 ntpGetCurrentSlot :: SlottingConstraint m => NtpSlotting m (Maybe SlotId)
 ntpGetCurrentSlot = do
+    res <- ntpGetCurrentSlotImpl
+    case res of
+        CurrentSlot slot -> pure $ Just slot
+        otherwise        -> pure Nothing
+
+ntpGetCurrentSlotImpl :: SlottingConstraint m => NtpSlotting m SlotStatus
+ntpGetCurrentSlotImpl = do
     var <- NtpSlotting ask
     NtpSlottingState {..} <- atomically $ STM.readTVar var
     t <- Timestamp . (+ _nssLastMargin) <$> currentTime
@@ -170,8 +179,9 @@ ntpGetCurrentSlot = do
            do res <- fmap (max _nssLastSlot) <$> ntpGetCurrentSlotDo t
               let setLastSlot s =
                       atomically $ STM.modifyTVar' var (nssLastSlot %~ max s)
-              res <$ whenJust res setLastSlot
-       | otherwise -> return Nothing
+              whenJust res setLastSlot
+              maybe (pure OutdatedSlottingData) (pure . CurrentSlot) res
+       | otherwise -> return CantTrust
   where
     -- We can trust getCurrentTime if it is:
     -- • not bigger than 'time for which we got margin (last time)
@@ -208,7 +218,15 @@ ntpGetCurrentSlotTryEpoch (Timestamp curTime) epoch EpochSlottingData {..}
 
 ntpGetCurrentSlotBlocking :: SlottingConstraint m => NtpSlotting m SlotId
 ntpGetCurrentSlotBlocking = do
-    notImplemented
+    slotSt <- ntpGetCurrentSlotImpl
+    case slotSt of
+        CantTrust -> do
+            delay C.ntpPollDelay
+            ntpGetCurrentSlotBlocking
+        OutdatedSlottingData -> do
+            waitSlottingData
+            ntpGetCurrentSlotBlocking
+        CurrentSlot slot -> pure slot
 
 ntpCurrentTime
     :: SlottingConstraint m

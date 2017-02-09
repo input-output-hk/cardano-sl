@@ -54,7 +54,8 @@ getSlotStart SlotId{..} = do
     SlottingData{..} <- getSlottingData
     if | siEpoch < sdPenultEpoch -> pure Nothing
        | siEpoch == sdPenultEpoch -> pure . Just $ slotTimestamp siSlot sdPenult
-       | otherwise -> pure . Just $ slotTimestamp siSlot sdLast
+       | siEpoch == sdPenultEpoch + 1 -> pure . Just $ slotTimestamp siSlot sdLast
+       | otherwise -> pure Nothing
   where
     slotTimestamp locSlot EpochSlottingData{..} =
         esdStart + Timestamp (fromIntegral locSlot * convertUnit esdSlotDuration)

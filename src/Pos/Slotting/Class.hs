@@ -21,9 +21,21 @@ class Monad m =>
 
     getSlottingData :: m SlottingData
 
+    waitSlottingData :: m ()
+
+    putSlottingData :: SlottingData -> m ()
+
     default getSlottingData :: (MonadTrans t, MonadSlotsData m', t m' ~ m) =>
         m SlottingData
     getSlottingData = lift getSlottingData
+
+    default waitSlottingData :: (MonadTrans t, MonadSlotsData m', t m' ~ m) =>
+        m ()
+    waitSlottingData = lift waitSlottingData
+
+    default putSlottingData :: (MonadTrans t, MonadSlotsData m', t m' ~ m) =>
+        SlottingData -> m ()
+    putSlottingData = lift . putSlottingData
 
 instance MonadSlotsData m => MonadSlotsData (ReaderT s m) where
 instance MonadSlotsData m => MonadSlotsData (ExceptT s m) where

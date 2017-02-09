@@ -115,3 +115,5 @@ instance MonadBaseControl IO m => MonadBaseControl IO (DBSlotsData m) where
 
 instance MonadDB σ m => MonadSlotsData (DBSlotsData m) where
     getSlottingData = notImplemented
+    waitSlottingData  = notImplemented
+    putSlottingData = notImplemented

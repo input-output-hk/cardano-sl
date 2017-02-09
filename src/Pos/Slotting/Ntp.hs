@@ -165,10 +165,9 @@ data SlotStatus = CantTrust | OutdatedSlottingData | CurrentSlot SlotId
 
 ntpGetCurrentSlot :: SlottingConstraint m => NtpSlotting m (Maybe SlotId)
 ntpGetCurrentSlot = do
-    res <- ntpGetCurrentSlotImpl
-    case res of
-        CurrentSlot slot -> pure $ Just slot
-        otherwise        -> pure Nothing
+    ntpGetCurrentSlotImpl <&> \case
+        CurrentSlot slot -> Just slot
+        _                -> Nothing
 
 ntpGetCurrentSlotImpl :: SlottingConstraint m => NtpSlotting m SlotStatus
 ntpGetCurrentSlotImpl = do

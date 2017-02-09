@@ -178,12 +178,6 @@ evalCommands sa = do
 
 initialize :: WalletMode ssc m => WalletOptions -> m [DHTNode]
 initialize WalletOptions{..} = do
-    -- Wait some time to ensure blockchain is fetched
-    unless (woInitialPause == 0) $ do
-        putText $ sformat ("Started node. Waiting for "%int%" slots...") woInitialPause
-        undefined
-        -- slotDuration <- getSlotDuration
-        -- delay (fromIntegral woInitialPause * slotDuration)
     putText "Discovering peers"
     let getPeersUntilSome = do
             peers <- discoverPeers
@@ -255,11 +249,11 @@ main = do
 
             plugins :: ([ WorkerSpec WalletRealMode ], OutSpecs)
             plugins = first pure $ case woAction of
-                Repl                            -> undefined -- worker runCmdOuts $ runWalletRepl opts
-                Cmd cmd                         -> undefined -- worker runCmdOuts $ runWalletCmd opts cmd
+                Repl                            -> worker runCmdOuts $ runWalletRepl opts
+                Cmd cmd                         -> worker runCmdOuts $ runWalletCmd opts cmd
 #ifdef WITH_WEB
-                Serve webPort webDaedalusDbPath -> undefined -- worker walletServerOuts $ \sendActions ->
-                    -- walletServeWebLite sendActions webDaedalusDbPath False webPort
+                Serve webPort webDaedalusDbPath -> worker walletServerOuts $ \sendActions ->
+                    walletServeWebLite sendActions webDaedalusDbPath False webPort
 #endif
 
         case CLI.sscAlgo woCommonArgs of

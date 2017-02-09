@@ -13,7 +13,8 @@ import           Universum
 import           Pos.Communication       (OutSpecs, SysStartResponse (..), WorkerSpec,
                                           localWorker, onNewSlotWithLoggingWorker,
                                           oneMsgH, toOutSpecs)
-import           Pos.Constants           (isDevelopment, sysTimeBroadcastSlots)
+import           Pos.Constants           (genesisSlotDuration, isDevelopment,
+                                          sysTimeBroadcastSlots)
 import           Pos.Context             (NodeContext (..), getNodeContext, npSystemStart,
                                           npTimeLord)
 import           Pos.DHT.Model.Neighbors (sendToNeighbors)
@@ -39,11 +40,9 @@ sysStartWorker
                             sendToNeighbors sendActions $
                                 SysStartResponse sysStart
                     send
-                    -- slotDuration <- getSlotDuration
                     waitRandomInterval
                         (ms 500)
-                        -- (convertUnit slotDuration `div` 2)
-                        undefined
+                        (convertUnit genesisSlotDuration `div` 2)
                     send
   where
     outs = toOutSpecs [oneMsgH (Proxy :: Proxy SysStartResponse)]

@@ -21,7 +21,7 @@ import           Universum             hiding (catchAll)
 import           Pos.Constants         (blkSecurityParam, genesisSlotDuration)
 import           Pos.Crypto            (hash)
 import           Pos.DB                (loadBlundsFromTipByDepth)
-import           Pos.Slotting          (getCurrentSlot, getSlotStart)
+import           Pos.Slotting          (getCurrentSlotBlocking, getSlotStartEmpatically)
 import           Pos.Ssc.Class         (SscConstraint)
 import           Pos.Types             (SlotId (..), TxId, blockSlot, blockTxs)
 import           Pos.WorkMode          (ProductionMode)
@@ -80,8 +80,7 @@ checkTxsInLastBlock TxTimestamps {..} logsPrefix = do
                 -- We don't know exact time when checked block has been created/adopted,
                 -- but we do know that it was not at `blkSecurityParam` depth a slot ago,
                 -- so we just take a beginning of current slot
-                slStart <- undefined
-                -- slStart <- getSlotStart =<< getCurrentSlot
+                slStart <- getSlotStartEmpatically =<< getCurrentSlotBlocking
                 liftIO $ writeIORef lastSlot curSlot
 
                 let verifiedSentData = map (fromJust . flip M.lookup st) verified
@@ -98,10 +97,8 @@ checkWorker txts logsPrefix = loop `catchAll` onError
     loop = do
         checkTxsInLastBlock txts logsPrefix
         delay genesisSlotDuration
-        undefined
         loop
     onError e = do
         logWarning (sformat ("Error occured in checkWorker: " %build) e)
         delay genesisSlotDuration
-        undefined
         loop

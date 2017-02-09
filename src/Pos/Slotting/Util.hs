@@ -31,7 +31,6 @@ import           System.Wlog              (WithLogger, logDebug, logError, logIn
                                            logNotice, modifyLoggerName)
 import           Universum
 
-import           Pos.Constants            (ntpMaxError, ntpPollDelay)
 import           Pos.Context              (WithNodeContext (getNodeContext),
                                            ncSystemStart)
 import           Pos.Exception            (CardanoException)
@@ -103,9 +102,9 @@ onNewSlotImpl withLogging startImmediately action =
   where
     actionWithCatch s = action s `catch` actionHandler
     actionHandler
-        :: forall m.
-           WithLogger m
-        => SomeException -> m ()
+        :: forall ma.
+           WithLogger ma
+        => SomeException -> ma ()
     actionHandler = logError . sformat ("Error occurred: " %build)
     workerHandler :: CardanoException -> m ()
     workerHandler e = do

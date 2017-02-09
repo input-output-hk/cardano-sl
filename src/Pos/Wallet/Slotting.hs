@@ -116,4 +116,6 @@ instance MonadBaseControl IO m => MonadBaseControl IO (WalletDBSlotsData m) wher
 ----------------------------------------------------------------------------
 
 instance Monad m => MonadSlotsData (WalletDBSlotsData m) where
-    getSlottingData = notImplemented
+    getSlottingData = undefined
+    waitSlottingData = undefined
+    putSlottingData = undefined

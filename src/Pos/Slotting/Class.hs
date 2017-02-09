@@ -37,6 +37,10 @@ class MonadSlotsData m =>
 
     getCurrentSlot :: m (Maybe SlotId)
 
+    -- | Blocking version of 'getCurrentSlot'. This function doesn't
+    -- return until current slot is known.
+    getCurrentSlotBlocking :: m SlotId
+
     currentTimeSlotting :: m Timestamp
 
     slottingWorkers :: [m ()]
@@ -44,6 +48,10 @@ class MonadSlotsData m =>
     default getCurrentSlot :: (MonadTrans t, MonadSlots m', t m' ~ m) =>
         m (Maybe SlotId)
     getCurrentSlot = lift getCurrentSlot
+
+    default getCurrentSlotBlocking :: (MonadTrans t, MonadSlots m', t m' ~ m) =>
+        m SlotId
+    getCurrentSlotBlocking = lift getCurrentSlotBlocking
 
     default currentTimeSlotting :: (MonadTrans t, MonadSlots m', t m' ~ m) =>
         m Timestamp

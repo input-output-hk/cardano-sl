@@ -45,7 +45,8 @@ import           Pos.Crypto.Signing               (PublicKey)
 import           Pos.DB.Lrc                       (getRichmenSsc)
 import           Pos.DHT.Model                    (sendToNeighbors)
 import           Pos.Lrc.Types                    (RichmenStake)
-import           Pos.Slotting                     (getCurrentSlot, getSlotStart)
+import           Pos.Slotting                     (getCurrentSlot,
+                                                   getSlotStartEmpatically)
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
 import           Pos.Ssc.GodTossing.Core          (Commitment (..), SignedCommitment,
                                                    VssCertificate (..),
@@ -341,7 +342,7 @@ waitUntilSend
     => GtTag -> EpochIndex -> LocalSlotIndex -> m ()
 waitUntilSend msgTag epoch slMultiplier = do
     Timestamp beginning <-
-        getSlotStart $
+        getSlotStartEmpatically $
         SlotId {siEpoch = epoch, siSlot = slMultiplier * slotSecurityParam}
     curTime <- currentTime
     let minToSend = curTime

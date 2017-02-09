@@ -118,7 +118,7 @@ onNewSlotWhenLeader slotId pSk sendActions = do
         logCert (Right psk) =
             sformat ("using heavyweight proxy signature key "%build%", will do it soon") psk
     logInfo $ logReason <> maybe logLeader logCert pSk
-    nextSlotStart <- getSlotStart (succ slotId)
+    nextSlotStart <- undefined -- getSlotStart (succ slotId)
     currentTime <- notImplemented
     let timeToCreate =
             max currentTime (nextSlotStart - Timestamp networkDiameter)

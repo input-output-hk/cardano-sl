@@ -153,6 +153,7 @@ type SlottingConstraint m =
 instance SlottingConstraint m =>
          MonadSlots (NtpSlotting m) where
     getCurrentSlot = ntpGetCurrentSlot
+    getCurrentSlotBlocking = ntpGetCurrentSlotBlocking
     currentTimeSlotting = ntpCurrentTime
     slottingWorkers = [ntpSyncWorker]
 
@@ -204,6 +205,10 @@ ntpGetCurrentSlotTryEpoch (Timestamp curTime) epoch EpochSlottingData {..}
   where
     duration = convertUnit esdSlotDuration
     start = getTimestamp esdStart
+
+ntpGetCurrentSlotBlocking :: SlottingConstraint m => NtpSlotting m SlotId
+ntpGetCurrentSlotBlocking = do
+    notImplemented
 
 ntpCurrentTime
     :: SlottingConstraint m

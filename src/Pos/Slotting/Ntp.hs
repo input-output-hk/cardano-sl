@@ -26,7 +26,7 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               defaultLiftBaseWith, defaultLiftWith,
                                               defaultRestoreM, defaultRestoreT)
 import           Data.List                   ((!!))
-import           Data.Time.Units             (Microsecond)
+import           Data.Time.Units             (Microsecond, convertUnit)
 import           Formatting                  (int, sformat, (%))
 import           Mockable                    (Catch, ChannelT, Counter, CurrentTime,
                                               Delay, Distribution, Fork, Gauge, MFunctor',
@@ -45,7 +45,9 @@ import qualified Pos.Constants               as C
 import           Pos.Context.Class           (WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
 import           Pos.Slotting.Class          (MonadSlots (..), MonadSlotsData (..))
-import           Pos.Types                   (SlotId, unflattenSlotId)
+import           Pos.Slotting.Types          (EpochSlottingData (..), SlottingData (..))
+import           Pos.Types                   (EpochIndex, SlotId (..), Timestamp (..),
+                                              unflattenSlotId)
 import           Pos.Util.JsonLog            (MonadJL)
 
 ----------------------------------------------------------------------------
@@ -61,7 +63,7 @@ data NtpSlottingState = NtpSlottingState
     -- we got from NTP server last time.
     , _nssLastMargin    :: !Microsecond
     -- | Time (local) for which we got margin in last time.
-    , _nssLastLocalTime :: !Microsecond
+    , _nssLastLocalTime :: !Timestamp
     }
 
 type NtpSlottingVar = TVar NtpSlottingState
@@ -172,31 +174,46 @@ ntpGetCurrentSlot :: SlottingConstraint m => NtpSlotting m (Maybe SlotId)
 ntpGetCurrentSlot = do
     var <- NtpSlotting ask
     NtpSlottingState {..} <- atomically $ STM.readTVar var
-    t <- (+ _nssLastMargin) <$> currentTime
+    t <- Timestamp . (+ _nssLastMargin) <$> currentTime
     if | canWeTrustLocalTime _nssLastLocalTime t ->
-           do res <- ntpGetCurrentSlotDo
+           do res <- fmap (max _nssLastSlot) <$> ntpGetCurrentSlotDo t
               let setLastSlot s =
                       atomically $ STM.modifyTVar' var (nssLastSlot %~ max s)
               res <$ whenJust res setLastSlot
-       | otherwise -> pure $ Just _nssLastSlot
+       | otherwise -> return Nothing
   where
-    -- We can trust getCurrentTime if it isn't bigger than:
-    -- time for which we got margin (in last time) + NTP delay (+ some eps, for safety)
-    canWeTrustLocalTime :: Microsecond -> Microsecond -> Bool
-    canWeTrustLocalTime lastLocalTime t =
-        t <= lastLocalTime + C.ntpPollDelay + C.ntpMaxError
+    -- We can trust getCurrentTime if it is:
+    -- • not bigger than 'time for which we got margin (last time)
+    --   + NTP delay (+ some eps, for safety)'
+    -- • not less than 'last time - some eps'
+    canWeTrustLocalTime :: Timestamp -> Timestamp -> Bool
+    canWeTrustLocalTime (Timestamp lastLocalTime) (Timestamp t) =
+        t <= lastLocalTime + C.ntpPollDelay + C.ntpMaxError &&
+        lastLocalTime - C.ntpMaxError <= t
 
-ntpGetCurrentSlotDo :: SlottingConstraint m => NtpSlotting m (Maybe SlotId)
-ntpGetCurrentSlotDo = undefined
-    -- slotDuration <- getSlotDuration
-    -- max lastSlot . f (convertUnit slotDuration) <$>
-    --     ((t -) . getTimestamp <$> getSystemStartTime)
-  -- where
-  --   f :: Microsecond -> Microsecond -> SlotId
-  --   f slotDuration diff
-  --       | diff < 0 = SlotId 0 0
-  --       | otherwise = unflattenSlotId (fromIntegral $ diff `div` slotDuration)
+ntpGetCurrentSlotDo
+    :: SlottingConstraint m
+    => Timestamp -> NtpSlotting m (Maybe SlotId)
+ntpGetCurrentSlotDo approxCurTime = do
+    SlottingData {..} <- getSlottingData
+    let tryEpoch = ntpGetCurrentSlotTryEpoch approxCurTime
+    let penultRes = tryEpoch sdPenultEpoch sdPenult
+    let lastRes = tryEpoch (succ sdPenultEpoch) sdLast
+    return $ penultRes <|> lastRes
 
+ntpGetCurrentSlotTryEpoch
+    :: Timestamp
+    -> EpochIndex
+    -> EpochSlottingData
+    -> Maybe SlotId
+ntpGetCurrentSlotTryEpoch (Timestamp curTime) epoch EpochSlottingData {..}
+    | curTime < start = Nothing
+    | curTime < start + duration * C.epochSlots =
+        Just $ SlotId epoch (fromIntegral $ (curTime - start) `div` duration)
+    | otherwise = Nothing
+  where
+    duration = convertUnit esdSlotDuration
+    start = getTimestamp esdStart
 
 ----------------------------------------------------------------------------
 -- Running
@@ -207,7 +224,7 @@ mkNtpSlottingVar
     => m NtpSlottingVar
 mkNtpSlottingVar = do
     let _nssLastMargin = 0
-    _nssLastLocalTime <- currentTime
+    _nssLastLocalTime <- Timestamp <$> currentTime
     -- current time isn't quite valid value, but it doesn't matter (@pva701)
     let _nssLastSlot = unflattenSlotId 0
     liftIO $ newTVarIO NtpSlottingState {..}
@@ -230,7 +247,7 @@ ntpHandlerDo
     => NtpSlottingVar -> (Microsecond, Microsecond) -> m ()
 ntpHandlerDo var (newMargin, transmitTime) = do
     logDebug $ sformat ("Callback on new margin: "%int% " mcs") newMargin
-    let realTime = transmitTime + newMargin
+    let realTime = Timestamp $ transmitTime + newMargin
     atomically $ STM.modifyTVar var ( set nssLastMargin newMargin
                                     . set nssLastLocalTime realTime)
 

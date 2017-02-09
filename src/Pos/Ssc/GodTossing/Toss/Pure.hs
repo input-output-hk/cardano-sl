@@ -60,10 +60,10 @@ instance MonadToss PureToss where
         PureToss $ gsCommitments %= deleteSignedCommitment id
     delOpening id = PureToss $ gsOpenings . at id .= Nothing
     delShares id = PureToss $ gsShares . at id .= Nothing
-    resetCOS = PureToss $ do
+    resetCO = PureToss $ do
         gsCommitments .= mempty
         gsOpenings .= mempty
-        gsShares .= mempty
+    resetShares = PureToss $ gsShares .= mempty
     setEpochOrSlot eos = PureToss $ gsVssCertificates %= VCD.setLastKnownEoS eos
 
 runPureToss

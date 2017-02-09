@@ -11,6 +11,7 @@ module NTP.Client
     , NtpClientSettings (..)
     , NtpStopButton (..)
     , ntpSingleShot
+    , hoistNtpClientSettings
     ) where
 
 import           Control.Concurrent.STM      (atomically)
@@ -51,11 +52,10 @@ import           NTP.Packet                  (NtpPacket (..), evalClockOffset,
                                               mkCliNtpPacket, ntpPacketSize)
 import           NTP.Util                    (resolveNtpHost)
 
-data NtpClientSettings = NtpClientSettings
+data NtpClientSettings m = NtpClientSettings
     { ntpServers         :: [String]
       -- ^ list of servers addresses
-    , ntpHandler         :: forall m . ( MonadIO m, WithLogger m )
-                         => (Microsecond, Microsecond) -> m ()
+    , ntpHandler         :: (Microsecond, Microsecond) -> m ()
       -- ^ got time callback (margin, time when client sent request)
     , ntpLogName         :: LoggerName
       -- ^ logger name modifier
@@ -70,21 +70,26 @@ data NtpClientSettings = NtpClientSettings
       -- failed to respond in time, but never an empty list
     }
 
-data NtpClient = NtpClient
+hoistNtpClientSettings
+    :: (m () -> n ()) -> NtpClientSettings m -> NtpClientSettings n
+hoistNtpClientSettings f settings =
+    settings { ntpHandler = f . ntpHandler settings }
+
+data NtpClient m = NtpClient
     { ncSocket   :: TVar Socket
     , ncState    :: TVar (Maybe [(Microsecond, Microsecond)])
     , ncClosed   :: TVar Bool
-    , ncSettings :: NtpClientSettings
+    , ncSettings :: NtpClientSettings m
     }
 
-mkNtpClient :: MonadIO m => NtpClientSettings -> Socket -> m NtpClient
+mkNtpClient :: MonadIO m => NtpClientSettings m -> Socket -> m (NtpClient m)
 mkNtpClient ncSettings sock = liftIO $ do
     ncSocket <- newTVarIO sock
     ncState  <- newTVarIO Nothing
     ncClosed <- newTVarIO False
     return NtpClient{..}
 
-instance Default NtpClientSettings where
+instance Monad m => Default (NtpClientSettings m) where
     def = NtpClientSettings
         { ntpServers         = [ "ntp5.stratum2.ru"
                                , "ntp1.stratum1.ru"
@@ -97,10 +102,8 @@ instance Default NtpClientSettings where
         , ntpMeanSelection   = \l -> let len = length l in (sortOn fst l) !! ((len - 1) `div` 2)
         }
 
-newtype NtpStopButton = NtpStopButton
-    { press :: forall m . ( MonadIO m, WithLogger m
-                          , Mockable Fork m, Mockable Throw m, Mockable Catch m )
-                          => m ()
+newtype NtpStopButton m = NtpStopButton
+    { pressNtpStopButton :: m ()
     }
 
 newtype FailedToResolveHost = FailedToResolveHost String
@@ -116,17 +119,17 @@ type NtpMonad m =
     , Mockable Catch m
     )
 
-log' :: NtpMonad m => NtpClientSettings -> Severity -> Text -> m ()
+log' :: NtpMonad m => NtpClientSettings m -> Severity -> Text -> m ()
 log' settings severity msg =
     let logName = ntpLogName settings
     in  modifyLoggerName (<> logName) $ logMessage severity msg
 
-log :: NtpMonad m => NtpClient -> Severity -> Text -> m ()
+log :: NtpMonad m => NtpClient m -> Severity -> Text -> m ()
 log cli severity msg = do
     closed <- liftIO $ readTVarIO (ncClosed cli)
     unless closed $ log' (ncSettings cli) severity msg
 
-handleCollectedResponses :: NtpMonad m => NtpClient -> m ()
+handleCollectedResponses :: NtpMonad m => NtpClient m -> m ()
 handleCollectedResponses cli = do
     mres <- liftIO $ readTVarIO (ncState cli)
     let selection = ntpMeanSelection (ncSettings cli)
@@ -144,7 +147,7 @@ handleCollectedResponses cli = do
   where
     handleE = log cli Error . sformat ("ntpMeanSelection: "%shown)
 
-doSend :: NtpMonad m => SockAddr -> NtpClient -> m ()
+doSend :: NtpMonad m => SockAddr -> NtpClient m -> m ()
 doSend addr cli = do
     sock   <- liftIO $ readTVarIO (ncSocket cli)
     packet <- encode <$> mkCliNtpPacket
@@ -154,7 +157,7 @@ doSend addr cli = do
     handleE =
         log cli Warning . sformat ("Failed to send to "%shown%": "%shown) addr
 
-startSend :: NtpMonad m => [SockAddr] -> NtpClient -> m ()
+startSend :: NtpMonad m => [SockAddr] -> NtpClient m -> m ()
 startSend addrs cli = do
     let timeout = ntpResponseTimeout (ncSettings cli)
     let poll    = ntpPollDelay (ncSettings cli)
@@ -173,7 +176,7 @@ startSend addrs cli = do
 
         startSend addrs cli
 
-mkSocket :: NtpMonad m => NtpClientSettings -> m Socket
+mkSocket :: NtpMonad m => NtpClientSettings m -> m Socket
 mkSocket settings = doMkSocket `catchAll` handlerE
   where
     doMkSocket = liftIO $ do
@@ -195,7 +198,7 @@ mkSocket settings = doMkSocket `catchAll` handlerE
         liftIO $ threadDelay (5 :: Second)
         mkSocket settings
 
-handleNtpPacket :: NtpMonad m => NtpClient -> NtpPacket -> m ()
+handleNtpPacket :: NtpMonad m => NtpClient m -> NtpPacket -> m ()
 handleNtpPacket cli packet = do
     log cli Debug $ sformat ("Got packet "%shown) packet
 
@@ -210,7 +213,7 @@ handleNtpPacket cli packet = do
     when late $
         log cli Warning "Response was too late"
 
-doReceive :: NtpMonad m => NtpClient -> m ()
+doReceive :: NtpMonad m => NtpClient m -> m ()
 doReceive cli = do
     sock <- liftIO . readTVarIO $ ncSocket cli
     forever $ do
@@ -222,7 +225,7 @@ doReceive cli = do
             Right (_, _, packet) ->
                 handleNtpPacket cli packet
 
-startReceive :: NtpMonad m => NtpClient -> m ()
+startReceive :: NtpMonad m => NtpClient m -> m ()
 startReceive cli = do
     doReceive cli `catchAll` handleE
   where
@@ -240,7 +243,7 @@ startReceive cli = do
             unless closed' $
                 startReceive cli
 
-stopNtpClient :: NtpMonad m => NtpClient -> m ()
+stopNtpClient :: NtpMonad m => NtpClient m -> m ()
 stopNtpClient cli = do
     log cli Notice "Stopped"
     sock <- liftIO . atomically $ do
@@ -250,7 +253,7 @@ stopNtpClient cli = do
     -- unblock receiving from socket in case no one replies
     liftIO (close sock) `catchAll` \_ -> return ()
 
-startNtpClient :: NtpMonad m => NtpClientSettings -> m NtpStopButton
+startNtpClient :: NtpMonad m => NtpClientSettings m -> m (NtpStopButton m)
 startNtpClient settings = do
     sock <- mkSocket settings
     cli <- mkNtpClient settings sock
@@ -262,7 +265,7 @@ startNtpClient settings = do
 
     log cli Notice "Launched"
 
-    return NtpStopButton { press = stopNtpClient cli }
+    return $ NtpStopButton $ stopNtpClient cli
   where
     resolveHost host = do
         maddr <- liftIO $ resolveNtpHost host
@@ -274,8 +277,8 @@ startNtpClient settings = do
 -- and stop it.
 ntpSingleShot
     :: (Mockable Delay m, NtpMonad m)
-    => NtpClientSettings -> m ()
+    => NtpClientSettings m -> m ()
 ntpSingleShot settings = do
     stopButton <- startNtpClient settings
     delay (ntpResponseTimeout settings)
-    press stopButton
+    pressNtpStopButton stopButton

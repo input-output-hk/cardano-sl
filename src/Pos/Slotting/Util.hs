@@ -23,6 +23,7 @@ module Pos.Slotting.Util
 
 import           Control.Monad.Catch      (MonadCatch, catch)
 import           Data.Time.Units          (Millisecond)
+import           Data.Time.Units          (convertUnit)
 import           Formatting               (build, int, sformat, shown, (%))
 import           Mockable                 (Delay, Fork, Mockable, delay, fork)
 import           Serokell.Util.Exceptions ()
@@ -36,8 +37,9 @@ import           Pos.Context              (WithNodeContext (getNodeContext),
 import           Pos.Exception            (CardanoException)
 import           Pos.Slotting.Class       (MonadSlots (..), MonadSlotsData (..))
 import           Pos.Slotting.Error       (SlottingError (..))
+import           Pos.Slotting.Types       (EpochSlottingData (..), SlottingData (..))
 import           Pos.Types                (FlatSlotId, SlotId (..), Timestamp (..),
-                                           flattenSlotId, slotIdF, unflattenSlotId)
+                                           flattenSlotId, slotIdF)
 import           Pos.Util                 (maybeThrow)
 import           Pos.Util.Shutdown        (ifNotShutdown)
 import           Pos.Util.TimeWarp        (minute, sec)
@@ -48,12 +50,14 @@ getCurrentSlotFlat = fmap flattenSlotId <$> getCurrentSlot
 
 -- | Get timestamp when given slot starts.
 getSlotStart :: MonadSlotsData m => SlotId -> m (Maybe Timestamp)
-getSlotStart = notImplemented
--- getSlotStart (flattenSlotId -> slotId) = do
---     slotDuration <- getSlotDuration
---     startTime    <- getSystemStartTime
---     return $ startTime +
---              Timestamp (fromIntegral slotId * convertUnit slotDuration)
+getSlotStart SlotId{..} = do
+    SlottingData{..} <- getSlottingData
+    if | siEpoch < sdPenultEpoch -> pure Nothing
+       | siEpoch == sdPenultEpoch -> pure . Just $ slotTimestamp siSlot sdPenult
+       | otherwise -> pure . Just $ slotTimestamp siSlot sdLast
+  where
+    slotTimestamp locSlot EpochSlottingData{..} =
+        esdStart + Timestamp (fromIntegral locSlot * convertUnit esdSlotDuration)
 
 -- | Get timestamp when given slot starts empatically, which means
 -- that function throws exception when slot start is unknown.

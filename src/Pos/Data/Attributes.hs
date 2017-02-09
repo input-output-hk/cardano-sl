@@ -18,6 +18,7 @@ import           Data.Binary.Get     (Get, getWord8)
 import qualified Data.Binary.Get     as G
 import           Data.Binary.Put     (Put, putByteString, putWord8)
 import qualified Data.ByteString     as BS
+import           Data.Default        (Default (..))
 import           Data.DeriveTH       (derive, makeNFData)
 import qualified Data.Map            as M
 import           Data.SafeCopy       (SafeCopy (..), contain, safeGet, safePut)
@@ -26,8 +27,8 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting          (bprint, build, int, (%))
 import           Universum           hiding (putByteString)
 
-import           Pos.Util.Binary     (getRemainingByteString, getWithLengthLimited,
-                                      putWithLength)
+import           Pos.Util.Binary     (getRemainingByteString, getWithLength,
+                                      getWithLengthLimited, putWithLength)
 
 mkAttributes :: h -> Attributes h
 mkAttributes dat = Attributes dat BS.empty
@@ -41,6 +42,9 @@ data Attributes h = Attributes
     , attrRemain :: ByteString
     }
   deriving (Eq, Ord, Generic, Typeable)
+
+instance Default h => Default (Attributes h) where
+    def = mkAttributes def
 
 instance Base.Show h => Base.Show (Attributes h) where
     show Attributes {..} =
@@ -70,12 +74,14 @@ instance SafeCopy h => SafeCopy (Attributes h) where
 
 -- | Generate 'Attributes' reader given mapper from keys to 'Get',
 -- maximum input length and the attribute value 'h' itself.
+--
+-- The mapper will be applied until it returns 'Nothing'.
 getAttributes :: (Word8 -> h -> Maybe (Get h))
-              -> Word32
+              -> Maybe Word32
               -> h
               -> Get (Attributes h)
 getAttributes keyGetMapper maxLen initData =
-    getWithLengthLimited (fromIntegral maxLen) $ do
+    maybeLimit $ do
         let readWhileKnown dat = ifM G.isEmpty (return dat) $ do
                 key <- G.lookAhead getWord8
                 case keyGetMapper key dat of
@@ -84,16 +90,20 @@ getAttributes keyGetMapper maxLen initData =
         attrData <- readWhileKnown initData
         attrRemain <- getRemainingByteString
         return $ Attributes {..}
+  where
+    maybeLimit act = case maxLen of
+        Nothing -> getWithLength act
+        Just l  -> getWithLengthLimited (fromIntegral l) act
 
 -- | Generate 'Put' given the way to serialize inner attribute value
 -- into set of keys and values.
-putAttributes :: (h -> [(Word8, ByteString)]) -> Attributes h -> Put
+putAttributes :: (h -> [(Word8, Put)]) -> Attributes h -> Put
 putAttributes putMapper Attributes {..} =
     putWithLength $ do
         mapM_ putAttr kvs
         putByteString attrRemain
   where
-    putAttr (k, v) = putWord8 k *> putByteString v
+    putAttr (k, v) = putWord8 k *> v
     kvs = M.toAscList $ M.fromList $ putMapper attrData
 
 derive makeNFData ''Attributes

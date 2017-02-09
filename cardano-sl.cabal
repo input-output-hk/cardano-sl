@@ -1141,6 +1141,7 @@ test-suite cardano-test
                      , cereal
                      , containers
                      , cryptonite
+                     , data-default
                      , formatting
                      , hspec
                      , lens

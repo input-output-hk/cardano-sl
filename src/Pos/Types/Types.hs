@@ -68,6 +68,7 @@ import           Pos.Crypto             (Hash, ProxySecretKey, ProxySignature, P
                                          Signature, hash, shortHashF)
 import           Pos.Data.Attributes    (Attributes)
 import           Pos.Script.Type        (Script)
+import           Pos.Types.Address      ()
 import           Pos.Types.Core         (Address (..), Coin, EpochIndex, StakeholderId,
                                          coinF)
 
@@ -165,8 +166,8 @@ instance Buildable TxOutAux where
 -- (e.g. for the purpose of running follow-the-satoshi).
 txOutStake :: TxOutAux -> [(StakeholderId, Coin)]
 txOutStake (TxOut{..}, mb) = case txOutAddress of
-    PubKeyAddress x -> [(x, txOutValue)]
-    _               -> mb
+    PubKeyAddress x _ -> [(x, txOutValue)]
+    _                 -> mb
 
 -- | Transaction.
 --

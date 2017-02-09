@@ -2,9 +2,11 @@
 
 module Pos.Types.Arbitrary.Unsafe () where
 
+import           Data.Default                (def)
 import           Universum
 
 import           Pos.Crypto.Arbitrary.Unsafe ()
+import           Pos.Data.Attributes         (mkAttributes)
 import           Pos.Types.Core              (Address (..), Coin, EpochIndex (..),
                                               LocalSlotIndex (..), SlotId (..), mkCoin)
 import           Pos.Types.Types             (SharedSeed (..), TxOut (..))
@@ -19,6 +21,7 @@ instance ArbitraryUnsafe Coin where
 
 instance ArbitraryUnsafe Address where
     arbitraryUnsafe = PubKeyAddress <$> arbitraryUnsafe
+                                    <*> pure (mkAttributes def)
 
 instance ArbitraryUnsafe SlotId where
     arbitraryUnsafe = SlotId <$> arbitraryUnsafe <*> arbitraryUnsafe

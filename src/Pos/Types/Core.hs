@@ -30,6 +30,7 @@ module Pos.Types.Core
 
         -- * Address
        , Address (..)
+       , AddrPkAttrs (..)
        , AddressHash
        , StakeholderId
 
@@ -54,6 +55,7 @@ import           Control.Exception   (assert)
 import           Control.Lens        (Getter, to)
 import           Crypto.Hash         (Blake2s_224)
 import           Data.Data           (Data)
+import           Data.Default        (Default (..))
 import           Data.Hashable       (Hashable)
 import           Data.Ix             (Ix)
 import           Data.Text.Buildable (Buildable)
@@ -65,6 +67,7 @@ import           Serokell.AcidState  ()
 import           Universum
 
 import           Pos.Crypto          (AbstractHash, Hash, PublicKey)
+import           Pos.Data.Attributes (Attributes)
 import           Pos.Script.Type     (Script)
 
 ----------------------------------------------------------------------------
@@ -230,11 +233,23 @@ newtype Timestamp = Timestamp
 -- | Address is where you can send coins.
 data Address
     = PubKeyAddress
-          { addrKeyHash :: !(AddressHash PublicKey) }
+          { addrKeyHash      :: !(AddressHash PublicKey)
+          , addrPkAttributes :: !(Attributes AddrPkAttrs) }
     | ScriptAddress
           { addrScriptHash :: !(AddressHash Script) }
     | UnknownAddressType !Word8 !ByteString
-    deriving (Eq, Ord, Generic, Typeable)
+    deriving (Eq, Ord, Generic, Typeable, Show)
+
+data AddrPkAttrs = AddrPkAttrs
+    { addrPkDerivationPath :: Maybe [Word32]
+    }
+    deriving (Eq, Ord, Generic, Typeable, Show)
+
+instance Default AddrPkAttrs where
+    def = AddrPkAttrs Nothing
+
+instance NFData Address
+instance NFData AddrPkAttrs
 
 -- | Stakeholder identifier (stakeholders are identified by their public keys)
 type StakeholderId = AddressHash PublicKey

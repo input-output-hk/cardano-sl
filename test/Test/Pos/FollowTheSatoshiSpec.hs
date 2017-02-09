@@ -7,6 +7,7 @@ module Test.Pos.FollowTheSatoshiSpec
        ( spec
        ) where
 
+import           Data.Default          (def)
 import           Data.List             (scanl1)
 import qualified Data.Map              as M (fromList, insert, singleton)
 import qualified Data.Set              as S (deleteFindMin, fromList, size)
@@ -87,7 +88,7 @@ instance Arbitrary StakeAndHolder where
             values = scanl1 unsafeAddCoin $ replicate nAdr coins
             utxoList =
                 (replicate nAdr txId `zip` [0 .. fromIntegral nAdr]) `zip`
-                (zipWith (\ah v -> (TxOut (PubKeyAddress ah) v, [])) (toList setUtxo) values)
+                (zipWith (\ah v -> (TxOut (PubKeyAddress ah def) v, [])) (toList setUtxo) values)
         return (myAddrHash, M.fromList utxoList)
 
 ftsListLength :: SharedSeed -> StakeAndHolder -> Bool
@@ -112,7 +113,7 @@ ftsAllStake
     -> Coin
     -> Bool
 ftsAllStake fts key ah v =
-    let utxo = M.singleton key (TxOut (PubKeyAddress ah) v, [])
+    let utxo = M.singleton key (TxOut (PubKeyAddress ah def) v, [])
     in all (== ah) $ followTheSatoshi fts utxo
 
 -- | Constant specifying the number of times 'ftsReasonableStake' will be
@@ -182,7 +183,7 @@ ftsReasonableStake
         newStake     = unsafeIntegerToCoin . round $
                            (stakeProbability * totalStake) /
                            (1 - stakeProbability)
-        txOut        = TxOut (PubKeyAddress adrH) newStake
+        txOut        = TxOut (PubKeyAddress adrH def) newStake
         newUtxo      = M.insert key (txOut, []) utxo
         picks        = followTheSatoshi fts newUtxo
         pLen         = length picks

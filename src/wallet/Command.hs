@@ -18,8 +18,8 @@ import           Pos.Binary                 ()
 import           Pos.Crypto                 (Hash, decodeHash)
 import           Pos.Script.Type            (ScriptVersion)
 import           Pos.Types                  (Address (..), BlockVersion, SoftwareVersion,
-                                             TxOut (..), mkCoin, parseBlockVersion,
-                                             parseSoftwareVersion)
+                                             TxOut (..), decodeTextAddress, mkCoin,
+                                             parseBlockVersion, parseSoftwareVersion)
 import           Pos.Update                 (UpId)
 import           Pos.Util                   (parseIntegralSafe)
 
@@ -53,7 +53,11 @@ anyText :: Parser Text
 anyText = lexeme $ fmap toText $ manyTill anyChar (void (try space) <|> try eof)
 
 address :: Parser Address
-address = lexeme $ read <$> many1 alphaNum
+address = lexeme $ do
+    str <- many1 alphaNum
+    case decodeTextAddress (toText str) of
+        Left err -> fail (toString err)
+        Right x  -> return x
 -- pubKey :: Parser PublicKey
 -- pubKey =
 --     fromMaybe (panic "couldn't read pk") . parseFullPublicKey . toText <$>

@@ -75,6 +75,7 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
            whenJust needQueryMore $ \(peerId, rHeader) -> do
                logDebug "Queue is empty, we're in recovery mode -> querying more"
                whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
+                   handleAll (handleLE recHeaderVar ph) $
                    withConnectionTo sendActions peerId $
                        requestHeaders mghNext (Just rHeader) peerId
            loop queue recHeaderVar
@@ -409,8 +410,7 @@ addToBlockRequestQueue
 addToBlockRequestQueue headers recoveryTip peerId = do
     queue <- ncBlockRetrievalQueue <$> getNodeContext
     recHeaderVar <- ncRecoveryHeader <$> getNodeContext
-    let updateQueue = True <$ writeTBQueue queue (peerId, headers)
-        updateRecoveryHeader (Just recTip) = do
+    let updateRecoveryHeader (Just recTip) = do
             let replace = do void $ tryTakeTMVar recHeaderVar
                              putTMVar recHeaderVar (peerId, recTip)
             tryReadTMVar recHeaderVar >>= \case
@@ -420,7 +420,9 @@ addToBlockRequestQueue headers recoveryTip peerId = do
         updateRecoveryHeader _ = pass
     added <- atomically $ do
         updateRecoveryHeader recoveryTip
-        ifM (isFullTBQueue queue) (pure False) updateQueue
+        ifM (isFullTBQueue queue)
+            (pure False)
+            (True <$ writeTBQueue queue (peerId, headers))
     if added
     then logDebug $ sformat ("Added to block request queue: peerId="%build%
                              ", headers="%listJson)

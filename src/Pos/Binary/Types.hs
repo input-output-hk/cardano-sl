@@ -26,7 +26,7 @@ import           Pos.Util.Binary     (getRemainingByteString, getWithLength,
 
 instance Bi (A.Attributes ()) where
     get = label "Attributes" $
-        A.getAttributes (\_ () -> Nothing) (128 * 1024 * 1024) ()
+        A.getAttributes (\_ () -> Nothing) (Just (128 * 1024 * 1024)) ()
     put = A.putAttributes (\() -> [])
 
 instance Bi T.Coin where

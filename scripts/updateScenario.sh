@@ -24,15 +24,16 @@ fi
 cd ../cardano-updater
 echo "Building cardano-updater"
 stack build --fast
+cardano_updater_local_bin=$(stack path --local-install-root)/bin
 cd $csldir
 
-updater=$(find ../cardano-updater/.stack-work/install/ -name "cardano-updater" -exec readlink -f {} \; | head -n 1)
+updater=$(find $cardano_updater_local_bin -name "cardano-updater" -exec readlink -f {} \; | head -n 1)
 
 echo "Building cardano-sl"
 stack clean cardano-sl
 grep "BlockVersion 0 0 0" src/Pos/Constants.hs  # fails if not found
 stack build --fast 
-csl_bin=$(find .stack-work/install/ -iname "bin")
+csl_bin=$(stack path --local-install-root)/bin
 
 originalMd5=$(md5sum $csl_bin/cardano-node)
 

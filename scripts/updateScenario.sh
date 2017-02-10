@@ -62,7 +62,7 @@ mv -v src/Pos/Constants.hs.backup src/Pos/Constants.hs
 cp binaries_v000/* $csl_bin/
 #stack build --fast
 afterRestoreMd5=$(md5sum $csl_bin/cardano-node)
-if [ "$originalMd5" /= "$afterRestoreMd5" ]; then
+if [ "$originalMd5" != "$afterRestoreMd5" ]; then
     echo "md5 '$originalMd5' doesn't match '$afterRestoreMd5'"
 fi
 

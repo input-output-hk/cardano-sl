@@ -49,7 +49,7 @@ import           Pos.DB.Class                (MonadDB)
 import           Pos.Slotting.Class          (MonadSlots (..), MonadSlotsData (..))
 import           Pos.Slotting.Types          (EpochSlottingData (..), SlottingData (..))
 import           Pos.Types                   (EpochIndex, SlotId (..), Timestamp (..),
-                                              unflattenSlotId)
+                                              flattenEpochIndex, unflattenSlotId)
 import           Pos.Util.JsonLog            (MonadJL)
 
 ----------------------------------------------------------------------------
@@ -154,6 +154,7 @@ instance SlottingConstraint m =>
          MonadSlots (NtpSlotting m) where
     getCurrentSlot = ntpGetCurrentSlot
     getCurrentSlotBlocking = ntpGetCurrentSlotBlocking
+    getCurrentSlotInaccurate = ntpGetCurrentSlotInaccurate
     currentTimeSlotting = ntpCurrentTime
     slottingWorkers = [ntpSyncWorker]
 
@@ -173,6 +174,27 @@ ntpGetCurrentSlot = do
     ntpGetCurrentSlotImpl <&> \case
         CurrentSlot slot -> Just slot
         _                -> Nothing
+
+ntpGetCurrentSlotInaccurate :: SlottingConstraint m => NtpSlotting m SlotId
+ntpGetCurrentSlotInaccurate = do
+    res <- ntpGetCurrentSlotImpl
+    case res of
+        CurrentSlot slot -> pure slot
+        CantTrust        -> do
+            var <- NtpSlotting ask
+            _nssLastSlot <$> atomically (STM.readTVar var)
+        OutdatedSlottingData penult -> do
+            var <- NtpSlotting ask
+            margin <- _nssLastMargin <$> atomically (STM.readTVar var)
+            t <- Timestamp . (+ margin) <$> currentTime
+            SlottingData {..} <- getSlottingData
+            pure $ outdatedEpoch t (penult + 1) sdLast
+  where
+    outdatedEpoch (Timestamp curTime) epoch EpochSlottingData {..} =
+        let duration = convertUnit esdSlotDuration
+            start = getTimestamp esdStart in
+        unflattenSlotId $
+        flattenEpochIndex epoch + fromIntegral ((curTime - start) `div` duration)
 
 ntpGetCurrentSlotImpl :: SlottingConstraint m => NtpSlotting m SlotStatus
 ntpGetCurrentSlotImpl = do

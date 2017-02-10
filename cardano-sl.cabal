@@ -414,7 +414,6 @@ library
                         Pos.Wallet.Launcher.Runner
                         Pos.Wallet.Launcher.Param
                         Pos.Wallet.KeyStorage
-                        Pos.Wallet.Slotting
                         Pos.Wallet.State
                         Pos.Wallet.State.Acidic
                         Pos.Wallet.State.Holder

@@ -20,7 +20,6 @@ import qualified Pos.Txp.Holder              as Modern
 import           Pos.Update                  (USHolder (..))
 
 import           Pos.Wallet.Context.Context  (WalletContext (..), fromNodeCtx)
-import           Pos.Wallet.Slotting         (WalletDBSlotsData)
 
 -- | Class for something that has 'NodeContext' inside.
 class Monad m => WithWalletContext m where
@@ -32,7 +31,6 @@ instance (Monad m, WithWalletContext m) => WithWalletContext (ReaderT a m)
 instance (Monad m, WithWalletContext m) => WithWalletContext (StateT a m)
 instance (Monad m, WithWalletContext m) => WithWalletContext (PeerStateHolder m)
 instance (Monad m, WithWalletContext m) => WithWalletContext (NtpSlotting m)
-instance (Monad m, WithWalletContext m) => WithWalletContext (WalletDBSlotsData m)
 instance (Monad m, WithWalletContext m) => WithWalletContext (SlottingHolder m)
 
 instance Monad m => WithWalletContext (PC.ContextHolder ssc m) where

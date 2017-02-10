@@ -40,7 +40,7 @@ import           Pos.Delegation              (DelegationT (..))
 import           Pos.DHT.Model               (MonadDHT)
 import           Pos.DHT.Real                (KademliaDHT (..))
 import           Pos.Slotting                (MonadSlots, NtpSlotting, SlottingHolder,
-                                              getCurrentSlot)
+                                              getCurrentSlotInaccurate)
 import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
 import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp.Class               (getMemPool, getUtxoView)
@@ -61,7 +61,6 @@ import           Pos.WorkMode                (MinWorkMode)
 
 import           Pos.Wallet.Context          (ContextHolder, WithWalletContext)
 import           Pos.Wallet.KeyStorage       (KeyStorage, MonadKeys)
-import           Pos.Wallet.Slotting         (WalletDBSlotsData)
 import           Pos.Wallet.State            (WalletDB)
 import qualified Pos.Wallet.State            as WS
 import           Pos.Wallet.Tx.Pure          (TxHistoryEntry, deriveAddrHistory,
@@ -86,7 +85,6 @@ instance MonadBalances m => MonadBalances (KademliaDHT m)
 instance MonadBalances m => MonadBalances (KeyStorage m)
 instance MonadBalances m => MonadBalances (PeerStateHolder m)
 instance MonadBalances m => MonadBalances (NtpSlotting m)
-instance MonadBalances m => MonadBalances (WalletDBSlotsData m)
 instance MonadBalances m => MonadBalances (SlottingHolder m)
 
 deriving instance MonadBalances m => MonadBalances (PC.ContextHolder ssc m)
@@ -127,7 +125,6 @@ instance MonadTxHistory m => MonadTxHistory (KademliaDHT m)
 instance MonadTxHistory m => MonadTxHistory (KeyStorage m)
 instance MonadTxHistory m => MonadTxHistory (PeerStateHolder m)
 instance MonadTxHistory m => MonadTxHistory (NtpSlotting m)
-instance MonadTxHistory m => MonadTxHistory (WalletDBSlotsData m)
 instance MonadTxHistory m => MonadTxHistory (SlottingHolder m)
 
 deriving instance MonadTxHistory m => MonadTxHistory (PC.ContextHolder ssc m)
@@ -201,7 +198,6 @@ instance MonadBlockchainInfo m => MonadBlockchainInfo (KademliaDHT m)
 instance MonadBlockchainInfo m => MonadBlockchainInfo (KeyStorage m)
 instance MonadBlockchainInfo m => MonadBlockchainInfo (PeerStateHolder m)
 instance MonadBlockchainInfo m => MonadBlockchainInfo (NtpSlotting m)
-instance MonadBlockchainInfo m => MonadBlockchainInfo (WalletDBSlotsData m)
 instance MonadBlockchainInfo m => MonadBlockchainInfo (SlottingHolder m)
 
 deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (Modern.TxpLDHolder ssc m)
@@ -239,8 +235,7 @@ instance ( SscHelpersClass ssc
         Just hh -> return $ hh ^. difficultyL
         Nothing -> do
             th <- topHeader
-            -- cSlot <- fromIntegral . flattenSlotId <$> getCurrentSlot
-            cSlot <- undefined
+            cSlot <- fromIntegral . flattenSlotId <$> getCurrentSlotInaccurate
             let hSlot = fromIntegral $ flattenEpochOrSlot th :: Int
                 blksLeft = fromIntegral $ max 0 $ cSlot - blkSecurityParam - hSlot
             return $ blksLeft + th ^. difficultyL
@@ -266,7 +261,6 @@ instance MonadUpdates m => MonadUpdates (KademliaDHT m)
 instance MonadUpdates m => MonadUpdates (KeyStorage m)
 instance MonadUpdates m => MonadUpdates (PeerStateHolder m)
 instance MonadUpdates m => MonadUpdates (NtpSlotting m)
-instance MonadUpdates m => MonadUpdates (WalletDBSlotsData m)
 instance MonadUpdates m => MonadUpdates (SlottingHolder m)
 
 deriving instance MonadUpdates m => MonadUpdates (Modern.TxpLDHolder ssc m)
@@ -316,7 +310,7 @@ type WalletMode ssc m
 type WalletRealMode = PeerStateHolder (KademliaDHT
                       (KeyStorage
                        (NtpSlotting
-                        (WalletDBSlotsData
+                        (SlottingHolder
                          (WalletDB
                           (ContextHolder
                            (LoggerNameBox

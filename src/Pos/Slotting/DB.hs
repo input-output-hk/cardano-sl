@@ -5,11 +5,13 @@
 
 module Pos.Slotting.DB
        ( DBSlotsData (..)
+       , SlottingVar
+       , runDBSlotsData
+       , mkSlottingVar
        ) where
 
-import           Control.Concurrent.STM      (TVar)
+import           Control.Concurrent.STM      (TVar, newTVarIO, readTVar, writeTVar)
 import           Control.Lens                (iso)
-import           Control.Lens                (makeLenses)
 import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Fix           (MonadFix)
 import           Control.Monad.Trans.Class   (MonadTrans)
@@ -17,47 +19,35 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,
                                               defaultLiftBaseWith, defaultLiftWith,
                                               defaultRestoreM, defaultRestoreT)
-import           Data.Time.Units             (Microsecond)
-import           Formatting                  (sformat, (%))
-import           Mockable                    (ChannelT, Counter, CurrentTime,
-                                              Distribution, Gauge, MFunctor',
-                                              Mockable (liftMockable), Promise,
+import           Mockable                    (ChannelT, Counter, Distribution, Gauge,
+                                              MFunctor', Mockable (liftMockable), Promise,
                                               SharedAtomicT, SharedExclusiveT, ThreadId,
                                               liftMockableWrappedM)
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
-import           System.Wlog                 (logNotice, modifyLoggerName)
 import           Universum
 
 import           Pos.Context.Class           (WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
+import qualified Pos.DB.GState               as GState
 import           Pos.Slotting.Class          (MonadSlotsData (..))
-import           Pos.Types                   (SlotId, slotIdF)
+import           Pos.Slotting.Types          (SlottingData (sdPenultEpoch))
 import           Pos.Util.JsonLog            (MonadJL)
-
-import qualified Control.Concurrent.STM      as STM
-import           Data.List                   ((!!))
-import           Data.Time.Units             (Microsecond)
-import           Formatting                  (int, sformat, (%))
-import           NTP.Client                  (NtpClientSettings (..), startNtpClient)
-import           NTP.Example                 ()
-import           System.Wlog                 (WithLogger, logDebug)
-import           Universum
-
-import qualified Pos.Constants               as C
-import           Pos.Context                 (NodeContext (..), getNodeContext)
 
 ----------------------------------------------------------------------------
 -- Transformer
 ----------------------------------------------------------------------------
 
+type SlottingVar = TVar SlottingData
+
 -- | Monad transformer which provides 'SlottingData' using DB.
 newtype DBSlotsData m a = DBSlotsData
-    { runDBSlotsData :: m a
+    { getDBSlotsData :: ReaderT SlottingVar m a
     } deriving ( Functor
                , Applicative
                , Monad
                , MonadIO
+               , MonadTrans
                , MonadFix
 
                , MonadThrow
@@ -87,22 +77,20 @@ type instance SharedExclusiveT (DBSlotsData m) = SharedExclusiveT m
 type instance Gauge (DBSlotsData m) = Gauge m
 type instance ChannelT (DBSlotsData m) = ChannelT m
 
-instance MonadTrans DBSlotsData where
-    lift = DBSlotsData
-
 instance ( Mockable d m
-         , MFunctor' d (DBSlotsData m) m
+         , MFunctor' d (DBSlotsData m) (ReaderT SlottingVar m)
+         , MFunctor' d (ReaderT SlottingVar m) m
          ) => Mockable d (DBSlotsData m) where
     liftMockable = liftMockableWrappedM
 
 instance Monad m => WrappedM (DBSlotsData m) where
-    type UnwrappedM (DBSlotsData m) = m
-    _WrappedM = iso runDBSlotsData DBSlotsData
+    type UnwrappedM (DBSlotsData m) = ReaderT SlottingVar m
+    _WrappedM = iso getDBSlotsData DBSlotsData
 
 instance MonadTransControl DBSlotsData where
-    type StT DBSlotsData a = a
-    liftWith f = DBSlotsData $ f $ runDBSlotsData
-    restoreT = DBSlotsData
+    type StT DBSlotsData a = StT (ReaderT SlottingVar) a
+    liftWith = defaultLiftWith DBSlotsData getDBSlotsData
+    restoreT = defaultRestoreT DBSlotsData
 
 instance MonadBaseControl IO m => MonadBaseControl IO (DBSlotsData m) where
     type StM (DBSlotsData m) a = ComposeSt DBSlotsData m a
@@ -113,7 +101,30 @@ instance MonadBaseControl IO m => MonadBaseControl IO (DBSlotsData m) where
 -- MonadSlotsData implementation
 ----------------------------------------------------------------------------
 
-instance MonadDB σ m => MonadSlotsData (DBSlotsData m) where
-    getSlottingData = notImplemented
-    waitSlottingData  = notImplemented
-    putSlottingData = notImplemented
+instance MonadIO m =>
+         MonadSlotsData (DBSlotsData m) where
+    getSlottingData = atomically . readTVar =<< DBSlotsData ask
+    waitPenultEpochEquals target = do
+        var <- DBSlotsData ask
+        atomically $ do
+            penultEpoch <- sdPenultEpoch <$> readTVar var
+            when (penultEpoch /= target) retry
+    putSlottingData sd = do
+        var <- DBSlotsData ask
+        atomically $ do
+            penultEpoch <- sdPenultEpoch <$> readTVar var
+            when (penultEpoch < sdPenultEpoch sd) $ writeTVar var sd
+
+----------------------------------------------------------------------------
+-- Running
+----------------------------------------------------------------------------
+
+-- | Run USHolder using existing 'SlottingVar'.
+runDBSlotsData :: SlottingVar -> DBSlotsData m a -> m a
+runDBSlotsData v = usingReaderT v . getDBSlotsData
+
+-- | Create new 'SlottingVar' using data from DB.
+mkSlottingVar :: MonadDB ε m => m SlottingVar
+mkSlottingVar = do
+    sd <- GState.getSlottingData
+    liftIO $ newTVarIO sd

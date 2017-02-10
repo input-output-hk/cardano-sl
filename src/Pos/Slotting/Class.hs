@@ -13,7 +13,7 @@ import           Universum
 import           Pos.Communication.PeerState (PeerStateHolder)
 import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Slotting.Types          (SlottingData)
-import           Pos.Types                   (SlotId (..), Timestamp)
+import           Pos.Types                   (EpochIndex, SlotId (..), Timestamp)
 
 -- | 'MonadSlotsData' provides access to data necessary for slotting to work.
 class Monad m =>
@@ -21,7 +21,7 @@ class Monad m =>
 
     getSlottingData :: m SlottingData
 
-    waitSlottingData :: m ()
+    waitPenultEpochEquals :: EpochIndex -> m ()
 
     putSlottingData :: SlottingData -> m ()
 
@@ -29,9 +29,9 @@ class Monad m =>
         m SlottingData
     getSlottingData = lift getSlottingData
 
-    default waitSlottingData :: (MonadTrans t, MonadSlotsData m', t m' ~ m) =>
-        m ()
-    waitSlottingData = lift waitSlottingData
+    default waitPenultEpochEquals :: (MonadTrans t, MonadSlotsData m', t m' ~ m) =>
+        EpochIndex -> m ()
+    waitPenultEpochEquals = lift . waitPenultEpochEquals
 
     default putSlottingData :: (MonadTrans t, MonadSlotsData m', t m' ~ m) =>
         SlottingData -> m ()

@@ -36,7 +36,8 @@ import           Pos.Communication.PeerState   (PeerStateSnapshot, WithPeerState
 import           Pos.DHT.Real.Real             (runKademliaDHT)
 import           Pos.DHT.Real.Types            (KademliaDHTInstance (..),
                                                 getKademliaDHTInstance)
-import           Pos.Slotting                  (NtpSlotting (..), NtpSlottingVar,
+import           Pos.Slotting                  (DBSlotsData (..), NtpSlotting (..),
+                                                NtpSlottingVar, SlottingVar,
                                                 runDBSlotsData, runNtpSlotting)
 import           Pos.Ssc.Class                 (SscConstraint)
 import           Pos.Ssc.Extra                 (SscHolder (..), SscState, runSscHolder)
@@ -81,17 +82,18 @@ type WebHandler ssc = WalletWebSockets (WalletWebDB (RawRealMode ssc))
 
 nat :: WebHandler ssc (WebHandler ssc :~> Handler)
 nat = do
-    ws       <- getWalletWebState
-    kinst    <- lift . lift . lift $ getKademliaDHTInstance
-    tlw      <- getTxpLDWrap
-    ssc      <- lift . lift . lift . lift . lift . lift . lift $ SscHolder ask
-    delWrap  <- askDelegationState
-    psCtx    <- lift . lift $ getAllStates
-    nc       <- getNodeContext
-    modernDB <- Modern.getNodeDBs
-    conn     <- getWalletWebSockets
-    slotVar  <- lift . lift . lift . lift . lift . lift . lift . lift $ NtpSlotting ask
-    pure $ Nat (convertHandler kinst nc modernDB tlw ssc ws delWrap psCtx conn slotVar)
+    ws         <- getWalletWebState
+    kinst      <- lift . lift . lift $ getKademliaDHTInstance
+    tlw        <- getTxpLDWrap
+    ssc        <- lift . lift . lift . lift . lift . lift . lift $ SscHolder ask
+    delWrap    <- askDelegationState
+    psCtx      <- lift . lift $ getAllStates
+    nc         <- getNodeContext
+    modernDB   <- Modern.getNodeDBs
+    conn       <- getWalletWebSockets
+    slotVar    <- lift . lift . lift . lift . lift . lift . lift . lift . lift $ DBSlotsData ask
+    ntpSlotVar <- lift . lift . lift . lift . lift . lift . lift . lift $ NtpSlotting ask
+    pure $ Nat (convertHandler kinst nc modernDB tlw ssc ws delWrap psCtx conn slotVar ntpSlotVar)
 
 convertHandler
     :: forall ssc a .
@@ -104,16 +106,17 @@ convertHandler
     -> (TVar DelegationWrap)
     -> PeerStateSnapshot
     -> ConnectionsVar
+    -> SlottingVar
     -> NtpSlottingVar
     -> WebHandler ssc a
     -> Handler a
-convertHandler kinst nc modernDBs tlw ssc ws delWrap psCtx conn slotVar handler = do
+convertHandler kinst nc modernDBs tlw ssc ws delWrap psCtx conn slotVar ntpSlotVar handler = do
     liftIO ( runProduction
            . usingLoggerName "wallet-api"
            . Modern.runDBHolder modernDBs
            . runContextHolder nc
-           . runDBSlotsData
-           . runNtpSlotting slotVar
+           . runDBSlotsData slotVar
+           . runNtpSlotting ntpSlotVar
            . runSscHolder ssc
            . Modern.runTxpLDHolderReader tlw
            . runDelegationTFromTVar delWrap

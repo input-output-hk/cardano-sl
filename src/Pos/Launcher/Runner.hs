@@ -95,8 +95,8 @@ import           Pos.DHT.Real                (KademliaDHTInstance,
                                               stopDHTInstance)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NodeParams (..))
-import           Pos.Slotting                (mkNtpSlottingVar, runDBSlotsData,
-                                              runNtpSlotting)
+import           Pos.Slotting                (mkNtpSlottingVar, mkSlottingVar,
+                                              runDBSlotsData, runNtpSlotting)
 import           Pos.Ssc.Class               (SscConstraint, SscHelpersClass,
                                               SscListenersClass, SscNodeContext,
                                               SscParams, sscCreateNodeContext)
@@ -189,11 +189,12 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
     usingLoggerName lpRunnerTag $ do
        initNC <- sscCreateNodeContext @ssc sscnp
        modernDBs <- openNodeDBs npRebuildDb npDbPathM
-       -- FIXME: initialization logic must be in scenario.
+       -- TODO: ideally initialization logic should be in scenario.
        runDBHolder modernDBs . runCH np initNC $ initNodeDBs
        initTip <- runDBHolder modernDBs getTip
        stateM <- liftIO SM.newIO
        stateM_ <- liftIO SM.newIO
+       slottingVar <- runDBHolder modernDBs mkSlottingVar
        ntpSlottingVar <- mkNtpSlottingVar
 
        -- TODO need an effect-free way of running this into IO.
@@ -202,7 +203,7 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
                        usingLoggerName lpRunnerTag .
                        runDBHolder modernDBs .
                        runCH np initNC .
-                       runDBSlotsData .
+                       runDBSlotsData slottingVar .
                        runNtpSlotting ntpSlottingVar .
                        ignoreSscHolder .
                        runTxpLDHolder (UV.createFromDB . _gStateDB $ modernDBs) initTip .
@@ -221,7 +222,7 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
 
        runDBHolder modernDBs .
           runCH np initNC .
-          runDBSlotsData .
+          runDBSlotsData slottingVar .
           runNtpSlotting ntpSlottingVar .
           (mkStateAndRunSscHolder @ssc) .
           runTxpLDHolder (UV.createFromDB . _gStateDB $ modernDBs) initTip .

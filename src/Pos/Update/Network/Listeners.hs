@@ -38,8 +38,8 @@ voteProxy = RelayProxy
 -- | Listeners for requests related to update system
 usListeners
     :: (WorkMode ssc m)
-    => ([ListenerSpec m], OutSpecs)
-usListeners = mappendPair
+    => m ([ListenerSpec m], OutSpecs)
+usListeners = liftM2 mappendPair
                 (relayListeners proposalProxy)
                 (relayListeners voteProxy)
 

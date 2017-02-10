@@ -41,7 +41,7 @@ import           Pos.WorkMode                     (WorkMode)
 
 instance SscListenersClass SscGodTossing where
     sscListeners =
-        Tagged $ relayListeners
+        Tagged <$> relayListeners
                     (RelayProxy :: RelayProxy StakeholderId GtTag GtMsgContents)
     sscStubListeners =
         Tagged $ relayStubListeners

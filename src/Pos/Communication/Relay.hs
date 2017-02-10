@@ -157,33 +157,36 @@ handleDataL
        , Message NOP
        )
     => RelayProxy key tag contents
-    -> (ListenerSpec m, OutSpecs)
-handleDataL proxy = listenerOneMsg outSpecs $
-  \_ _ sendActions msg@(DataMsg {..}) -> do
-      key <- contentsToKey dmContents
-      let _ = dataCatchType proxy msg
-          handleDataLDo :: m ()
-          handleDataLDo = do
-              shouldPropagate <-
-                  npPropagation . ncNodeParams <$> getNodeContext
-              if shouldPropagate then do
-                  logInfo $ sformat
-                      ("Adopted data "%build%" "%
-                       "for key "%build%", propagating...")
-                      dmContents key
-                  tag <- contentsToTag dmContents
-                  sendToNeighbors sendActions $ InvMsg tag (one key)
-              else do
-                  logInfo $ sformat
-                      ("Adopted data "%build%" for "%
-                       "key "%build%", no propagation")
-                      dmContents key
-      processMessage "Data" dmContents verifyDataContents $
-          ifM (handleData dmContents)
-              handleDataLDo $
-              logDebug $ sformat
-                  ("Ignoring data "%build%" for key "%build)
-                  dmContents key
+    -> m (ListenerSpec m, OutSpecs)
+handleDataL proxy = do
+  lengthLimit <- undefined
+  return $ reify lengthLimit $ \(_ :: Proxy s) -> do
+    listenerOneMsg outSpecs $
+      \_ _ sendActions (withLimitedLength @s -> msg@DataMsg {..}) -> do
+        key <- contentsToKey dmContents
+        let _ = dataCatchType proxy msg
+            handleDataLDo :: m ()
+            handleDataLDo = do
+                shouldPropagate <-
+                    npPropagation . ncNodeParams <$> getNodeContext
+                if shouldPropagate then do
+                    logInfo $ sformat
+                        ("Adopted data "%build%" "%
+                         "for key "%build%", propagating...")
+                        dmContents key
+                    tag <- contentsToTag dmContents
+                    sendToNeighbors sendActions $ InvMsg tag (one key)
+                else do
+                    logInfo $ sformat
+                        ("Adopted data "%build%" for "%
+                         "key "%build%", no propagation")
+                        dmContents key
+        processMessage "Data" dmContents verifyDataContents $
+            ifM (handleData dmContents)
+                handleDataLDo $
+                logDebug $ sformat
+                    ("Ignoring data "%build%" for key "%build)
+                    dmContents key
   where
     outSpecs :: OutSpecs
     outSpecs = toOutSpecs [ oneMsgH (invMsgProxy proxy) ]
@@ -217,8 +220,12 @@ relayListeners
      , Bi NOP
      , Message NOP
      )
-  => RelayProxy key tag contents -> ([ListenerSpec m], OutSpecs)
-relayListeners proxy = mergeLs $ map ($ proxy) [handleInvL, handleReqL, handleDataL]
+  => RelayProxy key tag contents -> m ([ListenerSpec m], OutSpecs)
+relayListeners proxy = mergeLs <$> traverse ($ proxy)
+    [ pure . handleInvL
+    , pure . handleReqL
+    , handleDataL
+    ]
 
 relayStubListeners
     :: ( WithLogger m

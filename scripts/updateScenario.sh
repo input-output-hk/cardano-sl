@@ -3,14 +3,16 @@
 build=false
 runNode=false
 
-while [[ $# -gt 1 ]]
+while [[ $# -gt 0 ]]
 do
   key="$1"
   case $key in
     -n|--node)
+      echo "--node flag is on"
       runNode=true
       ;;
     -b|--build)
+      echo "--build flag is on"
       build=true
       ;;
     *)
@@ -34,14 +36,15 @@ if [ ! ${csldir: -10} == "cardano-sl" ]; then echo "You should launch this scrip
 if [ -z "$TMUX" ]; then echo "You should run this script inside tmux session" && exit; fi
 
 # Checking cardano-updater repo is there, cloning if not
-if [ ! -d ../cardano-updater ]; then
+cd ..
+if [ ! -d cardano-updater ]; then
     echo "Didn't manage to locate cardano-update repo, cloning"
-    cd ..
     git clone https://github.com/input-output-hk/cardano-updater.git
 fi
-
+cd cardano-updater
 cardano_updater_local_bin=$(stack path --local-install-root)/bin
 updater=$(find $cardano_updater_local_bin -name "cardano-updater" -exec readlink -f {} \; | head -n 1)
+cd $csldir
 
 if $build; then
   # Building updater

@@ -96,7 +96,7 @@ import           Pos.DHT.Real                (KademliaDHTInstance,
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NodeParams (..))
 import           Pos.Slotting                (mkNtpSlottingVar, mkSlottingVar,
-                                              runDBSlotsData, runNtpSlotting)
+                                              runNtpSlotting, runSlottingHolder)
 import           Pos.Ssc.Class               (SscConstraint, SscHelpersClass,
                                               SscListenersClass, SscNodeContext,
                                               SscParams, sscCreateNodeContext)
@@ -203,7 +203,7 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
                        usingLoggerName lpRunnerTag .
                        runDBHolder modernDBs .
                        runCH np initNC .
-                       runDBSlotsData slottingVar .
+                       runSlottingHolder slottingVar .
                        runNtpSlotting ntpSlottingVar .
                        ignoreSscHolder .
                        runTxpLDHolder (UV.createFromDB . _gStateDB $ modernDBs) initTip .
@@ -222,7 +222,7 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
 
        runDBHolder modernDBs .
           runCH np initNC .
-          runDBSlotsData slottingVar .
+          runSlottingHolder slottingVar .
           runNtpSlotting ntpSlottingVar .
           (mkStateAndRunSscHolder @ssc) .
           runTxpLDHolder (UV.createFromDB . _gStateDB $ modernDBs) initTip .

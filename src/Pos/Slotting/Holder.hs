@@ -1,12 +1,12 @@
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
--- | Implementation of 'MonadSlotsData' which uses 'MonadDB'.
+-- | Default implementation of 'MonadSlotsData' based on 'TVar'.
 
-module Pos.Slotting.DB
-       ( DBSlotsData (..)
+module Pos.Slotting.Holder
+       ( SlottingHolder (..)
        , SlottingVar
-       , runDBSlotsData
+       , runSlottingHolder
        , mkSlottingVar
        ) where
 
@@ -41,8 +41,8 @@ import           Pos.Util.JsonLog            (MonadJL)
 type SlottingVar = TVar SlottingData
 
 -- | Monad transformer which provides 'SlottingData' using DB.
-newtype DBSlotsData m a = DBSlotsData
-    { getDBSlotsData :: ReaderT SlottingVar m a
+newtype SlottingHolder m a = SlottingHolder
+    { getSlottingHolder :: ReaderT SlottingVar m a
     } deriving ( Functor
                , Applicative
                , Monad
@@ -68,32 +68,32 @@ newtype DBSlotsData m a = DBSlotsData
 -- Common instances used all over the code
 ----------------------------------------------------------------------------
 
-type instance ThreadId (DBSlotsData m) = ThreadId m
-type instance Promise (DBSlotsData m) = Promise m
-type instance SharedAtomicT (DBSlotsData m) = SharedAtomicT m
-type instance Counter (DBSlotsData m) = Counter m
-type instance Distribution (DBSlotsData m) = Distribution m
-type instance SharedExclusiveT (DBSlotsData m) = SharedExclusiveT m
-type instance Gauge (DBSlotsData m) = Gauge m
-type instance ChannelT (DBSlotsData m) = ChannelT m
+type instance ThreadId (SlottingHolder m) = ThreadId m
+type instance Promise (SlottingHolder m) = Promise m
+type instance SharedAtomicT (SlottingHolder m) = SharedAtomicT m
+type instance Counter (SlottingHolder m) = Counter m
+type instance Distribution (SlottingHolder m) = Distribution m
+type instance SharedExclusiveT (SlottingHolder m) = SharedExclusiveT m
+type instance Gauge (SlottingHolder m) = Gauge m
+type instance ChannelT (SlottingHolder m) = ChannelT m
 
 instance ( Mockable d m
-         , MFunctor' d (DBSlotsData m) (ReaderT SlottingVar m)
+         , MFunctor' d (SlottingHolder m) (ReaderT SlottingVar m)
          , MFunctor' d (ReaderT SlottingVar m) m
-         ) => Mockable d (DBSlotsData m) where
+         ) => Mockable d (SlottingHolder m) where
     liftMockable = liftMockableWrappedM
 
-instance Monad m => WrappedM (DBSlotsData m) where
-    type UnwrappedM (DBSlotsData m) = ReaderT SlottingVar m
-    _WrappedM = iso getDBSlotsData DBSlotsData
+instance Monad m => WrappedM (SlottingHolder m) where
+    type UnwrappedM (SlottingHolder m) = ReaderT SlottingVar m
+    _WrappedM = iso getSlottingHolder SlottingHolder
 
-instance MonadTransControl DBSlotsData where
-    type StT DBSlotsData a = StT (ReaderT SlottingVar) a
-    liftWith = defaultLiftWith DBSlotsData getDBSlotsData
-    restoreT = defaultRestoreT DBSlotsData
+instance MonadTransControl SlottingHolder where
+    type StT SlottingHolder a = StT (ReaderT SlottingVar) a
+    liftWith = defaultLiftWith SlottingHolder getSlottingHolder
+    restoreT = defaultRestoreT SlottingHolder
 
-instance MonadBaseControl IO m => MonadBaseControl IO (DBSlotsData m) where
-    type StM (DBSlotsData m) a = ComposeSt DBSlotsData m a
+instance MonadBaseControl IO m => MonadBaseControl IO (SlottingHolder m) where
+    type StM (SlottingHolder m) a = ComposeSt SlottingHolder m a
     liftBaseWith = defaultLiftBaseWith
     restoreM     = defaultRestoreM
 
@@ -102,15 +102,15 @@ instance MonadBaseControl IO m => MonadBaseControl IO (DBSlotsData m) where
 ----------------------------------------------------------------------------
 
 instance MonadIO m =>
-         MonadSlotsData (DBSlotsData m) where
-    getSlottingData = atomically . readTVar =<< DBSlotsData ask
+         MonadSlotsData (SlottingHolder m) where
+    getSlottingData = atomically . readTVar =<< SlottingHolder ask
     waitPenultEpochEquals target = do
-        var <- DBSlotsData ask
+        var <- SlottingHolder ask
         atomically $ do
             penultEpoch <- sdPenultEpoch <$> readTVar var
             when (penultEpoch /= target) retry
     putSlottingData sd = do
-        var <- DBSlotsData ask
+        var <- SlottingHolder ask
         atomically $ do
             penultEpoch <- sdPenultEpoch <$> readTVar var
             when (penultEpoch < sdPenultEpoch sd) $ writeTVar var sd
@@ -120,8 +120,8 @@ instance MonadIO m =>
 ----------------------------------------------------------------------------
 
 -- | Run USHolder using existing 'SlottingVar'.
-runDBSlotsData :: SlottingVar -> DBSlotsData m a -> m a
-runDBSlotsData v = usingReaderT v . getDBSlotsData
+runSlottingHolder :: SlottingVar -> SlottingHolder m a -> m a
+runSlottingHolder v = usingReaderT v . getSlottingHolder
 
 -- | Create new 'SlottingVar' using data from DB.
 mkSlottingVar :: MonadDB ε m => m SlottingVar

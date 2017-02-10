@@ -14,7 +14,7 @@ import           Pos.Communication.PeerState (PeerStateHolder)
 import qualified Pos.Context                 as PC
 import           Pos.Delegation.Holder       (DelegationT (..))
 import           Pos.DHT.Real                (KademliaDHT (..))
-import           Pos.Slotting                (DBSlotsData, NtpSlotting)
+import           Pos.Slotting                (NtpSlotting, SlottingHolder)
 import           Pos.Ssc.Extra               (SscHolder (..))
 import qualified Pos.Txp.Holder              as Modern
 import           Pos.Update                  (USHolder (..))
@@ -33,7 +33,7 @@ instance (Monad m, WithWalletContext m) => WithWalletContext (StateT a m)
 instance (Monad m, WithWalletContext m) => WithWalletContext (PeerStateHolder m)
 instance (Monad m, WithWalletContext m) => WithWalletContext (NtpSlotting m)
 instance (Monad m, WithWalletContext m) => WithWalletContext (WalletDBSlotsData m)
-instance (Monad m, WithWalletContext m) => WithWalletContext (DBSlotsData m)
+instance (Monad m, WithWalletContext m) => WithWalletContext (SlottingHolder m)
 
 instance Monad m => WithWalletContext (PC.ContextHolder ssc m) where
     getWalletContext = fromNodeCtx <$> PC.getNodeContext

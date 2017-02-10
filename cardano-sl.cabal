@@ -281,8 +281,8 @@ library
 
                         -- Slotting
                         Pos.Slotting.Class
-                        Pos.Slotting.DB
                         Pos.Slotting.Error
+                        Pos.Slotting.Holder
                         Pos.Slotting.Ntp
                         Pos.Slotting.Types
                         Pos.Slotting.Util

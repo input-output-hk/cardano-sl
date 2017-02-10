@@ -36,9 +36,9 @@ import           Pos.Communication.PeerState   (PeerStateSnapshot, WithPeerState
 import           Pos.DHT.Real.Real             (runKademliaDHT)
 import           Pos.DHT.Real.Types            (KademliaDHTInstance (..),
                                                 getKademliaDHTInstance)
-import           Pos.Slotting                  (DBSlotsData (..), NtpSlotting (..),
-                                                NtpSlottingVar, SlottingVar,
-                                                runDBSlotsData, runNtpSlotting)
+import           Pos.Slotting                  (NtpSlotting (..), NtpSlottingVar,
+                                                SlottingHolder (..), SlottingVar,
+                                                runNtpSlotting, runSlottingHolder)
 import           Pos.Ssc.Class                 (SscConstraint)
 import           Pos.Ssc.Extra                 (SscHolder (..), SscState, runSscHolder)
 import           Pos.Txp.Class                 (getTxpLDWrap)
@@ -91,7 +91,7 @@ nat = do
     nc         <- getNodeContext
     modernDB   <- Modern.getNodeDBs
     conn       <- getWalletWebSockets
-    slotVar    <- lift . lift . lift . lift . lift . lift . lift . lift . lift $ DBSlotsData ask
+    slotVar    <- lift . lift . lift . lift . lift . lift . lift . lift . lift $ SlottingHolder ask
     ntpSlotVar <- lift . lift . lift . lift . lift . lift . lift . lift $ NtpSlotting ask
     pure $ Nat (convertHandler kinst nc modernDB tlw ssc ws delWrap psCtx conn slotVar ntpSlotVar)
 
@@ -115,7 +115,7 @@ convertHandler kinst nc modernDBs tlw ssc ws delWrap psCtx conn slotVar ntpSlotV
            . usingLoggerName "wallet-api"
            . Modern.runDBHolder modernDBs
            . runContextHolder nc
-           . runDBSlotsData slotVar
+           . runSlottingHolder slotVar
            . runNtpSlotting ntpSlotVar
            . runSscHolder ssc
            . Modern.runTxpLDHolderReader tlw

@@ -36,7 +36,7 @@ import           Pos.Delegation.Holder       (DelegationT (..))
 import           Pos.DHT.Model               (MonadDHT)
 import           Pos.DHT.Real                (KademliaDHT (..), WithKademliaDHTInstance)
 import           Pos.Slotting.Class          (MonadSlots)
-import           Pos.Slotting.DB             (DBSlotsData)
+import           Pos.Slotting.Holder         (SlottingHolder)
 import           Pos.Slotting.Ntp            (NtpSlotting)
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
 import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
@@ -119,7 +119,7 @@ type RawRealMode ssc =
     TxpLDHolder ssc (
     SscHolder ssc (
     NtpSlotting (
-    DBSlotsData (
+    SlottingHolder (
     ContextHolder ssc (
     DBHolder ssc (
     LoggerNameBox Production

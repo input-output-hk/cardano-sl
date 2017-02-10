@@ -39,8 +39,8 @@ import           Pos.DB                      (MonadDB)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Delegation.Holder       (DelegationT (..))
 import           Pos.DHT.Real                (KademliaDHT)
-import           Pos.Slotting                (DBSlotsData, MonadSlots, MonadSlotsData,
-                                              NtpSlotting)
+import           Pos.Slotting                (MonadSlots, MonadSlotsData, NtpSlotting,
+                                              SlottingHolder)
 import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp.Holder              (TxpLDHolder (..))
 import           Pos.Update.MemState         (USHolder (..))
@@ -78,7 +78,7 @@ instance MonadKeys m => MonadKeys (StateT s m)
 instance MonadKeys m => MonadKeys (KademliaDHT m)
 instance MonadKeys m => MonadKeys (PeerStateHolder m)
 instance MonadKeys m => MonadKeys (NtpSlotting m)
-instance MonadKeys m => MonadKeys (DBSlotsData m)
+instance MonadKeys m => MonadKeys (SlottingHolder m)
 
 -- | Helper for generating a new secret key
 newSecretKey :: (MonadIO m, MonadKeys m) => m SecretKey

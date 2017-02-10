@@ -29,7 +29,7 @@ cd $csldir
 updater=$(find ../cardano-updater/.stack-work/install/ -name "cardano-updater" -exec readlink -f {} \; | head -n 1)
 
 echo "Building cardano-sl"
-stack clean cardano-sl
+stack --nix clean cardano-sl
 grep "BlockVersion 0 0 0" src/Pos/Constants.hs  # fails if not found
 stack --nix build --fast 
 csl_bin=$(find .stack-work/install/ -iname "bin")
@@ -67,7 +67,7 @@ fi
 
 rm -rf $updatetar
 echo "Creating diff tar $updatetar (might take a while)"
-stack exec cardano-genupdate -- binaries_v000 binaries_v010 $updatetar
+stack --nix exec cardano-genupdate -- binaries_v000 binaries_v010 $updatetar
 
 
 echo "Launching 3 nodes and wallet backend (for Daedalus) in 5 secs"

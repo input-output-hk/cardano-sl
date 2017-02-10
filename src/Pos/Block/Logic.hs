@@ -182,7 +182,7 @@ classifyNewHeader (Right header) = do
         | newHeaderEoS <= tipEoS ->
             CHUseless $ sformat
                ("header's slot "%build%
-                " is less or equal then our tip's slot "%build)
+                " is less or equal than our tip's slot "%build)
                newHeaderEoS tipEoS
         -- If header's parent is our tip, we verify it against tip's header.
         | tip == header ^. prevBlockL ->

@@ -224,7 +224,7 @@ data CTExMeta = CTExMeta
     { cexCurrency    :: CCurrency
     , cexTitle       :: Text
     , cexDescription :: Text
-    , cexDate        :: Text -- TODO jk: should be NominalDiffTime
+    , cexDate        :: POSIXTime
     , cexRate        :: Text
     , cexLabel       :: Text -- counter part of client's 'exchange' value
     , cexAddress     :: CAddress

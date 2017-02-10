@@ -118,7 +118,7 @@ mkStateAndRunSscHolder holder = do
     st <- mkSscHolderState
     runSscHolder st holder
 
-mkSscHolderState 
+mkSscHolderState
     :: forall ssc m .
        ( WithLogger m
        , WithNodeContext ssc m
@@ -134,4 +134,5 @@ mkSscHolderState = do
     liftIO $ SscState <$> STM.newTVarIO gState <*> STM.newTVarIO ld
 
 ignoreSscHolder :: SscHolder ssc m a -> m a
-ignoreSscHolder holder = runReaderT (getSscHolder holder) (error "don't force me")
+ignoreSscHolder holder =
+    runReaderT (getSscHolder holder) (panic "SSC var: don't force me")

@@ -504,7 +504,7 @@ library
                       , neat-interpolation
                       , network-transport
                       , network-transport-tcp
-                      , node-sketch
+                      , node-sketch >= 0.1.1.0
                       , optparse-applicative
                       , optparse-simple
                       , parsec
@@ -1144,6 +1144,7 @@ test-suite cardano-test
                      , cereal
                      , containers
                      , cryptonite
+                     , data-default
                      , formatting
                      , hspec
                      , lens

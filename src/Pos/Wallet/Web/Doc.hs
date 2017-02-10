@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds     #-}
 {-# LANGUAGE TypeOperators #-}
+{-# OPTIONS_GHC -fno-warn-deprecations #-}
 
 -- | Documentation of wallet web API.
 
@@ -10,6 +11,7 @@ module Pos.Wallet.Web.Doc
 import           Control.Lens               ((<>~))
 import qualified Data.HashMap.Strict        as HM
 import           Data.Proxy                 (Proxy (..))
+import           Data.Time.Clock.POSIX      (POSIXTime)
 import           Network.HTTP.Types.Method  (methodPost)
 import           Servant.API                (Capture)
 import           Servant.Docs               (API, DocCapture (..), DocIntro (..),
@@ -165,6 +167,13 @@ instance ToCapture (Capture "currency" CCurrency) where
         DocCapture
         { _capSymbol = "currency"
         , _capDesc = "Currency"
+        }
+
+instance ToCapture (Capture "time" POSIXTime) where
+    toCapture Proxy =
+        DocCapture
+        { _capSymbol = "time"
+        , _capDesc = "Postpone update until specific date/time"
         }
 
 instance ToSample WalletError where

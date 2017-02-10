@@ -3,6 +3,7 @@ module Daedalus.Types
        , module C
        , module E
        , module BP
+       , module DT
        , _address
        , _coin
        , mkCoin
@@ -44,6 +45,7 @@ import Data.String (split, null, trim, joinWith)
 
 import Daedalus.Crypto (isValidMnemonic)
 import Data.Types (mkTime)
+import Data.Types as DT
 
 mkBackupPhrase :: String -> Either Error BackupPhrase
 mkBackupPhrase mnemonic =

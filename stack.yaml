@@ -35,12 +35,12 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: ffb2f6c70ee4147c97c4f1b33f1fc3d37a255182
+    commit: 9b4927f8115499db2fa3ba07df50d60d02190790
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
     git: https://github.com/avieth/network-transport-tcp
-    commit: 705b3c0d44cb1f4eea904b54431cd467e62dda35
+    commit: d2705abd5b54707ca97b5bf9c9c24005e800ee49
   extra-dep: true
 - location:
     git: https://github.com/avieth/network-transport

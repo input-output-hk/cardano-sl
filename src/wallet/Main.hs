@@ -177,12 +177,17 @@ evalCommands sa = do
         Right cmd -> evalCmd sa cmd
 
 initialize :: WalletMode ssc m => WalletOptions -> m [DHTNode]
-initialize WalletOptions{..} = do
+initialize WalletOptions {..} = do
     putText "Discovering peers"
-    let getPeersUntilSome = do
-            peers <- discoverPeers
-            if null peers then getPeersUntilSome else pure peers
     getPeersUntilSome
+  where
+    getPeersUntilSome = do
+        peers <- discoverPeers
+        if null peers
+            then do
+                putText "Discovering again, nothing found"
+                getPeersUntilSome
+            else pure peers
 
 runWalletRepl :: WalletMode ssc m => WalletOptions -> Worker' m
 runWalletRepl wo sa = do
@@ -202,7 +207,6 @@ runWalletCmd wo str sa = do
     putText "Command execution finished"
     putText " " -- for exit by SIGPIPE
     liftIO $ hFlush stdout
-    liftIO $ hFlush stderr
 #if !(defined(mingw32_HOST_OS) && defined(__MINGW32__))
     delay $ sec 3
     liftIO $ exitImmediately ExitSuccess
@@ -257,6 +261,9 @@ main = do
 #endif
 
         case CLI.sscAlgo woCommonArgs of
-            GodTossingAlgo -> putText "Using MPC coin tossing" *>
-                              runWalletReal res params plugins
-            NistBeaconAlgo -> putText "Wallet does not support NIST beacon!"
+            GodTossingAlgo -> do
+                putText "Using MPC coin tossing"
+                liftIO $ hFlush stdout
+                runWalletReal res params plugins
+            NistBeaconAlgo ->
+                putText "Wallet does not support NIST beacon!"

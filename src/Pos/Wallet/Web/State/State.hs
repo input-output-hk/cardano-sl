@@ -17,6 +17,7 @@ module Pos.Wallet.Web.State.State
        , getWalletHistory
        , getUpdates
        , getNextUpdate
+       , getPostponeUpdateUntil
 
        -- * Setters
        , createWallet
@@ -28,15 +29,17 @@ module Pos.Wallet.Web.State.State
        , removeWallet
        , addUpdate
        , removeNextUpdate
+       , setPostponeUpdateUntil
+       , removePostponeUpdateUntil
        ) where
 
 import           Data.Acid                    (EventResult, EventState, QueryEvent,
                                                UpdateEvent)
+import           Data.Time.Clock.POSIX        (POSIXTime)
 import           Mockable                     (MonadMockable)
 import           Universum
 
 import           Pos.Slotting                 (NtpSlotting)
-
 import           Pos.Wallet.Web.ClientTypes   (CAddress, CProfile, CTxId, CTxMeta,
                                                CUpdateInfo, CWalletMeta)
 import           Pos.Wallet.Web.State.Acidic  (WalletState, closeState, openMemState,
@@ -71,6 +74,9 @@ updateDisk
     => event -> m (EventResult event)
 updateDisk e = getWalletWebState >>= flip A.update e
 
+getPostponeUpdateUntil :: WebWalletModeDB m => m (Maybe POSIXTime)
+getPostponeUpdateUntil = queryDisk A.GetPostponeUpdateUntil
+
 getWalletMetas :: WebWalletModeDB m => m [CWalletMeta]
 getWalletMetas = queryDisk A.GetWalletMetas
 
@@ -97,6 +103,12 @@ createWallet addr = updateDisk . A.CreateWallet addr
 
 setWalletMeta :: WebWalletModeDB m => CAddress -> CWalletMeta -> m ()
 setWalletMeta addr = updateDisk . A.SetWalletMeta addr
+
+setPostponeUpdateUntil :: WebWalletModeDB m => POSIXTime -> m ()
+setPostponeUpdateUntil = updateDisk . A.SetPostponeUpdateUntil
+
+removePostponeUpdateUntil :: WebWalletModeDB m => m ()
+removePostponeUpdateUntil = updateDisk A.RemovePostponeUpdateUntil
 
 setProfile :: WebWalletModeDB m => CProfile -> m ()
 setProfile = updateDisk . A.SetProfile

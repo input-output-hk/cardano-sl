@@ -15,6 +15,7 @@ import           Data.Default                (def)
 import           Development.GitRev          (gitBranch, gitHash)
 import           Formatting                  (build, sformat, (%))
 import           Mockable                    (fork)
+import           System.Exit                 (ExitCode (..))
 import           System.Wlog                 (logError, logInfo)
 import           Universum
 
@@ -62,6 +63,7 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
 
     -- Instead of sleeping forever, we wait until graceful shutdown
     waitForWorkers allWorkersCount
+    liftIO $ exitWith (ExitFailure 20)
 
 -- | Run full node in any WorkMode.
 runNode

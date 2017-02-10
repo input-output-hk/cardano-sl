@@ -212,8 +212,8 @@ deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (WalletWebDB m)
 
 -- | Stub instance for lite-wallet
 instance MonadIO m => MonadBlockchainInfo (WalletDB m) where
-    networkChainDifficulty = notImplemented
-    localChainDifficulty = notImplemented
+    networkChainDifficulty = panic "notImplemented"
+    localChainDifficulty = panic "notImplemented"
 
 -- | Helpers for avoiding copy-paste
 topHeader :: (SscHelpersClass ssc, MonadDB ssc m) => m (BlockHeader ssc)
@@ -277,7 +277,7 @@ deriving instance MonadUpdates m => MonadUpdates (WalletWebDB m)
 
 -- | Dummy instance for lite-wallet
 instance MonadIO m => MonadUpdates (WalletDB m) where
-    waitForUpdate = notImplemented
+    waitForUpdate = panic "notImplemented"
     applyLastUpdate = pure ()
 
 -- | Instance for full node

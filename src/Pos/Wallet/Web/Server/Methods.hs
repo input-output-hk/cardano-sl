@@ -45,7 +45,8 @@ import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
                                                 addSecretKey)
 import           Pos.Wallet.Tx                 (sendTxOuts, submitTx)
 import           Pos.Wallet.Tx.Pure            (TxHistoryEntry (..))
-import           Pos.Wallet.WalletMode         (WalletMode, applyLastUpdate, getBalance,
+import           Pos.Wallet.WalletMode         (WalletMode, applyLastUpdate,
+                                                blockchainSlotDuration, getBalance,
                                                 getTxHistory, localChainDifficulty,
                                                 networkChainDifficulty, waitForUpdate)
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
@@ -255,7 +256,7 @@ servantHandlers sendActions =
     :<|>
      catchWalletError applyUpdate
     :<|>
-     catchWalletError blockchainSlotDuration
+     catchWalletError (fromIntegral <$> blockchainSlotDuration)
     :<|>
      catchWalletError (pure curSoftwareVersion)
     :<|>
@@ -397,9 +398,6 @@ nextUpdate = getNextUpdate >>=
 
 applyUpdate :: WalletWebMode ssc m => m ()
 applyUpdate = removeNextUpdate >> applyLastUpdate
-
-blockchainSlotDuration :: WalletWebMode ssc m => m Word
-blockchainSlotDuration = notImplemented
 
 redeemADA :: WalletWebMode ssc m => SendActions m -> CWalletRedeem -> m CWallet
 redeemADA sendActions CWalletRedeem {..} = do

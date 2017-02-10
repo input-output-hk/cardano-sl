@@ -8,10 +8,8 @@ module Pos.Wallet.Launcher.Runner
        , runWallet
        ) where
 
-import           Control.Concurrent.STM.TVar (newTVarIO)
 import           Formatting                  (build, sformat, (%))
-import           Mockable                    (Production, bracket, currentTime, fork,
-                                              sleepForever)
+import           Mockable                    (Production, bracket, fork, sleepForever)
 import qualified STMContainers.Map           as SM
 import           System.Wlog                 (logDebug, logInfo, usingLoggerName)
 import           Universum                   hiding (bracket)
@@ -24,8 +22,6 @@ import           Pos.DHT.Real                (runKademliaDHT)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
                                               RealModeResources (..), addDevListeners,
                                               runServer_)
-import           Pos.Slotting                (mkNtpSlottingVar, runNtpSlotting, runSlottingHolder)
-import           Pos.Types                   (unflattenSlotId)
 import           Pos.Wallet.Context          (WalletContext (..), runContextHolder)
 import           Pos.Wallet.KeyStorage       (runKeyStorage)
 import           Pos.Wallet.Launcher.Param   (WalletParams (..))
@@ -62,7 +58,7 @@ runWalletReal
     -> WalletParams
     -> ([WorkerSpec WalletRealMode], OutSpecs)
     -> Production ()
-runWalletReal res wp = undefined -- runWalletRealMode res wp . runWallet
+runWalletReal res wp = runWalletRealMode res wp . runWallet
 
 runWallet :: WalletMode ssc m => ([WorkerSpec m], OutSpecs) -> (WorkerSpec m, OutSpecs)
 runWallet (plugins', pouts) = (,outs) . ActionSpec $ \vI sendActions -> do
@@ -91,11 +87,8 @@ runRawRealWallet res WalletParams {..} listeners (ActionSpec action, outs) =
               { wcUnit = mempty
               }
         stateM <- liftIO SM.newIO
-        ntpSlottingVar <- mkNtpSlottingVar
         runContextHolder walletContext .
             runWalletDB db .
-            runSlottingHolder undefined .
-            runNtpSlotting ntpSlottingVar .
             runKeyStorage wpKeyFilePath .
             runKademliaDHT (rmDHT res) .
             runPeerStateHolder stateM .

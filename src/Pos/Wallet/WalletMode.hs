@@ -23,6 +23,7 @@ import           Control.Monad.Trans         (MonadTrans)
 import           Control.Monad.Trans.Maybe   (MaybeT (..))
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.Map                    as M
+import           Data.Time.Units             (Millisecond)
 import           Mockable                    (CurrentTime, Mockable)
 import           Mockable                    (MonadMockable, Production)
 import           System.Wlog                 (LoggerNameBox, WithLogger)
@@ -39,8 +40,9 @@ import qualified Pos.DB.GState               as GS
 import           Pos.Delegation              (DelegationT (..))
 import           Pos.DHT.Model               (MonadDHT)
 import           Pos.DHT.Real                (KademliaDHT (..))
-import           Pos.Slotting                (MonadSlots, NtpSlotting, SlottingHolder,
-                                              getCurrentSlotInaccurate)
+import           Pos.Slotting                (EpochSlottingData (..), MonadSlots,
+                                              NtpSlotting, SlottingData (..),
+                                              SlottingHolder, getCurrentSlotInaccurate)
 import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
 import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp.Class               (getMemPool, getUtxoView)
@@ -183,6 +185,7 @@ instance (SscHelpersClass ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
 class Monad m => MonadBlockchainInfo m where
     networkChainDifficulty :: m ChainDifficulty
     localChainDifficulty :: m ChainDifficulty
+    blockchainSlotDuration :: m Millisecond
 
     default networkChainDifficulty
         :: (MonadTrans t, MonadBlockchainInfo m', t m' ~ m) => m ChainDifficulty
@@ -191,6 +194,10 @@ class Monad m => MonadBlockchainInfo m where
     default localChainDifficulty
         :: (MonadTrans t, MonadBlockchainInfo m', t m' ~ m) => m ChainDifficulty
     localChainDifficulty = lift localChainDifficulty
+
+    default blockchainSlotDuration
+        :: (MonadTrans t, MonadBlockchainInfo m', t m' ~ m) => m Millisecond
+    blockchainSlotDuration = lift blockchainSlotDuration
 
 instance MonadBlockchainInfo m => MonadBlockchainInfo (ReaderT r m)
 instance MonadBlockchainInfo m => MonadBlockchainInfo (StateT s m)
@@ -210,6 +217,7 @@ deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (WalletWebDB m)
 instance MonadIO m => MonadBlockchainInfo (WalletDB m) where
     networkChainDifficulty = panic "notImplemented"
     localChainDifficulty = panic "notImplemented"
+    blockchainSlotDuration = panic "notImplemented"
 
 -- | Helpers for avoiding copy-paste
 topHeader :: (SscHelpersClass ssc, MonadDB ssc m) => m (BlockHeader ssc)
@@ -241,6 +249,8 @@ instance ( SscHelpersClass ssc
             return $ blksLeft + th ^. difficultyL
 
     localChainDifficulty = view difficultyL <$> topHeader
+
+    blockchainSlotDuration = esdSlotDuration . sdLast <$> GS.getSlottingData
 
 -- | Abstraction over getting update proposals
 class Monad m => MonadUpdates m where
@@ -299,7 +309,6 @@ type WalletMode ssc m
       , MonadUpdates m
       , WithWalletContext m
       , MonadDHT m
-      , MonadSlots m
       , WithPeerState m
       )
 
@@ -309,10 +318,8 @@ type WalletMode ssc m
 
 type WalletRealMode = PeerStateHolder (KademliaDHT
                       (KeyStorage
-                       (NtpSlotting
-                        (SlottingHolder
-                         (WalletDB
-                          (ContextHolder
-                           (LoggerNameBox
-                             Production
-                             )))))))
+                       (WalletDB
+                        (ContextHolder
+                         (LoggerNameBox
+                          Production
+                           )))))

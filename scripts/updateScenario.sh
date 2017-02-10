@@ -1,5 +1,25 @@
 #!/bin/sh
 
+build=false
+runNode=false
+
+while [[ $# -gt 1 ]]
+do
+  key="$1"
+  case $key in
+    -n|--node)
+      runNode=true
+      ;;
+    -b|--build)
+      build=true
+      ;;
+    *)
+      # unknown option
+      ;;
+  esac
+  shift # past argument or value
+done
+
 set -e
 csldir=$(pwd)
 serverPort=8100 # Port for webfsd
@@ -20,56 +40,54 @@ if [ ! -d ../cardano-updater ]; then
     git clone https://github.com/input-output-hk/cardano-updater.git
 fi
 
-# Building updater
-cd ../cardano-updater
-echo "Building cardano-updater"
-stack build --fast
 cardano_updater_local_bin=$(stack path --local-install-root)/bin
-cd $csldir
-
 updater=$(find $cardano_updater_local_bin -name "cardano-updater" -exec readlink -f {} \; | head -n 1)
 
-echo "Building cardano-sl"
-stack clean cardano-sl
-grep "BlockVersion 0 0 0" src/Pos/Constants.hs  # fails if not found
-stack build --fast 
-csl_bin=$(stack path --local-install-root)/bin
-
-originalMd5=$(md5sum $csl_bin/cardano-node)
-
-# Copying artefacts for v0.0.0
-echo "Preparing binaries with 0.0.0"
-rm -rf binaries_v000 && mkdir binaries_v000
-cp -v $csl_bin/* binaries_v000/
-beforeBumpMd5=$(md5sum binaries_v000/cardano-node)
-echo "$beforeBumpMd5"
-
-# Updating version in csl sources to v0.1.0
-sed -i.backup "s/BlockVersion 0 0 0/BlockVersion 0 1 0/" src/Pos/Constants.hs
-echo "Building cardano-sl with version 0.1.0"
-stack build --fast
-rm -rf binaries_v010 && mkdir binaries_v010
-cp -v $csl_bin/* binaries_v010/
-afterBumpMd5=$(md5sum binaries_v010/cardano-node)
-echo "$afterBumpMd5"
-if [ "$beforeBumpMd5" == "$afterBumpMd5" ]; then
-    echo "md5 before bump '$beforeBumpMd5' matches '$afterBumpMd5' after bump but should not"
-fi
-
-# Restoring version and binaries
-echo "Restoring binaries"
-mv -v src/Pos/Constants.hs.backup src/Pos/Constants.hs
-cp binaries_v000/* $csl_bin/
-#stack build --fast
-afterRestoreMd5=$(md5sum $csl_bin/cardano-node)
-if [ "$originalMd5" /= "$afterRestoreMd5" ]; then
-    echo "md5 '$originalMd5' doesn't match '$afterRestoreMd5'"
+if $build; then
+  # Building updater
+  cd ../cardano-updater
+  echo "Building cardano-updater"
+  stack build --fast
+  cd $csldir
+  echo "Building cardano-sl"
+  stack clean cardano-sl
+  grep "BlockVersion 0 0 0" src/Pos/Constants.hs  # fails if not found
+  stack build --fast 
+  csl_bin=$(find .stack-work/install/ -iname "bin")
+  originalMd5=$(md5sum $csl_bin/cardano-node)
+  # Copying artefacts for v0.0.0
+  echo "Preparing binaries with 0.0.0"
+  rm -rf binaries_v000 && mkdir binaries_v000
+  cp -v $csl_bin/* binaries_v000/
+  beforeBumpMd5=$(md5sum binaries_v000/cardano-node)
+  echo "$beforeBumpMd5"
+  
+  # Updating version in csl sources to v0.1.0
+  sed -i.backup "s/BlockVersion 0 0 0/BlockVersion 0 1 0/" src/Pos/Constants.hs
+  echo "Building cardano-sl with version 0.1.0"
+  stack build --fast
+  rm -rf binaries_v010 && mkdir binaries_v010
+  cp -v $csl_bin/* binaries_v010/
+  afterBumpMd5=$(md5sum binaries_v010/cardano-node)
+  echo "$afterBumpMd5"
+  if [ "$beforeBumpMd5" == "$afterBumpMd5" ]; then
+      echo "md5 before bump '$beforeBumpMd5' matches '$afterBumpMd5' after bump but should not"
+  fi
+  
+  # Restoring version and binaries
+  echo "Restoring binaries"
+  mv -v src/Pos/Constants.hs.backup src/Pos/Constants.hs
+  cp binaries_v000/* $csl_bin/
+  #stack build --fast
+  afterRestoreMd5=$(md5sum $csl_bin/cardano-node)
+  if [ "$originalMd5" != "$afterRestoreMd5" ]; then
+      echo "md5 '$originalMd5' doesn't match '$afterRestoreMd5'"
+  fi
 fi
 
 rm -rf $updatetar
 echo "Creating diff tar $updatetar (might take a while)"
 stack exec cardano-genupdate -- binaries_v000 binaries_v010 $updatetar
-
 
 echo "Launching 3 nodes in 5 secs"
 pkill cardano-node || true
@@ -131,12 +149,12 @@ pkill webfsd || true
 webfsd -p $serverPort -r webfsfolder 
 echo "Launched webfs server"
 
-
-# Launcher launching
- 
-# echo "Launching launcher"
-# sleep 1
-# rm -rf update-node-tmp.log
-# stack exec cardano-launcher -- --node binaries_v000/cardano-node --node-log-config scripts/update-log-config.yaml -n "--update-server"  -n "http://localhost:$serverPort" -n "--update-latest-path" -n "updateDownloaded.tar" -n "--listen" -n "127.0.0.1:3004" -n "--peer" -n "127.0.0.1:3000/a_P8zb6fNP7I2H54FtGuhqxaMDAwMDAwMDAwMDAwMDA=" -n "--flat-distr" -n "(3,100000)" -n "--rebuild-db" --updater $updater -u "dir" -u "binaries_v000" --node-timeout 5 --report-server http://localhost:8555/ --update-archive updateDownloaded.tar
+if $runNode; then
+  # Launcher launching
+  echo "Launching launcher"
+  sleep 1
+  rm -rf update-node-tmp.log
+  stack exec cardano-launcher -- --node binaries_v000/cardano-node --node-log-config scripts/update-log-config.yaml -n "--update-server"  -n "http://localhost:$serverPort" -n "--update-latest-path" -n "updateDownloaded.tar" -n "--listen" -n "127.0.0.1:3004" -n "--peer" -n "127.0.0.1:3000/a_P8zb6fNP7I2H54FtGuhqxaMDAwMDAwMDAwMDAwMDA=" -n "--flat-distr" -n "(3,100000)" -n "--rebuild-db" --updater $updater -u "dir" -u "binaries_v000" --node-timeout 5 --report-server http://localhost:8555/ --update-archive updateDownloaded.tar
+fi
 
 notify-send "updater scenario: ready"

@@ -66,6 +66,7 @@ library
 
                         -- Genesis data
                         Pos.Genesis
+                        Pos.Genesis.Arbitrary
 
                         -- LRC
                         Pos.Lrc
@@ -1112,6 +1113,7 @@ test-suite cardano-test
                        Test.Pos.CryptoSpec
                        Test.Pos.DHT.Identity.BinarySpec
                        Test.Pos.FollowTheSatoshiSpec
+                       Test.Pos.Genesis.Identity.BinarySpec
                        Test.Pos.MerkleSpec
                        Test.Pos.Script.Identity.BinarySpec
                        Test.Pos.Ssc.GodTossing.Identity.BinarySpec

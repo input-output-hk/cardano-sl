@@ -332,12 +332,12 @@ requestHeaders
     -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
 requestHeaders mgh recoveryHeader peerId conv = do
-    logDebug $ sformat ("handleUnsolicitedHeader: withConnection: sending "%build) mgh
+    logDebug $ sformat ("requestHeaders: withConnection: sending "%build) mgh
     send conv mgh
     mHeaders <- recv conv
-    whenJust mHeaders $ \(MsgHeaders headers) -> do
+    flip (maybe onNothing) mHeaders $ \(MsgHeaders headers) -> do
         logDebug $ sformat
-            ("handleUnsolicitedHeader: withConnection: received "%listJson)
+            ("requestHeaders: withConnection: received "%listJson)
             (map headerHash headers)
         case matchRequestedHeaders headers mgh of
             MRGood       -> do
@@ -347,12 +347,13 @@ requestHeaders mgh recoveryHeader peerId conv = do
                 logDebug "Handling header requests in recovery mode"
                 handleRequestedHeaders headers recoveryHeader peerId
   where
+    onNothing = logWarning "requestHeaders: received Nothing, waiting for MsgHeaders"
     handleUnexpected hs _ = do
         -- TODO: ban node for sending unsolicited header in conversation
         logWarning $ sformat
-            ("handleUnsolicitedHeader: headers received were not requested, address: " % build)
+            ("requestHeaders: headers received were not requested, address: " % build)
             peerId
-        logWarning $ sformat ("handleUnsolicitedHeader: unexpected headers: "%listJson) hs
+        logWarning $ sformat ("requestHeaders: unexpected headers: "%listJson) hs
 
 
 -- First case of 'handleBlockheaders'

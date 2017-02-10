@@ -23,7 +23,7 @@ fi
 # Building updater
 cd ../cardano-updater
 echo "Building cardano-updater"
-stack --nix build --fast
+stack build --fast
 cd $csldir
 
 updater=$(find ../cardano-updater/.stack-work/install/ -name "cardano-updater" -exec readlink -f {} \; | head -n 1)
@@ -31,7 +31,7 @@ updater=$(find ../cardano-updater/.stack-work/install/ -name "cardano-updater" -
 echo "Building cardano-sl"
 stack clean cardano-sl
 grep "BlockVersion 0 0 0" src/Pos/Constants.hs  # fails if not found
-stack --nix build --fast 
+stack build --fast 
 csl_bin=$(find .stack-work/install/ -iname "bin")
 
 originalMd5=$(md5sum $csl_bin/cardano-node)
@@ -46,7 +46,7 @@ echo "$beforeBumpMd5"
 # Updating version in csl sources to v0.1.0
 sed -i.backup "s/BlockVersion 0 0 0/BlockVersion 0 1 0/" src/Pos/Constants.hs
 echo "Building cardano-sl with version 0.1.0"
-stack --nix build --fast
+stack build --fast
 rm -rf binaries_v010 && mkdir binaries_v010
 cp -v $csl_bin/* binaries_v010/
 afterBumpMd5=$(md5sum binaries_v010/cardano-node)

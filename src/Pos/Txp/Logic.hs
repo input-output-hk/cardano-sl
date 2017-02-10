@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -176,6 +177,9 @@ processTx itw@(txId, (tx, _, _)) = do
              then processTxDo txld resolved itw
              else (PTRoverwhelmed, txld)
         else (mkPTRinvalid ["Tips aren't same"], txld)
+#ifdef DWITH_EXPLORER
+
+#endif
     pRes <$ logDebug (sformat ("Transaction processed: "%build) txId)
 
 -- CHECK: @processTxDo

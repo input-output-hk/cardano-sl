@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 -- | GState DB stores whole global state, i. e. result of application
 -- of all blocks up to /tip/.
 
@@ -9,6 +11,9 @@ module Pos.DB.GState
        , module Pos.DB.GState.GState
        , module Pos.DB.GState.Update
        , module Pos.DB.GState.Utxo
+#ifdef DWITH_EXPLORER
+       , module Pos.DB.GState.Explorer
+#endif
        ) where
 
 import           Pos.DB.GState.Balances
@@ -19,3 +24,7 @@ import           Pos.DB.GState.Delegation
 import           Pos.DB.GState.GState
 import           Pos.DB.GState.Update
 import           Pos.DB.GState.Utxo
+
+#ifdef DWITH_EXPLORER
+import           Pos.DB.GState.Explorer
+#endif

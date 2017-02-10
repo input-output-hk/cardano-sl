@@ -34,6 +34,12 @@ Flag with-wallet
 
   description: Build with wallet.
 
+Flag with-explorer
+  default:     False
+  manual:      True
+
+  description: Build with explorer
+
 library
   exposed-modules:      Pos.Aeson
                         Pos.Binary
@@ -440,6 +446,12 @@ library
                         Pos.Wallet.Web.State.Holder
                         Pos.Wallet.Web.State.State
                         Pos.Wallet.Web.State.Storage
+
+  if flag(with-explorer)
+    other-modules:      Pos.DB.GState.Explorer
+                      , Pos.Types.Explorer
+                      , Pos.Binary.Explorer
+
   build-depends:        HsOpenSSL
                       , IfElse
                       , QuickCheck
@@ -576,6 +588,8 @@ library
     cpp-options: -DWITH_WEB
   if flag(with-wallet)
     cpp-options: -DWITH_WALLET
+  if flag(with-explorer)
+    cpp-options: -DWITH_EXPLORER
 
 executable cardano-node
   hs-source-dirs:      src/node

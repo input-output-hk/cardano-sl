@@ -382,6 +382,7 @@ library
                         Pos.Update.Poll
                         Pos.Update.Poll.Class
                         Pos.Update.Poll.DBPoll
+                        Pos.Update.Poll.Failure
                         Pos.Update.Poll.Logic
                         Pos.Update.Poll.Logic.Apply
                         Pos.Update.Poll.Logic.Base

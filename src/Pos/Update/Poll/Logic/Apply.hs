@@ -37,6 +37,7 @@ import           Pos.Update.Core            (BlockVersionData (..), UpId,
                                              UpdateVote (..), upMaxBlockSize,
                                              upScriptVersion, upSlotDuration)
 import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
+import           Pos.Update.Poll.Failure    (PollVerFailure (..))
 import           Pos.Update.Poll.Logic.Base (canBeAdoptedBV, canBeProposedBV,
                                              canCreateBlockBV, confirmBlockVersion,
                                              isDecided, mkTotNegative, mkTotPositive,
@@ -45,7 +46,7 @@ import           Pos.Update.Poll.Logic.Base (canBeAdoptedBV, canBeProposedBV,
 import           Pos.Update.Poll.Types      (BlockVersionState (..),
                                              ConfirmedProposalState (..),
                                              DecidedProposalState (..), DpsExtra (..),
-                                             PollVerFailure (..), ProposalState (..),
+                                             ProposalState (..),
                                              UndecidedProposalState (..), UpsExtra (..))
 
 type ApplyMode m = (MonadError PollVerFailure m, MonadPoll m)

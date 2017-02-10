@@ -51,10 +51,11 @@ import           Pos.Update.Core            (BlockVersionData (..), UpId,
                                              UpdateProposal (..), UpdateVote (..),
                                              combineVotes, isPositiveVote, newVoteState)
 import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
+import           Pos.Update.Poll.Failure    (PollVerFailure (..))
 import           Pos.Update.Poll.Types      (BlockVersionState (..),
                                              ConfirmedProposalState (..),
                                              DecidedProposalState (..), DpsExtra (..),
-                                             PollVerFailure (..), ProposalState (..),
+                                             ProposalState (..),
                                              UndecidedProposalState (..), UpsExtra (..),
                                              bvsScriptVersion, cpsBlockVersion)
 

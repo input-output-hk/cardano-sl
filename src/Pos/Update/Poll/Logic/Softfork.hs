@@ -19,9 +19,10 @@ import           Pos.Types                  (BlockVersion, Coin, EpochIndex, Hea
                                              SlotId (..), StakeholderId, applyCoinPortion,
                                              crucialSlot, sumCoins, unsafeIntegerToCoin)
 import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
+import           Pos.Update.Poll.Failure    (PollVerFailure (..))
 import           Pos.Update.Poll.Logic.Base (adoptBlockVersion, canBeAdoptedBV,
                                              updateSlottingData)
-import           Pos.Update.Poll.Types      (BlockVersionState (..), PollVerFailure (..))
+import           Pos.Update.Poll.Types      (BlockVersionState (..))
 import           Pos.Util                   (inAssertMode)
 
 -- | Record the fact that main block with given version and leader has

@@ -88,11 +88,11 @@ networkBinaryEncodeDecode a = stage1 $ runGetIncremental get
 msgLenLimitedCheck :: (Show a, Bi a) => Byte -> a -> Property
 msgLenLimitedCheck limit msg =
         let size = LBS.length (encode msg)
-        in if size <= fromIntegral limit * 3
+        in if size <= fromIntegral limit
             then property True
             else flip counterexample False $
-                formatToString ("Limit ("%int%") should be at least 3 times \
-                \more than any message length, but got length "%int) limit size
+                formatToString ("Message size (e.g. "%int%") exceedes \
+                \limit ("%int%")") size limit
 
 safeCopyEncodeDecode :: (Show a, Eq a, SafeCopy a) => a -> Property
 safeCopyEncodeDecode a =

@@ -9,6 +9,7 @@ module Pos.Util.UserSecret
        , usVss
        , getUSPath
        , simpleUserSecret
+       , initializeUserSecret
        , peekUserSecret
        , takeUserSecret
        , writeUserSecret
@@ -77,8 +78,8 @@ instance Bi UserSecret where
 
 -- | Create user secret file at the given path, but only when one doesn't
 -- already exist.
-initializeSecret :: (MonadIO m) => FilePath -> m ()
-initializeSecret path = do
+initializeUserSecret :: (MonadIO m) => FilePath -> m ()
+initializeUserSecret path = do
     exists <- T.testfile (fromString path)
     liftIO (if exists
             then return ()
@@ -89,7 +90,7 @@ initializeSecret path = do
 peekUserSecret :: (MonadIO m) => FilePath -> m UserSecret
 peekUserSecret path =
     liftIO $ withFileLock (lockFilePath path) Shared $ const $ do
-        initializeSecret path
+        initializeUserSecret path
         econtent <- decodeFull <$> BSL.readFile path
         pure $ either (const def) identity econtent & usPath .~ path
 

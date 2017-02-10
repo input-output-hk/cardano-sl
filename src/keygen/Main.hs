@@ -20,8 +20,8 @@ import           Pos.Genesis          (GenesisData (..), StakeDistribution (..))
 import           Pos.Ssc.GodTossing   (VssCertificate, mkVssCertificate)
 import           Pos.Types            (addressHash, makePubKeyAddress, mkCoin)
 import           Pos.Util             (asBinary)
-import           Pos.Util.UserSecret  (takeUserSecret, usKeys, usVss,
-                                       writeUserSecretRelease)
+import           Pos.Util.UserSecret  (initializeUserSecret, takeUserSecret, usKeys,
+                                       usVss, writeUserSecretRelease)
 
 data KeygenOptions = KO
     { koPattern      :: FilePath
@@ -33,6 +33,7 @@ data KeygenOptions = KO
 
 generateKeyfile :: FilePath -> IO (PublicKey, VssCertificate)
 generateKeyfile fp = do
+    initializeUserSecret fp
     sk <- snd <$> keyGen
     vss <- vssKeyGen
     us <- takeUserSecret fp

@@ -4,6 +4,7 @@
 
 module Pos.Reporting.Methods
        ( sendReportNode
+       , getNodeInfo
        , sendReport
        , retrieveLogFiles
        , chooseLogFiles
@@ -17,9 +18,12 @@ import qualified Data.HashMap.Strict      as HM
 import qualified Data.Text                as T
 import           Data.Time.Clock          (getCurrentTime)
 import           Data.Version             (Version (..))
+import           Formatting               (build, sformat, stext, (%))
+import           Network.Info             (IPv4 (..), getNetworkInterfaces, ipv4)
 import           Network.Wreq             (partFile, partLBS, post)
 import           Paths_cardano_sl         (version)
 import           Pos.ReportServer.Report  (ReportInfo (..), ReportType (..))
+import           Serokell.Util.Text       (listBuilderJSON, listJson)
 import           System.Directory         (doesFileExist, listDirectory)
 import           System.FilePath          (dropExtension, takeDirectory, takeExtension,
                                            takeFileName, (<.>), (</>))
@@ -29,7 +33,13 @@ import           Universum
 
 import           Pos.Context              (WithNodeContext, getNodeContext,
                                            ncLoggerConfig, ncNodeParams, npReportServers)
+import           Pos.DHT.Model            (currentNodeKey, getKnownPeers)
 import           Pos.Reporting.Exceptions (ReportingError (..))
+import           Pos.WorkMode             (WorkMode)
+
+----------------------------------------------------------------------------
+-- Node-specific
+----------------------------------------------------------------------------
 
 -- | Sends node's logs, taking 'LoggerConfig' from 'NodeContext',
 -- retrieving all logger files from it. List of servers is also taken
@@ -45,6 +55,33 @@ sendReportNode reportType = do
     logFiles <- concat <$> mapM chooseLogFiles logFileNames
     forM_ servers $
         sendReport logFiles reportType "cardano-node" version . T.unpack
+
+-- checks if ipv4 is from local range
+ipv4Local :: Word32 -> Bool
+ipv4Local w =
+    or [b1 == 10, b1 == 172 && b2 >= 16 && b2 <= 31, b1 == 192 && b2 == 168]
+  where
+    b1 = w .&. 0xff
+    b2 = (w `shiftR` 8) .&. 0xff
+
+-- | Retrieves node info that we would like to know whne analyzing
+-- malicious behavior of node.
+getNodeInfo :: WorkMode ssc m => m Text
+getNodeInfo = do
+    peers <- getKnownPeers
+    key <- currentNodeKey
+    (ips :: [Text]) <-
+        map show . filter ipExternal . map ipv4 <$>
+        liftIO getNetworkInterfaces
+    pure $ sformat outputF (pretty $ listBuilderJSON ips) key peers
+  where
+    ipExternal (IPv4 w) =
+        not $ ipv4Local w || w == 0 || w == 16777343 -- the last is 127.0.0.1
+    outputF = ("{ nodeParams: \""%stext%":"%build%"\", otherNodes: "%listJson%" }")
+
+----------------------------------------------------------------------------
+-- General purpose
+----------------------------------------------------------------------------
 
 -- | Given logs files list and report type, sends reports to URI
 -- asked. All files _must_ exist. Report server URI should be in form

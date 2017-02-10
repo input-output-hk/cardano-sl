@@ -19,7 +19,8 @@ import           Pos.Types                  (BlockVersion, Coin, EpochIndex, Hea
                                              SlotId (..), StakeholderId, applyCoinPortion,
                                              crucialSlot, sumCoins, unsafeIntegerToCoin)
 import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Logic.Base (adoptBlockVersion, canBeAdoptedBV)
+import           Pos.Update.Poll.Logic.Base (adoptBlockVersion, canBeAdoptedBV,
+                                             updateSlottingData)
 import           Pos.Update.Poll.Types      (BlockVersionState (..), PollVerFailure (..))
 import           Pos.Util                   (inAssertMode)
 
@@ -87,6 +88,8 @@ processGenesisBlock epoch = do
         -- versions which no longer can be adopted and only then move
         -- unstable to stable.
         Just (chooseToAdopt -> toAdopt) -> adoptAndFinish confirmed toAdopt
+    -- In the end we also update slotting data to the most recent state.
+    updateSlottingData epoch
   where
     checkThreshold thd (bv, bvs) =
         checkThresholdDo thd (bv, bvs) <$> calculateIssuersStake epoch bvs

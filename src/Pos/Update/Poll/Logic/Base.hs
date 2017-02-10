@@ -17,6 +17,7 @@ module Pos.Update.Poll.Logic.Base
        , isConfirmedBV
        , getBVScriptVersion
        , confirmBlockVersion
+       , updateSlottingData
        , verifyNextBVData
        , verifyBlockSize
 
@@ -29,19 +30,23 @@ import           Control.Lens               (at)
 import           Control.Monad.Except       (MonadError (throwError))
 import qualified Data.HashMap.Strict        as HM
 import qualified Data.Set                   as S
-import           Formatting                 (build, sformat, (%))
+import           Data.Time.Units            (convertUnit)
+import           Formatting                 (build, int, sformat, (%))
 import           Serokell.Data.Memory.Units (Byte)
 import           System.Wlog                (WithLogger, logDebug, logNotice)
 import           Universum
 
+import           Pos.Constants              (epochSlots)
 import           Pos.Crypto                 (PublicKey, hash)
 import           Pos.Script.Type            (ScriptVersion)
+import           Pos.Slotting               (EpochSlottingData (..), SlottingData (..))
 import           Pos.Ssc.Class              (Ssc)
-import           Pos.Types                  (BlockVersion (..), Coin, HeaderHash,
-                                             MainBlockHeader, SlotId, addressHash,
-                                             coinToInteger, difficultyL, headerHashG,
-                                             headerSlot, sumCoins, unsafeAddCoin,
-                                             unsafeIntegerToCoin, unsafeSubCoin)
+import           Pos.Types                  (BlockVersion (..), Coin, EpochIndex,
+                                             HeaderHash, MainBlockHeader, SlotId,
+                                             Timestamp (..), addressHash, coinToInteger,
+                                             difficultyL, headerHashG, headerSlot,
+                                             sumCoins, unsafeAddCoin, unsafeIntegerToCoin,
+                                             unsafeSubCoin)
 import           Pos.Update.Core            (BlockVersionData (..), UpId,
                                              UpdateProposal (..), UpdateVote (..),
                                              combineVotes, isPositiveVote, newVoteState)
@@ -185,12 +190,43 @@ adoptBlockVersion winningBlk bv = do
     setAdoptedBV bv
     logNotice $ sformat logFmt winningBlk bv
     mapM_ processConfirmed =<< getConfirmedProposals
-    undefined  -- update slotting data
   where
     processConfirmed cps
         | cpsBlockVersion cps /= bv = pass
         | otherwise = addConfirmedProposal cps {cpsAdopted = Just winningBlk}
     logFmt = "BlockVersion is adopted: "%build%"; winning block was "%build
+
+-- | Update slotting data stored in poll. First argument is epoch for
+-- which currently adopted 'BlockVersion' can be applied.
+updateSlottingData
+    :: (MonadError PollVerFailure m, MonadPoll m)
+    => EpochIndex -> m ()
+updateSlottingData epoch = do
+    sd@SlottingData {..} <- getSlottingData
+    let errFmt =
+            ("can't update slotting data, stored penult epoch is "%int%
+             ", while given epoch is "%int%
+             ")")
+    if | sdPenultEpoch + 1 == epoch -> updateSlottingDataDo sd
+       -- This can happen if there was rollback of genesis block.
+       | sdPenultEpoch == epoch -> pass
+       | otherwise ->
+           throwError $ PollInternalError $ sformat errFmt sdPenultEpoch epoch
+  where
+    updateSlottingDataDo sd@SlottingData {..} = do
+        latestSlotDuration <- bvdSlotDuration <$> getAdoptedBVData
+        let newLastStart =
+                esdStart sdLast +
+                epochSlots * (Timestamp $ convertUnit $ esdSlotDuration sdLast)
+        let newLast =
+                EpochSlottingData
+                {esdSlotDuration = latestSlotDuration, esdStart = newLastStart}
+        setSlottingData
+            sd
+            { sdPenultEpoch = sdPenultEpoch + 1
+            , sdPenult = sdLast
+            , sdLast = newLast
+            }
 
 -- | Verify that 'BlockVersionData' passed as last argument can follow
 -- 'BlockVersionData' passed as second argument. First argument

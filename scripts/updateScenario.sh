@@ -70,10 +70,10 @@ echo "Creating diff tar $updatetar (might take a while)"
 stack exec cardano-genupdate -- binaries_v000 binaries_v010 $updatetar
 
 
-echo "Launching 3 nodes in 5 secs"
+echo "Launching 3 nodes and wallet backend (for Daedalus) in 5 secs"
 pkill cardano-node || true
 sleep 5
-./scripts/launch.sh 3
+export WALLET_TEST='1'; ./scripts/launch.sh 3
 sleep 20
 tmux select-window -t 0
 

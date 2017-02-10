@@ -152,8 +152,6 @@ logNewSlotWorker =
         modifyLoggerName (<> "slotting") $
             logNotice $ sformat ("New slot has just started: " %slotIdF) slotId
 
--- getSlotDuration = pure genesisSlotDuration
-
 -- | Wait until system starts. This function is useful if node is
 -- launched before 0-th epoch starts.
 waitSystemStart

@@ -19,7 +19,7 @@ import           Universum
 
 import           Pos.Constants                   (slotSecurityParam)
 import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (..), GtPayload (..),
-                                                  getCommitmentsMap, isSharesIdx,
+                                                  getCommitmentsMap,
                                                   mkCommitmentsMapUnsafe, _gpCertificates)
 import           Pos.Ssc.GodTossing.Functions    (verifyGtPayload)
 import           Pos.Ssc.GodTossing.Toss.Base    (checkPayload)
@@ -61,7 +61,7 @@ verifyAndApplyGtPayload eoh payload = do
             -- We can freely clear shares after 'slotSecurityParam'
             -- because it's guaranteed that rollback on more than 'slotSecurityParam'
             -- can't happen
-            when (slot >= slotSecurityParam && (not $ isSharesIdx slot)) resetShares
+            when (slot >= slotSecurityParam && slot < 2 * slotSecurityParam) resetShares
     mapM_ putCertificate blockCerts
     case payload of
         CommitmentsPayload  comms  _ ->

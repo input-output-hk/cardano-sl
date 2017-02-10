@@ -12,6 +12,7 @@
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE UndecidableInstances       #-}
 
 module Node.Internal (
     NodeId(..),
@@ -76,13 +77,13 @@ newtype NodeId = NodeId NT.EndPointAddress
 data NodeState peerData m = NodeState {
       _nodeStateGen                    :: !StdGen
       -- ^ To generate nonces.
-    , _nodeStateOutboundUnidirectional :: !(Map NT.EndPointAddress (Promise m ()))
+    , _nodeStateOutboundUnidirectional :: !(Map NT.EndPointAddress (SomeHandler m))
       -- ^ Handlers for each locally-initiated unidirectional connection.
-    , _nodeStateOutboundBidirectional  :: !(Map NT.EndPointAddress (Map Nonce (Promise m (), ChannelIn m, SharedExclusiveT m peerData, NT.ConnectionBundle, Bool)))
+    , _nodeStateOutboundBidirectional  :: !(Map NT.EndPointAddress (Map Nonce (SomeHandler m, ChannelIn m, SharedExclusiveT m peerData, NT.ConnectionBundle, Bool)))
       -- ^ Handlers for each nonce which we generated (locally-initiated
       --   bidirectional connections).
       --   The bool indicates whether we have received an ACK for this.
-    , _nodeStateInbound                :: !(Set (Promise m ()))
+    , _nodeStateInbound                :: !(Set (SomeHandler m))
       -- ^ Handlers for inbound connections (remotely-initiated unidirectional
       --   _or_ bidirectional connections).
     , _nodeStateConnectedTo        :: !(Map NT.EndPointAddress (OutboundConnectionState m))
@@ -116,6 +117,28 @@ initialNodeState prng = do
             , _nodeStateClosed = False
             }
     newSharedAtomic nodeState
+
+data SomeHandler m = forall t . SomeHandler {
+      someHandlerThreadId :: !(ThreadId m)
+    , someHandlerPromise :: !(Promise m t)
+    }
+
+-- | Correctness relies on the assumption that the ThreadId is that of the
+--   Promise, and that two Promises with the same ThreadId are the same.
+--   Is this reasonable?
+instance (Eq (ThreadId m)) => Eq (SomeHandler m) where
+    SomeHandler tid1 _ == SomeHandler tid2 _ = tid1 == tid2
+
+instance (Ord (ThreadId m)) => Ord (SomeHandler m) where
+    SomeHandler tid1 _ `compare` SomeHandler tid2 _ = tid1 `compare` tid2
+
+waitSomeHandler :: ( Mockable Async m ) => SomeHandler m -> m ()
+waitSomeHandler (SomeHandler _ promise) = () <$ wait promise
+
+makeSomeHandler :: ( Mockable Async m ) => Promise m t -> m (SomeHandler m)
+makeSomeHandler promise = do
+    tid <- asyncThreadId promise
+    return $ SomeHandler tid promise
 
 -- | A 'Node' is a network-transport 'EndPoint' with bidirectional connection
 --   state and a thread to dispatch network-transport events.
@@ -459,7 +482,8 @@ stRemoveHandler !provenance !elapsed !outcome !statistics = case provenance of
 startNode
     :: ( Mockable SharedAtomic m, Mockable Channel.Channel m
        , Mockable Bracket m, Mockable Throw m, Mockable Catch m
-       , Mockable Async m, Mockable Concurrently m, Ord (Promise m ())
+       , Mockable Async m, Mockable Concurrently m
+       , Ord (ThreadId m), Show (ThreadId m)
        , Mockable CurrentTime m, Mockable Metrics.Metrics m
        , Mockable SharedExclusive m
        , Message.Serializable packingType peerData
@@ -582,12 +606,14 @@ waitForRunningHandlers
        ( Mockable SharedAtomic m
        , Mockable Async m
        , Mockable Catch m
+       , WithLogger m
+       , Show (ThreadId m)
        )
     => Node packingType peerData m
     -> m [Maybe SomeException]
 waitForRunningHandlers node = do
     -- Gather the promises for all handlers.
-    promises <- withSharedAtomic (nodeState node) $ \st ->
+    handlers <- withSharedAtomic (nodeState node) $ \st -> do
         let outbound_uni = Map.elems (_nodeStateOutboundUnidirectional st)
             -- List monad computation: grab the values of the map (ignoring
             -- peer keys), then for each of those maps grab its values (ignoring
@@ -598,21 +624,25 @@ waitForRunningHandlers node = do
                 return x
             inbound = Set.toList (_nodeStateInbound st)
             all = outbound_uni ++ outbound_bi ++ inbound
-        in  return all
-    let waitAndCatch promise =
-            (Nothing <$ wait promise) `catch` (\(e :: SomeException) -> return (Just e))
-    forM promises waitAndCatch
+        logDebug $ sformat ("waiting for " % shown % " outbound unidirectional handlers") (fmap (someHandlerThreadId) outbound_uni)
+        logDebug $ sformat ("waiting for " % shown % " outbound bidirectional handlers") (fmap (someHandlerThreadId) outbound_bi)
+        logDebug $ sformat ("waiting for " % shown % " outbound inbound") (fmap (someHandlerThreadId) inbound)
+        return all
+    let waitAndCatch someHandler = do
+            logDebug $ sformat ("waiting on " % shown) (someHandlerThreadId someHandler)
+            (Nothing <$ waitSomeHandler someHandler) `catch` (\(e :: SomeException) -> return (Just e))
+    forM handlers waitAndCatch
 
 -- | The one thread that handles /all/ incoming messages and dispatches them
 -- to various handlers.
 nodeDispatcher
     :: forall m packingType peerData .
        ( Mockable SharedAtomic m, Mockable Async m, Mockable Concurrently m
-       , Ord (Promise m ()), Mockable Bracket m, Mockable SharedExclusive m
+       , Ord (ThreadId m), Mockable Bracket m, Mockable SharedExclusive m
        , Mockable Channel.Channel m, Mockable Throw m, Mockable Catch m
        , Mockable CurrentTime m, Mockable Metrics.Metrics m
        , Message.Serializable packingType peerData
-       , MonadFix m, WithLogger m )
+       , MonadFix m, WithLogger m, Show (ThreadId m) )
     => Node packingType peerData m
     -> (peerData -> NodeId -> ChannelIn m -> m ())
     -> (peerData -> NodeId -> ChannelIn m -> ChannelOut m -> m ())
@@ -679,12 +709,16 @@ nodeDispatcher node handlerIn handlerInOut =
                     Channel.writeChannel channel Nothing
                 _ -> return ()
 
-        -- Must plug input channels for all un-acked outbound connections.
-        channels <- modifySharedAtomic nstate $ \st -> do
+        -- Must plug input channels for all un-acked outbound connections, and
+        -- fill the peer data vars in case they haven't yet been filled. This
+        -- is to ensure that handlers never block on these things.
+        _ <- modifySharedAtomic nstate $ \st -> do
             let nonceMaps = Map.elems (_nodeStateOutboundBidirectional st)
             let outbounds = nonceMaps >>= Map.elems
-            forM_ outbounds $ \(_, ChannelIn chan, _, _, acked) -> do
-                when (not acked) (Channel.writeChannel chan Nothing)
+            forM_ outbounds $ \(_, ChannelIn chan, peerDataVar, _, acked) -> do
+                when (not acked) $ do
+                   tryPutSharedExclusive peerDataVar (error "no peer data because local node has gone down")
+                   Channel.writeChannel chan Nothing
             return (st, ())
 
         _ <- waitForRunningHandlers node
@@ -1038,12 +1072,14 @@ nodeDispatcher node handlerIn handlerInOut =
 
         -- Every outbound bidirectional connection which is carried by this
         -- bundle, and which has not yet received an ACK, must have its
-        -- channel plugged.
+        -- channel plugged and its peer data shared exclusive filled in case
+        -- it has not yet been. This is to ensure that the handlers do not
+        -- block indefinitely when trying to access these things.
         --
         -- Outbound unidirectional connections need no attention: they will
         -- fail if they try to 'send', but since they expect no data in
         -- return, we don't have to take care of them here.
-        channels <- modifySharedAtomic nstate $ \st -> do
+        channelsAndPeerDataVars <- modifySharedAtomic nstate $ \st -> do
             let nonces = Map.lookup peer (_nodeStateOutboundBidirectional st)
             case nonces of
                 -- Perfectly normal: lost the connection but we had no 
@@ -1053,16 +1089,18 @@ nodeDispatcher node handlerIn handlerInOut =
                     -- Remove every element from the map which is carried by
                     -- this bundle, and then remove the map itself if it's
                     -- empty.
-                    let folder (_, channelIn, _, bundle', acked) channels
-                            | bundle' == bundle && not acked = channelIn : channels
+                    let folder (_, channelIn, peerDataVar, bundle', acked) channels
+                            | bundle' == bundle && not acked = (channelIn, peerDataVar) : channels
                             | otherwise = channels
 
-                    let channels = Map.foldr folder [] map
-                    return (st, channels)
+                    let channelsAndPeerDataVars = Map.foldr folder [] map
+                    return (st, channelsAndPeerDataVars)
 
-        logWarning $ sformat ("closing " % shown % " channels on bundle " % shown % " to " % shown) (length channels) bundle peer
+        logWarning $ sformat ("closing " % shown % " channels on bundle " % shown % " to " % shown) (length channelsAndPeerDataVars) bundle peer
 
-        forM_ channels $ \(ChannelIn chan) -> Channel.writeChannel chan Nothing
+        forM_ channelsAndPeerDataVars $ \(ChannelIn chan, peerDataVar) -> do
+            tryPutSharedExclusive peerDataVar (error "no peer data because the connection was lost")
+            Channel.writeChannel chan Nothing
 
         return state'
 
@@ -1073,7 +1111,7 @@ nodeDispatcher node handlerIn handlerInOut =
 spawnHandler
     :: forall peerData m t .
        ( Mockable SharedAtomic m, Mockable Throw m, Mockable Catch m
-       , Mockable Async m, Ord (Promise m ())
+       , Mockable Async m, Ord (ThreadId m)
        , Mockable Metrics.Metrics m, Mockable CurrentTime m
        , WithLogger m
        , MonadFix m )
@@ -1086,28 +1124,24 @@ spawnHandler stateVar provenance action =
         -- Spawn the thread to get a 'SomeHandler'.
         rec { promise <- async $ do
                   startTime <- currentTime
-                  normal waitForIt startTime `catch` exceptional waitForIt startTime
-            -- A new promise which finishes when the other promise does, but returns
-            -- ().
-            ; waitForIt <- async $ do
-                  wait promise
-                  pure ()
+                  normal someHandler startTime `catch` exceptional someHandler startTime
+            ; someHandler <- makeSomeHandler promise
             }
         -- It is assumed that different promises do not compare equal.
         -- It is assumed to be highly unlikely that there will be nonce
         -- collisions (that we have a good prng).
         let nodeState' = case provenance of
                 Remote _ _ _ -> nodeState {
-                      _nodeStateInbound = Set.insert waitForIt (_nodeStateInbound nodeState)
+                      _nodeStateInbound = Set.insert someHandler (_nodeStateInbound nodeState)
                     }
                 Local peer (Just (nonce, peerDataVar, connBundle, channelIn)) -> nodeState {
                       _nodeStateOutboundBidirectional = Map.alter alteration peer (_nodeStateOutboundBidirectional nodeState)
                     }
                     where
-                    alteration Nothing = Just $ Map.singleton nonce (waitForIt, channelIn, peerDataVar, connBundle, False)
-                    alteration (Just map) = Just $ Map.insert nonce (waitForIt, channelIn, peerDataVar, connBundle, False) map
+                    alteration Nothing = Just $ Map.singleton nonce (someHandler, channelIn, peerDataVar, connBundle, False)
+                    alteration (Just map) = Just $ Map.insert nonce (someHandler, channelIn, peerDataVar, connBundle, False) map
                 Local peer Nothing -> nodeState {
-                      _nodeStateOutboundUnidirectional = Map.insert peer waitForIt (_nodeStateOutboundUnidirectional nodeState)
+                      _nodeStateOutboundUnidirectional = Map.insert peer someHandler (_nodeStateOutboundUnidirectional nodeState)
                     }
 
         statistics' <- stAddHandler provenance (_nodeStateStatistics nodeState)
@@ -1115,25 +1149,25 @@ spawnHandler stateVar provenance action =
 
     where
 
-    normal :: Promise m () -> Microsecond -> m t
-    normal promise startTime = do
+    normal :: SomeHandler m -> Microsecond -> m t
+    normal someHandler startTime = do
         t <- action
-        signalFinished promise startTime Nothing
+        signalFinished someHandler startTime Nothing
         pure t
 
-    exceptional :: Promise m () -> Microsecond -> SomeException -> m t
-    exceptional promise startTime e = do
-        signalFinished promise startTime (Just e)
+    exceptional :: SomeHandler m -> Microsecond -> SomeException -> m t
+    exceptional someHandler startTime e = do
+        signalFinished someHandler startTime (Just e)
         throw e
 
-    signalFinished :: Promise m () -> Microsecond -> Maybe SomeException -> m ()
-    signalFinished promise startTime outcome = do
+    signalFinished :: SomeHandler m -> Microsecond -> Maybe SomeException -> m ()
+    signalFinished someHandler startTime outcome = do
         endTime <- currentTime
         let elapsed = endTime - startTime
         modifySharedAtomic stateVar $ \nodeState -> do
             let nodeState' = case provenance of
                     Remote _ _ _ -> nodeState {
-                          _nodeStateInbound = Set.delete promise (_nodeStateInbound nodeState)
+                          _nodeStateInbound = Set.delete someHandler (_nodeStateInbound nodeState)
                         }
                     -- Remove the nonce for this peer, and remove the whole map
                     -- if this was the only nonce for that peer.
@@ -1183,7 +1217,7 @@ fixedSizeBuilder n =
 --   (NodeId).
 withInOutChannel
     :: forall packingType peerData m a .
-       ( Mockable Bracket m, Mockable Async m, Ord (Promise m ())
+       ( Mockable Bracket m, Mockable Async m, Ord (ThreadId m)
        , Mockable SharedAtomic m, Mockable Throw m
        , Mockable SharedExclusive m
        , Mockable Catch m, Mockable Channel.Channel m
@@ -1222,7 +1256,7 @@ withInOutChannel node@Node{nodeState} nodeid@(NodeId peer) action = do
 -- | Create, use, and tear down a unidirectional channel to a peer identified
 --   by 'NodeId'.
 withOutChannel
-    :: ( Mockable Bracket m, Mockable Async m, Ord (Promise m ())
+    :: ( Mockable Bracket m, Mockable Async m, Ord (ThreadId m)
        , Mockable Throw m, Mockable Catch m
        , Mockable SharedAtomic m, Mockable CurrentTime m
        , Mockable SharedExclusive m
@@ -1483,6 +1517,7 @@ connectToPeer Node{nodeEndPoint, nodeState, nodePackingType, nodePeerData} nodei
     -- the first to come up.
     finishConnecting _ (merr :: Maybe SomeException) = do
         modifySharedAtomic nodeState $ \nodeState -> do
+            when (_nodeStateClosed nodeState) (throw $ InternalError "connectToPeer : node closed while establishing connection!")
             let map = _nodeStateConnectedTo nodeState
             choice <- case Map.lookup peer map of
 
@@ -1527,6 +1562,7 @@ connectToPeer Node{nodeEndPoint, nodeState, nodePackingType, nodePeerData} nodei
     -- as going up.
     startConnecting = do
         canOpen <- modifySharedAtomic nodeState $ \nodeState -> do
+            when (_nodeStateClosed nodeState) (throw $ userError "connectToPeer : you're doing it wrong! Our node is closed!")
             let map = _nodeStateConnectedTo nodeState
             choice <- case Map.lookup peer map of
 

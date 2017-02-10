@@ -11,6 +11,7 @@ module Mockable.SharedExclusive (
     , SharedExclusive(..)
     , newSharedExclusive
     , putSharedExclusive
+    , tryPutSharedExclusive
     , takeSharedExclusive
     , modifySharedExclusive
     , readSharedExclusive
@@ -26,12 +27,14 @@ data SharedExclusive (m :: * -> *) (t :: *) where
     PutSharedExclusive :: SharedExclusiveT m t -> t -> SharedExclusive m ()
     TakeSharedExclusive :: SharedExclusiveT m t -> SharedExclusive m t
     ModifySharedExclusive :: SharedExclusiveT m t -> (t -> m (t, r)) -> SharedExclusive m r
+    TryPutSharedExclusive :: SharedExclusiveT m t -> t -> SharedExclusive m Bool
 
 instance (SharedExclusiveT n ~ SharedExclusiveT m) => MFunctor' SharedExclusive m n where
     hoist' _ NewSharedExclusive = NewSharedExclusive
     hoist' _ (PutSharedExclusive var t) = PutSharedExclusive var t
     hoist' _ (TakeSharedExclusive var) = TakeSharedExclusive var
     hoist' nat (ModifySharedExclusive var f) = ModifySharedExclusive var (nat . f)
+    hoist' _ (TryPutSharedExclusive var t) = TryPutSharedExclusive var t
 
 newSharedExclusive :: ( Mockable SharedExclusive m ) => m (SharedExclusiveT m t)
 newSharedExclusive = liftMockable $ NewSharedExclusive
@@ -47,3 +50,6 @@ modifySharedExclusive var f = liftMockable $ ModifySharedExclusive var f
 
 readSharedExclusive :: ( Mockable SharedExclusive m ) => SharedExclusiveT m t -> m t
 readSharedExclusive var = liftMockable $ ModifySharedExclusive var (\t -> return (t, t))
+
+tryPutSharedExclusive :: ( Mockable SharedExclusive m ) => SharedExclusiveT m t -> t -> m Bool
+tryPutSharedExclusive var t = liftMockable $ TryPutSharedExclusive var t

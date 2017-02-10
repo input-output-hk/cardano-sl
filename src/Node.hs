@@ -64,7 +64,7 @@ import           Node.Internal              (ChannelIn, ChannelOut)
 import qualified Node.Internal              as LL
 import           Node.Message
 import           System.Random              (StdGen)
-import           System.Wlog                (WithLogger, logDebug, logError)
+import           System.Wlog                (WithLogger, logDebug, logError, logInfo)
 
 data Node m = forall event . Node {
       nodeId         :: LL.NodeId
@@ -186,7 +186,7 @@ nodeSendActions
     :: forall m packing peerData .
        ( Mockable Channel.Channel m, Mockable Throw m, Mockable Catch m
        , Mockable Bracket m, Mockable SharedAtomic m, Mockable SharedExclusive m
-       , Mockable Async m, Ord (Promise m ())
+       , Mockable Async m, Ord (ThreadId m)
        , Mockable CurrentTime m, Mockable Metrics.Metrics m
        , WithLogger m, MonadFix m
        , Serializable packing peerData
@@ -268,7 +268,8 @@ node
     :: forall packing peerData m t .
        ( Mockable Fork m, Mockable Throw m, Mockable Channel.Channel m
        , Mockable SharedAtomic m, Mockable Bracket m, Mockable Catch m
-       , Mockable Async m, Mockable Concurrently m, Ord (Promise m ())
+       , Mockable Async m, Mockable Concurrently m
+       , Ord (ThreadId m), Show (ThreadId m)
        , Mockable SharedExclusive m
        , Mockable CurrentTime m, Mockable Metrics.Metrics m
        , MonadFix m, Serializable packing MessageName, WithLogger m
@@ -293,17 +294,25 @@ node transport prng packing peerData k = do
               (listenerIndex, _conflictingNames) = makeListenerIndex listeners
         ; let sendActions = nodeSendActions llnode packing
         }
-    act sendActions `catch` logException
-                    `finally` LL.stopNode llnode
-                    `catch` logNodeException
+    let unexceptional = do
+            t <- act sendActions
+            logNormalShutdown
+            (LL.stopNode llnode `catch` logNodeException)
+            return t
+    unexceptional
+        `catch` logException
+        `onException` (LL.stopNode llnode `catch` logNodeException)
   where
-    logException :: SomeException -> m t
+    logNormalShutdown :: m ()
+    logNormalShutdown =
+        logInfo $ sformat ("node stopping normally")
+    logException :: forall t . SomeException -> m t
     logException e = do
-        logError (sformat ("node stopped with exception " % shown) e)
+        logError $ sformat ("node stopped with exception " % shown) e
         throw e
-    logNodeException :: SomeException -> m t
+    logNodeException :: forall t . SomeException -> m t
     logNodeException e = do
-        logError (sformat ("exception while stopping node " % shown) e)
+        logError $ sformat ("exception while stopping node " % shown) e
         throw e
     -- Handle incoming data from unidirectional connections: try to read the
     -- message name, use it to determine a listener, parse the body, then

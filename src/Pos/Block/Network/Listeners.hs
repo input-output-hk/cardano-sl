@@ -33,7 +33,7 @@ import qualified Pos.DB                      as DB
 import           Pos.DB.Error                (DBError (DBMalformed))
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass)
 import           Pos.Util                    (NewestFirst (..))
-import           Pos.Util.Binary             (WithLengthLimited (..))
+import           Pos.Util.Binary             (LimitedLength (..))
 import           Pos.WorkMode                (WorkMode)
 
 blockListeners
@@ -95,8 +95,8 @@ handleGetBlocks =
     listenerConv $
         \_ __peerId (conv :: ConversationActions
                                (MsgBlock ssc)
-                               (WithLengthLimited s0 MsgGetBlocks) m) -> do
-        mBlock <- fmap withLengthLimited <$> recv conv
+                               (LimitedLength s0 MsgGetBlocks) m) -> do
+        mBlock <- fmap withLimitedLength <$> recv conv
         whenJust mBlock $ \mgb@MsgGetBlocks{..} -> do
             logDebug $ sformat ("Got request on handleGetBlocks: "%build) mgb
             hashes <- getHeadersFromToIncl mgbFrom mgbTo

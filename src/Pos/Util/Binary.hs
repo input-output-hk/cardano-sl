@@ -25,7 +25,7 @@ module Pos.Util.Binary
        , getSmallWithLength
 
        -- * Deserialisation with limited length
-       , WithLengthLimited (..)
+       , LimitedLength (..)
 
        -- * Other binary utils
        , getRemainingByteString
@@ -159,16 +159,16 @@ getSmallWithLength act = do
 -- | Sets size limit to deserialization instances via @s@ parameter
 -- (using "Data.Reflection"). Grep for 'reify' and 'reflect' to see
 -- usage examples.
-newtype WithLengthLimited s a = WithLengthLimited
-    { withLengthLimited :: a
+newtype LimitedLength s a = LimitedLength
+    { withLimitedLength :: a
     } deriving (Eq, Ord, Show)
 
-instance (Bi a, Reifies s Byte) => Bi (WithLengthLimited s a) where
-    put (WithLengthLimited a) = put a
+instance (Bi a, Reifies s Byte) => Bi (LimitedLength s a) where
+    put (LimitedLength a) = put a
     get = do
         let maxBlockSize = reflect (Proxy @s)
         getWithLengthLimited (fromIntegral maxBlockSize) $
-            WithLengthLimited <$> get
+            LimitedLength <$> get
 
 
 ----------------------------------------------------------------------------

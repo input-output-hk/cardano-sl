@@ -18,12 +18,12 @@ import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents, GtTag)
 import           Pos.Txp.Types.Communication      (TxMsgContents, TxMsgTag)
 import           Pos.Update.Core.Types            (UpdateProposal, UpdateVote)
 import           Pos.Update.Network.Types         (ProposalMsgTag, VoteMsgTag)
-import           Pos.Util.Binary                  (WithLengthLimited (..))
+import           Pos.Util.Binary                  (LimitedLength (..))
 
 varIntMName :: Int -> MessageName
 varIntMName = MessageName . encodeStrict . UnsignedVarInt
 
-deriving instance Message a => Message (WithLengthLimited s a)
+deriving instance Message a => Message (LimitedLength s a)
 
 instance Message NOP where
     messageName _ = varIntMName 0

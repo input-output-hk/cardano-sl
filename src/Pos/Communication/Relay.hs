@@ -13,6 +13,7 @@ module Pos.Communication.Relay
        , RelayProxy (..)
        ) where
 
+import           Data.Reflection               (reify)
 import           Formatting                    (build, sformat, stext, (%))
 import           Node.Message                  (Message)
 import           Serokell.Util.Text            (listJson)
@@ -22,6 +23,7 @@ import           System.Wlog                   (WithLogger)
 import           Universum
 
 import           Pos.Binary.Class              (Bi (..))
+import           Pos.Communication.Message     ()
 import           Pos.Communication.Protocol    (ListenerSpec, NOP, OutSpecs,
                                                 SendActions (..), listenerOneMsg, mergeLs,
                                                 oneMsgH, sendTo, toOutSpecs)
@@ -31,6 +33,8 @@ import           Pos.Context                   (WithNodeContext (getNodeContext)
                                                 ncNodeParams, npPropagation)
 import           Pos.DHT.Model.Class           (MonadDHT (..))
 import           Pos.DHT.Model.Neighbors       (sendToNeighbors)
+import           Pos.DB.GState.Update          (getMaxInvSize, getMaxReqSize)
+import           Pos.Util.Binary               (withLimitedLength)
 import           Pos.WorkMode                  (MinWorkMode, WorkMode)
 
 -- | Typeclass for general Inv/Req/Dat framework. It describes monads,
@@ -94,8 +98,9 @@ handleInvL
        )
     => RelayProxy key tag contents
     -> (ListenerSpec m, OutSpecs)
-handleInvL proxy = listenerOneMsg outSpecs $
-  \_ peerId sendActions msg@(InvMsg {..}) -> do
+handleInvL proxy = reify getMaxInvSize $ \(_ :: Proxy s) ->
+  listenerOneMsg outSpecs $
+    \_ peerId sendActions (withLimitedLength @s -> msg@InvMsg {..}) -> do
       let _ = invCatchType proxy msg
       processMessage "Inventory" imTag verifyInvTag $ do
           res <- zip (toList imKeys) <$> mapM (handleInv imTag) (toList imKeys)
@@ -109,6 +114,7 @@ handleInvL proxy = listenerOneMsg outSpecs $
             []     -> pure ()
             (a:as) -> sendTo sendActions peerId $ ReqMsg imTag (a :| as)
   where
+    outSpecs :: OutSpecs
     outSpecs = toOutSpecs [ oneMsgH (reqMsgProxy proxy) ]
 
 handleReqL
@@ -122,8 +128,9 @@ handleReqL
        )
     => RelayProxy key tag contents
     -> (ListenerSpec m, OutSpecs)
-handleReqL proxy = listenerOneMsg outSpecs $
-  \_ peerId sendActions msg@(ReqMsg {..}) -> do
+handleReqL proxy = reify getMaxReqSize $ \(_ :: Proxy s) ->
+  listenerOneMsg outSpecs $
+    \_ peerId sendActions (withLimitedLength @s -> msg@ReqMsg {..}) -> do
       let _ = reqCatchType proxy msg
       processMessage "Request" rmTag verifyReqTag $ do
           res <- zip (toList rmKeys) <$> mapM (handleReq rmTag) (toList rmKeys)
@@ -135,10 +142,12 @@ handleReqL proxy = listenerOneMsg outSpecs $
                   rmTag noDataAddrs
           mapM_ ((sendTo sendActions peerId) . DataMsg) datas
   where
+    outSpecs :: OutSpecs
     outSpecs = toOutSpecs [ oneMsgH (dataMsgProxy proxy) ]
 
 handleDataL
-    :: ( Bi (DataMsg contents)
+    :: forall m ssc key tag contents.
+       ( Bi (DataMsg contents)
        , Bi (InvMsg key tag)
        , MonadDHT m
        , Relay m tag key contents
@@ -153,6 +162,7 @@ handleDataL proxy = listenerOneMsg outSpecs $
   \_ _ sendActions msg@(DataMsg {..}) -> do
       key <- contentsToKey dmContents
       let _ = dataCatchType proxy msg
+          handleDataLDo :: m ()
           handleDataLDo = do
               shouldPropagate <-
                   npPropagation . ncNodeParams <$> getNodeContext
@@ -175,6 +185,7 @@ handleDataL proxy = listenerOneMsg outSpecs $
                   ("Ignoring data "%build%" for key "%build)
                   dmContents key
   where
+    outSpecs :: OutSpecs
     outSpecs = toOutSpecs [ oneMsgH (invMsgProxy proxy) ]
 
 data RelayProxy key tag contents = RelayProxy

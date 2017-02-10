@@ -53,11 +53,11 @@ class MonadSlotsData m =>
     -- return until current slot is known.
     getCurrentSlotBlocking :: m SlotId
 
-    -- | This function tries predict current slot as accurate as it can.
+    -- | This function tries to predict current slot as accurately as it can.
     -- If 'getCurrentTime' returns unreliable time,
     -- then function returns last known slot
     -- If our slotting data into DB is outdated,
-    -- then function try interpolate slot using last know slotting data
+    -- then function tries to extrapolate slot using last know slotting data
     getCurrentSlotInaccurate :: m SlotId
 
     currentTimeSlotting :: m Timestamp

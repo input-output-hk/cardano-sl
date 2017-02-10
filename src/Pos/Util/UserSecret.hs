@@ -16,12 +16,13 @@ module Pos.Util.UserSecret
        ) where
 
 import           Control.Lens         (makeLenses, to)
+import           Data.Binary.Get      (label)
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Default         (Default (..))
 import           Prelude              (show)
 import           System.FileLock      (FileLock, SharedExclusive (..), lockFile,
                                        unlockFile, withFileLock)
-import qualified Turtle as T
+import qualified Turtle               as T
 import           Universum            hiding (show)
 
 import           Pos.Binary.Class     (Bi (..), decodeFull, encode)
@@ -69,7 +70,7 @@ instance Default UserSecret where
 -- @Pos.Binary.*@.
 instance Bi UserSecret where
     put UserSecret{..} = put _usVss >> put _usKeys
-    get = do
+    get = label "UserSecret" $ do
         vss <- get
         keys <- get
         return $ def & usVss .~ vss & usKeys .~ keys

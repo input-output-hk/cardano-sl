@@ -36,7 +36,7 @@ import           Data.Binary                 (Get, Put)
 import qualified Data.Binary                 as Binary
 import           Data.Binary.Get             (ByteOffset, getByteString,
                                               getLazyByteString, getWord8, runGet,
-                                              runGetOrFail)
+                                              label, runGetOrFail)
 import           Data.Binary.Get.Internal    (Decoder (..), runCont)
 import           Data.Binary.Put             (putByteString, putCharUtf8,
                                               putLazyByteString, putWord8, runPut)
@@ -268,19 +268,22 @@ instance Bi (UnsignedVarInt Int) where
     {-# INLINE put #-}
     -- We don't need 'limitGet' here because it's already present in the 'Bi'
     -- instance of @UnsignedVarInt Int64@
-    get = fmap (fromIntegral :: Int64 -> Int) <$> get
+    get = label "UnsignedVarInt Int" $
+        fmap (fromIntegral :: Int64 -> Int) <$> get
     {-# INLINE get #-}
 
 instance Bi (SignedVarInt Int) where
     put (SignedVarInt a) = putSignedVarInt a
     {-# INLINE put #-}
-    get = SignedVarInt <$> limitGet 15 getSignedVarInt'
+    get = label "SignedVarInt Int" $
+        SignedVarInt <$> limitGet 15 getSignedVarInt'
     {-# INLINE get #-}
 
 instance Bi (FixedSizeInt Int) where
     put (FixedSizeInt a) = Binary.put a
     {-# INLINE put #-}
-    get = FixedSizeInt <$> Binary.get
+    get = label "FixedSizeInt Int" $
+        FixedSizeInt <$> Binary.get
     {-# INLINE get #-}
 
 -- Int64
@@ -288,20 +291,23 @@ instance Bi (FixedSizeInt Int) where
 instance Bi (UnsignedVarInt Int64) where
     put (UnsignedVarInt a) = putUnsignedVarInt (fromIntegral a :: Word64)
     {-# INLINE put #-}
-    get = UnsignedVarInt . (fromIntegral :: Word64 -> Int64) <$>
-          limitGet 15 getUnsignedVarInt'
+    get = label "UnsignedVarInt Int64" $
+        UnsignedVarInt . (fromIntegral :: Word64 -> Int64) <$>
+        limitGet 15 getUnsignedVarInt'
     {-# INLINE get #-}
 
 instance Bi (SignedVarInt Int64) where
     put (SignedVarInt a) = putSignedVarInt a
     {-# INLINE put #-}
-    get = SignedVarInt <$> limitGet 15 getSignedVarInt'
+    get = label "SignedVarInt Int64" $
+        SignedVarInt <$> limitGet 15 getSignedVarInt'
     {-# INLINE get #-}
 
 instance Bi (FixedSizeInt Int64) where
     put (FixedSizeInt a) = Binary.put a
     {-# INLINE put #-}
-    get = FixedSizeInt <$> Binary.get
+    get = label "FixedSizeInt Int64" $
+        FixedSizeInt <$> Binary.get
     {-# INLINE get #-}
 
 -- Word
@@ -309,13 +315,15 @@ instance Bi (FixedSizeInt Int64) where
 instance Bi (UnsignedVarInt Word) where
     put (UnsignedVarInt a) = putUnsignedVarInt a
     {-# INLINE put #-}
-    get = UnsignedVarInt <$> limitGet 15 getUnsignedVarInt'
+    get = label "UnsignedVarInt Word" $
+        UnsignedVarInt <$> limitGet 15 getUnsignedVarInt'
     {-# INLINE get #-}
 
 instance Bi (FixedSizeInt Word) where
     put (FixedSizeInt a) = Binary.put a
     {-# INLINE put #-}
-    get = FixedSizeInt <$> Binary.get
+    get = label "FixedSizeInt Word" $
+        FixedSizeInt <$> Binary.get
     {-# INLINE get #-}
 
 -- Word16
@@ -323,7 +331,8 @@ instance Bi (FixedSizeInt Word) where
 instance Bi (UnsignedVarInt Word16) where
     put (UnsignedVarInt a) = putUnsignedVarInt a
     {-# INLINE put #-}
-    get = UnsignedVarInt <$> limitGet 15 getUnsignedVarInt'
+    get = label "UnsignedVarInt Word16" $
+        UnsignedVarInt <$> limitGet 15 getUnsignedVarInt'
     {-# INLINE get #-}
 
 -- Word32
@@ -331,7 +340,8 @@ instance Bi (UnsignedVarInt Word16) where
 instance Bi (UnsignedVarInt Word32) where
     put (UnsignedVarInt a) = putUnsignedVarInt a
     {-# INLINE put #-}
-    get = UnsignedVarInt <$> limitGet 15 getUnsignedVarInt'
+    get = label "UnsignedVarInt Word32" $
+        UnsignedVarInt <$> limitGet 15 getUnsignedVarInt'
     {-# INLINE get #-}
 
 -- Word64
@@ -339,7 +349,8 @@ instance Bi (UnsignedVarInt Word32) where
 instance Bi (UnsignedVarInt Word64) where
     put (UnsignedVarInt a) = putUnsignedVarInt a
     {-# INLINE put #-}
-    get = UnsignedVarInt <$> limitGet 15 getUnsignedVarInt'
+    get = label "UnsignedVarInt Word64" $
+        UnsignedVarInt <$> limitGet 15 getUnsignedVarInt'
     {-# INLINE get #-}
 
 -- TinyVarInt
@@ -349,7 +360,8 @@ instance Bi TinyVarInt where
     {-# INLINE put #-}
     -- Doesn't need 'limitGet' because 'TinyVarInt' is already limited to two
     -- bytes
-    get = TinyVarInt <$> getTinyVarInt'
+    get = label "TinyVarInt" $
+        TinyVarInt <$> getTinyVarInt'
     {-# INLINE get #-}
 
 ----------------------------------------------------------------------------

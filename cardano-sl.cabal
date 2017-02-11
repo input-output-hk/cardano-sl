@@ -1091,6 +1091,7 @@ executable cardano-launcher
                      , cardano-sl
                      , directory
                      , process
+                     , system-filepath
                      , text
                      , turtle
                      , universum
@@ -1102,6 +1103,7 @@ executable cardano-launcher
                        -O2
   default-extensions:  OverloadedStrings
                        RecordWildCards
+                       TupleSections
 
 test-suite cardano-test
   main-is:             Test.hs

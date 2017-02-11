@@ -7,6 +7,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 import           Control.Concurrent.Async hiding (wait)
+import qualified Filesystem.Path          as FP
 import           Options.Applicative      (Mod, OptionFields, Parser, ParserInfo, auto,
                                            execParser, fullDesc, help, helper, info, long,
                                            metavar, option, progDesc, short, strOption)
@@ -33,6 +34,7 @@ data LauncherOptions = LO
     { loNodePath       :: !FilePath
     , loNodeArgs       :: ![Text]
     , loNodeLogConfig  :: !(Maybe FilePath)
+    , loNodeLogPath    :: !(Maybe FilePath)
     , loWalletPath     :: !(Maybe FilePath)
     , loWalletArgs     :: ![Text]
     , loUpdaterPath    :: !FilePath
@@ -59,6 +61,11 @@ optsParser = do
     loNodeLogConfig <- optional $ textOption $
         long    "node-log-config" <>
         help    "Path to log config that will be used by the node" <>
+        metavar "PATH"
+    loNodeLogPath <- optional $ textOption $
+        long    "node-log-path" <>
+        help    "File where node stdout/err will be redirected\
+                \ (def: temp file)" <>
         metavar "PATH"
 
     -- Wallet-related args
@@ -112,14 +119,14 @@ main = do
                  echo "Running in the server scenario"
                  serverScenario
                      loNodeLogConfig
-                     (loNodePath, realNodeArgs)
+                     (loNodePath, realNodeArgs, loNodeLogPath)
                      (loUpdaterPath, loUpdaterArgs, loUpdateArchive)
                      loReportServer
              Just wpath -> do
                  echo "Running in the client scenario"
                  clientScenario
                      loNodeLogConfig
-                     (loNodePath, realNodeArgs)
+                     (loNodePath, realNodeArgs, loNodeLogPath)
                      (wpath, loWalletArgs)
                      (loUpdaterPath, loUpdaterArgs, loUpdateArchive)
                      loNodeTimeoutSec
@@ -132,7 +139,7 @@ main = do
 -- * If it exits with code 20, then update and restart, else quit.
 serverScenario
     :: Maybe FilePath                      -- ^ Logger config
-    -> (FilePath, [Text])                  -- ^ Node, its args
+    -> (FilePath, [Text], Maybe FilePath)  -- ^ Node, its args, node log
     -> (FilePath, [Text], Maybe FilePath)  -- ^ Updater, args, the update .tar
     -> Maybe String                        -- ^ Report server
     -> Shell ()
@@ -156,7 +163,7 @@ serverScenario logConf node updater report = do
 --
 clientScenario
     :: Maybe FilePath                      -- ^ Logger config
-    -> (FilePath, [Text])                  -- ^ Node, its args
+    -> (FilePath, [Text], Maybe FilePath)  -- ^ Node, its args, node log
     -> (FilePath, [Text])                  -- ^ Wallet, args
     -> (FilePath, [Text], Maybe FilePath)  -- ^ Updater, args, the update .tar
     -> Int                                 -- ^ Node timeout, in seconds
@@ -216,13 +223,17 @@ runUpdater (path, args, updateArchive) = do
 ----------------------------------------------------------------------------
 
 spawnNode
-    :: (FilePath, [Text])
+    :: (FilePath, [Text], Maybe FilePath)
     -> Shell (ProcessHandle, Async ExitCode, FilePath)
-spawnNode (path, args) = do
+spawnNode (path, args, mbLogPath) = do
     echo "Starting the node"
-    (logPath, logHandle) <- do
-        tempdir <- liftIO (fromString <$> getTemporaryDirectory)
-        mktemp tempdir "cardano-node-output.log"
+    (logPath, logHandle) <- case mbLogPath of
+        Just lp -> do
+            mktree (FP.directory lp)
+            (lp,) <$> appendonly lp
+        Nothing -> do
+            tempdir <- liftIO (fromString <$> getTemporaryDirectory)
+            mktemp tempdir "cardano-node-output.log"
     printf ("Redirecting node's stdout and stderr to "%fp%"\n") logPath
     liftIO $ IO.hSetBuffering logHandle IO.LineBuffering
     let cr = (Process.proc (toString path) (map toString args))

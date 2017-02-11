@@ -9,6 +9,7 @@ import           Pos.Binary.Class                 (UnsignedVarInt (..),
                                                    encodeStrict)
 import           Pos.Block.Network.Types          (MsgBlock, MsgGetBlocks,
                                                    MsgGetHeaders, MsgHeaders)
+import           Pos.Communication.Limits         (LimitedLengthExt (..))
 import           Pos.Communication.Types.Protocol (NOP)
 import           Pos.Communication.Types.Relay    (DataMsg, InvMsg, ReqMsg)
 import           Pos.Communication.Types.SysStart (SysStartRequest,
@@ -18,12 +19,11 @@ import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents, GtTag)
 import           Pos.Txp.Types.Communication      (TxMsgContents, TxMsgTag)
 import           Pos.Update.Core.Types            (UpdateProposal, UpdateVote)
 import           Pos.Update.Network.Types         (ProposalMsgTag, VoteMsgTag)
-import           Pos.Util.Binary                  (LimitedLength (..))
 
 varIntMName :: Int -> MessageName
 varIntMName = MessageName . encodeStrict . UnsignedVarInt
 
-deriving instance Message a => Message (LimitedLength s a)
+deriving instance Message a => Message (LimitedLengthExt s l a)
 
 instance Message NOP where
     messageName _ = varIntMName 0

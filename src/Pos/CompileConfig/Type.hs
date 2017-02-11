@@ -70,6 +70,14 @@ data CompileConfig = CompileConfig
       -- version is adopted.
 
 ----------------------------------------------------------------------------
+-- -- Relay
+----------------------------------------------------------------------------
+    , ccGenesisMaxReqSize             :: !Byte
+      -- ^ Maximum `ReqMsg` size in bytes
+    , ccGenesisMaxInvSize             :: !Byte
+      -- ^ Maximum `InvMsg` size in bytes
+
+----------------------------------------------------------------------------
 -- Other
 ----------------------------------------------------------------------------
     , ccNetworkDiameter               :: !Int

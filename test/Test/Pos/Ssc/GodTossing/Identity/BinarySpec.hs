@@ -8,8 +8,8 @@ import           Test.Hspec              (Spec, describe)
 import           Universum
 
 import           Pos.Binary              ()
+import qualified Pos.Constants           as Const
 import qualified Pos.Communication.Relay as R
-import qualified Pos.DB.GState           as GState
 import qualified Pos.Ssc.GodTossing      as GT
 import           Pos.Types.Address       (StakeholderId)
 
@@ -30,6 +30,6 @@ spec = describe "GodTossing" $ do
         binaryTest @GT.GtSecretStorage
     describe "Message length limit" $ do
         msgLenLimitedTest
-            @(R.InvMsg StakeholderId GT.GtTag) GState.getMaxInvSize
+            @(R.InvMsg StakeholderId GT.GtTag) Const.genesisMaxInvSize
         msgLenLimitedTest
-            @(R.ReqMsg StakeholderId GT.GtTag) GState.getMaxReqSize
+            @(R.ReqMsg StakeholderId GT.GtTag) Const.genesisMaxReqSize

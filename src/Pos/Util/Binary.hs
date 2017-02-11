@@ -24,9 +24,6 @@ module Pos.Util.Binary
        , putSmallWithLength
        , getSmallWithLength
 
-       -- * Deserialisation with limited length
-       , LimitedLength (..)
-
        -- * Other binary utils
        , getRemainingByteString
        , getAsciiString1b
@@ -40,12 +37,10 @@ import           Data.Binary.Put            (Put, PutM, putByteString, putLazyBy
 import qualified Data.ByteString            as BS
 import qualified Data.ByteString.Lazy       as BSL
 import           Data.Char                  (isAscii)
-import           Data.Reflection            (Reifies, reflect)
 import           Data.SafeCopy              (Contained, SafeCopy (..), contain, safeGet,
                                             safePut)
 import qualified Data.Serialize             as Cereal (Get, Put)
 import           Formatting                 (formatToString, int, (%))
-import           Serokell.Data.Memory.Units (Byte)
 import           Universum                  hiding (putByteString)
 
 import           Pos.Binary.Class           (Bi (..))
@@ -151,25 +146,6 @@ getSmallWithLength :: Get a -> Get a
 getSmallWithLength act = do
     Bi.TinyVarInt len <- Bi.get
     Bi.isolate64 (fromIntegral len) act
-
-----------------------------------------------------------------------------
--- Deserialisation with limited length
-----------------------------------------------------------------------------
-
--- | Sets size limit to deserialization instances via @s@ parameter
--- (using "Data.Reflection"). Grep for 'reify' and 'reflect' to see
--- usage examples.
-newtype LimitedLength s a = LimitedLength
-    { withLimitedLength :: a
-    } deriving (Eq, Ord, Show)
-
-instance (Bi a, Reifies s Byte) => Bi (LimitedLength s a) where
-    put (LimitedLength a) = put a
-    get = do
-        let maxBlockSize = reflect (Proxy @s)
-        getWithLengthLimited (fromIntegral maxBlockSize) $
-            LimitedLength <$> get
-
 
 ----------------------------------------------------------------------------
 -- Other binary utils

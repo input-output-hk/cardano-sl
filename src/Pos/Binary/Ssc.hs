@@ -1,4 +1,5 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase           #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | GodTossing serialization instances
 
@@ -11,7 +12,8 @@ import           Universum
 import           Pos.Binary.Class                 (Bi (..))
 import           Pos.Binary.Crypto                ()
 import           Pos.Binary.Ssc.GodTossing.Core   ()
-import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtTag (..))
+import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..),
+                                                   GtTag (..))
 import           Pos.Ssc.GodTossing.Types.Types   (GtSecretStorage (..))
 
 ----------------------------------------------------------------------------

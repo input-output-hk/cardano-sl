@@ -17,8 +17,6 @@ module Pos.DB.GState.Update
        , getConfirmedSV
        , getSlotDuration
        , getMaxBlockSize
-       , getMaxInvSize
-       , getMaxReqSize
 
          -- * Operations
        , UpdateOp (..)
@@ -104,17 +102,6 @@ getSlotDuration = pure genesisSlotDuration
 -- | Get maximum block size (in bytes).
 getMaxBlockSize :: MonadDB ssc m => m Byte
 getMaxBlockSize = bvdMaxBlockSize <$> getAdoptedBVData
-
--- | Get maximum `InvMsg` size (in bytes).
--- TODO: store in db; if tests fail to complile then in tests create shadow
--- of this constant with value = actual verion's value
-getMaxInvSize :: Byte
-getMaxInvSize = 100
-
--- | Get maximum `ReqMsg` size (in bytes).
--- TODO: same as above
-getMaxReqSize :: Byte
-getMaxReqSize = 100
 
 -- | Get 'BlockVersionState' associated with given BlockVersion.
 getBVState :: MonadDB ssc m => BlockVersion -> m (Maybe BlockVersionState)

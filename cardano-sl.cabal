@@ -182,6 +182,7 @@ library
                         Pos.Communication.Arbitrary
                         Pos.Communication.BiP
                         Pos.Communication.Message
+                        Pos.Communication.Limits
                         Pos.Communication.Methods
                         Pos.Communication.Protocol
                         Pos.Communication.PeerState

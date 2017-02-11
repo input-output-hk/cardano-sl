@@ -9,7 +9,7 @@ import           Universum
 
 import           Pos.Binary              ()
 import qualified Pos.Communication.Relay as R
-import qualified Pos.DB.GState           as GState
+import qualified Pos.Constants           as Const
 import qualified Pos.Update              as U
 
 
@@ -43,10 +43,10 @@ spec =
         networkBinaryTest @(R.DataMsg (U.UpdateProposal, [U.UpdateVote]))
     describe "Message length limit" $ do
       msgLenLimitedTest
-        @(R.InvMsg U.VoteId U.VoteMsgTag) GState.getMaxInvSize
+        @(R.InvMsg U.VoteId U.VoteMsgTag) Const.genesisMaxInvSize
       msgLenLimitedTest
-        @(R.ReqMsg U.VoteId U.VoteMsgTag) GState.getMaxReqSize
+        @(R.ReqMsg U.VoteId U.VoteMsgTag) Const.genesisMaxReqSize
       msgLenLimitedTest
-        @(R.ReqMsg U.UpId U.ProposalMsgTag) GState.getMaxInvSize
+        @(R.ReqMsg U.UpId U.ProposalMsgTag) Const.genesisMaxInvSize
       msgLenLimitedTest
-        @(R.ReqMsg U.UpId U.ProposalMsgTag) GState.getMaxReqSize
+        @(R.ReqMsg U.UpId U.ProposalMsgTag) Const.genesisMaxReqSize

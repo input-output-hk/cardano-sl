@@ -8,8 +8,8 @@ import           Test.Hspec              (Spec, describe)
 import           Universum
 
 import           Pos.Binary              ()
+import qualified Pos.Constants           as Const
 import qualified Pos.Communication.Relay as R
-import qualified Pos.DB.GState           as GState
 import qualified Pos.Txp                 as T
 import           Pos.Types               (TxId)
 
@@ -25,6 +25,6 @@ spec =
         networkBinaryTest @(R.DataMsg T.TxMsgContents)
     describe "Message length limit" $ do
       msgLenLimitedTest
-        @(R.InvMsg TxId T.TxMsgTag) GState.getMaxInvSize
+        @(R.InvMsg TxId T.TxMsgTag) Const.genesisMaxInvSize
       msgLenLimitedTest
-        @(R.ReqMsg TxId T.TxMsgTag) GState.getMaxReqSize
+        @(R.ReqMsg TxId T.TxMsgTag) Const.genesisMaxInvSize

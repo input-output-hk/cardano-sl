@@ -27,6 +27,8 @@ module Pos.Constants
        , genesisSlotDuration
        , genesisMaxBlockSize
        , genesisMaxTxSize
+       , genesisMaxReqSize
+       , genesisMaxInvSize
        , genesisMpcThd
        , genesisHeavyDelThd
        , genesisUpdateVoteThd
@@ -153,6 +155,14 @@ genesisMaxBlockSize = ccGenesisMaxBlockSize $ compileConfig
 -- | See 'Pos.CompileConfig.ccGenesisMaxTxSize'.
 genesisMaxTxSize :: Byte
 genesisMaxTxSize = ccGenesisMaxTxSize cc
+
+-- | See 'Pos.CompileConfig.ccGenesisMaxReqSize'.
+genesisMaxReqSize :: Byte
+genesisMaxReqSize = ccGenesisMaxReqSize cc
+
+-- | See 'Pos.CompileConfig.ccGenesisMaxInvSize'.
+genesisMaxInvSize :: Byte
+genesisMaxInvSize = ccGenesisMaxInvSize cc
 
 -- | See 'Pos.CompileConfig.ccGenesisMpcThd'.
 genesisMpcThd :: CoinPortion

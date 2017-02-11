@@ -39,6 +39,7 @@ import           Pos.Block.Network.Announce (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
                                              MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Block.Types            (Blund)
+import           Pos.Communication.Limits   (LimitedLength, withLimitedLength)
 import           Pos.Communication.Protocol (ConversationActions (..), NodeId, OutSpecs,
                                              SendActions (..), WorkerSpec, convH,
                                              toOutSpecs, worker)
@@ -53,7 +54,6 @@ import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (
                                              gbHeader, prevBlockL, verifyHeaders)
 import           Pos.Util                   (NE, NewestFirst (..), OldestFirst (..),
                                              inAssertMode, _neHead, _neLast)
-import           Pos.Util.Binary            (LimitedLength (..))
 import           Pos.Util.Shutdown          (ifNotShutdown)
 import           Pos.WorkMode               (WorkMode)
 

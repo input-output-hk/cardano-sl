@@ -28,12 +28,12 @@ import           Pos.Block.Network.Types     (MsgBlock (..), MsgGetBlocks (..),
 import           Pos.Communication.Protocol  (ConversationActions (..), HandlerSpec (..),
                                               ListenerSpec (..), OutSpecs, PeerData,
                                               listenerConv, mergeLs, messageName)
+import           Pos.Communication.Limits    (LimitedLength, withLimitedLength)
 import           Pos.Communication.Util      (stubListenerConv)
 import qualified Pos.DB                      as DB
 import           Pos.DB.Error                (DBError (DBMalformed))
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass)
 import           Pos.Util                    (NewestFirst (..))
-import           Pos.Util.Binary             (LimitedLength (..))
 import           Pos.WorkMode                (WorkMode)
 
 blockListeners

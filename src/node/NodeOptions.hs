@@ -56,6 +56,7 @@ data Args = Args
     , noSystemStart             :: !Int
     , updateLatestPath          :: !FilePath
     , updateWithPackage         :: !Bool
+    , monitorPort               :: !(Maybe Int)
     }
   deriving Show
 
@@ -143,7 +144,11 @@ argsParser =
                    help "Path to update installer file, which should be downloaded by update system")
     <*> switch (long "update-with-package" <>
                 help "Use updating via installer")
-
+    <*> optional
+            (option
+                 auto
+                 (long "monitor-port" <> metavar "INT" <>
+                  help "Run web monitor on this port"))
 
   where
     peerHelpMsg =

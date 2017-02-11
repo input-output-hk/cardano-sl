@@ -17,11 +17,12 @@ import           Formatting                (build, int, sformat, stext, (%))
 import           Mockable                  (delay)
 import           Options.Applicative       (execParser)
 import           System.IO                 (hFlush, stdout)
-import           Universum
+import           System.Wlog               (logDebug, logError, logInfo, logWarning)
 #if !(defined(mingw32_HOST_OS) && defined(__MINGW32__))
 import           System.Exit               (ExitCode (ExitSuccess))
 import           System.Posix.Process      (exitImmediately)
 #endif
+import           Universum
 
 import qualified Pos.CLI                   as CLI
 import           Pos.Communication         (OutSpecs, SendActions, Worker', WorkerSpec,
@@ -32,7 +33,7 @@ import           Pos.Crypto                (Hash, SecretKey, createProxySecretKe
 import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.Delegation            (sendProxySKEpoch, sendProxySKEpochOuts,
                                             sendProxySKSimple, sendProxySKSimpleOuts)
-import           Pos.DHT.Model             (DHTNode, discoverPeers)
+import           Pos.DHT.Model             (DHTNode, discoverPeers, getKnownPeers)
 import           Pos.Genesis               (genesisBlockVersionData, genesisPublicKeys,
                                             genesisSecretKeys)
 import           Pos.Launcher              (BaseParams (..), LoggingParams (..),
@@ -71,7 +72,8 @@ runCmd sendActions (Send idx outputs) = do
     case etx of
         Left err -> putText $ sformat ("Error: "%stext) err
         Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
-runCmd sendActions (Vote idx decision upid) = do
+runCmd sendActions v@(Vote idx decision upid) = do
+    logDebug $ "Submitting a vote :" <> show v
     (skeys, na) <- ask
     let skey = skeys !! idx
     let voteUpd = UpdateVote
@@ -86,7 +88,7 @@ runCmd sendActions (Vote idx decision upid) = do
             lift $ submitVote sendActions na voteUpd
             putText "Submitted vote"
 runCmd sendActions ProposeUpdate{..} = do
-    putText "Proposing update..."
+    logDebug "Proposing update..."
     (skeys, na) <- ask
     (diffFile :: Maybe (Hash Raw)) <- runMaybeT $ do
         filePath <- MaybeT $ pure puFilePath
@@ -184,10 +186,16 @@ initialize WalletOptions{..} = do
         putText $ sformat ("Started node. Waiting for "%int%" slots...") woInitialPause
         slotDuration <- getSlotDuration
         delay (fromIntegral woInitialPause * slotDuration)
-    putText "Discovering peers"
-    peers <- discoverPeers
-    putText "Peer discovery completed"
-    pure peers
+    peers <- getKnownPeers
+    bool (pure peers) getPeersUntilSome (null peers)
+  where
+    getPeersUntilSome = do
+        liftIO $ hFlush stdout
+        logWarning "Discovering peers, because current peer list is empty"
+        peers <- discoverPeers
+        if null peers
+        then getPeersUntilSome
+        else pure peers
 
 runWalletRepl :: WalletMode ssc m => WalletOptions -> Worker' m
 runWalletRepl wo sa = do
@@ -206,8 +214,9 @@ runWalletCmd wo str sa = do
             Right cmd' -> runCmd sa cmd'
     putText "Command execution finished"
     putText " " -- for exit by SIGPIPE
+    liftIO $ hFlush stdout
 #if !(defined(mingw32_HOST_OS) && defined(__MINGW32__))
-    delay $ sec 5
+    delay $ sec 3
     liftIO $ exitImmediately ExitSuccess
 #endif
 
@@ -219,6 +228,7 @@ main = do
             { lpRunnerTag     = "smart-wallet"
             , lpHandlerPrefix = CLI.logPrefix woCommonArgs
             , lpConfigPath    = CLI.logConfig woCommonArgs
+            , lpEkgPort       = Nothing
             }
         baseParams =
             BaseParams
@@ -259,6 +269,9 @@ main = do
 #endif
 
         case CLI.sscAlgo woCommonArgs of
-            GodTossingAlgo -> putText "Using MPC coin tossing" *>
-                              runWalletReal res params plugins
-            NistBeaconAlgo -> putText "Wallet does not support NIST beacon!"
+            GodTossingAlgo -> do
+                logInfo "Using MPC coin tossing"
+                liftIO $ hFlush stdout
+                runWalletReal res params plugins
+            NistBeaconAlgo ->
+                logError "Wallet does not support NIST beacon!"

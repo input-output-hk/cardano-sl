@@ -25,7 +25,7 @@ import           Pos.Binary.Types     ()
 import           Pos.Crypto           (Hash, WithHash (..), checkSig, hash)
 import           Pos.Script           (Script (..), isKnownScriptVersion, txScriptCheck)
 import           Pos.Types.Address    (addressDetailedF, checkPubKeyAddress,
-                                       checkScriptAddress)
+                                       checkScriptAddress, checkUnknownAddressType)
 import           Pos.Types.Coin       (coinToInteger, sumCoins)
 import           Pos.Types.Core       (Address (..), StakeholderId, coinF, mkCoin)
 import           Pos.Types.Types      (Tx (..), TxAux, TxDistribution (..), TxIn (..),
@@ -90,28 +90,35 @@ data VTxLocalContext = VTxLocalContext
 -- creating a block.
 verifyTx
     :: (Monad m)
-    => Bool
+    => Bool                             -- ^ Verify that tx itself is correct
+    -> Bool                             -- ^ Verify that script & address
+                                        --   versions in tx are known
     -> VTxGlobalContext
     -> (TxIn -> m (Maybe VTxLocalContext))
     -> TxAux
     -> m (Either [Text] [TxOutAux])
-verifyTx verifyAlone gContext inputResolver txs@(Tx {..}, _, _) = do
+verifyTx verifyAlone verifyVersions gContext inputResolver
+         txs@(Tx {..}, _, _) = do
     extendedInputs <- mapM extendInput txInputs
     runExceptT $ do
         verResToMonadError identity $
-            verifyTxDo verifyAlone gContext extendedInputs txs
+            verifyTxDo verifyAlone verifyVersions gContext extendedInputs txs
         return $ map (vtlTxOut . snd) . catMaybes $ extendedInputs
   where
     extendInput txIn = fmap (txIn, ) <$> inputResolver txIn
 
-verifyTxDo :: Bool
-           -> VTxGlobalContext
-           -> [Maybe (TxIn, VTxLocalContext)]
-           -> TxAux
-           -> VerificationRes
-verifyTxDo verifyAlone _gContext extendedInputs (tx@Tx{..}, witnesses, distrs) =
-    mconcat [verifyAloneRes, verifyCounts, verifySum, verifyInputs,
-             verifyDistributions]
+verifyTxDo
+    :: Bool                             -- ^ Verify that tx itself is correct
+    -> Bool                             -- ^ Verify that script & address
+                                        --   versions in tx are known
+    -> VTxGlobalContext
+    -> [Maybe (TxIn, VTxLocalContext)]
+    -> TxAux
+    -> VerificationRes
+verifyTxDo verifyAlone verifyVersions _gContext extendedInputs
+           (tx@Tx{..}, witnesses, distrs)
+  = mconcat [verifyAloneRes, verifyCounts, verifySum,
+             verifyInputs, verifyOutputs]
   where
     verifyAloneRes | verifyAlone = verifyTxAlone tx
                    | otherwise = mempty
@@ -129,7 +136,7 @@ verifyTxDo verifyAlone _gContext extendedInputs (tx@Tx{..}, witnesses, distrs) =
                          "("%int%" != "%int%")")
                   (length txInputs) (length witnesses) )
             ]
-    verifyDistributions =
+    verifyOutputs =
         verifyGeneric $
             [ ( length txOutputs == length (getTxDistribution distrs)
               , "length of outputs != length of tx distribution")
@@ -138,26 +145,36 @@ verifyTxDo verifyAlone _gContext extendedInputs (tx@Tx{..}, witnesses, distrs) =
             do (i, (TxOut{..}, d)) <-
                    zip [0 :: Int ..] (zip txOutputs (getTxDistribution distrs))
                case txOutAddress of
-                   PubKeyAddress _ ->
+                   PubKeyAddress{} ->
                        [ ( null d
                          , sformat ("output #"%int%" with pubkey address "%
                                     "has non-empty distribution") i)
                        ]
-                   ScriptAddress _ ->
-                       let sumDist = sumCoins (map snd d)
-                       in [ (sumDist <= coinToInteger txOutValue,
-                             sformat ("output #"%int%" has distribution "%
-                                      "sum("%int%") > txOutValue("%coinF%")")
-                                     i sumDist txOutValue)
-                          , (allDistinct (map fst d :: [StakeholderId]),
-                             sformat ("output #"%int%"'s distribution "%
-                                      "has duplicated addresses")
-                                     i)
-                          , (all (> mkCoin 0) (map snd d),
-                             sformat ("output #"%int%"'s distribution "%
-                                      "assigns 0 coins to some addresses")
-                                     i)
-                          ]
+                   ScriptAddress{} -> checkDist i d txOutValue
+                   UnknownAddressType t _
+                       | verifyVersions ->
+                             [ (False, sformat ("output #"%int%" has "%
+                                                "unknown address type: "%int)
+                                               i t) ]
+                       | otherwise ->
+                             checkDist i d txOutValue
+
+    checkDist i d txOutValue =
+        let sumDist = sumCoins (map snd d)
+        in [ (sumDist <= coinToInteger txOutValue,
+              sformat ("output #"%int%" has distribution "%
+                       "sum("%int%") > txOutValue("%coinF%")")
+                      i sumDist txOutValue)
+           , (allDistinct (map fst d :: [StakeholderId]),
+              sformat ("output #"%int%"'s distribution "%
+                       "has duplicated addresses")
+                      i)
+           , (all (> mkCoin 0) (map snd d),
+              sformat ("output #"%int%"'s distribution "%
+                       "assigns 0 coins to some addresses")
+                      i)
+           ]
+
     verifySum =
         let resInps = length resolvedInputs
             extInps = length extendedInputs
@@ -172,6 +189,7 @@ verifyTxDo verifyAlone _gContext extendedInputs (tx@Tx{..}, witnesses, distrs) =
                     , sformat (int%" inputs could not be resolved")
                               (abs $ resInps - extInps))
         in verifyGeneric [verifier]
+
     verifyInputs =
         verifyGeneric $ concat $
             zipWith3 inputPredicates [0..] extendedInputs (toList witnesses)
@@ -205,8 +223,10 @@ verifyTxDo verifyAlone _gContext extendedInputs (tx@Tx{..}, witnesses, distrs) =
                   i err txIn txOut witness)
         ]
 
-    checkAddrHash addr PkWitness{..}     = checkPubKeyAddress twKey addr
-    checkAddrHash addr ScriptWitness{..} = checkScriptAddress twValidator addr
+    checkAddrHash addr wit = case wit of
+        PkWitness{..}          -> checkPubKeyAddress twKey addr
+        ScriptWitness{..}      -> checkScriptAddress twValidator addr
+        UnknownWitnessType t _ -> checkUnknownAddressType t addr
 
     validateTxIn _i TxIn{..} _ PkWitness{..} =
         if checkSig twKey (txInHash, txInIndex, txOutHash, distrsHash) twSig
@@ -221,14 +241,21 @@ verifyTxDo verifyAlone _gContext extendedInputs (tx@Tx{..}, witnesses, distrs) =
         | otherwise =
               let txSigData = (txInHash, txInIndex, txOutHash, distrsHash)
               in txScriptCheck txSigData twValidator twRedeemer
+    validateTxIn _ _ _ (UnknownWitnessType t _)
+        | verifyVersions = Left ("unknown witness type: " <> show t)
+        | otherwise      = Right ()
 
-verifyTxPure :: Bool
-             -> VTxGlobalContext
-             -> (TxIn -> Maybe VTxLocalContext)
-             -> TxAux
-             -> Either [Text] [TxOutAux]
-verifyTxPure verifyAlone gContext resolver =
-    runIdentity . verifyTx verifyAlone gContext (Identity . resolver)
+verifyTxPure
+    :: Bool                 -- ^ Verify that tx itself is correct
+    -> Bool                 -- ^ Verify that script & address
+                            --   versions in tx are known
+    -> VTxGlobalContext
+    -> (TxIn -> Maybe VTxLocalContext)
+    -> TxAux
+    -> Either [Text] [TxOutAux]
+verifyTxPure verifyAlone verifyVersions gContext resolver =
+    runIdentity .
+    verifyTx verifyAlone verifyVersions gContext (Identity . resolver)
 
 
 ----------------------------------------------------------------------------

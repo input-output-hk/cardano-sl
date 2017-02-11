@@ -30,9 +30,6 @@ vssMaxTTL: 6 # epochs
 vssMinTTL: 2 # epochs
 mpcSendInterval: 10 # must be less than (2 * k * slotDuration - networkDiameter)
 
-# Update System
-updateServers: []
-
 # Lightweight delegation
 lightDlgConfirmationTimeout: 500
 

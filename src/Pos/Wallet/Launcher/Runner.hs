@@ -13,17 +13,17 @@ import           Formatting                  (build, sformat, (%))
 import           Mockable                    (Production, bracket, currentTime, fork,
                                               sleepForever)
 import qualified STMContainers.Map           as SM
-import           System.Wlog                 (logInfo, usingLoggerName)
+import           System.Wlog                 (logDebug, logInfo, usingLoggerName)
 import           Universum                   hiding (bracket)
 
 import           Pos.Communication           (ActionSpec (..), ListenersWithOut, OutSpecs,
                                               WorkerSpec)
 import           Pos.Communication.PeerState (runPeerStateHolder)
-import           Pos.DHT.Model               (discoverPeers)
+import           Pos.DHT.Model               (getKnownPeers)
 import           Pos.DHT.Real                (runKademliaDHT)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
                                               RealModeResources (..), addDevListeners,
-                                              runServer)
+                                              runServer_)
 import           Pos.Slotting                (SlottingState (..))
 import           Pos.Types                   (unflattenSlotId)
 import           Pos.Wallet.Context          (WalletContext (..), runContextHolder)
@@ -67,10 +67,11 @@ runWalletReal res wp = runWalletRealMode res wp . runWallet
 runWallet :: WalletMode ssc m => ([WorkerSpec m], OutSpecs) -> (WorkerSpec m, OutSpecs)
 runWallet (plugins', pouts) = (,outs) . ActionSpec $ \vI sendActions -> do
     logInfo "Wallet is initialized!"
-    peers <- discoverPeers
+    peers <- getKnownPeers
     logInfo $ sformat ("Known peers: "%build) peers
     let unpackPlugin (ActionSpec action) = action vI sendActions
     mapM_ (fork . unpackPlugin) $ plugins' ++ workers'
+    logDebug "Forked all plugins successfully"
     sleepForever
   where
     (workers', wouts) = allWorkers
@@ -100,7 +101,7 @@ runRawRealWallet res WalletParams {..} listeners (ActionSpec action, outs) =
             runKeyStorage wpKeyFilePath .
             runKademliaDHT (rmDHT res) .
             runPeerStateHolder stateM .
-            runServer (rmTransport res) listeners outs . ActionSpec $
+            runServer_ (rmTransport res) listeners outs . ActionSpec $
                 \vI sa -> logInfo "Started wallet, joining network" >> action vI sa
   where
     LoggingParams {..} = bpLoggingParams wpBaseParams

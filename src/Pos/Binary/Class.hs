@@ -4,6 +4,8 @@
 {-# LANGUAGE DeriveFunctor        #-}
 {-# LANGUAGE TypeOperators        #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE BangPatterns         #-}
+{-# LANGUAGE RankNTypes           #-}
 
 #include "MachDeps.h"
 
@@ -24,13 +26,18 @@ module Pos.Binary.Class
        , SignedVarInt(..)
        , TinyVarInt(..)
        , FixedSizeInt(..)
+
+       -- * Primitives for limiting serialization
+       , limitGet
+       , isolate64
        ) where
 
 import           Data.Binary                 (Get, Put)
 import qualified Data.Binary                 as Binary
 import           Data.Binary.Get             (ByteOffset, getByteString,
                                               getLazyByteString, getWord8, runGet,
-                                              runGetOrFail)
+                                              label, runGetOrFail)
+import           Data.Binary.Get.Internal    (Decoder (..), runCont)
 import           Data.Binary.Put             (putByteString, putCharUtf8,
                                               putLazyByteString, putWord8, runPut)
 import qualified Data.ByteString             as BS
@@ -48,6 +55,7 @@ import           GHC.TypeLits                (ErrorMessage (..), TypeError)
 import           Serokell.Data.Memory.Units  (Byte, fromBytes, toBytes)
 import           System.IO.Unsafe            (unsafePerformIO)
 import           Universum                   hiding (putByteString)
+import           Unsafe.Coerce               (unsafeCoerce)
 
 ----------------------------------------------------------------------------
 -- Bi typeclass
@@ -258,19 +266,24 @@ instance TypeError
 instance Bi (UnsignedVarInt Int) where
     put (UnsignedVarInt a) = put (UnsignedVarInt (fromIntegral a :: Int64))
     {-# INLINE put #-}
-    get = fmap (fromIntegral :: Int64 -> Int) <$> get
+    -- We don't need 'limitGet' here because it's already present in the 'Bi'
+    -- instance of @UnsignedVarInt Int64@
+    get = label "UnsignedVarInt Int" $
+        fmap (fromIntegral :: Int64 -> Int) <$> get
     {-# INLINE get #-}
 
 instance Bi (SignedVarInt Int) where
     put (SignedVarInt a) = putSignedVarInt a
     {-# INLINE put #-}
-    get = SignedVarInt <$> getSignedVarInt'
+    get = label "SignedVarInt Int" $
+        SignedVarInt <$> limitGet 15 getSignedVarInt'
     {-# INLINE get #-}
 
 instance Bi (FixedSizeInt Int) where
     put (FixedSizeInt a) = Binary.put a
     {-# INLINE put #-}
-    get = FixedSizeInt <$> Binary.get
+    get = label "FixedSizeInt Int" $
+        FixedSizeInt <$> Binary.get
     {-# INLINE get #-}
 
 -- Int64
@@ -278,19 +291,23 @@ instance Bi (FixedSizeInt Int) where
 instance Bi (UnsignedVarInt Int64) where
     put (UnsignedVarInt a) = putUnsignedVarInt (fromIntegral a :: Word64)
     {-# INLINE put #-}
-    get = UnsignedVarInt . (fromIntegral :: Word64 -> Int64) <$> getUnsignedVarInt'
+    get = label "UnsignedVarInt Int64" $
+        UnsignedVarInt . (fromIntegral :: Word64 -> Int64) <$>
+        limitGet 15 getUnsignedVarInt'
     {-# INLINE get #-}
 
 instance Bi (SignedVarInt Int64) where
     put (SignedVarInt a) = putSignedVarInt a
     {-# INLINE put #-}
-    get = SignedVarInt <$> getSignedVarInt'
+    get = label "SignedVarInt Int64" $
+        SignedVarInt <$> limitGet 15 getSignedVarInt'
     {-# INLINE get #-}
 
 instance Bi (FixedSizeInt Int64) where
     put (FixedSizeInt a) = Binary.put a
     {-# INLINE put #-}
-    get = FixedSizeInt <$> Binary.get
+    get = label "FixedSizeInt Int64" $
+        FixedSizeInt <$> Binary.get
     {-# INLINE get #-}
 
 -- Word
@@ -298,13 +315,15 @@ instance Bi (FixedSizeInt Int64) where
 instance Bi (UnsignedVarInt Word) where
     put (UnsignedVarInt a) = putUnsignedVarInt a
     {-# INLINE put #-}
-    get = UnsignedVarInt <$> getUnsignedVarInt'
+    get = label "UnsignedVarInt Word" $
+        UnsignedVarInt <$> limitGet 15 getUnsignedVarInt'
     {-# INLINE get #-}
 
 instance Bi (FixedSizeInt Word) where
     put (FixedSizeInt a) = Binary.put a
     {-# INLINE put #-}
-    get = FixedSizeInt <$> Binary.get
+    get = label "FixedSizeInt Word" $
+        FixedSizeInt <$> Binary.get
     {-# INLINE get #-}
 
 -- Word16
@@ -312,7 +331,8 @@ instance Bi (FixedSizeInt Word) where
 instance Bi (UnsignedVarInt Word16) where
     put (UnsignedVarInt a) = putUnsignedVarInt a
     {-# INLINE put #-}
-    get = UnsignedVarInt <$> getUnsignedVarInt'
+    get = label "UnsignedVarInt Word16" $
+        UnsignedVarInt <$> limitGet 15 getUnsignedVarInt'
     {-# INLINE get #-}
 
 -- Word32
@@ -320,7 +340,8 @@ instance Bi (UnsignedVarInt Word16) where
 instance Bi (UnsignedVarInt Word32) where
     put (UnsignedVarInt a) = putUnsignedVarInt a
     {-# INLINE put #-}
-    get = UnsignedVarInt <$> getUnsignedVarInt'
+    get = label "UnsignedVarInt Word32" $
+        UnsignedVarInt <$> limitGet 15 getUnsignedVarInt'
     {-# INLINE get #-}
 
 -- Word64
@@ -328,7 +349,8 @@ instance Bi (UnsignedVarInt Word32) where
 instance Bi (UnsignedVarInt Word64) where
     put (UnsignedVarInt a) = putUnsignedVarInt a
     {-# INLINE put #-}
-    get = UnsignedVarInt <$> getUnsignedVarInt'
+    get = label "UnsignedVarInt Word64" $
+        UnsignedVarInt <$> limitGet 15 getUnsignedVarInt'
     {-# INLINE get #-}
 
 -- TinyVarInt
@@ -336,7 +358,10 @@ instance Bi (UnsignedVarInt Word64) where
 instance Bi TinyVarInt where
     put (TinyVarInt a) = putTinyVarInt a
     {-# INLINE put #-}
-    get = TinyVarInt <$> getTinyVarInt'
+    -- Doesn't need 'limitGet' because 'TinyVarInt' is already limited to two
+    -- bytes
+    get = label "TinyVarInt" $
+        TinyVarInt <$> getTinyVarInt'
     {-# INLINE get #-}
 
 ----------------------------------------------------------------------------
@@ -568,3 +593,112 @@ instance Bi Microsecond where
 instance Bi Byte where
     put = put . toBytes
     get = fromBytes <$> get
+
+----------------------------------------------------------------------------
+-- Primitives for limiting serialization
+----------------------------------------------------------------------------
+
+-- | Like 'isolate', but allows consuming less bytes than expected (just not
+-- more).
+limitGet :: Int64  -- ^ The upper limit on byte consumption
+         -> Get a  -- ^ The decoder to isolate
+         -> Get a
+-- A modified version of 'isolate' from Data.Binary.Get
+limitGet n0 act
+  | n0 < 0 = fail "limitGet: negative size"
+  | otherwise = go n0 (runCont act BS.empty Done)
+  where
+  go _ (Done left x) = pushFront left >> return x
+  go 0 (Partial resume) = go 0 (resume Nothing)
+  go n (Partial resume) = do
+    inp <- unsafeCoerce (OurC (\inp k -> do
+      let takeLimited str =
+#if (WORD_SIZE_IN_BITS == 64)
+            let (inp', out) = BS.splitAt (fromIntegral n) str
+#else
+            let (inp', out) = if n > fromIntegral (maxBound :: Int)
+                                then (str, BS.empty)
+                                else BS.splitAt (fromIntegral n) str
+#endif
+            in k out (Just inp')
+      case not (BS.null inp) of
+        True  -> takeLimited inp
+        False -> prompt inp (k BS.empty Nothing) takeLimited))
+    case inp of
+      Nothing  -> go n (resume Nothing)
+      Just str -> go (n - fromIntegral (length str)) (resume (Just str))
+  go _ (Fail bs err) = pushFront bs >> fail err
+  go n (BytesRead r resume) =
+    go n (resume $! n0 - n - r)
+
+-- | Like 'isolate', but works with Int64 only.
+isolate64 :: Int64
+          -> Get a
+          -> Get a
+isolate64 n0 act
+  | n0 < 0 = fail "isolate64: negative size"
+  | otherwise = go n0 (runCont act BS.empty Done)
+  where
+  go !n (Done left x)
+    | n == 0 && BS.null left = return x
+    | otherwise = do
+        pushFront left
+        let consumed = n0 - n - fromIntegral (BS.length left)
+        fail $ "isolate: the decoder consumed " ++ show consumed ++ " bytes" ++
+                 " which is less than the expected " ++ show n0 ++ " bytes"
+  go 0 (Partial resume) = go 0 (resume Nothing)
+  go n (Partial resume) = do
+    inp <- unsafeCoerce (OurC (\inp k -> do
+      let takeLimited str =
+#if (WORD_SIZE_IN_BITS == 64)
+            let (inp', out) = BS.splitAt (fromIntegral n) str
+#else
+            let (inp', out) = if n > fromIntegral (maxBound :: Int)
+                                then (str, BS.empty)
+                                else BS.splitAt (fromIntegral n) str
+#endif
+            in k out (Just inp')
+      case not (BS.null inp) of
+        True  -> takeLimited inp
+        False -> prompt inp (k BS.empty Nothing) takeLimited))
+    case inp of
+      Nothing  -> go n (resume Nothing)
+      Just str -> go (n - fromIntegral (BS.length str)) (resume (Just str))
+  go _ (Fail bs err) = pushFront bs >> fail err
+  go n (BytesRead r resume) =
+    go n (resume $! n0 - n - r)
+
+----------------------------------------------------------------------------
+-- Guts of 'binary'
+----------------------------------------------------------------------------
+
+-- Using 'unsafeCoerce' here because 'C' isn't exported. Aargh. For now it'll
+-- do and then I'll submit some pull requests to 'binary' and hopefully all
+-- of this won't be needed. –@neongreen
+pushFront :: ByteString -> Get ()
+pushFront bs = unsafeCoerce (OurC (\ inp ks -> ks (BS.append bs inp) ()))
+{-# INLINE pushFront #-}
+
+-- This ***has*** to correspond to the implementation of 'Get' in 'binary'
+-- because we're using it for 'unsafeCoerce'.
+newtype OurGet a = OurC (forall r. ByteString ->
+                                   OurSuccess a r ->
+                                   Decoder      r )
+
+-- Ditto.
+type OurSuccess a r = ByteString -> a -> Decoder r
+
+-- More functions from 'binary'.
+prompt :: ByteString -> Decoder a -> (ByteString -> Decoder a) -> Decoder a
+prompt inp kf ks = prompt' kf (\inp' -> ks (inp `BS.append` inp'))
+
+-- And more.
+prompt' :: Decoder a -> (ByteString -> Decoder a) -> Decoder a
+prompt' kf ks =
+  let loop =
+        Partial $ \sm ->
+          case sm of
+            Just s | BS.null s -> loop
+                   | otherwise -> ks s
+            Nothing -> kf
+  in loop

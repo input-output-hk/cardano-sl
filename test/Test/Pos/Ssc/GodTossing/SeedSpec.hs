@@ -152,7 +152,7 @@ recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
         fmap HM.fromList $ forM (filter sentShares (zip keys comms)) $
             \(kp, comm) -> do
                 let addr = getPubAddr kp
-                decShares <- getDecryptedShares vssKeys comm
+                decShares <- concat <$> getDecryptedShares vssKeys comm
                 return (addr, HM.fromList (zip (map getPubAddr keys) decShares))
     -- @sharesMap ! X@ = shares that X received from others
     let sharesMap = HM.fromList $ do
@@ -162,7 +162,7 @@ recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
                      (sender, senderShares) <- HM.toList generatedShares
                      case HM.lookup addr senderShares of
                          Nothing -> []
-                         Just s  -> return (sender, ser s)
+                         Just s  -> return (sender, one $ ser s)
              return (addr, receivedShares)
 
     let shouldSucceed = n_openings + n_shares - n_overlap >= n
@@ -232,9 +232,9 @@ mkCommitmentsMap' keys comms =
 
 getDecryptedShares
     :: MonadRandom m
-    => NonEmpty VssKeyPair -> Commitment -> m [Share]
+    => NonEmpty VssKeyPair -> Commitment -> m [[Share]]
 getDecryptedShares vssKeys comm =
-    forM (fmap (second fromBinary) $ HM.toList (commShares comm)) $
+    forM (fmap (second $ traverse fromBinary) $ HM.toList (commShares comm)) $
         \(pubKey, encShare) -> do
             let secKey = case find ((== pubKey) . asBinary . toVssPublicKey) vssKeys of
                     Just k  -> k
@@ -245,7 +245,7 @@ getDecryptedShares vssKeys comm =
                     Right encS -> encS
                     _          -> panic $
                         "@getDecryptedShares: could not deserialize LEncShare"
-            decryptShare secKey encShare'
+            toList <$> mapM (decryptShare secKey) encShare'
 
 pickThreshold :: Int -> Threshold
 pickThreshold n = fromIntegral (n `div` 2 + n `mod` 2)

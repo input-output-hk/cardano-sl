@@ -8,8 +8,8 @@ import           Data.Binary.Get   (label)
 import           Universum
 
 import           Pos.Binary.Class  (Bi (..))
-import           Pos.Binary.Util   (getAsciiString1b, putAsciiString1b)
 import qualified Pos.Types.Version as V
+import           Pos.Util.Binary   (getAsciiString1b, putAsciiString1b)
 
 instance Bi V.ApplicationName where
     get = label "ApplicationName" $ V.mkApplicationName . toText

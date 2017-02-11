@@ -56,7 +56,7 @@ import           Data.Text.Lazy.Builder (Builder)
 import           Data.Vector            (Vector)
 import           Formatting             (Format, bprint, build, int, later, (%))
 import           Serokell.AcidState     ()
-import qualified Serokell.Util.Base16   as B16
+import           Serokell.Util.Base16   (base16F, formatBase16)
 import           Serokell.Util.Text     (listBuilderJSON, listJson, listJsonIndent,
                                          mapBuilderJson, pairBuilder)
 import           Universum
@@ -68,6 +68,7 @@ import           Pos.Crypto             (Hash, ProxySecretKey, ProxySignature, P
                                          Signature, hash, shortHashF)
 import           Pos.Data.Attributes    (Attributes)
 import           Pos.Script.Type        (Script)
+import           Pos.Types.Address      ()
 import           Pos.Types.Core         (Address (..), Coin, EpochIndex, StakeholderId,
                                          coinF)
 
@@ -91,10 +92,11 @@ type TxSig = Signature TxSigData
 
 -- | A witness for a single input.
 data TxInWitness
-    = PkWitness { twKey :: PublicKey
-                , twSig :: TxSig}
-    | ScriptWitness { twValidator :: Script
-                    , twRedeemer  :: Script}
+    = PkWitness { twKey :: !PublicKey
+                , twSig :: !TxSig }
+    | ScriptWitness { twValidator :: !Script
+                    , twRedeemer  :: !Script }
+    | UnknownWitnessType !Word8 !ByteString
     deriving (Eq, Show, Generic, Typeable)
 
 instance Hashable TxInWitness
@@ -106,6 +108,8 @@ instance Bi Script => Buildable TxInWitness where
         bprint ("ScriptWitness: "%
                 "validator hash = "%shortHashF%", "%
                 "redeemer hash = "%shortHashF) (hash val) (hash red)
+    build (UnknownWitnessType t bs) =
+        bprint ("UnknownWitnessType "%build%" "%base16F) t bs
 
 -- | A witness is a proof that a transaction is allowed to spend the funds it
 -- spends (by providing signatures, redeeming scripts, etc). A separate proof
@@ -162,8 +166,8 @@ instance Buildable TxOutAux where
 -- (e.g. for the purpose of running follow-the-satoshi).
 txOutStake :: TxOutAux -> [(StakeholderId, Coin)]
 txOutStake (TxOut{..}, mb) = case txOutAddress of
-    PubKeyAddress x -> [(x, txOutValue)]
-    ScriptAddress _ -> mb
+    PubKeyAddress x _ -> [(x, txOutValue)]
+    _                 -> mb
 
 -- | Transaction.
 --
@@ -213,7 +217,7 @@ type Utxo = Map (TxId, Word32) TxOutAux
 formatUtxo :: Utxo -> Builder
 formatUtxo =
     mapBuilderJson .
-    map (first pairBuilder . second (show @_ @Text)) .
+    map (first pairBuilder) .
     M.toList
 
 -- | Specialized formatter for 'Utxo'.
@@ -239,7 +243,7 @@ newtype SharedSeed = SharedSeed
     } deriving (Show, Eq, Ord, Generic, NFData, Typeable)
 
 instance Buildable SharedSeed where
-    build = B16.formatBase16 . getSharedSeed
+    build = formatBase16 . getSharedSeed
 
 -- | 'NonEmpty' list of slot leaders.
 type SlotLeaders = NonEmpty StakeholderId

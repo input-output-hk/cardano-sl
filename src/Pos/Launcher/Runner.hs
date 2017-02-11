@@ -1,5 +1,8 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE GADTs               #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 
@@ -21,6 +24,7 @@ module Pos.Launcher.Runner
        , setupLoggers
        , bracketDHTInstance
        , runServer
+       , runServer_
        , loggerBracket
        , createTransport
        , bracketTransport
@@ -42,18 +46,21 @@ import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
 import           Mockable                    (CurrentTime, Mockable, MonadMockable,
                                               Production (..), Throw, bracket,
-                                              currentTime, delay, fork, killThread, throw)
+                                              currentTime, delay, finally, fork,
+                                              killThread, throw)
 import           Network.Transport           (Transport, closeTransport)
 import           Network.Transport.Concrete  (concrete)
 import qualified Network.Transport.TCP       as TCP
-import           Node                        (NodeAction (..), hoistSendActions, node)
+import           Node                        (Node, NodeAction (..), hoistSendActions,
+                                              node)
+import           Node.Util.Monitor           (setupMonitor, stopMonitor)
 import qualified STMContainers.Map           as SM
 import           System.Random               (newStdGen)
 import           System.Wlog                 (LoggerConfig (..), WithLogger, logError,
                                               logInfo, logWarning, mapperB, productionB,
                                               releaseAllHandlers, setupLogging,
                                               usingLoggerName)
-import           Universum                   hiding (bracket)
+import           Universum                   hiding (bracket, finally)
 
 import           Pos.Binary                  ()
 import           Pos.CLI                     (readLoggerConfig)
@@ -93,7 +100,7 @@ import           Pos.Slotting                (SlottingState (..))
 import           Pos.Ssc.Class               (SscConstraint, SscHelpersClass,
                                               SscListenersClass, SscNodeContext,
                                               SscParams, sscCreateNodeContext)
-import           Pos.Ssc.Extra               (runSscHolder)
+import           Pos.Ssc.Extra               (ignoreSscHolder, mkStateAndRunSscHolder)
 import           Pos.Statistics              (getNoStatsT, runStatsT')
 import           Pos.Txp.Holder              (runTxpLDHolder)
 import qualified Pos.Txp.Types.UtxoView      as UV
@@ -106,6 +113,7 @@ import           Pos.Util.UserSecret         (usKeys)
 import           Pos.Worker                  (allWorkersCount)
 import           Pos.WorkMode                (MinWorkMode, ProductionMode, RawRealMode,
                                               ServiceMode, StatsMode)
+
 data RealModeResources = RealModeResources
     { rmTransport :: Transport
     , rmDHT       :: KademliaDHTInstance
@@ -163,9 +171,9 @@ runTimeLordReal LoggingParams{..} = do
         realTime <- liftIO Time.getZonedTime
         logInfo (sformat ("[Time lord] System start: " %timestampF%", i. e.: "%shown) t realTime)
 
-------------------------------------------------------------------------------
----- High level runners
-------------------------------------------------------------------------------
+----------------------------------------------------------------------------
+-- High level runners
+----------------------------------------------------------------------------
 
 -- | RawRealMode runner.
 runRawRealMode
@@ -186,15 +194,38 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
        runDBHolder modernDBs . runCH np initNC $ initNodeDBs
        initTip <- runDBHolder modernDBs getTip
        stateM <- liftIO SM.newIO
+       stateM_ <- liftIO SM.newIO
+
+       -- TODO need an effect-free way of running this into IO.
+       let runIO :: forall t . RawRealMode ssc t -> IO t
+           runIO = runProduction .
+                       usingLoggerName lpRunnerTag .
+                       runDBHolder modernDBs .
+                       runCH np initNC .
+                       ignoreSscHolder .
+                       runTxpLDHolder (UV.createFromDB . _gStateDB $ modernDBs) initTip .
+                       runDelegationT def .
+                       runUSHolder .
+                       runKademliaDHT (rmDHT res) .
+                       runPeerStateHolder stateM_
+
+       let startMonitoring node' = case lpEkgPort of
+               Nothing   -> return Nothing
+               Just port -> Just <$> setupMonitor port runIO node'
+
+       let stopMonitoring it = case it of
+               Nothing        -> return ()
+               Just ekgServer -> stopMonitor ekgServer
+
        runDBHolder modernDBs .
           runCH np initNC .
-          runSscHolder .
+          (mkStateAndRunSscHolder @ssc) .
           runTxpLDHolder (UV.createFromDB . _gStateDB $ modernDBs) initTip .
           runDelegationT def .
           runUSHolder .
           runKademliaDHT (rmDHT res) .
           runPeerStateHolder stateM .
-          runServer (rmTransport res) listeners outSpecs . ActionSpec $
+          runServer (rmTransport res) listeners outSpecs startMonitoring stopMonitoring . ActionSpec $
               \vI sa -> nodeStartMsg npBaseParams >> action vI sa
   where
     LoggingParams {..} = bpLoggingParams npBaseParams
@@ -207,29 +238,46 @@ runServiceMode
     -> OutSpecs
     -> ActionSpec ServiceMode a
     -> Production a
-runServiceMode res bp@BaseParams{..} listeners outSpecs (ActionSpec action) = do
+runServiceMode res bp@BaseParams {..} listeners outSpecs (ActionSpec action) = do
     stateM <- liftIO SM.newIO
     usingLoggerName (lpRunnerTag bpLoggingParams) .
-      runKademliaDHT (rmDHT res) .
-      runPeerStateHolder stateM .
-      runServer (rmTransport res) listeners outSpecs . ActionSpec $
-          \vI sa -> nodeStartMsg bp >> action vI sa
+        runKademliaDHT (rmDHT res) .
+        runPeerStateHolder stateM .
+        runServer_ (rmTransport res) listeners outSpecs . ActionSpec $ \vI sa ->
+        nodeStartMsg bp >> action vI sa
 
-runServer :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m, MonadDHT m)
-  => Transport
-  -> ListenersWithOut m
-  -> OutSpecs
-  -> ActionSpec m b
-  -> m b
-runServer transport packedLS (OutSpecs wouts) (ActionSpec action) = do
+runServer
+    :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m, MonadDHT m)
+    => Transport
+    -> ListenersWithOut m
+    -> OutSpecs
+    -> (Node m -> m t)
+    -> (t -> m ())
+    -> ActionSpec m b
+    -> m b
+runServer transport packedLS (OutSpecs wouts) withNode afterNode (ActionSpec action) = do
     ourPeerId <- PeerId . getMeaningPart <$> currentNodeKey
     let (listeners', InSpecs ins, OutSpecs outs) = unpackLSpecs packedLS
-        ourVerInfo = VerInfo protocolMagic lastKnownBlockVersion ins $ outs <> wouts
+        ourVerInfo =
+            VerInfo protocolMagic lastKnownBlockVersion ins $ outs <> wouts
         listeners = listeners' ourVerInfo ++ protocolListeners
     stdGen <- liftIO newStdGen
     logInfo $ sformat ("Our verInfo "%build) ourVerInfo
     node (concrete transport) stdGen BiP (ourPeerId, ourVerInfo) $ \__node ->
-        pure $ NodeAction listeners (action ourVerInfo)
+        pure $
+        NodeAction listeners $ \sendActions -> do
+            t <- withNode __node
+            a <- action ourVerInfo sendActions `finally` afterNode t
+            return a
+
+runServer_
+    :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m, MonadDHT m)
+    => Transport -> ListenersWithOut m -> OutSpecs -> ActionSpec m b -> m b
+runServer_ transport packedLS outSpecs =
+    runServer transport packedLS outSpecs acquire release
+  where
+    acquire = const pass
+    release = const pass
 
 -- | ProductionMode runner.
 runProductionMode
@@ -295,7 +343,6 @@ runCH params@NodeParams {..} sscNodeContext act = do
         liftIO $ newTVarIO SlottingState{..}
     shutdownFlag <- liftIO $ newTVarIO False
     shutdownQueue <- liftIO $ newTBQueueIO allWorkersCount
-    sendLock <- liftIO newEmptyMVar
     let ctx =
             NodeContext
             { ncSlottingState = slottingStateVar
@@ -312,7 +359,7 @@ runCH params@NodeParams {..} sscNodeContext act = do
             , ncShutdownNotifyQueue = shutdownQueue
             , ncNodeParams = params
             , ncLoggerConfig = logCfg
-            , ncSendLock = Just sendLock
+            , ncSendLock = Nothing
             }
     runContextHolder ctx act
 
@@ -355,9 +402,9 @@ bracketDHTInstance
     :: BaseParams -> (KademliaDHTInstance -> Production a) -> Production a
 bracketDHTInstance BaseParams {..} action = bracket acquire release action
   where
-    withLog = usingLoggerName $ lpRunnerTag bpLoggingParams
-    acquire = withLog $ startDHTInstance instConfig
-    release = withLog . stopDHTInstance
+    --withLog = usingLoggerName $ lpRunnerTag bpLoggingParams
+    acquire = usingLoggerName (lpRunnerTag bpLoggingParams) (startDHTInstance instConfig)
+    release = usingLoggerName (lpRunnerTag bpLoggingParams) . stopDHTInstance
     instConfig =
         KademliaDHTInstanceConfig
         { kdcKey = bpDHTKey

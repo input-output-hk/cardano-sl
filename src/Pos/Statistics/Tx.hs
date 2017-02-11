@@ -10,7 +10,7 @@ module Pos.Statistics.Tx
 
 import           Data.Binary              (Binary)
 import qualified Data.Binary              as Binary
-import qualified Data.Binary.Get          as Binary (getWord32be)
+import qualified Data.Binary.Get          as Binary (getWord32be, label)
 import qualified Data.Binary.Put          as Binary (putWord32be)
 import           Data.Hashable            (Hashable (hash, hashWithSalt))
 import           Data.Text.Buildable      (build)
@@ -30,10 +30,10 @@ hId :: Word32
 hId = fromIntegral $ hash ("StatProcessTx" :: ByteString)
 
 instance Binary StatProcessTx where
-    get = do
+    get = Binary.label "StatProcessTx" $ do
         w <- Binary.getWord32be
         when (w /= hId) $
-            fail "Binary.get: StatProcessTx fail"
+            fail "Binary.get@StatProcessTx: expected hId"
         return StatProcessTx
     put _ = Binary.putWord32be hId
 

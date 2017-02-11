@@ -41,8 +41,8 @@ sendReportNode reportType = do
     servers <- npReportServers . ncNodeParams <$> getNodeContext
     logConfig <- ncLoggerConfig <$> getNodeContext
     let logFileNames = map snd $ retrieveLogFiles $ logConfig ^. lcTree
-    -- put filter here, we don't want to send all logs
-    let logFiles = filter (const True) logFileNames
+    -- put filter here, maybe we don't want to send all logs
+    logFiles <- concat <$> mapM chooseLogFiles logFileNames
     forM_ servers $
         sendReport logFiles reportType "cardano-node" version . T.unpack
 

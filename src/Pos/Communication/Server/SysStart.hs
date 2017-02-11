@@ -28,7 +28,8 @@ import           Pos.WorkMode               (MinWorkMode)
 
 -- | Listener for 'SysStartRequest' message.
 sysStartReqListener
-    :: MinWorkMode m => Timestamp -> (ListenerSpec m, OutSpecs)
+    :: MinWorkMode m
+    => Timestamp -> (ListenerSpec m, OutSpecs)
 sysStartReqListener sysStart = listenerConv $
     \_ peerId conv  -> do
         (mReq :: Maybe SysStartRequest) <- recv conv
@@ -45,7 +46,8 @@ sysStartRespListener mvar = listenerOneMsg outSpecs . const $ handler mvar
     (handler, outSpecs) = handleSysStartResp
 
 handleSysStartResp
-  :: MinWorkMode m => (MVar Timestamp -> NodeId -> SendActions m -> SysStartResponse -> m (), OutSpecs)
+    :: MinWorkMode m
+    => (MVar Timestamp -> NodeId -> SendActions m -> SysStartResponse -> m (), OutSpecs)
 handleSysStartResp = (,outSpecs) $
     \mvar peerId sendActions (SysStartResponse sysStart) -> do
         logInfo $ sformat

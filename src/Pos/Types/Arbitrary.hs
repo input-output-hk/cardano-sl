@@ -17,7 +17,7 @@ import           Data.DeriveTH              (derive, makeArbitrary)
 import           Data.Time.Units            (Microsecond, Millisecond, fromMicroseconds)
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (..),
-                                             choose, choose, elements, oneof)
+                                             choose, choose, elements, oneof, scale)
 import           Test.QuickCheck.Instances  ()
 import           Universum
 
@@ -57,7 +57,9 @@ instance Arbitrary Script where
 instance Arbitrary Address where
     arbitrary = oneof [
         makePubKeyAddress <$> arbitrary,
-        makeScriptAddress <$> arbitrary ]
+        makeScriptAddress <$> arbitrary,
+        UnknownAddressType <$> choose (2, 255) <*> scale (min 150) arbitrary
+        ]
 
 deriving instance Arbitrary ChainDifficulty
 
@@ -98,7 +100,8 @@ instance Arbitrary TxInWitness where
         PkWitness <$> arbitrary <*> arbitrary,
         -- this can generate a redeemer script where a validator script is
         -- needed and vice-versa, but it doesn't matter
-        ScriptWitness <$> arbitrary <*> arbitrary ]
+        ScriptWitness <$> arbitrary <*> arbitrary,
+        UnknownWitnessType <$> choose (2, 255) <*> scale (min 150) arbitrary ]
 
 derive makeArbitrary ''TxDistribution
 derive makeArbitrary ''TxIn

@@ -66,6 +66,7 @@ library
 
                         -- Genesis data
                         Pos.Genesis
+                        Pos.Genesis.Arbitrary
 
                         -- LRC
                         Pos.Lrc
@@ -85,6 +86,10 @@ library
                         Pos.Security.Util
                         Pos.Security.Workers
                         Pos.Slotting
+
+                        -- Reporting
+                        Pos.Reporting.Methods
+                        Pos.Reporting.Exceptions
 
                         -- SSC
                         Pos.Ssc.Arbitrary
@@ -138,7 +143,9 @@ library
     exposed-modules:    Pos.Wallet
   if flag(with-wallet) && flag(with-web)
     exposed-modules:    Pos.Wallet.Web
-  other-modules:        Pos.Aeson.CompileConfig
+  other-modules:        Paths_cardano_sl
+
+                        Pos.Aeson.CompileConfig
 
                         -- Binary serialization
                         Pos.Binary.Address
@@ -159,7 +166,6 @@ library
                         Pos.Binary.Ssc.GodTossing.Core
                         Pos.Binary.Types
                         Pos.Binary.Update
-                        Pos.Binary.Util
                         Pos.Binary.Version
 
                         -- Block processing
@@ -264,10 +270,6 @@ library
                         Pos.Lrc.Logic
                         Pos.Lrc.Types
                         Pos.Lrc.Worker
-
-                        -- Reporting
-                        Pos.Reporting.Methods
-                        Pos.Reporting.Exceptions
 
                         -- SafeCopy serialization (obsolete, but still needed)
                         Pos.SafeCopy
@@ -501,7 +503,7 @@ library
                       , neat-interpolation
                       , network-transport
                       , network-transport-tcp
-                      , node-sketch
+                      , node-sketch >= 0.1.1.0
                       , optparse-applicative
                       , optparse-simple
                       , parsec
@@ -1085,7 +1087,12 @@ executable cardano-launcher
   build-depends:       async
                      , base
                      , optparse-applicative
+                     , cardano-report-server >= 0.0.1
+                     , log-warper
+                     , cardano-sl
+                     , directory
                      , process
+                     , system-filepath
                      , text
                      , turtle
                      , universum
@@ -1097,6 +1104,7 @@ executable cardano-launcher
                        -O2
   default-extensions:  OverloadedStrings
                        RecordWildCards
+                       TupleSections
 
 test-suite cardano-test
   main-is:             Test.hs
@@ -1108,6 +1116,7 @@ test-suite cardano-test
                        Test.Pos.CryptoSpec
                        Test.Pos.DHT.Identity.BinarySpec
                        Test.Pos.FollowTheSatoshiSpec
+                       Test.Pos.Genesis.Identity.BinarySpec
                        Test.Pos.MerkleSpec
                        Test.Pos.Script.Identity.BinarySpec
                        Test.Pos.Ssc.GodTossing.Identity.BinarySpec
@@ -1137,6 +1146,7 @@ test-suite cardano-test
                      , cereal
                      , containers
                      , cryptonite
+                     , data-default
                      , formatting
                      , hspec
                      , lens

@@ -107,7 +107,7 @@ sscRunGlobalQuery action = do
 sscCalculateSeed
     :: forall ssc m.
        (MonadSscMem ssc m, SscGStateClass ssc, MonadIO m, WithLogger m)
-    => EpochIndex -> m (Either (SscSeedError ssc) SharedSeed)
+    => EpochIndex ->  m (Either (SscSeedError ssc) SharedSeed)
 sscCalculateSeed = sscRunGlobalQuery . sscCalculateSeedQ @ssc
 
 ----------------------------------------------------------------------------
@@ -138,7 +138,7 @@ sscNormalize
     => m ()
 sscNormalize = do
     tipEpoch <- view epochIndexL <$> getTipBlockHeader
-    richmenSet <-
+    richmenData <-
         lrcActionOnEpochReason
             tipEpoch
             "sscNormalize: couldn't get SSC richmen"
@@ -153,7 +153,7 @@ sscNormalize = do
             let (((), logEvents), !newLD) =
                     flip runState oldLD .
                     runPureLog . usingLoggerName loggerName $
-                    sscNormalizeU @ssc tipEpoch richmenSet gs
+                    sscNormalizeU @ssc tipEpoch richmenData gs
             logEvents <$ writeTVar localVar newLD
     logEvents <- atomically sscNormalizeDo
     dispatchEvents logEvents

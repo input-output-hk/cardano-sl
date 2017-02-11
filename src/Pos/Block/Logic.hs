@@ -110,17 +110,26 @@ tipMismatchMsg action storedTip attemptedTip =
          %shortHashF%", attempted is "%shortHashF%")")
         action storedTip attemptedTip
 
-
--- | Find lca headers and main chain, including oldest header's parent hash.
+-- Usually in this method oldest header is LCA, so it can be optimized
+-- by traversing from older to newer.
+-- | Find LCA of headers list and main chain, including oldest
+-- header's parent hash. Iterates from newest to oldest until meets
+-- first header that's in main chain. O(n).
 lcaWithMainChain
     :: (WorkMode ssc m)
-    => NewestFirst NE (BlockHeader ssc) -> m (Maybe HeaderHash)
+    => OldestFirst NE (BlockHeader ssc) -> m (Maybe HeaderHash)
 lcaWithMainChain headers =
-    fmap fst . find snd <$>
-        mapM (\hh -> (hh,) <$> GS.isBlockInMainChain hh)
-             -- take hash of parent of last BlockHeader and convert all headers to hashes
-             (map headerHash (toList headers) ++
-              [headers ^. _Wrapped . _neLast . prevBlockL])
+    lcaProceed Nothing $
+    oldestParent <| fmap headerHash (getOldestFirst headers)
+  where
+    oldestParent :: HeaderHash
+    oldestParent = headers ^. _Wrapped . _neHead . prevBlockL
+    lcaProceed prevValue (h :| others) = do
+        inMain <- GS.isBlockInMainChain h
+        case (others, inMain) of
+            (_, False)   -> pure prevValue
+            ([], True)   -> pure $ Just h
+            (x:xs, True) -> lcaProceed (Just h) (x :| xs)
 
 ----------------------------------------------------------------------------
 -- Headers
@@ -138,6 +147,7 @@ data ClassifyHeaderRes
       -- ^ Header is useless.
     | CHInvalid !Text
       -- ^ Header is invalid.
+    deriving (Show)
 
 -- | Make `ClassifyHeaderRes` from list of error messages using
 -- `CHRinvalid` constructor. Intended to be used with `VerificationRes`.
@@ -172,7 +182,7 @@ classifyNewHeader (Right header) = do
         | newHeaderEoS <= tipEoS ->
             CHUseless $ sformat
                ("header's slot "%build%
-                " is less or equal then our tip's slot "%build)
+                " is less or equal than our tip's slot "%build)
                newHeaderEoS tipEoS
         -- If header's parent is our tip, we verify it against tip's header.
         | tip == header ^. prevBlockL ->
@@ -199,6 +209,7 @@ data ClassifyHeadersRes ssc
     = CHsValid (BlockHeader ssc) -- ^ Header list can be applied, LCA child attached.
     | CHsUseless !Text           -- ^ Header is useless.
     | CHsInvalid !Text           -- ^ Header is invalid.
+    deriving (Show)
 
 -- | Classify headers received in response to 'GetHeaders' message.
 --
@@ -213,28 +224,31 @@ classifyHeaders
 classifyHeaders headers = do
     tipHeader <- DB.getTipBlockHeader
     let tip = headerHash tipHeader
-    haveOldest <- isJust <$> DB.getBlockHeader oldestHash
+    haveOldestParent <- isJust <$> DB.getBlockHeader oldestParentHash
     let headersValid = isVerSuccess $ verifyHeaders True (headers & _Wrapped %~ toList)
     if | not headersValid ->
              pure $ CHsInvalid "Header chain is invalid"
-       | not haveOldest ->
-             pure $ CHsInvalid "Last block of the passed chain wasn't found locally"
+       | not haveOldestParent ->
+             pure $ CHsInvalid $
+             "Didn't manage to find block corresponding to parent " <>
+             "of oldest element in chain (should be one of checkpoints)"
        | newestHash == headerHash tip ->
              pure $ CHsUseless "Newest hash is the same as our tip"
        | newestHeader ^. difficultyL <= tipHeader ^. difficultyL ->
              pure $ CHsUseless "Newest hash difficulty is not greater than our tip's"
-       | otherwise -> fromMaybe uselessGeneral <$> processClassify
+       | otherwise -> fromMaybe uselessGeneral <$> processClassify tipHeader
   where
     newestHeader = headers ^. _Wrapped . _neHead
     newestHash = headerHash newestHeader
-    oldestHash = headers ^. _Wrapped . _neLast . headerHashG
+    oldestParentHash = headers ^. _Wrapped . _neLast . prevBlockL
     uselessGeneral =
         CHsUseless "Couldn't find lca -- maybe db state updated in the process"
-    processClassify = runMaybeT $ do
-        tipHeader <- view blockHeader <$> lift DB.getTipBlock
+    processClassify tipHeader = runMaybeT $ do
         lift $ logDebug $
             sformat ("Classifying headers: "%listJson) $ map (view headerHashG) headers
-        lca <- MaybeT . DB.getBlockHeader =<< MaybeT (lcaWithMainChain headers)
+        lca <-
+            MaybeT . DB.getBlockHeader =<<
+            MaybeT (lcaWithMainChain $ toOldestFirst headers)
         let depthDiff = tipHeader ^. difficultyL - lca ^. difficultyL
         lcaChild <- MaybeT $ pure $
             find (\bh -> bh ^. prevBlockL == headerHash lca) headers
@@ -393,8 +407,9 @@ verifyBlocksPrefix blocks = runExceptT $ do
             when (block ^. blockLeaders /= leaders) $
                 throwError "Genesis block leaders don't match with LRC-computed"
         _ -> pass
+    bv <- GS.getAdoptedBV
     verResToMonadError formatAllErrors $
-        Types.verifyBlocks (Just curSlot) (Just leaders) blocks
+        Types.verifyBlocks (Just curSlot) (Just leaders) (Just bv) blocks
     _ <- withExceptT pretty $ sscVerifyBlocks blocks
     txUndo <- ExceptT $ txVerifyBlocks blocks
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks

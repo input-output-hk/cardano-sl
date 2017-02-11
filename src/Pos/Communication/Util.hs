@@ -11,10 +11,10 @@ module Pos.Communication.Util
 import           Data.Proxy                 (Proxy (..), asProxyTypeOf)
 import           Data.Time.Units            (Microsecond)
 import           Formatting                 (build, sformat, shown, (%))
-import           Mockable                   (Async, Bracket, Delay, Mockable, bracket)
+import           Mockable                   (Async, Bracket, Delay, Mockable)
 import qualified Node                       as N
-import           System.Wlog                (HasLoggerName, LoggerName, WithLogger,
-                                             logDebug, logWarning, modifyLoggerName)
+import           System.Wlog                (LoggerName, WithLogger, logDebug, logWarning,
+                                             modifyLoggerName)
 import           Universum                  hiding (Async, async, bracket, cancel,
                                              finally, withMVar)
 
@@ -26,7 +26,7 @@ import           Pos.Communication.Protocol (ActionSpec (..), HandlerSpec (..), 
                                              mapActionSpec, mapListener, mapListener',
                                              messageName')
 import           Pos.Constants              (networkReceiveTimeout)
-import           Pos.Context                (WithNodeContext (getNodeContext), ncSendLock)
+import           Pos.Context                (WithNodeContext)
 import           Pos.Util.TimeLimit         (CanLogInParallel, execWithTimeLimit,
                                              logWarningWaitLinear)
 
@@ -123,15 +123,20 @@ convWithTimeLimit
     -> N.NodeId
     -> N.ConversationActions PeerData snd rcv m
     -> N.ConversationActions PeerData snd rcv m
-convWithTimeLimit timeout nodeId conv = conv { N.recv = recv' }
+convWithTimeLimit timeout nodeId conv = conv { N.recv = recv', N.send = send' }
       where
+        send' msg = do
+            res <- execWithTimeLimit timeout $ N.send conv msg
+            whenNothing res . logWarning $
+                sformat ("Send to "%shown%" in conversation - timeout expired")
+                    nodeId
         recv' = do
             res <- execWithTimeLimit timeout $ N.recv conv
             case res of
                 Nothing -> do
                     logWarning $
                         sformat ("Recv from "%shown%" in conversation - timeout expired")
-                        nodeId
+                            nodeId
                     return Nothing
                 Just r  -> return r
 
@@ -144,44 +149,12 @@ sendActionsWithTimeLimit timeout sendActions = sendActions
     { N.withConnectionTo = \nodeId action ->
         N.withConnectionTo sendActions nodeId $
             action . convWithTimeLimit timeout nodeId
+    , N.sendTo = \nodeId msg -> do
+                    res <- execWithTimeLimit timeout $ N.sendTo sendActions nodeId msg
+                    whenNothing res . logWarning $
+                        sformat ("Send to "%shown%" (one msg) - timeout expired")
+                            nodeId
     }
-
-withMVar
-    :: (MonadIO m, Mockable Bracket m)
-    => MVar () -> m a -> m a
-withMVar lock action =
-    bracket (liftIO $ putMVar lock ())
-            (const $ liftIO $ takeMVar lock)
-            (const action)
-
-withSendLock
-    :: (MonadIO m, WithNodeContext ssc m, Mockable Bracket m)
-    => m a -> m a
-withSendLock action = do
-    mLock <- ncSendLock <$> getNodeContext
-    case mLock of
-        Just lock -> withMVar lock action
-        _         -> action
-
-convWithExclusiveSend
-    :: (MonadIO m, WithNodeContext ssc m, Mockable Bracket m)
-    => N.ConversationActions PeerData snd rcv m
-    -> N.ConversationActions PeerData snd rcv m
-convWithExclusiveSend conv = conv { N.send = send' }
-  where
-    send' msg = withSendLock $ N.send conv msg
-
-sendActionsWithExclusiveSend
-    :: (MonadIO m, WithNodeContext ssc m, Mockable Bracket m)
-    => N.SendActions BiP PeerData m
-    -> N.SendActions BiP PeerData m
-sendActionsWithExclusiveSend sA =
-    sA { N.sendTo = \nodeId msg -> withSendLock $
-                        N.sendTo sA nodeId msg
-       , N.withConnectionTo = \nodeId action ->
-            N.withConnectionTo sA nodeId $
-                action . convWithExclusiveSend
-       }
 
 wrapListener
   :: ( CanLogInParallel m
@@ -195,16 +168,13 @@ wrapListener
   => LoggerName -> Listener m -> Listener m
 wrapListener lname =
     addWaitLogging .
-    addExclusiveSend .
     addTimeout networkReceiveTimeout .
     modifyLogger lname
   where
     addWaitLogging = mapListener' sendActionsWithWaitLog convWithWaitLogL identity
     addTimeout timeout = mapListener' (sendActionsWithTimeLimit timeout)
                                       (convWithTimeLimit timeout) identity
-    modifyLogger name = mapListener $ modifyLoggerName (<> lname)
-    addExclusiveSend = mapListener' sendActionsWithExclusiveSend
-                                    (const convWithExclusiveSend) identity
+    modifyLogger _name = mapListener $ modifyLoggerName (<> lname)
 
 wrapActionSpec
   :: ( CanLogInParallel m
@@ -218,15 +188,13 @@ wrapActionSpec
   => LoggerName -> ActionSpec m a -> ActionSpec m a
 wrapActionSpec lname =
     addWaitLogging .
-    addExclusiveSend .
     addTimeout networkReceiveTimeout .
     modifyLogger lname
   where
     addWaitLogging = mapActionSpec sendActionsWithWaitLog identity
     addTimeout timeout = mapActionSpec (sendActionsWithTimeLimit timeout) identity
-    modifyLogger name = mapActionSpec identity $ modifyLoggerName
+    modifyLogger _name = mapActionSpec identity $ modifyLoggerName
                                     (<> lname)
-    addExclusiveSend = mapActionSpec sendActionsWithExclusiveSend identity
 
 wrapSendActions
   :: ( CanLogInParallel m
@@ -241,5 +209,4 @@ wrapSendActions
   -> N.SendActions BiP PeerData m
 wrapSendActions =
     sendActionsWithWaitLog .
-    sendActionsWithExclusiveSend .
     sendActionsWithTimeLimit networkReceiveTimeout

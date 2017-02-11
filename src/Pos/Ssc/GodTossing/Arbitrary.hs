@@ -15,8 +15,9 @@ import           Pos.Communication.Types.Relay    (DataMsg (..))
 import           Pos.Crypto                       (deterministicVssKeyGen, toPublic,
                                                    toVssPublicKey)
 import           Pos.Ssc.Arbitrary                (SscPayloadDependsOnSlot (..))
-import           Pos.Ssc.GodTossing.Core          (Commitment, CommitmentsMap,
-                                                   GtPayload (..), GtProof (..), Opening,
+import           Pos.Ssc.GodTossing.Core          (Commitment, Commitment (..),
+                                                   CommitmentsMap, GtPayload (..),
+                                                   GtProof (..), Opening (..), Opening,
                                                    VssCertificate (..),
                                                    genCommitmentAndOpening,
                                                    isCommitmentId, isOpeningId,

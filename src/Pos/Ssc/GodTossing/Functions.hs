@@ -1,8 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 
 module Pos.Ssc.GodTossing.Functions
-       (
-         hasCommitment
+       ( hasCommitment
        , hasOpening
        , hasShares
        , hasVssCertificate
@@ -25,17 +24,15 @@ import           Pos.Binary.Crypto               ()
 import           Pos.Binary.Ssc.GodTossing.Core  ()
 import           Pos.Crypto                      (Threshold)
 import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (getCommitmentsMap),
-                                                  GtPayload (..), VssCertificate (..),
-                                                  VssCertificatesMap, checkCertTTL,
-                                                  isCommitmentId, isOpeningId, isSharesId,
+                                                  GtPayload (..), VssCertificatesMap,
+                                                  checkCertTTL, isCommitmentId,
+                                                  isOpeningId, isSharesId,
                                                   verifySignedCommitment)
 import           Pos.Ssc.GodTossing.Genesis      (genesisCertificates)
 import           Pos.Ssc.GodTossing.Toss.Base    (verifyEntriesGuardM)
-import           Pos.Ssc.GodTossing.Toss.Failure (TossVerErrorTag (..),
-                                                  TossVerFailure (..))
+import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
 import           Pos.Ssc.GodTossing.Types.Types  (GtGlobalState (..))
 import qualified Pos.Ssc.GodTossing.VssCertData  as VCD
-import           Pos.Types.Address               (addressHash)
 import           Pos.Types.Block                 (MainBlockHeader, headerSlot)
 import           Pos.Types.Core                  (EpochIndex (..), SlotId (..),
                                                   StakeholderId)
@@ -115,15 +112,12 @@ verifyGtPayload eoh payload = case payload of
     --
     -- #verifySignedCommitment
     commChecks commitments = do
-        let checkSignedComm =
+        let checkComm =
                  isVerSuccess .
                  (verifySignedCommitment epochId)
-        verifyEntriesGuardM (addressHash . view _1)
-                            identity
-                            (TossVerFailure CommitmentInvalid)
-                            (pure . checkSignedComm)
-                            (toList commitments)
-        -- [CSL-206]: check that share IDs are different.
+        verifyEntriesGuardM fst snd CommitmentInvalid
+                            (pure . checkComm)
+                            (HM.toList . getCommitmentsMap $ commitments)
 
     -- CHECK: Vss certificates checker
     --
@@ -132,7 +126,7 @@ verifyGtPayload eoh payload = case payload of
     --
     -- #checkCert
     certsChecks certs =
-        verifyEntriesGuardM (second vcExpiryEpoch . join (,)) identity CertificateInvalidTTL
+        verifyEntriesGuardM identity identity CertificateInvalidTTL
                             (pure . checkCertTTL epochId)
                             (toList certs)
 

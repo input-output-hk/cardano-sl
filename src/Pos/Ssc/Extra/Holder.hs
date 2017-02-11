@@ -7,8 +7,10 @@
 
 module Pos.Ssc.Extra.Holder
        ( SscHolder (..)
+       , mkSscHolderState
+       , mkStateAndRunSscHolder
        , runSscHolder
-       , runSscHolderRaw
+       , ignoreSscHolder
        ) where
 
 import qualified Control.Concurrent.STM    as STM
@@ -88,6 +90,20 @@ instance Monad m => MonadSscMem ssc (SscHolder ssc m) where
 -- and using default (uninitialized) local state.
 runSscHolder
     :: forall ssc m a.
+       ( --WithLogger m
+       --, WithNodeContext ssc m
+       --, SscGStateClass ssc
+       --, SscLocalDataClass ssc
+       --, MonadDB ssc m
+       --, MonadSlots m
+       )
+    => SscState ssc
+    -> SscHolder ssc m a
+    -> m a
+runSscHolder st holder = runReaderT (getSscHolder holder) st
+
+mkStateAndRunSscHolder
+    :: forall ssc m a.
        ( WithLogger m
        , WithNodeContext ssc m
        , SscGStateClass ssc
@@ -95,12 +111,27 @@ runSscHolder
        , MonadDB ssc m
        , MonadSlots m
        )
-    => SscHolder ssc m a -> m a
-runSscHolder holder = do
+    => SscHolder ssc m a
+    -> m a
+mkStateAndRunSscHolder holder = do
+    st <- mkSscHolderState
+    runSscHolder st holder
+
+mkSscHolderState
+    :: forall ssc m .
+       ( WithLogger m
+       , WithNodeContext ssc m
+       , SscGStateClass ssc
+       , SscLocalDataClass ssc
+       , MonadDB ssc m
+       , MonadSlots m
+       )
+    => m (SscState ssc)
+mkSscHolderState = do
     gState <- sscLoadGlobalState @ssc
     ld <- sscNewLocalData @ssc
-    sscState <- liftIO $ SscState <$> STM.newTVarIO gState <*> STM.newTVarIO ld
-    runReaderT (getSscHolder holder) sscState
+    liftIO $ SscState <$> STM.newTVarIO gState <*> STM.newTVarIO ld
 
-runSscHolderRaw :: SscState ssc -> SscHolder ssc m a -> m a
-runSscHolderRaw st holder = runReaderT (getSscHolder holder) st
+ignoreSscHolder :: SscHolder ssc m a -> m a
+ignoreSscHolder holder =
+    runReaderT (getSscHolder holder) (panic "SSC var: don't force me")

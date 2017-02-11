@@ -31,3 +31,4 @@ data GenesisData = GenesisData
     , gdDistribution    :: StakeDistribution
     , gdVssCertificates :: VssCertificatesMap
     }
+    deriving (Show, Eq)

@@ -7,25 +7,33 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 import           Control.Concurrent.Async hiding (wait)
-import           Control.Lens             ((?~))
-import qualified Network.Wreq             as Wreq
+import qualified Filesystem.Path          as FP
 import           Options.Applicative      (Mod, OptionFields, Parser, ParserInfo, auto,
                                            execParser, fullDesc, help, helper, info, long,
                                            metavar, option, progDesc, short, strOption)
+import           System.Directory         (getTemporaryDirectory)
 import qualified System.IO                as IO
 import           System.Process           (ProcessHandle)
 import qualified System.Process           as Process
 import           System.Timeout           (timeout)
+import           System.Wlog              (lcTree)
 import           Turtle                   hiding (option, toText)
 import           Universum                hiding (FilePath)
 
+-- Modules needed for the “Turtle internals” session
 import           Control.Exception        (handle, mask_, throwIO)
 import           Foreign.C.Error          (Errno (..), ePIPE)
 import           GHC.IO.Exception         (IOErrorType (..), IOException (..))
 
+import           Paths_cardano_sl         (version)
+import           Pos.CLI                  (readLoggerConfig)
+import           Pos.Reporting.Methods    (chooseLogFiles, retrieveLogFiles, sendReport)
+import           Pos.ReportServer.Report  (ReportType (..))
+
 data LauncherOptions = LO
     { loNodePath       :: !FilePath
     , loNodeArgs       :: ![Text]
+    , loNodeLogConfig  :: !(Maybe FilePath)
     , loNodeLogPath    :: !(Maybe FilePath)
     , loWalletPath     :: !(Maybe FilePath)
     , loWalletArgs     :: ![Text]
@@ -50,9 +58,14 @@ optsParser = do
         short   'n' <>
         help    "An argument to be passed to the node" <>
         metavar "ARG"
+    loNodeLogConfig <- optional $ textOption $
+        long    "node-log-config" <>
+        help    "Path to log config that will be used by the node" <>
+        metavar "PATH"
     loNodeLogPath <- optional $ textOption $
-        long    "node-log" <>
-        help    "Path to the log where node's output will be dumped" <>
+        long    "node-log-path" <>
+        help    "File where node stdout/err will be redirected\
+                \ (def: temp file)" <>
         metavar "PATH"
 
     -- Wallet-related args
@@ -98,15 +111,22 @@ optsInfo = info (helper <*> optsParser) $
 main :: IO ()
 main = do
     LO {..} <- execParser optsInfo
+    let realNodeArgs = case loNodeLogConfig of
+            Nothing -> loNodeArgs
+            Just lc -> loNodeArgs ++ ["--log-config", toText lc]
     sh $ case loWalletPath of
-             Nothing ->
+             Nothing -> do
+                 echo "Running in the server scenario"
                  serverScenario
-                     (loNodePath, loNodeArgs, loNodeLogPath)
+                     loNodeLogConfig
+                     (loNodePath, realNodeArgs, loNodeLogPath)
                      (loUpdaterPath, loUpdaterArgs, loUpdateArchive)
                      loReportServer
-             Just wpath ->
+             Just wpath -> do
+                 echo "Running in the client scenario"
                  clientScenario
-                     (loNodePath, loNodeArgs, loNodeLogPath)
+                     loNodeLogConfig
+                     (loNodePath, realNodeArgs, loNodeLogPath)
                      (wpath, loWalletArgs)
                      (loUpdaterPath, loUpdaterArgs, loUpdateArchive)
                      loNodeTimeoutSec
@@ -118,21 +138,22 @@ main = do
 -- * Launch the node.
 -- * If it exits with code 20, then update and restart, else quit.
 serverScenario
-    :: (FilePath, [Text], Maybe FilePath)  -- ^ Node, its args, node log
+    :: Maybe FilePath                      -- ^ Logger config
+    -> (FilePath, [Text], Maybe FilePath)  -- ^ Node, its args, node log
     -> (FilePath, [Text], Maybe FilePath)  -- ^ Updater, args, the update .tar
     -> Maybe String                        -- ^ Report server
     -> Shell ()
-serverScenario node updater report = do
+serverScenario logConf node updater report = do
     runUpdater updater
     -- TODO: the updater, too, should create a log if it fails
-    (_, nodeAsync) <- spawnNode node
+    (_, nodeAsync, nodeLog) <- spawnNode node
     exitCode <- wait nodeAsync
     printf ("The node has exited with "%s%"\n") (show exitCode)
     if exitCode == ExitFailure 20
-        then serverScenario node updater report
-        else case (report, node ^. _3) of
-                (Just repServ, Just logPath) -> sendLogs repServ [logPath]
-                _                            -> return ()
+        then serverScenario logConf node updater report
+        else whenJust report $ \repServ -> do
+                 printf ("Sending logs to "%s%"\n") (toText repServ)
+                 reportNodeCrash exitCode logConf repServ nodeLog
 
 -- | If we are on desktop, we want the following algorithm:
 --
@@ -141,24 +162,25 @@ serverScenario node updater report = do
 -- * If the wallet exits with code 20, then update and restart, else quit.
 --
 clientScenario
-    :: (FilePath, [Text], Maybe FilePath)  -- ^ Node, its args, node log
+    :: Maybe FilePath                      -- ^ Logger config
+    -> (FilePath, [Text], Maybe FilePath)  -- ^ Node, its args, node log
     -> (FilePath, [Text])                  -- ^ Wallet, args
     -> (FilePath, [Text], Maybe FilePath)  -- ^ Updater, args, the update .tar
     -> Int                                 -- ^ Node timeout, in seconds
     -> Maybe String                        -- ^ Report server
     -> Shell ()
-clientScenario node wallet updater nodeTimeout report = do
+clientScenario logConf node wallet updater nodeTimeout report = do
     runUpdater updater
     -- I don't know why but a process started with turtle just can't be
     -- killed, so let's use 'terminateProcess' and modified 'system'
-    (nodeHandle, nodeAsync) <- spawnNode node
+    (nodeHandle, nodeAsync, nodeLog) <- spawnNode node
     walletAsync <- fork (runWallet wallet)
     (someAsync, exitCode) <- liftIO $ waitAny [nodeAsync, walletAsync]
     if | someAsync == nodeAsync -> do
              printf ("The node has exited with "%s%"\n") (show exitCode)
-             case (report, node ^. _3) of
-                (Just repServ, Just logPath) -> sendLogs repServ [logPath]
-                _                            -> return ()
+             whenJust report $ \repServ -> do
+                 printf ("Sending logs to "%s%"\n") (toText repServ)
+                 reportNodeCrash exitCode logConf repServ nodeLog
              echo "Waiting for the wallet to die"
              void $ wait walletAsync
        | exitCode == ExitFailure 20 -> do
@@ -169,7 +191,7 @@ clientScenario node wallet updater nodeTimeout report = do
              liftIO $ do
                  Process.terminateProcess nodeHandle
                  cancel nodeAsync
-             clientScenario node wallet updater nodeTimeout report
+             clientScenario logConf node wallet updater nodeTimeout report
        | otherwise -> do
              printf ("The wallet has exited with "%s%"\n") (show exitCode)
              -- TODO: does the wallet have some kind of log?
@@ -202,25 +224,29 @@ runUpdater (path, args, updateArchive) = do
 
 spawnNode
     :: (FilePath, [Text], Maybe FilePath)
-    -> Shell (ProcessHandle, Async ExitCode)
-spawnNode (path, args, logPath) = do
+    -> Shell (ProcessHandle, Async ExitCode, FilePath)
+spawnNode (path, args, mbLogPath) = do
     echo "Starting the node"
-    logOut <- case logPath of
-        Nothing -> return Process.Inherit
-        Just lp -> do logHandle <- openFile (toString lp) AppendMode
-                      liftIO $ IO.hSetBuffering logHandle IO.LineBuffering
-                      return (Process.UseHandle logHandle)
+    (logPath, logHandle) <- case mbLogPath of
+        Just lp -> do
+            mktree (FP.directory lp)
+            (lp,) <$> appendonly lp
+        Nothing -> do
+            tempdir <- liftIO (fromString <$> getTemporaryDirectory)
+            mktemp tempdir "cardano-node-output.log"
+    printf ("Redirecting node's stdout and stderr to "%fp%"\n") logPath
+    liftIO $ IO.hSetBuffering logHandle IO.LineBuffering
     let cr = (Process.proc (toString path) (map toString args))
                  { Process.std_in  = Process.CreatePipe
-                 , Process.std_out = logOut
-                 , Process.std_err = logOut
+                 , Process.std_out = Process.UseHandle logHandle
+                 , Process.std_err = Process.UseHandle logHandle
                  }
     phvar <- liftIO newEmptyMVar
     asc <- fork (system' phvar cr mempty)
     mbPh <- liftIO $ timeout 5000000 (takeMVar phvar)
     case mbPh of
         Nothing -> panic "couldn't run the node (it didn't start after 5s)"
-        Just ph -> return (ph, asc)
+        Just ph -> return (ph, asc, logPath)
 
 runWallet :: (FilePath, [Text]) -> IO ExitCode
 runWallet (path, args) = do
@@ -231,19 +257,33 @@ runWallet (path, args) = do
 -- Working with the report server
 ----------------------------------------------------------------------------
 
--- | Asynchronously send logs to the report server. If a log doesn't exist,
--- it will be skipped.
-sendLogs
-    :: String         -- ^ URL of the server
-    -> [FilePath]     -- ^ Logs
-    -> Shell ()
-sendLogs reportServer logs = void $ fork $ do
-    existingLogs <- filterM testfile logs
-    Wreq.post reportServer $
-        Wreq.partText "payload" "hi Misha" :
-        [Wreq.partFileSource fname (toString fpath)
-           & Wreq.partFileName ?~ toString fname
-         | fpath <- existingLogs, let fname = toText (filename fpath)]
+-- | Send logs (and block until they're sent).
+--
+-- TODO: logs should be sent asynchronously. This would probably require some
+-- changes in the logging mechanism itself (e.g. to ensure that the logs
+-- aren't deleted before we have sent them).
+--
+-- ...Or maybe we don't care because we don't restart anything after sending
+-- logs (and so the user never actually sees the process or waits for it).
+reportNodeCrash
+    :: MonadIO m
+    => ExitCode        -- ^ Exit code of the node
+    -> Maybe FilePath  -- ^ Path to the logger config
+    -> String          -- ^ URL of the server
+    -> FilePath        -- ^ Path to the stdout log
+    -> m ()
+reportNodeCrash exitCode logConfPath reportServ logPath = liftIO $ do
+    logConfig <- readLoggerConfig (toString <$> logConfPath)
+    let logFileNames = map snd $ retrieveLogFiles $ logConfig ^. lcTree
+    -- TODO: we don't want to send all logs;
+    -- see Pos.Reporting.Methods.sendReportNode
+    logFiles <-
+        (toString logPath :) <$>
+        concatMapM chooseLogFiles (filter (const True) logFileNames)
+    let ec = case exitCode of
+            ExitSuccess   -> 0
+            ExitFailure n -> n
+    sendReport logFiles (RCrash ec) "cardano-node" version reportServ
 
 ----------------------------------------------------------------------------
 -- Utils

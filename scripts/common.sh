@@ -143,12 +143,15 @@ function node_cmd {
 
   $dht_cmd
 
+  # monitor_port=$((8000+$i))
+
   echo -n " --listen 127.0.0.1:"`get_port $i`
   echo -n " $(logs node$i.log) $time_lord $stats"
   echo -n " $stake_distr $ssc_algo "
   echo -n " $web "
   echo -n " $wallet_args "
   echo -n " --kademlia-dump-path  $(dump_path $kademlia_dump_path)"
+  # echo -n " --monitor-port $monitor_port +RTS -T -RTS "
   echo ''
 }
 

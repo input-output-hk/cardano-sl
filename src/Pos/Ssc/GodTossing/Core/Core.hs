@@ -24,9 +24,9 @@ module Pos.Ssc.GodTossing.Core.Core
 
        -- * Verification and Checks
        , checkCertTTL
-       , verifyCommitment
        , verifyCommitmentSignature
        , verifySignedCommitment
+       , verifyCommitment
        , verifyOpening
 
        -- * Payload and proof
@@ -37,6 +37,7 @@ module Pos.Ssc.GodTossing.Core.Core
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.HashSet                   as HS
 import           Data.Ix                        (inRange)
+import qualified Data.List.NonEmpty             as NE
 import qualified Data.Text.Buildable
 import           Data.Text.Lazy.Builder         (Builder)
 import           Formatting                     (Format, bprint, (%))
@@ -78,15 +79,16 @@ genCommitmentAndOpening n pks
     | n <= 0 = fail "genCommitmentAndOpening: threshold must be positive"
     | otherwise = do
         pks' <- traverse fromBinaryM pks
-        liftIO . runSecureRandom . fmap convertRes . genSharedSecret n $ pks'
+        liftIO . runSecureRandom . fmap (convertRes pks) . genSharedSecret n $ pks'
   where
-    convertRes (extra, secret, proof, shares) =
+    convertRes (toList -> ps) (extra, secret, proof, shares) =
         ( Commitment
           { commExtra = asBinary extra
           , commProof = asBinary proof
-          , commShares = HM.fromList $ zip (toList pks) $ map asBinary shares
+          , commShares = HM.fromList $ map toPair $ NE.groupWith fst $ zip ps shares
           }
         , Opening $ asBinary secret)
+    toPair ne@(x:|_) = (fst x, NE.map (asBinary . snd) ne)
 
 -- | Make signed commitment from commitment and epoch index using secret key.
 mkSignedCommitment
@@ -156,16 +158,16 @@ verifyCommitment :: Commitment -> Bool
 verifyCommitment Commitment {..} = fromMaybe False $ do
     extra <- fromBinaryM commExtra
     comms <- traverse tupleFromBinaryM (HM.toList commShares)
-    let encShares = map (encShareId . snd) comms
+    let encShares = concatMap (map encShareId . toList . snd) comms
     return $ all (verifyCommitmentDo extra) comms &&
         (length encShares) == (HS.size $ HS.fromList encShares)
   where
-    verifyCommitmentDo extra = uncurry (verifyEncShare extra)
+    verifyCommitmentDo extra (pk, ne) = all (verifyEncShare extra pk) ne
     tupleFromBinaryM
-        :: (AsBinary VssPublicKey, AsBinary EncShare)
-        -> Maybe (VssPublicKey, EncShare)
+        :: (AsBinary VssPublicKey, NonEmpty (AsBinary EncShare))
+        -> Maybe (VssPublicKey, NonEmpty EncShare)
     tupleFromBinaryM =
-        uncurry (liftA2 (,)) . bimap fromBinaryM fromBinaryM
+        uncurry (liftA2 (,)) . bimap fromBinaryM (traverse fromBinaryM)
 
 -- CHECK: @verifyCommitmentSignature
 -- | Verify signature in SignedCommitment using epoch index.

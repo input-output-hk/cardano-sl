@@ -15,7 +15,6 @@ import qualified System.IO                as IO
 import           System.Process           (ProcessHandle)
 import qualified System.Process           as Process
 import           System.Timeout           (timeout)
-import           System.Wlog              (lcTree)
 import           Turtle                   hiding (option, toText)
 import           Universum                hiding (FilePath)
 
@@ -263,7 +262,7 @@ reportNodeCrash
     -> m ()
 reportNodeCrash exitCode logConfPath reportServ logPath = liftIO $ do
     logConfig <- readLoggerConfig (toString <$> logConfPath)
-    let logFileNames = map snd $ retrieveLogFiles $ logConfig ^. lcTree
+    let logFileNames = map snd $ retrieveLogFiles logConfig
     -- TODO: we don't want to send all logs;
     -- see Pos.Reporting.Methods.sendReportNode
     logFiles <-

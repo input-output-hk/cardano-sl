@@ -29,8 +29,9 @@ import           System.Directory         (doesFileExist, listDirectory)
 import           System.FilePath          (dropExtension, takeDirectory, takeExtension,
                                            takeFileName, (<.>), (</>))
 import           System.Info              (arch, os)
-import           System.Wlog              (CanLog, HasLoggerName, LoggerTree (..), lcTree,
-                                           logDebug, ltFile, ltSubloggers)
+import           System.Wlog              (CanLog, HasLoggerName, LoggerConfig (..),
+                                           lcFilePrefix, lcTree, logDebug, ltFile,
+                                           ltSubloggers)
 import           Universum
 
 import           Pos.Context              (WithNodeContext, getNodeContext,
@@ -46,13 +47,16 @@ import           Pos.Reporting.Exceptions (ReportingError (..))
 -- retrieving all logger files from it. List of servers is also taken
 -- from node's configuration.
 sendReportNode
-    :: (MonadIO m, MonadCatch m, WithNodeContext її m)
-    => ReportType -> m ()
-sendReportNode reportType = do
+    :: ( MonadIO m
+       , MonadCatch m
+       , WithNodeContext її m
+       )
+    => (([Text],FilePath) -> Bool) -> ReportType -> m ()
+sendReportNode predicate reportType = do
     servers <- npReportServers . ncNodeParams <$> getNodeContext
     logConfig <- ncLoggerConfig <$> getNodeContext
-    let logFileNames = map snd $ retrieveLogFiles $ logConfig ^. lcTree
-    -- put filter here, maybe we don't want to send all logs
+    let logFileNames =
+            map snd $ filter predicate $ retrieveLogFiles logConfig
     logFiles <- concat <$> mapM chooseLogFiles logFileNames
     forM_ servers $
         sendReport logFiles reportType "cardano-node" version . T.unpack
@@ -79,8 +83,9 @@ getNodeInfo = do
     ipExternal (IPv4 w) =
         not $ ipv4Local w || w == 0 || w == 16777343 -- the last is 127.0.0.1
     outputF = ("{ nodeParams: \""%stext%":"%build%"\", otherNodes: "%listJson%" }")
--- | Reports misbehaviour given reason string. Efficiently works in
--- 'WorkMode' context.
+
+-- | Reports misbehaviour given reason string. Effectively designed
+-- for 'WorkMode' context.
 reportMisbehaviour
     :: ( MonadIO m
        , MonadCatch m
@@ -93,7 +98,7 @@ reportMisbehaviour
 reportMisbehaviour reason = do
     logDebug $ "Reporting misbehaviour \"" <> reason <> "\""
     nodeInfo <- getNodeInfo
-    sendReportNode $ RMisbehavior $ sformat misbehF reason nodeInfo
+    sendReportNode (const False) $ RMisbehavior $ sformat misbehF reason nodeInfo
   where
     misbehF = "reason: \""%stext%"\", nodeInfo: "%stext
 
@@ -110,7 +115,8 @@ sendReport
 sendReport logFiles reportType appName appVersion reportServerUri = do
     curTime <- liftIO getCurrentTime
     existingFiles <- filterM (liftIO . doesFileExist) logFiles
-    when (null existingFiles) $ throwM $ CantRetrieveLogs logFiles
+    when (null existingFiles && not (null logFiles)) $
+        throwM $ CantRetrieveLogs logFiles
     e <- try $ liftIO $ post (reportServerUri </> "report") $
         partLBS "payload" (encode $ reportInfo curTime existingFiles) :
         map (\fp -> partFile (toFileName fp) fp) existingFiles
@@ -130,15 +136,18 @@ sendReport logFiles reportType appName appVersion reportServerUri = do
 
 -- | Given logger config, retrieves all (logger name, filepath) for
 -- every logger that has file handle.
-retrieveLogFiles :: LoggerTree -> [([Text], FilePath)]
-retrieveLogFiles lt =
-    curElem ++ concatMap addFoo (lt ^. ltSubloggers . to HM.toList)
+retrieveLogFiles :: LoggerConfig -> [([Text], FilePath)]
+retrieveLogFiles lconfig =
+    map (second (prefix </>)) $ fromLogTree $ lconfig ^. lcTree
   where
-    curElem =
-        case lt ^. ltFile of
-            Just filepath -> [([], filepath)]
-            Nothing       -> []
-    addFoo (part, node) = map (first (part :)) $ retrieveLogFiles node
+    prefix = lconfig ^. lcFilePrefix . to (fromMaybe ".")
+    fromLogTree lt =
+        let curElem =
+                case lt ^. ltFile of
+                    Just filepath -> [([], filepath)]
+                    Nothing       -> []
+            addFoo (part, node) = map (first (part :)) $ fromLogTree node
+        in curElem ++ concatMap addFoo (lt ^. ltSubloggers . to HM.toList)
 
 -- | Retrieves real filepathes of logs given filepathes from log
 -- description. Example: there's @component.log@ in config, but this
@@ -146,7 +155,6 @@ retrieveLogFiles lt =
 chooseLogFiles :: (MonadIO m) => FilePath -> m [FilePath]
 chooseLogFiles filePath = liftIO $ do
     dirContents <- map (dir </>) <$> listDirectory dir
-    print dirContents
     dirFiles <- filterM doesFileExist dirContents
     let fileMatches = fileName `elem` map takeFileName dirFiles
     let samePrefix = filter (isPrefixOf fileName . takeFileName) dirFiles

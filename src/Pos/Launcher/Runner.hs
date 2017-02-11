@@ -320,7 +320,7 @@ runStatsMode res np@NodeParams {..} sscnp (ActionSpec action, outSpecs) = do
 runCH :: forall ssc m a . (SscConstraint ssc, MonadDB ssc m, Mockable CurrentTime m)
       => NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
 runCH params@NodeParams {..} sscNodeContext act = do
-    logCfg <- readLoggerConfig $ lpConfigPath $ bpLoggingParams $ npBaseParams
+    logCfg <- getRealLoggerConfig $ bpLoggingParams npBaseParams
     jlFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
     semaphore <- liftIO newEmptyMVar
     updSemaphore <- liftIO newEmptyMVar
@@ -371,17 +371,20 @@ nodeStartMsg BaseParams {..} = logInfo msg
   where
     msg = sformat ("Started node, joining to DHT network " %build) bpDHTPeers
 
-setupLoggers :: MonadIO m => LoggingParams -> m ()
-setupLoggers LoggingParams{..} = do
+getRealLoggerConfig :: MonadIO m => LoggingParams -> m LoggerConfig
+getRealLoggerConfig LoggingParams{..} = do
     -- TODO: introduce Maybe FilePath builder for filePrefix
     let cfgBuilder = productionB <>
                      mapperB dhtMapper <>
                      (mempty { _lcFilePrefix = lpHandlerPrefix })
     cfg <- readLoggerConfig lpConfigPath
-    setupLogging (cfg <> cfgBuilder)
+    pure $ cfg <> cfgBuilder
   where
     dhtMapper name | name == "dht" = dhtLoggerName (Proxy :: Proxy (RawRealMode ssc))
                    | otherwise     = name
+
+setupLoggers :: MonadIO m => LoggingParams -> m ()
+setupLoggers params = setupLogging =<< getRealLoggerConfig params
 
 -- | RAII for node starter.
 loggerBracket :: LoggingParams -> IO a -> IO a

@@ -31,27 +31,27 @@ instance Bi (A.Attributes ()) where
 
 instance Bi T.Coin where
     put = mapM_ putWord8 . BinCoin.encode
-    get = BinCoin.decode
+    get = label "Coin" $ BinCoin.decode
 
 instance Bi T.CoinPortion where
     put = put . T.getCoinPortion
-    get = get >>= T.mkCoinPortion
+    get = label "CoinPortion" $ get >>= T.mkCoinPortion
 
 instance Bi T.Timestamp where
-    get = fromInteger <$> get
+    get = label "Timestamp" $ fromInteger <$> get
     put = put . toInteger
 
 instance Bi T.EpochIndex where
-    get = T.EpochIndex . getUnsignedVarInt <$> get
+    get = label "EpochIndex" $ T.EpochIndex . getUnsignedVarInt <$> get
     put (T.EpochIndex c) = put (UnsignedVarInt c)
 
 instance Bi T.LocalSlotIndex where
-    get = T.LocalSlotIndex . getUnsignedVarInt <$> get
+    get = label "LocalSlotIndex" $ T.LocalSlotIndex . getUnsignedVarInt <$> get
     put (T.LocalSlotIndex c) = put (UnsignedVarInt c)
 
 instance Bi T.SlotId where
     put (T.SlotId e s) = put e >> put s
-    get = do
+    get = label "SlotId" $ do
         siEpoch <- get
         siSlot <- get
         let errMsg =
@@ -104,8 +104,8 @@ instance Bi T.TxDistribution where
 
 instance Bi T.SharedSeed where
     put (T.SharedSeed bs) = put bs
-    get = T.SharedSeed <$> get
+    get = label "SharedSeed" $ T.SharedSeed <$> get
 
 instance Bi T.ChainDifficulty where
-    get = T.ChainDifficulty . getUnsignedVarInt <$> get
+    get = label "ChainDifficulty" $ T.ChainDifficulty . getUnsignedVarInt <$> get
     put (T.ChainDifficulty c) = put (UnsignedVarInt c)

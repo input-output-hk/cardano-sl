@@ -58,6 +58,9 @@ verifyAndApplyGtPayload eoh payload = do
             let eos = getEpochOrSlot header
             setEpochOrSlot eos
             let slot = epochOrSlot (const 0) (getSlotIndex . siSlot) eos
+            -- We can freely clear shares after 'slotSecurityParam'
+            -- because it's guaranteed that rollback on more than 'slotSecurityParam'
+            -- can't happen
             when (slot >= slotSecurityParam && slot < 2 * slotSecurityParam) resetShares
     mapM_ putCertificate blockCerts
     case payload of
@@ -74,6 +77,11 @@ verifyAndApplyGtPayload eoh payload = do
 applyGenesisBlock :: MonadToss m => EpochIndex -> m ()
 applyGenesisBlock epoch = do
     setEpochOrSlot $ getEpochOrSlot epoch
+    -- We don't clear shares on genesis block because
+    -- there aren't 'slotSecurityParam' slots after shares phase,
+    -- so we won't have shares after rollback
+    -- We store shares until 'slotSecurityParam' slots of next epoch passed
+    -- and clear their after that
     resetCO
 
 -- | Rollback application of 'GtPayload's in 'Toss'. First argument is

@@ -25,11 +25,8 @@ import           Crypto.Hash            (Blake2s_224, Digest, SHA3_256, hashlazy
 import qualified Crypto.Hash            as CryptoHash
 import           Data.ByteString.Base58 (Alphabet (..), bitcoinAlphabet, decodeBase58,
                                          encodeBase58)
-import qualified Data.ByteString.Char8  as BSC (elem, unpack)
 import qualified Data.ByteString.Lazy   as BSL (fromStrict, toStrict)
-import           Data.Char              (isSpace)
 import           Data.Hashable          (Hashable (..))
-import           Data.List              (span)
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.Buildable    as Buildable
 import           Formatting             (Format, bprint, build, later, (%))

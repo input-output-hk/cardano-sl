@@ -2,7 +2,7 @@
 
 module Pos.Binary.Genesis () where
 
-import           Data.Binary.Get                (Get, getWord8)
+import           Data.Binary.Get                (Get, getWord8, label)
 import           Data.Binary.Put                (Put, putWord8)
 import           Universum
 
@@ -17,7 +17,7 @@ putUVI :: Word -> Put
 putUVI = put . UnsignedVarInt
 
 instance Bi StakeDistribution where
-    get = getWord8 >>= \case
+    get = label "StakeDistribution" $ getWord8 >>= \case
         0 -> FlatStakes <$> getUVI <*> get
         1 -> BitcoinStakes <$> getUVI <*> get
         2 -> TestnetStakes <$> get <*> getUVI <*> getUVI
@@ -32,7 +32,7 @@ instance Bi StakeDistribution where
     put (ExplicitStakes balances) = putWord8 4 >> put balances
 
 instance Bi GenesisData where
-    get = GenesisData <$> get <*> get <*> get
+    get = label "GenesisData" $ GenesisData <$> get <*> get <*> get
     put GenesisData {..} = put gdAddresses >>
                            put gdDistribution >>
                            put gdVssCertificates

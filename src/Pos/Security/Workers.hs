@@ -20,27 +20,27 @@ import           Pos.Communication.Protocol  (OutSpecs, WorkerSpec, localWorker,
 import           Pos.Constants               (blkSecurityParam, mdNoBlocksSlotThreshold,
                                               mdNoCommitmentsEpochThreshold)
 import           Pos.Context                 (getNodeContext, ncPublicKey)
-import           Pos.DB                      (getBlockHeader, getTipBlockHeader,
-                                              loadBlundsFromTipByDepth)
+import           Pos.DB                      (DBError (DBMalformed), getBlockHeader,
+                                              getTipBlockHeader, loadBlundsFromTipByDepth)
 import           Pos.DHT.Model               (converseToNeighbors)
+import           Pos.Reporting.Methods       (reportMisbehaviour)
 import           Pos.Security.Class          (SecurityWorkersClass (..))
 import           Pos.Slotting                (onNewSlot)
 import           Pos.Ssc.GodTossing          (GtPayload (..), SscGodTossing,
                                               getCommitmentsMap)
 import           Pos.Ssc.NistBeacon          (SscNistBeacon)
 import           Pos.Types                   (EpochIndex, MainBlock, SlotId (..),
-                                              blockMpc, flattenEpochOrSlot, flattenSlotId,
-                                              genesisHash, headerLeaderKey, prevBlockL)
-import           Pos.Types.Address           (addressHash)
+                                              addressHash, blockMpc, flattenEpochOrSlot,
+                                              flattenSlotId, genesisHash, headerHash,
+                                              headerLeaderKey, prevBlockL)
 import           Pos.Util                    (mconcatPair)
 import           Pos.WorkMode                (WorkMode)
 
 
 instance SecurityWorkersClass SscGodTossing where
-    securityWorkers = Tagged $ merge
-                             [ checkForReceivedBlocksWorker
-                             , checkForIgnoredCommitmentsWorker
-                             ]
+    securityWorkers =
+        Tagged $
+        merge [checkForReceivedBlocksWorker, checkForIgnoredCommitmentsWorker]
       where
         merge = mconcatPair . map (first pure)
 
@@ -62,25 +62,18 @@ checkForReceivedBlocksWorker = onNewSlotWorker True requestTipOuts $ \slotId sen
     let pastThreshold header =
             (flattenSlotId slotId - flattenEpochOrSlot header) >
             mdNoBlocksSlotThreshold
+
     -- Okay, now let's iterate until we see a good blocks or until we go past
     -- the threshold and there's no point in looking anymore:
     let notEclipsed header = do
             let prevBlock = header ^. prevBlockL
-                onBlockLoadFailure = logError $ sformat
-                    ("no block corresponding to hash "%build) prevBlock
             if | pastThreshold header     -> return False
                | prevBlock == genesisHash -> return True
                | isGoodBlock header       -> return True
                | otherwise                ->
                      getBlockHeader prevBlock >>= \case
                          Just h  -> notEclipsed h
-                         Nothing -> do
-                             onBlockLoadFailure
-                             -- not much point in warning about eclipse
-                             -- when we have a much bigger problem
-                             -- on our hands (couldn't load a block)
-                             return True
-
+                         Nothing -> onBlockLoadFailure header $> True
     -- Run the iteration starting from tip block; if we have found that we're
     -- eclipsed, we report it and ask neighbors for headers.
     unlessM (notEclipsed =<< getTipBlockHeader) $ do
@@ -90,8 +83,21 @@ checkForReceivedBlocksWorker = onNewSlotWorker True requestTipOuts $ \slotId sen
             "than 'mdNoBlocksSlotThreshold' that we didn't generate " <>
             "by ourselves"
         converseToNeighbors sendActions requestTip
+        -- We shouldn't probably send it if we've just started and
+        -- trying to recover.
+        reportMisbehaviour "Eclipse attack was discovered"
+  where
+    onBlockLoadFailure header = do
+        throwM $ DBMalformed $
+            sformat ("Eclipse check: didn't manage to find parent of "%build%
+                     " with hash "%build%", which is not genesis")
+                    (headerHash header)
+                    (header ^. prevBlockL)
 
-checkForIgnoredCommitmentsWorker :: forall m. WorkMode SscGodTossing m => (WorkerSpec m, OutSpecs)
+checkForIgnoredCommitmentsWorker
+    :: forall m.
+       WorkMode SscGodTossing m
+    => (WorkerSpec m, OutSpecs)
 checkForIgnoredCommitmentsWorker = localWorker $ do
     epochIdx <- atomically (newTVar 0)
     _ <- runReaderT (onNewSlot True checkForIgnoredCommitmentsWorkerImpl) epochIdx

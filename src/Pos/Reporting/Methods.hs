@@ -5,6 +5,7 @@
 module Pos.Reporting.Methods
        ( sendReportNode
        , getNodeInfo
+       , reportMisbehaviour
        , sendReport
        , retrieveLogFiles
        , chooseLogFiles
@@ -28,14 +29,14 @@ import           System.Directory         (doesFileExist, listDirectory)
 import           System.FilePath          (dropExtension, takeDirectory, takeExtension,
                                            takeFileName, (<.>), (</>))
 import           System.Info              (arch, os)
-import           System.Wlog              (LoggerTree (..), lcTree, ltFile, ltSubloggers)
+import           System.Wlog              (CanLog, HasLoggerName, LoggerTree (..), lcTree,
+                                           logDebug, ltFile, ltSubloggers)
 import           Universum
 
 import           Pos.Context              (WithNodeContext, getNodeContext,
                                            ncLoggerConfig, ncNodeParams, npReportServers)
-import           Pos.DHT.Model            (currentNodeKey, getKnownPeers)
+import           Pos.DHT.Model            (MonadDHT, currentNodeKey, getKnownPeers)
 import           Pos.Reporting.Exceptions (ReportingError (..))
-import           Pos.WorkMode             (WorkMode)
 
 ----------------------------------------------------------------------------
 -- Node-specific
@@ -64,9 +65,9 @@ ipv4Local w =
     b1 = w .&. 0xff
     b2 = (w `shiftR` 8) .&. 0xff
 
--- | Retrieves node info that we would like to know whne analyzing
+-- | Retrieves node info that we would like to know when analyzing
 -- malicious behavior of node.
-getNodeInfo :: WorkMode ssc m => m Text
+getNodeInfo :: (MonadDHT m, MonadIO m) => m Text
 getNodeInfo = do
     peers <- getKnownPeers
     key <- currentNodeKey
@@ -78,6 +79,23 @@ getNodeInfo = do
     ipExternal (IPv4 w) =
         not $ ipv4Local w || w == 0 || w == 16777343 -- the last is 127.0.0.1
     outputF = ("{ nodeParams: \""%stext%":"%build%"\", otherNodes: "%listJson%" }")
+-- | Reports misbehaviour given reason string. Efficiently works in
+-- 'WorkMode' context.
+reportMisbehaviour
+    :: ( MonadIO m
+       , MonadCatch m
+       , MonadDHT m
+       , WithNodeContext її m
+       , HasLoggerName m
+       , CanLog m
+       )
+    => Text -> m ()
+reportMisbehaviour reason = do
+    logDebug $ "Reporting misbehaviour \"" <> reason <> "\""
+    nodeInfo <- getNodeInfo
+    sendReportNode $ RMisbehavior $ sformat misbehF reason nodeInfo
+  where
+    misbehF = "reason: \""%stext%"\", nodeInfo: "%stext
 
 ----------------------------------------------------------------------------
 -- General purpose

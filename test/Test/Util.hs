@@ -11,7 +11,10 @@
 {-# LANGUAGE TypeFamilies          #-}
 
 module Test.Util
-       ( Parcel (..)
+       ( makeTCPTransport
+       , makeInMemoryTransport
+
+       , Parcel (..)
        , Payload (..)
        , HeavyParcel (..)
 
@@ -45,12 +48,17 @@ import qualified Data.List                   as L
 import qualified Data.Set                    as S
 import           Data.Time.Units             (Millisecond, Second, TimeUnit)
 import           GHC.Generics                (Generic)
-import           Mockable.Concurrent         (delay, forConcurrently, fork)
+import           Mockable.Concurrent         (delay, forConcurrently, fork,
+                                              async, withAsync, wait)
+import           Mockable.SharedExclusive    (newSharedExclusive, putSharedExclusive
+                                             , takeSharedExclusive)
 import           Mockable.Exception          (catch, throw)
 import           Mockable.Production         (Production (..))
-import           Network.Transport.Abstract  (closeTransport)
+import qualified Network.Transport           as NT (Transport)
+import           Network.Transport.Abstract  (closeTransport, Transport)
 import           Network.Transport.Concrete  (concrete)
 import qualified Network.Transport.TCP       as TCP
+import qualified Network.Transport.InMemory  as InMemory
 import           Serokell.Util.Concurrent    (modifyTVarS)
 import           System.Random               (mkStdGen)
 import           Test.QuickCheck             (Property)
@@ -212,45 +220,58 @@ receiveAll ConversationStyle  handler =
                               loop
         in  loop
 
+makeInMemoryTransport :: IO NT.Transport
+makeInMemoryTransport = InMemory.createTransport
 
--- * Test template
-
-deliveryTest :: TVar TestState
-             -> [NodeId -> Worker BinaryP () Production]
-             -> [Listener BinaryP () Production]
-             -> IO Property
-deliveryTest testState workers listeners = runProduction $ do
+makeTCPTransport :: String -> String -> String -> IO NT.Transport
+makeTCPTransport bind hostAddr port = do
     let tcpParams = TCP.defaultTCPParameters {
               TCP.tcpReuseServerAddr = True
             , TCP.tcpReuseClientAddr = True
             }
-    transport_ <- throwLeft $ liftIO $ TCP.createTransport "0.0.0.0" "127.0.0.1" "10342" tcpParams
+    choice <- TCP.createTransport bind hostAddr port tcpParams
+    case choice of
+        Left err -> error (show err)
+        Right transport -> return transport
+
+-- * Test template
+
+deliveryTest :: NT.Transport
+             -> TVar TestState
+             -> [NodeId -> Worker BinaryP () Production]
+             -> [Listener BinaryP () Production]
+             -> IO Property
+deliveryTest transport_ testState workers listeners = runProduction $ do
+
     let transport = concrete transport_
 
     let prng1 = mkStdGen 0
     let prng2 = mkStdGen 1
 
-    -- launch nodes
-    node transport prng1 BinaryP () $ \serverNode ->
-        -- Server EndPoint is up.
-        NodeAction listeners $ \_ -> do
-            node transport prng2 BinaryP () $ \_ ->
-                -- Client EndPoint is up.
-                NodeAction [] $ \clientSendActions -> do
-                    void . forConcurrently workers $ \worker ->
-                        worker (nodeId serverNode) clientSendActions
-                    -- Client EndPoint closes here
-            -- Must not let the server EndPoint close too soon. It's possible
-            -- that the client (which has just closed) will still have data
-            -- in-flight, which we expect the server to pick up.
-            -- So we wait for receiver to get everything, but not for too long.
-            awaitSTM (5 :: Second) $ S.null . _expected <$> readTVar testState
-            -- Server EndPoint closes here
+    serverAddressVar <- newSharedExclusive
+    clientFinished <- newSharedExclusive
+    serverFinished <- newSharedExclusive
 
-    closeTransport transport
+    let server = node transport prng1 BinaryP () $ \serverNode ->
+            NodeAction listeners $ \_ -> do
+                putSharedExclusive serverAddressVar (nodeId serverNode)
+                -- TBD why do we have to wait for this?
+                awaitSTM (5 :: Second) $ S.null . _expected <$> readTVar testState
+                putSharedExclusive serverFinished ()
+                takeSharedExclusive clientFinished
 
-    -- wait till port gets free
-    delay @_ @Millisecond 20
+    let client = node transport prng2 BinaryP () $ \clientNode ->
+            NodeAction [] $ \sendActions -> do
+                serverAddress <- takeSharedExclusive serverAddressVar
+                void . forConcurrently workers $ \worker ->
+                    worker serverAddress sendActions
+                putSharedExclusive clientFinished ()
+                takeSharedExclusive serverFinished
+
+    withAsync server $ \serverPromise -> do
+        withAsync client $ \clientPromise -> do
+            wait clientPromise
+            wait serverPromise
 
     -- form test results
     liftIO . atomically $

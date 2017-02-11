@@ -227,7 +227,9 @@ test-suite node-sketch-test
                      , hspec >= 2.1.10
                      , lens >= 4.14
                      , mtl >= 2.2.1
+                     , network-transport
                      , network-transport-tcp
+                     , network-transport-inmemory
                      , node-sketch
                      , QuickCheck
                      , quickcheck-instances

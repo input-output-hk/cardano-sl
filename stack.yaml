@@ -15,6 +15,10 @@ packages:
       git: https://github.com/avieth/network-transport
       commit: e7a5f44d0d98370d16df103c9dc61ef7bf15aee8
     extra-dep: true
+  - location:
+      git: https://github.com/avieth/network-transport-inmemory
+      commit: c6893b17531ed47838c8d8f0bf434cf0119b50df
+    extra-dep: true
 
 extra-deps:
   - network-transport-inmemory-0.5.2

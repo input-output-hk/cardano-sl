@@ -8,7 +8,6 @@ module Pos.Security.Workers
 import           Control.Concurrent.STM      (TVar, newTVar, readTVar, writeTVar)
 import qualified Data.HashMap.Strict         as HM
 import           Data.Tagged                 (Tagged (..))
-import           Data.Time                   (addUTCTime, getCurrentTime)
 import           Data.Time.Units             (convertUnit)
 import           Formatting                  (build, int, sformat, (%))
 import           System.Wlog                 (logWarning)
@@ -92,8 +91,10 @@ checkForReceivedBlocksWorker = onNewSlotWorker True requestTipOuts $ \slotId sen
         bootstrapMin <- (+ sec 10) . convertUnit <$> getSlotDuration
         nonTrivialUptime <- (> bootstrapMin) <$> getUptime
         isRecovery <- isRecoveryMode
-        when (nonTrivialUptime && not isRecovery) $
-            reportMisbehaviour "Eclipse attack was discovered"
+        let reason =
+                "Eclipse attack was discovered, mdNoBlocksSlotThreshold: " <>
+                show (mdNoBlocksSlotThreshold :: Int)
+        when (nonTrivialUptime && not isRecovery) $ reportMisbehaviour reason
     onBlockLoadFailure header = do
         throwM $ DBMalformed $
             sformat ("Eclipse check: didn't manage to find parent of "%build%

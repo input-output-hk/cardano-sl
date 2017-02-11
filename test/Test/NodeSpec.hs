@@ -27,7 +27,7 @@ import           Test.Util                   (HeavyParcel (..), Parcel (..),
                                               expected, mkTestState, modifyTestState,
                                               newWork, receiveAll, sendAll,
                                               makeTCPTransport, makeInMemoryTransport,
-                                              Payload(..))
+                                              Payload(..), timeout)
 import           System.Random               (newStdGen)
 import qualified Network.Transport           as NT (Transport)
 import           Network.Transport.Concrete  (concrete)
@@ -40,35 +40,12 @@ import           Mockable.Production         (runProduction)
 import           Node.Message                (BinaryP(..))
 import           Node
 
-timeout
-    :: ( Mockable Delay m
-       , Mockable Async m
-       , Mockable SharedExclusive m
-       )
-    => String
-    -> Microsecond
-    -> m t
-    -> m t
-timeout str us m = do
-    var <- newSharedExclusive
-    let action = do
-            t <- m
-            tryPutSharedExclusive var t
-            return ()
-    let timeoutAction = do
-            delay us
-            tryPutSharedExclusive var (error $ str ++ " : timeout after " ++ show us)
-            return ()
-    withAsync action $ \actionPromise -> do
-        withAsync timeoutAction $ \timeoutPromise -> do
-            readSharedExclusive var
-
 spec :: Spec
 spec = describe "Node" $ do
 
     tcpTransport <- runIO $ makeTCPTransport "0.0.0.0" "127.0.0.1" "10342"
     memoryTransport <- runIO $ makeInMemoryTransport
-    let transports = [("TCP", tcpTransport), ("In-memory", memoryTransport)]
+    let transports = [("In-memory", memoryTransport), ("TCP", tcpTransport)]
 
     forM_ transports $ \(name, transport_) -> describe ("Using transport: " ++ name) $ do
 
@@ -84,11 +61,11 @@ spec = describe "Node" $ do
 
             let listener = ListenerActionConversation $ \pd _ cactions -> do
                     True <- return $ pd == ("client", 24)
-                    initial <- timeout "server waiting for request" 1000000 (recv cactions)
+                    initial <- timeout "server waiting for request" 30000000 (recv cactions)
                     case initial of
                         Nothing -> error "got no initial message"
                         Just (Parcel i (Payload _)) -> do
-                            _ <- timeout "server sending response" 1000000 (send cactions (Parcel i (Payload 32)))
+                            _ <- timeout "server sending response" 30000000 (send cactions (Parcel i (Payload 32)))
                             return ()
 
             let server = node transport serverGen BinaryP ("server" :: String, 42 :: Int) $ \_node ->
@@ -101,10 +78,10 @@ spec = describe "Node" $ do
                     NodeAction [listener] $ \sendActions -> do
                         serverAddress <- readSharedExclusive serverAddressVar
                         forM_ [1..attempts] $ \i -> withConnectionTo sendActions serverAddress $ \peerData cactions -> do
-                            pd <- timeout "client waiting for peer data" 1000000 peerData
+                            pd <- timeout "client waiting for peer data" 30000000 peerData
                             True <- return $ pd == ("server", 42)
-                            _ <- timeout "client sending" 1000000 (send cactions (Parcel i (Payload 32)))
-                            response <- timeout "client waiting for response" 100000 (recv cactions)
+                            _ <- timeout "client sending" 30000000 (send cactions (Parcel i (Payload 32)))
+                            response <- timeout "client waiting for response" 30000000 (recv cactions)
                             case response of
                                 Nothing -> error "got no response"
                                 Just (Parcel j (Payload _)) -> do
@@ -126,7 +103,7 @@ spec = describe "Node" $ do
             gen <- liftIO newStdGen
             -- Self-connections don't make TCP sockets so we can do an absurd amount
             -- of attempts without taking too much time.
-            let attempts = 1000
+            let attempts = 100
 
             let listener = ListenerActionConversation $ \pd _ cactions -> do
                     True <- return $ pd == ("some string", 42)
@@ -140,7 +117,7 @@ spec = describe "Node" $ do
             node transport gen BinaryP ("some string" :: String, 42 :: Int) $ \_node ->
                 NodeAction [listener] $ \sendActions -> do
                     forM_ [1..attempts] $ \i -> withConnectionTo sendActions (nodeId _node) $ \peerData cactions -> do
-                        pd <- timeout "client waiting for peer data" 1000000 peerData
+                        pd <- timeout "client waiting for peer data" 30000000 peerData
                         True <- return $ pd == ("some string", 42)
                         _ <- send cactions (Parcel i (Payload 32))
                         response <- recv cactions

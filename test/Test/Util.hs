@@ -14,6 +14,8 @@ module Test.Util
        ( makeTCPTransport
        , makeInMemoryTransport
 
+       , timeout
+
        , Parcel (..)
        , Payload (..)
        , HeavyParcel (..)
@@ -33,6 +35,7 @@ module Test.Util
        , receiveAll
 
        , deliveryTest
+
        ) where
 
 import           Control.Concurrent.STM      (STM, atomically, check)
@@ -46,12 +49,15 @@ import           Data.Binary                 (Binary (..))
 import qualified Data.ByteString             as LBS
 import qualified Data.List                   as L
 import qualified Data.Set                    as S
-import           Data.Time.Units             (Millisecond, Second, TimeUnit)
+import           Data.Time.Units             (Microsecond, Millisecond, Second, TimeUnit)
 import           GHC.Generics                (Generic)
+import           Mockable.Class              (Mockable)
 import           Mockable.Concurrent         (delay, forConcurrently, fork,
-                                              async, withAsync, wait)
-import           Mockable.SharedExclusive    (newSharedExclusive, putSharedExclusive
-                                             , takeSharedExclusive)
+                                              async, withAsync, wait, Concurrently,
+                                              Delay, Async)
+import           Mockable.SharedExclusive    (newSharedExclusive, putSharedExclusive,
+                                              takeSharedExclusive, SharedExclusive,
+                                              readSharedExclusive, tryPutSharedExclusive)
 import           Mockable.Exception          (catch, throw)
 import           Mockable.Production         (Production (..))
 import qualified Network.Transport           as NT (Transport)
@@ -73,6 +79,31 @@ import           Node                        (ConversationActions (..), Listener
                                               Worker, node, nodeId)
 import           Node.Message                (BinaryP (..))
 
+-- | Run a computation, but kill it if it takes more than a given number of
+--   Microseconds to complete. If that happens, log using a given string
+--   prefix.
+timeout
+    :: ( Mockable Delay m
+       , Mockable Async m
+       , Mockable SharedExclusive m
+       )
+    => String
+    -> Microsecond
+    -> m t
+    -> m t
+timeout str us m = do
+    var <- newSharedExclusive
+    let action = do
+            t <- m
+            tryPutSharedExclusive var t
+            return ()
+    let timeoutAction = do
+            delay us
+            tryPutSharedExclusive var (error $ str ++ " : timeout after " ++ show us)
+            return ()
+    withAsync action $ \actionPromise -> do
+        withAsync timeoutAction $ \timeoutPromise -> do
+            readSharedExclusive var
 
 -- * Parcel
 
@@ -183,29 +214,38 @@ instance Show TalkStyle where
     show ConversationStyle  = "conversation style"
 
 sendAll
-    :: ( Binary msg, Message msg, MonadIO m )
+    :: ( Binary msg, Message msg, MonadIO m
+       , Mockable Concurrently m
+       , Mockable Delay m
+       , Mockable Async m
+       , Mockable SharedExclusive m )
     => TalkStyle
     -> SendActions BinaryP () m
     -> NodeId
     -> [msg]
     -> m ()
 sendAll SingleMessageStyle sendActions peerId msgs =
-    forM_ msgs $ sendTo sendActions peerId
+    --void $ forConcurrently msgs $ sendTo sendActions peerId
+    timeout "sendAll" 30000000 $ forM_ msgs $ sendTo sendActions peerId
 
 sendAll ConversationStyle sendActions peerId msgs =
-    void . withConnectionTo sendActions @_ @Bool peerId $ \peerData cactions -> forM_ msgs $
-    \msg -> do
-        send cactions msg
-        _ <- recv cactions
-        pure ()
+    timeout "sendAll" 30000000 $
+        void . withConnectionTo sendActions @_ @Bool peerId $ \peerData cactions -> forM_ msgs $
+        \msg -> do
+            send cactions msg
+            _ <- recv cactions
+            pure ()
 
 receiveAll
-    :: ( Binary msg, Message msg, MonadIO m )
+    :: ( Binary msg, Message msg, MonadIO m
+       , Mockable Delay m
+       , Mockable Async m
+       , Mockable SharedExclusive m )
     => TalkStyle
     -> (msg -> m ())
     -> ListenerAction BinaryP () m
 receiveAll SingleMessageStyle handler =
-    ListenerActionOneMsg $ \_ _ _ -> handler
+    ListenerActionOneMsg $ \_ _ _ -> timeout "receiveAll" 30000000 . handler
 -- For conversation style, we send a response for every message received.
 -- The sender awaits a response for each message. This ensures that the
 -- sender doesn't finish before the conversation SYN/ACK completes.
@@ -218,7 +258,7 @@ receiveAll ConversationStyle  handler =
                               handler msg
                               send cactions True
                               loop
-        in  loop
+        in  timeout "receiveAll" 30000000 loop
 
 makeInMemoryTransport :: IO NT.Transport
 makeInMemoryTransport = InMemory.createTransport
@@ -252,26 +292,31 @@ deliveryTest transport_ testState workers listeners = runProduction $ do
     clientFinished <- newSharedExclusive
     serverFinished <- newSharedExclusive
 
-    let server = node transport prng1 BinaryP () $ \serverNode ->
+    let server = node transport prng1 BinaryP () $ \serverNode -> do
             NodeAction listeners $ \_ -> do
+                -- Give our address to the client.
                 putSharedExclusive serverAddressVar (nodeId serverNode)
-                -- TBD why do we have to wait for this?
-                awaitSTM (5 :: Second) $ S.null . _expected <$> readTVar testState
-                putSharedExclusive serverFinished ()
+                -- Don't stop until the client has finished.
                 takeSharedExclusive clientFinished
+                -- Wait for the expected values to come, with 5 second timeout.
+                awaitSTM (5 :: Second) $ S.null . _expected <$> readTVar testState
+                -- Allow the client to stop.
+                putSharedExclusive serverFinished ()
 
     let client = node transport prng2 BinaryP () $ \clientNode ->
             NodeAction [] $ \sendActions -> do
                 serverAddress <- takeSharedExclusive serverAddressVar
                 void . forConcurrently workers $ \worker ->
                     worker serverAddress sendActions
+                -- Tell the server that we're done.
                 putSharedExclusive clientFinished ()
+                -- Wait until the server has finished.
                 takeSharedExclusive serverFinished
 
     withAsync server $ \serverPromise -> do
         withAsync client $ \clientPromise -> do
-            wait clientPromise
-            wait serverPromise
+            timeout "waiting for client to finish" 30000000 (wait clientPromise)
+            timeout "waiting for server to finish" 30000000 (wait serverPromise)
 
     -- form test results
     liftIO . atomically $

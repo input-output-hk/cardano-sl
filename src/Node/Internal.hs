@@ -32,7 +32,7 @@ module Node.Internal (
   ) where
 
 import           Control.Exception             hiding (bracket, catch, finally, throw)
-import           Control.Monad                 (forM_, forM, when)
+import           Control.Monad                 (forM_, forM, when, unless)
 import           Control.Monad.Fix             (MonadFix)
 import           Data.Int                      (Int64)
 import           Data.Binary                   as Bin
@@ -41,8 +41,9 @@ import qualified Data.ByteString               as BS
 import qualified Data.ByteString.Builder       as BS
 import qualified Data.ByteString.Builder.Extra as BS
 import qualified Data.ByteString.Lazy          as LBS
-import           Data.Foldable                 (foldlM, foldl')
+import           Data.Foldable                 (foldlM, foldl', toList)
 import           Data.Hashable                 (Hashable)
+import           Data.List                     (intercalate)
 import           Data.List.NonEmpty            (NonEmpty ((:|)))
 import           Data.Map.Strict               (Map)
 import qualified Data.Map.Strict               as Map
@@ -50,6 +51,8 @@ import           Data.Set                      (Set)
 import qualified Data.Set                      as Set
 import           Data.NonEmptySet              (NonEmptySet)
 import qualified Data.NonEmptySet              as NESet
+import           Data.Sequence                 (Seq)
+import qualified Data.Sequence                 as Seq
 import           Data.Monoid
 import           Data.Typeable
 import           Data.Time.Units               (Microsecond)
@@ -957,7 +960,7 @@ nodeDispatcher node handlerIn handlerInOut =
                               -- In any case, say the handshake failed so that
                               -- subsequent data is ignored.
                               Nothing -> do
-                                  logDebug $ sformat ("got unknown nonce " % shown) nonce
+                                  logWarning $ sformat ("got unknown nonce " % shown) nonce
                                   return $ state {
                                         csConnections = Map.insert connid (peer, HandshakeFailure) (csConnections state)
                                       }
@@ -1243,14 +1246,22 @@ withInOutChannel node@Node{nodeState} nodeid@(NodeId peer) action = do
     -- An exception may be thrown after the connection is established but
     -- before we register, but that's OK, as disconnectFromPeer is forgiving
     -- about this.
-    let action' (ChannelOut conn) = do
+    let action' conn = do
             let provenance = Local peer (Just (nonce, peerDataVar, NT.bundle conn, channel))
-            let action' :: ChannelOut m -> m a
-                action' = action peerDataVar channel
-            promise <- spawnHandler nodeState provenance (action peerDataVar channel (ChannelOut conn))
+            promise <- spawnHandler nodeState provenance $ do
+                -- It's essential that we only send the handshake SYN inside
+                -- the handler, because at this point the nonce is guaranteed
+                -- to be known in the node state. If we sent the handhsake
+                -- before 'spawnHandler' we risk (although it's highly unlikely)
+                -- receiving the ACK before the nonce is put into the state.
+                -- This isn't so unlikely in the case of self-connections.
+                outcome <- NT.send conn [controlHeaderBidirectionalSyn nonce]
+                case outcome of
+                    Left err -> throw err
+                    Right _ -> action peerDataVar channel (ChannelOut conn)
             wait promise
-    bracket (connectInOutChannel node nodeid nonce)
-            (\(ChannelOut conn) -> disconnectFromPeer node nodeid conn)
+    bracket (connectToPeer node nodeid)
+            (\conn -> disconnectFromPeer node nodeid conn)
             action'
 
 -- | Create, use, and tear down a unidirectional channel to a peer identified
@@ -1306,7 +1317,7 @@ disconnectFromPeer
     -> NodeId
     -> NT.Connection m
     -> m ()
-disconnectFromPeer Node{nodeState} nodeid@(NodeId peer) conn = do
+disconnectFromPeer node@Node{nodeState} nodeid@(NodeId peer) conn =
     bracketWithException startClosing finishClosing (const (NT.close conn))
 
     where
@@ -1417,7 +1428,7 @@ connectToPeer
     => Node packingType peerData m
     -> NodeId
     -> m (NT.Connection m)
-connectToPeer Node{nodeEndPoint, nodeState, nodePackingType, nodePeerData} nodeid@(NodeId peer) = do
+connectToPeer node@Node{nodeEndPoint, nodeState, nodePackingType, nodePeerData} nodeid@(NodeId peer) = do
     conn <- establish
     sendPeerDataIfNecessary conn
     return conn
@@ -1601,28 +1612,6 @@ connectToPeer Node{nodeEndPoint, nodeState, nodePackingType, nodePeerData} nodei
                 readSharedExclusive excl
                 startConnecting
             Right () -> return ()
-
--- | Connect to a peer given by a 'NodeId' bidirectionally.
-connectInOutChannel
-    :: ( Mockable Channel.Channel m
-       , Mockable Throw m
-       , Mockable Bracket m
-       , Mockable SharedAtomic m
-       , Mockable SharedExclusive m
-       , Message.Packable packingType peerData
-       , WithLogger m
-       )
-    => Node packingType peerData m
-    -> NodeId
-    -> Nonce
-    -> m (ChannelOut m)
-connectInOutChannel node peer nonce = do
-    conn <- connectToPeer node peer
-    outcome <- NT.send conn [controlHeaderBidirectionalSyn nonce]
-    case outcome of
-        Left err -> throw err
-        Right _ -> return ()
-    return (ChannelOut conn)
 
 -- | Connect to a peer given by a 'NodeId' unidirectionally.
 connectOutChannel

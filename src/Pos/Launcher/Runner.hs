@@ -341,6 +341,7 @@ runCH params@NodeParams {..} sscNodeContext act = do
         liftIO $ newTVarIO SlottingState{..}
     shutdownFlag <- liftIO $ newTVarIO False
     shutdownQueue <- liftIO $ newTBQueueIO allWorkersCount
+    curTime <- liftIO Time.getCurrentTime
     let ctx =
             NodeContext
             { ncSlottingState = slottingStateVar
@@ -357,6 +358,7 @@ runCH params@NodeParams {..} sscNodeContext act = do
             , ncNodeParams = params
             , ncLoggerConfig = logCfg
             , ncSendLock = Nothing
+            , ncStartTime = curTime
             }
     runContextHolder ctx act
 

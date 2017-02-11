@@ -43,7 +43,8 @@ import           Pos.Communication.Protocol (ConversationActions (..), NodeId, O
                                              SendActions (..), WorkerSpec, convH,
                                              toOutSpecs, worker)
 import           Pos.Constants              (blkSecurityParam)
-import           Pos.Context                (NodeContext (..), getNodeContext)
+import           Pos.Context                (NodeContext (..), getNodeContext,
+                                             isRecoveryMode)
 import           Pos.Crypto                 (shortHashF)
 import qualified Pos.DB                     as DB
 import qualified Pos.DB.GState              as GState
@@ -549,11 +550,8 @@ relayBlock
     => SendActions m -> Block ssc -> m ()
 relayBlock _ (Left _)                  = pass
 relayBlock sendActions (Right mainBlk) = do
-    isRecovery <- do
-        var <- ncRecoveryHeader <$> getNodeContext
-        isJust <$> atomically (tryReadTMVar var)
     -- Why 'ncPropagation' is not considered?
-    unless isRecovery $
+    unlessM isRecoveryMode $
         void $ fork $ announceBlock sendActions $ mainBlk ^. gbHeader
 
 ----------------------------------------------------------------------------

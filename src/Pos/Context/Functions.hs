@@ -13,26 +13,31 @@ module Pos.Context.Functions
        , readBlkSemaphore
        , takeBlkSemaphore
 
-       -- * LRC synchronization
+         -- * LRC synchronization
        , waitLrc
        , lrcActionOnEpoch
        , lrcActionOnEpochReason
 
-       -- * NTP
+         -- * NTP
        , setNtpLastSlot
        , readNtpLastSlot
        , readNtpMargin
        , readNtpData
+
+         -- * Misc
+       , getUptime
+       , isRecoveryMode
        ) where
 
 import           Control.Concurrent.MVar (putMVar)
 import qualified Control.Concurrent.STM  as STM
-import           Data.Time.Units         (Microsecond)
+import           Data.Time               (diffUTCTime, getCurrentTime)
+import           Data.Time.Units         (Microsecond, fromMicroseconds)
 import           Universum
 
 import           Pos.Context.Class       (WithNodeContext (..))
 import           Pos.Context.Context     (NodeContext (..), ncGenesisLeaders,
-                                          ncGenesisUtxo)
+                                          ncGenesisUtxo, ncStartTime)
 import           Pos.Lrc.Error           (LrcError (..))
 import           Pos.Slotting.Types      (ssNtpData, ssNtpLastSlot)
 import           Pos.Types               (EpochIndex, HeaderHash, SlotId, SlotLeaders,
@@ -126,3 +131,23 @@ readNtpData
 readNtpData = do
     nc <- getNodeContext
     atomically $ view ssNtpData <$> STM.readTVar (ncSlottingState nc)
+
+
+----------------------------------------------------------------------------
+-- Misc
+----------------------------------------------------------------------------
+
+-- | Returns node uptime based on current time and 'ncStartTime'.
+getUptime :: (MonadIO m, WithNodeContext ssc m) => m Microsecond
+getUptime = do
+    curTime <- liftIO getCurrentTime
+    startTime <- ncStartTime <$> getNodeContext
+    let seconds = toRational $ curTime `diffUTCTime` startTime
+    pure $ fromMicroseconds $ round $ seconds * 1000 * 1000
+
+-- | Returns if 'ncRecoveryHeader' is 'Just' which is equivalent to
+-- "we're in recovery mode".
+isRecoveryMode :: (MonadIO m, WithNodeContext ssc m) => m Bool
+isRecoveryMode = do
+    var <- ncRecoveryHeader <$> getNodeContext
+    isJust <$> atomically (STM.tryReadTMVar var)

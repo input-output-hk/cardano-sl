@@ -8,6 +8,8 @@ module Pos.Security.Workers
 import           Control.Concurrent.STM      (TVar, newTVar, readTVar, writeTVar)
 import qualified Data.HashMap.Strict         as HM
 import           Data.Tagged                 (Tagged (..))
+import           Data.Time                   (addUTCTime, getCurrentTime)
+import           Data.Time.Units             (convertUnit)
 import           Formatting                  (build, int, sformat, (%))
 import           System.Wlog                 (logWarning)
 import           Universum
@@ -18,13 +20,14 @@ import           Pos.Communication.Protocol  (OutSpecs, WorkerSpec, localWorker,
                                               onNewSlotWorker)
 import           Pos.Constants               (blkSecurityParam, mdNoBlocksSlotThreshold,
                                               mdNoCommitmentsEpochThreshold)
-import           Pos.Context                 (getNodeContext, ncPublicKey)
+import           Pos.Context                 (getNodeContext, getUptime, isRecoveryMode,
+                                              ncPublicKey)
 import           Pos.DB                      (DBError (DBMalformed), getBlockHeader,
                                               getTipBlockHeader, loadBlundsFromTipByDepth)
 import           Pos.DHT.Model               (converseToNeighbors)
 import           Pos.Reporting.Methods       (reportMisbehaviour)
 import           Pos.Security.Class          (SecurityWorkersClass (..))
-import           Pos.Slotting                (onNewSlot)
+import           Pos.Slotting                (getSlotDuration, onNewSlot)
 import           Pos.Ssc.GodTossing          (GtPayload (..), SscGodTossing,
                                               getCommitmentsMap)
 import           Pos.Ssc.NistBeacon          (SscNistBeacon)
@@ -33,6 +36,7 @@ import           Pos.Types                   (EpochIndex, MainBlock, SlotId (..)
                                               flattenSlotId, genesisHash, headerHash,
                                               headerLeaderKey, prevBlockL)
 import           Pos.Util                    (mconcatPair)
+import           Pos.Util.TimeWarp           (sec)
 import           Pos.WorkMode                (WorkMode)
 
 
@@ -82,10 +86,14 @@ checkForReceivedBlocksWorker = onNewSlotWorker True requestTipOuts $ \slotId sen
             "than 'mdNoBlocksSlotThreshold' that we didn't generate " <>
             "by ourselves"
         converseToNeighbors sendActions requestTip
-        -- We shouldn't probably send it if we've just started and
-        -- trying to recover.
-        reportMisbehaviour "Eclipse attack was discovered"
+        reportEclipse
   where
+    reportEclipse = do
+        bootstrapMin <- (+ sec 10) . convertUnit <$> getSlotDuration
+        nonTrivialUptime <- (> bootstrapMin) <$> getUptime
+        isRecovery <- isRecoveryMode
+        when (nonTrivialUptime && not isRecovery) $
+            reportMisbehaviour "Eclipse attack was discovered"
     onBlockLoadFailure header = do
         throwM $ DBMalformed $
             sformat ("Eclipse check: didn't manage to find parent of "%build%

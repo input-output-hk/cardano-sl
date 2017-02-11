@@ -15,6 +15,7 @@ module Pos.Context.Context
 
 import qualified Control.Concurrent.STM           as STM
 import           Control.Concurrent.STM.TBQueue   (TBQueue)
+import           Data.Time.Clock                  (UTCTime)
 import           Pos.Communication.Types.Protocol (NodeId)
 import           System.Wlog                      (LoggerConfig)
 import           Universum
@@ -45,7 +46,9 @@ data NodeContext ssc = NodeContext
     { ncSlottingState       :: !(STM.TVar SlottingState)
     -- ^ Data needed for the slotting algorithm to work
     , ncJLFile              :: !(Maybe (MVar FilePath))
+    -- @georgeee please add documentation when you see this comment
     , ncSscContext          :: !(SscNodeContext ssc)
+    -- @georgeee please add documentation when you see this comment
     , ncBlkSemaphore        :: !(MVar HeaderHash)
     -- ^ Semaphore which manages access to block application.
     -- Stored hash is a hash of last applied block.
@@ -80,6 +83,8 @@ data NodeContext ssc = NodeContext
     , ncSendLock            :: !(Maybe (MVar ()))
     -- ^ Exclusive lock for sending messages to other nodes
     -- (if Nothing, no lock used)
+    , ncStartTime           :: !UTCTime
+    -- ^ Time when node was started ('NodeContext' initialized).
     }
 
 ----------------------------------------------------------------------------

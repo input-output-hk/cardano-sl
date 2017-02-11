@@ -6,12 +6,11 @@ module Pos.Security.Workers
        ) where
 
 import           Control.Concurrent.STM      (TVar, newTVar, readTVar, writeTVar)
-import           Control.Monad.Trans.Reader  (ReaderT (..), ask)
 import qualified Data.HashMap.Strict         as HM
 import           Data.Tagged                 (Tagged (..))
 import           Formatting                  (build, int, sformat, (%))
-import           System.Wlog                 (logError, logWarning)
-import           Universum                   hiding (ask)
+import           System.Wlog                 (logWarning)
+import           Universum
 
 import           Pos.Binary.Ssc              ()
 import           Pos.Block.Network.Retrieval (requestTip, requestTipOuts)

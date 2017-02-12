@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 -- | Binary specification for txp-related (Pos.Txp) messages.
 
 module Test.Pos.Txp.Identity.BinarySpec

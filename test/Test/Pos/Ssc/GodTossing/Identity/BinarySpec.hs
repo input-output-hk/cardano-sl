@@ -13,7 +13,8 @@ import qualified Pos.Communication.Relay as R
 import qualified Pos.Ssc.GodTossing      as GT
 import           Pos.Types.Address       (StakeholderId)
 
-import           Test.Pos.Util           (binaryTest, msgLenLimitedTest)
+import           Test.Pos.Util           (binaryTest, msgLenLimitedTest,
+                                          msgLenLimitedTest')
 
 spec :: Spec
 spec = describe "GodTossing" $ do
@@ -33,3 +34,17 @@ spec = describe "GodTossing" $ do
             @(R.InvMsg StakeholderId GT.GtTag) Const.genesisMaxInvSize
         msgLenLimitedTest
             @(R.ReqMsg StakeholderId GT.GtTag) Const.genesisMaxReqSize
+        msgLenLimitedTest'
+            @(R.DataMsg GT.GtMsgContents) Const.genesisMaxMCOpeningSize
+            "MCOpening" isMCOpening
+        msgLenLimitedTest'
+            @(R.DataMsg GT.GtMsgContents) Const.genesisMaxMCVssCertificateSize
+            "MCVssCertificate" isMCVssCertificate
+
+isMCOpening :: R.DataMsg GT.GtMsgContents -> Bool
+isMCOpening (R.DataMsg (GT.MCOpening _ _)) = True
+isMCOpening _                              = False
+
+isMCVssCertificate :: R.DataMsg GT.GtMsgContents -> Bool
+isMCVssCertificate (R.DataMsg (GT.MCVssCertificate _)) = True
+isMCVssCertificate _                                   = False

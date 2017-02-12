@@ -22,8 +22,7 @@ import           Universum
 import           Pos.Binary.Class                 (Bi (..))
 import qualified Pos.Binary.Class                 as Bi
 import           Pos.Block.Network.Types          (MsgBlock)
-import           Pos.Constants                    (genesisMaxTxSize, genesisMaxReqSize,
-                                                   genesisMaxInvSize)
+import qualified Pos.Constants                    as Const
 import           Pos.Communication.Types.Relay    (DataMsg, InvMsg, ReqMsg)
 import           Pos.DB.Class                     (MonadDB)
 import qualified Pos.DB.GState                    as GState
@@ -63,17 +62,17 @@ instance Message (MsgBlock ssc) =>
 instance Message (InvMsg key tag) =>
          MessageLimited (InvMsg key tag) where
     type LimitType (InvMsg key tag) = Byte
-    getMsgLenLimit _ = return genesisMaxReqSize
+    getMsgLenLimit _ = return Const.genesisMaxReqSize
 
 instance Message (ReqMsg key tag) =>
          MessageLimited (ReqMsg key tag) where
     type LimitType (ReqMsg key tag) = Byte
-    getMsgLenLimit _ = return genesisMaxInvSize
+    getMsgLenLimit _ = return Const.genesisMaxInvSize
 
 instance Message (DataMsg TxMsgContents) =>
          MessageLimited (DataMsg TxMsgContents) where
     type LimitType (DataMsg TxMsgContents) = Byte
-    getMsgLenLimit _ = return genesisMaxTxSize
+    getMsgLenLimit _ = return Const.genesisMaxTxSize
 
 instance Message (DataMsg UpdateVote) =>
          MessageLimited (DataMsg UpdateVote) where
@@ -88,7 +87,12 @@ instance Message (DataMsg (UpdateProposal, [UpdateVote])) =>
 instance Message (DataMsg GtMsgContents) =>
          MessageLimited (DataMsg GtMsgContents) where
     type LimitType (DataMsg GtMsgContents) = (Byte, Byte, Byte, Byte)
-    getMsgLenLimit _ = return undefined
+    getMsgLenLimit _ = return
+        ( undefined
+        , Const.genesisMaxMCOpeningSize
+        , undefined
+        , Const.genesisMaxMCVssCertificateSize
+        )
 
 -- | Sets size limit to deserialization instances via @s@ parameter
 -- (using "Data.Reflection"). Grep for 'reify' and 'reflect' to see

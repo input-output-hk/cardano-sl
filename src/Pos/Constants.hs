@@ -29,6 +29,8 @@ module Pos.Constants
        , genesisMaxTxSize
        , genesisMaxReqSize
        , genesisMaxInvSize
+       , genesisMaxMCOpeningSize
+       , genesisMaxMCVssCertificateSize
        , genesisMpcThd
        , genesisHeavyDelThd
        , genesisUpdateVoteThd
@@ -163,6 +165,14 @@ genesisMaxReqSize = ccGenesisMaxReqSize cc
 -- | See 'Pos.CompileConfig.ccGenesisMaxInvSize'.
 genesisMaxInvSize :: Byte
 genesisMaxInvSize = ccGenesisMaxInvSize cc
+
+-- | See 'Pos.CompileConfig.ccGenesisMaxInvSize'.
+genesisMaxMCOpeningSize :: Byte
+genesisMaxMCOpeningSize = ccGenesisMaxMCOpeningSize cc
+
+-- | See 'Pos.CompileConfig.ccGenesisMaxInvSize'.
+genesisMaxMCVssCertificateSize :: Byte
+genesisMaxMCVssCertificateSize = ccGenesisMaxMCVssCertificateSize cc
 
 -- | See 'Pos.CompileConfig.ccGenesisMpcThd'.
 genesisMpcThd :: CoinPortion

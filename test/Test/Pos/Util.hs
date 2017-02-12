@@ -10,6 +10,7 @@ module Test.Pos.Util
        , binaryTest
        , networkBinaryTest
        , msgLenLimitedTest
+       , msgLenLimitedTest'
        , safeCopyEncodeDecode
        , safeCopyTest
        , serDeserId
@@ -35,7 +36,7 @@ import           Pos.Util                   (AsBinaryClass (..))
 
 import           Test.Hspec                 (Spec)
 import           Test.Hspec.QuickCheck      (modifyMaxSuccess, prop)
-import           Test.QuickCheck            (Arbitrary, Property, (===))
+import           Test.QuickCheck            (Arbitrary, Property, (===), (==>))
 import           Universum
 
 binaryEncodeDecode :: (Show a, Eq a, Bi a) => a -> Property
@@ -121,11 +122,17 @@ binaryTest = identityTest @Bi @a binaryEncodeDecode
 networkBinaryTest :: forall a. IdTestingRequiredClasses Bi a => Spec
 networkBinaryTest = identityTest @Bi @a networkBinaryEncodeDecode
 
-msgLenLimitedTest :: forall a. IdTestingRequiredClasses Bi a => Byte -> Spec
-msgLenLimitedTest limit =
+msgLenLimitedTest'
+    :: forall a. IdTestingRequiredClasses Bi a
+    => Byte -> String -> (a -> Bool) -> Spec
+msgLenLimitedTest' limit desc whetherTest =
     -- increase amount of tests e.g. in case of small keys in `ReqMsg`
     modifyMaxSuccess (* 100) $
-        identityTest @Bi @a $ msgLenLimitedCheck limit
+        identityTest @Bi @a $
+            \a -> counterexample desc $ whetherTest a ==> msgLenLimitedCheck limit a
+
+msgLenLimitedTest :: forall a. IdTestingRequiredClasses Bi a => Byte -> Spec
+msgLenLimitedTest limit = msgLenLimitedTest' @a limit "" (const True)
 
 safeCopyTest :: forall a. IdTestingRequiredClasses SafeCopy a => Spec
 safeCopyTest = identityTest @SafeCopy @a safeCopyEncodeDecode

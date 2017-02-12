@@ -1104,6 +1104,8 @@ executable cardano-launcher
   default-extensions:  OverloadedStrings
                        RecordWildCards
                        TupleSections
+  if os(windows)
+    LD-Options:     -mwindows
 
 test-suite cardano-test
   main-is:             Test.hs

@@ -130,6 +130,9 @@ function node_cmd {
   if [[ $is_stat != "" ]]; then
     stats=" --stats "
   fi
+  if [[ "$REPORT_SERVER" != "" ]]; then
+    report_server=" --report-server $REPORT_SERVER "
+  fi
   if [[ $i == "0" ]]; then
     if [[ $CARDANO_WEB != "" ]]; then
       web=" --web "
@@ -149,6 +152,7 @@ function node_cmd {
   echo -n " $(logs node$i.log) $time_lord $stats"
   echo -n " $stake_distr $ssc_algo "
   echo -n " $web "
+  echo -n " $report_server "
   echo -n " $wallet_args "
   echo -n " --kademlia-dump-path  $(dump_path $kademlia_dump_path)"
   # echo -n " --monitor-port $monitor_port +RTS -T -RTS "

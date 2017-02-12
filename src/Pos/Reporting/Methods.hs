@@ -82,7 +82,7 @@ getNodeInfo = do
   where
     ipExternal (IPv4 w) =
         not $ ipv4Local w || w == 0 || w == 16777343 -- the last is 127.0.0.1
-    outputF = ("{ nodeParams: \""%stext%":"%build%"\", otherNodes: "%listJson%" }")
+    outputF = ("{ nodeParams: '"%stext%":"%build%"', otherNodes: "%listJson%" }")
 
 -- | Reports misbehaviour given reason string. Effectively designed
 -- for 'WorkMode' context.
@@ -100,7 +100,7 @@ reportMisbehaviour reason = do
     nodeInfo <- getNodeInfo
     sendReportNode (const False) $ RMisbehavior $ sformat misbehF reason nodeInfo
   where
-    misbehF = "reason: \""%stext%"\", nodeInfo: "%stext
+    misbehF = stext%", nodeInfo: "%stext
 
 ----------------------------------------------------------------------------
 -- General purpose

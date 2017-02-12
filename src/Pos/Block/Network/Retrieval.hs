@@ -552,9 +552,10 @@ applyWithRollback peerId sendActions toApply lca toRollback = do
         ". Blocks rolled back: "%listJson%
         ", blocks applied: "%listJson
     reportRollback =
-        unlessM isRecoveryMode $
+        unlessM isRecoveryMode $ do
+            logDebug "Reporting rollback happened"
             reportMisbehaviour $
-            sformat reportF peerId toRollbackHashes toApplyHashes
+                sformat reportF peerId toRollbackHashes toApplyHashes
     panicBrokenLca = panic "applyWithRollback: nothing after LCA :<"
     toApplyAfterLca =
         OldestFirst $

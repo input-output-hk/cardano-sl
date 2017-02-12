@@ -57,9 +57,9 @@ import           Node.Util.Monitor           (setupMonitor, stopMonitor)
 import qualified STMContainers.Map           as SM
 import           System.Random               (newStdGen)
 import           System.Wlog                 (LoggerConfig (..), WithLogger, logError,
-                                              logInfo, logWarning, mapperB, productionB,
-                                              releaseAllHandlers, setupLogging,
-                                              usingLoggerName)
+                                              logInfo, logWarning, mapperB, memoryB,
+                                              productionB, releaseAllHandlers,
+                                              setupLogging, usingLoggerName)
 import           Universum                   hiding (bracket, finally)
 
 import           Pos.Binary                  ()
@@ -375,6 +375,7 @@ getRealLoggerConfig :: MonadIO m => LoggingParams -> m LoggerConfig
 getRealLoggerConfig LoggingParams{..} = do
     -- TODO: introduce Maybe FilePath builder for filePrefix
     let cfgBuilder = productionB <>
+                     memoryB (1024 * 1024 * 5) <> -- ~5 mb
                      mapperB dhtMapper <>
                      (mempty { _lcFilePrefix = lpHandlerPrefix })
     cfg <- readLoggerConfig lpConfigPath

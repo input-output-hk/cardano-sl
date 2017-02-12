@@ -17,6 +17,7 @@ import           Control.Monad.Catch      (try)
 import           Data.Aeson               (encode)
 import qualified Data.HashMap.Strict      as HM
 import qualified Data.Text                as T
+import qualified Data.Text.IO             as TIO
 import           Data.Time.Clock          (getCurrentTime)
 import           Data.Version             (Version (..))
 import           Formatting               (build, sformat, stext, (%))
@@ -29,13 +30,15 @@ import           System.Directory         (doesFileExist, listDirectory)
 import           System.FilePath          (dropExtension, takeDirectory, takeExtension,
                                            takeFileName, (<.>), (</>))
 import           System.Info              (arch, os)
+import           System.IO                (hClose)
+import           System.IO.Temp           (withSystemTempFile)
 import           System.Wlog              (CanLog, HasLoggerName, LoggerConfig (..),
                                            lcFilePrefix, lcTree, logDebug, ltFile,
-                                           ltSubloggers)
+                                           ltSubloggers, readMemoryLogs)
 import           Universum
 
-import           Pos.Context              (WithNodeContext, getNodeContext,
-                                           ncLoggerConfig, ncNodeParams, npReportServers)
+import           Pos.Context              (WithNodeContext, getNodeContext, ncNodeParams,
+                                           npReportServers)
 import           Pos.DHT.Model            (MonadDHT, currentNodeKey, getKnownPeers)
 import           Pos.Reporting.Exceptions (ReportingError (..))
 
@@ -47,19 +50,22 @@ import           Pos.Reporting.Exceptions (ReportingError (..))
 -- retrieving all logger files from it. List of servers is also taken
 -- from node's configuration.
 sendReportNode
-    :: ( MonadIO m
-       , MonadCatch m
-       , WithNodeContext її m
-       )
-    => (([Text],FilePath) -> Bool) -> ReportType -> m ()
-sendReportNode predicate reportType = do
+    :: (MonadIO m, MonadMask m, WithNodeContext її m)
+    => ReportType -> m ()
+sendReportNode reportType = do
     servers <- npReportServers . ncNodeParams <$> getNodeContext
-    logConfig <- ncLoggerConfig <$> getNodeContext
-    let logFileNames =
-            map snd $ filter predicate $ retrieveLogFiles logConfig
-    logFiles <- concat <$> mapM chooseLogFiles logFileNames
+    memLogs <- takeGlobalSize charsConst <$> readMemoryLogs
     forM_ servers $
-        sendReport logFiles reportType "cardano-node" version . T.unpack
+        sendReport [] memLogs reportType "cardano-node" version . T.unpack
+  where
+    -- 2 megabytes, assuming we use chars which are ASCII mostly
+    charsConst :: Int
+    charsConst = 1024 * 1024 * 2
+    takeGlobalSize :: Int -> [Text] -> [Text]
+    takeGlobalSize _ []            = []
+    takeGlobalSize curLimit (t:xs) =
+        let delta = curLimit - length t
+        in bool [] (t:(takeGlobalSize delta xs)) (delta > 0)
 
 -- checks if ipv4 is from local range
 ipv4Local :: Word32 -> Bool
@@ -88,7 +94,7 @@ getNodeInfo = do
 -- for 'WorkMode' context.
 reportMisbehaviour
     :: ( MonadIO m
-       , MonadCatch m
+       , MonadMask m
        , MonadDHT m
        , WithNodeContext її m
        , HasLoggerName m
@@ -98,7 +104,7 @@ reportMisbehaviour
 reportMisbehaviour reason = do
     logDebug $ "Reporting misbehaviour \"" <> reason <> "\""
     nodeInfo <- getNodeInfo
-    sendReportNode (const False) $ RMisbehavior $ sformat misbehF reason nodeInfo
+    sendReportNode $ RMisbehavior $ sformat misbehF reason nodeInfo
   where
     misbehF = stext%", nodeInfo: "%stext
 
@@ -109,19 +115,35 @@ reportMisbehaviour reason = do
 -- | Given logs files list and report type, sends reports to URI
 -- asked. All files _must_ exist. Report server URI should be in form
 -- like "http(s)://host:port/" without specified endpoint.
+--
+-- __Important notice__: if given paths are logs that we're currently
+-- writing to using this executable (or forked thread), you'll get an
+-- error, because there's no possibility to have two handles on the
+-- same file, see 'System.IO' documentation on handles. Use second
+-- parameter for that.
 sendReport
-    :: (MonadIO m, MonadCatch m)
-    => [FilePath] -> ReportType -> Text -> Version -> String -> m ()
-sendReport logFiles reportType appName appVersion reportServerUri = do
+    :: (MonadIO m, MonadMask m)
+    => [FilePath] -> [Text] -> ReportType -> Text -> Version -> String -> m ()
+sendReport logFiles rawLogs reportType appName appVersion reportServerUri = do
     curTime <- liftIO getCurrentTime
     existingFiles <- filterM (liftIO . doesFileExist) logFiles
     when (null existingFiles && not (null logFiles)) $
         throwM $ CantRetrieveLogs logFiles
-    e <- try $ liftIO $ post (reportServerUri </> "report") $
-        partLBS "payload" (encode $ reportInfo curTime existingFiles) :
-        map (\fp -> partFile (toFileName fp) fp) existingFiles
-    whenLeft e $ \(e' :: SomeException) -> throwM $ SendingError (show e')
+    putText $ "Rawlogs size is: " <> show (length rawLogs)
+    withSystemTempFile "memlog.log" $ \tempFp tempHandle -> liftIO $ do
+        forM_ rawLogs $ TIO.hPutStrLn tempHandle
+        hClose tempHandle
+        let memlogFiles = bool [tempFp] [] (null rawLogs)
+        let memlogPart = map partFile' memlogFiles
+        let pathsPart = map partFile' existingFiles
+        let payloadPart =
+                partLBS "payload"
+                (encode $ reportInfo curTime $ existingFiles ++ memlogFiles)
+        e <- try $ liftIO $ post (reportServerUri </> "report") $
+             payloadPart : (memlogPart ++ pathsPart)
+        whenLeft e $ \(e' :: SomeException) -> throwM $ SendingError (show e')
   where
+    partFile' fp = partFile (toFileName fp) fp
     toFileName = T.pack . takeFileName
     reportInfo curTime files =
         ReportInfo

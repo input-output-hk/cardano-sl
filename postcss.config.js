@@ -13,6 +13,9 @@ module.exports = {
     require('postcss-neat')({
       neatMaxWidth: '960px'
     }),
+    require('postcss-extend'),
+    require('postcss-custom-media'),
+    require('postcss-media-minmax'),
     require('postcss-cssnext')({
       browsers: [
         'last 2 versions',

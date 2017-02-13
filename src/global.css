@@ -4,6 +4,8 @@
 ------------------------------ */
 
 :root {
+
+  /* colors */
   --color0: #fff;
 	--color1: #082737;
 	--color2: #0c1723;
@@ -19,16 +21,29 @@
 	--color12: #e6e6e6;
 	--color13: #aaa;
 
-
-  --max-width-desktop: 960px;
-
+  /* fonts */
   --fontFamily0-Light: 'fontFamily0-Light';
   --fontFamily0-Regular: 'fontFamily0-Regular';
   --fontFamily0-Bold: 'fontFamily0-Bold';
 
+  /* global vars */
   --height-header-top: 70px;
   --min-height-header-bg-image: 450px;
+  --max-width-desktop: 960px;
 }
+
+
+/* breakpoints */
+/*extra small devices (portrait phones, <576px)*/
+@custom-media --xs (width <= 575px);
+/*small devices (landscape phones, >=576px )*/
+@custom-media --sm (width <= 576px);
+/*medium devices (tablets, >=768px)*/
+@custom-media --md (width >= 768px);
+/*large devices (desktops, >=992px)*/
+@custom-media --lg (width >= 992px);
+/*extra large devices (large desktops, >=1200px)*/
+@custom-media --xl (width >= 1200px);
 
 /* ---------------------------
   fonts

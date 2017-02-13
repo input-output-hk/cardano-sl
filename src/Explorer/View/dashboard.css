@@ -23,7 +23,6 @@
     }
 
     .more {
-
       &__container {
         @neat-span-columns 6;
         text-align: right;
@@ -120,6 +119,7 @@
     @neat-outer-container;
     padding: 0 24px;
   }
+
 
   .teaser-item {
     @neat-span-columns 3;
@@ -371,6 +371,13 @@
       button-color: color(var(--color9) a(0.5)) color(var(--color9) a(0.5)) var(--color9);
       button-border: 1px color(var(--color9) a(0.2)) color(var(--color9) a(0.2)) var(--color9);
       button-background: transparent var(--color7) var(--color7);
+  }
+
+  @media (--sm) {
+    .teaser-item {
+      @neat-span-columns 6;
+      @neat-omega 2n;
+    }
   }
 
 }

@@ -102,5 +102,11 @@
       }
     }
 
+    @media (--sm) {
+      .currency__select {
+        @extend .invisible;
+      }
+    }
+
   }
 }

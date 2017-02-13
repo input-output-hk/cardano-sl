@@ -107,8 +107,15 @@ These are:
 * [`postcss-svgo`](https://github.com/ben-eb/postcss-svgo) - Optimizes inline SVG.
 * [`postcss-flexbox`](https://github.com/archana-s/postcss-flexbox) - Easy to use CSS3 Flexbox layouts.
 * [`postcss-neat`](http://jo-asakura.github.io/postcss-neat/) - Grid framework.
+* [`postcss-media-minmax`](https://github.com/postcss/postcss-media-minmax) - Simplified writing of Media Queries.
+* [`postcss-custom-media`](https://github.com/postcss/postcss-custom-media) - Transforms W3C CSS Custom Media Queries syntax.
+* [`postcss-extend`](https://github.com/travco/postcss-extend) - Minimizes number of repeated selectors and rules.
 * [`postcss-cssnext`](http://cssnext.io/) - Using tomorrow’s CSS syntax.
 * [`cssnano`](http://cssnext.io/) - Compresses your css.
+
+require('postcss-extend'),
+require('postcss-custom-media'),
+require('postcss-media-minmax'),
 
 The entry point of all CSS is [`index.css`](src/index.css). This file includes all `@import`s to all other CSS files. There are also definitions of `@reset-global` (needed by `postcss-css-reset`).
 

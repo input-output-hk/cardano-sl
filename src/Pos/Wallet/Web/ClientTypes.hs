@@ -64,6 +64,7 @@ data NotifyEvent
     -- | NewTransaction
     | NetworkDifficultyChanged ChainDifficulty -- ie new block or fork (rollback)
     | LocalDifficultyChanged ChainDifficulty -- ie new block or fork (rollback)
+    | ConnectedPeersChanged Word
     | UpdateAvailable
     | ConnectionClosed
     deriving (Show, Generic)

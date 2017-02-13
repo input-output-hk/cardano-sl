@@ -177,7 +177,7 @@ instance (SscHelpersClass ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
 class Monad m => MonadBlockchainInfo m where
     networkChainDifficulty :: m ChainDifficulty
     localChainDifficulty :: m ChainDifficulty
-    connectedPeers :: m Int
+    connectedPeers :: m Word
 
     default networkChainDifficulty
         :: (MonadTrans t, MonadBlockchainInfo m', t m' ~ m) => m ChainDifficulty
@@ -188,7 +188,7 @@ class Monad m => MonadBlockchainInfo m where
     localChainDifficulty = lift localChainDifficulty
 
     default connectedPeers
-        :: (MonadTrans t, MonadBlockchainInfo m', t m' ~ m) => m Int
+        :: (MonadTrans t, MonadBlockchainInfo m', t m' ~ m) => m Word
     connectedPeers = lift connectedPeers
 
 instance MonadBlockchainInfo m => MonadBlockchainInfo (ReaderT r m)
@@ -227,7 +227,7 @@ instance SscHelpersClass ssc =>
             return $ blksLeft + th ^. difficultyL
 
     localChainDifficulty = view difficultyL <$> topHeader
-    connectedPeers = length <$> getKnownPeers
+    connectedPeers = fromIntegral . length <$> getKnownPeers
 
 -- | Abstraction over getting update proposals
 class Monad m => MonadUpdates m where

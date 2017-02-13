@@ -51,7 +51,8 @@ addressToNodeId :: NetworkAddress -> NodeId
 addressToNodeId = addressToNodeId' 0
 
 addressToNodeId' :: Word32 -> NetworkAddress -> NodeId
-addressToNodeId' eId (host, port) = NodeId $ TCP.encodeEndPointAddress (BS8.unpack host) (show port) eId
+addressToNodeId' eId (host, port) =
+    NodeId $ TCP.encodeEndPointAddress (BS8.unpack host) (show port) eId
 
 nodeIdToAddress :: NodeId -> Maybe NetworkAddress
 nodeIdToAddress (NodeId ep) = toNA =<< TCP.decodeEndPointAddress ep

@@ -22,8 +22,11 @@ module Pos.CLI
        , timeLordOption
        , webPortOption
        , ipPortOption
+
+       , readPeersFile
        ) where
 
+import           Formatting                           (build, formatToString, shown, (%))
 import           Universum
 
 import           Control.Lens                         (zoom, (?=))
@@ -40,8 +43,8 @@ import           System.Wlog                          (LoggerConfig (..),
                                                        Severity (Info, Warning),
                                                        fromScratch, lcTree, ltSeverity,
                                                        parseLoggerConfig, zoomLogger)
-import           Text.ParserCombinators.Parsec        (many1, try)
-import qualified Text.ParserCombinators.Parsec.Char   as P
+import           Text.Parsec                          (eof, parse, try)
+import qualified Text.Parsec.Char                     as P
 
 import           Pos.Binary.Address                   ()
 import           Pos.Crypto                           (PublicKey)
@@ -68,6 +71,17 @@ addrParser = (,) <$> (encodeUtf8 <$> P.host) <*> (P.char ':' *> P.port)
 dhtNodeParser :: P.Parser DHTNode
 dhtNodeParser = DHTNode <$> addrParser <*> (P.char '/' *> dhtKeyParser)
 
+-- | Parse 'DHTNode's from a file (nodes should be separated by newlines).
+readPeersFile :: FilePath -> IO [DHTNode]
+readPeersFile path = do
+    xs <- lines <$> readFile path
+    let parseLine x = case parse (dhtNodeParser <* eof) "" (toString x) of
+            Left err -> fail $ formatToString
+                ("error when parsing peer "%build%
+                 " from peers file "%build%": "%shown) x path err
+            Right a -> return a
+    mapM parseLine xs
+
 -- | Decides which secret-sharing algorithm to use.
 sscAlgoParser :: P.Parser SscAlgo
 sscAlgoParser = GodTossingAlgo <$ (P.string "GodTossing") <|>
@@ -80,7 +94,7 @@ attackTypeParser = P.string "No" >>
 
 base58AddrParser :: P.Parser (AddressHash PublicKey)
 base58AddrParser = do
-    token <- many1 $ P.noneOf " "
+    token <- some $ P.noneOf " "
     case decodeTextAddress (toText token) of
       Left _  -> fail "Incorrect address"
       Right r -> return $ addrKeyHash r
@@ -114,6 +128,7 @@ readLoggerConfig = maybe (return defaultLoggerConfig) parseLoggerConfig
 data CommonArgs = CommonArgs
     { dhtExplicitInitial :: !Bool
     , dhtPeers           :: ![DHTNode]
+    , dhtPeersFile       :: !(Maybe FilePath)
     , logConfig          :: !(Maybe FilePath)
     , logPrefix          :: !(Maybe FilePath)
     , sscAlgo            :: !SscAlgo
@@ -131,6 +146,7 @@ commonArgsParser :: String -> Opt.Parser CommonArgs
 commonArgsParser peerHelpMsg = CommonArgs
     <$> explicitInitial
     <*> many (peerOption peerHelpMsg)
+    <*> optionalPeersFile
     <*> optionalLogConfig
     <*> optionalLogPrefix
     <*> sscAlgoOption
@@ -161,7 +177,12 @@ peerOption peerHelpMsg =
     Opt.option (fromParsec dhtNodeParser) $
         templateParser "peer" "HOST:PORT/HOST_ID" peerHelpMsg
 
-optionalLogConfig :: Opt.Parser (Maybe String)
+optionalPeersFile :: Opt.Parser (Maybe FilePath)
+optionalPeersFile =
+    Opt.optional $ Opt.strOption $
+        templateParser "peers-file" "FILEPATH" "Path to peer list"
+
+optionalLogConfig :: Opt.Parser (Maybe FilePath)
 optionalLogConfig =
     Opt.optional $ Opt.strOption $
         templateParser "log-config" "FILEPATH" "Path to logger configuration"
@@ -171,7 +192,7 @@ optionalLogPrefix =
     optional $ Opt.strOption $
         templateParser "logs-prefix" "FILEPATH" "Prefix to logger output path"
 
-optionalJSONPath :: Opt.Parser (Maybe String)
+optionalJSONPath :: Opt.Parser (Maybe FilePath)
 optionalJSONPath =
     Opt.optional $ Opt.strOption $
         templateParser "json-log" "FILEPATH" "Path to json log file"

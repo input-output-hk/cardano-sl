@@ -43,6 +43,7 @@ test_script:
   - copy log-config-prod.yaml daedalus\log-config-prod.yaml
   - cd daedalus
   - Echo %APPVEYOR_BUILD_VERSION% > build-id
+  - ps: Install-Product node 7
   - npm install
   - npm run build:prod
 

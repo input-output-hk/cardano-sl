@@ -36,7 +36,7 @@ import           Control.Arrow         ((&&&))
 import           Data.Hashable         (Hashable)
 import qualified Data.HashMap.Strict   as HM
 import qualified Data.Text.Buildable   as B
-import           Formatting            (bprint, build, hex, sformat, shown, (%))
+import           Formatting            (bprint, build, hex, int, sformat, stext, (%))
 import qualified Node                  as N
 import           Node.Message          (Message (..), MessageName (..))
 import           Serokell.Util.Base16  (base16F)
@@ -68,7 +68,10 @@ newtype NodeId = NodeId (PeerId, N.NodeId)
 -- TODO Implement Buildable N.NodeId and get rid of this ugly shit
 instance Buildable NodeId where
     build (NodeId (peerId, nNodeId)) =
-        bprint (shown%"/"%build) (nodeIdToAddress nNodeId) peerId
+        let addr = maybe "<unknown host:port>" (uncurry $ sformat (stext%":"%int)) $
+                   first decodeUtf8 <$>
+                   nodeIdToAddress nNodeId
+        in bprint (stext%"/"%build) addr peerId
 
 data SendActions m = SendActions {
        -- | Send a isolated (sessionless) message to a node
@@ -200,4 +203,3 @@ toOutSpecs :: [(MessageName, HandlerSpec)] -> OutSpecs
 toOutSpecs = OutSpecs . HM.fromList
 
 type ListenersWithOut m = ([ListenerSpec m], OutSpecs)
-

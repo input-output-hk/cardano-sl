@@ -132,14 +132,20 @@
     font-weight: normal;
 
     &__headline {
+      position: relative;
       font-size: 13px;
+
+      &::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        height: 5px;
+        width: 24px;
+        border-bottom: 1px solid color(var(--color8) a(0.4));
+      }
     }
 
-    &__border {
-      height: 1px;
-      width: 24px;
-      background-color: color(var(--color8) a(0.4));
-    }
 
     &__subheadline {
       font-size: 12px;
@@ -301,13 +307,19 @@
     &__headline {
       font-size: 12px;
       color: color(var(--color8) a(0.5));
+      position: relative;
+      &::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        height: 5px;
+        width: 24px;
+        border-bottom: 1px solid color(var(--color8) a(0.4));
+
+      }
     }
 
-    &__border {
-      height: 1px;
-      width: 24px;
-      background-color: color(var(--color8) a(0.4));
-    }
 
     &__code {
       font-size: 10px;

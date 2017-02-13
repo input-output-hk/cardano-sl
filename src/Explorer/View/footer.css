@@ -94,6 +94,10 @@
       background-size: 8px 8px;
       padding-right: 10px;
       box-item: center;
+
+      &:hover{
+        cursor: pointer;
+      }
     }
   }
 }

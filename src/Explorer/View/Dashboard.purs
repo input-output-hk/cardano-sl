@@ -153,9 +153,6 @@ networkItem state item =
         [ P.h3
             [ P.className "teaser-item__headline" ]
             [ P.text item.headline ]
-        , P.div
-              [ P.className $ "teaser-item__border" ]
-              []
         , P.h4
               [ P.className $ "teaser-item__subheadline" ]
               [ P.text item.subheadline ]
@@ -369,9 +366,6 @@ offerItem state item =
         [ P.h3
             [ P.className "teaser-item__headline" ]
             [ P.text item.headline ]
-        , P.div
-              [ P.className $ "teaser-item__border" ]
-              []
         , P.p
               [ P.className $ "teaser-item__description" ]
               [ P.text item.description ]
@@ -467,9 +461,6 @@ apiCodeSnippetView headline snippet =
         [ P.h3
             [ P.className "api-snippet__headline" ]
             [ P.text headline ]
-        ,  P.div
-              [ P.className "api-snippet__border" ]
-              []
         , P.code
             [ P.className "api-snippet__code" ]
             [ P.text snippet ]

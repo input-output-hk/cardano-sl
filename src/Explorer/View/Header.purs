@@ -7,9 +7,9 @@ import Explorer.I18n.Lenses (blockchain, charts, home, market, nav, tools) as I1
 import Explorer.Lenses.State (lang)
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (State)
-import Pux.Html (Html, div, text, header, nav, a, select, option) as P
+import Pux.Html (Html, div, text, header, nav, select, option, span) as P
 import Pux.Html.Attributes (value)
-import Pux.Html.Attributes (className, href) as P
+import Pux.Html.Attributes (className) as P
 
 headerView :: State -> P.Html Action
 headerView state = do
@@ -68,18 +68,13 @@ currencyItemView item =
 
 -- navigation
 
-type NavItem =
-    { link :: String
-    , label :: String
-    }
-
-mkNavItems :: Language -> Array NavItem
+mkNavItems :: Language -> Array String
 mkNavItems lang =
-    [ { link: "#", label: translate (I18nL.nav <<< I18nL.home) lang }
-    , { link: "#", label: translate (I18nL.nav <<< I18nL.blockchain) lang }
-    , { link: "#", label: translate (I18nL.nav <<< I18nL.market) lang }
-    , { link: "#", label: translate (I18nL.nav <<< I18nL.charts) lang }
-    , { link: "#", label: translate (I18nL.nav <<< I18nL.tools) lang }
+    [ translate (I18nL.nav <<< I18nL.home) lang
+    , translate (I18nL.nav <<< I18nL.blockchain) lang
+    , translate (I18nL.nav <<< I18nL.market) lang
+    , translate (I18nL.nav <<< I18nL.charts) lang
+    , translate (I18nL.nav <<< I18nL.tools) lang
     ]
 
 navigationView :: State -> P.Html Action
@@ -89,8 +84,12 @@ navigationView state =
       $ map navItemView <<< mkNavItems $ state ^. lang
 
 
-navItemView :: NavItem -> P.Html Action
-navItemView item =
-  P.a
-      [ P.className "nav__item", P.href item.link ]
-      [ P.text item.label ]
+navItemView :: String -> P.Html Action
+navItemView label =
+  P.div
+      [ P.className "nav__item-wrapper" ]
+      [
+        P.span
+        [ P.className "nav__item-text" ]
+        [ P.text label ]
+      ]

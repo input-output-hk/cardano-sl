@@ -34,7 +34,7 @@ module Pos.Delegation.Logic
        ) where
 
 import           Control.Concurrent.STM.TVar (readTVar, writeTVar)
-import           Control.Lens                (makeLenses, (%=), (.=), _Wrapped)
+import           Control.Lens                (makeLenses, uses, (%=), (.=), _Wrapped)
 import           Control.Monad.Trans.Except  (runExceptT, throwE)
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
@@ -71,7 +71,7 @@ import           Pos.Ssc.Class.Helpers       (SscHelpersClass)
 import           Pos.Types                   (Block, HeaderHash, ProxySKHeavy,
                                               ProxySKLight, ProxySigLight, addressHash,
                                               blockProxySKs, epochIndexL, headerHash,
-                                              headerHashG, prevBlockL)
+                                              prevBlockL)
 import           Pos.Util                    (NE, NewestFirst (..), OldestFirst (..),
                                               withReadLifted, withWriteLifted, _neHead,
                                               _neLast)
@@ -113,6 +113,15 @@ invalidateProxyCaches curTime = do
 
 type DelegationWorkMode ssc m = (MonadDelegation m, MonadDB ssc m, WithLogger m)
 
+-- Retrieves psk certificated that have been accumulated before given
+-- block. The block itself should be in DB.
+getPSKsFromThisEpoch
+    :: (SscHelpersClass ssc, MonadDB ssc m)
+    => HeaderHash -> m [ProxySKHeavy]
+getPSKsFromThisEpoch tip =
+    concatMap (either (const []) (view blockProxySKs)) <$>
+        DB.loadBlocksWhile isRight tip
+
 ----------------------------------------------------------------------------
 -- Exceptions
 ----------------------------------------------------------------------------
@@ -141,8 +150,7 @@ initDelegation = do
     tip <- DB.getTipBlockHeader
     let tipEpoch = tip ^. epochIndexL
     fromGenesisPsks <-
-        concatMap (either (const []) (map pskIssuerPk . view blockProxySKs)) <$>
-        DB.loadBlocksWhile isRight (tip ^. headerHashG)
+        map pskIssuerPk <$> getPSKsFromThisEpoch (headerHash tip)
     runDelegationStateAction $ do
         dwEpochId .= tipEpoch
         dwThisEpochPosted .= HS.fromList fromGenesisPsks
@@ -150,13 +158,6 @@ initDelegation = do
 ----------------------------------------------------------------------------
 -- Heavyweight PSK
 ----------------------------------------------------------------------------
-
--- Retrieves psk certificated that have been accumulated before given
--- block. The block itself should be in DB.
-getPSKsFromThisEpoch :: (SscHelpersClass ssc, MonadDB ssc m) => HeaderHash -> m [ProxySKHeavy]
-getPSKsFromThisEpoch tip = do
-    concatMap (either (const []) (view blockProxySKs)) <$>
-        DB.loadBlocksWhile isRight tip
 
 -- | Retrieves current mempool of heavyweight psks plus undo part.
 getProxyMempool
@@ -170,13 +171,12 @@ getProxyMempool = do
 
 -- | Datatypes representing a verdict of heavy PSK processing.
 data PskHeavyVerdict
-    = PHExists     -- ^ If we have exactly the same cert in psk mempool
-    | PHForbidden  -- ^ Not enough stake
-    | PHInvalid    -- ^ Broken (in a bad way ~ malicious)
-    | PHWrongEpoch -- ^ PSK epoch is different (replay attack or late user)
-    | PHCached     -- ^ Message is cached
-    | PHIncoherent -- ^ Verdict can't be made at the moment (we're updating)
-    | PHAdded      -- ^ Successfully processed/added to psk mempool
+    = PHExists       -- ^ If we have exactly the same cert in psk mempool
+    | PHInvalid Text -- ^ Can't accept PSK though it's most probably user's error
+    | PHBroken       -- ^ Broken (signature, most probably attack, we can ban for this)
+    | PHCached       -- ^ Message is cached
+    | PHIncoherent   -- ^ Verdict can't be made at the moment (we're updating)
+    | PHAdded        -- ^ Successfully processed/added to psk mempool
     deriving (Show,Eq)
 
 -- | Processes heavyweight psk. Puts it into the mempool
@@ -195,19 +195,21 @@ processProxySKHeavy psk = do
         "Delegation.Logic#processProxySKHeavy: there are no richmen for current epoch"
         LrcDB.getRichmenDlg
     let msg = SendProxySKHeavy psk
-        valid = verifyProxySecretKey psk
+        consistent = verifyProxySecretKey psk
         issuer = pskIssuerPk psk
         enoughStake = addressHash issuer `elem` richmen
         omegaCorrect = headEpoch == pskOmega psk
     runDelegationStateAction $ do
         exists <- use dwProxySKPool <&> \m -> HM.lookup issuer m == Just psk
         cached <- HM.member msg <$> use dwMessageCache
+        alreadyPosted <- uses dwThisEpochPosted $ HS.member issuer
         epochMatches <- (headEpoch ==) <$> use dwEpochId
         dwMessageCache %= HM.insert msg curTime
-        let res = if | not valid -> PHInvalid
+        let res = if | not consistent -> PHBroken
                      | not epochMatches -> PHIncoherent
-                     | not omegaCorrect -> PHWrongEpoch
-                     | not enoughStake -> PHForbidden
+                     | not omegaCorrect -> PHInvalid "PSK epoch is different from current"
+                     | alreadyPosted -> PHInvalid "issuer has already posted PSK this epoch"
+                     | not enoughStake -> PHInvalid "issuer doesn't have enough stake"
                      | cached -> PHCached
                      | exists -> PHExists
                      | otherwise -> PHAdded

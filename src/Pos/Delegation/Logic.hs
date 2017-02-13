@@ -133,8 +133,9 @@ instance B.Buildable DelegationError where
 ----------------------------------------------------------------------------
 
 -- | Initializes delegation in-memory storage.
---   * Sets `_dwEpochId` to epoch of tip.
---   * Loads `_dwThisEpochPosted` from database
+--
+-- * Sets `_dwEpochId` to epoch of tip.
+-- * Loads `_dwThisEpochPosted` from database
 initDelegation :: (SscHelpersClass ssc, MonadDB ssc m, MonadDelegation m) => m ()
 initDelegation = do
     tip <- DB.getTipBlockHeader
@@ -169,12 +170,13 @@ getProxyMempool = do
 
 -- | Datatypes representing a verdict of heavy PSK processing.
 data PskHeavyVerdict
-    = PSExists     -- ^ If we have exactly the same cert in psk mempool
-    | PSForbidden  -- ^ Not enough stake
-    | PSInvalid    -- ^ Broken
-    | PSCached     -- ^ Message is cached
-    | PSIncoherent -- ^ Verdict can't be made at the moment (we're updating)
-    | PSAdded      -- ^ Successfully processed/added to psk mempool
+    = PHExists     -- ^ If we have exactly the same cert in psk mempool
+    | PHForbidden  -- ^ Not enough stake
+    | PHInvalid    -- ^ Broken (in a bad way ~ malicious)
+    | PHWrongEpoch -- ^ PSK epoch is different (replay attack or late user)
+    | PHCached     -- ^ Message is cached
+    | PHIncoherent -- ^ Verdict can't be made at the moment (we're updating)
+    | PHAdded      -- ^ Successfully processed/added to psk mempool
     deriving (Show,Eq)
 
 -- | Processes heavyweight psk. Puts it into the mempool
@@ -196,18 +198,20 @@ processProxySKHeavy psk = do
         valid = verifyProxySecretKey psk
         issuer = pskIssuerPk psk
         enoughStake = addressHash issuer `elem` richmen
+        omegaCorrect = headEpoch == pskOmega psk
     runDelegationStateAction $ do
         exists <- use dwProxySKPool <&> \m -> HM.lookup issuer m == Just psk
         cached <- HM.member msg <$> use dwMessageCache
         epochMatches <- (headEpoch ==) <$> use dwEpochId
         dwMessageCache %= HM.insert msg curTime
-        let res = if | not valid -> PSInvalid
-                     | not epochMatches -> PSIncoherent
-                     | not enoughStake -> PSForbidden
-                     | cached -> PSCached
-                     | exists -> PSExists
-                     | otherwise -> PSAdded
-        when (res == PSAdded) $ dwProxySKPool %= HM.insert issuer psk
+        let res = if | not valid -> PHInvalid
+                     | not epochMatches -> PHIncoherent
+                     | not omegaCorrect -> PHWrongEpoch
+                     | not enoughStake -> PHForbidden
+                     | cached -> PHCached
+                     | exists -> PHExists
+                     | otherwise -> PHAdded
+        when (res == PHAdded) $ dwProxySKPool %= HM.insert issuer psk
         pure res
 
 -- state needed for 'delegationVerifyBlocks'
@@ -225,6 +229,7 @@ makeLenses ''DelVerState
 -- | Verifies if blocks are correct relatively to the delegation logic
 -- and returns a non-empty list of proxySKs needed for undoing
 -- them. Predicate for correctness here is:
+--
 -- * Issuer can post only one cert per epoch
 -- * For every new certificate issuer had enough stake at the
 --   end of prev. epoch
@@ -311,6 +316,8 @@ delegationApplyBlocks blocks = do
     applyBlock :: Block ssc -> m SomeBatchOp
     applyBlock (Left block)      = do
         runDelegationStateAction $ do
+            -- all possible psks candidates are now invalid because epoch changed
+            dwProxySKPool .= HM.empty
             dwThisEpochPosted .= HS.empty
             dwEpochId .= (block ^. epochIndexL)
         pure (SomeBatchOp ([]::[GS.DelegationOp]))
@@ -342,6 +349,7 @@ delegationRollbackBlocks blunds = do
     tipBlockAfterRollback <-
         maybe (throwM malformedLastParent) pure =<<
         DB.getBlock (blunds ^. _Wrapped . _neLast . _1 . prevBlockL)
+    let epochAfterRollback = tipBlockAfterRollback ^. epochIndexL
     richmen <-
         HS.fromList . NE.toList <$>
         lrcActionOnEpochReason
@@ -352,9 +360,10 @@ delegationRollbackBlocks blunds = do
         HS.fromList . map pskIssuerPk <$> getPSKsFromThisEpoch tipAfterRollbackHash
     runDelegationStateAction $ do
         dwProxySKPool %=
-            (HM.filterWithKey $ \pk _ ->
+            (HM.filterWithKey $ \pk psk ->
                  not (pk `HS.member` fromGenesisIssuers) &&
-                 (addressHash pk) `HS.member` richmen)
+                 (addressHash pk) `HS.member` richmen &&
+                 pskOmega psk == epochAfterRollback)
         dwThisEpochPosted .= fromGenesisIssuers
         dwEpochId .= tipBlockAfterRollback ^. epochIndexL
     pure $ getNewestFirst (map rollbackBlund blunds)
@@ -382,12 +391,12 @@ delegationRollbackBlocks blunds = do
 -- | PSK check verdict. It can be unrelated (other key or spoiled, no
 -- way to differ), exist in storage already or be cached.
 data PskLightVerdict
-    = PEUnrelated
-    | PEInvalid
-    | PEExists
-    | PECached
-    | PERemoved
-    | PEAdded
+    = PLUnrelated
+    | PLInvalid
+    | PLExists
+    | PLCached
+    | PLRemoved
+    | PLAdded
     deriving (Show,Eq)
 
 -- TODO CSL-687 Calls to DB are not synchronized for now, because storage is
@@ -411,16 +420,16 @@ processProxySKLight psk = do
             selfSigned = pskDelegatePk psk == pskIssuerPk psk
         cached <- HM.member msg <$> use dwMessageCache
         dwMessageCache %= HM.insert msg curTime
-        pure $ if | not valid -> PEInvalid
-                  | cached -> PECached
-                  | exists -> PEExists
-                  | selfSigned -> PERemoved
-                  | not related -> PEUnrelated
-                  | otherwise -> PEAdded
+        pure $ if | not valid -> PLInvalid
+                  | cached -> PLCached
+                  | exists -> PLExists
+                  | selfSigned -> PLRemoved
+                  | not related -> PLUnrelated
+                  | otherwise -> PLAdded
     -- (2) We're writing to DB
-    when (res == PEAdded) $ withWriteLifted miscLock $
+    when (res == PLAdded) $ withWriteLifted miscLock $
         Misc.addProxySecretKey psk
-    when (res == PERemoved) $ withWriteLifted miscLock $
+    when (res == PLRemoved) $ withWriteLifted miscLock $
         Misc.removeProxySecretKey $ pskIssuerPk psk
     pure res
 

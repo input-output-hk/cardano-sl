@@ -72,13 +72,13 @@ handleSendProxySK = listenerOneMsg outSpecs $
         verdict <- processProxySKHeavy pSk
         logDebug $ sformat ("The verdict for cert "%build%" is: "%shown) pSk verdict
         doPropagate <- npPropagation . ncNodeParams <$> getNodeContext
-        if | verdict == PSIncoherent -> do
+        if | verdict == PHIncoherent -> do
                -- We're probably updating state over epoch, so leaders
                -- can be calculated incorrectly.
                blkSemaphore <- ncBlkSemaphore <$> getNodeContext
                void $ liftIO $ readMVar blkSemaphore
                handleDo sendActions req
-           | verdict == PSAdded && doPropagate -> do
+           | verdict == PHAdded && doPropagate -> do
                logDebug $ sformat ("Propagating heavyweight PSK: "%build) pSk
                sendProxySKHeavy pSk sendActions
            | otherwise -> pass
@@ -90,9 +90,9 @@ handleSendProxySK = listenerOneMsg outSpecs $
         logResult verdict
         propagateProxySKLight verdict pSk sendActions
       where
-        logResult PEAdded =
+        logResult PLAdded =
             logInfo $ sformat ("Got valid related proxy secret key: "%build) pSk
-        logResult PERemoved =
+        logResult PLRemoved =
             logInfo $
             sformat ("Removing keys from issuer because got "%
                      "self-signed revocation: "%build) pSk
@@ -109,11 +109,11 @@ handleSendProxySK = listenerOneMsg outSpecs $
     propagateProxySKLight
       :: (WorkMode ssc m)
       => PskLightVerdict -> ProxySKLight -> SendActions m -> m ()
-    propagateProxySKLight PEUnrelated pSk sendActions =
+    propagateProxySKLight PLUnrelated pSk sendActions =
         whenM (npPropagation . ncNodeParams <$> getNodeContext) $ do
             logDebug $ sformat ("Propagating lightweight PSK: "%build) pSk
             sendProxySKLight pSk sendActions
-    propagateProxySKLight PEAdded pSk sendActions = sendProxyConfirmSK pSk sendActions
+    propagateProxySKLight PLAdded pSk sendActions = sendProxyConfirmSK pSk sendActions
     propagateProxySKLight _ _ _ = pass
 
 ----------------------------------------------------------------------------

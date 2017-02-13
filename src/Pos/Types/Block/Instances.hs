@@ -70,10 +70,12 @@ import           Pos.Types.Types       (ProxySKHeavy, SlotLeaders, Tx, TxAux,
 import           Pos.Update.Core.Types (UpdatePayload, UpdateProof, UpdateProposal,
                                         mkUpdateProof)
 import           Pos.Util              (Color (Magenta), colorize)
+
 ----------------------------------------------------------------------------
 -- MainBlock
 ----------------------------------------------------------------------------
-instance (SscHelpersClass ssc, Bi TxWitness, Bi UpdatePayload) =>
+
+instance (SscHelpersClass ssc, Bi TxWitness, Bi UpdatePayload, Bi EpochIndex) =>
          Blockchain (MainBlockchain ssc) where
     -- | Proof of transactions list and MPC data.
     data BodyProof (MainBlockchain ssc) = MainProof
@@ -156,6 +158,7 @@ deriving instance (Eq (SscPayload ssc), Ssc ssc) => Eq (Body (MainBlockchain ssc
 ----------------------------------------------------------------------------
 -- GenesisBlock
 ----------------------------------------------------------------------------
+
 instance Blockchain (GenesisBlockchain ssc) where
     -- [CSL-199]: maybe we should use ADS.
     -- | Proof of GenesisBody is just a hash of slot leaders list.

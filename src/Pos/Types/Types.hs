@@ -259,11 +259,13 @@ type ProxySigLight a = ProxySignature (EpochIndex, EpochIndex) a
 -- | Same alias for the proxy secret key (see 'ProxySigLight').
 type ProxySKLight = ProxySecretKey (EpochIndex, EpochIndex)
 
--- | Simple proxy signature without ttl/epoch index constraints.
-type ProxySigHeavy a = ProxySignature () a
+-- | Simple proxy signature without ttl/epoch index
+-- constraints. 'EpochIndex' inside is needed for replay attack
+-- prevention.
+type ProxySigHeavy a = ProxySignature EpochIndex a
 
 -- | Correspondent SK for no-ttl proxy signature scheme.
-type ProxySKHeavy = ProxySecretKey ()
+type ProxySKHeavy = ProxySecretKey EpochIndex
 
 -- | Some proxy secret key.
 type ProxySKEither = Either ProxySKLight ProxySKHeavy

@@ -38,12 +38,12 @@ import           Pos.Genesis               (genesisBlockVersionData, genesisPubl
                                             genesisSecretKeys)
 import           Pos.Launcher              (BaseParams (..), LoggingParams (..),
                                             bracketResources, runTimeSlaveReal)
-import           Pos.Slotting              (getSlotDuration)
+import           Pos.Slotting              (getCurrentSlot, getSlotDuration)
 import           Pos.Ssc.GodTossing        (SscGodTossing)
 import           Pos.Ssc.NistBeacon        (SscNistBeacon)
 import           Pos.Ssc.SscAlgo           (SscAlgo (..))
 import           Pos.Types                 (EpochIndex (..), coinF, makePubKeyAddress,
-                                            txaF)
+                                            siEpoch, txaF)
 import           Pos.Update                (BlockVersionData (..), UpdateProposal (..),
                                             UpdateVote (..), patakUpdateData,
                                             skovorodaUpdateData)
@@ -150,9 +150,10 @@ runCmd sendActions (DelegateLight i j) = do
     lift $ sendProxySKLight psk sendActions
     putText "Sent lightweight cert"
 runCmd sendActions (DelegateHeavy i j) = do
+    epoch <- siEpoch <$> getCurrentSlot
     let issuerSk = genesisSecretKeys !! i
         delegatePk = genesisPublicKeys !! j
-        psk = createProxySecretKey issuerSk delegatePk ()
+        psk = createProxySecretKey issuerSk delegatePk epoch
     lift $ sendProxySKHeavy psk sendActions
     putText "Sent heavyweight cert"
 runCmd _ Quit = pure ()

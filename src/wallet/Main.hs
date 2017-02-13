@@ -223,6 +223,9 @@ runWalletCmd wo str sa = do
 main :: IO ()
 main = do
     opts@WalletOptions {..} <- execParser optsInfo
+    filePeers <- maybe (return []) CLI.readPeersFile
+                     (CLI.dhtPeersFile woCommonArgs)
+    let allPeers = CLI.dhtPeers woCommonArgs ++ filePeers
     let logParams =
             LoggingParams
             { lpRunnerTag     = "smart-wallet"
@@ -234,7 +237,7 @@ main = do
             BaseParams
             { bpLoggingParams      = logParams
             , bpIpPort             = woIpPort
-            , bpDHTPeers           = CLI.dhtPeers woCommonArgs
+            , bpDHTPeers           = allPeers
             , bpDHTKey             = Nothing
             , bpDHTExplicitInitial = CLI.dhtExplicitInitial woCommonArgs
             , bpKademliaDump       = "kademlia.dump"

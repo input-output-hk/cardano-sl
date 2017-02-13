@@ -50,11 +50,12 @@ import           Pos.Slotting.Logic               (onNewSlot, onNewSlotImpl)
 import           Pos.Types                        (SlotId)
 
 protocolListeners :: (Bi NOP, Message NOP, WithLogger m) => [Listener m]
-protocolListeners = [N.ListenerActionConversation $
-                        \(peerId, _) nodeId (conv :: N.ConversationActions PeerData NOP NOP m) -> do
-                            void $ N.recv conv
-                            logDebug $ sformat ("Received NOP from "%build) (NodeId (peerId, nodeId))
-                    ]
+protocolListeners =
+    [N.ListenerActionConversation $
+        \(peerId, _) nodeId (conv :: N.ConversationActions PeerData NOP NOP m) -> do
+            void $ N.recv conv
+            logDebug $ sformat ("Received NOP from "%build) (NodeId (peerId, nodeId))
+    ]
 
 mapListener
     :: (forall t. m t -> m t) -> Listener m -> Listener m

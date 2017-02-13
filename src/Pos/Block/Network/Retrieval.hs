@@ -43,10 +43,12 @@ import           Pos.Communication.Protocol (ConversationActions (..), NodeId, O
                                              SendActions (..), WorkerSpec, convH,
                                              toOutSpecs, worker)
 import           Pos.Constants              (blkSecurityParam)
-import           Pos.Context                (NodeContext (..), getNodeContext)
+import           Pos.Context                (NodeContext (..), getNodeContext,
+                                             isRecoveryMode)
 import           Pos.Crypto                 (shortHashF)
 import qualified Pos.DB                     as DB
 import qualified Pos.DB.GState              as GState
+import           Pos.Reporting.Methods      (reportMisbehaviour)
 import           Pos.Ssc.Class              (Ssc, SscWorkersClass)
 import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (..),
                                              HeaderHash, blockHeader, difficultyL,
@@ -160,7 +162,7 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
                     logDebug $ sformat
                         ("retrievalWorker: retrieved blocks "%listJson)
                         (map (headerHash . view blockHeader) blocks)
-                    handleBlocks blocks sendActions
+                    handleBlocks peerId blocks sendActions
                     -- If we've downloaded block that has header
                     -- ncRecoveryHeader, we're not in recovery mode
                     -- anymore.
@@ -301,9 +303,9 @@ matchRequestedHeaders headers MsgGetHeaders{..} =
         verifyHeaders True (headers & _Wrapped %~ toList)
 
 requestTipOuts :: OutSpecs
-requestTipOuts = toOutSpecs [ convH (Proxy :: Proxy MsgGetHeaders)
-                                    (Proxy :: Proxy (MsgHeaders ssc))
-                            ]
+requestTipOuts =
+    toOutSpecs [ convH (Proxy :: Proxy MsgGetHeaders)
+                       (Proxy :: Proxy (MsgHeaders ssc)) ]
 
 -- Is used if we're recovering after offline and want to know what's
 -- current blockchain state.
@@ -445,16 +447,17 @@ mkBlocksRequest lcaChild wantedBlock =
 handleBlocks
     :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
-    => OldestFirst NE (Block ssc)
+    => NodeId
+    -> OldestFirst NE (Block ssc)
     -> SendActions m
     -> m ()
-handleBlocks blocks sendActions = do
+handleBlocks peerId blocks sendActions = do
     logDebug "handleBlocks: processing"
     inAssertMode $
         logInfo $
             sformat ("Processing sequence of blocks: " %listJson % "…") $
                     fmap headerHash blocks
-    maybe onNoLca (handleBlocksWithLca sendActions blocks) =<<
+    maybe onNoLca (handleBlocksWithLca peerId sendActions blocks) =<<
         lcaWithMainChain (map (view blockHeader) blocks)
     inAssertMode $ logDebug $ "Finished processing sequence of blocks"
   where
@@ -462,15 +465,20 @@ handleBlocks blocks sendActions = do
         "Sequence of blocks can't be processed, because there is no LCA. " <>
         "Probably rollback happened in parallel"
 
-handleBlocksWithLca :: forall ssc m.
+handleBlocksWithLca
+    :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
-    => SendActions m -> OldestFirst NE (Block ssc) -> HeaderHash -> m ()
-handleBlocksWithLca sendActions blocks lcaHash = do
+    => NodeId
+    -> SendActions m
+    -> OldestFirst NE (Block ssc)
+    -> HeaderHash
+    -> m ()
+handleBlocksWithLca peerId sendActions blocks lcaHash = do
     logDebug $ sformat lcaFmt lcaHash
     -- Head blund in result is the youngest one.
     toRollback <- DB.loadBlundsFromTipWhile $ \blk -> headerHash blk /= lcaHash
     maybe (applyWithoutRollback sendActions blocks)
-          (applyWithRollback sendActions blocks lcaHash)
+          (applyWithRollback peerId sendActions blocks lcaHash)
           (_Wrapped nonEmpty toRollback)
   where
     lcaFmt = "Handling block w/ LCA, which is "%shortHashF
@@ -513,16 +521,16 @@ applyWithoutRollback sendActions blocks = do
 applyWithRollback
     :: forall ssc m.
        (WorkMode ssc m, SscWorkersClass ssc)
-    => SendActions m
+    => NodeId
+    -> SendActions m
     -> OldestFirst NE (Block ssc)
     -> HeaderHash
     -> NewestFirst NE (Blund ssc)
     -> m ()
-applyWithRollback sendActions toApply lca toRollback = do
+applyWithRollback peerId sendActions toApply lca toRollback = do
     logInfo $ sformat ("Trying to apply blocks w/ rollback: "%listJson)
         (map (view blockHeader) toApply)
-    logInfo $
-        sformat ("Blocks to rollback "%listJson) (fmap headerHash toRollback)
+    logInfo $ sformat ("Blocks to rollback "%listJson) toRollbackHashes
     res <- withBlkSemaphore $ \curTip -> do
         res <- L.applyWithRollback toRollback toApplyAfterLca
         pure (res, either (const curTip) identity res)
@@ -532,11 +540,23 @@ applyWithRollback sendActions toApply lca toRollback = do
             logDebug $ sformat
                 ("Finished applying blocks w/ rollback, relaying new tip: "%shortHashF)
                 newTip
+            reportRollback
             logInfo $ blocksRolledBackMsg (getNewestFirst toRollback)
             logInfo $ blocksAppliedMsg (getOldestFirst toApply)
             relayBlock sendActions $ toApply ^. _Wrapped . _neLast
   where
-    panicBrokenLca = panic "applyWithRollback: nothing after LCA :/"
+    toRollbackHashes = fmap headerHash toRollback
+    toApplyHashes = fmap headerHash toApply
+    reportF =
+        "Fork happened, data received from "%build%
+        ". Blocks rolled back: "%listJson%
+        ", blocks applied: "%listJson
+    reportRollback =
+        unlessM isRecoveryMode $ do
+            logDebug "Reporting rollback happened"
+            reportMisbehaviour $
+                sformat reportF peerId toRollbackHashes toApplyHashes
+    panicBrokenLca = panic "applyWithRollback: nothing after LCA :<"
     toApplyAfterLca =
         OldestFirst $
         fromMaybe panicBrokenLca $ nonEmpty $
@@ -549,11 +569,8 @@ relayBlock
     => SendActions m -> Block ssc -> m ()
 relayBlock _ (Left _)                  = pass
 relayBlock sendActions (Right mainBlk) = do
-    isRecovery <- do
-        var <- ncRecoveryHeader <$> getNodeContext
-        isJust <$> atomically (tryReadTMVar var)
     -- Why 'ncPropagation' is not considered?
-    unless isRecovery $
+    unlessM isRecoveryMode $
         void $ fork $ announceBlock sendActions $ mainBlk ^. gbHeader
 
 ----------------------------------------------------------------------------

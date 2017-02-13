@@ -65,7 +65,7 @@ import           Pos.Types.Core        (ChainDifficulty, EpochIndex (..),
                                         HasDifficulty (..), HasEpochIndex (..),
                                         HasEpochOrSlot (..), HasHeaderHash (..),
                                         HeaderHash, SlotId (..), slotIdF)
-import           Pos.Types.Types       (ProxySKSimple, SlotLeaders, Tx, TxAux,
+import           Pos.Types.Types       (ProxySKHeavy, SlotLeaders, Tx, TxAux,
                                         TxDistribution, TxWitness)
 import           Pos.Update.Core.Types (UpdatePayload, UpdateProof, UpdateProposal,
                                         mkUpdateProof)
@@ -81,7 +81,7 @@ instance (SscHelpersClass ssc, Bi TxWitness, Bi UpdatePayload) =>
         , mpRoot          :: !(MerkleRoot Tx)
         , mpWitnessesHash :: !(Hash [TxWitness])
         , mpMpcProof      :: !(SscProof ssc)
-        , mpProxySKsProof :: !(Hash [ProxySKSimple])
+        , mpProxySKsProof :: !(Hash [ProxySKHeavy])
         , mpUpdateProof   :: !UpdateProof
         } deriving (Generic)
     data ConsensusData (MainBlockchain ssc) = MainConsensusData
@@ -126,7 +126,7 @@ instance (SscHelpersClass ssc, Bi TxWitness, Bi UpdatePayload) =>
         , -- | Data necessary for MPC.
           _mbMpc :: !(SscPayload ssc)
         , -- | No-ttl heavyweight delegation certificates
-          _mbProxySKs :: ![ProxySKSimple]
+          _mbProxySKs :: ![ProxySKHeavy]
           -- | Additional update information for update system.
         , _mbUpdatePayload :: !UpdatePayload
         } deriving (Generic, Typeable)
@@ -238,7 +238,7 @@ mbMpc :: Lens' (Body (MainBlockchain ssc)) (SscPayload ssc)
 MAKE_LENS(mbMpc, _mbMpc)
 
 -- | Lens for ProxySKs in main block body.
-mbProxySKs :: Lens' (Body (MainBlockchain ssc)) [ProxySKSimple]
+mbProxySKs :: Lens' (Body (MainBlockchain ssc)) [ProxySKHeavy]
 MAKE_LENS(mbProxySKs, _mbProxySKs)
 
 -- | Lens for 'UpdatePayload' in main block body.
@@ -292,8 +292,8 @@ blockTxas =
                    (b ^. mbWitnesses)
                    (b ^. mbTxAddrDistributions))
 
--- | Lens from 'MainBlock' to 'ProxySKSimple' list.
-blockProxySKs :: Lens' (MainBlock ssc) [ProxySKSimple]
+-- | Lens from 'MainBlock' to 'ProxySKHeavy' list.
+blockProxySKs :: Lens' (MainBlock ssc) [ProxySKHeavy]
 blockProxySKs = gbBody . mbProxySKs
 
 -- | Lens from 'GenesisBlock' to 'SlotLeaders'.

@@ -25,7 +25,7 @@ import           Pos.DB.Functions (RocksBatchOp (..), encodeWithKeyPrefix, rocks
 import           Pos.DB.Iterator  (DBIteratorClass (..), DBnIterator, DBnMapIterator,
                                    IterType, runDBnIterator, runDBnMapIterator)
 import           Pos.DB.Types     (NodeDBs (_gStateDB))
-import           Pos.Types        (ProxySKSimple, StakeholderId, addressHash)
+import           Pos.Types        (ProxySKHeavy, StakeholderId, addressHash)
 
 
 ----------------------------------------------------------------------------
@@ -33,11 +33,11 @@ import           Pos.Types        (ProxySKSimple, StakeholderId, addressHash)
 ----------------------------------------------------------------------------
 
 -- | Retrieves certificate by issuer address (hash of public key) if present.
-getPSKByIssuerAddressHash :: MonadDB ssc m => StakeholderId -> m (Maybe ProxySKSimple)
+getPSKByIssuerAddressHash :: MonadDB ssc m => StakeholderId -> m (Maybe ProxySKHeavy)
 getPSKByIssuerAddressHash addrHash = rocksGetBi (pskKey addrHash) =<< getUtxoDB
 
 -- | Retrieves certificate by issuer public key if present.
-getPSKByIssuer :: MonadDB ssc m => PublicKey -> m (Maybe ProxySKSimple)
+getPSKByIssuer :: MonadDB ssc m => PublicKey -> m (Maybe ProxySKHeavy)
 getPSKByIssuer = getPSKByIssuerAddressHash . addressHash
 
 isIssuerByAddressHash :: MonadDB ssc m => StakeholderId -> m Bool
@@ -48,7 +48,7 @@ isIssuerByAddressHash = fmap isJust . getPSKByIssuerAddressHash
 ----------------------------------------------------------------------------
 
 data DelegationOp
-    = AddPSK !ProxySKSimple
+    = AddPSK !ProxySKHeavy
     -- ^ Adds PSK. Overwrites if present.
     | DelPSK !PublicKey
     -- ^ Removes PSK by issuer PK.
@@ -70,7 +70,7 @@ data PskIter
 
 instance DBIteratorClass PskIter where
     type IterKey PskIter = StakeholderId
-    type IterValue PskIter = ProxySKSimple
+    type IterValue PskIter = ProxySKHeavy
     iterKeyPrefix _ = iterationPrefix
 
 runPskIterator
@@ -87,7 +87,7 @@ runPskMapIterator = runDBnMapIterator @PskIter _gStateDB
 -- Keys
 ----------------------------------------------------------------------------
 
--- Storing Hash IssuerPk -> ProxySKSimple
+-- Storing Hash IssuerPk -> ProxySKHeavy
 pskKey :: StakeholderId -> ByteString
 pskKey = encodeWithKeyPrefix @PskIter
 

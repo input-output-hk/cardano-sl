@@ -96,11 +96,11 @@ instance Bi TxMsgTag where
 ----------------------------------------------------------------------------
 
 instance Bi SendProxySK where
-    put (SendProxySKEpoch pSk)  = putWord8 0 >> put pSk
-    put (SendProxySKSimple pSk) = putWord8 1 >> put pSk
+    put (SendProxySKLight pSk) = putWord8 0 >> put pSk
+    put (SendProxySKHeavy pSk) = putWord8 1 >> put pSk
     get = label "SendProxySK" $ getWord8 >>= \case
-        0 -> SendProxySKEpoch <$> get
-        1 -> SendProxySKSimple <$> get
+        0 -> SendProxySKLight <$> get
+        1 -> SendProxySKHeavy <$> get
         t -> fail $ "get@SendProxySK: unknown tag " <> show t
 
 instance Bi ConfirmProxySK where

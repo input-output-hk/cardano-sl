@@ -26,14 +26,14 @@ import           Pos.Context                (getNodeContext, ncBlkSemaphore, ncN
                                              npPropagation)
 import           Pos.Delegation.Logic       (ConfirmPskEpochVerdict (..),
                                              PskEpochVerdict (..), PskSimpleVerdict (..),
-                                             processConfirmProxySk, processProxySKEpoch,
-                                             processProxySKSimple)
+                                             processConfirmProxySk, processProxySKHeavy,
+                                             processProxySKLight)
 import           Pos.Delegation.Methods     (sendProxyConfirmSK, sendProxyConfirmSKOuts,
-                                             sendProxySKEpoch, sendProxySKEpochOuts,
-                                             sendProxySKSimple, sendProxySKSimpleOuts)
+                                             sendProxySKHeavy, sendProxySKHeavyOuts,
+                                             sendProxySKLight, sendProxySKLightOuts)
 import           Pos.Delegation.Types       (ConfirmProxySK (..), SendProxySK (..))
 import           Pos.DHT.Model              (sendToNeighbors)
-import           Pos.Types                  (ProxySKEpoch)
+import           Pos.Types                  (ProxySKLight)
 import           Pos.WorkMode               (WorkMode)
 
 -- | Listeners for requests related to delegation processing.
@@ -67,9 +67,9 @@ handleSendProxySK
 handleSendProxySK = listenerOneMsg outSpecs $
     \_ _ sendActions (pr :: SendProxySK) -> handleDo sendActions pr
   where
-    handleDo sendActions req@(SendProxySKSimple pSk) = do
+    handleDo sendActions req@(SendProxySKHeavy pSk) = do
         logDebug $ sformat ("Got request to handle heavyweight psk: "%build) pSk
-        verdict <- processProxySKSimple pSk
+        verdict <- processProxySKHeavy pSk
         logDebug $ sformat ("The verdict for cert "%build%" is: "%shown) pSk verdict
         doPropagate <- npPropagation . ncNodeParams <$> getNodeContext
         if | verdict == PSIncoherent -> do
@@ -80,15 +80,15 @@ handleSendProxySK = listenerOneMsg outSpecs $
                handleDo sendActions req
            | verdict == PSAdded && doPropagate -> do
                logDebug $ sformat ("Propagating heavyweight PSK: "%build) pSk
-               sendProxySKSimple pSk sendActions
+               sendProxySKHeavy pSk sendActions
            | otherwise -> pass
-    handleDo sendActions (SendProxySKEpoch pSk) = do
+    handleDo sendActions (SendProxySKLight pSk) = do
         logDebug "Got request on handleGetHeaders"
         logDebug $ sformat ("Got request to handle lightweight psk: "%build) pSk
         -- do it in worker once in ~sometimes instead of on every request
-        verdict <- processProxySKEpoch pSk
+        verdict <- processProxySKLight pSk
         logResult verdict
-        propagateProxySKEpoch verdict pSk sendActions
+        propagateProxySKLight verdict pSk sendActions
       where
         logResult PEAdded =
             logInfo $ sformat ("Got valid related proxy secret key: "%build) pSk
@@ -100,21 +100,21 @@ handleSendProxySK = listenerOneMsg outSpecs $
             logDebug $
             sformat ("Got proxy signature that wasn't accepted. Reason: "%shown) verdict
 
-    outSpecs = mconcat [ sendProxySKSimpleOuts
-                       , sendProxySKEpochOuts
+    outSpecs = mconcat [ sendProxySKHeavyOuts
+                       , sendProxySKLightOuts
                        , sendProxyConfirmSKOuts
                        ]
 
     -- | Propagates lightweight PSK depending on the 'ProxyEpochVerdict'.
-    propagateProxySKEpoch
+    propagateProxySKLight
       :: (WorkMode ssc m)
-      => PskEpochVerdict -> ProxySKEpoch -> SendActions m -> m ()
-    propagateProxySKEpoch PEUnrelated pSk sendActions =
+      => PskEpochVerdict -> ProxySKLight -> SendActions m -> m ()
+    propagateProxySKLight PEUnrelated pSk sendActions =
         whenM (npPropagation . ncNodeParams <$> getNodeContext) $ do
             logDebug $ sformat ("Propagating lightweight PSK: "%build) pSk
-            sendProxySKEpoch pSk sendActions
-    propagateProxySKEpoch PEAdded pSk sendActions = sendProxyConfirmSK pSk sendActions
-    propagateProxySKEpoch _ _ _ = pass
+            sendProxySKLight pSk sendActions
+    propagateProxySKLight PEAdded pSk sendActions = sendProxyConfirmSK pSk sendActions
+    propagateProxySKLight _ _ _ = pass
 
 ----------------------------------------------------------------------------
 -- Light PSKs backpropagation (confirmations)

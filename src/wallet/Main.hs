@@ -31,8 +31,8 @@ import           Pos.Crypto                (Hash, SecretKey, createProxySecretKe
                                             encodeHash, hash, hashHexF, sign, toPublic,
                                             unsafeHash)
 import           Pos.Data.Attributes       (mkAttributes)
-import           Pos.Delegation            (sendProxySKEpoch, sendProxySKEpochOuts,
-                                            sendProxySKSimple, sendProxySKSimpleOuts)
+import           Pos.Delegation            (sendProxySKHeavy, sendProxySKHeavyOuts,
+                                            sendProxySKLight, sendProxySKLightOuts)
 import           Pos.DHT.Model             (DHTNode, discoverPeers, getKnownPeers)
 import           Pos.Genesis               (genesisBlockVersionData, genesisPublicKeys,
                                             genesisSecretKeys)
@@ -147,19 +147,19 @@ runCmd sendActions (DelegateLight i j) = do
     let issuerSk = genesisSecretKeys !! i
         delegatePk = genesisPublicKeys !! j
         psk = createProxySecretKey issuerSk delegatePk (EpochIndex 0, EpochIndex 50)
-    lift $ sendProxySKEpoch psk sendActions
+    lift $ sendProxySKLight psk sendActions
     putText "Sent lightweight cert"
 runCmd sendActions (DelegateHeavy i j) = do
     let issuerSk = genesisSecretKeys !! i
         delegatePk = genesisPublicKeys !! j
         psk = createProxySecretKey issuerSk delegatePk ()
-    lift $ sendProxySKSimple psk sendActions
+    lift $ sendProxySKHeavy psk sendActions
     putText "Sent heavyweight cert"
 runCmd _ Quit = pure ()
 
 runCmdOuts :: OutSpecs
-runCmdOuts = mconcat [ sendProxySKEpochOuts
-                     , sendProxySKSimpleOuts
+runCmdOuts = mconcat [ sendProxySKLightOuts
+                     , sendProxySKHeavyOuts
                      , sendTxOuts
                      , sendVoteOuts
                      , sendProposalOuts

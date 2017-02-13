@@ -18,14 +18,14 @@ module Pos.Delegation.Logic
        -- * Heavyweight psks handling
        , getProxyMempool
        , PskSimpleVerdict (..)
-       , processProxySKSimple
+       , processProxySKHeavy
        , delegationApplyBlocks
        , delegationVerifyBlocks
        , delegationRollbackBlocks
 
        -- * Lightweight psks handling
        , PskEpochVerdict (..)
-       , processProxySKEpoch
+       , processProxySKLight
 
        -- * Confirmations
        , ConfirmPskEpochVerdict (..)
@@ -68,8 +68,8 @@ import           Pos.Delegation.Class        (DelegationWrap, MonadDelegation (.
                                               dwThisEpochPosted)
 import           Pos.Delegation.Types        (SendProxySK (..))
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass)
-import           Pos.Types                   (Block, HeaderHash, ProxySKEpoch,
-                                              ProxySKSimple, ProxySigEpoch, addressHash,
+import           Pos.Types                   (Block, HeaderHash, ProxySKHeavy,
+                                              ProxySKLight, ProxySigLight, addressHash,
                                               blockProxySKs, epochIndexL, headerHash,
                                               headerHashG, prevBlockL)
 import           Pos.Util                    (NE, NewestFirst (..), OldestFirst (..),
@@ -152,7 +152,7 @@ initDelegation = do
 
 -- Retrieves psk certificated that have been accumulated before given
 -- block. The block itself should be in DB.
-getPSKsFromThisEpoch :: (SscHelpersClass ssc, MonadDB ssc m) => HeaderHash -> m [ProxySKSimple]
+getPSKsFromThisEpoch :: (SscHelpersClass ssc, MonadDB ssc m) => HeaderHash -> m [ProxySKHeavy]
 getPSKsFromThisEpoch tip = do
     concatMap (either (const []) (view blockProxySKs)) <$>
         DB.loadBlocksWhile isRight tip
@@ -160,7 +160,7 @@ getPSKsFromThisEpoch tip = do
 -- | Retrieves current mempool of heavyweight psks plus undo part.
 getProxyMempool
     :: (MonadDB ssc m, MonadDelegation m)
-    => m ([ProxySKSimple], [ProxySKSimple])
+    => m ([ProxySKHeavy], [ProxySKHeavy])
 getProxyMempool = do
     sks <- runDelegationStateAction (HM.elems <$> use dwProxySKPool)
     let issuers = map pskIssuerPk sks
@@ -180,19 +180,19 @@ data PskSimpleVerdict
 -- | Processes simple (hardweight) psk. Puts it into the mempool
 -- depending on issuer's stake, overrides if exists, checks
 -- validity and cachemsg state.
-processProxySKSimple
+processProxySKHeavy
     :: (SscHelpersClass ssc, MonadDB ssc m, MonadDelegation m, WithNodeContext ssc m)
-    => ProxySKSimple -> m PskSimpleVerdict
-processProxySKSimple psk = do
+    => ProxySKHeavy -> m PskSimpleVerdict
+processProxySKHeavy psk = do
     curTime <- liftIO getCurrentTime
     headEpoch <- view epochIndexL <$> DB.getTipBlockHeader
     richmen <-
         NE.toList <$>
         lrcActionOnEpochReason
         headEpoch
-        "Delegation.Logic#processProxySKSimple: there are no richmen for current epoch"
+        "Delegation.Logic#processProxySKHeavy: there are no richmen for current epoch"
         LrcDB.getRichmenDlg
-    let msg = SendProxySKSimple psk
+    let msg = SendProxySKHeavy psk
         valid = verifyProxySecretKey psk
         issuer = pskIssuerPk psk
         enoughStake = addressHash issuer `elem` richmen
@@ -214,7 +214,7 @@ processProxySKSimple psk = do
 data DelVerState = DelVerState
     { _dvCurEpoch      :: HashSet PublicKey
       -- ^ Set of issuers that have already posted certificates this epoch
-    , _dvPSKMapAdded   :: HashMap PublicKey ProxySKSimple
+    , _dvPSKMapAdded   :: HashMap PublicKey ProxySKHeavy
       -- ^ Psks added to database.
     , _dvPSKSetRemoved :: HashSet PublicKey
       -- ^ Psks removed from database.
@@ -234,7 +234,7 @@ makeLenses ''DelVerState
 delegationVerifyBlocks
     :: forall ssc m. (SscHelpersClass ssc, MonadDB ssc m, WithNodeContext ssc m)
     => OldestFirst NE (Block ssc)
-    -> m (Either Text (OldestFirst NE [ProxySKSimple]))
+    -> m (Either Text (OldestFirst NE [ProxySKHeavy]))
 delegationVerifyBlocks blocks = do
     -- TODO CSL-502 create snapshot
     tip <- GS.getTip
@@ -395,10 +395,10 @@ data PskEpochVerdict
 -- later.
 -- | Processes proxy secret key (understands do we need it,
 -- adds/caches on decision, returns this decision).
-processProxySKEpoch
+processProxySKLight
     :: (MonadDelegation m, WithNodeContext ssc m, MonadDB ssc m, MonadMask m)
-    => ProxySKEpoch -> m PskEpochVerdict
-processProxySKEpoch psk = do
+    => ProxySKLight -> m PskEpochVerdict
+processProxySKLight psk = do
     sk <- npSecretKey . ncNodeParams <$> getNodeContext
     curTime <- liftIO getCurrentTime
     miscLock <- view DB.miscLock <$> DB.getNodeDBs
@@ -406,7 +406,7 @@ processProxySKEpoch psk = do
     res <- runDelegationStateAction $ do
         let related = toPublic sk == pskDelegatePk psk
             exists = psk `elem` psks
-            msg = SendProxySKEpoch psk
+            msg = SendProxySKLight psk
             valid = verifyProxySecretKey psk
             selfSigned = pskDelegatePk psk == pskIssuerPk psk
         cached <- HM.member msg <$> use dwMessageCache
@@ -439,7 +439,7 @@ data ConfirmPskEpochVerdict
 -- it's valid or not. Caches message in any case.
 processConfirmProxySk
     :: (MonadDelegation m, MonadIO m)
-    => ProxySKEpoch -> ProxySigEpoch ProxySKEpoch -> m ConfirmPskEpochVerdict
+    => ProxySKLight -> ProxySigLight ProxySKLight -> m ConfirmPskEpochVerdict
 processConfirmProxySk psk proof = do
     curTime <- liftIO getCurrentTime
     runDelegationStateAction $ do
@@ -451,5 +451,5 @@ processConfirmProxySk psk proof = do
                   | otherwise -> CPValid
 
 -- | Checks if we hold a confirmation for given PSK.
-isProxySKConfirmed :: ProxySKEpoch -> DelegationStateAction Bool
+isProxySKConfirmed :: ProxySKLight -> DelegationStateAction Bool
 isProxySKConfirmed psk = HM.member psk <$> use dwConfirmationCache

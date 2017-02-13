@@ -39,10 +39,10 @@ module Pos.Types.Types
        , SharedSeed (..)
        , SlotLeaders
 
-       , ProxySigEpoch
-       , ProxySKEpoch
-       , ProxySigSimple
-       , ProxySKSimple
+       , ProxySigLight
+       , ProxySKLight
+       , ProxySigHeavy
+       , ProxySKHeavy
        , ProxySKEither
        ) where
 
@@ -254,19 +254,19 @@ type SlotLeaders = NonEmpty StakeholderId
 
 -- | Proxy signature used in csl -- holds a pair of epoch
 -- indices. Block is valid if it's epoch index is inside this range.
-type ProxySigEpoch a = ProxySignature (EpochIndex, EpochIndex) a
+type ProxySigLight a = ProxySignature (EpochIndex, EpochIndex) a
 
--- | Same alias for the proxy secret key (see 'ProxySigEpoch').
-type ProxySKEpoch = ProxySecretKey (EpochIndex, EpochIndex)
+-- | Same alias for the proxy secret key (see 'ProxySigLight').
+type ProxySKLight = ProxySecretKey (EpochIndex, EpochIndex)
 
 -- | Simple proxy signature without ttl/epoch index constraints.
-type ProxySigSimple a = ProxySignature () a
+type ProxySigHeavy a = ProxySignature () a
 
 -- | Correspondent SK for no-ttl proxy signature scheme.
-type ProxySKSimple = ProxySecretKey ()
+type ProxySKHeavy = ProxySecretKey ()
 
 -- | Some proxy secret key.
-type ProxySKEither = Either ProxySKEpoch ProxySKSimple
+type ProxySKEither = Either ProxySKLight ProxySKHeavy
 
 derive makeNFData ''TxIn
 derive makeNFData ''TxInWitness

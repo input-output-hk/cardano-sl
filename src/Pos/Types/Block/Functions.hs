@@ -225,7 +225,7 @@ mkGenesisBlock prevHeader epoch leaders =
 mkMainBody
     :: [(Tx, TxWitness, TxDistribution)]
     -> SscPayload ssc
-    -> [ProxySKSimple]
+    -> [ProxySKHeavy]
     -> UpdatePayload
     -> Body (MainBlockchain ssc)
 mkMainBody txws mpc proxySKs updatePayload =

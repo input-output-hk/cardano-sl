@@ -129,7 +129,7 @@ putBi
 putBi k v = rocksPutBi k v =<< getMiscDB
 
 proxySKKey :: ByteString
-proxySKKey = "psk_"
+proxySKKey = "psk/"
 
 skHashKey :: ByteString
-skHashKey = "skhash_"
+skHashKey = "skh/"

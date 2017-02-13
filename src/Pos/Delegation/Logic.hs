@@ -17,18 +17,18 @@ module Pos.Delegation.Logic
 
        -- * Heavyweight psks handling
        , getProxyMempool
-       , PskSimpleVerdict (..)
+       , PskHeavyVerdict (..)
        , processProxySKHeavy
        , delegationApplyBlocks
        , delegationVerifyBlocks
        , delegationRollbackBlocks
 
        -- * Lightweight psks handling
-       , PskEpochVerdict (..)
+       , PskLightVerdict (..)
        , processProxySKLight
 
        -- * Confirmations
-       , ConfirmPskEpochVerdict (..)
+       , ConfirmPskLightVerdict (..)
        , processConfirmProxySk
        , isProxySKConfirmed
        ) where
@@ -167,8 +167,8 @@ getProxyMempool = do
     toRollback <- catMaybes <$> mapM GS.getPSKByIssuer issuers
     pure (sks, toRollback)
 
--- | Datatypes representing a verdict of simple PSK processing.
-data PskSimpleVerdict
+-- | Datatypes representing a verdict of heavy PSK processing.
+data PskHeavyVerdict
     = PSExists     -- ^ If we have exactly the same cert in psk mempool
     | PSForbidden  -- ^ Not enough stake
     | PSInvalid    -- ^ Broken
@@ -177,12 +177,12 @@ data PskSimpleVerdict
     | PSAdded      -- ^ Successfully processed/added to psk mempool
     deriving (Show,Eq)
 
--- | Processes simple (hardweight) psk. Puts it into the mempool
+-- | Processes heavyweight psk. Puts it into the mempool
 -- depending on issuer's stake, overrides if exists, checks
 -- validity and cachemsg state.
 processProxySKHeavy
     :: (SscHelpersClass ssc, MonadDB ssc m, MonadDelegation m, WithNodeContext ssc m)
-    => ProxySKHeavy -> m PskSimpleVerdict
+    => ProxySKHeavy -> m PskHeavyVerdict
 processProxySKHeavy psk = do
     curTime <- liftIO getCurrentTime
     headEpoch <- view epochIndexL <$> DB.getTipBlockHeader
@@ -381,7 +381,7 @@ delegationRollbackBlocks blunds = do
 
 -- | PSK check verdict. It can be unrelated (other key or spoiled, no
 -- way to differ), exist in storage already or be cached.
-data PskEpochVerdict
+data PskLightVerdict
     = PEUnrelated
     | PEInvalid
     | PEExists
@@ -397,7 +397,7 @@ data PskEpochVerdict
 -- adds/caches on decision, returns this decision).
 processProxySKLight
     :: (MonadDelegation m, WithNodeContext ssc m, MonadDB ssc m, MonadMask m)
-    => ProxySKLight -> m PskEpochVerdict
+    => ProxySKLight -> m PskLightVerdict
 processProxySKLight psk = do
     sk <- npSecretKey . ncNodeParams <$> getNodeContext
     curTime <- liftIO getCurrentTime
@@ -429,7 +429,7 @@ processProxySKLight psk = do
 ----------------------------------------------------------------------------
 
 -- | Verdict of 'processConfirmProxySk' function
-data ConfirmPskEpochVerdict
+data ConfirmPskLightVerdict
     = CPValid   -- ^ Valid, saved
     | CPInvalid -- ^ Invalid, throw away
     | CPCached  -- ^ Already saved
@@ -439,7 +439,7 @@ data ConfirmPskEpochVerdict
 -- it's valid or not. Caches message in any case.
 processConfirmProxySk
     :: (MonadDelegation m, MonadIO m)
-    => ProxySKLight -> ProxySigLight ProxySKLight -> m ConfirmPskEpochVerdict
+    => ProxySKLight -> ProxySigLight ProxySKLight -> m ConfirmPskLightVerdict
 processConfirmProxySk psk proof = do
     curTime <- liftIO getCurrentTime
     runDelegationStateAction $ do

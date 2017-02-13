@@ -24,8 +24,8 @@ import           Pos.Communication.Protocol (ListenerSpec, OutSpecs, SendActions
                                              listenerOneMsg, mergeLs, oneMsgH, toOutSpecs)
 import           Pos.Context                (getNodeContext, ncBlkSemaphore, ncNodeParams,
                                              npPropagation)
-import           Pos.Delegation.Logic       (ConfirmPskEpochVerdict (..),
-                                             PskEpochVerdict (..), PskSimpleVerdict (..),
+import           Pos.Delegation.Logic       (ConfirmPskLightVerdict (..),
+                                             PskHeavyVerdict (..), PskLightVerdict (..),
                                              processConfirmProxySk, processProxySKHeavy,
                                              processProxySKLight)
 import           Pos.Delegation.Methods     (sendProxyConfirmSK, sendProxyConfirmSKOuts,
@@ -105,10 +105,10 @@ handleSendProxySK = listenerOneMsg outSpecs $
                        , sendProxyConfirmSKOuts
                        ]
 
-    -- | Propagates lightweight PSK depending on the 'ProxyEpochVerdict'.
+    -- | Propagates lightweight PSK depending on the 'PskLightVerdict'.
     propagateProxySKLight
       :: (WorkMode ssc m)
-      => PskEpochVerdict -> ProxySKLight -> SendActions m -> m ()
+      => PskLightVerdict -> ProxySKLight -> SendActions m -> m ()
     propagateProxySKLight PEUnrelated pSk sendActions =
         whenM (npPropagation . ncNodeParams <$> getNodeContext) $ do
             logDebug $ sformat ("Propagating lightweight PSK: "%build) pSk
@@ -134,7 +134,7 @@ handleConfirmProxySK = listenerOneMsg outSpecs $
 
     propagateConfirmProxySK
         :: forall ssc1 m1. (WorkMode ssc1 m1)
-        => ConfirmPskEpochVerdict
+        => ConfirmPskLightVerdict
         -> ConfirmProxySK
         -> SendActions m1
         -> m1 ()
@@ -145,7 +145,7 @@ handleConfirmProxySK = listenerOneMsg outSpecs $
             logDebug $ sformat ("Propagating psk confirmation for psk: "%build) pSk
             sendToNeighbors sendActions confPSK
     propagateConfirmProxySK _ _ _ = pure ()
---
+
 --handleCheckProxySKConfirmed
 --    :: forall ssc m.
 --       (WorkMode ssc m)

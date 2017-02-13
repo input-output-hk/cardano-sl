@@ -9,7 +9,7 @@ packages:
     extra-dep: true
   - location:
       git: https://github.com/avieth/network-transport-tcp
-      commit: 705b3c0d44cb1f4eea904b54431cd467e62dda35
+      commit: d2705abd5b54707ca97b5bf9c9c24005e800ee49
     extra-dep: true
   - location:
       git: https://github.com/avieth/network-transport

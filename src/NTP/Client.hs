@@ -10,6 +10,7 @@ module NTP.Client
     ( startNtpClient
     , NtpClientSettings (..)
     , NtpStopButton (..)
+    , ntpSingleShot
     ) where
 
 import           Control.Concurrent.STM      (atomically)
@@ -44,7 +45,7 @@ import           System.Wlog                 (LoggerName, Severity (..), WithLog
                                               logMessage, modifyLoggerName)
 
 import           Mockable.Class              (Mockable)
-import           Mockable.Concurrent         (Fork, fork)
+import           Mockable.Concurrent         (Delay, Fork, delay, fork)
 import           Mockable.Exception          (Catch, Throw, catchAll, handleAll, throw)
 import           NTP.Packet                  (NtpPacket (..), evalClockOffset,
                                               mkCliNtpPacket, ntpPacketSize)
@@ -266,3 +267,13 @@ startNtpClient settings = do
         case maddr of
             Nothing   -> throw $ FailedToResolveHost host
             Just addr -> return addr
+
+-- | Start client, wait for a while so that most likely it ticks once
+-- and stop it.
+ntpSingleShot
+    :: (Mockable Delay m, NtpMonad m)
+    => NtpClientSettings -> m ()
+ntpSingleShot settings = do
+    stopButton <- startNtpClient settings
+    delay (ntpResponseTimeout settings)
+    press stopButton

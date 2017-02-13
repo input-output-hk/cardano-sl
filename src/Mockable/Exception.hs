@@ -4,6 +4,7 @@
 {-# LANGUAGE KindSignatures        #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 
 module Mockable.Exception (
 
@@ -11,6 +12,7 @@ module Mockable.Exception (
     , bracket
     , bracketWithException
     , finally
+    , onException
 
     , Throw(..)
     , throw
@@ -55,6 +57,9 @@ bracketWithException acquire release act = liftMockable $ BracketWithException a
 
 finally :: ( Mockable Bracket m ) => m a -> m b -> m a
 finally act end = bracket (return ()) (const end) (const act)
+
+onException :: ( Mockable Catch m, Mockable Throw m ) => m a -> m b -> m a
+onException act ex = act `catch` (\(e :: SomeException) -> ex >> throw e)
 
 data Throw (m :: * -> *) (t :: *) where
     Throw :: Exception e => e -> Throw m t

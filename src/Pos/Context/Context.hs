@@ -13,7 +13,7 @@ module Pos.Context.Context
        , ncGenesisUtxo
        , NodeParams(..)
        , BaseParams(..)
-       , RelayInvQueue (..)
+       , RelayInvQueue
        , SomeInvMsg (..)
        ) where
 
@@ -27,7 +27,7 @@ import           Universum
 
 import           Pos.Communication.Types.Protocol (NodeId)
 import           Pos.Communication.Types.Relay    (InvOrData, ReqMsg)
-import           Pos.Crypto                       (PublicKey, SecretKey, toPublic)
+import           Pos.Crypto                       (PublicKey, toPublic)
 import           Pos.Genesis                      (genesisLeaders)
 import           Pos.Launcher.Param               (BaseParams (..), NodeParams (..))
 import           Pos.Slotting.Types               (SlottingState)

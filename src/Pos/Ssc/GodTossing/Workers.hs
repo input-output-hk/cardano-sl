@@ -28,12 +28,12 @@ import           Pos.Binary.Class                 (Bi)
 import           Pos.Binary.Communication         ()
 import           Pos.Binary.Relay                 ()
 import           Pos.Binary.Ssc                   ()
-import           Pos.Communication.Message        ()
-import           Pos.Communication.Protocol       (ConversationActions (..), NodeId,
-                                                   OutSpecs, SendActions, Worker',
+import           Pos.Communication.Message        (MessagePart)
+import           Pos.Communication.Protocol       (OutSpecs, SendActions, Worker',
                                                    WorkerSpec, convH, onNewSlotWorker,
                                                    toOutSpecs)
-import           Pos.Communication.Relay          (InvMsg (..), InvOrData, ReqMsg)
+import           Pos.Communication.Relay          (DataMsg, InvOrData, ReqMsg,
+                                                   invReqDataFlowNeighbors)
 import           Pos.Constants                    (mpcSendInterval, slotSecurityParam,
                                                    vssMaxTTL)
 import           Pos.Context                      (getNodeContext, lrcActionOnEpochReason,
@@ -44,7 +44,6 @@ import           Pos.Crypto                       (SecretKey, VssKeyPair, VssPub
 import           Pos.Crypto.SecretSharing         (toVssPublicKey)
 import           Pos.Crypto.Signing               (PublicKey)
 import           Pos.DB.Lrc                       (getRichmenSsc)
-import           Pos.DHT.Model                    (converseToNeighbors)
 import           Pos.Lrc.Types                    (RichmenStake)
 import           Pos.Slotting                     (getCurrentSlot, getSlotStart)
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
@@ -124,9 +123,8 @@ checkNSendOurCert sendActions = do
             ourVssCertificate <- getOurVssCertificate
             let contents = MCVssCertificate ourVssCertificate
             sscProcessOurMessage contents
-            let msg = InvMsg VssCertificateMsg (one ourId)
             -- [CSL-245]: do not catch all, catch something more concrete.
-            (converseToNeighbors sendActions (sendInv msg) >>
+            (invReqDataFlowNeighbors "ssc" sendActions VssCertificateMsg ourId contents >>
              logDebug "Announced our VssCertificate.")
             `catchAll` \e ->
                 logError $ sformat ("Error announcing our VssCertificate: " % shown) e
@@ -199,8 +197,9 @@ onNewSlotCommitment slotId@SlotId {..} sendActions
               sendOurCommitment comm ourId
 
     sendOurCommitment comm ourId = do
-        sscProcessOurMessage (MCCommitment comm)
-        sendOurData sendActions CommitmentMsg siEpoch 0 ourId
+        let msg = MCCommitment comm
+        sscProcessOurMessage msg
+        sendOurData sendActions CommitmentMsg ourId msg siEpoch 0
 
 -- Openings-related part of new slot processing
 onNewSlotOpening
@@ -222,8 +221,9 @@ onNewSlotOpening SlotId {..} sendActions
         mbOpen <- SS.getOurOpening siEpoch
         case mbOpen of
             Just open -> do
-                sscProcessOurMessage (MCOpening ourId open)
-                sendOurData sendActions OpeningMsg siEpoch 2 ourId
+                let msg = MCOpening ourId open
+                sscProcessOurMessage msg
+                sendOurData sendActions OpeningMsg ourId msg siEpoch 2
             Nothing -> logWarning "We don't know our opening, maybe we started recently"
 
 -- Shares-related part of new slot processing
@@ -241,8 +241,9 @@ onNewSlotShares SlotId {..} sendActions = do
         shares <- getOurShares ourVss
         let lShares = fmap (NE.map asBinary) shares
         unless (HM.null shares) $ do
-            sscProcessOurMessage (MCShares ourId lShares)
-            sendOurData sendActions SharesMsg siEpoch 4 ourId
+            let msg = MCShares ourId lShares
+            sscProcessOurMessage msg
+            sendOurData sendActions SharesMsg ourId msg siEpoch 4
 
 sscProcessOurMessage
     :: WorkMode SscGodTossing m
@@ -258,27 +259,19 @@ sscProcessOurMessage msg = runExceptT (sscProcessOurMessageDo msg) >>= logResult
         logWarning $
         sformat ("We have rejected our message, reason: "%build) er
 
-sendOurData
-    :: (WorkMode SscGodTossing m)
-    => SendActions m -> GtTag -> EpochIndex -> LocalSlotIndex -> StakeholderId -> m ()
-sendOurData sendActions msgTag epoch slMultiplier ourId = do
+sendOurData ::
+    ( WorkMode SscGodTossing m
+    , MessagePart contents
+    , Bi (DataMsg contents))
+    => SendActions m -> GtTag -> StakeholderId -> contents -> EpochIndex -> LocalSlotIndex -> m ()
+sendOurData sendActions msgTag ourId dt epoch slMultiplier = do
     -- Note: it's not necessary to create a new thread here, because
     -- in one invocation of onNewSlot we can't process more than one
     -- type of message.
     waitUntilSend msgTag epoch slMultiplier
     logInfo $ sformat ("Announcing our "%build) msgTag
-    let msg = InvMsg {imTag = msgTag, imKeys = one ourId}
-    converseToNeighbors sendActions (sendInv msg)
+    invReqDataFlowNeighbors "ssc" sendActions msgTag ourId dt
     logDebug $ sformat ("Sent our " %build%" to neighbors") msgTag
-
-sendInv :: InvMsg StakeholderId GtTag
-        -> NodeId
-        -> ConversationActions
-               (InvOrData GtTag StakeholderId GtMsgContents)
-               (ReqMsg StakeholderId GtTag)
-               m
-        -> m ()
-sendInv msg __peerId ConversationActions{..} = send $ Left msg
 
 -- Generate new commitment and opening and use them for the current
 -- epoch. It is also saved in persistent storage.

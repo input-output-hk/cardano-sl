@@ -15,6 +15,7 @@ module Pos.Communication.Relay
        , InvOrData
 
        , invReqDataFlow
+       , invReqDataFlowNeighbors
        ) where
 
 import           Control.Concurrent.STM        (isFullTBQueue, readTBQueue, writeTBQueue)
@@ -31,7 +32,7 @@ import           Universum
 import           Pos.Binary.Class              (Bi (..))
 import           Pos.Communication.Message     (MessagePart)
 import           Pos.Communication.Protocol    (ConversationActions (..), ListenerSpec,
-                                                NOP, OutSpecs, SendActions (..),
+                                                NOP, NodeId, OutSpecs, SendActions (..),
                                                 WorkerSpec, listenerConv, mergeLs, worker)
 import           Pos.Communication.Specs       (allOutSpecs)
 import           Pos.Communication.Types.Relay (DataMsg (..), InvMsg (..), InvOrData,
@@ -309,23 +310,52 @@ relayWorkers = first (:[]) $ worker allOutSpecs $
 -- Helpers for Communication.Methods
 ----------------------------------------------------------------------------
 
-invReqDataFlow :: ( Message (InvOrData tag id contents)
-                  , Message (ReqMsg id tag)
-                  , Buildable id
-                  , MinWorkMode m
-                  , Bi tag, Bi id
-                  , Bi (InvOrData tag id contents)
-                  , Bi (ReqMsg id tag))
-               => Text -> SendActions m -> DHTNode -> tag -> id -> contents -> m ()
-invReqDataFlow what sendActions addr tag id dt = handleAll handleE $
-    converseToNode sendActions addr convHandler
+invReqDataFlowNeighbors ::
+    ( Message (InvOrData tag id contents)
+    , Message (ReqMsg id tag)
+    , Buildable id
+    , MinWorkMode m
+    , Bi tag, Bi id
+    , Bi (InvOrData tag id contents)
+    , Bi (ReqMsg id tag))
+    => Text -> SendActions m -> tag -> id -> contents -> m ()
+invReqDataFlowNeighbors what sendActions tag id dt = handleAll handleE $
+    converseToNeighbors sendActions (invReqDataFlowDo what tag id dt)
   where
-    convHandler _
-      ca@(ConversationActions{..}::(ConversationActions (InvOrData tag id contents) (ReqMsg id tag)) m) = do
-        send $ Left $ InvMsg tag (one id)
-        recv >>= maybe (handleE ("node didn't reply by ReqMsg"::Text)) (replyByData ca)
-    replyByData ca (ReqMsg _ _) = do
-      send ca $ Right $ DataMsg dt
-    handleE e =
-      logWarning $
-        sformat ("Error sending"%stext%", id = "%build%" to "%shown%": "%shown) what id addr e
+    handleE e = logWarning $
+        sformat ("Error sending "%stext%", id = "%build%" to neighbors: "%shown) what id e
+
+invReqDataFlow ::
+    ( Message (InvOrData tag id contents)
+    , Message (ReqMsg id tag)
+    , Buildable id
+    , MinWorkMode m
+    , Bi tag, Bi id
+    , Bi (InvOrData tag id contents)
+    , Bi (ReqMsg id tag))
+    => Text -> SendActions m -> DHTNode -> tag -> id -> contents -> m ()
+invReqDataFlow what sendActions addr tag id dt = handleAll handleE $
+    converseToNode sendActions addr (invReqDataFlowDo what tag id dt)
+  where
+    handleE e = logWarning $
+        sformat ("Error sending "%stext%", id = "%build%" to "%shown%": "%shown) what id addr e
+
+invReqDataFlowDo ::
+    ( Message (InvOrData tag id contents)
+    , Message (ReqMsg id tag)
+    , Buildable id
+    , MinWorkMode m
+    , Bi tag, Bi id
+    , Bi (InvOrData tag id contents)
+    , Bi (ReqMsg id tag))
+    => Text -> tag -> id -> contents -> NodeId
+    -> ConversationActions (InvOrData tag id contents) (ReqMsg id tag) m
+    -> m ()
+invReqDataFlowDo what tag id dt nodeId ConversationActions{..} = do
+    send $ Left $ InvMsg tag (one id)
+    recv >>= maybe handleD replyWithData
+  where
+    replyWithData (ReqMsg _ _) = send $ Right $ DataMsg dt
+    handleD = logDebug $
+        sformat ("InvReqDataFlow ("%stext%"): "%shown %" closed conversation on \
+                 \Inv id = "%build) what nodeId id

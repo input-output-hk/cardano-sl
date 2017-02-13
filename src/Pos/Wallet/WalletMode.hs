@@ -37,7 +37,7 @@ import qualified Pos.DB                      as DB
 import           Pos.DB.Error                (DBError (..))
 import qualified Pos.DB.GState               as GS
 import           Pos.Delegation              (DelegationT (..))
-import           Pos.DHT.Model               (MonadDHT)
+import           Pos.DHT.Model               (MonadDHT, getKnownPeers)
 import           Pos.DHT.Real                (KademliaDHT (..))
 import           Pos.Slotting                (MonadSlots, getCurrentSlot)
 import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
@@ -63,7 +63,7 @@ import qualified Pos.Wallet.State            as WS
 import           Pos.Wallet.Tx.Pure          (TxHistoryEntry, deriveAddrHistory,
                                               deriveAddrHistoryPartial, getRelatedTxs)
 import           Pos.Wallet.Web.State        (WalletWebDB (..))
-import           Pos.WorkMode                (MinWorkMode)
+import           Pos.WorkMode                (MinWorkMode, RawRealMode)
 
 -- | A class which have the methods to get state of address' balance
 class Monad m => MonadBalances m where
@@ -177,6 +177,7 @@ instance (SscHelpersClass ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
 class Monad m => MonadBlockchainInfo m where
     networkChainDifficulty :: m ChainDifficulty
     localChainDifficulty :: m ChainDifficulty
+    connectedPeers :: m Int
 
     default networkChainDifficulty
         :: (MonadTrans t, MonadBlockchainInfo m', t m' ~ m) => m ChainDifficulty
@@ -186,22 +187,20 @@ class Monad m => MonadBlockchainInfo m where
         :: (MonadTrans t, MonadBlockchainInfo m', t m' ~ m) => m ChainDifficulty
     localChainDifficulty = lift localChainDifficulty
 
+    default connectedPeers
+        :: (MonadTrans t, MonadBlockchainInfo m', t m' ~ m) => m Int
+    connectedPeers = lift connectedPeers
+
 instance MonadBlockchainInfo m => MonadBlockchainInfo (ReaderT r m)
 instance MonadBlockchainInfo m => MonadBlockchainInfo (StateT s m)
-instance MonadBlockchainInfo m => MonadBlockchainInfo (KademliaDHT m)
-instance MonadBlockchainInfo m => MonadBlockchainInfo (KeyStorage m)
-instance MonadBlockchainInfo m => MonadBlockchainInfo (PeerStateHolder m)
 
-deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (Modern.TxpLDHolder ssc m)
-deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (SscHolder ssc m)
-deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (DelegationT m)
-deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (USHolder m)
 deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (WalletWebDB m)
 
 -- | Stub instance for lite-wallet
-instance MonadIO m => MonadBlockchainInfo (WalletDB m) where
+instance MonadBlockchainInfo WalletRealMode where
     networkChainDifficulty = panic "notImplemented"
     localChainDifficulty = panic "notImplemented"
+    connectedPeers = panic "notImplemented"
 
 -- | Helpers for avoiding copy-paste
 topHeader :: (SscHelpersClass ssc, MonadDB ssc m) => m (BlockHeader ssc)
@@ -216,12 +215,8 @@ recoveryHeader = PC.getNodeContext >>=
                  return . fmap snd
 
 -- | Instance for full-node's ContextHolder
-instance ( SscHelpersClass ssc
-         , Mockable CurrentTime m
-         , MonadDB ssc m
-         , MonadThrow m
-         , WithLogger m) =>
-         MonadBlockchainInfo (PC.ContextHolder ssc m) where
+instance SscHelpersClass ssc =>
+         MonadBlockchainInfo (RawRealMode ssc) where
     networkChainDifficulty = recoveryHeader >>= \case
         Just hh -> return $ hh ^. difficultyL
         Nothing -> do
@@ -232,6 +227,7 @@ instance ( SscHelpersClass ssc
             return $ blksLeft + th ^. difficultyL
 
     localChainDifficulty = view difficultyL <$> topHeader
+    connectedPeers = length <$> getKnownPeers
 
 -- | Abstraction over getting update proposals
 class Monad m => MonadUpdates m where

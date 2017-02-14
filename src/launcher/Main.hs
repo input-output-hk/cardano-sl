@@ -210,7 +210,7 @@ runUpdater (path, args, updateArchive) = do
         printf ("The updater at "%fp%" doesn't exist, skipping the update\n")
                path
       -}
-      ()
+        return ()
     else do
         echo "Running the updater"
         let args' = args ++ maybe [] (one . toText) updateArchive

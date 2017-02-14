@@ -66,7 +66,8 @@ toCTxId = CTxId . toCHash
 
 -- | List of block entries is returned from "get latest N blocks" endpoint
 data CBlockEntry = CBlockEntry
-    { cbeHeight     :: !Word
+    { cbeBlkHash    :: !CHash
+    , cbeHeight     :: !Word
     , cbeTimeIssued :: !POSIXTime
     , cbeTxNum      :: !Word
     , cbeTotalSent  :: !Coin
@@ -84,7 +85,8 @@ toBlockEntry
 toBlockEntry blk = do
     blkSlotStart <- getSlotStart $
                     blk ^. gbHeader . gbhConsensus . mcdSlot
-    let cbeHeight = fromIntegral $ blk ^. difficultyL
+    let cbeBlkHash = toCHash $ headerHash blk
+        cbeHeight = fromIntegral $ blk ^. difficultyL
         cbeTimeIssued = toPosixTime blkSlotStart
         txs = blk ^. blockTxs
         cbeTxNum = fromIntegral $ length txs
@@ -115,7 +117,6 @@ toTxEntry ts tx = CTxEntry {..}
 -- | Data displayed on block summary page
 data CBlockSummary = CBlockSummary
     { cbsEntry      :: !CBlockEntry
-    , cbsBlkHash    :: !CHash
     , cbsPrevHash   :: !CHash
     , cbsNextHash   :: !(Maybe CHash)
     , cbsMerkleRoot :: !CHash
@@ -128,8 +129,7 @@ toBlockSummary
 toBlockSummary blk = do
     cbsEntry <- toBlockEntry blk
     cbsNextHash <- fmap toCHash <$> GS.resolveForwardLink blk
-    let cbsBlkHash = toCHash $ headerHash blk
-        cbsPrevHash = toCHash $ blk ^. prevBlockL
+    let cbsPrevHash = toCHash $ blk ^. prevBlockL
         cbsMerkleRoot = toCHash . getMerkleRoot . mtRoot $ blk ^. blockTxs
     return CBlockSummary {..}
 

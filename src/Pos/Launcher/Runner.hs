@@ -86,6 +86,7 @@ import           Pos.Context                 (ContextHolder (..), NodeContext (.
 import           Pos.Crypto                  (createProxySecretKey, toPublic)
 import           Pos.DB                      (MonadDB (..), getTip, initNodeDBs,
                                               openNodeDBs, runDBHolder, _gStateDB)
+import qualified Pos.DB.Lrc                  as LrcDB
 import           Pos.DB.Misc                 (addProxySecretKey)
 import           Pos.Delegation.Holder       (runDelegationT)
 import           Pos.DHT.Model               (MonadDHT (..), converseToNeighbors,
@@ -190,7 +191,7 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
     usingLoggerName lpRunnerTag $ do
        initNC <- sscCreateNodeContext @ssc sscnp
        modernDBs <- openNodeDBs npRebuildDb npDbPathM
-       -- TODO: ideally initialization logic should be in scenario.
+       -- TODO [CSL-775] ideally initialization logic should be in scenario.
        runDBHolder modernDBs . runCH np initNC $ initNodeDBs
        initTip <- runDBHolder modernDBs getTip
        stateM <- liftIO SM.newIO
@@ -198,7 +199,7 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
        slottingVar <- runDBHolder modernDBs mkSlottingVar
        ntpSlottingVar <- mkNtpSlottingVar
 
-       -- TODO need an effect-free way of running this into IO.
+       -- TODO [CSL-775] need an effect-free way of running this into IO.
        let runIO :: forall t . RawRealMode ssc t -> IO t
            runIO = runProduction .
                        usingLoggerName lpRunnerTag .
@@ -331,7 +332,9 @@ runCH params@NodeParams {..} sscNodeContext act = do
     jlFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
     semaphore <- liftIO newEmptyMVar
     updSemaphore <- liftIO newEmptyMVar
-    lrcSync <- liftIO $ newTVarIO (True, 0)
+
+    -- TODO [CSL-775] lrc initialization logic is duplicated.
+    lrcSync <- liftIO . newTVarIO . (True,) =<< LrcDB.getEpoch
 
     let eternity = (minBound, maxBound)
         makeOwnPSK = flip (createProxySecretKey npSecretKey) eternity . toPublic

@@ -334,7 +334,7 @@ runCH params@NodeParams {..} sscNodeContext act = do
     updSemaphore <- liftIO newEmptyMVar
 
     -- TODO [CSL-775] lrc initialization logic is duplicated.
-    lrcSync <- liftIO . newTVarIO . (True,) =<< LrcDB.getEpoch
+    lrcSync <- liftIO . newTVarIO . (True,) =<< LrcDB.getEpochDefault
 
     let eternity = (minBound, maxBound)
         makeOwnPSK = flip (createProxySecretKey npSecretKey) eternity . toPublic

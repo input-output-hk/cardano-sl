@@ -7,6 +7,7 @@ module Pos.DB.Lrc.Common
        (
          -- * Getters
          getEpoch
+       , getEpochDefault
 
          -- * Initialization
        , prepareLrcCommon
@@ -53,6 +54,11 @@ delete k = rocksDelete k =<< getLrcDB
 -- | Get epoch up to which LRC is definitely known.
 getEpoch :: MonadDB ssc m => m EpochIndex
 getEpoch = maybeThrow (DBMalformed "no epoch in LRC DB") =<< getEpochMaybe
+
+-- It's a workaround and I would like to get rid of it in future (@gromak).
+-- | Get epoch up to which LRC is definitely known or 0.
+getEpochDefault :: MonadDB ssc m => m EpochIndex
+getEpochDefault = fromMaybe 0 <$> getEpochMaybe
 
 ----------------------------------------------------------------------------
 -- Operations

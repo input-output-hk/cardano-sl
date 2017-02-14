@@ -9,7 +9,7 @@ module Pos.DB.Lrc
        , module Pos.DB.Lrc.Richmen
        ) where
 
-import           Pos.DB.Lrc.Common  (getEpoch, putEpoch)
+import           Pos.DB.Lrc.Common  (getEpoch, getEpochDefault, putEpoch)
 import           Pos.DB.Lrc.Issuers
 import           Pos.DB.Lrc.Leaders
 import           Pos.DB.Lrc.Lrc

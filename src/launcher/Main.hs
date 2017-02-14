@@ -233,7 +233,11 @@ spawnNode (path, args, mbLogPath) = do
         Nothing -> do
             tempdir <- liftIO (fromString <$> getTemporaryDirectory)
             mktemp tempdir "cardano-node-output.log"
-    printf ("Redirecting node's stdout and stderr to "%fp%"\n") logPath
+    -- TODO (jmitchell): Find a safe, reliable way to print `logPath`. Cardano
+    -- fails when it prints unicode characters. In the meantime, don't print it.
+    -- See DAEF-12.
+
+    -- printf ("Redirecting node's stdout and stderr to "%fp%"\n") logPath
     liftIO $ IO.hSetBuffering logHandle IO.LineBuffering
     let cr = (Process.proc (toString path) (map toString args))
                  { Process.std_in  = Process.CreatePipe

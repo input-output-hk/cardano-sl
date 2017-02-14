@@ -21,54 +21,50 @@ data CompileConfig = CompileConfig
 ----------------------------------------------------------------------------
 -- Fundamental constants
 ----------------------------------------------------------------------------
-      ccK                              :: !Int
+      ccK                             :: !Int
       -- ^ Security parameter from paper
 
 ----------------------------------------------------------------------------
 -- Genesis
 ----------------------------------------------------------------------------
-    , ccGenesisN                       :: !Int
+    , ccGenesisN                      :: !Int
       -- ^ Number of pre-generated keys
-    , ccGenesisSlotDurationSec         :: !Int
+    , ccGenesisSlotDurationSec        :: !Int
       -- ^ Length of slot in seconds
-    , ccGenesisMaxBlockSize            :: !Byte
+    , ccGenesisMaxBlockSize           :: !Byte
       -- ^ Maximum block size in bytes
 
 ----------------------------------------------------------------------------
 -- -- Txp
 ----------------------------------------------------------------------------
-    , ccGenesisMaxTxSize               :: !Byte
+    , ccGenesisMaxTxSize              :: !Byte
       -- ^ Maximum tx size in bytes
-    , ccGenesisMaxMCOpeningSize        :: !Byte
-      -- ^ Maximum `MCOpening` size in bytes
-    , ccGenesisMaxMCVssCertificateSize :: !Byte
-      -- ^ Maximum `MCVssCertificate` size in bytes
 
 ----------------------------------------------------------------------------
 -- -- SSC
 ----------------------------------------------------------------------------
-    , ccGenesisMpcThd                  :: !Double
+    , ccGenesisMpcThd                 :: !Double
       -- ^ Eligibility threshold for MPC
 
 ----------------------------------------------------------------------------
 -- -- Delegation
 ----------------------------------------------------------------------------
-    , ccGenesisHeavyDelThd             :: !Double
+    , ccGenesisHeavyDelThd            :: !Double
       -- ^ Threshold for heavyweight delegation
 
 ----------------------------------------------------------------------------
 -- -- UpdateSystem
 ----------------------------------------------------------------------------
-    , ccGenesisUpdateVoteThd           :: !Double
+    , ccGenesisUpdateVoteThd          :: !Double
       -- ^ Portion of total stake necessary to vote for or against update.
-    , ccGenesisUpdateProposalThd       :: !Double
+    , ccGenesisUpdateProposalThd      :: !Double
       -- ^ Portion of total stake such that block containing
       -- UpdateProposal must contain positive votes for this proposal
       -- from stakeholders owning at least this amount of stake.
-    , ccGenesisUpdateImplicit          :: !Word
+    , ccGenesisUpdateImplicit         :: !Word
       -- ^ Number of slots after which update is implicitly approved
       -- unless it has more negative votes than positive.
-    , ccGenesisUpdateSoftforkThd       :: !Double
+    , ccGenesisUpdateSoftforkThd      :: !Double
       -- ^ Portion of total stake such that if total stake of issuers of blocks
       -- with some block version is bigger than this portion, this block
       -- version is adopted.
@@ -76,58 +72,58 @@ data CompileConfig = CompileConfig
 ----------------------------------------------------------------------------
 -- -- Relay
 ----------------------------------------------------------------------------
-    , ccGenesisMaxReqSize              :: !Byte
+    , ccGenesisMaxReqSize             :: !Byte
       -- ^ Maximum `ReqMsg` size in bytes
-    , ccGenesisMaxInvSize              :: !Byte
+    , ccGenesisMaxInvSize             :: !Byte
       -- ^ Maximum `InvMsg` size in bytes
 
 ----------------------------------------------------------------------------
 -- Other
 ----------------------------------------------------------------------------
-    , ccNetworkDiameter                :: !Int
+    , ccNetworkDiameter               :: !Int
       -- ^ Estimated time for broadcasting messages
-    , ccNeighboursSendThreshold        :: !Int
+    , ccNeighboursSendThreshold       :: !Int
       -- ^ Broadcasting threshold
-    , ccMaxLocalTxs                    :: !Word
+    , ccMaxLocalTxs                   :: !Word
       -- ^ Max number of transactions in Storage
-    , ccDefaultPeers                   :: ![String]
+    , ccDefaultPeers                  :: ![String]
       -- ^ List of default peers
-    , ccSysTimeBroadcastSlots          :: !Int
+    , ccSysTimeBroadcastSlots         :: !Int
       -- ^ Number of slots to broadcast system time
-    , ccMpcSendInterval                :: !Word
+    , ccMpcSendInterval               :: !Word
       -- ^ Length of interval for sending MPC message
-    , ccMdNoBlocksSlotThreshold        :: !Int
+    , ccMdNoBlocksSlotThreshold       :: !Int
       -- ^ Threshold of slots for malicious activity detection
-    , ccMdNoCommitmentsEpochThreshold  :: !Int
+    , ccMdNoCommitmentsEpochThreshold :: !Int
       -- ^ Threshold of epochs for malicious activity detection
-    , ccVssMaxTTL                      :: !Word64
+    , ccVssMaxTTL                     :: !Word64
       -- ^ VSS certificates max timeout to live (number of epochs)
-    , ccVssMinTTL                      :: !Word64
+    , ccVssMinTTL                     :: !Word64
       -- ^ VSS certificates min timeout to live (number of epochs)
-    , ccProtocolMagic                  :: !Int
+    , ccProtocolMagic                 :: !Int
       -- ^ Magic constant for separating real/testnet
-    , ccLightDlgConfirmationTimeout    :: !Int
+    , ccLightDlgConfirmationTimeout   :: !Int
       -- ^ Timeout for holding light psks confirmations
-    , ccEnhancedMessageBroadcast       :: !Word
+    , ccEnhancedMessageBroadcast      :: !Word
       -- ^ True if we should enable enhanced bessage broadcast
-    , ccRecoveryHeadersMessage         :: !Int
+    , ccRecoveryHeadersMessage        :: !Int
       -- ^ Numbers of headers put in message in recovery mode.
-    , ccMessageCacheTimeout            :: !Int
+    , ccMessageCacheTimeout           :: !Int
       -- ^ Interval we ignore cached messages in components that
       -- support caching
-    , ccKademliaDumpInterval           :: !Int
+    , ccKademliaDumpInterval          :: !Int
       -- ^ Interval for dumping Kademlia state in slots
-    , ccNtpResponseTimeout             :: !Int
+    , ccNtpResponseTimeout            :: !Int
       -- ^ How often request to NTP server and response collection
-    , ccNtpPollDelay                   :: !Int
+    , ccNtpPollDelay                  :: !Int
       -- ^ How often send request to NTP server
-    , ccNetworkConnectionTimeout       :: !Int
+    , ccNetworkConnectionTimeout      :: !Int
       -- ^ Network connection timeout in milliseconds
-    , ccBlockRetrievalQueueSize        :: !Int
+    , ccBlockRetrievalQueueSize       :: !Int
       -- ^ Block retrieval queue capacity
-    , ccNetworkReceiveTimeout          :: !Int
+    , ccNetworkReceiveTimeout         :: !Int
       -- ^ Network timeout on `recv` in milliseconds
-    , ccProductionNetworkStartTime     :: !Int
+    , ccProductionNetworkStartTime    :: !Int
       -- ^ Start time of network (in `Prodution` running mode).
       -- If set to zero, then running time is 2 minutes after build.
     } deriving (Show, Lift)

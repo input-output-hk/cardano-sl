@@ -131,6 +131,9 @@ instance MessageLimited (DataMsg (UpdateProposal, [UpdateVote])) where
         Limit (DataMsg (UpdateProposal, [UpdateVote]))
     getMsgLenLimit _ = return msgLenLimit
 
+noLimit :: Limit a
+noLimit = 1000000
+
 mcCommitmentMsgLenLimit :: Limit GtMsgContents
 mcCommitmentMsgLenLimit = MCCommitment <$> msgLenLimit
 
@@ -148,9 +151,9 @@ instance MessageLimited (DataMsg GtMsgContents) where
     getMsgLenLimit _ =
         return $ each %~ fmap DataMsg $
             ( mcCommitmentMsgLenLimit
-            , Limit Const.genesisMaxMCOpeningSize
+            , noLimit
             , mcSharesMsgLenLimit
-            , Limit Const.genesisMaxMCVssCertificateSize
+            , noLimit
             )
 
 instance MessageLimitedPure (InvMsg key tag) where

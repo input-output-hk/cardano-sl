@@ -179,24 +179,25 @@ computeSharesDistr richmen = do
 
     calcSumError:: [Rational] -> [Rational] -> Rational
     calcSumError pNew p = runIdentity $ do
-        let negDiff = zip p pNew
-        let sortedNeg = sortOn (\(a, b) -> b - a) negDiff
-
-        let posDiff = zip p pNew
-        let sortedPos = sortOn (\(a, b) -> a - b) posDiff
-        pure $ max (computeError1 0 0 sortedNeg) (computeError2 0 0 sortedPos)
+        let sorted1 = sortOn (\(a, b) -> b / a) $ zip p pNew
+        let sorted2 = sortOn (\(a, b) -> b - a) $ zip p pNew
+        let res1 = max (computeError1 0 0 sorted1) (computeError2 0 0 $ reverse sorted1)
+        let res2 = max (computeError1 0 0 sorted2) (computeError2 0 0 $ reverse sorted2)
+        pure $ max res1 res2
 
     half = 0.5::Rational
     -- Error when real stake more than 0.5 but our new stake less
-    computeError1 _ new [] = max 0 (half - new)
+    computeError1 _ _ [] = 0
     computeError1 real new (x:xs)
-        | real > half = max 0 (half - new)
+        | new < half && real >= half =
+            max (real - half) $ computeError1 (real + fst x) (new + snd x) xs
         | otherwise = computeError1 (real + fst x) (new + snd x) xs
 
     -- Error when real stake less than 0.5 but our new stake more
-    computeError2 _ new [] = max 0 (new - half)
+    computeError2 _ _ [] = 0
     computeError2 real new (x:xs)
-        | real + fst x > half = max 0 (new - half)
+        | new >= half && real < half =
+            max (half - real) $ computeError2 (real + fst x) (new + snd x) xs
         | otherwise = computeError2 (real + fst x) (new + snd x) xs
 
     multPortions :: [Rational] -> Word16 -> [Word16]

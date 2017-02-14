@@ -33,6 +33,7 @@ library
   build-depends:        base
                       , aeson
                       , bytestring
+                      , base16-bytestring
                       , cardano-sl
                       , exceptions
                       , formatting

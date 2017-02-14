@@ -10,6 +10,7 @@ module Pos.Explorer.Web.ClientTypes
        , CAddressSummary (..)
        , toCHash
        , fromCHash
+       , fromCHash'
        , toCAddress
        , fromCAddress
        , toCTxId
@@ -18,26 +19,31 @@ module Pos.Explorer.Web.ClientTypes
        , toBlockSummary
        ) where
 
-import qualified Data.ByteString       as BS
-import qualified Data.ByteString.Lazy  as BSL
-import           Data.Time.Clock.POSIX (POSIXTime)
-import           Formatting            (build, sformat)
-import           Servant.API           (FromHttpApiData (..))
+import qualified Data.ByteString        as BS
+import qualified Data.ByteString.Base16 as B16
+import qualified Data.ByteString.Lazy   as BSL
+import           Data.Time.Clock.POSIX  (POSIXTime)
+import           Formatting             (build, sformat)
+import           Servant.API            (FromHttpApiData (..))
 import           Universum
 
-import           Pos.Binary            (encode)
-import           Pos.Crypto            (Hash, decodeHash, encodeHash, hash)
-import           Pos.DB                (MonadDB (..))
-import qualified Pos.DB.GState         as GS
-import           Pos.Merkle            (getMerkleRoot, mtRoot)
-import           Pos.Slotting          (MonadSlots (..), getSlotStart)
-import           Pos.Ssc.Class         (SscHelpersClass)
-import           Pos.Types             (Address, Coin, MainBlock (..), Timestamp, Tx (..),
-                                        TxId, TxOut (..), addressF, blockTxs,
-                                        decodeTextAddress, difficultyL, gbHeader,
-                                        gbhConsensus, headerHash, mcdSlot, mkCoin,
-                                        prevBlockL, sumCoins, unsafeAddCoin,
-                                        unsafeIntegerToCoin)
+import qualified Pos.Binary             as Bi
+import           Pos.Crypto             (Hash, hash)
+import           Pos.DB                 (MonadDB (..))
+import qualified Pos.DB.GState          as GS
+import           Pos.Merkle             (getMerkleRoot, mtRoot)
+import           Pos.Slotting           (MonadSlots (..), getSlotStart)
+import           Pos.Ssc.Class          (SscHelpersClass)
+import           Pos.Types              (Address, Coin, MainBlock (..), Timestamp,
+                                         Tx (..), TxId, TxOut (..), addressF, blockTxs,
+                                         decodeTextAddress, difficultyL, gbHeader,
+                                         gbhConsensus, headerHash, mcdSlot, mkCoin,
+                                         prevBlockL, sumCoins, unsafeAddCoin,
+                                         unsafeIntegerToCoin)
+
+-------------------------------------------------------------------------------------
+-- Hash types
+-------------------------------------------------------------------------------------
 
 -- | Client hash
 newtype CHash = CHash Text deriving (Show, Eq, Generic, Buildable, Hashable)
@@ -49,11 +55,27 @@ newtype CAddress = CAddress Text deriving (Show, Eq, Generic, Hashable, Buildabl
 newtype CTxId = CTxId CHash deriving (Show, Eq, Generic, Hashable)
 
 -- | Transformation of core hash-types to client representations and vice versa
-toCHash :: Hash a -> CHash
-toCHash = CHash . encodeHash
+encodeHashHex :: Hash a -> Text
+encodeHashHex = decodeUtf8 . B16.encode . Bi.encodeStrict
 
-fromCHash :: CHash -> Hash a
-fromCHash (CHash h) = decodeHash h
+decodeHashHex :: Text -> Either Text (Hash a)
+decodeHashHex = fmap Bi.decode . processRes . B16.decode . encodeUtf8
+  where processRes (res, rest) =
+            if BS.null rest
+            then Right $ BSL.fromStrict res
+            else Left $ "decodeHashHex: couldn't decode rest of hash: " <> decodeUtf8 rest
+
+decodeHashHex' :: Text -> Hash a
+decodeHashHex' = either (panic "decodeHashHex: invalid hash") identity . decodeHashHex
+
+toCHash :: Hash a -> CHash
+toCHash = CHash . encodeHashHex
+
+fromCHash :: CHash -> Either Text (Hash a)
+fromCHash (CHash h) = decodeHashHex h
+
+fromCHash' :: CHash -> Hash a
+fromCHash' (CHash h) = decodeHashHex' h
 
 toCAddress :: Address -> CAddress
 toCAddress = CAddress . sformat addressF
@@ -63,6 +85,10 @@ fromCAddress (CAddress addr) = decodeTextAddress addr
 
 toCTxId :: TxId -> CTxId
 toCTxId = CTxId . toCHash
+
+-------------------------------------------------------------------------------------
+-- Composite types
+-------------------------------------------------------------------------------------
 
 -- | List of block entries is returned from "get latest N blocks" endpoint
 data CBlockEntry = CBlockEntry
@@ -93,7 +119,7 @@ toBlockEntry blk = do
         addCoins c = unsafeAddCoin c . totalTxMoney
         cbeTotalSent = foldl' addCoins (mkCoin 0) txs
         -- TODO: is there a way to get it more efficiently?
-        cbeSize = fromIntegral . BSL.length $ encode blk
+        cbeSize = fromIntegral . BSL.length $ Bi.encode blk
         cbeRelayedBy = Nothing
     return CBlockEntry {..}
 
@@ -144,7 +170,7 @@ data CAddressSummary = CAddressSummary
 -------------------------------------------------------------------------------------
 
 instance FromHttpApiData CHash where
-    parseUrlPiece = pure . CHash
+    parseUrlPiece = fmap toCHash . decodeHashHex
 
 instance FromHttpApiData CAddress where
     parseUrlPiece = fmap toCAddress . decodeTextAddress

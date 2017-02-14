@@ -40,7 +40,7 @@ import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
 import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
                                                  CBlockEntry (..), CBlockSummary (..),
                                                  CHash, CTxEntry (..), fromCAddress,
-                                                 fromCHash, toBlockEntry, toBlockSummary,
+                                                 fromCHash', toBlockEntry, toBlockSummary,
                                                  toTxEntry)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 
@@ -139,10 +139,10 @@ getLastTxs (fromIntegral -> lim) (fromIntegral -> off) = do
     return $ localTxEntries ++ blockTxEntries
 
 getBlockSummary :: ExplorerMode m => CHash -> m CBlockSummary
-getBlockSummary (fromCHash -> h) = getMainBlock h >>= toBlockSummary
+getBlockSummary (fromCHash' -> h) = getMainBlock h >>= toBlockSummary
 
 getBlockTxs :: ExplorerMode m => CHash -> Word -> Word -> m [CTxEntry]
-getBlockTxs (fromCHash -> h) (fromIntegral -> lim) (fromIntegral -> off) = do
+getBlockTxs (fromCHash' -> h) (fromIntegral -> lim) (fromIntegral -> off) = do
     blk <- getMainBlock h
     blkSlotStart <- getBlkSlotStart blk
     let txs = toList $ blk ^. blockTxs

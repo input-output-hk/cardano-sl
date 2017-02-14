@@ -12,6 +12,7 @@ import           Control.Lens                (ix)
 import           Data.Default                (def)
 import           Formatting                  (bprint, build, sformat, shown, (%))
 import           Mockable                    (delay, fork)
+import           Pos.Communication.Protocol  (SendActions)
 import           Serokell.Util               (VerificationRes (..), listJson, pairF)
 import           Serokell.Util.Exceptions    ()
 import           System.Wlog                 (WithLogger, logDebug, logError, logInfo,
@@ -43,6 +44,7 @@ import           Pos.Util                    (inAssertMode, logWarningWaitLinear
 import           Pos.Util.JsonLog            (jlCreatedBlock, jlLog)
 import           Pos.WorkMode                (WorkMode)
 
+
 -- | All workers specific to block processing.
 blkWorkers :: (SscWorkersClass ssc, WorkMode ssc m) => ([WorkerSpec m], OutSpecs)
 blkWorkers = merge [blkOnNewSlot, retrievalWorker]
@@ -51,36 +53,11 @@ blkWorkers = merge [blkOnNewSlot, retrievalWorker]
 
 -- Action which should be done when new slot starts.
 blkOnNewSlot :: WorkMode ssc m => (WorkerSpec m, OutSpecs)
-blkOnNewSlot = onNewSlotWorker True announceBlockOuts $ \(slotId@SlotId {..}) sendActions -> do
-    let onNoLeader =
-            logWarning "Couldn't find a leader for current slot among known ones"
-        logLeadersF = if siSlot == 0 then logInfo else logDebug
-        onKnownLeader leaders leader = do
-            ourPk <- ncPublicKey <$> getNodeContext
-            let ourPkHash = addressHash ourPk
-            proxyCerts <- getProxySecretKeys
-            let validCerts =
-                    filter (\pSk -> let (w0,w1) = pskOmega pSk
-                                    in siEpoch >= w0 && siEpoch <= w1) proxyCerts
-                validCert = find (\pSk -> addressHash (pskIssuerPk pSk) == leader)
-                                 validCerts
-            logLeadersF $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash
-            logLeadersF $ sformat ("Slot leaders: "%listJson) $
-                          map (bprint pairF) (zip [0 :: Int ..] $ toList leaders)
-            logLeadersF $ sformat ("Current slot leader: "%build) leader
-            logDebug $ sformat ("Available to use lightweight PSKs: "%listJson) validCerts
-            heavyPskM <- getPSKByIssuerAddressHash leader
-            logDebug $ "Does someone have cert for this slot: " <> show (isJust heavyPskM)
-            let heavyWeAreDelegate = maybe False ((== ourPk) . pskDelegatePk) heavyPskM
-            let heavyWeAreIssuer = maybe False ((== ourPk) . pskIssuerPk) heavyPskM
-            if | heavyWeAreIssuer ->
-                 logDebug $ sformat
-                 ("Not creating the block because it's delegated by psk: "%build)
-                 heavyPskM
-               | leader == ourPkHash -> onNewSlotWhenLeader slotId Nothing sendActions
-               | heavyWeAreDelegate -> onNewSlotWhenLeader slotId (Right <$> heavyPskM) sendActions
-               | isJust validCert -> onNewSlotWhenLeader slotId  (Left <$> validCert) sendActions
-               | otherwise -> pass
+blkOnNewSlot = onNewSlotWorker True announceBlockOuts blkOnNewSlotImpl
+
+blkOnNewSlotImpl :: WorkMode ssc m =>
+                    SlotId -> SendActions m -> m ()
+blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
     -- First of all we create genesis block if necessary.
     mGenBlock <- createGenesisBlock siEpoch
     whenJust mGenBlock $ \createdBlk -> do
@@ -103,6 +80,39 @@ blkOnNewSlot = onNewSlotWorker True announceBlockOuts $ \(slotId@SlotId {..}) se
             maybe onNoLeader
                   (onKnownLeader leaders)
                   (leaders ^? ix (fromIntegral siSlot))
+  where
+    onNoLeader =
+        logWarning "Couldn't find a leader for current slot among known ones"
+    logLeadersF = if siSlot == 0 then logInfo else logDebug
+    onKnownLeader leaders leader = do
+        ourPk <- ncPublicKey <$> getNodeContext
+        let ourPkHash = addressHash ourPk
+        proxyCerts <- getProxySecretKeys
+        let validCerts =
+                filter (\pSk -> let (w0,w1) = pskOmega pSk
+                                in siEpoch >= w0 && siEpoch <= w1) proxyCerts
+            validCert = find (\pSk -> addressHash (pskIssuerPk pSk) == leader)
+                             validCerts
+        logLeadersF $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash
+        logLeadersF $ sformat ("Slot leaders: "%listJson) $
+                      map (bprint pairF) (zip [0 :: Int ..] $ toList leaders)
+        logLeadersF $ sformat ("Current slot leader: "%build) leader
+        logDebug $ sformat ("Available to use lightweight PSKs: "%listJson) validCerts
+        heavyPskM <- getPSKByIssuerAddressHash leader
+        logDebug $ "Does someone have cert for this slot: " <> show (isJust heavyPskM)
+        let heavyWeAreDelegate = maybe False ((== ourPk) . pskDelegatePk) heavyPskM
+        let heavyWeAreIssuer = maybe False ((== ourPk) . pskIssuerPk) heavyPskM
+        if | heavyWeAreIssuer ->
+                 logDebug $ sformat
+                 ("Not creating the block because it's delegated by psk: "%build)
+                 heavyPskM
+           | leader == ourPkHash ->
+                 onNewSlotWhenLeader slotId Nothing sendActions
+           | heavyWeAreDelegate ->
+                 onNewSlotWhenLeader slotId (Right <$> heavyPskM) sendActions
+           | isJust validCert ->
+                 onNewSlotWhenLeader slotId  (Left <$> validCert) sendActions
+           | otherwise -> pass
 
 onNewSlotWhenLeader
     :: WorkMode ssc m

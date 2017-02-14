@@ -28,11 +28,12 @@ import           Pos.Binary.Class                 (Bi)
 import           Pos.Binary.Communication         ()
 import           Pos.Binary.Relay                 ()
 import           Pos.Binary.Ssc                   ()
-import           Pos.Communication.Message        ()
+import           Pos.Communication.Message        (MessagePart)
 import           Pos.Communication.Protocol       (OutSpecs, SendActions, Worker',
-                                                   WorkerSpec, onNewSlotWorker, oneMsgH,
+                                                   WorkerSpec, convH, onNewSlotWorker,
                                                    toOutSpecs)
-import           Pos.Communication.Relay          (DataMsg (..), InvMsg (..))
+import           Pos.Communication.Relay          (DataMsg, InvOrData, ReqMsg,
+                                                   invReqDataFlowNeighbors)
 import           Pos.Constants                    (mpcSendInterval, slotSecurityParam,
                                                    vssMaxTTL)
 import           Pos.Context                      (getNodeContext, lrcActionOnEpochReason,
@@ -43,7 +44,6 @@ import           Pos.Crypto                       (SecretKey, VssKeyPair, VssPub
 import           Pos.Crypto.SecretSharing         (toVssPublicKey)
 import           Pos.Crypto.Signing               (PublicKey)
 import           Pos.DB.Lrc                       (getRichmenSsc)
-import           Pos.DHT.Model                    (sendToNeighbors)
 import           Pos.Lrc.Types                    (RichmenStake)
 import           Pos.Slotting                     (getCurrentSlot,
                                                    getSlotStartEmpatically)
@@ -105,18 +105,18 @@ onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions -> do
         onNewSlotOpening slotId sendActions
         onNewSlotShares slotId sendActions
   where
-    outs = toOutSpecs [ oneMsgH (Proxy :: Proxy (DataMsg GtMsgContents))
-                      , oneMsgH (Proxy :: Proxy (InvMsg StakeholderId GtMsgContents))
+    outs = toOutSpecs [ convH (Proxy :: Proxy (InvOrData GtTag StakeholderId GtMsgContents))
+                              (Proxy :: Proxy (ReqMsg StakeholderId GtTag))
                       ]
 
 -- CHECK: @checkNSendOurCert
 -- Checks whether 'our' VSS certificate has been announced
 checkNSendOurCert :: forall m . (WorkMode SscGodTossing m) => Worker' m
 checkNSendOurCert sendActions = do
+    (_, ourId) <- getOurPkAndId
     let sendCert resend slot = do
-            if resend
-                then logError
-                         "Our VSS certificate is in global state, but it has already expired, \
+            if resend then
+                logError "Our VSS certificate is in global state, but it has already expired, \
                          \apparently it's a bug, but we are announcing it just in case."
                 else logInfo
                          "Our VssCertificate hasn't been announced yet or TTL has expired, \
@@ -124,10 +124,9 @@ checkNSendOurCert sendActions = do
             ourVssCertificate <- getOurVssCertificate slot
             let contents = MCVssCertificate ourVssCertificate
             sscProcessOurMessage contents
-            let msg = DataMsg contents
-            sendToNeighbors sendActions msg
+            invReqDataFlowNeighbors "ssc" sendActions VssCertificateMsg ourId contents
             logDebug "Announced our VssCertificate."
-    (_, ourId) <- getOurPkAndId
+
     slMaybe <- getCurrentSlot
     case slMaybe of
         Nothing -> pass
@@ -201,8 +200,9 @@ onNewSlotCommitment slotId@SlotId {..} sendActions
               sendOurCommitment comm ourId
 
     sendOurCommitment comm ourId = do
-        sscProcessOurMessage (MCCommitment comm)
-        sendOurData sendActions CommitmentMsg siEpoch 0 ourId
+        let msg = MCCommitment comm
+        sscProcessOurMessage msg
+        sendOurData sendActions CommitmentMsg ourId msg siEpoch 0
 
 -- Openings-related part of new slot processing
 onNewSlotOpening
@@ -224,8 +224,9 @@ onNewSlotOpening SlotId {..} sendActions
         mbOpen <- SS.getOurOpening siEpoch
         case mbOpen of
             Just open -> do
-                sscProcessOurMessage (MCOpening ourId open)
-                sendOurData sendActions OpeningMsg siEpoch 2 ourId
+                let msg = MCOpening ourId open
+                sscProcessOurMessage msg
+                sendOurData sendActions OpeningMsg ourId msg siEpoch 2
             Nothing -> logWarning "We don't know our opening, maybe we started recently"
 
 -- Shares-related part of new slot processing
@@ -243,8 +244,9 @@ onNewSlotShares SlotId {..} sendActions = do
         shares <- getOurShares ourVss
         let lShares = fmap (NE.map asBinary) shares
         unless (HM.null shares) $ do
-            sscProcessOurMessage (MCShares ourId lShares)
-            sendOurData sendActions SharesMsg siEpoch 4 ourId
+            let msg = MCShares ourId lShares
+            sscProcessOurMessage msg
+            sendOurData sendActions SharesMsg ourId msg siEpoch 4
 
 sscProcessOurMessage
     :: WorkMode SscGodTossing m
@@ -260,17 +262,18 @@ sscProcessOurMessage msg = runExceptT (sscProcessOurMessageDo msg) >>= logResult
         logWarning $
         sformat ("We have rejected our message, reason: "%build) er
 
-sendOurData
-    :: (WorkMode SscGodTossing m)
-    => SendActions m -> GtTag -> EpochIndex -> LocalSlotIndex -> StakeholderId -> m ()
-sendOurData sendActions msgTag epoch slMultiplier ourId = do
+sendOurData ::
+    ( WorkMode SscGodTossing m
+    , MessagePart contents
+    , Bi (DataMsg contents))
+    => SendActions m -> GtTag -> StakeholderId -> contents -> EpochIndex -> LocalSlotIndex -> m ()
+sendOurData sendActions msgTag ourId dt epoch slMultiplier = do
     -- Note: it's not necessary to create a new thread here, because
     -- in one invocation of onNewSlot we can't process more than one
     -- type of message.
     waitUntilSend msgTag epoch slMultiplier
     logInfo $ sformat ("Announcing our "%build) msgTag
-    let msg = InvMsg {imTag = msgTag, imKeys = one ourId}
-    sendToNeighbors sendActions msg
+    invReqDataFlowNeighbors "ssc" sendActions msgTag ourId dt
     logDebug $ sformat ("Sent our " %build%" to neighbors") msgTag
 
 -- Generate new commitment and opening and use them for the current

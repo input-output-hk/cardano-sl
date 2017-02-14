@@ -24,7 +24,6 @@ import           Control.Monad.Trans.Maybe   (MaybeT (..))
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.Map                    as M
 import           Data.Time.Units             (Millisecond)
-import           Mockable                    (CurrentTime, Mockable)
 import           Mockable                    (MonadMockable, Production)
 import           System.Wlog                 (LoggerNameBox, WithLogger)
 import           Universum
@@ -38,11 +37,11 @@ import qualified Pos.DB                      as DB
 import           Pos.DB.Error                (DBError (..))
 import qualified Pos.DB.GState               as GS
 import           Pos.Delegation              (DelegationT (..))
-import           Pos.DHT.Model               (MonadDHT)
+import           Pos.DHT.Model               (MonadDHT, getKnownPeers)
 import           Pos.DHT.Real                (KademliaDHT (..))
-import           Pos.Slotting                (EpochSlottingData (..), MonadSlots,
-                                              NtpSlotting, SlottingData (..),
-                                              SlottingHolder, getCurrentSlotInaccurate)
+import           Pos.Slotting                (EpochSlottingData (..), NtpSlotting,
+                                              SlottingData (..), SlottingHolder,
+                                              getCurrentSlotInaccurate)
 import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
 import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp.Class               (getMemPool, getUtxoView)
@@ -59,7 +58,7 @@ import           Pos.Types.Utxo.Functions    (belongsTo, filterUtxoByAddr)
 import           Pos.Update                  (ConfirmedProposalState (..), USHolder (..))
 import           Pos.Util                    (maybeThrow)
 import           Pos.Util.Shutdown           (triggerShutdown)
-import           Pos.WorkMode                (MinWorkMode)
+import           Pos.WorkMode                (MinWorkMode, RawRealMode)
 
 import           Pos.Wallet.Context          (ContextHolder, WithWalletContext)
 import           Pos.Wallet.KeyStorage       (KeyStorage, MonadKeys)
@@ -186,6 +185,7 @@ class Monad m => MonadBlockchainInfo m where
     networkChainDifficulty :: m ChainDifficulty
     localChainDifficulty :: m ChainDifficulty
     blockchainSlotDuration :: m Millisecond
+    connectedPeers :: m Word
 
     default networkChainDifficulty
         :: (MonadTrans t, MonadBlockchainInfo m', t m' ~ m) => m ChainDifficulty
@@ -199,25 +199,21 @@ class Monad m => MonadBlockchainInfo m where
         :: (MonadTrans t, MonadBlockchainInfo m', t m' ~ m) => m Millisecond
     blockchainSlotDuration = lift blockchainSlotDuration
 
+    default connectedPeers
+        :: (MonadTrans t, MonadBlockchainInfo m', t m' ~ m) => m Word
+    connectedPeers = lift connectedPeers
+
 instance MonadBlockchainInfo m => MonadBlockchainInfo (ReaderT r m)
 instance MonadBlockchainInfo m => MonadBlockchainInfo (StateT s m)
-instance MonadBlockchainInfo m => MonadBlockchainInfo (KademliaDHT m)
-instance MonadBlockchainInfo m => MonadBlockchainInfo (KeyStorage m)
-instance MonadBlockchainInfo m => MonadBlockchainInfo (PeerStateHolder m)
-instance MonadBlockchainInfo m => MonadBlockchainInfo (NtpSlotting m)
-instance MonadBlockchainInfo m => MonadBlockchainInfo (SlottingHolder m)
 
-deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (Modern.TxpLDHolder ssc m)
-deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (SscHolder ssc m)
-deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (DelegationT m)
-deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (USHolder m)
 deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (WalletWebDB m)
 
 -- | Stub instance for lite-wallet
-instance MonadIO m => MonadBlockchainInfo (WalletDB m) where
+instance MonadBlockchainInfo WalletRealMode where
     networkChainDifficulty = panic "notImplemented"
     localChainDifficulty = panic "notImplemented"
     blockchainSlotDuration = panic "notImplemented"
+    connectedPeers = panic "notImplemented"
 
 -- | Helpers for avoiding copy-paste
 topHeader :: (SscHelpersClass ssc, MonadDB ssc m) => m (BlockHeader ssc)
@@ -232,13 +228,8 @@ recoveryHeader = PC.getNodeContext >>=
                  return . fmap snd
 
 -- | Instance for full-node's ContextHolder
-instance ( SscHelpersClass ssc
-         , Mockable CurrentTime m
-         , MonadDB ssc m
-         , MonadThrow m
-         , MonadSlots m
-         , WithLogger m) =>
-         MonadBlockchainInfo (PC.ContextHolder ssc m) where
+instance SscHelpersClass ssc =>
+         MonadBlockchainInfo (RawRealMode ssc) where
     networkChainDifficulty = recoveryHeader >>= \case
         Just hh -> return $ hh ^. difficultyL
         Nothing -> do
@@ -249,6 +240,7 @@ instance ( SscHelpersClass ssc
             return $ blksLeft + th ^. difficultyL
 
     localChainDifficulty = view difficultyL <$> topHeader
+    connectedPeers = fromIntegral . length <$> getKnownPeers
 
     blockchainSlotDuration = esdSlotDuration . sdLast <$> GS.getSlottingData
 

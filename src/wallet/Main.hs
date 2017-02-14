@@ -31,8 +31,8 @@ import           Pos.Crypto                (Hash, SecretKey, createProxySecretKe
                                             encodeHash, hash, hashHexF, sign, toPublic,
                                             unsafeHash)
 import           Pos.Data.Attributes       (mkAttributes)
-import           Pos.Delegation            (sendProxySKEpoch, sendProxySKEpochOuts,
-                                            sendProxySKSimple, sendProxySKSimpleOuts)
+import           Pos.Delegation            (sendProxySKHeavy, sendProxySKHeavyOuts,
+                                            sendProxySKLight, sendProxySKLightOuts)
 import           Pos.DHT.Model             (DHTNode, discoverPeers, getKnownPeers)
 import           Pos.Genesis               (genesisBlockVersionData, genesisPublicKeys,
                                             genesisSecretKeys)
@@ -42,7 +42,7 @@ import           Pos.Ssc.GodTossing        (SscGodTossing)
 import           Pos.Ssc.NistBeacon        (SscNistBeacon)
 import           Pos.Ssc.SscAlgo           (SscAlgo (..))
 import           Pos.Types                 (EpochIndex (..), coinF, makePubKeyAddress,
-                                            txaF)
+                                            siEpoch, txaF)
 import           Pos.Update                (BlockVersionData (..), UpdateProposal (..),
                                             UpdateVote (..), patakUpdateData,
                                             skovorodaUpdateData)
@@ -146,19 +146,20 @@ runCmd sendActions (DelegateLight i j) = do
     let issuerSk = genesisSecretKeys !! i
         delegatePk = genesisPublicKeys !! j
         psk = createProxySecretKey issuerSk delegatePk (EpochIndex 0, EpochIndex 50)
-    lift $ sendProxySKEpoch psk sendActions
+    lift $ sendProxySKLight psk sendActions
     putText "Sent lightweight cert"
 runCmd sendActions (DelegateHeavy i j) = do
+    epoch <- undefined
     let issuerSk = genesisSecretKeys !! i
         delegatePk = genesisPublicKeys !! j
-        psk = createProxySecretKey issuerSk delegatePk ()
-    lift $ sendProxySKSimple psk sendActions
+        psk = createProxySecretKey issuerSk delegatePk epoch
+    lift $ sendProxySKHeavy psk sendActions
     putText "Sent heavyweight cert"
 runCmd _ Quit = pure ()
 
 runCmdOuts :: OutSpecs
-runCmdOuts = mconcat [ sendProxySKEpochOuts
-                     , sendProxySKSimpleOuts
+runCmdOuts = mconcat [ sendProxySKLightOuts
+                     , sendProxySKHeavyOuts
                      , sendTxOuts
                      , sendVoteOuts
                      , sendProposalOuts
@@ -217,6 +218,9 @@ runWalletCmd wo str sa = do
 main :: IO ()
 main = do
     opts@WalletOptions {..} <- execParser optsInfo
+    filePeers <- maybe (return []) CLI.readPeersFile
+                     (CLI.dhtPeersFile woCommonArgs)
+    let allPeers = CLI.dhtPeers woCommonArgs ++ filePeers
     let logParams =
             LoggingParams
             { lpRunnerTag     = "smart-wallet"
@@ -228,7 +232,7 @@ main = do
             BaseParams
             { bpLoggingParams      = logParams
             , bpIpPort             = woIpPort
-            , bpDHTPeers           = CLI.dhtPeers woCommonArgs
+            , bpDHTPeers           = allPeers
             , bpDHTKey             = Nothing
             , bpDHTExplicitInitial = CLI.dhtExplicitInitial woCommonArgs
             , bpKademliaDump       = "kademlia.dump"

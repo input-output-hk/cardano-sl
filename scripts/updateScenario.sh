@@ -2,6 +2,7 @@
 
 build=false
 runNode=false
+wallet_cli=""
 
 while [[ $# -gt 0 ]]
 do
@@ -14,6 +15,11 @@ do
     -b|--build)
       echo "--build flag is on"
       build=true
+      ;;
+    -w|--wallet)
+      echo "--wallet is $2"
+      wallet_cli="--wallet $2"
+      shift
       ;;
     *)
       # unknown option
@@ -56,7 +62,8 @@ if $build; then
   stack clean cardano-sl
   grep "BlockVersion 0 0 0" src/Pos/Constants.hs  # fails if not found
   stack build --fast 
-  csl_bin=$(find .stack-work/install/ -iname "bin")
+
+  csl_bin=$(stack path --local-install-root)/bin
   originalMd5=$(md5sum $csl_bin/cardano-node)
   # Copying artefacts for v0.0.0
   echo "Preparing binaries with 0.0.0"
@@ -157,7 +164,7 @@ if $runNode; then
   echo "Launching launcher"
   sleep 1
   rm -rf update-node-tmp.log
-  stack exec cardano-launcher -- --node binaries_v000/cardano-node --node-log-config scripts/update-log-config.yaml -n "--update-server"  -n "http://localhost:$serverPort" -n "--update-latest-path" -n "updateDownloaded.tar" -n "--listen" -n "127.0.0.1:3004" -n "--peer" -n "127.0.0.1:3000/a_P8zb6fNP7I2H54FtGuhqxaMDAwMDAwMDAwMDAwMDA=" -n "--flat-distr" -n "(3,100000)" -n "--rebuild-db" -n "--wallet" -n "--web-port" -n 8090 --updater $updater -u "dir" -u "binaries_v000" --node-timeout 5 --report-server http://localhost:8555/ --update-archive updateDownloaded.tar
+  stack exec cardano-launcher -- --node binaries_v000/cardano-node --node-log-config scripts/update-log-config.yaml -n "--update-server"  -n "http://localhost:$serverPort" -n "--update-latest-path" -n "updateDownloaded.tar" -n "--listen" -n "127.0.0.1:3004" -n "--peer" -n "127.0.0.1:3000/a_P8zb6fNP7I2H54FtGuhqxaMDAwMDAwMDAwMDAwMDA=" -n "--flat-distr" -n "(3,100000)" -n "--rebuild-db" -n "--wallet" -n "--web-port" -n 8090 --updater $updater -u "dir" -u "binaries_v000" --node-timeout 5 --report-server http://localhost:8555/ --update-archive updateDownloaded.tar $wallet_cli
 fi
 
 notify-send "updater scenario: ready"

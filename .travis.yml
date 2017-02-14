@@ -35,7 +35,7 @@ script:
   --flag cardano-sl:with-wallet
   --flag cardano-sl:-asserts
   --flag cardano-sl:-dev-mode
-- ./update_haddock.sh
+- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ./update_haddock.sh; fi
 - stack exec --nix -- cardano-wallet-hs2purs
 - cd daedalus
 - nix-shell -p nodejs --run "npm install && npm run build:prod"

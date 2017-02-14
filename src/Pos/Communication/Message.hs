@@ -1,4 +1,6 @@
-module Pos.Communication.Message () where
+module Pos.Communication.Message
+       ( MessagePart (..)
+       ) where
 
 import           Data.Proxy                       (Proxy (..))
 import           Node.Message                     (Message (..), MessageName (..))
@@ -8,7 +10,7 @@ import           Pos.Binary.Class                 (UnsignedVarInt (..), encodeSt
 import           Pos.Block.Network.Types          (MsgBlock, MsgGetBlocks, MsgGetHeaders,
                                                    MsgHeaders)
 import           Pos.Communication.Types.Protocol (NOP)
-import           Pos.Communication.Types.Relay    (DataMsg, InvMsg, ReqMsg)
+import           Pos.Communication.Types.Relay    (DataMsg, InvOrData, ReqMsg)
 import           Pos.Communication.Types.SysStart (SysStartRequest, SysStartResponse)
 import           Pos.Delegation.Types             (ConfirmProxySK, SendProxySK)
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents, GtTag)
@@ -55,13 +57,20 @@ instance Message (MsgBlock s ssc) where
     messageName _ = varIntMName 7
     formatMessage _ = "Block"
 
-instance (MessagePart tag) =>
-         Message (InvMsg key tag) where
-    messageName p = varIntMName 8 <> pMessageName (tagM p)
+instance (MessagePart tag, MessagePart contents) =>
+         Message (InvOrData tag key contents) where
+    messageName p = varIntMName 8 <>
+                    pMessageName (tagM p) <>
+                    pMessageName (contentsM p)
       where
-        tagM :: Proxy (InvMsg key tag) -> Proxy tag
+        tagM :: Proxy (InvOrData tag key contents)
+             -> Proxy tag
         tagM _ = Proxy
-    formatMessage _ = "Inventory"
+
+        contentsM :: Proxy (InvOrData tag keys contents)
+                  -> Proxy contents
+        contentsM _ = Proxy
+    formatMessage _ = "Inventory/Data"
 
 instance (MessagePart tag) =>
          Message (ReqMsg key tag) where

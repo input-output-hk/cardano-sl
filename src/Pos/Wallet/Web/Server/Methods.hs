@@ -1,6 +1,7 @@
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeOperators       #-}
 
 -- | Wallet web server.
@@ -13,9 +14,10 @@ module Pos.Wallet.Web.Server.Methods
        , walletServerOuts
        ) where
 
+import           Control.Lens                  (makeLenses, (.=))
 import           Control.Monad.Catch           (try)
 import           Control.Monad.Except          (runExceptT)
-import           Control.Monad.Trans.State     (get, runStateT)
+import           Control.Monad.State           (runStateT)
 import qualified Data.ByteString.Base64        as B64
 import           Data.Default                  (Default, def)
 import           Data.List                     (elemIndex, nub, (!!))
@@ -46,8 +48,9 @@ import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
 import           Pos.Wallet.Tx                 (sendTxOuts, submitTx)
 import           Pos.Wallet.Tx.Pure            (TxHistoryEntry (..))
 import           Pos.Wallet.WalletMode         (WalletMode, applyLastUpdate,
-                                                blockchainSlotDuration, getBalance,
-                                                getTxHistory, localChainDifficulty,
+                                                blockchainSlotDuration, connectedPeers,
+                                                getBalance, getTxHistory,
+                                                localChainDifficulty,
                                                 networkChainDifficulty, waitForUpdate)
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CProfile,
@@ -87,6 +90,18 @@ type WalletWebMode ssc m
       , MonadWalletWebDB m
       , MonadWalletWebSockets m
       )
+
+-- | Notifier state (moved here due to `makeLenses` and scoping issues)
+data SyncProgress =
+    SyncProgress { _spLocalCD   :: ChainDifficulty
+                 , _spNetworkCD :: ChainDifficulty
+                 , _spPeers     :: Word
+                 }
+
+makeLenses ''SyncProgress
+
+instance Default SyncProgress where
+    def = SyncProgress 0 0 0
 
 walletServeImpl
     :: ( MonadIO m
@@ -144,14 +159,6 @@ walletServer sendActions nat = do
 -- Notifier
 ------------------------
 
-data SyncProgress =
-    SyncProgress { spLocalCD   :: ChainDifficulty
-                 , spNetworkCD :: ChainDifficulty
-                 }
-
-instance Default SyncProgress where
-    def = let chainDef = ChainDifficulty 0 in SyncProgress chainDef chainDef
-
 -- type SyncState = StateT SyncProgress
 
 -- FIXME: this is really inaficient. Temporary solution
@@ -178,15 +185,23 @@ launchNotifier nat = void . liftIO $ mapM startForking
         action
     dificultyNotifier = void . flip runStateT def $ notifier difficultyNotifyPeriod $ do
         networkDifficulty <- networkChainDifficulty
-        -- TODO: use lenses!
-        whenM ((networkDifficulty /=) . spNetworkCD <$> get) $ do
+        oldNetworkDifficulty <- use spNetworkCD
+        when (networkDifficulty /= oldNetworkDifficulty) $ do
             lift $ notify $ NetworkDifficultyChanged networkDifficulty
-            modify $ \sp -> sp { spNetworkCD = networkDifficulty }
+            spNetworkCD .= networkDifficulty
 
         localDifficulty <- localChainDifficulty
-        whenM ((localDifficulty /=) . spLocalCD <$> get) $ do
+        oldLocalDifficulty <- use spLocalCD
+        when (localDifficulty /= oldLocalDifficulty) $ do
             lift $ notify $ LocalDifficultyChanged localDifficulty
-            modify $ \sp -> sp { spLocalCD = localDifficulty }
+            spLocalCD .= localDifficulty
+
+        peers <- connectedPeers
+        oldPeers <- use spPeers
+        when (peers /= oldPeers) $ do
+            lift $ notify $ ConnectedPeersChanged peers
+            spPeers .= peers
+
     updateNotifier = do
         cps <- waitForUpdate
         addUpdate $ toCUpdateInfo cps

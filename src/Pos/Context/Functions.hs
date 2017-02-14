@@ -13,18 +13,25 @@ module Pos.Context.Functions
        , readBlkSemaphore
        , takeBlkSemaphore
 
-       -- * LRC synchronization
+         -- * LRC synchronization
        , waitLrc
        , lrcActionOnEpoch
        , lrcActionOnEpochReason
+
+         -- * Misc
+       , getUptime
+       , isRecoveryMode
        ) where
 
 import           Control.Concurrent.MVar (putMVar)
+import qualified Control.Concurrent.STM  as STM
+import           Data.Time               (diffUTCTime, getCurrentTime)
+import           Data.Time.Units         (Microsecond, fromMicroseconds)
 import           Universum
 
 import           Pos.Context.Class       (WithNodeContext (..))
 import           Pos.Context.Context     (NodeContext (..), ncGenesisLeaders,
-                                          ncGenesisUtxo)
+                                          ncGenesisUtxo, ncStartTime)
 import           Pos.Lrc.Error           (LrcError (..))
 import           Pos.Types               (EpochIndex, HeaderHash, SlotLeaders, Utxo)
 import           Pos.Util                (maybeThrow, readTVarConditional)
@@ -89,3 +96,22 @@ lrcActionOnEpochReason
 lrcActionOnEpochReason epoch reason actionDependsOnLrc = do
     waitLrc epoch
     actionDependsOnLrc epoch >>= maybeThrow (LrcDataUnknown epoch reason)
+
+----------------------------------------------------------------------------
+-- Misc
+----------------------------------------------------------------------------
+
+-- | Returns node uptime based on current time and 'ncStartTime'.
+getUptime :: (MonadIO m, WithNodeContext ssc m) => m Microsecond
+getUptime = do
+    curTime <- liftIO getCurrentTime
+    startTime <- ncStartTime <$> getNodeContext
+    let seconds = toRational $ curTime `diffUTCTime` startTime
+    pure $ fromMicroseconds $ round $ seconds * 1000 * 1000
+
+-- | Returns if 'ncRecoveryHeader' is 'Just' which is equivalent to
+-- "we're in recovery mode".
+isRecoveryMode :: (MonadIO m, WithNodeContext ssc m) => m Bool
+isRecoveryMode = do
+    var <- ncRecoveryHeader <$> getNodeContext
+    isJust <$> atomically (STM.tryReadTMVar var)

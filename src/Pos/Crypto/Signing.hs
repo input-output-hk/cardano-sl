@@ -248,13 +248,14 @@ data ProxySecretKey w = ProxySecretKey
 instance NFData w => NFData (ProxySecretKey w)
 instance Hashable w => Hashable (ProxySecretKey w)
 
+instance {-# OVERLAPPABLE #-}
+         (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySecretKey w) where
+    build (ProxySecretKey w iPk dPk _) =
+        bprint ("ProxySk { w = "%build%", iPk = "%build%", dPk = "%build%" }") w iPk dPk
+
 instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySecretKey (w,w)) where
     build (ProxySecretKey w iPk dPk _) =
         bprint ("ProxySk { w = "%pairF%", iPk = "%build%", dPk = "%build%" }") w iPk dPk
-
-instance (Bi PublicKey) => B.Buildable (ProxySecretKey ()) where
-    build (ProxySecretKey () iPk dPk _) =
-        bprint ("ProxySk { w = (), iPk = "%build%", dPk = "%build%" }") iPk dPk
 
 deriveSafeCopySimple 0 'base ''ProxySecretKey
 
@@ -282,14 +283,16 @@ data ProxySignature w a = ProxySignature
 instance NFData w => NFData (ProxySignature w a)
 instance Hashable w => Hashable (ProxySignature w a)
 
+instance {-# OVERLAPPABLE #-}
+         (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySignature w a) where
+    build ProxySignature{..} =
+        bprint ("Proxy signature { w = "%build%", delegatePk = "%build%" }")
+               pdOmega pdDelegatePk
+
 instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySignature (w,w) a) where
     build ProxySignature{..} =
         bprint ("Proxy signature { w = "%pairF%", delegatePk = "%build%" }")
                pdOmega pdDelegatePk
-
-instance (Bi PublicKey) => B.Buildable (ProxySignature () a) where
-    build ProxySignature{..} =
-        bprint ("Proxy signature { w = (), delegatePk = "%build%" }") pdDelegatePk
 
 instance (SafeCopy w) => SafeCopy (ProxySignature w a) where
     putCopy ProxySignature{..} = contain $ do

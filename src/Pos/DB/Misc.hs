@@ -31,7 +31,7 @@ import           Pos.DB.Class                   (MonadDB, getMiscDB)
 import           Pos.DB.Functions               (rocksGetBi, rocksPutBi)
 import           Pos.Ssc.GodTossing.Type        (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Types (GtSecretStorage)
-import           Pos.Types                      (EpochIndex, ProxySKEpoch)
+import           Pos.Types                      (EpochIndex, ProxySKLight)
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -48,17 +48,17 @@ prepareMiscDB = pass
 ----------------------------------------------------------------------------
 
 -- | Gets proxy secret keys stored by node
-getProxySecretKeys :: MonadDB ssc m => m [ProxySKEpoch]
+getProxySecretKeys :: MonadDB ssc m => m [ProxySKLight]
 getProxySecretKeys = do
-    curCerts <- getBi @([ProxySKEpoch]) proxySKKey
+    curCerts <- getBi @([ProxySKLight]) proxySKKey
     maybe onNothing pure curCerts
   where
     onNothing = do
-        putBi proxySKKey ([] :: [ProxySKEpoch])
+        putBi proxySKKey ([] :: [ProxySKLight])
         pure []
 
 -- | Adds proxy secret key if not present. Nothing if present.
-addProxySecretKey :: MonadDB ssc m => ProxySKEpoch -> m ()
+addProxySecretKey :: MonadDB ssc m => ProxySKLight -> m ()
 addProxySecretKey psk = do
     keys <- getProxySecretKeys
     putBi proxySKKey $ nub $ psk:keys
@@ -129,7 +129,7 @@ putBi
 putBi k v = rocksPutBi k v =<< getMiscDB
 
 proxySKKey :: ByteString
-proxySKKey = "psk_"
+proxySKKey = "psk/"
 
 skHashKey :: ByteString
-skHashKey = "skhash_"
+skHashKey = "skh/"

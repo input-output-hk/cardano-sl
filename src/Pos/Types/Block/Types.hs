@@ -45,7 +45,7 @@ import           Pos.Types.Block.Class (Blockchain (..), GenericBlock, GenericBl
                                         GenericBlockHeader (..))
 import           Pos.Types.Core        (BlockVersion, ChainDifficulty, HeaderHash,
                                         SlotId (..), SoftwareVersion)
-import           Pos.Types.Types       (ProxySigEpoch, ProxySigSimple)
+import           Pos.Types.Types       (ProxySigHeavy, ProxySigLight)
 import           Pos.Types.Version     ()
 
 import           Formatting            (bprint, build, (%))
@@ -67,8 +67,8 @@ type MainToSign ssc = (HeaderHash, BodyProof (MainBlockchain ssc), SlotId, Chain
 -- inside the constrained interval).
 data BlockSignature ssc
     = BlockSignature (Signature (MainToSign ssc))
-    | BlockPSignatureEpoch (ProxySigEpoch (MainToSign ssc))
-    | BlockPSignatureSimple (ProxySigSimple (MainToSign ssc))
+    | BlockPSignatureEpoch (ProxySigLight (MainToSign ssc))
+    | BlockPSignatureSimple (ProxySigHeavy (MainToSign ssc))
     deriving (Show, Eq)
 
 instance Buildable (BlockSignature ssc) where

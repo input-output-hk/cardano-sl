@@ -40,6 +40,7 @@ module Pos.Constants
        , networkConnectionTimeout
        , networkReceiveTimeout
        , blockRetrievalQueueSize
+       , propagationQueueSize
        , defaultPeers
        , sysTimeBroadcastSlots
        , vssMaxTTL
@@ -236,6 +237,10 @@ networkReceiveTimeout = ms . fromIntegral . ccNetworkReceiveTimeout $ compileCon
 blockRetrievalQueueSize :: Integral a => a
 blockRetrievalQueueSize =
     fromIntegral . ccBlockRetrievalQueueSize $ compileConfig
+
+propagationQueueSize :: Integral a => a
+propagationQueueSize =
+    fromIntegral $ ccPropagationQueueSize $ compileConfig
 
 -- | @True@ if current mode is 'Development'.
 isDevelopment :: Bool

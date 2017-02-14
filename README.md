@@ -129,6 +129,7 @@ All other CSS files are located side by side with its PureScript "UI" modules. F
 
 ```bash
 curl https://nixos.org/nix/install | sh
+source ~/.nix-profile/etc/profile.d/nix.sh
 ./scripts/build.sh
 ```
 

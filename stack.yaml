@@ -68,7 +68,7 @@ extra-deps:
 - optparse-applicative-0.13.0.0   # needed for turtle
 - criterion-1.1.4.0               # older criterion doesn't like optparse-0.13
 - code-page-0.1.1                 # needed for criterion
-- purescript-bridge-0.10.0.0
+- purescript-bridge-0.10.1.0
 
 resolver: lts-7.16
 

@@ -9,6 +9,7 @@ module Pos.Slotting.Util
          getCurrentSlotFlat
        , getSlotStart
        , getSlotStartEmpatically
+       , getLastKnownSlotDuration
 
          -- * Worker which ticks when slot starts
        , onNewSlot
@@ -66,6 +67,10 @@ getSlotStartEmpatically
     => SlotId -> m Timestamp
 getSlotStartEmpatically slot =
     getSlotStart slot >>= maybeThrow (SEUnknownSlotStart slot)
+
+-- | Get last known slot duration.
+getLastKnownSlotDuration :: MonadSlotsData m => m Millisecond
+getLastKnownSlotDuration = esdSlotDuration . sdLast <$> getSlottingData
 
 -- | Type constraint for `onNewSlot*` workers
 type OnNewSlot ssc m =

@@ -39,9 +39,9 @@ import qualified Pos.DB.GState               as GS
 import           Pos.Delegation              (DelegationT (..))
 import           Pos.DHT.Model               (MonadDHT, getKnownPeers)
 import           Pos.DHT.Real                (KademliaDHT (..))
-import           Pos.Slotting                (EpochSlottingData (..), NtpSlotting,
-                                              SlottingData (..), SlottingHolder,
-                                              getCurrentSlotInaccurate)
+import           Pos.Slotting                (NtpSlotting, SlottingHolder,
+                                              getCurrentSlotInaccurate,
+                                              getLastKnownSlotDuration)
 import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
 import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp.Class               (getMemPool, getUtxoView)
@@ -242,7 +242,7 @@ instance SscHelpersClass ssc =>
     localChainDifficulty = view difficultyL <$> topHeader
     connectedPeers = fromIntegral . length <$> getKnownPeers
 
-    blockchainSlotDuration = esdSlotDuration . sdLast <$> GS.getSlottingData
+    blockchainSlotDuration = getLastKnownSlotDuration
 
 -- | Abstraction over getting update proposals
 class Monad m => MonadUpdates m where

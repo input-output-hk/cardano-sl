@@ -16,6 +16,7 @@ module Pos.Types.Coin
        , unsafeSubCoin
        , unsafeMulCoin
        , divCoin
+       , coinPortionToDouble
        , applyCoinPortion
        ) where
 

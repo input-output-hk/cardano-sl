@@ -28,7 +28,8 @@ import           Pos.Block.Network.Types     (MsgBlock (..), MsgGetBlocks (..),
 import           Pos.Communication.Protocol  (ConversationActions (..), HandlerSpec (..),
                                               ListenerSpec (..), OutSpecs, PeerData,
                                               listenerConv, mergeLs, messageName)
-import           Pos.Communication.Limits    (LimitedLength, withLimitedLength)
+import           Pos.Communication.Limits    (LimitedLength, withLimitedLength,
+                                              Limit)
 import           Pos.Communication.Util      (stubListenerConv)
 import qualified Pos.DB                      as DB
 import           Pos.DB.Error                (DBError (DBMalformed))
@@ -91,7 +92,7 @@ handleGetBlocks
 handleGetBlocks =
     -- NB #put_checkBlockSize: We can use anything as maxBlockSize
     -- here because 'put' doesn't check block size.
-    reify (0 :: Byte) $ \(_ :: Proxy s0) ->
+    reify (0 :: Limit MsgGetBlocks) $ \(_ :: Proxy s0) ->
     listenerConv $
         \_ __peerId (conv :: ConversationActions
                                (MsgBlock ssc)

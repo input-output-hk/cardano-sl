@@ -1149,6 +1149,7 @@ test-suite cardano-test
                      , memory
                      , mtl
                      , node-sketch
+                     , pvss
                      , quickcheck-instances
                      , random
                      , reflection

@@ -39,7 +39,8 @@ import           Pos.Block.Network.Announce (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
                                              MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Block.Types            (Blund)
-import           Pos.Communication.Limits   (LimitedLength, withLimitedLength)
+import           Pos.Communication.Limits   (LimitedLength, withLimitedLength,
+                                             getMsgLenLimit)
 import           Pos.Communication.Protocol (ConversationActions (..), NodeId, OutSpecs,
                                              SendActions (..), WorkerSpec, convH,
                                              toOutSpecs, worker)
@@ -47,7 +48,6 @@ import           Pos.Constants              (blkSecurityParam)
 import           Pos.Context                (NodeContext (..), getNodeContext)
 import           Pos.Crypto                 (shortHashF)
 import qualified Pos.DB                     as DB
-import qualified Pos.DB.GState              as GState
 import           Pos.Ssc.Class              (Ssc, SscWorkersClass)
 import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (..),
                                              HeaderHash, blockHeader, difficultyL,
@@ -139,7 +139,7 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
     handleCHsValid sendActions peerId lcaChild newestHash = do
         let lcaChildHash = headerHash lcaChild
         logDebug $ sformat validFormat lcaChildHash newestHash
-        maxBlockSize <- GState.getMaxBlockSize
+        maxBlockSize <- getMsgLenLimit (Proxy :: Proxy (MsgBlock ssc))
         -- Yay, reflection magic! Here we indirectly pass 'maxBlockSize' as
         -- a parameter to the 'Bi' instance of 'MsgBlock'.
         reify maxBlockSize $ \(_ :: Proxy s0) ->

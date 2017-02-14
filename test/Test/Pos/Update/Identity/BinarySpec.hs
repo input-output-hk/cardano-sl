@@ -4,13 +4,12 @@ module Test.Pos.Update.Identity.BinarySpec
        ( spec
        ) where
 
-import           Test.Hspec              (Spec, describe)
+import           Test.Hspec               (Spec, describe)
 import           Universum
 
-import           Pos.Binary              ()
-import qualified Pos.Communication.Relay as R
-import qualified Pos.Constants           as Const
-import qualified Pos.Update              as U
+import           Pos.Binary               ()
+import qualified Pos.Communication.Relay  as R
+import qualified Pos.Update               as U
 
 
 import           Test.Pos.Util           (binaryTest, networkBinaryTest,
@@ -42,11 +41,9 @@ spec =
         networkBinaryTest @(R.ReqMsg U.UpId U.ProposalMsgTag)
         networkBinaryTest @(R.DataMsg (U.UpdateProposal, [U.UpdateVote]))
     describe "Message length limit" $ do
-      msgLenLimitedTest
-        @(R.InvMsg U.VoteId U.VoteMsgTag) Const.genesisMaxInvSize
-      msgLenLimitedTest
-        @(R.ReqMsg U.VoteId U.VoteMsgTag) Const.genesisMaxReqSize
-      msgLenLimitedTest
-        @(R.ReqMsg U.UpId U.ProposalMsgTag) Const.genesisMaxInvSize
-      msgLenLimitedTest
-        @(R.ReqMsg U.UpId U.ProposalMsgTag) Const.genesisMaxReqSize
+      msgLenLimitedTest @(R.InvMsg U.VoteId U.VoteMsgTag)
+      msgLenLimitedTest @(R.ReqMsg U.VoteId U.VoteMsgTag)
+      msgLenLimitedTest @(R.InvMsg U.UpId U.ProposalMsgTag)
+      msgLenLimitedTest @(R.ReqMsg U.UpId U.ProposalMsgTag)
+      msgLenLimitedTest @(R.DataMsg U.UpdateVote)
+      msgLenLimitedTest @(R.DataMsg (U.UpdateProposal, [U.UpdateVote]))

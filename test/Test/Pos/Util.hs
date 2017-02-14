@@ -28,15 +28,17 @@ import           Data.Serialize             (runGet, runPut)
 import           Data.Typeable              (typeRep)
 import           Formatting                 ((%), int, formatToString)
 import           Prelude                    (read)
-import           Serokell.Data.Memory.Units (Byte)
-import           Test.QuickCheck            (counterexample, property)
+import           Test.QuickCheck            (counterexample, property, forAll,
+                                             suchThat, vectorOf,
+                                             arbitrary)
 
 import           Pos.Binary                 (Bi (..), encode)
+import           Pos.Communication          (MessageLimitedPure (..), Limit)
 import           Pos.Util                   (AsBinaryClass (..))
 
 import           Test.Hspec                 (Spec)
 import           Test.Hspec.QuickCheck      (modifyMaxSuccess, prop)
-import           Test.QuickCheck            (Arbitrary, Property, (===), (==>))
+import           Test.QuickCheck            (Arbitrary, Property, (===))
 import           Universum
 
 binaryEncodeDecode :: (Show a, Eq a, Bi a) => a -> Property
@@ -86,14 +88,15 @@ networkBinaryEncodeDecode a = stage1 $ runGetIncremental get
     stage3 (Partial _) =
         failText "Parser required extra input"
 
-msgLenLimitedCheck :: (Show a, Bi a) => Byte -> a -> Property
+msgLenLimitedCheck
+    :: (Show a, Bi a) => Limit a -> a -> Property
 msgLenLimitedCheck limit msg =
-        let size = LBS.length (encode msg)
-        in if size <= fromIntegral limit
-            then property True
-            else flip counterexample False $
-                formatToString ("Message size (e.g. "%int%") exceedes \
-                \limit ("%int%")") size limit
+    let size = LBS.length . encode $ msg
+    in if size <= fromIntegral limit
+        then property True
+        else flip counterexample False $
+            formatToString ("Message size (max found "%int%") exceedes \
+            \limit ("%int%")") size limit
 
 safeCopyEncodeDecode :: (Show a, Eq a, SafeCopy a) => a -> Property
 safeCopyEncodeDecode a =
@@ -124,15 +127,24 @@ networkBinaryTest = identityTest @Bi @a networkBinaryEncodeDecode
 
 msgLenLimitedTest'
     :: forall a. IdTestingRequiredClasses Bi a
-    => Byte -> String -> (a -> Bool) -> Spec
+    => Limit a -> String -> (a -> Bool) -> Spec
 msgLenLimitedTest' limit desc whetherTest =
-    -- increase amount of tests e.g. in case of small keys in `ReqMsg`
-    modifyMaxSuccess (* 100) $
-        identityTest @Bi @a $
-            \a -> counterexample desc $ whetherTest a ==> msgLenLimitedCheck limit a
+    -- instead of checking for `arbitrary` values, we'd better generate
+    -- many values and find maximal message size - it allows user to get
+    -- correct limit on the spot, if needed.
+    modifyMaxSuccess (const 1) $ identityTest @Bi @a $
+    \_ -> forAll arbitraryOfMaxSize $
+        \a -> counterexample desc $ msgLenLimitedCheck limit a
+  where
+    arbitraryOfMaxSize = do
+        samples <- vectorOf 3000 $ arbitrary `suchThat` whetherTest
+        return $ maximumBy (comparing $ LBS.length . encode) samples
 
-msgLenLimitedTest :: forall a. IdTestingRequiredClasses Bi a => Byte -> Spec
-msgLenLimitedTest limit = msgLenLimitedTest' @a limit "" (const True)
+
+msgLenLimitedTest
+    :: forall a. (IdTestingRequiredClasses Bi a, MessageLimitedPure a)
+    => Spec
+msgLenLimitedTest = msgLenLimitedTest' @a msgLenLimit "" (const True)
 
 safeCopyTest :: forall a. IdTestingRequiredClasses SafeCopy a => Spec
 safeCopyTest = identityTest @SafeCopy @a safeCopyEncodeDecode

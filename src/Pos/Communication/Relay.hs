@@ -48,6 +48,7 @@ class ( Buildable tag
       , Typeable key
       , Message (InvMsg key tag)
       , Message (ReqMsg key tag)
+      , Message (DataMsg contents)
       , MessageLimited (DataMsg contents)
       ) => Relay m tag key contents
       | tag -> contents, contents -> tag, contents -> key, tag -> key where

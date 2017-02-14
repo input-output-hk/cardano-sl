@@ -151,7 +151,7 @@ getBlockTxs (fromCHash -> h) (fromIntegral -> lim) (fromIntegral -> off) = do
 
 getAddressSummary :: ExplorerMode m => CAddress -> m CAddressSummary
 getAddressSummary cAddr = cAddrToAddr cAddr >>= \case
-    PubKeyAddress sid -> do
+    PubKeyAddress sid _ -> do
         balance <- fromMaybe (mkCoin 0) <$> GS.getFtsStake sid
         -- TODO: add number of coins when it's implemented
         return $ CAddressSummary cAddr 0 balance
@@ -180,4 +180,3 @@ getMainBlock h =
     DB.getBlock h >>=
     maybeThrow (Internal "No block found") >>=
     either (const $ throwM $ Internal "Block is genesis block") pure
-

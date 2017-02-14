@@ -6,7 +6,7 @@ packages:
 - '.'
 - location:
     git: https://github.com/input-output-hk/cardano-sl
-    commit: f37c6cf6a43f42cd7c0a0477e33ae95155d50450
+    commit: 328d2293732a887ab4f3ca0a8bce607f92dd3879
   extra-dep: true
 - location:
     git: https://github.com/serokell/acid-state.git
@@ -35,12 +35,12 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: d0cdbf5a5f1d985a9776ba745ea6f6fb915c6e3d
+    commit: 9b4927f8115499db2fa3ba07df50d60d02190790
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
     git: https://github.com/avieth/network-transport-tcp
-    commit: 705b3c0d44cb1f4eea904b54431cd467e62dda35
+    commit: d2705abd5b54707ca97b5bf9c9c24005e800ee49
   extra-dep: true
 - location:
     git: https://github.com/avieth/network-transport
@@ -63,7 +63,7 @@ extra-deps:
 - serokell-util-0.1.3.2
 - pvss-0.1
 - base58-bytestring-0.1.0
-- log-warper-0.4.2
+- log-warper-0.4.3
 - turtle-1.3.1                    # earlier versions don't have 'stat'
 - optparse-applicative-0.13.0.0   # needed for turtle
 - criterion-1.1.4.0               # older criterion doesn't like optparse-0.13

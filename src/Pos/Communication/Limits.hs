@@ -77,6 +77,9 @@ vectorOf k (Limit x) =
     -- should be enough for most reasonable cases
     encodedListLength = 8
 
+vector :: (IsList l, MessageLimitedPure (Item l)) => Int -> Limit l
+vector k = vectorOf k msgLenLimit
+
 coerce :: Limit a -> Limit b
 coerce (Limit x) = Limit x
 
@@ -141,7 +144,7 @@ mcCommitmentMsgLenLimit = MCCommitment <$> msgLenLimit
 
 mcSharesMsgLenLimit :: Limit GtMsgContents
 mcSharesMsgLenLimit =
-    MCShares <$> msgLenLimit <*> vectorOf commitmentsNumLimit msgLenLimit
+    MCShares <$> msgLenLimit <*> vector commitmentsNumLimit
 
 instance MessageLimited (DataMsg GtMsgContents) where
     type LimitType (DataMsg GtMsgContents) =
@@ -167,12 +170,11 @@ instance MessageLimitedPure (ReqMsg key tag) where
 instance MessageLimitedPure Commitment where
     msgLenLimit =
         Commitment <$> msgLenLimit <*> msgLenLimit
-                   <*> (vectorOf commitmentsNumLimit msgLenLimit)
+                   <*> vector commitmentsNumLimit
 
 instance MessageLimitedPure SecretSharingExtra where
     msgLenLimit =
-        SecretSharingExtra <$> msgLenLimit
-                           <*> vectorOf commitmentsNumLimit msgLenLimit
+        SecretSharingExtra <$> msgLenLimit <*> vector commitmentsNumLimit
 
 instance MessageLimitedPure UpdateProposal where
     msgLenLimit = 212
@@ -187,7 +189,7 @@ instance MessageLimitedPure (DataMsg UpdateVote) where
 
 instance MessageLimitedPure (DataMsg (UpdateProposal, [UpdateVote])) where
     msgLenLimit = DataMsg <$>
-        ((,) <$> msgLenLimit <*> vectorOf updateVoteNumLimit msgLenLimit)
+        ((,) <$> msgLenLimit <*> vector updateVoteNumLimit)
 
 instance MessageLimitedPure TxMsgContents where
     msgLenLimit = Limit Const.genesisMaxTxSize

@@ -77,7 +77,7 @@ import           Pos.Types                  (Block, BlockHeader, EpochIndex,
                                              EpochOrSlot (..), GenesisBlock, HeaderHash,
                                              MainBlock, MainExtraBodyData (..),
                                              MainExtraHeaderData (..), ProxySKEither,
-                                             ProxySKSimple, SlotId (..), SlotLeaders,
+                                             ProxySKHeavy, SlotId (..), SlotLeaders,
                                              TxAux, TxId, VerifyHeaderParams (..),
                                              blockHeader, blockLeaders, difficultyL,
                                              epochIndexL, epochOrSlot, flattenSlotId,
@@ -739,7 +739,7 @@ createMainBlockPure
     -> [(TxId, TxAux)]
     -> Maybe ProxySKEither
     -> SlotId
-    -> [ProxySKSimple]
+    -> [ProxySKHeavy]
     -> SscPayload ssc
     -> UpdatePayload
     -> SecretKey

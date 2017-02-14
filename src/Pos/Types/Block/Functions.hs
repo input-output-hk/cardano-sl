@@ -46,8 +46,8 @@ import           Pos.Binary.Types           ()
 import           Pos.Binary.Update          ()
 import           Pos.Constants              (epochSlots, lastKnownBlockVersion)
 import           Pos.Crypto                 (Hash, SecretKey, checkSig, proxySign,
-                                             proxyVerify, pskIssuerPk, sign, toPublic,
-                                             unsafeHash)
+                                             proxyVerify, pskIssuerPk, pskOmega, sign,
+                                             toPublic, unsafeHash)
 import           Pos.Merkle                 (mkMerkleTree)
 import           Pos.Script                 (isKnownScriptVersion, scrVersion)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
@@ -225,7 +225,7 @@ mkGenesisBlock prevHeader epoch leaders =
 mkMainBody
     :: [(Tx, TxWitness, TxDistribution)]
     -> SscPayload ssc
-    -> [ProxySKSimple]
+    -> [ProxySKHeavy]
     -> UpdatePayload
     -> Body (MainBlockchain ssc)
 mkMainBody txws mpc proxySKs updatePayload =
@@ -502,11 +502,15 @@ verifyBlock VerifyBlockParams {..} blk =
     verifyProxySKs
         | vbpVerifyProxySKs =
           (flip (either $ const mempty) blk) $ \mainBlk ->
-            let proxySKs = mainBlk ^. blockProxySKs
+            let bEpoch = mainBlk ^. epochIndexL
+                notMatchingEpochs = filter ((/= bEpoch) . pskOmega) proxySKs
+                proxySKs = mainBlk ^. blockProxySKs
                 duplicates = proxySKsDups proxySKs in
-            verifyGeneric
+                verifyGeneric
             [ ( null duplicates
-              , "Some of block's PSKs have the same issuer, which is prohibited")
+              , "Some of block's PSKs have the same issuer, which is prohibited"),
+              ( null notMatchingEpochs
+              , "Block contains psk(s) that have non-matching epoch index")
             ]
         | otherwise = mempty
     verifyVersions bv = case blk of

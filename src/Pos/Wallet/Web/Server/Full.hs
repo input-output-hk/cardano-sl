@@ -65,7 +65,7 @@ walletServeWebFull
     -> Bool      -- Rebuild flag
     -> Word16
     -> RawRealMode ssc ()
-walletServeWebFull sendActions debug = undefined -- walletServeImpl undefined -- action
+walletServeWebFull sendActions debug = walletServeImpl action
   where
     action :: WalletWebHandler (RawRealMode ssc) Application
     action = do
@@ -74,9 +74,8 @@ walletServeWebFull sendActions debug = undefined -- walletServeImpl undefined --
         when debug $ mapM_ addSecretKey genesisSecretKeys
 #endif
         let server :: WebHandler ssc (Server WalletApi)
-            server = undefined -- walletServer sendActions nat
-        -- walletApplication undefined -- server
-        undefined
+            server = walletServer sendActions nat
+        walletApplication server
 
 type WebHandler ssc = WalletWebSockets (WalletWebDB (RawRealMode ssc))
 

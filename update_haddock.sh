@@ -52,11 +52,13 @@ if [ "${CURRENT_BRANCH}" = "${PROJECT_FULL_NAME}" ]; then
     # If this href already exists, skip this step.
     readonly HREF_TO_RELEASE_DOCS=/"${RELEASE_ROOT}"/"${PROJECT_VERSION}"/index.html
     readonly PATH_TO_HADDOCK_PAGE=_docs/for-contributors/haddock.md
-    readonly HADDOCK_PAGE=$(cat "${PATH_TO_HADDOCK_PAGE}")
+    readonly LINK_TO_RELEASE=$(cat "${PATH_TO_HADDOCK_PAGE}" | grep "${HREF_TO_RELEASE_DOCS}")
 
     cd "${CARDANO_DOCS_REPO}"
-    if [ "${HADDOCK_PAGE}" != *"${HREF_TO_RELEASE_DOCS}"* ]; then
-        # There's no href to release docs on Haddock-page, we should add it.
+    if [ -n "${LINK_TO_RELEASE}" ]; then
+        echo "Link to this release docs already here, skip."
+    else
+        echo "There's no link to this release docs, adding it..."
         readonly MARKDOWN_HREF_TO_RELEASE_DOCS="* [${PROJECT_VERSION}](${HREF_TO_RELEASE_DOCS})"
         echo "${MARKDOWN_HREF_TO_RELEASE_DOCS}" >> "${PATH_TO_HADDOCK_PAGE}"
     fi

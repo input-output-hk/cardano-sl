@@ -674,7 +674,8 @@ createMainBlock sId pSk = withBlkSemaphore createMainBlockDo
         logInfo $ sformat msgFmt tipHeader
         canWrtUs <- usCanCreateBlock
         case (canCreateBlock sId tipHeader, canWrtUs) of
-            (_, False) -> return (Left "this software is obsolete", tip)
+            (_, False) ->
+                return (Left "this software can't create block", tip)
             (Nothing, True)  -> convertRes tip <$>
                 runExceptT (createMainBlockFinish sId pSk tipHeader)
             (Just err, True) -> return (Left err, tip)

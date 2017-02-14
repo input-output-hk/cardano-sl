@@ -8,7 +8,9 @@ import           Test.Hspec               (Spec, describe)
 import           Universum
 
 import           Pos.Binary               ()
+import qualified Pos.Communication        as C
 import qualified Pos.Communication.Relay  as R
+import           Pos.Communication.Relay  ()
 import qualified Pos.Update               as U
 
 
@@ -45,5 +47,7 @@ spec =
       msgLenLimitedTest @(R.ReqMsg U.VoteId U.VoteMsgTag)
       msgLenLimitedTest @(R.InvMsg U.UpId U.ProposalMsgTag)
       msgLenLimitedTest @(R.ReqMsg U.UpId U.ProposalMsgTag)
+      msgLenLimitedTest @(C.MaxSize (R.DataMsg (U.UpdateProposal, [U.UpdateVote])))
       msgLenLimitedTest @(R.DataMsg U.UpdateVote)
-      msgLenLimitedTest @(R.DataMsg (U.UpdateProposal, [U.UpdateVote]))
+      msgLenLimitedTest @U.UpdateProposal
+      

@@ -10,8 +10,11 @@ module Pos.Communication.Limits
     , Limiter (..)
     , LimitedLength
     , Limit (..)
+    , MaxSize (..)
     , mcCommitmentMsgLenLimit
     , mcSharesMsgLenLimit
+    , updateVoteNumLimit
+    , commitmentsNumLimit
     ) where
 
 import           Control.Lens                     (each, ix)
@@ -23,6 +26,7 @@ import           Data.Proxy                       (Proxy (..))
 import           Data.Reflection                  (Reifies, reflect)
 import           GHC.Exts                         (IsList (..))
 import           Serokell.Data.Memory.Units       (Byte)
+import qualified Test.QuickCheck                  as T
 import           Universum
 
 import           Pos.Binary.Class                 (Bi (..))
@@ -62,14 +66,14 @@ commitmentsNumLimit :: Int
 commitmentsNumLimit = round $ 1 / coinPortionToDouble Const.genesisMpcThd
 
 updateVoteNumLimit :: Int
-updateVoteNumLimit = round $ 1 / coinPortionToDouble Const.genesisUpdateVoteThd
+updateVoteNumLimit = join traceShow $ round $ 1 / coinPortionToDouble Const.genesisUpdateVoteThd
 
 vectorOf :: IsList l => Int -> Limit (Item l) -> Limit l
 vectorOf k (Limit x) =
     Limit $ encodedListLength + x * (fromIntegral k)
   where
     -- should be enough for most reasonable cases
-    encodedListLength = 4
+    encodedListLength = 8
 
 coerce :: Limit a -> Limit b
 coerce (Limit x) = Limit x
@@ -94,13 +98,13 @@ instance Limiter (Limit t, Limit t, Limit t, Limit t) where
 -- | Specifies limit on message length.
 -- Deserialization would fail if incoming data size exceeded this limit.
 -- At serialisation stage message size is __not__ checked.
--- TODO: rename
-class MessageLimitedPure a where
-    msgLenLimit :: Limit a
-
 class Limiter (LimitType a) => MessageLimited a where
     type LimitType a :: *
     getMsgLenLimit :: MonadDB ssc m => Proxy a -> m (LimitType a)
+
+-- | Pure analogy to `MessageLimited`.
+class MessageLimitedPure a where
+    msgLenLimit :: Limit a
 
 instance MessageLimited (MsgBlock ssc) where
     type LimitType (MsgBlock ssc) = Limit (MsgBlock ssc)
@@ -166,7 +170,7 @@ instance MessageLimitedPure SecretSharingExtra where
                            <*> vectorOf commitmentsNumLimit msgLenLimit
 
 instance MessageLimitedPure UpdateProposal where
-    msgLenLimit = 1
+    msgLenLimit = 212
 
 instance MessageLimitedPure UpdateVote where
     msgLenLimit =
@@ -197,8 +201,7 @@ instance ( MessageLimitedPure a
          , MessageLimitedPure c
          )
          => MessageLimitedPure (a, b, c) where
-    msgLenLimit =
-        (,,) <$> msgLenLimit <*> msgLenLimit <*> msgLenLimit
+    msgLenLimit = (,,) <$> msgLenLimit <*> msgLenLimit <*> msgLenLimit
 
 instance MessageLimitedPure (Signature a) where
     msgLenLimit = 64
@@ -210,7 +213,7 @@ instance MessageLimitedPure Bool where
     msgLenLimit = 1
 
 instance MessageLimitedPure a => MessageLimitedPure (AsBinary a) where
-    msgLenLimit = coerce (msgLenLimit :: Limit a) + 2
+    msgLenLimit = coerce (msgLenLimit :: Limit a) + 8
 
 instance MessageLimitedPure SecretProof where
     msgLenLimit = 64
@@ -225,10 +228,10 @@ instance MessageLimitedPure Share where
     msgLenLimit = 101 --4+33+64
 
 instance MessageLimitedPure PVSS.Commitment where
-    msgLenLimit = 1
+    msgLenLimit = 33
 
 instance MessageLimitedPure PVSS.ExtraGen where
-    msgLenLimit = 1
+    msgLenLimit = 33
 
 instance MessageLimitedPure (AbstractHash Blake2s_224 a) where
     msgLenLimit = 28
@@ -251,3 +254,23 @@ instance (Bi a, Reifies s l, Limiter l) => Bi (LimitedLengthExt s l a) where
     get = do
         let maxBlockSize = reflect (Proxy @s)
         limitGet maxBlockSize $ LimitedLength <$> get
+
+-- | Wrapper for `Arbitrary` instances to indicate that
+-- where an alternative exists, maximal available size is choosen.
+-- This is required at first place to generate lists of max available size.
+newtype MaxSize a = MaxSize
+    { getOfMaxSize :: a
+    } deriving (Eq, Ord, Show, Bi, MessageLimitedPure)
+
+instance T.Arbitrary (MaxSize Commitment) where
+    arbitrary = MaxSize <$>
+        (Commitment <$> T.arbitrary <*> T.arbitrary
+                    <*> (fromList <$> T.vector commitmentsNumLimit))
+
+instance T.Arbitrary (MaxSize SecretSharingExtra) where
+    arbitrary = do
+        SecretSharingExtra gen commitments <- T.arbitrary
+        let commitments' = alignLength commitmentsNumLimit commitments
+        return $ MaxSize $ SecretSharingExtra gen commitments'
+      where
+        alignLength n = take n . cycle

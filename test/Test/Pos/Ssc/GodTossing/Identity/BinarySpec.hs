@@ -4,22 +4,20 @@ module Test.Pos.Ssc.GodTossing.Identity.BinarySpec
        ( spec
        ) where
 
+import           Crypto.Hash             (Blake2s_224, Blake2s_256)
 import           Test.Hspec              (Spec, describe)
 import           Universum
 
 import           Pos.Binary              ()
 import qualified Pos.Constants           as Const
-import           Pos.Communication       (mcCommitmentMsgLenLimit,
-                                          mcSharesMsgLenLimit)
+import qualified Pos.Communication       as C
 import qualified Pos.Communication.Relay as R
-import           Crypto.Hash             (Blake2s_224, Blake2s_256)
-import qualified Pos.Ssc.GodTossing      as GT
-import           Pos.Types.Address       (StakeholderId)
 import           Pos.Crypto              (Signature, PublicKey,
                                           SecretSharingExtra (..), SecretProof,
                                           VssPublicKey, EncShare, AbstractHash,
                                           Share)
-
+import qualified Pos.Ssc.GodTossing      as GT
+import           Pos.Types.Address       (StakeholderId)
 import           Test.Pos.Util           (binaryTest, msgLenLimitedTest,
                                           msgLenLimitedTest')
 
@@ -41,6 +39,7 @@ spec = describe "GodTossing" $ do
         msgLenLimitedTest @PublicKey
         msgLenLimitedTest @EncShare
         msgLenLimitedTest @SecretSharingExtra
+        msgLenLimitedTest @(C.MaxSize SecretSharingExtra)
         msgLenLimitedTest @(Signature ())
         msgLenLimitedTest @(AbstractHash Blake2s_224 Void)
         msgLenLimitedTest @(AbstractHash Blake2s_256 Void)
@@ -51,7 +50,7 @@ spec = describe "GodTossing" $ do
         msgLenLimitedTest @(R.InvMsg StakeholderId GT.GtTag)
         msgLenLimitedTest @(R.ReqMsg StakeholderId GT.GtTag)
         msgLenLimitedTest' @(R.DataMsg GT.GtMsgContents)
-            (R.DataMsg <$> mcCommitmentMsgLenLimit)
+            (R.DataMsg <$> C.mcCommitmentMsgLenLimit)
             "MCCommitment"
             isMCCommitment
         msgLenLimitedTest' @(R.DataMsg GT.GtMsgContents)
@@ -59,7 +58,7 @@ spec = describe "GodTossing" $ do
             "MCOpening"
             isMCOpening
         msgLenLimitedTest' @(R.DataMsg GT.GtMsgContents)
-            (R.DataMsg <$> mcSharesMsgLenLimit)
+            (R.DataMsg <$> C.mcSharesMsgLenLimit)
             "MCShares"
             isMCShares
         msgLenLimitedTest' @(R.DataMsg GT.GtMsgContents)

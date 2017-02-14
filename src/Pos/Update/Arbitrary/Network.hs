@@ -7,10 +7,11 @@ module Pos.Update.Arbitrary.Network
        ) where
 
 import           Data.DeriveTH             (derive, makeArbitrary)
-import           Test.QuickCheck           (Arbitrary (..), listOf)
+import           Test.QuickCheck           (Arbitrary (..), listOf, vector)
 import           Universum
 
 import           Pos.Binary.Update         ()
+import           Pos.Communication.Limits  (MaxSize (..), updateVoteNumLimit)
 import           Pos.Communication.Relay   (DataMsg (..))
 import           Pos.Crypto                (hash, sign, toPublic)
 import           Pos.Types.Arbitrary       ()
@@ -35,3 +36,7 @@ instance Arbitrary (DataMsg (UpdateProposal, [UpdateVote])) where
                 pure $ UpdateVote pk id decision $ sign sk (id, decision)
         votes <- listOf genVote
         pure $ DataMsg (up, votes)
+
+instance Arbitrary (MaxSize (DataMsg (UpdateProposal, [UpdateVote]))) where
+    arbitrary =
+        MaxSize . DataMsg <$> ((,) <$> arbitrary <*> vector updateVoteNumLimit)

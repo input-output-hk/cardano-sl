@@ -137,7 +137,7 @@ msgLenLimitedTest' limit desc whetherTest =
         \a -> counterexample desc $ msgLenLimitedCheck limit a
   where
     arbitraryOfMaxSize = do
-        samples <- vectorOf 3000 $ arbitrary `suchThat` whetherTest
+        samples <- vectorOf 100 $ arbitrary `suchThat` whetherTest
         return $ maximumBy (comparing $ LBS.length . encode) samples
 
 

@@ -42,7 +42,7 @@ import           Pos.Ssc.GodTossing        (SscGodTossing)
 import           Pos.Ssc.NistBeacon        (SscNistBeacon)
 import           Pos.Ssc.SscAlgo           (SscAlgo (..))
 import           Pos.Types                 (EpochIndex (..), coinF, makePubKeyAddress,
-                                            siEpoch, txaF)
+                                            txaF)
 import           Pos.Update                (BlockVersionData (..), UpdateProposal (..),
                                             UpdateVote (..), patakUpdateData,
                                             skovorodaUpdateData)
@@ -148,10 +148,10 @@ runCmd sendActions (DelegateLight i j) = do
         psk = createProxySecretKey issuerSk delegatePk (EpochIndex 0, EpochIndex 50)
     lift $ sendProxySKLight psk sendActions
     putText "Sent lightweight cert"
-runCmd sendActions (DelegateHeavy i j) = do
-    epoch <- undefined
+runCmd sendActions (DelegateHeavy i j epochMaybe) = do
     let issuerSk = genesisSecretKeys !! i
         delegatePk = genesisPublicKeys !! j
+        epoch = fromMaybe 0 epochMaybe
         psk = createProxySecretKey issuerSk delegatePk epoch
     lift $ sendProxySKHeavy psk sendActions
     putText "Sent heavyweight cert"

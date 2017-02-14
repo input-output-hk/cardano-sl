@@ -62,11 +62,13 @@ instance Applicative Limit where
     pure = panic "Applicative.pure Limit"
     (Limit a) <*> (Limit b) = Limit $ a + b
 
+-- | Upper bound on number of `PVSS.Commitment`s in single `Commitment`.
 commitmentsNumLimit :: Int
 commitmentsNumLimit = round $ 1 / coinPortionToDouble Const.genesisMpcThd
 
+-- | Upper bound on number of votes carried with single `UpdateProposal`.
 updateVoteNumLimit :: Int
-updateVoteNumLimit = join traceShow $ round $ 1 / coinPortionToDouble Const.genesisUpdateVoteThd
+updateVoteNumLimit = round $ 1 / coinPortionToDouble Const.genesisUpdateVoteThd
 
 vectorOf :: IsList l => Int -> Limit (Item l) -> Limit l
 vectorOf k (Limit x) =

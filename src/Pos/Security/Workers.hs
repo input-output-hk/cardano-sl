@@ -26,7 +26,7 @@ import           Pos.DB                      (DBError (DBMalformed), getBlockHea
 import           Pos.DHT.Model               (converseToNeighbors)
 import           Pos.Reporting.Methods       (reportMisbehaviour)
 import           Pos.Security.Class          (SecurityWorkersClass (..))
-import           Pos.Slotting                (getSlotDuration, onNewSlot)
+import           Pos.Slotting                (getLastKnownSlotDuration, onNewSlot)
 import           Pos.Ssc.GodTossing          (GtPayload (..), SscGodTossing,
                                               getCommitmentsMap)
 import           Pos.Ssc.NistBeacon          (SscNistBeacon)
@@ -88,7 +88,7 @@ checkForReceivedBlocksWorker = onNewSlotWorker True requestTipOuts $ \slotId sen
         reportEclipse
   where
     reportEclipse = do
-        bootstrapMin <- (+ sec 10) . convertUnit <$> getSlotDuration
+        bootstrapMin <- (+ sec 10) . convertUnit <$> getLastKnownSlotDuration
         nonTrivialUptime <- (> bootstrapMin) <$> getUptime
         isRecovery <- isRecoveryMode
         let reason =

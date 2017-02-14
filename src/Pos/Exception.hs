@@ -32,6 +32,9 @@ instance Show CardanoException where
 
 instance Exception CardanoException
 
+instance Buildable CardanoException where
+    build (CardanoException e) = Data.Text.Buildable.build e
+
 -- | Helper to define sub-exception of CardanoException.
 cardanoExceptionToException :: (Buildable e, Exception e) => e -> SomeException
 cardanoExceptionToException = toException . CardanoException

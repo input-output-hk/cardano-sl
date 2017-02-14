@@ -7,7 +7,8 @@
 -- | Wallet web server.
 
 module Pos.Wallet.Web.Server.Methods
-       ( walletApplication
+       ( WalletWebHandler
+       , walletApplication
        , walletServer
        , walletServeImpl
        , walletServerOuts
@@ -16,7 +17,7 @@ module Pos.Wallet.Web.Server.Methods
 import           Control.Lens                  (makeLenses, (.=))
 import           Control.Monad.Catch           (try)
 import           Control.Monad.Except          (runExceptT)
-import           Control.Monad.Trans.State     (get, runStateT)
+import           Control.Monad.State           (runStateT)
 import qualified Data.ByteString.Base64        as B64
 import           Data.Default                  (Default, def)
 import           Data.List                     (elemIndex, nub, (!!))
@@ -36,7 +37,6 @@ import           Pos.Constants                 (curSoftwareVersion)
 import           Pos.Crypto                    (hash)
 import           Pos.Crypto                    (deterministicKeyGen, toPublic)
 import           Pos.DHT.Model                 (getKnownPeers)
-import           Pos.Slotting                  (getSlotDuration)
 import           Pos.Types                     (Address, ChainDifficulty (..), Coin,
                                                 TxOut (..), addressF, coinF,
                                                 decodeTextAddress, makePubKeyAddress,
@@ -48,7 +48,8 @@ import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
 import           Pos.Wallet.Tx                 (sendTxOuts, submitTx)
 import           Pos.Wallet.Tx.Pure            (TxHistoryEntry (..))
 import           Pos.Wallet.WalletMode         (WalletMode, applyLastUpdate,
-                                                connectedPeers, getBalance, getTxHistory,
+                                                blockchainSlotDuration, connectedPeers,
+                                                getBalance, getTxHistory,
                                                 localChainDifficulty,
                                                 networkChainDifficulty, waitForUpdate)
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
@@ -270,7 +271,7 @@ servantHandlers sendActions =
     :<|>
      catchWalletError applyUpdate
     :<|>
-     catchWalletError blockchainSlotDuration
+     catchWalletError (fromIntegral <$> blockchainSlotDuration)
     :<|>
      catchWalletError (pure curSoftwareVersion)
     :<|>
@@ -412,9 +413,6 @@ nextUpdate = getNextUpdate >>=
 
 applyUpdate :: WalletWebMode ssc m => m ()
 applyUpdate = removeNextUpdate >> applyLastUpdate
-
-blockchainSlotDuration :: WalletWebMode ssc m => m Word
-blockchainSlotDuration = fromIntegral <$> getSlotDuration
 
 redeemADA :: WalletWebMode ssc m => SendActions m -> CWalletRedeem -> m CWallet
 redeemADA sendActions CWalletRedeem {..} = do

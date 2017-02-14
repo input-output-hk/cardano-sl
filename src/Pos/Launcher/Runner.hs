@@ -96,7 +96,8 @@ import           Pos.DHT.Real                (KademliaDHTInstance,
                                               stopDHTInstance)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NodeParams (..))
-import           Pos.Slotting                (SlottingState (..))
+import           Pos.Slotting                (mkNtpSlottingVar, mkSlottingVar,
+                                              runNtpSlotting, runSlottingHolder)
 import           Pos.Ssc.Class               (SscConstraint, SscHelpersClass,
                                               SscListenersClass, SscNodeContext,
                                               SscParams, sscCreateNodeContext)
@@ -104,8 +105,7 @@ import           Pos.Ssc.Extra               (ignoreSscHolder, mkStateAndRunSscH
 import           Pos.Statistics              (getNoStatsT, runStatsT')
 import           Pos.Txp.Holder              (runTxpLDHolder)
 import qualified Pos.Txp.Types.UtxoView      as UV
-import           Pos.Types                   (Timestamp (Timestamp), timestampF,
-                                              unflattenSlotId)
+import           Pos.Types                   (Timestamp (Timestamp), timestampF)
 import           Pos.Update.MemState         (runUSHolder)
 import           Pos.Util                    (mappendPair, runWithRandomIntervalsNow)
 import           Pos.Util.TimeWarp           (sec)
@@ -190,11 +190,13 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
     usingLoggerName lpRunnerTag $ do
        initNC <- sscCreateNodeContext @ssc sscnp
        modernDBs <- openNodeDBs npRebuildDb npDbPathM
-       -- FIXME: initialization logic must be in scenario.
+       -- TODO: ideally initialization logic should be in scenario.
        runDBHolder modernDBs . runCH np initNC $ initNodeDBs
        initTip <- runDBHolder modernDBs getTip
        stateM <- liftIO SM.newIO
        stateM_ <- liftIO SM.newIO
+       slottingVar <- runDBHolder modernDBs mkSlottingVar
+       ntpSlottingVar <- mkNtpSlottingVar
 
        -- TODO need an effect-free way of running this into IO.
        let runIO :: forall t . RawRealMode ssc t -> IO t
@@ -202,6 +204,8 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
                        usingLoggerName lpRunnerTag .
                        runDBHolder modernDBs .
                        runCH np initNC .
+                       runSlottingHolder slottingVar .
+                       runNtpSlotting ntpSlottingVar .
                        ignoreSscHolder .
                        runTxpLDHolder (UV.createFromDB . _gStateDB $ modernDBs) initTip .
                        runDelegationT def .
@@ -219,6 +223,8 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
 
        runDBHolder modernDBs .
           runCH np initNC .
+          runSlottingHolder slottingVar .
+          runNtpSlotting ntpSlottingVar .
           (mkStateAndRunSscHolder @ssc) .
           runTxpLDHolder (UV.createFromDB . _gStateDB $ modernDBs) initTip .
           runDelegationT def .
@@ -336,18 +342,12 @@ runCH params@NodeParams {..} sscNodeContext act = do
     queue <- liftIO $ newTBQueueIO blockRetrievalQueueSize
     propQueue <- liftIO $ newTBQueueIO propagationQueueSize
     recoveryHeaderVar <- liftIO newEmptyTMVarIO
-    slottingStateVar <- do
-        _ssNtpData <- (0,) <$> currentTime
-        -- current time isn't quite validly, but it doesn't matter
-        let _ssNtpLastSlot = unflattenSlotId 0
-        liftIO $ newTVarIO SlottingState{..}
     shutdownFlag <- liftIO $ newTVarIO False
     shutdownQueue <- liftIO $ newTBQueueIO allWorkersCount
     curTime <- liftIO Time.getCurrentTime
     let ctx =
             NodeContext
-            { ncSlottingState = slottingStateVar
-            , ncJLFile = jlFile
+            { ncJLFile = jlFile
             , ncSscContext = sscNodeContext
             , ncBlkSemaphore = semaphore
             , ncLrcSync = lrcSync

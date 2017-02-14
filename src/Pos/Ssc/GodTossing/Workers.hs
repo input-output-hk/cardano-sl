@@ -45,7 +45,8 @@ import           Pos.Crypto.SecretSharing         (toVssPublicKey)
 import           Pos.Crypto.Signing               (PublicKey)
 import           Pos.DB.Lrc                       (getRichmenSsc)
 import           Pos.Lrc.Types                    (RichmenStake)
-import           Pos.Slotting                     (getCurrentSlot, getSlotStart)
+import           Pos.Slotting                     (getCurrentSlot,
+                                                   getSlotStartEmpatically)
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
 import           Pos.Ssc.GodTossing.Core          (Commitment (..), SignedCommitment,
                                                    VssCertificate (..),
@@ -113,38 +114,40 @@ onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions -> do
 checkNSendOurCert :: forall m . (WorkMode SscGodTossing m) => Worker' m
 checkNSendOurCert sendActions = do
     (_, ourId) <- getOurPkAndId
-    let sendCert resend = do
+    let sendCert resend slot = do
             if resend then
                 logError "Our VSS certificate is in global state, but it has already expired, \
                          \apparently it's a bug, but we are announcing it just in case."
-            else
-                logInfo "Our VssCertificate hasn't been announced yet or TTL has expired, \
+                else logInfo
+                         "Our VssCertificate hasn't been announced yet or TTL has expired, \
                          \we will announce it now."
-            ourVssCertificate <- getOurVssCertificate
+            ourVssCertificate <- getOurVssCertificate slot
             let contents = MCVssCertificate ourVssCertificate
             sscProcessOurMessage contents
-            -- [CSL-245]: do not catch all, catch something more concrete.
-            (invReqDataFlowNeighbors "ssc" sendActions VssCertificateMsg ourId contents >>
-             logDebug "Announced our VssCertificate.")
-            `catchAll` \e ->
-                logError $ sformat ("Error announcing our VssCertificate: " % shown) e
-    sl@SlotId {..} <- getCurrentSlot
-    certts <- getGlobalCerts sl
-    let ourCertMB = HM.lookup ourId certts
-    case ourCertMB of
-        Just ourCert
-            | vcExpiryEpoch ourCert >= siEpoch ->
-                logDebug "Our VssCertificate has been already announced."
-            | otherwise -> sendCert True
-        Nothing -> sendCert False
+            invReqDataFlowNeighbors "ssc" sendActions VssCertificateMsg ourId contents
+            logDebug "Announced our VssCertificate."
+
+    slMaybe <- getCurrentSlot
+    case slMaybe of
+        Nothing -> pass
+        Just sl -> do
+            globalCerts <- getGlobalCerts sl
+            let ourCertMB = HM.lookup ourId globalCerts
+            case ourCertMB of
+                Just ourCert
+                    | vcExpiryEpoch ourCert >= siEpoch sl ->
+                        logDebug
+                            "Our VssCertificate has been already announced."
+                    | otherwise -> sendCert True sl
+                Nothing -> sendCert False sl
   where
-    getOurVssCertificate :: m VssCertificate
-    getOurVssCertificate = do
+    getOurVssCertificate :: SlotId -> m VssCertificate
+    getOurVssCertificate slot =
         -- TODO: do this optimization
         -- localCerts <- VCD.certs <$> sscRunLocalQuery (view ldCertificates)
-        getOurVssCertificateDo mempty
-    getOurVssCertificateDo :: VssCertificatesMap -> m VssCertificate
-    getOurVssCertificateDo certs = do
+        getOurVssCertificateDo slot mempty
+    getOurVssCertificateDo :: SlotId -> VssCertificatesMap -> m VssCertificate
+    getOurVssCertificateDo slot certs = do
         (_, ourId) <- getOurPkAndId
         case HM.lookup ourId certs of
             Just c -> return c
@@ -154,8 +157,8 @@ checkNSendOurCert sendActions = do
                 let vssKey = asBinary $ toVssPublicKey ourVssKeyPair
                     createOurCert =
                         mkVssCertificate ourSk vssKey .
-                        (+) (vssMaxTTL - 1) . siEpoch -- TODO fix max ttl on random
-                createOurCert <$> getCurrentSlot
+                        (+) (vssMaxTTL - 1) . siEpoch
+                return $ createOurCert slot
 
 getOurPkAndId
     :: WorkMode SscGodTossing m
@@ -342,7 +345,7 @@ waitUntilSend
     => GtTag -> EpochIndex -> LocalSlotIndex -> m ()
 waitUntilSend msgTag epoch slMultiplier = do
     Timestamp beginning <-
-        getSlotStart $
+        getSlotStartEmpatically $
         SlotId {siEpoch = epoch, siSlot = slMultiplier * slotSecurityParam}
     curTime <- currentTime
     let minToSend = curTime

@@ -24,6 +24,7 @@ import           Pos.DB               (SomeBatchOp (..))
 import qualified Pos.DB               as DB
 import qualified Pos.DB.GState        as GS
 import           Pos.Delegation.Logic (delegationApplyBlocks, delegationRollbackBlocks)
+import           Pos.Slotting         (putSlottingData)
 import           Pos.Ssc.Extra        (sscApplyBlocks, sscNormalize, sscRollbackBlocks)
 import           Pos.Txp.Logic        (normalizeTxpLD, txApplyBlocks, txRollbackBlocks)
 import           Pos.Types            (HeaderHash, epochIndexL, headerHashG, prevBlockL)
@@ -87,6 +88,7 @@ applyBlocksUnsafeDo blunds pModifier = do
     normalizeTxpLD
     usNormalize
     DB.sanityCheckDB
+    putSlottingData =<< GS.getSlottingData
   where
     -- hehe it's not unsafe yet TODO
     blocks = fmap fst blunds

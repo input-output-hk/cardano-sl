@@ -35,7 +35,9 @@ import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Delegation.Holder       (DelegationT (..))
 import           Pos.DHT.Model               (MonadDHT)
 import           Pos.DHT.Real                (KademliaDHT (..), WithKademliaDHTInstance)
-import           Pos.Slotting.Class          (MonadSlots (..))
+import           Pos.Slotting.Class          (MonadSlots)
+import           Pos.Slotting.Holder         (SlottingHolder)
+import           Pos.Slotting.Ntp            (NtpSlotting)
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
 import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
 import           Pos.Ssc.Class.Storage       (SscGStateClass)
@@ -100,7 +102,6 @@ deriving instance MonadUtxoRead m => MonadUtxoRead (PeerStateHolder m)
 deriving instance MonadUtxo m => MonadUtxo (PeerStateHolder m)
 deriving instance (Monad m, WithNodeContext ssc m) => WithNodeContext ssc (PeerStateHolder m)
 deriving instance MonadDB ssc m => MonadDB ssc (PeerStateHolder m)
-deriving instance MonadSlots m => MonadSlots (PeerStateHolder m)
 deriving instance MonadDHT m => MonadDHT (PeerStateHolder m)
 deriving instance MonadSscMem ssc m => MonadSscMem ssc (PeerStateHolder m)
 deriving instance MonadDelegation m => MonadDelegation (PeerStateHolder m)
@@ -117,10 +118,12 @@ type RawRealMode ssc =
     DelegationT (
     TxpLDHolder ssc (
     SscHolder ssc (
+    NtpSlotting (
+    SlottingHolder (
     ContextHolder ssc (
     DBHolder ssc (
     LoggerNameBox Production
-    ))))))))
+    ))))))))))
 
 -- | ProductionMode is an instance of WorkMode which is used
 -- (unsurprisingly) in production.

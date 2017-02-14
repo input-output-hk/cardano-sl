@@ -34,7 +34,7 @@ import           Pos.Context                 (WithNodeContext)
 import           Pos.Crypto                  (hash)
 import           Pos.DB.Class                (MonadDB)
 import           Pos.Delegation.Class        (MonadDelegation)
-import           Pos.Slotting.Class          (MonadSlots)
+import           Pos.Slotting.Class          (MonadSlots, MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Txp.Class               (MonadTxpLD (..))
 import           Pos.Types                   (SoftwareVersion (..))
@@ -49,7 +49,7 @@ import           Pos.Update.Poll.Types       (BlockVersionState (..), PollModifi
                                               pmDelConfirmedPropsL, pmNewActivePropsIdxL,
                                               pmNewActivePropsL, pmNewBVsL,
                                               pmNewConfirmedL, pmNewConfirmedPropsL,
-                                              psProposal)
+                                              pmSlottingDataL, psProposal)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 ----------------------------------------------------------------------------
@@ -63,7 +63,7 @@ import           Pos.Util.JsonLog            (MonadJL (..))
 -- single-threaded usage only.
 newtype PollT m a = PollT
     { getPollT :: StateT PollModifier m a
-    } deriving (Functor, Applicative, Monad, MonadThrow, MonadSlots,
+    } deriving (Functor, Applicative, Monad, MonadThrow, MonadSlotsData, MonadSlots,
                 MonadCatch, MonadIO, HasLoggerName, MonadTrans, MonadError e,
                 WithNodeContext ssc, MonadJL, CanLog, MonadMask, MonadUSMem,
                 MonadSscMem mem, MonadUtxoRead, MonadUtxo,
@@ -111,7 +111,9 @@ instance MonadPollRead m =>
         if | upId `HS.member` del -> return Nothing
            | Just res <- HM.lookup upId new -> return (Just res)
            | otherwise -> PollT $ getProposal upId
-
+    getSlottingData = PollT $ do
+        new <- pmSlottingData <$> get
+        maybe getSlottingData pure new
 
 instance MonadPollRead m =>
          MonadPoll (PollT m) where
@@ -149,6 +151,7 @@ instance MonadPollRead m =>
                 pmNewActivePropsIdxL . at appName .= Nothing
                 pmDelActivePropsL . at id .= Just ()
                 pmDelActivePropsIdxL . at appName .= Just id
+    setSlottingData sd = PollT $ pmSlottingDataL .= Just sd
 
 ----------------------------------------------------------------------------
 -- Common instances used all over the code

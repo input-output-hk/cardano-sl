@@ -70,7 +70,10 @@ import           Pos.Util                           (magnify')
 instance SscLocalDataClass SscGodTossing where
     sscGetLocalPayloadQ = getLocalPayload
     sscNormalizeU = normalize
-    sscNewLocalData = GtLocalData mempty . siEpoch <$> getCurrentSlot
+    sscNewLocalData =
+        GtLocalData mempty . siEpoch . fromMaybe slot0 <$> getCurrentSlot
+      where
+        slot0 = SlotId 0 0
 
 getLocalPayload :: SlotId -> LocalQuery SscGodTossing GtPayload
 getLocalPayload SlotId {..} = do
@@ -135,7 +138,7 @@ sscIsDataUseful
     => GtTag -> StakeholderId -> m Bool
 sscIsDataUseful tag id =
     ifM
-        (isGoodSlotForTag tag . siSlot <$> getCurrentSlot)
+        (maybe False (isGoodSlotForTag tag . siSlot) <$> getCurrentSlot)
         (evalTossInMem $ sscIsDataUsefulDo tag)
         (pure False)
   where
@@ -224,7 +227,8 @@ sscProcessData tag payload =
                     sscProcessDataDo (epoch, richmen) gs payload
   where
     generalizeExceptT action = either throwError pure =<< runExceptT action
-    checkSlot si@SlotId {..}
+    checkSlot Nothing = throwError CurrentSlotUnknown
+    checkSlot (Just si@SlotId {..})
         | isGoodSlotForTag tag siSlot = pass
         | CommitmentMsg <- tag = throwError $ NotCommitmentPhase si
         | OpeningMsg <- tag = throwError $ NotOpeningPhase si

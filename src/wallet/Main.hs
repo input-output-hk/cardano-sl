@@ -38,12 +38,11 @@ import           Pos.Genesis               (genesisBlockVersionData, genesisPubl
                                             genesisSecretKeys)
 import           Pos.Launcher              (BaseParams (..), LoggingParams (..),
                                             bracketResources, runTimeSlaveReal)
-import           Pos.Slotting              (getCurrentSlot, getSlotDuration)
 import           Pos.Ssc.GodTossing        (SscGodTossing)
 import           Pos.Ssc.NistBeacon        (SscNistBeacon)
 import           Pos.Ssc.SscAlgo           (SscAlgo (..))
 import           Pos.Types                 (EpochIndex (..), coinF, makePubKeyAddress,
-                                            siEpoch, txaF)
+                                            txaF)
 import           Pos.Update                (BlockVersionData (..), UpdateProposal (..),
                                             UpdateVote (..), patakUpdateData,
                                             skovorodaUpdateData)
@@ -149,10 +148,10 @@ runCmd sendActions (DelegateLight i j) = do
         psk = createProxySecretKey issuerSk delegatePk (EpochIndex 0, EpochIndex 50)
     lift $ sendProxySKLight psk sendActions
     putText "Sent lightweight cert"
-runCmd sendActions (DelegateHeavy i j) = do
-    epoch <- siEpoch <$> getCurrentSlot
+runCmd sendActions (DelegateHeavy i j epochMaybe) = do
     let issuerSk = genesisSecretKeys !! i
         delegatePk = genesisPublicKeys !! j
+        epoch = fromMaybe 0 epochMaybe
         psk = createProxySecretKey issuerSk delegatePk epoch
     lift $ sendProxySKHeavy psk sendActions
     putText "Sent heavyweight cert"
@@ -182,11 +181,6 @@ evalCommands sa = do
 
 initialize :: WalletMode ssc m => WalletOptions -> m [DHTNode]
 initialize WalletOptions{..} = do
-    -- Wait some time to ensure blockchain is fetched
-    unless (woInitialPause == 0) $ do
-        putText $ sformat ("Started node. Waiting for "%int%" slots...") woInitialPause
-        slotDuration <- getSlotDuration
-        delay (fromIntegral woInitialPause * slotDuration)
     peers <- getKnownPeers
     bool (pure peers) getPeersUntilSome (null peers)
   where
@@ -265,8 +259,8 @@ main = do
 
             plugins :: ([ WorkerSpec WalletRealMode ], OutSpecs)
             plugins = first pure $ case woAction of
-                Repl          -> worker runCmdOuts $ runWalletRepl opts
-                Cmd cmd       -> worker runCmdOuts $ runWalletCmd opts cmd
+                Repl                            -> worker runCmdOuts $ runWalletRepl opts
+                Cmd cmd                         -> worker runCmdOuts $ runWalletCmd opts cmd
 #ifdef WITH_WEB
                 Serve webPort webDaedalusDbPath -> worker walletServerOuts $ \sendActions ->
                     walletServeWebLite sendActions webDaedalusDbPath False webPort

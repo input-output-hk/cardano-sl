@@ -20,20 +20,15 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,
                                               defaultLiftBaseWith, defaultLiftWith,
                                               defaultRestoreM, defaultRestoreT)
-import           Mockable                    (ChannelT, Counter, CurrentTime,
-                                              Distribution, Gauge, MFunctor',
-                                              Mockable (liftMockable), Promise,
+import           Mockable                    (ChannelT, Counter, Distribution, Gauge,
+                                              MFunctor', Mockable (liftMockable), Promise,
                                               SharedAtomicT, SharedExclusiveT, ThreadId,
-                                              currentTime, liftMockableWrappedM)
+                                              liftMockableWrappedM)
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
-import           Pos.Constants               (genesisSlotDuration)
-import           Pos.Slotting                (MonadSlots (..), getCurrentSlotUsingNtp)
-import           Pos.Types                   (Timestamp (..))
-import           Pos.Wallet.Context.Class    (WithWalletContext (..), readNtpData,
-                                              readNtpLastSlot, readNtpMargin)
+import           Pos.Wallet.Context.Class    (WithWalletContext (..))
 import           Pos.Wallet.Context.Context  (WalletContext (..))
 
 -- | Wrapper for monadic action which brings 'WalletContext'.
@@ -81,15 +76,3 @@ instance ( Mockable d m
 
 instance Monad m => WithWalletContext (ContextHolder m) where
     getWalletContext = ContextHolder ask
-
-instance (Mockable CurrentTime m, MonadIO m) =>
-         MonadSlots (ContextHolder m) where
-    getSystemStartTime = ContextHolder $ asks wcSystemStart
-    getCurrentTime = do
-        lastMargin <- readNtpMargin
-        Timestamp . (+ lastMargin) <$> currentTime
-    getCurrentSlot = do
-        lastSlot <- readNtpLastSlot
-        ntpData <- readNtpData
-        getCurrentSlotUsingNtp lastSlot ntpData
-    getSlotDuration = pure genesisSlotDuration

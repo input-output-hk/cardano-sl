@@ -105,9 +105,9 @@ takeUserSecret path = liftIO $ do
         & usLock .~ Just l
 
 -- | Writes user secret .
-writeUserSecret :: (MonadFail m, MonadIO m) => UserSecret -> m ()
+writeUserSecret :: (MonadIO m) => UserSecret -> m ()
 writeUserSecret u
-    | canWrite u = fail "writeUserSecret: UserSecret is already locked"
+    | canWrite u = liftIO $ fail "writeUserSecret: UserSecret is already locked"
     | otherwise = liftIO $ withFileLock (lockFilePath $ u ^. usPath) Exclusive $ const $ writeRaw u
 
 -- | Writes user secret and releases the lock. UserSecret can't be

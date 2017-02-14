@@ -13,32 +13,28 @@ import           Control.Concurrent.MVar     (putMVar)
 import           Control.Concurrent.STM.TVar (writeTVar)
 import           Data.Default                (def)
 import           Development.GitRev          (gitBranch, gitHash)
-import           Formatting                  (build, int, sformat, (%))
-import           Mockable                    (currentTime, delay, fork)
+import           Formatting                  (build, sformat, (%))
+import           Mockable                    (fork)
 import           System.Exit                 (ExitCode (..))
 import           System.Wlog                 (logError, logInfo)
 import           Universum
 
 import           Pos.Communication           (ActionSpec (..), OutSpecs, WorkerSpec,
                                               wrapActionSpec)
-import           Pos.Constants               (isDevelopment, ntpMaxError,
-                                              ntpResponseTimeout)
 import           Pos.Context                 (NodeContext (..), getNodeContext,
-                                              ncPubKeyAddress, ncPublicKey, npSystemStart,
-                                              readNtpMargin)
+                                              ncPubKeyAddress, ncPublicKey)
 import qualified Pos.DB.GState               as GS
 import qualified Pos.DB.Lrc                  as LrcDB
 import           Pos.Delegation.Logic        (initDelegation)
 import           Pos.DHT.Model               (discoverPeers)
-import           Pos.Slotting                (getCurrentSlot)
+import           Pos.Slotting                (getCurrentSlot, waitSystemStart)
 import           Pos.Ssc.Class               (SscConstraint)
-import           Pos.Types                   (Timestamp (Timestamp), addressHash)
+import           Pos.Types                   (SlotId (..), addressHash)
 import           Pos.Update                  (MemState (..), askUSMemVar, mvState)
 import           Pos.Util                    (inAssertMode, waitRandomInterval)
 import           Pos.Util.Shutdown           (waitForWorkers)
 import           Pos.Util.TimeWarp           (sec)
 import           Pos.Worker                  (allWorkers, allWorkersCount)
-import           Pos.Worker.Ntp              (ntpWorker)
 import           Pos.WorkMode                (WorkMode)
 
 -- | Run full node in any WorkMode.
@@ -60,9 +56,6 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
     initLrc
     initUSMemState
     initSemaphore
-    _ <- fork ntpWorker -- start NTP worker for synchronization time
-    logInfo $ "Waiting response from NTP servers"
-    unless isDevelopment $ delay (ntpResponseTimeout + ntpMaxError)
     waitSystemStart
     let unpackPlugin (ActionSpec action) = action vI sendActions
     mapM_ (fork . unpackPlugin) $
@@ -81,18 +74,6 @@ runNode (plugins', plOuts) = (,plOuts <> wOuts) $ runNode' $ workers' ++ plugins
   where
     (workers', wOuts) = allWorkers
     plugins'' = map (wrapActionSpec "plugin") plugins'
-
--- Sanity check in case start time is in future (may happen if clocks
--- are not accurately synchronized, for example).
-waitSystemStart :: WorkMode ssc m => m ()
-waitSystemStart = do
-    margin <- readNtpMargin
-    Timestamp start <- npSystemStart . ncNodeParams <$> getNodeContext
-    cur <- (+ margin) <$> currentTime
-    let waitPeriod = start - cur
-    logInfo $ sformat ("Waiting "%int%" seconds for system start") $
-        waitPeriod `div` sec 1
-    when (cur < start) $ delay waitPeriod
 
 -- | Try to discover peers repeatedly until at least one live peer is found
 waitForPeers :: WorkMode ssc m => m ()
@@ -120,5 +101,5 @@ initUSMemState :: WorkMode ssc m => m ()
 initUSMemState = do
     tip <- GS.getTip
     tvar <- mvState <$> askUSMemVar
-    slot <- getCurrentSlot
+    slot <- fromMaybe (SlotId 0 0) <$> getCurrentSlot
     atomically $ writeTVar tvar (MemState slot tip def def)

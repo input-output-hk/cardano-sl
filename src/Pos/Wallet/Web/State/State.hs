@@ -35,10 +35,11 @@ module Pos.Wallet.Web.State.State
 
 import           Data.Acid                    (EventResult, EventState, QueryEvent,
                                                UpdateEvent)
+import           Data.Time.Clock.POSIX        (POSIXTime)
 import           Mockable                     (MonadMockable)
 import           Universum
 
-import           Data.Time.Clock.POSIX        (POSIXTime)
+import           Pos.Slotting                 (NtpSlotting)
 import           Pos.Wallet.Web.ClientTypes   (CAddress, CProfile, CTxId, CTxMeta,
                                                CUpdateInfo, CWalletMeta)
 import           Pos.Wallet.Web.State.Acidic  (WalletState, closeState, openMemState,
@@ -55,6 +56,9 @@ instance MonadWalletWebDB m => MonadWalletWebDB (ReaderT r m) where
     getWalletWebState = lift getWalletWebState
 
 instance MonadWalletWebDB m => MonadWalletWebDB (StateT s m) where
+    getWalletWebState = lift getWalletWebState
+
+instance MonadWalletWebDB m => MonadWalletWebDB (NtpSlotting m) where
     getWalletWebState = lift getWalletWebState
 
 -- | Constraint for working with web wallet DB

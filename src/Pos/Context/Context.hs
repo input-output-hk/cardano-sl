@@ -1,4 +1,6 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE Rank2Types                #-}
+{-# LANGUAGE TemplateHaskell           #-}
 
 -- | Runtime context of node.
 
@@ -11,14 +13,21 @@ module Pos.Context.Context
        , ncGenesisUtxo
        , NodeParams(..)
        , BaseParams(..)
+       , RelayInvQueue
+       , SomeInvMsg (..)
        ) where
 
+import           Control.Concurrent.STM           (TBQueue)
 import qualified Control.Concurrent.STM           as STM
-import           Control.Concurrent.STM.TBQueue   (TBQueue)
-import           Pos.Communication.Types.Protocol (NodeId)
+import           Data.Text.Buildable              (Buildable)
+import           Data.Time.Clock                  (UTCTime)
+import           Node.Message                     (Message)
+import           Pos.Binary.Class                 (Bi)
 import           System.Wlog                      (LoggerConfig)
 import           Universum
 
+import           Pos.Communication.Types.Protocol (NodeId)
+import           Pos.Communication.Types.Relay    (InvOrData, ReqMsg)
 import           Pos.Crypto                       (PublicKey, toPublic)
 import           Pos.Genesis                      (genesisLeaders)
 import           Pos.Launcher.Param               (BaseParams (..), NodeParams (..))
@@ -40,12 +49,27 @@ import           Pos.Util.UserSecret              (UserSecret)
 -- already computed LRC.
 type LrcSyncData = (Bool, EpochIndex)
 
+data SomeInvMsg =
+    forall tag key contents .
+        ( Message (InvOrData tag key contents)
+        , Bi (InvOrData tag key contents)
+        , Buildable tag,
+          Buildable key
+        , Message (ReqMsg key tag)
+        , Bi (ReqMsg key tag))
+        => SomeInvMsg !(InvOrData tag key contents)
+
+-- | Queue of InvMsges which should be propagated.
+type RelayInvQueue = TBQueue SomeInvMsg
+
 -- | NodeContext contains runtime context of node.
 data NodeContext ssc = NodeContext
     { ncSlottingState       :: !(STM.TVar SlottingState)
     -- ^ Data needed for the slotting algorithm to work
     , ncJLFile              :: !(Maybe (MVar FilePath))
+    -- @georgeee please add documentation when you see this comment
     , ncSscContext          :: !(SscNodeContext ssc)
+    -- @georgeee please add documentation when you see this comment
     , ncBlkSemaphore        :: !(MVar HeaderHash)
     -- ^ Semaphore which manages access to block application.
     -- Stored hash is a hash of last applied block.
@@ -68,6 +92,7 @@ data NodeContext ssc = NodeContext
     , ncUpdateSemaphore     :: !(MVar ConfirmedProposalState)
     -- ^ A semaphore which is unlocked when update data is downloaded
     -- and ready to apply
+    , ncInvPropagationQueue :: !RelayInvQueue
     , ncLoggerConfig        :: !LoggerConfig
     -- ^ Logger config, as taken/read from CLI
     , ncNodeParams          :: !NodeParams
@@ -80,6 +105,8 @@ data NodeContext ssc = NodeContext
     , ncSendLock            :: !(Maybe (MVar ()))
     -- ^ Exclusive lock for sending messages to other nodes
     -- (if Nothing, no lock used)
+    , ncStartTime           :: !UTCTime
+    -- ^ Time when node was started ('NodeContext' initialized).
     }
 
 ----------------------------------------------------------------------------

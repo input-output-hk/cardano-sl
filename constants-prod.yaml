@@ -36,7 +36,7 @@ mpcSendInterval: 100 # must be less than (2 * k * slotDuration - networkDiameter
 lightDlgConfirmationTimeout: 500
 
 # Production start time
-productionNetworkStartTime: 1484507400
+productionNetworkStartTime: 1486848300
 
 # NTP
 ntpResponseTimeout: 1000000 # 1 sec
@@ -47,6 +47,7 @@ maxLocalTxs: 1000
 protocolMagic: 50987833
 enhancedMessageBroadcast: 2
 messageCacheTimeout: 30
+propagationQueueSize: 100
 blockRetrievalQueueSize: 100
 recoveryHeadersMessage: 100 # should be greater than k
 

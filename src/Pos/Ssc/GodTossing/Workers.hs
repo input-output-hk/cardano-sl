@@ -13,7 +13,7 @@ import           Control.Lens                     (at, to)
 import           Control.Monad.Except             (runExceptT)
 import           Control.Monad.Trans.Maybe        (runMaybeT)
 import qualified Data.HashMap.Strict              as HM
-import qualified Data.HashSet                     as HS
+import qualified Data.List.NonEmpty               as NE
 import           Data.Tagged                      (Tagged (..))
 import           Data.Time.Units                  (Microsecond, Millisecond, convertUnit)
 import           Formatting                       (build, ords, sformat, shown, (%))
@@ -28,11 +28,12 @@ import           Pos.Binary.Class                 (Bi)
 import           Pos.Binary.Communication         ()
 import           Pos.Binary.Relay                 ()
 import           Pos.Binary.Ssc                   ()
-import           Pos.Communication.Message        ()
+import           Pos.Communication.Message        (MessagePart)
 import           Pos.Communication.Protocol       (OutSpecs, SendActions, Worker',
-                                                   WorkerSpec, onNewSlotWorker, oneMsgH,
+                                                   WorkerSpec, convH, onNewSlotWorker,
                                                    toOutSpecs)
-import           Pos.Communication.Relay          (DataMsg (..), InvMsg (..))
+import           Pos.Communication.Relay          (DataMsg, InvOrData, ReqMsg,
+                                                   invReqDataFlowNeighbors)
 import           Pos.Constants                    (mpcSendInterval, slotSecurityParam,
                                                    vssMaxTTL)
 import           Pos.Context                      (getNodeContext, lrcActionOnEpochReason,
@@ -43,7 +44,7 @@ import           Pos.Crypto                       (SecretKey, VssKeyPair, VssPub
 import           Pos.Crypto.SecretSharing         (toVssPublicKey)
 import           Pos.Crypto.Signing               (PublicKey)
 import           Pos.DB.Lrc                       (getRichmenSsc)
-import           Pos.DHT.Model                    (sendToNeighbors)
+import           Pos.Lrc.Types                    (RichmenStake)
 import           Pos.Slotting                     (getCurrentSlot, getSlotStart)
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
 import           Pos.Ssc.GodTossing.Core          (Commitment (..), SignedCommitment,
@@ -63,7 +64,8 @@ import           Pos.Ssc.GodTossing.LocalData     (localOnNewSlot, sscProcessCer
 import           Pos.Ssc.GodTossing.Richmen       (gtLrcConsumer)
 import qualified Pos.Ssc.GodTossing.SecretStorage as SS
 import           Pos.Ssc.GodTossing.Shares        (getOurShares)
-import           Pos.Ssc.GodTossing.Toss          (computeParticipants)
+import           Pos.Ssc.GodTossing.Toss          (computeParticipants,
+                                                   computeSharesDistr)
 import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types         (gsCommitments, gtcParticipateSsc,
                                                    gtcVssKeyPair)
@@ -72,7 +74,8 @@ import           Pos.Types                        (EpochIndex, LocalSlotIndex,
                                                    SlotId (..), StakeholderId,
                                                    StakeholderId, Timestamp (..),
                                                    addressHash)
-import           Pos.Util                         (AsBinary, asBinary, inAssertMode)
+import           Pos.Util                         (AsBinary, asBinary, getKeys,
+                                                   inAssertMode)
 import           Pos.WorkMode                     (WorkMode)
 
 instance SscWorkersClass SscGodTossing where
@@ -92,7 +95,7 @@ onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions -> do
     participationEnabled <- getNodeContext >>=
         atomically . readTVar . gtcParticipateSsc . ncSscContext
     ourId <- addressHash . ncPublicKey <$> getNodeContext
-    let enoughStake = ourId `HS.member` richmen
+    let enoughStake = ourId `HM.member` richmen
     when (participationEnabled && not enoughStake) $
         logDebug "Not enough stake to participate in MPC"
     when (participationEnabled && enoughStake) $ do
@@ -101,14 +104,15 @@ onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions -> do
         onNewSlotOpening slotId sendActions
         onNewSlotShares slotId sendActions
   where
-    outs = toOutSpecs [ oneMsgH (Proxy :: Proxy (DataMsg GtMsgContents))
-                      , oneMsgH (Proxy :: Proxy (InvMsg StakeholderId GtMsgContents))
+    outs = toOutSpecs [ convH (Proxy :: Proxy (InvOrData GtTag StakeholderId GtMsgContents))
+                              (Proxy :: Proxy (ReqMsg StakeholderId GtTag))
                       ]
 
 -- CHECK: @checkNSendOurCert
 -- Checks whether 'our' VSS certificate has been announced
 checkNSendOurCert :: forall m . (WorkMode SscGodTossing m) => Worker' m
 checkNSendOurCert sendActions = do
+    (_, ourId) <- getOurPkAndId
     let sendCert resend = do
             if resend then
                 logError "Our VSS certificate is in global state, but it has already expired, \
@@ -119,10 +123,11 @@ checkNSendOurCert sendActions = do
             ourVssCertificate <- getOurVssCertificate
             let contents = MCVssCertificate ourVssCertificate
             sscProcessOurMessage contents
-            let msg = DataMsg contents
-            sendToNeighbors sendActions msg
-            logDebug "Announced our VssCertificate."
-    (_, ourId) <- getOurPkAndId
+            -- [CSL-245]: do not catch all, catch something more concrete.
+            (invReqDataFlowNeighbors "ssc" sendActions VssCertificateMsg ourId contents >>
+             logDebug "Announced our VssCertificate.")
+            `catchAll` \e ->
+                logError $ sformat ("Error announcing our VssCertificate: " % shown) e
     sl@SlotId {..} <- getCurrentSlot
     certts <- getGlobalCerts sl
     let ourCertMB = HM.lookup ourId certts
@@ -192,8 +197,9 @@ onNewSlotCommitment slotId@SlotId {..} sendActions
               sendOurCommitment comm ourId
 
     sendOurCommitment comm ourId = do
-        sscProcessOurMessage (MCCommitment comm)
-        sendOurData sendActions CommitmentMsg siEpoch 0 ourId
+        let msg = MCCommitment comm
+        sscProcessOurMessage msg
+        sendOurData sendActions CommitmentMsg ourId msg siEpoch 0
 
 -- Openings-related part of new slot processing
 onNewSlotOpening
@@ -215,8 +221,9 @@ onNewSlotOpening SlotId {..} sendActions
         mbOpen <- SS.getOurOpening siEpoch
         case mbOpen of
             Just open -> do
-                sscProcessOurMessage (MCOpening ourId open)
-                sendOurData sendActions OpeningMsg siEpoch 2 ourId
+                let msg = MCOpening ourId open
+                sscProcessOurMessage msg
+                sendOurData sendActions OpeningMsg ourId msg siEpoch 2
             Nothing -> logWarning "We don't know our opening, maybe we started recently"
 
 -- Shares-related part of new slot processing
@@ -232,10 +239,11 @@ onNewSlotShares SlotId {..} sendActions = do
     when shouldSendShares $ do
         ourVss <- gtcVssKeyPair . ncSscContext <$> getNodeContext
         shares <- getOurShares ourVss
-        let lShares = fmap asBinary shares
+        let lShares = fmap (NE.map asBinary) shares
         unless (HM.null shares) $ do
-            sscProcessOurMessage (MCShares ourId lShares)
-            sendOurData sendActions SharesMsg siEpoch 4 ourId
+            let msg = MCShares ourId lShares
+            sscProcessOurMessage msg
+            sendOurData sendActions SharesMsg ourId msg siEpoch 4
 
 sscProcessOurMessage
     :: WorkMode SscGodTossing m
@@ -251,17 +259,18 @@ sscProcessOurMessage msg = runExceptT (sscProcessOurMessageDo msg) >>= logResult
         logWarning $
         sformat ("We have rejected our message, reason: "%build) er
 
-sendOurData
-    :: (WorkMode SscGodTossing m)
-    => SendActions m -> GtTag -> EpochIndex -> LocalSlotIndex -> StakeholderId -> m ()
-sendOurData sendActions msgTag epoch slMultiplier ourId = do
+sendOurData ::
+    ( WorkMode SscGodTossing m
+    , MessagePart contents
+    , Bi (DataMsg contents))
+    => SendActions m -> GtTag -> StakeholderId -> contents -> EpochIndex -> LocalSlotIndex -> m ()
+sendOurData sendActions msgTag ourId dt epoch slMultiplier = do
     -- Note: it's not necessary to create a new thread here, because
     -- in one invocation of onNewSlot we can't process more than one
     -- type of message.
     waitUntilSend msgTag epoch slMultiplier
     logInfo $ sformat ("Announcing our "%build) msgTag
-    let msg = InvMsg {imTag = msgTag, imKeys = one ourId}
-    sendToNeighbors sendActions msg
+    invReqDataFlowNeighbors "ssc" sendActions msgTag ourId dt
     logDebug $ sformat ("Sent our " %build%" to neighbors") msgTag
 
 -- Generate new commitment and opening and use them for the current
@@ -283,27 +292,41 @@ generateAndSetNewSecret sk SlotId {..} = do
     inAssertMode $ do
         let participantIds =
                 map (addressHash . vcSigningKey) $
-                computeParticipants richmen certs
+                computeParticipants (getKeys richmen) certs
         logDebug $
             sformat ("generating secret for: " %listJson) $ participantIds
-    let participants =
-            nonEmpty . map vcVssKey . toList $
-            computeParticipants richmen certs
-    maybe (Nothing <$ warnNoPs) generateAndSetNewSecretDo participants
+    let participants = nonEmpty $
+                       map (second vcVssKey) $
+                       HM.toList $
+                       computeParticipants (getKeys richmen) certs
+    maybe (Nothing <$ warnNoPs) (generateAndSetNewSecretDo richmen) participants
   where
     warnNoPs =
         logWarning "generateAndSetNewSecret: can't generate, no participants"
     reportDeserFail = logError "Wrong participants list: can't deserialize"
-    generateAndSetNewSecretDo :: NonEmpty (AsBinary VssPublicKey)
+    generateAndSetNewSecretDo :: RichmenStake
+                              -> NonEmpty (StakeholderId, AsBinary VssPublicKey)
                               -> m (Maybe SignedCommitment)
-    generateAndSetNewSecretDo ps = do
-        let threshold = vssThreshold $ length ps
-        mPair <- runMaybeT (genCommitmentAndOpening threshold ps)
-        case mPair of
-            Just (mkSignedCommitment sk siEpoch -> comm, op) ->
-                Just comm <$ SS.putOurSecret comm op siEpoch
-            _ -> Nothing <$ reportDeserFail
-
+    generateAndSetNewSecretDo richmen ps = do
+        distrEI <- runExceptT $ computeSharesDistr richmen
+        -- Gromak it's for you <3 |>
+        case distrEI of
+            Left er ->
+                Nothing <$ logWarning (sformat ("Couldn't compute shares distribution, reason: "%build) er)
+            Right distr -> do
+                logDebug $ sformat ("Computed shares distribution: "%listJson) (HM.toList distr)
+                let threshold = vssThreshold $ sum $ toList distr
+                let multiPSmb = nonEmpty $
+                                concatMap (\(c, x) -> replicate (fromIntegral c) x) $
+                                NE.map (first $ flip (HM.lookupDefault 0) distr) ps
+                case multiPSmb of
+                    Nothing -> Nothing <$ logWarning "Couldn't compute participant's vss"
+                    Just multiPS -> do
+                        mPair <- runMaybeT (genCommitmentAndOpening threshold multiPS)
+                        case mPair of
+                            Just (mkSignedCommitment sk siEpoch -> comm, open) ->
+                                Just comm <$ SS.putOurSecret comm open siEpoch
+                            Nothing -> Nothing <$ reportDeserFail
 randomTimeInInterval
     :: WorkMode SscGodTossing m
     => Microsecond -> m Microsecond

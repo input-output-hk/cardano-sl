@@ -42,6 +42,7 @@ module Pos.Constants
        , networkConnectionTimeout
        , networkReceiveTimeout
        , blockRetrievalQueueSize
+       , propagationQueueSize
        , defaultPeers
        , sysTimeBroadcastSlots
        , vssMaxTTL
@@ -247,6 +248,10 @@ blockRetrievalQueueSize :: Integral a => a
 blockRetrievalQueueSize =
     fromIntegral . ccBlockRetrievalQueueSize $ compileConfig
 
+propagationQueueSize :: Integral a => a
+propagationQueueSize =
+    fromIntegral $ ccPropagationQueueSize $ compileConfig
+
 -- | @True@ if current mode is 'Development'.
 isDevelopment :: Bool
 isDevelopment = isNothing staticSysStart
@@ -376,7 +381,7 @@ ourAppName = cardanoSlAppName
 ntpMaxError :: Microsecond
 ntpMaxError = sec 1
 
--- | How often request to NTP server and response collection
+-- | After making request to NTP servers, how long to wait for their response
 ntpResponseTimeout :: Microsecond
 ntpResponseTimeout = mcs . ccNtpResponseTimeout $ compileConfig
 

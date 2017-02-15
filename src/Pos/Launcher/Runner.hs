@@ -57,9 +57,9 @@ import           Node.Util.Monitor           (setupMonitor, stopMonitor)
 import qualified STMContainers.Map           as SM
 import           System.Random               (newStdGen)
 import           System.Wlog                 (LoggerConfig (..), WithLogger, logError,
-                                              logInfo, logWarning, mapperB, productionB,
-                                              releaseAllHandlers, setupLogging,
-                                              usingLoggerName)
+                                              logInfo, logWarning, mapperB, memoryB,
+                                              productionB, releaseAllHandlers,
+                                              setupLogging, usingLoggerName)
 import           Universum                   hiding (bracket, finally)
 
 import           Pos.Binary                  ()
@@ -78,7 +78,8 @@ import           Pos.Communication           (ActionSpec (..), BiP (..),
 import           Pos.Communication.PeerState (runPeerStateHolder)
 import           Pos.Constants               (lastKnownBlockVersion, protocolMagic)
 import           Pos.Constants               (blockRetrievalQueueSize,
-                                              networkConnectionTimeout)
+                                              networkConnectionTimeout,
+                                              propagationQueueSize)
 import qualified Pos.Constants               as Const
 import           Pos.Context                 (ContextHolder (..), NodeContext (..),
                                               runContextHolder)
@@ -170,9 +171,9 @@ runTimeLordReal LoggingParams{..} = do
         realTime <- liftIO Time.getZonedTime
         logInfo (sformat ("[Time lord] System start: " %timestampF%", i. e.: "%shown) t realTime)
 
-------------------------------------------------------------------------------
----- High level runners
-------------------------------------------------------------------------------
+----------------------------------------------------------------------------
+-- High level runners
+----------------------------------------------------------------------------
 
 -- | RawRealMode runner.
 runRawRealMode
@@ -237,47 +238,47 @@ runServiceMode
     -> OutSpecs
     -> ActionSpec ServiceMode a
     -> Production a
-runServiceMode res bp@BaseParams{..} listeners outSpecs (ActionSpec action) = do
+runServiceMode res bp@BaseParams {..} listeners outSpecs (ActionSpec action) = do
     stateM <- liftIO SM.newIO
     usingLoggerName (lpRunnerTag bpLoggingParams) .
-      runKademliaDHT (rmDHT res) .
-      runPeerStateHolder stateM .
-      runServer_ (rmTransport res) listeners outSpecs . ActionSpec $
-          \vI sa -> nodeStartMsg bp >> action vI sa
+        runKademliaDHT (rmDHT res) .
+        runPeerStateHolder stateM .
+        runServer_ (rmTransport res) listeners outSpecs . ActionSpec $ \vI sa ->
+        nodeStartMsg bp >> action vI sa
 
-runServer :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m, MonadDHT m)
-  => Transport
-  -> m (ListenersWithOut m)
-  -> OutSpecs
-  -> (Node m -> m t)
-  -> (t -> m ())
-  -> ActionSpec m b
-  -> m b
+runServer
+    :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m, MonadDHT m)
+    => Transport
+    -> m (ListenersWithOut m)
+    -> OutSpecs
+    -> (Node m -> m t)
+    -> (t -> m ())
+    -> ActionSpec m b
+    -> m b
 runServer transport packedLS_M (OutSpecs wouts) withNode afterNode (ActionSpec action) = do
     ourPeerId <- PeerId . getMeaningPart <$> currentNodeKey
     packedLS  <- packedLS_M
     let (listeners', InSpecs ins, OutSpecs outs) = unpackLSpecs packedLS
-        ourVerInfo = VerInfo protocolMagic lastKnownBlockVersion ins $ outs <> wouts
+        ourVerInfo =
+            VerInfo protocolMagic lastKnownBlockVersion ins $ outs <> wouts
         listeners = listeners' ourVerInfo ++ protocolListeners
     stdGen <- liftIO newStdGen
     logInfo $ sformat ("Our verInfo "%build) ourVerInfo
     node (concrete transport) stdGen BiP (ourPeerId, ourVerInfo) $ \__node ->
-        pure $ NodeAction listeners $ \sendActions -> do
+        pure $
+        NodeAction listeners $ \sendActions -> do
             t <- withNode __node
             a <- action ourVerInfo sendActions `finally` afterNode t
             return a
 
-runServer_ :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m, MonadDHT m)
-  => Transport
-  -> ListenersWithOut m
-  -> OutSpecs
-  -> ActionSpec m b
-  -> m b
+runServer_
+    :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m, MonadDHT m)
+    => Transport -> ListenersWithOut m -> OutSpecs -> ActionSpec m b -> m b
 runServer_ transport packedLS outSpecs =
     runServer transport (pure packedLS) outSpecs acquire release
-    where
-    acquire = const (pure ())
-    release = const (pure ())
+  where
+    acquire = const pass
+    release = const pass
 
 -- | ProductionMode runner.
 runProductionMode
@@ -323,7 +324,7 @@ runStatsMode res np@NodeParams {..} sscnp (ActionSpec action, outSpecs) = do
 runCH :: forall ssc m a . (SscConstraint ssc, MonadDB ssc m, Mockable CurrentTime m)
       => NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
 runCH params@NodeParams {..} sscNodeContext act = do
-    logCfg <- readLoggerConfig $ lpConfigPath $ bpLoggingParams $ npBaseParams
+    logCfg <- getRealLoggerConfig $ bpLoggingParams npBaseParams
     jlFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
     semaphore <- liftIO newEmptyMVar
     updSemaphore <- liftIO newEmptyMVar
@@ -336,6 +337,7 @@ runCH params@NodeParams {..} sscNodeContext act = do
 
     userSecretVar <- liftIO . newTVarIO $ npUserSecret
     queue <- liftIO $ newTBQueueIO blockRetrievalQueueSize
+    propQueue <- liftIO $ newTBQueueIO propagationQueueSize
     recoveryHeaderVar <- liftIO newEmptyTMVarIO
     slottingStateVar <- do
         _ssNtpData <- (0,) <$> currentTime
@@ -344,6 +346,7 @@ runCH params@NodeParams {..} sscNodeContext act = do
         liftIO $ newTVarIO SlottingState{..}
     shutdownFlag <- liftIO $ newTVarIO False
     shutdownQueue <- liftIO $ newTBQueueIO allWorkersCount
+    curTime <- liftIO Time.getCurrentTime
     let ctx =
             NodeContext
             { ncSlottingState = slottingStateVar
@@ -353,6 +356,7 @@ runCH params@NodeParams {..} sscNodeContext act = do
             , ncLrcSync = lrcSync
             , ncUserSecret = userSecretVar
             , ncBlockRetrievalQueue = queue
+            , ncInvPropagationQueue = propQueue
             , ncRecoveryHeader = recoveryHeaderVar
             , ncUpdateSemaphore = updSemaphore
             , ncShutdownFlag = shutdownFlag
@@ -360,6 +364,7 @@ runCH params@NodeParams {..} sscNodeContext act = do
             , ncNodeParams = params
             , ncLoggerConfig = logCfg
             , ncSendLock = Nothing
+            , ncStartTime = curTime
             }
     runContextHolder ctx act
 
@@ -372,17 +377,21 @@ nodeStartMsg BaseParams {..} = logInfo msg
   where
     msg = sformat ("Started node, joining to DHT network " %build) bpDHTPeers
 
-setupLoggers :: MonadIO m => LoggingParams -> m ()
-setupLoggers LoggingParams{..} = do
+getRealLoggerConfig :: MonadIO m => LoggingParams -> m LoggerConfig
+getRealLoggerConfig LoggingParams{..} = do
     -- TODO: introduce Maybe FilePath builder for filePrefix
     let cfgBuilder = productionB <>
+                     memoryB (1024 * 1024 * 5) <> -- ~5 mb
                      mapperB dhtMapper <>
                      (mempty { _lcFilePrefix = lpHandlerPrefix })
     cfg <- readLoggerConfig lpConfigPath
-    setupLogging (cfg <> cfgBuilder)
+    pure $ cfg <> cfgBuilder
   where
     dhtMapper name | name == "dht" = dhtLoggerName (Proxy :: Proxy (RawRealMode ssc))
                    | otherwise     = name
+
+setupLoggers :: MonadIO m => LoggingParams -> m ()
+setupLoggers params = setupLogging =<< getRealLoggerConfig params
 
 -- | RAII for node starter.
 loggerBracket :: LoggingParams -> IO a -> IO a

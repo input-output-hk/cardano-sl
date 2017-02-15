@@ -5,6 +5,7 @@
 
 module Pos.Binary.Relay () where
 
+import           Data.Binary.Get                  (label)
 import           Universum
 
 import           Pos.Binary.Class                 (Bi (..))
@@ -18,24 +19,25 @@ import           Pos.Update.Core                  (UpdateProposal, UpdateVote (.
 
 instance (Bi tag, Bi key) => Bi (InvMsg key tag) where
     put InvMsg {..} = put imTag >> put imKeys
-    get = liftM2 InvMsg get get
+    get = label "InvMsg" $ liftM2 InvMsg get get
 
 instance (Bi tag, Bi key) => Bi (ReqMsg key tag) where
     put ReqMsg {..} = put rmTag >> put rmKeys
-    get = liftM2 ReqMsg get get
+    get = label "ReqMsg" $ liftM2 ReqMsg get get
 
 instance Bi (DataMsg GtMsgContents) where
     put (DataMsg dmContents) = put dmContents
-    get = DataMsg <$> get
+    get = label "DataMsg GtMsgContents" $ DataMsg <$> get
 
 instance Bi (DataMsg TxMsgContents) where
     put (DataMsg (TxMsgContents dmTx dmWitness dmDistr)) =
         put dmTx >> put dmWitness >> put dmDistr
-    get = DataMsg <$> (TxMsgContents <$> get <*> get <*> get)
+    get = label "DataMsg TxMsgContents" $
+        DataMsg <$> (TxMsgContents <$> get <*> get <*> get)
 
 instance Bi (DataMsg (UpdateProposal, [UpdateVote])) where
     put (DataMsg dmContents) = put dmContents
-    get = do
+    get = label "DataMsg (UpdateProposal, [UpdateVote])" $ do
         c@(up, votes) <- get
         let !id = hash up
         unless (all ((id ==) . uvProposalId) votes) $
@@ -44,4 +46,4 @@ instance Bi (DataMsg (UpdateProposal, [UpdateVote])) where
 
 instance Bi (DataMsg UpdateVote) where
     put (DataMsg uv) = put uv
-    get = DataMsg <$> get
+    get = label "DataMsg UpdateVote" $ DataMsg <$> get

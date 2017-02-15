@@ -66,6 +66,7 @@ library
 
                         -- Genesis data
                         Pos.Genesis
+                        Pos.Genesis.Arbitrary
 
                         -- LRC
                         Pos.Lrc
@@ -193,6 +194,7 @@ library
                         Pos.Communication.Types.SysStart
                         Pos.Communication.Server
                         Pos.Communication.Server.SysStart
+                        Pos.Communication.Specs
                         Pos.Communication.Util
 
                         -- Compile config
@@ -452,6 +454,7 @@ library
                       , base
                       , base58-bytestring
                       , base64-bytestring
+                      , temporary >= 1.2.0.4
                       -- This constraint on 'binary' is so strict because
                       -- we're relying on the internal representation of
                       -- 'Get' in Pos.Util.Binary. So, if you need to bump
@@ -491,7 +494,7 @@ library
                       , lens
                       , lifted-async
                       , list-t
-                      , log-warper
+                      , log-warper >= 0.4.3
                       , lrucache
                       , memory
                       , mmorph
@@ -500,9 +503,10 @@ library
                       , mono-traversable
                       , mtl
                       , neat-interpolation
+                      , network-info >= 0.2.0.8
                       , network-transport
                       , network-transport-tcp
-                      , node-sketch
+                      , node-sketch >= 0.1.1.0
                       , optparse-applicative
                       , optparse-simple
                       , parsec
@@ -591,7 +595,7 @@ executable cardano-node
                      , filepath
                      , formatting
                      , lens
-                     , log-warper
+                     , log-warper >= 0.4.3
                      , network-transport
                      , node-sketch
                      , optparse-simple
@@ -642,7 +646,7 @@ executable cardano-analyzer
                      , bytestring
                      , cardano-sl
                      , formatting
-                     , log-warper
+                     , log-warper >= 0.4.3
                      , optparse-simple
                      , serokell-util
                      , text
@@ -697,7 +701,7 @@ executable cardano-wallet
                      , formatting
                      , lens
                      , lifted-async
-                     , log-warper
+                     , log-warper >= 0.4.3
                      , mtl
                      , network-transport
                      , node-sketch
@@ -809,7 +813,7 @@ executable cardano-smart-generator
                      , formatting
                      , lens
                      , lifted-async
-                     , log-warper
+                     , log-warper >= 0.4.3
                      , node-sketch
                      , optparse-applicative
                      , parsec
@@ -870,7 +874,7 @@ executable cardano-dht-keygen
                      , kademlia
                      , lens
                      , lifted-async
-                     , log-warper
+                     , log-warper >= 0.4.3
                      , optparse-applicative
                      , parsec
                      , random
@@ -1087,10 +1091,11 @@ executable cardano-launcher
                      , base
                      , optparse-applicative
                      , cardano-report-server >= 0.0.1
-                     , log-warper
+                     , log-warper >= 0.4.3
                      , cardano-sl
                      , directory
                      , process
+                     , system-filepath
                      , text
                      , turtle
                      , universum
@@ -1102,6 +1107,9 @@ executable cardano-launcher
                        -O2
   default-extensions:  OverloadedStrings
                        RecordWildCards
+                       TupleSections
+  if os(windows)
+    LD-Options:     -mwindows
 
 test-suite cardano-test
   main-is:             Test.hs
@@ -1113,6 +1121,7 @@ test-suite cardano-test
                        Test.Pos.CryptoSpec
                        Test.Pos.DHT.Identity.BinarySpec
                        Test.Pos.FollowTheSatoshiSpec
+                       Test.Pos.Genesis.Identity.BinarySpec
                        Test.Pos.MerkleSpec
                        Test.Pos.Script.Identity.BinarySpec
                        Test.Pos.Ssc.GodTossing.Identity.BinarySpec
@@ -1142,10 +1151,11 @@ test-suite cardano-test
                      , cereal
                      , containers
                      , cryptonite
+                     , data-default
                      , formatting
                      , hspec
                      , lens
-                     , log-warper
+                     , log-warper >= 0.4.3
                      , memory
                      , mtl
                      , node-sketch
@@ -1206,7 +1216,7 @@ benchmark cardano-bench-criterion
                      , formatting
                      , hashtables
                      , lens
-                     , log-warper
+                     , log-warper >= 0.4.3
                      , serokell-util
                      , text-format
                      , universum >= 0.1.11

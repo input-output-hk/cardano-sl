@@ -17,8 +17,9 @@ import           System.Wlog                (logInfo)
 import           Universum
 
 import           Pos.Binary                 ()
-import           Pos.Communication.Methods  (sendTx, sendTxOuts)
+import           Pos.Communication.Methods  (sendTx)
 import           Pos.Communication.Protocol (SendActions)
+import           Pos.Communication.Specs    (sendTxOuts)
 import           Pos.Crypto                 (SecretKey, hash, toPublic)
 import           Pos.DHT.Model              (DHTNode)
 import           Pos.Types                  (TxAux, TxOutAux, makePubKeyAddress, txaF)

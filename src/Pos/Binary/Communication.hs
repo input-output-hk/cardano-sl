@@ -42,14 +42,15 @@ instance Bi NOP where
 
 instance Bi SysStartRequest where
     put _ = put (1 :: Word8)
-    get = SysStartRequest <$ do
-              (i :: Word8) <- get
-              when (i /= 1) $
-                 fail "SysStartRequest: 1 expected"
+    get = label "SysStartRequest" $ do
+        (i :: Word8) <- get
+        when (i /= 1) $
+           fail "SysStartRequest: 1 expected"
+        return SysStartRequest
 
 instance Bi SysStartResponse where
     put (SysStartResponse t) = put t
-    get = SysStartResponse <$> get
+    get = label "SysStartResponse" $ SysStartResponse <$> get
 
 ----------------------------------------------------------------------------
 -- Blocks
@@ -57,15 +58,15 @@ instance Bi SysStartResponse where
 
 instance Bi MsgGetHeaders where
     put (MsgGetHeaders f t) = put f >> put t
-    get = MsgGetHeaders <$> get <*> get
+    get = label "MsgGetHeaders" $ MsgGetHeaders <$> get <*> get
 
 instance Bi MsgGetBlocks where
     put (MsgGetBlocks f t) = put f >> put t
-    get = MsgGetBlocks <$> get <*> get
+    get = label "MsgGetBlocks" $ MsgGetBlocks <$> get <*> get
 
 instance Ssc ssc => Bi (MsgHeaders ssc) where
     put (MsgHeaders b) = put b
-    get = MsgHeaders <$> get
+    get = label "MsgHeaders" $ MsgHeaders <$> get
 
 instance SscHelpersClass ssc => Bi (MsgBlock ssc) where
     -- We encode block size and then the block itself so that we'd be able to
@@ -77,7 +78,7 @@ instance SscHelpersClass ssc => Bi (MsgBlock ssc) where
         -- we *depend* on this behavior in e.g. 'handleGetBlocks' in
         -- "Pos.Block.Network.Listeners". Grep for #put_checkBlockSize.
         putWithLength (put b)
-    get = getWithLength $ MsgBlock <$> get
+    get = label "MsgBlock" $ getWithLength $ MsgBlock <$> get
 
 ----------------------------------------------------------------------------
 -- Transaction processing
@@ -92,16 +93,16 @@ instance Bi TxMsgTag where
 ----------------------------------------------------------------------------
 
 instance Bi SendProxySK where
-    put (SendProxySKEpoch pSk)  = putWord8 0 >> put pSk
-    put (SendProxySKSimple pSk) = putWord8 1 >> put pSk
+    put (SendProxySKLight pSk) = putWord8 0 >> put pSk
+    put (SendProxySKHeavy pSk) = putWord8 1 >> put pSk
     get = label "SendProxySK" $ getWord8 >>= \case
-        0 -> SendProxySKEpoch <$> get
-        1 -> SendProxySKSimple <$> get
+        0 -> SendProxySKLight <$> get
+        1 -> SendProxySKHeavy <$> get
         t -> fail $ "get@SendProxySK: unknown tag " <> show t
 
 instance Bi ConfirmProxySK where
     put (ConfirmProxySK pSk proof) = put pSk >> put proof
-    get = liftA2 ConfirmProxySK get get
+    get = label "ConfirmProxySK" $ liftA2 ConfirmProxySK get get
 
 --instance Bi CheckProxySKConfirmed where
 --    put (CheckProxySKConfirmed pSk) = put pSk
@@ -133,7 +134,7 @@ instance Bi HandlerSpec where
     put (UnknownHandler t b) =
         putWord8 t <>
         putWithLength (putByteString b)
-    get = getWord8 >>= \case
+    get = label "HandlerSpec" $ getWord8 >>= \case
         0 -> getWithLength (pure OneMsgHandler)
         1 -> getWithLength (ConvHandler <$> get)
         t -> getWithLength (UnknownHandler t <$> getRemainingByteString)
@@ -143,7 +144,7 @@ instance Bi VerInfo where
                     <> put vIBlockVersion
                     <> put vIInHandlers
                     <> put vIOutHandlers
-    get = VerInfo <$> get <*> get <*> get <*> get
+    get = label "VerInfo" $ VerInfo <$> get <*> get <*> get <*> get
 
 peerIdLength :: Int
 peerIdLength = meaningPartLength
@@ -152,4 +153,4 @@ instance Bi PeerId where
     put (PeerId b) = if BS.length b /= peerIdLength
                         then panic $ sformat ("Wrong PeerId length "%int) (BS.length b)
                         else putByteString b
-    get = PeerId <$> getByteString peerIdLength
+    get = label "PeerId" $ PeerId <$> getByteString peerIdLength

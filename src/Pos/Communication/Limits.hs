@@ -1,4 +1,5 @@
 {-# LANGUAGE ConstraintKinds      #-}
+{-# LANGUAGE LambdaCase           #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -33,7 +34,8 @@ import           Pos.Binary.Class                 (Bi (..))
 import qualified Pos.Binary.Class                 as Bi
 import           Pos.Block.Network.Types          (MsgBlock)
 import qualified Pos.Constants                    as Const
-import           Pos.Communication.Types.Relay    (DataMsg (..), InvMsg, ReqMsg)
+import           Pos.Communication.Types.Relay    (DataMsg (..), InvMsg, ReqMsg,
+                                                   InvOrData)
 import           Pos.Crypto                       (Signature, PublicKey,
                                                    SecretSharingExtra (..), SecretProof,
                                                    VssPublicKey, EncShare, AbstractHash,
@@ -80,6 +82,14 @@ vectorOf k (Limit x) =
 vector :: (IsList l, MessageLimitedPure (Item l)) => Int -> Limit l
 vector k = vectorOf k msgLenLimit
 
+multiMap
+    :: (IsList l, Item l ~ (k, l0), IsList l0,
+        MessageLimitedPure k, MessageLimitedPure (Item l0))
+    => Int -> Limit l
+multiMap k =
+    -- max message length is reached when each key has single value
+    vectorOf k $ (,) <$> msgLenLimit <*> vector 1
+
 coerce :: Limit a -> Limit b
 coerce (Limit x) = Limit x
 
@@ -91,13 +101,21 @@ class Limiter l where
 instance Limiter (Limit t) where
     limitGet (Limit l) = Bi.limitGet $ fromIntegral l
 
--- | Limit depends on value of first byte, which should be in range @0..3@.
+-- | Bounds `InvOrData`.
+instance Limiter l => Limiter (Limit t, l) where
+    limitGet (invLimit, dataLimits) parser = do
+        lookAhead getWord8 >>= \case
+            0   -> limitGet invLimit parser
+            1   -> limitGet dataLimits parser
+            tag -> fail ("get@InvOrData: invalid tag: " ++ show tag)
+
+-- | Bounds `DataMsg`.
+-- Limit depends on value of first byte, which should be in range @0..3@.
 instance Limiter (Limit t, Limit t, Limit t, Limit t) where
     limitGet limits parser = do
         tag <- fromIntegral <$> lookAhead getWord8
         case (limits ^.. each) ^? ix tag of
-            Nothing -> -- Such limiter is used in `DataMsg GtMsgContents` only
-                       fail ("get@DataMsg: invalid tag: " ++ show tag)
+            Nothing -> fail ("get@DataMsg: invalid tag: " ++ show tag)
             Just limit -> limitGet limit parser
 
 -- | Specifies limit on message length.
@@ -144,7 +162,7 @@ mcCommitmentMsgLenLimit = MCCommitment <$> msgLenLimit
 
 mcSharesMsgLenLimit :: Limit GtMsgContents
 mcSharesMsgLenLimit =
-    MCShares <$> msgLenLimit <*> vector commitmentsNumLimit
+    MCShares <$> msgLenLimit <*> multiMap commitmentsNumLimit
 
 instance MessageLimited (DataMsg GtMsgContents) where
     type LimitType (DataMsg GtMsgContents) =
@@ -161,6 +179,17 @@ instance MessageLimited (DataMsg GtMsgContents) where
             , noLimit
             )
 
+instance MessageLimited (DataMsg contents)
+      => MessageLimited (InvOrData tag key contents) where
+    type LimitType (InvOrData tag key contents) =
+        ( LimitType (InvMsg key tag)
+        , LimitType (DataMsg contents)
+        )
+    getMsgLenLimit _ = do
+        invLim  <- getMsgLenLimit $ Proxy @(InvMsg key tag)
+        dataLim <- getMsgLenLimit $ Proxy @(DataMsg contents)
+        return (invLim + 1, dataLim + 1)
+
 instance MessageLimitedPure (InvMsg key tag) where
     msgLenLimit = Limit Const.genesisMaxReqSize
 
@@ -170,7 +199,7 @@ instance MessageLimitedPure (ReqMsg key tag) where
 instance MessageLimitedPure Commitment where
     msgLenLimit =
         Commitment <$> msgLenLimit <*> msgLenLimit
-                   <*> vector commitmentsNumLimit
+                   <*> multiMap commitmentsNumLimit
 
 instance MessageLimitedPure SecretSharingExtra where
     msgLenLimit =

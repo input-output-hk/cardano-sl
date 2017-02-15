@@ -4,14 +4,14 @@ module Pos.Ssc.GodTossing.Seed
        ( calculateSeed
        ) where
 
-
-import qualified Data.HashMap.Strict          as HM (fromList, lookup, mapMaybe,
+import qualified Data.HashMap.Strict          as HM (fromList, lookup, map, mapMaybe,
                                                      traverseWithKey, (!))
 import qualified Data.HashSet                 as HS (difference)
+import qualified Data.List.NonEmpty           as NE
 import           Universum
 
 import           Pos.Crypto                   (Secret, Share, unsafeRecoverSecret)
-import           Pos.Ssc.GodTossing.Core      (Commitment (commShares),
+import           Pos.Ssc.GodTossing.Core      (Commitment (..),
                                                CommitmentsMap (getCommitmentsMap),
                                                OpeningsMap, SharesMap, getOpening,
                                                secretToSharedSeed, verifyOpening)
@@ -64,7 +64,7 @@ calculateSeed (getCommitmentsMap -> commitments) openings lShares = do
     let mustBeRecovered :: HashSet StakeholderId
         mustBeRecovered = HS.difference participants (getKeys openings)
 
-    shares <- mapHelper BrokenShare (traverse fromBinaryM) lShares
+    shares <- mapHelper BrokenShare (traverse (traverse fromBinaryM)) lShares
 
     -- Secrets recovered from actual share lists (but only those we need –
     -- i.e. ones which are in mustBeRecovered)
@@ -74,9 +74,9 @@ calculateSeed (getCommitmentsMap -> commitments) openings lShares = do
             id <- toList mustBeRecovered
             -- We collect all shares that 'k' has sent to other nodes
             let decryptedShares :: [Share]
-                decryptedShares = mapMaybe (HM.lookup id) (toList shares)
-            let threshold = fromIntegral . vssThreshold . length . commShares $
-                            (commitments HM.! id) ^. _2
+                decryptedShares = concatMap toList $ mapMaybe (HM.lookup id) (toList shares)
+            let t = fromIntegral . vssThreshold . sum .
+                    (HM.map NE.length) . commShares $ (commitments HM.! id) ^. _2
             -- Then we recover the secret.
             --   * All encrypted shares in commitments are valid, because we
             --     have checked them with 'verifyEncShare'. (I'm not sure how
@@ -88,10 +88,10 @@ calculateSeed (getCommitmentsMap -> commitments) openings lShares = do
             --     tries to lie that X's share sent to A was actually sent
             --     to B, we would notice that the share sent “to B” doesn't
             --     match the encrypted share in X's commitment.
-            return (id, if length decryptedShares < threshold
+            return (id, if length decryptedShares < t
                           then Nothing
                           else Just $ unsafeRecoverSecret
-                                      (take threshold decryptedShares))
+                                      (take t decryptedShares))
 
     secrets0 <- mapHelper BrokenSecret fromBinaryM $ getOpening <$> openings
 
@@ -120,8 +120,9 @@ calculateSeed (getCommitmentsMap -> commitments) openings lShares = do
                          mconcat $ map secretToSharedSeed (toList secrets)
 
 mapHelper
-    :: (StakeholderId -> c)
+    :: (id -> c)
     -> (b -> Maybe a)
-    -> HashMap StakeholderId b
-    -> Either c (HashMap StakeholderId a)
-mapHelper errMapper mapper = HM.traverseWithKey (\pk v -> maybe (Left $ errMapper pk) Right $ mapper v)
+    -> HashMap id b
+    -> Either c (HashMap id a)
+mapHelper errMapper mapper =
+    HM.traverseWithKey (\id v -> maybe (Left $ errMapper id) Right $ mapper v)

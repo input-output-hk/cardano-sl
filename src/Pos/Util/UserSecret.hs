@@ -9,6 +9,7 @@ module Pos.Util.UserSecret
        , usVss
        , getUSPath
        , simpleUserSecret
+       , initializeUserSecret
        , peekUserSecret
        , takeUserSecret
        , writeUserSecret
@@ -16,12 +17,13 @@ module Pos.Util.UserSecret
        ) where
 
 import           Control.Lens         (makeLenses, to)
+import           Data.Binary.Get      (label)
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Default         (Default (..))
 import           Prelude              (show)
 import           System.FileLock      (FileLock, SharedExclusive (..), lockFile,
                                        unlockFile, withFileLock)
-import qualified Turtle as T
+import qualified Turtle               as T
 import           Universum            hiding (show)
 
 import           Pos.Binary.Class     (Bi (..), decodeFull, encode)
@@ -69,15 +71,15 @@ instance Default UserSecret where
 -- @Pos.Binary.*@.
 instance Bi UserSecret where
     put UserSecret{..} = put _usVss >> put _usKeys
-    get = do
+    get = label "UserSecret" $ do
         vss <- get
         keys <- get
         return $ def & usVss .~ vss & usKeys .~ keys
 
 -- | Create user secret file at the given path, but only when one doesn't
 -- already exist.
-initializeSecret :: (MonadIO m) => FilePath -> m ()
-initializeSecret path = do
+initializeUserSecret :: (MonadIO m) => FilePath -> m ()
+initializeUserSecret path = do
     exists <- T.testfile (fromString path)
     liftIO (if exists
             then return ()
@@ -88,7 +90,7 @@ initializeSecret path = do
 peekUserSecret :: (MonadIO m) => FilePath -> m UserSecret
 peekUserSecret path =
     liftIO $ withFileLock (lockFilePath path) Shared $ const $ do
-        initializeSecret path
+        initializeUserSecret path
         econtent <- decodeFull <$> BSL.readFile path
         pure $ either (const def) identity econtent & usPath .~ path
 

@@ -16,7 +16,7 @@ import           Data.DeriveTH   (derive, makeArbitrary)
 import           Test.QuickCheck (Arbitrary (..), choose)
 import           Universum
 
-import           Pos.Types       (ProxySKEpoch, ProxySKSimple, ProxySigEpoch)
+import           Pos.Types       (ProxySKHeavy, ProxySKLight, ProxySigLight)
 
 ----------------------------------------------------------------------------
 -- Generic PSKs propagation
@@ -25,8 +25,8 @@ import           Pos.Types       (ProxySKEpoch, ProxySKSimple, ProxySigEpoch)
 -- | Message with delegated proxy secret key. Is used to propagate
 -- both epoch-oriented psks (lightweight) and simple (heavyweight).
 data SendProxySK
-    = SendProxySKEpoch !ProxySKEpoch
-    | SendProxySKSimple !ProxySKSimple
+    = SendProxySKLight !ProxySKLight
+    | SendProxySKHeavy !ProxySKHeavy
     deriving (Show, Eq, Generic)
 
 instance Hashable SendProxySK
@@ -42,12 +42,12 @@ instance Hashable SendProxySK
 -- predicate, because certificate may be sent in epoch id that's
 -- before lower cert's @EpochIndex@.
 data ConfirmProxySK =
-    ConfirmProxySK !ProxySKEpoch !(ProxySigEpoch ProxySKEpoch)
+    ConfirmProxySK !ProxySKLight !(ProxySigLight ProxySKLight)
     deriving (Show, Eq, Generic)
 
 ---- | Request to check if a node has any info about PSK delivery.
 --data CheckProxySKConfirmed =
---    CheckProxySKConfirmed !ProxySKEpoch
+--    CheckProxySKConfirmed !ProxySKLight
 --    deriving (Show, Eq, Generic)
 --
 ---- | Response to the @CheckProxySKConfirmed@ call.

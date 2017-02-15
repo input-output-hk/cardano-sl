@@ -12,9 +12,9 @@ import           Universum
 
 import           Pos.Binary                 ()
 
-import           Pos.Communication.Methods  (sendProposalOuts, sendUpdateProposal,
-                                             sendVote, sendVoteOuts)
+import           Pos.Communication.Methods  (sendUpdateProposal, sendVote)
 import           Pos.Communication.Protocol (SendActions)
+import           Pos.Communication.Specs    (sendProposalOuts, sendVoteOuts)
 import           Pos.DHT.Model              (DHTNode)
 
 import           Pos.Crypto                 (SecretKey, hash, sign, toPublic)

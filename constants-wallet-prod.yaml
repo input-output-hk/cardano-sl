@@ -47,6 +47,7 @@ maxLocalTxs: 1000
 protocolMagic: 50987833
 enhancedMessageBroadcast: 2
 messageCacheTimeout: 30
+propagationQueueSize: 100
 blockRetrievalQueueSize: 100
 recoveryHeadersMessage: 100 # should be greater than k, less than blockRetrievalQueueSize
 

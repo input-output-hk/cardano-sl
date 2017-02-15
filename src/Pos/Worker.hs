@@ -9,7 +9,8 @@ import           Data.Tagged           (untag)
 import           Universum
 
 import           Pos.Block.Worker      (blkWorkers)
-import           Pos.Communication     (OutSpecs, WorkerSpec, wrapActionSpec)
+import           Pos.Communication     (OutSpecs, WorkerSpec, relayWorkers,
+                                        wrapActionSpec)
 import           Pos.Delegation.Worker (dlgWorkers)
 import           Pos.DHT.Workers       (dhtWorkers)
 import           Pos.Lrc.Worker        (lrcOnNewSlotWorker)
@@ -36,6 +37,7 @@ allWorkers = mconcatPair
     , wrap' "us"         $ usWorkers
     , wrap' "slotting"   $ first pure slottingWorker
     , wrap' "sysStart"   $ first pure sysStartWorker
+    , wrap' "relay"      $ relayWorkers
     -- I don't know, guys, I don't know :(
     -- , const ([], mempty) statsWorkers
     ]

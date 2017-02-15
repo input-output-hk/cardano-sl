@@ -6,6 +6,7 @@
 module Pos.Binary.DHTModel () where
 
 import qualified Data.Binary                 as B (Binary (..))
+import           Data.Binary.Get             (label)
 import           Network.Kademlia.HashNodeId (HashId (..))
 import           Universum
 
@@ -14,7 +15,7 @@ import           Pos.DHT.Model.Types         (DHTData (..), DHTKey (..))
 
 instance Bi DHTKey where
     put (DHTKey (HashId bs)) = put bs
-    get = DHTKey . HashId <$> get
+    get = label "DHTKey" $ DHTKey . HashId <$> get
 
 instance Bi DHTData where
     put (DHTData ()) = mempty

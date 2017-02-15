@@ -23,11 +23,15 @@ module Pos.Wallet.Web.State.Storage
        , removeWallet
        , addUpdate
        , removeNextUpdate
+       , getPostponeUpdateUntil
+       , setPostponeUpdateUntil
+       , removePostponeUpdateUntil
        ) where
 
 import           Control.Lens               (at, ix, makeClassy, (%=), (.=), _Just, _head)
 import           Data.Default               (Default, def)
 import           Data.SafeCopy              (base, deriveSafeCopySimple)
+import           Data.Time.Clock.POSIX      (POSIXTime)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile, CTxId,
                                              CTxMeta, CUpdateInfo, CWalletMeta,
                                              CWalletType)
@@ -37,9 +41,10 @@ type TransactionHistory = HashMap CTxId CTxMeta
 
 data WalletStorage = WalletStorage
     {
-      _wsWalletMetas  :: !(HashMap CAddress (CWalletMeta, TransactionHistory))
-    , _wsProfile      :: Maybe CProfile
-    , _wsReadyUpdates :: [CUpdateInfo]
+      _wsWalletMetas         :: !(HashMap CAddress (CWalletMeta, TransactionHistory))
+    , _wsProfile             :: !(Maybe CProfile)
+    , _wsReadyUpdates        :: [CUpdateInfo]
+    , _wsPostponeUpdateUntil :: !(Maybe POSIXTime)
     }
 
 makeClassy ''WalletStorage
@@ -50,11 +55,21 @@ instance Default WalletStorage where
         {
           _wsWalletMetas = mempty
         , _wsProfile = mzero
-        , _wsReadyUpdates = []
+        , _wsReadyUpdates = mempty
+        , _wsPostponeUpdateUntil = mzero
         }
 
 type Query a = forall m. (MonadReader WalletStorage m) => m a
 type Update a = forall m. ({-MonadThrow m, -}MonadState WalletStorage m) => m a
+
+getPostponeUpdateUntil :: Query (Maybe POSIXTime)
+getPostponeUpdateUntil = view wsPostponeUpdateUntil
+
+setPostponeUpdateUntil :: POSIXTime -> Update ()
+setPostponeUpdateUntil dt = wsPostponeUpdateUntil .= Just dt
+
+removePostponeUpdateUntil :: Update ()
+removePostponeUpdateUntil = wsPostponeUpdateUntil .= Nothing
 
 getProfile :: Query (Maybe CProfile)
 getProfile = view wsProfile

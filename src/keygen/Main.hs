@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Main where
 
 import qualified Data.ByteString.Lazy as BSL
@@ -12,7 +14,7 @@ import           System.FilePath      (takeDirectory)
 import           System.Random        (randomRIO)
 import           Universum            hiding (show)
 
-import           Pos.Binary           (encode)
+import           Pos.Binary           (decodeFull, encode)
 import           Pos.Constants        (vssMaxTTL, vssMinTTL)
 import           Pos.Crypto           (PublicKey, keyGen, toPublic, toVssPublicKey,
                                        vssKeyGen)
@@ -20,8 +22,8 @@ import           Pos.Genesis          (GenesisData (..), StakeDistribution (..))
 import           Pos.Ssc.GodTossing   (VssCertificate, mkVssCertificate)
 import           Pos.Types            (addressHash, makePubKeyAddress, mkCoin)
 import           Pos.Util             (asBinary)
-import           Pos.Util.UserSecret  (takeUserSecret, usKeys, usVss,
-                                       writeUserSecretRelease)
+import           Pos.Util.UserSecret  (initializeUserSecret, takeUserSecret, usKeys,
+                                       usVss, writeUserSecretRelease)
 
 data KeygenOptions = KO
     { koPattern      :: FilePath
@@ -33,6 +35,7 @@ data KeygenOptions = KO
 
 generateKeyfile :: FilePath -> IO (PublicKey, VssCertificate)
 generateKeyfile fp = do
+    initializeUserSecret fp
     sk <- snd <$> keyGen
     vss <- vssKeyGen
     us <- takeUserSecret fp
@@ -101,3 +104,13 @@ main = do
             , gdVssCertificates = genesisVssCerts
             }
     BSL.writeFile koGenesisFile $ encode genData
+    case decodeFull (encode genData) of
+        Right (_ :: GenesisData) ->
+            putText "genesis.bin generated successfully\n"
+        Left err                 -> do
+            putText ("Generated genesis.bin can't be read: " <>
+                     toText err <> "\n")
+            if length (encode genData) < 10*1024
+                then putText "Printing GenesisData:\n\n" >> print genData
+                else putText "genesis.bin is bigger than 10k, won't print it\n"
+

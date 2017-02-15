@@ -15,7 +15,7 @@ module Pos.Ssc.GodTossing.GState
        ) where
 
 import           Control.Lens                   (at, (.=), _Wrapped)
-import           Control.Monad.Except           (runExceptT, throwError)
+import           Control.Monad.Except           (MonadError (throwError), runExceptT)
 import           Data.Default                   (def)
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.List.NonEmpty             as NE
@@ -30,14 +30,14 @@ import           Pos.DB                         (DBError (DBMalformed), MonadDB,
                                                  getTipBlockHeader,
                                                  loadBlundsFromTipWhile)
 import qualified Pos.DB.Lrc                     as LrcDB
-import           Pos.Lrc.Types                  (RichmenSet)
+import           Pos.Lrc.Types                  (RichmenStake)
 import           Pos.Ssc.Class.Storage          (SscGStateClass (..), SscVerifier)
 import           Pos.Ssc.Extra                  (MonadSscMem, sscRunGlobalQuery)
 import           Pos.Ssc.GodTossing.Core        (VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Functions   (getStableCertsPure)
 import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
 import           Pos.Ssc.GodTossing.Seed        (calculateSeed)
-import           Pos.Ssc.GodTossing.Toss        (MultiRichmenSet, PureToss,
+import           Pos.Ssc.GodTossing.Toss        (MultiRichmenStake, PureToss,
                                                  TossVerFailure (..), applyGenesisBlock,
                                                  rollbackGT, runPureTossWithLogger,
                                                  verifyAndApplyGtPayload)
@@ -85,8 +85,9 @@ instance SscGStateClass SscGodTossing where
     sscLoadGlobalState = loadGlobalState
     sscRollbackU = rollbackBlocks
     sscVerifyAndApplyBlocks = verifyAndApply
-    sscCalculateSeedQ _ =
-        calculateSeed <$> view gsCommitments <*> view gsOpenings <*>
+    sscCalculateSeedQ _ = calculateSeed <$>
+        view gsCommitments <*>
+        view gsOpenings <*>
         view gsShares
 
 loadGlobalState
@@ -132,16 +133,16 @@ rollbackBlocks blocks = tossToUpdate mempty $ rollbackGT oldestEOS payloads
         blocks
 
 verifyAndApply
-    :: RichmenSet
+    :: RichmenStake
     -> OldestFirst NE (Block SscGodTossing)
     -> SscVerifier SscGodTossing ()
-verifyAndApply richmenSet blocks = verifyAndApplyMultiRichmen richmenData blocks
+verifyAndApply richmenStake blocks = verifyAndApplyMultiRichmen richmenData blocks
   where
     epoch = blocks ^. _Wrapped . _neHead . epochIndexL
-    richmenData = HM.fromList [(epoch, richmenSet)]
+    richmenData = HM.fromList [(epoch, richmenStake)]
 
 verifyAndApplyMultiRichmen
-    :: MultiRichmenSet
+    :: MultiRichmenStake
     -> OldestFirst NE (Block SscGodTossing)
     -> SscVerifier SscGodTossing ()
 verifyAndApplyMultiRichmen richmenData = mapM_ verifyAndApplyDo
@@ -152,14 +153,14 @@ verifyAndApplyMultiRichmen richmenData = mapM_ verifyAndApplyDo
         tossToVerifier richmenData $
         verifyAndApplyGtPayload (Right $ blk ^. gbHeader) (blk ^. blockMpc)
 
-tossToUpdate :: MultiRichmenSet -> PureToss a -> GSUpdate a
+tossToUpdate :: MultiRichmenStake -> PureToss a -> GSUpdate a
 tossToUpdate richmenData action = do
     oldState <- use identity
     (res, newState) <- runPureTossWithLogger richmenData oldState action
     (identity .= newState) $> res
 
 tossToVerifier
-    :: MultiRichmenSet
+    :: MultiRichmenStake
     -> ExceptT TossVerFailure PureToss a
     -> SscVerifier SscGodTossing a
 tossToVerifier richmenData action = do

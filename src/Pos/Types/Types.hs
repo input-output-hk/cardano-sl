@@ -39,10 +39,10 @@ module Pos.Types.Types
        , SharedSeed (..)
        , SlotLeaders
 
-       , ProxySigEpoch
-       , ProxySKEpoch
-       , ProxySigSimple
-       , ProxySKSimple
+       , ProxySigLight
+       , ProxySKLight
+       , ProxySigHeavy
+       , ProxySKHeavy
        , ProxySKEither
        ) where
 
@@ -68,6 +68,7 @@ import           Pos.Crypto             (Hash, ProxySecretKey, ProxySignature, P
                                          Signature, hash, shortHashF)
 import           Pos.Data.Attributes    (Attributes)
 import           Pos.Script.Type        (Script)
+import           Pos.Types.Address      ()
 import           Pos.Types.Core         (Address (..), Coin, EpochIndex, StakeholderId,
                                          coinF)
 
@@ -165,8 +166,8 @@ instance Buildable TxOutAux where
 -- (e.g. for the purpose of running follow-the-satoshi).
 txOutStake :: TxOutAux -> [(StakeholderId, Coin)]
 txOutStake (TxOut{..}, mb) = case txOutAddress of
-    PubKeyAddress x -> [(x, txOutValue)]
-    _               -> mb
+    PubKeyAddress x _ -> [(x, txOutValue)]
+    _                 -> mb
 
 -- | Transaction.
 --
@@ -216,7 +217,7 @@ type Utxo = Map (TxId, Word32) TxOutAux
 formatUtxo :: Utxo -> Builder
 formatUtxo =
     mapBuilderJson .
-    map (first pairBuilder . second (show @_ @Text)) .
+    map (first pairBuilder) .
     M.toList
 
 -- | Specialized formatter for 'Utxo'.
@@ -253,19 +254,21 @@ type SlotLeaders = NonEmpty StakeholderId
 
 -- | Proxy signature used in csl -- holds a pair of epoch
 -- indices. Block is valid if it's epoch index is inside this range.
-type ProxySigEpoch a = ProxySignature (EpochIndex, EpochIndex) a
+type ProxySigLight a = ProxySignature (EpochIndex, EpochIndex) a
 
--- | Same alias for the proxy secret key (see 'ProxySigEpoch').
-type ProxySKEpoch = ProxySecretKey (EpochIndex, EpochIndex)
+-- | Same alias for the proxy secret key (see 'ProxySigLight').
+type ProxySKLight = ProxySecretKey (EpochIndex, EpochIndex)
 
--- | Simple proxy signature without ttl/epoch index constraints.
-type ProxySigSimple a = ProxySignature () a
+-- | Simple proxy signature without ttl/epoch index
+-- constraints. 'EpochIndex' inside is needed for replay attack
+-- prevention.
+type ProxySigHeavy a = ProxySignature EpochIndex a
 
 -- | Correspondent SK for no-ttl proxy signature scheme.
-type ProxySKSimple = ProxySecretKey ()
+type ProxySKHeavy = ProxySecretKey EpochIndex
 
 -- | Some proxy secret key.
-type ProxySKEither = Either ProxySKEpoch ProxySKSimple
+type ProxySKEither = Either ProxySKLight ProxySKHeavy
 
 derive makeNFData ''TxIn
 derive makeNFData ''TxInWitness

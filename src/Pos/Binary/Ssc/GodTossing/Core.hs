@@ -4,17 +4,18 @@ module Pos.Binary.Ssc.GodTossing.Core
        (
        ) where
 
-import           Data.Binary.Get               (getWord8)
+import           Data.Binary.Get               (getWord8, label)
 import           Data.Binary.Put               (putWord8)
 import qualified Data.HashMap.Strict           as HM
 import           Universum
 
 import           Pos.Binary.Class              (Bi (..))
 import           Pos.Binary.Crypto             ()
-import           Pos.Ssc.GodTossing.Core.Types (Commitment (..), CommitmentsMap,
-                                                GtPayload (..), GtProof (..),
-                                                Opening (..), VssCertificate (..),
-                                                mkCommitmentsMap, recreateVssCertificate)
+import           Pos.Ssc.GodTossing.Core.Types (Commitment (..), Commitment (..),
+                                                CommitmentsMap, GtPayload (..),
+                                                GtProof (..), Opening (..),
+                                                VssCertificate (..), mkCommitmentsMap,
+                                                recreateVssCertificate)
 import           Pos.Types.Address             (addressHash)
 
 instance Bi Commitment where
@@ -22,7 +23,7 @@ instance Bi Commitment where
         put commShares
         put commExtra
         put commProof
-    get = do
+    get = label "Commitment" $ do
         commShares <- get
         when (null commShares) $ fail "get@Commitment: no shares"
         commExtra <- get
@@ -31,7 +32,7 @@ instance Bi Commitment where
 
 instance Bi CommitmentsMap where
     put = put . toList
-    get = mkCommitmentsMap <$> get
+    get = label "CommitmentsMap" $ mkCommitmentsMap <$> get
 
 instance Bi VssCertificate where
     put vc = do
@@ -39,11 +40,12 @@ instance Bi VssCertificate where
         put $ vcExpiryEpoch vc
         put $ vcSignature vc
         put $ vcSigningKey vc
-    get = join $ liftM4 recreateVssCertificate get get get get
+    get = label "VssCertificate" $
+        join $ liftM4 recreateVssCertificate get get get get
 
 instance Bi Opening where
     put (Opening secret) = put secret
-    get = Opening <$> get
+    get = label "Opening" $ Opening <$> get
 
 instance Bi GtPayload where
     put x =
@@ -55,7 +57,7 @@ instance Bi GtPayload where
             SharesPayload sharesMap vssMap ->
                 putWord8 2 >> put sharesMap >> put (toList vssMap)
             CertificatesPayload vssMap -> putWord8 3 >> put (toList vssMap)
-    get =
+    get = label "GtPayload" $ do
         getWord8 >>= \case
             0 -> liftM2 CommitmentsPayload get getVssCerts
             1 -> liftM2 OpeningsPayload get getVssCerts
@@ -72,9 +74,10 @@ instance Bi GtProof where
         OpeningsProof a b    -> putWord8 1 >> put a >> put b
         SharesProof a b      -> putWord8 2 >> put a >> put b
         CertificatesProof a  -> putWord8 3 >> put a
-    get = getWord8 >>= \case
-        0 -> liftM2 CommitmentsProof get get
-        1 -> liftM2 OpeningsProof get get
-        2 -> liftM2 SharesProof get get
-        3 -> CertificatesProof <$> get
-        tag -> fail ("get@GtProof: invalid tag: " ++ show tag)
+    get = label "GtProof" $ do
+        getWord8 >>= \case
+            0 -> liftM2 CommitmentsProof get get
+            1 -> liftM2 OpeningsProof get get
+            2 -> liftM2 SharesProof get get
+            3 -> CertificatesProof <$> get
+            tag -> fail ("get@GtProof: invalid tag: " ++ show tag)

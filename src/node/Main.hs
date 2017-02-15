@@ -40,7 +40,6 @@ import           Pos.Util              (inAssertMode, mappendPair)
 import           Pos.Util.BackupPhrase (keysFromPhrase)
 import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usKeys, usVss,
                                         writeUserSecret)
-
 #ifdef WITH_WEB
 import           Pos.Web               (serveWebBase, serveWebGT)
 import           Pos.WorkMode          (WorkMode)
@@ -114,13 +113,23 @@ action args@Args {..} res = do
     putText $ "If stats is on: " <> show enableStats
     case (enableStats, CLI.sscAlgo commonArgs) of
         (True, GodTossingAlgo) ->
-            runNodeStats @SscGodTossing res (convPlugins currentPluginsGT `mappendPair` walletStats args) currentParams gtParams
+            runNodeStats @SscGodTossing res
+                         (convPlugins currentPluginsGT `mappendPair` walletStats args)
+                         currentParams gtParams
         (True, NistBeaconAlgo) ->
-            runNodeStats @SscNistBeacon res (convPlugins currentPlugins `mappendPair`  walletStats args) currentParams ()
+            runNodeStats @SscNistBeacon res
+                         (convPlugins currentPlugins `mappendPair`  walletStats args)
+                         currentParams ()
         (False, GodTossingAlgo) ->
-            runNodeProduction @SscGodTossing res (convPlugins currentPluginsGT `mappendPair` walletProd args) currentParams gtParams
+            runNodeProduction @SscGodTossing res
+                              (convPlugins currentPluginsGT `mappendPair` walletProd args)
+                              currentParams
+                              gtParams
         (False, NistBeaconAlgo) ->
-            runNodeProduction @SscNistBeacon res (convPlugins currentPlugins `mappendPair` walletProd args) currentParams ()
+            runNodeProduction @SscNistBeacon res
+                              (convPlugins currentPlugins `mappendPair` walletProd args)
+                              currentParams
+                              ()
   where
     convPlugins = (,mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
 

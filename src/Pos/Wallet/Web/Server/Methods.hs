@@ -1,6 +1,7 @@
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeOperators       #-}
 
 -- | Wallet web server.
@@ -12,13 +13,14 @@ module Pos.Wallet.Web.Server.Methods
        , walletServerOuts
        ) where
 
+import           Control.Lens                  (makeLenses, (.=))
 import           Control.Monad.Catch           (try)
 import           Control.Monad.Except          (runExceptT)
 import           Control.Monad.Trans.State     (get, runStateT)
 import qualified Data.ByteString.Base64        as B64
 import           Data.Default                  (Default, def)
 import           Data.List                     (elemIndex, nub, (!!))
-import           Data.Time.Clock.POSIX         (getPOSIXTime)
+import           Data.Time.Clock.POSIX         (POSIXTime, getPOSIXTime)
 import           Formatting                    (build, ords, sformat, stext, (%))
 import           Network.Wai                   (Application)
 import           Servant.API                   ((:<|>) ((:<|>)),
@@ -45,8 +47,9 @@ import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
                                                 addSecretKey)
 import           Pos.Wallet.Tx                 (sendTxOuts, submitTx)
 import           Pos.Wallet.Tx.Pure            (TxHistoryEntry (..))
-import           Pos.Wallet.WalletMode         (WalletMode, applyLastUpdate, getBalance,
-                                                getTxHistory, localChainDifficulty,
+import           Pos.Wallet.WalletMode         (WalletMode, applyLastUpdate,
+                                                connectedPeers, getBalance, getTxHistory,
+                                                localChainDifficulty,
                                                 networkChainDifficulty, waitForUpdate)
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CProfile,
@@ -65,10 +68,13 @@ import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 upgradeApplicationWS)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
                                                 addOnlyNewTxMeta, addUpdate, closeState,
-                                                createWallet, getNextUpdate, getProfile,
+                                                createWallet, getNextUpdate,
+                                                getPostponeUpdateUntil, getProfile,
                                                 getTxMeta, getWalletMeta, getWalletState,
-                                                openState, removeNextUpdate, removeWallet,
-                                                runWalletWebDB, setProfile, setWalletMeta,
+                                                openState, removeNextUpdate,
+                                                removePostponeUpdateUntil, removeWallet,
+                                                runWalletWebDB, setPostponeUpdateUntil,
+                                                setProfile, setWalletMeta,
                                                 setWalletTransactionMeta)
 import           Pos.Web.Server                (serveImpl)
 
@@ -83,6 +89,18 @@ type WalletWebMode ssc m
       , MonadWalletWebDB m
       , MonadWalletWebSockets m
       )
+
+-- | Notifier state (moved here due to `makeLenses` and scoping issues)
+data SyncProgress =
+    SyncProgress { _spLocalCD   :: ChainDifficulty
+                 , _spNetworkCD :: ChainDifficulty
+                 , _spPeers     :: Word
+                 }
+
+makeLenses ''SyncProgress
+
+instance Default SyncProgress where
+    def = SyncProgress 0 0 0
 
 walletServeImpl
     :: ( MonadIO m
@@ -140,14 +158,6 @@ walletServer sendActions nat = do
 -- Notifier
 ------------------------
 
-data SyncProgress =
-    SyncProgress { spLocalCD   :: ChainDifficulty
-                 , spNetworkCD :: ChainDifficulty
-                 }
-
-instance Default SyncProgress where
-    def = let chainDef = ChainDifficulty 0 in SyncProgress chainDef chainDef
-
 -- type SyncState = StateT SyncProgress
 
 -- FIXME: this is really inaficient. Temporary solution
@@ -155,9 +165,11 @@ launchNotifier :: WalletWebMode ssc m => (m :~> Handler) -> m ()
 launchNotifier nat = void . liftIO $ mapM startForking
     [ dificultyNotifier
     , updateNotifier
+    , updateNotifierUnPostpone
     ]
   where
     cooldownPeriod = 5000000         -- 5 sec
+    cooldownPostponePeriod = 5000000 -- 5 sec
     difficultyNotifyPeriod = 500000  -- 0.5 sec
     forkForever action = forkFinally action $ const $ do
         -- TODO: log error
@@ -172,19 +184,39 @@ launchNotifier nat = void . liftIO $ mapM startForking
         action
     dificultyNotifier = void . flip runStateT def $ notifier difficultyNotifyPeriod $ do
         networkDifficulty <- networkChainDifficulty
-        -- TODO: use lenses!
-        whenM ((networkDifficulty /=) . spNetworkCD <$> get) $ do
+        oldNetworkDifficulty <- use spNetworkCD
+        when (networkDifficulty /= oldNetworkDifficulty) $ do
             lift $ notify $ NetworkDifficultyChanged networkDifficulty
-            modify $ \sp -> sp { spNetworkCD = networkDifficulty }
+            spNetworkCD .= networkDifficulty
 
         localDifficulty <- localChainDifficulty
-        whenM ((localDifficulty /=) . spLocalCD <$> get) $ do
+        oldLocalDifficulty <- use spLocalCD
+        when (localDifficulty /= oldLocalDifficulty) $ do
             lift $ notify $ LocalDifficultyChanged localDifficulty
-            modify $ \sp -> sp { spLocalCD = localDifficulty }
+            spLocalCD .= localDifficulty
+
+        peers <- connectedPeers
+        oldPeers <- use spPeers
+        when (peers /= oldPeers) $ do
+            lift $ notify $ ConnectedPeersChanged peers
+            spPeers .= peers
+
     updateNotifier = do
         cps <- waitForUpdate
         addUpdate $ toCUpdateInfo cps
-        notify UpdateAvailable
+        -- FIXME: a light race condition might happen here.
+        -- Probability of hapening is really low and when it happens user might
+        -- get notified one more time about an update. Nothing critical.
+        whenNothingM_ getPostponeUpdateUntil $
+            liftIO getPOSIXTime >>= setPostponeUpdateUntil
+    updateNotifierUnPostpone = notifier cooldownPostponePeriod $ do
+        mPostpone <- getPostponeUpdateUntil
+        time <- liftIO getPOSIXTime
+        when (((<) <$> mPostpone <*> pure time) == Just True) $ do
+            whenJustM getNextUpdate $
+                const $ notify UpdateAvailable
+            removePostponeUpdateUntil
+
     -- historyNotifier :: WalletWebMode ssc m => m ()
     -- historyNotifier = do
     --     cAddresses <- myCAddresses
@@ -241,6 +273,8 @@ servantHandlers sendActions =
      catchWalletError blockchainSlotDuration
     :<|>
      catchWalletError (pure curSoftwareVersion)
+    :<|>
+     catchWalletError . postponeUpdatesUntil
   where
     -- TODO: can we with Traversable map catchWalletError over :<|>
     -- TODO: add logging on error
@@ -405,6 +439,9 @@ redeemADA sendActions CWalletRedeem {..} = do
             () <$ addHistoryTx dstCAddr ADA "ADA redemption" ""
                 (THEntry (hash tx) tx False Nothing)
             pure walletB
+
+postponeUpdatesUntil :: WalletWebMode ssc m => POSIXTime -> m ()
+postponeUpdatesUntil = setPostponeUpdateUntil
 
 ----------------------------------------------------------------------------
 -- Helpers

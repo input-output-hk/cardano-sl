@@ -26,7 +26,7 @@ import           Universum
 
 import           Pos.Crypto                (PublicKey)
 import           Pos.Delegation.Types      (SendProxySK)
-import           Pos.Types                 (EpochIndex, ProxySKEpoch, ProxySKSimple)
+import           Pos.Types                 (EpochIndex, ProxySKHeavy, ProxySKLight)
 
 ---------------------------------------------------------------------------
 -- Delegation in-memory data
@@ -39,9 +39,9 @@ data DelegationWrap = DelegationWrap
     { _dwMessageCache      :: HashMap SendProxySK UTCTime
       -- ^ Message cache to prevent infinite propagation of useless
       -- certs.
-    , _dwConfirmationCache :: HashMap ProxySKEpoch UTCTime
+    , _dwConfirmationCache :: HashMap ProxySKLight UTCTime
       -- ^ Confirmation cache for lightweight PSKs.
-    , _dwProxySKPool       :: HashMap PublicKey ProxySKSimple
+    , _dwProxySKPool       :: HashMap PublicKey ProxySKHeavy
       -- ^ Memory pool of hardweight proxy secret keys. Keys of this
       -- map are issuer public keys.
     , _dwEpochId           :: EpochIndex

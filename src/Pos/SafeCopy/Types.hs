@@ -25,6 +25,7 @@ deriveSafeCopySimple 0 'base ''LocalSlotIndex
 deriveSafeCopySimple 0 'base ''SlotId
 deriveSafeCopySimple 0 'base ''EpochOrSlot
 deriveSafeCopySimple 0 'base ''Coin
+deriveSafeCopySimple 0 'base ''AddrPkAttrs
 deriveSafeCopySimple 0 'base ''Address
 deriveSafeCopySimple 0 'base ''TxInWitness
 -- TODO: in many cases TxDistribution would just be lots of empty lists, so

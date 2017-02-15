@@ -66,6 +66,10 @@ fi
 
 echo "**** 5. Push all changes ****"
 cd "${CARDANO_DOCS_REPO}"
+
+echo "     Change external links to the Hackage-based ones..."
+sed -i 's/href="\.\.\/\([^/]*\)\//href="http:\/\/hackage.haskell.org\/package\/\1\/docs\//g' ./*.html
+
 git add .
 if [ -n "$(git status --porcelain)" ]; then 
     echo "     There are changes in Haddock-docs, push it";

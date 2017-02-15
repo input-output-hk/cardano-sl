@@ -4,6 +4,8 @@ build=false
 runNode=false
 wallet_cli=""
 
+echo "Parsing command line arguments..."
+
 while [[ $# -gt 0 ]]
 do
   key="$1"
@@ -33,7 +35,10 @@ csldir=$(pwd)
 serverPort=8100 # Port for webfsd
 updatetar="binaries_000_010.tar"
 
+
 # Sanity checks
+echo "Sanity checks..."
+
 which stack > /dev/null
 which tmux > /dev/null
 which webfsd > /dev/null
@@ -42,13 +47,16 @@ if [ ! ${csldir: -10} == "cardano-sl" ]; then echo "You should launch this scrip
 if [ -z "$TMUX" ]; then echo "You should run this script inside tmux session" && exit; fi
 
 # Checking cardano-updater repo is there, cloning if not
+echo "Checking cardano-updater repo..."
 cd ..
 if [ ! -d cardano-updater ]; then
     echo "Didn't manage to locate cardano-update repo, cloning"
     git clone https://github.com/input-output-hk/cardano-updater.git
 fi
 cd cardano-updater
+echo "Searching for cardano-updater install path..."
 cardano_updater_local_bin=$(stack path --local-install-root)/bin
+echo "Searching for cardano-updater binary..."
 updater=$(find $cardano_updater_local_bin -name "cardano-updater" -exec readlink -f {} \; | head -n 1)
 cd $csldir
 

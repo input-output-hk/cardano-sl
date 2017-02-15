@@ -77,7 +77,7 @@ vectorOf k (Limit x) =
     Limit $ encodedListLength + x * (fromIntegral k)
   where
     -- should be enough for most reasonable cases
-    encodedListLength = 8
+    encodedListLength = 20
 
 vector :: (IsList l, MessageLimitedPure (Item l)) => Int -> Limit l
 vector k = vectorOf k msgLenLimit
@@ -255,7 +255,7 @@ instance MessageLimitedPure Bool where
     msgLenLimit = 1
 
 instance MessageLimitedPure a => MessageLimitedPure (AsBinary a) where
-    msgLenLimit = coerce (msgLenLimit :: Limit a) + 8
+    msgLenLimit = coerce (msgLenLimit :: Limit a) + 20
 
 instance MessageLimitedPure SecretProof where
     msgLenLimit = 64

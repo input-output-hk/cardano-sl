@@ -157,8 +157,8 @@
 
 @svg-load icon-search url('../static/images/search-ic.svg') {
   g:nth-child(1) {
-    fill: var(--color0);
-    fill-opacity: 0.5;
+    fill:var(--color0);
+    opacity: 0.5;
   }
 };
 
@@ -168,8 +168,8 @@
 
 @svg-load icon-search-hover url('../static/images/search-ic.svg') {
   g:nth-child(1) {
-    fill: var(--color0);
-    fill-opacity: 1;
+    fill:var(--color0);
+    opacity: 1.1; /* 1.0 is not taken over - bug of postcss-inline-svg?  */
   }
 };
 

@@ -19,7 +19,10 @@ readonly RELEASE_ROOT=haddock/release
 
 readonly CURRENT_BRANCH="${TRAVIS_BRANCH}"
 
-echo "**** 2. Cloning cardano-docs.iohk.io repository ****"
+echo "**** 2. Change external Haskell-related links to the Hackage-based ones ****"
+sed -i 's/href="\.\.\/\([^/]*\)\//href="http:\/\/hackage.haskell.org\/package\/\1\/docs\//g' "${PROJECT_DOC_DIR}"/*.html
+
+echo "**** 3. Cloning cardano-docs.iohk.io repository ****"
 # Variable ${GITHUB_CARDANO_DOCS_ACCESS} already stored in Travis CI settings for 'cardano-sl' repository.
 # This token gives us an ability to push into docs repository.
 
@@ -31,13 +34,13 @@ git clone --quiet --branch=master \
     "${CARDANO_DOCS_REPO}"
 cd "${CARDANO_DOCS_REPO}"
 
-echo "**** 3. Update latest Haddock-version ****"
+echo "**** 4. Update latest Haddock-version ****"
 mkdir -p "${LATEST_ROOT}"
 cd "${LATEST_ROOT}"
 rm -rf ./*
 rsync -r "${PROJECT_DOC_DIR}"/ .
 
-echo "**** 4. Check release version ****"
+echo "**** 5. Check release version ****"
 if [ "${CURRENT_BRANCH}" = "${PROJECT_FULL_NAME}" ]; then
     echo "     it's a release branch ${CURRENT_BRANCH}, preparing release documentation..."
     # 1. Place just generated docs in corresponding haddock-release subdir,
@@ -64,12 +67,8 @@ if [ "${CURRENT_BRANCH}" = "${PROJECT_FULL_NAME}" ]; then
     fi
 fi
 
-echo "**** 5. Push all changes ****"
+echo "**** 6. Push all changes ****"
 cd "${CARDANO_DOCS_REPO}"
-
-echo "     Change external links to the Hackage-based ones..."
-sed -i 's/href="\.\.\/\([^/]*\)\//href="http:\/\/hackage.haskell.org\/package\/\1\/docs\//g' ./*.html
-
 git add .
 if [ -n "$(git status --porcelain)" ]; then 
     echo "     There are changes in Haddock-docs, push it";

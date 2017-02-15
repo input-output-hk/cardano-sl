@@ -54,18 +54,9 @@ spec = describe "GodTossing" $ do
             "MCCommitment"
             isMCCommitment
         msgLenLimitedTest' @(R.DataMsg GT.GtMsgContents)
-            (fromIntegral Const.genesisMaxMCOpeningSize)
-            "MCOpening"
-            isMCOpening
-        msgLenLimitedTest' @(R.DataMsg GT.GtMsgContents)
             (R.DataMsg <$> C.mcSharesMsgLenLimit)
             "MCShares"
             isMCShares
-        msgLenLimitedTest' @(R.DataMsg GT.GtMsgContents)
-            (fromIntegral Const.genesisMaxMCVssCertificateSize)
-            "MCVssCertificate"
-            isMCVssCertificate
-
 
 isMCCommitment :: R.DataMsg GT.GtMsgContents -> Bool
 isMCCommitment (R.DataMsg (GT.MCCommitment _)) = True

@@ -19,7 +19,6 @@ module Pos.Communication.Relay
        ) where
 
 import           Control.Concurrent.STM        (isFullTBQueue, readTBQueue, writeTBQueue)
-import           Data.Reflection               (Reifies, reify)
 import qualified Data.List.NonEmpty            as NE
 import           Formatting                    (build, sformat, shown, stext, (%))
 import           Mockable                      (Mockable, Throw, handleAll, throw, throw)
@@ -33,8 +32,8 @@ import           Universum
 import           Pos.Binary.Class              (Bi (..))
 import           Pos.Communication.Message     (MessagePart)
 import           Pos.Communication.Limits      (Limit, LimitedLengthExt (..),
-                                                MessageLimited (..),
-                                                getMsgLenLimit, withLimitedLength)
+                                                MessageLimited (..), reifyMsgLimit,
+                                                withLimitedLength)
 import           Pos.Communication.Protocol    (ConversationActions (..), ListenerSpec,
                                                 NOP, NodeId, OutSpecs, SendActions (..),
                                                 WorkerSpec, listenerConv, mergeLs, worker)
@@ -150,15 +149,6 @@ handleReqL proxy = reifyMsgLimit (Proxy @(ReqMsg key tag)) $
   where
     constructDataMsg :: contents -> InvOrData tag key contents
     constructDataMsg = Right . DataMsg
-
-reifyMsgLimit
-    :: forall a m b ssc. (WorkMode ssc m, MessageLimited a)
-    => Proxy a
-    -> (forall s. Reifies s (LimitType a) => Proxy s -> m b)
-    -> m b
-reifyMsgLimit _ f = do
-    lengthLimit <- getMsgLenLimit $ Proxy @a
-    reify lengthLimit f
 
 -- Returns True if we should propagate.
 handleDataL

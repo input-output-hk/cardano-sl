@@ -1,17 +1,22 @@
 {-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE LambdaCase           #-}
+{-# LANGUAGE Rank2Types           #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Communication.Limits
-    ( MessageLimited (..)
-    , MessageLimitedPure (..)
-    , LimitedLengthExt (..)
+    ( Limit (..)
     , Limiter (..)
+    , MessageLimited (..)
+    , MessageLimitedPure (..)
+
+    , LimitedLengthExt (..)
     , LimitedLength
-    , Limit (..)
+    , reifyMsgLimit
+
     , MaxSize (..)
+
     , mcCommitmentMsgLenLimit
     , mcSharesMsgLenLimit
     , updateVoteNumLimit
@@ -24,7 +29,7 @@ import           Crypto.Hash                      (Blake2s_224, Blake2s_256)
 import           Data.Binary                      (Get)
 import           Data.Binary.Get                  (lookAhead, getWord8)
 import           Data.Proxy                       (Proxy (..))
-import           Data.Reflection                  (Reifies, reflect)
+import           Data.Reflection                  (Reifies (..), reify)
 import           GHC.Exts                         (IsList (..))
 import           Serokell.Data.Memory.Units       (Byte)
 import qualified Test.QuickCheck                  as T
@@ -194,6 +199,7 @@ instance MessageLimited (DataMsg contents)
     getMsgLenLimit _ = do
         invLim  <- getMsgLenLimit $ Proxy @(InvMsg key tag)
         dataLim <- getMsgLenLimit $ Proxy @(DataMsg contents)
+        -- 1 byte is added because of `Either`
         return (1 `addLimit` invLim, 1 `addLimit` dataLim)
 
 instance MessageLimitedPure (InvMsg key tag) where
@@ -296,6 +302,17 @@ instance (Bi a, Reifies s l, Limiter l) => Bi (LimitedLengthExt s l a) where
     get = do
         let maxBlockSize = reflect (Proxy @s)
         limitGet maxBlockSize $ LimitedLength <$> get
+
+-- | Used to provide type @s@, which carries limit on length
+-- of message @a@ (via Data.Reflection).
+reifyMsgLimit
+    :: forall a m b ssc. (MonadDB ssc m, MessageLimited a)
+    => Proxy a
+    -> (forall s. Reifies s (LimitType a) => Proxy s -> m b)
+    -> m b
+reifyMsgLimit _ f = do
+    lengthLimit <- getMsgLenLimit $ Proxy @a
+    reify lengthLimit f
 
 -- | Wrapper for `Arbitrary` instances to indicate that
 -- where an alternative exists, maximal available size is choosen.

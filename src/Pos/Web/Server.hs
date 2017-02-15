@@ -38,21 +38,18 @@ import           Pos.Context                          (ContextHolder, NodeContex
 import qualified Pos.DB                               as DB
 import qualified Pos.DB.GState                        as GS
 import qualified Pos.DB.Lrc                           as LrcDB
-import           Pos.Slotting                         (getCurrentSlot)
 import           Pos.Ssc.Class                        (SscConstraint)
-import           Pos.Ssc.GodTossing                   (SscGodTossing, gtcParticipateSsc,
-                                                       isCommitmentIdx, isOpeningIdx,
-                                                       isSharesIdx)
+import           Pos.Ssc.GodTossing                   (SscGodTossing, gtcParticipateSsc)
 -- import           Pos.Ssc.GodTossing.SecretStorage     (getSecret)
 import           Pos.Txp.Class                        (getLocalTxs, getTxpLDWrap)
 import           Pos.Txp.Holder                       (TxpLDHolder, TxpLDWrap,
                                                        runTxpLDHolderReader)
-import           Pos.Types                            (EpochIndex (..), SlotId (..),
-                                                       SlotLeaders, siSlot)
+import           Pos.Types                            (EpochIndex (..), SlotLeaders)
+import           Pos.WorkMode                         (WorkMode)
+
 import           Pos.Web.Api                          (BaseNodeApi, GodTossingApi,
                                                        GtNodeApi, baseNodeApi, gtNodeApi)
-import           Pos.Web.Types                        (GodTossingStage (..))
-import           Pos.WorkMode                         (WorkMode)
+-- import           Pos.Web.Types                        (GodTossingStage (..))
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -86,11 +83,15 @@ serveImpl application port =
 -- Servant infrastructure
 ----------------------------------------------------------------------------
 
-type WebHandler ssc = ContextHolder ssc (TxpLDHolder ssc (DB.DBHolder ssc Production))
+type WebHandler ssc =
+    TxpLDHolder ssc (
+    ContextHolder ssc (
+    DB.DBHolder ssc
+    Production
+    ))
 
 convertHandler
     :: forall ssc a.
-       -- TxLocalData
        NodeContext ssc
     -> DB.NodeDBs ssc
     -> TxpLDWrap ssc
@@ -99,8 +100,8 @@ convertHandler
 convertHandler nc nodeDBs wrap handler =
     liftIO (runProduction .
             DB.runDBHolder nodeDBs .
-            runTxpLDHolderReader wrap .
-            runContextHolder nc $
+            runContextHolder nc .
+            runTxpLDHolderReader wrap $
             handler)
             -- runTxLDImpl $
             -- setTxLocalData tld >> handler)
@@ -132,13 +133,14 @@ servantServerGT = flip enter (baseServantHandlers :<|> gtServantHandlers) <$>
 
 baseServantHandlers :: ServerT (BaseNodeApi ssc) (WebHandler ssc)
 baseServantHandlers =
-    getCurrentSlot :<|> const getLeaders :<|> (ncPublicKey <$> getNodeContext) :<|>
+    getLeaders :<|> (ncPublicKey <$> getNodeContext) :<|>
     GS.getTip :<|> getLocalTxsNum
 
-getLeaders :: WebHandler ssc SlotLeaders
-getLeaders = do
-    SlotId{..} <- getCurrentSlot
-    maybe (throwM err) pure =<< LrcDB.getLeaders siEpoch
+getLeaders :: Maybe EpochIndex -> WebHandler ssc SlotLeaders
+getLeaders maybeEpoch = do
+    -- epoch <- maybe (siEpoch <$> getCurrentSlot) pure maybeEpoch
+    epoch <- maybe (pure 0) pure maybeEpoch
+    maybe (throwM err) pure =<< LrcDB.getLeaders epoch
   where
     err = err404 { errBody = encodeUtf8 ("Leaders are not know for current epoch"::Text) }
 
@@ -153,7 +155,7 @@ type GtWebHandler = WebHandler SscGodTossing
 
 gtServantHandlers :: ServerT GodTossingApi GtWebHandler
 gtServantHandlers =
-    toggleGtParticipation {- :<|> gtHasSecret :<|> getOurSecret -} :<|> getGtStage
+    toggleGtParticipation {- :<|> gtHasSecret :<|> getOurSecret :<|> getGtStage -}
 
 toggleGtParticipation :: Bool -> GtWebHandler ()
 toggleGtParticipation enable =
@@ -172,15 +174,15 @@ toggleGtParticipation enable =
 --         secretToSharedSeed .
 --         fromMaybe doPanic . fromBinaryM . getOpening . view _2
 
-getGtStage :: GtWebHandler GodTossingStage
-getGtStage = do
-    getGtStageImpl . siSlot <$> getCurrentSlot
-  where
-    getGtStageImpl idx
-        | isCommitmentIdx idx = CommitmentStage
-        | isOpeningIdx idx = OpeningStage
-        | isSharesIdx idx = SharesStage
-        | otherwise = OrdinaryStage
+-- getGtStage :: GtWebHandler GodTossingStage
+-- getGtStage = do
+--     getGtStageImpl . siSlot <$> getCurrentSlot
+--   where
+--     getGtStageImpl idx
+--         | isCommitmentIdx idx = CommitmentStage
+--         | isOpeningIdx idx = OpeningStage
+--         | isSharesIdx idx = SharesStage
+--         | otherwise = OrdinaryStage
 
 ----------------------------------------------------------------------------
 -- Orphan instances

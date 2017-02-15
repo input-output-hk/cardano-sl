@@ -174,7 +174,7 @@ classifyNewHeader (Right header) = do
     -- ignore it if it's not.
     pure $ if
         -- Checks on slots
-        | newHeaderSlot > curSlot ->
+        | maybe False (newHeaderSlot >) curSlot ->
             CHUseless $ sformat
                ("header is for future slot: our is "%build%
                 ", header's is "%build)
@@ -409,7 +409,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
         _ -> pass
     bv <- GS.getAdoptedBV
     verResToMonadError formatAllErrors $
-        Types.verifyBlocks (Just curSlot) (Just leaders) (Just bv) blocks
+        Types.verifyBlocks curSlot (Just leaders) (Just bv) blocks
     _ <- withExceptT pretty $ sscVerifyBlocks blocks
     txUndo <- ExceptT $ txVerifyBlocks blocks
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks
@@ -674,7 +674,8 @@ createMainBlock sId pSk = withBlkSemaphore createMainBlockDo
         logInfo $ sformat msgFmt tipHeader
         canWrtUs <- usCanCreateBlock
         case (canCreateBlock sId tipHeader, canWrtUs) of
-            (_, False) -> return (Left "this software is obsolete", tip)
+            (_, False) ->
+                return (Left "this software can't create block", tip)
             (Nothing, True)  -> convertRes tip <$>
                 runExceptT (createMainBlockFinish sId pSk tipHeader)
             (Just err, True) -> return (Left err, tip)

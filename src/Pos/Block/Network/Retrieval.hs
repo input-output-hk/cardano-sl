@@ -455,7 +455,7 @@ handleBlocks peerId blocks sendActions = do
     logDebug "handleBlocks: processing"
     inAssertMode $
         logInfo $
-            sformat ("Processing sequence of blocks: " %listJson % "…") $
+            sformat ("Processing sequence of blocks: " %listJson % "...") $
                     fmap headerHash blocks
     maybe onNoLca (handleBlocksWithLca peerId sendActions blocks) =<<
         lcaWithMainChain (map (view blockHeader) blocks)

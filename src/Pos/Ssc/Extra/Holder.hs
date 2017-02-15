@@ -31,7 +31,7 @@ import           Universum
 
 import           Pos.Context               (WithNodeContext)
 import           Pos.DB                    (MonadDB (..))
-import           Pos.Slotting.Class        (MonadSlots)
+import           Pos.Slotting.Class        (MonadSlots, MonadSlotsData)
 import           Pos.Ssc.Class.LocalData   (SscLocalDataClass (sscNewLocalData))
 import           Pos.Ssc.Class.Storage     (SscGStateClass (sscLoadGlobalState))
 import           Pos.Ssc.Extra.Class       (MonadSscMem (..))
@@ -45,6 +45,7 @@ newtype SscHolder ssc m a = SscHolder
                , Monad
                , MonadTrans
                , MonadThrow
+               , MonadSlotsData
                , MonadSlots
                , MonadCatch
                , MonadIO

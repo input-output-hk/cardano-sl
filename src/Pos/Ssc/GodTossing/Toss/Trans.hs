@@ -27,7 +27,7 @@ import           Universum
 
 import           Pos.Context                   (WithNodeContext)
 import           Pos.DB.Class                  (MonadDB)
-import           Pos.Slotting                  (MonadSlots (..))
+import           Pos.Slotting                  (MonadSlots (..), MonadSlotsData)
 import           Pos.Ssc.Extra                 (MonadSscMem)
 import           Pos.Ssc.GodTossing.Core       (deleteSignedCommitment, getCertId,
                                                 insertSignedCommitment)
@@ -51,6 +51,7 @@ newtype TossT m a = TossT
                , Applicative
                , Monad
                , MonadThrow
+               , MonadSlotsData
                , MonadSlots
                , MonadCatch
                , MonadIO

@@ -21,6 +21,7 @@ import           Pos.Constants        (lastKnownBlockVersion)
 import           Pos.Context          (WithNodeContext)
 import qualified Pos.DB               as DB
 import           Pos.DB.GState        (UpdateOp (..))
+import           Pos.Slotting         (SlottingData)
 import           Pos.Ssc.Class        (SscHelpersClass)
 import           Pos.Types            (ApplicationName, Block, BlockVersion,
                                        NumSoftwareVersion, SoftwareVersion (..),
@@ -149,6 +150,7 @@ modifierToBatch PollModifier {..} =
     , confirmedVerModifierToBatch  pmNewConfirmed pmDelConfirmed
     , confirmedPropModifierToBatch pmNewConfirmedProps pmDelConfirmedProps
     , upModifierToBatch pmNewActiveProps pmDelActivePropsIdx
+    , sdModifierToBatch pmSlottingData
     ]
 
 bvsModifierToBatch
@@ -191,3 +193,7 @@ upModifierToBatch (toList -> added) (HM.toList -> deleted) = addOps ++ delOps
   where
     addOps = map (DB.SomeBatchOp . PutProposal) added
     delOps = map (DB.SomeBatchOp . uncurry (flip DeleteProposal)) deleted
+
+sdModifierToBatch :: Maybe SlottingData -> [DB.SomeBatchOp]
+sdModifierToBatch Nothing   = []
+sdModifierToBatch (Just sd) = [DB.SomeBatchOp $ PutSlottingData sd]

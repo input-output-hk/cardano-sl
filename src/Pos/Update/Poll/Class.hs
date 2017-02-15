@@ -13,6 +13,7 @@ import           Control.Monad.Trans   (MonadTrans)
 import           System.Wlog           (WithLogger)
 import           Universum
 
+import           Pos.Slotting.Types    (SlottingData)
 import           Pos.Types             (ApplicationName, BlockVersion, ChainDifficulty,
                                         Coin, EpochIndex, NumSoftwareVersion, SlotId,
                                         SoftwareVersion, StakeholderId)
@@ -31,7 +32,7 @@ class (Monad m, WithLogger m) => MonadPollRead m where
     getBVState :: BlockVersion -> m (Maybe BlockVersionState)
     -- ^ Retrieve state of given block version.
     getProposedBVs :: m [BlockVersion]
-    -- ^ Retrieve all proposed block version.
+    -- ^ Retrieve all proposed block versions.
     getConfirmedBVStates :: m [(BlockVersion, BlockVersionState)]
     -- ^ Get all confirmed 'BlockVersion's and their states.
     getAdoptedBVFull :: m (BlockVersion, BlockVersionData)
@@ -60,6 +61,8 @@ class (Monad m, WithLogger m) => MonadPollRead m where
     -- stake distribution which is stable in given epoch.
     -- Only issuer of stable block can be passed to this function, otherwise
     -- 'Nothing' will be returned.
+    getSlottingData :: m SlottingData
+    -- ^ Get most recent 'SlottingData'.
 
     getAdoptedBV :: m BlockVersion
     getAdoptedBV = fst <$> getAdoptedBVFull
@@ -131,6 +134,10 @@ class (Monad m, WithLogger m) => MonadPollRead m where
         EpochIndex -> StakeholderId -> m (Maybe Coin)
     getBlockIssuerStake e = lift . getBlockIssuerStake e
 
+    default getSlottingData
+        :: (MonadTrans t, MonadPollRead m', t m' ~ m) => m SlottingData
+    getSlottingData = lift getSlottingData
+
 instance MonadPollRead m => MonadPollRead (ReaderT s m)
 instance MonadPollRead m => MonadPollRead (StateT s m)
 instance MonadPollRead m => MonadPollRead (ExceptT s m)
@@ -160,6 +167,8 @@ class MonadPollRead m => MonadPoll m where
     -- ^ Add new active proposal with its state.
     deactivateProposal :: UpId -> m ()
     -- ^ Delete active proposal given its name and identifier.
+    setSlottingData :: SlottingData -> m ()
+    -- ^ Set most recent 'SlottingData'.
 
     -- | Default implementations for 'MonadTrans'.
     default putBVState
@@ -197,6 +206,10 @@ class MonadPollRead m => MonadPoll m where
     default deactivateProposal
         :: (MonadTrans t, MonadPoll m', t m' ~ m) => UpId -> m ()
     deactivateProposal = lift . deactivateProposal
+
+    default setSlottingData
+        :: (MonadTrans t, MonadPoll m', t m' ~ m) => SlottingData -> m ()
+    setSlottingData = lift . setSlottingData
 
 instance MonadPoll m => MonadPoll (ReaderT s m)
 instance MonadPoll m => MonadPoll (StateT s m)

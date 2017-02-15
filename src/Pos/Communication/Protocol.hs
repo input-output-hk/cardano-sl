@@ -46,7 +46,7 @@ import           Pos.Communication.PeerState      (WithPeerState (..), peerVerIn
 import           Pos.Communication.Types.Protocol
 import           Pos.Context.Class                (WithNodeContext)
 import           Pos.Slotting.Class               (MonadSlots)
-import           Pos.Slotting.Logic               (onNewSlot, onNewSlotImpl)
+import           Pos.Slotting.Util                (onNewSlot, onNewSlotImpl)
 import           Pos.Types                        (SlotId)
 
 protocolListeners :: (Bi NOP, Message NOP, WithLogger m) => [Listener m]

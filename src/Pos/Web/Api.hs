@@ -20,12 +20,11 @@ import           Universum
 
 import           Pos.Crypto         (PublicKey)
 import           Pos.Ssc.GodTossing (SscGodTossing)
-import           Pos.Types          (EpochIndex, HeaderHash, SlotId, SlotLeaders)
-import           Pos.Web.Types      (GodTossingStage)
+import           Pos.Types          (EpochIndex, HeaderHash, SlotLeaders)
 
 -- | Servant API which provides access to full node internals.
 type BaseNodeApi ssc =
-    "current_slot" :> Get '[JSON] SlotId :<|>
+    -- "current_slot" :> Get '[JSON] SlotId :<|>
     "leaders" :> QueryParam "epoch" EpochIndex :> Get '[JSON] SlotLeaders :<|>
     "spending_key" :> Get '[JSON] PublicKey :<|>
     "head_hash" :> Get '[JSON] HeaderHash :<|>
@@ -37,10 +36,10 @@ baseNodeApi = Proxy
 
 -- | GodTossing specific API.
 type GodTossingApi =
-    "toggle" :> Capture "enable" Bool :> Post '[JSON] () :<|>
+    "toggle" :> Capture "enable" Bool :> Post '[JSON] () -- :<|>
     -- "has_secret" :> Get '[JSON] Bool :<|>
     -- "secret" :> Get '[JSON] SharedSeed :<|>
-    "stage" :> Get '[JSON] GodTossingStage
+    -- "stage" :> Get '[JSON] GodTossingStage
 
 -- | Helper Proxy.
 godTossingApi :: Proxy GodTossingApi

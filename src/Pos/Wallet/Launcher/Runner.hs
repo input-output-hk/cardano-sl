@@ -8,10 +8,8 @@ module Pos.Wallet.Launcher.Runner
        , runWallet
        ) where
 
-import           Control.Concurrent.STM.TVar (newTVarIO)
 import           Formatting                  (build, sformat, (%))
-import           Mockable                    (Production, bracket, currentTime, fork,
-                                              sleepForever)
+import           Mockable                    (Production, bracket, fork, sleepForever)
 import qualified STMContainers.Map           as SM
 import           System.Wlog                 (logDebug, logInfo, usingLoggerName)
 import           Universum                   hiding (bracket)
@@ -24,8 +22,6 @@ import           Pos.DHT.Real                (runKademliaDHT)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
                                               RealModeResources (..), addDevListeners,
                                               runServer_)
-import           Pos.Slotting                (SlottingState (..))
-import           Pos.Types                   (unflattenSlotId)
 import           Pos.Wallet.Context          (WalletContext (..), runContextHolder)
 import           Pos.Wallet.KeyStorage       (runKeyStorage)
 import           Pos.Wallet.Launcher.Param   (WalletParams (..))
@@ -86,14 +82,9 @@ runRawRealWallet
 runRawRealWallet res WalletParams {..} listeners (ActionSpec action, outs) =
     usingLoggerName lpRunnerTag .
     bracket openDB closeDB $ \db -> do
-        slottingStateVar <- do
-            _ssNtpData <- (0,) <$> currentTime
-            let _ssNtpLastSlot = unflattenSlotId 0
-            liftIO $ newTVarIO SlottingState{..}
         let walletContext
               = WalletContext
-              { wcSystemStart = wpSystemStart
-              , wcSlottingState = slottingStateVar
+              { wcUnit = mempty
               }
         stateM <- liftIO SM.newIO
         runContextHolder walletContext .

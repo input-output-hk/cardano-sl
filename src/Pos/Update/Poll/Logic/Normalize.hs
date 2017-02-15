@@ -22,10 +22,11 @@ import           Pos.Types                   (Coin, EpochIndex, SlotId, applyCoi
 import           Pos.Update.Core             (LocalVotes, UpId, UpdateProposals,
                                               UpdateVote (..))
 import           Pos.Update.Poll.Class       (MonadPoll (..), MonadPollRead (..))
+import           Pos.Update.Poll.Failure     (PollVerFailure (..))
 import           Pos.Update.Poll.Logic.Apply (verifyAndApplyProposal,
                                               verifyAndApplyVoteDo)
 import           Pos.Update.Poll.Types       (DecidedProposalState (..),
-                                              PollVerFailure (..), ProposalState (..),
+                                              ProposalState (..),
                                               UndecidedProposalState (..))
 import           Pos.Util                    (getKeys)
 

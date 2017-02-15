@@ -88,6 +88,7 @@ library
                         Pos.Slotting
 
                         -- Reporting
+                        Pos.Reporting
                         Pos.Reporting.Methods
                         Pos.Reporting.Exceptions
 
@@ -162,6 +163,7 @@ library
                         Pos.Binary.Merkle
                         Pos.Binary.Relay
                         Pos.Binary.Script
+                        Pos.Binary.Slotting
                         Pos.Binary.Ssc
                         Pos.Binary.Ssc.GodTossing.Core
                         Pos.Binary.Types
@@ -282,9 +284,11 @@ library
 
                         -- Slotting
                         Pos.Slotting.Class
-                        Pos.Slotting.Logic
+                        Pos.Slotting.Error
+                        Pos.Slotting.Holder
+                        Pos.Slotting.Ntp
                         Pos.Slotting.Types
-                        Pos.Slotting.Worker
+                        Pos.Slotting.Util
 
                         -- SSC
                         Pos.Ssc.Class.Types
@@ -356,7 +360,6 @@ library
                         Pos.Types.Utxo.Pure
 
                         -- Workers
-                        Pos.Worker.Ntp
                         Pos.Worker.Stats
                         Pos.Worker.SysStart
 
@@ -382,6 +385,7 @@ library
                         Pos.Update.Poll
                         Pos.Update.Poll.Class
                         Pos.Update.Poll.DBPoll
+                        Pos.Update.Poll.Failure
                         Pos.Update.Poll.Logic
                         Pos.Update.Poll.Logic.Apply
                         Pos.Update.Poll.Logic.Base

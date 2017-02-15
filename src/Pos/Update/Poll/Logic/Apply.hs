@@ -37,6 +37,7 @@ import           Pos.Update.Core            (BlockVersionData (..), UpId,
                                              UpdateVote (..), upMaxBlockSize,
                                              upScriptVersion, upSlotDuration)
 import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
+import           Pos.Update.Poll.Failure    (PollVerFailure (..))
 import           Pos.Update.Poll.Logic.Base (canBeAdoptedBV, canBeProposedBV,
                                              canCreateBlockBV, confirmBlockVersion,
                                              isDecided, mkTotNegative, mkTotPositive,
@@ -45,7 +46,7 @@ import           Pos.Update.Poll.Logic.Base (canBeAdoptedBV, canBeProposedBV,
 import           Pos.Update.Poll.Types      (BlockVersionState (..),
                                              ConfirmedProposalState (..),
                                              DecidedProposalState (..), DpsExtra (..),
-                                             PollVerFailure (..), ProposalState (..),
+                                             ProposalState (..),
                                              UndecidedProposalState (..), UpsExtra (..))
 
 type ApplyMode m = (MonadError PollVerFailure m, MonadPoll m)
@@ -170,7 +171,7 @@ verifyAndApplyProposal considerThreshold slotOrHeader votes up@UpdateProposal {.
     -- Finally we put it into context of MonadPoll together with votes for it.
     putNewProposal slotOrHeader totalStake votesAndStakes up
 
--- Here we add check that block version from proposal is consistent
+-- Here we add check that block version data from proposal is consistent
 -- with current data and add new 'BlockVersionState' if this is a new
 -- version.
 --
@@ -186,10 +187,10 @@ verifyAndApplyProposalBVS
     :: (MonadError PollVerFailure m, MonadPoll m)
     => UpId -> UpdateProposal -> m ()
 verifyAndApplyProposalBVS upId up =
-    getBVState (upBlockVersion up) >>= \case
+    getBVD >>= \case
         -- This block version is already known, so we just check that
         -- everything is the same
-        Just BlockVersionState{bvsData = BlockVersionData {..}}
+        Just BlockVersionData {..}
             | bvdScriptVersion /= upScriptVersion up -> throwError
                   PollWrongScriptVersion
                       { pwsvExpected = bvdScriptVersion
@@ -221,6 +222,15 @@ verifyAndApplyProposalBVS upId up =
             oldBVD <- getAdoptedBVData
             verifyNextBVData upId oldBVD bvd
             putBVState (upBlockVersion up) newBVS
+  where
+    proposedBV = upBlockVersion up
+    getBVD =
+        maybe tryAdoptedBVD (pure . Just . bvsData) =<< getBVState proposedBV
+    tryAdoptedBVD =
+        getAdoptedBVFull <&> \case
+            (bv, bvd)
+                | bv == proposedBV -> Just bvd
+                | otherwise -> Nothing
 
 -- Here we check that software version is 1 more than last confirmed
 -- version of given application. Or 0 if it's new application.

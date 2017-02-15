@@ -9,7 +9,7 @@ module Pos.Ssc.GodTossing.Listeners
          -- ** instance SscListenersClass SscGodTossing
        ) where
 
-import           Data.HashMap.Strict              (lookup)
+import           Control.Lens                     (at, to)
 import           Data.Tagged                      (Tagged (..))
 import           Formatting                       (build, sformat, (%))
 import           Serokell.Util.Verify             (VerificationRes (..))
@@ -25,15 +25,16 @@ import           Pos.Communication.Relay          (Relay (..), RelayProxy (..),
                                                    relayListeners, relayStubListeners)
 import           Pos.Context                      (WithNodeContext (getNodeContext))
 import           Pos.Security                     (shouldIgnorePkAddress)
-import           Pos.Slotting                     (getCurrentSlot)
 import           Pos.Ssc.Class.Listeners          (SscListenersClass (..))
-import           Pos.Ssc.Extra                    (sscGetLocalPayload)
-import           Pos.Ssc.GodTossing.Core          (GtPayload (..), getCertId,
-                                                   getCommitmentsMap, _gpCertificates)
-import           Pos.Ssc.GodTossing.LocalData     (sscIsDataUseful, sscProcessCertificate,
+import           Pos.Ssc.Extra                    (sscRunLocalQuery)
+import           Pos.Ssc.GodTossing.Core          (getCertId, getCommitmentsMap)
+import           Pos.Ssc.GodTossing.LocalData     (ldModifier, sscIsDataUseful,
+                                                   sscProcessCertificate,
                                                    sscProcessCommitment,
                                                    sscProcessOpening, sscProcessShares)
-import           Pos.Ssc.GodTossing.Toss.Types    (GtTag (..))
+import           Pos.Ssc.GodTossing.Toss          (GtTag (..), TossModifier,
+                                                   tmCertificates, tmCommitments,
+                                                   tmOpenings, tmShares)
 import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), msgContentsTag)
 import           Pos.Types                        (StakeholderId, addressHash)
@@ -64,7 +65,7 @@ instance WorkMode SscGodTossing m =>
 
     handleInv = sscIsDataUseful
     handleReq tag addr =
-        toContents tag addr <$> (getCurrentSlot >>= sscGetLocalPayload)
+        toContents tag addr . view ldModifier <$> sscRunLocalQuery ask
     handleData dat = do
         addr <- contentsToKey dat
         -- [CSL-685] TODO: Add here malicious emulation for network addresses
@@ -92,13 +93,20 @@ sscProcessMessage dat =
     sscProcessMessageDo (MCShares id shares)    = sscProcessShares id shares
     sscProcessMessageDo (MCVssCertificate cert) = sscProcessCertificate cert
 
-toContents :: GtTag -> StakeholderId -> GtPayload -> Maybe GtMsgContents
-toContents CommitmentMsg addr (CommitmentsPayload comm _) =
-    MCCommitment <$> lookup addr (getCommitmentsMap comm)
-toContents OpeningMsg addr (OpeningsPayload opens _) =
-    MCOpening addr <$> lookup addr opens
-toContents SharesMsg addr (SharesPayload shares _) =
-    MCShares addr <$> lookup addr shares
-toContents VssCertificateMsg addr payload =
-    MCVssCertificate <$> lookup addr (_gpCertificates payload)
-toContents _ _ _ = Nothing
+toContents :: GtTag -> StakeholderId -> TossModifier -> Maybe GtMsgContents
+toContents CommitmentMsg id tm =
+    MCCommitment <$> tm ^. tmCommitments . to getCommitmentsMap . at id
+toContents OpeningMsg id tm = MCOpening id <$> tm ^. tmOpenings . at id
+toContents SharesMsg id tm = MCShares id <$> tm ^. tmShares . at id
+toContents VssCertificateMsg id tm =
+    MCVssCertificate <$> tm ^. tmCertificates . at id
+
+-- toContents CommitmentMsg addr (CommitmentsPayload comm _) =
+--     MCCommitment <$> lookup addr (getCommitmentsMap comm)
+-- toContents OpeningMsg addr (OpeningsPayload opens _) =
+--     MCOpening addr <$> lookup addr opens
+-- toContents SharesMsg addr (SharesPayload shares _) =
+--     MCShares addr <$> lookup addr shares
+-- toContents VssCertificateMsg addr payload =
+--     MCVssCertificate <$> lookup addr (_gpCertificates payload)
+-- toContents _ _ _ = Nothing

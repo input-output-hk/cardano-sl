@@ -18,7 +18,7 @@ module Pos.Communication.Limits
     , commitmentsNumLimit
     ) where
 
-import           Control.Lens                     (each, ix)
+import           Control.Lens                     (both, each, ix)
 import qualified Crypto.PVSS                      as PVSS
 import           Crypto.Hash                      (Blake2s_224, Blake2s_256)
 import           Data.Binary                      (Get)
@@ -97,9 +97,11 @@ coerce (Limit x) = Limit x
 -- Useful when the type has several limits and choice depends on constructor.
 class Limiter l where
     limitGet :: l -> Get a -> Get a
+    addLimit :: Byte -> l -> l
 
 instance Limiter (Limit t) where
     limitGet (Limit l) = Bi.limitGet $ fromIntegral l
+    addLimit a = mappend (Limit a)
 
 -- | Bounds `InvOrData`.
 instance Limiter l => Limiter (Limit t, l) where
@@ -109,6 +111,8 @@ instance Limiter l => Limiter (Limit t, l) where
             1   -> limitGet dataLimits parser
             tag -> fail ("get@InvOrData: invalid tag: " ++ show tag)
 
+    addLimit a (l1, l2) = (a `addLimit` l1, a `addLimit` l2)
+
 -- | Bounds `DataMsg`.
 -- Limit depends on value of first byte, which should be in range @0..3@.
 instance Limiter (Limit t, Limit t, Limit t, Limit t) where
@@ -117,6 +121,8 @@ instance Limiter (Limit t, Limit t, Limit t, Limit t) where
         case (limits ^.. each) ^? ix tag of
             Nothing -> fail ("get@DataMsg: invalid tag: " ++ show tag)
             Just limit -> limitGet limit parser
+
+    addLimit a = both %~ addLimit a
 
 -- | Specifies limit on message length.
 -- Deserialization would fail if incoming data size exceeded this limit.
@@ -188,7 +194,7 @@ instance MessageLimited (DataMsg contents)
     getMsgLenLimit _ = do
         invLim  <- getMsgLenLimit $ Proxy @(InvMsg key tag)
         dataLim <- getMsgLenLimit $ Proxy @(DataMsg contents)
-        return (invLim + 1, dataLim + 1)
+        return (1 `addLimit` invLim, 1 `addLimit` dataLim)
 
 instance MessageLimitedPure (InvMsg key tag) where
     msgLenLimit = Limit Const.genesisMaxReqSize

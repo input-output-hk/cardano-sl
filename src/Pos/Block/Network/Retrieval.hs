@@ -49,7 +49,6 @@ import           Pos.Context                (NodeContext (..), getNodeContext,
                                              isRecoveryMode)
 import           Pos.Crypto                 (shortHashF)
 import qualified Pos.DB                     as DB
-import qualified Pos.DB.GState              as GState
 import           Pos.Reporting.Methods      (reportMisbehaviour)
 import           Pos.Ssc.Class              (Ssc, SscWorkersClass)
 import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (..),

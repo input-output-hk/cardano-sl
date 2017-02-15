@@ -88,6 +88,7 @@ library
                         Pos.Slotting
 
                         -- Reporting
+                        Pos.Reporting
                         Pos.Reporting.Methods
                         Pos.Reporting.Exceptions
 

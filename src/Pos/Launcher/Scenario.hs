@@ -1,4 +1,5 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 -- | High-level scenarios which can be launched.
 
@@ -13,10 +14,10 @@ import           Control.Concurrent.MVar     (putMVar)
 import           Control.Concurrent.STM.TVar (writeTVar)
 import           Data.Default                (def)
 import           Development.GitRev          (gitBranch, gitHash)
-import           Formatting                  (build, sformat, (%))
+import           Formatting                  (build, sformat, shown, (%))
 import           Mockable                    (fork)
 import           System.Exit                 (ExitCode (..))
-import           System.Wlog                 (logError, logInfo)
+import           System.Wlog                 (getLoggerName, logError, logInfo)
 import           Universum
 
 import           Pos.Communication           (ActionSpec (..), OutSpecs, WorkerSpec,
@@ -27,6 +28,7 @@ import qualified Pos.DB.GState               as GS
 import qualified Pos.DB.Lrc                  as LrcDB
 import           Pos.Delegation.Logic        (initDelegation)
 import           Pos.DHT.Model               (discoverPeers)
+import           Pos.Reporting               (reportMisbehaviourMasked)
 import           Pos.Slotting                (getCurrentSlot, waitSystemStart)
 import           Pos.Ssc.Class               (SscConstraint)
 import           Pos.Types                   (SlotId (..), addressHash)
@@ -57,13 +59,20 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
     initUSMemState
     initSemaphore
     waitSystemStart
-    let unpackPlugin (ActionSpec action) = action vI sendActions
-    mapM_ (fork . unpackPlugin) $
-        plugins'
+    let unpackPlugin (ActionSpec action) =
+            action vI sendActions `catch` reportHandler
+    mapM_ (fork . unpackPlugin) plugins'
 
     -- Instead of sleeping forever, we wait until graceful shutdown
     waitForWorkers allWorkersCount
     liftIO $ exitWith (ExitFailure 20)
+  where
+    reportHandler (SomeException e) = do
+        loggerName <- getLoggerName
+        reportMisbehaviourMasked $
+            sformat ("Worker/plugin with logger name "%shown%
+                    " failed with exception: "%shown)
+            loggerName e
 
 -- | Run full node in any WorkMode.
 runNode

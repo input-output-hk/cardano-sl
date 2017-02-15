@@ -6,6 +6,7 @@ module Pos.Reporting.Methods
        ( sendReportNode
        , getNodeInfo
        , reportMisbehaviour
+       , reportMisbehaviourMasked
        , sendReport
        , retrieveLogFiles
        , chooseLogFiles
@@ -20,7 +21,7 @@ import qualified Data.Text                as T
 import qualified Data.Text.IO             as TIO
 import           Data.Time.Clock          (getCurrentTime)
 import           Data.Version             (Version (..))
-import           Formatting               (build, sformat, stext, (%))
+import           Formatting               (build, sformat, shown, stext, (%))
 import           Network.Info             (IPv4 (..), getNetworkInterfaces, ipv4)
 import           Network.Wreq             (partFile, partLBS, post)
 import           Paths_cardano_sl         (version)
@@ -33,8 +34,8 @@ import           System.Info              (arch, os)
 import           System.IO                (hClose)
 import           System.IO.Temp           (withSystemTempFile)
 import           System.Wlog              (CanLog, HasLoggerName, LoggerConfig (..),
-                                           lcFilePrefix, lcTree, logDebug, ltFile,
-                                           ltSubloggers, readMemoryLogs)
+                                           lcFilePrefix, lcTree, logDebug, logError,
+                                           ltFile, ltSubloggers, readMemoryLogs)
 import           Universum
 
 import           Pos.Context              (WithNodeContext, getNodeContext, ncNodeParams,
@@ -107,6 +108,26 @@ reportMisbehaviour reason = do
     sendReportNode $ RMisbehavior $ sformat misbehF reason nodeInfo
   where
     misbehF = stext%", nodeInfo: "%stext
+
+-- | Report misbehaveour, but catch all errors inside
+reportMisbehaviourMasked
+    :: forall m її.
+       ( MonadIO m
+       , MonadMask m
+       , MonadDHT m
+       , WithNodeContext її m
+       , HasLoggerName m
+       , CanLog m
+       )
+    => Text -> m ()
+reportMisbehaviourMasked reason =
+    reportMisbehaviour reason `catch` handler
+  where
+    handler :: SomeException -> m ()
+    handler e =
+        logError $
+        sformat ("Didn't manage to report misbehaveour "%stext%
+                 " because of exception "%shown) reason e
 
 ----------------------------------------------------------------------------
 -- General purpose

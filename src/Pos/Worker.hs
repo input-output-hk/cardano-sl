@@ -48,4 +48,5 @@ allWorkers = mconcatPair
     wrap' lname = first (map $ wrapActionSpec $ "worker" <> lname)
 
 allWorkersCount :: Int
-allWorkersCount = length $ fst (allWorkers @SscGodTossing @(ProductionMode SscGodTossing))
+allWorkersCount =
+    length $ fst (allWorkers @SscGodTossing @(ProductionMode SscGodTossing))

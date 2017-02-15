@@ -133,7 +133,7 @@ sleep 1
 echo "Running: '$walletcmd'"
 
 walletOutputLog='walletOutput.log'
-until $(timeout 90 ./scripts/wallet.sh cmd --commands "$walletcmd" -p 0 > $walletOutputLog)
+until $(timeout 90 ./scripts/wallet.sh cmd --commands "$walletcmd" > $walletOutputLog)
 do 
     echo "Wallet exited with non-zero code $?, retrying" 
     cat $walletOutputLog

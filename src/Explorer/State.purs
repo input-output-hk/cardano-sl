@@ -23,4 +23,5 @@ initialState =
     , latestBlocks: []
     , latestTransactions: []
     , errors: []
+    , loading: false
     }

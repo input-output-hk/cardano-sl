@@ -1,12 +1,14 @@
 module Explorer.Update where
 
 import Prelude
+import Control.Monad.Aff (attempt)
 import Control.Monad.Eff.Class (liftEff)
 import DOM (DOM)
 import Data.Array ((:))
 import Data.Either (Either(..))
 import Data.Lens (over, set)
-import Explorer.Lenses.State (blocksExpanded, connected, errors, dashboard, latestBlocks, latestTransactions, searchInput, selectedApiCode, socket, transactionsExpanded, viewStates)
+import Explorer.Api (fetchLatestBlocks, fetchLatestTransactions)
+import Explorer.Lenses.State (blocksExpanded, connected, errors, dashboard, latestBlocks, latestTransactions, loading, searchInput, selectedApiCode, socket, transactionsExpanded, viewStates)
 import Explorer.Routes (Route(..))
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State)
@@ -48,6 +50,23 @@ update (DashboardFocusSearchInput value) state = noEffects $
     set (viewStates <<< dashboard <<< searchInput) value state
 update NoOp state = noEffects state
 
+-- TODO (jk): all of following actions are for debugging only and have to be removed later on
+update RequestLatestBlocks state =
+    { state: set loading true state
+    , effects: [ attempt fetchLatestBlocks >>= pure <<< ReceiveLatestBlocks ]
+    }
+update (ReceiveLatestBlocks (Right blocks)) state = noEffects $
+    set loading false $ over latestBlocks (\b -> blocks <> b) state
+update (ReceiveLatestBlocks (Left error)) state = noEffects $
+    set loading false $ over errors (\errors' -> (show error) : errors') state
+update RequestLatestTransactions state =
+    { state: set loading true state
+    , effects: [ attempt fetchLatestTransactions >>= pure <<< ReceiveLatestTransactions ]
+    }
+update (ReceiveLatestTransactions (Right blocks)) state = noEffects $
+    set loading false $ over latestTransactions (\b -> blocks <> b) state
+update (ReceiveLatestTransactions (Left error)) state = noEffects $
+    set loading false $ over errors (\errors' -> (show error) : errors') state
 
 -- routing
 

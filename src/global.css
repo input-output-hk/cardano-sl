@@ -227,3 +227,11 @@
 .invisible {
   visibility: hidden !important;
 }
+
+.btn-debug {
+  font-family: var(--fontFamily0-Regular);
+  font-weight: normal;
+  font-size: 10;
+  padding: 5px;
+  button: standard-button;
+}

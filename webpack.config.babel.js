@@ -126,5 +126,11 @@ module.exports = {
       poll: 1000
     },
     stats: 'minimal',
+    proxy: {
+      '/api/': {
+        target: 'http://localhost:8100',
+        secure: false
+      }
+    }
   }
 };

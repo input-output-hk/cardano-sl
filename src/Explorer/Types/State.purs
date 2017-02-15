@@ -15,6 +15,7 @@ type State =
     , latestBlocks :: CBlockEntries
     , latestTransactions :: CTxEntries
     , errors :: Errors
+    , loading :: Boolean
     }
 
 type SocketState =

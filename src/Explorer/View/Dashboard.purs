@@ -5,6 +5,7 @@ import Data.Array (null, slice)
 import Data.Lens (Lens', (^.))
 import Data.Map (Map, fromFoldable, lookup, toAscUnfoldable) as M
 import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Newtype (unwrap)
 import Data.Time.NominalDiffTime.Lenses (_NominalDiffTime)
 import Data.Tuple (Tuple(..))
 import Explorer.I18n.Lang (Language, translate)
@@ -19,7 +20,6 @@ import Pos.Types.Lenses.Core (_Coin, getCoin)
 import Pux.Html (Html, div, h3, text, h1, h2, input, h4, p, code) as P
 import Pux.Html.Attributes (className, type_, placeholder) as P
 import Pux.Html.Events (onClick, onFocus, onBlur) as P
-import Data.Newtype(unwrap)
 
 dashboardView :: State -> P.Html Action
 dashboardView state =
@@ -175,13 +175,18 @@ blocksView state =
             , blocksHeaderView state
             , P.div
                 [ P.className $ "blocks-waiting" <> visibleWaitingClazz ]
-                [ P.text "#Loading last blocks ...."]
+                [ P.text "#no data"]
             , P.div
                 [ P.className $ "blocks-body" <> visibleBlockClazz ]
                 $ map (blockRow state) latestBlocks'
             , P.div
                 [ P.className $ "blocks-footer" <> visibleBlockClazz ]
                 [ blocksFooterView ]
+            -- TODO (jk) For debugging only - has to be removed later on
+            , P.div
+                [ P.className $ "btn-debug",
+                  P.onClick <<< const $ RequestLatestBlocks  ]
+                [ P.text "#Debug blocks" ]
             ]
         ]
       where
@@ -274,7 +279,7 @@ transactionsView state =
           [ headerView state headerOptions
           , P.div
               [ P.className $ "transactions__waiting" <> visibleWaitingClazz ]
-              [ P.text "#Loading transactions ...."]
+              [ P.text "#no data"]
           , P.div
               [ P.className $ "transactions__container" <> visibleTxClazz ]
               $ map (transactionRow state) $ transactions'
@@ -285,6 +290,11 @@ transactionsView state =
                 , P.onClick <<< const <<< DashboardExpandTransactions $ not expanded ]
                 [ P.text expandLabel]
             ]
+          -- TODO (jk) For debugging only - has to be removed later
+          , P.div
+              [ P.className $ "btn-debug",
+                P.onClick <<< const $ RequestLatestTransactions  ]
+              [ P.text "#Debug txs" ]
           ]
         ]
     where

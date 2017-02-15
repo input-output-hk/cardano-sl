@@ -158,7 +158,7 @@ rm -rfv $walletOutputLog
 echo "Running wallet 2 in 10s"
 pkill cardano-wallet
 sleep 10
-until $(timeout 60 ./scripts/wallet.sh cmd --commands "vote 1 y $proposalHash" -p 0 &> /dev/tty)
+until $(timeout 60 ./scripts/wallet.sh cmd --commands "vote 1 y $proposalHash" &> /dev/tty)
 do 
   echo "Wallet 2 exited with non-zero code $?, retrying"
   pkill cardano-wallet

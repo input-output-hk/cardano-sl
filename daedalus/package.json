@@ -6,6 +6,7 @@
   "scripts": {
     "start": "npm run build:dev",
     "postinstall": "bower cache clean && bower install",
+    "preinstall": "which psc || npm install purescript@0.9.3",
     "clean": "rimraf dist && rimraf output",
     "build:prod": "npm run clean && mkdir dist && cross-env NODE_ENV=prod ./node_modules/.bin/webpack --config webpack.config.js --progress",
     "build:dev": "rimraf output && cross-env NODE_ENV=dev ./node_modules/.bin/webpack-dev-server --hot --config webpack.config.js --progress",
@@ -35,7 +36,6 @@
     "mocha": "^3.2.0",
     "nock": "^9.0.2",
     "pulp": "^10.0.0",
-    "purescript": "^0.9.3",
     "purescript-psa": "^0.4.0",
     "purs-loader": "^2.1.1",
     "rimraf": "^2.5.4",

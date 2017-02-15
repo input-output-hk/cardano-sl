@@ -28,8 +28,6 @@ import           Pos.Block.Network.Types     (MsgBlock (..), MsgGetBlocks (..),
 import           Pos.Communication.Protocol  (ConversationActions (..), HandlerSpec (..),
                                               ListenerSpec (..), OutSpecs, PeerData,
                                               listenerConv, mergeLs, messageName)
-import           Pos.Communication.Limits    (LimitedLength, withLimitedLength,
-                                              Limit)
 import           Pos.Communication.Util      (stubListenerConv)
 import qualified Pos.DB                      as DB
 import           Pos.DB.Error                (DBError (DBMalformed))
@@ -90,15 +88,10 @@ handleGetBlocks
        (WorkMode ssc m)
     => (ListenerSpec m, OutSpecs)
 handleGetBlocks =
-    -- NB #put_checkBlockSize: We can use anything as maxBlockSize
-    -- here because 'put' doesn't check block size.
-    reify (0 :: Limit MsgGetBlocks) $ \(_ :: Proxy s0) ->
     listenerConv $
         \_ __peerId (conv :: ConversationActions
-                               (MsgBlock ssc)
-                               (LimitedLength s0 MsgGetBlocks) m) -> do
-        mBlock <- fmap withLimitedLength <$> recv conv
-        whenJust mBlock $ \mgb@MsgGetBlocks{..} -> do
+                               (MsgBlock ssc) MsgGetBlocks m) ->
+        whenJustM (recv conv) $ \mgb@MsgGetBlocks{..} -> do
             logDebug $ sformat ("Got request on handleGetBlocks: "%build) mgb
             hashes <- getHeadersFromToIncl mgbFrom mgbTo
             maybe warn (sendBlocks conv) hashes

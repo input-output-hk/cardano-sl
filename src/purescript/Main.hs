@@ -29,7 +29,6 @@ main = do
       , mkSumType (Proxy @CT.CTxEntry)
       , mkSumType (Proxy @CE.ExplorerError)
       , mkSumType (Proxy @PT.Coin)
-      , mkSumType (Proxy @PT.Coin)
       ]
   where
       customBridge =

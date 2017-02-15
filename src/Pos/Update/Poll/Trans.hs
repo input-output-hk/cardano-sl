@@ -88,10 +88,11 @@ execPollT m = fmap snd . runPollT m
 
 instance MonadPollRead m =>
          MonadPollRead (PollT m) where
-    getBVState pv = do
-        new <- pmNewBVs <$> PollT get
-        maybe (PollT $ getBVState pv) (pure . Just) $ HM.lookup pv new
+    getBVState pv = PollT $ do
+        new <- pmNewBVs <$> get
+        maybe (getBVState pv) (pure . Just) $ HM.lookup pv new
     getProposedBVs = PollT getProposedBVs
+    getConfirmedBVStates = lift getConfirmedBVStates -- TODO
     getAdoptedBVFull = PollT $ do
         new <- pmAdoptedBVFull <$> get
         maybe getAdoptedBVFull pure new
@@ -111,6 +112,18 @@ instance MonadPollRead m =>
         if | upId `HS.member` del -> return Nothing
            | Just res <- HM.lookup upId new -> return (Just res)
            | otherwise -> PollT $ getProposal upId
+    getConfirmedProposals = PollT $ do
+        new <- use pmNewConfirmedPropsL
+        del <- use pmDelConfirmedPropsL
+        underlying <- getConfirmedProposals
+        let filtered =
+              filter (not . flip HS.member del . cpsSoftwareVersion) underlying
+        return $ toList new ++ filtered
+    getEpochTotalStake = lift . getEpochTotalStake
+    getRichmanStake e = lift . getRichmanStake e
+    getOldProposals = lift . getOldProposals -- TODO
+    getDeepProposals = lift . getDeepProposals -- TODO
+    getBlockIssuerStake e = lift . getBlockIssuerStake e
     getSlottingData = PollT $ do
         new <- pmSlottingData <$> get
         maybe getSlottingData pure new

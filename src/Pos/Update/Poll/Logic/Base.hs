@@ -37,7 +37,7 @@ import           System.Wlog                (WithLogger, logDebug, logNotice)
 import           Universum
 
 import           Pos.Constants              (epochSlots)
-import           Pos.Crypto                 (PublicKey, hash)
+import           Pos.Crypto                 (PublicKey, hash, shortHashF)
 import           Pos.Script.Type            (ScriptVersion)
 import           Pos.Slotting               (EpochSlottingData (..), SlottingData (..))
 import           Pos.Ssc.Class              (Ssc)
@@ -189,13 +189,13 @@ adoptBlockVersion
     => HeaderHash -> BlockVersion -> m ()
 adoptBlockVersion winningBlk bv = do
     setAdoptedBV bv
-    logNotice $ sformat logFmt winningBlk bv
+    logNotice $ sformat logFmt bv winningBlk
     mapM_ processConfirmed =<< getConfirmedProposals
   where
     processConfirmed cps
         | cpsBlockVersion cps /= bv = pass
         | otherwise = addConfirmedProposal cps {cpsAdopted = Just winningBlk}
-    logFmt = "BlockVersion is adopted: "%build%"; winning block was "%build
+    logFmt = "BlockVersion is adopted: "%build%"; winning block was "%shortHashF
 
 -- | Update slotting data stored in poll. First argument is epoch for
 -- which currently adopted 'BlockVersion' can be applied.

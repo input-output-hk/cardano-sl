@@ -20,15 +20,15 @@ import           Universum
 
 -- | Servant API which provides access to explorer
 type ExplorerApi =
-    "last_blocks" :> QueryParam "limit" Word :> QueryParam "offset" Word :> Get '[JSON] (Either ExplorerError [CBlockEntry])
+    "api" :> "last_blocks" :> QueryParam "limit" Word :> QueryParam "offset" Word :> Get '[JSON] (Either ExplorerError [CBlockEntry])
     :<|>
-    "last_txs" :> QueryParam "limit" Word :> QueryParam "offset" Word :> Get '[JSON] (Either ExplorerError [CTxEntry])
+    "api" :> "last_txs" :> QueryParam "limit" Word :> QueryParam "offset" Word :> Get '[JSON] (Either ExplorerError [CTxEntry])
     :<|>
-    "block_summary" :> Capture "hash" CHash :> Get '[JSON] (Either ExplorerError CBlockSummary)
+    "api" :> "block_summary" :> Capture "hash" CHash :> Get '[JSON] (Either ExplorerError CBlockSummary)
     :<|>
-    "block_txs" :> Capture "hash" CHash :> QueryParam "limit" Word :> QueryParam "offset" Word :> Get '[JSON] (Either ExplorerError [CTxEntry])
+    "api" :> "block_txs" :> Capture "hash" CHash :> QueryParam "limit" Word :> QueryParam "offset" Word :> Get '[JSON] (Either ExplorerError [CTxEntry])
     :<|>
-    "address_summary" :> Capture "address" CAddress :> Get '[JSON] (Either ExplorerError CAddressSummary)
+    "api" :> "address_summary" :> Capture "address" CAddress :> Get '[JSON] (Either ExplorerError CAddressSummary)
 
 -- | Helper Proxy
 explorerApi :: Proxy ExplorerApi

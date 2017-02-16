@@ -39,7 +39,8 @@ import           Pos.Binary.Class     (encodeStrict)
 import           Pos.Binary.Types     ()
 import           Pos.DB.Class         (MonadDB, getUtxoDB)
 import           Pos.DB.Error         (DBError (..))
-import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi)
+import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi,
+                                       rocksGetBytes)
 import           Pos.DB.GState.Common (getBi, putBi, writeBatchGState)
 import           Pos.DB.Iterator      (DBIteratorClass (..), DBnIterator, DBnMapIterator,
                                        IterType, runDBnIterator, runDBnMapIterator)
@@ -94,12 +95,10 @@ prepareGStateUtxo
        MonadDB ssc m
     => Utxo -> m ()
 prepareGStateUtxo genesisUtxo =
-    putIfEmpty getGenUtxoMaybe putGenesisUtxo
+    putIfEmpty genUtxoExists putGenesisUtxo
   where
-    putIfEmpty
-        :: forall a.
-           (m (Maybe a)) -> m () -> m ()
-    putIfEmpty getter putter = maybe putter (const pass) =<< getter
+    putIfEmpty :: m Bool -> m () -> m ()
+    putIfEmpty exists putter = whenM (not <$> exists) $ putter
     putGenesisUtxo = do
         let utxoList = M.toList genesisUtxo
         writeBatchGState $ map createBatchOp utxoList
@@ -186,3 +185,6 @@ iterationPrefix = "ut/t/"
 
 getGenUtxoMaybe :: MonadDB ssc m => m (Maybe Utxo)
 getGenUtxoMaybe = getUtxoDB >>= rocksGetBi genUtxoKey >>= traverse (return . M.fromList)
+
+genUtxoExists :: MonadDB ssc m => m Bool
+genUtxoExists = isJust <$> (getUtxoDB >>= rocksGetBytes genUtxoKey)

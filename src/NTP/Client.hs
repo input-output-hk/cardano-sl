@@ -155,7 +155,7 @@ doSend addr cli = do
         log cli Warning . sformat ("Failed to send to "%shown%": "%shown) addr
 
 startSend :: NtpMonad m => [SockAddr] -> NtpClient -> m ()
-startSend addrs cli = forever $ do
+startSend addrs cli = do
     let timeout = ntpResponseTimeout (ncSettings cli)
     let poll    = ntpPollDelay (ncSettings cli)
     closed <- liftIO $ readTVarIO (ncClosed cli)
@@ -170,6 +170,8 @@ startSend addrs cli = forever $ do
         handleCollectedResponses cli
         liftIO . atomically . modifyTVarS (ncState cli) $ id .= Nothing
         liftIO $ threadDelay (poll - timeout)
+
+        startSend addrs cli
 
 mkSocket :: NtpMonad m => NtpClientSettings -> m Socket
 mkSocket settings = doMkSocket `catchAll` handlerE

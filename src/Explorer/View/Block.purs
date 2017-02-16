@@ -1,5 +1,6 @@
 module Explorer.View.Block (blockView) where
 
+import Prelude
 import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (block, summary, hashes) as I18nL
@@ -7,14 +8,14 @@ import Explorer.Types.Actions (Action)
 import Explorer.Types.State (CCurrency(..), State)
 import Explorer.View.Common (currencyCSSClass, transactionPaginationView
     , transactionHeaderView, transactionBodyView)
-import Prelude ((<>), ($), map)
+import Pos.Explorer.Web.ClientTypes (CHash)
 import Pux.Html (Html, div, text, h3) as P
 import Pux.Html.Attributes (className) as P
 
 
 
-blockView :: State -> P.Html Action
-blockView state =
+blockView :: State -> CHash -> P.Html Action
+blockView state hash =
     P.div
         [ P.className "explorer-block" ]
         [ P.div

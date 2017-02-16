@@ -15,7 +15,7 @@ import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), DashboardAPICode(..), DashboardViewState, State, CBlockEntries, CTxEntries)
 import Explorer.View.Common (currencyCSSClass, paginationView)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..), CTxEntry(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (cbeRelayedBy, cbeSize, cbeTimeIssued, cbeTotalSent, cbeTxNum, cteId, cteAmount, cteTimeIssued, _CTxId, _CHash)
+import Pos.Explorer.Web.Lenses.ClientTypes (cbeBlkHash, cbeHeight, cbeRelayedBy, cbeSize, cbeTimeIssued, cbeTotalSent, cbeTxNum, cteId, cteAmount, cteTimeIssued, _CTxId, _CHash)
 import Pos.Types.Lenses.Core (_Coin, getCoin)
 import Pux.Html (Html, div, h3, text, h1, h2, input, h4, p, code) as P
 import Pux.Html.Attributes (className, type_, placeholder) as P
@@ -226,9 +226,9 @@ minBlockRows = 3
 
 blockRow :: State -> CBlockEntry -> P.Html Action
 blockRow state (CBlockEntry entry) =
-    P.div
+    P.link (toUrl <<< Block $ entry ^. cbeBlkHash)
         [ P.className "blocks-body__row" ]
-        [ blockColumn $ show entry.cbeHeight
+        [ blockColumn <<< show $ entry ^. cbeHeight
         , blockColumn <<< show <<< unwrap $ entry ^. (cbeTimeIssued <<< _NominalDiffTime)
         , blockColumn <<< show $ entry ^. cbeTxNum
         , blockColumn <<< show $ entry ^. (cbeTotalSent <<< _Coin <<< getCoin)

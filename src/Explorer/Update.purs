@@ -72,8 +72,8 @@ update (ReceiveLatestTransactions (Left error)) state = noEffects $
 
 routeEffects :: forall eff. Route -> State -> EffModel State Action (dom :: DOM, ajax :: AJAX | eff)
 routeEffects Dashboard state = { state, effects: [ pure ScrollTop ] }
-routeEffects (Transaction txId) state = { state, effects: [ pure ScrollTop ] }
+routeEffects (Transaction hash) state = { state, effects: [ pure ScrollTop ] }
 routeEffects Address state = { state, effects: [ pure ScrollTop ] }
 routeEffects Calculator state = { state, effects: [ pure ScrollTop ] }
-routeEffects Block state = { state, effects: [ pure ScrollTop ] }
+routeEffects (Block hash) state = { state, effects: [ pure ScrollTop ] }
 routeEffects NotFound state = { state, effects: [ pure ScrollTop ] }

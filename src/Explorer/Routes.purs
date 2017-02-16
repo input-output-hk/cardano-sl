@@ -14,7 +14,7 @@ data Route =
     | Transaction CHash
     | Address
     | Calculator
-    | Block
+    | Block CHash
     | NotFound
 
 match :: String -> Route
@@ -27,14 +27,14 @@ match url = fromMaybe NotFound $ router url $
     <|>
     Calculator <$ lit calculatorLit <* end
     <|>
-    Block <$ lit "block" <* end
+    Block <<< mkCHash <$> (lit blockLit *> str) <* end
 
 toUrl :: Route -> String
 toUrl Dashboard = dashboardUrl
 toUrl (Transaction hash) = transactionUrl hash
 toUrl Address = addressUrl
 toUrl Calculator = calculatorUrl
-toUrl Block = blockUrl
+toUrl (Block hash) = blockUrl hash
 toUrl NotFound = dashboardUrl
 
 litUrl :: String -> String
@@ -67,5 +67,5 @@ calculatorUrl = litUrl calculatorLit
 blockLit :: String
 blockLit = "block"
 
-blockUrl :: String
-blockUrl = litUrl blockLit
+blockUrl :: CHash -> String
+blockUrl hash = litUrl blockLit <> hash ^. _CHash

@@ -183,16 +183,18 @@
   }
 
   .blocks-body {
-    font-size: 10px;
-    font-family: var(--fontFamily0-Regular);
-    font-weight: normal;
-    color: var(--color8);
-
     padding-bottom: 24px;
 
     &__row {
       @neat-outer-container;
+      display: block;
       padding: 10px 24px;
+      color: var(--color8);
+
+      font-size: 10px;
+      font-family: var(--fontFamily0-Regular);
+      font-weight: normal;
+
       &:nth-child(odd) {
         background-color: var(--color7);
       }

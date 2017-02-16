@@ -193,11 +193,11 @@ blocksView state =
         ]
       where
         headerOptions = HeaderOptions
-            { headline: translate (I18nL.dashboard <<< I18nL.dbLastBlocks) lang
-            , link: Just $ HeaderLink { label: translate (I18nL.dashboard <<< I18nL.dbExploreBlocks) lang
+            { headline: translate (I18nL.dashboard <<< I18nL.dbLastBlocks) lang'
+            , link: Just $ HeaderLink { label: translate (I18nL.dashboard <<< I18nL.dbExploreBlocks) lang'
                                       , action: NoOp }
             }
-        lang = state ^. lang
+        lang' = state ^. lang
         expanded = state ^. dashboardBlocksExpanded
         blocks = state ^. latestBlocks
         noBlocks = null blocks
@@ -217,7 +217,7 @@ blocksView state =
             P.div
               [ P.className "btn-expand"
               , P.onClick <<< const $ DashboardExpandBlocks true ]
-              [ P.text $ translate (I18nL.common <<< I18nL.cExpand) lang]
+              [ P.text $ translate (I18nL.common <<< I18nL.cExpand) lang']
 
 
 maxBlockRows :: Int

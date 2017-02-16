@@ -40,7 +40,7 @@ import           Pos.Binary.Types     ()
 import           Pos.DB.Class         (MonadDB, getUtxoDB)
 import           Pos.DB.Error         (DBError (..))
 import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi)
-import           Pos.DB.GState.Common (getBi, putBi)
+import           Pos.DB.GState.Common (getBi, putBi, writeBatchGState)
 import           Pos.DB.Iterator      (DBIteratorClass (..), DBnIterator, DBnMapIterator,
                                        IterType, runDBnIterator, runDBnMapIterator)
 import           Pos.DB.Types         (DB, NodeDBs (_gStateDB))
@@ -102,12 +102,9 @@ prepareGStateUtxo genesisUtxo =
     putIfEmpty getter putter = maybe putter (const pass) =<< getter
     putGenesisUtxo = do
         let utxoList = M.toList genesisUtxo
-        mapM_ putTxOut' utxoList
+        writeBatchGState $ map createBatchOp utxoList
         putBi genUtxoKey utxoList
-    putTxOut' ((txid, id), txout) = putTxOut (TxIn txid id) txout
-
-putTxOut :: MonadDB ssc m => TxIn -> TxOutAux -> m ()
-putTxOut = putBi . txInKey
+    createBatchOp ((txid, id), txout) = AddTxOut (TxIn txid id) txout
 
 ----------------------------------------------------------------------------
 -- Iteration

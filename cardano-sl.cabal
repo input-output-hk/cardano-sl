@@ -1,5 +1,5 @@
 name:                cardano-sl
-version:             0.1.0.0
+version:             0.2.0
 synopsis:            Cardano SL main implementation
 description:         Please see README.md
 license:             MIT

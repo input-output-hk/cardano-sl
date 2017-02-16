@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Methods of reporting different unhealthy behaviour to server.
@@ -7,6 +8,7 @@ module Pos.Reporting.Methods
        , getNodeInfo
        , reportMisbehaviour
        , reportMisbehaviourMasked
+       , reportingFatal
        , sendReport
        , retrieveLogFiles
        , chooseLogFiles
@@ -24,6 +26,7 @@ import           Data.Version             (Version (..))
 import           Formatting               (build, sformat, shown, stext, (%))
 import           Network.Info             (IPv4 (..), getNetworkInterfaces, ipv4)
 import           Network.Wreq             (partFile, partLBS, post)
+import           Panic                    (FatalError (..))
 import           Paths_cardano_sl         (version)
 import           Pos.ReportServer.Report  (ReportInfo (..), ReportType (..))
 import           Serokell.Util.Text       (listBuilderJSON, listJson)
@@ -41,6 +44,7 @@ import           Universum
 import           Pos.Context              (WithNodeContext, getNodeContext, ncNodeParams,
                                            npReportServers)
 import           Pos.DHT.Model            (MonadDHT, currentNodeKey, getKnownPeers)
+import           Pos.Exception            (CardanoFatalError)
 import           Pos.Reporting.Exceptions (ReportingError (..))
 
 ----------------------------------------------------------------------------
@@ -91,16 +95,20 @@ getNodeInfo = do
         not $ ipv4Local w || w == 0 || w == 16777343 -- the last is 127.0.0.1
     outputF = ("{ nodeParams: '"%stext%":"%build%"', otherNodes: "%listJson%" }")
 
--- | Reports misbehaviour given reason string. Effectively designed
--- for 'WorkMode' context.
-reportMisbehaviour
-    :: ( MonadIO m
+type ReportingContext ssc m =
+       ( MonadIO m
        , MonadMask m
        , MonadDHT m
-       , WithNodeContext її m
+       , WithNodeContext ssc m
        , HasLoggerName m
        , CanLog m
        )
+
+-- | Reports misbehaviour given reason string. Effectively designed
+-- for 'WorkMode' context.
+reportMisbehaviour
+    :: forall m її.
+       ReportingContext її m
     => Text -> m ()
 reportMisbehaviour reason = do
     logDebug $ "Reporting misbehaviour \"" <> reason <> "\""
@@ -112,13 +120,7 @@ reportMisbehaviour reason = do
 -- | Report misbehaveour, but catch all errors inside
 reportMisbehaviourMasked
     :: forall m її.
-       ( MonadIO m
-       , MonadMask m
-       , MonadDHT m
-       , WithNodeContext її m
-       , HasLoggerName m
-       , CanLog m
-       )
+       ReportingContext її m
     => Text -> m ()
 reportMisbehaviourMasked reason =
     reportMisbehaviour reason `catch` handler
@@ -128,6 +130,23 @@ reportMisbehaviourMasked reason =
         logError $
         sformat ("Didn't manage to report misbehaveour "%stext%
                  " because of exception "%shown) reason e
+
+-- | Execute action, report 'CardanoFatalError' and 'FatalError' if it
+-- happens and rethrow.
+reportingFatal
+    :: forall m a ё.
+       ReportingContext ё m
+    => m a -> m a
+reportingFatal action =
+    action `catch` handler1 `catch` handler2
+  where
+    andThrow :: (Exception e, MonadThrow n) => (e -> n x) -> e -> n y
+    andThrow foo e = foo e >> throwM e
+    handler1 = andThrow $ \(e :: CardanoFatalError) ->
+        reportMisbehaviourMasked (pretty e)
+    handler2 = andThrow $ \(FatalError reason) ->
+        reportMisbehaviourMasked ("FatalError/panic: " <> show reason)
+
 
 ----------------------------------------------------------------------------
 -- General purpose

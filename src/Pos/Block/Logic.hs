@@ -22,8 +22,8 @@ module Pos.Block.Logic
 
          -- * Blocks
        , verifyAndApplyBlocks
-       , applyWithRollback
        , rollbackBlocks
+       , applyWithRollback
        , createGenesisBlock
        , createMainBlock
        ) where
@@ -43,8 +43,7 @@ import           Serokell.Data.Memory.Units (toBytes)
 import           Serokell.Util.Text         (listJson)
 import           Serokell.Util.Verify       (VerificationRes (..), formatAllErrors,
                                              isVerSuccess, verResToMonadError)
-import           System.Wlog                (CanLog, HasLoggerName, logDebug, logError,
-                                             logInfo)
+import           System.Wlog                (CanLog, HasLoggerName, logDebug, logInfo)
 import           Universum
 
 import qualified Pos.Binary.Class           as Bi
@@ -67,6 +66,7 @@ import           Pos.Delegation.Logic       (delegationVerifyBlocks, getProxyMem
 import           Pos.Exception              (assertionFailed, reportFatalError)
 import           Pos.Lrc.Error              (LrcError (..))
 import           Pos.Lrc.Worker             (lrcSingleShotNoLock)
+import           Pos.Reporting              (reportingFatal)
 import           Pos.Slotting.Class         (getCurrentSlot)
 import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass,
                                              SscWorkersClass (..))
@@ -91,11 +91,10 @@ import           Pos.Update.Core            (UpdatePayload (..))
 import           Pos.Update.Logic           (usCanCreateBlock, usPreparePayload,
                                              usVerifyBlocks)
 import           Pos.Update.Poll            (PollModifier)
-import           Pos.Util                   (Color (Red), NE, NewestFirst (..),
-                                             OldestFirst (..), colorize, inAssertMode,
-                                             maybeThrow, neZipWith3, spanSafe,
-                                             toNewestFirst, toOldestFirst, _neHead,
-                                             _neLast)
+import           Pos.Util                   (NE, NewestFirst (..), OldestFirst (..),
+                                             inAssertMode, maybeThrow, neZipWith3,
+                                             spanSafe, toNewestFirst, toOldestFirst,
+                                             _neHead, _neLast)
 import           Pos.WorkMode               (WorkMode)
 
 ----------------------------------------------------------------------------
@@ -435,7 +434,8 @@ verifyBlocksPrefix blocks = runExceptT $ do
 verifyAndApplyBlocks
     :: (WorkMode ssc m, SscWorkersClass ssc)
     => Bool -> OldestFirst NE (Block ssc) -> m (Either Text HeaderHash)
-verifyAndApplyBlocks rollback = verifyAndApplyBlocksInternal True rollback
+verifyAndApplyBlocks rollback =
+    reportingFatal . verifyAndApplyBlocksInternal True rollback
 
 -- See the description for verifyAndApplyBlocks. This method also
 -- parameterizes LRC calculation which can be turned on/off with the first
@@ -555,7 +555,7 @@ applyWithRollback
     => NewestFirst NE (Blund ssc)  -- ^ Blocks to rollbck
     -> OldestFirst NE (Block ssc)  -- ^ Blocks to apply
     -> m (Either Text HeaderHash)
-applyWithRollback toRollback toApply = runExceptT $ do
+applyWithRollback toRollback toApply = reportingFatal $ runExceptT $ do
     tip <- GS.getTip
     when (tip /= newestToRollback) $ do
         throwError (tipMismatchMsg "rollback in 'apply with rollback'" tip newestToRollback)
@@ -596,7 +596,7 @@ createGenesisBlock
     :: forall ssc m.
        WorkMode ssc m
     => EpochIndex -> m (Maybe (GenesisBlock ssc))
-createGenesisBlock epoch = do
+createGenesisBlock epoch = reportingFatal $ do
     leadersOrErr <-
         try $
         lrcActionOnEpochReason epoch "there are no leaders" LrcDB.getLeaders
@@ -662,7 +662,8 @@ createMainBlock
     => SlotId
     -> Maybe ProxySKEither
     -> m (Either Text (MainBlock ssc))
-createMainBlock sId pSk = withBlkSemaphore createMainBlockDo
+createMainBlock sId pSk =
+    reportingFatal $ withBlkSemaphore createMainBlockDo
   where
     msgFmt = "We are trying to create main block, our tip header is\n"%build
     createMainBlockDo tip = do

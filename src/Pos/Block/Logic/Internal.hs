@@ -24,6 +24,7 @@ import qualified Pos.DB               as DB
 import qualified Pos.DB.GState        as GS
 import           Pos.Delegation.Logic (delegationApplyBlocks, delegationRollbackBlocks)
 import           Pos.Exception        (assertionFailed)
+import           Pos.Reporting        (reportingFatal)
 import           Pos.Slotting         (putSlottingData)
 import           Pos.Ssc.Extra        (sscApplyBlocks, sscNormalize, sscRollbackBlocks)
 import           Pos.Txp.Logic        (normalizeTxpLD, txApplyBlocks, txRollbackBlocks)
@@ -63,6 +64,7 @@ applyBlocksUnsafe
     :: forall ssc m . WorkMode ssc m
     => OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
 applyBlocksUnsafe blunds0 pModifier =
+    reportingFatal $
     case blunds ^. _Wrapped of
         (b@(Left _,_):|[])     -> app' (b:|[])
         (b@(Left _,_):|(x:xs)) -> app' (b:|[]) >> app' (x:|xs)
@@ -104,7 +106,7 @@ applyBlocksUnsafeDo blunds pModifier = do
 rollbackBlocksUnsafe
     :: (WorkMode ssc m)
     => NewestFirst NE (Blund ssc) -> m ()
-rollbackBlocksUnsafe toRollback = do
+rollbackBlocksUnsafe toRollback = reportingFatal $ do
     delRoll <- SomeBatchOp <$> delegationRollbackBlocks toRollback
     usRoll <- SomeBatchOp <$> usRollbackBlocks (toRollback & each._2 %~ undoUS)
     txRoll <- SomeBatchOp <$> txRollbackBlocks toRollback

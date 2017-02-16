@@ -17,6 +17,7 @@ Library
                         Network.Transport.Abstract
                         Network.Transport.Concrete
                         Network.Transport.Concrete.TCP
+                        Network.QDisc.Fair
 
                         Node
 
@@ -81,6 +82,9 @@ Library
                       , semigroups
                       , ekg-core
                       , ekg
+                      , mwc-random
+                      , statistics
+                      , vector
 
   hs-source-dirs:       src
   default-language:     Haskell2010
@@ -242,3 +246,27 @@ test-suite node-sketch-test
                      , RecordWildCards
                      , DeriveDataTypeable
                      , GeneralizedNewtypeDeriving
+
+executable qdisc-simulation
+  -- TBD: make this a benchmark instead?
+  -- type:           exitcode-stdio-1.0
+  hs-source-dirs: src
+  main-is:        Network/QDisc/Simulation.hs
+  other-modules:  Network.QDisc.Fair
+  build-depends:    base
+                  , async
+                  , criterion
+                  , network-transport-tcp
+                  , bytestring
+                  , binary
+                  , network-transport
+                  , time-units
+                  , containers
+                  , stm
+                  , random
+                  , mwc-random
+                  , statistics
+                  , vector
+                  , time
+  ghc-options:    -O3
+                  -threaded

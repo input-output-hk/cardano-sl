@@ -1,28 +1,81 @@
 # Frontend of `cardano-sl-explorer`
 
-## Installation (locally)
+## Installation
 
-Note: [npm](https://www.npmjs.com/) is required.
+### Requirements
+
+Installation of `nix` is needed.
 
 ```bash
-npm install
+curl https://nixos.org/nix/install | sh
+source ~/.nix-profile/etc/profile.d/nix.sh
 ```
 
-## Lenses
+Make sure that `nix` is set to `true` within `~/.stack/config.yaml`.
+
+```
+nix:
+  enable: true
+```
+
+## Short version of installation
 
 
-### Generate frontend lenses
+#### Build in `development` mode
 
-First you have to create an executable of `purescript-derive-lenses`. This step has to be done only once.
+_coming soon..._
+
+
+#### Build in `production` mode
 
 ```bash
-git clone git@github.com:paf31/purescript-derive-lenses.git /to/any/folder/on/your/machine/
-cd {/path/to/purescript-derive-lenses}
+./scripts/build.sh
+```
+
+All generated files will be in `dist/`
+
+
+
+## Long version of installation
+
+
+#### 1. Generate backend types
+
+To match all needed backend types of `cardano-sl-explorer` you do need to generate its counterparts into PureScript.
+
+#### 1.1. Requirements
+
+Use latest executable of `cardano-sl-explorer`:
+
+```bash
+git clone https://github.com/input-output-hk/cardano-sl-explorer
+cd cardano-sl-explorer
+stack build
+stack exec -- cardano-explorer-hs2purs —bridge-path {path/to}/cardano-sl-explorer-frontend/src/Generated
+```
+
+#### 1.2. Generate types
+
+```bash
+stack exec -- cardano-explorer-hs2purs —bridge-path {path/to}/cardano-sl-explorer-frontend/src/Generated
+```
+
+#### 2. Generate lenses
+
+#### 2.1. Requirements
+
+All of the following steps are required only once.
+
+Install executable of `purescript-derive-lenses`:
+
+```bash
+git clone git@github.com:paf31/purescript-derive-lenses.git
+cd {/path/to/}purescript-derive-lenses
 stack build
 stack install install purescript-derive-lenses
 ```
 
-After this check if `purescript-derive-lenses` has been properly installed.
+Check if `purescript-derive-lenses` has been properly installed:
 
 ```bash
 which purescript-derive-lenses
@@ -30,51 +83,45 @@ which purescript-derive-lenses
 /Users/{your-user-name}/.local/bin/purescript-derive-lenses
 ```
 
-Generate lenses anytime if any content of `src/Explorer/Types/State.purs` or
-`src/Explorer/I18n/Types.purs` are changed as follow:
+
+#### 2.2. Generate backend lenses
 
 ```bash
-./scripts/generate-frontend-lenses.sh
-```
-
-### Generate types and lenses from `cardano-sl-explorer`
-
-Build [`cardano-sl-explorer`](https://github.com/input-output-hk/cardano-sl-explorer) (only once):
-
-```bash
-cd {/path/to/cardano-sl-explorer}
-stack build --nix
-```
-
-Generate types as follow:
-
-```bash
-stack --nix exec -- cardano-explorer-hs2purs --bridge-path {/path/to/cardano-sl-explorer-frontend}/src/Generated/
-```
-
-To build lenses from it run
-
-```bash
-cd {/path/to/cardano-sl-explorer-frontend}
+cd {/path/to/}cardano-sl-explorer-frontend
 ./scripts/generate-backend-lenses.sh
 ```
 
+#### 2.3. Generate front end lenses
 
-## Run server locally
+```bash
+cd {/path/to/}cardano-sl-explorer-frontend
+./scripts/generate-frontend-lenses.sh
+```
 
-Note: Make sure that you have generated all lenses as described in chapter ["Lenses"](#lenses).
 
-In `development` mode (w/o minified files, but with source-map etc.):
+#### 3. Install dependencies of `Node.js`
+
+```bash
+npm install
+```
+
+#### 3.1. Build in `development` mode
+
+(w/o minified files, with source-map, watching of file changes)
 
 ```bash
 npm start # alias of `npm run server:dev`
 ```
 
-Or in `production` mode (minified files etc.)
+#### 3.2. Build in `production` mode
+
+(w/ minified files)
 
 ```bash
 npm run server:prod
 ```
+
+#### 4. Run in browser
 
 Open http://localhost:3000/
 
@@ -86,6 +133,7 @@ cd debug/socket
 npm install
 npm start
 ```
+
 
 ## CSS
 
@@ -122,15 +170,3 @@ The entry point of all CSS is [`index.css`](src/index.css). This file includes a
 Global styles are defined in [`global.css`](src/global.css). There you will find all definitions of global `vars`, `fonts`, `inline SVGs`, `buttons` and `selectors`.
 
 All other CSS files are located side by side with its PureScript "UI" modules. For example: Styles of [`Dashboard.purs`](src/Explorer/View/Dashboard.purs) are defined in [`dashboard.css`](src/Explorer/View/dashboard.css). Both files are located in the same folder [`src/Explorer/View/`](src/Explorer/View/).
-
-
-
-## Build to ship (production mode)
-
-```bash
-curl https://nixos.org/nix/install | sh
-source ~/.nix-profile/etc/profile.d/nix.sh
-./scripts/build.sh
-```
-
-All generated files will be in `dist/`

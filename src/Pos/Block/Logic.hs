@@ -64,7 +64,7 @@ import qualified Pos.DB                     as DB
 import qualified Pos.DB.GState              as GS
 import qualified Pos.DB.Lrc                 as LrcDB
 import           Pos.Delegation.Logic       (delegationVerifyBlocks, getProxyMempool)
-import           Pos.Exception              (CardanoFatalError (..))
+import           Pos.Exception              (assertionFailed, reportFatalError)
 import           Pos.Lrc.Error              (LrcError (..))
 import           Pos.Lrc.Worker             (lrcSingleShotNoLock)
 import           Pos.Slotting.Class         (getCurrentSlot)
@@ -634,7 +634,7 @@ createGenesisBlockDo epoch leaders tip = do
             let blk = mkGenesisBlock (Just tipHeader) epoch leaders
             let newTip = headerHash blk
             runExceptT (usVerifyBlocks (one (Left blk))) >>= \case
-                Left err -> onVerFail err
+                Left err -> reportFatalError $ pretty err
                 Right (pModifier, usUndos) -> do
                     let undo = def {undoUS = usUndos ^. _Wrapped . _neHead}
                     applyBlocksUnsafe (one (Left blk, undo)) (Just pModifier) $>
@@ -646,10 +646,6 @@ createGenesisBlockDo epoch leaders tip = do
     msgTryingFmt =
         "We are trying to create genesis block for " %ords %
         " epoch, our tip header is\n" %build
-    onVerFail err = do
-        logError $ colorize Red $
-            sformat ("We failed to verify our genesis block: " %build) err
-        throwM $ CardanoFatalError $ pretty err
 
 ----------------------------------------------------------------------------
 -- MainBlock creation

@@ -37,7 +37,7 @@ import           Formatting              (build, int, sformat, (%))
 import           Serokell.Util           (listJson)
 import           System.Wlog             (LogEvent, LoggerName, LoggerNameBox, PureLogger,
                                           WithLogger, dispatchEvents, getLoggerName,
-                                          logDebug, logError, runPureLog, usingLoggerName)
+                                          logDebug, runPureLog, usingLoggerName)
 import           Universum
 
 import           Pos.Context             (WithNodeContext, lrcActionOnEpochReason)

@@ -48,8 +48,8 @@ import           Pos.Lrc.Types                    (RichmenStake)
 import           Pos.Slotting                     (getCurrentSlot,
                                                    getSlotStartEmpatically)
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
-import           Pos.Ssc.GodTossing.Core          (Commitment (..), SharesDistribution,
-                                                   SignedCommitment, VssCertificate (..),
+import           Pos.Ssc.GodTossing.Core          (Commitment (..), SignedCommitment,
+                                                   VssCertificate (..),
                                                    VssCertificatesMap,
                                                    genCommitmentAndOpening,
                                                    getCommitmentsMap, isCommitmentIdx,

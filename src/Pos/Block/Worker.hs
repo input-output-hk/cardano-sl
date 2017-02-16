@@ -153,7 +153,7 @@ onNewSlotWhenLeader slotId pSk sendActions = do
     logWarningWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
 
 verifyCreatedBlock
-    :: (WithLogger m, SscHelpersClass ssc)
+    :: (WithLogger m, SscHelpersClass ssc, MonadThrow m)
     => MainBlock ssc -> m ()
 verifyCreatedBlock blk =
     inAssertMode $

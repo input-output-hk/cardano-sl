@@ -6,7 +6,7 @@ import Control.Monad.Eff (Eff)
 import Control.SocketIO.Client (SocketIO, connect, on)
 import DOM (DOM)
 import Explorer.Routes (match)
-import Explorer.Socket (socketHost, connectEvent, closeEvent, connectHandler, closeHandler, lastestBlocksEvent, latestBlocksHandler, lastestTransactionsEvent, latestTransactionsHandler) as Ex
+import Explorer.Api.Socket (socketHost, connectEvent, closeEvent, connectHandler, closeHandler, lastestBlocksEvent, latestBlocksHandler, lastestTransactionsEvent, latestTransactionsHandler) as Ex
 import Explorer.Types.Actions (Action(..)) as Ex
 import Explorer.Types.State (State) as Ex
 import Explorer.Update (update) as Ex

@@ -1,4 +1,4 @@
-module Explorer.Api where
+module Explorer.Api.Http where
 
 import Prelude
 import Control.Monad.Aff (Aff)
@@ -18,18 +18,18 @@ import Pos.Explorer.Web.Error (ExplorerError)
 
 type Endpoint = String
 
-backendPrefix :: String
--- backendPrefix = "http://localhost:8100/api/"
-backendPrefix = "/api/"
+endpointPrefix :: String
+-- endpointPrefix = "http://localhost:8100/api/"
+endpointPrefix = "/api/"
 
 -- errors
 
-data ApiError
+data EndpointError
     = HTTPStatusError (AffjaxResponse Json)
     | JSONDecodingError String
     | ServerError ExplorerError
 
-instance showApiError :: Show ApiError where
+instance showEndpointError :: Show EndpointError where
     show (HTTPStatusError res) =
         "HTTPStatusError: " <> show res.status <> " msg: " <> show res.response
     show (JSONDecodingError e) =
@@ -48,7 +48,7 @@ decodeResult = either (Left <<< mkJSONError) (bimap mkServerError id) <<< decode
 request :: forall a r eff. (Generic a, Requestable r) => AffjaxRequest r ->
     Endpoint -> Aff (ajax :: AJAX | eff) a
 request req endpoint = do
-    result <- affjax $ req { url = backendPrefix <> endpoint }
+    result <- affjax $ req { url = endpointPrefix <> endpoint }
     when (isHttpError result.status) $
         throwError <<< error <<< show $ HTTPStatusError result
     either throwError pure $ decodeResult result

@@ -1,4 +1,4 @@
-module Explorer.Socket where
+module Explorer.Api.Socket where
 
 import Prelude
 import Control.Monad.Eff (Eff)

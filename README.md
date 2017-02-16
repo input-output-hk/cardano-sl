@@ -134,6 +134,48 @@ npm install
 npm start
 ```
 
+## How to provide live data locally?
+
+1. Run `cardano-sl`
+
+```bash
+cd cardano-sl
+tmux
+export WALLET_TEST=1; ./scripts/launch.sh
+```
+
+2. Run `cardano-sl-explorer` (in another terminal, but right after 1.)
+
+```bash
+cd cardano-sl-explorer
+./test-launch.sh ../cardano-sl/scripts/common.sh
+```
+
+3. Send a transaction (using a valid address listed in `http://localhost:8090/api/get_wallets`)
+
+Hint: A value can be sent by using the same address.
+
+```bash
+http POST http://localhost:8090/api/send/{address}/{address}/{value}
+# eg. http POST http://localhost:8090/api/send/1gLFDJAKutVJCYioMANx4gthHru5K12Tk9YpEmXKQfggKZu/1gLFDJAKutVJCYioMANx4gthHru5K12Tk9YpEmXKQfggKZu/888
+```
+
+4. Check data
+
+Note: It might take some times to get a non empty result.
+
+`last blocks`
+
+```bash
+http http://localhost:8100/api/last_blocks
+```
+
+`last tx`
+
+```bash
+http http://localhost:8100/api/last_txs
+```
+
 
 ## CSS
 

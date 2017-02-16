@@ -28,7 +28,7 @@ view state =
                     [ P.className "explorer-content" ]
                     [ case state.route of
                           Dashboard -> dashboardView state
-                          Transaction -> transactionView state
+                          (Transaction txId) -> transactionView state txId
                           Address -> addressView state
                           Calculator -> calculatorView state
                           Block -> blockView state

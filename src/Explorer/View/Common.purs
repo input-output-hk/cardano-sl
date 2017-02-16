@@ -22,7 +22,7 @@ transactionHeaderView state =
     P.div
           [ P.className "transaction-header"]
           [ P.link
-              (toUrl Transaction)
+              (toUrl Dashboard )
               [ P.className "hash" ]
               [ P.text "SCRs8ojgKbClMEXH9IQO1ClGYs-qwXD0V09lxlcQaAw="]
           , P.div

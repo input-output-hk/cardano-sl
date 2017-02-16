@@ -20,6 +20,8 @@ import Pos.Types.Lenses.Core (_Coin, getCoin)
 import Pux.Html (Html, div, h3, text, h1, h2, input, h4, p, code) as P
 import Pux.Html.Attributes (className, type_, placeholder) as P
 import Pux.Html.Events (onClick, onFocus, onBlur) as P
+import Explorer.Routes (Route(..), toUrl)
+import Pux.Router (link) as P
 
 dashboardView :: State -> P.Html Action
 dashboardView state =
@@ -184,8 +186,8 @@ blocksView state =
                 [ blocksFooterView ]
             -- TODO (jk) For debugging only - has to be removed later on
             , P.div
-                [ P.className $ "btn-debug",
-                  P.onClick <<< const $ RequestLatestBlocks  ]
+                [ P.className $ "btn-debug"
+                , P.onClick $ const RequestLatestBlocks  ]
                 [ P.text "#Debug blocks" ]
             ]
         ]
@@ -292,8 +294,8 @@ transactionsView state =
             ]
           -- TODO (jk) For debugging only - has to be removed later
           , P.div
-              [ P.className $ "btn-debug",
-                P.onClick <<< const $ RequestLatestTransactions  ]
+              [ P.className $ "btn-debug"
+              , P.onClick $ const RequestLatestTransactions  ]
               [ P.text "#Debug txs" ]
           ]
         ]
@@ -315,9 +317,12 @@ transactionsView state =
 
 transactionRow :: State -> CTxEntry -> P.Html Action
 transactionRow state (CTxEntry entry) =
+    let txId = entry ^. (cteId <<< _CTxId <<< _CHash) in
     P.div
         [ P.className "transactions__row" ]
-        [ transactionColumn (entry ^. (cteId <<< _CTxId <<< _CHash)) "hash"
+        [ P.link (toUrl <<< Transaction $ entry ^. cteId)
+              [ P.className "transactions__column hash" ]
+              [ P.text $ entry ^. (cteId <<< _CTxId <<< _CHash) ]
         , transactionColumn (show <<< unwrap $ entry ^. (cteTimeIssued <<< _NominalDiffTime)) ""
         , transactionColumn (show $ entry ^. (cteAmount <<< _Coin <<< getCoin)) <<< currencyCSSClass $ Just ADA
         ]

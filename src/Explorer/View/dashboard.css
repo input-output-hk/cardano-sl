@@ -226,12 +226,12 @@
       font-size: 10px;
       font-family: var(--fontFamily0-Regular);
       color: var(--color8);
-
       padding: 10px 24px;
 
       &:nth-child(odd) {
         background-color: var(--color6);
       }
+
     }
 
     &__column {
@@ -239,6 +239,9 @@
 
       &.hash {
         @neat-span-columns 8;
+        button: standard-button;
+        button-color: var(--color8) var(--color5) var(--color5);
+
       }
 
       &.ada,

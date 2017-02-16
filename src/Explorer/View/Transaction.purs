@@ -7,37 +7,37 @@ import Explorer.I18n.Lenses (transaction, summary) as I18nL
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (CCurrency(..), State)
 import Explorer.View.Common (currencyCSSClass, transactionHeaderView, transactionBodyView)
+import Pos.Explorer.Web.ClientTypes (CTxId)
 import Pux.Html (Html, div, text, h3, table, tr, td) as P
 import Pux.Html.Attributes (className) as P
 
-transactionView :: State -> P.Html Action
-transactionView state =
+transactionView :: State -> CTxId -> P.Html Action
+transactionView state txId =
     P.div
         [ P.className "explorer-transaction" ]
         [ P.div
-              [ P.className "explorer-transaction__wrapper" ]
-              [ P.div
-                    [ P.className "explorer-transaction__container" ]
-                    [ P.h3
-                        [ P.className "headline"]
-                        [ P.text $ translate I18nL.transaction state.lang ]
-                    , transactionHeaderView state
-                    , transactionBodyView state
-                    ]
-              ]
-        ,  P.div
-                [ P.className "explorer-transaction__wrapper" ]
-                [ P.div
-                      [ P.className "explorer-transaction__container" ]
-                      [ P.h3
-                              [ P.className "headline"]
-                              [ P.text $ translate I18nL.summary state.lang ]
-                        , P.table
-                              [ P.className "table-summary" ]
-                              $ map summaryRow summaryItems
-
-                      ]
+            [ P.className "explorer-transaction__wrapper" ]
+            [ P.div
+                [ P.className "explorer-transaction__container" ]
+                [ P.h3
+                    [ P.className "headline"]
+                    [ P.text $ translate I18nL.transaction state.lang ]
+                , transactionHeaderView state
+                , transactionBodyView state
                 ]
+            ]
+        , P.div
+            [ P.className "explorer-transaction__wrapper" ]
+            [ P.div
+                [ P.className "explorer-transaction__container" ]
+                [ P.h3
+                    [ P.className "headline"]
+                    [ P.text $ translate I18nL.summary state.lang ]
+                  , P.table
+                      [ P.className "table-summary" ]
+                      $ map summaryRow summaryItems
+                ]
+            ]
         ]
 
 

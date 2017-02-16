@@ -7,9 +7,7 @@ import Data.Argonaut.Core (Json)
 import Explorer.Util.Api(decodeJson)
 import Data.Foreign (Foreign)
 import Explorer.Types.Actions (Action(..), ActionChannel)
-import Prelude (($), Unit)
 import Signal.Channel (CHANNEL, send)
-import Debug.Trace
 
 
 -- host

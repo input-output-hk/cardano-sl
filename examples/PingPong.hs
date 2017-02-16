@@ -4,6 +4,9 @@
 {-# LANGUAGE RecursiveDo           #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE DeriveDataTypeable    #-}
+{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
 
@@ -53,8 +56,8 @@ worker anId generator peerIds = pingWorker generator
             let (i, gen') = randomR (0,1000000) g
                 us = fromMicroseconds i :: Microsecond
             delay us
-            let pong :: NodeId -> ConversationActions BS.ByteString Ping Pong Production -> Production ()
-                pong peerId cactions = do
+            let pong :: NodeId -> Production BS.ByteString -> ConversationActions Ping Pong Production -> Production ()
+                pong peerId peerData cactions = do
                     liftIO . putStrLn $ show anId ++ " sent PING to " ++ show peerId
                     received <- recv cactions
                     case received of
@@ -67,7 +70,7 @@ listeners :: NodeId -> [Listener Packing BS.ByteString Production]
 listeners anId = [pongListener]
     where
     pongListener :: ListenerAction Packing BS.ByteString Production
-    pongListener = ListenerActionConversation $ \peerData peerId (cactions :: ConversationActions BS.ByteString Pong Ping Production) -> do
+    pongListener = ListenerActionConversation $ \peerData peerId (cactions :: ConversationActions Pong Ping Production) -> do
         liftIO . putStrLn $ show anId ++  " heard PING from " ++ show peerId ++ " with peer data " ++ B8.unpack peerData
         send cactions Pong
         liftIO . putStrLn $ show anId ++ " sent PONG to " ++ show peerId
@@ -85,12 +88,12 @@ main = runProduction $ do
     let prng4 = mkStdGen 3
 
     liftIO . putStrLn $ "Starting nodes"
-    node transport prng1 BinaryP (B8.pack "I am node 1") $ \node1 -> do
-        setupMonitor 8000 runProduction node1
-        pure $ NodeAction (listeners . nodeId $ node1) $ \sactions1 ->
-            node transport prng2 BinaryP (B8.pack "I am node 2") $ \node2 -> do
-                setupMonitor 8001 runProduction node2
-                pure $ NodeAction (listeners . nodeId $ node2) $ \sactions2 -> do
+    node transport prng1 BinaryP (B8.pack "I am node 1") $ \node1 ->
+        NodeAction (listeners . nodeId $ node1) $ \sactions1 -> do
+            setupMonitor 8000 runProduction node1
+            node transport prng2 BinaryP (B8.pack "I am node 2") $ \node2 ->
+                NodeAction (listeners . nodeId $ node2) $ \sactions2 -> do
+                    setupMonitor 8001 runProduction node2
                     tid1 <- fork $ worker (nodeId node1) prng3 [nodeId node2] sactions1
                     tid2 <- fork $ worker (nodeId node2) prng4 [nodeId node1] sactions2
                     liftIO . putStrLn $ "Hit return to stop"

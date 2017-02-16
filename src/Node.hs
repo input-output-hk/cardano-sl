@@ -25,7 +25,7 @@ module Node (
     , messageName'
 
     , SendActions(sendTo, withConnectionTo)
-    , ConversationActions(send, recv, peerData)
+    , ConversationActions(send, recv)
     , Worker
     , Listener
     , ListenerAction(..)
@@ -92,7 +92,7 @@ data ListenerAction packing peerData m where
   -- | A listener that handles an incoming bi-directional conversation.
   ListenerActionConversation
     :: ( Packable packing snd, Unpackable packing rcv, Message rcv )
-    => (peerData -> LL.NodeId -> ConversationActions peerData snd rcv m -> m ())
+    => (peerData -> LL.NodeId -> ConversationActions snd rcv m -> m ())
     -> ListenerAction packing peerData m
 
 hoistListenerAction
@@ -112,12 +112,13 @@ listenerMessageName (ListenerActionOneMsg (
     )) = messageName (Proxy :: Proxy msg)
 
 listenerMessageName (ListenerActionConversation (
-        _ :: peerData -> LL.NodeId -> ConversationActions peerData snd rcv m -> m ()
+        _ :: peerData -> LL.NodeId -> ConversationActions snd rcv m -> m ()
     )) = messageName (Proxy :: Proxy rcv)
 
 data SendActions packing peerData m = SendActions {
        -- | Send a isolated (sessionless) message to a node
-       sendTo :: forall msg .
+       sendTo
+           :: forall msg .
               ( Packable packing msg, Message msg )
               => LL.NodeId
               -> msg
@@ -128,34 +129,28 @@ data SendActions packing peerData m = SendActions {
            :: forall snd rcv t .
             ( Packable packing snd, Message snd, Unpackable packing rcv )
            => LL.NodeId
-           -> (ConversationActions peerData snd rcv m -> m t)
+           -> (m peerData -> ConversationActions snd rcv m -> m t)
            -> m t
      }
 
-data ConversationActions peerData body rcv m = ConversationActions {
+data ConversationActions body rcv m = ConversationActions {
        -- | Send a message within the context of this conversation
        send     :: body -> m ()
 
        -- | Receive a message within the context of this conversation.
        --   'Nothing' means end of input (peer ended conversation).
-     , recv     :: m (Maybe rcv)
-
-       -- | The data associated with that peer (reported by the peer).
-       --   It's in m because trying to take it may block (it may not be
-       --   known yet!).
-     , peerData :: m peerData
+     , recv :: m (Maybe rcv)
      }
 
 hoistConversationActions
     :: (forall a. n a -> m a)
-    -> ConversationActions peerData body rcv n
-    -> ConversationActions peerData body rcv m
+    -> ConversationActions body rcv n
+    -> ConversationActions body rcv m
 hoistConversationActions nat ConversationActions {..} =
-  ConversationActions send' recv' peerData'
+  ConversationActions send' recv'
       where
         send' = nat . send
         recv' = nat recv
-        peerData' = nat peerData
 
 hoistSendActions
     :: (forall a. n a -> m a)
@@ -166,7 +161,9 @@ hoistSendActions nat rnat SendActions {..} = SendActions sendTo' withConnectionT
   where
     sendTo' nodeId msg = nat $ sendTo nodeId msg
     withConnectionTo' nodeId convActionsH =
-        nat $ withConnectionTo nodeId  $ \convActions -> rnat $ convActionsH $ hoistConversationActions nat convActions
+        nat $ withConnectionTo nodeId  $ \peerData convActions -> rnat $
+            convActionsH (nat peerData) $
+            hoistConversationActions nat convActions
 
 type ListenerIndex packing peerData m =
     Map MessageName (ListenerAction packing peerData m)
@@ -215,16 +212,16 @@ nodeSendActions nodeUnit packing =
         :: forall snd rcv t .
            ( Packable packing snd, Message snd, Unpackable packing rcv )
         => LL.NodeId
-        -> (ConversationActions peerData snd rcv m -> m t)
+        -> (m peerData -> ConversationActions snd rcv m -> m t)
         -> m t
     nodeWithConnectionTo = \nodeId f ->
         LL.withInOutChannel nodeUnit nodeId $ \peerDataVar inchan outchan -> do
             let msgName  = messageName (Proxy :: Proxy snd)
-                cactions :: ConversationActions peerData snd rcv m
-                cactions = nodeConversationActions nodeUnit nodeId packing (readSharedExclusive peerDataVar) inchan outchan
+                cactions :: ConversationActions snd rcv m
+                cactions = nodeConversationActions nodeUnit nodeId packing inchan outchan
             LL.writeChannel outchan . LBS.toChunks $
                 packMsg packing msgName
-            f cactions
+            f (readSharedExclusive peerDataVar) cactions
 
 -- | Conversation actions for a given peer and in/out channels.
 nodeConversationActions
@@ -237,12 +234,11 @@ nodeConversationActions
     => LL.Node packing peerData m
     -> LL.NodeId
     -> packing
-    -> m peerData
     -> ChannelIn m
     -> ChannelOut m
-    -> ConversationActions peerData snd rcv m
-nodeConversationActions _ _ packing peerData inchan outchan =
-    ConversationActions nodeSend nodeRecv peerData
+    -> ConversationActions snd rcv m
+nodeConversationActions _ _ packing inchan outchan =
+    ConversationActions nodeSend nodeRecv
     where
 
     nodeSend = \body -> do
@@ -261,9 +257,17 @@ data NodeAction packing peerData m t = NodeAction [Listener packing peerData m] 
 
 -- | Spin up a node. You must give a function to create listeners given the
 --   'NodeId', and an action to do given the 'NodeId' and sending actions.
+--
+--   The 'NodeAction' must be lazy in the components of the 'Node' passed to
+--   it. Its 'NodeId', for instance, may be useful for the listeners, but is
+--   not defined until after the node's end point is created, which cannot
+--   happen until the listeners are defined--as soon as the end point is brought
+--   up, traffic may come in and cause a listener to run, so they must be
+--   defined first.
+--
 --   The node will stop and clean up once that action has completed. If at
 --   this time there are any listeners running, they will be allowed to
---   finished.
+--   finish.
 node
     :: forall packing peerData m t .
        ( Mockable Fork m, Mockable Throw m, Mockable Channel.Channel m
@@ -279,19 +283,25 @@ node
     -> StdGen
     -> packing
     -> peerData
-    -> (Node m -> m (NodeAction packing peerData m t))
+    -> (Node m -> NodeAction packing peerData m t)
     -> m t
 node transport prng packing peerData k = do
-    rec { llnode <- LL.startNode packing peerData transport prng (handlerIn listenerIndex sendActions) (handlerInOut llnode listenerIndex)
-        ; let nId = LL.nodeId llnode
+    rec { let nId = LL.nodeId llnode
         ; let endPoint = LL.nodeEndPoint llnode
         ; let nodeUnit = Node nId endPoint (LL.nodeStatistics llnode)
-        ; NodeAction listeners act <- k nodeUnit
+        ; let NodeAction listeners act = k nodeUnit
           -- Index the listeners by message name, for faster lookup.
           -- TODO: report conflicting names, or statically eliminate them using
           -- DataKinds and TypeFamilies.
         ; let listenerIndex :: ListenerIndex packing peerData m
               (listenerIndex, _conflictingNames) = makeListenerIndex listeners
+        ; llnode <- LL.startNode
+              packing
+              peerData
+              transport
+              prng
+              (handlerIn listenerIndex sendActions)
+              (handlerInOut llnode listenerIndex)
         ; let sendActions = nodeSendActions llnode packing
         }
     let unexceptional = do
@@ -363,7 +373,7 @@ node transport prng packing peerData k = do
                 let listener = M.lookup msgName listenerIndex
                 case listener of
                     Just (ListenerActionConversation action) ->
-                        let cactions = nodeConversationActions nodeUnit peerId packing (return peerData) inchan outchan
+                        let cactions = nodeConversationActions nodeUnit peerId packing inchan outchan
                         in  action peerData peerId cactions
                     Just (ListenerActionOneMsg _) -> error ("handlerInOut : wrong listener type. Expected bidirectional for " ++ show msgName)
                     Nothing -> error ("handlerInOut : no listener for " ++ show msgName)

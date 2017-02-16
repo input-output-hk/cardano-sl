@@ -9,6 +9,7 @@
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE RankNTypes            #-}
 
 module Test.Util
        ( makeTCPTransport
@@ -52,13 +53,13 @@ import qualified Data.Set                    as S
 import           Data.Time.Units             (Microsecond, Millisecond, Second, TimeUnit)
 import           GHC.Generics                (Generic)
 import           Mockable.Class              (Mockable)
-import           Mockable.Concurrent         (delay, forConcurrently, fork,
+import           Mockable.Concurrent         (delay, forConcurrently, fork, cancel,
                                               async, withAsync, wait, Concurrently,
                                               Delay, Async)
 import           Mockable.SharedExclusive    (newSharedExclusive, putSharedExclusive,
                                               takeSharedExclusive, SharedExclusive,
                                               readSharedExclusive, tryPutSharedExclusive)
-import           Mockable.Exception          (catch, throw)
+import           Mockable.Exception          (Catch, Throw, catch, throw)
 import           Mockable.Production         (Production (..))
 import qualified Network.Transport           as NT (Transport)
 import           Network.Transport.Abstract  (closeTransport, Transport)
@@ -86,6 +87,8 @@ timeout
     :: ( Mockable Delay m
        , Mockable Async m
        , Mockable SharedExclusive m
+       , Mockable Catch m
+       , Mockable Throw m
        )
     => String
     -> Microsecond
@@ -94,16 +97,17 @@ timeout
 timeout str us m = do
     var <- newSharedExclusive
     let action = do
-            t <- m
-            tryPutSharedExclusive var t
-            return ()
+            t <- (fmap Right m) `catch` (\(e :: SomeException) -> return (Left e))
+            putSharedExclusive var t
     let timeoutAction = do
             delay us
-            tryPutSharedExclusive var (error $ str ++ " : timeout after " ++ show us)
-            return ()
+            putSharedExclusive var (Left . error $ str ++ " : timeout after " ++ show us)
     withAsync action $ \actionPromise -> do
         withAsync timeoutAction $ \timeoutPromise -> do
-            readSharedExclusive var
+            choice <- readSharedExclusive var
+            case choice of
+                Left e -> throw e
+                Right t -> return t
 
 -- * Parcel
 
@@ -218,7 +222,10 @@ sendAll
        , Mockable Concurrently m
        , Mockable Delay m
        , Mockable Async m
-       , Mockable SharedExclusive m )
+       , Mockable Throw m
+       , Mockable Catch m
+       , Mockable SharedExclusive m
+       )
     => TalkStyle
     -> SendActions BinaryP () m
     -> NodeId
@@ -240,7 +247,10 @@ receiveAll
     :: ( Binary msg, Message msg, MonadIO m
        , Mockable Delay m
        , Mockable Async m
-       , Mockable SharedExclusive m )
+       , Mockable SharedExclusive m
+       , Mockable Throw m
+       , Mockable Catch m
+       )
     => TalkStyle
     -> (msg -> m ())
     -> ListenerAction BinaryP () m
@@ -263,11 +273,17 @@ receiveAll ConversationStyle  handler =
 makeInMemoryTransport :: IO NT.Transport
 makeInMemoryTransport = InMemory.createTransport
 
-makeTCPTransport :: String -> String -> String -> IO NT.Transport
-makeTCPTransport bind hostAddr port = do
+makeTCPTransport
+    :: String
+    -> String
+    -> String
+    -> (forall t . IO (TCP.QDisc t))
+    -> IO NT.Transport
+makeTCPTransport bind hostAddr port qdisc = do
     let tcpParams = TCP.defaultTCPParameters {
               TCP.tcpReuseServerAddr = True
             , TCP.tcpReuseClientAddr = True
+            , TCP.tcpNewQDisc = qdisc
             }
     choice <- TCP.createTransport bind hostAddr port tcpParams
     case choice of

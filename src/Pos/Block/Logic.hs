@@ -720,7 +720,8 @@ createMainBlockFinish slotId pSk prevHeader = do
             fromMaybe (panic "Undo for tx not found")
                       (HM.lookup (fst tx) txUndo) : undos
     lift $ inAssertMode $ verifyBlocksPrefix (one (Right blk)) >>= \case
-        Left err -> logError $ sformat ("We've created bad block: "%stext) err
+        Left err ->
+            assertionFailed $ sformat ("We've created bad block: "%stext) err
         Right _ -> pass
     (pModifier,verUndo) <- runExceptT (usVerifyBlocks (one (Right blk))) >>= \case
         Left _ -> throwError "Couldn't get pModifier while creating MainBlock"

@@ -15,7 +15,6 @@ module Pos.Block.Logic.Internal
 import           Control.Arrow        ((&&&))
 import           Control.Lens         (each, _Wrapped)
 import           Control.Monad.Catch  (bracketOnError)
-import           System.Wlog          (logError)
 import           Universum
 
 import           Pos.Block.Types      (Blund, Undo (undoUS))
@@ -24,6 +23,7 @@ import           Pos.DB               (SomeBatchOp (..))
 import qualified Pos.DB               as DB
 import qualified Pos.DB.GState        as GS
 import           Pos.Delegation.Logic (delegationApplyBlocks, delegationRollbackBlocks)
+import           Pos.Exception        (assertionFailed)
 import           Pos.Slotting         (putSlottingData)
 import           Pos.Ssc.Extra        (sscApplyBlocks, sscNormalize, sscRollbackBlocks)
 import           Pos.Txp.Logic        (normalizeTxpLD, txApplyBlocks, txRollbackBlocks)
@@ -113,7 +113,7 @@ rollbackBlocksUnsafe toRollback = do
     DB.sanityCheckDB
     inAssertMode $
         when (isGenesis0 (toRollback ^. _Wrapped . _neLast . _1)) $
-        logError $
+        assertionFailed $
         colorize Red "FATAL: we are TRYING TO ROLLBACK 0-TH GENESIS block"
   where
     inMainBatch =

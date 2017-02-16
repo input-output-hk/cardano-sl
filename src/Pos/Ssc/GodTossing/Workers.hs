@@ -48,8 +48,8 @@ import           Pos.Lrc.Types                    (RichmenStake)
 import           Pos.Slotting                     (getCurrentSlot,
                                                    getSlotStartEmpatically)
 import           Pos.Ssc.Class.Workers            (SscWorkersClass (..))
-import           Pos.Ssc.GodTossing.Core          (Commitment (..), SignedCommitment,
-                                                   VssCertificate (..),
+import           Pos.Ssc.GodTossing.Core          (Commitment (..), SharesDistribution,
+                                                   SignedCommitment, VssCertificate (..),
                                                    VssCertificatesMap,
                                                    genCommitmentAndOpening,
                                                    getCommitmentsMap, isCommitmentIdx,
@@ -311,25 +311,25 @@ generateAndSetNewSecret sk SlotId {..} = do
                               -> NonEmpty (StakeholderId, AsBinary VssPublicKey)
                               -> m (Maybe SignedCommitment)
     generateAndSetNewSecretDo richmen ps = do
-        distrEI <- runExceptT $ computeSharesDistr richmen
-        -- Gromak it's for you <3 |>
-        case distrEI of
-            Left er ->
-                Nothing <$ logWarning (sformat ("Couldn't compute shares distribution, reason: "%build) er)
-            Right distr -> do
-                logDebug $ sformat ("Computed shares distribution: "%listJson) (HM.toList distr)
-                let threshold = vssThreshold $ sum $ toList distr
-                let multiPSmb = nonEmpty $
-                                concatMap (\(c, x) -> replicate (fromIntegral c) x) $
-                                NE.map (first $ flip (HM.lookupDefault 0) distr) ps
-                case multiPSmb of
-                    Nothing -> Nothing <$ logWarning "Couldn't compute participant's vss"
-                    Just multiPS -> do
-                        mPair <- runMaybeT (genCommitmentAndOpening threshold multiPS)
-                        case mPair of
-                            Just (mkSignedCommitment sk siEpoch -> comm, open) ->
-                                Just comm <$ SS.putOurSecret comm open siEpoch
-                            Nothing -> Nothing <$ reportDeserFail
+        let onLeft er =
+                Nothing <$
+                logWarning
+                (sformat ("Couldn't compute shares distribution, reason: "%build) er)
+        distrET <- runExceptT (computeSharesDistr richmen)
+        flip (either onLeft) distrET $ \distr -> do
+            logDebug $ sformat ("Computed shares distribution: "%listJson) (HM.toList distr)
+            let threshold = vssThreshold $ sum $ toList distr
+            let multiPSmb = nonEmpty $
+                            concatMap (\(c, x) -> replicate (fromIntegral c) x) $
+                            NE.map (first $ flip (HM.lookupDefault 0) distr) ps
+            case multiPSmb of
+                Nothing -> Nothing <$ logWarning "Couldn't compute participant's vss"
+                Just multiPS -> do
+                    mPair <- runMaybeT (genCommitmentAndOpening threshold multiPS)
+                    flip (maybe (reportDeserFail $> Nothing)) mPair $
+                        \(mkSignedCommitment sk siEpoch -> comm, open) ->
+                            Just comm <$ SS.putOurSecret comm open siEpoch
+
 randomTimeInInterval
     :: WorkMode SscGodTossing m
     => Microsecond -> m Microsecond

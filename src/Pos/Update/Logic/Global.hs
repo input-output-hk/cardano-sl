@@ -79,6 +79,7 @@ usApplyBlocks blocks modifierMaybe = withUSLogger $
   where
     onFailure failure = do
         let msg = "usVerifyBlocks failed in 'apply': " <> pretty failure
+
         logError $ colorize Red msg
         throwM $ USInternalError msg
 

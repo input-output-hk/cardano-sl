@@ -30,6 +30,7 @@ import           System.Wlog                   (WithLogger, logDebug, logError, 
 import           Universum
 
 import           Pos.Binary.Class              (Bi (..))
+import           Pos.Binary.Relay              ()
 import           Pos.Communication.Message     (MessagePart)
 import           Pos.Communication.Limits      (Limit, LimitedLengthExt (..),
                                                 MessageLimited (..), reifyMsgLimit,
@@ -155,6 +156,8 @@ handleDataL
       :: forall tag key contents ssc m .
       ( Bi (InvMsg key tag)
       , Bi (ReqMsg key tag)
+      , Bi key
+      , Bi tag
       , Bi (DataMsg contents)
       , MonadDHT m
       , MessagePart tag
@@ -204,7 +207,7 @@ processMessage defaultRes name param verifier action = do
                 ("Wrong "%stext%": invalid "%build%": "%listJson)
                 name param reasons)
 
--- | Type of `InvOrData` with limited length.
+-- | Type `InvOrData` with limited length.
 type InvOrDataLimitedLength s key tag contents =
     LimitedLengthExt s
         (Limit (InvMsg key tag), LimitType (DataMsg contents))
@@ -213,9 +216,10 @@ type InvOrDataLimitedLength s key tag contents =
 relayListeners
   :: forall m key tag contents ssc.
      ( MonadDHT m
-     , Bi (InvMsg key tag)
-     , Bi (ReqMsg key tag)
+     , Bi key
+     , Bi tag
      , Bi (DataMsg contents)
+     , Bi (ReqMsg key tag)
      , Bi (InvOrData tag key contents)
      , MessagePart contents
      , MessagePart tag

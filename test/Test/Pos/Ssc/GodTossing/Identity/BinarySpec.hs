@@ -9,7 +9,6 @@ import           Test.Hspec              (Spec, describe)
 import           Universum
 
 import           Pos.Binary              ()
-import qualified Pos.Constants           as Const
 import qualified Pos.Communication       as C
 import qualified Pos.Communication.Relay as R
 import           Pos.Crypto              (Signature, PublicKey,
@@ -38,7 +37,6 @@ spec = describe "GodTossing" $ do
         -- TODO: move somewhere
         msgLenLimitedTest @PublicKey
         msgLenLimitedTest @EncShare
-        msgLenLimitedTest @SecretSharingExtra
         msgLenLimitedTest @(C.MaxSize SecretSharingExtra)
         msgLenLimitedTest @(Signature ())
         msgLenLimitedTest @(AbstractHash Blake2s_224 Void)
@@ -49,27 +47,19 @@ spec = describe "GodTossing" $ do
 
         msgLenLimitedTest @(R.InvMsg StakeholderId GT.GtTag)
         msgLenLimitedTest @(R.ReqMsg StakeholderId GT.GtTag)
-        msgLenLimitedTest' @(R.DataMsg GT.GtMsgContents)
-            (R.DataMsg <$> C.mcCommitmentMsgLenLimit)
+        msgLenLimitedTest' @(C.MaxSize (R.DataMsg GT.GtMsgContents))
+            (C.MaxSize . R.DataMsg <$> C.mcCommitmentMsgLenLimit)
             "MCCommitment"
-            isMCCommitment
-        msgLenLimitedTest' @(R.DataMsg GT.GtMsgContents)
-            (R.DataMsg <$> C.mcSharesMsgLenLimit)
+            (isMCCommitment . C.getOfMaxSize)
+        msgLenLimitedTest' @(C.MaxSize (R.DataMsg GT.GtMsgContents))
+            (C.MaxSize . R.DataMsg <$> C.mcSharesMsgLenLimit)
             "MCShares"
-            isMCShares
+            (isMCShares . C.getOfMaxSize)
 
 isMCCommitment :: R.DataMsg GT.GtMsgContents -> Bool
 isMCCommitment (R.DataMsg (GT.MCCommitment _)) = True
 isMCCommitment _                               = False
 
-isMCOpening :: R.DataMsg GT.GtMsgContents -> Bool
-isMCOpening (R.DataMsg (GT.MCOpening _ _)) = True
-isMCOpening _                              = False
-
 isMCShares :: R.DataMsg GT.GtMsgContents -> Bool
 isMCShares (R.DataMsg (GT.MCShares _ _)) = True
 isMCShares _                             = False
-
-isMCVssCertificate :: R.DataMsg GT.GtMsgContents -> Bool
-isMCVssCertificate (R.DataMsg (GT.MCVssCertificate _)) = True
-isMCVssCertificate _                                   = False

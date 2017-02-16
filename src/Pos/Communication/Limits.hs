@@ -1,4 +1,5 @@
 {-# LANGUAGE ConstraintKinds      #-}
+{-# LANGUAGE DeriveFunctor        #-}
 {-# LANGUAGE LambdaCase           #-}
 {-# LANGUAGE Rank2Types           #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
@@ -47,6 +48,7 @@ import           Pos.Crypto                       (Signature, PublicKey,
                                                    Share)
 import           Pos.DB.Class                     (MonadDB)
 import qualified Pos.DB.GState                    as GState
+import           Pos.Ssc.GodTossing.Arbitrary     ()
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..))
 import           Pos.Ssc.GodTossing.Core.Types    (Commitment (..))
 import           Pos.Types.Coin                   (coinPortionToDouble)
@@ -319,12 +321,16 @@ reifyMsgLimit _ f = do
 -- This is required at first place to generate lists of max available size.
 newtype MaxSize a = MaxSize
     { getOfMaxSize :: a
-    } deriving (Eq, Ord, Show, Bi, MessageLimitedPure)
+    } deriving (Eq, Ord, Show, Bi, Functor, MessageLimitedPure)
+
+multiMapIsLimited :: Int -> HashMap k (NonEmpty v) -> Bool
+multiMapIsLimited lim mmap = foldr (+) 0 (length <$> mmap) < lim
 
 instance T.Arbitrary (MaxSize Commitment) where
     arbitrary = MaxSize <$>
         (Commitment <$> T.arbitrary <*> T.arbitrary
-                    <*> (fromList <$> T.vector commitmentsNumLimit))
+                    <*> (T.arbitrary `T.suchThat`
+                            multiMapIsLimited commitmentsNumLimit))
 
 instance T.Arbitrary (MaxSize SecretSharingExtra) where
     arbitrary = do
@@ -333,3 +339,21 @@ instance T.Arbitrary (MaxSize SecretSharingExtra) where
         return $ MaxSize $ SecretSharingExtra gen commitments'
       where
         alignLength n = take n . cycle
+
+instance T.Arbitrary (MaxSize GtMsgContents) where
+    arbitrary = MaxSize <$>
+        T.oneof [aCommitment, aOpening, aShares, aVssCert]
+      where
+        aCommitment = MCCommitment <$>
+            ((,,) <$> T.arbitrary
+                  <*> (getOfMaxSize <$> T.arbitrary)
+                  <*> T.arbitrary)
+        aOpening = MCOpening <$> T.arbitrary <*> T.arbitrary
+        aShares =
+            MCShares <$> T.arbitrary
+                     <*> (T.arbitrary `T.suchThat`
+                            multiMapIsLimited commitmentsNumLimit)
+        aVssCert = MCVssCertificate <$> T.arbitrary
+
+instance T.Arbitrary (MaxSize (DataMsg GtMsgContents)) where
+    arbitrary = fmap DataMsg <$> T.arbitrary

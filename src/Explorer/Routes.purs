@@ -4,14 +4,14 @@ import Prelude
 import Data.Maybe (fromMaybe)
 import Pux.Router (end, router, lit, str)
 import Control.Alt ((<|>))
-import Pos.Explorer.Web.ClientTypes (CTxId)
-import Pos.Explorer.Web.Lenses.ClientTypes (_CTxId, _CHash)
+import Pos.Explorer.Web.ClientTypes (CHash)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CHash)
 import Data.Lens ((^.))
-import Explorer.Util.Factory (mkCTxId)
+import Explorer.Util.Factory (mkCHash)
 
 data Route =
     Dashboard
-    | Transaction CTxId
+    | Transaction CHash
     | Address
     | Calculator
     | Block
@@ -21,7 +21,7 @@ match :: String -> Route
 match url = fromMaybe NotFound $ router url $
     Dashboard <$ end
     <|>
-    Transaction <<< mkCTxId <$> (lit transactionLit *> str) <* end
+    Transaction <<< mkCHash <$> (lit transactionLit *> str) <* end
     <|>
     Address <$ lit addressLit <* end
     <|>
@@ -31,7 +31,7 @@ match url = fromMaybe NotFound $ router url $
 
 toUrl :: Route -> String
 toUrl Dashboard = dashboardUrl
-toUrl (Transaction txId) = transactionUrl txId
+toUrl (Transaction hash) = transactionUrl hash
 toUrl Address = addressUrl
 toUrl Calculator = calculatorUrl
 toUrl Block = blockUrl
@@ -49,12 +49,8 @@ dashboardUrl = litUrl dashboardLit
 transactionLit :: String
 transactionLit = "tx"
 
-transactionUrl :: CTxId -> String
-transactionUrl txId = litUrl transactionLit <> txId ^. _CTxId <<< _CHash
-
-
--- b txId =
---   (txId ^. _CTxId <<< _CHash)
+transactionUrl :: CHash -> String
+transactionUrl hash = litUrl transactionLit <> hash ^. _CHash
 
 addressLit :: String
 addressLit = "address"

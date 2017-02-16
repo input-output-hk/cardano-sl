@@ -320,7 +320,7 @@ transactionRow state (CTxEntry entry) =
     let txId = entry ^. (cteId <<< _CTxId <<< _CHash) in
     P.div
         [ P.className "transactions__row" ]
-        [ P.link (toUrl <<< Transaction $ entry ^. cteId)
+        [ P.link (toUrl <<< Transaction $ entry ^. cteId <<< _CTxId)
               [ P.className "transactions__column hash" ]
               [ P.text $ entry ^. (cteId <<< _CTxId <<< _CHash) ]
         , transactionColumn (show <<< unwrap $ entry ^. (cteTimeIssued <<< _NominalDiffTime)) ""

@@ -7,12 +7,12 @@ import Explorer.I18n.Lenses (transaction, summary) as I18nL
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (CCurrency(..), State)
 import Explorer.View.Common (currencyCSSClass, transactionHeaderView, transactionBodyView)
-import Pos.Explorer.Web.ClientTypes (CTxId)
+import Pos.Explorer.Web.ClientTypes (CHash)
 import Pux.Html (Html, div, text, h3, table, tr, td) as P
 import Pux.Html.Attributes (className) as P
 
-transactionView :: State -> CTxId -> P.Html Action
-transactionView state txId =
+transactionView :: State -> CHash -> P.Html Action
+transactionView state hash =
     P.div
         [ P.className "explorer-transaction" ]
         [ P.div

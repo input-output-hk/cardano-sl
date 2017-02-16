@@ -18,7 +18,6 @@ Library
                         Network.Transport.Concrete
                         Network.Transport.Concrete.TCP
                         Network.QDisc.Fair
-                        Network.QDisc.FairSTM
 
                         Node
 
@@ -249,9 +248,11 @@ test-suite node-sketch-test
                      , GeneralizedNewtypeDeriving
 
 executable qdisc-simulation
+  -- TBD: make this a benchmark instead?
   -- type:           exitcode-stdio-1.0
   hs-source-dirs: src
   main-is:        Network/QDisc/Simulation.hs
+  other-modules:  Network.QDisc.Fair
   build-depends:    base
                   , async
                   , criterion
@@ -260,8 +261,8 @@ executable qdisc-simulation
                   , binary
                   , network-transport
                   , time-units
-                  , stm
                   , containers
+                  , stm
                   , random
                   , mwc-random
                   , statistics

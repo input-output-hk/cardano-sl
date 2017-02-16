@@ -3,14 +3,18 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module Network.QDisc.Fair where
+module Network.QDisc.Fair (
 
-import Data.IORef
-import Control.Concurrent.MVar
+      fairQDisc
+
+    ) where
+
+import Control.Applicative
+import Control.Concurrent.STM
+import Control.Concurrent.STM.TVar
+import Control.Concurrent.STM.TMVar
 import Network.Transport.TCP (QDisc(..))
 
--- | A QDisc which is intended to always give fair queueing, even when there
---   are multiple writers writing faster than the reader can read.
 fairQDisc :: IO (QDisc t)
 fairQDisc = do
     fqd <- newFairQDisc
@@ -19,71 +23,55 @@ fairQDisc = do
         , qdiscDequeue = readFairQDisc fqd
         }
 
-newFairQDisc :: IO (FairQDisc t)
-newFairQDisc = do
-    cycle <- newIORef []
-    state <- newMVar Idle
-    return $ FairQDisc cycle state
+newFairQDisc :: IO (FairQDisc a)
+newFairQDisc = atomically $ do
+    reads <- newTVar []
+    wake <- newEmptyTMVar
+    writes <- newTVar ([], wake)
+    return $ FairQDisc reads writes
+
 
 -- | Fair FIFO QDisc where each write blocks until its value enters the read
 --   queue.
+--   It's essentially a TQueue (classic purely-functional queue in TVars)
+--   but with writes that block until the dequeue and enqueue lists are
+--   swapped.
 data FairQDisc a = FairQDisc {
-      -- An 'IORef' is suitable here because only one thread will modify
-      -- it. 
-      fqdiscCycle :: {-# UNPACK #-} !(IORef (FairQDiscCycle a))
-    , fqdiscState :: {-# UNPACK #-} !(MVar (FairQDiscState a))
+      fqdiscReading :: !(TVar [a])
+    , fqdiscWriting :: !(TVar ([a], TMVar ()))
     }
-
-type FairQDiscCycle a = [a]
-
-data FairQDiscState a =
-      Idle
-      -- | The reader is waiting for a value (taking this 'MVar').
-    | ReaderStarved {-# UNPACK #-} !(MVar a)
-      -- | 1 or more writers have written and are waiting for the reader
-      --   to clear this cycle (reading this 'MVar').
-    | WritersBlocked !a ![a] {-# UNPACK #-} !(MVar ())
 
 -- | Read from a FairQDisc. This will contend with writers only if there is
 --   no data left to read.
 readFairQDisc :: FairQDisc a -> IO a
-readFairQDisc FairQDisc{..} = do
-    xs <- readIORef fqdiscCycle
-    case xs of
-        -- The cycle is not over: update the cycle and return the next value.
-        (x : xs') -> do
-            writeIORef fqdiscCycle xs'
-            return x
-        -- The cycle is empty: try to take the next one, or wait until there's
-        -- a write.
+readFairQDisc FairQDisc{..} = atomically $ do
+    toRead <- readTVar fqdiscReading
+    case toRead of
+        (r : rs) -> do
+            writeTVar fqdiscReading rs
+            return r
         [] -> do
-            choice <- modifyMVar fqdiscState $ \st -> case st of
-                Idle -> do
-                    wakeReader <- newEmptyMVar
-                    return (ReaderStarved wakeReader, Left wakeReader)
-                WritersBlocked x xs wakeWriters -> do
-                    putMVar wakeWriters ()
-                    return (Idle, Right (x, xs))
-                ReaderStarved _ -> error "multiple readers"
-            case choice of
-                Left wakeReader -> takeMVar wakeReader
-                Right (x, xs) -> do
-                    modifyIORef' fqdiscCycle (const xs)
-                    return x
+            -- Grab the written data.
+            -- If there's none, wait for somebody to fill it.
+            (written, wake) <- readTVar fqdiscWriting
+            -- Reverse the list to give FIFO.
+            case reverse written of
+                -- Will wake up on the next write.
+                [] -> retry
+                -- There's written data! Swap it into the read queue and
+                -- immediately yield the first one.
+                (w : ws) -> do
+                    wake' <- newEmptyTMVar
+                    writeTVar fqdiscReading ws
+                    writeTVar fqdiscWriting ([], wake')
+                    putTMVar wake ()
+                    return w
 
--- | Write to a FairQDisc. It blocks until a reader takes the written value
---   into a cycle.
+-- | Write to a FairQDisc.
 writeFairQDisc :: FairQDisc a -> a -> IO ()
 writeFairQDisc FairQDisc{..} !x = do
-    choice <- modifyMVar fqdiscState $ \st -> case st of
-        Idle -> do
-            wakeWriters <- newEmptyMVar
-            return (WritersBlocked x [] wakeWriters, Just wakeWriters)
-        WritersBlocked x' xs wakeWriters ->
-            return (WritersBlocked x (x' : xs) wakeWriters, Just wakeWriters)
-        ReaderStarved wakeReader -> do
-            putMVar wakeReader x
-            return (Idle, Nothing)
-    case choice of
-        Nothing -> return ()
-        Just wakeWriters -> readMVar wakeWriters
+    wait <- atomically $ do
+        (xs, wait) <- readTVar fqdiscWriting
+        writeTVar fqdiscWriting (x : xs, wait)
+        return wait
+    atomically $ readTMVar wait

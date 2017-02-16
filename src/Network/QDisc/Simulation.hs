@@ -25,7 +25,6 @@ import Statistics.Distribution.Exponential
 import System.Random.MWC
 import Network.Transport.TCP (QDisc(..), simpleOnePlaceQDisc, simpleUnboundedQDisc)
 import Network.QDisc.Fair
-import qualified Network.QDisc.FairSTM as STM
 
 -- | A writer is determined by some continuous distribution giving the duration
 --   (in microseconds) between successive data being made available.
@@ -36,11 +35,13 @@ data SimulationWriter = forall distr . ContGen distr => SimulationWriter distr
 --   works between taking events).
 data SimulationReader = forall distr . ContGen distr => SimulationReader distr
 
-data SimulationParameters = SimulationParameters {
-      -- | 1 reader.
+data Scenario = Scenario {
       sim_reader :: SimulationReader
-      -- | 0 or more writers.
     , sim_writers :: [SimulationWriter]
+    }
+
+data SimulationParameters = SimulationParameters {
+      sim_scenario :: Scenario
       -- | How long the simulation should run.
     , sim_duration :: Second
       -- | The QDisc to use.
@@ -62,49 +63,21 @@ data SimulationOutput = SimulationOutput {
 instance Show SimulationOutput where
     show (SimulationOutput vecs) = concat $ flip fmap vecs $ \vec -> concat [
           "Samples (writes): ", show (V.length vec), "\n"
-        , "Mean: ", show (Sample.mean vec), "\n"
-        , "Std. Dev.: ", show (Sample.stdDev vec), "\n\n"
+        , "Latency (microseconds):\n"
+        , "  Mean: ", show (Sample.mean vec), "\n"
+        , "  Std. Dev.: ", show (Sample.stdDev vec), "\n\n"
         ]
 
-data QDiscChoice = Fair | FairSTM | OnePlace | Unbounded
+data QDiscChoice = Fair | OnePlace | Unbounded
 
 makeQDisc :: QDiscChoice -> IO (QDisc t)
 makeQDisc choice = case choice of
     Fair -> fairQDisc
-    FairSTM -> STM.fairQDisc
     Unbounded -> simpleUnboundedQDisc
     OnePlace -> simpleOnePlaceQDisc
 
-simpleSimulationParameters :: QDisc () -> Second -> SimulationParameters
-simpleSimulationParameters qdisc duration = SimulationParameters {
-      -- Some exponentially-distributed write delays.
-      -- Denominators give their means.
-      --
-      -- With these writers and reader, the fair QDisc actually outperforms
-      -- the one-place QDisc.
-      {-
-      sim_writers = [
-            SimulationWriter (exponential (1/10))
-          , SimulationWriter (exponential (1/20))
-          , SimulationWriter (exponential (1/30))
-          , SimulationWriter (exponential (1/40))
-          , SimulationWriter (uniformDistr 10 40)
-          ]
-      -- Reader typically takes 50us between reads with little variability.
-    , sim_reader = SimulationReader (normalDistr 50 2)
-      -}
-      {-
-      -- With this one, fair and one-place are essentially the same: both
-      -- fair and equally performant.
-      sim_writers = [
-            SimulationWriter (uniformDistr 0 100)
-          , SimulationWriter (uniformDistr 5000 25000)
-          , SimulationWriter (uniformDistr 5000 25000)
-          , SimulationWriter (uniformDistr 5000 25000)
-          , SimulationWriter (uniformDistr 5000 25000)
-          ]
-    , sim_reader = SimulationReader (normalDistr 5000 50)
-      -}
+unfairScenario :: Scenario
+unfairScenario = Scenario {
       -- Difference between fair and one-place is very clear here.
       -- The two fast writers get the same number of writes in either case.
       -- One-place gives the slow writer half as many writes, but fair gives
@@ -117,6 +90,19 @@ simpleSimulationParameters qdisc duration = SimulationParameters {
           , SimulationWriter (uniformDistr 4999 5000)
           , SimulationWriter (uniformDistr 14999 15000)
           ]
+    }
+
+-- | A normally-distributed reader (mean and std. dev. configurable) and
+--   n exponentially-distributed writers (means configurable).
+typicalScenario :: (Double, Double) -> [Double] -> Scenario
+typicalScenario (rmean, rstd_dev) writers = Scenario {
+      sim_reader = SimulationReader (normalDistr rmean rstd_dev)
+    , sim_writers = flip fmap writers $ \wmean -> SimulationWriter (exponential (1/wmean))
+    }
+
+simpleSimulationParameters :: QDisc () -> Second -> Scenario -> SimulationParameters
+simpleSimulationParameters qdisc duration scenario = SimulationParameters {
+      sim_scenario = scenario
     , sim_duration = duration
     , sim_qdisc = qdisc
     , sim_seed = 42
@@ -125,6 +111,8 @@ simpleSimulationParameters qdisc duration = SimulationParameters {
 -- | Run a simulation.
 simulate :: SimulationParameters -> IO SimulationOutput
 simulate SimulationParameters{..} = do
+
+    let Scenario{..} = sim_scenario
 
     -- All threads will wait on this.
     -- Threads will loop, and at each iteration will read it. If it's True,
@@ -201,12 +189,14 @@ main = do
     qdiscChoice <- case args of
         "unbounded" : _ -> putStrLn "Using unbounded QDisc" >> return Unbounded
         "one_place" : _ -> putStrLn "Using one-place QDisc" >> return OnePlace
-        "fair_stm" : _ -> putStrLn "Using fair STM QDisc" >> return FairSTM
         _ -> putStrLn "Using fair QDisc" >> return Fair
     duration :: Int <- case args of
         _ : n : _ -> case reads n of
             [(n', "")] -> return n'
         _ -> return 10
     qdisc <- makeQDisc qdiscChoice
-    results <- simulate (simpleSimulationParameters qdisc (fromIntegral duration))
+    --let scenario = typicalScenario (1000, 25) [800, 900, 1000, 1100, 1200]
+    let scenario = unfairScenario
+    results <- simulate $ simpleSimulationParameters qdisc (fromIntegral duration) scenario
+    putStrLn ""
     print results

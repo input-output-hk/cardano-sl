@@ -9,8 +9,8 @@ import Data.Newtype (unwrap)
 import Data.Time.NominalDiffTime.Lenses (_NominalDiffTime)
 import Data.Tuple (Tuple(..))
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (age, height, relayedBy, sizeKB, totalSent, transactions, title, subtitle, transactionFeed) as I18nL
-import Explorer.Lenses.State (blocksExpanded, dashboard, latestBlocks, latestTransactions, searchInput, selectedApiCode, transactionsExpanded, viewStates)
+import Explorer.I18n.Lenses (dbLastBlocks, dbExploreBlocks, cAge, common, cExpand, cHeight, cRelayedBy, cSizeKB, cTotalSent, cTransactions, dashboard, hero, hrTitle, hrSearch, hrSubtitle, cTransactionFeed) as I18nL
+import Explorer.Lenses.State (blocksExpanded, dashboard, lang, latestBlocks, latestTransactions, searchInput, selectedApiCode, transactionsExpanded, viewStates)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), DashboardAPICode(..), DashboardViewState, State, CBlockEntries, CTxEntries)
 import Explorer.View.Common (currencyCSSClass, paginationView)
@@ -81,10 +81,10 @@ heroView state =
             [ P.className "hero-container" ]
             [ P.h1
                 [ P.className "hero-headline" ]
-                [ P.text $ translate I18nL.title state.lang ]
+                [ P.text $ translate (I18nL.hero <<< I18nL.hrTitle) state.lang ]
             , P.h2
                 [ P.className "hero-subheadline"]
-                [ P.text $ translate I18nL.subtitle state.lang ]
+                [ P.text $ translate (I18nL.hero <<< I18nL.hrSubtitle) state.lang ]
             , P.div
                 [ P.className $ "hero-search-container" <> focusedClazz ]
                 [ P.input
@@ -92,7 +92,7 @@ heroView state =
                       , P.type_ "text"
                       , P.placeholder $ if searchInputFocused
                                         then ""
-                                        else "# Search for address, block, token"
+                                        else translate (I18nL.hero <<< I18nL.hrSearch) state.lang
                       , P.onFocus <<< const $ DashboardFocusSearchInput true
                       , P.onBlur <<< const $ DashboardFocusSearchInput false ]
                     []
@@ -193,9 +193,11 @@ blocksView state =
         ]
       where
         headerOptions = HeaderOptions
-            { headline: "#Last Blocks"
-            , link: Just $ HeaderLink { label: "#Explore blocks", action: NoOp }
+            { headline: translate (I18nL.dashboard <<< I18nL.dbLastBlocks) lang
+            , link: Just $ HeaderLink { label: translate (I18nL.dashboard <<< I18nL.dbExploreBlocks) lang
+                                      , action: NoOp }
             }
+        lang = state ^. lang
         expanded = state ^. dashboardBlocksExpanded
         blocks = state ^. latestBlocks
         noBlocks = null blocks
@@ -215,7 +217,7 @@ blocksView state =
             P.div
               [ P.className "btn-expand"
               , P.onClick <<< const $ DashboardExpandBlocks true ]
-              [ P.text "#expand"]
+              [ P.text $ translate (I18nL.common <<< I18nL.cExpand) lang]
 
 
 maxBlockRows :: Int
@@ -256,12 +258,12 @@ blockHeaderItemView state label =
 
 mkBlocksHeaderItems :: Language -> Array String
 mkBlocksHeaderItems lang =
-    [ translate I18nL.height lang
-    , translate I18nL.age lang
-    , translate I18nL.transactions lang
-    , translate I18nL.totalSent lang
-    , translate I18nL.relayedBy lang
-    , translate I18nL.sizeKB lang
+    [ translate (I18nL.common <<< I18nL.cHeight) lang
+    , translate (I18nL.common <<< I18nL.cAge) lang
+    , translate (I18nL.common <<< I18nL.cTransactions) lang
+    , translate (I18nL.common <<< I18nL.cTotalSent) lang
+    , translate (I18nL.common <<< I18nL.cRelayedBy) lang
+    , translate (I18nL.common <<< I18nL.cSizeKB) lang
     ]
 
 -- transactions
@@ -303,7 +305,7 @@ transactionsView state =
       expanded = state ^. dashboardTransactionsExpanded
       expandLabel = if expanded then "#collapse" else "#expand"
       headerOptions = HeaderOptions
-          { headline: translate I18nL.transactionFeed state.lang
+          { headline: translate (I18nL.common <<< I18nL.cTransactionFeed) state.lang
           , link: Just $ HeaderLink { label: "#Explore transactions", action: NoOp }
           }
       transactions = state ^. latestTransactions

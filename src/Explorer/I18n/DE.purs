@@ -1,28 +1,43 @@
 module Explorer.I18n.DE where
 
+import Explorer.I18n.Lenses (cCalculator)
+
 translation =
-    { title: "Cardano Blockchain Explorer"
-    , subtitle: "Der effektivste Weg um das Kryptowährung Netzwerk zu erforschen."
-    , back: "Zurück"
-    , transaction: "Transaktion"
-    , transactions: "Transaktionen"
-    , transactionFeed: "Transaktionen Feed"
-    , address: "Address"
-    , calculator: "Rechner"
-    , version: "Version"
-    , summary: "Zusammenfassung"
-    , block: "Block"
-    , hashes: "Hashes"
-    , nav:
-        { home: "Home"
-        , blockchain: "Blockchain"
-        , market: "Markt"
-        , charts: "Charts"
-        , tools: "Tools"
+    { common:
+        { cBack: "Zurück"
+        , cTransaction: "Transaktion"
+        , cTransactions: "Transaktionen"
+        , cTransactionFeed: "Transaktionen Feed"
+        , cAddress: "Address"
+        , cCalculator: "Rechner"
+        , cVersion: "Version"
+        , cSummary: "Zusammenfassung"
+        , cBlock: "Block"
+        , cHashes: "Hashes"
+        , cHeight: "Höhe"
+        , cAge: "Alter"
+        , cTotalSent: "Insgesamt gesendet"
+        , cRelayedBy: "Weitergegeben durch"
+        , cSizeKB: "Größe (kB)"
+        , cExpand: "Aufklappen"
         }
-    , height: "Höhe"
-    , age: "Alter"
-    , totalSent: "Insgesamt gesendet"
-    , relayedBy: "Weitergegeben durch"
-    , sizeKB: "Größe (kB)"
+    , navigation:
+        { navHome: "Home"
+        , navBlockchain: "Blockchain"
+        , navMarket: "Markt"
+        , navCharts: "Charts"
+        , navTools: "Tools"
+        }
+    , hero:
+        { hrTitle: "Cardano Blockchain Explorer"
+        , hrSubtitle: "Der effektivste Weg um das Kryptowährung Netzwerk zu erforschen."
+        , hrSearch: "Suche Addresse, Block, Token"
+        }
+    , dashboard:
+        { dbLastBlocks: "Aktuelle Blöcke"
+        , dbExploreBlocks: "Blöcke erkunden"
+        }
+    , address:
+        { addScan: "Scan this QR Code to copy address to clipboard"
+        }
     }

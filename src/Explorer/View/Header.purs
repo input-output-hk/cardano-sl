@@ -3,7 +3,7 @@ module Explorer.View.Header (headerView) where
 import Prelude
 import Data.Lens ((^.))
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (blockchain, charts, home, market, nav, tools) as I18nL
+import Explorer.I18n.Lenses (navBlockchain, navCharts, navHome, navMarket, navigation, navTools) as I18nL
 import Explorer.Lenses.State (lang)
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (State)
@@ -70,11 +70,11 @@ currencyItemView item =
 
 mkNavItems :: Language -> Array String
 mkNavItems lang =
-    [ translate (I18nL.nav <<< I18nL.home) lang
-    , translate (I18nL.nav <<< I18nL.blockchain) lang
-    , translate (I18nL.nav <<< I18nL.market) lang
-    , translate (I18nL.nav <<< I18nL.charts) lang
-    , translate (I18nL.nav <<< I18nL.tools) lang
+    [ translate (I18nL.navigation <<< I18nL.navHome) lang
+    , translate (I18nL.navigation <<< I18nL.navBlockchain) lang
+    , translate (I18nL.navigation <<< I18nL.navMarket) lang
+    , translate (I18nL.navigation <<< I18nL.navCharts) lang
+    , translate (I18nL.navigation <<< I18nL.navTools) lang
     ]
 
 navigationView :: State -> P.Html Action

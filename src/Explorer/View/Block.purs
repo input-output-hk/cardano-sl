@@ -3,7 +3,7 @@ module Explorer.View.Block (blockView) where
 import Prelude
 import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (translate)
-import Explorer.I18n.Lenses (block, summary, hashes) as I18nL
+import Explorer.I18n.Lenses (cBlock, common, cSummary, cHashes) as I18nL
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (CCurrency(..), State)
 import Explorer.View.Common (currencyCSSClass, transactionPaginationView
@@ -24,7 +24,7 @@ blockView state hash =
                     [ P.className "explorer-block__container" ]
                     [ P.h3
                             [ P.className "headline"]
-                            [ P.text $ translate I18nL.block state.lang ]
+                            [ P.text $ translate (I18nL.common <<< I18nL.cBlock) state.lang ]
                       , P.div
                           [ P.className "blocks-wrapper" ]
                           [ P.div
@@ -32,7 +32,7 @@ blockView state hash =
                               [ P.className "summary-container" ]
                               [ P.h3
                                   [ P.className "subheadline" ]
-                                  [ P.text $ translate I18nL.summary state.lang ]
+                                  [ P.text $ translate (I18nL.common <<< I18nL.cSummary) state.lang ]
                                 , P.div
                                     []
                                     $ map summaryRow summaryItems
@@ -42,7 +42,7 @@ blockView state hash =
                               [ P.className "hashes-container" ]
                               [ P.h3
                                   [ P.className "subheadline" ]
-                                  [ P.text $ translate I18nL.hashes state.lang ]
+                                  [ P.text $ translate (I18nL.common <<< I18nL.cHashes) state.lang ]
                               , P.div
                                   []
                                   $ map hashesRow hashItems
@@ -57,7 +57,7 @@ blockView state hash =
                     [ P.className "explorer-block__container" ]
                     [ P.h3
                         [ P.className "headline"]
-                        [ P.text $ translate I18nL.summary state.lang ]
+                        [ P.text $ translate (I18nL.common <<< I18nL.cSummary) state.lang ]
                     , transactionHeaderView state
                     , transactionBodyView state
                     , transactionPaginationView state

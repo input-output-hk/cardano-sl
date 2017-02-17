@@ -3,7 +3,10 @@
 -- | Logic of Explorer socket-io Server.
 
 module Pos.Explorer.Web.Sockets.App
-       ( -- mkSocketIOApp
+       ( ExplorerSockets
+       , MonadExplorerSockets (..)
+       , runExplorerSockets
+       , ConnectionsVar
        ) where
 
 import           Control.Concurrent.MVar (MVar, modifyMVar)
@@ -24,7 +27,7 @@ type SessionId = Word
 
 data ClientContext = ClientContext
     { _ccAddress    :: !(Maybe Address)
-    , _ccHBlock     :: !(Maybe ChainDifficulty)
+    , _ccBlock      :: !(Maybe ChainDifficulty)
     , _ccConnection :: !Socket
     }
 
@@ -39,8 +42,8 @@ data ConnectionsState = ConnectionsState
     , _csClients            :: !(M.Map SessionId ClientContext)
       -- | Sessions subscribed to given address.
     , _csAddressSubscribers :: !(M.Map Address (S.Set SessionId))
-      -- | Sessions subscribed to notifications about new HBLocks.
-    , _csHBlocksSubscribers :: !(S.Set SessionId)
+      -- | Sessions subscribed to notifications about new BLocks.
+    , _csBlocksSubscribers  :: !(S.Set SessionId)
     }
 
 makeClassy ''ConnectionsState
@@ -59,7 +62,7 @@ finishSession i = whenJustM (use $ csClients . at i) finishSessionDo
   where
     finishSessionDo _ = do
         csClients . at i .= Nothing
-        unsubscribeHBlocks i
+        unsubscribeBlocks i
         unsubscribeAddr i
 
 setClientAddress
@@ -70,12 +73,12 @@ setClientAddress sessId addr = do
     csClients . at sessId . _Just . ccAddress .= addr
     whenJust addr $ subscribeAddr sessId
 
-setClientHBlock
+setClientBlock
     :: MonadState ConnectionsState m
     => SessionId -> Maybe ChainDifficulty -> m ()
-setClientHBlock sessId pId = do
-    csClients . at sessId . _Just . ccHBlock .= pId
-    subscribeHBlocks sessId
+setClientBlock sessId pId = do
+    csClients . at sessId . _Just . ccBlock .= pId
+    subscribeBlocks sessId
 
 subscribeAddr
     :: MonadState ConnectionsState m
@@ -93,20 +96,20 @@ unsubscribeAddr i = do
   where
     unsubscribeDo a = csAddressSubscribers . at a %= fmap (S.delete i)
 
-subscribeHBlocks
+subscribeBlocks
     :: MonadState ConnectionsState m
     => SessionId -> m ()
-subscribeHBlocks i = csHBlocksSubscribers %= S.insert i
+subscribeBlocks i = csBlocksSubscribers %= S.insert i
 
-unsubscribeHBlocks
+unsubscribeBlocks
     :: MonadState ConnectionsState m
     => SessionId -> m ()
-unsubscribeHBlocks i = csHBlocksSubscribers %= S.delete i
+unsubscribeBlocks i = csBlocksSubscribers %= S.delete i
 
 unsubscribeFully
     :: MonadState ConnectionsState m
     => SessionId -> m ()
-unsubscribeFully i = unsubscribeHBlocks i >> unsubscribeAddr i
+unsubscribeFully i = unsubscribeBlocks i >> unsubscribeAddr i
 
 type ConnectionsVar = MVar ConnectionsState
 
@@ -116,7 +119,7 @@ mkConnectionsState =
     { _csCounter = 0
     , _csClients = mempty
     , _csAddressSubscribers = mempty
-    , _csHBlocksSubscribers = mempty
+    , _csBlocksSubscribers = mempty
     }
 
 modifyConnectionsStateDo
@@ -127,6 +130,15 @@ modifyConnectionsStateDo var st =
   where
     swap (a, b) = (b, a)
 
-newtype SocketIOM a = SocketIOM
-    { getServerMonad :: ReaderT ConnectionsVar IO a
+newtype ExplorerSockets m a = ExplorerSockets
+    { getExplorerSockets :: ReaderT ConnectionsVar m a
     } deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch, MonadMask, MonadReader ConnectionsVar)
+
+class Monad m => MonadExplorerSockets m where
+    getSockets :: m ConnectionsVar
+
+instance Monad m => MonadExplorerSockets (ExplorerSockets m) where
+    getSockets = ExplorerSockets ask
+
+runExplorerSockets :: ConnectionsVar -> ExplorerSockets m a -> m a
+runExplorerSockets conn = flip runReaderT conn . getExplorerSockets

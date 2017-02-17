@@ -43,12 +43,13 @@ import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary 
                                                  fromCHash', toBlockEntry, toBlockSummary,
                                                  toTxEntry)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
+import           Pos.Explorer.Web.Sockets.App   (ExplorerSockets)
 
 ----------------------------------------------------------------
 -- Top level functionality
 ----------------------------------------------------------------
 
-type ExplorerMode m = WorkMode SscGodTossing m
+type ExplorerMode m = ExplorerSockets (WorkMode SscGodTossing m)
 
 explorerServeImpl :: ExplorerMode m => m Application -> Word16 -> m ()
 explorerServeImpl = serveImpl

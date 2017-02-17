@@ -64,9 +64,8 @@ import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CProf
 import           Pos.Wallet.Web.Error          (WalletError (..))
 import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 WalletWebSockets, closeWSConnection,
-                                                getWalletWebSocketsState,
-                                                initWSConnection, notify, runWalletWS,
-                                                upgradeApplicationWS)
+                                                getWalletWebSockets, initWSConnection,
+                                                notify, runWalletWS, upgradeApplicationWS)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
                                                 addOnlyNewTxMeta, addUpdate, closeState,
                                                 createWallet, getNextUpdate, getProfile,
@@ -137,7 +136,7 @@ walletServer sendActions nat = do
     whenM (isNothing <$> getProfile) $
         createUserProfile >>= setProfile
     ws    <- lift getWalletState
-    socks <- getWalletWebSocketsState
+    socks <- getWalletWebSockets
     let sendActions' = hoistSendActions
             (lift . lift)
             (runWalletWebDB ws . runWalletWS socks)

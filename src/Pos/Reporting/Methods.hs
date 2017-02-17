@@ -19,6 +19,7 @@ import           Control.Lens             (to)
 import           Control.Monad.Catch      (try)
 import           Data.Aeson               (encode)
 import qualified Data.HashMap.Strict      as HM
+import qualified Data.List.NonEmpty       as NE
 import qualified Data.Text                as T
 import qualified Data.Text.IO             as TIO
 import           Data.Time.Clock          (getCurrentTime)
@@ -60,9 +61,11 @@ sendReportNode
 sendReportNode reportType = do
     servers <- npReportServers . ncNodeParams <$> getNodeContext
     memLogs <- takeGlobalSize charsConst <$> readMemoryLogs
-    forM_ servers $
+    errors <- fmap lefts $ forM servers $ try .
         sendReport [] memLogs reportType "cardano-node" version . T.unpack
+    whenNotNull errors $ throwSE . NE.head
   where
+    throwSE (e :: SomeException) = throwM e
     -- 2 megabytes, assuming we use chars which are ASCII mostly
     charsConst :: Int
     charsConst = 1024 * 1024 * 2

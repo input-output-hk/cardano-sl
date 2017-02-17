@@ -467,6 +467,7 @@ library
                       , binary-conduit >= 1.2.4.1
                       , binary-orphans
                       , bytestring
+                      , cardano-crypto
                       , cardano-report-server >= 0.0.1
                       , cereal
                       , concurrent-extra
@@ -1047,6 +1048,7 @@ executable cardano-avvmmigrate
                        -O2
   default-extensions:  OverloadedStrings
                        NoImplicitPrelude
+  buildable:           False
 
 executable cardano-keygen
   hs-source-dirs:      src/keygen

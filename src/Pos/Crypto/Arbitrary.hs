@@ -45,7 +45,10 @@ production and in tests?). So, we just generate lots of keys and seeds with
 data KeyPair = KeyPair
     { getPub :: PublicKey
     , getSec :: SecretKey
-    } deriving (Eq, Ord, Show)
+    } deriving (Show)
+
+instance Eq KeyPair where
+    a == b = getPub a == getPub b
 
 keys :: [KeyPair]
 keys = unsafeMakePool "[generating keys for tests...]" 50 $ uncurry KeyPair <$> keyGen

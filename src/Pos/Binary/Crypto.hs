@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE ViewPatterns          #-}
 
 -- | Serializable instances for Pos.Crypto.*
 
@@ -8,7 +9,8 @@ module Pos.Binary.Crypto () where
 
 import           Crypto.Hash              (digestFromByteString, hashDigestSize)
 import qualified Crypto.PVSS              as Pvss
-import qualified Crypto.Sign.Ed25519      as Ed25519
+import qualified Crypto.ECC.Edwards25519  as Ed25519
+import qualified Cardano.Crypto.Wallet as CC
 import qualified Data.Binary              as Binary
 import           Data.Binary.Get          (label, getByteString)
 import           Data.Binary.Put          (putByteString)
@@ -97,10 +99,11 @@ BiMacro(SecretProof, 64)
 -- Signing
 ----------------------------------------------------------------------------
 
-secretKeyLength, publicKeyLength, signatureLength :: Int
-secretKeyLength = 64
+secretKeyLength, publicKeyLength, signatureLength, chainCodeLength :: Int
+secretKeyLength = 32
 publicKeyLength = 32
 signatureLength = 64
+chainCodeLength = 32
 
 putAssertLength :: Monad m => Text -> Int -> ByteString -> m ()
 putAssertLength typeName expectedLength bs =
@@ -108,19 +111,19 @@ putAssertLength typeName expectedLength bs =
         sformat ("put@"%stext%": expected length "%int%", not "%int)
                 typeName expectedLength (BS.length bs)
 
-instance Bi Ed25519.PublicKey where
-    put (Ed25519.PublicKey k) = do
-        putAssertLength "PublicKey" publicKeyLength k
+instance Bi Ed25519.PointCompressed where
+    put (Ed25519.unPointCompressed -> k) = do
+        putAssertLength "PointCompressed" publicKeyLength k
         putByteString k
-    get = label "Ed25519.PublicKey" $
-        Ed25519.PublicKey <$> getByteString publicKeyLength
+    get = label "Ed25519.PointCompressed" $
+        Ed25519.pointCompressed <$> getByteString publicKeyLength
 
-instance Bi Ed25519.SecretKey where
-    put (Ed25519.SecretKey k) = do
-        putAssertLength "SecretKey" secretKeyLength k
+instance Bi Ed25519.Scalar where
+    put (Ed25519.unScalar -> k) = do
+        putAssertLength "Scalar" secretKeyLength k
         putByteString k
-    get = label "Ed25519.SecretKey" $
-        Ed25519.SecretKey <$> getByteString secretKeyLength
+    get = label "Ed25519.Scalar" $
+        Ed25519.scalar <$> getByteString secretKeyLength
 
 instance Bi Ed25519.Signature where
     put (Ed25519.Signature s) = do
@@ -129,6 +132,30 @@ instance Bi Ed25519.Signature where
     get = label "Ed25519.Signature" $
         Ed25519.Signature <$> getByteString signatureLength
 
+instance Bi CC.ChainCode where
+    put (CC.ChainCode c) = do
+        putAssertLength "ChainCode" chainCodeLength c
+        putByteString c
+    get = label "CC.ChainCode" $
+        CC.ChainCode <$> getByteString chainCodeLength
+
+instance Bi CC.XPub where
+    put (CC.unXPub -> kc) = do
+        putAssertLength "XPub" (publicKeyLength + chainCodeLength) kc
+        putByteString kc
+    get = label "CC.XPub" $
+        getByteString (publicKeyLength + chainCodeLength) >>=
+        either fail pure . CC.xpub
+
+instance Bi CC.XPrv where
+    put (CC.unXPrv -> kc) = do
+        putAssertLength "XPrv" (secretKeyLength + chainCodeLength) kc
+        putByteString kc
+    get = label "CC.XPrv" $
+        getByteString (secretKeyLength + chainCodeLength) >>=
+        either fail pure . CC.xprv
+
+deriving instance Bi CC.XSignature
 deriving instance Bi (Signature a)
 deriving instance Bi PublicKey
 deriving instance Bi SecretKey

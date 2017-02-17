@@ -40,54 +40,53 @@ module Pos.Crypto.Signing
        , proxyVerify
        ) where
 
-import qualified Crypto.Sign.Ed25519    as Ed25519
-import qualified Data.ByteString        as BS
-import qualified Data.ByteString.Lazy   as BSL
-import           Data.Coerce            (coerce)
-import           Data.Hashable          (Hashable)
-import           Data.SafeCopy          (SafeCopy (..), base, contain,
-                                         deriveSafeCopySimple, safeGet, safePut)
-import qualified Data.Text.Buildable    as B
-import           Data.Text.Lazy.Builder (Builder)
-import           Formatting             (Format, bprint, build, later, (%))
-import qualified Serokell.Util.Base16   as B16
-import qualified Serokell.Util.Base64   as Base64 (decode, encode)
-import           Serokell.Util.Text     (pairF)
-import           Universum
+import qualified Cardano.Crypto.Wallet   as CC
+import qualified Crypto.ECC.Edwards25519 as Ed25519
+import qualified Data.ByteString         as BS
+import qualified Data.ByteString.Lazy    as BSL
+import           Data.Coerce             (coerce)
+import           Data.Hashable           (Hashable)
+import           Data.SafeCopy           (SafeCopy (..), base, contain,
+                                          deriveSafeCopySimple, safeGet, safePut)
+import qualified Data.Text.Buildable     as B
+import           Data.Text.Lazy.Builder  (Builder)
+import           Formatting              (Format, bprint, build, later, (%))
+import           Prelude                 (show)
+import qualified Serokell.Util.Base16    as B16
+import qualified Serokell.Util.Base64    as Base64 (decode, encode)
+import           Serokell.Util.Text      (pairF)
+import           Universum               hiding (show)
 
-import           Pos.Binary.Class       (Bi)
-import qualified Pos.Binary.Class       as Bi
-import           Pos.Crypto.Hashing     (hash, shortHashF)
-import           Pos.Crypto.Random      (secureRandomBS)
-import           Pos.Util.Binary        (Raw)
+import           Pos.Binary.Class        (Bi)
+import qualified Pos.Binary.Class        as Bi
+import           Pos.Crypto.Hashing      (hash, shortHashF)
+import           Pos.Crypto.Random       (secureRandomBS)
+import           Pos.Util.Binary         (Raw)
 
 ----------------------------------------------------------------------------
 -- Some orphan instances
 ----------------------------------------------------------------------------
 
-instance Hashable Ed25519.PublicKey
-instance Hashable Ed25519.SecretKey
-instance Hashable Ed25519.Signature
-
-instance NFData Ed25519.PublicKey
-instance NFData Ed25519.SecretKey
-instance NFData Ed25519.Signature
-
-deriveSafeCopySimple 0 'base ''Ed25519.PublicKey
-deriveSafeCopySimple 0 'base ''Ed25519.SecretKey
+deriveSafeCopySimple 0 'base ''Ed25519.PointCompressed
+deriveSafeCopySimple 0 'base ''Ed25519.Scalar
 deriveSafeCopySimple 0 'base ''Ed25519.Signature
+
+deriveSafeCopySimple 0 'base ''CC.ChainCode
+deriveSafeCopySimple 0 'base ''CC.XPub
+deriveSafeCopySimple 0 'base ''CC.XPrv
+deriveSafeCopySimple 0 'base ''CC.XSignature
 
 ----------------------------------------------------------------------------
 -- Keys, key generation & printing & decoding
 ----------------------------------------------------------------------------
 
--- | Wrapper around 'Ed25519.PublicKey'.
-newtype PublicKey = PublicKey Ed25519.PublicKey
+-- | Wrapper around 'CC.XPub'.
+newtype PublicKey = PublicKey CC.XPub
     deriving (Eq, Ord, Show, Generic, NFData, Hashable, Typeable)
 
--- | Wrapper around 'Ed25519.SecretKey'.
-newtype SecretKey = SecretKey Ed25519.SecretKey
-    deriving (Eq, Ord, Show, Generic, NFData, Hashable)
+-- | Wrapper around 'CC.XPrv'.
+newtype SecretKey = SecretKey CC.XPrv
+    deriving (Eq, NFData)
 
 deriveSafeCopySimple 0 'base ''PublicKey
 deriveSafeCopySimple 0 'base ''SecretKey
@@ -95,7 +94,10 @@ deriveSafeCopySimple 0 'base ''SecretKey
 -- | Generate a public key from a secret key. Fast (it just drops some bytes
 -- off the secret key).
 toPublic :: SecretKey -> PublicKey
-toPublic (SecretKey k) = PublicKey (Ed25519.secretToPublicKey k)
+toPublic (SecretKey k) = PublicKey (CC.toXPub "" k)
+
+instance Show SecretKey where
+    show sk = "<secret of " ++ show (toPublic sk) ++ ">"
 
 instance Bi PublicKey => B.Buildable PublicKey where
     -- Hash the key, take first 8 chars (that's how GPG does fingerprinting,
@@ -108,7 +110,7 @@ instance Bi PublicKey => B.Buildable SecretKey where
 -- | 'Builder' for 'PublicKey' to show it in base64 encoded form.
 formatFullPublicKey :: PublicKey -> Builder
 formatFullPublicKey (PublicKey pk) =
-    B.build . Base64.encode . Ed25519.openPublicKey $ pk
+    B.build . Base64.encode . CC.unXPub $ pk
 
 -- | Formatter for 'PublicKey' to show it in base64.
 fullPublicKeyF :: Format r (PublicKey -> r)
@@ -117,7 +119,7 @@ fullPublicKeyF = later formatFullPublicKey
 -- | Formatter for 'PublicKey' to show it in hex.
 fullPublicKeyHexF :: Format r (PublicKey -> r)
 fullPublicKeyHexF = later $ \(PublicKey x) ->
-    B16.formatBase16 . Ed25519.openPublicKey $ x
+    B16.formatBase16 . CC.unXPub $ x
 
 -- | Parse 'PublicKey' from base64 encoded string.
 parseFullPublicKey :: (Bi PublicKey) => Text -> Maybe PublicKey
@@ -130,11 +132,16 @@ parseFullPublicKey s =
                 | BSL.null unconsumed -> Just a
                 | otherwise -> Nothing
 
+-- TODO: this is just a placeholder for actual (not ready yet) derivation
+-- of keypair from seed in cardano-crypto API
+createKeypairFromSeed :: BS.ByteString -> Maybe (CC.XPub, CC.XPrv)
+createKeypairFromSeed = undefined
+
 -- | Generate a key pair.
 keyGen :: MonadIO m => m (PublicKey, SecretKey)
 keyGen = liftIO $ do
     seed <- secureRandomBS 32
-    case Ed25519.createKeypairFromSeed_ seed of
+    case createKeypairFromSeed seed of
         Nothing -> panic "Pos.Crypto.Signing.keyGen:\
                          \ createKeypairFromSeed_ failed"
         Just (pk, sk) -> return (PublicKey pk, SecretKey sk)
@@ -142,14 +149,14 @@ keyGen = liftIO $ do
 -- | Create key pair deterministically from 32 bytes.
 deterministicKeyGen :: BS.ByteString -> Maybe (PublicKey, SecretKey)
 deterministicKeyGen seed =
-    bimap PublicKey SecretKey <$> Ed25519.createKeypairFromSeed_ seed
+    bimap PublicKey SecretKey <$> createKeypairFromSeed seed
 
 ----------------------------------------------------------------------------
 -- Signatures
 ----------------------------------------------------------------------------
 
--- | Wrapper around 'Ed25519.Signature'.
-newtype Signature a = Signature Ed25519.Signature
+-- | Wrapper around 'CC.XSignature'.
+newtype Signature a = Signature CC.XSignature
     deriving (Eq, Ord, Show, Generic, NFData, Hashable, Typeable)
 
 instance SafeCopy (Signature a) where
@@ -162,7 +169,7 @@ instance B.Buildable (Signature a) where
 -- | Formatter for 'Signature' to show it in hex.
 fullSignatureHexF :: Format r (Signature a -> r)
 fullSignatureHexF = later $ \(Signature x) ->
-    B16.formatBase16 . Ed25519.unSignature $ x
+    B16.formatBase16 . Ed25519.unSignature . CC.unXSignature $ x
 
 -- | Encode something with 'Binary' and sign it.
 sign :: Bi a => SecretKey -> a -> Signature a
@@ -170,7 +177,7 @@ sign k = coerce . signRaw k . BSL.toStrict . Bi.encode
 
 -- | Alias for constructor.
 signRaw :: SecretKey -> ByteString -> Signature Raw
-signRaw (SecretKey k) x = Signature (Ed25519.dsign k x)
+signRaw (SecretKey k) x = Signature (CC.sign "" k x)
 
 -- CHECK: @checkSig
 -- | Verify a signature.
@@ -181,7 +188,7 @@ checkSig k x s = verifyRaw k (BSL.toStrict (Bi.encode x)) (coerce s)
 -- CHECK: @verifyRaw
 -- | Verify raw 'ByteString'.
 verifyRaw :: PublicKey -> ByteString -> Signature Raw -> Bool
-verifyRaw (PublicKey k) x (Signature s) = Ed25519.dverify k x s
+verifyRaw (PublicKey k) x (Signature s) = CC.verify k x s
 
 -- | Value and signature for this value.
 data Signed a = Signed
@@ -206,7 +213,7 @@ instance (Bi (Signature a), Bi a) => SafeCopy (Signed a) where
 ----------------------------------------------------------------------------
 
 -- | Proxy certificate, made of ω + public key of delegate.
-newtype ProxyCert w = ProxyCert { unProxyCert :: Ed25519.Signature }
+newtype ProxyCert w = ProxyCert { unProxyCert :: CC.XSignature }
     deriving (Eq, Ord, Show, Generic, NFData, Hashable)
 
 instance B.Buildable (ProxyCert w) where
@@ -224,16 +231,16 @@ createProxyCert :: (Bi w) => SecretKey -> PublicKey -> w -> ProxyCert w
 createProxyCert (SecretKey issuerSk) (PublicKey delegatePk) o =
     coerce $
     ProxyCert $
-    Ed25519.dsign issuerSk $
+    CC.sign "" issuerSk $
     mconcat
-        ["00", Ed25519.openPublicKey delegatePk, BSL.toStrict $ Bi.encode o]
+        ["00", CC.unXPub delegatePk, BSL.toStrict $ Bi.encode o]
 
 -- | Checks if certificate is valid, given issuer pk, delegate pk and ω.
 verifyProxyCert :: (Bi w) => PublicKey -> PublicKey -> w -> ProxyCert w -> Bool
 verifyProxyCert (PublicKey issuerPk) (PublicKey delegatePk) o (ProxyCert sig) =
-    Ed25519.dverify
+    CC.verify
         issuerPk
-        (mconcat ["00", Ed25519.openPublicKey delegatePk, BSL.toStrict $ Bi.encode o])
+        (mconcat ["00", CC.unXPub delegatePk, BSL.toStrict $ Bi.encode o])
         sig
 
 -- | Convenient wrapper for secret key, that's basically ω plus
@@ -277,7 +284,7 @@ data ProxySignature w a = ProxySignature
     { pdOmega      :: w
     , pdDelegatePk :: PublicKey
     , pdCert       :: ProxyCert w
-    , pdSig        :: Ed25519.Signature
+    , pdSig        :: CC.XSignature
     } deriving (Eq, Ord, Show, Generic)
 
 instance NFData w => NFData (ProxySignature w a)
@@ -323,9 +330,9 @@ proxySign sk@(SecretKey delegateSk) ProxySecretKey{..} m
   where
     PublicKey issuerPk = pskIssuerPk
     sigma =
-        Ed25519.dsign delegateSk $
+        CC.sign "" delegateSk $
         mconcat
-            ["01", Ed25519.openPublicKey issuerPk, BSL.toStrict $ Bi.encode m]
+            ["01", CC.unXPub issuerPk, BSL.toStrict $ Bi.encode m]
 
 -- CHECK: @proxyVerify
 -- | Verify delegated signature given issuer's pk, signature, message
@@ -340,11 +347,11 @@ proxyVerify iPk@(PublicKey issuerPk) ProxySignature{..} omegaPred m =
     predCorrect = omegaPred pdOmega
     certValid = verifyProxyCert iPk pdDelegatePk pdOmega pdCert
     sigValid =
-        Ed25519.dverify
+        CC.verify
             pdDelegatePkRaw
             (mconcat
                  [ "01"
-                 , Ed25519.openPublicKey issuerPk
+                 , CC.unXPub issuerPk
                  , BSL.toStrict $ Bi.encode m
                  ])
             pdSig

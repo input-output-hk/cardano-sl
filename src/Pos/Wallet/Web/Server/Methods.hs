@@ -21,7 +21,7 @@ import           Control.Monad.State           (runStateT)
 import qualified Data.ByteString.Base64        as B64
 import           Data.Default                  (Default, def)
 import           Data.List                     (elemIndex, nub, (!!))
-import           Data.Time.Clock.POSIX         (POSIXTime, getPOSIXTime)
+import           Data.Time.Clock.POSIX         (getPOSIXTime)
 import           Formatting                    (build, ords, sformat, stext, (%))
 import           Network.Wai                   (Application)
 import           Servant.API                   ((:<|>) ((:<|>)),
@@ -69,13 +69,10 @@ import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 upgradeApplicationWS)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
                                                 addOnlyNewTxMeta, addUpdate, closeState,
-                                                createWallet, getNextUpdate,
-                                                getPostponeUpdateUntil, getProfile,
+                                                createWallet, getNextUpdate, getProfile,
                                                 getTxMeta, getWalletMeta, getWalletState,
-                                                openState, removeNextUpdate,
-                                                removePostponeUpdateUntil, removeWallet,
-                                                runWalletWebDB, setPostponeUpdateUntil,
-                                                setProfile, setWalletMeta,
+                                                openState, removeNextUpdate, removeWallet,
+                                                runWalletWebDB, setProfile, setWalletMeta,
                                                 setWalletTransactionMeta)
 import           Pos.Web.Server                (serveImpl)
 
@@ -166,11 +163,9 @@ launchNotifier :: WalletWebMode ssc m => (m :~> Handler) -> m ()
 launchNotifier nat = void . liftIO $ mapM startForking
     [ dificultyNotifier
     , updateNotifier
-    , updateNotifierUnPostpone
     ]
   where
     cooldownPeriod = 5000000         -- 5 sec
-    cooldownPostponePeriod = 5000000 -- 5 sec
     difficultyNotifyPeriod = 500000  -- 0.5 sec
     forkForever action = forkFinally action $ const $ do
         -- TODO: log error
@@ -205,18 +200,7 @@ launchNotifier nat = void . liftIO $ mapM startForking
     updateNotifier = do
         cps <- waitForUpdate
         addUpdate $ toCUpdateInfo cps
-        -- FIXME: a light race condition might happen here.
-        -- Probability of hapening is really low and when it happens user might
-        -- get notified one more time about an update. Nothing critical.
-        whenNothingM_ getPostponeUpdateUntil $
-            liftIO getPOSIXTime >>= setPostponeUpdateUntil
-    updateNotifierUnPostpone = notifier cooldownPostponePeriod $ do
-        mPostpone <- getPostponeUpdateUntil
-        time <- liftIO getPOSIXTime
-        when (((<) <$> mPostpone <*> pure time) == Just True) $ do
-            whenJustM getNextUpdate $
-                const $ notify UpdateAvailable
-            removePostponeUpdateUntil
+        notify UpdateAvailable
 
     -- historyNotifier :: WalletWebMode ssc m => m ()
     -- historyNotifier = do
@@ -274,8 +258,6 @@ servantHandlers sendActions =
      catchWalletError (fromIntegral <$> blockchainSlotDuration)
     :<|>
      catchWalletError (pure curSoftwareVersion)
-    :<|>
-     catchWalletError . postponeUpdatesUntil
   where
     -- TODO: can we with Traversable map catchWalletError over :<|>
     -- TODO: add logging on error
@@ -437,9 +419,6 @@ redeemADA sendActions CWalletRedeem {..} = do
             () <$ addHistoryTx dstCAddr ADA "ADA redemption" ""
                 (THEntry (hash tx) tx False Nothing)
             pure walletB
-
-postponeUpdatesUntil :: WalletWebMode ssc m => POSIXTime -> m ()
-postponeUpdatesUntil = setPostponeUpdateUntil
 
 ----------------------------------------------------------------------------
 -- Helpers

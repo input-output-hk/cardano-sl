@@ -5,7 +5,7 @@ import Control.Monad.Aff (Aff)
 import Control.Monad.Eff.Exception (error, Error)
 import Control.Monad.Error.Class (throwError)
 import Daedalus.Constants (backendPrefix)
-import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency, WalletError, showCCurrency, CProfile, CWalletInit, BackupPhrase, CUpdateInfo, SoftwareVersion, CWalletRedeem, NominalDiffTime, getSeconds)
+import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency, WalletError, showCCurrency, CProfile, CWalletInit, BackupPhrase, CUpdateInfo, SoftwareVersion, CWalletRedeem)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (decodeJson, encodeJson)
 import Data.Bifunctor (bimap)
@@ -16,7 +16,6 @@ import Data.Maybe (Maybe(Just))
 import Data.MediaType.Common (applicationJSON)
 import Data.String (joinWith)
 import Data.Tuple (Tuple)
-import Data.Int (ceil)
 import Network.HTTP.Affjax (AffjaxResponse, affjax, defaultRequest, AJAX, URL, AffjaxRequest)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Network.HTTP.RequestHeader (RequestHeader(ContentType))
@@ -133,6 +132,3 @@ systemVersion = getR ["system_version"]
 
 redeemADA :: forall eff. CWalletRedeem -> Aff (ajax :: AJAX | eff) CWallet
 redeemADA = postRBody ["redeem_ada"]
-
-postponeUpdatesUntil :: forall eff. NominalDiffTime -> Aff (ajax :: AJAX | eff) Unit
-postponeUpdatesUntil dt = postR ["postpone_update", show $ ceil $ getSeconds dt]

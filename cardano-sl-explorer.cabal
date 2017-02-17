@@ -25,15 +25,16 @@ flag dev-mode
 library
   exposed-modules:      Pos.Explorer.Web
                         Pos.Explorer.Web.ClientTypes
+                        Pos.Explorer.Web.Error
   other-modules:        Pos.Explorer.Aeson.ClientTypes
                         Pos.Explorer.Web.Sockets.App
                         Pos.Explorer.Web.Server
                         Pos.Explorer.Web.Transform
                         Pos.Explorer.Web.Api
-                        Pos.Explorer.Web.Error
   build-depends:        base
                       , aeson
                       , bytestring
+                      , base16-bytestring
                       , cardano-sl
                       , exceptions
                       , formatting

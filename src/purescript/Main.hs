@@ -10,6 +10,7 @@ import           Language.PureScript.Bridge.PSTypes (psInt)
 import           Universum
 
 import qualified Pos.Explorer.Web.ClientTypes       as CT
+import qualified Pos.Explorer.Web.Error             as CE
 import qualified Pos.Types                          as PT
 
 import           PSOptions                          (Args (..), getPSOptions)
@@ -26,6 +27,7 @@ main = do
       , mkSumType (Proxy @CT.CTxId)
       , mkSumType (Proxy @CT.CBlockEntry)
       , mkSumType (Proxy @CT.CTxEntry)
+      , mkSumType (Proxy @CE.ExplorerError)
       , mkSumType (Proxy @PT.Coin)
       , mkSumType (Proxy @PT.ChainDifficulty)
       ]

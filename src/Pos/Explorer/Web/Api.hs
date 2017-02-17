@@ -10,7 +10,8 @@ module Pos.Explorer.Web.Api
 
 import           Data.Proxy                   (Proxy (Proxy))
 
-import           Pos.Explorer.Web.ClientTypes (CAddress, CBlockEntry, CTxEntry, CTxId)
+import           Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockEntry,
+                                               CBlockSummary, CHash, CTxEntry, CTxId)
 import           Pos.Explorer.Web.Error       (ExplorerError)
 import           Pos.Types                    (Coin, SoftwareVersion)
 import           Servant.API                  ((:<|>), (:>), Capture, Get, JSON, Post,
@@ -19,9 +20,15 @@ import           Universum
 
 -- | Servant API which provides access to explorer
 type ExplorerApi =
-    "last_blocks" :> QueryParam "limit" Word :> QueryParam "offset" Word :> Get '[JSON] (Either ExplorerError [CBlockEntry])
+    "api" :> "last_blocks" :> QueryParam "limit" Word :> QueryParam "offset" Word :> Get '[JSON] (Either ExplorerError [CBlockEntry])
     :<|>
-    "last_txs" :> QueryParam "limit" Word :> QueryParam "offset" Word :> Get '[JSON] (Either ExplorerError [CTxEntry])
+    "api" :> "last_txs" :> QueryParam "limit" Word :> QueryParam "offset" Word :> Get '[JSON] (Either ExplorerError [CTxEntry])
+    :<|>
+    "api" :> "block_summary" :> Capture "hash" CHash :> Get '[JSON] (Either ExplorerError CBlockSummary)
+    :<|>
+    "api" :> "block_txs" :> Capture "hash" CHash :> QueryParam "limit" Word :> QueryParam "offset" Word :> Get '[JSON] (Either ExplorerError [CTxEntry])
+    :<|>
+    "api" :> "address_summary" :> Capture "address" CAddress :> Get '[JSON] (Either ExplorerError CAddressSummary)
 
 -- | Helper Proxy
 explorerApi :: Proxy ExplorerApi

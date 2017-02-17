@@ -25,7 +25,7 @@ import           Pos.Delegation          (DelegationWrap, askDelegationState,
 import           Pos.DHT.Real.Real       (runKademliaDHT)
 import           Pos.DHT.Real.Types      (KademliaDHTInstance (..),
                                           getKademliaDHTInstance)
-import           Pos.Ssc.Extra           (SscHolder (..), SscState, runSscHolderRaw)
+import           Pos.Ssc.Extra           (SscHolder (..), SscState, runSscHolder)
 import           Pos.Ssc.GodTossing      (SscGodTossing)
 import           Pos.Statistics          (getNoStatsT)
 import           Pos.Txp                 (TxpLDWrap, getTxpLDWrap, runTxpLDHolderReader)
@@ -74,7 +74,7 @@ convertHandler kinst nc modernDBs tlw ssc delWrap psCtx handler =
            . usingLoggerName "explorer-api"
            . runDBHolder modernDBs
            . runContextHolder nc
-           . runSscHolderRaw ssc
+           . runSscHolder ssc
            . runTxpLDHolderReader tlw
            . runDelegationTFromTVar delWrap
            . runUSHolder

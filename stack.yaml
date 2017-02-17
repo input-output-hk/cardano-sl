@@ -6,7 +6,7 @@ packages:
 - '.'
 - location:
     git: https://github.com/input-output-hk/cardano-sl
-    commit: d8a33654361a4a7171f1ff124fba34d7e80ff137
+    commit: 328d2293732a887ab4f3ca0a8bce607f92dd3879
   extra-dep: true
 - location:
     git: https://github.com/serokell/acid-state.git
@@ -30,12 +30,21 @@ packages:
     commit: 57adb970e198a9b377769ab46e776ec29f19cff6
   extra-dep: true
 - location:
-    git: https://github.com/serokell/time-warp-nt.git
-    commit: 89be4f737a55f114f15f287e69d87928414c1ffc
+    git: https://github.com/input-output-hk/cardano-report-server.git
+    commit: 344f0e6e1b69b512cbfb04caf42bbe285cc7727a
   extra-dep: true
 - location:
-    git: https://github.com/serokell/network-transport-tcp.git
-    commit: 6cef5a6120d1aa7b87c270a95149bc69403c1376
+    git: https://github.com/serokell/time-warp-nt.git
+    commit: 9b4927f8115499db2fa3ba07df50d60d02190790
+  extra-dep: true
+# These two are needed for time-warp-nt
+- location:
+    git: https://github.com/avieth/network-transport-tcp
+    commit: d2705abd5b54707ca97b5bf9c9c24005e800ee49
+  extra-dep: true
+- location:
+    git: https://github.com/avieth/network-transport
+    commit: e7a5f44d0d98370d16df103c9dc61ef7bf15aee8
   extra-dep: true
 - location:
     git: https://github.com/serokell/engine.io.git
@@ -47,7 +56,7 @@ packages:
     - engine-io-wai
 
 nix:
-   shell-file: shell.nix
+  shell-file: shell.nix
 
 extra-deps:
 - universum-0.2.1
@@ -62,11 +71,12 @@ extra-deps:
 - serokell-util-0.1.3.2
 - pvss-0.1
 - base58-bytestring-0.1.0
-- log-warper-0.4.1
+- log-warper-0.4.3
 - turtle-1.3.1                    # earlier versions don't have 'stat'
 - optparse-applicative-0.13.0.0   # needed for turtle
 - criterion-1.1.4.0               # older criterion doesn't like optparse-0.13
 - code-page-0.1.1                 # needed for criterion
+- purescript-bridge-0.10.1.0
 
 resolver: lts-7.16
 

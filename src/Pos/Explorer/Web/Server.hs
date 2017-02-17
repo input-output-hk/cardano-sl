@@ -24,18 +24,24 @@ import           Pos.Crypto                     (WithHash (..), withHash)
 import qualified Pos.DB                         as DB
 import qualified Pos.DB.GState                  as GS
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
+import           Pos.Ssc.Class                  (SscHelpersClass)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
 import           Pos.Txp                        (getLocalTxs)
-import           Pos.Types                      (Tx, blockTxs, gbHeader, gbhConsensus,
-                                                 mcdSlot, prevBlockL, topsortTxs)
+import           Pos.Types                      (Address (..), HeaderHash, MainBlock,
+                                                 Timestamp, Tx, blockTxs, gbHeader,
+                                                 gbhConsensus, mcdSlot, mkCoin,
+                                                 prevBlockL, topsortTxs)
 import           Pos.Util                       (maybeThrow)
 import           Pos.Web                        (serveImpl)
 import           Pos.WorkMode                   (WorkMode)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
-import           Pos.Explorer.Web.ClientTypes   (CBlockEntry (..), CTxEntry (..),
-                                                 toBlockEntry, toTxEntry)
+import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
+                                                 CBlockEntry (..), CBlockSummary (..),
+                                                 CHash, CTxEntry (..), fromCAddress,
+                                                 fromCHash', toBlockEntry, toBlockSummary,
+                                                 toTxEntry)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 
 ----------------------------------------------------------------
@@ -59,6 +65,12 @@ explorerHandlers sendActions =
     catchExplorerError ... defaultLimit 10 getLastBlocks
     :<|>
     catchExplorerError ... defaultLimit 10 getLastTxs
+    :<|>
+    catchExplorerError . getBlockSummary
+    :<|>
+    (\h -> catchExplorerError ... defaultLimit 10 (getBlockTxs h))
+    :<|>
+    catchExplorerError . getAddressSummary
   where
     catchExplorerError = try
     f ... g = (f .) . g
@@ -88,11 +100,6 @@ getLastBlocks lim off = do
                 Right mb -> (,) <$> lift (toBlockEntry mb) <*>
                             pure (n - 1, mb ^. prevBlockL)
     flip unfoldrM (lim, start) $ \(n, h) -> runMaybeT $ unfolder n h
-
-topsortTxsOrFail :: MonadThrow m => (a -> WithHash Tx) -> [a] -> m [a]
-topsortTxsOrFail f =
-    maybeThrow (Internal "Dependency loop in txs set") .
-    topsortTxs f
 
 getLastTxs :: ExplorerMode m => Word -> Word -> m [CTxEntry]
 getLastTxs (fromIntegral -> lim) (fromIntegral -> off) = do
@@ -130,3 +137,46 @@ getLastTxs (fromIntegral -> lim) (fromIntegral -> off) = do
         \(o, l, h) -> runMaybeT $ unfolder o l h
 
     return $ localTxEntries ++ blockTxEntries
+
+getBlockSummary :: ExplorerMode m => CHash -> m CBlockSummary
+getBlockSummary (fromCHash' -> h) = getMainBlock h >>= toBlockSummary
+
+getBlockTxs :: ExplorerMode m => CHash -> Word -> Word -> m [CTxEntry]
+getBlockTxs (fromCHash' -> h) (fromIntegral -> lim) (fromIntegral -> off) = do
+    blk <- getMainBlock h
+    blkSlotStart <- getBlkSlotStart blk
+    let txs = toList $ blk ^. blockTxs
+    map (toTxEntry blkSlotStart) . take lim . drop off <$>
+        topsortTxsOrFail withHash txs
+
+getAddressSummary :: ExplorerMode m => CAddress -> m CAddressSummary
+getAddressSummary cAddr = cAddrToAddr cAddr >>= \case
+    PubKeyAddress sid _ -> do
+        balance <- fromMaybe (mkCoin 0) <$> GS.getFtsStake sid
+        -- TODO: add number of coins when it's implemented
+        return $ CAddressSummary cAddr 0 balance
+    _ -> throwM $
+         Internal "Non-P2PKH addresses are not supported in Explorer yet"
+
+--------------------------------------------------------------------------------
+-- Helpers
+--------------------------------------------------------------------------------
+
+getBlkSlotStart :: MonadSlots m => MainBlock ssc -> m Timestamp
+getBlkSlotStart blk = getSlotStart $ blk ^. gbHeader . gbhConsensus . mcdSlot
+
+topsortTxsOrFail :: MonadThrow m => (a -> WithHash Tx) -> [a] -> m [a]
+topsortTxsOrFail f =
+    maybeThrow (Internal "Dependency loop in txs set") .
+    topsortTxs f
+
+cAddrToAddr :: MonadThrow m => CAddress -> m Address
+cAddrToAddr cAddr =
+    fromCAddress cAddr &
+    either (\_ -> throwM $ Internal "Invalid address!") pure
+
+getMainBlock :: ExplorerMode m => HeaderHash -> m (MainBlock SscGodTossing)
+getMainBlock h =
+    DB.getBlock h >>=
+    maybeThrow (Internal "No block found") >>=
+    either (const $ throwM $ Internal "Block is genesis block") pure

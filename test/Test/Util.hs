@@ -9,9 +9,15 @@
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE RankNTypes            #-}
 
 module Test.Util
-       ( Parcel (..)
+       ( makeTCPTransport
+       , makeInMemoryTransport
+
+       , timeout
+
+       , Parcel (..)
        , Payload (..)
        , HeavyParcel (..)
 
@@ -30,6 +36,7 @@ module Test.Util
        , receiveAll
 
        , deliveryTest
+
        ) where
 
 import           Control.Concurrent.STM      (STM, atomically, check)
@@ -43,14 +50,22 @@ import           Data.Binary                 (Binary (..))
 import qualified Data.ByteString             as LBS
 import qualified Data.List                   as L
 import qualified Data.Set                    as S
-import           Data.Time.Units             (Millisecond, Second, TimeUnit)
+import           Data.Time.Units             (Microsecond, Millisecond, Second, TimeUnit)
 import           GHC.Generics                (Generic)
-import           Mockable.Concurrent         (delay, forConcurrently, fork)
-import           Mockable.Exception          (catch, throw)
+import           Mockable.Class              (Mockable)
+import           Mockable.Concurrent         (delay, forConcurrently, fork, cancel,
+                                              async, withAsync, wait, Concurrently,
+                                              Delay, Async)
+import           Mockable.SharedExclusive    (newSharedExclusive, putSharedExclusive,
+                                              takeSharedExclusive, SharedExclusive,
+                                              readSharedExclusive, tryPutSharedExclusive)
+import           Mockable.Exception          (Catch, Throw, catch, throw)
 import           Mockable.Production         (Production (..))
-import           Network.Transport.Abstract  (closeTransport)
+import qualified Network.Transport           as NT (Transport)
+import           Network.Transport.Abstract  (closeTransport, Transport)
 import           Network.Transport.Concrete  (concrete)
 import qualified Network.Transport.TCP       as TCP
+import qualified Network.Transport.InMemory  as InMemory
 import           Serokell.Util.Concurrent    (modifyTVarS)
 import           System.Random               (mkStdGen)
 import           Test.QuickCheck             (Property)
@@ -65,6 +80,34 @@ import           Node                        (ConversationActions (..), Listener
                                               Worker, node, nodeId)
 import           Node.Message                (BinaryP (..))
 
+-- | Run a computation, but kill it if it takes more than a given number of
+--   Microseconds to complete. If that happens, log using a given string
+--   prefix.
+timeout
+    :: ( Mockable Delay m
+       , Mockable Async m
+       , Mockable SharedExclusive m
+       , Mockable Catch m
+       , Mockable Throw m
+       )
+    => String
+    -> Microsecond
+    -> m t
+    -> m t
+timeout str us m = do
+    var <- newSharedExclusive
+    let action = do
+            t <- (fmap Right m) `catch` (\(e :: SomeException) -> return (Left e))
+            putSharedExclusive var t
+    let timeoutAction = do
+            delay us
+            putSharedExclusive var (Left . error $ str ++ " : timeout after " ++ show us)
+    withAsync action $ \actionPromise -> do
+        withAsync timeoutAction $ \timeoutPromise -> do
+            choice <- readSharedExclusive var
+            case choice of
+                Left e -> throw e
+                Right t -> return t
 
 -- * Parcel
 
@@ -175,29 +218,44 @@ instance Show TalkStyle where
     show ConversationStyle  = "conversation style"
 
 sendAll
-    :: ( Binary msg, Message msg, MonadIO m )
+    :: ( Binary msg, Message msg, MonadIO m
+       , Mockable Concurrently m
+       , Mockable Delay m
+       , Mockable Async m
+       , Mockable Throw m
+       , Mockable Catch m
+       , Mockable SharedExclusive m
+       )
     => TalkStyle
     -> SendActions BinaryP () m
     -> NodeId
     -> [msg]
     -> m ()
 sendAll SingleMessageStyle sendActions peerId msgs =
-    forM_ msgs $ sendTo sendActions peerId
+    --void $ forConcurrently msgs $ sendTo sendActions peerId
+    timeout "sendAll" 30000000 $ forM_ msgs $ sendTo sendActions peerId
 
 sendAll ConversationStyle sendActions peerId msgs =
-    void . withConnectionTo sendActions @_ @Bool peerId $ \peerData cactions -> forM_ msgs $
-    \msg -> do
-        send cactions msg
-        _ <- recv cactions
-        pure ()
+    timeout "sendAll" 30000000 $
+        void . withConnectionTo sendActions @_ @Bool peerId $ \peerData cactions -> forM_ msgs $
+        \msg -> do
+            send cactions msg
+            _ <- recv cactions
+            pure ()
 
 receiveAll
-    :: ( Binary msg, Message msg, MonadIO m )
+    :: ( Binary msg, Message msg, MonadIO m
+       , Mockable Delay m
+       , Mockable Async m
+       , Mockable SharedExclusive m
+       , Mockable Throw m
+       , Mockable Catch m
+       )
     => TalkStyle
     -> (msg -> m ())
     -> ListenerAction BinaryP () m
 receiveAll SingleMessageStyle handler =
-    ListenerActionOneMsg $ \_ _ _ -> handler
+    ListenerActionOneMsg $ \_ _ _ -> timeout "receiveAll" 30000000 . handler
 -- For conversation style, we send a response for every message received.
 -- The sender awaits a response for each message. This ensures that the
 -- sender doesn't finish before the conversation SYN/ACK completes.
@@ -210,47 +268,71 @@ receiveAll ConversationStyle  handler =
                               handler msg
                               send cactions True
                               loop
-        in  loop
+        in  timeout "receiveAll" 30000000 loop
 
+makeInMemoryTransport :: IO NT.Transport
+makeInMemoryTransport = InMemory.createTransport
 
--- * Test template
-
-deliveryTest :: TVar TestState
-             -> [NodeId -> Worker BinaryP () Production]
-             -> [Listener BinaryP () Production]
-             -> IO Property
-deliveryTest testState workers listeners = runProduction $ do
+makeTCPTransport
+    :: String
+    -> String
+    -> String
+    -> (forall t . IO (TCP.QDisc t))
+    -> IO NT.Transport
+makeTCPTransport bind hostAddr port qdisc = do
     let tcpParams = TCP.defaultTCPParameters {
               TCP.tcpReuseServerAddr = True
             , TCP.tcpReuseClientAddr = True
+            , TCP.tcpNewQDisc = qdisc
             }
-    transport_ <- throwLeft $ liftIO $ TCP.createTransport "0.0.0.0" "127.0.0.1" "10342" tcpParams
+    choice <- TCP.createTransport bind hostAddr port tcpParams
+    case choice of
+        Left err -> error (show err)
+        Right transport -> return transport
+
+-- * Test template
+
+deliveryTest :: NT.Transport
+             -> TVar TestState
+             -> [NodeId -> Worker BinaryP () Production]
+             -> [Listener BinaryP () Production]
+             -> IO Property
+deliveryTest transport_ testState workers listeners = runProduction $ do
+
     let transport = concrete transport_
 
     let prng1 = mkStdGen 0
     let prng2 = mkStdGen 1
 
-    -- launch nodes
-    node transport prng1 BinaryP () $ \serverNode ->
-        -- Server EndPoint is up.
-        NodeAction listeners $ \_ -> do
-            node transport prng2 BinaryP () $ \_ ->
-                -- Client EndPoint is up.
-                NodeAction [] $ \clientSendActions -> do
-                    void . forConcurrently workers $ \worker ->
-                        worker (nodeId serverNode) clientSendActions
-                    -- Client EndPoint closes here
-            -- Must not let the server EndPoint close too soon. It's possible
-            -- that the client (which has just closed) will still have data
-            -- in-flight, which we expect the server to pick up.
-            -- So we wait for receiver to get everything, but not for too long.
-            awaitSTM (5 :: Second) $ S.null . _expected <$> readTVar testState
-            -- Server EndPoint closes here
+    serverAddressVar <- newSharedExclusive
+    clientFinished <- newSharedExclusive
+    serverFinished <- newSharedExclusive
 
-    closeTransport transport
+    let server = node transport prng1 BinaryP () $ \serverNode -> do
+            NodeAction listeners $ \_ -> do
+                -- Give our address to the client.
+                putSharedExclusive serverAddressVar (nodeId serverNode)
+                -- Don't stop until the client has finished.
+                takeSharedExclusive clientFinished
+                -- Wait for the expected values to come, with 5 second timeout.
+                awaitSTM (5 :: Second) $ S.null . _expected <$> readTVar testState
+                -- Allow the client to stop.
+                putSharedExclusive serverFinished ()
 
-    -- wait till port gets free
-    delay @_ @Millisecond 20
+    let client = node transport prng2 BinaryP () $ \clientNode ->
+            NodeAction [] $ \sendActions -> do
+                serverAddress <- takeSharedExclusive serverAddressVar
+                void . forConcurrently workers $ \worker ->
+                    worker serverAddress sendActions
+                -- Tell the server that we're done.
+                putSharedExclusive clientFinished ()
+                -- Wait until the server has finished.
+                takeSharedExclusive serverFinished
+
+    withAsync server $ \serverPromise -> do
+        withAsync client $ \clientPromise -> do
+            timeout "waiting for client to finish" 30000000 (wait clientPromise)
+            timeout "waiting for server to finish" 30000000 (wait serverPromise)
 
     -- form test results
     liftIO . atomically $

@@ -171,9 +171,19 @@ data SlotStatus
 
 ntpGetCurrentSlot :: SlottingConstraint m => NtpSlotting m (Maybe SlotId)
 ntpGetCurrentSlot = do
-    ntpGetCurrentSlotImpl <&> \case
-        CurrentSlot slot -> Just slot
-        _                -> Nothing
+    ntpGetCurrentSlotImpl >>= \case
+        CurrentSlot slot ->
+            return (Just slot)
+        OutdatedSlottingData i -> do
+            logDebug $ sformat
+                ("Can't get current slot, because slotting data"%
+                 " is outdated. Last known penult epoch = "%int)
+                i
+            return Nothing
+        CantTrust -> do
+            logDebug
+                "Can't get current slot, because we can't trust local time"
+            return Nothing
 
 ntpGetCurrentSlotInaccurate :: SlottingConstraint m => NtpSlotting m SlotId
 ntpGetCurrentSlotInaccurate = do

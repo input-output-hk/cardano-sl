@@ -237,6 +237,7 @@ makeLensesFor [ ("pmNewBVs", "pmNewBVsL")
 
 -- | Previous value of something that could be missing.
 data PrevValue a = PrevValue a | NoExist
+    deriving (Show)
 
 maybeToPrev :: Maybe a -> PrevValue a
 maybeToPrev (Just x) = PrevValue x
@@ -250,6 +251,7 @@ data USUndo = USUndo
     , unChangedSV        :: !(HashMap ApplicationName (PrevValue NumSoftwareVersion))
     , unChangedConfProps :: !(HashMap SoftwareVersion (PrevValue ConfirmedProposalState))
     }
+    deriving (Show)
 
 makeLensesFor [ ("unChangedBV", "unChangedBVL")
               , ("unLastAdoptedBV", "unLastAdoptedBVL")

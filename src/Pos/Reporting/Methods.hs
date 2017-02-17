@@ -135,7 +135,8 @@ reportMisbehaviourMasked reason =
                  " because of exception "%shown) reason e
 
 -- | Execute action, report 'CardanoFatalError' and 'FatalError' if it
--- happens and rethrow.
+-- happens and rethrow. Errors related to reporting itself are caught,
+-- logged and ignored.
 reportingFatal
     :: forall m a ё.
        ReportingContext ё m
@@ -145,10 +146,20 @@ reportingFatal action =
   where
     andThrow :: (Exception e, MonadThrow n) => (e -> n x) -> e -> n y
     andThrow foo e = foo e >> throwM e
+    report reason = do
+        logDebug $ "Reporting error \"" <> reason <> "\""
+        let errorF = stext%", nodeInfo: "%stext
+        nodeInfo <- getNodeInfo
+        sendReportNode (RError $ sformat errorF reason nodeInfo) `catch`
+            handlerSend reason
+    handlerSend reason (e :: SomeException) =
+        logError $
+        sformat ("Didn't manage to report error "%stext%
+                 " because of exception '"%shown%"' raised while sending") reason e
     handler1 = andThrow $ \(e :: CardanoFatalError) ->
-        reportMisbehaviourMasked (pretty e)
+        report (pretty e)
     handler2 = andThrow $ \(FatalError reason) ->
-        reportMisbehaviourMasked ("FatalError/panic: " <> show reason)
+        report ("FatalError/panic: " <> show reason)
 
 
 ----------------------------------------------------------------------------

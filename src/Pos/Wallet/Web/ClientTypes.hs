@@ -46,6 +46,7 @@ import           Data.Time.Clock.POSIX (POSIXTime)
 import           Formatting            (build, sformat)
 
 import           Pos.Aeson.Types       ()
+import           Pos.Crypto            (hashHexF)
 import           Pos.Script.Type       (ScriptVersion)
 import           Pos.Types             (Address (..), BlockVersion, ChainDifficulty, Coin,
                                         SoftwareVersion, TxId, decodeTextAddress,
@@ -102,7 +103,7 @@ mkCTxId = CTxId . CHash
 
 -- | transform TxId into CTxId
 txIdToCTxId :: TxId -> CTxId
-txIdToCTxId = mkCTxId . sformat build
+txIdToCTxId = mkCTxId . sformat hashHexF
 
 mkCTx
     :: Address            -- ^ An address for which transaction info is forming

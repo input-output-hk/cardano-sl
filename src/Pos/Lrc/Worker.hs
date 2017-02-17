@@ -35,7 +35,7 @@ import           Pos.Lrc.Consumers           (allLrcConsumers)
 import           Pos.Lrc.Error               (LrcError (..))
 import           Pos.Lrc.FollowTheSatoshi    (followTheSatoshiM)
 import           Pos.Lrc.Logic               (findAllRichmenMaybe)
-import           Pos.Reporting               (reportMisbehaviour)
+import           Pos.Reporting               (reportMisbehaviourMasked)
 import           Pos.Ssc.Class               (SscWorkersClass)
 import           Pos.Ssc.Extra               (sscCalculateSeed)
 import           Pos.Types                   (EpochIndex, EpochOrSlot (..),
@@ -56,7 +56,7 @@ lrcOnNewSlotWorker = localOnNewSlotWorker True $ \SlotId {..} ->
     (lrcSingleShot siEpoch `catch` reportError) `catch` onLrcError
   where
     reportError (SomeException e) = do
-        reportMisbehaviour $ "Lrc worker failed with error: " <> show e
+        reportMisbehaviourMasked $ "Lrc worker failed with error: " <> show e
         throwM e
     onLrcError UnknownBlocksForLrc =
         logInfo

@@ -29,16 +29,21 @@ allWorkers
     :: (SscWorkersClass ssc, SecurityWorkersClass ssc, WorkMode ssc m)
     => ([WorkerSpec m], OutSpecs)
 allWorkers = mconcatPair
-    [ wrap' "dht"        $ dhtWorkers
-    , wrap' "block"      $ blkWorkers
-    , wrap' "delegation" $ dlgWorkers
+    [
+      -- Only workers of "onNewSlot" type
+      wrap' "dht"        $ dhtWorkers
     , wrap' "ssc"        $ untag sscWorkers
     , wrap' "security"   $ untag securityWorkers
     , wrap' "lrc"        $ first pure lrcOnNewSlotWorker
     , wrap' "us"         $ usWorkers
-    , wrap' "slotting"   $ (properSlottingWorkers, mempty)
     , wrap' "sysStart"   $ first pure sysStartWorker
+
+      -- Have custom loggers
+    , wrap' "block"      $ blkWorkers
+    , wrap' "delegation" $ dlgWorkers
+    , wrap' "slotting"   $ (properSlottingWorkers, mempty)
     , wrap' "relay"      $ relayWorkers
+
     -- I don't know, guys, I don't know :(
     -- , const ([], mempty) statsWorkers
     ]

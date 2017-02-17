@@ -9,6 +9,7 @@ module Pos.Exception
 
        , CardanoFatalError (..)
        , reportFatalError
+       , assertionFailed
        ) where
 
 import           Control.Exception   (Exception (..))
@@ -45,14 +46,18 @@ cardanoExceptionFromException x = do
     CardanoException a <- fromException x
     cast a
 
--- | Error indicating that something really bad happened.
+
+-- | Error indicating that something really bad happened. Should be
+-- used when serious assertions fail (local equivalent of
+-- 'panic'). 'panic' is still alright to use, but preferably in pure
+-- environment.
 data CardanoFatalError =
     CardanoFatalError !Text
     deriving (Typeable, Show)
 
 instance Buildable CardanoFatalError where
     build (CardanoFatalError msg) =
-        bprint ("something really bad happened: "%stext) msg
+        bprint ("Cardano fatal error: "%stext) msg
 
 instance Exception CardanoFatalError where
     toException = cardanoExceptionToException
@@ -66,3 +71,8 @@ reportFatalError
 reportFatalError msg = do
     logError $ colorize Red msg
     throwM $ CardanoFatalError msg
+
+-- | Report 'CardanoFatalError' for failed assertions.
+assertionFailed :: (WithLogger m, MonadThrow m) => Text -> m a
+assertionFailed msg =
+    reportFatalError $ "assertion failed: " <> msg

@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -45,6 +46,7 @@ import           Pos.Communication.BiP            (BiP)
 import           Pos.Communication.PeerState      (WithPeerState (..), peerVerInfo)
 import           Pos.Communication.Types.Protocol
 import           Pos.Context.Class                (WithNodeContext)
+import           Pos.DHT.Model.Class              (MonadDHT)
 import           Pos.Slotting.Class               (MonadSlots)
 import           Pos.Slotting.Util                (onNewSlot, onNewSlotImpl)
 import           Pos.Types                        (SlotId)
@@ -94,9 +96,14 @@ hoistSendActions nat rnat SendActions {..} = SendActions sendTo' withConnectionT
   where
     sendTo' nodeId msg = nat $ sendTo nodeId msg
     withConnectionTo' nodeId convActionsH =
-        nat $ withConnectionTo nodeId $ \convActions -> rnat $ convActionsH $ hoistConversationActions nat convActions
+        nat $ withConnectionTo nodeId $ \convActions ->
+        rnat $ convActionsH $ hoistConversationActions nat convActions
 
-hoistListenerSpec :: (forall a. m a -> n a) -> (forall a. n a -> m a) -> ListenerSpec m -> ListenerSpec n
+hoistListenerSpec
+    :: (forall a. m a -> n a)
+    -> (forall a. n a -> m a)
+    -> ListenerSpec m
+    -> ListenerSpec n
 hoistListenerSpec nat rnat (ListenerSpec h s) =
     ListenerSpec (\vI -> N.hoistListenerAction nat rnat $ h vI) s
 
@@ -198,60 +205,56 @@ unpackLSpecs =
     squashPL :: [(a, b)] -> ([a], [b])
     squashPL = map fst &&& map snd
 
+
+type WorkerConstr m =
+    ( WithLogger m
+    , Mockable Throw m
+    , WithPeerState m
+    , Mockable SharedAtomic m
+    , Bi NOP
+    , Message NOP
+    )
+
 toAction
-    :: ( WithLogger m
-       , Mockable Throw m
-       , WithPeerState m
-       , Mockable SharedAtomic m
-       , Bi NOP
-       , Message NOP
-       ) => (SendActions m -> m a) -> ActionSpec m a
+    :: WorkerConstr m
+    => (SendActions m -> m a) -> ActionSpec m a
 toAction h = ActionSpec $ \vI -> h . convertSendActions vI
 
 worker
-    :: ( WithLogger m
-       , Mockable Throw m
-       , WithPeerState m
-       , Mockable SharedAtomic m
-       , Bi NOP
-       , Message NOP
-       ) => OutSpecs -> Worker' m -> (WorkerSpec m, OutSpecs)
+    :: WorkerConstr m
+    => OutSpecs -> Worker' m -> (WorkerSpec m, OutSpecs)
 worker outSpecs = (,outSpecs) . toAction
 
 workerHelper
-    :: ( WithLogger m
-       , Mockable Throw m
-       , WithPeerState m
-       , Mockable SharedAtomic m
-       , Bi NOP
-       , Message NOP
-       ) => OutSpecs -> (arg -> Worker' m) -> (arg -> WorkerSpec m, OutSpecs)
+    :: WorkerConstr m
+    => OutSpecs -> (arg -> Worker' m) -> (arg -> WorkerSpec m, OutSpecs)
 workerHelper outSpecs h = (,outSpecs) $ toAction . h
 
 worker'
-    :: ( WithLogger m
-       , Mockable Throw m
-       , WithPeerState m
-       , Mockable SharedAtomic m
-       , Bi NOP
-       , Message NOP
-       ) => OutSpecs -> (VerInfo -> Worker' m) -> (WorkerSpec m, OutSpecs)
-worker' outSpecs h = (,outSpecs) $ ActionSpec $ \vI -> h vI . convertSendActions vI
+    :: WorkerConstr m
+    => OutSpecs -> (VerInfo -> Worker' m) -> (WorkerSpec m, OutSpecs)
+worker' outSpecs h =
+    (,outSpecs) $ ActionSpec $ \vI -> h vI . convertSendActions vI
+
+
+type OnNewSlotComm ssc m =
+    ( MonadIO m
+    , MonadSlots m
+    , MonadMask m
+    , WithLogger m
+    , Mockable Fork m
+    , Mockable Delay m
+    , Mockable Throw m
+    , WithPeerState m
+    , Mockable SharedAtomic m
+    , Bi NOP
+    , Message NOP
+    , WithNodeContext ssc m
+    , MonadDHT m
+    )
 
 onNewSlot'
-    :: ( MonadIO m
-       , MonadSlots m
-       , MonadCatch m
-       , WithLogger m
-       , Mockable Fork m
-       , Mockable Delay m
-       , Mockable Throw m
-       , WithPeerState m
-       , Mockable SharedAtomic m
-       , Bi NOP
-       , Message NOP
-       , WithNodeContext ssc m
-       )
+    :: OnNewSlotComm ssc m
     => Bool -> Bool -> (SlotId -> WorkerSpec m, outSpecs) -> (WorkerSpec m, outSpecs)
 onNewSlot' withLog startImmediately (h, outs) =
     (,outs) . ActionSpec $ \vI sA ->
@@ -259,52 +262,38 @@ onNewSlot' withLog startImmediately (h, outs) =
             \slotId -> let ActionSpec h' = h slotId
                         in h' vI sA
 onNewSlotWorker
-    :: ( MonadIO m
-       , MonadSlots m
-       , MonadCatch m
-       , WithLogger m
-       , Mockable Fork m
-       , Mockable Delay m
-       , Mockable Throw m
-       , WithPeerState m
-       , Mockable SharedAtomic m
-       , Bi NOP
-       , Message NOP
-       , WithNodeContext ssc m
-       ) => Bool -> OutSpecs -> (SlotId -> Worker' m) -> (WorkerSpec m, OutSpecs)
+    :: OnNewSlotComm ssc m
+    => Bool -> OutSpecs -> (SlotId -> Worker' m) -> (WorkerSpec m, OutSpecs)
 onNewSlotWorker b outs = onNewSlot' False b . workerHelper outs
 
 onNewSlotWithLoggingWorker
-    :: ( MonadIO m
-       , MonadSlots m
-       , MonadCatch m
-       , WithLogger m
-       , Mockable Fork m
-       , Mockable Delay m
-       , Mockable Throw m
-       , WithPeerState m
-       , Mockable SharedAtomic m
-       , Bi NOP
-       , Message NOP
-       , WithNodeContext ssc m
-       ) => Bool -> OutSpecs -> (SlotId -> Worker' m) -> (WorkerSpec m, OutSpecs)
+    :: OnNewSlotComm ssc m
+    => Bool -> OutSpecs -> (SlotId -> Worker' m) -> (WorkerSpec m, OutSpecs)
 onNewSlotWithLoggingWorker b outs = onNewSlot' True b . workerHelper outs
 
 localOnNewSlotWorker
     :: ( MonadIO m
        , MonadSlots m
-       , MonadCatch m
+       , MonadMask m
        , WithLogger m
        , Mockable Fork m
        , Mockable Delay m
        , WithNodeContext ssc m
+       , MonadDHT m
        ) => Bool -> (SlotId -> m ()) -> (WorkerSpec m, OutSpecs)
 localOnNewSlotWorker b h = (ActionSpec $ \__vI __sA -> onNewSlot b h, mempty)
 
 localWorker :: m () -> (WorkerSpec m, OutSpecs)
 localWorker h = (ActionSpec $ \__vI __sA -> h, mempty)
 
-checkingInSpecs :: WithLogger m => VerInfo -> VerInfo -> (MessageName, HandlerSpec) -> PeerId -> m () -> m ()
+checkingInSpecs
+    :: WithLogger m
+    => VerInfo
+    -> VerInfo
+    -> (MessageName, HandlerSpec)
+    -> PeerId
+    -> m ()
+    -> m ()
 checkingInSpecs ourVerInfo peerVerInfo' spec peerId action =
     if | spec `notInSpecs` vIInHandlers ourVerInfo ->
               logWarning $ sformat

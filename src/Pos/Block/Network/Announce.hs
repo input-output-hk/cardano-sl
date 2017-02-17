@@ -82,8 +82,12 @@ handleHeadersCommunication conv = do
                 ([], Nothing) -> Just . one <$> DB.getTipBlockHeader
                 ([], Just h)  -> fmap one <$> DB.getBlockHeader h
                 (c1:cxs, _)   -> getHeadersFromManyTo (c1:|cxs) mghTo
-            maybe onNoHeaders (\h -> onSuccess >> send conv (MsgHeaders h)) headers
+            maybe onNoHeaders handleSuccess headers
   where
+    handleSuccess h = do
+        onSuccess
+        send conv (MsgHeaders h)
+        handleHeadersCommunication conv
     onSuccess =
         logDebug "handleGetHeaders: responded successfully"
     onRecovery =

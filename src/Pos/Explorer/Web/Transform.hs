@@ -5,38 +5,35 @@ module Pos.Explorer.Web.Transform
        , explorerPlugin
        ) where
 
-import           Control.Concurrent.STM       (TVar)
-import qualified Control.Monad.Catch          as Catch (Handler (..), catches)
-import           Control.Monad.Except         (MonadError (throwError))
-import           Mockable                     (runProduction)
-import           Servant.Server               (Handler)
-import           Servant.Utils.Enter          ((:~>) (..), enter)
-import           System.Wlog                  (usingLoggerName)
+import           Control.Concurrent.STM  (TVar)
+import qualified Control.Monad.Catch     as Catch (Handler (..), catches)
+import           Control.Monad.Except    (MonadError (throwError))
+import           Mockable                (runProduction)
+import           Servant.Server          (Handler)
+import           Servant.Utils.Enter     ((:~>) (..), enter)
+import           System.Wlog             (usingLoggerName)
 import           Universum
 
-import           Pos.Communication            (OutSpecs, PeerStateSnapshot, SendActions,
-                                               WithPeerState (..), WorkerSpec,
-                                               getAllStates, peerStateFromSnapshot,
-                                               runPeerStateHolder, worker)
-import           Pos.Context                  (NodeContext, getNodeContext,
-                                               runContextHolder)
-import           Pos.DB                       (NodeDBs, getNodeDBs, runDBHolder)
-import           Pos.Delegation               (DelegationWrap, askDelegationState,
-                                               runDelegationTFromTVar)
-import           Pos.DHT.Real.Real            (runKademliaDHT)
-import           Pos.DHT.Real.Types           (KademliaDHTInstance (..),
-                                               getKademliaDHTInstance)
-import           Pos.Ssc.Extra                (SscHolder (..), SscState, runSscHolder)
-import           Pos.Ssc.GodTossing           (SscGodTossing)
-import           Pos.Statistics               (getNoStatsT)
-import           Pos.Txp                      (TxpLDWrap, getTxpLDWrap,
-                                               runTxpLDHolderReader)
-import           Pos.Update                   (runUSHolder)
-import           Pos.WorkMode                 (ProductionMode)
+import           Pos.Communication       (OutSpecs, PeerStateSnapshot, SendActions,
+                                          WithPeerState (..), WorkerSpec, getAllStates,
+                                          peerStateFromSnapshot, runPeerStateHolder,
+                                          worker)
+import           Pos.Context             (NodeContext, getNodeContext, runContextHolder)
+import           Pos.DB                  (NodeDBs, getNodeDBs, runDBHolder)
+import           Pos.Delegation          (DelegationWrap, askDelegationState,
+                                          runDelegationTFromTVar)
+import           Pos.DHT.Real.Real       (runKademliaDHT)
+import           Pos.DHT.Real.Types      (KademliaDHTInstance (..),
+                                          getKademliaDHTInstance)
+import           Pos.Ssc.Extra           (SscHolder (..), SscState, runSscHolder)
+import           Pos.Ssc.GodTossing      (SscGodTossing)
+import           Pos.Statistics          (getNoStatsT)
+import           Pos.Txp                 (TxpLDWrap, getTxpLDWrap, runTxpLDHolderReader)
+import           Pos.Update              (runUSHolder)
+import           Pos.WorkMode            (ProductionMode)
 
-import           Pos.Explorer.Web.Server      (explorerApp, explorerHandlers,
-                                               explorerServeImpl)
-import           Pos.Explorer.Web.Sockets.App (ConnectionsVar, runExplorerSockets)
+import           Pos.Explorer.Web.Server (explorerApp, explorerHandlers,
+                                          explorerServeImpl)
 
 -----------------------------------------------------------------
 -- Transformation to `Handler`
@@ -53,7 +50,6 @@ explorerServeWebReal sendActions = explorerServeImpl . explorerApp $
 
 nat :: ExplorerProd (ExplorerProd :~> Handler)
 nat = do
-    sockets  <- getSockets
     kinst    <- lift getKademliaDHTInstance
     tlw      <- getTxpLDWrap
     ssc      <- lift . lift . lift . lift . lift . lift $ SscHolder ask
@@ -72,9 +68,8 @@ convertHandler
     -> TVar DelegationWrap
     -> PeerStateSnapshot
     -> ExplorerProd a
-    -> ConnectionsVar
     -> Handler a
-convertHandler kinst nc modernDBs tlw ssc delWrap psCtx sockets handler =
+convertHandler kinst nc modernDBs tlw ssc delWrap psCtx handler =
     liftIO ( runProduction
            . usingLoggerName "explorer-api"
            . runDBHolder modernDBs
@@ -86,7 +81,6 @@ convertHandler kinst nc modernDBs tlw ssc delWrap psCtx sockets handler =
            . runKademliaDHT kinst
            . (\m -> flip runPeerStateHolder m =<< peerStateFromSnapshot psCtx)
            . getNoStatsT
-           . runExplorerSockets sockets
            $ handler
            ) `Catch.catches` excHandlers
   where

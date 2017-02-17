@@ -97,7 +97,7 @@ checkForReceivedBlocksWorker = worker requestTipOuts $ \sendActions -> afterDela
   where
     afterDelay action = delay (sec 30) >> action
     repeatOnInterval action = ifNotShutdown $ do
-        action
+        () <- action
         delay =<< getLastKnownSlotDuration
         repeatOnInterval action
     reportEclipse = do

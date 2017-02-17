@@ -15,8 +15,7 @@ import           Mockable                    (delay, fork)
 import           Pos.Communication.Protocol  (SendActions)
 import           Serokell.Util               (VerificationRes (..), listJson, pairF)
 import           Serokell.Util.Exceptions    ()
-import           System.Wlog                 (WithLogger, logDebug, logError, logInfo,
-                                              logWarning)
+import           System.Wlog                 (WithLogger, logDebug, logInfo, logWarning)
 import           Universum
 
 import           Pos.Binary.Communication    ()

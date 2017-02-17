@@ -30,7 +30,8 @@ import           Formatting                 ((%), int, formatToString)
 import           Prelude                    (read)
 import           Test.QuickCheck            (counterexample, property, forAll,
                                              suchThat, vectorOf,
-                                             arbitrary)
+                                             arbitrary, resize, conjoin,
+                                             (.&&.))
 
 import           Pos.Binary                 (Bi (..), encode)
 import           Pos.Communication          (MessageLimitedPure (..), Limit)
@@ -132,14 +133,30 @@ msgLenLimitedTest' limit desc whetherTest =
     -- instead of checking for `arbitrary` values, we'd better generate
     -- many values and find maximal message size - it allows user to get
     -- correct limit on the spot, if needed.
-    modifyMaxSuccess (const 1) $ identityTest @Bi @a $
-    \_ -> forAll arbitraryOfMaxSize $
-        \a -> counterexample desc $ msgLenLimitedCheck limit a
+    modifyMaxSuccess (const 1) $
+        identityTest @Bi @a $ \_ -> findLargestCheck .&&. listsCheck
   where
-    arbitraryOfMaxSize = do
-        samples <- vectorOf 100 $ arbitrary `suchThat` whetherTest
-        return $ maximumBy (comparing $ LBS.length . encode) samples
+    genNice = arbitrary `suchThat` whetherTest
 
+    findLargestCheck =
+        forAll (resize 1 $ vectorOf 50 genNice) $
+            \samples -> counterexample desc $ msgLenLimitedCheck limit $
+                maximumBy (comparing $ LBS.length . encode) samples
+
+    -- In this test we increase length of lists, maps, etc. generated
+    -- by `arbitrary` (by default lists sizes are bounded by 100).
+    --
+    -- Motivation: if your structure contains lists, you should ensure
+    -- their lengths are limited in practise. If you did, use `MaxSize`
+    -- wrapper to generate `arbitrary` objects of that type with lists of
+    -- exactly maximal possible size.
+    listsCheck =
+        let doCheck power = forAll (resize (2 ^ power) genNice) $
+                \a -> counterexample desc $
+                    counterexample "When generating data with large lists" $
+                        msgLenLimitedCheck limit a
+        -- Increase lists length gradually to avoid hanging.
+        in  conjoin $ doCheck <$> [1..20 :: Int]
 
 msgLenLimitedTest
     :: forall a. (IdTestingRequiredClasses Bi a, MessageLimitedPure a)

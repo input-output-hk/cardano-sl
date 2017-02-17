@@ -1,4 +1,5 @@
 {-# LANGUAGE ConstraintKinds      #-}
+{-# LANGUAGE CPP                  #-}
 {-# LANGUAGE DeriveFunctor        #-}
 {-# LANGUAGE LambdaCase           #-}
 {-# LANGUAGE Rank2Types           #-}
@@ -18,10 +19,13 @@ module Pos.Communication.Limits
 
     , MaxSize (..)
 
-    , mcCommitmentMsgLenLimit
-    , mcSharesMsgLenLimit
     , updateVoteNumLimit
     , commitmentsNumLimit
+    , upDataNumLimit
+    , appNameLenLimit
+
+    , mcCommitmentMsgLenLimit
+    , mcSharesMsgLenLimit
     ) where
 
 import           Control.Lens                     (both, each, ix)
@@ -51,9 +55,13 @@ import qualified Pos.DB.GState                    as GState
 import           Pos.Ssc.GodTossing.Arbitrary     ()
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..))
 import           Pos.Ssc.GodTossing.Core.Types    (Commitment (..))
-import           Pos.Types.Coin                   (coinPortionToDouble)
+import           Pos.Types                        (ApplicationName, BlockVersion,
+                                                   SoftwareVersion (..),
+                                                   coinPortionToDouble)
 import           Pos.Txp.Types.Communication      (TxMsgContents)
-import           Pos.Update.Core.Types            (UpdateProposal, UpdateVote (..))
+import           Pos.Update.Core.Types            (UpdateProposal (..), UpdateVote (..),
+                                                   BlockVersionData, UpAttributes,
+                                                   SystemTag, UpdateData)
 import           Pos.Util.Binary                  (AsBinary (..))
 
 -- | Specifies limit for given type @t@.
@@ -78,6 +86,14 @@ commitmentsNumLimit = round $ 1 / coinPortionToDouble Const.genesisMpcThd
 -- | Upper bound on number of votes carried with single `UpdateProposal`.
 updateVoteNumLimit :: Int
 updateVoteNumLimit = round $ 1 / coinPortionToDouble Const.genesisUpdateVoteThd
+
+-- | Upper bound on size of `upData` in `UpdateProposal`.
+upDataNumLimit :: Int
+upDataNumLimit = 1
+
+-- | Upper bound on size of `ApplicationName`
+appNameLenLimit :: Int
+appNameLenLimit = 30
 
 vectorOf :: IsList l => Int -> Limit (Item l) -> Limit l
 vectorOf k (Limit x) =
@@ -139,6 +155,16 @@ class Limiter (LimitType a) => MessageLimited a where
     getMsgLenLimit :: MonadDB ssc m => Proxy a -> m (LimitType a)
 
 -- | Pure analogy to `MessageLimited`.
+--
+-- All instances are encouraged to be covered with tests
+-- (using `Test.Pos.Util.msgLenLimitedTest`).
+--
+-- If you're going to add instance and have no idea regarding limit value,
+-- and your type's size is essentially bounded (doesn't contain list-like
+-- structures and doesn't depend on global parameters), you can do as follows:
+-- 1) Create instance with limit @1@.
+-- 2) Add test case, run - it would fail and report actual size.
+-- 3) Insert that value into instance.
 class MessageLimitedPure a where
     msgLenLimit :: Limit a
 
@@ -220,12 +246,17 @@ instance MessageLimitedPure SecretSharingExtra where
         SecretSharingExtra <$> msgLenLimit <*> vector commitmentsNumLimit
 
 instance MessageLimitedPure UpdateProposal where
-    msgLenLimit = 212
+    msgLenLimit =
+        UpdateProposal <$> msgLenLimit <*> msgLenLimit <*> msgLenLimit
+                       <*> vector upDataNumLimit <*> msgLenLimit
 
 instance MessageLimitedPure UpdateVote where
     msgLenLimit =
         UpdateVote <$> msgLenLimit <*> msgLenLimit <*> msgLenLimit
                    <*> msgLenLimit
+
+instance MessageLimitedPure SoftwareVersion where
+    msgLenLimit = SoftwareVersion <$> msgLenLimit <*> msgLenLimit
 
 instance MessageLimitedPure (DataMsg UpdateVote) where
     msgLenLimit = DataMsg <$> msgLenLimit
@@ -289,6 +320,31 @@ instance MessageLimitedPure (AbstractHash Blake2s_224 a) where
 instance MessageLimitedPure (AbstractHash Blake2s_256 a) where
     msgLenLimit = 32
 
+instance MessageLimitedPure BlockVersion where
+    msgLenLimit = 5
+
+instance MessageLimitedPure BlockVersionData where
+    msgLenLimit = 65
+
+instance MessageLimitedPure ApplicationName where
+    msgLenLimit = fromIntegral appNameLenLimit
+
+instance MessageLimitedPure Word32 where
+    msgLenLimit = 4
+
+instance MessageLimitedPure SystemTag where
+    msgLenLimit = 6
+
+instance MessageLimitedPure UpAttributes where
+#ifdef DEV_MODE
+    msgLenLimit = 0  -- real value
+#else
+    msgLenLimit = 10000  -- for backward compatibility
+#endif
+
+instance MessageLimitedPure UpdateData where
+    msgLenLimit = 128
+
 -- | Sets size limit to deserialization instances via @s@ parameter
 -- (using "Data.Reflection"). Grep for 'reify' and 'reflect' to see
 -- usage examples.
@@ -323,14 +379,19 @@ newtype MaxSize a = MaxSize
     { getOfMaxSize :: a
     } deriving (Eq, Ord, Show, Bi, Functor, MessageLimitedPure)
 
-multiMapIsLimited :: Int -> HashMap k (NonEmpty v) -> Bool
-multiMapIsLimited lim mmap = foldr (+) 0 (length <$> mmap) < lim
+-- | Generates multimap which has given number of keys, each assisiated
+-- with single value
+aMultimap
+    :: (Eq k, Hashable k, T.Arbitrary k, T.Arbitrary v)
+    => Int -> T.Gen (HashMap k (NonEmpty v))
+aMultimap k =
+    let pairs = (,) <$> T.arbitrary <*> ((:|) <$> T.arbitrary <*> pure [])
+    in  fromList <$> T.vectorOf k pairs
 
 instance T.Arbitrary (MaxSize Commitment) where
     arbitrary = MaxSize <$>
         (Commitment <$> T.arbitrary <*> T.arbitrary
-                    <*> (T.arbitrary `T.suchThat`
-                            multiMapIsLimited commitmentsNumLimit))
+                    <*> aMultimap commitmentsNumLimit)
 
 instance T.Arbitrary (MaxSize SecretSharingExtra) where
     arbitrary = do
@@ -351,8 +412,7 @@ instance T.Arbitrary (MaxSize GtMsgContents) where
         aOpening = MCOpening <$> T.arbitrary <*> T.arbitrary
         aShares =
             MCShares <$> T.arbitrary
-                     <*> (T.arbitrary `T.suchThat`
-                            multiMapIsLimited commitmentsNumLimit)
+                     <*> aMultimap commitmentsNumLimit
         aVssCert = MCVssCertificate <$> T.arbitrary
 
 instance T.Arbitrary (MaxSize (DataMsg GtMsgContents)) where

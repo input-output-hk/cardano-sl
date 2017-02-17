@@ -71,8 +71,8 @@ import           Pos.Slotting.Class         (getCurrentSlot)
 import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass,
                                              SscWorkersClass (..))
 import           Pos.Ssc.Extra              (sscGetLocalPayload, sscVerifyBlocks)
-import           Pos.Txp.Class              (getLocalTxsNUndo)
 import           Pos.Txp.Logic              (txVerifyBlocks)
+import           Pos.Txp.MemState           (getLocalTxsNUndo)
 import           Pos.Types                  (Block, BlockHeader, EpochIndex,
                                              EpochOrSlot (..), GenesisBlock, HeaderHash,
                                              MainBlock, MainExtraBodyData (..),
@@ -700,7 +700,7 @@ createMainBlockFinish
     -> BlockHeader ssc
     -> ExceptT Text m (MainBlock ssc)
 createMainBlockFinish slotId pSk prevHeader = do
-    (localTxs, txUndo) <- getLocalTxsNUndo @ssc
+    (localTxs, txUndo) <- getLocalTxsNUndo
     sscData <- sscGetLocalPayload @ssc slotId
     usPayload <- note onNoUS =<< lift (usPreparePayload slotId)
     (localPSKs, pskUndo) <- lift getProxyMempool

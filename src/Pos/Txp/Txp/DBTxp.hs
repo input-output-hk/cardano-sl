@@ -1,11 +1,9 @@
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
--- | Instance of MoandPollRead which uses DB.
-
-module Pos.Update.Poll.DBPoll
-       ( DBPoll (..)
-       ) where
+module Pos.Txp.Txp.DBTxp
+    ( DBTxp (..)
+    ) where
 
 import           Control.Lens                (iso)
 import           Control.Monad.Base          (MonadBase (..))
@@ -32,18 +30,13 @@ import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Lrc.Types               (FullRichmenData)
 import           Pos.Slotting.Class          (MonadSlots, MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem)
-import           Pos.Txp.MemState            (MonadTxpMem (..))
 import           Pos.Types                   (Coin)
 import           Pos.Update.MemState.Class   (MonadUSMem (..))
 import           Pos.Update.Poll.Class       (MonadPollRead (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
 
-----------------------------------------------------------------------------
--- Transformer
-----------------------------------------------------------------------------
-
-newtype DBPoll m a = DBPoll
-    { runDBPoll :: m a
+newtype DBTxp m a = DBTxp
+    { runDBTxp :: m a
     } deriving ( Functor
                , Applicative
                , Monad
@@ -61,7 +54,6 @@ newtype DBPoll m a = DBPoll
                , MonadMask
                , MonadUSMem
                , MonadSscMem peka
-               , MonadTxpMem
                , MonadBase io
                , MonadDelegation
                , MonadFix
@@ -71,61 +63,34 @@ newtype DBPoll m a = DBPoll
 -- Common instances used all over the code
 ----------------------------------------------------------------------------
 
-deriving instance MonadDB ssc m => MonadDB ssc (DBPoll m)
-type instance ThreadId (DBPoll m) = ThreadId m
-type instance Promise (DBPoll m) = Promise m
-type instance SharedAtomicT (DBPoll m) = SharedAtomicT m
-type instance Counter (DBPoll m) = Counter m
-type instance Distribution (DBPoll m) = Distribution m
-type instance SharedExclusiveT (DBPoll m) = SharedExclusiveT m
-type instance Gauge (DBPoll m) = Gauge m
-type instance ChannelT (DBPoll m) = ChannelT m
+deriving instance MonadDB ssc m => MonadDB ssc (DBTxp m)
+type instance ThreadId (DBTxp m) = ThreadId m
+type instance Promise (DBTxp m) = Promise m
+type instance SharedAtomicT (DBTxp m) = SharedAtomicT m
+type instance Counter (DBTxp m) = Counter m
+type instance Distribution (DBTxp m) = Distribution m
+type instance SharedExclusiveT (DBTxp m) = SharedExclusiveT m
+type instance Gauge (DBTxp m) = Gauge m
+type instance ChannelT (DBTxp m) = ChannelT m
 
-instance MonadTrans DBPoll where
-    lift = DBPoll
+instance MonadTrans DBTxp where
+    lift = DBTxp
 
 instance ( Mockable d m
-         , MFunctor' d (DBPoll m) m
-         ) => Mockable d (DBPoll m) where
+         , MFunctor' d (DBTxp m) m
+         ) => Mockable d (DBTxp m) where
     liftMockable = liftMockableWrappedM
 
-instance Monad m => WrappedM (DBPoll m) where
-    type UnwrappedM (DBPoll m) = m
-    _WrappedM = iso runDBPoll DBPoll
+instance Monad m => WrappedM (DBTxp m) where
+    type UnwrappedM (DBTxp m) = m
+    _WrappedM = iso runDBTxp DBTxp
 
-instance MonadTransControl DBPoll where
-    type StT DBPoll a = a
-    liftWith f = DBPoll $ f $ runDBPoll
-    restoreT = DBPoll
+instance MonadTransControl DBTxp where
+    type StT DBTxp a = a
+    liftWith f = DBTxp $ f $ runDBTxp
+    restoreT = DBTxp
 
-instance MonadBaseControl IO m => MonadBaseControl IO (DBPoll m) where
-    type StM (DBPoll m) a = ComposeSt DBPoll m a
+instance MonadBaseControl IO m => MonadBaseControl IO (DBTxp m) where
+    type StM (DBTxp m) a = ComposeSt DBTxp m a
     liftBaseWith = defaultLiftBaseWith
     restoreM     = defaultRestoreM
-
-----------------------------------------------------------------------------
--- MonadPoll
-----------------------------------------------------------------------------
-
-instance (WithNodeContext ssc m, MonadDB ssc m, WithLogger m) =>
-         MonadPollRead (DBPoll m) where
-    getBVState = GS.getBVState
-    getProposedBVs = GS.getProposedBVs
-    getConfirmedBVStates = GS.getConfirmedBVStates
-    getAdoptedBVFull = GS.getAdoptedBVFull
-    getLastConfirmedSV = GS.getConfirmedSV
-    hasActiveProposal = fmap isJust . GS.getAppProposal
-    getProposal = GS.getProposalState
-    getConfirmedProposals = GS.getConfirmedProposals Nothing
-    getEpochTotalStake e = fmap fst <$> getRichmenUS e
-    getRichmanStake e id = (findStake =<<) <$> getRichmenUS e
-      where
-        findStake :: FullRichmenData -> Maybe Coin
-        findStake = HM.lookup id . snd
-    getOldProposals = GS.getOldProposals
-    getDeepProposals = GS.getDeepProposals
-    getBlockIssuerStake epoch id =
-        lrcActionOnEpochReason epoch
-            "couldn't get issuers's stakes"
-            (fmap (Just . HM.lookup id) . getIssuersStakes)
-    getSlottingData = GS.getSlottingData

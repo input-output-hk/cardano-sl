@@ -16,7 +16,7 @@ import           Pos.Delegation.Holder       (DelegationT (..))
 import           Pos.DHT.Real                (KademliaDHT (..))
 import           Pos.Slotting                (NtpSlotting, SlottingHolder)
 import           Pos.Ssc.Extra               (SscHolder (..))
-import qualified Pos.Txp.Holder              as Modern
+import           Pos.Txp                     (TxpHolder (..))
 import           Pos.Update                  (USHolder (..))
 
 import           Pos.Wallet.Context.Context  (WalletContext (..), fromNodeCtx)
@@ -36,7 +36,7 @@ instance (Monad m, WithWalletContext m) => WithWalletContext (SlottingHolder m)
 instance Monad m => WithWalletContext (PC.ContextHolder ssc m) where
     getWalletContext = fromNodeCtx <$> PC.getNodeContext
 
-instance (Monad m, WithWalletContext m) => WithWalletContext (Modern.TxpLDHolder ssc m)
+instance (Monad m, WithWalletContext m) => WithWalletContext (TxpHolder m)
 instance (Monad m, WithWalletContext m) => WithWalletContext (SscHolder ssc m)
 instance (Monad m, WithWalletContext m) => WithWalletContext (DelegationT m)
 instance (Monad m, WithWalletContext m) => WithWalletContext (USHolder m)

@@ -1,6 +1,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 
+-- TODO Rewrite this module on MonadError.
+
 -- | Transaction related functions.
 
 module Pos.Types.Tx
@@ -89,7 +91,7 @@ data VTxLocalContext = VTxLocalContext
 -- forks). However, we won't include such transactions into blocks when we're
 -- creating a block.
 verifyTx
-    :: (Monad m)
+    :: Monad m
     => Bool                             -- ^ Verify that tx itself is correct
     -> Bool                             -- ^ Verify that script & address
                                         --   versions in tx are known

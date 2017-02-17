@@ -36,9 +36,8 @@ import           Pos.DB.Class                (MonadDB)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Slotting.Class          (MonadSlots, MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem)
-import           Pos.Txp.Class               (MonadTxpLD (..))
+import           Pos.Txp.MemState            (MonadTxpMem (..))
 import           Pos.Types                   (SoftwareVersion (..))
-import           Pos.Types.Utxo.Class        (MonadUtxo, MonadUtxoRead)
 import           Pos.Update.Core             (UpdateProposal (..))
 import           Pos.Update.MemState.Class   (MonadUSMem (..))
 import           Pos.Update.Poll.Class       (MonadPoll (..), MonadPollRead (..))
@@ -69,8 +68,8 @@ newtype PollT m a = PollT
     } deriving (Functor, Applicative, Monad, MonadThrow, MonadSlotsData, MonadSlots,
                 MonadCatch, MonadIO, HasLoggerName, MonadTrans, MonadError e,
                 WithNodeContext ssc, MonadJL, CanLog, MonadMask, MonadUSMem,
-                MonadSscMem mem, MonadUtxoRead, MonadUtxo,
-                MonadTxpLD ssc, MonadBase io, MonadDelegation, MonadFix)
+                MonadSscMem mem,
+                MonadTxpMem, MonadBase io, MonadDelegation, MonadFix)
 
 ----------------------------------------------------------------------------
 -- Runners

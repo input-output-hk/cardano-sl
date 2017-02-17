@@ -1,0 +1,33 @@
+module Pos.Txp.MemState.Types
+    ( TxpLocalData (..)
+    , TxpLocalDataPure
+    ) where
+
+import qualified Control.Concurrent.STM as STM
+import           Universum
+
+import           Pos.Txp.Txp.Types      (MemPool, UtxoView)
+import           Pos.Types.Core
+import           Pos.Types.Types
+
+-- | LocalData of transactions processing.
+-- There are two invariants which must hold for local data
+-- (where uv is UtxoView, memPool is MemPool and tip is HeaderHash):
+-- 1. Suppose 'blks' is sequence of blocks from the very beggining up
+-- to 'tip'. If one applies 'blks' to genesis Utxo, resulting Utxo
+-- (let's call it 'utxo1') will be such that all transactions from
+-- 'memPool' are valid with respect to it.
+-- 2. If one applies all transactions from 'memPool' to 'utxo1',
+-- resulting Utxo will be equivalent to 'uv' with respect to
+-- MonadUtxo.
+-- TODO fix it ^
+
+-- | Real data inside TxpLDHolder
+data TxpLocalData = TxpLocalData
+    { txpUtxoView :: !(STM.TVar UtxoView)
+    , txpMemPool  :: !(STM.TVar MemPool)
+    , txpUndos    :: !(STM.TVar (HashMap TxId [TxOutAux]))
+    , txpTip      :: !(STM.TVar HeaderHash)
+    }
+
+type TxpLocalDataPure = (UtxoView,  MemPool, HashMap TxId [TxOutAux], HeaderHash)

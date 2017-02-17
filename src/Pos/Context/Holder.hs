@@ -30,7 +30,7 @@ import           Pos.Context.Class         (WithNodeContext (..))
 import           Pos.Context.Context       (NodeContext (..))
 import           Pos.DB.Class              (MonadDB)
 import           Pos.Slotting.Class        (MonadSlots, MonadSlotsData)
-import           Pos.Txp.Class             (MonadTxpLD)
+import           Pos.Txp.MemState.Class    (MonadTxpMem)
 import           Pos.Util.JsonLog          (MonadJL (..), appendJL)
 
 -- | Wrapper for monadic action which brings 'NodeContext'.
@@ -49,7 +49,7 @@ newtype ContextHolder ssc m a = ContextHolder
                , CanLog
                , MonadSlotsData
                , MonadSlots
-               , MonadTxpLD ssc
+               , MonadTxpMem
                , MonadFix
                )
 

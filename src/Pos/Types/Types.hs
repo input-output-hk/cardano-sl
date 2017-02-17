@@ -35,6 +35,7 @@ module Pos.Types.Types
        , utxoF
 
        , TxUndo
+       , TxsUndo
 
        , SharedSeed (..)
        , SlotLeaders
@@ -229,7 +230,9 @@ utxoF = later formatUtxo
 ----------------------------------------------------------------------------
 
 -- | Particular undo needed for transactions
-type TxUndo = [[TxOutAux]]
+type TxUndo = [TxOutAux]
+
+type TxsUndo = [TxUndo]
 
 ----------------------------------------------------------------------------
 -- SSC. It means shared seed computation, btw

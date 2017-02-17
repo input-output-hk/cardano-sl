@@ -103,7 +103,6 @@ library
                         -- Something
                         Pos.Statistics
                         Pos.Txp
-                        Pos.Txp.Listeners
                         Pos.Types
                         Pos.Types.Address
                         Pos.Types.Arbitrary
@@ -118,7 +117,6 @@ library
                         Pos.Types.Timestamp
                         Pos.Types.Tx
                         Pos.Types.Types
-                        Pos.Types.Utxo
                         Pos.Types.Version
 
                         -- Update system
@@ -342,22 +340,33 @@ library
 
                         -- Txp
                         Pos.Txp.Arbitrary
-                        Pos.Txp.Class
                         Pos.Txp.Error
-                        Pos.Txp.Holder
                         Pos.Txp.Logic
-                        Pos.Txp.Types
-                        Pos.Txp.Types.Communication
-                        Pos.Txp.Types.Types
-                        Pos.Txp.Types.UtxoView
-                        Pos.Txp.Types.BalancesView
+                        Pos.Txp.Logic.Global
+                        Pos.Txp.Logic.Local
+                        Pos.Txp.MemState
+                        Pos.Txp.MemState.Class
+                        Pos.Txp.MemState.Holder
+                        Pos.Txp.MemState.Types
+                        Pos.Txp.Network
+                        Pos.Txp.Network.Listeners
+                        Pos.Txp.Network.Types
+                        Pos.Txp.Txp
+                        Pos.Txp.Txp.Base
+                        Pos.Txp.Txp.Class
+                        Pos.Txp.Txp.DBTxp
+                        Pos.Txp.Txp.Failure
+                        Pos.Txp.Txp.Logic
+                        Pos.Txp.Txp.Trans
+                        Pos.Txp.Txp.Types
+                        Pos.Txp.Txp.Utxo
+                        Pos.Txp.Txp.Utxo.Functions
+                        Pos.Txp.Txp.Utxo.Pure
 
                         -- Types
                         Pos.Types.Core
+                        Pos.Types.Utxo
                         Pos.Types.SharedSeed
-                        Pos.Types.Utxo.Class
-                        Pos.Types.Utxo.Functions
-                        Pos.Types.Utxo.Pure
 
                         -- Workers
                         Pos.Worker.Stats

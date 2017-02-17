@@ -3,7 +3,7 @@
 
 -- | Types used for communication about Blocks.
 
-module Pos.Txp.Types.Communication
+module Pos.Txp.Network.Types
        ( TxMsgTag (..)
        , TxMsgContents (..)
        ) where

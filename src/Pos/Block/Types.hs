@@ -14,12 +14,12 @@ import           Universum
 
 import           Pos.Types.Block       (BiSsc, Block)
 import           Pos.Types.Core        (HasDifficulty (..), HasHeaderHash (..))
-import           Pos.Types.Types       (ProxySKHeavy, TxUndo)
+import           Pos.Types.Types       (ProxySKHeavy, TxsUndo)
 import           Pos.Update.Poll.Types (USUndo)
 
 -- | Structure for undo block during rollback
 data Undo = Undo
-    { undoTx  :: !TxUndo
+    { undoTx  :: !TxsUndo
     , undoPsk :: ![ProxySKHeavy] -- ^ PSKs we've overwritten/deleted
     , undoUS  :: !USUndo
     }

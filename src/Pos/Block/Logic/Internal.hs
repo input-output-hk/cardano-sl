@@ -27,7 +27,7 @@ import           Pos.Exception        (assertionFailed)
 import           Pos.Reporting        (reportingFatal)
 import           Pos.Slotting         (putSlottingData)
 import           Pos.Ssc.Extra        (sscApplyBlocks, sscNormalize, sscRollbackBlocks)
-import           Pos.Txp.Logic        (normalizeTxpLD, txApplyBlocks, txRollbackBlocks)
+import           Pos.Txp.Logic        (txApplyBlocks, txNormalize, txRollbackBlocks)
 import           Pos.Types            (HeaderHash, epochIndexL, headerHashG, prevBlockL)
 import           Pos.Update.Logic     (usApplyBlocks, usNormalize, usRollbackBlocks)
 import           Pos.Update.Poll      (PollModifier)
@@ -87,7 +87,7 @@ applyBlocksUnsafeDo blunds pModifier = do
     sscApplyBlocks blocks Nothing -- TODO: pass not only 'Nothing'
     GS.writeBatchGState [delegateBatch, usBatch, txBatch, forwardLinksBatch, inMainBatch]
     sscNormalize
-    normalizeTxpLD
+    txNormalize
     usNormalize
     DB.sanityCheckDB
     putSlottingData =<< GS.getSlottingData

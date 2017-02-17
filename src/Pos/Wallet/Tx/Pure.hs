@@ -39,16 +39,15 @@ import           Pos.Crypto                (PublicKey, SecretKey, WithHash (..),
 import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.Script                (Script)
 import           Pos.Script.Examples       (multisigRedeemer, multisigValidator)
--- import           Pos.Ssc.Class             (Ssc)
+import           Pos.Txp                   (MonadTxpRead (utxoGet), UtxoStateT (..),
+                                            applyTxToUtxo)
 import           Pos.Types                 (Address, Block, ChainDifficulty, Coin,
-                                            MonadUtxoRead (..), Tx (..), TxAux,
-                                            TxDistribution (..), TxId, TxIn (..),
-                                            TxInWitness (..), TxOut (..), TxOutAux,
-                                            TxSigData, TxWitness, Utxo, UtxoStateT (..),
-                                            applyTxToUtxo, blockTxas, difficultyL,
-                                            filterUtxoByAddr, makePubKeyAddress,
-                                            makeScriptAddress, mkCoin, sumCoins,
-                                            topsortTxs)
+                                            Tx (..), TxAux, TxDistribution (..), TxId,
+                                            TxIn (..), TxInWitness (..), TxOut (..),
+                                            TxOutAux, TxSigData, TxWitness, Utxo,
+                                            blockTxas, difficultyL, filterUtxoByAddr,
+                                            makePubKeyAddress, makeScriptAddress, mkCoin,
+                                            sumCoins, topsortTxs)
 import           Pos.Types.Coin            (unsafeIntegerToCoin, unsafeSubCoin)
 
 type TxOutIdx = (TxId, Word32)
@@ -153,7 +152,7 @@ hasReceiver :: Tx -> Address -> Bool
 hasReceiver Tx {..} addr = any ((== addr) . txOutAddress) txOutputs
 
 -- | Given some 'Utxo', check if given 'Address' is one of the senders of 'Tx'
-hasSender :: MonadUtxoRead m => Tx -> Address -> m Bool
+hasSender :: MonadTxpRead m => Tx -> Address -> m Bool
 hasSender Tx {..} addr = anyM hasCorrespondingOutput txInputs
   where hasCorrespondingOutput txIn =
             fmap toBool $ fmap ((== addr) . txOutAddress . fst) <$> utxoGet txIn
@@ -205,7 +204,6 @@ deriveAddrHistory addr chain = identity %= filterUtxoByAddr addr >>
                                deriveAddrHistoryPartial [] addr chain
 
 deriveAddrHistoryPartial
-    -- :: (Monad m ssc)
     :: (Monad m)
     => [TxHistoryEntry]
     -> Address

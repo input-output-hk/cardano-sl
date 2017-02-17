@@ -44,17 +44,16 @@ import           Pos.Slotting                (NtpSlotting, SlottingHolder,
                                               getLastKnownSlotDuration)
 import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
 import           Pos.Ssc.Extra               (SscHolder (..))
-import           Pos.Txp.Class               (getMemPool, getUtxoView)
-import qualified Pos.Txp.Holder              as Modern
-import           Pos.Txp.Logic               (processTx)
-import           Pos.Txp.Types               (UtxoView (..), localTxs)
+import           Pos.Txp                     (TxpHolder (..), UtxoView (..),
+                                              evalUtxoStateT, getMemPool, getUtxoView,
+                                              localTxs, runUtxoStateT,
+                                              txProcessTransaction)
 import           Pos.Types                   (Address, BlockHeader, ChainDifficulty, Coin,
                                               TxAux, TxId, Utxo, difficultyL,
-                                              evalUtxoStateT, flattenEpochOrSlot,
-                                              flattenSlotId, prevBlockL, runUtxoStateT,
-                                              sumCoins, toPair, txOutValue)
+                                              flattenEpochOrSlot, flattenSlotId,
+                                              prevBlockL, sumCoins, toPair, txOutValue)
 import           Pos.Types.Coin              (unsafeIntegerToCoin)
-import           Pos.Types.Utxo.Functions    (belongsTo, filterUtxoByAddr)
+import           Pos.Types.Utxo              (belongsTo, filterUtxoByAddr)
 import           Pos.Update                  (ConfirmedProposalState (..), USHolder (..))
 import           Pos.Util                    (maybeThrow)
 import           Pos.Util.Shutdown           (triggerShutdown)
@@ -98,7 +97,7 @@ deriving instance MonadBalances m => MonadBalances (WalletWebDB m)
 instance MonadIO m => MonadBalances (WalletDB m) where
     getOwnUtxo addr = WS.getUtxo >>= return . filterUtxoByAddr addr
 
-instance (MonadDB ssc m, MonadMask m) => MonadBalances (Modern.TxpLDHolder ssc m) where
+instance (MonadDB ssc m, MonadMask m) => MonadBalances (TxpHolder m) where
     getOwnUtxo addr = do
         utxo <- GS.getFilteredUtxo addr
         updates <- getUtxoView
@@ -147,7 +146,7 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
     saveTx _ = pure ()
 
 instance (SscHelpersClass ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
-         => MonadTxHistory (Modern.TxpLDHolder ssc m) where
+         => MonadTxHistory (TxpHolder m) where
     getTxHistory addr = do
         bot <- GS.getBot
         tip <- GS.getTip
@@ -177,7 +176,7 @@ instance (SscHelpersClass ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
             evalUtxoStateT (foldrM blockFetcher [] hashList >>= localFetcher) genUtxo
         maybe (panic "deriveAddrHistory: Nothing") return result
 
-    saveTx txw = () <$ processTx txw
+    saveTx txw = () <$ runExceptT (txProcessTransaction txw)
 
 --deriving instance MonadTxHistory m => MonadTxHistory (Modern.TxpLDHolder m)
 
@@ -265,7 +264,7 @@ instance MonadUpdates m => MonadUpdates (PeerStateHolder m)
 instance MonadUpdates m => MonadUpdates (NtpSlotting m)
 instance MonadUpdates m => MonadUpdates (SlottingHolder m)
 
-deriving instance MonadUpdates m => MonadUpdates (Modern.TxpLDHolder ssc m)
+deriving instance MonadUpdates m => MonadUpdates (TxpHolder m)
 deriving instance MonadUpdates m => MonadUpdates (SscHolder ssc m)
 deriving instance MonadUpdates m => MonadUpdates (DelegationT m)
 deriving instance MonadUpdates m => MonadUpdates (USHolder m)

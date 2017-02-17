@@ -24,7 +24,7 @@ import           Pos.Context                 (getNodeContext, getUptime, isRecov
 import           Pos.DB                      (DBError (DBMalformed), getBlockHeader,
                                               getTipBlockHeader, loadBlundsFromTipByDepth)
 import           Pos.DHT.Model               (converseToNeighbors)
-import           Pos.Reporting.Methods       (reportMisbehaviour)
+import           Pos.Reporting.Methods       (reportMisbehaviourMasked)
 import           Pos.Security.Class          (SecurityWorkersClass (..))
 import           Pos.Slotting                (getLastKnownSlotDuration, onNewSlot)
 import           Pos.Ssc.GodTossing          (GtPayload (..), SscGodTossing,
@@ -94,7 +94,7 @@ checkForReceivedBlocksWorker = onNewSlotWorker True requestTipOuts $ \slotId sen
         let reason =
                 "Eclipse attack was discovered, mdNoBlocksSlotThreshold: " <>
                 show (mdNoBlocksSlotThreshold :: Int)
-        when (nonTrivialUptime && not isRecovery) $ reportMisbehaviour reason
+        when (nonTrivialUptime && not isRecovery) $ reportMisbehaviourMasked reason
     onBlockLoadFailure header = do
         throwM $ DBMalformed $
             sformat ("Eclipse check: didn't manage to find parent of "%build%

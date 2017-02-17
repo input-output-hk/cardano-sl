@@ -44,7 +44,7 @@ import           Universum
 
 import           Pos.Context              (WithNodeContext, getNodeContext, ncNodeParams,
                                            npReportServers)
-import           Pos.DHT.Model            (MonadDHT, currentNodeKey, getKnownPeers)
+import           Pos.DHT.Model.Class      (MonadDHT, currentNodeKey, getKnownPeers)
 import           Pos.Exception            (CardanoFatalError)
 import           Pos.Reporting.Exceptions (ReportingError (..))
 

@@ -48,7 +48,7 @@ import           Pos.Context                (NodeContext (..), getNodeContext,
 import           Pos.Crypto                 (shortHashF)
 import qualified Pos.DB                     as DB
 import qualified Pos.DB.GState              as GState
-import           Pos.Reporting.Methods      (reportMisbehaviour)
+import           Pos.Reporting.Methods      (reportMisbehaviourMasked, reportingFatal)
 import           Pos.Ssc.Class              (Ssc, SscWorkersClass)
 import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (..),
                                              HeaderHash, blockHeader, difficultyL,
@@ -67,9 +67,10 @@ retrievalWorker
     => (WorkerSpec m, OutSpecs)
 retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
     NodeContext{..} <- getNodeContext
-    let loop queue recHeaderVar = ifNotShutdown $ do
+    let loop queue recHeaderVar = ifNotShutdown $ reportingFatal $ do
            ph <- atomically $ readTBQueue queue
-           handleAll (handleLE recHeaderVar ph) $ handle sendActions ph
+           handleAll (handleLE recHeaderVar ph) $ reportingFatal $
+               handle sendActions ph
            needQueryMore <- atomically $ do
                isEmpty <- isEmptyTBQueue queue
                recHeader <- tryReadTMVar recHeaderVar
@@ -77,7 +78,7 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
            whenJust needQueryMore $ \(peerId, rHeader) -> do
                logDebug "Queue is empty, we're in recovery mode -> querying more"
                whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
-                   handleAll (handleLE recHeaderVar ph) $
+                   handleAll (handleLE recHeaderVar ph) $ reportingFatal $
                    withConnectionTo sendActions peerId $
                        requestHeaders mghNext (Just rHeader) peerId
            loop queue recHeaderVar
@@ -554,7 +555,7 @@ applyWithRollback peerId sendActions toApply lca toRollback = do
     reportRollback =
         unlessM isRecoveryMode $ do
             logDebug "Reporting rollback happened"
-            reportMisbehaviour $
+            reportMisbehaviourMasked $
                 sformat reportF peerId toRollbackHashes toApplyHashes
     panicBrokenLca = panic "applyWithRollback: nothing after LCA :<"
     toApplyAfterLca =

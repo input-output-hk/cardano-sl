@@ -29,9 +29,9 @@ packages:
     # We're waiting on next release
     commit: 57adb970e198a9b377769ab46e776ec29f19cff6
   extra-dep: true
-- location:
+- location: 
     git: https://github.com/input-output-hk/cardano-report-server.git
-    commit: 344f0e6e1b69b512cbfb04caf42bbe285cc7727a
+    commit: ede7a1a9eafd88e3449b38c7425f5529d6584014
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git

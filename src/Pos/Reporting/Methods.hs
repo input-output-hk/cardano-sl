@@ -42,6 +42,7 @@ import           System.Wlog              (CanLog, HasLoggerName, LoggerConfig (
                                            ltFile, ltSubloggers, readMemoryLogs)
 import           Universum
 
+import           Pos.Constants            (protocolMagic)
 import           Pos.Context              (WithNodeContext, getNodeContext, ncNodeParams,
                                            npReportServers)
 import           Pos.DHT.Model.Class      (MonadDHT, currentNodeKey, getKnownPeers)
@@ -206,6 +207,7 @@ sendReport logFiles rawLogs reportType appName appVersion reportServerUri = do
         , rBuild = 0 -- what should be put here?
         , rOS = T.pack (os <> "-" <> arch)
         , rLogs = map toFileName files
+        , rMagic = protocolMagic
         , rDate = curTime
         , rReportType = reportType
         }

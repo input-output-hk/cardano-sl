@@ -468,7 +468,7 @@ library
                       , binary-conduit >= 1.2.4.1
                       , binary-orphans
                       , bytestring
-                      , cardano-report-server >= 0.0.1
+                      , cardano-report-server >= 0.1.0
                       , cereal
                       , concurrent-extra
                       , conduit >= 1.2.8
@@ -1093,7 +1093,7 @@ executable cardano-launcher
   build-depends:       async
                      , base
                      , optparse-applicative
-                     , cardano-report-server >= 0.0.1
+                     , cardano-report-server >= 0.1.0
                      , log-warper >= 0.4.3
                      , cardano-sl
                      , directory

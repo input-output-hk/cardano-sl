@@ -401,6 +401,7 @@ library
                         -- Utilities/helpers
                         Pos.Util.Arbitrary
                         Pos.Util.Binary
+                        Pos.Util.LogSafe
                         Pos.Util.Iterator
                         Pos.Util.NotImplemented
   if flag(with-web)

@@ -151,7 +151,7 @@ instance (SscHelpersClass ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
     getTxHistory addr = do
         bot <- GS.getBot
         tip <- GS.getTip
-        genUtxo <- filterUtxoByAddr addr <$> GS.getGenUtxo
+        genUtxo <- GS.getFilteredGenUtxo addr
 
         -- Getting list of all hashes in main blockchain (excluding bottom block - it's genesis anyway)
         hashList <- flip unfoldrM tip $ \h ->

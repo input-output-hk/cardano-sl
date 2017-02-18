@@ -25,6 +25,7 @@ import           Pos.Block.Network.Announce  (handleHeadersCommunication)
 import           Pos.Block.Network.Retrieval (handleUnsolicitedHeaders)
 import           Pos.Block.Network.Types     (MsgBlock (..), MsgGetBlocks (..),
                                               MsgGetHeaders (..), MsgHeaders (..))
+import           Pos.Communication.Limits    (LimitedLength, recvLimited, reifyMsgLimit)
 import           Pos.Communication.Protocol  (ConversationActions (..), HandlerSpec (..),
                                               ListenerSpec (..), OutSpecs, PeerData,
                                               listenerConv, mergeLs, messageName)
@@ -37,8 +38,8 @@ import           Pos.WorkMode                (WorkMode)
 
 blockListeners
     :: (WorkMode ssc m)
-    => ([ListenerSpec m], OutSpecs)
-blockListeners = mergeLs
+    => m ([ListenerSpec m], OutSpecs)
+blockListeners = mergeLs <$> sequence
     [ handleGetHeaders
     , handleGetBlocks
     , handleBlockHeaders
@@ -78,20 +79,23 @@ stubListenerConv' = unproxy $ \(_ :: Proxy ssc) ->
 handleGetHeaders
     :: forall ssc m.
        (WorkMode ssc m)
-    => (ListenerSpec m, OutSpecs)
-handleGetHeaders = listenerConv $ \_ peerId conv -> do
-    logDebug $ "handleGetHeaders: request from " <> show peerId
-    handleHeadersCommunication conv
+    => m (ListenerSpec m, OutSpecs)
+handleGetHeaders = reifyMsgLimit (Proxy @MsgGetHeaders) $ \limitProxy ->
+    return $ listenerConv $ \_ peerId conv -> do
+        logDebug $ "handleGetHeaders: request from " <> show peerId
+        handleHeadersCommunication conv limitProxy
 
 handleGetBlocks
     :: forall ssc m.
        (WorkMode ssc m)
-    => (ListenerSpec m, OutSpecs)
-handleGetBlocks =
-    listenerConv $
+    => m (ListenerSpec m, OutSpecs)
+handleGetBlocks = reifyMsgLimit (Proxy :: Proxy MsgGetBlocks) $
+    \(_ :: Proxy s) ->
+      return $ listenerConv $
         \_ __peerId (conv :: ConversationActions
-                               (MsgBlock ssc) MsgGetBlocks m) ->
-        whenJustM (recv conv) $ \mgb@MsgGetBlocks{..} -> do
+                               (MsgBlock ssc)
+                               (LimitedLength s MsgGetBlocks) m) ->
+        whenJustM (recvLimited conv) $ \mgb@MsgGetBlocks{..} -> do
             logDebug $ sformat ("Got request on handleGetBlocks: "%build) mgb
             hashes <- getHeadersFromToIncl mgbFrom mgbTo
             maybe warn (sendBlocks conv) hashes
@@ -113,10 +117,11 @@ handleGetBlocks =
 handleBlockHeaders
     :: forall ssc m.
        (WorkMode ssc m)
-    => (ListenerSpec m, OutSpecs)
-handleBlockHeaders = listenerConv $
-    \_ peerId conv -> do
+    => m (ListenerSpec m, OutSpecs)
+handleBlockHeaders = reifyMsgLimit (Proxy @(MsgHeaders ssc)) $
+    \(_ :: Proxy s) -> return $ listenerConv $
+      \_ peerId conv -> do
         logDebug "handleBlockHeaders: got some unsolicited block header(s)"
-        (mHeaders :: Maybe (MsgHeaders ssc)) <- recv conv
+        mHeaders <- recvLimited @s conv
         whenJust mHeaders $ \(MsgHeaders headers) ->
             handleUnsolicitedHeaders (getNewestFirst headers) peerId conv

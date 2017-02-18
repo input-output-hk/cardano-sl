@@ -15,6 +15,8 @@ import           Universum
 
 import           Pos.Binary.Ssc              ()
 import           Pos.Block.Network.Retrieval (requestTip, requestTipOuts)
+import           Pos.Block.Network.Types     (MsgHeaders)
+import           Pos.Communication.Limits    (reifyMsgLimit)
 import           Pos.Communication.Protocol  (OutSpecs, WorkerSpec, localWorker,
                                               onNewSlotWorker)
 import           Pos.Constants               (blkSecurityParam, mdNoBlocksSlotThreshold,
@@ -49,7 +51,9 @@ instance SecurityWorkersClass SscGodTossing where
 instance SecurityWorkersClass SscNistBeacon where
     securityWorkers = Tagged $ first pure checkForReceivedBlocksWorker
 
-checkForReceivedBlocksWorker :: WorkMode ssc m => (WorkerSpec m, OutSpecs)
+checkForReceivedBlocksWorker
+    :: forall ssc m. WorkMode ssc m
+    => (WorkerSpec m, OutSpecs)
 checkForReceivedBlocksWorker = onNewSlotWorker True requestTipOuts $ \slotId sendActions -> do
     ourPk <- ncPublicKey <$> getNodeContext
 
@@ -84,7 +88,8 @@ checkForReceivedBlocksWorker = onNewSlotWorker True requestTipOuts $ \slotId sen
             "There are no blocks younger " <>
             "than 'mdNoBlocksSlotThreshold' that we didn't generate " <>
             "by ourselves"
-        converseToNeighbors sendActions requestTip
+        reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limitProxy ->
+            converseToNeighbors sendActions (requestTip limitProxy)
         reportEclipse
   where
     reportEclipse = do

@@ -33,7 +33,7 @@ allListeners
     :: (SscListenersClass ssc, WorkMode ssc m)
     => m ([ListenerSpec m], OutSpecs)
 allListeners = mconcatPair <$> sequence
-        [ modifier "block"      <$> pure blockListeners
+        [ modifier "block"      <$> blockListeners
         , modifier "ssc"        <$> untag <$> sscListeners
         , modifier "tx"         <$> txListeners
         , modifier "delegation" <$> pure delegationListeners

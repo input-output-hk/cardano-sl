@@ -16,6 +16,7 @@ module Pos.Communication.Limits
     , LimitedLengthExt (..)
     , LimitedLength
     , reifyMsgLimit
+    , recvLimited
 
     , MaxSize (..)
 
@@ -42,8 +43,10 @@ import           Universum
 
 import           Pos.Binary.Class                 (Bi (..))
 import qualified Pos.Binary.Class                 as Bi
-import           Pos.Block.Network.Types          (MsgBlock)
+import           Pos.Block.Network.Types          (MsgBlock, MsgGetBlocks, MsgGetHeaders,
+                                                   MsgHeaders)
 import qualified Pos.Constants                    as Const
+import           Pos.Communication.Protocol       (ConversationActions (..))
 import           Pos.Communication.Types.Relay    (DataMsg (..), InvMsg, ReqMsg,
                                                    InvOrData)
 import           Pos.Crypto                       (Signature, PublicKey,
@@ -154,23 +157,21 @@ class Limiter (LimitType a) => MessageLimited a where
     type LimitType a :: *
     getMsgLenLimit :: MonadDB ssc m => Proxy a -> m (LimitType a)
 
--- | Pure analogy to `MessageLimited`.
---
--- All instances are encouraged to be covered with tests
--- (using `Test.Pos.Util.msgLenLimitedTest`).
---
--- If you're going to add instance and have no idea regarding limit value,
--- and your type's size is essentially bounded (doesn't contain list-like
--- structures and doesn't depend on global parameters), you can do as follows:
--- 1) Create instance with limit @1@.
--- 2) Add test case, run - it would fail and report actual size.
--- 3) Insert that value into instance.
-class MessageLimitedPure a where
-    msgLenLimit :: Limit a
-
 instance MessageLimited (MsgBlock ssc) where
     type LimitType (MsgBlock ssc) = Limit (MsgBlock ssc)
     getMsgLenLimit _ = Limit <$> GState.getMaxBlockSize
+
+instance MessageLimited MsgGetBlocks where
+    type LimitType MsgGetBlocks = Limit MsgGetBlocks
+    getMsgLenLimit _ = undefined
+
+instance MessageLimited MsgGetHeaders where
+    type LimitType MsgGetHeaders = Limit MsgGetHeaders
+    getMsgLenLimit _ = undefined
+
+instance MessageLimited (MsgHeaders ssc) where
+    type LimitType (MsgHeaders ssc) = Limit (MsgHeaders ssc)
+    getMsgLenLimit _ = undefined
 
 instance MessageLimited (InvMsg key tag) where
     type LimitType (InvMsg key tag) = Limit (InvMsg key tag)
@@ -229,6 +230,20 @@ instance MessageLimited (DataMsg contents)
         dataLim <- getMsgLenLimit $ Proxy @(DataMsg contents)
         -- 1 byte is added because of `Either`
         return (1 `addLimit` invLim, 1 `addLimit` dataLim)
+
+-- | Pure analogy to `MessageLimited`.
+--
+-- All instances are encouraged to be covered with tests
+-- (using `Test.Pos.Util.msgLenLimitedTest`).
+--
+-- If you're going to add instance and have no idea regarding limit value,
+-- and your type's size is essentially bounded (doesn't contain list-like
+-- structures and doesn't depend on global parameters), you can do as follows:
+-- 1) Create instance with limit @1@.
+-- 2) Add test case, run - it would fail and report actual size.
+-- 3) Insert that value into instance.
+class MessageLimitedPure a where
+    msgLenLimit :: Limit a
 
 instance MessageLimitedPure (InvMsg key tag) where
     msgLenLimit = Limit Const.genesisMaxReqSize
@@ -371,6 +386,12 @@ reifyMsgLimit
 reifyMsgLimit _ f = do
     lengthLimit <- getMsgLenLimit $ Proxy @a
     reify lengthLimit f
+
+recvLimited
+    :: forall s rcv snd m.
+       Monad m
+    => ConversationActions snd (LimitedLength s rcv) m -> m (Maybe rcv)
+recvLimited conv = fmap withLimitedLength <$> recv conv
 
 -- | Wrapper for `Arbitrary` instances to indicate that
 -- where an alternative exists, maximal available size is choosen.

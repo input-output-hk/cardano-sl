@@ -71,6 +71,7 @@ import           Pos.Update.Core.Types (UpdatePayload, UpdateProof, UpdatePropos
                                         mkUpdateProof)
 import           Pos.Util              (Color (Magenta), colorize)
 
+
 ----------------------------------------------------------------------------
 -- MainBlock
 ----------------------------------------------------------------------------
@@ -155,6 +156,11 @@ deriving instance Ssc ssc => Eq (BodyProof (MainBlockchain ssc))
 deriving instance Ssc ssc => Show (Body (MainBlockchain ssc))
 deriving instance (Eq (SscPayload ssc), Ssc ssc) => Eq (Body (MainBlockchain ssc))
 
+instance (Ssc ssc) => NFData (BodyProof (MainBlockchain ssc))
+instance (Ssc ssc) => NFData (ConsensusData (MainBlockchain ssc))
+instance (Ssc ssc) => NFData (Body (MainBlockchain ssc))
+instance (Ssc ssc) => NFData (MainBlock ssc)
+
 ----------------------------------------------------------------------------
 -- GenesisBlock
 ----------------------------------------------------------------------------
@@ -182,6 +188,11 @@ instance Blockchain (GenesisBlockchain ssc) where
 
     mkBodyProof = GenesisProof . hash . _gbLeaders
     verifyBBlock _ = pure ()
+
+instance (Ssc ssc) => NFData (BodyProof (GenesisBlockchain ssc))
+instance (Ssc ssc) => NFData (ConsensusData (GenesisBlockchain ssc))
+instance (Ssc ssc) => NFData (Body (GenesisBlockchain ssc))
+instance (Ssc ssc) => NFData (GenesisBlock ssc)
 
 ----------------------------------------------------------------------------
 -- Lenses. Move it from here
@@ -304,8 +315,9 @@ blockLeaders :: Lens' (GenesisBlock ssc) SlotLeaders
 blockLeaders = gbBody . gbLeaders
 
 ----------------------------------------------------------------------------
--- Buildable MainBlock
+-- Buildable instances for MainBlock and GenesisBlock
 ----------------------------------------------------------------------------
+
 instance BiSsc ssc => Buildable (MainBlockHeader ssc) where
     build gbh@GenericBlockHeader {..} =
         bprint
@@ -351,9 +363,6 @@ instance (Bi UpdateProposal, BiSsc ssc) => Buildable (MainBlock ssc) where
       where
         MainBody {..} = _gbBody
 
-----------------------------------------------------------------------------
--- Buildable GenesisBlock
-----------------------------------------------------------------------------
 instance BiSsc ssc => Buildable (GenesisBlockHeader ssc) where
     build gbh@GenericBlockHeader {..} =
         bprint
@@ -387,10 +396,6 @@ instance BiSsc ssc => Buildable (GenesisBlock ssc) where
         formatIfNotNull formatter l = if null l then mempty else sformat formatter l
         formatLeaders = formatIfNotNull
             ("  leaders: "%listJson%"\n") _gbLeaders
-
-----------------------------------------------------------------------------
--- Buildable GenesisBlock ∪ MainBlock
-----------------------------------------------------------------------------
 
 instance BiSsc ssc => Buildable (BlockHeader ssc) where
     build = either Buildable.build Buildable.build
@@ -513,8 +518,8 @@ instance HasDifficulty (Block ssc) where
 ----------------------------------------------------------------------------
 -- HasPrevBlock
 ----------------------------------------------------------------------------
--- | Class for something that has previous block (lens to 'Hash' for this block).
 
+-- | Class for something that has previous block (lens to 'Hash' for this block).
 instance HasPrevBlock s => HasPrevBlock (s, z) where
     prevBlockL = _1 . prevBlockL
 

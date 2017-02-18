@@ -33,7 +33,7 @@ import           Pos.Util.Binary      (Raw)
 -- | Data type for root of merkle tree.
 newtype MerkleRoot a = MerkleRoot
     { getMerkleRoot :: Hash Raw  -- ^ returns root 'Hash' of Merkle Tree
-    } deriving (Show, Eq, Ord, Generic, ByteArrayAccess, Typeable)
+    } deriving (Show, Eq, Ord, Generic, ByteArrayAccess, Typeable, NFData)
 
 -- This gives a “redundant constraint” warning due to
 -- https://github.com/acid-state/safecopy/issues/46.
@@ -42,6 +42,8 @@ deriveSafeCopySimple 0 'base ''MerkleRoot
 -- | Straightforward merkle tree representation in Haskell.
 data MerkleTree a = MerkleEmpty | MerkleTree Word32 (MerkleNode a)
     deriving (Eq, Generic)
+
+instance NFData a => NFData (MerkleTree a)
 
 instance Foldable MerkleTree where
     foldMap _ MerkleEmpty      = mempty
@@ -63,6 +65,8 @@ data MerkleNode a
     | MerkleLeaf { mRoot :: MerkleRoot a
                  , mVal  :: a}
     deriving (Eq, Show, Generic)
+
+instance NFData a => NFData (MerkleNode a)
 
 instance Foldable MerkleNode where
     foldMap f x = case x of

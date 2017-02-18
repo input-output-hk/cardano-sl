@@ -15,20 +15,22 @@ import           Pos.Binary.Class    (Bi)
 
 -- | Main Shared Seed Calculation type class. Stores all needed type
 -- parameters for general implementation of SSC.
-class (Typeable ssc
-      ,Typeable (SscPayload ssc)
-      ,Typeable (SscProof ssc)
-      ,Typeable (SscSeedError ssc)
-      ,Eq (SscProof ssc)
-      ,Eq (SscGlobalState ssc)
-      ,Show (SscProof ssc)
-      ,Show (SscPayload ssc)
-      ,Buildable (SscPayload ssc)
-      ,Buildable (SscSeedError ssc)
-      ,Buildable (SscVerifyError ssc)
-      ,Buildable (SscGlobalState ssc)
-      ,Bi (SscProof ssc)
-      ,Bi (SscPayload ssc)
+class ( Typeable ssc
+      , Typeable (SscPayload ssc)
+      , Typeable (SscProof ssc)
+      , Typeable (SscSeedError ssc)
+      , Eq (SscProof ssc)
+      , Eq (SscGlobalState ssc)
+      , Show (SscProof ssc)
+      , Show (SscPayload ssc)
+      , Buildable (SscPayload ssc)
+      , Buildable (SscSeedError ssc)
+      , Buildable (SscVerifyError ssc)
+      , Buildable (SscGlobalState ssc)
+      , Bi (SscProof ssc)
+      , Bi (SscPayload ssc)
+      , NFData (SscPayload ssc)
+      , NFData (SscProof ssc)
       ) =>
       Ssc ssc where
 

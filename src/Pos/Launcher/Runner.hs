@@ -48,6 +48,7 @@ import           Mockable                    (CurrentTime, Mockable, MonadMockab
                                               Production (..), Throw, bracket,
                                               currentTime, delay, finally, fork,
                                               killThread, throw)
+import           Network.QDisc.Fair          (fairQDisc)
 import           Network.Transport           (Transport, closeTransport)
 import           Network.Transport.Concrete  (concrete)
 import qualified Network.Transport.TCP       as TCP
@@ -271,7 +272,6 @@ runServer transport packedLS (OutSpecs wouts) withNode afterNode (ActionSpec act
     stdGen <- liftIO newStdGen
     logInfo $ sformat ("Our verInfo "%build) ourVerInfo
     node (concrete transport) stdGen BiP (ourPeerId, ourVerInfo) $ \__node ->
-        pure $
         NodeAction listeners $ \sendActions -> do
             t <- withNode __node
             a <- action ourVerInfo sendActions `finally` afterNode t
@@ -429,6 +429,7 @@ createTransport ip port = do
             (TCP.defaultTCPParameters
              { TCP.transportConnectTimeout =
                    Just $ fromIntegral networkConnectionTimeout
+             , TCP.tcpNewQDisc = fairQDisc
              })
     transportE <-
         liftIO $ TCP.createTransport "0.0.0.0" ip (show port) tcpParams

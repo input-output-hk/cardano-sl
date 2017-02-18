@@ -26,6 +26,8 @@ module Pos.Constants
        , genesisN
        , genesisSlotDuration
        , genesisMaxBlockSize
+       , genesisMaxHeaderSize
+       , genesisMaxGetHeadersNum
        , genesisMaxTxSize
        , genesisMaxReqSize
        , genesisMaxInvSize
@@ -152,6 +154,14 @@ genesisSlotDuration =
 -- | Maximum size of a block (in bytes)
 genesisMaxBlockSize :: Byte
 genesisMaxBlockSize = ccGenesisMaxBlockSize $ compileConfig
+
+-- | Maximum size of a block header (in bytes)
+genesisMaxHeaderSize :: Byte
+genesisMaxHeaderSize = ccGenesisMaxHeaderSize $ compileConfig
+
+-- | Maximum number of block headers to request at once
+genesisMaxGetHeadersNum :: Int
+genesisMaxGetHeadersNum = ccGenesisMaxGetHeadersNum $ compileConfig
 
 -- | See 'Pos.CompileConfig.ccGenesisMaxTxSize'.
 genesisMaxTxSize :: Byte

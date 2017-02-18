@@ -5,6 +5,8 @@ k: 60
 genesisN: 12007
 genesisSlotDurationSec: 120
 genesisMaxBlockSize: 2000000
+genesisMaxHeaderSize: 200000
+genesisMaxGetHeadersNum: 100
 genesisMaxTxSize: 4096 # 4 Kb
 genesisMaxReqSize: 100 # 100 bytes
 genesisMaxInvSize: 100 # 100 bytes

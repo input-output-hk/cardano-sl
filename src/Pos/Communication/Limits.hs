@@ -43,8 +43,8 @@ import           Universum
 
 import           Pos.Binary.Class                 (Bi (..))
 import qualified Pos.Binary.Class                 as Bi
-import           Pos.Block.Network.Types          (MsgBlock, MsgGetBlocks, MsgGetHeaders,
-                                                   MsgHeaders)
+import           Pos.Block.Network.Types          (MsgBlock, MsgGetBlocks (..),
+                                                   MsgGetHeaders (..), MsgHeaders (..))
 import qualified Pos.Constants                    as Const
 import           Pos.Communication.Protocol       (ConversationActions (..))
 import           Pos.Communication.Types.Relay    (DataMsg (..), InvMsg, ReqMsg,
@@ -163,15 +163,18 @@ instance MessageLimited (MsgBlock ssc) where
 
 instance MessageLimited MsgGetBlocks where
     type LimitType MsgGetBlocks = Limit MsgGetBlocks
-    getMsgLenLimit _ = undefined
+    getMsgLenLimit _ = return msgLenLimit
 
 instance MessageLimited MsgGetHeaders where
     type LimitType MsgGetHeaders = Limit MsgGetHeaders
-    getMsgLenLimit _ = undefined
+    getMsgLenLimit _ = return $
+        MsgGetHeaders <$> vector Const.genesisMaxGetHeadersNum <*> msgLenLimit
 
 instance MessageLimited (MsgHeaders ssc) where
     type LimitType (MsgHeaders ssc) = Limit (MsgHeaders ssc)
-    getMsgLenLimit _ = undefined
+    getMsgLenLimit _ = return $
+        MsgHeaders <$> vectorOf Const.blkSecurityParam
+            (Limit Const.genesisMaxHeaderSize)
 
 instance MessageLimited (InvMsg key tag) where
     type LimitType (InvMsg key tag) = Limit (InvMsg key tag)
@@ -231,7 +234,8 @@ instance MessageLimited (DataMsg contents)
         -- 1 byte is added because of `Either`
         return (1 `addLimit` invLim, 1 `addLimit` dataLim)
 
--- | Pure analogy to `MessageLimited`.
+-- | Pure analogy to `MessageLimited`. Allows to easily get message length
+-- limit for simple types.
 --
 -- All instances are encouraged to be covered with tests
 -- (using `Test.Pos.Util.msgLenLimitedTest`).
@@ -244,6 +248,9 @@ instance MessageLimited (DataMsg contents)
 -- 3) Insert that value into instance.
 class MessageLimitedPure a where
     msgLenLimit :: Limit a
+
+instance MessageLimitedPure MsgGetBlocks where
+    msgLenLimit = MsgGetBlocks <$> msgLenLimit <*> msgLenLimit
 
 instance MessageLimitedPure (InvMsg key tag) where
     msgLenLimit = Limit Const.genesisMaxReqSize
@@ -285,6 +292,15 @@ instance MessageLimitedPure TxMsgContents where
 
 instance MessageLimitedPure (DataMsg TxMsgContents) where
     msgLenLimit = DataMsg <$> msgLenLimit
+
+instance MessageLimitedPure a => MessageLimitedPure (Maybe a) where
+    msgLenLimit = Just <$> msgLenLimit + 1
+
+instance ( MessageLimitedPure a
+         , MessageLimitedPure b
+         )
+         => MessageLimitedPure (Either a b) where
+    msgLenLimit = 1 + max (Left <$> msgLenLimit) (Right <$> msgLenLimit)
 
 instance ( MessageLimitedPure a
          , MessageLimitedPure b

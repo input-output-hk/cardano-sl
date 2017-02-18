@@ -33,6 +33,10 @@ data CompileConfig = CompileConfig
       -- ^ Length of slot in seconds
     , ccGenesisMaxBlockSize           :: !Byte
       -- ^ Maximum block size in bytes
+    , ccGenesisMaxHeaderSize          :: !Byte
+      -- ^ Maximum block header size in bytes
+    , ccGenesisMaxGetHeadersNum       :: !Int
+      -- ^ Maximum number of block headers to request at once
 
 ----------------------------------------------------------------------------
 -- -- Txp

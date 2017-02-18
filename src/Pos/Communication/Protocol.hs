@@ -54,7 +54,7 @@ import           Pos.Types                        (SlotId)
 protocolListeners :: (Bi NOP, Message NOP, WithLogger m) => [Listener m]
 protocolListeners =
     [N.ListenerActionConversation $
-        \(peerId, _) nodeId (conv :: N.ConversationActions PeerData NOP NOP m) -> do
+        \(peerId, _) nodeId (conv :: N.ConversationActions NOP NOP m) -> do
             void $ N.recv conv
             logDebug $ sformat ("Received NOP from "%build) (NodeId (peerId, nodeId))
     ]
@@ -66,8 +66,8 @@ mapListener = mapListener' identity $ const identity
 mapListener'
     :: (N.SendActions BiP PeerData m -> N.SendActions BiP PeerData m)
     -> (forall snd rcv. Message rcv => N.NodeId
-          -> N.ConversationActions PeerData snd rcv m
-          -> N.ConversationActions PeerData snd rcv m)
+          -> N.ConversationActions snd rcv m
+          -> N.ConversationActions snd rcv m)
     -> (forall t. m t -> m t) -> Listener m -> Listener m
 mapListener' saMapper _ mapper (N.ListenerActionOneMsg f) =
     N.ListenerActionOneMsg $ \d nId sA -> mapper . f d nId (saMapper sA)
@@ -85,7 +85,7 @@ hoistConversationActions
     -> ConversationActions body rcv n
     -> ConversationActions body rcv m
 hoistConversationActions nat ConversationActions {..} =
-    ConversationActions (nat . send) (nat recv) (nat peerData)
+    ConversationActions (nat . send) (nat recv)
 
 hoistSendActions
     :: (forall a. n a -> m a)
@@ -96,8 +96,8 @@ hoistSendActions nat rnat SendActions {..} = SendActions sendTo' withConnectionT
   where
     sendTo' nodeId msg = nat $ sendTo nodeId msg
     withConnectionTo' nodeId convActionsH =
-        nat $ withConnectionTo nodeId $ \convActions ->
-        rnat $ convActionsH $ hoistConversationActions nat convActions
+        nat $ withConnectionTo nodeId $ \peerData convActions ->
+        rnat $ convActionsH (nat peerData) $ hoistConversationActions nat convActions
 
 hoistListenerSpec
     :: (forall a. m a -> n a)
@@ -107,11 +107,10 @@ hoistListenerSpec
 hoistListenerSpec nat rnat (ListenerSpec h s) =
     ListenerSpec (\vI -> N.hoistListenerAction nat rnat $ h vI) s
 
-convertCA :: N.ConversationActions PeerData snd rcv m -> ConversationActions snd rcv m
+convertCA :: N.ConversationActions snd rcv m -> ConversationActions snd rcv m
 convertCA cA = ConversationActions
     { send = N.send cA
     , recv = N.recv cA
-    , peerData = N.peerData cA
     }
 
 convertSendActions
@@ -127,7 +126,8 @@ convertSendActions ourVerInfo sA = modifySend (vIOutHandlers ourVerInfo) $
   SendActions
       { sendTo = \(NodeId (_peerId, nNodeId)) -> N.sendTo sA nNodeId
       , withConnectionTo = \(NodeId (_peerId, nNodeId)) h ->
-                                N.withConnectionTo sA nNodeId $ h . convertCA
+          let h' = \peerData conversationActions -> h peerData (convertCA conversationActions)
+          in N.withConnectionTo sA nNodeId $ h'
       }
 
 listenerOneMsg
@@ -336,17 +336,17 @@ modifySend ourOutSpecs sA = sA
                                 (formatMessage msg) nodeId
     , withConnectionTo = \nodeId conv -> do
           pVI <- acquirePVI nodeId
-          let sndMsgName = messageName . sndProxy $ fstArgProxy conv
-              rcvMsgName = messageName . rcvProxy $ fstArgProxy conv
+          let sndMsgName = messageName . sndProxy $ sndArgProxy conv
+              rcvMsgName = messageName . rcvProxy $ sndArgProxy conv
           checkingOutSpecs (sndMsgName, ConvHandler rcvMsgName)
               nodeId (vIInHandlers pVI) $ withConnectionTo sA nodeId conv
     }
   where
     requestPVI nodeId = withConnectionTo sA nodeId $
-      \(conv :: ConversationActions NOP NOP m) -> do
+      \peerData (conv :: ConversationActions NOP NOP m) -> do
           send conv NOP
           logDebug $ sformat ("Sent NOP to "%build) nodeId
-          snd <$> peerData conv
+          snd <$> peerData
     acquirePVI nodeId@(NodeId (peerId, _)) = do
         st <- getPeerState peerId
         mVI <- view peerVerInfo <$> readSharedAtomic st
@@ -359,8 +359,8 @@ modifySend ourOutSpecs sA = sA
                                 vi nodeId
                 modifySharedAtomic st $ \peerState ->
                   return (set peerVerInfo (Just vi) peerState, vi)
-    fstArgProxy :: (a -> b) -> Proxy a
-    fstArgProxy _ = Proxy
+    sndArgProxy :: (a -> b -> c) -> Proxy b
+    sndArgProxy _ = Proxy
 
     checkingOutSpecs spec (NodeId (peerId, _)) peerInSpecs action = do
         if | spec `notInSpecs` ourOutSpecs -> do

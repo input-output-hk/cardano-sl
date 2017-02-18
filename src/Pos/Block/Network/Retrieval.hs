@@ -79,7 +79,7 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
                logDebug "Queue is empty, we're in recovery mode -> querying more"
                whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
                    handleAll (handleLE recHeaderVar ph) $ reportingFatal $
-                   withConnectionTo sendActions peerId $
+                   withConnectionTo sendActions peerId $ \_peerData ->
                        requestHeaders mghNext (Just rHeader) peerId
            loop queue recHeaderVar
 
@@ -148,7 +148,7 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
         -- a parameter to the 'Bi' instance of 'MsgBlock'.
         reify maxBlockSize $ \(_ :: Proxy s0) ->
           withConnectionTo sendActions peerId $
-          \(conv :: ConversationActions MsgGetBlocks (MsgBlock s0 ssc) m) -> do
+          \_peerData (conv :: ConversationActions MsgGetBlocks (MsgBlock s0 ssc) m) -> do
             send conv $ mkBlocksRequest lcaChildHash newestHash
             chainE <- runExceptT (retrieveBlocks conv lcaChild newestHash)
             recHeaderVar <- ncRecoveryHeader <$> getNodeContext

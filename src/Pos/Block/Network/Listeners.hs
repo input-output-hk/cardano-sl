@@ -26,7 +26,7 @@ import           Pos.Block.Network.Retrieval (handleUnsolicitedHeaders)
 import           Pos.Block.Network.Types     (MsgBlock (..), MsgGetBlocks (..),
                                               MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Protocol  (ConversationActions (..), HandlerSpec (..),
-                                              ListenerSpec (..), OutSpecs, PeerData,
+                                              ListenerSpec (..), OutSpecs,
                                               listenerConv, mergeLs, messageName)
 import           Pos.Communication.Util      (stubListenerConv)
 import qualified Pos.DB                      as DB
@@ -62,7 +62,6 @@ stubListenerConv' = unproxy $ \(_ :: Proxy ssc) ->
             sndName = messageName (Proxy :: Proxy (MsgBlock a b))
             listener _ = N.ListenerActionConversation $
               \_d __nId (_convActions :: N.ConversationActions
-                                             PeerData
                                              (MsgBlock s0 ssc)
                                              MsgGetBlocks m) ->
                   modifyLoggerName (<> "stub") $

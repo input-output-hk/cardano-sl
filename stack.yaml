@@ -35,7 +35,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 9865cea6fe7a2b376d67c0ff77efaaa26ea73d45
+    commit: b913bfc698fd2927ee5031826688eb7245906e6d
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
@@ -72,5 +72,3 @@ extra-deps:
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
-
-

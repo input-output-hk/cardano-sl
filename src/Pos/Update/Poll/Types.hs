@@ -250,8 +250,7 @@ data USUndo = USUndo
     , unChangedProps     :: !(HashMap UpId (PrevValue ProposalState))
     , unChangedSV        :: !(HashMap ApplicationName (PrevValue NumSoftwareVersion))
     , unChangedConfProps :: !(HashMap SoftwareVersion (PrevValue ConfirmedProposalState))
-    }
-    deriving (Show)
+    } deriving (Show)
 
 makeLensesFor [ ("unChangedBV", "unChangedBVL")
               , ("unLastAdoptedBV", "unLastAdoptedBVL")

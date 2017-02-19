@@ -257,6 +257,8 @@ servantHandlers sendActions =
      catchWalletError (fromIntegral <$> blockchainSlotDuration)
     :<|>
      catchWalletError (pure curSoftwareVersion)
+    :<|>
+     catchWalletError . importKey
   where
     -- TODO: can we with Traversable map catchWalletError over :<|>
     -- TODO: add logging on error
@@ -418,6 +420,9 @@ redeemADA sendActions CWalletRedeem {..} = do
             () <$ addHistoryTx dstCAddr ADA "ADA redemption" ""
                 (THEntry (hash tx) tx False Nothing)
             pure walletB
+
+importKey :: WalletWebMode ssc m => FilePath -> m ()
+importKey = undefined
 
 ----------------------------------------------------------------------------
 -- Helpers

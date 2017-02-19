@@ -61,6 +61,8 @@ type WalletApi =
      "api" :> "slot_duration" :> Get '[JSON] (Either WalletError Word)
     :<|>
      "api" :> "system_version" :> Get '[JSON] (Either WalletError SoftwareVersion)
+    :<|>
+     "api" :> "import_key" :> Capture "key" FilePath :> Post '[JSON] (Either WalletError ())
 
 -- | Helper Proxy.
 walletApi :: Proxy WalletApi

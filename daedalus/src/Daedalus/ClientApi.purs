@@ -151,5 +151,8 @@ applyUpdate = fromAff B.applyUpdate
 systemVersion :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
 systemVersion = fromAff $ map encodeJson B.systemVersion
 
-redeemADA :: forall eff . EffFn2 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String String (Promise Json)
+redeemADA :: forall eff. EffFn2 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String String (Promise Json)
 redeemADA = mkEffFn2 \seed -> fromAff <<< map encodeJson <<< B.redeemADA <<< mkCWalletRedeem seed
+
+importKey :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Unit)
+importKey = mkEffFn1 $ fromAff <<< B.importKey

@@ -43,6 +43,7 @@ import           Pos.Types                     (Address, ChainDifficulty (..), C
                                                 mkCoin)
 import           Pos.Util                      (maybeThrow)
 import           Pos.Util.BackupPhrase         (BackupPhrase, keysFromPhrase)
+import           Pos.Util.UserSecret           (readUserSecret, usKeys)
 import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
                                                 addSecretKey)
 import           Pos.Wallet.Tx                 (sendTxOuts, submitTx)
@@ -421,15 +422,22 @@ redeemADA sendActions CWalletRedeem {..} = do
                 (THEntry (hash tx) tx False Nothing)
             pure walletB
 
-importKey :: WalletWebMode ssc m => FilePath -> m ()
-importKey = undefined
+importKey :: WalletWebMode ssc m => Text -> m ()
+importKey (toString -> fp) = do
+    secret <- readUserSecret fp
+    forM_ (secret ^. usKeys) $ \key -> do
+        addSecretKey key
+        let addr = makePubKeyAddress $ toPublic key
+            cAddr = addressToCAddress addr
+        createWallet cAddr def
 
-----------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
 
+-- We omit first secret key, because it's considered to be block signing key
 myAddresses :: MonadKeys m => m [Address]
-myAddresses = nub . map (makePubKeyAddress . toPublic) <$> getSecretKeys
+myAddresses = nub . map (makePubKeyAddress . toPublic) . drop 1 <$> getSecretKeys
 
 myCAddresses :: MonadKeys m => m [CAddress]
 myCAddresses = map addressToCAddress <$> myAddresses
@@ -446,7 +454,6 @@ genSaveAddress ph = addressToCAddress . makePubKeyAddress . toPublic <$> genSave
         let sk = fst $ keysFromPhrase ph'
         addSecretKey sk
         return sk
-
 
 ----------------------------------------------------------------------------
 -- Orphan instances

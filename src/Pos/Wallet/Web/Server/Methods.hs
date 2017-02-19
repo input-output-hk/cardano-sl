@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -34,8 +35,8 @@ import           Universum
 import           Pos.Aeson.ClientTypes         ()
 import           Pos.Communication.Protocol    (OutSpecs, SendActions, hoistSendActions)
 import           Pos.Constants                 (curSoftwareVersion)
-import           Pos.Crypto                    (hash)
-import           Pos.Crypto                    (deterministicKeyGen, toPublic)
+import           Pos.Crypto                    (SecretKey, deterministicKeyGen, hash,
+                                                toPublic)
 import           Pos.DHT.Model                 (getKnownPeers)
 import           Pos.Types                     (Address, ChainDifficulty (..), Coin,
                                                 TxOut (..), addressF, coinF,
@@ -259,7 +260,7 @@ servantHandlers sendActions =
     :<|>
      catchWalletError (pure curSoftwareVersion)
     :<|>
-     catchWalletError . importKey
+     catchWalletError . importKey sendActions
   where
     -- TODO: can we with Traversable map catchWalletError over :<|>
     -- TODO: add logging on error
@@ -422,14 +423,30 @@ redeemADA sendActions CWalletRedeem {..} = do
                 (THEntry (hash tx) tx False Nothing)
             pure walletB
 
-importKey :: WalletWebMode ssc m => Text -> m ()
-importKey (toString -> fp) = do
+importKey :: WalletWebMode ssc m => SendActions m -> Text -> m ()
+importKey sendActions (toString -> fp) = do
     secret <- readUserSecret fp
     forM_ (secret ^. usKeys) $ \key -> do
         addSecretKey key
         let addr = makePubKeyAddress $ toPublic key
             cAddr = addressToCAddress addr
         createWallet cAddr def
+#ifdef DEV_MODE
+    psk <- myPrimaryKey
+    let importedAddr = makePubKeyAddress $ toPublic $ (secret ^. usKeys) !! 0
+        importedCAddr = addressToCAddress importedAddr
+        pAddr = makePubKeyAddress $ toPublic psk
+    primaryBalance <- getBalance pAddr
+    when (primaryBalance > mkCoin 0) $ do
+        na <- getKnownPeers
+        etx <- submitTx sendActions psk na [(TxOut importedAddr primaryBalance, [])]
+        case etx of
+            Left err -> throwM . Internal $ "Cannot transfer funds from genesis key" <> err
+            Right (tx, _, _) ->  do
+                () <$ addHistoryTx importedCAddr ADA "Transfer money from genesis key" ""
+                    (THEntry (hash tx) tx False Nothing)
+#endif
+
 
 ---------------------------------------------------------------------------
 -- Helpers
@@ -438,6 +455,10 @@ importKey (toString -> fp) = do
 -- We omit first secret key, because it's considered to be block signing key
 myAddresses :: MonadKeys m => m [Address]
 myAddresses = nub . map (makePubKeyAddress . toPublic) . drop 1 <$> getSecretKeys
+
+-- Sometimes we need omitted key
+myPrimaryKey :: MonadKeys m => m SecretKey
+myPrimaryKey = (!! 0) <$> getSecretKeys
 
 myCAddresses :: MonadKeys m => m [CAddress]
 myCAddresses = map addressToCAddress <$> myAddresses

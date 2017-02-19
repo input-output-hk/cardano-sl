@@ -21,7 +21,7 @@ import           Control.Monad.Except          (runExceptT)
 import           Control.Monad.State           (runStateT)
 import qualified Data.ByteString.Base64        as B64
 import           Data.Default                  (Default, def)
-import           Data.List                     (elemIndex, nub, (!!))
+import           Data.List                     (elemIndex, (!!))
 import           Data.Time.Clock.POSIX         (getPOSIXTime)
 import           Formatting                    (build, ords, sformat, stext, (%))
 import           Network.Wai                   (Application)
@@ -456,7 +456,7 @@ importKey sendActions (toString -> fp) = do
 
 -- We omit first secret key, because it's considered to be block signing key
 myAddresses :: MonadKeys m => m [Address]
-myAddresses = nub . map (makePubKeyAddress . toPublic) . drop 1 <$> getSecretKeys
+myAddresses = map (makePubKeyAddress . toPublic) . drop 1 <$> getSecretKeys
 
 -- Sometimes we need omitted key
 myPrimaryKey :: MonadKeys m => m SecretKey

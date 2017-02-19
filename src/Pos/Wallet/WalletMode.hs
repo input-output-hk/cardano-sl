@@ -17,7 +17,7 @@ module Pos.Wallet.WalletMode
        ) where
 
 import           Control.Concurrent.MVar     (takeMVar)
-import           Control.Concurrent.STM      (tryReadTMVar)
+import           Control.Concurrent.STM      (TMVar, tryReadTMVar)
 import           Control.Monad.Loops         (unfoldrM)
 import           Control.Monad.Trans         (MonadTrans)
 import           Control.Monad.Trans.Maybe   (MaybeT (..))
@@ -220,12 +220,23 @@ topHeader :: (SscHelpersClass ssc, MonadDB ssc m) => m (BlockHeader ssc)
 topHeader = maybeThrow (DBMalformed "No block with tip hash!") =<<
             DB.getBlockHeader =<< GS.getTip
 
+getContextTMVar
+    :: (Ssc ssc, MonadIO m, PC.WithNodeContext ssc m)
+    => (PC.NodeContext ssc -> TMVar a)
+    -> m (Maybe a)
+getContextTMVar getter =
+    PC.getNodeContext >>=
+    atomically . tryReadTMVar . getter
+
 recoveryHeader
     :: (Ssc ssc, MonadIO m, PC.WithNodeContext ssc m)
     => m (Maybe (BlockHeader ssc))
-recoveryHeader = PC.getNodeContext >>=
-                 atomically . tryReadTMVar . PC.ncRecoveryHeader >>=
-                 return . fmap snd
+recoveryHeader = fmap snd <$> getContextTMVar PC.ncRecoveryHeader
+
+downloadHeader
+    :: (Ssc ssc, MonadIO m, PC.WithNodeContext ssc m)
+    => m (Maybe (BlockHeader ssc))
+downloadHeader = getContextTMVar PC.ncProgressHeader
 
 -- | Instance for full-node's ContextHolder
 instance SscHelpersClass ssc =>
@@ -239,9 +250,11 @@ instance SscHelpersClass ssc =>
                 blksLeft = fromIntegral $ max 0 $ cSlot - blkSecurityParam - hSlot
             return $ blksLeft + th ^. difficultyL
 
-    localChainDifficulty = view difficultyL <$> topHeader
-    connectedPeers = fromIntegral . length <$> getKnownPeers
+    localChainDifficulty = downloadHeader >>= \case
+        Just dh -> return $ dh ^. difficultyL
+        Nothing -> view difficultyL <$> topHeader
 
+    connectedPeers = fromIntegral . length <$> getKnownPeers
     blockchainSlotDuration = getLastKnownSlotDuration
 
 -- | Abstraction over getting update proposals

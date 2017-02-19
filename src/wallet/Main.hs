@@ -24,6 +24,7 @@ import           System.Posix.Process      (exitImmediately)
 #endif
 import           Universum
 
+import           Pos.Binary                (Raw)
 import qualified Pos.CLI                   as CLI
 import           Pos.Communication         (OutSpecs, SendActions, Worker', WorkerSpec,
                                             worker)
@@ -46,7 +47,6 @@ import           Pos.Types                 (EpochIndex (..), coinF, makePubKeyAd
 import           Pos.Update                (BlockVersionData (..), UpdateProposal (..),
                                             UpdateVote (..), patakUpdateData,
                                             skovorodaUpdateData)
-import           Pos.Util                  (Raw)
 import           Pos.Util.TimeWarp         (sec)
 import           Pos.Wallet                (WalletMode, WalletParams (..), WalletRealMode,
                                             getBalance, runWalletReal, sendProposalOuts,

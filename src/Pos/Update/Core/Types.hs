@@ -58,17 +58,17 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Text         (listJson)
 import           Universum                  hiding (show)
 
-import           Pos.Binary.Class           (Bi)
+import           Pos.Binary.Class           (Bi, Raw)
+import           Pos.Binary.Crypto          ()
 import           Pos.Crypto                 (Hash, PublicKey, Signature, hash, shortHashF,
                                              unsafeHash)
 import           Pos.Data.Attributes        (Attributes)
-import           Pos.Script.Type            (ScriptVersion)
 import           Pos.Types.Address          (addressHash)
 import           Pos.Types.Coin             ()
 import           Pos.Types.Core             (BlockVersion, CoinPortion, FlatSlotId,
                                              SoftwareVersion)
+import           Pos.Types.Script           (ScriptVersion)
 import           Pos.Types.Version          ()
-import           Pos.Util.Binary            (Raw)
 
 ----------------------------------------------------------------------------
 -- UpdateProposal and related

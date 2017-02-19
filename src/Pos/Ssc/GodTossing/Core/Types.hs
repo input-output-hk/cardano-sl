@@ -43,13 +43,13 @@ import qualified Data.Text.Buildable
 import           Formatting          (bprint, build, int, (%))
 import           Universum
 
+import           Pos.Binary.Class    (AsBinary (..))
 import           Pos.Binary.Types    ()
 import           Pos.Crypto          (EncShare, Hash, PublicKey, Secret, SecretKey,
                                       SecretProof, SecretSharingExtra, Share, Signature,
                                       VssPublicKey, checkSig, sign, toPublic)
 import           Pos.Types.Address   (addressHash)
 import           Pos.Types.Core      (EpochIndex, StakeholderId)
-import           Pos.Util            (AsBinary (..))
 
 type NodeSet = HashSet StakeholderId
 

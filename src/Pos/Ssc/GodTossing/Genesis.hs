@@ -16,6 +16,7 @@ import qualified Data.Text                     as T
 import           Formatting                    (int, sformat, (%))
 import           Universum
 
+import           Pos.Binary.Class              (asBinary)
 import           Pos.Constants                 (genesisN, vssMaxTTL, vssMinTTL)
 import           Pos.Crypto                    (VssKeyPair, VssPublicKey,
                                                 deterministicVssKeyGen, toVssPublicKey)
@@ -27,7 +28,6 @@ import           Pos.Genesis                   (compileGenData, gdVssCertificate
 import           Pos.Ssc.GodTossing.Core.Types (VssCertificatesMap, mkVssCertificate)
 import           Pos.Types                     (EpochIndex (..))
 import           Pos.Types.Address             (addressHash)
-import           Pos.Util                      (asBinary)
 
 #ifdef DEV_MODE
 -- | List of 'VssKeyPair' in genesis.

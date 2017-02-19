@@ -14,7 +14,6 @@ module Pos.Util
        (
        -- * Stuff for testing and benchmarking
          module Pos.Util.Arbitrary
-       , module Pos.Util.Binary
        , module Pos.Util.TimeLimit
 
        -- * Various
@@ -123,8 +122,7 @@ import           System.Console.ANSI              (Color (..), ColorIntensity (V
                                                    SGR (Reset, SetColor), setSGRCode)
 import           System.Wlog                      (LoggerNameBox (..))
 import           Test.QuickCheck                  (Arbitrary)
-import           Text.Parsec                      (ParsecT)
-import           Text.Parsec                      (digit, many1)
+import           Text.Parsec                      (ParsecT, digit)
 import           Text.Parsec.Text                 (Parser)
 import           Universum                        hiding (Async, async, bracket, cancel,
                                                    finally, waitAny)
@@ -134,7 +132,6 @@ import           Serokell.AcidState.Instances     ()
 
 import           Pos.Binary.Class                 (Bi)
 import           Pos.Util.Arbitrary
-import           Pos.Util.Binary
 import           Pos.Util.NotImplemented          ()
 import           Pos.Util.TimeLimit
 
@@ -153,7 +150,7 @@ readerToState = gets . runReader
 deriveSafeCopySimple 0 'base ''VerificationRes
 
 parseIntegralSafe :: Integral a => Parser a
-parseIntegralSafe = fromIntegerSafe . read =<< many1 digit
+parseIntegralSafe = fromIntegerSafe . read =<< some digit
   where
     fromIntegerSafe :: Integral a => Integer -> Parser a
     fromIntegerSafe x =

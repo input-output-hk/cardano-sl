@@ -49,9 +49,8 @@ import qualified Serokell.Util.Base64 as B64
 import           System.IO.Unsafe     (unsafeDupablePerformIO)
 import           Universum
 
-import           Pos.Binary.Class     (Bi)
+import           Pos.Binary.Class     (Bi, Raw)
 import qualified Pos.Binary.Class     as Bi
-import           Pos.Util.Binary      (Raw, getCopyBinary, putCopyBinary)
 
 ----------------------------------------------------------------------------
 -- WithHash
@@ -93,8 +92,8 @@ instance Hashable (AbstractHash algo a) where
 
 instance Bi (AbstractHash algo a) =>
          SafeCopy (AbstractHash algo a) where
-    putCopy = putCopyBinary
-    getCopy = getCopyBinary "AbstractHash"
+    putCopy = Bi.putCopyBi
+    getCopy = Bi.getCopyBi "AbstractHash"
 
 instance Buildable.Buildable (AbstractHash algo a) where
     build = bprint shortHashF

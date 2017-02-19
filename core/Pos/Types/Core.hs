@@ -68,7 +68,7 @@ import           Universum
 
 import           Pos.Crypto          (AbstractHash, Hash, PublicKey)
 import           Pos.Data.Attributes (Attributes)
-import           Pos.Script.Type     (Script)
+import           Pos.Types.Script    (Script)
 
 ----------------------------------------------------------------------------
 -- Coin

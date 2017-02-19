@@ -22,7 +22,7 @@ import           Pos.Communication           (ActionSpec (..), SendActions,
                                               convertSendActions, wrapSendActions)
 import           Pos.Constants               (genesisN, genesisSlotDuration,
                                               neighborsSendThreshold, slotSecurityParam)
-import           Pos.Crypto                  (KeyPair (..), hash)
+import           Pos.Crypto                  (hash)
 import           Pos.DHT.Model               (DHTNode, MonadDHT, discoverPeers,
                                               getKnownPeers)
 import           Pos.Genesis                 (genesisUtxo)
@@ -231,7 +231,7 @@ main = do
                        then panic "Invalid `--m-of-n` value"
                        else return ()
 
-    KeyPair _ sk <- generate arbitrary
+    sk <- generate arbitrary
     vssKeyPair <- generate arbitrary
     let logParams =
             LoggingParams

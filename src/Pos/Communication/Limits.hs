@@ -53,8 +53,7 @@ import           Pos.Crypto                       (Signature, PublicKey,
                                                    SecretSharingExtra (..), SecretProof,
                                                    VssPublicKey, EncShare, AbstractHash,
                                                    Share)
-import           Pos.DB.Class                     (MonadDB)
-import qualified Pos.DB.GState                    as GState
+import qualified Pos.DB.Limits                    as DB
 import           Pos.Ssc.GodTossing.Arbitrary     ()
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..))
 import           Pos.Ssc.GodTossing.Core.Types    (Commitment (..))
@@ -155,11 +154,11 @@ instance Limiter (Limit t, Limit t, Limit t, Limit t) where
 -- At serialisation stage message size is __not__ checked.
 class Limiter (LimitType a) => MessageLimited a where
     type LimitType a :: *
-    getMsgLenLimit :: MonadDB ssc m => Proxy a -> m (LimitType a)
+    getMsgLenLimit :: DB.MonadDBLimits m => Proxy a -> m (LimitType a)
 
 instance MessageLimited (MsgBlock ssc) where
     type LimitType (MsgBlock ssc) = Limit (MsgBlock ssc)
-    getMsgLenLimit _ = Limit <$> GState.getMaxBlockSize
+    getMsgLenLimit _ = Limit <$> DB.getMaxBlockSize
 
 instance MessageLimited MsgGetBlocks where
     type LimitType MsgGetBlocks = Limit MsgGetBlocks
@@ -395,7 +394,7 @@ instance (Bi a, Reifies s l, Limiter l) => Bi (LimitedLengthExt s l a) where
 -- | Used to provide type @s@, which carries limit on length
 -- of message @a@ (via Data.Reflection).
 reifyMsgLimit
-    :: forall a m b ssc. (MonadDB ssc m, MessageLimited a)
+    :: forall a m b. (DB.MonadDBLimits m, MessageLimited a)
     => Proxy a
     -> (forall s. Reifies s (LimitType a) => Proxy s -> m b)
     -> m b

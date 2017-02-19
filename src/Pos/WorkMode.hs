@@ -31,6 +31,7 @@ import           Pos.Communication.PeerState (PeerStateHolder (..), WithPeerStat
 import           Pos.Context                 (ContextHolder, WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
 import           Pos.DB.Holder               (DBHolder)
+import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Delegation.Holder       (DelegationT (..))
 import           Pos.DHT.Model               (MonadDHT)
@@ -53,6 +54,7 @@ type WorkMode ssc m
       , MonadMask m
       , MonadSlots m
       , MonadDB ssc m
+      , MonadDBLimits m
       , MonadTxpLD ssc m
       , MonadDelegation m
       , MonadUtxo m
@@ -93,6 +95,7 @@ deriving instance MonadUtxoRead m => MonadUtxoRead (KademliaDHT m)
 deriving instance MonadUtxo m => MonadUtxo (KademliaDHT m)
 deriving instance (Monad m, WithNodeContext ssc m) => WithNodeContext ssc (KademliaDHT m)
 deriving instance MonadDB ssc m => MonadDB ssc (KademliaDHT m)
+deriving instance MonadDBLimits m => MonadDBLimits (KademliaDHT m)
 deriving instance MonadDelegation m => MonadDelegation (KademliaDHT m)
 deriving instance MonadUSMem m => MonadUSMem (KademliaDHT m)
 
@@ -100,6 +103,7 @@ deriving instance MonadUtxoRead m => MonadUtxoRead (PeerStateHolder m)
 deriving instance MonadUtxo m => MonadUtxo (PeerStateHolder m)
 deriving instance (Monad m, WithNodeContext ssc m) => WithNodeContext ssc (PeerStateHolder m)
 deriving instance MonadDB ssc m => MonadDB ssc (PeerStateHolder m)
+deriving instance MonadDBLimits m => MonadDBLimits (PeerStateHolder m)
 deriving instance MonadSlots m => MonadSlots (PeerStateHolder m)
 deriving instance MonadDHT m => MonadDHT (PeerStateHolder m)
 deriving instance MonadSscMem ssc m => MonadSscMem ssc (PeerStateHolder m)

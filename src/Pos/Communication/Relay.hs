@@ -33,8 +33,9 @@ import           Pos.Binary.Class              (Bi (..))
 import           Pos.Binary.Relay              ()
 import           Pos.Communication.Message     (MessagePart)
 import           Pos.Communication.Limits      (Limit, LimitedLengthExt (..),
-                                                MessageLimited (..), reifyMsgLimit,
-                                                withLimitedLength)
+                                                LimitedLength, MessageLimited (..),
+                                                withLimitedLength, recvLimited,
+                                                reifyMsgLimit)
 import           Pos.Communication.Protocol    (ConversationActions (..), ListenerSpec,
                                                 NOP, NodeId, OutSpecs, SendActions (..),
                                                 WorkerSpec, listenerConv, mergeLs, worker)
@@ -45,6 +46,7 @@ import           Pos.Communication.Util        (stubListenerConv)
 import           Pos.Context                   (NodeContext (..), SomeInvMsg (..),
                                                 WithNodeContext (getNodeContext),
                                                 ncNodeParams, npPropagation)
+import           Pos.DB.Limits                 (MonadDBLimits)
 import           Pos.DHT.Model                 (DHTNode, MonadDHT (..),
                                                 converseToNeighbors, converseToNode)
 import           Pos.WorkMode                  (MinWorkMode, WorkMode)
@@ -121,12 +123,13 @@ handleInvL proxy msg@(InvMsg{..}) =
               imTag imKey)
 
 handleReqL
-    :: forall key tag contents m ssc .
+    :: forall key tag contents m .
        ( Bi (ReqMsg key tag)
        , Bi (InvOrData tag key contents)
        , Message (InvOrData tag key contents)
        , Relay m tag key contents
-       , WorkMode ssc m
+       , MinWorkMode m
+       , MonadDBLimits m
        )
     => RelayProxy key tag contents
     -> m (ListenerSpec m, OutSpecs)
@@ -234,9 +237,9 @@ relayListeners proxy = mergeLs <$> sequence [handleReqL proxy, invDataListener]
     invDataListener = reifyMsgLimit (Proxy @(InvOrData tag key contents)) $
       \(_ :: Proxy s) -> return $ listenerConv $ \_ __peerId
         (ConversationActions{..}::(ConversationActions
-                                    (ReqMsg key tag)
-                                    (InvOrDataLimitedLength s key tag contents)
-                                    m)
+                                  (ReqMsg key tag)
+                                  (InvOrDataLimitedLength s key tag contents)
+                                  m)
         ) -> do
             inv' <- recv
             whenJust (withLimitedLength <$> inv') $ expectLeft $
@@ -292,7 +295,8 @@ addToRelayQueue :: forall tag key contents ssc m .
                 , Message (InvOrData tag key contents)
                 , Message (ReqMsg key tag)
                 , Buildable tag, Buildable key
-                , WorkMode ssc m)
+                , WorkMode ssc m
+                )
                 => InvOrData tag key contents -> m ()
 addToRelayQueue inv = do
     queue <- ncInvPropagationQueue <$> getNodeContext
@@ -332,32 +336,38 @@ relayWorkers = first (:[]) $ worker allOutSpecs $
 -- Helpers for Communication.Methods
 ----------------------------------------------------------------------------
 
-invReqDataFlowNeighbors ::
+invReqDataFlowNeighbors
+    :: forall tag id contents m.
     ( Message (InvOrData tag id contents)
     , Message (ReqMsg id tag)
     , Buildable id
     , MinWorkMode m
+    , MonadDBLimits m
     , Bi tag, Bi id
     , Bi (InvOrData tag id contents)
     , Bi (ReqMsg id tag))
     => Text -> SendActions m -> tag -> id -> contents -> m ()
 invReqDataFlowNeighbors what sendActions tag id dt = handleAll handleE $
-    converseToNeighbors sendActions (invReqDataFlowDo what tag id dt)
+    reifyMsgLimit (Proxy @(ReqMsg id tag)) $ \lim ->
+        converseToNeighbors sendActions (invReqDataFlowDo what tag id dt lim)
   where
     handleE e = logWarning $
         sformat ("Error sending "%stext%", id = "%build%" to neighbors: "%shown) what id e
 
-invReqDataFlow ::
+invReqDataFlow
+    :: forall tag id contents m.
     ( Message (InvOrData tag id contents)
     , Message (ReqMsg id tag)
     , Buildable id
     , MinWorkMode m
+    , MonadDBLimits m
     , Bi tag, Bi id
     , Bi (InvOrData tag id contents)
     , Bi (ReqMsg id tag))
     => Text -> SendActions m -> DHTNode -> tag -> id -> contents -> m ()
 invReqDataFlow what sendActions addr tag id dt = handleAll handleE $
-    converseToNode sendActions addr (invReqDataFlowDo what tag id dt)
+    reifyMsgLimit (Proxy @(ReqMsg id tag)) $ \lim ->
+        converseToNode sendActions addr (invReqDataFlowDo what tag id dt lim)
   where
     handleE e = logWarning $
         sformat ("Error sending "%stext%", id = "%build%" to "%shown%": "%shown) what id addr e
@@ -367,17 +377,19 @@ invReqDataFlowDo ::
     , Message (ReqMsg id tag)
     , Buildable id
     , MinWorkMode m
+    , MonadDBLimits m
     , Bi tag, Bi id
     , Bi (InvOrData tag id contents)
     , Bi (ReqMsg id tag))
-    => Text -> tag -> id -> contents -> NodeId
-    -> ConversationActions (InvOrData tag id contents) (ReqMsg id tag) m
+    => Text -> tag -> id -> contents -> Proxy s -> NodeId
+    -> ConversationActions (InvOrData tag id contents)
+        (LimitedLength s (ReqMsg id tag)) m
     -> m ()
-invReqDataFlowDo what tag id dt nodeId ConversationActions{..} = do
-    send $ Left $ InvMsg tag (one id)
-    recv >>= maybe handleD replyWithData
+invReqDataFlowDo what tag id dt _ nodeId conv = do
+    send conv $ Left $ InvMsg tag (one id)
+    recvLimited conv >>= maybe handleD replyWithData
   where
-    replyWithData (ReqMsg _ _) = send $ Right $ DataMsg dt
+    replyWithData (ReqMsg _ _) = send conv $ Right $ DataMsg dt
     handleD = logDebug $
         sformat ("InvReqDataFlow ("%stext%"): "%shown %" closed conversation on \
                  \Inv id = "%build) what nodeId id

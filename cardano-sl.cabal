@@ -251,6 +251,7 @@ library
                         Pos.DB.Iterator
                         Pos.DB.Iterator.Class
                         Pos.DB.Iterator.DBIterator
+                        Pos.DB.Limits
                         Pos.DB.Lrc
                         Pos.DB.Lrc.Common
                         Pos.DB.Lrc.Issuers
@@ -418,6 +419,7 @@ library
                         Pos.Wallet.State
                         Pos.Wallet.State.Acidic
                         Pos.Wallet.State.Holder
+                        Pos.Wallet.State.Limits
                         Pos.Wallet.State.State
                         Pos.Wallet.State.Storage
                         Pos.Wallet.State.Storage.Block
@@ -441,6 +443,7 @@ library
                         Pos.Wallet.Web.State
                         Pos.Wallet.Web.State.Acidic
                         Pos.Wallet.Web.State.Holder
+                        Pos.Wallet.Web.State.Limits
                         Pos.Wallet.Web.State.State
                         Pos.Wallet.Web.State.Storage
   build-depends:        HsOpenSSL

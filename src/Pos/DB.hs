@@ -8,6 +8,7 @@ module Pos.DB
        , module Pos.DB.Error
        , module Pos.DB.Functions
        , module Pos.DB.Holder
+       , module Pos.DB.Limits
        , module Pos.DB.Misc
        , module Pos.DB.Types
        ) where
@@ -20,5 +21,6 @@ import           Pos.DB.Functions (RocksBatchOp (..), SomeBatchOp (..),
                                    SomePrettyBatchOp (..))
 import           Pos.DB.Holder
 import           Pos.DB.Iterator
+import           Pos.DB.Limits
 import           Pos.DB.Misc
 import           Pos.DB.Types

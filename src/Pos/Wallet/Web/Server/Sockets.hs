@@ -105,7 +105,7 @@ newtype WalletWebSockets m a = WalletWebSockets
     { getWalletWS :: ReaderT ConnectionsVar m a
     } deriving (Functor, Applicative, Monad, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
-                MonadWalletDB, WithWalletContext,
+                MonadWalletDB, Modern.MonadDBLimits, WithWalletContext,
                 MonadDHT, MonadSlots,
                 CanLog, MonadKeys, MonadBalances, MonadUpdates,
                 MonadTxHistory, MonadBlockchainInfo, WithNodeContext ssc, WithPeerState,

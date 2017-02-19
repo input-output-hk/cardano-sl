@@ -32,6 +32,7 @@ import           Pos.Context.Class         (WithNodeContext (..))
 import           Pos.Context.Context       (NodeContext (..))
 import           Pos.Context.Functions     (readNtpData, readNtpLastSlot, readNtpMargin)
 import           Pos.DB.Class              (MonadDB)
+import           Pos.DB.Limits             (MonadDBLimits)
 import           Pos.Launcher.Param        (npSystemStart)
 import           Pos.Slotting.Class        (MonadSlots (..))
 import           Pos.Slotting.Logic        (getCurrentSlotUsingNtp)
@@ -43,9 +44,9 @@ import           Pos.Util.JsonLog          (MonadJL (..), appendJL)
 newtype ContextHolder ssc m a = ContextHolder
     { getContextHolder :: ReaderT (NodeContext ssc) m a
     } deriving (Functor, Applicative, Monad, MonadTrans,
-                MonadThrow, MonadCatch, MonadMask, MonadIO, MonadFail,
+                MonadThrow, MonadCatch, MonadMask, MonadIO, MonadFail, MonadFix,
                 HasLoggerName, CanLog,
-                MonadTxpLD ssc, MonadFix)
+                MonadTxpLD ssc, MonadDBLimits)
 
 -- | Run 'ContextHolder' action.
 runContextHolder :: NodeContext ssc -> ContextHolder ssc m a -> m a

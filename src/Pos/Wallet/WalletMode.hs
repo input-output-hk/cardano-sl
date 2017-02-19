@@ -32,7 +32,7 @@ import           Pos.Communication.PeerState (PeerStateHolder, WithPeerState)
 import           Pos.Constants               (blkSecurityParam)
 import qualified Pos.Context                 as PC
 import           Pos.Crypto                  (WithHash (..))
-import           Pos.DB                      (MonadDB)
+import           Pos.DB                      (MonadDB, MonadDBLimits)
 import qualified Pos.DB                      as DB
 import           Pos.DB.Error                (DBError (..))
 import qualified Pos.DB.GState               as GS
@@ -276,6 +276,7 @@ type TxMode ssc m
       , MonadMockable m
       , MonadFail m
       , MonadMask m
+      , MonadDBLimits m
       )
 
 type WalletMode ssc m

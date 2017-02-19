@@ -40,6 +40,7 @@ import           Universum
 import           Pos.Communication.PeerState (WithPeerState (..))
 import           Pos.Context.Class           (WithNodeContext)
 import           Pos.DB                      (MonadDB (..))
+import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.DHT.Model               (MonadDHT)
 import           Pos.DHT.Real                (KademliaDHT, WithKademliaDHTInstance)
@@ -80,7 +81,7 @@ newtype NoStatsT m a = NoStatsT
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
                 MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState,
                 MonadJL, CanLog, MonadUtxoRead, MonadUtxo,
-                MonadTxpLD ssc, MonadSscMem ssc,
+                MonadTxpLD ssc, MonadSscMem ssc, MonadDBLimits,
                 WithNodeContext ssc, MonadDelegation, MonadUSMem)
 
 deriving instance MonadDB ssc m => MonadDB ssc (NoStatsT m)
@@ -134,7 +135,7 @@ newtype StatsT m a = StatsT
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
                 MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState,
                 MonadTrans, MonadJL, CanLog, MonadUtxoRead, MonadUtxo,
-                MonadTxpLD ssc, MonadSscMem ssc,
+                MonadTxpLD ssc, MonadSscMem ssc, MonadDBLimits,
                 WithNodeContext ssc, MonadDelegation, MonadUSMem)
 
 deriving instance MonadDB ssc m => MonadDB ssc (StatsT m)

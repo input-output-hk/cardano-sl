@@ -79,6 +79,14 @@ txApplyBlocks blunds = notImplemented
     --     Left er -> throwM er
     --     Right _ -> notImplemented --map txpModifierToBatch txpModifier
 
+-- -- | Remove from mem pool transactions from block
+-- filterMemPool :: MonadTxpLD ssc m => [(TxId, (Tx, TxDistribution))] -> m ()
+-- filterMemPool txs = modifyTxpLD_ (\(uv, mp, undos, tip) ->
+--     let blkTxs = HM.fromList txs
+--         newMPTxs = (localTxs mp) `HM.difference` blkTxs
+--         newUndos = undos `HM.difference` blkTxs in
+--     (uv, MemPool newMPTxs (HM.size newMPTxs), newUndos, tip))
+
 txRollbackBlocks
     :: (WithLogger m, MonadDB ssc m)
     => NewestFirst NE (Blund ssc) -> m (NonEmpty SomePrettyBatchOp)

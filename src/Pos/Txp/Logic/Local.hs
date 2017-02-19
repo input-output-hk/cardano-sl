@@ -63,33 +63,3 @@ txProcessTransaction itw@(txId, (tx, _, _)) = notImplemented
 txNormalize :: (MonadDB ssc m, MonadTxpMem m)
                => m ()
 txNormalize = notImplemented
-  --   utxoTip <- getTip
-  --   (_, memPool, undos, _) <- getTxpLD
-  --   let mpTxs = HM.toList . localTxs $ memPool
-  --   emptyUtxoView <- UV.createFromDB <$> getUtxoDB
-  --   let emptyMemPool = MemPool mempty 0
-  --   maybe
-  --       (setTxpLD (emptyUtxoView, emptyMemPool, mempty, utxoTip))
-  --       (\topsorted -> do
-  --            -- we run this code in temporary TxpLDHolder
-  --            (validTxs, newUtxoView) <-
-  --                runLocalTxpLDHolder (findValid topsorted) emptyUtxoView
-  --            setTxpLD $ newState newUtxoView validTxs undos utxoTip)
-  --       (topsortTxs (\(i, (t, _, _)) -> WithHash t i) mpTxs)
-  -- where
-  --   findValid topsorted = do
-  --       validTxs' <- foldlM canApply [] topsorted
-  --       newUtxoView' <- getUtxoView
-  --       return (validTxs', newUtxoView')
-  --   newState newUtxoView validTxs undos utxoTip =
-  --       let newTxs = HM.fromList validTxs in
-  --       (newUtxoView, MemPool newTxs (length validTxs), undos, utxoTip)
-  --   canApply xs itxa@(_, txa) = do
-  --       -- Pure checks are not done here, because they are done
-  --       -- earlier, when we accept transaction.
-  --       verifyRes <- verifyTxUtxo False False txa
-  --       case verifyRes of
-  --           Right _ -> do
-  --               applyTxToUtxo' itxa
-  --               return (itxa : xs)
-  --           Left _ -> return xs

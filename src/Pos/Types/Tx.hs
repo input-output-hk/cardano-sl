@@ -31,7 +31,7 @@ import           Pos.Types.Address    (addressDetailedF, checkPubKeyAddress,
 import           Pos.Types.Coin       (coinToInteger, sumCoins)
 import           Pos.Types.Core       (Address (..), StakeholderId, coinF, mkCoin)
 import           Pos.Types.Types      (Tx (..), TxAux, TxDistribution (..), TxIn (..),
-                                       TxInWitness (..), TxOut (..), TxOutAux)
+                                       TxInWitness (..), TxOut (..), TxOutAux, TxUndo)
 import           Pos.Util             (allDistinct)
 
 ----------------------------------------------------------------------------
@@ -98,7 +98,7 @@ verifyTx
     -> VTxGlobalContext
     -> (TxIn -> m (Maybe VTxLocalContext))
     -> TxAux
-    -> m (Either [Text] [TxOutAux])
+    -> m (Either [Text] TxUndo)
 verifyTx verifyAlone verifyVersions gContext inputResolver
          txs@(Tx {..}, _, _) = do
     extendedInputs <- mapM extendInput txInputs
@@ -254,7 +254,7 @@ verifyTxPure
     -> VTxGlobalContext
     -> (TxIn -> Maybe VTxLocalContext)
     -> TxAux
-    -> Either [Text] [TxOutAux]
+    -> Either [Text] TxUndo
 verifyTxPure verifyAlone verifyVersions gContext resolver =
     runIdentity .
     verifyTx verifyAlone verifyVersions gContext (Identity . resolver)

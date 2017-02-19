@@ -18,8 +18,25 @@ class Monad m => MonadTxpRead m where
     getTotalStake :: m Coin
     hasTx :: m Bool
 
-    default utxoGet :: (MonadTrans t, MonadTxpRead m', t m' ~ m) => TxIn -> m (Maybe TxOutAux)
+    default utxoGet
+        :: (MonadTrans t, MonadTxpRead m', t m' ~ m) => TxIn -> m (Maybe TxOutAux)
     utxoGet = lift . utxoGet
+
+    default getStake
+        :: (MonadTrans t, MonadTxpRead m', t m' ~ m) => StakeholderId -> m (Maybe Coin)
+    getStake = lift . getStake
+
+    default getTotalStake
+        :: (MonadTrans t, MonadTxpRead m', t m' ~ m) => m Coin
+    getTotalStake = lift getTotalStake
+
+    default hasTx
+        :: (MonadTrans t, MonadTxpRead m', t m' ~ m) => m Bool
+    hasTx = lift hasTx
+
+instance MonadTxpRead m => MonadTxpRead (ReaderT s m)
+instance MonadTxpRead m => MonadTxpRead (StateT s m)
+instance MonadTxpRead m => MonadTxpRead (ExceptT s m)
 
 class MonadTxpRead m => MonadTxp m where
     utxoPut :: TxIn -> TxOutAux -> m ()
@@ -32,3 +49,15 @@ class MonadTxpRead m => MonadTxp m where
 
     default utxoDel :: (MonadTrans t, MonadTxp m', t m' ~ m) => TxIn -> m ()
     utxoDel = lift . utxoDel
+
+    default setStake
+        :: (MonadTrans t, MonadTxp m', t m' ~ m) => StakeholderId -> Coin -> m ()
+    setStake id = lift . setStake id
+
+    default setTotalStake
+        :: (MonadTrans t, MonadTxp m', t m' ~ m) => Coin -> m ()
+    setTotalStake = lift . setTotalStake
+
+instance MonadTxp m => MonadTxp (ReaderT s m)
+instance MonadTxp m => MonadTxp (StateT s m)
+instance MonadTxp m => MonadTxp (ExceptT s m)

@@ -11,6 +11,8 @@ data TxpVerFailure
     | TxpInvalid !Text -- ^ Can't add transaction
     -- TODO extend it ^
     | TxpOverwhelmed -- ^ Local transaction storage is full -- can't accept more txs
+    | TxpCantTopsort
+    | TxpInvalidUndoLength !Int !Int
     deriving (Show, Eq)
 
 instance Buildable TxpVerFailure where

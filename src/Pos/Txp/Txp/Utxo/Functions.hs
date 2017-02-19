@@ -7,25 +7,22 @@ module Pos.Txp.Txp.Utxo.Functions
        ( verifyTxUtxo
        , applyTxToUtxo
        , applyTxToUtxo'
-       , verifyAndApplyTxsToUtxo
+       , rollbackTxUtxo
        ) where
 
 import           Control.Monad.Error.Class (MonadError (..))
-import qualified Data.HashMap.Strict       as HM
-import qualified Data.Map.Strict           as M
+import qualified Data.Text                 as T
 import           Universum
 
 import           Pos.Binary.Types          ()
-import           Pos.Crypto                (WithHash (..))
-import           Pos.Txp.Txp.Class         (MonadTxp (..), MonadTxpRead (..))
-import           Pos.Txp.Txp.Failure       (TxpVerFailure (..))
-import           Pos.Types.Coin            (unsafeAddCoin)
-import           Pos.Types.Core            (Address, Coin, StakeholderId)
+import           Pos.Crypto                (WithHash (..), hash)
 import           Pos.Types.Tx              (VTxGlobalContext (..), VTxLocalContext (..),
                                             verifyTx)
 import           Pos.Types.Types           (Tx (..), TxAux, TxDistribution (..), TxId,
-                                            TxIn (..), TxOut (..), TxOutAux, TxUndo,
-                                            TxWitness, TxsUndo, Utxo, txOutStake)
+                                            TxIn (..), TxUndo)
+
+import           Pos.Txp.Txp.Class         (MonadTxp (..), MonadTxpRead (..))
+import           Pos.Txp.Txp.Failure       (TxpVerFailure (..))
 
 -- CHECK: @verifyTxUtxo
 -- | Verify single Tx using MonadUtxoRead as TxIn resolver.
@@ -38,7 +35,7 @@ verifyTxUtxo
 verifyTxUtxo verifyAlone verifyVersions txaux = do
     res <- verifyTx verifyAlone verifyVersions VTxGlobalContext utxoGet' txaux
     case res of
-        Left errors -> notImplemented
+        Left errors -> throwError $ TxpInvalid $ T.intercalate "; " errors
         Right undo  -> pure undo
   where
     utxoGet' x = fmap VTxLocalContext <$> utxoGet x
@@ -55,33 +52,17 @@ applyTxToUtxo tx distr = do
     applyInput = utxoDel
     applyOutput idx (out, ds) = utxoPut (TxIn (whHash tx) idx) (out, ds)
 
+rollbackTxUtxo
+    :: (MonadError TxpVerFailure m, MonadTxp m)
+    => (TxAux, TxUndo) -> m ()
+rollbackTxUtxo ((tx@Tx{..}, _, _), undo) = do
+    unless (length txInputs == length undo) $
+        throwError $ TxpInvalidUndoLength (length txInputs) (length undo)
+    let txid = hash tx
+    mapM_ utxoDel $ take (length txOutputs) $ zipWith TxIn (repeat txid) [0..]
+    mapM_ (uncurry utxoPut) $ zip txInputs undo
+
 applyTxToUtxo' :: MonadTxp m => (TxId, TxAux) -> m ()
 applyTxToUtxo' (i, (t, _, d)) = applyTxToUtxo (WithHash t i) d
-
--- CHECK: @verifyAndApplyTxs
--- | Verify transactions correctness with respect to Utxo applying
--- them one-by-one.
--- Note: transactions must be topsorted to pass check.
--- Warning: this function may apply some transactions and fail
--- eventually. Use it only on temporary data.
-verifyAndApplyTxsToUtxo
-    :: forall m. (MonadTxp m, MonadError TxpVerFailure m)
-    => Bool
-    -> Bool
-    -> [(WithHash Tx, TxWitness, TxDistribution)]
-    -> m TxsUndo
-verifyAndApplyTxsToUtxo verifyAlone verifyVersions txs = do
-    res <- fmap reverse <$> foldM applyDo (Right []) txs
-    case res of
-        Left errors -> notImplemented
-        Right undos -> pure undos
-  where
-    applyDo :: Either [Text] TxsUndo
-            -> (WithHash Tx, TxWitness, TxDistribution)
-            -> m (Either [Text] TxsUndo)
-    applyDo failure@(Left _) _ = pure failure
-    applyDo (Right txouts) txa = do
-        verRes <- verifyTxUtxo verifyAlone verifyVersions (over _1 whData txa)
-        (Right $ verRes:txouts) <$ applyTxToUtxo (txa ^. _1) (txa ^. _3)
 
 -- TODO change types of normalizeTxs and related

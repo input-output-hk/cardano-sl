@@ -12,45 +12,63 @@ import           Formatting           (build, int, sformat, stext, (%))
 import           System.Wlog          (WithLogger, logInfo)
 import           Universum
 
-import           Pos.Txp.Txp.Class    (MonadTxp (..), MonadTxpRead (..))
-import           Pos.Txp.Txp.Failure  (TxpVerFailure (..))
-
+import           Pos.Crypto           (WithHash (..), hash)
+import           Pos.Types            (Coin, StakeholderId, Tx (..), TxAux, TxId, TxUndo,
+                                       TxsUndo, getTxDistribution, topsortTxs, txOutStake, mkCoin)
 import           Pos.Types.Coin       (coinToInteger, sumCoins, unsafeAddCoin,
                                        unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Types.Core
-import           Pos.Types.Types
 
-type ApplyMode m = (MonadTxp m, MonadError TxpVerFailure m, WithLogger m)
+import           Pos.Txp.Txp.Class    (MonadTxp (..), MonadTxpRead (..))
+import           Pos.Txp.Txp.Failure  (TxpVerFailure (..))
+import qualified Pos.Txp.Txp.Utxo     as Utxo
 
-verifyAndApplyTxp
-    :: (MonadTxp m, MonadError TxpVerFailure m)
-    => [TxAux] -> m TxsUndo
-verifyAndApplyTxp txas = notImplemented
+type TxpMode m = (MonadTxp m, MonadError TxpVerFailure m, WithLogger m)
 
-applyTxp
-    :: (MonadTxp m, MonadError TxpVerFailure m)
-    => [TxAux] -> m ()
-applyTxp = notImplemented
-  --   undos <- mapM verifyOneTx txas
-  --   let txsAndIds = map (\tx -> (hash (tx ^. _1), (tx ^. _1, tx ^. _3))) txas --TODO improve
-  --   let batch = foldr' prependToBatch [] txsAndIds
-  --   --let putTip = SomePrettyBatchOp $ PutTip (headerHash blk)
-  --   --filterMemPool txsAndIds
-  --   let (txOutPlus, txInMinus) = concatStakes (txas, undo)
-  --   stakesBatch <- recomputeStakes txOutPlus txInMinus
-  --   pure $ SomePrettyBatchOp $ [stakesBatch, SomePrettyBatchOp batch, putTip]
-  -- where
-  --   prependToBatch :: (TxId, (Tx, TxDistribution)) -> [SomePrettyBatchOp] -> [SomePrettyBatchOp]
-  --   prependToBatch (txId, (Tx{..}, distr)) batch =
-  --       let keys = zipWith TxIn (repeat txId) [0 ..]
-  --           delIn = map (SomePrettyBatchOp . DelTxIn) txInputs
-  --           putOut = zipWith (\i o -> SomePrettyBatchOp $ AddTxOut i o)
-  --                        keys
-  --                        (zip txOutputs (getTxDistribution distr))
-  --       in foldr' (:) (foldr' (:) batch putOut) delIn --how we could simplify it?
+-- CHECK: @verifyTxp
+-- | Verify transactions correctness with respect to Utxo applying
+-- them one-by-one.
+-- Note: transactions must be topsorted to pass check.
+-- Warning: this function may apply some transactions and fail
+-- eventually. Use it only on temporary data.
+verifyTxp :: TxpMode m => [TxAux] -> m TxsUndo
+verifyTxp = mapM (processTx . withTxId)
+
+applyTxp :: TxpMode m => [(TxAux, TxUndo)] -> m ()
+applyTxp txun = do
+    let (txOutPlus, txInMinus) = concatStakes txun
+    recomputeStakes txOutPlus txInMinus
+    mapM_ (Utxo.applyTxToUtxo' . withTxId . fst) txun
+
+rollbackTxp :: TxpMode m => [(TxAux, TxUndo)] -> m ()
+rollbackTxp txun = do
+    let (txOutMinus, txInPlus) = concatStakes txun
+    recomputeStakes txInPlus txOutMinus
+    mapM_ Utxo.rollbackTxUtxo $ reverse txun
+
+-- | 1. Recompute UtxoView by current list of transactions.
+-- | 2. Returns indices of valid transactions.
+normalizeTxp :: TxpMode m => [(TxId, TxAux)] -> m [(TxId, TxAux, TxUndo)]
+normalizeTxp txs = do
+    topsorted <- note TxpCantTopsort (topsortTxs wHash txs)
+    verdicts <- mapM (runExceptT . processTxWithPureChecks False) topsorted
+    pure $ foldr' selectRight [] $ zip txs verdicts
+  where
+    selectRight ((id, tx), Left _) xs  = xs
+    selectRight ((id, tx), Right u) xs = (id, tx, u) : xs
+    wHash (i, (t, _, _)) = WithHash t i
+
+-- CHECK: @processTx
+-- #verifyTxUtxo
+processTx
+    :: TxpMode m => (TxId, TxAux) -> m TxUndo
+processTx = processTxWithPureChecks True
+
+----------------------------------------------------------------------------
+-- Helpers
+----------------------------------------------------------------------------
 
 recomputeStakes
-    :: ApplyMode m
+    :: TxpMode m
     => [(StakeholderId, Coin)]
     -> [(StakeholderId, Coin)]
     -> m ()
@@ -87,69 +105,25 @@ recomputeStakes plusDistr minusDistr = do
       where
         err = panic ("recomputeStakes: no stake for " <> show key)
 
-    concatStakes
-        :: ([TxAux], TxsUndo)
-        -> ([(StakeholderId, Coin)], [(StakeholderId, Coin)])
-    concatStakes (txas, undo) = (txasTxOutDistr, undoTxInDistr)
-      where
-        txasTxOutDistr = concatMap concatDistr txas
-        undoTxInDistr = concatMap txOutStake (concat undo)
-        concatDistr (Tx{..}, _, distr)
-            = concatMap txOutStake (zip txOutputs (getTxDistribution distr))
+-- Concatenate stakes of the all passed transactions and undos.
+concatStakes
+    :: [(TxAux, TxUndo)]
+    -> ([(StakeholderId, Coin)], [(StakeholderId, Coin)])
+concatStakes (unzip -> (txas, undo)) = (txasTxOutDistr, undoTxInDistr)
+  where
+    txasTxOutDistr = concatMap concatDistr txas
+    undoTxInDistr = concatMap txOutStake (concat undo)
+    concatDistr (Tx{..}, _, distr)
+        = concatMap txOutStake (zip txOutputs (getTxDistribution distr))
 
+withTxId :: TxAux -> (TxId, TxAux)
+withTxId aux@(tx, _, _) = (hash tx, aux)
 
--- -- | Remove from mem pool transactions from block
--- filterMemPool :: MonadTxpLD ssc m => [(TxId, (Tx, TxDistribution))] -> m ()
--- filterMemPool txs = modifyTxpLD_ (\(uv, mp, undos, tip) ->
---     let blkTxs = HM.fromList txs
---         newMPTxs = (localTxs mp) `HM.difference` blkTxs
---         newUndos = undos `HM.difference` blkTxs in
---     (uv, MemPool newMPTxs (HM.size newMPTxs), newUndos, tip))
-
--- rollbackTxp
---     :: ( WithLogger m,
---          MonadBalances ssc m)
---     => (Block ssc, Undo) -> m SomePrettyBatchOp
--- rollbackTxp (block, undo) = notImplemented
-
--- | 1. Recompute UtxoView by current MemPool
--- | 2. Remove invalid transactions from MemPool
--- normalizeTxp
---     :: (MonadDB ssc m, MonadTxpLD ssc m)
---     => [TxAux] -> m ()
--- normalizeTxp = notImplemented
-
--- CHECK: @processTxDo
--- #verifyTxPure
-processTx
-    :: (MonadTxp m, MonadError TxpVerFailure m)
-    => (TxId, TxAux) -> m TxUndo
-processTx tx@(id, aux) = notImplemented
-  --   whenM (hasTx id) $ throwError TxpKnown
-  --   undo <- verifyOneTx aux
-  --   addTxWithUndo tx undo
-  --   --either (throwError . TxpInvalid . formatAllErrors) (addTx tx) verifyRes
-  -- where
-  --   verifyRes =
-  --       verifyTx True True VTxGlobalContext (fmap (fmap VTxLocalContext) . utxoGet) aux
-
-    -- prependToUndo undo inp =
-    --     fromMaybe (panic "Input isn't resolved")
-    --               (utxoGet inp) : undo
-
-    -- newState nAddUtxo nDelUtxo oldTxs oldSize oldUndos =
-    --     let keys = zipWith TxIn (repeat id) [0 ..]
-    --         zipKeys = zip keys (txOutputs tx `zip` getTxDistribution txd)
-    --         addUtxoMembers = zip (txInputs tx) $ map (`HM.member` nAddUtxo) (txInputs tx)
-    --         squashedDels = map fst $ filter snd addUtxoMembers
-    --         notSquashedDels = map fst $ filter (not . snd) addUtxoMembers
-    --         newAddUtxo' = foldl' (flip $ uncurry HM.insert)
-    --                              (foldl' (flip HM.delete) nAddUtxo squashedDels)
-    --                              zipKeys
-    --         newDelUtxo' = foldl' (flip HS.insert) nDelUtxo notSquashedDels
-    --         newUndos = HM.insert id (reverse $ foldl' prependToUndo [] (txInputs tx)) oldUndos
-    --     in ( PTRadded
-    --        , ( UtxoView newAddUtxo' newDelUtxo' utxoDB
-    --          , MemPool (HM.insert id (tx, txw, txd) oldTxs) (oldSize + 1)
-    --          , newUndos
-    --          , tip))
+processTxWithPureChecks
+    :: TxpMode m => Bool -> (TxId, TxAux) -> m TxUndo
+processTxWithPureChecks pureChecks tx@(id, aux) = do
+    -- TODO check it
+    --whenM (hasTx id) $ throwError TxpKnown
+    undo <- Utxo.verifyTxUtxo pureChecks pureChecks aux
+    Utxo.applyTxToUtxo' tx
+    pure undo

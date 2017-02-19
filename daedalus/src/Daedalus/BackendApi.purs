@@ -134,4 +134,4 @@ redeemADA :: forall eff. CWalletRedeem -> Aff (ajax :: AJAX | eff) CWallet
 redeemADA = postRBody ["redeem_ada"]
 
 importKey :: forall eff. String -> Aff (ajax :: AJAX | eff) Unit
-importKey filePath = postR ["import_key", filePath]
+importKey = postRBody ["import_key"]

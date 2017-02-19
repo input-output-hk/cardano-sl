@@ -491,6 +491,7 @@ blockHeader = to getBlockHeader
 ----------------------------------------------------------------------------
 -- HasDifficulty
 ----------------------------------------------------------------------------
+
 instance HasDifficulty (ConsensusData (MainBlockchain ssc)) where
     difficultyL = mcdDifficulty
 

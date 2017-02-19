@@ -132,3 +132,6 @@ systemVersion = getR ["system_version"]
 
 redeemADA :: forall eff. CWalletRedeem -> Aff (ajax :: AJAX | eff) CWallet
 redeemADA = postRBody ["redeem_ada"]
+
+importKey :: forall eff. String -> Aff (ajax :: AJAX | eff) CWallet
+importKey = postRBody ["import_key"]

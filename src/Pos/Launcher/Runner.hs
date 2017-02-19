@@ -345,6 +345,7 @@ runCH params@NodeParams {..} sscNodeContext act = do
     queue <- liftIO $ newTBQueueIO blockRetrievalQueueSize
     propQueue <- liftIO $ newTBQueueIO propagationQueueSize
     recoveryHeaderVar <- liftIO newEmptyTMVarIO
+    progressHeader <- liftIO newEmptyTMVarIO
     shutdownFlag <- liftIO $ newTVarIO False
     shutdownQueue <- liftIO $ newTBQueueIO allWorkersCount
     curTime <- liftIO Time.getCurrentTime
@@ -358,6 +359,7 @@ runCH params@NodeParams {..} sscNodeContext act = do
             , ncBlockRetrievalQueue = queue
             , ncInvPropagationQueue = propQueue
             , ncRecoveryHeader = recoveryHeaderVar
+            , ncProgressHeader = progressHeader
             , ncUpdateSemaphore = updSemaphore
             , ncShutdownFlag = shutdownFlag
             , ncShutdownNotifyQueue = shutdownQueue
@@ -423,7 +425,9 @@ bracketDHTInstance BaseParams {..} action = bracket acquire release action
         , kdcDumpPath = bpKademliaDump
         }
 
-createTransport :: (MonadIO m, WithLogger m, Mockable Throw m) => String -> Word16 -> m Transport
+createTransport
+    :: (MonadIO m, WithLogger m, Mockable Throw m)
+    => String -> Word16 -> m Transport
 createTransport ip port = do
     let tcpParams =
             (TCP.defaultTCPParameters

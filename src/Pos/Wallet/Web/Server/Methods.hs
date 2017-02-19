@@ -423,7 +423,7 @@ redeemADA sendActions CWalletRedeem {..} = do
                 (THEntry (hash tx) tx False Nothing)
             pure walletB
 
-importKey :: WalletWebMode ssc m => SendActions m -> Text -> m ()
+importKey :: WalletWebMode ssc m => SendActions m -> Text -> m CWallet
 importKey sendActions (toString -> fp) = do
     secret <- readUserSecret fp
     forM_ (secret ^. usKeys) $ \key -> do
@@ -431,11 +431,12 @@ importKey sendActions (toString -> fp) = do
         let addr = makePubKeyAddress $ toPublic key
             cAddr = addressToCAddress addr
         createWallet cAddr def
-#ifdef DEV_MODE
-    psk <- myPrimaryKey
+
     let importedAddr = makePubKeyAddress $ toPublic $ (secret ^. usKeys) !! 0
         importedCAddr = addressToCAddress importedAddr
-        pAddr = makePubKeyAddress $ toPublic psk
+#ifdef DEV_MODE
+    psk <- myPrimaryKey
+    let pAddr = makePubKeyAddress $ toPublic psk
     primaryBalance <- getBalance pAddr
     when (primaryBalance > mkCoin 0) $ do
         na <- getKnownPeers
@@ -446,6 +447,7 @@ importKey sendActions (toString -> fp) = do
                 () <$ addHistoryTx importedCAddr ADA "Transfer money from genesis key" ""
                     (THEntry (hash tx) tx False Nothing)
 #endif
+    getWallet importedCAddr
 
 
 ---------------------------------------------------------------------------

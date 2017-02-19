@@ -62,7 +62,7 @@ type WalletApi =
     :<|>
      "api" :> "system_version" :> Get '[JSON] (Either WalletError SoftwareVersion)
     :<|>
-     "api" :> "import_key" :> ReqBody '[JSON] Text :> Post '[JSON] (Either WalletError ())
+     "api" :> "import_key" :> ReqBody '[JSON] Text :> Post '[JSON] (Either WalletError CWallet)
 
 -- | Helper Proxy.
 walletApi :: Proxy WalletApi

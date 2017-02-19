@@ -1,19 +1,26 @@
 module Pos.Txp.Txp.Trans
     ( TxpT (..)
+    , runTxpT
     ) where
 
+import           Control.Lens              (at, to, (%=), (.=))
 import           Control.Monad.Except      (MonadError)
 import           Control.Monad.Fix         (MonadFix)
 import           Control.Monad.Trans.Class (MonadTrans)
-import           System.Wlog               (CanLog, HasLoggerName, logWarning)
+import qualified Data.HashMap.Strict       as HM
+import qualified Data.HashSet              as HS
+import           System.Wlog               (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Context               (WithNodeContext)
 import           Pos.Slotting.Class        (MonadSlots, MonadSlotsData)
 import           Pos.Util.JsonLog          (MonadJL (..))
 
-import           Pos.Txp.Txp.Class         (MonadTxpRead (..))
-import           Pos.Txp.Txp.Types         (TxpModifier (..))
+import           Pos.Txp.Txp.Class         (MonadBalances (..), MonadBalancesRead (..),
+                                            MonadUtxo (..), MonadUtxoRead (..))
+import           Pos.Txp.Txp.Types         (TxpModifier (..), bvStakes, bvTotal,
+                                            txmBalances, txmUtxoView, uvAddUtxo,
+                                            uvDelUtxo)
 
 
 ----------------------------------------------------------------------------
@@ -47,8 +54,39 @@ newtype TxpT m a = TxpT
                , MonadError e
                , MonadFix)
 
-instance MonadTxpRead m => MonadTxpRead (TxpT m) where
-    utxoGet = notImplemented
-    getStake = notImplemented
-    getTotalStake = notImplemented
-    hasTx = notImplemented
+instance MonadUtxoRead m => MonadUtxoRead (TxpT m) where
+    utxoGet id = TxpT $ do
+        deleted <- use $ txmUtxoView . uvDelUtxo . to (HS.member id)
+        if | deleted -> pure Nothing
+           | otherwise ->
+               (<|>) <$> use (txmUtxoView . uvAddUtxo . at id)
+                     <*> utxoGet id
+
+instance MonadUtxoRead m => MonadUtxo (TxpT m) where
+    utxoPut id aux = TxpT $ do
+        txmUtxoView . uvDelUtxo . at id .= Nothing
+        txmUtxoView . uvAddUtxo . at id .= Just aux
+
+    utxoDel id = TxpT $ do
+        inserted <- use $ txmUtxoView . uvAddUtxo . to (HM.member id)
+        if | inserted  -> txmUtxoView . uvAddUtxo . at id .= Nothing
+           | otherwise -> txmUtxoView . uvDelUtxo %= HS.insert id
+
+instance MonadBalancesRead m => MonadBalancesRead (TxpT m) where
+    getStake id = TxpT $
+        (<|>) <$> use (txmBalances . bvStakes . at id)
+              <*> getStake id
+
+    getTotalStake = TxpT $ use $ txmBalances . bvTotal
+
+instance MonadBalancesRead m => MonadBalances (TxpT m) where
+    setStake id c = TxpT $ txmBalances . bvStakes . at id .= Just c
+
+    setTotalStake c = TxpT $ txmBalances . bvTotal .= c
+
+----------------------------------------------------------------------------
+-- Runners
+----------------------------------------------------------------------------
+
+runTxpT :: TxpModifier -> TxpT m a -> m (a, TxpModifier)
+runTxpT txm (TxpT st) = runStateT st txm

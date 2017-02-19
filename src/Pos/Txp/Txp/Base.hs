@@ -32,5 +32,3 @@ import           Pos.Types           (TxIn (..), TxOutAux)
 --     | otherwise             = maybe (getTxOutFromDB key utxoDB)
 --                                     (return . Just)
 --                                     (HM.lookup key addUtxo)
-
-txpModifierToBatch = notImplemented

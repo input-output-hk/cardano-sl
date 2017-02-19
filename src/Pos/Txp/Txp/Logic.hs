@@ -2,27 +2,41 @@
 {-# LANGUAGE TypeFamilies    #-}
 
 module Pos.Txp.Txp.Logic
-    (
+    ( verifyTxp
+    , applyTxp
+    , rollbackTxp
+    , normalizeTxp
+    , processTx
     ) where
 
 import           Control.Monad.Except (MonadError (..))
 import qualified Data.HashMap.Strict  as HM
 import qualified Data.HashSet         as HS
-import           Formatting           (build, int, sformat, stext, (%))
+import           Formatting           (build, sformat, (%))
 import           System.Wlog          (WithLogger, logInfo)
 import           Universum
 
 import           Pos.Crypto           (WithHash (..), hash)
 import           Pos.Types            (Coin, StakeholderId, Tx (..), TxAux, TxId, TxUndo,
-                                       TxsUndo, getTxDistribution, topsortTxs, txOutStake, mkCoin)
+                                       TxsUndo, getTxDistribution, mkCoin, topsortTxs,
+                                       txOutStake)
 import           Pos.Types.Coin       (coinToInteger, sumCoins, unsafeAddCoin,
                                        unsafeIntegerToCoin, unsafeSubCoin)
 
-import           Pos.Txp.Txp.Class    (MonadTxp (..), MonadTxpRead (..))
+import           Pos.Txp.Txp.Class    (MonadBalances (..), MonadBalancesRead (..),
+                                       MonadTx (..), MonadUtxo (..))
 import           Pos.Txp.Txp.Failure  (TxpVerFailure (..))
 import qualified Pos.Txp.Txp.Utxo     as Utxo
 
-type TxpMode m = (MonadTxp m, MonadError TxpVerFailure m, WithLogger m)
+type GlobalTxpMode m = ( MonadUtxo m
+                       , MonadBalances m
+                       , MonadError TxpVerFailure m
+                       , WithLogger m)
+
+type LocalTxpMode m = ( MonadUtxo m
+                      , MonadTx m
+                      , MonadError TxpVerFailure m
+                      , WithLogger m)
 
 -- CHECK: @verifyTxp
 -- | Verify transactions correctness with respect to Utxo applying
@@ -30,16 +44,16 @@ type TxpMode m = (MonadTxp m, MonadError TxpVerFailure m, WithLogger m)
 -- Note: transactions must be topsorted to pass check.
 -- Warning: this function may apply some transactions and fail
 -- eventually. Use it only on temporary data.
-verifyTxp :: TxpMode m => [TxAux] -> m TxsUndo
-verifyTxp = mapM (processTx . withTxId)
+verifyTxp :: GlobalTxpMode m => [TxAux] -> m TxsUndo
+verifyTxp = mapM (processTxWithPureChecks True . withTxId)
 
-applyTxp :: TxpMode m => [(TxAux, TxUndo)] -> m ()
+applyTxp :: GlobalTxpMode m => [(TxAux, TxUndo)] -> m ()
 applyTxp txun = do
     let (txOutPlus, txInMinus) = concatStakes txun
     recomputeStakes txOutPlus txInMinus
     mapM_ (Utxo.applyTxToUtxo' . withTxId . fst) txun
 
-rollbackTxp :: TxpMode m => [(TxAux, TxUndo)] -> m ()
+rollbackTxp :: GlobalTxpMode m => [(TxAux, TxUndo)] -> m ()
 rollbackTxp txun = do
     let (txOutMinus, txInPlus) = concatStakes txun
     recomputeStakes txInPlus txOutMinus
@@ -47,28 +61,31 @@ rollbackTxp txun = do
 
 -- | 1. Recompute UtxoView by current list of transactions.
 -- | 2. Returns indices of valid transactions.
-normalizeTxp :: TxpMode m => [(TxId, TxAux)] -> m [(TxId, TxAux, TxUndo)]
+normalizeTxp :: LocalTxpMode m => [(TxId, TxAux)] -> m [(TxId, TxAux, TxUndo)]
 normalizeTxp txs = do
     topsorted <- note TxpCantTopsort (topsortTxs wHash txs)
     verdicts <- mapM (runExceptT . processTxWithPureChecks False) topsorted
     pure $ foldr' selectRight [] $ zip txs verdicts
   where
-    selectRight ((id, tx), Left _) xs  = xs
+    selectRight (_, Left _) xs         = xs
     selectRight ((id, tx), Right u) xs = (id, tx, u) : xs
     wHash (i, (t, _, _)) = WithHash t i
 
 -- CHECK: @processTx
 -- #verifyTxUtxo
 processTx
-    :: TxpMode m => (TxId, TxAux) -> m TxUndo
-processTx = processTxWithPureChecks True
+    :: LocalTxpMode m => (TxId, TxAux) -> m ()
+processTx tx@(id, aux) = do
+    whenM (hasTx id) $ throwError TxpKnown
+    undo <- processTxWithPureChecks True tx
+    putTxWithUndo id aux undo
 
 ----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
 
 recomputeStakes
-    :: TxpMode m
+    :: (MonadBalances m, WithLogger m)
     => [(StakeholderId, Coin)]
     -> [(StakeholderId, Coin)]
     -> m ()
@@ -120,10 +137,9 @@ withTxId :: TxAux -> (TxId, TxAux)
 withTxId aux@(tx, _, _) = (hash tx, aux)
 
 processTxWithPureChecks
-    :: TxpMode m => Bool -> (TxId, TxAux) -> m TxUndo
-processTxWithPureChecks pureChecks tx@(id, aux) = do
-    -- TODO check it
-    --whenM (hasTx id) $ throwError TxpKnown
+    :: (MonadUtxo m, MonadError TxpVerFailure m)
+    => Bool -> (TxId, TxAux) -> m TxUndo
+processTxWithPureChecks pureChecks tx@(_, aux) = do
     undo <- Utxo.verifyTxUtxo pureChecks pureChecks aux
     Utxo.applyTxToUtxo' tx
     pure undo

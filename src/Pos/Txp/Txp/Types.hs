@@ -1,11 +1,20 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 module Pos.Txp.Txp.Types
        ( UtxoView (..)
+       , uvAddUtxo
+       , uvDelUtxo
        , MemPool (..)
        , TxMap
        , BalancesView (..)
+       , bvStakes
+       , bvTotal
        , TxpModifier (..)
+       , txmUtxoView
+       , txmBalances
        ) where
 
+import           Control.Lens        (makeLenses)
 import           Data.Default        (Default, def)
 import qualified Data.HashMap.Strict as HM
 import           Data.HashSet        (HashSet)
@@ -19,9 +28,11 @@ import           Pos.Types           (Coin, StakeholderId, TxAux, TxId, TxIn, Tx
 ----------------------------------------------------------------------------
 
 data UtxoView = UtxoView
-    { addUtxo :: !(HashMap TxIn TxOutAux)
-    , delUtxo :: !(HashSet TxIn)
+    { _uvAddUtxo :: !(HashMap TxIn TxOutAux)
+    , _uvDelUtxo :: !(HashSet TxIn)
     }
+
+makeLenses ''UtxoView
 
 instance Default UtxoView where
     def = UtxoView mempty mempty
@@ -31,9 +42,11 @@ instance Default UtxoView where
 ----------------------------------------------------------------------------
 
 data BalancesView = BalancesView
-    { _stakes :: !(HashMap StakeholderId Coin)
-    , _total  :: !Coin
+    { _bvStakes :: !(HashMap StakeholderId Coin)
+    , _bvTotal  :: !Coin
     }
+
+makeLenses ''BalancesView
 
 ----------------------------------------------------------------------------
 -- MemPool
@@ -60,7 +73,7 @@ instance Default MemPool where
 
 -- | Real data inside TxpLDHolder
 data TxpModifier = TxpModifier
-    { txmUtxoView :: !UtxoView
-    , txmMemPool  :: !MemPool
-    , txmBalances :: !BalancesView
+    { _txmUtxoView :: !UtxoView
+    , _txmBalances :: !BalancesView
     }
+makeLenses ''TxpModifier

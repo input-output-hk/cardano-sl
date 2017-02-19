@@ -83,7 +83,7 @@ applyBlocksUnsafeDo blunds pModifier = do
     mapM_ putToDB blunds
     usBatch <- SomeBatchOp <$> usApplyBlocks blocks pModifier
     delegateBatch <- SomeBatchOp <$> delegationApplyBlocks blocks
-    txBatch <- SomeBatchOp . getOldestFirst <$> txApplyBlocks blunds
+    txBatch <- txApplyBlocks blunds
     sscApplyBlocks blocks Nothing -- TODO: pass not only 'Nothing'
     GS.writeBatchGState [delegateBatch, usBatch, txBatch, forwardLinksBatch, inMainBatch]
     sscNormalize
@@ -109,7 +109,7 @@ rollbackBlocksUnsafe
 rollbackBlocksUnsafe toRollback = reportingFatal $ do
     delRoll <- SomeBatchOp <$> delegationRollbackBlocks toRollback
     usRoll <- SomeBatchOp <$> usRollbackBlocks (toRollback & each._2 %~ undoUS)
-    txRoll <- SomeBatchOp <$> txRollbackBlocks toRollback
+    txRoll <- txRollbackBlocks toRollback
     sscRollbackBlocks $ fmap fst toRollback
     GS.writeBatchGState [delRoll, usRoll, txRoll, forwardLinksBatch, inMainBatch]
     DB.sanityCheckDB

@@ -11,9 +11,9 @@ module Pos.Txp.Network.Listeners
        ) where
 
 import qualified Data.HashMap.Strict        as HM
-import           Formatting                 (build, sformat, stext, (%))
+import           Formatting                 (build, sformat, (%))
 import           Serokell.Util.Verify       (VerificationRes (..))
-import           System.Wlog                (WithLogger, logDebug, logInfo, logWarning)
+import           System.Wlog                (WithLogger, logInfo)
 import           Universum
 
 import           Pos.Binary.Communication   ()

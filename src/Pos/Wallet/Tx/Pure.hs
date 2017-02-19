@@ -39,7 +39,7 @@ import           Pos.Crypto                (PublicKey, SecretKey, WithHash (..),
 import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.Script                (Script)
 import           Pos.Script.Examples       (multisigRedeemer, multisigValidator)
-import           Pos.Txp                   (MonadTxpRead (utxoGet), UtxoStateT (..),
+import           Pos.Txp                   (MonadUtxoRead (utxoGet), UtxoStateT (..),
                                             applyTxToUtxo)
 import           Pos.Types                 (Address, Block, ChainDifficulty, Coin,
                                             Tx (..), TxAux, TxDistribution (..), TxId,
@@ -152,7 +152,7 @@ hasReceiver :: Tx -> Address -> Bool
 hasReceiver Tx {..} addr = any ((== addr) . txOutAddress) txOutputs
 
 -- | Given some 'Utxo', check if given 'Address' is one of the senders of 'Tx'
-hasSender :: MonadTxpRead m => Tx -> Address -> m Bool
+hasSender :: MonadUtxoRead m => Tx -> Address -> m Bool
 hasSender Tx {..} addr = anyM hasCorrespondingOutput txInputs
   where hasCorrespondingOutput txIn =
             fmap toBool $ fmap ((== addr) . txOutAddress . fst) <$> utxoGet txIn

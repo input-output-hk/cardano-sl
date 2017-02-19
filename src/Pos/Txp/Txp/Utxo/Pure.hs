@@ -31,9 +31,8 @@ import           Universum
 
 import           Pos.Binary.Types           ()
 import           Pos.Crypto                 (WithHash (..))
-import           Pos.Txp.Txp.Class          (MonadTxp (..), MonadTxpRead (..))
+import           Pos.Txp.Txp.Class          (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Txp.Utxo.Functions (applyTxToUtxo, applyTxToUtxo', verifyTxUtxo)
-import           Pos.Types.Coin             (mkCoin)
 import           Pos.Types.Types            (Tx, TxAux, TxDistribution, TxId, TxIn (..),
                                              Utxo)
 
@@ -45,11 +44,8 @@ newtype UtxoReaderT m a = UtxoReaderT
     { getUtxoReaderT :: ReaderT Utxo m a
     } deriving (Functor, Applicative, Monad, MonadReader Utxo, MonadError e)
 
-instance Monad m => MonadTxpRead (UtxoReaderT m) where
+instance Monad m => MonadUtxoRead (UtxoReaderT m) where
     utxoGet TxIn {..} = UtxoReaderT $ view $ at (txInHash, txInIndex)
-    getStake _ = pure Nothing
-    getTotalStake = pure $ mkCoin 0
-    hasTx = pure False
 
 instance MonadTrans UtxoReaderT where
     lift = UtxoReaderT . lift
@@ -70,17 +66,12 @@ newtype UtxoStateT m a = UtxoStateT
     { getUtxoStateT :: StateT Utxo m a
     } deriving (Functor, Applicative, Monad, MonadState Utxo)
 
-instance Monad m => MonadTxpRead (UtxoStateT m) where
+instance Monad m => MonadUtxoRead (UtxoStateT m) where
     utxoGet TxIn {..} = UtxoStateT $ use $ at (txInHash, txInIndex)
-    getStake _ = pure Nothing
-    getTotalStake = pure $ mkCoin 0
-    hasTx = pure False
 
-instance Monad m => MonadTxp (UtxoStateT m) where
+instance Monad m => MonadUtxo (UtxoStateT m) where
     utxoPut TxIn {..} v = UtxoStateT $ at (txInHash, txInIndex) .= Just v
     utxoDel TxIn {..} = UtxoStateT $ at (txInHash, txInIndex) .= Nothing
-    setStake _ _ = pass
-    setTotalStake _ = pass
 
 instance MonadTrans UtxoStateT where
     lift = UtxoStateT . lift

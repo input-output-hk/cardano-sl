@@ -101,8 +101,8 @@ instance (MonadDB ssc m, MonadMask m) => MonadBalances (TxpHolder m) where
     getOwnUtxo addr = do
         utxo <- GS.getFilteredUtxo addr
         updates <- getUtxoView
-        let toDel = delUtxo updates
-            toAdd = HM.filter (`belongsTo` addr) $ addUtxo updates
+        let toDel = _uvDelUtxo updates
+            toAdd = HM.filter (`belongsTo` addr) $ _uvAddUtxo updates
             utxo' = foldr (M.delete . toPair) utxo toDel
         return $ HM.foldrWithKey (M.insert . toPair) utxo' toAdd
 

@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeFamilies #-}
+
 module Pos.Communication.Types.Relay
        ( InvMsg (..)
        , ReqMsg (..)
@@ -5,6 +7,7 @@ module Pos.Communication.Types.Relay
        , InvOrData
        ) where
 
+import           Control.Lens        (Wrapped (..), iso)
 import qualified Data.Text.Buildable as B
 import           Formatting          (bprint, build, (%))
 import           Test.QuickCheck     (Arbitrary (..))
@@ -44,3 +47,7 @@ type InvOrData tag key contents = Either (InvMsg key tag) (DataMsg contents)
 instance (Buildable contents) =>
          Buildable (DataMsg contents) where
     build (DataMsg contents) = bprint ("Data {" %build % "}") contents
+
+instance Wrapped (DataMsg contents) where
+    type Unwrapped (DataMsg contents) = contents
+    _Wrapped' = iso dmContents DataMsg

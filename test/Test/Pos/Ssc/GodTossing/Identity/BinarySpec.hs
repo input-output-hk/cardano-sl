@@ -4,6 +4,7 @@ module Test.Pos.Ssc.GodTossing.Identity.BinarySpec
        ( spec
        ) where
 
+import           Control.Lens            (has)
 import           Crypto.Hash             (Blake2s_224, Blake2s_256)
 import           Test.Hspec              (Spec, describe)
 import           Universum
@@ -18,7 +19,7 @@ import           Pos.Crypto              (Signature, PublicKey,
 import qualified Pos.Ssc.GodTossing      as GT
 import           Pos.Types.Address       (StakeholderId)
 import           Test.Pos.Util           (binaryTest, msgLenLimitedTest,
-                                          msgLenLimitedTest')
+                                          msgLenLimitedTest', essentialLimit)
 
 spec :: Spec
 spec = describe "GodTossing" $ do
@@ -50,16 +51,13 @@ spec = describe "GodTossing" $ do
         msgLenLimitedTest' @(C.MaxSize (R.DataMsg GT.GtMsgContents))
             (C.MaxSize . R.DataMsg <$> C.mcCommitmentMsgLenLimit)
             "MCCommitment"
-            (isMCCommitment . C.getOfMaxSize)
+            (has GT._MCCommitment . R.dmContents . C.getOfMaxSize)
+        msgLenLimitedTest' @(R.DataMsg GT.GtMsgContents)
+            essentialLimit "MCCommitment" (has GT._MCOpening . R.dmContents)
         msgLenLimitedTest' @(C.MaxSize (R.DataMsg GT.GtMsgContents))
             (C.MaxSize . R.DataMsg <$> C.mcSharesMsgLenLimit)
             "MCShares"
-            (isMCShares . C.getOfMaxSize)
-
-isMCCommitment :: R.DataMsg GT.GtMsgContents -> Bool
-isMCCommitment (R.DataMsg (GT.MCCommitment _)) = True
-isMCCommitment _                               = False
-
-isMCShares :: R.DataMsg GT.GtMsgContents -> Bool
-isMCShares (R.DataMsg (GT.MCShares _ _)) = True
-isMCShares _                             = False
+            (has GT._MCShares . R.dmContents . C.getOfMaxSize)
+        msgLenLimitedTest' @(R.DataMsg GT.GtMsgContents)
+            essentialLimit "MCCommitment"
+            (has GT._MCVssCertificate . R.dmContents)

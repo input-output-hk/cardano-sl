@@ -13,7 +13,8 @@ module Pos.Txp.Logic.Global
        ) where
 
 import           Control.Lens        (_Wrapped)
-import           Data.Default        (def)
+import qualified Data.HashMap.Strict as HM
+import qualified Data.HashSet        as HS
 import qualified Data.List.NonEmpty  as NE
 import           System.Wlog         (WithLogger)
 import           Universum
@@ -30,9 +31,10 @@ import           Pos.Util            (NE, NewestFirst (..), OldestFirst (..),
 
 import           Pos.Txp.Error       (TxpError (..))
 import           Pos.Txp.MemState    (MonadTxpMem (..))
-import           Pos.Txp.Txp         (BalancesView (..), DBTxp, TxpModifier (..), TxpT,
-                                      TxpVerFailure, applyTxp, rollbackTxp, runDBTxp,
-                                      runTxpT, verifyTxp)
+import           Pos.Txp.Txp         (BalancesView (..), BalancesView (..), DBTxp,
+                                      TxpModifier (..), TxpT, TxpVerFailure,
+                                      UtxoView (..), applyTxp, rollbackTxp, runDBTxp,
+                                      runTxpTGlobal, verifyTxp)
 type TxpWorkMode ssc m = ( Ssc ssc
                          , WithLogger m
                          , MonadDB ssc m
@@ -106,7 +108,12 @@ txRollbackBlocks blunds = do
 ----------------------------------------------------------------------------
 
 txpModifierToBatch :: TxpModifier -> SomeBatchOp
-txpModifierToBatch = notImplemented
+txpModifierToBatch (TxpModifier (UtxoView (HM.toList -> addS) (HS.toList -> delS))
+                                (BalancesView (HM.toList -> stakes) total) _ _) =
+    SomeBatchOp [
+          SomeBatchOp $ map GS.DelTxIn delS ++ map (uncurry GS.AddTxOut) addS
+        , SomeBatchOp $ map (uncurry GS.PutFtsStake) stakes ++ [GS.PutFtsSum total]
+                ]
 
 runTxpAction
     :: MonadDB ssc m
@@ -114,7 +121,7 @@ runTxpAction
 runTxpAction action = do
     total <- GS.getTotalFtsStake
     let balView = BalancesView mempty total
-    runExceptT . runDBTxp . runTxpT (TxpModifier def balView) $ action
+    runExceptT . runDBTxp . runTxpTGlobal balView $ action
 
 blundToAuxNUndo :: Blund ssc -> [(TxAux, TxUndo)]
 blundToAuxNUndo = uncurry zip . bimap getTxas undoTx

@@ -25,12 +25,13 @@ import           Pos.Communication.Relay    (Relay (..), RelayProxy (..), relayL
                                              relayStubListeners)
 import           Pos.Crypto                 (hash)
 import           Pos.Statistics             (StatProcessTx (..), statlogCountEvent)
+import           Pos.Types                  (TxAux, TxId)
+import           Pos.WorkMode               (WorkMode)
+
 import           Pos.Txp.Logic              (txProcessTransaction)
 import           Pos.Txp.MemState           (getMemPool)
 import           Pos.Txp.Network.Types      (TxMsgContents (..), TxMsgTag (..))
 import           Pos.Txp.Txp.Types          (MemPool (..))
-import           Pos.Types                  (TxAux, TxId)
-import           Pos.WorkMode               (WorkMode)
 
 txProxy :: RelayProxy TxId TxMsgTag TxMsgContents
 txProxy = RelayProxy
@@ -54,9 +55,9 @@ instance ( WorkMode ssc m
     verifyReqTag _ = pure VerSuccess
     verifyDataContents _ = pure VerSuccess
 
-    handleInv _ txId = not . HM.member txId  . localTxs <$> getMemPool
+    handleInv _ txId = not . HM.member txId  . _mpLocalTxs <$> getMemPool
 
-    handleReq _ txId = fmap toContents . HM.lookup txId . localTxs <$> getMemPool
+    handleReq _ txId = fmap toContents . HM.lookup txId . _mpLocalTxs <$> getMemPool
       where
         toContents (tx, tw, td) = TxMsgContents tx tw td
 

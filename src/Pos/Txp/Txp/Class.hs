@@ -5,14 +5,13 @@ module Pos.Txp.Txp.Class
       , MonadUtxo (..)
       , MonadBalancesRead (..)
       , MonadBalances (..)
-      , MonadTx (..)
+      , MonadTxPool (..)
       ) where
 
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Universum
 
-import           Pos.Types.Core
-import           Pos.Types.Types
+import           Pos.Types                 (TxAux, TxId, TxIn, TxOutAux, TxUndo, StakeholderId, Coin)
 
 ----------------------------------------------------------------------------
 -- MonadUtxo
@@ -26,6 +25,9 @@ class Monad m => MonadUtxoRead m where
 instance MonadUtxoRead m => MonadUtxoRead (ReaderT a m) where
 instance MonadUtxoRead m => MonadUtxoRead (ExceptT e m) where
 instance MonadUtxoRead m => MonadUtxoRead (StateT e m) where
+-- For pure runs
+instance MonadUtxoRead Identity where
+    utxoGet _ = pure Nothing
 
 class MonadUtxoRead m => MonadUtxo m where
     utxoPut :: TxIn -> TxOutAux -> m ()
@@ -80,18 +82,23 @@ instance MonadBalances m => MonadBalances (ExceptT s m)
 -- MonadTx
 ----------------------------------------------------------------------------
 
-class Monad m => MonadTx m where
+class Monad m => MonadTxPool m where
     hasTx :: TxId -> m Bool
     putTxWithUndo :: TxId -> TxAux -> TxUndo -> m ()
+    poolSize :: m Int
 
     default hasTx
-        :: (MonadTrans t, MonadTx m', t m' ~ m) => TxId -> m Bool
+        :: (MonadTrans t, MonadTxPool m', t m' ~ m) => TxId -> m Bool
     hasTx = lift . hasTx
 
     default putTxWithUndo
-        :: (MonadTrans t, MonadTx m', t m' ~ m) => TxId -> TxAux -> TxUndo -> m ()
+        :: (MonadTrans t, MonadTxPool m', t m' ~ m) => TxId -> TxAux -> TxUndo -> m ()
     putTxWithUndo id tx = lift . putTxWithUndo id tx
 
-instance MonadTx m => MonadTx (ReaderT s m)
-instance MonadTx m => MonadTx (StateT s m)
-instance MonadTx m => MonadTx (ExceptT s m)
+    default poolSize
+        :: (MonadTrans t, MonadTxPool m', t m' ~ m) => m Int
+    poolSize = lift poolSize
+
+instance MonadTxPool m => MonadTxPool (ReaderT s m)
+instance MonadTxPool m => MonadTxPool (StateT s m)
+instance MonadTxPool m => MonadTxPool (ExceptT s m)

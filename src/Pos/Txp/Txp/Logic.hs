@@ -16,6 +16,7 @@ import           Formatting           (build, sformat, (%))
 import           System.Wlog          (WithLogger, logInfo)
 import           Universum
 
+import           Pos.Constants        (maxLocalTxs)
 import           Pos.Crypto           (WithHash (..), hash)
 import           Pos.Types            (Coin, StakeholderId, Tx (..), TxAux, TxId, TxUndo,
                                        TxsUndo, getTxDistribution, mkCoin, topsortTxs,
@@ -24,7 +25,7 @@ import           Pos.Types.Coin       (coinToInteger, sumCoins, unsafeAddCoin,
                                        unsafeIntegerToCoin, unsafeSubCoin)
 
 import           Pos.Txp.Txp.Class    (MonadBalances (..), MonadBalancesRead (..),
-                                       MonadTx (..), MonadUtxo (..))
+                                       MonadTxPool (..), MonadUtxo (..))
 import           Pos.Txp.Txp.Failure  (TxpVerFailure (..))
 import qualified Pos.Txp.Txp.Utxo     as Utxo
 
@@ -34,9 +35,8 @@ type GlobalTxpMode m = ( MonadUtxo m
                        , WithLogger m)
 
 type LocalTxpMode m = ( MonadUtxo m
-                      , MonadTx m
-                      , MonadError TxpVerFailure m
-                      , WithLogger m)
+                      , MonadTxPool m
+                      , MonadError TxpVerFailure m)
 
 -- CHECK: @verifyTxp
 -- | Verify transactions correctness with respect to Utxo applying
@@ -60,15 +60,12 @@ rollbackTxp txun = do
     mapM_ Utxo.rollbackTxUtxo $ reverse txun
 
 -- | 1. Recompute UtxoView by current list of transactions.
--- | 2. Returns indices of valid transactions.
-normalizeTxp :: LocalTxpMode m => [(TxId, TxAux)] -> m [(TxId, TxAux, TxUndo)]
+-- | 2. Apply to MemPool (and to Utxo) only valid transactions.
+normalizeTxp :: LocalTxpMode m => [(TxId, TxAux)] -> m ()
 normalizeTxp txs = do
     topsorted <- note TxpCantTopsort (topsortTxs wHash txs)
-    verdicts <- mapM (runExceptT . processTxWithPureChecks False) topsorted
-    pure $ foldr' selectRight [] $ zip txs verdicts
+    mapM_ (runExceptT . processTx) topsorted
   where
-    selectRight (_, Left _) xs         = xs
-    selectRight ((id, tx), Right u) xs = (id, tx, u) : xs
     wHash (i, (t, _, _)) = WithHash t i
 
 -- CHECK: @processTx
@@ -77,6 +74,7 @@ processTx
     :: LocalTxpMode m => (TxId, TxAux) -> m ()
 processTx tx@(id, aux) = do
     whenM (hasTx id) $ throwError TxpKnown
+    whenM ((>= maxLocalTxs) <$> poolSize) $ throwError TxpOverwhelmed
     undo <- processTxWithPureChecks True tx
     putTxWithUndo id aux undo
 

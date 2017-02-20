@@ -9,10 +9,10 @@ import           Data.Maybe            (isJust, isNothing)
 import qualified Data.Vector           as V (fromList)
 import           Pos.Crypto            (hash, unsafeHash, withHash)
 import           Pos.Data.Attributes   (mkAttributes)
+import           Pos.Txp               (applyTxToUtxoPure, verifyTxUtxoPure)
 import           Pos.Types             (GoodTx (..), SmallGoodTx (..), Tx (..),
                                         TxDistribution (..), TxIn (..), TxOutAux, Utxo,
-                                        applyTxToUtxoPure, deleteTxIn, findTxIn,
-                                        verifyTxUtxoPure)
+                                        deleteTxIn, findTxIn)
 import           Serokell.Util.Verify  (isVerSuccess)
 
 import           Test.Hspec            (Spec, describe, it)

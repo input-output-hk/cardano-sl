@@ -46,7 +46,7 @@ import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
 import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp                     (TxpHolder (..), UtxoView (..),
                                               evalUtxoStateT, getMemPool, getUtxoView,
-                                              localTxs, runUtxoStateT,
+                                              _mpLocalTxs, runUtxoStateT,
                                               txProcessTransaction)
 import           Pos.Types                   (Address, BlockHeader, ChainDifficulty, Coin,
                                               TxAux, TxId, Utxo, difficultyL,
@@ -168,7 +168,7 @@ instance (SscHelpersClass ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
                 deriveAddrHistoryPartial txs addr [blk]
             localFetcher blkTxs = do
                 let mp (txid, (tx, txw, txd)) = (WithHash tx txid, txw, txd)
-                ltxs <- HM.toList . localTxs <$> lift (lift getMemPool)
+                ltxs <- HM.toList . _mpLocalTxs <$> lift (lift getMemPool)
                 txs <- getRelatedTxs addr $ map mp ltxs
                 return $ txs ++ blkTxs
 

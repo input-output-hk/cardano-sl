@@ -352,7 +352,6 @@ library
                         Pos.Txp.Network.Listeners
                         Pos.Txp.Network.Types
                         Pos.Txp.Txp
-                        Pos.Txp.Txp.Base
                         Pos.Txp.Txp.Class
                         Pos.Txp.Txp.DBTxp
                         Pos.Txp.Txp.Failure

@@ -96,9 +96,9 @@ instance MonadBaseControl IO m => MonadBaseControl IO (DBTxp m) where
 -- Useful instances
 ----------------------------------------------------------------------------
 
-instance (Monad m, MonadDB ssc m) => MonadUtxoRead m where
+instance (Monad m, MonadDB ssc m) => MonadUtxoRead (DBTxp m) where
     utxoGet = GS.getTxOut
 
-instance (Monad m, MonadDB ssc m) => MonadBalancesRead m where
+instance (Monad m, MonadDB ssc m) => MonadBalancesRead (DBTxp m) where
     getTotalStake = GS.getTotalFtsStake
     getStake = GS.getFtsStake

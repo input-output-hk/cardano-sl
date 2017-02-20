@@ -31,10 +31,11 @@ import           Universum
 
 import           Pos.Binary.Types           ()
 import           Pos.Crypto                 (WithHash (..))
-import           Pos.Txp.Txp.Class          (MonadUtxo (..), MonadUtxoRead (..))
-import           Pos.Txp.Txp.Utxo.Functions (applyTxToUtxo, applyTxToUtxo', verifyTxUtxo)
 import           Pos.Types.Types            (Tx, TxAux, TxDistribution, TxId, TxIn (..),
                                              Utxo)
+
+import           Pos.Txp.Txp.Class          (MonadUtxo (..), MonadUtxoRead (..))
+import           Pos.Txp.Txp.Utxo.Functions (applyTxToUtxo, applyTxToUtxo', verifyTxUtxo)
 
 ----------------------------------------------------------------------------
 -- Reader

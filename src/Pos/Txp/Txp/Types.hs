@@ -5,23 +5,28 @@ module Pos.Txp.Txp.Types
        , uvAddUtxo
        , uvDelUtxo
        , MemPool (..)
+       , mpLocalTxs
+       , mpLocalTxsSize
        , TxMap
        , BalancesView (..)
        , bvStakes
        , bvTotal
+       , UndoMap
        , TxpModifier (..)
        , txmUtxoView
        , txmBalances
+       , txmMemPool
+       , txmUndos
        ) where
 
 import           Control.Lens        (makeLenses)
 import           Data.Default        (Default, def)
 import qualified Data.HashMap.Strict as HM
 import           Data.HashSet        (HashSet)
-import qualified Data.Text           as T
 import           Universum
 
-import           Pos.Types           (Coin, StakeholderId, TxAux, TxId, TxIn, TxOutAux)
+import           Pos.Types           (Coin, StakeholderId, TxAux, TxId, TxIn, TxOutAux,
+                                      TxUndo, mkCoin)
 
 ----------------------------------------------------------------------------
 -- UtxoView
@@ -48,32 +53,47 @@ data BalancesView = BalancesView
 
 makeLenses ''BalancesView
 
+instance Default BalancesView where
+    def = BalancesView mempty $ mkCoin 0
+
 ----------------------------------------------------------------------------
 -- MemPool
 ----------------------------------------------------------------------------
 
 type TxMap = HashMap TxId TxAux
 
+instance Default TxMap where
+    def = mempty
+
 data MemPool = MemPool
-    { localTxs     :: !TxMap
+    { _mpLocalTxs     :: !TxMap
       -- | @length@ is @O(n)@ for 'HM.HashMap' so we store it explicitly.
-    , localTxsSize :: !Int
+    , _mpLocalTxsSize :: !Int
     }
+
+makeLenses ''MemPool
 
 instance Default MemPool where
     def =
         MemPool
-        { localTxs = HM.empty
-        , localTxsSize = 0
+        { _mpLocalTxs = HM.empty
+        , _mpLocalTxsSize = 0
         }
 
 ----------------------------------------------------------------------------
 -- TxpModifier
 ----------------------------------------------------------------------------
 
+type UndoMap = HashMap TxId TxUndo
+
+instance Default UndoMap where
+    def = mempty
+
 -- | Real data inside TxpLDHolder
 data TxpModifier = TxpModifier
     { _txmUtxoView :: !UtxoView
     , _txmBalances :: !BalancesView
+    , _txmMemPool  :: !MemPool
+    , _txmUndos    :: !UndoMap
     }
 makeLenses ''TxpModifier

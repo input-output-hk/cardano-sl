@@ -33,6 +33,7 @@ import           Pos.Script.Examples   (alwaysSuccessValidator, badIntRedeemer,
                                         intValidatorWithBlah, multisigRedeemer,
                                         multisigValidator, shaStressRedeemer,
                                         sigStressRedeemer, stdlibValidator)
+import           Pos.Txp               (verifyTxUtxoPure)
 import           Pos.Types             (BadSigsTx (..), GoodTx (..), SmallBadSigsTx (..),
                                         SmallGoodTx (..), Tx (..), TxAux,
                                         TxDistribution (..), TxIn (..), TxInWitness (..),
@@ -40,7 +41,7 @@ import           Pos.Types             (BadSigsTx (..), GoodTx (..), SmallBadSig
                                         VTxGlobalContext (..), VTxLocalContext (..),
                                         checkPubKeyAddress, makePubKeyAddress,
                                         makeScriptAddress, mkCoin, sumCoins, topsortTxs,
-                                        verifyTxAlone, verifyTxPure, verifyTxUtxoPure)
+                                        verifyTxAlone, verifyTxPure)
 import           Pos.Util              (nonrepeating, runGen, sublistN)
 
 

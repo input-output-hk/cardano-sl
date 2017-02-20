@@ -1,12 +1,16 @@
 module Pos.Txp.Txp.Trans
     ( TxpT (..)
     , runTxpT
+    , runTxpTGlobal
+    , runTxpTLocal
+    , execTxpTLocal
     ) where
 
 import           Control.Lens              (at, to, (%=), (.=))
 import           Control.Monad.Except      (MonadError)
 import           Control.Monad.Fix         (MonadFix)
 import           Control.Monad.Trans.Class (MonadTrans)
+import           Data.Default              (def)
 import qualified Data.HashMap.Strict       as HM
 import qualified Data.HashSet              as HS
 import           System.Wlog               (CanLog, HasLoggerName)
@@ -16,12 +20,15 @@ import           Pos.Context               (WithNodeContext)
 import           Pos.Slotting.Class        (MonadSlots, MonadSlotsData)
 import           Pos.Util.JsonLog          (MonadJL (..))
 
-import           Pos.Txp.Txp.Class         (MonadBalances (..), MonadBalancesRead (..),
-                                            MonadUtxo (..), MonadUtxoRead (..))
-import           Pos.Txp.Txp.Types         (TxpModifier (..), bvStakes, bvTotal,
-                                            txmBalances, txmUtxoView, uvAddUtxo,
+import           Pos.Txp.Txp.Types         (BalancesView, MemPool, TxpModifier (..),
+                                            UndoMap, UtxoView, bvStakes, bvTotal,
+                                            mpLocalTxs, mpLocalTxsSize, txmBalances,
+                                            txmMemPool, txmUndos, txmUtxoView, uvAddUtxo,
                                             uvDelUtxo)
 
+import           Pos.Txp.Txp.Class         (MonadBalances (..), MonadBalancesRead (..),
+                                            MonadTxPool (..), MonadUtxo (..),
+                                            MonadUtxoRead (..))
 
 ----------------------------------------------------------------------------
 -- Tranformer
@@ -84,9 +91,30 @@ instance MonadBalancesRead m => MonadBalances (TxpT m) where
 
     setTotalStake c = TxpT $ txmBalances . bvTotal .= c
 
+instance Monad m => MonadTxPool (TxpT m) where
+    hasTx id = TxpT $ use $ txmMemPool . mpLocalTxs . to (HM.member id)
+
+    putTxWithUndo id tx undo = TxpT $ do
+        has <- use $ txmMemPool . mpLocalTxs . to (HM.member id)
+        unless has $ do
+            txmMemPool . mpLocalTxs . at id .= Just tx
+            txmMemPool . mpLocalTxsSize %= (+1)
+            txmUndos . at id .= Just undo
+
+    poolSize = TxpT $ use $ txmMemPool . mpLocalTxsSize
+
 ----------------------------------------------------------------------------
 -- Runners
 ----------------------------------------------------------------------------
 
 runTxpT :: TxpModifier -> TxpT m a -> m (a, TxpModifier)
 runTxpT txm (TxpT st) = runStateT st txm
+
+runTxpTGlobal :: Functor m => BalancesView -> TxpT m a -> m (a, TxpModifier)
+runTxpTGlobal bv txpt = runTxpT (TxpModifier def bv def mempty) txpt
+
+runTxpTLocal :: Functor m => UtxoView -> MemPool -> UndoMap -> TxpT m a -> m (a, TxpModifier)
+runTxpTLocal uv mp undo txpt = runTxpT (TxpModifier uv def mp undo) txpt
+
+execTxpTLocal :: Functor m => UtxoView -> MemPool -> UndoMap -> TxpT m a -> m TxpModifier
+execTxpTLocal uv mp undo txpt = snd <$> runTxpT (TxpModifier uv def mp undo) txpt

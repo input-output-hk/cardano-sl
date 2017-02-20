@@ -1,6 +1,5 @@
 module Pos.Txp.Txp
-    ( module           Pos.Txp.Txp.Base
-    , module           Pos.Txp.Txp.Class
+    ( module           Pos.Txp.Txp.Class
     , module           Pos.Txp.Txp.DBTxp
     , module           Pos.Txp.Txp.Failure
     , module           Pos.Txp.Txp.Logic
@@ -9,7 +8,6 @@ module Pos.Txp.Txp
     , module           Pos.Txp.Txp.Utxo
     ) where
 
-import           Pos.Txp.Txp.Base
 import           Pos.Txp.Txp.Class
 import           Pos.Txp.Txp.DBTxp
 import           Pos.Txp.Txp.Failure

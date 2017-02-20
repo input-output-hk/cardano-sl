@@ -3,11 +3,9 @@
 
 module Pos.Txp.MemState.Class
        ( MonadTxpMem (..)
-       -- , getTxpLD
-       -- , modifyTxpLD
-       -- , modifyTxpLD_
-
-       -- , getLocalUndo
+       , getTxpLocalData
+       , modifyTxpLocalData
+       , setTxpLocalData
        , getUtxoView
        , getLocalTxsNUndo
        , getMemPool
@@ -22,9 +20,10 @@ import qualified Data.HashMap.Strict    as HM
 import           Universum
 
 import           Pos.DHT.Real           (KademliaDHT)
-import           Pos.Txp.MemState.Types (TxpLocalData)
-import           Pos.Txp.Txp.Types      (MemPool (localTxs), UtxoView)
-import           Pos.Types              (HeaderHash, TxAux, TxId, TxOutAux)
+import           Pos.Types              (TxAux, TxId, TxOutAux)
+
+import           Pos.Txp.MemState.Types (TxpLocalData (..), TxpLocalDataPure)
+import           Pos.Txp.Txp.Types      (MemPool (_mpLocalTxs), UtxoView)
 
 
 
@@ -43,46 +42,45 @@ instance MonadTxpMem m => MonadTxpMem (StateT s m)
 instance MonadTxpMem m => MonadTxpMem (ExceptT s m)
 instance MonadTxpMem m => MonadTxpMem (KademliaDHT m)
 
--- getTxpLD :: (MonadIO m, MonadTxpMem m) => m Tx
--- getTxpLD = askTxpMem >>= \txld -> atomically $
---     (,,,) <$> STM.readTVar (utxoView txld)
---           <*> STM.readTVar (memPool txld)
---           <*> STM.readTVar (undos txld)
---           <*> STM.readTVar (ldTip txld)
+getTxpLocalData :: (MonadIO m, MonadTxpMem m) => m TxpLocalDataPure
+getTxpLocalData = askTxpMem >>= \TxpLocalData{..} -> atomically $
+    (,,,) <$> STM.readTVar txpUtxoView
+          <*> STM.readTVar txpMemPool
+          <*> STM.readTVar txpUndos
+          <*> STM.readTVar txpTip
 
--- modifyTxpLD :: (MonadIO m, MonadTxpMem m) => (TxpLD ssc -> (a, TxpLD ssc)) -> m a
--- modifyTxpLD f =
---     askTxpMem >>= \txld -> atomically $ do
---         curUV  <- STM.readTVar (utxoView txld)
---         curMP  <- STM.readTVar (memPool txld)
---         curUndos <- STM.readTVar (undos txld)
---         curTip <- STM.readTVar (ldTip txld)
---         let (res, (newUV, newMP, newUndos, newTip))
---               = f (curUV, curMP, curUndos, curTip)
---         STM.writeTVar (utxoView txld) newUV
---         STM.writeTVar (memPool txld) newMP
---         STM.writeTVar (undos txld) newUndos
---         STM.writeTVar (ldTip txld) newTip
+modifyTxpLocalData :: (MonadIO m, MonadTxpMem m) => (TxpLocalDataPure -> (a, TxpLocalDataPure)) -> m a
+modifyTxpLocalData f =
+    askTxpMem >>= \TxpLocalData{..} -> atomically $ do
+        curUV  <- STM.readTVar txpUtxoView
+        curMP  <- STM.readTVar txpMemPool
+        curUndos <- STM.readTVar txpUndos
+        curTip <- STM.readTVar txpTip
+        let (res, (newUV, newMP, newUndos, newTip))
+              = f (curUV, curMP, curUndos, curTip)
+        STM.writeTVar txpUtxoView newUV
+        STM.writeTVar txpMemPool newMP
+        STM.writeTVar txpUndos newUndos
+        STM.writeTVar txpTip newTip
+        pure res
 
--- modifyTxpLD_ :: (MonadIO m, MonadTxpMem m) => (TxpLD ssc -> TxpLD ssc) -> m ()
--- modifyTxpLD_ = modifyTxpLD . (((),) .)
+setTxpLocalData :: (MonadIO m, MonadTxpMem m) => TxpLocalDataPure -> m ()
+setTxpLocalData = modifyTxpLocalData_ . const
 
+modifyTxpLocalData_ :: (MonadIO m, MonadTxpMem m) => (TxpLocalDataPure -> TxpLocalDataPure) -> m ()
+modifyTxpLocalData_ = modifyTxpLocalData . (((),) .)
 
--- getLocalUndo :: MonadTxpLD ssc m => m (HashMap TxId [TxOutAux])
--- getLocalUndo = (\(_, _, undos, _) -> undos) <$> getTxpLD
+getUtxoView :: (MonadTxpMem m, MonadIO m) => m UtxoView
+getUtxoView = (\(uv, _, _, _) -> uv) <$> getTxpLocalData
 
-getUtxoView :: MonadTxpMem m => m UtxoView
-getUtxoView = notImplemented
--- getUtxoView = (\(uv, _, _, _) -> uv) <$> getTxpLD
+getLocalTxs :: (MonadIO m, MonadTxpMem m) => m [(TxId, TxAux)]
+getLocalTxs = HM.toList . _mpLocalTxs <$> getMemPool
 
-getLocalTxs :: MonadTxpMem m => m [(TxId, TxAux)]
-getLocalTxs = HM.toList . localTxs <$> getMemPool
+getLocalTxsNUndo
+    :: (MonadIO m, MonadTxpMem m)
+    => m ([(TxId, TxAux)], HashMap TxId [TxOutAux])
+getLocalTxsNUndo =
+    (\(_, mp, undos, _) -> (HM.toList . _mpLocalTxs $ mp, undos)) <$> getTxpLocalData
 
-getLocalTxsNUndo :: MonadTxpMem m => m ([(TxId, TxAux)], HashMap TxId [TxOutAux])
-getLocalTxsNUndo = notImplemented
--- getLocalTxsNUndo = (\(_, mp, undos, _) -> (HM.toList . localTxs $ mp, undos))
---                 <$> getTxpLD
-
-getMemPool :: MonadTxpMem m => m MemPool
-getMemPool = notImplemented
--- getMemPool = (\(_, mp, _, _) -> mp) <$> getTxpLD
+getMemPool :: (MonadIO m, MonadTxpMem m) => m MemPool
+getMemPool = (\(_, mp, _, _) -> mp) <$> getTxpLocalData

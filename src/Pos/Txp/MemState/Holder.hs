@@ -31,11 +31,12 @@ import           Pos.DB.Class              (MonadDB)
 import           Pos.DB.Holder             (DBHolder (..))
 import           Pos.Slotting.Class        (MonadSlots, MonadSlotsData)
 import           Pos.Ssc.Extra             (MonadSscMem)
+import           Pos.Types                 (HeaderHash, genesisHash)
+import           Pos.Util.JsonLog          (MonadJL (..))
+
 import           Pos.Txp.MemState.Class    (MonadTxpMem (..))
 import           Pos.Txp.MemState.Types    (TxpLocalData (..))
 import           Pos.Txp.Txp.Types         (UtxoView)
-import           Pos.Types                 (HeaderHash, genesisHash)
-import           Pos.Util.JsonLog          (MonadJL (..))
 
 ----------------------------------------------------------------------------
 -- Holder
@@ -77,24 +78,6 @@ instance Monad m => MonadTxpMem (TxpHolder m) where
 instance Monad m => WrappedM (TxpHolder m) where
     type UnwrappedM (TxpHolder m) = ReaderT TxpLocalData m
     _WrappedM = iso getTxpHolder TxpHolder
-
--- instance (MonadIO m, MonadThrow m) => MonadTxpRead (TxpHolder m) where
---     -- utxoGet key = TxpHolder (asks utxoView) >>=
---     --                (atomically . STM.readTVar >=> UV.getTxOut key)
---     utxoGet = notImplemented
---     getStake = notImplemented
---     getTotalStake = notImplemented
-
--- instance (MonadIO m, MonadTxpRead (TxpHolder m))
---        => MonadTxp (TxpHolder m) where
---     utxoPut = notImplemented
---     utxoDel = notImplemented
---     -- utxoPut key val = TxpHolder (asks utxoView) >>=
---     --                    atomically . flip STM.modifyTVar' (UV.putTxOut key val)
---     -- utxoDel key = TxpHolder (asks utxoView) >>=
---     --               atomically . flip STM.modifyTVar' (UV.delTxIn key)
---     setStake = notImplemented
---     setTotalStake = notImplemented
 
 runTxpHolder
     :: MonadIO m

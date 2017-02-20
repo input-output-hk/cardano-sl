@@ -4,11 +4,9 @@ module Pos.Txp.MemState.Types
     ) where
 
 import qualified Control.Concurrent.STM as STM
-import           Universum
 
-import           Pos.Txp.Txp.Types      (MemPool, UtxoView)
-import           Pos.Types.Core
-import           Pos.Types.Types
+import           Pos.Txp.Txp.Types      (MemPool, UndoMap, UtxoView)
+import           Pos.Types.Core         (HeaderHash)
 
 -- | LocalData of transactions processing.
 -- There are two invariants which must hold for local data
@@ -26,8 +24,8 @@ import           Pos.Types.Types
 data TxpLocalData = TxpLocalData
     { txpUtxoView :: !(STM.TVar UtxoView)
     , txpMemPool  :: !(STM.TVar MemPool)
-    , txpUndos    :: !(STM.TVar (HashMap TxId [TxOutAux]))
+    , txpUndos    :: !(STM.TVar UndoMap)
     , txpTip      :: !(STM.TVar HeaderHash)
     }
 
-type TxpLocalDataPure = (UtxoView,  MemPool, HashMap TxId [TxOutAux], HeaderHash)
+type TxpLocalDataPure = (UtxoView,  MemPool, UndoMap, HeaderHash)
